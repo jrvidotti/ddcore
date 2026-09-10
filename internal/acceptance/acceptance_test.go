@@ -2,9 +2,9 @@
 // a clean database plus `migrate` has to produce a usable site, and the HTTP
 // surface the desk depends on (boot, translations, /app) has to answer.
 //
-// The temporary app below keeps these checks independent from any product app:
-// they exercise migrate → afterInstall → boot → i18n against a real Postgres
-// and a real http server, which the TS suite (`cerne test`) cannot reach.
+// As checagens rodam contra o app exemplo versionado em apps/exemplo: elas
+// exercitam migrate → boot → i18n → demo contra um Postgres e um http server
+// reais, que a suíte TS (`cerne test`) não alcança.
 package acceptance
 
 import (
@@ -52,68 +52,22 @@ func dsnFor(suffix string) (dsn, adminDSN, dbName string) {
 	return dsn, u.String(), dbName
 }
 
-// acceptanceApp creates the smallest external app that exercises installation,
-// boot, workspace, report, form bundle and app-level translations.
-func acceptanceApp(t *testing.T) js.App {
+// exemploApp aponta para o app versionado do repositório, em vez de gerar uma
+// fixture quase equivalente num diretório temporário.
+func exemploApp(t *testing.T) js.App {
 	t.Helper()
-	dir := t.TempDir()
-	w := func(rel, src string) {
-		t.Helper()
-		path := filepath.Join(dir, rel)
-		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
-			t.Fatal(err)
-		}
+	dir, err := filepath.Abs(filepath.Join("..", "..", "apps", "exemplo"))
+	if err != nil {
+		t.Fatal(err)
 	}
-	w("cerne.app.ts", `import { defineApp } from "@cerne/sdk";
-export default defineApp({
-  name: "acceptance",
-  title: "Acceptance",
-  roles: ["Acceptance Manager"],
-  desk: { home: "Acceptance" },
-  afterInstall() {
-    cerne.newDoc("Acceptance Item", { codigo: "seed", titulo: "Instalado" }).insert({ ignorePermissions: true });
-  },
-});`)
-	w("doctypes/acceptance_item/acceptance_item.doctype.ts", `import { defineDoctype } from "@cerne/sdk";
-export default defineDoctype({
-  name: "Acceptance Item",
-  label: "Acceptance Item",
-  module: "Acceptance",
-  naming: { field: "codigo" },
-  fields: [
-    { fieldname: "codigo", fieldtype: "Data", label: "Código", reqd: true, unique: true },
-    { fieldname: "titulo", fieldtype: "Data", label: "Título", reqd: true, inListView: true },
-  ],
-  permissions: [{ role: "Acceptance Manager", read: true, write: true, create: true, delete: true, report: true }],
-});`)
-	w("doctypes/acceptance_item/acceptance_item.form.ts", `import { defineForm } from "@cerne/desk-sdk";
-defineForm("Acceptance Item", { refresh(frm) { frm.addIndicator(frm.doc.titulo || "Item", "blue"); } });`)
-	w("reports/acceptance_items.report.ts", `import { defineReport } from "@cerne/sdk";
-export default defineReport({
-  name: "Acceptance Items",
-  label: "Acceptance Items",
-  roles: ["System Manager", "Acceptance Manager"],
-  execute() { return { columns: [{ fieldname: "titulo", label: "Título", fieldtype: "Data" }], rows: [] }; },
-});`)
-	w("workspaces/acceptance.workspace.ts", `import { defineWorkspace } from "@cerne/sdk";
-export default defineWorkspace({
-  name: "Acceptance",
-  label: "Acceptance",
-  roles: ["System Manager", "Acceptance Manager"],
-  sidebar: [
-    { label: "Itens", doctype: "Acceptance Item" },
-    { label: "Relatório", report: "Acceptance Items" },
-  ],
-});`)
-	w("translations/pt-BR.csv", "Acceptance Item,Item de Aceite\n")
-	return js.App{Name: "acceptance", Dir: dir}
+	if _, err := os.Stat(filepath.Join(dir, "cerne.app.ts")); err != nil {
+		t.Fatalf("app exemplo não encontrado em %s: %v", dir, err)
+	}
+	return js.App{Name: "exemplo", Dir: dir}
 }
 
-// setup recreates the database, boots an engine with a temporary external app
-// (plus any extra app) and migrates it — the literal bootstrap flow.
+// setup recreates the database, boots an engine with the checked-in example
+// app (plus any extra app) and migrates it — the literal bootstrap flow.
 func setup(t *testing.T, suffix string, extra ...js.App) *engine.Engine {
 	t.Helper()
 	ctx := context.Background()
@@ -134,7 +88,7 @@ func setup(t *testing.T, suffix string, extra ...js.App) *engine.Engine {
 	}
 	admin.DB.Close()
 
-	apps := append([]js.App{acceptanceApp(t)}, extra...)
+	apps := append([]js.App{exemploApp(t)}, extra...)
 	e, err := engine.New(ctx, engine.Config{DSN: dsn, Apps: apps, SiteName: "cerne", Lang: "pt-BR", Currency: "BRL"})
 	if err != nil {
 		t.Fatal(err)
@@ -207,18 +161,22 @@ func TestInstalacao(t *testing.T) {
 		if !exists("Role", "System Manager") {
 			t.Error("papel System Manager não foi criado pela instalação do core")
 		}
-		if !exists("Role", "Acceptance Manager") {
-			t.Error("papel do app externo não foi criado")
-		}
-		if !exists("Acceptance Item", "seed") {
-			t.Error("afterInstall do app externo não criou Acceptance Item seed")
-		} else {
-			item, err := c.GetValues("Acceptance Item", "seed", []string{"titulo"})
-			if err != nil {
-				t.Errorf("carrega fixture do app externo: %v", err)
-			} else if item["titulo"] != "Instalado" {
-				t.Errorf("titulo da fixture = %v, esperado Instalado", item["titulo"])
+		for _, role := range []string{"Gestor de Projetos", "Colaborador de Projetos"} {
+			if !exists("Role", role) {
+				t.Errorf("papel %q do app exemplo não foi criado", role)
 			}
+		}
+		// o app exemplo não cria dados de negócio na instalação; o que precisa
+		// existir é a meta dele, migrada para o banco novo
+		for _, doctype := range []string{"Projeto", "Tarefa", "Marco Projeto"} {
+			if _, err := c.St.DocType(doctype); err != nil {
+				t.Errorf("DocType %q do app exemplo ausente depois do migrate: %v", doctype, err)
+			}
+		}
+		if n, err := c.Count("Projeto", nil); err != nil {
+			t.Errorf("conta Projeto: %v", err)
+		} else if n != 0 {
+			t.Errorf("instalação criou %d Projeto(s); o app exemplo semeia só por `cerne demo`", n)
 		}
 		return nil
 	})
@@ -246,17 +204,17 @@ func TestBootHome(t *testing.T) {
 	home := ""
 	for _, a := range boot["apps"].([]any) {
 		app := a.(map[string]any)
-		if app["name"] != "acceptance" {
+		if app["name"] != "exemplo" {
 			continue
 		}
 		d, ok := app["desk"].(map[string]any)
 		if !ok {
-			t.Fatalf("acceptance sem bloco desk no boot: %#v", app["desk"])
+			t.Fatalf("exemplo sem bloco desk no boot: %#v", app["desk"])
 		}
 		home, _ = d["home"].(string)
 	}
-	if home != "Acceptance" {
-		t.Fatalf("desk.home = %q, esperado \"Acceptance\"", home)
+	if home != "Projetos" {
+		t.Fatalf("desk.home = %q, esperado \"Projetos\"", home)
 	}
 
 	// o workspace apontado por desk.home tem que vir no boot, com sidebar
@@ -344,6 +302,11 @@ func TestTraducoes(t *testing.T) {
 		t.Errorf("precedência: Save = %v, esperado \"Gravar\" (valor do app)", got)
 	}
 
+	// 4. o catálogo do app exemplo entra junto
+	if got := data["Start"]; got != "Iniciar" {
+		t.Errorf("chave do app exemplo Start = %v, esperado \"Iniciar\"", got)
+	}
+
 	// o mesmo catálogo alimenta o `_()` do servidor
 	if got := e.I18n.T("pt-BR", "Save"); got != "Gravar" {
 		t.Errorf("I18n.T(Save) = %q, esperado \"Gravar\"", got)
@@ -366,7 +329,7 @@ func TestDeskIndex(t *testing.T) {
 	e := setup(t, "_desk")
 	srv, _ := server(t, e)
 
-	for _, path := range []string{"/app", "/app/Acceptance%20Item", "/app/workspace/Acceptance"} {
+	for _, path := range []string{"/app", "/app/Tarefa", "/app/workspace/Projetos"} {
 		res, err := srv.Client().Get(srv.URL + path)
 		if err != nil {
 			t.Fatal(err)
@@ -395,4 +358,52 @@ func TestDeskIndex(t *testing.T) {
 	if res.StatusCode != 404 {
 		t.Errorf("GET /api/inexistente = %d, esperado 404", res.StatusCode)
 	}
+}
+
+// ------------------------------------------------------------------- demo
+
+// TestDemo: `cerne demo` é o atalho de primeira execução e tem que poder rodar
+// duas vezes sem duplicar nada — é o que o app exemplo promete.
+func TestDemo(t *testing.T) {
+	e := setup(t, "_demo")
+	ctx := context.Background()
+
+	primeira := runDemo(t, e, ctx)
+	if primeira["quantidade"].(float64) == 0 {
+		t.Fatalf("primeira execução não criou nada: %#v", primeira)
+	}
+	segunda := runDemo(t, e, ctx)
+	if got := segunda["quantidade"].(float64); got != 0 {
+		t.Errorf("segunda execução criou %v registro(s), esperado 0", got)
+	}
+
+	err := e.Run(ctx, "Administrator", func(c *engine.Ctx) error {
+		for doctype, esperado := range map[string]int64{"Projeto": 1, "Tarefa": 3, "Marco Projeto": 3} {
+			n, err := c.Count(doctype, nil)
+			if err != nil {
+				t.Errorf("conta %s: %v", doctype, err)
+				continue
+			}
+			if n != esperado {
+				t.Errorf("%s: %d registro(s) depois de duas execuções, esperado %d", doctype, n, esperado)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func runDemo(t *testing.T, e *engine.Engine, ctx context.Context) map[string]any {
+	t.Helper()
+	raw, err := e.RunJob(ctx, "Administrator", "exemplo.services.demo.gerar", nil)
+	if err != nil {
+		t.Fatalf("roda a demo: %v", err)
+	}
+	var out map[string]any
+	if err := json.Unmarshal(raw, &out); err != nil {
+		t.Fatalf("resposta da demo: %v (%s)", err, raw)
+	}
+	return out
 }
