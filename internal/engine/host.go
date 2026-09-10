@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/text/currency"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 
@@ -76,11 +77,12 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 	case "nowdate":
 		return c.Today(), nil
 	case "now":
-		return time.Now().Format("2006-01-02 15:04:05"), nil
+		// the site's wall clock, for the same reason nowdate is
+		return time.Now().In(e.Location()).Format("2006-01-02 15:04:05"), nil
 	case "translate":
 		return c.T(a.Text), nil
 	case "formatCurrency":
-		return FormatCurrency(toFloat(a.Value), orDefault(a.Currency, e.Cfg.Currency)), nil
+		return FormatCurrency(toFloat(a.Value), orDefault(a.Currency, e.Cfg.Currency), c.Lang), nil
 	case "getMeta":
 		d, err := c.St.DocType(a.Doctype)
 		return d, err
@@ -270,22 +272,26 @@ func saveOpts(o map[string]any) SaveOpts {
 	return s
 }
 
-// FormatCurrency renders a number in the locale's currency style.
-func FormatCurrency(v float64, currency string) string {
-	tag := language.BrazilianPortuguese
-	symbol := "R$"
-	switch currency {
-	case "USD":
-		tag, symbol = language.AmericanEnglish, "$"
-	case "EUR":
-		tag, symbol = language.German, "€"
+// FormatCurrency renders a number as money.
+//
+// The grouping and the decimal mark come from `lang` and the symbol from
+// `currency`, because they are two independent facts: a Brazilian reading a
+// site in English still wants "R$" if the site's currency is BRL, and an
+// American reading it in Portuguese still wants "$" if it is USD. Choosing the
+// language tag *from the currency*, as this did, conflated them and got both
+// wrong for every mixed case.
+func FormatCurrency(v float64, code, lang string) string {
+	tag, err := language.Parse(lang)
+	if err != nil {
+		tag = language.English
 	}
-	p := message.NewPrinter(tag)
-	s := p.Sprintf("%.2f", v)
-	if v < 0 {
-		return "-" + symbol + " " + strings.TrimPrefix(s, "-")
+	u, err := currency.ParseISO(code)
+	if err != nil {
+		// an unknown code prints as itself: "XYZ 1,234.50" is honest, and
+		// borrowing another currency's symbol would not be
+		return code + " " + message.NewPrinter(tag).Sprintf("%.2f", v)
 	}
-	return symbol + " " + s
+	return message.NewPrinter(tag).Sprint(currency.Symbol(u.Amount(v)))
 }
 
 func httpCall(method, url string, body any, headers map[string]string, timeout float64) (any, error) {

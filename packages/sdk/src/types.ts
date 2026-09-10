@@ -9,8 +9,21 @@ export interface FieldDef {
   fieldname?: string;
   fieldtype: FieldType;
   label?: string;
-  /** Link/Table/Dynamic Link: DocType or fieldname; Select: list of options */
+  /**
+   * Link/Table/Dynamic Link: DocType or fieldname; Select: list of options.
+   *
+   * A Select's options are its canonical values — English, and what the
+   * database holds. Their display text comes from the catalogue, so a
+   * translation never changes what is stored or compared.
+   */
   options?: string | string[];
+  /**
+   * Select only: indicator colour per option, keyed by the canonical value.
+   *
+   * Key it by the value, never by the label: a colour decided by the text a
+   * reader happens to see is a colour that changes with the language.
+   */
+  optionColors?: Record<string, "blue" | "green" | "orange" | "red" | "purple" | "gray">;
   reqd?: boolean;
   unique?: boolean;
   default?: string | number | boolean;

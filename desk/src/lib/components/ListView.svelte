@@ -1,7 +1,7 @@
 <script lang="ts">
   // List view generated from meta: standard filters, search, sort, paging, bulk delete.
   import { api } from "$lib/api";
-  import { getMeta, type Meta, type Field, isLayout } from "$lib/meta";
+  import { getMeta, selectLabels, selectOptions, type Meta, type Field, isLayout } from "$lib/meta";
   import { formatValue, statusColor, timeAgo } from "$lib/format";
   import { __, doctypeLabel } from "$lib/boot.svelte";
   import { showError, toast, confirm } from "$lib/ui.svelte";
@@ -56,7 +56,7 @@
     return settings.columns?.length ? cols : cols.slice(0, 7);
   });
   const stdFilters = $derived(meta ? meta.doctype.fields.filter((f) => f.inStandardFilter && !isLayout(f)) : []);
-  const statusField = $derived(meta?.doctype.fields.find((f) => ["status", "situacao"].includes(f.fieldname || "")));
+  const statusField = $derived(meta?.doctype.fields.find((f) => f.fieldname === "status"));
   const urlFields = $derived(meta?.doctype.fields.filter((f) => f.fieldname && !isLayout(f)) || []);
   const hasActiveFilters = $derived(Object.values(filters).some((v) => v !== null && v !== undefined && v !== "") || !!search || docstatusFilter !== "");
 
@@ -151,8 +151,19 @@
   }
   const num = (f: Field) => ["Int", "Float", "Currency", "Percent"].includes(f.fieldtype);
   function docstatusLabel(r: any) { return Number(r.docstatus) === 2 ? __("Cancelled") : Number(r.docstatus) === 1 ? __("Submitted") : __("Draft"); }
+  /** The canonical status value — what colours and comparisons key on. */
   function statusOf(r: any) {
     if (statusField && r[statusField.fieldname!]) return r[statusField.fieldname!];
+    if (meta?.doctype.submittable) return Number(r.docstatus) === 2 ? "Cancelled" : Number(r.docstatus) === 1 ? "Submitted" : "Draft";
+    return "";
+  }
+  /** The same status as the reader sees it. */
+  function statusLabelOf(r: any) {
+    if (statusField && r[statusField.fieldname!]) {
+      const opts = selectOptions(statusField);
+      const i = opts.indexOf(r[statusField.fieldname!]);
+      return i >= 0 ? selectLabels(statusField)[i] : __(r[statusField.fieldname!]);
+    }
     if (meta?.doctype.submittable) return docstatusLabel(r);
     return "";
   }
@@ -257,7 +268,7 @@
                   {@const linkTitle = getLinkTitle(linkTarget, linkVal)}
                   <a href={`/app/${encodeURIComponent(linkTarget)}/${encodeURIComponent(linkVal)}`} title={linkVal} onclick={(e) => e.stopPropagation()}>{linkTitle || linkVal}</a>
                 {:else if c.fieldname === statusField?.fieldname}
-                  <span class="indicator {statusColor(r[c.fieldname!])}">{r[c.fieldname!]}</span>
+                  <span class="indicator {statusColor(r[c.fieldname!], c)}">{__(r[c.fieldname!])}</span>
                 {:else}
                   {cellText(r, c)}
                 {/if}
@@ -268,7 +279,7 @@
                 {#if settings.indicator}
                   {@const ind = settings.indicator(r)}
                   {#if ind}<span class="indicator {ind.color}">{ind.label}</span>{/if}
-                {:else if statusOf(r)}<span class="indicator {statusColor(statusOf(r))}">{statusOf(r)}</span>{/if}
+                {:else if statusOf(r)}<span class="indicator {statusColor(statusOf(r), statusField ?? undefined)}">{statusLabelOf(r)}</span>{/if}
               </td>
             {/if}
             <td class="num muted small">{timeAgo(r.modified)}</td>

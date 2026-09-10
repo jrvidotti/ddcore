@@ -2,7 +2,7 @@
   // Form view generated from meta: sections/columns/tabs, controls, grids,
   // toolbar (save/submit/cancel/amend/delete), form-script buttons, sidebar.
   import { createForm, FormController, type Button } from "$lib/form.svelte";
-  import { isLayout, type Field } from "$lib/meta";
+  import { isLayout, selectLabels, selectOptions, type Field } from "$lib/meta";
   import Control from "$lib/controls/Control.svelte";
   import Grid from "$lib/controls/Grid.svelte";
   import Icon from "./Icon.svelte";
@@ -84,13 +84,23 @@
     }
     return out;
   });
+  const statusField = $derived(frm?.meta.doctype.fields.find((f) => f.fieldname === "status"));
+  /** The canonical status value — what the colour is keyed on. */
   const status = $derived.by(() => {
     if (!frm) return "";
-    const sf = frm.meta.doctype.fields.find((f) => ["status", "situacao"].includes(f.fieldname || ""));
-    if (sf && frm.doc[sf.fieldname!]) return frm.doc[sf.fieldname!];
-    if (frm.isNew) return __("New");
-    if (frm.isSubmittable) return frm.docstatus === 2 ? __("Cancelled") : frm.docstatus === 1 ? __("Submitted") : __("Draft");
+    if (statusField && frm.doc[statusField.fieldname!]) return frm.doc[statusField.fieldname!];
+    if (frm.isNew) return "New";
+    if (frm.isSubmittable) return frm.docstatus === 2 ? "Cancelled" : frm.docstatus === 1 ? "Submitted" : "Draft";
     return "";
+  });
+  /** The same status as the reader sees it. */
+  const statusLabel = $derived.by(() => {
+    if (!status) return "";
+    if (statusField && frm?.doc[statusField.fieldname!]) {
+      const i = selectOptions(statusField).indexOf(status);
+      if (i >= 0) return selectLabels(statusField)[i];
+    }
+    return __(status);
   });
   const title = $derived(
     frm
@@ -191,7 +201,7 @@
           {:else}
             <span>{title}</span>
           {/if}
-          {#if status}<span class="indicator {statusColor(status)}">{status}</span>{/if}
+          {#if status}<span class="indicator {statusColor(status, statusField)}">{statusLabel}</span>{/if}
           {#if frm.isDirty && !frm.isNew}<span class="indicator orange">{__("Not saved")}</span>{/if}
         </h1>
       </div>

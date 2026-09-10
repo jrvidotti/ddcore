@@ -3,12 +3,13 @@
   import type { Field } from "$lib/meta";
   import Icon from "$lib/components/Icon.svelte";
   import {
-    DAY_NAMES_SHORT,
-    MONTH_NAMES,
-    formatDateBr,
+    dayNames,
+    monthTitles,
+    datePlaceholder,
+    formatDateLocal,
     getCalendarDays,
     maskDateInput,
-    parseDateBr,
+    parseDateLocal,
     type CalendarDay,
   } from "./date-format.ts";
 
@@ -36,7 +37,7 @@
   let wrapEl: HTMLDivElement | null = $state(null);
   let inputEl: HTMLInputElement | null = $state(null);
 
-  const currentParsed = $derived(parseDateBr(value));
+  const currentParsed = $derived(parseDateLocal(value));
 
   const now = new Date();
   const todayYear = now.getFullYear();
@@ -51,7 +52,7 @@
 
   $effect(() => {
     if (!focused) {
-      text = formatDateBr(value);
+      text = formatDateLocal(value);
     }
   });
 
@@ -93,7 +94,7 @@
     const raw = (e.target as HTMLInputElement).value;
     text = maskDateInput(raw);
     if (text.length === 10) {
-      const p = parseDateBr(text);
+      const p = parseDateLocal(text);
       if (p) {
         viewYear = p.year;
         viewMonth = p.month;
@@ -133,12 +134,12 @@
       if (value) onchange(null);
       return;
     }
-    const p = parseDateBr(text);
+    const p = parseDateLocal(text);
     if (p) {
       onchange(p.iso);
-      text = formatDateBr(p.iso);
+      text = formatDateLocal(p.iso);
     } else {
-      text = formatDateBr(value);
+      text = formatDateLocal(value);
     }
   }
 
@@ -148,7 +149,7 @@
   }
 
   function pickDay(d: CalendarDay) {
-    text = formatDateBr(d.iso);
+    text = formatDateLocal(d.iso);
     viewYear = d.year;
     viewMonth = d.month;
     onchange(d.iso);
@@ -157,7 +158,7 @@
   }
 
   function pickToday() {
-    text = formatDateBr(todayIso);
+    text = formatDateLocal(todayIso);
     viewYear = todayYear;
     viewMonth = todayMonth;
     onchange(todayIso);
@@ -192,7 +193,7 @@
     class="input date-input"
     class:error={!!error}
     readonly={readOnly}
-    placeholder="dd/mm/aaaa"
+    placeholder={datePlaceholder()}
     value={text}
     inputmode="numeric"
     autocomplete="off"
@@ -229,7 +230,7 @@
         >
           <Icon name="chevron-left" size={13} />
         </button>
-        <span class="view-title">{MONTH_NAMES[viewMonth - 1]} {viewYear}</span>
+        <span class="view-title">{monthTitles()[viewMonth - 1]} {viewYear}</span>
         <button
           type="button"
           class="btn icon sm"
@@ -241,7 +242,7 @@
       </div>
 
       <div class="week-row">
-        {#each DAY_NAMES_SHORT as dayName}
+        {#each dayNames() as dayName}
           <div class="week-day">{dayName}</div>
         {/each}
       </div>

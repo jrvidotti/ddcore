@@ -1,6 +1,7 @@
 // Session-wide state: who is logged in, what DocTypes/workspaces exist,
 // translations. Loaded once from /api/boot.
 import { api, setRequestLang } from "./api";
+import { resetLocale } from "./locale";
 
 const LANG_KEY = "ddcore_lang";
 
@@ -40,6 +41,8 @@ export async function loadBoot(): Promise<Boot> {
   data.lang = lang;
   boot.data = data;
   setRequestLang(lang);
+  // the memoised Intl formatters belong to the old language
+  resetLocale();
   try { boot.translations = (await api.translations(lang)) || {}; } catch { boot.translations = {}; }
   boot.ready = true;
   return data;

@@ -108,9 +108,11 @@ type Engine struct {
 	Events *Hub
 	Cache  *Cache
 
-	cur   atomic.Pointer[State]
-	sched atomic.Pointer[cron.Cron]
-	mu    sync.Mutex
+	cur     atomic.Pointer[State]
+	sched   atomic.Pointer[cron.Cron]
+	mu      sync.Mutex
+	locOnce sync.Once
+	loc     *time.Location
 }
 
 // Current returns the state this moment sees. Cada requisição captura uma vez
@@ -473,7 +475,25 @@ func (c *Ctx) T(s string, args ...any) string { return c.St.I18n.T(c.Lang, s, ar
 
 func (c *Ctx) Now() time.Time { return time.Now() }
 
-func (c *Ctx) Today() string { return time.Now().Format("2006-01-02") }
+// Today is the current civil date in the *site's* timezone, not the process's.
+// It is the same day the desk calls today, which is what makes a comparison
+// like `due_date < today()` give one answer on both sides of the wire.
+func (c *Ctx) Today() string { return time.Now().In(c.E.Location()).Format("2006-01-02") }
+
+// Location is the site's timezone, resolved once. An unloadable zone name
+// falls back to UTC rather than to the machine's local time: where a server
+// happens to be running is not a business fact.
+func (e *Engine) Location() *time.Location {
+	e.locOnce.Do(func() {
+		loc, err := time.LoadLocation(e.Cfg.Timezone)
+		if err != nil {
+			e.Log.Warn("unknown timezone, falling back to UTC", "timezone", e.Cfg.Timezone, "err", err)
+			loc = time.UTC
+		}
+		e.loc = loc
+	})
+	return e.loc
+}
 
 // Savepoint helpers used by tests.
 func (c *Ctx) Begin() error {

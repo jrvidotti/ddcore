@@ -3,7 +3,8 @@
   import type { Field } from "$lib/meta";
   import Icon from "$lib/components/Icon.svelte";
   import {
-    MONTH_NAMES_SHORT,
+    monthLabelsShort,
+    monthPlaceholder,
     formatMonth,
     maskMonthInput,
     parseMonth,
@@ -156,7 +157,7 @@
     class="input month-input"
     class:error={!!error}
     readonly={readOnly}
-    placeholder="mm/aaaa"
+    placeholder={monthPlaceholder()}
     value={text}
     inputmode="numeric"
     autocomplete="off"
@@ -205,7 +206,7 @@
       </div>
 
       <div class="popover-grid">
-        {#each MONTH_NAMES_SHORT as name, idx}
+        {#each monthLabelsShort() as name, idx}
           {@const mNum = idx + 1}
           {@const isSelected =
             currentParsed?.year === viewYear && currentParsed?.month === mNum}

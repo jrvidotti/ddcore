@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { currencyBefore, currencySymbol } from "$lib/locale";
   // One control per fieldtype. `value`/`onchange` make it usable in forms,
   // dialogs, grids and filters alike.
   import type { Field } from "$lib/meta";
@@ -75,8 +76,9 @@
         onchange={(e) => onchange((e.target as HTMLInputElement).value || null)} />
     {:else if ft === "Int" || ft === "Float" || ft === "Currency" || ft === "Percent"}
       <div style="position:relative">
-        {#if ft === "Currency" && !inGrid}<span class="muted" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:12px">R$</span>{/if}
-        <input {id} class="input num" class:error={!!shownError} style:padding-left={ft === "Currency" && !inGrid ? "30px" : undefined} style:padding-right={ft === "Percent" ? "24px" : undefined} style="text-align:right" readonly={ro}
+        {#if ft === "Currency" && !inGrid && currencyBefore()}<span class="muted" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:12px">{currencySymbol()}</span>{/if}
+        {#if ft === "Currency" && !inGrid && !currencyBefore()}<span class="muted" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:12px">{currencySymbol()}</span>{/if}
+        <input {id} class="input num" class:error={!!shownError} style:padding-left={ft === "Currency" && !inGrid && currencyBefore() ? "30px" : undefined} style:padding-right={ft === "Percent" ? "24px" : ft === "Currency" && !inGrid && !currencyBefore() ? "30px" : undefined} style="text-align:right" readonly={ro}
           value={text} onfocus={() => (focused = true)} oninput={(e) => (text = (e.target as HTMLInputElement).value)} onblur={commitNumber}
           onkeydown={(e) => e.key === "Enter" && commitNumber()} inputmode="decimal" />
         {#if ft === "Percent"}<span class="muted" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:12px">%</span>{/if}

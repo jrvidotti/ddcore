@@ -121,7 +121,7 @@
                   {#if c.fieldtype === "Link" && r[c.fieldname]}
                     {@const linkTitle = getLinkTitle(c.options, r[c.fieldname]) || r[c.fieldname]}
                     <a href={`/app/${encodeURIComponent(c.options)}/${encodeURIComponent(r[c.fieldname])}`} title={r[c.fieldname]}>{linkTitle}</a>
-                  {:else if ["status", "situacao"].includes(c.fieldname) && r[c.fieldname]}<span class="indicator {statusColor(r[c.fieldname])}">{r[c.fieldname]}</span>
+                  {:else if c.fieldname === "status" && r[c.fieldname]}<span class="indicator {statusColor(r[c.fieldname], c)}">{__(r[c.fieldname])}</span>
                   {:else}<span style:color={c.fieldtype === "Currency" && r[c.fieldname] < 0 ? "var(--red)" : undefined}>{formatValue(r[c.fieldname], c)}</span>{/if}
                 </td>
               {/each}
