@@ -253,3 +253,30 @@ func TestSelectOptionsStayCanonical(t *testing.T) {
 	}
 	t.Fatal("user_type not found")
 }
+
+// The prelude mirrors the catalogue per (VM, language) instead of crossing the
+// bridge for every string. VMs are pooled and reused across requests, so the
+// mirror has to be keyed by language — this is the test that says so.
+func TestRuntimeCatalogueFollowsTheRequestLanguage(t *testing.T) {
+	x := setup(t)
+	sid := "sid:" + x.sid("ana@x.com")
+	call := func(lang string) map[string]any {
+		r := x.call("POST", "/api/method/demo.services.i18n.echo", map[string]any{}, sid, "X-Lang", lang)
+		data, _ := r.Body["data"].(map[string]any)
+		if data == nil {
+			t.Fatalf("%s: %s", lang, r.Raw)
+		}
+		return data
+	}
+	// the test app's en.csv maps "Loop"; core's pt-BR.csv maps "Save"
+	if got := call("pt-BR"); got["save"] != "Salvar" || got["n"] != "Loop" {
+		t.Fatalf("pt-BR = %v", got)
+	}
+	if got := call("en"); got["save"] != "Save" || got["n"] != "Looped" {
+		t.Fatalf("en = %v", got)
+	}
+	// back again on the same pool: the mirror must not have gone stale
+	if got := call("pt-BR"); got["save"] != "Salvar" {
+		t.Fatalf("second pt-BR = %v", got)
+	}
+}

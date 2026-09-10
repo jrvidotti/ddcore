@@ -444,6 +444,7 @@ func (c *Ctx) RT() (*js.Runtime, error) {
 			return nil, err
 		}
 		rt.Ctx = c
+		rt.SetLang(c.Lang)
 		c.rt = rt
 	}
 	return c.rt, nil

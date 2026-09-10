@@ -42,6 +42,8 @@
   // ---------------------------------------------------------------- registry
   const reg = {
     app: "",
+    // translation catalogue per language, mirrored from the host on first use
+    __cat: {},
     current: "",
     doctypes: {},
     controllers: {},
@@ -294,7 +296,13 @@
     },
     msgprint(message, opts) { call("msgprint", { message, opts: opts || {} }); },
     _(text, args) {
-      let s = call("translate", { text });
+      // The catalogue is immutable inside a State, and a reload builds new
+      // VMs, so it can be mirrored here: one round-trip per (VM, language)
+      // instead of one per call. `validate` and a report's `execute` call
+      // this inside loops, where a marshal each way is the whole cost.
+      const lang = globalThis.__ddcoreLang || "";
+      const cat = reg.__cat[lang] || (reg.__cat[lang] = call("catalogue", { lang }) || {});
+      let s = cat[text] || text;
       if (args) s = s.replace(/\{(\d+)\}/g, (m, i) => (args[i] === undefined ? m : String(args[i])));
       return s;
     },

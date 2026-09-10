@@ -96,6 +96,8 @@ export default defineReport({ name: "Pessoas", refDoctype: "Pessoa", roles: ["Ge
 export default defineController("Pessoa", {
   validate(doc) { if (doc.nome === "loop") ddcore.throw("Loop"); },
 });`)
+	w("services/i18n.ts", `import { whitelisted, _ } from "@ddcore/sdk";
+export const echo = whitelisted(() => ({ save: _("Save"), n: _("Loop") }));`)
 	w("reports/livre.report.ts", `import { defineReport } from "@ddcore/sdk";
 export default defineReport({ name: "Livre", refDoctype: "Pedido", filters: [],
   execute() { return { columns: [], rows: [] }; } });`)

@@ -40,6 +40,7 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		Value     any               `json:"value"`
 		TTL       float64           `json:"ttl"`
 		Text      string            `json:"text"`
+		Lang      string            `json:"lang"`
 		Message   string            `json:"message"`
 		Method    string            `json:"method"`
 		URL       string            `json:"url"`
@@ -81,6 +82,14 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		return time.Now().In(e.Location()).Format("2006-01-02 15:04:05"), nil
 	case "translate":
 		return c.T(a.Text), nil
+	case "catalogue":
+		// the whole catalogue for a language, so the prelude can interpolate
+		// in JS instead of crossing the bridge for every string
+		lang := a.Lang
+		if lang == "" {
+			lang = c.Lang
+		}
+		return c.St.I18n.Catalogue(lang), nil
 	case "formatCurrency":
 		return FormatCurrency(toFloat(a.Value), orDefault(a.Currency, e.Cfg.Currency), c.Lang), nil
 	case "getMeta":

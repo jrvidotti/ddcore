@@ -344,6 +344,10 @@ func (p *Pool) Release(rt *Runtime) {
 }
 
 // Release devolve o runtime ao pool de origem.
+// SetLang tells the VM which language this unit of work is in. The prelude
+// mirrors that language's catalogue once and interpolates in JS from then on.
+func (rt *Runtime) SetLang(lang string) { rt.vm.Set("__ddcoreLang", lang) }
+
 func (rt *Runtime) Release() {
 	if rt.pool != nil {
 		rt.pool.Release(rt)
