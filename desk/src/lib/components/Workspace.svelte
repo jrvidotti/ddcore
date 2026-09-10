@@ -46,7 +46,7 @@
       </div>
     {/each}
     {#if ws.shortcuts?.length}
-      <h3 class="sub">{__("Atalhos")}</h3>
+      <h3 class="sub">{__("Shortcuts")}</h3>
       <div class="shortcuts">
         {#each ws.shortcuts as s}<a class="card sc" href={href(s)}><Icon name={s.icon || "circle"} /> {s.label}</a>{/each}
       </div>
@@ -63,7 +63,7 @@
     {/if}
   </div>
 {:else}
-  <div class="page muted">{__("Workspace não encontrado")}</div>
+  <div class="page muted">{__("Workspace not found")}</div>
 {/if}
 
 <style>

@@ -20,9 +20,9 @@
       <div class="head">
         <h3 id="shortcuts-title" style="display:flex;align-items:center;gap:8px">
           <Icon name="keyboard" size={18} />
-          {__("Atalhos de Teclado")}
+          {__("Keyboard shortcuts")}
         </h3>
-        <button class="btn icon" onclick={closeShortcutsHelp} aria-label={__("Fechar")}><Icon name="x" /></button>
+        <button class="btn icon" onclick={closeShortcutsHelp} aria-label={__("Close")}><Icon name="x" /></button>
       </div>
       <div class="body">
         <div class="shortcuts-grid">
@@ -46,7 +46,7 @@
         </div>
       </div>
       <div class="foot">
-        <button class="btn" onclick={closeShortcutsHelp}>{__("Fechar")}</button>
+        <button class="btn" onclick={closeShortcutsHelp}>{__("Close")}</button>
       </div>
     </div>
   </div>

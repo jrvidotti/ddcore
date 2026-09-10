@@ -1,3 +1,4 @@
+import { __ } from "./boot.svelte";
 import type { Field } from "./meta";
 
 export const normalizeEmail = (value: unknown): string => String(value ?? "").trim();
@@ -27,7 +28,7 @@ export function validateEmailFields(fields: Field[], doc: Record<string, any>, d
     if (field.fieldtype !== "Email" || !field.fieldname) continue;
     const value = normalizeEmail(doc[field.fieldname]);
     doc[field.fieldname] = value || null;
-    if (!validEmail(value) && !isSystemUserEmail(doctype, field.fieldname, value)) errors[field.fieldname] = "E-mail inválido";
+    if (!validEmail(value) && !isSystemUserEmail(doctype, field.fieldname, value)) errors[field.fieldname] = __("Invalid email");
   }
   return errors;
 }

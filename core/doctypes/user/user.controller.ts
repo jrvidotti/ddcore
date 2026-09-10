@@ -9,7 +9,7 @@ export default defineController("User", {
     }
     const seen = new Set<string>();
     for (const r of doc.roles || []) {
-      if (seen.has(r.role)) ddcore.throw(_("Papel {0} repetido", [r.role]));
+      if (seen.has(r.role)) ddcore.throw(_("Role {0} is repeated", [r.role]));
       seen.add(r.role);
     }
   },

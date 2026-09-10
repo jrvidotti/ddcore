@@ -32,7 +32,7 @@
       {/each}
     {/each}
     <div class="group" style="cursor:pointer" onclick={() => (showCore = !showCore)} role="button" tabindex="0" onkeydown={(e) => e.key === "Enter" && (showCore = !showCore)}>
-      {__("Sistema")} <Icon name={showCore ? "chevron-down" : "chevron-right"} size={12} />
+      {__("System")} <Icon name={showCore ? "chevron-down" : "chevron-right"} size={12} />
     </div>
     {#if showCore}
       {#each otherDoctypes as [name, d]}
@@ -43,8 +43,8 @@
   <div class="foot">
     <div class="small" style="overflow:hidden;text-overflow:ellipsis"><Icon name="user" size={14} /> {boot.data?.userDoc?.full_name || boot.data?.user}</div>
     <div style="display:flex;align-items:center;gap:4px">
-      <button class="btn sm icon" onclick={openShortcutsHelp} title="{__('Atalhos de teclado')} (?)"><Icon name="keyboard" size={14} /></button>
-      <button class="btn sm icon" onclick={logout} title={__("Sair")}><Icon name="log-out" size={14} /></button>
+      <button class="btn sm icon" onclick={openShortcutsHelp} title="{__('Keyboard shortcuts')} (?)"><Icon name="keyboard" size={14} /></button>
+      <button class="btn sm icon" onclick={logout} title={__("Sign out")}><Icon name="log-out" size={14} /></button>
     </div>
   </div>
 </aside>

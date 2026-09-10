@@ -2,7 +2,7 @@
   // One control per fieldtype. `value`/`onchange` make it usable in forms,
   // dialogs, grids and filters alike.
   import type { Field } from "$lib/meta";
-  import { selectOptions } from "$lib/meta";
+  import { selectLabels, selectOptions } from "$lib/meta";
   import { formatNumber, parseNumber } from "$lib/format";
   import LinkControl from "./LinkControl.svelte";
   import AttachControl from "./AttachControl.svelte";
@@ -40,7 +40,7 @@
   function commitEmail(rawValue: string) {
     const normalized = normalizeEmail(rawValue);
     onchange(normalized || null);
-    emailError = normalized && !validEmail(normalized) && !isSystemUserEmail(doc?.doctype, field.fieldname || "", normalized) ? __("E-mail inválido") : "";
+    emailError = normalized && !validEmail(normalized) && !isSystemUserEmail(doc?.doctype, field.fieldname || "", normalized) ? __("Invalid email") : "";
   }
 </script>
 
@@ -57,7 +57,7 @@
     {#if ft === "Select"}
       <select {id} class="input" class:error={!!shownError} disabled={ro} value={value ?? ""} onchange={(e) => onchange((e.target as HTMLSelectElement).value || null)}>
         {#if !selectOptions(field).includes("")}<option value=""></option>{/if}
-        {#each selectOptions(field) as o}<option value={o}>{o}</option>{/each}
+        {#each selectOptions(field) as o, i}<option value={o}>{selectLabels(field)[i] ?? o}</option>{/each}
       </select>
     {:else if ft === "Link" || ft === "Dynamic Link"}
       <LinkControl {field} {value} {onchange} {doc} readOnly={ro} {query} {error} {id} />

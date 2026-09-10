@@ -1,5 +1,6 @@
 <script lang="ts">
   import { api } from "$lib/api";
+  import { __ } from "$lib/boot.svelte";
   import { page } from "$app/state";
   let usr = $state(""), pwd = $state(""), error = $state(""), busy = $state(false);
   async function login(e: Event) {
@@ -15,11 +16,11 @@
 <div class="wrap">
   <form class="card box" onsubmit={login}>
     <div class="logo">c</div>
-    <h1>Entrar</h1>
-    <label>Usuário<input class="input" bind:value={usr} autocomplete="username" autofocus /></label>
-    <label>Senha<input class="input" type="password" bind:value={pwd} autocomplete="current-password" /></label>
+    <h1>{__("Sign in")}</h1>
+    <label>{__("Username")}<input class="input" bind:value={usr} autocomplete="username" autofocus /></label>
+    <label>{__("Password")}<input class="input" type="password" bind:value={pwd} autocomplete="current-password" /></label>
     {#if error}<div class="err">{error}</div>{/if}
-    <button class="btn primary" disabled={busy} style="width:100%;justify-content:center">Entrar</button>
+    <button class="btn primary" disabled={busy} style="width:100%;justify-content:center">{__("Sign in")}</button>
   </form>
 </div>
 

@@ -1,6 +1,6 @@
 <script lang="ts">
   import "../app.css";
-  import { boot, loadBoot, isLoggedIn } from "$lib/boot.svelte";
+  import { __, boot, loadBoot, isLoggedIn } from "$lib/boot.svelte";
   import { installDeskSDK, loadAppIncludes } from "$lib/desk-sdk";
   import { connectEvents } from "$lib/events";
   import { clearMetaCache } from "$lib/meta";
@@ -37,10 +37,12 @@
     onMessage((m) => toast(m.message, { title: m.title, indicator: m.indicator || "blue" }));
     try {
       const b = await loadBoot();
+      // app.html ships lang="en"; the boot is what knows the real one
+      document.documentElement.lang = b.lang;
       if (b.user === "Guest" && !isLogin) { goto("/login?redirect=" + encodeURIComponent(page.url.pathname + page.url.search)); }
       else if (b.user !== "Guest") {
         await loadAppIncludes(b.apps, b.loaded);
-        connectEvents(async () => { clearMetaCache(); const nb = await loadBoot(); await loadAppIncludes(nb.apps, nb.loaded); toast("Apps recarregadas", { indicator: "blue", timeout: 2000 }); });
+        connectEvents(async () => { clearMetaCache(); const nb = await loadBoot(); await loadAppIncludes(nb.apps, nb.loaded); toast(__("Apps reloaded"), { indicator: "blue", timeout: 2000 }); });
       }
     } catch (e) { console.error(e); }
     ready = true;

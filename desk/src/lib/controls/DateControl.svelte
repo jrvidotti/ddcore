@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { __ } from "$lib/boot.svelte";
   import type { Field } from "$lib/meta";
   import Icon from "$lib/components/Icon.svelte";
   import {
@@ -224,7 +225,7 @@
           type="button"
           class="btn icon sm"
           onclick={prevMonth}
-          aria-label="Mês anterior"
+          aria-label={__("Previous month")}
         >
           <Icon name="chevron-left" size={13} />
         </button>
@@ -233,7 +234,7 @@
           type="button"
           class="btn icon sm"
           onclick={nextMonth}
-          aria-label="Próximo mês"
+          aria-label={__("Next month")}
         >
           <Icon name="chevron-right" size={13} />
         </button>

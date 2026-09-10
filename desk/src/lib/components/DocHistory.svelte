@@ -66,7 +66,7 @@
         <input
           class="input sm"
           type="search"
-          placeholder={__("Filtrar por campo, valor ou usuário...")}
+          placeholder={__("Filter by field, value or user…")}
           bind:value={search}
         />
         {#if search}
@@ -76,7 +76,7 @@
         {/if}
       </div>
       <div class="history-count muted small">
-        {parsedList.length} {parsedList.length === 1 ? __("versão") : __("versões")}
+        {parsedList.length === 1 ? __("1 version") : __("{0} versions", [parsedList.length])}
       </div>
     </div>
   {/if}
@@ -84,7 +84,7 @@
   {#if filtered.length === 0}
     <div class="empty-state">
       <Icon name="history" size={20} />
-      <span>{search ? __("Nenhuma alteração encontrada com o filtro") : __("Nenhum histórico registrado")}</span>
+      <span>{search ? __("No change matches the filter") : __("No history recorded")}</span>
     </div>
   {:else}
     <div class="timeline">
@@ -143,7 +143,7 @@
                     {#each c.tableDiff.added as row}
                       <div class="table-row-card added">
                         <div class="card-status-bar">
-                          <span class="badge green">+{__("Linha adicionada")}</span>
+                          <span class="badge green">+{__("Row added")}</span>
                         </div>
                         <div class="card-fields">
                           {#each Object.entries(row.fields) as [fname, fdata]}
@@ -167,7 +167,7 @@
                     {#each c.tableDiff.modified as mod}
                       <div class="table-row-card modified">
                         <div class="card-status-bar">
-                          <span class="badge blue">{__("Linha #{0} alterada", [mod.rowIdx])}</span>
+                          <span class="badge blue">{__("Row #{0} changed", [mod.rowIdx])}</span>
                         </div>
                         <div class="card-fields">
                           {#each mod.changes as ch}
@@ -204,7 +204,7 @@
                     {#each c.tableDiff.removed as row}
                       <div class="table-row-card removed">
                         <div class="card-status-bar">
-                          <span class="badge red">-{__("Linha removida")}</span>
+                          <span class="badge red">-{__("Row removed")}</span>
                         </div>
                         <div class="card-fields">
                           {#each Object.entries(row.fields) as [fname, fdata]}
@@ -237,7 +237,7 @@
     <div class="compact-footer">
       <button class="btn sm expand-btn" onclick={onExpand}>
         <Icon name="maximize-2" size={12} />
-        <span>{__("Ver histórico completo")}</span>
+        <span>{__("See the full history")}</span>
       </button>
     </div>
   {/if}

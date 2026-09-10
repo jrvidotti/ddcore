@@ -1,3 +1,4 @@
+import { __ } from "./boot.svelte";
 // Keyboard shortcuts utilities: platform detection, modifier keys,
 // editable element checks, and shortcut registry.
 
@@ -72,26 +73,26 @@ export function getShortcutsList(mac?: boolean): ShortcutGroup[] {
   const mod = getModifierKey(mac);
   return [
     {
-      category: "Formulário & Edição",
+      category: __("Form & editing"),
       shortcuts: [
-        { keys: [mod, "S"], description: "Salvar ou atualizar registro" },
-        { keys: [mod, "Enter"], description: "Enviar comentário no formulário" },
+        { keys: [mod, "S"], description: __("Save or update the record") },
+        { keys: [mod, "Enter"], description: __("Post a comment on the form") },
       ],
     },
     {
-      category: "Navegação & Modais",
+      category: __("Navigation & modals"),
       shortcuts: [
-        { keys: ["?"], description: "Exibir esta janela de atalhos" },
-        { keys: [mod, "/"], description: "Exibir esta janela de atalhos" },
-        { keys: ["Esc"], description: "Fechar modais, menus ou diálogos" },
+        { keys: ["?"], description: __("Show this shortcuts window") },
+        { keys: [mod, "/"], description: __("Show this shortcuts window") },
+        { keys: ["Esc"], description: __("Close modals, menus or dialogs") },
       ],
     },
     {
-      category: "Busca & Seleção (Campos Link)",
+      category: __("Search & selection (Link fields)"),
       shortcuts: [
-        { keys: ["↓", "↑"], description: "Navegar entre as opções da lista" },
-        { keys: ["Enter"], description: "Selecionar opção destacada" },
-        { keys: ["Esc"], description: "Fechar lista de opções" },
+        { keys: ["↓", "↑"], description: __("Move through the list options") },
+        { keys: ["Enter"], description: __("Pick the highlighted option") },
+        { keys: ["Esc"], description: __("Close the options list") },
       ],
     },
   ];

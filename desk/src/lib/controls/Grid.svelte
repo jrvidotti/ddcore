@@ -25,8 +25,8 @@
   function editRow(row: any, i: number, isNew = false) {
     const fields = childMeta.fields.filter((f) => !f.hidden).map((f) => ({ ...f, readOnly: f.readOnly || !editable }));
     const d = dialog({
-      title: `${field.label} · ${isNew ? __("Novo") : `${__("Linha")} ${i + 1}`}`, fields, values: { ...row }, size: "lg",
-      primaryLabel: editable ? __("Aplicar") : __("Fechar"),
+      title: `${field.label} · ${isNew ? __("New") : `${__("Row")} ${i + 1}`}`, fields, values: { ...row }, size: "lg",
+      primaryLabel: editable ? __("Apply") : __("Close"),
       primaryAction: (values, dlg) => {
         if (editable) {
           const target = isNew ? frm.addChild(field.fieldname!, values) : row;
@@ -36,10 +36,10 @@
         dlg.hide();
       },
       ...(dialogOnly && !isNew && editable && !cannotDelete ? {
-        dangerLabel: __("Excluir anexo"),
+        dangerLabel: __("Delete attachment"),
         dangerAction: async (_values: Record<string, any>, dlg: any) => {
           await confirmRowRemoval(
-            () => confirm(__("Excluir este anexo?"), __("Excluir anexo")),
+            () => confirm(__("Delete this attachment?"), __("Delete attachment")),
             () => { remove(i); dlg.hide(); },
           );
         },
@@ -104,18 +104,18 @@
               </td>
             {/each}
             <td style="white-space:nowrap;text-align:right">
-              {#if hasDialog}<button class="btn sm icon" title={editable ? __("Editar linha") : __("Visualizar linha")} aria-label={editable ? __("Editar linha") : __("Visualizar linha")} onclick={() => editRow(row, i)}><Icon name={dialogOnly ? "pencil" : "chevron-right"} size={14} /></button>{/if}
-              {#if !dialogOnly && editable && !cannotDelete}<button class="btn sm icon danger" title={__("Remover")} aria-label={__("Remover")} onclick={() => remove(i)}><Icon name="trash" size={14} /></button>{/if}
+              {#if hasDialog}<button class="btn sm icon" title={editable ? __("Edit row") : __("View row")} aria-label={editable ? __("Edit row") : __("View row")} onclick={() => editRow(row, i)}><Icon name={dialogOnly ? "pencil" : "chevron-right"} size={14} /></button>{/if}
+              {#if !dialogOnly && editable && !cannotDelete}<button class="btn sm icon danger" title={__("Remove")} aria-label={__("Remove")} onclick={() => remove(i)}><Icon name="trash" size={14} /></button>{/if}
             </td>
           </tr>
         {/each}
         {#if !rows.length}
-          <tr><td colspan={columns.length + 2} class="muted" style="text-align:center;padding:14px">{__("Nenhuma linha")}</td></tr>
+          <tr><td colspan={columns.length + 2} class="muted" style="text-align:center;padding:14px">{__("No rows")}</td></tr>
         {/if}
       </tbody>
     </table>
     {#if editable && !cannotAdd}
-      <div style="padding:8px"><button class="btn sm" onclick={add}><Icon name="plus" size={14} />{__("Adicionar linha")}</button></div>
+      <div style="padding:8px"><button class="btn sm" onclick={add}><Icon name="plus" size={14} />{__("Add row")}</button></div>
     {/if}
   </div>
 </div>

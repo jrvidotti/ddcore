@@ -1,3 +1,4 @@
+import { __ } from "../boot.svelte";
 // Version history processing and diff utilities for ddcore desk forms.
 import type { FormController } from "../form.svelte";
 import type { DocTypeMeta, Field } from "../meta";
@@ -126,7 +127,7 @@ export function formatDiffValue(val: any, field?: Partial<Field>, fieldname?: st
   }
 
   if (field?.fieldtype === "Check" || typeof val === "boolean") {
-    return { value: val, formatted: val ? "Sim" : "Não", isAttach: false };
+    return { value: val, formatted: val ? __("Yes") : __("No"), isAttach: false };
   }
 
   if (field?.fieldtype === "Date") {
@@ -288,7 +289,7 @@ export function parseVersion(v: any, frm?: FormController): ParsedVersion {
       const fNew = formatDiffValue(newVal, fieldDef, field);
       changes.push({
         field,
-        label: fieldDef?.label || (field === "docstatus" ? "Situação" : humanize(field)),
+        label: fieldDef?.label || (field === "docstatus" ? __("Document status") : humanize(field)),
         fieldtype: fieldDef?.fieldtype || "Data",
         isTable: false,
         oldValue: oldVal,

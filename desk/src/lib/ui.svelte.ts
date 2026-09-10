@@ -77,10 +77,10 @@ export function dialog(spec: DialogSpec): DialogHandle {
   return h;
 }
 
-export function confirm(message: string, title = "Confirmar"): Promise<boolean> {
+export function confirm(message: string, title?: string): Promise<boolean> {
   return new Promise((resolve) => {
     const h = dialog({
-      title, message, primaryLabel: "Sim", secondaryLabel: "Não", size: "sm",
+      title: title ?? __("Confirm"), message, primaryLabel: __("Yes"), secondaryLabel: __("No"), size: "sm",
       primaryAction: () => { resolve(true); h.hide(); },
     });
     (h as any).onCancel = () => resolve(false);
@@ -88,7 +88,7 @@ export function confirm(message: string, title = "Confirmar"): Promise<boolean> 
   });
 }
 
-export function prompt(title: string, fields: Field[], primaryLabel = "OK"): Promise<Record<string, any> | null> {
+export function prompt(title: string, fields: Field[], primaryLabel = __("OK")): Promise<Record<string, any> | null> {
   return new Promise((resolve) => {
     const h = dialog({ title, fields, primaryLabel, primaryAction: (v) => { resolve(v); h.hide(); } });
     (h as any).onCancel = () => resolve(null);
