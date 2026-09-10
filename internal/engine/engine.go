@@ -90,6 +90,10 @@ type State struct {
 	I18n        *I18n
 	Loaded      time.Time
 	whitelisted map[string]map[string]any
+	// metaCache holds the translated copies of DocTypes, per language. It
+	// needs no invalidation: a reload builds a new State and this dies with
+	// the old one.
+	metaCache metaCache
 }
 
 type Engine struct {

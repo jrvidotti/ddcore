@@ -349,11 +349,12 @@ func (s *Server) boot(w http.ResponseWriter, r *http.Request) {
 		var workspaces []map[string]any
 		for _, name := range s.E.AppOrder() {
 			a := s.E.Snap.Apps[name]
-			apps = append(apps, map[string]any{"name": a.Name, "title": a.Title, "desk": a.Desk, "hasDeskInclude": len(deskIncludes(a)) > 0})
+			apps = append(apps, map[string]any{"name": a.Name, "title": c.T(a.Title), "desk": a.Desk, "hasDeskInclude": len(deskIncludes(a)) > 0})
 		}
-		for _, ws := range s.E.Snap.Workspaces {
+		st := c.St
+		for _, ws := range st.Snap.Workspaces {
 			if allowed(ws["roles"], roles) {
-				workspaces = append(workspaces, ws)
+				workspaces = append(workspaces, st.TranslateStringMap(ws, c.Lang))
 			}
 		}
 		doctypes := map[string]any{}
@@ -363,13 +364,13 @@ func (s *Server) boot(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			if ok, _ := c.HasPermission(n, "read", nil); ok {
-				doctypes[n] = map[string]any{"label": d.Label, "app": d.App, "icon": d.Icon, "module": d.Module, "titleField": d.TitleField}
+				doctypes[n] = map[string]any{"label": c.T(d.Label), "app": d.App, "icon": d.Icon, "module": d.Module, "titleField": d.TitleField}
 			}
 		}
 		reports := map[string]any{}
 		for n, rep := range s.E.Snap.Reports {
 			if allowed(rep["roles"], roles) {
-				reports[n] = map[string]any{"label": orStr(rep["label"], n), "refDoctype": rep["refDoctype"], "app": rep["app"]}
+				reports[n] = map[string]any{"label": c.T(orStr(rep["label"], n)), "refDoctype": rep["refDoctype"], "app": rep["app"]}
 			}
 		}
 		return map[string]any{
@@ -416,9 +417,11 @@ func (s *Server) getMeta(w http.ResponseWriter, r *http.Request) {
 		if ok, _ := c.HasPermission(d.Name, "read", nil); !ok && !d.IsChild {
 			return nil, cerr.Permission("No permission for {0}", d.Label)
 		}
+		st := c.St
 		childMeta := map[string]*meta.DocType{}
 		for _, tf := range d.TableFields() {
-			childMeta[tf.OptionsString()], _ = s.E.DocType(tf.OptionsString())
+			cd, _ := s.E.DocType(tf.OptionsString())
+			childMeta[tf.OptionsString()] = st.TranslateDocType(cd, c.Lang)
 		}
 		linkTitles := map[string]string{}
 		for _, f := range d.Fields {
@@ -439,7 +442,9 @@ func (s *Server) getMeta(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-		return map[string]any{"doctype": d, "children": childMeta, "permissions": c.Permissions(d), "series": engine.SeriesOptions(d), "linkTitles": linkTitles}, nil
+		// permissions and series are computed from the canonical DocType; the
+		// payload carries the translated copy.
+		return map[string]any{"doctype": st.TranslateDocType(d, c.Lang), "children": childMeta, "permissions": c.Permissions(d), "series": engine.SeriesOptions(d), "linkTitles": linkTitles}, nil
 	})
 }
 
@@ -878,7 +883,10 @@ func (s *Server) report(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, err
 		}
-		return map[string]any{"meta": rep, "result": res}, nil
+		// the report's own label and its filters' labels come from the
+		// snapshot; the result's columns come from execute(), which already
+		// went through _() inside the runtime.
+		return map[string]any{"meta": c.St.TranslateStringMap(rep, c.Lang), "result": res}, nil
 	})
 }
 
@@ -962,7 +970,7 @@ func (s *Server) workspace(c *engine.Ctx, name string) (map[string]any, error) {
 func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 	fl, ok := w.(http.Flusher)
 	if !ok {
-		http.Error(w, "SSE não suportado", 500)
+		http.Error(w, "SSE not supported", 500)
 		return
 	}
 	w.Header().Set("Content-Type", "text/event-stream")

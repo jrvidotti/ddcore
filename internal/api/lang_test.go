@@ -178,3 +178,78 @@ func TestJSErrorIsNotRetranslated(t *testing.T) {
 		t.Fatalf("a VM error should carry no key, got %v", e["key"])
 	}
 }
+
+// TestMetaTranslatedAndETag: metadata is a catalogue key like any other, and
+// the ETag has to follow the language or a 304 hands back the wrong payload.
+func TestMetaTranslatedAndETag(t *testing.T) {
+	x := setup(t)
+	sid := "sid:" + x.sid("ana@x.com")
+
+	label := func(r resp) string {
+		data, _ := r.Body["data"].(map[string]any)
+		dt, _ := data["doctype"].(map[string]any)
+		s, _ := dt["label"].(string)
+		return s
+	}
+
+	pt := x.call("GET", "/api/meta/User", nil, sid, "X-Lang", "pt-BR")
+	if got := label(pt); got != "Usuário" {
+		t.Fatalf("pt-BR label = %q, want Usuário", got)
+	}
+	en := x.call("GET", "/api/meta/User", nil, sid, "X-Lang", "en")
+	if got := label(en); got != "User" {
+		t.Fatalf("en label = %q, want User", got)
+	}
+
+	etagPT, etagEN := pt.Header.Get("ETag"), en.Header.Get("ETag")
+	if etagPT == "" || etagPT == etagEN {
+		t.Fatalf("the ETag must vary by language: %q vs %q", etagPT, etagEN)
+	}
+	// same language, same ETag → 304; other language → a full answer
+	if r := x.call("GET", "/api/meta/User", nil, sid, "X-Lang", "pt-BR", "If-None-Match", etagPT); r.Status != 304 {
+		t.Fatalf("same language: status = %d, want 304", r.Status)
+	}
+	if r := x.call("GET", "/api/meta/User", nil, sid, "X-Lang", "en", "If-None-Match", etagPT); r.Status != 200 || label(r) != "User" {
+		t.Fatalf("other language: status = %d, label = %q", r.Status, label(r))
+	}
+}
+
+// The registry is shared by every request in flight: translating for one must
+// not leave the next one reading Portuguese.
+func TestTranslationDoesNotMutateTheRegistry(t *testing.T) {
+	x := setup(t)
+	x.call("GET", "/api/meta/User", nil, "sid:"+x.sid("ana@x.com"), "X-Lang", "pt-BR")
+	d, err := x.e.DocType("User")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.Label != "User" {
+		t.Fatalf("the registry was mutated: label = %q", d.Label)
+	}
+	for _, f := range d.Fields {
+		if f.OptionLabels != nil {
+			t.Fatalf("the registry was mutated: %s has OptionLabels", f.Fieldname)
+		}
+	}
+}
+
+// A Select is canonical English in the database; only its display text moves.
+func TestSelectOptionsStayCanonical(t *testing.T) {
+	x := setup(t)
+	r := x.call("GET", "/api/meta/User", nil, "sid:"+x.sid("ana@x.com"), "X-Lang", "pt-BR")
+	data, _ := r.Body["data"].(map[string]any)
+	dt, _ := data["doctype"].(map[string]any)
+	fields, _ := dt["fields"].([]any)
+	for _, fAny := range fields {
+		f, _ := fAny.(map[string]any)
+		if f["fieldname"] != "user_type" {
+			continue
+		}
+		opts, _ := f["options"].([]any)
+		if len(opts) != 2 || opts[0] != "System User" {
+			t.Fatalf("options are not canonical: %v", opts)
+		}
+		return
+	}
+	t.Fatal("user_type not found")
+}

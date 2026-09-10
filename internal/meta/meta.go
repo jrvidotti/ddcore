@@ -41,33 +41,41 @@ func ColumnType(ft string) string {
 var ValidFieldTypes = []string{"Data", "Email", "Small Text", "Text", "Text Editor", "Int", "Float", "Currency", "Percent", "Check", "Date", "Month", "Datetime", "Time", "Select", "Link", "Dynamic Link", "Table", "Attach", "JSON", "Password", "Section Break", "Column Break", "Tab Break", "HTML"}
 
 type Field struct {
-	Fieldname          string   `json:"fieldname,omitempty"`
-	Fieldtype          string   `json:"fieldtype"`
-	Label              string   `json:"label,omitempty"`
-	Options            any      `json:"options,omitempty"` // string (Link/Table/Dynamic Link) or []string (Select)
-	Reqd               bool     `json:"reqd,omitempty"`
-	Unique             bool     `json:"unique,omitempty"`
-	Default            any      `json:"default,omitempty"`
-	ReadOnly           bool     `json:"readOnly,omitempty"`
-	Hidden             bool     `json:"hidden,omitempty"`
-	FetchFrom          string   `json:"fetchFrom,omitempty"`
-	DependsOn          string   `json:"dependsOn,omitempty"`
-	ReadOnlyDependsOn  string   `json:"readOnlyDependsOn,omitempty"`
-	MandatoryDependsOn string   `json:"mandatoryDependsOn,omitempty"`
-	AllowOnSubmit      bool     `json:"allowOnSubmit,omitempty"`
-	InListView         bool     `json:"inListView,omitempty"`
-	InStandardFilter   bool     `json:"inStandardFilter,omitempty"`
-	SearchIndex        bool     `json:"searchIndex,omitempty"`
-	Length             int      `json:"length,omitempty"`
-	Precision          int      `json:"precision,omitempty"`
-	Description        string   `json:"description,omitempty"`
-	Columns            int      `json:"columns,omitempty"`
-	GridEditMode       string   `json:"gridEditMode,omitempty"`
-	Collapsible        bool     `json:"collapsible,omitempty"`
-	Bold               bool     `json:"bold,omitempty"`
-	IgnoreUserPerms    bool     `json:"-"`
-	_                  struct{} // keep JSON tags exhaustive
-	SelectOptions      []string `json:"-"`
+	Fieldname          string `json:"fieldname,omitempty"`
+	Fieldtype          string `json:"fieldtype"`
+	Label              string `json:"label,omitempty"`
+	Options            any    `json:"options,omitempty"` // string (Link/Table/Dynamic Link) or []string (Select)
+	Reqd               bool   `json:"reqd,omitempty"`
+	Unique             bool   `json:"unique,omitempty"`
+	Default            any    `json:"default,omitempty"`
+	ReadOnly           bool   `json:"readOnly,omitempty"`
+	Hidden             bool   `json:"hidden,omitempty"`
+	FetchFrom          string `json:"fetchFrom,omitempty"`
+	DependsOn          string `json:"dependsOn,omitempty"`
+	ReadOnlyDependsOn  string `json:"readOnlyDependsOn,omitempty"`
+	MandatoryDependsOn string `json:"mandatoryDependsOn,omitempty"`
+	AllowOnSubmit      bool   `json:"allowOnSubmit,omitempty"`
+	InListView         bool   `json:"inListView,omitempty"`
+	InStandardFilter   bool   `json:"inStandardFilter,omitempty"`
+	SearchIndex        bool   `json:"searchIndex,omitempty"`
+	Length             int    `json:"length,omitempty"`
+	Precision          int    `json:"precision,omitempty"`
+	Description        string `json:"description,omitempty"`
+	Columns            int    `json:"columns,omitempty"`
+	GridEditMode       string `json:"gridEditMode,omitempty"`
+	Collapsible        bool   `json:"collapsible,omitempty"`
+	Bold               bool   `json:"bold,omitempty"`
+	IgnoreUserPerms    bool   `json:"-"`
+	// OptionColors maps a Select's canonical (English) value to an indicator
+	// colour. Keyed by the value, never by its label, so it is
+	// language-independent by construction.
+	OptionColors map[string]string `json:"optionColors,omitempty"`
+	// OptionLabels is filled only on the translated copy the API serves: the
+	// display text of each entry in Options, in the same order. Options
+	// itself stays canonical English — it is what the database holds.
+	OptionLabels  []string `json:"optionLabels,omitempty"`
+	_             struct{} // keep JSON tags exhaustive
+	SelectOptions []string `json:"-"`
 }
 
 func (f *Field) OptionsString() string {
@@ -157,6 +165,10 @@ var StdColumns = []string{"name", "owner", "creation", "modified", "modified_by"
 var ChildColumns = []string{"parent", "parenttype", "parentfield", "idx"}
 
 func (d *DocType) TableName() string { return "tab_" + Snake(d.Name) }
+
+// ResetFieldIndex drops the lazily built fieldname index. A copy of a DocType
+// inherits the original's index, which points at the original's fields.
+func (d *DocType) ResetFieldIndex() { d.fieldMap = nil }
 
 func (d *DocType) Field(name string) *Field {
 	if d.fieldMap == nil {
