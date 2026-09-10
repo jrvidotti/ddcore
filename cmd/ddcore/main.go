@@ -37,6 +37,7 @@ Uso: ddcore <comando> [opções]
   start       servidor de produção
   migrate     aplica DDL, instala apps, roda patches (--dry-run, --prune)
   types       gera .ddcore/types.d.ts em cada app
+  i18n        i18n extract — reescreve translations/<lang>.csv a partir do código
   test        roda os *.test.ts (--filter regex, --app nome)
   exec        executa uma função: ddcore exec app.services.mod.fn --args '{"a":1}'
   eval        executa TS avulso: ddcore eval 'ddcore.db.count("User")' [--commit]
@@ -69,6 +70,8 @@ func main() {
 		err = cmdMigrate(args)
 	case "types":
 		err = cmdTypes(args)
+	case "i18n":
+		err = cmdI18n(args)
 	case "test":
 		err = cmdTest(args)
 	case "exec":
