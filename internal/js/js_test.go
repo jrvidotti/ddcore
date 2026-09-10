@@ -97,8 +97,16 @@ func TestRunTestsFiltersByApp(t *testing.T) {
 export default defineApp({ name: "`+name+`", title: "`+name+`" });`), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(filepath.Join(dir, name+`.test.ts`), []byte(`import "@cerne/sdk/test";
-test("`+name+` test", () => expect(true).toBe(true));`), 0o644); err != nil {
+		testSource := `import "@cerne/sdk/test";
+test("` + name + ` test", () => expect(true).toBe(true));`
+		if name == "segundo" {
+			testSource = `import "@cerne/sdk/test";
+describe("segundo", () => {
+  beforeAll(() => { throw new Error("hook de segundo não deve executar"); });
+  test("segundo test", () => expect(true).toBe(true));
+});`
+		}
+		if err := os.WriteFile(filepath.Join(dir, name+`.test.ts`), []byte(testSource), 0o644); err != nil {
 			t.Fatal(err)
 		}
 		bundle, err := BuildServer(App{Name: name, Dir: dir}, true)

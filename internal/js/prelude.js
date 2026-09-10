@@ -480,19 +480,19 @@
   // ------------------------------------------------------------------- tests
   const suites = [];
   let current = null;
-  const root = { name: "", tests: [], beforeEach: [], afterEach: [], beforeAll: [], children: [] };
+  const root = { name: "", app: "", tests: [], beforeEach: [], afterEach: [], beforeAll: [], children: [] };
   current = root;
   globalThis.describe = (name, fn) => {
-    const s = { name, tests: [], beforeEach: [], afterEach: [], beforeAll: [], children: [], file: reg.current };
+    const s = { name, app: reg.app, tests: [], beforeEach: [], afterEach: [], beforeAll: [], children: [], file: reg.current };
     current.children.push(s);
     const prev = current;
     current = s;
     try { fn(); } finally { current = prev; }
   };
   globalThis.it = globalThis.test = (name, fn) => current.tests.push({ name, fn, file: reg.current, app: reg.app });
-  globalThis.beforeEach = (fn) => current.beforeEach.push(fn);
-  globalThis.afterEach = (fn) => current.afterEach.push(fn);
-  globalThis.beforeAll = (fn) => current.beforeAll.push(fn);
+  globalThis.beforeEach = (fn) => current.beforeEach.push({ fn, app: reg.app });
+  globalThis.afterEach = (fn) => current.afterEach.push({ fn, app: reg.app });
+  globalThis.beforeAll = (fn) => current.beforeAll.push({ fn, app: reg.app });
 
   function deepEqual(a, b) {
     if (a === b) return true;
@@ -547,8 +547,11 @@
     const results = [];
     const re = filter ? new RegExp(filter, "i") : null;
     function walk(suite, path, befores, afters) {
-      for (const b of suite.beforeAll) b();
-      const be = befores.concat(suite.beforeEach), af = suite.afterEach.concat(afters);
+      if (app && suite.app && suite.app !== app) return;
+      const selectedHooks = (hooks) => app ? hooks.filter((hook) => hook.app === app) : hooks;
+      for (const b of selectedHooks(suite.beforeAll)) b.fn();
+      const be = selectedHooks(befores).concat(selectedHooks(suite.beforeEach));
+      const af = selectedHooks(suite.afterEach).concat(selectedHooks(afters));
       for (const t of suite.tests) {
         const full = (path ? path + " > " : "") + t.name;
         if (app && t.app !== app) continue;
@@ -557,9 +560,9 @@
         const t0 = Date.now();
         call("test.begin");
         try {
-          for (const b of be) b();
+          for (const b of be) b.fn();
           t.fn();
-          for (const a of af) a();
+          for (const a of af) a.fn();
         } catch (e) {
           r.ok = false;
           r.error = (e && e.title ? e.title + ": " : "") + (e && e.message ? e.message : String(e));
