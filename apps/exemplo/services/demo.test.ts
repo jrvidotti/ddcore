@@ -1,7 +1,18 @@
 import "@cerne/sdk/test";
 import { gerar } from "./demo";
 
+// O banco de teste pode já ter rodado `cerne demo`; cada `it` roda em transação
+// revertida, então limpar aqui não afeta os outros testes nem o banco.
+function limparDemo() {
+  for (const t of cerne.db.getAll<{ name: string }>("Tarefa", { filters: { projeto: "DEMO" }, fields: ["name"] })) {
+    cerne.deleteDoc("Tarefa", t.name, { force: true });
+  }
+  if (cerne.db.exists("Projeto", "DEMO")) cerne.deleteDoc("Projeto", "DEMO", { force: true });
+}
+
 describe("demo", () => {
+  beforeEach(limparDemo);
+
   it("cria o projeto DEMO com marcos e tarefas", () => {
     const r = gerar();
     expect(r.criados).toContain("DEMO");
