@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/js"
 )
 
@@ -52,6 +53,9 @@ func LoadI18n(apps []js.App, defaultLang string) (*I18n, error) {
 	return i, nil
 }
 
+// T translates s and interpolates args. Translation and interpolation are
+// separate steps on purpose: the arguments are values, never keys, so a
+// translated template gets today's values, not yesterday's text.
 func (i *I18n) T(lang, s string, args ...any) string {
 	if lang == "" {
 		lang = i.Lang
@@ -59,10 +63,7 @@ func (i *I18n) T(lang, s string, args ...any) string {
 	if t, ok := i.dict[lang][s]; ok && t != "" {
 		s = t
 	}
-	for n, a := range args {
-		s = strings.ReplaceAll(s, fmt.Sprintf("{%d}", n), fmt.Sprint(a))
-	}
-	return s
+	return cerr.Render(s, args)
 }
 
 // Catalogue returns all translations for a language (served to the desk).

@@ -148,7 +148,7 @@ func (e *Engine) SetPassword(ctx context.Context, user, password string) error {
 			return err
 		}
 		if tag.RowsAffected() == 0 {
-			return cerr.NotFound("Usuário %s não existe", user)
+			return cerr.NotFound("Usuário {0} não existe", user)
 		}
 		return nil
 	})

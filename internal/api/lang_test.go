@@ -112,3 +112,50 @@ func TestMetaVariesByLang(t *testing.T) {
 		t.Fatalf("Vary = %q, want X-Lang", r.Header.Get("Vary"))
 	}
 }
+
+// TestErrorTranslatedAtTheBorder: a typed error keeps its key and arguments,
+// and `writeErr` — the one place an error becomes a response — renders it in
+// the request's language.
+func TestErrorTranslatedAtTheBorder(t *testing.T) {
+	x := setup(t)
+	sid := "sid:" + x.sid("ana@x.com")
+
+	pt := x.call("GET", "/api/method/nope", nil, sid, "X-Lang", "pt-BR")
+	e, _ := pt.Body["error"].(map[string]any)
+	if e["message"] != "Método nope não existe ou não é whitelisted" {
+		t.Fatalf("pt-BR message = %v", e["message"])
+	}
+	// key and args travel too, for telemetry and grouping
+	if e["key"] != "Método {0} não existe ou não é whitelisted" {
+		t.Fatalf("key = %v", e["key"])
+	}
+	if args, _ := e["args"].([]any); len(args) != 1 || args[0] != "nope" {
+		t.Fatalf("args = %v", e["args"])
+	}
+
+	en := x.call("GET", "/api/method/nope", nil, sid, "X-Lang", "en")
+	e, _ = en.Body["error"].(map[string]any)
+	if e["message"] != "Method nope does not exist or is not whitelisted" {
+		t.Fatalf("en message = %v", e["message"])
+	}
+}
+
+// An error raised inside the JS runtime went through `_()` there, so it
+// arrives with no key. The border must leave it alone — even when the text
+// happens to match a catalogue entry, which is exactly when translating it a
+// second time would corrupt it.
+func TestJSErrorIsNotRetranslated(t *testing.T) {
+	x := setup(t)
+	// the test app's en.csv maps "Loop" to "Looped"
+	r := x.call("POST", "/api/resource/Pessoa", map[string]any{"nome": "loop"}, "sid:"+x.sid("ana@x.com"), "X-Lang", "en")
+	e, _ := r.Body["error"].(map[string]any)
+	if e == nil {
+		t.Fatalf("expected an error, got %s", r.Raw)
+	}
+	if e["message"] != "Loop" {
+		t.Fatalf("message = %v, want Loop (translated once, in the VM)", e["message"])
+	}
+	if e["key"] != nil {
+		t.Fatalf("a VM error should carry no key, got %v", e["key"])
+	}
+}

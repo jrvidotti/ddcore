@@ -129,7 +129,7 @@ func New(e *engine.Engine) *mcp.Server {
 		}) (*mcp.CallToolResult, any, error) {
 			app := e.App(in.App)
 			if app.Name == "" || app.Embedded != nil {
-				return fail(cerr.NotFound("app %s não existe (apps: %v)", in.App, e.AppOrder()))
+				return fail(cerr.NotFound("app {0} não existe (apps: {1})", in.App, e.AppOrder()))
 			}
 			files, err := scaffold.Doctype(app.Dir, app.Name, in.Spec)
 			if err != nil {

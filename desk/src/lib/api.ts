@@ -1,7 +1,17 @@
 // Thin client for the ddcore HTTP API. Every error becomes a DDCoreError with
 // type/title/message so the UI can show it the same way the server phrased it.
 export class DDCoreError extends Error {
-  constructor(public type: string, public title: string, message: string, public status: number, public extra?: any) {
+  constructor(
+    public type: string,
+    public title: string,
+    message: string,
+    public status: number,
+    public extra?: any,
+    /** English template with {0} placeholders, and its arguments. The message
+     * already arrives translated; these travel for telemetry and grouping. */
+    public key?: string,
+    public args?: any[],
+  ) {
     super(message);
   }
 }
@@ -38,7 +48,7 @@ async function request<T = any>(method: string, url: string, body?: any, opts: {
     if (res.status === 401 && typeof window !== "undefined" && !location.pathname.startsWith("/login")) {
       location.href = "/login?redirect=" + encodeURIComponent(location.pathname + location.search);
     }
-    throw new DDCoreError(e.type, e.title || "", e.message, res.status, e.extra);
+    throw new DDCoreError(e.type, e.title || "", e.message, res.status, e.extra, e.key, e.args);
   }
   if (data?.messages) for (const m of data.messages) messages.push(m);
   return opts.raw ? data : data?.data;

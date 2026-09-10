@@ -20,7 +20,7 @@ import (
 func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, error) {
 	c, _ := rt.Ctx.(*Ctx)
 	if c == nil {
-		return nil, cerr.Internal("runtime sem contexto (op %s)", op)
+		return nil, cerr.Internal("runtime sem contexto (op {0})", op)
 	}
 	var a struct {
 		Doctype   string            `json:"doctype"`
@@ -56,7 +56,7 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		Currency  string            `json:"currency"`
 	}
 	if err := json.Unmarshal(raw, &a); err != nil {
-		return nil, cerr.Internal("argumentos inválidos em %s: %v", op, err)
+		return nil, cerr.Internal("argumentos inválidos em {0}: {1}", op, err)
 	}
 	nameStr := func() string {
 		var s string
@@ -249,7 +249,7 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 	case "test.rollback":
 		return nil, c.RollbackTo()
 	}
-	return nil, cerr.Internal("operação desconhecida no bridge: %s", op)
+	return nil, cerr.Internal("operação desconhecida no bridge: {0}", op)
 }
 
 func orDefault(s, d string) string {
@@ -309,7 +309,7 @@ func httpCall(method, url string, body any, headers map[string]string, timeout f
 	}
 	req, err := http.NewRequest(orDefault(method, "GET"), url, rd)
 	if err != nil {
-		return nil, cerr.Validation("http: %v", err)
+		return nil, cerr.Validation("http: {0}", err)
 	}
 	for k, v := range headers {
 		req.Header.Set(k, v)
@@ -318,7 +318,7 @@ func httpCall(method, url string, body any, headers map[string]string, timeout f
 	client := &http.Client{Timeout: time.Duration(timeout * float64(time.Second))}
 	res, err := client.Do(req)
 	if err != nil {
-		return nil, cerr.Validation("http: %v", err)
+		return nil, cerr.Validation("http: {0}", err)
 	}
 	defer res.Body.Close()
 	b, _ := io.ReadAll(io.LimitReader(res.Body, 10<<20))

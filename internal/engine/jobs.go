@@ -72,7 +72,7 @@ func (e *Engine) RunJob(ctx context.Context, user, method string, args map[strin
 		})
 	})
 	if err != nil && errors.Is(err, context.DeadlineExceeded) {
-		return nil, cerr.Validation("job %s excedeu o tempo limite", method)
+		return nil, cerr.Validation("job {0} excedeu o tempo limite", method)
 	}
 	return out, err
 }

@@ -118,7 +118,7 @@ func castValue(f *meta.Field, v any) (any, error) {
 			s = s[:10]
 		}
 		if _, err := time.Parse("2006-01-02", s); err != nil {
-			return nil, cerr.Validation("Data inválida em %s: %q", f.Label, db.Str(v))
+			return nil, cerr.Validation("Data inválida em {0}: \"{1}\"", f.Label, db.Str(v))
 		}
 		return s, nil
 	case "Month":
@@ -131,7 +131,7 @@ func castValue(f *meta.Field, v any) (any, error) {
 				return fmt.Sprintf("%04d-%02d-01", t.Year(), t.Month()), nil
 			}
 		}
-		return nil, cerr.Validation("Mês/ano inválido em %s: %q", f.Label, db.Str(v))
+		return nil, cerr.Validation("Mês/ano inválido em {0}: \"{1}\"", f.Label, db.Str(v))
 	case "Datetime":
 		// castAll grava o time.Time convertido de volta no documento, então a
 		// próxima coerção do mesmo campo recebe um valor já normalizado.
@@ -144,7 +144,7 @@ func castValue(f *meta.Field, v any) (any, error) {
 				return t, nil
 			}
 		}
-		return nil, cerr.Validation("Data/hora inválida em %s: %q", f.Label, s)
+		return nil, cerr.Validation("Data/hora inválida em {0}: \"{1}\"", f.Label, s)
 	case "Time":
 		return db.Str(v), nil
 	case "JSON":
@@ -184,7 +184,7 @@ func (c *Ctx) getDoc(doctype, name string, forUpdate bool) (Doc, error) {
 		return nil, err
 	}
 	if name == "" {
-		return nil, cerr.NotFound("%s: nome vazio", doctype)
+		return nil, cerr.NotFound("{0}: nome vazio", doctype)
 	}
 	sel := fmt.Sprintf("SELECT * FROM %s WHERE name = $1", db.Ident(d.TableName()))
 	if forUpdate && c.Tx != nil {
@@ -195,7 +195,7 @@ func (c *Ctx) getDoc(doctype, name string, forUpdate bool) (Doc, error) {
 		return nil, err
 	}
 	if len(rows) == 0 {
-		return nil, cerr.NotFound("%s %s não encontrado", c.T(d.Label), name)
+		return nil, cerr.NotFound("{0} {1} não encontrado", c.T(d.Label), name)
 	}
 	doc := Doc(rows[0])
 	doc["doctype"] = doctype
@@ -216,7 +216,7 @@ func (c *Ctx) getDoc(doctype, name string, forUpdate bool) (Doc, error) {
 		if ok, err := c.HasPermission(doctype, "read", doc); err != nil {
 			return nil, err
 		} else if !ok {
-			return nil, cerr.Permission("Sem permissão para ler %s %s", c.T(d.Label), name)
+			return nil, cerr.Permission("Sem permissão para ler {0} {1}", c.T(d.Label), name)
 		}
 	}
 	return doc, nil
@@ -279,19 +279,19 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 		return nil, err
 	}
 	if d.IsChild {
-		return nil, cerr.Validation("%s é uma tabela filha", d.Name)
+		return nil, cerr.Validation("{0} é uma tabela filha", d.Name)
 	}
 	if !opts.IgnorePermissions && !c.IgnorePermissions() {
 		if ok, err := c.HasPermission(d.Name, "create", doc); err != nil {
 			return nil, err
 		} else if !ok {
-			return nil, cerr.Permission("Sem permissão para criar %s", c.T(d.Label))
+			return nil, cerr.Permission("Sem permissão para criar {0}", c.T(d.Label))
 		}
 	}
 	if doc.Docstatus() == 1 && d.Submittable {
 		if !opts.IgnorePermissions && !c.IgnorePermissions() {
 			if ok, _ := c.HasPermission(d.Name, "submit", doc); !ok {
-				return nil, cerr.Permission("Sem permissão para enviar %s", c.T(d.Label))
+				return nil, cerr.Permission("Sem permissão para enviar {0}", c.T(d.Label))
 			}
 		}
 	} else if doc.Docstatus() != 0 {
@@ -372,13 +372,13 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 	case oldStatus == 1 && newStatus == 1:
 		action = "update_after_submit"
 	case oldStatus == 2:
-		return nil, cerr.Validation("%s %s está cancelado e não pode ser alterado", c.T(d.Label), doc.Name())
+		return nil, cerr.Validation("{0} {1} está cancelado e não pode ser alterado", c.T(d.Label), doc.Name())
 	case oldStatus == 0 && newStatus == 0:
 	default:
-		return nil, cerr.Validation("Transição de docstatus inválida (%d → %d)", oldStatus, newStatus)
+		return nil, cerr.Validation("Transição de docstatus inválida ({0} → {1})", oldStatus, newStatus)
 	}
 	if action != "save" && !d.Submittable {
-		return nil, cerr.Validation("%s não é submetível", c.T(d.Label))
+		return nil, cerr.Validation("{0} não é submetível", c.T(d.Label))
 	}
 	if !opts.IgnorePermissions && !c.IgnorePermissions() {
 		ptype := "write"
@@ -390,7 +390,7 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 		if ok, err := c.HasPermission(d.Name, ptype, before); err != nil {
 			return nil, err
 		} else if !ok {
-			return nil, cerr.Permission("Sem permissão (%s) em %s %s", ptype, c.T(d.Label), doc.Name())
+			return nil, cerr.Permission("Sem permissão ({0}) em {1} {2}", ptype, c.T(d.Label), doc.Name())
 		}
 	}
 	// optimistic concurrency
@@ -526,7 +526,7 @@ func (c *Ctx) Amend(doctype, name string) (Doc, error) {
 		return nil, cerr.Validation("Só documentos cancelados podem ser emendados")
 	}
 	if ok, _ := c.HasPermission(doctype, "amend", src); !ok && !c.IgnorePermissions() {
-		return nil, cerr.Permission("Sem permissão para emendar %s", c.T(d.Label))
+		return nil, cerr.Permission("Sem permissão para emendar {0}", c.T(d.Label))
 	}
 	doc := src.Clone()
 	for _, k := range []string{"name", "owner", "creation", "modified", "modified_by"} {
@@ -579,7 +579,7 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 		f := d.Field(k)
 		if f == nil || meta.ColumnType(f.Fieldtype) == "" {
 			if !d.IsStdColumn(k) {
-				return modified, cerr.Validation("Campo %s não existe em %s", k, doctype)
+				return modified, cerr.Validation("Campo {0} não existe em {1}", k, doctype)
 			}
 			sets = append(sets, db.Ident(k)+" = "+b.Arg(v))
 			continue
@@ -600,7 +600,7 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 		return modified, err
 	}
 	if tag.RowsAffected() == 0 {
-		return modified, cerr.NotFound("%s %s não encontrado", doctype, name)
+		return modified, cerr.NotFound("{0} {1} não encontrado", doctype, name)
 	}
 	// só depois do commit: uma transação revertida não pode anunciar
 	// alteração que não aconteceu (B20).
@@ -622,11 +622,11 @@ func (c *Ctx) Delete(doctype, name string, ignorePerms, force bool) error {
 	}
 	if !ignorePerms && !c.IgnorePermissions() {
 		if ok, _ := c.HasPermission(doctype, "delete", doc); !ok {
-			return cerr.Permission("Sem permissão para apagar %s %s", c.T(d.Label), name)
+			return cerr.Permission("Sem permissão para apagar {0} {1}", c.T(d.Label), name)
 		}
 	}
 	if doc.Docstatus() == 1 {
-		return cerr.Validation("Cancele %s %s antes de apagar", c.T(d.Label), name)
+		return cerr.Validation("Cancele {0} {1} antes de apagar", c.T(d.Label), name)
 	}
 	if err := c.runHook(d, "onTrash", doc, nil); err != nil {
 		return err
@@ -670,17 +670,17 @@ func (c *Ctx) Rename(doctype, oldName, newName string) (string, error) {
 		return oldName, nil
 	}
 	if !d.AllowRename {
-		return "", cerr.Validation("%s não permite renomear", c.T(d.Label))
+		return "", cerr.Validation("{0} não permite renomear", c.T(d.Label))
 	}
 	doc, err := c.GetDoc(doctype, oldName)
 	if err != nil {
 		return "", err
 	}
 	if ok, _ := c.HasPermission(doctype, "write", doc); !ok && !c.IgnorePermissions() {
-		return "", cerr.Permission("Sem permissão para renomear %s", c.T(d.Label))
+		return "", cerr.Permission("Sem permissão para renomear {0}", c.T(d.Label))
 	}
 	if ok, _ := c.Exists(doctype, newName); ok {
-		return "", cerr.Duplicate("%s %s já existe", c.T(d.Label), newName)
+		return "", cerr.Duplicate("{0} {1} já existe", c.T(d.Label), newName)
 	}
 	if err := c.runHook(d, "beforeRename", doc, nil); err != nil {
 		return "", err
@@ -826,7 +826,7 @@ func (c *Ctx) checkEmails(d *meta.DocType, doc Doc) error {
 			continue
 		}
 		if !validEmail(value) {
-			return cerr.Validation("%s: %q não é um endereço de e-mail válido", c.T(f.Label), value).WithTitle(c.T("E-mail inválido"))
+			return cerr.Validation("{0}: \"{1}\" não é um endereço de e-mail válido", c.T(f.Label), value).WithTitle(c.T("E-mail inválido"))
 		}
 	}
 	return nil
@@ -900,7 +900,7 @@ func (c *Ctx) checkMandatory(d *meta.DocType, doc Doc) error {
 		}
 	}
 	if len(missing) > 0 {
-		return cerr.Mandatory("Preencha os campos obrigatórios: %s", strings.Join(missing, ", ")).WithTitle(c.T("Campos obrigatórios"))
+		return cerr.Mandatory("Preencha os campos obrigatórios: {0}", strings.Join(missing, ", ")).WithTitle(c.T("Campos obrigatórios"))
 	}
 	return nil
 }
@@ -935,7 +935,7 @@ func (c *Ctx) checkReadOnlyDependsOn(d *meta.DocType, doc, before Doc) error {
 				continue
 			}
 		}
-		return cerr.Validation("%s é somente leitura neste documento", c.T(f.Label)).WithTitle(c.T("Campo somente leitura"))
+		return cerr.Validation("{0} é somente leitura neste documento", c.T(f.Label)).WithTitle(c.T("Campo somente leitura"))
 	}
 	return nil
 }
@@ -962,7 +962,7 @@ func (c *Ctx) checkSelect(d *meta.DocType, doc Doc) error {
 			}
 		}
 		if !ok {
-			return cerr.Validation("%s: valor %q não está entre as opções", c.T(f.Label), v)
+			return cerr.Validation("{0}: valor \"{1}\" não está entre as opções", c.T(f.Label), v)
 		}
 	}
 	return nil
@@ -979,20 +979,20 @@ func (c *Ctx) checkLinks(d *meta.DocType, doc Doc) error {
 			if ok, err := c.Exists(f.OptionsString(), v); err != nil {
 				return err
 			} else if !ok {
-				return cerr.LinkExists("%s: %s %q não existe", c.T(f.Label), f.OptionsString(), v).WithTitle(c.T("Link inválido"))
+				return cerr.LinkExists("{0}: {1} \"{2}\" não existe", c.T(f.Label), f.OptionsString(), v).WithTitle(c.T("Link inválido"))
 			}
 		case "Dynamic Link":
 			target := doc.Str(f.OptionsString())
 			if target == "" {
-				return cerr.Validation("%s: informe o tipo antes do vínculo", c.T(f.Label))
+				return cerr.Validation("{0}: informe o tipo antes do vínculo", c.T(f.Label))
 			}
 			if _, err := c.St.DocType(target); err != nil {
-				return cerr.Validation("%s: DocType %q não existe", c.T(f.Label), target)
+				return cerr.Validation("{0}: DocType \"{1}\" não existe", c.T(f.Label), target)
 			}
 			if ok, err := c.Exists(target, v); err != nil {
 				return err
 			} else if !ok {
-				return cerr.LinkExists("%s: %s %q não existe", c.T(f.Label), target, v).WithTitle(c.T("Link inválido"))
+				return cerr.LinkExists("{0}: {1} \"{2}\" não existe", c.T(f.Label), target, v).WithTitle(c.T("Link inválido"))
 			}
 		}
 	}
@@ -1009,7 +1009,7 @@ func (c *Ctx) checkUnique(d *meta.DocType, doc Doc) error {
 			return err
 		}
 		if len(rows) > 0 {
-			return cerr.Duplicate("%s %q já existe em %s %s", c.T(f.Label), doc.Str(f.Fieldname), c.T(d.Label), rows[0]["name"]).WithTitle(c.T("Valor duplicado"))
+			return cerr.Duplicate("{0} \"{1}\" já existe em {2} {3}", c.T(f.Label), doc.Str(f.Fieldname), c.T(d.Label), rows[0]["name"]).WithTitle(c.T("Valor duplicado"))
 		}
 	}
 	return nil
@@ -1031,7 +1031,7 @@ func (c *Ctx) validateChildren(d *meta.DocType, doc Doc, opts SaveOpts) error {
 				return err
 			}
 			if err := c.checkMandatory(child, row); err != nil {
-				return cerr.Validation("%s, linha %d: %s", c.T(tf.Label), i+1, cerr.From(err).Message).WithTitle(c.T("Campos obrigatórios"))
+				return cerr.Validation("{0}, linha {1}: {2}", c.T(tf.Label), i+1, cerr.From(err).Message).WithTitle(c.T("Campos obrigatórios"))
 			}
 			if err := c.checkSelect(child, row); err != nil {
 				return err
@@ -1055,14 +1055,14 @@ func (c *Ctx) checkAllowOnSubmit(d *meta.DocType, before, doc Doc) error {
 		}
 		if f.Fieldtype == "Table" {
 			if string(mustJSON(stripChildMeta(before.Children(f.Fieldname)))) != string(mustJSON(stripChildMeta(doc.Children(f.Fieldname)))) {
-				return cerr.Validation("Não é permitido alterar %s depois do envio", c.T(f.Label)).WithTitle(c.T("Documento enviado"))
+				return cerr.Validation("Não é permitido alterar {0} depois do envio", c.T(f.Label)).WithTitle(c.T("Documento enviado"))
 			}
 			continue
 		}
 		nv, _ := castValue(f, doc[f.Fieldname])
 		ov, _ := castValue(f, before[f.Fieldname])
 		if db.Str(nv) != db.Str(ov) && !(f.Fieldtype == "Datetime" && sameTime(nv, ov)) {
-			return cerr.Validation("Não é permitido alterar %s depois do envio", c.T(f.Label)).WithTitle(c.T("Documento enviado"))
+			return cerr.Validation("Não é permitido alterar {0} depois do envio", c.T(f.Label)).WithTitle(c.T("Documento enviado"))
 		}
 	}
 	return nil
@@ -1109,7 +1109,7 @@ func (c *Ctx) checkLinksBeforeDelete(d *meta.DocType, name string) error {
 				if other.IsChild {
 					ref, refName = db.Str(rows[0]["parenttype"]), db.Str(rows[0]["parent"])
 				}
-				return cerr.LinkExists("%s %s está vinculado a %s %s", c.T(d.Label), name, ref, refName).WithTitle(c.T("Não é possível apagar"))
+				return cerr.LinkExists("{0} {1} está vinculado a {2} {3}", c.T(d.Label), name, ref, refName).WithTitle(c.T("Não é possível apagar"))
 			}
 		}
 	}
@@ -1162,7 +1162,7 @@ func (c *Ctx) writeInsert(d *meta.DocType, doc Doc) error {
 	}
 	_, err = c.Q().Exec(c.Ctx, fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", db.Ident(d.TableName()), strings.Join(cols, ", "), strings.Join(ph, ", ")), vals...)
 	if err != nil && strings.Contains(err.Error(), "duplicate key") {
-		return cerr.Duplicate("%s %s já existe", c.T(d.Label), doc.Name())
+		return cerr.Duplicate("{0} {1} já existe", c.T(d.Label), doc.Name())
 	}
 	return err
 }
@@ -1190,13 +1190,13 @@ func (c *Ctx) writeUpdate(d *meta.DocType, doc Doc, prevModified any) error {
 	sql += fmt.Sprintf(" AND modified IS NOT DISTINCT FROM $%d", len(args))
 	tag, err := c.Q().Exec(c.Ctx, sql, args...)
 	if err != nil && strings.Contains(err.Error(), "duplicate key") {
-		return cerr.Duplicate("Valor duplicado em %s", c.T(d.Label))
+		return cerr.Duplicate("Valor duplicado em {0}", c.T(d.Label))
 	}
 	if err != nil {
 		return err
 	}
 	if tag.RowsAffected() == 0 {
-		return cerr.Timestamp("O documento %s %s foi alterado por outro usuário. Recarregue e tente de novo.", c.T(d.Label), doc.Name())
+		return cerr.Timestamp("O documento {0} {1} foi alterado por outro usuário. Recarregue e tente de novo.", c.T(d.Label), doc.Name())
 	}
 	return nil
 }

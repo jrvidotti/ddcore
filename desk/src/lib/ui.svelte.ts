@@ -1,6 +1,7 @@
 // Global UI state: toasts and modal dialogs, driven from anywhere (controls,
 // form scripts, API errors).
 import type { Field } from "./meta";
+import { __ } from "./boot.svelte";
 
 export interface Toast { id: number; message: string; title?: string; indicator?: string; timeout?: number }
 export interface DialogSpec {
@@ -40,8 +41,21 @@ export function toast(message: string, opts: { title?: string; indicator?: strin
   setTimeout(() => { const i = ui.toasts.findIndex((x) => x.id === t.id); if (i >= 0) ui.toasts.splice(i, 1); }, opts.timeout ?? 5000);
 }
 
+/** A readable heading per error type, so a toast never shows "PermissionError". */
+const ERROR_TITLES: Record<string, string> = {
+  ValidationError: "Please check the form",
+  MandatoryError: "Required fields",
+  PermissionError: "Not allowed",
+  DoesNotExistError: "Not found",
+  LinkExistsError: "Still in use",
+  TimestampMismatchError: "Changed by someone else",
+  DuplicateEntryError: "Already exists",
+  AuthenticationError: "Sign in to continue",
+  InternalError: "Something went wrong",
+};
+
 export function showError(e: any) {
-  const title = e?.title || (e?.type && e.type !== "ValidationError" ? e.type : "") || "Erro";
+  const title = e?.title || __(ERROR_TITLES[e?.type] || "Error");
   toast(String(e?.message || e), { title, indicator: "red", timeout: 9000 });
 }
 
