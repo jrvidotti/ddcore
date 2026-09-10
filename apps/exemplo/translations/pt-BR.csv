@@ -1,7 +1,14 @@
 Start,Iniciar
 Complete,Concluir
 Reopen,Reabrir
+Actions,Ações
+Tasks,Tarefas
 Open,Aberta
 In progress,Em andamento
 Overdue,Atrasada
 Completed,Concluída
+Status,Status
+Quantity,Quantidade
+Share (%),Participação (%)
+Total,Total
+Progress: {0}%,Progresso: {0}%

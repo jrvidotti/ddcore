@@ -5,11 +5,14 @@
     "moduleResolution": "bundler",
     "baseUrl": "../..",
     "paths": {
-      "@cerne/sdk": ["packages/sdk/src/index.ts"]
+      "@cerne/sdk": ["packages/sdk/src/index.ts"],
+      "@cerne/sdk/test": ["packages/sdk/src/test.ts"],
+      "@cerne/desk-sdk": ["packages/desk-sdk/src/index.ts"]
     },
     "strict": true,
     "skipLibCheck": true,
-    "noEmit": true
+    "noEmit": true,
+    "types": []
   },
   "include": ["**/*.ts", ".cerne/**/*.d.ts"]
 }
