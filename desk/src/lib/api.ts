@@ -15,8 +15,17 @@ export const messages: { list: Message[]; push(m: Message): void } = {
 const listeners: ((m: Message) => void)[] = [];
 export function onMessage(fn: (m: Message) => void) { listeners.push(fn); return () => listeners.splice(listeners.indexOf(fn), 1); }
 
+/**
+ * Language sent as X-Lang on every request. Empty until /api/boot answers —
+ * that first call is the one that resolves the language server-side.
+ * Set through setRequestLang() in boot.svelte.ts.
+ */
+let requestLang = "";
+export function setRequestLang(l: string) { requestLang = l || ""; }
+
 async function request<T = any>(method: string, url: string, body?: any, opts: { raw?: boolean } = {}): Promise<T> {
   const headers: Record<string, string> = { "X-DDCore-CSRF": "1", "X-Requested-With": "ddcore" };
+  if (requestLang) headers["X-Lang"] = requestLang;
   let payload: BodyInit | undefined;
   if (body instanceof FormData) payload = body;
   else if (body !== undefined) { headers["Content-Type"] = "application/json"; payload = JSON.stringify(body); }

@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 
 	"github.com/jrvidotti/ddcore/internal/js"
@@ -70,4 +71,26 @@ func (i *I18n) Catalogue(lang string) map[string]string {
 		lang = i.Lang
 	}
 	return i.dict[lang]
+}
+
+// Langs returns the languages with a catalogue, sorted. "en" is always present:
+// it is the source language, so every key already resolves to itself.
+func (i *I18n) Langs() []string {
+	out := []string{"en"}
+	for l := range i.dict {
+		if l != "en" {
+			out = append(out, l)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// HasLang reports whether lang is a language this site can serve.
+func (i *I18n) HasLang(lang string) bool {
+	if lang == "en" {
+		return true
+	}
+	_, ok := i.dict[lang]
+	return ok
 }

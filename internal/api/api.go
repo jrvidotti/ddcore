@@ -119,9 +119,7 @@ func (s *Server) run(w http.ResponseWriter, r *http.Request, fn func(c *engine.C
 	var out any
 	c := s.E.NewCtx(r.Context(), user(r))
 	c.Request = map[string]any{"method": r.Method, "path": r.URL.Path, "ip": r.RemoteAddr}
-	if l := r.Header.Get("X-Lang"); l != "" {
-		c.Lang = l
-	}
+	c.Lang = s.langFor(r)
 	err := c.Run(func(c *engine.Ctx) error {
 		var e error
 		out, e = fn(c)
@@ -139,9 +137,7 @@ func (s *Server) run(w http.ResponseWriter, r *http.Request, fn func(c *engine.C
 func (s *Server) runCached(w http.ResponseWriter, r *http.Request, fn func(c *engine.Ctx) (any, error)) {
 	var out any
 	c := s.E.NewCtx(r.Context(), user(r))
-	if l := r.Header.Get("X-Lang"); l != "" {
-		c.Lang = l
-	}
+	c.Lang = s.langFor(r)
 	err := c.Run(func(c *engine.Ctx) error {
 		var e error
 		out, e = fn(c)
@@ -159,6 +155,9 @@ func (s *Server) runCached(w http.ResponseWriter, r *http.Request, fn func(c *en
 	etag := fmt.Sprintf("%q", "sha256-"+hex.EncodeToString(sha256Sum(body)))
 	w.Header().Set("ETag", etag)
 	w.Header().Set("Cache-Control", "private, no-cache")
+	// the body is translated, so the ETag varies by language: say so, or a
+	// proxy (or the BFCache) can hand back the wrong variant.
+	w.Header().Set("Vary", "X-Lang")
 	for _, m := range strings.Split(r.Header.Get("If-None-Match"), ",") {
 		if strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(m), "W/")) == etag {
 			w.WriteHeader(http.StatusNotModified)
@@ -303,6 +302,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, err)
 		return
 	}
+	s.E.Cache.Del("lang:" + body.Usr)
 	http.SetCookie(w, &http.Cookie{Name: "sid", Value: sid, Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: 30 * 24 * 3600})
 	writeJSON(w, 200, map[string]any{"data": map[string]any{"ok": true}})
 }
@@ -324,6 +324,16 @@ func (s *Server) boot(w http.ResponseWriter, r *http.Request) {
 		var userDoc map[string]any
 		if c.User != "Guest" {
 			userDoc, _ = c.GetValues("User", c.User, []string{"name", "full_name", "language", "user_type"})
+			// the only place that reads User.language: cache it here so
+			// langFor never has to touch the database, and honour it now —
+			// the payload below is built after this point, so the boot
+			// itself already comes back in the user's language.
+			if l, _ := userDoc["language"].(string); l != "" && s.E.Current().I18n.HasLang(l) {
+				if r.Header.Get("X-Lang") == "" {
+					c.Lang = l
+				}
+				s.E.Cache.Set("lang:"+c.User, l, langCacheTTL)
+			}
 		}
 		var apps []map[string]any
 		var workspaces []map[string]any
@@ -355,7 +365,7 @@ func (s *Server) boot(w http.ResponseWriter, r *http.Request) {
 		return map[string]any{
 			"user": c.User, "roles": roles, "userDoc": userDoc, "lang": c.Lang, "apps": apps,
 			"workspaces": workspaces, "doctypes": doctypes, "reports": reports,
-			"site":   map[string]any{"name": s.E.Cfg.SiteName, "currency": s.E.Cfg.Currency, "dev": s.E.Cfg.Dev, "scheduler": s.E.Cfg.Scheduler, "version": "0.1.0"},
+			"site":   map[string]any{"name": s.E.Cfg.SiteName, "currency": s.E.Cfg.Currency, "timezone": s.E.Cfg.Timezone, "dev": s.E.Cfg.Dev, "scheduler": s.E.Cfg.Scheduler, "version": "0.1.0"},
 			"loaded": s.E.Loaded.UnixMilli(),
 		}, nil
 	})
@@ -426,9 +436,10 @@ func (s *Server) getMeta(w http.ResponseWriter, r *http.Request) {
 func (s *Server) translations(w http.ResponseWriter, r *http.Request) {
 	lang := r.URL.Query().Get("lang")
 	if lang == "" {
-		lang = s.E.Cfg.Lang
+		lang = s.langFor(r)
 	}
-	writeJSON(w, 200, map[string]any{"data": s.E.I18n.Catalogue(lang)})
+	w.Header().Set("Vary", "X-Lang")
+	writeJSON(w, 200, map[string]any{"data": s.E.Current().I18n.Catalogue(lang)})
 }
 
 // ------------------------------------------------------------------ resources

@@ -15,6 +15,9 @@ export default defineController("User", {
   },
   onUpdate(doc) {
     ddcore.cache.del("roles:" + doc.name);
+    // langFor serves the request language from this key without touching the
+    // database, so changing User.language has to drop it.
+    ddcore.cache.del("lang:" + doc.name);
     if (!doc.enabled) {
       (ddcore as any).__dropSessions(doc.name);
       // UserFromAPIKey já recusa a chave de um usuário desativado, mas a

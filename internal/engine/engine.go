@@ -35,6 +35,7 @@ type Config struct {
 	SiteName  string
 	Lang      string
 	Currency  string
+	Timezone  string
 	SecretKey string
 	DataDir   string // uploads
 	LogLevel  slog.Level
@@ -119,6 +120,9 @@ func New(ctx context.Context, cfg Config) (*Engine, error) {
 	}
 	if cfg.Currency == "" {
 		cfg.Currency = "BRL"
+	}
+	if cfg.Timezone == "" {
+		cfg.Timezone = "UTC"
 	}
 	e := &Engine{Cfg: cfg, Log: slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: cfg.LogLevel})), Events: NewHub(), Cache: NewCache()}
 	if cfg.DSN != "" {

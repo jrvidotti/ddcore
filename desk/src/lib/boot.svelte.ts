@@ -1,6 +1,16 @@
 // Session-wide state: who is logged in, what DocTypes/workspaces exist,
 // translations. Loaded once from /api/boot.
-import { api } from "./api";
+import { api, setRequestLang } from "./api";
+
+const LANG_KEY = "ddcore_lang";
+
+function rememberedLang(): string {
+  try { return localStorage.getItem(LANG_KEY) || ""; } catch { return ""; }
+}
+
+function rememberLang(l: string) {
+  try { localStorage.setItem(LANG_KEY, l); } catch { /* private mode */ }
+}
 
 export interface Boot {
   user: string;
@@ -11,16 +21,26 @@ export interface Boot {
   workspaces: any[];
   doctypes: Record<string, { label: string; app: string; icon: string; module: string; titleField?: string }>;
   reports: Record<string, { label: string; refDoctype?: string; app: string }>;
-  site: { name: string; currency: string; dev: boolean; scheduler: boolean; version: string };
+  site: { name: string; currency: string; timezone: string; dev: boolean; scheduler: boolean; version: string };
   loaded: number;
 }
 
 export const boot = $state<{ data: Boot | null; translations: Record<string, string>; ready: boolean }>({ data: null, translations: {}, ready: false });
 
 export async function loadBoot(): Promise<Boot> {
+  // No X-Lang on this first call: /api/boot is what resolves the language,
+  // from User.language for a session and Accept-Language for a visitor. A
+  // header here would outrank the user's own setting.
+  setRequestLang("");
   const data = await api.boot();
+  // Signed in, the server has the last word and we remember what it said;
+  // signed out, the login screen shows the language of the last session.
+  const lang = data.user === "Guest" ? rememberedLang() || data.lang : data.lang;
+  if (data.user !== "Guest") rememberLang(lang);
+  data.lang = lang;
   boot.data = data;
-  try { boot.translations = (await api.translations(data.lang)) || {}; } catch { boot.translations = {}; }
+  setRequestLang(lang);
+  try { boot.translations = (await api.translations(lang)) || {}; } catch { boot.translations = {}; }
   boot.ready = true;
   return data;
 }

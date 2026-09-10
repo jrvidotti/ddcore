@@ -120,7 +120,7 @@ func load(test bool, dev bool) (*engine.Engine, *config.File, error) {
 	}
 	e, err := engine.New(context.Background(), engine.Config{
 		DSN: cfg.DSN, Apps: apps, Workers: cfg.Workers, Scheduler: cfg.Scheduler, Dev: dev || cfg.Dev, Test: test,
-		Port: cfg.Port, SiteName: cfg.Site, Lang: cfg.Lang, Currency: cfg.Currency, DataDir: cfg.DataDir, LogLevel: level,
+		Port: cfg.Port, SiteName: cfg.Site, Lang: cfg.Lang, Currency: cfg.Currency, Timezone: cfg.Timezone, DataDir: cfg.DataDir, LogLevel: level,
 	})
 	return e, cfg, err
 }
@@ -158,7 +158,7 @@ func cmdInit(args []string) error {
 		fmt.Println("atualizado", path)
 		return nil
 	}
-	f := &config.File{DSN: *dsn, Port: *port, Workers: 2, Scheduler: false, Site: "ddcore", Lang: "pt-BR", Currency: "BRL", Apps: []string{}, Dev: true}
+	f := &config.File{DSN: *dsn, Port: *port, Workers: 2, Scheduler: false, Site: "ddcore", Lang: "pt-BR", Currency: "BRL", Timezone: "UTC", Apps: []string{}, Dev: true}
 	if err := f.Save(config.Name); err != nil {
 		return err
 	}
