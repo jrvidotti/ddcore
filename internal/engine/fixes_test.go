@@ -737,7 +737,7 @@ func TestRequiresOrdenaEValida(t *testing.T) {
 		t.Fatalf("ordem inesperada: %v", names)
 	}
 	// dependência ausente
-	if _, err := orderApps([]js.App{{Name: "core"}, {Name: "a"}}, metas); err == nil || !strings.Contains(err.Error(), "não está instalado") {
+	if _, err := orderApps([]js.App{{Name: "core"}, {Name: "a"}}, metas); err == nil || !strings.Contains(err.Error(), "is not installed") {
 		t.Fatalf("esperava erro de dependência ausente, veio %v", err)
 	}
 	// ciclo

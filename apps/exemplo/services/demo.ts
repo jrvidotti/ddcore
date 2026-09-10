@@ -10,7 +10,7 @@ export interface ResultadoDemo {
   quantidade: number;
 }
 
-export function gerar(): ResultadoDemo {
+export function generate(): ResultadoDemo {
   const criados: string[] = [];
   const hoje = u().today();
 

@@ -18,7 +18,7 @@ erro (não vira argumento silenciosamente).
 | `ddcore test [--filter re] [-v]` | roda `*.test.ts` (cada `it` numa transação revertida) |
 | `ddcore exec app.mod.fn --args '{}'` | executa uma função como Administrator |
 | `ddcore eval '<ts>' [--commit]` | executa TS avulso com `ddcore.*` (rollback por padrão) |
-| `ddcore demo [--app nome]` | roda `<app>.services.demo.gerar` das apps que têm `services/demo.ts` |
+| `ddcore demo [--app nome]` | roda `<app>.services.demo.generate` das apps que têm `services/demo.ts` |
 | `ddcore jobs list|run <fn>|work` | scheduler e fila |
 | `ddcore user add <email> <nome> --password x --role R` / `user passwd` | usuários |
 | `ddcore apikey <usuario>` | gera `key:secret` para `Authorization: token key:secret` |

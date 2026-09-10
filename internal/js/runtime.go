@@ -152,7 +152,7 @@ func statusFor(t string) int {
 func (rt *Runtime) callReg(name string, args ...any) (string, error) {
 	fn, ok := goja.AssertFunction(rt.reg.Get(name))
 	if !ok {
-		return "", fmt.Errorf("__ddcore.%s não é função", name)
+		return "", fmt.Errorf("__ddcore.%s is not a function", name)
 	}
 	vals := make([]goja.Value, len(args))
 	for i, a := range args {

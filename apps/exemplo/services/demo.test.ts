@@ -1,5 +1,5 @@
 import "@ddcore/sdk/test";
-import { gerar } from "./demo";
+import { generate } from "./demo";
 
 // O banco de teste pode já ter rodado `ddcore demo`; cada `it` roda em transação
 // revertida, então limpar aqui não afeta os outros testes nem o banco.
@@ -14,7 +14,7 @@ describe("demo", () => {
   beforeEach(limparDemo);
 
   it("cria o projeto DEMO com marcos e tarefas", () => {
-    const r = gerar();
+    const r = generate();
     expect(r.criados).toContain("DEMO");
     expect(r.criados).toContain("DEMO-01");
     expect(r.criados).toContain("DEMO-02");
@@ -29,8 +29,8 @@ describe("demo", () => {
   });
 
   it("a segunda execução não duplica nada", () => {
-    gerar();
-    const r = gerar();
+    generate();
+    const r = generate();
     expect(r.quantidade).toBe(0);
     expect(r.criados).toHaveLength(0);
     expect(ddcore.db.count("Projeto", { codigo: "DEMO" })).toBe(1);

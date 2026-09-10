@@ -57,7 +57,7 @@ func Apps(ctx context.Context, e *engine.Engine, onChange func()) {
 				// debounce: wait for writes to settle
 				time.Sleep(150 * time.Millisecond)
 				last = snapshot(dirs)
-				e.Log.Info("mudança detectada, recarregando apps")
+				e.Log.Info("change detected, reloading apps")
 				onChange()
 			}
 		}

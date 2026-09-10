@@ -185,7 +185,7 @@ func orderApps(apps []js.App, metas map[string]*AppMeta) ([]js.App, error) {
 		case 2:
 			return nil
 		case 1:
-			return fmt.Errorf("dependência circular entre apps: %s", strings.Join(append(path, name), " → "))
+			return fmt.Errorf("circular dependency between apps: %s", strings.Join(append(path, name), " → "))
 		}
 		state[name] = 1
 		if m := metas[name]; m != nil {
@@ -193,7 +193,7 @@ func orderApps(apps []js.App, metas map[string]*AppMeta) ([]js.App, error) {
 			sort.Strings(reqs)
 			for _, r := range reqs {
 				if _, ok := byName[r]; !ok {
-					return fmt.Errorf("app %s exige %s, que não está instalado", name, r)
+					return fmt.Errorf("app %s requires %s, which is not installed", name, r)
 				}
 				if err := visit(r, append(path, name)); err != nil {
 					return err
@@ -293,7 +293,7 @@ func (e *Engine) Load() error {
 		// runtimes ainda em uso voltam ao pool antigo e são descartados lá
 		old.Pool.Close()
 	}
-	e.Log.Info("apps carregadas", "apps", len(apps), "doctypes", len(reg.DocTypes))
+	e.Log.Info("apps loaded", "apps", len(apps), "doctypes", len(reg.DocTypes))
 	return nil
 }
 
@@ -517,7 +517,7 @@ func abs(p string) string {
 // RunTests executes the app tests inside one rolled-back transaction.
 func (e *Engine) RunTests(ctx context.Context, filter, app string) ([]js.TestResult, error) {
 	if !e.Cfg.Test {
-		return nil, fmt.Errorf("engine não foi carregado em modo de teste")
+		return nil, fmt.Errorf("the engine was not loaded in test mode")
 	}
 	var out []js.TestResult
 	err := e.Run(ctx, "Administrator", func(c *Ctx) error {

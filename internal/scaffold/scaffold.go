@@ -16,7 +16,7 @@ func write(path, content string) error {
 		return err
 	}
 	if _, err := os.Stat(path); err == nil {
-		return fmt.Errorf("%s já existe", path)
+		return fmt.Errorf("%s already exists", path)
 	}
 	return os.WriteFile(path, []byte(content), 0o644)
 }
@@ -27,7 +27,7 @@ func App(dir, name, title string) error {
 		title = strings.ToUpper(name[:1]) + name[1:]
 	}
 	if !meta.ValidIdentAscii(name) {
-		return fmt.Errorf("nome de app inválido %q: use minúsculas, dígitos e _", name)
+		return fmt.Errorf("invalid app name %q: use lowercase letters, digits and _", name)
 	}
 	files := map[string]string{
 		"ddcore.app.ts": fmt.Sprintf(`import { defineApp } from "@ddcore/sdk";
@@ -95,7 +95,7 @@ func tsValue(v any) string {
 // Doctype writes the .doctype.ts (and optional controller/form/test files).
 func Doctype(appDir, appName string, spec DoctypeSpec) ([]string, error) {
 	if spec.Name == "" || len(spec.Fields) == 0 {
-		return nil, fmt.Errorf("name e fields são obrigatórios")
+		return nil, fmt.Errorf("name and fields are required")
 	}
 	snake := meta.Snake(spec.Name)
 	dir := filepath.Join(appDir, "doctypes", snake)

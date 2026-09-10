@@ -397,7 +397,7 @@ func TestDemo(t *testing.T) {
 
 func runDemo(t *testing.T, e *engine.Engine, ctx context.Context) map[string]any {
 	t.Helper()
-	raw, err := e.RunJob(ctx, "Administrator", "exemplo.services.demo.gerar", nil)
+	raw, err := e.RunJob(ctx, "Administrator", "exemplo.services.demo.generate", nil)
 	if err != nil {
 		t.Fatalf("roda a demo: %v", err)
 	}

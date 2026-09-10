@@ -34,7 +34,7 @@ func AccentInsensitive(expr string) string {
 // Ident quotes a Postgres identifier after validating it.
 func Ident(s string) string {
 	if !identRe.MatchString(s) {
-		panic(fmt.Sprintf("identificador inválido: %q", s))
+		panic(fmt.Sprintf("invalid identifier: %q", s))
 	}
 	return `"` + s + `"`
 }
@@ -66,7 +66,7 @@ func (b *Builder) Where(filters []Filter, col func(field string) string) (string
 		}
 		sqlOp, ok := validOps[op]
 		if !ok {
-			return "", fmt.Errorf("operador inválido: %q", f.Op)
+			return "", fmt.Errorf("invalid operator: %q", f.Op)
 		}
 		switch op {
 		case "in", "not in":
@@ -149,7 +149,7 @@ func ParseFilters(v any) ([]Filter, error) {
 		for _, item := range x {
 			arr, ok := item.([]any)
 			if !ok {
-				return nil, fmt.Errorf("filtro inválido: %v", item)
+				return nil, fmt.Errorf("invalid filter: %v", item)
 			}
 			switch len(arr) {
 			case 2:
@@ -159,7 +159,7 @@ func ParseFilters(v any) ([]Filter, error) {
 			case 4:
 				out = append(out, Filter{fmt.Sprint(arr[0]) + "." + fmt.Sprint(arr[1]), fmt.Sprint(arr[2]), arr[3]})
 			default:
-				return nil, fmt.Errorf("filtro inválido: %v", item)
+				return nil, fmt.Errorf("invalid filter: %v", item)
 			}
 		}
 	default:
@@ -181,14 +181,14 @@ func ParseOrderBy(s string, col func(string) string) (string, error) {
 		}
 		c := col(strings.TrimPrefix(strings.TrimSuffix(toks[0], "`"), "`"))
 		if c == "" {
-			return "", fmt.Errorf("campo desconhecido na ordenação: %q", toks[0])
+			return "", fmt.Errorf("unknown field in the ordering: %q", toks[0])
 		}
 		dir := "ASC"
 		if len(toks) > 1 {
 			if d := strings.ToUpper(toks[1]); d == "DESC" {
 				dir = "DESC"
 			} else if d != "ASC" {
-				return "", fmt.Errorf("ordenação inválida: %q", p)
+				return "", fmt.Errorf("invalid ordering: %q", p)
 			}
 		}
 		parts = append(parts, c+" "+dir)

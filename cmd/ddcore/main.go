@@ -27,29 +27,29 @@ import (
 	"github.com/jrvidotti/ddcore/internal/watch"
 )
 
-const usage = `ddcore — framework de aplicações (DocTypes em TypeScript, core em Go, PostgreSQL)
+const usage = `ddcore — an application framework (DocTypes in TypeScript, core in Go, PostgreSQL)
 
-Uso: ddcore <comando> [opções]
+Usage: ddcore <command> [options]
 
-  init        cria ddcore.json no diretório atual
-  new-app     cria um app: ddcore new-app <nome> [--dir apps/<nome>]
-  dev         servidor de desenvolvimento com hot-reload (porta do ddcore.json)
-  start       servidor de produção
-  migrate     aplica DDL, instala apps, roda patches (--dry-run, --prune)
-  types       gera .ddcore/types.d.ts em cada app
-  i18n        i18n extract — reescreve translations/<lang>.csv a partir do código
-  test        roda os *.test.ts (--filter regex, --app nome)
-  exec        executa uma função: ddcore exec app.services.mod.fn --args '{"a":1}'
-  eval        executa TS avulso: ddcore eval 'ddcore.db.count("User")' [--commit]
-  demo        popula dados de exemplo (<app>.services.demo.gerar, idempotente)
+  init        create ddcore.json in the current directory
+  new-app     create an app: ddcore new-app <name> [--dir apps/<name>]
+  dev         development server with hot reload (port from ddcore.json)
+  start       production server
+  migrate     apply DDL, install apps, run patches (--dry-run, --prune)
+  types       generate .ddcore/types.d.ts in every app
+  i18n        i18n extract — rewrite translations/<lang>.csv from the code
+  test        run the *.test.ts (--filter regex, --app name)
+  exec        run a function: ddcore exec app.services.mod.fn --args '{"a":1}'
+  eval        run loose TS: ddcore eval 'ddcore.db.count("User")' [--commit]
+  demo        seed example data (<app>.services.demo.generate, idempotent)
   jobs        jobs list | jobs run <fn> | jobs work
-  user        user add <email> <nome> [--password x] [--role R]... | user passwd <email>
-  apikey      apikey <usuario> [--label x]  → imprime key:secret
-  mcp         servidor MCP (stdio) para agentes
-  docs        imprime a documentação do framework
-  doctor      verifica banco, meta e scheduler
+  user        user add <email> <name> [--password x] [--role R]... | user passwd <email>
+  apikey      apikey <user> [--label x]  → prints key:secret
+  mcp         MCP server (stdio) for agents
+  docs        print the framework documentation
+  doctor      check the database, the meta and the scheduler
 
-Variáveis: DDCORE_DSN sobrescreve o dsn do ddcore.json.
+Variables: DDCORE_DSN overrides the dsn in ddcore.json.
 `
 
 func main() {
@@ -111,7 +111,7 @@ func load(test bool, dev bool) (*engine.Engine, *config.File, error) {
 		return nil, nil, err
 	}
 	if cfg.DSN == "" {
-		return nil, nil, fmt.Errorf("dsn não configurado: rode `ddcore init` ou defina DDCORE_DSN")
+		return nil, nil, fmt.Errorf("dsn not configured: run `ddcore init` or set DDCORE_DSN")
 	}
 	var apps []js.App
 	for _, dir := range cfg.Apps {
@@ -130,7 +130,7 @@ func load(test bool, dev bool) (*engine.Engine, *config.File, error) {
 
 func cmdInit(args []string) error {
 	fs := newFlagSet("init")
-	dsn := fs.String("dsn", "postgres://ddcore:ddcore@localhost:5432/ddcore?sslmode=disable", "conexão Postgres")
+	dsn := fs.String("dsn", "postgres://ddcore:ddcore@localhost:5432/ddcore?sslmode=disable", "Postgres connection")
 	port := fs.Int("port", 8080, "porta HTTP")
 	if err := parseFlags(fs, args); err != nil {
 		return err
@@ -140,7 +140,7 @@ func cmdInit(args []string) error {
 	if _, err := os.Stat(config.Name); err == nil {
 		cur, path, err := config.Load(".")
 		if err != nil {
-			return fmt.Errorf("%s existe mas não pôde ser lido: %w", config.Name, err)
+			return fmt.Errorf("%s exists but could not be read: %w", config.Name, err)
 		}
 		changed := false
 		fs.Visit(func(f *flag.Flag) {
@@ -152,7 +152,7 @@ func cmdInit(args []string) error {
 			}
 		})
 		if !changed {
-			fmt.Printf("%s já existe — nada a fazer (use --dsn/--port para atualizar)\n", config.Name)
+			fmt.Printf("%s already exists — nothing to do (use --dsn/--port to update)\n", config.Name)
 			return nil
 		}
 		if err := cur.Save(path); err != nil {
@@ -171,8 +171,8 @@ func cmdInit(args []string) error {
 
 func cmdNewApp(args []string) error {
 	fs := newFlagSet("new-app")
-	dir := fs.String("dir", "", "diretório (padrão apps/<nome>)")
-	title := fs.String("title", "", "título")
+	dir := fs.String("dir", "", "directory (defaults to apps/<name>)")
+	title := fs.String("title", "", "title")
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
@@ -226,7 +226,7 @@ func cmdServe(args []string, dev bool) error {
 			return err
 		}
 	} else if plan, _ := e.Plan(ctx, false); len(plan) > 0 {
-		e.Log.Warn("há DDL pendente — rode `ddcore migrate`", "statements", len(plan))
+		e.Log.Warn("there is pending DDL — run `ddcore migrate`", "statements", len(plan))
 	}
 	srv := api.New(e, desk.FS())
 	if dev {
@@ -278,8 +278,8 @@ func cmdServe(args []string, dev bool) error {
 
 func cmdMigrate(args []string) error {
 	fs := newFlagSet("migrate")
-	dry := fs.Bool("dry-run", false, "só imprime o DDL")
-	prune := fs.Bool("prune", false, "dropa colunas/tabelas que não estão mais na meta")
+	dry := fs.Bool("dry-run", false, "only print the DDL")
+	prune := fs.Bool("prune", false, "drop columns and tables the meta no longer has")
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
@@ -358,7 +358,7 @@ func cmdTest(args []string) error {
 			}
 		}
 		if !found {
-			return fmt.Errorf("app não carregado: %s", *app)
+			return fmt.Errorf("app not loaded: %s", *app)
 		}
 	}
 	ctx := context.Background()
@@ -418,7 +418,7 @@ func cmdExec(args []string) error {
 
 func cmdEval(args []string) error {
 	fs := newFlagSet("eval")
-	commit := fs.Bool("commit", false, "grava a transação (padrão: rollback)")
+	commit := fs.Bool("commit", false, "commit the transaction (default: rollback)")
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
@@ -454,10 +454,10 @@ func readAll(f *os.File) (string, error) {
 	return b.String(), sc.Err()
 }
 
-// cmdDemo runs `<app>.services.demo.gerar` for every app that whitelists it.
+// cmdDemo runs `<app>.services.demo.generate` for every app that whitelists it.
 func cmdDemo(args []string) error {
 	fs := newFlagSet("demo")
-	app := fs.String("app", "", "só este app (padrão: todos que tiverem demo)")
+	app := fs.String("app", "", "only this app (default: every app that has a demo)")
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
@@ -471,14 +471,14 @@ func cmdDemo(args []string) error {
 		if *app != "" && name != *app {
 			continue
 		}
-		// `gerar` não precisa ser whitelisted (roda como Administrator), então
+		// `generate` does not need to ser whitelisted (roda como Administrator), então
 		// a existência do app se verifica pelo arquivo
 		if dir := e.AppDir(name); dir == "" {
 			continue
 		} else if _, err := os.Stat(filepath.Join(dir, "services", "demo.ts")); err != nil {
 			continue
 		}
-		method := name + ".services.demo.gerar"
+		method := name + ".services.demo.generate"
 		res, err := e.RunJob(context.Background(), "Administrator", method, nil)
 		if err != nil {
 			return fmt.Errorf("%s: %w", method, err)
@@ -487,7 +487,7 @@ func cmdDemo(args []string) error {
 		ran++
 	}
 	if ran == 0 {
-		return fmt.Errorf("nenhum app tem `services/demo.ts`")
+		return fmt.Errorf("no app has `services/demo.ts`")
 	}
 	return nil
 }
@@ -547,7 +547,7 @@ func cmdUser(args []string) error {
 		fs := newFlagSet("user add")
 		pw := fs.String("password", "", "senha")
 		var roles multi
-		fs.Var(&roles, "role", "papel (repetível)")
+		fs.Var(&roles, "role", "role (repeatable)")
 		if err := parseFlags(fs, args[1:]); err != nil {
 			return err
 		}
@@ -566,7 +566,7 @@ func cmdUser(args []string) error {
 			doc["roles"] = rs
 			_, err = c.Insert(doc, engine.SaveOpts{IgnorePermissions: true})
 			if err == nil {
-				fmt.Println("usuário criado:", fs.Arg(0))
+				fmt.Println("user created:", fs.Arg(0))
 			}
 			return err
 		})
@@ -591,7 +591,7 @@ func (m *multi) Set(s string) error { *m = append(*m, s); return nil }
 
 func cmdAPIKey(args []string) error {
 	fs := newFlagSet("apikey")
-	label := fs.String("label", "cli", "descrição")
+	label := fs.String("label", "cli", "description")
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
