@@ -17,8 +17,8 @@ docker-logs: ## visualiza os logs do postgres em tempo real
 docker-status: ## exibe o status dos containers docker
 	docker compose ps
 
-docker-psql: ## abre terminal psql interativo no banco de desenvolvimento (cerne_dev)
-	docker compose exec postgres psql -U cerne -d cerne_dev
+docker-psql: ## abre terminal psql interativo no banco de desenvolvimento (ddcore_dev)
+	docker compose exec postgres psql -U ddcore -d ddcore_dev
 
 db-up: docker-up ## alias para docker-up
 db-down: docker-down ## alias para docker-down
@@ -27,14 +27,14 @@ db-status: docker-status ## alias para docker-status
 db-psql: docker-psql ## alias para docker-psql
 
 build: desk ## compila desk + binário
-	go build -o bin/cerne ./cmd/cerne
+	go build -o bin/ddcore ./cmd/ddcore
 
 desk: ## compila o desk (SvelteKit) para desk/build (embutido no binário)
 	cd desk && npm install --silent && npm run build
 
 check: ## verifica os tipos do desk, sem banco
 	cd desk && npm install --silent && npm run check
-	./bin/cerne types
+	./bin/ddcore types
 	cd desk && npx tsc -p ../apps/exemplo/tsconfig.json --noEmit
 
 vet: ## análise estática do Go
@@ -45,11 +45,11 @@ test-desk: ## svelte-check + testes unitários do desk
 
 test: build vet ## testes Go e do desk
 	go test ./internal/...
-	./bin/cerne test --app exemplo
+	./bin/ddcore test --app exemplo
 	$(MAKE) test-desk
 
 dev: ## servidor de desenvolvimento
-	./bin/cerne dev
+	./bin/ddcore dev
 
 stop: ## encerra o processo rodando na porta especificada (padrão PORT=8090, ex: make stop PORT=8090)
 	@PID=$$(lsof -ti tcp:$(PORT) -sTCP:LISTEN 2>/dev/null); \
@@ -64,4 +64,4 @@ stop: ## encerra o processo rodando na porta especificada (padrão PORT=8090, ex
 kill: stop ## alias para stop
 
 migrate: ## aplica as migrações de schema
-	./bin/cerne migrate
+	./bin/ddcore migrate

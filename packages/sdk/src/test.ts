@@ -1,4 +1,4 @@
-// Minimal test API available inside `cerne test`.
+// Minimal test API available inside `ddcore test`.
 export interface Expect<T> {
   toBe(v: T): void;
   toEqual(v: any): void;

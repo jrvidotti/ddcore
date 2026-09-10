@@ -1,7 +1,7 @@
-// @cerne/desk-sdk — types for app client scripts (*.form.ts and client/*.ts).
-// At runtime the cerne bundler resolves this module to window.__cerneDesk,
+// @ddcore/desk-sdk — types for app client scripts (*.form.ts and client/*.ts).
+// At runtime the ddcore bundler resolves this module to window.__ddcoreDesk,
 // implemented in desk/src/lib/desk-sdk.ts.
-import type { BaseDoc, FieldDef, Filters } from "@cerne/sdk";
+import type { BaseDoc, FieldDef, Filters } from "@ddcore/sdk";
 
 export interface Frm<T extends BaseDoc = BaseDoc> {
   doc: T;
@@ -119,7 +119,7 @@ export interface ListViewOptions<T extends BaseDoc = BaseDoc> {
 }
 
 export declare function defineListView<T extends BaseDoc = BaseDoc>(doctype: string, opts: ListViewOptions<T>): void;
-export declare const cerne: DeskAPI;
+export declare const ddcore: DeskAPI;
 export declare const _: DeskAPI["_"];
 
 declare global {

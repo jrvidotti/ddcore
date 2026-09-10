@@ -1,5 +1,5 @@
-import { defineListView } from "@cerne/desk-sdk";
-import type { Tarefa } from "../.cerne/types";
+import { defineListView } from "@ddcore/desk-sdk";
+import type { Tarefa } from "../.ddcore/types";
 
 const CORES: Record<string, string> = { Aberta: "blue", "Em andamento": "yellow", Atrasada: "red", Concluída: "green" };
 const ROTULOS: Record<string, string> = { Aberta: "Open", "Em andamento": "In progress", Atrasada: "Overdue", Concluída: "Completed" };

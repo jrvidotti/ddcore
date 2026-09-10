@@ -9,5 +9,5 @@
 {#if home}
   <Workspace name={home} />
 {:else}
-  <div class="page"><div class="card empty">Nenhum workspace. Crie um app com <span class="kbd">cerne new-app</span> e declare um workspace.</div></div>
+  <div class="page"><div class="card empty">Nenhum workspace. Crie um app com <span class="kbd">ddcore new-app</span> e declare um workspace.</div></div>
 {/if}

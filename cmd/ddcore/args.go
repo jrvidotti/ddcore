@@ -10,9 +10,9 @@ import (
 // every documented example that puts options *after* the arguments silently did
 // nothing:
 //
-//	cerne exec app.services.mod.fn --args '{"a":1}'   → --args ficava em Args()
-//	cerne user add ana@x.com Ana --password s --role R → o nome virava "Ana --password s ..."
-//	cerne eval 'cerne.db.count("User")' --commit       → --commit entrava no código
+//	ddcore exec app.services.mod.fn --args '{"a":1}'   → --args ficava em Args()
+//	ddcore user add ana@x.com Ana --password s --role R → o nome virava "Ana --password s ..."
+//	ddcore eval 'ddcore.db.count("User")' --commit       → --commit entrava no código
 //
 // reorder moves the known flags (and their values) ahead of the positionals so
 // a plain Parse sees them, and refuses anything that is not a declared flag
@@ -39,7 +39,7 @@ func reorder(fs *flag.FlagSet, args []string) ([]string, error) {
 		}
 		f := fs.Lookup(name)
 		if f == nil {
-			return nil, fmt.Errorf("flag desconhecida: %s (rode `cerne %s -h` para ver as opções)", a, fs.Name())
+			return nil, fmt.Errorf("flag desconhecida: %s (rode `ddcore %s -h` para ver as opções)", a, fs.Name())
 		}
 		switch {
 		case inline:

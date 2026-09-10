@@ -9,7 +9,7 @@ Data: 10/09/2026. Referência: `docs/plan-v1.md`. Commit revisado: `f54ea30`.
 
 A implementação cobre boa parte da arquitetura e das funcionalidades previstas, mas **a v1 ainda não atende integralmente ao plano nem está pronta para exposição a usuários reais**. Há falhas críticas de autorização, perda de atualização concorrente, resultados financeiros incorretos e requisitos incompletos. Os testes existentes passam, porém não cobrem esses cenários.
 
-Esta revisão produziu somente este relatório. As reproduções adicionais foram feitas com código temporário, removido ao concluir, usando um schema descartável no banco `cerne_test`. Não foram aplicadas correções à implementação nem usadas as tabelas de `cerne_dev` para as reproduções.
+Esta revisão produziu somente este relatório. As reproduções adicionais foram feitas com código temporário, removido ao concluir, usando um schema descartável no banco `ddcore_test`. Não foram aplicadas correções à implementação nem usadas as tabelas de `ddcore_dev` para as reproduções.
 
 Prioridades: **P0** = corrigir antes de expor o serviço; **P1** = bloqueia confiabilidade/aceite da v1; **P2** = funcionalidade incompleta ou defeito de menor alcance. “Reproduzido” indica execução observada; “inspeção” indica causa identificada no código, sem teste integrado daquele cenário.
 
@@ -20,11 +20,11 @@ Prioridades: **P0** = corrigir antes de expor o serviço; **P1** = bloqueia conf
 | `go test -count=1 -v ./internal/...`, antes dos probes temporários | Passou: lifecycle com Postgres, bundle/runtime e meta. Vários pacotes não possuem testes. |
 | Migração do core + alugueis em schema vazio | Passou, com 20 DocTypes carregados. |
 | Planejamento de DDL imediatamente após migrar | Nenhuma instrução pendente. |
-| Suíte TS via `Engine.RunTests`, mesma API usada por `cerne test` | **57 testes, nenhuma falha**. Executada no schema isolado após migração. |
+| Suíte TS via `Engine.RunTests`, mesma API usada por `ddcore test` | **57 testes, nenhuma falha**. Executada no schema isolado após migração. |
 | `npm run check`, em `desk/` | **Falhou: 10 erros e 7 avisos** em 11 arquivos. |
 | `npm run build`, em `desk/` | Passou, com avisos de acessibilidade. O build não substitui a checagem de tipos. |
 | `go vet ./...` | Passou. |
-| Compilação do CLI atual para `/private/tmp/cerne-check-v1` | Binário gerado. |
+| Compilação do CLI atual para `/private/tmp/ddcore-check-v1` | Binário gerado. |
 | `tsc --noEmit -p apps/alugueis/tsconfig.json`, com o TypeScript instalado no Desk | Falhou: `ignoreDeprecations: "6.0"` é inválido no TypeScript 5.9.3 instalado. |
 | Mesmo comando com `--ignoreDeprecations 5.0`, sem editar configuração | Revelou mais **5 erros de tipos** no app. |
 | Probes adicionais usando `httptest`, engine, runtime e Postgres | Confirmaram os casos indicados abaixo, incluindo MCP sem autenticação, edição de filhos como Guest, CTE de escrita e perda de atualização. |
@@ -47,7 +47,7 @@ Limites: não foi executado o fluxo visual completo de login → cadastros → p
 | Desk | Parcial | Rotas, list/form, grid, dialogs, scripts e sidebar explícita existem. Faltam filtro avançado e gráfico de linha; há erros de tipos e defeitos de ciclo de vida/datas. |
 | Reports e workspace | Parcial | Três relatórios e workspace presentes; há erros de posição histórica e recebimento mensal. |
 | Jobs/scheduler | Parcial | Fila Postgres, SKIP LOCKED, retry e cron presentes; timeout e recuperação de jobs interrompidos ausentes. |
-| CLI/MCP/docs | Parcial | Grande parte dos comandos/tools/resources existe. `cerne demo` não existe; flags documentadas após posicionais não são interpretadas corretamente; eval não transpila TS. |
+| CLI/MCP/docs | Parcial | Grande parte dos comandos/tools/resources existe. `ddcore demo` não existe; flags documentadas após posicionais não são interpretadas corretamente; eval não transpila TS. |
 | Testes portados | Parcial | Sete grupos de domínio foram portados, mas faltam equivalentes de instalação e tradução. |
 
 Dos cinco critérios finais de pronto: **(1)** mecanismo de migração validado parcialmente, com problema no roteiro literal de `init`; **(2)** 57 testes passam, mas a cobertura portável ainda está incompleta; **(3)** fluxo visual não certificado; **(4)** tools presentes e chamada MCP exercitada, mas cadeia completa não certificada e autenticação reprovada; **(5)** mandatory no servidor, sidebar explícita e scheduler no boot estão presentes, com ressalvas de idioma e testes de interface descritas abaixo.
@@ -56,9 +56,9 @@ Dos cinco critérios finais de pronto: **(1)** mecanismo de migração validado 
 
 ### B01 — P0 — MCP HTTP permite executar ferramentas administrativas sem autenticação
 
-**Reproduzido.** `cmd/cerne/main.go:204` monta `/mcp` diretamente no router. O middleware `internal/api/api.go:158` transforma ausência de credenciais em `Guest`, sem bloquear a rota. As tools executam por `internal/mcp/mcp.go:489`, que sempre usa `Administrator`.
+**Reproduzido.** `cmd/ddcore/main.go:204` monta `/mcp` diretamente no router. O middleware `internal/api/api.go:158` transforma ausência de credenciais em `Guest`, sem bloquear a rota. As tools executam por `internal/mcp/mcp.go:489`, que sempre usa `Administrator`.
 
-Uma requisição HTTP sem cookie e sem Authorization, com o handler montado como em `cerne dev`, executou `tools/call` → `sql_query` e retornou HTTP 200 com o usuário do banco. Payload de reprodução não destrutivo:
+Uma requisição HTTP sem cookie e sem Authorization, com o handler montado como em `ddcore dev`, executou `tools/call` → `sql_query` e retornou HTTP 200 com o usuário do banco. Payload de reprodução não destrutivo:
 
 ```json
 {"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"sql_query","arguments":{"query":"SELECT current_user AS db_user"}}}
@@ -242,7 +242,7 @@ No Desk, `frm.call` carrega `res.doc` (`desk/src/lib/form.svelte.ts`), em vez de
 
 ### B22 — P2 — CLI diverge dos exemplos e eval não executa TypeScript tipado
 
-**Inspeção das flags; eval reproduzido.** `cmd/cerne/main.go:349`, `:373`, `:449` e `:141` usam `flag.FlagSet.Parse`, que encerra a leitura de flags no primeiro argumento posicional. Exemplos como `cerne exec caminho --args ...` não configuram `args`; `user add email nome --password ... --role ...` incorpora opções ao nome e não aplica senha/papéis. Em eval, `--commit` após o código acaba incluído no texto avaliado.
+**Inspeção das flags; eval reproduzido.** `cmd/ddcore/main.go:349`, `:373`, `:449` e `:141` usam `flag.FlagSet.Parse`, que encerra a leitura de flags no primeiro argumento posicional. Exemplos como `ddcore exec caminho --args ...` não configuram `args`; `user add email nome --password ... --role ...` incorpora opções ao nome e não aplica senha/papéis. Em eval, `--commit` após o código acaba incluído no texto avaliado.
 
 Além disso, `Runtime.Eval` usa eval JavaScript direto (`internal/js/prelude.js:447`), sem esbuild. **`const x: number = 1; x` falhou com SyntaxError**, apesar da interface anunciada como TS.
 
@@ -252,9 +252,9 @@ Além disso, `Runtime.Eval` usa eval JavaScript direto (`internal/js/prelude.js:
 
 **Inspeção e execução dos testes disponíveis.** O POC contém `tests/test_install.py` e `tests/test_traducao.py`, seis testes em cada, sem equivalentes neste port. Os sete grupos de domínio do POC totalizam 55 casos; o port tem 57, mas esse aumento não substitui os dois grupos ausentes. Nem todos os testes específicos de Frappe precisam ser copiados literalmente; precisam de equivalentes para os comportamentos ainda exigidos, especialmente rota inicial e precedência/consistência de tradução.
 
-`internal/engine/engine_test.go:75` ignora `CERNE_TEST_DSN`, usa endereço fixo e recria `cerne_test`. Se o Postgres estiver indisponível, pula o único teste de lifecycle. `make test` chama `./bin/cerne test` sem depender da compilação: pode faltar binário em checkout limpo ou executar binário antigo.
+`internal/engine/engine_test.go:75` ignora `DDCORE_TEST_DSN`, usa endereço fixo e recria `ddcore_test`. Se o Postgres estiver indisponível, pula o único teste de lifecycle. `make test` chama `./bin/ddcore test` sem depender da compilação: pode faltar binário em checkout limpo ou executar binário antigo.
 
-O checkout já contém `cerne.json`, e `cerne init` falha se ele existir; portanto, o roteiro literal `init && migrate` do plano não funciona ali. O comando `cerne demo` não existe, embora haja `make demo` chamando um serviço. Também não foram encontrados a cópia do design e os planos por fase em `docs/superpowers/` previstos no documento.
+O checkout já contém `ddcore.json`, e `ddcore init` falha se ele existir; portanto, o roteiro literal `init && migrate` do plano não funciona ali. O comando `ddcore demo` não existe, embora haja `make demo` chamando um serviço. Também não foram encontrados a cópia do design e os planos por fase em `docs/superpowers/` previstos no documento.
 
 **Correção sugerida:** criar um comando de verificação reproduzível que compile o código atual, use DSN de teste configurável e falhe claramente quando a integração obrigatória não puder rodar; completar os testes de aceite e ajustar os comandos/documentos de bootstrap.
 

@@ -15,18 +15,18 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jrvidotti/cerne/internal/engine"
-	"github.com/jrvidotti/cerne/internal/js"
-	"github.com/jrvidotti/cerne/internal/mcp"
+	"github.com/jrvidotti/ddcore/internal/engine"
+	"github.com/jrvidotti/ddcore/internal/js"
+	"github.com/jrvidotti/ddcore/internal/mcp"
 )
 
-// The api tests use the database named in CERNE_TEST_DSN with an "_api"
+// The api tests use the database named in DDCORE_TEST_DSN with an "_api"
 // suffix so they never collide with the engine package tests; that database
 // is dropped and recreated by setup.
 func testDSN() (dsn, adminDSN, dbName string) {
-	base := os.Getenv("CERNE_TEST_DSN")
+	base := os.Getenv("DDCORE_TEST_DSN")
 	if base == "" {
-		base = "postgres://cerne:cerne@localhost:5455/cerne_test?sslmode=disable"
+		base = "postgres://ddcore:ddcore@localhost:5455/ddcore_test?sslmode=disable"
 	}
 	u, err := url.Parse(base)
 	if err != nil {
@@ -45,9 +45,9 @@ func testApp(t *testing.T) string {
 		os.MkdirAll(filepath.Join(dir, filepath.Dir(rel)), 0o755)
 		os.WriteFile(filepath.Join(dir, rel), []byte(src), 0o644)
 	}
-	w("cerne.app.ts", `import { defineApp } from "@cerne/sdk";
+	w("ddcore.app.ts", `import { defineApp } from "@ddcore/sdk";
 export default defineApp({ name: "demo", title: "Demo", roles: ["Gestor"] });`)
-	w("doctypes/pessoa/pessoa.doctype.ts", `import { defineDoctype } from "@cerne/sdk";
+	w("doctypes/pessoa/pessoa.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
 export default defineDoctype({ name: "Pessoa", naming: { field: "nome" }, titleField: "nome", trackChanges: true,
   fields: [
     { fieldname: "nome", fieldtype: "Data", label: "Nome", reqd: true },
@@ -55,17 +55,17 @@ export default defineDoctype({ name: "Pessoa", naming: { field: "nome" }, titleF
     { fieldname: "contatos", fieldtype: "Table", label: "Contatos", options: "Contato Pessoa" },
   ],
   permissions: [{ role: "Gestor", read: true, write: true, create: true, delete: true, report: true }, { role: "All", read: true, ifOwner: true }] });`)
-	w("doctypes/contato_pessoa/contato_pessoa.doctype.ts", `import { defineDoctype } from "@cerne/sdk";
+	w("doctypes/contato_pessoa/contato_pessoa.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
 export default defineDoctype({ name: "Contato Pessoa", isChild: true, fields: [
   { fieldname: "telefone", fieldtype: "Data", label: "Telefone" } ] });`)
-	w("doctypes/item/item.doctype.ts", `import { defineDoctype } from "@cerne/sdk";
+	w("doctypes/item/item.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
 export default defineDoctype({ name: "Item Pedido", isChild: true, fields: [
   { fieldname: "descricao", fieldtype: "Data", label: "Descrição", reqd: true },
   { fieldname: "qtd", fieldtype: "Int", label: "Qtd", default: 1 } ] });`)
-	w("doctypes/nota/nota.doctype.ts", `import { defineDoctype } from "@cerne/sdk";
+	w("doctypes/nota/nota.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
 export default defineDoctype({ name: "Nota Pedido", isChild: true, fields: [
   { fieldname: "texto", fieldtype: "Data", label: "Texto" } ] });`)
-	w("doctypes/pedido/pedido.doctype.ts", `import { defineDoctype } from "@cerne/sdk";
+	w("doctypes/pedido/pedido.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
 export default defineDoctype({ name: "Pedido", naming: { series: "PED-.####" }, submittable: true, trackChanges: true,
   fields: [
     { fieldname: "cliente", fieldtype: "Link", label: "Cliente", options: "Pessoa", reqd: true },
@@ -74,7 +74,7 @@ export default defineDoctype({ name: "Pedido", naming: { series: "PED-.####" }, 
     { fieldname: "notas", fieldtype: "Table", label: "Notas", options: "Nota Pedido", allowOnSubmit: true },
   ],
   permissions: [{ role: "Gestor", read: true, write: true, create: true, delete: true, submit: true, cancel: true, amend: true, report: true }] });`)
-	w("workspaces/demo.workspace.ts", `import { defineWorkspace } from "@cerne/sdk";
+	w("workspaces/demo.workspace.ts", `import { defineWorkspace } from "@ddcore/sdk";
 export default defineWorkspace({ name: "Demo", label: "Demo", roles: ["Gestor"],
   sidebar: [{ label: "Pessoas", doctype: "Pessoa" }],
   numberCards: [
@@ -82,13 +82,13 @@ export default defineWorkspace({ name: "Demo", label: "Demo", roles: ["Gestor"],
     { name: "segredo", label: "Segredo", method() { return { value: 42 }; } },
   ],
   charts: [{ name: "grafico", label: "Gráfico", type: "bar", method() { return { type: "bar", labels: ["a"], datasets: [{ name: "x", values: [1] }] }; } }] });`)
-	w("workspaces/aberto.workspace.ts", `import { defineWorkspace } from "@cerne/sdk";
+	w("workspaces/aberto.workspace.ts", `import { defineWorkspace } from "@ddcore/sdk";
 export default defineWorkspace({ name: "Aberto", label: "Aberto", sidebar: [],
   numberCards: [{ name: "pedidos", label: "Pedidos", doctype: "Pedido" }] });`)
-	w("reports/pessoas.report.ts", `import { defineReport } from "@cerne/sdk";
+	w("reports/pessoas.report.ts", `import { defineReport } from "@ddcore/sdk";
 export default defineReport({ name: "Pessoas", refDoctype: "Pessoa", roles: ["Gestor"], filters: [],
-  execute() { return { columns: [{ fieldname: "name", label: "Nome" }], rows: cerne.db.getList("Pessoa", { fields: ["name"] }) }; } });`)
-	w("reports/livre.report.ts", `import { defineReport } from "@cerne/sdk";
+  execute() { return { columns: [{ fieldname: "name", label: "Nome" }], rows: ddcore.db.getList("Pessoa", { fields: ["name"] }) }; } });`)
+	w("reports/livre.report.ts", `import { defineReport } from "@ddcore/sdk";
 export default defineReport({ name: "Livre", refDoctype: "Pedido", filters: [],
   execute() { return { columns: [], rows: [] }; } });`)
 	return dir
@@ -107,12 +107,12 @@ func setup(t *testing.T) *env {
 	ctx := context.Background()
 	dsn, adminDSN, dbName := testDSN()
 	if dbName == "" {
-		t.Fatal("CERNE_TEST_DSN inválida")
+		t.Fatal("DDCORE_TEST_DSN inválida")
 	}
 	e0, err := engine.New(ctx, engine.Config{DSN: adminDSN})
 	if err != nil {
-		if os.Getenv("CERNE_TEST_DSN") != "" {
-			t.Fatalf("postgres indisponível em CERNE_TEST_DSN: %v", err)
+		if os.Getenv("DDCORE_TEST_DSN") != "" {
+			t.Fatalf("postgres indisponível em DDCORE_TEST_DSN: %v", err)
 		}
 		t.Skipf("postgres indisponível: %v", err)
 	}

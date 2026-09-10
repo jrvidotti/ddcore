@@ -1,4 +1,4 @@
-import { defineWorkspace, _ } from "@cerne/sdk";
+import { defineWorkspace, _ } from "@ddcore/sdk";
 import { resumoPorStatus, rotuloStatus } from "../services/tarefas";
 
 export default defineWorkspace({

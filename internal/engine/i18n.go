@@ -6,7 +6,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/jrvidotti/cerne/internal/js"
+	"github.com/jrvidotti/ddcore/internal/js"
 )
 
 // I18n holds the merged translation catalogue: core first, then each app

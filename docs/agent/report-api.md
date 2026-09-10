@@ -1,12 +1,12 @@
 # Relatórios, workspaces, cards e charts
 
 ```ts
-import { defineReport, _ } from "@cerne/sdk";
+import { defineReport, _ } from "@ddcore/sdk";
 export default defineReport({
   name: "Contratos a Vencer", refDoctype: "Contrato", roles: ["Gestor"],
   filters: [{ fieldname: "dias", label: "Dias", fieldtype: "Int", default: 90, reqd: true }, { fieldname: "imovel", fieldtype: "Link", options: "Imovel", label: "Imóvel" }],
   execute(filters, ctx) {
-    const rows = cerne.db.getList("Contrato", { filters: {...}, fields: [...], limit: 10000 });
+    const rows = ddcore.db.getList("Contrato", { filters: {...}, fields: [...], limit: 10000 });
     return {
       columns: [{ fieldname: "name", label: _("Contrato"), fieldtype: "Link", options: "Contrato", width: 140 }, ...],
       rows,
@@ -20,7 +20,7 @@ Defaults de filtro Date: `"Today"`, `"month_start"`, `"month_end"`, `"-11m"` (in
 Rota: `/app/report/<nome>`; API: `GET /api/report/<nome>?filters={...}`.
 
 ```ts
-import { defineWorkspace } from "@cerne/sdk";
+import { defineWorkspace } from "@ddcore/sdk";
 export default defineWorkspace({
   name: "Comercial", label: "Comercial", icon: "briefcase", roles: ["Gestor"],
   sidebar: [{ label: "Visão Geral", route: "/app/workspace/Comercial", icon: "layout-dashboard" }, { label: "Contratos", doctype: "Contrato", icon: "notepad-text" }, { label: "Cadastros" /* sem link = cabeçalho */ }, { label: "Relatório X", report: "Relatório X" }],
@@ -35,4 +35,4 @@ export default defineWorkspace({
 });
 ```
 Ícones: subconjunto lucide (`building-2, users, user, notepad-text, receipt, list, bar-chart-3, layout-dashboard, shield, paperclip, message-square, house, tag, history, settings`).
-`desk.home` no `cerne.app.ts` define o workspace inicial.
+`desk.home` no `ddcore.app.ts` define o workspace inicial.

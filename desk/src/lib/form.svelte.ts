@@ -1,6 +1,6 @@
 // FormController — the `frm` object form scripts receive. Holds the doc as
 // reactive state, tracks dirtiness and exposes the API described in
-// @cerne/desk-sdk (setValue, addButton, call, setQuery...).
+// @ddcore/desk-sdk (setValue, addButton, call, setQuery...).
 import { api } from "./api";
 import { getMeta, newDoc, type Meta, type Field, isLayout } from "./meta";
 import { evalExpr } from "./expr";
@@ -39,7 +39,7 @@ export async function loadFormScript(meta: Meta) {
   if (loadedScripts.has(url)) return;
   loadedScripts.add(url);
   try {
-    await import(/* @vite-ignore */ url + "?v=" + (window as any).__cerneLoaded);
+    await import(/* @vite-ignore */ url + "?v=" + (window as any).__ddcoreLoaded);
   } catch (e) {
     console.error("form script", url, e);
     toast(__("Falha ao carregar o script do formulário: {0}", [String(e)]), { indicator: "red" });

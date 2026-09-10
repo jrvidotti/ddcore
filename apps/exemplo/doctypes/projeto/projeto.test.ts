@@ -1,10 +1,10 @@
-import "@cerne/sdk/test";
-import type { Projeto, Tarefa } from "../../.cerne/types";
+import "@ddcore/sdk/test";
+import type { Projeto, Tarefa } from "../../.ddcore/types";
 
-const u = () => cerne.utils;
+const u = () => ddcore.utils;
 
 function criarProjeto(valores: Partial<Projeto> = {}) {
-  return cerne.newDoc<Projeto>("Projeto", {
+  return ddcore.newDoc<Projeto>("Projeto", {
     codigo: "P-" + u().randomString(6),
     titulo: "Projeto de teste",
     responsavel: "Administrator",
@@ -14,7 +14,7 @@ function criarProjeto(valores: Partial<Projeto> = {}) {
 }
 
 function criarTarefa(projeto: string, valores: Partial<Tarefa> = {}) {
-  return cerne.newDoc<Tarefa>("Tarefa", {
+  return ddcore.newDoc<Tarefa>("Tarefa", {
     codigo: "T-" + u().randomString(6),
     projeto,
     titulo: "Tarefa de teste",
@@ -37,7 +37,7 @@ describe("Projeto", () => {
   });
 
   it("marco concluído exige a data de conclusão", () => {
-    const p = cerne.newDoc<Projeto>("Projeto", {
+    const p = ddcore.newDoc<Projeto>("Projeto", {
       codigo: "P-" + u().randomString(6),
       titulo: "Com marco",
       responsavel: "Administrator",

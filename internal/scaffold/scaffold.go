@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/jrvidotti/cerne/internal/meta"
+	"github.com/jrvidotti/ddcore/internal/meta"
 )
 
 func write(path, content string) error {
@@ -30,7 +30,7 @@ func App(dir, name, title string) error {
 		return fmt.Errorf("nome de app inválido %q: use minúsculas, dígitos e _", name)
 	}
 	files := map[string]string{
-		"cerne.app.ts": fmt.Sprintf(`import { defineApp } from "@cerne/sdk";
+		"ddcore.app.ts": fmt.Sprintf(`import { defineApp } from "@ddcore/sdk";
 
 export default defineApp({
   name: %q,
@@ -41,19 +41,19 @@ export default defineApp({
   desk: { include: [] },
 });
 `, name, title, name),
-		"CLAUDE.md": fmt.Sprintf(`# App %s (cerne)
+		"CLAUDE.md": fmt.Sprintf(`# App %s (ddcore)
 
-App do framework **cerne**: DocTypes em TypeScript, core em Go, PostgreSQL.
+App do framework **ddcore**: DocTypes em TypeScript, core em Go, PostgreSQL.
 
 - `+"`doctypes/<snake>/<snake>.doctype.ts`"+` — meta (`+"`defineDoctype`"+`). Fieldnames em snake_case ASCII.
 - `+"`doctypes/<snake>/<snake>.controller.ts`"+` — regras (`+"`defineController`"+`): validate, onSubmit, methods.
 - `+"`doctypes/<snake>/<snake>.form.ts`"+` — script do desk (`+"`defineForm`"+`).
-- `+"`doctypes/<snake>/<snake>.test.ts`"+` — testes (`+"`cerne test`"+`), cada `+"`it`"+` roda em transação revertida.
+- `+"`doctypes/<snake>/<snake>.test.ts`"+` — testes (`+"`ddcore test`"+`), cada `+"`it`"+` roda em transação revertida.
 - `+"`services/*.ts`"+` — funções de negócio; exporte com `+"`whitelisted()`"+` para expor em `+"`/api/method/%s.services.<arquivo>.<fn>`"+`.
 - `+"`reports/*.report.ts`"+`, `+"`workspaces/*.workspace.ts`"+`, `+"`patches/NNNN_*.ts`"+`, `+"`translations/pt-BR.csv`"+`.
 
-Comandos: `+"`cerne dev`"+` (hot-reload + auto-migrate), `+"`cerne migrate --dry-run`"+`, `+"`cerne test`"+`, `+"`cerne types`"+`, `+"`cerne eval '<ts>'`"+`.
-Referência completa: `+"`cerne docs`"+` ou os resources `+"`cerne://docs/*`"+` do MCP (`+"`cerne mcp`"+`).
+Comandos: `+"`ddcore dev`"+` (hot-reload + auto-migrate), `+"`ddcore migrate --dry-run`"+`, `+"`ddcore test`"+`, `+"`ddcore types`"+`, `+"`ddcore eval '<ts>'`"+`.
+Referência completa: `+"`ddcore docs`"+` ou os resources `+"`ddcore://docs/*`"+` do MCP (`+"`ddcore mcp`"+`).
 
 Regras que não mudam: código de servidor é **síncrono** (sem await); `+"`mandatoryDependsOn`"+` é validado no servidor; nunca chame commit.
 `, title, name),
@@ -140,7 +140,7 @@ func Doctype(appDir, appName string, spec DoctypeSpec) ([]string, error) {
 	var written []string
 	body := strings.TrimSpace(tsValue(def))
 	body = strings.TrimSuffix(strings.TrimPrefix(body, "{"), "}")
-	src := "import { defineDoctype } from \"@cerne/sdk\";\n\nexport default defineDoctype({" + body + "\n});\n"
+	src := "import { defineDoctype } from \"@ddcore/sdk\";\n\nexport default defineDoctype({" + body + "\n});\n"
 	p := filepath.Join(dir, snake+".doctype.ts")
 	if err := write(p, src); err != nil {
 		return nil, err
@@ -149,12 +149,12 @@ func Doctype(appDir, appName string, spec DoctypeSpec) ([]string, error) {
 	iface := strings.ReplaceAll(spec.Name, " ", "")
 	if spec.WithController && !spec.IsChild {
 		p := filepath.Join(dir, snake+".controller.ts")
-		src := fmt.Sprintf(`import { defineController, _ } from "@cerne/sdk";
-import type { %s } from "../../.cerne/types";
+		src := fmt.Sprintf(`import { defineController, _ } from "@ddcore/sdk";
+import type { %s } from "../../.ddcore/types";
 
 export default defineController<%s>(%q, {
   validate(doc, ctx) {
-    // regras de validação; cerne.throw(_("mensagem"), { title: _("Título") })
+    // regras de validação; ddcore.throw(_("mensagem"), { title: _("Título") })
   },
   methods: {
     // exemplo: chamado pelo desk com frm.call("exemplo", { x: 1 })
@@ -169,7 +169,7 @@ export default defineController<%s>(%q, {
 	}
 	if spec.WithForm && !spec.IsChild {
 		p := filepath.Join(dir, snake+".form.ts")
-		src := fmt.Sprintf(`import { defineForm } from "@cerne/desk-sdk";
+		src := fmt.Sprintf(`import { defineForm } from "@ddcore/desk-sdk";
 
 defineForm(%q, {
   refresh(frm) {
@@ -187,11 +187,11 @@ defineForm(%q, {
 	}
 	if spec.WithTest && !spec.IsChild {
 		p := filepath.Join(dir, snake+".test.ts")
-		src := fmt.Sprintf(`import "@cerne/sdk/test";
+		src := fmt.Sprintf(`import "@ddcore/sdk/test";
 
 describe(%q, () => {
   it("cria um documento", () => {
-    const doc = cerne.newDoc(%q, {});
+    const doc = ddcore.newDoc(%q, {});
     // preencha os campos obrigatórios antes de inserir
     expect(doc.doctype).toBe(%q);
   });

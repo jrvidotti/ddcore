@@ -9,13 +9,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jrvidotti/cerne/internal/cerr"
-	"github.com/jrvidotti/cerne/internal/js"
+	"github.com/jrvidotti/ddcore/internal/cerr"
+	"github.com/jrvidotti/ddcore/internal/js"
 )
 
-// testDSN comes from CERNE_TEST_DSN; the database named in it is dropped and
+// testDSN comes from DDCORE_TEST_DSN; the database named in it is dropped and
 // recreated by setup, so point it at a throwaway database.
-var testDSN = envOr("CERNE_TEST_DSN", "postgres://cerne:cerne@localhost:5455/cerne_test?sslmode=disable")
+var testDSN = envOr("DDCORE_TEST_DSN", "postgres://ddcore:ddcore@localhost:5455/ddcore_test?sslmode=disable")
 
 func envOr(k, d string) string {
 	if v := os.Getenv(k); v != "" {
@@ -42,9 +42,9 @@ func testApp(t *testing.T) string {
 		os.MkdirAll(filepath.Join(dir, filepath.Dir(rel)), 0o755)
 		os.WriteFile(filepath.Join(dir, rel), []byte(src), 0o644)
 	}
-	w("cerne.app.ts", `import { defineApp } from "@cerne/sdk";
+	w("ddcore.app.ts", `import { defineApp } from "@ddcore/sdk";
 export default defineApp({ name: "demo", title: "Demo", roles: ["Gestor"], docEvents: { "*": { validate(doc) { doc.flags.seen = true } } } });`)
-	w("doctypes/pessoa/pessoa.doctype.ts", `import { defineDoctype } from "@cerne/sdk";
+	w("doctypes/pessoa/pessoa.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
 export default defineDoctype({ name: "Pessoa", naming: { field: "nome" }, allowRename: true, trackChanges: true, searchFields: ["cpf"],
   fields: [
     { fieldname: "nome", fieldtype: "Data", label: "Nome", reqd: true },
@@ -56,12 +56,12 @@ export default defineDoctype({ name: "Pessoa", naming: { field: "nome" }, allowR
     { fieldname: "segredo", fieldtype: "Password", label: "Segredo" },
   ],
   permissions: [{ role: "Gestor", read: true, write: true, create: true, delete: true }, { role: "All", read: true, ifOwner: true }] });`)
-	w("doctypes/item/item.doctype.ts", `import { defineDoctype } from "@cerne/sdk";
+	w("doctypes/item/item.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
 export default defineDoctype({ name: "Item Pedido", isChild: true, fields: [
   { fieldname: "descricao", fieldtype: "Data", label: "Descrição", reqd: true },
   { fieldname: "qtd", fieldtype: "Int", label: "Qtd", default: 1 },
   { fieldname: "valor", fieldtype: "Currency", label: "Valor" } ] });`)
-	w("doctypes/pedido/pedido.doctype.ts", `import { defineDoctype } from "@cerne/sdk";
+	w("doctypes/pedido/pedido.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
 export default defineDoctype({ name: "Pedido", naming: { series: "PED-.YYYY.-.####" }, submittable: true, trackChanges: true,
   fields: [
     { fieldname: "cliente", fieldtype: "Link", label: "Cliente", options: "Pessoa", reqd: true },
@@ -73,14 +73,14 @@ export default defineDoctype({ name: "Pedido", naming: { series: "PED-.YYYY.-.##
     { fieldname: "amended_from", fieldtype: "Link", label: "Emenda de", options: "Pedido", readOnly: true },
   ],
   permissions: [{ role: "Gestor", read: true, write: true, create: true, delete: true, submit: true, cancel: true, amend: true }] });`)
-	w("doctypes/pedido/pedido.controller.ts", `import { defineController, _ } from "@cerne/sdk";
+	w("doctypes/pedido/pedido.controller.ts", `import { defineController, _ } from "@ddcore/sdk";
 export default defineController("Pedido", {
   validate(doc) {
-    doc.total = (doc.itens || []).reduce((s, i) => s + cerne.utils.flt(i.qtd) * cerne.utils.flt(i.valor), 0);
-    if (doc.total < 0) cerne.throw(_("Total negativo"), { title: "Pedido" });
-    if (doc.obs === "bagunca") doc.desconto = cerne.utils.flt(doc.desconto) + 1;
+    doc.total = (doc.itens || []).reduce((s, i) => s + ddcore.utils.flt(i.qtd) * ddcore.utils.flt(i.valor), 0);
+    if (doc.total < 0) ddcore.throw(_("Total negativo"), { title: "Pedido" });
+    if (doc.obs === "bagunca") doc.desconto = ddcore.utils.flt(doc.desconto) + 1;
   },
-  onSubmit(doc) { cerne.db.setValue("Pessoa", doc.cliente, "limite", doc.total); },
+  onSubmit(doc) { ddcore.db.setValue("Pessoa", doc.cliente, "limite", doc.total); },
   methods: {
     resumo(doc, args) { return { itens: doc.itens.length, total: doc.total, x: args.x }; },
     tocar(doc) { doc.dbSet("obs", "tocado"); doc.save(); return { obs: doc.obs }; },
@@ -88,17 +88,17 @@ export default defineController("Pedido", {
 });`)
 	w("services/loop.ts", `export function travar() { let n = 0; while (true) { n++ } }
 export function ok(args: any) { return { ok: true, x: args.x } }`)
-	w("doctypes/pedido/pedido.test.ts", `import "@cerne/sdk/test";
+	w("doctypes/pedido/pedido.test.ts", `import "@ddcore/sdk/test";
 describe("Pedido", () => {
   it("soma os itens", () => {
-    cerne.newDoc("Pessoa", { nome: "Teste", tipo: "PF" }).insert();
-    const p = cerne.newDoc("Pedido", { cliente: "Teste" });
+    ddcore.newDoc("Pessoa", { nome: "Teste", tipo: "PF" }).insert();
+    const p = ddcore.newDoc("Pedido", { cliente: "Teste" });
     p.append("itens", { descricao: "a", qtd: 2, valor: 10 });
     p.insert();
     expect(p.total).toBe(20);
     expect(p.name).toMatch(/^PED-/);
   });
-  it("falha sem cliente", () => { expect(() => cerne.newDoc("Pedido").insert()).toThrow("obrigat"); });
+  it("falha sem cliente", () => { expect(() => ddcore.newDoc("Pedido").insert()).toThrow("obrigat"); });
 });`)
 	return dir
 }
@@ -107,12 +107,12 @@ func setup(t *testing.T) *Engine {
 	ctx := context.Background()
 	adminDSN, dbName := adminDSNFor(testDSN)
 	if dbName == "" {
-		t.Fatalf("CERNE_TEST_DSN inválida: %s", testDSN)
+		t.Fatalf("DDCORE_TEST_DSN inválida: %s", testDSN)
 	}
 	e0, err := New(ctx, Config{DSN: adminDSN})
 	if err != nil {
-		if os.Getenv("CERNE_TEST_DSN") != "" {
-			t.Fatalf("postgres indisponível em CERNE_TEST_DSN: %v", err)
+		if os.Getenv("DDCORE_TEST_DSN") != "" {
+			t.Fatalf("postgres indisponível em DDCORE_TEST_DSN: %v", err)
 		}
 		t.Skipf("postgres indisponível: %v", err)
 	}

@@ -1,10 +1,10 @@
 {
-  "dsn": "postgres://cerne:cerne@localhost:5455/cerne_dev?sslmode=disable",
+  "dsn": "postgres://ddcore:ddcore@localhost:5455/ddcore_dev?sslmode=disable",
   "apps": ["apps/exemplo"],
   "port": 8090,
   "workers": 2,
   "scheduler": false,
-  "site": "cerne",
+  "site": "ddcore",
   "lang": "pt-BR",
   "currency": "BRL",
   "dev": true

@@ -1,29 +1,29 @@
 // Prelude: runs once per runtime before any app bundle. Defines the registry
-// (`__cerne`), the `cerne` bridge API and the Document class. Every call to
+// (`__ddcore`), the `ddcore` bridge API and the Document class. Every call to
 // Go goes through __host(op, jsonArgs) -> jsonResult.
 (function () {
   "use strict";
   const host = globalThis.__host;
 
-  class CerneError extends Error {
+  class DDCoreError extends Error {
     constructor(type, title, message, extra) {
       super(message);
-      this.name = type || "CerneError";
-      this.cerneType = type || "ValidationError";
+      this.name = type || "DDCoreError";
+      this.ddcoreType = type || "ValidationError";
       this.title = title || "";
       this.extra = extra;
     }
   }
-  globalThis.CerneError = CerneError;
+  globalThis.DDCoreError = DDCoreError;
 
   function toError(e) {
-    if (e instanceof CerneError) return e;
+    if (e instanceof DDCoreError) return e;
     const msg = String((e && e.message) || e);
-    const i = msg.indexOf("cerne:{");
+    const i = msg.indexOf("ddcore:{");
     if (i >= 0) {
       try {
         const o = JSON.parse(msg.slice(i + 6));
-        return new CerneError(o.type, o.title, o.message, o.extra);
+        return new DDCoreError(o.type, o.title, o.message, o.extra);
       } catch (_) {}
     }
     return e;
@@ -79,7 +79,7 @@
       }
     },
   };
-  globalThis.__cerne = reg;
+  globalThis.__ddcore = reg;
 
   const stripFns = (o) =>
     JSON.parse(JSON.stringify(o, (k, v) => (typeof v === "function" ? undefined : v)));
@@ -205,7 +205,7 @@
   globalThis.Document = Document;
   reg.makeDoc = (data) => new Document(data);
 
-  // ---------------------------------------------------------------- cerne API
+  // ---------------------------------------------------------------- ddcore API
   function makeContext() { return call("session"); }
 
   const utils = {
@@ -290,7 +290,7 @@
     hasPermission(doctype, ptype, doc, user) { return call("hasPermission", { doctype, ptype: ptype || "read", doc, user }); },
     throw(message, opts) {
       opts = opts || {};
-      throw new CerneError(opts.type || "ValidationError", opts.title, message, opts.extra);
+      throw new DDCoreError(opts.type || "ValidationError", opts.title, message, opts.extra);
     },
     msgprint(message, opts) { call("msgprint", { message, opts: opts || {} }); },
     _(text, args) {
@@ -316,7 +316,7 @@
       error: (...a) => call("log", { level: "error", args: a.map(String) }),
       debug: (...a) => call("log", { level: "debug", args: a.map(String) }),
     },
-    isTest() { return !!globalThis.__cerneTest; },
+    isTest() { return !!globalThis.__ddcoreTest; },
     isJob() { return !call("session").request; },
     form: {},
     callMethod(method, args) { return reg.callModule(method, args || {}); },
@@ -328,7 +328,7 @@
     r.json = function () { return JSON.parse(r.body); };
     return r;
   }
-  globalThis.cerne = api;
+  globalThis.ddcore = api;
   globalThis.console = {
     log: (...a) => call("log", { level: "info", args: a.map(fmtArg) }),
     error: (...a) => call("log", { level: "error", args: a.map(fmtArg) }),
@@ -371,7 +371,7 @@
   reg.runMethodOn = function (doc, name, args) {
     const c = reg.controllers[doc.doctype];
     const fn = c && c.methods && c.methods[name];
-    if (typeof fn !== "function") throw new CerneError("NotFound", "", "Método " + name + " não existe em " + doc.doctype);
+    if (typeof fn !== "function") throw new DDCoreError("NotFound", "", "Método " + name + " não existe em " + doc.doctype);
     return fn.call(doc, doc, args || {}, makeContext());
   };
 
@@ -410,7 +410,7 @@
     const i = path.lastIndexOf(".");
     const m = reg.modules[path.slice(0, i)];
     const fn = m && m.exports && m.exports[path.slice(i + 1)];
-    if (typeof fn !== "function") throw new CerneError("NotFound", "", "Função " + path + " não encontrada");
+    if (typeof fn !== "function") throw new DDCoreError("NotFound", "", "Função " + path + " não encontrada");
     return fn;
   }
   reg.callModule = function (path, args) {
@@ -419,7 +419,7 @@
   // Whitelisted call from the API: args are passed as a single object.
   reg.callWhitelisted = function (path, argsJSON) {
     const fn = resolve(path);
-    if (!fn.__whitelisted) throw new CerneError("PermissionError", "", "Função " + path + " não é whitelisted");
+    if (!fn.__whitelisted) throw new DDCoreError("PermissionError", "", "Função " + path + " não é whitelisted");
     const r = fn(JSON.parse(argsJSON), makeContext());
     return JSON.stringify(r === undefined ? null : r);
   };
@@ -430,20 +430,20 @@
 
   reg.runReport = function (name, filtersJSON) {
     const r = reg.reports[name];
-    if (!r) throw new CerneError("NotFound", "", "Relatório " + name + " não existe");
+    if (!r) throw new DDCoreError("NotFound", "", "Relatório " + name + " não existe");
     return JSON.stringify(r.execute(JSON.parse(filtersJSON) || {}, makeContext()));
   };
 
   reg.numberCard = function (workspace, name) {
     const ws = reg.workspaces[workspace];
     const card = ws && (ws.numberCards || []).find((c) => c.name === name);
-    if (!card || typeof card.method !== "function") throw new CerneError("NotFound", "", "Card " + name + " não tem method");
+    if (!card || typeof card.method !== "function") throw new DDCoreError("NotFound", "", "Card " + name + " não tem method");
     return JSON.stringify(card.method());
   };
   reg.chart = function (workspace, name) {
     const ws = reg.workspaces[workspace];
     const ch = ws && (ws.charts || []).find((c) => c.name === name);
-    if (!ch) throw new CerneError("NotFound", "", "Chart " + name + " não existe");
+    if (!ch) throw new DDCoreError("NotFound", "", "Chart " + name + " não existe");
     return JSON.stringify(ch.method());
   };
 
@@ -454,7 +454,7 @@
 
   reg.runPatch = function (path) {
     const m = reg.modules[path];
-    if (!m || typeof m.exports.execute !== "function") throw new CerneError("NotFound", "", "Patch " + path + " não tem execute()");
+    if (!m || typeof m.exports.execute !== "function") throw new DDCoreError("NotFound", "", "Patch " + path + " não tem execute()");
     m.exports.execute(makeContext());
   };
 
@@ -471,7 +471,7 @@
     if (e.startsWith("eval:")) e = e.slice(5);
     if (/^[a-z_][a-z0-9_]*$/.test(e)) return doc[e] ? "true" : "false";
     try {
-      return new Function("doc", "cerne", "return (" + e + ")")(doc, api) ? "true" : "false";
+      return new Function("doc", "ddcore", "return (" + e + ")")(doc, api) ? "true" : "false";
     } catch (err) {
       return "false";
     }

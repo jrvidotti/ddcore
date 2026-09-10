@@ -11,13 +11,13 @@ import (
 
 	"github.com/dop251/goja"
 
-	"github.com/jrvidotti/cerne/internal/cerr"
+	"github.com/jrvidotti/ddcore/internal/cerr"
 )
 
 //go:embed prelude.js
 var prelude string
 
-// Host is implemented by the engine: every `cerne.*` call from TS lands here
+// Host is implemented by the engine: every `ddcore.*` call from TS lands here
 // with a JSON-encoded argument object and returns JSON.
 type Host interface {
 	HostCall(rt *Runtime, op string, args json.RawMessage) (any, error)
@@ -48,7 +48,7 @@ func newRuntime(host Host, bundles []*Bundle, test bool) (*Runtime, error) {
 		if err != nil {
 			e := cerr.From(err)
 			b, _ := json.Marshal(e)
-			return "", errors.New("cerne:" + string(b))
+			return "", errors.New("ddcore:" + string(b))
 		}
 		if res == nil {
 			return "", nil
@@ -63,12 +63,12 @@ func newRuntime(host Host, bundles []*Bundle, test bool) (*Runtime, error) {
 		return string(b), nil
 	})
 	if test {
-		rt.vm.Set("__cerneTest", true)
+		rt.vm.Set("__ddcoreTest", true)
 	}
 	if _, err := rt.vm.RunScript("prelude.js", prelude); err != nil {
 		return nil, fmt.Errorf("prelude: %w", err)
 	}
-	rt.reg = rt.vm.Get("__cerne").ToObject(rt.vm)
+	rt.reg = rt.vm.Get("__ddcore").ToObject(rt.vm)
 	for _, b := range bundles {
 		if err := rt.load(b); err != nil {
 			return nil, err
@@ -100,7 +100,7 @@ func toGoError(err error) error {
 	}
 	v := exc.Value()
 	if obj, ok := v.(*goja.Object); ok {
-		if t := obj.Get("cerneType"); t != nil && !goja.IsUndefined(t) {
+		if t := obj.Get("ddcoreType"); t != nil && !goja.IsUndefined(t) {
 			e := &cerr.Error{Type: t.String(), Message: str(obj.Get("message")), Title: str(obj.Get("title"))}
 			e.Status = statusFor(e.Type)
 			if x := obj.Get("extra"); x != nil && !goja.IsUndefined(x) {
@@ -110,7 +110,7 @@ func toGoError(err error) error {
 		}
 		// A Go error thrown through the bridge: message carries the JSON.
 		msg := str(obj.Get("message"))
-		if i := strings.Index(msg, "cerne:{"); i >= 0 {
+		if i := strings.Index(msg, "ddcore:{"); i >= 0 {
 			var e cerr.Error
 			if json.Unmarshal([]byte(msg[i+6:]), &e) == nil {
 				e.Status = statusFor(e.Type)
@@ -148,11 +148,11 @@ func statusFor(t string) int {
 	return 500
 }
 
-// callReg invokes __cerne.<name>(args...) and returns the result string.
+// callReg invokes __ddcore.<name>(args...) and returns the result string.
 func (rt *Runtime) callReg(name string, args ...any) (string, error) {
 	fn, ok := goja.AssertFunction(rt.reg.Get(name))
 	if !ok {
-		return "", fmt.Errorf("__cerne.%s não é função", name)
+		return "", fmt.Errorf("__ddcore.%s não é função", name)
 	}
 	vals := make([]goja.Value, len(args))
 	for i, a := range args {

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jrvidotti/cerne/internal/db"
+	"github.com/jrvidotti/ddcore/internal/db"
 )
 
 // Plan returns the DDL that Migrate would apply.
@@ -41,7 +41,7 @@ func (e *Engine) Migrate(ctx context.Context, prune bool) (*MigrateResult, error
 			return err
 		}
 		res.DDL = ddl
-		rows, err := db.Select(ctx, c.Tx, `SELECT app FROM cerne_installed_app`)
+		rows, err := db.Select(ctx, c.Tx, `SELECT app FROM ddcore_installed_app`)
 		if err != nil {
 			return err
 		}
@@ -69,7 +69,7 @@ func (e *Engine) Migrate(ctx context.Context, prune bool) (*MigrateResult, error
 						return fmt.Errorf("%s.afterInstall: %w", name, err)
 					}
 				}
-				if _, err := c.Tx.Exec(ctx, `INSERT INTO cerne_installed_app (app) VALUES ($1)`, name); err != nil {
+				if _, err := c.Tx.Exec(ctx, `INSERT INTO ddcore_installed_app (app) VALUES ($1)`, name); err != nil {
 					return err
 				}
 				res.Installed = append(res.Installed, name)
@@ -98,7 +98,7 @@ func (e *Engine) Migrate(ctx context.Context, prune bool) (*MigrateResult, error
 				}
 			}
 		}
-		done, err := db.Select(ctx, c.Tx, `SELECT app, name FROM cerne_patch`)
+		done, err := db.Select(ctx, c.Tx, `SELECT app, name FROM ddcore_patch`)
 		if err != nil {
 			return err
 		}
@@ -114,7 +114,7 @@ func (e *Engine) Migrate(ctx context.Context, prune bool) (*MigrateResult, error
 			if err := rt.RunPatch(p.Path); err != nil {
 				return fmt.Errorf("patch %s: %w", p.Path, err)
 			}
-			if _, err := c.Tx.Exec(ctx, `INSERT INTO cerne_patch (app, name) VALUES ($1, $2)`, p.App, p.Name); err != nil {
+			if _, err := c.Tx.Exec(ctx, `INSERT INTO ddcore_patch (app, name) VALUES ($1, $2)`, p.App, p.Name); err != nil {
 				return err
 			}
 			res.Patches = append(res.Patches, p.Path)

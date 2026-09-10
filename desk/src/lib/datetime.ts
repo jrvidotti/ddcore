@@ -1,4 +1,4 @@
-// Civil-date helpers for the desk, kept in sync with `cerne.utils` on the
+// Civil-date helpers for the desk, kept in sync with `ddcore.utils` on the
 // server (internal/js/prelude.js). The semantics are deliberately the same:
 //
 //   * a Date value is a *civil* date ("YYYY-MM-DD"), never an instant — so

@@ -13,11 +13,11 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/jrvidotti/cerne/docs"
-	"github.com/jrvidotti/cerne/internal/cerr"
-	"github.com/jrvidotti/cerne/internal/engine"
-	"github.com/jrvidotti/cerne/internal/scaffold"
-	"github.com/jrvidotti/cerne/internal/typegen"
+	"github.com/jrvidotti/ddcore/docs"
+	"github.com/jrvidotti/ddcore/internal/cerr"
+	"github.com/jrvidotti/ddcore/internal/engine"
+	"github.com/jrvidotti/ddcore/internal/scaffold"
+	"github.com/jrvidotti/ddcore/internal/typegen"
 )
 
 // Docs returns an embedded reference page (index lists them all).
@@ -81,8 +81,8 @@ func fail(err error) (*mcp.CallToolResult, any, error) {
 // New builds the MCP server with every tool registered.
 func New(e *engine.Engine) *mcp.Server {
 	s := &server{e: e}
-	srv := mcp.NewServer(&mcp.Implementation{Name: "cerne", Version: "0.1.0"}, &mcp.ServerOptions{
-		Instructions: "Servidor de desenvolvimento do framework cerne. Comece lendo o resource cerne://docs/index. " +
+	srv := mcp.NewServer(&mcp.Implementation{Name: "ddcore", Version: "0.1.0"}, &mcp.ServerOptions{
+		Instructions: "Servidor de desenvolvimento do framework ddcore. Comece lendo o resource ddcore://docs/index. " +
 			"Fluxo típico: get_doctype / scaffold_doctype → migrate → insert_doc / list_docs → run_tests. " +
 			"Os arquivos TS do app são a fonte de verdade: edite-os e o servidor recarrega.",
 	})
@@ -172,7 +172,7 @@ func New(e *engine.Engine) *mcp.Server {
 			return text(map[string]any{"ddl": res.DDL, "patches": res.Patches, "installed": res.Installed}), nil, nil
 		})
 
-	mcp.AddTool(srv, &mcp.Tool{Name: "generate_types", Description: "Gera .cerne/types.d.ts (interfaces TS por DocType) em cada app."},
+	mcp.AddTool(srv, &mcp.Tool{Name: "generate_types", Description: "Gera .ddcore/types.d.ts (interfaces TS por DocType) em cada app."},
 		func(ctx context.Context, req *mcp.CallToolRequest, in struct{}) (*mcp.CallToolResult, any, error) {
 			return text(s.writeTypes()), nil, nil
 		})
@@ -377,7 +377,7 @@ func New(e *engine.Engine) *mcp.Server {
 		})
 
 	// ---- dev
-	mcp.AddTool(srv, &mcp.Tool{Name: "eval", Description: "Executa TypeScript/JS no runtime do servidor com a API `cerne` disponível (ex.: cerne.db.count(\"User\")). A transação é revertida a menos que commit=true. Retorna o valor da última expressão e os logs."},
+	mcp.AddTool(srv, &mcp.Tool{Name: "eval", Description: "Executa TypeScript/JS no runtime do servidor com a API `ddcore` disponível (ex.: ddcore.db.count(\"User\")). A transação é revertida a menos que commit=true. Retorna o valor da última expressão e os logs."},
 		func(ctx context.Context, req *mcp.CallToolRequest, in struct {
 			Code   string `json:"code"`
 			Commit bool   `json:"commit,omitempty"`
@@ -437,7 +437,7 @@ func New(e *engine.Engine) *mcp.Server {
 			return text(rows), nil, nil
 		})
 
-	mcp.AddTool(srv, &mcp.Tool{Name: "reload", Description: "Recompila e recarrega os apps (o `cerne dev` já faz isso ao salvar arquivos)."},
+	mcp.AddTool(srv, &mcp.Tool{Name: "reload", Description: "Recompila e recarrega os apps (o `ddcore dev` já faz isso ao salvar arquivos)."},
 		func(ctx context.Context, req *mcp.CallToolRequest, in struct{}) (*mcp.CallToolResult, any, error) {
 			if err := e.Load(); err != nil {
 				return fail(err)
@@ -467,14 +467,14 @@ func New(e *engine.Engine) *mcp.Server {
 	// ---- resources
 	for _, n := range docNames() {
 		name := n
-		srv.AddResource(&mcp.Resource{URI: "cerne://docs/" + name, Name: "docs/" + name, MIMEType: "text/markdown", Description: "Referência do cerne: " + name},
+		srv.AddResource(&mcp.Resource{URI: "ddcore://docs/" + name, Name: "docs/" + name, MIMEType: "text/markdown", Description: "Referência do ddcore: " + name},
 			func(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
 				return &mcp.ReadResourceResult{Contents: []*mcp.ResourceContents{{URI: req.Params.URI, MIMEType: "text/markdown", Text: Docs(name)}}}, nil
 			})
 	}
-	srv.AddResourceTemplate(&mcp.ResourceTemplate{URITemplate: "cerne://meta/{doctype}", Name: "meta", MIMEType: "application/json", Description: "Meta de um DocType"},
+	srv.AddResourceTemplate(&mcp.ResourceTemplate{URITemplate: "ddcore://meta/{doctype}", Name: "meta", MIMEType: "application/json", Description: "Meta de um DocType"},
 		func(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
-			name := strings.TrimPrefix(req.Params.URI, "cerne://meta/")
+			name := strings.TrimPrefix(req.Params.URI, "ddcore://meta/")
 			d, err := e.DocType(name)
 			if err != nil {
 				return nil, err
@@ -496,7 +496,7 @@ func (s *server) writeTypes() []string {
 			continue
 		}
 		if err := typegen.Write(a.Dir, s.e.Meta); err == nil {
-			out = append(out, filepath.Join(a.Dir, ".cerne/types.d.ts"))
+			out = append(out, filepath.Join(a.Dir, ".ddcore/types.d.ts"))
 		}
 	}
 	return out

@@ -10,8 +10,8 @@ import (
 
 	"github.com/robfig/cron/v3"
 
-	"github.com/jrvidotti/cerne/internal/cerr"
-	"github.com/jrvidotti/cerne/internal/db"
+	"github.com/jrvidotti/ddcore/internal/cerr"
+	"github.com/jrvidotti/ddcore/internal/db"
 )
 
 // Job execution limits. O lease é renovado por heartbeat enquanto o worker
@@ -23,7 +23,7 @@ const (
 	defaultJobTimeout = 300 // segundos
 )
 
-// Enqueue stores a job in cerne_job; workers pick it with SKIP LOCKED.
+// Enqueue stores a job in ddcore_job; workers pick it with SKIP LOCKED.
 func (c *Ctx) Enqueue(method string, args map[string]any, opts map[string]any) (int64, error) {
 	if method == "" {
 		return 0, cerr.Validation("enqueue: informe o método")
@@ -46,7 +46,7 @@ func (c *Ctx) Enqueue(method string, args map[string]any, opts map[string]any) (
 	}
 	b, _ := json.Marshal(args)
 	var id int64
-	err := c.Q().QueryRow(c.Ctx, `INSERT INTO cerne_job (method, args, queue, "user", run_after, timeout_seconds) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+	err := c.Q().QueryRow(c.Ctx, `INSERT INTO ddcore_job (method, args, queue, "user", run_after, timeout_seconds) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
 		method, string(b), queue, c.User, runAfter, timeout).Scan(&id)
 	return id, err
 }
@@ -80,7 +80,7 @@ func (e *Engine) RunJob(ctx context.Context, user, method string, args map[strin
 // requeueStale puts back jobs whose worker died: status running com lease
 // vencido volta para queued (ou failed, se esgotou as tentativas).
 func (e *Engine) requeueStale(ctx context.Context) error {
-	_, err := e.DB.Pool.Exec(ctx, `UPDATE cerne_job
+	_, err := e.DB.Pool.Exec(ctx, `UPDATE ddcore_job
 		SET status = CASE WHEN attempts < max_attempts THEN 'queued' ELSE 'failed' END,
 		    lease_until = NULL, finished = CASE WHEN attempts < max_attempts THEN NULL ELSE now() END,
 		    error = 'worker interrompido: lease expirou'
@@ -119,14 +119,14 @@ func (e *Engine) runOneJob(ctx context.Context) (bool, error) {
 		return false, err
 	}
 	defer tx.Rollback(ctx)
-	rows, err := db.Select(ctx, tx, `SELECT id, method, args, "user", attempts, max_attempts, timeout_seconds FROM cerne_job
+	rows, err := db.Select(ctx, tx, `SELECT id, method, args, "user", attempts, max_attempts, timeout_seconds FROM ddcore_job
 		WHERE status = 'queued' AND run_after <= now() ORDER BY id LIMIT 1 FOR UPDATE SKIP LOCKED`)
 	if err != nil || len(rows) == 0 {
 		return false, err
 	}
 	j := rows[0]
 	id := int64(toFloat(j["id"]))
-	if _, err := tx.Exec(ctx, `UPDATE cerne_job SET status = 'running', started = now(), attempts = attempts + 1, lease_until = now() + $2::interval WHERE id = $1`,
+	if _, err := tx.Exec(ctx, `UPDATE ddcore_job SET status = 'running', started = now(), attempts = attempts + 1, lease_until = now() + $2::interval WHERE id = $1`,
 		id, jobLease.String()); err != nil {
 		return false, err
 	}
@@ -154,12 +154,12 @@ func (e *Engine) runOneJob(ctx context.Context) (bool, error) {
 		if attempts < max {
 			status = "queued"
 		}
-		e.DB.Pool.Exec(ctx, `UPDATE cerne_job SET status = $2, error = $3, finished = now(), lease_until = NULL, run_after = now() + interval '30 seconds' WHERE id = $1`, id, status, runErr.Error())
+		e.DB.Pool.Exec(ctx, `UPDATE ddcore_job SET status = $2, error = $3, finished = now(), lease_until = NULL, run_after = now() + interval '30 seconds' WHERE id = $1`, id, status, runErr.Error())
 		e.LogError(ctx, "job:"+method, runErr)
 		e.Events.Publish(Event{Name: "job_done", Payload: map[string]any{"id": id, "method": method, "ok": false, "error": runErr.Error()}, User: db.Str(j["user"])})
 		return true, nil
 	}
-	e.DB.Pool.Exec(ctx, `UPDATE cerne_job SET status = 'done', finished = now(), lease_until = NULL, result = $2 WHERE id = $1`, id, string(orJSON(res)))
+	e.DB.Pool.Exec(ctx, `UPDATE ddcore_job SET status = 'done', finished = now(), lease_until = NULL, result = $2 WHERE id = $1`, id, string(orJSON(res)))
 	e.Events.Publish(Event{Name: "job_done", Payload: map[string]any{"id": id, "method": method, "ok": true}, User: db.Str(j["user"])})
 	return true, nil
 }
@@ -179,7 +179,7 @@ func (e *Engine) heartbeat(ctx context.Context, id int64) func() {
 			case <-ctx.Done():
 				return
 			case <-t.C:
-				e.DB.Pool.Exec(ctx, `UPDATE cerne_job SET lease_until = now() + $2::interval WHERE id = $1 AND status = 'running'`, id, jobLease.String())
+				e.DB.Pool.Exec(ctx, `UPDATE ddcore_job SET lease_until = now() + $2::interval WHERE id = $1 AND status = 'running'`, id, jobLease.String())
 			}
 		}
 	}()
@@ -266,7 +266,7 @@ func (e *Engine) StopScheduler() {
 	}
 }
 
-// ScheduledMethods lists everything the scheduler would run (for `cerne jobs list`).
+// ScheduledMethods lists everything the scheduler would run (for `ddcore jobs list`).
 func (e *Engine) ScheduledMethods() []string {
 	var out []string
 	for _, app := range e.Current().Snap.Apps {

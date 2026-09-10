@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/jrvidotti/cerne/internal/cerr"
-	"github.com/jrvidotti/cerne/internal/js"
+	"github.com/jrvidotti/ddcore/internal/cerr"
+	"github.com/jrvidotti/ddcore/internal/js"
 )
 
 // permApp: Pedido (Gestor) com duas tabelas filhas, uma delas allowOnSubmit.
@@ -17,19 +17,19 @@ func permApp(t *testing.T) string {
 		os.MkdirAll(filepath.Join(dir, filepath.Dir(rel)), 0o755)
 		os.WriteFile(filepath.Join(dir, rel), []byte(src), 0o644)
 	}
-	w("cerne.app.ts", `import { defineApp } from "@cerne/sdk";
+	w("ddcore.app.ts", `import { defineApp } from "@ddcore/sdk";
 export default defineApp({ name: "demo", title: "Demo", roles: ["Gestor"] });`)
-	w("doctypes/pessoa/pessoa.doctype.ts", `import { defineDoctype } from "@cerne/sdk";
+	w("doctypes/pessoa/pessoa.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
 export default defineDoctype({ name: "Pessoa", naming: { field: "nome" },
   fields: [{ fieldname: "nome", fieldtype: "Data", label: "Nome", reqd: true }],
   permissions: [{ role: "Gestor", read: true, write: true, create: true, delete: true }, { role: "All", read: true }] });`)
-	w("doctypes/item/item.doctype.ts", `import { defineDoctype } from "@cerne/sdk";
+	w("doctypes/item/item.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
 export default defineDoctype({ name: "Item Pedido", isChild: true, fields: [
   { fieldname: "descricao", fieldtype: "Data", label: "Descrição", reqd: true } ] });`)
-	w("doctypes/nota/nota.doctype.ts", `import { defineDoctype } from "@cerne/sdk";
+	w("doctypes/nota/nota.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
 export default defineDoctype({ name: "Nota Pedido", isChild: true, fields: [
   { fieldname: "texto", fieldtype: "Data", label: "Texto" } ] });`)
-	w("doctypes/pedido/pedido.doctype.ts", `import { defineDoctype } from "@cerne/sdk";
+	w("doctypes/pedido/pedido.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
 export default defineDoctype({ name: "Pedido", naming: { series: "PED-.####" }, submittable: true,
   fields: [
     { fieldname: "cliente", fieldtype: "Link", label: "Cliente", options: "Pessoa", reqd: true },
@@ -45,8 +45,8 @@ func setupPerm(t *testing.T) *Engine {
 	adminDSN, dbName := adminDSNFor(testDSN)
 	e0, err := New(ctx, Config{DSN: adminDSN})
 	if err != nil {
-		if os.Getenv("CERNE_TEST_DSN") != "" {
-			t.Fatalf("postgres indisponível em CERNE_TEST_DSN: %v", err)
+		if os.Getenv("DDCORE_TEST_DSN") != "" {
+			t.Fatalf("postgres indisponível em DDCORE_TEST_DSN: %v", err)
 		}
 		t.Skipf("postgres indisponível: %v", err)
 	}

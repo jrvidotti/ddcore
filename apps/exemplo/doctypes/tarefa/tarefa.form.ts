@@ -1,5 +1,5 @@
-import { defineForm, cerne } from "@cerne/desk-sdk";
-import type { Tarefa } from "../../.cerne/types";
+import { defineForm, ddcore } from "@ddcore/desk-sdk";
+import type { Tarefa } from "../../.ddcore/types";
 
 const CORES: Record<string, string> = { Aberta: "blue", "Em andamento": "yellow", Atrasada: "red", Concluída: "green" };
 const ROTULOS: Record<string, string> = { Aberta: "Open", "Em andamento": "In progress", Atrasada: "Overdue", Concluída: "Completed" };
@@ -27,6 +27,6 @@ async function transicao(frm: any, metodo: "iniciar" | "concluir" | "reabrir") {
     await frm.call(metodo);
     await frm.reload();
   } catch (e) {
-    cerne.ui.showError(e);
+    ddcore.ui.showError(e);
   }
 }

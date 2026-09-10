@@ -1,10 +1,10 @@
-import { defineController, _ } from "@cerne/sdk";
-import type { Tarefa } from "../../.cerne/types";
+import { defineController, _ } from "@ddcore/sdk";
+import type { Tarefa } from "../../.ddcore/types";
 import { recalcularProgresso } from "../../services/projetos";
 
 /** Status derivado do prazo: usado ao criar e ao reabrir uma tarefa. */
 function statusEmAberto(doc: Tarefa): "Aberta" | "Atrasada" {
-  return doc.data_limite && doc.data_limite < cerne.utils.today() ? "Atrasada" : "Aberta";
+  return doc.data_limite && doc.data_limite < ddcore.utils.today() ? "Atrasada" : "Aberta";
 }
 
 function resultado(doc: Tarefa) {
@@ -18,9 +18,9 @@ export default defineController<Tarefa>("Tarefa", {
   },
 
   validate(doc) {
-    const inicio = cerne.db.getValue<string>("Projeto", doc.projeto!, "data_inicio");
+    const inicio = ddcore.db.getValue<string>("Projeto", doc.projeto!, "data_inicio");
     if (inicio && doc.data_limite && doc.data_limite < inicio) {
-      cerne.throw(_("A data limite não pode ser anterior ao início do projeto ({0}).", [inicio]), {
+      ddcore.throw(_("A data limite não pode ser anterior ao início do projeto ({0}).", [inicio]), {
         title: _("Prazo inválido"),
       });
     }
@@ -55,7 +55,7 @@ export default defineController<Tarefa>("Tarefa", {
     concluir(doc) {
       if (doc.status !== "Concluída") {
         doc.status = "Concluída";
-        doc.concluida_em = cerne.utils.now();
+        doc.concluida_em = ddcore.utils.now();
         doc.save();
       }
       return resultado(doc);

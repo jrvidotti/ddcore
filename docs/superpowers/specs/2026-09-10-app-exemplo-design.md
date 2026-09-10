@@ -1,12 +1,12 @@
-# App Exemplo do Cerne — Especificação
+# App Exemplo do DDCore — Especificação
 
 ## Objetivo
 
 Criar `apps/exemplo`, um app pequeno de projetos e tarefas que funcione como tutorial
-executável, fixture ponta a ponta e referência de boas práticas do Cerne. Ele deve mostrar
+executável, fixture ponta a ponta e referência de boas práticas do DDCore. Ele deve mostrar
 como as partes principais do framework se conectam sem carregar regras de um produto real.
 
-O app será rastreado no repositório do Cerne, carregado pelo `cerne.json` de desenvolvimento
+O app será rastreado no repositório do DDCore, carregado pelo `ddcore.json` de desenvolvimento
 e coberto por `make test`. O código de servidor continuará estritamente síncrono; somente
 scripts do desk poderão usar APIs assíncronas.
 
@@ -30,7 +30,7 @@ real a demonstrar.
 
 ```text
 apps/exemplo/
-  cerne.app.ts
+  ddcore.app.ts
   tsconfig.json
   client/listas.ts
   doctypes/
@@ -51,7 +51,7 @@ apps/exemplo/
   services/tarefas.test.ts
   translations/pt-BR.csv
   workspaces/projetos.workspace.ts
-  .cerne/                         # gerado e ignorado pelo Git
+  .ddcore/                         # gerado e ignorado pelo Git
 ```
 
 O manifesto usará:
@@ -120,7 +120,7 @@ A data limite não poderá anteceder o início do projeto. Tarefas novas começa
 como `Aberta`. Os métodos `iniciar`, `concluir` e `reabrir` serão idempotentes, salvarão
 o documento pelo lifecycle normal e devolverão `{ status, concluida_em }`.
 
-Ao concluir, `concluida_em` receberá `cerne.utils.now()`; ao reabrir, será limpo.
+Ao concluir, `concluida_em` receberá `ddcore.utils.now()`; ao reabrir, será limpo.
 Depois de inserir, atualizar ou excluir uma tarefa, o serviço de projetos recalculará o
 projeto relacionado.
 
@@ -174,7 +174,7 @@ Todo texto acionável será escrito como chave traduzível em inglês e mapeado 
 
 O relatório `Tarefas por Status` aceitará filtros opcionais `projeto`, `responsavel` e
 `data_limite_ate`. Retornará uma linha por status, com quantidade e percentual do total,
-além de gráfico de barras. Filtros serão aplicados via `cerne.db.getList`; SQL direto não
+além de gráfico de barras. Filtros serão aplicados via `ddcore.db.getList`; SQL direto não
 será usado no app exemplo.
 
 O workspace `Projetos` será visível para `System Manager`, `Gestor de Projetos` e
@@ -197,11 +197,11 @@ O relatório declarará as roles `System Manager`, `Gestor de Projetos` e
 As roles serão declaradas no manifesto e criadas pelo fluxo normal de instalação. O app
 não criará dados de negócio em `afterInstall`.
 
-`services/demo.ts` exportará `gerar()`, detectada por `cerne demo`. Ela criará um projeto
+`services/demo.ts` exportará `gerar()`, detectada por `ddcore demo`. Ela criará um projeto
 `DEMO` com três marcos e três tarefas (`DEMO-01` a `DEMO-03`) nos estados aberta, em
 andamento e concluída. A rotina consultará cada código antes de inserir, poderá ser
 executada repetidamente e retornará os nomes criados e a quantidade de novos registros.
-As datas serão relativas a `cerne.utils.today()`, e os estados não iniciais serão obtidos
+As datas serão relativas a `ddcore.utils.today()`, e os estados não iniciais serão obtidos
 pelos métodos do controller, sem gravar campos derivados diretamente.
 
 ## Permissões
@@ -231,22 +231,22 @@ Os testes TypeScript cobrirão:
 
 Ao implementar o app:
 
-- `cerne.json` passará a carregar `apps/exemplo`;
+- `ddcore.json` passará a carregar `apps/exemplo`;
 - `make check` incluirá o `tsc` do app;
 - `make test` executará os testes TS do app além das suítes Go e do desk;
 - a aceitação deixará de criar uma fixture temporária equivalente e validará o app real
   em banco descartável;
-- `.cerne/` permanecerá ignorado e será sempre regenerado por `cerne types`.
+- `.ddcore/` permanecerá ignorado e será sempre regenerado por `ddcore types`.
 
 ## Critérios de aceite
 
 1. `make test` passa em checkout limpo com Postgres disponível.
-2. `cerne migrate` em banco vazio instala core e exemplo; o dry-run seguinte fica vazio.
-3. `cerne demo` executado duas vezes não duplica Projeto, Marco Projeto nem Tarefa.
+2. `ddcore migrate` em banco vazio instala core e exemplo; o dry-run seguinte fica vazio.
+3. `ddcore demo` executado duas vezes não duplica Projeto, Marco Projeto nem Tarefa.
 4. Login abre o workspace Projetos e todos os destinos da sidebar existem.
 5. Criar projeto e tarefas, concluir uma tarefa e reabri-la atualiza documento e progresso
    sem refresh manual fora do fluxo normal do form.
 6. A rotina de atraso pode rodar pelo scheduler e manualmente com a mesma regra.
 7. Relatório, cards e gráfico apresentam contagens coerentes para os mesmos filtros.
 8. Nenhum arquivo do app importa fontes por caminho relativo fora de `apps/exemplo`;
-   SDKs são consumidos somente por `@cerne/sdk` e `@cerne/desk-sdk`.
+   SDKs são consumidos somente por `@ddcore/sdk` e `@ddcore/desk-sdk`.

@@ -1,4 +1,4 @@
-// Package config reads cerne.json (and env overrides) from the site directory.
+// Package config reads ddcore.json (and env overrides) from the site directory.
 package config
 
 import (
@@ -22,12 +22,12 @@ type File struct {
 	Dev       bool     `json:"dev"`
 }
 
-const Name = "cerne.json"
+const Name = "ddcore.json"
 
-// Load reads cerne.json from dir (or its parents) and applies env overrides.
+// Load reads ddcore.json from dir (or its parents) and applies env overrides.
 func Load(dir string) (*File, string, error) {
 	path, err := find(dir)
-	f := &File{Port: 8080, Workers: 2, Lang: "pt-BR", Currency: "BRL", Site: "cerne"}
+	f := &File{Port: 8080, Workers: 2, Lang: "pt-BR", Currency: "BRL", Site: "ddcore"}
 	if err == nil {
 		b, err := os.ReadFile(path)
 		if err != nil {
@@ -39,10 +39,10 @@ func Load(dir string) (*File, string, error) {
 	} else {
 		path = filepath.Join(dir, Name)
 	}
-	if v := os.Getenv("CERNE_DSN"); v != "" {
+	if v := os.Getenv("DDCORE_DSN"); v != "" {
 		f.DSN = v
 	}
-	if v := os.Getenv("CERNE_PORT"); v != "" {
+	if v := os.Getenv("DDCORE_PORT"); v != "" {
 		f.Port, _ = strconv.Atoi(v)
 	}
 	if v := os.Getenv("DATABASE_URL"); v != "" && f.DSN == "" {

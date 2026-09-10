@@ -30,18 +30,18 @@ func (h *fakeHost) HostCall(rt *Runtime, op string, args json.RawMessage) (any, 
 func TestBundleAndRun(t *testing.T) {
 	dir := t.TempDir()
 	os.MkdirAll(filepath.Join(dir, "doctypes/x"), 0o755)
-	os.WriteFile(filepath.Join(dir, "cerne.app.ts"), []byte(`import { defineApp } from "@cerne/sdk";
+	os.WriteFile(filepath.Join(dir, "ddcore.app.ts"), []byte(`import { defineApp } from "@ddcore/sdk";
 export default defineApp({ name: "demo", title: "Demo" });`), 0o644)
-	os.WriteFile(filepath.Join(dir, "doctypes/x/x.doctype.ts"), []byte(`import { defineDoctype } from "@cerne/sdk";
+	os.WriteFile(filepath.Join(dir, "doctypes/x/x.doctype.ts"), []byte(`import { defineDoctype } from "@ddcore/sdk";
 export default defineDoctype({ name: "X", fields: [{ fieldname: "a", fieldtype: "Int" }] });`), 0o644)
-	os.WriteFile(filepath.Join(dir, "doctypes/x/x.controller.ts"), []byte(`import { defineController, whitelisted, _ } from "@cerne/sdk";
+	os.WriteFile(filepath.Join(dir, "doctypes/x/x.controller.ts"), []byte(`import { defineController, whitelisted, _ } from "@ddcore/sdk";
 export default defineController("X", {
-  validate(doc, ctx) { doc.a = (doc.a || 0) + cerne.db.getValue("X", "1", "a"); if (doc.a > 100) cerne.throw(_("Muito grande"), { title: "Limite" }); },
+  validate(doc, ctx) { doc.a = (doc.a || 0) + ddcore.db.getValue("X", "1", "a"); if (doc.a > 100) ddcore.throw(_("Muito grande"), { title: "Limite" }); },
   methods: { dobro(doc, args) { return { v: doc.a * 2, user: ctx_user() } } },
 });
-function ctx_user() { return cerne.session.user }
+function ctx_user() { return ddcore.session.user }
 export const hello = whitelisted((args) => "olá " + args.nome);
-export function addMonths(a) { return cerne.utils.addMonths("2026-01-31", 1) }`), 0o644)
+export function addMonths(a) { return ddcore.utils.addMonths("2026-01-31", 1) }`), 0o644)
 
 	b, err := BuildServer(App{Name: "demo", Dir: dir}, false)
 	if err != nil {
@@ -93,14 +93,14 @@ func TestRunTestsFiltersByApp(t *testing.T) {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(filepath.Join(dir, "cerne.app.ts"), []byte(`import { defineApp } from "@cerne/sdk";
+		if err := os.WriteFile(filepath.Join(dir, "ddcore.app.ts"), []byte(`import { defineApp } from "@ddcore/sdk";
 export default defineApp({ name: "`+name+`", title: "`+name+`" });`), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		testSource := `import "@cerne/sdk/test";
+		testSource := `import "@ddcore/sdk/test";
 test("` + name + ` test", () => expect(true).toBe(true));`
 		if name == "segundo" {
-			testSource = `import "@cerne/sdk/test";
+			testSource = `import "@ddcore/sdk/test";
 describe("segundo", () => {
   beforeAll(() => { throw new Error("hook de segundo não deve executar"); });
   test("segundo test", () => expect(true).toBe(true));

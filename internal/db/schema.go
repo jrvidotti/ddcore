@@ -7,28 +7,28 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/jrvidotti/cerne/internal/meta"
+	"github.com/jrvidotti/ddcore/internal/meta"
 )
 
 // InternalSchema are the framework tables that are not DocTypes.
 const InternalSchema = `
-CREATE TABLE IF NOT EXISTS cerne_session (
+CREATE TABLE IF NOT EXISTS ddcore_session (
   sid text PRIMARY KEY, "user" text NOT NULL, created timestamptz NOT NULL DEFAULT now(),
   last_seen timestamptz NOT NULL DEFAULT now(), expires timestamptz NOT NULL, data jsonb);
-CREATE TABLE IF NOT EXISTS cerne_series (prefix text PRIMARY KEY, current bigint NOT NULL DEFAULT 0);
-CREATE TABLE IF NOT EXISTS cerne_job (
+CREATE TABLE IF NOT EXISTS ddcore_series (prefix text PRIMARY KEY, current bigint NOT NULL DEFAULT 0);
+CREATE TABLE IF NOT EXISTS ddcore_job (
   id bigserial PRIMARY KEY, method text NOT NULL, args jsonb, queue text NOT NULL DEFAULT 'default',
   status text NOT NULL DEFAULT 'queued', "user" text, enqueued timestamptz NOT NULL DEFAULT now(),
   run_after timestamptz NOT NULL DEFAULT now(), started timestamptz, finished timestamptz,
   attempts int NOT NULL DEFAULT 0, max_attempts int NOT NULL DEFAULT 3, error text, result jsonb);
-ALTER TABLE cerne_job ADD COLUMN IF NOT EXISTS lease_until timestamptz;
-ALTER TABLE cerne_job ADD COLUMN IF NOT EXISTS timeout_seconds int NOT NULL DEFAULT 300;
-CREATE INDEX IF NOT EXISTS cerne_job_status ON cerne_job(status, run_after);
-CREATE INDEX IF NOT EXISTS cerne_job_lease ON cerne_job(status, lease_until);
-CREATE TABLE IF NOT EXISTS cerne_patch (app text NOT NULL, name text NOT NULL, executed timestamptz NOT NULL DEFAULT now(), PRIMARY KEY(app, name));
-CREATE TABLE IF NOT EXISTS cerne_migration (id bigserial PRIMARY KEY, executed timestamptz NOT NULL DEFAULT now(), ddl text NOT NULL);
-CREATE TABLE IF NOT EXISTS cerne_installed_app (app text PRIMARY KEY, installed timestamptz NOT NULL DEFAULT now());
-CREATE TABLE IF NOT EXISTS cerne_default (
+ALTER TABLE ddcore_job ADD COLUMN IF NOT EXISTS lease_until timestamptz;
+ALTER TABLE ddcore_job ADD COLUMN IF NOT EXISTS timeout_seconds int NOT NULL DEFAULT 300;
+CREATE INDEX IF NOT EXISTS ddcore_job_status ON ddcore_job(status, run_after);
+CREATE INDEX IF NOT EXISTS ddcore_job_lease ON ddcore_job(status, lease_until);
+CREATE TABLE IF NOT EXISTS ddcore_patch (app text NOT NULL, name text NOT NULL, executed timestamptz NOT NULL DEFAULT now(), PRIMARY KEY(app, name));
+CREATE TABLE IF NOT EXISTS ddcore_migration (id bigserial PRIMARY KEY, executed timestamptz NOT NULL DEFAULT now(), ddl text NOT NULL);
+CREATE TABLE IF NOT EXISTS ddcore_installed_app (app text PRIMARY KEY, installed timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS ddcore_default (
   "user" text NOT NULL, key text NOT NULL, value jsonb, PRIMARY KEY("user", key));
 `
 
@@ -275,7 +275,7 @@ func Apply(ctx context.Context, q Querier, ddl []string) error {
 		if _, err := q.Exec(ctx, s); err != nil {
 			return fmt.Errorf("%w\nDDL: %s", err, s)
 		}
-		if _, err := q.Exec(ctx, "INSERT INTO cerne_migration (ddl) VALUES ($1)", s); err != nil {
+		if _, err := q.Exec(ctx, "INSERT INTO ddcore_migration (ddl) VALUES ($1)", s); err != nil {
 			return err
 		}
 	}

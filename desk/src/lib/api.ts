@@ -1,6 +1,6 @@
-// Thin client for the cerne HTTP API. Every error becomes a CerneError with
+// Thin client for the ddcore HTTP API. Every error becomes a DDCoreError with
 // type/title/message so the UI can show it the same way the server phrased it.
-export class CerneError extends Error {
+export class DDCoreError extends Error {
   constructor(public type: string, public title: string, message: string, public status: number, public extra?: any) {
     super(message);
   }
@@ -16,7 +16,7 @@ const listeners: ((m: Message) => void)[] = [];
 export function onMessage(fn: (m: Message) => void) { listeners.push(fn); return () => listeners.splice(listeners.indexOf(fn), 1); }
 
 async function request<T = any>(method: string, url: string, body?: any, opts: { raw?: boolean } = {}): Promise<T> {
-  const headers: Record<string, string> = { "X-Cerne-CSRF": "1", "X-Requested-With": "cerne" };
+  const headers: Record<string, string> = { "X-DDCore-CSRF": "1", "X-Requested-With": "ddcore" };
   let payload: BodyInit | undefined;
   if (body instanceof FormData) payload = body;
   else if (body !== undefined) { headers["Content-Type"] = "application/json"; payload = JSON.stringify(body); }
@@ -29,7 +29,7 @@ async function request<T = any>(method: string, url: string, body?: any, opts: {
     if (res.status === 401 && typeof window !== "undefined" && !location.pathname.startsWith("/login")) {
       location.href = "/login?redirect=" + encodeURIComponent(location.pathname + location.search);
     }
-    throw new CerneError(e.type, e.title || "", e.message, res.status, e.extra);
+    throw new DDCoreError(e.type, e.title || "", e.message, res.status, e.extra);
   }
   if (data?.messages) for (const m of data.messages) messages.push(m);
   return opts.raw ? data : data?.data;

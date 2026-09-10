@@ -5,7 +5,7 @@ build/
 bin/
 *.log
 .env
-.cerne/
+.ddcore/
 desk/build/
 /data/
 .playwright-mcp/

@@ -1,11 +1,11 @@
-import { defineForm, cerne } from "@cerne/desk-sdk";
-import type { Projeto } from "../../.cerne/types";
+import { defineForm, ddcore } from "@ddcore/desk-sdk";
+import type { Projeto } from "../../.ddcore/types";
 
 defineForm<Projeto>("Projeto", {
   refresh(frm) {
     if (frm.isNew) return;
-    frm.addIndicator(__("Progress: {0}%", [cerne.format.number(frm.doc.progresso, 2)]), corDoProgresso(frm.doc.progresso));
-    frm.addButton(__("Tasks"), () => cerne.route(`/app/Tarefa?projeto=${encodeURIComponent(frm.doc.name)}`));
+    frm.addIndicator(__("Progress: {0}%", [ddcore.format.number(frm.doc.progresso, 2)]), corDoProgresso(frm.doc.progresso));
+    frm.addButton(__("Tasks"), () => ddcore.route(`/app/Tarefa?projeto=${encodeURIComponent(frm.doc.name)}`));
   },
 });
 

@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jrvidotti/cerne/internal/meta"
+	"github.com/jrvidotti/ddcore/internal/meta"
 )
 
 func TestCastValueDatetimeAceitaString(t *testing.T) {

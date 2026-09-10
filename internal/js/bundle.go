@@ -11,7 +11,7 @@ import (
 
 	"github.com/evanw/esbuild/pkg/api"
 
-	"github.com/jrvidotti/cerne/packages/sdk"
+	"github.com/jrvidotti/ddcore/packages/sdk"
 )
 
 //go:embed desksdk.js
@@ -33,21 +33,21 @@ type Bundle struct {
 }
 
 func sdkPlugin() api.Plugin {
-	return api.Plugin{Name: "cerne-sdk", Setup: func(b api.PluginBuild) {
-		b.OnResolve(api.OnResolveOptions{Filter: `^@cerne/sdk(/.*)?$`}, func(a api.OnResolveArgs) (api.OnResolveResult, error) {
+	return api.Plugin{Name: "ddcore-sdk", Setup: func(b api.PluginBuild) {
+		b.OnResolve(api.OnResolveOptions{Filter: `^@ddcore/sdk(/.*)?$`}, func(a api.OnResolveArgs) (api.OnResolveResult, error) {
 			p := "index.ts"
-			if strings.HasPrefix(a.Path, "@cerne/sdk/") {
-				p = strings.TrimPrefix(a.Path, "@cerne/sdk/") + ".ts"
+			if strings.HasPrefix(a.Path, "@ddcore/sdk/") {
+				p = strings.TrimPrefix(a.Path, "@ddcore/sdk/") + ".ts"
 			}
-			return api.OnResolveResult{Path: p, Namespace: "cerne-sdk"}, nil
+			return api.OnResolveResult{Path: p, Namespace: "ddcore-sdk"}, nil
 		})
-		b.OnResolve(api.OnResolveOptions{Filter: `^\./`, Namespace: "cerne-sdk"}, func(a api.OnResolveArgs) (api.OnResolveResult, error) {
-			return api.OnResolveResult{Path: strings.TrimPrefix(a.Path, "./") + ".ts", Namespace: "cerne-sdk"}, nil
+		b.OnResolve(api.OnResolveOptions{Filter: `^\./`, Namespace: "ddcore-sdk"}, func(a api.OnResolveArgs) (api.OnResolveResult, error) {
+			return api.OnResolveResult{Path: strings.TrimPrefix(a.Path, "./") + ".ts", Namespace: "ddcore-sdk"}, nil
 		})
-		b.OnLoad(api.OnLoadOptions{Filter: `.*`, Namespace: "cerne-sdk"}, func(a api.OnLoadArgs) (api.OnLoadResult, error) {
+		b.OnLoad(api.OnLoadOptions{Filter: `.*`, Namespace: "ddcore-sdk"}, func(a api.OnLoadArgs) (api.OnLoadResult, error) {
 			data, err := sdk.FS.ReadFile("src/" + a.Path)
 			if err != nil {
-				return api.OnLoadResult{}, fmt.Errorf("@cerne/sdk: %s não existe", a.Path)
+				return api.OnLoadResult{}, fmt.Errorf("@ddcore/sdk: %s não existe", a.Path)
 			}
 			s := string(data)
 			return api.OnLoadResult{Contents: &s, Loader: api.LoaderTS}, nil
@@ -58,15 +58,15 @@ func sdkPlugin() api.Plugin {
 // embeddedPlugin serves an app from an fs.FS (the core app).
 func embeddedPlugin(app App) api.Plugin {
 	root := filepath.Clean(app.Dir)
-	return api.Plugin{Name: "cerne-embedded-" + app.Name, Setup: func(b api.PluginBuild) {
+	return api.Plugin{Name: "ddcore-embedded-" + app.Name, Setup: func(b api.PluginBuild) {
 		b.OnResolve(api.OnResolveOptions{Filter: `.*`}, func(a api.OnResolveArgs) (api.OnResolveResult, error) {
-			if strings.HasPrefix(a.Path, "@cerne/") {
+			if strings.HasPrefix(a.Path, "@ddcore/") {
 				return api.OnResolveResult{}, nil
 			}
 			var p string
 			if strings.HasPrefix(a.Path, "/") || strings.HasPrefix(a.Path, root) {
 				p = a.Path
-			} else if a.Namespace == "cerne-embedded" || a.Importer != "" {
+			} else if a.Namespace == "ddcore-embedded" || a.Importer != "" {
 				p = filepath.Join(filepath.Dir(a.Importer), a.Path)
 			} else {
 				p = filepath.Join(a.ResolveDir, a.Path)
@@ -75,9 +75,9 @@ func embeddedPlugin(app App) api.Plugin {
 			if !strings.HasSuffix(p, ".ts") {
 				p += ".ts"
 			}
-			return api.OnResolveResult{Path: filepath.Join(root, p), Namespace: "cerne-embedded"}, nil
+			return api.OnResolveResult{Path: filepath.Join(root, p), Namespace: "ddcore-embedded"}, nil
 		})
-		b.OnLoad(api.OnLoadOptions{Filter: `.*`, Namespace: "cerne-embedded"}, func(a api.OnLoadArgs) (api.OnLoadResult, error) {
+		b.OnLoad(api.OnLoadOptions{Filter: `.*`, Namespace: "ddcore-embedded"}, func(a api.OnLoadArgs) (api.OnLoadResult, error) {
 			rel := strings.TrimPrefix(a.Path, root+"/")
 			data, err := fs.ReadFile(app.Embedded, rel)
 			if err != nil {
@@ -102,7 +102,7 @@ func ServerFiles(app App, includeTests bool) ([]string, error) {
 		}
 		if d.IsDir() {
 			base := d.Name()
-			if rel != "." && (base == "node_modules" || base == "client" || base == ".cerne" || strings.HasPrefix(base, ".")) {
+			if rel != "." && (base == "node_modules" || base == "client" || base == ".ddcore" || strings.HasPrefix(base, ".")) {
 				return fs.SkipDir
 			}
 			return nil
@@ -134,7 +134,7 @@ func ServerFiles(app App, includeTests bool) ([]string, error) {
 // Doctypes load first so controllers/reports can rely on meta; tests last.
 func loadRank(f string) int {
 	switch {
-	case f == "cerne.app.ts":
+	case f == "ddcore.app.ts":
 		return 0
 	case strings.HasSuffix(f, ".doctype.ts"):
 		return 1
@@ -150,7 +150,7 @@ func ModulePath(app, rel string) string {
 	return app + "." + strings.ReplaceAll(rel, "/", ".")
 }
 
-// TransformTS strips TypeScript types from a standalone snippet, so `cerne
+// TransformTS strips TypeScript types from a standalone snippet, so `ddcore
 // eval` e a tool eval do MCP aceitam TS de verdade e não só JavaScript (B22).
 func TransformTS(code string) (string, error) {
 	res := api.Transform(code, api.TransformOptions{
@@ -172,10 +172,10 @@ func BuildServer(app App, includeTests bool) (*Bundle, error) {
 		return nil, err
 	}
 	var entry strings.Builder
-	entry.WriteString("__cerne.app = " + fmt.Sprintf("%q", app.Name) + ";\n")
+	entry.WriteString("__ddcore.app = " + fmt.Sprintf("%q", app.Name) + ";\n")
 	for _, f := range files {
 		mp := ModulePath(app.Name, f)
-		fmt.Fprintf(&entry, "__cerne.current = %q; __cerne.register('module', { path: %q, file: %q, exports: require(%q) });\n", mp, mp, f, "./"+f)
+		fmt.Fprintf(&entry, "__ddcore.current = %q; __ddcore.register('module', { path: %q, file: %q, exports: require(%q) });\n", mp, mp, f, "./"+f)
 	}
 	plugins := []api.Plugin{sdkPlugin()}
 	if app.Embedded != nil {
@@ -220,14 +220,14 @@ func formatMessages(msgs []api.Message) string {
 }
 
 // BuildClient bundles a browser entry (form script or desk include) to ESM.
-// `@cerne/desk-sdk` resolves to the runtime the desk exposes on window.
+// `@ddcore/desk-sdk` resolves to the runtime the desk exposes on window.
 func BuildClient(app App, entry string) (string, error) {
 	shim := deskSDKShim
-	plugin := api.Plugin{Name: "cerne-desk-sdk", Setup: func(b api.PluginBuild) {
-		b.OnResolve(api.OnResolveOptions{Filter: `^@cerne/desk-sdk$`}, func(a api.OnResolveArgs) (api.OnResolveResult, error) {
-			return api.OnResolveResult{Path: "desk-sdk", Namespace: "cerne-desk"}, nil
+	plugin := api.Plugin{Name: "ddcore-desk-sdk", Setup: func(b api.PluginBuild) {
+		b.OnResolve(api.OnResolveOptions{Filter: `^@ddcore/desk-sdk$`}, func(a api.OnResolveArgs) (api.OnResolveResult, error) {
+			return api.OnResolveResult{Path: "desk-sdk", Namespace: "ddcore-desk"}, nil
 		})
-		b.OnLoad(api.OnLoadOptions{Filter: `.*`, Namespace: "cerne-desk"}, func(a api.OnLoadArgs) (api.OnLoadResult, error) {
+		b.OnLoad(api.OnLoadOptions{Filter: `.*`, Namespace: "ddcore-desk"}, func(a api.OnLoadArgs) (api.OnLoadResult, error) {
 			return api.OnLoadResult{Contents: &shim, Loader: api.LoaderJS}, nil
 		})
 	}}

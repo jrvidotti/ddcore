@@ -1,4 +1,4 @@
-module github.com/jrvidotti/cerne
+module github.com/jrvidotti/ddcore
 
 go 1.26.5
 

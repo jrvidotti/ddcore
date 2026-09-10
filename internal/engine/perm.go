@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jrvidotti/cerne/internal/db"
-	"github.com/jrvidotti/cerne/internal/meta"
+	"github.com/jrvidotti/ddcore/internal/db"
+	"github.com/jrvidotti/ddcore/internal/meta"
 )
 
 // Roles returns the roles of the current user (cached per ctx).

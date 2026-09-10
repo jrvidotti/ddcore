@@ -18,7 +18,7 @@
 
 <aside class="sidebar" class:open>
   <div class="brand">
-    <a href="/app" style="display:flex;align-items:center;gap:8px;color:inherit;text-decoration:none"><span class="logo">c</span><strong>{boot.data?.site?.name || "cerne"}</strong></a>
+    <a href="/app" style="display:flex;align-items:center;gap:8px;color:inherit;text-decoration:none"><span class="logo">d</span><strong>{boot.data?.site?.name || "ddcore"}</strong></a>
   </div>
   <nav>
     {#each workspaces as ws}

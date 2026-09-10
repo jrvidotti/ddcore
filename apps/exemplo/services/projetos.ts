@@ -4,9 +4,9 @@
 export type StatusProjeto = "Planejado" | "Em andamento" | "Concluído";
 
 export function recalcularProgresso(projeto: string): void {
-  if (!projeto || !cerne.db.exists("Projeto", projeto)) return;
+  if (!projeto || !ddcore.db.exists("Projeto", projeto)) return;
 
-  const tarefas = cerne.db.getAll<{ status: string }>("Tarefa", {
+  const tarefas = ddcore.db.getAll<{ status: string }>("Tarefa", {
     filters: { projeto },
     fields: ["status"],
     limit: 10000,
@@ -14,8 +14,8 @@ export function recalcularProgresso(projeto: string): void {
   const concluidas = tarefas.filter((t) => t.status === "Concluída").length;
   const status: StatusProjeto =
     tarefas.length === 0 ? "Planejado" : concluidas === tarefas.length ? "Concluído" : "Em andamento";
-  const progresso = tarefas.length === 0 ? 0 : cerne.utils.roundTo((concluidas * 100) / tarefas.length, 2);
+  const progresso = tarefas.length === 0 ? 0 : ddcore.utils.roundTo((concluidas * 100) / tarefas.length, 2);
 
   // dbSet: grava as colunas derivadas sem reentrar no validate do Projeto
-  cerne.getDoc("Projeto", projeto).dbSet({ progresso, status });
+  ddcore.getDoc("Projeto", projeto).dbSet({ progresso, status });
 }

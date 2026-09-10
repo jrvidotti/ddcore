@@ -7,7 +7,7 @@
 | Small Text / Text / Text Editor | text | textarea (2 / 5 linhas) |
 | Int | bigint | |
 | Float | double precision | `precision` só afeta exibição |
-| Currency | numeric(21,9) | exibido como R$ (moeda do cerne.json) |
+| Currency | numeric(21,9) | exibido como R$ (moeda do ddcore.json) |
 | Percent | numeric(21,9) | exibido com % |
 | Check | boolean | default `false` |
 | Date | date | valor "YYYY-MM-DD" |

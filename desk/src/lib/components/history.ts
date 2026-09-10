@@ -1,4 +1,4 @@
-// Version history processing and diff utilities for cerne desk forms.
+// Version history processing and diff utilities for ddcore desk forms.
 import type { FormController } from "../form.svelte";
 import type { DocTypeMeta, Field } from "../meta";
 import { formatDate, formatDatetime, formatCurrency, formatNumber, timeAgo } from "../format.ts";

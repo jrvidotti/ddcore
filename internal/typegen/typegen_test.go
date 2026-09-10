@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/jrvidotti/cerne/internal/meta"
+	"github.com/jrvidotti/ddcore/internal/meta"
 )
 
 func TestWriteMaterializesEmbeddedSDKsForStandaloneApp(t *testing.T) {
@@ -28,11 +28,11 @@ func TestWriteMaterializesEmbeddedSDKsForStandaloneApp(t *testing.T) {
 	}
 
 	for _, rel := range []string{
-		".cerne/types.d.ts",
-		".cerne/sdk/index.ts",
-		".cerne/sdk/test.ts",
-		".cerne/sdk/types.ts",
-		".cerne/desk-sdk/index.ts",
+		".ddcore/types.d.ts",
+		".ddcore/sdk/index.ts",
+		".ddcore/sdk/test.ts",
+		".ddcore/sdk/types.ts",
+		".ddcore/desk-sdk/index.ts",
 	} {
 		if _, err := os.Stat(filepath.Join(appDir, rel)); err != nil {
 			t.Errorf("generated file %s: %v", rel, err)
@@ -52,9 +52,9 @@ func TestWriteMaterializesEmbeddedSDKsForStandaloneApp(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := map[string]string{
-		"@cerne/sdk":      ".cerne/sdk/index.ts",
-		"@cerne/sdk/test": ".cerne/sdk/test.ts",
-		"@cerne/desk-sdk": ".cerne/desk-sdk/index.ts",
+		"@ddcore/sdk":      ".ddcore/sdk/index.ts",
+		"@ddcore/sdk/test": ".ddcore/sdk/test.ts",
+		"@ddcore/desk-sdk": ".ddcore/desk-sdk/index.ts",
 	}
 	for module, path := range want {
 		got := cfg.CompilerOptions.Paths[module]

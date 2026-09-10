@@ -1,14 +1,14 @@
-// @cerne/sdk — the API apps use on the server (runs inside the cerne binary).
+// @ddcore/sdk — the API apps use on the server (runs inside the ddcore binary).
 import type {
   AppDef, BaseDoc, ControllerDef, Context, DoctypeDef, Document, Filters, ListArgs,
   ReportDef, WorkspaceDef,
 } from "./types";
 export * from "./types";
 
-declare const __cerne: { register(kind: string, value: any): void; current: string };
+declare const __ddcore: { register(kind: string, value: any): void; current: string };
 
-// The host injects `cerne` (bridge to Go) before any module runs.
-export interface CerneDB {
+// The host injects `ddcore` (bridge to Go) before any module runs.
+export interface DDCoreDB {
   getValue<T = any>(doctype: string, name: string | Filters, field: string): T;
   getValue<T = Record<string, any>>(doctype: string, name: string | Filters, fields: string[]): T | null;
   getList<T = Record<string, any>>(doctype: string, args?: ListArgs): T[];
@@ -21,14 +21,14 @@ export interface CerneDB {
   /**
    * Advisory lock por chave, válido até o fim da transação: outra requisição
    * que peça a mesma chave espera. Use para tornar uma operação idempotente sob
-   * concorrência, ex.: `cerne.db.lock("faturamento:" + contrato)`.
+   * concorrência, ex.: `ddcore.db.lock("faturamento:" + contrato)`.
    */
   lock(key: string): void;
   getSingleValue(doctype: string, field: string): any;
 }
 
-export interface CerneAPI {
-  db: CerneDB;
+export interface DDCoreAPI {
+  db: DDCoreDB;
   session: Context;
   getDoc<T extends BaseDoc = BaseDoc>(doctype: string, name?: string | Filters): T & Document<T>;
   newDoc<T extends BaseDoc = BaseDoc>(doctype: string, values?: Partial<T>): T & Document<T>;
@@ -70,7 +70,7 @@ export interface CerneAPI {
   /** current authenticated user (Guest when anonymous) */
   user(): string;
   getRoles(user?: string): string[];
-  /** true inside `cerne test` */
+  /** true inside `ddcore test` */
   isTest(): boolean;
   /** true when running in a job/migrate rather than a request */
   isJob(): boolean;
@@ -81,31 +81,31 @@ export interface CerneAPI {
 }
 
 declare global {
-  const cerne: CerneAPI;
+  const ddcore: DDCoreAPI;
 }
 
 export function defineDoctype<const D extends DoctypeDef>(def: D): D {
-  __cerne.register("doctype", def);
+  __ddcore.register("doctype", def);
   return def;
 }
 
 export function defineController<T extends BaseDoc = BaseDoc>(doctype: string, ctrl: ControllerDef<T>): ControllerDef<T> {
-  __cerne.register("controller", { doctype, controller: ctrl });
+  __ddcore.register("controller", { doctype, controller: ctrl });
   return ctrl;
 }
 
 export function defineReport(def: ReportDef): ReportDef {
-  __cerne.register("report", def);
+  __ddcore.register("report", def);
   return def;
 }
 
 export function defineWorkspace(def: WorkspaceDef): WorkspaceDef {
-  __cerne.register("workspace", def);
+  __ddcore.register("workspace", def);
   return def;
 }
 
 export function defineApp(def: AppDef): AppDef {
-  __cerne.register("app", def);
+  __ddcore.register("app", def);
   return def;
 }
 
@@ -117,6 +117,6 @@ export function whitelisted<F extends (...a: any[]) => any>(fn: F, opts: Whiteli
   return fn;
 }
 
-export const _ = (text: string, args?: any[]) => cerne._(text, args);
+export const _ = (text: string, args?: any[]) => ddcore._(text, args);
 
 export type { Document, Context };

@@ -8,12 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jrvidotti/cerne/internal/cerr"
-	"github.com/jrvidotti/cerne/internal/db"
-	"github.com/jrvidotti/cerne/internal/js"
+	"github.com/jrvidotti/ddcore/internal/cerr"
+	"github.com/jrvidotti/ddcore/internal/db"
+	"github.com/jrvidotti/ddcore/internal/js"
 )
 
-// B06 — cerne.db.sql precisa ser somente leitura de verdade: uma CTE de
+// B06 — ddcore.db.sql precisa ser somente leitura de verdade: uma CTE de
 // escrita disfarçada de SELECT tem de ser recusada pelo banco e nada pode
 // ficar gravado.
 func TestB06_SQLReadonlyRecusaEscrita(t *testing.T) {
@@ -313,7 +313,7 @@ func TestB14_IndicesUnicos(t *testing.T) {
 	}
 }
 
-// cerne.db.lock serializa duas transações que pedem a mesma chave.
+// ddcore.db.lock serializa duas transações que pedem a mesma chave.
 func TestDBLockSerializa(t *testing.T) {
 	e := setup(t)
 	ctx := context.Background()
@@ -567,33 +567,33 @@ func TestB15_LeaseVencidoVoltaParaFila(t *testing.T) {
 		t.Fatal(err)
 	}
 	// simula o claim de um worker que morreu logo depois
-	if _, err := e.DB.Pool.Exec(ctx, `UPDATE cerne_job SET status = 'running', attempts = 1, lease_until = now() - interval '1 minute' WHERE id = $1`, id); err != nil {
+	if _, err := e.DB.Pool.Exec(ctx, `UPDATE ddcore_job SET status = 'running', attempts = 1, lease_until = now() - interval '1 minute' WHERE id = $1`, id); err != nil {
 		t.Fatal(err)
 	}
 	if err := e.requeueStale(ctx); err != nil {
 		t.Fatal(err)
 	}
 	var status string
-	if err := e.DB.Pool.QueryRow(ctx, `SELECT status FROM cerne_job WHERE id = $1`, id).Scan(&status); err != nil {
+	if err := e.DB.Pool.QueryRow(ctx, `SELECT status FROM ddcore_job WHERE id = $1`, id).Scan(&status); err != nil {
 		t.Fatal(err)
 	}
 	if status != "queued" {
 		t.Fatalf("job abandonado não voltou para a fila: %s", status)
 	}
 	// esgotadas as tentativas, vira failed em vez de rodar para sempre
-	if _, err := e.DB.Pool.Exec(ctx, `UPDATE cerne_job SET status = 'running', attempts = max_attempts, lease_until = now() - interval '1 minute' WHERE id = $1`, id); err != nil {
+	if _, err := e.DB.Pool.Exec(ctx, `UPDATE ddcore_job SET status = 'running', attempts = max_attempts, lease_until = now() - interval '1 minute' WHERE id = $1`, id); err != nil {
 		t.Fatal(err)
 	}
 	if err := e.requeueStale(ctx); err != nil {
 		t.Fatal(err)
 	}
-	e.DB.Pool.QueryRow(ctx, `SELECT status FROM cerne_job WHERE id = $1`, id).Scan(&status)
+	e.DB.Pool.QueryRow(ctx, `SELECT status FROM ddcore_job WHERE id = $1`, id).Scan(&status)
 	if status != "failed" {
 		t.Fatalf("esperava failed depois de esgotar as tentativas: %s", status)
 	}
 	// timeout_seconds gravado no enqueue
 	var to int
-	e.DB.Pool.QueryRow(ctx, `SELECT timeout_seconds FROM cerne_job WHERE id = $1`, id).Scan(&to)
+	e.DB.Pool.QueryRow(ctx, `SELECT timeout_seconds FROM ddcore_job WHERE id = $1`, id).Scan(&to)
 	if to != 5 {
 		t.Fatalf("timeout do job não foi gravado: %d", to)
 	}

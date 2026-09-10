@@ -1,20 +1,20 @@
-# Desenvolvimento: Cerne + app `apps/exemplo`
+# Desenvolvimento: DDCore + app `apps/exemplo`
 
-Este documento explica **como se desenvolve** neste repositório: o que é o Cerne, o que é o
+Este documento explica **como se desenvolve** neste repositório: o que é o DDCore, o que é o
 app de exemplo, onde fica a fronteira entre o núcleo e o app, quais arquivos existem para
 quê e qual é o ciclo de trabalho do dia a dia.
 
 Aqui há uma particularidade que não existe em um app de produto: este checkout é o
-**monorepo do framework**. O binário não vem instalado — é compilado daqui (`bin/cerne`) —
-e `apps/exemplo` é carregado por este mesmo `cerne.json`. Ou seja, quase sempre há **dois
+**monorepo do framework**. O binário não vem instalado — é compilado daqui (`bin/ddcore`) —
+e `apps/exemplo` é carregado por este mesmo `ddcore.json`. Ou seja, quase sempre há **dois
 loops de trabalho** acontecendo: o do núcleo (Go + desk) e o do app (TypeScript).
 
 Complementos:
 
 - `README.md` — visão geral, setup e layout do monorepo.
-- `CLAUDE.md` / `AGENTS.md` — regras curtas e obrigatórias (síncrono, portas, `.cerne/`).
+- `CLAUDE.md` / `AGENTS.md` — regras curtas e obrigatórias (síncrono, portas, `.ddcore/`).
 - `docs/plan-v1.md` — o design do framework.
-- `docs/agent/` (`cerne docs`, ou os resources MCP `cerne://docs/*`) — **a referência
+- `docs/agent/` (`ddcore docs`, ou os resources MCP `ddcore://docs/*`) — **a referência
   canônica da API**: `conventions`, `fieldtypes`, `controller-api`, `form-api`,
   `report-api`, `cli`. Este documento descreve o modelo mental, não substitui a API.
 - `docs/superpowers/specs/2026-09-10-app-exemplo-design.md` — a especificação do app
@@ -22,10 +22,10 @@ Complementos:
 
 ---
 
-## 1. O que é o Cerne
+## 1. O que é o DDCore
 
-O Cerne é um **framework de aplicações de dados** no espírito do Frappe, implementado em
-**Go + TypeScript + PostgreSQL** e distribuído como um único binário (`cerne`). Ele não é
+O DDCore (*Data Driven Core*) é um **framework de aplicações de dados** no espírito do Frappe, implementado em
+**Go + TypeScript + PostgreSQL** e distribuído como um único binário (`ddcore`). Ele não é
 uma biblioteca que o app importa e compila junto: é um **host**. O binário embute o
 esbuild e o goja, o servidor HTTP, a camada de banco, o desk (SPA Svelte 5) e as tipagens
 dos SDKs.
@@ -34,7 +34,7 @@ O app é um diretório de arquivos TypeScript que o binário carrega e executa. 
 consequência prática mais importante:
 
 > **O app não tem build próprio, não tem servidor próprio e não depende de Node em
-> produção.** O único "motor" é o binário `cerne`. A única dependência externa é um
+> produção.** O único "motor" é o binário `ddcore`. A única dependência externa é um
 > Postgres.
 
 O código de servidor do app roda dentro do intérprete **goja**, que é **síncrono**: não
@@ -46,19 +46,19 @@ framework — e a razão da regra "nunca use `await` no servidor".
 
 | Módulo | Onde roda | O que é |
 |---|---|---|
-| `@cerne/sdk` | servidor (goja), **síncrono** | `defineDoctype`, `defineController`, `defineReport`, `defineWorkspace`, `defineApp`, `whitelisted`, e o global `cerne` (db, utils, http, cache, log…) |
-| `@cerne/sdk/test` | `cerne test` | `describe`/`it`/`expect` |
-| `@cerne/desk-sdk` | navegador, **assíncrono** | `defineForm`, `defineListView`, `cerne.ui.Dialog`, `cerne.db.*` (por HTTP), `cerne.format`, `cerne.datetime` |
+| `@ddcore/sdk` | servidor (goja), **síncrono** | `defineDoctype`, `defineController`, `defineReport`, `defineWorkspace`, `defineApp`, `whitelisted`, e o global `ddcore` (db, utils, http, cache, log…) |
+| `@ddcore/sdk/test` | `ddcore test` | `describe`/`it`/`expect` |
+| `@ddcore/desk-sdk` | navegador, **assíncrono** | `defineForm`, `defineListView`, `ddcore.ui.Dialog`, `ddcore.db.*` (por HTTP), `ddcore.format`, `ddcore.datetime` |
 
 **Atenção a uma diferença deste repositório.** Num app externo, os três são *materializados*
-por `cerne types` dentro de `.cerne/` e o `tsconfig.json` aponta para lá. Aqui, como o
+por `ddcore types` dentro de `.ddcore/` e o `tsconfig.json` aponta para lá. Aqui, como o
 código-fonte dos SDKs está no próprio checkout, `apps/exemplo/tsconfig.json` resolve
-`@cerne/sdk`, `@cerne/sdk/test` e `@cerne/desk-sdk` direto em `packages/` — o typecheck do app valida contra a
+`@ddcore/sdk`, `@ddcore/sdk/test` e `@ddcore/desk-sdk` direto em `packages/` — o typecheck do app valida contra a
 **fonte** dos SDKs, não contra uma cópia gerada. Mudar `packages/sdk` quebra (ou conserta)
 o typecheck do app na mesma hora, o que é exatamente o efeito desejado.
 
-O que `./bin/cerne types` ainda gera em `apps/exemplo/.cerne/` são os **tipos dos DocTypes**
-(`types.d.ts`), a entrada do desk e as declarações embutidas. `.cerne/` é ignorado pelo git
+O que `./bin/ddcore types` ainda gera em `apps/exemplo/.ddcore/` são os **tipos dos DocTypes**
+(`types.d.ts`), a entrada do desk e as declarações embutidas. `.ddcore/` é ignorado pelo git
 e **nunca** deve ser editado à mão.
 
 ---
@@ -69,7 +69,7 @@ A regra geral: **o núcleo resolve o que é genérico para qualquer app de dados
 descreve e decide o que é específico do domínio.** No monorepo, cada responsabilidade do
 núcleo tem um diretório com nome próprio.
 
-### O que o Cerne (núcleo) faz — e onde mora
+### O que o DDCore (núcleo) faz — e onde mora
 
 | Responsabilidade | Onde |
 |---|---|
@@ -79,12 +79,12 @@ núcleo tem um diretório com nome próprio.
 | `Document` (insert/save/submit/cancel/delete), hooks, permissões, jobs e filas | `internal/engine` |
 | API REST, `/api/method`, meta, relatórios, SSE, upload, login/CSRF | `internal/api` |
 | Servidor MCP (tools e resources) | `internal/mcp` |
-| Scaffold (`cerne init`, `new-app`, `scaffold_doctype`) | `internal/scaffold` |
-| Geração de tipos (`cerne types`) | `internal/typegen` |
+| Scaffold (`ddcore init`, `new-app`, `scaffold_doctype`) | `internal/scaffold` |
+| Geração de tipos (`ddcore types`) | `internal/typegen` |
 | App embutido: User, Role, Has Role, File, Comment, Version, Error Log, API Key | `core/` |
 | Desk: listas, formulários, grids, filtros, workspaces, relatórios, diálogos, i18n | `desk/` |
 | Os SDKs que o app importa | `packages/sdk`, `packages/desk-sdk` |
-| CLI | `cmd/cerne` |
+| CLI | `cmd/ddcore` |
 
 Em termos de comportamento, é o núcleo que garante:
 
@@ -101,7 +101,7 @@ Em termos de comportamento, é o núcleo que garante:
   `permissionQuery` do controller.
 - **Desk inteiro** — o app **não escreve componentes de UI**; descreve campos e, quando
   precisa, ajusta comportamento por script.
-- **Agendador e filas** — executa o `scheduler` declarado pelo app e `cerne.enqueue`.
+- **Agendador e filas** — executa o `scheduler` declarado pelo app e `ddcore.enqueue`.
 - **Ferramental** — `dev`, `migrate`, `test`, `types`, `exec`, `eval`, `demo`, `jobs`,
   `user`, `apikey`, `doctor`, `docs`, `mcp`.
 
@@ -120,9 +120,9 @@ carregar regras de um produto real. Dentro desse escopo, ele:
   o relatório `Tarefas por Status`;
 - **ajusta a UI pelas bordas**: `*.form.ts` (botões, indicadores, filtro do Link) e
   `client/listas.ts` (`defineListView` da lista de Tarefa);
-- **declara a rotina periódica** em `cerne.app.ts` (`daily:
+- **declara a rotina periódica** em `ddcore.app.ts` (`daily:
   exemplo.services.tarefas.marcarAtrasadas`) — o núcleo é quem a executa;
-- **semeia demonstração** em `services/demo.ts`, idempotente, descoberta por `cerne demo`;
+- **semeia demonstração** em `services/demo.ts`, idempotente, descoberta por `ddcore demo`;
 - **cobre tudo com testes** `*.test.ts`.
 
 Por ser exemplo, ele também **evita de propósito** coisas que o framework suporta:
@@ -148,35 +148,35 @@ coberto pelos testes do núcleo — não force o exemplo a crescer.
 ## 3. Anatomia do repositório
 
 ```
-cmd/cerne/                    CLI
+cmd/ddcore/                    CLI
 internal/                     meta · db · js · engine · api · mcp · scaffold · typegen
 core/                         app embutido (User, Role, File, Version, …)
 desk/                         SvelteKit, build embutido no binário
-packages/sdk/                 @cerne/sdk
-packages/desk-sdk/            @cerne/desk-sdk
+packages/sdk/                 @ddcore/sdk
+packages/desk-sdk/            @ddcore/desk-sdk
 docs/agent/                   referência da API, escrita para agentes
-cerne.json                    instância de dev: dsn :5455, porta 8090, apps: ["apps/exemplo"]
+ddcore.json                    instância de dev: dsn :5455, porta 8090, apps: ["apps/exemplo"]
 Makefile                      atalhos do fluxo de trabalho
-bin/cerne                     binário compilado (gerado por make build)
+bin/ddcore                     binário compilado (gerado por make build)
 apps/exemplo/                 o app de exemplo
 ```
 
 ### Dentro de `apps/exemplo`
 
 ```
-cerne.app.ts                    manifesto: nome, papéis, scheduler, desk
-tsconfig.json                   resolve @cerne/sdk em packages/sdk/src
+ddcore.app.ts                    manifesto: nome, papéis, scheduler, desk
+tsconfig.json                   resolve @ddcore/sdk em packages/sdk/src
 doctypes/<nome>/
   <nome>.doctype.ts             meta: campos, permissões, nomeação      [servidor, declarativo]
   <nome>.controller.ts          hooks de ciclo de vida e métodos        [servidor, síncrono]
   <nome>.form.ts                comportamento do formulário no desk     [navegador, async]
-  <nome>.test.ts                testes                                  [cerne test]
+  <nome>.test.ts                testes                                  [ddcore test]
 services/*.ts                   regras de negócio reutilizáveis         [servidor, síncrono]
 client/listas.ts                scripts globais do desk                 [navegador, async]
 reports/*.report.ts             relatórios                              [servidor, síncrono]
 workspaces/*.workspace.ts       navegação e painel                      [servidor, declarativo]
 translations/pt-BR.csv          traduções
-.cerne/                         GERADO por `cerne types` — não editar
+.ddcore/                         GERADO por `ddcore types` — não editar
 ```
 
 A convenção de nomes **é** o mecanismo de descoberta: o binário varre o diretório do app e
@@ -194,7 +194,7 @@ Tomando `Projeto` como exemplo:
 (`Data`, `Link`, `Select`, `Percent`, `Table`…), `reqd`, `unique`, `readOnly`,
 `inListView`, `inStandardFilter`, `naming: { field: "codigo" }`, `titleField`,
 `trackChanges`. Daqui o núcleo deriva: o schema no Postgres, o layout do formulário, as
-colunas da listagem, os filtros e as tipagens em `.cerne/types.d.ts`.
+colunas da listagem, os filtros e as tipagens em `.ddcore/types.d.ts`.
 
 ```ts
 export default defineDoctype({
@@ -223,7 +223,7 @@ nunca é digitado; quem o mantém é o serviço, via `dbSet`.
 roda em **toda** gravação, venha ela do desk, da API, de um job ou de um teste — é por isso
 que a validação vive aqui e não no formulário. `methods` expõe ações chamáveis pelo desk
 (`iniciar`, `concluir`, `reabrir` em Tarefa), que salvam pelo ciclo de vida normal e são
-idempotentes. Use `cerne.throw` com `title` para erro de negócio, `doc.dbSet` para gravar
+idempotentes. Use `ddcore.throw` com `title` para erro de negócio, `doc.dbSet` para gravar
 coluna derivada sem reentrar no `validate`, e `doc.getDocBeforeSave()` quando o efeito
 depende do valor anterior (mover uma tarefa de projeto recalcula **os dois**).
 
@@ -238,7 +238,7 @@ precise garantir deve depender deste arquivo.
 
 Um controller bom é fino. A lógica fica em `services/*.ts`, porque precisa ser chamada de
 vários lugares com a mesma semântica: do `validate`, de um método de controller, de um
-relatório, de um card do workspace, do scheduler, de `cerne exec` e dos testes. No exemplo
+relatório, de um card do workspace, do scheduler, de `ddcore exec` e dos testes. No exemplo
 isso aparece três vezes:
 
 - `services/projetos.ts:recalcularProgresso` — chamado após inserir, atualizar ou excluir
@@ -263,26 +263,26 @@ Texto de interface é escrito como chave em inglês e traduzido em `translations
 ### Setup (uma vez)
 
 ```bash
-make docker-up                               # Postgres de dev (container cerne-pg, porta 5455)
-make build                                   # desk (npm) + binário em bin/cerne
+make docker-up                               # Postgres de dev (container ddcore-pg, porta 5455)
+make build                                   # desk (npm) + binário em bin/ddcore
 make migrate                                 # DDL do core + instalação do app exemplo
-./bin/cerne user passwd Administrator admin
-./bin/cerne demo                             # dados de demonstração (idempotente)
+./bin/ddcore user passwd Administrator admin
+./bin/ddcore demo                             # dados de demonstração (idempotente)
 make dev                                     # http://localhost:8090
 ```
 
-Requisitos: Docker, Go e Node.js. Os testes Go usam o banco `cerne_test` (recriado);
-`CERNE_DSN` e `CERNE_TEST_DSN` sobrescrevem o DSN de qualquer comando.
+Requisitos: Docker, Go e Node.js. Os testes Go usam o banco `ddcore_test` (recriado);
+`DDCORE_DSN` e `DDCORE_TEST_DSN` sobrescrevem o DSN de qualquer comando.
 
 ### Os dois loops
 
 **Mexendo no app (`apps/exemplo/**/*.ts`).** `make dev` fica rodando e recompila ao salvar:
 não precisa reiniciar nem rebuildar. Se a mudança foi na **meta** de um DocType, rode
-`./bin/cerne migrate` (ou deixe o `--auto-migrate` do `dev` cuidar) e
-`./bin/cerne types` para regenerar as tipagens.
+`./bin/ddcore migrate` (ou deixe o `--auto-migrate` do `dev` cuidar) e
+`./bin/ddcore types` para regenerar as tipagens.
 
 **Mexendo no núcleo (`internal/`, `core/`, `cmd/`, `packages/`, `desk/`).** Aí o binário
-mudou: `make build` (ou `go build -o bin/cerne ./cmd/cerne`, quando o desk não mudou) e
+mudou: `make build` (ou `go build -o bin/ddcore ./cmd/ddcore`, quando o desk não mudou) e
 reinicie o `dev`. Mudança em `packages/sdk` aparece no typecheck do app imediatamente,
 porque o `tsconfig.json` do exemplo aponta para a fonte.
 
@@ -293,18 +293,18 @@ servidor.
 
 | Comando | Para quê |
 |---|---|
-| `make build` | desk + `bin/cerne` |
+| `make build` | desk + `bin/ddcore` |
 | `make dev` / `make stop` | servidor em :8090 com hot-reload |
 | `make migrate` | DDL + `afterInstall` + fixtures + patches + `afterMigrate` + types |
-| `make check` | `svelte-check` do desk, `cerne types` e `tsc` do `apps/exemplo` |
-| `make test` | build + `go vet` + testes Go + `cerne test --app exemplo` + testes do desk |
-| `./bin/cerne test --filter <regex> -v` | iterar em um teste do app |
-| `./bin/cerne demo` | semeia dados de demonstração (idempotente) |
-| `./bin/cerne exec exemplo.services.tarefas.marcarAtrasadas` | roda um serviço fora de requisição |
-| `./bin/cerne eval '<ts>' [--commit]` | TS avulso com `cerne.*` (rollback por padrão) |
-| `./bin/cerne doctor` | banco, meta, DDL pendente, scheduler |
-| `./bin/cerne docs` / MCP `cerne://docs/*` | a referência da API |
-| `make docker-psql` | psql no `cerne_dev` |
+| `make check` | `svelte-check` do desk, `ddcore types` e `tsc` do `apps/exemplo` |
+| `make test` | build + `go vet` + testes Go + `ddcore test --app exemplo` + testes do desk |
+| `./bin/ddcore test --filter <regex> -v` | iterar em um teste do app |
+| `./bin/ddcore demo` | semeia dados de demonstração (idempotente) |
+| `./bin/ddcore exec exemplo.services.tarefas.marcarAtrasadas` | roda um serviço fora de requisição |
+| `./bin/ddcore eval '<ts>' [--commit]` | TS avulso com `ddcore.*` (rollback por padrão) |
+| `./bin/ddcore doctor` | banco, meta, DDL pendente, scheduler |
+| `./bin/ddcore docs` / MCP `ddcore://docs/*` | a referência da API |
+| `make docker-psql` | psql no `ddcore_dev` |
 
 `make test` é o critério de pronto — inclui `internal/acceptance`, que valida instalação,
 boot, tradução e `/app` contra Postgres e HTTP reais.
@@ -314,12 +314,12 @@ boot, tradução e `/app` contra Postgres e HTTP reais.
 - Servidor é **síncrono**: nenhum `await`/`Promise` em `*.controller.ts`, `services/`,
   `reports/`, `workspaces/`, `patches/`.
 - Desk (`*.form.ts`, `client/*.ts`) **pode** ser assíncrono — e quase sempre é.
-- **Nunca** editar `apps/exemplo/.cerne/`; rodar `./bin/cerne types`.
+- **Nunca** editar `apps/exemplo/.ddcore/`; rodar `./bin/ddcore types`.
 - Validação de invariante vive no servidor (`validate`), nunca só no formulário.
 - Texto de interface passa por `_()` / `__()` e pelo CSV de tradução.
 - Nenhum arquivo do app importa fonte por caminho relativo fora de `apps/exemplo`: os SDKs
-  entram só como `@cerne/sdk` e `@cerne/desk-sdk`.
-- O app exemplo não usa SQL direto; consultas vão por `cerne.db.getList` e afins.
+  entram só como `@ddcore/sdk` e `@ddcore/desk-sdk`.
+- O app exemplo não usa SQL direto; consultas vão por `ddcore.db.getList` e afins.
 - Use as tools MCP em vez de mexer no banco à mão.
 - `make test` antes de considerar qualquer coisa pronta.
 
@@ -336,11 +336,11 @@ boot, tradução e `/app` contra Postgres e HTTP reais.
    invoca o método do controller no goja (`internal/js`).
 3. **Controller** — `tarefa.controller.ts:methods.concluir` é idempotente: se já está
    concluída, devolve o estado atual; senão define `status = "Concluída"`,
-   `concluida_em = cerne.utils.now()` e salva pelo ciclo de vida normal.
+   `concluida_em = ddcore.utils.now()` e salva pelo ciclo de vida normal.
 4. **Hook + serviço** — o `onUpdate` da Tarefa chama
    `services/projetos.ts:recalcularProgresso(projeto)`, que conta tarefas concluídas e
    grava `progresso` e `status` do Projeto com `dbSet` (sem recursão de hooks).
-5. **Núcleo** — sucesso → commit e `{ status, concluida_em }` na resposta; `cerne.throw` →
+5. **Núcleo** — sucesso → commit e `{ status, concluida_em }` na resposta; `ddcore.throw` →
    rollback e mensagem de negócio na tela.
 6. **Desk** — recarrega o documento; o indicador e o progresso aparecem atualizados, e o
    card/gráfico do workspace refletem a mesma contagem porque leem o mesmo serviço.

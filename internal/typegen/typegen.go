@@ -1,4 +1,4 @@
-// Package typegen writes .cerne/types.d.ts for an app: one interface per
+// Package typegen writes .ddcore/types.d.ts for an app: one interface per
 // DocType so controllers, tests and form scripts get autocomplete.
 package typegen
 
@@ -10,9 +10,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/jrvidotti/cerne/internal/meta"
-	desksdk "github.com/jrvidotti/cerne/packages/desk-sdk"
-	"github.com/jrvidotti/cerne/packages/sdk"
+	"github.com/jrvidotti/ddcore/internal/meta"
+	desksdk "github.com/jrvidotti/ddcore/packages/desk-sdk"
+	"github.com/jrvidotti/ddcore/packages/sdk"
 )
 
 func tsType(f *meta.Field) string {
@@ -49,8 +49,8 @@ func ifaceName(doctype string) string {
 // Generate renders the declarations for all doctypes (apps see everything).
 func Generate(reg *meta.Registry) string {
 	var b strings.Builder
-	b.WriteString("// Gerado por `cerne types` — não edite.\n")
-	b.WriteString("import type { BaseDoc, ChildDoc } from \"@cerne/sdk\";\n\n")
+	b.WriteString("// Gerado por `ddcore types` — não edite.\n")
+	b.WriteString("import type { BaseDoc, ChildDoc } from \"@ddcore/sdk\";\n\n")
 	names := reg.Names()
 	for _, n := range names {
 		d := reg.DocTypes[n]
@@ -91,7 +91,7 @@ func materialize(embedded fs.FS, appDir, target string) error {
 		if err != nil {
 			return err
 		}
-		out := filepath.Join(appDir, ".cerne", target, rel)
+		out := filepath.Join(appDir, ".ddcore", target, rel)
 		if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
 			return err
 		}
@@ -104,9 +104,9 @@ func materialize(embedded fs.FS, appDir, target string) error {
 }
 
 // Write puts generated DocType declarations and the embedded SDK sources under
-// <appDir>/.cerne, so typechecking never depends on a framework checkout.
+// <appDir>/.ddcore, so typechecking never depends on a framework checkout.
 func Write(appDir string, reg *meta.Registry) error {
-	dir := filepath.Join(appDir, ".cerne")
+	dir := filepath.Join(appDir, ".ddcore")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
@@ -130,13 +130,13 @@ func Write(appDir string, reg *meta.Registry) error {
     "noEmit": true,
     "skipLibCheck": true,
     "baseUrl": ".",
-    "paths": { "@cerne/sdk": [%q], "@cerne/sdk/test": [%q], "@cerne/desk-sdk": [%q] },
+    "paths": { "@ddcore/sdk": [%q], "@ddcore/sdk/test": [%q], "@ddcore/desk-sdk": [%q] },
     "types": []
   },
-  "include": ["**/*.ts", ".cerne/types.d.ts"],
+  "include": ["**/*.ts", ".ddcore/types.d.ts"],
   "exclude": ["node_modules"]
 }
-`, ".cerne/sdk/index.ts", ".cerne/sdk/test.ts", ".cerne/desk-sdk/index.ts")
+`, ".ddcore/sdk/index.ts", ".ddcore/sdk/test.ts", ".ddcore/desk-sdk/index.ts")
 		if err := os.WriteFile(tsconfig, []byte(cfg), 0o644); err != nil {
 			return err
 		}

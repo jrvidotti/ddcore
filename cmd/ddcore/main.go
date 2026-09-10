@@ -1,4 +1,4 @@
-// cerne — the CLI: dev server, migrations, tests, types, jobs, users, MCP.
+// ddcore — the CLI: dev server, migrations, tests, types, jobs, users, MCP.
 package main
 
 import (
@@ -16,30 +16,30 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/jrvidotti/cerne/desk"
-	"github.com/jrvidotti/cerne/internal/api"
-	"github.com/jrvidotti/cerne/internal/config"
-	"github.com/jrvidotti/cerne/internal/engine"
-	"github.com/jrvidotti/cerne/internal/js"
-	"github.com/jrvidotti/cerne/internal/mcp"
-	"github.com/jrvidotti/cerne/internal/scaffold"
-	"github.com/jrvidotti/cerne/internal/typegen"
-	"github.com/jrvidotti/cerne/internal/watch"
+	"github.com/jrvidotti/ddcore/desk"
+	"github.com/jrvidotti/ddcore/internal/api"
+	"github.com/jrvidotti/ddcore/internal/config"
+	"github.com/jrvidotti/ddcore/internal/engine"
+	"github.com/jrvidotti/ddcore/internal/js"
+	"github.com/jrvidotti/ddcore/internal/mcp"
+	"github.com/jrvidotti/ddcore/internal/scaffold"
+	"github.com/jrvidotti/ddcore/internal/typegen"
+	"github.com/jrvidotti/ddcore/internal/watch"
 )
 
-const usage = `cerne — framework de aplicações (DocTypes em TypeScript, core em Go, PostgreSQL)
+const usage = `ddcore — framework de aplicações (DocTypes em TypeScript, core em Go, PostgreSQL)
 
-Uso: cerne <comando> [opções]
+Uso: ddcore <comando> [opções]
 
-  init        cria cerne.json no diretório atual
-  new-app     cria um app: cerne new-app <nome> [--dir apps/<nome>]
-  dev         servidor de desenvolvimento com hot-reload (porta do cerne.json)
+  init        cria ddcore.json no diretório atual
+  new-app     cria um app: ddcore new-app <nome> [--dir apps/<nome>]
+  dev         servidor de desenvolvimento com hot-reload (porta do ddcore.json)
   start       servidor de produção
   migrate     aplica DDL, instala apps, roda patches (--dry-run, --prune)
-  types       gera .cerne/types.d.ts em cada app
+  types       gera .ddcore/types.d.ts em cada app
   test        roda os *.test.ts (--filter regex, --app nome)
-  exec        executa uma função: cerne exec app.services.mod.fn --args '{"a":1}'
-  eval        executa TS avulso: cerne eval 'cerne.db.count("User")' [--commit]
+  exec        executa uma função: ddcore exec app.services.mod.fn --args '{"a":1}'
+  eval        executa TS avulso: ddcore eval 'ddcore.db.count("User")' [--commit]
   demo        popula dados de exemplo (<app>.services.demo.gerar, idempotente)
   jobs        jobs list | jobs run <fn> | jobs work
   user        user add <email> <nome> [--password x] [--role R]... | user passwd <email>
@@ -48,7 +48,7 @@ Uso: cerne <comando> [opções]
   docs        imprime a documentação do framework
   doctor      verifica banco, meta e scheduler
 
-Variáveis: CERNE_DSN sobrescreve o dsn do cerne.json.
+Variáveis: DDCORE_DSN sobrescreve o dsn do ddcore.json.
 `
 
 func main() {
@@ -101,21 +101,21 @@ func main() {
 	}
 }
 
-// load builds the engine from cerne.json.
+// load builds the engine from ddcore.json.
 func load(test bool, dev bool) (*engine.Engine, *config.File, error) {
 	cfg, _, err := config.Load(".")
 	if err != nil {
 		return nil, nil, err
 	}
 	if cfg.DSN == "" {
-		return nil, nil, fmt.Errorf("dsn não configurado: rode `cerne init` ou defina CERNE_DSN")
+		return nil, nil, fmt.Errorf("dsn não configurado: rode `ddcore init` ou defina DDCORE_DSN")
 	}
 	var apps []js.App
 	for _, dir := range cfg.Apps {
 		apps = append(apps, js.App{Name: filepath.Base(dir), Dir: dir})
 	}
 	level := slog.LevelInfo
-	if os.Getenv("CERNE_DEBUG") != "" {
+	if os.Getenv("DDCORE_DEBUG") != "" {
 		level = slog.LevelDebug
 	}
 	e, err := engine.New(context.Background(), engine.Config{
@@ -127,12 +127,12 @@ func load(test bool, dev bool) (*engine.Engine, *config.File, error) {
 
 func cmdInit(args []string) error {
 	fs := newFlagSet("init")
-	dsn := fs.String("dsn", "postgres://cerne:cerne@localhost:5432/cerne?sslmode=disable", "conexão Postgres")
+	dsn := fs.String("dsn", "postgres://ddcore:ddcore@localhost:5432/ddcore?sslmode=disable", "conexão Postgres")
 	port := fs.Int("port", 8080, "porta HTTP")
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
-	// idempotente: num checkout que já traz cerne.json, `init && migrate` do
+	// idempotente: num checkout que já traz ddcore.json, `init && migrate` do
 	// roteiro de bootstrap precisa funcionar — atualiza o que foi pedido e avisa.
 	if _, err := os.Stat(config.Name); err == nil {
 		cur, path, err := config.Load(".")
@@ -158,11 +158,11 @@ func cmdInit(args []string) error {
 		fmt.Println("atualizado", path)
 		return nil
 	}
-	f := &config.File{DSN: *dsn, Port: *port, Workers: 2, Scheduler: false, Site: "cerne", Lang: "pt-BR", Currency: "BRL", Apps: []string{}, Dev: true}
+	f := &config.File{DSN: *dsn, Port: *port, Workers: 2, Scheduler: false, Site: "ddcore", Lang: "pt-BR", Currency: "BRL", Apps: []string{}, Dev: true}
 	if err := f.Save(config.Name); err != nil {
 		return err
 	}
-	fmt.Println("criado", config.Name, "— agora: cerne new-app <nome> && cerne migrate && cerne dev")
+	fmt.Println("criado", config.Name, "— agora: ddcore new-app <nome> && ddcore migrate && ddcore dev")
 	return nil
 }
 
@@ -174,7 +174,7 @@ func cmdNewApp(args []string) error {
 		return err
 	}
 	if fs.NArg() < 1 {
-		return fmt.Errorf("uso: cerne new-app <nome>")
+		return fmt.Errorf("uso: ddcore new-app <nome>")
 	}
 	name := fs.Arg(0)
 	if *dir == "" {
@@ -223,7 +223,7 @@ func cmdServe(args []string, dev bool) error {
 			return err
 		}
 	} else if plan, _ := e.Plan(ctx, false); len(plan) > 0 {
-		e.Log.Warn("há DDL pendente — rode `cerne migrate`", "statements", len(plan))
+		e.Log.Warn("há DDL pendente — rode `ddcore migrate`", "statements", len(plan))
 	}
 	srv := api.New(e, desk.FS())
 	if dev {
@@ -239,7 +239,7 @@ func cmdServe(args []string, dev bool) error {
 		cr := e.StartScheduler(ctx)
 		defer cr.Stop()
 	} else {
-		e.Log.Warn("scheduler desabilitado (scheduler: false no cerne.json)")
+		e.Log.Warn("scheduler desabilitado (scheduler: false no ddcore.json)")
 	}
 	if dev {
 		go watch.Apps(ctx, e, func() {
@@ -266,7 +266,7 @@ func cmdServe(args []string, dev bool) error {
 		defer c()
 		h.Shutdown(sctx)
 	}()
-	e.Log.Info("cerne no ar", "url", fmt.Sprintf("http://localhost:%d", cfg.Port), "dev", dev, "apps", e.AppOrder())
+	e.Log.Info("ddcore no ar", "url", fmt.Sprintf("http://localhost:%d", cfg.Port), "dev", dev, "apps", e.AppOrder())
 	if err := h.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		return err
 	}
@@ -320,7 +320,7 @@ func cmdTypes(args []string) error {
 		if err := typegen.Write(dir, e.Meta); err != nil {
 			return err
 		}
-		fmt.Println("types:", filepath.Join(dir, ".cerne/types.d.ts"))
+		fmt.Println("types:", filepath.Join(dir, ".ddcore/types.d.ts"))
 	}
 	return nil
 }
@@ -394,7 +394,7 @@ func cmdExec(args []string) error {
 		return err
 	}
 	if fs.NArg() < 1 {
-		return fmt.Errorf("uso: cerne exec app.mod.fn --args '{}'")
+		return fmt.Errorf("uso: ddcore exec app.mod.fn --args '{}'")
 	}
 	e, _, err := load(false, false)
 	if err != nil {
@@ -491,7 +491,7 @@ func cmdDemo(args []string) error {
 
 func cmdJobs(args []string) error {
 	if len(args) < 1 {
-		return fmt.Errorf("uso: cerne jobs list|run <fn>|work")
+		return fmt.Errorf("uso: ddcore jobs list|run <fn>|work")
 	}
 	e, cfg, err := load(false, false)
 	if err != nil {
@@ -506,7 +506,7 @@ func cmdJobs(args []string) error {
 		}
 	case "run":
 		if len(args) < 2 {
-			return fmt.Errorf("uso: cerne jobs run <fn>")
+			return fmt.Errorf("uso: ddcore jobs run <fn>")
 		}
 		res, err := e.RunJob(ctx, "Administrator", args[1], nil)
 		if err != nil {
@@ -531,7 +531,7 @@ func cmdJobs(args []string) error {
 
 func cmdUser(args []string) error {
 	if len(args) < 1 {
-		return fmt.Errorf("uso: cerne user add <email> <nome> [--password x] [--role R] | user passwd <email> <senha>")
+		return fmt.Errorf("uso: ddcore user add <email> <nome> [--password x] [--role R] | user passwd <email> <senha>")
 	}
 	e, _, err := load(false, false)
 	if err != nil {
@@ -549,7 +549,7 @@ func cmdUser(args []string) error {
 			return err
 		}
 		if fs.NArg() < 2 {
-			return fmt.Errorf("uso: cerne user add <email> <nome>")
+			return fmt.Errorf("uso: ddcore user add <email> <nome>")
 		}
 		return e.Run(ctx, "Administrator", func(c *engine.Ctx) error {
 			doc, err := c.NewDoc("User", engine.Doc{"email": fs.Arg(0), "full_name": strings.Join(fs.Args()[1:], " "), "new_password": *pw, "enabled": true})
@@ -569,7 +569,7 @@ func cmdUser(args []string) error {
 		})
 	case "passwd":
 		if len(args) < 3 {
-			return fmt.Errorf("uso: cerne user passwd <email> <senha>")
+			return fmt.Errorf("uso: ddcore user passwd <email> <senha>")
 		}
 		if err := e.SetPassword(ctx, args[1], args[2]); err != nil {
 			return err
@@ -593,7 +593,7 @@ func cmdAPIKey(args []string) error {
 		return err
 	}
 	if fs.NArg() < 1 {
-		return fmt.Errorf("uso: cerne apikey <usuario>")
+		return fmt.Errorf("uso: ddcore apikey <usuario>")
 	}
 	e, _, err := load(false, false)
 	if err != nil {

@@ -4,7 +4,7 @@
 //
 // As checagens rodam contra o app exemplo versionado em apps/exemplo: elas
 // exercitam migrate → boot → i18n → demo contra um Postgres e um http server
-// reais, que a suíte TS (`cerne test`) não alcança.
+// reais, que a suíte TS (`ddcore test`) não alcança.
 package acceptance
 
 import (
@@ -18,17 +18,17 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jrvidotti/cerne/desk"
-	"github.com/jrvidotti/cerne/internal/api"
-	"github.com/jrvidotti/cerne/internal/engine"
-	"github.com/jrvidotti/cerne/internal/js"
+	"github.com/jrvidotti/ddcore/desk"
+	"github.com/jrvidotti/ddcore/internal/api"
+	"github.com/jrvidotti/ddcore/internal/engine"
+	"github.com/jrvidotti/ddcore/internal/js"
 )
 
 // testDSN names a throwaway database: setup drops and recreates it. The
 // database actually used is this name plus "_acc<sufixo>", so sharing
-// CERNE_TEST_DSN with internal/engine (which drops the database it names) is
+// DDCORE_TEST_DSN with internal/engine (which drops the database it names) is
 // safe even when `go test ./internal/...` runs both packages in paralelo.
-var testDSN = envOr("CERNE_TEST_DSN", "postgres://cerne:cerne@localhost:5455/cerne_test?sslmode=disable")
+var testDSN = envOr("DDCORE_TEST_DSN", "postgres://ddcore:ddcore@localhost:5455/ddcore_test?sslmode=disable")
 
 func envOr(k, d string) string {
 	if v := os.Getenv(k); v != "" {
@@ -60,7 +60,7 @@ func exemploApp(t *testing.T) js.App {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "cerne.app.ts")); err != nil {
+	if _, err := os.Stat(filepath.Join(dir, "ddcore.app.ts")); err != nil {
 		t.Fatalf("app exemplo não encontrado em %s: %v", dir, err)
 	}
 	return js.App{Name: "exemplo", Dir: dir}
@@ -73,12 +73,12 @@ func setup(t *testing.T, suffix string, extra ...js.App) *engine.Engine {
 	ctx := context.Background()
 	dsn, adminDSN, dbName := dsnFor(suffix)
 	if dbName == "" {
-		t.Fatalf("CERNE_TEST_DSN inválida: %s", testDSN)
+		t.Fatalf("DDCORE_TEST_DSN inválida: %s", testDSN)
 	}
 	admin, err := engine.New(ctx, engine.Config{DSN: adminDSN})
 	if err != nil {
-		if os.Getenv("CERNE_TEST_DSN") != "" {
-			t.Fatalf("postgres indisponível em CERNE_TEST_DSN: %v", err)
+		if os.Getenv("DDCORE_TEST_DSN") != "" {
+			t.Fatalf("postgres indisponível em DDCORE_TEST_DSN: %v", err)
 		}
 		t.Skipf("postgres indisponível: %v", err)
 	}
@@ -89,7 +89,7 @@ func setup(t *testing.T, suffix string, extra ...js.App) *engine.Engine {
 	admin.DB.Close()
 
 	apps := append([]js.App{exemploApp(t)}, extra...)
-	e, err := engine.New(ctx, engine.Config{DSN: dsn, Apps: apps, SiteName: "cerne", Lang: "pt-BR", Currency: "BRL"})
+	e, err := engine.New(ctx, engine.Config{DSN: dsn, Apps: apps, SiteName: "ddcore", Lang: "pt-BR", Currency: "BRL"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,7 +104,7 @@ func setup(t *testing.T, suffix string, extra ...js.App) *engine.Engine {
 	return e
 }
 
-// server wraps the engine in the same HTTP surface `cerne start` exposes,
+// server wraps the engine in the same HTTP surface `ddcore start` exposes,
 // authenticated as Administrator through an API key.
 func server(t *testing.T, e *engine.Engine) (*httptest.Server, string) {
 	t.Helper()
@@ -176,7 +176,7 @@ func TestInstalacao(t *testing.T) {
 		if n, err := c.Count("Projeto", nil); err != nil {
 			t.Errorf("conta Projeto: %v", err)
 		} else if n != 0 {
-			t.Errorf("instalação criou %d Projeto(s); o app exemplo semeia só por `cerne demo`", n)
+			t.Errorf("instalação criou %d Projeto(s); o app exemplo semeia só por `ddcore demo`", n)
 		}
 		return nil
 	})
@@ -271,7 +271,7 @@ func i18nApp(t *testing.T) js.App {
 			t.Fatal(err)
 		}
 	}
-	w("cerne.app.ts", `import { defineApp } from "@cerne/sdk";
+	w("ddcore.app.ts", `import { defineApp } from "@ddcore/sdk";
 export default defineApp({ name: "traducoes", title: "Traduções" });`)
 	// "Save" já existe no core como "Salvar": o app tem que ganhar.
 	w("translations/pt-BR.csv", "Save,Gravar\nChave Só Do App,Valor Só Do App\n")
@@ -362,7 +362,7 @@ func TestDeskIndex(t *testing.T) {
 
 // ------------------------------------------------------------------- demo
 
-// TestDemo: `cerne demo` é o atalho de primeira execução e tem que poder rodar
+// TestDemo: `ddcore demo` é o atalho de primeira execução e tem que poder rodar
 // duas vezes sem duplicar nada — é o que o app exemplo promete.
 func TestDemo(t *testing.T) {
 	e := setup(t, "_demo")

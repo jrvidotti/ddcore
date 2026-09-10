@@ -1,7 +1,7 @@
 // Rotina de atraso e resumo por status. O resumo é compartilhado pelo relatório
 // e pelo gráfico do workspace, para que as contagens não possam divergir.
-import { whitelisted, _ } from "@cerne/sdk";
-import type { Tarefa } from "../.cerne/types";
+import { whitelisted, _ } from "@ddcore/sdk";
+import type { Tarefa } from "../.ddcore/types";
 
 export const STATUS_TAREFA = ["Aberta", "Em andamento", "Atrasada", "Concluída"] as const;
 export type StatusTarefa = (typeof STATUS_TAREFA)[number];
@@ -24,8 +24,8 @@ export interface LinhaResumo {
  * recalcule o projeto. Uma falha isolada é registrada e não interrompe a rotina.
  */
 export function marcarAtrasadas(): number {
-  const pendentes = cerne.db.getAll<{ name: string }>("Tarefa", {
-    filters: { status: ["in", ["Aberta", "Em andamento"]], data_limite: ["<", cerne.utils.today()] },
+  const pendentes = ddcore.db.getAll<{ name: string }>("Tarefa", {
+    filters: { status: ["in", ["Aberta", "Em andamento"]], data_limite: ["<", ddcore.utils.today()] },
     fields: ["name"],
     limit: 10000,
   });
@@ -33,12 +33,12 @@ export function marcarAtrasadas(): number {
   let alteradas = 0;
   for (const linha of pendentes) {
     try {
-      const tarefa = cerne.getDoc<Tarefa>("Tarefa", linha.name);
+      const tarefa = ddcore.getDoc<Tarefa>("Tarefa", linha.name);
       tarefa.status = "Atrasada";
       tarefa.save();
       alteradas++;
     } catch (e) {
-      cerne.log.error("Falha ao marcar a tarefa " + linha.name + " como atrasada: " + String(e));
+      ddcore.log.error("Falha ao marcar a tarefa " + linha.name + " como atrasada: " + String(e));
     }
   }
   return alteradas;
@@ -56,7 +56,7 @@ export function resumoPorStatus(filtros: FiltrosResumo = {}): LinhaResumo[] {
   if (filtros.responsavel) condicoes.responsavel = filtros.responsavel;
   if (filtros.data_limite_ate) condicoes.data_limite = ["<=", filtros.data_limite_ate];
 
-  const tarefas = cerne.db.getList<{ status: string }>("Tarefa", {
+  const tarefas = ddcore.db.getList<{ status: string }>("Tarefa", {
     filters: condicoes,
     fields: ["status"],
     limit: 10000,
@@ -67,7 +67,7 @@ export function resumoPorStatus(filtros: FiltrosResumo = {}): LinhaResumo[] {
     return {
       status,
       quantidade,
-      percentual: tarefas.length === 0 ? 0 : cerne.utils.roundTo((quantidade * 100) / tarefas.length, 2),
+      percentual: tarefas.length === 0 ? 0 : ddcore.utils.roundTo((quantidade * 100) / tarefas.length, 2),
     };
   });
 }

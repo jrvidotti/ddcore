@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jrvidotti/cerne/internal/cerr"
-	"github.com/jrvidotti/cerne/internal/meta"
+	"github.com/jrvidotti/ddcore/internal/cerr"
+	"github.com/jrvidotti/ddcore/internal/meta"
 )
 
 func TestNormalizeEmail(t *testing.T) {

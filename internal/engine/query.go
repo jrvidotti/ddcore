@@ -5,9 +5,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/jrvidotti/cerne/internal/cerr"
-	"github.com/jrvidotti/cerne/internal/db"
-	"github.com/jrvidotti/cerne/internal/meta"
+	"github.com/jrvidotti/ddcore/internal/cerr"
+	"github.com/jrvidotti/ddcore/internal/db"
+	"github.com/jrvidotti/ddcore/internal/meta"
 )
 
 type ListArgs struct {
@@ -394,7 +394,7 @@ func (c *Ctx) SetValue(doctype, name string, values Doc) error {
 	return err
 }
 
-// SQL runs a read-only query (used by reports and cerne.db.sql).
+// SQL runs a read-only query (used by reports and ddcore.db.sql).
 //
 // The prefix check is only a first filter: a CTE can hide an UPDATE behind a
 // SELECT. The query really runs inside a savepoint with
@@ -404,7 +404,7 @@ func (c *Ctx) SetValue(doctype, name string, values Doc) error {
 func (c *Ctx) SQL(query string, params []any) ([]map[string]any, error) {
 	q := strings.TrimSpace(strings.ToLower(query))
 	if !strings.HasPrefix(q, "select") && !strings.HasPrefix(q, "with") {
-		return nil, cerr.Permission("cerne.db.sql aceita apenas SELECT")
+		return nil, cerr.Permission("ddcore.db.sql aceita apenas SELECT")
 	}
 	if c.Tx == nil {
 		rows, err := db.Select(c.Ctx, c.Q(), query, params...)
@@ -417,7 +417,7 @@ func (c *Ctx) SQL(query string, params []any) ([]map[string]any, error) {
 		return rows, nil
 	}
 	c.roSavepoint++
-	sp := fmt.Sprintf("cerne_ro%d", c.roSavepoint)
+	sp := fmt.Sprintf("ddcore_ro%d", c.roSavepoint)
 	defer func() { c.roSavepoint-- }()
 	if _, err := c.Tx.Exec(c.Ctx, "SAVEPOINT "+sp); err != nil {
 		return nil, cerr.Validation("%s", err)
@@ -445,10 +445,10 @@ func (c *Ctx) SQL(query string, params []any) ([]map[string]any, error) {
 // asks for the same key until the transaction ends.
 func (c *Ctx) Lock(key string) error {
 	if strings.TrimSpace(key) == "" {
-		return cerr.Validation("cerne.db.lock: informe uma chave")
+		return cerr.Validation("ddcore.db.lock: informe uma chave")
 	}
 	if c.Tx == nil {
-		return cerr.Validation("cerne.db.lock exige uma transação")
+		return cerr.Validation("ddcore.db.lock exige uma transação")
 	}
 	_, err := c.Tx.Exec(c.Ctx, "SELECT pg_advisory_xact_lock(hashtext($1))", key)
 	return err

@@ -11,12 +11,12 @@ import (
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 
-	"github.com/jrvidotti/cerne/internal/cerr"
-	"github.com/jrvidotti/cerne/internal/db"
-	"github.com/jrvidotti/cerne/internal/js"
+	"github.com/jrvidotti/ddcore/internal/cerr"
+	"github.com/jrvidotti/ddcore/internal/db"
+	"github.com/jrvidotti/ddcore/internal/js"
 )
 
-// HostCall is the single entry point for every cerne.* call made from TS.
+// HostCall is the single entry point for every ddcore.* call made from TS.
 func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, error) {
 	c, _ := rt.Ctx.(*Ctx)
 	if c == nil {
@@ -238,11 +238,11 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 	case "hashPassword":
 		return HashPassword(a.Text), nil
 	case "dropSessions":
-		rows, _ := db.Select(c.Ctx, c.Q(), `SELECT sid FROM cerne_session WHERE "user" = $1`, a.User)
+		rows, _ := db.Select(c.Ctx, c.Q(), `SELECT sid FROM ddcore_session WHERE "user" = $1`, a.User)
 		for _, r := range rows {
 			e.Cache.Del("sid:" + db.Str(r["sid"]))
 		}
-		_, err := c.Q().Exec(c.Ctx, `DELETE FROM cerne_session WHERE "user" = $1`, a.User)
+		_, err := c.Q().Exec(c.Ctx, `DELETE FROM ddcore_session WHERE "user" = $1`, a.User)
 		return nil, err
 	case "test.begin":
 		return nil, c.Begin()
@@ -314,7 +314,7 @@ func httpCall(method, url string, body any, headers map[string]string, timeout f
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
-	req.Header.Set("User-Agent", "cerne/0.1")
+	req.Header.Set("User-Agent", "ddcore/0.1")
 	client := &http.Client{Timeout: time.Duration(timeout * float64(time.Second))}
 	res, err := client.Do(req)
 	if err != nil {
@@ -334,7 +334,7 @@ func flatHeaders(h http.Header) map[string]string {
 }
 
 func (e *Engine) String() string {
-	return fmt.Sprintf("cerne engine (%d doctypes)", len(e.Current().Meta.DocTypes))
+	return fmt.Sprintf("ddcore engine (%d doctypes)", len(e.Current().Meta.DocTypes))
 }
 
 var _ = db.Str

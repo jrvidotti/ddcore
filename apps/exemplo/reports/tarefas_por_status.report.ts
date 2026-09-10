@@ -1,4 +1,4 @@
-import { defineReport, _ } from "@cerne/sdk";
+import { defineReport, _ } from "@ddcore/sdk";
 import { resumoPorStatus, rotuloStatus } from "../services/tarefas";
 
 export default defineReport({

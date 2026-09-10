@@ -25,7 +25,7 @@
 
   function defaultFor(f: any) {
     const d = f.default;
-    const dt = deskSDK.cerne.datetime;
+    const dt = deskSDK.ddcore.datetime;
     if (d === "Today") return dt.today();
     if (d === "month_end") return dt.monthEnd();
     if (d === "month_start") return dt.monthStart();

@@ -1,4 +1,4 @@
-import { defineDoctype } from "@cerne/sdk";
+import { defineDoctype } from "@ddcore/sdk";
 
 export default defineDoctype({
   name: "Comment",

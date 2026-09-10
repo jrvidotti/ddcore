@@ -47,7 +47,7 @@
   });
 </script>
 
-<svelte:head><title>{boot.data?.site?.name || "cerne"}</title></svelte:head>
+<svelte:head><title>{boot.data?.site?.name || "ddcore"}</title></svelte:head>
 <svelte:window onkeydown={onWindowKeydown} />
 
 {#if ui.busy > 0}<div class="busy-bar"></div>{/if}

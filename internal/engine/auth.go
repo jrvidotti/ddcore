@@ -12,8 +12,8 @@ import (
 
 	"golang.org/x/crypto/argon2"
 
-	"github.com/jrvidotti/cerne/internal/cerr"
-	"github.com/jrvidotti/cerne/internal/db"
+	"github.com/jrvidotti/ddcore/internal/cerr"
+	"github.com/jrvidotti/ddcore/internal/db"
 )
 
 // HashPassword returns an argon2id hash in PHC-like format.
@@ -57,7 +57,7 @@ func (e *Engine) Login(ctx context.Context, user, password string) (string, erro
 		}
 		name := db.Str(rows[0]["name"])
 		sid = RandomToken()
-		if _, err := c.Tx.Exec(ctx, `INSERT INTO cerne_session (sid, "user", expires) VALUES ($1, $2, now() + interval '30 days')`, sid, name); err != nil {
+		if _, err := c.Tx.Exec(ctx, `INSERT INTO ddcore_session (sid, "user", expires) VALUES ($1, $2, now() + interval '30 days')`, sid, name); err != nil {
 			return err
 		}
 		_, err = c.Tx.Exec(ctx, `UPDATE tab_user SET last_login = now() WHERE name = $1`, name)
@@ -67,7 +67,7 @@ func (e *Engine) Login(ctx context.Context, user, password string) (string, erro
 }
 
 func (e *Engine) Logout(ctx context.Context, sid string) {
-	e.DB.Pool.Exec(ctx, `DELETE FROM cerne_session WHERE sid = $1`, sid)
+	e.DB.Pool.Exec(ctx, `DELETE FROM ddcore_session WHERE sid = $1`, sid)
 }
 
 // UserFromSession resolves a session id into a user name.
@@ -78,13 +78,13 @@ func (e *Engine) UserFromSession(ctx context.Context, sid string) (string, error
 	if v, ok := e.Cache.Get("sid:" + sid); ok {
 		return v.(string), nil
 	}
-	rows, err := db.Select(ctx, e.DB.Pool, `SELECT "user" FROM cerne_session WHERE sid = $1 AND expires > now()`, sid)
+	rows, err := db.Select(ctx, e.DB.Pool, `SELECT "user" FROM ddcore_session WHERE sid = $1 AND expires > now()`, sid)
 	if err != nil || len(rows) == 0 {
 		return "", err
 	}
 	u := db.Str(rows[0]["user"])
 	e.Cache.Set("sid:"+sid, u, time.Minute)
-	go e.DB.Pool.Exec(context.Background(), `UPDATE cerne_session SET last_seen = now() WHERE sid = $1`, sid)
+	go e.DB.Pool.Exec(context.Background(), `UPDATE ddcore_session SET last_seen = now() WHERE sid = $1`, sid)
 	return u, nil
 }
 

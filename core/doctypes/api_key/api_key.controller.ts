@@ -1,6 +1,6 @@
-import { defineController } from "@cerne/sdk";
+import { defineController } from "@ddcore/sdk";
 
 export default defineController("API Key", {
-  onUpdate(doc) { cerne.cache.del("apikey:" + doc.name); },
-  afterDelete(doc) { cerne.cache.del("apikey:" + doc.name); },
+  onUpdate(doc) { ddcore.cache.del("apikey:" + doc.name); },
+  afterDelete(doc) { ddcore.cache.del("apikey:" + doc.name); },
 });

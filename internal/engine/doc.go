@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jrvidotti/cerne/internal/cerr"
-	"github.com/jrvidotti/cerne/internal/db"
-	"github.com/jrvidotti/cerne/internal/meta"
+	"github.com/jrvidotti/ddcore/internal/cerr"
+	"github.com/jrvidotti/ddcore/internal/db"
+	"github.com/jrvidotti/ddcore/internal/meta"
 )
 
 // Doc is a document as a plain map; child tables are []any of Doc.

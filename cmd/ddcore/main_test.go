@@ -12,7 +12,7 @@ func execFlags() (*flag.FlagSet, *string) {
 	return fs, fs.String("args", "{}", "argumentos JSON")
 }
 
-// userAddFlags mirrors `cerne user add`.
+// userAddFlags mirrors `ddcore user add`.
 func userAddFlags() (*flag.FlagSet, *string, *multi) {
 	fs := newFlagSet("user add")
 	pw := fs.String("password", "", "senha")
@@ -21,7 +21,7 @@ func userAddFlags() (*flag.FlagSet, *string, *multi) {
 	return fs, pw, roles
 }
 
-// evalFlags mirrors `cerne eval`.
+// evalFlags mirrors `ddcore eval`.
 func evalFlags() (*flag.FlagSet, *bool) {
 	fs := newFlagSet("eval")
 	return fs, fs.Bool("commit", false, "grava a transação")
@@ -80,7 +80,7 @@ func TestUserAddFlagsAfterPositionals(t *testing.T) {
 
 func TestEvalCommitAfterCode(t *testing.T) {
 	fs, commit := evalFlags()
-	code := `cerne.db.count("User")`
+	code := `ddcore.db.count("User")`
 	if err := parseFlags(fs, []string{code, "--commit"}); err != nil {
 		t.Fatal(err)
 	}
@@ -104,7 +104,7 @@ func TestEvalFlagBeforeCodeStillWorks(t *testing.T) {
 }
 
 func TestSingleDashIsPositional(t *testing.T) {
-	// `cerne eval -` lê o código do stdin
+	// `ddcore eval -` lê o código do stdin
 	fs, _ := evalFlags()
 	if err := parseFlags(fs, []string{"-"}); err != nil {
 		t.Fatal(err)

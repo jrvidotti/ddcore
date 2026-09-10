@@ -35,7 +35,7 @@ das quatro frentes de correção.
 | Critério | Evidência |
 |---|---|
 | 1. migrate em banco vazio, idempotente | pendente |
-| 2. `cerne test` verde | pendente |
+| 2. `ddcore test` verde | pendente |
 | 3. fluxo no navegador | pendente |
 | 4. cadeia MCP completa + HTTP sem credencial negado | pendente |
 | 5. mordidas do Frappe cobertas | pendente |

@@ -1,5 +1,5 @@
-// The runtime that app client bundles import as "@cerne/desk-sdk" (resolved
-// by the Go bundler to window.__cerneDesk). Keep it in sync with
+// The runtime that app client bundles import as "@ddcore/desk-sdk" (resolved
+// by the Go bundler to window.__ddcoreDesk). Keep it in sync with
 // packages/desk-sdk/src/index.ts, which holds the public types.
 import { api } from "./api";
 import { registerForm, type FormHandlers, FormController } from "./form.svelte";
@@ -16,7 +16,7 @@ export const deskSDK = {
   defineListView(doctype: string, opts: any) { listRegistry.set(doctype, opts); },
   listSettings(doctype: string) { return listRegistry.get(doctype); },
   FormController,
-  cerne: {
+  ddcore: {
     _: __,
     __,
     call: (path: string, args?: any) => api.call(path, args),
@@ -37,7 +37,7 @@ export const deskSDK = {
     },
     ui: { Dialog: dialog, dialog, msgprint: (m: string, o: any = {}) => toast(m, { title: o.title, indicator: o.indicator || "blue" }), alert: (m: string) => toast(m, { indicator: "blue" }), confirm, prompt, showError, toast },
     format: { currency: formatCurrency, date: formatDate, number: formatNumber, value: formatValue },
-    // civil dates with the same semantics as `cerne.utils` no servidor (ver $lib/datetime)
+    // civil dates with the same semantics as `ddcore.utils` no servidor (ver $lib/datetime)
     datetime: { today: () => today(), addMonths, addDays, monthStart, monthEnd },
     meta: getMeta,
     route: (path: string) => import("$app/navigation").then((n) => n.goto(path)),
@@ -46,15 +46,15 @@ export const deskSDK = {
 };
 
 export function installDeskSDK() {
-  (window as any).__cerneDesk = deskSDK;
-  (window as any).cerne = deskSDK.cerne;
+  (window as any).__ddcoreDesk = deskSDK;
+  (window as any).ddcore = deskSDK.ddcore;
   (window as any).__ = __;
 }
 
 const loadedIncludes = new Set<string>();
-/** Loads every app's desk include bundle once (client/*.ts declared in cerne.app.ts). */
+/** Loads every app's desk include bundle once (client/*.ts declared in ddcore.app.ts). */
 export async function loadAppIncludes(apps: { name: string; hasDeskInclude: boolean }[], version: number) {
-  (window as any).__cerneLoaded = version;
+  (window as any).__ddcoreLoaded = version;
   for (const a of apps) {
     if (!a.hasDeskInclude || loadedIncludes.has(a.name)) continue;
     loadedIncludes.add(a.name);

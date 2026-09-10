@@ -1,11 +1,11 @@
-import "@cerne/sdk/test";
-import type { Projeto, Tarefa } from "../.cerne/types";
+import "@ddcore/sdk/test";
+import type { Projeto, Tarefa } from "../.ddcore/types";
 import { marcarAtrasadas, resumoPorStatus } from "./tarefas";
 
-const u = () => cerne.utils;
+const u = () => ddcore.utils;
 
 function criarProjeto(valores: Partial<Projeto> = {}) {
-  return cerne.newDoc<Projeto>("Projeto", {
+  return ddcore.newDoc<Projeto>("Projeto", {
     codigo: "P-" + u().randomString(6),
     titulo: "Projeto de teste",
     responsavel: "Administrator",
@@ -15,7 +15,7 @@ function criarProjeto(valores: Partial<Projeto> = {}) {
 }
 
 function criarTarefa(projeto: string, valores: Partial<Tarefa> = {}) {
-  return cerne.newDoc<Tarefa>("Tarefa", {
+  return ddcore.newDoc<Tarefa>("Tarefa", {
     codigo: "T-" + u().randomString(6),
     projeto,
     titulo: "Tarefa de teste",
@@ -37,10 +37,10 @@ describe("marcarAtrasadas", () => {
 
     expect(marcarAtrasadas()).toBe(2);
 
-    expect(cerne.db.getValue("Tarefa", vencidaAberta.name, "status")).toBe("Atrasada");
-    expect(cerne.db.getValue("Tarefa", vencidaEmAndamento.name, "status")).toBe("Atrasada");
-    expect(cerne.db.getValue("Tarefa", noPrazo.name, "status")).toBe("Aberta");
-    expect(cerne.db.getValue("Tarefa", vencidaConcluida.name, "status")).toBe("Concluída");
+    expect(ddcore.db.getValue("Tarefa", vencidaAberta.name, "status")).toBe("Atrasada");
+    expect(ddcore.db.getValue("Tarefa", vencidaEmAndamento.name, "status")).toBe("Atrasada");
+    expect(ddcore.db.getValue("Tarefa", noPrazo.name, "status")).toBe("Aberta");
+    expect(ddcore.db.getValue("Tarefa", vencidaConcluida.name, "status")).toBe("Concluída");
   });
 
   it("é idempotente: a segunda passada não tem o que marcar", () => {

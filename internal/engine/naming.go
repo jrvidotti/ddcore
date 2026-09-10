@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jrvidotti/cerne/internal/cerr"
-	"github.com/jrvidotti/cerne/internal/db"
-	"github.com/jrvidotti/cerne/internal/meta"
+	"github.com/jrvidotti/ddcore/internal/cerr"
+	"github.com/jrvidotti/ddcore/internal/db"
+	"github.com/jrvidotti/ddcore/internal/meta"
 )
 
 const alphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
@@ -110,8 +110,8 @@ func (c *Ctx) nextInSeries(series string, doc Doc) (string, error) {
 
 func (c *Ctx) nextCounter(key string) (int64, error) {
 	var n int64
-	err := c.Q().QueryRow(c.Ctx, `INSERT INTO cerne_series (prefix, current) VALUES ($1, 1)
-		ON CONFLICT (prefix) DO UPDATE SET current = cerne_series.current + 1 RETURNING current`, key).Scan(&n)
+	err := c.Q().QueryRow(c.Ctx, `INSERT INTO ddcore_series (prefix, current) VALUES ($1, 1)
+		ON CONFLICT (prefix) DO UPDATE SET current = ddcore_series.current + 1 RETURNING current`, key).Scan(&n)
 	return n, err
 }
 

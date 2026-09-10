@@ -20,11 +20,11 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/jrvidotti/cerne/internal/cerr"
-	"github.com/jrvidotti/cerne/internal/db"
-	"github.com/jrvidotti/cerne/internal/engine"
-	"github.com/jrvidotti/cerne/internal/js"
-	"github.com/jrvidotti/cerne/internal/meta"
+	"github.com/jrvidotti/ddcore/internal/cerr"
+	"github.com/jrvidotti/ddcore/internal/db"
+	"github.com/jrvidotti/ddcore/internal/engine"
+	"github.com/jrvidotti/ddcore/internal/js"
+	"github.com/jrvidotti/ddcore/internal/meta"
 )
 
 type Server struct {
@@ -219,7 +219,7 @@ func (s *Server) auth(next http.Handler) http.Handler {
 			u, _ = s.E.UserFromSession(r.Context(), ck.Value)
 			// CSRF: state-changing requests with cookie auth need the header
 			if u != "" && r.Method != "GET" && r.Method != "HEAD" && !strings.HasPrefix(r.URL.Path, "/api/login") {
-				if r.Header.Get("X-Cerne-CSRF") == "" && r.Header.Get("X-Requested-With") == "" {
+				if r.Header.Get("X-DDCore-CSRF") == "" && r.Header.Get("X-Requested-With") == "" {
 					writeErr(w, cerr.Permission("Requisição sem cabeçalho CSRF"))
 					return
 				}
@@ -1206,7 +1206,7 @@ func (s *Server) buildDeskInclude(app js.App) (string, error) {
 	for _, f := range inc {
 		fmt.Fprintf(&b, "import %q;\n", "./"+strings.TrimPrefix(f, "./"))
 	}
-	tmp := filepath.Join(app.Dir, ".cerne")
+	tmp := filepath.Join(app.Dir, ".ddcore")
 	os.MkdirAll(tmp, 0o755)
 	entry := filepath.Join(tmp, "desk.entry.ts")
 	// includes are relative to app dir, so write the entry as ../
@@ -1218,7 +1218,7 @@ func (s *Server) buildDeskInclude(app js.App) (string, error) {
 	if err := os.WriteFile(entry, []byte(b2.String()), 0o644); err != nil {
 		return "", err
 	}
-	return js.BuildClient(app, ".cerne/desk.entry.ts")
+	return js.BuildClient(app, ".ddcore/desk.entry.ts")
 }
 
 func serveJS(w http.ResponseWriter, code string) {

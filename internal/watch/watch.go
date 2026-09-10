@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jrvidotti/cerne/internal/engine"
+	"github.com/jrvidotti/ddcore/internal/engine"
 )
 
 func snapshot(dirs []string) map[string]int64 {

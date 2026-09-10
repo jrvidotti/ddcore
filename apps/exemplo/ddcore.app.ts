@@ -1,4 +1,4 @@
-import { defineApp } from "@cerne/sdk";
+import { defineApp } from "@ddcore/sdk";
 
 export default defineApp({
   name: "exemplo",

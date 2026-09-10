@@ -2,19 +2,19 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add the executable `exemplo` projects-and-tasks application, integrated with Cerne migration, desk, demo, tests, and acceptance coverage.
+**Goal:** Add the executable `exemplo` projects-and-tasks application, integrated with DDCore migration, desk, demo, tests, and acceptance coverage.
 
-**Architecture:** Keep business invariants in synchronous DocType controllers and reusable server services. Controllers delegate project progress calculation to `services/projetos.ts`; scheduler, report, workspace, and desk consume the shared task-status summary service. The app is loaded from `cerne.json`, while the Go acceptance suite uses the checked-in app instead of generating a near-equivalent fixture.
+**Architecture:** Keep business invariants in synchronous DocType controllers and reusable server services. Controllers delegate project progress calculation to `services/projetos.ts`; scheduler, report, workspace, and desk consume the shared task-status summary service. The app is loaded from `ddcore.json`, while the Go acceptance suite uses the checked-in app instead of generating a near-equivalent fixture.
 
-**Tech Stack:** Go, PostgreSQL, TypeScript executed by goja, `@cerne/sdk`, `@cerne/desk-sdk`, Svelte desk bundle, Make.
+**Tech Stack:** Go, PostgreSQL, TypeScript executed by goja, `@ddcore/sdk`, `@ddcore/desk-sdk`, Svelte desk bundle, Make.
 
 **Spec:** `docs/superpowers/specs/2026-09-10-app-exemplo-design.md`
 
 ## Global Constraints
 
 - Server-side app TypeScript is synchronous: never use `await` in controllers or services.
-- Never edit generated `apps/exemplo/.cerne/types.d.ts`; regenerate it with `./bin/cerne types`.
-- Do not use SQL directly in the app; reports and summaries use `cerne.db.getList`.
+- Never edit generated `apps/exemplo/.ddcore/types.d.ts`; regenerate it with `./bin/ddcore types`.
+- Do not use SQL directly in the app; reports and summaries use `ddcore.db.getList`.
 - Use translated English action/status keys in desk code and `translations/pt-BR.csv`.
 - Run the relevant red/green test before proceeding and end with `make test`.
 
@@ -22,31 +22,31 @@
 
 ## File Structure
 
-- `apps/exemplo/cerne.app.ts`: manifest, roles, scheduler, desk home/include.
+- `apps/exemplo/ddcore.app.ts`: manifest, roles, scheduler, desk home/include.
 - `apps/exemplo/doctypes/*`: declarative metadata, lifecycle rules, desk scripts, and behavior tests.
 - `apps/exemplo/services/projetos.ts`: only project progress recalculation.
 - `apps/exemplo/services/tarefas.ts`: overdue transitions and reusable grouped status summary.
 - `apps/exemplo/services/demo.ts`: idempotent sample-data installation.
 - `apps/exemplo/reports` and `workspaces`: read-only dashboard/report adapters around the service.
 - `internal/acceptance/acceptance_test.go`: boots the actual checked-in app and validates installation/desk API behavior.
-- `cerne.json` and `Makefile`: load and type-check/test the new app.
+- `ddcore.json` and `Makefile`: load and type-check/test the new app.
 
 ### Task 1: App bootstrap and declarative schema
 
 **Files:**
-- Create: `apps/exemplo/cerne.app.ts`, `apps/exemplo/tsconfig.json`, `apps/exemplo/translations/pt-BR.csv`
+- Create: `apps/exemplo/ddcore.app.ts`, `apps/exemplo/tsconfig.json`, `apps/exemplo/translations/pt-BR.csv`
 - Create: `apps/exemplo/doctypes/marco_projeto/marco_projeto.doctype.ts`
 - Create: `apps/exemplo/doctypes/projeto/projeto.doctype.ts`
 - Create: `apps/exemplo/doctypes/tarefa/tarefa.doctype.ts`
-- Modify: `cerne.json`, `Makefile`, `.gitignore` only if `.cerne/` is not already ignored
+- Modify: `ddcore.json`, `Makefile`, `.gitignore` only if `.ddcore/` is not already ignored
 
 **Produces:** `Marco Projeto`, `Projeto`, and `Tarefa` metadata; manifest with roles `Gestor de Projetos` / `Colaborador de Projetos`, `desk.home: "Projetos"`, global list include, and `daily: ["exemplo.services.tarefas.marcarAtrasadas"]`.
 
 - [ ] **Step 1: Write the failing metadata compilation check**
 
-Run: `./bin/cerne types`
+Run: `./bin/ddcore types`
 
-Expected: FAIL because `cerne.json` does not yet reference `apps/exemplo` and its app files do not exist.
+Expected: FAIL because `ddcore.json` does not yet reference `apps/exemplo` and its app files do not exist.
 
 - [ ] **Step 2: Add the minimal app manifest and schemas**
 
@@ -58,18 +58,18 @@ Implement the exact field contracts from the spec. In particular, use `isChild: 
 { role: "Colaborador de Projetos", read: true, write: true, create: true, report: true } // Tarefa
 ```
 
-Set `cerne.json` apps to `["apps/exemplo"]`. Extend `check` to invoke `./bin/cerne types` followed by `npx tsc -p apps/exemplo/tsconfig.json --noEmit`, and extend `test` to call `./bin/cerne test --app exemplo` after Go tests.
+Set `ddcore.json` apps to `["apps/exemplo"]`. Extend `check` to invoke `./bin/ddcore types` followed by `npx tsc -p apps/exemplo/tsconfig.json --noEmit`, and extend `test` to call `./bin/ddcore test --app exemplo` after Go tests.
 
 - [ ] **Step 3: Regenerate types and verify compilation**
 
-Run: `./bin/cerne types && make check`
+Run: `./bin/ddcore types && make check`
 
-Expected: types appear only under ignored `apps/exemplo/.cerne/` and both desk and app type checks pass.
+Expected: types appear only under ignored `apps/exemplo/.ddcore/` and both desk and app type checks pass.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add cerne.json Makefile apps/exemplo .gitignore
+git add ddcore.json Makefile apps/exemplo .gitignore
 git commit -m "feat: scaffold example projects app"
 ```
 
@@ -80,7 +80,7 @@ git commit -m "feat: scaffold example projects app"
 - Create: `apps/exemplo/doctypes/projeto/projeto.controller.ts`
 - Create: `apps/exemplo/doctypes/projeto/projeto.test.ts`
 
-**Consumes:** the schema from Task 1 and `cerne.db.getList`, `Document.dbSet`, `Document.getDocBeforeSave`.
+**Consumes:** the schema from Task 1 and `ddcore.db.getList`, `Document.dbSet`, `Document.getDocBeforeSave`.
 
 **Produces:** `recalcularProgresso(projeto: string): void`, validation of date range/milestone dates, and project status/progress derived from tasks.
 
@@ -89,12 +89,12 @@ git commit -m "feat: scaffold example projects app"
 Create tests that prove: a project rejects `data_final < data_inicio`; saving a closed milestone without its date fails and reopening a milestone clears `concluido_em`; no tasks gives `{ progresso: 0, status: "Planejado" }`; one of two completed tasks gives `{ progresso: 50, status: "Em andamento" }`; two of two gives `{ progresso: 100, status: "Concluído" }`.
 
 ```ts
-expect(() => cerne.newDoc("Projeto", { codigo: "P-1", titulo: "P", responsavel: "Administrator", data_inicio: "2026-01-02", data_final: "2026-01-01" }).insert()).toThrow("final");
+expect(() => ddcore.newDoc("Projeto", { codigo: "P-1", titulo: "P", responsavel: "Administrator", data_inicio: "2026-01-02", data_final: "2026-01-01" }).insert()).toThrow("final");
 ```
 
 - [ ] **Step 2: Verify tests fail for the intended missing behavior**
 
-Run: `./bin/cerne test --app exemplo --filter 'Projeto'`
+Run: `./bin/ddcore test --app exemplo --filter 'Projeto'`
 
 Expected: FAIL on the invalid interval and derived values.
 
@@ -104,17 +104,17 @@ Use `validate(doc)` to compare civil date strings and normalize milestone consis
 
 ```ts
 export function recalcularProgresso(projeto: string): void {
-  const tarefas = cerne.db.getList("Tarefa", { filters: { projeto }, fields: ["status"], limit: 10000 });
+  const tarefas = ddcore.db.getList("Tarefa", { filters: { projeto }, fields: ["status"], limit: 10000 });
   const concluidas = tarefas.filter(t => t.status === "Concluída").length;
   const status = tarefas.length === 0 ? "Planejado" : concluidas === tarefas.length ? "Concluído" : "Em andamento";
-  const progresso = tarefas.length === 0 ? 0 : cerne.utils.roundTo(concluidas * 100 / tarefas.length, 2);
-  cerne.getDoc("Projeto", projeto).dbSet({ progresso, status });
+  const progresso = tarefas.length === 0 ? 0 : ddcore.utils.roundTo(concluidas * 100 / tarefas.length, 2);
+  ddcore.getDoc("Projeto", projeto).dbSet({ progresso, status });
 }
 ```
 
 - [ ] **Step 4: Verify green**
 
-Run: `./bin/cerne test --app exemplo --filter 'Projeto'`
+Run: `./bin/ddcore test --app exemplo --filter 'Projeto'`
 
 Expected: PASS.
 
@@ -149,19 +149,19 @@ expect(tarefa.runMethod("concluir").status).toBe("Concluída");
 
 - [ ] **Step 2: Verify red**
 
-Run: `./bin/cerne test --app exemplo --filter 'Tarefa|atrasadas|dois projetos'`
+Run: `./bin/ddcore test --app exemplo --filter 'Tarefa|atrasadas|dois projetos'`
 
 Expected: FAIL because methods/services are missing.
 
 - [ ] **Step 3: Implement transitions and hooks synchronously**
 
-In `validate`, reject deadline earlier than `cerne.db.getValue("Projeto", doc.projeto, "data_inicio")`; in `beforeInsert`, make `status = "Aberta"`; in `afterInsert`, `onUpdate`, and `afterDelete`, call the project service. For a move, take the old `projeto` from `getDocBeforeSave()` and recalculate it if distinct. Methods set fields, call `save()`, and return only `{ status: doc.status, concluida_em: doc.concluida_em }`.
+In `validate`, reject deadline earlier than `ddcore.db.getValue("Projeto", doc.projeto, "data_inicio")`; in `beforeInsert`, make `status = "Aberta"`; in `afterInsert`, `onUpdate`, and `afterDelete`, call the project service. For a move, take the old `projeto` from `getDocBeforeSave()` and recalculate it if distinct. Methods set fields, call `save()`, and return only `{ status: doc.status, concluida_em: doc.concluida_em }`.
 
-In `marcarAtrasadas`, query with filters equivalent to deadline `< cerne.utils.today()` and status `in ["Aberta", "Em andamento"]`; load/save each doc inside `try/catch`, call `cerne.log.error` in the catch, increment after save. Export `marcarAtrasadasAgora = whitelisted(() => marcarAtrasadas(), { roles: ["Gestor de Projetos"] })`. Build `resumoPorStatus` from `getList` and return all four statuses with `quantidade` and a two-decimal percentage.
+In `marcarAtrasadas`, query with filters equivalent to deadline `< ddcore.utils.today()` and status `in ["Aberta", "Em andamento"]`; load/save each doc inside `try/catch`, call `ddcore.log.error` in the catch, increment after save. Export `marcarAtrasadasAgora = whitelisted(() => marcarAtrasadas(), { roles: ["Gestor de Projetos"] })`. Build `resumoPorStatus` from `getList` and return all four statuses with `quantidade` and a two-decimal percentage.
 
 - [ ] **Step 4: Verify green**
 
-Run: `./bin/cerne test --app exemplo --filter 'Tarefa|atrasadas|dois projetos'`
+Run: `./bin/ddcore test --app exemplo --filter 'Tarefa|atrasadas|dois projetos'`
 
 Expected: PASS.
 
@@ -191,19 +191,19 @@ Test `gerar()` twice: first response has project `DEMO`, three milestones and th
 
 - [ ] **Step 2: Verify red**
 
-Run: `./bin/cerne test --app exemplo --filter 'demo|Relatório|status'`
+Run: `./bin/ddcore test --app exemplo --filter 'demo|Relatório|status'`
 
 Expected: FAIL because demo/report modules do not exist.
 
 - [ ] **Step 3: Implement demo and read-only adapters**
 
-`gerar()` first checks each code with `cerne.db.exists`, creates `DEMO` with three relative-date milestones, inserts `DEMO-01` through `DEMO-03`, then calls controller methods to obtain in-progress/completed states. Return `{ criados: string[], quantidade: number }`.
+`gerar()` first checks each code with `ddcore.db.exists`, creates `DEMO` with three relative-date milestones, inserts `DEMO-01` through `DEMO-03`, then calls controller methods to obtain in-progress/completed states. Return `{ criados: string[], quantidade: number }`.
 
 The report calls `resumoPorStatus(filters)` and returns columns `status`, `quantidade`, `percentual` plus a bar `chart`. Workspace exposes explicit sidebar links, shortcuts, cards for ongoing/open/overdue entities, grouped `Planejamento`/`Acompanhamento` links, and a chart whose method calls the shared summary. Forms use `frm.call("iniciar" | "concluir" | "reabrir")`, then `frm.reload()`; task setup filters project status to non-completed; list view orders `data_limite asc` and maps the four statuses to blue/yellow/red/green indicators. Translate all action/status keys required by the spec.
 
 - [ ] **Step 4: Verify green and compile desk bundles**
 
-Run: `./bin/cerne test --app exemplo && make check`
+Run: `./bin/ddcore test --app exemplo && make check`
 
 Expected: PASS.
 
@@ -257,13 +257,13 @@ git commit -m "test: accept the checked-in example app"
 
 - [ ] **Step 1: Validate metadata and migration idempotence**
 
-Run: `./bin/cerne migrate --dry-run`
+Run: `./bin/ddcore migrate --dry-run`
 
 Expected: the first clean-database migration creates the example schema; the immediate subsequent dry run contains no DDL.
 
 - [ ] **Step 2: Run app demo idempotence against the configured dev database**
 
-Run: `./bin/cerne demo --app exemplo && ./bin/cerne demo --app exemplo`
+Run: `./bin/ddcore demo --app exemplo && ./bin/ddcore demo --app exemplo`
 
 Expected: the second result reports zero new records.
 
@@ -271,11 +271,11 @@ Expected: the second result reports zero new records.
 
 Run: `make test`
 
-Expected: build, vet, all Go suites, desk checks/tests, and `./bin/cerne test --app exemplo` exit zero.
+Expected: build, vet, all Go suites, desk checks/tests, and `./bin/ddcore test --app exemplo` exit zero.
 
 - [ ] **Step 4: Inspect final scope**
 
 Run: `git status --short && git diff --check`
 
-Expected: only planned source/config/test changes are tracked, generated `.cerne/` remains ignored, and no whitespace errors appear.
+Expected: only planned source/config/test changes are tracked, generated `.ddcore/` remains ignored, and no whitespace errors appear.
 

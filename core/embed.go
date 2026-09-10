@@ -3,5 +3,5 @@ package core
 
 import "embed"
 
-//go:embed cerne.app.ts doctypes translations
+//go:embed ddcore.app.ts doctypes translations
 var FS embed.FS

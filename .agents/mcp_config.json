@@ -1,7 +1,7 @@
 {
   "mcpServers": {
-    "cerne": {
-      "command": "./bin/cerne",
+    "ddcore": {
+      "command": "./bin/ddcore",
       "args": ["mcp"]
     }
   }

@@ -5,14 +5,14 @@
     "moduleResolution": "bundler",
     "baseUrl": "../..",
     "paths": {
-      "@cerne/sdk": ["packages/sdk/src/index.ts"],
-      "@cerne/sdk/test": ["packages/sdk/src/test.ts"],
-      "@cerne/desk-sdk": ["packages/desk-sdk/src/index.ts"]
+      "@ddcore/sdk": ["packages/sdk/src/index.ts"],
+      "@ddcore/sdk/test": ["packages/sdk/src/test.ts"],
+      "@ddcore/desk-sdk": ["packages/desk-sdk/src/index.ts"]
     },
     "strict": true,
     "skipLibCheck": true,
     "noEmit": true,
     "types": []
   },
-  "include": ["**/*.ts", ".cerne/**/*.d.ts"]
+  "include": ["**/*.ts", ".ddcore/**/*.d.ts"]
 }
