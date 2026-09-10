@@ -99,7 +99,7 @@ func main() {
 		os.Exit(2)
 	}
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "erro:", err)
+		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
 }
@@ -165,7 +165,7 @@ func cmdInit(args []string) error {
 	if err := f.Save(config.Name); err != nil {
 		return err
 	}
-	fmt.Println("criado", config.Name, "— agora: ddcore new-app <nome> && ddcore migrate && ddcore dev")
+	fmt.Println("created", config.Name, "— now: ddcore new-app <name> && ddcore migrate && ddcore dev")
 	return nil
 }
 
@@ -201,7 +201,7 @@ func cmdNewApp(args []string) error {
 			return err
 		}
 	}
-	fmt.Printf("app %s criado em %s\n", name, *dir)
+	fmt.Printf("app %s created at %s\n", name, *dir)
 	return nil
 }
 
@@ -242,7 +242,7 @@ func cmdServe(args []string, dev bool) error {
 		cr := e.StartScheduler(ctx)
 		defer cr.Stop()
 	} else {
-		e.Log.Warn("scheduler desabilitado (scheduler: false no ddcore.json)")
+		e.Log.Warn("scheduler disabled (scheduler: false in ddcore.json)")
 	}
 	if dev {
 		go watch.Apps(ctx, e, func() {
@@ -634,14 +634,14 @@ func cmdDoctor(args []string) error {
 	}
 	defer e.DB.Close()
 	ctx := context.Background()
-	fmt.Println("banco:      ok")
+	fmt.Println("database:   ok")
 	fmt.Printf("apps:       %v\n", e.AppOrder())
 	fmt.Printf("doctypes:   %d\n", len(e.Meta.DocTypes))
 	plan, err := e.Plan(ctx, false)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("migrate:    %d statements pendentes\n", len(plan))
+	fmt.Printf("migrate:    %d pending statement(s)\n", len(plan))
 	fmt.Printf("scheduler:  %v\n", cfg.Scheduler)
 	fmt.Printf("workers:    %d\n", cfg.Workers)
 	return nil
