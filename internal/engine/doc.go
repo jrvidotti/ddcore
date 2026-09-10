@@ -133,6 +133,11 @@ func castValue(f *meta.Field, v any) (any, error) {
 		}
 		return nil, cerr.Validation("Mês/ano inválido em %s: %q", f.Label, db.Str(v))
 	case "Datetime":
+		// castAll grava o time.Time convertido de volta no documento, então a
+		// próxima coerção do mesmo campo recebe um valor já normalizado.
+		if t, ok := v.(time.Time); ok {
+			return t, nil
+		}
 		s := db.Str(v)
 		for _, layout := range []string{time.RFC3339Nano, time.RFC3339, "2006-01-02 15:04:05", "2006-01-02T15:04:05", "2006-01-02 15:04", "2006-01-02"} {
 			if t, err := time.ParseInLocation(layout, s, time.Local); err == nil {
