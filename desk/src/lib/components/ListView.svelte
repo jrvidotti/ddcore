@@ -57,6 +57,15 @@
   });
   const stdFilters = $derived(meta ? meta.doctype.fields.filter((f) => f.inStandardFilter && !isLayout(f)) : []);
   const statusField = $derived(meta?.doctype.fields.find((f) => f.fieldname === "status"));
+  /**
+   * Whether to add the trailing indicator column. A `status` field that is
+   * already a visible column does not need a second one beside it — that
+   * column shows the same value with the same colour.
+   */
+  const showIndicatorColumn = $derived(
+    !!settings.indicator ||
+      (!columns.some((c) => c.fieldname === statusField?.fieldname) && (!!statusField || !!meta?.doctype.submittable)),
+  );
   const urlFields = $derived(meta?.doctype.fields.filter((f) => f.fieldname && !isLayout(f)) || []);
   const hasActiveFilters = $derived(Object.values(filters).some((v) => v !== null && v !== undefined && v !== "") || !!search || docstatusFilter !== "");
 
@@ -244,7 +253,7 @@
           {#each columns as c}
             <th class:num={num(c)} onclick={() => sort(c)} style="cursor:pointer">{c.label} {#if orderBy.startsWith(c.fieldname + " ")}{orderBy.endsWith("asc") ? "↑" : "↓"}{/if}</th>
           {/each}
-          {#if statusField || settings.indicator || meta?.doctype.submittable}<th>{__("Status")}</th>{/if}
+          {#if showIndicatorColumn}<th>{__("Status")}</th>{/if}
           <th class="num">{__("Modified")}</th>
         </tr>
       </thead>
@@ -274,7 +283,7 @@
                 {/if}
               </td>
             {/each}
-            {#if statusField || settings.indicator || meta?.doctype.submittable}
+            {#if showIndicatorColumn}
               <td>
                 {#if settings.indicator}
                   {@const ind = settings.indicator(r)}

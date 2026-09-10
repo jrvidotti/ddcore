@@ -8,6 +8,7 @@ Apps reloaded,Apps recarregadas,# desk/src/routes/+layout.svelte:45
 Attach,Anexar,# desk/src/lib/controls/AttachControl.svelte:32
 Attached to (DocType),Anexado a (DocType),# core.doctypes.file.file.doctype
 Attached to (name),Anexado a (nome),# core.doctypes.file.file.doctype
+Attachment,Anexo,# core.doctypes.comment.comment.doctype
 Cancel,Cancelar,# desk/src/lib/components/Dialogs.svelte:61
 Cancel {0} {1} before deleting,Cancele {0} {1} antes de apagar,# internal/engine/doc.go:629
 Cancel {0}?,Cancelar {0}?,# desk/src/lib/components/FormView.svelte:253
@@ -69,6 +70,7 @@ Full name,Nome completo,# core.doctypes.user.user.doctype
 Has Role,Has Role,# core.doctypes.has_role.has_role.doctype
 Hash,Hash,# core.doctypes.user.user.doctype
 History,Histórico,# desk/src/lib/components/DocSidebar.svelte:69
+Info,Informação,# core.doctypes.comment.comment.doctype
 Invalid API key,Chave de API inválida,# internal/api/api.go:224
 Invalid JSON: {0},JSON inválido: {0},# internal/api/api.go:199
 "Invalid date and time in {0}: ""{1}""","Data/hora inválida em {0}: ""{1}""",# internal/engine/doc.go:147
@@ -87,6 +89,7 @@ Language,Idioma,# core.doctypes.user.user.doctype
 Last login,Último acesso,# core.doctypes.user.user.doctype
 Last used,Último uso,# core.doctypes.api_key.api_key.doctype
 Leave blank to follow the site language.,Deixe em branco para seguir o idioma do site.,# core.doctypes.user.user.doctype
+Like,Curtida,# core.doctypes.comment.comment.doctype
 Loading…,Carregando...,# desk/src/lib/components/FormView.svelte:307
 Method {0} does not exist on {1},Método {0} não existe em {1},# internal/api/api.go:653
 Method {0} does not exist or is not whitelisted,Método {0} não existe ou não é whitelisted,# internal/api/api.go:686
@@ -166,7 +169,7 @@ See the full history,Ver histórico completo,# desk/src/lib/components/DocHistor
 Seen,Visto,# core.doctypes.error_log.error_log.doctype
 Shortcuts,Atalhos,# desk/src/lib/components/Workspace.svelte:49
 Show this shortcuts window,Exibir esta janela de atalhos,# desk/src/lib/shortcuts.ts:85
-Sign in,Faça login,# desk/src/routes/login/+page.svelte:19
+Sign in,Entrar,# desk/src/routes/login/+page.svelte:19
 Sign in to continue,Faça login para continuar,# internal/api/api.go:282
 Sign in to upload files,Faça login para enviar arquivos,# internal/api/api.go:1038
 Sign out,Sair,# desk/src/lib/components/Sidebar.svelte:47
@@ -178,6 +181,7 @@ Submit {0} permanently?,Enviar permanentemente {0}?,# desk/src/lib/components/Fo
 Submitted,Enviado,# desk/src/lib/components/ListView.svelte:153
 Submitted document,Documento enviado,# internal/engine/doc.go:1058
 System,Sistema,# desk/src/lib/components/Sidebar.svelte:35
+System User,Usuário do sistema,# core.doctypes.user.user.doctype
 The document was changed by someone else after you opened it. Reload and try again.,O documento foi alterado por outro usuário depois que você o abriu. Recarregue e tente de novo.,# internal/engine/doc.go:399
 "The framework's own DocTypes: users, roles, files, comments and versions.","DocTypes do próprio framework: usuários, papéis, arquivos, comentários e versões.",# core app
 This endpoint requires an API key (Authorization: token key:secret),Este endpoint exige uma chave de API (Authorization: token chave:segredo),# internal/api/api.go:252
@@ -198,6 +202,8 @@ User {0} does not exist,Usuário {0} não existe,# internal/engine/auth.go:151
 Username,Usuário,# desk/src/routes/login/+page.svelte:20
 Version,Versão,# core.doctypes.version.version.doctype
 View row,Visualizar linha,# desk/src/lib/controls/Grid.svelte:107
+Website User,Usuário do site,# core.doctypes.user.user.doctype
+Workflow,Fluxo,# core.doctypes.comment.comment.doctype
 Workspace not found,Workspace não encontrado,# desk/src/lib/components/Workspace.svelte:66
 Workspace {0} does not exist,Workspace {0} não existe,# internal/api/api.go:956
 Write a comment,Escreva um comentário,# desk/src/lib/components/DocSidebar.svelte:51

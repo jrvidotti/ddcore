@@ -137,6 +137,6 @@ func (e *Engine) Migrate(ctx context.Context, prune bool) (*MigrateResult, error
 
 func (r *MigrateResult) String() string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "%d DDL, %d patches, apps instaladas: %v", len(r.DDL), len(r.Patches), r.Installed)
+	fmt.Fprintf(&b, "%d DDL, %d patches, apps installed: %v", len(r.DDL), len(r.Patches), r.Installed)
 	return b.String()
 }

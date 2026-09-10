@@ -527,7 +527,7 @@ func cmdJobs(args []string) error {
 		}
 		<-ctx.Done()
 	default:
-		return fmt.Errorf("subcomando desconhecido: %s", args[0])
+		return fmt.Errorf("unknown subcommand: %s", args[0])
 	}
 	return nil
 }
@@ -572,14 +572,14 @@ func cmdUser(args []string) error {
 		})
 	case "passwd":
 		if len(args) < 3 {
-			return fmt.Errorf("uso: ddcore user passwd <email> <senha>")
+			return fmt.Errorf("usage: ddcore user passwd <email> <password>")
 		}
 		if err := e.SetPassword(ctx, args[1], args[2]); err != nil {
 			return err
 		}
-		fmt.Println("senha alterada")
+		fmt.Println("password changed")
 	default:
-		return fmt.Errorf("subcomando desconhecido: %s", args[0])
+		return fmt.Errorf("unknown subcommand: %s", args[0])
 	}
 	return nil
 }

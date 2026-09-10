@@ -1,6 +1,7 @@
 import type { Field } from "./meta";
 import { formatMonth } from "./controls/month-format.ts";
 import { getLinkTitle } from "./titles.svelte";
+import { __ } from "./boot.svelte";
 import { currencyFmt, dateFmt, decimalSep, groupSep, currencySymbol, numberFmt, relativeFmt, timezone } from "./locale";
 
 export { formatMonth };
@@ -50,6 +51,16 @@ export function formatValue(v: any, f?: Partial<Field>): string {
     case "Month": return formatMonth(v);
     case "Datetime": return formatDatetime(v);
     case "Link": return (f?.options ? getLinkTitle(f.options, v) : "") || String(v);
+    case "Select": {
+      // the value is canonical English and stays that way; what is shown is
+      // its label, which the server filled in or which is the value's own key
+      const opts = f.options;
+      if (Array.isArray(opts) && Array.isArray(f.optionLabels)) {
+        const i = opts.indexOf(v);
+        if (i >= 0 && f.optionLabels[i]) return f.optionLabels[i];
+      }
+      return __(String(v));
+    }
   }
   return String(v);
 }

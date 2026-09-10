@@ -1122,7 +1122,7 @@ func (s *Server) file(w http.ResponseWriter, r *http.Request) {
 // document it is attached to (or its owner / System Manager when detached).
 func (s *Server) privateFile(w http.ResponseWriter, r *http.Request) {
 	if user(r) == "Guest" {
-		s.writeErr(w, r, cerr.Auth("Sign in"))
+		s.writeErr(w, r, cerr.Auth("Sign in to continue"))
 		return
 	}
 	allowed := false

@@ -35,7 +35,7 @@ desk: ## compila o desk (SvelteKit) para desk/build (embutido no binário)
 check: ## verifica os tipos do desk, sem banco
 	cd desk && npm install --silent && npm run check
 	./bin/ddcore types
-	cd desk && npx tsc -p ../apps/exemplo/tsconfig.json --noEmit
+	cd desk && npx tsc -p ../apps/demo/tsconfig.json --noEmit
 
 i18n: ## reescreve translations/<lang>.csv a partir do código (--check só reporta)
 	./bin/ddcore i18n extract --all --lang pt-BR
@@ -48,7 +48,7 @@ test-desk: ## svelte-check + testes unitários do desk
 
 test: build vet ## testes Go e do desk
 	go test ./internal/...
-	./bin/ddcore test --app exemplo
+	./bin/ddcore test --app demo
 	$(MAKE) test-desk
 
 dev: ## servidor de desenvolvimento
