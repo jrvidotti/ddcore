@@ -78,7 +78,7 @@ func (c *Ctx) filterSQL(d *meta.DocType, b *db.Builder, filters []db.Filter, col
 			return "", fmt.Errorf("campo desconhecido no filtro: %q", f.Field)
 		}
 		if !hasChildTable(d, ct) {
-			return "", fmt.Errorf("%s não é uma tabela filha de %s", ct, d.Name)
+			return "", fmt.Errorf("%s is not a child table of %s", ct, d.Name)
 		}
 		if _, seen := byChild[ct]; !seen {
 			order = append(order, ct)

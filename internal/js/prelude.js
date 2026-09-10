@@ -535,12 +535,12 @@
         toThrow: (match) => {
           let err = null;
           try { actual(); } catch (x) { err = x; }
-          if (neg) { if (err) throw new Error("não esperava erro, recebido: " + (err.message || err)); return; }
+          if (neg) { if (err) throw new Error("expected no error, got: " + (err.message || err)); return; }
           if (!err) throw new Error("esperava erro" + (match ? " ~ " + match : ""));
           if (match) {
             const text = (err.title ? err.title + ": " : "") + (err.message || String(err));
             const ok = typeof match === "string" ? text.includes(match) : match.test(text);
-            if (!ok) throw new Error(`erro ${show(text)} não bate com ${match}`);
+            if (!ok) throw new Error(`error ${show(text)} does not match ${match}`);
           }
         },
       };

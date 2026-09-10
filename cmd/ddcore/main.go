@@ -383,7 +383,7 @@ func cmdTest(args []string) error {
 			fmt.Printf("       em %s\n", r.File)
 		}
 	}
-	fmt.Printf("%d testes, %d falhas\n", len(results), failed)
+	fmt.Printf("%d tests, %d failures\n", len(results), failed)
 	if failed > 0 {
 		os.Exit(1)
 	}

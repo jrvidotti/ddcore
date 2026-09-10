@@ -764,7 +764,7 @@ func (c *Ctx) runHook(d *meta.DocType, event string, doc Doc, before Doc) error 
 	}
 	var updated Doc
 	if err := json.Unmarshal(out, &updated); err != nil {
-		return fmt.Errorf("hook %s.%s retornou JSON inválido: %w", d.Name, event, err)
+		return fmt.Errorf("hook %s.%s returned invalid JSON: %w", d.Name, event, err)
 	}
 	for k := range doc {
 		delete(doc, k)
