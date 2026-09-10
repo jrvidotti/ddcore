@@ -1,38 +1,47 @@
-# Relatórios, workspaces, cards e charts
+# Reports, workspaces, cards and charts
 
 ```ts
 import { defineReport, _ } from "@ddcore/sdk";
 export default defineReport({
-  name: "Contratos a Vencer", refDoctype: "Contrato", roles: ["Gestor"],
-  filters: [{ fieldname: "dias", label: "Dias", fieldtype: "Int", default: 90, reqd: true }, { fieldname: "imovel", fieldtype: "Link", options: "Imovel", label: "Imóvel" }],
+  name: "Contracts Due", refDoctype: "Contract", roles: ["Manager"],
+  filters: [{ fieldname: "days", label: "Days", fieldtype: "Int", default: 90, reqd: true }, { fieldname: "property", fieldtype: "Link", options: "Property", label: "Property" }],
   execute(filters, ctx) {
-    const rows = ddcore.db.getList("Contrato", { filters: {...}, fields: [...], limit: 10000 });
+    const rows = ddcore.db.getList("Contract", { filters: {/* … */}, fields: [/* … */], limit: 10000 });
     return {
-      columns: [{ fieldname: "name", label: _("Contrato"), fieldtype: "Link", options: "Contrato", width: 140 }, ...],
+      columns: [{ fieldname: "name", label: _("Contract"), fieldtype: "Link", options: "Contract", width: 140 }, /* … */],
       rows,
       summary: [{ label: _("Total"), value: 10, datatype: "Currency", indicator: "red" }],
-      chart: { type: "bar", labels: [...], datasets: [{ name: "Receitas", values: [...] }] },
+      chart: { type: "bar", labels: [/* … */], datasets: [{ name: _("Revenue"), values: [/* … */] }] },
     };
   },
 });
 ```
-Defaults de filtro Date: `"Today"`, `"month_start"`, `"month_end"`, `"-11m"` (início do mês, N meses atrás).
-Rota: `/app/report/<nome>`; API: `GET /api/report/<nome>?filters={...}`.
+Date filter defaults: `"Today"`, `"month_start"`, `"month_end"`, `"-11m"` (the first of the month, N months ago).
+Route: `/app/report/<name>`; API: `GET /api/report/<name>?filters={...}`.
+
+A report's `name`, its column labels and its chart labels are all human-facing: `label:` in the
+definition is a catalogue key the server translates, and anything built inside `execute` goes
+through `_()`. A status is its own key — `_(row.status)` — because a Select value is canonical
+English. See `i18n`.
 
 ```ts
 import { defineWorkspace } from "@ddcore/sdk";
 export default defineWorkspace({
-  name: "Comercial", label: "Comercial", icon: "briefcase", roles: ["Gestor"],
-  sidebar: [{ label: "Visão Geral", route: "/app/workspace/Comercial", icon: "layout-dashboard" }, { label: "Contratos", doctype: "Contrato", icon: "notepad-text" }, { label: "Cadastros" /* sem link = cabeçalho */ }, { label: "Relatório X", report: "Relatório X" }],
-  shortcuts: [{ label: "Contratos", doctype: "Contrato", icon: "notepad-text" }],
+  name: "Sales", label: "Sales", icon: "briefcase", roles: ["Manager"],
+  sidebar: [{ label: "Overview", route: "/app/workspace/Sales", icon: "layout-dashboard" }, { label: "Contracts", doctype: "Contract", icon: "notepad-text" }, { label: "Records" /* no link = a heading */ }, { label: "Report X", report: "Report X" }],
+  shortcuts: [{ label: "Contracts", doctype: "Contract", icon: "notepad-text" }],
   numberCards: [
-    { name: "vigentes", label: "Contratos Vigentes", doctype: "Contrato", filters: { situacao: "Vigente" }, color: "green", route: "/app/Contrato?situacao=Vigente" },
-    { name: "atraso", label: "Total em Atraso", doctype: "Lancamento", filters: { status: "Atrasado" }, aggregate: "sum:saldo_devedor", color: "red" },
-    { name: "mes", label: "Recebido no Mês", method() { return { value: 10, formatted: "R$ 10,00" }; } },
+    { name: "active", label: "Active Contracts", doctype: "Contract", filters: { status: "Active" }, color: "green", route: "/app/Contract?status=Active" },
+    { name: "overdue", label: "Total Overdue", doctype: "Entry", filters: { status: "Overdue" }, aggregate: "sum:balance", color: "red" },
+    { name: "month", label: "Received This Month", method() { return { value: 10, formatted: ddcore.utils.formatCurrency(10) }; } },
   ],
-  charts: [{ name: "receita", label: "Receita Mensal", type: "bar", method() { return { type: "bar", labels: [...], datasets: [{ name: "Receita", values: [...] }] }; } }],
-  links: [{ label: "Cadastros", items: [{ label: "Pessoas", doctype: "Pessoa" }] }],
+  charts: [{ name: "revenue", label: "Monthly Revenue", type: "bar", method() { return { type: "bar", labels: [/* … */], datasets: [{ name: _("Revenue"), values: [/* … */] }] }; } }],
+  links: [{ label: "Records", items: [{ label: "People", doctype: "Person" }] }],
 });
 ```
-Ícones: subconjunto lucide (`building-2, users, user, notepad-text, receipt, list, bar-chart-3, layout-dashboard, shield, paperclip, message-square, house, tag, history, settings`).
-`desk.home` no `ddcore.app.ts` define o workspace inicial.
+Icons: a subset of lucide (`building-2, users, user, notepad-text, receipt, list, bar-chart-3, layout-dashboard, shield, paperclip, message-square, house, tag, history, settings`).
+`desk.home` in `ddcore.app.ts` sets the initial workspace.
+
+In a workspace, `label`, `title`, `description` and `category` are catalogue keys and are
+translated by the server; `name`, `route`, `doctype`, `report` and `icon` are identifiers and
+are left alone.

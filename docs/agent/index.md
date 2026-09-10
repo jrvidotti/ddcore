@@ -1,33 +1,35 @@
-# ddcore — referência para agentes
+# ddcore — reference for agents
 
-ddcore (*Data Driven Core*) é um framework de aplicações no espírito do Frappe: **DocTypes** (modelos declarados
-em TypeScript) viram tabelas Postgres, formulários, listas e API REST automaticamente.
-O core é um binário Go (`ddcore`) que embute esbuild + goja: a lógica dos apps é TypeScript
-executado **no servidor, de forma síncrona** (sem `await`), e os scripts de formulário rodam no desk.
+ddcore (*Data Driven Core*) is an application framework in the spirit of Frappe: **DocTypes** (models declared
+in TypeScript) become Postgres tables, forms, lists and a REST API automatically.
+The core is a Go binary (`ddcore`) embedding esbuild + goja: an app's logic is TypeScript
+run **on the server, synchronously** (no `await`), and its form scripts run in the desk.
 
-Documentos disponíveis (também como resources MCP `ddcore://docs/<nome>`):
+Available documents (also as MCP resources `ddcore://docs/<name>`):
 
-- `conventions` — layout de um app, nomes, o que nunca fazer
-- `fieldtypes` — todos os fieldtypes e propriedades de campo
-- `controller-api` — `defineController`, hooks, métodos, a API `ddcore.*` do servidor
+- `conventions` — an app's layout, naming, what never to do
+- `fieldtypes` — every fieldtype and field property
+- `controller-api` — `defineController`, hooks, methods, the server's `ddcore.*` API
 - `form-api` — `defineForm`, `frm.*`, dialogs (desk)
-- `report-api` — `defineReport`, `defineWorkspace`, cards e charts
-- `cli` — comandos `ddcore` e o fluxo de desenvolvimento
+- `report-api` — `defineReport`, `defineWorkspace`, cards and charts
+- `i18n` — English as the source language, catalogues, Select values, dates and the site timezone
+- `cli` — the `ddcore` commands and the development loop
 
-## Fluxo típico
+## Typical flow
 
-1. Em um monorepo, `ddcore new-app <nome>` cria `apps/<nome>`; em um repositório do
-   próprio app, use `ddcore new-app <nome> --dir .` e `apps: ["."]`.
-2. Escreva `doctypes/<snake>/<snake>.doctype.ts` com `defineDoctype`.
-3. `ddcore migrate` (ou a tool MCP `migrate`) cria/altera as tabelas e gera em `.ddcore/`
-   os tipos dos DocTypes e as declarações dos SDKs embutidos.
-4. Regras em `<snake>.controller.ts`; scripts de tela em `<snake>.form.ts`; testes em `<snake>.test.ts`.
-5. `ddcore dev` sobe o servidor em hot-reload; `ddcore test` roda os testes em transações revertidas.
+1. In a monorepo, `ddcore new-app <name>` creates `apps/<name>`; in an app's own
+   repository, use `ddcore new-app <name> --dir .` and `apps: ["."]`.
+2. Write `doctypes/<snake>/<snake>.doctype.ts` with `defineDoctype`.
+3. `ddcore migrate` (or the MCP `migrate` tool) creates and alters the tables and generates,
+   under `.ddcore/`, the DocType types and the declarations of the embedded SDKs.
+4. Rules in `<snake>.controller.ts`; screen scripts in `<snake>.form.ts`; tests in `<snake>.test.ts`.
+5. `ddcore dev` runs the server with hot reload; `ddcore test` runs the tests in rolled-back transactions.
 
-## Modelo mental
+## Mental model
 
-- Um DocType = uma tabela `tab_<snake_case>`; tabelas filhas (`isChild`) têm `parent`, `parenttype`, `parentfield`, `idx`.
-- Colunas padrão: `name` (PK, texto), `owner`, `creation`, `modified`, `modified_by`, `docstatus` (0 rascunho, 1 enviado, 2 cancelado).
-- Ciclo de vida: `beforeValidate → validate → beforeSave → (insert|update) → afterInsert/onUpdate`; `beforeSubmit → onSubmit`; `beforeCancel → onCancel`; `onTrash → afterDelete`.
-- O core valida `reqd`, `unique`, `options` de Select, links existentes, `fetchFrom`, `mandatoryDependsOn` (**no servidor**) e bloqueia alterar campos sem `allowOnSubmit` depois de enviado.
-- Uma transação por request/job. Erro → rollback. Não existe `commit()` para o app.
+- One DocType = one table `tab_<snake_case>`; child tables (`isChild`) have `parent`, `parenttype`, `parentfield`, `idx`.
+- Standard columns: `name` (PK, text), `owner`, `creation`, `modified`, `modified_by`, `docstatus` (0 draft, 1 submitted, 2 cancelled).
+- Lifecycle: `beforeValidate → validate → beforeSave → (insert|update) → afterInsert/onUpdate`; `beforeSubmit → onSubmit`; `beforeCancel → onCancel`; `onTrash → afterDelete`.
+- The core validates `reqd`, `unique`, a Select's `options`, that links exist, `fetchFrom`, `mandatoryDependsOn` (**on the server**) and refuses to change a field without `allowOnSubmit` once submitted.
+- One transaction per request or job. An error rolls it back. There is no `commit()` for an app.
+- **Every user-facing string is English and is a key** — a `label:` as much as a `_("…")`. Translations live in `translations/<lang>.csv`, and a Select's value is canonical English with a translated label. See `i18n`.

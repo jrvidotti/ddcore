@@ -1,4 +1,4 @@
-.PHONY: build desk test check vet i18n test-go test-desk dev stop kill migrate help docker-up docker-down docker-logs docker-status docker-psql db-up db-down db-logs db-status db-psql
+.PHONY: build desk test check check-docs vet i18n test-go test-desk dev stop kill migrate help docker-up docker-down docker-logs docker-status docker-psql db-up db-down db-logs db-status db-psql
 
 PORT ?= 8090
 
@@ -40,6 +40,9 @@ check: ## verifica os tipos do desk e o catálogo de traduções, sem banco
 
 i18n: ## reescreve translations/<lang>.csv a partir do código
 	./bin/ddcore i18n extract --all --lang pt-BR
+
+check-docs: ## verifica se os espelhos .ptbr.md acompanharam o original em inglês
+	./scripts/check-docs.sh
 
 vet: ## análise estática do Go
 	go vet ./...

@@ -1,50 +1,52 @@
-# Fieldtypes e propriedades
+# Fieldtypes and properties
 
-| Fieldtype | Coluna Postgres | Observações |
+| Fieldtype | Postgres column | Notes |
 |---|---|---|
-| Data | text | `length` limita o input |
-| Email | text | um endereço de e-mail; espaços externos são removidos e o formato é validado no desk e no servidor |
-| Small Text / Text / Text Editor | text | textarea (2 / 5 linhas) |
+| Data | text | `length` limits the input |
+| Email | text | an email address; outer spaces are trimmed and the format is validated in the desk and on the server |
+| Small Text / Text / Text Editor | text | textarea (2 / 5 rows) |
 | Int | bigint | |
-| Float | double precision | `precision` só afeta exibição |
-| Currency | numeric(21,9) | exibido como R$ (moeda do ddcore.json) |
-| Percent | numeric(21,9) | exibido com % |
-| Check | boolean | default `false` |
-| Date | date | valor "YYYY-MM-DD" |
-| Month | date | valor "YYYY-MM-01", exibido e editado como "mm/aaaa" |
-| Datetime | timestamptz | valor ISO |
-| Time | time | "HH:MM:SS" |
-| Select | text | `options: ["A", "B"]`; validado no servidor |
-| Link | text | `options: "DocType"`; existência validada; índice automático |
-| Dynamic Link | text | `options: "<campo que guarda o DocType>"` |
-| Table | (tabela filha) | `options: "DocType filho"` com `isChild: true`; `gridEditMode: "dialog"` desativa edição inline |
-| Attach | text | URL do arquivo (`/files/..` ou `/private/files/..`) |
+| Float | double precision | `precision` affects display only |
+| Currency | numeric(21,9) | shown with the symbol of `ddcore.json:currency`, grouped as the reader's language does |
+| Percent | numeric(21,9) | shown with % |
+| Check | boolean | defaults to `false` |
+| Date | date | value "YYYY-MM-DD"; a **civil date**, never converted between timezones |
+| Month | date | value "YYYY-MM-01", shown and edited in the locale's month order |
+| Datetime | timestamptz | ISO value; an **instant**, shown in the site's timezone |
+| Time | time | "HH:MM:SS"; a civil time, never converted |
+| Select | text | `options: ["A", "B"]`, canonical English, validated on the server; `optionColors` gives each value an indicator colour |
+| Link | text | `options: "DocType"`; existence validated; index created automatically |
+| Dynamic Link | text | `options: "<the field holding the DocType>"` |
+| Table | (child table) | `options: "Child DocType"` with `isChild: true`; `gridEditMode: "dialog"` turns off inline editing |
+| Attach | text | the file's URL (`/files/..` or `/private/files/..`) |
 | JSON | jsonb | |
-| Password | text | não é hasheado automaticamente |
-| Section Break / Column Break / Tab Break | — | layout; `label`, `collapsible`, `dependsOn` em Section |
-| HTML | — | `options` é o HTML renderizado |
+| Password | text | not hashed automatically |
+| Section Break / Column Break / Tab Break | — | layout; `label`, `collapsible`, `dependsOn` on a Section |
+| HTML | — | `options` is the rendered HTML |
 
-## Propriedades de campo
+## Field properties
 
-`fieldname, fieldtype, label, options, reqd, unique, default, readOnly, hidden, fetchFrom, dependsOn,
+`fieldname, fieldtype, label, options, optionColors, reqd, unique, default, readOnly, hidden, fetchFrom, dependsOn,
 readOnlyDependsOn, mandatoryDependsOn, allowOnSubmit, inListView, inStandardFilter, searchIndex,
-length, precision, description, columns (largura no grid 1–12), gridEditMode (`"inline"` padrão ou `"dialog"`), collapsible, bold`
+length, precision, description, columns (grid width 1–12), gridEditMode (`"inline"` default or `"dialog"`), collapsible, bold`
 
-- `default`: valor literal, ou `"Today"` para Date/Datetime, `"__user"` para o usuário atual.
-- `fetchFrom: "imovel.proprietario"`: copia do documento vinculado ao salvar. Se `readOnly`, sempre sobrescreve; senão só preenche quando vazio.
-- `dependsOn`, `readOnlyDependsOn`, `mandatoryDependsOn`: expressão JS sobre `doc` (`"doc.tipo == 'PJ'"`) ou nome de campo (truthy). Avaliadas no desk **e** no servidor.
+- `label` and `description` are **catalogue keys**: write them in English. See `i18n`.
+- `default`: a literal value, or `"Today"` for Date/Datetime, `"__user"` for the current user.
+- `fetchFrom: "project.assignee"`: copied from the linked document on save. When `readOnly` it always overwrites; otherwise it fills only when empty.
+- `dependsOn`, `readOnlyDependsOn`, `mandatoryDependsOn`: a JS expression over `doc` (`"doc.type == 'PJ'"`) or a field name (truthy). Evaluated in the desk **and** on the server.
+- `optionColors` (Select): `{ Open: "blue", Overdue: "red" }`, keyed by the canonical value — never by its label.
 
-## Propriedades do DocType
+## DocType properties
 
 ```ts
 defineDoctype({
-  name: "Contrato", module: "Comercial", label: "Contrato",
-  naming: { series: "CTR-.YYYY.-.####" } | { field: "sigla" } | { format: "{indice}-{competencia}" } | { hash: true } | { prompt: true },
+  name: "Contract", module: "Sales", label: "Contract",
+  naming: { series: "CTR-.YYYY.-.####" } | { field: "code" } | { format: "{index}-{period}" } | { hash: true } | { prompt: true },
   submittable: true, isChild: false, trackChanges: true, allowRename: true,
-  titleField: "nome", searchFields: ["nome", "cpf"], sortField: "modified", sortOrder: "desc", icon: "building-2",
+  titleField: "name", searchFields: ["name", "tax_id"], sortField: "modified", sortOrder: "desc", icon: "building-2",
   fields: [...],
-  permissions: [{ role: "Gestor", read: true, write: true, create: true, delete: true, submit: true, cancel: true, amend: true, report: true, export: true, ifOwner: false }],
+  permissions: [{ role: "Manager", read: true, write: true, create: true, delete: true, submit: true, cancel: true, amend: true, report: true, export: true, ifOwner: false }],
 });
 ```
 
-Séries: `.YYYY.`, `.YY.`, `.MM.`, `.DD.`, `.####.` (contador com zeros), `.{campo}.`. Um campo `naming_series` (Select) permite o usuário escolher a série.
+Series: `.YYYY.`, `.YY.`, `.MM.`, `.DD.`, `.####.` (a zero-padded counter), `.{field}.`. A `naming_series` field (Select) lets the user pick the series.

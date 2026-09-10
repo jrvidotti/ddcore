@@ -472,7 +472,7 @@ func New(e *engine.Engine) *mcp.Server {
 				return &mcp.ReadResourceResult{Contents: []*mcp.ResourceContents{{URI: req.Params.URI, MIMEType: "text/markdown", Text: Docs(name)}}}, nil
 			})
 	}
-	srv.AddResourceTemplate(&mcp.ResourceTemplate{URITemplate: "ddcore://meta/{doctype}", Name: "meta", MIMEType: "application/json", Description: "Meta de um DocType"},
+	srv.AddResourceTemplate(&mcp.ResourceTemplate{URITemplate: "ddcore://meta/{doctype}", Name: "meta", MIMEType: "application/json", Description: "A DocType's meta"},
 		func(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
 			name := strings.TrimPrefix(req.Params.URI, "ddcore://meta/")
 			d, err := e.DocType(name)
