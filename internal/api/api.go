@@ -196,7 +196,7 @@ func readJSON(r *http.Request, v any) error {
 		return nil
 	}
 	if err := json.Unmarshal(b, v); err != nil {
-		return cerr.Validation("JSON inválido: {0}", err)
+		return cerr.Validation("Invalid JSON: {0}", err)
 	}
 	return nil
 }
@@ -208,7 +208,7 @@ func queryJSON(r *http.Request, key string) (any, error) {
 	}
 	var v any
 	if err := json.Unmarshal([]byte(s), &v); err != nil {
-		return nil, cerr.Validation("{0} inválido: {1}", key, err)
+		return nil, cerr.Validation("Invalid {0}: {1}", key, err)
 	}
 	return v, nil
 }
@@ -221,7 +221,7 @@ func (s *Server) auth(next http.Handler) http.Handler {
 		if h := r.Header.Get("Authorization"); strings.HasPrefix(strings.ToLower(h), "token ") {
 			u, _ = s.E.UserFromAPIKey(r.Context(), strings.TrimSpace(h[6:]))
 			if u == "" {
-				s.writeErr(w, r, cerr.Auth("Chave de API inválida"))
+				s.writeErr(w, r, cerr.Auth("Invalid API key"))
 				return
 			}
 		} else if ck, err := r.Cookie("sid"); err == nil {
@@ -229,7 +229,7 @@ func (s *Server) auth(next http.Handler) http.Handler {
 			// CSRF: state-changing requests with cookie auth need the header
 			if u != "" && r.Method != "GET" && r.Method != "HEAD" && !strings.HasPrefix(r.URL.Path, "/api/login") {
 				if r.Header.Get("X-DDCore-CSRF") == "" && r.Header.Get("X-Requested-With") == "" {
-					s.writeErr(w, r, cerr.Permission("Requisição sem cabeçalho CSRF"))
+					s.writeErr(w, r, cerr.Permission("Request without a CSRF header"))
 					return
 				}
 			}
@@ -249,7 +249,7 @@ func (s *Server) RequireAdminAPIKey(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h := r.Header.Get("Authorization")
 		if !strings.HasPrefix(strings.ToLower(h), "token ") {
-			s.writeErr(w, r, cerr.Auth("Este endpoint exige uma chave de API (Authorization: token chave:segredo)"))
+			s.writeErr(w, r, cerr.Auth("This endpoint requires an API key (Authorization: token key:secret)"))
 			return
 		}
 		u, err := s.E.UserFromAPIKey(r.Context(), strings.TrimSpace(h[6:]))
@@ -258,7 +258,7 @@ func (s *Server) RequireAdminAPIKey(next http.Handler) http.Handler {
 			return
 		}
 		if u == "" || u == "Guest" {
-			s.writeErr(w, r, cerr.Auth("Chave de API inválida"))
+			s.writeErr(w, r, cerr.Auth("Invalid API key"))
 			return
 		}
 		roles, err := s.E.NewCtx(r.Context(), u).RolesOf(u)
@@ -267,7 +267,7 @@ func (s *Server) RequireAdminAPIKey(next http.Handler) http.Handler {
 			return
 		}
 		if u != "Administrator" && !containsFold(roles, "System Manager") {
-			s.writeErr(w, r, cerr.Permission("Este endpoint exige o papel System Manager"))
+			s.writeErr(w, r, cerr.Permission("This endpoint requires the System Manager role"))
 			return
 		}
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), userKey, u)))
@@ -279,7 +279,7 @@ func (s *Server) RequireAdminAPIKey(next http.Handler) http.Handler {
 func (s *Server) requireLogin(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if user(r) == "Guest" {
-			s.writeErr(w, r, cerr.Auth("Faça login para continuar"))
+			s.writeErr(w, r, cerr.Auth("Sign in to continue"))
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -414,7 +414,7 @@ func (s *Server) getMeta(w http.ResponseWriter, r *http.Request) {
 			return nil, err
 		}
 		if ok, _ := c.HasPermission(d.Name, "read", nil); !ok && !d.IsChild {
-			return nil, cerr.Permission("Sem permissão para {0}", d.Label)
+			return nil, cerr.Permission("No permission for {0}", d.Label)
 		}
 		childMeta := map[string]*meta.DocType{}
 		for _, tf := range d.TableFields() {
@@ -541,7 +541,7 @@ func (s *Server) childGuard(doctype string) error {
 		return err
 	}
 	if d.IsChild {
-		return cerr.Validation("{0} é uma tabela filha: edite pelo documento pai", d.Label)
+		return cerr.Validation("{0} is a child table: edit it through the parent document", d.Label)
 	}
 	return nil
 }
@@ -645,7 +645,7 @@ func (s *Server) docMethod(w http.ResponseWriter, r *http.Request) {
 			return nil, err
 		}
 		if !contains(d.Methods, m) {
-			return nil, cerr.NotFound("Método {0} não existe em {1}", m, dt)
+			return nil, cerr.NotFound("Method {0} does not exist on {1}", m, dt)
 		}
 		doc, err := c.GetDoc(dt, name)
 		if err != nil {
@@ -678,11 +678,11 @@ func (s *Server) method(w http.ResponseWriter, r *http.Request) {
 	path := chi.URLParam(r, "path")
 	opts, ok := s.E.Whitelisted(path)
 	if !ok {
-		s.writeErr(w, r, cerr.NotFound("Método {0} não existe ou não é whitelisted", path))
+		s.writeErr(w, r, cerr.NotFound("Method {0} does not exist or is not whitelisted", path))
 		return
 	}
 	if user(r) == "Guest" && opts["allowGuest"] != true {
-		s.writeErr(w, r, cerr.Auth("Faça login para continuar"))
+		s.writeErr(w, r, cerr.Auth("Sign in to continue"))
 		return
 	}
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
@@ -702,7 +702,7 @@ func (s *Server) method(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			if !has && c.User != "Administrator" {
-				return nil, cerr.Permission("Sem permissão para {0}", path)
+				return nil, cerr.Permission("No permission for {0}", path)
 			}
 		}
 		rt, err := c.RT()
@@ -769,7 +769,7 @@ var referenceFields = map[string][2]string{
 // columns the permission rules need.
 func (s *Server) requireDocRead(c *engine.Ctx, doctype, name string) error {
 	if doctype == "" || name == "" {
-		return cerr.Permission("Informe o documento de referência")
+		return cerr.Permission("Provide the reference document")
 	}
 	d, err := s.E.DocType(doctype)
 	if err != nil {
@@ -780,14 +780,14 @@ func (s *Server) requireDocRead(c *engine.Ctx, doctype, name string) error {
 		return err
 	}
 	if vals == nil {
-		return cerr.NotFound("{0} {1} não encontrado", c.T(d.Label), name)
+		return cerr.NotFound("{0} {1} not found", c.T(d.Label), name)
 	}
 	ok, err := c.HasPermission(doctype, "read", engine.Doc(vals))
 	if err != nil {
 		return err
 	}
 	if !ok {
-		return cerr.Permission("Sem permissão para ler {0} {1}", c.T(d.Label), name)
+		return cerr.Permission("No permission to read {0} {1}", c.T(d.Label), name)
 	}
 	return nil
 }
@@ -804,7 +804,7 @@ func (s *Server) referenceGuard(c *engine.Ctx, doctype string, filters any) erro
 	}
 	fs, err := db.ParseFilters(filters)
 	if err != nil {
-		return cerr.Validation("{0}", err)
+		return cerr.Validation("Invalid filters: {0}", err)
 	}
 	var refDoctype, refName string
 	for _, f := range fs {
@@ -819,7 +819,7 @@ func (s *Server) referenceGuard(c *engine.Ctx, doctype string, filters any) erro
 		}
 	}
 	if refDoctype == "" || refName == "" {
-		return cerr.Permission("Filtre {0} por {1} e {2}", doctype, pair[0], pair[1])
+		return cerr.Permission("Filter {0} by {1} and {2}", doctype, pair[0], pair[1])
 	}
 	return s.requireDocRead(c, refDoctype, refName)
 }
@@ -849,17 +849,17 @@ func (s *Server) report(w http.ResponseWriter, r *http.Request) {
 		name := chi.URLParam(r, "name")
 		rep, ok := s.E.Snap.Reports[name]
 		if !ok {
-			return nil, cerr.NotFound("Relatório {0} não existe", name)
+			return nil, cerr.NotFound("Report {0} does not exist", name)
 		}
 		roles, _ := c.Roles()
 		if !allowed(rep["roles"], roles) && c.User != "Administrator" {
-			return nil, cerr.Permission("Sem permissão para o relatório {0}", name)
+			return nil, cerr.Permission("No permission for report {0}", name)
 		}
 		if ref, _ := rep["refDoctype"].(string); ref != "" {
 			if ok, err := c.HasPermission(ref, "report", nil); err != nil {
 				return nil, err
 			} else if !ok {
-				return nil, cerr.Permission("Sem permissão de relatório em {0}", ref)
+				return nil, cerr.Permission("No report permission on {0}", ref)
 			}
 		}
 		filters, err := queryJSON(r, "filters")
@@ -899,7 +899,7 @@ func (s *Server) numberCard(w http.ResponseWriter, r *http.Request) {
 				if ok, err := c.HasPermission(dt, "read", nil); err != nil {
 					return nil, err
 				} else if !ok {
-					return nil, cerr.Permission("Sem permissão para {0}", dt)
+					return nil, cerr.Permission("No permission for {0}", dt)
 				}
 				agg := orStr(card["aggregate"], "count")
 				field := "count(*) as value"
@@ -922,7 +922,7 @@ func (s *Server) numberCard(w http.ResponseWriter, r *http.Request) {
 			}
 			return rt.NumberCard(wsName, cardName)
 		}
-		return nil, cerr.NotFound("Card {0} não existe", cardName)
+		return nil, cerr.NotFound("Card {0} does not exist", cardName)
 	})
 }
 
@@ -945,14 +945,14 @@ func (s *Server) chart(w http.ResponseWriter, r *http.Request) {
 func (s *Server) workspace(c *engine.Ctx, name string) (map[string]any, error) {
 	ws, ok := s.E.Snap.Workspaces[name]
 	if !ok {
-		return nil, cerr.NotFound("Workspace {0} não existe", name)
+		return nil, cerr.NotFound("Workspace {0} does not exist", name)
 	}
 	roles, err := c.Roles()
 	if err != nil {
 		return nil, err
 	}
 	if !allowed(ws["roles"], roles) && c.User != "Administrator" {
-		return nil, cerr.Permission("Sem permissão para o workspace {0}", name)
+		return nil, cerr.Permission("No permission for workspace {0}", name)
 	}
 	return ws, nil
 }
@@ -1027,7 +1027,7 @@ func (s *Server) dataDir() string {
 func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
 		if c.User == "Guest" {
-			return nil, cerr.Auth("Faça login para enviar arquivos")
+			return nil, cerr.Auth("Sign in to upload files")
 		}
 		max := s.MaxUpload
 		if max <= 0 {
@@ -1035,11 +1035,11 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 		}
 		r.Body = http.MaxBytesReader(w, r.Body, max)
 		if err := r.ParseMultipartForm(max); err != nil {
-			return nil, cerr.Validation("upload inválido: {0}", err)
+			return nil, cerr.Validation("Invalid upload: {0}", err)
 		}
 		f, hdr, err := r.FormFile("file")
 		if err != nil {
-			return nil, cerr.Validation("campo file ausente")
+			return nil, cerr.Validation("Missing file field")
 		}
 		defer f.Close()
 		private := r.FormValue("is_private") != "0"
@@ -1114,7 +1114,7 @@ func (s *Server) file(w http.ResponseWriter, r *http.Request) {
 // document it is attached to (or its owner / System Manager when detached).
 func (s *Server) privateFile(w http.ResponseWriter, r *http.Request) {
 	if user(r) == "Guest" {
-		s.writeErr(w, r, cerr.Auth("Faça login"))
+		s.writeErr(w, r, cerr.Auth("Sign in"))
 		return
 	}
 	allowed := false
@@ -1139,7 +1139,7 @@ func (s *Server) privateFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !allowed {
-		s.writeErr(w, r, cerr.Permission("Sem permissão para este arquivo"))
+		s.writeErr(w, r, cerr.Permission("No permission for this file"))
 		return
 	}
 	serveUpload(w, r, "/private/files/", filepath.Join(s.dataDir(), "files", "private"))
@@ -1255,7 +1255,7 @@ func (s *Server) deskHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if strings.HasPrefix(r.URL.Path, "/api/") {
-		s.writeErr(w, r, cerr.NotFound("rota {0} não existe", r.URL.Path))
+		s.writeErr(w, r, cerr.NotFound("Route {0} does not exist", r.URL.Path))
 		return
 	}
 	p := strings.TrimPrefix(r.URL.Path, "/")

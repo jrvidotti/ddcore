@@ -125,18 +125,37 @@ func TestErrorTranslatedAtTheBorder(t *testing.T) {
 	if e["message"] != "Método nope não existe ou não é whitelisted" {
 		t.Fatalf("pt-BR message = %v", e["message"])
 	}
-	// key and args travel too, for telemetry and grouping
-	if e["key"] != "Método {0} não existe ou não é whitelisted" {
+	// the key is the English source text, and it travels with its arguments
+	// for telemetry and grouping
+	if e["key"] != "Method {0} does not exist or is not whitelisted" {
 		t.Fatalf("key = %v", e["key"])
 	}
 	if args, _ := e["args"].([]any); len(args) != 1 || args[0] != "nope" {
 		t.Fatalf("args = %v", e["args"])
 	}
 
+	// English is the source language: the key renders as itself
 	en := x.call("GET", "/api/method/nope", nil, sid, "X-Lang", "en")
 	e, _ = en.Body["error"].(map[string]any)
 	if e["message"] != "Method nope does not exist or is not whitelisted" {
 		t.Fatalf("en message = %v", e["message"])
+	}
+}
+
+// A title is a key too, and gets translated alongside the message.
+func TestErrorTitleTranslatedAtTheBorder(t *testing.T) {
+	x := setup(t)
+	sid := "sid:" + x.sid("ana@x.com")
+	r := x.call("POST", "/api/resource/Pedido", map[string]any{}, sid, "X-Lang", "pt-BR")
+	e, _ := r.Body["error"].(map[string]any)
+	if e["titleKey"] != "Required fields" {
+		t.Fatalf("titleKey = %v", e["titleKey"])
+	}
+	if e["title"] != "Campos obrigatórios" {
+		t.Fatalf("title = %v (message %v)", e["title"], e["message"])
+	}
+	if e["message"] != "Preencha os campos obrigatórios: Cliente" {
+		t.Fatalf("message = %v", e["message"])
 	}
 }
 

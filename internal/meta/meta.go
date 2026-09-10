@@ -273,20 +273,20 @@ func (r *Registry) Validate() error {
 		seen := map[string]bool{}
 		for _, f := range d.Fields {
 			if !valid[f.Fieldtype] {
-				e("fieldtype %q inválido no campo %q", f.Fieldtype, f.Fieldname)
+				e("invalid fieldtype %q on field %q", f.Fieldtype, f.Fieldname)
 			}
 			if LayoutTypes[f.Fieldtype] {
 				continue
 			}
 			if !fieldnameRe.MatchString(f.Fieldname) {
-				e("fieldname %q inválido (use snake_case ascii)", f.Fieldname)
+				e("invalid fieldname %q (use ascii snake_case)", f.Fieldname)
 			}
 			if seen[f.Fieldname] {
 				e("fieldname %q duplicado", f.Fieldname)
 			}
 			seen[f.Fieldname] = true
 			if d.IsStdColumn(f.Fieldname) || f.Fieldname == "doctype" {
-				e("fieldname %q é reservado", f.Fieldname)
+				e("fieldname %q is reserved", f.Fieldname)
 			}
 			switch f.Fieldtype {
 			case "Link", "Table":
@@ -296,7 +296,7 @@ func (r *Registry) Validate() error {
 				} else if t, ok := r.DocTypes[target]; !ok {
 					e("campo %q aponta para DocType inexistente %q", f.Fieldname, target)
 				} else if f.Fieldtype == "Table" && !t.IsChild {
-					e("campo %q: %q não é isChild", f.Fieldname, target)
+					e("field %q: %q is not isChild", f.Fieldname, target)
 				}
 			case "Select":
 				if _, ok := f.Options.([]any); !ok {
@@ -310,20 +310,20 @@ func (r *Registry) Validate() error {
 				if len(parts) != 2 {
 					e("fetchFrom %q do campo %q deve ser link.campo", f.FetchFrom, f.Fieldname)
 				} else if lf := d.Field(parts[0]); lf == nil || (lf.Fieldtype != "Link" && lf.Fieldtype != "Dynamic Link") {
-					e("fetchFrom %q do campo %q: %q não é Link", f.FetchFrom, f.Fieldname, parts[0])
+					e("fetchFrom %q on field %q: %q is not a Link", f.FetchFrom, f.Fieldname, parts[0])
 				}
 			}
 		}
 		if d.Naming.Field != "" && d.Field(d.Naming.Field) == nil {
-			e("naming.field %q não existe", d.Naming.Field)
+			e("naming.field %q does not exist", d.Naming.Field)
 		}
 		if d.IsChild && len(d.Permissions) > 0 {
-			e("child DocType não tem permissions")
+			e("a child DocType has no permissions")
 		}
 	}
 	if len(errs) > 0 {
 		sort.Strings(errs)
-		return fmt.Errorf("meta inválida:\n  %s", strings.Join(errs, "\n  "))
+		return fmt.Errorf("invalid meta:\n  %s", strings.Join(errs, "\n  "))
 	}
 	return nil
 }

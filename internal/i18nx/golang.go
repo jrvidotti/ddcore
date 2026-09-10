@@ -91,7 +91,9 @@ func collectGoFile(s *Set, fset *token.FileSet, f *ast.File, name string) {
 			if !ok || len(v.Args) == 0 {
 				return true
 			}
-			isCerr := isCerrCall(sel)
+			// `cerr.X("…")` and `.WithTitleKey("…")` are templates the
+			// border translates; `.T("…")` is translated on the spot.
+			isCerr := isCerrCall(sel) || sel.Sel.Name == "WithTitleKey"
 			if !isCerr && sel.Sel.Name != "T" {
 				return true
 			}

@@ -332,7 +332,7 @@ func (s *State) WhitelistedPaths() []string {
 func (s *State) DocType(name string) (*meta.DocType, error) {
 	d, ok := s.Meta.Get(name)
 	if !ok {
-		return nil, cerr.NotFound("DocType {0} não existe", name)
+		return nil, cerr.NotFound("DocType {0} does not exist", name)
 	}
 	return d, nil
 }

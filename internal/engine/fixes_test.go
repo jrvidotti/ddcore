@@ -537,7 +537,7 @@ func TestB15_JobTimeout(t *testing.T) {
 	if d := time.Since(inicio); d > 10*time.Second {
 		t.Fatalf("o job só parou depois de %s", d)
 	}
-	if !strings.Contains(err.Error(), "tempo limite") {
+	if !strings.Contains(err.Error(), "timed out") {
 		t.Fatalf("erro inesperado: %v", err)
 	}
 
@@ -619,7 +619,7 @@ func TestAllowOnSubmitDepoisDosHooks(t *testing.T) {
 		}
 		// obs é allowOnSubmit, mas o hook mexe em desconto, que não é
 		ped["obs"] = "bagunca"
-		if _, err := c.Save(ped, SaveOpts{}); err == nil || !strings.Contains(err.Error(), "depois do envio") {
+		if _, err := c.Save(ped, SaveOpts{}); err == nil || !strings.Contains(err.Error(), "cannot be changed after submission") {
 			t.Fatalf("hook alterou campo protegido depois do envio: %v", err)
 		}
 		return nil
@@ -650,7 +650,7 @@ func TestReadOnlyDependsOnNoServidor(t *testing.T) {
 		}
 		// PJ: a expressão é verdadeira, o campo não pode mudar
 		p["codigo"] = "C"
-		if _, err := c.Save(p, SaveOpts{}); err == nil || !strings.Contains(err.Error(), "somente leitura") {
+		if _, err := c.Save(p, SaveOpts{}); err == nil || !strings.Contains(err.Error(), "is read-only") {
 			t.Fatalf("readOnlyDependsOn não foi imposto: %v", err)
 		}
 		// salvar sem mexer no campo continua funcionando

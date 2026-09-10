@@ -20,7 +20,7 @@ import (
 func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, error) {
 	c, _ := rt.Ctx.(*Ctx)
 	if c == nil {
-		return nil, cerr.Internal("runtime sem contexto (op {0})", op)
+		return nil, cerr.Internal("runtime without a context (op {0})", op)
 	}
 	var a struct {
 		Doctype   string            `json:"doctype"`
@@ -56,7 +56,7 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		Currency  string            `json:"currency"`
 	}
 	if err := json.Unmarshal(raw, &a); err != nil {
-		return nil, cerr.Internal("argumentos inválidos em {0}: {1}", op, err)
+		return nil, cerr.Internal("invalid arguments in {0}: {1}", op, err)
 	}
 	nameStr := func() string {
 		var s string
@@ -110,7 +110,7 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		if json.Unmarshal(a.Fields, &one) == nil {
 			fields = []string{one}
 		} else if err := json.Unmarshal(a.Fields, &fields); err != nil {
-			return nil, cerr.Validation("getValue: fields inválido")
+			return nil, cerr.Validation("getValue: invalid fields")
 		}
 		var s string
 		if json.Unmarshal(a.Name, &s) == nil {
@@ -249,7 +249,7 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 	case "test.rollback":
 		return nil, c.RollbackTo()
 	}
-	return nil, cerr.Internal("operação desconhecida no bridge: {0}", op)
+	return nil, cerr.Internal("unknown bridge operation: {0}", op)
 }
 
 func orDefault(s, d string) string {

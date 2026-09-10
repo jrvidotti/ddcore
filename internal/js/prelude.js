@@ -371,7 +371,7 @@
   reg.runMethodOn = function (doc, name, args) {
     const c = reg.controllers[doc.doctype];
     const fn = c && c.methods && c.methods[name];
-    if (typeof fn !== "function") throw new DDCoreError("NotFound", "", "Método " + name + " não existe em " + doc.doctype);
+    if (typeof fn !== "function") throw new DDCoreError("NotFound", "", "Method " + name + " does not exist on " + doc.doctype);
     return fn.call(doc, doc, args || {}, makeContext());
   };
 
@@ -410,7 +410,7 @@
     const i = path.lastIndexOf(".");
     const m = reg.modules[path.slice(0, i)];
     const fn = m && m.exports && m.exports[path.slice(i + 1)];
-    if (typeof fn !== "function") throw new DDCoreError("NotFound", "", "Função " + path + " não encontrada");
+    if (typeof fn !== "function") throw new DDCoreError("NotFound", "", "Function " + path + " not found");
     return fn;
   }
   reg.callModule = function (path, args) {
@@ -419,7 +419,7 @@
   // Whitelisted call from the API: args are passed as a single object.
   reg.callWhitelisted = function (path, argsJSON) {
     const fn = resolve(path);
-    if (!fn.__whitelisted) throw new DDCoreError("PermissionError", "", "Função " + path + " não é whitelisted");
+    if (!fn.__whitelisted) throw new DDCoreError("PermissionError", "", "Function " + path + " is not whitelisted");
     const r = fn(JSON.parse(argsJSON), makeContext());
     return JSON.stringify(r === undefined ? null : r);
   };
@@ -430,20 +430,20 @@
 
   reg.runReport = function (name, filtersJSON) {
     const r = reg.reports[name];
-    if (!r) throw new DDCoreError("NotFound", "", "Relatório " + name + " não existe");
+    if (!r) throw new DDCoreError("NotFound", "", "Report " + name + " does not exist");
     return JSON.stringify(r.execute(JSON.parse(filtersJSON) || {}, makeContext()));
   };
 
   reg.numberCard = function (workspace, name) {
     const ws = reg.workspaces[workspace];
     const card = ws && (ws.numberCards || []).find((c) => c.name === name);
-    if (!card || typeof card.method !== "function") throw new DDCoreError("NotFound", "", "Card " + name + " não tem method");
+    if (!card || typeof card.method !== "function") throw new DDCoreError("NotFound", "", "Card " + name + " has no method");
     return JSON.stringify(card.method());
   };
   reg.chart = function (workspace, name) {
     const ws = reg.workspaces[workspace];
     const ch = ws && (ws.charts || []).find((c) => c.name === name);
-    if (!ch) throw new DDCoreError("NotFound", "", "Chart " + name + " não existe");
+    if (!ch) throw new DDCoreError("NotFound", "", "Chart " + name + " does not exist");
     return JSON.stringify(ch.method());
   };
 
@@ -454,7 +454,7 @@
 
   reg.runPatch = function (path) {
     const m = reg.modules[path];
-    if (!m || typeof m.exports.execute !== "function") throw new DDCoreError("NotFound", "", "Patch " + path + " não tem execute()");
+    if (!m || typeof m.exports.execute !== "function") throw new DDCoreError("NotFound", "", "Patch " + path + " has no execute()");
     m.exports.execute(makeContext());
   };
 

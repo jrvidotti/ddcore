@@ -44,7 +44,7 @@ func (c *Ctx) setName(d *meta.DocType, doc Doc) error {
 	case n.Field != "":
 		v := strings.TrimSpace(doc.Str(n.Field))
 		if v == "" {
-			return cerr.Mandatory("{0} é obrigatório para nomear o documento", c.T(d.Field(n.Field).Label))
+			return cerr.Mandatory("{0} is required to name the document", c.T(d.Field(n.Field).Label))
 		}
 		doc["name"] = v
 	case n.Format != "":
@@ -55,7 +55,7 @@ func (c *Ctx) setName(d *meta.DocType, doc Doc) error {
 		doc["name"] = name
 	case n.Prompt:
 		if strings.TrimSpace(doc.Str("name")) == "" {
-			return cerr.Mandatory("Informe o nome do documento")
+			return cerr.Mandatory("Provide the document name")
 		}
 	default:
 		if strings.TrimSpace(doc.Str("name")) == "" {
@@ -67,7 +67,7 @@ func (c *Ctx) setName(d *meta.DocType, doc Doc) error {
 		doc["name"] = randomName()
 	}
 	if ok, _ := c.Exists(d.Name, doc.Str("name")); ok {
-		return cerr.Duplicate("{0} {1} já existe", c.T(d.Label), doc.Str("name")).WithTitle(c.T("Nome duplicado"))
+		return cerr.Duplicate("{0} {1} already exists", c.T(d.Label), doc.Str("name")).WithTitleKey("Duplicate name")
 	}
 	return nil
 }

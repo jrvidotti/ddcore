@@ -50,10 +50,10 @@ func (e *Engine) Login(ctx context.Context, user, password string) (string, erro
 			return err
 		}
 		if len(rows) == 0 || !CheckPassword(db.Str(rows[0]["password_hash"]), password) {
-			return cerr.Auth("Usuário ou senha inválidos")
+			return cerr.Auth("Invalid username or password")
 		}
 		if en, ok := rows[0]["enabled"].(bool); ok && !en {
-			return cerr.Auth("Usuário desativado")
+			return cerr.Auth("User is disabled")
 		}
 		name := db.Str(rows[0]["name"])
 		sid = RandomToken()
@@ -148,7 +148,7 @@ func (e *Engine) SetPassword(ctx context.Context, user, password string) error {
 			return err
 		}
 		if tag.RowsAffected() == 0 {
-			return cerr.NotFound("Usuário {0} não existe", user)
+			return cerr.NotFound("User {0} does not exist", user)
 		}
 		return nil
 	})
