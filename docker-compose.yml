@@ -1,0 +1,23 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: cerne-pg
+    restart: unless-stopped
+    ports:
+      - "5455:5432"
+    environment:
+      POSTGRES_USER: cerne
+      POSTGRES_PASSWORD: cerne
+      POSTGRES_DB: cerne
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cerne -d cerne"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+    name: cerne_postgres_data

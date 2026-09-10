@@ -1,0 +1,11 @@
+{
+  "dsn": "postgres://cerne:cerne@localhost:5455/cerne_dev?sslmode=disable",
+  "apps": [],
+  "port": 8090,
+  "workers": 2,
+  "scheduler": false,
+  "site": "cerne",
+  "lang": "pt-BR",
+  "currency": "BRL",
+  "dev": true
+}

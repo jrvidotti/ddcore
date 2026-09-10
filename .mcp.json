@@ -1,0 +1,5 @@
+{
+  "mcpServers": {
+    "cerne": { "command": "./bin/cerne", "args": ["mcp"] }
+  }
+}

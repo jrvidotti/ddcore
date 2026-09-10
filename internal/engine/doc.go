@@ -1,0 +1,1340 @@
+package engine
+
+import (
+	"encoding/json"
+	"fmt"
+	"math"
+	"strings"
+	"time"
+
+	"github.com/jrvidotti/cerne/internal/cerr"
+	"github.com/jrvidotti/cerne/internal/db"
+	"github.com/jrvidotti/cerne/internal/meta"
+)
+
+// Doc is a document as a plain map; child tables are []any of Doc.
+type Doc map[string]any
+
+func (d Doc) Name() string        { return db.Str(d["name"]) }
+func (d Doc) DocType() string     { return db.Str(d["doctype"]) }
+func (d Doc) Docstatus() int      { return int(toFloat(d["docstatus"])) }
+func (d Doc) Str(k string) string { return db.Str(d[k]) }
+
+func (d Doc) Children(field string) []Doc {
+	rows, _ := d[field].([]any)
+	out := make([]Doc, 0, len(rows))
+	for _, r := range rows {
+		switch x := r.(type) {
+		case Doc:
+			out = append(out, x)
+		case map[string]any:
+			out = append(out, Doc(x))
+		}
+	}
+	return out
+}
+
+func (d Doc) JSON() json.RawMessage {
+	b, _ := json.Marshal(d)
+	return b
+}
+
+func (d Doc) Clone() Doc {
+	var out Doc
+	json.Unmarshal(d.JSON(), &out)
+	return out
+}
+
+func toFloat(v any) float64 {
+	switch x := v.(type) {
+	case float64:
+		return x
+	case float32:
+		return float64(x)
+	case int64:
+		return float64(x)
+	case int:
+		return float64(x)
+	case int32:
+		return float64(x)
+	case int16:
+		return float64(x)
+	case bool:
+		if x {
+			return 1
+		}
+	case string:
+		var f float64
+		fmt.Sscanf(x, "%g", &f)
+		return f
+	case json.Number:
+		f, _ := x.Float64()
+		return f
+	}
+	return 0
+}
+
+func isEmpty(v any) bool {
+	switch x := v.(type) {
+	case nil:
+		return true
+	case string:
+		return x == ""
+	case bool:
+		return !x
+	case []any:
+		return len(x) == 0
+	}
+	return false
+}
+
+// castValue coerces a JS/JSON value to what the column expects.
+func castValue(f *meta.Field, v any) (any, error) {
+	if isEmpty(v) && f.Fieldtype != "Check" {
+		return nil, nil
+	}
+	switch f.Fieldtype {
+	case "Email":
+		value := normalizeEmail(db.Str(v))
+		if value == "" {
+			return nil, nil
+		}
+		return value, nil
+	case "Int":
+		return int64(math.Round(toFloat(v))), nil
+	case "Float", "Currency", "Percent":
+		return toFloat(v), nil
+	case "Check":
+		switch x := v.(type) {
+		case bool:
+			return x, nil
+		case string:
+			return x == "1" || strings.EqualFold(x, "true"), nil
+		}
+		return toFloat(v) != 0, nil
+	case "Date":
+		s := db.Str(v)
+		if len(s) >= 10 {
+			s = s[:10]
+		}
+		if _, err := time.Parse("2006-01-02", s); err != nil {
+			return nil, cerr.Validation("Data inválida em %s: %q", f.Label, db.Str(v))
+		}
+		return s, nil
+	case "Month":
+		s := db.Str(v)
+		if len(s) >= 10 {
+			s = s[:10]
+		}
+		for _, layout := range []string{"2006-01-02", "2006-01", "01/2006", "01/06", "2006/01"} {
+			if t, err := time.Parse(layout, s); err == nil {
+				return fmt.Sprintf("%04d-%02d-01", t.Year(), t.Month()), nil
+			}
+		}
+		return nil, cerr.Validation("Mês/ano inválido em %s: %q", f.Label, db.Str(v))
+	case "Datetime":
+		s := db.Str(v)
+		for _, layout := range []string{time.RFC3339Nano, time.RFC3339, "2006-01-02 15:04:05", "2006-01-02T15:04:05", "2006-01-02 15:04", "2006-01-02"} {
+			if t, err := time.ParseInLocation(layout, s, time.Local); err == nil {
+				return t, nil
+			}
+		}
+		return nil, cerr.Validation("Data/hora inválida em %s: %q", f.Label, s)
+	case "Time":
+		return db.Str(v), nil
+	case "JSON":
+		b, err := json.Marshal(v)
+		return string(b), err
+	case "Table":
+		return v, nil
+	}
+	return db.Str(v), nil
+}
+
+// ------------------------------------------------------------ load & new
+
+func (c *Ctx) docKey(dt, name string) string { return dt + "\x00" + name }
+
+// GetDoc loads a document with its child tables.
+func (c *Ctx) GetDoc(doctype, name string) (Doc, error) {
+	return c.getDoc(doctype, name, false)
+}
+
+// getDocForUpdate loads a document taking a row lock on the parent, so that
+// concurrent savers of the same document serialise instead of overwriting
+// each other (see writeUpdate's compare-and-swap).
+func (c *Ctx) getDocForUpdate(doctype, name string) (Doc, error) {
+	var doc Doc
+	err := c.WithIgnorePermissions(func() error {
+		var e error
+		doc, e = c.getDoc(doctype, name, true)
+		return e
+	})
+	return doc, err
+}
+
+func (c *Ctx) getDoc(doctype, name string, forUpdate bool) (Doc, error) {
+	d, err := c.St.DocType(doctype)
+	if err != nil {
+		return nil, err
+	}
+	if name == "" {
+		return nil, cerr.NotFound("%s: nome vazio", doctype)
+	}
+	sel := fmt.Sprintf("SELECT * FROM %s WHERE name = $1", db.Ident(d.TableName()))
+	if forUpdate && c.Tx != nil {
+		sel += " FOR UPDATE"
+	}
+	rows, err := db.Select(c.Ctx, c.Q(), sel, name)
+	if err != nil {
+		return nil, err
+	}
+	if len(rows) == 0 {
+		return nil, cerr.NotFound("%s %s não encontrado", c.T(d.Label), name)
+	}
+	doc := Doc(rows[0])
+	doc["doctype"] = doctype
+	for _, tf := range d.TableFields() {
+		child, _ := c.St.DocType(tf.OptionsString())
+		crows, err := db.Select(c.Ctx, c.Q(), fmt.Sprintf("SELECT * FROM %s WHERE parent = $1 AND parenttype = $2 AND parentfield = $3 ORDER BY idx", db.Ident(child.TableName())), name, doctype, tf.Fieldname)
+		if err != nil {
+			return nil, err
+		}
+		list := make([]any, 0, len(crows))
+		for _, r := range crows {
+			r["doctype"] = child.Name
+			list = append(list, r)
+		}
+		doc[tf.Fieldname] = list
+	}
+	if !c.IgnorePermissions() {
+		if ok, err := c.HasPermission(doctype, "read", doc); err != nil {
+			return nil, err
+		} else if !ok {
+			return nil, cerr.Permission("Sem permissão para ler %s %s", c.T(d.Label), name)
+		}
+	}
+	return doc, nil
+}
+
+// NewDoc builds an unsaved document with defaults applied.
+func (c *Ctx) NewDoc(doctype string, values Doc) (Doc, error) {
+	d, err := c.St.DocType(doctype)
+	if err != nil {
+		return nil, err
+	}
+	doc := Doc{"doctype": doctype, "docstatus": 0, "__islocal": true}
+	for _, f := range d.Fields {
+		if f.Fieldname == "" || meta.LayoutTypes[f.Fieldtype] {
+			continue
+		}
+		if f.Fieldtype == "Table" {
+			doc[f.Fieldname] = []any{}
+		} else if f.Default != nil {
+			doc[f.Fieldname] = c.defaultValue(f)
+		} else if f.Fieldtype == "Check" {
+			doc[f.Fieldname] = false
+		} else {
+			doc[f.Fieldname] = nil
+		}
+	}
+	for k, v := range values {
+		doc[k] = v
+	}
+	return doc, nil
+}
+
+func (c *Ctx) defaultValue(f *meta.Field) any {
+	switch s := db.Str(f.Default); s {
+	case "Today", "today", "now":
+		if f.Fieldtype == "Datetime" {
+			return time.Now().Format(time.RFC3339)
+		}
+		return c.Today()
+	case "__user":
+		return c.User
+	}
+	v, _ := castValue(f, f.Default)
+	return v
+}
+
+// ------------------------------------------------------------ save
+
+type SaveOpts struct {
+	IgnorePermissions bool
+	IgnoreVersion     bool
+	IgnoreLinks       bool
+	Action            string // "save" | "submit" | "cancel" | "update_after_submit"
+}
+
+// Insert validates and inserts a new document.
+func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
+	d, err := c.St.DocType(doc.DocType())
+	if err != nil {
+		return nil, err
+	}
+	if d.IsChild {
+		return nil, cerr.Validation("%s é uma tabela filha", d.Name)
+	}
+	if !opts.IgnorePermissions && !c.IgnorePermissions() {
+		if ok, err := c.HasPermission(d.Name, "create", doc); err != nil {
+			return nil, err
+		} else if !ok {
+			return nil, cerr.Permission("Sem permissão para criar %s", c.T(d.Label))
+		}
+	}
+	if doc.Docstatus() == 1 && d.Submittable {
+		if !opts.IgnorePermissions && !c.IgnorePermissions() {
+			if ok, _ := c.HasPermission(d.Name, "submit", doc); !ok {
+				return nil, cerr.Permission("Sem permissão para enviar %s", c.T(d.Label))
+			}
+		}
+	} else if doc.Docstatus() != 0 {
+		return nil, cerr.Validation("docstatus inválido para inserção")
+	}
+	doc["__islocal"] = true
+	now := time.Now()
+	doc["owner"], doc["creation"], doc["modified"], doc["modified_by"] = c.User, now, now, c.User
+	if doc.Docstatus() != 1 {
+		doc["docstatus"] = 0
+	}
+	if err := c.runHook(d, "beforeInsert", doc, nil); err != nil {
+		return nil, err
+	}
+	if err := c.setName(d, doc); err != nil {
+		return nil, err
+	}
+	if err := c.validate(d, doc, nil, opts); err != nil {
+		return nil, err
+	}
+	if err := c.runHook(d, "beforeSave", doc, nil); err != nil {
+		return nil, err
+	}
+	if doc.Docstatus() == 1 {
+		if err := c.runHook(d, "beforeSubmit", doc, nil); err != nil {
+			return nil, err
+		}
+	}
+	if err := c.writeInsert(d, doc); err != nil {
+		return nil, err
+	}
+	if err := c.writeChildren(d, doc); err != nil {
+		return nil, err
+	}
+	delete(doc, "__islocal")
+	delete(doc, "__unsaved")
+	if err := c.runHook(d, "afterInsert", doc, nil); err != nil {
+		return nil, err
+	}
+	if err := c.runHook(d, "onUpdate", doc, nil); err != nil {
+		return nil, err
+	}
+	if doc.Docstatus() == 1 {
+		if err := c.runHook(d, "onSubmit", doc, nil); err != nil {
+			return nil, err
+		}
+	}
+	saved, err := c.GetDocIgnoringPerms(d.Name, doc.Name())
+	if err != nil {
+		return nil, err
+	}
+	c.notify(d, saved, "insert")
+	return saved, nil
+}
+
+// Save updates an existing document (or inserts when __islocal).
+func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
+	if doc["__islocal"] == true || doc.Name() == "" {
+		return c.Insert(doc, opts)
+	}
+	d, err := c.St.DocType(doc.DocType())
+	if err != nil {
+		return nil, err
+	}
+	// FOR UPDATE: quem chegar depois espera aqui e só então compara o
+	// timestamp, em vez de ler uma versão que já está sendo alterada.
+	before, err := c.getDocForUpdate(d.Name, doc.Name())
+	if err != nil {
+		return nil, err
+	}
+	oldStatus, newStatus := before.Docstatus(), doc.Docstatus()
+	action := "save"
+	switch {
+	case oldStatus == 0 && newStatus == 1:
+		action = "submit"
+	case oldStatus == 1 && newStatus == 2:
+		action = "cancel"
+	case oldStatus == 1 && newStatus == 1:
+		action = "update_after_submit"
+	case oldStatus == 2:
+		return nil, cerr.Validation("%s %s está cancelado e não pode ser alterado", c.T(d.Label), doc.Name())
+	case oldStatus == 0 && newStatus == 0:
+	default:
+		return nil, cerr.Validation("Transição de docstatus inválida (%d → %d)", oldStatus, newStatus)
+	}
+	if action != "save" && !d.Submittable {
+		return nil, cerr.Validation("%s não é submetível", c.T(d.Label))
+	}
+	if !opts.IgnorePermissions && !c.IgnorePermissions() {
+		ptype := "write"
+		if action == "submit" {
+			ptype = "submit"
+		} else if action == "cancel" {
+			ptype = "cancel"
+		}
+		if ok, err := c.HasPermission(d.Name, ptype, before); err != nil {
+			return nil, err
+		} else if !ok {
+			return nil, cerr.Permission("Sem permissão (%s) em %s %s", ptype, c.T(d.Label), doc.Name())
+		}
+	}
+	// optimistic concurrency
+	if m, ok := doc["modified"]; ok && m != nil && before["modified"] != nil {
+		if !sameTime(m, before["modified"]) {
+			return nil, cerr.Timestamp("O documento foi alterado por outro usuário depois que você o abriu. Recarregue e tente de novo.")
+		}
+	}
+	doc["owner"], doc["creation"] = before["owner"], before["creation"]
+	doc["modified"], doc["modified_by"] = time.Now(), c.User
+	if action == "update_after_submit" {
+		if err := c.checkAllowOnSubmit(d, before, doc); err != nil {
+			return nil, err
+		}
+	}
+	if err := c.validate(d, doc, before, opts); err != nil {
+		return nil, err
+	}
+	if err := c.runHook(d, "beforeSave", doc, before); err != nil {
+		return nil, err
+	}
+	if action == "update_after_submit" {
+		// os hooks rodaram depois da primeira checagem e podem ter mexido em
+		// campos protegidos: confere de novo com o documento final. A exceção
+		// deliberada continua sendo dbSet, que não passa por aqui.
+		if err := c.checkAllowOnSubmit(d, before, doc); err != nil {
+			return nil, err
+		}
+	}
+	switch action {
+	case "submit":
+		if err := c.runHook(d, "beforeSubmit", doc, before); err != nil {
+			return nil, err
+		}
+	case "cancel":
+		if err := c.runHook(d, "beforeCancel", doc, before); err != nil {
+			return nil, err
+		}
+	}
+	if err := c.writeUpdate(d, doc, before["modified"]); err != nil {
+		return nil, err
+	}
+	if err := c.writeChildren(d, doc); err != nil {
+		return nil, err
+	}
+	delete(doc, "__unsaved")
+	if d.TrackChanges && !opts.IgnoreVersion {
+		c.saveVersion(d, before, doc)
+	}
+	switch action {
+	case "submit":
+		if err := c.runHook(d, "onUpdate", doc, before); err != nil {
+			return nil, err
+		}
+		if err := c.runHook(d, "onSubmit", doc, before); err != nil {
+			return nil, err
+		}
+	case "cancel":
+		if err := c.runHook(d, "onCancel", doc, before); err != nil {
+			return nil, err
+		}
+	case "update_after_submit":
+		if err := c.runHook(d, "onUpdateAfterSubmit", doc, before); err != nil {
+			return nil, err
+		}
+	default:
+		if err := c.runHook(d, "onUpdate", doc, before); err != nil {
+			return nil, err
+		}
+	}
+	saved, err := c.GetDocIgnoringPerms(d.Name, doc.Name())
+	if err != nil {
+		return nil, err
+	}
+	c.notify(d, saved, action)
+	return saved, nil
+}
+
+// sameTime compares two timestamps at millisecond precision. A value that
+// cannot be parsed is never "the same": aceitar timestamp inválido era o
+// mesmo que desligar o controle de concorrência.
+func sameTime(a, b any) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	pa, pb := parseTime(a), parseTime(b)
+	if pa.IsZero() || pb.IsZero() {
+		return false
+	}
+	return pa.Truncate(time.Millisecond).Equal(pb.Truncate(time.Millisecond))
+}
+
+func parseTime(v any) time.Time {
+	switch x := v.(type) {
+	case time.Time:
+		return x
+	case string:
+		for _, l := range []string{time.RFC3339Nano, time.RFC3339, "2006-01-02 15:04:05.999999999-07", "2006-01-02 15:04:05"} {
+			if t, err := time.Parse(l, x); err == nil {
+				return t
+			}
+		}
+	}
+	return time.Time{}
+}
+
+// Submit sets docstatus=1 and saves.
+func (c *Ctx) Submit(doc Doc) (Doc, error) {
+	doc["docstatus"] = 1
+	return c.Save(doc, SaveOpts{})
+}
+
+// Cancel sets docstatus=2 and saves.
+func (c *Ctx) Cancel(doc Doc) (Doc, error) {
+	if doc.Docstatus() != 1 {
+		return nil, cerr.Validation("Só documentos enviados podem ser cancelados")
+	}
+	doc["docstatus"] = 2
+	return c.Save(doc, SaveOpts{})
+}
+
+// Amend creates a draft copy of a cancelled document.
+func (c *Ctx) Amend(doctype, name string) (Doc, error) {
+	d, err := c.St.DocType(doctype)
+	if err != nil {
+		return nil, err
+	}
+	src, err := c.GetDoc(doctype, name)
+	if err != nil {
+		return nil, err
+	}
+	if src.Docstatus() != 2 {
+		return nil, cerr.Validation("Só documentos cancelados podem ser emendados")
+	}
+	if ok, _ := c.HasPermission(doctype, "amend", src); !ok && !c.IgnorePermissions() {
+		return nil, cerr.Permission("Sem permissão para emendar %s", c.T(d.Label))
+	}
+	doc := src.Clone()
+	for _, k := range []string{"name", "owner", "creation", "modified", "modified_by"} {
+		delete(doc, k)
+	}
+	doc["docstatus"], doc["__islocal"] = 0, true
+	if d.Field("amended_from") != nil {
+		doc["amended_from"] = name
+	}
+	// "X" → "X-1"; amending "X-1" again → "X-2"
+	base := name
+	if src.Str("amended_from") != "" {
+		if i := strings.LastIndex(name, "-"); i > 0 {
+			base = name[:i]
+		}
+	}
+	n := 1
+	for {
+		cand := fmt.Sprintf("%s-%d", base, n)
+		if ok, _ := c.Exists(doctype, cand); !ok {
+			doc["name"] = cand
+			break
+		}
+		n++
+	}
+	for _, tf := range d.TableFields() {
+		for _, row := range doc.Children(tf.Fieldname) {
+			delete(row, "name")
+			delete(row, "parent")
+		}
+	}
+	return doc, nil
+}
+
+// DBSet writes columns directly, bypassing validation (allowed after submit).
+// It returns the new `modified` so the caller can keep its in-memory document
+// in sync (B21) — zero when nothing was written.
+func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time.Time, error) {
+	var modified time.Time
+	d, err := c.St.DocType(doctype)
+	if err != nil {
+		return modified, err
+	}
+	if len(values) == 0 {
+		return modified, nil
+	}
+	var b db.Builder
+	var sets []string
+	for k, v := range values {
+		f := d.Field(k)
+		if f == nil || meta.ColumnType(f.Fieldtype) == "" {
+			if !d.IsStdColumn(k) {
+				return modified, cerr.Validation("Campo %s não existe em %s", k, doctype)
+			}
+			sets = append(sets, db.Ident(k)+" = "+b.Arg(v))
+			continue
+		}
+		cv, err := castValue(f, v)
+		if err != nil {
+			return modified, err
+		}
+		sets = append(sets, db.Ident(k)+" = "+b.Arg(cv))
+	}
+	if updateModified {
+		modified = time.Now()
+		sets = append(sets, "modified = "+b.Arg(modified), "modified_by = "+b.Arg(c.User))
+	}
+	sql := fmt.Sprintf("UPDATE %s SET %s WHERE name = %s", db.Ident(d.TableName()), strings.Join(sets, ", "), b.Arg(name))
+	tag, err := c.Q().Exec(c.Ctx, sql, b.Args...)
+	if err != nil {
+		return modified, err
+	}
+	if tag.RowsAffected() == 0 {
+		return modified, cerr.NotFound("%s %s não encontrado", doctype, name)
+	}
+	// só depois do commit: uma transação revertida não pode anunciar
+	// alteração que não aconteceu (B20).
+	c.AfterCommit(func() {
+		c.E.Events.Publish(Event{Name: "doc_update", Payload: map[string]any{"doctype": doctype, "name": name}})
+	})
+	return modified, nil
+}
+
+// Delete removes a document after checking links.
+func (c *Ctx) Delete(doctype, name string, ignorePerms, force bool) error {
+	d, err := c.St.DocType(doctype)
+	if err != nil {
+		return err
+	}
+	doc, err := c.GetDocIgnoringPerms(doctype, name)
+	if err != nil {
+		return err
+	}
+	if !ignorePerms && !c.IgnorePermissions() {
+		if ok, _ := c.HasPermission(doctype, "delete", doc); !ok {
+			return cerr.Permission("Sem permissão para apagar %s %s", c.T(d.Label), name)
+		}
+	}
+	if doc.Docstatus() == 1 {
+		return cerr.Validation("Cancele %s %s antes de apagar", c.T(d.Label), name)
+	}
+	if err := c.runHook(d, "onTrash", doc, nil); err != nil {
+		return err
+	}
+	if !force {
+		if err := c.checkLinksBeforeDelete(d, name); err != nil {
+			return err
+		}
+	}
+	for _, tf := range d.TableFields() {
+		child, _ := c.St.DocType(tf.OptionsString())
+		if _, err := c.Q().Exec(c.Ctx, fmt.Sprintf("DELETE FROM %s WHERE parent = $1 AND parenttype = $2", db.Ident(child.TableName())), name, doctype); err != nil {
+			return err
+		}
+	}
+	if _, err := c.Q().Exec(c.Ctx, fmt.Sprintf("DELETE FROM %s WHERE name = $1", db.Ident(d.TableName())), name); err != nil {
+		return err
+	}
+	if d.TrackChanges {
+		c.Q().Exec(c.Ctx, `DELETE FROM tab_version WHERE ref_doctype = $1 AND docname = $2`, doctype, name)
+	}
+	c.Q().Exec(c.Ctx, `DELETE FROM tab_comment WHERE reference_doctype = $1 AND reference_name = $2`, doctype, name)
+	delete(c.docCache, c.docKey(doctype, name))
+	if err := c.runHook(d, "afterDelete", doc, nil); err != nil {
+		return err
+	}
+	c.AfterCommit(func() {
+		c.E.Events.Publish(Event{Name: "list_update", Payload: map[string]any{"doctype": doctype}})
+	})
+	return nil
+}
+
+// Rename changes a document's name and every link pointing to it.
+func (c *Ctx) Rename(doctype, oldName, newName string) (string, error) {
+	d, err := c.St.DocType(doctype)
+	if err != nil {
+		return "", err
+	}
+	newName = strings.TrimSpace(newName)
+	if newName == "" || newName == oldName {
+		return oldName, nil
+	}
+	if !d.AllowRename {
+		return "", cerr.Validation("%s não permite renomear", c.T(d.Label))
+	}
+	doc, err := c.GetDoc(doctype, oldName)
+	if err != nil {
+		return "", err
+	}
+	if ok, _ := c.HasPermission(doctype, "write", doc); !ok && !c.IgnorePermissions() {
+		return "", cerr.Permission("Sem permissão para renomear %s", c.T(d.Label))
+	}
+	if ok, _ := c.Exists(doctype, newName); ok {
+		return "", cerr.Duplicate("%s %s já existe", c.T(d.Label), newName)
+	}
+	if err := c.runHook(d, "beforeRename", doc, nil); err != nil {
+		return "", err
+	}
+	q := c.Q()
+	if _, err := q.Exec(c.Ctx, fmt.Sprintf("UPDATE %s SET name = $1 WHERE name = $2", db.Ident(d.TableName())), newName, oldName); err != nil {
+		return "", err
+	}
+	if d.Naming.Field != "" {
+		q.Exec(c.Ctx, fmt.Sprintf("UPDATE %s SET %s = $1 WHERE name = $1", db.Ident(d.TableName()), db.Ident(d.Naming.Field)), newName)
+	}
+	for _, other := range c.St.Meta.DocTypes {
+		t := db.Ident(other.TableName())
+		if other.IsChild {
+			q.Exec(c.Ctx, fmt.Sprintf("UPDATE %s SET parent = $1 WHERE parent = $2 AND parenttype = $3", t), newName, oldName, doctype)
+		}
+		for _, f := range other.Fields {
+			switch f.Fieldtype {
+			case "Link":
+				if f.OptionsString() == doctype {
+					if _, err := q.Exec(c.Ctx, fmt.Sprintf("UPDATE %s SET %s = $1 WHERE %s = $2", t, db.Ident(f.Fieldname), db.Ident(f.Fieldname)), newName, oldName); err != nil {
+						return "", err
+					}
+				}
+			case "Dynamic Link":
+				tf := f.OptionsString()
+				if other.Field(tf) != nil {
+					q.Exec(c.Ctx, fmt.Sprintf("UPDATE %s SET %s = $1 WHERE %s = $2 AND %s = $3", t, db.Ident(f.Fieldname), db.Ident(f.Fieldname), db.Ident(tf)), newName, oldName, doctype)
+				}
+			}
+		}
+	}
+	q.Exec(c.Ctx, `UPDATE tab_version SET docname = $1 WHERE ref_doctype = $2 AND docname = $3`, newName, doctype, oldName)
+	q.Exec(c.Ctx, `UPDATE tab_comment SET reference_name = $1 WHERE reference_doctype = $2 AND reference_name = $3`, newName, doctype, oldName)
+	delete(c.docCache, c.docKey(doctype, oldName))
+	doc["name"] = newName
+	if err := c.runHook(d, "afterRename", doc, nil); err != nil {
+		return "", err
+	}
+	c.AfterCommit(func() {
+		c.E.Events.Publish(Event{Name: "list_update", Payload: map[string]any{"doctype": doctype}})
+	})
+	return newName, nil
+}
+
+// GetDocIgnoringPerms loads without the read check.
+func (c *Ctx) GetDocIgnoringPerms(doctype, name string) (Doc, error) {
+	var doc Doc
+	err := c.WithIgnorePermissions(func() error {
+		var e error
+		doc, e = c.GetDoc(doctype, name)
+		return e
+	})
+	return doc, err
+}
+
+func (c *Ctx) notify(d *meta.DocType, doc Doc, action string) {
+	c.AfterCommit(func() {
+		c.E.Events.Publish(Event{Name: "doc_update", Payload: map[string]any{"doctype": d.Name, "name": doc.Name(), "action": action, "modified": doc["modified"], "user": c.User}})
+		c.E.Events.Publish(Event{Name: "list_update", Payload: map[string]any{"doctype": d.Name}})
+	})
+}
+
+// ------------------------------------------------------------ hooks
+
+func (c *Ctx) runHook(d *meta.DocType, event string, doc Doc, before Doc) error {
+	rt, err := c.RT()
+	if err != nil {
+		return err
+	}
+	if !rt.HasHook(d.Name, event) {
+		return nil
+	}
+	var bj json.RawMessage
+	if before != nil {
+		bj = before.JSON()
+	}
+	out, err := rt.RunHook(d.Name, event, doc.JSON(), bj)
+	if err != nil {
+		return err
+	}
+	var updated Doc
+	if err := json.Unmarshal(out, &updated); err != nil {
+		return fmt.Errorf("hook %s.%s retornou JSON inválido: %w", d.Name, event, err)
+	}
+	for k := range doc {
+		delete(doc, k)
+	}
+	for k, v := range updated {
+		doc[k] = v
+	}
+	return nil
+}
+
+// ------------------------------------------------------------ validation
+
+func (c *Ctx) validate(d *meta.DocType, doc Doc, before Doc, opts SaveOpts) error {
+	if err := c.runHook(d, "beforeValidate", doc, before); err != nil {
+		return err
+	}
+	if err := c.castAll(d, doc); err != nil {
+		return err
+	}
+	if err := c.fetchFrom(d, doc); err != nil {
+		return err
+	}
+	if err := c.checkReadOnlyDependsOn(d, doc, before); err != nil {
+		return err
+	}
+	if err := c.runHook(d, "validate", doc, before); err != nil {
+		return err
+	}
+	if err := c.castAll(d, doc); err != nil {
+		return err
+	}
+	if err := c.checkMandatory(d, doc); err != nil {
+		return err
+	}
+	if err := c.checkEmails(d, doc); err != nil {
+		return err
+	}
+	if err := c.checkSelect(d, doc); err != nil {
+		return err
+	}
+	if !opts.IgnoreLinks {
+		if err := c.checkLinks(d, doc); err != nil {
+			return err
+		}
+	}
+	if err := c.checkUnique(d, doc); err != nil {
+		return err
+	}
+	return c.validateChildren(d, doc, opts)
+}
+
+func (c *Ctx) checkEmails(d *meta.DocType, doc Doc) error {
+	for _, f := range d.Fields {
+		if f.Fieldtype != "Email" || isEmpty(doc[f.Fieldname]) {
+			continue
+		}
+		value := doc.Str(f.Fieldname)
+		if d.Name == "User" && f.Fieldname == "email" && (value == "Administrator" || value == "Guest") {
+			continue
+		}
+		if !validEmail(value) {
+			return cerr.Validation("%s: %q não é um endereço de e-mail válido", c.T(f.Label), value).WithTitle(c.T("E-mail inválido"))
+		}
+	}
+	return nil
+}
+
+func (c *Ctx) castAll(d *meta.DocType, doc Doc) error {
+	for _, f := range d.Fields {
+		if f.Fieldname == "" || meta.LayoutTypes[f.Fieldtype] || f.Fieldtype == "Table" {
+			continue
+		}
+		v, err := castValue(f, doc[f.Fieldname])
+		if err != nil {
+			return err
+		}
+		doc[f.Fieldname] = v
+	}
+	return nil
+}
+
+func (c *Ctx) fetchFrom(d *meta.DocType, doc Doc) error {
+	for _, f := range d.Fields {
+		if f.FetchFrom == "" {
+			continue
+		}
+		parts := strings.SplitN(f.FetchFrom, ".", 2)
+		lf := d.Field(parts[0])
+		linkVal := doc.Str(parts[0])
+		if linkVal == "" {
+			if !f.ReadOnly {
+				continue
+			}
+			doc[f.Fieldname] = nil
+			continue
+		}
+		target := lf.OptionsString()
+		if lf.Fieldtype == "Dynamic Link" {
+			target = doc.Str(lf.OptionsString())
+		}
+		if target == "" {
+			continue
+		}
+		// editable fetched fields keep a user value when already set
+		if !f.ReadOnly && !isEmpty(doc[f.Fieldname]) {
+			continue
+		}
+		v, err := c.GetValue(target, linkVal, parts[1])
+		if err != nil {
+			return err
+		}
+		doc[f.Fieldname] = v
+	}
+	return nil
+}
+
+func (c *Ctx) checkMandatory(d *meta.DocType, doc Doc) error {
+	var missing []string
+	for _, f := range d.Fields {
+		if f.Fieldname == "" || meta.LayoutTypes[f.Fieldtype] {
+			continue
+		}
+		req := f.Reqd
+		if !req && f.MandatoryDependsOn != "" {
+			ok, err := c.evalExpr(f.MandatoryDependsOn, doc)
+			if err != nil {
+				return err
+			}
+			req = ok
+		}
+		if req && isEmpty(doc[f.Fieldname]) {
+			missing = append(missing, c.T(f.Label))
+		}
+	}
+	if len(missing) > 0 {
+		return cerr.Mandatory("Preencha os campos obrigatórios: %s", strings.Join(missing, ", ")).WithTitle(c.T("Campos obrigatórios"))
+	}
+	return nil
+}
+
+// checkReadOnlyDependsOn enforces readOnlyDependsOn on the server: esconder o
+// campo na tela não é autorização. A expressão é avaliada sobre o documento
+// gravado — o estado que o usuário viu — e vale só para alterações vindas de
+// fora; o que os controllers calculam depois continua liberado.
+func (c *Ctx) checkReadOnlyDependsOn(d *meta.DocType, doc, before Doc) error {
+	if before == nil {
+		return nil
+	}
+	for _, f := range d.Fields {
+		if f.Fieldname == "" || f.ReadOnlyDependsOn == "" || meta.LayoutTypes[f.Fieldtype] {
+			continue
+		}
+		ro, err := c.evalExpr(f.ReadOnlyDependsOn, before)
+		if err != nil {
+			return err
+		}
+		if !ro {
+			continue
+		}
+		if f.Fieldtype == "Table" {
+			if string(mustJSON(stripChildMeta(before.Children(f.Fieldname)))) == string(mustJSON(stripChildMeta(doc.Children(f.Fieldname)))) {
+				continue
+			}
+		} else {
+			nv, _ := castValue(f, doc[f.Fieldname])
+			ov, _ := castValue(f, before[f.Fieldname])
+			if db.Str(nv) == db.Str(ov) {
+				continue
+			}
+		}
+		return cerr.Validation("%s é somente leitura neste documento", c.T(f.Label)).WithTitle(c.T("Campo somente leitura"))
+	}
+	return nil
+}
+
+func (c *Ctx) evalExpr(expr string, doc Doc) (bool, error) {
+	rt, err := c.RT()
+	if err != nil {
+		return false, err
+	}
+	return rt.EvalExpr(expr, doc.JSON())
+}
+
+func (c *Ctx) checkSelect(d *meta.DocType, doc Doc) error {
+	for _, f := range d.Fields {
+		if f.Fieldtype != "Select" || isEmpty(doc[f.Fieldname]) {
+			continue
+		}
+		v := doc.Str(f.Fieldname)
+		ok := false
+		for _, o := range f.SelectValues() {
+			if o == v {
+				ok = true
+				break
+			}
+		}
+		if !ok {
+			return cerr.Validation("%s: valor %q não está entre as opções", c.T(f.Label), v)
+		}
+	}
+	return nil
+}
+
+func (c *Ctx) checkLinks(d *meta.DocType, doc Doc) error {
+	for _, f := range d.Fields {
+		v := doc.Str(f.Fieldname)
+		if v == "" {
+			continue
+		}
+		switch f.Fieldtype {
+		case "Link":
+			if ok, err := c.Exists(f.OptionsString(), v); err != nil {
+				return err
+			} else if !ok {
+				return cerr.LinkExists("%s: %s %q não existe", c.T(f.Label), f.OptionsString(), v).WithTitle(c.T("Link inválido"))
+			}
+		case "Dynamic Link":
+			target := doc.Str(f.OptionsString())
+			if target == "" {
+				return cerr.Validation("%s: informe o tipo antes do vínculo", c.T(f.Label))
+			}
+			if _, err := c.St.DocType(target); err != nil {
+				return cerr.Validation("%s: DocType %q não existe", c.T(f.Label), target)
+			}
+			if ok, err := c.Exists(target, v); err != nil {
+				return err
+			} else if !ok {
+				return cerr.LinkExists("%s: %s %q não existe", c.T(f.Label), target, v).WithTitle(c.T("Link inválido"))
+			}
+		}
+	}
+	return nil
+}
+
+func (c *Ctx) checkUnique(d *meta.DocType, doc Doc) error {
+	for _, f := range d.DataFields() {
+		if !f.Unique || isEmpty(doc[f.Fieldname]) {
+			continue
+		}
+		rows, err := db.Select(c.Ctx, c.Q(), fmt.Sprintf("SELECT name FROM %s WHERE %s = $1 AND name <> $2 LIMIT 1", db.Ident(d.TableName()), db.Ident(f.Fieldname)), doc[f.Fieldname], doc.Name())
+		if err != nil {
+			return err
+		}
+		if len(rows) > 0 {
+			return cerr.Duplicate("%s %q já existe em %s %s", c.T(f.Label), doc.Str(f.Fieldname), c.T(d.Label), rows[0]["name"]).WithTitle(c.T("Valor duplicado"))
+		}
+	}
+	return nil
+}
+
+func (c *Ctx) validateChildren(d *meta.DocType, doc Doc, opts SaveOpts) error {
+	for _, tf := range d.TableFields() {
+		child, _ := c.St.DocType(tf.OptionsString())
+		rows := doc.Children(tf.Fieldname)
+		list := make([]any, 0, len(rows))
+		for i, row := range rows {
+			row["doctype"], row["parenttype"], row["parentfield"], row["idx"] = child.Name, d.Name, tf.Fieldname, int64(i+1)
+			row["parent"] = doc["name"]
+			row["docstatus"] = doc["docstatus"]
+			if err := c.castAll(child, row); err != nil {
+				return err
+			}
+			if err := c.fetchFrom(child, row); err != nil {
+				return err
+			}
+			if err := c.checkMandatory(child, row); err != nil {
+				return cerr.Validation("%s, linha %d: %s", c.T(tf.Label), i+1, cerr.From(err).Message).WithTitle(c.T("Campos obrigatórios"))
+			}
+			if err := c.checkSelect(child, row); err != nil {
+				return err
+			}
+			if !opts.IgnoreLinks {
+				if err := c.checkLinks(child, row); err != nil {
+					return err
+				}
+			}
+			list = append(list, map[string]any(row))
+		}
+		doc[tf.Fieldname] = list
+	}
+	return nil
+}
+
+func (c *Ctx) checkAllowOnSubmit(d *meta.DocType, before, doc Doc) error {
+	for _, f := range d.Fields {
+		if f.Fieldname == "" || meta.LayoutTypes[f.Fieldtype] || f.AllowOnSubmit {
+			continue
+		}
+		if f.Fieldtype == "Table" {
+			if string(mustJSON(stripChildMeta(before.Children(f.Fieldname)))) != string(mustJSON(stripChildMeta(doc.Children(f.Fieldname)))) {
+				return cerr.Validation("Não é permitido alterar %s depois do envio", c.T(f.Label)).WithTitle(c.T("Documento enviado"))
+			}
+			continue
+		}
+		nv, _ := castValue(f, doc[f.Fieldname])
+		ov, _ := castValue(f, before[f.Fieldname])
+		if db.Str(nv) != db.Str(ov) && !(f.Fieldtype == "Datetime" && sameTime(nv, ov)) {
+			return cerr.Validation("Não é permitido alterar %s depois do envio", c.T(f.Label)).WithTitle(c.T("Documento enviado"))
+		}
+	}
+	return nil
+}
+
+func stripChildMeta(rows []Doc) []Doc {
+	out := make([]Doc, len(rows))
+	for i, r := range rows {
+		x := r.Clone()
+		for _, k := range []string{"modified", "modified_by", "creation", "owner", "docstatus", "__islocal", "__unsaved", "name", "parent"} {
+			delete(x, k)
+		}
+		out[i] = x
+	}
+	return out
+}
+
+func mustJSON(v any) []byte { b, _ := json.Marshal(v); return b }
+
+func (c *Ctx) checkLinksBeforeDelete(d *meta.DocType, name string) error {
+	for _, other := range c.St.Meta.DocTypes {
+		for _, f := range other.Fields {
+			var sql string
+			var args []any
+			switch {
+			case f.Fieldtype == "Link" && f.OptionsString() == d.Name:
+				sql = fmt.Sprintf("SELECT name, parent, parenttype FROM %s WHERE %s = $1 LIMIT 1", db.Ident(other.TableName()), db.Ident(f.Fieldname))
+				args = []any{name}
+			case f.Fieldtype == "Dynamic Link" && other.Field(f.OptionsString()) != nil:
+				sql = fmt.Sprintf("SELECT name, parent, parenttype FROM %s WHERE %s = $1 AND %s = $2 LIMIT 1", db.Ident(other.TableName()), db.Ident(f.Fieldname), db.Ident(f.OptionsString()))
+				args = []any{name, d.Name}
+			default:
+				continue
+			}
+			if !other.IsChild {
+				sql = strings.Replace(sql, "name, parent, parenttype", "name, NULL AS parent, NULL AS parenttype", 1)
+			}
+			rows, err := db.Select(c.Ctx, c.Q(), sql, args...)
+			if err != nil {
+				return err
+			}
+			if len(rows) > 0 {
+				ref, refName := other.Name, db.Str(rows[0]["name"])
+				if other.IsChild {
+					ref, refName = db.Str(rows[0]["parenttype"]), db.Str(rows[0]["parent"])
+				}
+				return cerr.LinkExists("%s %s está vinculado a %s %s", c.T(d.Label), name, ref, refName).WithTitle(c.T("Não é possível apagar"))
+			}
+		}
+	}
+	return nil
+}
+
+// ------------------------------------------------------------ write
+
+func (c *Ctx) columnValues(d *meta.DocType, doc Doc) ([]string, []any, error) {
+	var cols []string
+	var vals []any
+	add := func(k string, v any) { cols = append(cols, db.Ident(k)); vals = append(vals, v) }
+	add("name", doc["name"])
+	add("owner", doc["owner"])
+	add("creation", parseTimeOrNow(doc["creation"]))
+	add("modified", parseTimeOrNow(doc["modified"]))
+	add("modified_by", doc["modified_by"])
+	add("docstatus", int64(doc.Docstatus()))
+	if d.IsChild {
+		add("parent", doc["parent"])
+		add("parenttype", doc["parenttype"])
+		add("parentfield", doc["parentfield"])
+		add("idx", int64(toFloat(doc["idx"])))
+	}
+	for _, f := range d.DataFields() {
+		v, err := castValue(f, doc[f.Fieldname])
+		if err != nil {
+			return nil, nil, err
+		}
+		add(f.Fieldname, v)
+	}
+	return cols, vals, nil
+}
+
+func parseTimeOrNow(v any) time.Time {
+	if t := parseTime(v); !t.IsZero() {
+		return t
+	}
+	return time.Now()
+}
+
+func (c *Ctx) writeInsert(d *meta.DocType, doc Doc) error {
+	cols, vals, err := c.columnValues(d, doc)
+	if err != nil {
+		return err
+	}
+	ph := make([]string, len(vals))
+	for i := range vals {
+		ph[i] = fmt.Sprintf("$%d", i+1)
+	}
+	_, err = c.Q().Exec(c.Ctx, fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", db.Ident(d.TableName()), strings.Join(cols, ", "), strings.Join(ph, ", ")), vals...)
+	if err != nil && strings.Contains(err.Error(), "duplicate key") {
+		return cerr.Duplicate("%s %s já existe", c.T(d.Label), doc.Name())
+	}
+	return err
+}
+
+// writeUpdate grava o documento com compare-and-swap pelo `modified` lido no
+// início do Save: se outra transação gravou nesse meio tempo, nenhuma linha é
+// afetada e o erro é de timestamp, nunca uma sobrescrita silenciosa.
+func (c *Ctx) writeUpdate(d *meta.DocType, doc Doc, prevModified any) error {
+	cols, vals, err := c.columnValues(d, doc)
+	if err != nil {
+		return err
+	}
+	var sets []string
+	var args []any
+	for i, col := range cols {
+		if col == `"name"` {
+			continue
+		}
+		args = append(args, vals[i])
+		sets = append(sets, fmt.Sprintf("%s = $%d", col, len(args)))
+	}
+	args = append(args, doc["name"])
+	sql := fmt.Sprintf("UPDATE %s SET %s WHERE name = $%d", db.Ident(d.TableName()), strings.Join(sets, ", "), len(args))
+	args = append(args, parseTimeOrNil(prevModified))
+	sql += fmt.Sprintf(" AND modified IS NOT DISTINCT FROM $%d", len(args))
+	tag, err := c.Q().Exec(c.Ctx, sql, args...)
+	if err != nil && strings.Contains(err.Error(), "duplicate key") {
+		return cerr.Duplicate("Valor duplicado em %s", c.T(d.Label))
+	}
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return cerr.Timestamp("O documento %s %s foi alterado por outro usuário. Recarregue e tente de novo.", c.T(d.Label), doc.Name())
+	}
+	return nil
+}
+
+func parseTimeOrNil(v any) any {
+	if v == nil {
+		return nil
+	}
+	if t := parseTime(v); !t.IsZero() {
+		return t
+	}
+	return nil
+}
+
+// childNames lists the rows already belonging to (parent, parenttype, parentfield).
+func (c *Ctx) childNames(child *meta.DocType, parent, parenttype, parentfield string) (map[string]bool, error) {
+	out := map[string]bool{}
+	if parent == "" {
+		return out, nil
+	}
+	rows, err := db.Select(c.Ctx, c.Q(), fmt.Sprintf("SELECT name FROM %s WHERE parent = $1 AND parenttype = $2 AND parentfield = $3", db.Ident(child.TableName())), parent, parenttype, parentfield)
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range rows {
+		out[db.Str(r["name"])] = true
+	}
+	return out, nil
+}
+
+func (c *Ctx) childExists(child *meta.DocType, name string) (bool, error) {
+	rows, err := db.Select(c.Ctx, c.Q(), fmt.Sprintf("SELECT 1 FROM %s WHERE name = $1", db.Ident(child.TableName())), name)
+	return len(rows) > 0, err
+}
+
+func (c *Ctx) writeChildren(d *meta.DocType, doc Doc) error {
+	for _, tf := range d.TableFields() {
+		child, _ := c.St.DocType(tf.OptionsString())
+		rows := doc.Children(tf.Fieldname)
+		keep := make([]any, 0, len(rows))
+		now := time.Now()
+		owned, err := c.childNames(child, doc.Str("name"), d.Name, tf.Fieldname)
+		if err != nil {
+			return err
+		}
+		for i, row := range rows {
+			// Uma linha só mantém o `name` recebido se ela já pertence a este
+			// pai/campo. Caso contrário vira uma cópia: sem isso, salvar um
+			// documento roubaria a linha filha de outro (B03).
+			if n := row.Str("name"); n != "" && !owned[n] {
+				taken, err := c.childExists(child, n)
+				if err != nil {
+					return err
+				}
+				if taken {
+					row["name"] = randomName()
+					row["creation"], row["owner"] = now, c.User
+				}
+			}
+			if row.Str("name") == "" {
+				row["name"] = randomName()
+				row["creation"], row["owner"] = now, c.User
+			}
+			if row["creation"] == nil {
+				row["creation"] = now
+			}
+			row["modified"], row["modified_by"] = now, c.User
+			row["idx"] = int64(i + 1)
+			row["docstatus"] = doc["docstatus"]
+			keep = append(keep, row["name"])
+			cols, vals, err := c.columnValues(child, row)
+			if err != nil {
+				return err
+			}
+			ph := make([]string, len(vals))
+			var sets []string
+			for j, col := range cols {
+				ph[j] = fmt.Sprintf("$%d", j+1)
+				if col != `"name"` && col != `"creation"` && col != `"owner"` {
+					sets = append(sets, fmt.Sprintf("%s = EXCLUDED.%s", col, col))
+				}
+			}
+			sql := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s) ON CONFLICT (name) DO UPDATE SET %s",
+				db.Ident(child.TableName()), strings.Join(cols, ", "), strings.Join(ph, ", "), strings.Join(sets, ", "))
+			if _, err := c.Q().Exec(c.Ctx, sql, vals...); err != nil {
+				return fmt.Errorf("%w\nSQL: %s", err, sql)
+			}
+			delete(row, "__islocal")
+		}
+		var b db.Builder
+		var ph []string
+		for _, n := range keep {
+			ph = append(ph, b.Arg(n))
+		}
+		sql := fmt.Sprintf("DELETE FROM %s WHERE parent = %s AND parenttype = %s AND parentfield = %s", db.Ident(child.TableName()), b.Arg(doc["name"]), b.Arg(d.Name), b.Arg(tf.Fieldname))
+		if len(ph) > 0 {
+			sql += " AND name NOT IN (" + strings.Join(ph, ", ") + ")"
+		}
+		if _, err := c.Q().Exec(c.Ctx, sql, b.Args...); err != nil {
+			return fmt.Errorf("%w\nSQL: %s %v", err, sql, b.Args)
+		}
+	}
+	return nil
+}
+
+// isSecretField marks columns that never belong in a version diff, mesmo
+// quando declaradas como Data.
+func isSecretField(name string) bool {
+	switch name {
+	case "password_hash", "new_password", "password", "api_secret", "secret":
+		return true
+	}
+	return strings.HasSuffix(name, "_password") || strings.HasSuffix(name, "_secret")
+}
+
+// ------------------------------------------------------------ versions
+
+func (c *Ctx) saveVersion(d *meta.DocType, before, after Doc) {
+	changed := map[string][]any{}
+	for _, f := range d.Fields {
+		if f.Fieldname == "" || meta.LayoutTypes[f.Fieldtype] {
+			continue
+		}
+		// segredo não entra no histórico: Version é legível por quem pode ler
+		// o documento e o diff vazaria a senha/hash (B04)
+		if f.Fieldtype == "Password" || isSecretField(f.Fieldname) {
+			continue
+		}
+		var a, b any = before[f.Fieldname], after[f.Fieldname]
+		if f.Fieldtype == "Table" {
+			a, b = stripChildMeta(before.Children(f.Fieldname)), stripChildMeta(after.Children(f.Fieldname))
+		}
+		if string(mustJSON(a)) != string(mustJSON(b)) {
+			changed[f.Fieldname] = []any{before[f.Fieldname], after[f.Fieldname]}
+		}
+	}
+	if before.Docstatus() != after.Docstatus() {
+		changed["docstatus"] = []any{before["docstatus"], after["docstatus"]}
+	}
+	if len(changed) == 0 {
+		return
+	}
+	data := mustJSON(map[string]any{"changed": changed})
+	c.Q().Exec(c.Ctx, `INSERT INTO tab_version (name, owner, creation, modified, modified_by, docstatus, ref_doctype, docname, data)
+		VALUES ($1, $2, now(), now(), $2, 0, $3, $4, $5)`, randomName(), c.User, d.Name, after.Name(), string(data))
+}

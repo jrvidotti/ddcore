@@ -1,0 +1,11 @@
+node_modules/
+dist/
+build/
+.svelte-kit/
+bin/
+*.log
+.env
+.cerne/
+desk/build/
+/data/
+.playwright-mcp/
