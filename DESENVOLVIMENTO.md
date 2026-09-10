@@ -53,7 +53,7 @@ framework — e a razão da regra "nunca use `await` no servidor".
 **Atenção a uma diferença deste repositório.** Num app externo, os três são *materializados*
 por `cerne types` dentro de `.cerne/` e o `tsconfig.json` aponta para lá. Aqui, como o
 código-fonte dos SDKs está no próprio checkout, `apps/exemplo/tsconfig.json` resolve
-`@cerne/sdk` direto em `packages/sdk/src/index.ts` — o typecheck do app valida contra a
+`@cerne/sdk`, `@cerne/sdk/test` e `@cerne/desk-sdk` direto em `packages/` — o typecheck do app valida contra a
 **fonte** dos SDKs, não contra uma cópia gerada. Mudar `packages/sdk` quebra (ou conserta)
 o typecheck do app na mesma hora, o que é exatamente o efeito desejado.
 
@@ -183,12 +183,8 @@ A convenção de nomes **é** o mecanismo de descoberta: o binário varre o dire
 registra pelo sufixo (`.doctype.ts`, `.controller.ts`, `.form.ts`, `.report.ts`,
 `.workspace.ts`, `.test.ts`). Não existe arquivo de índice para manter.
 
-> **Estado atual.** `apps/exemplo` está em construção. Hoje existem o manifesto, o
-> `tsconfig.json`, as três metas (`projeto`, `tarefa`, `marco_projeto`) e as traduções. Os
-> controllers, serviços, forms, relatório, workspace e testes estão especificados em
-> `docs/superpowers/specs/2026-09-10-app-exemplo-design.md` e ainda serão escritos — note
-> que `cerne.app.ts` já referencia `services/tarefas.ts` e `client/listas.ts`. A estrutura
-> acima é o alvo.
+> O app está completo e coberto por `make test`; a especificação que o originou é
+> `docs/superpowers/specs/2026-09-10-app-exemplo-design.md`.
 
 ### Os quatro arquivos de um DocType
 

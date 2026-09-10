@@ -18,10 +18,14 @@ make migrate                                # DDL do core
 make dev                                    # http://localhost:8090  (Administrator / admin)
 ```
 
-O `cerne.json` deste checkout não carrega apps de produto. O app `alugueis` vive em
-repositório separado, e um app de exemplo será adicionado posteriormente. Em um projeto
-externo, o roteiro começa com `cerne init && cerne new-app <nome>`; `CERNE_DSN` sobrescreve
-o DSN de qualquer comando.
+O `cerne.json` deste checkout carrega `apps/exemplo` — um app pequeno de projetos e
+tarefas que serve de tutorial executável e de fixture ponta a ponta (`./bin/cerne demo`
+semeia o projeto `DEMO`). Apps de produto vivem em repositórios separados, como o
+`alugueis`. Em um projeto externo, o roteiro começa com `cerne init && cerne new-app
+<nome>`; `CERNE_DSN` sobrescreve o DSN de qualquer comando.
+
+O processo de desenvolvimento (núcleo x app, ciclo de trabalho) está em
+[`DESENVOLVIMENTO.md`](DESENVOLVIMENTO.md).
 
 ## Verificação
 
