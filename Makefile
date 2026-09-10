@@ -32,12 +32,13 @@ build: desk ## compila desk + binário
 desk: ## compila o desk (SvelteKit) para desk/build (embutido no binário)
 	cd desk && npm install --silent && npm run build
 
-check: ## verifica os tipos do desk, sem banco
+check: ## verifica os tipos do desk e o catálogo de traduções, sem banco
 	cd desk && npm install --silent && npm run check
 	./bin/ddcore types
 	cd desk && npx tsc -p ../apps/demo/tsconfig.json --noEmit
+	./bin/ddcore i18n extract --all --lang pt-BR --check
 
-i18n: ## reescreve translations/<lang>.csv a partir do código (--check só reporta)
+i18n: ## reescreve translations/<lang>.csv a partir do código
 	./bin/ddcore i18n extract --all --lang pt-BR
 
 vet: ## análise estática do Go

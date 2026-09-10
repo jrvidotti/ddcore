@@ -66,12 +66,23 @@ func (i *I18n) T(lang, s string, args ...any) string {
 	return cerr.Render(s, args)
 }
 
-// Catalogue returns all translations for a language (served to the desk).
+// Catalogue returns all translations for a language (served to the desk and
+// mirrored into the JS runtime).
+//
+// It returns a copy. The dictionary is shared by every request in flight and
+// is meant to be immutable for the life of a State; handing out the live map
+// let one caller's stray write change what everyone else reads. The map is a
+// few hundred entries and this is called once per session, not per string.
 func (i *I18n) Catalogue(lang string) map[string]string {
 	if lang == "" {
 		lang = i.Lang
 	}
-	return i.dict[lang]
+	src := i.dict[lang]
+	out := make(map[string]string, len(src))
+	for k, v := range src {
+		out[k] = v
+	}
+	return out
 }
 
 // Langs returns the languages with a catalogue, sorted. "en" is always present:

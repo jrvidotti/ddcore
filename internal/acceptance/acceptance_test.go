@@ -316,6 +316,38 @@ func TestTraducoes(t *testing.T) {
 	if b := getJSON(t, srv, tok, "/api/translations?lang=xx-XX"); b == nil {
 		t.Error("idioma desconhecido devia responder 200")
 	}
+
+	// sem parâmetro, vale o idioma do site
+	if b := getJSON(t, srv, tok, "/api/translations"); b["data"].(map[string]any)["Submit"] != "Enviar" {
+		t.Errorf("sem ?lang, o catálogo devia ser o de %q", e.Cfg.Lang)
+	}
+
+	// interpolação: {0}, {1} e um argumento ausente
+	cases := []struct {
+		key  string
+		args []any
+		want string
+	}{
+		{"Save", nil, "Gravar"},
+		{"{0} {1} not found", []any{"Task", "T-1"}, "Task T-1 não encontrado"},
+		{"{0} {1} not found", []any{"Task"}, "Task {1} não encontrado"},
+		{"{0} {1} not found", nil, "{0} {1} não encontrado"},
+		// uma chave sem tradução devolve a própria chave, interpolada
+		{"No such key {0}", []any{"x"}, "No such key x"},
+	}
+	for _, c := range cases {
+		if got := e.I18n.T("pt-BR", c.key, c.args...); got != c.want {
+			t.Errorf("T(%q, %v) = %q, esperado %q", c.key, c.args, got, c.want)
+		}
+	}
+
+	// Catalogue devolve o dicionário vivo: o chamador não pode alterá-lo por
+	// acidente e mudar o que todo mundo lê
+	cat := e.I18n.Catalogue("pt-BR")
+	cat["Save"] = "ADULTERADO"
+	if got := e.I18n.T("pt-BR", "Save"); got != "Gravar" {
+		t.Errorf("o catálogo foi alterado pelo chamador: T(Save) = %q", got)
+	}
 }
 
 // ------------------------------------------------------------------- /app
