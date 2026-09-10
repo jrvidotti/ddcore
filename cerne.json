@@ -1,6 +1,6 @@
 {
   "dsn": "postgres://cerne:cerne@localhost:5455/cerne_dev?sslmode=disable",
-  "apps": [],
+  "apps": ["apps/exemplo"],
   "port": 8090,
   "workers": 2,
   "scheduler": false,

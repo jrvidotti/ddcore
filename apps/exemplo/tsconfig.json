@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "baseUrl": "../..",
+    "paths": {
+      "@cerne/sdk": ["packages/sdk/src/index.ts"]
+    },
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  "include": ["**/*.ts", ".cerne/**/*.d.ts"]
+}

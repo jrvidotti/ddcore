@@ -405,7 +405,7 @@ func New(e *engine.Engine) *mcp.Server {
 			if _, err := te.Migrate(ctx, false); err != nil {
 				return fail(err)
 			}
-			results, err := te.RunTests(ctx, in.Filter)
+			results, err := te.RunTests(ctx, in.Filter, "")
 			if err != nil {
 				return fail(err)
 			}

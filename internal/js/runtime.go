@@ -257,14 +257,15 @@ func (rt *Runtime) Eval(code string) (json.RawMessage, error) {
 type TestResult struct {
 	Name  string `json:"name"`
 	File  string `json:"file"`
+	App   string `json:"app"`
 	OK    bool   `json:"ok"`
 	Error string `json:"error,omitempty"`
 	Stack string `json:"stack,omitempty"`
 	Ms    int    `json:"ms"`
 }
 
-func (rt *Runtime) RunTests(filter string) ([]TestResult, error) {
-	s, err := rt.callReg("runTests", filter)
+func (rt *Runtime) RunTests(filter, app string) ([]TestResult, error) {
+	s, err := rt.callReg("runTests", filter, app)
 	if err != nil {
 		return nil, err
 	}

@@ -169,3 +169,13 @@ func TestSingleDashFlagFormIsAccepted(t *testing.T) {
 		t.Fatalf("v=%v filter=%q arg=%q", *v, *filter, fs.Arg(0))
 	}
 }
+
+func TestTestFlagsAcceptsApp(t *testing.T) {
+	fs, _, _, app := testFlags()
+	if err := parseFlags(fs, []string{"--app", "exemplo"}); err != nil {
+		t.Fatal(err)
+	}
+	if *app != "exemplo" {
+		t.Fatalf("--app = %q, esperado exemplo", *app)
+	}
+}

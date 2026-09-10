@@ -86,6 +86,41 @@ export function addMonths(a) { return cerne.utils.addMonths("2026-01-31", 1) }`)
 	}
 }
 
+func TestRunTestsFiltersByApp(t *testing.T) {
+	root := t.TempDir()
+	build := func(name string) *Bundle {
+		dir := filepath.Join(root, name)
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "cerne.app.ts"), []byte(`import { defineApp } from "@cerne/sdk";
+export default defineApp({ name: "`+name+`", title: "`+name+`" });`), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, name+`.test.ts`), []byte(`import "@cerne/sdk/test";
+test("`+name+` test", () => expect(true).toBe(true));`), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		bundle, err := BuildServer(App{Name: name, Dir: dir}, true)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return bundle
+	}
+
+	rt, err := newRuntime(&fakeHost{}, []*Bundle{build("primeiro"), build("segundo")}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	results, err := rt.RunTests("", "primeiro")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 1 || results[0].App != "primeiro" || results[0].Name != "primeiro test" {
+		t.Fatalf("seleção de app incorreta: %#v", results)
+	}
+}
+
 // B08 — um runtime adquirido antes do reload volta ao pool que o criou, nunca
 // ao pool novo, e o pool antigo descarta o que recebe depois de fechado.
 func TestB08_ReleaseVoltaAoPoolDeOrigem(t *testing.T) {

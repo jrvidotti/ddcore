@@ -511,7 +511,7 @@ func abs(p string) string {
 }
 
 // RunTests executes the app tests inside one rolled-back transaction.
-func (e *Engine) RunTests(ctx context.Context, filter string) ([]js.TestResult, error) {
+func (e *Engine) RunTests(ctx context.Context, filter, app string) ([]js.TestResult, error) {
 	if !e.Cfg.Test {
 		return nil, fmt.Errorf("engine não foi carregado em modo de teste")
 	}
@@ -522,7 +522,7 @@ func (e *Engine) RunTests(ctx context.Context, filter string) ([]js.TestResult, 
 		if err != nil {
 			return err
 		}
-		out, err = rt.RunTests(filter)
+		out, err = rt.RunTests(filter, app)
 		return err
 	})
 	return out, err

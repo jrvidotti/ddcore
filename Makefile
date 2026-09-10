@@ -34,6 +34,8 @@ desk: ## compila o desk (SvelteKit) para desk/build (embutido no binário)
 
 check: ## verifica os tipos do desk, sem banco
 	cd desk && npm install --silent && npm run check
+	./bin/cerne types
+	cd desk && npx tsc -p ../apps/exemplo/tsconfig.json --noEmit
 
 vet: ## análise estática do Go
 	go vet ./...
@@ -43,6 +45,7 @@ test-desk: ## svelte-check + testes unitários do desk
 
 test: build vet ## testes Go e do desk
 	go test ./internal/...
+	./bin/cerne test --app exemplo
 	$(MAKE) test-desk
 
 dev: ## servidor de desenvolvimento

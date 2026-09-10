@@ -307,7 +307,7 @@ func TestLifecycle(t *testing.T) {
 	// test runner em savepoints
 	err = e.Run(ctx, "Administrator", func(c *Ctx) error {
 		rt, _ := c.RT()
-		res, err := rt.RunTests("")
+		res, err := rt.RunTests("", "")
 		if err != nil {
 			return fmt.Errorf("linha 253: %w", err)
 		}

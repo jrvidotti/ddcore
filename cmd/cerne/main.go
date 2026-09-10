@@ -325,10 +325,16 @@ func cmdTypes(args []string) error {
 	return nil
 }
 
-func cmdTest(args []string) error {
+func testFlags() (*flag.FlagSet, *string, *bool, *string) {
 	fs := newFlagSet("test")
 	filter := fs.String("filter", "", "regex sobre nome/arquivo do teste")
 	verbose := fs.Bool("v", false, "lista todos os testes")
+	app := fs.String("app", "", "roda testes de um app carregado")
+	return fs, filter, verbose, app
+}
+
+func cmdTest(args []string) error {
+	fs, filter, verbose, app := testFlags()
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
@@ -340,11 +346,23 @@ func cmdTest(args []string) error {
 		return err
 	}
 	defer e.DB.Close()
+	if *app != "" {
+		found := false
+		for _, loaded := range e.Apps {
+			if loaded.Name == *app {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("app não carregado: %s", *app)
+		}
+	}
 	ctx := context.Background()
 	if _, err := e.Migrate(ctx, false); err != nil {
 		return err
 	}
-	results, err := e.RunTests(ctx, *filter)
+	results, err := e.RunTests(ctx, *filter, *app)
 	if err != nil {
 		return err
 	}

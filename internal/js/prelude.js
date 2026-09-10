@@ -489,7 +489,7 @@
     current = s;
     try { fn(); } finally { current = prev; }
   };
-  globalThis.it = globalThis.test = (name, fn) => current.tests.push({ name, fn, file: reg.current });
+  globalThis.it = globalThis.test = (name, fn) => current.tests.push({ name, fn, file: reg.current, app: reg.app });
   globalThis.beforeEach = (fn) => current.beforeEach.push(fn);
   globalThis.afterEach = (fn) => current.afterEach.push(fn);
   globalThis.beforeAll = (fn) => current.beforeAll.push(fn);
@@ -543,7 +543,7 @@
     return pos;
   };
 
-  reg.runTests = function (filter) {
+  reg.runTests = function (filter, app) {
     const results = [];
     const re = filter ? new RegExp(filter, "i") : null;
     function walk(suite, path, befores, afters) {
@@ -551,8 +551,9 @@
       const be = befores.concat(suite.beforeEach), af = suite.afterEach.concat(afters);
       for (const t of suite.tests) {
         const full = (path ? path + " > " : "") + t.name;
+        if (app && t.app !== app) continue;
         if (re && !re.test(full) && !re.test(t.file || "")) continue;
-        const r = { name: full, file: t.file, ok: true };
+        const r = { name: full, file: t.file, app: t.app, ok: true };
         const t0 = Date.now();
         call("test.begin");
         try {
