@@ -43,10 +43,19 @@ Referências: [fieldtypes](agent/fieldtypes.md), [migrações](agent/migrations.
 | Permissões por papel | `read`, `write`, `create`, `delete`, `submit`, `cancel`, `amend`, `report`, `export` e `ifOwner`; Administrator passa pelas verificações. |
 | Regras de app | `hasPermission` e `permissionQuery` complementam a regra declarativa. |
 | Autenticação | User, Role, Has Role, sessão por cookie, CSRF, senha Argon2id e API key `key:secret`; usuários/chaves desativados não autenticam. |
+| Proteção do login | Tentativas em `ddcore_login_attempt`, bloqueio por conta e por endereço, resposta 429 com `Retry-After`, hash-isca para não revelar quais contas existem, e `ddcore user unlock`. |
+| Sessões e chaves | TTL de sessão e expiração de API key vindas da política; cookie `Secure` decidido por requisição; `ip`/`user_agent` gravados; revogação em toda troca de senha, com a sessão de quem troca preservada no autosserviço. |
+| Recuperação e convite | Token de 192 bits guardado em SHA-256, uso único atômico, quatro rotas públicas com throttle; resposta genérica que não revela se o endereço existe; convite cria a conta sem senha. |
+| Política de senha | Mínimo, teto e recusa de senha igual ao usuário, aplicados no gargalo do hash — vale para formulário, CLI, recuperação, convite e autosserviço. |
+| E-mail | `internal/mail` com SMTP mínimo, transporte de log e transporte plugável por caminho pontilhado; entrega pela fila `ddcore_job`. |
+| Autosserviço | Perfil, idioma, senha, sessões ativas e chaves de API próprias, em `core/services/`, mais administração de contas em `users.ts`. |
+| Segredos de integração | `ddcore.secret("nome")` lê `DDCORE_SECRET_NOME` do ambiente; nunca em coluna, backup, exportação ou `Version`. |
 | Cache | `ddcore.cache.get/set/del`, usado também para papéis, sessões e chaves de API. |
 
-Referências: [controller API](agent/controller-api.md), [permissões](../internal/engine/perm.go),
-[autenticação](../internal/engine/auth.go) e [bridge](../internal/engine/host.go).
+Referências: [controller API](agent/controller-api.md), [acesso](agent/auth.md),
+[permissões](../internal/engine/perm.go), [autenticação](../internal/engine/auth.go),
+[throttle](../internal/engine/throttle.go), [tokens](../internal/engine/token.go),
+[e-mail](../internal/mail/mail.go) e [bridge](../internal/engine/host.go).
 
 ## API, arquivos e tempo real
 
@@ -115,9 +124,12 @@ Referências: [CLI](agent/cli.md), [MCP](../internal/mcp/mcp.go),
 
 - `isSingle` existe no tipo de DocType, mas o migrador não cria a tabela de um
   Singleton; este documento não considera Settings persistente implementado.
-- `Password` é `text`; apenas senhas de login e secrets de API key recebem hash.
-- HTTP de saída e fila existem, mas não há produto de e-mail, notificações declarativas
-  ou webhooks configuráveis.
+- `Password` é `text` em repouso; o valor não sai por leitura da API, por `Version` nem
+  por exportação, mas não há cofre com criptografia. Credencial de integração vai para
+  o `.env` via `ddcore.secret`, e não para uma coluna.
+- Há envio de e-mail para recuperação e convite (SMTP mínimo ou método de app), mas não
+  um produto de e-mail: sem template, histórico de entrega, anexos ou caixa de saída.
+  Notificações declarativas e webhooks configuráveis continuam ausentes.
 - Docstatus e controllers permitem aprovações específicas da app; não há motor
   declarativo de workflow listado aqui.
 - Fixtures continuam inserindo ou pulando por nome: não atualizam documento existente.

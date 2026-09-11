@@ -1,0 +1,171 @@
+# Access: sign-in, recovery, invitation and secrets
+
+What the framework guarantees about getting in, staying in, and getting back in.
+
+## The policy lives in two files
+
+`ddcore.json` holds what the site decided, because staging has to lock an
+account out exactly as production does or the rehearsal proves nothing:
+
+```jsonc
+"auth": {
+  "sessionDays": 30,          // session lifetime; the cookie follows it
+  "apiKeyDays": 0,            // 0 = an API key never expires
+  "minPasswordLength": 8,
+  "maxLoginAttempts": 5,      // failures before the lockout
+  "lockoutMinutes": 15,
+  "resetMinutes": 60,         // how long a recovery link is good for
+  "inviteHours": 72,
+  "secureCookie": null,       // null = decide per request
+  "selfServiceApiKeys": true
+}
+```
+
+`.env` holds where the site is running — the public URL a link is built from,
+whether a proxy is trusted, and everything about mail. See `.env.example`;
+`ddcore doctor` reports which transport is live and warns when no public URL is
+set.
+
+An invalid value is refused at load. A session that lasts zero days or a
+lockout after zero attempts is a policy nobody meant to write.
+
+## Signing in
+
+`POST /api/login` with `{usr, pwd}`. On success a `sid` cookie: `HttpOnly`,
+`SameSite=Lax`, `Max-Age` from `sessionDays`, and `Secure` when the request
+arrived over TLS or the site URL is https.
+
+Failures are counted in `ddcore_login_attempt` and answered with **429
+`TooManyRequestsError`**, a `Retry-After` header and `error.extra.retryAfter`.
+Three properties are load-bearing:
+
+- The throttle runs **before** the user lookup and before any hashing. Argon2
+  costs 64 MiB a call, so an unthrottled login is a memory-exhaustion vector
+  needing no credentials.
+- The counter is keyed on **what was typed**, not the account it resolved to,
+  and an unknown address is still checked against a decoy hash. Otherwise the
+  fast, never-locking answer for an address nobody owns tells an attacker which
+  addresses exist — and the lockout becomes the oracle it was meant to close.
+- The correct password is **not** a way out of a lockout.
+
+`ddcore user unlock <email>` lifts one early. An account can be locked under
+two spellings (its name and its e-mail), and the command clears both.
+
+`trustProxy` decides whether `X-Forwarded-For` is believed. Leave it off unless
+a proxy you control sets it: otherwise any client picks the address we hold
+responsible, and the address throttle becomes a way to lock out a stranger.
+
+## Sessions
+
+One TTL, read from the policy in both the SQL and the cookie. Sessions record
+`ip` and `user_agent` so a person can recognise their own devices.
+
+Every path that sets a password ends the user's **other** sessions — the User
+form, `ddcore user passwd`, a recovery, and self-service. A recovery ends *all*
+of them, because the reason for a reset may be that the account is no longer
+theirs. Self-service spares the caller's own, so nobody is thrown out of the
+tab they just typed into.
+
+A session is addressed from app code by an opaque handle, never by its sid. The
+sid is a bearer token: one XSS able to read a session list would otherwise hand
+over every device.
+
+## Recovery and invitation
+
+Four public routes, all throttled, all exempt from the CSRF header check
+because there is no session yet to forge a request from:
+
+| Route | Body | 200 |
+|---|---|---|
+| `POST /api/auth/forgot-password` | `{usr}` | `{ok:true}` **always** |
+| `POST /api/auth/token` | `{token}` | `{kind, user, fullName, expires}` |
+| `POST /api/auth/reset-password` | `{token, password}` | `{ok:true}` |
+| `POST /api/auth/accept-invite` | `{token, password, fullName?}` | `{ok:true}` |
+
+`forgot-password` answers identically for an unknown address, a real one and a
+disabled account — status, body and timing. Timing is free: there is no Argon2
+on that path, and the message goes through the job queue rather than out a
+socket.
+
+Tokens are 192 bits of `crypto/rand`, stored as their **SHA-256**, single-use,
+and spent in one statement so two submissions of the same link cannot both set
+a password. A kind is checked, so a pending invitation is not also a way to
+reset somebody's password. Completing a recovery does **not** sign the person
+in: one way to get a session is enough to reason about.
+
+An invited account is created with **no password**, which needs no flag —
+an empty hash already refuses every sign-in until one is set.
+
+## Mail
+
+`DDCORE_MAIL_TRANSPORT` is `log` (the default: the link goes to the log and is
+handed back to whoever asked), `smtp`, or `method`. `method` names an app
+function by dotted path in `DDCORE_MAIL_METHOD`, reached through
+`ddcore.callMethod` — the same way `scheduler` and `ddcore.enqueue` already
+name app code.
+
+Messages go through `ddcore_job`, so retries are durable, and because `enqueue`
+writes on the request's transaction a message is only queued if the request
+commits. The SMTP sender refuses to authenticate in the clear to anything but
+loopback.
+
+## Self-service (`core/services/`)
+
+A user has **no write on their own User record**, and granting it is not an
+option: `roles` is a child table on User, so write would be self-promotion to
+System Manager. These services exist to offer the narrow thing instead, and
+each checks `ddcore.session.user` before touching anything:
+
+- `profile.getMyProfile` · `profile.updateMyProfile({fullName?, language?})` ·
+  `profile.changeMyPassword({current, password})`
+- `sessions.listMySessions` · `sessions.revokeMySession({id})` ·
+  `sessions.revokeMyOtherSessions`
+- `api_keys.listMyAPIKeys` · `api_keys.createMyAPIKey({label, days?})` ·
+  `api_keys.revokeMyAPIKey({name})`
+
+`updateMyProfile` enumerates its two fields and never spreads `args` — that
+enumeration is the security of the function, since the write underneath skips
+the permission check.
+
+System Manager only: `users.invite`, `users.resendInvite`,
+`users.sendPasswordReset`, `users.revokeUserSessions`, `users.unlockUser`.
+
+## Passwords
+
+The policy is applied where hashing happens — the `hashPassword` host op and
+`Engine.SetPassword` — rather than at each of the five call sites, so app code
+nobody has written yet meets it too. Minimum length (in runes), not blank, not
+the account name, and a cap so an unauthenticated caller cannot choose how much
+Argon2 the server does. No complexity ruleset: those produce `Password1!` and a
+sticky note.
+
+## Secrets
+
+An integration credential is read from the environment, never from a column:
+
+```ts
+const key = ddcore.secret("stripe_key");   // DDCORE_SECRET_STRIPE_KEY
+```
+
+A secret in the database is a secret in every backup, replica, export and
+`Version` diff; one in the environment is in none of them because it was never
+written down, and rotating it is a redeploy rather than a migration. The
+prefix is the boundary — an app reads its own secrets and nothing else the
+process was started with.
+
+A `Password` field is for a secret a *person* types. It is still plain text at
+rest; what the framework guarantees is that it does not leave — blanked on
+every read through the API, absent from `Version`, absent from an export.
+
+## Housekeeping
+
+`core.services.auth.sweep` deletes expired sessions, old tokens and old
+attempts, hourly, where the site enables the scheduler. It is hygiene and never
+correctness: every read path filters on expiry itself, so if it never ran
+nothing would become valid again — the tables would only grow.
+
+## Not here yet
+
+A real CSRF token (the check is header-presence only), MFA and SSO (SEC-05),
+e-mail verification on a changed address, and an admin UI for unlocking or
+listing another user's sessions.
