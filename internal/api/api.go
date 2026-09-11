@@ -60,6 +60,7 @@ func New(e *engine.Engine, desk fs.FS) *Server {
 			r.Get("/search/link", s.linkSearch)
 			r.Get("/search/link-titles", s.linkTitles)
 			r.Post("/search/link-titles", s.linkTitles)
+			r.Get("/export/{doctype}", s.export)
 			r.Get("/report/{name}", s.report)
 			r.Get("/workspace/{name}/card/{card}", s.numberCard)
 			r.Get("/workspace/{name}/chart/{chart}", s.chart)
@@ -382,7 +383,7 @@ func (s *Server) boot(w http.ResponseWriter, r *http.Request) {
 				// reads them: two independent derivations that "should" agree
 				// is the bug nobody finds until a JPY invoice is off by a yen
 				"currencyPrecision": s.E.CurrencyPrecision(), "rounding": s.E.Cfg.Rounding.String(),
-				"timezone": s.E.Cfg.Timezone, "dev": s.E.Cfg.Dev, "scheduler": s.E.Cfg.Scheduler, "version": "0.1.0",
+				"timezone": s.E.Cfg.Timezone, "dev": s.E.Cfg.Dev, "scheduler": s.E.Cfg.Scheduler, "version": engine.Version,
 			},
 			"loaded": s.E.Loaded.UnixMilli(),
 		}, nil
@@ -893,7 +894,19 @@ func (s *Server) report(w http.ResponseWriter, r *http.Request) {
 		// the report's own label and its filters' labels come from the
 		// snapshot; the result's columns come from execute(), which already
 		// went through _() inside the runtime.
-		return map[string]any{"meta": c.St.TranslateStringMap(rep, c.Lang), "result": res}, nil
+		m := c.St.TranslateStringMap(rep, c.Lang)
+		// Taking the result out as a file follows the same `export`
+		// permission a list does; a report with no refDoctype has no doctype
+		// to ask, so running it is the only gate there is.
+		m["canExport"] = true
+		if ref, _ := rep["refDoctype"].(string); ref != "" {
+			ok, err := c.HasPermission(ref, "export", nil)
+			if err != nil {
+				return nil, err
+			}
+			m["canExport"] = ok
+		}
+		return map[string]any{"meta": m, "result": res}, nil
 	})
 }
 

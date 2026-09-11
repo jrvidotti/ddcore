@@ -82,7 +82,7 @@ func fail(err error) (*mcp.CallToolResult, any, error) {
 // New builds the MCP server with every tool registered.
 func New(e *engine.Engine) *mcp.Server {
 	s := &server{e: e}
-	srv := mcp.NewServer(&mcp.Implementation{Name: "ddcore", Version: "0.1.0"}, &mcp.ServerOptions{
+	srv := mcp.NewServer(&mcp.Implementation{Name: "ddcore", Version: engine.Version}, &mcp.ServerOptions{
 		Instructions: "Servidor de desenvolvimento do framework ddcore. Comece lendo o resource ddcore://docs/index. " +
 			"Typical flow: get_doctype / scaffold_doctype → migrate → insert_doc / list_docs → run_tests. " +
 			"The app's TS files are the source of truth: edit them and the server reloads.",

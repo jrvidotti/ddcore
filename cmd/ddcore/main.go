@@ -43,6 +43,7 @@ Usage: ddcore <command> [options]
   exec        run a function: ddcore exec app.services.mod.fn --args '{"a":1}'
   eval        run loose TS: ddcore eval 'ddcore.db.count("User")' [--commit]
   demo        seed example data (<app>.services.demo.generate, idempotent)
+  export      export a DocType (or --all) to NDJSON/CSV with a manifest
   jobs        jobs list | jobs run <fn> | jobs work
   user        user add <email> <name> [--password x] [--role R]... | user passwd <email>
   apikey      apikey <user> [--label x]  → prints key:secret
@@ -87,6 +88,8 @@ func main() {
 		err = cmdAPIKey(args)
 	case "mcp":
 		err = cmdMCP(args)
+	case "export":
+		err = cmdExport(args)
 	case "demo":
 		err = cmdDemo(args)
 	case "docs":
@@ -129,7 +132,7 @@ func load(test bool, dev bool) (*engine.Engine, *config.File, error) {
 	}
 	e, err := engine.New(context.Background(), engine.Config{
 		DSN: cfg.DSN, Apps: apps, Workers: cfg.Workers, Scheduler: cfg.Scheduler, Dev: dev || cfg.Dev, Test: test,
-		Port: cfg.Port, SiteName: cfg.Site, Lang: cfg.Lang, Currency: cfg.Currency, CurrencyPrecision: cfg.CurrencyPrecision, Rounding: cfg.RoundingMode(), Timezone: cfg.Timezone, DataDir: cfg.DataDir, LogLevel: level,
+		Port: cfg.Port, SiteName: cfg.Site, Lang: cfg.Lang, Currency: cfg.Currency, CurrencyPrecision: cfg.CurrencyPrecision, Rounding: cfg.RoundingMode(), Timezone: cfg.Timezone, DataDir: cfg.DataDir, ExportMaxRows: cfg.ExportMaxRows, LogLevel: level,
 	})
 	return e, cfg, err
 }

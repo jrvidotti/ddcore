@@ -58,18 +58,19 @@ Referências: [controller API](agent/controller-api.md), [permissões](../intern
 | Busca de Link | Busca por nome, título e campos configurados, com filtros e resolução em lote de títulos. |
 | Relatórios e dashboards | Endpoints para Script Reports, cards e gráficos de workspace, com permissões aplicáveis. |
 | Arquivos | Upload multipart, DocType File, caminhos públicos/privados e download privado autenticado. |
+| Exportação | `GET /api/export/<DocType>` em streaming e `ddcore export` (também `--all`): percorre todo o conjunto filtrado por keyset, com tabelas filhas, manifesto de anexos com checksums, NDJSON ou CSV, sob a permissão `export`. |
 | SSE | `/api/events` e `ddcore.publish` para atualizações de documento/lista, progresso, jobs e eventos destinados a usuário. |
 | Servidor e MCP | Healthcheck, SPA e assets embutidos; `/mcp` no dev protegido por API key administrativa. |
 
-Referências: [CLI/API HTTP](agent/cli.md), [API](../internal/api/api.go) e
-[hub de eventos](../internal/engine/hub.go).
+Referências: [CLI/API HTTP](agent/cli.md), [exportação](agent/export.md),
+[API](../internal/api/api.go) e [hub de eventos](../internal/engine/hub.go).
 
 ## Desk
 
 | Capacidade | Implementação disponível |
 |---|---|
 | Rotas | Login, página inicial, workspace, lista, novo documento, formulário e relatório. |
-| Listas | Colunas da meta ou `defineListView`, busca, filtros, ordenação, paginação, contagem, Links, indicadores de status e CSV da página carregada. |
+| Listas | Colunas da meta ou `defineListView`, busca, filtros, ordenação, paginação, contagem, Links, indicadores de status e exportação da página carregada ou de todo o conjunto filtrado. |
 | Formulários | Layout por seção/coluna/aba; controles dos fieldtypes; estados calculados; salvar, enviar, cancelar, emendar, apagar e renomear. |
 | Grid de filhos | Edição inline ou dialog, inclusão/remoção, reordenação, larguras e propriedades alteráveis por form script. |
 | Scripts de tela | `defineForm`, `defineListView`, `frm.*`, filtros de Link, botões, ações, indicadores, chamadas assíncronas e propriedades dinâmicas. |
@@ -115,8 +116,6 @@ Referências: [CLI](agent/cli.md), [MCP](../internal/mcp/mcp.go),
 - `isSingle` existe no tipo de DocType, mas o migrador não cria a tabela de um
   Singleton; este documento não considera Settings persistente implementado.
 - `Password` é `text`; apenas senhas de login e secrets de API key recebem hash.
-- O CSV das listas/reports contém o resultado carregado no Desk, não uma exportação
-  integral e reconciliável de um DocType.
 - HTTP de saída e fila existem, mas não há produto de e-mail, notificações declarativas
   ou webhooks configuráveis.
 - Docstatus e controllers permitem aprovações específicas da app; não há motor

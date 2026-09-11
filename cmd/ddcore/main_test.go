@@ -179,3 +179,42 @@ func TestTestFlagsAcceptsApp(t *testing.T) {
 		t.Fatalf("--app = %q, esperado exemplo", *app)
 	}
 }
+
+// exportFlags mirrors cmdExport's declarations.
+func exportFlags() (*flag.FlagSet, *string, *string, *bool, *bool) {
+	fs := newFlagSet("export")
+	format := fs.String("format", "ndjson", "ndjson or csv")
+	filters := fs.String("filters", "", "filters as JSON")
+	children := fs.Bool("children", false, "include the child tables")
+	all := fs.Bool("all", false, "every DocType of the site")
+	return fs, format, filters, children, all
+}
+
+// The DocType comes first and the flags after it — the shape a person actually
+// types, and the one `flag` alone gets wrong (B22).
+func TestExportFlagsAfterPositional(t *testing.T) {
+	fs, format, filters, children, all := exportFlags()
+	err := parseFlags(fs, []string{"Project", "--children", "--format", "csv", "--filters", `[["status","=","Open"]]`})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fs.Arg(0) != "Project" || fs.NArg() != 1 {
+		t.Fatalf("posicional = %q (NArg %d)", fs.Arg(0), fs.NArg())
+	}
+	if *format != "csv" || !*children || *all {
+		t.Fatalf("format=%q children=%v all=%v", *format, *children, *all)
+	}
+	if *filters != `[["status","=","Open"]]` {
+		t.Fatalf("--filters = %q", *filters)
+	}
+}
+
+func TestExportAllTakesNoDoctype(t *testing.T) {
+	fs, _, _, _, all := exportFlags()
+	if err := parseFlags(fs, []string{"--all"}); err != nil {
+		t.Fatal(err)
+	}
+	if !*all || fs.NArg() != 0 {
+		t.Fatalf("all=%v NArg=%d", *all, fs.NArg())
+	}
+}
