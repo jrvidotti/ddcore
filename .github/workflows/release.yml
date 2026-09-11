@@ -42,32 +42,6 @@ jobs:
           go-version: '1.26'
           cache: true
 
-      - name: Build and Package Cross-Platform Binaries
-        run: |
-          mkdir -p dist
-          
-          build_target() {
-            OS=$1
-            ARCH=$2
-            OUTPUT="ddcore"
-            TAR_NAME="ddcore-${OS}-${ARCH}.tar.gz"
-            echo "==> Building for ${OS}/${ARCH}..."
-            
-            mkdir -p "dist/build_${OS}_${ARCH}"
-            CGO_ENABLED=0 GOOS=${OS} GOARCH=${ARCH} go build -ldflags="-s -w" -o "dist/build_${OS}_${ARCH}/${OUTPUT}" ./cmd/ddcore
-            
-            tar -czf "dist/${TAR_NAME}" -C "dist/build_${OS}_${ARCH}" "${OUTPUT}"
-            rm -rf "dist/build_${OS}_${ARCH}"
-          }
-
-          build_target linux amd64
-          build_target linux arm64
-          build_target darwin amd64
-          build_target darwin arm64
-
-          cd dist
-          sha256sum ddcore-*.tar.gz > SHA256SUMS
-
       - name: Determine Release Tag
         id: release_info
         run: |
@@ -81,6 +55,35 @@ jobs:
             echo "tag=latest" >> $GITHUB_OUTPUT
             echo "prerelease=false" >> $GITHUB_OUTPUT
           fi
+
+      - name: Build and Package Cross-Platform Binaries
+        run: |
+          mkdir -p dist
+          TAG="${{ steps.release_info.outputs.tag }}"
+          
+          build_target() {
+            OS=$1
+            ARCH=$2
+            OUTPUT="ddcore"
+            TAR_NAME="ddcore-${OS}-${ARCH}.tar.gz"
+            echo "==> Building for ${OS}/${ARCH} with version ${TAG}..."
+            
+            mkdir -p "dist/build_${OS}_${ARCH}"
+            CGO_ENABLED=0 GOOS=${OS} GOARCH=${ARCH} go build \
+              -ldflags="-s -w -X github.com/jrvidotti/ddcore/internal/engine.Version=${TAG}" \
+              -o "dist/build_${OS}_${ARCH}/${OUTPUT}" ./cmd/ddcore
+            
+            tar -czf "dist/${TAR_NAME}" -C "dist/build_${OS}_${ARCH}" "${OUTPUT}"
+            rm -rf "dist/build_${OS}_${ARCH}"
+          }
+
+          build_target linux amd64
+          build_target linux arm64
+          build_target darwin amd64
+          build_target darwin arm64
+
+          cd dist
+          sha256sum ddcore-*.tar.gz > SHA256SUMS
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
@@ -113,6 +116,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Determine Docker Image Version
+        id: docker_version
+        run: |
+          if [ -n "${{ github.event.inputs.tag }}" ]; then
+            echo "version=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "version=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          fi
+
       - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -131,5 +145,7 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ steps.docker_version.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

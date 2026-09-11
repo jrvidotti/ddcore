@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"syscall"
@@ -51,6 +52,7 @@ Usage: ddcore <command> [options]
   mcp         MCP server (stdio) for agents
   docs        print the framework documentation
   doctor      check the database, the meta and the scheduler
+  version     print the framework version
 
 Variables: DDCORE_DSN overrides the dsn in ddcore.json.
 `
@@ -102,10 +104,13 @@ func main() {
 		fmt.Print(mcp.Docs(name))
 	case "doctor":
 		err = cmdDoctor(args)
+	case "version", "-v", "--version":
+		fmt.Printf("ddcore %s (%s/%s)\n", engine.Version, runtime.GOOS, runtime.GOARCH)
+		return
 	case "help", "-h", "--help":
 		fmt.Print(usage)
 	default:
-		fmt.Fprintf(os.Stderr, "comando desconhecido: %s\n\n%s", cmd, usage)
+		fmt.Fprintf(os.Stderr, "unknown command: %s\n\n%s", cmd, usage)
 		os.Exit(2)
 	}
 	if err != nil {

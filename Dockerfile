@@ -20,7 +20,10 @@ COPY . .
 COPY --from=desk-build /src/desk/build ./desk/build
 
 ARG TARGETOS TARGETARCH
-RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -ldflags="-s -w" -o /bin/ddcore ./cmd/ddcore
+ARG VERSION=dev
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build \
+    -ldflags="-s -w -X github.com/jrvidotti/ddcore/internal/engine.Version=${VERSION}" \
+    -o /bin/ddcore ./cmd/ddcore
 
 # Stage 3: Minimal runner image
 FROM alpine:3.21 AS runner

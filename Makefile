@@ -1,6 +1,8 @@
 .PHONY: build desk test check vet i18n test-go test-desk dev stop kill migrate help docker-up docker-down docker-logs docker-status docker-psql db-up db-down db-logs db-status db-psql
 
 PORT ?= 8090
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+LDFLAGS := -s -w -X github.com/jrvidotti/ddcore/internal/engine.Version=$(VERSION)
 
 help: ## display this list of help commands
 	@grep -E '^[a-zA-Z0-9_-]+:.*##' $(MAKEFILE_LIST) | sed 's/:.*##/ —/'
@@ -27,7 +29,7 @@ db-status: docker-status ## alias for docker-status
 db-psql: docker-psql ## alias for docker-psql
 
 build: desk ## compile desk + binary
-	go build -o bin/ddcore ./cmd/ddcore
+	go build -ldflags="$(LDFLAGS)" -o bin/ddcore ./cmd/ddcore
 
 desk: ## compile desk (SvelteKit) into desk/build (embedded into binary)
 	cd desk && npm install --silent && npm run build
