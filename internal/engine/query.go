@@ -80,10 +80,10 @@ func (c *Ctx) filterSQL(d *meta.DocType, b *db.Builder, filters []db.Filter, col
 		if !hasChildTable(d, ct) {
 			return "", fmt.Errorf("%s is not a child table of %s", ct, d.Name)
 		}
-		byChild[ct] = append(byChild[ct], db.Filter{Field: cf, Op: f.Op, Value: f.Value})
 		if _, seen := byChild[ct]; !seen {
 			order = append(order, ct)
 		}
+		byChild[ct] = append(byChild[ct], db.Filter{Field: cf, Op: f.Op, Value: f.Value})
 	}
 	var parts []string
 	for _, f := range own {
