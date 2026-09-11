@@ -34,7 +34,7 @@ func (c *Ctx) Enqueue(method string, args map[string]any, opts map[string]any) (
 	}
 	runAfter := time.Now()
 	if ra, ok := opts["runAfter"].(string); ok && ra != "" {
-		if t := parseTime(ra); !t.IsZero() {
+		if t := parseTime(ra, c.E.Location()); !t.IsZero() {
 			runAfter = t
 		}
 	}
@@ -212,7 +212,10 @@ func (e *Engine) LogError(ctx context.Context, method string, err error) {
 
 // StartScheduler registers cron entries from every app's scheduler block.
 func (e *Engine) StartScheduler(ctx context.Context) *cron.Cron {
-	cr := cron.New()
+	// the site's midnight, not the process's: "daily" means the start of the
+	// day the business is having, and a server in another zone was firing it
+	// hours early or late with nothing to show for it
+	cr := cron.New(cron.WithLocation(e.Location()))
 	add := func(spec string, fns []any) {
 		for _, f := range fns {
 			method := fmt.Sprint(f)

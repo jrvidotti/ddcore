@@ -244,7 +244,7 @@ func TestB21_DbSetAtualizaModified(t *testing.T) {
 		if out.Str("obs") != "tocado" || atual.Str("obs") != "tocado" {
 			t.Fatalf("obs não foi gravado: %v / %v", out["obs"], atual["obs"])
 		}
-		if !sameTime(out["modified"], atual["modified"]) {
+		if !sameTime(out["modified"], atual["modified"], time.UTC) {
 			t.Fatalf("runMethod devolveu modified desatualizado: %v != %v", out["modified"], atual["modified"])
 		}
 		return nil

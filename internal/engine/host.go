@@ -94,7 +94,15 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		}
 		return c.St.I18n.Catalogue(lang), nil
 	case "formatCurrency":
-		return FormatCurrency(toFloat(a.Value), orDefault(a.Currency, e.Cfg.Currency), c.Lang), nil
+		return FormatCurrency(toFloat(a.Value), orDefault(a.Currency, e.Cfg.Currency), c.Lang, e.CurrencyPrecision()), nil
+	case "site":
+		// everything about the site the app runtime needs but must not cross
+		// the bridge for repeatedly: it is immutable inside a State, so the
+		// prelude mirrors it once per VM, as it already does the catalogue
+		return map[string]any{
+			"currency": e.Cfg.Currency, "currencyPrecision": e.CurrencyPrecision(),
+			"rounding": e.Cfg.Rounding.String(), "timezone": e.Cfg.Timezone, "name": e.Cfg.SiteName,
+		}, nil
 	case "getMeta":
 		d, err := c.St.DocType(a.Doctype)
 		return d, err
@@ -292,7 +300,7 @@ func saveOpts(o map[string]any) SaveOpts {
 // American reading it in Portuguese still wants "$" if it is USD. Choosing the
 // language tag *from the currency*, as this did, conflated them and got both
 // wrong for every mixed case.
-func FormatCurrency(v float64, code, lang string) string {
+func FormatCurrency(v float64, code, lang string, precision int) string {
 	tag, err := language.Parse(lang)
 	if err != nil {
 		tag = language.English
@@ -301,7 +309,7 @@ func FormatCurrency(v float64, code, lang string) string {
 	if err != nil {
 		// an unknown code prints as itself: "XYZ 1,234.50" is honest, and
 		// borrowing another currency's symbol would not be
-		return code + " " + message.NewPrinter(tag).Sprintf("%.2f", v)
+		return code + " " + message.NewPrinter(tag).Sprintf("%.*f", precision, v)
 	}
 	return message.NewPrinter(tag).Sprint(currency.Symbol(u.Amount(v)))
 }

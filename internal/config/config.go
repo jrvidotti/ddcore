@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+
+	"github.com/jrvidotti/ddcore/internal/num"
 )
 
 type File struct {
@@ -18,9 +20,16 @@ type File struct {
 	Site      string   `json:"site"`
 	Lang      string   `json:"lang"`
 	Currency  string   `json:"currency"`
-	Timezone  string   `json:"timezone"`
-	DataDir   string   `json:"dataDir"`
-	Dev       bool     `json:"dev"`
+	// CurrencyPrecision overrides how many decimal places a Currency field is
+	// rounded to. Nil means "the currency's own minor unit" — 2 for USD, 0 for
+	// JPY — which is right far more often than any number written here.
+	CurrencyPrecision *int `json:"currencyPrecision"`
+	// Rounding is "commercial" (half away from zero, the default) or "bankers"
+	// (half to even).
+	Rounding string `json:"rounding"`
+	Timezone string `json:"timezone"`
+	DataDir  string `json:"dataDir"`
+	Dev      bool   `json:"dev"`
 }
 
 const Name = "ddcore.json"
@@ -55,12 +64,27 @@ func Load(dir string) (*File, string, error) {
 			f.Apps[i] = filepath.Join(base, a)
 		}
 	}
+	if _, err := num.ParseRounding(f.Rounding); err != nil {
+		// money is not a place to guess: a site that asks for a rounding rule
+		// nobody implements must not quietly get a different one
+		return nil, "", fmt.Errorf("%s: %w", path, err)
+	}
+	if f.CurrencyPrecision != nil && (*f.CurrencyPrecision < 0 || *f.CurrencyPrecision > 9) {
+		return nil, "", fmt.Errorf("%s: currencyPrecision must be between 0 and 9", path)
+	}
 	if f.DataDir == "" {
 		f.DataDir = filepath.Join(base, "data")
 	} else if !filepath.IsAbs(f.DataDir) {
 		f.DataDir = filepath.Join(base, f.DataDir)
 	}
 	return f, path, nil
+}
+
+// RoundingMode is the site's rounding rule. Load already refused an
+// unrecognised one, so there is nothing left to report here.
+func (f *File) RoundingMode() num.Rounding {
+	r, _ := num.ParseRounding(f.Rounding)
+	return r
 }
 
 func find(dir string) (string, error) {
