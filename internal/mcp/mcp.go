@@ -441,6 +441,91 @@ func New(e *engine.Engine) *mcp.Server {
 			return text(rows), nil, nil
 		})
 
+	// Job administration. These read and write ddcore_job, which is a framework
+	// table and not a DocType, so list_docs cannot reach it.
+	//
+	// Payloads are absent here for the same reason they are absent from the HTTP
+	// API: a queued password-reset mail job carries its recovery link in its
+	// arguments, and `ddcore jobs show` is the one path to that.
+	mcp.AddTool(srv, &mcp.Tool{Name: "list_jobs", Description: "Background jobs, newest first, filtered by status, queue, method or user. Arguments and results are not included."},
+		func(ctx context.Context, req *mcp.CallToolRequest, in struct {
+			Status string `json:"status,omitempty" jsonschema:"queued, running, done, failed or cancelled (comma-separated)"`
+			Queue  string `json:"queue,omitempty"`
+			Method string `json:"method,omitempty" jsonschema:"exact dotted method path"`
+			User   string `json:"user,omitempty"`
+			Limit  int    `json:"limit,omitempty"`
+		}) (*mcp.CallToolResult, any, error) {
+			f := engine.JobFilter{Queue: in.Queue, Method: in.Method, User: in.User, Limit: in.Limit}
+			for _, v := range strings.Split(in.Status, ",") {
+				if v = strings.TrimSpace(v); v != "" {
+					f.Status = append(f.Status, v)
+				}
+			}
+			rows, err := e.ListJobs(ctx, f)
+			if err != nil {
+				return fail(err)
+			}
+			return text(rows), nil, nil
+		})
+
+	mcp.AddTool(srv, &mcp.Tool{Name: "get_job", Description: "One background job, without its arguments or result."},
+		func(ctx context.Context, req *mcp.CallToolRequest, in struct {
+			ID int64 `json:"id"`
+		}) (*mcp.CallToolResult, any, error) {
+			j, err := e.GetJob(ctx, in.ID, false)
+			if err != nil {
+				return fail(err)
+			}
+			return text(j), nil, nil
+		})
+
+	mcp.AddTool(srv, &mcp.Tool{Name: "retry_job", Description: "Queues a failed or cancelled job again, as a new job. The original row is kept as the record of the failure."},
+		func(ctx context.Context, req *mcp.CallToolRequest, in struct {
+			ID    int64 `json:"id"`
+			Force bool  `json:"force,omitempty" jsonschema:"retry again a job that was already retried"`
+		}) (*mcp.CallToolResult, any, error) {
+			act, err := e.RetryJob(ctx, in.ID, in.Force)
+			if err != nil {
+				return fail(err)
+			}
+			return text(act), nil, nil
+		})
+
+	mcp.AddTool(srv, &mcp.Tool{Name: "cancel_job", Description: "Stops a job. A queued job is cancelled outright; a running one is interrupted by its worker within a few seconds, and effects it has already had outside the database are not undone."},
+		func(ctx context.Context, req *mcp.CallToolRequest, in struct {
+			ID int64 `json:"id"`
+		}) (*mcp.CallToolResult, any, error) {
+			act, err := e.CancelJob(ctx, in.ID, "Administrator")
+			if err != nil {
+				return fail(err)
+			}
+			return text(act), nil, nil
+		})
+
+	mcp.AddTool(srv, &mcp.Tool{Name: "purge_jobs", Description: "Deletes finished jobs past their retention window. Without arguments it uses the site's own windows; dry_run reports what would go."},
+		func(ctx context.Context, req *mcp.CallToolRequest, in struct {
+			DoneDays   *int `json:"done_days,omitempty" jsonschema:"days to keep done jobs; 0 keeps them forever"`
+			FailedDays *int `json:"failed_days,omitempty" jsonschema:"days to keep failed and cancelled jobs; 0 keeps them forever"`
+			DryRun     bool `json:"dry_run,omitempty"`
+		}) (*mcp.CallToolResult, any, error) {
+			o := engine.PurgeOpts{
+				DoneDays:   e.Cfg.Ops.DoneRetentionDays(),
+				FailedDays: e.Cfg.Ops.FailedRetentionDays(),
+				DryRun:     in.DryRun,
+			}
+			if in.DoneDays != nil {
+				o.DoneDays = *in.DoneDays
+			}
+			if in.FailedDays != nil {
+				o.FailedDays = *in.FailedDays
+			}
+			n, err := e.PurgeJobs(ctx, o)
+			if err != nil {
+				return fail(err)
+			}
+			return text(n), nil, nil
+		})
+
 	mcp.AddTool(srv, &mcp.Tool{Name: "reload", Description: "Rebuilds and reloads the apps (`ddcore dev` already does this when a file is saved)."},
 		func(ctx context.Context, req *mcp.CallToolRequest, in struct{}) (*mcp.CallToolResult, any, error) {
 			if err := e.Load(); err != nil {

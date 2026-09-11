@@ -46,7 +46,7 @@ Usage: ddcore <command> [options]
   eval        run loose TS: ddcore eval 'ddcore.db.count("User")' [--commit]
   demo        seed example data (<app>.services.demo.generate, idempotent)
   export      export a DocType (or --all) to NDJSON/CSV with a manifest
-  jobs        jobs list | jobs run <fn> | jobs work
+  jobs        inspect, retry, cancel and purge the queue (run: ddcore jobs)
   user        user add|invite|passwd|reset|unlock|sessions (run: ddcore user)
   apikey      apikey <user> [--label x] [--days N]  → prints key:secret
   mcp         MCP server (stdio) for agents
@@ -534,46 +534,6 @@ func cmdDemo(args []string) error {
 	}
 	if ran == 0 {
 		return fmt.Errorf("no app has `services/demo.ts`")
-	}
-	return nil
-}
-
-func cmdJobs(args []string) error {
-	if len(args) < 1 {
-		return fmt.Errorf("uso: ddcore jobs list|run <fn>|work")
-	}
-	e, cfg, err := load(false, false)
-	if err != nil {
-		return err
-	}
-	defer e.DB.Close()
-	ctx := context.Background()
-	switch args[0] {
-	case "list":
-		for _, s := range e.ScheduledMethods() {
-			fmt.Println(s)
-		}
-	case "run":
-		if len(args) < 2 {
-			return fmt.Errorf("uso: ddcore jobs run <fn>")
-		}
-		res, err := e.RunJob(ctx, "Administrator", args[1], nil)
-		if err != nil {
-			return err
-		}
-		fmt.Println(string(res))
-	case "work":
-		ctx, cancel := signal.NotifyContext(ctx, os.Interrupt)
-		defer cancel()
-		for i := 0; i < cfg.Workers; i++ {
-			go e.Worker(ctx, i)
-		}
-		if cfg.Scheduler {
-			e.StartScheduler(ctx)
-		}
-		<-ctx.Done()
-	default:
-		return fmt.Errorf("unknown subcommand: %s", args[0])
 	}
 	return nil
 }

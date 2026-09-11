@@ -23,7 +23,7 @@ flag is an error (it never becomes an argument silently).
 | `ddcore eval '<ts>' [--commit]` | runs loose TS with `ddcore.*` (rolls back by default) |
 | `ddcore demo [--app name]` | runs `<app>.services.demo.generate` for every app that has `services/demo.ts` |
 | `ddcore export <DocType>\|--all [--children] [--attachments] [--out DIR]` | exports the whole set to NDJSON/CSV with a manifest of checksums (see `export`) |
-| `ddcore jobs list\|run <fn>\|work` | scheduler and queue |
+| `ddcore jobs list\|show\|stats\|retry\|cancel\|purge\|scheduled\|run <fn>\|work` | the queue and the scheduler (see `ops`); `show` is the only command that prints a job's arguments |
 | `ddcore user add <email> <name> --password x --role R` / `user passwd <email> <password>` | users; `passwd` also ends that user's other sessions |
 | `ddcore user invite <email> <name> --role R` | creates the account with no password and sends the invitation link |
 | `ddcore user reset <email>` | sends a password-recovery link |

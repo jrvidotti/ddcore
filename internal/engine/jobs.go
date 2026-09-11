@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync/atomic"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/robfig/cron/v3"
 
 	"github.com/jrvidotti/ddcore/internal/cerr"
@@ -17,10 +19,21 @@ import (
 // Job execution limits. The lease is renewed by heartbeat while the worker
 // is alive; if the process crashes, the job returns to the queue when the lease
 // expires (B15).
-const (
-	jobLease          = 2 * time.Minute
-	jobHeartbeat      = 30 * time.Second
-	defaultJobTimeout = 300 // seconds
+const defaultJobTimeout = 300 // seconds
+
+// Vars and not consts so the tests can shrink them: a cancellation test that
+// waits five real seconds per case is a test that gets skipped.
+var (
+	jobLease = 2 * time.Minute
+	// Renewal is a write against an indexed column, so it is not a HOT update:
+	// every tick churns ddcore_job_lease and leaves a dead tuple behind. A third
+	// of the lease tolerates two consecutive failures before another worker may
+	// steal the job, which is all the margin this needs.
+	jobLeaseRenew = jobLease / 3
+	// The cancellation check is a primary-key read and can afford to be frequent.
+	// Keeping it separate from the renewal is the whole point: one interval per
+	// question, instead of paying the write cost at the read's frequency.
+	jobCancelPoll = 5 * time.Second
 )
 
 // Enqueue stores a job in ddcore_job; workers pick it with SKIP LOCKED.
@@ -44,10 +57,22 @@ func (c *Ctx) Enqueue(method string, args map[string]any, opts map[string]any) (
 			timeout = n
 		}
 	}
+	// max_attempts had a default and no way to set it, so a job whose failure is
+	// permanent was retried three times regardless.
+	maxAttempts := 3
+	if m, ok := opts["maxAttempts"]; ok {
+		if n := int(toFloat(m)); n > 0 {
+			maxAttempts = n
+		}
+	}
 	b, _ := json.Marshal(args)
 	var id int64
-	err := c.Q().QueryRow(c.Ctx, `INSERT INTO ddcore_job (method, args, queue, "user", run_after, timeout_seconds) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-		method, string(b), queue, c.User, runAfter, timeout).Scan(&id)
+	// The request id travels with the job, so the work a request queued can be
+	// found from the request, and the other way round.
+	err := c.Q().QueryRow(c.Ctx, `INSERT INTO ddcore_job
+		(method, args, queue, "user", run_after, timeout_seconds, max_attempts, request_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, NULLIF($8, '')) RETURNING id`,
+		method, string(b), queue, c.User, runAfter, timeout, maxAttempts, RequestIDFrom(c.Ctx)).Scan(&id)
 	return id, err
 }
 
@@ -78,14 +103,54 @@ func (e *Engine) RunJob(ctx context.Context, user, method string, args map[strin
 }
 
 // requeueStale puts back jobs whose worker died: running status with expired
-// lease returns to queued (or failed if attempts are exhausted).
+// lease returns to queued (or failed if attempts are exhausted), and a job that
+// was cancelled while running stays cancelled rather than being resurrected by
+// the very sweep meant to recover crashed workers.
+//
+// It stays one statement even though it decides three ways. Every worker runs
+// it every couple of seconds, so three statements would mean three scans and
+// three chances to interleave; one UPDATE ... RETURNING under READ COMMITTED
+// hands each concurrent worker only the rows it actually changed, which is what
+// makes the publish below exactly-once without any coordination.
+//
+// The error column is only written on the branch that gives up. It used to be
+// set unconditionally, so a job about to run again sat in the queue advertising
+// a failure that had not happened yet, and whatever the previous attempt
+// actually reported was destroyed.
 func (e *Engine) requeueStale(ctx context.Context) error {
-	_, err := e.DB.Pool.Exec(ctx, `UPDATE ddcore_job
-		SET status = CASE WHEN attempts < max_attempts THEN 'queued' ELSE 'failed' END,
-		    lease_until = NULL, finished = CASE WHEN attempts < max_attempts THEN NULL ELSE now() END,
-		    error = 'worker interrupted: lease expired'
-		WHERE status = 'running' AND lease_until IS NOT NULL AND lease_until < now()`)
-	return err
+	const q = `UPDATE ddcore_job SET
+		status = CASE WHEN cancel_requested IS NOT NULL THEN 'cancelled'
+		              WHEN attempts < max_attempts      THEN 'queued'
+		              ELSE 'failed' END,
+		lease_until = NULL,
+		finished = CASE WHEN cancel_requested IS NULL AND attempts < max_attempts
+		                THEN NULL ELSE now() END,
+		started = CASE WHEN cancel_requested IS NULL AND attempts < max_attempts
+		               THEN NULL ELSE started END,
+		run_after = CASE WHEN cancel_requested IS NULL AND attempts < max_attempts
+		                 THEN now() + interval '30 seconds' ELSE run_after END,
+		error = CASE WHEN cancel_requested IS NOT NULL THEN error
+		             WHEN attempts < max_attempts      THEN NULL
+		             ELSE 'worker interrupted: lease expired' END
+		WHERE status = 'running' AND lease_until IS NOT NULL AND lease_until < now()
+		RETURNING id, method, status, "user"`
+	rows, err := db.Select(ctx, e.DB.Pool, q)
+	if err != nil {
+		return err
+	}
+	// A job that ended here ends without anyone having been told. The enqueuer
+	// is waiting on job_done and would otherwise wait for a worker that is gone.
+	for _, r := range rows {
+		if db.Str(r["status"]) == "queued" {
+			continue
+		}
+		e.Events.Publish(Event{Name: "job_done", Payload: map[string]any{
+			"id": int64(toFloat(r["id"])), "method": db.Str(r["method"]),
+			"ok": false, "cancelled": db.Str(r["status"]) == "cancelled",
+			"error": "worker interrupted: lease expired",
+		}, User: db.Str(r["user"])})
+	}
+	return nil
 }
 
 // Worker loops over queued jobs until ctx is cancelled.
@@ -120,7 +185,8 @@ func (e *Engine) runOneJob(ctx context.Context) (bool, error) {
 	}
 	defer tx.Rollback(ctx)
 	rows, err := db.Select(ctx, tx, `SELECT id, method, args, "user", attempts, max_attempts, timeout_seconds FROM ddcore_job
-		WHERE status = 'queued' AND run_after <= now() ORDER BY id LIMIT 1 FOR UPDATE SKIP LOCKED`)
+		WHERE status = 'queued' AND run_after <= now() AND cancel_requested IS NULL
+		ORDER BY id LIMIT 1 FOR UPDATE SKIP LOCKED`)
 	if err != nil || len(rows) == 0 {
 		return false, err
 	}
@@ -142,46 +208,148 @@ func (e *Engine) runOneJob(ctx context.Context) (bool, error) {
 	method := db.Str(j["method"])
 	e.Log.Info("job", "id", id, "method", method)
 
+	attempt := int(toFloat(j["attempts"])) + 1
+	user := db.Str(j["user"])
 	timeout := time.Duration(orInt(toFloat(j["timeout_seconds"]), defaultJobTimeout)) * time.Second
 	jobCtx, cancel := context.WithTimeout(ctx, timeout)
-	stopBeat := e.heartbeat(ctx, id)
-	res, runErr := e.RunJob(jobCtx, db.Str(j["user"]), method, args)
-	stopBeat()
+	// The flag, and not the error, is what identifies a cancellation. Both an
+	// administrative cancel and a worker shutting down interrupt the VM through
+	// a context and surface as context.Canceled, and RunJob rewrites the timeout
+	// into a fresh cerr with no Unwrap — so the returned error cannot tell the
+	// three apart, and only the callback knows which one happened.
+	var cancelled atomic.Bool
+	stopBeat := e.heartbeat(ctx, id, attempt, func(reason string) {
+		if reason == "cancelled" {
+			cancelled.Store(true)
+		}
+		cancel()
+	})
+	res, runErr := e.RunJob(jobCtx, user, method, args)
+	stopBeat() // joins the goroutine, so the flag is visible below
+	jobErr := jobCtx.Err()
 	cancel()
-	if runErr != nil {
-		attempts, max := int(toFloat(j["attempts"]))+1, int(toFloat(j["max_attempts"]))
+
+	// Terminal writes are fenced on the attempt that produced them and run on a
+	// context detached from the worker's. Attached, they were skipped outright
+	// when the worker was shutting down — and their error was discarded, so the
+	// row simply stayed "running" until its lease expired, with nothing said.
+	wctx, wcancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer wcancel()
+	write := func(sql string, a ...any) {
+		if _, err := e.DB.Pool.Exec(wctx, sql, a...); err != nil {
+			e.Log.Error("job finalize", "id", id, "err", err)
+		}
+	}
+	publish := func(payload map[string]any) {
+		payload["id"], payload["method"] = id, method
+		e.Events.Publish(Event{Name: "job_done", Payload: payload, User: user})
+	}
+
+	switch {
+	case runErr == nil:
+		// First, deliberately: a cancellation that arrives as the call returns
+		// finds work that already committed, and calling that "cancelled" would
+		// report a rollback that never happened.
+		write(`UPDATE ddcore_job SET status = 'done', finished = now(), lease_until = NULL, result = $2
+			WHERE id = $1 AND status = 'running' AND attempts = $3`, id, string(orJSON(res)), attempt)
+		publish(map[string]any{"ok": true})
+
+	case cancelled.Load():
+		// Asked for by a person. Not retried however many attempts remain, and
+		// no Error Log row: a cancellation is not a fault, and logging it as one
+		// would bury real errors and push the health report over its threshold.
+		write(`UPDATE ddcore_job SET status = 'cancelled', finished = now(), lease_until = NULL,
+			error = 'cancelled by ' || COALESCE(cancelled_by, 'an administrator')
+			WHERE id = $1 AND status = 'running' AND attempts = $2`, id, attempt)
+		publish(map[string]any{"ok": false, "cancelled": true})
+
+	case ctx.Err() != nil && !errors.Is(jobErr, context.DeadlineExceeded):
+		// The worker is stopping, so the job did not fail — it was never allowed
+		// to finish. Give it back without consuming the attempt, or a rolling
+		// restart would exhaust max_attempts on work nothing is wrong with.
+		write(`UPDATE ddcore_job SET status = 'queued', attempts = attempts - 1, started = NULL,
+			lease_until = NULL, error = NULL, run_after = now()
+			WHERE id = $1 AND status = 'running' AND attempts = $2`, id, attempt)
+
+	default:
 		status := "failed"
-		if attempts < max {
+		if attempt < int(toFloat(j["max_attempts"])) {
 			status = "queued"
 		}
-		e.DB.Pool.Exec(ctx, `UPDATE ddcore_job SET status = $2, error = $3, finished = now(), lease_until = NULL, run_after = now() + interval '30 seconds' WHERE id = $1`, id, status, runErr.Error())
+		// A job going back to the queue has not finished. Stamping it anyway left
+		// live queued rows carrying a finish time, which any retention sweep
+		// keyed on `finished` would read as "terminal and old enough to delete".
+		write(`UPDATE ddcore_job SET status = $2, error = $3,
+			finished = CASE WHEN $2 = 'queued' THEN NULL ELSE now() END,
+			lease_until = NULL, run_after = now() + interval '30 seconds'
+			WHERE id = $1 AND status = 'running' AND attempts = $4`,
+			id, status, runErr.Error(), attempt)
 		// A failed run gets a handle of its own, so an Error Log row points at
 		// one execution and not merely at a method name.
 		e.LogError(WithRequestID(ctx, fmt.Sprintf("job:%d", id)), "job:"+method, runErr)
-		e.Events.Publish(Event{Name: "job_done", Payload: map[string]any{"id": id, "method": method, "ok": false, "error": runErr.Error()}, User: db.Str(j["user"])})
-		return true, nil
+		publish(map[string]any{"ok": false, "error": runErr.Error()})
 	}
-	e.DB.Pool.Exec(ctx, `UPDATE ddcore_job SET status = 'done', finished = now(), lease_until = NULL, result = $2 WHERE id = $1`, id, string(orJSON(res)))
-	e.Events.Publish(Event{Name: "job_done", Payload: map[string]any{"id": id, "method": method, "ok": true}, User: db.Str(j["user"])})
 	return true, nil
 }
 
-// heartbeat renews the lease while the job runs; returns a stop function.
-func (e *Engine) heartbeat(ctx context.Context, id int64) func() {
+// heartbeat renews the lease while the job runs and watches for a cancellation
+// request; returns a stop function that joins the goroutine.
+//
+// The renewal is fenced on the attempt that started it. Without the fence this
+// sequence silently loses work: the heartbeat misses enough ticks for the lease
+// to expire, another worker requeues and re-claims the job, and the first worker
+// — still running — finishes and stamps its own result over the second attempt.
+// No rows back means the row is no longer ours, and the right response is to
+// stop touching it.
+//
+// onCancel is called at most once, and the caller decides what it means; the
+// reason distinguishes a genuine cancellation from a lost lease, because only
+// the former is an administrative act worth recording as one.
+func (e *Engine) heartbeat(ctx context.Context, id int64, attempt int, onCancel func(reason string)) func() {
 	done := make(chan struct{})
 	stopped := make(chan struct{})
 	go func() {
 		defer close(stopped)
-		t := time.NewTicker(jobHeartbeat)
-		defer t.Stop()
+		renew := time.NewTicker(jobLeaseRenew)
+		defer renew.Stop()
+		poll := time.NewTicker(jobCancelPoll)
+		defer poll.Stop()
 		for {
 			select {
 			case <-done:
 				return
 			case <-ctx.Done():
 				return
-			case <-t.C:
-				e.DB.Pool.Exec(ctx, `UPDATE ddcore_job SET lease_until = now() + $2::interval WHERE id = $1 AND status = 'running'`, id, jobLease.String())
+			case <-renew.C:
+				var cancelReq *time.Time
+				err := e.DB.Pool.QueryRow(ctx, `UPDATE ddcore_job SET lease_until = now() + $2::interval
+					WHERE id = $1 AND status = 'running' AND attempts = $3
+					RETURNING cancel_requested`, id, jobLease.String(), attempt).Scan(&cancelReq)
+				switch {
+				case errors.Is(err, pgx.ErrNoRows):
+					onCancel("lease lost")
+					return
+				case err != nil:
+					// Not fatal on its own: the lease has room for a missed tick.
+					// It used to be discarded, which is how a dying heartbeat
+					// became a silently duplicated job.
+					e.Log.Warn("heartbeat", "id", id, "err", err)
+				case cancelReq != nil:
+					onCancel("cancelled")
+					return
+				}
+			case <-poll.C:
+				var cancelReq *time.Time
+				var status string
+				if err := e.DB.Pool.QueryRow(ctx,
+					`SELECT status, cancel_requested FROM ddcore_job WHERE id = $1`, id).
+					Scan(&status, &cancelReq); err != nil {
+					continue
+				}
+				if cancelReq != nil {
+					onCancel("cancelled")
+					return
+				}
 			}
 		}
 	}()

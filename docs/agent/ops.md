@@ -71,7 +71,7 @@ endpoint:
   "version": "0.4.1",
   "database": { "ok": true, "latencyMs": 2.1, "conns": 3, "idle": 2, "maxConns": 10 },
   "queue": { "queued": 12, "runnable": 11, "running": 2, "stalled": 0,
-             "failedInWindow": 1, "doneInWindow": 340,
+             "failedInWindow": 1, "doneInWindow": 340, "cancelledInWindow": 0,
              "oldestQueuedSeconds": 252, "longestRunningSeconds": 3, "windowMinutes": 15 },
   "errors": { "inWindow": 3, "windowMinutes": 15,
               "latest": [{ "name": "…", "method": "job:demo.tasks.sweep", "requestId": "job:412" }] },
@@ -89,6 +89,10 @@ Two numbers in `queue` are easy to confuse. `queued` is every job waiting;
 *behind* — a job enqueued to run tomorrow is not a backlog, and it does not age
 the queue either. `stalled` is running jobs whose lease expired: the worker
 holding them is gone, and it is the same set a live worker would put back.
+
+`cancelledInWindow` is counted apart from `failedInWindow` on purpose: a job
+somebody stopped is not a fault, and adding the two together would send an
+operator hunting a bug that was in fact a decision.
 
 ## Request correlation
 
@@ -172,15 +176,22 @@ exactly like production, or the rehearsal is not a rehearsal.
     "jobFailures": 5,
     "errorLogEntries": 20,
     "readyTimeoutMs": 2000,
-    "slowRequestMs": 2000
+    "slowRequestMs": 2000,
+    "jobRetentionDays": 7,
+    "jobRetentionFailedDays": 30
   }
 }
 ```
 
-Every field may be omitted; what is left out keeps the value above. A field
+Every field may be omitted; what is left out keeps the value above. A threshold
 written as zero or negative is refused at boot rather than quietly replaced —
 a zero threshold is not "no threshold", it is an alarm that fires on the first
 job.
+
+The two retention windows are the exception, and deliberately so: there **zero
+means keep forever**, because "delete nothing" is a real answer for a table of
+failures and the thresholds above have no such reading. Only a negative
+retention window is refused.
 
 ## `ddcore doctor`
 
@@ -209,6 +220,104 @@ a script failing on it.
 `--json` prints the same report as a JSON object, for a cron that wants to feed
 it somewhere.
 
+## Job administration
+
+The queue is administered from the CLI and from a small HTTP surface. Both read
+and write `ddcore_job`, which is a framework table and not a DocType, so it has
+no list view and no `/api/resource` route.
+
+```
+ddcore jobs list [--status s] [--queue q] [--method m] [--user u] [--since 1h] [--limit N] [--json]
+ddcore jobs show <id> [--json]
+ddcore jobs stats [--window N] [--json]
+ddcore jobs retry <id>... | --failed [--queue q] [--since 1h] [--limit N] [--force] [--dry-run]
+ddcore jobs cancel <id>...
+ddcore jobs purge [--done-days N] [--failed-days N] [--dry-run]
+ddcore jobs scheduled
+ddcore jobs run <fn>
+ddcore jobs work
+```
+
+`jobs list` shows the queue. What it used to print — the cron declarations — is
+now `jobs scheduled`.
+
+Over HTTP, all of it requires the **System Manager** role: `GET /api/jobs`
+(filters as above, `limit`, `start`, `with_count=1`), `GET /api/jobs/{id}`,
+`GET /api/jobs/stats`, `POST /api/jobs/{id}/retry`, `POST /api/jobs/{id}/cancel`
+and `POST /api/jobs/purge`. The MCP tools `list_jobs`, `get_job`, `retry_job`,
+`cancel_job` and `purge_jobs` are the same operations.
+
+**A job's arguments and result are never returned over HTTP or MCP.** They are
+printed by `ddcore jobs show` and nowhere else. This is not tidiness: the
+framework's own mail job is enqueued with the rendered message, so a queued
+password-reset job holds a working recovery link in `args.html`. The CLI already
+requires the database; a browser session should not become a second way to read
+that.
+
+A job carries the `request_id` of the request that queued it, so the work a
+request set off can be found from the request and the other way round. Jobs the
+scheduler queues have none — nothing asked for them.
+
+### Statuses
+
+`queued` → `running` → `done`, `failed` or `cancelled`. A failing job goes back
+to `queued` while attempts remain, after a thirty-second pause; `enqueue` takes
+`maxAttempts` to change how many that is. The status values are also what
+`--status` accepts, so they stay in English on a translated site.
+
+### Cancelling
+
+Cancelling a **queued** job is immediate and final. Cancelling a **running** job
+records the request and answers `cancelling`, never `cancelled`: the worker acts
+on it within about five seconds, and the job may well commit in the meantime, in
+which case it is `done` and the request is simply recorded against it.
+
+When a cancellation does land, the job's transaction rolls back — the VM is
+interrupted the same way the per-job timeout interrupts it, so nothing it wrote
+to the database survives. **Effects outside the database do not roll back.** A
+message already handed to an SMTP server has been sent, and an HTTP call already
+made has been made. For the same reason, a retry may repeat them. Nothing here
+is exactly-once, and a job whose external effects must not be repeated should
+say so with `maxAttempts: 1` and be written to tolerate being run twice.
+
+One limitation is worth knowing: the interrupt only reaches JavaScript. A job
+blocked inside a host call — a slow query, a mail transport, an HTTP request —
+is not interruptible, and neither is the timeout. Such a job is stopped when the
+call returns, and if the worker dies first the row is settled by the lease sweep.
+
+A cancelled job is not retried however many attempts remain, and it writes no
+Error Log row: it is an administrative act, not a fault.
+
+Stopping a worker is neither. A job interrupted by shutdown returns to the queue
+with its attempt given back, so a rolling restart does not spend `max_attempts`
+on work that has nothing wrong with it.
+
+### Retrying
+
+Retry queues a **new** job that copies the method, arguments, queue and user;
+the failed row is kept as the record, with `retried_as` pointing at the new one,
+and the new row carries `retry_of` back. That keeps `job:<id>` naming exactly one
+execution, which is what makes an Error Log row worth looking up. A second retry
+of the same job is refused unless forced.
+
+### Retention
+
+`ddcore_job` is swept daily by `core.services.jobs.sweep`, where the scheduler is
+enabled, and on demand by `ddcore jobs purge`. Two windows in the `ops` block:
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `jobRetentionDays` | 7 | how long a `done` job is kept |
+| `jobRetentionFailedDays` | 30 | how long a `failed` or `cancelled` job is kept |
+
+**Zero means keep forever**, and it is the one place in `ops` where zero is not
+"unset" — failures are the evidence of what went wrong and some sites keep them
+indefinitely. A negative value is refused at boot. Only finished jobs are ever
+deleted; a queued or running job is never touched whatever its age.
+
+Like the auth sweep, this is hygiene and never correctness. Nothing may depend on
+it having run: if it never ran, the table would only grow.
+
 ## What this does not do
 
 There is no `/metrics` endpoint and no OpenTelemetry. The authenticated report
@@ -216,6 +325,8 @@ and `doctor --json` are both scrapeable today, and a metrics endpoint with no
 scraper deployed is a product nobody uses.
 
 Nothing records when the scheduler last ran, so `scheduler.entries` is what this
-build would install and not proof that a cron is alive. Retrying, cancelling and
-retaining jobs are not here either — this reports queue health and writes to no
-job row.
+build would install and not proof that a cron is alive.
+
+There is no Desk screen for jobs: administration is the CLI and the API above.
+Jobs have no priority and workers have no per-queue affinity — every worker takes
+the oldest runnable job from any queue, so a long queue delays a short one.

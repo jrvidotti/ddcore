@@ -33,13 +33,39 @@ type OpsPolicy struct {
 	// SlowRequestMs is when a request stops being ordinary traffic and earns a
 	// log line of its own however quiet the access log is set.
 	SlowRequestMs int `json:"slowRequestMs"`
+	// JobRetentionDays and JobRetentionFailedDays are how long a finished job is
+	// kept. Failures are kept longer than successes: they are the evidence, and
+	// they are read long after the fact.
+	//
+	// Pointers, and not plain ints, because zero has to mean "keep forever" here
+	// while it means "unset" in every field above. An int cannot hold both
+	// answers, and WithDefaults would silently turn "forever" into thirty days —
+	// the worst failure a retention setting can have. They are filled below
+	// outside the loop that rewrites zeroes, which cannot express this.
+	JobRetentionDays       *int `json:"jobRetentionDays"`
+	JobRetentionFailedDays *int `json:"jobRetentionFailedDays"`
+}
+
+// DoneRetentionDays and FailedRetentionDays resolve the pointers into the one
+// number a sweep needs, where zero means "keep forever". Callers read these
+// rather than the fields, so a nil pointer can never reach a query as a cutoff.
+func (o OpsPolicy) DoneRetentionDays() int   { return derefOr(o.JobRetentionDays, 0) }
+func (o OpsPolicy) FailedRetentionDays() int { return derefOr(o.JobRetentionFailedDays, 0) }
+
+func derefOr(p *int, d int) int {
+	if p == nil {
+		return d
+	}
+	return *p
 }
 
 // DefaultOps is the policy a site gets when it says nothing.
 func DefaultOps() OpsPolicy {
+	done, failed := 7, 30
 	return OpsPolicy{
 		WindowMinutes: 15, QueueBacklog: 100, QueueAgeSeconds: 300,
 		JobFailures: 5, ErrorLogEntries: 20, ReadyTimeoutMs: 2000, SlowRequestMs: 2000,
+		JobRetentionDays: &done, JobRetentionFailedDays: &failed,
 	}
 }
 
@@ -75,6 +101,20 @@ func (o OpsPolicy) validate() error {
 	if o.ReadyTimeoutMs > 10_000 {
 		return fmt.Errorf("ops.readyTimeoutMs must be 10000 or less")
 	}
+	// Retention admits zero, which is "keep forever". Only a negative window is
+	// meaningless, and it is refused here rather than read as a date in the
+	// future by whichever query gets it.
+	for _, c := range []struct {
+		name string
+		v    *int
+	}{
+		{"jobRetentionDays", o.JobRetentionDays},
+		{"jobRetentionFailedDays", o.JobRetentionFailedDays},
+	} {
+		if c.v != nil && *c.v < 0 {
+			return fmt.Errorf("ops.%s must be zero (keep forever) or greater", c.name)
+		}
+	}
 	return nil
 }
 
@@ -95,6 +135,14 @@ func (o OpsPolicy) WithDefaults() OpsPolicy {
 		if *f.v <= 0 {
 			*f.v = *f.def
 		}
+	}
+	// Separately, because the loop above cannot tell "the site wrote 0" from
+	// "the site wrote nothing", and for retention those are opposite answers.
+	if o.JobRetentionDays == nil {
+		o.JobRetentionDays = d.JobRetentionDays
+	}
+	if o.JobRetentionFailedDays == nil {
+		o.JobRetentionFailedDays = d.JobRetentionFailedDays
 	}
 	return o
 }

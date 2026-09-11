@@ -39,29 +39,22 @@ reports, jobs/scheduler, files, Version/Comment, and the existing CLI/MCP tools.
 | DAT-05 | Declarative compound business keys through `uniqueKeys`, each a partial unique index, checked before the write and enforced by the database under concurrency. See [field types](docs/agent/fieldtypes.md) and [migrations](docs/agent/migrations.md). | Child tables, `extendDoctype` and a pre-migration duplicate check are out of scope; creating a key over existing duplicates fails with Postgres's own error. Removing `unique: true` from a *field* still leaks its index — the sweep covers only the `uk_` namespace. |
 | DAT-06 | Site currency precision/rounding, shared rounding helpers, and site timezone behavior. | Close the database connection timezone and report totals/CSV consistency gaps; report totals currently use ordinary numeric addition. See the [precision and dates design](docs/superpowers/specs/2026-09-10-precisao-decimal-e-datas.md). |
 | DAT-09 | Versioned cross-app fields and property overrides through `extendDoctype`. See [extensions](docs/agent/extending.md). | Source customization conversion belongs to migration tooling. A visual customization editor remains demand-driven. |
-| PRD-03 | Liveness separated from database readiness, request correlation and duration, queue failure/age signals, operational thresholds, and a `doctor` that reports instead of dying when the database is down. See [operations](docs/agent/ops.md). | Backup alerts wait on recovery automation (PRD-01/02); job retry/cancellation/retention is PRD-04; there is no Prometheus/OTel endpoint, and nothing records the scheduler's last run. |
-| OPS-02 | Business email: file-based templates in `mail/<name>.mail.ts`, a block vocabulary rendered to both parts of the message, `ddcore.sendMail` writing on the caller's transaction, authorized `File` attachments with a size cap, and an `Email Delivery` record per message. The framework's own invitation and recovery messages are two of these templates. See [mail](docs/agent/mail.md). | No inbound mail or IMAP (deferred below); no CC/BCC, Reply-To, per-message From, or resend; attachments must be `File` documents, not raw bytes. A `sensitive` template keeps its arguments out of the record but they still reach `ddcore_job`, which has no retention until PRD-04. `Uncertain` records an ambiguous SMTP outcome; it does not resolve it. |
+| PRD-03 | Liveness separated from database readiness, request correlation and duration, queue failure/age signals, operational thresholds, and a `doctor` that reports instead of dying when the database is down. See [operations](docs/agent/ops.md). | Backup alerts wait on recovery automation (PRD-01/02); there is no Prometheus/OTel endpoint, and nothing records the scheduler's last run. |
+| PRD-04 | Authorized job inspection, retry, cancellation, retention and per-queue/per-method metrics, over `ddcore jobs`, a System Manager-only HTTP surface and MCP tools; cooperative cancellation of a running job; a daily retention sweep with windows in `ops`; `request_id` carried from the request that queued the work. See [operations](docs/agent/ops.md). | No Desk screen: administration is the CLI and the API. Jobs have no priority and workers no per-queue affinity. A job blocked inside a host call is not interruptible, so cancellation latency is unbounded for it. Payloads are readable only through `ddcore jobs show`, never over HTTP. Nothing is exactly-once: a cancel rolls back the database work and no external effect, and a retry may repeat one. |
+| OPS-02 | Business email: file-based templates in `mail/<name>.mail.ts`, a block vocabulary rendered to both parts of the message, `ddcore.sendMail` writing on the caller's transaction, authorized `File` attachments with a size cap, and an `Email Delivery` record per message. The framework's own invitation and recovery messages are two of these templates. See [mail](docs/agent/mail.md). | No inbound mail or IMAP (deferred below); no CC/BCC, Reply-To, per-message From, or resend; attachments must be `File` documents, not raw bytes. A `sensitive` template keeps its arguments out of the delivery record, but they travel in the job payload, so a live token sits in `ddcore_job` until the PRD-04 retention sweep removes it. `Uncertain` records an ambiguous SMTP outcome; it does not resolve it. |
 
-Business email (OPS-02) is built on the SMTP and app-function transports the
-authentication flow already used, so OPS-06 and OPS-03 inherit a delivery record,
-a template mechanism and a rendering vocabulary rather than starting from an SMTP
-client. The existing job worker already has retries, timeouts, leases, and
-heartbeats.
+The authentication mail transport already supported SMTP and a configurable app
+transport, and business email (OPS-02) is built on it, so OPS-06 and OPS-03
+inherit a delivery record, a template mechanism and a rendering vocabulary rather
+than starting from an SMTP client. The job worker has retries, timeouts, leases,
+heartbeats, and now cancellation and retention (PRD-04), so a durable delivery
+service builds on administration that already exists.
 
 Treat the residuals above as bounded follow-up work. Address security or monetary
 correctness residuals before deploying a flow that relies on them, and recheck their
 status when implementation starts.
 
-## Stage 1 — High-return foundations
-
-This stage completes existing abstractions or improves every deployment with limited
-new infrastructure.
-
-| Capability | Benefit / effort | Dependencies and minimum acceptance |
-| --- | --- | --- |
-| **Job administration** — PRD-04 | High / M. Reuses the existing worker and reduces recovery effort for every queued service. | Extend CLI administration first with authorized inspection, retry/cancellation, retention, and metrics. Define queued versus running cancellation behavior; test interrupted execution and repeated external effects. Avoid promising exactly-once delivery. |
-
-## Stage 2 — Reusable operational services
+## Stage 1 — Reusable operational services
 
 Reuse Postgres transactions, jobs, SMTP, and SSE. Introduce the minimum protected
 audit-event facility needed by the first service, then extend it as other producers
@@ -75,7 +68,7 @@ separate broker.
 | **Assignments and pending work** — OPS-05 | Medium / M. Provides shared team task handling without copying demo domain models. | Add assign/revoke/complete, due dates, and “my pending work”; reuse notifications for reminders. Assignment must not grant document access. Test revocation, completion, and recipient visibility. |
 | **Administrative audit coverage** — PRD-06 | High / M. Makes sensitive operations investigable across services. | Extend the audit facility with actor, target, action, outcome, and correlation for delivery replay, permissions, import, approval, and administration as those features arrive. Protect access and sensitive values; test that secrets and restricted payloads are excluded. |
 
-## Stage 3 — Broader administrative application support
+## Stage 2 — Broader administrative application support
 
 These capabilities unlock more apps but cost more to design and maintain. Access
 controls come first here because subsequent output and sharing features must reuse
@@ -90,7 +83,7 @@ their enforcement.
 | **Document sharing** — SEC-03 | Medium / M. Supports collaboration beyond static roles. | Define how grants interact with scopes/field restrictions, plus revocation and audit. Test every exposed read path after revoke. Keep permission editors and role profiles in the demand-driven backlog. |
 | **Core/app compatibility contract** — PRD-07 | High / M. Reduces upgrade failures as shared APIs grow. | Declare supported version ranges, reject incompatible combinations, document changes, and test representative consumers during upgrades. Pin exact versions before any production pilot. |
 
-## Stage 4 — Migration and production tooling
+## Stage 3 — Migration and production tooling
 
 This stage follows framework reuse in the default backlog, but its required outcomes
 are prerequisites for a production migration. Operational scripts and documented

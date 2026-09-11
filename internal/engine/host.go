@@ -415,6 +415,12 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		return e.DeliverMail(c, a.Delivery, a.Subject, d.Blocks)
 	case "mail.result":
 		return nil, e.RecordMail(c, a.Delivery, a.Status, a.Error)
+	case "jobSweep":
+		n, err := e.SweepJobs(c.Ctx)
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"done": n.Done, "failed": n.Failed}, nil
 	case "authSweep":
 		n, err := e.SweepAuth(c.Ctx)
 		if err != nil {

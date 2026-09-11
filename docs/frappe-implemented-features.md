@@ -83,7 +83,7 @@ References: [CLI/HTTP API](agent/cli.md), [export](agent/export.md),
 | Lists | Metadata columns or `defineListView`, search, filters, ordering, pagination, count, Links, status indicators, and export of loaded page or full filtered dataset. |
 | Forms | Layout by section/column/tab; fieldtype controls; computed states; save, submit, cancel, amend, delete, and rename. |
 | Child Grid | Inline or dialog editing, add/remove, reordering, column widths, and properties customizable by form script. |
-| Form Scripts | `defineForm`, `defineListView`, `frm.*`, Link filters, custom buttons, actions, indicators, async calls, and dynamic properties. |
+| Form Scripts | `defineForm`, `defineListView`, `frm.*`, Link filters, toolbar buttons and buttons attached to a field (`addFieldButton`), actions, indicators, async calls, and dynamic properties. |
 | Interaction | Dialog, prompt, confirmation, messages, toasts, and standardized error display. |
 | History | Sidebar with comments, versions, creation, and modification metadata. |
 | Reports/Workspaces | Filters, table, totals, summary, bar/line/pie/donut charts, CSV, explicit sidebar, shortcuts, links, and cards. |
@@ -98,9 +98,9 @@ References: [form API](agent/form-api.md), [report API](agent/report-api.md),
 |---|---|
 | Persistent Queue | `ddcore.enqueue` creates jobs in Postgres; workers use `FOR UPDATE SKIP LOCKED`. |
 | Scheduler | Cron and frequencies `all`, `hourly`, `daily`, `weekly`, and `monthly` declared in app manifest. |
-| Job Robustness | Timeout, retries, result/error tracking, lease with heartbeat, and requeuing on worker interruption. |
-| Job Management | `ddcore jobs list`, `jobs run <fn>`, and `jobs work`. |
-| Queue Metrics | Counts by status distinguishing `runnable` from scheduled, age of oldest runnable job, expired leases (dead workers), and failure window, with thresholds in `ddcore.json` `ops` block. |
+| Job Robustness | Timeout, retries with `maxAttempts`, result/error tracking, lease with heartbeat fenced on the attempt, requeuing on worker interruption without consuming an attempt, and `request_id` carried from the request that queued the job. |
+| Job Management | `ddcore jobs list|show|stats|retry|cancel|purge|scheduled|run|work`, a System Manager-only HTTP surface under `/api/jobs`, and MCP tools. Cancelling a running job interrupts it and rolls back its transaction; retry queues a linked new job; retention sweeps daily by the windows in `ops`. Arguments and results are printed by `jobs show` only. |
+| Queue Metrics | Counts by status distinguishing `runnable` from scheduled and cancellations from failures, age of oldest runnable job, expired leases (dead workers), and failure window, with thresholds in `ddcore.json` `ops` block; per-queue and per-method breakdown with durations through `jobs stats`. |
 | Translations | English as canonical value; CSV catalogs in core/apps, extraction and validation via `ddcore i18n extract`. |
 | Language and Timezone | Resolution via `X-Lang`, User, `Accept-Language`, and instance defaults; utilities and controls follow configured timezone. |
 | Date Semantics | `Date`/`Month` are civil calendar dates that never shift; naive `Datetime` parsed in site timezone; `daily` triggers at site midnight; `Time` is validated. |

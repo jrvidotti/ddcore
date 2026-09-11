@@ -286,7 +286,8 @@
                             <div class="field">{@html f.options || ""}</div>
                           {:else}
                             <Control field={f} value={frm.doc[f.fieldname!]} onchange={(v) => frm?.setValue(f.fieldname!, v)} doc={frm.doc}
-                              readOnly={!frm.isFieldEditable(f)} mandatory={frm.isFieldMandatory(f)} error={frm.fieldErrors[f.fieldname!] || ""} query={frm.queries.get(f.fieldname!)} />
+                              readOnly={!frm.isFieldEditable(f)} mandatory={frm.isFieldMandatory(f)} error={frm.fieldErrors[f.fieldname!] || ""} query={frm.queries.get(f.fieldname!)}
+                              buttons={frm.fieldButtons[f.fieldname!] || []} />
                           {/if}
                         {/if}
                       </div>

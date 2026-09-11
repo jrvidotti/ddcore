@@ -65,9 +65,11 @@ credencial viva. Um template pode se declarar sensível: os argumentos não vão
 a linha, viajam no payload do job, e a mensagem não pode ser re-renderizada. Os
 dois templates do próprio core são assim. O custo é uma flag cujo esquecimento
 grava credencial, então ela está em negrito no `mail.md` e não numa nota de rodapé.
-E o que ela **não** resolve está escrito junto: o payload do job também é coluna, e
-`ddcore_job` não tem expurgo até o PRD-04. É menos exposição do que antes — o corpo
-inteiro, link incluído, já ia para `ddcore_job.args` — e não é zero.
+E o que ela **não** resolve está escrito junto: o payload do job também é coluna.
+O PRD-04 entrou no main durante este trabalho e trouxe expurgo — 7 dias para job
+concluído, 30 para falho — então a janela existe e é limitada também pela própria
+validade do token. É bem menos exposição do que antes, quando o corpo inteiro com
+o link ia para `ddcore_job.args` e nada nunca era removido, e não é zero.
 `TestOPS02_SensitiveTemplateStoresNoArguments` afirma as duas metades: nada na
 linha, tudo no job.
 

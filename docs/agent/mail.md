@@ -147,10 +147,13 @@ Nothing detects this for you. The framework's own two messages —
 `core/mail/invite.mail.ts` and `core/mail/reset.mail.ts` — are declared this
 way, and are the example to copy.
 
-Note what this does *not* fix: the job payload is a column too, and
-`ddcore_job` has no retention yet. A live token is in the database until the job
-row is pruned, which today is never. It is less exposure than storing the body,
-and it is not zero.
+Note what this does *not* fix: the job payload is a column too. A live token
+sits in `ddcore_job` until the retention sweep removes the finished row — seven
+days by default, thirty if the send failed (`jobRetentionDays` and
+`jobRetentionFailedDays` in `ops`; see [operations](ops.md)). A recovery link
+expires long before that, so the window is bounded by the token's own lifetime
+rather than by the sweep. It is much less exposure than storing the body, and it
+is not zero.
 
 ## Where a message goes
 

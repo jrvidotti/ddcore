@@ -45,7 +45,15 @@ export interface DDCoreAPI {
     get(url: string, opts?: { headers?: Record<string, string>; timeout?: number }): { status: number; body: string; json(): any };
     post(url: string, body: any, opts?: { headers?: Record<string, string>; timeout?: number }): { status: number; body: string; json(): any };
   };
-  enqueue(method: string, args?: Record<string, any>, opts?: { queue?: string; runAfter?: string; timeout?: number }): number;
+  /**
+   * Queues a job. It is written on the current transaction, so the job only
+   * exists if the request commits.
+   *
+   * `maxAttempts` is how many times a failing job is retried before it is left
+   * as failed; the default is 3. Set it to 1 for work whose failure is
+   * permanent, or whose effects outside the database must not be repeated.
+   */
+  enqueue(method: string, args?: Record<string, any>, opts?: { queue?: string; runAfter?: string; timeout?: number; maxAttempts?: number }): number;
   /**
    * Queues one message from a registered template and returns the name of its
    * `Email Delivery` record.
