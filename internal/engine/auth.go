@@ -201,16 +201,40 @@ func (e *Engine) CreateAPIKey(ctx context.Context, user, label string) (string, 
 	return token, err
 }
 
-// SetPassword sets a user's password directly.
+// SetPassword sets a user's password directly, and ends their other sessions.
+//
+// This is raw SQL by design — it must work for a user nobody may write, and
+// during recovery there is no session to act as — so User.onUpdate does not
+// run and the revocation has to happen here. It is the path `ddcore user
+// passwd`, a recovery token and an invitation all take, and every one of them
+// is a moment where the old sessions should stop being trusted.
+//
+// exceptSid spares one session: the person changing their own password keeps
+// the tab they typed it in. Pass "" to end them all, which is what a recovery
+// does, because the account may be the thing that was compromised.
 func (e *Engine) SetPassword(ctx context.Context, user, password string) error {
+	return e.SetPasswordExcept(ctx, user, password, "")
+}
+
+func (e *Engine) SetPasswordExcept(ctx context.Context, user, password, exceptSid string) error {
+	hash, err := e.HashNewPassword(user, password)
+	if err != nil {
+		return err
+	}
 	return e.Run(ctx, "Administrator", func(c *Ctx) error {
-		tag, err := c.Tx.Exec(ctx, `UPDATE tab_user SET password_hash = $2 WHERE name = $1`, user, HashPassword(password))
+		tag, err := c.Tx.Exec(ctx, `UPDATE tab_user SET password_hash = $2 WHERE name = $1`, user, hash)
 		if err != nil {
 			return err
 		}
 		if tag.RowsAffected() == 0 {
 			return cerr.NotFound("User {0} does not exist", user)
 		}
+		if _, err := e.DropSessions(ctx, c.Tx, user, exceptSid); err != nil {
+			return err
+		}
+		// A changed password also clears the lockout: the person who just
+		// proved they can set it should not then be told to wait.
+		e.ClearAttempts(ctx, throttleKey("login", user))
 		return nil
 	})
 }

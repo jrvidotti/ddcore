@@ -160,7 +160,7 @@ Request without a CSRF header,Requisição sem cabeçalho CSRF,# internal/api/ap
 Required,Obrigatório,# desk/src/lib/form.svelte.ts:216
 Required fields,Campos obrigatórios,# desk/src/lib/components/Dialogs.svelte:15
 Role,Papel,# core.doctypes.has_role.has_role.doctype
-Role {0} is repeated,Papel {0} repetido,# core/doctypes/user/user.controller.ts:12
+Role {0} is repeated,Papel {0} repetido,# core/doctypes/user/user.controller.ts:14
 Roles,Papéis,# core.doctypes.user.user.doctype
 Route {0} does not exist,rota {0} não existe,# internal/api/api.go:1347
 Row,Linha,# desk/src/lib/controls/Grid.svelte:28
@@ -197,6 +197,10 @@ System User,Usuário do sistema,# core.doctypes.user.user.doctype
 The document was changed by someone else after you opened it. Reload and try again.,O documento foi alterado por outro usuário depois que você o abriu. Recarregue e tente de novo.,# internal/engine/doc.go:477
 "The framework's own DocTypes: users, roles, files, comments and versions.","DocTypes do próprio framework: usuários, papéis, arquivos, comentários e versões.",# core app
 The page on screen ({0}),A página na tela ({0}),# desk/src/lib/components/ListView.svelte:203
+The password cannot be blank,A senha não pode ficar em branco,# internal/engine/password.go:41
+The password cannot be the same as the username,A senha não pode ser igual ao nome de usuário,# internal/engine/password.go:44
+The password must have at least {0} characters,A senha precisa ter ao menos {0} caracteres,# internal/engine/password.go:35
+The password must have at most {0} characters,A senha pode ter no máximo {0} caracteres,# internal/engine/password.go:38
 This endpoint requires an API key (Authorization: token key:secret),Este endpoint exige uma chave de API (Authorization: token chave:segredo),# internal/api/api.go:268
 This endpoint requires the System Manager role,Este endpoint exige o papel System Manager,# internal/api/api.go:286
 "This export has {0} rows and the limit here is {1}. Narrow the filters, or run `ddcore export` for the whole set.","Esta exportação tem {0} linhas e o limite aqui é {1}. Restrinja os filtros, ou rode `ddcore export` para o conjunto inteiro.",# internal/api/export.go:132
@@ -214,7 +218,7 @@ Update,Atualizar,# desk/src/lib/components/FormView.svelte:252
 Uploading…,Enviando...,# desk/src/lib/controls/AttachControl.svelte:27
 User,Usuário,# core.doctypes.api_key.api_key.doctype
 User is disabled,Usuário desativado,# internal/engine/auth.go:99
-User {0} does not exist,Usuário {0} não existe,# internal/engine/auth.go:212
+User {0} does not exist,Usuário {0} não existe,# internal/engine/auth.go:230
 Username,Usuário,# desk/src/routes/login/+page.svelte:20
 Version,Versão,# core.doctypes.version.version.doctype
 View row,Visualizar linha,# desk/src/lib/controls/Grid.svelte:107
@@ -230,7 +234,7 @@ ddcore.db.lock: provide a key,ddcore.db.lock: informe uma chave,# internal/engin
 ddcore.db.sql only accepts SELECT,ddcore.db.sql aceita apenas SELECT,# internal/engine/query.go:432
 enqueue: provide the method,enqueue: informe o método,# internal/engine/jobs.go:29
 getValue: invalid fields,getValue: fields inválido,# internal/engine/host.go:135
-http: {0},http: {0},# internal/engine/host.go:345
+http: {0},http: {0},# internal/engine/host.go:348
 invalid arguments in {0}: {1},argumentos inválidos em {0}: {1},# internal/engine/host.go:61
 job {0} timed out,job {0} excedeu o tempo limite,# internal/engine/jobs.go:75
 patch sql: {0},sql do patch: {0},# internal/engine/query.go:414
@@ -238,7 +242,7 @@ records,registros,# desk/src/lib/components/ListView.svelte:351
 runtime without a context (op {0}),runtime sem contexto (op {0}),# internal/engine/host.go:24
 title,título,# desk/src/lib/components/FormView.svelte:118
 to submit,para enviar,# desk/src/lib/components/DocSidebar.svelte:54
-unknown bridge operation: {0},operação desconhecida no bridge: {0},# internal/engine/host.go:281
+unknown bridge operation: {0},operação desconhecida no bridge: {0},# internal/engine/host.go:284
 "{0} ""{1}"" already exists on {2} {3}","{0} ""{1}"" já existe em {2} {3}",# internal/engine/doc.go:1106
 {0} cannot be changed after submission,Não é permitido alterar {0} depois do envio,# internal/engine/doc.go:1152
 {0} cannot be renamed,{0} não permite renomear,# internal/engine/doc.go:761

@@ -148,7 +148,7 @@ func setup(t *testing.T) *env {
 	// users: ana (Gestor), ze (sem papel), root (System Manager)
 	x.asAdmin(func(c *engine.Ctx) error {
 		for _, u := range []struct{ email, role string }{{"ana@x.com", "Gestor"}, {"bia@x.com", "Gestor"}, {"ze@x.com", ""}, {"root@x.com", "System Manager"}} {
-			d, _ := c.NewDoc("User", engine.Doc{"email": u.email, "full_name": u.email, "new_password": "segredo"})
+			d, _ := c.NewDoc("User", engine.Doc{"email": u.email, "full_name": u.email, "new_password": "segredo123"})
 			if u.role != "" {
 				d["roles"] = []any{map[string]any{"role": u.role}}
 			}
@@ -158,7 +158,7 @@ func setup(t *testing.T) *env {
 		}
 		return nil
 	})
-	if err := e.SetPassword(ctx, "Administrator", "admin"); err != nil {
+	if err := e.SetPassword(ctx, "Administrator", "admin12345"); err != nil {
 		t.Fatal(err)
 	}
 	return x
@@ -178,9 +178,9 @@ func (x *env) as(user string, fn func(c *engine.Ctx) error) error {
 // sid logs a user in and returns the session cookie value.
 func (x *env) sid(user string) string {
 	x.t.Helper()
-	pwd := "segredo"
+	pwd := "segredo123"
 	if user == "Administrator" {
-		pwd = "admin"
+		pwd = "admin12345"
 	}
 	sid, err := x.e.Login(x.ctx, user, pwd, engine.LoginFrom{IP: "127.0.0.1", UserAgent: "test"})
 	if err != nil {

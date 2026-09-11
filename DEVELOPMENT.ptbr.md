@@ -297,7 +297,7 @@ Texto de interface é escrito como chave em inglês e traduzido em `translations
 make docker-up                               # Postgres de dev (container ddcore-pg, porta 5455)
 make build                                   # desk (npm) + binário em bin/ddcore
 make migrate                                 # DDL do core + instalação do app demo
-./bin/ddcore user passwd Administrator admin
+./bin/ddcore user passwd Administrator admin1234
 ./bin/ddcore demo                             # dados de demonstração (idempotente)
 make dev                                     # http://localhost:8090
 ```

@@ -260,7 +260,10 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 	case "rename":
 		return c.Rename(a.Doctype, a.OldName, a.NewName)
 	case "hashPassword":
-		return HashPassword(a.Text), nil
+		// Routed through the policy so that the User form, `ddcore user add`
+		// and any app that writes new_password all meet the same minimum. The
+		// returned *cerr.Error surfaces in TS as a throw, like ddcore.throw.
+		return e.HashNewPassword(a.User, a.Text)
 	case "secret":
 		// An integration credential is read from the environment, never from a
 		// column: that is what keeps it out of every backup, export and

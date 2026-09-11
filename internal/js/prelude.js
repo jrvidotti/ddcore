@@ -506,7 +506,9 @@
     // in the database is a secret in every backup, export and Version diff.
     // Returns null when the site was not given it.
     secret(name) { return call("secret", { text: name }); },
-    __hashPassword(password) { return call("hashPassword", { text: password }); },
+    // `user` lets the policy refuse a password that is the account name. It
+    // throws when the password is below the site's minimum.
+    __hashPassword(password, user) { return call("hashPassword", { text: password, user: user || "" }); },
     __dropSessions(user) { call("dropSessions", { user }); },
   };
   function wrapHttp(r) {
