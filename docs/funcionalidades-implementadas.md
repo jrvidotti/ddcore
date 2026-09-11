@@ -69,10 +69,11 @@ Referências: [controller API](agent/controller-api.md), [acesso](agent/auth.md)
 | Arquivos | Upload multipart, DocType File, caminhos públicos/privados e download privado autenticado. |
 | Exportação | `GET /api/export/<DocType>` em streaming e `ddcore export` (também `--all`): percorre todo o conjunto filtrado por keyset, com tabelas filhas, manifesto de anexos com checksums, NDJSON ou CSV, sob a permissão `export`. |
 | SSE | `/api/events` e `ddcore.publish` para atualizações de documento/lista, progresso, jobs e eventos destinados a usuário. |
-| Servidor e MCP | Healthcheck, SPA e assets embutidos; `/mcp` no dev protegido por API key administrativa. |
+| Servidor e MCP | SPA e assets embutidos; `/mcp` no dev protegido por API key administrativa. |
+| Sondas e correlação | Liveness (`/healthz`) separado do readiness (`/readyz`), que prova o banco e responde 503; corpo booleano para anônimo e relatório com fila, Error Log e pool sob System Manager. `X-Request-Id` sanitizado, ecoado, no envelope de erro, na coluna `request_id` do Error Log e em `ddcore.session.requestId`. Log de acesso com duração e nível filtrado; pânico vira envelope JSON com pilha registrada. |
 
 Referências: [CLI/API HTTP](agent/cli.md), [exportação](agent/export.md),
-[API](../internal/api/api.go) e [hub de eventos](../internal/engine/hub.go).
+[operação](agent/ops.md), [API](../internal/api/api.go) e [hub de eventos](../internal/engine/hub.go).
 
 ## Desk
 
@@ -99,11 +100,13 @@ Referências: [form API](agent/form-api.md), [report API](agent/report-api.md),
 | Scheduler | Cron e frequências `all`, `hourly`, `daily`, `weekly` e `monthly` declaradas no manifesto da app. |
 | Robustez de jobs | Timeout, tentativas, resultado/erro, lease com heartbeat e retorno à fila após interrupção do worker. |
 | Gestão de jobs | `ddcore jobs list`, `jobs run <fn>` e `jobs work`. |
+| Sinais de fila | Contagens por status distinguindo `runnable` de agendado, idade do mais antigo executável, lease vencido (worker morto) e falhas na janela, com limiares no bloco `ops` do `ddcore.json`. |
 | Traduções | Inglês como valor canônico; catálogos CSV do core/apps, extração e validação com `ddcore i18n extract`. |
 | Idioma e fuso | Resolução por `X-Lang`, User, `Accept-Language` e instância; utilitários e controles seguem o fuso configurado. |
 | Semântica de datas | `Date`/`Month` são datas civis e nunca se deslocam; um `Datetime` sem offset é lido no fuso do site; `daily` dispara à meia-noite do site; `Time` é validado. |
 
-Referências: [jobs](../internal/engine/jobs.go), [i18n](agent/i18n.md) e [CLI](agent/cli.md).
+Referências: [jobs](../internal/engine/jobs.go), [i18n](agent/i18n.md), [CLI](agent/cli.md)
+e [operação](agent/ops.md).
 
 ## Ferramentas e exemplo
 
@@ -133,6 +136,9 @@ Referências: [CLI](agent/cli.md), [MCP](../internal/mcp/mcp.go),
 - Docstatus e controllers permitem aprovações específicas da app; não há motor
   declarativo de workflow listado aqui.
 - Fixtures continuam inserindo ou pulando por nome: não atualizam documento existente.
+- Há sondas, correlação e `doctor --json`, mas não um produto de monitoração: sem endpoint
+  Prometheus/OpenTelemetry, sem histogramas por rota e sem registro de última execução do
+  scheduler — `entries` diz o que o build instalaria, não que há cron vivo.
   Só a ordem entre DocTypes passou a ser determinística.
 - Um preenchimento grande segura os locks da migração pela duração inteira; não há
   janela fora da transação única, e o caminho previsto é enfileirar e validar no

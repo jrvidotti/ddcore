@@ -85,7 +85,8 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		// langs is the site's language list, next to the request's own language:
 		// an app needs it to offer a choice, and the JS-side registry does not
 		// carry User.language's options (they are injected into the Go one).
-		return map[string]any{"user": c.User, "roles": roles, "lang": c.Lang, "langs": c.St.I18n.Langs(), "request": c.Request}, nil
+		return map[string]any{"user": c.User, "roles": roles, "lang": c.Lang, "langs": c.St.I18n.Langs(),
+			"request": c.Request, "requestId": c.ReqID}, nil
 	case "getRoles":
 		u := a.User
 		if u == "" {

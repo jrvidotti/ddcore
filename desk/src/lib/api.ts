@@ -11,6 +11,9 @@ export class DDCoreError extends Error {
      * already arrives translated; these travel for telemetry and grouping. */
     public key?: string,
     public args?: any[],
+    /** The id the server knows this request by. It is on the response header
+     * and in the error body, and it is what an operator greps for. */
+    public requestId?: string,
   ) {
     super(message);
   }
@@ -48,7 +51,8 @@ async function request<T = any>(method: string, url: string, body?: any, opts: {
     if (res.status === 401 && typeof window !== "undefined" && !location.pathname.startsWith("/login")) {
       location.href = "/login?redirect=" + encodeURIComponent(location.pathname + location.search);
     }
-    throw new DDCoreError(e.type, e.title || "", e.message, res.status, e.extra, e.key, e.args);
+    throw new DDCoreError(e.type, e.title || "", e.message, res.status, e.extra, e.key, e.args,
+      e.requestId || res.headers.get("X-Request-Id") || undefined);
   }
   if (data?.messages) for (const m of data.messages) messages.push(m);
   return opts.raw ? data : data?.data;

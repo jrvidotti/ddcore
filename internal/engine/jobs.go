@@ -155,7 +155,9 @@ func (e *Engine) runOneJob(ctx context.Context) (bool, error) {
 			status = "queued"
 		}
 		e.DB.Pool.Exec(ctx, `UPDATE ddcore_job SET status = $2, error = $3, finished = now(), lease_until = NULL, run_after = now() + interval '30 seconds' WHERE id = $1`, id, status, runErr.Error())
-		e.LogError(ctx, "job:"+method, runErr)
+		// A failed run gets a handle of its own, so an Error Log row points at
+		// one execution and not merely at a method name.
+		e.LogError(WithRequestID(ctx, fmt.Sprintf("job:%d", id)), "job:"+method, runErr)
 		e.Events.Publish(Event{Name: "job_done", Payload: map[string]any{"id": id, "method": method, "ok": false, "error": runErr.Error()}, User: db.Str(j["user"])})
 		return true, nil
 	}
@@ -202,9 +204,23 @@ func orJSON(r json.RawMessage) json.RawMessage {
 
 // LogError writes an Error Log document outside the failed transaction.
 func (e *Engine) LogError(ctx context.Context, method string, err error) {
-	e.Log.Error(err.Error(), "method", method)
+	id := RequestIDFrom(ctx)
+	// The id is omitted rather than logged empty when no request is behind the
+	// work: `id=""` on every migration and CLI error is noise that makes the
+	// lines that do correlate harder to spot.
+	if id != "" {
+		e.Log.Error(err.Error(), "method", method, "id", id)
+	} else {
+		e.Log.Error(err.Error(), "method", method)
+	}
+	// The context of a failed request is very often already cancelled — the
+	// client hung up, or a timeout is what failed it in the first place — and
+	// the row explaining why is then the one thing that gets lost. Detach, but
+	// keep a bound: this runs on an error path and must not hold a connection.
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
 	e.Run(ctx, "Administrator", func(c *Ctx) error {
-		doc, _ := c.NewDoc("Error Log", Doc{"method": method, "error": err.Error()})
+		doc, _ := c.NewDoc("Error Log", Doc{"method": method, "error": err.Error(), "request_id": id})
 		_, e := c.Insert(doc, SaveOpts{IgnorePermissions: true})
 		return e
 	})

@@ -1,6 +1,6 @@
 # CLI and the development loop
 
-`ddcore.json` in the site directory: `dsn`, `apps` (directories), `port`, `workers`, `scheduler`, `site`, `lang`, `currency`, `currencyPrecision`, `rounding`, `timezone`, `dev`, `exportMaxRows`.
+`ddcore.json` in the site directory: `dsn`, `apps` (directories), `port`, `workers`, `scheduler`, `site`, `lang`, `currency`, `currencyPrecision`, `rounding`, `timezone`, `dev`, `exportMaxRows`, `auth`, `ops`.
 `currencyPrecision` defaults to the currency's ISO minor unit and `rounding` to `"commercial"`;
 an unrecognised `rounding` stops the server at startup rather than quietly using another rule.
 `DDCORE_DSN` overrides the dsn.
@@ -37,7 +37,7 @@ the first account on a new site. Once `DDCORE_MAIL_TRANSPORT` is set they print
 only the expiry — a live recovery link has no business in shell history.
 | `ddcore mcp` | MCP server (stdio) |
 | `ddcore docs [name]` | this documentation |
-| `ddcore doctor` | database, meta, pending DDL, undeclared columns and tables, pending patches, applied renames, scheduler |
+| `ddcore doctor [--json] [--strict] [--window N]` | probes the database, then reports meta, pending DDL, undeclared columns and tables, pending patches, applied renames, queue, Error Log and scheduler. Works with the database down. Exits non-zero on a critical finding; `--strict` also on a warning (see `ops`) |
 
 ## An app in its own repository
 
@@ -57,6 +57,11 @@ npm. `DDCORE_TEST_DSN` points at the disposable database the tests use.
 
 ## HTTP API
 
+- `GET /healthz` (also `/api/health`) — liveness, never touches the database, always `200`.
+- `GET /readyz` (also `/api/ready`) — readiness, `503` when the database does not answer. Both
+  ignore a bad API key, so a stale monitoring token cannot report a healthy process dead.
+- `GET /api/health/report` — the same picture with queue, Error Log and pool numbers; System Manager only.
+- Every response carries `X-Request-Id`, and every error body repeats it as `requestId`. See `ops`.
 - `POST /api/login {usr, pwd}` → `sid` cookie; a mutating request with a cookie needs the `X-DDCore-CSRF: 1` header.
 - `GET /api/resource/<DocType>?filters=[...]&fields=[...]&order_by=&limit=&start=&with_count=1`
 - `POST /api/resource/<DocType>` (insert), `GET/PUT/DELETE /api/resource/<DocType>/<name>`

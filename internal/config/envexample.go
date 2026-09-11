@@ -29,6 +29,15 @@ const EnvExample = `# ddcore — the environment this site runs in.
 # With it off the server uses the socket peer, which no client can forge.
 # DDCORE_TRUST_PROXY=false
 
+# --- logging -----------------------------------------------------------------
+# The log's shape is a property of where the process runs, not of the site: a
+# terminal reads text, a platform that ships stdout to a collector needs
+# objects it can index and group by request id.
+# DDCORE_LOG_FORMAT=json
+# Anything non-empty raises the level to debug, which also logs every static
+# asset the desk requests.
+# DDCORE_DEBUG=
+
 # --- mail --------------------------------------------------------------------
 # How a password recovery or invitation link leaves the site.
 #   log    — write it to the log (the default, and what development uses)

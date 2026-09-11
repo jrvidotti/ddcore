@@ -56,7 +56,12 @@ const ERROR_TITLES: Record<string, string> = {
 
 export function showError(e: any) {
   const title = e?.title || __(ERROR_TITLES[e?.type] || "Error");
-  toast(String(e?.message || e), { title, indicator: "red", timeout: 9000 });
+  let body = String(e?.message || e);
+  // Only for the errors the reader cannot act on. A validation message is
+  // about what they typed; a 500 is about us, and the id is the one thing
+  // they can carry into a support ticket that finds the server-side row.
+  if (e?.requestId && e?.status >= 500) body += ` [${e.requestId}]`;
+  toast(body, { title, indicator: "red", timeout: 9000 });
 }
 
 export function dialog(spec: DialogSpec): DialogHandle {

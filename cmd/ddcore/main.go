@@ -13,7 +13,6 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
-	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -51,7 +50,7 @@ Usage: ddcore <command> [options]
   apikey      apikey <user> [--label x] [--days N]  → prints key:secret
   mcp         MCP server (stdio) for agents
   docs        print the framework documentation
-  doctor      check the database, the meta and the scheduler
+  doctor      database readiness, meta, queue and errors (--json, --strict)
   version     print the framework version
 
 Variables: DDCORE_DSN overrides the dsn in ddcore.json.
@@ -139,7 +138,7 @@ func load(test bool, dev bool) (*engine.Engine, *config.File, error) {
 	e, err := engine.New(context.Background(), engine.Config{
 		DSN: cfg.DSN, Apps: apps, Workers: cfg.Workers, Scheduler: cfg.Scheduler, Dev: dev, Test: test,
 		Port: cfg.Port, SiteName: cfg.Site, Lang: cfg.Lang, Currency: cfg.Currency, CurrencyPrecision: cfg.CurrencyPrecision, Rounding: cfg.RoundingMode(), Timezone: cfg.Timezone, DataDir: cfg.DataDir, ExportMaxRows: cfg.ExportMaxRows, LogLevel: level,
-		Auth: cfg.Auth, Mail: cfg.Mail, SiteURL: cfg.PublicURL(), TrustProxy: cfg.TrustProxy,
+		Auth: cfg.Auth, Ops: cfg.Ops, LogJSON: logJSON(), Mail: cfg.Mail, SiteURL: cfg.PublicURL(), TrustProxy: cfg.TrustProxy,
 	})
 	if err == nil && !cfg.HasPublicURL() {
 		// Say it once, at boot, rather than letting someone discover it in a
@@ -802,95 +801,9 @@ func cmdMCP(args []string) error {
 	return mcp.ServeStdio(ctx, e)
 }
 
-func cmdDoctor(args []string) error {
-	e, cfg, err := load(false, false)
-	if err != nil {
-		return err
-	}
-	defer e.DB.Close()
-	ctx := context.Background()
-	fmt.Println("database:   ok")
-	fmt.Printf("apps:       %v\n", e.AppOrder())
-	fmt.Printf("doctypes:   %d\n", len(e.Meta.DocTypes))
-	if plan, err := e.Plan(ctx, false); err != nil {
-		fmt.Printf("migrate:    refused\n%s", err)
-	} else {
-		fmt.Printf("migrate:    %d pending statement(s)\n", len(plan))
-	}
-	// The same plan with prune on names what the meta no longer declares. It is
-	// reported separately because it is the data at risk, not work to do.
-	if plan, err := e.Plan(ctx, true); err == nil {
-		if _, drop := db.Destructive(plan); len(drop) > 0 {
-			fmt.Printf("orphans:    %d undeclared and empty\n", len(drop))
-			for _, st := range drop {
-				fmt.Printf("              %s\n", strings.TrimSuffix(st.SQL, ";"))
-			}
-		}
-	} else {
-		fmt.Printf("orphans:    undeclared structures still hold data\n%s", err)
-	}
-	if pending := e.PendingPatches(); len(pending) > 0 {
-		fmt.Printf("patches:    %d pending\n", len(pending))
-		for _, p := range pending {
-			fmt.Printf("              %-12s %s\n", p.Phase, p.Path)
-		}
-	}
-	renames, err := e.AppliedRenames(ctx)
-	if err != nil {
-		return err
-	}
-	if len(renames) > 0 {
-		retirable := 0
-		for _, r := range renames {
-			if r.Retirable {
-				retirable++
-			}
-		}
-		fmt.Printf("renames:    %d applied, %d retirable in this database\n", len(renames), retirable)
-		for _, r := range renames {
-			where := r.Doctype
-			if r.Kind == "field" {
-				where += "." + r.NewName
-			}
-			note := ""
-			if r.Retirable {
-				note = "  → renamedFrom retirable here; delete it only when every site says the same"
-			}
-			fmt.Printf("              %s renamedFrom %q%s\n", where, r.OldName, note)
-		}
-	}
-	fmt.Printf("scheduler:  %v\n", cfg.Scheduler)
-	fmt.Printf("workers:    %d\n", cfg.Workers)
-	fmt.Printf("mail:       %s\n", mailSummary(cfg))
-	url := "url:        " + cfg.PublicURL()
-	if !cfg.HasPublicURL() {
-		url += "  → not configured; set DDCORE_URL in .env before mailing a recovery link"
-	}
-	fmt.Println(url)
-	fmt.Printf("sessions:   %d day(s), lockout after %d failed attempts for %d minute(s)\n",
-		cfg.Auth.SessionDays, cfg.Auth.MaxLoginAttempts, cfg.Auth.LockoutMinutes)
-	// Names only. A doctor report is pasted into issues and chat windows, and
-	// a secret that reaches one of those has to be rotated.
-	if names := e.SecretNames(); len(names) > 0 {
-		sort.Strings(names)
-		fmt.Printf("secrets:    %d configured: %s\n", len(names), strings.Join(names, ", "))
-	} else {
-		fmt.Println("secrets:    none configured")
-	}
-	return nil
-}
-
-func mailSummary(cfg *config.File) string {
-	switch cfg.Mail.Transport {
-	case config.MailSMTP:
-		auth := "no auth"
-		if cfg.Mail.Username != "" {
-			auth = "as " + cfg.Mail.Username
-		}
-		return fmt.Sprintf("smtp %s:%d (%s, %s)", cfg.Mail.Host, cfg.Mail.Port, cfg.Mail.TLS, auth)
-	case config.MailMethod:
-		return "method " + cfg.Mail.Method
-	default:
-		return "log — links are written to the log, not delivered"
-	}
+// logJSON reads the log shape from the environment and not from ddcore.json:
+// it is a property of where the process runs — a terminal wants text, a
+// platform that ships stdout to a collector wants objects it can index.
+func logJSON() bool {
+	return strings.EqualFold(os.Getenv("DDCORE_LOG_FORMAT"), "json")
 }

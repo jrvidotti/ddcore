@@ -432,7 +432,7 @@ func New(e *engine.Engine) *mcp.Server {
 			var rows []map[string]any
 			err := s.run(ctx, func(c *engine.Ctx) error {
 				var e error
-				rows, e = c.GetList("Error Log", engine.ListArgs{Fields: []string{"name", "creation", "method", "error"}, OrderBy: "creation desc", Limit: in.Limit})
+				rows, e = c.GetList("Error Log", engine.ListArgs{Fields: []string{"name", "creation", "method", "error", "request_id"}, OrderBy: "creation desc", Limit: in.Limit})
 				return e
 			})
 			if err != nil {
