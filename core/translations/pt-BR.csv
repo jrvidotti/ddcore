@@ -204,6 +204,7 @@ The password must have at most {0} characters,A senha pode ter no máximo {0} ca
 This endpoint requires an API key (Authorization: token key:secret),Este endpoint exige uma chave de API (Authorization: token chave:segredo),# internal/api/api.go:268
 This endpoint requires the System Manager role,Este endpoint exige o papel System Manager,# internal/api/api.go:286
 "This export has {0} rows and the limit here is {1}. Narrow the filters, or run `ddcore export` for the whole set.","Esta exportação tem {0} linhas e o limite aqui é {1}. Restrinja os filtros, ou rode `ddcore export` para o conjunto inteiro.",# internal/api/export.go:132
+This link is no longer valid. Ask for a new one.,Este link não vale mais. Peça um novo.,# internal/engine/token.go:77
 This month,Este mês,# desk/src/lib/controls/MonthControl.svelte:232
 Title,Título,# desk/src/lib/components/FormView.svelte:127
 "To change it, click the title above or Rename in the menu.","Para alterar, clique no título acima ou em Renomear no menu.",# desk/src/lib/form.svelte.ts:99

@@ -42,6 +42,12 @@ CREATE TABLE IF NOT EXISTS ddcore_login_attempt (
   ok boolean NOT NULL DEFAULT false, created timestamptz NOT NULL DEFAULT now());
 CREATE INDEX IF NOT EXISTS ddcore_login_attempt_identity ON ddcore_login_attempt(identity, created DESC);
 CREATE INDEX IF NOT EXISTS ddcore_login_attempt_ip ON ddcore_login_attempt(ip, created DESC);
+CREATE TABLE IF NOT EXISTS ddcore_auth_token (
+  token_hash text PRIMARY KEY, kind text NOT NULL, "user" text NOT NULL,
+  created timestamptz NOT NULL DEFAULT now(), expires timestamptz NOT NULL,
+  used timestamptz, created_by text, ip text);
+CREATE INDEX IF NOT EXISTS ddcore_auth_token_user ON ddcore_auth_token("user", kind);
+CREATE INDEX IF NOT EXISTS ddcore_auth_token_expires ON ddcore_auth_token(expires);
 `
 
 type column struct {
