@@ -24,23 +24,23 @@ func userAddFlags() (*flag.FlagSet, *string, *multi) {
 // evalFlags mirrors `ddcore eval`.
 func evalFlags() (*flag.FlagSet, *bool) {
 	fs := newFlagSet("eval")
-	return fs, fs.Bool("commit", false, "grava a transação")
+	return fs, fs.Bool("commit", false, "commits the transaction")
 }
 
 func TestExecFlagsAfterPositional(t *testing.T) {
-	// B22: `flag` parava no primeiro posicional e --args era ignorado
+	// B22: `flag` stopped at first positional and --args was ignored
 	fs, argsJSON := execFlags()
 	if err := parseFlags(fs, []string{"alugueis.services.demo.generate", "--args", `{"a":1}`}); err != nil {
 		t.Fatal(err)
 	}
 	if *argsJSON != `{"a":1}` {
-		t.Fatalf("--args = %q, esperado {\"a\":1}", *argsJSON)
+		t.Fatalf("--args = %q, expected {\"a\":1}", *argsJSON)
 	}
 	if got := fs.Arg(0); got != "alugueis.services.demo.generate" {
-		t.Fatalf("posicional = %q", got)
+		t.Fatalf("positional = %q", got)
 	}
 	if fs.NArg() != 1 {
-		t.Fatalf("NArg = %d, esperado 1", fs.NArg())
+		t.Fatalf("NArg = %d, expected 1", fs.NArg())
 	}
 }
 
@@ -53,7 +53,7 @@ func TestExecFlagEqualsForm(t *testing.T) {
 		t.Fatalf("--args= = %q", *argsJSON)
 	}
 	if fs.Arg(0) != "app.mod.fn" {
-		t.Fatalf("posicional = %q", fs.Arg(0))
+		t.Fatalf("positional = %q", fs.Arg(0))
 	}
 }
 
@@ -72,9 +72,9 @@ func TestUserAddFlagsAfterPositionals(t *testing.T) {
 	if fs.Arg(0) != "ana@exemplo.com" {
 		t.Fatalf("email = %q", fs.Arg(0))
 	}
-	// o nome completo é o resto dos posicionais, sem as opções coladas
+	// the full name is the rest of the positionals, without flags attached
 	if name := strings.Join(fs.Args()[1:], " "); name != "Ana Maria" {
-		t.Fatalf("nome = %q, esperado \"Ana Maria\"", name)
+		t.Fatalf("name = %q, expected \"Ana Maria\"", name)
 	}
 }
 
@@ -85,11 +85,11 @@ func TestEvalCommitAfterCode(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !*commit {
-		t.Fatal("--commit depois do código não foi aplicado")
+		t.Fatal("--commit after code was not applied")
 	}
-	// e não pode acabar dentro do texto avaliado
+	// and cannot end up inside the evaluated text
 	if got := strings.Join(fs.Args(), " "); got != code {
-		t.Fatalf("código = %q", got)
+		t.Fatalf("code = %q", got)
 	}
 }
 
@@ -104,13 +104,13 @@ func TestEvalFlagBeforeCodeStillWorks(t *testing.T) {
 }
 
 func TestSingleDashIsPositional(t *testing.T) {
-	// `ddcore eval -` lê o código do stdin
+	// `ddcore eval -` reads code from stdin
 	fs, _ := evalFlags()
 	if err := parseFlags(fs, []string{"-"}); err != nil {
 		t.Fatal(err)
 	}
 	if fs.Arg(0) != "-" {
-		t.Fatalf("arg = %q, esperado -", fs.Arg(0))
+		t.Fatalf("arg = %q, expected -", fs.Arg(0))
 	}
 }
 
@@ -120,22 +120,22 @@ func TestDoubleDashEndsFlags(t *testing.T) {
 		t.Fatal(err)
 	}
 	if *argsJSON != "{}" {
-		t.Fatalf("--args devia continuar no padrão, veio %q", *argsJSON)
+		t.Fatalf("--args should remain default, got %q", *argsJSON)
 	}
 	if got := strings.Join(fs.Args(), " "); got != "app.mod.fn --args literal" {
-		t.Fatalf("posicionais = %q", got)
+		t.Fatalf("positionals = %q", got)
 	}
 }
 
 func TestUnknownFlagIsRejected(t *testing.T) {
-	// silêncio era pior: a flag virava argumento posicional
+	// silence was worse: the flag became a positional argument
 	fs, _ := execFlags()
 	err := parseFlags(fs, []string{"app.mod.fn", "--arg", "{}"})
 	if err == nil {
-		t.Fatal("esperava erro para flag desconhecida")
+		t.Fatal("expected error for unknown flag")
 	}
 	if !strings.Contains(err.Error(), "unknown flag") || !strings.Contains(err.Error(), "--arg") {
-		t.Fatalf("erro pouco claro: %v", err)
+		t.Fatalf("unclear error: %v", err)
 	}
 }
 
@@ -143,22 +143,22 @@ func TestFlagMissingValueIsRejected(t *testing.T) {
 	fs, _ := execFlags()
 	err := parseFlags(fs, []string{"app.mod.fn", "--args"})
 	if err == nil || !strings.Contains(err.Error(), "needs a value") {
-		t.Fatalf("erro = %v", err)
+		t.Fatalf("error = %v", err)
 	}
 }
 
 func TestBoolFlagDoesNotEatPositional(t *testing.T) {
 	fs, commit := evalFlags()
-	if err := parseFlags(fs, []string{"--commit", "--", "código"}); err != nil {
+	if err := parseFlags(fs, []string{"--commit", "--", "code"}); err != nil {
 		t.Fatal(err)
 	}
-	if !*commit || fs.Arg(0) != "código" {
+	if !*commit || fs.Arg(0) != "code" {
 		t.Fatalf("commit=%v arg=%q", *commit, fs.Arg(0))
 	}
 }
 
 func TestSingleDashFlagFormIsAccepted(t *testing.T) {
-	// -v e --v devem ser equivalentes, como no pacote flag
+	// -v and --v must be equivalent, as in package flag
 	fs := newFlagSet("test")
 	v := fs.Bool("v", false, "verbose")
 	filter := fs.String("filter", "", "regex")
@@ -176,7 +176,7 @@ func TestTestFlagsAcceptsApp(t *testing.T) {
 		t.Fatal(err)
 	}
 	if *app != "exemplo" {
-		t.Fatalf("--app = %q, esperado exemplo", *app)
+		t.Fatalf("--app = %q, expected exemplo", *app)
 	}
 }
 
@@ -199,7 +199,7 @@ func TestExportFlagsAfterPositional(t *testing.T) {
 		t.Fatal(err)
 	}
 	if fs.Arg(0) != "Project" || fs.NArg() != 1 {
-		t.Fatalf("posicional = %q (NArg %d)", fs.Arg(0), fs.NArg())
+		t.Fatalf("positional = %q (NArg %d)", fs.Arg(0), fs.NArg())
 	}
 	if *format != "csv" || !*children || *all {
 		t.Fatalf("format=%q children=%v all=%v", *format, *children, *all)

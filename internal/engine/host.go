@@ -133,7 +133,7 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 	case "doc.delete":
 		return nil, c.Delete(a.Doctype, nameStr(), a.Opts["ignorePermissions"] == true, a.Opts["force"] == true)
 	case "doc.dbSet":
-		// devolve o novo modified para o prelude sincronizar o documento (B21)
+		// returns the new modified timestamp for the prelude to synchronize the document (B21)
 		modified, err := c.DBSet(a.Doctype, nameStr(), a.Values, true)
 		if err != nil {
 			return nil, err

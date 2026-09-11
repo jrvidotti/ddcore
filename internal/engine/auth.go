@@ -155,7 +155,7 @@ func (e *Engine) UserFromAPIKey(ctx context.Context, token string) (string, erro
 	if en, ok := row["enabled"].(bool); ok && !en {
 		return "", nil
 	}
-	// uma chave de um usuário desativado não vale nada
+	// a key belonging to a disabled user is invalid
 	if en, ok := row["user_enabled"].(bool); ok && !en {
 		return "", nil
 	}

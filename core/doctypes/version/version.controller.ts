@@ -1,19 +1,19 @@
 import { defineController } from "@ddcore/sdk";
 
-/** Uma versão só é visível para quem pode ler o documento versionado (B04). */
-function podeLerReferencia(doctype: string, docname: string): boolean {
+/** A version is only visible to those who can read the versioned document (B04). */
+function canReadReference(doctype: string, docname: string): boolean {
   if (!doctype || !docname) return false;
   const owner = ddcore.db.getValue(doctype, docname, "owner");
-  if (owner === undefined || owner === null) return false; // documento apagado
+  if (owner === undefined || owner === null) return false; // deleted document
   return ddcore.hasPermission(doctype, "read", { name: docname, owner }) === true;
 }
 
 export default defineController("Version", {
   hasPermission(doc, ptype, user) {
-    if (!doc) return undefined; // verificação de doctype: o filtro é aplicado por linha
+    if (!doc) return undefined; // doctype verification: filter is applied per row
     if ((ddcore.getRoles(user) || []).indexOf("System Manager") >= 0) return true;
-    // o histórico é imutável para usuários comuns
+    // history is immutable for regular users
     if (ptype !== "read" && ptype !== "report" && ptype !== "export") return false;
-    return podeLerReferencia(String(doc.ref_doctype || ""), String(doc.docname || ""));
+    return canReadReference(String(doc.ref_doctype || ""), String(doc.docname || ""));
   },
 });

@@ -2,29 +2,29 @@ import { describe, it, expect } from "vitest";
 import { addDays, addMonths, daysInMonth, fromDatetimeLocal, monthEnd, monthStart, parseDatetime, toDatetimeLocal, today } from "./datetime";
 
 describe("addMonths", () => {
-  it("limita o dia ao fim do mês, como o servidor", () => {
+  it("caps day to end of month, like the server", () => {
     // internal/js/prelude.js: utils.addMonths("2026-01-31", 1) === "2026-02-28"
     expect(addMonths("2026-01-31", 1)).toBe("2026-02-28");
-    expect(addMonths("2024-01-31", 1)).toBe("2024-02-29"); // bissexto
+    expect(addMonths("2024-01-31", 1)).toBe("2024-02-29"); // leap year
     expect(addMonths("2026-03-31", -1)).toBe("2026-02-28");
     expect(addMonths("2026-05-31", 1)).toBe("2026-06-30");
   });
-  it("vira o ano nos dois sentidos", () => {
+  it("rolls the year in both directions", () => {
     expect(addMonths("2026-12-15", 1)).toBe("2027-01-15");
     expect(addMonths("2026-01-15", -1)).toBe("2025-12-15");
     expect(addMonths("2026-01-15", -13)).toBe("2024-12-15");
     expect(addMonths("2026-01-15", 25)).toBe("2028-02-15");
   });
-  it("não altera a data quando n é zero", () => {
+  it("does not alter date when n is zero", () => {
     expect(addMonths("2026-02-28", 0)).toBe("2026-02-28");
   });
-  it("aceita um datetime e devolve só a data civil", () => {
+  it("accepts a datetime and returns civil date only", () => {
     expect(addMonths("2026-01-31T23:30:00Z", 1)).toBe("2026-02-28");
   });
 });
 
 describe("addDays", () => {
-  it("vira mês e ano", () => {
+  it("rolls month and year", () => {
     expect(addDays("2026-02-28", 1)).toBe("2026-03-01");
     expect(addDays("2024-02-28", 1)).toBe("2024-02-29");
     expect(addDays("2026-12-31", 1)).toBe("2027-01-01");
@@ -33,7 +33,7 @@ describe("addDays", () => {
 });
 
 describe("monthStart / monthEnd", () => {
-  it("delimita o mês", () => {
+  it("delimits the month", () => {
     expect(monthStart("2026-02-17")).toBe("2026-02-01");
     expect(monthEnd("2026-02-17")).toBe("2026-02-28");
     expect(monthEnd("2024-02-01")).toBe("2024-02-29");
@@ -46,7 +46,7 @@ describe("monthStart / monthEnd", () => {
 });
 
 describe("daysInMonth", () => {
-  it("conhece fevereiro", () => {
+  it("handles February", () => {
     expect(daysInMonth(2026, 1)).toBe(28);
     expect(daysInMonth(2024, 1)).toBe(29);
     expect(daysInMonth(2000, 1)).toBe(29);

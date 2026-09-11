@@ -131,7 +131,7 @@ func TestDropSessions(t *testing.T) {
 	sid2 := RandomToken()
 	sid3 := RandomToken()
 
-	// Cria duas sessões para ana e uma para bia
+	// Creates two sessions for ana and one for bia
 	for _, s := range []struct {
 		sid  string
 		user string
@@ -149,55 +149,55 @@ func TestDropSessions(t *testing.T) {
 		e.Cache.Set("sid:"+s.sid, s.user, time.Minute)
 	}
 
-	// DropSessions para ana poupando sid1
+	// DropSessions for ana sparing sid1
 	n, err := e.DropSessions(ctx, e.DB.Pool, "ana@x.com", sid1)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if n != 1 {
-		t.Fatalf("esperava 1 sessão encerrada, veio %d", n)
+		t.Fatalf("expected 1 session dropped, got %d", n)
 	}
 
-	// sid1 sobrevive
+	// sid1 survives
 	if _, ok := e.Cache.Get("sid:" + sid1); !ok {
-		t.Error("sid1 devia continuar no cache")
+		t.Error("sid1 should remain in cache")
 	}
 	rows, err := db.Select(ctx, e.DB.Pool, `SELECT sid FROM ddcore_session WHERE sid = $1`, sid1)
 	if err != nil || len(rows) != 1 {
-		t.Error("sid1 devia continuar no banco")
+		t.Error("sid1 should remain in database")
 	}
 
-	// sid2 morreu no banco e no cache
+	// sid2 removed from database and cache
 	if _, ok := e.Cache.Get("sid:" + sid2); ok {
-		t.Error("sid2 devia ter saído do cache")
+		t.Error("sid2 should have been evicted from cache")
 	}
 	rows, err = db.Select(ctx, e.DB.Pool, `SELECT sid FROM ddcore_session WHERE sid = $1`, sid2)
 	if err != nil || len(rows) != 0 {
-		t.Error("sid2 devia ter saído do banco")
+		t.Error("sid2 should have been deleted from database")
 	}
 
-	// sid3 (bia) intacta
+	// sid3 (bia) intact
 	if _, ok := e.Cache.Get("sid:" + sid3); !ok {
-		t.Error("sid3 devia continuar no cache")
+		t.Error("sid3 should remain in cache")
 	}
 	rows, err = db.Select(ctx, e.DB.Pool, `SELECT sid FROM ddcore_session WHERE sid = $1`, sid3)
 	if err != nil || len(rows) != 1 {
-		t.Error("sid3 devia continuar no banco")
+		t.Error("sid3 should remain in database")
 	}
 
-	// DropSessions sem poupar ninguém derruba sid1
+	// DropSessions without sparing anyone drops sid1
 	n, err = e.DropSessions(ctx, e.DB.Pool, "ana@x.com", "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if n != 1 {
-		t.Fatalf("esperava 1 sessão encerrada, veio %d", n)
+		t.Fatalf("expected 1 session dropped, got %d", n)
 	}
 	if _, ok := e.Cache.Get("sid:" + sid1); ok {
-		t.Error("sid1 devia ter saído do cache")
+		t.Error("sid1 should have been evicted from cache")
 	}
 	rows, err = db.Select(ctx, e.DB.Pool, `SELECT sid FROM ddcore_session WHERE sid = $1`, sid1)
 	if err != nil || len(rows) != 0 {
-		t.Error("sid1 devia ter saído do banco")
+		t.Error("sid1 should have been deleted from database")
 	}
 }

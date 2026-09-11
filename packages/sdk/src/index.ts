@@ -19,9 +19,9 @@ export interface DDCoreDB {
   /** read-only SQL with $1.. placeholders */
   sql<T = Record<string, any>>(query: string, params?: any[]): T[];
   /**
-   * Advisory lock por chave, válido até o fim da transação: outra requisição
-   * que peça a mesma chave espera. Use para tornar uma operação idempotente sob
-   * concorrência, ex.: `ddcore.db.lock("faturamento:" + contrato)`.
+   * Advisory lock per key, valid until the end of the transaction: another
+   * request asking for the same key waits. Use to make an operation idempotent
+   * under concurrency, e.g.: `ddcore.db.lock("billing:" + contract)`.
    */
   lock(key: string): void;
   getSingleValue(doctype: string, field: string): any;

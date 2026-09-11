@@ -200,8 +200,8 @@ func castValueWith(f *meta.Field, v any, o castOpts) (any, error) {
 		}
 		return nil, cerr.Validation("Invalid month in {0}: \"{1}\"", f.Label, db.Str(v))
 	case "Datetime":
-		// castAll grava o time.Time convertido de volta no documento, então a
-		// próxima coerção do mesmo campo recebe um valor já normalizado.
+		// castAll writes the converted time.Time back to the document, so the
+		// next coercion of the same field receives an already normalized value.
 		if t, ok := v.(time.Time); ok {
 			return t, nil
 		}
@@ -434,8 +434,8 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 	if err != nil {
 		return nil, err
 	}
-	// FOR UPDATE: quem chegar depois espera aqui e só então compara o
-	// timestamp, em vez de ler uma versão que já está sendo alterada.
+	// FOR UPDATE: subsequent callers wait here and only then compare the
+	// timestamp, instead of reading a version that is actively being modified.
 	before, err := c.getDocForUpdate(d.Name, doc.Name())
 	if err != nil {
 		return nil, err
@@ -491,9 +491,9 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 		return nil, err
 	}
 	if action == "update_after_submit" {
-		// os hooks rodaram depois da primeira checagem e podem ter mexido em
-		// campos protegidos: confere de novo com o documento final. A exceção
-		// deliberada continua sendo dbSet, que não passa por aqui.
+		// hooks ran after the first check and might have modified protected
+		// fields: check again with the final document. The deliberate
+		// exception remains dbSet, which does not pass through here.
 		if err := c.checkAllowOnSubmit(d, before, doc); err != nil {
 			return nil, err
 		}
@@ -548,8 +548,8 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 }
 
 // sameTime compares two timestamps at millisecond precision. A value that
-// cannot be parsed is never "the same": aceitar timestamp inválido era o
-// mesmo que desligar o controle de concorrência.
+// cannot be parsed is never "the same": accepting an invalid timestamp was
+// equivalent to disabling concurrency control.
 func sameTime(a, b any, loc *time.Location) bool {
 	if a == nil && b == nil {
 		return true
@@ -687,8 +687,8 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 	if tag.RowsAffected() == 0 {
 		return modified, cerr.NotFound("{0} {1} not found", doctype, name)
 	}
-	// só depois do commit: uma transação revertida não pode anunciar
-	// alteração que não aconteceu (B20).
+	// only after commit: a rolled back transaction must not announce
+	// changes that never took place (B20).
 	c.AfterCommit(func() {
 		c.E.Events.Publish(Event{Name: "doc_update", Payload: map[string]any{"doctype": doctype, "name": name}})
 	})
@@ -999,10 +999,10 @@ func (c *Ctx) checkMandatory(d *meta.DocType, doc Doc) error {
 	return nil
 }
 
-// checkReadOnlyDependsOn enforces readOnlyDependsOn on the server: esconder o
-// campo na tela não é autorização. A expressão é avaliada sobre o documento
-// gravado — o estado que o usuário viu — e vale só para alterações vindas de
-// fora; o que os controllers calculam depois continua liberado.
+// checkReadOnlyDependsOn enforces readOnlyDependsOn on the server: hiding the
+// field on screen is not authorization. The expression is evaluated against the
+// saved document — the state the user saw — and applies only to external changes;
+// what controllers calculate afterwards remains permitted.
 func (c *Ctx) checkReadOnlyDependsOn(d *meta.DocType, doc, before Doc) error {
 	if before == nil {
 		return nil
@@ -1337,9 +1337,9 @@ func (c *Ctx) writeChildren(d *meta.DocType, doc Doc) error {
 			return err
 		}
 		for i, row := range rows {
-			// Uma linha só mantém o `name` recebido se ela já pertence a este
-			// pai/campo. Caso contrário vira uma cópia: sem isso, salvar um
-			// documento roubaria a linha filha de outro (B03).
+			// A row only retains its received `name` if it already belongs to this
+			// parent/field. Otherwise it becomes a copy: without this, saving a
+			// document would hijack another document's child row (B03).
 			if n := row.Str("name"); n != "" && !owned[n] {
 				taken, err := c.childExists(child, n)
 				if err != nil {
@@ -1396,8 +1396,8 @@ func (c *Ctx) writeChildren(d *meta.DocType, doc Doc) error {
 	return nil
 }
 
-// isSecretField marks columns that never belong in a version diff, mesmo
-// quando declaradas como Data.
+// isSecretField marks columns that never belong in a version diff, even
+// when declared as Data.
 func isSecretField(name string) bool {
 	switch name {
 	case "password_hash", "new_password", "password", "api_secret", "secret":
@@ -1414,8 +1414,8 @@ func (c *Ctx) saveVersion(d *meta.DocType, before, after Doc) {
 		if f.Fieldname == "" || meta.LayoutTypes[f.Fieldtype] {
 			continue
 		}
-		// segredo não entra no histórico: Version é legível por quem pode ler
-		// o documento e o diff vazaria a senha/hash (B04)
+		// secrets do not enter version history: Version is readable by anyone permitted to read
+		// the document, and the diff would leak the password/hash (B04)
 		if f.Fieldtype == "Password" || isSecretField(f.Fieldname) {
 			continue
 		}

@@ -17,7 +17,7 @@ func TestSEC04_GetMyProfile(t *testing.T) {
 	x.expect(r, 200, "")
 	d, _ := r.Body["data"].(map[string]any)
 	if d == nil || d["email"] != "ana@x.com" {
-		t.Fatalf("perfil inesperado: %s", r.Raw)
+		t.Fatalf("unexpected profile: %s", r.Raw)
 	}
 	roles, _ := d["roles"].([]any)
 	found := false
@@ -26,24 +26,24 @@ func TestSEC04_GetMyProfile(t *testing.T) {
 			found = true
 		}
 		if ro == "All" {
-			t.Error("o papel implícito All não interessa a ninguém na tela")
+			t.Error("implicit role All is irrelevant on screen")
 		}
 	}
 	if !found {
-		t.Errorf("esperava o papel Gestor, veio %v", roles)
+		t.Errorf("expected role Gestor, got %v", roles)
 	}
-	// um segredo nunca sai por aqui
+	// secrets are never exposed here
 	if _, ok := d["password_hash"]; ok {
-		t.Error("password_hash não pode aparecer no perfil")
+		t.Error("password_hash must not appear in profile")
 	}
 }
 
-// O ponto inteiro de enumerar os campos em vez de espalhar args: um caller não
-// pode se promover escrevendo roles ou enabled pelo autosserviço.
+// The entire point of enumerating fields instead of spreading args: a caller cannot
+// escalate privileges by writing roles or enabled via self-service.
 func TestSEC04_SelfServiceCannotEscalate(t *testing.T) {
 	x := setup(t)
 	r := x.callAs("ze@x.com", "core.services.profile.updateMyProfile", map[string]any{
-		"fullName":  "Zé Novo",
+		"fullName":  "New Ze",
 		"roles":     []any{map[string]any{"role": "System Manager"}},
 		"enabled":   false,
 		"email":     "outro@x.com",
@@ -56,75 +56,75 @@ func TestSEC04_SelfServiceCannotEscalate(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if d.Str("full_name") != "Zé Novo" {
-			t.Errorf("o nome completo devia ter mudado, veio %q", d.Str("full_name"))
+		if d.Str("full_name") != "New Ze" {
+			t.Errorf("full name should have changed, got %q", d.Str("full_name"))
 		}
 		if en, _ := d["enabled"].(bool); !en {
-			t.Error("enabled não podia ter sido alterado pelo autosserviço")
+			t.Error("enabled should not have been modified by self-service")
 		}
 		if len(d.Children("roles")) != 0 {
-			t.Error("o autosserviço não pode conceder papéis")
+			t.Error("self-service cannot grant roles")
 		}
 		return nil
 	})
-	// e o usuário continua existindo sob o mesmo nome
+	// and the user still exists under the same name
 	if err := x.e.Run(x.ctx, "Administrator", func(c *engine.Ctx) error {
 		_, err := c.GetDoc("User", "ze@x.com")
 		return err
 	}); err != nil {
-		t.Errorf("o e-mail (o próprio name) não podia ter mudado: %v", err)
+		t.Errorf("email (name itself) should not have changed: %v", err)
 	}
 }
 
-// Trocar a senha exige provar a atual: um notebook destravado não pode ser um
-// caminho para expulsar o dono da própria conta.
+// Changing password requires proving current password: an unlocked laptop must not
+// be a path to hijack an account from its owner.
 func TestSEC04_ChangeMyPasswordNeedsTheCurrentOne(t *testing.T) {
 	x := setup(t)
 	r := x.callAs("ana@x.com", "core.services.profile.changeMyPassword", map[string]any{
-		"current": "nao-e-a-senha", "password": "novasenha123",
+		"current": "not-the-password", "password": "newpassword123",
 	})
 	if r.Status == 200 {
-		t.Fatal("a senha atual errada tinha de ser recusada")
+		t.Fatal("wrong current password should be rejected")
 	}
 	x.expect(x.goodLogin("ana@x.com", "segredo123"), 200, "")
 
 	ok := x.callAs("ana@x.com", "core.services.profile.changeMyPassword", map[string]any{
-		"current": "segredo123", "password": "novasenha123",
+		"current": "segredo123", "password": "newpassword123",
 	})
 	x.expect(ok, 200, "")
-	x.expect(x.goodLogin("ana@x.com", "novasenha123"), 200, "")
+	x.expect(x.goodLogin("ana@x.com", "newpassword123"), 200, "")
 }
 
-// A sessão de quem troca a senha sobrevive; as outras, não.
+// The session of the user who changes password survives; the others do not.
 func TestSEC04_ChangeMyPasswordSparesTheCallersSession(t *testing.T) {
 	x := setup(t)
 	other := x.sid("ana@x.com")
 	mine := x.sid("ana@x.com")
 
 	r := x.call("POST", "/api/method/core.services.profile.changeMyPassword",
-		map[string]any{"current": "segredo123", "password": "novasenha123"}, "sid:"+mine)
+		map[string]any{"current": "segredo123", "password": "newpassword123"}, "sid:"+mine)
 	x.expect(r, 200, "")
 
 	x.expect(x.call("GET", "/api/boot", nil, "sid:"+mine), 200, "")
 	if u, _ := x.call("GET", "/api/boot", nil, "sid:"+other).Body["data"].(map[string]any); u != nil && u["user"] == "ana@x.com" {
-		t.Error("a outra sessão devia ter caído")
+		t.Error("the other session should have been dropped")
 	}
 }
 
-// A lista de sessões nunca devolve um sid: ele é bearer token, e um XSS que
-// lesse esta lista levaria todos os dispositivos.
+// The session list never returns a sid: it is a bearer token, and an XSS that
+// read this list would compromise all devices.
 func TestSEC04_SessionListNeverReturnsASid(t *testing.T) {
 	x := setup(t)
 	sid := x.sid("ana@x.com")
 	r := x.call("POST", "/api/method/core.services.sessions.listMySessions", nil, "sid:"+sid)
 	x.expect(r, 200, "")
 	if containsStr(r.Raw, sid) {
-		t.Fatal("o sid cru apareceu na resposta")
+		t.Fatal("raw sid appeared in response")
 	}
 	d, _ := r.Body["data"].(map[string]any)
 	list, _ := d["sessions"].([]any)
 	if len(list) == 0 {
-		t.Fatal("esperava ao menos a sessão atual")
+		t.Fatal("expected at least the current session")
 	}
 	current := 0
 	for _, s := range list {
@@ -133,15 +133,15 @@ func TestSEC04_SessionListNeverReturnsASid(t *testing.T) {
 			current++
 		}
 		if id, _ := m["id"].(string); len(id) != 12 {
-			t.Errorf("o id devia ser um handle curto, veio %q", id)
+			t.Errorf("id should be a short handle, got %q", id)
 		}
 	}
 	if current != 1 {
-		t.Errorf("exatamente uma sessão é a atual, veio %d", current)
+		t.Errorf("exactly one session should be current, got %d", current)
 	}
 }
 
-// Um handle copiado da lista de outra pessoa não alcança nada.
+// A handle copied from someone else's list affects nothing.
 func TestSEC04_CannotRevokeSomeoneElsesSession(t *testing.T) {
 	x := setup(t)
 	victim := x.sid("bia@x.com")
@@ -150,7 +150,7 @@ func TestSEC04_CannotRevokeSomeoneElsesSession(t *testing.T) {
 	r := x.callAs("ana@x.com", "core.services.sessions.revokeMySession", map[string]any{"id": handle})
 	x.expect(r, 200, "")
 	if d, _ := r.Body["data"].(map[string]any); d != nil && d["revoked"] != float64(0) {
-		t.Errorf("não podia ter revogado nada, veio %v", d["revoked"])
+		t.Errorf("should not have revoked anything, got %v", d["revoked"])
 	}
 	x.expect(x.call("GET", "/api/boot", nil, "sid:"+victim), 200, "")
 }
@@ -165,29 +165,29 @@ func TestSEC04_MyAPIKeysAreMineOnly(t *testing.T) {
 	d, _ := created.Body["data"].(map[string]any)
 	token, _ := d["token"].(string)
 	if token == "" {
-		t.Fatalf("esperava o token uma vez: %s", created.Raw)
+		t.Fatalf("expected token once: %s", created.Raw)
 	}
-	// e ele funciona
+	// and it works
 	x.expect(x.call("GET", "/api/boot", nil, "token:"+token), 200, "")
 
-	// a chave de bia não aparece na lista de ana
+	// bia's key does not appear in ana's list
 	biaKey := x.apiKey("bia@x.com")
 	list := x.call("POST", "/api/method/core.services.api_keys.listMyAPIKeys", nil, "sid:"+anaSid)
 	x.expect(list, 200, "")
 	if containsStr(list.Raw, splitKey(biaKey)) {
-		t.Error("a chave de outra pessoa apareceu na lista")
+		t.Error("another user's key appeared in list")
 	}
 
-	// e ana não revoga a chave de bia
+	// and ana cannot revoke bia's key
 	r := x.call("POST", "/api/method/core.services.api_keys.revokeMyAPIKey",
 		map[string]any{"name": splitKey(biaKey)}, "sid:"+anaSid)
 	if r.Status == 200 {
-		t.Error("revogar a chave de outra pessoa tinha de ser recusado")
+		t.Error("revoking another user's key should be rejected")
 	}
 	x.expect(x.call("GET", "/api/boot", nil, "token:"+biaKey), 200, "")
 }
 
-// Só System Manager administra outras contas.
+// Only System Manager can manage other accounts.
 func TestSEC04_AdminServicesNeedTheRole(t *testing.T) {
 	x := setup(t)
 	r := x.callAs("ana@x.com", "core.services.users.invite",
@@ -197,14 +197,14 @@ func TestSEC04_AdminServicesNeedTheRole(t *testing.T) {
 	ok := x.callAs("root@x.com", "core.services.users.invite",
 		map[string]any{"email": "x@y.com", "fullName": "X"})
 	x.expect(ok, 200, "")
-	// sem transporte de e-mail configurado, o link volta para quem convidou
+	// without email transport configured, link returns to inviter
 	if d, _ := ok.Body["data"].(map[string]any); d == nil || d["link"] == nil {
-		t.Errorf("esperava o link de volta no transporte de log: %s", ok.Raw)
+		t.Errorf("expected link back in log transport: %s", ok.Raw)
 	}
 }
 
-// Uma chave vencida não vale mais nada. O cache de 60s é derrubado à mão aqui
-// porque é exatamente a folga que o comentário em UserFromAPIKey documenta.
+// An expired key is no longer valid. The 60s cache is cleared manually here
+// because it is exactly the leeway documented in UserFromAPIKey.
 func TestSEC04_APIKeyExpires(t *testing.T) {
 	x := setup(t)
 	token := x.apiKey("ana@x.com")

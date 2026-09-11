@@ -9,59 +9,59 @@ import (
 	"github.com/jrvidotti/ddcore/internal/engine"
 )
 
-// Usuário desativado:
-// - Com senha errada: não revela que a conta existe nem que está desativada (401 "Invalid username or password").
-// - Com a senha certa: 401 "User is disabled" (checagem só depois do Argon2).
-// - Tentativas contam para o lockout e trancam com 429 como qualquer outra conta.
+// Disabled user:
+// - With wrong password: does not reveal that account exists or that it is disabled (401 "Invalid username or password").
+// - With correct password: 401 "User is disabled" (check runs only after Argon2).
+// - Attempts count towards lockout and lock with 429 just like any other account.
 func TestSEC04_DisabledUserAbuse(t *testing.T) {
 	x := setup(t)
 
-	// Desativa ze@x.com
+	// Disable ze@x.com
 	x.asAdmin(func(c *engine.Ctx) error {
 		return c.SetValue("User", "ze@x.com", engine.Doc{"enabled": false})
 	})
 
-	// 1. Senha errada: resposta genérica idêntica a conta inexistente
+	// 1. Wrong password: generic response identical to nonexistent account
 	bad := x.badLogin("ze@x.com")
 	unknown := x.badLogin("ninguem@x.com")
 	x.expect(bad, 401, "AuthenticationError")
 	if bad.Status != unknown.Status || bad.errType() != unknown.errType() || msg(bad) != msg(unknown) {
-		t.Errorf("senha errada em usuário desativado tem de ser idêntica a usuário inexistente: %q vs %q", msg(bad), msg(unknown))
+		t.Errorf("wrong password on disabled user must be identical to nonexistent user: %q vs %q", msg(bad), msg(unknown))
 	}
 
-	// 2. Senha certa: só agora informa que está desativada
+	// 2. Correct password: only now reports that user is disabled
 	good := x.goodLogin("ze@x.com", "segredo123")
 	x.expect(good, 401, "AuthenticationError")
 	if msg(good) == msg(bad) {
-		t.Errorf("senha certa devia diferenciar que o usuário está desativado, veio a mesma mensagem: %q", msg(good))
+		t.Errorf("correct password should indicate user is disabled, got same message: %q", msg(good))
 	}
 	if !strings.Contains(msg(good), "desativado") && !strings.Contains(msg(good), "disabled") {
-		t.Errorf("senha certa devia indicar usuário desativado, veio %q", msg(good))
+		t.Errorf("correct password should indicate user is disabled, got %q", msg(good))
 	}
 
-	// 3. Tentativas repetidas trancam a identidade com 429
+	// 3. Repeated attempts lock the identity with 429
 	for i := 2; i < x.e.Cfg.Auth.MaxLoginAttempts; i++ {
 		x.badLogin("ze@x.com")
 	}
 	r := x.badLogin("ze@x.com")
 	x.expect(r, 429, "TooManyRequestsError")
 	if ra := r.Header.Get("Retry-After"); ra == "" {
-		t.Error("o lockout de usuário desativado também tem de responder Retry-After")
+		t.Error("lockout of disabled user must also respond with Retry-After")
 	}
 }
 
-// Desativar um usuário derruba suas sessões e chaves imediatamente, sem esperar
-// expiração nem TTL de cache.
+// Disabling a user revokes their sessions and keys immediately, without waiting
+// for expiration or cache TTL.
 func TestSEC04_DisabledUserSessionsAndKeysRevoked(t *testing.T) {
 	x := setup(t)
 	sid := x.sid("ana@x.com")
 	key := x.apiKey("ana@x.com")
 
-	// Sessão e chave funcionam antes da desativação
+	// Session and key work before deactivation
 	x.expect(x.call("GET", "/api/boot", nil, "sid:"+sid), 200, "")
 	x.expect(x.call("GET", "/api/boot", nil, "token:"+key), 200, "")
 
-	// Administrador desativa a usuária via formulário/controller
+	// Administrator disables the user via form/controller
 	x.asAdmin(func(c *engine.Ctx) error {
 		u, err := c.GetDoc("User", "ana@x.com")
 		if err != nil {
@@ -72,20 +72,20 @@ func TestSEC04_DisabledUserSessionsAndKeysRevoked(t *testing.T) {
 		return err
 	})
 
-	// A sessão caiu imediatamente do banco e do cache
+	// Session dropped immediately from database and cache
 	rBoot := x.call("GET", "/api/boot", nil, "sid:"+sid)
 	x.expect(rBoot, 200, "")
 	if u, _ := rBoot.Body["data"].(map[string]any); u != nil && u["user"] != "Guest" {
-		t.Errorf("a sessão devia ter sido invalidada, veio user=%v", u["user"])
+		t.Errorf("session should have been invalidated, got user=%v", u["user"])
 	}
 
-	// A chave de API para de autenticar imediatamente
+	// API key stops authenticating immediately
 	x.expect(x.call("GET", "/api/boot", nil, "token:"+key), 401, "AuthenticationError")
 }
 
-// Brute-force em segredo de chave de API:
-// Como a validação de segredo roda Argon2 a cada requisição, 20 palpites errados
-// disparam o freio no cache de processo (`apikeyfail:key`) evitando DoS de memória.
+// Brute-force on API key secret:
+// Since secret validation runs Argon2 on each request, 20 wrong guesses
+// trigger process cache throttle (`apikeyfail:key`), preventing memory DoS.
 func TestSEC04_APIKeyBruteForceBrake(t *testing.T) {
 	x := setup(t)
 	token := x.apiKey("ana@x.com")
@@ -96,29 +96,29 @@ func TestSEC04_APIKeyBruteForceBrake(t *testing.T) {
 		x.expect(r, 401, "AuthenticationError")
 	}
 
-	// O freio em cache atingiu o limiar
+	// Cache brake reached threshold
 	v, ok := x.e.Cache.Get("apikeyfail:" + keyName)
 	if !ok || v.(int) < 20 {
-		t.Fatalf("o freio apikeyfail devia estar ativo no cache: ok=%v val=%v", ok, v)
+		t.Fatalf("apikeyfail brake should be active in cache: ok=%v val=%v", ok, v)
 	}
 
-	// Próxima requisição falha imediatamente antes do Argon2
+	// Next request fails immediately before Argon2
 	r := x.call("GET", "/api/boot", nil, "token:"+keyName+":outrosegedoerrado")
 	x.expect(r, 401, "AuthenticationError")
 }
 
 // Token kind mismatch:
-// Um token de recuperação não pode ser usado em accept-invite, e vice-versa.
+// A recovery token cannot be used in accept-invite, and vice-versa.
 func TestSEC04_TokenKindMismatch(t *testing.T) {
 	x := setup(t)
 
-	// Token de reset tentando ser usado como invite
+	// Reset token attempted to be used as invite
 	resetTok := x.issueFor("ana@x.com", engine.TokenReset)
 	r1 := x.call("POST", "/api/auth/accept-invite",
 		map[string]any{"token": resetTok, "password": "senhanovaok1"}, "")
 	x.expect(r1, 417, "ValidationError")
 
-	// Token de invite tentando ser usado como reset
+	// Invite token attempted to be used as reset
 	inviteTok := x.issueFor("ana@x.com", engine.TokenInvite)
 	r2 := x.call("POST", "/api/auth/reset-password",
 		map[string]any{"token": inviteTok, "password": "senhanovaok1"}, "")
@@ -126,8 +126,8 @@ func TestSEC04_TokenKindMismatch(t *testing.T) {
 }
 
 // IP throttle on spraying logins:
-// Um atacante tentando múltiplos logins com contas diferentes a partir do mesmo IP
-// é barrado pela chave loginip:<ip> após MaxLoginAttempts * 5 erros.
+// An attacker trying multiple logins across different accounts from the same IP
+// is stopped by key loginip:<ip> after MaxLoginAttempts * 5 errors.
 func TestSEC04_IPThrottleSpraying(t *testing.T) {
 	x := setup(t)
 	limit := x.e.Cfg.Auth.MaxLoginAttempts * 5
@@ -137,12 +137,12 @@ func TestSEC04_IPThrottleSpraying(t *testing.T) {
 		x.expect(x.badLogin(usr), 401, "AuthenticationError")
 	}
 
-	// O IP agora está trancado, mesmo para uma conta que nunca foi tentada
+	// IP is now locked, even for an account that was never attempted
 	r := x.badLogin("conta_virgem@x.com")
 	x.expect(r, 429, "TooManyRequestsError")
 	if ra := r.Header.Get("Retry-After"); ra == "" {
-		t.Error("o throttle de IP tem de responder com Retry-After")
+		t.Error("IP throttle must respond with Retry-After")
 	} else if n, err := strconv.Atoi(ra); err != nil || n <= 0 {
-		t.Errorf("Retry-After inválido: %q", ra)
+		t.Errorf("invalid Retry-After: %q", ra)
 	}
 }

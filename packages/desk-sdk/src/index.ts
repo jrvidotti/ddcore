@@ -118,19 +118,19 @@ export interface DeskAPI {
 }
 
 export declare function defineForm<T extends BaseDoc = BaseDoc>(doctype: string, handlers: FormHandlers<T>): void;
-/** Ajustes da listagem de um DocType (ver docs/agent/form-api.md). */
+/** Adjustments for a DocType's list view (see docs/agent/form-api.md). */
 export interface ListViewOptions<T extends BaseDoc = BaseDoc> {
-  /** Colunas exibidas, no lugar do `inListView` da meta. */
+  /** Displayed columns, overriding `inListView` from meta. */
   columns?: (keyof T & string)[];
-  /** Filtros iniciais; a query string da URL ainda tem precedência. */
+  /** Initial filters; URL query string still takes precedence. */
   filters?: Partial<Record<keyof T & string, any>>;
-  /** Ordenação inicial, ex.: "vencimento asc". */
+  /** Initial sorting, e.g. "due_date asc". */
   orderBy?: string;
-  /** Tamanho de página inicial. */
+  /** Initial page size. */
   pageSize?: number;
-  /** Texto da célula (texto puro, não HTML). */
+  /** Cell text formatter (plain text, not HTML). */
   formatters?: Partial<Record<keyof T & string, (value: any, row: T) => string>>;
-  /** Substitui a coluna de status; devolva null para não mostrar nada. */
+  /** Replaces the status column; return null to show nothing. */
   indicator?: (row: T) => { label: string; color: string } | null | undefined;
 }
 

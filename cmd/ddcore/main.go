@@ -152,8 +152,8 @@ func cmdInit(args []string) error {
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
-	// idempotente: num checkout que já traz ddcore.json, `init && migrate` do
-	// roteiro de bootstrap precisa funcionar — atualiza o que foi pedido e avisa.
+	// Idempotent: in a checkout that already contains ddcore.json, the bootstrap
+	// script's `init && migrate` must work — update what was requested and notify.
 	if _, err := os.Stat(config.Name); err == nil {
 		cur, path, err := config.Load(".")
 		if err != nil {
@@ -269,7 +269,7 @@ func cmdServe(args []string, dev bool) error {
 	}
 	srv := api.New(e, desk.FS())
 	if dev {
-		// MCP por HTTP só com chave de API de Administrator/System Manager (B01)
+		// MCP over HTTP only with Administrator/System Manager API key (B01)
 		srv.MCPHandler = srv.RequireAdminAPIKey(mcp.HTTPHandler(e))
 		srv.Router.Handle("/mcp", srv.MCPHandler)
 		srv.Router.Handle("/mcp/*", srv.MCPHandler)
@@ -308,7 +308,7 @@ func cmdServe(args []string, dev bool) error {
 		defer c()
 		h.Shutdown(sctx)
 	}()
-	e.Log.Info("ddcore no ar", "url", fmt.Sprintf("http://localhost:%d", cfg.Port), "dev", dev, "apps", e.AppOrder())
+	e.Log.Info("ddcore running", "url", fmt.Sprintf("http://localhost:%d", cfg.Port), "dev", dev, "apps", e.AppOrder())
 	if err := h.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		return err
 	}
@@ -509,8 +509,8 @@ func cmdDemo(args []string) error {
 		if *app != "" && name != *app {
 			continue
 		}
-		// `generate` does not need to ser whitelisted (roda como Administrator), então
-		// a existência do app se verifica pelo arquivo
+		// `generate` does not need to be whitelisted (runs as Administrator), so
+		// app existence is checked by file
 		if dir := e.AppDir(name); dir == "" {
 			continue
 		} else if _, err := os.Stat(filepath.Join(dir, "services", "demo.ts")); err != nil {

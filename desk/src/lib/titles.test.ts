@@ -25,12 +25,12 @@ describe("titles store", () => {
     boot.ready = true;
   });
 
-  it("registra e recupera título individual", () => {
+  it("registers and retrieves individual title", () => {
     setLinkTitle("Imovel", "IMO-00002", "Loja Centro 12");
     expect(getLinkTitle("Imovel", "IMO-00002")).toBe("Loja Centro 12");
   });
 
-  it("registra títulos em lote", () => {
+  it("registers titles in batch", () => {
     registerTitles({
       Imovel: { "IMO-00001": "Casa Jardim", "IMO-00002": "Loja Centro 12" },
       Pessoa: { "PES-00001": "João Silva" },
@@ -40,20 +40,20 @@ describe("titles store", () => {
     expect(getLinkTitle("Pessoa", "PES-00001")).toBe("João Silva");
   });
 
-  it("retorna o próprio nome quando o DocType não tem titleField", () => {
+  it("returns name itself when DocType has no titleField", () => {
     expect(getLinkTitle("SemTitulo", "SEM-001")).toBe("SEM-001");
   });
 
-  it("retorna vazio para valores nulos ou vazios", () => {
+  it("returns empty string for null or empty values", () => {
     expect(getLinkTitle("Imovel", "")).toBe("");
   });
 
-  it("formatValue formata campo Link utilizando o título", () => {
+  it("formatValue formats Link field using title", () => {
     setLinkTitle("Imovel", "IMO-00002", "Loja Centro 12");
     expect(formatValue("IMO-00002", { fieldtype: "Link", options: "Imovel" })).toBe("Loja Centro 12");
   });
 
-  it("formatValue faz fallback para o ID se não houver título em cache", () => {
+  it("formatValue falls back to ID if no title in cache", () => {
     expect(formatValue("IMO-99999", { fieldtype: "Link", options: "Imovel" })).toBe("IMO-99999");
   });
 });

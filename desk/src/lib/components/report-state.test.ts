@@ -10,7 +10,7 @@ const fields: Field[] = [
 ];
 
 describe("report URL filters", () => {
-  it("restaura somente filtros declarados e preserva seus tipos", () => {
+  it("restores only declared filters and preserves their types", () => {
     expect(reportFiltersFromSearchParams(
       new URLSearchParams("ate=2026-09-10&imovel=IMV-001&somente_com_movimento=false&limite=25.5&estranho=ignorar"),
       fields,
@@ -18,11 +18,11 @@ describe("report URL filters", () => {
     )).toEqual({ ate: "2026-09-10", imovel: "IMV-001", somente_com_movimento: false, limite: 25.5 });
   });
 
-  it("mantém um filtro padrão vazio quando ele é removido em um link compartilhado", () => {
+  it("keeps a default filter empty when removed in a shared link", () => {
     expect(reportFiltersFromSearchParams(new URLSearchParams("ate="), fields, { ate: "2026-09-30" })).toEqual({ ate: "" });
   });
 
-  it("serializa filtros ativos, inclusive falso e vazio", () => {
+  it("serializes active filters, including false and empty", () => {
     expect(reportFiltersToSearchParams({ ate: "", imovel: "IMV-001", somente_com_movimento: false, limite: 25.5 }, fields).toString())
       .toBe("ate=&imovel=IMV-001&somente_com_movimento=false&limite=25.5");
   });

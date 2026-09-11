@@ -27,12 +27,12 @@
   let stale = $state(false);
   const modKey = $derived(getModifierKey());
 
-  // O cleanup precisa ser registrado sincronamente: onMount ignora o que um
-  // callback async *resolve*, então um corpo async vazaria a assinatura.
+  // Cleanup must be registered synchronously: onMount ignores what an
+  // async callback *resolves*, so an async body would leak the subscription.
   onMount(() => {
     let alive = true;
     const off = subscribe("doc_update", (p: any) => {
-      // nosso próprio save também ecoa aqui: só sinaliza mudança de outra pessoa, depois
+      // our own save also echoes here: only signal someone else's change
       if (!alive || !frm || p.doctype !== doctype || p.name !== frm.doc.name) return;
       if (frm.saving) return;
       if (Date.now() - frm.loadedAt < 3000) return;
@@ -48,7 +48,7 @@
       try {
         const initial = (history.state as any)?.["sveltekit:states"]?.doc || (page.state as any)?.doc;
         const f = await createForm(doctype, name, initial);
-        if (!alive) return; // saiu da página enquanto carregava
+        if (!alive) return; // navigated away while loading
         frm = f;
         if (f.isNew) {
           for (const [k, v] of page.url.searchParams) if (f.field(k)) f.doc[k] = v;
@@ -59,7 +59,7 @@
   });
 
   $effect(() => {
-    // ao recarregar/atualizar o documento local, ele deixa de estar desatualizado
+    // when reloading/updating local doc, it is no longer stale
     if (frm?.doc.modified) {
       stale = false;
     }

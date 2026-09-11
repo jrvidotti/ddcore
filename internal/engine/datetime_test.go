@@ -26,31 +26,31 @@ func at(t *testing.T, tz string) castOpts {
 	return o
 }
 
-func TestCastValueDatetimeAceitaString(t *testing.T) {
+func TestCastValueDatetimeAcceptsString(t *testing.T) {
 	f := &meta.Field{Fieldname: "concluida_em", Fieldtype: "Datetime", Label: "Concluída em"}
 	got, err := castValueWith(f, "2026-09-10 17:35:20", utcOpts)
 	if err != nil {
-		t.Fatalf("castValueWith() erro = %v", err)
+		t.Fatalf("castValueWith() error = %v", err)
 	}
 	if _, ok := got.(time.Time); !ok {
-		t.Fatalf("castValueWith() = %#v, queria time.Time", got)
+		t.Fatalf("castValueWith() = %#v, wanted time.Time", got)
 	}
 }
 
-// castAll grava o valor convertido de volta no documento: coagir de novo o
-// mesmo campo não pode falhar (era o caso quando o app gravava duas vezes).
-func TestCastValueDatetimeEhIdempotente(t *testing.T) {
+// castAll writes the converted value back to the document: re-coercing the
+// same field must not fail (which was the case when an app saved twice).
+func TestCastValueDatetimeIsIdempotent(t *testing.T) {
 	f := &meta.Field{Fieldname: "concluida_em", Fieldtype: "Datetime", Label: "Concluída em"}
 	primeiro, err := castValueWith(f, "2026-09-10 17:35:20", utcOpts)
 	if err != nil {
-		t.Fatalf("castValueWith() erro = %v", err)
+		t.Fatalf("castValueWith() error = %v", err)
 	}
 	segundo, err := castValueWith(f, primeiro, utcOpts)
 	if err != nil {
-		t.Fatalf("segunda castValueWith() erro = %v", err)
+		t.Fatalf("second castValueWith() error = %v", err)
 	}
 	if !segundo.(time.Time).Equal(primeiro.(time.Time)) {
-		t.Fatalf("segunda castValueWith() = %v, queria %v", segundo, primeiro)
+		t.Fatalf("second castValueWith() = %v, wanted %v", segundo, primeiro)
 	}
 }
 

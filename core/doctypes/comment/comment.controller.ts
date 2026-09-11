@@ -1,19 +1,19 @@
 import { defineController } from "@ddcore/sdk";
 
-/** Comentário segue a permissão de leitura do documento comentado (B04). */
-function podeLerReferencia(doctype: string, docname: string): boolean {
+/** Comment follows the read permission of the commented document (B04). */
+function canReadReference(doctype: string, docname: string): boolean {
   if (!doctype || !docname) return false;
   const owner = ddcore.db.getValue(doctype, docname, "owner");
-  if (owner === undefined || owner === null) return false; // documento apagado
+  if (owner === undefined || owner === null) return false; // deleted document
   return ddcore.hasPermission(doctype, "read", { name: docname, owner }) === true;
 }
 
 export default defineController("Comment", {
   hasPermission(doc, ptype, user) {
-    if (!doc) return undefined; // verificação de doctype: o filtro é aplicado por linha
+    if (!doc) return undefined; // doctype verification: filter is applied per row
     if ((ddcore.getRoles(user) || []).indexOf("System Manager") >= 0) return true;
-    if (!podeLerReferencia(String(doc.reference_doctype || ""), String(doc.reference_name || ""))) return false;
-    // alterar ou apagar, só o autor
+    if (!canReadReference(String(doc.reference_doctype || ""), String(doc.reference_name || ""))) return false;
+    // edit or delete, author only
     if (ptype === "write" || ptype === "delete") return doc.owner === user;
     return true;
   },

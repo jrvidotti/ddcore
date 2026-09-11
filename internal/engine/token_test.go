@@ -20,18 +20,18 @@ func TestTokenIsSingleUse(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(token) != 48 {
-		t.Errorf("esperava 48 hex (192 bits), veio %d", len(token))
+		t.Errorf("expected 48 hex (192 bits), got %d", len(token))
 	}
 	if time.Until(expires) < 50*time.Minute {
-		t.Errorf("expiração muito curta: %v", expires)
+		t.Errorf("expiration too short: %v", expires)
 	}
 
-	// espiar não gasta
+	// peeking does not consume
 	if _, err := e.PeekToken(ctx, token); err != nil {
 		t.Fatalf("PeekToken: %v", err)
 	}
 	if _, err := e.PeekToken(ctx, token); err != nil {
-		t.Fatalf("espiar duas vezes não pode gastar: %v", err)
+		t.Fatalf("peeking twice must not consume: %v", err)
 	}
 
 	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
@@ -40,27 +40,27 @@ func TestTokenIsSingleUse(t *testing.T) {
 			return err
 		}
 		if at.User != "ze@x.com" {
-			t.Errorf("usuário errado: %q", at.User)
+			t.Errorf("wrong user: %q", at.User)
 		}
 		return nil
 	}); err != nil {
 		t.Fatal(err)
 	}
 
-	// gastar de novo é recusado, e com erro de validação e não 500
+	// consuming again is rejected, and with ValidationError rather than 500
 	err = e.Run(ctx, "Administrator", func(c *Ctx) error {
 		_, err := e.ConsumeToken(ctx, c.Tx, token, TokenReset)
 		return err
 	})
 	if err == nil {
-		t.Fatal("um token usado tem de ser recusado")
+		t.Fatal("a used token must be rejected")
 	}
 	if cerr.From(err).Type != "ValidationError" {
-		t.Errorf("esperava ValidationError, veio %s", cerr.From(err).Type)
+		t.Errorf("expected ValidationError, got %s", cerr.From(err).Type)
 	}
 }
 
-// O token é guardado como hash: quem lê o banco não consegue redefinir senha.
+// The token is stored as a hash: someone reading the database cannot reset passwords.
 func TestTokenIsStoredHashed(t *testing.T) {
 	e := setupPerm(t)
 	ctx := context.Background()
@@ -75,10 +75,10 @@ func TestTokenIsStoredHashed(t *testing.T) {
 	for _, r := range rows {
 		h := db.Str(r["token_hash"])
 		if strings.Contains(h, token) || h == token {
-			t.Fatal("o token cru foi para o banco")
+			t.Fatal("raw token was sent to the database")
 		}
 		if len(h) != 64 {
-			t.Errorf("esperava um sha256 hex, veio %d chars", len(h))
+			t.Errorf("expected a sha256 hex, got %d chars", len(h))
 		}
 	}
 }
@@ -91,19 +91,19 @@ func TestTokenExpires(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := e.PeekToken(ctx, token); err == nil {
-		t.Error("um token vencido não pode ser espiado")
+		t.Error("an expired token cannot be peeked")
 	}
 	err = e.Run(ctx, "Administrator", func(c *Ctx) error {
 		_, err := e.ConsumeToken(ctx, c.Tx, token, TokenReset)
 		return err
 	})
 	if err == nil {
-		t.Error("um token vencido não pode ser gasto")
+		t.Error("an expired token cannot be consumed")
 	}
 }
 
-// Um token de convite não serve como token de recuperação e vice-versa: sem
-// isso, um convite pendente seria um caminho para redefinir a senha de alguém.
+// An invite token cannot serve as a recovery token and vice-versa: without
+// this, a pending invite would be a vector to reset someone's password.
 func TestTokenKindIsChecked(t *testing.T) {
 	e := setupPerm(t)
 	ctx := context.Background()
@@ -116,12 +116,12 @@ func TestTokenKindIsChecked(t *testing.T) {
 		return err
 	})
 	if err == nil {
-		t.Error("um token de convite não pode ser gasto como recuperação")
+		t.Error("an invite token cannot be consumed as recovery")
 	}
 }
 
-// A razão de ConsumeToken ser uma instrução só: dois envios do mesmo link não
-// podem ambos vencer a corrida e ambos definir uma senha.
+// The reason ConsumeToken is a single statement: two submissions of the same link
+// cannot both win the race and both set a password.
 func TestTokenRaceHasExactlyOneWinner(t *testing.T) {
 	e := setupPerm(t)
 	ctx := context.Background()
@@ -151,7 +151,7 @@ func TestTokenRaceHasExactlyOneWinner(t *testing.T) {
 	}
 	wg.Wait()
 	if wins != 1 {
-		t.Fatalf("exatamente um tem de vencer, venceram %d", wins)
+		t.Fatalf("exactly one must win, %d won", wins)
 	}
 }
 
@@ -159,7 +159,7 @@ func TestSweepAuthRemovesOnlyWhatExpired(t *testing.T) {
 	e := setupPerm(t)
 	ctx := context.Background()
 
-	vivo, _, err := e.IssueToken(ctx, "ze@x.com", TokenReset, time.Hour, "", "")
+	active, _, err := e.IssueToken(ctx, "ze@x.com", TokenReset, time.Hour, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -172,9 +172,9 @@ func TestSweepAuthRemovesOnlyWhatExpired(t *testing.T) {
 		t.Fatal(err)
 	}
 	if n.Tokens != 1 {
-		t.Errorf("esperava 1 token varrido, veio %d", n.Tokens)
+		t.Errorf("expected 1 swept token, got %d", n.Tokens)
 	}
-	if _, err := e.PeekToken(ctx, vivo); err != nil {
-		t.Errorf("o token vivo não podia ter sido varrido: %v", err)
+	if _, err := e.PeekToken(ctx, active); err != nil {
+		t.Errorf("active token should not have been swept: %v", err)
 	}
 }

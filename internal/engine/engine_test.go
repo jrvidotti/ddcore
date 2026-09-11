@@ -142,7 +142,7 @@ func setupWith(t *testing.T, extra map[string]string) *Engine {
 	}
 	plan, _ := e.Plan(ctx, false)
 	if len(plan) != 0 {
-		t.Fatalf("migrate não é idempotente: %v", plan)
+		t.Fatalf("migrate is not idempotent: %v", plan)
 	}
 	t.Cleanup(func() { e.DB.Close() })
 	return e
@@ -157,39 +157,39 @@ func TestLifecycle(t *testing.T) {
 		u["roles"] = []any{map[string]any{"role": "Gestor"}}
 		u, err := c.Insert(u, SaveOpts{})
 		if err != nil {
-			return fmt.Errorf("linha 109: %w", err)
+			return fmt.Errorf("line 109: %w", err)
 		}
 		if !CheckPassword(u.Str("password_hash"), "segredo123") || u.Str("new_password") != "" {
-			t.Fatalf("senha não foi hasheada: %v", u)
+			t.Fatalf("password was not hashed: %v", u)
 		}
-		invalidUser, _ := c.NewDoc("User", Doc{"email": "invalid", "full_name": "Inválido"})
+		invalidUser, _ := c.NewDoc("User", Doc{"email": "invalid", "full_name": "Invalid"})
 		if _, err := c.Insert(invalidUser, SaveOpts{}); err == nil || cerr.From(err).Title != "Invalid email" {
-			t.Fatalf("esperava validação central de email em User, veio %v", err)
+			t.Fatalf("expected centralized email validation on User, got %v", err)
 		}
 		p, _ := c.NewDoc("Pessoa", Doc{"nome": "Ana", "cpf": "123", "tipo": "PJ", "email": "  ana+teste@example.com  "})
 		p, err = c.Insert(p, SaveOpts{})
 		if err != nil {
-			return fmt.Errorf("linha 116: %w", err)
+			return fmt.Errorf("line 116: %w", err)
 		}
 		if p.Str("email") != "ana+teste@example.com" {
-			t.Fatalf("email não foi normalizado: %q", p.Str("email"))
+			t.Fatalf("email was not normalized: %q", p.Str("email"))
 		}
 		invalid, _ := c.NewDoc("Pessoa", Doc{"nome": "Email inválido", "email": "invalid"})
 		if _, err := c.Insert(invalid, SaveOpts{}); err == nil || cerr.From(err).Type != "ValidationError" {
-			t.Fatalf("esperava ValidationError de email no insert, veio %v", err)
+			t.Fatalf("expected email ValidationError on insert, got %v", err)
 		}
 		p["email"] = "invalid"
 		if _, err := c.Save(p, SaveOpts{}); err == nil || cerr.From(err).Type != "ValidationError" {
-			t.Fatalf("esperava ValidationError de email no update, veio %v", err)
+			t.Fatalf("expected email ValidationError on update, got %v", err)
 		}
 		p["email"] = "ana+teste@example.com"
 		p2, _ := c.NewDoc("Pessoa", Doc{"nome": "Bia", "cpf": "123"})
 		if _, err := c.Insert(p2, SaveOpts{}); err == nil || cerr.From(err).Type != "DuplicateEntryError" {
-			t.Fatalf("esperava duplicidade de cpf, veio %v", err)
+			t.Fatalf("expected duplicate cpf error, got %v", err)
 		}
 		p3, _ := c.NewDoc("Pessoa", Doc{"nome": "Cid", "tipo": "XX"})
 		if _, err := c.Insert(p3, SaveOpts{}); err == nil || !strings.Contains(err.Error(), "is not one of the options") {
-			t.Fatalf("esperava erro de select, veio %v", err)
+			t.Fatalf("expected select error, got %v", err)
 		}
 		return nil
 	})
@@ -204,85 +204,85 @@ func TestLifecycle(t *testing.T) {
 		ped["itens"] = []any{map[string]any{"descricao": "Mesa", "qtd": 2, "valor": 300}, map[string]any{"descricao": "Cadeira", "qtd": 4, "valor": 100}}
 		saved, err := c.Insert(ped, SaveOpts{})
 		if err != nil {
-			return fmt.Errorf("linha 139: %w", err)
+			return fmt.Errorf("line 139: %w", err)
 		}
 		name = saved.Name()
 		if !strings.HasPrefix(name, "PED-2026-") || saved.Str("cliente_tipo") != "PJ" || toFloat(saved["total"]) != 1000 {
-			t.Fatalf("doc inesperado: %v", saved)
+			t.Fatalf("unexpected doc: %v", saved)
 		}
 		if len(saved.Children("itens")) != 2 || saved.Children("itens")[1].Str("descricao") != "Cadeira" {
-			t.Fatalf("filhos: %v", saved["itens"])
+			t.Fatalf("children: %v", saved["itens"])
 		}
-		// mandatoryDependsOn: total > 1000 exige desconto — validado no servidor
+		// mandatoryDependsOn: total > 1000 requires discount — validated on server
 		saved["itens"] = append(anyList(saved.Children("itens")), map[string]any{"descricao": "Extra", "qtd": 1, "valor": 1})
 		if _, err := c.Save(saved, SaveOpts{}); err == nil || cerr.From(err).Type != "MandatoryError" {
-			t.Fatalf("esperava MandatoryError de desconto, veio %v", err)
+			t.Fatalf("expected MandatoryError for discount, got %v", err)
 		}
 		saved, _ = c.GetDoc("Pedido", name)
 		saved["itens"] = append(anyList(saved.Children("itens")), map[string]any{"descricao": "Extra", "qtd": 1, "valor": 1})
 		saved["desconto"] = 5
 		saved, err = c.Save(saved, SaveOpts{})
 		if err != nil {
-			return fmt.Errorf("linha 157: %w", err)
+			return fmt.Errorf("line 157: %w", err)
 		}
-		// versão gravada
+		// version saved
 		n, _ := c.Count("Version", map[string]any{"ref_doctype": "Pedido", "docname": name})
 		if n != 1 {
-			t.Fatalf("esperava 1 versão, veio %d", n)
+			t.Fatalf("expected 1 version, got %d", n)
 		}
-		// filtro por child
+		// filter by child
 		rows, err := c.GetList("Pedido", ListArgs{Filters: []any{[]any{"Item Pedido", "descricao", "=", "Cadeira"}}, Fields: []string{"name", "total"}})
 		if err != nil || len(rows) != 1 {
-			t.Fatalf("filtro child: %v %v", rows, err)
+			t.Fatalf("child filter: %v %v", rows, err)
 		}
 		// submit
 		saved, err = c.Submit(saved)
 		if err != nil {
-			return fmt.Errorf("linha 172: %w", err)
+			return fmt.Errorf("line 172: %w", err)
 		}
 		lim, _ := c.GetValue("Pessoa", "Ana", "limite")
 		if toFloat(lim) != 1001 {
-			t.Fatalf("onSubmit não rodou: %v", lim)
+			t.Fatalf("onSubmit did not run: %v", lim)
 		}
 		saved["desconto"] = 10
 		if _, err := c.Save(saved, SaveOpts{}); err == nil || !strings.Contains(err.Error(), "cannot be changed after submission") {
-			t.Fatalf("esperava bloqueio allowOnSubmit, veio %v", err)
+			t.Fatalf("expected allowOnSubmit block, got %v", err)
 		}
 		saved, _ = c.GetDoc("Pedido", name)
 		saved["obs"] = "ok"
 		if _, err := c.Save(saved, SaveOpts{}); err != nil {
-			t.Fatalf("obs é allowOnSubmit: %v", err)
+			t.Fatalf("obs has allowOnSubmit: %v", err)
 		}
-		// método
+		// method
 		rt, _ := c.RT()
 		res, err := rt.RunMethod("Pedido", "resumo", saved.JSON(), []byte(`{"x":1}`))
 		if err != nil || string(res.Result) != `{"itens":3,"total":1001,"x":1}` {
-			t.Fatalf("método: %v %s", err, res.Result)
+			t.Fatalf("method: %v %s", err, res.Result)
 		}
-		// delete bloqueado por link
+		// delete blocked by link
 		if err := c.Delete("Pessoa", "Ana", false, false); err == nil || cerr.From(err).Type != "LinkExistsError" {
-			t.Fatalf("esperava LinkExistsError, veio %v", err)
+			t.Fatalf("expected LinkExistsError, got %v", err)
 		}
-		// rename propaga
+		// rename propagates
 		if _, err := c.Rename("Pessoa", "Ana", "Ana Maria"); err != nil {
-			return fmt.Errorf("linha 199: %w", err)
+			return fmt.Errorf("line 199: %w", err)
 		}
 		v, _ := c.GetValue("Pedido", name, "cliente")
 		if v != "Ana Maria" {
-			t.Fatalf("rename não propagou: %v", v)
+			t.Fatalf("rename did not propagate: %v", v)
 		}
 		// cancel + amend
 		saved, _ = c.GetDoc("Pedido", name)
 		if _, err := c.Cancel(saved); err != nil {
-			return fmt.Errorf("linha 208: %w", err)
+			return fmt.Errorf("line 208: %w", err)
 		}
 		am, err := c.Amend("Pedido", name)
 		if err != nil {
-			return fmt.Errorf("linha 212: %w", err)
+			return fmt.Errorf("line 212: %w", err)
 		}
 		am, err = c.Insert(am, SaveOpts{})
 		if err != nil {
-			return fmt.Errorf("linha 217: %w", err)
+			return fmt.Errorf("line 217: %w", err)
 		}
 		if am.Name() != name+"-1" || am.Str("amended_from") != name || len(am.Children("itens")) != 3 {
 			t.Fatalf("amend: %v", am)
@@ -293,7 +293,7 @@ func TestLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// permissões: usuário sem papel não lê Pedido
+	// permissions: user without role does not read Pedido
 	err = e.Run(ctx, "Administrator", func(c *Ctx) error {
 		u, _ := c.NewDoc("User", Doc{"email": "ze@x.com", "full_name": "Zé"})
 		_, err := c.Insert(u, SaveOpts{})
@@ -304,11 +304,11 @@ func TestLifecycle(t *testing.T) {
 	}
 	err = e.Run(ctx, "ze@x.com", func(c *Ctx) error {
 		if _, err := c.GetDoc("Pedido", name); err == nil || cerr.From(err).Type != "PermissionError" {
-			t.Fatalf("esperava PermissionError, veio %v", err)
+			t.Fatalf("expected PermissionError, got %v", err)
 		}
 		rows, err := c.GetList("Pessoa", ListArgs{})
 		if err != nil || len(rows) != 0 {
-			t.Fatalf("ifOwner deveria esconder tudo: %v %v", rows, err)
+			t.Fatalf("ifOwner should hide everything: %v %v", rows, err)
 		}
 		return nil
 	})
@@ -316,12 +316,12 @@ func TestLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// test runner em savepoints
+	// test runner in savepoints
 	err = e.Run(ctx, "Administrator", func(c *Ctx) error {
 		rt, _ := c.RT()
 		res, err := rt.RunTests("", "")
 		if err != nil {
-			return fmt.Errorf("linha 253: %w", err)
+			return fmt.Errorf("line 253: %w", err)
 		}
 		for _, r := range res {
 			if !r.OK {
@@ -329,11 +329,11 @@ func TestLifecycle(t *testing.T) {
 			}
 		}
 		if len(res) != 2 {
-			t.Fatalf("esperava 2 testes, veio %d", len(res))
+			t.Fatalf("expected 2 tests, got %d", len(res))
 		}
 		n, _ := c.Count("Pessoa", map[string]any{"nome": "Teste"})
 		if n != 0 {
-			t.Fatalf("teste não foi revertido: %d", n)
+			t.Fatalf("test was not rolled back: %d", n)
 		}
 		return nil
 	})

@@ -277,20 +277,20 @@ func (x *env) mcpCall(auth string) resp {
 
 func TestB01_MCPRequiresAPIKey(t *testing.T) {
 	x := setup(t)
-	// sem credencial
+	// without credential
 	x.expect(x.mcpCall(""), 401, "AuthenticationError")
-	// sessão por cookie, mesmo Administrator, não vale para o MCP HTTP
+	// session cookie, even for Administrator, does not apply to HTTP MCP
 	x.expect(x.mcpCall("sid:"+x.sid("Administrator")), 401, "AuthenticationError")
-	// chave inválida
+	// invalid key
 	x.expect(x.mcpCall("token:abc:def"), 401, "AuthenticationError")
-	// chave válida de usuário sem papel administrativo
+	// valid key of user without administrative role
 	x.expect(x.mcpCall("token:"+x.apiKey("ze@x.com")), 403, "PermissionError")
 	x.expect(x.mcpCall("token:"+x.apiKey("ana@x.com")), 403, "PermissionError")
-	// System Manager e Administrator passam
+	// System Manager and Administrator pass
 	for _, u := range []string{"root@x.com", "Administrator"} {
 		r := x.mcpCall("token:" + x.apiKey(u))
 		if r.Status != 200 || !strings.Contains(r.Raw, "db_user") {
-			t.Fatalf("%s: esperava 200 com resultado, veio %d: %s", u, r.Status, r.Raw)
+			t.Fatalf("%s: expected 200 with result, got %d: %s", u, r.Status, r.Raw)
 		}
 	}
 }
@@ -308,31 +308,31 @@ func TestB02_ChildResourceEndpointsFollowParent(t *testing.T) {
 		roleRow = u.Children("roles")[0].Name()
 		return nil
 	})
-	// Guest e usuário sem papel não leem a linha de Has Role
+	// Guest and user without role cannot read Has Role row
 	for _, auth := range []string{"", "sid:" + x.sid("ze@x.com")} {
 		x.expect(x.call("GET", "/api/resource/Has%20Role/"+roleRow, nil, auth), 403, "PermissionError")
 		x.expect(x.call("GET", "/api/resource/Has%20Role", nil, auth), 403, "PermissionError")
-		// mutações em filho nunca passam pela API genérica
+		// child mutations never go through the generic API
 		x.expect(x.call("PUT", "/api/resource/Has%20Role/"+roleRow, map[string]any{"role": "Guest"}, auth), 417, "ValidationError")
 		x.expect(x.call("POST", "/api/resource/Has%20Role", map[string]any{"role": "Guest"}, auth), 417, "ValidationError")
 		x.expect(x.call("DELETE", "/api/resource/Has%20Role/"+roleRow, nil, auth), 417, "ValidationError")
 		x.expect(x.call("POST", "/api/resource/Has%20Role/"+roleRow+"/save", map[string]any{}, auth), 417, "ValidationError")
 	}
-	// a linha continua intacta
+	// the row remains intact
 	x.asAdmin(func(c *engine.Ctx) error {
 		v, err := c.GetValue("Has Role", roleRow, "role")
 		if err != nil {
 			return err
 		}
 		if v != "System Manager" {
-			t.Fatalf("linha alterada: %v", v)
+			t.Fatalf("row altered: %v", v)
 		}
 		return nil
 	})
-	// nem para Administrator: filho se edita pelo pai
+	// not even for Administrator: child is edited through the parent
 	x.expect(x.call("PUT", "/api/resource/Has%20Role/"+roleRow, map[string]any{"role": "Guest"}, "sid:"+x.sid("Administrator")), 417, "ValidationError")
 
-	// Gestor lê linhas do próprio Pedido; usuário sem papel não
+	// Gestor reads rows from their own Pedido; user without role does not
 	var item string
 	x.asAdmin(func(c *engine.Ctx) error {
 		pes, _ := c.NewDoc("Pessoa", engine.Doc{"nome": "Cliente"})
@@ -379,17 +379,17 @@ func TestB05_WorkspaceAndReportRequirePermission(t *testing.T) {
 	}
 
 	ze, ana := "sid:"+x.sid("ze@x.com"), "sid:"+x.sid("ana@x.com")
-	// workspace com papel: usuário sem o papel não lê card nem gráfico
+	// workspace with role: user without role cannot read card or chart
 	x.expect(x.call("GET", "/api/workspace/Demo/card/segredo", nil, ze), 403, "PermissionError")
 	x.expect(x.call("GET", "/api/workspace/Demo/chart/grafico", nil, ze), 403, "PermissionError")
-	// workspace aberto, mas o card agrega um doctype sem permissão
+	// open workspace, but the card aggregates a doctype without permission
 	x.expect(x.call("GET", "/api/workspace/Aberto/card/pedidos", nil, ze), 403, "PermissionError")
-	// relatórios: por papel e por permissão de relatório no refDoctype
+	// reports: by role and by report permission on refDoctype
 	x.expect(x.call("GET", "/api/report/Pessoas", nil, ze), 403, "PermissionError")
 	x.expect(x.call("GET", "/api/report/Livre", nil, ze), 403, "PermissionError")
 	for _, p := range []string{"/api/workspace/Demo/card/segredo", "/api/workspace/Demo/chart/grafico", "/api/report/Pessoas", "/api/report/Livre"} {
 		if r := x.call("GET", p, nil, ana); r.Status != 200 {
-			t.Fatalf("Gestor deveria acessar %s: %d %s", p, r.Status, r.Raw)
+			t.Fatalf("Gestor should access %s: %d %s", p, r.Status, r.Raw)
 		}
 	}
 }
@@ -400,13 +400,13 @@ func TestB04_VersionAndCommentFollowReference(t *testing.T) {
 	x := setup(t)
 	ana, bia, ze := "sid:"+x.sid("ana@x.com"), "sid:"+x.sid("bia@x.com"), "sid:"+x.sid("ze@x.com")
 
-	// Pessoa criada e alterada pela Ana gera uma Version
+	// Pessoa created and updated by Ana produces a Version
 	r := x.call("POST", "/api/resource/Pessoa", map[string]any{"nome": "Reservada"}, ana)
 	if r.Status != 200 {
-		t.Fatalf("criar Pessoa: %d %s", r.Status, r.Raw)
+		t.Fatalf("create Pessoa: %d %s", r.Status, r.Raw)
 	}
 	if r := x.call("PUT", "/api/resource/Pessoa/Reservada", map[string]any{"tipo": "PJ"}, ana); r.Status != 200 {
-		t.Fatalf("alterar Pessoa: %d %s", r.Status, r.Raw)
+		t.Fatalf("update Pessoa: %d %s", r.Status, r.Raw)
 	}
 	var version string
 	x.asAdmin(func(c *engine.Ctx) error {
@@ -415,30 +415,30 @@ func TestB04_VersionAndCommentFollowReference(t *testing.T) {
 			return err
 		}
 		if len(rows) == 0 {
-			t.Fatal("nenhuma Version gravada")
+			t.Fatal("no Version recorded")
 		}
 		version = fmt.Sprint(rows[0]["name"])
 		return nil
 	})
 
 	verFilter := `/api/resource/Version?filters=` + url.QueryEscape(`{"ref_doctype":"Pessoa","docname":"Reservada"}`)
-	// usuário sem permissão na Pessoa não alcança o histórico por nenhum caminho
+	// user without permission on Pessoa cannot reach history through any path
 	x.expect(x.call("GET", "/api/versions/Pessoa/Reservada", nil, ze), 403, "PermissionError")
 	x.expect(x.call("GET", "/api/resource/Version", nil, ze), 403, "PermissionError")
 	x.expect(x.call("GET", verFilter, nil, ze), 403, "PermissionError")
 	x.expect(x.call("GET", "/api/resource/Version/"+version, nil, ze), 403, "PermissionError")
 	x.expect(x.call("GET", "/api/count/Version", nil, ze), 403, "PermissionError")
-	// quem lê a Pessoa lê o histórico
+	// whoever can read Pessoa can read history
 	for _, p := range []string{"/api/versions/Pessoa/Reservada", verFilter, "/api/resource/Version/" + version} {
 		if r := x.call("GET", p, nil, ana); r.Status != 200 {
-			t.Fatalf("Gestor deveria ler %s: %d %s", p, r.Status, r.Raw)
+			t.Fatalf("Gestor should read %s: %d %s", p, r.Status, r.Raw)
 		}
 	}
 
-	// comentários seguem o documento comentado; autoria manda na edição
+	// comments follow the commented document; author controls edits
 	r = x.call("POST", "/api/resource/Comment", map[string]any{"reference_doctype": "Pessoa", "reference_name": "Reservada", "content": "oi"}, ana)
 	if r.Status != 200 {
-		t.Fatalf("comentar: %d %s", r.Status, r.Raw)
+		t.Fatalf("comment: %d %s", r.Status, r.Raw)
 	}
 	comment := fmt.Sprint(r.Body["data"].(map[string]any)["name"])
 	x.expect(x.call("GET", "/api/comments/Pessoa/Reservada", nil, ze), 403, "PermissionError")
@@ -446,16 +446,16 @@ func TestB04_VersionAndCommentFollowReference(t *testing.T) {
 	x.expect(x.call("GET", "/api/resource/Comment", nil, ze), 403, "PermissionError")
 	x.expect(x.call("POST", "/api/resource/Comment", map[string]any{"reference_doctype": "Pessoa", "reference_name": "Reservada", "content": "invasor"}, ze), 403, "PermissionError")
 	if r := x.call("GET", "/api/comments/Pessoa/Reservada", nil, bia); r.Status != 200 {
-		t.Fatalf("outro Gestor deveria ler comentários: %d %s", r.Status, r.Raw)
+		t.Fatalf("another Gestor should read comments: %d %s", r.Status, r.Raw)
 	}
 	x.expect(x.call("PUT", "/api/resource/Comment/"+comment, map[string]any{"content": "editado por outro"}, bia), 403, "PermissionError")
 	x.expect(x.call("DELETE", "/api/resource/Comment/"+comment, nil, bia), 403, "PermissionError")
 	if r := x.call("PUT", "/api/resource/Comment/"+comment, map[string]any{"content": "editado pela autora"}, ana); r.Status != 200 {
-		t.Fatalf("autora deveria editar: %d %s", r.Status, r.Raw)
+		t.Fatalf("author should edit: %d %s", r.Status, r.Raw)
 	}
-	// System Manager continua com acesso administrativo
+	// System Manager retains administrative access
 	if r := x.call("GET", "/api/resource/Version", nil, "sid:"+x.sid("root@x.com")); r.Status != 200 {
-		t.Fatalf("System Manager deveria listar versões: %d %s", r.Status, r.Raw)
+		t.Fatalf("System Manager should list versions: %d %s", r.Status, r.Raw)
 	}
 }
 
@@ -467,34 +467,34 @@ func TestB20_EventAuthorizerFollowsPermissions(t *testing.T) {
 	ze := x.s.eventAuthorizer(x.ctx, "ze@x.com")
 	guest := x.s.eventAuthorizer(x.ctx, "Guest")
 	if !ana("Pedido", "PED-0001") {
-		t.Error("Gestor deveria receber eventos de Pedido")
+		t.Error("Gestor should receive Pedido events")
 	}
 	if ze("Pedido", "PED-0001") {
-		t.Error("usuário sem papel não deveria receber eventos de Pedido")
+		t.Error("user without role should not receive Pedido events")
 	}
 	if guest("Pedido", "PED-0001") {
-		t.Error("Guest não deveria receber eventos de Pedido")
+		t.Error("Guest should not receive Pedido events")
 	}
-	// a resposta é memorizada por usuário/doctype
+	// the response is cached per user/doctype
 	if _, ok := x.e.Cache.Get("evperm:ze@x.com:Pedido"); !ok {
-		t.Error("a decisão deveria ficar em cache")
+		t.Error("the decision should be cached")
 	}
-	// e chega ao hub: o evento de um doctype restrito não é entregue
+	// and reaches the hub: events for a restricted doctype are not delivered
 	ch := x.e.Events.Subscribe("ze@x.com", ze)
 	defer x.e.Events.Unsubscribe(ch)
 	x.e.Events.Publish(engine.Event{Name: "doc_update", Doctype: "Pedido", DocName: "PED-0001"})
 	select {
 	case ev := <-ch:
-		t.Fatalf("evento restrito entregue: %+v", ev)
+		t.Fatalf("restricted event delivered: %+v", ev)
 	default:
 	}
 }
 
-// events sem sessão não pode sequer abrir o stream SSE.
+// events without session cannot even open the SSE stream.
 func TestB20_EventsRequireAuth(t *testing.T) {
 	x := setup(t)
 	x.expect(x.call("GET", "/api/events", nil, ""), 401, "AuthenticationError")
-	// e o visitante anônimo não deixa assinatura pendurada no hub
+	// and anonymous visitors do not leave subscriptions hanging in the hub
 	x.e.Events.Publish(engine.Event{Name: "ping"})
 
 	req, _ := http.NewRequest("GET", x.ts.URL+"/api/events", nil)
@@ -508,25 +508,25 @@ func TestB20_EventsRequireAuth(t *testing.T) {
 	}
 	defer res.Body.Close()
 	if res.StatusCode != 200 || res.Header.Get("Content-Type") != "text/event-stream" {
-		t.Fatalf("usuário logado deveria abrir o stream: %d %s", res.StatusCode, res.Header.Get("Content-Type"))
+		t.Fatalf("authenticated user should open the stream: %d %s", res.StatusCode, res.Header.Get("Content-Type"))
 	}
 	buf := make([]byte, 64)
 	n, _ := res.Body.Read(buf)
 	if !strings.Contains(string(buf[:n]), "event: hello") {
-		t.Fatalf("esperava o hello do SSE, veio %q", string(buf[:n]))
+		t.Fatalf("expected SSE hello, got %q", string(buf[:n]))
 	}
 }
 
-// ------------------------------------------------------------------ lacunas
-// (tabela "Outras lacunas e melhorias" de docs/check-v1.md)
+// ------------------------------------------------------------------ gaps
+// ("Other gaps and improvements" table from docs/check-v1.md)
 
-// Credenciais de usuário desativado: a chave de API para de valer assim que
-// o usuário é desativado, sem esperar o TTL do cache.
+// Disabled user credentials: API key ceases to be valid as soon as
+// the user is disabled, without waiting for cache TTL.
 func TestLacuna_APIKeyDeUsuarioDesativado(t *testing.T) {
 	x := setup(t)
 	key := x.apiKey("ana@x.com")
 	if r := x.call("GET", "/api/boot", nil, "token:"+key); r.Status != 200 {
-		t.Fatalf("chave válida deveria funcionar: %d %s", r.Status, r.Raw)
+		t.Fatalf("valid key should work: %d %s", r.Status, r.Raw)
 	}
 	x.asAdmin(func(c *engine.Ctx) error {
 		u, err := c.GetDoc("User", "ana@x.com")
@@ -538,14 +538,14 @@ func TestLacuna_APIKeyDeUsuarioDesativado(t *testing.T) {
 		return err
 	})
 	x.expect(x.call("GET", "/api/boot", nil, "token:"+key), 401, "AuthenticationError")
-	// as chaves dos demais usuários continuam íntegras
+	// other users' keys remain intact
 	x.expect(x.mcpCall("token:"+x.apiKey("root@x.com")), 200, "")
 }
 
-// Nome com caractere escapado na URL: o chi roteia pelo RawPath quando o
-// caminho traz um escape que o Go não produziria sozinho (o "@" de um e-mail
-// vira %40), e o parâmetro chega ainda codificado. Todo parâmetro de rota tem
-// de ser decodificado antes de virar nome de documento.
+// Name with escaped character in URL: chi routes via RawPath when the
+// path contains an escape Go wouldn't produce on its own (an e-mail "@"
+// becomes %40), and the parameter arrives still encoded. Every route parameter must
+// be decoded before becoming a document name.
 func TestLacuna_ParametroDeRotaPercentCodificado(t *testing.T) {
 	x := setup(t)
 	admin := "sid:" + x.sid("Administrator")
@@ -555,12 +555,12 @@ func TestLacuna_ParametroDeRotaPercentCodificado(t *testing.T) {
 		"/api/versions/User/ana%40x.com",
 	} {
 		if r := x.call("GET", p, nil, admin); r.Status != 200 {
-			t.Fatalf("%s: esperava 200, veio %d %s", p, r.Status, r.Raw)
+			t.Fatalf("%s: expected 200, got %d %s", p, r.Status, r.Raw)
 		}
 	}
-	// e o escape que o Go também produziria (o espaço) continua funcionando
+	// and the escape that Go would also produce (space) still works
 	if r := x.call("GET", "/api/meta/Has%20Role", nil, admin); r.Status != 200 {
-		t.Fatalf("meta de doctype com espaço: %d %s", r.Status, r.Raw)
+		t.Fatalf("doctype meta with space: %d %s", r.Status, r.Raw)
 	}
 }
 
@@ -587,14 +587,14 @@ func (x *env) upload(auth, filename, content string) resp {
 	return out
 }
 
-// Uploads: limite explícito do corpo e nome de arquivo aleatório.
+// Uploads: explicit body limit and random filename.
 func TestLacuna_UploadLimiteENomeAleatorio(t *testing.T) {
 	x := setup(t)
 	ana := "sid:" + x.sid("ana@x.com")
 	for _, tc := range []struct{ name, ext string }{
 		{"contrato secreto.PDF", ".pdf"},
 		{"payload.html", ".bin"},
-		{"../../etc/passwd", ""}, // sem extensão: nada do nome original sobrevive
+		{"../../etc/passwd", ""}, // no extension: nothing of the original name survives
 	} {
 		r := x.upload(ana, tc.name, "conteudo")
 		if r.Status != 200 {
@@ -603,18 +603,18 @@ func TestLacuna_UploadLimiteENomeAleatorio(t *testing.T) {
 		u := fmt.Sprint(r.Body["data"].(map[string]any)["file_url"])
 		base := strings.TrimPrefix(u, "/private/files/")
 		if !strings.HasSuffix(base, tc.ext) {
-			t.Errorf("%s: extensão esperada %s, veio %s", tc.name, tc.ext, base)
+			t.Errorf("%s: expected extension %s, got %s", tc.name, tc.ext, base)
 		}
 		stem := strings.TrimSuffix(base, tc.ext)
 		if len(stem) < 32 || strings.ContainsAny(stem, "._-/ ") {
-			t.Errorf("%s: nome deveria ser aleatório, veio %s", tc.name, base)
+			t.Errorf("%s: name should be random, got %s", tc.name, base)
 		}
 	}
 	x.s.MaxUpload = 1 << 10
 	x.expect(x.upload(ana, "grande.pdf", strings.Repeat("x", 4<<10)), 417, "ValidationError")
 }
 
-// ETag: getMeta responde 304 quando a meta não mudou.
+// ETag: getMeta responds 304 when meta has not changed.
 func TestLacuna_MetaComETag(t *testing.T) {
 	x := setup(t)
 	ana := "sid:" + x.sid("ana@x.com")
@@ -624,18 +624,18 @@ func TestLacuna_MetaComETag(t *testing.T) {
 	}
 	etag := r.Header.Get("ETag")
 	if etag == "" {
-		t.Fatal("meta deveria devolver ETag")
+		t.Fatal("meta should return ETag")
 	}
 	r2 := x.call("GET", "/api/meta/Pessoa", nil, ana, "If-None-Match", etag)
 	if r2.Status != 304 || r2.Raw != "" {
-		t.Fatalf("esperava 304 vazio, veio %d %s", r2.Status, r2.Raw)
+		t.Fatalf("expected empty 304, got %d %s", r2.Status, r2.Raw)
 	}
 	if same := x.call("GET", "/api/meta/Pessoa", nil, ana).Header.Get("ETag"); same != etag {
-		t.Fatalf("ETag deveria ser estável: %s != %s", same, etag)
+		t.Fatalf("ETag should be stable: %s != %s", same, etag)
 	}
-	// outro usuário tem outras permissões, logo outro ETag
+	// another user has different permissions, thus another ETag
 	if other := x.call("GET", "/api/meta/Pessoa", nil, "sid:"+x.sid("ze@x.com")).Header.Get("ETag"); other == etag {
-		t.Fatal("ETag deveria variar com as permissões do usuário")
+		t.Fatal("ETag should vary with user permissions")
 	}
 }
 
@@ -683,54 +683,54 @@ func TestLinkFieldSearchAPI(t *testing.T) {
 	x := setup(t)
 	admin := "sid:" + x.sid("Administrator")
 
-	// Cria Pessoa e Pedido
+	// Create Pessoa and Pedido
 	r1 := x.call("POST", "/api/resource/Pessoa", map[string]any{"nome": "Carlos Comércio", "tipo": "PF"}, admin)
 	if r1.Status != 200 {
-		t.Fatalf("cria pessoa: %d %s", r1.Status, r1.Raw)
+		t.Fatalf("create pessoa: %d %s", r1.Status, r1.Raw)
 	}
 	r2 := x.call("POST", "/api/resource/Pedido", map[string]any{"cliente": "Carlos Comércio"}, admin)
 	if r2.Status != 200 {
-		t.Fatalf("cria pedido: %d %s", r2.Status, r2.Raw)
+		t.Fatalf("create pedido: %d %s", r2.Status, r2.Raw)
 	}
 
-	// Busca sem acento no campo Link pelo título "Comércio".
+	// Accent-insensitive search in Link field by title "Comércio".
 	orFilters := url.QueryEscape(`[["cliente","like","%comercio%"]]`)
 	rList := x.call("GET", "/api/resource/Pedido?or_filters="+orFilters+"&with_count=true", nil, admin)
 	if rList.Status != 200 {
-		t.Fatalf("list com or_filters falhou: %d %s", rList.Status, rList.Raw)
+		t.Fatalf("list with or_filters failed: %d %s", rList.Status, rList.Raw)
 	}
 	var res map[string]any
 	json.Unmarshal([]byte(rList.Raw), &res)
 	data := res["data"].(map[string]any)
 	rows := data["rows"].([]any)
 	if len(rows) != 1 {
-		t.Fatalf("esperava 1 pedido buscando por 'comercio', veio %d (%v)", len(rows), rows)
+		t.Fatalf("expected 1 order searching for 'comercio', got %d (%v)", len(rows), rows)
 	}
 	if int(data["count"].(float64)) != 1 {
-		t.Fatalf("esperava count 1, veio %v", data["count"])
+		t.Fatalf("expected count 1, got %v", data["count"])
 	}
 
-	// Endpoint count com or_filters
+	// Endpoint count with or_filters
 	rCount := x.call("GET", "/api/count/Pedido?or_filters="+orFilters, nil, admin)
 	if rCount.Status != 200 {
-		t.Fatalf("count com or_filters falhou: %d %s", rCount.Status, rCount.Raw)
+		t.Fatalf("count with or_filters failed: %d %s", rCount.Status, rCount.Raw)
 	}
 	var countRes map[string]any
 	json.Unmarshal([]byte(rCount.Raw), &countRes)
 	if int(countRes["data"].(float64)) != 1 {
-		t.Fatalf("esperava count 1, veio %v", countRes["data"])
+		t.Fatalf("expected count 1, got %v", countRes["data"])
 	}
 
-	// Busca com termo inexistente
+	// Search with nonexistent term
 	noMatch := url.QueryEscape(`[["cliente","like","%NaoExiste%"]]`)
 	rEmpty := x.call("GET", "/api/resource/Pedido?or_filters="+noMatch+"&with_count=true", nil, admin)
 	if rEmpty.Status != 200 {
-		t.Fatalf("list sem match falhou: %d", rEmpty.Status)
+		t.Fatalf("list with no match failed: %d", rEmpty.Status)
 	}
 	var emptyRes map[string]any
 	json.Unmarshal([]byte(rEmpty.Raw), &emptyRes)
 	emptyData := emptyRes["data"].(map[string]any)
 	if len(emptyData["rows"].([]any)) != 0 || int(emptyData["count"].(float64)) != 0 {
-		t.Fatalf("esperava 0 resultados para termo inexistente, veio %v", emptyData)
+		t.Fatalf("expected 0 results for nonexistent term, got %v", emptyData)
 	}
 }

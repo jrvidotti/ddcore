@@ -1,74 +1,71 @@
-.PHONY: build desk test check check-docs vet i18n test-go test-desk dev stop kill migrate help docker-up docker-down docker-logs docker-status docker-psql db-up db-down db-logs db-status db-psql
+.PHONY: build desk test check vet i18n test-go test-desk dev stop kill migrate help docker-up docker-down docker-logs docker-status docker-psql db-up db-down db-logs db-status db-psql
 
 PORT ?= 8090
 
-help: ## exibe esta lista de comandos de ajuda
+help: ## display this list of help commands
 	@grep -E '^[a-zA-Z0-9_-]+:.*##' $(MAKEFILE_LIST) | sed 's/:.*##/ —/'
 
-docker-up: ## sobe o postgres em background via docker compose
+docker-up: ## start postgres in background via docker compose
 	docker compose up -d
 
-docker-down: ## para e remove os containers docker
+docker-down: ## stop and remove docker containers
 	docker compose down
 
-docker-logs: ## visualiza os logs do postgres em tempo real
+docker-logs: ## stream postgres logs in real time
 	docker compose logs -f
 
-docker-status: ## exibe o status dos containers docker
+docker-status: ## display docker containers status
 	docker compose ps
 
-docker-psql: ## abre terminal psql interativo no banco de desenvolvimento (ddcore_dev)
+docker-psql: ## open interactive psql terminal in development database (ddcore_dev)
 	docker compose exec postgres psql -U ddcore -d ddcore_dev
 
-db-up: docker-up ## alias para docker-up
-db-down: docker-down ## alias para docker-down
-db-logs: docker-logs ## alias para docker-logs
-db-status: docker-status ## alias para docker-status
-db-psql: docker-psql ## alias para docker-psql
+db-up: docker-up ## alias for docker-up
+db-down: docker-down ## alias for docker-down
+db-logs: docker-logs ## alias for docker-logs
+db-status: docker-status ## alias for docker-status
+db-psql: docker-psql ## alias for docker-psql
 
-build: desk ## compila desk + binário
+build: desk ## compile desk + binary
 	go build -o bin/ddcore ./cmd/ddcore
 
-desk: ## compila o desk (SvelteKit) para desk/build (embutido no binário)
+desk: ## compile desk (SvelteKit) into desk/build (embedded into binary)
 	cd desk && npm install --silent && npm run build
 
-check: ## verifica os tipos do desk e o catálogo de traduções, sem banco
+check: ## check desk types and translation catalogs, without database
 	cd desk && npm install --silent && npm run check
 	./bin/ddcore types
 	cd desk && npx tsc -p ../apps/demo/tsconfig.json --noEmit
 	./bin/ddcore i18n extract --all --lang pt-BR --check
 
-i18n: ## reescreve translations/<lang>.csv a partir do código
+i18n: ## rewrite translations/<lang>.csv from code
 	./bin/ddcore i18n extract --all --lang pt-BR
 
-check-docs: ## verifica se os espelhos .ptbr.md acompanharam o original em inglês
-	./scripts/check-docs.sh
-
-vet: ## análise estática do Go
+vet: ## Go static analysis
 	go vet ./...
 
-test-desk: ## svelte-check + testes unitários do desk
+test-desk: ## svelte-check + desk unit tests
 	cd desk && npm run check && npm run test
 
-test: build vet ## testes Go e do desk
+test: build vet ## run Go and desk tests
 	go test ./internal/...
 	./bin/ddcore test --app demo
 	$(MAKE) test-desk
 
-dev: ## servidor de desenvolvimento
+dev: ## start development server
 	./bin/ddcore dev
 
-stop: ## encerra o processo rodando na porta especificada (padrão PORT=8090, ex: make stop PORT=8090)
+stop: ## stop process listening on specified port (default PORT=8090, e.g.: make stop PORT=8090)
 	@PID=$$(lsof -ti tcp:$(PORT) -sTCP:LISTEN 2>/dev/null); \
 	if [ -n "$$PID" ]; then \
-		echo "Encerrando processo(s) escutando na porta $(PORT) (PID: $$PID)..."; \
+		echo "Stopping process(es) listening on port $(PORT) (PID: $$PID)..."; \
 		kill -9 $$PID 2>/dev/null || true; \
-		echo "Porta $(PORT) liberada."; \
+		echo "Port $(PORT) freed."; \
 	else \
-		echo "Nenhum processo escutando na porta $(PORT)."; \
+		echo "No process listening on port $(PORT)."; \
 	fi
 
-kill: stop ## alias para stop
+kill: stop ## alias for stop
 
-migrate: ## aplica as migrações de schema
+migrate: ## apply schema migrations
 	./bin/ddcore migrate

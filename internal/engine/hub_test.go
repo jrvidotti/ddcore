@@ -2,7 +2,7 @@ package engine
 
 import "testing"
 
-// B20: um evento que nomeia um documento só chega a quem pode lê-lo.
+// B20: an event that references a document only reaches users permitted to read it.
 func TestB20_HubFiltersEventsByPermission(t *testing.T) {
 	h := NewHub()
 	var asked [][2]string
@@ -15,7 +15,7 @@ func TestB20_HubFiltersEventsByPermission(t *testing.T) {
 
 	h.Publish(Event{Name: "doc_update", Doctype: "Pedido", DocName: "PED-0001"})
 	h.Publish(Event{Name: "doc_update", Doctype: "User", DocName: "Administrator"})
-	h.Publish(Event{Name: "reload"}) // evento sem documento continua broadcast
+	h.Publish(Event{Name: "reload"}) // events without a document remain broadcast
 	h.Publish(Event{Name: "job_done", User: "ze@x.com", Doctype: "Pedido"})
 
 	drain := func(ch chan Event) []Event {
@@ -31,16 +31,16 @@ func TestB20_HubFiltersEventsByPermission(t *testing.T) {
 	}
 	got := drain(ana)
 	if len(got) != 2 || got[0].Name != "doc_update" || got[0].DocName != "PED-0001" || got[1].Name != "reload" {
-		t.Fatalf("ana deveria receber o Pedido e o reload, recebeu %+v", got)
+		t.Fatalf("ana should receive Pedido and reload, got %+v", got)
 	}
 	if got := drain(ze); len(got) != 1 || got[0].Name != "reload" {
-		t.Fatalf("zé só deveria receber o reload, recebeu %+v", got)
+		t.Fatalf("ze should only receive reload, got %+v", got)
 	}
 	if got := drain(anon); len(got) != 1 || got[0].Name != "reload" {
-		t.Fatalf("assinante sem autorizador só recebe eventos sem documento, recebeu %+v", got)
+		t.Fatalf("subscriber without authorizer only receives events without document, got %+v", got)
 	}
 	if len(asked) == 0 {
-		t.Fatal("o hub não consultou o autorizador")
+		t.Fatal("hub did not consult authorizer")
 	}
 	h.Unsubscribe(ana)
 	h.Unsubscribe(ze)

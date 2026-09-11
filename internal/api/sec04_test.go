@@ -10,10 +10,10 @@ import (
 	"github.com/jrvidotti/ddcore/internal/engine"
 )
 
-// badLogin tenta entrar com a senha errada pela rota real.
+// badLogin attempts to log in with the wrong password via the real route.
 func (x *env) badLogin(usr string) resp {
 	x.t.Helper()
-	return x.call("POST", "/api/login", map[string]any{"usr": usr, "pwd": "nao-e-a-senha"}, "")
+	return x.call("POST", "/api/login", map[string]any{"usr": usr, "pwd": "not-the-password"}, "")
 }
 
 func (x *env) goodLogin(usr, pwd string) resp {
@@ -21,7 +21,7 @@ func (x *env) goodLogin(usr, pwd string) resp {
 	return x.call("POST", "/api/login", map[string]any{"usr": usr, "pwd": pwd}, "")
 }
 
-// countAttempts conta as tentativas registradas para uma identidade.
+// countAttempts counts registered attempts for an identity.
 func (x *env) countAttempts(identity string) int {
 	x.t.Helper()
 	rows, err := db.Select(x.ctx, x.e.DB.Pool,
@@ -33,8 +33,8 @@ func (x *env) countAttempts(identity string) int {
 	return int(n)
 }
 
-// Depois de maxLoginAttempts erros a conta trava, e a resposta diz por quanto
-// tempo — inclusive no header, que é onde um cliente HTTP procura.
+// After maxLoginAttempts errors the account locks, and the response indicates for how
+// long — including in the header, which is where an HTTP client looks.
 func TestSEC04_LoginLockout(t *testing.T) {
 	x := setup(t)
 	limit := x.e.Cfg.Auth.MaxLoginAttempts
@@ -46,60 +46,60 @@ func TestSEC04_LoginLockout(t *testing.T) {
 	x.expect(r, 429, "TooManyRequestsError")
 
 	if ra := r.Header.Get("Retry-After"); ra == "" {
-		t.Error("um 429 tem de dizer Retry-After")
+		t.Error("a 429 response must include Retry-After")
 	} else if n, err := strconv.Atoi(ra); err != nil || n <= 0 {
-		t.Errorf("Retry-After devia ser um número de segundos, veio %q", ra)
+		t.Errorf("Retry-After should be a number of seconds, got %q", ra)
 	}
 	if e, ok := r.Body["error"].(map[string]any); ok {
 		if extra, ok := e["extra"].(map[string]any); !ok || extra["retryAfter"] == nil {
-			t.Errorf("o corpo também tem de carregar retryAfter, veio %s", r.Raw)
+			t.Errorf("body must also carry retryAfter, got %s", r.Raw)
 		}
 	}
 
-	// A senha certa não é uma saída do lockout: se fosse, bastaria acertar
-	// depois de esgotar as tentativas para a trava nunca ter existido.
+	// The right password does not bypass the lockout: if it did, one could simply guess
+	// after exhausting attempts for the lockout to have never existed.
 	x.expect(x.goodLogin("ana@x.com", "segredo123"), 429, "TooManyRequestsError")
 
-	// Outra conta segue entrando: a trava é da identidade, não do servidor.
+	// Another account can still log in: the lockout belongs to the identity, not the server.
 	x.expect(x.goodLogin("bia@x.com", "segredo123"), 200, "")
 }
 
-// A regressão que a arquitetura pede: Engine.Login roda dentro de Ctx.Run, que
-// faz rollback no erro. Se a tentativa fosse gravada na transação, o próprio
-// erro que ela conta a apagaria — e o lockout nunca contaria nada.
+// Architectural regression check: Engine.Login runs inside Ctx.Run, which
+// rolls back on error. If the attempt were recorded within the transaction, the very
+// error it counts would erase it — and the lockout would never count anything.
 func TestSEC04_FailedLoginSurvivesRollback(t *testing.T) {
 	x := setup(t)
 	before := x.countAttempts("login:ana@x.com")
 	x.expect(x.badLogin("ana@x.com"), 401, "AuthenticationError")
 	if after := x.countAttempts("login:ana@x.com"); after != before+1 {
-		t.Fatalf("a tentativa falha tem de sobreviver ao rollback: %d → %d", before, after)
+		t.Fatalf("failed attempt must survive rollback: %d → %d", before, after)
 	}
 }
 
-// Um endereço que não existe tem de responder igual a um que existe, e travar
-// igual: senão o próprio lockout vira o oráculo que ele deveria fechar.
+// A nonexistent address must respond identically to an existing one, and lock out
+// identically: otherwise the lockout itself becomes an oracle it is meant to prevent.
 func TestSEC04_LockoutDoesNotEnumerate(t *testing.T) {
 	x := setup(t)
 	known := x.badLogin("ana@x.com")
 	unknown := x.badLogin("ninguem@x.com")
 
 	if known.Status != unknown.Status || known.errType() != unknown.errType() {
-		t.Errorf("status/tipo diferentes: conhecido %d %s, desconhecido %d %s",
+		t.Errorf("different status/kind: known %d %s, unknown %d %s",
 			known.Status, known.errType(), unknown.Status, unknown.errType())
 	}
 	if msg(known) != msg(unknown) {
-		t.Errorf("mensagens diferentes: %q vs %q", msg(known), msg(unknown))
+		t.Errorf("different messages: %q vs %q", msg(known), msg(unknown))
 	}
 
-	// e o desconhecido também tranca
+	// and the unknown user also locks out
 	for i := 1; i < x.e.Cfg.Auth.MaxLoginAttempts; i++ {
 		x.badLogin("ninguem@x.com")
 	}
 	x.expect(x.badLogin("ninguem@x.com"), 429, "TooManyRequestsError")
 }
 
-// Acertar a senha limpa o contador: quem finalmente lembrou não fica cumprindo
-// uma trava que não chegou a existir.
+// Getting the password right resets the counter: someone who finally remembered does not
+// remain locked out.
 func TestSEC04_SuccessClearsTheCounter(t *testing.T) {
 	x := setup(t)
 	for i := 0; i < x.e.Cfg.Auth.MaxLoginAttempts-1; i++ {
@@ -107,11 +107,11 @@ func TestSEC04_SuccessClearsTheCounter(t *testing.T) {
 	}
 	x.expect(x.goodLogin("ana@x.com", "segredo123"), 200, "")
 
-	// o contador zerou: um novo erro não pode cair direto no 429
+	// the counter reset: a new error cannot jump directly to 429
 	x.expect(x.badLogin("ana@x.com"), 401, "AuthenticationError")
 }
 
-// O cookie de sessão segue a política, e não um número escrito no handler.
+// The session cookie follows the policy, rather than a hardcoded number in the handler.
 func TestSEC04_SessionCookieFollowsPolicy(t *testing.T) {
 	x := setup(t)
 	r := x.goodLogin("ana@x.com", "segredo123")
@@ -123,20 +123,20 @@ func TestSEC04_SessionCookieFollowsPolicy(t *testing.T) {
 			continue
 		}
 		if !strings.Contains(c, "Max-Age="+strconv.Itoa(want)) {
-			t.Errorf("Max-Age devia ser %d (a política), veio %q", want, c)
+			t.Errorf("Max-Age should be %d (the policy), got %q", want, c)
 		}
 		if !strings.Contains(c, "HttpOnly") {
-			t.Errorf("o cookie de sessão tem de ser HttpOnly: %q", c)
+			t.Errorf("session cookie must be HttpOnly: %q", c)
 		}
-		// Secure fica fora: httptest serve http e o site não declarou https.
+		// Secure is omitted: httptest serves http and the site has not declared https.
 		if strings.Contains(c, "Secure") {
-			t.Errorf("sem TLS e sem url https, Secure tornaria o cookie inútil: %q", c)
+			t.Errorf("without TLS and without https url, Secure would make the cookie useless: %q", c)
 		}
 	}
 }
 
-// Uma sessão revogada morre agora, não daqui a um minuto: DropSessions tem de
-// derrubar o cache junto com a linha.
+// A revoked session dies immediately, not a minute later: DropSessions must
+// invalidate the cache along with the row.
 func TestSEC04_DropSessionsInvalidatesTheCache(t *testing.T) {
 	x := setup(t)
 	sid := x.sid("ana@x.com")
@@ -148,19 +148,19 @@ func TestSEC04_DropSessionsInvalidatesTheCache(t *testing.T) {
 			return err
 		}
 		if n == 0 {
-			t.Error("esperava ao menos uma sessão derrubada")
+			t.Error("expected at least one dropped session")
 		}
 		return nil
 	})
 
 	r := x.call("GET", "/api/boot", nil, "sid:"+sid)
 	if u, _ := r.Body["data"].(map[string]any); u != nil && u["user"] != "Guest" {
-		t.Errorf("a sessão derrubada continuou valendo: %v", u["user"])
+		t.Errorf("dropped session remained valid: %v", u["user"])
 	}
 }
 
-// exceptSid é o que permite trocar a própria senha sem se deslogar da aba onde
-// ela foi digitada.
+// exceptSid allows changing one's own password without logging out of the tab where
+// it was entered.
 func TestSEC04_DropSessionsSparesTheCaller(t *testing.T) {
 	x := setup(t)
 	keep := x.sid("ana@x.com")
@@ -174,37 +174,37 @@ func TestSEC04_DropSessionsSparesTheCaller(t *testing.T) {
 	x.expect(x.call("GET", "/api/boot", nil, "sid:"+keep), 200, "")
 	r := x.call("GET", "/api/boot", nil, "sid:"+other)
 	if u, _ := r.Body["data"].(map[string]any); u != nil && u["user"] == "ana@x.com" {
-		t.Error("a outra sessão deveria ter caído")
+		t.Error("the other session should have been dropped")
 	}
 }
 
-// A política vale nos caminhos que definem senha, e não só no formulário: é
-// por isso que ela mora no hash, e não em cada chamador.
+// The policy applies on all paths that set passwords, not just in the form: that
+// is why it lives in hashing, not in each caller.
 func TestSEC04_PasswordPolicyOnEveryPath(t *testing.T) {
 	x := setup(t)
-	curta := "abc"
+	shortPwd := "abc"
 
-	// 1. formulário User e `ddcore user add`, via new_password → __hashPassword
+	// 1. User form and `ddcore user add`, via new_password -> __hashPassword
 	err := x.e.Run(x.ctx, "Administrator", func(c *engine.Ctx) error {
-		d, _ := c.NewDoc("User", engine.Doc{"email": "nova@x.com", "full_name": "Nova", "new_password": curta})
+		d, _ := c.NewDoc("User", engine.Doc{"email": "nova@x.com", "full_name": "Nova", "new_password": shortPwd})
 		_, err := c.Insert(d, engine.SaveOpts{})
 		return err
 	})
 	if err == nil {
-		t.Error("o formulário User devia recusar uma senha abaixo do mínimo")
+		t.Error("User form should reject a password below the minimum")
 	}
 
-	// 2. `ddcore user passwd`, recuperação e convite, via SetPassword
-	if err := x.e.SetPassword(x.ctx, "ana@x.com", curta); err == nil {
-		t.Error("SetPassword devia recusar uma senha abaixo do mínimo")
+	// 2. `ddcore user passwd`, recovery and invite, via SetPassword
+	if err := x.e.SetPassword(x.ctx, "ana@x.com", shortPwd); err == nil {
+		t.Error("SetPassword should reject a password below the minimum")
 	}
 	if err := x.e.SetPassword(x.ctx, "ana@x.com", "outrasenha1"); err != nil {
-		t.Errorf("uma senha válida devia passar: %v", err)
+		t.Errorf("a valid password should succeed: %v", err)
 	}
 }
 
-// Trocar a senha derruba as sessões antigas: se a troca foi porque a senha
-// vazou, deixar as sessões de pé não teria trocado nada.
+// Changing password drops old sessions: if the change was because the password
+// leaked, leaving sessions active would defeat the purpose.
 func TestSEC04_PasswordChangeRevokesSessions(t *testing.T) {
 	x := setup(t)
 	old := x.sid("ana@x.com")
@@ -216,13 +216,13 @@ func TestSEC04_PasswordChangeRevokesSessions(t *testing.T) {
 
 	r := x.call("GET", "/api/boot", nil, "sid:"+old)
 	if u, _ := r.Body["data"].(map[string]any); u != nil && u["user"] == "ana@x.com" {
-		t.Error("a sessão antiga devia ter caído com a troca de senha")
+		t.Error("the old session should have been dropped upon password change")
 	}
 	x.expect(x.goodLogin("ana@x.com", "senhanova123"), 200, "")
 }
 
-// Uma senha trocada também destrava a conta: quem acabou de provar que pode
-// defini-la não deve continuar cumprindo lockout.
+// A changed password also clears lockout: whoever just proved they can
+// reset it should not remain locked out.
 func TestSEC04_PasswordChangeClearsTheLockout(t *testing.T) {
 	x := setup(t)
 	for i := 0; i < x.e.Cfg.Auth.MaxLoginAttempts; i++ {

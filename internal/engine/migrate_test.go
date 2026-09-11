@@ -441,7 +441,7 @@ func TestDocumentRenameKeepsAttachments(t *testing.T) {
 	}
 }
 
-// TestPatchPhases — the defect the inventory names as "DDL vem antes dos
+// TestPatchPhases — the defect the inventory names as "DDL comes before
 // patches": before this a patch could only ever see the schema after the change,
 // so there was no way to make the data fit what the DDL was about to do.
 func TestPatchPhases(t *testing.T) {

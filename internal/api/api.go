@@ -68,7 +68,7 @@ func New(e *engine.Engine, desk fs.FS) *Server {
 		r.Get("/meta/{doctype}", s.getMeta)
 		r.Get("/translations", s.translations)
 		r.Post("/upload", s.upload)
-		// endpoints que nunca respondem a visitantes anônimos (B05)
+		// endpoints that never respond to anonymous visitors (B05)
 		r.Group(func(r chi.Router) {
 			r.Use(s.requireLogin)
 			r.Get("/events", s.events)

@@ -40,38 +40,38 @@ naoehumalinha
 		t.Fatalf("parseDotenv: %v", err)
 	}
 	if len(got) != len(want) {
-		t.Fatalf("esperava %d pares, veio %d: %v", len(want), len(got), got)
+		t.Fatalf("expected %d pairs, got %d: %v", len(want), len(got), got)
 	}
 	for i, w := range want {
 		if got[i] != w {
-			t.Errorf("par %d: esperava %v, veio %v", i, w, got[i])
+			t.Errorf("pair %d: expected %v, got %v", i, w, got[i])
 		}
 	}
 }
 
-// A variável já presente no ambiente real tem de sobreviver ao arquivo: ali é o
-// deploy falando, e o arquivo é só o padrão de quem desenvolve.
+// Variables already present in the real environment must take precedence over the file:
+// that represents the deployment, whereas the file is merely local developer defaults.
 func TestDotenvDoesNotOverrideTheEnvironment(t *testing.T) {
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, DotenvName), "DDCORE_TEST_A=do_arquivo\nDDCORE_TEST_B=do_arquivo\n")
-	t.Setenv("DDCORE_TEST_A", "do_ambiente")
+	writeFile(t, filepath.Join(dir, DotenvName), "DDCORE_TEST_A=from_file\nDDCORE_TEST_B=from_file\n")
+	t.Setenv("DDCORE_TEST_A", "from_env")
 	os.Unsetenv("DDCORE_TEST_B")
 	t.Cleanup(func() { os.Unsetenv("DDCORE_TEST_B") })
 
 	if err := loadDotenv(filepath.Join(dir, DotenvName)); err != nil {
 		t.Fatalf("loadDotenv: %v", err)
 	}
-	if got := os.Getenv("DDCORE_TEST_A"); got != "do_ambiente" {
-		t.Errorf("o ambiente real devia vencer o arquivo, veio %q", got)
+	if got := os.Getenv("DDCORE_TEST_A"); got != "from_env" {
+		t.Errorf("real environment should override the file, got %q", got)
 	}
-	if got := os.Getenv("DDCORE_TEST_B"); got != "do_arquivo" {
-		t.Errorf("uma chave ausente do ambiente devia vir do arquivo, veio %q", got)
+	if got := os.Getenv("DDCORE_TEST_B"); got != "from_file" {
+		t.Errorf("key missing from environment should come from file, got %q", got)
 	}
 }
 
 func TestDotenvMissingFileIsNotAnError(t *testing.T) {
 	if err := loadDotenv(filepath.Join(t.TempDir(), DotenvName)); err != nil {
-		t.Fatalf("um .env ausente não é erro: %v", err)
+		t.Fatalf("a missing .env is not an error: %v", err)
 	}
 }
 

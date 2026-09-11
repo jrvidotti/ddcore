@@ -10,9 +10,9 @@ import (
 // every documented example that puts options *after* the arguments silently did
 // nothing:
 //
-//	ddcore exec app.services.mod.fn --args '{"a":1}'   → --args ficava em Args()
-//	ddcore user add ana@x.com Ana --password s --role R → o nome virava "Ana --password s ..."
-//	ddcore eval 'ddcore.db.count("User")' --commit       → --commit entrava no código
+//	ddcore exec app.services.mod.fn --args '{"a":1}'   → --args stayed in Args()
+//	ddcore user add ana@x.com Ana --password s --role R → the name became "Ana --password s ..."
+//	ddcore eval 'ddcore.db.count("User")' --commit       → --commit ended up in the code
 //
 // reorder moves the known flags (and their values) ahead of the positionals so
 // a plain Parse sees them, and refuses anything that is not a declared flag

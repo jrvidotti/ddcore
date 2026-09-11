@@ -15,43 +15,43 @@ func TestSecretEnvName(t *testing.T) {
 		"a.b c":          "DDCORE_SECRET_A_B_C",
 	} {
 		if got := SecretEnvName(in); got != want {
-			t.Errorf("%q: esperava %q, veio %q", in, want, got)
+			t.Errorf("%q: expected %q, got %q", in, want, got)
 		}
 	}
 }
 
-// Um segredo vem do ambiente e de nenhum outro lugar; o prefixo é a fronteira
-// que impede um app de ler o DSN ou a senha do SMTP pelo mesmo caminho.
+// A secret comes from the environment and nowhere else; the prefix is the boundary
+// that prevents an app from reading the DSN or SMTP password via the same path.
 func TestSecretReadsOnlyItsOwnPrefix(t *testing.T) {
 	e := &Engine{}
 	t.Setenv("DDCORE_SECRET_STRIPE_KEY", "sk_live_x")
-	t.Setenv("DDCORE_DSN", "postgres://nao-devia-vazar")
+	t.Setenv("DDCORE_DSN", "postgres://should-not-leak")
 
 	if v, ok := e.Secret("stripe_key"); !ok || v != "sk_live_x" {
-		t.Errorf("esperava o segredo, veio %q (%v)", v, ok)
+		t.Errorf("expected secret, got %q (%v)", v, ok)
 	}
 	if _, ok := e.Secret("DDCORE_DSN"); ok {
-		t.Error("o prefixo devia impedir a leitura de uma variável que não é segredo de app")
+		t.Error("prefix should prevent reading a variable that is not an app secret")
 	}
 	if _, ok := e.Secret("nao_configurado"); ok {
-		t.Error("um segredo ausente não pode parecer configurado")
+		t.Error("a missing secret must not appear configured")
 	}
 }
 
-// A mensagem nomeia a variável para quem tem de configurá-la, e nunca o valor:
-// ela acaba em Error Log e em toast.
+// The message names the variable for whoever has to configure it, never the value:
+// it ends up in Error Log and toast notifications.
 func TestRequireSecretNamesTheVariableNotTheValue(t *testing.T) {
 	e := &Engine{}
 	t.Setenv("DDCORE_SECRET_PRESENTE", "valor-secreto")
 
 	if _, err := e.RequireSecret("ausente"); err == nil {
-		t.Fatal("esperava erro para segredo ausente")
+		t.Fatal("expected error for missing secret")
 	} else if msg := err.Error(); !strings.Contains(msg, "DDCORE_SECRET_AUSENTE") {
-		t.Errorf("a mensagem devia nomear a variável, veio %q", msg)
+		t.Errorf("message should name the variable, got %q", msg)
 	}
 	v, err := e.RequireSecret("presente")
 	if err != nil || v != "valor-secreto" {
-		t.Errorf("esperava o valor, veio %q / %v", v, err)
+		t.Errorf("expected value, got %q / %v", v, err)
 	}
 }
 
@@ -64,15 +64,15 @@ func TestSecretNamesOmitsValues(t *testing.T) {
 	for _, n := range names {
 		seen[n] = true
 		if strings.Contains(n, "valor") {
-			t.Errorf("SecretNames devolveu um valor: %q", n)
+			t.Errorf("SecretNames returned a value: %q", n)
 		}
 	}
 	if !seen["UM"] || !seen["DOIS"] {
-		t.Errorf("esperava UM e DOIS, veio %v", names)
+		t.Errorf("expected UM and DOIS, got %v", names)
 	}
 }
 
-// Um campo Password ainda é texto no banco — mas não sai mais por leitura.
+// A Password field is still text in the database — but is no longer exposed on read.
 func TestRedactPasswordBlanksSecretsOnTheWayOut(t *testing.T) {
 	d := &meta.DocType{Name: "Integration", Fields: []*meta.Field{
 		{Fieldname: "name", Fieldtype: "Data"},
@@ -86,10 +86,10 @@ func TestRedactPasswordBlanksSecretsOnTheWayOut(t *testing.T) {
 
 	for _, f := range []string{"token", "api_secret", "webhook_password"} {
 		if doc[f] != nil {
-			t.Errorf("%s devia ter sido apagado, veio %v", f, doc[f])
+			t.Errorf("%s should have been redacted, got %v", f, doc[f])
 		}
 	}
 	if doc["endpoint"] != "https://x" || doc["name"] != "x" {
-		t.Errorf("o que não é segredo tem de sobreviver: %v", doc)
+		t.Errorf("non-secret fields must survive: %v", doc)
 	}
 }

@@ -7,8 +7,8 @@ import (
 	"testing"
 )
 
-// clearMailEnv isola um teste das variáveis que a máquina de quem roda possa
-// ter. Sem isso um `.env` do desenvolvedor entraria no teste.
+// clearMailEnv isolates a test from variables that the host machine might
+// have. Without this, a developer's `.env` would leak into the test.
 func clearMailEnv(t *testing.T) {
 	t.Helper()
 	for _, k := range []string{
@@ -22,7 +22,7 @@ func clearMailEnv(t *testing.T) {
 	}
 }
 
-// site escreve um ddcore.json mínimo e devolve o diretório.
+// site writes a minimal ddcore.json and returns the directory.
 func site(t *testing.T, body string) string {
 	t.Helper()
 	dir := t.TempDir()
@@ -37,27 +37,27 @@ func TestLoadDefaults(t *testing.T) {
 		t.Fatalf("Load: %v", err)
 	}
 	if f.Auth.SessionDays != 30 || f.Auth.MinPasswordLength != 8 || f.Auth.MaxLoginAttempts != 5 {
-		t.Errorf("política padrão não aplicada: %+v", f.Auth)
+		t.Errorf("default policy not applied: %+v", f.Auth)
 	}
 	if f.Mail.Transport != MailLog {
-		t.Errorf("sem configuração, o transporte é o log, veio %q", f.Mail.Transport)
+		t.Errorf("without configuration, transport is log, got %q", f.Mail.Transport)
 	}
 	if !f.Auth.AllowSelfServiceAPIKeys() {
-		t.Error("autosserviço de chaves é permitido por padrão")
+		t.Error("key self-service is allowed by default")
 	}
 	if f.HasPublicURL() {
-		t.Error("nenhuma URL pública foi declarada")
+		t.Error("no public URL was declared")
 	}
 	if got := f.PublicURL(); !strings.HasPrefix(got, "http://localhost:") {
-		t.Errorf("fallback de URL: veio %q", got)
+		t.Errorf("URL fallback: got %q", got)
 	}
 	if f.Auth.SessionTTL().Hours() != 24*30 {
-		t.Errorf("SessionTTL: veio %v", f.Auth.SessionTTL())
+		t.Errorf("SessionTTL: got %v", f.Auth.SessionTTL())
 	}
 }
 
-// O bloco auth do ddcore.json sobrepõe só o que declara — o resto continua no
-// padrão, senão declarar uma chave apagaria as outras.
+// The auth block in ddcore.json only overrides what it declares — the rest remains
+// default, otherwise declaring one key would erase the others.
 func TestAuthPolicyMergesOverDefaults(t *testing.T) {
 	clearMailEnv(t)
 	f, _, err := Load(site(t, `{"auth":{"sessionDays":7,"maxLoginAttempts":3}}`))
@@ -65,27 +65,27 @@ func TestAuthPolicyMergesOverDefaults(t *testing.T) {
 		t.Fatalf("Load: %v", err)
 	}
 	if f.Auth.SessionDays != 7 || f.Auth.MaxLoginAttempts != 3 {
-		t.Errorf("o declarado não venceu: %+v", f.Auth)
+		t.Errorf("declared value did not take effect: %+v", f.Auth)
 	}
 	if f.Auth.MinPasswordLength != 8 || f.Auth.InviteHours != 72 {
-		t.Errorf("o não declarado devia ficar no padrão: %+v", f.Auth)
+		t.Errorf("undeclared value should stay default: %+v", f.Auth)
 	}
 }
 
 func TestAuthPolicyRefusesNonsense(t *testing.T) {
 	for _, tc := range []struct{ name, json string }{
 		{"sessionDays zero", `{"auth":{"sessionDays":0}}`},
-		{"sessionDays negativo", `{"auth":{"sessionDays":-1}}`},
+		{"negative sessionDays", `{"auth":{"sessionDays":-1}}`},
 		{"maxLoginAttempts zero", `{"auth":{"maxLoginAttempts":0}}`},
 		{"lockoutMinutes zero", `{"auth":{"lockoutMinutes":0}}`},
-		{"apiKeyDays negativo", `{"auth":{"apiKeyDays":-1}}`},
-		{"senha curta demais", `{"auth":{"minPasswordLength":4}}`},
-		{"senha longa demais", `{"auth":{"minPasswordLength":500}}`},
+		{"negative apiKeyDays", `{"auth":{"apiKeyDays":-1}}`},
+		{"password too short", `{"auth":{"minPasswordLength":4}}`},
+		{"password too long", `{"auth":{"minPasswordLength":500}}`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			clearMailEnv(t)
 			if _, _, err := Load(site(t, tc.json)); err == nil {
-				t.Fatal("esperava erro de carga, veio nil")
+				t.Fatal("expected load error, got nil")
 			}
 		})
 	}
@@ -105,10 +105,10 @@ func TestMailFromEnvironment(t *testing.T) {
 		t.Fatalf("Load: %v", err)
 	}
 	if f.Mail.Transport != MailSMTP || f.Mail.Host != "smtp.x.com" || f.Mail.Port != 2525 {
-		t.Errorf("configuração de e-mail não veio do ambiente: %+v", f.Mail)
+		t.Errorf("email configuration did not come from environment: %+v", f.Mail)
 	}
 	if f.Mail.TLS != TLSStartTLS {
-		t.Errorf("TLS padrão é starttls, veio %q", f.Mail.TLS)
+		t.Errorf("default TLS is starttls, got %q", f.Mail.TLS)
 	}
 }
 
@@ -117,19 +117,19 @@ func TestMailRefusesIncompleteConfiguration(t *testing.T) {
 		name string
 		env  map[string]string
 	}{
-		{"transporte desconhecido", map[string]string{"DDCORE_MAIL_TRANSPORT": "carta"}},
-		{"smtp sem host", map[string]string{"DDCORE_MAIL_TRANSPORT": "smtp", "DDCORE_MAIL_FROM": "a@b.c"}},
-		{"smtp sem remetente", map[string]string{"DDCORE_MAIL_TRANSPORT": "smtp", "DDCORE_SMTP_HOST": "h"}},
-		{"usuário sem senha", map[string]string{
+		{"unknown transport", map[string]string{"DDCORE_MAIL_TRANSPORT": "carta"}},
+		{"smtp without host", map[string]string{"DDCORE_MAIL_TRANSPORT": "smtp", "DDCORE_MAIL_FROM": "a@b.c"}},
+		{"smtp without sender", map[string]string{"DDCORE_MAIL_TRANSPORT": "smtp", "DDCORE_SMTP_HOST": "h"}},
+		{"user without password", map[string]string{
 			"DDCORE_MAIL_TRANSPORT": "smtp", "DDCORE_SMTP_HOST": "h",
 			"DDCORE_MAIL_FROM": "a@b.c", "DDCORE_SMTP_USERNAME": "u",
 		}},
-		{"TLS desconhecido", map[string]string{
+		{"unknown TLS", map[string]string{
 			"DDCORE_MAIL_TRANSPORT": "smtp", "DDCORE_SMTP_HOST": "h",
 			"DDCORE_MAIL_FROM": "a@b.c", "DDCORE_SMTP_TLS": "ssl3",
 		}},
-		{"porta inválida", map[string]string{"DDCORE_SMTP_PORT": "zero"}},
-		{"method sem caminho", map[string]string{"DDCORE_MAIL_TRANSPORT": "method"}},
+		{"invalid port", map[string]string{"DDCORE_SMTP_PORT": "zero"}},
+		{"method without path", map[string]string{"DDCORE_MAIL_TRANSPORT": "method"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			clearMailEnv(t)
@@ -137,13 +137,13 @@ func TestMailRefusesIncompleteConfiguration(t *testing.T) {
 				t.Setenv(k, v)
 			}
 			if _, _, err := Load(site(t, `{}`)); err == nil {
-				t.Fatal("esperava erro de carga, veio nil")
+				t.Fatal("expected load error, got nil")
 			}
 		})
 	}
 }
 
-// A precedência inteira, num teste só: ambiente real > .env > ddcore.json.
+// The entire precedence, in a single test: real environment > .env > ddcore.json.
 func TestPrecedenceEnvBeatsDotenvBeatsFile(t *testing.T) {
 	clearMailEnv(t)
 	dir := site(t, `{"url":"https://do-json.example","port":1111}`)
@@ -156,17 +156,17 @@ func TestPrecedenceEnvBeatsDotenvBeatsFile(t *testing.T) {
 		t.Fatalf("Load: %v", err)
 	}
 	if f.URL != "https://do-ambiente.example" {
-		t.Errorf("o ambiente real devia vencer tudo, veio %q", f.URL)
+		t.Errorf("real environment should take precedence over everything, got %q", f.URL)
 	}
 	if f.Port != 2222 {
-		t.Errorf("o .env devia vencer o ddcore.json, veio %d", f.Port)
+		t.Errorf(".env should take precedence over ddcore.json, got %d", f.Port)
 	}
 	if !f.TrustProxy {
-		t.Error("trustProxy devia ter vindo do .env")
+		t.Error("trustProxy should have come from .env")
 	}
 }
 
-// Uma URL com barra no fim viraria links com barra dupla.
+// A URL with trailing slash would cause double-slash links.
 func TestPublicURLLosesTheTrailingSlash(t *testing.T) {
 	clearMailEnv(t)
 	t.Setenv("DDCORE_URL", "https://erp.example.com/")
@@ -175,7 +175,7 @@ func TestPublicURLLosesTheTrailingSlash(t *testing.T) {
 		t.Fatalf("Load: %v", err)
 	}
 	if f.PublicURL() != "https://erp.example.com" {
-		t.Errorf("veio %q", f.PublicURL())
+		t.Errorf("got %q", f.PublicURL())
 	}
 }
 

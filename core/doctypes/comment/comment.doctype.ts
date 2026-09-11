@@ -13,7 +13,7 @@ export default defineDoctype({
   ],
   permissions: [
     { role: "System Manager", read: true, write: true, create: true, delete: true, report: true, export: true },
-    // leitura/criação seguem o documento referenciado; alterar e apagar, só o autor (B04)
+    // read/create follow the referenced document; edit and delete, author only (B04)
     { role: "All", read: true, create: true },
     { role: "All", write: true, delete: true, ifOwner: true },
   ],

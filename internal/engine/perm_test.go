@@ -10,7 +10,7 @@ import (
 	"github.com/jrvidotti/ddcore/internal/js"
 )
 
-// permApp: Pedido (Gestor) com duas tabelas filhas, uma delas allowOnSubmit.
+// permApp: Pedido (Gestor) with two child tables, one having allowOnSubmit.
 func permApp(t *testing.T) string {
 	dir := t.TempDir()
 	w := func(rel, src string) {
@@ -95,33 +95,33 @@ func TestB02_ChildPermissionFollowsParent(t *testing.T) {
 		return nil
 	})
 	if roleRow == "" {
-		t.Fatal("Administrator sem Has Role")
+		t.Fatal("Administrator has no Has Role")
 	}
 
 	for _, user := range []string{"Guest", "ze@x.com"} {
 		err := e.Run(ctx, user, func(c *Ctx) error {
 			if ok, _ := c.HasPermission("Has Role", "read", Doc{"name": roleRow}); ok {
-				t.Errorf("%s: read em Has Role pelo nome deveria ser negado", user)
+				t.Errorf("%s: read on Has Role by name should be denied", user)
 			}
 			if ok, _ := c.HasPermission("Has Role", "read", Doc{"parenttype": "User", "parent": "Administrator", "parentfield": "roles"}); ok {
-				t.Errorf("%s: read em Has Role com pai deveria ser negado", user)
+				t.Errorf("%s: read on Has Role with parent should be denied", user)
 			}
 			if ok, _ := c.HasPermission("Has Role", "read", nil); ok {
-				t.Errorf("%s: read em Has Role (doctype) deveria ser negado", user)
+				t.Errorf("%s: read on Has Role (doctype) should be denied", user)
 			}
 			if _, err := c.GetDoc("Has Role", roleRow); err == nil || cerr.From(err).Type != "PermissionError" {
-				t.Errorf("%s: GetDoc Has Role: esperava PermissionError, veio %v", user, err)
+				t.Errorf("%s: GetDoc Has Role: expected PermissionError, got %v", user, err)
 			}
 			if _, err := c.GetList("Has Role", ListArgs{}); err == nil || cerr.From(err).Type != "PermissionError" {
-				t.Errorf("%s: GetList Has Role: esperava PermissionError, veio %v", user, err)
+				t.Errorf("%s: GetList Has Role: expected PermissionError, got %v", user, err)
 			}
 			row, _ := c.GetDocIgnoringPerms("Has Role", roleRow)
 			row["role"] = "Guest"
 			if _, err := c.Save(row, SaveOpts{}); err == nil || cerr.From(err).Type != "PermissionError" {
-				t.Errorf("%s: Save Has Role: esperava PermissionError, veio %v", user, err)
+				t.Errorf("%s: Save Has Role: expected PermissionError, got %v", user, err)
 			}
 			if err := c.Delete("Has Role", roleRow, false, false); err == nil || cerr.From(err).Type != "PermissionError" {
-				t.Errorf("%s: Delete Has Role: esperava PermissionError, veio %v", user, err)
+				t.Errorf("%s: Delete Has Role: expected PermissionError, got %v", user, err)
 			}
 			return nil
 		})
@@ -129,16 +129,16 @@ func TestB02_ChildPermissionFollowsParent(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	// nada mudou
+	// nothing changed
 	e.Run(ctx, "Administrator", func(c *Ctx) error {
 		v, _ := c.GetValue("Has Role", roleRow, "role")
 		if v != "System Manager" {
-			t.Fatalf("linha alterada: %v", v)
+			t.Fatalf("row modified: %v", v)
 		}
 		return nil
 	})
 
-	// Gestor: pedido em rascunho → escreve nos filhos; após submit só no allowOnSubmit
+	// Gestor: draft pedido -> writes to children; after submit only allowOnSubmit
 	var item, nota, ped string
 	err := e.Run(ctx, "ana@x.com", func(c *Ctx) error {
 		p, _ := c.NewDoc("Pedido", Doc{"cliente": "Cliente"})
@@ -156,55 +156,55 @@ func TestB02_ChildPermissionFollowsParent(t *testing.T) {
 					n = nota
 				}
 				if ok, err := c.HasPermission(dt, pt, Doc{"name": n}); !ok || err != nil {
-					t.Errorf("rascunho: %s %s deveria ser permitido: %v", pt, dt, err)
+					t.Errorf("draft: %s %s should be permitted: %v", pt, dt, err)
 				}
 			}
 		}
 		rows, err := c.GetList("Item Pedido", ListArgs{Fields: []string{"name", "parenttype"}})
 		if err != nil || len(rows) != 1 {
-			t.Errorf("GetList Item Pedido como Gestor: %v %v", rows, err)
+			t.Errorf("GetList Item Pedido as Gestor: %v %v", rows, err)
 		}
 		if _, err := c.Submit(saved); err != nil {
 			return err
 		}
 		if ok, _ := c.HasPermission("Item Pedido", "write", Doc{"name": item}); ok {
-			t.Errorf("enviado: write em Item Pedido deveria ser negado")
+			t.Errorf("submitted: write on Item Pedido should be denied")
 		}
 		if ok, _ := c.HasPermission("Nota Pedido", "write", Doc{"name": nota}); !ok {
-			t.Errorf("enviado: write em Nota Pedido (allowOnSubmit) deveria ser permitido")
+			t.Errorf("submitted: write on Nota Pedido (allowOnSubmit) should be permitted")
 		}
 		if ok, _ := c.HasPermission("Item Pedido", "read", Doc{"name": item}); !ok {
-			t.Errorf("enviado: read em Item Pedido deveria ser permitido")
+			t.Errorf("submitted: read on Item Pedido should be permitted")
 		}
 		doc, _ := c.GetDoc("Pedido", ped)
 		if _, err := c.Cancel(doc); err != nil {
 			return err
 		}
 		if ok, _ := c.HasPermission("Nota Pedido", "write", Doc{"name": nota}); ok {
-			t.Errorf("cancelado: write em Nota Pedido deveria ser negado")
+			t.Errorf("cancelled: write on Nota Pedido should be denied")
 		}
 		return nil
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	// usuário sem papel não lê filhos de Pedido nem lista Item Pedido
+	// user without role does not read Pedido children nor list Item Pedido
 	e.Run(ctx, "ze@x.com", func(c *Ctx) error {
 		if ok, _ := c.HasPermission("Item Pedido", "read", Doc{"name": item}); ok {
-			t.Errorf("zé: read em Item Pedido deveria ser negado")
+			t.Errorf("ze: read on Item Pedido should be denied")
 		}
 		if _, err := c.GetList("Item Pedido", ListArgs{}); err == nil {
-			t.Errorf("zé: GetList Item Pedido deveria falhar")
+			t.Errorf("ze: GetList Item Pedido should fail")
 		}
 		return nil
 	})
-	// linha órfã / pai inexistente → negado
+	// orphan row / nonexistent parent -> denied
 	e.Run(ctx, "ana@x.com", func(c *Ctx) error {
 		if ok, _ := c.HasPermission("Item Pedido", "read", Doc{"parenttype": "Pedido", "parent": "NAO-EXISTE", "parentfield": "itens"}); ok {
-			t.Errorf("pai inexistente deveria ser negado")
+			t.Errorf("nonexistent parent should be denied")
 		}
 		if ok, _ := c.HasPermission("Item Pedido", "read", Doc{"parenttype": "Pedido", "parent": ped, "parentfield": "notas"}); ok {
-			t.Errorf("parentfield que não usa o child deveria ser negado")
+			t.Errorf("parentfield not using child should be denied")
 		}
 		return nil
 	})

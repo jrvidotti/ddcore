@@ -10,7 +10,7 @@ const fields: Field[] = [
 ];
 
 describe("list URL state", () => {
-  it("restaura filtros tipados e paginação de um link compartilhado", () => {
+  it("restores typed filters and pagination from a shared link", () => {
     const state = listStateFromSearchParams(
       new URLSearchParams("status=Atrasado&categoria=CAT-1&ativo=false&valor=25.5&q=aluguel&docstatus=1&order_by=modified+desc&page=3&page_size=50"),
       fields,
@@ -27,7 +27,7 @@ describe("list URL state", () => {
     });
   });
 
-  it("serializa somente o estado da lista em parâmetros estáveis", () => {
+  it("serializes only list state into stable parameters", () => {
     const params = listStateToSearchParams({
       filters: { status: "Atrasado", categoria: "CAT-1", ativo: false, valor: 25.5 },
       search: "aluguel",
@@ -40,7 +40,7 @@ describe("list URL state", () => {
     expect(params.toString()).toBe("status=Atrasado&categoria=CAT-1&ativo=false&valor=25.5&q=aluguel&docstatus=1&order_by=modified+desc&page=3&page_size=50");
   });
 
-  it("inclui o tamanho padrão para que um link não herde a configuração de outra lista", () => {
+  it("includes default size so a link does not inherit another list configuration", () => {
     const params = listStateToSearchParams({
       filters: {}, search: "", docstatusFilter: "", orderBy: "", page: 1, pageSize: 20,
     }, fields);
@@ -48,7 +48,7 @@ describe("list URL state", () => {
     expect(params.toString()).toBe("page_size=20");
   });
 
-  it("ignora paginação inválida e parâmetros que não são filtros do DocType", () => {
+  it("ignores invalid pagination and parameters that are not DocType filters", () => {
     const state = listStateFromSearchParams(
       new URLSearchParams("estranho=valor&page=0&page_size=999"),
       fields,
@@ -58,7 +58,7 @@ describe("list URL state", () => {
     expect(state).toEqual({ filters: { status: "Pendente" }, search: "", docstatusFilter: "", orderBy: "", page: 1, pageSize: 20 });
   });
 
-  it("limpa filtros e busca sem alterar ordenação ou tamanho da página", () => {
+  it("clears filters and search without altering ordering or page size", () => {
     expect(clearListFilters({
       filters: { status: "Atrasado", categoria: "CAT-1" }, search: "aluguel", docstatusFilter: "2", orderBy: "modified desc", page: 4, pageSize: 100,
     })).toEqual({ filters: {}, search: "", docstatusFilter: "", orderBy: "modified desc", page: 1, pageSize: 100 });

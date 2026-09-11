@@ -14,13 +14,13 @@ import (
 	"github.com/jrvidotti/ddcore/internal/db"
 )
 
-// Job execution limits. O lease é renovado por heartbeat enquanto o worker
-// estiver vivo; se o processo cair, o job volta para a fila quando o lease
-// vencer (B15).
+// Job execution limits. The lease is renewed by heartbeat while the worker
+// is alive; if the process crashes, the job returns to the queue when the lease
+// expires (B15).
 const (
 	jobLease          = 2 * time.Minute
 	jobHeartbeat      = 30 * time.Second
-	defaultJobTimeout = 300 // segundos
+	defaultJobTimeout = 300 // seconds
 )
 
 // Enqueue stores a job in ddcore_job; workers pick it with SKIP LOCKED.
@@ -51,13 +51,13 @@ func (c *Ctx) Enqueue(method string, args map[string]any, opts map[string]any) (
 	return id, err
 }
 
-// RunJob executes one job payload: a dotted function path with args. O ctx é
-// respeitado dentro da VM: um script que não retorna é interrompido quando o
-// contexto expira (B15).
+// RunJob executes one job payload: a dotted function path with args. The ctx is
+// honored inside the VM: a script that does not return is interrupted when the
+// context expires (B15).
 func (e *Engine) RunJob(ctx context.Context, user, method string, args map[string]any) (json.RawMessage, error) {
 	var out json.RawMessage
-	// A transação usa um contexto sem o deadline: o timeout precisa
-	// interromper a VM, não estragar o rollback da transação.
+	// The transaction uses a context without the deadline: the timeout needs
+	// to interrupt the VM, without interfering with transaction rollback.
 	err := e.Run(context.WithoutCancel(ctx), orDefault(user, "Administrator"), func(c *Ctx) error {
 		c.Flags["ignorePermissions"] = true
 		rt, err := c.RT()
@@ -77,13 +77,13 @@ func (e *Engine) RunJob(ctx context.Context, user, method string, args map[strin
 	return out, err
 }
 
-// requeueStale puts back jobs whose worker died: status running com lease
-// vencido volta para queued (ou failed, se esgotou as tentativas).
+// requeueStale puts back jobs whose worker died: running status with expired
+// lease returns to queued (or failed if attempts are exhausted).
 func (e *Engine) requeueStale(ctx context.Context) error {
 	_, err := e.DB.Pool.Exec(ctx, `UPDATE ddcore_job
 		SET status = CASE WHEN attempts < max_attempts THEN 'queued' ELSE 'failed' END,
 		    lease_until = NULL, finished = CASE WHEN attempts < max_attempts THEN NULL ELSE now() END,
-		    error = 'worker interrompido: lease expirou'
+		    error = 'worker interrupted: lease expired'
 		WHERE status = 'running' AND lease_until IS NOT NULL AND lease_until < now()`)
 	return err
 }
@@ -255,8 +255,8 @@ func (e *Engine) StartScheduler(ctx context.Context) *cron.Cron {
 }
 
 // RestartScheduler rebuilds the cron entries from the current state and stops
-// the previous scheduler. Deve ser chamada depois de cada e.Load(): recarregar
-// a meta não reinstalava as entradas do scheduler criado uma única vez no
+// the previous scheduler. Must be called after each e.Load(): reloading
+// metadata was not reinstalling entries for a scheduler created once at
 // boot (B08).
 func (e *Engine) RestartScheduler(ctx context.Context) *cron.Cron {
 	return e.StartScheduler(ctx)

@@ -106,10 +106,10 @@ type Snapshot struct {
 	Extensions  []*meta.Extension          `json:"extensions"`
 }
 
-// State is everything Load produces: meta, snapshot, apps, runtime pool e
-// catálogo de traduções. É imutável depois de publicada; um reload constrói
-// outra e troca o ponteiro de uma vez só, de modo que ninguém enxerga meta
-// nova com pool velho (B08).
+// State is everything Load produces: meta, snapshot, apps, runtime pool, and
+// translations catalog. It is immutable once published; a reload builds
+// a new one and swaps the pointer atomically, so that no caller observes new
+// metadata with an old pool (B08).
 type State struct {
 	Meta        *meta.Registry
 	Snap        *Snapshot
@@ -130,9 +130,9 @@ type State struct {
 const Version = "0.1.0"
 
 type Engine struct {
-	// *State é embutido só para manter `e.Meta`, `e.Snap`, `e.Apps`,
-	// `e.Pool`, `e.I18n` e `e.Loaded` compilando em internal/api,
-	// internal/mcp e cmd. O leitor autoritativo é Current().
+	// *State is embedded solely to keep `e.Meta`, `e.Snap`, `e.Apps`,
+	// `e.Pool`, `e.I18n`, and `e.Loaded` compiling across internal/api,
+	// internal/mcp, and cmd. The authoritative reader is Current().
 	*State
 
 	Cfg    Config
@@ -152,8 +152,8 @@ type Engine struct {
 	mailer   mail.Sender
 }
 
-// Current returns the state this moment sees. Cada requisição captura uma vez
-// e usa a mesma até o fim.
+// Current returns the state this moment sees. Each request captures it once
+// and uses that same reference until the end.
 func (e *Engine) Current() *State { return e.cur.Load() }
 
 // New connects to the database and loads all apps.
@@ -239,15 +239,15 @@ func (e *Engine) buildPool(apps []js.App) (*js.Pool, *Snapshot, error) {
 }
 
 // orderApps validates `requires` and returns the apps in dependency order.
-// Core sempre primeiro. Um app que exige outro ausente, ou um ciclo, é erro
-// de configuração e não pode virar instalação em ordem incoerente.
+// Core is always first. An app requiring a missing app, or a cycle, is a
+// configuration error and must not lead to installation in inconsistent order.
 func orderApps(apps []js.App, metas map[string]*AppMeta) ([]js.App, error) {
 	byName := map[string]js.App{}
 	for _, a := range apps {
 		byName[a.Name] = a
 	}
 	var out []js.App
-	state := map[string]int{} // 0 novo, 1 visitando, 2 pronto
+	state := map[string]int{} // 0 unvisited, 1 visiting, 2 done
 	var visit func(name string, path []string) error
 	visit = func(name string, path []string) error {
 		switch state[name] {
@@ -300,8 +300,8 @@ func (e *Engine) Load() error {
 	if err != nil {
 		return err
 	}
-	// `requires` só é conhecido depois de ler a meta: valida e, se a ordem
-	// declarada contraria as dependências, recompila na ordem correta.
+	// `requires` is only known after reading metadata: validate and, if the
+	// declared order violates dependencies, recompile in correct order.
 	ordered, err := orderApps(apps, snap.Apps)
 	if err != nil {
 		pool.Close()
@@ -390,7 +390,7 @@ func (e *Engine) Load() error {
 	e.State = st
 	e.mu.Unlock()
 	if old != nil && old.Pool != nil {
-		// runtimes ainda em uso voltam ao pool antigo e são descartados lá
+		// runtimes still in use return to the old pool and are discarded there
 		old.Pool.Close()
 	}
 	e.Log.Info("apps loaded", "apps", len(apps), "doctypes", len(reg.DocTypes))

@@ -663,8 +663,8 @@ func Plan(ctx context.Context, q Querier, reg *meta.Registry, prune bool) ([]Sta
 					}
 				}
 			}
-			// mesmo nome não quer dizer mesma definição: searchIndex ↔ unique
-			// trocam a natureza do índice sem trocar o nome (B14).
+			// Same name does not imply same definition: searchIndex ↔ unique
+			// changes the nature of the index without changing its name (B14).
 			if !sameIndex(row.def, want) {
 				indexes = append(indexes,
 					Statement{SQL: fmt.Sprintf("DROP INDEX %s;", Ident(k)), Kind: KindDropIndex, Doctype: d.Name, Table: t},

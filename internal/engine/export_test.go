@@ -173,21 +173,21 @@ func TestExportWalksEveryPage(t *testing.T) {
 		t.Fatal(err)
 	}
 	if col.sum.Rows != 250 || len(col.docs) != 250 {
-		t.Fatalf("esperava 250 linhas, veio %d (sink: %d)", col.sum.Rows, len(col.docs))
+		t.Fatalf("expected 250 rows, got %d (sink: %d)", col.sum.Rows, len(col.docs))
 	}
 	seen := map[string]bool{}
 	prev := ""
 	for _, n := range col.names() {
 		if seen[n] {
-			t.Fatalf("linha repetida: %s", n)
+			t.Fatalf("duplicate row: %s", n)
 		}
 		if n <= prev {
-			t.Fatalf("fora de ordem: %s depois de %s", n, prev)
+			t.Fatalf("out of order: %s after %s", n, prev)
 		}
 		seen[n], prev = true, n
 	}
 	if !col.ended || col.sum.Truncated {
-		t.Fatalf("summary inesperado: ended=%v truncated=%v", col.ended, col.sum.Truncated)
+		t.Fatalf("unexpected summary: ended=%v truncated=%v", col.ended, col.sum.Truncated)
 	}
 }
 
@@ -202,7 +202,7 @@ func TestExportHandlesExactPageBoundary(t *testing.T) {
 		t.Fatal(err)
 	}
 	if col.sum.Rows != 80 {
-		t.Fatalf("esperava 80, veio %d", col.sum.Rows)
+		t.Fatalf("expected 80, got %d", col.sum.Rows)
 	}
 }
 
@@ -243,7 +243,7 @@ func TestExportDoesNotSkipWhenTheSetShrinks(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !sink.done {
-		t.Fatal("o teste não chegou a apagar nada")
+		t.Fatal("the test did not delete anything")
 	}
 	seen := map[string]bool{}
 	for _, n := range sink.names() {
@@ -251,7 +251,7 @@ func TestExportDoesNotSkipWhenTheSetShrinks(t *testing.T) {
 	}
 	for i := 0; i < 100; i++ {
 		if name := fmt.Sprintf("N-%04d", i); !seen[name] {
-			t.Fatalf("%s não foi exportado: a varredura pulou uma linha quando o conjunto encolheu", name)
+			t.Fatalf("%s was not exported: walk skipped a row when the set shrank", name)
 		}
 	}
 }
@@ -278,18 +278,18 @@ func TestExportNestsChildrenInIdxOrder(t *testing.T) {
 	}
 	itens := col.docs[0].Children("itens")
 	if len(itens) != 3 {
-		t.Fatalf("esperava 3 filhos, veio %d", len(itens))
+		t.Fatalf("expected 3 children, got %d", len(itens))
 	}
 	for i, want := range []string{"a", "b", "c"} {
 		if got := itens[i].Str("descricao"); got != want {
-			t.Errorf("filho %d: esperava %q, veio %q", i, want, got)
+			t.Errorf("child %d: expected %q, got %q", i, want, got)
 		}
 		if itens[i].Str("parent") != col.docs[0].Name() {
-			t.Errorf("filho %d perdeu o vínculo com o pai", i)
+			t.Errorf("child %d lost its link to parent", i)
 		}
 	}
 	if col.sum.ChildRows["Item Nota"] != 3 {
-		t.Errorf("manifesto: esperava 3 linhas filhas, veio %d", col.sum.ChildRows["Item Nota"])
+		t.Errorf("manifest: expected 3 child rows, got %d", col.sum.ChildRows["Item Nota"])
 	}
 
 	// Without Children the field must not appear at all — a consumer has to be
@@ -299,7 +299,7 @@ func TestExportNestsChildrenInIdxOrder(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, ok := plain.docs[0]["itens"]; ok {
-		t.Error("sem Children o campo da tabela não deveria vir")
+		t.Error("without Children the table field should not be present")
 	}
 }
 
@@ -315,10 +315,10 @@ func TestExportEmptyChildTableIsAnEmptyList(t *testing.T) {
 	}
 	v, ok := col.docs[0]["itens"]
 	if !ok {
-		t.Fatal("o campo da tabela deveria existir")
+		t.Fatal("table field should exist")
 	}
 	if list, _ := v.([]any); len(list) != 0 {
-		t.Fatalf("esperava lista vazia, veio %v", v)
+		t.Fatalf("expected empty list, got %v", v)
 	}
 }
 
@@ -334,11 +334,11 @@ func TestExportHonoursIfOwner(t *testing.T) {
 		t.Fatal(err)
 	}
 	if col.sum.Rows != 30 {
-		t.Fatalf("esperava as 30 notas de ana, veio %d", col.sum.Rows)
+		t.Fatalf("expected ana's 30 notas, got %d", col.sum.Rows)
 	}
 	for _, d := range col.docs {
 		if d.Str("owner") != "ana@x.com" {
-			t.Fatalf("vazou documento de %s", d.Str("owner"))
+			t.Fatalf("leaked document belonging to %s", d.Str("owner"))
 		}
 	}
 }
@@ -351,10 +351,10 @@ func TestExportRequiresExportPermission(t *testing.T) {
 
 	_, err := exportAs(t, e, "leitor@x.com", ExportArgs{Doctype: "Nota"})
 	if err == nil {
-		t.Fatal("esperava recusa para quem só tem read")
+		t.Fatal("expected rejection for read-only user")
 	}
 	if got := cerr.From(err).Type; got != "PermissionError" {
-		t.Fatalf("esperava PermissionError, veio %s (%v)", got, err)
+		t.Fatalf("expected PermissionError, got %s (%v)", got, err)
 	}
 }
 
@@ -376,16 +376,16 @@ func TestExportOmitsPasswordFields(t *testing.T) {
 	}
 	for _, c := range col.columns {
 		if c == "segredo" {
-			t.Fatal("campo Password entrou nas colunas do export")
+			t.Fatal("Password field included in export columns")
 		}
 	}
 	if _, ok := col.docs[0]["segredo"]; ok {
-		t.Fatal("campo Password entrou no documento exportado")
+		t.Fatal("Password field included in exported document")
 	}
 
 	// nor by asking for it explicitly
 	if _, err := exportAs(t, e, "exp@x.com", ExportArgs{Doctype: "Nota", Fields: []string{"name", "segredo"}}); err == nil {
-		t.Fatal("pedir o campo Password explicitamente deveria ser recusado")
+		t.Fatal("requesting Password field explicitly should be rejected")
 	}
 }
 
@@ -395,11 +395,11 @@ func TestExportOmitsCredentialColumns(t *testing.T) {
 	cols := ExportColumns(e.Meta.DocTypes["User"])
 	for _, c := range cols {
 		if c == "password_hash" || c == "new_password" {
-			t.Fatalf("coluna de credencial no export de User: %s", c)
+			t.Fatalf("credential column in User export: %s", c)
 		}
 	}
 	if !contains(cols, "email") {
-		t.Fatal("o export de User deveria trazer email")
+		t.Fatal("User export should include email")
 	}
 }
 
@@ -407,7 +407,7 @@ func TestExportRefusesAChildDoctype(t *testing.T) {
 	e := setupExport(t)
 	_, err := exportAs(t, e, "exp@x.com", ExportArgs{Doctype: "Item Nota"})
 	if err == nil || cerr.From(err).Type != "ValidationError" {
-		t.Fatalf("esperava ValidationError para tabela filha, veio %v", err)
+		t.Fatalf("expected ValidationError for child table, got %v", err)
 	}
 }
 
@@ -422,10 +422,10 @@ func TestExportLimitMarksTruncated(t *testing.T) {
 		t.Fatal(err)
 	}
 	if col.sum.Rows != 20 {
-		t.Fatalf("esperava 20, veio %d", col.sum.Rows)
+		t.Fatalf("expected 20, got %d", col.sum.Rows)
 	}
 	if !col.sum.Truncated {
-		t.Error("um export cortado pelo limite deveria vir marcado como truncado")
+		t.Error("export truncated by limit should be marked as truncated")
 	}
 
 	// A limit larger than the set is not a truncation.
@@ -434,7 +434,7 @@ func TestExportLimitMarksTruncated(t *testing.T) {
 		t.Fatal(err)
 	}
 	if full.sum.Rows != 50 || full.sum.Truncated {
-		t.Errorf("limite acima do conjunto: rows=%d truncated=%v", full.sum.Rows, full.sum.Truncated)
+		t.Errorf("limit above set size: rows=%d truncated=%v", full.sum.Rows, full.sum.Truncated)
 	}
 
 	// Nor is a limit that lands exactly on the last row. A flag raised over a
@@ -444,10 +444,10 @@ func TestExportLimitMarksTruncated(t *testing.T) {
 		t.Fatal(err)
 	}
 	if exact.sum.Rows != 50 {
-		t.Fatalf("esperava 50, veio %d", exact.sum.Rows)
+		t.Fatalf("expected 50, got %d", exact.sum.Rows)
 	}
 	if exact.sum.Truncated {
-		t.Error("o limite coincidiu com o conjunto inteiro: nada foi cortado")
+		t.Error("limit matched entire set: nothing was truncated")
 	}
 }
 
@@ -465,11 +465,11 @@ func TestExportAppliesFilters(t *testing.T) {
 		t.Fatal(err)
 	}
 	if col.sum.Rows != 10 {
-		t.Fatalf("esperava as 10 notas A, veio %d", col.sum.Rows)
+		t.Fatalf("expected 10 A notas, got %d", col.sum.Rows)
 	}
 	for _, d := range col.docs {
 		if !strings.HasPrefix(d.Name(), "A-") {
-			t.Fatalf("o filtro deixou passar %s", d.Name())
+			t.Fatalf("filter let through %s", d.Name())
 		}
 	}
 }
@@ -520,7 +520,7 @@ func TestExportManifestsAttachments(t *testing.T) {
 	}
 	files := col.files[0]
 	if len(files) != 2 {
-		t.Fatalf("esperava 2 anexos, veio %d", len(files))
+		t.Fatalf("expected 2 attachments, got %d", len(files))
 	}
 	sum := sha256.Sum256(body)
 	var found, missing bool
@@ -528,27 +528,27 @@ func TestExportManifestsAttachments(t *testing.T) {
 		if f.FileName == "anexo.txt" {
 			found = true
 			if f.SHA256 != hex.EncodeToString(sum[:]) {
-				t.Errorf("checksum errado: %s", f.SHA256)
+				t.Errorf("wrong checksum: %s", f.SHA256)
 			}
 			if f.Size != int64(len(body)) {
-				t.Errorf("tamanho errado: %d", f.Size)
+				t.Errorf("wrong size: %d", f.Size)
 			}
 			if f.Missing {
-				t.Error("o anexo existe e foi marcado como ausente")
+				t.Error("attachment exists and was marked missing")
 			}
 		}
 		if f.FileName == "sumido.txt" {
 			missing = true
 			if !f.Missing {
-				t.Error("um anexo sem bytes no disco deveria vir marcado como ausente")
+				t.Error("attachment with no bytes on disk should be marked missing")
 			}
 		}
 	}
 	if !found || !missing {
-		t.Fatalf("manifesto incompleto: found=%v missing=%v", found, missing)
+		t.Fatalf("incomplete manifest: found=%v missing=%v", found, missing)
 	}
 	if col.sum.Files != 2 {
-		t.Errorf("contagem de anexos: %d", col.sum.Files)
+		t.Errorf("attachment count: %d", col.sum.Files)
 	}
 }
 
@@ -626,7 +626,7 @@ func TestExportSinksAgreeOnValues(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(recs) != 2 {
-		t.Fatalf("esperava cabeçalho + 1 linha, veio %d", len(recs))
+		t.Fatalf("expected header + 1 row, got %d", len(recs))
 	}
 	cell := map[string]string{}
 	for i, h := range recs[0] {
@@ -636,17 +636,17 @@ func TestExportSinksAgreeOnValues(t *testing.T) {
 		t.Errorf("CSV valor: %q", cell["valor"])
 	}
 	if cell["ativo"] != "false" {
-		t.Errorf("CSV ativo: %q — deve casar com o NDJSON, não virar 0/1", cell["ativo"])
+		t.Errorf("CSV active: %q — must match NDJSON, not become 0/1", cell["ativo"])
 	}
 	// the defect csv.ts documents: a quote must be doubled, not backslashed
 	if cell["titulo"] != `Rua "do Meio", 3` {
 		t.Errorf("CSV titulo: %q", cell["titulo"])
 	}
 	if !strings.HasPrefix(csvBuf.String(), "\ufeff") {
-		t.Error("o CSV precisa do BOM, ou o Excel lê os acentos errado")
+		t.Error("CSV needs BOM, or Excel misreads accents")
 	}
 	if !strings.Contains(body, "\r\n") {
-		t.Error("o CSV precisa de CRLF")
+		t.Error("CSV needs CRLF")
 	}
 }
 
@@ -665,7 +665,7 @@ func TestNDJSONSinkClosesWithTheManifest(t *testing.T) {
 	}
 	lines := strings.Split(strings.TrimSpace(buf.String()), "\n")
 	if len(lines) != 4 {
-		t.Fatalf("esperava 3 documentos + manifesto, veio %d linhas", len(lines))
+		t.Fatalf("expected 3 documents + manifest, got %d lines", len(lines))
 	}
 	var last map[string]json.RawMessage
 	if err := json.Unmarshal([]byte(lines[3]), &last); err != nil {
@@ -673,14 +673,14 @@ func TestNDJSONSinkClosesWithTheManifest(t *testing.T) {
 	}
 	raw, ok := last["_manifest"]
 	if !ok {
-		t.Fatal("a última linha deveria ser o manifesto")
+		t.Fatal("last line should be the manifest")
 	}
 	var sum ExportSummary
 	if err := json.Unmarshal(raw, &sum); err != nil {
 		t.Fatal(err)
 	}
 	if sum.Rows != 3 || sum.Doctype != "Nota" || sum.User != "exp@x.com" {
-		t.Fatalf("manifesto: %+v", sum)
+		t.Fatalf("manifest: %+v", sum)
 	}
 }
 
@@ -713,17 +713,17 @@ func TestCSVSinkSplitsChildTables(t *testing.T) {
 		t.Fatal(err)
 	}
 	if out["Nota"] == nil || out["Nota.itens"] == nil {
-		t.Fatalf("esperava um CSV por tabela, veio %v", keysOf(out))
+		t.Fatalf("expected one CSV per table, got %v", keysOf(out))
 	}
 	recs, err := csv.NewReader(strings.NewReader(strings.TrimPrefix(out["Nota.itens"].String(), "\ufeff"))).ReadAll()
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(recs) != 3 {
-		t.Fatalf("esperava cabeçalho + 2 filhos, veio %d", len(recs))
+		t.Fatalf("expected header + 2 children, got %d", len(recs))
 	}
 	if !contains(recs[0], "parent") || !contains(recs[0], "idx") {
-		t.Errorf("o CSV do filho precisa de parent/idx para religar ao pai: %v", recs[0])
+		t.Errorf("child CSV needs parent/idx to relink to parent: %v", recs[0])
 	}
 }
 

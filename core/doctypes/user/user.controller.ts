@@ -17,8 +17,8 @@ export default defineController("User", {
   },
   onUpdate(doc) {
     ddcore.cache.del("roles:" + doc.name);
-    // Uma senha trocada invalida as sessões antigas: se a troca foi porque a
-    // senha vazou, deixar as sessões de pé não teria trocado nada.
+    // A changed password invalidates old sessions: if changed because the
+    // password leaked, leaving existing sessions active would change nothing.
     const before = doc.getDocBeforeSave?.();
     if (before && before.password_hash !== doc.password_hash) {
       (ddcore as any).__dropSessions(doc.name);
@@ -28,9 +28,9 @@ export default defineController("User", {
     ddcore.cache.del("lang:" + doc.name);
     if (!doc.enabled) {
       (ddcore as any).__dropSessions(doc.name);
-      // UserFromAPIKey já recusa a chave de um usuário desativado, mas a
-      // linha fica em cache por um minuto: derrube-a agora para que a
-      // desativação valha imediatamente.
+      // UserFromAPIKey already rejects keys for a disabled user, but the
+      // row is cached for a minute: evict it now so the
+      // deactivation takes effect immediately.
       for (const k of ddcore.db.getAll("API Key", { fields: ["name"], filters: { user: doc.name } })) {
         ddcore.cache.del("apikey:" + k.name);
       }

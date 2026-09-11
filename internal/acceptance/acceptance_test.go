@@ -2,9 +2,9 @@
 // a clean database plus `migrate` has to produce a usable site, and the HTTP
 // surface the desk depends on (boot, translations, /app) has to answer.
 //
-// As checagens rodam contra o demo app versionado em apps/demo: elas
-// exercitam migrate → boot → i18n → demo contra um Postgres e um http server
-// reais, que a suíte TS (`ddcore test`) não alcança.
+// The checks run against the demo app versioned in apps/demo: they
+// exercise migrate → boot → i18n → demo against a real Postgres and http server,
+// which the TS suite (`ddcore test`) does not reach.
 package acceptance
 
 import (
@@ -30,9 +30,9 @@ import (
 )
 
 // testDSN names a throwaway database: setup drops and recreates it. The
-// database actually used is this name plus "_acc<sufixo>", so sharing
+// database actually used is this name plus "_acc<suffix>", so sharing
 // DDCORE_TEST_DSN with internal/engine (which drops the database it names) is
-// safe even when `go test ./internal/...` runs both packages in paralelo.
+// safe even when `go test ./internal/...` runs both packages in parallel.
 var testDSN = envOr("DDCORE_TEST_DSN", "postgres://ddcore:ddcore@localhost:5455/ddcore_test?sslmode=disable")
 
 func envOr(k, d string) string {
@@ -57,8 +57,8 @@ func dsnFor(suffix string) (dsn, adminDSN, dbName string) {
 	return dsn, u.String(), dbName
 }
 
-// demoApp aponta para o app versionado do repositório, em vez de gerar uma
-// fixture quase equivalente num diretório temporário.
+// demoApp points to the versioned repository app, rather than generating an
+// almost equivalent fixture in a temporary directory.
 func demoApp(t *testing.T) js.App {
 	t.Helper()
 	dir, err := filepath.Abs(filepath.Join("..", "..", "apps", "demo"))
@@ -66,7 +66,7 @@ func demoApp(t *testing.T) js.App {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "ddcore.app.ts")); err != nil {
-		t.Fatalf("demo app não encontrado em %s: %v", dir, err)
+		t.Fatalf("demo app not found at %s: %v", dir, err)
 	}
 	return js.App{Name: "demo", Dir: dir}
 }
@@ -78,14 +78,14 @@ func setup(t *testing.T, suffix string, extra ...js.App) *engine.Engine {
 	ctx := context.Background()
 	dsn, adminDSN, dbName := dsnFor(suffix)
 	if dbName == "" {
-		t.Fatalf("DDCORE_TEST_DSN inválida: %s", testDSN)
+		t.Fatalf("invalid DDCORE_TEST_DSN: %s", testDSN)
 	}
 	admin, err := engine.New(ctx, engine.Config{DSN: adminDSN})
 	if err != nil {
 		if os.Getenv("DDCORE_TEST_DSN") != "" {
-			t.Fatalf("postgres indisponível em DDCORE_TEST_DSN: %v", err)
+			t.Fatalf("postgres unavailable at DDCORE_TEST_DSN: %v", err)
 		}
-		t.Skipf("postgres indisponível: %v", err)
+		t.Skipf("postgres unavailable: %v", err)
 	}
 	admin.DB.Pool.Exec(ctx, "DROP DATABASE IF EXISTS "+dbName)
 	if _, err := admin.DB.Pool.Exec(ctx, "CREATE DATABASE "+dbName); err != nil {
@@ -102,9 +102,9 @@ func setup(t *testing.T, suffix string, extra ...js.App) *engine.Engine {
 	if _, err := e.Migrate(ctx, false); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
-	// o roteiro de bootstrap roda migrate mais de uma vez: precisa ser estável
+	// the bootstrap flow runs migrate more than once: it must be idempotent
 	if plan, _ := e.Plan(ctx, false); len(plan) != 0 {
-		t.Fatalf("migrate não é idempotente, sobrou DDL: %v", plan)
+		t.Fatalf("migrate is not idempotent, remaining DDL: %v", plan)
 	}
 	return e
 }
@@ -139,15 +139,15 @@ func getJSON(t *testing.T, srv *httptest.Server, tok, path string) map[string]an
 	}
 	var out map[string]any
 	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
-		t.Fatalf("GET %s: json inválido: %v", path, err)
+		t.Fatalf("GET %s: invalid json: %v", path, err)
 	}
 	return out
 }
 
-// ---------------------------------------------------------------- instalação
+// ---------------------------------------------------------------- installation
 
-// TestInstalacao: depois de migrate o site tem que estar utilizável — usuário
-// e papel base do core, mais o papel e fixture criados pelo app externo.
+// TestInstalacao: after migrate the site must be usable — core user
+// and base role, plus the role and fixture created by the external app.
 func TestInstalacao(t *testing.T) {
 	e := setup(t, "")
 	ctx := context.Background()
@@ -161,27 +161,27 @@ func TestInstalacao(t *testing.T) {
 			return ok
 		}
 		if !exists("User", "Administrator") {
-			t.Error("usuário Administrator não foi criado pela instalação do core")
+			t.Error("Administrator user was not created by core installation")
 		}
 		if !exists("Role", "System Manager") {
-			t.Error("papel System Manager não foi criado pela instalação do core")
+			t.Error("System Manager role was not created by core installation")
 		}
 		for _, role := range []string{"Project Manager", "Project Contributor"} {
 			if !exists("Role", role) {
-				t.Errorf("papel %q do demo app não foi criado", role)
+				t.Errorf("demo app role %q was not created", role)
 			}
 		}
-		// o demo app não cria dados de negócio na instalação; o que precisa
-		// existir é a meta dele, migrada para o banco novo
+		// the demo app does not create business data on install; what must
+		// exist is its meta, migrated to the new database
 		for _, doctype := range []string{"Project", "Task", "Project Milestone"} {
 			if _, err := c.St.DocType(doctype); err != nil {
-				t.Errorf("DocType %q do demo app ausente depois do migrate: %v", doctype, err)
+				t.Errorf("demo app DocType %q missing after migrate: %v", doctype, err)
 			}
 		}
 		if n, err := c.Count("Project", nil); err != nil {
 			t.Errorf("count Project: %v", err)
 		} else if n != 0 {
-			t.Errorf("instalação criou %d Project(s); o demo app semeia só por `ddcore demo`", n)
+			t.Errorf("installation created %d Project(s); demo app only seeds via `ddcore demo`", n)
 		}
 		return nil
 	})
@@ -190,22 +190,22 @@ func TestInstalacao(t *testing.T) {
 	}
 }
 
-// TestBootHome: o desk abre em desk.home, que precisa ser um workspace real e
-// com sidebar — a sidebar é sempre explícita, nunca inferida dos DocTypes.
+// TestBootHome: desk opens at desk.home, which must be a real workspace with
+// a sidebar — the sidebar is always explicit, never inferred from DocTypes.
 func TestBootHome(t *testing.T) {
 	e := setup(t, "_boot")
 	srv, tok := server(t, e)
-	// as respostas de /api/* vêm no envelope {"data": ...}
+	// /api/* responses come in the {"data": ...} envelope
 	boot, ok := getJSON(t, srv, tok, "/api/boot")["data"].(map[string]any)
 	if !ok {
-		t.Fatal("/api/boot não devolveu um objeto em data")
+		t.Fatal("/api/boot did not return an object in data")
 	}
 
 	if boot["user"] != "Administrator" {
-		t.Fatalf("boot autenticado devolveu user=%v", boot["user"])
+		t.Fatalf("authenticated boot returned user=%v", boot["user"])
 	}
 
-	// desk.home do app externo
+	// external app's desk.home
 	home := ""
 	for _, a := range boot["apps"].([]any) {
 		app := a.(map[string]any)
@@ -214,7 +214,7 @@ func TestBootHome(t *testing.T) {
 		}
 		d, ok := app["desk"].(map[string]any)
 		if !ok {
-			t.Fatalf("demo app has no desk block no boot: %#v", app["desk"])
+			t.Fatalf("demo app has no desk block in boot: %#v", app["desk"])
 		}
 		home, _ = d["home"].(string)
 	}
@@ -222,7 +222,7 @@ func TestBootHome(t *testing.T) {
 		t.Fatalf("desk.home = %q, expected \"Projects\"", home)
 	}
 
-	// o workspace apontado por desk.home tem que vir no boot, com sidebar
+	// the workspace pointed to by desk.home must be returned in boot, with sidebar
 	var ws map[string]any
 	for _, w := range boot["workspaces"].([]any) {
 		if m := w.(map[string]any); m["name"] == home {
@@ -230,13 +230,13 @@ func TestBootHome(t *testing.T) {
 		}
 	}
 	if ws == nil {
-		t.Fatalf("workspace %q não veio no boot do Administrator", home)
+		t.Fatalf("workspace %q was not returned in Administrator boot", home)
 	}
 	sidebar, _ := ws["sidebar"].([]any)
 	if len(sidebar) == 0 {
-		t.Fatal("sidebar do workspace está vazia")
+		t.Fatal("workspace sidebar is empty")
 	}
-	// e os destinos citados têm que existir de fato
+	// and the linked targets must actually exist
 	doctypes := boot["doctypes"].(map[string]any)
 	reports := boot["reports"].(map[string]any)
 	links := 0
@@ -245,22 +245,22 @@ func TestBootHome(t *testing.T) {
 		if dt, ok := item["doctype"].(string); ok && dt != "" {
 			links++
 			if _, ok := doctypes[dt]; !ok {
-				t.Errorf("sidebar aponta para o DocType %q, ausente do boot", dt)
+				t.Errorf("sidebar points to DocType %q, missing from boot", dt)
 			}
 		}
 		if rp, ok := item["report"].(string); ok && rp != "" {
 			links++
 			if _, ok := reports[rp]; !ok {
-				t.Errorf("sidebar aponta para o relatório %q, ausente do boot", rp)
+				t.Errorf("sidebar points to report %q, missing from boot", rp)
 			}
 		}
 	}
 	if links == 0 {
-		t.Fatal("sidebar não tem nenhum link para DocType ou relatório")
+		t.Fatal("sidebar has no links to DocType or report")
 	}
 }
 
-// --------------------------------------------------------------- traduções
+// --------------------------------------------------------------- translations
 
 // i18nApp writes a throwaway app whose only content is a pt-BR catalogue that
 // overrides one key of the core, to check the merge precedence.
@@ -278,13 +278,13 @@ func i18nApp(t *testing.T) js.App {
 	}
 	w("ddcore.app.ts", `import { defineApp } from "@ddcore/sdk";
 export default defineApp({ name: "traducoes", title: "Traduções" });`)
-	// "Save" já existe no core como "Salvar": o app tem que ganhar.
+	// "Save" already exists in core as "Salvar": the app must win.
 	w("translations/pt-BR.csv", "Save,Gravar\nChave Só Do App,Valor Só Do App\n")
 	return js.App{Name: "traducoes", Dir: dir}
 }
 
-// TestTraducoes: /api/translations devolve o catálogo mesclado core + apps,
-// com o app tendo precedência sobre o core na mesma chave.
+// TestTraducoes: /api/translations returns the merged core + apps catalog,
+// with the app taking precedence over core for the same key.
 func TestTraducoes(t *testing.T) {
 	e := setup(t, "_i18n", i18nApp(t))
 	srv, tok := server(t, e)
@@ -292,42 +292,42 @@ func TestTraducoes(t *testing.T) {
 	body := getJSON(t, srv, tok, "/api/translations?lang=pt-BR")
 	data, ok := body["data"].(map[string]any)
 	if !ok || len(data) == 0 {
-		t.Fatalf("catálogo pt-BR vazio: %#v", body["data"])
+		t.Fatalf("pt-BR catalog empty: %#v", body["data"])
 	}
-	// 1. chave só do core continua presente
+	// 1. core-only key remains present
 	if got := data["Submit"]; got != "Enviar" {
-		t.Errorf("chave do core Submit = %v, esperado \"Enviar\"", got)
+		t.Errorf("core key Submit = %v, expected \"Enviar\"", got)
 	}
-	// 2. chave só do app aparece
+	// 2. app-only key appears
 	if got := data["Chave Só Do App"]; got != "Valor Só Do App" {
-		t.Errorf("chave do app = %v, esperado \"Valor Só Do App\"", got)
+		t.Errorf("app key = %v, expected \"Valor Só Do App\"", got)
 	}
-	// 3. na colisão, o app vence o core (Save: Salvar → Gravar)
+	// 3. on collision, app wins over core (Save: Salvar → Gravar)
 	if got := data["Save"]; got != "Gravar" {
-		t.Errorf("precedência: Save = %v, esperado \"Gravar\" (valor do app)", got)
+		t.Errorf("precedence: Save = %v, expected \"Gravar\" (app value)", got)
 	}
 
-	// 4. o catálogo do demo app entra junto
+	// 4. demo app catalog is included
 	if got := data["Start"]; got != "Iniciar" {
-		t.Errorf("chave do demo app Start = %v, esperado \"Iniciar\"", got)
+		t.Errorf("demo app key Start = %v, expected \"Iniciar\"", got)
 	}
 
-	// o mesmo catálogo alimenta o `_()` do servidor
+	// the same catalog feeds the server's _()
 	if got := e.I18n.T("pt-BR", "Save"); got != "Gravar" {
-		t.Errorf("I18n.T(Save) = %q, esperado \"Gravar\"", got)
+		t.Errorf("I18n.T(Save) = %q, expected \"Gravar\"", got)
 	}
 
-	// idioma sem catálogo não pode explodir: devolve 200
+	// language without a catalog must not fail: returns 200
 	if b := getJSON(t, srv, tok, "/api/translations?lang=xx-XX"); b == nil {
-		t.Error("idioma desconhecido devia responder 200")
+		t.Error("unknown language should respond with 200")
 	}
 
-	// sem parâmetro, vale o idioma do site
+	// without parameter, site language applies
 	if b := getJSON(t, srv, tok, "/api/translations"); b["data"].(map[string]any)["Submit"] != "Enviar" {
-		t.Errorf("sem ?lang, o catálogo devia ser o de %q", e.Cfg.Lang)
+		t.Errorf("without ?lang, catalog should be for %q", e.Cfg.Lang)
 	}
 
-	// interpolação: {0}, {1} e um argumento ausente
+	// interpolation: {0}, {1} and a missing argument
 	cases := []struct {
 		key  string
 		args []any
@@ -337,31 +337,31 @@ func TestTraducoes(t *testing.T) {
 		{"{0} {1} not found", []any{"Task", "T-1"}, "Task T-1 não encontrado"},
 		{"{0} {1} not found", []any{"Task"}, "Task {1} não encontrado"},
 		{"{0} {1} not found", nil, "{0} {1} não encontrado"},
-		// uma chave sem tradução devolve a própria chave, interpolada
+		// a key without translation returns the key itself, interpolated
 		{"No such key {0}", []any{"x"}, "No such key x"},
 	}
 	for _, c := range cases {
 		if got := e.I18n.T("pt-BR", c.key, c.args...); got != c.want {
-			t.Errorf("T(%q, %v) = %q, esperado %q", c.key, c.args, got, c.want)
+			t.Errorf("T(%q, %v) = %q, expected %q", c.key, c.args, got, c.want)
 		}
 	}
 
-	// Catalogue devolve o dicionário vivo: o chamador não pode alterá-lo por
-	// acidente e mudar o que todo mundo lê
+	// Catalogue returns the live map: the caller must not mutate it by
+	// accident and change what everyone reads
 	cat := e.I18n.Catalogue("pt-BR")
 	cat["Save"] = "ADULTERADO"
 	if got := e.I18n.T("pt-BR", "Save"); got != "Gravar" {
-		t.Errorf("o catálogo foi alterado pelo chamador: T(Save) = %q", got)
+		t.Errorf("catalog was mutated by caller: T(Save) = %q", got)
 	}
 }
 
 // ------------------------------------------------------------------- /app
 
-// TestDeskIndex: /app precisa servir o index do desk compilado (o SvelteKit é
-// SPA: qualquer rota /app/... cai no mesmo index).
+// TestDeskIndex: /app must serve the compiled desk index (SvelteKit is
+// a SPA: any /app/... route lands on the same index).
 func TestDeskIndex(t *testing.T) {
 	if desk.FS() == nil {
-		t.Skip("desk não compilado: rode `make desk`")
+		t.Skip("desk not compiled: run `make desk`")
 	}
 	e := setup(t, "_desk")
 	srv, _ := server(t, e)
@@ -375,32 +375,32 @@ func TestDeskIndex(t *testing.T) {
 		n, _ := res.Body.Read(body)
 		res.Body.Close()
 		if res.StatusCode != 200 {
-			t.Errorf("GET %s = %d, esperado 200", path, res.StatusCode)
+			t.Errorf("GET %s = %d, expected 200", path, res.StatusCode)
 			continue
 		}
 		if ct := res.Header.Get("Content-Type"); !strings.Contains(ct, "text/html") {
 			t.Errorf("GET %s: content-type %q", path, ct)
 		}
 		if !strings.Contains(strings.ToLower(string(body[:n])), "<!doctype html") {
-			t.Errorf("GET %s não devolveu o index do desk: %.120q", path, body[:n])
+			t.Errorf("GET %s did not return desk index: %.120q", path, body[:n])
 		}
 	}
 
-	// a API não pode ser capturada pelo fallback do desk
+	// API routes must not be caught by desk fallback
 	res, err := srv.Client().Get(srv.URL + "/api/rota-que-nao-existe")
 	if err != nil {
 		t.Fatal(err)
 	}
 	res.Body.Close()
 	if res.StatusCode != 404 {
-		t.Errorf("GET /api/inexistente = %d, esperado 404", res.StatusCode)
+		t.Errorf("GET /api/nonexistent = %d, expected 404", res.StatusCode)
 	}
 }
 
 // ------------------------------------------------------------------- demo
 
-// TestDemo: `ddcore demo` é o atalho de primeira execução e tem que poder rodar
-// duas vezes sem duplicar nada — é o que o demo app promete.
+// TestDemo: `ddcore demo` is the first-run shortcut and must be able to run
+// twice without duplicating anything — as promised by the demo app.
 func TestDemo(t *testing.T) {
 	e := setup(t, "_demo")
 	ctx := context.Background()
@@ -432,10 +432,10 @@ func TestDemo(t *testing.T) {
 	}
 }
 
-// --------------------------------------------------------------- extensões
+// --------------------------------------------------------------- extensions
 
-// extensaoApp estende o Task do demo a partir de outro app: um Custom Field,
-// um property setter e um script de formulário para um DocType que não é seu.
+// extensaoApp extends demo's Task from another app: a Custom Field,
+// a property setter, and a form script for a DocType that is not its own.
 func extensaoApp(t *testing.T) js.App {
 	t.Helper()
 	dir := t.TempDir()
@@ -460,9 +460,9 @@ defineForm("Task", { refresh() {} });`)
 	return js.App{Name: "extras", Dir: dir}
 }
 
-// TestExtensao: o campo que outro app acrescentou chega ao desk pela mesma
-// porta que os demais — a meta traduzida — e o script de formulário de quem
-// estende é servido junto com o do dono.
+// TestExtensao: the field added by another app reaches the desk through the
+// same door as the rest — translated meta — and the extending app's form script
+// is served alongside the owner's.
 func TestExtensao(t *testing.T) {
 	e := setup(t, "_ext", extensaoApp(t))
 	srv, tok := server(t, e)
@@ -471,7 +471,7 @@ func TestExtensao(t *testing.T) {
 	data, _ := body["data"].(map[string]any)
 	doctype, _ := data["doctype"].(map[string]any)
 	if doctype == nil {
-		t.Fatalf("meta sem doctype: %#v", body)
+		t.Fatalf("meta without doctype: %#v", body)
 	}
 	fields, _ := doctype["fields"].([]any)
 	var custom map[string]any
@@ -482,26 +482,26 @@ func TestExtensao(t *testing.T) {
 		}
 	}
 	if custom == nil {
-		t.Fatal("o campo da extensão não chegou na meta do desk")
+		t.Fatal("extension field did not reach desk meta")
 	}
-	// a etiqueta vem traduzida pelo catálogo de quem escreveu a string: como
-	// `extras` não traduz nada, fica o inglês canônico
+	// label is translated by the catalog of whoever wrote the string: since
+	// `extras` translates nothing, canonical English remains
 	if custom["label"] != "Cost centre" {
 		t.Errorf("label = %v", custom["label"])
 	}
 	if custom["app"] != "extras" {
-		t.Errorf("o campo deveria declarar sua origem: app = %v", custom["app"])
+		t.Errorf("field should declare its origin: app = %v", custom["app"])
 	}
 	if desc := fieldOf(fields, "description"); desc == nil || desc["inListView"] != true {
-		t.Errorf("property setter não chegou na meta: %#v", desc)
+		t.Errorf("property setter did not reach meta: %#v", desc)
 	}
 
-	// os dois scripts de formulário são anunciados, o do dono primeiro
+	// both form scripts are declared, owner's first
 	apps, _ := doctype["formApps"].([]any)
 	if len(apps) != 2 || apps[0] != "demo" || apps[1] != "extras" {
 		t.Fatalf("formApps = %v", apps)
 	}
-	// e ambos são servidos de verdade
+	// and both are actually served
 	for _, app := range []string{"demo", "extras"} {
 		req, _ := http.NewRequest("GET", srv.URL+"/assets/apps/"+app+"/forms/task.js", nil)
 		req.Header.Set("Authorization", "token "+tok)
@@ -511,11 +511,11 @@ func TestExtensao(t *testing.T) {
 		}
 		res.Body.Close()
 		if res.StatusCode != 200 {
-			t.Fatalf("script de formulário de %s = %d", app, res.StatusCode)
+			t.Fatalf("form script for %s = %d", app, res.StatusCode)
 		}
 	}
 
-	// e o campo grava: é coluna como qualquer outra
+	// and the field saves: it is a column like any other
 	ctx := context.Background()
 	err := e.Run(ctx, "Administrator", func(c *engine.Ctx) error {
 		p, _ := c.NewDoc("Project", engine.Doc{"code": "PRJ-EXT", "title": "Extensão", "assignee": "Administrator", "start_date": "2026-01-01"})
@@ -565,7 +565,7 @@ func runDemo(t *testing.T, e *engine.Engine, ctx context.Context) map[string]any
 	return out
 }
 
-// ------------------------------------------------- evolução de schema (DAT-04)
+// ------------------------------------------------- schema evolution (DAT-04)
 
 // migracaoApp writes a throwaway app with a DocType and one patch of each
 // phase, so the whole route runs against a real Postgres in a second install.
@@ -606,23 +606,23 @@ export default definePatch({
 	return js.App{Name: "migracao", Dir: dir}
 }
 
-// TestEvolucaoDeSchema: a instalação nova grava os patches sem rodar, o renome
-// declarado preserva o dado e as duas fases rodam na ordem certa.
+// TestEvolucaoDeSchema: fresh installation records patches without running, declared
+// rename preserves data, and both phases run in the right order.
 func TestEvolucaoDeSchema(t *testing.T) {
 	e := setup(t, "migra", migracaoApp(t))
 	ctx := context.Background()
 
-	// Instalação nova: os patches foram registrados, não executados — um patch
-	// descreve uma mudança em dados que um banco novo não tem.
+	// Fresh installation: patches were recorded, not executed — a patch
+	// describes a data change that a fresh database does not need.
 	rows, err := db.Select(ctx, e.DB.Pool, `SELECT name FROM ddcore_patch WHERE app = 'migracao' ORDER BY name`)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(rows) != 2 {
-		t.Fatalf("a instalação devia registrar os dois patches: %v", rows)
+		t.Fatalf("installation should record both patches: %v", rows)
 	}
 	if _, err := db.Select(ctx, e.DB.Pool, `SELECT 1 FROM acc_marca`); err == nil {
-		t.Fatal("a instalação nova rodou os patches em vez de registrá-los")
+		t.Fatal("fresh installation ran patches instead of recording them")
 	}
 
 	if err := e.Run(ctx, "Administrator", func(c *engine.Ctx) error {
@@ -637,14 +637,14 @@ func TestEvolucaoDeSchema(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Um release depois: os patches ficam pendentes de novo e valor_texto vira
-	// valor_origem por declaração.
+	// One release later: patches are pending again and valor_texto becomes
+	// valor_origem by declaration.
 	if _, err := e.DB.Pool.Exec(ctx, `DELETE FROM ddcore_patch WHERE app = 'migracao'`); err != nil {
 		t.Fatal(err)
 	}
 	nota, ok := e.Meta.Get("Nota")
 	if !ok {
-		t.Fatal("Nota não está na meta")
+		t.Fatal("Nota is not in meta")
 	}
 	f := nota.Field("valor_texto")
 	f.Fieldname = "valor_origem"
@@ -656,51 +656,51 @@ func TestEvolucaoDeSchema(t *testing.T) {
 		t.Fatalf("migrate: %v", err)
 	}
 	if len(res.Patches) != 2 {
-		t.Fatalf("os dois patches deviam rodar: %v", res.Patches)
+		t.Fatalf("both patches should run: %v", res.Patches)
 	}
 	if len(res.Renames) != 1 {
-		t.Fatalf("o renome devia ser registrado: %v", res.Renames)
+		t.Fatalf("rename should be recorded: %v", res.Renames)
 	}
 
-	// A ordem das fases é observável: o before roda antes do DDL, o after depois.
+	// Phase order is observable: before runs before DDL, after runs after.
 	fases, err := db.Select(ctx, e.DB.Pool, `SELECT fase FROM acc_marca`)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(fases) != 2 || db.Str(fases[0]["fase"]) != "before" || db.Str(fases[1]["fase"]) != "after" {
-		t.Fatalf("fases fora de ordem: %v", fases)
+		t.Fatalf("phases out of order: %v", fases)
 	}
 
-	// O dado atravessou o renome, e o backfill do patch after enxergou a coluna
-	// já renomeada.
+	// Data survived the rename, and the after-patch backfill saw the
+	// already-renamed column.
 	got, err := db.Select(ctx, e.DB.Pool, `SELECT valor_origem, valor FROM tab_nota WHERE name = 'NF-1'`)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(got) != 1 || db.Str(got[0]["valor_origem"]) != "1250.50" {
-		t.Fatalf("o renome perdeu o valor: %v", got)
+		t.Fatalf("rename lost data: %v", got)
 	}
 	if v := db.Str(got[0]["valor"]); v == "" || v == "0" {
-		t.Fatalf("o backfill não rodou: %v", got)
+		t.Fatalf("backfill did not run: %v", got)
 	}
 	if plan, err := e.Plan(ctx, true); err != nil || len(plan) != 0 {
-		t.Fatalf("migrate não ficou idempotente: %v %v", plan, err)
+		t.Fatalf("migrate did not remain idempotent: %v %v", plan, err)
 	}
 }
 
-// TestRecuperacaoDeSenha valida o fluxo ponta a ponta sobre o router real com o transporte
-// de log (o padrão de desenvolvimento):
-// forgot → token extraído do log → token inspecionado → reset com senha nova →
-// login com senha antiga falha → login com senha nova funciona → a sessão antiga está morta.
+// TestRecuperacaoDeSenha validates the end-to-end flow on the real router with
+// the log transport (the development default):
+// forgot → token extracted from log → token inspected → reset with new password →
+// login with old password fails → login with new password works → old session is dead.
 func TestRecuperacaoDeSenha(t *testing.T) {
 	e := setup(t, "recup")
 	ctx := context.Background()
 
-	// Captura os logs para ler o link emitido pelo transporte de log
+	// Capture logs to read the link emitted by the log transport
 	var logBuf bytes.Buffer
 	e.Log = slog.New(slog.NewTextHandler(&logBuf, nil))
 
-	// Cria o usuário com uma senha inicial
+	// Create user with an initial password
 	const user = "recup@exemplo.com"
 	const oldPwd = "senhaantiga123"
 	const newPwd = "senhanova1234"
@@ -741,10 +741,10 @@ func TestRecuperacaoDeSenha(t *testing.T) {
 		return res, out
 	}
 
-	// 1. Login com a senha antiga funciona e estabelece sessão
+	// 1. Login with old password works and establishes session
 	resLogin, _ := postJSON("/api/login", map[string]any{"usr": user, "pwd": oldPwd}, nil)
 	if resLogin.StatusCode != 200 {
-		t.Fatalf("login inicial falhou: %d", resLogin.StatusCode)
+		t.Fatalf("initial login failed: %d", resLogin.StatusCode)
 	}
 	var sidCookie *http.Cookie
 	for _, c := range resLogin.Cookies() {
@@ -754,60 +754,60 @@ func TestRecuperacaoDeSenha(t *testing.T) {
 		}
 	}
 	if sidCookie == nil {
-		t.Fatal("esperava cookie sid na resposta do login")
+		t.Fatal("expected sid cookie in login response")
 	}
 
-	// 2. A sessão está ativa no boot
+	// 2. Session is active in boot
 	reqBoot, _ := http.NewRequest("GET", srv.URL+"/api/boot", nil)
 	reqBoot.AddCookie(sidCookie)
 	resBoot, err := srv.Client().Do(reqBoot)
 	if err != nil || resBoot.StatusCode != 200 {
-		t.Fatalf("boot com sessão ativa falhou: %v", err)
+		t.Fatalf("boot with active session failed: %v", err)
 	}
 	var bootData map[string]any
 	json.NewDecoder(resBoot.Body).Decode(&bootData)
 	resBoot.Body.Close()
 	if d, _ := bootData["data"].(map[string]any); d == nil || d["user"] != user {
-		t.Fatalf("boot devia reconhecer o usuário %s, veio %v", user, bootData)
+		t.Fatalf("boot should recognize user %s, got %v", user, bootData)
 	}
 
-	// 3. Pede recuperação de senha
+	// 3. Request password recovery
 	resForgot, outForgot := postJSON("/api/auth/forgot-password", map[string]any{"usr": user}, nil)
 	if resForgot.StatusCode != 200 {
-		t.Fatalf("forgot-password falhou: %d %v", resForgot.StatusCode, outForgot)
+		t.Fatalf("forgot-password failed: %d %v", resForgot.StatusCode, outForgot)
 	}
 
-	// 4. Extrai o token do log emitido pelo transporte de log
+	// 4. Extract token from log emitted by log transport
 	re := regexp.MustCompile(`token=([0-9a-fA-F]+)`)
 	matches := re.FindStringSubmatch(logBuf.String())
 	if len(matches) < 2 {
-		t.Fatalf("link de recuperação não encontrado nos logs:\n%s", logBuf.String())
+		t.Fatalf("recovery link not found in logs:\n%s", logBuf.String())
 	}
 	token := matches[1]
 
-	// 5. Espia o token via /api/auth/token
+	// 5. Peek token via /api/auth/token
 	resTok, outTok := postJSON("/api/auth/token", map[string]any{"token": token}, nil)
 	if resTok.StatusCode != 200 {
-		t.Fatalf("auth/token falhou: %d %v", resTok.StatusCode, outTok)
+		t.Fatalf("auth/token failed: %d %v", resTok.StatusCode, outTok)
 	}
 	dTok, _ := outTok["data"].(map[string]any)
 	if dTok == nil || dTok["user"] != user || dTok["kind"] != "reset" {
-		t.Fatalf("dados do token inesperados: %v", outTok)
+		t.Fatalf("unexpected token data: %v", outTok)
 	}
 
-	// 6. Conclui a recuperação com a senha nova
+	// 6. Complete recovery with new password
 	resReset, outReset := postJSON("/api/auth/reset-password", map[string]any{"token": token, "password": newPwd}, nil)
 	if resReset.StatusCode != 200 {
-		t.Fatalf("reset-password falhou: %d %v", resReset.StatusCode, outReset)
+		t.Fatalf("reset-password failed: %d %v", resReset.StatusCode, outReset)
 	}
 
-	// 7. Token gasto é de uso único e é recusado
+	// 7. Spent token is single-use and is rejected
 	resReused, _ := postJSON("/api/auth/reset-password", map[string]any{"token": token, "password": "outrasenha123"}, nil)
 	if resReused.StatusCode != 417 {
-		t.Fatalf("reuso de token devia ser recusado com 417, veio %d", resReused.StatusCode)
+		t.Fatalf("token reuse should be rejected with 417, got %d", resReused.StatusCode)
 	}
 
-	// 8. A sessão anterior morreu imediatamente
+	// 8. Previous session died immediately
 	reqDead, _ := http.NewRequest("GET", srv.URL+"/api/boot", nil)
 	reqDead.AddCookie(sidCookie)
 	resDead, _ := srv.Client().Do(reqDead)
@@ -815,19 +815,19 @@ func TestRecuperacaoDeSenha(t *testing.T) {
 	json.NewDecoder(resDead.Body).Decode(&deadBoot)
 	resDead.Body.Close()
 	if d, _ := deadBoot["data"].(map[string]any); d != nil && d["user"] != "Guest" {
-		t.Errorf("a sessão antiga devia ter sido encerrada com a redefinição, veio user=%v", d["user"])
+		t.Errorf("old session should have been terminated on reset, got user=%v", d["user"])
 	}
 
-	// 9. Login com a senha antiga falha
+	// 9. Login with old password fails
 	resOld, _ := postJSON("/api/login", map[string]any{"usr": user, "pwd": oldPwd}, nil)
 	if resOld.StatusCode != 401 {
-		t.Errorf("login com a senha antiga devia falhar com 401, veio %d", resOld.StatusCode)
+		t.Errorf("login with old password should fail with 401, got %d", resOld.StatusCode)
 	}
 
-	// 10. Login com a senha nova funciona
+	// 10. Login with new password works
 	resNew, _ := postJSON("/api/login", map[string]any{"usr": user, "pwd": newPwd}, nil)
 	if resNew.StatusCode != 200 {
-		t.Errorf("login com a senha nova devia passar com 200, veio %d", resNew.StatusCode)
+		t.Errorf("login with new password should succeed with 200, got %d", resNew.StatusCode)
 	}
 }
 

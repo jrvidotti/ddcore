@@ -11,7 +11,7 @@ export default defineDoctype({
   ],
   permissions: [
     { role: "System Manager", read: true, write: true, create: true, delete: true, report: true, export: true },
-    // leitura filtrada pelo documento referenciado no controller (B04)
+    // read access is filtered by the referenced document in the controller (B04)
     { role: "All", read: true },
   ],
 });

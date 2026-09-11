@@ -57,10 +57,10 @@ func hasChildTable(d *meta.DocType, ct string) bool {
 }
 
 // filterSQL renders filters into a WHERE fragment. Conditions over a child
-// doctype become `EXISTS (SELECT 1 FROM tab_child ...)` instead of a JOIN: um
-// pai com duas linhas filhas correspondentes apareceria duas vezes na
-// listagem e seria contado duas vezes por count(*) (B19). Todas as condições
-// do mesmo filho vão para o mesmo EXISTS, isto é, exigem a mesma linha.
+// doctype become `EXISTS (SELECT 1 FROM tab_child ...)` instead of a JOIN: a
+// parent with two matching child rows would appear twice in the list
+// and be counted twice by count(*) (B19). All conditions on the same
+// child go into the same EXISTS, i.e., they require the same row.
 func (c *Ctx) filterSQL(d *meta.DocType, b *db.Builder, filters []db.Filter, col func(string) string) (string, error) {
 	var own []db.Filter
 	var order []string
