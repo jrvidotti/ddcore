@@ -225,8 +225,19 @@ func (c *Ctx) Export(a ExportArgs, sink ExportSink) (*ExportSummary, error) {
 		if a.Limit > 0 {
 			left := int64(a.Limit) - sum.Rows
 			if left <= 0 {
-				// Limit reached exactly; another matching row may well exist.
-				sum.Truncated = true
+				// The limit is spent. Whether that truncated anything is a
+				// question worth one more query: the flag's only job is to
+				// stop someone reconciling a sample as if it were the whole
+				// set, and a flag raised over a complete export would teach
+				// them to ignore it.
+				more, err := c.GetList(d.Name, ListArgs{
+					Filters: keysetFilters(base, last), OrFilters: a.OrFilters,
+					Fields: []string{"name"}, OrderBy: "name asc", Limit: 1,
+				})
+				if err != nil {
+					return nil, err
+				}
+				sum.Truncated = len(more) > 0
 				break
 			}
 			if left < int64(page) {

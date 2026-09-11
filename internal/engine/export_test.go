@@ -436,6 +436,19 @@ func TestExportLimitMarksTruncated(t *testing.T) {
 	if full.sum.Rows != 50 || full.sum.Truncated {
 		t.Errorf("limite acima do conjunto: rows=%d truncated=%v", full.sum.Rows, full.sum.Truncated)
 	}
+
+	// Nor is a limit that lands exactly on the last row. A flag raised over a
+	// complete export is worse than no flag: it teaches the reader to ignore it.
+	exact, err := exportAs(t, e, "exp@x.com", ExportArgs{Doctype: "Nota", Limit: 50, Batch: 10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if exact.sum.Rows != 50 {
+		t.Fatalf("esperava 50, veio %d", exact.sum.Rows)
+	}
+	if exact.sum.Truncated {
+		t.Error("o limite coincidiu com o conjunto inteiro: nada foi cortado")
+	}
 }
 
 func TestExportAppliesFilters(t *testing.T) {
