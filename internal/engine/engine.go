@@ -19,6 +19,7 @@ import (
 	"github.com/robfig/cron/v3"
 
 	"github.com/jrvidotti/ddcore/internal/cerr"
+	"github.com/jrvidotti/ddcore/internal/config"
 	"github.com/jrvidotti/ddcore/internal/db"
 	"github.com/jrvidotti/ddcore/internal/js"
 	"github.com/jrvidotti/ddcore/internal/meta"
@@ -45,6 +46,17 @@ type Config struct {
 	DataDir           string // uploads
 	ExportMaxRows     int    // cap for GET /api/export; 0 = DefaultExportMaxRows
 	LogLevel          slog.Level
+	// Auth is the site's access policy. The zero value is not a policy —
+	// New fills it from config.DefaultAuth so a Config built by hand (tests,
+	// embedders) still locks out and still expires a session.
+	Auth config.AuthPolicy
+	// Mail says where a recovery or invitation link goes.
+	Mail config.Mail
+	// SiteURL is the public base those links are built from, already
+	// defaulted to localhost by config.PublicURL.
+	SiteURL string
+	// TrustProxy makes the API believe X-Forwarded-For.
+	TrustProxy bool
 }
 
 // AppMeta is what defineApp produced, minus functions.
@@ -151,6 +163,32 @@ func New(ctx context.Context, cfg Config) (*Engine, error) {
 	}
 	if cfg.Timezone == "" {
 		cfg.Timezone = "UTC"
+	}
+	// A Config assembled by hand — every test does — would otherwise carry a
+	// zero policy, which is not "no policy" but a session that expires
+	// immediately and a lockout after zero attempts. Fill the gaps one field
+	// at a time so an embedder can still override just one of them.
+	def := config.DefaultAuth()
+	if cfg.Auth.SessionDays <= 0 {
+		cfg.Auth.SessionDays = def.SessionDays
+	}
+	if cfg.Auth.MinPasswordLength <= 0 {
+		cfg.Auth.MinPasswordLength = def.MinPasswordLength
+	}
+	if cfg.Auth.MaxLoginAttempts <= 0 {
+		cfg.Auth.MaxLoginAttempts = def.MaxLoginAttempts
+	}
+	if cfg.Auth.LockoutMinutes <= 0 {
+		cfg.Auth.LockoutMinutes = def.LockoutMinutes
+	}
+	if cfg.Auth.ResetMinutes <= 0 {
+		cfg.Auth.ResetMinutes = def.ResetMinutes
+	}
+	if cfg.Auth.InviteHours <= 0 {
+		cfg.Auth.InviteHours = def.InviteHours
+	}
+	if cfg.Mail.Transport == "" {
+		cfg.Mail.Transport = config.MailLog
 	}
 	e := &Engine{Cfg: cfg, Log: slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: cfg.LogLevel})), Events: NewHub(), Cache: NewCache()}
 	if cfg.DSN != "" {

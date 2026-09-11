@@ -133,7 +133,14 @@ func load(test bool, dev bool) (*engine.Engine, *config.File, error) {
 	e, err := engine.New(context.Background(), engine.Config{
 		DSN: cfg.DSN, Apps: apps, Workers: cfg.Workers, Scheduler: cfg.Scheduler, Dev: dev || cfg.Dev, Test: test,
 		Port: cfg.Port, SiteName: cfg.Site, Lang: cfg.Lang, Currency: cfg.Currency, CurrencyPrecision: cfg.CurrencyPrecision, Rounding: cfg.RoundingMode(), Timezone: cfg.Timezone, DataDir: cfg.DataDir, ExportMaxRows: cfg.ExportMaxRows, LogLevel: level,
+		Auth: cfg.Auth, Mail: cfg.Mail, SiteURL: cfg.PublicURL(), TrustProxy: cfg.TrustProxy,
 	})
+	if err == nil && !cfg.HasPublicURL() {
+		// Say it once, at boot, rather than letting someone discover it in a
+		// recovery e-mail that points at a machine the reader does not have.
+		e.Log.Warn("no public URL configured: recovery and invitation links will point at "+cfg.PublicURL(),
+			"fix", "set DDCORE_URL in .env")
+	}
 	return e, cfg, err
 }
 
@@ -174,7 +181,25 @@ func cmdInit(args []string) error {
 	if err := f.Save(config.Name); err != nil {
 		return err
 	}
+	if err := writeEnvExample(); err != nil {
+		return err
+	}
 	fmt.Println("created", config.Name, "— now: ddcore new-app <name> && ddcore migrate && ddcore dev")
+	return nil
+}
+
+// writeEnvExample drops the committed record of which environment variables
+// exist. .env itself is gitignored, so without this nobody deploying the site
+// can tell what it expects to be set.
+func writeEnvExample() error {
+	const name = ".env.example"
+	if _, err := os.Stat(name); err == nil {
+		return nil
+	}
+	if err := os.WriteFile(name, []byte(config.EnvExample), 0o644); err != nil {
+		return err
+	}
+	fmt.Println("created", name, "— copy to .env for this machine's database, URL and mail")
 	return nil
 }
 
@@ -698,5 +723,28 @@ func cmdDoctor(args []string) error {
 	}
 	fmt.Printf("scheduler:  %v\n", cfg.Scheduler)
 	fmt.Printf("workers:    %d\n", cfg.Workers)
+	fmt.Printf("mail:       %s\n", mailSummary(cfg))
+	url := "url:        " + cfg.PublicURL()
+	if !cfg.HasPublicURL() {
+		url += "  → not configured; set DDCORE_URL in .env before mailing a recovery link"
+	}
+	fmt.Println(url)
+	fmt.Printf("sessions:   %d day(s), lockout after %d failed attempts for %d minute(s)\n",
+		cfg.Auth.SessionDays, cfg.Auth.MaxLoginAttempts, cfg.Auth.LockoutMinutes)
 	return nil
+}
+
+func mailSummary(cfg *config.File) string {
+	switch cfg.Mail.Transport {
+	case config.MailSMTP:
+		auth := "no auth"
+		if cfg.Mail.Username != "" {
+			auth = "as " + cfg.Mail.Username
+		}
+		return fmt.Sprintf("smtp %s:%d (%s, %s)", cfg.Mail.Host, cfg.Mail.Port, cfg.Mail.TLS, auth)
+	case config.MailMethod:
+		return "method " + cfg.Mail.Method
+	default:
+		return "log — links are written to the log, not delivered"
+	}
 }

@@ -169,11 +169,25 @@ desk/                         SvelteKit, build embutido no binário
 packages/sdk/                 @ddcore/sdk
 packages/desk-sdk/            @ddcore/desk-sdk
 docs/agent/                   referência da API, escrita para agentes
-ddcore.json                    instância de dev: dsn :5455, porta 8090, apps: ["apps/demo"]
+ddcore.json                    o que o site decidiu: apps, moeda, fuso, política de acesso
+.env / .env.example            onde ele roda: banco, porta, URL pública, e-mail
 Makefile                      atalhos do fluxo de trabalho
 bin/ddcore                     binário compilado (gerado por make build)
 apps/demo/                 o app de demonstração
 ```
+
+A configuração é dividida pela pergunta que responde, e a divisão não é
+cosmética. O `ddcore.json` guarda o que o site decidiu — seus apps, moeda e
+precisão, fuso, e a política de acesso em `auth` — por isso é versionado e
+idêntico no notebook, na homologação e na produção; a homologação tem de travar
+uma conta exatamente como a produção trava, ou o ensaio não prova nada. O `.env`
+guarda onde o site está rodando — o banco, a porta, a URL pública e tudo sobre o
+envio de e-mail, um dos campos sendo uma senha — por isso fica fora do controle
+de versão, e o `.env.example` é o registro versionado de quais variáveis
+existem. A precedência vai de dentro para fora: uma variável já presente no
+ambiente real vence o `.env`, que vence o `ddcore.json`, que vence o padrão. É
+essa ordem que deixa a Railway injetar `DATABASE_URL`, ou um `docker run -e`
+trocar a porta, sem ninguém editar um arquivo dentro da imagem.
 
 ### Dentro de `apps/demo`
 
