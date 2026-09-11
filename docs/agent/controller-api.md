@@ -53,7 +53,9 @@ Fields are properties; child tables are arrays. Methods: `insert()`, `save()`, `
 - `ddcore.session` → `{ user, roles, lang, request }`; `ddcore.user()`; `ddcore.getRoles(user)`; `ddcore.hasPermission(doctype, ptype, doc)`
 - `ddcore.cache.get/set(key, value, ttlSeconds)/del`
 - `ddcore.http.get(url, { headers, timeout })` / `post(url, body)` → `{ status, body, json() }` (the call leaves from the server)
-- `ddcore.enqueue("app.services.mod.fn", args, { queue, runAfter })` → the job id
+- `ddcore.enqueue("app.services.mod.fn", args, { queue, runAfter, timeout, maxAttempts })` → the job id.
+  Written on the current transaction, so the job exists only if the request commits. `maxAttempts`
+  defaults to 3; use `1` for work whose effects outside the database must not be repeated.
 - `ddcore.publish(event, payload, { user })` — SSE to the desk
 - `ddcore.log.info/warn/error`
 - `ddcore.utils`: `flt(v, precision)`, `cint`, `cstr`, `getdate`, `nowdate()`, `now()`, `formatDate(d, "dd/mm/yyyy")`, `addDays`, `addMonths`, `addYears`,

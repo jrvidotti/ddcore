@@ -526,6 +526,7 @@
     __mailMethod() { return call("mailMethod", {}); },
     __sendMail(msg) { call("sendMail", msg || {}); },
     __authSweep() { return call("authSweep", {}); },
+    __jobSweep() { return call("jobSweep", {}); },
     // `user` lets the policy refuse a password that is the account name. It
     // throws when the password is below the site's minimum.
     __hashPassword(password, user) { return call("hashPassword", { text: password, user: user || "" }); },

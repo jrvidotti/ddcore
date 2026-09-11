@@ -48,3 +48,35 @@ func TestOpsPolicyDurations(t *testing.T) {
 		t.Fatalf("slow request is %v for %d ms", p.SlowRequest(), p.SlowRequestMs)
 	}
 }
+
+// Retention is the one threshold where zero has to mean something, and it means
+// the opposite of what it means everywhere else here: "keep forever", not "keep
+// nothing". Read as a cutoff it would empty the table, so the field is a pointer
+// and it is filled outside the loop that rewrites zeroes into defaults.
+func TestJobRetentionDistinguishesUnsetFromKeepForever(t *testing.T) {
+	shipped := OpsPolicy{}.WithDefaults()
+	if shipped.DoneRetentionDays() <= 0 || shipped.FailedRetentionDays() <= 0 {
+		t.Fatalf("a site that says nothing gets the shipped windows: %+v", shipped)
+	}
+	// Failures are the evidence, and outlive the successes.
+	if shipped.FailedRetentionDays() <= shipped.DoneRetentionDays() {
+		t.Errorf("failed jobs should be kept longer than done ones: %d vs %d",
+			shipped.FailedRetentionDays(), shipped.DoneRetentionDays())
+	}
+
+	forever := 0
+	p := OpsPolicy{JobRetentionDays: &forever, JobRetentionFailedDays: &forever}.WithDefaults()
+	if p.DoneRetentionDays() != 0 || p.FailedRetentionDays() != 0 {
+		t.Fatalf("an explicit zero was overwritten by the defaults: %+v", p)
+	}
+	if err := p.validate(); err != nil {
+		t.Fatalf("keeping jobs forever is a legitimate choice: %v", err)
+	}
+
+	negative := -1
+	bad := DefaultOps()
+	bad.JobRetentionDays = &negative
+	if err := bad.validate(); err == nil {
+		t.Error("a negative retention window was accepted")
+	}
+}

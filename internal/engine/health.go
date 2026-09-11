@@ -40,6 +40,10 @@ type QueueHealth struct {
 	Stalled               int64   `json:"stalled"`
 	FailedInWindow        int64   `json:"failedInWindow"`
 	DoneInWindow          int64   `json:"doneInWindow"`
+	// CancelledInWindow separates work somebody stopped from work that broke.
+	// Counting the two together would have an operator hunting a fault that was
+	// in fact an administrative decision.
+	CancelledInWindow int64 `json:"cancelledInWindow"`
 	OldestQueuedSeconds   float64 `json:"oldestQueuedSeconds"`
 	LongestRunningSeconds float64 `json:"longestRunningSeconds"`
 	WindowMinutes         int     `json:"windowMinutes"`
@@ -167,6 +171,7 @@ const queueSQL = `SELECT
                                             AND lease_until < now())             AS stalled,
   count(*) FILTER (WHERE status = 'failed'  AND finished > now() - make_interval(secs => $1)) AS failed_in_window,
   count(*) FILTER (WHERE status = 'done'    AND finished > now() - make_interval(secs => $1)) AS done_in_window,
+  count(*) FILTER (WHERE status = 'cancelled' AND finished > now() - make_interval(secs => $1)) AS cancelled_in_window,
   COALESCE(EXTRACT(EPOCH FROM (now() - min(enqueued)
      FILTER (WHERE status = 'queued' AND run_after <= now()))), 0)               AS oldest_queued_seconds,
   COALESCE(EXTRACT(EPOCH FROM (now() - min(started)
@@ -177,7 +182,8 @@ func (e *Engine) QueueHealth(ctx context.Context, window time.Duration) (*QueueH
 	q := &QueueHealth{WindowMinutes: int(window.Minutes())}
 	err := e.DB.Pool.QueryRow(ctx, queueSQL, window.Seconds()).Scan(
 		&q.Queued, &q.Runnable, &q.Running, &q.Stalled,
-		&q.FailedInWindow, &q.DoneInWindow, &q.OldestQueuedSeconds, &q.LongestRunningSeconds)
+		&q.FailedInWindow, &q.DoneInWindow, &q.CancelledInWindow,
+		&q.OldestQueuedSeconds, &q.LongestRunningSeconds)
 	if err != nil {
 		return nil, err
 	}
