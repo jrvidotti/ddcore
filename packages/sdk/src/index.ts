@@ -64,7 +64,23 @@ export interface DDCoreAPI {
     dateDiff(a: any, b: any): number;
     monthDiff(a: any, b: any): number;
     formatCurrency(v: any, currency?: string): string;
-    roundTo(v: number, precision?: number): number;
+    /**
+     * Rounds to `precision` decimal places under the site's rounding rule,
+     * over the number's shortest decimal representation — so 1.005 rounds to
+     * 1.01, and -1.005 to -1.01.
+     */
+    roundTo(v: number, precision?: number, mode?: "commercial" | "bankers"): number;
+    /** How many decimal places a Currency value has on this site (2 for USD, 0 for JPY). */
+    currencyPrecision(): number;
+    /** Rounds a value exactly the way the server is about to store it. */
+    roundCurrency(v: any): number;
+    /**
+     * Splits a total into `n` parts at the site's currency precision whose sum
+     * is exactly the total. Rounding each of three thirds of 100.00 gives
+     * 33.33 three times; this gives [33.34, 33.33, 33.33]. The residue lands
+     * on the earliest parts.
+     */
+    splitAmount(total: any, n: number): number[];
     randomString(n?: number): string;
   };
   /** current authenticated user (Guest when anonymous) */

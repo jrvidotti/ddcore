@@ -44,6 +44,9 @@
     app: "",
     // translation catalogue per language, mirrored from the host on first use
     __cat: {},
+    // the site's currency, precision, rounding rule and timezone, mirrored for
+    // the same reason and on the same terms: immutable inside a State
+    __site: null,
     current: "",
     doctypes: {},
     controllers: {},
@@ -210,6 +213,69 @@
   // ---------------------------------------------------------------- ddcore API
   function makeContext() { return call("session"); }
 
+  // ------------------------------------------------- the decimal rounding rule
+  //
+  // Shared with internal/num (Go) and desk/src/lib/round.ts. All three are
+  // asserted against internal/num/testdata/rounding.json: two copies of a table
+  // drift, and the day they drift is the day a form and the database disagree
+  // about a cent.
+
+  /**
+   * The number's shortest decimal representation, as [negative, int, frac].
+   *
+   * String(n) is that representation already, except that JS switches to
+   * exponent notation at 1e21 and below 1e-6 where Go's %f never does. Those
+   * magnitudes are past anything a money column holds, so they are expanded
+   * rather than handled: the answer has to be the same in both languages.
+   */
+  function decimalDigits(n) {
+    let s = String(n);
+    const neg = s[0] === "-";
+    if (neg) s = s.slice(1);
+    const e = s.indexOf("e");
+    if (e >= 0) {
+      const exp = Number(s.slice(e + 1));
+      let [i, f = ""] = s.slice(0, e).split(".");
+      if (exp >= 0) {
+        const pad = exp - f.length;
+        s = pad >= 0 ? i + f + "0".repeat(pad) : i + f.slice(0, exp) + "." + f.slice(exp);
+      } else {
+        s = "0." + "0".repeat(-exp - i.length) + i + f;
+      }
+    }
+    const dot = s.indexOf(".");
+    return dot < 0 ? [neg, s, ""] : [neg, s.slice(0, dot), s.slice(dot + 1)];
+  }
+
+  // Decides on the discarded digits alone: a leading digit above or below 5
+  // settles it, and a leading 5 with anything non-zero after it is above half,
+  // not at it.
+  function roundsUp(kept, rest, mode) {
+    if (!rest || rest[0] < "5") return false;
+    if (rest[0] > "5" || /[1-9]/.test(rest.slice(1))) return true;
+    if (mode === "bankers") return (kept.charCodeAt(kept.length - 1) - 48) % 2 === 1;
+    return true;
+  }
+
+  function increment(d) {
+    const b = d.split("");
+    for (let i = b.length - 1; i >= 0; i--) {
+      if (b[i] !== "9") { b[i] = String.fromCharCode(b[i].charCodeAt(0) + 1); return b.join(""); }
+      b[i] = "0";
+    }
+    return "1" + b.join("");
+  }
+
+  function insertPoint(d, p) {
+    if (p === 0) return d;
+    while (d.length <= p) d = "0" + d;
+    return d.slice(0, d.length - p) + "." + d.slice(d.length - p);
+  }
+
+  function site() {
+    return reg.__site || (reg.__site = call("site") || { currency: "USD", currencyPrecision: 2, rounding: "commercial", timezone: "UTC" });
+  }
+
   const utils = {
     flt(v, precision) {
       if (v === null || v === undefined || v === "") return 0;
@@ -220,7 +286,63 @@
     },
     cint(v) { const n = parseInt(v, 10); return isNaN(n) ? 0 : n; },
     cstr(v) { return v === null || v === undefined ? "" : String(v); },
-    roundTo(n, p = 2) { const m = Math.pow(10, p); return Math.round((n + Number.EPSILON) * m) / m; },
+    /**
+     * Rounds n to p decimal places under the site's rule.
+     *
+     * The rounding is defined over the number's shortest decimal
+     * representation — the digits String(n) prints — and not over the binary
+     * double, because someone who types 1.005 stores 1.00499999999999989 and
+     * expects to get 1.01 back. This is the same algorithm internal/num
+     * implements in Go, asserted against the same table of values, which is
+     * what lets a total computed here agree with the total the server stores.
+     *
+     * What was here multiplied by a power of ten and called Math.round. That
+     * is asymmetric: it turned 1.005 into 1.01 and -1.005 into -1.00, so a
+     * credit and a debit of the same size did not cancel.
+     */
+    roundTo(n, p = 2, mode) {
+      if (typeof n !== "number" || !isFinite(n) || p < 0) return n;
+      const digits = decimalDigits(n);
+      if (digits === null) return n;
+      let [neg, intPart, frac] = digits;
+      if (frac.length <= p) return n;
+      let kept = intPart + frac.slice(0, p);
+      const rest = frac.slice(p);
+      if (roundsUp(kept, rest, mode || site().rounding)) kept = increment(kept);
+      const out = (neg ? "-" : "") + insertPoint(kept, p);
+      const v = Number(out);
+      return v === 0 ? 0 : v;
+    },
+    /** How many decimal places a Currency value has on this site. */
+    currencyPrecision() { return site().currencyPrecision; },
+    /** Rounds a value the way the server is about to store it. */
+    roundCurrency(v) { return utils.roundTo(utils.flt(v), site().currencyPrecision); },
+    /**
+     * Splits a total into n parts at the site's currency precision whose sum
+     * is exactly the total.
+     *
+     * Rounding each of three thirds of 100.00 gives 33.33 three times, and the
+     * invoice is a cent short of itself. The residue is placed on the earliest
+     * parts — a decision, not an accident: the instalments a customer pays
+     * first absorb it, and the schedule is the same every time it is computed.
+     */
+    splitAmount(total, n) {
+      n = utils.cint(n);
+      if (n < 1) throw new Error("splitAmount: n must be at least 1");
+      const p = site().currencyPrecision;
+      const unit = Math.pow(10, p);
+      const cents = Math.round(utils.roundCurrency(total) * unit);
+      const base = Math.trunc(cents / n);
+      let residue = cents - base * n; // carries the sign of the total
+      const step = residue < 0 ? -1 : 1;
+      const out = [];
+      for (let i = 0; i < n; i++) {
+        let c = base;
+        if (residue !== 0) { c += step; residue -= step; }
+        out.push(utils.roundTo(c / unit, p));
+      }
+      return out;
+    },
     getdate(v) {
       if (v instanceof Date) return new Date(Date.UTC(v.getUTCFullYear(), v.getUTCMonth(), v.getUTCDate()));
       if (!v) return utils.getdate(utils.nowdate());
