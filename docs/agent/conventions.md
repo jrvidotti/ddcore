@@ -44,3 +44,18 @@ That is the form used by `whitelisted`, `scheduler`, `ddcore.enqueue`, `ddcore e
 - A DocType belongs to one app: it is declared once, and another app adds to it with `extendDoctype`. See `extending`.
 - Tests: each `it` runs in a rolled-back transaction; create the data you need inside the test.
 - A Select's values are canonical English and are what the database holds; colour them with `optionColors`, never by matching their text.
+
+## Versioning and releases
+
+The framework follows **Semantic Versioning 2.0.0** (`vMAJOR.MINOR.PATCH`):
+
+- **Git tags**: Official releases use the `v*` format (e.g. `v0.1.0`, `v1.0.0`).
+- **Release artifacts**:
+  - Pushing a version tag `v*` triggers the `Release` GitHub Action, creating a GitHub Release with cross-platform static archives (`ddcore-<os>-<arch>.tar.gz` and `SHA256SUMS`) for Darwin and Linux (amd64/arm64) and publishing container images (`ghcr.io/jrvidotti/ddcore:vX.Y.Z` and `ghcr.io/jrvidotti/ddcore:latest`).
+  - Pushing to `main` builds and pushes the rolling Docker image `ghcr.io/jrvidotti/ddcore:latest` and updates the rolling release `latest` used by the installer script (`install.sh`).
+- **App compatibility (`requires`)**:
+  - Apps declare compatibility constraints in `ddcore.app.ts` (`requires: { ddcore: ">=0.1.0" }`).
+  - Breaking changes to public server/desk SDKs or engine contracts increment MAJOR.
+  - New backwards-compatible capabilities or hooks increment MINOR.
+  - Bug fixes and optimizations increment PATCH.
+

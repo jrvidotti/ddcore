@@ -380,3 +380,25 @@ The same path is exercised with no UI at all by `doctypes/task/task.test.ts` and
 `services/tasks.test.ts`. That is the shape of the framework: **the core moves the document
 through the lifecycle and the transaction; the app says what is true about the domain at each
 point along the way.**
+
+---
+
+## 6. Versioning, releases and container images
+
+The framework adheres to [Semantic Versioning 2.0.0](https://semver.org/):
+
+- **Releases and Tags**:
+  - Tags use the standard `vMAJOR.MINOR.PATCH` format (e.g. `v0.1.0`).
+  - Pushing a tag `v*` triggers the automated GitHub Actions release workflow:
+    - Builds the Desk SPA (`desk/build`).
+    - Cross-compiles standalone static binaries with `CGO_ENABLED=0` for Darwin and Linux (`darwin-amd64`, `darwin-arm64`, `linux-amd64`, `linux-arm64`).
+    - Packages archives (`ddcore-<os>-<arch>.tar.gz`) with checksums (`SHA256SUMS`) and attaches them to the GitHub Release.
+    - Publishes multi-architecture container images (`linux/amd64`, `linux/arm64`) to the GitHub Container Registry: `ghcr.io/jrvidotti/ddcore:<tag>` and `ghcr.io/jrvidotti/ddcore:latest`.
+  - Pushing to the `main` branch builds and pushes rolling images (`ghcr.io/jrvidotti/ddcore:latest`, `ghcr.io/jrvidotti/ddcore:sha-<commit>`) and updates the rolling release `latest` for developers.
+
+- **Developer CLI installation**:
+  - External developers can install the CLI directly into `~/.local/bin/ddcore` with a single command:
+    ```bash
+    curl -fsSL https://raw.githubusercontent.com/jrvidotti/ddcore/main/install.sh | sh
+    ```
+
