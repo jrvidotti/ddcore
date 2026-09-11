@@ -127,7 +127,8 @@ type State struct {
 // Version is the core's version, reported by /api/boot, by the MCP server and
 // by an export manifest — which is the one that matters later, because a
 // reconciliation needs to know what produced the file.
-const Version = "0.1.0"
+// It can be overridden at build time via -ldflags "-X github.com/jrvidotti/ddcore/internal/engine.Version=..."
+var Version = "0.1.0"
 
 type Engine struct {
 	// *State is embedded solely to keep `e.Meta`, `e.Snap`, `e.Apps`,
