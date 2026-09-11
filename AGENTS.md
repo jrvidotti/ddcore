@@ -33,11 +33,12 @@ Always consult [`CLAUDE.md`](CLAUDE.md) and the documentation in
    `@ddcore/desk-sdk` run in the browser and may be asynchronous.
 2. **Generated typings:** never edit `.ddcore/types.d.ts` by hand. Use `./bin/ddcore types` or
    `make test`.
-3. **English is the source language:** write every user-facing string — including a `label:`
+3. **English is the canonical language:** write every user-facing string — including a `label:`
    and a Select's values — in English, and put its translation in `translations/<lang>.csv`
    with `./bin/ddcore i18n extract`. A key without a translation fails `make check`, and would
    otherwise fail silently by rendering as English on a translated screen. See
    [`docs/agent/i18n.md`](docs/agent/i18n.md).
+   **All code comments, documentation, scripts, Dockerfiles, and CI workflows in this repository must be written in English.**
 4. **Tests:** always validate a change with `make test` (the Go tests plus the desk's and the
    apps' TypeScript).
 5. **MCP:** use the ddcore MCP tools declared in `.mcp.json` to inspect metadata, run methods

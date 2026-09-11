@@ -1,0 +1,28 @@
+# Official base Dockerfile for the ddcore framework.
+# Published image: ghcr.io/jrvidotti/ddcore
+
+# Stage 1: Build the Desk SPA (SvelteKit)
+FROM node:22-alpine AS desk-build
+WORKDIR /src/desk
+COPY desk/package*.json ./
+RUN npm ci --silent
+COPY desk/ ./
+RUN npm run build
+
+# Stage 2: Compile the static Go binary
+FROM golang:1.24-alpine AS go-build
+WORKDIR /src
+RUN apk add --no-cache git
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+COPY --from=desk-build /src/desk/build ./desk/build
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /bin/ddcore ./cmd/ddcore
+
+# Stage 3: Minimal runner image
+FROM alpine:3.21 AS runner
+RUN apk add --no-cache ca-certificates tzdata
+COPY --from=go-build /bin/ddcore /usr/local/bin/ddcore
+
+ENTRYPOINT ["/usr/local/bin/ddcore"]
+CMD ["help"]
