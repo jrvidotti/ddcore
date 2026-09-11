@@ -4,7 +4,7 @@ Updated: September 11, 2026.
 
 This roadmap prioritizes reusable framework capabilities by expected benefit relative
 to implementation effort and ongoing maintenance. It is derived from the
-[Frappe migration inventory](docs/inventario-migracao-frappe.md), with implementation
+[Frappe migration inventory](docs/frappe-port-inventory.md), with implementation
 checks against this checkout. Inventory IDs provide traceability; they are not bug
 severities or release commitments.
 
