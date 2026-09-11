@@ -1,5 +1,8 @@
 # ddcore — port do Frappe Framework para Go + TypeScript + PostgreSQL
 
+> Continuação pós-v1: [inventário de funcionalidades e roteiro de migração do Frappe](inventario-migracao-frappe.md).
+> Este plano permanece como registro histórico do escopo e da validação da v1.
+
 ## Contexto
 
 O POC `../rent-frappe` (controle de aluguéis, Frappe v16) mostrou o valor do modelo
