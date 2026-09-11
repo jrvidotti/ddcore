@@ -55,7 +55,7 @@ func TestCatalogPtBRComplete(t *testing.T) {
 		apps = append(apps, js.App{Name: filepath.Base(dir), Dir: dir})
 	}
 	e, err := engine.New(context.Background(), engine.Config{
-		Apps: apps, SiteName: cfg.Site, Lang: cfg.Lang, Currency: cfg.Currency,
+		Apps: apps, Lang: cfg.Lang, Currency: cfg.Currency,
 		Timezone: cfg.Timezone, LogLevel: slog.LevelError,
 	})
 	if err != nil {

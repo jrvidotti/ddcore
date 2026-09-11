@@ -99,7 +99,7 @@ func (e *Engine) Ready(ctx context.Context) db.Health {
 func (e *Engine) Health(ctx context.Context, o HealthOpts) Health {
 	ops := e.Cfg.Ops
 	h := Health{
-		Version: Version, Site: e.Cfg.SiteName, Time: time.Now(),
+		Version: Version, Site: e.SiteTitle(), Time: time.Now(),
 		Database: e.Ready(ctx), Scheduler: e.SchedulerHealth(),
 	}
 	if !h.Database.OK {

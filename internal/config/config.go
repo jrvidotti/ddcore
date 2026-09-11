@@ -35,7 +35,6 @@ type File struct {
 	Port      int      `json:"port"`
 	Workers   int      `json:"workers"`
 	Scheduler bool     `json:"scheduler"`
-	Site      string   `json:"site"`
 	Lang      string   `json:"lang"`
 	Currency  string   `json:"currency"`
 	// CurrencyPrecision overrides how many decimal places a Currency field is
@@ -73,7 +72,7 @@ const Name = "ddcore.json"
 // Load reads ddcore.json from dir (or its parents) and applies env overrides.
 func Load(dir string) (*File, string, error) {
 	path, err := find(dir)
-	f := &File{Port: 8080, Workers: 2, Lang: "pt-BR", Currency: "BRL", Timezone: "UTC", Site: "ddcore",
+	f := &File{Port: 8080, Workers: 2, Lang: "pt-BR", Currency: "BRL", Timezone: "UTC",
 		Auth: DefaultAuth(), Ops: DefaultOps()}
 	if err == nil {
 		b, err := os.ReadFile(path)

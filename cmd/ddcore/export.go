@@ -71,7 +71,7 @@ func cmdExport(args []string) error {
 		}
 	}
 
-	e, cfg, err := load(false, false)
+	e, _, err := load(false, false)
 	if err != nil {
 		return err
 	}
@@ -96,7 +96,7 @@ func cmdExport(args []string) error {
 	}
 
 	run := &exportRun{
-		DDCore: engine.Version, Site: cfg.Site, User: *user, Started: time.Now(), Dir: dir,
+		DDCore: engine.Version, Site: e.SiteTitle(), User: *user, Started: time.Now(), Dir: dir,
 		Format: *format, Filters: parsedFilters,
 	}
 	ctx := context.Background()

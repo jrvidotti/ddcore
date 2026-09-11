@@ -40,10 +40,10 @@ desk: {
 declares one wins**, and the core declares neither, so an app's always does.
 
 `logo` is one letter or one emoji, not an image URL — the mark is a fixed
-square, rendered as text. Leave it out and the mark is the initial of the
-site's name (`ddcore.json:site`), which is what a site with one app usually
-wants. That name is a catalogue key like any label, so the initial is taken
-from the reader's language — see `i18n`.
+square, rendered as text. Leave it out and the mark is the initial of the name
+printed beside it, which is this app's `title`. That title is a catalogue key
+like any label, so both the word and its initial follow the reader's language —
+see `i18n`.
 
 ## Naming
 

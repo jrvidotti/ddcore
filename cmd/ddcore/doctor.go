@@ -34,7 +34,6 @@ read it, not by a script that wants to fail.
 // two renderings of one thing rather than two things that drift.
 type doctorReport struct {
 	DDCore    string              `json:"ddcore"`
-	Site      string              `json:"site"`
 	Database  db.Health           `json:"database"`
 	DSN       string              `json:"dsn"`
 	Engine    string              `json:"engineError,omitempty"`
@@ -131,7 +130,7 @@ func cmdDoctor(args []string) error {
 // a failure from the database layer quotes the connection string back at you.
 func gatherDoctor(ctx context.Context, cfg *config.File, windowMin int) *doctorReport {
 	rep := &doctorReport{
-		DDCore: engine.Version, Site: cfg.Site, DSN: db.RedactDSN(cfg.DSN),
+		DDCore: engine.Version, DSN: db.RedactDSN(cfg.DSN),
 		Workers: cfg.Workers, Mail: mailSummary(cfg),
 		URL: cfg.PublicURL(), URLSet: cfg.HasPublicURL(), Ops: cfg.Ops,
 		Sessions: sessionSection{cfg.Auth.SessionDays, cfg.Auth.MaxLoginAttempts, cfg.Auth.LockoutMinutes},
@@ -241,7 +240,6 @@ func (r *doctorReport) print(w io.Writer) {
 	}
 
 	p("version", "%s", r.DDCore)
-	p("site", "%s", r.Site)
 	if r.Database.OK {
 		p("database", "ok (%.1f ms) %s", r.Database.LatencyMS, r.DSN)
 	} else {

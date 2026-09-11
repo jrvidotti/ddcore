@@ -528,9 +528,9 @@ func (s *Server) boot(w http.ResponseWriter, r *http.Request) {
 			"workspaces": workspaces, "doctypes": doctypes, "reports": reports,
 			"site": map[string]any{
 				// the one string in this block a reader actually sees, so it is
-				// a catalogue key like any other label; a site whose name has no
-				// translation gets the name back, which is already English
-				"name": c.T(s.E.Cfg.SiteName), "currency": s.E.Cfg.Currency,
+				// a catalogue key like any other label; a title with no
+				// translation comes back as itself, which is already English
+				"name": c.T(s.E.SiteTitle()), "currency": s.E.Cfg.Currency,
 				// the server resolves the precision and the rule and the desk
 				// reads them: two independent derivations that "should" agree
 				// is the bug nobody finds until a JPY invoice is off by a yen

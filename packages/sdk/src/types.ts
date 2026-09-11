@@ -363,7 +363,7 @@ export interface AppDef {
      * The square mark shown beside the site's name in the sidebar and on the
      * sign-in screens: one letter or one emoji, not an image URL. The first
      * app in load order that declares one wins, as with `home`. Left out, the
-     * mark is the initial of the site's name.
+     * mark is the initial of `title` above.
      */
     logo?: string;
   };

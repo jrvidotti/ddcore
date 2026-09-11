@@ -94,7 +94,7 @@ func setup(t *testing.T, suffix string, extra ...js.App) *engine.Engine {
 	admin.DB.Close()
 
 	apps := append([]js.App{testApp(t)}, extra...)
-	e, err := engine.New(ctx, engine.Config{DSN: dsn, Apps: apps, SiteName: "Projects", Lang: "pt-BR", Currency: "BRL"})
+	e, err := engine.New(ctx, engine.Config{DSN: dsn, Apps: apps, Lang: "pt-BR", Currency: "BRL"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -228,16 +228,15 @@ func TestBootHome(t *testing.T) {
 		t.Fatalf("desk.logo = %q, expected the fixture's emoji", logo)
 	}
 
-	// the site's name is the one string in the site block a reader sees, so it
-	// is a catalogue key: the fixture's catalogue turns "Projects" into
-	// "Projetos" and the sidebar renders the reader's language, not the
-	// operator's spelling
+	// the site's name is the fixture app's own title, translated: nothing in
+	// ddcore.json names the site any more, and the one string a reader sees is
+	// a catalogue key like every other label
 	site, _ := boot["site"].(map[string]any)
 	if site == nil {
 		t.Fatalf("/api/boot returned no site block: %#v", boot["site"])
 	}
-	if site["name"] != "Projetos" {
-		t.Fatalf("site.name = %v, expected the pt-BR translation", site["name"])
+	if site["name"] != "App de Teste: Projetos" {
+		t.Fatalf("site.name = %v, expected the fixture title in pt-BR", site["name"])
 	}
 
 	// the workspace pointed to by desk.home must be returned in boot, with sidebar
