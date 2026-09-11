@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"path/filepath"
 	"sort"
@@ -57,6 +58,12 @@ type Config struct {
 	// has to regex a text line cannot group by request id, which is most of
 	// what the id is for.
 	LogJSON bool
+	// LogOut is where the log is written. Nil means os.Stdout, which is what a
+	// platform reads as ordinary output; stderr, slog's own default, is what it
+	// reads as an error. Only a process whose stdout already carries something
+	// else — `ddcore mcp` speaks JSON-RPC over it — sets this, and it sets it
+	// to os.Stderr.
+	LogOut io.Writer
 	// Mail says where a recovery or invitation link goes.
 	Mail config.Mail
 	// SiteURL is the public base those links are built from, already

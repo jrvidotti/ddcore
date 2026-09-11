@@ -2,6 +2,8 @@ package main
 
 import (
 	"flag"
+	"io"
+	"os"
 	"strings"
 	"testing"
 )
@@ -216,5 +218,47 @@ func TestExportAllTakesNoDoctype(t *testing.T) {
 	}
 	if !*all || fs.NArg() != 0 {
 		t.Fatalf("all=%v NArg=%d", *all, fs.NArg())
+	}
+}
+
+// The service's log is read by whatever captures the process's streams, and a
+// platform that captures both reads stderr as an error: an INFO access line on
+// stderr arrives red, which is what this pins.
+func TestServeLogsGoToStdoutAndNothingElseDoes(t *testing.T) {
+	t.Cleanup(func() { logOut = os.Stderr })
+	if logOut != io.Writer(os.Stderr) {
+		t.Fatalf("a one-shot command's stdout is its output: log destination = %v, expected stderr", logOut)
+	}
+	// cmdServe cannot run here (it needs a database and then blocks), so this
+	// is the line it runs first, kept next to the assertion that it is the
+	// only command that runs it.
+	logOut = os.Stdout
+	if logOut != io.Writer(os.Stdout) {
+		t.Fatal("the server's log must leave by stdout")
+	}
+}
+
+func TestLogFormatFollowsTheEnvironmentThenTheDestination(t *testing.T) {
+	pipe, _, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { pipe.Close(); logOut = os.Stderr })
+	for name, tc := range map[string]struct {
+		env  string
+		out  io.Writer
+		want bool
+	}{
+		"json when asked":              {"json", os.Stdout, true},
+		"text when asked":              {"text", pipe, false},
+		"the word is not case-bound":   {"JSON", os.Stdout, true},
+		"a pipe belongs to a platform": {"", pipe, true},
+		"a writer that is not a file":  {"", io.Discard, true},
+	} {
+		t.Setenv("DDCORE_LOG_FORMAT", tc.env)
+		logOut = tc.out
+		if got := logJSON(); got != tc.want {
+			t.Errorf("%s: logJSON() = %v, expected %v", name, got, tc.want)
+		}
 	}
 }

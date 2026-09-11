@@ -36,13 +36,25 @@ func RequestIDFrom(ctx context.Context) string {
 	return id
 }
 
-// logHandler picks the shape of the log. Text is what a person reads over a
-// terminal while developing; JSON is what a collector can index, and an access
-// line nobody can index is an access line that correlates nothing.
+// logHandler picks the shape and the destination of the log. Text is what a
+// person reads over a terminal while developing; JSON is what a collector can
+// index, and an access line nobody can index is an access line that correlates
+// nothing.
+//
+// The default destination is stdout and not stderr, slog's own default: a
+// platform that captures both streams — Railway, Cloud Run, Kubernetes —
+// reads a line on stderr as an error by definition, so an INFO access line
+// arrives painted red and the level policy stops meaning anything. stderr is
+// left to the process that really has nothing else (a crash before the engine
+// exists) and to the command whose stdout carries a protocol.
 func logHandler(cfg Config) slog.Handler {
 	o := &slog.HandlerOptions{Level: cfg.LogLevel}
-	if cfg.LogJSON {
-		return slog.NewJSONHandler(os.Stderr, o)
+	w := cfg.LogOut
+	if w == nil {
+		w = os.Stdout
 	}
-	return slog.NewTextHandler(os.Stderr, o)
+	if cfg.LogJSON {
+		return slog.NewJSONHandler(w, o)
+	}
+	return slog.NewTextHandler(w, o)
 }

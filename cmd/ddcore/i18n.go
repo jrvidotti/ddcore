@@ -129,7 +129,7 @@ func loadForExtract() (*engine.Engine, *config.File, string, error) {
 	}
 	e, err := engine.New(context.Background(), engine.Config{
 		Apps: apps, SiteName: cfg.Site, Lang: cfg.Lang, Currency: cfg.Currency,
-		Timezone: cfg.Timezone, DataDir: cfg.DataDir, LogLevel: level,
+		Timezone: cfg.Timezone, DataDir: cfg.DataDir, LogLevel: level, LogOut: logOut,
 	})
 	return e, cfg, root, err
 }

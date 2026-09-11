@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -138,7 +139,7 @@ func load(test bool, dev bool) (*engine.Engine, *config.File, error) {
 	e, err := engine.New(context.Background(), engine.Config{
 		DSN: cfg.DSN, Apps: apps, Workers: cfg.Workers, Scheduler: cfg.Scheduler, Dev: dev, Test: test,
 		Port: cfg.Port, SiteName: cfg.Site, Lang: cfg.Lang, Currency: cfg.Currency, CurrencyPrecision: cfg.CurrencyPrecision, Rounding: cfg.RoundingMode(), Timezone: cfg.Timezone, DataDir: cfg.DataDir, ExportMaxRows: cfg.ExportMaxRows, LogLevel: level,
-		Auth: cfg.Auth, Ops: cfg.Ops, LogJSON: logJSON(), Mail: cfg.Mail, SiteURL: cfg.PublicURL(), TrustProxy: cfg.TrustProxy,
+		Auth: cfg.Auth, Ops: cfg.Ops, LogJSON: logJSON(), LogOut: logOut, Mail: cfg.Mail, SiteURL: cfg.PublicURL(), TrustProxy: cfg.TrustProxy,
 	})
 	if err == nil && !cfg.HasPublicURL() {
 		// Say it once, at boot, rather than letting someone discover it in a
@@ -245,6 +246,9 @@ func cmdNewApp(args []string) error {
 }
 
 func cmdServe(args []string, dev bool) error {
+	// The server's log is its output: stdout, where nothing else is written and
+	// where a platform reads it as a log instead of as a stream of errors.
+	logOut = os.Stdout
 	fs := newFlagSet("serve")
 	autoMigrate := fs.Bool("auto-migrate", dev, "aplica DDL pendente ao (re)carregar")
 	port := fs.Int("port", 0, "porta")
@@ -801,9 +805,36 @@ func cmdMCP(args []string) error {
 	return mcp.ServeStdio(ctx, e)
 }
 
+// logOut is where the log goes. A one-shot command keeps it on stderr, because
+// its stdout is its output — a log line in the middle of an exported NDJSON, a
+// printed key, a doctor report or the MCP JSON-RPC stream is corruption, not a
+// log. The server flips it to stdout, because there the log *is* the output and
+// a platform that captures both streams reads everything on stderr as an
+// error: on stderr an INFO access line arrives painted red and the level
+// policy stops meaning anything.
+var logOut io.Writer = os.Stderr
+
 // logJSON reads the log shape from the environment and not from ddcore.json:
 // it is a property of where the process runs — a terminal wants text, a
-// platform that ships stdout to a collector wants objects it can index.
+// platform that ships the log to a collector wants objects it can index.
+// DDCORE_LOG_FORMAT names it outright (`json` or `text`); with nothing set the
+// process asks the log's own destination, since a character device is somebody
+// watching and anything else — a pipe, a file, a container's log stream — is a
+// collector that reads the level out of the object instead of guessing it from
+// the stream.
 func logJSON() bool {
-	return strings.EqualFold(os.Getenv("DDCORE_LOG_FORMAT"), "json")
+	switch {
+	case strings.EqualFold(os.Getenv("DDCORE_LOG_FORMAT"), "json"):
+		return true
+	case strings.EqualFold(os.Getenv("DDCORE_LOG_FORMAT"), "text"):
+		return false
+	}
+	f, ok := logOut.(*os.File)
+	if !ok {
+		return true
+	}
+	// The file mode already answers "is this a terminal", so golang.org/x/term
+	// would be a dependency taken on for one bit that is already here.
+	fi, err := f.Stat()
+	return err != nil || fi.Mode()&os.ModeCharDevice == 0
 }

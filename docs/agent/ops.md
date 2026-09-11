@@ -138,9 +138,20 @@ file — so a `200` on a static asset is `debug`, an `/api/…` request is `info
 `4xx` is `warn`, a `5xx` is `error`, and anything slower than `ops.slowRequestMs`
 is `warn` wherever it came from. `DDCORE_DEBUG` logs everything.
 
-`DDCORE_LOG_FORMAT=json` switches the whole log to JSON objects. Without it a
-collector has to parse a text line, and grouping by request id — most of what
-the id is for — stops working.
+The server writes the log to **stdout**, never to stderr: a platform that
+captures both streams — Railway, Cloud Run, Kubernetes — reads a line on stderr
+as an error by definition, so an `INFO` access line would arrive painted red and
+the level policy above would stop meaning anything. Every other command keeps
+its log on stderr, because there stdout is the command's own output — an
+exported NDJSON, a printed key, `doctor --json`, the MCP JSON-RPC stream.
+
+`DDCORE_LOG_FORMAT` picks the shape: `json` for objects, `text` for lines. With
+nothing set the process asks the log's destination — a terminal gets text,
+anything else (a pipe, a file, a container's log stream) gets JSON, since a
+collector has to parse a text line and grouping by request id, most of what the
+id is for, stops working. Deployed, that means JSON without configuring
+anything, and a collector reads the level from the `level` field of each object
+instead of guessing it from the stream.
 
 A panic is caught, logged with its stack, written to `Error Log`, and answered
 with the ordinary JSON error envelope carrying the id. The panic text stays on
