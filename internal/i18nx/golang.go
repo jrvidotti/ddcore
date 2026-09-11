@@ -15,6 +15,7 @@ import (
 var cerrConstructors = map[string]bool{
 	"Validation": true, "Permission": true, "NotFound": true, "LinkExists": true,
 	"Timestamp": true, "Duplicate": true, "Auth": true, "Internal": true, "Mandatory": true,
+	"TooMany": true,
 }
 
 // goSkip lists what stays out of the catalogue on purpose. These strings do
@@ -100,7 +101,16 @@ func collectGoFile(s *Set, fset *token.FileSet, f *ast.File, name string) {
 			if skipGo(name, enclosing) {
 				return true
 			}
+			// The key is the first argument of `cerr.X` and of `Ctx.T`, but the
+			// *second* of `I18n.T(lang, key, …)`, which takes the language
+			// first. Without looking there, every string translated for a
+			// reader who is not the requester — the body of a recovery e-mail —
+			// would stay out of the catalogue, and `--check` would report
+			// nothing missing while the mail went out in English.
 			lit, ok := v.Args[0].(*ast.BasicLit)
+			if (!ok || lit.Kind != token.STRING) && !isCerr && len(v.Args) > 1 {
+				lit, ok = v.Args[1].(*ast.BasicLit)
+			}
 			if !ok || lit.Kind != token.STRING {
 				// `c.T(f.Label)` is the normal shape: a label translated at
 				// the point of construction, whose key the metadata

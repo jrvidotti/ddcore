@@ -153,13 +153,13 @@ func TestLifecycle(t *testing.T) {
 	ctx := context.Background()
 	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
 		// user + roles
-		u, _ := c.NewDoc("User", Doc{"email": "ana@x.com", "full_name": "Ana", "new_password": "segredo"})
+		u, _ := c.NewDoc("User", Doc{"email": "ana@x.com", "full_name": "Ana", "new_password": "segredo123"})
 		u["roles"] = []any{map[string]any{"role": "Gestor"}}
 		u, err := c.Insert(u, SaveOpts{})
 		if err != nil {
 			return fmt.Errorf("linha 109: %w", err)
 		}
-		if !CheckPassword(u.Str("password_hash"), "segredo") || u.Str("new_password") != "" {
+		if !CheckPassword(u.Str("password_hash"), "segredo123") || u.Str("new_password") != "" {
 			t.Fatalf("senha não foi hasheada: %v", u)
 		}
 		invalidUser, _ := c.NewDoc("User", Doc{"email": "invalid", "full_name": "Inválido"})

@@ -14,7 +14,24 @@
   async function logout() { await api.logout(); location.href = "/login"; }
   const otherDoctypes = $derived(Object.entries(boot.data?.doctypes || {}).filter(([n, d]) => d.app === "core").sort());
   let showCore = $state(false);
+
+  let menuOpen = $state(false);
+  const displayName = $derived(boot.data?.userDoc?.full_name || boot.data?.user || "");
+  const avatarInitial = (name: string) => (name || "U").trim().charAt(0).toUpperCase();
+
+  // Same close-on-outside-click contract FormView's dropdown uses: a click
+  // inside .dropdown is the menu's own business, anything else closes it.
+  function onPointerDown(e: PointerEvent) {
+    if (!menuOpen) return;
+    if ((e.target as HTMLElement | null)?.closest(".dropdown")) return;
+    menuOpen = false;
+  }
+  function onKeydown(e: KeyboardEvent) {
+    if (e.key === "Escape") menuOpen = false;
+  }
 </script>
+
+<svelte:window onpointerdown={onPointerDown} onkeydown={onKeydown} />
 
 <aside class="sidebar" class:open>
   <div class="brand">
@@ -41,10 +58,25 @@
     {/if}
   </nav>
   <div class="foot">
-    <div class="small" style="overflow:hidden;text-overflow:ellipsis"><Icon name="user" size={14} /> {boot.data?.userDoc?.full_name || boot.data?.user}</div>
-    <div style="display:flex;align-items:center;gap:4px">
-      <button class="btn sm icon" onclick={openShortcutsHelp} title="{__('Keyboard shortcuts')} (?)"><Icon name="keyboard" size={14} /></button>
-      <button class="btn sm icon" onclick={logout} title={__("Sign out")}><Icon name="log-out" size={14} /></button>
+    <div class="dropdown" style="width:100%">
+      <button class="user-btn" onclick={() => (menuOpen = !menuOpen)} aria-haspopup="menu" aria-expanded={menuOpen}>
+        <span class="avatar">{avatarInitial(displayName)}</span>
+        <span class="name small">{displayName}</span>
+        <Icon name={menuOpen ? "chevron-down" : "chevron-right"} size={14} />
+      </button>
+      {#if menuOpen}
+        <div class="menu up" role="menu">
+          <button role="menuitem" onclick={() => { menuOpen = false; goto("/app/profile"); }}>
+            <Icon name="user" size={14} /> {__("My profile")}
+          </button>
+          <button role="menuitem" onclick={() => { menuOpen = false; openShortcutsHelp(); }}>
+            <Icon name="keyboard" size={14} /> {__("Keyboard shortcuts")}
+          </button>
+          <button role="menuitem" onclick={logout}>
+            <Icon name="log-out" size={14} /> {__("Sign out")}
+          </button>
+        </div>
+      {/if}
     </div>
   </div>
 </aside>
@@ -59,6 +91,13 @@
   nav a.active { background: #eff6ff; color: var(--primary); font-weight: 500; }
   nav a.child { padding-left: 16px; }
   .group { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); padding: 12px 10px 4px; display: flex; align-items: center; gap: 4px; }
-  .foot { padding: 10px 14px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .foot { padding: 8px 10px; border-top: 1px solid var(--border); }
+  .user-btn { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 8px; border: 0; background: none; border-radius: 6px; cursor: pointer; text-align: left; color: inherit; font: inherit; }
+  .user-btn:hover { background: #f3f4f6; }
+  .user-btn .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .avatar { display: inline-flex; width: 24px; height: 24px; flex-shrink: 0; border-radius: 50%; background: var(--primary); color: #fff; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; }
+  /* The footer sits at the bottom of the viewport, so the menu opens upward. */
+  :global(.dropdown .menu.up) { top: auto; bottom: 100%; margin: 0 0 4px; left: 0; right: 0; }
+  :global(.dropdown .menu.up button) { display: flex; align-items: center; gap: 8px; }
   @media (max-width: 800px) { .sidebar { position: fixed; z-index: 50; transform: translateX(-100%); transition: transform .15s; } .sidebar.open { transform: none; } }
 </style>

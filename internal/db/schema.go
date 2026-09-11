@@ -15,6 +15,10 @@ const InternalSchema = `
 CREATE TABLE IF NOT EXISTS ddcore_session (
   sid text PRIMARY KEY, "user" text NOT NULL, created timestamptz NOT NULL DEFAULT now(),
   last_seen timestamptz NOT NULL DEFAULT now(), expires timestamptz NOT NULL, data jsonb);
+ALTER TABLE ddcore_session ADD COLUMN IF NOT EXISTS ip text;
+ALTER TABLE ddcore_session ADD COLUMN IF NOT EXISTS user_agent text;
+CREATE INDEX IF NOT EXISTS ddcore_session_user ON ddcore_session("user");
+CREATE INDEX IF NOT EXISTS ddcore_session_expires ON ddcore_session(expires);
 CREATE TABLE IF NOT EXISTS ddcore_series (prefix text PRIMARY KEY, current bigint NOT NULL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS ddcore_job (
   id bigserial PRIMARY KEY, method text NOT NULL, args jsonb, queue text NOT NULL DEFAULT 'default',
@@ -33,6 +37,17 @@ CREATE TABLE IF NOT EXISTS ddcore_rename (
   executed timestamptz NOT NULL DEFAULT now(), PRIMARY KEY(kind, doctype, old_name));
 CREATE TABLE IF NOT EXISTS ddcore_default (
   "user" text NOT NULL, key text NOT NULL, value jsonb, PRIMARY KEY("user", key));
+CREATE TABLE IF NOT EXISTS ddcore_login_attempt (
+  id bigserial PRIMARY KEY, identity text NOT NULL, ip text NOT NULL DEFAULT '',
+  ok boolean NOT NULL DEFAULT false, created timestamptz NOT NULL DEFAULT now());
+CREATE INDEX IF NOT EXISTS ddcore_login_attempt_identity ON ddcore_login_attempt(identity, created DESC);
+CREATE INDEX IF NOT EXISTS ddcore_login_attempt_ip ON ddcore_login_attempt(ip, created DESC);
+CREATE TABLE IF NOT EXISTS ddcore_auth_token (
+  token_hash text PRIMARY KEY, kind text NOT NULL, "user" text NOT NULL,
+  created timestamptz NOT NULL DEFAULT now(), expires timestamptz NOT NULL,
+  used timestamptz, created_by text, ip text);
+CREATE INDEX IF NOT EXISTS ddcore_auth_token_user ON ddcore_auth_token("user", kind);
+CREATE INDEX IF NOT EXISTS ddcore_auth_token_expires ON ddcore_auth_token(expires);
 `
 
 type column struct {

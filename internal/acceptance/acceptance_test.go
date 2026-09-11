@@ -8,13 +8,16 @@
 package acceptance
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -684,3 +687,147 @@ func TestEvolucaoDeSchema(t *testing.T) {
 		t.Fatalf("migrate não ficou idempotente: %v %v", plan, err)
 	}
 }
+
+// TestRecuperacaoDeSenha valida o fluxo ponta a ponta sobre o router real com o transporte
+// de log (o padrão de desenvolvimento):
+// forgot → token extraído do log → token inspecionado → reset com senha nova →
+// login com senha antiga falha → login com senha nova funciona → a sessão antiga está morta.
+func TestRecuperacaoDeSenha(t *testing.T) {
+	e := setup(t, "recup")
+	ctx := context.Background()
+
+	// Captura os logs para ler o link emitido pelo transporte de log
+	var logBuf bytes.Buffer
+	e.Log = slog.New(slog.NewTextHandler(&logBuf, nil))
+
+	// Cria o usuário com uma senha inicial
+	const user = "recup@exemplo.com"
+	const oldPwd = "senhaantiga123"
+	const newPwd = "senhanova1234"
+
+	err := e.Run(ctx, "Administrator", func(c *engine.Ctx) error {
+		d, err := c.NewDoc("User", engine.Doc{
+			"email":         user,
+			"full_name":     "Recuperante",
+			"new_password":  oldPwd,
+			"user_type":     "System User",
+		})
+		if err != nil {
+			return err
+		}
+		_, err = c.Insert(d, engine.SaveOpts{})
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	srv, _ := server(t, e)
+
+	postJSON := func(path string, body any, cookie *http.Cookie) (*http.Response, map[string]any) {
+		b, _ := json.Marshal(body)
+		req, _ := http.NewRequest("POST", srv.URL+path, bytes.NewReader(b))
+		req.Header.Set("Content-Type", "application/json")
+		if cookie != nil {
+			req.AddCookie(cookie)
+		}
+		res, err := srv.Client().Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var out map[string]any
+		json.NewDecoder(res.Body).Decode(&out)
+		res.Body.Close()
+		return res, out
+	}
+
+	// 1. Login com a senha antiga funciona e estabelece sessão
+	resLogin, _ := postJSON("/api/login", map[string]any{"usr": user, "pwd": oldPwd}, nil)
+	if resLogin.StatusCode != 200 {
+		t.Fatalf("login inicial falhou: %d", resLogin.StatusCode)
+	}
+	var sidCookie *http.Cookie
+	for _, c := range resLogin.Cookies() {
+		if c.Name == "sid" {
+			sidCookie = c
+			break
+		}
+	}
+	if sidCookie == nil {
+		t.Fatal("esperava cookie sid na resposta do login")
+	}
+
+	// 2. A sessão está ativa no boot
+	reqBoot, _ := http.NewRequest("GET", srv.URL+"/api/boot", nil)
+	reqBoot.AddCookie(sidCookie)
+	resBoot, err := srv.Client().Do(reqBoot)
+	if err != nil || resBoot.StatusCode != 200 {
+		t.Fatalf("boot com sessão ativa falhou: %v", err)
+	}
+	var bootData map[string]any
+	json.NewDecoder(resBoot.Body).Decode(&bootData)
+	resBoot.Body.Close()
+	if d, _ := bootData["data"].(map[string]any); d == nil || d["user"] != user {
+		t.Fatalf("boot devia reconhecer o usuário %s, veio %v", user, bootData)
+	}
+
+	// 3. Pede recuperação de senha
+	resForgot, outForgot := postJSON("/api/auth/forgot-password", map[string]any{"usr": user}, nil)
+	if resForgot.StatusCode != 200 {
+		t.Fatalf("forgot-password falhou: %d %v", resForgot.StatusCode, outForgot)
+	}
+
+	// 4. Extrai o token do log emitido pelo transporte de log
+	re := regexp.MustCompile(`token=([0-9a-fA-F]+)`)
+	matches := re.FindStringSubmatch(logBuf.String())
+	if len(matches) < 2 {
+		t.Fatalf("link de recuperação não encontrado nos logs:\n%s", logBuf.String())
+	}
+	token := matches[1]
+
+	// 5. Espia o token via /api/auth/token
+	resTok, outTok := postJSON("/api/auth/token", map[string]any{"token": token}, nil)
+	if resTok.StatusCode != 200 {
+		t.Fatalf("auth/token falhou: %d %v", resTok.StatusCode, outTok)
+	}
+	dTok, _ := outTok["data"].(map[string]any)
+	if dTok == nil || dTok["user"] != user || dTok["kind"] != "reset" {
+		t.Fatalf("dados do token inesperados: %v", outTok)
+	}
+
+	// 6. Conclui a recuperação com a senha nova
+	resReset, outReset := postJSON("/api/auth/reset-password", map[string]any{"token": token, "password": newPwd}, nil)
+	if resReset.StatusCode != 200 {
+		t.Fatalf("reset-password falhou: %d %v", resReset.StatusCode, outReset)
+	}
+
+	// 7. Token gasto é de uso único e é recusado
+	resReused, _ := postJSON("/api/auth/reset-password", map[string]any{"token": token, "password": "outrasenha123"}, nil)
+	if resReused.StatusCode != 417 {
+		t.Fatalf("reuso de token devia ser recusado com 417, veio %d", resReused.StatusCode)
+	}
+
+	// 8. A sessão anterior morreu imediatamente
+	reqDead, _ := http.NewRequest("GET", srv.URL+"/api/boot", nil)
+	reqDead.AddCookie(sidCookie)
+	resDead, _ := srv.Client().Do(reqDead)
+	var deadBoot map[string]any
+	json.NewDecoder(resDead.Body).Decode(&deadBoot)
+	resDead.Body.Close()
+	if d, _ := deadBoot["data"].(map[string]any); d != nil && d["user"] != "Guest" {
+		t.Errorf("a sessão antiga devia ter sido encerrada com a redefinição, veio user=%v", d["user"])
+	}
+
+	// 9. Login com a senha antiga falha
+	resOld, _ := postJSON("/api/login", map[string]any{"usr": user, "pwd": oldPwd}, nil)
+	if resOld.StatusCode != 401 {
+		t.Errorf("login com a senha antiga devia falhar com 401, veio %d", resOld.StatusCode)
+	}
+
+	// 10. Login com a senha nova funciona
+	resNew, _ := postJSON("/api/login", map[string]any{"usr": user, "pwd": newPwd}, nil)
+	if resNew.StatusCode != 200 {
+		t.Errorf("login com a senha nova devia passar com 200, veio %d", resNew.StatusCode)
+	}
+}
+

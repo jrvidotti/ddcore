@@ -9,6 +9,7 @@ Available documents (also as MCP resources `ddcore://docs/<name>`):
 
 - `conventions` — an app's layout, naming, what never to do
 - `fieldtypes` — every fieldtype and field property
+- `auth` — sign-in, lockout, recovery, invitation, self-service and secrets
 - `controller-api` — `defineController`, hooks, methods, the server's `ddcore.*` API
 - `form-api` — `defineForm`, `frm.*`, dialogs (desk)
 - `report-api` — `defineReport`, `defineWorkspace`, cards and charts

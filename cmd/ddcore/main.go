@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -45,8 +46,8 @@ Usage: ddcore <command> [options]
   demo        seed example data (<app>.services.demo.generate, idempotent)
   export      export a DocType (or --all) to NDJSON/CSV with a manifest
   jobs        jobs list | jobs run <fn> | jobs work
-  user        user add <email> <name> [--password x] [--role R]... | user passwd <email>
-  apikey      apikey <user> [--label x]  → prints key:secret
+  user        user add|invite|passwd|reset|unlock|sessions (run: ddcore user)
+  apikey      apikey <user> [--label x] [--days N]  → prints key:secret
   mcp         MCP server (stdio) for agents
   docs        print the framework documentation
   doctor      check the database, the meta and the scheduler
@@ -133,7 +134,14 @@ func load(test bool, dev bool) (*engine.Engine, *config.File, error) {
 	e, err := engine.New(context.Background(), engine.Config{
 		DSN: cfg.DSN, Apps: apps, Workers: cfg.Workers, Scheduler: cfg.Scheduler, Dev: dev || cfg.Dev, Test: test,
 		Port: cfg.Port, SiteName: cfg.Site, Lang: cfg.Lang, Currency: cfg.Currency, CurrencyPrecision: cfg.CurrencyPrecision, Rounding: cfg.RoundingMode(), Timezone: cfg.Timezone, DataDir: cfg.DataDir, ExportMaxRows: cfg.ExportMaxRows, LogLevel: level,
+		Auth: cfg.Auth, Mail: cfg.Mail, SiteURL: cfg.PublicURL(), TrustProxy: cfg.TrustProxy,
 	})
+	if err == nil && !cfg.HasPublicURL() {
+		// Say it once, at boot, rather than letting someone discover it in a
+		// recovery e-mail that points at a machine the reader does not have.
+		e.Log.Warn("no public URL configured: recovery and invitation links will point at "+cfg.PublicURL(),
+			"fix", "set DDCORE_URL in .env")
+	}
 	return e, cfg, err
 }
 
@@ -174,7 +182,25 @@ func cmdInit(args []string) error {
 	if err := f.Save(config.Name); err != nil {
 		return err
 	}
+	if err := writeEnvExample(); err != nil {
+		return err
+	}
 	fmt.Println("created", config.Name, "— now: ddcore new-app <name> && ddcore migrate && ddcore dev")
+	return nil
+}
+
+// writeEnvExample drops the committed record of which environment variables
+// exist. .env itself is gitignored, so without this nobody deploying the site
+// can tell what it expects to be set.
+func writeEnvExample() error {
+	const name = ".env.example"
+	if _, err := os.Stat(name); err == nil {
+		return nil
+	}
+	if err := os.WriteFile(name, []byte(config.EnvExample), 0o644); err != nil {
+		return err
+	}
+	fmt.Println("created", name, "— copy to .env for this machine's database, URL and mail")
 	return nil
 }
 
@@ -546,7 +572,12 @@ func cmdJobs(args []string) error {
 
 func cmdUser(args []string) error {
 	if len(args) < 1 {
-		return fmt.Errorf("uso: ddcore user add <email> <nome> [--password x] [--role R] | user passwd <email> <senha>")
+		return fmt.Errorf("usage: ddcore user add <email> <name> [--password x] [--role R]\n" +
+			"       ddcore user passwd <email> <password>\n" +
+			"       ddcore user invite <email> <name> [--role R]\n" +
+			"       ddcore user reset <email>\n" +
+			"       ddcore user unlock <email>\n" +
+			"       ddcore user sessions <email> [--revoke]")
 	}
 	e, _, err := load(false, false)
 	if err != nil {
@@ -589,11 +620,129 @@ func cmdUser(args []string) error {
 		if err := e.SetPassword(ctx, args[1], args[2]); err != nil {
 			return err
 		}
-		fmt.Println("password changed")
+		fmt.Println("password changed; other sessions signed out")
+
+	case "invite":
+		// Creates the account with no password and sends the link. No password
+		// needs no flag for "pending": CheckPassword already refuses an empty
+		// hash, so an invited person simply cannot sign in until they set one.
+		fs := newFlagSet("user invite")
+		var roles multi
+		fs.Var(&roles, "role", "role (repeatable)")
+		if err := parseFlags(fs, args[1:]); err != nil {
+			return err
+		}
+		if fs.NArg() < 2 {
+			return fmt.Errorf("usage: ddcore user invite <email> <name> [--role R]")
+		}
+		email, name := fs.Arg(0), strings.Join(fs.Args()[1:], " ")
+		return e.Run(ctx, "Administrator", func(c *engine.Ctx) error {
+			doc, err := c.NewDoc("User", engine.Doc{"email": email, "full_name": name, "enabled": true})
+			if err != nil {
+				return err
+			}
+			var rs []any
+			for _, r := range roles {
+				rs = append(rs, map[string]any{"role": r})
+			}
+			doc["roles"] = rs
+			if _, err := c.Insert(doc, engine.SaveOpts{IgnorePermissions: true}); err != nil {
+				return err
+			}
+			rec, err := e.StartRecovery(c, email, engine.TokenInvite, "")
+			if err != nil {
+				return err
+			}
+			reportRecovery(email, rec)
+			return nil
+		})
+
+	case "reset":
+		if len(args) < 2 {
+			return fmt.Errorf("usage: ddcore user reset <email>")
+		}
+		return e.Run(ctx, "Administrator", func(c *engine.Ctx) error {
+			rec, err := e.StartRecovery(c, args[1], engine.TokenReset, "")
+			if err != nil {
+				return err
+			}
+			reportRecovery(args[1], rec)
+			return nil
+		})
+
+	case "unlock":
+		if len(args) < 2 {
+			return fmt.Errorf("usage: ddcore user unlock <email>")
+		}
+		// The counter is keyed on what was typed, not on the account it
+		// resolved to — that is what stops the lockout from answering "does
+		// this address exist" — so clear both spellings anyone would have used.
+		n, err := e.ClearAttempts(ctx, "login:"+strings.ToLower(args[1]))
+		if err != nil {
+			return err
+		}
+		if email, _ := e.FindUserForRecovery(ctx, args[1]); email != "" && !strings.EqualFold(email, args[1]) {
+			m, _ := e.ClearAttempts(ctx, "login:"+strings.ToLower(email))
+			n += m
+		}
+		fmt.Printf("cleared %d failed attempt(s) for %s\n", n, args[1])
+
+	case "sessions":
+		fs := newFlagSet("user sessions")
+		revoke := fs.Bool("revoke", false, "end every session of this user")
+		if err := parseFlags(fs, args[1:]); err != nil {
+			return err
+		}
+		if fs.NArg() < 1 {
+			return fmt.Errorf("usage: ddcore user sessions <email> [--revoke]")
+		}
+		user := fs.Arg(0)
+		if *revoke {
+			n, err := e.DropSessions(ctx, e.DB.Pool, user, "")
+			if err != nil {
+				return err
+			}
+			fmt.Printf("ended %d session(s) for %s\n", n, user)
+			return nil
+		}
+		rows, err := db.Select(ctx, e.DB.Pool,
+			`SELECT ip, user_agent, created, last_seen FROM ddcore_session
+			 WHERE "user" = $1 AND expires > now() ORDER BY last_seen DESC`, user)
+		if err != nil {
+			return err
+		}
+		if len(rows) == 0 {
+			fmt.Println("no active sessions")
+			return nil
+		}
+		for _, r := range rows {
+			fmt.Printf("  %-20s %-28s last seen %s\n",
+				db.Str(r["ip"]), truncateStr(db.Str(r["user_agent"]), 28), db.Str(r["last_seen"]))
+		}
+
 	default:
 		return fmt.Errorf("unknown subcommand: %s", args[0])
 	}
 	return nil
+}
+
+// reportRecovery prints the link when the site is not really delivering mail,
+// so that development and a first-user bootstrap do not require reading a log.
+// When mail is being sent, printing it would put a live credential into shell
+// history for no reason.
+func reportRecovery(user string, rec *engine.Recovery) {
+	if rec.Link != "" {
+		fmt.Printf("%s: no mail transport configured — send this link yourself:\n  %s\n", user, rec.Link)
+		return
+	}
+	fmt.Printf("%s: link sent, valid until %s\n", user, rec.Expires.Format("2006-01-02 15:04"))
+}
+
+func truncateStr(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n-1] + "…"
 }
 
 type multi []string
@@ -604,22 +753,31 @@ func (m *multi) Set(s string) error { *m = append(*m, s); return nil }
 func cmdAPIKey(args []string) error {
 	fs := newFlagSet("apikey")
 	label := fs.String("label", "cli", "description")
+	days := fs.Int("days", 0, "expire after N days (0 = never)")
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
 	if fs.NArg() < 1 {
-		return fmt.Errorf("uso: ddcore apikey <usuario>")
+		return fmt.Errorf("usage: ddcore apikey <user> [--label x] [--days N]")
 	}
 	e, _, err := load(false, false)
 	if err != nil {
 		return err
 	}
 	defer e.DB.Close()
-	tok, err := e.CreateAPIKey(context.Background(), fs.Arg(0), *label)
-	if err != nil {
+	ctx := context.Background()
+	var out map[string]any
+	if err := e.Run(ctx, "Administrator", func(c *engine.Ctx) error {
+		var err error
+		out, err = e.CreateAPIKeyFor(c, fs.Arg(0), *label, *days)
+		return err
+	}); err != nil {
 		return err
 	}
-	fmt.Println(tok)
+	fmt.Println(out["token"])
+	if out["expires"] != nil {
+		fmt.Fprintf(os.Stderr, "expires: %v\n", out["expires"])
+	}
 	return nil
 }
 
@@ -698,5 +856,36 @@ func cmdDoctor(args []string) error {
 	}
 	fmt.Printf("scheduler:  %v\n", cfg.Scheduler)
 	fmt.Printf("workers:    %d\n", cfg.Workers)
+	fmt.Printf("mail:       %s\n", mailSummary(cfg))
+	url := "url:        " + cfg.PublicURL()
+	if !cfg.HasPublicURL() {
+		url += "  → not configured; set DDCORE_URL in .env before mailing a recovery link"
+	}
+	fmt.Println(url)
+	fmt.Printf("sessions:   %d day(s), lockout after %d failed attempts for %d minute(s)\n",
+		cfg.Auth.SessionDays, cfg.Auth.MaxLoginAttempts, cfg.Auth.LockoutMinutes)
+	// Names only. A doctor report is pasted into issues and chat windows, and
+	// a secret that reaches one of those has to be rotated.
+	if names := e.SecretNames(); len(names) > 0 {
+		sort.Strings(names)
+		fmt.Printf("secrets:    %d configured: %s\n", len(names), strings.Join(names, ", "))
+	} else {
+		fmt.Println("secrets:    none configured")
+	}
 	return nil
+}
+
+func mailSummary(cfg *config.File) string {
+	switch cfg.Mail.Transport {
+	case config.MailSMTP:
+		auth := "no auth"
+		if cfg.Mail.Username != "" {
+			auth = "as " + cfg.Mail.Username
+		}
+		return fmt.Sprintf("smtp %s:%d (%s, %s)", cfg.Mail.Host, cfg.Mail.Port, cfg.Mail.TLS, auth)
+	case config.MailMethod:
+		return "method " + cfg.Mail.Method
+	default:
+		return "log — links are written to the log, not delivered"
+	}
 }

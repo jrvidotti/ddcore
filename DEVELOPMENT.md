@@ -169,11 +169,25 @@ desk/                         SvelteKit, its build embedded in the binary
 packages/sdk/                 @ddcore/sdk
 packages/desk-sdk/            @ddcore/desk-sdk
 docs/agent/                   the API reference, written for agents
-ddcore.json                   the dev instance: dsn :5455, port 8090, apps: ["apps/demo"]
+ddcore.json                   what the site decided: apps, currency, timezone, access policy
+.env / .env.example           where it is running: database, port, public URL, mail
 Makefile                      shortcuts for the working loop
 bin/ddcore                    the compiled binary (produced by make build)
 apps/demo/                    the demo app
 ```
+
+Configuration is split by the question it answers, and the split is not
+cosmetic. `ddcore.json` holds what the site decided — its apps, currency and
+precision, timezone, and the access policy under `auth` — so it is committed
+and identical on a laptop, in staging and in production; staging has to lock an
+account out exactly like production does, or the rehearsal proves nothing.
+`.env` holds where the site is running — the database, the port, the public
+URL, and everything about outgoing mail, one field of which is a password — so
+it is ignored by version control, and `.env.example` is the committed record of
+which variables exist. Precedence runs outwards: a variable already in the real
+environment beats `.env`, which beats `ddcore.json`, which beats the default.
+That order is what lets Railway inject `DATABASE_URL`, or `docker run -e`
+override a port, without anyone editing a file inside the image.
 
 ### Inside `apps/demo`
 
@@ -280,7 +294,7 @@ value *is* its key: `_(row.status)` and nothing else. See `docs/agent/i18n.md`.
 make docker-up                               # dev Postgres (container ddcore-pg, port 5455)
 make build                                   # desk (npm) + the binary at bin/ddcore
 make migrate                                 # the core's DDL + installing the demo app
-./bin/ddcore user passwd Administrator admin
+./bin/ddcore user passwd Administrator admin1234
 ./bin/ddcore demo                            # demonstration data (idempotent)
 make dev                                     # http://localhost:8090
 ```

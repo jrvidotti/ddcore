@@ -72,6 +72,17 @@ export const api = {
 
   login: (usr: string, pwd: string) => request("POST", "/api/login", { usr, pwd }),
   logout: () => request("POST", "/api/logout"),
+
+  // Recovery and invitation. These answer for Guest, so they are the only
+  // calls here that work before signing in.
+  forgotPassword: (usr: string) => request("POST", "/api/auth/forgot-password", { usr }),
+  /** What a link is for, without spending it. */
+  authToken: (token: string) =>
+    request<{ kind: string; user: string; fullName: string; expires: string }>("POST", "/api/auth/token", { token }),
+  resetPassword: (token: string, password: string) =>
+    request("POST", "/api/auth/reset-password", { token, password }),
+  acceptInvite: (token: string, password: string, fullName?: string) =>
+    request("POST", "/api/auth/accept-invite", { token, password, fullName }),
   boot: () => request("GET", "/api/boot"),
   meta: (doctype: string) => request("GET", `/api/meta/${encodeURIComponent(doctype)}`),
   translations: (lang: string) => request<Record<string, string>>("GET", `/api/translations?lang=${lang}`),

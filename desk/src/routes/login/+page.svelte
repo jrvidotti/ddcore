@@ -21,6 +21,7 @@
     <label>{__("Password")}<input class="input" type="password" bind:value={pwd} autocomplete="current-password" /></label>
     {#if error}<div class="err">{error}</div>{/if}
     <button class="btn primary" disabled={busy} style="width:100%;justify-content:center">{__("Sign in")}</button>
+    <a class="small" href="/login/forgot" style="text-align:center">{__("I forgot my password")}</a>
   </form>
 </div>
 

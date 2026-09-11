@@ -16,7 +16,7 @@ O design completo está em [`docs/plan-v1.md`](docs/plan-v1.md); a referência p
 make docker-up                              # Postgres de dev (container ddcore-pg, porta 5455)
 make build                                  # desk (npm) + binário em bin/ddcore
 make migrate                                # DDL do core
-./bin/ddcore user passwd Administrator admin # senha do Administrator
+./bin/ddcore user passwd Administrator admin1234 # senha do Administrator
 make dev                                    # http://localhost:8090  (Administrator / admin)
 ```
 
