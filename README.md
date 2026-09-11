@@ -8,6 +8,22 @@ The desk (Svelte 5) is generated from the meta. Postgres is the only dependency.
 The full design is in [`docs/plan-v1.md`](docs/plan-v1.md); the reference for agents is in
 [`docs/agent/`](docs/agent/) (`ddcore docs`, or the MCP resources `ddcore://docs/*`).
 
+## Installing the CLI
+
+To install the standalone `ddcore` CLI on macOS or Linux without cloning or building this repository:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jrvidotti/ddcore/main/install.sh | sh
+```
+
+This script detects your operating system and CPU architecture (`darwin-arm64`, `darwin-amd64`, `linux-arm64`, `linux-amd64`), downloads the latest static binary from [GitHub Releases](https://github.com/jrvidotti/ddcore/releases), and installs it to `~/.local/bin/ddcore` (or `/usr/local/bin/ddcore`).
+
+To install a specific version:
+
+```bash
+VERSION=v0.1.0 curl -fsSL https://raw.githubusercontent.com/jrvidotti/ddcore/main/install.sh | sh
+```
+
 ## Developing the framework
 
 ```bash
