@@ -70,6 +70,11 @@ func (e *Engine) authMail(kind, user, link string, lang string) mail.Message {
 	if site == "" {
 		site = "ddcore"
 	}
+	// the site's name is a key like any other label, and this one is being put
+	// inside a translated sentence: the reader gets "Projetos", not "Projects",
+	// in the same message that already speaks their language. A computed key is
+	// reported as `dynamic` by the extractor, the way a Select's value is.
+	site = i18n.T(lang, site)
 
 	var subject, intro, action string
 	if kind == TokenInvite {
