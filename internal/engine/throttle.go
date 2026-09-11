@@ -59,7 +59,7 @@ func (e *Engine) CheckThrottle(ctx context.Context, key string, limit int, windo
 		return nil
 	}
 	wait := window
-	if oldest, ok := rows[0]["oldest"].(time.Time); ok {
+	if oldest, ok := asTime(rows[0]["oldest"]); ok {
 		wait = time.Until(oldest.Add(window))
 	}
 	secs := int(math.Ceil(wait.Seconds()))

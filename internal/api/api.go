@@ -150,6 +150,9 @@ func (s *Server) run(w http.ResponseWriter, r *http.Request, fn func(c *engine.C
 	var out any
 	c := s.E.NewCtx(r.Context(), user(r))
 	c.Request = map[string]any{"method": r.Method, "path": r.URL.Path, "ip": r.RemoteAddr}
+	if ck, err := r.Cookie("sid"); err == nil {
+		c.Sid = ck.Value
+	}
 	c.Lang = s.langFor(r)
 	err := c.Run(func(c *engine.Ctx) error {
 		var e error

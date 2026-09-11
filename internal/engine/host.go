@@ -278,6 +278,117 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		// and any app that writes new_password all meet the same minimum. The
 		// returned *cerr.Error surfaces in TS as a throw, like ddcore.throw.
 		return e.HashNewPassword(a.User, a.Text)
+	// ---- self-service auth -------------------------------------------------
+	//
+	// These exist because ddcore.db.sql is read-only and a self-service write
+	// has nowhere else to go: no TS can touch ddcore_session or
+	// ddcore_auth_token. They take the user explicitly and the callers in
+	// core/services check that it is the session's own.
+	case "auth.sessions":
+		rows, err := db.Select(c.Ctx, e.DB.Pool,
+			`SELECT sid, ip, user_agent, created, last_seen, expires FROM ddcore_session
+			 WHERE "user" = $1 AND expires > now() ORDER BY last_seen DESC`, a.User)
+		if err != nil {
+			return nil, err
+		}
+		out := make([]map[string]any, 0, len(rows))
+		for _, r := range rows {
+			sid := db.Str(r["sid"])
+			// The raw sid never leaves: it is a bearer token, and one XSS
+			// reading this list would otherwise own every device the person
+			// is signed in on. The handle is enough to revoke by and useless
+			// to replay.
+			out = append(out, map[string]any{
+				"id": TokenHandle(sid), "current": sid == c.Sid,
+				"ip": r["ip"], "userAgent": r["user_agent"],
+				"created": r["created"], "lastSeen": r["last_seen"], "expires": r["expires"],
+			})
+		}
+		return out, nil
+	case "auth.revokeSessions":
+		if a.ID != "" {
+			// Revoking one, addressed by handle. Scoped to the user, so a
+			// handle guessed from someone else's list reaches nothing.
+			rows, err := db.Select(c.Ctx, e.DB.Pool,
+				`SELECT sid FROM ddcore_session WHERE "user" = $1`, a.User)
+			if err != nil {
+				return nil, err
+			}
+			for _, r := range rows {
+				sid := db.Str(r["sid"])
+				if TokenHandle(sid) != a.ID {
+					continue
+				}
+				e.Cache.Del("sid:" + sid)
+				tag, err := e.DB.Pool.Exec(c.Ctx, `DELETE FROM ddcore_session WHERE sid = $1`, sid)
+				if err != nil {
+					return nil, err
+				}
+				return map[string]any{"revoked": int(tag.RowsAffected())}, nil
+			}
+			return map[string]any{"revoked": 0}, nil
+		}
+		n, err := e.DropSessions(c.Ctx, e.DB.Pool, a.User, a.ExceptSid)
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"revoked": n}, nil
+	case "auth.currentSid":
+		return c.Sid, nil
+	case "auth.checkPassword":
+		rows, err := db.Select(c.Ctx, c.Q(), `SELECT password_hash FROM tab_user WHERE name = $1`, a.User)
+		if err != nil || len(rows) == 0 {
+			return false, err
+		}
+		return CheckPassword(db.Str(rows[0]["password_hash"]), a.Password), nil
+	case "auth.setPassword":
+		return nil, e.SetPasswordExcept(c.Ctx, a.User, a.Password, a.ExceptSid)
+	case "auth.startRecovery":
+		rec, err := e.StartRecovery(c, a.User, orDefault(a.Kind, TokenReset), db.Str(c.Request["ip"]))
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"link": rec.Link, "expires": rec.Expires, "delivered": rec.Delivered}, nil
+	case "auth.throttle":
+		limit := int(a.Limit)
+		if limit <= 0 {
+			limit = e.Cfg.Auth.MaxLoginAttempts
+		}
+		window := time.Duration(a.Minutes) * time.Minute
+		if window <= 0 {
+			window = e.Cfg.Auth.LockoutWindow()
+		}
+		if err := e.CheckThrottle(c.Ctx, a.Key, limit, window); err != nil {
+			return nil, err
+		}
+		// Written on the pool, outside this request's transaction: an attempt
+		// recorded on c.Tx would be rolled back by the error it counts.
+		e.RecordAttempt(c.Ctx, a.Key, db.Str(c.Request["ip"]), false)
+		return nil, nil
+	case "auth.clearAttempts":
+		n, err := e.ClearAttempts(c.Ctx, a.Key)
+		return n, err
+	case "auth.createAPIKey":
+		return e.CreateAPIKeyFor(c, a.User, a.Label, int(a.Days))
+	case "auth.apiKeys":
+		// Not db.getList: that checks the doctype's permissions, and API Key
+		// is System Manager only — deliberately, since read there would be
+		// read on everyone's keys. Scoped to the one user instead.
+		return db.Select(c.Ctx, c.Q(),
+			`SELECT name, label, enabled, creation, last_used, expires FROM tab_api_key
+			 WHERE "user" = $1 ORDER BY creation DESC LIMIT 100`, a.User)
+	case "auth.revokeAPIKey":
+		// The owner is part of the WHERE, so a name from someone else's list
+		// deletes nothing rather than deleting theirs.
+		tag, err := c.Q().Exec(c.Ctx, `DELETE FROM tab_api_key WHERE name = $1 AND "user" = $2`, nameStr(), a.User)
+		if err != nil {
+			return nil, err
+		}
+		if tag.RowsAffected() == 0 {
+			return nil, cerr.NotFound("That key is not yours")
+		}
+		e.Cache.Del("apikey:" + nameStr())
+		return map[string]any{"ok": true}, nil
 	case "mailMethod":
 		// The app function configured as the transport, or "" — core's mail
 		// service asks before falling through to the built-in sender.

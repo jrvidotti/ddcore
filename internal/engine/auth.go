@@ -144,7 +144,7 @@ func (e *Engine) UserFromAPIKey(ctx context.Context, token string) (string, erro
 	if v, ok := e.Cache.Get("apikey:" + key); ok {
 		row = v.(map[string]any)
 	} else {
-		rows, err := db.Select(ctx, e.DB.Pool, `SELECT k."user", k.secret_hash, k.enabled, u.enabled AS user_enabled
+		rows, err := db.Select(ctx, e.DB.Pool, `SELECT k."user", k.secret_hash, k.enabled, k.expires, u.enabled AS user_enabled
 			FROM tab_api_key k JOIN tab_user u ON u.name = k."user" WHERE k.name = $1`, key)
 		if err != nil || len(rows) == 0 {
 			return "", err
@@ -157,6 +157,13 @@ func (e *Engine) UserFromAPIKey(ctx context.Context, token string) (string, erro
 	}
 	// uma chave de um usuário desativado não vale nada
 	if en, ok := row["user_enabled"].(bool); ok && !en {
+		return "", nil
+	}
+	// An expiry inside the 60s cache window is honoured up to a minute late —
+	// the same property `enabled` already has, and the reason the User
+	// controller drops apikey: cache entries by hand when it disables someone.
+	// A key that expires on a schedule does not need that urgency.
+	if exp, ok := asTime(row["expires"]); ok && !exp.IsZero() && time.Now().After(exp) {
 		return "", nil
 	}
 	// An API key is Argon2-verified on every request by design, which makes a
@@ -184,21 +191,46 @@ func (e *Engine) UserFromAPIKey(ctx context.Context, token string) (string, erro
 
 // CreateAPIKey issues a key for a user and returns "key:secret".
 func (e *Engine) CreateAPIKey(ctx context.Context, user, label string) (string, error) {
-	secret := RandomToken()
 	var token string
 	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
-		doc, err := c.NewDoc("API Key", Doc{"user": user, "label": label, "secret_hash": HashPassword(secret), "enabled": true})
+		out, err := e.CreateAPIKeyFor(c, user, label, 0)
 		if err != nil {
 			return err
 		}
-		saved, err := c.Insert(doc, SaveOpts{IgnorePermissions: true})
-		if err != nil {
-			return err
-		}
-		token = saved.Name() + ":" + secret
+		token = out["token"].(string)
 		return nil
 	})
 	return token, err
+}
+
+// CreateAPIKeyFor mints a key on an existing transaction, and is the shape the
+// self-service service needs. days of 0 falls back to the site's apiKeyDays,
+// which is itself 0 for "never expires".
+//
+// The secret is returned once and never again: only its hash is stored, which
+// is the same reason a lost key has to be replaced rather than looked up.
+func (e *Engine) CreateAPIKeyFor(c *Ctx, user, label string, days int) (map[string]any, error) {
+	secret := RandomToken()
+	doc := Doc{"user": user, "label": label, "secret_hash": HashPassword(secret), "enabled": true}
+	if days <= 0 {
+		days = e.Cfg.Auth.APIKeyDays
+	}
+	var expires any
+	if days > 0 {
+		expires = time.Now().Add(time.Duration(days) * 24 * time.Hour)
+		doc["expires"] = expires
+	}
+	d, err := c.NewDoc("API Key", doc)
+	if err != nil {
+		return nil, err
+	}
+	saved, err := c.Insert(d, SaveOpts{IgnorePermissions: true})
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{
+		"name": saved.Name(), "token": saved.Name() + ":" + secret, "expires": expires,
+	}, nil
 }
 
 // SetPassword sets a user's password directly, and ends their other sessions.

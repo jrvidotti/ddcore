@@ -11,6 +11,7 @@ export default defineDoctype({
     { fieldname: "secret_hash", fieldtype: "Data", label: "Secret hash", hidden: true, readOnly: true },
     { fieldname: "enabled", fieldtype: "Check", label: "Enabled", default: true },
     { fieldname: "last_used", fieldtype: "Datetime", label: "Last used", readOnly: true },
+    { fieldname: "expires", fieldtype: "Datetime", label: "Expires", description: "Leave blank for a key that never expires." },
   ],
   permissions: [{ role: "System Manager", read: true, write: true, create: true, delete: true }],
 });

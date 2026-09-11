@@ -476,6 +476,11 @@ type Ctx struct {
 	Request  map[string]any
 	Messages []Message
 	Flags    map[string]any
+	// Sid is the session this request arrived on, and is deliberately not in
+	// Request: Request crosses into TS as ddcore.session.request, and a raw
+	// sid is a bearer token. App code gets only TokenHandle(Sid), which is
+	// enough to mark "this is the session you are using" and useless to steal.
+	Sid string
 
 	roles       []string
 	rt          *js.Runtime

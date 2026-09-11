@@ -26,6 +26,27 @@ const (
 	TokenInvite = "invite"
 )
 
+// asTime reads a timestamp back out of a db.Select row.
+//
+// db.Normalize turns every time.Time into an RFC3339 string on the way out, so
+// that rows serialise cleanly into JS — which means a `.(time.Time)` type
+// assertion on a row value silently never matches. That is a quiet failure
+// mode: an expiry check written that way compiles, runs, and never expires
+// anything.
+func asTime(v any) (time.Time, bool) {
+	switch x := v.(type) {
+	case time.Time:
+		return x, true
+	case string:
+		for _, layout := range []string{time.RFC3339Nano, time.RFC3339, "2006-01-02 15:04:05"} {
+			if t, err := time.Parse(layout, x); err == nil {
+				return t, true
+			}
+		}
+	}
+	return time.Time{}, false
+}
+
 // hashToken is what the database stores. A dump, a backup or a System Manager
 // with db.sql must not yield a working password reset.
 //
@@ -77,7 +98,7 @@ func (e *Engine) PeekToken(ctx context.Context, token string) (*AuthToken, error
 		return nil, cerr.NotFound("This link is no longer valid. Ask for a new one.")
 	}
 	t := &AuthToken{Kind: db.Str(rows[0]["kind"]), User: db.Str(rows[0]["user"])}
-	if v, ok := rows[0]["expires"].(time.Time); ok {
+	if v, ok := asTime(rows[0]["expires"]); ok {
 		t.Expires = v
 	}
 	return t, nil
@@ -104,7 +125,7 @@ func (e *Engine) ConsumeToken(ctx context.Context, q db.Querier, token, kind str
 		return nil, cerr.Validation("This link is no longer valid. Ask for a new one.")
 	}
 	t := &AuthToken{Kind: db.Str(rows[0]["kind"]), User: db.Str(rows[0]["user"])}
-	if v, ok := rows[0]["expires"].(time.Time); ok {
+	if v, ok := asTime(rows[0]["expires"]); ok {
 		t.Expires = v
 	}
 	return t, nil
