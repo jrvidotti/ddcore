@@ -97,6 +97,11 @@ type State struct {
 	metaCache metaCache
 }
 
+// Version is the core's version, reported by /api/boot, by the MCP server and
+// by an export manifest — which is the one that matters later, because a
+// reconciliation needs to know what produced the file.
+const Version = "0.1.0"
+
 type Engine struct {
 	// *State é embutido só para manter `e.Meta`, `e.Snap`, `e.Apps`,
 	// `e.Pool`, `e.I18n` e `e.Loaded` compilando em internal/api,

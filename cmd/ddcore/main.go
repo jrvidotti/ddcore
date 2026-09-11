@@ -42,6 +42,7 @@ Usage: ddcore <command> [options]
   exec        run a function: ddcore exec app.services.mod.fn --args '{"a":1}'
   eval        run loose TS: ddcore eval 'ddcore.db.count("User")' [--commit]
   demo        seed example data (<app>.services.demo.generate, idempotent)
+  export      export a DocType (or --all) to NDJSON/CSV with a manifest
   jobs        jobs list | jobs run <fn> | jobs work
   user        user add <email> <name> [--password x] [--role R]... | user passwd <email>
   apikey      apikey <user> [--label x]  → prints key:secret
@@ -86,6 +87,8 @@ func main() {
 		err = cmdAPIKey(args)
 	case "mcp":
 		err = cmdMCP(args)
+	case "export":
+		err = cmdExport(args)
 	case "demo":
 		err = cmdDemo(args)
 	case "docs":

@@ -377,7 +377,7 @@ func (s *Server) boot(w http.ResponseWriter, r *http.Request) {
 		return map[string]any{
 			"user": c.User, "roles": roles, "userDoc": userDoc, "lang": c.Lang, "apps": apps,
 			"workspaces": workspaces, "doctypes": doctypes, "reports": reports,
-			"site":   map[string]any{"name": s.E.Cfg.SiteName, "currency": s.E.Cfg.Currency, "timezone": s.E.Cfg.Timezone, "dev": s.E.Cfg.Dev, "scheduler": s.E.Cfg.Scheduler, "version": "0.1.0"},
+			"site":   map[string]any{"name": s.E.Cfg.SiteName, "currency": s.E.Cfg.Currency, "timezone": s.E.Cfg.Timezone, "dev": s.E.Cfg.Dev, "scheduler": s.E.Cfg.Scheduler, "version": engine.Version},
 			"loaded": s.E.Loaded.UnixMilli(),
 		}, nil
 	})
