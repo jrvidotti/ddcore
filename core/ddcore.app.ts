@@ -5,6 +5,11 @@ export default defineApp({
   title: "DDCore",
   description: "The framework's own DocTypes: users, roles, files, comments and versions.",
   roles: ["System Manager", "All", "Guest"],
+  // Hygiene, never correctness: this only runs where the site enables the
+  // scheduler, so every read path filters on expiry itself.
+  scheduler: {
+    hourly: ["core.services.auth.sweep"],
+  },
   afterInstall(ctx) {
     for (const role of ["System Manager", "All", "Guest"]) {
       if (!ddcore.db.exists("Role", role)) ddcore.newDoc("Role", { role_name: role }).insert({ ignorePermissions: true });

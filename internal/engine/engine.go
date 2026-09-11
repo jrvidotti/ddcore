@@ -22,6 +22,7 @@ import (
 	"github.com/jrvidotti/ddcore/internal/config"
 	"github.com/jrvidotti/ddcore/internal/db"
 	"github.com/jrvidotti/ddcore/internal/js"
+	"github.com/jrvidotti/ddcore/internal/mail"
 	"github.com/jrvidotti/ddcore/internal/meta"
 	"github.com/jrvidotti/ddcore/internal/num"
 )
@@ -147,6 +148,8 @@ type Engine struct {
 	loc      *time.Location
 	castOnce sync.Once
 	casts    castOpts
+	mailOnce sync.Once
+	mailer   mail.Sender
 }
 
 // Current returns the state this moment sees. Cada requisição captura uma vez

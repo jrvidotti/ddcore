@@ -4,6 +4,7 @@ Add row,Adicionar linha,# desk/src/lib/controls/Grid.svelte:118
 All,Todos,# desk/src/lib/components/ListView.svelte:275
 All rows matching the filters ({0}),Todas as linhas que casam com os filtros ({0}),# desk/src/lib/components/ListView.svelte:203
 Amend,Emendar,# desk/src/lib/components/FormView.svelte:255
+An account was created for you on {0}. Choose a password to get in.,Uma conta foi criada para você em {0}. Escolha uma senha para entrar.,# internal/engine/authmail.go:77
 Apply,Aplicar,# desk/src/lib/controls/Grid.svelte:29
 Apps reloaded,Apps recarregadas,# desk/src/routes/+layout.svelte:45
 Attach,Anexar,# desk/src/lib/controls/AttachControl.svelte:32
@@ -21,6 +22,7 @@ Card {0} does not exist,Card {0} não existe,# internal/api/api.go:1014
 Change history,Histórico de Alterações,# desk/src/lib/components/DocSidebar.svelte:107
 Changed by someone else — reload,Alterado por outro usuário — recarregar,# desk/src/lib/components/FormView.svelte:209
 Changes,Alterações,# core.doctypes.version.version.doctype
+Choose a new password,Escolher uma nova senha,# internal/engine/authmail.go:82
 Clear filters,Limpar filtros,# desk/src/lib/components/ListView.svelte:289
 Close,Fechar,# desk/src/lib/components/DocSidebar.svelte:117
 "Close modals, menus or dialogs","Fechar modais, menus ou diálogos",# desk/src/lib/shortcuts.ts:87
@@ -44,7 +46,7 @@ Desk access,Acesso ao desk,# core.doctypes.role.role.doctype
 Details,Detalhes,# desk/src/lib/components/FormView.svelte:73
 Disabled,Desativado,# core.doctypes.role.role.doctype
 DocType,DocType,# core.doctypes.comment.comment.doctype
-DocType {0} does not exist,DocType {0} não existe,# internal/engine/engine.go:449
+DocType {0} does not exist,DocType {0} não existe,# internal/engine/engine.go:452
 Document,Documento,# core.doctypes.comment.comment.doctype
 Document status,Situação do documento,# desk/src/lib/components/ListView.svelte:273
 Draft,Rascunho,# desk/src/lib/components/ListView.svelte:163
@@ -159,6 +161,7 @@ Report {0} does not exist,Relatório {0} não existe,# internal/api/api.go:926
 Request without a CSRF header,Requisição sem cabeçalho CSRF,# internal/api/api.go:248
 Required,Obrigatório,# desk/src/lib/form.svelte.ts:216
 Required fields,Campos obrigatórios,# desk/src/lib/components/Dialogs.svelte:15
+Reset your password on {0},Redefina sua senha em {0},# internal/engine/authmail.go:80
 Role,Papel,# core.doctypes.has_role.has_role.doctype
 Role {0} is repeated,Papel {0} repetido,# core/doctypes/user/user.controller.ts:14
 Roles,Papéis,# core.doctypes.user.user.doctype
@@ -179,6 +182,7 @@ Secret hash,Hash do segredo,# core.doctypes.api_key.api_key.doctype
 Secret {0} is not configured on this site,O segredo {0} não está configurado neste site,# internal/engine/secrets.go:64
 See the full history,Ver histórico completo,# desk/src/lib/components/DocHistory.svelte:240
 Seen,Visto,# core.doctypes.error_log.error_log.doctype
+Set my password,Definir minha senha,# internal/engine/authmail.go:78
 Shortcuts,Atalhos,# desk/src/lib/components/Workspace.svelte:49
 Show this shortcuts window,Exibir esta janela de atalhos,# desk/src/lib/shortcuts.ts:85
 Sign in,Entrar,# desk/src/routes/login/+page.svelte:19
@@ -186,6 +190,7 @@ Sign in to continue,Faça login para continuar,# core/services/i18n.ts:20
 Sign in to upload files,Faça login para enviar arquivos,# internal/api/api.go:1119
 Sign out,Sair,# desk/src/lib/components/Sidebar.svelte:47
 Size,Tamanho,# core.doctypes.file.file.doctype
+"Someone asked to reset the password for this account on {0}. If it was not you, ignore this message: nothing has changed.","Alguém pediu para redefinir a senha desta conta em {0}. Se não foi você, ignore esta mensagem: nada mudou.",# internal/engine/authmail.go:81
 Source,Origem,# core.doctypes.error_log.error_log.doctype
 Status,Status,# desk/src/lib/components/ListView.svelte:304
 Submit,Enviar,# desk/src/lib/components/FormView.svelte:249
@@ -204,6 +209,7 @@ The password must have at most {0} characters,A senha pode ter no máximo {0} ca
 This endpoint requires an API key (Authorization: token key:secret),Este endpoint exige uma chave de API (Authorization: token chave:segredo),# internal/api/api.go:268
 This endpoint requires the System Manager role,Este endpoint exige o papel System Manager,# internal/api/api.go:286
 "This export has {0} rows and the limit here is {1}. Narrow the filters, or run `ddcore export` for the whole set.","Esta exportação tem {0} linhas e o limite aqui é {1}. Restrinja os filtros, ou rode `ddcore export` para o conjunto inteiro.",# internal/api/export.go:132
+This link can only be used once.,Este link só pode ser usado uma vez.,# internal/engine/authmail.go:84
 This link is no longer valid. Ask for a new one.,Este link não vale mais. Peça um novo.,# internal/engine/token.go:77
 This month,Este mês,# desk/src/lib/controls/MonthControl.svelte:232
 Title,Título,# desk/src/lib/components/FormView.svelte:127
@@ -229,21 +235,22 @@ Workspace not found,Workspace não encontrado,# desk/src/lib/components/Workspac
 Workspace {0} does not exist,Workspace {0} não existe,# internal/api/api.go:1037
 Write a comment,Escreva um comentário,# desk/src/lib/components/DocSidebar.svelte:51
 Yes,Sim,# desk/src/lib/components/history.ts:130
+You have been invited to {0},Você foi convidado para {0},# internal/engine/authmail.go:76
 ctx.sql is only available inside a patch,ctx.sql só existe dentro de um patch,# internal/engine/query.go:410
 ddcore.db.lock requires a transaction,ddcore.db.lock exige uma transação,# internal/engine/query.go:476
 ddcore.db.lock: provide a key,ddcore.db.lock: informe uma chave,# internal/engine/query.go:473
 ddcore.db.sql only accepts SELECT,ddcore.db.sql aceita apenas SELECT,# internal/engine/query.go:432
 enqueue: provide the method,enqueue: informe o método,# internal/engine/jobs.go:29
-getValue: invalid fields,getValue: fields inválido,# internal/engine/host.go:135
-http: {0},http: {0},# internal/engine/host.go:348
-invalid arguments in {0}: {1},argumentos inválidos em {0}: {1},# internal/engine/host.go:61
+getValue: invalid fields,getValue: fields inválido,# internal/engine/host.go:149
+http: {0},http: {0},# internal/engine/host.go:379
+invalid arguments in {0}: {1},argumentos inválidos em {0}: {1},# internal/engine/host.go:75
 job {0} timed out,job {0} excedeu o tempo limite,# internal/engine/jobs.go:75
 patch sql: {0},sql do patch: {0},# internal/engine/query.go:414
 records,registros,# desk/src/lib/components/ListView.svelte:351
-runtime without a context (op {0}),runtime sem contexto (op {0}),# internal/engine/host.go:24
+runtime without a context (op {0}),runtime sem contexto (op {0}),# internal/engine/host.go:26
 title,título,# desk/src/lib/components/FormView.svelte:118
 to submit,para enviar,# desk/src/lib/components/DocSidebar.svelte:54
-unknown bridge operation: {0},operação desconhecida no bridge: {0},# internal/engine/host.go:284
+unknown bridge operation: {0},operação desconhecida no bridge: {0},# internal/engine/host.go:315
 "{0} ""{1}"" already exists on {2} {3}","{0} ""{1}"" já existe em {2} {3}",# internal/engine/doc.go:1106
 {0} cannot be changed after submission,Não é permitido alterar {0} depois do envio,# internal/engine/doc.go:1152
 {0} cannot be renamed,{0} não permite renomear,# internal/engine/doc.go:761

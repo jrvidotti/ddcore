@@ -13,8 +13,10 @@ import (
 	"golang.org/x/text/message"
 
 	"github.com/jrvidotti/ddcore/internal/cerr"
+	"github.com/jrvidotti/ddcore/internal/config"
 	"github.com/jrvidotti/ddcore/internal/db"
 	"github.com/jrvidotti/ddcore/internal/js"
+	"github.com/jrvidotti/ddcore/internal/mail"
 )
 
 // HostCall is the single entry point for every ddcore.* call made from TS.
@@ -56,6 +58,18 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		OldName   string            `json:"oldName"`
 		NewName   string            `json:"newName"`
 		Currency  string            `json:"currency"`
+		To        []string          `json:"to"`
+		Subject   string            `json:"subject"`
+		HTML      string            `json:"html"`
+		ExceptSid string            `json:"exceptSid"`
+		Kind      string            `json:"kind"`
+		Token     string            `json:"token"`
+		Password  string            `json:"password"`
+		Label     string            `json:"label"`
+		Days      float64           `json:"days"`
+		Limit     float64           `json:"limit"`
+		Minutes   float64           `json:"minutes"`
+		ID        string            `json:"id"`
 	}
 	if err := json.Unmarshal(raw, &a); err != nil {
 		return nil, cerr.Internal("invalid arguments in {0}: {1}", op, err)
@@ -264,6 +278,23 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		// and any app that writes new_password all meet the same minimum. The
 		// returned *cerr.Error surfaces in TS as a throw, like ddcore.throw.
 		return e.HashNewPassword(a.User, a.Text)
+	case "mailMethod":
+		// The app function configured as the transport, or "" — core's mail
+		// service asks before falling through to the built-in sender.
+		if e.Cfg.Mail.Transport == config.MailMethod {
+			return e.Cfg.Mail.Method, nil
+		}
+		return "", nil
+	case "sendMail":
+		return nil, e.deliver(c.Ctx, mail.Message{
+			To: a.To, Subject: a.Subject, Text: a.Text, HTML: a.HTML,
+		})
+	case "authSweep":
+		n, err := e.SweepAuth(c.Ctx)
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"sessions": n.Sessions, "tokens": n.Tokens, "attempts": n.Attempts}, nil
 	case "secret":
 		// An integration credential is read from the environment, never from a
 		// column: that is what keeps it out of every backup, export and
