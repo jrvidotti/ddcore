@@ -117,11 +117,11 @@ and [operations](agent/ops.md).
 | Types and Tests | `ddcore types` generates `.ddcore/types.d.ts`; `ddcore test` executes TS tests in rolled-back transactions; Go test suite covers engine, API, runtime, i18n, and HTTP acceptance. |
 | Administration | `exec`, `eval` with default rollback, `user add`, `user passwd`, `apikey`, `demo`, and `doctor`. |
 | MCP Stdio | Tools for meta, migration, data, methods, read-only SQL, evaluation, tests, logs, reload, and apps; resources for documentation and metadata. |
-| Example App | `apps/demo` contains Project, Task, and Project Milestone, services, scheduler, scripts, workspace, report, translations, and tests. |
+| Example App | [ddcore-demo](https://github.com/jrvidotti/ddcore-demo) contains Project, Task, Invoice and Project Settings, services, scheduler, scripts, workspace, report, translations, and tests. |
 
 References: [CLI](agent/cli.md), [MCP](../internal/mcp/mcp.go),
 [scaffold](../internal/scaffold/scaffold.go), [typegen](../internal/typegen/typegen.go), and
-[demo](../apps/demo).
+[ddcore-demo](https://github.com/jrvidotti/ddcore-demo).
 
 ## Surfaces Not Classified as Complete
 

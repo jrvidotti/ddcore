@@ -747,6 +747,30 @@ func TestRequiresSortsAndValidates(t *testing.T) {
 	}
 }
 
+// An app loaded under a namespace other than the one it declares is a rename
+// nobody asked for: the mismatch has to stop the load, not be papered over.
+func TestAppNameMismatchRefusesTheLoad(t *testing.T) {
+	snap := &Snapshot{Apps: map[string]*AppMeta{
+		"core": {Name: "core"},
+		"app":  {Name: "alugueis", Dir: "/app"},
+	}}
+	apps := []js.App{{Name: "core"}, {Name: "app", Dir: "/app"}}
+	err := checkAppNames(apps, snap)
+	if err == nil {
+		t.Fatal("expected an error for an app loaded under the wrong namespace")
+	}
+	for _, want := range []string{"/app", `"alugueis"`, `"app"`} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("error %q does not mention %s", err, want)
+		}
+	}
+	// An app whose manifest agrees, and one with no manifest at all, both load.
+	ok := &Snapshot{Apps: map[string]*AppMeta{"core": {Name: "core"}, "demo": {Name: "demo"}}}
+	if err := checkAppNames([]js.App{{Name: "core"}, {Name: "demo"}, {Name: "nometa"}}, ok); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestResolveLinkTitles(t *testing.T) {
 	e := setup(t)
 	ctx := context.Background()

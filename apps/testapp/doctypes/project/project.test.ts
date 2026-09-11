@@ -58,7 +58,7 @@ describe("Project", () => {
     expect(p.milestones[0].completed_on).toBeNull();
   });
 
-  it("sem tasks: progress 0 e status Planned", () => {
+  it("no tasks: progress 0 and status Planned", () => {
     const p = makeProject();
     expect(p.progress).toBe(0);
     expect(p.status).toBe("Planned");

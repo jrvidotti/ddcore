@@ -248,6 +248,25 @@ func (e *Engine) buildPool(apps []js.App) (*js.Pool, *Snapshot, error) {
 	return pool, &snap, nil
 }
 
+// checkAppNames refuses a load where an app is registered under a namespace
+// other than the one its manifest declares.
+//
+// js.AppName reads that name out of ddcore.app.ts before the bundle exists, so
+// it is a guess; this is the same name after defineApp really ran. Letting the
+// two drift apart would rename an app silently — its whitelisted methods, its
+// scheduler targets and the module paths recorded in patch history all carry
+// the namespace — so the mismatch is a configuration error, not a warning.
+func checkAppNames(apps []js.App, snap *Snapshot) error {
+	for _, a := range apps {
+		am := snap.Apps[a.Name]
+		if am == nil || am.Name == "" || am.Name == a.Name {
+			continue
+		}
+		return fmt.Errorf("app in %s declares name %q but was loaded as %q", a.Dir, am.Name, a.Name)
+	}
+	return nil
+}
+
 // orderApps validates `requires` and returns the apps in dependency order.
 // Core is always first. An app requiring a missing app, or a cycle, is a
 // configuration error and must not lead to installation in inconsistent order.
@@ -308,6 +327,10 @@ func (e *Engine) Load() error {
 	apps := append([]js.App{CoreApp()}, e.Cfg.Apps...)
 	pool, snap, err := e.buildPool(apps)
 	if err != nil {
+		return err
+	}
+	if err := checkAppNames(apps, snap); err != nil {
+		pool.Close()
 		return err
 	}
 	// `requires` is only known after reading metadata: validate and, if the

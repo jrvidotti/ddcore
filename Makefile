@@ -37,7 +37,7 @@ desk: ## compile desk (SvelteKit) into desk/build (embedded into binary)
 check: ## check desk types and translation catalogs, without database
 	cd desk && npm install --silent && npm run check
 	./bin/ddcore types
-	cd desk && npx tsc -p ../apps/demo/tsconfig.json --noEmit
+	cd desk && npx tsc -p ../apps/testapp/tsconfig.json --noEmit
 	./bin/ddcore i18n extract --all --lang pt-BR --check
 
 i18n: ## rewrite translations/<lang>.csv from code
@@ -51,7 +51,7 @@ test-desk: ## svelte-check + desk unit tests
 
 test: build vet ## run Go and desk tests
 	go test ./internal/...
-	./bin/ddcore test --app demo
+	./bin/ddcore test --app testapp
 	$(MAKE) test-desk
 
 dev: ## start development server

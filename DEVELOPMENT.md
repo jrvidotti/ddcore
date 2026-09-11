@@ -1,13 +1,20 @@
-# Development: ddcore + the `apps/demo` app
+# Development: ddcore + the `apps/testapp` fixture
 
-This document explains **how work is done** in this repository: what ddcore is, what the demo
-app is, where the boundary between the core and an app runs, which files exist for what, and
-what the day-to-day loop looks like.
+This document explains **how work is done** in this repository: what ddcore is, where the
+boundary between the core and an app runs, which files exist for what, and what the day-to-day
+loop looks like.
 
 There is a peculiarity here that a product app does not have: this checkout is the
 **framework's monorepo**. The binary is not installed — it is compiled from here
-(`bin/ddcore`) — and `apps/demo` is loaded by this very `ddcore.json`. So there are almost
+(`bin/ddcore`) — and `apps/testapp` is loaded by this very `ddcore.json`. So there are almost
 always **two loops** running at once: the core's (Go + desk) and the app's (TypeScript).
+
+`apps/testapp` is a **fixture, not a showcase**: it holds exactly what `internal/acceptance`
+asserts on, so `go test ./internal/...` never depends on a checkout the framework does not
+own. The worked example an app author should read is
+[**ddcore-demo**](https://github.com/jrvidotti/ddcore-demo) — a projects, tasks and invoicing
+app that lives in its own repository and builds against the published binary, which is the
+arrangement every product app uses.
 
 Alongside:
 
@@ -51,13 +58,16 @@ reason for the rule "never `await` on the server".
 | `@ddcore/desk-sdk` | the browser, **asynchronous** | `defineForm`, `defineListView`, `ddcore.ui.Dialog`, `ddcore.db.*` (over HTTP), `ddcore.format`, `ddcore.datetime` |
 
 **One difference specific to this repository.** In an outside app the three are *materialised*
-by `ddcore types` under `.ddcore/`, and `tsconfig.json` points there. Here, because the SDK
-sources are in the checkout itself, `apps/demo/tsconfig.json` resolves `@ddcore/sdk`,
-`@ddcore/sdk/test` and `@ddcore/desk-sdk` straight into `packages/` — the app's typecheck runs
-against the SDK **source**, not a generated copy. Changing `packages/sdk` breaks (or fixes) the
-app's typecheck immediately, which is exactly the effect wanted.
+by `ddcore types` under `.ddcore/`, and `tsconfig.json` points there — that is the path
+`ddcore-demo` takes, and the one worth reading if you want to know what an app author sees.
+Here, because the SDK sources are in the checkout itself, `apps/testapp/tsconfig.json` resolves
+`@ddcore/sdk`, `@ddcore/sdk/test` and `@ddcore/desk-sdk` straight into `packages/` — the
+fixture's typecheck runs against the SDK **source**, not a generated copy. Changing
+`packages/sdk` breaks (or fixes) that typecheck immediately, which is exactly the effect
+wanted; it is also why the fixture cannot stand in for the published-binary path, and why the
+example app is checked out separately.
 
-What `./bin/ddcore types` still generates under `apps/demo/.ddcore/` is the **DocType types**
+What `./bin/ddcore types` still generates under `apps/testapp/.ddcore/` is the **DocType types**
 (`types.d.ts`), the desk entry point and the embedded declarations. `.ddcore/` is gitignored
 and must **never** be edited by hand.
 
@@ -109,11 +119,14 @@ In behavioural terms, the core is what guarantees:
 - **The tooling** — `dev`, `migrate`, `test`, `types`, `i18n`, `exec`, `eval`, `demo`, `jobs`,
   `user`, `apikey`, `doctor`, `docs`, `mcp`.
 
-### What the app (`apps/demo`) does
+### What an app does
 
-The demo is deliberately small: projects, milestones and tasks. It exists to be an
-**executable tutorial, an end-to-end fixture and a reference for good practice** — not to
-carry a real product's rules. Within that scope it:
+The two apps in play here divide that between them. `apps/testapp` is the **end-to-end
+fixture**: Project, Task and the Project Milestone child, two roles, a workspace, a pt-BR
+catalogue and a `ddcore demo` seed — the minimum `internal/acceptance` needs to assert that a
+clean database plus `migrate` produces a usable site. `ddcore-demo` is the **executable
+tutorial and reference for good practice**. Neither carries a real product's rules. Between
+them an app:
 
 - **declares the domain**: the `Project`, `Task` and `Project Milestone` (child) DocTypes,
   with the `Project Manager` and `Project Contributor` roles;
@@ -125,21 +138,23 @@ carry a real product's rules. Within that scope it:
 - **adjusts the UI at the edges**: `*.form.ts` (buttons, indicators, a Link's filter) — and
   `client/lists.ts` shows the opposite: with `optionColors` on the status field, a list needs
   no custom indicator at all;
-- **declares the periodic routine** in `ddcore.app.ts` (`daily: demo.services.tasks.markOverdue`)
-  — the core is what runs it;
+- **declares the periodic routine** in `ddcore.app.ts`
+  (`daily: testapp.services.tasks.markOverdue`) — the core is what runs it;
 - **seeds a demonstration** in `services/demo.ts`, idempotent, discovered by `ddcore demo`;
 - **covers all of it** with `*.test.ts`.
 
-Being an example, it also **deliberately avoids** things the framework supports: external
+Being examples, both **deliberately avoid** things the framework supports: external
 integrations, attachments, `hasPermission`/`permissionQuery`, raw SQL, and patches with no
 real migration to demonstrate. When a heavier case is needed, the core's own tests cover it —
-do not push the example to grow.
+do not push either app to grow. `apps/testapp` in particular earns nothing by growing: a
+fixture that outruns what the acceptance suite asserts is dead weight in the framework's own
+test time.
 
-The one exception is `Invoice`, and it names the rule it is an exception to: decimal precision
-is a **framework contract**, not an app feature. An author has to be able to read a worked case
-of a Currency stored at the site's precision and a schedule of instalments that adds back up to
-its total. The exhaustive matrix still lives in the core's tests; the example carries the one
-case someone will copy.
+`ddcore-demo` makes one exception, `Invoice`, and it names the rule it is an exception to:
+decimal precision is a **framework contract**, not an app feature. An author has to be able to
+read a worked case of a Currency stored at the site's precision and a schedule of instalments
+that adds back up to its total. The exhaustive matrix still lives in the core's tests; the
+example carries the one case someone will copy.
 
 ### The boundary, one line per case
 
@@ -171,7 +186,7 @@ ddcore.json                   what the site decided: apps, currency, timezone, a
 .env / .env.example           where it is running: database, port, public URL, mail
 Makefile                      shortcuts for the working loop
 bin/ddcore                    the compiled binary (produced by make build)
-apps/demo/                    the demo app
+apps/testapp/                 the acceptance suite's fixture app
 ```
 
 Configuration is split by the question it answers, and the split is not
@@ -187,11 +202,12 @@ environment beats `.env`, which beats `ddcore.json`, which beats the default.
 That order is what lets Railway inject `DATABASE_URL`, or `docker run -e`
 override a port, without anyone editing a file inside the image.
 
-### Inside `apps/demo`
+### Inside an app (`apps/testapp`, and `ddcore-demo` at its own root)
 
 ```
 ddcore.app.ts                   the manifest: name, roles, scheduler, desk
-tsconfig.json                   resolves @ddcore/sdk into packages/sdk/src
+tsconfig.json                   resolves @ddcore/sdk into packages/sdk/src (in a standalone
+                                app it points at .ddcore/ instead)
 doctypes/<name>/
   <name>.doctype.ts             meta: fields, permissions, naming          [server, declarative]
   <name>.controller.ts          lifecycle hooks and methods                [server, synchronous]
@@ -265,7 +281,7 @@ to guarantee may depend on this file.
 A good controller is thin. The logic goes in `services/*.ts`, because it has to be called from
 several places with the same meaning: from `validate`, from a controller method, from a
 report, from a workspace card, from the scheduler, from `ddcore exec` and from the tests. The
-demo shows this three times:
+example apps show this three times:
 
 - `services/projects.ts:recalculateProgress` — called after inserting, updating or deleting a
   task;
@@ -275,7 +291,7 @@ demo shows this three times:
   so the two counts cannot drift apart.
 
 Functions marked `whitelisted(...)` get an HTTP endpoint
-(`POST /api/method/demo.services.tasks.markOverdueNow`) — that is how the desk calls the
+(`POST /api/method/testapp.services.tasks.markOverdueNow`) — that is how the desk calls the
 server outside a document's context.
 
 Interface text is written as an English key and translated in `translations/pt-BR.csv`
@@ -291,7 +307,7 @@ value *is* its key: `_(row.status)` and nothing else. See `docs/agent/i18n.md`.
 ```bash
 make docker-up                               # dev Postgres (container ddcore-pg, port 5455)
 make build                                   # desk (npm) + the binary at bin/ddcore
-make migrate                                 # the core's DDL + installing the demo app
+make migrate                                 # the core's DDL + installing the fixture app
 ./bin/ddcore user passwd Administrator admin1234
 ./bin/ddcore demo                            # demonstration data (idempotent)
 make dev                                     # http://localhost:8090
@@ -302,7 +318,7 @@ Requirements: Docker, Go and Node.js. The Go tests use the `ddcore_test` databas
 
 ### The two loops
 
-**Working on the app (`apps/demo/**/*.ts`).** `make dev` keeps running and rebuilds on save:
+**Working on an app (`apps/testapp/**/*.ts`).** `make dev` keeps running and rebuilds on save:
 no restart, no rebuild. If the change touched a DocType's **meta**, run `./bin/ddcore migrate`
 (or let `dev`'s `--auto-migrate` handle it) and `./bin/ddcore types` to regenerate the
 typings. If it touched a string, run `./bin/ddcore i18n extract --all --lang pt-BR` and fill
@@ -311,7 +327,7 @@ in the new rows — `make check` fails otherwise.
 **Working on the core (`internal/`, `core/`, `cmd/`, `packages/`, `desk/`).** Now the binary
 has changed: `make build` (or `go build -o bin/ddcore ./cmd/ddcore` when the desk did not
 change) and restart `dev`. A change in `packages/sdk` shows up in the app's typecheck
-immediately, because the demo's `tsconfig.json` points at the source.
+immediately, because the fixture's `tsconfig.json` points at the source.
 
 In both cases, when 8090 is taken use `make stop` rather than starting a second server.
 
@@ -322,12 +338,12 @@ In both cases, when 8090 is taken use `make stop` rather than starting a second 
 | `make build` | desk + `bin/ddcore` |
 | `make dev` / `make stop` | the server on :8090 with hot reload |
 | `make migrate` | DDL + `afterInstall` + fixtures + patches + `afterMigrate` + types |
-| `make check` | the desk's `svelte-check`, `ddcore types`, `tsc` for `apps/demo`, and the translation catalogue |
+| `make check` | the desk's `svelte-check`, `ddcore types`, `tsc` for `apps/testapp`, and the translation catalogue |
 | `make i18n` | rewrites `translations/<lang>.csv` from the code |
-| `make test` | build + `go vet` + the Go tests + `ddcore test --app demo` + the desk tests |
+| `make test` | build + `go vet` + the Go tests + `ddcore test --app testapp` + the desk tests |
 | `./bin/ddcore test --filter <regex> -v` | iterating on one app test |
 | `./bin/ddcore demo` | seeds demonstration data (idempotent) |
-| `./bin/ddcore exec demo.services.tasks.markOverdue` | runs a service outside a request |
+| `./bin/ddcore exec testapp.services.tasks.markOverdue` | runs a service outside a request |
 | `./bin/ddcore eval '<ts>' [--commit]` | loose TS with `ddcore.*` (rolls back by default) |
 | `./bin/ddcore doctor` | database, meta, pending DDL, scheduler |
 | `./bin/ddcore docs` / MCP `ddcore://docs/*` | the API reference |
@@ -341,13 +357,13 @@ installation, boot, translation and `/app` against a real Postgres over real HTT
 - The server is **synchronous**: no `await`/`Promise` in `*.controller.ts`, `services/`,
   `reports/`, `workspaces/`, `patches/`.
 - The desk (`*.form.ts`, `client/*.ts`) **may** be asynchronous — and almost always is.
-- **Never** edit `apps/demo/.ddcore/`; run `./bin/ddcore types`.
+- **Never** edit `apps/testapp/.ddcore/`; run `./bin/ddcore types`.
 - An invariant is validated on the server (`validate`), never only in the form.
 - Interface text is English, goes through `_()` / `__()` (or a `label:`), and has a row in the
   translation CSV. `make check` enforces it.
-- No app file imports source by a relative path outside `apps/demo`: the SDKs come in only as
+- No app file imports source by a relative path outside its own app directory: the SDKs come in only as
   `@ddcore/sdk` and `@ddcore/desk-sdk`.
-- The demo app uses no raw SQL; queries go through `ddcore.db.getList` and friends.
+- Neither example app uses raw SQL; queries go through `ddcore.db.getList` and friends.
 - Use the MCP tools rather than touching the database by hand.
 - `make test` before calling anything done.
 
@@ -374,8 +390,8 @@ installation, boot, translation and `/app` against a real Postgres over real HTT
 6. **Desk** — reloads the document; the indicator and the progress come back updated, and the
    workspace's card and chart show the same count because they read the same service.
 
-The same path is exercised with no UI at all by `doctypes/task/task.test.ts` and
-`services/tasks.test.ts`. That is the shape of the framework: **the core moves the document
+The same path is exercised with no UI at all by `doctypes/task/task.test.ts`. That is the
+shape of the framework: **the core moves the document
 through the lifecycle and the transaction; the app says what is true about the domain at each
 point along the way.**
 

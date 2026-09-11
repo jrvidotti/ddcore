@@ -117,7 +117,7 @@ func loadForExtract() (*engine.Engine, *config.File, string, error) {
 	}
 	var apps []js.App
 	for _, dir := range cfg.Apps {
-		apps = append(apps, js.App{Name: filepath.Base(dir), Dir: dir})
+		apps = append(apps, js.App{Name: js.AppName(dir), Dir: dir})
 	}
 	root, err := filepath.Abs(filepath.Dir(path))
 	if err != nil {

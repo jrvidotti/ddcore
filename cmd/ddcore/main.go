@@ -129,7 +129,7 @@ func load(test bool, dev bool) (*engine.Engine, *config.File, error) {
 	}
 	var apps []js.App
 	for _, dir := range cfg.Apps {
-		apps = append(apps, js.App{Name: filepath.Base(dir), Dir: dir})
+		apps = append(apps, js.App{Name: js.AppName(dir), Dir: dir})
 	}
 	level := slog.LevelInfo
 	if os.Getenv("DDCORE_DEBUG") != "" {

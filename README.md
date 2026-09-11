@@ -34,10 +34,12 @@ make migrate                                 # the core's DDL
 make dev                                     # http://localhost:8090  (Administrator / admin)
 ```
 
-This checkout's `ddcore.json` loads `apps/demo` — a small projects-and-tasks app that doubles
-as an executable tutorial and an end-to-end fixture (`./bin/ddcore demo` seeds the `DEMO`
-project). Product apps live in their own repositories. In an outside project the script starts
-with `ddcore init && ddcore new-app <name>`; `DDCORE_DSN` overrides the DSN of any command.
+This checkout's `ddcore.json` loads `apps/testapp` — the fixture the Go acceptance suite
+needs, kept deliberately thin (`./bin/ddcore demo` seeds the `DEMO` project). The example app
+is [ddcore-demo](https://github.com/jrvidotti/ddcore-demo), a projects-and-tasks app that reads
+as an executable tutorial and, like every product app, lives in its own repository and is built
+against the published binary alone. In an outside project the script starts with
+`ddcore init && ddcore new-app <name>`; `DDCORE_DSN` overrides the DSN of any command.
 
 The development process (core vs. app, the working loop) is in
 [`DEVELOPMENT.md`](DEVELOPMENT.md).

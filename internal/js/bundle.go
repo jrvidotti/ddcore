@@ -6,11 +6,13 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 
 	"github.com/evanw/esbuild/pkg/api"
 
+	"github.com/jrvidotti/ddcore/internal/meta"
 	"github.com/jrvidotti/ddcore/packages/sdk"
 )
 
@@ -142,6 +144,42 @@ func loadRank(f string) int {
 		return 9
 	}
 	return 5
+}
+
+// appNameRe finds the `name` of the app manifest. It runs over the JS that
+// esbuild produced, not over the TypeScript source, so comments and type
+// annotations are already gone and cannot be mistaken for the declaration.
+var appNameRe = regexp.MustCompile(`\bname\s*:\s*"([^"]+)"`)
+
+// AppName is the namespace of the app in dir: the `name` declared in
+// ddcore.app.ts, falling back to the directory's base name.
+//
+// The namespace is baked into every module path (see ModulePath), so it has to
+// be known before the bundle exists — which is why it is read from the source
+// instead of the manifest the runtime later evaluates. Deriving it from the
+// directory instead is what made an app's identity depend on where it happened
+// to be checked out: the same app answers to `demo` in apps/demo and to `app`
+// under a Dockerfile's WORKDIR /app, and every method path moves with it.
+//
+// A manifest that cannot be read or that declares nothing usable keeps the old
+// behaviour rather than failing the load; Engine.snapshot then compares this
+// name against the one defineApp really registered and refuses a mismatch, so
+// a wrong guess here surfaces as an error instead of a silent rename.
+func AppName(dir string) string {
+	fallback := filepath.Base(dir)
+	src, err := os.ReadFile(filepath.Join(dir, "ddcore.app.ts"))
+	if err != nil {
+		return fallback
+	}
+	js, err := TransformTS(string(src))
+	if err != nil {
+		return fallback
+	}
+	m := appNameRe.FindStringSubmatch(js)
+	if m == nil || !meta.ValidIdentAscii(m[1]) {
+		return fallback
+	}
+	return m[1]
 }
 
 // ModulePath turns "services/api.ts" into "my_app.services.api".

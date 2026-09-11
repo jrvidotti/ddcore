@@ -25,7 +25,7 @@ function makeTask(project: string, values: Partial<Task> = {}) {
 }
 
 describe("Task", () => {
-  it("nasce Open", () => {
+  it("is born Open", () => {
     const t = makeTask(makeProject().name);
     expect(t.status).toBe("Open");
     expect(t.completed_at).toBeNull();
@@ -59,14 +59,14 @@ describe("Task", () => {
     expect(t.runMethod("reopen").status).toBe("Open");
   });
 
-  it("reopen task com prazo vencido volta para Overdue", () => {
+  it("reopening a task whose due date has passed goes back to Overdue", () => {
     const p = makeProject();
     const t = makeTask(p.name, { due_date: u().addDays(u().today(), -3) });
     t.runMethod("complete");
     expect(t.runMethod("reopen").status).toBe("Overdue");
   });
 
-  it("excluir a task recalcula o project", () => {
+  it("deleting a task recalculates the project", () => {
     const p = makeProject();
     const t = makeTask(p.name);
     makeTask(p.name).runMethod("complete");
@@ -79,7 +79,7 @@ describe("Task", () => {
     expect(p.status).toBe("Completed");
   });
 
-  it("mover a task recalcula os dois projects", () => {
+  it("moving a task recalculates both projects", () => {
     const origem = makeProject();
     const target = makeProject();
     const t = makeTask(origem.name);

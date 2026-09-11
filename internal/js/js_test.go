@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -334,5 +335,79 @@ func TestRoundCurrencyFollowsTheSite(t *testing.T) {
 		if string(out) != want {
 			t.Errorf("%s = %s, want %s", expr, out, want)
 		}
+	}
+}
+
+// An app's identity is declared in its manifest, not in the path someone
+// checked it out to: the same sources have to answer to the same namespace
+// under apps/demo, under a repository root, and under a Dockerfile's /app.
+func TestAppNameComesFromTheManifest(t *testing.T) {
+	cases := []struct {
+		name     string
+		manifest string // "" writes no ddcore.app.ts at all
+		want     string
+	}{
+		{"declared name wins over the directory", `import { defineApp } from "@ddcore/sdk";
+export default defineApp({ name: "demo", title: "Demo" });`, "demo"},
+
+		{"a comment naming something else is not the declaration", `// name: "wrong" — this line is a comment
+/* name: "alsowrong" */
+import { defineApp } from "@ddcore/sdk";
+export default defineApp({ name: "demo", title: "Demo" });`, "demo"},
+
+		{"no manifest falls back to the directory", "", "some-dir"},
+
+		{"a name that is not an identifier falls back", `import { defineApp } from "@ddcore/sdk";
+export default defineApp({ name: "Not An Ident", title: "x" });`, "some-dir"},
+
+		{"a manifest that does not parse falls back", `export default defineApp({ name: "demo",`, "some-dir"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			dir := filepath.Join(t.TempDir(), "some-dir")
+			if err := os.MkdirAll(dir, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if c.manifest != "" {
+				if err := os.WriteFile(filepath.Join(dir, "ddcore.app.ts"), []byte(c.manifest), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if got := AppName(dir); got != c.want {
+				t.Fatalf("AppName = %q, want %q", got, c.want)
+			}
+		})
+	}
+}
+
+// The name is not just reported: it is what every module path is built from,
+// which is what makes a moved checkout rename an app's whitelisted methods and
+// scheduler targets.
+func TestModulePathsUseTheManifestName(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "ddcore-demo")
+	if err := os.MkdirAll(filepath.Join(dir, "services"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	write := func(rel, body string) {
+		if err := os.WriteFile(filepath.Join(dir, rel), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("ddcore.app.ts", `import { defineApp } from "@ddcore/sdk";
+export default defineApp({ name: "demo", title: "Demo" });`)
+	write("services/tasks.ts", `export function markOverdue() { return 1; }`)
+
+	b, err := BuildServer(App{Name: AppName(dir), Dir: dir}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b.App != "demo" {
+		t.Fatalf("bundle app = %q, want %q", b.App, "demo")
+	}
+	if want := `"demo.services.tasks"`; !strings.Contains(b.Code, want) {
+		t.Fatalf("bundle does not register %s", want)
+	}
+	if strings.Contains(b.Code, "ddcore-demo.services") {
+		t.Fatal("bundle registered modules under the directory name")
 	}
 }

@@ -2,7 +2,7 @@
 // a clean database plus `migrate` has to produce a usable site, and the HTTP
 // surface the desk depends on (boot, translations, /app) has to answer.
 //
-// The checks run against the demo app versioned in apps/demo: they
+// The checks run against the fixture app versioned in apps/testapp: they
 // exercise migrate → boot → i18n → demo against a real Postgres and http server,
 // which the TS suite (`ddcore test`) does not reach.
 package acceptance
@@ -57,18 +57,18 @@ func dsnFor(suffix string) (dsn, adminDSN, dbName string) {
 	return dsn, u.String(), dbName
 }
 
-// demoApp points to the versioned repository app, rather than generating an
-// almost equivalent fixture in a temporary directory.
-func demoApp(t *testing.T) js.App {
+// testApp points to the versioned fixture app, rather than generating an
+// almost equivalent one in a temporary directory.
+func testApp(t *testing.T) js.App {
 	t.Helper()
-	dir, err := filepath.Abs(filepath.Join("..", "..", "apps", "demo"))
+	dir, err := filepath.Abs(filepath.Join("..", "..", "apps", "testapp"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "ddcore.app.ts")); err != nil {
-		t.Fatalf("demo app not found at %s: %v", dir, err)
+		t.Fatalf("fixture app not found at %s: %v", dir, err)
 	}
-	return js.App{Name: "demo", Dir: dir}
+	return js.App{Name: js.AppName(dir), Dir: dir}
 }
 
 // setup recreates the database, boots an engine with the checked-in example
@@ -93,7 +93,7 @@ func setup(t *testing.T, suffix string, extra ...js.App) *engine.Engine {
 	}
 	admin.DB.Close()
 
-	apps := append([]js.App{demoApp(t)}, extra...)
+	apps := append([]js.App{testApp(t)}, extra...)
 	e, err := engine.New(ctx, engine.Config{DSN: dsn, Apps: apps, SiteName: "ddcore", Lang: "pt-BR", Currency: "BRL"})
 	if err != nil {
 		t.Fatal(err)
@@ -168,20 +168,20 @@ func TestInstalacao(t *testing.T) {
 		}
 		for _, role := range []string{"Project Manager", "Project Contributor"} {
 			if !exists("Role", role) {
-				t.Errorf("demo app role %q was not created", role)
+				t.Errorf("fixture app role %q was not created", role)
 			}
 		}
-		// the demo app does not create business data on install; what must
+		// the fixture app does not create business data on install; what must
 		// exist is its meta, migrated to the new database
 		for _, doctype := range []string{"Project", "Task", "Project Milestone"} {
 			if _, err := c.St.DocType(doctype); err != nil {
-				t.Errorf("demo app DocType %q missing after migrate: %v", doctype, err)
+				t.Errorf("fixture app DocType %q missing after migrate: %v", doctype, err)
 			}
 		}
 		if n, err := c.Count("Project", nil); err != nil {
 			t.Errorf("count Project: %v", err)
 		} else if n != 0 {
-			t.Errorf("installation created %d Project(s); demo app only seeds via `ddcore demo`", n)
+			t.Errorf("installation created %d Project(s); fixture app only seeds via `ddcore demo`", n)
 		}
 		return nil
 	})
@@ -209,12 +209,12 @@ func TestBootHome(t *testing.T) {
 	home := ""
 	for _, a := range boot["apps"].([]any) {
 		app := a.(map[string]any)
-		if app["name"] != "demo" {
+		if app["name"] != "testapp" {
 			continue
 		}
 		d, ok := app["desk"].(map[string]any)
 		if !ok {
-			t.Fatalf("demo app has no desk block in boot: %#v", app["desk"])
+			t.Fatalf("fixture app has no desk block in boot: %#v", app["desk"])
 		}
 		home, _ = d["home"].(string)
 	}
@@ -307,9 +307,9 @@ func TestTraducoes(t *testing.T) {
 		t.Errorf("precedence: Save = %v, expected \"Gravar\" (app value)", got)
 	}
 
-	// 4. demo app catalog is included
+	// 4. fixture app catalog is included
 	if got := data["Start"]; got != "Iniciar" {
-		t.Errorf("demo app key Start = %v, expected \"Iniciar\"", got)
+		t.Errorf("fixture app key Start = %v, expected \"Iniciar\"", got)
 	}
 
 	// the same catalog feeds the server's _()
@@ -400,7 +400,7 @@ func TestDeskIndex(t *testing.T) {
 // ------------------------------------------------------------------- demo
 
 // TestDemo: `ddcore demo` is the first-run shortcut and must be able to run
-// twice without duplicating anything — as promised by the demo app.
+// twice without duplicating anything — as promised by the seed service.
 func TestDemo(t *testing.T) {
 	e := setup(t, "_demo")
 	ctx := context.Background()
@@ -434,7 +434,7 @@ func TestDemo(t *testing.T) {
 
 // --------------------------------------------------------------- extensions
 
-// extensaoApp extends demo's Task from another app: a Custom Field,
+// extensaoApp extends the fixture app's Task from another app: a Custom Field,
 // a property setter, and a form script for a DocType that is not its own.
 func extensaoApp(t *testing.T) js.App {
 	t.Helper()
@@ -449,7 +449,7 @@ func extensaoApp(t *testing.T) js.App {
 		}
 	}
 	w("ddcore.app.ts", `import { defineApp } from "@ddcore/sdk";
-export default defineApp({ name: "extras", title: "Extras", requires: ["demo"] });`)
+export default defineApp({ name: "extras", title: "Extras", requires: ["testapp"] });`)
 	w("extensions/task.extend.ts", `import { extendDoctype } from "@ddcore/sdk";
 export default extendDoctype("Task", {
   fields: [{ fieldname: "cost_centre", fieldtype: "Data", label: "Cost centre", insertAfter: "title" }],
@@ -498,11 +498,11 @@ func TestExtensao(t *testing.T) {
 
 	// both form scripts are declared, owner's first
 	apps, _ := doctype["formApps"].([]any)
-	if len(apps) != 2 || apps[0] != "demo" || apps[1] != "extras" {
+	if len(apps) != 2 || apps[0] != "testapp" || apps[1] != "extras" {
 		t.Fatalf("formApps = %v", apps)
 	}
 	// and both are actually served
-	for _, app := range []string{"demo", "extras"} {
+	for _, app := range []string{"testapp", "extras"} {
 		req, _ := http.NewRequest("GET", srv.URL+"/assets/apps/"+app+"/forms/task.js", nil)
 		req.Header.Set("Authorization", "token "+tok)
 		res, err := srv.Client().Do(req)
@@ -554,7 +554,7 @@ func fieldOf(fields []any, name string) map[string]any {
 
 func runDemo(t *testing.T, e *engine.Engine, ctx context.Context) map[string]any {
 	t.Helper()
-	raw, err := e.RunJob(ctx, "Administrator", "demo.services.demo.generate", nil)
+	raw, err := e.RunJob(ctx, "Administrator", "testapp.services.demo.generate", nil)
 	if err != nil {
 		t.Fatalf("run the demo: %v", err)
 	}

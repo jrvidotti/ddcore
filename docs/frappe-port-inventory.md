@@ -54,7 +54,7 @@ There are differences between the historical document and the current checkout:
 
 | In Plan / History | Current Evidence | Roadmap Consequence |
 |---|---|---|
-| Example app deferred | [apps/demo](../apps/demo) and [DEVELOPMENT.md](../DEVELOPMENT.md) | Use demo as reference; validate domain logic in external apps. |
+| Example app deferred | [ddcore-demo](https://github.com/jrvidotti/ddcore-demo) and [DEVELOPMENT.md](../DEVELOPMENT.md) | Use ddcore-demo as reference; validate domain logic in external apps. |
 | `internal/doc`, `internal/perm`, `internal/jobs` | Responsibilities concentrated in [internal/engine](../internal/engine) | Plan modifications based on the actual structure. |
 | Slimmer hooks and installation | `beforeInsert`, `onUpdateAfterSubmit`, fixtures, and `afterMigrate` in [SDK](../packages/sdk/src/types.ts) | Only map missing hooks or those with differing semantics. |
 | Old review with defects | Regression tests in [fixes_test.go](../internal/engine/fixes_test.go), [perm_test.go](../internal/engine/perm_test.go), and [acceptance_test.go](../internal/acceptance/acceptance_test.go) | The checklist in [check-v1-resolucao.md](check-v1-resolucao.md) remains "pending"; needs updating by evidence, without treating every historical finding as an active bug. |
@@ -334,9 +334,9 @@ Results obtained during this analysis:
 | `make test-desk`, executed separately | Passed: 79 tests across 10 files. |
 
 The two demo test failures were discrepancies between the test string assertion and
-the returned error: [project.test.ts](../apps/demo/doctypes/project/project.test.ts)
+the returned error: [project.test.ts](https://github.com/jrvidotti/ddcore-demo/blob/main/doctypes/project/project.test.ts)
 expected `final`, while the controller returns `The end date cannot be earlier than
-the start date.`; [task.test.ts](../apps/demo/doctypes/task/task.test.ts) expected
+the start date.`; [task.test.ts](https://github.com/jrvidotti/ddcore-demo/blob/main/doctypes/task/task.test.ts) expected
 `limite`, while receiving `The due date cannot be earlier than the project start (…)`.
 Validations correctly rejected invalid dates; string matching failed.
 These were pre-existing test files, with no modifications in this documentation release. Aligning

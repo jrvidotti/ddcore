@@ -1,0 +1,42 @@
+Actions,Ações
+Assignee,Responsável
+Code,Código
+Complete,Concluir
+Completed,Concluída
+Completed at,Concluída em
+Completed on,Concluído em
+Description,Descrição
+Due date,Data limite
+End date,Data final
+High,Alta
+In progress,Em andamento
+Invalid dates,Datas inválidas
+Invalid due date,Prazo inválido
+Invalid milestone,Marco inválido
+Low,Baixa
+Medium,Média
+Milestone {0} cannot be completed before the project starts.,O marco {0} não pode ser concluído antes do início do projeto.
+Milestones,Marcos
+Open,Aberta
+Open Tasks,Tarefas Abertas
+Overdue,Atrasada
+Overview,Visão Geral
+Planned,Planejado
+Planning,Planejamento
+Priority,Prioridade
+Progress,Progresso
+Project,Projeto
+Project Milestone,Marco Projeto
+Projects,Projetos
+Reopen,Reabrir
+Start,Iniciar
+Start date,Data de início
+Status,Status
+Task,Tarefa
+Tasks,Tarefas
+Tasks by Status,Tarefas por Status
+Test App: Projects,App de Teste: Projetos
+The due date cannot be earlier than the project start ({0}).,A data limite não pode ser anterior ao início do projeto ({0}).
+The end date cannot be earlier than the start date.,A data final não pode ser anterior à data de início.
+Title,Título
+Tracking,Acompanhamento
