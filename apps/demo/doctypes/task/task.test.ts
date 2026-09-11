@@ -33,7 +33,7 @@ describe("Task", () => {
 
   it("rejects a due date before the project start", () => {
     const p = makeProject({ start_date: u().today() });
-    expect(() => makeTask(p.name, { due_date: u().addDays(u().today(), -1) })).toThrow("limite");
+    expect(() => makeTask(p.name, { due_date: u().addDays(u().today(), -1) })).toThrow("due date cannot be earlier");
   });
 
   it("start is idempotent", () => {

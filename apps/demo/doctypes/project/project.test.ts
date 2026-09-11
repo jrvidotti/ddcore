@@ -28,7 +28,7 @@ describe("Project", () => {
   it("rejects an end date before the start", () => {
     expect(() =>
       makeProject({ start_date: u().addDays(u().today(), 1), end_date: u().today() })
-    ).toThrow("final");
+    ).toThrow("end date cannot be earlier");
   });
 
   it("accepts an end date equal to the start", () => {
