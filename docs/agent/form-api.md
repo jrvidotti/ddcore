@@ -27,8 +27,39 @@ defineForm<Entry>("Entry", {
 `setDfProperty(field, prop, value)` (`hidden`, `readOnly`, `reqd`, `label`, `options`, `cannotAddRows`, `cannotDeleteRows`),
 `setQuery(field, () => ({ filters }))`, `toggleDisplay/toggleReqd/toggleEnable`, `addButton(label, fn, group)`, `removeButton`,
 `setPrimaryAction(label, fn)`, `setInnerGroupAsPrimary(group)`, `addIndicator(label, colour)`, `addChild(table, values)`, `removeChild(table, idx)`,
+`addFieldButton(field, { label, icon, onClick, key })`, `removeFieldButton(field, key?)`,
 `trigger(field)`, `save()`, `submit()`, `cancel()`, `reload()`,
 `call(method, args, { reload })` → calls the controller's `methods.<method>` and reloads the doc.
+
+### Buttons on a field
+
+`addButton` is an action on the **document** and belongs in the toolbar. An action on a single
+**field** — look this code up, pick one of the e-mails the query returned — reads right only next
+to the input it fills, and that is `addFieldButton`:
+
+```ts
+frm.addFieldButton("email", {
+  label: __("{0} e-mail(s) found", [emails.length]),
+  onClick: () => pick("email", emails),
+});
+frm.addFieldButton("phone", { icon: "search", label: __("Look up"), onClick: () => lookup() });
+frm.removeFieldButton("email");
+```
+
+The button is rendered by the desk inside the field's control, after the input, so:
+
+- the label is **text**, escaped by the desk — an app never writes HTML and never writes an `esc()`;
+- `icon` (a name from the desk's icon set) renders the button icon-only, with `label` as its tooltip
+  and accessible name; without `icon` the label is the button's text;
+- the field's own `hidden` and `dependsOn` decide whether the button is on screen, and a field the
+  reader cannot see carries no button;
+- `key` is the button's identity within the field. A second `addFieldButton` with the same key
+  **replaces** it, which is what lets a label carrying a count be refreshed after each lookup;
+  omit it and the field holds one button. `removeFieldButton(field, key)` removes that one,
+  `removeFieldButton(field)` removes every button on the field.
+
+Field buttons are cleared by the same `clearButtons()` that empties the toolbar at the start of
+every `refresh` — declare in `refresh` whatever must survive a save or a reload.
 
 ## `ddcore` in the desk
 

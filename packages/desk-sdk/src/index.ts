@@ -3,6 +3,22 @@
 // implemented in desk/src/lib/desk-sdk.ts.
 import type { BaseDoc, FieldDef, Filters } from "@ddcore/sdk";
 
+/**
+ * A button rendered inside a field's control, beside its input — an action on
+ * *this field*, where `addButton` puts an action on the document. The desk owns
+ * the markup, so the label is escaped for you and the field's own
+ * `hidden`/`dependsOn` decide whether the button is on screen at all.
+ */
+export interface FieldButton {
+  /** visible text, or the accessible name and tooltip when `icon` is set */
+  label: string;
+  /** an icon name: renders the button icon-only, with `label` as its tooltip */
+  icon?: string;
+  onClick: () => any;
+  /** identity within the field; a second call with the same key replaces the button */
+  key?: string;
+}
+
 export interface Frm<T extends BaseDoc = BaseDoc> {
   doc: T;
   doctype: string;
@@ -23,6 +39,10 @@ export interface Frm<T extends BaseDoc = BaseDoc> {
   toggleEnable(fieldname: string, enable: boolean): void;
   addButton(label: string, action: () => any, group?: string): this;
   removeButton(label: string): void;
+  /** attaches a button to a field's control; adding twice with the same `key` replaces it */
+  addFieldButton(fieldname: string, button: FieldButton): this;
+  /** removes one button by `key`, or every button on the field when no key is given */
+  removeFieldButton(fieldname: string, key?: string): void;
   setPrimaryAction(label: string, action: () => any): void;
   setInnerGroupAsPrimary(group: string): void;
   addIndicator(label: string, color?: string): void;

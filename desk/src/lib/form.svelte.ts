@@ -56,12 +56,28 @@ export const snake = (s: string) =>
 
 export interface Button { label: string; group?: string; action: () => any; primary?: boolean }
 
+/**
+ * A button rendered inside a field's control, beside the input. The desk owns
+ * the markup, so the label is escaped and the field's own `hidden`/`dependsOn`
+ * decide whether the button shows at all.
+ */
+export interface FieldButton {
+  /** visible text, or the accessible name and tooltip when `icon` is set */
+  label: string;
+  /** an Icon name: renders the button icon-only, with `label` as its tooltip */
+  icon?: string;
+  onClick: () => any;
+  /** identity within the field; a second call with the same key replaces the button */
+  key?: string;
+}
+
 export class FormController {
   doc = $state<any>({});
   original = "";
   meta: Meta;
   doctype: string;
   buttons = $state<Button[]>([]);
+  fieldButtons = $state<Record<string, FieldButton[]>>({});
   primaryAction = $state<{ label: string; action: () => any } | null>(null);
   indicators = $state<{ label: string; color: string }[]>([]);
   dfProps = $state<Record<string, Partial<Field>>>({});
@@ -181,7 +197,29 @@ export class FormController {
     return this;
   }
   removeButton(label: string) { this.buttons = this.buttons.filter((b) => b.label !== label); }
-  clearButtons() { this.buttons = []; this.indicators = []; }
+  clearButtons() { this.buttons = []; this.indicators = []; this.clearFieldButtons(); }
+
+  /**
+   * Attaches a button to a field's control. Adding twice for the same field and
+   * `key` replaces the button, so a label carrying a count can be refreshed.
+   */
+  addFieldButton(fieldname: string, button: FieldButton) {
+    const key = button.key || "";
+    const list = [...(this.fieldButtons[fieldname] || [])];
+    const i = list.findIndex((b) => (b.key || "") === key);
+    if (i >= 0) list[i] = { ...button };
+    else list.push({ ...button });
+    this.fieldButtons[fieldname] = list;
+    return this;
+  }
+  /** Removes one button by `key`, or every button on the field when no key is given. */
+  removeFieldButton(fieldname: string, key?: string) {
+    if (key === undefined) { delete this.fieldButtons[fieldname]; return; }
+    const list = (this.fieldButtons[fieldname] || []).filter((b) => (b.key || "") !== key);
+    if (list.length) this.fieldButtons[fieldname] = list;
+    else delete this.fieldButtons[fieldname];
+  }
+  clearFieldButtons() { this.fieldButtons = {}; }
   setPrimaryAction(label: string, action: () => any) { this.primaryAction = { label, action }; }
   setInnerGroupAsPrimary(group: string) { this.buttons = this.buttons.map((b) => (b.group === group ? { ...b, primary: true } : b)); }
   addIndicator(label: string, color = "blue") { this.indicators.push({ label, color }); }
