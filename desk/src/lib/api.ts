@@ -94,6 +94,7 @@ export const api = {
   list: (doctype: string, params: { filters?: any; or_filters?: any; fields?: string[]; order_by?: string; limit?: number; start?: number; with_count?: boolean; group_by?: string } = {}) =>
     request("GET", `/api/resource/${encodeURIComponent(doctype)}` + q(params as any)),
   count: (doctype: string, filters?: any, or_filters?: any) => request<number>("GET", `/api/count/${encodeURIComponent(doctype)}` + q({ filters, or_filters })),
+  getSingle: (doctype: string) => request("GET", `/api/resource/${encodeURIComponent(doctype)}/singleton`),
   getDoc: (doctype: string, name: string) => request("GET", `/api/resource/${encodeURIComponent(doctype)}/${encodeURIComponent(name)}`),
   insert: (doctype: string, doc: any) => request("POST", `/api/resource/${encodeURIComponent(doctype)}`, doc),
   update: (doctype: string, name: string, doc: any) => request("PUT", `/api/resource/${encodeURIComponent(doctype)}/${encodeURIComponent(name)}`, doc),

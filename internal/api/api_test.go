@@ -47,6 +47,11 @@ func testApp(t *testing.T) string {
 	}
 	w("ddcore.app.ts", `import { defineApp } from "@ddcore/sdk";
 export default defineApp({ name: "demo", title: "Demo", roles: ["Gestor"] });`)
+	w("doctypes/settings/settings.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
+export default defineDoctype({name: "Settings", isSingle: true, fields: [
+ {fieldname:"enabled", fieldtype:"Check", label:"Enabled", default:true},
+ {fieldname:"secret", fieldtype:"Password", label:"Secret"}
+], permissions:[{role:"Gestor", read:true, write:true}]});`)
 	w("doctypes/pessoa/pessoa.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
 export default defineDoctype({ name: "Pessoa", naming: { field: "nome" }, titleField: "nome", trackChanges: true,
   fields: [

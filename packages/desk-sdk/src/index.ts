@@ -80,6 +80,7 @@ export interface DeskAPI {
     getValue(doctype: string, name: string | Record<string, any>, fields: string[]): Promise<Record<string, any> | null>;
     getList(doctype: string, args?: { filters?: Filters; fields?: string[]; orderBy?: string; limit?: number; start?: number }): Promise<any[]>;
     count(doctype: string, filters?: Filters): Promise<number>;
+    getSingle(doctype: string): Promise<any>;
     getDoc(doctype: string, name: string): Promise<any>;
     setValue(doctype: string, name: string, values: Record<string, any>): Promise<any>;
     insert(doc: Record<string, any> & { doctype: string }): Promise<any>;

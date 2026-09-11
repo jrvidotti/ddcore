@@ -50,7 +50,7 @@
         const f = await createForm(doctype, name, initial);
         if (!alive) return; // navigated away while loading
         frm = f;
-        if (f.isNew) {
+        if (f.isNew && !f.isSingle) {
           for (const [k, v] of page.url.searchParams) if (f.field(k)) f.doc[k] = v;
         }
       } catch (e: any) { if (alive) error = e.message; }
@@ -104,7 +104,7 @@
   });
   const title = $derived(
     frm
-      ? frm.isNew
+      ? frm.isSingle ? frm.meta.doctype.label : frm.isNew
         ? frm.doc.name?.trim() || __("New {0}", [frm.meta.doctype.label])
         : (frm.meta.doctype.titleField && frm.doc[frm.meta.doctype.titleField]) || frm.doc.name
       : ""
@@ -228,9 +228,9 @@
           {#if menuOpen}
             <div class="menu" role="menu" tabindex="-1">
               <button onclick={() => { menuOpen = false; frm?.reload(); }}>{__("Reload")}</button>
-              {#if frm.perm.create}<button onclick={() => { menuOpen = false; duplicate(); }}>{__("Duplicate")}</button>{/if}
+              {#if !frm.isSingle && frm.perm.create}<button onclick={() => { menuOpen = false; duplicate(); }}>{__("Duplicate")}</button>{/if}
               {#if frm.meta.doctype.allowRename && frm.perm.write && frm.docstatus === 0}<button onclick={() => { menuOpen = false; rename(); }}>{__("Rename")}</button>{/if}
-              {#if frm.perm.delete && frm.docstatus !== 1}<button class="danger" style="color:var(--red)" onclick={() => { menuOpen = false; remove(); }}>{__("Delete")}</button>{/if}
+              {#if !frm.isSingle && frm.perm.delete && frm.docstatus !== 1}<button class="danger" style="color:var(--red)" onclick={() => { menuOpen = false; remove(); }}>{__("Delete")}</button>{/if}
               <button onclick={() => { menuOpen = false; openShortcutsHelp(); }} style="display:flex;align-items:center;justify-content:space-between">
                 <span>{__("Keyboard shortcuts")}</span>
                 <kbd class="kbd">?</kbd>
@@ -254,7 +254,7 @@
         {:else if frm.perm.amend}
           <button class="btn primary" onclick={() => frm?.amend()}>{__("Amend")}</button>
         {/if}
-      {:else if frm.perm.write || (frm.isNew && frm.perm.create)}
+      {:else if frm.perm.write || (!frm.isSingle && frm.isNew && frm.perm.create)}
         <button class="btn primary" disabled={frm.saving || (!frm.isDirty && !frm.isNew)} onclick={() => frm?.save()} title="{__('Save')} ({modKey}+S)">{__("Save")}<kbd class="btn-kbd">{modKey}S</kbd></button>
       {/if}
     </div>

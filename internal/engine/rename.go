@@ -33,9 +33,6 @@ func (c *Ctx) docTypeRefColumns() [][2]string {
 		}
 	}
 	for _, d := range c.St.Meta.DocTypes {
-		if d.IsSingle {
-			continue
-		}
 		t := d.TableName()
 		if d.IsChild {
 			add(t, "parenttype")

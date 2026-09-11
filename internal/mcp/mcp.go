@@ -89,7 +89,7 @@ func New(e *engine.Engine) *mcp.Server {
 	})
 
 	// ---- meta
-	mcp.AddTool(srv, &mcp.Tool{Name: "list_doctypes", Description: "Lists all loaded DocTypes (name, app, label, isChild, submittable, file)."},
+	mcp.AddTool(srv, &mcp.Tool{Name: "list_doctypes", Description: "Lists all loaded DocTypes (name, app, label, isChild, isSingle, submittable, file)."},
 		func(ctx context.Context, req *mcp.CallToolRequest, in struct {
 			App string `json:"app,omitempty" jsonschema:"filter by app"`
 		}) (*mcp.CallToolResult, any, error) {
@@ -99,7 +99,7 @@ func New(e *engine.Engine) *mcp.Server {
 				if in.App != "" && d.App != in.App {
 					continue
 				}
-				out = append(out, map[string]any{"name": n, "app": d.App, "label": d.Label, "isChild": d.IsChild, "submittable": d.Submittable, "fields": len(d.Fields), "file": d.SourceFile})
+				out = append(out, map[string]any{"name": n, "app": d.App, "label": d.Label, "isChild": d.IsChild, "isSingle": d.IsSingle, "submittable": d.Submittable, "fields": len(d.Fields), "file": d.SourceFile})
 			}
 			return text(out), nil, nil
 		})

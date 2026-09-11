@@ -238,3 +238,14 @@ non-empty one is refused, with the column named and two ways forward: declare th
 or drop it yourself in a `beforeSchema` patch. `ddcore doctor` lists the orphans either way.
 
 `ddcore dev --auto-migrate` never prunes.
+
+## Single DocTypes
+
+`isSingle: true` creates a normal table with a fixed `singleton` primary key and a
+CHECK constraint on identity and draft status. Field additions, declared field
+renames, conversions, child tables and declared DocType renames use the normal
+migration machinery. A DocType rename keeps the document identity `singleton`.
+
+Switching an existing table between regular and Single metadata is refused. Plan
+an explicit data migration instead; the framework never chooses a settings record
+from existing rows or silently discards records. Migration remains idempotent.

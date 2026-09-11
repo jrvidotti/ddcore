@@ -31,6 +31,7 @@ export const deskSDK = {
       },
       getList: (doctype: string, args: any = {}) => api.list(doctype, { filters: args.filters, fields: args.fields, order_by: args.orderBy, limit: args.limit, start: args.start }),
       count: (doctype: string, filters?: any) => api.count(doctype, filters),
+      getSingle: (doctype: string) => api.getSingle(doctype),
       getDoc: (doctype: string, name: string) => api.getDoc(doctype, name),
       setValue: (doctype: string, name: string, values: any) => api.update(doctype, name, values),
       insert: (doc: any) => api.insert(doc.doctype, doc),

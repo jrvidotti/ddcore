@@ -30,6 +30,7 @@ export interface DDCoreDB {
 export interface DDCoreAPI {
   db: DDCoreDB;
   session: Context;
+  /** For Single DocTypes, omit the name to load settings (defaults before the first save). */
   getDoc<T extends BaseDoc = BaseDoc>(doctype: string, name?: string | Filters): T & Document<T>;
   newDoc<T extends BaseDoc = BaseDoc>(doctype: string, values?: Partial<T>): T & Document<T>;
   deleteDoc(doctype: string, name: string, opts?: { ignorePermissions?: boolean; force?: boolean }): void;

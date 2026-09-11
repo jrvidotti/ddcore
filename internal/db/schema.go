@@ -102,6 +102,9 @@ func createTable(d *meta.DocType) string {
 		}
 		defs = append(defs, def)
 	}
+	if d.IsSingle {
+		defs = append(defs, "CONSTRAINT ddcore_single_identity CHECK (name = 'singleton' AND docstatus = 0)")
+	}
 	return fmt.Sprintf("CREATE TABLE %s (\n  %s\n);", Ident(d.TableName()), strings.Join(defs, ",\n  "))
 }
 
@@ -345,8 +348,9 @@ func Destructive(sts []Statement) (keep, drop []Statement) {
 // that everything downstream — the column diff, the index diff, prune — sees
 // the post-rename shape and stays idempotent on the next run.
 type catalog struct {
-	cols map[string]map[string]string // table -> column -> type
-	idx  map[string]idxRow            // index name -> the table it is on and its definition
+	singles map[string]bool
+	cols    map[string]map[string]string // table -> column -> type
+	idx     map[string]idxRow            // index name -> the table it is on and its definition
 }
 
 // idxRow keeps the owning table beside the definition. The table matters:
@@ -356,7 +360,7 @@ type catalog struct {
 type idxRow struct{ table, def string }
 
 func loadCatalog(ctx context.Context, q Querier) (*catalog, error) {
-	c := &catalog{cols: map[string]map[string]string{}, idx: map[string]idxRow{}}
+	c := &catalog{singles: map[string]bool{}, cols: map[string]map[string]string{}, idx: map[string]idxRow{}}
 	rows, err := Select(ctx, q, `SELECT table_name, column_name, data_type, character_maximum_length, numeric_precision, numeric_scale
 		FROM information_schema.columns WHERE table_schema = current_schema() AND table_name LIKE 'tab\_%'`)
 	if err != nil {
@@ -384,6 +388,13 @@ func loadCatalog(ctx context.Context, q Querier) (*catalog, error) {
 	}
 	for _, r := range idxRows {
 		c.idx[r["indexname"].(string)] = idxRow{table: Str(r["tablename"]), def: Str(r["indexdef"])}
+	}
+	checks, err := Select(ctx, q, `SELECT rel.relname AS tablename FROM pg_constraint con JOIN pg_class rel ON rel.oid = con.conrelid JOIN pg_namespace ns ON ns.oid = rel.relnamespace WHERE ns.nspname = current_schema() AND con.conname = 'ddcore_single_identity' AND con.contype = 'c'`)
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range checks {
+		c.singles[Str(r["tablename"])] = true
 	}
 	return c, nil
 }
@@ -445,9 +456,6 @@ func planRenames(c *catalog, reg *meta.Registry, names []string) (tables, column
 	renamedCols = map[string]map[string]string{}
 	for _, n := range names {
 		d := reg.DocTypes[n]
-		if d.IsSingle {
-			continue
-		}
 		t := d.TableName()
 		if _, newExists := c.cols[t]; newExists {
 			// The new table is already there: the rename has run. That is
@@ -466,6 +474,8 @@ func planRenames(c *catalog, reg *meta.Registry, names []string) (tables, column
 				SQL:  fmt.Sprintf("ALTER TABLE %s RENAME TO %s;", Ident(ot), Ident(t)),
 				Kind: KindRenameTable, Doctype: d.Name, Table: t, OldName: prev,
 			})
+			c.singles[t] = c.singles[ot]
+			delete(c.singles, ot)
 			c.cols[t] = cols
 			delete(c.cols, ot)
 			// Postgres does not rename a table's indexes with it, and the
@@ -476,9 +486,6 @@ func planRenames(c *catalog, reg *meta.Registry, names []string) (tables, column
 	}
 	for _, n := range names {
 		d := reg.DocTypes[n]
-		if d.IsSingle {
-			continue
-		}
 		t := d.TableName()
 		cols := c.cols[t]
 		if cols == nil {
@@ -627,12 +634,12 @@ func Plan(ctx context.Context, q Querier, reg *meta.Registry, prune bool) ([]Sta
 	wantedTables := map[string]bool{}
 	for _, n := range names {
 		d := reg.DocTypes[n]
-		if d.IsSingle {
-			continue
-		}
 		t := d.TableName()
 		wantedTables[t] = true
 		cols, has := cat.cols[t]
+		if has && cat.singles[t] != d.IsSingle {
+			return nil, fmt.Errorf("%s: changing between Single and regular DocTypes requires an explicit data migration", d.Name)
+		}
 		if !has {
 			add = append(add, Statement{SQL: createTable(d), Kind: KindCreateTable, Doctype: d.Name, Table: t})
 		} else {

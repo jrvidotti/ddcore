@@ -103,3 +103,39 @@ describe("Order", () => {
 ```
 `expect`: toBe, toEqual, toBeTruthy/Falsy, toBeNull, toBeDefined, toContain, toBeGreaterThan(OrEqual), toBeLessThan(OrEqual),
 toBeCloseTo, toHaveLength, toMatch, toThrow(text|regex), `.not`.
+
+## Single DocTypes (settings)
+
+Declare `isSingle: true` for one configuration per DocType and instance. Singles use
+normal typed tables, standard metadata, validation, hooks and child tables, with
+`name: "singleton"` and `docstatus: 0` enforced by PostgreSQL.
+
+```ts
+const settings = ddcore.getDoc("Project Settings");
+settings.planning_enabled = false;
+settings.save();
+settings.reload();
+```
+
+Omitting the name is supported only for Singles. Before the first save, `getDoc`
+returns an unsaved document with the usual defaults and empty child tables; reading
+never inserts a record. Defaults do not overwrite persisted values. Saving requires
+`write`, including the first save; `create` alone does not grant it. Reads require
+`read`, including reads of defaults. Explicit privileged contexts keep their usual
+meaning. Owner-only permissions have no owner to match before the first save.
+
+The first save runs insert hooks and `onUpdate`; subsequent saves use the update
+lifecycle. Rollback also rolls back settings and children. Two competing first
+saves produce one success and one duplicate conflict. Updates use the ordinary
+`modified` timestamp conflict check; reload before retrying a rejected save.
+
+REST uses `GET` / `PUT /api/resource/{doctype}/singleton`; PUT also performs the
+first save. POST to `/api/resource/{doctype}` inserts only once. Other identities,
+deleting, renaming a record, submitting, cancelling and amending are unsupported.
+Singles cannot declare naming rules, `allowRename`, `submittable`, or `isChild`.
+List/count/database queries see only persisted rows. Export of Singles is not yet
+supported. Password redaction and attachment/history permissions still apply.
+
+Desk opens `/app/{doctype}` directly as a settings form. Browser scripts may use
+`await ddcore.db.getSingle("Project Settings")` and
+`await ddcore.db.setValue("Project Settings", "singleton", values)`.

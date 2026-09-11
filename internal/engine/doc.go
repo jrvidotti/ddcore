@@ -259,6 +259,14 @@ func (c *Ctx) getDoc(doctype, name string, forUpdate bool) (Doc, error) {
 	if err != nil {
 		return nil, err
 	}
+	if d.IsSingle {
+		if name == "" {
+			name = "singleton"
+		}
+		if name != "singleton" {
+			return nil, cerr.Validation("Invalid Single identity for {0}", d.Name)
+		}
+	}
 	if name == "" {
 		return nil, cerr.NotFound("{0}: empty name", doctype)
 	}
@@ -271,6 +279,22 @@ func (c *Ctx) getDoc(doctype, name string, forUpdate bool) (Doc, error) {
 		return nil, err
 	}
 	if len(rows) == 0 {
+		if d.IsSingle && !forUpdate {
+			doc, err := c.NewDoc(doctype, nil)
+			if err != nil {
+				return nil, err
+			}
+			if !c.IgnorePermissions() {
+				ok, err := c.HasPermission(doctype, "read", doc)
+				if err != nil {
+					return nil, err
+				}
+				if !ok {
+					return nil, cerr.Permission("No permission to read {0} {1}", c.T(d.Label), name)
+				}
+			}
+			return doc, nil
+		}
 		return nil, cerr.NotFound("{0} {1} not found", c.T(d.Label), name)
 	}
 	doc := Doc(rows[0])
@@ -322,6 +346,12 @@ func (c *Ctx) NewDoc(doctype string, values Doc) (Doc, error) {
 	for k, v := range values {
 		doc[k] = v
 	}
+	if d.IsSingle {
+		if doc.Name() != "" && doc.Name() != "singleton" {
+			return nil, cerr.Validation("Invalid Single identity for {0}", d.Name)
+		}
+		doc["name"] = "singleton"
+	}
 	return doc, nil
 }
 
@@ -359,10 +389,20 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 	if d.IsChild {
 		return nil, cerr.Validation("{0} is a child table", d.Name)
 	}
+	permission := "create"
+	if d.IsSingle {
+		permission = "write"
+		if doc.Name() != "" && doc.Name() != "singleton" {
+			return nil, cerr.Validation("Invalid Single identity for {0}", d.Name)
+		}
+	}
 	if !opts.IgnorePermissions && !c.IgnorePermissions() {
-		if ok, err := c.HasPermission(d.Name, "create", doc); err != nil {
+		if ok, err := c.HasPermission(d.Name, permission, doc); err != nil {
 			return nil, err
 		} else if !ok {
+			if d.IsSingle {
+				return nil, cerr.Permission("No permission ({0}) on {1} {2}", "write", c.T(d.Label), "singleton")
+			}
 			return nil, cerr.Permission("No permission to create {0}", c.T(d.Label))
 		}
 	}
@@ -655,6 +695,17 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 	if err != nil {
 		return modified, err
 	}
+	if d.IsSingle {
+		if name != "singleton" {
+			return modified, cerr.Validation("Invalid Single identity for {0}", d.Name)
+		}
+		if v, ok := values["name"]; ok && v != "singleton" {
+			return modified, cerr.Validation("Invalid Single identity for {0}", d.Name)
+		}
+		if v, ok := values["docstatus"]; ok && toFloat(v) != 0 {
+			return modified, cerr.Validation("Invalid Single identity or status for {0}", d.Name)
+		}
+	}
 	if len(values) == 0 {
 		return modified, nil
 	}
@@ -700,6 +751,9 @@ func (c *Ctx) Delete(doctype, name string, ignorePerms, force bool) error {
 	d, err := c.St.DocType(doctype)
 	if err != nil {
 		return err
+	}
+	if d.IsSingle {
+		return cerr.Validation("Single DocTypes cannot be deleted or renamed")
 	}
 	doc, err := c.GetDocIgnoringPerms(doctype, name)
 	if err != nil {
@@ -752,6 +806,9 @@ func (c *Ctx) Rename(doctype, oldName, newName string) (string, error) {
 	d, err := c.St.DocType(doctype)
 	if err != nil {
 		return "", err
+	}
+	if d.IsSingle {
+		return "", cerr.Validation("Single DocTypes cannot be deleted or renamed")
 	}
 	newName = strings.TrimSpace(newName)
 	if newName == "" || newName == oldName {
@@ -1311,6 +1368,9 @@ func (c *Ctx) checkLinksBeforeDelete(d *meta.DocType, name string) error {
 // ------------------------------------------------------------ write
 
 func (c *Ctx) columnValues(d *meta.DocType, doc Doc) ([]string, []any, error) {
+	if d.IsSingle && (doc.Name() != "singleton" || doc.Docstatus() != 0) {
+		return nil, nil, cerr.Validation("Invalid Single identity or status for {0}", d.Name)
+	}
 	var cols []string
 	var vals []any
 	add := func(k string, v any) { cols = append(cols, db.Ident(k)); vals = append(vals, v) }

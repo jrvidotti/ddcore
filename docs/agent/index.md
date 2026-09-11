@@ -32,6 +32,7 @@ Available documents (also as MCP resources `ddcore://docs/<name>`):
 
 ## Mental model
 
+- Single DocTypes (`isSingle`) expose one settings document with a fixed `singleton` identity; see `controller-api`.
 - One DocType = one table `tab_<snake_case>`; child tables (`isChild`) have `parent`, `parenttype`, `parentfield`, `idx`.
 - Standard columns: `name` (PK, text), `owner`, `creation`, `modified`, `modified_by`, `docstatus` (0 draft, 1 submitted, 2 cancelled).
 - Lifecycle: `beforeValidate → validate → beforeSave → (insert|update) → afterInsert/onUpdate`; `beforeSubmit → onSubmit`; `beforeCancel → onCancel`; `onTrash → afterDelete`.
