@@ -18,7 +18,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/engine"
 	"github.com/jrvidotti/ddcore/internal/meta"
@@ -36,7 +35,7 @@ func (s *Server) exportMaxRows() int {
 }
 
 func (s *Server) export(w http.ResponseWriter, r *http.Request) {
-	doctype := chi.URLParam(r, "doctype")
+	doctype := urlParam(r, "doctype")
 	q := r.URL.Query()
 
 	format := q.Get("format")

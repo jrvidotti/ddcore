@@ -542,6 +542,28 @@ func TestLacuna_APIKeyDeUsuarioDesativado(t *testing.T) {
 	x.expect(x.mcpCall("token:"+x.apiKey("root@x.com")), 200, "")
 }
 
+// Nome com caractere escapado na URL: o chi roteia pelo RawPath quando o
+// caminho traz um escape que o Go não produziria sozinho (o "@" de um e-mail
+// vira %40), e o parâmetro chega ainda codificado. Todo parâmetro de rota tem
+// de ser decodificado antes de virar nome de documento.
+func TestLacuna_ParametroDeRotaPercentCodificado(t *testing.T) {
+	x := setup(t)
+	admin := "sid:" + x.sid("Administrator")
+	for _, p := range []string{
+		"/api/resource/User/ana%40x.com",
+		"/api/comments/User/ana%40x.com",
+		"/api/versions/User/ana%40x.com",
+	} {
+		if r := x.call("GET", p, nil, admin); r.Status != 200 {
+			t.Fatalf("%s: esperava 200, veio %d %s", p, r.Status, r.Raw)
+		}
+	}
+	// e o escape que o Go também produziria (o espaço) continua funcionando
+	if r := x.call("GET", "/api/meta/Has%20Role", nil, admin); r.Status != 200 {
+		t.Fatalf("meta de doctype com espaço: %d %s", r.Status, r.Raw)
+	}
+}
+
 // upload envia um arquivo e devolve a resposta.
 func (x *env) upload(auth, filename, content string) resp {
 	x.t.Helper()

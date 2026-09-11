@@ -11,6 +11,7 @@ import (
 	"io"
 	"io/fs"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -87,6 +88,20 @@ func New(e *engine.Engine, desk fs.FS) *Server {
 }
 
 // ------------------------------------------------------------------ helpers
+
+// urlParam reads a route parameter already percent-decoded. chi routes on
+// r.URL.RawPath whenever the request escapes a byte Go itself would have left
+// literal in a path — an e-mail's "@" arrives as %40 — and the value it hands
+// back is then still encoded. A name that reaches the engine encoded finds no
+// document, so the decoding belongs here, at the single door every handler
+// goes through.
+func urlParam(r *http.Request, key string) string {
+	v := chi.URLParam(r, key)
+	if dec, err := url.PathUnescape(v); err == nil {
+		return dec
+	}
+	return v
+}
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -418,7 +433,7 @@ func orStr(v any, d string) string {
 
 func (s *Server) getMeta(w http.ResponseWriter, r *http.Request) {
 	s.runCached(w, r, func(c *engine.Ctx) (any, error) {
-		d, err := s.E.DocType(chi.URLParam(r, "doctype"))
+		d, err := s.E.DocType(urlParam(r, "doctype"))
 		if err != nil {
 			return nil, err
 		}
@@ -486,7 +501,7 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request) {
 				fields = append(fields, fmt.Sprint(f))
 			}
 		}
-		if err := s.referenceGuard(c, chi.URLParam(r, "doctype"), filters); err != nil {
+		if err := s.referenceGuard(c, urlParam(r, "doctype"), filters); err != nil {
 			return nil, err
 		}
 		limit, _ := strconv.Atoi(q.Get("limit"))
@@ -494,7 +509,7 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request) {
 			limit = 20
 		}
 		start, _ := strconv.Atoi(q.Get("start"))
-		rows, err := c.GetList(chi.URLParam(r, "doctype"), engine.ListArgs{Filters: filters, OrFilters: orFilters, Fields: fields, OrderBy: q.Get("order_by"), Limit: limit, Start: start, GroupBy: q.Get("group_by")})
+		rows, err := c.GetList(urlParam(r, "doctype"), engine.ListArgs{Filters: filters, OrFilters: orFilters, Fields: fields, OrderBy: q.Get("order_by"), Limit: limit, Start: start, GroupBy: q.Get("group_by")})
 		if err != nil {
 			return nil, err
 		}
@@ -502,9 +517,9 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request) {
 		for _, r := range rows {
 			docs = append(docs, engine.Doc(r))
 		}
-		titles := c.ResolveLinkTitles(chi.URLParam(r, "doctype"), docs...)
+		titles := c.ResolveLinkTitles(urlParam(r, "doctype"), docs...)
 		if q.Get("with_count") != "" {
-			n, err := c.Count(chi.URLParam(r, "doctype"), filters, orFilters)
+			n, err := c.Count(urlParam(r, "doctype"), filters, orFilters)
 			if err != nil {
 				return nil, err
 			}
@@ -527,20 +542,20 @@ func (s *Server) count(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, err
 		}
-		if err := s.referenceGuard(c, chi.URLParam(r, "doctype"), filters); err != nil {
+		if err := s.referenceGuard(c, urlParam(r, "doctype"), filters); err != nil {
 			return nil, err
 		}
-		return c.Count(chi.URLParam(r, "doctype"), filters, orFilters)
+		return c.Count(urlParam(r, "doctype"), filters, orFilters)
 	})
 }
 
 func (s *Server) get(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
-		doc, err := c.GetDoc(chi.URLParam(r, "doctype"), chi.URLParam(r, "name"))
+		doc, err := c.GetDoc(urlParam(r, "doctype"), urlParam(r, "name"))
 		if err != nil {
 			return nil, err
 		}
-		c.ResolveLinkTitles(chi.URLParam(r, "doctype"), doc)
+		c.ResolveLinkTitles(urlParam(r, "doctype"), doc)
 		return doc, nil
 	})
 }
@@ -565,7 +580,7 @@ func (s *Server) create(w http.ResponseWriter, r *http.Request) {
 		if err := readJSON(r, &body); err != nil {
 			return nil, err
 		}
-		dt := chi.URLParam(r, "doctype")
+		dt := urlParam(r, "doctype")
 		if err := s.childGuard(dt); err != nil {
 			return nil, err
 		}
@@ -583,7 +598,7 @@ func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 		if err := readJSON(r, &body); err != nil {
 			return nil, err
 		}
-		dt, name := chi.URLParam(r, "doctype"), chi.URLParam(r, "name")
+		dt, name := urlParam(r, "doctype"), urlParam(r, "name")
 		if err := s.childGuard(dt); err != nil {
 			return nil, err
 		}
@@ -603,17 +618,17 @@ func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) remove(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
-		if err := s.childGuard(chi.URLParam(r, "doctype")); err != nil {
+		if err := s.childGuard(urlParam(r, "doctype")); err != nil {
 			return nil, err
 		}
-		return map[string]any{"ok": true}, c.Delete(chi.URLParam(r, "doctype"), chi.URLParam(r, "name"), false, false)
+		return map[string]any{"ok": true}, c.Delete(urlParam(r, "doctype"), urlParam(r, "name"), false, false)
 	})
 }
 
 // docMethod: submit, cancel, amend, rename or a controller method.
 func (s *Server) docMethod(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
-		dt, name, m := chi.URLParam(r, "doctype"), chi.URLParam(r, "name"), chi.URLParam(r, "method")
+		dt, name, m := urlParam(r, "doctype"), urlParam(r, "name"), urlParam(r, "method")
 		if err := s.childGuard(dt); err != nil {
 			return nil, err
 		}
@@ -688,7 +703,7 @@ func contains(list []string, s string) bool {
 
 // method calls a whitelisted function: app.dir.file.fn
 func (s *Server) method(w http.ResponseWriter, r *http.Request) {
-	path := chi.URLParam(r, "path")
+	path := urlParam(r, "path")
 	opts, ok := s.E.Whitelisted(path)
 	if !ok {
 		s.writeErr(w, r, cerr.NotFound("Method {0} does not exist or is not whitelisted", path))
@@ -839,19 +854,19 @@ func (s *Server) referenceGuard(c *engine.Ctx, doctype string, filters any) erro
 
 func (s *Server) comments(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
-		if err := s.requireDocRead(c, chi.URLParam(r, "doctype"), chi.URLParam(r, "name")); err != nil {
+		if err := s.requireDocRead(c, urlParam(r, "doctype"), urlParam(r, "name")); err != nil {
 			return nil, err
 		}
-		return c.GetList("Comment", engine.ListArgs{Filters: map[string]any{"reference_doctype": chi.URLParam(r, "doctype"), "reference_name": chi.URLParam(r, "name")}, Fields: []string{"name", "owner", "creation", "content", "comment_type"}, OrderBy: "creation asc", Limit: 200})
+		return c.GetList("Comment", engine.ListArgs{Filters: map[string]any{"reference_doctype": urlParam(r, "doctype"), "reference_name": urlParam(r, "name")}, Fields: []string{"name", "owner", "creation", "content", "comment_type"}, OrderBy: "creation asc", Limit: 200})
 	})
 }
 
 func (s *Server) versions(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
-		if err := s.requireDocRead(c, chi.URLParam(r, "doctype"), chi.URLParam(r, "name")); err != nil {
+		if err := s.requireDocRead(c, urlParam(r, "doctype"), urlParam(r, "name")); err != nil {
 			return nil, err
 		}
-		return c.GetList("Version", engine.ListArgs{Filters: map[string]any{"ref_doctype": chi.URLParam(r, "doctype"), "docname": chi.URLParam(r, "name")}, Fields: []string{"name", "owner", "creation", "data"}, OrderBy: "creation desc", Limit: 50})
+		return c.GetList("Version", engine.ListArgs{Filters: map[string]any{"ref_doctype": urlParam(r, "doctype"), "docname": urlParam(r, "name")}, Fields: []string{"name", "owner", "creation", "data"}, OrderBy: "creation desc", Limit: 50})
 	})
 }
 
@@ -859,7 +874,7 @@ func (s *Server) versions(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) report(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
-		name := chi.URLParam(r, "name")
+		name := urlParam(r, "name")
 		rep, ok := s.E.Snap.Reports[name]
 		if !ok {
 			return nil, cerr.NotFound("Report {0} does not exist", name)
@@ -912,7 +927,7 @@ func (s *Server) report(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) numberCard(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
-		wsName, cardName := chi.URLParam(r, "name"), chi.URLParam(r, "card")
+		wsName, cardName := urlParam(r, "name"), urlParam(r, "card")
 		ws, err := s.workspace(c, wsName)
 		if err != nil {
 			return nil, err
@@ -956,7 +971,7 @@ func (s *Server) numberCard(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) chart(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
-		wsName := chi.URLParam(r, "name")
+		wsName := urlParam(r, "name")
 		if _, err := s.workspace(c, wsName); err != nil {
 			return nil, err
 		}
@@ -964,7 +979,7 @@ func (s *Server) chart(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, err
 		}
-		return rt.Chart(wsName, chi.URLParam(r, "chart"))
+		return rt.Chart(wsName, urlParam(r, "chart"))
 	})
 }
 
@@ -1194,7 +1209,7 @@ func deskIncludes(a *engine.AppMeta) []string {
 //	/assets/apps/<app>/desk.js                    – app-wide includes
 //	/assets/apps/<app>/static/*                   – files under <app>/public
 func (s *Server) appAsset(w http.ResponseWriter, r *http.Request) {
-	appName := chi.URLParam(r, "app")
+	appName := urlParam(r, "app")
 	rest := chi.URLParam(r, "*")
 	app := s.E.App(appName)
 	if app.Name == "" {
