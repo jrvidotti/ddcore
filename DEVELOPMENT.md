@@ -20,8 +20,6 @@ Alongside:
   replace the API.
 - `docs/superpowers/specs/` — the specs behind what is built here.
 
-*Em português: [`DEVELOPMENT.ptbr.md`](DEVELOPMENT.ptbr.md).*
-
 ---
 
 ## 1. What ddcore is

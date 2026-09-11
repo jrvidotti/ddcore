@@ -11,7 +11,7 @@ COPY desk/ ./
 RUN npm run build
 
 # Stage 2: Compile the static Go binary using native cross-compilation
-FROM --platform=$BUILDPLATFORM golang:1.24-alpine AS go-build
+FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS go-build
 WORKDIR /src
 RUN apk add --no-cache git
 COPY go.mod go.sum ./
