@@ -235,6 +235,34 @@ func TestNaiveThirdsDoNotAddUp(t *testing.T) {
 	}
 }
 
+// The same document on a site with no cents and the other rounding rule. The
+// pure tests cover the matrix; this one proves the settings actually reach the
+// column, which is the only place the answer counts.
+func TestAJapaneseSiteStoresWholeYen(t *testing.T) {
+	e := setupMoney(t, Config{Currency: "JPY", Rounding: num.HalfToEven})
+	ctx := context.Background()
+	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+		d, _ := c.NewDoc("Fatura", Doc{"emissao": "2026-03-01", "total": 1234.5})
+		saved, err := c.Insert(d, SaveOpts{IgnorePermissions: true})
+		if err != nil {
+			return err
+		}
+		rows, err := c.SQL(`SELECT total::text AS total FROM tab_fatura WHERE name = $1`, []any{saved.Name()})
+		if err != nil {
+			return err
+		}
+		// 1234.5 is an exact half: banker's rounding takes it down to the even
+		// 1234, where the commercial rule would give 1235
+		if rows[0]["total"] != "1234.000000000" {
+			t.Errorf("total stored as %v, want 1234.000000000", rows[0]["total"])
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 // A JPY site has no cents, and the site's own currency is what says so.
 func TestCurrencyPrecisionFollowsTheSiteCurrency(t *testing.T) {
 	for _, c := range []struct {
