@@ -12,6 +12,7 @@ Available documents (also as MCP resources `ddcore://docs/<name>`):
 - `controller-api` — `defineController`, hooks, methods, the server's `ddcore.*` API
 - `form-api` — `defineForm`, `frm.*`, dialogs (desk)
 - `report-api` — `defineReport`, `defineWorkspace`, cards and charts
+- `extending` — adding fields to, and overriding properties of, another app's DocTypes
 - `i18n` — English as the source language, catalogues, Select values, dates and the site timezone
 - `migrations` — renames, fieldtype changes, patches and the expand → contract route
 - `cli` — the `ddcore` commands and the development loop

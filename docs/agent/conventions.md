@@ -10,6 +10,8 @@
     <snake>.controller.ts       defineController (rules, methods)
     <snake>.form.ts             defineForm (desk) — imports "@ddcore/desk-sdk"
     <snake>.test.ts             tests (imports "@ddcore/sdk/test")
+  extensions/<snake>.extend.ts   extendDoctype: fields and properties added to another app's DocType
+  extensions/<snake>.form.ts     defineForm for that DocType, loaded alongside its owner's
   services/*.ts                 business functions; whitelisted() exposes them at /api/method/<app>.services.<file>.<fn>
   reports/*.report.ts           defineReport
   workspaces/*.workspace.ts     defineWorkspace
@@ -39,5 +41,6 @@ That is the form used by `whitelisted`, `scheduler`, `ddcore.enqueue`, `ddcore e
 - Never edit `.ddcore/types.d.ts`; run `ddcore types`.
 - A renamed field or DocType declares `renamedFrom`; without it the rename is a new empty column and an orphaned old one. See `migrations`.
 - A fieldtype change that could lose data is refused, not guessed: declare `convert`, or move the data across releases with expand → backfill → validate → contract.
+- A DocType belongs to one app: it is declared once, and another app adds to it with `extendDoctype`. See `extending`.
 - Tests: each `it` runs in a rolled-back transaction; create the data you need inside the test.
 - A Select's values are canonical English and are what the database holds; colour them with `optionColors`, never by matching their text.

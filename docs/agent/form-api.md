@@ -78,5 +78,9 @@ Most lists need no `indicator` at all: declare `optionColors` on the status fiel
 colours and translates it on its own. Reach for `indicator` only when the label is not a field
 value — and never key a colour on text a reader sees, since that changes with the language.
 
+A DocType may have **several** form scripts: its owner's `<snake>.form.ts`, plus one per app extending it
+(`extensions/<snake>.form.ts` — see `extending`). Their handlers accumulate, in app load order; every `refresh`,
+`validate` and `onChange` runs. `defineListView` is the exception: one per DocType, and the last registration wins.
+
 Global scripts (`client/*.ts`, listed under `desk.include` in `ddcore.app.ts`) run across the whole desk: masks, shortcuts, `defineForm` for several DocTypes.
 Date field inputs carry `data-fieldname` and `data-fieldtype` for masks applied by event delegation.

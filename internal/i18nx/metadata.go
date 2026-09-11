@@ -16,10 +16,21 @@ import (
 //
 // A Link's or a Table's options name a DocType and are an identifier: those
 // are never collected.
-func CollectDocType(s *Set, d *meta.DocType, file string) {
-	s.Add(d.Label, file, 0)
-	s.Add(d.Description, file, 0)
+//
+// Only the text `app` owns is collected. A DocType is usually all one app's,
+// but a field another app added with extendDoctype — or a label it overrode —
+// is written in *that* app's source, and belongs in its catalogue. Attributing
+// it to the host would make `--check` demand a translation from the app that
+// never wrote the string.
+func CollectDocType(s *Set, d *meta.DocType, app, file string) {
+	if d.TextAppOf() == app {
+		s.Add(d.Label, file, 0)
+		s.Add(d.Description, file, 0)
+	}
 	for _, f := range d.Fields {
+		if d.FieldTextApp(f) != app {
+			continue
+		}
 		s.Add(f.Label, file, 0)
 		s.Add(f.Description, file, 0)
 		if f.Fieldtype != "Select" {

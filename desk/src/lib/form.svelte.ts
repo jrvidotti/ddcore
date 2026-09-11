@@ -31,18 +31,23 @@ export function registerForm(doctype: string, h: FormHandlers) {
 export function formHandlers(doctype: string): FormHandlers[] { return registry.get(doctype) || []; }
 
 const loadedScripts = new Set<string>();
-/** Loads /assets/apps/<app>/forms/<snake>.js once (registers via defineForm). */
+/**
+ * Loads /assets/apps/<app>/forms/<snake>.js once per app that ships one: the
+ * DocType's own, then each app extending it. Their handlers accumulate — a
+ * second script adds behaviour, it does not replace the first.
+ */
 export async function loadFormScript(meta: Meta) {
   const d = meta.doctype;
-  if (!d.hasForm) return;
-  const url = `/assets/apps/${d.app}/forms/${snake(d.name)}.js`;
-  if (loadedScripts.has(url)) return;
-  loadedScripts.add(url);
-  try {
-    await import(/* @vite-ignore */ url + "?v=" + (window as any).__ddcoreLoaded);
-  } catch (e) {
-    console.error("form script", url, e);
-    toast(__("Could not load the form script: {0}", [String(e)]), { indicator: "red" });
+  for (const app of d.formApps || []) {
+    const url = `/assets/apps/${app}/forms/${snake(d.name)}.js`;
+    if (loadedScripts.has(url)) continue;
+    loadedScripts.add(url);
+    try {
+      await import(/* @vite-ignore */ url + "?v=" + (window as any).__ddcoreLoaded);
+    } catch (e) {
+      console.error("form script", url, e);
+      toast(__("Could not load the form script: {0}", [String(e)]), { indicator: "red" });
+    }
   }
 }
 

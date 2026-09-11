@@ -1,6 +1,6 @@
 // @ddcore/sdk — the API apps use on the server (runs inside the ddcore binary).
 import type {
-  AppDef, BaseDoc, ControllerDef, Context, DoctypeDef, Document, Filters, ListArgs,
+  AppDef, BaseDoc, ControllerDef, Context, DoctypeDef, Document, ExtensionDef, Filters, ListArgs,
   PatchDef, ReportDef, WorkspaceDef,
 } from "./types";
 export * from "./types";
@@ -108,6 +108,17 @@ export function defineDoctype<const D extends DoctypeDef>(def: D): D {
 export function defineController<T extends BaseDoc = BaseDoc>(doctype: string, ctrl: ControllerDef<T>): ControllerDef<T> {
   __ddcore.register("controller", { doctype, controller: ctrl });
   return ctrl;
+}
+
+/**
+ * Adds fields to, and overrides properties of, a DocType another app owns.
+ *
+ * Declare `requires: ["<host app>"]` in `defineApp` (core is implicit): the
+ * host has to be loaded before anything can extend it. See `docs/agent/extending.md`.
+ */
+export function extendDoctype<T extends BaseDoc = BaseDoc>(doctype: string, ext: ExtensionDef<T>): ExtensionDef<T> {
+  __ddcore.register("extension", { doctype, ext });
+  return ext;
 }
 
 export function defineReport(def: ReportDef): ReportDef {

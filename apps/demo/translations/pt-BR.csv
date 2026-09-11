@@ -6,6 +6,7 @@ Complete,Concluir,# apps/demo/doctypes/task/task.form.ts:19
 Completed,Concluída,# demo.doctypes.project.project.doctype
 Completed at,Concluída em,# demo.doctypes.task.task.doctype
 Completed on,Concluído em,# demo.doctypes.project_milestone.project_milestone.doctype
+Default project,Projeto padrão,# core.doctypes.user.user.doctype
 Demo: Projects,Exemplo: Projetos,# demo app
 Description,Descrição,# demo.doctypes.project.project.doctype
 Due date,Data limite,# demo.doctypes.invoice_installment.invoice_installment.doctype
@@ -56,3 +57,4 @@ The end date cannot be earlier than the start date.,A data final não pode ser a
 Title,Título,# demo.doctypes.project.project.doctype
 Total,Total,# apps/demo/reports/tasks_by_status.report.ts:30
 Tracking,Acompanhamento,# demo workspace
+Used as the project when this user opens a task.,Usado como projeto quando este usuário abre uma tarefa.,# core.doctypes.user.user.doctype

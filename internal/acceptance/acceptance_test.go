@@ -429,6 +429,126 @@ func TestDemo(t *testing.T) {
 	}
 }
 
+// --------------------------------------------------------------- extensões
+
+// extensaoApp estende o Task do demo a partir de outro app: um Custom Field,
+// um property setter e um script de formulário para um DocType que não é seu.
+func extensaoApp(t *testing.T) js.App {
+	t.Helper()
+	dir := t.TempDir()
+	w := func(rel, src string) {
+		t.Helper()
+		if err := os.MkdirAll(filepath.Join(dir, filepath.Dir(rel)), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, rel), []byte(src), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	w("ddcore.app.ts", `import { defineApp } from "@ddcore/sdk";
+export default defineApp({ name: "extras", title: "Extras", requires: ["demo"] });`)
+	w("extensions/task.extend.ts", `import { extendDoctype } from "@ddcore/sdk";
+export default extendDoctype("Task", {
+  fields: [{ fieldname: "cost_centre", fieldtype: "Data", label: "Cost centre", insertAfter: "title" }],
+  set: { description: { inListView: true } },
+});`)
+	w("extensions/task.form.ts", `import { defineForm } from "@ddcore/desk-sdk";
+defineForm("Task", { refresh() {} });`)
+	return js.App{Name: "extras", Dir: dir}
+}
+
+// TestExtensao: o campo que outro app acrescentou chega ao desk pela mesma
+// porta que os demais — a meta traduzida — e o script de formulário de quem
+// estende é servido junto com o do dono.
+func TestExtensao(t *testing.T) {
+	e := setup(t, "_ext", extensaoApp(t))
+	srv, tok := server(t, e)
+
+	body := getJSON(t, srv, tok, "/api/meta/Task")
+	data, _ := body["data"].(map[string]any)
+	doctype, _ := data["doctype"].(map[string]any)
+	if doctype == nil {
+		t.Fatalf("meta sem doctype: %#v", body)
+	}
+	fields, _ := doctype["fields"].([]any)
+	var custom map[string]any
+	for _, f := range fields {
+		m, _ := f.(map[string]any)
+		if m != nil && m["fieldname"] == "cost_centre" {
+			custom = m
+		}
+	}
+	if custom == nil {
+		t.Fatal("o campo da extensão não chegou na meta do desk")
+	}
+	// a etiqueta vem traduzida pelo catálogo de quem escreveu a string: como
+	// `extras` não traduz nada, fica o inglês canônico
+	if custom["label"] != "Cost centre" {
+		t.Errorf("label = %v", custom["label"])
+	}
+	if custom["app"] != "extras" {
+		t.Errorf("o campo deveria declarar sua origem: app = %v", custom["app"])
+	}
+	if desc := fieldOf(fields, "description"); desc == nil || desc["inListView"] != true {
+		t.Errorf("property setter não chegou na meta: %#v", desc)
+	}
+
+	// os dois scripts de formulário são anunciados, o do dono primeiro
+	apps, _ := doctype["formApps"].([]any)
+	if len(apps) != 2 || apps[0] != "demo" || apps[1] != "extras" {
+		t.Fatalf("formApps = %v", apps)
+	}
+	// e ambos são servidos de verdade
+	for _, app := range []string{"demo", "extras"} {
+		req, _ := http.NewRequest("GET", srv.URL+"/assets/apps/"+app+"/forms/task.js", nil)
+		req.Header.Set("Authorization", "token "+tok)
+		res, err := srv.Client().Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		res.Body.Close()
+		if res.StatusCode != 200 {
+			t.Fatalf("script de formulário de %s = %d", app, res.StatusCode)
+		}
+	}
+
+	// e o campo grava: é coluna como qualquer outra
+	ctx := context.Background()
+	err := e.Run(ctx, "Administrator", func(c *engine.Ctx) error {
+		p, _ := c.NewDoc("Project", engine.Doc{"code": "PRJ-EXT", "title": "Extensão", "assignee": "Administrator", "start_date": "2026-01-01"})
+		if _, err := c.Insert(p, engine.SaveOpts{}); err != nil {
+			return err
+		}
+		task, _ := c.NewDoc("Task", engine.Doc{
+			"code": "T-EXT", "project": p.Name(), "title": "Tarefa", "assignee": "Administrator",
+			"due_date": "2026-02-01", "cost_centre": "CC-1",
+		})
+		if _, err := c.Insert(task, engine.SaveOpts{}); err != nil {
+			return err
+		}
+		back, err := c.GetDoc("Task", task.Name())
+		if err != nil {
+			return err
+		}
+		if got := back.Str("cost_centre"); got != "CC-1" {
+			t.Fatalf("cost_centre = %q", got)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func fieldOf(fields []any, name string) map[string]any {
+	for _, f := range fields {
+		if m, _ := f.(map[string]any); m != nil && m["fieldname"] == name {
+			return m
+		}
+	}
+	return nil
+}
+
 func runDemo(t *testing.T, e *engine.Engine, ctx context.Context) map[string]any {
 	t.Helper()
 	raw, err := e.RunJob(ctx, "Administrator", "demo.services.demo.generate", nil)

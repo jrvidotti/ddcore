@@ -24,9 +24,12 @@ metadados; jobs, relatórios, workspaces, traduções, testes, CLI e MCP estão 
 | Document | Inserir, salvar, enviar, cancelar, emendar, renomear, apagar, recarregar, `append`, `dbSet`, mudança de campo e concorrência por `modified`. |
 | Histórico e transações | `docstatus`, `amended_from`, Version com diffs para `trackChanges`, Comment e uma transação por requisição/job/teste, com rollback em erro. |
 | Precisão monetária | Precisão por site (`currencyPrecision`, padrão = unidade menor ISO da moeda) e regra de arredondamento (`commercial`/`bankers`); `Currency` é arredondado na escrita e a mesma regra vale em Go, no runtime da app e no desk. `Percent`, `Float` e `Int` ficam de fora, por contrato. |
+| Extensão entre apps | `extendDoctype` acrescenta campos e sobrescreve propriedades de um DocType de outro app, com permissões aditivas e `hasPermission`/`permissionQuery` encadeados; conflito entre dois apps recusa a carga. Scripts de formulário de quem estende somam-se ao do dono. |
 
-Referências: [fieldtypes](agent/fieldtypes.md), [migrações](agent/migrations.md), [controller API](agent/controller-api.md),
-[metadados](../internal/meta/meta.go), [schema](../internal/db/schema.go) e
+Referências: [fieldtypes](agent/fieldtypes.md), [migrações](agent/migrations.md),
+[controller API](agent/controller-api.md), [extensões](agent/extending.md),
+[metadados](../internal/meta/meta.go), [merge](../internal/meta/extend.go),
+[schema](../internal/db/schema.go) e
 [Document](../internal/engine/doc.go).
 
 ## Regras, permissões e identidade

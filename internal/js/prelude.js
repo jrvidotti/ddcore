@@ -50,6 +50,12 @@
     current: "",
     doctypes: {},
     controllers: {},
+    // one entry per extendDoctype call, in load order; Go merges them into the
+    // meta so DDL, typegen, the API and the desk all see one truth
+    extensions: [],
+    // the app that registered each controller, so a second app's
+    // defineController is refused instead of silently replacing it
+    controllerApp: {},
     reports: {},
     workspaces: {},
     apps: {},
@@ -58,13 +64,30 @@
     tests: [],
     register(kind, value) {
       switch (kind) {
-        case "doctype":
+        case "doctype": {
+          const prev = reg.doctypes[value.name];
+          if (prev) {
+            throw new DDCoreError("ValidationError", "", "DocType " + value.name + " is defined twice: " +
+              prev.app + " (" + prev.sourceFile + ") and " + reg.app + " (" + reg.current + "). " +
+              "To add fields to another app's DocType use extendDoctype.");
+          }
           value.app = value.app || reg.app;
           value.sourceFile = reg.current;
           reg.doctypes[value.name] = value;
           break;
-        case "controller":
+        }
+        case "controller": {
+          const owner = reg.controllerApp[value.doctype];
+          if (owner !== undefined) {
+            throw new DDCoreError("ValidationError", "", "DocType " + value.doctype + " already has a controller, from " +
+              owner + ". Use extendDoctype (permissions) or defineApp.docEvents (hooks) to add behaviour from " + reg.app + ".");
+          }
+          reg.controllerApp[value.doctype] = reg.app;
           reg.controllers[value.doctype] = value.controller;
+          break;
+        }
+        case "extension":
+          reg.extensions.push({ doctype: value.doctype, app: reg.app, sourceFile: reg.current, ext: value.ext });
           break;
         case "report":
           value.app = reg.app;
@@ -88,6 +111,17 @@
 
   const stripFns = (o) =>
     JSON.parse(JSON.stringify(o, (k, v) => (typeof v === "function" ? undefined : v)));
+
+  const extensionsOf = (doctype) => reg.extensions.filter((x) => x.doctype === doctype);
+
+  // Go merges the extensions into the meta and hands the result back, so that
+  // `ddcore.getMeta()` and the Document internals read the same DocType the
+  // database, the API and the desk see — not the one this app happened to
+  // declare. Called once per runtime, before it serves anything.
+  reg.applyMeta = function (json) {
+    const merged = JSON.parse(json);
+    for (const n in merged) reg.doctypes[n] = merged[n];
+  };
 
   // Snapshot of everything Go needs to know (no functions).
   reg.meta = function () {
@@ -128,11 +162,20 @@
       d.hasController = !!reg.controllers[n];
       const c = reg.controllers[n] || {};
       d.methods = Object.keys(c.methods || {});
-      d.hasPermissionHook = typeof c.hasPermission === "function";
-      d.hasPermissionQuery = typeof c.permissionQuery === "function";
+      // an extension's permission hooks count too: the flags are what Go uses
+      // to decide whether to cross the bridge at all (meta.HasController)
+      d.hasPermissionHook = typeof c.hasPermission === "function" || extensionsOf(n).some((x) => typeof x.ext.hasPermission === "function");
+      d.hasPermissionQuery = typeof c.permissionQuery === "function" || extensionsOf(n).some((x) => typeof x.ext.permissionQuery === "function");
       doctypes[n] = d;
     }
-    return JSON.stringify({ doctypes, reports, workspaces, apps, whitelisted, patches });
+    // flattened for Go, and `doctype` at this level is the *target* — the
+    // DocType-level overrides travel as `props` so the two cannot collide
+    const extensions = reg.extensions.map((x) => {
+      const ext = stripFns(x.ext);
+      return { doctype: x.doctype, app: x.app, sourceFile: x.sourceFile,
+        fields: ext.fields, set: ext.set, props: ext.doctype, permissions: ext.permissions };
+    });
+    return JSON.stringify({ doctypes, reports, workspaces, apps, whitelisted, patches, extensions });
   };
 
   // ---------------------------------------------------------------- Document
@@ -528,19 +571,54 @@
     return JSON.stringify({ doc, result: result === undefined ? null : result });
   };
 
+  // The host's controller first, then every extension in load order. A denial
+  // wins over an allow: an app that extends a DocType can restrict access to
+  // it, never widen what the host already refused.
   reg.hasPermission = function (doctype, docJSON, ptype, user) {
     const c = reg.controllers[doctype];
-    if (!c || typeof c.hasPermission !== "function") return "";
-    const r = c.hasPermission(docJSON ? JSON.parse(docJSON) : null, ptype, user);
-    return r === undefined ? "" : r ? "true" : "false";
+    const fns = [];
+    if (c && typeof c.hasPermission === "function") fns.push(c.hasPermission);
+    for (const x of extensionsOf(doctype)) if (typeof x.ext.hasPermission === "function") fns.push(x.ext.hasPermission);
+    if (fns.length === 0) return "";
+    const doc = docJSON ? JSON.parse(docJSON) : null;
+    let allowed;
+    for (const fn of fns) {
+      const r = fn(doc, ptype, user);
+      if (r === false) return "false";
+      if (r === true) allowed = true;
+    }
+    return allowed ? "true" : "";
   };
 
+  // Every filter set is AND-ed: each extension narrows the rows the host
+  // already allows. Objects are normalised to the [field, op, value] form so
+  // two apps filtering the same field intersect instead of overwriting.
   reg.permissionQuery = function (doctype, user) {
     const c = reg.controllers[doctype];
-    if (!c || typeof c.permissionQuery !== "function") return "";
-    const r = c.permissionQuery(user);
-    return r ? JSON.stringify(r) : "";
+    const fns = [];
+    if (c && typeof c.permissionQuery === "function") fns.push(c.permissionQuery);
+    for (const x of extensionsOf(doctype)) if (typeof x.ext.permissionQuery === "function") fns.push(x.ext.permissionQuery);
+    if (fns.length === 0) return "";
+    let out = [];
+    for (const fn of fns) {
+      const r = fn(user);
+      if (r) out = out.concat(asFilterList(r));
+    }
+    return out.length ? JSON.stringify(out) : "";
   };
+
+  // `{ field: v }` and `{ field: [op, v] }` become [[field, op, v], ...]; a
+  // list is already in that form.
+  function asFilterList(f) {
+    if (Array.isArray(f)) return f;
+    const out = [];
+    for (const k in f) {
+      const v = f[k];
+      if (Array.isArray(v) && v.length === 2) out.push([k, v[0], v[1]]);
+      else out.push([k, "=", v]);
+    }
+    return out;
+  }
 
   // Resolves "app.dir.file.fn" into the exported function.
   function resolve(path) {
