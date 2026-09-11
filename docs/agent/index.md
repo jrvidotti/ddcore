@@ -13,6 +13,7 @@ Available documents (also as MCP resources `ddcore://docs/<name>`):
 - `form-api` — `defineForm`, `frm.*`, dialogs (desk)
 - `report-api` — `defineReport`, `defineWorkspace`, cards and charts
 - `i18n` — English as the source language, catalogues, Select values, dates and the site timezone
+- `export` — exporting a whole DocType, children and attachments, by HTTP or CLI
 - `cli` — the `ddcore` commands and the development loop
 
 ## Typical flow

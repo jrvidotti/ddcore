@@ -1,6 +1,6 @@
 # CLI and the development loop
 
-`ddcore.json` in the site directory: `dsn`, `apps` (directories), `port`, `workers`, `scheduler`, `site`, `lang`, `currency`, `timezone`, `dev`.
+`ddcore.json` in the site directory: `dsn`, `apps` (directories), `port`, `workers`, `scheduler`, `site`, `lang`, `currency`, `timezone`, `dev`, `exportMaxRows`.
 `DDCORE_DSN` overrides the dsn.
 
 Options may come **before or after** the positional arguments, as `--flag value` or
@@ -20,6 +20,7 @@ flag is an error (it never becomes an argument silently).
 | `ddcore exec app.mod.fn --args '{}'` | runs a function as Administrator |
 | `ddcore eval '<ts>' [--commit]` | runs loose TS with `ddcore.*` (rolls back by default) |
 | `ddcore demo [--app name]` | runs `<app>.services.demo.generate` for every app that has `services/demo.ts` |
+| `ddcore export <DocType>\|--all [--children] [--attachments] [--out DIR]` | exports the whole set to NDJSON/CSV with a manifest of checksums (see `export`) |
 | `ddcore jobs list\|run <fn>\|work` | scheduler and queue |
 | `ddcore user add <email> <name> --password x --role R` / `user passwd <email> <password>` | users |
 | `ddcore apikey <user>` | produces `key:secret` for `Authorization: token key:secret` |
@@ -51,6 +52,7 @@ npm. `DDCORE_TEST_DSN` points at the disposable database the tests use.
 - `POST /api/resource/<DocType>/<name>/<submit|cancel|amend|rename|method>`
 - `POST /api/method/<app.folder.file.fn>` (whitelisted)
 - `GET /api/meta/<DocType>`, `/api/boot`, `/api/search/link?doctype=&txt=`, `/api/report/<name>`, `/api/events` (SSE), `POST /api/upload`
+- `GET /api/export/<DocType>?format=csv|ndjson&filters=[...]&children=1&attachments=1` — the whole filtered set as a download, gated by the `export` permission (see `export`)
 - Errors: `{ "error": { "type", "title", "message", "key", "args" } }` with 417 (validation), 403, 404, 409, 401.
   `message` and `title` arrive already translated; `key` is the English template and `args` its values.
 - `X-Lang` picks the language of a response. Without it the server uses `User.language`, then

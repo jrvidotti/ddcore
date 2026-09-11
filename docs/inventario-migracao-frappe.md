@@ -2,7 +2,8 @@
 
 Data: 10/09/2026. Base inspecionada: commit `ee437e9`, documentação e código deste
 checkout. Referência de origem: Frappe v16, conforme [plan-v1.md](plan-v1.md).
-Status: recomendação de roadmap; as funcionalidades propostas aqui não estão implementadas.
+Status: recomendação de roadmap. As funcionalidades propostas aqui não estavam implementadas na
+data acima; os itens marcados **Implementado** foram entregues depois e apontam seu contrato.
 
 ## 1. Direção recomendada
 
@@ -114,7 +115,7 @@ da origem, sem colocá-la no pacote de dados comum. Fonte: [Site configuration](
 | ID | Capacidade | Situação no ddcore | Prioridade e entrega mínima |
 |---|---|---|---|
 | DAT-01 | Importação com mapeamento, validação e retomada | Não identificado importador genérico. CRUD/MCP, patches e fixtures são primitivas disponíveis. | P0 para o migrador do piloto. Manifesto, simulação, erros por registro, checkpoint e idempotência; P1 para UI de CSV/XLSX. |
-| DAT-02 | Exportação completa e reconciliável | Parcial: CSV no Desk; ListView exporta `rows` da página carregada, ReportView o resultado carregado. | P0 para extrair/reconciliar o legado; P1 para exportação de produto. Percorrer todo o conjunto, filhos e anexos, respeitando filtros e autorização. |
+| DAT-02 | Exportação completa e reconciliável | **Implementado**: `Ctx.Export` percorre o conjunto por keyset, com tabelas filhas e manifesto de anexos, exposto por `GET /api/export/<DocType>` (streaming, com teto) e por `ddcore export` (NDJSON/CSV, bytes dos anexos, checksums). Contrato em [export](agent/export.md). | Entregue. A permissão `export` passou a ser verificada no servidor; campos `Password` e colunas de credencial nunca saem. Falta apenas a importação correspondente (DAT-01). |
 | DAT-03 | Single DocType/configurações | Parcial/incompleto: `isSingle` no SDK e na meta; schema pula a criação da tabela, sem caminho equivalente identificado no Document/bridge. | P1; antecipar se houver Settings no piloto. Persistência, defaults, leitura/escrita, permissões, Desk e testes de singleton. Não anunciar suporte só pela flag. |
 | DAT-04 | Evolução de schema e dados com renomes/conversões | Parcial: DDL automático e patches existem; DDL vem antes dos patches; fixtures inserem ou pulam por nome. | P0: roteiro de conversão que preserve dados. Para transformações incompatíveis, usar expansão → preenchimento → validação → retirada em versões separadas. |
 | DAT-05 | Unicidade composta e chaves de negócio | Parcial: `unique` é por campo; há primitiva de lock no bridge. | P1; bloqueia processos que dependam disso. Declarar índices compostos ou padrão suportado de serialização, com duas transações concorrentes no aceite. |
