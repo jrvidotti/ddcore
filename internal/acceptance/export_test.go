@@ -247,6 +247,14 @@ func TestExportRefusesMoreThanTheCap(t *testing.T) {
 	if got := res2.Header.Get("X-DDCore-Export-Count"); got != "3" {
 		t.Errorf("contagem com limit: %s", got)
 	}
+
+	// But a limit is not a way around the cap: asking for more than the
+	// endpoint streams is refused however it is phrased.
+	res3 := getRaw(t, srv, tok, "/api/export/Project?limit=99999999")
+	defer res3.Body.Close()
+	if res3.StatusCode != 417 {
+		t.Fatalf("um limit enorme não pode contornar o teto: veio %d", res3.StatusCode)
+	}
 }
 
 func TestExportRejectsAnUnknownFormat(t *testing.T) {

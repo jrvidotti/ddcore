@@ -122,7 +122,12 @@ func (s *Server) export(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return err
 		}
-		if max := s.exportMaxRows(); count > int64(max) && limit == 0 {
+		// count is already capped at ?limit, so a caller asking for a sample
+		// passes while one asking for more than the endpoint streams does not.
+		// Checking the raw total instead would refuse a legitimate `limit=10`
+		// over a big table; skipping the check whenever a limit was given
+		// would let `limit=99999999` walk straight past the cap.
+		if max := s.exportMaxRows(); count > int64(max) {
 			return cerr.Validation(
 				"This export has {0} rows and the limit here is {1}. Narrow the filters, or run `ddcore export` for the whole set.",
 				count, max)
