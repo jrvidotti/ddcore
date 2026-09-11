@@ -1,5 +1,6 @@
 <script lang="ts">
   import { __ } from "$lib/boot.svelte";
+  import { anchored } from "./floating";
   import type { Field } from "$lib/meta";
   import Icon from "$lib/components/Icon.svelte";
   import {
@@ -184,7 +185,7 @@
   {/if}
 
   {#if open && !readOnly}
-    <div class="month-popover" role="dialog" aria-modal="true" tabindex="-1" onmousedown={(e) => e.preventDefault()}>
+    <div class="month-popover" use:anchored={{ anchor: wrapEl, align: "end" }} role="dialog" aria-modal="true" tabindex="-1" onmousedown={(e) => e.preventDefault()}>
       <div class="popover-head">
         <button
           type="button"
@@ -272,10 +273,9 @@
   }
 
   .month-popover {
-    position: absolute;
-    top: calc(100% + 4px);
-    right: 0;
-    z-index: 50;
+    position: fixed;
+    z-index: 80;
+    overflow: auto;
     background: #fff;
     border: 1px solid var(--border);
     border-radius: 8px;

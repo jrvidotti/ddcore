@@ -4,6 +4,7 @@
   import type { Field } from "$lib/meta";
   import { boot } from "$lib/boot.svelte";
   import { getLinkTitle, setLinkTitle } from "$lib/titles.svelte";
+  import { anchored } from "./floating";
 
   let { field, value, onchange, doc = {}, readOnly = false, query = undefined, error = "", id = "" }:
     { field: Field; value: any; onchange: (v: any) => void; doc?: any; readOnly?: boolean; query?: () => { filters?: any }; error?: string; id?: string } = $props();
@@ -16,6 +17,7 @@
   let active = $state(0);
   let timer: any;
   let focused = $state(false);
+  let inputEl: HTMLInputElement | null = $state(null);
 
   $effect(() => {
     if (!focused) {
@@ -97,14 +99,14 @@
 </script>
 
 <div class="link-wrap">
-  <input {id} class="input" class:error={!!error} readonly={readOnly || !target} value={text} placeholder={target ? "" : "Escolha o tipo antes"} autocomplete="off"
+  <input bind:this={inputEl} {id} class="input" class:error={!!error} readonly={readOnly || !target} value={text} placeholder={target ? "" : "Escolha o tipo antes"} autocomplete="off"
     title={value ? `${text}${text !== value ? ` (${value})` : ""}` : ""}
     onfocus={() => { focused = true; if (!readOnly) search(text); }} {oninput} {onblur} {onkeydown} data-fieldtype="Link" />
   {#if value && target}
     <a class="open" href={`/app/${encodeURIComponent(target)}/${encodeURIComponent(value)}`} title="Abrir {label || target}{value ? ` (${value})` : ""}">↗</a>
   {/if}
   {#if open && !readOnly && options.length}
-    <div class="options" role="listbox">
+    <div class="options" role="listbox" use:anchored={{ anchor: inputEl, matchWidth: true, gap: 2 }}>
       {#each options as o, i}
         <div role="option" tabindex="-1" aria-selected={i === active} class:active={i === active} onmousedown={() => pick(o)}>
           <div>{getOptionTitle(o)}</div>
