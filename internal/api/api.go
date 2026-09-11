@@ -58,6 +58,11 @@ func New(e *engine.Engine, desk fs.FS) *Server {
 	r.Route("/api", func(r chi.Router) {
 		r.Post("/login", s.login)
 		r.Post("/logout", s.logout)
+		// Recovery and invitation: public by necessity, throttled in auth.go.
+		r.Post("/auth/forgot-password", s.forgotPassword)
+		r.Post("/auth/token", s.authToken)
+		r.Post("/auth/reset-password", s.resetPassword)
+		r.Post("/auth/accept-invite", s.acceptInvite)
 		r.Get("/boot", s.boot)
 		r.Get("/meta/{doctype}", s.getMeta)
 		r.Get("/translations", s.translations)
@@ -243,7 +248,7 @@ func (s *Server) auth(next http.Handler) http.Handler {
 		} else if ck, err := r.Cookie("sid"); err == nil {
 			u, _ = s.E.UserFromSession(r.Context(), ck.Value)
 			// CSRF: state-changing requests with cookie auth need the header
-			if u != "" && r.Method != "GET" && r.Method != "HEAD" && !strings.HasPrefix(r.URL.Path, "/api/login") {
+			if u != "" && r.Method != "GET" && r.Method != "HEAD" && !csrfExempt(r.URL.Path) {
 				if r.Header.Get("X-DDCore-CSRF") == "" && r.Header.Get("X-Requested-With") == "" {
 					s.writeErr(w, r, cerr.Permission("Request without a CSRF header"))
 					return
