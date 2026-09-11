@@ -907,6 +907,9 @@ func (c *Ctx) validate(d *meta.DocType, doc Doc, before Doc, opts SaveOpts) erro
 	if err := c.checkUnique(d, doc); err != nil {
 		return err
 	}
+	if err := c.checkUniqueKeys(d, doc); err != nil {
+		return err
+	}
 	return c.validateChildren(d, doc, opts)
 }
 
@@ -1109,6 +1112,101 @@ func (c *Ctx) checkUnique(d *meta.DocType, doc Doc) error {
 	return nil
 }
 
+// checkUniqueKeys is the readable half of a compound business key: a SELECT
+// before the write, so an ordinary collision can name the document already
+// holding the key. The index behind it is the half that actually holds — a
+// SELECT cannot see a row a concurrent transaction has not committed yet, so
+// two writers can both pass here and only one can pass the index. See
+// duplicateErr for what the loser is told.
+func (c *Ctx) checkUniqueKeys(d *meta.DocType, doc Doc) error {
+	for _, k := range d.UniqueKeys {
+		where := make([]string, 0, len(k.Fields))
+		args := make([]any, 0, len(k.Fields)+1)
+		for _, fn := range k.Fields {
+			f := d.Field(fn)
+			if f == nil || outsideKey(f, doc[fn]) {
+				// The index leaves this row out, so nothing is being claimed:
+				// an incomplete key is an unfinished document, not a duplicate.
+				where = nil
+				break
+			}
+			args = append(args, doc[fn])
+			where = append(where, fmt.Sprintf("%s = $%d", db.Ident(fn), len(args)))
+		}
+		if len(where) == 0 {
+			continue
+		}
+		args = append(args, doc.Name())
+		rows, err := db.Select(c.Ctx, c.Q(), fmt.Sprintf("SELECT name FROM %s WHERE %s AND name <> $%d LIMIT 1",
+			db.Ident(d.TableName()), strings.Join(where, " AND "), len(args)), args...)
+		if err != nil {
+			return err
+		}
+		if len(rows) > 0 {
+			return cerr.Duplicate("{0} already exists on {1} {2}",
+				c.keyValues(d, k, doc), c.T(d.Label), rows[0]["name"]).WithTitleKey("Duplicate value")
+		}
+	}
+	return nil
+}
+
+// outsideKey reports whether a value leaves its row out of the partial unique
+// index — the very test the index predicate makes, and deliberately not
+// isEmpty: `false` is a value to a boolean column, and calling it absent would
+// let the pre-check wave through a row the index then refuses.
+func outsideKey(f *meta.Field, v any) bool {
+	if v == nil {
+		return true
+	}
+	return meta.ColumnType(f.Fieldtype) == "text" && db.Str(v) == ""
+}
+
+// keyValues renders a compound key as the reader entered it — `Label "value"`
+// per component — so the message names the business key and not the index.
+// Each label goes through the catalogue, the way a label always does.
+func (c *Ctx) keyValues(d *meta.DocType, k meta.UniqueKey, doc Doc) string {
+	parts := make([]string, 0, len(k.Fields))
+	for _, fn := range k.Fields {
+		label := fn
+		if f := d.Field(fn); f != nil && f.Label != "" {
+			label = f.Label
+		}
+		parts = append(parts, fmt.Sprintf("%s \"%s\"", c.T(label), doc.Str(fn)))
+	}
+	return strings.Join(parts, ", ")
+}
+
+// duplicateErr turns a unique-index violation into the same sentence the
+// pre-checks write. This is the path a race takes: both writers passed
+// validation, and the index refused the second one.
+//
+// It cannot name the document already holding the key. A 23505 aborts the
+// transaction, so there is no query left to ask with — which is why this
+// message stops at the value where checkUniqueKeys goes on to say where.
+func (c *Ctx) duplicateErr(d *meta.DocType, doc Doc, err error) error {
+	idx, ok := db.UniqueViolation(err)
+	if !ok {
+		return err
+	}
+	suffix := strings.TrimPrefix(idx, d.TableName()+"_")
+	switch {
+	case suffix == idx:
+		// An index on another table, or one whose name this DocType does not
+		// own: the collision is real, its name is simply not ours to read.
+	case suffix == "pkey":
+		return cerr.Duplicate("{0} {1} already exists", c.T(d.Label), doc.Name()).WithTitleKey("Duplicate name")
+	case strings.HasPrefix(suffix, "uk_"):
+		if k := d.UniqueKey(strings.TrimPrefix(suffix, "uk_")); k != nil {
+			return cerr.Duplicate("{0} already exists", c.keyValues(d, *k, doc)).WithTitleKey("Duplicate value")
+		}
+	default:
+		if f := d.Field(suffix); f != nil {
+			return cerr.Duplicate("{0} \"{1}\" already exists", c.T(f.Label), doc.Str(suffix)).WithTitleKey("Duplicate value")
+		}
+	}
+	return cerr.Duplicate("Duplicate value in {0}", c.T(d.Label)).WithTitleKey("Duplicate value")
+}
+
 func (c *Ctx) validateChildren(d *meta.DocType, doc Doc, opts SaveOpts) error {
 	for _, tf := range d.TableFields() {
 		child, _ := c.St.DocType(tf.OptionsString())
@@ -1255,10 +1353,10 @@ func (c *Ctx) writeInsert(d *meta.DocType, doc Doc) error {
 		ph[i] = fmt.Sprintf("$%d", i+1)
 	}
 	_, err = c.Q().Exec(c.Ctx, fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", db.Ident(d.TableName()), strings.Join(cols, ", "), strings.Join(ph, ", ")), vals...)
-	if err != nil && strings.Contains(err.Error(), "duplicate key") {
-		return cerr.Duplicate("{0} {1} already exists", c.T(d.Label), doc.Name())
+	if err != nil {
+		return c.duplicateErr(d, doc, err)
 	}
-	return err
+	return nil
 }
 
 // writeUpdate saves the document with compare-and-swap using the `modified` timestamp
@@ -1283,11 +1381,8 @@ func (c *Ctx) writeUpdate(d *meta.DocType, doc Doc, prevModified any) error {
 	args = append(args, parseTimeOrNil(prevModified, c.E.Location()))
 	sql += fmt.Sprintf(" AND modified IS NOT DISTINCT FROM $%d", len(args))
 	tag, err := c.Q().Exec(c.Ctx, sql, args...)
-	if err != nil && strings.Contains(err.Error(), "duplicate key") {
-		return cerr.Duplicate("Duplicate value in {0}", c.T(d.Label))
-	}
 	if err != nil {
-		return err
+		return c.duplicateErr(d, doc, err)
 	}
 	if tag.RowsAffected() == 0 {
 		return cerr.Timestamp("{0} {1} was changed by someone else. Reload and try again.", c.T(d.Label), doc.Name())

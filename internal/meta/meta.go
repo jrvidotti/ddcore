@@ -182,6 +182,26 @@ type Naming struct {
 	Format string `json:"format,omitempty"`
 }
 
+// MaxIdentifier is Postgres's identifier limit. A longer name is silently
+// truncated, and a truncated index name never compares equal to the one the
+// planner wants — so migrate would drop and recreate it on every run.
+const MaxIdentifier = 63
+
+// UniqueKey is a business key spanning more than one column, enforced by a
+// partial unique index. Naming it — rather than deriving a name from the field
+// list — is what keeps the index still when the fields are reordered or
+// renamed, because the planner tells indexes apart by name. The name is also
+// what a duplicate error quotes, so it should read as the key, not the columns.
+type UniqueKey struct {
+	Name   string   `json:"name"`
+	Fields []string `json:"fields"`
+}
+
+// IndexSuffix is the suffix this key occupies in the table's index namespace.
+// The `uk_` infix is what lets Plan drop the keys the meta no longer declares
+// without ever reaching an index it does not own.
+func (k UniqueKey) IndexSuffix() string { return "uk_" + k.Name }
+
 type DocType struct {
 	Name         string   `json:"name"`
 	App          string   `json:"app"`
@@ -197,10 +217,12 @@ type DocType struct {
 	SortField    string   `json:"sortField,omitempty"`
 	SortOrder    string   `json:"sortOrder,omitempty"`
 	SearchFields []string `json:"searchFields,omitempty"`
-	Fields       []*Field `json:"fields"`
-	Permissions  []Perm   `json:"permissions,omitempty"`
-	Description  string   `json:"description,omitempty"`
-	Icon         string   `json:"icon,omitempty"`
+	// UniqueKeys are the compound business keys, one partial unique index each.
+	UniqueKeys  []UniqueKey `json:"uniqueKeys,omitempty"`
+	Fields      []*Field    `json:"fields"`
+	Permissions []Perm      `json:"permissions,omitempty"`
+	Description string      `json:"description,omitempty"`
+	Icon        string      `json:"icon,omitempty"`
 	// FormApps are the apps shipping a <snake>.form.ts for this DocType, the
 	// owner first and then each extension in load order. The desk loads them
 	// all: form handlers accumulate, they do not replace one another.
@@ -244,6 +266,16 @@ func (d *DocType) Field(name string) *Field {
 		}
 	}
 	return d.fieldMap[name]
+}
+
+// UniqueKey returns the compound key by name, or nil.
+func (d *DocType) UniqueKey(name string) *UniqueKey {
+	for i := range d.UniqueKeys {
+		if d.UniqueKeys[i].Name == name {
+			return &d.UniqueKeys[i]
+		}
+	}
+	return nil
 }
 
 // DataFields are the fields that map to a column.
@@ -442,6 +474,7 @@ func (r *Registry) Validate() error {
 		for _, sf := range d.SearchFields {
 			named("searchFields", sf)
 		}
+		validateUniqueKeys(d, e)
 		if d.IsChild && len(d.Permissions) > 0 {
 			e("a child DocType has no permissions")
 		}
@@ -477,6 +510,82 @@ func (r *Registry) Validate() error {
 		return fmt.Errorf("invalid meta:\n  %s", strings.Join(errs, "\n  "))
 	}
 	return nil
+}
+
+// validateUniqueKeys checks the compound business keys. Everything here is
+// refused at load rather than at migrate: a key that cannot become an index is
+// a declaration that would silently enforce nothing.
+func validateUniqueKeys(d *DocType, e func(string, ...any)) {
+	if len(d.UniqueKeys) == 0 {
+		return
+	}
+	switch {
+	case d.IsChild:
+		e("uniqueKeys: a child DocType has no business key of its own — declare it on the parent")
+		return
+	case d.IsSingle:
+		e("uniqueKeys: a single DocType holds one document, so there is nothing to keep unique")
+		return
+	}
+	names := map[string]bool{}
+	sets := map[string]string{}
+	for _, k := range d.UniqueKeys {
+		switch {
+		case !fieldnameRe.MatchString(k.Name):
+			e("uniqueKeys %q is not a valid name (use ascii snake_case)", k.Name)
+			continue
+		case names[k.Name]:
+			e("uniqueKeys %q is declared twice", k.Name)
+			continue
+		}
+		names[k.Name] = true
+		// The index is named after the key, so the key's name is what has to
+		// fit — and a name that only fits after truncation is one migrate
+		// would rebuild forever.
+		if n := len(d.TableName()) + 1 + len(k.IndexSuffix()); n > MaxIdentifier {
+			e("uniqueKeys %q: its index name would be %d bytes, past the %d Postgres keeps — shorten the key name", k.Name, n, MaxIdentifier)
+		}
+		// A field of that name would want the very same index name.
+		if f := d.Field(k.IndexSuffix()); f != nil {
+			e("uniqueKeys %q: field %q would claim the same index name", k.Name, f.Fieldname)
+		}
+		if len(k.Fields) < 2 {
+			e("uniqueKeys %q spans %d field(s); a key spans two or more — one field is `unique: true`", k.Name, len(k.Fields))
+			continue
+		}
+		seen, ok := map[string]bool{}, true
+		for _, fn := range k.Fields {
+			f := d.Field(fn)
+			switch {
+			case seen[fn]:
+				e("uniqueKeys %q lists field %q twice", k.Name, fn)
+				ok = false
+			case d.IsStdColumn(fn) || fn == "doctype":
+				e("uniqueKeys %q: %q is a standard column, not a business field", k.Name, fn)
+				ok = false
+			case f == nil:
+				e("uniqueKeys %q: field %q does not exist", k.Name, fn)
+				ok = false
+			case ColumnType(f.Fieldtype) == "":
+				e("uniqueKeys %q: field %q is a %s, which has no column of its own", k.Name, fn, f.Fieldtype)
+				ok = false
+			}
+			seen[fn] = true
+		}
+		if !ok {
+			continue
+		}
+		// Order decides the index, never the constraint: two keys over the
+		// same fields in any order are two names for one index.
+		cols := append([]string(nil), k.Fields...)
+		sort.Strings(cols)
+		set := strings.Join(cols, "\x00")
+		if prev, dup := sets[set]; dup {
+			e("uniqueKeys %q and %q cover the same fields", prev, k.Name)
+			continue
+		}
+		sets[set] = k.Name
+	}
 }
 
 // SelectValues returns the Select options as strings.

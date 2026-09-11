@@ -216,3 +216,96 @@ func TestPrecisionBeyondTheColumnIsRefused(t *testing.T) {
 		t.Fatalf("a valid precision was refused: %v", err)
 	}
 }
+
+// DAT-05 — a compound business key becomes a partial unique index, so every
+// way it could fail to become one is refused at load. A declaration that
+// silently enforces nothing is worse than no declaration at all.
+func TestValidateRejectsBadUniqueKeys(t *testing.T) {
+	fields := func() []*Field {
+		return []*Field{
+			{Fieldname: "customer", Fieldtype: "Data", Label: "Customer"},
+			{Fieldname: "invoice_no", Fieldtype: "Data", Label: "Invoice no"},
+			{Fieldname: "lines", Fieldtype: "Table", Options: "Invoice Line"},
+			{Fieldname: "layout", Fieldtype: "Section Break"},
+		}
+	}
+	long := strings.Repeat("x", 60)
+	cases := []struct {
+		name, want string
+		keys       []UniqueKey
+		mutate     func(*DocType)
+	}{
+		{"unknown field", `field "gone" does not exist`,
+			[]UniqueKey{{Name: "k", Fields: []string{"customer", "gone"}}}, nil},
+		{"standard column", "is a standard column",
+			[]UniqueKey{{Name: "k", Fields: []string{"customer", "owner"}}}, nil},
+		{"child table", "which has no column",
+			[]UniqueKey{{Name: "k", Fields: []string{"customer", "lines"}}}, nil},
+		{"layout field", "which has no column",
+			[]UniqueKey{{Name: "k", Fields: []string{"customer", "layout"}}}, nil},
+		{"one field", "spans 1 field",
+			[]UniqueKey{{Name: "k", Fields: []string{"customer"}}}, nil},
+		{"no fields", "spans 0 field",
+			[]UniqueKey{{Name: "k"}}, nil},
+		{"repeated field", `lists field "customer" twice`,
+			[]UniqueKey{{Name: "k", Fields: []string{"customer", "customer"}}}, nil},
+		{"duplicate key name", `"k" is declared twice`, []UniqueKey{
+			{Name: "k", Fields: []string{"customer", "invoice_no"}},
+			{Name: "k", Fields: []string{"invoice_no", "customer"}},
+		}, nil},
+		// Order decides the index, never the constraint, so the same fields in
+		// either order are one key wearing two names.
+		{"same fields", "cover the same fields", []UniqueKey{
+			{Name: "a", Fields: []string{"customer", "invoice_no"}},
+			{Name: "b", Fields: []string{"invoice_no", "customer"}},
+		}, nil},
+		{"bad name", "not a valid name",
+			[]UniqueKey{{Name: "Customer Key", Fields: []string{"customer", "invoice_no"}}}, nil},
+		{"name too long", "past the 63 Postgres keeps",
+			[]UniqueKey{{Name: long, Fields: []string{"customer", "invoice_no"}}}, nil},
+		// A field of that name would want the very same index name.
+		{"name a field already claims", "would claim the same index name",
+			[]UniqueKey{{Name: "extra", Fields: []string{"customer", "invoice_no"}}},
+			func(d *DocType) {
+				d.Fields = append(d.Fields, &Field{Fieldname: "uk_extra", Fieldtype: "Data"})
+			}},
+		{"child doctype", "a child DocType has no business key of its own",
+			[]UniqueKey{{Name: "k", Fields: []string{"customer", "invoice_no"}}},
+			func(d *DocType) { d.IsChild = true }},
+		{"single doctype", "there is nothing to keep unique",
+			[]UniqueKey{{Name: "k", Fields: []string{"customer", "invoice_no"}}},
+			func(d *DocType) { d.IsSingle = true }},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			d := &DocType{Name: "Invoice", Fields: fields(), UniqueKeys: tc.keys}
+			if tc.mutate != nil {
+				tc.mutate(d)
+			}
+			r := NewRegistry()
+			r.Add(d)
+			err := r.Validate()
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("wanted an error mentioning %q, got %v", tc.want, err)
+			}
+		})
+	}
+}
+
+// The declaration a reader would actually write has to load, and two keys over
+// different field sets are two indexes, not a conflict.
+func TestValidateAcceptsUniqueKeys(t *testing.T) {
+	r := NewRegistry()
+	r.Add(&DocType{Name: "Invoice", UniqueKeys: []UniqueKey{
+		{Name: "customer_invoice_no", Fields: []string{"customer", "invoice_no"}},
+		{Name: "customer_period", Fields: []string{"customer", "period"}},
+	}, Fields: []*Field{
+		{Fieldname: "customer", Fieldtype: "Link", Options: "Customer", Label: "Customer"},
+		{Fieldname: "invoice_no", Fieldtype: "Data", Label: "Invoice no"},
+		{Fieldname: "period", Fieldtype: "Month", Label: "Period"},
+	}})
+	r.Add(&DocType{Name: "Customer", Fields: []*Field{{Fieldname: "x", Fieldtype: "Data"}}})
+	if err := r.Validate(); err != nil {
+		t.Fatalf("a well-formed pair of keys must load: %v", err)
+	}
+}

@@ -88,6 +88,22 @@ export interface NamingDef {
   format?: string;
 }
 
+export interface UniqueKeyDef {
+  /**
+   * Names the key. ascii snake_case, unique within the DocType, and the
+   * durable half of the index name (`tab_<snake>_uk_<name>`) — which is why
+   * reordering or renaming a field does not rebuild the index, and why a
+   * duplicate error can say which business key was violated.
+   */
+  name: string;
+  /**
+   * The columns the key spans, two or more. A row is constrained only when
+   * *every* component has a value: leave one empty and the row is outside the
+   * key, exactly as a `unique` field with no value is. See `fieldtypes`.
+   */
+  fields: string[];
+}
+
 export interface DoctypeDef {
   name: string;
   module?: string;
@@ -102,6 +118,18 @@ export interface DoctypeDef {
   sortField?: string;
   sortOrder?: "asc" | "desc";
   searchFields?: string[];
+  /**
+   * Compound business keys, enforced by a partial unique index each.
+   *
+   * `unique` on a field covers one column; this covers the keys that span
+   * several — `[{ name: "customer_invoice_no", fields: ["customer", "invoice_no"] }]`.
+   * `migrate` creates, rebuilds and removes the index as the declaration
+   * changes, and the database is what makes it hold under concurrency.
+   *
+   * Like `titleField` and `searchFields`, the field list names fields by
+   * string, so a renamed field has to be changed here too.
+   */
+  uniqueKeys?: UniqueKeyDef[];
   fields: FieldDef[];
   permissions?: PermDef[];
   description?: string;

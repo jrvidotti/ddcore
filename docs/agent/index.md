@@ -34,7 +34,7 @@ Available documents (also as MCP resources `ddcore://docs/<name>`):
 - One DocType = one table `tab_<snake_case>`; child tables (`isChild`) have `parent`, `parenttype`, `parentfield`, `idx`.
 - Standard columns: `name` (PK, text), `owner`, `creation`, `modified`, `modified_by`, `docstatus` (0 draft, 1 submitted, 2 cancelled).
 - Lifecycle: `beforeValidate → validate → beforeSave → (insert|update) → afterInsert/onUpdate`; `beforeSubmit → onSubmit`; `beforeCancel → onCancel`; `onTrash → afterDelete`.
-- The core validates `reqd`, `unique`, a Select's `options`, that links exist, `fetchFrom`, `mandatoryDependsOn` (**on the server**) and refuses to change a field without `allowOnSubmit` once submitted.
+- The core validates `reqd`, `unique`, `uniqueKeys` (compound business keys, checked before the write *and* enforced by a partial unique index, so a race cannot slip through), a Select's `options`, that links exist, `fetchFrom`, `mandatoryDependsOn` (**on the server**) and refuses to change a field without `allowOnSubmit` once submitted.
 - One transaction per request or job. An error rolls it back. There is no `commit()` for an app.
 - A rename is **declared** (`renamedFrom`), never inferred, and a fieldtype change that could lose data is refused until you declare `convert` or move the data across releases. See `migrations`.
 - **Every user-facing string is English and is a key** — a `label:` as much as a `_("…")`. Translations live in `translations/<lang>.csv`, and a Select's value is canonical English with a translated label. See `i18n`.
