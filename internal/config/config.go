@@ -88,14 +88,18 @@ func Load(dir string) (*File, string, error) {
 	if err := loadDotenv(filepath.Join(filepath.Dir(path), DotenvName)); err != nil {
 		return nil, "", fmt.Errorf("%s: %w", DotenvName, err)
 	}
+	// DATABASE_URL from the platform overrides ddcore.json,
+	// and explicit DDCORE_DSN overrides DATABASE_URL.
+	if v := os.Getenv("DATABASE_URL"); v != "" {
+		f.DSN = v
+	}
 	if v := os.Getenv("DDCORE_DSN"); v != "" {
 		f.DSN = v
 	}
-	if v := os.Getenv("DDCORE_PORT"); v != "" {
-		f.Port, _ = strconv.Atoi(v)
-	}
-	if v := os.Getenv("DATABASE_URL"); v != "" && f.DSN == "" {
-		f.DSN = v
+	if v := env("DDCORE_PORT", os.Getenv("PORT")); v != "" {
+		if p, err := strconv.Atoi(v); err == nil && p > 0 {
+			f.Port = p
+		}
 	}
 	f.URL = strings.TrimSuffix(env("DDCORE_URL", f.URL), "/")
 	f.TrustProxy = envBool("DDCORE_TRUST_PROXY", f.TrustProxy)

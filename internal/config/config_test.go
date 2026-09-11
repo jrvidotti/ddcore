@@ -15,7 +15,7 @@ func clearMailEnv(t *testing.T) {
 		"DDCORE_MAIL_TRANSPORT", "DDCORE_MAIL_FROM", "DDCORE_MAIL_METHOD",
 		"DDCORE_SMTP_HOST", "DDCORE_SMTP_PORT", "DDCORE_SMTP_USERNAME",
 		"DDCORE_SMTP_PASSWORD", "DDCORE_SMTP_TLS", "DDCORE_URL", "DDCORE_TRUST_PROXY",
-		"DDCORE_DSN", "DDCORE_PORT", "DATABASE_URL",
+		"DDCORE_DSN", "DDCORE_PORT", "DATABASE_URL", "PORT",
 	} {
 		t.Setenv(k, "")
 		os.Unsetenv(k)
@@ -178,3 +178,74 @@ func TestPublicURLLosesTheTrailingSlash(t *testing.T) {
 		t.Errorf("veio %q", f.PublicURL())
 	}
 }
+
+// DATABASE_URL deve sobrepor o dsn do ddcore.json, e DDCORE_DSN vence ambos.
+func TestDatabaseURLOverridesJSONAndDDCOREDSNWins(t *testing.T) {
+	clearMailEnv(t)
+	dir := site(t, `{"dsn":"postgres://local:5432/app"}`)
+
+	// Sem env, fica o ddcore.json
+	f, _, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if f.DSN != "postgres://local:5432/app" {
+		t.Errorf("esperava DSN do json, veio %q", f.DSN)
+	}
+
+	// DATABASE_URL da plataforma (Railway) sobrepõe o json
+	t.Setenv("DATABASE_URL", "postgres://railway:5432/prod")
+	f, _, err = Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if f.DSN != "postgres://railway:5432/prod" {
+		t.Errorf("DATABASE_URL devia sobrepor o json, veio %q", f.DSN)
+	}
+
+	// DDCORE_DSN explícito vence até o DATABASE_URL
+	t.Setenv("DDCORE_DSN", "postgres://custom:5432/override")
+	f, _, err = Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if f.DSN != "postgres://custom:5432/override" {
+		t.Errorf("DDCORE_DSN devia vencer DATABASE_URL, veio %q", f.DSN)
+	}
+}
+
+// PORT da plataforma (Railway/Heroku/Cloud Run) sobrepõe o json, e DDCORE_PORT vence.
+func TestPlatformPortOverridesJSONAndDDCOREPortWins(t *testing.T) {
+	clearMailEnv(t)
+	dir := site(t, `{"port":8091}`)
+
+	// Sem env, fica a porta do ddcore.json
+	f, _, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if f.Port != 8091 {
+		t.Errorf("esperava porta 8091, veio %d", f.Port)
+	}
+
+	// PORT da plataforma sobrepõe o json
+	t.Setenv("PORT", "65432")
+	f, _, err = Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if f.Port != 65432 {
+		t.Errorf("PORT da plataforma devia sobrepor o json, veio %d", f.Port)
+	}
+
+	// DDCORE_PORT explícito vence a porta da plataforma
+	t.Setenv("DDCORE_PORT", "9999")
+	f, _, err = Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if f.Port != 9999 {
+		t.Errorf("DDCORE_PORT devia vencer PORT, veio %d", f.Port)
+	}
+}
+
