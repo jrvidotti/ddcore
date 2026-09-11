@@ -18,6 +18,8 @@ export interface Boot {
   roles: string[];
   userDoc: { name: string; full_name: string; language?: string } | null;
   lang: string;
+  /** The languages the site serves, each labelled with its own autonym. */
+  langs: { code: string; label: string }[];
   apps: { name: string; title: string; desk: any; hasDeskInclude: boolean }[];
   workspaces: any[];
   doctypes: Record<string, { label: string; app: string; icon: string; module: string; titleField?: string }>;

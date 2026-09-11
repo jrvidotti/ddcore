@@ -6,8 +6,7 @@
   import { formatDatetime } from "$lib/format";
   import Icon from "./Icon.svelte";
   import Control from "$lib/controls/Control.svelte";
-  import { getMeta } from "$lib/meta";
-  import { describeDevice, isExpired, passwordProblem, sortSessions, type SessionRow } from "./profile";
+  import { describeDevice, isExpired, languageField, passwordProblem, sortSessions, type SessionRow } from "./profile";
   import { onMount } from "svelte";
 
   type Profile = {
@@ -18,7 +17,7 @@
   let profile = $state<Profile | null>(null);
   let sessions = $state<SessionRow[]>([]);
   let keys = $state<any[]>([]);
-  let langField = $state<any>(null);
+  const langField = $derived(languageField(boot.data?.langs || [], __));
 
   let fullName = $state("");
   let language = $state<string | null>(null);
@@ -39,11 +38,6 @@
       profile = await api.call("core.services.profile.getMyProfile");
       fullName = profile!.fullName;
       language = profile!.language;
-      // The language field's options and their autonyms are filled in by the
-      // server (applyLanguageOptions), so borrowing the field is both cheaper
-      // and more correct than keeping a list of languages here.
-      const meta = await getMeta("User");
-      langField = (meta?.doctype?.fields || []).find((f: any) => f.fieldname === "language") ?? null;
       await Promise.all([loadSessions(), loadKeys()]);
     } catch (e) { showError(e); }
   }
@@ -163,7 +157,7 @@
           <span class="lbl">{__("Full name")}</span>
           <input class="input" bind:value={fullName} />
         </label>
-        {#if langField}
+        {#if langField.options.length}
           <div class="fld">
             <Control field={langField} value={language} compact onchange={(v: any) => (language = v || null)} />
           </div>

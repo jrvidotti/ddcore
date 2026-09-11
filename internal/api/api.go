@@ -515,8 +515,16 @@ func (s *Server) boot(w http.ResponseWriter, r *http.Request) {
 				reports[n] = map[string]any{"label": c.T(orStr(rep["label"], n)), "refDoctype": rep["refDoctype"], "app": rep["app"]}
 			}
 		}
+		// the languages the site serves, with the same autonyms the User.language
+		// picker carries (applyLanguageOptions) — the desk's profile screen needs
+		// them and User is a System Manager doctype, so borrowing its meta is not
+		// an option for the person whose language it is
+		var langs []map[string]any
+		for _, l := range c.St.I18n.Langs() {
+			langs = append(langs, map[string]any{"code": l, "label": engine.LanguageName(l)})
+		}
 		return map[string]any{
-			"user": c.User, "roles": roles, "userDoc": userDoc, "lang": c.Lang, "apps": apps,
+			"user": c.User, "roles": roles, "userDoc": userDoc, "lang": c.Lang, "langs": langs, "apps": apps,
 			"workspaces": workspaces, "doctypes": doctypes, "reports": reports,
 			"site": map[string]any{
 				"name": s.E.Cfg.SiteName, "currency": s.E.Cfg.Currency,

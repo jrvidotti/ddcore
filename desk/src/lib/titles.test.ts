@@ -11,6 +11,7 @@ describe("titles store", () => {
       roles: ["System Manager"],
       userDoc: null,
       lang: "pt-BR",
+      langs: [],
       apps: [],
       workspaces: [],
       doctypes: {

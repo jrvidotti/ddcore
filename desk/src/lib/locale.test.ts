@@ -13,7 +13,7 @@ export function useLocale(
   money: { currencyPrecision?: number; rounding?: "commercial" | "bankers" } = {},
 ) {
   boot.data = {
-    user: "Administrator", roles: [], userDoc: null, lang,
+    user: "Administrator", roles: [], userDoc: null, lang, langs: [],
     apps: [], workspaces: [], doctypes: {}, reports: {},
     site: { name: "test", currency, timezone, dev: true, scheduler: false, version: "0.1.0", ...money },
     loaded: Date.now(),

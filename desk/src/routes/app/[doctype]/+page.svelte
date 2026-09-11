@@ -14,6 +14,7 @@
       <ListView {doctype} />
     {/if}
   {:catch error}
-    <p class="error">{error.message}</p>
+    <!-- a refusal is a page of its own, the same one ListView and FormView show -->
+    <div class="page"><div class="card empty">{error.message}</div></div>
   {/await}
 {/key}

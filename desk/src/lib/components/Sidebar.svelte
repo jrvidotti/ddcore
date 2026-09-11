@@ -5,6 +5,7 @@
   import { page } from "$app/state";
   import { api } from "$lib/api";
   import { goto } from "$app/navigation";
+  import { systemDoctypes } from "./sidebar";
 
   let { open = $bindable(true) }: { open?: boolean } = $props();
   const workspaces = $derived(boot.data?.workspaces || []);
@@ -12,7 +13,7 @@
   const active = (href: string) => current === href || current.startsWith(href + "/") || current.startsWith(href + "?");
   const itemHref = (it: any) => it.route || (it.doctype ? `/app/${encodeURIComponent(it.doctype)}` : it.report ? `/app/report/${encodeURIComponent(it.report)}` : "");
   async function logout() { await api.logout(); location.href = "/login"; }
-  const otherDoctypes = $derived(Object.entries(boot.data?.doctypes || {}).filter(([n, d]) => d.app === "core").sort());
+  const otherDoctypes = $derived(systemDoctypes(boot.data));
   let showCore = $state(false);
 
   let menuOpen = $state(false);
@@ -48,13 +49,15 @@
         {/if}
       {/each}
     {/each}
-    <div class="group" style="cursor:pointer" onclick={() => (showCore = !showCore)} role="button" tabindex="0" onkeydown={(e) => e.key === "Enter" && (showCore = !showCore)}>
-      {__("System")} <Icon name={showCore ? "chevron-down" : "chevron-right"} size={12} />
-    </div>
-    {#if showCore}
-      {#each otherDoctypes as [name, d]}
-        <a href={`/app/${encodeURIComponent(name)}`} class:active={active(`/app/${encodeURIComponent(name)}`)}><Icon name={d.icon || "circle"} size={d.icon ? 16 : 6} /><span>{d.label}</span></a>
-      {/each}
+    {#if otherDoctypes.length}
+      <div class="group" style="cursor:pointer" onclick={() => (showCore = !showCore)} role="button" tabindex="0" onkeydown={(e) => e.key === "Enter" && (showCore = !showCore)}>
+        {__("System")} <Icon name={showCore ? "chevron-down" : "chevron-right"} size={12} />
+      </div>
+      {#if showCore}
+        {#each otherDoctypes as [name, d]}
+          <a href={`/app/${encodeURIComponent(name)}`} class:active={active(`/app/${encodeURIComponent(name)}`)}><Icon name={d.icon || "circle"} size={d.icon ? 16 : 6} /><span>{d.label}</span></a>
+        {/each}
+      {/if}
     {/if}
   </nav>
   <div class="foot">

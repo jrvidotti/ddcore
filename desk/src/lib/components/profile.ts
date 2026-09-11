@@ -6,6 +6,8 @@
  * exactly the bits worth testing.
  */
 
+import type { Field } from "$lib/meta";
+
 export interface SessionRow {
   id: string;
   current: boolean;
@@ -82,4 +84,26 @@ export function isExpired(expires: string | null | undefined, now = new Date()):
   if (!expires) return false;
   const t = new Date(expires).getTime();
   return Number.isFinite(t) && t < now.getTime();
+}
+
+/**
+ * The language picker of the profile screen.
+ *
+ * The site's languages and their autonyms come from the boot payload, not from
+ * `User`'s meta: User is a System Manager DocType, so the one person who always
+ * needs this field — its subject — cannot read the DocType that declares it.
+ * The label and the description are the same English keys the DocType carries,
+ * so a translated screen reads the same either way.
+ */
+export function languageField(langs: { code: string; label: string }[], t: (s: string) => string): Field {
+  return {
+    fieldname: "language",
+    fieldtype: "Select",
+    label: t("Language"),
+    description: t("Leave blank to follow the site language."),
+    // no empty entry here: the control adds one, and blank is a real choice —
+    // it means "follow the site language"
+    options: langs.map((l) => l.code),
+    optionLabels: langs.map((l) => l.label),
+  };
 }

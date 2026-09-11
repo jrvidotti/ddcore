@@ -401,6 +401,71 @@ func TestB05_WorkspaceAndReportRequirePermission(t *testing.T) {
 	}
 }
 
+// ------------------------------------------------------------------ accounts
+
+// An account is administered: only a System Manager reads the User DocType, and
+// a user who cannot read it is told so instead of being shown an empty list —
+// which is what an `ifOwner` grant used to produce, since the owner of a User
+// row is whoever created the account.
+func TestUserDocTypeIsAdministeredOnly(t *testing.T) {
+	x := setup(t)
+	ana, root := "sid:"+x.sid("ana@x.com"), "sid:"+x.sid("root@x.com")
+
+	x.expect(x.call("GET", "/api/meta/User", nil, ana), 403, "PermissionError")
+	x.expect(x.call("GET", "/api/resource/User", nil, ana), 403, "PermissionError")
+	x.expect(x.call("GET", "/api/resource/User/ana@x.com", nil, ana), 403, "PermissionError")
+
+	for _, p := range []string{"/api/meta/User", "/api/resource/User"} {
+		if r := x.call("GET", p, nil, root); r.Status != 200 {
+			t.Fatalf("a System Manager should read %s: %d %s", p, r.Status, r.Raw)
+		}
+	}
+
+	// and the desk is not invited to a page it cannot open: boot advertises a
+	// DocType only to whoever may read it
+	bootDoctypes := func(auth string) map[string]any {
+		r := x.call("GET", "/api/boot", nil, auth)
+		data, _ := r.Body["data"].(map[string]any)
+		dts, _ := data["doctypes"].(map[string]any)
+		return dts
+	}
+	if _, ok := bootDoctypes(ana)["User"]; ok {
+		t.Fatal("boot advertises User to a user who cannot read it")
+	}
+	if _, ok := bootDoctypes(root)["User"]; !ok {
+		t.Fatal("boot hides User from a System Manager")
+	}
+
+	// what a person may do to their own account goes through the self-service
+	// instead; TestSEC04_GetMyProfile covers it.
+}
+
+// The languages a site serves travel in the boot payload, with the autonyms the
+// User.language picker carries — the profile screen needs them and its user
+// cannot read User's meta.
+func TestBootCarriesSiteLanguages(t *testing.T) {
+	x := setup(t)
+	r := x.call("GET", "/api/boot", nil, "sid:"+x.sid("ana@x.com"))
+	data, _ := r.Body["data"].(map[string]any)
+	langs, _ := data["langs"].([]any)
+	if len(langs) == 0 {
+		t.Fatalf("no langs in the boot payload: %s", r.Raw)
+	}
+	seen := map[string]string{}
+	for _, l := range langs {
+		m, _ := l.(map[string]any)
+		code, _ := m["code"].(string)
+		label, _ := m["label"].(string)
+		if code == "" || label == "" {
+			t.Fatalf("incomplete language: %v", m)
+		}
+		seen[code] = label
+	}
+	if seen["en"] != "English" {
+		t.Fatalf("langs = %v, want en labelled English", seen)
+	}
+}
+
 // ------------------------------------------------------------------ B04
 
 func TestB04_VersionAndCommentFollowReference(t *testing.T) {

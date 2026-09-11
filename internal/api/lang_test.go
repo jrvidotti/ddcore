@@ -184,7 +184,8 @@ func TestJSErrorIsNotRetranslated(t *testing.T) {
 // the ETag has to follow the language or a 304 hands back the wrong payload.
 func TestMetaTranslatedAndETag(t *testing.T) {
 	x := setup(t)
-	sid := "sid:" + x.sid("ana@x.com")
+	// User is a System Manager DocType, so its meta is read as one
+	sid := "sid:" + x.sid("root@x.com")
 
 	label := func(r resp) string {
 		data, _ := r.Body["data"].(map[string]any)
@@ -230,7 +231,7 @@ func TestTranslationDoesNotMutateTheRegistry(t *testing.T) {
 		before[f.Fieldname] = f.OptionLabels
 	}
 
-	x.call("GET", "/api/meta/User", nil, "sid:"+x.sid("ana@x.com"), "X-Lang", "pt-BR")
+	x.call("GET", "/api/meta/User", nil, "sid:"+x.sid("root@x.com"), "X-Lang", "pt-BR")
 
 	if d.Label != "User" {
 		t.Fatalf("the registry was mutated: label = %q", d.Label)
@@ -245,7 +246,7 @@ func TestTranslationDoesNotMutateTheRegistry(t *testing.T) {
 // A Select is canonical English in the database; only its display text moves.
 func TestSelectOptionsStayCanonical(t *testing.T) {
 	x := setup(t)
-	r := x.call("GET", "/api/meta/User", nil, "sid:"+x.sid("ana@x.com"), "X-Lang", "pt-BR")
+	r := x.call("GET", "/api/meta/User", nil, "sid:"+x.sid("root@x.com"), "X-Lang", "pt-BR")
 	data, _ := r.Body["data"].(map[string]any)
 	dt, _ := data["doctype"].(map[string]any)
 	fields, _ := dt["fields"].([]any)
@@ -294,7 +295,7 @@ func TestRuntimeCatalogueFollowsTheRequestLanguage(t *testing.T) {
 // when the DocType is declared, so it is injected into the registry at load.
 func TestUserLanguageIsAPicker(t *testing.T) {
 	x := setup(t)
-	sid := "sid:" + x.sid("ana@x.com")
+	sid := "sid:" + x.sid("root@x.com")
 
 	field := func(lang string) map[string]any {
 		r := x.call("GET", "/api/meta/User", nil, sid, "X-Lang", lang)

@@ -10,10 +10,10 @@ import { whitelisted, _ } from "@ddcore/sdk";
  *
  * Writing through `ddcore.db.setValue` is the deliberate part — it is the one
  * path that touches the column without a permission check and without loading
- * the document (`ddcore.getDoc` would fail first: the user cannot even *read*
- * their own record, since `ifOwner` matches whoever created the row). The price
- * is that it skips the hooks too, so the cache invalidation `User.onUpdate`
- * normally does has to happen here by hand.
+ * the document (`ddcore.getDoc` would fail first: User is a System Manager
+ * doctype, so the user cannot even *read* their own record). The price is that
+ * it skips the hooks too, so the cache invalidation `User.onUpdate` normally
+ * does has to happen here by hand.
  */
 export const setMyLanguage = whitelisted((args: { language?: string | null }) => {
   const user = ddcore.session.user;

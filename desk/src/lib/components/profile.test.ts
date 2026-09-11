@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { describeDevice, isExpired, passwordProblem, sortSessions } from "./profile";
+import { describeDevice, isExpired, languageField, passwordProblem, sortSessions } from "./profile";
 
 const t = (s: string, args?: any[]) =>
   args ? args.reduce<string>((acc, v, i) => acc.replaceAll(`{${i}}`, String(v)), s) : s;
@@ -81,5 +81,32 @@ describe("isExpired", () => {
   it("an unparseable date does not become 'expired'", () => {
     // marking a working key as expired confuses more than it helps
     expect(isExpired("nem data é", now)).toBe(false);
+  });
+});
+
+describe("languageField", () => {
+  const langs = [{ code: "en", label: "English" }, { code: "pt-BR", label: "Português" }];
+
+  it("is a Select over the site's languages, labelled with their autonyms", () => {
+    const f = languageField(langs, t);
+    expect(f.fieldtype).toBe("Select");
+    expect(f.fieldname).toBe("language");
+    expect(f.options).toEqual(["en", "pt-BR"]);
+    expect(f.optionLabels).toEqual(["English", "Português"]);
+  });
+
+  it("leaves the blank entry to the control: empty means 'follow the site'", () => {
+    expect(languageField(langs, t).options).not.toContain("");
+  });
+
+  it("translates its own caption", () => {
+    const shout = (s: string) => s.toUpperCase();
+    const f = languageField(langs, shout);
+    expect(f.label).toBe("LANGUAGE");
+    expect(f.description).toBe("LEAVE BLANK TO FOLLOW THE SITE LANGUAGE.");
+  });
+
+  it("survives a site that reported no languages", () => {
+    expect(languageField([], t).options).toEqual([]);
   });
 });

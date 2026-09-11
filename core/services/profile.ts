@@ -4,11 +4,11 @@ import { whitelisted, _ } from "@ddcore/sdk";
  * What a person may do to their own account.
  *
  * The shape of every function here is set by one fact, the same one that
- * explains `core/services/i18n.ts`: a user has **no write on their own User
- * record**, and granting it is not an option, because `roles` is a child table
- * on User and write would let anyone make themselves a System Manager. They
- * cannot even *read* it — `ifOwner` matches whoever created the row, which is
- * whoever created the account.
+ * explains `core/services/i18n.ts`: a user has **no permission at all on their
+ * own User record**, not even read. Granting write is not an option, because
+ * `roles` is a child table on User and write would let anyone make themselves a
+ * System Manager; and a read grant through `ifOwner` grants nothing either,
+ * since the owner of the row is whoever created the account.
  *
  * So reads go through `ddcore.db.getValue` and writes through
  * `ddcore.db.setValue`, both of which skip the permission check by design. The

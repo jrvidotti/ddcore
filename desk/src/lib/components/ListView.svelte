@@ -22,6 +22,10 @@
   let rows = $state<any[]>([]);
   let total = $state(0);
   let loading = $state(true);
+  // a refused list is a state of the page, not a toast that fades: without
+  // this the table below simply reads "No records", which is a different
+  // thing from "you may not see these"
+  let error = $state("");
   let filters = $state<Record<string, any>>({});
   let search = $state("");
   let orderBy = $state("");
@@ -127,7 +131,8 @@
       total = res.count;
       if (res.titles) registerTitles(res.titles);
       selected = new Set();
-    } catch (e) { showError(e); } finally { loading = false; }
+      error = "";
+    } catch (e: any) { error = e.message; showError(e); } finally { loading = false; }
   }
   $effect(() => {
     const search = page.url.search;
@@ -150,7 +155,7 @@
         lastUrlSearch = page.url.search;
         ready = true;
         await load();
-      } catch (e) { if (alive) showError(e); }
+      } catch (e: any) { if (alive) { error = e.message; loading = false; showError(e); } }
     })();
     return () => { alive = false; off(); clearTimeout(timer); };
   });
@@ -253,6 +258,12 @@
   }
 </script>
 
+{#if error}
+  <div class="page">
+    <div class="page-head"><h1>{meta?.doctype.label || doctypeLabel(doctype)}</h1></div>
+    <div class="card empty">{error}</div>
+  </div>
+{:else}
 <div class="page">
   <div class="page-head">
     <h1>{meta?.doctype.label || doctypeLabel(doctype)}</h1>
@@ -356,6 +367,7 @@
     </div>
   </div>
 </div>
+{/if}
 
 <style>
   .list-filters { padding: 12px 14px; margin-bottom: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px 10px; align-items: start; }
