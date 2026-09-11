@@ -80,7 +80,7 @@ func TestExportCSVOverHTTP(t *testing.T) {
 		t.Errorf("Content-Disposition: %s", cd)
 	}
 	if res.Header.Get("X-Content-Type-Options") != "nosniff" {
-		t.Error("falta nosniff")
+		t.Error("missing nosniff")
 	}
 	count, err := strconv.Atoi(res.Header.Get("X-DDCore-Export-Count"))
 	if err != nil || count != 30 {
@@ -89,7 +89,7 @@ func TestExportCSVOverHTTP(t *testing.T) {
 
 	body := readAll(t, res)
 	if !strings.HasPrefix(body, "\ufeff") {
-		t.Error("o CSV precisa do BOM para o Excel ler os acentos")
+		t.Error("CSV needs BOM so Excel can read accented characters")
 	}
 	recs, err := csv.NewReader(strings.NewReader(strings.TrimPrefix(body, "\ufeff"))).ReadAll()
 	if err != nil {
@@ -97,10 +97,10 @@ func TestExportCSVOverHTTP(t *testing.T) {
 	}
 	// The header the count promised: every row, plus the header line.
 	if len(recs) != count+1 {
-		t.Fatalf("esperava %d linhas + cabeçalho, veio %d", count, len(recs))
+		t.Fatalf("expected %d rows + header, got %d", count, len(recs))
 	}
 	if !hasCol(recs[0], "code") || !hasCol(recs[0], "owner") || !hasCol(recs[0], "docstatus") {
-		t.Errorf("faltam colunas de negócio ou de auditoria: %v", recs[0])
+		t.Errorf("missing business or audit columns: %v", recs[0])
 	}
 }
 
@@ -119,14 +119,14 @@ func TestExportAppliesFiltersOverHTTP(t *testing.T) {
 		t.Fatalf("status %d", res.StatusCode)
 	}
 	if got := res.Header.Get("X-DDCore-Export-Count"); got != "10" {
-		t.Fatalf("contagem com filtro: %s", got)
+		t.Fatalf("count with filter: %s", got)
 	}
 	recs, err := csv.NewReader(strings.NewReader(strings.TrimPrefix(readAll(t, res), "\ufeff"))).ReadAll()
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(recs) != 11 {
-		t.Fatalf("esperava 10 linhas + cabeçalho, veio %d", len(recs))
+		t.Fatalf("expected 10 rows + header, got %d", len(recs))
 	}
 }
 
@@ -147,7 +147,7 @@ func TestExportNDJSONCarriesChildrenAndManifest(t *testing.T) {
 	}
 	lines := strings.Split(strings.TrimSpace(readAll(t, res)), "\n")
 	if len(lines) != 6 {
-		t.Fatalf("esperava 5 documentos + manifesto, veio %d", len(lines))
+		t.Fatalf("expected 5 documents + manifest, got %d", len(lines))
 	}
 	var first map[string]any
 	if err := json.Unmarshal([]byte(lines[0]), &first); err != nil {
@@ -155,7 +155,7 @@ func TestExportNDJSONCarriesChildrenAndManifest(t *testing.T) {
 	}
 	ms, _ := first["milestones"].([]any)
 	if len(ms) != 2 {
-		t.Fatalf("os filhos não vieram aninhados: %v", first["milestones"])
+		t.Fatalf("children were not nested: %v", first["milestones"])
 	}
 	var last map[string]any
 	if err := json.Unmarshal([]byte(lines[5]), &last); err != nil {
@@ -163,7 +163,7 @@ func TestExportNDJSONCarriesChildrenAndManifest(t *testing.T) {
 	}
 	man, ok := last["_manifest"].(map[string]any)
 	if !ok {
-		t.Fatal("a última linha deveria ser o manifesto")
+		t.Fatal("the last line should be the manifest")
 	}
 	if man["rows"] != float64(5) {
 		t.Errorf("manifesto: rows=%v", man["rows"])
@@ -181,7 +181,7 @@ func TestExportRefusesChildrenInCSV(t *testing.T) {
 	res := getRaw(t, srv, tok, "/api/export/Project?format=csv&children=1")
 	defer res.Body.Close()
 	if res.StatusCode != 417 {
-		t.Fatalf("esperava 417, veio %d", res.StatusCode)
+		t.Fatalf("expected 417, got %d", res.StatusCode)
 	}
 }
 
@@ -213,11 +213,11 @@ func TestExportDeniedWithoutExportPermission(t *testing.T) {
 	res := getRaw(t, srv, tok, "/api/export/Project")
 	defer res.Body.Close()
 	if res.StatusCode != 403 {
-		t.Fatalf("Project Contributor lê mas não exporta: esperava 403, veio %d", res.StatusCode)
+		t.Fatalf("Project Contributor reads but cannot export: expected 403, got %d", res.StatusCode)
 	}
 	// and the refusal is a JSON error, not a half-written file
 	if ct := res.Header.Get("Content-Type"); !strings.Contains(ct, "json") {
-		t.Errorf("uma recusa deveria vir como erro JSON, veio %s", ct)
+		t.Errorf("a refusal should come as a JSON error, got %s", ct)
 	}
 }
 
@@ -231,21 +231,21 @@ func TestExportRefusesMoreThanTheCap(t *testing.T) {
 	res := getRaw(t, srv, tok, "/api/export/Project")
 	defer res.Body.Close()
 	if res.StatusCode != 417 {
-		t.Fatalf("esperava 417 acima do teto, veio %d", res.StatusCode)
+		t.Fatalf("expected 417 above the cap, got %d", res.StatusCode)
 	}
 	body := readAll(t, res)
 	if !strings.Contains(body, "ddcore export") {
-		t.Errorf("a recusa deveria apontar a saída pela CLI: %s", body)
+		t.Errorf("refusal should point to CLI export: %s", body)
 	}
 
 	// An explicit limit is the caller accepting a sample, and is allowed.
 	res2 := getRaw(t, srv, tok, "/api/export/Project?limit=3")
 	defer res2.Body.Close()
 	if res2.StatusCode != 200 {
-		t.Fatalf("com limit explícito esperava 200, veio %d", res2.StatusCode)
+		t.Fatalf("with explicit limit expected 200, got %d", res2.StatusCode)
 	}
 	if got := res2.Header.Get("X-DDCore-Export-Count"); got != "3" {
-		t.Errorf("contagem com limit: %s", got)
+		t.Errorf("count with limit: %s", got)
 	}
 
 	// But a limit is not a way around the cap: asking for more than the
@@ -253,7 +253,7 @@ func TestExportRefusesMoreThanTheCap(t *testing.T) {
 	res3 := getRaw(t, srv, tok, "/api/export/Project?limit=99999999")
 	defer res3.Body.Close()
 	if res3.StatusCode != 417 {
-		t.Fatalf("um limit enorme não pode contornar o teto: veio %d", res3.StatusCode)
+		t.Fatalf("a huge limit cannot bypass the cap: got %d", res3.StatusCode)
 	}
 }
 
@@ -264,7 +264,7 @@ func TestExportRejectsAnUnknownFormat(t *testing.T) {
 	res := getRaw(t, srv, tok, "/api/export/Project?format=xlsx")
 	defer res.Body.Close()
 	if res.StatusCode != 417 {
-		t.Fatalf("esperava 417, veio %d", res.StatusCode)
+		t.Fatalf("expected 417, got %d", res.StatusCode)
 	}
 }
 

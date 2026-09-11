@@ -466,8 +466,8 @@ type Message struct {
 // Ctx is one unit of work: a user, a transaction and (lazily) a JS runtime.
 type Ctx struct {
 	E *Engine
-	// St is the engine state captured when the ctx was created: meta, pool e
-	// traduções não mudam no meio de uma requisição, mesmo com reload (B08).
+	// St is the engine state captured when the ctx was created: meta, pool, and
+	// translations do not change in the middle of a request, even with reload (B08).
 	St       *State
 	Ctx      context.Context
 	User     string
@@ -533,8 +533,8 @@ func (c *Ctx) Run(fn func(c *Ctx) error) (err error) {
 	}
 	c.release()
 	done = true
-	// callbacks de afterCommit só rodam quando houve commit de verdade: um
-	// rollback explícito não pode publicar eventos do que não aconteceu.
+	// afterCommit callbacks only run when an actual commit occurred: an
+	// explicit rollback must not publish events for changes that never happened.
 	if committed {
 		for _, f := range c.afterCommit {
 			f()
@@ -546,7 +546,7 @@ func (c *Ctx) Run(fn func(c *Ctx) error) (err error) {
 
 func (c *Ctx) release() {
 	if c.rt != nil {
-		// devolve ao pool que criou a VM, não ao pool corrente (B08)
+		// returns to the pool that created the VM, not the current pool (B08)
 		c.rt.Release()
 		c.rt = nil
 	}

@@ -37,25 +37,25 @@ export default defineApp({
   title: %q,
   roles: [],
   // docEvents: { "User": { validate(doc) {} } },
-  // scheduler: { daily: ["%s.services.tarefas.diaria"] },
+  // scheduler: { daily: ["%s.services.tasks.daily"] },
   desk: { include: [] },
 });
 `, name, title, name),
 		"CLAUDE.md": fmt.Sprintf(`# App %s (ddcore)
 
-App do framework **ddcore**: DocTypes em TypeScript, core em Go, PostgreSQL.
+**ddcore** framework app: DocTypes in TypeScript, core in Go, PostgreSQL.
 
-- `+"`doctypes/<snake>/<snake>.doctype.ts`"+` — meta (`+"`defineDoctype`"+`). Fieldnames em snake_case ASCII.
-- `+"`doctypes/<snake>/<snake>.controller.ts`"+` — regras (`+"`defineController`"+`): validate, onSubmit, methods.
-- `+"`doctypes/<snake>/<snake>.form.ts`"+` — script do desk (`+"`defineForm`"+`).
-- `+"`doctypes/<snake>/<snake>.test.ts`"+` — testes (`+"`ddcore test`"+`), cada `+"`it`"+` roda em transação revertida.
-- `+"`services/*.ts`"+` — funções de negócio; exporte com `+"`whitelisted()`"+` para expor em `+"`/api/method/%s.services.<arquivo>.<fn>`"+`.
+- `+"`doctypes/<snake>/<snake>.doctype.ts`"+` — meta (`+"`defineDoctype`"+`). Fieldnames in snake_case ASCII.
+- `+"`doctypes/<snake>/<snake>.controller.ts`"+` — rules (`+"`defineController`"+`): validate, onSubmit, methods.
+- `+"`doctypes/<snake>/<snake>.form.ts`"+` — desk script (`+"`defineForm`"+`).
+- `+"`doctypes/<snake>/<snake>.test.ts`"+` — tests (`+"`ddcore test`"+`), each `+"`it`"+` runs in a rolled-back transaction.
+- `+"`services/*.ts`"+` — business functions; export with `+"`whitelisted()`"+` to expose at `+"`/api/method/%s.services.<file>.<fn>`"+`.
 - `+"`reports/*.report.ts`"+`, `+"`workspaces/*.workspace.ts`"+`, `+"`patches/NNNN_*.ts`"+`, `+"`translations/pt-BR.csv`"+`.
 
-Comandos: `+"`ddcore dev`"+` (hot-reload + auto-migrate), `+"`ddcore migrate --dry-run`"+`, `+"`ddcore test`"+`, `+"`ddcore types`"+`, `+"`ddcore eval '<ts>'`"+`.
-Referência completa: `+"`ddcore docs`"+` ou os resources `+"`ddcore://docs/*`"+` do MCP (`+"`ddcore mcp`"+`).
+Commands: `+"`ddcore dev`"+` (hot-reload + auto-migrate), `+"`ddcore migrate --dry-run`"+`, `+"`ddcore test`"+`, `+"`ddcore types`"+`, `+"`ddcore eval '<ts>'`"+`.
+Full reference: `+"`ddcore docs`"+` or MCP resources `+"`ddcore://docs/*`"+` (`+"`ddcore mcp`"+`).
 
-Regras que não mudam: código de servidor é **síncrono** (sem await); `+"`mandatoryDependsOn`"+` é validado no servidor; nunca chame commit.
+Inviolable rules: server code is **synchronous** (no await); `+"`mandatoryDependsOn`"+` is validated on the server; never call commit.
 `, title, name),
 		"translations/pt-BR.csv": "",
 		"services/.keep":         "",
@@ -154,11 +154,11 @@ import type { %s } from "../../.ddcore/types";
 
 export default defineController<%s>(%q, {
   validate(doc, ctx) {
-    // regras de validação; ddcore.throw(_("mensagem"), { title: _("Título") })
+    // validation rules; ddcore.throw(_("message"), { title: _("Title") })
   },
   methods: {
-    // exemplo: chamado pelo desk com frm.call("exemplo", { x: 1 })
-    // exemplo(doc, args) { return { ok: true }; },
+    // example: called by the desk with frm.call("example", { x: 1 })
+    // example(doc, args) { return { ok: true }; },
   },
 });
 `, iface, iface, spec.Name)
@@ -173,10 +173,10 @@ export default defineController<%s>(%q, {
 
 defineForm(%q, {
   refresh(frm) {
-    // frm.addButton(__("Ação"), () => frm.call("exemplo"), __("Ações"));
+    // frm.addButton(__("Action"), () => frm.call("example"), __("Actions"));
   },
   onChange: {
-    // campo(frm) {},
+    // fieldname(frm) {},
   },
 });
 `, spec.Name)
@@ -190,9 +190,9 @@ defineForm(%q, {
 		src := fmt.Sprintf(`import "@ddcore/sdk/test";
 
 describe(%q, () => {
-  it("cria um documento", () => {
+  it("creates a document", () => {
     const doc = ddcore.newDoc(%q, {});
-    // preencha os campos obrigatórios antes de inserir
+    // populate required fields before inserting
     expect(doc.doctype).toBe(%q);
   });
 });

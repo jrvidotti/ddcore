@@ -76,7 +76,7 @@ export function addMonths(a) { return ddcore.utils.addMonths("2026-01-31", 1) }`
 	}
 	json.Unmarshal(m, &meta)
 	if meta.Doctypes["X"]["app"] != "demo" || len(meta.Whitelisted) != 1 || meta.Whitelisted[0].Path != "demo.doctypes.x.x.controller.hello" {
-		t.Fatalf("meta inesperada: %s", m)
+		t.Fatalf("unexpected meta: %s", m)
 	}
 	out, err := rt.RunHook("X", "validate", json.RawMessage(`{"doctype":"X","name":"1","a":1}`), nil)
 	if err != nil || string(out) != `{"doctype":"X","name":"1","a":43}` {
@@ -84,7 +84,7 @@ export function addMonths(a) { return ddcore.utils.addMonths("2026-01-31", 1) }`
 	}
 	_, err = rt.RunHook("X", "validate", json.RawMessage(`{"doctype":"X","name":"1","a":100}`), nil)
 	if err == nil || err.Error() != "Limite: Muito grande" {
-		t.Fatalf("esperava ValidationError, veio %v", err)
+		t.Fatalf("expected ValidationError, got %v", err)
 	}
 	r, err := rt.RunMethod("X", "dobro", json.RawMessage(`{"doctype":"X","name":"1","a":5}`), json.RawMessage(`{}`))
 	if err != nil || string(r.Result) != `{"v":10,"user":"Administrator"}` {
@@ -139,13 +139,13 @@ describe("segundo", () => {
 		t.Fatal(err)
 	}
 	if len(results) != 1 || results[0].App != "primeiro" || results[0].Name != "primeiro test" {
-		t.Fatalf("seleção de app incorreta: %#v", results)
+		t.Fatalf("incorrect app selection: %#v", results)
 	}
 }
 
-// B08 — um runtime adquirido antes do reload volta ao pool que o criou, nunca
-// ao pool novo, e o pool antigo descarta o que recebe depois de fechado.
-func TestB08_ReleaseVoltaAoPoolDeOrigem(t *testing.T) {
+// B08 — a runtime acquired before reload returns to the pool that created it, never
+// to the new pool, and the old pool discards whatever it receives after being closed.
+func TestB08_ReleaseReturnsToOriginPool(t *testing.T) {
 	h := &fakeHost{}
 	p1, err := NewPool(h, nil, 2, false)
 	if err != nil {
@@ -159,74 +159,74 @@ func TestB08_ReleaseVoltaAoPoolDeOrigem(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p1.Close() // reload: p1 é o pool antigo
-	// devolver pelo pool novo não pode contaminar o pool novo
+	p1.Close() // reload: p1 is the old pool
+	// returning through the new pool must not contaminate the new pool
 	p2.Release(rt)
 	rt2, err := p2.Acquire()
 	if err != nil {
 		t.Fatal(err)
 	}
 	if rt2 == rt {
-		t.Fatalf("VM antiga entrou no pool novo")
+		t.Fatalf("old VM entered the new pool")
 	}
 	p1.mu.Lock()
 	n := len(p1.free)
 	p1.mu.Unlock()
 	if n != 0 {
-		t.Fatalf("pool fechado guardou %d VMs", n)
+		t.Fatalf("closed pool retained %d VMs", n)
 	}
-	// e o pool antigo ainda entrega VMs para quem capturou a meta antiga
+	// and the old pool still serves VMs for anyone that captured the old meta
 	if _, err := p1.Acquire(); err != nil {
-		t.Fatalf("pool fechado deveria continuar servindo: %v", err)
+		t.Fatalf("closed pool should continue serving: %v", err)
 	}
 }
 
-// O semáforo limita quantas VMs ficam em uso ao mesmo tempo.
-func TestB08_PoolLimitaConcorrencia(t *testing.T) {
+// The semaphore caps how many VMs can be in use simultaneously.
+func TestB08_PoolLimitsConcurrency(t *testing.T) {
 	p, err := NewPool(&fakeHost{}, nil, 2, false)
 	if err != nil {
 		t.Fatal(err)
 	}
 	a, _ := p.Acquire()
 	b, _ := p.Acquire()
-	livre := make(chan struct{})
+	freeCh := make(chan struct{})
 	go func() {
 		c, _ := p.Acquire()
 		p.Release(c)
-		close(livre)
+		close(freeCh)
 	}()
 	select {
-	case <-livre:
-		t.Fatalf("Acquire passou do limite do pool")
+	case <-freeCh:
+		t.Fatalf("Acquire exceeded pool limit")
 	case <-time.After(100 * time.Millisecond):
 	}
 	p.Release(a)
 	select {
-	case <-livre:
+	case <-freeCh:
 	case <-time.After(2 * time.Second):
-		t.Fatalf("Acquire não destravou depois do Release")
+		t.Fatalf("Acquire did not unblock after Release")
 	}
 	p.Release(b)
 }
 
-// B22 — eval anuncia TypeScript: tipagem precisa ser transpilada antes.
-func TestB22_EvalTranspilaTS(t *testing.T) {
+// B22 — eval advertises TypeScript: typing must be transpiled beforehand.
+func TestB22_EvalTranspilesTS(t *testing.T) {
 	rt, err := newRuntime(&fakeHost{}, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
 	out, err := rt.Eval("const x: number = 1; x")
 	if err != nil {
-		t.Fatalf("eval de TS falhou: %v", err)
+		t.Fatalf("TS eval failed: %v", err)
 	}
 	if string(out) != "1" {
-		t.Fatalf("esperava 1, veio %s", out)
+		t.Fatalf("expected 1, got %s", out)
 	}
 	if out, err := rt.Eval("interface P { n: string }\nconst p: P = { n: 'ok' }; p.n"); err != nil || string(out) != `"ok"` {
 		t.Fatalf("interface: %s %v", out, err)
 	}
 	if _, err := rt.Eval("const x: = 1"); err == nil {
-		t.Fatalf("esperava erro de sintaxe")
+		t.Fatalf("expected syntax error")
 	}
 }
 

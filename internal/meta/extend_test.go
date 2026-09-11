@@ -121,9 +121,9 @@ func TestExtensionRefusesAPropertyThatIsIdentity(t *testing.T) {
 	assertErr(t, err, `may not override "naming" on the DocType`)
 }
 
-// Uma extensão não mexe no que o migrate usa para mover dados: `renamedFrom` e
-// `convert` decidem DDL sobre a coluna do dono, e não são dela para declarar.
-// E o que ela sobrescreve não pode apagar o que o dono declarou.
+// An extension cannot touch what migrate uses to move data: `renamedFrom` and
+// `convert` determine DDL on the owner's column, and are not the extension's to declare.
+// And what it overrides cannot wipe out what the owner declared.
 func TestExtensionDoesNotTouchTheMigrationMachinery(t *testing.T) {
 	r := hostRegistry()
 	d, _ := r.Get("Lead")
@@ -134,7 +134,7 @@ func TestExtensionDoesNotTouchTheMigrationMachinery(t *testing.T) {
 	assertErr(t, err, `may not override "renamedFrom" on field "title"`)
 	assertErr(t, err, `may not override "convert" on field "title"`)
 
-	// e um property setter legítimo no mesmo campo preserva os dois
+	// and a legitimate property setter on the same field preserves both
 	r = hostRegistry()
 	d, _ = r.Get("Lead")
 	d.Field("title").RenamedFrom = Names{"nome"}
@@ -142,13 +142,13 @@ func TestExtensionDoesNotTouchTheMigrationMachinery(t *testing.T) {
 	mustApply(t, r, ext("billing", "Lead", `{"set":{"title":{"reqd":true}}}`))
 	f := d.Field("title")
 	if !f.Reqd {
-		t.Fatal("o property setter não foi aplicado")
+		t.Fatal("property setter was not applied")
 	}
 	if len(f.RenamedFrom) != 1 || f.RenamedFrom[0] != "nome" {
-		t.Fatalf("renamedFrom perdido no overlay: %v", f.RenamedFrom)
+		t.Fatalf("renamedFrom lost in overlay: %v", f.RenamedFrom)
 	}
 	if f.Convert == nil || f.Convert.From != "Int" {
-		t.Fatalf("convert perdido no overlay: %+v", f.Convert)
+		t.Fatalf("convert lost in overlay: %+v", f.Convert)
 	}
 }
 

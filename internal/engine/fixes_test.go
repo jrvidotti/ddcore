@@ -13,10 +13,10 @@ import (
 	"github.com/jrvidotti/ddcore/internal/js"
 )
 
-// B06 — ddcore.db.sql precisa ser somente leitura de verdade: uma CTE de
-// escrita disfarçada de SELECT tem de ser recusada pelo banco e nada pode
-// ficar gravado.
-func TestB06_SQLReadonlyRecusaEscrita(t *testing.T) {
+// B06 — ddcore.db.sql must be truly read-only: a write CTE
+// disguised as a SELECT must be rejected by the database and nothing
+// can be saved.
+func TestB06_SQLReadonlyRejectsWrites(t *testing.T) {
 	e := setup(t)
 	ctx := context.Background()
 	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
@@ -24,20 +24,20 @@ func TestB06_SQLReadonlyRecusaEscrita(t *testing.T) {
 			UPDATE tab_role SET modified_by = 'audit' WHERE name = $1 RETURNING name
 		) SELECT * FROM changed`, []any{"Gestor"})
 		if err == nil {
-			t.Fatalf("esperava recusa da CTE de escrita")
+			t.Fatalf("expected write CTE rejection")
 		}
 		if !strings.Contains(strings.ToLower(err.Error()), "read-only") {
-			t.Fatalf("esperava erro de transação somente leitura, veio: %v", err)
+			t.Fatalf("expected read-only transaction error, got: %v", err)
 		}
-		// a transação continua utilizável e o SET LOCAL foi desfeito
+		// the transaction remains usable and SET LOCAL was rolled back
 		rows, err := c.SQL(`SELECT modified_by FROM tab_role WHERE name = $1`, []any{"Gestor"})
 		if err != nil {
-			t.Fatalf("SELECT após a recusa falhou: %v", err)
+			t.Fatalf("SELECT after rejection failed: %v", err)
 		}
 		if len(rows) != 1 || db.Str(rows[0]["modified_by"]) == "audit" {
-			t.Fatalf("a escrita vazou: %v", rows)
+			t.Fatalf("the write leaked: %v", rows)
 		}
-		// escrita legítima pelo caminho normal continua funcionando
+		// legitimate write through the normal path continues to work
 		_, err = c.DBSet("Role", "Gestor", Doc{"role_name": "Gestor"}, true)
 		return err
 	})
@@ -47,15 +47,15 @@ func TestB06_SQLReadonlyRecusaEscrita(t *testing.T) {
 	e.Run(ctx, "Administrator", func(c *Ctx) error {
 		v, _ := c.GetValue("Role", "Gestor", "modified_by")
 		if db.Str(v) == "audit" {
-			t.Fatalf("modified_by foi gravado pela CTE")
+			t.Fatalf("modified_by was saved by the CTE")
 		}
 		return nil
 	})
 }
 
-// B07 — duas transações reais gravando o mesmo documento: T1 altera
-// full_name e segura a transação; T2 leu a versão anterior e salva apenas
-// language. A edição de T1 não pode se perder.
+// B07 — two concurrent transactions writing to the same document: T1 modifies
+// full_name and holds the transaction open; T2 read the previous version and saves only
+// language. T1's edit must not be lost.
 func TestB07_LostUpdate(t *testing.T) {
 	e := setup(t)
 	ctx := context.Background()
@@ -66,7 +66,7 @@ func TestB07_LostUpdate(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	// T2 lê a versão antiga antes de T1 gravar
+	// T2 reads the stale version before T1 writes
 	var stale Doc
 	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
 		var err error
@@ -88,7 +88,7 @@ func TestB07_LostUpdate(t *testing.T) {
 				return err
 			}
 			close(t1Saved)
-			<-t1Commit // segura a transação aberta
+			<-t1Commit // hold the transaction open
 			return nil
 		})
 	}()
@@ -105,7 +105,7 @@ func TestB07_LostUpdate(t *testing.T) {
 	}()
 	select {
 	case err := <-t2Done:
-		t.Fatalf("T2 não esperou o lock de T1: %v", err)
+		t.Fatalf("T2 did not wait for T1's lock: %v", err)
 	case <-time.After(400 * time.Millisecond):
 	}
 	close(t1Commit)
@@ -114,10 +114,10 @@ func TestB07_LostUpdate(t *testing.T) {
 	}
 	err := <-t2Done
 	if err == nil {
-		t.Fatalf("T2 gravou sobre a versão antiga sem reclamar")
+		t.Fatalf("T2 overwrote the stale version without error")
 	}
 	if got := cerr.From(err).Type; got != "TimestampMismatchError" {
-		t.Fatalf("esperava TimestampMismatchError, veio %s (%v)", got, err)
+		t.Fatalf("expected TimestampMismatchError, got %s (%v)", got, err)
 	}
 	e.Run(ctx, "Administrator", func(c *Ctx) error {
 		d, err := c.GetDoc("User", "co@x.com")
@@ -125,14 +125,14 @@ func TestB07_LostUpdate(t *testing.T) {
 			return err
 		}
 		if d.Str("full_name") != "Primeiro" {
-			t.Fatalf("a edição de T1 se perdeu: %v", d.Str("full_name"))
+			t.Fatalf("T1's edit was lost: %v", d.Str("full_name"))
 		}
 		return nil
 	})
 }
 
-// B07 — timestamp inválido não pode passar como "igual".
-func TestB07_TimestampInvalidoRecusado(t *testing.T) {
+// B07 — invalid timestamp cannot pass as "equal".
+func TestB07_InvalidTimestampRejected(t *testing.T) {
 	e := setup(t)
 	ctx := context.Background()
 	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
@@ -144,10 +144,10 @@ func TestB07_TimestampInvalidoRecusado(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		d["modified"] = "nao é uma data"
-		d["full_name"] = "Outro"
+		d["modified"] = "not a valid date"
+		d["full_name"] = "Other"
 		if _, err := c.Save(d, SaveOpts{}); err == nil || cerr.From(err).Type != "TimestampMismatchError" {
-			t.Fatalf("esperava TimestampMismatchError, veio %v", err)
+			t.Fatalf("expected TimestampMismatchError, got %v", err)
 		}
 		return nil
 	})
@@ -156,9 +156,9 @@ func TestB07_TimestampInvalidoRecusado(t *testing.T) {
 	}
 }
 
-// B03 — salvar um pai com uma linha filha que pertence a outro documento não
-// pode transferir a linha: ela vira uma cópia.
-func TestB03_FilhoNaoMudaDePai(t *testing.T) {
+// B03 — saving a parent with a child row belonging to another document cannot
+// transfer the row: it becomes a copy.
+func TestB03_ChildDoesNotSwitchParent(t *testing.T) {
 	e := setup(t)
 	ctx := context.Background()
 	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
@@ -173,13 +173,13 @@ func TestB03_FilhoNaoMudaDePai(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		linhaDeA := a.Children("roles")[0]
-		nomeOriginal := linhaDeA.Str("name")
-		if nomeOriginal == "" {
-			t.Fatalf("linha filha sem name: %v", linhaDeA)
+		childOfA := a.Children("roles")[0]
+		origName := childOfA.Str("name")
+		if origName == "" {
+			t.Fatalf("child row without name: %v", childOfA)
 		}
-		// copia a linha de A para B mantendo o name
-		b["roles"] = []any{map[string]any(linhaDeA.Clone())}
+		// copy A's child row into B keeping the name
+		b["roles"] = []any{map[string]any(childOfA.Clone())}
 		b, err = c.Save(b, SaveOpts{})
 		if err != nil {
 			return err
@@ -189,16 +189,16 @@ func TestB03_FilhoNaoMudaDePai(t *testing.T) {
 			return err
 		}
 		if len(a.Children("roles")) != 1 {
-			t.Fatalf("A perdeu a linha filha: %v", a["roles"])
+			t.Fatalf("A lost its child row: %v", a["roles"])
 		}
-		if a.Children("roles")[0].Str("name") != nomeOriginal {
-			t.Fatalf("a linha de A trocou de name")
+		if a.Children("roles")[0].Str("name") != origName {
+			t.Fatalf("A's child row changed its name")
 		}
 		if len(b.Children("roles")) != 1 {
-			t.Fatalf("B deveria ter uma cópia: %v", b["roles"])
+			t.Fatalf("B should have a copy: %v", b["roles"])
 		}
-		if b.Children("roles")[0].Str("name") == nomeOriginal {
-			t.Fatalf("B ficou com a mesma linha de A (%s)", nomeOriginal)
+		if b.Children("roles")[0].Str("name") == origName {
+			t.Fatalf("B kept the exact same row as A (%s)", origName)
 		}
 		return nil
 	})
@@ -207,11 +207,11 @@ func TestB03_FilhoNaoMudaDePai(t *testing.T) {
 	}
 }
 
-// B21 — depois de um dbSet, o documento em memória precisa carregar o novo
-// `modified`; senão um save() na mesma instância falha com TimestampMismatch
-// sem ninguém ter editado o documento. E runMethod devolve a versão
-// persistida.
-func TestB21_DbSetAtualizaModified(t *testing.T) {
+// B21 — after a dbSet, the in-memory document must load the new
+// `modified`; otherwise a save() on the same instance fails with TimestampMismatch
+// without anyone having edited the document. And runMethod returns the
+// persisted version.
+func TestB21_DbSetUpdatesModified(t *testing.T) {
 	e := setup(t)
 	ctx := context.Background()
 	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
@@ -231,21 +231,21 @@ func TestB21_DbSetAtualizaModified(t *testing.T) {
 		}
 		res, err := rt.RunMethod("Pedido", "tocar", ped.JSON(), []byte(`{}`))
 		if err != nil {
-			t.Fatalf("dbSet seguido de save falhou: %v", err)
+			t.Fatalf("dbSet followed by save failed: %v", err)
 		}
 		var out Doc
 		if err := json.Unmarshal(res.Doc, &out); err != nil {
 			return err
 		}
-		atual, err := c.GetDoc("Pedido", ped.Name())
+		current, err := c.GetDoc("Pedido", ped.Name())
 		if err != nil {
 			return err
 		}
-		if out.Str("obs") != "tocado" || atual.Str("obs") != "tocado" {
-			t.Fatalf("obs não foi gravado: %v / %v", out["obs"], atual["obs"])
+		if out.Str("obs") != "tocado" || current.Str("obs") != "tocado" {
+			t.Fatalf("obs was not saved: %v / %v", out["obs"], current["obs"])
 		}
-		if !sameTime(out["modified"], atual["modified"], time.UTC) {
-			t.Fatalf("runMethod devolveu modified desatualizado: %v != %v", out["modified"], atual["modified"])
+		if !sameTime(out["modified"], current["modified"], time.UTC) {
+			t.Fatalf("runMethod returned stale modified: %v != %v", out["modified"], current["modified"])
 		}
 		return nil
 	})
@@ -254,10 +254,10 @@ func TestB21_DbSetAtualizaModified(t *testing.T) {
 	}
 }
 
-// B14 — índices únicos: o predicado precisa combinar com o tipo da coluna
-// (`<> ”` só em text) e mudar searchIndex ↔ unique precisa recriar o índice,
-// já que o nome é o mesmo.
-func TestB14_IndicesUnicos(t *testing.T) {
+// B14 — unique indexes: the predicate must match the column type
+// (`<> ''` only on text) and changing searchIndex ↔ unique must recreate the index,
+// since the name is the same.
+func TestB14_UniqueIndexes(t *testing.T) {
 	e := setup(t)
 	ctx := context.Background()
 	indexdef := func(name string) string {
@@ -274,52 +274,52 @@ func TestB14_IndicesUnicos(t *testing.T) {
 		})
 		return out
 	}
-	migrar := func(passo string) {
+	migrateStep := func(step string) {
 		if _, err := e.Migrate(ctx, false); err != nil {
-			t.Fatalf("%s: migrate falhou: %v", passo, err)
+			t.Fatalf("%s: migrate failed: %v", step, err)
 		}
 		plan, err := e.Plan(ctx, false)
 		if err != nil {
 			t.Fatal(err)
 		}
 		if len(plan) != 0 {
-			t.Fatalf("%s: migrate não ficou idempotente: %v", passo, plan)
+			t.Fatalf("%s: migrate was not idempotent: %v", step, plan)
 		}
 	}
 
-	// Currency unique: o predicado não pode comparar numeric com ''
+	// Currency unique: the predicate cannot compare numeric with ''
 	pessoa, _ := e.Meta.Get("Pessoa")
 	pessoa.Field("limite").Unique = true
-	migrar("currency unique")
+	migrateStep("currency unique")
 	if def := indexdef("tab_pessoa_limite"); !strings.Contains(def, "UNIQUE") || strings.Contains(def, "''") {
-		t.Fatalf("índice de Currency inesperado: %q", def)
+		t.Fatalf("unexpected Currency index: %q", def)
 	}
 
-	// Link com índice de busca vira unique e depois volta
+	// Link with search index becomes unique and then reverts
 	pedido, _ := e.Meta.Get("Pedido")
-	antes := indexdef("tab_pedido_cliente")
-	if antes == "" || strings.Contains(antes, "UNIQUE") {
-		t.Fatalf("esperava índice não único em cliente: %q", antes)
+	before := indexdef("tab_pedido_cliente")
+	if before == "" || strings.Contains(before, "UNIQUE") {
+		t.Fatalf("expected non-unique index on cliente: %q", before)
 	}
 	pedido.Field("cliente").Unique = true
-	migrar("link → unique")
+	migrateStep("link → unique")
 	if def := indexdef("tab_pedido_cliente"); !strings.Contains(def, "UNIQUE") {
-		t.Fatalf("índice de Link não virou unique: %q", def)
+		t.Fatalf("Link index did not become unique: %q", def)
 	}
 	pedido.Field("cliente").Unique = false
-	migrar("unique → link")
+	migrateStep("unique → link")
 	if def := indexdef("tab_pedido_cliente"); def == "" || strings.Contains(def, "UNIQUE") {
-		t.Fatalf("índice unique não voltou a ser de busca: %q", def)
+		t.Fatalf("unique index did not revert to search index: %q", def)
 	}
 }
 
-// ddcore.db.lock serializa duas transações que pedem a mesma chave.
-func TestDBLockSerializa(t *testing.T) {
+// ddcore.db.lock serializes two transactions requesting the same key.
+func TestDBLockSerializes(t *testing.T) {
 	e := setup(t)
 	ctx := context.Background()
 	var mu sync.Mutex
-	var ordem []string
-	primeiroSaiu := make(chan struct{})
+	var order []string
+	firstReleased := make(chan struct{})
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -330,22 +330,22 @@ func TestDBLockSerializa(t *testing.T) {
 				t.Error(err)
 				return err
 			}
-			close(primeiroSaiu)
+			close(firstReleased)
 			time.Sleep(400 * time.Millisecond)
 			mu.Lock()
-			ordem = append(ordem, "t1")
+			order = append(order, "t1")
 			mu.Unlock()
 			return nil
 		})
 	}()
-	<-primeiroSaiu
+	<-firstReleased
 	time.Sleep(50 * time.Millisecond)
 	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
 		if err := c.Lock("contrato:1"); err != nil {
 			return err
 		}
 		mu.Lock()
-		ordem = append(ordem, "t2")
+		order = append(order, "t2")
 		mu.Unlock()
 		return nil
 	}); err != nil {
@@ -354,14 +354,14 @@ func TestDBLockSerializa(t *testing.T) {
 	wg.Wait()
 	mu.Lock()
 	defer mu.Unlock()
-	if len(ordem) != 2 || ordem[0] != "t1" || ordem[1] != "t2" {
-		t.Fatalf("lock não serializou: %v", ordem)
+	if len(order) != 2 || order[0] != "t1" || order[1] != "t2" {
+		t.Fatalf("lock did not serialize: %v", order)
 	}
 }
 
-// B19 — um filtro em campo de filho não pode duplicar o pai na listagem nem
-// na contagem, e Count precisa enxergar os mesmos orFilters da listagem.
-func TestB19_FiltroEmFilhoNaoDuplica(t *testing.T) {
+// B19 — a filter on a child field must not duplicate the parent in list queries or
+// counts, and Count must observe the same orFilters as the listing.
+func TestB19_FilterOnChildDoesNotDuplicate(t *testing.T) {
 	e := setup(t)
 	ctx := context.Background()
 	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
@@ -369,7 +369,7 @@ func TestB19_FiltroEmFilhoNaoDuplica(t *testing.T) {
 			return err
 		}
 		ped := mustDoc(t, c, "Pedido", Doc{"cliente": "Cli"})
-		// duas linhas filhas casam com o mesmo filtro
+		// two child rows match the same filter
 		ped["itens"] = []any{
 			map[string]any{"descricao": "Cadeira", "qtd": 1, "valor": 10},
 			map[string]any{"descricao": "Cadeira", "qtd": 2, "valor": 20},
@@ -386,16 +386,16 @@ func TestB19_FiltroEmFilhoNaoDuplica(t *testing.T) {
 			return err
 		}
 		if len(rows) != 1 {
-			t.Fatalf("esperava 1 pedido, veio %d: %v", len(rows), rows)
+			t.Fatalf("expected 1 order, got %d: %v", len(rows), rows)
 		}
 		n, err := c.Count("Pedido", f)
 		if err != nil {
 			return err
 		}
 		if n != 1 {
-			t.Fatalf("count duplicou o pai: %d", n)
+			t.Fatalf("count duplicated the parent: %d", n)
 		}
-		// duas condições no mesmo filho exigem a mesma linha
+		// two conditions on the same child require the same row
 		n, err = c.Count("Pedido", []any{
 			[]any{"Item Pedido", "descricao", "=", "Cadeira"},
 			[]any{"Item Pedido", "qtd", "=", 5},
@@ -404,26 +404,26 @@ func TestB19_FiltroEmFilhoNaoDuplica(t *testing.T) {
 			return err
 		}
 		if n != 0 {
-			t.Fatalf("as condições do filho deveriam valer para a mesma linha: %d", n)
+			t.Fatalf("child conditions should apply to the same row: %d", n)
 		}
-		// orFilters chegam à contagem
+		// orFilters reach count
 		n, err = c.Count("Pedido", nil, []any{[]any{"cliente", "=", "ninguém"}})
 		if err != nil {
 			return err
 		}
 		if n != 0 {
-			t.Fatalf("Count ignorou orFilters: %d", n)
+			t.Fatalf("Count ignored orFilters: %d", n)
 		}
 		n, err = c.Count("Pedido", nil, []any{[]any{"cliente", "=", "Cli"}})
 		if err != nil {
 			return err
 		}
 		if n != 1 {
-			t.Fatalf("Count com orFilters: %d", n)
+			t.Fatalf("Count with orFilters: %d", n)
 		}
-		// filho que não é tabela do pai é recusado
+		// child that is not a child table of the parent is rejected
 		if _, err := c.Count("Pessoa", []any{[]any{"Item Pedido", "descricao", "=", "x"}}); err == nil {
-			t.Fatalf("esperava recusa de filho não vinculado")
+			t.Fatalf("expected rejection of unbound child")
 		}
 		return nil
 	})
@@ -441,9 +441,9 @@ func mustDoc(t *testing.T, c *Ctx, dt string, values Doc) Doc {
 	return d
 }
 
-// B08 — requisições concorrentes durante e.Load(): cada ctx precisa ver meta,
-// pool e traduções da mesma geração, sem data race e sem devolver runtime
-// antigo ao pool novo.
+// B08 — concurrent requests during e.Load(): each ctx must see meta,
+// pool, and translations of the same generation, without data races and without
+// returning an old runtime to the new pool.
 func TestB08_ReloadKeepsPoolConsistent(t *testing.T) {
 	e := setup(t)
 	ctx := context.Background()
@@ -469,14 +469,14 @@ func TestB08_ReloadKeepsPoolConsistent(t *testing.T) {
 				}
 				err := e.Run(ctx, "Administrator", func(c *Ctx) error {
 					if c.St != c.E.Current() && c.St == nil {
-						t.Error("ctx sem estado")
+						t.Error("ctx without state")
 					}
 					rows, err := c.GetList("Pessoa", ListArgs{Filters: map[string]any{"nome": "Reload"}})
 					if err != nil {
 						return err
 					}
 					if len(rows) != 1 {
-						t.Errorf("listagem inconsistente durante reload: %v", rows)
+						t.Errorf("inconsistent listing during reload: %v", rows)
 					}
 					rt, err := c.RT()
 					if err != nil {
@@ -508,43 +508,43 @@ func TestB08_ReloadKeepsPoolConsistent(t *testing.T) {
 	wg.Wait()
 	select {
 	case err := <-errs:
-		t.Fatalf("requisição falhou durante reload: %v", err)
+		t.Fatalf("request failed during reload: %v", err)
 	default:
 	}
 
-	// depois do reload o ctx novo usa o pool novo e o antigo foi retirado
+	// after reload the new ctx uses the new pool and the old one was decommissioned
 	st := e.Current()
 	c := e.NewCtx(ctx, "Administrator")
 	if c.St != st {
-		t.Fatalf("NewCtx não capturou o estado corrente")
+		t.Fatalf("NewCtx did not capture the current state")
 	}
 	if e.Meta != st.Meta || e.Pool != st.Pool {
-		t.Fatalf("campos legados divergiram do estado corrente")
+		t.Fatalf("legacy fields diverged from current state")
 	}
 }
 
-// B15 — um job que não retorna precisa ser interrompido pelo timeout, e um
-// job "running" cujo worker morreu volta para a fila quando o lease vence.
+// B15 — a job that does not return must be interrupted by timeout, and a
+// "running" job whose worker died returns to the queue when its lease expires.
 func TestB15_JobTimeout(t *testing.T) {
 	e := setup(t)
 	ctx := context.Background()
 
-	inicio := time.Now()
+	start := time.Now()
 	_, err := e.RunJob(withTimeout(ctx, 2*time.Second), "Administrator", "demo.services.loop.travar", nil)
 	if err == nil {
-		t.Fatalf("esperava erro de timeout")
+		t.Fatalf("expected timeout error")
 	}
-	if d := time.Since(inicio); d > 10*time.Second {
-		t.Fatalf("o job só parou depois de %s", d)
+	if d := time.Since(start); d > 10*time.Second {
+		t.Fatalf("job only stopped after %s", d)
 	}
 	if !strings.Contains(err.Error(), "timed out") {
-		t.Fatalf("erro inesperado: %v", err)
+		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// a VM continua utilizável depois da interrupção
+	// the VM remains usable after interruption
 	res, err := e.RunJob(ctx, "Administrator", "demo.services.loop.ok", map[string]any{"x": 7})
 	if err != nil || !strings.Contains(string(res), `"x":7`) {
-		t.Fatalf("runtime não sobreviveu ao interrupt: %s %v", res, err)
+		t.Fatalf("runtime did not survive interrupt: %s %v", res, err)
 	}
 }
 
@@ -554,8 +554,8 @@ func withTimeout(ctx context.Context, d time.Duration) context.Context {
 	return c
 }
 
-// B15 — worker morto: o job fica running com lease vencido e volta à fila.
-func TestB15_LeaseVencidoVoltaParaFila(t *testing.T) {
+// B15 — dead worker: job remains running with expired lease and returns to the queue.
+func TestB15_ExpiredLeaseReturnsToQueue(t *testing.T) {
 	e := setup(t)
 	ctx := context.Background()
 	var id int64
@@ -566,7 +566,7 @@ func TestB15_LeaseVencidoVoltaParaFila(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	// simula o claim de um worker que morreu logo depois
+	// simulate claim by a worker that died right after
 	if _, err := e.DB.Pool.Exec(ctx, `UPDATE ddcore_job SET status = 'running', attempts = 1, lease_until = now() - interval '1 minute' WHERE id = $1`, id); err != nil {
 		t.Fatal(err)
 	}
@@ -578,9 +578,9 @@ func TestB15_LeaseVencidoVoltaParaFila(t *testing.T) {
 		t.Fatal(err)
 	}
 	if status != "queued" {
-		t.Fatalf("job abandonado não voltou para a fila: %s", status)
+		t.Fatalf("abandoned job did not return to queue: %s", status)
 	}
-	// esgotadas as tentativas, vira failed em vez de rodar para sempre
+	// when attempts are exhausted, it becomes failed instead of running forever
 	if _, err := e.DB.Pool.Exec(ctx, `UPDATE ddcore_job SET status = 'running', attempts = max_attempts, lease_until = now() - interval '1 minute' WHERE id = $1`, id); err != nil {
 		t.Fatal(err)
 	}
@@ -589,19 +589,19 @@ func TestB15_LeaseVencidoVoltaParaFila(t *testing.T) {
 	}
 	e.DB.Pool.QueryRow(ctx, `SELECT status FROM ddcore_job WHERE id = $1`, id).Scan(&status)
 	if status != "failed" {
-		t.Fatalf("esperava failed depois de esgotar as tentativas: %s", status)
+		t.Fatalf("expected failed after exhausting attempts: %s", status)
 	}
-	// timeout_seconds gravado no enqueue
+	// timeout_seconds saved during enqueue
 	var to int
 	e.DB.Pool.QueryRow(ctx, `SELECT timeout_seconds FROM ddcore_job WHERE id = $1`, id).Scan(&to)
 	if to != 5 {
-		t.Fatalf("timeout do job não foi gravado: %d", to)
+		t.Fatalf("job timeout was not saved: %d", to)
 	}
 }
 
-// Lacuna: checkAllowOnSubmit rodava antes de validate/beforeSave, então um
-// hook ainda conseguia alterar campo protegido depois da checagem.
-func TestAllowOnSubmitDepoisDosHooks(t *testing.T) {
+// Gap: checkAllowOnSubmit ran before validate/beforeSave, so a
+// hook could still modify a protected field after the check.
+func TestAllowOnSubmitAfterHooks(t *testing.T) {
 	e := setup(t)
 	ctx := context.Background()
 	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
@@ -617,10 +617,10 @@ func TestAllowOnSubmitDepoisDosHooks(t *testing.T) {
 		if ped, err = c.Submit(ped); err != nil {
 			return err
 		}
-		// obs é allowOnSubmit, mas o hook mexe em desconto, que não é
+		// obs is allowOnSubmit, but the hook touches desconto, which is not
 		ped["obs"] = "bagunca"
 		if _, err := c.Save(ped, SaveOpts{}); err == nil || !strings.Contains(err.Error(), "cannot be changed after submission") {
-			t.Fatalf("hook alterou campo protegido depois do envio: %v", err)
+			t.Fatalf("hook modified protected field after submit: %v", err)
 		}
 		return nil
 	})
@@ -629,9 +629,9 @@ func TestAllowOnSubmitDepoisDosHooks(t *testing.T) {
 	}
 }
 
-// Lacuna: readOnlyDependsOn precisa valer no servidor — esconder o campo na
-// tela não é autorização.
-func TestReadOnlyDependsOnNoServidor(t *testing.T) {
+// Gap: readOnlyDependsOn must be enforced on the server — hiding the field
+// in the UI is not authorization.
+func TestReadOnlyDependsOnServerSide(t *testing.T) {
 	e := setup(t)
 	ctx := context.Background()
 	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
@@ -639,7 +639,7 @@ func TestReadOnlyDependsOnNoServidor(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		// PF: o campo é editável
+		// PF: the field is editable
 		p["codigo"] = "B"
 		if p, err = c.Save(p, SaveOpts{}); err != nil {
 			return err
@@ -648,12 +648,12 @@ func TestReadOnlyDependsOnNoServidor(t *testing.T) {
 		if p, err = c.Save(p, SaveOpts{}); err != nil {
 			return err
 		}
-		// PJ: a expressão é verdadeira, o campo não pode mudar
+		// PJ: expression evaluates to true, the field cannot change
 		p["codigo"] = "C"
 		if _, err := c.Save(p, SaveOpts{}); err == nil || !strings.Contains(err.Error(), "is read-only") {
-			t.Fatalf("readOnlyDependsOn não foi imposto: %v", err)
+			t.Fatalf("readOnlyDependsOn was not enforced: %v", err)
 		}
-		// salvar sem mexer no campo continua funcionando
+		// saving without modifying the field continues to work
 		p, _ = c.GetDoc("Pessoa", "RO")
 		p["limite"] = 10
 		_, err = c.Save(p, SaveOpts{})
@@ -664,8 +664,8 @@ func TestReadOnlyDependsOnNoServidor(t *testing.T) {
 	}
 }
 
-// B04 — o diff da Version não pode carregar senha nem hash.
-func TestB04_VersaoNaoGuardaSegredo(t *testing.T) {
+// B04 — Version diff cannot record passwords or password hashes.
+func TestB04_VersionDoesNotStoreSecret(t *testing.T) {
 	e := setup(t)
 	ctx := context.Background()
 	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
@@ -682,17 +682,17 @@ func TestB04_VersaoNaoGuardaSegredo(t *testing.T) {
 			return err
 		}
 		if len(rows) != 1 {
-			t.Fatalf("esperava 1 versão, veio %d", len(rows))
+			t.Fatalf("expected 1 version, got %d", len(rows))
 		}
 		data := db.Str(rows[0]["data"])
 		if strings.Contains(data, "segredo") || strings.Contains(data, "xyz") {
-			t.Fatalf("a versão guardou o segredo: %s", data)
+			t.Fatalf("the version stored the secret: %s", data)
 		}
 		if !strings.Contains(data, "limite") {
-			t.Fatalf("a versão deveria registrar limite: %s", data)
+			t.Fatalf("the version should record limite: %s", data)
 		}
 
-		// User: password_hash é Data, mas continua fora do histórico
+		// User: password_hash is Data, but remains excluded from history
 		u, err := c.Insert(mustDoc(t, c, "User", Doc{"email": "seg@x.com", "full_name": "Seg", "new_password": "segredo1"}), SaveOpts{})
 		if err != nil {
 			return err
@@ -707,7 +707,7 @@ func TestB04_VersaoNaoGuardaSegredo(t *testing.T) {
 		}
 		for _, v := range vs {
 			if strings.Contains(db.Str(v["data"]), "password") {
-				t.Fatalf("versão de User vazou senha: %s", db.Str(v["data"]))
+				t.Fatalf("User version leaked password: %s", db.Str(v["data"]))
 			}
 		}
 		return nil
@@ -717,8 +717,8 @@ func TestB04_VersaoNaoGuardaSegredo(t *testing.T) {
 	}
 }
 
-// Lacuna: `requires` precisa ser validado e ordenado no Load.
-func TestRequiresOrdenaEValida(t *testing.T) {
+// Gap: `requires` must be validated and sorted during Load.
+func TestRequiresSortsAndValidates(t *testing.T) {
 	metas := map[string]*AppMeta{
 		"core": {Name: "core"},
 		"a":    {Name: "a", Requires: []string{"b"}},
@@ -734,16 +734,16 @@ func TestRequiresOrdenaEValida(t *testing.T) {
 		names = append(names, a.Name)
 	}
 	if strings.Join(names, ",") != "core,b,a" {
-		t.Fatalf("ordem inesperada: %v", names)
+		t.Fatalf("unexpected order: %v", names)
 	}
-	// dependência ausente
+	// missing dependency
 	if _, err := orderApps([]js.App{{Name: "core"}, {Name: "a"}}, metas); err == nil || !strings.Contains(err.Error(), "is not installed") {
-		t.Fatalf("esperava erro de dependência ausente, veio %v", err)
+		t.Fatalf("expected missing dependency error, got %v", err)
 	}
-	// ciclo
-	ciclo := map[string]*AppMeta{"x": {Name: "x", Requires: []string{"y"}}, "y": {Name: "y", Requires: []string{"x"}}}
-	if _, err := orderApps([]js.App{{Name: "x"}, {Name: "y"}}, ciclo); err == nil || !strings.Contains(err.Error(), "circular") {
-		t.Fatalf("esperava erro de ciclo, veio %v", err)
+	// cycle
+	cycle := map[string]*AppMeta{"x": {Name: "x", Requires: []string{"y"}}, "y": {Name: "y", Requires: []string{"x"}}}
+	if _, err := orderApps([]js.App{{Name: "x"}, {Name: "y"}}, cycle); err == nil || !strings.Contains(err.Error(), "circular") {
+		t.Fatalf("expected circular dependency error, got %v", err)
 	}
 }
 
@@ -756,10 +756,10 @@ func TestResolveLinkTitles(t *testing.T) {
 			t.Fatalf("LinkTitles error: %v", err)
 		}
 		if titles["Administrator"] != "Administrator" {
-			t.Fatalf("esperava 'Administrator', veio %q", titles["Administrator"])
+			t.Fatalf("expected 'Administrator', got %q", titles["Administrator"])
 		}
 		if titles["inexistente"] != "inexistente" {
-			t.Fatalf("esperava fallback para name, veio %q", titles["inexistente"])
+			t.Fatalf("expected fallback to name, got %q", titles["inexistente"])
 		}
 		return nil
 	})
@@ -785,7 +785,7 @@ func TestLinkFieldSearchByTitleAndSearchFields(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		// 1. Busca pelo nome diretamente no campo Link cliente
+		// 1. Search by name directly on the cliente Link field
 		rows, err := c.GetList("Pedido", ListArgs{
 			OrFilters: []any{[]any{"cliente", "like", "%Maria%"}},
 		})
@@ -793,10 +793,10 @@ func TestLinkFieldSearchByTitleAndSearchFields(t *testing.T) {
 			t.Fatal(err)
 		}
 		if len(rows) != 1 {
-			t.Fatalf("esperava 1 pedido buscando por 'Maria', veio %d", len(rows))
+			t.Fatalf("expected 1 order searching for 'Maria', got %d", len(rows))
 		}
 
-		// Busca sem acento deve encontrar o título do Link com acento.
+		// Search without accents should match accented Link title.
 		rows, err = c.GetList("Pedido", ListArgs{
 			OrFilters: []any{[]any{"cliente", "like", "%comercio%"}},
 		})
@@ -804,10 +804,10 @@ func TestLinkFieldSearchByTitleAndSearchFields(t *testing.T) {
 			t.Fatal(err)
 		}
 		if len(rows) != 1 {
-			t.Fatalf("esperava 1 pedido buscando por 'comercio', veio %d", len(rows))
+			t.Fatalf("expected 1 order searching for 'comercio', got %d", len(rows))
 		}
 
-		// 2. Busca pelo CPF (searchFields de Pessoa, não o valor armazenado na coluna cliente de Pedido)
+		// 2. Search by CPF (searchFields of Pessoa, not the value stored in Pedido's cliente column)
 		rows, err = c.GetList("Pedido", ListArgs{
 			OrFilters: []any{[]any{"cliente", "like", "%888.777%"}},
 		})
@@ -815,19 +815,19 @@ func TestLinkFieldSearchByTitleAndSearchFields(t *testing.T) {
 			t.Fatal(err)
 		}
 		if len(rows) != 1 {
-			t.Fatalf("esperava 1 pedido buscando pelo CPF '888.777', veio %d", len(rows))
+			t.Fatalf("expected 1 order searching for CPF '888.777', got %d", len(rows))
 		}
 
-		// 3. Count com OrFilters
+		// 3. Count with OrFilters
 		count, err := c.Count("Pedido", nil, []any{[]any{"cliente", "like", "%888.777%"}})
 		if err != nil {
 			t.Fatal(err)
 		}
 		if count != 1 {
-			t.Fatalf("esperava count 1 buscando por CPF, veio %d", count)
+			t.Fatalf("expected count 1 searching for CPF, got %d", count)
 		}
 
-		// 4. Busca por valor inexistente
+		// 4. Search for non-existent value
 		rows, err = c.GetList("Pedido", ListArgs{
 			OrFilters: []any{[]any{"cliente", "like", "%Inexistente%"}},
 		})
@@ -835,7 +835,7 @@ func TestLinkFieldSearchByTitleAndSearchFields(t *testing.T) {
 			t.Fatal(err)
 		}
 		if len(rows) != 0 {
-			t.Fatalf("esperava 0 pedidos, veio %d", len(rows))
+			t.Fatalf("expected 0 orders, got %d", len(rows))
 		}
 
 		return nil

@@ -83,15 +83,15 @@ func fail(err error) (*mcp.CallToolResult, any, error) {
 func New(e *engine.Engine) *mcp.Server {
 	s := &server{e: e}
 	srv := mcp.NewServer(&mcp.Implementation{Name: "ddcore", Version: engine.Version}, &mcp.ServerOptions{
-		Instructions: "Servidor de desenvolvimento do framework ddcore. Comece lendo o resource ddcore://docs/index. " +
+		Instructions: "Development server for the ddcore framework. Start by reading the resource ddcore://docs/index. " +
 			"Typical flow: get_doctype / scaffold_doctype → migrate → insert_doc / list_docs → run_tests. " +
 			"The app's TS files are the source of truth: edit them and the server reloads.",
 	})
 
 	// ---- meta
-	mcp.AddTool(srv, &mcp.Tool{Name: "list_doctypes", Description: "Lista todos os DocTypes carregados (nome, app, label, isChild, submittable, arquivo)."},
+	mcp.AddTool(srv, &mcp.Tool{Name: "list_doctypes", Description: "Lists all loaded DocTypes (name, app, label, isChild, submittable, file)."},
 		func(ctx context.Context, req *mcp.CallToolRequest, in struct {
-			App string `json:"app,omitempty" jsonschema:"filtra por app"`
+			App string `json:"app,omitempty" jsonschema:"filter by app"`
 		}) (*mcp.CallToolResult, any, error) {
 			var out []map[string]any
 			for _, n := range e.Meta.Names() {
@@ -106,7 +106,7 @@ func New(e *engine.Engine) *mcp.Server {
 
 	mcp.AddTool(srv, &mcp.Tool{Name: "get_doctype", Description: "The full meta of a DocType (fields, permissions, naming, controller methods, source path)."},
 		func(ctx context.Context, req *mcp.CallToolRequest, in struct {
-			Name string `json:"name" jsonschema:"nome do DocType"`
+			Name string `json:"name" jsonschema:"DocType name"`
 		}) (*mcp.CallToolResult, any, error) {
 			d, err := e.DocType(in.Name)
 			if err != nil {
@@ -123,7 +123,7 @@ func New(e *engine.Engine) *mcp.Server {
 			return text(map[string]any{"doctype": d, "file": path, "table": d.TableName()}), nil, nil
 		})
 
-	mcp.AddTool(srv, &mcp.Tool{Name: "scaffold_doctype", Description: "Cria os arquivos de um DocType novo num app (doctype.ts e, opcionalmente, controller/form/test). Depois rode migrate. Fieldtypes: Data, Email, Small Text, Text, Text Editor, Int, Float, Currency, Percent, Check, Date, Datetime, Time, Select (options: lista), Link (options: DocType), Dynamic Link (options: campo com o DocType), Table (options: DocType filho), Attach, JSON, Section Break, Column Break, Tab Break, HTML."},
+	mcp.AddTool(srv, &mcp.Tool{Name: "scaffold_doctype", Description: "Creates the files for a new DocType in an app (doctype.ts and optionally controller/form/test). Run migrate afterwards. Fieldtypes: Data, Email, Small Text, Text, Text Editor, Int, Float, Currency, Percent, Check, Date, Datetime, Time, Select (options: list), Link (options: DocType), Dynamic Link (options: field with DocType), Table (options: child DocType), Attach, JSON, Section Break, Column Break, Tab Break, HTML."},
 		func(ctx context.Context, req *mcp.CallToolRequest, in struct {
 			App  string               `json:"app" jsonschema:"app name (directory)"`
 			Spec scaffold.DoctypeSpec `json:"spec" jsonschema:"DocType definition"`
@@ -139,10 +139,10 @@ func New(e *engine.Engine) *mcp.Server {
 			if err := e.Load(); err != nil {
 				return fail(fmt.Errorf("files created (%v) but the meta is invalid: %w", files, err))
 			}
-			return text(map[string]any{"files": files, "next": "rode migrate para criar a tabela"}), nil, nil
+			return text(map[string]any{"files": files, "next": "run migrate to create the table"}), nil, nil
 		})
 
-	mcp.AddTool(srv, &mcp.Tool{Name: "validate_meta", Description: "Recompila os apps e valida a meta (sem tocar no banco). Use depois de editar arquivos .ts."},
+	mcp.AddTool(srv, &mcp.Tool{Name: "validate_meta", Description: "Recompiles apps and validates metadata (without touching the database). Use after editing .ts files."},
 		func(ctx context.Context, req *mcp.CallToolRequest, in struct{}) (*mcp.CallToolResult, any, error) {
 			if err := e.Load(); err != nil {
 				return fail(err)
@@ -176,7 +176,7 @@ func New(e *engine.Engine) *mcp.Server {
 			}), nil, nil
 		})
 
-	mcp.AddTool(srv, &mcp.Tool{Name: "generate_types", Description: "Gera .ddcore/types.d.ts (interfaces TS por DocType) em cada app."},
+	mcp.AddTool(srv, &mcp.Tool{Name: "generate_types", Description: "Generates .ddcore/types.d.ts (TS interfaces per DocType) in each app."},
 		func(ctx context.Context, req *mcp.CallToolRequest, in struct{}) (*mcp.CallToolResult, any, error) {
 			return text(s.writeTypes()), nil, nil
 		})
@@ -199,7 +199,7 @@ func New(e *engine.Engine) *mcp.Server {
 			return text(doc), nil, nil
 		})
 
-	mcp.AddTool(srv, &mcp.Tool{Name: "list_docs", Description: "Lista documentos. filters: [[campo, op, valor], ...] ou {campo: valor}; ops: = != > >= < <= like in not in between is set. fields aceita agregados como \"count(name) as n\"."},
+	mcp.AddTool(srv, &mcp.Tool{Name: "list_docs", Description: "Lists documents. filters: [[field, op, value], ...] or {field: value}; ops: = != > >= < <= like in not in between is set. fields accepts aggregates like \"count(name) as n\"."},
 		func(ctx context.Context, req *mcp.CallToolRequest, in struct {
 			Doctype string   `json:"doctype"`
 			Filters any      `json:"filters,omitempty"`
@@ -247,7 +247,7 @@ func New(e *engine.Engine) *mcp.Server {
 			return text(doc), nil, nil
 		})
 
-	mcp.AddTool(srv, &mcp.Tool{Name: "update_doc", Description: "Altera campos de um documento e salva (roda validate)."},
+	mcp.AddTool(srv, &mcp.Tool{Name: "update_doc", Description: "Updates fields of a document and saves (runs validate)."},
 		func(ctx context.Context, req *mcp.CallToolRequest, in struct {
 			Doctype string         `json:"doctype"`
 			Name    string         `json:"name"`
@@ -271,7 +271,7 @@ func New(e *engine.Engine) *mcp.Server {
 			return text(doc), nil, nil
 		})
 
-	mcp.AddTool(srv, &mcp.Tool{Name: "delete_doc", Description: "Apaga um documento (falha se houver links, a menos que force)."},
+	mcp.AddTool(srv, &mcp.Tool{Name: "delete_doc", Description: "Deletes a document (fails if linked, unless force=true)."},
 		func(ctx context.Context, req *mcp.CallToolRequest, in struct {
 			Doctype string `json:"doctype"`
 			Name    string `json:"name"`
@@ -281,7 +281,7 @@ func New(e *engine.Engine) *mcp.Server {
 			if err != nil {
 				return fail(err)
 			}
-			return text("apagado"), nil, nil
+			return text("deleted"), nil, nil
 		})
 
 	mcp.AddTool(srv, &mcp.Tool{Name: "submit_doc", Description: "Submits (docstatus 1) a submittable document."},
@@ -304,7 +304,7 @@ func New(e *engine.Engine) *mcp.Server {
 			return text(doc), nil, nil
 		})
 
-	mcp.AddTool(srv, &mcp.Tool{Name: "cancel_doc", Description: "Cancela (docstatus 2) um documento enviado."},
+	mcp.AddTool(srv, &mcp.Tool{Name: "cancel_doc", Description: "Cancels (docstatus 2) a submitted document."},
 		func(ctx context.Context, req *mcp.CallToolRequest, in struct {
 			Doctype string `json:"doctype"`
 			Name    string `json:"name"`
@@ -446,7 +446,7 @@ func New(e *engine.Engine) *mcp.Server {
 			if err := e.Load(); err != nil {
 				return fail(err)
 			}
-			return text("recarregado"), nil, nil
+			return text("reloaded"), nil, nil
 		})
 
 	mcp.AddTool(srv, &mcp.Tool{Name: "list_apps", Description: "Loaded apps, directories, whitelisted functions, reports, workspaces and scheduler."},

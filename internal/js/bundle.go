@@ -151,7 +151,7 @@ func ModulePath(app, rel string) string {
 }
 
 // TransformTS strips TypeScript types from a standalone snippet, so `ddcore
-// eval` e a tool eval do MCP aceitam TS de verdade e não só JavaScript (B22).
+// eval` and the MCP eval tool accept real TS instead of just JavaScript (B22).
 func TransformTS(code string) (string, error) {
 	res := api.Transform(code, api.TransformOptions{
 		Loader: api.LoaderTS,

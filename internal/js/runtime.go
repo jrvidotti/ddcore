@@ -30,8 +30,8 @@ type Runtime struct {
 	reg  *goja.Object
 	host Host
 	// pool is the pool that created this VM. Release always goes back to it,
-	// nunca ao pool corrente: um reload troca o pool e uma VM com o bundle
-	// antigo não pode entrar no pool novo (B08).
+	// never to the current pool: a reload swaps the pool and a VM with the old
+	// bundle cannot enter the new pool (B08).
 	pool *Pool
 	// Ctx is the engine's per-request context, set by the engine while the
 	// runtime is checked out from the pool.
@@ -289,8 +289,8 @@ func (rt *Runtime) RunTests(filter, app string) ([]TestResult, error) {
 }
 
 // Pool hands out runtimes to goroutines. The semaphore caps how many VMs can
-// be checked out at once, so a burst of requests não cria VMs sem limite —
-// `free` sozinho só limitava quantas ficavam guardadas (B08).
+// be checked out at once, so a burst of requests does not create unbounded VMs —
+// `free` alone only limited how many were kept idle (B08).
 type Pool struct {
 	mu      sync.Mutex
 	free    []*Runtime
@@ -336,8 +336,8 @@ func NewPool(host Host, bundles []*Bundle, size int, test bool) (*Pool, error) {
 }
 
 func (p *Pool) Acquire() (*Runtime, error) {
-	// Um pool fechado ainda entrega VMs: um ctx que capturou a meta antiga
-	// precisa do bundle antigo. Fechado só quer dizer que nada volta para cá.
+	// A closed pool still serves VMs: a ctx that captured the old meta
+	// needs the old bundle. Closed only means nothing returns here.
 	p.sem <- struct{}{}
 	p.mu.Lock()
 	if n := len(p.free); n > 0 {
@@ -375,7 +375,7 @@ func (p *Pool) Release(rt *Runtime) {
 	}
 	rt.Ctx = nil
 	p.mu.Lock()
-	// depois de Close a VM carrega o bundle antigo: descarta em vez de guardar
+	// after Close, the VM carries the old bundle: discard instead of retaining
 	if !p.closed && len(p.free) < p.size {
 		p.free = append(p.free, rt)
 	}
@@ -383,19 +383,19 @@ func (p *Pool) Release(rt *Runtime) {
 	<-p.sem
 }
 
-// Release devolve o runtime ao pool de origem.
 // SetLang tells the VM which language this unit of work is in. The prelude
 // mirrors that language's catalogue once and interpolates in JS from then on.
 func (rt *Runtime) SetLang(lang string) { rt.vm.Set("__ddcoreLang", lang) }
 
+// Release returns the runtime to its origin pool.
 func (rt *Runtime) Release() {
 	if rt.pool != nil {
 		rt.pool.Release(rt)
 	}
 }
 
-// Close marks the pool as retired: VMs devolvidas depois disso são
-// descartadas e novos Acquire falham.
+// Close marks the pool as retired: VMs returned after this are
+// discarded and new Acquire calls fail.
 func (p *Pool) Close() {
 	p.mu.Lock()
 	p.closed = true
@@ -403,8 +403,8 @@ func (p *Pool) Close() {
 	p.mu.Unlock()
 }
 
-// WithContext runs fn with the VM interruptible by ctx: um script que não
-// retorna é abortado quando o contexto expira (B15).
+// WithContext runs fn with the VM interruptible by ctx: a script that does
+// not return is aborted when the context expires (B15).
 func (rt *Runtime) WithContext(ctx context.Context, fn func() error) error {
 	if ctx == nil || ctx.Done() == nil {
 		return fn()

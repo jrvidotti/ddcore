@@ -17,7 +17,7 @@ func TestValidate(t *testing.T) {
 	r := NewRegistry()
 	r.Add(&DocType{Name: "A", Fields: []*Field{{Fieldname: "x", Fieldtype: "Link", Options: "B"}}})
 	if err := r.Validate(); err == nil {
-		t.Fatal("esperava erro de link para DocType inexistente")
+		t.Fatal("expected error for link to non-existent DocType")
 	}
 	r.Add(&DocType{Name: "B", Fields: []*Field{{Fieldname: "y", Fieldtype: "Data"}}})
 	if err := r.Validate(); err != nil {

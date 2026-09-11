@@ -13,9 +13,9 @@ import (
 	"github.com/jrvidotti/ddcore/internal/meta"
 )
 
-// Dois apps: `loja` é dono de Produto; `addons` estende. É a forma que a
-// migração de um app Frappe assume aqui — os Custom Fields não moram no app
-// que declarou o DocType.
+// Two apps: `loja` owns Produto; `addons` extends it. This is the form that
+// Frappe app migration assumes here — Custom Fields do not reside in the app
+// that declared the DocType.
 func extendApps(t *testing.T) []js.App {
 	write := func(dir string) func(rel, src string) {
 		return func(rel, src string) {
@@ -37,7 +37,7 @@ export default defineDoctype({ name: "Produto", naming: { field: "codigo" }, lab
   permissions: [{ role: "Vendedor", read: true, write: true, create: true, delete: true, report: true }] });`)
 	w("doctypes/produto/produto.controller.ts", `import { defineController } from "@ddcore/sdk";
 export default defineController("Produto", {
-  // o dono libera; quem estende ainda pode negar
+  // owner permits; extender can still deny
   hasPermission() { return true; },
   permissionQuery() { return { nome: ["!=", "oculto"] }; },
 });`)
@@ -70,9 +70,9 @@ func setupExtend(t *testing.T) *Engine {
 	e0, err := New(ctx, Config{DSN: adminDSN})
 	if err != nil {
 		if os.Getenv("DDCORE_TEST_DSN") != "" {
-			t.Fatalf("postgres indisponível em DDCORE_TEST_DSN: %v", err)
+			t.Fatalf("postgres unavailable on DDCORE_TEST_DSN: %v", err)
 		}
-		t.Skipf("postgres indisponível: %v", err)
+		t.Skipf("postgres unavailable: %v", err)
 	}
 	e0.DB.Pool.Exec(ctx, "DROP DATABASE IF EXISTS "+dbName)
 	if _, err := e0.DB.Pool.Exec(ctx, "CREATE DATABASE "+dbName); err != nil {
@@ -90,33 +90,33 @@ func setupExtend(t *testing.T) *Engine {
 	return e
 }
 
-// O campo que outro app acrescentou é um campo como qualquer outro: vira
-// coluna, valida, grava e volta na leitura.
+// The field added by another app is a field like any other: becomes
+// a column, validates, saves, and returns on read.
 func TestExtensionFieldBecomesAColumn(t *testing.T) {
 	e := setupExtend(t)
 	ctx := context.Background()
 
 	d, ok := e.Current().Meta.Get("Produto")
 	if !ok {
-		t.Fatal("Produto não carregou")
+		t.Fatal("Produto did not load")
 	}
 	f := d.Field("garantia_meses")
 	if f == nil || f.App != "addons" {
-		t.Fatalf("campo da extensão: %+v", f)
+		t.Fatalf("extension field: %+v", f)
 	}
 	if got := d.Fields[1].Fieldname; got != "garantia_meses" {
-		t.Fatalf("insertAfter não respeitado, índice 1 = %q", got)
+		t.Fatalf("insertAfter not respected, index 1 = %q", got)
 	}
 	if got := d.Field("nome"); got.Label != "Product name" || !got.Reqd {
-		t.Fatalf("property setter não aplicado: %+v", got)
+		t.Fatalf("property setter not applied: %+v", got)
 	}
 	if !d.TrackChanges || d.TitleField != "nome" {
-		t.Fatalf("property setter de DocType não aplicado: trackChanges=%v titleField=%q", d.TrackChanges, d.TitleField)
+		t.Fatalf("DocType property setter not applied: trackChanges=%v titleField=%q", d.TrackChanges, d.TitleField)
 	}
 	if got := d.ExtendedBy; len(got) != 1 || got[0] != "addons" {
 		t.Fatalf("ExtendedBy=%v", got)
 	}
-	// o script de formulário do dono e o de quem estende, nessa ordem
+	// owner form script and extender form script, in that order
 	if got := d.FormApps; len(got) != 2 || got[0] != "loja" || got[1] != "addons" {
 		t.Fatalf("FormApps=%v", got)
 	}
@@ -136,10 +136,10 @@ func TestExtensionFieldBecomesAColumn(t *testing.T) {
 		if v := toFloat(back["garantia_meses"]); v != 24 {
 			t.Fatalf("garantia_meses=%v", v)
 		}
-		// e o reqd que a extensão impôs vale no servidor
+		// and the reqd imposed by the extension applies on the server
 		vazio, _ := c.NewDoc("Produto", Doc{"codigo": "P-2"})
 		if _, err := c.Insert(vazio, SaveOpts{}); err == nil {
-			t.Fatal("esperava erro de campo obrigatório imposto pela extensão")
+			t.Fatal("expected mandatory field error imposed by extension")
 		}
 		return nil
 	})
@@ -148,8 +148,8 @@ func TestExtensionFieldBecomesAColumn(t *testing.T) {
 	}
 }
 
-// A meta que o TS enxerga é a mesma que o banco e o desk enxergam: o app não
-// pode decidir por um DocType que outro app já estendeu.
+// Metadata seen by TS is identical to what database and desk see: the app cannot
+// decide for a DocType that another app has already extended.
 func TestExtensionIsVisibleFromTypeScript(t *testing.T) {
 	e := setupExtend(t)
 	out, _, err := e.Eval(context.Background(), `ddcore.getMeta("Produto").fields.map((f: any) => f.fieldname).join(",")`, false)
@@ -159,19 +159,18 @@ func TestExtensionIsVisibleFromTypeScript(t *testing.T) {
 	var got string
 	json.Unmarshal(out, &got)
 	if !strings.Contains(got, "garantia_meses") {
-		t.Fatalf("getMeta não trouxe o campo da extensão: %q", got)
+		t.Fatalf("getMeta did not return extension field: %q", got)
 	}
 }
 
-// Permissões: a extensão só acrescenta papéis, e a negação dela vence o
-// "pode" do dono.
+// Permissions: extension only adds roles, and its denial overrides owner permission.
 func TestExtensionPermissionsChain(t *testing.T) {
 	e := setupExtend(t)
 	ctx := context.Background()
 
 	d, _ := e.Current().Meta.Get("Produto")
 	if !hasPerm(d.Permissions, "Auditor") {
-		t.Fatal("papel da extensão não entrou nas permissões")
+		t.Fatal("extension role was not added to permissions")
 	}
 
 	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
@@ -202,28 +201,27 @@ func TestExtensionPermissionsChain(t *testing.T) {
 			return err
 		}
 		if ok {
-			t.Fatal("a extensão negou o delete de P-1 e o dono não pode desfazer isso")
+			t.Fatal("extension denied deleting P-1 and owner cannot override it")
 		}
 		p2, err := c.GetDoc("Produto", "P-2")
 		if err != nil {
 			return err
 		}
 		if ok, err = c.HasPermission("Produto", "delete", p2); err != nil || !ok {
-			t.Fatalf("P-2 deveria seguir permitido: %v %v", ok, err)
+			t.Fatalf("P-2 should remain permitted: %v %v", ok, err)
 		}
-		// os dois permissionQuery se somam: o do dono esconde "oculto", o da
-		// extensão esconde P-9
+		// both permissionQueries combine: owner hides "oculto", extension hides P-9
 		rows, err := c.GetList("Produto", ListArgs{Limit: 50})
 		if err != nil {
 			return err
 		}
 		for _, r := range rows {
 			if db.Str(r["codigo"]) == "P-9" {
-				t.Fatal("permissionQuery da extensão não foi aplicado")
+				t.Fatal("extension permissionQuery was not applied")
 			}
 		}
 		if len(rows) != 2 {
-			t.Fatalf("esperava 2 produtos visíveis, veio %d", len(rows))
+			t.Fatalf("expected 2 visible products, got %d", len(rows))
 		}
 		return nil
 	})
@@ -232,9 +230,9 @@ func TestExtensionPermissionsChain(t *testing.T) {
 	}
 }
 
-// Os erros de carga não precisam de banco: são meta. Um conflito tem que
-// impedir a carga inteira, nomeando os dois apps — o desenvolvedor precisa
-// saber com quem está discutindo.
+// Load errors do not need database: they are meta. A conflict must
+// block the entire load, naming both apps — the developer needs
+// to know what is conflicting.
 func TestExtensionConflictsRefuseToLoad(t *testing.T) {
 	base := extendApps(t)
 	write := func(dir string) func(rel, src string) {
@@ -244,7 +242,7 @@ func TestExtensionConflictsRefuseToLoad(t *testing.T) {
 		}
 	}
 
-	// um terceiro app que sobrescreve o mesmo label que `addons` já sobrescreve
+	// a third app overriding the same label that `addons` already overrides
 	rival := t.TempDir()
 	w := write(rival)
 	w("ddcore.app.ts", `import { defineApp } from "@ddcore/sdk";
@@ -255,15 +253,15 @@ export default extendDoctype("Produto", { set: { nome: { label: "Descrição" } 
 	apps := append(append([]js.App{}, base...), js.App{Name: "rival", Dir: rival})
 	_, err := New(context.Background(), Config{Apps: apps})
 	if err == nil {
-		t.Fatal("dois apps sobrescrevendo a mesma propriedade deveriam impedir a carga")
+		t.Fatal("two apps overriding the same property should block load")
 	}
 	for _, want := range []string{"addons", "rival", `"label"`} {
 		if !strings.Contains(err.Error(), want) {
-			t.Fatalf("o erro não menciona %s: %v", want, err)
+			t.Fatalf("error does not mention %s: %v", want, err)
 		}
 	}
 
-	// e um controller para o DocType de outro app é recusado na hora do registro
+	// and a controller for another app's DocType is rejected at registration
 	intruso := t.TempDir()
 	w = write(intruso)
 	w("ddcore.app.ts", `import { defineApp } from "@ddcore/sdk";
@@ -274,10 +272,10 @@ export default defineController("Produto", { validate() {} });`)
 	apps = append(append([]js.App{}, base...), js.App{Name: "intruso", Dir: intruso})
 	_, err = New(context.Background(), Config{Apps: apps})
 	if err == nil {
-		t.Fatal("um segundo controller substituiria o do dono em silêncio")
+		t.Fatal("a second controller would silently replace the owner controller")
 	}
 	if !strings.Contains(err.Error(), "already has a controller") {
-		t.Fatalf("erro inesperado: %v", err)
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 

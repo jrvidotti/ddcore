@@ -217,8 +217,8 @@
       const values = typeof field === "object" ? field : { [field]: value };
       const res = call("doc.dbSet", { doctype: this.doctype, name: this.name, values });
       Object.assign(this, values);
-      // o bridge também atualizou `modified`: sem isso o próximo save()
-      // falharia com TimestampMismatch sem ninguém ter editado o documento.
+      // the bridge also updated `modified`: without this, the next save()
+      // would fail with TimestampMismatch without anyone having edited the document.
       if (res && res.modified) this.modified = res.modified;
       return this;
     }
@@ -586,13 +586,13 @@
   reg.runMethod = function (doctype, name, docJSON, argsJSON) {
     const doc = new Document(JSON.parse(docJSON));
     const result = reg.runMethodOn(doc, name, JSON.parse(argsJSON));
-    // devolve a versão persistida: o método pode ter gravado por dbSet/save e
-    // quem chamou (desk, API) precisa do documento com o timestamp atual.
+    // returns the persisted version: the method may have saved via dbSet/save and
+    // the caller (desk, API) needs the document with the current timestamp.
     if (!doc.__islocal && doc.name) {
       try {
         doc._apply(call("getDoc", { doctype: doc.doctype, name: doc.name }));
       } catch (e) {
-        // documento apagado pelo próprio método: mantém o que está em memória
+        // document deleted by the method itself: retain what is in memory
       }
     }
     return JSON.stringify({ doc, result: result === undefined ? null : result });

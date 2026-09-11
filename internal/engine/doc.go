@@ -1261,9 +1261,9 @@ func (c *Ctx) writeInsert(d *meta.DocType, doc Doc) error {
 	return err
 }
 
-// writeUpdate grava o documento com compare-and-swap pelo `modified` lido no
-// início do Save: se outra transação gravou nesse meio tempo, nenhuma linha é
-// afetada e o erro é de timestamp, nunca uma sobrescrita silenciosa.
+// writeUpdate saves the document with compare-and-swap using the `modified` timestamp
+// read at the beginning of Save: if another transaction wrote in the meantime, no row
+// is affected and an error on timestamp occurs, never a silent overwrite.
 func (c *Ctx) writeUpdate(d *meta.DocType, doc Doc, prevModified any) error {
 	cols, vals, err := c.columnValues(d, doc)
 	if err != nil {

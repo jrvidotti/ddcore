@@ -145,7 +145,7 @@ func setup(t *testing.T) *env {
 	ts := httptest.NewServer(s.Router)
 	t.Cleanup(func() { ts.Close(); e.DB.Close() })
 	x := &env{t: t, e: e, s: s, ts: ts, ctx: ctx}
-	// users: ana (Gestor), ze (sem papel), root (System Manager)
+	// users: ana (Gestor), ze (no role), root (System Manager)
 	x.asAdmin(func(c *engine.Ctx) error {
 		for _, u := range []struct{ email, role string }{{"ana@x.com", "Gestor"}, {"bia@x.com", "Gestor"}, {"ze@x.com", ""}, {"root@x.com", "System Manager"}} {
 			d, _ := c.NewDoc("User", engine.Doc{"email": u.email, "full_name": u.email, "new_password": "segredo123"})
@@ -245,7 +245,7 @@ func (x *env) call(method, path string, body any, auth string, hdr ...string) re
 func (x *env) expect(r resp, status int, errType string) {
 	x.t.Helper()
 	if r.Status != status || (errType != "" && r.errType() != errType) {
-		x.t.Fatalf("esperava %d %s, veio %d %s: %s", status, errType, r.Status, r.errType(), r.Raw)
+		x.t.Fatalf("expected %d %s, got %d %s: %s", status, errType, r.Status, r.errType(), r.Raw)
 	}
 }
 
