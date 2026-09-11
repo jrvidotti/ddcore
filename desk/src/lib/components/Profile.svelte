@@ -158,14 +158,14 @@
 
     <div class="card sect">
       <h2>{__("Name and language")}</h2>
-      <div class="row">
+      <div class="row top">
         <label class="fld">
           <span class="lbl">{__("Full name")}</span>
           <input class="input" bind:value={fullName} />
         </label>
         {#if langField}
           <div class="fld">
-            <Control field={langField} value={language} onchange={(v: any) => (language = v || null)} />
+            <Control field={langField} value={language} compact onchange={(v: any) => (language = v || null)} />
           </div>
         {/if}
       </div>
@@ -275,6 +275,13 @@
   .grid > div { display: flex; flex-direction: column; gap: 2px; }
   .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
   .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin-bottom: 12px; }
+  /* a row holding a Control: its label, input and description make it taller
+     than a bare input, so the fields line up by their tops, not their bottoms */
+  .row.top { align-items: flex-start; }
+  /* a label over an input is the caption of a control, not a data label: it
+     matches what Control renders, so a hand-written field and a Control can
+     sit side by side in the same row */
+  .fld > .lbl { font-size: 12px; text-transform: none; letter-spacing: normal; }
   .fld { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 200px; }
   .chip { display: inline-block; padding: 1px 7px; border-radius: 999px; background: #f3f4f6; font-size: 11px; margin-right: 4px; }
   .chip.green { background: #dcfce7; color: #166534; }

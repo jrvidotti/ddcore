@@ -9,10 +9,12 @@ func TestLanguageName(t *testing.T) {
 		{"en", "English"},
 		// CLDR names Brazilian Portuguese simply "português": it is the default
 		// content for `pt`, so the region carries no separate name. Where a
-		// region *is* distinct, it shows up — see es-MX below.
-		{"pt-BR", "português"},
-		{"fr", "français"},
-		{"es-MX", "español de México"},
+		// region *is* distinct, it shows up — see es-MX below. The first letter
+		// is capitalised so the picker reads evenly; the rest is left as CLDR
+		// writes it.
+		{"pt-BR", "Português"},
+		{"fr", "Français"},
+		{"es-MX", "Español de México"},
 		// unknown or unparseable: the code itself, which beats a blank entry
 		{"xx", "xx"},
 		{"not a tag", "not a tag"},
