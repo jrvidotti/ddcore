@@ -151,6 +151,35 @@ func fieldIndex(f *meta.Field, col string) (index, bool) {
 	return index{}, false
 }
 
+// uniqueKeyIndex is the partial unique index a compound business key wants.
+// Every component has to hold a value for the row to be constrained, which is
+// the same rule a `unique` field follows — so an incomplete key never blocks a
+// draft, and the predicate stays column-type aware (B14).
+//
+// col maps a fieldname to the column name to write it under. wantedIndexes
+// passes the fieldname; the rename path passes the *old* column, so an index
+// Postgres has already carried across a RENAME COLUMN compares equal to the
+// definition still on record and is not dropped and rebuilt for nothing.
+func uniqueKeyIndex(d *meta.DocType, k meta.UniqueKey, col func(string) string) (index, bool) {
+	cols := make([]string, 0, len(k.Fields))
+	preds := make([]string, 0, len(k.Fields))
+	for _, fn := range k.Fields {
+		f := d.Field(fn)
+		if f == nil || meta.ColumnType(f.Fieldtype) == "" {
+			// Refused by Registry.Validate, so unreachable with a loaded meta.
+			// Skipping beats emitting DDL for a key that names no column.
+			return index{}, false
+		}
+		c := col(fn)
+		cols = append(cols, Ident(c))
+		preds = append(preds, uniquePredicate(c, meta.ColumnType(f.Fieldtype)))
+	}
+	return index{unique: true, cols: strings.Join(cols, ", "), predicate: strings.Join(preds, " AND ")}, true
+}
+
+// sameColumn is the identity mapping uniqueKeyIndex takes when nothing was renamed.
+func sameColumn(fieldname string) string { return fieldname }
+
 func wantedIndexes(d *meta.DocType) map[string]index {
 	t := d.TableName()
 	idx := map[string]index{}
@@ -166,6 +195,11 @@ func wantedIndexes(d *meta.DocType) map[string]index {
 	for _, f := range d.DataFields() {
 		if i, ok := fieldIndex(f, f.Fieldname); ok {
 			add(f.Fieldname, i)
+		}
+	}
+	for _, k := range d.UniqueKeys {
+		if i, ok := uniqueKeyIndex(d, k, sameColumn); ok {
+			add(k.IndexSuffix(), i)
 		}
 	}
 	return idx
@@ -403,9 +437,12 @@ func (c *catalog) renameTableIndexes(oldTable, newTable string) []Statement {
 // columns — a DocType that was renamed *and* renamed a field needs the column
 // rename to address the table by its new name. renamedIdx reports, per index
 // name, the column it was built on, so the index diff can tell a rename apart
-// from a change of definition.
-func planRenames(c *catalog, reg *meta.Registry, names []string) (tables, columns []Statement, renamedIdx map[string]string, refusals []Refusal) {
+// from a change of definition; renamedCols reports the same fact per table and
+// fieldname, which is what a compound key — an index no single field owns —
+// needs in order to be compared against the definition the catalog still holds.
+func planRenames(c *catalog, reg *meta.Registry, names []string) (tables, columns []Statement, renamedIdx map[string]string, renamedCols map[string]map[string]string, refusals []Refusal) {
 	renamedIdx = map[string]string{}
+	renamedCols = map[string]map[string]string{}
 	for _, n := range names {
 		d := reg.DocTypes[n]
 		if d.IsSingle {
@@ -466,6 +503,10 @@ func planRenames(c *catalog, reg *meta.Registry, names []string) (tables, column
 				})
 				cols[f.Fieldname] = typ
 				delete(cols, prev)
+				if renamedCols[t] == nil {
+					renamedCols[t] = map[string]string{}
+				}
+				renamedCols[t][f.Fieldname] = prev
 				if st := c.renameIndex(t+"_"+prev, t+"_"+f.Fieldname); st != nil {
 					columns = append(columns, st...)
 					renamedIdx[t+"_"+f.Fieldname] = prev
@@ -474,7 +515,7 @@ func planRenames(c *catalog, reg *meta.Registry, names []string) (tables, column
 			}
 		}
 	}
-	return tables, columns, renamedIdx, refusals
+	return tables, columns, renamedIdx, renamedCols, refusals
 }
 
 // safeWidening is the set of column-type changes migrate applies on its own,
@@ -580,7 +621,7 @@ func Plan(ctx context.Context, q Querier, reg *meta.Registry, prune bool) ([]Sta
 		return nil, err
 	}
 	names := reg.Names()
-	renameTables, renameCols, renamedIdx, refusals := planRenames(cat, reg, names)
+	renameTables, renameCols, renamedIdx, renamedCols, refusals := planRenames(cat, reg, names)
 
 	var add, alter, indexes, drops []Statement
 	wantedTables := map[string]bool{}
@@ -663,6 +704,23 @@ func Plan(ctx context.Context, q Querier, reg *meta.Registry, prune bool) ([]Sta
 					}
 				}
 			}
+			// A compound key's index belongs to no single field, so renamedIdx
+			// cannot speak for it. Render it against the column names the
+			// catalog still holds — the ones Postgres carried the index across
+			// the RENAME COLUMN from — so a renamed component does not cost a
+			// rebuild, and with nothing renamed this is the identity.
+			if suffix := strings.TrimPrefix(k, t+"_"); strings.HasPrefix(suffix, "uk_") {
+				if uk := d.UniqueKey(strings.TrimPrefix(suffix, "uk_")); uk != nil {
+					if old, ok := uniqueKeyIndex(d, *uk, func(fn string) string {
+						if was, renamed := renamedCols[t][fn]; renamed {
+							return was
+						}
+						return fn
+					}); ok {
+						want = old
+					}
+				}
+			}
 			// Same name does not imply same definition: searchIndex ↔ unique
 			// changes the nature of the index without changing its name (B14).
 			if !sameIndex(row.def, want) {
@@ -670,6 +728,32 @@ func Plan(ctx context.Context, q Querier, reg *meta.Registry, prune bool) ([]Sta
 					Statement{SQL: fmt.Sprintf("DROP INDEX %s;", Ident(k)), Kind: KindDropIndex, Doctype: d.Name, Table: t},
 					Statement{SQL: idx[k].ddl(), Kind: KindCreateIndex, Doctype: d.Name, Table: t})
 			}
+		}
+		// A key the meta no longer declares leaves an index the loop above
+		// never names — it walks the wanted names only — and prune covers
+		// columns and tables, not indexes. Left alone it would go on enforcing
+		// a constraint nothing declares. The `uk_` infix is this feature's own
+		// namespace and idxRow carries the owning table, so "tab_pedido_" can
+		// never reach into "tab_pedido_item_". Dropping an index loses no row,
+		// so this needs neither prune nor a destructive flag.
+		var stale []string
+		for name, row := range cat.idx {
+			if _, wanted := idx[name]; wanted || row.table != t {
+				continue
+			}
+			// identRe as well as the prefix: Ident panics on anything else,
+			// and migrate refusing to run is a worse answer than leaving a
+			// hand-made index alone.
+			if strings.HasPrefix(name, t+"_uk_") && identRe.MatchString(name) {
+				stale = append(stale, name)
+			}
+		}
+		sort.Strings(stale)
+		for _, name := range stale {
+			indexes = append(indexes, Statement{
+				SQL:  fmt.Sprintf("DROP INDEX %s;", Ident(name)),
+				Kind: KindDropIndex, Doctype: d.Name, Table: t,
+			})
 		}
 	}
 	if prune {

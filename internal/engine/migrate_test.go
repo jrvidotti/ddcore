@@ -658,3 +658,118 @@ export default definePatch({
 		t.Fatalf("the converted values did not survive the contraction: %v", rows)
 	}
 }
+
+// DAT-05 — a compound business key is a partial unique index the planner owns
+// end to end: it creates it, it leaves it alone when nothing changed, and it
+// takes it away when the declaration goes.
+
+func uniqueKeyOn(t *testing.T, e *Engine, doctype string, keys ...meta.UniqueKey) {
+	t.Helper()
+	d, ok := e.Meta.Get(doctype)
+	if !ok {
+		t.Fatalf("meta has no %s", doctype)
+	}
+	d.UniqueKeys = keys
+}
+
+func TestAUniqueKeyBecomesAPartialUniqueIndex(t *testing.T) {
+	e := setup(t)
+	uniqueKeyOn(t, e, "Pessoa", meta.UniqueKey{Name: "tipo_codigo", Fields: []string{"tipo", "codigo"}})
+	migrar(t, e, false, "create key")
+
+	def := indexDef(t, e, "tab_pessoa_uk_tipo_codigo")
+	for _, want := range []string{"UNIQUE", "tipo", "codigo", "WHERE"} {
+		if !strings.Contains(def, want) {
+			t.Fatalf("index is missing %q: %q", want, def)
+		}
+	}
+	// Every component has to be in the predicate, or a row with one empty
+	// column would be constrained where the pre-check says it is not.
+	if !strings.Contains(def, "codigo IS NOT NULL") || !strings.Contains(def, "tipo IS NOT NULL") {
+		t.Fatalf("the predicate does not name both components: %q", def)
+	}
+}
+
+// Removing the declaration has to remove the constraint. The index diff only
+// ever visits the names the meta wants, and prune only handles columns and
+// tables — so without the sweep this key would go on being enforced by an
+// index no one could read a declaration for.
+func TestDeletingAUniqueKeyDropsItsIndex(t *testing.T) {
+	e := setup(t)
+	uniqueKeyOn(t, e, "Pessoa", meta.UniqueKey{Name: "tipo_codigo", Fields: []string{"tipo", "codigo"}})
+	migrar(t, e, false, "create key")
+	if indexDef(t, e, "tab_pessoa_uk_tipo_codigo") == "" {
+		t.Fatal("the index was never created")
+	}
+
+	uniqueKeyOn(t, e, "Pessoa")
+	// Deliberately without prune: dropping an index loses no row, so it must
+	// not need the flag that guards losing data.
+	res := migrar(t, e, false, "drop key")
+
+	if def := indexDef(t, e, "tab_pessoa_uk_tipo_codigo"); def != "" {
+		t.Fatalf("the index outlived its declaration: %q", def)
+	}
+	var dropped bool
+	for _, st := range res.DDL {
+		if st.Kind == db.KindDropIndex {
+			dropped = true
+			if st.Destructive {
+				t.Fatal("dropping an index loses no data and must not be marked destructive")
+			}
+		}
+	}
+	if !dropped {
+		t.Fatalf("no drop was planned: %v", db.SQL(res.DDL))
+	}
+}
+
+// The counterpart of TestRenameFieldRenamesItsIndex, for an index no single
+// field owns. Postgres carries a unique index across a RENAME COLUMN on its
+// own; rebuilding it would be the expensive way to change nothing, and on a
+// unique index it is a window with no constraint.
+func TestRenamingAFieldInsideAUniqueKeyDoesNotRebuildTheIndex(t *testing.T) {
+	e := setup(t)
+	uniqueKeyOn(t, e, "Pessoa", meta.UniqueKey{Name: "tipo_codigo", Fields: []string{"tipo", "codigo"}})
+	migrar(t, e, false, "create key")
+
+	pessoa, _ := e.Meta.Get("Pessoa")
+	codigo := pessoa.Field("codigo")
+	codigo.Fieldname = "codigo_interno"
+	codigo.RenamedFrom = meta.Names{"codigo"}
+	pessoa.ResetFieldIndex()
+	// The half the declaration cannot do for you, exactly as for searchFields.
+	pessoa.UniqueKeys = []meta.UniqueKey{{Name: "tipo_codigo", Fields: []string{"tipo", "codigo_interno"}}}
+
+	res := migrar(t, e, false, "rename inside a key")
+
+	for _, st := range res.DDL {
+		if st.Kind == db.KindDropIndex {
+			t.Fatalf("the key's index was rebuilt instead of followed: %q", st.SQL)
+		}
+	}
+	if def := indexDef(t, e, "tab_pessoa_uk_tipo_codigo"); !strings.Contains(def, "codigo_interno") {
+		t.Fatalf("the index did not follow the column: %q", def)
+	}
+}
+
+// The sweep is scoped by the owning table, not by a name prefix. A DocType
+// called "Pedido Uk Foo" gives its table indexes named "tab_pedido_uk_foo_*",
+// which carry the prefix "tab_pedido_uk_" that Pedido's own sweep looks for —
+// and which belong to another DocType entirely.
+func TestTheSweepDoesNotReachAnotherDocTypesTable(t *testing.T) {
+	e := setupWith(t, map[string]string{
+		"doctypes/pedido_uk_foo/pedido_uk_foo.doctype.ts": `import { defineDoctype } from "@ddcore/sdk";
+export default defineDoctype({ name: "Pedido Uk Foo", fields: [
+  { fieldname: "rotulo", fieldtype: "Data", label: "Rotulo" } ] });`,
+	})
+	neighbour := indexDef(t, e, "tab_pedido_uk_foo_modified")
+	if neighbour == "" {
+		t.Fatal("the neighbouring table has no index to protect")
+	}
+	// Pedido declares no key at all, so its sweep sees every candidate name.
+	migrar(t, e, false, "sweep with a neighbour in the namespace")
+	if got := indexDef(t, e, "tab_pedido_uk_foo_modified"); got != neighbour {
+		t.Fatalf("the sweep reached another DocType's index: %q", got)
+	}
+}

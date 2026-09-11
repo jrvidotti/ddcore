@@ -17,6 +17,8 @@ export interface DocTypeMeta {
   name: string; app: string; label: string; module?: string; naming: any; submittable?: boolean; isChild?: boolean; trackChanges?: boolean;
   allowRename?: boolean; titleField?: string; sortField?: string; sortOrder?: string; searchFields?: string[]; fields: Field[];
   permissions?: any[]; icon?: string; methods?: string[];
+  /** Compound business keys; enforced on the server, shown here only for reference. */
+  uniqueKeys?: { name: string; fields: string[] }[];
   /** apps shipping a form script for this DocType: the owner, then each extension */
   formApps?: string[];
 }
