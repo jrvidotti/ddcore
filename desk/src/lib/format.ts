@@ -2,11 +2,20 @@ import type { Field } from "./meta";
 import { formatMonth } from "./controls/month-format.ts";
 import { getLinkTitle } from "./titles.svelte";
 import { __ } from "./boot.svelte";
-import { currencyFmt, dateFmt, decimalSep, groupSep, currencySymbol, numberFmt, relativeFmt, timezone } from "./locale";
+import { currencyFmt, currencyPrecision, dateFmt, decimalSep, groupSep, currencySymbol, numberFmt, relativeFmt, roundingMode, timezone } from "./locale";
+import { round } from "./round";
 
 export { formatMonth };
 
-export const formatCurrency = (v: any) => currencyFmt().format(Number(v) || 0);
+export const formatCurrency = (v: any, precision?: number) =>
+  currencyFmt(precision !== undefined
+    ? { minimumFractionDigits: precision, maximumFractionDigits: precision }
+    : {},
+  ).format(Number(v) || 0);
+
+/** Rounds exactly the way the server is about to store the value. */
+export const roundCurrency = (v: any, precision?: number) =>
+  round(Number(v) || 0, precision ?? currencyPrecision(), roundingMode());
 
 export const formatNumber = (v: any, precision?: number) =>
   numberFmt(precision !== undefined
@@ -42,7 +51,7 @@ export function formatDatetime(v: any): string {
 export function formatValue(v: any, f?: Partial<Field>): string {
   if (v === null || v === undefined) return "";
   switch (f?.fieldtype) {
-    case "Currency": return formatCurrency(v);
+    case "Currency": return formatCurrency(v, f.precision || undefined);
     case "Percent": return formatNumber(v, f.precision ?? 2) + "%";
     case "Float": return formatNumber(v, f.precision);
     case "Int": return String(Math.round(Number(v)));

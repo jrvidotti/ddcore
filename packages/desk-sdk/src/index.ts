@@ -95,7 +95,12 @@ export interface DeskAPI {
     toast(message: string, opts?: { title?: string; indicator?: string; timeout?: number }): void;
   };
   format: {
-    currency(v: any): string;
+    currency(v: any, precision?: number): string;
+    /**
+     * Rounds a value exactly the way the server is about to store it: the
+     * site's currency precision and its rounding rule.
+     */
+    roundCurrency(v: any, precision?: number): number;
     date(v: any): string;
     number(v: any, precision?: number): string;
     value(v: any, field?: Partial<FieldDef>): string;

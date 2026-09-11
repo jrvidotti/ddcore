@@ -4,7 +4,8 @@
   // dialogs, grids and filters alike.
   import type { Field } from "$lib/meta";
   import { selectLabels, selectOptions } from "$lib/meta";
-  import { formatNumber, parseNumber } from "$lib/format";
+  import { formatNumber, parseNumber, roundCurrency } from "$lib/format";
+  import { currencyPrecision } from "$lib/locale";
   import LinkControl from "./LinkControl.svelte";
   import AttachControl from "./AttachControl.svelte";
   import MonthControl from "./MonthControl.svelte";
@@ -30,13 +31,21 @@
   // number inputs keep a local text buffer so "1.234,5" can be typed freely
   let text = $state("");
   let focused = $state(false);
+  // a Currency shows, and commits, the number of places the site actually
+  // stores — not a hardcoded 2, which was right about USD by accident and
+  // wrong about JPY
+  const moneyPrecision = $derived(ft === "Currency" ? (field.precision || currencyPrecision()) : undefined);
   $effect(() => {
-    if (!focused) text = value === null || value === undefined ? "" : ft === "Int" ? String(Math.round(Number(value))) : formatNumber(value, ft === "Currency" ? 2 : field.precision);
+    if (!focused) text = value === null || value === undefined ? "" : ft === "Int" ? String(Math.round(Number(value))) : formatNumber(value, moneyPrecision ?? field.precision);
   });
   function commitNumber() {
     focused = false;
     const n = parseNumber(text);
-    onchange(n === null ? null : ft === "Int" ? Math.round(n) : n);
+    if (n === null) return onchange(null);
+    if (ft === "Int") return onchange(Math.round(n));
+    // the field showed a rounded number; committing the unrounded one is what
+    // made the form and the database hold different values
+    onchange(moneyPrecision === undefined ? n : roundCurrency(n, moneyPrecision));
   }
   function commitEmail(rawValue: string) {
     const normalized = normalizeEmail(rawValue);

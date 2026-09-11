@@ -22,7 +22,13 @@ export interface Boot {
   workspaces: any[];
   doctypes: Record<string, { label: string; app: string; icon: string; module: string; titleField?: string }>;
   reports: Record<string, { label: string; refDoctype?: string; app: string }>;
-  site: { name: string; currency: string; timezone: string; dev: boolean; scheduler: boolean; version: string };
+  site: {
+    name: string; currency: string; timezone: string; dev: boolean; scheduler: boolean; version: string;
+    // resolved by the server, not derived again here: two independent
+    // derivations that "should" agree is the bug nobody finds until a JPY
+    // invoice is off by a yen
+    currencyPrecision?: number; rounding?: "commercial" | "bankers";
+  };
   loaded: number;
 }
 

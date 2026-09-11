@@ -1,5 +1,6 @@
 <script lang="ts">
   import { __ } from "$lib/boot.svelte";
+  import { today } from "$lib/datetime";
   import { anchored } from "./floating";
   import type { Field } from "$lib/meta";
   import Icon from "$lib/components/Icon.svelte";
@@ -40,11 +41,10 @@
 
   const currentParsed = $derived(parseDateLocal(value));
 
-  const now = new Date();
-  const todayYear = now.getFullYear();
-  const todayMonth = now.getMonth() + 1;
-  const todayDay = now.getDate();
-  const todayIso = `${todayYear}-${String(todayMonth).padStart(2, "0")}-${String(todayDay).padStart(2, "0")}`;
+  // the site's day, not the browser's: the calendar highlighted a "today" the
+  // server would not have agreed with for any reader in another timezone
+  const todayIso = today();
+  const [todayYear, todayMonth] = [Number(todayIso.slice(0, 4)), Number(todayIso.slice(5, 7))];
 
   let viewYear = $state(todayYear);
   let viewMonth = $state(todayMonth);
