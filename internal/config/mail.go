@@ -13,12 +13,11 @@ const (
 	MailMethod = "method" // hand the message to an app's own function
 )
 
-// Mail is where a message goes when the framework has one to send: today the
-// password recovery and invitation links, and nothing else. Delivery is not a
-// site decision, it is a deployment one — the relay, the credentials and the
-// public address differ on every machine and one of them is a secret — so all
-// of it is read from the environment (.env or the real environment) and none
-// of it belongs in the versioned ddcore.json.
+// Mail is where a message goes when the framework or an app has one to send.
+// Delivery is not a site decision, it is a deployment one — the relay, the
+// credentials and the public address differ on every machine and one of them is
+// a secret — so all of it is read from the environment (.env or the real
+// environment) and none of it belongs in the versioned ddcore.json.
 type Mail struct {
 	Transport string
 	From      string
@@ -28,7 +27,18 @@ type Mail struct {
 	Username  string
 	Password  string
 	TLS       string // starttls | tls | none
+
+	// MaxAttachment caps the total bytes attached to one message. The check
+	// happens when the message is queued, from File.file_size, so an oversized
+	// attachment fails the app's own transaction instead of failing alone in a
+	// worker half an hour later — and so that a relay's own limit is not the
+	// first thing to find out about it.
+	MaxAttachment int64
 }
+
+// DefaultMaxAttachment is deliberately well under what relays usually accept:
+// the bytes are held in memory by the worker and base64 adds a third on top.
+const DefaultMaxAttachment = 10 << 20 // 10 MiB
 
 // TLS modes.
 const (
@@ -47,6 +57,16 @@ func mailFromEnv() (Mail, error) {
 		Password:  env("DDCORE_SMTP_PASSWORD", ""),
 		TLS:       strings.ToLower(env("DDCORE_SMTP_TLS", TLSStartTLS)),
 	}
+	size := env("DDCORE_MAIL_MAX_ATTACHMENT", "")
+	m.MaxAttachment = DefaultMaxAttachment
+	if size != "" {
+		n, err := strconv.ParseInt(size, 10, 64)
+		if err != nil || n <= 0 {
+			return m, fmt.Errorf("DDCORE_MAIL_MAX_ATTACHMENT: %q is not a number of bytes", size)
+		}
+		m.MaxAttachment = n
+	}
+
 	port := env("DDCORE_SMTP_PORT", "587")
 	n, err := strconv.Atoi(port)
 	if err != nil || n <= 0 || n > 65535 {

@@ -58,6 +58,7 @@
     controllerApp: {},
     reports: {},
     workspaces: {},
+    mailTemplates: {},
     apps: {},
     modules: {},
     modulesByApp: {},
@@ -89,6 +90,18 @@
         case "extension":
           reg.extensions.push({ doctype: value.doctype, app: reg.app, sourceFile: reg.current, ext: value.ext });
           break;
+        case "mail": {
+          const prev = reg.mailTemplates[value.name];
+          if (prev) {
+            throw new DDCoreError("ValidationError", "", "Mail template " + value.name + " is defined twice: " +
+              prev.app + " (" + prev.sourceFile + ") and " + reg.app + " (" + reg.current + "). " +
+              "A template name is unique across every installed app, like a DocType name.");
+          }
+          value.app = reg.app;
+          value.sourceFile = reg.current;
+          reg.mailTemplates[value.name] = value;
+          break;
+        }
         case "report":
           value.app = reg.app;
           reg.reports[value.name] = value;
@@ -149,6 +162,10 @@
     for (const n in reg.reports) reports[n] = stripFns(reg.reports[n]);
     const workspaces = {};
     for (const n in reg.workspaces) workspaces[n] = stripFns(reg.workspaces[n]);
+    // stripFns drops `subject` and `body`: Go never renders a template, it only
+    // needs to know one exists and whether its arguments may be stored.
+    const mailTemplates = {};
+    for (const n in reg.mailTemplates) mailTemplates[n] = stripFns(reg.mailTemplates[n]);
     const apps = {};
     for (const n in reg.apps) {
       const a = stripFns(reg.apps[n]);
@@ -175,7 +192,45 @@
       return { doctype: x.doctype, app: x.app, sourceFile: x.sourceFile,
         fields: ext.fields, set: ext.set, props: ext.doctype, permissions: ext.permissions };
     });
-    return JSON.stringify({ doctypes, reports, workspaces, apps, whitelisted, patches, extensions });
+    return JSON.stringify({ doctypes, reports, workspaces, mailTemplates, apps, whitelisted, patches, extensions });
+  };
+
+  // -------------------------------------------------------------------- mail
+
+  // The only vocabulary an app has for a message body. Everything is coerced to
+  // a string here so a template cannot hand the renderer an object and discover
+  // "[object Object]" in someone's inbox.
+  const mailBlocks = {
+    p: (text) => ({ type: "p", text: String(text ?? "") }),
+    h: (text) => ({ type: "h", text: String(text ?? "") }),
+    button: (text, url) => ({ type: "button", text: String(text ?? ""), url: String(url ?? "") }),
+    table: (head, rows) => ({
+      type: "table",
+      head: (head || []).map((c) => String(c ?? "")),
+      rows: (rows || []).map((r) => (r || []).map((c) => String(c ?? ""))),
+    }),
+    rule: () => ({ type: "rule" }),
+  };
+
+  // Renders a template in the reader's language rather than the caller's. The
+  // catalogue `_()` reads is chosen by __ddcoreLang, so swapping it around the
+  // call is all it takes — and restoring it in a finally is what keeps an
+  // exception inside a template from leaving the whole VM speaking Portuguese.
+  reg.renderMail = function (name, args, lang) {
+    const t = reg.mailTemplates[name];
+    if (!t) {
+      throw new DDCoreError("NotFoundError", "", "Mail template " + String(name) + " does not exist");
+    }
+    const previous = globalThis.__ddcoreLang;
+    if (lang) globalThis.__ddcoreLang = lang;
+    try {
+      return {
+        subject: String(t.subject ? t.subject(args) : ""),
+        blocks: (t.body ? t.body(args, mailBlocks) : []) || [],
+      };
+    } finally {
+      globalThis.__ddcoreLang = previous;
+    }
   };
 
   // ---------------------------------------------------------------- Document
@@ -488,7 +543,35 @@
       get(url, opts) { return wrapHttp(call("http", Object.assign({ method: "GET", url }, opts || {}))); },
       post(url, body, opts) { return wrapHttp(call("http", Object.assign({ method: "POST", url, body }, opts || {}))); },
     },
+    siteName() { return site().name || ""; },
     enqueue(method, args, opts) { return call("enqueue", { method, args: args || {}, opts: opts || {} }); },
+    sendMail(args) {
+      args = args || {};
+      const template = reg.mailTemplates[args.template];
+      if (!template) {
+        // Deliberately here and not in the worker: a template nobody declared
+        // is a mistake in the caller's own code, and it should fail in the
+        // caller's own transaction.
+        throw new DDCoreError("NotFoundError", "", "Mail template " + String(args.template) + " does not exist");
+      }
+      const to = Array.isArray(args.to) ? args.to : [args.to];
+      const lang = args.lang || call("mail.prepare", { to }).lang;
+      const payload = args.args || {};
+      const rendered = reg.renderMail(args.template, payload, lang);
+      return call("mail.queue", {
+        template: args.template,
+        to,
+        subject: rendered.subject,
+        lang,
+        // A sensitive template's arguments are a credential: they go to the job
+        // and nowhere else, so nothing durable is left holding a live token.
+        args: template.sensitive ? null : payload,
+        jobArgs: template.sensitive ? payload : null,
+        attach: args.attach || [],
+        reference: args.reference || null,
+        key: args.key || "",
+      });
+    },
     publish(event, payload, opts) { call("publish", { event, payload, opts: opts || {} }); },
     log: {
       info: (...a) => call("log", { level: "info", args: a.map(String) }),
@@ -523,8 +606,14 @@
       apiKeys(user) { return call("auth.apiKeys", { user }); },
       revokeAPIKey(user, name) { return call("auth.revokeAPIKey", { user, name }); },
     },
-    __mailMethod() { return call("mailMethod", {}); },
-    __sendMail(msg) { call("sendMail", msg || {}); },
+    // The delivery half of the mail service, reached only from
+    // core/services/mail.ts as a job target. Not on DDCoreAPI: an app queues a
+    // message with ddcore.sendMail and never touches the wire itself.
+    __mail: {
+      load(delivery) { return call("mail.load", { delivery }); },
+      deliver(delivery, subject, blocks) { return call("mail.deliver", { delivery, subject, blocks }); },
+      result(delivery, status, error) { call("mail.result", { delivery, status, error: error || "" }); },
+    },
     __authSweep() { return call("authSweep", {}); },
     // `user` lets the policy refuse a password that is the account name. It
     // throws when the password is below the site's minimum.

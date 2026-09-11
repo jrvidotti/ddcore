@@ -109,13 +109,27 @@ func (p Patch) BeforeSchema() bool { return p.Phase == "beforeSchema" }
 
 // Snapshot is the JS registry as seen from Go.
 type Snapshot struct {
-	Doctypes    map[string]json.RawMessage `json:"doctypes"`
-	Reports     map[string]map[string]any  `json:"reports"`
-	Workspaces  map[string]map[string]any  `json:"workspaces"`
-	Apps        map[string]*AppMeta        `json:"apps"`
-	Whitelisted []Whitelisted              `json:"whitelisted"`
-	Patches     []Patch                    `json:"patches"`
-	Extensions  []*meta.Extension          `json:"extensions"`
+	Doctypes   map[string]json.RawMessage `json:"doctypes"`
+	Reports    map[string]map[string]any  `json:"reports"`
+	Workspaces map[string]map[string]any  `json:"workspaces"`
+	// MailTemplates arrives without its `subject` and `body` functions: Go
+	// never renders a template, it only needs to know one exists and whether
+	// its arguments may be stored.
+	MailTemplates map[string]MailTemplate `json:"mailTemplates"`
+	Apps          map[string]*AppMeta     `json:"apps"`
+	Whitelisted   []Whitelisted           `json:"whitelisted"`
+	Patches       []Patch                 `json:"patches"`
+	Extensions    []*meta.Extension       `json:"extensions"`
+}
+
+// MailTemplate is a declared message, as Go sees it.
+type MailTemplate struct {
+	Name       string `json:"name"`
+	App        string `json:"app"`
+	SourceFile string `json:"sourceFile"`
+	// Sensitive templates carry a credential in their arguments, so those
+	// arguments are never written to the delivery record. See docs/agent/mail.md.
+	Sensitive bool `json:"sensitive"`
 }
 
 // State is everything Load produces: meta, snapshot, apps, runtime pool, and

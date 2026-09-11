@@ -45,8 +45,11 @@ func (e *Engine) StartRecovery(c *Ctx, user, kind, ip string) (*Recovery, error)
 	}
 	link := e.ResetLink(token)
 
-	msg := e.authMail(kind, user, link, e.langOf(c.Ctx, user))
-	if err := e.SendMail(c, msg); err != nil {
+	template := MailTemplateReset
+	if kind == TokenInvite {
+		template = MailTemplateInvite
+	}
+	if err := c.SendTemplate(template, user, map[string]any{"link": link}); err != nil {
 		return nil, err
 	}
 

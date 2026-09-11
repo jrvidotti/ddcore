@@ -1,7 +1,7 @@
 // @ddcore/sdk — the API apps use on the server (runs inside the ddcore binary).
 import type {
   AppDef, BaseDoc, ControllerDef, Context, DoctypeDef, Document, ExtensionDef, Filters, ListArgs,
-  PatchDef, ReportDef, WorkspaceDef,
+  MailTemplateDef, PatchDef, ReportDef, SendMailArgs, WorkspaceDef,
 } from "./types";
 export * from "./types";
 
@@ -46,6 +46,17 @@ export interface DDCoreAPI {
     post(url: string, body: any, opts?: { headers?: Record<string, string>; timeout?: number }): { status: number; body: string; json(): any };
   };
   enqueue(method: string, args?: Record<string, any>, opts?: { queue?: string; runAfter?: string; timeout?: number }): number;
+  /**
+   * Queues one message from a registered template and returns the name of its
+   * `Email Delivery` record.
+   *
+   * Synchronous, like everything else here, but delivery is not: the message is
+   * written onto *this* transaction and handed to a worker. A request that
+   * rolls back sends nothing, which is the whole reason it works this way.
+   */
+  sendMail(args: SendMailArgs): { delivery: string };
+  /** The site's title, as the desk and the framework's own mail display it. */
+  siteName(): string;
   publish(event: string, payload: any, opts?: { user?: string; doctype?: string; name?: string }): void;
   log: { info(...a: any[]): void; warn(...a: any[]): void; error(...a: any[]): void; debug(...a: any[]): void };
   utils: {
@@ -131,6 +142,15 @@ export function defineController<T extends BaseDoc = BaseDoc>(doctype: string, c
 export function extendDoctype<T extends BaseDoc = BaseDoc>(doctype: string, ext: ExtensionDef<T>): ExtensionDef<T> {
   __ddcore.register("extension", { doctype, ext });
   return ext;
+}
+
+/**
+ * Declares a message the app can send: `export default defineMailTemplate({…})`
+ * in `mail/<name>.mail.ts`. See `docs/agent/mail.md`.
+ */
+export function defineMailTemplate<A = any>(def: MailTemplateDef<A>): MailTemplateDef<A> {
+  __ddcore.register("mail", def);
+  return def;
 }
 
 export function defineReport(def: ReportDef): ReportDef {

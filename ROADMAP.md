@@ -40,11 +40,13 @@ reports, jobs/scheduler, files, Version/Comment, and the existing CLI/MCP tools.
 | DAT-06 | Site currency precision/rounding, shared rounding helpers, and site timezone behavior. | Close the database connection timezone and report totals/CSV consistency gaps; report totals currently use ordinary numeric addition. See the [precision and dates design](docs/superpowers/specs/2026-09-10-precisao-decimal-e-datas.md). |
 | DAT-09 | Versioned cross-app fields and property overrides through `extendDoctype`. See [extensions](docs/agent/extending.md). | Source customization conversion belongs to migration tooling. A visual customization editor remains demand-driven. |
 | PRD-03 | Liveness separated from database readiness, request correlation and duration, queue failure/age signals, operational thresholds, and a `doctor` that reports instead of dying when the database is down. See [operations](docs/agent/ops.md). | Backup alerts wait on recovery automation (PRD-01/02); job retry/cancellation/retention is PRD-04; there is no Prometheus/OTel endpoint, and nothing records the scheduler's last run. |
+| OPS-02 | Business email: file-based templates in `mail/<name>.mail.ts`, a block vocabulary rendered to both parts of the message, `ddcore.sendMail` writing on the caller's transaction, authorized `File` attachments with a size cap, and an `Email Delivery` record per message. The framework's own invitation and recovery messages are two of these templates. See [mail](docs/agent/mail.md). | No inbound mail or IMAP (deferred below); no CC/BCC, Reply-To, per-message From, or resend; attachments must be `File` documents, not raw bytes. A `sensitive` template keeps its arguments out of the record but they still reach `ddcore_job`, which has no retention until PRD-04. `Uncertain` records an ambiguous SMTP outcome; it does not resolve it. |
 
-The authentication mail transport already supports SMTP and a configurable app
-transport. OPS-02 extends that foundation into business communication; it does not
-start with a missing SMTP implementation. The existing job worker already has
-retries, timeouts, leases, and heartbeats.
+Business email (OPS-02) is built on the SMTP and app-function transports the
+authentication flow already used, so OPS-06 and OPS-03 inherit a delivery record,
+a template mechanism and a rendering vocabulary rather than starting from an SMTP
+client. The existing job worker already has retries, timeouts, leases, and
+heartbeats.
 
 Treat the residuals above as bounded follow-up work. Address security or monetary
 correctness residuals before deploying a flow that relies on them, and recheck their
@@ -68,8 +70,7 @@ separate broker.
 
 | Capability | Benefit / effort | Dependencies and minimum acceptance |
 | --- | --- | --- |
-| **Business email** — OPS-02 | High / M. Removes repeated delivery/template code from apps. | Extend existing mail transport and jobs with an app-facing synchronous API, templates, authorized attachments, and delivery history. Rollback must not send; worker interruption must permit recovery. Record uncertain SMTP outcomes and possible duplicate delivery. |
-| **Reliable outgoing webhooks** — OPS-06 | High / M. Standardizes integrations using existing HTTP and jobs. | Reuse durable delivery primitives from email where applicable. Send after commit with signatures, stable event identity, timeout, retries, and authorized replay. Test rollback, receiver failure, and repeated delivery. |
+| **Reliable outgoing webhooks** — OPS-06 | High / M. Standardizes integrations using existing HTTP and jobs. | Reuse the delivery record and job primitives OPS-02 established. Send after commit with signatures, stable event identity, timeout, retries, and authorized replay. Test rollback, receiver failure, and repeated delivery. |
 | **Persistent notifications** — OPS-03 | High / M. Supports users who are offline and reduces repeated reminder logic. | Add declarative event/date rules, recipient authorization, deduplication, and read/unread state. Use SSE for live updates and stored records for later retrieval; reuse email only for email channels. Verify no cross-user leakage. |
 | **Assignments and pending work** — OPS-05 | Medium / M. Provides shared team task handling without copying demo domain models. | Add assign/revoke/complete, due dates, and “my pending work”; reuse notifications for reminders. Assignment must not grant document access. Test revocation, completion, and recipient visibility. |
 | **Administrative audit coverage** — PRD-06 | High / M. Makes sensitive operations investigable across services. | Extend the audit facility with actor, target, action, outcome, and correlation for delivery replay, permissions, import, approval, and administration as those features arrive. Protect access and sensitive values; test that secrets and restricted payloads are excluded. |

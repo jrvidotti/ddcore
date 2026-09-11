@@ -9,7 +9,9 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/tls"
+	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"log/slog"
 	"mime"
@@ -23,11 +25,28 @@ import (
 
 // Message is one outgoing e-mail.
 type Message struct {
-	To      []string
-	Subject string
-	Text    string
-	HTML    string
+	To          []string
+	Subject     string
+	Text        string
+	HTML        string
+	Attachments []Attachment
 }
+
+// Attachment is a file already read into memory. The bytes are resolved from a
+// File document at send time and never stored with the delivery record, so an
+// attachment is authorized once, when the message is queued, and read once,
+// when it goes out.
+type Attachment struct {
+	Filename    string
+	ContentType string
+	Content     []byte
+}
+
+// ErrUncertain marks the one outcome a sender cannot resolve: the connection
+// failed while waiting for the answer to the final dot, so the relay may or may
+// not have accepted the message. Retrying is how the same message is delivered
+// twice, so a caller is expected to record this rather than try again.
+var ErrUncertain = errors.New("delivery outcome is uncertain")
 
 // Sender is how a message leaves. The method transport has no Sender: it is
 // dispatched by the engine into app code, because only the runtime can call
@@ -130,7 +149,13 @@ func (s *smtpSender) Send(ctx context.Context, m Message) error {
 	if _, err := w.Write(body); err != nil {
 		return err
 	}
-	return w.Close()
+	// Everything above this line fails cleanly: the relay never took the
+	// message. The answer to the final dot is the only one whose absence is
+	// ambiguous, so that is the only error promoted to ErrUncertain.
+	if err := w.Close(); err != nil {
+		return fmt.Errorf("%w: %v", ErrUncertain, err)
+	}
+	return nil
 }
 
 func (s *smtpSender) dial(ctx context.Context, addr string) (net.Conn, error) {
@@ -154,19 +179,51 @@ func (s *smtpSender) render(m Message) ([]byte, error) {
 	w("Message-ID", messageID(addressOf(s.cfg.From)))
 	w("MIME-Version", "1.0")
 
-	if m.HTML == "" {
-		w("Content-Type", `text/plain; charset="utf-8"`)
-		b.WriteString("\r\n")
-		b.WriteString(dotStuff(m.Text))
-		return []byte(b.String()), nil
-	}
-
-	boundary, err := randomBoundary()
+	readable, body, err := readablePart(m)
 	if err != nil {
 		return nil, err
 	}
-	w("Content-Type", `multipart/alternative; boundary="`+boundary+`"`)
+
+	if len(m.Attachments) == 0 {
+		w("Content-Type", readable)
+		b.WriteString("\r\n")
+		b.WriteString(body)
+		return []byte(b.String()), nil
+	}
+
+	// With attachments the shape gains a layer: multipart/mixed holds the
+	// readable part (itself possibly a multipart/alternative) and one part per
+	// file. Nesting it this way is what keeps a plain-text reader seeing the
+	// message rather than a wall of base64.
+	mixed, err := randomBoundary()
+	if err != nil {
+		return nil, err
+	}
+	w("Content-Type", `multipart/mixed; boundary="`+mixed+`"`)
 	b.WriteString("\r\n")
+	b.WriteString("--" + mixed + "\r\n")
+	b.WriteString("Content-Type: " + readable + "\r\n\r\n")
+	b.WriteString(body)
+	b.WriteString("\r\n")
+	for _, a := range m.Attachments {
+		b.WriteString("--" + mixed + "\r\n")
+		b.WriteString(attachmentPart(a))
+	}
+	b.WriteString("--" + mixed + "--\r\n")
+	return []byte(b.String()), nil
+}
+
+// readablePart builds what a person reads: one text part, or both parts of a
+// multipart/alternative. It returns the Content-Type to announce it with.
+func readablePart(m Message) (contentType, body string, err error) {
+	if m.HTML == "" {
+		return `text/plain; charset="utf-8"`, dotStuff(m.Text), nil
+	}
+	boundary, err := randomBoundary()
+	if err != nil {
+		return "", "", err
+	}
+	var b strings.Builder
 	for _, part := range []struct{ typ, body string }{
 		{`text/plain; charset="utf-8"`, m.Text},
 		{`text/html; charset="utf-8"`, m.HTML},
@@ -177,7 +234,29 @@ func (s *smtpSender) render(m Message) ([]byte, error) {
 		b.WriteString("\r\n")
 	}
 	b.WriteString("--" + boundary + "--\r\n")
-	return []byte(b.String()), nil
+	return `multipart/alternative; boundary="` + boundary + `"`, b.String(), nil
+}
+
+// attachmentPart encodes one file. base64 rather than any attempt at 8-bit: the
+// content is arbitrary bytes, and a relay that mangles them fails silently.
+func attachmentPart(a Attachment) string {
+	typ := a.ContentType
+	if typ == "" {
+		typ = "application/octet-stream"
+	}
+	name := encodeHeader(a.Filename)
+	var b strings.Builder
+	b.WriteString("Content-Type: " + typ + "; name=\"" + name + "\"\r\n")
+	b.WriteString("Content-Transfer-Encoding: base64\r\n")
+	b.WriteString("Content-Disposition: attachment; filename=\"" + name + "\"\r\n\r\n")
+
+	enc := base64.StdEncoding.EncodeToString(a.Content)
+	for len(enc) > 76 {
+		b.WriteString(enc[:76] + "\r\n")
+		enc = enc[76:]
+	}
+	b.WriteString(enc + "\r\n")
+	return b.String()
 }
 
 // dotStuff normalises line endings to CRLF and escapes a leading dot, which

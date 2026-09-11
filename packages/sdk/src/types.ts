@@ -71,6 +71,80 @@ export interface FieldDef {
   convert?: { from: FieldType };
 }
 
+/**
+ * One piece of a message body. App code never writes HTML: it returns a list of
+ * these, and the core renders both the plain-text and the HTML part from the
+ * same list, escaping as it goes.
+ */
+export type MailBlock =
+  | { type: "p"; text: string }
+  | { type: "h"; text: string }
+  | { type: "button"; text: string; url: string }
+  | { type: "table"; head: string[]; rows: string[][] }
+  | { type: "rule" };
+
+/** The block builders handed to a template's `body`. */
+export interface MailBlocks {
+  /** A paragraph. */
+  p(text: string): MailBlock;
+  /** A heading. */
+  h(text: string): MailBlock;
+  /** A call to action. The plain-text part always spells the address out. */
+  button(text: string, url: string): MailBlock;
+  /** A table. Cells are stringified; the text part aligns the columns. */
+  table(head: string[], rows: (string | number)[][]): MailBlock;
+  /** A horizontal rule. */
+  rule(): MailBlock;
+}
+
+/**
+ * A message an app can send, declared in `mail/<name>.mail.ts`.
+ *
+ * Both `subject` and `body` run at delivery time, in the *reader's* language —
+ * so every string in them must be a literal `_("…")` call. The extractor
+ * collects `_(…)` by syntax: a string built through a helper is reported as
+ * `dynamic`, `make check` sees nothing missing, and the message goes out in
+ * English on a translated site.
+ */
+export interface MailTemplateDef<A = any> {
+  /** Unique across every installed app, like a DocType name. */
+  name: string;
+  subject: (args: A) => string;
+  body: (args: A, b: MailBlocks) => MailBlock[];
+  /**
+   * Declares that `args` carry a credential — a recovery link, a one-time
+   * token — and must never be stored.
+   *
+   * A sensitive message keeps only its metadata in the delivery record: who it
+   * went to, its subject, whether it arrived. Its arguments travel in the job
+   * payload and nowhere else, and it cannot be re-rendered after the fact.
+   *
+   * Leaving this off a template that mails a credential writes that credential
+   * into `tab_email_delivery`, where every System Manager can read it.
+   */
+  sensitive?: boolean;
+}
+
+/** What `ddcore.sendMail` takes. */
+export interface SendMailArgs {
+  /** The `name` of a registered mail template. */
+  template: string;
+  to: string | string[];
+  /** Whatever `subject` and `body` read. Stored unless the template is sensitive. */
+  args?: Record<string, any>;
+  /** Overrides the reader's language. Defaults to the recipient's, then the site's. */
+  lang?: string;
+  /** `File` document names, or their `file_url`. Authorized against the caller. */
+  attach?: string[];
+  /** The document this message is about, for the delivery record. */
+  reference?: { doctype: string; name: string };
+  /**
+   * Makes the send idempotent: a second call with the same key is refused by a
+   * unique index rather than delivered twice.
+   */
+  key?: string;
+}
+
 export interface PermDef {
   role: string;
   read?: boolean; write?: boolean; create?: boolean; delete?: boolean;

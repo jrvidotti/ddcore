@@ -41,7 +41,8 @@ const EnvExample = `# ddcore — the environment this site runs in.
 # DDCORE_DEBUG=
 
 # --- mail --------------------------------------------------------------------
-# How a password recovery or invitation link leaves the site.
+# How a message leaves the site: the framework's own recovery and invitation
+# links, and whatever an app sends with ddcore.sendMail.
 #   log    — write it to the log (the default, and what development uses)
 #   smtp   — hand it to a relay
 #   method — hand it to an app function, e.g. an HTTP e-mail API
@@ -57,6 +58,10 @@ const EnvExample = `# ddcore — the environment this site runs in.
 # DDCORE_SMTP_TLS=starttls          # starttls | tls | none
 # DDCORE_SMTP_USERNAME=
 # DDCORE_SMTP_PASSWORD=
+
+# Total bytes of attachments allowed on one message. Checked when the message is
+# queued, so an oversized attachment fails where someone can still see it.
+# DDCORE_MAIL_MAX_ATTACHMENT=10485760
 
 # --- integration secrets -----------------------------------------------------
 # Credentials an app needs to talk to something else. They live here and never
