@@ -93,6 +93,17 @@ export interface DDCoreAPI {
   form: { addComment?(doctype: string, name: string, text: string): void };
   callMethod(method: string, args?: Record<string, any>): any;
   rename(doctype: string, oldName: string, newName: string): string;
+  /**
+   * An integration credential, read from the environment — `.env` in
+   * development, the platform in production — and never from a column.
+   *
+   * `ddcore.secret("stripe_key")` reads `DDCORE_SECRET_STRIPE_KEY`. Returns
+   * null when this site was not given it, so a caller can decide whether the
+   * integration is simply switched off. Never write the value to a document,
+   * a log or a message: the point of keeping it out of the database is that it
+   * stays out of every backup, export and Version diff.
+   */
+  secret(name: string): string | null;
   version: string;
 }
 

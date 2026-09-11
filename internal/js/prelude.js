@@ -501,6 +501,11 @@
     form: {},
     callMethod(method, args) { return reg.callModule(method, args || {}); },
     rename(doctype, oldName, newName) { return call("rename", { doctype, oldName, newName }); },
+    // An integration credential comes from the environment (.env in
+    // development, the platform in production), never from a column: a secret
+    // in the database is a secret in every backup, export and Version diff.
+    // Returns null when the site was not given it.
+    secret(name) { return call("secret", { text: name }); },
     __hashPassword(password) { return call("hashPassword", { text: password }); },
     __dropSessions(user) { call("dropSessions", { user }); },
   };

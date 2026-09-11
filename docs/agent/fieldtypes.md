@@ -20,9 +20,40 @@
 | Table | (child table) | `options: "Child DocType"` with `isChild: true`; `gridEditMode: "dialog"` turns off inline editing |
 | Attach | text | the file's URL (`/files/..` or `/private/files/..`) |
 | JSON | jsonb | |
-| Password | text | not hashed automatically |
+| Password | text | not hashed automatically; never read back through the API, never in Version, never exported. **Not for an integration credential** — see below |
 | Section Break / Column Break / Tab Break | — | layout; `label`, `collapsible`, `dependsOn` on a Section |
 | HTML | — | `options` is the rendered HTML |
+
+## Secrets: `ddcore.secret`, not a column
+
+An integration credential — an API key, a webhook token, a relay password —
+does not go in a document. Read it from the environment:
+
+```ts
+const key = ddcore.secret("stripe_key");   // DDCORE_SECRET_STRIPE_KEY
+if (!key) ddcore.throw(_("Stripe is not configured on this site"));
+```
+
+`.env` supplies it in development and the platform supplies it in production.
+`ddcore doctor` lists the names it found and never the values.
+
+The reason is not fastidiousness. A secret in a column is a secret in every
+backup, every replica, every export and every Version diff, and keeping it out
+of those is a list of places to remember rather than a property of the system.
+A secret in the environment is in none of them because it was never written
+down, and rotating it is a redeploy rather than a migration. The
+`DDCORE_SECRET_` prefix is the boundary: an app reads its own secrets and
+nothing else the process was started with, so `ddcore.secret("DDCORE_DSN")`
+returns null.
+
+`Password` is for a secret a *person* types and this site stores — and the
+honest statement is that it is still plain text at rest. What the framework
+guarantees is that it does not leave: the value is blanked on every read
+through the API, never enters a `Version` diff, and never appears in an export.
+A controller still sees the real value, because it works on the `Ctx` and never
+through that border. If what you hold is a machine credential rather than a
+person's password, it belongs in `ddcore.secret`, where none of that has to be
+guaranteed one path at a time.
 
 ## Money: precision and rounding
 

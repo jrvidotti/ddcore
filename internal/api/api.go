@@ -602,7 +602,7 @@ func (s *Server) get(w http.ResponseWriter, r *http.Request) {
 			return nil, err
 		}
 		c.ResolveLinkTitles(chi.URLParam(r, "doctype"), doc)
-		return doc, nil
+		return c.RedactDoc(chi.URLParam(r, "doctype"), doc), nil
 	})
 }
 
@@ -634,7 +634,7 @@ func (s *Server) create(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, err
 		}
-		return c.Insert(doc, engine.SaveOpts{})
+		return redacted(c, chi.URLParam(r, "doctype"))(c.Insert(doc, engine.SaveOpts{}))
 	})
 }
 
@@ -658,7 +658,7 @@ func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 			}
 			doc[k] = v
 		}
-		return c.Save(doc, engine.SaveOpts{})
+		return redacted(c, dt)(c.Save(doc, engine.SaveOpts{}))
 	})
 }
 
@@ -700,11 +700,11 @@ func (s *Server) docMethod(w http.ResponseWriter, r *http.Request) {
 			}
 			switch m {
 			case "submit":
-				return c.Submit(doc)
+				return redacted(c, dt)(c.Submit(doc))
 			case "cancel":
-				return c.Cancel(doc)
+				return redacted(c, dt)(c.Cancel(doc))
 			}
-			return c.Save(doc, engine.SaveOpts{})
+			return redacted(c, dt)(c.Save(doc, engine.SaveOpts{}))
 		case "amend":
 			return c.Amend(dt, name)
 		case "rename":
@@ -1374,3 +1374,15 @@ func (s *Server) deskHandler(w http.ResponseWriter, r *http.Request) {
 
 var _ = errors.New
 var _ = db.Str
+
+// redacted blanks Password fields on a document heading back to a client. It
+// takes the (doc, err) pair straight from an engine call so a handler cannot
+// accidentally return the unredacted one.
+func redacted(c *engine.Ctx, doctype string) func(engine.Doc, error) (any, error) {
+	return func(doc engine.Doc, err error) (any, error) {
+		if err != nil {
+			return nil, err
+		}
+		return c.RedactDoc(doctype, doc), nil
+	}
+}

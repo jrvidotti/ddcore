@@ -261,6 +261,15 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		return c.Rename(a.Doctype, a.OldName, a.NewName)
 	case "hashPassword":
 		return HashPassword(a.Text), nil
+	case "secret":
+		// An integration credential is read from the environment, never from a
+		// column: that is what keeps it out of every backup, export and
+		// Version diff by construction rather than by remembering to.
+		v, ok := e.Secret(a.Text)
+		if !ok {
+			return nil, nil
+		}
+		return v, nil
 	case "dropSessions":
 		_, err := e.DropSessions(c.Ctx, c.Q(), a.User, "")
 		return nil, err

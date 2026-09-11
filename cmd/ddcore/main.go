@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -731,6 +732,14 @@ func cmdDoctor(args []string) error {
 	fmt.Println(url)
 	fmt.Printf("sessions:   %d day(s), lockout after %d failed attempts for %d minute(s)\n",
 		cfg.Auth.SessionDays, cfg.Auth.MaxLoginAttempts, cfg.Auth.LockoutMinutes)
+	// Names only. A doctor report is pasted into issues and chat windows, and
+	// a secret that reaches one of those has to be rotated.
+	if names := e.SecretNames(); len(names) > 0 {
+		sort.Strings(names)
+		fmt.Printf("secrets:    %d configured: %s\n", len(names), strings.Join(names, ", "))
+	} else {
+		fmt.Println("secrets:    none configured")
+	}
 	return nil
 }
 

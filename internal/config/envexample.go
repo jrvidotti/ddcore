@@ -46,4 +46,17 @@ const EnvExample = `# ddcore — the environment this site runs in.
 # DDCORE_SMTP_TLS=starttls          # starttls | tls | none
 # DDCORE_SMTP_USERNAME=
 # DDCORE_SMTP_PASSWORD=
+
+# --- integration secrets -----------------------------------------------------
+# Credentials an app needs to talk to something else. They live here and never
+# in a column: a secret in the database is a secret in every backup, every
+# export, every replica and every Version diff, and keeping it out of those is
+# a list of places to remember rather than a property of the system. Rotating
+# one is a redeploy, not a migration.
+#
+# ` + "`" + `ddcore.secret("stripe_key")` + "`" + ` reads DDCORE_SECRET_STRIPE_KEY. The prefix is
+# the boundary: an app can read its own secrets and nothing else the process
+# was started with. ` + "`" + `ddcore doctor` + "`" + ` lists the names it found, never the values.
+# DDCORE_SECRET_STRIPE_KEY=
+# DDCORE_SECRET_WHATSAPP_TOKEN=
 `
