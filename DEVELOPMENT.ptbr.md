@@ -137,6 +137,12 @@ integrações externas, anexos, `hasPermission`/`permissionQuery`, SQL direto e 
 uma migração real a demonstrar. Quando você precisa de um caso mais pesado, ele está
 coberto pelos testes do núcleo — não force o exemplo a crescer.
 
+A única exceção é `Invoice`, e ela nomeia a regra de que é exceção: precisão decimal é um
+**contrato do framework**, não funcionalidade de app. Quem escreve app precisa poder ler um
+caso resolvido de um Currency gravado na precisão do site e de um parcelamento que soma de
+volta ao seu total. A matriz exaustiva continua nos testes do núcleo; o exemplo carrega o
+único caso que alguém vai copiar.
+
 ### A fronteira, em uma linha por caso
 
 | Precisa de… | Quem resolve |

@@ -77,7 +77,7 @@ Invalid JSON: {0},JSON inválido: {0},# internal/api/api.go:199
 "Invalid date in {0}: ""{1}""","Data inválida em {0}: ""{1}""",# internal/engine/doc.go:188
 Invalid docstatus for an insert,docstatus inválido para inserção,# internal/engine/doc.go:376
 Invalid docstatus transition ({0} → {1}),Transição de docstatus inválida ({0} → {1}),# internal/engine/doc.go:456
-Invalid email,E-mail inválido,# desk/src/lib/controls/Control.svelte:44
+Invalid email,E-mail inválido,# desk/src/lib/controls/Control.svelte:53
 Invalid filters: {0},Filtros inválidos: {0},# internal/api/api.go:819
 Invalid link,Link inválido,# internal/engine/doc.go:1067
 "Invalid month in {0}: ""{1}""","Mês/ano inválido em {0}: ""{1}""",# internal/engine/doc.go:201
@@ -105,7 +105,7 @@ New name,Novo nome,# desk/src/lib/components/FormView.svelte:149
 New password,Nova senha,# core.doctypes.user.user.doctype
 New {0},Novo {0},# desk/src/lib/components/FormView.svelte:108
 Next month,Próximo mês,# desk/src/lib/controls/DateControl.svelte:239
-Next year,Próximo ano,# desk/src/lib/controls/MonthControl.svelte:203
+Next year,Próximo ano,# desk/src/lib/controls/MonthControl.svelte:205
 No,Não,# desk/src/lib/components/history.ts:130
 No change matches the filter,Nenhuma alteração encontrada com o filtro,# desk/src/lib/components/DocHistory.svelte:87
 No history recorded,Nenhum histórico registrado,# desk/src/lib/components/DocHistory.svelte:87
@@ -129,12 +129,12 @@ OK,OK,# desk/src/lib/ui.svelte.ts:91
 Only cancelled documents can be amended,Só documentos cancelados podem ser emendados,# internal/engine/doc.go:611
 Only submitted documents can be cancelled,Só documentos enviados podem ser cancelados,# internal/engine/doc.go:594
 Open the full history,Abrir histórico completo,# desk/src/lib/components/DocSidebar.svelte:77
-Open the month picker,Abrir seletor de mês,# desk/src/lib/controls/MonthControl.svelte:179
+Open the month picker,Abrir seletor de mês,# desk/src/lib/controls/MonthControl.svelte:181
 Password,Senha,# desk/src/routes/login/+page.svelte:21
 Pick the highlighted option,Selecionar opção destacada,# desk/src/lib/shortcuts.ts:94
 Post a comment on the form,Enviar comentário no formulário,# desk/src/lib/shortcuts.ts:79
 Previous month,Mês anterior,# desk/src/lib/controls/DateControl.svelte:230
-Previous year,Ano anterior,# desk/src/lib/controls/MonthControl.svelte:194
+Previous year,Ano anterior,# desk/src/lib/controls/MonthControl.svelte:196
 Private,Privado,# core.doctypes.file.file.doctype
 Provide the document name,Informe o nome do documento,# internal/engine/naming.go:58
 Provide the reference document,Informe o documento de referência,# internal/api/api.go:784
@@ -187,7 +187,7 @@ The document was changed by someone else after you opened it. Reload and try aga
 "The framework's own DocTypes: users, roles, files, comments and versions.","DocTypes do próprio framework: usuários, papéis, arquivos, comentários e versões.",# core app
 This endpoint requires an API key (Authorization: token key:secret),Este endpoint exige uma chave de API (Authorization: token chave:segredo),# internal/api/api.go:252
 This endpoint requires the System Manager role,Este endpoint exige o papel System Manager,# internal/api/api.go:270
-This month,Este mês,# desk/src/lib/controls/MonthControl.svelte:230
+This month,Este mês,# desk/src/lib/controls/MonthControl.svelte:232
 Title,Título,# desk/src/lib/components/FormView.svelte:127
 "To change it, click the title above or Rename in the menu.","Para alterar, clique no título acima ou em Renomear no menu.",# desk/src/lib/form.svelte.ts:94
 Total,Total,# desk/src/lib/components/ReportView.svelte:81
