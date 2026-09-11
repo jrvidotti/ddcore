@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 	"time"
 
@@ -218,17 +219,25 @@ func TestMetaTranslatedAndETag(t *testing.T) {
 // not leave the next one reading Portuguese.
 func TestTranslationDoesNotMutateTheRegistry(t *testing.T) {
 	x := setup(t)
-	x.call("GET", "/api/meta/User", nil, "sid:"+x.sid("ana@x.com"), "X-Lang", "pt-BR")
 	d, err := x.e.DocType("User")
 	if err != nil {
 		t.Fatal(err)
 	}
+	// snapshot first: `language` carries autonyms from the start, so the test
+	// is that translating gains nothing, not that nothing is there.
+	before := map[string][]string{}
+	for _, f := range d.Fields {
+		before[f.Fieldname] = f.OptionLabels
+	}
+
+	x.call("GET", "/api/meta/User", nil, "sid:"+x.sid("ana@x.com"), "X-Lang", "pt-BR")
+
 	if d.Label != "User" {
 		t.Fatalf("the registry was mutated: label = %q", d.Label)
 	}
 	for _, f := range d.Fields {
-		if f.OptionLabels != nil {
-			t.Fatalf("the registry was mutated: %s has OptionLabels", f.Fieldname)
+		if !reflect.DeepEqual(f.OptionLabels, before[f.Fieldname]) {
+			t.Fatalf("the registry was mutated: %s labels %v → %v", f.Fieldname, before[f.Fieldname], f.OptionLabels)
 		}
 	}
 }
@@ -278,5 +287,98 @@ func TestRuntimeCatalogueFollowsTheRequestLanguage(t *testing.T) {
 	// back again on the same pool: the mirror must not have gone stale
 	if got := call("pt-BR"); got["save"] != "Salvar" {
 		t.Fatalf("second pt-BR = %v", got)
+	}
+}
+
+// TestUserLanguageIsAPicker: the list of languages a site serves is not knowable
+// when the DocType is declared, so it is injected into the registry at load.
+func TestUserLanguageIsAPicker(t *testing.T) {
+	x := setup(t)
+	sid := "sid:" + x.sid("ana@x.com")
+
+	field := func(lang string) map[string]any {
+		r := x.call("GET", "/api/meta/User", nil, sid, "X-Lang", lang)
+		data, _ := r.Body["data"].(map[string]any)
+		dt, _ := data["doctype"].(map[string]any)
+		fields, _ := dt["fields"].([]any)
+		for _, fAny := range fields {
+			f, _ := fAny.(map[string]any)
+			if f["fieldname"] == "language" {
+				return f
+			}
+		}
+		t.Fatalf("%s: no language field", lang)
+		return nil
+	}
+
+	pt, en := field("pt-BR"), field("en")
+	if pt["fieldtype"] != "Select" {
+		t.Fatalf("fieldtype = %v, want Select", pt["fieldtype"])
+	}
+	// the options are the site's languages, canonical and identical either way
+	want := []any{"en", "pt-BR"}
+	if !reflect.DeepEqual(pt["options"], want) || !reflect.DeepEqual(en["options"], want) {
+		t.Fatalf("options: pt-BR=%v en=%v, want %v", pt["options"], en["options"], want)
+	}
+	// autonyms: each language in itself, so the labels do NOT vary by request
+	labels, _ := pt["optionLabels"].([]any)
+	if len(labels) != 2 || labels[0] != "English" {
+		t.Fatalf("optionLabels = %v", pt["optionLabels"])
+	}
+	if !reflect.DeepEqual(pt["optionLabels"], en["optionLabels"]) {
+		t.Fatalf("autonyms must not vary by language: pt-BR=%v en=%v", pt["optionLabels"], en["optionLabels"])
+	}
+
+	// and, being a Select, a language the site does not serve is refused
+	x.asAdmin(func(c *engine.Ctx) error {
+		d, err := c.GetDoc("User", "ana@x.com")
+		if err != nil {
+			return err
+		}
+		d["language"] = "xx"
+		if _, err := c.Save(d, engine.SaveOpts{}); err == nil {
+			t.Fatal("saving an unknown language should be refused")
+		}
+		return nil
+	})
+}
+
+// TestSetMyLanguage: permissions are per document, so a user cannot write their
+// own User record — the whitelisted method is the way round that, and it has to
+// drop the cached language itself because it writes without firing the hooks.
+func TestSetMyLanguage(t *testing.T) {
+	x := setup(t)
+	const path = "/api/method/core.services.i18n.setMyLanguage"
+	sid := "sid:" + x.sid("ana@x.com")
+
+	// the premise: ana cannot write her own User document
+	r := x.call("PUT", "/api/resource/User/ana@x.com", map[string]any{"language": "en"}, sid)
+	if r.Status == 200 {
+		t.Fatal("ana should not be able to write her own User record")
+	}
+
+	// but she can set her own language
+	r = x.call("POST", path, map[string]any{"language": "en"}, sid)
+	if data, _ := r.Body["data"].(map[string]any); data == nil || data["language"] != "en" {
+		t.Fatalf("set: %s", r.Raw)
+	}
+	if got := x.call("GET", "/api/boot", nil, sid); func() string {
+		d, _ := got.Body["data"].(map[string]any)
+		s, _ := d["lang"].(string)
+		return s
+	}() != "en" {
+		t.Fatalf("the boot should answer in the new language: %s", got.Raw)
+	}
+
+	// blank means "follow the site"
+	r = x.call("POST", path, map[string]any{"language": ""}, sid)
+	if data, _ := r.Body["data"].(map[string]any); data == nil || data["language"] != nil {
+		t.Fatalf("blank: %s", r.Raw)
+	}
+
+	// and a language the site does not serve is refused
+	r = x.call("POST", path, map[string]any{"language": "xx"}, sid)
+	if r.Status == 200 {
+		t.Fatalf("an unknown language should be refused: %s", r.Raw)
 	}
 }

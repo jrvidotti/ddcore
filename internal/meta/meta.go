@@ -70,9 +70,14 @@ type Field struct {
 	// colour. Keyed by the value, never by its label, so it is
 	// language-independent by construction.
 	OptionColors map[string]string `json:"optionColors,omitempty"`
-	// OptionLabels is filled only on the translated copy the API serves: the
-	// display text of each entry in Options, in the same order. Options
-	// itself stays canonical English — it is what the database holds.
+	// OptionLabels is the display text of each entry in Options, in the same
+	// order. Options itself stays canonical English — it is what the database
+	// holds.
+	//
+	// It is normally filled only on the translated copy the API serves. A field
+	// that sets it up front is declaring itself *self-describing*: its options
+	// are not catalogue keys, they are neither translated nor collected by the
+	// extractor. User.language is the one that does this, with autonyms.
 	OptionLabels  []string `json:"optionLabels,omitempty"`
 	_             struct{} // keep JSON tags exhaustive
 	SelectOptions []string `json:"-"`
@@ -304,23 +309,23 @@ func (r *Registry) Validate() error {
 			case "Link", "Table":
 				target := f.OptionsString()
 				if target == "" {
-					e("campo %q (%s) precisa de options com o DocType alvo", f.Fieldname, f.Fieldtype)
+					e("field %q (%s) needs options naming the target DocType", f.Fieldname, f.Fieldtype)
 				} else if t, ok := r.DocTypes[target]; !ok {
-					e("campo %q aponta para DocType inexistente %q", f.Fieldname, target)
+					e("field %q points at DocType %q, which does not exist", f.Fieldname, target)
 				} else if f.Fieldtype == "Table" && !t.IsChild {
 					e("field %q: %q is not isChild", f.Fieldname, target)
 				}
 			case "Select":
 				if _, ok := f.Options.([]any); !ok {
 					if _, ok := f.Options.(string); !ok {
-						e("campo %q (Select) precisa de options como lista", f.Fieldname)
+						e("field %q (Select) needs options as a list", f.Fieldname)
 					}
 				}
 			}
 			if f.FetchFrom != "" {
 				parts := strings.SplitN(f.FetchFrom, ".", 2)
 				if len(parts) != 2 {
-					e("fetchFrom %q do campo %q deve ser link.campo", f.FetchFrom, f.Fieldname)
+					e("fetchFrom %q on field %q must be link.field", f.FetchFrom, f.Fieldname)
 				} else if lf := d.Field(parts[0]); lf == nil || (lf.Fieldtype != "Link" && lf.Fieldtype != "Dynamic Link") {
 					e("fetchFrom %q on field %q: %q is not a Link", f.FetchFrom, f.Fieldname, parts[0])
 				}

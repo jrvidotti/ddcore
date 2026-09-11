@@ -25,6 +25,12 @@ func CollectDocType(s *Set, d *meta.DocType, file string) {
 		if f.Fieldtype != "Select" {
 			continue
 		}
+		if f.OptionLabels != nil {
+			// self-describing: the field supplies its own display text, so the
+			// catalogue is not involved and its options are not keys. See
+			// engine.applyLanguageOptions.
+			continue
+		}
 		for _, o := range selectOptions(f) {
 			s.Add(o, file, 0)
 		}

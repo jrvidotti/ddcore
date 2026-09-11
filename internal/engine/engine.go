@@ -265,6 +265,13 @@ func (e *Engine) Load() error {
 			return err
 		}
 	}
+	// before Validate: User.language is a Select whose options are the site's
+	// languages, and Validate refuses a Select with no options list.
+	i18n, err := LoadI18n(apps, e.Cfg.Lang)
+	if err != nil {
+		return err
+	}
+	applyLanguageOptions(reg, i18n)
 	if err := reg.Validate(); err != nil {
 		return err
 	}
@@ -285,10 +292,6 @@ func (e *Engine) Load() error {
 	wl := map[string]map[string]any{}
 	for _, w := range snap.Whitelisted {
 		wl[w.Path] = w.Opts
-	}
-	i18n, err := LoadI18n(apps, e.Cfg.Lang)
-	if err != nil {
-		return err
 	}
 	st := &State{Meta: reg, Snap: snap, Apps: apps, Pool: pool, I18n: i18n, Loaded: time.Now(), whitelisted: wl}
 	e.mu.Lock()
@@ -547,6 +550,11 @@ func (e *Engine) RunTests(ctx context.Context, filter, app string) ([]js.TestRes
 	var out []js.TestResult
 	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
 		c.Flags["rollback"] = true
+		// Tests run in the source language, whatever the site is set to. An
+		// assertion is about a message's *key*; making it depend on
+		// ddcore.json:lang means flipping the site language breaks the suite,
+		// which is exactly what it did.
+		c.Lang = "en"
 		rt, err := c.RT()
 		if err != nil {
 			return err

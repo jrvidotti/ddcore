@@ -193,7 +193,10 @@ export interface WorkspaceDef {
 export interface Context {
   user: string;
   roles: string[];
+  /** the language of this request */
   lang: string;
+  /** every language the site serves — one per translations/<lang>.csv, plus "en" */
+  langs: string[];
   /** in a job / migrate / test — no HTTP request */
   request?: { method: string; path: string; ip?: string };
 }

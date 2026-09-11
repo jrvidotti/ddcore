@@ -68,7 +68,13 @@ func (st *State) TranslateDocType(d *meta.DocType, lang string) *meta.DocType {
 		cp := *f
 		cp.Label = t(f.Label)
 		cp.Description = t(f.Description)
-		if opts, ok := f.Options.([]string); ok {
+		if f.OptionLabels != nil {
+			// a field that carries its own labels is self-describing: its
+			// options are not catalogue material and must not be overwritten
+			// by a lookup that would find nothing. User.language is the one
+			// today — its labels are autonyms, the same in every language.
+			cp.OptionLabels = f.OptionLabels
+		} else if opts, ok := f.Options.([]string); ok {
 			cp.OptionLabels = translateEach(t, opts)
 		} else if opts, ok := f.Options.([]any); ok {
 			var ss []string
