@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { exportUrl, supportsChildren } from "./export-options";
+import { exportChoice, exportChoices, exportUrl, supportsChildren } from "./export-options";
 import { useLocale } from "../locale.test";
 
 const params = (url: string) => new URLSearchParams(url.split("?")[1]);
@@ -51,5 +51,26 @@ describe("export URL", () => {
     expect(params(exportUrl({ doctype: "Task", format: "csv" })).get("sep")).toBe(";");
     useLocale("en-US", "USD");
     expect(params(exportUrl({ doctype: "Task", format: "csv" })).get("sep")).toBe(",");
+  });
+});
+
+describe("export choice", () => {
+  it("keeps the page on screen a CSV the browser writes itself", () => {
+    expect(exportChoice("page-csv")).toBeNull();
+  });
+
+  it("reads NDJSON out of the choice, so the format asked for is the format written", () => {
+    expect(exportChoice("all-ndjson")).toEqual({ format: "ndjson", children: false });
+    expect(exportChoice("all-ndjson-children")).toEqual({ format: "ndjson", children: true });
+    expect(exportChoice("all-csv")).toEqual({ format: "csv", children: false });
+  });
+
+  it("offers only combinations the server can honour", () => {
+    for (const c of exportChoices) {
+      const o = exportChoice(c);
+      if (o) expect(supportsChildren(o.format) || !o.children).toBe(true);
+    }
+    // the page on screen is the only client-side export, and it is CSV
+    expect(exportChoices.filter((c) => exportChoice(c) === null)).toEqual(["page-csv"]);
   });
 });

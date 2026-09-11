@@ -41,3 +41,29 @@ export function exportUrl(o: ExportOptions): string {
 
 /** Whether "include the child tables" applies to this format at all. */
 export const supportsChildren = (format: ExportFormat): boolean => format === "ndjson";
+
+/**
+ * One choice in the export dialog.
+ *
+ * Scope and format are a single choice rather than two, because they are not
+ * independent: the page on screen is a table of columns the browser already
+ * has, so it can only ever be a CSV, and only NDJSON can nest the child
+ * tables. Offering the four valid combinations is what keeps the dialog from
+ * accepting a format it would then have to ignore.
+ */
+export type ExportChoice = "page-csv" | "all-csv" | "all-ndjson" | "all-ndjson-children";
+
+export const exportChoices: ExportChoice[] = ["page-csv", "all-csv", "all-ndjson", "all-ndjson-children"];
+
+/**
+ * What a choice asks the server for, or `null` for the page on screen — the
+ * one export the browser writes itself.
+ */
+export function exportChoice(choice: string): { format: ExportFormat; children: boolean } | null {
+  switch (choice) {
+    case "all-csv": return { format: "csv", children: false };
+    case "all-ndjson": return { format: "ndjson", children: false };
+    case "all-ndjson-children": return { format: "ndjson", children: true };
+    default: return null;
+  }
+}

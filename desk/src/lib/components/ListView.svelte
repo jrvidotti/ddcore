@@ -15,7 +15,7 @@
   import { toCsv, downloadCsv } from "$lib/csv";
   import { deskSDK } from "$lib/desk-sdk";
   import { clearListFilters, listStateFromSearchParams, listStateToSearchParams, type ListUrlState } from "./list-state";
-  import { exportUrl } from "./export-options";
+  import { exportChoice, exportChoices, exportUrl } from "./export-options";
 
   let { doctype }: { doctype: string } = $props();
   let meta = $state<Meta | null>(null);
@@ -198,33 +198,32 @@
       size: "sm",
       fields: [
         {
-          fieldname: "scope", fieldtype: "Select", label: __("Rows"),
-          options: ["All rows matching the filters", "The page on screen"],
-          optionLabels: [__("All rows matching the filters ({0})", [total]), __("The page on screen ({0})", [rows.length])],
-          default: all ? "All rows matching the filters" : "The page on screen",
-        },
-        {
-          // The child tables are part of the format, not a separate switch:
-          // only NDJSON can nest them, and a dialog has no conditional fields
-          // to hide a checkbox that does not apply.
-          fieldname: "format", fieldtype: "Select", label: __("Format"),
-          options: ["csv", "ndjson", "ndjson+children"],
+          // Scope and format are one field, not two. A dialog has no
+          // conditional fields, and the pairs are not free: the page on
+          // screen is a table of the columns already loaded, so it can only
+          // be a CSV, and only NDJSON can nest the child tables. Listing the
+          // combinations that exist is what stops the dialog from taking a
+          // format it would then have to ignore.
+          fieldname: "what", fieldtype: "Select", label: __("Export"),
+          options: exportChoices,
           optionLabels: [
-            __("CSV (spreadsheet)"),
-            __("NDJSON (one document per line)"),
-            __("NDJSON with the child tables"),
+            __("The page on screen ({0}) as CSV", [rows.length]),
+            __("All rows matching the filters ({0}) as CSV", [total]),
+            __("All rows matching the filters ({0}) as NDJSON", [total]),
+            __("All rows matching the filters ({0}) as NDJSON with the child tables", [total]),
           ],
-          default: "csv",
+          default: all ? "all-csv" : "page-csv",
         },
       ],
       primaryLabel: __("Export"),
       primaryAction(v, d) {
         d.hide();
-        if (v.scope === "The page on screen") { exportLoadedPage(); return; }
+        const choice = exportChoice(String(v.what));
+        if (!choice) { exportLoadedPage(); return; }
         window.location.href = exportUrl({
           doctype,
-          format: String(v.format).startsWith("ndjson") ? "ndjson" : "csv",
-          children: v.format === "ndjson+children",
+          format: choice.format,
+          children: choice.children,
           filters: buildFilters(),
           orFilters: buildOr(),
         });
