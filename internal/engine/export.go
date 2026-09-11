@@ -150,42 +150,61 @@ func exportableColumn(d *meta.DocType, name string) bool {
 	return f == nil || f.Fieldtype != "Password"
 }
 
-// Export walks every document matching the filters and hands it to sink.
-func (c *Ctx) Export(a ExportArgs, sink ExportSink) (*ExportSummary, error) {
+// exportPlan settles everything that can refuse an export: the doctype, the
+// permissions, the columns and the filters. It is separate from the walk so a
+// caller that has already begun a response — the HTTP handler — can get the
+// refusal while a status code is still changeable, without keeping a second
+// copy of the rules.
+func (c *Ctx) exportPlan(a ExportArgs) (*meta.DocType, []string, []db.Filter, error) {
 	d, err := c.St.DocType(a.Doctype)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 	if d.IsChild {
-		return nil, cerr.Validation("{0} is a child table: export the DocType that embeds it.", c.T(d.Label))
+		return nil, nil, nil, cerr.Validation("{0} is a child table: export the DocType that embeds it.", c.T(d.Label))
 	}
 	if d.IsSingle {
-		return nil, cerr.Validation("{0} is a Single and has no table to export.", c.T(d.Label))
+		return nil, nil, nil, cerr.Validation("{0} is a Single and has no table to export.", c.T(d.Label))
 	}
 	// read says which rows; export says the rows may leave as a file. Both.
 	for _, ptype := range []string{"read", "export"} {
 		ok, err := c.HasPermission(d.Name, ptype, nil)
 		if err != nil {
-			return nil, err
+			return nil, nil, nil, err
 		}
 		if !ok {
-			return nil, cerr.Permission("No permission to export {0}", c.T(d.Label))
+			return nil, nil, nil, cerr.Permission("No permission to export {0}", c.T(d.Label))
 		}
 	}
-
 	columns := a.Fields
 	if len(columns) == 0 {
 		columns = ExportColumns(d)
 	} else {
 		for _, f := range columns {
 			if !exportableColumn(d, f) {
-				return nil, cerr.Validation("Unknown field: {0}", f)
+				return nil, nil, nil, cerr.Validation("Unknown field: {0}", f)
 			}
 		}
 	}
 	base, err := db.ParseFilters(a.Filters)
 	if err != nil {
-		return nil, cerr.Validation("Invalid filters: {0}", err)
+		return nil, nil, nil, cerr.Validation("Invalid filters: {0}", err)
+	}
+	return d, columns, base, nil
+}
+
+// CanExport reports whether this export would be allowed to start, raising the
+// same error Export would. It is the preflight for a streaming caller.
+func (c *Ctx) CanExport(a ExportArgs) error {
+	_, _, _, err := c.exportPlan(a)
+	return err
+}
+
+// Export walks every document matching the filters and hands it to sink.
+func (c *Ctx) Export(a ExportArgs, sink ExportSink) (*ExportSummary, error) {
+	d, columns, base, err := c.exportPlan(a)
+	if err != nil {
+		return nil, err
 	}
 
 	sum := &ExportSummary{

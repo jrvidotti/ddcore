@@ -20,7 +20,10 @@ type File struct {
 	Currency  string   `json:"currency"`
 	Timezone  string   `json:"timezone"`
 	DataDir   string   `json:"dataDir"`
-	Dev       bool     `json:"dev"`
+	// ExportMaxRows caps GET /api/export so one download cannot hold a
+	// connection and a worker for an unbounded time. 0 = DefaultExportMaxRows.
+	ExportMaxRows int  `json:"exportMaxRows"`
+	Dev           bool `json:"dev"`
 }
 
 const Name = "ddcore.json"

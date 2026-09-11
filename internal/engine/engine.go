@@ -25,20 +25,21 @@ import (
 )
 
 type Config struct {
-	DSN       string
-	Apps      []js.App // in load order; core is prepended automatically
-	Workers   int      // job workers
-	Scheduler bool
-	Dev       bool
-	Test      bool // include *.test.ts and mark runtime as test
-	Port      int
-	SiteName  string
-	Lang      string
-	Currency  string
-	Timezone  string
-	SecretKey string
-	DataDir   string // uploads
-	LogLevel  slog.Level
+	DSN           string
+	Apps          []js.App // in load order; core is prepended automatically
+	Workers       int      // job workers
+	Scheduler     bool
+	Dev           bool
+	Test          bool // include *.test.ts and mark runtime as test
+	Port          int
+	SiteName      string
+	Lang          string
+	Currency      string
+	Timezone      string
+	SecretKey     string
+	DataDir       string // uploads
+	ExportMaxRows int    // cap for GET /api/export; 0 = DefaultExportMaxRows
+	LogLevel      slog.Level
 }
 
 // AppMeta is what defineApp produced, minus functions.
