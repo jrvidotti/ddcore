@@ -346,6 +346,9 @@ func (r *Registry) Validate() error {
 	}
 	for _, d := range r.DocTypes {
 		e := func(msg string, a ...any) { errs = append(errs, d.Name+": "+fmt.Sprintf(msg, a...)) }
+		if d.IsSingle && (d.IsChild || d.Submittable || d.AllowRename || d.Naming != (Naming{})) {
+			e("Single DocTypes cannot be child tables, submittable, renamable, or declare naming rules")
+		}
 		seen := map[string]bool{}
 		renamedFrom := map[string]string{} // old fieldname -> the field claiming it
 		for _, f := range d.Fields {

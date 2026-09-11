@@ -11,6 +11,7 @@ export default defineWorkspace({
     { label: "Overview", route: "/app/workspace/Projects", icon: "layout-dashboard" },
     { label: "Projects", doctype: "Project", icon: "notepad-text" },
     { label: "Tasks", doctype: "Task", icon: "list" },
+    { label: "Project Settings", doctype: "Project Settings", icon: "settings" },
     { label: "Reports", icon: "bar-chart-3" },
     { label: "Tasks by Status", report: "Tasks by Status" },
   ],

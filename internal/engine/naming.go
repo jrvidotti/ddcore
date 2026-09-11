@@ -27,6 +27,10 @@ var hashRun = regexp.MustCompile(`#+`)
 
 // setName decides the name of a new document following the naming rule.
 func (c *Ctx) setName(d *meta.DocType, doc Doc) error {
+	if d.IsSingle {
+		doc["name"] = "singleton"
+		return nil
+	}
 	n := d.Naming
 	switch {
 	case doc.Str("amended_from") != "" && doc.Str("name") != "":

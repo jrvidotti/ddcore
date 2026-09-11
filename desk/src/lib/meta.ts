@@ -14,7 +14,7 @@ export interface Field {
 }
 
 export interface DocTypeMeta {
-  name: string; app: string; label: string; module?: string; naming: any; submittable?: boolean; isChild?: boolean; trackChanges?: boolean;
+  name: string; app: string; label: string; module?: string; naming: any; submittable?: boolean; isChild?: boolean; isSingle?: boolean; trackChanges?: boolean;
   allowRename?: boolean; titleField?: string; sortField?: string; sortOrder?: string; searchFields?: string[]; fields: Field[];
   permissions?: any[]; icon?: string; methods?: string[];
   /** apps shipping a form script for this DocType: the owner, then each extension */

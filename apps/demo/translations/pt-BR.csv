@@ -26,6 +26,8 @@ Medium,Média,# demo.doctypes.task.task.doctype
 Milestone {0} cannot be completed before the project starts.,O marco {0} não pode ser concluído antes do início do projeto.,# apps/demo/doctypes/project/project.controller.ts:16
 Milestones,Marcos,# demo.doctypes.project.project.doctype
 Monthly interest,Juros mensais,# demo.doctypes.invoice.invoice.doctype
+Note,Observação,# demo.doctypes.project_setting_note.project_setting_note.doctype
+Notes,Observações,# demo.doctypes.project_settings.project_settings.doctype
 Number,Número,# demo.doctypes.invoice_installment.invoice_installment.doctype
 Open,Aberta,# demo.doctypes.task.task.doctype
 Open Tasks,Tarefas Abertas,# demo workspace
@@ -34,11 +36,14 @@ Overdue Tasks,Tarefas Atrasadas,# demo workspace
 Overview,Visão Geral,# demo workspace
 Planned,Planejado,# demo.doctypes.project.project.doctype
 Planning,Planejamento,# demo workspace
+Planning enabled,Planejamento habilitado,# demo.doctypes.project_settings.project_settings.doctype
 Priority,Prioridade,# demo.doctypes.task.task.doctype
 Progress,Progresso,# demo.doctypes.project.project.doctype
 Progress: {0}%,Progresso: {0}%,# apps/demo/doctypes/project/project.form.ts:7
 Project,Projeto,# demo.doctypes.invoice.invoice.doctype
 Project Milestone,Marco Projeto,# demo.doctypes.project_milestone.project_milestone.doctype
+Project Setting Note,Observação das configurações de projetos,# demo.doctypes.project_setting_note.project_setting_note.doctype
+Project Settings,Configurações de projetos,# demo.doctypes.project_settings.project_settings.doctype
 Projects,Projetos,# demo workspace
 Projects in Progress,Projetos em Andamento,# demo workspace
 Quantity,Quantidade,# apps/demo/reports/tasks_by_status.report.ts:26

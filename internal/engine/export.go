@@ -164,7 +164,7 @@ func (c *Ctx) exportPlan(a ExportArgs) (*meta.DocType, []string, []db.Filter, er
 		return nil, nil, nil, cerr.Validation("{0} is a child table: export the DocType that embeds it.", c.T(d.Label))
 	}
 	if d.IsSingle {
-		return nil, nil, nil, cerr.Validation("{0} is a Single and has no table to export.", c.T(d.Label))
+		return nil, nil, nil, cerr.Validation("Export of Single DocTypes is not supported: {0}.", c.T(d.Label))
 	}
 	// read says which rows; export says the rows may leave as a file. Both.
 	for _, ptype := range []string{"read", "export"} {

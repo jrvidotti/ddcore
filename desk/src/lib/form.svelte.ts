@@ -83,12 +83,13 @@ export class FormController {
   }
 
   // ------------------------------------------------------------- doc state
+  get isSingle() { return !!this.meta.doctype.isSingle; }
   get isNew() { return !!this.doc.__islocal || !this.doc.name; }
   isNewDoc() { return this.isNew; }
   get isDirty() { return JSON.stringify(this.doc) !== this.original; }
   get docstatus(): number { return Number(this.doc.docstatus || 0); }
   get isSubmittable() { return !!this.meta.doctype.submittable; }
-  get readOnly() { return this.docstatus === 2 || (this.docstatus === 1 && !this.meta.doctype.fields.some((f) => f.allowOnSubmit)); }
+  get readOnly() { return (this.isSingle && !this.perm.write) || this.docstatus === 2 || (this.docstatus === 1 && !this.meta.doctype.fields.some((f) => f.allowOnSubmit)); }
   get perm() { return this.meta.permissions; }
 
   field(fieldname: string): Field | undefined {
@@ -103,6 +104,7 @@ export class FormController {
 
   /** Whether a field can be edited right now (docstatus, readOnly, allowOnSubmit, readOnlyDependsOn). */
   isFieldEditable(f: Field): boolean {
+    if (this.isSingle && (!this.perm.write || f.fieldname === "name")) return false;
     if (f.fieldname === "name" && !this.isNew) return false;
     if (f.readOnly) return false;
     if (this.docstatus === 2) return false;
@@ -231,7 +233,7 @@ export class FormController {
   }
 
   async save(action: "save" | "submit" | "cancel" = "save"): Promise<boolean> {
-    if (this.saving) return false;
+    if (this.saving || (this.isSingle && (this.readOnly || action !== "save"))) return false;
     if (action !== "cancel" && !this.validateMandatory()) return false;
     for (const h of this.handlers) {
       try { if ((await h.validate?.(this)) === false) return false; await h.beforeSave?.(this); } catch (e) { showError(e); return false; }
@@ -241,7 +243,9 @@ export class FormController {
     try {
       let saved: any;
       const dt = this.doctype;
-      if (this.isNew) {
+      if (this.isSingle) {
+        saved = await api.update(dt, "singleton", this.doc);
+      } else if (this.isNew) {
         if (action === "submit") this.doc.docstatus = 1;
         saved = await api.insert(dt, this.doc);
       } else if (action === "save") {
@@ -253,7 +257,7 @@ export class FormController {
       this.load(saved);
       for (const h of this.handlers) { try { await h.afterSave?.(this); } catch (e) { showError(e); } }
       toast(action === "submit" ? __("Submitted") : action === "cancel" ? __("Cancelled") : __("Saved"), { indicator: "green", timeout: 2000 });
-      if (wasNew) goto(`/app/${encodeURIComponent(dt)}/${encodeURIComponent(saved.name)}`, { replaceState: true });
+      if (wasNew && !this.isSingle) goto(`/app/${encodeURIComponent(dt)}/${encodeURIComponent(saved.name)}`, { replaceState: true });
       else await this.runRefresh();
       return true;
     } catch (e: any) {
@@ -278,7 +282,7 @@ export class FormController {
   }
 
   async reload() {
-    if (this.isNew) return;
+    if (this.isNew && !this.isSingle) return;
     try {
       this.load(await api.getDoc(this.doctype, this.doc.name));
       await this.runRefresh();
@@ -313,7 +317,11 @@ export async function createForm(doctype: string, name?: string, initial?: any):
   const meta = await getMeta(doctype);
   await loadFormScript(meta);
   let doc: any;
-  if (name && name !== "new") doc = await api.getDoc(doctype, name);
+  if (meta.doctype.isSingle) {
+    if (name === "new") await goto(`/app/${encodeURIComponent(doctype)}`, { replaceState: true });
+    doc = await api.getSingle(doctype);
+  }
+  else if (name && name !== "new") doc = await api.getDoc(doctype, name);
   else doc = { ...newDoc(meta), ...(initial || {}) };
   const frm = new FormController(meta, doc);
   await frm.runSetup();
