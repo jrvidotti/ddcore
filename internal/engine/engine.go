@@ -35,7 +35,6 @@ type Config struct {
 	Dev       bool
 	Test      bool // include *.test.ts and mark runtime as test
 	Port      int
-	SiteName  string
 	Lang      string
 	Currency  string
 	// CurrencyPrecision is how many decimal places a Currency field is rounded
@@ -461,6 +460,31 @@ func (s *State) AppOrder() []string {
 		out = append(out, a.Name)
 	}
 	return out
+}
+
+// SiteTitle is what the site is called wherever a person is told: the sidebar's
+// heading, the browser tab, a recovery e-mail, the health report. It is the
+// title of the first app that is not the core — the app whose screens the desk
+// is showing — and the core's own title when there is no other app.
+//
+// It is resolved here, once, rather than by each reader: the name has to be the
+// same word in the desk, in the mail and in /health, and two derivations that
+// "should" agree is the bug nobody finds. The value is a catalogue key, like any
+// label; the caller translates it into the language of whoever is reading.
+func (s *State) SiteTitle() string {
+	core := ""
+	for _, a := range s.Apps {
+		m := s.Snap.Apps[a.Name]
+		if m == nil || m.Title == "" {
+			continue
+		}
+		if a.Name == "core" {
+			core = m.Title
+			continue
+		}
+		return m.Title
+	}
+	return core
 }
 
 func (s *State) App(name string) js.App {

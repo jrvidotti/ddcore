@@ -32,6 +32,8 @@ func site(t *testing.T, body string) string {
 
 func TestLoadDefaults(t *testing.T) {
 	clearMailEnv(t)
+	// `site` was removed: a config still carrying it has to load, not be
+	// refused, because every ddcore.json written before the change has one
 	f, _, err := Load(site(t, `{"site":"x"}`))
 	if err != nil {
 		t.Fatalf("Load: %v", err)

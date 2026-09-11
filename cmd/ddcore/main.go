@@ -138,7 +138,7 @@ func load(test bool, dev bool) (*engine.Engine, *config.File, error) {
 	}
 	e, err := engine.New(context.Background(), engine.Config{
 		DSN: cfg.DSN, Apps: apps, Workers: cfg.Workers, Scheduler: cfg.Scheduler, Dev: dev, Test: test,
-		Port: cfg.Port, SiteName: cfg.Site, Lang: cfg.Lang, Currency: cfg.Currency, CurrencyPrecision: cfg.CurrencyPrecision, Rounding: cfg.RoundingMode(), Timezone: cfg.Timezone, DataDir: cfg.DataDir, ExportMaxRows: cfg.ExportMaxRows, LogLevel: level,
+		Port: cfg.Port, Lang: cfg.Lang, Currency: cfg.Currency, CurrencyPrecision: cfg.CurrencyPrecision, Rounding: cfg.RoundingMode(), Timezone: cfg.Timezone, DataDir: cfg.DataDir, ExportMaxRows: cfg.ExportMaxRows, LogLevel: level,
 		Auth: cfg.Auth, Ops: cfg.Ops, LogJSON: logJSON(), LogOut: logOut, Mail: cfg.Mail, SiteURL: cfg.PublicURL(), TrustProxy: cfg.TrustProxy,
 	})
 	if err == nil && !cfg.HasPublicURL() {
@@ -183,7 +183,7 @@ func cmdInit(args []string) error {
 		fmt.Println("atualizado", path)
 		return nil
 	}
-	f := &config.File{DSN: *dsn, Port: *port, Workers: 2, Scheduler: false, Site: "ddcore", Lang: "pt-BR", Currency: "BRL", Timezone: "UTC", Apps: []string{}, Dev: true}
+	f := &config.File{DSN: *dsn, Port: *port, Workers: 2, Scheduler: false, Lang: "pt-BR", Currency: "BRL", Timezone: "UTC", Apps: []string{}, Dev: true}
 	if err := f.Save(config.Name); err != nil {
 		return err
 	}
