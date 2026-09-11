@@ -24,6 +24,11 @@ type Error struct {
 	TitleKey string `json:"titleKey,omitempty"`
 	Status   int    `json:"-"`
 	Extra    any    `json:"extra,omitempty"`
+	// RequestID is stamped at the HTTP border, never by the code that raised
+	// the error. It is the handle a user reads off a red toast and an operator
+	// greps for in the log and in Error Log — the one string that joins the
+	// three. Empty outside HTTP.
+	RequestID string `json:"requestId,omitempty"`
 }
 
 func (e *Error) Error() string {

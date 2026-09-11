@@ -54,7 +54,10 @@ func New(e *engine.Engine, desk fs.FS) *Server {
 	if e.Cfg.TrustProxy {
 		r.Use(middleware.RealIP)
 	}
-	r.Use(middleware.Recoverer, middleware.Compress(5))
+	// observe is outermost so a 401 from s.auth and a panic from anywhere below
+	// both leave carrying the same id the caller was handed. recoverPanic
+	// replaces chi's Recoverer, which writes a bare 500 nobody can look up.
+	r.Use(s.observe, s.recoverPanic, middleware.Compress(5))
 	r.Use(s.auth)
 	r.Route("/api", func(r chi.Router) {
 		r.Post("/login", s.login)
@@ -81,6 +84,7 @@ func New(e *engine.Engine, desk fs.FS) *Server {
 			r.Get("/workspace/{name}/chart/{chart}", s.chart)
 			r.Get("/comments/{doctype}/{name}", s.comments)
 			r.Get("/versions/{doctype}/{name}", s.versions)
+			r.Get("/health/report", s.healthReport)
 		})
 		r.Get("/count/{doctype}", s.count)
 		r.Get("/resource/{doctype}", s.list)
@@ -91,8 +95,23 @@ func New(e *engine.Engine, desk fs.FS) *Server {
 		r.Post("/resource/{doctype}/{name}/{method}", s.docMethod)
 		r.Post("/method/{path}", s.method)
 		r.Get("/method/{path}", s.method)
-		r.Get("/health", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, 200, map[string]any{"ok": true}) })
+		r.Get("/health", s.liveness)
+		r.Get("/health/", s.liveness)
+		r.Get("/ready", s.readiness)
+		r.Get("/ready/", s.readiness)
 	})
+	// The conventional names an orchestrator probes, alongside the /api ones.
+	// chi matches them before the SPA fallback below.
+	//
+	// The trailing-slash spellings are registered as well, and not for
+	// tidiness: an unmatched path falls through to the desk's SPA handler,
+	// which answers 200 with index.html. A readiness probe configured as
+	// "/readyz/" would then pass forever, including while the database is
+	// down — a silent failure of the one check meant to be loud.
+	r.Get("/healthz", s.liveness)
+	r.Get("/healthz/", s.liveness)
+	r.Get("/readyz", s.readiness)
+	r.Get("/readyz/", s.readiness)
 	r.Get("/assets/apps/{app}/*", s.appAsset)
 	r.Get("/files/*", s.file)
 	r.Get("/private/files/*", s.privateFile)
@@ -128,6 +147,13 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 // its key is translated — an error raised inside the JS runtime as
 // `ddcore.throw(_("…"))` was already translated there and arrives with none.
 func (s *Server) writeErr(w http.ResponseWriter, r *http.Request, err error) {
+	s.writeError(w, r, err, true)
+}
+
+// writeError is writeErr with the Error Log row made optional: the panic
+// handler has already written a far more useful row, carrying the stack, and
+// two rows for one failure make the log harder to read, not easier.
+func (s *Server) writeError(w http.ResponseWriter, r *http.Request, err error, record bool) {
 	e := cerr.From(err)
 	if e.Key != "" {
 		lang := s.langFor(r)
@@ -144,6 +170,22 @@ func (s *Server) writeErr(w http.ResponseWriter, r *http.Request, err error) {
 	// along, so reading it after Translate is safe.
 	if n, ok := e.RetryAfter(); ok {
 		w.Header().Set("Retry-After", strconv.Itoa(n))
+	}
+	if id := RequestIDOf(r); id != "" {
+		// On a copy, never in place: cerr.From hands back the very pointer it
+		// was given when the error already is an *Error, and Translate does the
+		// same when there is no key. Stamping the original would write into a
+		// value another request may be holding, and leak one caller's id into
+		// another's response.
+		cp := *e
+		cp.RequestID = id
+		e = &cp
+	}
+	// A 500 is the one the caller cannot act on and the operator has to find
+	// later, so it earns a row keyed by the same id the caller was shown.
+	// 4xx are the caller's own doing and are already in the access log.
+	if record && status >= 500 {
+		s.E.LogError(r.Context(), "api."+r.Method+" "+r.URL.Path, err)
 	}
 	writeJSON(w, status, map[string]any{"error": e})
 }
@@ -256,6 +298,15 @@ func queryJSON(r *http.Request, key string) (any, error) {
 
 func (s *Server) auth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// A monitoring agent whose API key expired must not make the liveness
+		// probe report a healthy process dead: an invalid token below answers
+		// 401 before the handler runs, on every route alike. The two probes
+		// tell an anonymous caller nothing, so they are let through as Guest.
+		// /api/health/report is deliberately not on that list.
+		if isProbePath(r.URL.Path) {
+			next.ServeHTTP(w, r)
+			return
+		}
 		var u string
 		if h := r.Header.Get("Authorization"); strings.HasPrefix(strings.ToLower(h), "token ") {
 			u, _ = s.E.UserFromAPIKey(r.Context(), strings.TrimSpace(h[6:]))
@@ -275,6 +326,12 @@ func (s *Server) auth(next http.Handler) http.Handler {
 		}
 		if u == "" {
 			u = "Guest"
+		}
+		// The access line is written while the request unwinds, long after
+		// this; recording the user here is what keeps it from saying "Guest"
+		// for every signed-in request.
+		if info := infoOf(r); info != nil {
+			info.user = u
 		}
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), userKey, u)))
 	})

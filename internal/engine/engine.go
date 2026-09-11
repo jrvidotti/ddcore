@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -51,6 +50,13 @@ type Config struct {
 	// New fills it from config.DefaultAuth so a Config built by hand (tests,
 	// embedders) still locks out and still expires a session.
 	Auth config.AuthPolicy
+	// Ops is the site's operational policy, filled from config.DefaultOps for
+	// the same reason: a zero backlog threshold would warn about every job.
+	Ops config.OpsPolicy
+	// LogJSON writes the log as JSON objects instead of text. A collector that
+	// has to regex a text line cannot group by request id, which is most of
+	// what the id is for.
+	LogJSON bool
 	// Mail says where a recovery or invitation link goes.
 	Mail config.Mail
 	// SiteURL is the public base those links are built from, already
@@ -142,8 +148,10 @@ type Engine struct {
 	Events *Hub
 	Cache  *Cache
 
-	cur      atomic.Pointer[State]
-	sched    atomic.Pointer[cron.Cron]
+	cur   atomic.Pointer[State]
+	sched atomic.Pointer[cron.Cron]
+	// ready memoises the database probe; see Engine.Ready.
+	ready    atomic.Pointer[readyCache]
 	mu       sync.Mutex
 	locOnce  sync.Once
 	loc      *time.Location
@@ -194,7 +202,8 @@ func New(ctx context.Context, cfg Config) (*Engine, error) {
 	if cfg.Mail.Transport == "" {
 		cfg.Mail.Transport = config.MailLog
 	}
-	e := &Engine{Cfg: cfg, Log: slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: cfg.LogLevel})), Events: NewHub(), Cache: NewCache()}
+	cfg.Ops = cfg.Ops.WithDefaults()
+	e := &Engine{Cfg: cfg, Log: slog.New(logHandler(cfg)), Events: NewHub(), Cache: NewCache()}
 	if cfg.DSN != "" {
 		d, err := db.Open(ctx, cfg.DSN)
 		if err != nil {
@@ -482,6 +491,11 @@ type Ctx struct {
 	// sid is a bearer token. App code gets only TokenHandle(Sid), which is
 	// enough to mark "this is the session you are using" and useless to steal.
 	Sid string
+	// ReqID ties this unit of work to the access log line, the Error Log row
+	// and the X-Request-Id the caller saw. It is the opposite of Sid: safe to
+	// show, and useless to anyone who cannot already read the logs. Empty when
+	// no request is behind the work — a migration, a test, a CLI command.
+	ReqID string
 
 	roles       []string
 	rt          *js.Runtime
@@ -495,7 +509,11 @@ func (e *Engine) NewCtx(ctx context.Context, user string) *Ctx {
 	if user == "" {
 		user = "Guest"
 	}
-	return &Ctx{E: e, St: e.Current(), Ctx: ctx, User: user, Lang: e.Cfg.Lang, Flags: map[string]any{}, docCache: map[string]Doc{}}
+	// ReqID is read from the context rather than passed in: every caller that
+	// has a request already carries it there, and deriving it here means no
+	// entry point can forget to correlate.
+	return &Ctx{E: e, St: e.Current(), Ctx: ctx, User: user, Lang: e.Cfg.Lang, ReqID: RequestIDFrom(ctx),
+		Flags: map[string]any{}, docCache: map[string]Doc{}}
 }
 
 // Run executes fn inside a transaction with a fresh Ctx; commits on success.

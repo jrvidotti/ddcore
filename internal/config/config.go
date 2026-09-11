@@ -53,6 +53,9 @@ type File struct {
 	Dev           bool `json:"dev"`
 	// Auth is the access policy: session life, lockout, token expiry.
 	Auth AuthPolicy `json:"auth"`
+	// Ops is the operational policy: the thresholds a health report and
+	// `ddcore doctor` call a warning.
+	Ops OpsPolicy `json:"ops"`
 	// URL is the site's public base address. Recovery and invitation links are
 	// built from it, so a wrong one is worse than no mail at all.
 	URL string `json:"url"`
@@ -70,7 +73,8 @@ const Name = "ddcore.json"
 // Load reads ddcore.json from dir (or its parents) and applies env overrides.
 func Load(dir string) (*File, string, error) {
 	path, err := find(dir)
-	f := &File{Port: 8080, Workers: 2, Lang: "pt-BR", Currency: "BRL", Timezone: "UTC", Site: "ddcore", Auth: DefaultAuth()}
+	f := &File{Port: 8080, Workers: 2, Lang: "pt-BR", Currency: "BRL", Timezone: "UTC", Site: "ddcore",
+		Auth: DefaultAuth(), Ops: DefaultOps()}
 	if err == nil {
 		b, err := os.ReadFile(path)
 		if err != nil {
@@ -123,6 +127,13 @@ func Load(dir string) (*File, string, error) {
 	if err := f.Auth.validate(); err != nil {
 		// access policy is not a place to guess either: a site that asks for a
 		// lockout nobody implements must not quietly run without one
+		return nil, "", fmt.Errorf("%s: %w", path, err)
+	}
+	// A partial `ops` block leaves the fields it omits at zero, and a zero
+	// threshold is not "no threshold": it is an alarm that fires on the first
+	// job. Fill the gaps before validating what is left.
+	f.Ops = f.Ops.WithDefaults()
+	if err := f.Ops.validate(); err != nil {
 		return nil, "", fmt.Errorf("%s: %w", path, err)
 	}
 	if f.DataDir == "" {

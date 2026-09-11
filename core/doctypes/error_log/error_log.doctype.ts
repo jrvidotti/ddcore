@@ -9,6 +9,7 @@ export default defineDoctype({
   fields: [
     { fieldname: "method", fieldtype: "Data", label: "Source", inListView: true },
     { fieldname: "error", fieldtype: "Text", label: "Error", inListView: true },
+    { fieldname: "request_id", fieldtype: "Data", label: "Request ID", inListView: true },
     { fieldname: "seen", fieldtype: "Check", label: "Seen" },
   ],
   permissions: [{ role: "System Manager", read: true, write: true, delete: true }],

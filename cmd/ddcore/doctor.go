@@ -1,0 +1,374 @@
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+	"sort"
+	"strings"
+	"time"
+
+	"github.com/jrvidotti/ddcore/internal/config"
+	"github.com/jrvidotti/ddcore/internal/db"
+	"github.com/jrvidotti/ddcore/internal/engine"
+)
+
+const doctorUsage = `ddcore doctor — report what this site's database, metadata and queue look like
+
+Usage: ddcore doctor [--json] [--strict] [--window N]
+
+  --json       print the report as JSON instead of text
+  --strict     exit non-zero for warnings too, not only for critical findings
+  --window N   minutes of history for the failure counts (default: ops.windowMinutes)
+
+Exit code 1 means a critical finding: the database is unreachable, the apps
+could not be loaded, a migration is refused, or an undeclared structure still
+holds data. Warnings — pending DDL, a queue backlog, recent failures — exit 0
+unless --strict, because this command is mostly run by a person who wants to
+read it, not by a script that wants to fail.
+`
+
+// doctorReport is the whole report as data, so that the text and the JSON are
+// two renderings of one thing rather than two things that drift.
+type doctorReport struct {
+	DDCore    string              `json:"ddcore"`
+	Site      string              `json:"site"`
+	Database  db.Health           `json:"database"`
+	DSN       string              `json:"dsn"`
+	Engine    string              `json:"engineError,omitempty"`
+	Apps      []string            `json:"apps,omitempty"`
+	DocTypes  int                 `json:"doctypes"`
+	Migrate   *migrateSection     `json:"migrate,omitempty"`
+	Orphans   *orphanSection      `json:"orphans,omitempty"`
+	Patches   []patchRef          `json:"patches,omitempty"`
+	Renames   []renameRef         `json:"renames,omitempty"`
+	Queue     *engine.QueueHealth `json:"queue,omitempty"`
+	Errors    *engine.ErrorHealth `json:"errors,omitempty"`
+	Scheduler engine.SchedHealth  `json:"scheduler"`
+	Workers   int                 `json:"workers"`
+	Mail      string              `json:"mail"`
+	URL       string              `json:"url"`
+	URLSet    bool                `json:"urlConfigured"`
+	Sessions  sessionSection      `json:"sessions"`
+	Ops       config.OpsPolicy    `json:"ops"`
+	// Secrets are names. A doctor report is pasted into issues and chat
+	// windows, and a secret that reaches one of those has to be rotated.
+	Secrets  []string `json:"secrets"`
+	Critical []string `json:"critical,omitempty"`
+	Warnings []string `json:"warnings,omitempty"`
+}
+
+type migrateSection struct {
+	Pending int    `json:"pending"`
+	Refused string `json:"refused,omitempty"`
+}
+
+type orphanSection struct {
+	Drops []string `json:"drops,omitempty"`
+	// Refused is set when the plan could not be made because undeclared
+	// structures still hold data.
+	Refused string `json:"refused,omitempty"`
+}
+
+type patchRef struct {
+	Phase string `json:"phase"`
+	Path  string `json:"path"`
+}
+
+type renameRef struct {
+	Where     string `json:"where"`
+	OldName   string `json:"oldName"`
+	Retirable bool   `json:"retirable"`
+}
+
+type sessionSection struct {
+	Days             int `json:"days"`
+	MaxLoginAttempts int `json:"maxLoginAttempts"`
+	LockoutMinutes   int `json:"lockoutMinutes"`
+}
+
+func cmdDoctor(args []string) error {
+	fs := newFlagSet("doctor")
+	asJSON := fs.Bool("json", false, "print the report as JSON")
+	strict := fs.Bool("strict", false, "exit non-zero for warnings too")
+	window := fs.Int("window", 0, "minutes of history for the failure counts")
+	fs.Usage = func() { fmt.Print(doctorUsage) }
+	if err := parseFlags(fs, args); err != nil {
+		return err
+	}
+
+	// Config first, and the database probe before the engine. The failure this
+	// command exists to report is the one where no engine can be built at all,
+	// and a doctor that dies then is a doctor silent in the single situation
+	// that needed it.
+	cfg, _, err := config.Load(".")
+	if err != nil {
+		return err
+	}
+	ctx := context.Background()
+	rep := gatherDoctor(ctx, cfg, *window)
+	if *asJSON {
+		b, err := json.MarshalIndent(rep, "", "  ")
+		if err != nil {
+			return err
+		}
+		fmt.Println(string(b))
+	} else {
+		rep.print(os.Stdout)
+	}
+	// os.Exit rather than returning an error: main prints "error: …", which
+	// would land on top of the report the reader is here for.
+	if code := rep.exitCode(*strict); code != 0 {
+		os.Exit(code)
+	}
+	return nil
+}
+
+// gatherDoctor builds the report. Every error that reaches it goes through
+// db.RedactError first: this output is pasted into issues and chat windows, and
+// a failure from the database layer quotes the connection string back at you.
+func gatherDoctor(ctx context.Context, cfg *config.File, windowMin int) *doctorReport {
+	rep := &doctorReport{
+		DDCore: engine.Version, Site: cfg.Site, DSN: db.RedactDSN(cfg.DSN),
+		Workers: cfg.Workers, Mail: mailSummary(cfg),
+		URL: cfg.PublicURL(), URLSet: cfg.HasPublicURL(), Ops: cfg.Ops,
+		Sessions: sessionSection{cfg.Auth.SessionDays, cfg.Auth.MaxLoginAttempts, cfg.Auth.LockoutMinutes},
+		Secrets:  []string{},
+	}
+	rep.Database = db.Probe(ctx, cfg.DSN, cfg.Ops.ReadyTimeout())
+	if !rep.Database.OK {
+		rep.Critical = append(rep.Critical, "database unreachable")
+	}
+	window := cfg.Ops.Window()
+	if windowMin > 0 {
+		window = time.Duration(windowMin) * time.Minute
+	}
+
+	e, _, err := load(false, false)
+	if err != nil {
+		rep.Engine = db.RedactError(err)
+		rep.Critical = append(rep.Critical, "the apps could not be loaded")
+		return rep
+	}
+	defer e.DB.Close()
+
+	rep.Apps = e.AppOrder()
+	rep.DocTypes = len(e.Meta.DocTypes)
+	rep.Scheduler = e.SchedulerHealth()
+	if names := e.SecretNames(); len(names) > 0 {
+		sort.Strings(names)
+		rep.Secrets = names
+	}
+
+	rep.Migrate = &migrateSection{}
+	if plan, err := e.Plan(ctx, false); err != nil {
+		rep.Migrate.Refused = db.RedactError(err)
+		rep.Critical = append(rep.Critical, "migrate is refused")
+	} else if rep.Migrate.Pending = len(plan); rep.Migrate.Pending > 0 {
+		rep.Warnings = append(rep.Warnings, fmt.Sprintf("%d pending DDL statement(s)", rep.Migrate.Pending))
+	}
+
+	// The same plan with prune on names what the meta no longer declares. It is
+	// reported separately because it is the data at risk, not work to do.
+	rep.Orphans = &orphanSection{}
+	if plan, err := e.Plan(ctx, true); err == nil {
+		if _, drop := db.Destructive(plan); len(drop) > 0 {
+			for _, st := range drop {
+				rep.Orphans.Drops = append(rep.Orphans.Drops, strings.TrimSuffix(st.SQL, ";"))
+			}
+		}
+	} else {
+		rep.Orphans.Refused = db.RedactError(err)
+		rep.Critical = append(rep.Critical, "undeclared structures still hold data")
+	}
+
+	for _, p := range e.PendingPatches() {
+		rep.Patches = append(rep.Patches, patchRef{Phase: p.Phase, Path: p.Path})
+	}
+	if len(rep.Patches) > 0 {
+		rep.Warnings = append(rep.Warnings, fmt.Sprintf("%d pending patch(es)", len(rep.Patches)))
+	}
+
+	if renames, err := e.AppliedRenames(ctx); err == nil {
+		for _, r := range renames {
+			where := r.Doctype
+			if r.Kind == "field" {
+				where += "." + r.NewName
+			}
+			rep.Renames = append(rep.Renames, renameRef{Where: where, OldName: r.OldName, Retirable: r.Retirable})
+		}
+	} else {
+		rep.Warnings = append(rep.Warnings, "renames could not be read: "+db.RedactError(err))
+	}
+
+	h := e.Health(ctx, engine.HealthOpts{Queue: true, Errors: true})
+	rep.Queue, rep.Errors = h.Queue, h.Errors
+	rep.Warnings = append(rep.Warnings, h.Warnings...)
+	if windowMin > 0 {
+		// The health thresholds used the configured window; a caller that asked
+		// for another one gets the counts recomputed over it.
+		if q, err := e.QueueHealth(ctx, window); err == nil {
+			rep.Queue = q
+		}
+		if er, err := e.ErrorHealth(ctx, window, 5); err == nil {
+			rep.Errors = er
+		}
+	}
+	return rep
+}
+
+// exitCode is 1 for a critical finding. A warning is something to read, not
+// something to fail a shell over — turning today's "3 pending statements" into
+// a non-zero exit would be a regression for everyone running this by hand.
+func (r *doctorReport) exitCode(strict bool) int {
+	if len(r.Critical) > 0 {
+		return 1
+	}
+	if strict && len(r.Warnings) > 0 {
+		return 1
+	}
+	return 0
+}
+
+func (r *doctorReport) print(w io.Writer) {
+	p := func(label, format string, a ...any) {
+		fmt.Fprintf(w, "%-12s%s\n", label+":", fmt.Sprintf(format, a...))
+	}
+	cont := func(format string, a ...any) {
+		fmt.Fprintf(w, "              %s\n", fmt.Sprintf(format, a...))
+	}
+
+	p("version", "%s", r.DDCore)
+	p("site", "%s", r.Site)
+	if r.Database.OK {
+		p("database", "ok (%.1f ms) %s", r.Database.LatencyMS, r.DSN)
+	} else {
+		p("database", "unreachable — %s", orDash(r.Database.Error))
+		cont("%s", r.DSN)
+	}
+	if r.Engine != "" {
+		p("apps", "could not be loaded")
+		cont("%s", r.Engine)
+		r.printTail(w, p)
+		return
+	}
+	p("apps", "%v", r.Apps)
+	p("doctypes", "%d", r.DocTypes)
+	if r.Migrate != nil {
+		if r.Migrate.Refused != "" {
+			p("migrate", "refused")
+			cont("%s", r.Migrate.Refused)
+		} else {
+			p("migrate", "%d pending statement(s)", r.Migrate.Pending)
+		}
+	}
+	if r.Orphans != nil {
+		if r.Orphans.Refused != "" {
+			p("orphans", "undeclared structures still hold data")
+			cont("%s", r.Orphans.Refused)
+		} else if len(r.Orphans.Drops) > 0 {
+			p("orphans", "%d undeclared and empty", len(r.Orphans.Drops))
+			for _, sql := range r.Orphans.Drops {
+				cont("%s", sql)
+			}
+		}
+	}
+	if len(r.Patches) > 0 {
+		p("patches", "%d pending", len(r.Patches))
+		for _, x := range r.Patches {
+			cont("%-12s %s", x.Phase, x.Path)
+		}
+	}
+	if len(r.Renames) > 0 {
+		retirable := 0
+		for _, x := range r.Renames {
+			if x.Retirable {
+				retirable++
+			}
+		}
+		p("renames", "%d applied, %d retirable in this database", len(r.Renames), retirable)
+		for _, x := range r.Renames {
+			note := ""
+			if x.Retirable {
+				note = "  → renamedFrom retirable here; delete it only when every site says the same"
+			}
+			cont("%s renamedFrom %q%s", x.Where, x.OldName, note)
+		}
+	}
+	if q := r.Queue; q != nil {
+		p("queue", "%d queued (%d runnable, oldest %s), %d running, %d stalled, %d failed in %dm",
+			q.Queued, q.Runnable, short(q.OldestQueuedSeconds), q.Running, q.Stalled, q.FailedInWindow, q.WindowMinutes)
+	}
+	if er := r.Errors; er != nil {
+		p("errors", "%d Error Log entr%s in %dm", er.InWindow, plural(er.InWindow), er.WindowMinutes)
+		for _, x := range er.Latest {
+			cont("%s  %s  id %s", x.Creation, x.Method, orDash(x.RequestID))
+		}
+	}
+	p("scheduler", "%v, %d entr%s", r.Scheduler.Enabled, r.Scheduler.Entries, plural(int64(r.Scheduler.Entries)))
+	r.printTail(w, p)
+}
+
+func (r *doctorReport) printTail(w io.Writer, p func(string, string, ...any)) {
+	p("workers", "%d", r.Workers)
+	p("mail", "%s", r.Mail)
+	url := r.URL
+	if !r.URLSet {
+		url += "  → not configured; set DDCORE_URL in .env before mailing a recovery link"
+	}
+	p("url", "%s", url)
+	p("sessions", "%d day(s), lockout after %d failed attempts for %d minute(s)",
+		r.Sessions.Days, r.Sessions.MaxLoginAttempts, r.Sessions.LockoutMinutes)
+	p("ops", "backlog %d, age %ds, %d failure(s)/%dm, %d error(s)/%dm",
+		r.Ops.QueueBacklog, r.Ops.QueueAgeSeconds, r.Ops.JobFailures, r.Ops.WindowMinutes,
+		r.Ops.ErrorLogEntries, r.Ops.WindowMinutes)
+	if len(r.Secrets) > 0 {
+		p("secrets", "%d configured: %s", len(r.Secrets), strings.Join(r.Secrets, ", "))
+	} else {
+		p("secrets", "none configured")
+	}
+	for _, x := range r.Warnings {
+		fmt.Fprintf(w, "warning:    %s\n", x)
+	}
+	for _, x := range r.Critical {
+		fmt.Fprintf(w, "critical:   %s\n", x)
+	}
+}
+
+func plural(n int64) string {
+	if n == 1 {
+		return "y"
+	}
+	return "ies"
+}
+
+func short(seconds float64) string {
+	if seconds <= 0 {
+		return "-"
+	}
+	return time.Duration(seconds * float64(time.Second)).Round(time.Second).String()
+}
+
+func orDash(s string) string {
+	if s == "" {
+		return "-"
+	}
+	return s
+}
+
+func mailSummary(cfg *config.File) string {
+	switch cfg.Mail.Transport {
+	case config.MailSMTP:
+		auth := "no auth"
+		if cfg.Mail.Username != "" {
+			auth = "as " + cfg.Mail.Username
+		}
+		return fmt.Sprintf("smtp %s:%d (%s, %s)", cfg.Mail.Host, cfg.Mail.Port, cfg.Mail.TLS, auth)
+	case config.MailMethod:
+		return "method " + cfg.Mail.Method
+	default:
+		return "log — links are written to the log, not delivered"
+	}
+}

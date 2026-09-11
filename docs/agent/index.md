@@ -18,6 +18,7 @@ Available documents (also as MCP resources `ddcore://docs/<name>`):
 - `migrations` — renames, fieldtype changes, patches and the expand → contract route
 - `export` — exporting a whole DocType, children and attachments, by HTTP or CLI
 - `cli` — the `ddcore` commands and the development loop
+- `ops` — liveness and readiness probes, request correlation, queue signals and `doctor`
 
 ## Typical flow
 

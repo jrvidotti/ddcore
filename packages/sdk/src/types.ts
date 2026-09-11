@@ -226,6 +226,12 @@ export interface Context {
   langs: string[];
   /** in a job / migrate / test — no HTTP request */
   request?: { method: string; path: string; ip?: string };
+  /**
+   * Correlates this unit of work with the access log line, the Error Log row
+   * and the `X-Request-Id` the caller saw. Log it alongside anything you want
+   * to find again. Empty in a job, a migration or a test.
+   */
+  requestId?: string;
 }
 
 /**
