@@ -560,7 +560,7 @@ func runDemo(t *testing.T, e *engine.Engine, ctx context.Context) map[string]any
 	}
 	var out map[string]any
 	if err := json.Unmarshal(raw, &out); err != nil {
-		t.Fatalf("resposta da demo: %v (%s)", err, raw)
+		t.Fatalf("demo response: %v (%s)", err, raw)
 	}
 	return out
 }
@@ -606,9 +606,9 @@ export default definePatch({
 	return js.App{Name: "migracao", Dir: dir}
 }
 
-// TestEvolucaoDeSchema: fresh installation records patches without running, declared
+// TestSchemaEvolution: fresh installation records patches without running, declared
 // rename preserves data, and both phases run in the right order.
-func TestEvolucaoDeSchema(t *testing.T) {
+func TestSchemaEvolution(t *testing.T) {
 	e := setup(t, "migra", migracaoApp(t))
 	ctx := context.Background()
 

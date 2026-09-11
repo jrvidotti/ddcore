@@ -58,7 +58,7 @@ func (b *Builder) Where(filters []Filter, col func(field string) string) (string
 	for _, f := range filters {
 		c := col(f.Field)
 		if c == "" {
-			return "", fmt.Errorf("campo desconhecido no filtro: %q", f.Field)
+			return "", fmt.Errorf("unknown field in filter: %q", f.Field)
 		}
 		op := strings.ToLower(strings.TrimSpace(f.Op))
 		if op == "" {
@@ -96,7 +96,7 @@ func (b *Builder) Where(filters []Filter, col func(field string) string) (string
 		case "between":
 			vals, _ := f.Value.([]any)
 			if len(vals) != 2 {
-				return "", fmt.Errorf("between precisa de [inicio, fim]")
+				return "", fmt.Errorf("between requires [start, end]")
 			}
 			parts = append(parts, fmt.Sprintf("%s BETWEEN %s AND %s", c, b.Arg(vals[0]), b.Arg(vals[1])))
 		case "is", "set", "not set":
@@ -163,7 +163,7 @@ func ParseFilters(v any) ([]Filter, error) {
 			}
 		}
 	default:
-		return nil, fmt.Errorf("filtros devem ser lista ou objeto")
+		return nil, fmt.Errorf("filters must be a list or object")
 	}
 	return out, nil
 }

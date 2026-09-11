@@ -99,7 +99,7 @@ describe("Pedido", () => {
     expect(p.total).toBe(20);
     expect(p.name).toMatch(/^PED-/);
   });
-  it("falha sem cliente", () => { expect(() => ddcore.newDoc("Pedido").insert()).toThrow("required fields"); });
+  it("fails without customer", () => { expect(() => ddcore.newDoc("Pedido").insert()).toThrow("required fields"); });
 });`)
 	// Last, so a test can override a file of the base app as well as add one —
 	// a patches/ directory, most of the time.

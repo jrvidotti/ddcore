@@ -157,7 +157,7 @@ func exportAs(t *testing.T, e *Engine, user string, a ExportArgs) (*collector, e
 		return e2
 	})
 	if err == nil && sum == nil {
-		t.Fatal("export sem summary e sem erro")
+		t.Fatal("export without summary and without error")
 	}
 	return col, err
 }
@@ -577,7 +577,7 @@ func TestExportCarriesAttachmentsOwnedByOthers(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(col.files[0]) != 1 {
-		t.Fatalf("o anexo do Administrator sumiu do export de ana: %v", col.files[0])
+		t.Fatalf("Administrator attachment missing from ana's export: %v", col.files[0])
 	}
 }
 

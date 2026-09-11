@@ -75,15 +75,15 @@ func (c *Ctx) filterSQL(d *meta.DocType, b *db.Builder, filters []db.Filter, col
 		ct, cf := name[:i], name[i+1:]
 		child, ok := c.St.Meta.Get(ct)
 		if !ok || !child.IsChild || !child.HasColumn(cf) {
-			return "", fmt.Errorf("campo desconhecido no filtro: %q", f.Field)
+			return "", fmt.Errorf("unknown field in filter: %q", f.Field)
 		}
 		if !hasChildTable(d, ct) {
 			return "", fmt.Errorf("%s is not a child table of %s", ct, d.Name)
 		}
+		byChild[ct] = append(byChild[ct], db.Filter{Field: cf, Op: f.Op, Value: f.Value})
 		if _, seen := byChild[ct]; !seen {
 			order = append(order, ct)
 		}
-		byChild[ct] = append(byChild[ct], db.Filter{Field: cf, Op: f.Op, Value: f.Value})
 	}
 	var parts []string
 	for _, f := range own {
@@ -108,7 +108,7 @@ func (c *Ctx) filterSQL(d *meta.DocType, b *db.Builder, filters []db.Filter, col
 				if len(targetCols) > 0 {
 					colExpr := col(f.Field)
 					if colExpr == "" {
-						return "", fmt.Errorf("campo desconhecido no filtro: %q", f.Field)
+						return "", fmt.Errorf("unknown field in filter: %q", f.Field)
 					}
 					arg := b.Arg(f.Value)
 					alias := db.Ident("lt_" + meta.Snake(fld.Fieldname))

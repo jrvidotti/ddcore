@@ -87,7 +87,7 @@ func TestB02_ChildPermissionFollowsParent(t *testing.T) {
 	e := setupPerm(t)
 	ctx := context.Background()
 
-	// linha de Has Role do Administrator
+	// Administrator's Has Role row
 	var roleRow string
 	e.Run(ctx, "Administrator", func(c *Ctx) error {
 		u, _ := c.GetDoc("User", "Administrator")

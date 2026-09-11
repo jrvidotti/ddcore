@@ -349,10 +349,10 @@ func TestB02_ChildResourceEndpointsFollowParent(t *testing.T) {
 		return nil
 	})
 	if r := x.call("GET", "/api/resource/Item%20Pedido/"+item, nil, "sid:"+x.sid("ana@x.com")); r.Status != 200 {
-		t.Fatalf("Gestor deveria ler a linha: %d %s", r.Status, r.Raw)
+		t.Fatalf("Gestor should read the row: %d %s", r.Status, r.Raw)
 	}
 	if r := x.call("GET", "/api/resource/Item%20Pedido?fields=%5B%22name%22%5D", nil, "sid:"+x.sid("ana@x.com")); r.Status != 200 {
-		t.Fatalf("Gestor deveria listar linhas: %d %s", r.Status, r.Raw)
+		t.Fatalf("Gestor should list rows: %d %s", r.Status, r.Raw)
 	}
 	x.expect(x.call("GET", "/api/resource/Item%20Pedido/"+item, nil, "sid:"+x.sid("ze@x.com")), 403, "PermissionError")
 	x.expect(x.call("GET", "/api/resource/Item%20Pedido", nil, ""), 403, "PermissionError")
@@ -564,7 +564,7 @@ func TestLacuna_ParametroDeRotaPercentCodificado(t *testing.T) {
 	}
 }
 
-// upload envia um arquivo e devolve a resposta.
+// upload sends a file and returns the response.
 func (x *env) upload(auth, filename, content string) resp {
 	x.t.Helper()
 	var buf bytes.Buffer
