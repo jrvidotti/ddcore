@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -44,7 +45,15 @@ const userKey ctxKey = 1
 func New(e *engine.Engine, desk fs.FS) *Server {
 	s := &Server{E: e, Desk: desk, MaxUpload: 50 << 20}
 	r := chi.NewRouter()
-	r.Use(middleware.RealIP, middleware.Recoverer, middleware.Compress(5))
+	// RealIP rewrites RemoteAddr from X-Forwarded-For, which any client can
+	// send. Believing it unconditionally means an attacker picks the address
+	// we hold responsible — so a throttle keyed on the address becomes a way
+	// to lock out a stranger. Only trust the header when a proxy we control is
+	// declared to be setting it.
+	if e.Cfg.TrustProxy {
+		r.Use(middleware.RealIP)
+	}
+	r.Use(middleware.Recoverer, middleware.Compress(5))
 	r.Use(s.auth)
 	r.Route("/api", func(r chi.Router) {
 		r.Post("/login", s.login)
@@ -314,14 +323,55 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 	if body.Usr == "" {
 		body.Usr, body.Pwd = r.FormValue("usr"), r.FormValue("pwd")
 	}
-	sid, err := s.E.Login(r.Context(), body.Usr, body.Pwd)
+	sid, err := s.E.Login(r.Context(), body.Usr, body.Pwd, engine.LoginFrom{
+		IP:        clientIP(r),
+		UserAgent: r.UserAgent(),
+	})
 	if err != nil {
 		s.writeErr(w, r, err)
 		return
 	}
 	s.E.Cache.Del("lang:" + body.Usr)
-	http.SetCookie(w, &http.Cookie{Name: "sid", Value: sid, Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: 30 * 24 * 3600})
+	http.SetCookie(w, s.sessionCookie(r, sid))
 	writeJSON(w, 200, map[string]any{"data": map[string]any{"ok": true}})
+}
+
+// sessionCookie carries the session, and its lifetime is the policy's, not a
+// number written here: the SQL row and the cookie used to hold two copies of
+// "30 days" that nothing kept in step.
+func (s *Server) sessionCookie(r *http.Request, sid string) *http.Cookie {
+	return &http.Cookie{
+		Name: "sid", Value: sid, Path: "/", HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		Secure:   s.secureCookie(r),
+		MaxAge:   int(s.E.Cfg.Auth.SessionTTL().Seconds()),
+	}
+}
+
+// secureCookie decides whether the session cookie may travel over plain HTTP.
+// Always-on would break `ddcore dev`, which serves http; always-off is a
+// production mistake nobody notices. So: what the site said, or else whether
+// this request — or the site's own public URL — is already https.
+func (s *Server) secureCookie(r *http.Request) bool {
+	if v := s.E.Cfg.Auth.SecureCookie; v != nil {
+		return *v
+	}
+	return r.TLS != nil ||
+		strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") && s.E.Cfg.TrustProxy ||
+		strings.HasPrefix(s.E.Cfg.SiteURL, "https://")
+}
+
+// clientIP is who to hold responsible for a request. X-Forwarded-For is only
+// believed when a proxy we control is known to set it: otherwise any client
+// can claim any address, and a throttle keyed on the address becomes a way to
+// lock out a stranger. middleware.RealIP has already rewritten RemoteAddr when
+// TrustProxy is on, so reading it here is enough either way.
+func clientIP(r *http.Request) string {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
 }
 
 func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
@@ -329,7 +379,12 @@ func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 		s.E.Logout(r.Context(), ck.Value)
 		s.E.Cache.Del("sid:" + ck.Value)
 	}
-	http.SetCookie(w, &http.Cookie{Name: "sid", Value: "", Path: "/", MaxAge: -1})
+	// The attributes have to match the cookie being replaced — a browser keys
+	// a cookie by name, domain and path, and treats a mismatch as a different
+	// cookie it has no reason to delete.
+	expired := s.sessionCookie(r, "")
+	expired.MaxAge = -1
+	http.SetCookie(w, expired)
 	writeJSON(w, 200, map[string]any{"data": map[string]any{"ok": true}})
 }
 

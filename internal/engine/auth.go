@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -41,8 +42,16 @@ func CheckPassword(hash, pw string) bool {
 	return subtle.ConstantTimeCompare(got, want) == 1
 }
 
+// LoginFrom describes where a sign-in came from. It is recorded on the session
+// so a person reading their own session list can recognise a device — and
+// recognise one they do not.
+type LoginFrom struct {
+	IP        string
+	UserAgent string
+}
+
 // Login checks credentials and creates a session, returning the sid.
-func (e *Engine) Login(ctx context.Context, user, password string) (string, error) {
+func (e *Engine) Login(ctx context.Context, user, password string, from LoginFrom) (string, error) {
 	var sid string
 	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
 		rows, err := db.Select(ctx, c.Tx, `SELECT name, password_hash, enabled FROM tab_user WHERE lower(name) = lower($1) OR lower(email) = lower($1) LIMIT 1`, strings.TrimSpace(user))
@@ -57,7 +66,9 @@ func (e *Engine) Login(ctx context.Context, user, password string) (string, erro
 		}
 		name := db.Str(rows[0]["name"])
 		sid = RandomToken()
-		if _, err := c.Tx.Exec(ctx, `INSERT INTO ddcore_session (sid, "user", expires) VALUES ($1, $2, now() + interval '30 days')`, sid, name); err != nil {
+		if _, err := c.Tx.Exec(ctx, `INSERT INTO ddcore_session (sid, "user", expires, ip, user_agent)
+			VALUES ($1, $2, now() + $3::interval, $4, $5)`,
+			sid, name, intervalOf(e.Cfg.Auth.SessionTTL()), from.IP, truncate(from.UserAgent, 400)); err != nil {
 			return err
 		}
 		_, err = c.Tx.Exec(ctx, `UPDATE tab_user SET last_login = now() WHERE name = $1`, name)
@@ -152,6 +163,41 @@ func (e *Engine) SetPassword(ctx context.Context, user, password string) error {
 		}
 		return nil
 	})
+}
+
+// intervalOf renders a duration for Postgres. Seconds keep one unit for every
+// TTL the policy can express, so nothing converts days twice.
+func intervalOf(d time.Duration) string {
+	return strconv.FormatInt(int64(d/time.Second), 10) + " seconds"
+}
+
+func truncate(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n]
+}
+
+// DropSessions ends a user's sessions and returns how many it ended. A
+// non-empty exceptSid is spared, which is what lets someone change their own
+// password without being thrown out of the tab they typed it in.
+//
+// The cached sid has to go with the row: UserFromSession answers from a
+// one-minute cache, so deleting the row alone would leave a revoked session
+// working for up to a minute.
+func (e *Engine) DropSessions(ctx context.Context, q db.Querier, user, exceptSid string) (int, error) {
+	rows, err := db.Select(ctx, q, `SELECT sid FROM ddcore_session WHERE "user" = $1 AND sid <> $2`, user, exceptSid)
+	if err != nil {
+		return 0, err
+	}
+	for _, r := range rows {
+		e.Cache.Del("sid:" + db.Str(r["sid"]))
+	}
+	tag, err := q.Exec(ctx, `DELETE FROM ddcore_session WHERE "user" = $1 AND sid <> $2`, user, exceptSid)
+	if err != nil {
+		return 0, err
+	}
+	return int(tag.RowsAffected()), nil
 }
 
 // RandomToken returns a 48-char hex token (session ids, API secrets, file

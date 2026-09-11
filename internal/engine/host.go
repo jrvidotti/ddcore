@@ -262,11 +262,7 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 	case "hashPassword":
 		return HashPassword(a.Text), nil
 	case "dropSessions":
-		rows, _ := db.Select(c.Ctx, c.Q(), `SELECT sid FROM ddcore_session WHERE "user" = $1`, a.User)
-		for _, r := range rows {
-			e.Cache.Del("sid:" + db.Str(r["sid"]))
-		}
-		_, err := c.Q().Exec(c.Ctx, `DELETE FROM ddcore_session WHERE "user" = $1`, a.User)
+		_, err := e.DropSessions(c.Ctx, c.Q(), a.User, "")
 		return nil, err
 	case "test.begin":
 		return nil, c.Begin()

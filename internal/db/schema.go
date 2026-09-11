@@ -15,6 +15,10 @@ const InternalSchema = `
 CREATE TABLE IF NOT EXISTS ddcore_session (
   sid text PRIMARY KEY, "user" text NOT NULL, created timestamptz NOT NULL DEFAULT now(),
   last_seen timestamptz NOT NULL DEFAULT now(), expires timestamptz NOT NULL, data jsonb);
+ALTER TABLE ddcore_session ADD COLUMN IF NOT EXISTS ip text;
+ALTER TABLE ddcore_session ADD COLUMN IF NOT EXISTS user_agent text;
+CREATE INDEX IF NOT EXISTS ddcore_session_user ON ddcore_session("user");
+CREATE INDEX IF NOT EXISTS ddcore_session_expires ON ddcore_session(expires);
 CREATE TABLE IF NOT EXISTS ddcore_series (prefix text PRIMARY KEY, current bigint NOT NULL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS ddcore_job (
   id bigserial PRIMARY KEY, method text NOT NULL, args jsonb, queue text NOT NULL DEFAULT 'default',

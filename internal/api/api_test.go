@@ -182,7 +182,7 @@ func (x *env) sid(user string) string {
 	if user == "Administrator" {
 		pwd = "admin"
 	}
-	sid, err := x.e.Login(x.ctx, user, pwd)
+	sid, err := x.e.Login(x.ctx, user, pwd, engine.LoginFrom{IP: "127.0.0.1", UserAgent: "test"})
 	if err != nil {
 		x.t.Fatal(err)
 	}
