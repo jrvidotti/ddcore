@@ -1,8 +1,13 @@
 # Guidelines for AI agents
 
-This repository follows the conventions and architecture documented in
-[`CLAUDE.md`](CLAUDE.md), which is the primary reference for the ddcore framework, its
-directory layout, its scripts and its code conventions.
+**ddcore** (*Data Driven Core*) — a Go + TypeScript + Postgres framework in the spirit of Frappe.
+Read [`docs/agent/index.md`](docs/agent/index.md) (the API reference for writing apps),
+[`DEVELOPMENT.md`](DEVELOPMENT.md) (how work is done here) and [`docs/plan-v1.md`](docs/plan-v1.md)
+(the design; in Portuguese, historical). `apps/demo` is the example app this checkout's
+`ddcore.json` loads; product apps live in their own repositories.
+
+- `make build` compiles the desk and the binary; `./bin/ddcore dev` serves `:8090` with hot reload; `make test` runs Go + TS.
+- Dev Postgres: the `ddcore-pg` container on port 5455 via `make docker-up` (Docker Compose). The Go tests use the `ddcore_test` database (recreated).
 
 ---
 
@@ -25,8 +30,7 @@ directory layout, its scripts and its code conventions.
 
 ## Essential references and practices
 
-Always consult [`CLAUDE.md`](CLAUDE.md) and the documentation in
-[`docs/agent/index.md`](docs/agent/index.md):
+Always consult the documentation in [`docs/agent/index.md`](docs/agent/index.md):
 
 1. **Synchronous TypeScript on the server:** app code running on the server (goja) is
    synchronous; never use `await` in a controller or a server-side service. Desk scripts using
@@ -41,5 +45,5 @@ Always consult [`CLAUDE.md`](CLAUDE.md) and the documentation in
    **All code comments, documentation, scripts, Dockerfiles, and CI workflows in this repository must be written in English.**
 4. **Tests:** always validate a change with `make test` (the Go tests plus the desk's and the
    apps' TypeScript).
-5. **MCP:** use the ddcore MCP tools declared in `.mcp.json` to inspect metadata, run methods
-   and apply migrations.
+5. **MCP:** `.mcp.json` points at `./bin/ddcore mcp`; use the ddcore MCP tools to inspect
+   metadata, run methods and apply migrations rather than touching the database by hand.
