@@ -15,6 +15,7 @@ import (
 var cerrConstructors = map[string]bool{
 	"Validation": true, "Permission": true, "NotFound": true, "LinkExists": true,
 	"Timestamp": true, "Duplicate": true, "Auth": true, "Internal": true, "Mandatory": true,
+	"TooMany": true,
 }
 
 // goSkip lists what stays out of the catalogue on purpose. These strings do

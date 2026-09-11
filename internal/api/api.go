@@ -110,6 +110,12 @@ func (s *Server) writeErr(w http.ResponseWriter, r *http.Request, err error) {
 	if status == 0 {
 		status = 500
 	}
+	// A 429 is the one error that tells the caller *when* to come back, and a
+	// header is where an HTTP client looks for it. Translation copies Extra
+	// along, so reading it after Translate is safe.
+	if n, ok := e.RetryAfter(); ok {
+		w.Header().Set("Retry-After", strconv.Itoa(n))
+	}
 	writeJSON(w, status, map[string]any{"error": e})
 }
 
