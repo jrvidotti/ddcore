@@ -16,7 +16,8 @@ Alongside:
 - `docs/plan-v1.md` — the framework's design (in Portuguese; historical).
 - `docs/agent/` (`ddcore docs`, or the MCP resources `ddcore://docs/*`) — **the canonical API
   reference**: `conventions`, `fieldtypes`, `controller-api`, `form-api`, `report-api`,
-  `i18n`, `cli`. This document describes the mental model; it does not replace the API.
+  `i18n`, `migrations`, `cli`. This document describes the mental model; it does not
+  replace the API.
 - `docs/superpowers/specs/` — the specs behind what is built here.
 
 *Em português: [`DEVELOPMENT.ptbr.md`](DEVELOPMENT.ptbr.md).*
@@ -75,7 +76,7 @@ directory of its own.
 | Responsibility | Where |
 |---|---|
 | The meta-model: interprets DocTypes and validates the meta | `internal/meta` |
-| DDL: creates and alters `tab_<snake>`, columns, indexes; migrate, patches, fixtures | `internal/db` |
+| DDL: creates and alters `tab_<snake>`, columns, indexes; declared renames and conversions; migrate, patches, fixtures | `internal/db` |
 | Runs the app's TypeScript (esbuild + goja), hot reload | `internal/js` |
 | `Document` (insert/save/submit/cancel/delete), hooks, permissions, jobs and queues | `internal/engine` |
 | The REST API, `/api/method`, meta, reports, SSE, upload, login/CSRF | `internal/api` |

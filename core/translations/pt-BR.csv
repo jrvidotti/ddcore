@@ -13,7 +13,7 @@ Cancel,Cancelar,# desk/src/lib/components/Dialogs.svelte:61
 Cancel {0} {1} before deleting,Cancele {0} {1} antes de apagar,# internal/engine/doc.go:629
 Cancel {0}?,Cancelar {0}?,# desk/src/lib/components/FormView.svelte:253
 Cancelled,Cancelado,# desk/src/lib/components/ListView.svelte:162
-Cannot delete,Não é possível apagar,# internal/engine/doc.go:1112
+Cannot delete,Não é possível apagar,# internal/engine/doc.go:1121
 Card {0} does not exist,Card {0} não existe,# internal/api/api.go:933
 Change history,Histórico de Alterações,# desk/src/lib/components/DocSidebar.svelte:107
 Changed by someone else — reload,Alterado por outro usuário — recarregar,# desk/src/lib/components/FormView.svelte:209
@@ -41,14 +41,14 @@ Desk access,Acesso ao desk,# core.doctypes.role.role.doctype
 Details,Detalhes,# desk/src/lib/components/FormView.svelte:73
 Disabled,Desativado,# core.doctypes.role.role.doctype
 DocType,DocType,# core.doctypes.comment.comment.doctype
-DocType {0} does not exist,DocType {0} não existe,# internal/engine/engine.go:344
+DocType {0} does not exist,DocType {0} não existe,# internal/engine/engine.go:352
 Document,Documento,# core.doctypes.comment.comment.doctype
 Document status,Situação do documento,# desk/src/lib/components/ListView.svelte:225
 Draft,Rascunho,# desk/src/lib/components/ListView.svelte:162
 Duplicate,Duplicar,# desk/src/lib/components/FormView.svelte:231
 Duplicate name,Nome duplicado,# internal/engine/naming.go:70
-Duplicate value,Valor duplicado,# internal/engine/doc.go:1012
-Duplicate value in {0},Valor duplicado em {0},# internal/engine/doc.go:1193
+Duplicate value,Valor duplicado,# internal/engine/doc.go:1021
+Duplicate value in {0},Valor duplicado em {0},# internal/engine/doc.go:1202
 Edit row,Editar linha,# desk/src/lib/controls/Grid.svelte:107
 Edit {0},Editar {0},# desk/src/lib/components/FormView.svelte:118
 Email,E-mail,# core.doctypes.user.user.doctype
@@ -79,7 +79,7 @@ Invalid docstatus for an insert,docstatus inválido para inserção,# internal/e
 Invalid docstatus transition ({0} → {1}),Transição de docstatus inválida ({0} → {1}),# internal/engine/doc.go:378
 Invalid email,E-mail inválido,# desk/src/lib/controls/Control.svelte:44
 Invalid filters: {0},Filtros inválidos: {0},# internal/api/api.go:812
-Invalid link,Link inválido,# internal/engine/doc.go:982
+Invalid link,Link inválido,# internal/engine/doc.go:991
 "Invalid month in {0}: ""{1}""","Mês/ano inválido em {0}: ""{1}""",# internal/engine/doc.go:134
 Invalid upload: {0},upload inválido: {0},# internal/api/api.go:1046
 Invalid username or password,Usuário ou senha inválidos,# internal/engine/auth.go:53
@@ -118,7 +118,7 @@ No permission to create {0},Sem permissão para criar {0},# internal/engine/doc.
 No permission to delete {0} {1},Sem permissão para apagar {0} {1},# internal/engine/doc.go:625
 No permission to list {0},Sem permissão para listar {0},# internal/engine/query.go:175
 No permission to read {0} {1},Sem permissão para ler {0} {1},# internal/api/api.go:795
-No permission to rename {0},Sem permissão para renomear {0},# internal/engine/doc.go:680
+No permission to rename {0},Sem permissão para renomear {0},# internal/engine/doc.go:683
 No permission to submit {0},Sem permissão para enviar {0},# internal/engine/doc.go:294
 No records,Nenhum registro,# desk/src/lib/components/ListView.svelte:298
 No report permission on {0},Sem permissão de relatório em {0},# internal/api/api.go:867
@@ -137,7 +137,7 @@ Previous year,Ano anterior,# desk/src/lib/controls/MonthControl.svelte:194
 Private,Privado,# core.doctypes.file.file.doctype
 Provide the document name,Informe o nome do documento,# internal/engine/naming.go:58
 Provide the reference document,Informe o documento de referência,# internal/api/api.go:777
-Read-only field,Campo somente leitura,# internal/engine/doc.go:938
+Read-only field,Campo somente leitura,# internal/engine/doc.go:947
 Reload,Recarregar,# desk/src/lib/components/FormView.svelte:230
 Remove,Remover,# desk/src/lib/controls/AttachControl.svelte:29
 Remove the status filter,Remover filtro de status,# desk/src/lib/components/ListView.svelte:229
@@ -179,7 +179,7 @@ Status,Status,# desk/src/lib/components/ListView.svelte:256
 Submit,Enviar,# desk/src/lib/components/FormView.svelte:249
 Submit {0} permanently?,Enviar permanentemente {0}?,# desk/src/lib/components/FormView.svelte:249
 Submitted,Enviado,# desk/src/lib/components/ListView.svelte:162
-Submitted document,Documento enviado,# internal/engine/doc.go:1058
+Submitted document,Documento enviado,# internal/engine/doc.go:1067
 System,Sistema,# desk/src/lib/components/Sidebar.svelte:35
 System User,Usuário do sistema,# core.doctypes.user.user.doctype
 The document was changed by someone else after you opened it. Reload and try again.,O documento foi alterado por outro usuário depois que você o abriu. Recarregue e tente de novo.,# internal/engine/doc.go:399
@@ -208,39 +208,41 @@ Workspace not found,Workspace não encontrado,# desk/src/lib/components/Workspac
 Workspace {0} does not exist,Workspace {0} não existe,# internal/api/api.go:956
 Write a comment,Escreva um comentário,# desk/src/lib/components/DocSidebar.svelte:51
 Yes,Sim,# desk/src/lib/components/history.ts:130
-ddcore.db.lock requires a transaction,ddcore.db.lock exige uma transação,# internal/engine/query.go:451
-ddcore.db.lock: provide a key,ddcore.db.lock: informe uma chave,# internal/engine/query.go:448
-ddcore.db.sql only accepts SELECT,ddcore.db.sql aceita apenas SELECT,# internal/engine/query.go:407
+ctx.sql is only available inside a patch,ctx.sql só existe dentro de um patch,# internal/engine/query.go:410
+ddcore.db.lock requires a transaction,ddcore.db.lock exige uma transação,# internal/engine/query.go:476
+ddcore.db.lock: provide a key,ddcore.db.lock: informe uma chave,# internal/engine/query.go:473
+ddcore.db.sql only accepts SELECT,ddcore.db.sql aceita apenas SELECT,# internal/engine/query.go:432
 enqueue: provide the method,enqueue: informe o método,# internal/engine/jobs.go:29
 getValue: invalid fields,getValue: fields inválido,# internal/engine/host.go:127
-http: {0},http: {0},# internal/engine/host.go:330
+http: {0},http: {0},# internal/engine/host.go:332
 invalid arguments in {0}: {1},argumentos inválidos em {0}: {1},# internal/engine/host.go:61
 job {0} timed out,job {0} excedeu o tempo limite,# internal/engine/jobs.go:75
+patch sql: {0},sql do patch: {0},# internal/engine/query.go:414
 records,registros,# desk/src/lib/components/ListView.svelte:303
 runtime without a context (op {0}),runtime sem contexto (op {0}),# internal/engine/host.go:24
 title,título,# desk/src/lib/components/FormView.svelte:118
 to submit,para enviar,# desk/src/lib/components/DocSidebar.svelte:54
-unknown bridge operation: {0},operação desconhecida no bridge: {0},# internal/engine/host.go:266
-"{0} ""{1}"" already exists on {2} {3}","{0} ""{1}"" já existe em {2} {3}",# internal/engine/doc.go:1012
-{0} cannot be changed after submission,Não é permitido alterar {0} depois do envio,# internal/engine/doc.go:1058
-{0} cannot be renamed,{0} não permite renomear,# internal/engine/doc.go:673
+unknown bridge operation: {0},operação desconhecida no bridge: {0},# internal/engine/host.go:268
+"{0} ""{1}"" already exists on {2} {3}","{0} ""{1}"" já existe em {2} {3}",# internal/engine/doc.go:1021
+{0} cannot be changed after submission,Não é permitido alterar {0} depois do envio,# internal/engine/doc.go:1067
+{0} cannot be renamed,{0} não permite renomear,# internal/engine/doc.go:676
 {0} deleted,{0} apagado(s),# desk/src/lib/components/ListView.svelte:184
 {0} is a child table,{0} é uma tabela filha,# internal/engine/doc.go:282
 {0} is a child table: edit it through the parent document,{0} é uma tabela filha: edite pelo documento pai,# internal/api/api.go:549
 {0} is not a language this site serves,{0} não é um idioma que este site oferece,# core/services/i18n.ts:25
 {0} is not submittable,{0} não é submetível,# internal/engine/doc.go:381
-{0} is read-only on this document,{0} é somente leitura neste documento,# internal/engine/doc.go:938
+{0} is read-only on this document,{0} é somente leitura neste documento,# internal/engine/doc.go:947
 {0} is required to name the document,{0} é obrigatório para nomear o documento,# internal/engine/naming.go:47
 {0} versions,{0} versões,# desk/src/lib/components/DocHistory.svelte:79
-{0} {1} already exists,{0} {1} já existe,# internal/engine/doc.go:683
+{0} {1} already exists,{0} {1} já existe,# internal/engine/doc.go:686
 {0} {1} is cancelled and cannot be changed,{0} {1} está cancelado e não pode ser alterado,# internal/engine/doc.go:375
-{0} {1} is linked from {2} {3},{0} {1} está vinculado a {2} {3},# internal/engine/doc.go:1112
+{0} {1} is linked from {2} {3},{0} {1} está vinculado a {2} {3},# internal/engine/doc.go:1121
 {0} {1} not found,{0} {1} não encontrado,# internal/api/api.go:788
-{0} {1} was changed by someone else. Reload and try again.,O documento {0} {1} foi alterado por outro usuário. Recarregue e tente de novo.,# internal/engine/doc.go:1199
-"{0}, row {1}: {2}","{0}, linha {1}: {2}",# internal/engine/doc.go:1034
-"{0}: ""{1}"" is not a valid email address","{0}: ""{1}"" não é um endereço de e-mail válido",# internal/engine/doc.go:829
-"{0}: DocType ""{1}"" does not exist","{0}: DocType ""{1}"" não existe",# internal/engine/doc.go:990
-{0}: choose the type before the link,{0}: informe o tipo antes do vínculo,# internal/engine/doc.go:987
+{0} {1} was changed by someone else. Reload and try again.,O documento {0} {1} foi alterado por outro usuário. Recarregue e tente de novo.,# internal/engine/doc.go:1208
+"{0}, row {1}: {2}","{0}, linha {1}: {2}",# internal/engine/doc.go:1043
+"{0}: ""{1}"" is not a valid email address","{0}: ""{1}"" não é um endereço de e-mail válido",# internal/engine/doc.go:838
+"{0}: DocType ""{1}"" does not exist","{0}: DocType ""{1}"" não existe",# internal/engine/doc.go:999
+{0}: choose the type before the link,{0}: informe o tipo antes do vínculo,# internal/engine/doc.go:996
 {0}: empty name,{0}: nome vazio,# internal/engine/doc.go:187
-"{0}: value ""{1}"" is not one of the options","{0}: valor ""{1}"" não está entre as opções",# internal/engine/doc.go:965
-"{0}: {1} ""{2}"" does not exist","{0}: {1} ""{2}"" não existe",# internal/engine/doc.go:982
+"{0}: value ""{1}"" is not one of the options","{0}: valor ""{1}"" não está entre as opções",# internal/engine/doc.go:974
+"{0}: {1} ""{2}"" does not exist","{0}: {1} ""{2}"" não existe",# internal/engine/doc.go:991

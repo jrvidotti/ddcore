@@ -20,8 +20,10 @@ import (
 
 	"github.com/jrvidotti/ddcore/desk"
 	"github.com/jrvidotti/ddcore/internal/api"
+	"github.com/jrvidotti/ddcore/internal/db"
 	"github.com/jrvidotti/ddcore/internal/engine"
 	"github.com/jrvidotti/ddcore/internal/js"
+	"github.com/jrvidotti/ddcore/internal/meta"
 )
 
 // testDSN names a throwaway database: setup drops and recreates it. The
@@ -438,4 +440,127 @@ func runDemo(t *testing.T, e *engine.Engine, ctx context.Context) map[string]any
 		t.Fatalf("resposta da demo: %v (%s)", err, raw)
 	}
 	return out
+}
+
+// ------------------------------------------------- evolução de schema (DAT-04)
+
+// migracaoApp writes a throwaway app with a DocType and one patch of each
+// phase, so the whole route runs against a real Postgres in a second install.
+func migracaoApp(t *testing.T) js.App {
+	t.Helper()
+	dir := t.TempDir()
+	w := func(rel, src string) {
+		t.Helper()
+		if err := os.MkdirAll(filepath.Join(dir, filepath.Dir(rel)), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, rel), []byte(src), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	w("ddcore.app.ts", `import { defineApp } from "@ddcore/sdk";
+export default defineApp({ name: "migracao", title: "Migração", roles: ["Migrador"] });`)
+	w("doctypes/nota/nota.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
+export default defineDoctype({ name: "Nota", naming: { field: "numero" }, fields: [
+  { fieldname: "numero", fieldtype: "Data", label: "Number", reqd: true, unique: true },
+  { fieldname: "valor_texto", fieldtype: "Data", label: "Amount (text)" },
+  { fieldname: "valor", fieldtype: "Currency", label: "Amount" },
+], permissions: [{ role: "Migrador", read: true, write: true, create: true }] });`)
+	w("patches/0001_marca.ts", `import { definePatch } from "@ddcore/sdk";
+export default definePatch({
+  phase: "beforeSchema",
+  description: "records the shape the DDL is about to change",
+  execute(ctx) { ctx.sql("CREATE TABLE IF NOT EXISTS acc_marca (fase text)"); ctx.sql("INSERT INTO acc_marca VALUES ('before')"); },
+});`)
+	w("patches/0002_backfill.ts", `import { definePatch } from "@ddcore/sdk";
+export default definePatch({
+  description: "valor_texto → valor",
+  execute(ctx) {
+    ctx.sql("INSERT INTO acc_marca VALUES ('after')");
+    ctx.sql("UPDATE tab_nota SET valor = NULLIF(valor_origem, '')::numeric WHERE valor IS NULL AND valor_origem IS NOT NULL");
+  },
+});`)
+	return js.App{Name: "migracao", Dir: dir}
+}
+
+// TestEvolucaoDeSchema: a instalação nova grava os patches sem rodar, o renome
+// declarado preserva o dado e as duas fases rodam na ordem certa.
+func TestEvolucaoDeSchema(t *testing.T) {
+	e := setup(t, "migra", migracaoApp(t))
+	ctx := context.Background()
+
+	// Instalação nova: os patches foram registrados, não executados — um patch
+	// descreve uma mudança em dados que um banco novo não tem.
+	rows, err := db.Select(ctx, e.DB.Pool, `SELECT name FROM ddcore_patch WHERE app = 'migracao' ORDER BY name`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("a instalação devia registrar os dois patches: %v", rows)
+	}
+	if _, err := db.Select(ctx, e.DB.Pool, `SELECT 1 FROM acc_marca`); err == nil {
+		t.Fatal("a instalação nova rodou os patches em vez de registrá-los")
+	}
+
+	if err := e.Run(ctx, "Administrator", func(c *engine.Ctx) error {
+		c.Flags["ignorePermissions"] = true
+		doc, err := c.NewDoc("Nota", engine.Doc{"numero": "NF-1", "valor_texto": "1250.50"})
+		if err != nil {
+			return err
+		}
+		_, err = c.Insert(doc, engine.SaveOpts{IgnorePermissions: true})
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Um release depois: os patches ficam pendentes de novo e valor_texto vira
+	// valor_origem por declaração.
+	if _, err := e.DB.Pool.Exec(ctx, `DELETE FROM ddcore_patch WHERE app = 'migracao'`); err != nil {
+		t.Fatal(err)
+	}
+	nota, ok := e.Meta.Get("Nota")
+	if !ok {
+		t.Fatal("Nota não está na meta")
+	}
+	f := nota.Field("valor_texto")
+	f.Fieldname = "valor_origem"
+	f.RenamedFrom = meta.Names{"valor_texto"}
+	nota.ResetFieldIndex()
+
+	res, err := e.Migrate(ctx, true)
+	if err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	if len(res.Patches) != 2 {
+		t.Fatalf("os dois patches deviam rodar: %v", res.Patches)
+	}
+	if len(res.Renames) != 1 {
+		t.Fatalf("o renome devia ser registrado: %v", res.Renames)
+	}
+
+	// A ordem das fases é observável: o before roda antes do DDL, o after depois.
+	fases, err := db.Select(ctx, e.DB.Pool, `SELECT fase FROM acc_marca`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(fases) != 2 || db.Str(fases[0]["fase"]) != "before" || db.Str(fases[1]["fase"]) != "after" {
+		t.Fatalf("fases fora de ordem: %v", fases)
+	}
+
+	// O dado atravessou o renome, e o backfill do patch after enxergou a coluna
+	// já renomeada.
+	got, err := db.Select(ctx, e.DB.Pool, `SELECT valor_origem, valor FROM tab_nota WHERE name = 'NF-1'`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || db.Str(got[0]["valor_origem"]) != "1250.50" {
+		t.Fatalf("o renome perdeu o valor: %v", got)
+	}
+	if v := db.Str(got[0]["valor"]); v == "" || v == "0" {
+		t.Fatalf("o backfill não rodou: %v", got)
+	}
+	if plan, err := e.Plan(ctx, true); err != nil || len(plan) != 0 {
+		t.Fatalf("migrate não ficou idempotente: %v %v", plan, err)
+	}
 }

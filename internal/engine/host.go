@@ -173,6 +173,8 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		return n, nil
 	case "db.sql":
 		return c.SQL(a.Query, a.Params)
+	case "patchSQL":
+		return c.PatchSQL(a.Query, a.Params)
 	case "db.lock":
 		return nil, c.Lock(a.Key)
 	case "db.getSingleValue":

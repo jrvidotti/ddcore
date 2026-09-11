@@ -28,13 +28,16 @@
 
 `fieldname, fieldtype, label, options, optionColors, reqd, unique, default, readOnly, hidden, fetchFrom, dependsOn,
 readOnlyDependsOn, mandatoryDependsOn, allowOnSubmit, inListView, inStandardFilter, searchIndex,
-length, precision, description, columns (grid width 1–12), gridEditMode (`"inline"` default or `"dialog"`), collapsible, bold`
+length, precision, description, columns (grid width 1–12), gridEditMode (`"inline"` default or `"dialog"`), collapsible, bold,
+renamedFrom, convert`
 
 - `label` and `description` are **catalogue keys**: write them in English. See `i18n`.
 - `default`: a literal value, or `"Today"` for Date/Datetime, `"__user"` for the current user.
 - `fetchFrom: "project.assignee"`: copied from the linked document on save. When `readOnly` it always overwrites; otherwise it fills only when empty.
 - `dependsOn`, `readOnlyDependsOn`, `mandatoryDependsOn`: a JS expression over `doc` (`"doc.type == 'PJ'"`) or a field name (truthy). Evaluated in the desk **and** on the server.
 - `optionColors` (Select): `{ Open: "blue", Overdue: "red" }`, keyed by the canonical value — never by its label.
+- `renamedFrom: "old_name"` (or a list, oldest first): the fieldname this field used to have, so `migrate` renames the column instead of adding an empty one beside it. See `migrations`.
+- `convert: { from: "Data" }`: authorises a column-type change `migrate` would otherwise refuse, naming the fieldtype the database still holds. No SQL — a conversion a plain cast cannot express goes through expand → backfill → validate → contract.
 
 ## DocType properties
 
@@ -42,7 +45,7 @@ length, precision, description, columns (grid width 1–12), gridEditMode (`"inl
 defineDoctype({
   name: "Contract", module: "Sales", label: "Contract",
   naming: { series: "CTR-.YYYY.-.####" } | { field: "code" } | { format: "{index}-{period}" } | { hash: true } | { prompt: true },
-  submittable: true, isChild: false, trackChanges: true, allowRename: true,
+  submittable: true, isChild: false, trackChanges: true, allowRename: true, renamedFrom: "Old Name",
   titleField: "name", searchFields: ["name", "tax_id"], sortField: "modified", sortOrder: "desc", icon: "building-2",
   fields: [...],
   permissions: [{ role: "Manager", read: true, write: true, create: true, delete: true, submit: true, cancel: true, amend: true, report: true, export: true, ifOwner: false }],
@@ -50,3 +53,10 @@ defineDoctype({
 ```
 
 Series: `.YYYY.`, `.YY.`, `.MM.`, `.DD.`, `.####.` (a zero-padded counter), `.{field}.`. A `naming_series` field (Select) lets the user pick the series.
+
+`allowRename` is about renaming a *document*; `renamedFrom` is about renaming the *DocType*,
+which moves the table and repoints every stored reference. See `migrations`.
+
+`titleField`, `sortField` and `searchFields` name a field by string, so a renamed field has
+to be changed here too — the meta refuses to load while one of them points at a field that
+no longer exists.

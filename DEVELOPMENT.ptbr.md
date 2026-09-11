@@ -22,7 +22,8 @@ Complementos:
 - `docs/plan-v1.md` — o design do framework.
 - `docs/agent/` (`ddcore docs`, ou os resources MCP `ddcore://docs/*`) — **a referência
   canônica da API**: `conventions`, `fieldtypes`, `controller-api`, `form-api`,
-  `report-api`, `cli`. Este documento descreve o modelo mental, não substitui a API.
+  `report-api`, `i18n`, `migrations`, `cli`. Este documento descreve o modelo mental, não
+  substitui a API.
 - `docs/superpowers/specs/2026-09-10-app-exemplo-design.md` — a especificação do app
   exemplo, que é o alvo do que está sendo construído em `apps/demo`.
 
@@ -80,7 +81,7 @@ núcleo tem um diretório com nome próprio.
 | Responsabilidade | Onde |
 |---|---|
 | Meta-modelo: interpreta os DocTypes e valida a meta | `internal/meta` |
-| DDL: cria/altera `tab_<snake>`, colunas, índices; migrate, patches, fixtures | `internal/db` |
+| DDL: cria/altera `tab_<snake>`, colunas, índices; renomes e conversões declarados; migrate, patches, fixtures | `internal/db` |
 | Executa o TypeScript do app (esbuild + goja), hot-reload | `internal/js` |
 | `Document` (insert/save/submit/cancel/delete), hooks, permissões, jobs e filas | `internal/engine` |
 | API REST, `/api/method`, meta, relatórios, SSE, upload, login/CSRF | `internal/api` |

@@ -13,6 +13,7 @@ Available documents (also as MCP resources `ddcore://docs/<name>`):
 - `form-api` — `defineForm`, `frm.*`, dialogs (desk)
 - `report-api` — `defineReport`, `defineWorkspace`, cards and charts
 - `i18n` — English as the source language, catalogues, Select values, dates and the site timezone
+- `migrations` — renames, fieldtype changes, patches and the expand → contract route
 - `cli` — the `ddcore` commands and the development loop
 
 ## Typical flow
@@ -32,4 +33,5 @@ Available documents (also as MCP resources `ddcore://docs/<name>`):
 - Lifecycle: `beforeValidate → validate → beforeSave → (insert|update) → afterInsert/onUpdate`; `beforeSubmit → onSubmit`; `beforeCancel → onCancel`; `onTrash → afterDelete`.
 - The core validates `reqd`, `unique`, a Select's `options`, that links exist, `fetchFrom`, `mandatoryDependsOn` (**on the server**) and refuses to change a field without `allowOnSubmit` once submitted.
 - One transaction per request or job. An error rolls it back. There is no `commit()` for an app.
+- A rename is **declared** (`renamedFrom`), never inferred, and a fieldtype change that could lose data is refused until you declare `convert` or move the data across releases. See `migrations`.
 - **Every user-facing string is English and is a key** — a `label:` as much as a `_("…")`. Translations live in `translations/<lang>.csv`, and a Select's value is canonical English with a translated label. See `i18n`.

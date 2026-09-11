@@ -19,6 +19,7 @@ import (
 	"github.com/jrvidotti/ddcore/desk"
 	"github.com/jrvidotti/ddcore/internal/api"
 	"github.com/jrvidotti/ddcore/internal/config"
+	"github.com/jrvidotti/ddcore/internal/db"
 	"github.com/jrvidotti/ddcore/internal/engine"
 	"github.com/jrvidotti/ddcore/internal/js"
 	"github.com/jrvidotti/ddcore/internal/mcp"
@@ -89,7 +90,12 @@ func main() {
 	case "demo":
 		err = cmdDemo(args)
 	case "docs":
-		fmt.Print(mcp.Docs("index"))
+		// `ddcore docs [name]` — the argument was documented but never read.
+		name := "index"
+		if len(args) > 0 {
+			name = args[0]
+		}
+		fmt.Print(mcp.Docs(name))
 	case "doctor":
 		err = cmdDoctor(args)
 	case "help", "-h", "--help":
@@ -225,7 +231,11 @@ func cmdServe(args []string, dev bool) error {
 		if _, err := e.Migrate(ctx, false); err != nil {
 			return err
 		}
-	} else if plan, _ := e.Plan(ctx, false); len(plan) > 0 {
+	} else if plan, err := e.Plan(ctx, false); err != nil {
+		// A refusal surfaces here too: swallowing it would report "0 pending"
+		// for a migration the planner will not run.
+		e.Log.Warn("migrate cannot run as declared", "err", err)
+	} else if len(plan) > 0 {
 		e.Log.Warn("there is pending DDL — run `ddcore migrate`", "statements", len(plan))
 	}
 	srv := api.New(e, desk.FS())
@@ -247,13 +257,13 @@ func cmdServe(args []string, dev bool) error {
 	if dev {
 		go watch.Apps(ctx, e, func() {
 			if err := e.Load(); err != nil {
-				e.Log.Error("reload falhou", "err", err)
+				e.Log.Error("reload failed", "err", err)
 				e.Events.Publish(engine.Event{Name: "reload_error", Payload: map[string]any{"error": err.Error()}})
 				return
 			}
 			if *autoMigrate {
 				if res, err := e.Migrate(ctx, false); err != nil {
-					e.Log.Error("migrate falhou", "err", err)
+					e.Log.Error("migrate failed", "err", err)
 				} else if len(res.DDL) > 0 {
 					e.Log.Info("migrate", "ddl", len(res.DDL))
 				}
@@ -294,11 +304,12 @@ func cmdMigrate(args []string) error {
 		if err != nil {
 			return err
 		}
-		if len(plan) == 0 {
-			fmt.Println("-- nada a fazer")
-		}
-		for _, s := range plan {
-			fmt.Println(s)
+		fmt.Print(db.Report(plan))
+		if pending := e.PendingPatches(); len(pending) > 0 {
+			fmt.Println("patches")
+			for _, p := range pending {
+				fmt.Printf("  %-12s %s\n", p.Phase, p.Path)
+			}
 		}
 		return nil
 	}
@@ -306,9 +317,7 @@ func cmdMigrate(args []string) error {
 	if err != nil {
 		return err
 	}
-	for _, s := range res.DDL {
-		fmt.Println(s)
-	}
+	fmt.Print(db.Report(res.DDL))
 	fmt.Println("ok:", res.String())
 	return cmdTypes(nil)
 }
@@ -621,7 +630,7 @@ func cmdMCP(args []string) error {
 	defer cancel()
 	go watch.Apps(ctx, e, func() {
 		if err := e.Load(); err != nil {
-			e.Log.Error("reload falhou", "err", err)
+			e.Log.Error("reload failed", "err", err)
 		}
 	})
 	return mcp.ServeStdio(ctx, e)
@@ -637,11 +646,53 @@ func cmdDoctor(args []string) error {
 	fmt.Println("database:   ok")
 	fmt.Printf("apps:       %v\n", e.AppOrder())
 	fmt.Printf("doctypes:   %d\n", len(e.Meta.DocTypes))
-	plan, err := e.Plan(ctx, false)
+	if plan, err := e.Plan(ctx, false); err != nil {
+		fmt.Printf("migrate:    refused\n%s", err)
+	} else {
+		fmt.Printf("migrate:    %d pending statement(s)\n", len(plan))
+	}
+	// The same plan with prune on names what the meta no longer declares. It is
+	// reported separately because it is the data at risk, not work to do.
+	if plan, err := e.Plan(ctx, true); err == nil {
+		if _, drop := db.Destructive(plan); len(drop) > 0 {
+			fmt.Printf("orphans:    %d undeclared and empty\n", len(drop))
+			for _, st := range drop {
+				fmt.Printf("              %s\n", strings.TrimSuffix(st.SQL, ";"))
+			}
+		}
+	} else {
+		fmt.Printf("orphans:    undeclared structures still hold data\n%s", err)
+	}
+	if pending := e.PendingPatches(); len(pending) > 0 {
+		fmt.Printf("patches:    %d pending\n", len(pending))
+		for _, p := range pending {
+			fmt.Printf("              %-12s %s\n", p.Phase, p.Path)
+		}
+	}
+	renames, err := e.AppliedRenames(ctx)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("migrate:    %d pending statement(s)\n", len(plan))
+	if len(renames) > 0 {
+		retirable := 0
+		for _, r := range renames {
+			if r.Retirable {
+				retirable++
+			}
+		}
+		fmt.Printf("renames:    %d applied, %d retirable in this database\n", len(renames), retirable)
+		for _, r := range renames {
+			where := r.Doctype
+			if r.Kind == "field" {
+				where += "." + r.NewName
+			}
+			note := ""
+			if r.Retirable {
+				note = "  → renamedFrom retirable here; delete it only when every site says the same"
+			}
+			fmt.Printf("              %s renamedFrom %q%s\n", where, r.OldName, note)
+		}
+	}
 	fmt.Printf("scheduler:  %v\n", cfg.Scheduler)
 	fmt.Printf("workers:    %d\n", cfg.Workers)
 	return nil

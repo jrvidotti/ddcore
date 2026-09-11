@@ -36,12 +36,13 @@ func adminDSNFor(dsn string) (adminDSN, dbName string) {
 	return u.String(), dbName
 }
 
-func testApp(t *testing.T) string {
+func testApp(t *testing.T, extra ...map[string]string) string {
 	dir := t.TempDir()
 	w := func(rel, src string) {
 		os.MkdirAll(filepath.Join(dir, filepath.Dir(rel)), 0o755)
 		os.WriteFile(filepath.Join(dir, rel), []byte(src), 0o644)
 	}
+
 	w("ddcore.app.ts", `import { defineApp } from "@ddcore/sdk";
 export default defineApp({ name: "demo", title: "Demo", roles: ["Gestor"], docEvents: { "*": { validate(doc) { doc.flags.seen = true } } } });`)
 	w("doctypes/pessoa/pessoa.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
@@ -100,10 +101,21 @@ describe("Pedido", () => {
   });
   it("falha sem cliente", () => { expect(() => ddcore.newDoc("Pedido").insert()).toThrow("required fields"); });
 });`)
+	// Last, so a test can override a file of the base app as well as add one —
+	// a patches/ directory, most of the time.
+	for _, files := range extra {
+		for rel, src := range files {
+			w(rel, src)
+		}
+	}
 	return dir
 }
 
-func setup(t *testing.T) *Engine {
+func setup(t *testing.T) *Engine { return setupWith(t, nil) }
+
+// setupWith is setup with extra files planted in the test app — how the patch
+// tests get a patches/ directory without every other test paying for one.
+func setupWith(t *testing.T, extra map[string]string) *Engine {
 	ctx := context.Background()
 	adminDSN, dbName := adminDSNFor(testDSN)
 	if dbName == "" {
@@ -121,7 +133,7 @@ func setup(t *testing.T) *Engine {
 		t.Fatal(err)
 	}
 	e0.DB.Close()
-	e, err := New(ctx, Config{DSN: testDSN, Apps: []js.App{{Name: "demo", Dir: testApp(t)}}, Test: true})
+	e, err := New(ctx, Config{DSN: testDSN, Apps: []js.App{{Name: "demo", Dir: testApp(t, extra)}}, Test: true})
 	if err != nil {
 		t.Fatal(err)
 	}

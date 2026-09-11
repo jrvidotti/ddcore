@@ -15,15 +15,16 @@ metadados; jobs, relatórios, workspaces, traduções, testes, CLI e MCP estão 
 | Capacidade | Implementação disponível |
 |---|---|
 | DocTypes em TypeScript | `defineDoctype` declara campos, naming, permissões, ordenação, título, ícone e descrição; arquivos são transpilados com esbuild e carregados no goja. |
-| Schema Postgres | `ddcore migrate` cria/altera tabelas `tab_<snake_case>`, colunas e índices; `--dry-run` mostra o plano e `--prune` remove estruturas não declaradas. |
-| Migrações de app | Patches ordenados, fixtures, `afterInstall`, `afterMigrate` e validação/ordenação de `requires`. |
+| Schema Postgres | `ddcore migrate` cria/altera tabelas `tab_<snake_case>`, colunas e índices; `--dry-run` relata o plano classificado e `--prune` remove estruturas não declaradas — só as vazias, recusando derrubar o que ainda tem dado. |
+| Migrações de app | Patches ordenados em duas fases (`beforeSchema`/`afterSchema`), com `ctx.sql` para preenchimento em lote; fixtures, `afterInstall`, `afterMigrate` e validação/ordenação de `requires`. Tudo numa transação. |
+| Renomes e conversões | `renamedFrom` em campo e em DocType renomeia coluna/tabela, índices e as referências guardadas; mudança de fieldtype que possa perder dado é recusada até declarar `convert`. |
 | Fieldtypes | Data, Email, Small Text, Text, Text Editor, Int, Float, Currency, Percent, Check, Date, Month, Datetime, Time, Select, Link, Dynamic Link, Table, Attach, JSON, Password e campos de layout. |
 | Filhos e naming | DocTypes `isChild`, `parent`/`parenttype`/`parentfield`/`idx`; séries, campo, hash, prompt e formato para nomes. |
 | Validação no servidor | Obrigatoriedade, unicidade, Select, Email, Link/Dynamic Link, `fetchFrom`, dependências, `mandatoryDependsOn` e `allowOnSubmit`. |
 | Document | Inserir, salvar, enviar, cancelar, emendar, renomear, apagar, recarregar, `append`, `dbSet`, mudança de campo e concorrência por `modified`. |
 | Histórico e transações | `docstatus`, `amended_from`, Version com diffs para `trackChanges`, Comment e uma transação por requisição/job/teste, com rollback em erro. |
 
-Referências: [fieldtypes](agent/fieldtypes.md), [controller API](agent/controller-api.md),
+Referências: [fieldtypes](agent/fieldtypes.md), [migrações](agent/migrations.md), [controller API](agent/controller-api.md),
 [metadados](../internal/meta/meta.go), [schema](../internal/db/schema.go) e
 [Document](../internal/engine/doc.go).
 
@@ -115,6 +116,11 @@ Referências: [CLI](agent/cli.md), [MCP](../internal/mcp/mcp.go),
   ou webhooks configuráveis.
 - Docstatus e controllers permitem aprovações específicas da app; não há motor
   declarativo de workflow listado aqui.
+- Fixtures continuam inserindo ou pulando por nome: não atualizam documento existente.
+  Só a ordem entre DocTypes passou a ser determinística.
+- Um preenchimento grande segura os locks da migração pela duração inteira; não há
+  janela fora da transação única, e o caminho previsto é enfileirar e validar no
+  release seguinte.
 
 ## Evidência
 

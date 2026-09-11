@@ -97,8 +97,15 @@
         const fn = ex[k];
         if (typeof fn === "function" && fn.__whitelisted) whitelisted.push({ path: path + "." + k, opts: fn.__whitelisted });
       }
-      if (/\.patches\.[^.]+$/.test(path) && typeof ex.execute === "function") {
-        patches.push({ app: path.split(".")[0], name: path.split(".").pop(), path });
+      if (/\.patches\.[^.]+$/.test(path)) {
+        const def = patchDef(m);
+        if (def) {
+          patches.push({
+            app: path.split(".")[0], name: path.split(".").pop(), path,
+            phase: def.phase === "beforeSchema" ? "beforeSchema" : "afterSchema",
+            description: def.description || "",
+          });
+        }
       }
     }
     const reports = {};
@@ -460,10 +467,25 @@
     if (a && typeof a[hook] === "function") a[hook](makeContext());
   };
 
+  // A patch is `export default definePatch({...})` or, still supported, a bare
+  // `export function execute`. The bare form has no phase and gets the default.
+  function patchDef(m) {
+    const ex = (m && m.exports) || {};
+    if (ex.default && typeof ex.default.execute === "function") return ex.default;
+    if (typeof ex.execute === "function") return ex;
+    return null;
+  }
+
   reg.runPatch = function (path) {
-    const m = reg.modules[path];
-    if (!m || typeof m.exports.execute !== "function") throw new DDCoreError("NotFound", "", "Patch " + path + " has no execute()");
-    m.exports.execute(makeContext());
+    const def = patchDef(reg.modules[path]);
+    if (!def) throw new DDCoreError("NotFound", "", "Patch " + path + " has no execute()");
+    const ctx = makeContext();
+    // The only write-SQL there is, and it exists only here: a backfill cannot
+    // be a row-by-row walk through the lifecycle, which rewrites `modified` on
+    // every row and writes a Version per row — an audit trail a migration has
+    // no business forging.
+    ctx.sql = function (query, params) { return call("patchSQL", { query: query, params: params || [] }); };
+    def.execute(ctx);
   };
 
   reg.eval = function (code) {

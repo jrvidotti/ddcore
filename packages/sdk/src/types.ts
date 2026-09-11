@@ -48,6 +48,27 @@ export interface FieldDef {
   gridEditMode?: "inline" | "dialog";
   collapsible?: boolean;
   bold?: boolean;
+  /**
+   * The fieldname this field used to have. `migrate` renames the column
+   * instead of adding an empty one next to it, so the data survives.
+   *
+   * A list carries a chain: `["a", "b"]` on a field now called `c` still
+   * reaches a database that stopped at `a`. Keep the declaration until every
+   * environment has migrated — `ddcore doctor` lists what this database has
+   * already applied. See `migrations`.
+   */
+  renamedFrom?: string | string[];
+  /**
+   * Authorises a column-type change that is not a widening to text.
+   *
+   * Without it `migrate` refuses the change rather than running a blind cast
+   * that can abort the migration or truncate a value. `from` is the fieldtype
+   * whose column the database still has, so the declaration cannot quietly
+   * authorise a different conversion later — and it carries no SQL: a
+   * conversion a plain cast cannot express goes through
+   * expand → backfill → validate → contract. See `migrations`.
+   */
+  convert?: { from: FieldType };
 }
 
 export interface PermDef {
@@ -85,6 +106,12 @@ export interface DoctypeDef {
   permissions?: PermDef[];
   description?: string;
   icon?: string;
+  /**
+   * The name this DocType used to have. `migrate` renames the table, its
+   * indexes and every stored reference to the old name, instead of leaving
+   * the old table behind and creating an empty one.
+   */
+  renamedFrom?: string | string[];
 }
 
 export interface BaseDoc {
@@ -199,6 +226,36 @@ export interface Context {
   langs: string[];
   /** in a job / migrate / test — no HTTP request */
   request?: { method: string; path: string; ip?: string };
+}
+
+/**
+ * What a patch receives: the session, plus the only write-SQL there is.
+ *
+ * `ddcore.db.sql` is read-only everywhere else. A patch gets `sql` because a
+ * backfill over a real table cannot be a document-by-document loop through the
+ * lifecycle: that rewrites `modified` on every row and stops on legacy data
+ * that no longer validates.
+ */
+export interface PatchContext extends Context {
+  /** Runs one statement, reads or writes, and returns the rows it produced. */
+  sql(query: string, params?: any[]): Record<string, any>[];
+}
+
+/**
+ * When a patch runs, relative to the schema change of the same migration.
+ *
+ * `beforeSchema` sees the old columns and is where you make the data fit what
+ * the DDL is about to do. `afterSchema` (the default) sees the new ones, and
+ * runs before `--prune` drops anything, so it can still read a column the same
+ * migration is about to remove.
+ */
+export type PatchPhase = "beforeSchema" | "afterSchema";
+
+export interface PatchDef {
+  phase?: PatchPhase;
+  /** one line, shown by `ddcore migrate` and `ddcore doctor` */
+  description?: string;
+  execute(ctx: PatchContext): void;
 }
 
 export type DocEvent =

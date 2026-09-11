@@ -1,7 +1,7 @@
 // @ddcore/sdk — the API apps use on the server (runs inside the ddcore binary).
 import type {
   AppDef, BaseDoc, ControllerDef, Context, DoctypeDef, Document, Filters, ListArgs,
-  ReportDef, WorkspaceDef,
+  PatchDef, ReportDef, WorkspaceDef,
 } from "./types";
 export * from "./types";
 
@@ -106,6 +106,18 @@ export function defineWorkspace(def: WorkspaceDef): WorkspaceDef {
 
 export function defineApp(def: AppDef): AppDef {
   __ddcore.register("app", def);
+  return def;
+}
+
+/**
+ * Declares a patch: `export default definePatch({ ... })` in
+ * `patches/NNNN_name.ts`.
+ *
+ * Unlike the other `define*` helpers it registers nothing — a patch is
+ * identified by its module path, which is what `migrate` records once it has
+ * run, and the registry does not know it. The helper only types the object.
+ */
+export function definePatch(def: PatchDef): PatchDef {
   return def;
 }
 

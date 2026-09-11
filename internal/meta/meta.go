@@ -3,6 +3,7 @@
 package meta
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"sort"
@@ -78,9 +79,48 @@ type Field struct {
 	// that sets it up front is declaring itself *self-describing*: its options
 	// are not catalogue keys, they are neither translated nor collected by the
 	// extractor. User.language is the one that does this, with autonyms.
-	OptionLabels  []string `json:"optionLabels,omitempty"`
+	OptionLabels []string `json:"optionLabels,omitempty"`
+	// RenamedFrom is the fieldname this field used to have, so Plan can emit a
+	// RENAME COLUMN instead of adding an empty column beside the old one. A
+	// list carries a chain of renames, oldest first, for a database that
+	// skipped a release.
+	RenamedFrom Names `json:"renamedFrom,omitempty"`
+	// Convert authorises a column-type change Plan would otherwise refuse,
+	// naming the fieldtype the column still holds. It carries no SQL: a
+	// conversion a plain cast cannot express is what a patch is for.
+	Convert       *Convert `json:"convert,omitempty"`
 	_             struct{} // keep JSON tags exhaustive
 	SelectOptions []string `json:"-"`
+}
+
+// Convert names the fieldtype whose column type the database still has. Naming
+// it — rather than a bare "yes" — is what keeps the declaration from quietly
+// authorising a different conversion two releases later.
+type Convert struct {
+	From string `json:"from"`
+}
+
+// Names is a `string | string[]` coming from TypeScript. A rename is written
+// as one name in the common case and as a chain when a field was renamed more
+// than once, so both spellings have to parse.
+type Names []string
+
+func (n *Names) UnmarshalJSON(b []byte) error {
+	var one string
+	if err := json.Unmarshal(b, &one); err == nil {
+		if one == "" {
+			*n = nil
+		} else {
+			*n = Names{one}
+		}
+		return nil
+	}
+	var many []string
+	if err := json.Unmarshal(b, &many); err != nil {
+		return fmt.Errorf("renamedFrom must be a string or a list of strings: %w", err)
+	}
+	*n = many
+	return nil
 }
 
 func (f *Field) OptionsString() string {
@@ -161,6 +201,9 @@ type DocType struct {
 	Methods      []string `json:"methods,omitempty"`
 	PermHook     bool     `json:"hasPermissionHook,omitempty"`
 	PermQuery    bool     `json:"hasPermissionQuery,omitempty"`
+	// RenamedFrom is the DocType name this one used to have. Plan renames the
+	// table and its indexes; the engine rewrites the stored references.
+	RenamedFrom Names `json:"renamedFrom,omitempty"`
 
 	fieldMap map[string]*Field
 }
@@ -288,6 +331,7 @@ func (r *Registry) Validate() error {
 	for _, d := range r.DocTypes {
 		e := func(msg string, a ...any) { errs = append(errs, d.Name+": "+fmt.Sprintf(msg, a...)) }
 		seen := map[string]bool{}
+		renamedFrom := map[string]string{} // old fieldname -> the field claiming it
 		for _, f := range d.Fields {
 			if !valid[f.Fieldtype] {
 				e("invalid fieldtype %q on field %q", f.Fieldtype, f.Fieldname)
@@ -322,6 +366,31 @@ func (r *Registry) Validate() error {
 					}
 				}
 			}
+			for _, prev := range f.RenamedFrom {
+				switch {
+				case !fieldnameRe.MatchString(prev):
+					e("renamedFrom %q on field %q: not a fieldname", prev, f.Fieldname)
+				case prev == f.Fieldname:
+					e("renamedFrom on field %q names the field itself", f.Fieldname)
+				case d.IsStdColumn(prev) || prev == "doctype":
+					e("renamedFrom %q on field %q is a reserved column", prev, f.Fieldname)
+				case renamedFrom[prev] != "":
+					// Two fields claiming the same old column would race for it.
+					e("field %q and field %q both declare renamedFrom %q", renamedFrom[prev], f.Fieldname, prev)
+				}
+				renamedFrom[prev] = f.Fieldname
+			}
+			if cv := f.Convert; cv != nil {
+				switch {
+				case !valid[cv.From]:
+					e("convert.from %q on field %q is not a fieldtype", cv.From, f.Fieldname)
+				case ColumnType(cv.From) == "":
+					e("convert.from %q on field %q has no column", cv.From, f.Fieldname)
+				case ColumnType(cv.From) == ColumnType(f.Fieldtype):
+					e("convert on field %q: %s and %s are the same column type, there is nothing to convert",
+						f.Fieldname, cv.From, f.Fieldtype)
+				}
+			}
 			if f.FetchFrom != "" {
 				parts := strings.SplitN(f.FetchFrom, ".", 2)
 				if len(parts) != 2 {
@@ -334,8 +403,51 @@ func (r *Registry) Validate() error {
 		if d.Naming.Field != "" && d.Field(d.Naming.Field) == nil {
 			e("naming.field %q does not exist", d.Naming.Field)
 		}
+		// A field can be renamed and leave these behind pointing at a name
+		// nothing answers to. They are the half of a rename the declaration
+		// cannot do for you, so the meta refuses to load until they follow.
+		//
+		// All three may also name a standard column — `titleField: "name"` and
+		// `searchFields: ["name"]` are both documented — so those are not a
+		// dangling reference.
+		named := func(what, fieldname string) {
+			if fieldname != "" && !d.IsStdColumn(fieldname) && d.Field(fieldname) == nil {
+				e("%s %q does not exist", what, fieldname)
+			}
+		}
+		named("titleField", d.TitleField)
+		named("sortField", d.SortField)
+		for _, sf := range d.SearchFields {
+			named("searchFields", sf)
+		}
 		if d.IsChild && len(d.Permissions) > 0 {
 			e("a child DocType has no permissions")
+		}
+		// a → b while a is also a live field is fine: the rename runs first and
+		// the new a is added after. a ↔ b is a swap, which no single migration
+		// can do — one of the two names is always occupied.
+		for prev, claimant := range renamedFrom {
+			other := d.Field(prev)
+			if other == nil {
+				continue
+			}
+			for _, back := range other.RenamedFrom {
+				if back == claimant {
+					e("fields %q and %q swap names; a swap needs a third name and a release in between", prev, claimant)
+				}
+			}
+		}
+		for _, prev := range d.RenamedFrom {
+			switch {
+			case strings.TrimSpace(prev) == "":
+				e("renamedFrom is empty")
+			case prev == d.Name:
+				e("renamedFrom names the DocType itself")
+			case r.DocTypes[prev] != nil:
+				e("renamedFrom %q is a DocType that still exists", prev)
+			case Snake(prev) == Snake(d.Name):
+				e("renamedFrom %q and %q are the same table, there is nothing to rename", prev, d.Name)
+			}
 		}
 	}
 	if len(errs) > 0 {

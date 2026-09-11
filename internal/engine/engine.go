@@ -66,7 +66,15 @@ type Patch struct {
 	App  string `json:"app"`
 	Name string `json:"name"`
 	Path string `json:"path"`
+	// Phase is "beforeSchema" or "afterSchema" (the default). It is what makes
+	// expand → backfill → contract possible: before the DDL a patch can make
+	// the data fit what the schema change is about to do.
+	Phase       string `json:"phase,omitempty"`
+	Description string `json:"description,omitempty"`
 }
+
+// BeforeSchema reports whether this patch runs ahead of the DDL.
+func (p Patch) BeforeSchema() bool { return p.Phase == "beforeSchema" }
 
 // Snapshot is the JS registry as seen from Go.
 type Snapshot struct {

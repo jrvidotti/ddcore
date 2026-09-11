@@ -394,6 +394,31 @@ func (c *Ctx) SetValue(doctype, name string, values Doc) error {
 	return err
 }
 
+// PatchSQL runs any statement — read or write — inside the migration's
+// transaction. It is the backfill primitive, and the only write-SQL in the
+// framework.
+//
+// ddcore.db.sql is read-only by design, and going through setValue row by row
+// rewrites modified/modified_by on every row and writes a Version per row for a
+// trackChanges DocType: an audit trail that says a person edited the data when
+// a migration moved it. A patch is already the most privileged thing here — it
+// runs as Administrator inside the migration — so DDL is allowed too. That is
+// deliberate: it keeps the planner from ever being a dead end, because anything
+// it refuses the author can still do by hand in a beforeSchema patch.
+func (c *Ctx) PatchSQL(query string, params []any) ([]map[string]any, error) {
+	if c.Flags["inPatch"] != true {
+		return nil, cerr.Permission("ctx.sql is only available inside a patch")
+	}
+	rows, err := db.Select(c.Ctx, c.Q(), query, params...)
+	if err != nil {
+		return nil, cerr.Validation("patch sql: {0}", err.Error())
+	}
+	if rows == nil {
+		rows = []map[string]any{}
+	}
+	return rows, nil
+}
+
 // SQL runs a read-only query (used by reports and ddcore.db.sql).
 //
 // The prefix check is only a first filter: a CTE can hide an UPDATE behind a

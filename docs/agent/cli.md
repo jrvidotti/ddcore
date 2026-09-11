@@ -13,7 +13,7 @@ flag is an error (it never becomes an argument silently).
 | `ddcore new-app <name>` | scaffolds the app, registers it in ddcore.json, writes CLAUDE.md |
 | `ddcore dev` | server with hot reload (rebuilds when a .ts/.csv is saved) and `--auto-migrate`; serves `/mcp` |
 | `ddcore start` | production server (no watcher) |
-| `ddcore migrate [--dry-run] [--prune]` | DDL + afterInstall + fixtures + patches + afterMigrate; then generates types |
+| `ddcore migrate [--dry-run] [--prune]` | beforeSchema patches → DDL → afterInstall + fixtures → afterSchema patches → the drops → afterMigrate, in one transaction; then generates types. `--dry-run` reports the plan; a rename or conversion it cannot make safely is refused and nothing is applied (`migrations`) |
 | `ddcore types` | generates `.ddcore/types.d.ts` and materialises the embedded SDK typings per app |
 | `ddcore i18n extract [--app n\|--all] [--lang pt-BR] [--check] [--prune]` | rewrites `translations/<lang>.csv` from the code; `--check` reports and exits non-zero |
 | `ddcore test [--filter re] [-v]` | runs `*.test.ts` (each `it` in a rolled-back transaction) |
@@ -25,7 +25,7 @@ flag is an error (it never becomes an argument silently).
 | `ddcore apikey <user>` | produces `key:secret` for `Authorization: token key:secret` |
 | `ddcore mcp` | MCP server (stdio) |
 | `ddcore docs [name]` | this documentation |
-| `ddcore doctor` | database, meta, pending DDL, scheduler |
+| `ddcore doctor` | database, meta, pending DDL, undeclared columns and tables, pending patches, applied renames, scheduler |
 
 ## An app in its own repository
 

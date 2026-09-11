@@ -15,6 +15,7 @@ import (
 
 	"github.com/jrvidotti/ddcore/docs"
 	"github.com/jrvidotti/ddcore/internal/cerr"
+	"github.com/jrvidotti/ddcore/internal/db"
 	"github.com/jrvidotti/ddcore/internal/engine"
 	"github.com/jrvidotti/ddcore/internal/scaffold"
 	"github.com/jrvidotti/ddcore/internal/typegen"
@@ -149,10 +150,10 @@ func New(e *engine.Engine) *mcp.Server {
 			return text(map[string]any{"ok": true, "doctypes": len(e.Meta.DocTypes), "whitelisted": e.WhitelistedPaths()}), nil, nil
 		})
 
-	mcp.AddTool(srv, &mcp.Tool{Name: "migrate", Description: "Applies the pending DDL, installs new apps and runs patches. With dry_run it only prints the SQL."},
+	mcp.AddTool(srv, &mcp.Tool{Name: "migrate", Description: "Applies the pending DDL, installs new apps and runs patches, in one transaction: beforeSchema patches, DDL, fixtures, afterSchema patches, then the drops. Refuses a rename or conversion it cannot make safely rather than guessing. With dry_run it only reports the plan."},
 		func(ctx context.Context, req *mcp.CallToolRequest, in struct {
 			DryRun bool `json:"dry_run,omitempty"`
-			Prune  bool `json:"prune,omitempty" jsonschema:"dropa colunas e tabelas removidas da meta"`
+			Prune  bool `json:"prune,omitempty" jsonschema:"drops the columns and tables the meta no longer declares, and only the empty ones"`
 		}) (*mcp.CallToolResult, any, error) {
 			if err := e.Load(); err != nil {
 				return fail(err)
@@ -162,14 +163,17 @@ func New(e *engine.Engine) *mcp.Server {
 				if err != nil {
 					return fail(err)
 				}
-				return text(map[string]any{"ddl": plan}), nil, nil
+				return text(map[string]any{"report": db.Report(plan), "ddl": db.SQL(plan), "patches": e.PendingPatches()}), nil, nil
 			}
 			res, err := e.Migrate(ctx, in.Prune)
 			if err != nil {
 				return fail(err)
 			}
 			s.writeTypes()
-			return text(map[string]any{"ddl": res.DDL, "patches": res.Patches, "installed": res.Installed}), nil, nil
+			return text(map[string]any{
+				"report": db.Report(res.DDL), "ddl": db.SQL(res.DDL), "patches": res.Patches,
+				"installed": res.Installed, "renames": res.Renames, "recorded": res.Recorded,
+			}), nil, nil
 		})
 
 	mcp.AddTool(srv, &mcp.Tool{Name: "generate_types", Description: "Gera .ddcore/types.d.ts (interfaces TS por DocType) em cada app."},

@@ -645,10 +645,13 @@ func (c *Ctx) Delete(doctype, name string, ignorePerms, force bool) error {
 	if _, err := c.Q().Exec(c.Ctx, fmt.Sprintf("DELETE FROM %s WHERE name = $1", db.Ident(d.TableName())), name); err != nil {
 		return err
 	}
-	if d.TrackChanges {
-		c.Q().Exec(c.Ctx, `DELETE FROM tab_version WHERE ref_doctype = $1 AND docname = $2`, doctype, name)
+	// The three tables that name a document without linking to it. File was
+	// missing here: deleting a document left its attachments behind, pointing
+	// at a name nothing answers to.
+	for _, ref := range coreRefs {
+		c.Q().Exec(c.Ctx, fmt.Sprintf("DELETE FROM %s WHERE %s = $1 AND %s = $2",
+			db.Ident(ref.table), db.Ident(ref.doctypeCol), db.Ident(ref.nameCol)), doctype, name)
 	}
-	c.Q().Exec(c.Ctx, `DELETE FROM tab_comment WHERE reference_doctype = $1 AND reference_name = $2`, doctype, name)
 	delete(c.docCache, c.docKey(doctype, name))
 	if err := c.runHook(d, "afterDelete", doc, nil); err != nil {
 		return err
@@ -713,8 +716,14 @@ func (c *Ctx) Rename(doctype, oldName, newName string) (string, error) {
 			}
 		}
 	}
-	q.Exec(c.Ctx, `UPDATE tab_version SET docname = $1 WHERE ref_doctype = $2 AND docname = $3`, newName, doctype, oldName)
-	q.Exec(c.Ctx, `UPDATE tab_comment SET reference_name = $1 WHERE reference_doctype = $2 AND reference_name = $3`, newName, doctype, oldName)
+	// Same three tables, same omission: a renamed document used to lose its
+	// attachments, and with them the permission check on a private file, which
+	// reads File.attached_to_name to decide who may download it.
+	for _, ref := range coreRefs {
+		q.Exec(c.Ctx, fmt.Sprintf("UPDATE %s SET %s = $1 WHERE %s = $2 AND %s = $3",
+			db.Ident(ref.table), db.Ident(ref.nameCol), db.Ident(ref.doctypeCol), db.Ident(ref.nameCol)),
+			newName, doctype, oldName)
+	}
 	delete(c.docCache, c.docKey(doctype, oldName))
 	doc["name"] = newName
 	if err := c.runHook(d, "afterRename", doc, nil); err != nil {
