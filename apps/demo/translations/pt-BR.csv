@@ -1,65 +1,65 @@
-Actions,Ações,# apps/demo/doctypes/task/task.form.ts:18
-Amount,Valor,# demo.doctypes.invoice_installment.invoice_installment.doctype
-Assignee,Responsável,# demo.doctypes.project.project.doctype
-Code,Código,# demo.doctypes.invoice.invoice.doctype
-Complete,Concluir,# apps/demo/doctypes/task/task.form.ts:19
-Completed,Concluída,# demo.doctypes.project.project.doctype
-Completed at,Concluída em,# demo.doctypes.task.task.doctype
-Completed on,Concluído em,# demo.doctypes.project_milestone.project_milestone.doctype
-Default project,Projeto padrão,# core.doctypes.user.user.doctype
-Demo: Projects,Exemplo: Projetos,# demo app
-Description,Descrição,# demo.doctypes.project.project.doctype
-Due date,Data limite,# demo.doctypes.invoice_installment.invoice_installment.doctype
-Due date before,Data limite até,# demo report
-End date,Data final,# demo.doctypes.project.project.doctype
-High,Alta,# demo.doctypes.task.task.doctype
-In progress,Em andamento,# demo.doctypes.project.project.doctype
-Installments,Parcelas,# demo.doctypes.invoice.invoice.doctype
-Invalid dates,Datas inválidas,# apps/demo/doctypes/project/project.controller.ts:7
-Invalid due date,Prazo inválido,# apps/demo/doctypes/task/task.controller.ts:24
-Invalid milestone,Marco inválido,# apps/demo/doctypes/project/project.controller.ts:17
-Invoice,Fatura,# demo.doctypes.invoice.invoice.doctype
-Invoice Installment,Parcela da fatura,# demo.doctypes.invoice_installment.invoice_installment.doctype
-Issue date,Data de emissão,# demo.doctypes.invoice.invoice.doctype
-Low,Baixa,# demo.doctypes.task.task.doctype
-Medium,Média,# demo.doctypes.task.task.doctype
-Milestone {0} cannot be completed before the project starts.,O marco {0} não pode ser concluído antes do início do projeto.,# apps/demo/doctypes/project/project.controller.ts:16
-Milestones,Marcos,# demo.doctypes.project.project.doctype
-Monthly interest,Juros mensais,# demo.doctypes.invoice.invoice.doctype
-Note,Observação,# demo.doctypes.project_setting_note.project_setting_note.doctype
-Notes,Observações,# demo.doctypes.project_settings.project_settings.doctype
-Number,Número,# demo.doctypes.invoice_installment.invoice_installment.doctype
-Open,Aberta,# demo.doctypes.task.task.doctype
-Open Tasks,Tarefas Abertas,# demo workspace
-Overdue,Atrasada,# demo.doctypes.task.task.doctype
-Overdue Tasks,Tarefas Atrasadas,# demo workspace
-Overview,Visão Geral,# demo workspace
-Planned,Planejado,# demo.doctypes.project.project.doctype
-Planning,Planejamento,# demo workspace
-Planning enabled,Planejamento habilitado,# demo.doctypes.project_settings.project_settings.doctype
-Priority,Prioridade,# demo.doctypes.task.task.doctype
-Progress,Progresso,# demo.doctypes.project.project.doctype
-Progress: {0}%,Progresso: {0}%,# apps/demo/doctypes/project/project.form.ts:7
-Project,Projeto,# demo.doctypes.invoice.invoice.doctype
-Project Milestone,Marco Projeto,# demo.doctypes.project_milestone.project_milestone.doctype
-Project Setting Note,Observação das configurações de projetos,# demo.doctypes.project_setting_note.project_setting_note.doctype
-Project Settings,Configurações de projetos,# demo.doctypes.project_settings.project_settings.doctype
-Projects,Projetos,# demo workspace
-Projects in Progress,Projetos em Andamento,# demo workspace
-Quantity,Quantidade,# apps/demo/reports/tasks_by_status.report.ts:26
-Reopen,Reabrir,# apps/demo/doctypes/task/task.form.ts:20
-Reports,Relatórios,# demo workspace
-Share (%),Participação (%),# apps/demo/reports/tasks_by_status.report.ts:27
-Start,Iniciar,# apps/demo/doctypes/task/task.form.ts:18
-Start date,Data de início,# demo.doctypes.project.project.doctype
-Status,Status,# apps/demo/reports/tasks_by_status.report.ts:25
-Task,Tarefa,# demo.doctypes.task.task.doctype
-Tasks,Tarefas,# apps/demo/doctypes/project/project.form.ts:8
-Tasks by Status,Tarefas por Status,# demo workspace
-The due date cannot be earlier than the project start ({0}).,A data limite não pode ser anterior ao início do projeto ({0}).,# apps/demo/doctypes/task/task.controller.ts:23
-The end date cannot be earlier than the start date.,A data final não pode ser anterior à data de início.,# apps/demo/doctypes/project/project.controller.ts:7
-"The installments add up to {0}, not to the invoice total {1}.","As parcelas somam {0}, e não o total da fatura {1}.",# apps/demo/doctypes/invoice/invoice.controller.ts:13
-Title,Título,# demo.doctypes.project.project.doctype
-Total,Total,# apps/demo/reports/tasks_by_status.report.ts:30
-Tracking,Acompanhamento,# demo workspace
-Used as the project when this user opens a task.,Usado como projeto quando este usuário abre uma tarefa.,# core.doctypes.user.user.doctype
+Actions,Ações
+Amount,Valor
+Assignee,Responsável
+Code,Código
+Complete,Concluir
+Completed,Concluída
+Completed at,Concluída em
+Completed on,Concluído em
+Default project,Projeto padrão
+Demo: Projects,Exemplo: Projetos
+Description,Descrição
+Due date,Data limite
+Due date before,Data limite até
+End date,Data final
+High,Alta
+In progress,Em andamento
+Installments,Parcelas
+Invalid dates,Datas inválidas
+Invalid due date,Prazo inválido
+Invalid milestone,Marco inválido
+Invoice,Fatura
+Invoice Installment,Parcela da fatura
+Issue date,Data de emissão
+Low,Baixa
+Medium,Média
+Milestone {0} cannot be completed before the project starts.,O marco {0} não pode ser concluído antes do início do projeto.
+Milestones,Marcos
+Monthly interest,Juros mensais
+Note,Observação
+Notes,Observações
+Number,Número
+Open,Aberta
+Open Tasks,Tarefas Abertas
+Overdue,Atrasada
+Overdue Tasks,Tarefas Atrasadas
+Overview,Visão Geral
+Planned,Planejado
+Planning,Planejamento
+Planning enabled,Planejamento habilitado
+Priority,Prioridade
+Progress,Progresso
+Progress: {0}%,Progresso: {0}%
+Project,Projeto
+Project Milestone,Marco Projeto
+Project Setting Note,Observação das configurações de projetosproject_setting_note.doctype
+Project Settings,Configurações de projetos
+Projects,Projetos
+Projects in Progress,Projetos em Andamento
+Quantity,Quantidade
+Reopen,Reabrir
+Reports,Relatórios
+Share (%),Participação (%)
+Start,Iniciar
+Start date,Data de início
+Status,Status
+Task,Tarefa
+Tasks,Tarefas
+Tasks by Status,Tarefas por Status
+The due date cannot be earlier than the project start ({0}).,A data limite não pode ser anterior ao início do projeto ({0}).
+The end date cannot be earlier than the start date.,A data final não pode ser anterior à data de início.apps/demo/doctypes/project/project.controller.ts:7
+"The installments add up to {0}, not to the invoice total {1}.","As parcelas somam {0}, e não o total da fatura {1}."
+Title,Título
+Total,Total
+Tracking,Acompanhamento
+Used as the project when this user opens a task.,Usado como projeto quando este usuário abre uma tarefa.core.doctypes.user.user.doctype
