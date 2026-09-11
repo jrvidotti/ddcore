@@ -4,7 +4,7 @@
   import { getMeta, selectLabels, selectOptions, type Meta, type Field, isLayout } from "$lib/meta";
   import { formatValue, statusColor, timeAgo } from "$lib/format";
   import { __, doctypeLabel } from "$lib/boot.svelte";
-  import { showError, toast, confirm } from "$lib/ui.svelte";
+  import { showError, toast, confirm, dialog } from "$lib/ui.svelte";
   import { getLinkTitle, registerTitles } from "$lib/titles.svelte";
   import Control from "$lib/controls/Control.svelte";
   import Icon from "./Icon.svelte";
@@ -15,6 +15,7 @@
   import { toCsv, downloadCsv } from "$lib/csv";
   import { deskSDK } from "$lib/desk-sdk";
   import { clearListFilters, listStateFromSearchParams, listStateToSearchParams, type ListUrlState } from "./list-state";
+  import { exportUrl } from "./export-options";
 
   let { doctype }: { doctype: string } = $props();
   let meta = $state<Meta | null>(null);
@@ -184,8 +185,55 @@
     toast(__("{0} deleted", [ok]), { indicator: "green" });
     load();
   }
+  /**
+   * Asks what to export before exporting it. The page on screen is built here
+   * (it already has the Link titles resolved); everything the filters match is
+   * streamed by the server, which is the only way it can include rows this
+   * page never loaded.
+   */
+  function openExport() {
+    const all = total > rows.length;
+    dialog({
+      title: __("Export"),
+      size: "sm",
+      fields: [
+        {
+          fieldname: "scope", fieldtype: "Select", label: __("Rows"),
+          options: ["All rows matching the filters", "The page on screen"],
+          optionLabels: [__("All rows matching the filters ({0})", [total]), __("The page on screen ({0})", [rows.length])],
+          default: all ? "All rows matching the filters" : "The page on screen",
+        },
+        {
+          // The child tables are part of the format, not a separate switch:
+          // only NDJSON can nest them, and a dialog has no conditional fields
+          // to hide a checkbox that does not apply.
+          fieldname: "format", fieldtype: "Select", label: __("Format"),
+          options: ["csv", "ndjson", "ndjson+children"],
+          optionLabels: [
+            __("CSV (spreadsheet)"),
+            __("NDJSON (one document per line)"),
+            __("NDJSON with the child tables"),
+          ],
+          default: "csv",
+        },
+      ],
+      primaryLabel: __("Export"),
+      primaryAction(v, d) {
+        d.hide();
+        if (v.scope === "The page on screen") { exportLoadedPage(); return; }
+        window.location.href = exportUrl({
+          doctype,
+          format: String(v.format).startsWith("ndjson") ? "ndjson" : "csv",
+          children: v.format === "ndjson+children",
+          filters: buildFilters(),
+          orFilters: buildOr(),
+        });
+      },
+    }).show();
+  }
+
   /** Exports the *loaded page* (not the whole result set) as CSV. */
-  function exportCsv() {
+  function exportLoadedPage() {
     const keys = ["name", ...columns.map((c) => c.fieldname!)];
     const header = [__("Name"), ...columns.map((c) => c.label)];
     const exportRows = rows.map((r) => keys.map((k, idx) => {
@@ -211,7 +259,7 @@
     <h1>{meta?.doctype.label || doctypeLabel(doctype)}</h1>
     {#if selected.size && meta?.permissions.delete}<button class="btn danger" onclick={deleteSelected}><Icon name="trash" size={14} />{__("Delete")} ({selected.size})</button>{/if}
     <button class="btn" onclick={load} title={__("Update")}><Icon name="refresh-cw" size={14} /></button>
-    {#if meta?.permissions.export}<button class="btn" onclick={exportCsv} title="CSV"><Icon name="download" size={14} /></button>{/if}
+    {#if meta?.permissions.export}<button class="btn" onclick={openExport} title={__("Export")}><Icon name="download" size={14} /></button>{/if}
     {#if meta?.permissions.create}<a class="btn primary" href={`/app/${encodeURIComponent(doctype)}/new`}><Icon name="plus" size={14} />{__("New")}</a>{/if}
   </div>
 

@@ -93,7 +93,7 @@
 </script>
 
 <div class="page">
-  <div class="page-head"><h1>{label}</h1><button class="btn" onclick={exportCsv}><Icon name="download" size={14} /> CSV</button><button class="btn primary" onclick={run} disabled={loading}>{__("Update")}</button></div>
+  <div class="page-head"><h1>{label}</h1>{#if meta?.canExport !== false}<button class="btn" onclick={exportCsv}><Icon name="download" size={14} /> CSV</button>{/if}<button class="btn primary" onclick={run} disabled={loading}>{__("Update")}</button></div>
   {#if meta?.filters?.length}
     <div class="card" style="padding:12px 14px;margin-bottom:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
       {#each meta.filters as f (f.fieldname)}
