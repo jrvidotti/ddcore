@@ -1,6 +1,6 @@
 <script lang="ts">
   import "../app.css";
-  import { __, boot, loadBoot, isLoggedIn } from "$lib/boot.svelte";
+  import { __, loadBoot, isLoggedIn, siteName } from "$lib/boot.svelte";
   import { installDeskSDK, loadAppIncludes } from "$lib/desk-sdk";
   import { connectEvents } from "$lib/events";
   import { clearMetaCache } from "$lib/meta";
@@ -49,7 +49,7 @@
   });
 </script>
 
-<svelte:head><title>{boot.data?.site?.name || "ddcore"}</title></svelte:head>
+<svelte:head><title>{siteName()}</title></svelte:head>
 <svelte:window onkeydown={onWindowKeydown} />
 
 {#if ui.busy > 0}<div class="busy-bar"></div>{/if}

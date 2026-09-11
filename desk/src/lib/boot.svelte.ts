@@ -20,7 +20,7 @@ export interface Boot {
   lang: string;
   /** The languages the site serves, each labelled with its own autonym. */
   langs: { code: string; label: string }[];
-  apps: { name: string; title: string; desk: any; hasDeskInclude: boolean }[];
+  apps: { name: string; title: string; desk: { include?: string[]; home?: string; logo?: string } | null; hasDeskInclude: boolean }[];
   workspaces: any[];
   doctypes: Record<string, { label: string; app: string; icon: string; module: string; titleField?: string }>;
   reports: Record<string, { label: string; refDoctype?: string; app: string }>;
@@ -66,3 +66,22 @@ export function __(s: string, args?: any[]): string {
 export const isLoggedIn = () => !!boot.data && boot.data.user !== "Guest";
 export const hasRole = (r: string) => !!boot.data?.roles.includes(r);
 export const doctypeLabel = (dt: string) => boot.data?.doctypes[dt]?.label || dt;
+
+/** What the site is called, for a title or a heading. */
+export const siteName = () => boot.data?.site?.name || "ddcore";
+
+/**
+ * The square mark shown beside the site's name, in the sidebar and on the
+ * sign-in screens. An app declares it with `desk.logo` — the first app in load
+ * order that does wins, the way `desk.home` is resolved; the core declares
+ * none, so an app's always does. Without one the mark is the initial of the
+ * site's name, and without a name it is ddcore's own "d".
+ */
+export function siteLogo(): string {
+  const declared = boot.data?.apps?.map((a) => a.desk?.logo).find(Boolean);
+  if (declared) return declared;
+  // spread, not charAt: a name starting with an emoji is one grapheme made of
+  // two code units, and half a surrogate pair renders as a replacement square
+  const [initial] = Array.from((boot.data?.site?.name || "").trim());
+  return initial ? initial.toUpperCase() : "d";
+}

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { api } from "$lib/api";
-  import { __ } from "$lib/boot.svelte";
+  import { __, siteLogo } from "$lib/boot.svelte";
 
   let usr = $state(""), busy = $state(false), sent = $state(false), error = $state("");
 
@@ -24,7 +24,7 @@
 <div class="wrap">
   {#if sent}
     <div class="card box">
-      <div class="logo">c</div>
+      <div class="logo">{siteLogo()}</div>
       <h1>{__("Check your email")}</h1>
       <p class="small muted">
         {__("If that address belongs to an account, a link to choose a new password is on its way. The link can only be used once, and expires.")}
@@ -33,7 +33,7 @@
     </div>
   {:else}
     <form class="card box" onsubmit={submit}>
-      <div class="logo">c</div>
+      <div class="logo">{siteLogo()}</div>
       <h1>{__("Forgotten password")}</h1>
       <p class="small muted">{__("Tell us the address you sign in with and we will send a link to set a new password.")}</p>
       <label>{__("Email")}<input class="input" bind:value={usr} autocomplete="username" /></label>
@@ -47,7 +47,7 @@
 <style>
   .wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px; }
   .box { width: 100%; max-width: 360px; padding: 28px; display: flex; flex-direction: column; gap: 12px; }
-  .logo { width: 40px; height: 40px; border-radius: 10px; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 20px; }
+  .logo { width: 40px; height: 40px; border-radius: 10px; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 20px; overflow: hidden; }
   h1 { font-size: 18px; }
   label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
   .err { color: var(--red); font-size: 13px; }
