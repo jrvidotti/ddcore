@@ -354,8 +354,19 @@ export interface AppDef {
   };
   afterInstall?: (ctx: Context) => void;
   afterMigrate?: (ctx: Context) => void;
-  /** client scripts (relative to app dir) loaded in every desk page */
-  desk?: { include?: string[]; home?: string; logo?: string };
+  desk?: {
+    /** client scripts (relative to app dir) loaded in every desk page */
+    include?: string[];
+    /** the workspace `/app` opens on */
+    home?: string;
+    /**
+     * The square mark shown beside the site's name in the sidebar and on the
+     * sign-in screens: one letter or one emoji, not an image URL. The first
+     * app in load order that declares one wins, as with `home`. Left out, the
+     * mark is the initial of the site's name.
+     */
+    logo?: string;
+  };
   /** extra roles created on install */
   roles?: string[];
   fixtures?: Record<string, Record<string, any>[]>;

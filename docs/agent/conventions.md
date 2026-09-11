@@ -4,7 +4,7 @@
 
 ```
 <app>/                         # the repository root, or apps/<app>/ in a monorepo
-  ddcore.app.ts                  defineApp: title, roles, scheduler, docEvents, desk.include, afterInstall, fixtures
+  ddcore.app.ts                  defineApp: title, roles, scheduler, docEvents, desk, afterInstall, fixtures
   doctypes/<snake>/
     <snake>.doctype.ts          defineDoctype (meta)
     <snake>.controller.ts       defineController (rules, methods)
@@ -23,6 +23,27 @@
 
 A module's dotted path is `<app>.<folder>.<file>` (no `.ts`). For example: `my_app.services.tasks.run`.
 That is the form used by `whitelisted`, `scheduler`, `ddcore.enqueue`, `ddcore exec` and the `call_method` tool.
+
+## What the app puts on the desk
+
+`defineApp`'s `desk` block is the app's say over the shell around its screens:
+
+```ts
+desk: {
+  include: ["client/lists.ts"],   // scripts loaded on every desk page
+  home: "Projects",               // the workspace /app opens on
+  logo: "📁",                     // the square mark beside the site's name
+}
+```
+
+`home` and `logo` are resolved the same way: **the first app in load order that
+declares one wins**, and the core declares neither, so an app's always does.
+
+`logo` is one letter or one emoji, not an image URL — the mark is a fixed
+square, rendered as text. Leave it out and the mark is the initial of the
+site's name (`ddcore.json:site`), which is what a site with one app usually
+wants. That name is a catalogue key like any label, so the initial is taken
+from the reader's language — see `i18n`.
 
 ## Naming
 

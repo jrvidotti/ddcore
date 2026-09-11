@@ -1,6 +1,6 @@
 <script lang="ts">
   import { api } from "$lib/api";
-  import { __ } from "$lib/boot.svelte";
+  import { __, siteLogo } from "$lib/boot.svelte";
   import { page } from "$app/state";
   let usr = $state(""), pwd = $state(""), error = $state(""), busy = $state(false);
   async function login(e: Event) {
@@ -15,7 +15,7 @@
 
 <div class="wrap">
   <form class="card box" onsubmit={login}>
-    <div class="logo">c</div>
+    <div class="logo">{siteLogo()}</div>
     <h1>{__("Sign in")}</h1>
     <label>{__("Username")}<input class="input" bind:value={usr} autocomplete="username" autofocus /></label>
     <label>{__("Password")}<input class="input" type="password" bind:value={pwd} autocomplete="current-password" /></label>
@@ -28,7 +28,7 @@
 <style>
   .wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px; }
   .box { width: 100%; max-width: 360px; padding: 28px; display: flex; flex-direction: column; gap: 12px; }
-  .logo { width: 40px; height: 40px; border-radius: 10px; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 20px; }
+  .logo { width: 40px; height: 40px; border-radius: 10px; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 20px; overflow: hidden; }
   h1 { font-size: 18px; }
   label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
   .err { color: var(--red); font-size: 13px; }

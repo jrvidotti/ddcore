@@ -94,7 +94,7 @@ func setup(t *testing.T, suffix string, extra ...js.App) *engine.Engine {
 	admin.DB.Close()
 
 	apps := append([]js.App{testApp(t)}, extra...)
-	e, err := engine.New(ctx, engine.Config{DSN: dsn, Apps: apps, SiteName: "ddcore", Lang: "pt-BR", Currency: "BRL"})
+	e, err := engine.New(ctx, engine.Config{DSN: dsn, Apps: apps, SiteName: "Projects", Lang: "pt-BR", Currency: "BRL"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -205,8 +205,8 @@ func TestBootHome(t *testing.T) {
 		t.Fatalf("authenticated boot returned user=%v", boot["user"])
 	}
 
-	// external app's desk.home
-	home := ""
+	// external app's desk.home and desk.logo
+	home, logo := "", ""
 	for _, a := range boot["apps"].([]any) {
 		app := a.(map[string]any)
 		if app["name"] != "testapp" {
@@ -217,9 +217,27 @@ func TestBootHome(t *testing.T) {
 			t.Fatalf("fixture app has no desk block in boot: %#v", app["desk"])
 		}
 		home, _ = d["home"].(string)
+		logo, _ = d["logo"].(string)
 	}
 	if home != "Projects" {
 		t.Fatalf("desk.home = %q, expected \"Projects\"", home)
+	}
+	// the desk block is a passthrough: whatever defineApp declared reaches the
+	// browser, multi-byte included, so the sidebar can render the app's mark
+	if logo != "\U0001F9EA" {
+		t.Fatalf("desk.logo = %q, expected the fixture's emoji", logo)
+	}
+
+	// the site's name is the one string in the site block a reader sees, so it
+	// is a catalogue key: the fixture's catalogue turns "Projects" into
+	// "Projetos" and the sidebar renders the reader's language, not the
+	// operator's spelling
+	site, _ := boot["site"].(map[string]any)
+	if site == nil {
+		t.Fatalf("/api/boot returned no site block: %#v", boot["site"])
+	}
+	if site["name"] != "Projetos" {
+		t.Fatalf("site.name = %v, expected the pt-BR translation", site["name"])
 	}
 
 	// the workspace pointed to by desk.home must be returned in boot, with sidebar

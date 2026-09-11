@@ -1,6 +1,6 @@
 <script lang="ts">
   import { api } from "$lib/api";
-  import { __ } from "$lib/boot.svelte";
+  import { __, siteLogo } from "$lib/boot.svelte";
   import { page } from "$app/state";
   import { passwordProblem } from "$lib/components/profile";
   import { onMount } from "svelte";
@@ -41,14 +41,14 @@
 <div class="wrap">
   {#if loadError}
     <div class="card box">
-      <div class="logo">c</div>
+      <div class="logo">{siteLogo()}</div>
       <h1>{__("This link does not work")}</h1>
       <p class="small muted">{loadError}</p>
       <a class="btn" href="/login/forgot" style="justify-content:center">{__("Ask for a new link")}</a>
     </div>
   {:else if done}
     <div class="card box">
-      <div class="logo">c</div>
+      <div class="logo">{siteLogo()}</div>
       <h1>{__("Password set")}</h1>
       <!-- Deliberately not signed in: a session minted from a link would be a
            second way to get one, and one is enough to reason about. -->
@@ -57,7 +57,7 @@
     </div>
   {:else if info}
     <form class="card box" onsubmit={submit}>
-      <div class="logo">c</div>
+      <div class="logo">{siteLogo()}</div>
       <h1>{isInvite ? __("Welcome") : __("New password")}</h1>
       <p class="small muted">
         {isInvite
@@ -75,14 +75,14 @@
       </button>
     </form>
   {:else}
-    <div class="card box"><div class="logo">c</div><p class="small muted">{__("Loading…")}</p></div>
+    <div class="card box"><div class="logo">{siteLogo()}</div><p class="small muted">{__("Loading…")}</p></div>
   {/if}
 </div>
 
 <style>
   .wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px; }
   .box { width: 100%; max-width: 360px; padding: 28px; display: flex; flex-direction: column; gap: 12px; }
-  .logo { width: 40px; height: 40px; border-radius: 10px; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 20px; }
+  .logo { width: 40px; height: 40px; border-radius: 10px; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 20px; overflow: hidden; }
   h1 { font-size: 18px; }
   label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
   .err { color: var(--red); font-size: 13px; }

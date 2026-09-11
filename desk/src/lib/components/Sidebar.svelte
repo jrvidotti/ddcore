@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { boot, __, isLoggedIn } from "$lib/boot.svelte";
+  import { boot, __, isLoggedIn, siteName, siteLogo } from "$lib/boot.svelte";
   import { openShortcutsHelp } from "$lib/shortcuts.svelte";
   import Icon from "./Icon.svelte";
   import { page } from "$app/state";
@@ -36,7 +36,7 @@
 
 <aside class="sidebar" class:open>
   <div class="brand">
-    <a href="/app" style="display:flex;align-items:center;gap:8px;color:inherit;text-decoration:none"><span class="logo">d</span><strong>{boot.data?.site?.name || "ddcore"}</strong></a>
+    <a href="/app" style="display:flex;align-items:center;gap:8px;color:inherit;text-decoration:none"><span class="logo">{siteLogo()}</span><strong>{siteName()}</strong></a>
   </div>
   <nav>
     {#each workspaces as ws}
@@ -87,7 +87,7 @@
 <style>
   .sidebar { width: var(--sidebar-w); background: #fff; border-right: 1px solid var(--border); display: flex; flex-direction: column; height: 100vh; position: sticky; top: 0; flex-shrink: 0; }
   .brand { padding: 14px 16px; border-bottom: 1px solid var(--border); font-size: 15px; }
-  .logo { display: inline-flex; width: 26px; height: 26px; border-radius: 7px; background: var(--primary); color: #fff; align-items: center; justify-content: center; font-weight: 700; }
+  .logo { display: inline-flex; width: 26px; height: 26px; border-radius: 7px; background: var(--primary); color: #fff; align-items: center; justify-content: center; font-weight: 700; overflow: hidden; }
   nav { flex: 1; overflow: auto; padding: 8px; }
   nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--text); font-size: 13px; }
   nav a:hover { background: #f3f4f6; text-decoration: none; }

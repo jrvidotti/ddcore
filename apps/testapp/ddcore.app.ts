@@ -17,5 +17,7 @@ export default defineApp({
   desk: {
     home: "Projects",
     include: ["client/lists.ts"],
+    // an emoji, so the assertion covers a mark that is not one ASCII byte
+    logo: "🧪",
   },
 });
