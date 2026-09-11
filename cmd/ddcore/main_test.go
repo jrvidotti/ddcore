@@ -30,13 +30,13 @@ func evalFlags() (*flag.FlagSet, *bool) {
 func TestExecFlagsAfterPositional(t *testing.T) {
 	// B22: `flag` parava no primeiro posicional e --args era ignorado
 	fs, argsJSON := execFlags()
-	if err := parseFlags(fs, []string{"alugueis.services.demo.gerar", "--args", `{"a":1}`}); err != nil {
+	if err := parseFlags(fs, []string{"alugueis.services.demo.generate", "--args", `{"a":1}`}); err != nil {
 		t.Fatal(err)
 	}
 	if *argsJSON != `{"a":1}` {
 		t.Fatalf("--args = %q, esperado {\"a\":1}", *argsJSON)
 	}
-	if got := fs.Arg(0); got != "alugueis.services.demo.gerar" {
+	if got := fs.Arg(0); got != "alugueis.services.demo.generate" {
 		t.Fatalf("posicional = %q", got)
 	}
 	if fs.NArg() != 1 {
@@ -134,7 +134,7 @@ func TestUnknownFlagIsRejected(t *testing.T) {
 	if err == nil {
 		t.Fatal("esperava erro para flag desconhecida")
 	}
-	if !strings.Contains(err.Error(), "flag desconhecida") || !strings.Contains(err.Error(), "--arg") {
+	if !strings.Contains(err.Error(), "unknown flag") || !strings.Contains(err.Error(), "--arg") {
 		t.Fatalf("erro pouco claro: %v", err)
 	}
 }
@@ -142,7 +142,7 @@ func TestUnknownFlagIsRejected(t *testing.T) {
 func TestFlagMissingValueIsRejected(t *testing.T) {
 	fs, _ := execFlags()
 	err := parseFlags(fs, []string{"app.mod.fn", "--args"})
-	if err == nil || !strings.Contains(err.Error(), "exige um valor") {
+	if err == nil || !strings.Contains(err.Error(), "needs a value") {
 		t.Fatalf("erro = %v", err)
 	}
 }

@@ -78,7 +78,7 @@ func (c *Ctx) filterSQL(d *meta.DocType, b *db.Builder, filters []db.Filter, col
 			return "", fmt.Errorf("campo desconhecido no filtro: %q", f.Field)
 		}
 		if !hasChildTable(d, ct) {
-			return "", fmt.Errorf("%s não é uma tabela filha de %s", ct, d.Name)
+			return "", fmt.Errorf("%s is not a child table of %s", ct, d.Name)
 		}
 		if _, seen := byChild[ct]; !seen {
 			order = append(order, ct)
@@ -172,7 +172,7 @@ func (c *Ctx) GetList(doctype string, a ListArgs) ([]map[string]any, error) {
 		if ok, err := c.HasPermission(doctype, "read", nil); err != nil {
 			return nil, err
 		} else if !ok {
-			return nil, cerr.Permission("Sem permissão para listar %s", c.T(d.Label))
+			return nil, cerr.Permission("No permission to list {0}", c.T(d.Label))
 		}
 	}
 	joins := map[string]*meta.DocType{}
@@ -197,7 +197,7 @@ func (c *Ctx) GetList(doctype string, a ListArgs) ([]map[string]any, error) {
 			if m[2] != "*" {
 				arg = col(m[2])
 				if arg == "" {
-					return nil, cerr.Validation("Campo desconhecido: %s", m[2])
+					return nil, cerr.Validation("Unknown field: {0}", m[2])
 				}
 			}
 			alias := m[3]
@@ -210,14 +210,14 @@ func (c *Ctx) GetList(doctype string, a ListArgs) ([]map[string]any, error) {
 		if m := aliasRe.FindStringSubmatch(f); m != nil {
 			cexpr := col(m[1])
 			if cexpr == "" {
-				return nil, cerr.Validation("Campo desconhecido: %s", m[1])
+				return nil, cerr.Validation("Unknown field: {0}", m[1])
 			}
 			sel = append(sel, cexpr+" AS "+db.Ident(m[2]))
 			continue
 		}
 		cexpr := col(f)
 		if cexpr == "" {
-			return nil, cerr.Validation("Campo desconhecido: %s", f)
+			return nil, cerr.Validation("Unknown field: {0}", f)
 		}
 		if strings.Contains(f, ".") {
 			sel = append(sel, cexpr+" AS "+db.Ident(strings.ReplaceAll(strings.ToLower(meta.Snake(f)), ".", "_")))
@@ -228,11 +228,11 @@ func (c *Ctx) GetList(doctype string, a ListArgs) ([]map[string]any, error) {
 
 	filters, err := db.ParseFilters(a.Filters)
 	if err != nil {
-		return nil, cerr.Validation("%s", err)
+		return nil, cerr.Validation("Invalid filters: {0}", err)
 	}
 	orFilters, err := db.ParseFilters(a.OrFilters)
 	if err != nil {
-		return nil, cerr.Validation("%s", err)
+		return nil, cerr.Validation("Invalid filters: {0}", err)
 	}
 	if !a.IgnorePermissions && !c.IgnorePermissions() {
 		pf, err := c.permissionFilters(d)
@@ -243,14 +243,14 @@ func (c *Ctx) GetList(doctype string, a ListArgs) ([]map[string]any, error) {
 	}
 	where, err := c.filterSQL(d, &b, filters, col)
 	if err != nil {
-		return nil, cerr.Validation("%s", err)
+		return nil, cerr.Validation("Invalid filters: {0}", err)
 	}
 	if len(orFilters) > 0 {
 		var ors []string
 		for _, f := range orFilters {
 			w, err := c.filterSQL(d, &b, []db.Filter{f}, col)
 			if err != nil {
-				return nil, cerr.Validation("%s", err)
+				return nil, cerr.Validation("Invalid filters: {0}", err)
 			}
 			ors = append(ors, w)
 		}
@@ -263,7 +263,7 @@ func (c *Ctx) GetList(doctype string, a ListArgs) ([]map[string]any, error) {
 	}
 	orderBy, err := db.ParseOrderBy(a.OrderBy, col)
 	if err != nil {
-		return nil, cerr.Validation("%s", err)
+		return nil, cerr.Validation("Invalid filters: {0}", err)
 	}
 	if orderBy == "" && !hasAgg && a.GroupBy == "" {
 		sf, so := d.SortField, strings.ToUpper(d.SortOrder)
@@ -291,7 +291,7 @@ func (c *Ctx) GetList(doctype string, a ListArgs) ([]map[string]any, error) {
 	if a.GroupBy != "" {
 		g := col(a.GroupBy)
 		if g == "" {
-			return nil, cerr.Validation("groupBy desconhecido: %s", a.GroupBy)
+			return nil, cerr.Validation("Unknown groupBy: {0}", a.GroupBy)
 		}
 		sql += " GROUP BY " + g
 	}
@@ -404,12 +404,12 @@ func (c *Ctx) SetValue(doctype, name string, values Doc) error {
 func (c *Ctx) SQL(query string, params []any) ([]map[string]any, error) {
 	q := strings.TrimSpace(strings.ToLower(query))
 	if !strings.HasPrefix(q, "select") && !strings.HasPrefix(q, "with") {
-		return nil, cerr.Permission("ddcore.db.sql aceita apenas SELECT")
+		return nil, cerr.Permission("ddcore.db.sql only accepts SELECT")
 	}
 	if c.Tx == nil {
 		rows, err := db.Select(c.Ctx, c.Q(), query, params...)
 		if err != nil {
-			return nil, cerr.Validation("%s", err)
+			return nil, cerr.Validation("Invalid filters: {0}", err)
 		}
 		if rows == nil {
 			rows = []map[string]any{}
@@ -420,7 +420,7 @@ func (c *Ctx) SQL(query string, params []any) ([]map[string]any, error) {
 	sp := fmt.Sprintf("ddcore_ro%d", c.roSavepoint)
 	defer func() { c.roSavepoint-- }()
 	if _, err := c.Tx.Exec(c.Ctx, "SAVEPOINT "+sp); err != nil {
-		return nil, cerr.Validation("%s", err)
+		return nil, cerr.Validation("Invalid filters: {0}", err)
 	}
 	rollback := func() {
 		c.Tx.Exec(c.Ctx, "ROLLBACK TO SAVEPOINT "+sp)
@@ -428,12 +428,12 @@ func (c *Ctx) SQL(query string, params []any) ([]map[string]any, error) {
 	}
 	if _, err := c.Tx.Exec(c.Ctx, "SET LOCAL transaction_read_only = on"); err != nil {
 		rollback()
-		return nil, cerr.Validation("%s", err)
+		return nil, cerr.Validation("Invalid filters: {0}", err)
 	}
 	rows, err := db.Select(c.Ctx, c.Tx, query, params...)
 	rollback()
 	if err != nil {
-		return nil, cerr.Validation("%s", err)
+		return nil, cerr.Validation("Invalid filters: {0}", err)
 	}
 	if rows == nil {
 		rows = []map[string]any{}
@@ -445,10 +445,10 @@ func (c *Ctx) SQL(query string, params []any) ([]map[string]any, error) {
 // asks for the same key until the transaction ends.
 func (c *Ctx) Lock(key string) error {
 	if strings.TrimSpace(key) == "" {
-		return cerr.Validation("ddcore.db.lock: informe uma chave")
+		return cerr.Validation("ddcore.db.lock: provide a key")
 	}
 	if c.Tx == nil {
-		return cerr.Validation("ddcore.db.lock exige uma transação")
+		return cerr.Validation("ddcore.db.lock requires a transaction")
 	}
 	_, err := c.Tx.Exec(c.Ctx, "SELECT pg_advisory_xact_lock(hashtext($1))", key)
 	return err

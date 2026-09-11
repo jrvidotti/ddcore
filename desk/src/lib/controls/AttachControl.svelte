@@ -24,12 +24,12 @@
   {#if value}
     <a href={value} target="_blank" rel="noopener" title={String(value).split("/").pop()} style="font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{String(value).split("/").pop()}</a>
     {#if !readOnly && action === "replace"}
-      <label class="btn sm" style="cursor:pointer">{busy ? __("Enviando...") : __("Substituir")}<input type="file" style="display:none" onchange={pick} disabled={busy} /></label>
+      <label class="btn sm" style="cursor:pointer">{busy ? __("Uploading…") : __("Replace")}<input type="file" style="display:none" onchange={pick} disabled={busy} /></label>
     {:else if !readOnly && action === "remove"}
-      <button class="btn sm" onclick={() => onchange(null)}>{__("Remover")}</button>
+      <button class="btn sm" onclick={() => onchange(null)}>{__("Remove")}</button>
     {/if}
   {:else if !readOnly}
-    <label class="btn sm" style="cursor:pointer">{busy ? __("Enviando...") : __("Anexar")}<input type="file" style="display:none" onchange={pick} disabled={busy} /></label>
+    <label class="btn sm" style="cursor:pointer">{busy ? __("Uploading…") : __("Attach")}<input type="file" style="display:none" onchange={pick} disabled={busy} /></label>
   {:else}
     <span class="muted small">—</span>
   {/if}

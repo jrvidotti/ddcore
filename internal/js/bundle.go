@@ -47,7 +47,7 @@ func sdkPlugin() api.Plugin {
 		b.OnLoad(api.OnLoadOptions{Filter: `.*`, Namespace: "ddcore-sdk"}, func(a api.OnLoadArgs) (api.OnLoadResult, error) {
 			data, err := sdk.FS.ReadFile("src/" + a.Path)
 			if err != nil {
-				return api.OnLoadResult{}, fmt.Errorf("@ddcore/sdk: %s não existe", a.Path)
+				return api.OnLoadResult{}, fmt.Errorf("@ddcore/sdk: %s does not exist", a.Path)
 			}
 			s := string(data)
 			return api.OnLoadResult{Contents: &s, Loader: api.LoaderTS}, nil

@@ -27,28 +27,29 @@ import (
 	"github.com/jrvidotti/ddcore/internal/watch"
 )
 
-const usage = `ddcore — framework de aplicações (DocTypes em TypeScript, core em Go, PostgreSQL)
+const usage = `ddcore — an application framework (DocTypes in TypeScript, core in Go, PostgreSQL)
 
-Uso: ddcore <comando> [opções]
+Usage: ddcore <command> [options]
 
-  init        cria ddcore.json no diretório atual
-  new-app     cria um app: ddcore new-app <nome> [--dir apps/<nome>]
-  dev         servidor de desenvolvimento com hot-reload (porta do ddcore.json)
-  start       servidor de produção
-  migrate     aplica DDL, instala apps, roda patches (--dry-run, --prune)
-  types       gera .ddcore/types.d.ts em cada app
-  test        roda os *.test.ts (--filter regex, --app nome)
-  exec        executa uma função: ddcore exec app.services.mod.fn --args '{"a":1}'
-  eval        executa TS avulso: ddcore eval 'ddcore.db.count("User")' [--commit]
-  demo        popula dados de exemplo (<app>.services.demo.gerar, idempotente)
+  init        create ddcore.json in the current directory
+  new-app     create an app: ddcore new-app <name> [--dir apps/<name>]
+  dev         development server with hot reload (port from ddcore.json)
+  start       production server
+  migrate     apply DDL, install apps, run patches (--dry-run, --prune)
+  types       generate .ddcore/types.d.ts in every app
+  i18n        i18n extract — rewrite translations/<lang>.csv from the code
+  test        run the *.test.ts (--filter regex, --app name)
+  exec        run a function: ddcore exec app.services.mod.fn --args '{"a":1}'
+  eval        run loose TS: ddcore eval 'ddcore.db.count("User")' [--commit]
+  demo        seed example data (<app>.services.demo.generate, idempotent)
   jobs        jobs list | jobs run <fn> | jobs work
-  user        user add <email> <nome> [--password x] [--role R]... | user passwd <email>
-  apikey      apikey <usuario> [--label x]  → imprime key:secret
-  mcp         servidor MCP (stdio) para agentes
-  docs        imprime a documentação do framework
-  doctor      verifica banco, meta e scheduler
+  user        user add <email> <name> [--password x] [--role R]... | user passwd <email>
+  apikey      apikey <user> [--label x]  → prints key:secret
+  mcp         MCP server (stdio) for agents
+  docs        print the framework documentation
+  doctor      check the database, the meta and the scheduler
 
-Variáveis: DDCORE_DSN sobrescreve o dsn do ddcore.json.
+Variables: DDCORE_DSN overrides the dsn in ddcore.json.
 `
 
 func main() {
@@ -69,6 +70,8 @@ func main() {
 		err = cmdMigrate(args)
 	case "types":
 		err = cmdTypes(args)
+	case "i18n":
+		err = cmdI18n(args)
 	case "test":
 		err = cmdTest(args)
 	case "exec":
@@ -96,7 +99,7 @@ func main() {
 		os.Exit(2)
 	}
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "erro:", err)
+		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
 }
@@ -108,7 +111,7 @@ func load(test bool, dev bool) (*engine.Engine, *config.File, error) {
 		return nil, nil, err
 	}
 	if cfg.DSN == "" {
-		return nil, nil, fmt.Errorf("dsn não configurado: rode `ddcore init` ou defina DDCORE_DSN")
+		return nil, nil, fmt.Errorf("dsn not configured: run `ddcore init` or set DDCORE_DSN")
 	}
 	var apps []js.App
 	for _, dir := range cfg.Apps {
@@ -120,14 +123,14 @@ func load(test bool, dev bool) (*engine.Engine, *config.File, error) {
 	}
 	e, err := engine.New(context.Background(), engine.Config{
 		DSN: cfg.DSN, Apps: apps, Workers: cfg.Workers, Scheduler: cfg.Scheduler, Dev: dev || cfg.Dev, Test: test,
-		Port: cfg.Port, SiteName: cfg.Site, Lang: cfg.Lang, Currency: cfg.Currency, DataDir: cfg.DataDir, LogLevel: level,
+		Port: cfg.Port, SiteName: cfg.Site, Lang: cfg.Lang, Currency: cfg.Currency, Timezone: cfg.Timezone, DataDir: cfg.DataDir, LogLevel: level,
 	})
 	return e, cfg, err
 }
 
 func cmdInit(args []string) error {
 	fs := newFlagSet("init")
-	dsn := fs.String("dsn", "postgres://ddcore:ddcore@localhost:5432/ddcore?sslmode=disable", "conexão Postgres")
+	dsn := fs.String("dsn", "postgres://ddcore:ddcore@localhost:5432/ddcore?sslmode=disable", "Postgres connection")
 	port := fs.Int("port", 8080, "porta HTTP")
 	if err := parseFlags(fs, args); err != nil {
 		return err
@@ -137,7 +140,7 @@ func cmdInit(args []string) error {
 	if _, err := os.Stat(config.Name); err == nil {
 		cur, path, err := config.Load(".")
 		if err != nil {
-			return fmt.Errorf("%s existe mas não pôde ser lido: %w", config.Name, err)
+			return fmt.Errorf("%s exists but could not be read: %w", config.Name, err)
 		}
 		changed := false
 		fs.Visit(func(f *flag.Flag) {
@@ -149,7 +152,7 @@ func cmdInit(args []string) error {
 			}
 		})
 		if !changed {
-			fmt.Printf("%s já existe — nada a fazer (use --dsn/--port para atualizar)\n", config.Name)
+			fmt.Printf("%s already exists — nothing to do (use --dsn/--port to update)\n", config.Name)
 			return nil
 		}
 		if err := cur.Save(path); err != nil {
@@ -158,18 +161,18 @@ func cmdInit(args []string) error {
 		fmt.Println("atualizado", path)
 		return nil
 	}
-	f := &config.File{DSN: *dsn, Port: *port, Workers: 2, Scheduler: false, Site: "ddcore", Lang: "pt-BR", Currency: "BRL", Apps: []string{}, Dev: true}
+	f := &config.File{DSN: *dsn, Port: *port, Workers: 2, Scheduler: false, Site: "ddcore", Lang: "pt-BR", Currency: "BRL", Timezone: "UTC", Apps: []string{}, Dev: true}
 	if err := f.Save(config.Name); err != nil {
 		return err
 	}
-	fmt.Println("criado", config.Name, "— agora: ddcore new-app <nome> && ddcore migrate && ddcore dev")
+	fmt.Println("created", config.Name, "— now: ddcore new-app <name> && ddcore migrate && ddcore dev")
 	return nil
 }
 
 func cmdNewApp(args []string) error {
 	fs := newFlagSet("new-app")
-	dir := fs.String("dir", "", "diretório (padrão apps/<nome>)")
-	title := fs.String("title", "", "título")
+	dir := fs.String("dir", "", "directory (defaults to apps/<name>)")
+	title := fs.String("title", "", "title")
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
@@ -198,7 +201,7 @@ func cmdNewApp(args []string) error {
 			return err
 		}
 	}
-	fmt.Printf("app %s criado em %s\n", name, *dir)
+	fmt.Printf("app %s created at %s\n", name, *dir)
 	return nil
 }
 
@@ -223,7 +226,7 @@ func cmdServe(args []string, dev bool) error {
 			return err
 		}
 	} else if plan, _ := e.Plan(ctx, false); len(plan) > 0 {
-		e.Log.Warn("há DDL pendente — rode `ddcore migrate`", "statements", len(plan))
+		e.Log.Warn("there is pending DDL — run `ddcore migrate`", "statements", len(plan))
 	}
 	srv := api.New(e, desk.FS())
 	if dev {
@@ -239,7 +242,7 @@ func cmdServe(args []string, dev bool) error {
 		cr := e.StartScheduler(ctx)
 		defer cr.Stop()
 	} else {
-		e.Log.Warn("scheduler desabilitado (scheduler: false no ddcore.json)")
+		e.Log.Warn("scheduler disabled (scheduler: false in ddcore.json)")
 	}
 	if dev {
 		go watch.Apps(ctx, e, func() {
@@ -275,8 +278,8 @@ func cmdServe(args []string, dev bool) error {
 
 func cmdMigrate(args []string) error {
 	fs := newFlagSet("migrate")
-	dry := fs.Bool("dry-run", false, "só imprime o DDL")
-	prune := fs.Bool("prune", false, "dropa colunas/tabelas que não estão mais na meta")
+	dry := fs.Bool("dry-run", false, "only print the DDL")
+	prune := fs.Bool("prune", false, "drop columns and tables the meta no longer has")
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
@@ -355,7 +358,7 @@ func cmdTest(args []string) error {
 			}
 		}
 		if !found {
-			return fmt.Errorf("app não carregado: %s", *app)
+			return fmt.Errorf("app not loaded: %s", *app)
 		}
 	}
 	ctx := context.Background()
@@ -380,7 +383,7 @@ func cmdTest(args []string) error {
 			fmt.Printf("       em %s\n", r.File)
 		}
 	}
-	fmt.Printf("%d testes, %d falhas\n", len(results), failed)
+	fmt.Printf("%d tests, %d failures\n", len(results), failed)
 	if failed > 0 {
 		os.Exit(1)
 	}
@@ -415,7 +418,7 @@ func cmdExec(args []string) error {
 
 func cmdEval(args []string) error {
 	fs := newFlagSet("eval")
-	commit := fs.Bool("commit", false, "grava a transação (padrão: rollback)")
+	commit := fs.Bool("commit", false, "commit the transaction (default: rollback)")
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
@@ -451,10 +454,10 @@ func readAll(f *os.File) (string, error) {
 	return b.String(), sc.Err()
 }
 
-// cmdDemo runs `<app>.services.demo.gerar` for every app that whitelists it.
+// cmdDemo runs `<app>.services.demo.generate` for every app that whitelists it.
 func cmdDemo(args []string) error {
 	fs := newFlagSet("demo")
-	app := fs.String("app", "", "só este app (padrão: todos que tiverem demo)")
+	app := fs.String("app", "", "only this app (default: every app that has a demo)")
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
@@ -468,14 +471,14 @@ func cmdDemo(args []string) error {
 		if *app != "" && name != *app {
 			continue
 		}
-		// `gerar` não precisa ser whitelisted (roda como Administrator), então
+		// `generate` does not need to ser whitelisted (roda como Administrator), então
 		// a existência do app se verifica pelo arquivo
 		if dir := e.AppDir(name); dir == "" {
 			continue
 		} else if _, err := os.Stat(filepath.Join(dir, "services", "demo.ts")); err != nil {
 			continue
 		}
-		method := name + ".services.demo.gerar"
+		method := name + ".services.demo.generate"
 		res, err := e.RunJob(context.Background(), "Administrator", method, nil)
 		if err != nil {
 			return fmt.Errorf("%s: %w", method, err)
@@ -484,7 +487,7 @@ func cmdDemo(args []string) error {
 		ran++
 	}
 	if ran == 0 {
-		return fmt.Errorf("nenhum app tem `services/demo.ts`")
+		return fmt.Errorf("no app has `services/demo.ts`")
 	}
 	return nil
 }
@@ -524,7 +527,7 @@ func cmdJobs(args []string) error {
 		}
 		<-ctx.Done()
 	default:
-		return fmt.Errorf("subcomando desconhecido: %s", args[0])
+		return fmt.Errorf("unknown subcommand: %s", args[0])
 	}
 	return nil
 }
@@ -544,7 +547,7 @@ func cmdUser(args []string) error {
 		fs := newFlagSet("user add")
 		pw := fs.String("password", "", "senha")
 		var roles multi
-		fs.Var(&roles, "role", "papel (repetível)")
+		fs.Var(&roles, "role", "role (repeatable)")
 		if err := parseFlags(fs, args[1:]); err != nil {
 			return err
 		}
@@ -563,20 +566,20 @@ func cmdUser(args []string) error {
 			doc["roles"] = rs
 			_, err = c.Insert(doc, engine.SaveOpts{IgnorePermissions: true})
 			if err == nil {
-				fmt.Println("usuário criado:", fs.Arg(0))
+				fmt.Println("user created:", fs.Arg(0))
 			}
 			return err
 		})
 	case "passwd":
 		if len(args) < 3 {
-			return fmt.Errorf("uso: ddcore user passwd <email> <senha>")
+			return fmt.Errorf("usage: ddcore user passwd <email> <password>")
 		}
 		if err := e.SetPassword(ctx, args[1], args[2]); err != nil {
 			return err
 		}
-		fmt.Println("senha alterada")
+		fmt.Println("password changed")
 	default:
-		return fmt.Errorf("subcomando desconhecido: %s", args[0])
+		return fmt.Errorf("unknown subcommand: %s", args[0])
 	}
 	return nil
 }
@@ -588,7 +591,7 @@ func (m *multi) Set(s string) error { *m = append(*m, s); return nil }
 
 func cmdAPIKey(args []string) error {
 	fs := newFlagSet("apikey")
-	label := fs.String("label", "cli", "descrição")
+	label := fs.String("label", "cli", "description")
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
@@ -631,14 +634,14 @@ func cmdDoctor(args []string) error {
 	}
 	defer e.DB.Close()
 	ctx := context.Background()
-	fmt.Println("banco:      ok")
+	fmt.Println("database:   ok")
 	fmt.Printf("apps:       %v\n", e.AppOrder())
 	fmt.Printf("doctypes:   %d\n", len(e.Meta.DocTypes))
 	plan, err := e.Plan(ctx, false)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("migrate:    %d statements pendentes\n", len(plan))
+	fmt.Printf("migrate:    %d pending statement(s)\n", len(plan))
 	fmt.Printf("scheduler:  %v\n", cfg.Scheduler)
 	fmt.Printf("workers:    %d\n", cfg.Workers)
 	return nil

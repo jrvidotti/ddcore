@@ -93,8 +93,18 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	json.NewEncoder(w).Encode(v)
 }
 
-func writeErr(w http.ResponseWriter, err error) {
+// writeErr is the border: the one place a typed error becomes a response, and
+// therefore the one place it gets translated. Only an error that still knows
+// its key is translated — an error raised inside the JS runtime as
+// `ddcore.throw(_("…"))` was already translated there and arrives with none.
+func (s *Server) writeErr(w http.ResponseWriter, r *http.Request, err error) {
 	e := cerr.From(err)
+	if e.Key != "" {
+		lang := s.langFor(r)
+		e = e.Translate(func(key string, args ...any) string {
+			return s.E.Current().I18n.T(lang, key, args...)
+		})
+	}
 	status := e.Status
 	if status == 0 {
 		status = 500
@@ -119,16 +129,14 @@ func (s *Server) run(w http.ResponseWriter, r *http.Request, fn func(c *engine.C
 	var out any
 	c := s.E.NewCtx(r.Context(), user(r))
 	c.Request = map[string]any{"method": r.Method, "path": r.URL.Path, "ip": r.RemoteAddr}
-	if l := r.Header.Get("X-Lang"); l != "" {
-		c.Lang = l
-	}
+	c.Lang = s.langFor(r)
 	err := c.Run(func(c *engine.Ctx) error {
 		var e error
 		out, e = fn(c)
 		return e
 	})
 	if err != nil {
-		writeErr(w, err)
+		s.writeErr(w, r, err)
 		return
 	}
 	writeJSON(w, 200, response{Data: out, Messages: c.Messages})
@@ -139,26 +147,27 @@ func (s *Server) run(w http.ResponseWriter, r *http.Request, fn func(c *engine.C
 func (s *Server) runCached(w http.ResponseWriter, r *http.Request, fn func(c *engine.Ctx) (any, error)) {
 	var out any
 	c := s.E.NewCtx(r.Context(), user(r))
-	if l := r.Header.Get("X-Lang"); l != "" {
-		c.Lang = l
-	}
+	c.Lang = s.langFor(r)
 	err := c.Run(func(c *engine.Ctx) error {
 		var e error
 		out, e = fn(c)
 		return e
 	})
 	if err != nil {
-		writeErr(w, err)
+		s.writeErr(w, r, err)
 		return
 	}
 	body, err := json.Marshal(response{Data: out, Messages: c.Messages})
 	if err != nil {
-		writeErr(w, err)
+		s.writeErr(w, r, err)
 		return
 	}
 	etag := fmt.Sprintf("%q", "sha256-"+hex.EncodeToString(sha256Sum(body)))
 	w.Header().Set("ETag", etag)
 	w.Header().Set("Cache-Control", "private, no-cache")
+	// the body is translated, so the ETag varies by language: say so, or a
+	// proxy (or the BFCache) can hand back the wrong variant.
+	w.Header().Set("Vary", "X-Lang")
 	for _, m := range strings.Split(r.Header.Get("If-None-Match"), ",") {
 		if strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(m), "W/")) == etag {
 			w.WriteHeader(http.StatusNotModified)
@@ -187,7 +196,7 @@ func readJSON(r *http.Request, v any) error {
 		return nil
 	}
 	if err := json.Unmarshal(b, v); err != nil {
-		return cerr.Validation("JSON inválido: %v", err)
+		return cerr.Validation("Invalid JSON: {0}", err)
 	}
 	return nil
 }
@@ -199,7 +208,7 @@ func queryJSON(r *http.Request, key string) (any, error) {
 	}
 	var v any
 	if err := json.Unmarshal([]byte(s), &v); err != nil {
-		return nil, cerr.Validation("%s inválido: %v", key, err)
+		return nil, cerr.Validation("Invalid {0}: {1}", key, err)
 	}
 	return v, nil
 }
@@ -212,7 +221,7 @@ func (s *Server) auth(next http.Handler) http.Handler {
 		if h := r.Header.Get("Authorization"); strings.HasPrefix(strings.ToLower(h), "token ") {
 			u, _ = s.E.UserFromAPIKey(r.Context(), strings.TrimSpace(h[6:]))
 			if u == "" {
-				writeErr(w, cerr.Auth("Chave de API inválida"))
+				s.writeErr(w, r, cerr.Auth("Invalid API key"))
 				return
 			}
 		} else if ck, err := r.Cookie("sid"); err == nil {
@@ -220,7 +229,7 @@ func (s *Server) auth(next http.Handler) http.Handler {
 			// CSRF: state-changing requests with cookie auth need the header
 			if u != "" && r.Method != "GET" && r.Method != "HEAD" && !strings.HasPrefix(r.URL.Path, "/api/login") {
 				if r.Header.Get("X-DDCore-CSRF") == "" && r.Header.Get("X-Requested-With") == "" {
-					writeErr(w, cerr.Permission("Requisição sem cabeçalho CSRF"))
+					s.writeErr(w, r, cerr.Permission("Request without a CSRF header"))
 					return
 				}
 			}
@@ -240,25 +249,25 @@ func (s *Server) RequireAdminAPIKey(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h := r.Header.Get("Authorization")
 		if !strings.HasPrefix(strings.ToLower(h), "token ") {
-			writeErr(w, cerr.Auth("Este endpoint exige uma chave de API (Authorization: token chave:segredo)"))
+			s.writeErr(w, r, cerr.Auth("This endpoint requires an API key (Authorization: token key:secret)"))
 			return
 		}
 		u, err := s.E.UserFromAPIKey(r.Context(), strings.TrimSpace(h[6:]))
 		if err != nil {
-			writeErr(w, err)
+			s.writeErr(w, r, err)
 			return
 		}
 		if u == "" || u == "Guest" {
-			writeErr(w, cerr.Auth("Chave de API inválida"))
+			s.writeErr(w, r, cerr.Auth("Invalid API key"))
 			return
 		}
 		roles, err := s.E.NewCtx(r.Context(), u).RolesOf(u)
 		if err != nil {
-			writeErr(w, err)
+			s.writeErr(w, r, err)
 			return
 		}
 		if u != "Administrator" && !containsFold(roles, "System Manager") {
-			writeErr(w, cerr.Permission("Este endpoint exige o papel System Manager"))
+			s.writeErr(w, r, cerr.Permission("This endpoint requires the System Manager role"))
 			return
 		}
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), userKey, u)))
@@ -270,7 +279,7 @@ func (s *Server) RequireAdminAPIKey(next http.Handler) http.Handler {
 func (s *Server) requireLogin(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if user(r) == "Guest" {
-			writeErr(w, cerr.Auth("Faça login para continuar"))
+			s.writeErr(w, r, cerr.Auth("Sign in to continue"))
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -292,7 +301,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		Pwd string `json:"pwd"`
 	}
 	if err := readJSON(r, &body); err != nil {
-		writeErr(w, err)
+		s.writeErr(w, r, err)
 		return
 	}
 	if body.Usr == "" {
@@ -300,9 +309,10 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 	}
 	sid, err := s.E.Login(r.Context(), body.Usr, body.Pwd)
 	if err != nil {
-		writeErr(w, err)
+		s.writeErr(w, r, err)
 		return
 	}
+	s.E.Cache.Del("lang:" + body.Usr)
 	http.SetCookie(w, &http.Cookie{Name: "sid", Value: sid, Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: 30 * 24 * 3600})
 	writeJSON(w, 200, map[string]any{"data": map[string]any{"ok": true}})
 }
@@ -324,16 +334,27 @@ func (s *Server) boot(w http.ResponseWriter, r *http.Request) {
 		var userDoc map[string]any
 		if c.User != "Guest" {
 			userDoc, _ = c.GetValues("User", c.User, []string{"name", "full_name", "language", "user_type"})
+			// the only place that reads User.language: cache it here so
+			// langFor never has to touch the database, and honour it now —
+			// the payload below is built after this point, so the boot
+			// itself already comes back in the user's language.
+			if l, _ := userDoc["language"].(string); l != "" && s.E.Current().I18n.HasLang(l) {
+				if r.Header.Get("X-Lang") == "" {
+					c.Lang = l
+				}
+				s.E.Cache.Set("lang:"+c.User, l, langCacheTTL)
+			}
 		}
 		var apps []map[string]any
 		var workspaces []map[string]any
 		for _, name := range s.E.AppOrder() {
 			a := s.E.Snap.Apps[name]
-			apps = append(apps, map[string]any{"name": a.Name, "title": a.Title, "desk": a.Desk, "hasDeskInclude": len(deskIncludes(a)) > 0})
+			apps = append(apps, map[string]any{"name": a.Name, "title": c.T(a.Title), "desk": a.Desk, "hasDeskInclude": len(deskIncludes(a)) > 0})
 		}
-		for _, ws := range s.E.Snap.Workspaces {
+		st := c.St
+		for _, ws := range st.Snap.Workspaces {
 			if allowed(ws["roles"], roles) {
-				workspaces = append(workspaces, ws)
+				workspaces = append(workspaces, st.TranslateStringMap(ws, c.Lang))
 			}
 		}
 		doctypes := map[string]any{}
@@ -343,19 +364,19 @@ func (s *Server) boot(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			if ok, _ := c.HasPermission(n, "read", nil); ok {
-				doctypes[n] = map[string]any{"label": d.Label, "app": d.App, "icon": d.Icon, "module": d.Module, "titleField": d.TitleField}
+				doctypes[n] = map[string]any{"label": c.T(d.Label), "app": d.App, "icon": d.Icon, "module": d.Module, "titleField": d.TitleField}
 			}
 		}
 		reports := map[string]any{}
 		for n, rep := range s.E.Snap.Reports {
 			if allowed(rep["roles"], roles) {
-				reports[n] = map[string]any{"label": orStr(rep["label"], n), "refDoctype": rep["refDoctype"], "app": rep["app"]}
+				reports[n] = map[string]any{"label": c.T(orStr(rep["label"], n)), "refDoctype": rep["refDoctype"], "app": rep["app"]}
 			}
 		}
 		return map[string]any{
 			"user": c.User, "roles": roles, "userDoc": userDoc, "lang": c.Lang, "apps": apps,
 			"workspaces": workspaces, "doctypes": doctypes, "reports": reports,
-			"site":   map[string]any{"name": s.E.Cfg.SiteName, "currency": s.E.Cfg.Currency, "dev": s.E.Cfg.Dev, "scheduler": s.E.Cfg.Scheduler, "version": "0.1.0"},
+			"site":   map[string]any{"name": s.E.Cfg.SiteName, "currency": s.E.Cfg.Currency, "timezone": s.E.Cfg.Timezone, "dev": s.E.Cfg.Dev, "scheduler": s.E.Cfg.Scheduler, "version": "0.1.0"},
 			"loaded": s.E.Loaded.UnixMilli(),
 		}, nil
 	})
@@ -394,11 +415,13 @@ func (s *Server) getMeta(w http.ResponseWriter, r *http.Request) {
 			return nil, err
 		}
 		if ok, _ := c.HasPermission(d.Name, "read", nil); !ok && !d.IsChild {
-			return nil, cerr.Permission("Sem permissão para %s", d.Label)
+			return nil, cerr.Permission("No permission for {0}", d.Label)
 		}
+		st := c.St
 		childMeta := map[string]*meta.DocType{}
 		for _, tf := range d.TableFields() {
-			childMeta[tf.OptionsString()], _ = s.E.DocType(tf.OptionsString())
+			cd, _ := s.E.DocType(tf.OptionsString())
+			childMeta[tf.OptionsString()] = st.TranslateDocType(cd, c.Lang)
 		}
 		linkTitles := map[string]string{}
 		for _, f := range d.Fields {
@@ -419,16 +442,19 @@ func (s *Server) getMeta(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-		return map[string]any{"doctype": d, "children": childMeta, "permissions": c.Permissions(d), "series": engine.SeriesOptions(d), "linkTitles": linkTitles}, nil
+		// permissions and series are computed from the canonical DocType; the
+		// payload carries the translated copy.
+		return map[string]any{"doctype": st.TranslateDocType(d, c.Lang), "children": childMeta, "permissions": c.Permissions(d), "series": engine.SeriesOptions(d), "linkTitles": linkTitles}, nil
 	})
 }
 
 func (s *Server) translations(w http.ResponseWriter, r *http.Request) {
 	lang := r.URL.Query().Get("lang")
 	if lang == "" {
-		lang = s.E.Cfg.Lang
+		lang = s.langFor(r)
 	}
-	writeJSON(w, 200, map[string]any{"data": s.E.I18n.Catalogue(lang)})
+	w.Header().Set("Vary", "X-Lang")
+	writeJSON(w, 200, map[string]any{"data": s.E.Current().I18n.Catalogue(lang)})
 }
 
 // ------------------------------------------------------------------ resources
@@ -520,7 +546,7 @@ func (s *Server) childGuard(doctype string) error {
 		return err
 	}
 	if d.IsChild {
-		return cerr.Validation("%s é uma tabela filha: edite pelo documento pai", d.Label)
+		return cerr.Validation("{0} is a child table: edit it through the parent document", d.Label)
 	}
 	return nil
 }
@@ -624,7 +650,7 @@ func (s *Server) docMethod(w http.ResponseWriter, r *http.Request) {
 			return nil, err
 		}
 		if !contains(d.Methods, m) {
-			return nil, cerr.NotFound("Método %s não existe em %s", m, dt)
+			return nil, cerr.NotFound("Method {0} does not exist on {1}", m, dt)
 		}
 		doc, err := c.GetDoc(dt, name)
 		if err != nil {
@@ -657,11 +683,11 @@ func (s *Server) method(w http.ResponseWriter, r *http.Request) {
 	path := chi.URLParam(r, "path")
 	opts, ok := s.E.Whitelisted(path)
 	if !ok {
-		writeErr(w, cerr.NotFound("Método %s não existe ou não é whitelisted", path))
+		s.writeErr(w, r, cerr.NotFound("Method {0} does not exist or is not whitelisted", path))
 		return
 	}
 	if user(r) == "Guest" && opts["allowGuest"] != true {
-		writeErr(w, cerr.Auth("Faça login para continuar"))
+		s.writeErr(w, r, cerr.Auth("Sign in to continue"))
 		return
 	}
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
@@ -681,7 +707,7 @@ func (s *Server) method(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			if !has && c.User != "Administrator" {
-				return nil, cerr.Permission("Sem permissão para %s", path)
+				return nil, cerr.Permission("No permission for {0}", path)
 			}
 		}
 		rt, err := c.RT()
@@ -748,7 +774,7 @@ var referenceFields = map[string][2]string{
 // columns the permission rules need.
 func (s *Server) requireDocRead(c *engine.Ctx, doctype, name string) error {
 	if doctype == "" || name == "" {
-		return cerr.Permission("Informe o documento de referência")
+		return cerr.Permission("Provide the reference document")
 	}
 	d, err := s.E.DocType(doctype)
 	if err != nil {
@@ -759,14 +785,14 @@ func (s *Server) requireDocRead(c *engine.Ctx, doctype, name string) error {
 		return err
 	}
 	if vals == nil {
-		return cerr.NotFound("%s %s não encontrado", c.T(d.Label), name)
+		return cerr.NotFound("{0} {1} not found", c.T(d.Label), name)
 	}
 	ok, err := c.HasPermission(doctype, "read", engine.Doc(vals))
 	if err != nil {
 		return err
 	}
 	if !ok {
-		return cerr.Permission("Sem permissão para ler %s %s", c.T(d.Label), name)
+		return cerr.Permission("No permission to read {0} {1}", c.T(d.Label), name)
 	}
 	return nil
 }
@@ -783,7 +809,7 @@ func (s *Server) referenceGuard(c *engine.Ctx, doctype string, filters any) erro
 	}
 	fs, err := db.ParseFilters(filters)
 	if err != nil {
-		return cerr.Validation("%s", err)
+		return cerr.Validation("Invalid filters: {0}", err)
 	}
 	var refDoctype, refName string
 	for _, f := range fs {
@@ -798,7 +824,7 @@ func (s *Server) referenceGuard(c *engine.Ctx, doctype string, filters any) erro
 		}
 	}
 	if refDoctype == "" || refName == "" {
-		return cerr.Permission("Filtre %s por %s e %s", doctype, pair[0], pair[1])
+		return cerr.Permission("Filter {0} by {1} and {2}", doctype, pair[0], pair[1])
 	}
 	return s.requireDocRead(c, refDoctype, refName)
 }
@@ -828,17 +854,17 @@ func (s *Server) report(w http.ResponseWriter, r *http.Request) {
 		name := chi.URLParam(r, "name")
 		rep, ok := s.E.Snap.Reports[name]
 		if !ok {
-			return nil, cerr.NotFound("Relatório %s não existe", name)
+			return nil, cerr.NotFound("Report {0} does not exist", name)
 		}
 		roles, _ := c.Roles()
 		if !allowed(rep["roles"], roles) && c.User != "Administrator" {
-			return nil, cerr.Permission("Sem permissão para o relatório %s", name)
+			return nil, cerr.Permission("No permission for report {0}", name)
 		}
 		if ref, _ := rep["refDoctype"].(string); ref != "" {
 			if ok, err := c.HasPermission(ref, "report", nil); err != nil {
 				return nil, err
 			} else if !ok {
-				return nil, cerr.Permission("Sem permissão de relatório em %s", ref)
+				return nil, cerr.Permission("No report permission on {0}", ref)
 			}
 		}
 		filters, err := queryJSON(r, "filters")
@@ -857,7 +883,10 @@ func (s *Server) report(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, err
 		}
-		return map[string]any{"meta": rep, "result": res}, nil
+		// the report's own label and its filters' labels come from the
+		// snapshot; the result's columns come from execute(), which already
+		// went through _() inside the runtime.
+		return map[string]any{"meta": c.St.TranslateStringMap(rep, c.Lang), "result": res}, nil
 	})
 }
 
@@ -878,7 +907,7 @@ func (s *Server) numberCard(w http.ResponseWriter, r *http.Request) {
 				if ok, err := c.HasPermission(dt, "read", nil); err != nil {
 					return nil, err
 				} else if !ok {
-					return nil, cerr.Permission("Sem permissão para %s", dt)
+					return nil, cerr.Permission("No permission for {0}", dt)
 				}
 				agg := orStr(card["aggregate"], "count")
 				field := "count(*) as value"
@@ -901,7 +930,7 @@ func (s *Server) numberCard(w http.ResponseWriter, r *http.Request) {
 			}
 			return rt.NumberCard(wsName, cardName)
 		}
-		return nil, cerr.NotFound("Card %s não existe", cardName)
+		return nil, cerr.NotFound("Card {0} does not exist", cardName)
 	})
 }
 
@@ -924,14 +953,14 @@ func (s *Server) chart(w http.ResponseWriter, r *http.Request) {
 func (s *Server) workspace(c *engine.Ctx, name string) (map[string]any, error) {
 	ws, ok := s.E.Snap.Workspaces[name]
 	if !ok {
-		return nil, cerr.NotFound("Workspace %s não existe", name)
+		return nil, cerr.NotFound("Workspace {0} does not exist", name)
 	}
 	roles, err := c.Roles()
 	if err != nil {
 		return nil, err
 	}
 	if !allowed(ws["roles"], roles) && c.User != "Administrator" {
-		return nil, cerr.Permission("Sem permissão para o workspace %s", name)
+		return nil, cerr.Permission("No permission for workspace {0}", name)
 	}
 	return ws, nil
 }
@@ -941,7 +970,7 @@ func (s *Server) workspace(c *engine.Ctx, name string) (map[string]any, error) {
 func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 	fl, ok := w.(http.Flusher)
 	if !ok {
-		http.Error(w, "SSE não suportado", 500)
+		http.Error(w, "SSE not supported", 500)
 		return
 	}
 	w.Header().Set("Content-Type", "text/event-stream")
@@ -1006,7 +1035,7 @@ func (s *Server) dataDir() string {
 func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
 		if c.User == "Guest" {
-			return nil, cerr.Auth("Faça login para enviar arquivos")
+			return nil, cerr.Auth("Sign in to upload files")
 		}
 		max := s.MaxUpload
 		if max <= 0 {
@@ -1014,11 +1043,11 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 		}
 		r.Body = http.MaxBytesReader(w, r.Body, max)
 		if err := r.ParseMultipartForm(max); err != nil {
-			return nil, cerr.Validation("upload inválido: %v", err)
+			return nil, cerr.Validation("Invalid upload: {0}", err)
 		}
 		f, hdr, err := r.FormFile("file")
 		if err != nil {
-			return nil, cerr.Validation("campo file ausente")
+			return nil, cerr.Validation("Missing file field")
 		}
 		defer f.Close()
 		private := r.FormValue("is_private") != "0"
@@ -1093,7 +1122,7 @@ func (s *Server) file(w http.ResponseWriter, r *http.Request) {
 // document it is attached to (or its owner / System Manager when detached).
 func (s *Server) privateFile(w http.ResponseWriter, r *http.Request) {
 	if user(r) == "Guest" {
-		writeErr(w, cerr.Auth("Faça login"))
+		s.writeErr(w, r, cerr.Auth("Sign in to continue"))
 		return
 	}
 	allowed := false
@@ -1114,11 +1143,11 @@ func (s *Server) privateFile(w http.ResponseWriter, r *http.Request) {
 		return nil
 	})
 	if err != nil {
-		writeErr(w, err)
+		s.writeErr(w, r, err)
 		return
 	}
 	if !allowed {
-		writeErr(w, cerr.Permission("Sem permissão para este arquivo"))
+		s.writeErr(w, r, cerr.Permission("No permission for this file"))
 		return
 	}
 	serveUpload(w, r, "/private/files/", filepath.Join(s.dataDir(), "files", "private"))
@@ -1234,7 +1263,7 @@ func (s *Server) deskHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if strings.HasPrefix(r.URL.Path, "/api/") {
-		writeErr(w, cerr.NotFound("rota %s não existe", r.URL.Path))
+		s.writeErr(w, r, cerr.NotFound("Route {0} does not exist", r.URL.Path))
 		return
 	}
 	p := strings.TrimPrefix(r.URL.Path, "/")

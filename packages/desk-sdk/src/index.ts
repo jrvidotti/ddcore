@@ -94,7 +94,18 @@ export interface DeskAPI {
     showError(e: any): void;
     toast(message: string, opts?: { title?: string; indicator?: string; timeout?: number }): void;
   };
-  format: { currency(v: any): string; date(v: any): string; number(v: any, precision?: number): string; value(v: any, field?: Partial<FieldDef>): string };
+  format: {
+    currency(v: any): string;
+    date(v: any): string;
+    number(v: any, precision?: number): string;
+    value(v: any, field?: Partial<FieldDef>): string;
+    /**
+     * Indicator colour for a status value: the field's `optionColors` first,
+     * then the framework's canonical statuses, then a stable hash. Pass the
+     * field so a declared colour wins.
+     */
+    statusColor(v: string, field?: Partial<FieldDef>): string;
+  };
   datetime: { today(): string; addMonths(d: string, n: number): string; addDays(d: string, n: number): string; monthStart(d?: string): string; monthEnd(d?: string): string };
   meta(doctype: string): Promise<any>;
   route(path: string): Promise<void>;

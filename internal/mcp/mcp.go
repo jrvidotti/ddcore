@@ -28,7 +28,7 @@ func Docs(name string) string {
 	}
 	b, err := fs.ReadFile(docs.FS, "agent/"+name+".md")
 	if err != nil {
-		return "documento não encontrado: " + name
+		return "document not found: " + name
 	}
 	return string(b)
 }
@@ -73,7 +73,7 @@ func fail(err error) (*mcp.CallToolResult, any, error) {
 		msg += "\nDica: erro no TS do app; veja o stack acima e corrija o arquivo."
 	}
 	if strings.Contains(msg, "column") && strings.Contains(msg, "does not exist") {
-		msg += "\nDica: há coluna pendente — rode a tool migrate."
+		msg += "\nHint: a column is pending — run the migrate tool."
 	}
 	return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: msg}}}, nil, nil
 }
@@ -83,8 +83,8 @@ func New(e *engine.Engine) *mcp.Server {
 	s := &server{e: e}
 	srv := mcp.NewServer(&mcp.Implementation{Name: "ddcore", Version: "0.1.0"}, &mcp.ServerOptions{
 		Instructions: "Servidor de desenvolvimento do framework ddcore. Comece lendo o resource ddcore://docs/index. " +
-			"Fluxo típico: get_doctype / scaffold_doctype → migrate → insert_doc / list_docs → run_tests. " +
-			"Os arquivos TS do app são a fonte de verdade: edite-os e o servidor recarrega.",
+			"Typical flow: get_doctype / scaffold_doctype → migrate → insert_doc / list_docs → run_tests. " +
+			"The app's TS files are the source of truth: edit them and the server reloads.",
 	})
 
 	// ---- meta
@@ -103,7 +103,7 @@ func New(e *engine.Engine) *mcp.Server {
 			return text(out), nil, nil
 		})
 
-	mcp.AddTool(srv, &mcp.Tool{Name: "get_doctype", Description: "Meta completa de um DocType (campos, permissões, naming, métodos do controller, caminho do arquivo)."},
+	mcp.AddTool(srv, &mcp.Tool{Name: "get_doctype", Description: "The full meta of a DocType (fields, permissions, naming, controller methods, source path)."},
 		func(ctx context.Context, req *mcp.CallToolRequest, in struct {
 			Name string `json:"name" jsonschema:"nome do DocType"`
 		}) (*mcp.CallToolResult, any, error) {
@@ -124,19 +124,19 @@ func New(e *engine.Engine) *mcp.Server {
 
 	mcp.AddTool(srv, &mcp.Tool{Name: "scaffold_doctype", Description: "Cria os arquivos de um DocType novo num app (doctype.ts e, opcionalmente, controller/form/test). Depois rode migrate. Fieldtypes: Data, Email, Small Text, Text, Text Editor, Int, Float, Currency, Percent, Check, Date, Datetime, Time, Select (options: lista), Link (options: DocType), Dynamic Link (options: campo com o DocType), Table (options: DocType filho), Attach, JSON, Section Break, Column Break, Tab Break, HTML."},
 		func(ctx context.Context, req *mcp.CallToolRequest, in struct {
-			App  string               `json:"app" jsonschema:"nome do app (diretório)"`
-			Spec scaffold.DoctypeSpec `json:"spec" jsonschema:"definição do DocType"`
+			App  string               `json:"app" jsonschema:"app name (directory)"`
+			Spec scaffold.DoctypeSpec `json:"spec" jsonschema:"DocType definition"`
 		}) (*mcp.CallToolResult, any, error) {
 			app := e.App(in.App)
 			if app.Name == "" || app.Embedded != nil {
-				return fail(cerr.NotFound("app %s não existe (apps: %v)", in.App, e.AppOrder()))
+				return fail(cerr.NotFound("app {0} does not exist (apps: {1})", in.App, e.AppOrder()))
 			}
 			files, err := scaffold.Doctype(app.Dir, app.Name, in.Spec)
 			if err != nil {
 				return fail(err)
 			}
 			if err := e.Load(); err != nil {
-				return fail(fmt.Errorf("arquivos criados (%v) mas a meta ficou inválida: %w", files, err))
+				return fail(fmt.Errorf("files created (%v) but the meta is invalid: %w", files, err))
 			}
 			return text(map[string]any{"files": files, "next": "rode migrate para criar a tabela"}), nil, nil
 		})
@@ -149,7 +149,7 @@ func New(e *engine.Engine) *mcp.Server {
 			return text(map[string]any{"ok": true, "doctypes": len(e.Meta.DocTypes), "whitelisted": e.WhitelistedPaths()}), nil, nil
 		})
 
-	mcp.AddTool(srv, &mcp.Tool{Name: "migrate", Description: "Aplica o DDL pendente, instala apps novas e roda patches. Com dry_run só mostra o SQL."},
+	mcp.AddTool(srv, &mcp.Tool{Name: "migrate", Description: "Applies the pending DDL, installs new apps and runs patches. With dry_run it only prints the SQL."},
 		func(ctx context.Context, req *mcp.CallToolRequest, in struct {
 			DryRun bool `json:"dry_run,omitempty"`
 			Prune  bool `json:"prune,omitempty" jsonschema:"dropa colunas e tabelas removidas da meta"`
@@ -178,7 +178,7 @@ func New(e *engine.Engine) *mcp.Server {
 		})
 
 	// ---- data
-	mcp.AddTool(srv, &mcp.Tool{Name: "get_doc", Description: "Lê um documento com suas tabelas filhas."},
+	mcp.AddTool(srv, &mcp.Tool{Name: "get_doc", Description: "Reads a document with its child tables."},
 		func(ctx context.Context, req *mcp.CallToolRequest, in struct {
 			Doctype string `json:"doctype"`
 			Name    string `json:"name"`
@@ -219,11 +219,11 @@ func New(e *engine.Engine) *mcp.Server {
 			return text(rows), nil, nil
 		})
 
-	mcp.AddTool(srv, &mcp.Tool{Name: "insert_doc", Description: "Cria um documento (roda validate e demais hooks). Tabelas filhas vão como arrays no campo."},
+	mcp.AddTool(srv, &mcp.Tool{Name: "insert_doc", Description: "Creates a document (running validate and the other hooks). Child tables go in their field as arrays."},
 		func(ctx context.Context, req *mcp.CallToolRequest, in struct {
 			Doctype string         `json:"doctype"`
 			Values  map[string]any `json:"values"`
-			Submit  bool           `json:"submit,omitempty" jsonschema:"insere já enviado (docstatus 1)"`
+			Submit  bool           `json:"submit,omitempty" jsonschema:"insert already submitted (docstatus 1)"`
 		}) (*mcp.CallToolResult, any, error) {
 			var doc engine.Doc
 			err := s.run(ctx, func(c *engine.Ctx) error {
@@ -280,7 +280,7 @@ func New(e *engine.Engine) *mcp.Server {
 			return text("apagado"), nil, nil
 		})
 
-	mcp.AddTool(srv, &mcp.Tool{Name: "submit_doc", Description: "Envia (docstatus 1) um documento submetível."},
+	mcp.AddTool(srv, &mcp.Tool{Name: "submit_doc", Description: "Submits (docstatus 1) a submittable document."},
 		func(ctx context.Context, req *mcp.CallToolRequest, in struct {
 			Doctype string `json:"doctype"`
 			Name    string `json:"name"`
@@ -320,11 +320,11 @@ func New(e *engine.Engine) *mcp.Server {
 			return text(doc), nil, nil
 		})
 
-	mcp.AddTool(srv, &mcp.Tool{Name: "call_method", Description: "Chama um método do controller de um documento (doctype+name+method) ou uma função whitelisted (path app.dir.arquivo.fn)."},
+	mcp.AddTool(srv, &mcp.Tool{Name: "call_method", Description: "Calls a document controller method (doctype+name+method) or a whitelisted function (path app.dir.file.fn)."},
 		func(ctx context.Context, req *mcp.CallToolRequest, in struct {
 			Doctype string         `json:"doctype,omitempty"`
 			Name    string         `json:"name,omitempty"`
-			Method  string         `json:"method" jsonschema:"nome do método do controller ou path completo da função"`
+			Method  string         `json:"method" jsonschema:"controller method name, or the function's full path"`
 			Args    map[string]any `json:"args,omitempty"`
 		}) (*mcp.CallToolResult, any, error) {
 			var out any
@@ -359,7 +359,7 @@ func New(e *engine.Engine) *mcp.Server {
 			return text(out), nil, nil
 		})
 
-	mcp.AddTool(srv, &mcp.Tool{Name: "sql_query", Description: "SELECT somente leitura no Postgres (tabelas tab_<snake_case>; filhas têm parent/parenttype/parentfield/idx). Params via $1, $2."},
+	mcp.AddTool(srv, &mcp.Tool{Name: "sql_query", Description: "Read-only SELECT on Postgres (tables tab_<snake_case>; child tables have parent/parenttype/parentfield/idx). Params via $1, $2."},
 		func(ctx context.Context, req *mcp.CallToolRequest, in struct {
 			Query  string `json:"query"`
 			Params []any  `json:"params,omitempty"`
@@ -377,7 +377,7 @@ func New(e *engine.Engine) *mcp.Server {
 		})
 
 	// ---- dev
-	mcp.AddTool(srv, &mcp.Tool{Name: "eval", Description: "Executa TypeScript/JS no runtime do servidor com a API `ddcore` disponível (ex.: ddcore.db.count(\"User\")). A transação é revertida a menos que commit=true. Retorna o valor da última expressão e os logs."},
+	mcp.AddTool(srv, &mcp.Tool{Name: "eval", Description: "Runs TypeScript/JS in the server runtime with the `ddcore` API available (e.g. ddcore.db.count(\"User\")). The transaction is rolled back unless commit=true. Returns the value of the last expression and the logs."},
 		func(ctx context.Context, req *mcp.CallToolRequest, in struct {
 			Code   string `json:"code"`
 			Commit bool   `json:"commit,omitempty"`
@@ -393,7 +393,7 @@ func New(e *engine.Engine) *mcp.Server {
 			return text(map[string]any{"result": res, "logs": logs, "committed": in.Commit}), nil, nil
 		})
 
-	mcp.AddTool(srv, &mcp.Tool{Name: "run_tests", Description: "Roda os *.test.ts dos apps (filter = regex sobre nome/arquivo). Cada teste roda em transação revertida."},
+	mcp.AddTool(srv, &mcp.Tool{Name: "run_tests", Description: "Runs the apps' *.test.ts (filter = a regex over name/file). Each test runs in a rolled-back transaction."},
 		func(ctx context.Context, req *mcp.CallToolRequest, in struct {
 			Filter string `json:"filter,omitempty"`
 		}) (*mcp.CallToolResult, any, error) {
@@ -418,7 +418,7 @@ func New(e *engine.Engine) *mcp.Server {
 			return text(map[string]any{"total": len(results), "failed": failed, "results": results}), nil, nil
 		})
 
-	mcp.AddTool(srv, &mcp.Tool{Name: "get_logs", Description: "Últimos registros de Error Log (erros de jobs, scheduler e servidor)."},
+	mcp.AddTool(srv, &mcp.Tool{Name: "get_logs", Description: "The latest Error Log rows (job, scheduler and server errors)."},
 		func(ctx context.Context, req *mcp.CallToolRequest, in struct {
 			Limit int `json:"limit,omitempty"`
 		}) (*mcp.CallToolResult, any, error) {
@@ -437,7 +437,7 @@ func New(e *engine.Engine) *mcp.Server {
 			return text(rows), nil, nil
 		})
 
-	mcp.AddTool(srv, &mcp.Tool{Name: "reload", Description: "Recompila e recarrega os apps (o `ddcore dev` já faz isso ao salvar arquivos)."},
+	mcp.AddTool(srv, &mcp.Tool{Name: "reload", Description: "Rebuilds and reloads the apps (`ddcore dev` already does this when a file is saved)."},
 		func(ctx context.Context, req *mcp.CallToolRequest, in struct{}) (*mcp.CallToolResult, any, error) {
 			if err := e.Load(); err != nil {
 				return fail(err)
@@ -445,7 +445,7 @@ func New(e *engine.Engine) *mcp.Server {
 			return text("recarregado"), nil, nil
 		})
 
-	mcp.AddTool(srv, &mcp.Tool{Name: "list_apps", Description: "Apps carregadas, diretórios, funções whitelisted, reports, workspaces e scheduler."},
+	mcp.AddTool(srv, &mcp.Tool{Name: "list_apps", Description: "Loaded apps, directories, whitelisted functions, reports, workspaces and scheduler."},
 		func(ctx context.Context, req *mcp.CallToolRequest, in struct{}) (*mcp.CallToolResult, any, error) {
 			var apps []map[string]any
 			for _, n := range e.AppOrder() {
@@ -467,12 +467,12 @@ func New(e *engine.Engine) *mcp.Server {
 	// ---- resources
 	for _, n := range docNames() {
 		name := n
-		srv.AddResource(&mcp.Resource{URI: "ddcore://docs/" + name, Name: "docs/" + name, MIMEType: "text/markdown", Description: "Referência do ddcore: " + name},
+		srv.AddResource(&mcp.Resource{URI: "ddcore://docs/" + name, Name: "docs/" + name, MIMEType: "text/markdown", Description: "ddcore reference: " + name},
 			func(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
 				return &mcp.ReadResourceResult{Contents: []*mcp.ResourceContents{{URI: req.Params.URI, MIMEType: "text/markdown", Text: Docs(name)}}}, nil
 			})
 	}
-	srv.AddResourceTemplate(&mcp.ResourceTemplate{URITemplate: "ddcore://meta/{doctype}", Name: "meta", MIMEType: "application/json", Description: "Meta de um DocType"},
+	srv.AddResourceTemplate(&mcp.ResourceTemplate{URITemplate: "ddcore://meta/{doctype}", Name: "meta", MIMEType: "application/json", Description: "A DocType's meta"},
 		func(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
 			name := strings.TrimPrefix(req.Params.URI, "ddcore://meta/")
 			d, err := e.DocType(name)

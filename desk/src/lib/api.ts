@@ -1,7 +1,17 @@
 // Thin client for the ddcore HTTP API. Every error becomes a DDCoreError with
 // type/title/message so the UI can show it the same way the server phrased it.
 export class DDCoreError extends Error {
-  constructor(public type: string, public title: string, message: string, public status: number, public extra?: any) {
+  constructor(
+    public type: string,
+    public title: string,
+    message: string,
+    public status: number,
+    public extra?: any,
+    /** English template with {0} placeholders, and its arguments. The message
+     * already arrives translated; these travel for telemetry and grouping. */
+    public key?: string,
+    public args?: any[],
+  ) {
     super(message);
   }
 }
@@ -15,8 +25,17 @@ export const messages: { list: Message[]; push(m: Message): void } = {
 const listeners: ((m: Message) => void)[] = [];
 export function onMessage(fn: (m: Message) => void) { listeners.push(fn); return () => listeners.splice(listeners.indexOf(fn), 1); }
 
+/**
+ * Language sent as X-Lang on every request. Empty until /api/boot answers —
+ * that first call is the one that resolves the language server-side.
+ * Set through setRequestLang() in boot.svelte.ts.
+ */
+let requestLang = "";
+export function setRequestLang(l: string) { requestLang = l || ""; }
+
 async function request<T = any>(method: string, url: string, body?: any, opts: { raw?: boolean } = {}): Promise<T> {
   const headers: Record<string, string> = { "X-DDCore-CSRF": "1", "X-Requested-With": "ddcore" };
+  if (requestLang) headers["X-Lang"] = requestLang;
   let payload: BodyInit | undefined;
   if (body instanceof FormData) payload = body;
   else if (body !== undefined) { headers["Content-Type"] = "application/json"; payload = JSON.stringify(body); }
@@ -29,7 +48,7 @@ async function request<T = any>(method: string, url: string, body?: any, opts: {
     if (res.status === 401 && typeof window !== "undefined" && !location.pathname.startsWith("/login")) {
       location.href = "/login?redirect=" + encodeURIComponent(location.pathname + location.search);
     }
-    throw new DDCoreError(e.type, e.title || "", e.message, res.status, e.extra);
+    throw new DDCoreError(e.type, e.title || "", e.message, res.status, e.extra, e.key, e.args);
   }
   if (data?.messages) for (const m of data.messages) messages.push(m);
   return opts.raw ? data : data?.data;

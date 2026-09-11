@@ -88,6 +88,16 @@ export default defineWorkspace({ name: "Aberto", label: "Aberto", sidebar: [],
 	w("reports/pessoas.report.ts", `import { defineReport } from "@ddcore/sdk";
 export default defineReport({ name: "Pessoas", refDoctype: "Pessoa", roles: ["Gestor"], filters: [],
   execute() { return { columns: [{ fieldname: "name", label: "Nome" }], rows: ddcore.db.getList("Pessoa", { fields: ["name"] }) }; } });`)
+	// "Loop" is a key the core catalogue does not have: the app supplies a
+	// translation for it, so a test can prove the border does *not* apply it
+	// to a message the JS runtime already translated.
+	w("translations/en.csv", "Loop,Looped\n")
+	w("doctypes/pessoa/pessoa.controller.ts", `import { defineController } from "@ddcore/sdk";
+export default defineController("Pessoa", {
+  validate(doc) { if (doc.nome === "loop") ddcore.throw("Loop"); },
+});`)
+	w("services/i18n.ts", `import { whitelisted, _ } from "@ddcore/sdk";
+export const echo = whitelisted(() => ({ save: _("Save"), n: _("Loop") }));`)
 	w("reports/livre.report.ts", `import { defineReport } from "@ddcore/sdk";
 export default defineReport({ name: "Livre", refDoctype: "Pedido", filters: [],
   execute() { return { columns: [], rows: [] }; } });`)

@@ -39,7 +39,7 @@ func reorder(fs *flag.FlagSet, args []string) ([]string, error) {
 		}
 		f := fs.Lookup(name)
 		if f == nil {
-			return nil, fmt.Errorf("flag desconhecida: %s (rode `ddcore %s -h` para ver as opções)", a, fs.Name())
+			return nil, fmt.Errorf("unknown flag: %s (run `ddcore %s -h` to see the options)", a, fs.Name())
 		}
 		switch {
 		case inline:
@@ -47,7 +47,7 @@ func reorder(fs *flag.FlagSet, args []string) ([]string, error) {
 		case isBoolFlag(f):
 			flags = append(flags, "-"+name)
 		case i+1 >= len(args):
-			return nil, fmt.Errorf("a flag --%s exige um valor", name)
+			return nil, fmt.Errorf("the --%s flag needs a value", name)
 		default:
 			i++
 			flags = append(flags, "-"+name, args[i])

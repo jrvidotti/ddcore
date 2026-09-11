@@ -35,6 +35,7 @@ type Config struct {
 	SiteName  string
 	Lang      string
 	Currency  string
+	Timezone  string
 	SecretKey string
 	DataDir   string // uploads
 	LogLevel  slog.Level
@@ -89,6 +90,10 @@ type State struct {
 	I18n        *I18n
 	Loaded      time.Time
 	whitelisted map[string]map[string]any
+	// metaCache holds the translated copies of DocTypes, per language. It
+	// needs no invalidation: a reload builds a new State and this dies with
+	// the old one.
+	metaCache metaCache
 }
 
 type Engine struct {
@@ -103,9 +108,11 @@ type Engine struct {
 	Events *Hub
 	Cache  *Cache
 
-	cur   atomic.Pointer[State]
-	sched atomic.Pointer[cron.Cron]
-	mu    sync.Mutex
+	cur     atomic.Pointer[State]
+	sched   atomic.Pointer[cron.Cron]
+	mu      sync.Mutex
+	locOnce sync.Once
+	loc     *time.Location
 }
 
 // Current returns the state this moment sees. Cada requisição captura uma vez
@@ -119,6 +126,9 @@ func New(ctx context.Context, cfg Config) (*Engine, error) {
 	}
 	if cfg.Currency == "" {
 		cfg.Currency = "BRL"
+	}
+	if cfg.Timezone == "" {
+		cfg.Timezone = "UTC"
 	}
 	e := &Engine{Cfg: cfg, Log: slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: cfg.LogLevel})), Events: NewHub(), Cache: NewCache()}
 	if cfg.DSN != "" {
@@ -181,7 +191,7 @@ func orderApps(apps []js.App, metas map[string]*AppMeta) ([]js.App, error) {
 		case 2:
 			return nil
 		case 1:
-			return fmt.Errorf("dependência circular entre apps: %s", strings.Join(append(path, name), " → "))
+			return fmt.Errorf("circular dependency between apps: %s", strings.Join(append(path, name), " → "))
 		}
 		state[name] = 1
 		if m := metas[name]; m != nil {
@@ -189,7 +199,7 @@ func orderApps(apps []js.App, metas map[string]*AppMeta) ([]js.App, error) {
 			sort.Strings(reqs)
 			for _, r := range reqs {
 				if _, ok := byName[r]; !ok {
-					return fmt.Errorf("app %s exige %s, que não está instalado", name, r)
+					return fmt.Errorf("app %s requires %s, which is not installed", name, r)
 				}
 				if err := visit(r, append(path, name)); err != nil {
 					return err
@@ -289,7 +299,7 @@ func (e *Engine) Load() error {
 		// runtimes ainda em uso voltam ao pool antigo e são descartados lá
 		old.Pool.Close()
 	}
-	e.Log.Info("apps carregadas", "apps", len(apps), "doctypes", len(reg.DocTypes))
+	e.Log.Info("apps loaded", "apps", len(apps), "doctypes", len(reg.DocTypes))
 	return nil
 }
 
@@ -328,7 +338,7 @@ func (s *State) WhitelistedPaths() []string {
 func (s *State) DocType(name string) (*meta.DocType, error) {
 	d, ok := s.Meta.Get(name)
 	if !ok {
-		return nil, cerr.NotFound("DocType %s não existe", name)
+		return nil, cerr.NotFound("DocType {0} does not exist", name)
 	}
 	return d, nil
 }
@@ -434,6 +444,7 @@ func (c *Ctx) RT() (*js.Runtime, error) {
 			return nil, err
 		}
 		rt.Ctx = c
+		rt.SetLang(c.Lang)
 		c.rt = rt
 	}
 	return c.rt, nil
@@ -465,7 +476,25 @@ func (c *Ctx) T(s string, args ...any) string { return c.St.I18n.T(c.Lang, s, ar
 
 func (c *Ctx) Now() time.Time { return time.Now() }
 
-func (c *Ctx) Today() string { return time.Now().Format("2006-01-02") }
+// Today is the current civil date in the *site's* timezone, not the process's.
+// It is the same day the desk calls today, which is what makes a comparison
+// like `due_date < today()` give one answer on both sides of the wire.
+func (c *Ctx) Today() string { return time.Now().In(c.E.Location()).Format("2006-01-02") }
+
+// Location is the site's timezone, resolved once. An unloadable zone name
+// falls back to UTC rather than to the machine's local time: where a server
+// happens to be running is not a business fact.
+func (e *Engine) Location() *time.Location {
+	e.locOnce.Do(func() {
+		loc, err := time.LoadLocation(e.Cfg.Timezone)
+		if err != nil {
+			e.Log.Warn("unknown timezone, falling back to UTC", "timezone", e.Cfg.Timezone, "err", err)
+			loc = time.UTC
+		}
+		e.loc = loc
+	})
+	return e.loc
+}
 
 // Savepoint helpers used by tests.
 func (c *Ctx) Begin() error {
@@ -513,7 +542,7 @@ func abs(p string) string {
 // RunTests executes the app tests inside one rolled-back transaction.
 func (e *Engine) RunTests(ctx context.Context, filter, app string) ([]js.TestResult, error) {
 	if !e.Cfg.Test {
-		return nil, fmt.Errorf("engine não foi carregado em modo de teste")
+		return nil, fmt.Errorf("the engine was not loaded in test mode")
 	}
 	var out []js.TestResult
 	err := e.Run(ctx, "Administrator", func(c *Ctx) error {

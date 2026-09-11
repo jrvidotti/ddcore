@@ -1,3 +1,4 @@
+import { __ } from "./boot.svelte";
 // DocType meta as served by /api/meta, cached per session (invalidated on reload events).
 import { api } from "./api";
 
@@ -6,6 +7,10 @@ export interface Field {
   readOnly?: boolean; hidden?: boolean; fetchFrom?: string; dependsOn?: string; readOnlyDependsOn?: string; mandatoryDependsOn?: string;
   allowOnSubmit?: boolean; inListView?: boolean; inStandardFilter?: boolean; length?: number; precision?: number; description?: string;
   columns?: number; gridEditMode?: "inline" | "dialog"; collapsible?: boolean; bold?: boolean;
+  /** Display text for a Select, aligned with `options`; filled by the server. */
+  optionLabels?: string[];
+  /** Indicator colour per canonical (English) Select value. */
+  optionColors?: Record<string, string>;
 }
 
 export interface DocTypeMeta {
@@ -34,7 +39,7 @@ export function getMeta(doctype: string): Promise<Meta> {
           const nameField: Field = {
             fieldname: "name",
             fieldtype: "Data",
-            label: m.doctype.label || "Nome",
+            label: m.doctype.label || __("Name"),
             reqd: true,
           };
           m.doctype.fields = [nameField, ...m.doctype.fields];
@@ -54,6 +59,19 @@ export function clearMetaCache() { cache.clear(); }
 
 export const isLayout = (f: Field) => ["Section Break", "Column Break", "Tab Break", "HTML"].includes(f.fieldtype);
 export const selectOptions = (f: Field): string[] => (Array.isArray(f.options) ? f.options.map(String) : typeof f.options === "string" ? f.options.split("\n") : []);
+
+/**
+ * Display text for a Select, positionally aligned with selectOptions.
+ *
+ * The server fills `optionLabels` when the catalogue had something to say; the
+ * fallback is the value itself, which is a key too. The value is never
+ * touched: it is canonical English, and it is what the database holds.
+ */
+export const selectLabels = (f: Field): string[] => {
+  const opts = selectOptions(f);
+  const labels = f.optionLabels;
+  return opts.map((o, i) => labels?.[i] || __(o));
+};
 
 /** Default value for a new doc, mirroring the server. */
 export function newDoc(meta: Meta): any {

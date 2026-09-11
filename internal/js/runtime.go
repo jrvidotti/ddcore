@@ -152,7 +152,7 @@ func statusFor(t string) int {
 func (rt *Runtime) callReg(name string, args ...any) (string, error) {
 	fn, ok := goja.AssertFunction(rt.reg.Get(name))
 	if !ok {
-		return "", fmt.Errorf("__ddcore.%s não é função", name)
+		return "", fmt.Errorf("__ddcore.%s is not a function", name)
 	}
 	vals := make([]goja.Value, len(args))
 	for i, a := range args {
@@ -344,6 +344,10 @@ func (p *Pool) Release(rt *Runtime) {
 }
 
 // Release devolve o runtime ao pool de origem.
+// SetLang tells the VM which language this unit of work is in. The prelude
+// mirrors that language's catalogue once and interpolates in JS from then on.
+func (rt *Runtime) SetLang(lang string) { rt.vm.Set("__ddcoreLang", lang) }
+
 func (rt *Runtime) Release() {
 	if rt.pool != nil {
 		rt.pool.Release(rt)

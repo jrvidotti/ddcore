@@ -2,7 +2,7 @@
 // a clean database plus `migrate` has to produce a usable site, and the HTTP
 // surface the desk depends on (boot, translations, /app) has to answer.
 //
-// As checagens rodam contra o app exemplo versionado em apps/exemplo: elas
+// As checagens rodam contra o demo app versionado em apps/demo: elas
 // exercitam migrate → boot → i18n → demo contra um Postgres e um http server
 // reais, que a suíte TS (`ddcore test`) não alcança.
 package acceptance
@@ -52,18 +52,18 @@ func dsnFor(suffix string) (dsn, adminDSN, dbName string) {
 	return dsn, u.String(), dbName
 }
 
-// exemploApp aponta para o app versionado do repositório, em vez de gerar uma
+// demoApp aponta para o app versionado do repositório, em vez de gerar uma
 // fixture quase equivalente num diretório temporário.
-func exemploApp(t *testing.T) js.App {
+func demoApp(t *testing.T) js.App {
 	t.Helper()
-	dir, err := filepath.Abs(filepath.Join("..", "..", "apps", "exemplo"))
+	dir, err := filepath.Abs(filepath.Join("..", "..", "apps", "demo"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "ddcore.app.ts")); err != nil {
-		t.Fatalf("app exemplo não encontrado em %s: %v", dir, err)
+		t.Fatalf("demo app não encontrado em %s: %v", dir, err)
 	}
-	return js.App{Name: "exemplo", Dir: dir}
+	return js.App{Name: "demo", Dir: dir}
 }
 
 // setup recreates the database, boots an engine with the checked-in example
@@ -88,7 +88,7 @@ func setup(t *testing.T, suffix string, extra ...js.App) *engine.Engine {
 	}
 	admin.DB.Close()
 
-	apps := append([]js.App{exemploApp(t)}, extra...)
+	apps := append([]js.App{demoApp(t)}, extra...)
 	e, err := engine.New(ctx, engine.Config{DSN: dsn, Apps: apps, SiteName: "ddcore", Lang: "pt-BR", Currency: "BRL"})
 	if err != nil {
 		t.Fatal(err)
@@ -161,22 +161,22 @@ func TestInstalacao(t *testing.T) {
 		if !exists("Role", "System Manager") {
 			t.Error("papel System Manager não foi criado pela instalação do core")
 		}
-		for _, role := range []string{"Gestor de Projetos", "Colaborador de Projetos"} {
+		for _, role := range []string{"Project Manager", "Project Contributor"} {
 			if !exists("Role", role) {
-				t.Errorf("papel %q do app exemplo não foi criado", role)
+				t.Errorf("papel %q do demo app não foi criado", role)
 			}
 		}
-		// o app exemplo não cria dados de negócio na instalação; o que precisa
+		// o demo app não cria dados de negócio na instalação; o que precisa
 		// existir é a meta dele, migrada para o banco novo
-		for _, doctype := range []string{"Projeto", "Tarefa", "Marco Projeto"} {
+		for _, doctype := range []string{"Project", "Task", "Project Milestone"} {
 			if _, err := c.St.DocType(doctype); err != nil {
-				t.Errorf("DocType %q do app exemplo ausente depois do migrate: %v", doctype, err)
+				t.Errorf("DocType %q do demo app ausente depois do migrate: %v", doctype, err)
 			}
 		}
-		if n, err := c.Count("Projeto", nil); err != nil {
-			t.Errorf("conta Projeto: %v", err)
+		if n, err := c.Count("Project", nil); err != nil {
+			t.Errorf("count Project: %v", err)
 		} else if n != 0 {
-			t.Errorf("instalação criou %d Projeto(s); o app exemplo semeia só por `ddcore demo`", n)
+			t.Errorf("instalação criou %d Project(s); o demo app semeia só por `ddcore demo`", n)
 		}
 		return nil
 	})
@@ -204,17 +204,17 @@ func TestBootHome(t *testing.T) {
 	home := ""
 	for _, a := range boot["apps"].([]any) {
 		app := a.(map[string]any)
-		if app["name"] != "exemplo" {
+		if app["name"] != "demo" {
 			continue
 		}
 		d, ok := app["desk"].(map[string]any)
 		if !ok {
-			t.Fatalf("exemplo sem bloco desk no boot: %#v", app["desk"])
+			t.Fatalf("demo app has no desk block no boot: %#v", app["desk"])
 		}
 		home, _ = d["home"].(string)
 	}
-	if home != "Projetos" {
-		t.Fatalf("desk.home = %q, esperado \"Projetos\"", home)
+	if home != "Projects" {
+		t.Fatalf("desk.home = %q, expected \"Projects\"", home)
 	}
 
 	// o workspace apontado por desk.home tem que vir no boot, com sidebar
@@ -302,9 +302,9 @@ func TestTraducoes(t *testing.T) {
 		t.Errorf("precedência: Save = %v, esperado \"Gravar\" (valor do app)", got)
 	}
 
-	// 4. o catálogo do app exemplo entra junto
+	// 4. o catálogo do demo app entra junto
 	if got := data["Start"]; got != "Iniciar" {
-		t.Errorf("chave do app exemplo Start = %v, esperado \"Iniciar\"", got)
+		t.Errorf("chave do demo app Start = %v, esperado \"Iniciar\"", got)
 	}
 
 	// o mesmo catálogo alimenta o `_()` do servidor
@@ -315,6 +315,38 @@ func TestTraducoes(t *testing.T) {
 	// idioma sem catálogo não pode explodir: devolve 200
 	if b := getJSON(t, srv, tok, "/api/translations?lang=xx-XX"); b == nil {
 		t.Error("idioma desconhecido devia responder 200")
+	}
+
+	// sem parâmetro, vale o idioma do site
+	if b := getJSON(t, srv, tok, "/api/translations"); b["data"].(map[string]any)["Submit"] != "Enviar" {
+		t.Errorf("sem ?lang, o catálogo devia ser o de %q", e.Cfg.Lang)
+	}
+
+	// interpolação: {0}, {1} e um argumento ausente
+	cases := []struct {
+		key  string
+		args []any
+		want string
+	}{
+		{"Save", nil, "Gravar"},
+		{"{0} {1} not found", []any{"Task", "T-1"}, "Task T-1 não encontrado"},
+		{"{0} {1} not found", []any{"Task"}, "Task {1} não encontrado"},
+		{"{0} {1} not found", nil, "{0} {1} não encontrado"},
+		// uma chave sem tradução devolve a própria chave, interpolada
+		{"No such key {0}", []any{"x"}, "No such key x"},
+	}
+	for _, c := range cases {
+		if got := e.I18n.T("pt-BR", c.key, c.args...); got != c.want {
+			t.Errorf("T(%q, %v) = %q, esperado %q", c.key, c.args, got, c.want)
+		}
+	}
+
+	// Catalogue devolve o dicionário vivo: o chamador não pode alterá-lo por
+	// acidente e mudar o que todo mundo lê
+	cat := e.I18n.Catalogue("pt-BR")
+	cat["Save"] = "ADULTERADO"
+	if got := e.I18n.T("pt-BR", "Save"); got != "Gravar" {
+		t.Errorf("o catálogo foi alterado pelo chamador: T(Save) = %q", got)
 	}
 }
 
@@ -329,7 +361,7 @@ func TestDeskIndex(t *testing.T) {
 	e := setup(t, "_desk")
 	srv, _ := server(t, e)
 
-	for _, path := range []string{"/app", "/app/Tarefa", "/app/workspace/Projetos"} {
+	for _, path := range []string{"/app", "/app/Task", "/app/workspace/Projects"} {
 		res, err := srv.Client().Get(srv.URL + path)
 		if err != nil {
 			t.Fatal(err)
@@ -363,29 +395,29 @@ func TestDeskIndex(t *testing.T) {
 // ------------------------------------------------------------------- demo
 
 // TestDemo: `ddcore demo` é o atalho de primeira execução e tem que poder rodar
-// duas vezes sem duplicar nada — é o que o app exemplo promete.
+// duas vezes sem duplicar nada — é o que o demo app promete.
 func TestDemo(t *testing.T) {
 	e := setup(t, "_demo")
 	ctx := context.Background()
 
-	primeira := runDemo(t, e, ctx)
-	if primeira["quantidade"].(float64) == 0 {
-		t.Fatalf("primeira execução não criou nada: %#v", primeira)
+	first := runDemo(t, e, ctx)
+	if first["count"].(float64) == 0 {
+		t.Fatalf("the first run created nothing: %#v", first)
 	}
-	segunda := runDemo(t, e, ctx)
-	if got := segunda["quantidade"].(float64); got != 0 {
-		t.Errorf("segunda execução criou %v registro(s), esperado 0", got)
+	second := runDemo(t, e, ctx)
+	if got := second["count"].(float64); got != 0 {
+		t.Errorf("the second run created %v record(s), want 0", got)
 	}
 
 	err := e.Run(ctx, "Administrator", func(c *engine.Ctx) error {
-		for doctype, esperado := range map[string]int64{"Projeto": 1, "Tarefa": 3, "Marco Projeto": 3} {
+		for doctype, want := range map[string]int64{"Project": 1, "Task": 3, "Project Milestone": 3} {
 			n, err := c.Count(doctype, nil)
 			if err != nil {
-				t.Errorf("conta %s: %v", doctype, err)
+				t.Errorf("count %s: %v", doctype, err)
 				continue
 			}
-			if n != esperado {
-				t.Errorf("%s: %d registro(s) depois de duas execuções, esperado %d", doctype, n, esperado)
+			if n != want {
+				t.Errorf("%s: %d record(s) after two runs, want %d", doctype, n, want)
 			}
 		}
 		return nil
@@ -397,9 +429,9 @@ func TestDemo(t *testing.T) {
 
 func runDemo(t *testing.T, e *engine.Engine, ctx context.Context) map[string]any {
 	t.Helper()
-	raw, err := e.RunJob(ctx, "Administrator", "exemplo.services.demo.gerar", nil)
+	raw, err := e.RunJob(ctx, "Administrator", "demo.services.demo.generate", nil)
 	if err != nil {
-		t.Fatalf("roda a demo: %v", err)
+		t.Fatalf("run the demo: %v", err)
 	}
 	var out map[string]any
 	if err := json.Unmarshal(raw, &out); err != nil {

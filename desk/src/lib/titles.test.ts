@@ -19,7 +19,7 @@ describe("titles store", () => {
         SemTitulo: { label: "Sem Título", app: "alugueis", icon: "file", module: "Alugueis" },
       },
       reports: {},
-      site: { name: "test", currency: "BRL", dev: true, scheduler: false, version: "0.1.0" },
+      site: { name: "test", currency: "BRL", timezone: "UTC", dev: true, scheduler: false, version: "0.1.0" },
       loaded: Date.now(),
     };
     boot.ready = true;

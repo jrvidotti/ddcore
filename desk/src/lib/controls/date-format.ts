@@ -1,31 +1,49 @@
-// Pure helper functions for Brazilian Date ("dd/mm/aaaa") formatting, parsing, masking and calendar grids.
+// Date formatting, parsing and masking for a text date input.
+//
+// Nothing here fixes an order or a separator. Which of day, month and year
+// comes first, and what sits between them, is derived from the locale with a
+// probe date — hard-coding "dd/mm/yyyy" is the same mistake as hard-coding
+// "R$": right in one place and silently wrong everywhere else.
+//
+// ISO ("YYYY-MM-DD") is always accepted on input, in every locale: it is the
+// wire format, and it is what a user pasting from the API will have.
 
-export const DAY_NAMES_SHORT = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+import { dateShape, dayNamesShort, monthNames } from "../locale";
 
-export const MONTH_NAMES = [
-  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
-];
+/** Weekday abbreviations for the calendar header, Sunday first. */
+export const dayNames = (): string[] => dayNamesShort();
 
-/** Formats an ISO date ("2026-03-01") into "01/03/2026". */
-export function formatDateBr(v: any): string {
+/** Full month names for the calendar's title. */
+export const monthTitles = (): string[] => monthNames("long");
+
+interface Shape {
+  order: ("day" | "month" | "year")[];
+  sep: string;
+  widths: number[];
+}
+
+function shape(): Shape {
+  const { order, sep } = dateShape();
+  return { order, sep, widths: order.map((o) => (o === "year" ? 4 : 2)) };
+}
+
+/** The hint for the input, e.g. "dd/mm/yyyy" or "mm/dd/yyyy". */
+export const datePlaceholder = (): string => dateShape().placeholder;
+
+const ISO = /^(\d{4})-(\d{1,2})-(\d{1,2})$/;
+
+/** Formats an ISO date ("2026-03-01") the way the locale writes it. */
+export function formatDateLocal(v: any): string {
   if (!v) return "";
   const s = String(v).trim().slice(0, 10);
-  if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
-
-  const mIso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (mIso) {
-    const [, y, m, d] = mIso;
-    return `${d}/${m}/${y}`;
+  const m = s.match(ISO);
+  if (!m) {
+    // already localized (or something we cannot read): hand it back untouched
+    return s;
   }
-
-  const mSlash = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-  if (mSlash) {
-    const [, d, m, y] = mSlash;
-    return `${d.padStart(2, "0")}/${m.padStart(2, "0")}/${y}`;
-  }
-
-  return s;
+  const { order, sep } = shape();
+  const part = { year: m[1], month: m[2].padStart(2, "0"), day: m[3].padStart(2, "0") };
+  return order.map((o) => part[o]).join(sep);
 }
 
 export function daysInMonth(year: number, month: number): number {
@@ -39,88 +57,74 @@ export interface ParsedDate {
   iso: string; // "YYYY-MM-DD"
 }
 
-/** Parses "01/03/2026" or "2026-03-01" into year, month, day and ISO string. */
-export function parseDateBr(text: string): ParsedDate | null {
+/** Parses the locale's own order, or ISO, into year, month, day and ISO. */
+export function parseDateLocal(text: string): ParsedDate | null {
   if (!text) return null;
   const s = String(text).trim();
 
-  // Try "DD/MM/YYYY"
-  const mSlash = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (mSlash) {
-    const d = parseInt(mSlash[1], 10);
-    const m = parseInt(mSlash[2], 10);
-    const y = parseInt(mSlash[3], 10);
-    if (m >= 1 && m <= 12 && y >= 1000 && y <= 9999) {
-      const maxDays = daysInMonth(y, m);
-      if (d >= 1 && d <= maxDays) {
-        const padD = String(d).padStart(2, "0");
-        const padM = String(m).padStart(2, "0");
-        return { year: y, month: m, day: d, iso: `${y}-${padM}-${padD}` };
-      }
-    }
-    return null;
-  }
+  const build = (y: number, m: number, d: number): ParsedDate | null => {
+    if (m < 1 || m > 12 || y < 1000 || y > 9999) return null;
+    if (d < 1 || d > daysInMonth(y, m)) return null;
+    return { year: y, month: m, day: d, iso: `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}` };
+  };
 
-  // Try "YYYY-MM-DD"
-  const mIso = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-  if (mIso) {
-    const y = parseInt(mIso[1], 10);
-    const m = parseInt(mIso[2], 10);
-    const d = parseInt(mIso[3], 10);
-    if (m >= 1 && m <= 12 && y >= 1000 && y <= 9999) {
-      const maxDays = daysInMonth(y, m);
-      if (d >= 1 && d <= maxDays) {
-        const padD = String(d).padStart(2, "0");
-        const padM = String(m).padStart(2, "0");
-        return { year: y, month: m, day: d, iso: `${y}-${padM}-${padD}` };
-      }
-    }
-    return null;
-  }
+  // ISO is accepted everywhere: it is the wire format
+  const mIso = s.match(ISO);
+  if (mIso) return build(Number(mIso[1]), Number(mIso[2]), Number(mIso[3]));
 
-  return null;
+  const { order, sep } = shape();
+  const nums = s.split(sep).map((p) => p.trim());
+  if (nums.length !== 3 || nums.some((n) => !/^\d{1,4}$/.test(n))) return null;
+  const at = (o: "day" | "month" | "year") => Number(nums[order.indexOf(o)]);
+  return build(at("year"), at("month"), at("day"));
 }
 
-/** Formats typed digits into "dd/mm/aaaa" with auto slash insertion. */
+/**
+ * Formats typed digits into the locale's order, inserting the separator as it
+ * goes and clamping each part to what a date can hold. The segment widths come
+ * from the order, so an ISO-first locale masks 4-2-2 and a day-first one 2-2-4
+ * without a second implementation.
+ */
 export function maskDateInput(raw: string): string {
   if (!raw) return "";
-  const digits = raw.replace(/\D/g, "").slice(0, 8);
+  const { order, sep, widths } = shape();
+  const total = widths.reduce((a, b) => a + b, 0);
+  const digits = raw.replace(/\D/g, "").slice(0, total);
   if (!digits) return "";
 
-  if (digits.length === 1) {
-    const d = digits;
-    if (d >= "4" && d <= "9") return `0${d}/`;
-    return d;
-  }
-
-  let dayStr = digits.slice(0, 2);
-  let dayNum = parseInt(dayStr, 10);
-  if (dayNum === 0) dayStr = "01";
-  else if (dayNum > 31) dayStr = "31";
-
-  if (digits.length === 2) {
-    return `${dayStr}/`;
-  }
-
-  if (digits.length === 3) {
-    const mFirst = digits[2];
-    if (mFirst >= "2" && mFirst <= "9") {
-      return `${dayStr}/0${mFirst}/`;
+  const max = { day: 31, month: 12, year: 9999 };
+  const out: string[] = [];
+  let i = 0;
+  for (let seg = 0; seg < order.length; seg++) {
+    const w = widths[seg];
+    const chunk = digits.slice(i, i + w);
+    if (!chunk) break;
+    i += chunk.length;
+    const complete = chunk.length === w;
+    if (!complete) {
+      // a lone digit that cannot start a valid two-digit part completes itself:
+      // "4" in a day segment is the 4th, not the start of the 40-somethings
+      const kind = order[seg];
+      if (w === 2 && chunk.length === 1 && Number(chunk) * 10 > max[kind]) {
+        out.push("0" + chunk);
+        i = digits.length;
+        return out.join(sep) + (seg < order.length - 1 ? sep : "");
+      }
+      out.push(chunk);
+      return out.join(sep);
     }
-    return `${dayStr}/${mFirst}`;
+    let n = Number(chunk);
+    const kind = order[seg];
+    if (kind !== "year") {
+      if (n === 0) n = 1;
+      else if (n > max[kind]) n = max[kind];
+      out.push(String(n).padStart(2, "0"));
+    } else {
+      out.push(chunk);
+    }
   }
-
-  let monthStr = digits.slice(2, 4);
-  let monthNum = parseInt(monthStr, 10);
-  if (monthNum === 0) monthStr = "01";
-  else if (monthNum > 12) monthStr = "12";
-
-  if (digits.length === 4) {
-    return `${dayStr}/${monthStr}/`;
-  }
-
-  const yearStr = digits.slice(4, 8);
-  return `${dayStr}/${monthStr}/${yearStr}`;
+  const done = i >= digits.length && out.length < order.length;
+  return out.join(sep) + (done ? sep : "");
 }
 
 export interface CalendarDay {

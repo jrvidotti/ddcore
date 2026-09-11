@@ -39,19 +39,19 @@
 
 <aside class="doc-sidebar">
   <div class="small muted">
-    <div>{__("Criado por")} <b>{frm.doc.owner}</b> · {formatDatetime(frm.doc.creation)}</div>
-    <div>{__("Modificado por")} <b>{frm.doc.modified_by}</b> · {timeAgo(frm.doc.modified)}</div>
+    <div>{__("Created by")} <b>{frm.doc.owner}</b> · {formatDatetime(frm.doc.creation)}</div>
+    <div>{__("Modified by")} <b>{frm.doc.modified_by}</b> · {timeAgo(frm.doc.modified)}</div>
   </div>
 
   <div class="block">
-    <h4>{__("Comentários")}</h4>
+    <h4>{__("Comments")}</h4>
     {#each comments as c}
       <div class="comment"><div class="small muted"><b>{c.owner}</b> · {timeAgo(c.creation)}</div><div>{c.content}</div></div>
     {/each}
-    <textarea class="input" rows="2" placeholder={__("Escreva um comentário")} bind:value={text} onkeydown={(e) => (e.ctrlKey || e.metaKey) && e.key === "Enter" && addComment()}></textarea>
+    <textarea class="input" rows="2" placeholder={__("Write a comment")} bind:value={text} onkeydown={(e) => (e.ctrlKey || e.metaKey) && e.key === "Enter" && addComment()}></textarea>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px">
-      <button class="btn sm" onclick={addComment} title="{__('Comentar')} ({modKey}+Enter)">{__("Comentar")}</button>
-      <span class="small muted"><kbd class="kbd">{modKey}+Enter</kbd> {__("para enviar")}</span>
+      <button class="btn sm" onclick={addComment} title="{__('Comment')} ({modKey}+Enter)">{__("Comment")}</button>
+      <span class="small muted"><kbd class="kbd">{modKey}+Enter</kbd> {__("to submit")}</span>
     </div>
   </div>
 
@@ -66,7 +66,7 @@
         >
           <Icon name={showVersions ? "chevron-down" : "chevron-right"} size={13} />
           <Icon name="history" size={14} />
-          <span>{__("Histórico")}</span>
+          <span>{__("History")}</span>
           <span class="count-badge">{versions.length}</span>
         </button>
 
@@ -74,9 +74,9 @@
           <button
             type="button"
             class="btn icon sm expand-head-btn"
-            title={__("Abrir histórico completo")}
+            title={__("Open the full history")}
             onclick={() => (showModal = true)}
-            aria-label="Abrir histórico completo"
+            aria-label={__("Open the full history")}
           >
             <Icon name="maximize-2" size={13} />
           </button>
@@ -104,7 +104,7 @@
       <div class="head">
         <div class="modal-title-wrap">
           <Icon name="history" size={18} />
-          <h3>{__("Histórico de Alterações")} · {frm.doc.name}</h3>
+          <h3>{__("Change history")} · {frm.doc.name}</h3>
         </div>
         <button class="btn icon" onclick={() => (showModal = false)} aria-label="Fechar">
           <Icon name="x" size={16} />
@@ -114,7 +114,7 @@
         <DocHistory {frm} {versions} mode="full" />
       </div>
       <div class="foot">
-        <button class="btn" onclick={() => (showModal = false)}>{__("Fechar")}</button>
+        <button class="btn" onclick={() => (showModal = false)}>{__("Close")}</button>
       </div>
     </div>
   </div>

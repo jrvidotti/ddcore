@@ -1,57 +1,65 @@
 # ddcore
 
-**ddcore** (*Data Driven Core*) é um port do modelo do Frappe Framework para **Go + TypeScript + PostgreSQL**, feito para ser
-desenvolvido por ferramentas agênticas. Um binário (`ddcore`) embute o esbuild e o goja: os apps
-são TypeScript (DocTypes, regras, relatórios, scripts de tela), executados no servidor sem Node.
-O desk (Svelte 5) é gerado a partir da meta. Só depende de um Postgres.
+**ddcore** (*Data Driven Core*) is a port of the Frappe Framework model to **Go + TypeScript + PostgreSQL**,
+built to be developed by agentic tools. One binary (`ddcore`) embeds esbuild and goja: apps are
+TypeScript (DocTypes, rules, reports, screen scripts), run on the server without Node.
+The desk (Svelte 5) is generated from the meta. Postgres is the only dependency.
 
-O design completo está em [`docs/plan-v1.md`](docs/plan-v1.md); a referência para agentes em
-[`docs/agent/`](docs/agent/) (`ddcore docs`, ou os resources MCP `ddcore://docs/*`).
+The full design is in [`docs/plan-v1.md`](docs/plan-v1.md); the reference for agents is in
+[`docs/agent/`](docs/agent/) (`ddcore docs`, or the MCP resources `ddcore://docs/*`).
 
-## Desenvolver o framework
+*Em português: [`README.ptbr.md`](README.ptbr.md).*
 
-```bash
-make docker-up                              # Postgres de dev (container ddcore-pg, porta 5455)
-make build                                  # desk (npm) + binário em bin/ddcore
-make migrate                                # DDL do core
-./bin/ddcore user passwd Administrator admin # senha do Administrator
-make dev                                    # http://localhost:8090  (Administrator / admin)
-```
-
-O `ddcore.json` deste checkout carrega `apps/exemplo` — um app pequeno de projetos e
-tarefas que serve de tutorial executável e de fixture ponta a ponta (`./bin/ddcore demo`
-semeia o projeto `DEMO`). Apps de produto vivem em repositórios separados, como o
-`alugueis`. Em um projeto externo, o roteiro começa com `ddcore init && ddcore new-app
-<nome>`; `DDCORE_DSN` sobrescreve o DSN de qualquer comando.
-
-O processo de desenvolvimento (núcleo x app, ciclo de trabalho) está em
-[`DESENVOLVIMENTO.md`](DESENVOLVIMENTO.md).
-
-## Verificação
+## Developing the framework
 
 ```bash
-make check   # typecheck do desk
-make test    # build + go vet + testes Go e do desk
+make docker-up                               # dev Postgres (container ddcore-pg, port 5455)
+make build                                   # desk (npm) + the binary at bin/ddcore
+make migrate                                 # the core's DDL
+./bin/ddcore user passwd Administrator admin # the Administrator's password
+make dev                                     # http://localhost:8090  (Administrator / admin)
 ```
 
-Os testes Go incluem `internal/acceptance`, que cria um app externo temporário e valida
-instalação, boot, tradução e `/app` contra Postgres e HTTP reais. O banco descartável de
-`DDCORE_TEST_DSN` é recriado a cada teste.
+This checkout's `ddcore.json` loads `apps/demo` — a small projects-and-tasks app that doubles
+as an executable tutorial and an end-to-end fixture (`./bin/ddcore demo` seeds the `DEMO`
+project). Product apps live in their own repositories. In an outside project the script starts
+with `ddcore init && ddcore new-app <name>`; `DDCORE_DSN` overrides the DSN of any command.
+
+The development process (core vs. app, the working loop) is in
+[`DEVELOPMENT.md`](DEVELOPMENT.md).
+
+## Language
+
+English is the source language. Every user-facing string — a `_()` call, a `label:`, a Select's
+values — is written in English and is a catalogue key; translations live in
+`translations/<lang>.csv` and are derived from the code by `ddcore i18n extract`. The contract
+is in [`docs/agent/i18n.md`](docs/agent/i18n.md).
+
+## Verification
+
+```bash
+make check   # desk typecheck + the translation catalogue
+make test    # build + go vet + the Go and desk tests
+```
+
+The Go tests include `internal/acceptance`, which builds a temporary external app and checks
+installation, boot, translation and `/app` against a real Postgres over real HTTP. The
+disposable database named by `DDCORE_TEST_DSN` is recreated for each test.
 
 ## Layout
 
 ```
 cmd/ddcore/        CLI
-internal/         meta · db (migrate) · js (esbuild+goja) · engine (Document, permissões, jobs) · api · mcp · scaffold · typegen
-core/             app embutido: User, Role, Has Role, File, Comment, Version, Error Log, API Key
-desk/             SvelteKit (build embutido no binário)
-packages/sdk      @ddcore/sdk — defineDoctype/defineController/… e tipos do bridge
+internal/         meta · db (migrate) · js (esbuild+goja) · engine (Document, permissions, jobs) · api · mcp · scaffold · typegen · i18nx (extractor)
+core/             the embedded app: User, Role, Has Role, File, Comment, Version, Error Log, API Key
+desk/             SvelteKit (its build is embedded in the binary)
+packages/sdk      @ddcore/sdk — defineDoctype/defineController/… and the bridge's types
 packages/desk-sdk @ddcore/desk-sdk — defineForm, frm.*, Dialog
-docs/agent        referência para agentes
+docs/agent        the reference for agents
 ```
 
 ## MCP
 
-`ddcore mcp` (stdio) ou `http://localhost:8090/mcp` com `ddcore dev`. Tools: scaffold/migrate/types,
-CRUD de documentos, `call_method`, `sql_query`, `eval`, `run_tests`, `get_logs`. Este repo já traz
-`.mcp.json` para o Claude Code.
+`ddcore mcp` (stdio), or `http://localhost:8090/mcp` with `ddcore dev`. Tools: scaffold/migrate/types,
+document CRUD, `call_method`, `sql_query`, `eval`, `run_tests`, `get_logs`. This repo ships a
+`.mcp.json` for Claude Code.

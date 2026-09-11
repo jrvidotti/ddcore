@@ -41,33 +41,41 @@ func ColumnType(ft string) string {
 var ValidFieldTypes = []string{"Data", "Email", "Small Text", "Text", "Text Editor", "Int", "Float", "Currency", "Percent", "Check", "Date", "Month", "Datetime", "Time", "Select", "Link", "Dynamic Link", "Table", "Attach", "JSON", "Password", "Section Break", "Column Break", "Tab Break", "HTML"}
 
 type Field struct {
-	Fieldname          string   `json:"fieldname,omitempty"`
-	Fieldtype          string   `json:"fieldtype"`
-	Label              string   `json:"label,omitempty"`
-	Options            any      `json:"options,omitempty"` // string (Link/Table/Dynamic Link) or []string (Select)
-	Reqd               bool     `json:"reqd,omitempty"`
-	Unique             bool     `json:"unique,omitempty"`
-	Default            any      `json:"default,omitempty"`
-	ReadOnly           bool     `json:"readOnly,omitempty"`
-	Hidden             bool     `json:"hidden,omitempty"`
-	FetchFrom          string   `json:"fetchFrom,omitempty"`
-	DependsOn          string   `json:"dependsOn,omitempty"`
-	ReadOnlyDependsOn  string   `json:"readOnlyDependsOn,omitempty"`
-	MandatoryDependsOn string   `json:"mandatoryDependsOn,omitempty"`
-	AllowOnSubmit      bool     `json:"allowOnSubmit,omitempty"`
-	InListView         bool     `json:"inListView,omitempty"`
-	InStandardFilter   bool     `json:"inStandardFilter,omitempty"`
-	SearchIndex        bool     `json:"searchIndex,omitempty"`
-	Length             int      `json:"length,omitempty"`
-	Precision          int      `json:"precision,omitempty"`
-	Description        string   `json:"description,omitempty"`
-	Columns            int      `json:"columns,omitempty"`
-	GridEditMode       string   `json:"gridEditMode,omitempty"`
-	Collapsible        bool     `json:"collapsible,omitempty"`
-	Bold               bool     `json:"bold,omitempty"`
-	IgnoreUserPerms    bool     `json:"-"`
-	_                  struct{} // keep JSON tags exhaustive
-	SelectOptions      []string `json:"-"`
+	Fieldname          string `json:"fieldname,omitempty"`
+	Fieldtype          string `json:"fieldtype"`
+	Label              string `json:"label,omitempty"`
+	Options            any    `json:"options,omitempty"` // string (Link/Table/Dynamic Link) or []string (Select)
+	Reqd               bool   `json:"reqd,omitempty"`
+	Unique             bool   `json:"unique,omitempty"`
+	Default            any    `json:"default,omitempty"`
+	ReadOnly           bool   `json:"readOnly,omitempty"`
+	Hidden             bool   `json:"hidden,omitempty"`
+	FetchFrom          string `json:"fetchFrom,omitempty"`
+	DependsOn          string `json:"dependsOn,omitempty"`
+	ReadOnlyDependsOn  string `json:"readOnlyDependsOn,omitempty"`
+	MandatoryDependsOn string `json:"mandatoryDependsOn,omitempty"`
+	AllowOnSubmit      bool   `json:"allowOnSubmit,omitempty"`
+	InListView         bool   `json:"inListView,omitempty"`
+	InStandardFilter   bool   `json:"inStandardFilter,omitempty"`
+	SearchIndex        bool   `json:"searchIndex,omitempty"`
+	Length             int    `json:"length,omitempty"`
+	Precision          int    `json:"precision,omitempty"`
+	Description        string `json:"description,omitempty"`
+	Columns            int    `json:"columns,omitempty"`
+	GridEditMode       string `json:"gridEditMode,omitempty"`
+	Collapsible        bool   `json:"collapsible,omitempty"`
+	Bold               bool   `json:"bold,omitempty"`
+	IgnoreUserPerms    bool   `json:"-"`
+	// OptionColors maps a Select's canonical (English) value to an indicator
+	// colour. Keyed by the value, never by its label, so it is
+	// language-independent by construction.
+	OptionColors map[string]string `json:"optionColors,omitempty"`
+	// OptionLabels is filled only on the translated copy the API serves: the
+	// display text of each entry in Options, in the same order. Options
+	// itself stays canonical English — it is what the database holds.
+	OptionLabels  []string `json:"optionLabels,omitempty"`
+	_             struct{} // keep JSON tags exhaustive
+	SelectOptions []string `json:"-"`
 }
 
 func (f *Field) OptionsString() string {
@@ -157,6 +165,10 @@ var StdColumns = []string{"name", "owner", "creation", "modified", "modified_by"
 var ChildColumns = []string{"parent", "parenttype", "parentfield", "idx"}
 
 func (d *DocType) TableName() string { return "tab_" + Snake(d.Name) }
+
+// ResetFieldIndex drops the lazily built fieldname index. A copy of a DocType
+// inherits the original's index, which points at the original's fields.
+func (d *DocType) ResetFieldIndex() { d.fieldMap = nil }
 
 func (d *DocType) Field(name string) *Field {
 	if d.fieldMap == nil {
@@ -273,20 +285,20 @@ func (r *Registry) Validate() error {
 		seen := map[string]bool{}
 		for _, f := range d.Fields {
 			if !valid[f.Fieldtype] {
-				e("fieldtype %q inválido no campo %q", f.Fieldtype, f.Fieldname)
+				e("invalid fieldtype %q on field %q", f.Fieldtype, f.Fieldname)
 			}
 			if LayoutTypes[f.Fieldtype] {
 				continue
 			}
 			if !fieldnameRe.MatchString(f.Fieldname) {
-				e("fieldname %q inválido (use snake_case ascii)", f.Fieldname)
+				e("invalid fieldname %q (use ascii snake_case)", f.Fieldname)
 			}
 			if seen[f.Fieldname] {
 				e("fieldname %q duplicado", f.Fieldname)
 			}
 			seen[f.Fieldname] = true
 			if d.IsStdColumn(f.Fieldname) || f.Fieldname == "doctype" {
-				e("fieldname %q é reservado", f.Fieldname)
+				e("fieldname %q is reserved", f.Fieldname)
 			}
 			switch f.Fieldtype {
 			case "Link", "Table":
@@ -296,7 +308,7 @@ func (r *Registry) Validate() error {
 				} else if t, ok := r.DocTypes[target]; !ok {
 					e("campo %q aponta para DocType inexistente %q", f.Fieldname, target)
 				} else if f.Fieldtype == "Table" && !t.IsChild {
-					e("campo %q: %q não é isChild", f.Fieldname, target)
+					e("field %q: %q is not isChild", f.Fieldname, target)
 				}
 			case "Select":
 				if _, ok := f.Options.([]any); !ok {
@@ -310,20 +322,20 @@ func (r *Registry) Validate() error {
 				if len(parts) != 2 {
 					e("fetchFrom %q do campo %q deve ser link.campo", f.FetchFrom, f.Fieldname)
 				} else if lf := d.Field(parts[0]); lf == nil || (lf.Fieldtype != "Link" && lf.Fieldtype != "Dynamic Link") {
-					e("fetchFrom %q do campo %q: %q não é Link", f.FetchFrom, f.Fieldname, parts[0])
+					e("fetchFrom %q on field %q: %q is not a Link", f.FetchFrom, f.Fieldname, parts[0])
 				}
 			}
 		}
 		if d.Naming.Field != "" && d.Field(d.Naming.Field) == nil {
-			e("naming.field %q não existe", d.Naming.Field)
+			e("naming.field %q does not exist", d.Naming.Field)
 		}
 		if d.IsChild && len(d.Permissions) > 0 {
-			e("child DocType não tem permissions")
+			e("a child DocType has no permissions")
 		}
 	}
 	if len(errs) > 0 {
 		sort.Strings(errs)
-		return fmt.Errorf("meta inválida:\n  %s", strings.Join(errs, "\n  "))
+		return fmt.Errorf("invalid meta:\n  %s", strings.Join(errs, "\n  "))
 	}
 	return nil
 }

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/text/currency"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 
@@ -20,7 +21,7 @@ import (
 func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, error) {
 	c, _ := rt.Ctx.(*Ctx)
 	if c == nil {
-		return nil, cerr.Internal("runtime sem contexto (op %s)", op)
+		return nil, cerr.Internal("runtime without a context (op {0})", op)
 	}
 	var a struct {
 		Doctype   string            `json:"doctype"`
@@ -39,6 +40,7 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		Value     any               `json:"value"`
 		TTL       float64           `json:"ttl"`
 		Text      string            `json:"text"`
+		Lang      string            `json:"lang"`
 		Message   string            `json:"message"`
 		Method    string            `json:"method"`
 		URL       string            `json:"url"`
@@ -56,7 +58,7 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		Currency  string            `json:"currency"`
 	}
 	if err := json.Unmarshal(raw, &a); err != nil {
-		return nil, cerr.Internal("argumentos inválidos em %s: %v", op, err)
+		return nil, cerr.Internal("invalid arguments in {0}: {1}", op, err)
 	}
 	nameStr := func() string {
 		var s string
@@ -76,11 +78,20 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 	case "nowdate":
 		return c.Today(), nil
 	case "now":
-		return time.Now().Format("2006-01-02 15:04:05"), nil
+		// the site's wall clock, for the same reason nowdate is
+		return time.Now().In(e.Location()).Format("2006-01-02 15:04:05"), nil
 	case "translate":
 		return c.T(a.Text), nil
+	case "catalogue":
+		// the whole catalogue for a language, so the prelude can interpolate
+		// in JS instead of crossing the bridge for every string
+		lang := a.Lang
+		if lang == "" {
+			lang = c.Lang
+		}
+		return c.St.I18n.Catalogue(lang), nil
 	case "formatCurrency":
-		return FormatCurrency(toFloat(a.Value), orDefault(a.Currency, e.Cfg.Currency)), nil
+		return FormatCurrency(toFloat(a.Value), orDefault(a.Currency, e.Cfg.Currency), c.Lang), nil
 	case "getMeta":
 		d, err := c.St.DocType(a.Doctype)
 		return d, err
@@ -110,7 +121,7 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		if json.Unmarshal(a.Fields, &one) == nil {
 			fields = []string{one}
 		} else if err := json.Unmarshal(a.Fields, &fields); err != nil {
-			return nil, cerr.Validation("getValue: fields inválido")
+			return nil, cerr.Validation("getValue: invalid fields")
 		}
 		var s string
 		if json.Unmarshal(a.Name, &s) == nil {
@@ -249,7 +260,7 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 	case "test.rollback":
 		return nil, c.RollbackTo()
 	}
-	return nil, cerr.Internal("operação desconhecida no bridge: %s", op)
+	return nil, cerr.Internal("unknown bridge operation: {0}", op)
 }
 
 func orDefault(s, d string) string {
@@ -270,22 +281,26 @@ func saveOpts(o map[string]any) SaveOpts {
 	return s
 }
 
-// FormatCurrency renders a number in the locale's currency style.
-func FormatCurrency(v float64, currency string) string {
-	tag := language.BrazilianPortuguese
-	symbol := "R$"
-	switch currency {
-	case "USD":
-		tag, symbol = language.AmericanEnglish, "$"
-	case "EUR":
-		tag, symbol = language.German, "€"
+// FormatCurrency renders a number as money.
+//
+// The grouping and the decimal mark come from `lang` and the symbol from
+// `currency`, because they are two independent facts: a Brazilian reading a
+// site in English still wants "R$" if the site's currency is BRL, and an
+// American reading it in Portuguese still wants "$" if it is USD. Choosing the
+// language tag *from the currency*, as this did, conflated them and got both
+// wrong for every mixed case.
+func FormatCurrency(v float64, code, lang string) string {
+	tag, err := language.Parse(lang)
+	if err != nil {
+		tag = language.English
 	}
-	p := message.NewPrinter(tag)
-	s := p.Sprintf("%.2f", v)
-	if v < 0 {
-		return "-" + symbol + " " + strings.TrimPrefix(s, "-")
+	u, err := currency.ParseISO(code)
+	if err != nil {
+		// an unknown code prints as itself: "XYZ 1,234.50" is honest, and
+		// borrowing another currency's symbol would not be
+		return code + " " + message.NewPrinter(tag).Sprintf("%.2f", v)
 	}
-	return symbol + " " + s
+	return message.NewPrinter(tag).Sprint(currency.Symbol(u.Amount(v)))
 }
 
 func httpCall(method, url string, body any, headers map[string]string, timeout float64) (any, error) {
@@ -309,7 +324,7 @@ func httpCall(method, url string, body any, headers map[string]string, timeout f
 	}
 	req, err := http.NewRequest(orDefault(method, "GET"), url, rd)
 	if err != nil {
-		return nil, cerr.Validation("http: %v", err)
+		return nil, cerr.Validation("http: {0}", err)
 	}
 	for k, v := range headers {
 		req.Header.Set(k, v)
@@ -318,7 +333,7 @@ func httpCall(method, url string, body any, headers map[string]string, timeout f
 	client := &http.Client{Timeout: time.Duration(timeout * float64(time.Second))}
 	res, err := client.Do(req)
 	if err != nil {
-		return nil, cerr.Validation("http: %v", err)
+		return nil, cerr.Validation("http: {0}", err)
 	}
 	defer res.Body.Close()
 	b, _ := io.ReadAll(io.LimitReader(res.Body, 10<<20))

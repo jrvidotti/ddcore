@@ -12,7 +12,7 @@
     // client-side reqd check
     for (const f of d.spec.fields || []) {
       if (f.reqd && f.fieldname && (d.values[f.fieldname] === null || d.values[f.fieldname] === undefined || d.values[f.fieldname] === "")) {
-        showError({ title: __("Campos obrigatórios"), message: __("Preencha {0}", [f.label || f.fieldname]) });
+        showError({ title: __("Required fields"), message: __("Fill in {0}", [f.label || f.fieldname]) });
         return;
       }
     }
@@ -57,8 +57,8 @@
         {/each}
       </div>
       <div class="foot">
-        {#if d.spec.dangerAction}<button class="btn danger" disabled={d.busy} onclick={() => danger(d)}>{d.spec.dangerLabel || __("Excluir")}</button><span class="spacer"></span>{/if}
-        <button class="btn" onclick={() => cancel(d)}>{d.spec.secondaryLabel || __("Cancelar")}</button>
+        {#if d.spec.dangerAction}<button class="btn danger" disabled={d.busy} onclick={() => danger(d)}>{d.spec.dangerLabel || __("Delete")}</button><span class="spacer"></span>{/if}
+        <button class="btn" onclick={() => cancel(d)}>{d.spec.secondaryLabel || __("Cancel")}</button>
         {#if d.spec.primaryAction || d.spec.primaryLabel}
           <button class="btn primary" disabled={d.busy} onclick={() => primary(d)}>{d.spec.primaryLabel || "OK"}</button>
         {/if}

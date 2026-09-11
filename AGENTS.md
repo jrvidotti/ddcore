@@ -1,28 +1,44 @@
-# Diretrizes para Agentes de IA
+# Guidelines for AI agents
 
-Este repositório adota as convenções e a arquitetura documentadas em [`CLAUDE.md`](file:///Users/junior/dev/ddcore/CLAUDE.md), que deve ser utilizado como referência primária para o framework DDCore, organização de pastas, scripts e convenções de código.
+This repository follows the conventions and architecture documented in
+[`CLAUDE.md`](CLAUDE.md), which is the primary reference for the ddcore framework, its
+directory layout, its scripts and its code conventions.
 
 ---
 
-## Servidor de Desenvolvimento (`dev`)
+## The development server (`dev`)
 
-- **NÃO inicie um servidor de desenvolvimento (`./bin/ddcore dev` ou `make dev`) se já houver um em execução.**
-- Antes de tentar subir o servidor, verifique sempre se a porta 8090 já está ocupada ou respondendo:
+- **Do not start a development server (`./bin/ddcore dev` or `make dev`) if one is already running.**
+- Before trying to start it, always check whether port 8090 is taken or answering:
   ```bash
   lsof -ti tcp:8090
-  # ou
+  # or
   curl -I http://localhost:8090
   ```
-- O servidor de desenvolvimento possui **hot-reload automático** (vigilância de arquivos via `watch.Apps`). Ao editar doctypes, controllers ou serviços, o servidor recarrega as definições automaticamente em memória, portanto **não é necessário reiniciar o processo**.
-- Para reiniciar explicitamente caso estritamente necessário (ex.: após recompilar o desk em `make build`), utilize `make stop` antes de iniciar novamente.
+- The development server has **automatic hot reload** (file watching through `watch.Apps`).
+  Editing a doctype, a controller, a service or a translation CSV reloads the definitions in
+  memory, so **restarting the process is not necessary**.
+- To restart explicitly when it really is necessary (after rebuilding the desk with
+  `make build`, say), use `make stop` first.
 
 ---
 
-## Referências e Boas Práticas Essenciais
+## Essential references and practices
 
-Consulte sempre o [`CLAUDE.md`](file:///Users/junior/dev/ddcore/CLAUDE.md) e a documentação em [`docs/agent/index.md`](file:///Users/junior/dev/ddcore/docs/agent/index.md):
+Always consult [`CLAUDE.md`](CLAUDE.md) and the documentation in
+[`docs/agent/index.md`](docs/agent/index.md):
 
-1. **TypeScript Síncrono no Servidor:** Código de apps que roda no servidor (goja) é síncrono; nunca utilize `await` em controllers ou serviços de servidor. Scripts do desk em `@ddcore/desk-sdk` rodam no navegador e podem ser assíncronos.
-2. **Tipagens Geradas:** Nunca edite manualmente `.ddcore/types.d.ts`. Use `./bin/ddcore types` ou `make test`.
-3. **Testes:** Valide sempre suas alterações com `make test` (testes Go + TypeScript de desk e apps).
-4. **MCP:** Utilize as tools do DDCore MCP definidas em `.mcp.json` para inspecionar metadados, executar métodos e rodar migrações.
+1. **Synchronous TypeScript on the server:** app code running on the server (goja) is
+   synchronous; never use `await` in a controller or a server-side service. Desk scripts using
+   `@ddcore/desk-sdk` run in the browser and may be asynchronous.
+2. **Generated typings:** never edit `.ddcore/types.d.ts` by hand. Use `./bin/ddcore types` or
+   `make test`.
+3. **English is the source language:** write every user-facing string — including a `label:`
+   and a Select's values — in English, and put its translation in `translations/<lang>.csv`
+   with `./bin/ddcore i18n extract`. A key without a translation fails `make check`, and would
+   otherwise fail silently by rendering as English on a translated screen. See
+   [`docs/agent/i18n.md`](docs/agent/i18n.md).
+4. **Tests:** always validate a change with `make test` (the Go tests plus the desk's and the
+   apps' TypeScript).
+5. **MCP:** use the ddcore MCP tools declared in `.mcp.json` to inspect metadata, run methods
+   and apply migrations.

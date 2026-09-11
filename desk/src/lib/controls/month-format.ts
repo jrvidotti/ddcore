@@ -1,36 +1,27 @@
-// Helpers for Month/Year ("mm/aaaa") formatting, masking and parsing.
+// Month/year formatting, parsing and masking, with the order taken from the
+// locale rather than fixed at "mm/yyyy". See date-format.ts for the reasoning.
 
-export const MONTH_NAMES_SHORT = [
-  "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
-  "Jul", "Ago", "Set", "Out", "Nov", "Dez",
-];
+import { monthNames, monthShape } from "../locale";
 
-export const MONTH_NAMES_FULL = [
-  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
-];
+/** Abbreviated month names for the month picker's grid. */
+export const monthLabelsShort = (): string[] => monthNames("short");
 
-/** Formats an ISO date ("2026-09-01" or "2026-09") into "09/2026". */
+/** Full month names, for a title. */
+export const monthLabelsFull = (): string[] => monthNames("long");
+
+/** The hint for the input, e.g. "mm/yyyy" or "yyyy-mm". */
+export const monthPlaceholder = (): string => monthShape().placeholder;
+
+/** Formats an ISO date ("2026-09-01" or "2026-09") the way the locale writes it. */
 export function formatMonth(v: any): string {
   if (!v) return "";
   const s = String(v).trim().slice(0, 10);
-  if (/^\d{2}\/\d{4}$/.test(s)) return s;
-
-  // Handle "YYYY-MM" or "YYYY-MM-DD"
-  const mIso = s.match(/^(\d{4})-(\d{2})(?:-\d{2})?/);
-  if (mIso) {
-    const [, y, m] = mIso;
-    return `${m}/${y}`;
-  }
-
-  // Handle "MM/YYYY" or "M/YYYY"
-  const mSlash = s.match(/^(\d{1,2})\/(\d{4})/);
-  if (mSlash) {
-    const [, m, y] = mSlash;
-    return `${m.padStart(2, "0")}/${y}`;
-  }
-
-  return s;
+  const mIso = s.match(/^(\d{4})-(\d{1,2})(?:-\d{1,2})?$/);
+  if (!mIso) return s;
+  const { monthFirst, sep } = monthShape();
+  const y = mIso[1];
+  const m = mIso[2].padStart(2, "0");
+  return monthFirst ? `${m}${sep}${y}` : `${y}${sep}${m}`;
 }
 
 export interface ParsedMonth {
@@ -39,59 +30,52 @@ export interface ParsedMonth {
   iso: string; // "YYYY-MM-01"
 }
 
-/** Parses "09/2026" or "2026-09-01" into year, month and canonical ISO date. */
+/** Parses the locale's own month order, or ISO, into year, month and ISO. */
 export function parseMonth(text: string): ParsedMonth | null {
   if (!text) return null;
   const s = String(text).trim();
 
-  // Try "MM/YYYY"
-  const mSlash = s.match(/^(\d{1,2})\/(\d{4})$/);
-  if (mSlash) {
-    const m = parseInt(mSlash[1], 10);
-    const y = parseInt(mSlash[2], 10);
-    if (m >= 1 && m <= 12 && y >= 1000 && y <= 9999) {
-      const padM = String(m).padStart(2, "0");
-      return { year: y, month: m, iso: `${y}-${padM}-01` };
-    }
-    return null;
-  }
+  const build = (y: number, m: number): ParsedMonth | null =>
+    m >= 1 && m <= 12 && y >= 1000 && y <= 9999
+      ? { year: y, month: m, iso: `${y}-${String(m).padStart(2, "0")}-01` }
+      : null;
 
-  // Try "YYYY-MM" or "YYYY-MM-DD"
+  // ISO is accepted everywhere: it is the wire format
   const mIso = s.match(/^(\d{4})-(\d{1,2})(?:-(\d{1,2}))?$/);
-  if (mIso) {
-    const y = parseInt(mIso[1], 10);
-    const m = parseInt(mIso[2], 10);
-    if (m >= 1 && m <= 12 && y >= 1000 && y <= 9999) {
-      const padM = String(m).padStart(2, "0");
-      return { year: y, month: m, iso: `${y}-${padM}-01` };
-    }
-    return null;
-  }
+  if (mIso) return build(Number(mIso[1]), Number(mIso[2]));
 
-  return null;
+  const { monthFirst, sep } = monthShape();
+  const parts = s.split(sep).map((p) => p.trim());
+  if (parts.length !== 2 || parts.some((p) => !/^\d{1,4}$/.test(p))) return null;
+  const [a, b] = parts.map(Number);
+  return monthFirst ? build(b, a) : build(a, b);
 }
 
-/** Formats typed digits into "mm/aaaa". Automatically handles leading zeros and slash insertion. */
+/** Formats typed digits into the locale's month order. */
 export function maskMonthInput(raw: string): string {
   if (!raw) return "";
+  const { monthFirst, sep } = monthShape();
   const digits = raw.replace(/\D/g, "").slice(0, 6);
   if (!digits) return "";
 
-  if (digits.length === 1) {
-    const d = digits;
-    // Months 2-9 cannot be preceded by 1, so auto-prefix with 0: "02/"
-    if (d >= "2" && d <= "9") {
-      return `0${d}/`;
-    }
-    return d;
+  if (!monthFirst) {
+    // year first: "2026-09"
+    const y = digits.slice(0, 4);
+    if (digits.length <= 4) return y;
+    let m = digits.slice(4, 6);
+    const n = parseInt(m, 10);
+    if (m.length === 2) m = n === 0 ? "01" : n > 12 ? "12" : String(n).padStart(2, "0");
+    return `${y}${sep}${m}`;
   }
 
+  if (digits.length === 1) {
+    // months 2-9 cannot be preceded by a 1, so they complete themselves
+    return digits >= "2" && digits <= "9" ? `0${digits}${sep}` : digits;
+  }
   let m = digits.slice(0, 2);
   const y = digits.slice(2, 6);
-  const numM = parseInt(m, 10);
-
-  if (numM === 0) m = "01";
-  else if (numM > 12) m = "12";
-
-  return y ? `${m}/${y}` : `${m}/`;
+  const n = parseInt(m, 10);
+  if (n === 0) m = "01";
+  else if (n > 12) m = "12";
+  return y ? `${m}${sep}${y}` : `${m}${sep}`;
 }

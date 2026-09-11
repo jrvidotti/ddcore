@@ -93,7 +93,7 @@
 </script>
 
 <div class="page">
-  <div class="page-head"><h1>{label}</h1><button class="btn" onclick={exportCsv}><Icon name="download" size={14} /> CSV</button><button class="btn primary" onclick={run} disabled={loading}>{__("Atualizar")}</button></div>
+  <div class="page-head"><h1>{label}</h1><button class="btn" onclick={exportCsv}><Icon name="download" size={14} /> CSV</button><button class="btn primary" onclick={run} disabled={loading}>{__("Update")}</button></div>
   {#if meta?.filters?.length}
     <div class="card" style="padding:12px 14px;margin-bottom:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
       {#each meta.filters as f (f.fieldname)}
@@ -121,13 +121,13 @@
                   {#if c.fieldtype === "Link" && r[c.fieldname]}
                     {@const linkTitle = getLinkTitle(c.options, r[c.fieldname]) || r[c.fieldname]}
                     <a href={`/app/${encodeURIComponent(c.options)}/${encodeURIComponent(r[c.fieldname])}`} title={r[c.fieldname]}>{linkTitle}</a>
-                  {:else if ["status", "situacao"].includes(c.fieldname) && r[c.fieldname]}<span class="indicator {statusColor(r[c.fieldname])}">{r[c.fieldname]}</span>
+                  {:else if c.fieldname === "status" && r[c.fieldname]}<span class="indicator {statusColor(r[c.fieldname], c)}">{__(r[c.fieldname])}</span>
                   {:else}<span style:color={c.fieldtype === "Currency" && r[c.fieldname] < 0 ? "var(--red)" : undefined}>{formatValue(r[c.fieldname], c)}</span>{/if}
                 </td>
               {/each}
             </tr>
           {/each}
-          {#if !result.rows.length}<tr><td colspan="30" class="empty">{__("Nenhum registro")}</td></tr>{/if}
+          {#if !result.rows.length}<tr><td colspan="30" class="empty">{__("No records")}</td></tr>{/if}
         </tbody>
         {#if totals}
           <tfoot>

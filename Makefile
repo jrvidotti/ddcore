@@ -1,4 +1,4 @@
-.PHONY: build desk test check vet test-go test-desk dev stop kill migrate help docker-up docker-down docker-logs docker-status docker-psql db-up db-down db-logs db-status db-psql
+.PHONY: build desk test check check-docs vet i18n test-go test-desk dev stop kill migrate help docker-up docker-down docker-logs docker-status docker-psql db-up db-down db-logs db-status db-psql
 
 PORT ?= 8090
 
@@ -32,10 +32,17 @@ build: desk ## compila desk + binário
 desk: ## compila o desk (SvelteKit) para desk/build (embutido no binário)
 	cd desk && npm install --silent && npm run build
 
-check: ## verifica os tipos do desk, sem banco
+check: ## verifica os tipos do desk e o catálogo de traduções, sem banco
 	cd desk && npm install --silent && npm run check
 	./bin/ddcore types
-	cd desk && npx tsc -p ../apps/exemplo/tsconfig.json --noEmit
+	cd desk && npx tsc -p ../apps/demo/tsconfig.json --noEmit
+	./bin/ddcore i18n extract --all --lang pt-BR --check
+
+i18n: ## reescreve translations/<lang>.csv a partir do código
+	./bin/ddcore i18n extract --all --lang pt-BR
+
+check-docs: ## verifica se os espelhos .ptbr.md acompanharam o original em inglês
+	./scripts/check-docs.sh
 
 vet: ## análise estática do Go
 	go vet ./...
@@ -45,7 +52,7 @@ test-desk: ## svelte-check + testes unitários do desk
 
 test: build vet ## testes Go e do desk
 	go test ./internal/...
-	./bin/ddcore test --app exemplo
+	./bin/ddcore test --app demo
 	$(MAKE) test-desk
 
 dev: ## servidor de desenvolvimento

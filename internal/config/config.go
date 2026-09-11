@@ -18,6 +18,7 @@ type File struct {
 	Site      string   `json:"site"`
 	Lang      string   `json:"lang"`
 	Currency  string   `json:"currency"`
+	Timezone  string   `json:"timezone"`
 	DataDir   string   `json:"dataDir"`
 	Dev       bool     `json:"dev"`
 }
@@ -27,7 +28,7 @@ const Name = "ddcore.json"
 // Load reads ddcore.json from dir (or its parents) and applies env overrides.
 func Load(dir string) (*File, string, error) {
 	path, err := find(dir)
-	f := &File{Port: 8080, Workers: 2, Lang: "pt-BR", Currency: "BRL", Site: "ddcore"}
+	f := &File{Port: 8080, Workers: 2, Lang: "pt-BR", Currency: "BRL", Timezone: "UTC", Site: "ddcore"}
 	if err == nil {
 		b, err := os.ReadFile(path)
 		if err != nil {

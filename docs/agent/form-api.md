@@ -1,73 +1,82 @@
-# Scripts de formulário (desk)
+# Form scripts (desk)
 
-Arquivo `doctypes/<snake>/<snake>.form.ts`, compilado pelo servidor e carregado ao abrir o formulário.
+The file `doctypes/<snake>/<snake>.form.ts`, compiled by the server and loaded when the form opens.
 
 ```ts
 import { defineForm, ddcore } from "@ddcore/desk-sdk";
-import type { Lancamento } from "../../.ddcore/types";
+import type { Entry } from "../../.ddcore/types";
 
-defineForm<Lancamento>("Lancamento", {
-  setup(frm) { frm.setQuery("categoria", () => ({ filters: { natureza: frm.doc.natureza } })); },
+defineForm<Entry>("Entry", {
+  setup(frm) { frm.setQuery("category", () => ({ filters: { kind: frm.doc.kind } })); },
   refresh(frm) {
-    frm.setDfProperty("baixas", "cannotAddRows", true);
+    frm.setDfProperty("settlements", "cannotAddRows", true);
     if (frm.isNew) return;
-    frm.addIndicator(__("Saldo: {0}", [ddcore.format.currency(frm.doc.saldo_devedor)]), "red");
-    frm.addButton(__("Registrar pagamento"), () => baixar(frm), __("Ações"));
-    frm.setInnerGroupAsPrimary(__("Ações"));
+    frm.addIndicator(__("Balance: {0}", [ddcore.format.currency(frm.doc.balance)]), "red");
+    frm.addButton(__("Record a payment"), () => settle(frm), __("Actions"));
+    frm.setInnerGroupAsPrimary(__("Actions"));
   },
-  onChange: { natureza(frm) { frm.setValue("categoria", null); } },
-  validate(frm) { /* return false para impedir o save */ },
+  onChange: { kind(frm) { frm.setValue("category", null); } },
+  validate(frm) { /* return false to stop the save */ },
   afterSave(frm) {},
 });
 ```
 
 ## `frm`
 
-`doc`, `doctype`, `meta`, `isNew`, `isDirty`, `docstatus`, `perm`, `getValue`, `setValue(campo | {..}, valor)`, `field(campo)`,
-`setDfProperty(campo, prop, valor)` (`hidden`, `readOnly`, `reqd`, `label`, `options`, `cannotAddRows`, `cannotDeleteRows`),
-`setQuery(campo, () => ({ filters }))`, `toggleDisplay/toggleReqd/toggleEnable`, `addButton(label, fn, grupo)`, `removeButton`,
-`setPrimaryAction(label, fn)`, `setInnerGroupAsPrimary(grupo)`, `addIndicator(label, cor)`, `addChild(tabela, valores)`, `removeChild(tabela, idx)`,
-`trigger(campo)`, `save()`, `submit()`, `cancel()`, `reload()`,
-`call(metodo, args, { reload })` → chama `methods.<metodo>` do controller e recarrega o doc.
+`doc`, `doctype`, `meta`, `isNew`, `isDirty`, `docstatus`, `perm`, `getValue`, `setValue(field | {..}, value)`, `field(field)`,
+`setDfProperty(field, prop, value)` (`hidden`, `readOnly`, `reqd`, `label`, `options`, `cannotAddRows`, `cannotDeleteRows`),
+`setQuery(field, () => ({ filters }))`, `toggleDisplay/toggleReqd/toggleEnable`, `addButton(label, fn, group)`, `removeButton`,
+`setPrimaryAction(label, fn)`, `setInnerGroupAsPrimary(group)`, `addIndicator(label, colour)`, `addChild(table, values)`, `removeChild(table, idx)`,
+`trigger(field)`, `save()`, `submit()`, `cancel()`, `reload()`,
+`call(method, args, { reload })` → calls the controller's `methods.<method>` and reloads the doc.
 
-## `ddcore` no desk
+## `ddcore` in the desk
 
-- `ddcore.call("app.services.arquivo.fn", args)` — função whitelisted
-- `ddcore.db.getValue/getList/count/getDoc/setValue/insert` (assíncronos: use `await`)
-- `ddcore.ui.Dialog({ title, fields, values, primaryLabel, primaryAction(values, dlg), dangerLabel, dangerAction(values, dlg), onChange(campo, values, dlg), size })` → `dlg.show()/hide()/setValue/getValue/setHtml(campoHTML, html)`
+- `ddcore.call("app.services.file.fn", args)` — a whitelisted function
+- `ddcore.db.getValue/getList/count/getDoc/setValue/insert` (asynchronous: `await` them)
+- `ddcore.ui.Dialog({ title, fields, values, primaryLabel, primaryAction(values, dlg), dangerLabel, dangerAction(values, dlg), onChange(field, values, dlg), size })` → `dlg.show()/hide()/setValue/getValue/setHtml(htmlField, html)`
 - `ddcore.ui.msgprint(msg, { title, indicator })`, `ddcore.ui.toast`, `ddcore.ui.confirm(msg)`, `ddcore.ui.prompt(title, fields)`, `ddcore.ui.showError(e)`
-- `ddcore.format.currency/date/number/value`, `ddcore.datetime.today/addMonths/addDays/monthStart/monthEnd`
-- `__("texto", [args])` — tradução
+- `ddcore.format.currency/date/number/value/statusColor`, `ddcore.datetime.today/addMonths/addDays/monthStart/monthEnd`
+- `__("text", [args])` — translation; the key is its English text. See `i18n`.
 
-### Datas e horas
+### Dates and times
 
-`ddcore.datetime` trabalha com **datas civis** (`"YYYY-MM-DD"`) e tem exatamente a semântica de
-`ddcore.utils` no servidor: `today()` é o dia do relógio **local** do navegador (não o dia UTC) e
-`addMonths` limita o dia ao fim do mês de destino — `addMonths("2026-01-31", 1) === "2026-02-28"`.
+`ddcore.datetime` works in **civil dates** (`"YYYY-MM-DD"`) with exactly the semantics of
+`ddcore.utils` on the server: `today()` is the day in the **site's** timezone — the same day the
+server calls today, which is what makes `due_date < today()` agree on both sides — and
+`addMonths` clamps the day to the end of the target month: `addMonths("2026-01-31", 1) === "2026-02-28"`.
 
-Campos `Datetime`, ao contrário, são **instantes**: viajam em ISO UTC e o control os exibe/recebe
-no fuso do navegador. Não fatie a string (`v.slice(0, 16)`) para preencher um `datetime-local`, isso
-mostra UTC como se fosse hora local; use `$lib/datetime` (`toDatetimeLocal`/`fromDatetimeLocal`).
+`Datetime` fields, by contrast, are **instants**: they travel as ISO UTC and the control shows and
+accepts them in the site's timezone. Never slice the string (`v.slice(0, 16)`) to fill a
+`datetime-local` — that shows UTC as if it were local time; use `$lib/datetime`
+(`toDatetimeLocal`/`fromDatetimeLocal`).
+
+Never format a date, a number or a currency by hand: `ddcore.format.*` derives the order, the
+separators and the symbol from the reader's language and the site's currency.
 
 ## `defineListView`
 
-Ajusta a listagem de um DocType a partir de um script global (`client/*.ts`):
+Adjusts a DocType's list from a global script (`client/*.ts`):
 
 ```ts
 import { defineListView, ddcore } from "@ddcore/desk-sdk";
 
-defineListView("Lancamento", {
-  columns: ["contrato", "competencia", "valor", "saldo_devedor"], // no lugar do inListView da meta
-  filters: { situacao: "Em Aberto" },   // filtros iniciais (a query string da URL ainda vence)
-  orderBy: "vencimento asc",
+defineListView("Entry", {
+  columns: ["contract", "period", "amount", "balance"], // in place of the meta's inListView
+  filters: { status: "Open" },          // initial filters (the URL's query string still wins)
+  orderBy: "due_date asc",
   pageSize: 50,
-  formatters: { valor: (v, row) => ddcore.format.currency(v) }, // texto da célula
-  indicator: (row) => (row.saldo_devedor > 0 ? { label: "Em aberto", color: "red" } : { label: "Quitado", color: "green" }),
+  formatters: { amount: (v, row) => ddcore.format.currency(v) }, // the cell's text
+  indicator: (row) => (row.balance > 0 ? { label: __("Open"), color: "red" } : { label: __("Settled"), color: "green" }),
 });
 ```
 
-Todas as chaves são opcionais. `formatters` devolve **texto** (não HTML); `indicator` substitui a
-coluna de status padrão e pode devolver `null` para não mostrar nada na linha.
+Every key is optional. `formatters` returns **text** (not HTML); `indicator` replaces the default
+status column and may return `null` to show nothing on that row.
 
-Scripts globais (`client/*.ts`, listados em `desk.include` no `ddcore.app.ts`) rodam em todo o desk: máscaras, atalhos, `defineForm` para vários DocTypes.
-Inputs de campos Data têm `data-fieldname` e `data-fieldtype` para máscaras por delegação de eventos.
+Most lists need no `indicator` at all: declare `optionColors` on the status field and the desk
+colours and translates it on its own. Reach for `indicator` only when the label is not a field
+value — and never key a colour on text a reader sees, since that changes with the language.
+
+Global scripts (`client/*.ts`, listed under `desk.include` in `ddcore.app.ts`) run across the whole desk: masks, shortcuts, `defineForm` for several DocTypes.
+Date field inputs carry `data-fieldname` and `data-fieldtype` for masks applied by event delegation.

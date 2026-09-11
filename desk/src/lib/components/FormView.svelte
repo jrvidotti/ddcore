@@ -2,7 +2,7 @@
   // Form view generated from meta: sections/columns/tabs, controls, grids,
   // toolbar (save/submit/cancel/amend/delete), form-script buttons, sidebar.
   import { createForm, FormController, type Button } from "$lib/form.svelte";
-  import { isLayout, type Field } from "$lib/meta";
+  import { isLayout, selectLabels, selectOptions, type Field } from "$lib/meta";
   import Control from "$lib/controls/Control.svelte";
   import Grid from "$lib/controls/Grid.svelte";
   import Icon from "./Icon.svelte";
@@ -70,7 +70,7 @@
   interface Tab { label: string; sections: Section[] }
   const tabs = $derived.by((): Tab[] => {
     if (!frm) return [];
-    const out: Tab[] = [{ label: __("Detalhes"), sections: [] }];
+    const out: Tab[] = [{ label: __("Details"), sections: [] }];
     const newSection = (f?: Field): Section => ({ label: f?.label, collapsible: f?.collapsible, columns: [[]], dependsOn: f?.dependsOn });
     let tab = out[0];
     let sec: Section | null = null;
@@ -84,18 +84,28 @@
     }
     return out;
   });
+  const statusField = $derived(frm?.meta.doctype.fields.find((f) => f.fieldname === "status"));
+  /** The canonical status value — what the colour is keyed on. */
   const status = $derived.by(() => {
     if (!frm) return "";
-    const sf = frm.meta.doctype.fields.find((f) => ["status", "situacao"].includes(f.fieldname || ""));
-    if (sf && frm.doc[sf.fieldname!]) return frm.doc[sf.fieldname!];
-    if (frm.isNew) return __("Novo");
-    if (frm.isSubmittable) return frm.docstatus === 2 ? __("Cancelado") : frm.docstatus === 1 ? __("Enviado") : __("Rascunho");
+    if (statusField && frm.doc[statusField.fieldname!]) return frm.doc[statusField.fieldname!];
+    if (frm.isNew) return "New";
+    if (frm.isSubmittable) return frm.docstatus === 2 ? "Cancelled" : frm.docstatus === 1 ? "Submitted" : "Draft";
     return "";
+  });
+  /** The same status as the reader sees it. */
+  const statusLabel = $derived.by(() => {
+    if (!status) return "";
+    if (statusField && frm?.doc[statusField.fieldname!]) {
+      const i = selectOptions(statusField).indexOf(status);
+      if (i >= 0) return selectLabels(statusField)[i];
+    }
+    return __(status);
   });
   const title = $derived(
     frm
       ? frm.isNew
-        ? frm.doc.name?.trim() || __("Novo {0}", [frm.meta.doctype.label])
+        ? frm.doc.name?.trim() || __("New {0}", [frm.meta.doctype.label])
         : (frm.meta.doctype.titleField && frm.doc[frm.meta.doctype.titleField]) || frm.doc.name
       : ""
   );
@@ -105,8 +115,8 @@
   const canEditTitle = $derived(canRename || hasTitleField);
   const editTitleTooltip = $derived(
     hasTitleField
-      ? __("Editar {0}", [frm?.field(frm?.meta.doctype.titleField!)?.label || __("título")])
-      : __("Renomear {0}", [frm?.meta.doctype.label || doctype])
+      ? __("Edit {0}", [frm?.field(frm?.meta.doctype.titleField!)?.label || __("title")])
+      : __("Rename {0}", [frm?.meta.doctype.label || doctype])
   );
 
   async function onEditTitle() {
@@ -114,8 +124,8 @@
     if (hasTitleField && frm.meta.doctype.titleField) {
       const tf = frm.meta.doctype.titleField;
       const fDef = frm.field(tf);
-      const label = fDef?.label || __("Título");
-      const v = await prompt(__("Editar {0}", [label]), [
+      const label = fDef?.label || __("Title");
+      const v = await prompt(__("Edit {0}", [label]), [
         { fieldname: "title", fieldtype: "Data", label, reqd: true, default: frm.doc[tf] }
       ]);
       if (v && v.title !== undefined && v.title.trim() !== "" && v.title !== frm.doc[tf]) {
@@ -129,14 +139,14 @@
   }
 
   async function remove() {
-    if (!frm || !(await confirm(__("Apagar {0}?", [frm.doc.name]), __("Apagar")))) return;
+    if (!frm || !(await confirm(__("Delete {0}?", [frm.doc.name]), __("Delete")))) return;
     try { await frm.delete(); } catch (e) { showError(e); }
   }
   async function rename() {
     if (!frm) return;
     const label = frm.meta.doctype.label || frm.meta.doctype.name;
-    const v = await prompt(__("Renomear {0}", [label]), [
-      { fieldname: "name", fieldtype: "Data", label: __("Novo nome"), reqd: true, default: frm.doc.name }
+    const v = await prompt(__("Rename {0}", [label]), [
+      { fieldname: "name", fieldtype: "Data", label: __("New name"), reqd: true, default: frm.doc.name }
     ]);
     if (!v || !v.name || v.name.trim() === frm.doc.name) return;
     try {
@@ -151,7 +161,7 @@
     frm.load(copy);
     history.replaceState(null, "", `/app/${encodeURIComponent(doctype)}/new`);
     await frm.runRefresh();
-    toast(__("Cópia criada — salve para gravar"), { indicator: "blue" });
+    toast(__("Copy created — save it to keep it"), { indicator: "blue" });
   }
   // dropdowns close on any click outside them (mouseleave used to need two clicks)
   function onPointerDown(e: PointerEvent) {
@@ -191,12 +201,12 @@
           {:else}
             <span>{title}</span>
           {/if}
-          {#if status}<span class="indicator {statusColor(status)}">{status}</span>{/if}
-          {#if frm.isDirty && !frm.isNew}<span class="indicator orange">{__("Não salvo")}</span>{/if}
+          {#if status}<span class="indicator {statusColor(status, statusField)}">{statusLabel}</span>{/if}
+          {#if frm.isDirty && !frm.isNew}<span class="indicator orange">{__("Not saved")}</span>{/if}
         </h1>
       </div>
       <span class="spacer"></span>
-      {#if stale}<button class="btn" onclick={() => { stale = false; frm?.reload(); }}><Icon name="refresh-cw" size={14} />{__("Alterado por outro usuário — recarregar")}</button>{/if}
+      {#if stale}<button class="btn" onclick={() => { stale = false; frm?.reload(); }}><Icon name="refresh-cw" size={14} />{__("Changed by someone else — reload")}</button>{/if}
       {#each frm.indicators as ind}<span class="indicator {ind.color}">{ind.label}</span>{/each}
       {#each [...groups] as [group, buttons]}
         {#if group}
@@ -217,12 +227,12 @@
           <button class="btn icon" onclick={() => (menuOpen = !menuOpen)} aria-label="Menu"><Icon name="more-horizontal" /></button>
           {#if menuOpen}
             <div class="menu" role="menu" tabindex="-1">
-              <button onclick={() => { menuOpen = false; frm?.reload(); }}>{__("Recarregar")}</button>
-              {#if frm.perm.create}<button onclick={() => { menuOpen = false; duplicate(); }}>{__("Duplicar")}</button>{/if}
-              {#if frm.meta.doctype.allowRename && frm.perm.write && frm.docstatus === 0}<button onclick={() => { menuOpen = false; rename(); }}>{__("Renomear")}</button>{/if}
-              {#if frm.perm.delete && frm.docstatus !== 1}<button class="danger" style="color:var(--red)" onclick={() => { menuOpen = false; remove(); }}>{__("Apagar")}</button>{/if}
+              <button onclick={() => { menuOpen = false; frm?.reload(); }}>{__("Reload")}</button>
+              {#if frm.perm.create}<button onclick={() => { menuOpen = false; duplicate(); }}>{__("Duplicate")}</button>{/if}
+              {#if frm.meta.doctype.allowRename && frm.perm.write && frm.docstatus === 0}<button onclick={() => { menuOpen = false; rename(); }}>{__("Rename")}</button>{/if}
+              {#if frm.perm.delete && frm.docstatus !== 1}<button class="danger" style="color:var(--red)" onclick={() => { menuOpen = false; remove(); }}>{__("Delete")}</button>{/if}
               <button onclick={() => { menuOpen = false; openShortcutsHelp(); }} style="display:flex;align-items:center;justify-content:space-between">
-                <span>{__("Atalhos de teclado")}</span>
+                <span>{__("Keyboard shortcuts")}</span>
                 <kbd class="kbd">?</kbd>
               </button>
             </div>
@@ -234,18 +244,18 @@
       {:else if frm.isSubmittable}
         {#if frm.docstatus === 0}
           {#if frm.isDirty || frm.isNew}
-            <button class="btn primary" disabled={frm.saving} onclick={() => frm?.save()} title="{__('Salvar')} ({modKey}+S)">{__("Salvar")}<kbd class="btn-kbd">{modKey}S</kbd></button>
+            <button class="btn primary" disabled={frm.saving} onclick={() => frm?.save()} title="{__('Save')} ({modKey}+S)">{__("Save")}<kbd class="btn-kbd">{modKey}S</kbd></button>
           {:else if frm.perm.submit}
-            <button class="btn primary" disabled={frm.saving} onclick={async () => (await confirm(__("Enviar permanentemente {0}?", [frm?.doc.name]), __("Enviar"))) && frm?.submit()}>{__("Enviar")}</button>
+            <button class="btn primary" disabled={frm.saving} onclick={async () => (await confirm(__("Submit {0} permanently?", [frm?.doc.name]), __("Submit"))) && frm?.submit()}>{__("Submit")}</button>
           {/if}
         {:else if frm.docstatus === 1}
-          {#if frm.isDirty}<button class="btn primary" disabled={frm.saving} onclick={() => frm?.save()} title="{__('Atualizar')} ({modKey}+S)">{__("Atualizar")}<kbd class="btn-kbd">{modKey}S</kbd></button>
-          {:else if frm.perm.cancel}<button class="btn" disabled={frm.saving} onclick={async () => (await confirm(__("Cancelar {0}?", [frm?.doc.name]), __("Cancelar"))) && frm?.cancel()}>{__("Cancelar")}</button>{/if}
+          {#if frm.isDirty}<button class="btn primary" disabled={frm.saving} onclick={() => frm?.save()} title="{__('Update')} ({modKey}+S)">{__("Update")}<kbd class="btn-kbd">{modKey}S</kbd></button>
+          {:else if frm.perm.cancel}<button class="btn" disabled={frm.saving} onclick={async () => (await confirm(__("Cancel {0}?", [frm?.doc.name]), __("Cancel"))) && frm?.cancel()}>{__("Cancel")}</button>{/if}
         {:else if frm.perm.amend}
-          <button class="btn primary" onclick={() => frm?.amend()}>{__("Emendar")}</button>
+          <button class="btn primary" onclick={() => frm?.amend()}>{__("Amend")}</button>
         {/if}
       {:else if frm.perm.write || (frm.isNew && frm.perm.create)}
-        <button class="btn primary" disabled={frm.saving || (!frm.isDirty && !frm.isNew)} onclick={() => frm?.save()} title="{__('Salvar')} ({modKey}+S)">{__("Salvar")}<kbd class="btn-kbd">{modKey}S</kbd></button>
+        <button class="btn primary" disabled={frm.saving || (!frm.isDirty && !frm.isNew)} onclick={() => frm?.save()} title="{__('Save')} ({modKey}+S)">{__("Save")}<kbd class="btn-kbd">{modKey}S</kbd></button>
       {/if}
     </div>
 
@@ -294,7 +304,7 @@
     </div>
   </div>
 {:else}
-  <div class="page muted">{__("Carregando...")}</div>
+  <div class="page muted">{__("Loading…")}</div>
 {/if}
 
 <style>

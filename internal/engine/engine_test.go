@@ -98,7 +98,7 @@ describe("Pedido", () => {
     expect(p.total).toBe(20);
     expect(p.name).toMatch(/^PED-/);
   });
-  it("falha sem cliente", () => { expect(() => ddcore.newDoc("Pedido").insert()).toThrow("obrigat"); });
+  it("falha sem cliente", () => { expect(() => ddcore.newDoc("Pedido").insert()).toThrow("required fields"); });
 });`)
 	return dir
 }
@@ -151,7 +151,7 @@ func TestLifecycle(t *testing.T) {
 			t.Fatalf("senha não foi hasheada: %v", u)
 		}
 		invalidUser, _ := c.NewDoc("User", Doc{"email": "invalid", "full_name": "Inválido"})
-		if _, err := c.Insert(invalidUser, SaveOpts{}); err == nil || cerr.From(err).Title != "E-mail inválido" {
+		if _, err := c.Insert(invalidUser, SaveOpts{}); err == nil || cerr.From(err).Title != "Invalid email" {
 			t.Fatalf("esperava validação central de email em User, veio %v", err)
 		}
 		p, _ := c.NewDoc("Pessoa", Doc{"nome": "Ana", "cpf": "123", "tipo": "PJ", "email": "  ana+teste@example.com  "})
@@ -176,7 +176,7 @@ func TestLifecycle(t *testing.T) {
 			t.Fatalf("esperava duplicidade de cpf, veio %v", err)
 		}
 		p3, _ := c.NewDoc("Pessoa", Doc{"nome": "Cid", "tipo": "XX"})
-		if _, err := c.Insert(p3, SaveOpts{}); err == nil || !strings.Contains(err.Error(), "opções") {
+		if _, err := c.Insert(p3, SaveOpts{}); err == nil || !strings.Contains(err.Error(), "is not one of the options") {
 			t.Fatalf("esperava erro de select, veio %v", err)
 		}
 		return nil
@@ -233,7 +233,7 @@ func TestLifecycle(t *testing.T) {
 			t.Fatalf("onSubmit não rodou: %v", lim)
 		}
 		saved["desconto"] = 10
-		if _, err := c.Save(saved, SaveOpts{}); err == nil || !strings.Contains(err.Error(), "depois do envio") {
+		if _, err := c.Save(saved, SaveOpts{}); err == nil || !strings.Contains(err.Error(), "cannot be changed after submission") {
 			t.Fatalf("esperava bloqueio allowOnSubmit, veio %v", err)
 		}
 		saved, _ = c.GetDoc("Pedido", name)

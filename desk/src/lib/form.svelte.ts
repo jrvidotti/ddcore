@@ -42,7 +42,7 @@ export async function loadFormScript(meta: Meta) {
     await import(/* @vite-ignore */ url + "?v=" + (window as any).__ddcoreLoaded);
   } catch (e) {
     console.error("form script", url, e);
-    toast(__("Falha ao carregar o script do formulário: {0}", [String(e)]), { indicator: "red" });
+    toast(__("Could not load the form script: {0}", [String(e)]), { indicator: "red" });
   }
 }
 
@@ -91,7 +91,7 @@ export class FormController {
     if (!f) return undefined;
     const props = { ...(this.dfProps[fieldname] || {}) };
     if (fieldname === "name" && !this.isNew && !props.description && this.meta.doctype.naming?.prompt) {
-      props.description = __("Para alterar, clique no título acima ou em Renomear no menu.");
+      props.description = __("To change it, click the title above or Rename in the menu.");
     }
     return { ...f, ...props };
   }
@@ -208,18 +208,18 @@ export class FormController {
         const v = this.doc[f.fieldname];
         if (v === null || v === undefined || v === "" || (Array.isArray(v) && !v.length)) {
           missing.push(fx.label || f.fieldname);
-          this.fieldErrors[f.fieldname] = __("Obrigatório");
+          this.fieldErrors[f.fieldname] = __("Required");
         }
       }
     }
     const emailErrors = validateEmailFields(this.meta.doctype.fields, this.doc, this.doctype);
     Object.assign(this.fieldErrors, emailErrors);
     if (missing.length) {
-      toast(__("Preencha os campos obrigatórios: {0}", [missing.join(", ")]), { title: __("Campos obrigatórios"), indicator: "red" });
+      toast(__("Fill in the required fields: {0}", [missing.join(", ")]), { title: __("Required fields"), indicator: "red" });
       return false;
     }
     if (Object.keys(emailErrors).length) {
-      toast(__("Corrija os campos de e-mail inválidos."), { title: __("E-mail inválido"), indicator: "red" });
+      toast(__("Fix the invalid email fields."), { title: __("Invalid email"), indicator: "red" });
       return false;
     }
     return true;
@@ -247,7 +247,7 @@ export class FormController {
       const wasNew = this.isNew;
       this.load(saved);
       for (const h of this.handlers) { try { await h.afterSave?.(this); } catch (e) { showError(e); } }
-      toast(action === "submit" ? __("Enviado") : action === "cancel" ? __("Cancelado") : __("Salvo"), { indicator: "green", timeout: 2000 });
+      toast(action === "submit" ? __("Submitted") : action === "cancel" ? __("Cancelled") : __("Saved"), { indicator: "green", timeout: 2000 });
       if (wasNew) goto(`/app/${encodeURIComponent(dt)}/${encodeURIComponent(saved.name)}`, { replaceState: true });
       else await this.runRefresh();
       return true;
@@ -282,7 +282,7 @@ export class FormController {
 
   async delete() {
     await api.remove(this.doctype, this.doc.name);
-    toast(__("Apagado"), { indicator: "green", timeout: 2000 });
+    toast(__("Deleted"), { indicator: "green", timeout: 2000 });
     goto(`/app/${encodeURIComponent(this.doctype)}`);
   }
 
@@ -294,7 +294,7 @@ export class FormController {
 
   /** Calls a controller method on this document; returns its result and reloads the doc. */
   async call(method: string, args: Record<string, any> = {}, opts: { freeze?: boolean; reload?: boolean } = {}): Promise<any> {
-    if (this.isNew) { toast(__("Salve o documento antes"), { indicator: "orange" }); return; }
+    if (this.isNew) { toast(__("Save the document first"), { indicator: "orange" }); return; }
     ui.busy++;
     try {
       const res = await api.docMethod(this.doctype, this.doc.name, method, args);

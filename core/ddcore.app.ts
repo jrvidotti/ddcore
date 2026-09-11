@@ -3,7 +3,7 @@ import { defineApp } from "@ddcore/sdk";
 export default defineApp({
   name: "core",
   title: "DDCore",
-  description: "DocTypes do próprio framework: usuários, papéis, arquivos, comentários e versões.",
+  description: "The framework's own DocTypes: users, roles, files, comments and versions.",
   roles: ["System Manager", "All", "Guest"],
   afterInstall(ctx) {
     for (const role of ["System Manager", "All", "Guest"]) {

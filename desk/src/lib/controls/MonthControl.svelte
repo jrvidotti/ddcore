@@ -1,8 +1,10 @@
 <script lang="ts">
+  import { __ } from "$lib/boot.svelte";
   import type { Field } from "$lib/meta";
   import Icon from "$lib/components/Icon.svelte";
   import {
-    MONTH_NAMES_SHORT,
+    monthLabelsShort,
+    monthPlaceholder,
     formatMonth,
     maskMonthInput,
     parseMonth,
@@ -155,7 +157,7 @@
     class="input month-input"
     class:error={!!error}
     readonly={readOnly}
-    placeholder="mm/aaaa"
+    placeholder={monthPlaceholder()}
     value={text}
     inputmode="numeric"
     autocomplete="off"
@@ -173,7 +175,7 @@
       type="button"
       class="cal-btn"
       tabindex="-1"
-      aria-label="Abrir seletor de mês"
+      aria-label={__("Open the month picker")}
       onmousedown={(e) => e.preventDefault()}
       onclick={togglePicker}
     >
@@ -188,7 +190,7 @@
           type="button"
           class="btn icon sm"
           onclick={() => (viewYear -= 1)}
-          aria-label="Ano anterior"
+          aria-label={__("Previous year")}
         >
           <Icon name="chevron-left" size={13} />
         </button>
@@ -197,14 +199,14 @@
           type="button"
           class="btn icon sm"
           onclick={() => (viewYear += 1)}
-          aria-label="Próximo ano"
+          aria-label={__("Next year")}
         >
           <Icon name="chevron-right" size={13} />
         </button>
       </div>
 
       <div class="popover-grid">
-        {#each MONTH_NAMES_SHORT as name, idx}
+        {#each monthLabelsShort() as name, idx}
           {@const mNum = idx + 1}
           {@const isSelected =
             currentParsed?.year === viewYear && currentParsed?.month === mNum}
@@ -224,7 +226,7 @@
 
       <div class="popover-foot">
         <button type="button" class="btn-link" onclick={pickThisMonth}>
-          Este mês
+          {__("This month")}
         </button>
         {#if value}
           <button type="button" class="btn-link muted" onclick={clearMonth}>

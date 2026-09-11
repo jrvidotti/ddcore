@@ -26,7 +26,7 @@ const (
 // Enqueue stores a job in ddcore_job; workers pick it with SKIP LOCKED.
 func (c *Ctx) Enqueue(method string, args map[string]any, opts map[string]any) (int64, error) {
 	if method == "" {
-		return 0, cerr.Validation("enqueue: informe o método")
+		return 0, cerr.Validation("enqueue: provide the method")
 	}
 	queue := "default"
 	if q, ok := opts["queue"].(string); ok && q != "" {
@@ -72,7 +72,7 @@ func (e *Engine) RunJob(ctx context.Context, user, method string, args map[strin
 		})
 	})
 	if err != nil && errors.Is(err, context.DeadlineExceeded) {
-		return nil, cerr.Validation("job %s excedeu o tempo limite", method)
+		return nil, cerr.Validation("job {0} timed out", method)
 	}
 	return out, err
 }

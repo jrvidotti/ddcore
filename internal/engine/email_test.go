@@ -80,7 +80,7 @@ func TestCheckEmailsRejectsInvalidValue(t *testing.T) {
 		t.Fatal("expected invalid email error")
 	}
 	ce := cerr.From(err)
-	if ce.Type != "ValidationError" || ce.Title != "E-mail inválido" || !strings.Contains(ce.Message, "E-mail") {
+	if ce.Type != "ValidationError" || ce.Title != "Invalid email" || !strings.Contains(ce.Message, "E-mail") {
 		t.Fatalf("unexpected error: %#v", ce)
 	}
 }

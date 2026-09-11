@@ -39,7 +39,7 @@ describe("monthStart / monthEnd", () => {
     expect(monthEnd("2024-02-01")).toBe("2024-02-29");
     expect(monthEnd("2026-12-05")).toBe("2026-12-31");
   });
-  it("sem argumento usa a data local de hoje", () => {
+  it("with no argument uses today in the site's timezone", () => {
     expect(monthStart()).toBe(today().slice(0, 8) + "01");
     expect(monthEnd().slice(0, 7)).toBe(today().slice(0, 7));
   });
@@ -55,40 +55,57 @@ describe("daysInMonth", () => {
 });
 
 describe("today", () => {
-  it("é a data civil local, não a UTC", () => {
-    // 23:30 local de 31/12 continua sendo 31/12, mesmo que em UTC já seja 01/01
-    const d = new Date(2026, 11, 31, 23, 30, 0);
-    expect(today(d)).toBe("2026-12-31");
-    // e 00:30 local de 01/01 continua sendo 01/01
-    expect(today(new Date(2026, 0, 1, 0, 30, 0))).toBe("2026-01-01");
+  it("is the civil date in the site's timezone, not the browser's", () => {
+    // 2027-01-01T02:30Z is still 31/12 in São Paulo (UTC-3) and already 01/01 in UTC
+    const instant = new Date("2027-01-01T02:30:00Z");
+    expect(today(instant, "America/Sao_Paulo")).toBe("2026-12-31");
+    expect(today(instant, "UTC")).toBe("2027-01-01");
+    expect(today(instant, "Asia/Tokyo")).toBe("2027-01-01");
   });
-  it("bate com o relógio local agora", () => {
+  it("defaults to the site timezone, which is UTC when no boot has answered", () => {
     const n = new Date();
-    expect(today()).toBe(`${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`);
+    expect(today()).toBe(
+      `${n.getUTCFullYear()}-${String(n.getUTCMonth() + 1).padStart(2, "0")}-${String(n.getUTCDate()).padStart(2, "0")}`,
+    );
   });
 });
 
 describe("datetime-local", () => {
-  it("mostra o instante em componentes locais e volta igual", () => {
-    const local = new Date(2026, 0, 31, 12, 0, 0); // 12:00 na timezone do navegador
-    const iso = local.toISOString();
-    expect(toDatetimeLocal(iso)).toBe("2026-01-31T12:00");
-    expect(fromDatetimeLocal("2026-01-31T12:00")).toBe(iso);
+  // B18: a form in America/Cuiaba (UTC-4) used to render and save back a
+  // value four hours off, because the browser's zone stood in for the site's.
+  it("renders the instant in the site's timezone (B18)", () => {
+    const iso = "2026-01-31T16:00:00.000Z";
+    expect(toDatetimeLocal(iso, "America/Cuiaba")).toBe("2026-01-31T12:00");
+    expect(toDatetimeLocal(iso, "UTC")).toBe("2026-01-31T16:00");
+    expect(toDatetimeLocal(iso, "Asia/Tokyo")).toBe("2026-02-01T01:00");
   });
-  it("é ida e volta para qualquer instante (sem deslocar horas)", () => {
-    for (const d of [new Date(2026, 5, 15, 8, 45), new Date(2026, 11, 1, 23, 59), new Date(2026, 2, 1, 0, 0)]) {
-      const iso = d.toISOString();
-      expect(fromDatetimeLocal(toDatetimeLocal(iso))).toBe(iso);
+
+  it("round-trips through the site's timezone", () => {
+    for (const tz of ["UTC", "America/Cuiaba", "America/Sao_Paulo", "Asia/Tokyo", "Europe/Lisbon"]) {
+      for (const iso of ["2026-06-15T11:45:00.000Z", "2026-12-01T02:59:00.000Z", "2026-03-01T00:00:00.000Z"]) {
+        expect(fromDatetimeLocal(toDatetimeLocal(iso, tz), tz)).toBe(iso);
+      }
     }
   });
-  it("trata vazio e inválido", () => {
+
+  it("lands on the right side of a DST change", () => {
+    // Europe/Lisbon springs forward at 01:00 on 2026-03-29 (UTC+0 → UTC+1).
+    // A single offset probe would read the wrong offset for one of these.
+    expect(fromDatetimeLocal("2026-03-29T00:30", "Europe/Lisbon")).toBe("2026-03-29T00:30:00.000Z");
+    expect(fromDatetimeLocal("2026-03-29T03:30", "Europe/Lisbon")).toBe("2026-03-29T02:30:00.000Z");
+    // and back in the autumn, when the offset drops again
+    expect(fromDatetimeLocal("2026-10-25T00:30", "Europe/Lisbon")).toBe("2026-10-24T23:30:00.000Z");
+  });
+
+  it("handles empty and invalid input", () => {
     expect(toDatetimeLocal(null)).toBe("");
     expect(toDatetimeLocal("")).toBe("");
-    expect(toDatetimeLocal("não é data")).toBe("");
+    expect(toDatetimeLocal("not a date")).toBe("");
     expect(fromDatetimeLocal("")).toBe(null);
     expect(fromDatetimeLocal("xx")).toBe(null);
   });
-  it("aceita o formato do Postgres com espaço", () => {
+
+  it("accepts the Postgres format with a space", () => {
     expect(parseDatetime("2026-01-31 12:00:00")?.getHours()).toBe(12);
   });
 });
