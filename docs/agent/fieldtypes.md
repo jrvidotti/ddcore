@@ -106,6 +106,7 @@ defineDoctype({
   naming: { series: "CTR-.YYYY.-.####" } | { field: "code" } | { format: "{index}-{period}" } | { hash: true } | { prompt: true },
   submittable: true, isChild: false, trackChanges: true, allowRename: true, renamedFrom: "Old Name",
   titleField: "name", searchFields: ["name", "tax_id"], sortField: "modified", sortOrder: "desc", icon: "building-2",
+  uniqueKeys: [{ name: "customer_number", fields: ["customer", "number"] }],
   fields: [...],
   permissions: [{ role: "Manager", read: true, write: true, create: true, delete: true, submit: true, cancel: true, amend: true, report: true, export: true, ifOwner: false }],
 });
@@ -116,6 +117,16 @@ Series: `.YYYY.`, `.YY.`, `.MM.`, `.DD.`, `.####.` (a zero-padded counter), `.{f
 `allowRename` is about renaming a *document*; `renamedFrom` is about renaming the *DocType*,
 which moves the table and repoints every stored reference. See `migrations`.
 
-`titleField`, `sortField` and `searchFields` name a field by string, so a renamed field has
-to be changed here too — the meta refuses to load while one of them points at a field that
-no longer exists.
+`titleField`, `sortField`, `searchFields` and `uniqueKeys` name a field by string, so a
+renamed field has to be changed here too — the meta refuses to load while one of them points
+at a field that no longer exists.
+
+`uniqueKeys` declares a business key the **database** enforces: each key becomes a partial
+unique index, which is what makes it hold when two requests race. A row is constrained only
+when every component has a value — null, or empty on a text column, leaves the row outside
+the key, exactly as a `unique` field with no value is left out. Two or more declared fields
+(a single field is `unique: true`), never a standard column, and the same fields in another
+order are the same key. The `name` is the key's identity: the index is named after it, so
+reordering the list or renaming a component neither renames nor rebuilds it. Not available on
+a child DocType, and not something `extendDoctype` can add — a business key is part of what
+the owning app says the document *is*. See `migrations` for what changing one costs.

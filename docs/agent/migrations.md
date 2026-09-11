@@ -45,8 +45,11 @@ Renaming `a` to `b` and giving the freed name to a **new** field in the same rel
 the rename runs before the add.
 
 `renamedFrom` does not follow the places that name a field by string — `titleField`,
-`sortField`, `searchFields`, `fetchFrom`, a form script. Change those yourself; the meta
-refuses to load while any of them points at a field that is gone.
+`sortField`, `searchFields`, `uniqueKeys`, `fetchFrom`, a form script. Change those yourself;
+the meta refuses to load while any of them points at a field that is gone.
+
+`uniqueKeys` is the one on that list where editing it is all you have to do: the rename is
+planned as a rename, Postgres carries the key's index across it, and nothing is rebuilt.
 
 ## Renaming a DocType
 
@@ -64,6 +67,35 @@ stops a rename from being half done.
 **Not swept, deliberately:** a queued job's `args`, which may embed the old name — drain
 the queue before migrating; and `tab_version.data`, whose historical diffs embed it,
 because rewriting history would be worse than leaving it.
+
+## Changing a business key
+
+A `uniqueKeys` entry is one partial unique index, named after the key rather than after its
+fields — which is what decides the cost of each kind of change.
+
+| Change | What migrate does |
+|---|---|
+| add a key | one `CREATE UNIQUE INDEX` |
+| remove a key | the index is dropped, and **`--prune` is not needed** — dropping an index loses no row |
+| rename the key | the old index is dropped and a new one created; no data moves |
+| edit or reorder `fields` | drop and recreate under the same name |
+| rename a *component field* | neither: the index follows the column |
+
+Adding a key to a table that already holds duplicates is the one case with no guard in front
+of it. `CREATE UNIQUE INDEX` fails with Postgres's own message — `could not create unique
+index … Key (…)=(…) is duplicated` — and, because the whole migration is one transaction,
+nothing at all is applied. Find them first:
+
+```sql
+SELECT customer, number, count(*)
+  FROM tab_invoice
+ WHERE customer IS NOT NULL AND customer <> ''
+   AND number   IS NOT NULL AND number   <> ''
+ GROUP BY customer, number HAVING count(*) > 1;
+```
+
+The `WHERE` matters: it is the index's own predicate, so a row with an empty component is not
+a duplicate and will not block the index.
 
 ## Changing a fieldtype
 
