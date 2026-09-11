@@ -100,14 +100,20 @@ an empty hash already refuses every sign-in until one is set.
 
 `DDCORE_MAIL_TRANSPORT` is `log` (the default: the link goes to the log and is
 handed back to whoever asked), `smtp`, or `method`. `method` names an app
-function by dotted path in `DDCORE_MAIL_METHOD`, reached through
-`ddcore.callMethod` — the same way `scheduler` and `ddcore.enqueue` already
-name app code.
+function by dotted path in `DDCORE_MAIL_METHOD` — the same way `scheduler` and
+`ddcore.enqueue` already name app code.
 
-Messages go through `ddcore_job`, so retries are durable, and because `enqueue`
-writes on the request's transaction a message is only queued if the request
-commits. The SMTP sender refuses to authenticate in the clear to anything but
-loopback.
+The invitation and the recovery message are two ordinary templates,
+`core/mail/invite.mail.ts` and `core/mail/reset.mail.ts`, sent the way an app
+sends anything — see [mail](mail.md). Both declare `sensitive`, because their
+one argument is a link that can set somebody's password: the `Email Delivery`
+record says who it went to and whether it arrived, and holds no part of the
+link.
+
+Messages go through `ddcore_job`, so retries are durable, and because the
+delivery record and the job are both written on the request's transaction a
+message is only queued if the request commits. The SMTP sender refuses to
+authenticate in the clear to anything but loopback.
 
 ## Self-service (`core/services/`)
 

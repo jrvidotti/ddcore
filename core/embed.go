@@ -3,5 +3,5 @@ package core
 
 import "embed"
 
-//go:embed ddcore.app.ts doctypes services translations
+//go:embed ddcore.app.ts doctypes mail services translations
 var FS embed.FS

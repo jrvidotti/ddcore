@@ -1308,19 +1308,11 @@ func (s *Server) privateFile(w http.ResponseWriter, r *http.Request) {
 	}
 	allowed := false
 	err := s.E.Run(r.Context(), user(r), func(c *engine.Ctx) error {
-		f, err := c.GetValues("File", map[string]any{"file_url": r.URL.Path}, []string{"owner", "attached_to_doctype", "attached_to_name"})
+		f, err := c.GetValues("File", map[string]any{"file_url": r.URL.Path}, engine.FilePermFields)
 		if err != nil || f == nil {
 			return err
 		}
-		if db.Str(f["owner"]) == c.User || c.HasRole("System Manager") {
-			allowed = true
-			return nil
-		}
-		if dt, dn := db.Str(f["attached_to_doctype"]), db.Str(f["attached_to_name"]); dt != "" && dn != "" {
-			if _, err := c.GetDoc(dt, dn); err == nil {
-				allowed = true
-			}
-		}
+		allowed = c.CanReadFile(f)
 		return nil
 	})
 	if err != nil {

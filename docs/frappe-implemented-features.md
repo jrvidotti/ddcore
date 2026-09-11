@@ -47,7 +47,7 @@ References: [fieldtypes](agent/fieldtypes.md), [migrations](agent/migrations.md)
 | Sessions and Keys | Session TTL and API key expiration from policy; `Secure` cookie decided per request; `ip`/`user_agent` recorded; revocation on password change, preserving self-service session. |
 | Recovery and Invitations | 192-bit token stored in SHA-256, atomic single-use, four throttled public routes; generic response preventing address enumeration; invitation creates passwordless account. |
 | Password Policy | Minimum length, maximum length, and refusal of password matching username, enforced at the hashing bottleneck — applies to form, CLI, recovery, invitation, and self-service. |
-| Email | `internal/mail` with minimal SMTP, log transport, and dotted-path pluggable transport; delivery via `ddcore_job` queue. |
+| Email | `internal/mail` with minimal SMTP, log transport, and dotted-path pluggable transport; delivery via `ddcore_job` queue. App-facing templates, block rendering, authorized attachments and an `Email Delivery` record per message (OPS-02). |
 | Self-Service | Profile, language, password, active sessions, and personal API keys in `core/services/`, plus account administration in `users.ts`. |
 | Integration Secrets | `ddcore.secret("name")` reads `DDCORE_SECRET_NAME` from environment; never stored in column, backup, export, or `Version`. |
 | Cache | `ddcore.cache.get/set/del`, also used for roles, sessions, and API keys. |
@@ -130,8 +130,10 @@ References: [CLI](agent/cli.md), [MCP](../internal/mcp/mcp.go),
 - `Password` is `text` at rest; values are not exposed via API reads, `Version`, or export,
   but there is no encrypted vault. Integration credentials belong in `.env` via `ddcore.secret`,
   not in a column.
-- Email sending exists for password reset and invitations (minimal SMTP or app method), but
-  it is not a full email product: no templating, delivery history, attachments, or outbox.
+- Email sending covers app messages as well as password reset and invitations: file-based
+  templates, a block vocabulary rendered to text and HTML, authorized `File` attachments and a
+  per-message delivery record. It is still not a full email product: no inbound mail or IMAP,
+  no CC/BCC or Reply-To, and no resend.
   Declarative notifications and configurable webhooks remain absent.
 - Docstatus and controllers allow app-specific approvals; no declarative workflow engine is
   listed here.

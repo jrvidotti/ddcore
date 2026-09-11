@@ -224,6 +224,15 @@ func castValueWith(f *meta.Field, v any, o castOpts) (any, error) {
 		}
 		return nil, cerr.Validation("Invalid time in {0}: \"{1}\"", f.Label, db.Str(v))
 	case "JSON":
+		// A save casts twice — once before the validate hook and once after, so
+		// that whatever the hook wrote is cast too — and marshalling a value
+		// twice buries it inside a JSON string. A string that already parses as
+		// JSON has been through here before, or arrived encoded, and is left
+		// alone. Version never hit this because it writes its own SQL; a JSON
+		// field on an ordinary document does not.
+		if s, ok := v.(string); ok && json.Valid([]byte(s)) {
+			return s, nil
+		}
 		b, err := json.Marshal(v)
 		return string(b), err
 	case "Table":
@@ -784,10 +793,14 @@ func (c *Ctx) Delete(doctype, name string, ignorePerms, force bool) error {
 	if _, err := c.Q().Exec(c.Ctx, fmt.Sprintf("DELETE FROM %s WHERE name = $1", db.Ident(d.TableName())), name); err != nil {
 		return err
 	}
-	// The three tables that name a document without linking to it. File was
-	// missing here: deleting a document left its attachments behind, pointing
-	// at a name nothing answers to.
+	// The tables that name a document without linking to it. File was missing
+	// here: deleting a document left its attachments behind, pointing at a name
+	// nothing answers to. Email Delivery is deliberately exempt — see
+	// keepOnDelete in coreRefs.
 	for _, ref := range coreRefs {
+		if ref.keepOnDelete {
+			continue
+		}
 		c.Q().Exec(c.Ctx, fmt.Sprintf("DELETE FROM %s WHERE %s = $1 AND %s = $2",
 			db.Ident(ref.table), db.Ident(ref.doctypeCol), db.Ident(ref.nameCol)), doctype, name)
 	}
@@ -858,9 +871,11 @@ func (c *Ctx) Rename(doctype, oldName, newName string) (string, error) {
 			}
 		}
 	}
-	// Same three tables, same omission: a renamed document used to lose its
+	// Same tables, same omission: a renamed document used to lose its
 	// attachments, and with them the permission check on a private file, which
-	// reads File.attached_to_name to decide who may download it.
+	// reads File.attached_to_name to decide who may download it. Rename sweeps
+	// every one of them, keepOnDelete or not: a record that survives its
+	// document must still point at the name that document answers to now.
 	for _, ref := range coreRefs {
 		q.Exec(c.Ctx, fmt.Sprintf("UPDATE %s SET %s = $1 WHERE %s = $2 AND %s = $3",
 			db.Ident(ref.table), db.Ident(ref.nameCol), db.Ident(ref.doctypeCol), db.Ident(ref.nameCol)),

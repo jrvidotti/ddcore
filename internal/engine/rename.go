@@ -9,14 +9,25 @@ import (
 	"github.com/jrvidotti/ddcore/internal/meta"
 )
 
-// File, Comment and Version each hold a DocType name and a document name in
-// plain Data columns, so the meta cannot derive them the way it derives a Link.
-// One list, used by every operation that moves or removes a document, because
-// keeping three copies is how tab_file came to be forgotten in two of them.
-var coreRefs = []struct{ table, doctypeCol, nameCol string }{
-	{"tab_file", "attached_to_doctype", "attached_to_name"},
-	{"tab_comment", "reference_doctype", "reference_name"},
-	{"tab_version", "ref_doctype", "docname"},
+// File, Comment, Version and Email Delivery each hold a DocType name and a
+// document name in plain Data columns, so the meta cannot derive them the way
+// it derives a Link. One list, used by every operation that moves or removes a
+// document, because keeping three copies is how tab_file came to be forgotten
+// in two of them.
+var coreRefs = []struct {
+	table, doctypeCol, nameCol string
+	// keepOnDelete leaves the row where it is when the document it names is
+	// deleted. An attachment, a comment and a version belong to their document
+	// and go with it. A delivery record does not: it says that a message left
+	// this site for somebody's inbox, and deleting the order cannot un-send the
+	// invoice. The reference is left dangling on purpose — it is a record of
+	// what the message was about at the time, not a live link.
+	keepOnDelete bool
+}{
+	{table: "tab_file", doctypeCol: "attached_to_doctype", nameCol: "attached_to_name"},
+	{table: "tab_comment", doctypeCol: "reference_doctype", nameCol: "reference_name"},
+	{table: "tab_version", doctypeCol: "ref_doctype", nameCol: "docname"},
+	{table: "tab_email_delivery", doctypeCol: "reference_doctype", nameCol: "reference_name", keepOnDelete: true},
 }
 
 // docTypeRefColumns is every (table, column) that stores a DocType *name*,

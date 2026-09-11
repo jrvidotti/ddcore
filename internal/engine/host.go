@@ -13,7 +13,6 @@ import (
 	"golang.org/x/text/message"
 
 	"github.com/jrvidotti/ddcore/internal/cerr"
-	"github.com/jrvidotti/ddcore/internal/config"
 	"github.com/jrvidotti/ddcore/internal/db"
 	"github.com/jrvidotti/ddcore/internal/js"
 	"github.com/jrvidotti/ddcore/internal/mail"
@@ -70,6 +69,9 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		Limit     float64           `json:"limit"`
 		Minutes   float64           `json:"minutes"`
 		ID        string            `json:"id"`
+		Delivery  string            `json:"delivery"`
+		Status    string            `json:"status"`
+		Error     string            `json:"error"`
 	}
 	if err := json.Unmarshal(raw, &a); err != nil {
 		return nil, cerr.Internal("invalid arguments in {0}: {1}", op, err)
@@ -390,17 +392,29 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		}
 		e.Cache.Del("apikey:" + nameStr())
 		return map[string]any{"ok": true}, nil
-	case "mailMethod":
-		// The app function configured as the transport, or "" — core's mail
-		// service asks before falling through to the built-in sender.
-		if e.Cfg.Mail.Transport == config.MailMethod {
-			return e.Cfg.Mail.Method, nil
+	case "mail.prepare":
+		// The language the message will be written in, decided before the
+		// prelude renders anything: a reader gets their own language, not the
+		// language of whoever pressed the button.
+		return map[string]any{"lang": c.RecipientLang(a.To)}, nil
+	case "mail.queue":
+		var r MailRequest
+		if err := json.Unmarshal(raw, &r); err != nil {
+			return nil, cerr.Internal("invalid arguments in {0}: {1}", op, err)
 		}
-		return "", nil
-	case "sendMail":
-		return nil, e.deliver(c.Ctx, mail.Message{
-			To: a.To, Subject: a.Subject, Text: a.Text, HTML: a.HTML,
-		})
+		return c.QueueMail(r)
+	case "mail.load":
+		return e.LoadMail(c, a.Delivery)
+	case "mail.deliver":
+		var d struct {
+			Blocks []mail.Block `json:"blocks"`
+		}
+		if err := json.Unmarshal(raw, &d); err != nil {
+			return nil, cerr.Internal("invalid arguments in {0}: {1}", op, err)
+		}
+		return e.DeliverMail(c, a.Delivery, a.Subject, d.Blocks)
+	case "mail.result":
+		return nil, e.RecordMail(c, a.Delivery, a.Status, a.Error)
 	case "jobSweep":
 		n, err := e.SweepJobs(c.Ctx)
 		if err != nil {
