@@ -89,12 +89,14 @@ func skipTS(path string) bool {
 
 func collectMeta(s *Set, e *engine.Engine, t Target) {
 	st := e.Current()
+	// every DocType, not just this app's: an extension's fields live on
+	// someone else's DocType and their text is still this app's to translate
 	for _, name := range st.Meta.Names() {
 		d := st.Meta.DocTypes[name]
-		if d.App != t.App {
+		if d.App != t.App && !containsApp(d.ExtendedBy, t.App) {
 			continue
 		}
-		CollectDocType(s, d, metaRef(t, d))
+		CollectDocType(s, d, t.App, metaRef(t, d))
 	}
 	for _, ws := range st.Snap.Workspaces {
 		if appOf(ws) == t.App {
@@ -116,6 +118,15 @@ func collectMeta(s *Set, e *engine.Engine, t Target) {
 			CollectTree(s, tree, t.App+" app")
 		}
 	}
+}
+
+func containsApp(list []string, app string) bool {
+	for _, x := range list {
+		if x == app {
+			return true
+		}
+	}
+	return false
 }
 
 func appOf(m map[string]any) string {

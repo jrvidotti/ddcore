@@ -208,6 +208,39 @@ export type DocEvent =
 
 export type DocHook<T> = (doc: T & Document<T>, ctx: Context) => void;
 
+/**
+ * A field one app adds to another app's DocType.
+ *
+ * `insertAfter` places it after an existing fieldname; without it the field
+ * goes to the end, after the host's own.
+ */
+export interface ExtensionFieldDef extends FieldDef {
+  insertAfter?: string;
+}
+
+/**
+ * What one app changes on another app's DocType.
+ *
+ * Everything here is additive or an override of a property the host already
+ * declares. Two apps changing the same property is a conflict, and refuses to
+ * load: the effective meta must not depend on the order the apps happen to be
+ * installed in.
+ */
+export interface ExtensionDef<T extends BaseDoc = BaseDoc> {
+  /** custom fields — a fieldname the host (or another extension) already uses is an error */
+  fields?: ExtensionFieldDef[];
+  /** property setters, per field: `{ status: { reqd: true } }` */
+  set?: Record<string, Partial<FieldDef>>;
+  /** property setters on the DocType itself */
+  doctype?: Partial<DoctypeDef>;
+  /** extra role permissions; a role the host already lists is an error */
+  permissions?: PermDef[];
+  /** chained after the host's: any `false` denies, `undefined` is no opinion */
+  hasPermission?: (doc: T, ptype: string, user: string) => boolean | undefined;
+  /** AND-ed with the host's: an extension can only narrow what is visible */
+  permissionQuery?: (user: string) => Filters | undefined;
+}
+
 export interface ControllerDef<T extends BaseDoc = BaseDoc> extends Partial<Record<DocEvent, DocHook<T>>> {
   /** callable from the desk/API via POST /api/resource/:doctype/:name/:method */
   methods?: Record<string, (doc: T & Document<T>, args: Record<string, any>, ctx: Context) => any>;

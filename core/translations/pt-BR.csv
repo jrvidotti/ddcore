@@ -27,7 +27,7 @@ Comments,Comentários,# desk/src/lib/components/DocSidebar.svelte:47
 Confirm,Confirmar,# desk/src/lib/ui.svelte.ts:83
 Content,Conteúdo,# core.doctypes.comment.comment.doctype
 Copy created — save it to keep it,Cópia criada — salve para gravar,# desk/src/lib/components/FormView.svelte:164
-Could not load the form script: {0},Falha ao carregar o script do formulário: {0},# desk/src/lib/form.svelte.ts:45
+Could not load the form script: {0},Falha ao carregar o script do formulário: {0},# desk/src/lib/form.svelte.ts:49
 Created by,Criado por,# desk/src/lib/components/DocSidebar.svelte:42
 DDCore,DDCore,# core app
 Delete,Excluir,# desk/src/lib/components/Dialogs.svelte:60
@@ -35,13 +35,13 @@ Delete attachment,Excluir anexo,# desk/src/lib/controls/Grid.svelte:39
 Delete this attachment?,Excluir este anexo?,# desk/src/lib/controls/Grid.svelte:42
 Delete {0} record(s)?,Apagar {0} registro(s)?,# desk/src/lib/components/ListView.svelte:181
 Delete {0}?,Apagar {0}?,# desk/src/lib/components/FormView.svelte:142
-Deleted,Apagado,# desk/src/lib/form.svelte.ts:285
+Deleted,Apagado,# desk/src/lib/form.svelte.ts:290
 Description,Descrição,# core.doctypes.api_key.api_key.doctype
 Desk access,Acesso ao desk,# core.doctypes.role.role.doctype
 Details,Detalhes,# desk/src/lib/components/FormView.svelte:73
 Disabled,Desativado,# core.doctypes.role.role.doctype
 DocType,DocType,# core.doctypes.comment.comment.doctype
-DocType {0} does not exist,DocType {0} não existe,# internal/engine/engine.go:344
+DocType {0} does not exist,DocType {0} não existe,# internal/engine/engine.go:386
 Document,Documento,# core.doctypes.comment.comment.doctype
 Document status,Situação do documento,# desk/src/lib/components/ListView.svelte:225
 Draft,Rascunho,# desk/src/lib/components/ListView.svelte:162
@@ -59,12 +59,12 @@ Exported {0} of {1} rows (the current page),Exportadas {0} de {1} linhas (págin
 Field,Campo,# core.doctypes.file.file.doctype
 Field {0} does not exist on {1},Campo {0} não existe em {1},# internal/engine/doc.go:582
 File,Arquivo,# core.doctypes.file.file.doctype
-Fill in the required fields: {0},Preencha os campos obrigatórios: {0},# desk/src/lib/form.svelte.ts:218
+Fill in the required fields: {0},Preencha os campos obrigatórios: {0},# desk/src/lib/form.svelte.ts:223
 Fill in {0},Preencha {0},# desk/src/lib/components/Dialogs.svelte:15
 Fill this in to set or change the password.,Preencha para definir ou trocar a senha.,# core.doctypes.user.user.doctype
 "Filter by field, value or user…","Filtrar por campo, valor ou usuário...",# desk/src/lib/components/DocHistory.svelte:69
 Filter {0} by {1} and {2},Filtre {0} por {1} e {2},# internal/api/api.go:827
-Fix the invalid email fields.,Corrija os campos de e-mail inválidos.,# desk/src/lib/form.svelte.ts:222
+Fix the invalid email fields.,Corrija os campos de e-mail inválidos.,# desk/src/lib/form.svelte.ts:227
 Form & editing,Formulário & Edição,# desk/src/lib/shortcuts.ts:76
 Full name,Nome completo,# core.doctypes.user.user.doctype
 Has Role,Has Role,# core.doctypes.has_role.has_role.doctype
@@ -147,7 +147,7 @@ Rename {0},Renomear {0},# desk/src/lib/components/FormView.svelte:119
 Replace,Substituir,# desk/src/lib/controls/AttachControl.svelte:27
 Report {0} does not exist,Relatório {0} não existe,# internal/api/api.go:857
 Request without a CSRF header,Requisição sem cabeçalho CSRF,# internal/api/api.go:232
-Required,Obrigatório,# desk/src/lib/form.svelte.ts:211
+Required,Obrigatório,# desk/src/lib/form.svelte.ts:216
 Required fields,Campos obrigatórios,# desk/src/lib/components/Dialogs.svelte:15
 Role,Papel,# core.doctypes.has_role.has_role.doctype
 Role {0} is repeated,Papel {0} repetido,# core/doctypes/user/user.controller.ts:12
@@ -159,8 +159,8 @@ Row added,Linha adicionada,# desk/src/lib/components/DocHistory.svelte:146
 Row removed,Linha removida,# desk/src/lib/components/DocHistory.svelte:207
 Save,Salvar,# desk/src/lib/components/FormView.svelte:247
 Save or update the record,Salvar ou atualizar registro,# desk/src/lib/shortcuts.ts:78
-Save the document first,Salve o documento antes,# desk/src/lib/form.svelte.ts:297
-Saved,Salvo,# desk/src/lib/form.svelte.ts:250
+Save the document first,Salve o documento antes,# desk/src/lib/form.svelte.ts:302
+Saved,Salvo,# desk/src/lib/form.svelte.ts:255
 Search,Buscar,# desk/src/lib/components/ListView.svelte:220
 Search & selection (Link fields),Busca & Seleção (Campos Link),# desk/src/lib/shortcuts.ts:91
 Search…,Buscar...,# desk/src/lib/components/ListView.svelte:221
@@ -188,7 +188,7 @@ This endpoint requires an API key (Authorization: token key:secret),Este endpoin
 This endpoint requires the System Manager role,Este endpoint exige o papel System Manager,# internal/api/api.go:270
 This month,Este mês,# desk/src/lib/controls/MonthControl.svelte:230
 Title,Título,# desk/src/lib/components/FormView.svelte:127
-"To change it, click the title above or Rename in the menu.","Para alterar, clique no título acima ou em Renomear no menu.",# desk/src/lib/form.svelte.ts:94
+"To change it, click the title above or Rename in the menu.","Para alterar, clique no título acima ou em Renomear no menu.",# desk/src/lib/form.svelte.ts:99
 Total,Total,# desk/src/lib/components/ReportView.svelte:81
 Type,Tipo,# core.doctypes.comment.comment.doctype
 URL,URL,# core.doctypes.file.file.doctype

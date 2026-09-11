@@ -174,6 +174,21 @@ func (rt *Runtime) Meta() (json.RawMessage, error) {
 	return json.RawMessage(s), err
 }
 
+// ApplyMeta replaces DocTypes in this runtime's registry with the merged ones
+// Go computed. An app declares its own meta; what it must *see* is the meta
+// after every extension has been applied.
+func (rt *Runtime) ApplyMeta(merged map[string]json.RawMessage) error {
+	if len(merged) == 0 {
+		return nil
+	}
+	b, err := json.Marshal(merged)
+	if err != nil {
+		return err
+	}
+	_, err = rt.callReg("applyMeta", string(b))
+	return err
+}
+
 func (rt *Runtime) HasHook(doctype, event string) bool {
 	fn, _ := goja.AssertFunction(rt.reg.Get("hasHook"))
 	v, err := fn(rt.reg, rt.vm.ToValue(doctype), rt.vm.ToValue(event))
@@ -285,6 +300,24 @@ type Pool struct {
 	test    bool
 	closed  bool
 	sem     chan struct{}
+	// merged DocTypes to install in every runtime, including the ones Acquire
+	// builds later — see SetMeta
+	meta map[string]json.RawMessage
+}
+
+// SetMeta installs the merged meta in the runtimes the pool holds and in every
+// one it builds from now on. Load calls it once, before the State is published.
+func (p *Pool) SetMeta(merged map[string]json.RawMessage) error {
+	p.mu.Lock()
+	p.meta = merged
+	held := append([]*Runtime(nil), p.free...)
+	p.mu.Unlock()
+	for _, rt := range held {
+		if err := rt.ApplyMeta(merged); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func NewPool(host Host, bundles []*Bundle, size int, test bool) (*Pool, error) {
@@ -317,6 +350,13 @@ func (p *Pool) Acquire() (*Runtime, error) {
 	p.mu.Unlock()
 	rt, err := newRuntime(p.host, p.bundles, p.test)
 	if err != nil {
+		<-p.sem
+		return nil, err
+	}
+	p.mu.Lock()
+	merged := p.meta
+	p.mu.Unlock()
+	if err := rt.ApplyMeta(merged); err != nil {
 		<-p.sem
 		return nil, err
 	}

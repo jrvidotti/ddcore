@@ -76,6 +76,7 @@ type Snapshot struct {
 	Apps        map[string]*AppMeta        `json:"apps"`
 	Whitelisted []Whitelisted              `json:"whitelisted"`
 	Patches     []Patch                    `json:"patches"`
+	Extensions  []*meta.Extension          `json:"extensions"`
 }
 
 // State is everything Load produces: meta, snapshot, apps, runtime pool e
@@ -265,6 +266,18 @@ func (e *Engine) Load() error {
 			return err
 		}
 	}
+	// before Validate, so a field an extension adds is checked like any other:
+	// reserved names, duplicates, a Link that points nowhere.
+	graph := meta.Apps{Requires: map[string][]string{}}
+	for _, a := range apps {
+		graph.Order = append(graph.Order, a.Name)
+		if am := snap.Apps[a.Name]; am != nil {
+			graph.Requires[a.Name] = am.Requires
+		}
+	}
+	if err := reg.ApplyExtensions(snap.Extensions, graph); err != nil {
+		return err
+	}
 	// before Validate: User.language is a Select whose options are the site's
 	// languages, and Validate refuses a Select with no options list.
 	i18n, err := LoadI18n(apps, e.Cfg.Lang)
@@ -281,13 +294,29 @@ func (e *Engine) Load() error {
 		} else {
 			snap.Apps[a.Name] = &AppMeta{Name: a.Name, Title: a.Name, Dir: a.Dir}
 		}
+		// a form script belongs to the DocType's own app or to one extending
+		// it; the desk loads every one of them, and their handlers accumulate
 		for _, f := range js.ListFiles(a, ".form.ts") {
 			for _, d := range reg.DocTypes {
-				if d.App == a.Name && strings.HasSuffix(f, "/"+meta.Snake(d.Name)+".form.ts") {
-					d.HasForm = true
+				if d.App != a.Name && !contains(d.ExtendedBy, a.Name) {
+					continue
+				}
+				if strings.HasSuffix(f, "/"+meta.Snake(d.Name)+".form.ts") || f == meta.Snake(d.Name)+".form.ts" {
+					if !contains(d.FormApps, a.Name) {
+						d.FormApps = append(d.FormApps, a.Name)
+					}
 				}
 			}
 		}
+	}
+	// the runtimes loaded their own app's meta; hand them the merged one, so
+	// `ddcore.getMeta` in TS sees what the database and the desk see
+	merged, err := mergedMeta(reg)
+	if err != nil {
+		return err
+	}
+	if err := pool.SetMeta(merged); err != nil {
+		return err
 	}
 	wl := map[string]map[string]any{}
 	for _, w := range snap.Whitelisted {
@@ -304,6 +333,23 @@ func (e *Engine) Load() error {
 	}
 	e.Log.Info("apps loaded", "apps", len(apps), "doctypes", len(reg.DocTypes))
 	return nil
+}
+
+// mergedMeta is the JSON of every DocType an extension touched, keyed by name:
+// what the runtimes have to replace to agree with Go about the meta.
+func mergedMeta(reg *meta.Registry) (map[string]json.RawMessage, error) {
+	out := map[string]json.RawMessage{}
+	for name, d := range reg.DocTypes {
+		if len(d.ExtendedBy) == 0 {
+			continue
+		}
+		b, err := json.Marshal(d)
+		if err != nil {
+			return nil, fmt.Errorf("DocType %s: %w", name, err)
+		}
+		out[name] = b
+	}
+	return out, nil
 }
 
 // AppOrder returns app names in load order.
@@ -521,17 +567,6 @@ func (c *Ctx) RollbackTo() error {
 // AppDir returns the directory of an app (for reading form scripts etc.).
 func (e *Engine) AppDir(name string) string {
 	return e.App(name).Dir
-}
-
-// FormScript returns the path of the form script for a doctype, if any.
-func (e *Engine) FormScript(d *meta.DocType) (js.App, string, bool) {
-	app := e.App(d.App)
-	for _, f := range js.ListFiles(app, ".form.ts") {
-		if strings.HasSuffix(f, "/"+meta.Snake(d.Name)+".form.ts") || f == meta.Snake(d.Name)+".form.ts" {
-			return app, f, true
-		}
-	}
-	return app, "", false
 }
 
 func abs(p string) string {

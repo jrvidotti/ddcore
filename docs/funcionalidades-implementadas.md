@@ -22,9 +22,11 @@ metadados; jobs, relatórios, workspaces, traduções, testes, CLI e MCP estão 
 | Validação no servidor | Obrigatoriedade, unicidade, Select, Email, Link/Dynamic Link, `fetchFrom`, dependências, `mandatoryDependsOn` e `allowOnSubmit`. |
 | Document | Inserir, salvar, enviar, cancelar, emendar, renomear, apagar, recarregar, `append`, `dbSet`, mudança de campo e concorrência por `modified`. |
 | Histórico e transações | `docstatus`, `amended_from`, Version com diffs para `trackChanges`, Comment e uma transação por requisição/job/teste, com rollback em erro. |
+| Extensão entre apps | `extendDoctype` acrescenta campos e sobrescreve propriedades de um DocType de outro app, com permissões aditivas e `hasPermission`/`permissionQuery` encadeados; conflito entre dois apps recusa a carga. Scripts de formulário de quem estende somam-se ao do dono. |
 
 Referências: [fieldtypes](agent/fieldtypes.md), [controller API](agent/controller-api.md),
-[metadados](../internal/meta/meta.go), [schema](../internal/db/schema.go) e
+[extensões](agent/extending.md), [metadados](../internal/meta/meta.go),
+[merge](../internal/meta/extend.go), [schema](../internal/db/schema.go) e
 [Document](../internal/engine/doc.go).
 
 ## Regras, permissões e identidade

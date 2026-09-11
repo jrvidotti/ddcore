@@ -78,7 +78,13 @@ type Field struct {
 	// that sets it up front is declaring itself *self-describing*: its options
 	// are not catalogue keys, they are neither translated nor collected by the
 	// extractor. User.language is the one that does this, with autonyms.
-	OptionLabels  []string `json:"optionLabels,omitempty"`
+	OptionLabels []string `json:"optionLabels,omitempty"`
+	// App is the app whose catalogue owns this field's text. It is empty on a
+	// field the DocType declares itself, and carries the extending app's name
+	// on a field added — or whose label, description or Select options were
+	// overridden — by extendDoctype. The i18n extractor keys on it: a label
+	// written in one app must not become a missing key in another's CSV.
+	App           string   `json:"app,omitempty"`
 	_             struct{} // keep JSON tags exhaustive
 	SelectOptions []string `json:"-"`
 }
@@ -155,12 +161,22 @@ type DocType struct {
 	Permissions  []Perm   `json:"permissions,omitempty"`
 	Description  string   `json:"description,omitempty"`
 	Icon         string   `json:"icon,omitempty"`
-	HasForm      bool     `json:"hasForm,omitempty"` // app ships a *.form.ts
-	SourceFile   string   `json:"sourceFile,omitempty"`
-	Controller   bool     `json:"hasController,omitempty"`
-	Methods      []string `json:"methods,omitempty"`
-	PermHook     bool     `json:"hasPermissionHook,omitempty"`
-	PermQuery    bool     `json:"hasPermissionQuery,omitempty"`
+	// FormApps are the apps shipping a <snake>.form.ts for this DocType, the
+	// owner first and then each extension in load order. The desk loads them
+	// all: form handlers accumulate, they do not replace one another.
+	FormApps []string `json:"formApps,omitempty"`
+	// ExtendedBy names the apps that extendDoctype'd this one, in load order.
+	ExtendedBy []string `json:"extendedBy,omitempty"`
+	// TextApp is the app whose catalogue owns this DocType's own label and
+	// description, when an extension overrode them; empty means App. The
+	// counterpart of Field.App, and used by the same extractor. It never
+	// crosses the wire: what a reader sees is the translation, not its origin.
+	TextApp    string   `json:"-"`
+	SourceFile string   `json:"sourceFile,omitempty"`
+	Controller bool     `json:"hasController,omitempty"`
+	Methods    []string `json:"methods,omitempty"`
+	PermHook   bool     `json:"hasPermissionHook,omitempty"`
+	PermQuery  bool     `json:"hasPermissionQuery,omitempty"`
 
 	fieldMap map[string]*Field
 }

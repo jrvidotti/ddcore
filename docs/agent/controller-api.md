@@ -29,6 +29,9 @@ export const lookup = whitelisted((args: { postcode: string }, ctx) => ({ /* …
 ```
 
 Hooks for another app's DocTypes: in `ddcore.app.ts`, `docEvents: { "User": { validate(doc) {} }, "*": { onUpdate(doc) {} } }`.
+A DocType has **one** controller, its owner's: `defineController` from a second app is refused. To add rules to
+someone else's DocType use `docEvents`, and `extendDoctype` for fields, properties and permissions — its
+`hasPermission` and `permissionQuery` chain with the owner's (any denial wins, filters are AND-ed). See `extending`.
 
 Every message a person reads goes through `_()`, and the key is its English text. See `i18n`.
 
