@@ -25,6 +25,12 @@ func HashPassword(pw string) string {
 	return "argon2id$" + base64.RawStdEncoding.EncodeToString(salt) + "$" + base64.RawStdEncoding.EncodeToString(h)
 }
 
+// decoyHash is what an unknown address is checked against, so that failing to
+// find a user costs the same 64 MiB and the same fifty milliseconds as finding
+// one. It hashes a value nobody can supply, and is computed once because
+// computing it per request would itself be the cost being hidden.
+var decoyHash = HashPassword(RandomToken())
+
 func CheckPassword(hash, pw string) bool {
 	parts := strings.Split(hash, "$")
 	if len(parts) != 3 || parts[0] != "argon2id" {
@@ -51,17 +57,45 @@ type LoginFrom struct {
 }
 
 // Login checks credentials and creates a session, returning the sid.
+//
+// The throttle comes first, before the lookup and before any hashing. That is
+// the order the cost demands as much as the policy: CheckPassword runs Argon2
+// at 64 MiB per call, so an unthrottled login endpoint is a memory-exhaustion
+// vector that needs no credentials at all.
 func (e *Engine) Login(ctx context.Context, user, password string, from LoginFrom) (string, error) {
+	identity := strings.TrimSpace(user)
+	if err := e.guardLogin(ctx, identity, from.IP); err != nil {
+		return "", err
+	}
+	sid, err := e.login(ctx, identity, password, from)
+	// Recorded outside Ctx.Run on purpose — see the comment in throttle.go.
+	// An attempt written inside the transaction would be rolled back by the
+	// error it is counting.
+	e.recordLogin(ctx, identity, from.IP, err == nil)
+	return sid, err
+}
+
+func (e *Engine) login(ctx context.Context, user, password string, from LoginFrom) (string, error) {
 	var sid string
 	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
 		rows, err := db.Select(ctx, c.Tx, `SELECT name, password_hash, enabled FROM tab_user WHERE lower(name) = lower($1) OR lower(email) = lower($1) LIMIT 1`, strings.TrimSpace(user))
 		if err != nil {
 			return err
 		}
-		if len(rows) == 0 || !CheckPassword(db.Str(rows[0]["password_hash"]), password) {
+		if len(rows) == 0 {
+			// Hash anyway. Returning early for an unknown address would make
+			// it answer in a millisecond while a real one takes fifty, and
+			// that difference is a working account-enumeration oracle.
+			CheckPassword(decoyHash, password)
+			return cerr.Auth("Invalid username or password")
+		}
+		if !CheckPassword(db.Str(rows[0]["password_hash"]), password) {
 			return cerr.Auth("Invalid username or password")
 		}
 		if en, ok := rows[0]["enabled"].(bool); ok && !en {
+			// Checked after the password on purpose: saying "disabled" to
+			// someone who has not proved they own the account would hand them
+			// the fact that it exists.
 			return cerr.Auth("User is disabled")
 		}
 		name := db.Str(rows[0]["name"])
@@ -125,9 +159,25 @@ func (e *Engine) UserFromAPIKey(ctx context.Context, token string) (string, erro
 	if en, ok := row["user_enabled"].(bool); ok && !en {
 		return "", nil
 	}
-	if !CheckPassword(db.Str(row["secret_hash"]), secret) {
+	// An API key is Argon2-verified on every request by design, which makes a
+	// loop with a real key id and a junk secret the same 64 MiB amplifier the
+	// login endpoint was. Brake it before hashing.
+	//
+	// The counter lives in the process-local cache rather than in Postgres,
+	// and that is the right trade here: this is a cost brake, not a security
+	// boundary — the boundary is the secret itself — and a row written per bad
+	// request would be worse than the problem it answers.
+	fails := "apikeyfail:" + key
+	if n, ok := e.Cache.Get(fails); ok && n.(int) >= 20 {
 		return "", nil
 	}
+	if !CheckPassword(db.Str(row["secret_hash"]), secret) {
+		n, _ := e.Cache.Get(fails)
+		count, _ := n.(int)
+		e.Cache.Set(fails, count+1, time.Minute)
+		return "", nil
+	}
+	e.Cache.Del(fails)
 	go e.DB.Pool.Exec(context.Background(), `UPDATE tab_api_key SET last_used = now() WHERE name = $1`, key)
 	return db.Str(row["user"]), nil
 }

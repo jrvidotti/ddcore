@@ -37,6 +37,11 @@ CREATE TABLE IF NOT EXISTS ddcore_rename (
   executed timestamptz NOT NULL DEFAULT now(), PRIMARY KEY(kind, doctype, old_name));
 CREATE TABLE IF NOT EXISTS ddcore_default (
   "user" text NOT NULL, key text NOT NULL, value jsonb, PRIMARY KEY("user", key));
+CREATE TABLE IF NOT EXISTS ddcore_login_attempt (
+  id bigserial PRIMARY KEY, identity text NOT NULL, ip text NOT NULL DEFAULT '',
+  ok boolean NOT NULL DEFAULT false, created timestamptz NOT NULL DEFAULT now());
+CREATE INDEX IF NOT EXISTS ddcore_login_attempt_identity ON ddcore_login_attempt(identity, created DESC);
+CREATE INDEX IF NOT EXISTS ddcore_login_attempt_ip ON ddcore_login_attempt(ip, created DESC);
 `
 
 type column struct {

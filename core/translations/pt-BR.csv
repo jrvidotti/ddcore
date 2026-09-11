@@ -89,7 +89,7 @@ Invalid link,Link inválido,# internal/engine/doc.go:1076
 "Invalid month in {0}: ""{1}""","Mês/ano inválido em {0}: ""{1}""",# internal/engine/doc.go:201
 "Invalid time in {0}: ""{1}""","Hora inválida em {0}: ""{1}""",# internal/engine/doc.go:225
 Invalid upload: {0},upload inválido: {0},# internal/api/api.go:1127
-Invalid username or password,Usuário ou senha inválidos,# internal/engine/auth.go:62
+Invalid username or password,Usuário ou senha inválidos,# internal/engine/auth.go:90
 Invalid {0}: {1},{0} inválido: {1},# internal/api/api.go:227
 Keyboard shortcuts,Atalhos de teclado,# desk/src/lib/components/FormView.svelte:235
 Language,Idioma,# core.doctypes.user.user.doctype
@@ -203,6 +203,7 @@ This endpoint requires the System Manager role,Este endpoint exige o papel Syste
 This month,Este mês,# desk/src/lib/controls/MonthControl.svelte:232
 Title,Título,# desk/src/lib/components/FormView.svelte:127
 "To change it, click the title above or Rename in the menu.","Para alterar, clique no título acima ou em Renomear no menu.",# desk/src/lib/form.svelte.ts:99
+Too many attempts. Try again in {0} second(s),Tentativas demais. Tente de novo em {0} segundo(s),# internal/engine/throttle.go:69
 Total,Total,# desk/src/lib/components/ReportView.svelte:81
 Type,Tipo,# core.doctypes.comment.comment.doctype
 URL,URL,# core.doctypes.file.file.doctype
@@ -212,8 +213,8 @@ Unknown groupBy: {0},groupBy desconhecido: {0},# internal/engine/query.go:294
 Update,Atualizar,# desk/src/lib/components/FormView.svelte:252
 Uploading…,Enviando...,# desk/src/lib/controls/AttachControl.svelte:27
 User,Usuário,# core.doctypes.api_key.api_key.doctype
-User is disabled,Usuário desativado,# internal/engine/auth.go:65
-User {0} does not exist,Usuário {0} não existe,# internal/engine/auth.go:162
+User is disabled,Usuário desativado,# internal/engine/auth.go:99
+User {0} does not exist,Usuário {0} não existe,# internal/engine/auth.go:212
 Username,Usuário,# desk/src/routes/login/+page.svelte:20
 Version,Versão,# core.doctypes.version.version.doctype
 View row,Visualizar linha,# desk/src/lib/controls/Grid.svelte:107
