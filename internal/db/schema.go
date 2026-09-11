@@ -27,8 +27,20 @@ CREATE TABLE IF NOT EXISTS ddcore_job (
   attempts int NOT NULL DEFAULT 0, max_attempts int NOT NULL DEFAULT 3, error text, result jsonb);
 ALTER TABLE ddcore_job ADD COLUMN IF NOT EXISTS lease_until timestamptz;
 ALTER TABLE ddcore_job ADD COLUMN IF NOT EXISTS timeout_seconds int NOT NULL DEFAULT 300;
+ALTER TABLE ddcore_job ADD COLUMN IF NOT EXISTS request_id text;
+ALTER TABLE ddcore_job ADD COLUMN IF NOT EXISTS cancel_requested timestamptz;
+ALTER TABLE ddcore_job ADD COLUMN IF NOT EXISTS cancelled_by text;
+ALTER TABLE ddcore_job ADD COLUMN IF NOT EXISTS retry_of bigint;
+ALTER TABLE ddcore_job ADD COLUMN IF NOT EXISTS retried_as bigint;
 CREATE INDEX IF NOT EXISTS ddcore_job_status ON ddcore_job(status, run_after);
 CREATE INDEX IF NOT EXISTS ddcore_job_lease ON ddcore_job(status, lease_until);
+-- The retention sweep and the administrative list both read by status and age;
+-- one index serves both. Every index here is also paid on each lease renewal
+-- and each status transition, so the set stays deliberately small.
+CREATE INDEX IF NOT EXISTS ddcore_job_retention ON ddcore_job(status, finished);
+-- Partial: jobs the scheduler enqueued have no request behind them and would
+-- otherwise dominate the index.
+CREATE INDEX IF NOT EXISTS ddcore_job_request ON ddcore_job(request_id) WHERE request_id IS NOT NULL;
 CREATE TABLE IF NOT EXISTS ddcore_patch (app text NOT NULL, name text NOT NULL, executed timestamptz NOT NULL DEFAULT now(), PRIMARY KEY(app, name));
 CREATE TABLE IF NOT EXISTS ddcore_migration (id bigserial PRIMARY KEY, executed timestamptz NOT NULL DEFAULT now(), ddl text NOT NULL);
 CREATE TABLE IF NOT EXISTS ddcore_installed_app (app text PRIMARY KEY, installed timestamptz NOT NULL DEFAULT now());

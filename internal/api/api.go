@@ -85,6 +85,15 @@ func New(e *engine.Engine, desk fs.FS) *Server {
 			r.Get("/comments/{doctype}/{name}", s.comments)
 			r.Get("/versions/{doctype}/{name}", s.versions)
 			r.Get("/health/report", s.healthReport)
+			// Job administration. Every one of these checks the System Manager
+			// role inside the handler, exactly as the health report does; the
+			// group only guarantees there is a user to check.
+			r.Get("/jobs", s.listJobs)
+			r.Get("/jobs/stats", s.jobStats)
+			r.Get("/jobs/{id}", s.getJob)
+			r.Post("/jobs/{id}/retry", s.retryJob)
+			r.Post("/jobs/{id}/cancel", s.cancelJob)
+			r.Post("/jobs/purge", s.purgeJobs)
 		})
 		r.Get("/count/{doctype}", s.count)
 		r.Get("/resource/{doctype}", s.list)
