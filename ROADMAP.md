@@ -12,8 +12,9 @@ severities or release commitments.
 
 - Favor features that complete an existing abstraction, remove repeated app code,
   or improve operation across many apps. Extend existing services before adding infrastructure.
-- Follow the order within each stage by default. Dependencies and demonstrated app
-  requirements can move an item earlier; stages are not all-or-nothing release gates.
+- Within a stage, take the items in the listed order by default. Dependencies and
+  demonstrated app requirements can move an item earlier; stages are not
+  all-or-nothing release gates.
 - Effort is relative: **S** is a focused extension, **M** crosses a few framework
   layers, and **L** introduces substantial cross-cutting behavior. These are planning
   estimates, not durations; validate them when designing each feature.
@@ -33,6 +34,7 @@ reports, jobs/scheduler, files, Version/Comment, and the existing CLI/MCP tools.
 | SEC-04 | Password recovery, invitations, login throttling, password policy, and account self-service. See [authentication](docs/agent/auth.md). | Strengthen CSRF validation; evaluate `__Host-` cookies with deployment constraints; add administrator account unlock/session controls and email-change verification. MFA/SSO remains SEC-05. |
 | SEC-06 | Environment-backed integration secrets and Password redaction from ordinary API responses, export, and history. See [field types](docs/agent/fieldtypes.md). | User-entered Password fields remain plaintext at rest. Add encryption/key rotation only for demonstrated storage requirements; restore procedures must provision integration secrets separately. |
 | DAT-02 | Complete export with children, attachment manifests, CLI attachment bytes/checksums, and server-side export permission. See [export](docs/agent/export.md). | Implement the corresponding import and reconciliation path under DAT-01. |
+| DAT-03 | Single DocTypes through `isSingle`: one configuration per DocType and instance, with `name: "singleton"` and `docstatus: 0` enforced by PostgreSQL, defaults before the first save, REST/SDK access, permissions on reads and on the first save, and Desk editing at `/app/{doctype}`. See [controller API](docs/agent/controller-api.md). | Export of a Single is not supported, and neither are delete, record rename, submit, cancel and amend. `apps/testapp` declares no Single, so coverage comes from the DocTypes the tests define themselves rather than from a checkout fixture. |
 | DAT-04 | Declared renames, conversion safeguards, phased patches, and guarded pruning. See [migrations](docs/agent/migrations.md). | Fixture updates, large backfills, and references embedded in job arguments/history need explicit handling; do not assume renames rewrite those payloads. |
 | DAT-05 | Declarative compound business keys through `uniqueKeys`, each a partial unique index, checked before the write and enforced by the database under concurrency. See [field types](docs/agent/fieldtypes.md) and [migrations](docs/agent/migrations.md). | Child tables, `extendDoctype` and a pre-migration duplicate check are out of scope; creating a key over existing duplicates fails with Postgres's own error. Removing `unique: true` from a *field* still leaks its index — the sweep covers only the `uk_` namespace. |
 | DAT-06 | Site currency precision/rounding, shared rounding helpers, and site timezone behavior. | Close the database connection timezone and report totals/CSV consistency gaps; report totals currently use ordinary numeric addition. See the [precision and dates design](docs/superpowers/specs/2026-09-10-precisao-decimal-e-datas.md). |
@@ -50,13 +52,12 @@ status when implementation starts.
 
 ## Stage 1 — High-return foundations
 
-These items complete existing abstractions or improve every deployment with limited
+This stage completes existing abstractions or improves every deployment with limited
 new infrastructure.
 
-| Order | Capability | Benefit / effort | Dependencies and minimum acceptance |
-| --- | --- | --- | --- |
-| 1 | **Single DocTypes and settings** — DAT-03 | High / M. Removes repeated settings models and completes an exposed metadata flag. | Implement persistence, defaults, API/SDK access, permissions, and Desk editing. Prove one configuration per DocType/instance, save/reload behavior, and denied unauthorized access. |
-| 2 | **Job administration** — PRD-04 | High / M. Reuses the existing worker and reduces recovery effort for every queued service. | Extend CLI administration first with authorized inspection, retry/cancellation, retention, and metrics. Define queued versus running cancellation behavior; test interrupted execution and repeated external effects. Avoid promising exactly-once delivery. |
+| Capability | Benefit / effort | Dependencies and minimum acceptance |
+| --- | --- | --- |
+| **Job administration** — PRD-04 | High / M. Reuses the existing worker and reduces recovery effort for every queued service. | Extend CLI administration first with authorized inspection, retry/cancellation, retention, and metrics. Define queued versus running cancellation behavior; test interrupted execution and repeated external effects. Avoid promising exactly-once delivery. |
 
 ## Stage 2 — Reusable operational services
 
@@ -65,13 +66,13 @@ audit-event facility needed by the first service, then extend it as other produc
 arrive. Share delivery bookkeeping where behavior is common without requiring a
 separate broker.
 
-| Order | Capability | Benefit / effort | Dependencies and minimum acceptance |
-| --- | --- | --- | --- |
-| 3 | **Business email** — OPS-02 | High / M. Removes repeated delivery/template code from apps. | Extend existing mail transport and jobs with an app-facing synchronous API, templates, authorized attachments, and delivery history. Rollback must not send; worker interruption must permit recovery. Record uncertain SMTP outcomes and possible duplicate delivery. |
-| 4 | **Reliable outgoing webhooks** — OPS-06 | High / M. Standardizes integrations using existing HTTP and jobs. | Reuse durable delivery primitives from email where applicable. Send after commit with signatures, stable event identity, timeout, retries, and authorized replay. Test rollback, receiver failure, and repeated delivery. |
-| 5 | **Persistent notifications** — OPS-03 | High / M. Supports users who are offline and reduces repeated reminder logic. | Add declarative event/date rules, recipient authorization, deduplication, and read/unread state. Use SSE for live updates and stored records for later retrieval; reuse email only for email channels. Verify no cross-user leakage. |
-| 6 | **Assignments and pending work** — OPS-05 | Medium / M. Provides shared team task handling without copying demo domain models. | Add assign/revoke/complete, due dates, and “my pending work”; reuse notifications for reminders. Assignment must not grant document access. Test revocation, completion, and recipient visibility. |
-| 7 | **Administrative audit coverage** — PRD-06 | High / M. Makes sensitive operations investigable across services. | Extend the audit facility with actor, target, action, outcome, and correlation for delivery replay, permissions, import, approval, and administration as those features arrive. Protect access and sensitive values; test that secrets and restricted payloads are excluded. |
+| Capability | Benefit / effort | Dependencies and minimum acceptance |
+| --- | --- | --- |
+| **Business email** — OPS-02 | High / M. Removes repeated delivery/template code from apps. | Extend existing mail transport and jobs with an app-facing synchronous API, templates, authorized attachments, and delivery history. Rollback must not send; worker interruption must permit recovery. Record uncertain SMTP outcomes and possible duplicate delivery. |
+| **Reliable outgoing webhooks** — OPS-06 | High / M. Standardizes integrations using existing HTTP and jobs. | Reuse durable delivery primitives from email where applicable. Send after commit with signatures, stable event identity, timeout, retries, and authorized replay. Test rollback, receiver failure, and repeated delivery. |
+| **Persistent notifications** — OPS-03 | High / M. Supports users who are offline and reduces repeated reminder logic. | Add declarative event/date rules, recipient authorization, deduplication, and read/unread state. Use SSE for live updates and stored records for later retrieval; reuse email only for email channels. Verify no cross-user leakage. |
+| **Assignments and pending work** — OPS-05 | Medium / M. Provides shared team task handling without copying demo domain models. | Add assign/revoke/complete, due dates, and “my pending work”; reuse notifications for reminders. Assignment must not grant document access. Test revocation, completion, and recipient visibility. |
+| **Administrative audit coverage** — PRD-06 | High / M. Makes sensitive operations investigable across services. | Extend the audit facility with actor, target, action, outcome, and correlation for delivery replay, permissions, import, approval, and administration as those features arrive. Protect access and sensitive values; test that secrets and restricted payloads are excluded. |
 
 ## Stage 3 — Broader administrative application support
 
@@ -79,14 +80,14 @@ These capabilities unlock more apps but cost more to design and maintain. Access
 controls come first here because subsequent output and sharing features must reuse
 their enforcement.
 
-| Order | Capability | Benefit / effort | Dependencies and minimum acceptance |
-| --- | --- | --- | --- |
-| 8 | **User access scopes** — SEC-01 | High / L. Replaces repeated company/unit/customer segregation hooks. | Define reusable restrictions and enforce them on reads, searches, writes, reports, export, files, history, and events. Two users with identical roles but different scopes must remain isolated; test explicit privileged job/admin contexts. |
-| 9 | **Field permissions** — SEC-02 | High / L. Enables confidential fields within shared document types. | Build on the permission model; omit unauthorized values and reject unauthorized writes, including child data, reports, history, downloads, and events. Hidden/read-only UI flags are not authorization. |
-| 10 | **Print templates and PDF** — OPS-01 | High / L. Unlocks receipts, contracts, and other administrative output. | Support default formats, app templates, preview, locale, and authorized output. First evaluate Go, optional browser, and service renderers against representative documents and deployment cost; choose one in the feature design. Accept long tables, accents, currency, timezone, page breaks, and restricted-field omission. |
-| 11 | **Declarative approval workflows** — OPS-04 | High / L. Removes repeated state/role transition machinery. | Add states, actions, roles, conditions, audit history, and docstatus integration. Enforce transitions on the server; direct writes/submit must not bypass approval, and concurrent approvals must not duplicate effects. |
-| 12 | **Document sharing** — SEC-03 | Medium / M. Supports collaboration beyond static roles. | Define how grants interact with scopes/field restrictions, plus revocation and audit. Test every exposed read path after revoke. Keep permission editors and role profiles in the demand-driven backlog. |
-| 13 | **Core/app compatibility contract** — PRD-07 | High / M. Reduces upgrade failures as shared APIs grow. | Declare supported version ranges, reject incompatible combinations, document changes, and test representative consumers during upgrades. Pin exact versions before any production pilot. |
+| Capability | Benefit / effort | Dependencies and minimum acceptance |
+| --- | --- | --- |
+| **User access scopes** — SEC-01 | High / L. Replaces repeated company/unit/customer segregation hooks. | Define reusable restrictions and enforce them on reads, searches, writes, reports, export, files, history, and events. Two users with identical roles but different scopes must remain isolated; test explicit privileged job/admin contexts. |
+| **Field permissions** — SEC-02 | High / L. Enables confidential fields within shared document types. | Build on the permission model; omit unauthorized values and reject unauthorized writes, including child data, reports, history, downloads, and events. Hidden/read-only UI flags are not authorization. |
+| **Print templates and PDF** — OPS-01 | High / L. Unlocks receipts, contracts, and other administrative output. | Support default formats, app templates, preview, locale, and authorized output. First evaluate Go, optional browser, and service renderers against representative documents and deployment cost; choose one in the feature design. Accept long tables, accents, currency, timezone, page breaks, and restricted-field omission. |
+| **Declarative approval workflows** — OPS-04 | High / L. Removes repeated state/role transition machinery. | Add states, actions, roles, conditions, audit history, and docstatus integration. Enforce transitions on the server; direct writes/submit must not bypass approval, and concurrent approvals must not duplicate effects. |
+| **Document sharing** — SEC-03 | Medium / M. Supports collaboration beyond static roles. | Define how grants interact with scopes/field restrictions, plus revocation and audit. Test every exposed read path after revoke. Keep permission editors and role profiles in the demand-driven backlog. |
+| **Core/app compatibility contract** — PRD-07 | High / M. Reduces upgrade failures as shared APIs grow. | Declare supported version ranges, reject incompatible combinations, document changes, and test representative consumers during upgrades. Pin exact versions before any production pilot. |
 
 ## Stage 4 — Migration and production tooling
 
@@ -94,11 +95,11 @@ This stage follows framework reuse in the default backlog, but its required outc
 are prerequisites for a production migration. Operational scripts and documented
 procedures can deliver value before dedicated screens or CLI products.
 
-| Order | Capability | Benefit / effort | Dependencies and minimum acceptance |
-| --- | --- | --- | --- |
-| 14 | **Resumable import and reconciliation** — DAT-01, PRD-05 | High for migration / L. Makes legacy loading repeatable and reusable. | Build on DAT-02 exports and existing schema migration primitives. Provide mapping, manifest, dry run, per-record errors, checkpoints, and idempotency. Preserve/remap identities, links, children, historical status and metadata through a restricted migration path; avoid replaying historical external effects. Verify attachment bytes/checksums/access and reconcile counts, links, statuses, and monetary totals. Two runs and interrupted resume must not duplicate records, children, or effects. Defer CSV/XLSX UI. |
-| 15 | **Backup, restore, maintenance, and rollback** — PRD-01, PRD-02 | High for production / M. Establishes recoverability before more operational UI. | Automate database, public/private files, configuration, and version capture; provision secrets separately. Pause writes/jobs for controlled cutovers. Restore into an isolated instance, exercise login and a critical flow, and measure recovery against agreed targets. Define database-compatible rollback and handling of post-cutover writes. |
-| 16 | **Targeted consumer compatibility** — OPS-11 | Conditional / M–L. Keeps active integrations working without a universal compatibility layer. | Inventory actual API consumers and runtime dependencies. Adapt only required routes, payloads, authentication, errors, and pagination; replace incompatible Python/Node dependencies. Accept through consumer contract tests against pinned source versions. |
+| Capability | Benefit / effort | Dependencies and minimum acceptance |
+| --- | --- | --- |
+| **Resumable import and reconciliation** — DAT-01, PRD-05 | High for migration / L. Makes legacy loading repeatable and reusable. | Build on DAT-02 exports and existing schema migration primitives. Provide mapping, manifest, dry run, per-record errors, checkpoints, and idempotency. Preserve/remap identities, links, children, historical status and metadata through a restricted migration path; avoid replaying historical external effects. Verify attachment bytes/checksums/access and reconcile counts, links, statuses, and monetary totals. Two runs and interrupted resume must not duplicate records, children, or effects. Defer CSV/XLSX UI. |
+| **Backup, restore, maintenance, and rollback** — PRD-01, PRD-02 | High for production / M. Establishes recoverability before more operational UI. | Automate database, public/private files, configuration, and version capture; provision secrets separately. Pause writes/jobs for controlled cutovers. Restore into an isolated instance, exercise login and a critical flow, and measure recovery against agreed targets. Define database-compatible rollback and handling of post-cutover writes. |
+| **Targeted consumer compatibility** — OPS-11 | Conditional / M–L. Keeps active integrations working without a universal compatibility layer. | Inventory actual API consumers and runtime dependencies. Adapt only required routes, payloads, authentication, errors, and pagination; replace incompatible Python/Node dependencies. Accept through consumer contract tests against pinned source versions. |
 
 ## Demand-driven backlog
 
