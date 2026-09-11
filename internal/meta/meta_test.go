@@ -190,3 +190,29 @@ func TestValidateRejectsDanglingFieldReferences(t *testing.T) {
 		t.Fatalf("a standard column is not a dangling reference: %v", err)
 	}
 }
+
+// numeric(21,9) cannot hold more than nine decimal places, so a field asking
+// for more is a developer error and belongs at migrate rather than in a silent
+// truncation on the first save.
+func TestPrecisionBeyondTheColumnIsRefused(t *testing.T) {
+	r := NewRegistry()
+	r.Add(&DocType{Name: "Fatura", Fields: []*Field{
+		{Fieldname: "total", Fieldtype: "Currency", Label: "Total", Precision: 12},
+	}})
+	err := r.Validate()
+	if err == nil {
+		t.Fatal("precision 12 was accepted")
+	}
+	if !strings.Contains(err.Error(), "precision") {
+		t.Fatalf("error does not name the problem: %v", err)
+	}
+
+	ok := NewRegistry()
+	ok.Add(&DocType{Name: "Fatura", Fields: []*Field{
+		{Fieldname: "total", Fieldtype: "Currency", Label: "Total", Precision: 9},
+		{Fieldname: "peso", Fieldtype: "Float", Label: "Peso"},
+	}})
+	if err := ok.Validate(); err != nil {
+		t.Fatalf("a valid precision was refused: %v", err)
+	}
+}

@@ -23,6 +23,7 @@ metadados; jobs, relatórios, workspaces, traduções, testes, CLI e MCP estão 
 | Validação no servidor | Obrigatoriedade, unicidade, Select, Email, Link/Dynamic Link, `fetchFrom`, dependências, `mandatoryDependsOn` e `allowOnSubmit`. |
 | Document | Inserir, salvar, enviar, cancelar, emendar, renomear, apagar, recarregar, `append`, `dbSet`, mudança de campo e concorrência por `modified`. |
 | Histórico e transações | `docstatus`, `amended_from`, Version com diffs para `trackChanges`, Comment e uma transação por requisição/job/teste, com rollback em erro. |
+| Precisão monetária | Precisão por site (`currencyPrecision`, padrão = unidade menor ISO da moeda) e regra de arredondamento (`commercial`/`bankers`); `Currency` é arredondado na escrita e a mesma regra vale em Go, no runtime da app e no desk. `Percent`, `Float` e `Int` ficam de fora, por contrato. |
 
 Referências: [fieldtypes](agent/fieldtypes.md), [migrações](agent/migrations.md), [controller API](agent/controller-api.md),
 [metadados](../internal/meta/meta.go), [schema](../internal/db/schema.go) e
@@ -87,6 +88,7 @@ Referências: [form API](agent/form-api.md), [report API](agent/report-api.md),
 | Gestão de jobs | `ddcore jobs list`, `jobs run <fn>` e `jobs work`. |
 | Traduções | Inglês como valor canônico; catálogos CSV do core/apps, extração e validação com `ddcore i18n extract`. |
 | Idioma e fuso | Resolução por `X-Lang`, User, `Accept-Language` e instância; utilitários e controles seguem o fuso configurado. |
+| Semântica de datas | `Date`/`Month` são datas civis e nunca se deslocam; um `Datetime` sem offset é lido no fuso do site; `daily` dispara à meia-noite do site; `Time` é validado. |
 
 Referências: [jobs](../internal/engine/jobs.go), [i18n](agent/i18n.md) e [CLI](agent/cli.md).
 

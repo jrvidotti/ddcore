@@ -55,8 +55,34 @@ Fields are properties; child tables are arrays. Methods: `insert()`, `save()`, `
 - `ddcore.log.info/warn/error`
 - `ddcore.utils`: `flt(v, precision)`, `cint`, `cstr`, `getdate`, `nowdate()`, `now()`, `formatDate(d, "dd/mm/yyyy")`, `addDays`, `addMonths`, `addYears`,
   `getFirstDay`, `getLastDay`, `dateDiff(a, b)`, `monthDiff(a, b)`, `formatCurrency(v)`, `roundTo`, `randomString`
+- `ddcore.utils` for money: `currencyPrecision()`, `roundCurrency(v)`, `splitAmount(total, n)`
 
 `nowdate()` and `now()` are the site's wall clock (`ddcore.json:timezone`), the same day and hour the desk sees.
+A `Datetime` written without an offset — which is what `now()` returns — is read on that same clock.
+
+### Money
+
+The framework rounds a `Currency` field on its way into the database, at the
+site's precision and under the site's rounding rule (see `fieldtypes`). By the
+time `validate` runs, a Currency field on `doc` is **already rounded**, and
+anything the hook assigns is rounded again before the insert. So app code needs
+these only for arithmetic *between* fields:
+
+```ts
+u.roundCurrency(subtotal * 1.07)        // the way the server is about to store it
+u.currencyPrecision()                    // 2 on a USD site, 0 on a JPY one
+u.splitAmount(100, 3)                    // [33.34, 33.33, 33.33] — sums to exactly 100
+```
+
+`roundTo(v, 2)` hardcodes an answer the site may not share; `roundCurrency` asks.
+And `splitAmount` exists because three rounded thirds of 100.00 are 33.33 each
+and leave the schedule a cent short of its total — the residue lands on the
+earliest parts, always the same way, so a schedule recomputed is a schedule
+unchanged.
+
+Two paths deliberately bypass all of this, because they bypass the document
+layer entirely: `ddcore.db.sql` and a patch's SQL. What they write is what the
+column gets.
 
 Filters: `{ field: value, other: [">", 10] }` or `[["field", "=", v], ["Child Table", "field", ">", v]]`.
 Operators: `= != > >= < <= like not like in not in between is set not set`.

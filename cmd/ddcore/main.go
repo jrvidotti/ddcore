@@ -129,7 +129,7 @@ func load(test bool, dev bool) (*engine.Engine, *config.File, error) {
 	}
 	e, err := engine.New(context.Background(), engine.Config{
 		DSN: cfg.DSN, Apps: apps, Workers: cfg.Workers, Scheduler: cfg.Scheduler, Dev: dev || cfg.Dev, Test: test,
-		Port: cfg.Port, SiteName: cfg.Site, Lang: cfg.Lang, Currency: cfg.Currency, Timezone: cfg.Timezone, DataDir: cfg.DataDir, LogLevel: level,
+		Port: cfg.Port, SiteName: cfg.Site, Lang: cfg.Lang, Currency: cfg.Currency, CurrencyPrecision: cfg.CurrencyPrecision, Rounding: cfg.RoundingMode(), Timezone: cfg.Timezone, DataDir: cfg.DataDir, LogLevel: level,
 	})
 	return e, cfg, err
 }

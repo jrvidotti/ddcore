@@ -1,5 +1,6 @@
 <script lang="ts">
   import { __ } from "$lib/boot.svelte";
+  import { today } from "$lib/datetime";
   import { anchored } from "./floating";
   import type { Field } from "$lib/meta";
   import Icon from "$lib/components/Icon.svelte";
@@ -36,11 +37,12 @@
   let inputEl: HTMLInputElement | null = $state(null);
 
   const currentParsed = $derived(parseMonth(value));
-  let viewYear = $state(new Date().getFullYear());
 
-  const now = new Date();
-  const todayYear = now.getFullYear();
-  const todayMonth = now.getMonth() + 1;
+  // the site's day, not the browser's — see DateControl
+  const todayIso = today();
+  const todayYear = Number(todayIso.slice(0, 4));
+  const todayMonth = Number(todayIso.slice(5, 7));
+  let viewYear = $state(todayYear);
 
   $effect(() => {
     if (!focused) {

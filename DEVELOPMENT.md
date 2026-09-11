@@ -137,6 +137,12 @@ integrations, attachments, `hasPermission`/`permissionQuery`, raw SQL, and patch
 real migration to demonstrate. When a heavier case is needed, the core's own tests cover it —
 do not push the example to grow.
 
+The one exception is `Invoice`, and it names the rule it is an exception to: decimal precision
+is a **framework contract**, not an app feature. An author has to be able to read a worked case
+of a Currency stored at the site's precision and a schedule of instalments that adds back up to
+its total. The exhaustive matrix still lives in the core's tests; the example carries the one
+case someone will copy.
+
 ### The boundary, one line per case
 
 | You need… | Who solves it |

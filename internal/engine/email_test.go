@@ -52,23 +52,23 @@ func TestInvalidEmail(t *testing.T) {
 
 func TestCastEmailNormalizesWhitespace(t *testing.T) {
 	field := &meta.Field{Fieldname: "email", Fieldtype: "Email", Label: "E-mail"}
-	got, err := castValue(field, "  pessoa@example.com  ")
+	got, err := castValueWith(field, "  pessoa@example.com  ", utcOpts)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got != "pessoa@example.com" {
-		t.Fatalf("castValue()=%q", got)
+		t.Fatalf("castValueWith()=%q", got)
 	}
 }
 
 func TestCastEmailTurnsWhitespaceIntoEmptyOptionalValue(t *testing.T) {
 	field := &meta.Field{Fieldname: "email", Fieldtype: "Email", Label: "E-mail"}
-	got, err := castValue(field, "   ")
+	got, err := castValueWith(field, "   ", utcOpts)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got != nil {
-		t.Fatalf("castValue()=%#v want nil", got)
+		t.Fatalf("castValueWith()=%#v want nil", got)
 	}
 }
 

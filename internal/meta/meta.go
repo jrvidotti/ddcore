@@ -349,6 +349,12 @@ func (r *Registry) Validate() error {
 			if d.IsStdColumn(f.Fieldname) || f.Fieldname == "doctype" {
 				e("fieldname %q is reserved", f.Fieldname)
 			}
+			// a Currency or Percent column is numeric(21,9), so nine is the
+			// most it can hold. Caught here, at migrate, rather than as a
+			// silent truncation on the first save that reaches it.
+			if f.Precision < 0 || f.Precision > 9 {
+				e("field %q: precision %d is out of range (0 to 9)", f.Fieldname, f.Precision)
+			}
 			switch f.Fieldtype {
 			case "Link", "Table":
 				target := f.OptionsString()

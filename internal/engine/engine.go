@@ -22,6 +22,7 @@ import (
 	"github.com/jrvidotti/ddcore/internal/db"
 	"github.com/jrvidotti/ddcore/internal/js"
 	"github.com/jrvidotti/ddcore/internal/meta"
+	"github.com/jrvidotti/ddcore/internal/num"
 )
 
 type Config struct {
@@ -35,10 +36,14 @@ type Config struct {
 	SiteName  string
 	Lang      string
 	Currency  string
-	Timezone  string
-	SecretKey string
-	DataDir   string // uploads
-	LogLevel  slog.Level
+	// CurrencyPrecision is how many decimal places a Currency field is rounded
+	// to. Zero means "not set": New resolves it from Currency.
+	CurrencyPrecision *int
+	Rounding          num.Rounding
+	Timezone          string
+	SecretKey         string
+	DataDir           string // uploads
+	LogLevel          slog.Level
 }
 
 // AppMeta is what defineApp produced, minus functions.
@@ -116,11 +121,13 @@ type Engine struct {
 	Events *Hub
 	Cache  *Cache
 
-	cur     atomic.Pointer[State]
-	sched   atomic.Pointer[cron.Cron]
-	mu      sync.Mutex
-	locOnce sync.Once
-	loc     *time.Location
+	cur      atomic.Pointer[State]
+	sched    atomic.Pointer[cron.Cron]
+	mu       sync.Mutex
+	locOnce  sync.Once
+	loc      *time.Location
+	castOnce sync.Once
+	casts    castOpts
 }
 
 // Current returns the state this moment sees. Cada requisição captura uma vez
@@ -485,12 +492,36 @@ func (c *Ctx) Msgprint(m Message) { c.Messages = append(c.Messages, m) }
 // T translates a string.
 func (c *Ctx) T(s string, args ...any) string { return c.St.I18n.T(c.Lang, s, args...) }
 
-func (c *Ctx) Now() time.Time { return time.Now() }
+// Now is the current instant in the site's timezone. The instant is the same
+// everywhere; what the site's zone decides is which wall clock it is read on,
+// and that is what an app means when it asks the framework what time it is.
+func (c *Ctx) Now() time.Time { return time.Now().In(c.E.Location()) }
 
 // Today is the current civil date in the *site's* timezone, not the process's.
 // It is the same day the desk calls today, which is what makes a comparison
 // like `due_date < today()` give one answer on both sides of the wire.
 func (c *Ctx) Today() string { return time.Now().In(c.E.Location()).Format("2006-01-02") }
+
+// CurrencyPrecision is how many decimal places a Currency value is rounded to
+// on this site: the currency's own minor unit (2 for USD, 0 for JPY), unless
+// ddcore.json overrides it.
+func (e *Engine) CurrencyPrecision() int {
+	if e.Cfg.CurrencyPrecision != nil {
+		return *e.Cfg.CurrencyPrecision
+	}
+	return num.MinorUnits(e.Cfg.Currency)
+}
+
+// castOpts are everything castValue needs that is a property of the site
+// rather than of the request. Resolved once: castAll runs per field per row per
+// save, and re-deriving a timezone and an ISO minor unit inside that loop is a
+// cost an import would feel.
+func (e *Engine) castOpts() castOpts {
+	e.castOnce.Do(func() {
+		e.casts = castOpts{loc: e.Location(), currencyPrec: e.CurrencyPrecision(), rounding: e.Cfg.Rounding}
+	})
+	return e.casts
+}
 
 // Location is the site's timezone, resolved once. An unloadable zone name
 // falls back to UTC rather than to the machine's local time: where a server

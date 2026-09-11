@@ -10,6 +10,7 @@ import (
 	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/db"
 	"github.com/jrvidotti/ddcore/internal/meta"
+	"github.com/jrvidotti/ddcore/internal/num"
 )
 
 // Doc is a document as a plain map; child tables are []any of Doc.
@@ -74,6 +75,18 @@ func toFloat(v any) float64 {
 	return 0
 }
 
+// finite coerces to a number and refuses the two values a float can hold but a
+// column cannot. NaN reaches here from JS arithmetic and ±Inf from a string
+// like "1e400"; both used to be written and then read back as null or as a
+// driver error, with nothing pointing at the field that caused it.
+func finite(f *meta.Field, v any) (float64, error) {
+	n := toFloat(v)
+	if math.IsNaN(n) || math.IsInf(n, 0) {
+		return 0, cerr.Validation("{0} is not a number: \"{1}\"", f.Label, db.Str(v))
+	}
+	return n, nil
+}
+
 func isEmpty(v any) bool {
 	switch x := v.(type) {
 	case nil:
@@ -88,8 +101,35 @@ func isEmpty(v any) bool {
 	return false
 }
 
-// castValue coerces a JS/JSON value to what the column expects.
-func castValue(f *meta.Field, v any) (any, error) {
+// castOpts is what coercion needs from the site: which timezone a naked
+// datetime is written in, how many decimals a Currency has, and which way a
+// half rounds. They are properties of the site, never of the request, so the
+// engine resolves them once (see Engine.castOpts).
+type castOpts struct {
+	loc          *time.Location
+	currencyPrec int
+	rounding     num.Rounding
+}
+
+// castValue coerces a JS/JSON value to what the column expects, using the
+// engine's site settings.
+func (c *Ctx) castValue(f *meta.Field, v any) (any, error) {
+	return castValueWith(f, v, c.E.castOpts())
+}
+
+// maxNumeric is the ceiling of a numeric(21,9) column: 12 integer digits.
+// Beyond it Postgres raises a numeric overflow, which reaches the caller as an
+// opaque driver error naming neither the field nor the value.
+const maxNumeric = 1e12
+
+// castValueWith coerces a JS/JSON value to what the column expects.
+//
+// This is the single place a value crosses into the database — REST, MCP, app
+// code, `dbSet`, defaults and fixtures all arrive here — which is why it is
+// where the money contract is enforced rather than at the INSERT. It also runs
+// on *both sides* of the read-only and allow-on-submit comparisons, so a
+// document whose stored value predates rounding still compares equal to itself.
+func castValueWith(f *meta.Field, v any, o castOpts) (any, error) {
 	if isEmpty(v) && f.Fieldtype != "Check" {
 		return nil, nil
 	}
@@ -101,9 +141,36 @@ func castValue(f *meta.Field, v any) (any, error) {
 		}
 		return value, nil
 	case "Int":
-		return int64(math.Round(toFloat(v))), nil
-	case "Float", "Currency", "Percent":
-		return toFloat(v), nil
+		n, err := finite(f, v)
+		if err != nil {
+			return nil, err
+		}
+		// Int keeps its own rule: half away from zero, and deliberately not
+		// subject to the site's money rounding. A count that changed because
+		// someone configured banker's rounding for invoices would be a genuine
+		// surprise.
+		return int64(math.Round(n)), nil
+	case "Float":
+		// a measurement, not money: `precision` is a display hint and rounding
+		// here would destroy data the app meant to keep
+		return finite(f, v)
+	case "Currency", "Percent":
+		n, err := finite(f, v)
+		if err != nil {
+			return nil, err
+		}
+		if n >= maxNumeric || n <= -maxNumeric {
+			return nil, cerr.Validation("{0} is too large to store: \"{1}\"", f.Label, db.Str(v))
+		}
+		if f.Fieldtype == "Percent" {
+			// a rate, not an amount: 33.333333 is a legitimate third
+			return n, nil
+		}
+		p := o.currencyPrec
+		if f.Precision > 0 {
+			p = f.Precision
+		}
+		return num.Round(n, p, o.rounding), nil
 	case "Check":
 		switch x := v.(type) {
 		case bool:
@@ -140,13 +207,22 @@ func castValue(f *meta.Field, v any) (any, error) {
 		}
 		s := db.Str(v)
 		for _, layout := range []string{time.RFC3339Nano, time.RFC3339, "2006-01-02 15:04:05", "2006-01-02T15:04:05", "2006-01-02 15:04", "2006-01-02"} {
-			if t, err := time.ParseInLocation(layout, s, time.Local); err == nil {
+			if t, err := time.ParseInLocation(layout, s, o.loc); err == nil {
 				return t, nil
 			}
 		}
 		return nil, cerr.Validation("Invalid date and time in {0}: \"{1}\"", f.Label, s)
 	case "Time":
-		return db.Str(v), nil
+		// a civil time, and until now the one fieldtype that validated nothing:
+		// any string reached Postgres and came back as a driver error naming
+		// neither the field nor the value
+		s := strings.TrimSpace(db.Str(v))
+		for _, layout := range []string{"15:04:05.999999999", "15:04:05", "15:04"} {
+			if t, err := time.Parse(layout, s); err == nil {
+				return t.Format("15:04:05.999999999"), nil
+			}
+		}
+		return nil, cerr.Validation("Invalid time in {0}: \"{1}\"", f.Label, db.Str(v))
 	case "JSON":
 		b, err := json.Marshal(v)
 		return string(b), err
@@ -253,13 +329,15 @@ func (c *Ctx) defaultValue(f *meta.Field) any {
 	switch s := db.Str(f.Default); s {
 	case "Today", "today", "now":
 		if f.Fieldtype == "Datetime" {
-			return time.Now().Format(time.RFC3339)
+			// the site's clock, for the same reason Today() is: a default has
+			// to mean the same instant the app would have computed itself
+			return c.Now().Format(time.RFC3339)
 		}
 		return c.Today()
 	case "__user":
 		return c.User
 	}
-	v, _ := castValue(f, f.Default)
+	v, _ := c.castValue(f, f.Default)
 	return v
 }
 
@@ -395,7 +473,7 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 	}
 	// optimistic concurrency
 	if m, ok := doc["modified"]; ok && m != nil && before["modified"] != nil {
-		if !sameTime(m, before["modified"]) {
+		if !sameTime(m, before["modified"], c.E.Location()) {
 			return nil, cerr.Timestamp("The document was changed by someone else after you opened it. Reload and try again.")
 		}
 	}
@@ -472,24 +550,31 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 // sameTime compares two timestamps at millisecond precision. A value that
 // cannot be parsed is never "the same": aceitar timestamp inválido era o
 // mesmo que desligar o controle de concorrência.
-func sameTime(a, b any) bool {
+func sameTime(a, b any, loc *time.Location) bool {
 	if a == nil && b == nil {
 		return true
 	}
-	pa, pb := parseTime(a), parseTime(b)
+	pa, pb := parseTime(a, loc), parseTime(b, loc)
 	if pa.IsZero() || pb.IsZero() {
 		return false
 	}
 	return pa.Truncate(time.Millisecond).Equal(pb.Truncate(time.Millisecond))
 }
 
-func parseTime(v any) time.Time {
+// parseTime reads a timestamp that carries its own offset, or — for the naked
+// layouts an app writes by hand — the site's wall clock.
+//
+// It takes the location for the same reason castValue does: two parsers that
+// disagree about which clock a naked string was written on is one bug, not
+// several. `ddcore.utils.now()` returns the site's wall clock with no offset,
+// and it may be handed straight back as a job's runAfter.
+func parseTime(v any, loc *time.Location) time.Time {
 	switch x := v.(type) {
 	case time.Time:
 		return x
 	case string:
 		for _, l := range []string{time.RFC3339Nano, time.RFC3339, "2006-01-02 15:04:05.999999999-07", "2006-01-02 15:04:05"} {
-			if t, err := time.Parse(l, x); err == nil {
+			if t, err := time.ParseInLocation(l, x, loc); err == nil {
 				return t
 			}
 		}
@@ -584,7 +669,7 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 			sets = append(sets, db.Ident(k)+" = "+b.Arg(v))
 			continue
 		}
-		cv, err := castValue(f, v)
+		cv, err := c.castValue(f, v)
 		if err != nil {
 			return modified, err
 		}
@@ -846,7 +931,7 @@ func (c *Ctx) castAll(d *meta.DocType, doc Doc) error {
 		if f.Fieldname == "" || meta.LayoutTypes[f.Fieldtype] || f.Fieldtype == "Table" {
 			continue
 		}
-		v, err := castValue(f, doc[f.Fieldname])
+		v, err := c.castValue(f, doc[f.Fieldname])
 		if err != nil {
 			return err
 		}
@@ -938,8 +1023,8 @@ func (c *Ctx) checkReadOnlyDependsOn(d *meta.DocType, doc, before Doc) error {
 				continue
 			}
 		} else {
-			nv, _ := castValue(f, doc[f.Fieldname])
-			ov, _ := castValue(f, before[f.Fieldname])
+			nv, _ := c.castValue(f, doc[f.Fieldname])
+			ov, _ := c.castValue(f, before[f.Fieldname])
 			if db.Str(nv) == db.Str(ov) {
 				continue
 			}
@@ -1068,9 +1153,9 @@ func (c *Ctx) checkAllowOnSubmit(d *meta.DocType, before, doc Doc) error {
 			}
 			continue
 		}
-		nv, _ := castValue(f, doc[f.Fieldname])
-		ov, _ := castValue(f, before[f.Fieldname])
-		if db.Str(nv) != db.Str(ov) && !(f.Fieldtype == "Datetime" && sameTime(nv, ov)) {
+		nv, _ := c.castValue(f, doc[f.Fieldname])
+		ov, _ := c.castValue(f, before[f.Fieldname])
+		if db.Str(nv) != db.Str(ov) && !(f.Fieldtype == "Datetime" && sameTime(nv, ov, c.E.Location())) {
 			return cerr.Validation("{0} cannot be changed after submission", c.T(f.Label)).WithTitleKey("Submitted document")
 		}
 	}
@@ -1133,8 +1218,8 @@ func (c *Ctx) columnValues(d *meta.DocType, doc Doc) ([]string, []any, error) {
 	add := func(k string, v any) { cols = append(cols, db.Ident(k)); vals = append(vals, v) }
 	add("name", doc["name"])
 	add("owner", doc["owner"])
-	add("creation", parseTimeOrNow(doc["creation"]))
-	add("modified", parseTimeOrNow(doc["modified"]))
+	add("creation", parseTimeOrNow(doc["creation"], c.E.Location()))
+	add("modified", parseTimeOrNow(doc["modified"], c.E.Location()))
 	add("modified_by", doc["modified_by"])
 	add("docstatus", int64(doc.Docstatus()))
 	if d.IsChild {
@@ -1144,7 +1229,7 @@ func (c *Ctx) columnValues(d *meta.DocType, doc Doc) ([]string, []any, error) {
 		add("idx", int64(toFloat(doc["idx"])))
 	}
 	for _, f := range d.DataFields() {
-		v, err := castValue(f, doc[f.Fieldname])
+		v, err := c.castValue(f, doc[f.Fieldname])
 		if err != nil {
 			return nil, nil, err
 		}
@@ -1153,8 +1238,8 @@ func (c *Ctx) columnValues(d *meta.DocType, doc Doc) ([]string, []any, error) {
 	return cols, vals, nil
 }
 
-func parseTimeOrNow(v any) time.Time {
-	if t := parseTime(v); !t.IsZero() {
+func parseTimeOrNow(v any, loc *time.Location) time.Time {
+	if t := parseTime(v, loc); !t.IsZero() {
 		return t
 	}
 	return time.Now()
@@ -1195,7 +1280,7 @@ func (c *Ctx) writeUpdate(d *meta.DocType, doc Doc, prevModified any) error {
 	}
 	args = append(args, doc["name"])
 	sql := fmt.Sprintf("UPDATE %s SET %s WHERE name = $%d", db.Ident(d.TableName()), strings.Join(sets, ", "), len(args))
-	args = append(args, parseTimeOrNil(prevModified))
+	args = append(args, parseTimeOrNil(prevModified, c.E.Location()))
 	sql += fmt.Sprintf(" AND modified IS NOT DISTINCT FROM $%d", len(args))
 	tag, err := c.Q().Exec(c.Ctx, sql, args...)
 	if err != nil && strings.Contains(err.Error(), "duplicate key") {
@@ -1210,11 +1295,11 @@ func (c *Ctx) writeUpdate(d *meta.DocType, doc Doc, prevModified any) error {
 	return nil
 }
 
-func parseTimeOrNil(v any) any {
+func parseTimeOrNil(v any, loc *time.Location) any {
 	if v == nil {
 		return nil
 	}
-	if t := parseTime(v); !t.IsZero() {
+	if t := parseTime(v, loc); !t.IsZero() {
 		return t
 	}
 	return nil

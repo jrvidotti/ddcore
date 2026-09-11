@@ -2,13 +2,25 @@ package js
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 )
 
-type fakeHost struct{ calls []string }
+type fakeHost struct {
+	calls []string
+	mode  string
+}
+
+func (h *fakeHost) rounding() string {
+	if h.mode != "" {
+		return h.mode
+	}
+	return "commercial"
+}
 
 func (h *fakeHost) HostCall(rt *Runtime, op string, args json.RawMessage) (any, error) {
 	h.calls = append(h.calls, op)
@@ -23,6 +35,8 @@ func (h *fakeHost) HostCall(rt *Runtime, op string, args json.RawMessage) (any, 
 		return "2026-09-09", nil
 	case "db.getValue":
 		return 42, nil
+	case "site":
+		return map[string]any{"currency": "USD", "currencyPrecision": 2, "rounding": h.rounding(), "timezone": "UTC"}, nil
 	}
 	return nil, nil
 }
@@ -213,5 +227,112 @@ func TestB22_EvalTranspilaTS(t *testing.T) {
 	}
 	if _, err := rt.Eval("const x: = 1"); err == nil {
 		t.Fatalf("esperava erro de sintaxe")
+	}
+}
+
+// The app runtime rounds money too — a controller that totals a grid has to
+// reach the same number the server is about to store. Both implementations are
+// asserted against internal/num/testdata/rounding.json rather than against two
+// hand-kept tables, because the day the tables drift is the day the form and
+// the database disagree about a cent.
+func TestRoundToMatchesTheSharedVectors(t *testing.T) {
+	b, err := os.ReadFile(filepath.Join("..", "num", "testdata", "rounding.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var f struct {
+		Cases []struct {
+			Why        string  `json:"why"`
+			V          float64 `json:"v"`
+			P          int     `json:"p"`
+			Commercial float64 `json:"commercial"`
+			Bankers    float64 `json:"bankers"`
+		} `json:"cases"`
+	}
+	if err := json.Unmarshal(b, &f); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.Cases) == 0 {
+		t.Fatal("no vectors")
+	}
+	for _, mode := range []string{"commercial", "bankers"} {
+		rt, err := newRuntime(&fakeHost{mode: mode}, nil, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, c := range f.Cases {
+			want := c.Commercial
+			if mode == "bankers" {
+				want = c.Bankers
+			}
+			out, err := rt.Eval(fmt.Sprintf("ddcore.utils.roundTo(%s, %d)", strconv.FormatFloat(c.V, 'g', -1, 64), c.P))
+			if err != nil {
+				t.Fatalf("%v @%d %s: %v", c.V, c.P, mode, err)
+			}
+			got, err := strconv.ParseFloat(string(out), 64)
+			if err != nil {
+				t.Fatalf("%v @%d %s: roundTo returned %s", c.V, c.P, mode, out)
+			}
+			if got != want {
+				t.Errorf("roundTo(%v, %d) [%s] = %v, want %v — %s", c.V, c.P, mode, got, want, c.Why)
+			}
+		}
+	}
+}
+
+// splitAmount exists because rounding each of three thirds of 100.00 gives
+// 33.33 three times and the invoice ends up a cent short of itself.
+func TestSplitAmountAddsUp(t *testing.T) {
+	rt, err := newRuntime(&fakeHost{}, nil, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct {
+		expr string
+		want string
+	}{
+		{"ddcore.utils.splitAmount(100, 3)", "[33.34,33.33,33.33]"},
+		{"ddcore.utils.splitAmount(100, 1)", "[100]"},
+		{"ddcore.utils.splitAmount(10, 4)", "[2.5,2.5,2.5,2.5]"},
+		{"ddcore.utils.splitAmount(0.05, 10)", "[0.01,0.01,0.01,0.01,0.01,0,0,0,0,0]"},
+		{"ddcore.utils.splitAmount(-100, 3)", "[-33.34,-33.33,-33.33]"},
+		{"ddcore.utils.splitAmount(0, 3)", "[0,0,0]"},
+		{"ddcore.utils.splitAmount(100, 3).reduce((a, b) => a + b, 0)", "100"},
+		{"ddcore.utils.splitAmount(-100, 3).reduce((a, b) => a + b, 0)", "-100"},
+		{"ddcore.utils.splitAmount(1234.56, 7).reduce((a, b) => a + b, 0)", "1234.56"},
+	} {
+		out, err := rt.Eval(c.expr)
+		if err != nil {
+			t.Fatalf("%s: %v", c.expr, err)
+		}
+		if string(out) != c.want {
+			t.Errorf("%s = %s, want %s", c.expr, out, c.want)
+		}
+	}
+	if _, err := rt.Eval("ddcore.utils.splitAmount(100, 0)"); err == nil {
+		t.Error("splitAmount(100, 0) was accepted")
+	}
+}
+
+// roundCurrency is what an app calls instead of hardcoding 2, and it has to
+// follow the site rather than the habit.
+func TestRoundCurrencyFollowsTheSite(t *testing.T) {
+	rt, err := newRuntime(&fakeHost{}, nil, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for expr, want := range map[string]string{
+		"ddcore.utils.roundCurrency(10.005)":   "10.01",
+		"ddcore.utils.roundCurrency(-10.005)":  "-10.01",
+		"ddcore.utils.roundCurrency('10.005')": "10.01",
+		"ddcore.utils.currencyPrecision()":     "2",
+	} {
+		out, err := rt.Eval(expr)
+		if err != nil {
+			t.Fatalf("%s: %v", expr, err)
+		}
+		if string(out) != want {
+			t.Errorf("%s = %s, want %s", expr, out, want)
+		}
 	}
 }

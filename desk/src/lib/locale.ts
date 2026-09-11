@@ -10,6 +10,7 @@
 // list rendering calls these once per cell.
 
 import { boot } from "./boot.svelte";
+import type { RoundingMode } from "./round";
 
 const memo = new Map<string, any>();
 
@@ -40,6 +41,27 @@ export function currencyCode(): string {
  */
 export function timezone(): string {
   return boot.data?.site?.timezone || "UTC";
+}
+
+/**
+ * How many decimal places a Currency value has here.
+ *
+ * The server resolves it — from `ddcore.json:currencyPrecision`, or the
+ * currency's own ISO minor unit — and sends it in the boot. The Intl
+ * derivation is only the fallback for a desk talking to an older server; both
+ * read the same CLDR data, so they agree, but the server is the one that
+ * rounds on write and is therefore the one to believe.
+ */
+export function currencyPrecision(): number {
+  const declared = boot.data?.site?.currencyPrecision;
+  if (typeof declared === "number") return declared;
+  return cached(`cur:prec:${currencyCode()}`, () =>
+    currencyFmt().resolvedOptions().maximumFractionDigits ?? 2);
+}
+
+/** The site's rounding rule, for a form script that has to match the server. */
+export function roundingMode(): RoundingMode {
+  return boot.data?.site?.rounding === "bankers" ? "bankers" : "commercial";
 }
 
 export function numberFmt(opts: Intl.NumberFormatOptions = {}): Intl.NumberFormat {

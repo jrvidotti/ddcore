@@ -1,0 +1,30 @@
+{
+  "comment": "The rounding contract, asserted identically by internal/num (Go, authoritative), internal/js (the app runtime) and desk/src/lib/round.test.ts. One file, three readers: two copies of a table drift, and the day they drift is the day a form and the database disagree about a cent.",
+  "cases": [
+    { "why": "the case everyone checks first: the stored double is 1.00499999999999989, but the reader typed 1.005", "v": 1.005, "p": 2, "commercial": 1.01, "bankers": 1.0 },
+    { "why": "the asymmetry of the old roundTo: a credit and a debit of the same size have to cancel", "v": -1.005, "p": 2, "commercial": -1.01, "bankers": -1.0 },
+    { "why": "a tie whose kept digit is odd rounds up under both rules", "v": 2.675, "p": 2, "commercial": 2.68, "bankers": 2.68 },
+    { "why": "a tie whose kept digit is even is where the two rules part", "v": 2.665, "p": 2, "commercial": 2.67, "bankers": 2.66 },
+    { "v": 1.045, "p": 2, "commercial": 1.05, "bankers": 1.04 },
+    { "why": "0.1 + 0.2", "v": 0.30000000000000004, "p": 2, "commercial": 0.3, "bankers": 0.3 },
+    { "why": "just below the half: not a tie, and no rule may round it up", "v": 1.0049999999, "p": 2, "commercial": 1.0, "bankers": 1.0 },
+    { "why": "carry out of the fraction", "v": 0.999, "p": 2, "commercial": 1.0, "bankers": 1.0 },
+    { "why": "carry all the way into a new leading digit", "v": 99.995, "p": 2, "commercial": 100.0, "bankers": 100.0 },
+    { "v": -0.999, "p": 2, "commercial": -1.0, "bankers": -1.0 },
+    { "why": "whole units, as a JPY site rounds", "v": 2.5, "p": 0, "commercial": 3, "bankers": 2 },
+    { "v": -2.5, "p": 0, "commercial": -3, "bankers": -2 },
+    { "v": 3.5, "p": 0, "commercial": 4, "bankers": 4 },
+    { "v": 1234.5, "p": 0, "commercial": 1235, "bankers": 1234 },
+    { "why": "three places, as a KWD site rounds", "v": 0.0005, "p": 3, "commercial": 0.001, "bankers": 0.0 },
+    { "why": "a large mantissa still ties on the discarded digits alone", "v": 1234567890.125, "p": 2, "commercial": 1234567890.13, "bankers": 1234567890.12 },
+    { "why": "a negative that rounds to zero must not come back as -0", "v": -0.001, "p": 2, "commercial": 0, "bankers": 0 },
+    { "why": "below the last place, from either side", "v": 1e-7, "p": 2, "commercial": 0, "bankers": 0 },
+    { "v": 1.5e-7, "p": 2, "commercial": 0, "bankers": 0 },
+    { "why": "JS prints this one in exponent notation and Go does not; both must still leave it alone", "v": 1e21, "p": 2, "commercial": 1e21, "bankers": 1e21 },
+    { "why": "beyond the point where a double spaces closer than the last place, the value is already exact", "v": 1e17, "p": 2, "commercial": 1e17, "bankers": 1e17 },
+    { "why": "fewer fraction digits than asked for: untouched, not re-parsed", "v": 123.456, "p": 3, "commercial": 123.456, "bankers": 123.456 },
+    { "v": 10.005, "p": 2, "commercial": 10.01, "bankers": 10.0 },
+    { "v": 0, "p": 2, "commercial": 0, "bankers": 0 },
+    { "v": 100, "p": 0, "commercial": 100, "bankers": 100 }
+  ]
+}

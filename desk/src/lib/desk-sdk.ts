@@ -5,7 +5,7 @@ import { api } from "./api";
 import { registerForm, type FormHandlers, FormController } from "./form.svelte";
 import { dialog, toast, confirm, prompt, showError } from "./ui.svelte";
 import { __ } from "./boot.svelte";
-import { formatCurrency, formatDate, formatNumber, formatValue, statusColor } from "./format";
+import { formatCurrency, formatDate, formatNumber, formatValue, roundCurrency, statusColor } from "./format";
 import { getMeta } from "./meta";
 import { addDays, addMonths, monthEnd, monthStart, today } from "./datetime";
 
@@ -36,7 +36,9 @@ export const deskSDK = {
       insert: (doc: any) => api.insert(doc.doctype, doc),
     },
     ui: { Dialog: dialog, dialog, msgprint: (m: string, o: any = {}) => toast(m, { title: o.title, indicator: o.indicator || "blue" }), alert: (m: string) => toast(m, { indicator: "blue" }), confirm, prompt, showError, toast },
-    format: { currency: formatCurrency, date: formatDate, number: formatNumber, value: formatValue, statusColor },
+    // roundCurrency is here so a form script that totals a grid rounds the way
+    // the server is about to store it, rather than the way toFixed happens to
+    format: { currency: formatCurrency, date: formatDate, number: formatNumber, value: formatValue, roundCurrency, statusColor },
     // civil dates with the same semantics as `ddcore.utils` no servidor (ver $lib/datetime)
     datetime: { today: () => today(), addMonths, addDays, monthStart, monthEnd },
     meta: getMeta,
