@@ -24,8 +24,17 @@ flag is an error (it never becomes an argument silently).
 | `ddcore demo [--app name]` | runs `<app>.services.demo.generate` for every app that has `services/demo.ts` |
 | `ddcore export <DocType>\|--all [--children] [--attachments] [--out DIR]` | exports the whole set to NDJSON/CSV with a manifest of checksums (see `export`) |
 | `ddcore jobs list\|run <fn>\|work` | scheduler and queue |
-| `ddcore user add <email> <name> --password x --role R` / `user passwd <email> <password>` | users |
-| `ddcore apikey <user>` | produces `key:secret` for `Authorization: token key:secret` |
+| `ddcore user add <email> <name> --password x --role R` / `user passwd <email> <password>` | users; `passwd` also ends that user's other sessions |
+| `ddcore user invite <email> <name> --role R` | creates the account with no password and sends the invitation link |
+| `ddcore user reset <email>` | sends a password-recovery link |
+| `ddcore user unlock <email>` | lifts a lockout without waiting out the window |
+| `ddcore user sessions <email> [--revoke]` | lists, or ends, that user's sessions |
+| `ddcore apikey <user> [--label x] [--days N]` | produces `key:secret` for `Authorization: token key:secret`; `--days` expires it |
+
+`invite` and `reset` print the link instead of mailing it when no mail
+transport is configured, which is what makes them usable in development and for
+the first account on a new site. Once `DDCORE_MAIL_TRANSPORT` is set they print
+only the expiry — a live recovery link has no business in shell history.
 | `ddcore mcp` | MCP server (stdio) |
 | `ddcore docs [name]` | this documentation |
 | `ddcore doctor` | database, meta, pending DDL, undeclared columns and tables, pending patches, applied renames, scheduler |
