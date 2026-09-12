@@ -73,7 +73,8 @@ jobs:
               -ldflags="-s -w -X github.com/jrvidotti/ddcore/internal/engine.Version=${TAG}" \
               -o "dist/build_${OS}_${ARCH}/${OUTPUT}" ./cmd/ddcore
             
-            tar -czf "dist/${TAR_NAME}" -C "dist/build_${OS}_${ARCH}" "${OUTPUT}"
+            cp LICENSE THIRD_PARTY_NOTICES.md "dist/build_${OS}_${ARCH}/"
+            tar -czf "dist/${TAR_NAME}" -C "dist/build_${OS}_${ARCH}" "${OUTPUT}" LICENSE THIRD_PARTY_NOTICES.md
             rm -rf "dist/build_${OS}_${ARCH}"
           }
 

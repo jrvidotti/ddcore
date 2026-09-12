@@ -1,1 +1,8 @@
-{ "name": "@ddcore/desk-sdk", "version": "0.1.0", "type": "module", "types": "src/index.ts", "main": "src/index.ts" }
+{
+  "name": "@ddcore/desk-sdk",
+  "version": "0.1.0",
+  "type": "module",
+  "types": "src/index.ts",
+  "main": "src/index.ts",
+  "license": "MIT"
+}

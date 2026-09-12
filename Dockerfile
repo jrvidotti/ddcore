@@ -27,8 +27,10 @@ RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build \
 
 # Stage 3: Minimal runner image
 FROM alpine:3.21 AS runner
+LABEL org.opencontainers.image.licenses="MIT"
 RUN apk add --no-cache ca-certificates tzdata
 COPY --from=go-build /bin/ddcore /usr/local/bin/ddcore
+COPY LICENSE THIRD_PARTY_NOTICES.md /usr/local/share/ddcore/
 
 ENTRYPOINT ["/usr/local/bin/ddcore"]
 CMD ["help"]
