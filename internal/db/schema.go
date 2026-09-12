@@ -60,6 +60,9 @@ CREATE TABLE IF NOT EXISTS ddcore_auth_token (
   used timestamptz, created_by text, ip text);
 CREATE INDEX IF NOT EXISTS ddcore_auth_token_user ON ddcore_auth_token("user", kind);
 CREATE INDEX IF NOT EXISTS ddcore_auth_token_expires ON ddcore_auth_token(expires);
+CREATE TABLE IF NOT EXISTS ddcore_vault (
+  name text PRIMARY KEY, ciphertext bytea NOT NULL, nonce bytea NOT NULL,
+  created timestamptz NOT NULL DEFAULT now(), updated timestamptz NOT NULL DEFAULT now());
 `
 
 type column struct {
