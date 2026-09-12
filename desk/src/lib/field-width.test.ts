@@ -28,7 +28,7 @@ describe("field width resolution", () => {
   });
 
   it("defaults every other type to lg", () => {
-    for (const ft of ["Data", "Email", "Link", "Dynamic Link", "Select", "Attach", "Password", "Check"]) {
+    for (const ft of ["Data", "Email", "Link", "Dynamic Link", "Select", "Attach", "Password", "Check", "Vault"]) {
       expect(resolveFieldWidth({ fieldtype: ft })).toBe("lg");
     }
   });

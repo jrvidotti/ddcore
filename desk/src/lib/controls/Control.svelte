@@ -15,6 +15,7 @@
   import { toDatetimeLocal, fromDatetimeLocal } from "$lib/datetime";
   import type { FieldButton } from "$lib/form.svelte";
   import Icon from "$lib/components/Icon.svelte";
+  import { resolveVaultState } from "./vault-state";
 
   let {
     field, value, onchange, onbusychange = undefined, doc = {}, readOnly = false, mandatory = false, error = "", compact = false, query = undefined, inGrid = false,
@@ -32,6 +33,15 @@
   const req = $derived(mandatory || !!field.reqd);
   let emailError = $state("");
   const shownError = $derived(error || emailError);
+
+  let isEditingVault = $state(false);
+  let wasConfigured = $state(false);
+  $effect(() => {
+    if (value && typeof value === "object" && value.configured === true) {
+      wasConfigured = true;
+    }
+  });
+  const vaultState = $derived(resolveVaultState(value, isEditingVault, wasConfigured));
 
   // number inputs keep a local text buffer so "1.234,5" can be typed freely
   let text = $state("");
@@ -121,6 +131,55 @@
           <textarea {id} class="input" readonly={ro} rows={4} value={typeof value === "string" ? value : JSON.stringify(value ?? null, null, 2)} onchange={(e) => { try { onchange(JSON.parse((e.target as HTMLTextAreaElement).value)); } catch { onchange((e.target as HTMLTextAreaElement).value); } }}></textarea>
         {:else if ft === "Password"}
           <input {id} type="password" class="input" readonly={ro} value={value ?? ""} onchange={(e) => onchange((e.target as HTMLInputElement).value || null)} autocomplete="new-password" />
+        {:else if ft === "Vault"}
+          <div class="vault-box">
+            {#if vaultState.mode === "cleared"}
+              <div class="vault-row">
+                <span class="muted" style="font-size: 13px;">{__("Will be cleared on save")}</span>
+                {#if !ro}
+                  <button type="button" class="btn btn-sm" onclick={() => onchange(wasConfigured ? { configured: true } : null)}>
+                    {__("Undo")}
+                  </button>
+                {/if}
+              </div>
+            {:else if vaultState.mode === "configured"}
+              <div class="vault-row">
+                <span class="vault-badge">
+                  <span class="vault-dot"></span>
+                  {__("Configured")}
+                </span>
+                {#if !ro}
+                  <div class="vault-actions">
+                    <button type="button" class="btn btn-sm" onclick={() => { isEditingVault = true; onchange(null); }}>
+                      {__("Change")}
+                    </button>
+                    <button type="button" class="btn btn-sm danger" onclick={() => onchange({ clear: true })}>
+                      {__("Clear")}
+                    </button>
+                  </div>
+                {/if}
+              </div>
+            {:else}
+              <div class="vault-input-wrap">
+                <input
+                  {id}
+                  type="password"
+                  class="input"
+                  class:error={!!shownError}
+                  readonly={ro}
+                  placeholder={!vaultState.isNew ? __("Enter new secret") : __("Enter secret")}
+                  value={typeof value === "string" ? value : ""}
+                  oninput={(e) => onchange((e.target as HTMLInputElement).value || null)}
+                  autocomplete="new-password"
+                />
+                {#if isEditingVault}
+                  <button type="button" class="btn btn-sm" onclick={() => { isEditingVault = false; onchange({ configured: true }); }}>
+                    {__("Cancel")}
+                  </button>
+                {/if}
+              </div>
+            {/if}
+          </div>
         {:else if ft === "Email"}
           <input {id} type="email" class="input" class:error={!!shownError} readonly={ro} maxlength={Math.min(field.length || 254, 254)} value={value ?? ""} data-fieldname={field.fieldname} data-fieldtype={ft}
             oninput={(e) => { emailError = ""; onchange((e.target as HTMLInputElement).value || null); }} onblur={(e) => commitEmail((e.target as HTMLInputElement).value)} autocomplete="email" />
@@ -146,4 +205,29 @@
   .field.check .field-btns { margin-left: 4px; }
 
   .control-wrap { width: 100%; min-width: 0; }
+
+  .vault-box { width: 100%; min-height: 32px; display: flex; align-items: center; }
+  .vault-row { display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 8px; }
+  .vault-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    background: #f0fdf4;
+    color: var(--green, #16a34a);
+    border: 1px solid #bbf7d0;
+  }
+  .vault-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: var(--green, #16a34a);
+  }
+  .vault-actions { display: inline-flex; align-items: center; gap: 6px; }
+  .vault-input-wrap { display: flex; align-items: center; gap: 6px; width: 100%; }
+  .vault-input-wrap input { flex: 1; }
+  .btn-sm { padding: 3px 8px; font-size: 12px; min-height: 28px; line-height: 18px; }
 </style>
