@@ -3,6 +3,9 @@
   import { __, siteLogo } from "$lib/boot.svelte";
   import { page } from "$app/state";
   let usr = $state(""), pwd = $state(""), error = $state(""), busy = $state(false);
+  let usrInput: HTMLInputElement | undefined = $state();
+  // `autofocus` fails Svelte's a11y check; focus the first field from the effect instead.
+  $effect(() => { usrInput?.focus(); });
   async function login(e: Event) {
     e.preventDefault();
     busy = true; error = "";
@@ -17,7 +20,7 @@
   <form class="card box" onsubmit={login}>
     <div class="logo">{siteLogo()}</div>
     <h1>{__("Sign in")}</h1>
-    <label>{__("Username")}<input class="input" bind:value={usr} autocomplete="username" autofocus /></label>
+    <label>{__("Username")}<input class="input" bind:this={usrInput} bind:value={usr} autocomplete="username" /></label>
     <label>{__("Password")}<input class="input" type="password" bind:value={pwd} autocomplete="current-password" /></label>
     {#if error}<div class="err">{error}</div>{/if}
     <button class="btn primary" disabled={busy} style="width:100%;justify-content:center">{__("Sign in")}</button>
