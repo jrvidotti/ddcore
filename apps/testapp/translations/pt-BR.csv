@@ -1,42 +1,42 @@
-Actions,Ações
-Assignee,Responsável
-Code,Código
-Complete,Concluir
-Completed,Concluída
-Completed at,Concluída em
-Completed on,Concluído em
-Description,Descrição
-Due date,Data limite
-End date,Data final
-High,Alta
-In progress,Em andamento
-Invalid dates,Datas inválidas
-Invalid due date,Prazo inválido
-Invalid milestone,Marco inválido
-Low,Baixa
-Medium,Média
-Milestone {0} cannot be completed before the project starts.,O marco {0} não pode ser concluído antes do início do projeto.
-Milestones,Marcos
-Open,Aberta
-Open Tasks,Tarefas Abertas
-Overdue,Atrasada
-Overview,Visão Geral
-Planned,Planejado
-Planning,Planejamento
-Priority,Prioridade
-Progress,Progresso
-Project,Projeto
-Project Milestone,Marco Projeto
-Projects,Projetos
-Reopen,Reabrir
-Start,Iniciar
-Start date,Data de início
-Status,Status
-Task,Tarefa
-Tasks,Tarefas
-Tasks by Status,Tarefas por Status
-Test App: Projects,App de Teste: Projetos
-The due date cannot be earlier than the project start ({0}).,A data limite não pode ser anterior ao início do projeto ({0}).
-The end date cannot be earlier than the start date.,A data final não pode ser anterior à data de início.
-Title,Título
-Tracking,Acompanhamento
+Actions,Ações,# apps/testapp/doctypes/task/task.form.ts:18
+Assignee,Responsável,# testapp.doctypes.project.project.doctype
+Code,Código,# testapp.doctypes.project.project.doctype
+Complete,Concluir,# apps/testapp/doctypes/task/task.form.ts:19
+Completed,Concluída,# testapp.doctypes.project.project.doctype
+Completed at,Concluída em,# testapp.doctypes.task.task.doctype
+Completed on,Concluído em,# testapp.doctypes.project_milestone.project_milestone.doctype
+Description,Descrição,# testapp.doctypes.project.project.doctype
+Due date,Data limite,# testapp.doctypes.project_milestone.project_milestone.doctype
+End date,Data final,# testapp.doctypes.project.project.doctype
+High,Alta,# testapp.doctypes.task.task.doctype
+In progress,Em andamento,# testapp.doctypes.project.project.doctype
+Invalid dates,Datas inválidas,# apps/testapp/doctypes/project/project.controller.ts:7
+Invalid due date,Prazo inválido,# apps/testapp/doctypes/task/task.controller.ts:24
+Invalid milestone,Marco inválido,# apps/testapp/doctypes/project/project.controller.ts:17
+Low,Baixa,# testapp.doctypes.task.task.doctype
+Medium,Média,# testapp.doctypes.task.task.doctype
+Milestone {0} cannot be completed before the project starts.,O marco {0} não pode ser concluído antes do início do projeto.,# apps/testapp/doctypes/project/project.controller.ts:16
+Milestones,Marcos,# testapp.doctypes.project.project.doctype
+Open,Aberta,# testapp.doctypes.task.task.doctype
+Open Tasks,Tarefas Abertas,# testapp workspace
+Overdue,Atrasada,# testapp.doctypes.task.task.doctype
+Overview,Visão Geral,# testapp workspace
+Planned,Planejado,# testapp.doctypes.project.project.doctype
+Planning,Planejamento,# testapp workspace
+Priority,Prioridade,# testapp.doctypes.task.task.doctype
+Progress,Progresso,# testapp.doctypes.project.project.doctype
+Project,Projeto,# testapp.doctypes.project.project.doctype
+Project Milestone,Marco Projeto,# testapp.doctypes.project_milestone.project_milestone.doctype
+Projects,Projetos,# testapp workspace
+Reopen,Reabrir,# apps/testapp/doctypes/task/task.form.ts:20
+Start,Iniciar,# apps/testapp/doctypes/task/task.form.ts:18
+Start date,Data de início,# testapp.doctypes.project.project.doctype
+Status,Status,# testapp.doctypes.project.project.doctype
+Task,Tarefa,# testapp.doctypes.task.task.doctype
+Tasks,Tarefas,# apps/testapp/workspaces/projects.workspace.ts:32
+Tasks by Status,Tarefas por Status,# testapp workspace
+Test App: Projects,App de Teste: Projetos,# testapp app
+The due date cannot be earlier than the project start ({0}).,A data limite não pode ser anterior ao início do projeto ({0}).,# apps/testapp/doctypes/task/task.controller.ts:23
+The end date cannot be earlier than the start date.,A data final não pode ser anterior à data de início.,# apps/testapp/doctypes/project/project.controller.ts:7
+Title,Título,# testapp.doctypes.project.project.doctype
+Tracking,Acompanhamento,# testapp workspace

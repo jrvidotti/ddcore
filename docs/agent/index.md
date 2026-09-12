@@ -18,6 +18,7 @@ Available documents (also as MCP resources `ddcore://docs/<name>`):
 - `i18n` — English as the source language, catalogues, Select values, dates and the site timezone
 - `migrations` — renames, fieldtype changes, patches and the expand → contract route
 - `export` — exporting a whole DocType, children and attachments, by HTTP or CLI
+- `vault` — encrypted credential vault (`ddcore.vault.*`), `Vault` fieldtype, and audit logging
 - `cli` — the `ddcore` commands and the development loop
 - `ops` — liveness and readiness probes, request correlation, queue signals and `doctor`
 - `feature-requests` — when a gap belongs in the framework, and how to report it upstream

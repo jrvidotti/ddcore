@@ -21,39 +21,39 @@
 | Attach | text | the file's URL (`/files/..` or `/private/files/..`) |
 | JSON | jsonb | |
 | Password | text | not hashed automatically; never read back through the API, never in Version, never exported. **Not for an integration credential** — see below |
+| Vault | — | virtual field backed by the encrypted vault (`ddcore_vault`); never a column in `tab_<doctype>`, never in Version or export; masked in Desk and API. See [vault.md](vault.md) |
 | Section Break / Tab Break | — | layout; `label`, `collapsible`, `dependsOn` on a Section |
 | HTML | — | `options` is the rendered HTML |
 
-## Secrets: `ddcore.secret`, not a column
+## Secrets: `ddcore.secret`, `ddcore.vault`, and `Vault` fieldtype
 
-An integration credential — an API key, a webhook token, a relay password —
-does not go in a document. Read it from the environment:
+There are three ways secrets are handled:
+
+1. **Site-level secrets (`ddcore.secret`)**:
+An integration credential fixed per deployment — an API key, a webhook token, a relay password — does not go in a document. Read it from the environment:
 
 ```ts
 const key = ddcore.secret("stripe_key");   // DDCORE_SECRET_STRIPE_KEY
 if (!key) ddcore.throw(_("Stripe is not configured on this site"));
 ```
 
-`.env` supplies it in development and the platform supplies it in production.
-`ddcore doctor` lists the names it found and never the values.
+`.env` supplies it in development and the platform supplies it in production. `ddcore doctor` lists the names it found and never the values.
 
-The reason is not fastidiousness. A secret in a column is a secret in every
-backup, every replica, every export and every Version diff, and keeping it out
-of those is a list of places to remember rather than a property of the system.
-A secret in the environment is in none of them because it was never written
-down, and rotating it is a redeploy rather than a migration. The
-`DDCORE_SECRET_` prefix is the boundary: an app reads its own secrets and
-nothing else the process was started with, so `ddcore.secret("DDCORE_DSN")`
-returns null.
+2. **Per-record dynamic credentials (`ddcore.vault` and `Vault` fieldtype)**:
+When an app manages credentials per document (e.g. per-customer tokens, OAuth refresh tokens, integration accounts), use the `Vault` fieldtype or `ddcore.vault.*`:
 
-`Password` is for a secret a *person* types and this site stores — and the
-honest statement is that it is still plain text at rest. What the framework
-guarantees is that it does not leave: the value is blanked on every read
-through the API, never enters a `Version` diff, and never appears in an export.
-A controller still sees the real value, because it works on the `Ctx` and never
-through that border. If what you hold is a machine credential rather than a
-person's password, it belongs in `ddcore.secret`, where none of that has to be
-guaranteed one path at a time.
+```ts
+// In DocType:
+{ fieldname: "api_key", fieldtype: "Vault", label: "API Key" }
+
+// In server-side controller:
+const token = ddcore.vault.get("Integration Account:api_key:" + doc.name);
+```
+
+Secrets in the vault are encrypted with AES-256-GCM using `DDCORE_SECRET_KEY`, stored in `ddcore_vault` outside the document table, never leak through REST API or MCP (redacted to `{ configured: true }`), never enter Version diffs, and every access is audited in `tab_vault_audit_log`. See [vault.md](vault.md).
+
+3. **Person passwords (`Password`)**:
+`Password` is for a secret a *person* types and this site stores (plain text at rest, blanked on read through the API, excluded from Version and export). For machine credentials and integration tokens, always use `Vault` or `ddcore.secret`.
 
 ## Money: precision and rounding
 
