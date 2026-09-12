@@ -327,18 +327,15 @@
           {#each buttons as b}<button class="btn" onclick={b.action}>{b.label}</button>{/each}
         {/if}
       {/each}
-      {#if !frm.isNew || frm.isDirty}
+      {#if !frm.isNew}
         <div class="dropdown">
           <button class="btn icon" onclick={() => (menuOpen = !menuOpen)} aria-label="Menu"><Icon name="more-horizontal" /></button>
           {#if menuOpen}
             <div class="menu" role="menu" tabindex="-1">
-              {#if !frm.isNew}
-                <button onclick={() => { menuOpen = false; frm?.reload(); }}>{__("Reload")}</button>
-                {#if !frm.isSingle && frm.perm.create}<button onclick={() => { menuOpen = false; duplicate(); }}>{__("Duplicate")}</button>{/if}
-                {#if frm.meta.doctype.allowRename && frm.perm.write && frm.docstatus === 0}<button onclick={() => { menuOpen = false; rename(); }}>{__("Rename")}</button>{/if}
-              {/if}
-              {#if frm.isDirty}<button onclick={() => { menuOpen = false; discard(); }}>{__("Discard changes")}</button>{/if}
-              {#if !frm.isNew && !frm.isSingle && frm.perm.delete && frm.docstatus !== 1}<button class="danger" style="color:var(--red)" onclick={() => { menuOpen = false; remove(); }}>{__("Delete")}</button>{/if}
+              <button onclick={() => { menuOpen = false; frm?.reload(); }}>{__("Reload")}</button>
+              {#if !frm.isSingle && frm.perm.create}<button onclick={() => { menuOpen = false; duplicate(); }}>{__("Duplicate")}</button>{/if}
+              {#if frm.meta.doctype.allowRename && frm.perm.write && frm.docstatus === 0}<button onclick={() => { menuOpen = false; rename(); }}>{__("Rename")}</button>{/if}
+              {#if !frm.isSingle && frm.perm.delete && frm.docstatus !== 1}<button class="danger" style="color:var(--red)" onclick={() => { menuOpen = false; remove(); }}>{__("Delete")}</button>{/if}
               <button onclick={() => { menuOpen = false; openShortcutsHelp(); }} style="display:flex;align-items:center;justify-content:space-between">
                 <span>{__("Keyboard shortcuts")}</span>
                 <kbd class="kbd">?</kbd>
@@ -347,6 +344,7 @@
           {/if}
         </div>
       {/if}
+      {#if frm.isDirty}<button class="btn" disabled={frm.saving} onclick={discard}>{__("Discard")}</button>{/if}
       {#if frm.primaryAction}
         <button class="btn primary" onclick={frm.primaryAction.action}>{frm.primaryAction.label}</button>
       {:else if frm.isSubmittable}
