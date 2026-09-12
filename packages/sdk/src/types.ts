@@ -3,7 +3,7 @@
 export type FieldType =
   | "Data" | "Email" | "Small Text" | "Text" | "Text Editor" | "Int" | "Float" | "Currency" | "Percent"
   | "Check" | "Date" | "Month" | "Datetime" | "Time" | "Select" | "Link" | "Dynamic Link" | "Table"
-  | "Attach" | "JSON" | "Password" | "Section Break" | "Tab Break" | "HTML";
+  | "Attach" | "JSON" | "Password" | "Vault" | "Section Break" | "Tab Break" | "HTML";
 
 export type FieldWidth = "sm" | "md" | "lg" | "full";
 
