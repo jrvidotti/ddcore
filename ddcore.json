@@ -6,6 +6,5 @@
   "scheduler": false,
   "lang": "en",
   "currency": "USD",
-  "timezone": "UTC",
-  "dev": true
+  "timezone": "UTC"
 }
