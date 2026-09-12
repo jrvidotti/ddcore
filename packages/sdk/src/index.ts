@@ -35,7 +35,12 @@ export interface DDCoreAPI {
   newDoc<T extends BaseDoc = BaseDoc>(doctype: string, values?: Partial<T>): T & Document<T>;
   deleteDoc(doctype: string, name: string, opts?: { ignorePermissions?: boolean; force?: boolean }): void;
   getMeta(doctype: string): DoctypeDef;
-  hasPermission(doctype: string, ptype?: string, doc?: BaseDoc | string, user?: string): boolean;
+  /**
+   * `doc` carries only what the permission rules read — the doctype is already
+   * the first argument, so a `{ name, owner }` pair is a complete call. The host
+   * takes it as a plain map and never requires a whole document.
+   */
+  hasPermission(doctype: string, ptype?: string, doc?: Partial<BaseDoc> | string, user?: string): boolean;
   throw(message: string, opts?: { title?: string; type?: string }): never;
   msgprint(message: string, opts?: { title?: string; indicator?: string; alert?: boolean }): void;
   _(text: string, args?: any[]): string;

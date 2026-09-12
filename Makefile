@@ -37,6 +37,7 @@ desk: ## compile desk (SvelteKit) into desk/build (embedded into binary)
 check: ## check desk types and translation catalogs, without database
 	cd desk && npm install --silent && npm run check
 	./bin/ddcore types
+	cd desk && npx tsc -p ../core/tsconfig.json --noEmit
 	cd desk && npx tsc -p ../apps/testapp/tsconfig.json --noEmit
 	./bin/ddcore i18n extract --all --lang pt-BR --check
 
