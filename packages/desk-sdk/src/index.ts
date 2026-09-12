@@ -54,6 +54,8 @@ export interface Frm<T extends BaseDoc = BaseDoc> {
   submit(): Promise<boolean>;
   cancel(): Promise<boolean>;
   reload(): Promise<void>;
+  /** throws the unsaved edits away and goes back to the document as it was loaded */
+  discardChanges(): Promise<void>;
   /** calls a controller method (POST /api/resource/:doctype/:name/:method) and reloads the doc */
   call(method: string, args?: Record<string, any>, opts?: { freeze?: boolean; reload?: boolean }): Promise<any>;
 }

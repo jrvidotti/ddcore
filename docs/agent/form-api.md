@@ -28,7 +28,7 @@ defineForm<Entry>("Entry", {
 `setQuery(field, () => ({ filters }))`, `toggleDisplay/toggleReqd/toggleEnable`, `addButton(label, fn, group)`, `removeButton`,
 `setPrimaryAction(label, fn)`, `setInnerGroupAsPrimary(group)`, `addIndicator(label, colour)`, `addChild(table, values)`, `removeChild(table, idx)`,
 `addFieldButton(field, { label, icon, onClick, key })`, `removeFieldButton(field, key?)`,
-`trigger(field)`, `save()`, `submit()`, `cancel()`, `reload()`,
+`trigger(field)`, `save()`, `submit()`, `cancel()`, `reload()`, `discardChanges()`,
 `call(method, args, { reload })` → calls the controller's `methods.<method>` and reloads the doc.
 
 ### Field width and layout
@@ -43,6 +43,17 @@ A field's control width inside its column is controlled by `width?: "sm" | "md" 
   Consecutive half-width fields (`sm` or `md`) inside the same column sit side by side on the same visual line (50% + 50%) without breaking. Full-width fields (`full`, `lg`) span 100% of the column width.
 - **Responsiveness:**
   Below `800px`, half-width fields collapse to 100% full width.
+
+### Unsaved changes
+
+The desk keeps what the reader typed and did not save in the browser, one draft per user and
+record, for seven days. Leaving the form asks first; coming back to the record puts the draft
+back and says so, and a record saved by someone else in the meantime asks whether to keep the
+draft. **Discard changes** in the form's menu — `frm.discardChanges()` — throws the draft away
+and goes back to the document as it was loaded, without asking the server for it again.
+
+None of this needs anything from a form script. What it does mean is that `refresh` runs again
+after a draft is restored, on a `doc` that is already dirty.
 
 ### Buttons on a field
 
