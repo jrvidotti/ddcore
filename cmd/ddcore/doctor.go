@@ -392,7 +392,11 @@ func mailSummary(cfg *config.File) string {
 		if cfg.Mail.Username != "" {
 			auth = "as " + cfg.Mail.Username
 		}
-		return fmt.Sprintf("smtp %s:%d (%s, %s)", cfg.Mail.Host, cfg.Mail.Port, cfg.Mail.TLS, auth)
+		summary := fmt.Sprintf("smtp %s:%d (%s, %s)", cfg.Mail.Host, cfg.Mail.Port, cfg.Mail.TLS, auth)
+		if cfg.Mail.Debug != "" {
+			summary += fmt.Sprintf(" [debug redirect: %s]", cfg.Mail.Debug)
+		}
+		return summary
 	case config.MailMethod:
 		return "method " + cfg.Mail.Method
 	default:

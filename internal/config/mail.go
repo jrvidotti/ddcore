@@ -34,6 +34,13 @@ type Mail struct {
 	// worker half an hour later — and so that a relay's own limit is not the
 	// first thing to find out about it.
 	MaxAttachment int64
+
+	// Debug redirects all outgoing mail in development mode to this address
+	// with a plus tag identifying the original recipient.
+	Debug string
+
+	// Dev indicates whether the application is running in development mode.
+	Dev bool
 }
 
 // DefaultMaxAttachment is deliberately well under what relays usually accept:
@@ -102,5 +109,61 @@ func mailFromEnv() (Mail, error) {
 	default:
 		return m, fmt.Errorf("DDCORE_MAIL_TRANSPORT: %q is not log, smtp or method", m.Transport)
 	}
+
+	debug := strings.Trim(strings.TrimSpace(env("DDCORE_MAIL_DEBUG", "")), "{}")
+	m.Debug = debug
+	if m.Debug != "" {
+		user, domain, ok := strings.Cut(m.Debug, "@")
+		if !ok || user == "" || domain == "" || !strings.Contains(domain, ".") {
+			return m, fmt.Errorf("DDCORE_MAIL_DEBUG: %q is not a valid email address", debug)
+		}
+	}
+
 	return m, nil
 }
+
+// AddressOf extracts the bare email address from a string like "Name <user@domain.com>".
+func AddressOf(s string) string {
+	if i := strings.LastIndex(s, "<"); i >= 0 {
+		if j := strings.Index(s[i:], ">"); j > 0 {
+			return strings.TrimSpace(s[i+1 : i+j])
+		}
+	}
+	return strings.TrimSpace(s)
+}
+
+// RedirectDebugEmail rewrites a recipient email address to route to a debug email
+// using plus-tag subaddressing.
+//
+// For example:
+//
+//	recipient: "locatario@teste.com"
+//	debugEmail: "admin@email.com" (or "{admin@email.com}")
+//	output: "admin+locatario_teste_com@email.com"
+func RedirectDebugEmail(recipient, debugEmail string) string {
+	debugEmail = strings.Trim(strings.TrimSpace(debugEmail), "{}")
+	user, domain, ok := strings.Cut(debugEmail, "@")
+	if !ok || user == "" || domain == "" {
+		return recipient
+	}
+
+	bare := AddressOf(recipient)
+	if bare == "" {
+		return debugEmail
+	}
+
+	var b strings.Builder
+	for _, r := range bare {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' {
+			b.WriteRune(r)
+		} else {
+			b.WriteRune('_')
+		}
+	}
+	tag := strings.Trim(b.String(), "_")
+	if tag == "" {
+		return debugEmail
+	}
+	return fmt.Sprintf("%s+%s@%s", user, tag, domain)
+}
+

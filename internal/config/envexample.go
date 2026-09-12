@@ -58,6 +58,7 @@ const EnvExample = `# ddcore — the environment this site runs in.
 # DDCORE_SMTP_TLS=starttls          # starttls | tls | none
 # DDCORE_SMTP_USERNAME=
 # DDCORE_SMTP_PASSWORD=
+# DDCORE_MAIL_DEBUG=                # in dev mode, redirect all outgoing mail to this address
 
 # Total bytes of attachments allowed on one message. Checked when the message is
 # queued, so an oversized attachment fails where someone can still see it.

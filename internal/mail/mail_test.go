@@ -140,3 +140,105 @@ func TestLogTransportDoesNotClaimDelivery(t *testing.T) {
 		t.Errorf("log transport should not fail: %v", err)
 	}
 }
+
+func TestDebugRedirect(t *testing.T) {
+	t.Run("redirects in dev mode when debug is set", func(t *testing.T) {
+		s := &smtpSender{
+			cfg: config.Mail{
+				From:  "no-reply@x.com",
+				Dev:   true,
+				Debug: "admin@email.com",
+			},
+			log: slog.Default(),
+		}
+
+		in := Message{
+			To:      []string{"locatario@teste.com"},
+			Subject: "Contrato",
+			Text:    "texto do contrato",
+		}
+		prepared := s.applyDebugRedirect(in)
+		if len(prepared.To) != 1 || prepared.To[0] != "admin+locatario_teste_com@email.com" {
+			t.Fatalf("expected redirected to, got %v", prepared.To)
+		}
+		if len(prepared.OriginalTo) != 1 || prepared.OriginalTo[0] != "locatario@teste.com" {
+			t.Fatalf("expected original to preserved, got %v", prepared.OriginalTo)
+		}
+
+		b, err := s.render(prepared)
+		if err != nil {
+			t.Fatal(err)
+		}
+		out := string(b)
+		if !strings.Contains(out, "To: admin+locatario_teste_com@email.com\r\n") {
+			t.Errorf("rendered message missing redirected To header: %s", out)
+		}
+		if !strings.Contains(out, "X-Original-To: locatario@teste.com\r\n") {
+			t.Errorf("rendered message missing X-Original-To header: %s", out)
+		}
+	})
+
+	t.Run("does not redirect when not in dev mode", func(t *testing.T) {
+		s := &smtpSender{
+			cfg: config.Mail{
+				From:  "no-reply@x.com",
+				Dev:   false,
+				Debug: "admin@email.com",
+			},
+			log: slog.Default(),
+		}
+
+		in := Message{
+			To:      []string{"locatario@teste.com"},
+			Subject: "Contrato",
+			Text:    "texto do contrato",
+		}
+		prepared := s.applyDebugRedirect(in)
+		if len(prepared.To) != 1 || prepared.To[0] != "locatario@teste.com" {
+			t.Fatalf("expected original to preserved in prod, got %v", prepared.To)
+		}
+		if len(prepared.OriginalTo) != 0 {
+			t.Fatalf("expected no OriginalTo in prod, got %v", prepared.OriginalTo)
+		}
+
+		b, err := s.render(prepared)
+		if err != nil {
+			t.Fatal(err)
+		}
+		out := string(b)
+		if strings.Contains(out, "X-Original-To") {
+			t.Errorf("rendered message should not have X-Original-To in prod: %s", out)
+		}
+	})
+
+	t.Run("does not redirect when debug email is empty", func(t *testing.T) {
+		s := &smtpSender{
+			cfg: config.Mail{
+				From:  "no-reply@x.com",
+				Dev:   true,
+				Debug: "",
+			},
+			log: slog.Default(),
+		}
+
+		in := Message{
+			To:      []string{"locatario@teste.com"},
+			Subject: "Contrato",
+			Text:    "texto do contrato",
+		}
+		prepared := s.applyDebugRedirect(in)
+		if len(prepared.To) != 1 || prepared.To[0] != "locatario@teste.com" {
+			t.Fatalf("expected original to preserved, got %v", prepared.To)
+		}
+
+		b, err := s.render(prepared)
+		if err != nil {
+			t.Fatal(err)
+		}
+		out := string(b)
+		if strings.Contains(out, "X-Original-To") {
+			t.Errorf("rendered message should not have X-Original-To: %s", out)
+		}
+	})
+}
+

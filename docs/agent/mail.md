@@ -164,7 +164,10 @@ see [authentication](auth.md) and `.env.example`:
   the link back to whoever asked. This is what makes development and
   `ddcore user invite` work with nothing configured.
 - `smtp` talks to a relay. It refuses to send credentials in the clear to
-  anything but loopback.
+  anything but loopback. In development mode, `DDCORE_MAIL_DEBUG=admin@email.com`
+  redirects all outgoing messages to that address using plus-tag subaddressing
+  (`admin+recipient_domain_com@email.com`) and adds an `X-Original-To` header,
+  preventing accidental delivery to real recipients.
 - `method` hands the composed message to an app function named by
   `DDCORE_MAIL_METHOD` — an HTTP mail API, usually. It receives
   `{ to, subject, text, html, attachments }`, with each attachment's bytes

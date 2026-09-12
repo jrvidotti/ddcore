@@ -30,6 +30,7 @@ type Message struct {
 	Text        string
 	HTML        string
 	Attachments []Attachment
+	OriginalTo  []string
 }
 
 // Attachment is a file already read into memory. The bytes are resolved from a
@@ -91,10 +92,30 @@ type smtpSender struct {
 
 func (s *smtpSender) Delivers() bool { return true }
 
+func (s *smtpSender) applyDebugRedirect(m Message) Message {
+	if !s.cfg.Dev || s.cfg.Debug == "" {
+		return m
+	}
+	out := m
+	out.OriginalTo = make([]string, len(m.To))
+	copy(out.OriginalTo, m.To)
+	out.To = make([]string, len(m.To))
+	for i, to := range m.To {
+		out.To[i] = config.RedirectDebugEmail(to, s.cfg.Debug)
+	}
+	if s.log != nil {
+		s.log.Info("mail: debug redirect",
+			"original_to", strings.Join(out.OriginalTo, ", "),
+			"debug_to", strings.Join(out.To, ", "))
+	}
+	return out
+}
+
 func (s *smtpSender) Send(ctx context.Context, m Message) error {
 	if len(m.To) == 0 {
 		return fmt.Errorf("mail: no recipient")
 	}
+	m = s.applyDebugRedirect(m)
 	addr := net.JoinHostPort(s.cfg.Host, fmt.Sprint(s.cfg.Port))
 	body, err := s.render(m)
 	if err != nil {
@@ -174,6 +195,9 @@ func (s *smtpSender) render(m Message) ([]byte, error) {
 
 	w("From", encodeHeader(s.cfg.From))
 	w("To", strings.Join(m.To, ", "))
+	if len(m.OriginalTo) > 0 {
+		w("X-Original-To", strings.Join(m.OriginalTo, ", "))
+	}
 	w("Subject", encodeHeader(m.Subject))
 	w("Date", time.Now().Format(time.RFC1123Z))
 	w("Message-ID", messageID(addressOf(s.cfg.From)))

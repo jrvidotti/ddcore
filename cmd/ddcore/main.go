@@ -140,8 +140,10 @@ func load(test bool, dev bool) (*engine.Engine, *config.File, error) {
 	if os.Getenv("DDCORE_DEBUG") != "" {
 		level = slog.LevelDebug
 	}
+	isDev := dev || cfg.Dev || os.Getenv("DDCORE_DEV") == "1" || os.Getenv("DDCORE_DEV") == "true"
+	cfg.Mail.Dev = isDev
 	e, err := engine.New(context.Background(), engine.Config{
-		DSN: cfg.DSN, Apps: apps, Workers: cfg.Workers, Scheduler: cfg.Scheduler, Dev: dev, Test: test,
+		DSN: cfg.DSN, Apps: apps, Workers: cfg.Workers, Scheduler: cfg.Scheduler, Dev: isDev, Test: test,
 		Port: cfg.Port, Lang: cfg.Lang, Currency: cfg.Currency, CurrencyPrecision: cfg.CurrencyPrecision, Rounding: cfg.RoundingMode(), Timezone: cfg.Timezone, DataDir: cfg.DataDir, Root: root, ExportMaxRows: cfg.ExportMaxRows, LogLevel: level,
 		Auth: cfg.Auth, Ops: cfg.Ops, LogJSON: logJSON(), LogOut: logOut, Mail: cfg.Mail, SiteURL: cfg.PublicURL(), TrustProxy: cfg.TrustProxy,
 	})

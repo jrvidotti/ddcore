@@ -227,6 +227,7 @@ func New(ctx context.Context, cfg Config) (*Engine, error) {
 	if cfg.Mail.Transport == "" {
 		cfg.Mail.Transport = config.MailLog
 	}
+	cfg.Mail.Dev = cfg.Dev
 	cfg.Ops = cfg.Ops.WithDefaults()
 	e := &Engine{Cfg: cfg, Log: slog.New(logHandler(cfg)), Events: NewHub(), Cache: NewCache()}
 	if cfg.DSN != "" {

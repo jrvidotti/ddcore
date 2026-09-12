@@ -109,6 +109,7 @@ func Load(dir string) (*File, string, error) {
 	if f.Mail, err = mailFromEnv(); err != nil {
 		return nil, "", err
 	}
+	f.Mail.Dev = f.Dev || envBool("DDCORE_DEV", false)
 	base := filepath.Dir(path)
 	for i, a := range f.Apps {
 		if !filepath.IsAbs(a) {
