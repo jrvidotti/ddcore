@@ -16,6 +16,7 @@
   import { beforeNavigate, goto } from "$app/navigation";
   import { clearDraft, draftDecision, draftKey, localDrafts, pruneDrafts, readDraft, writeDraft } from "$lib/drafts";
   import DocSidebar from "./DocSidebar.svelte";
+  import { formRows } from "./form-layout";
   import { isSectionCollapsed, toggleSection } from "./section-state";
   import { commitFocusedEdit, getModifierKey, openShortcutsHelp } from "$lib/shortcuts.svelte";
 
@@ -381,11 +382,11 @@
                 {/if}
               {/if}
               {#if !(sec.collapsible && isSectionCollapsed(collapsed, si))}
-                <div class="form-columns" style="--cols:{sec.columns.length}">
-                  {#each sec.columns as col}
-                    <div class="form-column">
-                      {#each col as f}
-                        {#if f && frm.isFieldVisible(f)}
+                {#each formRows(sec.columns, (f) => frm!.isFieldVisible(f)) as row}
+                  <div class="form-columns form-row" style="--cols:{sec.columns.length}">
+                    {#each row as colFields}
+                      <div class="form-column">
+                        {#each colFields as f}
                           <div class="form-cell" class:w-50={isFieldHalfWidth(f)}>
                             {#if f.fieldtype === "Table"}
                               <Grid {frm} field={f} childMeta={frm.meta.children[f.options]} />
@@ -397,11 +398,11 @@
                                 buttons={frm.fieldButtons[f.fieldname!] || []} />
                             {/if}
                           </div>
-                        {/if}
-                      {/each}
-                    </div>
-                  {/each}
-                </div>
+                        {/each}
+                      </div>
+                    {/each}
+                  </div>
+                {/each}
               {/if}
             </div>
           {/if}
