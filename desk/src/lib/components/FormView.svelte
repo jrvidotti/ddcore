@@ -2,7 +2,7 @@
   // Form view generated from meta: sections/columns/tabs, controls, grids,
   // toolbar (save/submit/cancel/amend/delete), form-script buttons, sidebar.
   import { createForm, FormController, type Button } from "$lib/form.svelte";
-  import { isFieldHalfWidth, isLayout, selectLabels, selectOptions, type Field } from "$lib/meta";
+  import { isLayout, selectLabels, selectOptions, type Field } from "$lib/meta";
   import Control from "$lib/controls/Control.svelte";
   import Grid from "$lib/controls/Grid.svelte";
   import Icon from "./Icon.svelte";
@@ -16,7 +16,7 @@
   import { beforeNavigate, goto } from "$app/navigation";
   import { clearDraft, draftDecision, draftKey, localDrafts, pruneDrafts, readDraft, writeDraft } from "$lib/drafts";
   import DocSidebar from "./DocSidebar.svelte";
-  import { formRows } from "./form-layout";
+  import { cellWidthClass, columnSlots, formRows } from "./form-layout";
   import { isSectionCollapsed, toggleSection } from "./section-state";
   import { commitFocusedEdit, getModifierKey, openShortcutsHelp } from "$lib/shortcuts.svelte";
 
@@ -382,13 +382,17 @@
                 {/if}
               {/if}
               {#if !(sec.collapsible && isSectionCollapsed(collapsed, si))}
-                {#each formRows(sec.columns, (f) => frm!.isFieldVisible(f)) as row}
+                {@const cap = columnSlots(sec.columns.length)}
+                {#each formRows(sec.columns, (f) => frm!.isFieldVisible(f), cap) as row}
                   <div class="form-columns form-row" style="--cols:{sec.columns.length}">
-                    {#each row as colFields}
+                    {#each row as cells}
                       <div class="form-column">
-                        {#each colFields as f}
-                          <div class="form-cell" class:w-50={isFieldHalfWidth(f)}>
-                            {#if f.fieldtype === "Table"}
+                        {#each cells as cell}
+                          {@const f = cell.field}
+                          <div class="form-cell {cellWidthClass(cell.slots, cap)}">
+                            {#if !f}
+                              <!-- keeps the next control aligned to its half of the line -->
+                            {:else if f.fieldtype === "Table"}
                               <Grid {frm} field={f} childMeta={frm.meta.children[f.options]} />
                             {:else if f.fieldtype === "HTML"}
                               <div class="field">{@html f.options || ""}</div>

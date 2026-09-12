@@ -33,16 +33,30 @@ defineForm<Entry>("Entry", {
 
 ### Field width and layout
 
-A field's control width inside its column is controlled by `width?: "sm" | "md" | "lg" | "full"` in metadata, or dynamically with `frm.setDfProperty(field, "width", value)`:
+A form line is four slots (quarters) wide. `width?: "sm" | "md" | "lg" | "full"` in metadata — or
+`frm.setDfProperty(field, "width", value)` at runtime — says how many of them the control takes, so
+a control keeps the same size whether or not its section was split with a `Column Break`:
+
+| width | section with one column | section with a `Column Break` |
+| --- | --- | --- |
+| `sm`, `md` | 25% of the line | 50% of the column (25% of the line) |
+| `lg` | 50% of the line | 100% of the column (50% of the line) |
+| `full` | 100% of the line | 100% of the column |
 
 - **Defaults by fieldtype:**
-  - `sm` (50% of the column): `Date`, `Month`, `Time`, `Int`, `Percent`.
-  - `md` (50% of the column): `Datetime`, `Float`, `Currency`.
-  - `full` (100% of the column): all other types (`Data`, `Link`, `Select`, `Check`, `Text`, `Attach`, `Table`, etc.).
-- **Side-by-side row pairing:**
-  Consecutive half-width fields (`sm` or `md`) inside the same column sit side by side on the same visual line (50% + 50%) without breaking. Full-width fields (`full`, `lg`) span 100% of the column width.
+  - `sm`: `Date`, `Month`, `Time`, `Int`, `Percent`.
+  - `md`: `Datetime`, `Float`, `Currency`.
+  - `full`: `Text`, `Small Text`, `Text Editor`, `JSON`, `Table`, `HTML`.
+  - `lg`: every other type (`Data`, `Link`, `Select`, `Check`, `Attach`, `Password`, etc.).
+- **Line packing:**
+  Fields fill the line greedily, so `[Status 1/2][Start 1/4][End 1/4]` share one line. A field of
+  `s` slots only starts at a multiple of `s`, so a half-line field never begins in the middle of a
+  quarter: `[1/4][1/2]` renders as `[1/4][empty 1/4][1/2]`, and a half-line field that no longer
+  fits moves to the next line.
+- **Dialogs** keep the two-slot layout of a column (`sm`/`md` at 50%, everything else at 100%),
+  because a modal is too narrow for quarter-line controls.
 - **Responsiveness:**
-  Below `800px`, half-width fields collapse to 100% full width.
+  Below `800px`, every cell collapses to 100% full width.
 
 ### Unsaved changes
 

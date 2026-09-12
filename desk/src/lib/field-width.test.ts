@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { resolveFieldWidth, isFieldHalfWidth, type Field, type Meta } from "./meta";
+import { resolveFieldWidth, type Field, type Meta } from "./meta";
+import { fieldSlots, LINE_SLOTS } from "./components/form-layout";
 import { FormController } from "./form.svelte";
 
 vi.mock("./api", () => ({ api: {} }));
@@ -20,13 +21,15 @@ describe("field width resolution", () => {
     }
   });
 
-  it("defaults text, link, select, check, and other fields to full", () => {
-    const fullTypes = [
-      "Data", "Email", "Link", "Dynamic Link", "Select", "Attach", "Password",
-      "Text", "Small Text", "Text Editor", "JSON", "Table", "HTML", "Check",
-    ];
-    for (const ft of fullTypes) {
+  it("defaults text, tables and HTML to full", () => {
+    for (const ft of ["Text", "Small Text", "Text Editor", "JSON", "Table", "HTML"]) {
       expect(resolveFieldWidth({ fieldtype: ft })).toBe("full");
+    }
+  });
+
+  it("defaults every other type to lg", () => {
+    for (const ft of ["Data", "Email", "Link", "Dynamic Link", "Select", "Attach", "Password", "Check"]) {
+      expect(resolveFieldWidth({ fieldtype: ft })).toBe("lg");
     }
   });
 
@@ -39,7 +42,8 @@ describe("field width resolution", () => {
 
   it("falls back to fieldtype default if width is invalid", () => {
     expect(resolveFieldWidth({ fieldtype: "Percent", width: "invalid" as any })).toBe("sm");
-    expect(resolveFieldWidth({ fieldtype: "Data", width: "invalid" as any })).toBe("full");
+    expect(resolveFieldWidth({ fieldtype: "Data", width: "invalid" as any })).toBe("lg");
+    expect(resolveFieldWidth({ fieldtype: "Text", width: "invalid" as any })).toBe("full");
   });
 
   it("always resolves to full inside grid", () => {
@@ -76,34 +80,29 @@ describe("field width resolution", () => {
     expect(resolveFieldWidth(f2Updated!)).toBe("lg");
   });
 
-  it("identifies half-width (50%) fields correctly", () => {
-    // sm and md are half-width
-    expect(isFieldHalfWidth({ fieldtype: "Date" })).toBe(true);
-    expect(isFieldHalfWidth({ fieldtype: "Int" })).toBe(true);
-    expect(isFieldHalfWidth({ fieldtype: "Percent" })).toBe(true);
-    expect(isFieldHalfWidth({ fieldtype: "Datetime" })).toBe(true);
-    expect(isFieldHalfWidth({ fieldtype: "Currency" })).toBe(true);
-    expect(isFieldHalfWidth({ fieldtype: "Float" })).toBe(true);
+  it("sizes cells in slots, a quarter of a form line each", () => {
+    const row = LINE_SLOTS; // the lone column of a section without a Column Break
+    const column = LINE_SLOTS / 2; // one column of a section split by a Column Break
 
-    // full and lg are not half-width (including Check by default)
-    expect(isFieldHalfWidth({ fieldtype: "Data" })).toBe(false);
-    expect(isFieldHalfWidth({ fieldtype: "Link" })).toBe(false);
-    expect(isFieldHalfWidth({ fieldtype: "Select" })).toBe(false);
-    expect(isFieldHalfWidth({ fieldtype: "Text" })).toBe(false);
-    expect(isFieldHalfWidth({ fieldtype: "Check" })).toBe(false);
+    // sm and md take a quarter of the line either way
+    for (const ft of ["Date", "Int", "Percent", "Datetime", "Currency", "Float"]) {
+      expect(fieldSlots({ fieldtype: ft }, row)).toBe(1);
+      expect(fieldSlots({ fieldtype: ft }, column)).toBe(1);
+    }
+
+    // lg takes half a line, which is the whole of a column
+    for (const ft of ["Data", "Link", "Select", "Check"]) {
+      expect(fieldSlots({ fieldtype: ft }, row)).toBe(2);
+      expect(fieldSlots({ fieldtype: ft }, column)).toBe(2);
+    }
+
+    // full takes the line, clamped to the column it sits in
+    expect(fieldSlots({ fieldtype: "Text" }, row)).toBe(4);
+    expect(fieldSlots({ fieldtype: "Text" }, column)).toBe(2);
 
     // explicit overrides
-    expect(isFieldHalfWidth({ fieldtype: "Data", width: "sm" })).toBe(true);
-    expect(isFieldHalfWidth({ fieldtype: "Data", width: "md" })).toBe(true);
-    expect(isFieldHalfWidth({ fieldtype: "Date", width: "full" })).toBe(false);
-    expect(isFieldHalfWidth({ fieldtype: "Date", width: "lg" })).toBe(false);
-
-    // in grid is never half-width
-    expect(isFieldHalfWidth({ fieldtype: "Date" }, true)).toBe(false);
-    expect(isFieldHalfWidth({ fieldtype: "Date", width: "sm" }, true)).toBe(false);
-
-    // null / undefined safety
-    expect(isFieldHalfWidth(null)).toBe(false);
-    expect(isFieldHalfWidth(undefined)).toBe(false);
+    expect(fieldSlots({ fieldtype: "Data", width: "sm" }, row)).toBe(1);
+    expect(fieldSlots({ fieldtype: "Date", width: "full" }, row)).toBe(4);
+    expect(fieldSlots({ fieldtype: "Date", width: "lg" }, row)).toBe(2);
   });
 });

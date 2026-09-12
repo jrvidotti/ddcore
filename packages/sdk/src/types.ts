@@ -47,12 +47,14 @@ export interface FieldDef {
   /** grid column width (1-12) */
   columns?: number;
   /**
-   * How wide the control is inside its column. The column keeps its share of the
-   * section grid — this narrows the control, not the field, so labels and the
-   * alignment of neighbouring columns do not move.
+   * How much of a form line the control takes: a form line is four slots, `sm`
+   * and `md` take one, `lg` two and `full` all four. A section split by a
+   * `Column Break` gives each column two slots, so `lg` and `full` both fill it
+   * and a control keeps the same size either way.
    *
    * Defaults by fieldtype, so a Date or a Percent is already right without a
-   * declaration: `full` only widens what the default made narrow.
+   * declaration: `sm`/`md` for dates and numbers, `full` for text, JSON, tables
+   * and HTML, `lg` for everything else.
    */
   width?: FieldWidth;
   /** Table editing mode; defaults to inline */

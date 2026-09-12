@@ -3,7 +3,7 @@
   // One control per fieldtype. `value`/`onchange` make it usable in forms,
   // dialogs, grids and filters alike.
   import type { Field } from "$lib/meta";
-  import { resolveFieldWidth, selectLabels, selectOptions } from "$lib/meta";
+  import { selectLabels, selectOptions } from "$lib/meta";
   import { formatNumber, parseNumber, roundCurrency } from "$lib/format";
   import { currencyPrecision } from "$lib/locale";
   import LinkControl from "./LinkControl.svelte";
@@ -28,7 +28,6 @@
 
   const id = `f-${Math.random().toString(36).slice(2, 8)}`;
   const ft = $derived(field.fieldtype);
-  const w = $derived(resolveFieldWidth(field, inGrid));
   const ro = $derived(readOnly || !!field.readOnly);
   const req = $derived(mandatory || !!field.reqd);
   let emailError = $state("");
@@ -84,7 +83,8 @@
       <label for={id}>{field.label}{#if req && !ro}<span class="req">*</span>{/if}</label>
     {/if}
     <div class="control" class:with-buttons={buttons.length}>
-      <div class="control-wrap" class:w-sm={w === "sm"} class:w-md={w === "md"} class:w-lg={w === "lg"} class:w-full={w === "full"}>
+      <!-- the cell already carries the width (see form-layout.ts); this only bounds the input -->
+      <div class="control-wrap">
         {#if ft === "Select"}
           <select {id} class="input" class:error={!!shownError} disabled={ro} value={value ?? ""} onchange={(e) => onchange((e.target as HTMLSelectElement).value || null)}>
             {#if !selectOptions(field).includes("")}<option value=""></option>{/if}

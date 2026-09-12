@@ -104,7 +104,17 @@ export const DEFAULT_FIELD_WIDTH: Record<string, FieldWidth> = {
   Datetime: "md",
   Float: "md",
   Currency: "md",
+  // types that only read well across the whole line
+  Text: "full",
+  "Small Text": "full",
+  "Text Editor": "full",
+  JSON: "full",
+  Table: "full",
+  HTML: "full",
 };
+
+/** How many quarters of a form line each width takes. See `form-layout.ts`. */
+export const FIELD_WIDTH_SLOTS: Record<FieldWidth, number> = { sm: 1, md: 1, lg: 2, full: 4 };
 
 /**
  * Resolves the visual width for a field's control inside a form.
@@ -116,16 +126,6 @@ export function resolveFieldWidth(field?: Field | null, inGrid = false): FieldWi
   if (field.width && (field.width === "sm" || field.width === "md" || field.width === "lg" || field.width === "full")) {
     return field.width;
   }
-  return DEFAULT_FIELD_WIDTH[field.fieldtype] || "full";
-}
-
-/**
- * Returns true if the field should render at half-width (50%) in a form or dialog,
- * allowing consecutive half-width fields to share a row.
- */
-export function isFieldHalfWidth(field?: Field | null, inGrid = false): boolean {
-  if (!field) return false;
-  const w = resolveFieldWidth(field, inGrid);
-  return w === "sm" || w === "md";
+  return DEFAULT_FIELD_WIDTH[field.fieldtype] || "lg";
 }
 

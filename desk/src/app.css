@@ -48,10 +48,12 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
 .form-columns { display: grid; gap: 0 24px; grid-template-columns: repeat(var(--cols, 1), minmax(0, 1fr)); }
 .form-column { display: flex; flex-wrap: wrap; gap: 0 16px; align-content: flex-start; min-width: 0; }
 .form-cell { width: 100%; display: flex; flex-direction: column; min-width: 0; }
+/* the 16px gap is shared out as gap x (1 - fraction), so mixed lines add up to 100% */
 .form-cell.w-50 { width: calc(50% - 8px); }
+.form-cell.w-25 { width: calc(25% - 12px); }
 @media (max-width: 800px) {
   .form-columns { grid-template-columns: 1fr; }
-  .form-cell.w-50 { width: 100%; }
+  .form-cell.w-50, .form-cell.w-25 { width: 100%; }
 }
 .field { margin-bottom: 12px; }
 .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
