@@ -1,6 +1,6 @@
 # Guidelines for AI agents
 
-**ddcore** (*Data Driven Core*) — a Go + TypeScript + Postgres framework in the spirit of Frappe.
+**ddcore** (_Data Driven Core_) — a Go + TypeScript + Postgres framework in the spirit of Frappe.
 Read [`docs/agent/index.md`](docs/agent/index.md) (the API reference for writing apps) and
 [`DEVELOPMENT.md`](DEVELOPMENT.md) (how work is done here, and the design's mental model).
 `apps/testapp` is the fixture this checkout's `ddcore.json` loads, sized to what
@@ -27,30 +27,6 @@ live in their own repositories and build against the published binary.
   memory, so **restarting the process is not necessary**.
 - To restart explicitly when it really is necessary (after rebuilding the desk with
   `make build`, say), use `make stop` first.
-
----
-
-## Releasing a version, and the app checkouts
-
-Pushing a `v*` tag triggers the Release workflow: it publishes the cross-platform archives
-(no container image: an app builds its own and fetches the binary). An app does not follow
-the framework automatically — it pins the version it is written against in its own
-`.ddcore-version`, which is what `install-ddcore.sh` downloads locally and what the app's
-own Dockerfile fetches at build time.
-
-So a version bump is not finished when the tag is pushed. After it:
-
-1. **Update `.ddcore-version` in every app checkout** — `ddcore-demo` and the product apps,
-   each in its own repository — then run `make test` there against the new binary and commit
-   the pin. An app left behind is not broken, it is just still on the old release; an app
-   whose pin moved without its tests being run is the actual risk.
-2. **A breaking change does not reach the apps on its own.** Say so in the tag message and
-   fix it in each app in the same pass, because nothing in the framework will: a removed
-   fieldtype makes an app that still declares it fail to load, and `typegen.Write` never
-   rewrites a `tsconfig.json` that already exists, so a change to the generated template
-   only ever reaches apps created after it.
-3. **SDK typings reach an app only through `ddcore types`**, run with the new binary. Until
-   then the app typechecks against the SDK sources materialised under its `.ddcore/`.
 
 ---
 
