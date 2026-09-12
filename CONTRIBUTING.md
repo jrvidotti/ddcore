@@ -40,7 +40,6 @@ packages, including transitive dependencies and generated runtime helpers; rebui
 normally afterward. Build-only tools are not automatically part of the distributed
 binary. Do not assume the npm `devDependencies` flag means a package is not bundled.
 
-Verify that release archives and the final container image retain the legal
-documents. The CLI installer installs only the executable; redistributors must retain
+Verify that the release archives retain the legal documents. The CLI installer installs only the executable; redistributors must retain
 the documents from the corresponding release archive. The notices describe the recorded distribution and are not a legal
 audit or a license grant for unrelated third-party material.

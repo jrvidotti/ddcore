@@ -23,6 +23,4 @@ DDCore uses [Go](https://github.com/golang/go), [goja](https://github.com/dop251
 
 See [go.mod](go.mod) and [desk/package-lock.json](desk/package-lock.json) for the
 complete declared dependency lists and resolved versions. Consult each component's
-upstream repository for its license and attribution requirements. Container images
-also include [Alpine Linux packages](https://pkgs.alpinelinux.org/packages?branch=v3.21)
-under their respective licenses.
+upstream repository for its license and attribution requirements.

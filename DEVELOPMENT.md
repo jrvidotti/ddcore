@@ -396,7 +396,7 @@ point along the way.**
 
 ---
 
-## 6. Versioning, releases and container images
+## 6. Versioning and releases
 
 The framework adheres to [Semantic Versioning 2.0.0](https://semver.org/):
 
@@ -406,8 +406,9 @@ The framework adheres to [Semantic Versioning 2.0.0](https://semver.org/):
     - Builds the Desk SPA (`desk/build`).
     - Cross-compiles standalone static binaries with `CGO_ENABLED=0` for Darwin and Linux (`darwin-amd64`, `darwin-arm64`, `linux-amd64`, `linux-arm64`).
     - Packages archives (`ddcore-<os>-<arch>.tar.gz`) with checksums (`SHA256SUMS`) and attaches them to the GitHub Release.
-    - Publishes multi-architecture container images (`linux/amd64`, `linux/arm64`) to the GitHub Container Registry: `ghcr.io/jrvidotti/ddcore:<tag>` and `ghcr.io/jrvidotti/ddcore:latest`.
-  - Pushing to the `main` branch builds and pushes rolling images (`ghcr.io/jrvidotti/ddcore:latest`, `ghcr.io/jrvidotti/ddcore:sha-<commit>`) and updates the rolling release `latest` for developers.
+  - Pushing to the `main` branch updates the rolling release `latest` for developers.
+  - The framework itself publishes no container image: an app builds its own image and fetches
+    the binary of the release it pins, so there is nothing for the framework to keep in a registry.
 
 - **Developer CLI installation**:
   - External developers can install the CLI directly into `~/.local/bin/ddcore` with a single command:

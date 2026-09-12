@@ -41,9 +41,11 @@ a second.
 
 ### Probing from a container
 
-There is deliberately no `HEALTHCHECK` in the published image: the entrypoint is
-the binary itself, and the same image runs `ddcore migrate` and `ddcore doctor`
-as one-shot containers that a baked healthcheck would mark unhealthy.
+The framework publishes no image of its own — an app builds one around the
+binary it pins. Leave the `HEALTHCHECK` out of that image and declare the probe
+in the orchestrator instead: the entrypoint is the binary itself, and the same
+image runs `ddcore migrate` and `ddcore doctor` as one-shot containers that a
+baked healthcheck would mark unhealthy.
 
 ```yaml
 # docker compose

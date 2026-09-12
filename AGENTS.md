@@ -33,9 +33,10 @@ live in their own repositories and build against the published binary.
 ## Releasing a version, and the app checkouts
 
 Pushing a `v*` tag triggers the Release workflow: it publishes the cross-platform archives
-and the container images. An app does not follow the framework automatically — it pins the
-version it is written against in its own `.ddcore-version`, which is what
-`install-ddcore.sh` downloads locally and what the app's Dockerfile fetches at build time.
+(no container image: an app builds its own and fetches the binary). An app does not follow
+the framework automatically — it pins the version it is written against in its own
+`.ddcore-version`, which is what `install-ddcore.sh` downloads locally and what the app's
+own Dockerfile fetches at build time.
 
 So a version bump is not finished when the tag is pushed. After it:
 

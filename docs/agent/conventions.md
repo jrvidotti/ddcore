@@ -72,8 +72,9 @@ The framework follows **Semantic Versioning 2.0.0** (`vMAJOR.MINOR.PATCH`):
 
 - **Git tags**: Official releases use the `v*` format (e.g. `v0.1.0`, `v1.0.0`).
 - **Release artifacts**:
-  - Pushing a version tag `v*` triggers the `Release` GitHub Action, creating a GitHub Release with cross-platform static archives (`ddcore-<os>-<arch>.tar.gz` and `SHA256SUMS`) for Darwin and Linux (amd64/arm64) and publishing container images (`ghcr.io/jrvidotti/ddcore:vX.Y.Z` and `ghcr.io/jrvidotti/ddcore:latest`).
-  - Pushing to `main` builds and pushes the rolling Docker image `ghcr.io/jrvidotti/ddcore:latest` and updates the rolling release `latest` used by the installer script (`install.sh`).
+  - Pushing a version tag `v*` triggers the `Release` GitHub Action, creating a GitHub Release with cross-platform static archives (`ddcore-<os>-<arch>.tar.gz` and `SHA256SUMS`) for Darwin and Linux (amd64/arm64).
+  - Pushing to `main` updates the rolling release `latest` used by the installer script (`install.sh`).
+  - No container image is published: an app builds its own image and downloads the binary of the release it pins.
 - **App compatibility (`requires`)**:
   - Apps declare compatibility constraints in `ddcore.app.ts` (`requires: { ddcore: ">=0.1.0" }`).
   - Breaking changes to public server/desk SDKs or engine contracts increment MAJOR.
