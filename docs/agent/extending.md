@@ -75,3 +75,6 @@ string for the translation. See `i18n`.
 Deleting the extension removes the field from the meta, but `migrate` does not drop the column
 unless it is run with `--prune`; until then the data is still there and reads still return it.
 That is the same rule any removed field follows.
+
+`extendDoctype` stretches a DocType another app owns. When what stands in the way is the core
+itself — a capability ddcore does not have at all — the route is upstream; see `feature-requests`.
