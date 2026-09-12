@@ -121,7 +121,11 @@ func main() {
 
 // load builds the engine from ddcore.json.
 func load(test bool, dev bool) (*engine.Engine, *config.File, error) {
-	cfg, _, err := config.Load(".")
+	cfg, cfgPath, err := config.Load(".")
+	if err != nil {
+		return nil, nil, err
+	}
+	root, err := filepath.Abs(filepath.Dir(cfgPath))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -138,7 +142,7 @@ func load(test bool, dev bool) (*engine.Engine, *config.File, error) {
 	}
 	e, err := engine.New(context.Background(), engine.Config{
 		DSN: cfg.DSN, Apps: apps, Workers: cfg.Workers, Scheduler: cfg.Scheduler, Dev: dev, Test: test,
-		Port: cfg.Port, Lang: cfg.Lang, Currency: cfg.Currency, CurrencyPrecision: cfg.CurrencyPrecision, Rounding: cfg.RoundingMode(), Timezone: cfg.Timezone, DataDir: cfg.DataDir, ExportMaxRows: cfg.ExportMaxRows, LogLevel: level,
+		Port: cfg.Port, Lang: cfg.Lang, Currency: cfg.Currency, CurrencyPrecision: cfg.CurrencyPrecision, Rounding: cfg.RoundingMode(), Timezone: cfg.Timezone, DataDir: cfg.DataDir, Root: root, ExportMaxRows: cfg.ExportMaxRows, LogLevel: level,
 		Auth: cfg.Auth, Ops: cfg.Ops, LogJSON: logJSON(), LogOut: logOut, Mail: cfg.Mail, SiteURL: cfg.PublicURL(), TrustProxy: cfg.TrustProxy,
 	})
 	if err == nil && !cfg.HasPublicURL() {

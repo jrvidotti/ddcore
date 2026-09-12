@@ -44,8 +44,13 @@ type Config struct {
 	Timezone          string
 	SecretKey         string
 	DataDir           string // uploads
-	ExportMaxRows     int    // cap for GET /api/export; 0 = DefaultExportMaxRows
-	LogLevel          slog.Level
+	// Root is the directory holding ddcore.json: the checkout the apps and
+	// their translation catalogues live in. Empty when the engine was built
+	// by hand (tests, embedders), in which case nothing that rewrites a
+	// checkout is available.
+	Root          string
+	ExportMaxRows int // cap for GET /api/export; 0 = DefaultExportMaxRows
+	LogLevel      slog.Level
 	// Auth is the site's access policy. The zero value is not a policy —
 	// New fills it from config.DefaultAuth so a Config built by hand (tests,
 	// embedders) still locks out and still expires a session.

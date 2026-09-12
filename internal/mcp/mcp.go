@@ -85,6 +85,7 @@ func New(e *engine.Engine) *mcp.Server {
 	srv := mcp.NewServer(&mcp.Implementation{Name: "ddcore", Version: engine.Version}, &mcp.ServerOptions{
 		Instructions: "Development server for the ddcore framework. Start by reading the resource ddcore://docs/index. " +
 			"Typical flow: get_doctype / scaffold_doctype → migrate → insert_doc / list_docs → run_tests. " +
+			"Every label is an English key: after adding one, i18n_extract → set_translations until nothing is missing. " +
 			"The app's TS files are the source of truth: edit them and the server reloads.",
 	})
 
@@ -174,6 +175,24 @@ func New(e *engine.Engine) *mcp.Server {
 				"report": db.Report(res.DDL), "ddl": db.SQL(res.DDL), "patches": res.Patches,
 				"installed": res.Installed, "renames": res.Renames, "recorded": res.Recorded,
 			}), nil, nil
+		})
+
+	mcp.AddTool(srv, &mcp.Tool{Name: "i18n_extract", Description: "Rewrites translations/<lang>.csv from the code and the metadata (`ddcore i18n extract`), keeping every translation already there, and reports per app what is missing, orphan or dynamic. Run it after adding a label, then fill the missing keys with set_translations. With check it writes nothing."},
+		func(ctx context.Context, req *mcp.CallToolRequest, in i18nExtractIn) (*mcp.CallToolResult, any, error) {
+			r, err := s.i18nExtract(in)
+			if err != nil {
+				return fail(err)
+			}
+			return text(r), nil, nil
+		})
+
+	mcp.AddTool(srv, &mcp.Tool{Name: "set_translations", Description: "Fills an app's translations/<lang>.csv: applies English key → translation pairs, rewrites the catalogue in its canonical form and reloads it. Every key must exist in the code (a typo is refused, nothing written); the result lists what is still missing, so iterate until it is empty."},
+		func(ctx context.Context, req *mcp.CallToolRequest, in setTranslationsIn) (*mcp.CallToolResult, any, error) {
+			r, err := s.setTranslations(in)
+			if err != nil {
+				return fail(err)
+			}
+			return text(r), nil, nil
 		})
 
 	mcp.AddTool(srv, &mcp.Tool{Name: "generate_types", Description: "Generates .ddcore/types.d.ts (TS interfaces per DocType) in each app."},

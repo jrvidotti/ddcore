@@ -77,6 +77,6 @@ npm. `DDCORE_TEST_DSN` points at the disposable database the tests use.
 
 ## MCP (`ddcore mcp`, or `http://localhost:<port>/mcp` in dev)
 
-Tools: `list_doctypes`, `get_doctype`, `scaffold_doctype`, `validate_meta`, `migrate`, `generate_types`, `get_doc`, `list_docs`, `insert_doc`,
-`update_doc`, `delete_doc`, `submit_doc`, `cancel_doc`, `call_method`, `sql_query`, `eval`, `run_tests`, `get_logs`, `reload`, `list_apps`.
+Tools: `list_doctypes`, `get_doctype`, `scaffold_doctype`, `validate_meta`, `migrate`, `i18n_extract`, `set_translations`, `generate_types`, `get_doc`, `list_docs`, `insert_doc`,
+`update_doc`, `delete_doc`, `submit_doc`, `cancel_doc`, `call_method`, `sql_query`, `eval`, `run_tests`, `get_logs`, `list_jobs`, `get_job`, `retry_job`, `cancel_job`, `purge_jobs`, `reload`, `list_apps`.
 Resources: `ddcore://docs/<name>`, `ddcore://meta/<DocType>`.

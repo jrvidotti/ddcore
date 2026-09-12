@@ -2,6 +2,7 @@ package i18nx
 
 import (
 	"encoding/csv"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -99,4 +100,25 @@ func (c *Catalog) Write(s *Set, prune bool) error {
 		return err
 	}
 	return os.WriteFile(c.Path, []byte(b.String()), 0o644)
+}
+
+// Set applies translations and rewrites the catalogue. A key the code does not
+// have is refused — all of them at once, with nothing applied — because the
+// likeliest cause is a typo on the caller's side, and accepting it would
+// quietly create an orphan the reader never sees translated.
+func (c *Catalog) Set(s *Set, trans map[string]string) error {
+	var unknown []string
+	for k := range trans {
+		if !s.Has(k) {
+			unknown = append(unknown, fmt.Sprintf("%q", k))
+		}
+	}
+	if len(unknown) > 0 {
+		sort.Strings(unknown)
+		return fmt.Errorf("%d key(s) not in the code: %s", len(unknown), strings.Join(unknown, ", "))
+	}
+	for k, v := range trans {
+		c.Trans[k] = v
+	}
+	return c.Write(s, false)
 }
