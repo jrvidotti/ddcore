@@ -52,6 +52,19 @@ export function isEditableElement(target: EventTarget | null): boolean {
 }
 
 /**
+ * Commits what is being typed before a keyboard action reads the document.
+ * Controls commit on `change`/`blur`, and both only fire once focus leaves the
+ * field — a shortcut such as Cmd+S does not move focus, so the pending edit has
+ * to be flushed by hand or the save would post the value the field had before.
+ * Returns whether there was an edit to flush.
+ */
+export function commitFocusedEdit(active: EventTarget | null): boolean {
+  if (!isEditableElement(active)) return false;
+  (active as HTMLElement).blur?.();
+  return true;
+}
+
+/**
  * Determines whether a keydown event should trigger opening the shortcuts help.
  */
 export function shouldToggleShortcuts(e: { key: string; ctrlKey?: boolean; metaKey?: boolean; altKey?: boolean; target?: EventTarget | null }): boolean {

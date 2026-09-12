@@ -16,7 +16,7 @@
   import DocSidebar from "./DocSidebar.svelte";
   import { fieldsByRow } from "./form-layout";
   import { isSectionCollapsed, toggleSection } from "./section-state";
-  import { getModifierKey, openShortcutsHelp } from "$lib/shortcuts.svelte";
+  import { commitFocusedEdit, getModifierKey, openShortcutsHelp } from "$lib/shortcuts.svelte";
 
   let { doctype, name }: { doctype: string; name: string } = $props();
   let frm = $state<FormController | null>(null);
@@ -172,7 +172,14 @@
   }
   function onKey(e: KeyboardEvent) {
     if (e.key === "Escape") { menuOpen = false; openGroup = ""; }
-    if ((e.ctrlKey || e.metaKey) && e.key === "s") { e.preventDefault(); if (frm && !frm.readOnly) frm.save(); }
+    if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+      e.preventDefault();
+      if (!frm || frm.readOnly) return;
+      // the field being typed only commits when it loses focus, and the
+      // shortcut does not move focus: flush it before reading the document
+      commitFocusedEdit(document.activeElement);
+      frm.save();
+    }
   }
   const groups = $derived.by(() => {
     const g = new Map<string, Button[]>();
