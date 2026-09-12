@@ -1,7 +1,7 @@
 # Post-v1 Inventory: ddcore Evolution and Frappe App Migration
 
 Date: 2026-09-10. Inspected base: commit `ee437e9`, documentation and code in this
-checkout. Source reference: Frappe v16, per [plan-v1.md](plan-v1.md).
+checkout. Source reference: Frappe v16.
 Status: roadmap recommendation. The features proposed here were not implemented at the
 date above; items marked **Implemented** were delivered later and link to their contract.
 

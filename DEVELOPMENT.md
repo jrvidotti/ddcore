@@ -20,7 +20,6 @@ Alongside:
 
 - `README.md` — overview, setup and the monorepo's layout.
 - `CLAUDE.md` / `AGENTS.md` — the short, non-negotiable rules (synchronous, ports, `.ddcore/`).
-- `docs/plan-v1.md` — the framework's design (in Portuguese; historical).
 - `docs/agent/` (`ddcore docs`, or the MCP resources `ddcore://docs/*`) — **the canonical API
   reference**: `conventions`, `fieldtypes`, `controller-api`, `form-api`, `report-api`,
   `i18n`, `migrations`, `cli`. This document describes the mental model; it does not
