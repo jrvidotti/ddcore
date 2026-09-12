@@ -13,6 +13,8 @@
   import { subscribe } from "$lib/events";
   import { api } from "$lib/api";
   import { page } from "$app/state";
+  import { beforeNavigate, goto } from "$app/navigation";
+  import { clearDraft, draftDecision, draftKey, localDrafts, pruneDrafts, readDraft, writeDraft } from "$lib/drafts";
   import DocSidebar from "./DocSidebar.svelte";
   import { fieldsByRow } from "./form-layout";
   import { isSectionCollapsed, toggleSection } from "./section-state";
@@ -26,6 +28,20 @@
   let collapsed = $state<Record<number, boolean>>({});
   let stale = $state(false);
   const modKey = $derived(getModifierKey());
+
+  // what the user typed and has not saved, kept in the browser
+  const drafts = localDrafts();
+  /** set by duplicate(), which turns the open record into an unsaved copy */
+  let duplicated = $state(false);
+  /** the record the draft belongs to */
+  const draftRecord = () => (duplicated ? "new" : name);
+  const currentDraftKey = () => draftKey(boot.data?.user, doctype, draftRecord());
+  /** set when the user has agreed to leave, so the guard lets the navigation through */
+  let leaving = false;
+  /** set once the record is deleted: it must never get a draft again */
+  let gone = false;
+  /** the draft is only kept in step after the one it may have recovered is in */
+  let recovered = $state(false);
 
   // Cleanup must be registered synchronously: onMount ignores what an
   // async callback *resolves*, so an async body would leak the subscription.
@@ -53,9 +69,10 @@
         if (f.isNew && !f.isSingle) {
           for (const [k, v] of page.url.searchParams) if (f.field(k)) f.doc[k] = v;
         }
+        await recoverDraft(f);
       } catch (e: any) { if (alive) error = e.message; }
     })();
-    return () => { alive = false; off(); };
+    return () => { alive = false; off(); flushDraft(); };
   });
 
   $effect(() => {
@@ -64,6 +81,81 @@
       stale = false;
     }
   });
+
+  /** Puts back what the user had typed and not saved the last time they were here. */
+  async function recoverDraft(f: FormController) {
+    try {
+      pruneDrafts(drafts);
+      const key = currentDraftKey();
+      const draft = readDraft(drafts, key);
+      const decision = draftDecision(draft, f.doc);
+      if (decision === "none") { if (draft) clearDraft(drafts, key); return; }
+      if (decision === "conflict" && !(await confirm(
+        __("This record changed after your unsaved edits. Keep your edits?"), __("Unsaved changes")))) {
+        clearDraft(drafts, key);
+        return;
+      }
+      f.applyDraft(draft!.doc);
+      await f.runRefresh();
+      if (decision === "restore") toast(__("Unsaved changes recovered"), { indicator: "blue" });
+    } finally {
+      recovered = true;
+    }
+  }
+
+  function persist(f: FormController) {
+    const doc = $state.snapshot(f.doc) as any;
+    writeDraft(drafts, currentDraftKey(), { doctype, name: draftRecord(), doc, savedAt: Date.now(), modified: doc.modified ?? null });
+  }
+
+  /**
+   * Writes the draft right now, for the moments that do not wait: closing the
+   * tab, or leaving the form before the debounce below has fired. The focused
+   * field has not committed its value yet either, so flush that first.
+   */
+  function flushDraft() {
+    commitFocusedEdit(document.activeElement);
+    const f = frm;
+    if (!f || gone || f.saving || !f.isDirty) return;
+    persist(f);
+  }
+
+  // keep the draft in step with the form, and drop it the moment there is
+  // nothing unsaved left — which is what saving the document amounts to
+  $effect(() => {
+    const f = frm;
+    if (!f || f.loading || !recovered) return;
+    const dirty = f.isDirty; // reads the whole document, so every edit re-runs this
+    if (f.saving) return;
+    const key = currentDraftKey();
+    if (!dirty) { clearDraft(drafts, key); return; }
+    const t = setTimeout(() => persist(f), 400);
+    return () => clearTimeout(t);
+  });
+
+  // leaving a form with unsaved changes asks first — the draft is the safety
+  // net, the question is what the user meant to do
+  beforeNavigate((nav) => {
+    if (leaving) return;
+    flushDraft(); // whatever happens next, what was typed is kept
+    if (!frm?.isDirty || frm.saving) return;
+    if (nav.type === "leave") { nav.cancel(); return; } // the browser asks in its own dialog
+    const to = nav.to?.url;
+    if (!to) return;
+    nav.cancel();
+    (async () => {
+      if (!(await confirm(__("Leave without saving? Your changes are kept as a draft."), __("Unsaved changes")))) return;
+      leaving = true;
+      await goto(to);
+    })();
+  });
+
+  async function discard() {
+    if (!frm || !(await confirm(__("Discard your unsaved changes?"), __("Discard changes")))) return;
+    clearDraft(drafts, currentDraftKey());
+    await frm.discardChanges();
+    toast(__("Changes discarded"), { indicator: "blue", timeout: 2000 });
+  }
 
   // layout: tabs > sections > columns > fields
   interface Section { label?: string; collapsible?: boolean; columns: Field[][]; dependsOn?: string }
@@ -140,7 +232,12 @@
 
   async function remove() {
     if (!frm || !(await confirm(__("Delete {0}?", [frm.doc.name]), __("Delete")))) return;
-    try { await frm.delete(); } catch (e) { showError(e); }
+    leaving = true; // the record is going away: unsaved edits go with it
+    try {
+      await frm.delete();
+      gone = true;
+      clearDraft(drafts, currentDraftKey());
+    } catch (e) { leaving = false; showError(e); }
   }
   async function rename() {
     if (!frm) return;
@@ -151,6 +248,7 @@
     if (!v || !v.name || v.name.trim() === frm.doc.name) return;
     try {
       const nn = await api.docMethod(doctype, frm.doc.name, "rename", { name: v.name.trim() });
+      leaving = true; // a full page load, deliberate: the guard has nothing to ask
       location.href = `/app/${encodeURIComponent(doctype)}/${encodeURIComponent(nn)}`;
     } catch (e) { showError(e); }
   }
@@ -159,6 +257,7 @@
     const copy = { ...frm.doc, name: undefined, __islocal: true, docstatus: 0, creation: undefined, modified: undefined, owner: undefined, amended_from: undefined };
     for (const f of frm.meta.doctype.fields) if (f.fieldtype === "Table") copy[f.fieldname!] = (copy[f.fieldname!] || []).map((r: any) => ({ ...r, name: undefined, parent: undefined }));
     frm.load(copy);
+    duplicated = true; // the URL says /new now, and so must the draft
     history.replaceState(null, "", `/app/${encodeURIComponent(doctype)}/new`);
     await frm.runRefresh();
     toast(__("Copy created — save it to keep it"), { indicator: "blue" });
@@ -229,15 +328,18 @@
           {#each buttons as b}<button class="btn" onclick={b.action}>{b.label}</button>{/each}
         {/if}
       {/each}
-      {#if !frm.isNew}
+      {#if !frm.isNew || frm.isDirty}
         <div class="dropdown">
           <button class="btn icon" onclick={() => (menuOpen = !menuOpen)} aria-label="Menu"><Icon name="more-horizontal" /></button>
           {#if menuOpen}
             <div class="menu" role="menu" tabindex="-1">
-              <button onclick={() => { menuOpen = false; frm?.reload(); }}>{__("Reload")}</button>
-              {#if !frm.isSingle && frm.perm.create}<button onclick={() => { menuOpen = false; duplicate(); }}>{__("Duplicate")}</button>{/if}
-              {#if frm.meta.doctype.allowRename && frm.perm.write && frm.docstatus === 0}<button onclick={() => { menuOpen = false; rename(); }}>{__("Rename")}</button>{/if}
-              {#if !frm.isSingle && frm.perm.delete && frm.docstatus !== 1}<button class="danger" style="color:var(--red)" onclick={() => { menuOpen = false; remove(); }}>{__("Delete")}</button>{/if}
+              {#if !frm.isNew}
+                <button onclick={() => { menuOpen = false; frm?.reload(); }}>{__("Reload")}</button>
+                {#if !frm.isSingle && frm.perm.create}<button onclick={() => { menuOpen = false; duplicate(); }}>{__("Duplicate")}</button>{/if}
+                {#if frm.meta.doctype.allowRename && frm.perm.write && frm.docstatus === 0}<button onclick={() => { menuOpen = false; rename(); }}>{__("Rename")}</button>{/if}
+              {/if}
+              {#if frm.isDirty}<button onclick={() => { menuOpen = false; discard(); }}>{__("Discard changes")}</button>{/if}
+              {#if !frm.isNew && !frm.isSingle && frm.perm.delete && frm.docstatus !== 1}<button class="danger" style="color:var(--red)" onclick={() => { menuOpen = false; remove(); }}>{__("Delete")}</button>{/if}
               <button onclick={() => { menuOpen = false; openShortcutsHelp(); }} style="display:flex;align-items:center;justify-content:space-between">
                 <span>{__("Keyboard shortcuts")}</span>
                 <kbd class="kbd">?</kbd>

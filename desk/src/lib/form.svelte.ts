@@ -319,6 +319,22 @@ export class FormController {
     this.loadedAt = Date.now();
   }
 
+  /**
+   * Puts a recovered draft in place. The opposite of `load`: `original` is left
+   * as it was, so the form stays dirty and the user still has to save.
+   */
+  applyDraft(doc: any) {
+    if (doc?._linkTitles) registerTitles(doc._linkTitles);
+    this.doc = doc;
+    this.fieldErrors = {};
+  }
+
+  /** Throws the local edits away and goes back to the document as it was loaded. */
+  async discardChanges() {
+    this.load(JSON.parse(this.original));
+    await this.runRefresh();
+  }
+
   async reload() {
     if (this.isNew && !this.isSingle) return;
     try {
