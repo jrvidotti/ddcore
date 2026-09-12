@@ -105,3 +105,32 @@ func TestPRD03_DoctorFlagsAreParsed(t *testing.T) {
 type errString string
 
 func (e errString) Error() string { return string(e) }
+
+func TestDoctorVaultReporting(t *testing.T) {
+	r := &doctorReport{
+		Database: db.Health{OK: true},
+		Ops:      config.DefaultOps(),
+		Vault: &vaultSection{
+			Configured: true,
+			Count:      2,
+			Secrets:    []string{"asaas:token:1", "asaas:token:2"},
+		},
+	}
+	out := renderDoctor(t, r)
+	if !strings.Contains(out, "vault:      2 secret(s) encrypted: asaas:token:1, asaas:token:2") {
+		t.Fatalf("unexpected vault report:\n%s", out)
+	}
+
+	rUnconf := &doctorReport{
+		Database: db.Health{OK: true},
+		Ops:      config.DefaultOps(),
+		Vault: &vaultSection{
+			Configured: false,
+			Count:      0,
+		},
+	}
+	outUnconf := renderDoctor(t, rUnconf)
+	if !strings.Contains(outUnconf, "vault:      key not configured (DDCORE_SECRET_KEY is missing)") {
+		t.Fatalf("unexpected unconfigured vault report:\n%s", outUnconf)
+	}
+}

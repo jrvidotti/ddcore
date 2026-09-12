@@ -54,9 +54,16 @@ type doctorReport struct {
 	Ops       config.OpsPolicy    `json:"ops"`
 	// Secrets are names. A doctor report is pasted into issues and chat
 	// windows, and a secret that reaches one of those has to be rotated.
-	Secrets  []string `json:"secrets"`
-	Critical []string `json:"critical,omitempty"`
-	Warnings []string `json:"warnings,omitempty"`
+	Secrets  []string      `json:"secrets"`
+	Vault    *vaultSection `json:"vault,omitempty"`
+	Critical []string      `json:"critical,omitempty"`
+	Warnings []string      `json:"warnings,omitempty"`
+}
+
+type vaultSection struct {
+	Configured bool     `json:"configured"`
+	Count      int      `json:"count"`
+	Secrets    []string `json:"secrets,omitempty"`
 }
 
 type migrateSection struct {
@@ -159,6 +166,17 @@ func gatherDoctor(ctx context.Context, cfg *config.File, windowMin int) *doctorR
 	if names := e.SecretNames(); len(names) > 0 {
 		sort.Strings(names)
 		rep.Secrets = names
+	}
+	if configured, count, names, err := e.VaultStatus(ctx); err == nil {
+		sort.Strings(names)
+		rep.Vault = &vaultSection{
+			Configured: configured,
+			Count:      count,
+			Secrets:    names,
+		}
+		if !configured && count > 0 {
+			rep.Warnings = append(rep.Warnings, fmt.Sprintf("vault: DDCORE_SECRET_KEY is not set but %d encrypted secret(s) exist", count))
+		}
 	}
 
 	rep.Migrate = &migrateSection{}
@@ -326,6 +344,17 @@ func (r *doctorReport) printTail(w io.Writer, p func(string, string, ...any)) {
 		p("secrets", "%d configured: %s", len(r.Secrets), strings.Join(r.Secrets, ", "))
 	} else {
 		p("secrets", "none configured")
+	}
+	if r.Vault != nil {
+		if r.Vault.Configured {
+			if r.Vault.Count > 0 {
+				p("vault", "%d secret(s) encrypted: %s", r.Vault.Count, strings.Join(r.Vault.Secrets, ", "))
+			} else {
+				p("vault", "key configured (empty)")
+			}
+		} else {
+			p("vault", "key not configured (DDCORE_SECRET_KEY is missing)")
+		}
 	}
 	for _, x := range r.Warnings {
 		fmt.Fprintf(w, "warning:    %s\n", x)
