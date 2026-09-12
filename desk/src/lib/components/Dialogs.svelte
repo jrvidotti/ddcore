@@ -4,6 +4,7 @@
   import Icon from "./Icon.svelte";
   import { __ } from "$lib/boot.svelte";
   import { showError } from "$lib/ui.svelte";
+  import { isFieldHalfWidth } from "$lib/meta";
   import { runDialogAction } from "./dialog-actions";
 
   function cancel(d: DialogHandle) { (d as any).onCancel?.(); d.hide(); }
@@ -43,13 +44,15 @@
         {#each layout(d.spec.fields || []) as cols}
           <div class="form-columns" style="--cols:{cols.length}">
             {#each cols as col}
-              <div>
+              <div class="form-column">
                 {#each col as f (f.fieldname)}
-                  {#if f.fieldtype === "HTML"}
-                    <div class="field">{@html d.html[f.fieldname] || f.options || ""}</div>
-                  {:else}
-                    <Control field={f} value={d.values[f.fieldname]} onchange={(v) => d.setValue(f.fieldname, v)} onbusychange={(busy) => (d.busy = busy)} doc={d.values} />
-                  {/if}
+                  <div class="form-cell" class:w-50={isFieldHalfWidth(f)}>
+                    {#if f.fieldtype === "HTML"}
+                      <div class="field">{@html d.html[f.fieldname] || f.options || ""}</div>
+                    {:else}
+                      <Control field={f} value={d.values[f.fieldname]} onchange={(v) => d.setValue(f.fieldname, v)} onbusychange={(busy) => (d.busy = busy)} doc={d.values} />
+                    {/if}
+                  </div>
                 {/each}
               </div>
             {/each}

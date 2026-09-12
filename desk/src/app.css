@@ -46,7 +46,13 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
 .form-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; margin-bottom: 14px; }
 .form-section > h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-bottom: 12px; cursor: pointer; user-select: none; }
 .form-columns { display: grid; gap: 0 24px; grid-template-columns: repeat(var(--cols, 1), minmax(0, 1fr)); }
-@media (max-width: 800px) { .form-columns { grid-template-columns: 1fr; } }
+.form-column { display: flex; flex-wrap: wrap; gap: 0 16px; align-content: flex-start; min-width: 0; }
+.form-cell { width: 100%; display: flex; flex-direction: column; min-width: 0; }
+.form-cell.w-50 { width: calc(50% - 8px); }
+@media (max-width: 800px) {
+  .form-columns { grid-template-columns: 1fr; }
+  .form-cell.w-50 { width: 100%; }
+}
 .field { margin-bottom: 12px; }
 .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
 /* same look as a <label>, for grids/sections whose caption has no single control */
@@ -57,7 +63,7 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
 .field label .req { color: var(--red); margin-left: 2px; }
 .field .desc { font-size: 11px; color: var(--muted); margin-top: 3px; }
 .field .err { font-size: 11px; color: var(--red); margin-top: 3px; }
-.field.check { display: flex; align-items: center; gap: 8px; }
+.field.check { display: flex; align-items: center; gap: 8px; margin-top: auto; min-height: 32px; }
 .field.check label { margin: 0; color: var(--text); font-size: 13px; cursor: pointer; }
 .field .bold { font-weight: 600; }
 .link-wrap { position: relative; }

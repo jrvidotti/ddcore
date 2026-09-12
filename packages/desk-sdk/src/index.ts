@@ -1,7 +1,8 @@
 // @ddcore/desk-sdk — types for app client scripts (*.form.ts and client/*.ts).
 // At runtime the ddcore bundler resolves this module to window.__ddcoreDesk,
 // implemented in desk/src/lib/desk-sdk.ts.
-import type { BaseDoc, FieldDef, Filters } from "@ddcore/sdk";
+import type { BaseDoc, FieldDef, FieldWidth, Filters } from "@ddcore/sdk";
+export type { FieldWidth };
 
 /**
  * A button rendered inside a field's control, beside its input — an action on

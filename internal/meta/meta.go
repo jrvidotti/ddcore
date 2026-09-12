@@ -63,6 +63,7 @@ type Field struct {
 	Precision          int    `json:"precision,omitempty"`
 	Description        string `json:"description,omitempty"`
 	Columns            int    `json:"columns,omitempty"`
+	Width              string `json:"width,omitempty"`
 	GridEditMode       string `json:"gridEditMode,omitempty"`
 	Collapsible        bool   `json:"collapsible,omitempty"`
 	Bold               bool   `json:"bold,omitempty"`
@@ -405,6 +406,9 @@ func (r *Registry) Validate() error {
 			// silent truncation on the first save that reaches it.
 			if f.Precision < 0 || f.Precision > 9 {
 				e("field %q: precision %d is out of range (0 to 9)", f.Fieldname, f.Precision)
+			}
+			if f.Width != "" && f.Width != "sm" && f.Width != "md" && f.Width != "lg" && f.Width != "full" {
+				e("field %q: invalid width %q (must be sm, md, lg, or full)", f.Fieldname, f.Width)
 			}
 			switch f.Fieldtype {
 			case "Link", "Table":

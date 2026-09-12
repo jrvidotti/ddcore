@@ -24,12 +24,25 @@ defineForm<Entry>("Entry", {
 ## `frm`
 
 `doc`, `doctype`, `meta`, `isNew`, `isDirty`, `docstatus`, `perm`, `getValue`, `setValue(field | {..}, value)`, `field(field)`,
-`setDfProperty(field, prop, value)` (`hidden`, `readOnly`, `reqd`, `label`, `options`, `cannotAddRows`, `cannotDeleteRows`),
+`setDfProperty(field, prop, value)` (`hidden`, `readOnly`, `reqd`, `label`, `options`, `width`, `cannotAddRows`, `cannotDeleteRows`),
 `setQuery(field, () => ({ filters }))`, `toggleDisplay/toggleReqd/toggleEnable`, `addButton(label, fn, group)`, `removeButton`,
 `setPrimaryAction(label, fn)`, `setInnerGroupAsPrimary(group)`, `addIndicator(label, colour)`, `addChild(table, values)`, `removeChild(table, idx)`,
 `addFieldButton(field, { label, icon, onClick, key })`, `removeFieldButton(field, key?)`,
 `trigger(field)`, `save()`, `submit()`, `cancel()`, `reload()`,
 `call(method, args, { reload })` → calls the controller's `methods.<method>` and reloads the doc.
+
+### Field width and layout
+
+A field's control width inside its column is controlled by `width?: "sm" | "md" | "lg" | "full"` in metadata, or dynamically with `frm.setDfProperty(field, "width", value)`:
+
+- **Defaults by fieldtype:**
+  - `sm` (50% of the column): `Date`, `Month`, `Time`, `Int`, `Percent`.
+  - `md` (50% of the column): `Datetime`, `Float`, `Currency`.
+  - `full` (100% of the column): all other types (`Data`, `Link`, `Select`, `Check`, `Text`, `Attach`, `Table`, etc.).
+- **Side-by-side row pairing:**
+  Consecutive half-width fields (`sm` or `md`) inside the same column sit side by side on the same visual line (50% + 50%) without breaking. Full-width fields (`full`, `lg`) span 100% of the column width.
+- **Responsiveness:**
+  Below `800px`, half-width fields collapse to 100% full width.
 
 ### Buttons on a field
 

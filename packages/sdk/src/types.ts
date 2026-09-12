@@ -5,6 +5,8 @@ export type FieldType =
   | "Check" | "Date" | "Month" | "Datetime" | "Time" | "Select" | "Link" | "Dynamic Link" | "Table"
   | "Attach" | "JSON" | "Password" | "Section Break" | "Column Break" | "Tab Break" | "HTML";
 
+export type FieldWidth = "sm" | "md" | "lg" | "full";
+
 export interface FieldDef {
   fieldname?: string;
   fieldtype: FieldType;
@@ -44,6 +46,15 @@ export interface FieldDef {
   description?: string;
   /** grid column width (1-12) */
   columns?: number;
+  /**
+   * How wide the control is inside its column. The column keeps its share of the
+   * section grid — this narrows the control, not the field, so labels and the
+   * alignment of neighbouring columns do not move.
+   *
+   * Defaults by fieldtype, so a Date or a Percent is already right without a
+   * declaration: `full` only widens what the default made narrow.
+   */
+  width?: FieldWidth;
   /** Table editing mode; defaults to inline */
   gridEditMode?: "inline" | "dialog";
   collapsible?: boolean;

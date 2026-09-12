@@ -2,7 +2,7 @@
   // Form view generated from meta: sections/columns/tabs, controls, grids,
   // toolbar (save/submit/cancel/amend/delete), form-script buttons, sidebar.
   import { createForm, FormController, type Button } from "$lib/form.svelte";
-  import { isLayout, selectLabels, selectOptions, type Field } from "$lib/meta";
+  import { isFieldHalfWidth, isLayout, selectLabels, selectOptions, type Field } from "$lib/meta";
   import Control from "$lib/controls/Control.svelte";
   import Grid from "$lib/controls/Grid.svelte";
   import Icon from "./Icon.svelte";
@@ -14,7 +14,6 @@
   import { api } from "$lib/api";
   import { page } from "$app/state";
   import DocSidebar from "./DocSidebar.svelte";
-  import { fieldsByRow } from "./form-layout";
   import { isSectionCollapsed, toggleSection } from "./section-state";
   import { commitFocusedEdit, getModifierKey, openShortcutsHelp } from "$lib/shortcuts.svelte";
 
@@ -282,25 +281,27 @@
                 {/if}
               {/if}
               {#if !(sec.collapsible && isSectionCollapsed(collapsed, si))}
-                {#each fieldsByRow(sec.columns) as row}
-                  <div class="form-columns form-row" style="--cols:{sec.columns.length}">
-                    {#each row as f}
-                      <div class="form-cell">
+                <div class="form-columns" style="--cols:{sec.columns.length}">
+                  {#each sec.columns as col}
+                    <div class="form-column">
+                      {#each col as f}
                         {#if f && frm.isFieldVisible(f)}
-                          {#if f.fieldtype === "Table"}
-                            <Grid {frm} field={f} childMeta={frm.meta.children[f.options]} />
-                          {:else if f.fieldtype === "HTML"}
-                            <div class="field">{@html f.options || ""}</div>
-                          {:else}
-                            <Control field={f} value={frm.doc[f.fieldname!]} onchange={(v) => frm?.setValue(f.fieldname!, v)} doc={frm.doc}
-                              readOnly={!frm.isFieldEditable(f)} mandatory={frm.isFieldMandatory(f)} error={frm.fieldErrors[f.fieldname!] || ""} query={frm.queries.get(f.fieldname!)}
-                              buttons={frm.fieldButtons[f.fieldname!] || []} />
-                          {/if}
+                          <div class="form-cell" class:w-50={isFieldHalfWidth(f)}>
+                            {#if f.fieldtype === "Table"}
+                              <Grid {frm} field={f} childMeta={frm.meta.children[f.options]} />
+                            {:else if f.fieldtype === "HTML"}
+                              <div class="field">{@html f.options || ""}</div>
+                            {:else}
+                              <Control field={f} value={frm.doc[f.fieldname!]} onchange={(v) => frm?.setValue(f.fieldname!, v)} doc={frm.doc}
+                                readOnly={!frm.isFieldEditable(f)} mandatory={frm.isFieldMandatory(f)} error={frm.fieldErrors[f.fieldname!] || ""} query={frm.queries.get(f.fieldname!)}
+                                buttons={frm.fieldButtons[f.fieldname!] || []} />
+                            {/if}
+                          </div>
                         {/if}
-                      </div>
-                    {/each}
-                  </div>
-                {/each}
+                      {/each}
+                    </div>
+                  {/each}
+                </div>
               {/if}
             </div>
           {/if}

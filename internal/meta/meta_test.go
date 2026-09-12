@@ -42,6 +42,39 @@ func TestFieldGridEditModeRoundTripsThroughJSON(t *testing.T) {
 	}
 }
 
+func TestFieldWidthRoundTripsThroughJSON(t *testing.T) {
+	var field Field
+	if err := json.Unmarshal([]byte(`{"fieldtype":"Percent","width":"sm"}`), &field); err != nil {
+		t.Fatal(err)
+	}
+	if field.Width != "sm" {
+		t.Fatalf("Width=%q want sm", field.Width)
+	}
+	b, err := json.Marshal(field)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(b) != `{"fieldtype":"Percent","width":"sm"}` {
+		t.Fatalf("json=%s", b)
+	}
+}
+
+func TestFieldWidthValidation(t *testing.T) {
+	for _, w := range []string{"sm", "md", "lg", "full"} {
+		r := NewRegistry()
+		r.Add(&DocType{Name: "Doc", Fields: []*Field{{Fieldname: "pct", Fieldtype: "Percent", Width: w}}})
+		if err := r.Validate(); err != nil {
+			t.Fatalf("width %q should be valid: %v", w, err)
+		}
+	}
+
+	r := NewRegistry()
+	r.Add(&DocType{Name: "Doc", Fields: []*Field{{Fieldname: "pct", Fieldtype: "Percent", Width: "xl"}}})
+	if err := r.Validate(); err == nil || !strings.Contains(err.Error(), "invalid width") {
+		t.Fatalf("expected invalid width error, got %v", err)
+	}
+}
+
 func TestEmailIsATextFieldtype(t *testing.T) {
 	if got := ColumnType("Email"); got != "text" {
 		t.Fatalf("ColumnType(Email)=%q want text", got)

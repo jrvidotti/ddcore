@@ -87,10 +87,11 @@ use of `Percent` would reach.
 
 `fieldname, fieldtype, label, options, optionColors, reqd, unique, default, readOnly, hidden, fetchFrom, dependsOn,
 readOnlyDependsOn, mandatoryDependsOn, allowOnSubmit, inListView, inStandardFilter, searchIndex,
-length, precision, description, columns (grid width 1–12), gridEditMode (`"inline"` default or `"dialog"`), collapsible, bold,
+length, precision, description, columns (grid width 1–12), width (`"sm"` | `"md"` | `"lg"` | `"full"`), gridEditMode (`"inline"` default or `"dialog"`), collapsible, bold,
 renamedFrom, convert`
 
 - `label` and `description` are **catalogue keys**: write them in English. See `i18n`.
+- `width`: `"sm"` | `"md"` | `"lg"` | `"full"`. Sizing of the control inside a form column. Defaults to `sm` for `Date`, `Month`, `Time`, `Int`, `Percent`; `md` for `Datetime`, `Float`, `Currency`; `full` for others. Consecutive `sm`/`md` fields sit side-by-side (50% + 50%) in the column.
 - `default`: a literal value, or `"Today"` for Date/Datetime, `"__user"` for the current user.
 - `fetchFrom: "project.assignee"`: copied from the linked document on save. When `readOnly` it always overwrites; otherwise it fills only when empty.
 - `dependsOn`, `readOnlyDependsOn`, `mandatoryDependsOn`: a JS expression over `doc` (`"doc.type == 'PJ'"`) or a field name (truthy). Evaluated in the desk **and** on the server.

@@ -47,7 +47,7 @@ var FieldProps = map[string]bool{
 	"readOnly": true, "hidden": true, "dependsOn": true, "readOnlyDependsOn": true,
 	"mandatoryDependsOn": true, "allowOnSubmit": true, "inListView": true,
 	"inStandardFilter": true, "searchIndex": true, "length": true, "precision": true,
-	"columns": true, "gridEditMode": true, "collapsible": true, "bold": true,
+	"columns": true, "width": true, "gridEditMode": true, "collapsible": true, "bold": true,
 	"optionColors": true, "options": true,
 }
 

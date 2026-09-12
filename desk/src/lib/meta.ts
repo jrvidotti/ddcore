@@ -2,11 +2,13 @@ import { __ } from "./boot.svelte";
 // DocType meta as served by /api/meta, cached per session (invalidated on reload events).
 import { api } from "./api";
 
+export type FieldWidth = "sm" | "md" | "lg" | "full";
+
 export interface Field {
   fieldname?: string; fieldtype: string; label?: string; options?: any; reqd?: boolean; unique?: boolean; default?: any;
   readOnly?: boolean; hidden?: boolean; fetchFrom?: string; dependsOn?: string; readOnlyDependsOn?: string; mandatoryDependsOn?: string;
   allowOnSubmit?: boolean; inListView?: boolean; inStandardFilter?: boolean; length?: number; precision?: number; description?: string;
-  columns?: number; gridEditMode?: "inline" | "dialog"; collapsible?: boolean; bold?: boolean;
+  columns?: number; width?: FieldWidth; gridEditMode?: "inline" | "dialog"; collapsible?: boolean; bold?: boolean;
   /** Display text for a Select, aligned with `options`; filled by the server. */
   optionLabels?: string[];
   /** Indicator colour per canonical (English) Select value. */
@@ -92,3 +94,38 @@ export function newDoc(meta: Meta): any {
 
 export const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 export const thisMonth = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`; };
+
+export const DEFAULT_FIELD_WIDTH: Record<string, FieldWidth> = {
+  Date: "sm",
+  Month: "sm",
+  Time: "sm",
+  Int: "sm",
+  Percent: "sm",
+  Datetime: "md",
+  Float: "md",
+  Currency: "md",
+};
+
+/**
+ * Resolves the visual width for a field's control inside a form.
+ * Child table grids (`inGrid: true`) always resolve to "full" because `columns`
+ * already sizes grid columns.
+ */
+export function resolveFieldWidth(field?: Field | null, inGrid = false): FieldWidth {
+  if (!field || inGrid) return "full";
+  if (field.width && (field.width === "sm" || field.width === "md" || field.width === "lg" || field.width === "full")) {
+    return field.width;
+  }
+  return DEFAULT_FIELD_WIDTH[field.fieldtype] || "full";
+}
+
+/**
+ * Returns true if the field should render at half-width (50%) in a form or dialog,
+ * allowing consecutive half-width fields to share a row.
+ */
+export function isFieldHalfWidth(field?: Field | null, inGrid = false): boolean {
+  if (!field) return false;
+  const w = resolveFieldWidth(field, inGrid);
+  return w === "sm" || w === "md";
+}
+

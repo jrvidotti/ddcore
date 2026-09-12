@@ -201,6 +201,17 @@ func TestTwoAppsSettingDifferentPropertiesOfOneFieldIsFine(t *testing.T) {
 	}
 }
 
+func TestExtensionCanOverrideFieldWidth(t *testing.T) {
+	r := hostRegistry()
+	if err := apply(t, r, ext("billing", "Lead", `{"set":{"title":{"width":"sm"}}}`)); err != nil {
+		t.Fatal(err)
+	}
+	d, _ := r.Get("Lead")
+	if f := d.Field("title"); f.Width != "sm" {
+		t.Fatalf("title.Width=%q want sm", f.Width)
+	}
+}
+
 func TestExtensionRefusesACollidingFieldname(t *testing.T) {
 	r := hostRegistry()
 	err := apply(t, r, ext("billing", "Lead", `{"fields":[{"fieldname":"title","fieldtype":"Data"}]}`))
