@@ -1,10 +1,10 @@
 # Guidelines for AI agents
 
 **ddcore** (*Data Driven Core*) — a Go + TypeScript + Postgres framework in the spirit of Frappe.
-Read [`docs/agent/index.md`](docs/agent/index.md) (the API reference for writing apps),
-[`DEVELOPMENT.md`](DEVELOPMENT.md) (how work is done here) and [`docs/plan-v1.md`](docs/plan-v1.md)
-(the design; in Portuguese, historical). `apps/testapp` is the fixture this checkout's
-`ddcore.json` loads, sized to what `internal/acceptance` asserts and nothing more. The example
+Read [`docs/agent/index.md`](docs/agent/index.md) (the API reference for writing apps) and
+[`DEVELOPMENT.md`](DEVELOPMENT.md) (how work is done here, and the design's mental model).
+`apps/testapp` is the fixture this checkout's `ddcore.json` loads, sized to what
+`internal/acceptance` asserts and nothing more. The example
 app is [ddcore-demo](https://github.com/jrvidotti/ddcore-demo); product apps, that one included,
 live in their own repositories and build against the published binary.
 

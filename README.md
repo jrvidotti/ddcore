@@ -5,7 +5,7 @@ built to be developed by agentic tools. One binary (`ddcore`) embeds esbuild and
 TypeScript (DocTypes, rules, reports, screen scripts), run on the server without Node.
 The desk (Svelte 5) is generated from the meta. Postgres is the only dependency.
 
-The full design is in [`docs/plan-v1.md`](docs/plan-v1.md); the reference for agents is in
+The design is described in [`DEVELOPMENT.md`](DEVELOPMENT.md); the reference for agents is in
 [`docs/agent/`](docs/agent/) (`ddcore docs`, or the MCP resources `ddcore://docs/*`).
 
 ## Installing the CLI
