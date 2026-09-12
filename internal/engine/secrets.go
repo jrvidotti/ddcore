@@ -101,6 +101,23 @@ func RedactPassword(d *meta.DocType, doc Doc) {
 	}
 }
 
+func (c *Ctx) redactVault(d *meta.DocType, doc Doc) {
+	if d == nil || doc == nil || doc.Name() == "" {
+		return
+	}
+	for _, f := range d.Fields {
+		if f.Fieldtype == "Vault" {
+			key := c.DeriveVaultKey(d, f, doc)
+			has, _ := c.E.VaultHas(c.Ctx, c.Q(), key)
+			if has {
+				doc[f.Fieldname] = map[string]any{"configured": true}
+			} else {
+				doc[f.Fieldname] = nil
+			}
+		}
+	}
+}
+
 // RedactDoc looks the doctype up and redacts, children included.
 func (c *Ctx) RedactDoc(doctype string, doc Doc) Doc {
 	if doc == nil {
@@ -111,6 +128,7 @@ func (c *Ctx) RedactDoc(doctype string, doc Doc) Doc {
 		return doc
 	}
 	RedactPassword(d, doc)
+	c.redactVault(d, doc)
 	for _, f := range d.Fields {
 		if f.Fieldtype != "Table" || f.OptionsString() == "" {
 			continue
@@ -121,6 +139,7 @@ func (c *Ctx) RedactDoc(doctype string, doc Doc) Doc {
 		}
 		for _, row := range doc.Children(f.Fieldname) {
 			RedactPassword(cd, row)
+			c.redactVault(cd, row)
 		}
 	}
 	return doc

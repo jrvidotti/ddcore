@@ -235,7 +235,7 @@ func castValueWith(f *meta.Field, v any, o castOpts) (any, error) {
 		}
 		b, err := json.Marshal(v)
 		return string(b), err
-	case "Table":
+	case "Table", "Vault":
 		return v, nil
 	}
 	return db.Str(v), nil
@@ -453,6 +453,9 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 	if err := c.writeChildren(d, doc); err != nil {
 		return nil, err
 	}
+	if err := c.processVaultFields(d, doc); err != nil {
+		return nil, err
+	}
 	delete(doc, "__islocal")
 	delete(doc, "__unsaved")
 	if err := c.runHook(d, "afterInsert", doc, nil); err != nil {
@@ -561,6 +564,9 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 		return nil, err
 	}
 	if err := c.writeChildren(d, doc); err != nil {
+		return nil, err
+	}
+	if err := c.processVaultFields(d, doc); err != nil {
 		return nil, err
 	}
 	delete(doc, "__unsaved")
@@ -786,8 +792,24 @@ func (c *Ctx) Delete(doctype, name string, ignorePerms, force bool) error {
 	}
 	for _, tf := range d.TableFields() {
 		child, _ := c.St.DocType(tf.OptionsString())
+		if child != nil {
+			for _, row := range doc.Children(tf.Fieldname) {
+				for _, cf := range child.Fields {
+					if cf.Fieldtype == "Vault" {
+						key := c.DeriveVaultKey(child, cf, row)
+						_ = c.E.VaultDel(c, key)
+					}
+				}
+			}
+		}
 		if _, err := c.Q().Exec(c.Ctx, fmt.Sprintf("DELETE FROM %s WHERE parent = $1 AND parenttype = $2", db.Ident(child.TableName())), name, doctype); err != nil {
 			return err
+		}
+	}
+	for _, f := range d.Fields {
+		if f.Fieldtype == "Vault" {
+			key := c.DeriveVaultKey(d, f, doc)
+			_ = c.E.VaultDel(c, key)
 		}
 	}
 	if _, err := c.Q().Exec(c.Ctx, fmt.Sprintf("DELETE FROM %s WHERE name = $1", db.Ident(d.TableName())), name); err != nil {
@@ -1063,6 +1085,19 @@ func (c *Ctx) checkMandatory(d *meta.DocType, doc Doc) error {
 				return err
 			}
 			req = ok
+		}
+		if f.Fieldtype == "Vault" {
+			if req && isEmpty(doc[f.Fieldname]) {
+				if doc.Name() != "" {
+					key := c.DeriveVaultKey(d, f, doc)
+					has, _ := c.E.VaultHas(c.Ctx, c.Q(), key)
+					if has {
+						continue
+					}
+				}
+				missing = append(missing, c.T(f.Label))
+			}
+			continue
 		}
 		if req && isEmpty(doc[f.Fieldname]) {
 			missing = append(missing, c.T(f.Label))
@@ -1586,7 +1621,7 @@ func (c *Ctx) saveVersion(d *meta.DocType, before, after Doc) {
 		}
 		// secrets do not enter version history: Version is readable by anyone permitted to read
 		// the document, and the diff would leak the password/hash (B04)
-		if f.Fieldtype == "Password" || isSecretField(f.Fieldname) {
+		if f.Fieldtype == "Password" || f.Fieldtype == "Vault" || isSecretField(f.Fieldname) {
 			continue
 		}
 		var a, b any = before[f.Fieldname], after[f.Fieldname]

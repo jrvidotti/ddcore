@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/db"
+	"github.com/jrvidotti/ddcore/internal/meta"
 )
 
 // MasterKeyEnvName is the environment variable that holds the master encryption key.
@@ -258,3 +259,96 @@ func (e *Engine) VaultStatus(ctx context.Context) (configured bool, count int, n
 	}
 	return configured, len(names), names, rows.Err()
 }
+
+// DeriveVaultKey computes the vault key for a document field.
+// If options template is provided (e.g. "asaas:token:{name}"), it interpolates document fields.
+// Otherwise, it defaults to "<DocType>:<Fieldname>:<docName>".
+func (c *Ctx) DeriveVaultKey(d *meta.DocType, f *meta.Field, doc Doc) string {
+	tmpl := f.OptionsString()
+	if tmpl == "" {
+		return d.Name + ":" + f.Fieldname + ":" + doc.Name()
+	}
+	res := tmpl
+	for k, v := range doc {
+		token := "{" + k + "}"
+		if strings.Contains(res, token) {
+			res = strings.ReplaceAll(res, token, db.Str(v))
+		}
+	}
+	if strings.Contains(res, "{name}") {
+		res = strings.ReplaceAll(res, "{name}", doc.Name())
+	}
+	return res
+}
+
+func (c *Ctx) processVaultFields(d *meta.DocType, doc Doc) error {
+	if d == nil || doc == nil {
+		return nil
+	}
+	for _, f := range d.Fields {
+		if f.Fieldtype == "Vault" {
+			if err := c.processSingleVaultField(d, f, doc); err != nil {
+				return err
+			}
+		} else if f.Fieldtype == "Table" && f.OptionsString() != "" {
+			child, err := c.St.DocType(f.OptionsString())
+			if err != nil || child == nil {
+				continue
+			}
+			for _, row := range doc.Children(f.Fieldname) {
+				for _, cf := range child.Fields {
+					if cf.Fieldtype == "Vault" {
+						if err := c.processSingleVaultField(child, cf, row); err != nil {
+							return err
+						}
+					}
+				}
+			}
+		}
+	}
+	delete(doc, "__vault_clear")
+	return nil
+}
+
+func (c *Ctx) processSingleVaultField(d *meta.DocType, f *meta.Field, doc Doc) error {
+	raw, exists := doc[f.Fieldname]
+	key := c.DeriveVaultKey(d, f, doc)
+
+	// Check if explicitly marked for clearing via doc["__vault_clear"]
+	if clears, ok := doc["__vault_clear"].([]string); ok {
+		for _, cn := range clears {
+			if cn == f.Fieldname {
+				return c.E.VaultDel(c, key)
+			}
+		}
+	} else if clears, ok := doc["__vault_clear"].([]any); ok {
+		for _, cn := range clears {
+			if s, ok := cn.(string); ok && s == f.Fieldname {
+				return c.E.VaultDel(c, key)
+			}
+		}
+	}
+
+	if !exists || raw == nil {
+		return nil
+	}
+
+	switch v := raw.(type) {
+	case string:
+		if v != "" {
+			return c.E.VaultSet(c, key, v)
+		}
+	case map[string]any:
+		if clear, ok := v["clear"].(bool); ok && clear {
+			return c.E.VaultDel(c, key)
+		}
+		if s, ok := v["value"].(string); ok && s != "" {
+			return c.E.VaultSet(c, key, s)
+		}
+		if s, ok := v["secret"].(string); ok && s != "" {
+			return c.E.VaultSet(c, key, s)
+		}
+	}
+	return nil
+}
+

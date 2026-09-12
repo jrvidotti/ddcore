@@ -210,6 +210,9 @@ func New(e *engine.Engine) *mcp.Server {
 			err := s.run(ctx, func(c *engine.Ctx) error {
 				var e error
 				doc, e = c.GetDoc(in.Doctype, in.Name)
+				if e == nil && doc != nil {
+					doc = c.RedactDoc(in.Doctype, doc)
+				}
 				return e
 			})
 			if err != nil {
@@ -258,6 +261,9 @@ func New(e *engine.Engine) *mcp.Server {
 					d["docstatus"] = 1
 				}
 				doc, err = c.Insert(d, engine.SaveOpts{})
+				if err == nil && doc != nil {
+					doc = c.RedactDoc(in.Doctype, doc)
+				}
 				return err
 			})
 			if err != nil {
@@ -282,6 +288,9 @@ func New(e *engine.Engine) *mcp.Server {
 					d[k] = v
 				}
 				doc, err = c.Save(d, engine.SaveOpts{})
+				if err == nil && doc != nil {
+					doc = c.RedactDoc(in.Doctype, doc)
+				}
 				return err
 			})
 			if err != nil {
@@ -315,6 +324,9 @@ func New(e *engine.Engine) *mcp.Server {
 					return err
 				}
 				doc, err = c.Submit(d)
+				if err == nil && doc != nil {
+					doc = c.RedactDoc(in.Doctype, doc)
+				}
 				return err
 			})
 			if err != nil {
@@ -335,6 +347,9 @@ func New(e *engine.Engine) *mcp.Server {
 					return err
 				}
 				doc, err = c.Cancel(d)
+				if err == nil && doc != nil {
+					doc = c.RedactDoc(in.Doctype, doc)
+				}
 				return err
 			})
 			if err != nil {
