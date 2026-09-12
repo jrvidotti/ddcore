@@ -289,6 +289,7 @@
     {/if}
     {#each stdFilters as f (f.fieldname)}
       <div class="select-filter" class:labelled={!!f.label}>
+        {#if f.fieldtype === "Check"}<span class="label-spacer" aria-hidden="true">&nbsp;</span>{/if}
         <Control field={{ ...f, reqd: false, readOnly: false, default: undefined }} value={filters[f.fieldname!]} onchange={(v) => updateFilter(f.fieldname!, v)} compact />
         {#if f.fieldtype === "Select" && filters[f.fieldname!] !== null && filters[f.fieldname!] !== undefined && filters[f.fieldname!] !== ""}
           <button class="btn icon filter-clear" onclick={() => clearFilter(f.fieldname!)} title={__("Remove the {0} filter", [f.label])} aria-label={__("Remove the {0} filter", [f.label])}><Icon name="x" size={14} /></button>
@@ -296,6 +297,7 @@
       </div>
     {/each}
     <div class="filter-actions">
+      <span class="label-spacer" aria-hidden="true">&nbsp;</span>
       <button class="btn" disabled={!hasActiveFilters} onclick={() => updateListState(clearListFilters(currentListState()))}><Icon name="x" size={14} />{__("Clear filters")}</button>
     </div>
   </div>
@@ -372,14 +374,16 @@
 <style>
   .list-filters { padding: 12px 14px; margin-bottom: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px 10px; align-items: start; }
   .filter-search { grid-column: span 2; min-width: 0; }
-  .filter-search label, .select-filter > label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .filter-search label, .select-filter > label, .label-spacer { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  /* Controls with no label above them (Check, the clear button) get a blank spacer the height of a label, so they line up with the inputs. */
+  .label-spacer { width: 100%; }
   .select-filter { display: flex; flex-wrap: wrap; column-gap: 4px; row-gap: 0; align-items: flex-start; min-width: 0; }
   .select-filter > label { width: 100%; }
   .select-filter > .input { flex: 1; width: auto; }
   .select-filter :global(.field) { flex: 1; }
   .filter-clear { flex: 0 0 auto; }
   .select-filter.labelled .filter-clear { margin-top: 20px; }
-  .filter-actions { align-self: end; }
+  .filter-actions { align-self: start; }
   @media (max-width: 800px) {
     .list-filters { grid-template-columns: 1fr; }
     .filter-search { grid-column: auto; }
