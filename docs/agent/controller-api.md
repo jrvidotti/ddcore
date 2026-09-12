@@ -52,7 +52,10 @@ Fields are properties; child tables are arrays. Methods: `insert()`, `save()`, `
 - `ddcore.throw(msg, { title, type })`, `ddcore.msgprint(msg, { title, indicator, alert })`, `ddcore._(text, args)` / `_()`
 - `ddcore.session` → `{ user, roles, lang, request }`; `ddcore.user()`; `ddcore.getRoles(user)`; `ddcore.hasPermission(doctype, ptype, doc)`
 - `ddcore.cache.get/set(key, value, ttlSeconds)/del`
-- `ddcore.http.get(url, { headers, timeout })` / `post(url, body)` → `{ status, body, json() }` (the call leaves from the server)
+- `ddcore.http.get(url, opts?)` / `del(url, opts?)` send GET / DELETE requests.
+- `ddcore.http.post(url, body?, opts?)` / `put(url, body?, opts?)` / `patch(url, body?, opts?)` send POST / PUT / PATCH requests. Object bodies are JSON-encoded; string bodies are sent unchanged.
+- All HTTP calls are synchronous and leave from the server. `HttpOpts` accepts `headers` (a string map) and `timeout` (seconds, default 15). The named method determines the verb; `opts.method` cannot override it. Replace older `post(url, body, { method: "PUT" })` or `get(url, { method: "DELETE" })` workarounds with `put` or `del`.
+- `HttpResponse` exposes `{ status, body, headers, json() }`. `body` is text and `json()` parses it. Response header names use Go's canonical HTTP casing (for example, `response.headers["Ratelimit-Remaining"]`); repeated values are joined with `", "`. HTTP error statuses are returned as responses; transport errors throw.
 - `ddcore.enqueue("app.services.mod.fn", args, { queue, runAfter, timeout, maxAttempts })` → the job id.
   Written on the current transaction, so the job exists only if the request commits. `maxAttempts`
   defaults to 3; use `1` for work whose effects outside the database must not be repeated.

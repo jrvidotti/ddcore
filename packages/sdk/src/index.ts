@@ -27,6 +27,20 @@ export interface DDCoreDB {
   getSingleValue(doctype: string, field: string): any;
 }
 
+export interface HttpOpts {
+  headers?: Record<string, string>;
+  /** Timeout in seconds; defaults to 15. */
+  timeout?: number;
+}
+
+export interface HttpResponse {
+  status: number;
+  body: string;
+  /** Response headers with canonical HTTP names; repeated values are comma-separated. */
+  headers: Record<string, string>;
+  json(): any;
+}
+
 export interface DDCoreAPI {
   db: DDCoreDB;
   session: Context;
@@ -47,8 +61,11 @@ export interface DDCoreAPI {
   bold(v: any): string;
   cache: { get(key: string): any; set(key: string, value: any, ttlSeconds?: number): void; del(key: string): void };
   http: {
-    get(url: string, opts?: { headers?: Record<string, string>; timeout?: number }): { status: number; body: string; json(): any };
-    post(url: string, body: any, opts?: { headers?: Record<string, string>; timeout?: number }): { status: number; body: string; json(): any };
+    get(url: string, opts?: HttpOpts): HttpResponse;
+    post(url: string, body?: any, opts?: HttpOpts): HttpResponse;
+    put(url: string, body?: any, opts?: HttpOpts): HttpResponse;
+    patch(url: string, body?: any, opts?: HttpOpts): HttpResponse;
+    del(url: string, opts?: HttpOpts): HttpResponse;
   };
   /**
    * Queues a job. It is written on the current transaction, so the job only

@@ -540,8 +540,11 @@
       del(key) { call("cache.del", { key }); },
     },
     http: {
-      get(url, opts) { return wrapHttp(call("http", Object.assign({ method: "GET", url }, opts || {}))); },
-      post(url, body, opts) { return wrapHttp(call("http", Object.assign({ method: "POST", url, body }, opts || {}))); },
+      get(url, opts) { return wrapHttp(call("http", Object.assign({}, opts || {}, { method: "GET", url }))); },
+      post(url, body, opts) { return wrapHttp(call("http", Object.assign({}, opts || {}, { method: "POST", url, body }))); },
+      put(url, body, opts) { return wrapHttp(call("http", Object.assign({}, opts || {}, { method: "PUT", url, body }))); },
+      patch(url, body, opts) { return wrapHttp(call("http", Object.assign({}, opts || {}, { method: "PATCH", url, body }))); },
+      del(url, opts) { return wrapHttp(call("http", Object.assign({}, opts || {}, { method: "DELETE", url }))); },
     },
     siteName() { return site().name || ""; },
     enqueue(method, args, opts) { return call("enqueue", { method, args: args || {}, opts: opts || {} }); },
