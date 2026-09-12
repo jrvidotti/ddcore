@@ -25,6 +25,29 @@ func TestValidate(t *testing.T) {
 	}
 }
 
+func TestVaultFieldtype(t *testing.T) {
+	if ColumnType("Vault") != "" {
+		t.Fatalf("expected ColumnType(Vault) == \"\", got %q", ColumnType("Vault"))
+	}
+	r := NewRegistry()
+	d := &DocType{
+		Name: "Conta",
+		Fields: []*Field{
+			{Fieldname: "titulo", Fieldtype: "Data"},
+			{Fieldname: "api_token", Fieldtype: "Vault", Options: "asaas:token:{name}"},
+		},
+	}
+	r.Add(d)
+	if err := r.Validate(); err != nil {
+		t.Fatalf("validation failed for DocType with Vault field: %v", err)
+	}
+
+	dfs := d.DataFields()
+	if len(dfs) != 1 || dfs[0].Fieldname != "titulo" {
+		t.Fatalf("expected DataFields to exclude Vault field, got %v", dfs)
+	}
+}
+
 func TestFieldGridEditModeRoundTripsThroughJSON(t *testing.T) {
 	var field Field
 	if err := json.Unmarshal([]byte(`{"fieldtype":"Table","gridEditMode":"dialog"}`), &field); err != nil {

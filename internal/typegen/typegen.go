@@ -38,6 +38,8 @@ func tsType(f *meta.Field) string {
 		return ifaceName(f.OptionsString()) + "[]"
 	case "JSON":
 		return "any"
+	case "Vault":
+		return "{ configured?: boolean } | string | null"
 	}
 	return "string | null"
 }

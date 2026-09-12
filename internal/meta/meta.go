@@ -39,7 +39,7 @@ func ColumnType(ft string) string {
 	return ""
 }
 
-var ValidFieldTypes = []string{"Data", "Email", "Small Text", "Text", "Text Editor", "Int", "Float", "Currency", "Percent", "Check", "Date", "Month", "Datetime", "Time", "Select", "Link", "Dynamic Link", "Table", "Attach", "JSON", "Password", "Section Break", "Tab Break", "HTML"}
+var ValidFieldTypes = []string{"Data", "Email", "Small Text", "Text", "Text Editor", "Int", "Float", "Currency", "Percent", "Check", "Date", "Month", "Datetime", "Time", "Select", "Link", "Dynamic Link", "Table", "Attach", "JSON", "Password", "Vault", "Section Break", "Tab Break", "HTML"}
 
 type Field struct {
 	Fieldname          string `json:"fieldname,omitempty"`

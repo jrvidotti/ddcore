@@ -203,3 +203,20 @@ func TestSameIndexAcceptsPostgresRenderingOfACompositePredicate(t *testing.T) {
 		t.Fatal("a changed column list compared equal, so the index would never be rebuilt")
 	}
 }
+
+func TestCreateTableOmitsVaultField(t *testing.T) {
+	d := &meta.DocType{
+		Name: "Conta",
+		Fields: []*meta.Field{
+			{Fieldname: "titulo", Fieldtype: "Data"},
+			{Fieldname: "token", Fieldtype: "Vault"},
+		},
+	}
+	sql := createTable(d)
+	if strings.Contains(sql, "token") {
+		t.Fatalf("CreateTableSQL should not contain Vault field:\n%s", sql)
+	}
+	if !strings.Contains(sql, "titulo") {
+		t.Fatalf("CreateTableSQL should contain Data field:\n%s", sql)
+	}
+}
