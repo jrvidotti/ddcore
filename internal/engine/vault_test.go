@@ -199,3 +199,32 @@ func TestVaultRefusesWithoutKey(t *testing.T) {
 		t.Fatal("expected error on VaultGet without DDCORE_SECRET_KEY")
 	}
 }
+
+func TestVaultJSRuntime(t *testing.T) {
+	e := setup(t)
+	t.Setenv("DDCORE_SECRET_KEY", "test-master-key-xyz")
+	ctx := t.Context()
+
+	code := `
+ddcore.vault.set("customer:token:42", "token-from-js");
+const v1 = ddcore.vault.get("customer:token:42");
+if (v1 !== "token-from-js") throw new Error("expected token-from-js, got " + v1);
+
+const list = ddcore.vault.list("customer:token:");
+if (!Array.isArray(list) || list.length !== 1 || list[0] !== "customer:token:42") {
+    throw new Error("unexpected list: " + JSON.stringify(list));
+}
+
+ddcore.vault.del("customer:token:42");
+const v2 = ddcore.vault.get("customer:token:42");
+if (v2 !== null) throw new Error("expected null after del, got " + v2);
+"ok";
+`
+	out, _, err := e.Eval(ctx, code, true)
+	if err != nil {
+		t.Fatalf("eval failed: %v", err)
+	}
+	if string(out) != `"ok"` {
+		t.Fatalf("expected ok, got %s", out)
+	}
+}

@@ -72,6 +72,7 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		Delivery  string            `json:"delivery"`
 		Status    string            `json:"status"`
 		Error     string            `json:"error"`
+		Prefix    string            `json:"prefix"`
 	}
 	if err := json.Unmarshal(raw, &a); err != nil {
 		return nil, cerr.Internal("invalid arguments in {0}: {1}", op, err)
@@ -436,6 +437,25 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 			return nil, nil
 		}
 		return v, nil
+	case "vault.set":
+		valStr := ""
+		if a.Value != nil {
+			valStr = fmt.Sprint(a.Value)
+		}
+		return nil, e.VaultSet(c, a.Key, valStr)
+	case "vault.get":
+		v, ok, err := e.VaultGet(c, a.Key)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			return nil, nil
+		}
+		return map[string]any{"value": v}, nil
+	case "vault.del":
+		return nil, e.VaultDel(c, a.Key)
+	case "vault.list":
+		return e.VaultList(c, a.Prefix)
 	case "dropSessions":
 		_, err := e.DropSessions(c.Ctx, c.Q(), a.User, "")
 		return nil, err

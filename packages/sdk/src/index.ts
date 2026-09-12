@@ -146,6 +146,20 @@ export interface DDCoreAPI {
    * stays out of every backup, export and Version diff.
    */
   secret(name: string): string | null;
+  /**
+   * An encrypted credential vault, stored in the database but encrypted at
+   * rest with `DDCORE_SECRET_KEY` and audited on every read, write and delete.
+   *
+   * Use this for machine credentials that belong to a row (e.g. one API token
+   * per customer/tenant) where the set is dynamic and cannot be known at boot.
+   * Values never appear in HTTP responses, MCP, Version diffs or exports.
+   */
+  vault: {
+    set(name: string, value: string): void;
+    get(name: string): string | null;
+    del(name: string): void;
+    list(prefix?: string): string[];
+  };
   version: string;
 }
 

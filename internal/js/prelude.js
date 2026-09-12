@@ -592,6 +592,15 @@
     // in the database is a secret in every backup, export and Version diff.
     // Returns null when the site was not given it.
     secret(name) { return call("secret", { text: name }); },
+    vault: {
+      set(name, value) { return call("vault.set", { key: String(name), value: String(value) }); },
+      get(name) {
+        const res = call("vault.get", { key: String(name) });
+        return res ? res.value : null;
+      },
+      del(name) { return call("vault.del", { key: String(name) }); },
+      list(prefix) { return call("vault.list", { prefix: prefix ? String(prefix) : "" }) || []; },
+    },
     // Self-service auth. These exist because ddcore.db.sql is read-only: no TS
     // can write to ddcore_session or ddcore_auth_token, so every one of these
     // has to cross the bridge. They take the user explicitly, and the services
