@@ -3,11 +3,10 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "baseUrl": "../..",
     "paths": {
-      "@ddcore/sdk": ["packages/sdk/src/index.ts"],
-      "@ddcore/sdk/test": ["packages/sdk/src/test.ts"],
-      "@ddcore/desk-sdk": ["packages/desk-sdk/src/index.ts"]
+      "@ddcore/sdk": ["../../packages/sdk/src/index.ts"],
+      "@ddcore/sdk/test": ["../../packages/sdk/src/test.ts"],
+      "@ddcore/desk-sdk": ["../../packages/desk-sdk/src/index.ts"]
     },
     "strict": true,
     "skipLibCheck": true,

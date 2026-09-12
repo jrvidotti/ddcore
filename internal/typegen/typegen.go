@@ -129,14 +129,13 @@ func Write(appDir string, reg *meta.Registry) error {
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true,
-    "baseUrl": ".",
     "paths": { "@ddcore/sdk": [%q], "@ddcore/sdk/test": [%q], "@ddcore/desk-sdk": [%q] },
     "types": []
   },
   "include": ["**/*.ts", ".ddcore/types.d.ts"],
   "exclude": ["node_modules"]
 }
-`, ".ddcore/sdk/index.ts", ".ddcore/sdk/test.ts", ".ddcore/desk-sdk/index.ts")
+`, "./.ddcore/sdk/index.ts", "./.ddcore/sdk/test.ts", "./.ddcore/desk-sdk/index.ts")
 		if err := os.WriteFile(tsconfig, []byte(cfg), 0o644); err != nil {
 			return err
 		}

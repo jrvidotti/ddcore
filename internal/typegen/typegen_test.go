@@ -51,10 +51,12 @@ func TestWriteMaterializesEmbeddedSDKsForStandaloneApp(t *testing.T) {
 	if err := json.Unmarshal(b, &cfg); err != nil {
 		t.Fatal(err)
 	}
+	// Relative to the tsconfig.json itself, with no baseUrl: the option was
+	// removed in TypeScript 7, where using it is a compile error.
 	want := map[string]string{
-		"@ddcore/sdk":      ".ddcore/sdk/index.ts",
-		"@ddcore/sdk/test": ".ddcore/sdk/test.ts",
-		"@ddcore/desk-sdk": ".ddcore/desk-sdk/index.ts",
+		"@ddcore/sdk":      "./.ddcore/sdk/index.ts",
+		"@ddcore/sdk/test": "./.ddcore/sdk/test.ts",
+		"@ddcore/desk-sdk": "./.ddcore/desk-sdk/index.ts",
 	}
 	for module, path := range want {
 		got := cfg.CompilerOptions.Paths[module]
