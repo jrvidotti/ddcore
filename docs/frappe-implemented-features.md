@@ -81,7 +81,7 @@ References: [CLI/HTTP API](agent/cli.md), [export](agent/export.md),
 |---|---|
 | Routes | Login, home page, workspace, list, new document, form, and report. |
 | Lists | Metadata columns or `defineListView`, search, filters, ordering, pagination, count, Links, status indicators, and export of loaded page or full filtered dataset. |
-| Forms | Layout by section/column/tab; fieldtype controls; computed states; save, submit, cancel, amend, delete, and rename. |
+| Forms | Layout by section/tab with fields sized in quarters of a line; fieldtype controls; computed states; save, submit, cancel, amend, delete, and rename. |
 | Child Grid | Inline or dialog editing, add/remove, reordering, column widths, and properties customizable by form script. |
 | Form Scripts | `defineForm`, `defineListView`, `frm.*`, Link filters, toolbar buttons and buttons attached to a field (`addFieldButton`), actions, indicators, async calls, and dynamic properties. |
 | Interaction | Dialog, prompt, confirmation, messages, toasts, and standardized error display. |

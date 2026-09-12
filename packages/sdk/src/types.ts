@@ -3,7 +3,7 @@
 export type FieldType =
   | "Data" | "Email" | "Small Text" | "Text" | "Text Editor" | "Int" | "Float" | "Currency" | "Percent"
   | "Check" | "Date" | "Month" | "Datetime" | "Time" | "Select" | "Link" | "Dynamic Link" | "Table"
-  | "Attach" | "JSON" | "Password" | "Section Break" | "Column Break" | "Tab Break" | "HTML";
+  | "Attach" | "JSON" | "Password" | "Section Break" | "Tab Break" | "HTML";
 
 export type FieldWidth = "sm" | "md" | "lg" | "full";
 
@@ -48,9 +48,9 @@ export interface FieldDef {
   columns?: number;
   /**
    * How much of a form line the control takes: a form line is four slots, `sm`
-   * and `md` take one, `lg` two and `full` all four. A section split by a
-   * `Column Break` gives each column two slots, so `lg` and `full` both fill it
-   * and a control keeps the same size either way.
+   * and `md` take one, `lg` two and `full` all four. Fields fill each line in
+   * order, so a form is laid out by sizing its fields, not by splitting it into
+   * columns.
    *
    * Defaults by fieldtype, so a Date or a Percent is already right without a
    * declaration: `sm`/`md` for dates and numbers, `full` for text, JSON, tables

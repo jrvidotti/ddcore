@@ -12,7 +12,6 @@ export default defineDoctype({
     { fieldname: "file_size", fieldtype: "Int", label: "Size" },
     { fieldname: "content_type", fieldtype: "Data", label: "Type" },
     { fieldname: "is_private", fieldtype: "Check", label: "Private", default: true },
-    { fieldtype: "Column Break" },
     { fieldname: "attached_to_doctype", fieldtype: "Data", label: "Attached to (DocType)", searchIndex: true },
     { fieldname: "attached_to_name", fieldtype: "Data", label: "Attached to (name)", searchIndex: true },
     { fieldname: "attached_to_field", fieldtype: "Data", label: "Field" },

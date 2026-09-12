@@ -33,15 +33,15 @@ defineForm<Entry>("Entry", {
 
 ### Field width and layout
 
-A form line is four slots (quarters) wide. `width?: "sm" | "md" | "lg" | "full"` in metadata — or
-`frm.setDfProperty(field, "width", value)` at runtime — says how many of them the control takes, so
-a control keeps the same size whether or not its section was split with a `Column Break`:
+A form is laid out by sizing its fields, not by splitting it into columns: a line is four slots
+(quarters) wide, and `width?: "sm" | "md" | "lg" | "full"` in metadata — or
+`frm.setDfProperty(field, "width", value)` at runtime — says how many of them the control takes.
 
-| width | section with one column | section with a `Column Break` |
+| width | slots | of the line |
 | --- | --- | --- |
-| `sm`, `md` | 25% of the line | 50% of the column (25% of the line) |
-| `lg` | 50% of the line | 100% of the column (50% of the line) |
-| `full` | 100% of the line | 100% of the column |
+| `sm`, `md` | 1 | 25% |
+| `lg` | 2 | 50% |
+| `full` | 4 | 100% |
 
 - **Defaults by fieldtype:**
   - `sm`: `Date`, `Month`, `Time`, `Int`, `Percent`.
@@ -53,8 +53,8 @@ a control keeps the same size whether or not its section was split with a `Colum
   `s` slots only starts at a multiple of `s`, so a half-line field never begins in the middle of a
   quarter: `[1/4][1/2]` renders as `[1/4][empty 1/4][1/2]`, and a half-line field that no longer
   fits moves to the next line.
-- **Dialogs** keep the two-slot layout of a column (`sm`/`md` at 50%, everything else at 100%),
-  because a modal is too narrow for quarter-line controls.
+- **Dialogs** pack onto a line of two slots, because a modal is too narrow for quarter-line
+  controls: there `sm`/`md` is 50% and everything else fills the line.
 - **Responsiveness:**
   Below `800px`, every cell collapses to 100% full width.
 

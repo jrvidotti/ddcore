@@ -12,7 +12,7 @@ import (
 )
 
 // Layout fieldtypes have no column.
-var LayoutTypes = map[string]bool{"Section Break": true, "Column Break": true, "Tab Break": true, "HTML": true}
+var LayoutTypes = map[string]bool{"Section Break": true, "Tab Break": true, "HTML": true}
 
 // ColumnType maps a fieldtype to its Postgres column type ("" = no column).
 func ColumnType(ft string) string {
@@ -39,7 +39,7 @@ func ColumnType(ft string) string {
 	return ""
 }
 
-var ValidFieldTypes = []string{"Data", "Email", "Small Text", "Text", "Text Editor", "Int", "Float", "Currency", "Percent", "Check", "Date", "Month", "Datetime", "Time", "Select", "Link", "Dynamic Link", "Table", "Attach", "JSON", "Password", "Section Break", "Column Break", "Tab Break", "HTML"}
+var ValidFieldTypes = []string{"Data", "Email", "Small Text", "Text", "Text Editor", "Int", "Float", "Currency", "Percent", "Check", "Date", "Month", "Datetime", "Time", "Select", "Link", "Dynamic Link", "Table", "Attach", "JSON", "Password", "Section Break", "Tab Break", "HTML"}
 
 type Field struct {
 	Fieldname          string `json:"fieldname,omitempty"`
@@ -369,6 +369,39 @@ func (r *Registry) Names() []string {
 }
 
 var fieldnameRe = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
+
+// ObsoleteFieldtypes are fieldtypes ddcore no longer has, mapped to what
+// replaced them. They are dropped when an app loads instead of failing its
+// validation, so a DocType written against an older version still runs.
+var ObsoleteFieldtypes = map[string]string{
+	"Column Break": "remove it; a form field now sizes itself with `width`",
+}
+
+// DropObsoleteFields removes every field of an obsolete fieldtype, returning
+// one message per DocType that had any, for the caller to log.
+func (r *Registry) DropObsoleteFields() []string {
+	var warnings []string
+	for _, name := range r.Names() {
+		d := r.DocTypes[name]
+		kept := make([]*Field, 0, len(d.Fields))
+		dropped := map[string]int{}
+		for _, f := range d.Fields {
+			if _, obsolete := ObsoleteFieldtypes[f.Fieldtype]; obsolete {
+				dropped[f.Fieldtype]++
+				continue
+			}
+			kept = append(kept, f)
+		}
+		if len(dropped) == 0 {
+			continue
+		}
+		d.Fields = kept
+		for _, ft := range sortedKeys(dropped) {
+			warnings = append(warnings, fmt.Sprintf("%s: dropped %d %q field(s) — %s", d.Name, dropped[ft], ft, ObsoleteFieldtypes[ft]))
+		}
+	}
+	return warnings
+}
 
 // Validate checks every DocType for internal consistency and cross-references.
 func (r *Registry) Validate() error {

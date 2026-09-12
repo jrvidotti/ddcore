@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Form view generated from meta: sections/columns/tabs, controls, grids,
+  // Form view generated from meta: sections/tabs, controls, grids,
   // toolbar (save/submit/cancel/amend/delete), form-script buttons, sidebar.
   import { createForm, FormController, type Button } from "$lib/form.svelte";
   import { isLayout, selectLabels, selectOptions, type Field } from "$lib/meta";
@@ -16,7 +16,7 @@
   import { beforeNavigate, goto } from "$app/navigation";
   import { clearDraft, draftDecision, draftKey, localDrafts, pruneDrafts, readDraft, writeDraft } from "$lib/drafts";
   import DocSidebar from "./DocSidebar.svelte";
-  import { cellWidthClass, columnSlots, formRows } from "./form-layout";
+  import { cellWidthClass, LINE_SLOTS, packLines } from "./form-layout";
   import { isSectionCollapsed, toggleSection } from "./section-state";
   import { commitFocusedEdit, getModifierKey, openShortcutsHelp } from "$lib/shortcuts.svelte";
 
@@ -157,13 +157,13 @@
     toast(__("Changes discarded"), { indicator: "blue", timeout: 2000 });
   }
 
-  // layout: tabs > sections > columns > fields
-  interface Section { label?: string; collapsible?: boolean; columns: Field[][]; dependsOn?: string }
+  // layout: tabs > sections > fields
+  interface Section { label?: string; collapsible?: boolean; fields: Field[]; dependsOn?: string }
   interface Tab { label: string; sections: Section[] }
   const tabs = $derived.by((): Tab[] => {
     if (!frm) return [];
     const out: Tab[] = [{ label: __("Details"), sections: [] }];
-    const newSection = (f?: Field): Section => ({ label: f?.label, collapsible: f?.collapsible, columns: [[]], dependsOn: f?.dependsOn });
+    const newSection = (f?: Field): Section => ({ label: f?.label, collapsible: f?.collapsible, fields: [], dependsOn: f?.dependsOn });
     let tab = out[0];
     let sec: Section | null = null;
     for (const f of frm.meta.doctype.fields) {
@@ -171,8 +171,7 @@
       if (f.fieldtype === "Tab Break") { tab = { label: f.label || "", sections: [] }; out.push(tab); sec = null; continue; }
       if (f.fieldtype === "Section Break") { sec = newSection(fx); tab.sections.push(sec); continue; }
       if (!sec) { sec = newSection(); tab.sections.push(sec); }
-      if (f.fieldtype === "Column Break") { sec.columns.push([]); continue; }
-      sec.columns[sec.columns.length - 1].push(fx);
+      sec.fields.push(fx);
     }
     return out;
   });
@@ -372,7 +371,7 @@
           <div class="tabs">{#each tabs as t, i}<button class:active={activeTab === i} onclick={() => (activeTab = i)}>{t.label}</button>{/each}</div>
         {/if}
         {#each tabs[activeTab]?.sections || [] as sec, si}
-          {#if visibleSection(sec) && sec.columns.some((c) => c.some((f) => frm!.isFieldVisible(f)))}
+          {#if visibleSection(sec) && sec.fields.some((f) => frm!.isFieldVisible(f))}
             <div class="form-section">
               {#if sec.label}
                 {#if sec.collapsible}
@@ -382,27 +381,22 @@
                 {/if}
               {/if}
               {#if !(sec.collapsible && isSectionCollapsed(collapsed, si))}
-                {@const cap = columnSlots(sec.columns.length)}
-                {#each formRows(sec.columns, (f) => frm!.isFieldVisible(f), cap) as row}
-                  <div class="form-columns form-row" style="--cols:{sec.columns.length}">
-                    {#each row as cells}
-                      <div class="form-column">
-                        {#each cells as cell}
-                          {@const f = cell.field}
-                          <div class="form-cell {cellWidthClass(cell.slots, cap)}">
-                            {#if !f}
-                              <!-- keeps the next control aligned to its half of the line -->
-                            {:else if f.fieldtype === "Table"}
-                              <Grid {frm} field={f} childMeta={frm.meta.children[f.options]} />
-                            {:else if f.fieldtype === "HTML"}
-                              <div class="field">{@html f.options || ""}</div>
-                            {:else}
-                              <Control field={f} value={frm.doc[f.fieldname!]} onchange={(v) => frm?.setValue(f.fieldname!, v)} doc={frm.doc}
-                                readOnly={!frm.isFieldEditable(f)} mandatory={frm.isFieldMandatory(f)} error={frm.fieldErrors[f.fieldname!] || ""} query={frm.queries.get(f.fieldname!)}
-                                buttons={frm.fieldButtons[f.fieldname!] || []} />
-                            {/if}
-                          </div>
-                        {/each}
+                {#each packLines(sec.fields, (f) => frm!.isFieldVisible(f)) as line}
+                  <div class="form-row">
+                    {#each line as cell}
+                      {@const f = cell.field}
+                      <div class="form-cell {cellWidthClass(cell.slots, LINE_SLOTS)}">
+                        {#if !f}
+                          <!-- keeps the next control aligned to its half of the line -->
+                        {:else if f.fieldtype === "Table"}
+                          <Grid {frm} field={f} childMeta={frm.meta.children[f.options]} />
+                        {:else if f.fieldtype === "HTML"}
+                          <div class="field">{@html f.options || ""}</div>
+                        {:else}
+                          <Control field={f} value={frm.doc[f.fieldname!]} onchange={(v) => frm?.setValue(f.fieldname!, v)} doc={frm.doc}
+                            readOnly={!frm.isFieldEditable(f)} mandatory={frm.isFieldMandatory(f)} error={frm.fieldErrors[f.fieldname!] || ""} query={frm.queries.get(f.fieldname!)}
+                            buttons={frm.fieldButtons[f.fieldname!] || []} />
+                        {/if}
                       </div>
                     {/each}
                   </div>

@@ -2,23 +2,18 @@ import type { Field } from "../meta";
 import { FIELD_WIDTH_SLOTS, resolveFieldWidth } from "../meta";
 
 /**
- * A form line is four quarters wide. Every width resolves to a number of these
- * slots, so a control keeps the same size whether or not its section was split
- * with a Column Break.
+ * A form line is four slots wide. Every width resolves to a number of them, so
+ * a form is laid out by sizing its fields rather than by splitting it into
+ * columns.
  */
 export const LINE_SLOTS = 4;
 
-/** Slots a column owns: a lone column takes the whole line, 2+ columns take half of it each. */
-export function columnSlots(columnCount: number): number {
-  return columnCount <= 1 ? LINE_SLOTS : LINE_SLOTS / 2;
-}
-
-/** Slots a field's cell takes inside a column of `capacity` slots. */
+/** Slots a field's cell takes on a line that can spend `capacity` of them. */
 export function fieldSlots(field: Field, capacity: number): number {
   return Math.min(FIELD_WIDTH_SLOTS[resolveFieldWidth(field)], capacity);
 }
 
-/** Width class for a cell of `slots` inside a column of `capacity` ("" fills the column). */
+/** Width class for a cell of `slots` on a line of `capacity` ("" fills the line). */
 export function cellWidthClass(slots: number, capacity: number): string {
   const fraction = slots / capacity;
   return fraction <= 0.25 ? "w-25" : fraction <= 0.5 ? "w-50" : "";
@@ -31,13 +26,13 @@ export interface LineCell {
 }
 
 /**
- * Packs the fields of a column into visual lines of `capacity` slots.
+ * Packs the fields of a section into visual lines of `capacity` slots.
  *
  * The fill is greedy but aligned: a field of `s` slots only starts at an offset
  * that is a multiple of `s`, so a half-line field never begins in the middle of
  * a quarter — `[1/4][1/2]` is padded to `[1/4][spacer][1/2]`.
  */
-export function packColumnLines(fields: Field[], isVisible?: (f: Field) => boolean, capacity = LINE_SLOTS / 2): LineCell[][] {
+export function packLines(fields: Field[], isVisible?: (f: Field) => boolean, capacity = LINE_SLOTS): LineCell[][] {
   const visible = fields.filter((f) => {
     if (!f) return false;
     if (typeof f === "object" && "hidden" in f && f.hidden === true) return false;
@@ -70,19 +65,4 @@ export function packColumnLines(fields: Field[], isVisible?: (f: Field) => boole
   flush();
 
   return lines;
-}
-
-/**
- * Arranges section columns into visual rows, where each row contains the fields
- * for each column on that visual line. This enables natural horizontal navigation
- * (left-to-right across the columns for each row).
- *
- * Returns: Array of rows, where each row is an array of column cells (each cell being LineCell[]).
- */
-export function formRows(columns: Field[][], isVisible?: (f: Field) => boolean, capacity = LINE_SLOTS / 2): LineCell[][][] {
-  const colLines = columns.map((col) => packColumnLines(col, isVisible, capacity));
-  const rowCount = Math.max(0, ...colLines.map((lines) => lines.length));
-  return Array.from({ length: rowCount }, (_, rowIndex) =>
-    colLines.map((lines) => lines[rowIndex] || [])
-  );
 }

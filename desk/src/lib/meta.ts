@@ -63,7 +63,7 @@ export function getMeta(doctype: string): Promise<Meta> {
 
 export function clearMetaCache() { cache.clear(); }
 
-export const isLayout = (f: Field) => ["Section Break", "Column Break", "Tab Break", "HTML"].includes(f.fieldtype);
+export const isLayout = (f: Field) => ["Section Break", "Tab Break", "HTML"].includes(f.fieldtype);
 export const selectOptions = (f: Field): string[] => (Array.isArray(f.options) ? f.options.map(String) : typeof f.options === "string" ? f.options.split("\n") : []);
 
 /**

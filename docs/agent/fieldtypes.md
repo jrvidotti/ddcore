@@ -21,7 +21,7 @@
 | Attach | text | the file's URL (`/files/..` or `/private/files/..`) |
 | JSON | jsonb | |
 | Password | text | not hashed automatically; never read back through the API, never in Version, never exported. **Not for an integration credential** — see below |
-| Section Break / Column Break / Tab Break | — | layout; `label`, `collapsible`, `dependsOn` on a Section |
+| Section Break / Tab Break | — | layout; `label`, `collapsible`, `dependsOn` on a Section |
 | HTML | — | `options` is the rendered HTML |
 
 ## Secrets: `ddcore.secret`, not a column
@@ -91,7 +91,7 @@ length, precision, description, columns (grid width 1–12), width (`"sm"` | `"m
 renamedFrom, convert`
 
 - `label` and `description` are **catalogue keys**: write them in English. See `i18n`.
-- `width`: `"sm"` | `"md"` | `"lg"` | `"full"`. How much of a form line the control takes: `sm`/`md` a quarter, `lg` a half, `full` the whole line (in a section split by a `Column Break`, the column is already half a line, so `lg` and `full` both fill it). Defaults to `sm` for `Date`, `Month`, `Time`, `Int`, `Percent`; `md` for `Datetime`, `Float`, `Currency`; `full` for `Text`, `Small Text`, `Text Editor`, `JSON`, `Table`, `HTML`; `lg` for every other type. Fields pack a line greedily, aligned so a half-line field never starts in the middle of a quarter. See `form-api`.
+- `width`: `"sm"` | `"md"` | `"lg"` | `"full"`. How much of a form line the control takes: `sm`/`md` a quarter, `lg` a half, `full` the whole line — a form has no columns, its shape comes from the widths. Defaults to `sm` for `Date`, `Month`, `Time`, `Int`, `Percent`; `md` for `Datetime`, `Float`, `Currency`; `full` for `Text`, `Small Text`, `Text Editor`, `JSON`, `Table`, `HTML`; `lg` for every other type. Fields pack a line greedily, aligned so a half-line field never starts in the middle of a quarter. See `form-api`.
 - `default`: a literal value, or `"Today"` for Date/Datetime, `"__user"` for the current user.
 - `fetchFrom: "project.assignee"`: copied from the linked document on save. When `readOnly` it always overwrites; otherwise it fills only when empty.
 - `dependsOn`, `readOnlyDependsOn`, `mandatoryDependsOn`: a JS expression over `doc` (`"doc.type == 'PJ'"`) or a field name (truthy). Evaluated in the desk **and** on the server.

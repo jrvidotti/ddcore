@@ -400,6 +400,11 @@ func (e *Engine) Load() error {
 		return err
 	}
 	applyLanguageOptions(reg, i18n)
+	// after the extensions, so a fieldtype ddcore dropped is forgiven wherever
+	// it came from — an app written against an older version still loads
+	for _, w := range reg.DropObsoleteFields() {
+		e.Log.Warn("obsolete fieldtype in a DocType", "detail", w)
+	}
 	if err := reg.Validate(); err != nil {
 		return err
 	}

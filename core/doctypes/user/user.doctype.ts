@@ -13,7 +13,6 @@ export default defineDoctype({
     { fieldname: "email", fieldtype: "Email", label: "Email", reqd: true, unique: true, inListView: true },
     { fieldname: "full_name", fieldtype: "Data", label: "Full name", reqd: true, inListView: true },
     { fieldname: "enabled", fieldtype: "Check", label: "Enabled", default: true, inListView: true, inStandardFilter: true },
-    { fieldtype: "Column Break" },
     { fieldname: "user_type", fieldtype: "Select", label: "Type", options: ["System User", "Website User"], default: "System User" },
     { fieldname: "language", fieldtype: "Select", label: "Language", description: "Leave blank to follow the site language." },
     { fieldname: "last_login", fieldtype: "Datetime", label: "Last login", readOnly: true },

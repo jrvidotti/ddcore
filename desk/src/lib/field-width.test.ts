@@ -81,8 +81,8 @@ describe("field width resolution", () => {
   });
 
   it("sizes cells in slots, a quarter of a form line each", () => {
-    const row = LINE_SLOTS; // the lone column of a section without a Column Break
-    const column = LINE_SLOTS / 2; // one column of a section split by a Column Break
+    const row = LINE_SLOTS; // a form line
+    const column = LINE_SLOTS / 2; // a dialog line, half as wide
 
     // sm and md take a quarter of the line either way
     for (const ft of ["Date", "Int", "Percent", "Datetime", "Currency", "Float"]) {
@@ -90,13 +90,13 @@ describe("field width resolution", () => {
       expect(fieldSlots({ fieldtype: ft }, column)).toBe(1);
     }
 
-    // lg takes half a line, which is the whole of a column
+    // lg takes half a line, and all of a narrow one
     for (const ft of ["Data", "Link", "Select", "Check"]) {
       expect(fieldSlots({ fieldtype: ft }, row)).toBe(2);
       expect(fieldSlots({ fieldtype: ft }, column)).toBe(2);
     }
 
-    // full takes the line, clamped to the column it sits in
+    // full takes the line, clamped to the line it sits on
     expect(fieldSlots({ fieldtype: "Text" }, row)).toBe(4);
     expect(fieldSlots({ fieldtype: "Text" }, column)).toBe(2);
 

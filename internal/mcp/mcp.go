@@ -123,7 +123,7 @@ func New(e *engine.Engine) *mcp.Server {
 			return text(map[string]any{"doctype": d, "file": path, "table": d.TableName()}), nil, nil
 		})
 
-	mcp.AddTool(srv, &mcp.Tool{Name: "scaffold_doctype", Description: "Creates the files for a new DocType in an app (doctype.ts and optionally controller/form/test). Run migrate afterwards. Fieldtypes: Data, Email, Small Text, Text, Text Editor, Int, Float, Currency, Percent, Check, Date, Datetime, Time, Select (options: list), Link (options: DocType), Dynamic Link (options: field with DocType), Table (options: child DocType), Attach, JSON, Section Break, Column Break, Tab Break, HTML."},
+	mcp.AddTool(srv, &mcp.Tool{Name: "scaffold_doctype", Description: "Creates the files for a new DocType in an app (doctype.ts and optionally controller/form/test). Run migrate afterwards. Fieldtypes: Data, Email, Small Text, Text, Text Editor, Int, Float, Currency, Percent, Check, Date, Datetime, Time, Select (options: list), Link (options: DocType), Dynamic Link (options: field with DocType), Table (options: child DocType), Attach, JSON, Section Break, Tab Break, HTML."},
 		func(ctx context.Context, req *mcp.CallToolRequest, in struct {
 			App  string               `json:"app" jsonschema:"app name (directory)"`
 			Spec scaffold.DoctypeSpec `json:"spec" jsonschema:"DocType definition"`
