@@ -97,6 +97,7 @@ References: [form API](agent/form-api.md), [report API](agent/report-api.md),
 | Capability | Available Implementation |
 |---|---|
 | Persistent Queue | `ddcore.enqueue` creates jobs in Postgres; workers use `FOR UPDATE SKIP LOCKED`. |
+| Persistent Notifications | `defineNotification` event/date rules, recipient authorization and deduplication, Desk inbox with persistent read state, optional template email and recipient-only SSE refresh. See [notifications](agent/notifications.md). |
 | Scheduler | Cron and frequencies `all`, `hourly`, `daily`, `weekly`, and `monthly` declared in app manifest. |
 | Job Robustness | Timeout, retries with `maxAttempts`, result/error tracking, lease with heartbeat fenced on the attempt, requeuing on worker interruption without consuming an attempt, and `request_id` carried from the request that queued the job. |
 | Job Management | `ddcore jobs list|show|stats|retry|cancel|purge|scheduled|run|work`, a System Manager-only HTTP surface under `/api/jobs`, and MCP tools. Cancelling a running job interrupts it and rolls back its transaction; retry queues a linked new job; retention sweeps daily by the windows in `ops`. Arguments and results are printed by `jobs show` only. |
@@ -134,7 +135,7 @@ References: [CLI](agent/cli.md), [MCP](../internal/mcp/mcp.go),
   templates, a block vocabulary rendered to text and HTML, authorized `File` attachments and a
   per-message delivery record. It is still not a full email product: no inbound mail or IMAP,
   no CC/BCC or Reply-To, and no resend.
-  Declarative notifications and configurable webhooks remain absent.
+  Declarative notifications and outgoing webhooks are available; notification preferences, push and a visual rule editor remain out of scope.
 - Docstatus and controllers allow app-specific approvals; no declarative workflow engine is
   listed here.
 - Fixtures still insert or skip by name: they do not update existing documents.

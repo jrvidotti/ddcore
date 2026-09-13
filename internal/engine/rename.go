@@ -24,6 +24,10 @@ var coreRefs = []struct {
 	// what the message was about at the time, not a live link.
 	keepOnDelete bool
 }{
+	{table: "ddcore_notification", doctypeCol: "reference_doctype", nameCol: "reference_name", keepOnDelete: true},
+	// The sweep's record of a date already notified: it follows a rename so the
+	// date is not notified again, and goes with a deleted document.
+	{table: "ddcore_notification_due", doctypeCol: "reference_doctype", nameCol: "reference_name"},
 	{table: "tab_file", doctypeCol: "attached_to_doctype", nameCol: "attached_to_name"},
 	{table: "tab_comment", doctypeCol: "reference_doctype", nameCol: "reference_name"},
 	{table: "tab_version", doctypeCol: "ref_doctype", nameCol: "docname"},

@@ -36,3 +36,20 @@ describe("DDCoreError.requestId", () => {
     expect(err.requestId).toBeUndefined();
   });
 });
+
+describe("own-user notification API", () => {
+  it("preserves pagination metadata and sends unread false without dropping it", async () => {
+    const page = { data: [{ name: "notice-1", read: false }], total: 21 };
+    respondWith({ data: page }, { status: 200 });
+    expect(await api.notifications.list({ limit: 20, offset: 20, read: false })).toEqual(page);
+    expect(fetch).toHaveBeenCalledWith("/api/notifications?limit=20&offset=20&read=false", expect.objectContaining({ method: "GET" }));
+  });
+  it("uses authenticated count and encodes an individual notification identity for updates", async () => {
+    respondWith({ data: 2 }, { status: 200 });
+    expect(await api.notifications.count()).toBe(2);
+    expect(fetch).toHaveBeenLastCalledWith("/api/notifications/count", expect.anything());
+    respondWith({ data: { name: "a/b", read: true } }, { status: 200 });
+    expect(await api.notifications.setRead("a/b", true)).toEqual({ name: "a/b", read: true });
+    expect(fetch).toHaveBeenLastCalledWith("/api/notifications/a%2Fb", expect.objectContaining({ method: "PATCH", body: '{"read":true}' }));
+  });
+});

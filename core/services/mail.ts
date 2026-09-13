@@ -21,6 +21,7 @@ import type { SendMailArgs } from "@ddcore/sdk";
 export function send(args: { delivery: string; args?: Record<string, any> }) {
   const bridge = (ddcore as any).__mail;
   const d = bridge.load(args.delivery);
+  if (d.skip) return;
 
   // A sensitive template's arguments were never written to the delivery
   // record — they travel with the job, and nowhere else.

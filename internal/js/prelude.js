@@ -67,6 +67,7 @@
     reports: {},
     workspaces: {},
     mailTemplates: {},
+    notifications: Object.create(null),
     apps: {},
     modules: {},
     modulesByApp: {},
@@ -108,6 +109,30 @@
           value.app = reg.app;
           value.sourceFile = reg.current;
           reg.mailTemplates[value.name] = value;
+          break;
+        }
+        case "notification": {
+          const fail = (message) => { throw new DDCoreError("ValidationError", "", "Notification " + (value?.name || "<unnamed>") + ": " + message); };
+          if (!value || typeof value.name !== "string" || !value.name.trim()) fail("name is required");
+          if (reg.notifications[value.name]) fail("name is defined twice");
+          if (typeof value.doctype !== "string" || !value.doctype.trim()) fail("doctype is required");
+          if ((value.event !== undefined) === (value.date !== undefined)) fail("declare exactly one event or date trigger");
+          if (value.event !== undefined && !["on_insert", "on_update", "on_submit", "on_cancel"].includes(value.event)) fail("invalid event");
+          if (value.date !== undefined && (!value.date || typeof value.date.field !== "string" || !value.date.field || !Number.isSafeInteger(value.date.days))) fail("date requires field and integer days");
+          const fn = (v, label) => {
+            if (typeof v !== "function" || v.constructor?.name === "AsyncFunction" || v.constructor?.name === "GeneratorFunction") fail(label + " must be a synchronous function");
+          };
+          if (value.condition !== undefined) fn(value.condition, "condition");
+          fn(value.recipients, "recipients");
+          if (!value.desk && !value.email) fail("declare at least one channel");
+          if (value.desk) { fn(value.desk.title, "desk.title"); fn(value.desk.message, "desk.message"); }
+          if (value.email) {
+            if (typeof value.email.template !== "string" || !value.email.template.trim()) fail("email.template is required");
+            fn(value.email.args, "email.args");
+          }
+          value.app = reg.app;
+          value.sourceFile = reg.current;
+          reg.notifications[value.name] = value;
           break;
         }
         case "report":
@@ -174,6 +199,8 @@
     // needs to know one exists and whether its arguments may be stored.
     const mailTemplates = {};
     for (const n in reg.mailTemplates) mailTemplates[n] = stripFns(reg.mailTemplates[n]);
+    const notifications = Object.create(null);
+    for (const n in reg.notifications) notifications[n] = { ...stripFns(reg.notifications[n]), desk: !!reg.notifications[n].desk };
     const apps = {};
     for (const n in reg.apps) {
       const a = stripFns(reg.apps[n]);
@@ -200,7 +227,43 @@
       return { doctype: x.doctype, app: x.app, sourceFile: x.sourceFile,
         fields: ext.fields, set: ext.set, props: ext.doctype, permissions: ext.permissions };
     });
-    return JSON.stringify({ doctypes, reports, workspaces, mailTemplates, apps, whitelisted, patches, extensions });
+    return JSON.stringify({ doctypes, reports, workspaces, mailTemplates, notifications, apps, whitelisted, patches, extensions });
+  };
+
+  const notificationCall = (fn, doc, before) => {
+    const result = fn(doc, before);
+    if (result && typeof result.then === "function") throw new DDCoreError("ValidationError", "", "Notification functions must be synchronous");
+    return result;
+  };
+  const notificationInput = (name, docJSON, beforeJSON) => {
+    const rule = reg.notifications[name];
+    if (!rule) throw new DDCoreError("NotFoundError", "", "Notification rule does not exist: " + name);
+    return [rule, JSON.parse(docJSON), beforeJSON ? JSON.parse(beforeJSON) : null];
+  };
+  reg.evaluateNotification = function (name, docJSON, beforeJSON) {
+    const [rule, doc, before] = notificationInput(name, docJSON, beforeJSON);
+    if (rule.condition) {
+      const matches = notificationCall(rule.condition, doc, before);
+      if (typeof matches !== "boolean") throw new DDCoreError("ValidationError", "", "Notification condition must return a boolean");
+      if (!matches) return JSON.stringify({ matches: false, recipients: [] });
+    }
+    const recipients = notificationCall(rule.recipients, doc, before);
+    if (!Array.isArray(recipients) || recipients.some((v) => typeof v !== "string" || !v.trim())) throw new DDCoreError("ValidationError", "", "Notification recipients must return User names");
+    return JSON.stringify({ matches: true, recipients: [...new Set(recipients)] });
+  };
+  reg.renderNotification = function (name, docJSON, beforeJSON) {
+    const [rule, doc, before] = notificationInput(name, docJSON, beforeJSON);
+    const result = {};
+    if (rule.desk) {
+      result.title = notificationCall(rule.desk.title, doc, before);
+      result.message = notificationCall(rule.desk.message, doc, before);
+      if (typeof result.title !== "string" || typeof result.message !== "string") throw new DDCoreError("ValidationError", "", "Notification title and message must be plain text strings");
+    }
+    if (rule.email) {
+      result.emailArgs = notificationCall(rule.email.args, doc, before);
+      if (!result.emailArgs || typeof result.emailArgs !== "object" || Array.isArray(result.emailArgs)) throw new DDCoreError("ValidationError", "", "Notification email args must be an object");
+    }
+    return JSON.stringify(result);
   };
 
   // -------------------------------------------------------------------- mail

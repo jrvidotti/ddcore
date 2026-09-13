@@ -123,11 +123,12 @@ type Snapshot struct {
 	// MailTemplates arrives without its `subject` and `body` functions: Go
 	// never renders a template, it only needs to know one exists and whether
 	// its arguments may be stored.
-	MailTemplates map[string]MailTemplate `json:"mailTemplates"`
-	Apps          map[string]*AppMeta     `json:"apps"`
-	Whitelisted   []Whitelisted           `json:"whitelisted"`
-	Patches       []Patch                 `json:"patches"`
-	Extensions    []*meta.Extension       `json:"extensions"`
+	MailTemplates map[string]MailTemplate    `json:"mailTemplates"`
+	Notifications map[string]js.Notification `json:"notifications"`
+	Apps          map[string]*AppMeta        `json:"apps"`
+	Whitelisted   []Whitelisted              `json:"whitelisted"`
+	Patches       []Patch                    `json:"patches"`
+	Extensions    []*meta.Extension          `json:"extensions"`
 }
 
 // MailTemplate is a declared message, as Go sees it.
@@ -145,13 +146,14 @@ type MailTemplate struct {
 // a new one and swaps the pointer atomically, so that no caller observes new
 // metadata with an old pool (B08).
 type State struct {
-	Meta        *meta.Registry
-	Snap        *Snapshot
-	Apps        []js.App
-	Pool        *js.Pool
-	I18n        *I18n
-	Loaded      time.Time
-	whitelisted map[string]map[string]any
+	Notifications []js.Notification
+	Meta          *meta.Registry
+	Snap          *Snapshot
+	Apps          []js.App
+	Pool          *js.Pool
+	I18n          *I18n
+	Loaded        time.Time
+	whitelisted   map[string]map[string]any
 	// metaCache holds the translated copies of DocTypes, per language. It
 	// needs no invalidation: a reload builds a new State and this dies with
 	// the old one.
@@ -421,6 +423,15 @@ func (e *Engine) Load() error {
 	if err := reg.Validate(); err != nil {
 		return err
 	}
+	notifications := make([]js.Notification, 0, len(snap.Notifications))
+	for _, name := range sortedNotificationNames(snap.Notifications) {
+		rule := snap.Notifications[name]
+		if err := rule.ValidateTarget(reg, func(name string) bool { _, ok := snap.MailTemplates[name]; return ok }); err != nil {
+			pool.Close()
+			return err
+		}
+		notifications = append(notifications, rule)
+	}
 	for _, a := range apps {
 		if am, ok := snap.Apps[a.Name]; ok {
 			am.Dir = a.Dir
@@ -455,7 +466,7 @@ func (e *Engine) Load() error {
 	for _, w := range snap.Whitelisted {
 		wl[w.Path] = w.Opts
 	}
-	st := &State{Meta: reg, Snap: snap, Apps: apps, Pool: pool, I18n: i18n, Loaded: time.Now(), whitelisted: wl}
+	st := &State{Notifications: notifications, Meta: reg, Snap: snap, Apps: apps, Pool: pool, I18n: i18n, Loaded: time.Now(), whitelisted: wl}
 	e.mu.Lock()
 	old := e.cur.Swap(st)
 	e.State = st
@@ -813,4 +824,13 @@ func (e *Engine) Eval(ctx context.Context, code string, commit bool) (json.RawMe
 		return err
 	})
 	return out, logs, err
+}
+
+func sortedNotificationNames(rules map[string]js.Notification) []string {
+	names := make([]string, 0, len(rules))
+	for name := range rules {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }

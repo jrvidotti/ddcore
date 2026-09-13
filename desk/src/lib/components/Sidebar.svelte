@@ -5,6 +5,8 @@
   import { page } from "$app/state";
   import { api } from "$lib/api";
   import { goto } from "$app/navigation";
+  import { notifications, stopNotifications } from "$lib/notifications.svelte";
+  import { disconnectEvents } from "$lib/events";
   import { systemDoctypes } from "./sidebar";
 
   let { open = $bindable(true) }: { open?: boolean } = $props();
@@ -12,7 +14,7 @@
   const current = $derived(page.url.pathname);
   const active = (href: string) => current === href || current.startsWith(href + "/") || current.startsWith(href + "?");
   const itemHref = (it: any) => it.route || (it.doctype ? `/app/${encodeURIComponent(it.doctype)}` : it.report ? `/app/report/${encodeURIComponent(it.report)}` : "");
-  async function logout() { await api.logout(); location.href = "/login"; }
+  async function logout() { await api.logout(); stopNotifications(); disconnectEvents(); location.href = "/login"; }
   const otherDoctypes = $derived(systemDoctypes(boot.data));
   let showCore = $state(false);
 
@@ -39,6 +41,10 @@
     <a href="/app" style="display:flex;align-items:center;gap:8px;color:inherit;text-decoration:none"><span class="logo">{siteLogo()}</span><strong>{siteName()}</strong></a>
   </div>
   <nav>
+    <a href="/app/notifications" class:active={active("/app/notifications")}>
+      <Icon name="bell" /><span>{__("Notifications")}</span>
+      {#if notifications.unread > 0}<span class="notification-count" aria-label={__("{0} unread notifications", [notifications.unread])}>{notifications.unread}</span>{/if}
+    </a>
     {#each workspaces as ws}
       {#if workspaces.length > 1}<div class="group">{ws.label || ws.name}</div>{/if}
       {#each ws.sidebar || [] as it}
@@ -92,6 +98,7 @@
   nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--text); font-size: 13px; }
   nav a:hover { background: #f3f4f6; text-decoration: none; }
   nav a.active { background: #eff6ff; color: var(--primary); font-weight: 500; }
+  .notification-count { margin-left: auto; border-radius: 12px; padding: 1px 7px; background: var(--primary); color: white; font-size: 11px; }
   nav a.child { padding-left: 16px; }
   .group { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); padding: 12px 10px 4px; display: flex; align-items: center; gap: 4px; }
   .foot { padding: 8px 10px; border-top: 1px solid var(--border); }

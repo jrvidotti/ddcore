@@ -104,6 +104,9 @@ func (c *Ctx) Enqueue(method string, args map[string]any, opts map[string]any) (
 // honored inside the VM: a script that does not return is interrupted when the
 // context expires (B15).
 func (e *Engine) RunJob(ctx context.Context, user, method string, args map[string]any) (json.RawMessage, error) {
+	if method == notificationSweepMethod {
+		return nil, e.SweepNotifications(ctx, time.Now())
+	}
 	var out json.RawMessage
 	// The transaction uses a context without the deadline: the timeout needs
 	// to interrupt the VM, without interfering with transaction rollback.
@@ -455,6 +458,7 @@ func (e *Engine) StartScheduler(ctx context.Context) *cron.Cron {
 			}
 		}
 	}
+	add("*/5 * * * *", []any{notificationSweepMethod})
 	cr.Start()
 	if old := e.sched.Swap(cr); old != nil {
 		old.Stop()
