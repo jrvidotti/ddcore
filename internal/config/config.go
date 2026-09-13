@@ -65,6 +65,8 @@ type File struct {
 	TrustProxy bool `json:"trustProxy"`
 	// Mail comes from the environment only — see the package comment.
 	Mail Mail `json:"-"`
+	// Webhooks comes from the environment only, like Mail.
+	Webhooks Webhooks `json:"-"`
 }
 
 const Name = "ddcore.json"
@@ -110,6 +112,9 @@ func Load(dir string) (*File, string, error) {
 		return nil, "", err
 	}
 	f.Mail.Dev = f.Dev || envBool("DDCORE_DEV", false)
+	if f.Webhooks, err = webhooksFromEnv(); err != nil {
+		return nil, "", err
+	}
 	base := filepath.Dir(path)
 	for i, a := range f.Apps {
 		if !filepath.IsAbs(a) {

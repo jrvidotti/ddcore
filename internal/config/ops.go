@@ -44,13 +44,18 @@ type OpsPolicy struct {
 	// outside the loop that rewrites zeroes, which cannot express this.
 	JobRetentionDays       *int `json:"jobRetentionDays"`
 	JobRetentionFailedDays *int `json:"jobRetentionFailedDays"`
+	// WebhookRetentionDays is how long a finished Webhook Delivery is kept. Its
+	// payload is a copy of a document as it was, so keeping it for ever keeps
+	// data an erasure elsewhere was meant to remove. Zero keeps for ever.
+	WebhookRetentionDays *int `json:"webhookRetentionDays"`
 }
 
 // DoneRetentionDays and FailedRetentionDays resolve the pointers into the one
 // number a sweep needs, where zero means "keep forever". Callers read these
 // rather than the fields, so a nil pointer can never reach a query as a cutoff.
-func (o OpsPolicy) DoneRetentionDays() int   { return derefOr(o.JobRetentionDays, 0) }
-func (o OpsPolicy) FailedRetentionDays() int { return derefOr(o.JobRetentionFailedDays, 0) }
+func (o OpsPolicy) DoneRetentionDays() int            { return derefOr(o.JobRetentionDays, 0) }
+func (o OpsPolicy) FailedRetentionDays() int          { return derefOr(o.JobRetentionFailedDays, 0) }
+func (o OpsPolicy) WebhookDeliveryRetentionDays() int { return derefOr(o.WebhookRetentionDays, 0) }
 
 func derefOr(p *int, d int) int {
 	if p == nil {
@@ -61,11 +66,11 @@ func derefOr(p *int, d int) int {
 
 // DefaultOps is the policy a site gets when it says nothing.
 func DefaultOps() OpsPolicy {
-	done, failed := 7, 30
+	done, failed, webhooks := 7, 30, 30
 	return OpsPolicy{
 		WindowMinutes: 15, QueueBacklog: 100, QueueAgeSeconds: 300,
 		JobFailures: 5, ErrorLogEntries: 20, ReadyTimeoutMs: 2000, SlowRequestMs: 2000,
-		JobRetentionDays: &done, JobRetentionFailedDays: &failed,
+		JobRetentionDays: &done, JobRetentionFailedDays: &failed, WebhookRetentionDays: &webhooks,
 	}
 }
 
@@ -110,6 +115,7 @@ func (o OpsPolicy) validate() error {
 	}{
 		{"jobRetentionDays", o.JobRetentionDays},
 		{"jobRetentionFailedDays", o.JobRetentionFailedDays},
+		{"webhookRetentionDays", o.WebhookRetentionDays},
 	} {
 		if c.v != nil && *c.v < 0 {
 			return fmt.Errorf("ops.%s must be zero (keep forever) or greater", c.name)
@@ -143,6 +149,9 @@ func (o OpsPolicy) WithDefaults() OpsPolicy {
 	}
 	if o.JobRetentionFailedDays == nil {
 		o.JobRetentionFailedDays = d.JobRetentionFailedDays
+	}
+	if o.WebhookRetentionDays == nil {
+		o.WebhookRetentionDays = d.WebhookRetentionDays
 	}
 	return o
 }

@@ -204,7 +204,8 @@ ddcore doctor [--json] [--strict] [--window N]
 It reports the version, the site, the database (with the DSN's password
 redacted), the apps and doctypes, pending DDL, undeclared structures, pending
 patches, applied renames, the queue, the Error Log, the scheduler, the workers,
-mail, the public URL, the session policy, the thresholds in force, and the
+mail, outgoing webhooks (on or off, how many are enabled, retrying, and failed in
+the last day), the public URL, the session policy, the thresholds in force, and the
 **names** of the configured secrets — never their values, because this report
 gets pasted into issues and chat windows.
 
@@ -264,7 +265,10 @@ scheduler queues have none — nothing asked for them.
 
 `queued` → `running` → `done`, `failed` or `cancelled`. A failing job goes back
 to `queued` while attempts remain, after a thirty-second pause; `enqueue` takes
-`maxAttempts` to change how many that is. The status values are also what
+`maxAttempts` to change how many that is, and `backoff: "exponential"` to make
+the pause double with each attempt — 30 seconds, 1, 2, 4 minutes and so on, never
+more than an hour — which is what work talking to somebody else's server wants.
+A retried job keeps its backoff. Outgoing [webhooks](webhooks.md) use it. The status values are also what
 `--status` accepts, so they stay in English on a translated site.
 
 ### Cancelling
@@ -311,6 +315,10 @@ enabled, and on demand by `ddcore jobs purge`. Two windows in the `ops` block:
 | --- | --- | --- |
 | `jobRetentionDays` | 7 | how long a `done` job is kept |
 | `jobRetentionFailedDays` | 30 | how long a `failed` or `cancelled` job is kept |
+
+Outgoing webhook deliveries have a window of their own, `webhookRetentionDays`
+(default 30), swept daily by `core.services.webhooks.sweep`; only `Sent` and
+`Failed` deliveries are removed. See [webhooks](webhooks.md).
 
 **Zero means keep forever**, and it is the one place in `ops` where zero is not
 "unset" — failures are the evidence of what went wrong and some sites keep them

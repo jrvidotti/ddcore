@@ -28,6 +28,10 @@ var coreRefs = []struct {
 	{table: "tab_comment", doctypeCol: "reference_doctype", nameCol: "reference_name"},
 	{table: "tab_version", doctypeCol: "ref_doctype", nameCol: "docname"},
 	{table: "tab_email_delivery", doctypeCol: "reference_doctype", nameCol: "reference_name", keepOnDelete: true},
+	// A webhook delivery is the same kind of record: the event reached somebody
+	// else's server, and deleting the document does not recall it.
+	{table: "tab_webhook_delivery", doctypeCol: "reference_doctype", nameCol: "reference_name", keepOnDelete: true},
+	{table: "tab_audit_event", doctypeCol: "target_doctype", nameCol: "target_name", keepOnDelete: true},
 }
 
 // docTypeRefColumns is every (table, column) that stores a DocType *name*,

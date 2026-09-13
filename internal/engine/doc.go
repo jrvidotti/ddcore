@@ -473,6 +473,14 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := c.queueDocWebhooks(d.Name, saved, "on_insert"); err != nil {
+		return nil, err
+	}
+	if saved.Docstatus() == 1 {
+		if err := c.queueDocWebhooks(d.Name, saved, "on_submit"); err != nil {
+			return nil, err
+		}
+	}
 	c.notify(d, saved, "insert")
 	return saved, nil
 }
@@ -596,6 +604,9 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 	}
 	saved, err := c.GetDocIgnoringPerms(d.Name, doc.Name())
 	if err != nil {
+		return nil, err
+	}
+	if err := c.queueDocWebhooks(d.Name, saved, webhookSaveEvent[action]); err != nil {
 		return nil, err
 	}
 	c.notify(d, saved, action)
@@ -828,6 +839,9 @@ func (c *Ctx) Delete(doctype, name string, ignorePerms, force bool) error {
 	}
 	delete(c.docCache, c.docKey(doctype, name))
 	if err := c.runHook(d, "afterDelete", doc, nil); err != nil {
+		return err
+	}
+	if err := c.queueDocWebhooks(d.Name, doc, "on_trash"); err != nil {
 		return err
 	}
 	c.AfterCommit(func() {

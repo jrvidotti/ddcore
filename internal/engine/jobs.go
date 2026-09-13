@@ -36,6 +36,23 @@ var (
 	jobCancelPoll = 5 * time.Second
 )
 
+// How long a failed job waits before it runs again. Fixed is the historical
+// thirty seconds, right for work that fails because of something local and
+// short-lived. Exponential doubles that per attempt up to an hour, which is what
+// a job talking to somebody else's server needs: a receiver that is down for
+// twenty minutes should not exhaust six attempts in three.
+const (
+	BackoffFixed       = "fixed"
+	BackoffExponential = "exponential"
+)
+
+// retryDelaySQL is the run_after of a job going back to the queue, in terms of
+// the row's own backoff and attempts columns. One expression, shared by the
+// failure branch and the stale-lease sweep, so the two cannot disagree.
+const retryDelaySQL = `now() + CASE WHEN backoff = 'exponential'
+	THEN make_interval(secs => least(30 * power(2, greatest(attempts - 1, 0)), 3600))
+	ELSE interval '30 seconds' END`
+
 // Enqueue stores a job in ddcore_job; workers pick it with SKIP LOCKED.
 func (c *Ctx) Enqueue(method string, args map[string]any, opts map[string]any) (int64, error) {
 	if method == "" {
@@ -65,14 +82,21 @@ func (c *Ctx) Enqueue(method string, args map[string]any, opts map[string]any) (
 			maxAttempts = n
 		}
 	}
+	backoff := BackoffFixed
+	if v, ok := opts["backoff"].(string); ok && v != "" {
+		if v != BackoffFixed && v != BackoffExponential {
+			return 0, cerr.Validation("enqueue: backoff must be {0} or {1}", BackoffFixed, BackoffExponential)
+		}
+		backoff = v
+	}
 	b, _ := json.Marshal(args)
 	var id int64
 	// The request id travels with the job, so the work a request queued can be
 	// found from the request, and the other way round.
 	err := c.Q().QueryRow(c.Ctx, `INSERT INTO ddcore_job
-		(method, args, queue, "user", run_after, timeout_seconds, max_attempts, request_id)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, NULLIF($8, '')) RETURNING id`,
-		method, string(b), queue, c.User, runAfter, timeout, maxAttempts, RequestIDFrom(c.Ctx)).Scan(&id)
+		(method, args, queue, "user", run_after, timeout_seconds, max_attempts, request_id, backoff)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, NULLIF($8, ''), $9) RETURNING id`,
+		method, string(b), queue, c.User, runAfter, timeout, maxAttempts, RequestIDFrom(c.Ctx), backoff).Scan(&id)
 	return id, err
 }
 
@@ -128,7 +152,7 @@ func (e *Engine) requeueStale(ctx context.Context) error {
 		started = CASE WHEN cancel_requested IS NULL AND attempts < max_attempts
 		               THEN NULL ELSE started END,
 		run_after = CASE WHEN cancel_requested IS NULL AND attempts < max_attempts
-		                 THEN now() + interval '30 seconds' ELSE run_after END,
+		                 THEN ` + retryDelaySQL + ` ELSE run_after END,
 		error = CASE WHEN cancel_requested IS NOT NULL THEN error
 		             WHEN attempts < max_attempts      THEN NULL
 		             ELSE 'worker interrupted: lease expired' END
@@ -281,7 +305,7 @@ func (e *Engine) runOneJob(ctx context.Context) (bool, error) {
 		// keyed on `finished` would read as "terminal and old enough to delete".
 		write(`UPDATE ddcore_job SET status = $2, error = $3,
 			finished = CASE WHEN $2 = 'queued' THEN NULL ELSE now() END,
-			lease_until = NULL, run_after = now() + interval '30 seconds'
+			lease_until = NULL, run_after = `+retryDelaySQL+`
 			WHERE id = $1 AND status = 'running' AND attempts = $4`,
 			id, status, runErr.Error(), attempt)
 		// A failed run gets a handle of its own, so an Error Log row points at

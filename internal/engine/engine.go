@@ -70,6 +70,9 @@ type Config struct {
 	LogOut io.Writer
 	// Mail says where a recovery or invitation link goes.
 	Mail config.Mail
+	// Webhooks switches outgoing webhooks off for a deployment that must have
+	// no external effects. The zero value sends.
+	Webhooks config.Webhooks
 	// SiteURL is the public base those links are built from, already
 	// defaulted to localhost by config.PublicURL.
 	SiteURL string
@@ -184,6 +187,10 @@ type Engine struct {
 	casts    castOpts
 	mailOnce sync.Once
 	mailer   mail.Sender
+	// webhooks caches the enabled subscriptions; nil means "read them again".
+	// See webhookSubs.
+	webhookMu sync.Mutex
+	webhooks  []webhookSub
 }
 
 // Current returns the state this moment sees. Each request captures it once

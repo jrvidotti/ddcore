@@ -83,8 +83,8 @@ func (e *Engine) CancelJob(ctx context.Context, id int64, user string) (JobActio
 // A second retry is refused unless forced, so that pressing the button twice
 // does not quietly fan one failure out into several jobs.
 func (e *Engine) RetryJob(ctx context.Context, id int64, force bool) (JobAction, error) {
-	const q = `INSERT INTO ddcore_job (method, args, queue, "user", timeout_seconds, max_attempts, request_id, retry_of)
-	 SELECT method, args, queue, "user", timeout_seconds, max_attempts, request_id, id
+	const q = `INSERT INTO ddcore_job (method, args, queue, "user", timeout_seconds, max_attempts, request_id, backoff, retry_of)
+	 SELECT method, args, queue, "user", timeout_seconds, max_attempts, request_id, backoff, id
 	   FROM ddcore_job
 	  WHERE id = $1 AND status IN ('failed', 'cancelled') AND ($2 OR retried_as IS NULL)
 	 RETURNING id`

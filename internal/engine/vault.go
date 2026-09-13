@@ -146,21 +146,33 @@ func (e *Engine) VaultGet(c *Ctx, name string) (string, bool, error) {
 		ctx = context.Background()
 	}
 
+	plaintext, ok, err := vaultRead(ctx, q, key, name)
+	if err != nil || !ok {
+		return "", ok, err
+	}
+	e.recordVaultAudit(c, name, "read")
+	return plaintext, true, nil
+}
+
+// vaultRead decrypts one secret and records nothing.
+//
+// Only for the framework reading a key it owns on its own schedule — a webhook
+// signing each attempt. An audit row per retry would bury the reads a person
+// made under the ones a worker made, which is the opposite of what the log is
+// for. Anything an app or a person asks for goes through VaultGet.
+func vaultRead(ctx context.Context, q db.Querier, key []byte, name string) (string, bool, error) {
 	var ciphertext, nonce []byte
-	err = q.QueryRow(ctx, `SELECT ciphertext, nonce FROM ddcore_vault WHERE name = $1`, name).Scan(&ciphertext, &nonce)
+	err := q.QueryRow(ctx, `SELECT ciphertext, nonce FROM ddcore_vault WHERE name = $1`, name).Scan(&ciphertext, &nonce)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", false, nil
 	}
 	if err != nil {
 		return "", false, err
 	}
-
 	plaintext, err := DecryptVault(key, ciphertext, nonce)
 	if err != nil {
 		return "", false, err
 	}
-
-	e.recordVaultAudit(c, name, "read")
 	return plaintext, true, nil
 }
 
@@ -351,4 +363,3 @@ func (c *Ctx) processSingleVaultField(d *meta.DocType, f *meta.Field, doc Doc) e
 	}
 	return nil
 }
-

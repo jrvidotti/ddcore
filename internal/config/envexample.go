@@ -64,6 +64,17 @@ const EnvExample = `# ddcore — the environment this site runs in.
 # queued, so an oversized attachment fails where someone can still see it.
 # DDCORE_MAIL_MAX_ATTACHMENT=10485760
 
+# --- outgoing webhooks -------------------------------------------------------
+# Subscriptions are Webhook documents, set up in the desk. This switch is for a
+# deployment that must have no outgoing business effects — a migration
+# rehearsal, a restored copy of production. While off, events queue nothing, so
+# turning it back on does not release a backlog. ` + "`" + `ddcore doctor` + "`" + ` warns while it is off.
+# DDCORE_WEBHOOKS=on
+
+# The master key for encrypted Vault fields, which is where a webhook's signing
+# secret is kept. Without it a Webhook cannot be saved or signed.
+# DDCORE_SECRET_KEY=
+
 # --- integration secrets -----------------------------------------------------
 # Credentials an app needs to talk to something else. They live here and never
 # in a column: a secret in the database is a secret in every backup, every
