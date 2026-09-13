@@ -137,11 +137,14 @@ defineListView("Entry", {
   pageSize: 50,
   formatters: { amount: (v, row) => ddcore.format.currency(v) }, // the cell's text
   indicator: (row) => (row.balance > 0 ? { label: __("Open"), color: "red" } : { label: __("Settled"), color: "green" }),
+  docstatusFilter: false,               // hides the "Document status" filter of a submittable DocType
 });
 ```
 
 Every key is optional. `formatters` returns **text** (not HTML); `indicator` replaces the default
-status column and may return `null` to show nothing on that row.
+status column and may return `null` to show nothing on that row. `docstatusFilter: false` suits a
+submittable DocType whose `status` field already separates draft, submitted and cancelled — the
+docstatus filter would only repeat it.
 
 Most lists need no `indicator` at all: declare `optionColors` on the status field and the desk
 colours and translates it on its own. Reach for `indicator` only when the label is not a field

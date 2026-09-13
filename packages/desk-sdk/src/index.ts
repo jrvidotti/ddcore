@@ -156,6 +156,8 @@ export interface ListViewOptions<T extends BaseDoc = BaseDoc> {
   formatters?: Partial<Record<keyof T & string, (value: any, row: T) => string>>;
   /** Replaces the status column; return null to show nothing. */
   indicator?: (row: T) => { label: string; color: string } | null | undefined;
+  /** `false` hides the docstatus filter of a submittable DocType. Default `true`. */
+  docstatusFilter?: boolean;
 }
 
 export declare function defineListView<T extends BaseDoc = BaseDoc>(doctype: string, opts: ListViewOptions<T>): void;

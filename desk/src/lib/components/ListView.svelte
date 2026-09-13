@@ -45,6 +45,7 @@
     pageSize?: number;
     formatters?: Record<string, (value: any, row: any) => string>;
     indicator?: (row: any) => { label: string; color: string } | null | undefined;
+    docstatusFilter?: boolean;
   }
   const settings = $derived<ListSettings>(deskSDK.listSettings(doctype) || {});
 
@@ -60,6 +61,8 @@
     }
     return settings.columns?.length ? cols : cols.slice(0, 7);
   });
+  /** `defineListView({ docstatusFilter: false })` drops it where a `status` field already tells drafts apart. */
+  const showDocstatusFilter = $derived(!!meta?.doctype.submittable && settings.docstatusFilter !== false);
   const stdFilters = $derived(meta ? meta.doctype.fields.filter((f) => f.inStandardFilter && !isLayout(f)) : []);
   const statusField = $derived(meta?.doctype.fields.find((f) => f.fieldname === "status"));
   /**
@@ -72,7 +75,7 @@
       (!columns.some((c) => c.fieldname === statusField?.fieldname) && (!!statusField || !!meta?.doctype.submittable)),
   );
   const urlFields = $derived(meta?.doctype.fields.filter((f) => f.fieldname && !isLayout(f)) || []);
-  const hasActiveFilters = $derived(Object.values(filters).some((v) => v !== null && v !== undefined && v !== "") || !!search || docstatusFilter !== "");
+  const hasActiveFilters = $derived(Object.values(filters).some((v) => v !== null && v !== undefined && v !== "") || !!search || (showDocstatusFilter && docstatusFilter !== ""));
 
   function defaultListState(): ListUrlState {
     return {
@@ -108,7 +111,7 @@
   function buildFilters() {
     const out: any[] = [];
     for (const [k, v] of Object.entries(filters)) if (v !== null && v !== undefined && v !== "") out.push([k, "=", v]);
-    if (docstatusFilter !== "") out.push(["docstatus", "=", Number(docstatusFilter)]);
+    if (showDocstatusFilter && docstatusFilter !== "") out.push(["docstatus", "=", Number(docstatusFilter)]);
     return out;
   }
   function buildOr() {
@@ -278,7 +281,7 @@
       <label for="list-search">{__("Search")}</label>
       <input id="list-search" class="input" placeholder={__("Search…")} bind:value={search} oninput={onSearch} />
     </div>
-    {#if meta?.doctype.submittable}
+    {#if showDocstatusFilter}
       <div class="select-filter">
         <label for="docstatus-filter">{__("Document status")}</label>
         <select id="docstatus-filter" class="input" bind:value={docstatusFilter} onchange={() => updateListState({ ...currentListState(), docstatusFilter, page: 1 })}>
