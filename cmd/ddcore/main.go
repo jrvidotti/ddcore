@@ -47,6 +47,7 @@ Usage: ddcore <command> [options]
   demo        seed example data (<app>.services.demo.generate, idempotent)
   export      export a DocType (or --all) to NDJSON/CSV with a manifest
   jobs        inspect, retry, cancel and purge the queue (run: ddcore jobs)
+  webhooks    list and replay outgoing webhook deliveries (run: ddcore webhooks)
   user        user add|invite|passwd|reset|unlock|sessions (run: ddcore user)
   apikey      apikey <user> [--label x] [--days N]  → prints key:secret
   mcp         MCP server (stdio) for agents
@@ -85,6 +86,8 @@ func main() {
 		err = cmdEval(args)
 	case "jobs":
 		err = cmdJobs(args)
+	case "webhooks":
+		err = cmdWebhooks(args)
 	case "user":
 		err = cmdUser(args)
 	case "apikey":
@@ -145,7 +148,7 @@ func load(test bool, dev bool) (*engine.Engine, *config.File, error) {
 	e, err := engine.New(context.Background(), engine.Config{
 		DSN: cfg.DSN, Apps: apps, Workers: cfg.Workers, Scheduler: cfg.Scheduler, Dev: isDev, Test: test,
 		Port: cfg.Port, Lang: cfg.Lang, Currency: cfg.Currency, CurrencyPrecision: cfg.CurrencyPrecision, Rounding: cfg.RoundingMode(), Timezone: cfg.Timezone, DataDir: cfg.DataDir, Root: root, ExportMaxRows: cfg.ExportMaxRows, LogLevel: level,
-		Auth: cfg.Auth, Ops: cfg.Ops, LogJSON: logJSON(), LogOut: logOut, Mail: cfg.Mail, SiteURL: cfg.PublicURL(), TrustProxy: cfg.TrustProxy,
+		Auth: cfg.Auth, Ops: cfg.Ops, LogJSON: logJSON(), LogOut: logOut, Mail: cfg.Mail, Webhooks: cfg.Webhooks, SiteURL: cfg.PublicURL(), TrustProxy: cfg.TrustProxy,
 	})
 	if err == nil && !cfg.HasPublicURL() {
 		// Say it once, at boot, rather than letting someone discover it in a

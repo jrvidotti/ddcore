@@ -74,8 +74,12 @@ export interface DDCoreAPI {
    * `maxAttempts` is how many times a failing job is retried before it is left
    * as failed; the default is 3. Set it to 1 for work whose failure is
    * permanent, or whose effects outside the database must not be repeated.
+   *
+   * `backoff` is how long a failed attempt waits: `"fixed"` (the default) is
+   * thirty seconds every time; `"exponential"` doubles from thirty seconds up to
+   * an hour, which suits work that talks to somebody else's server.
    */
-  enqueue(method: string, args?: Record<string, any>, opts?: { queue?: string; runAfter?: string; timeout?: number; maxAttempts?: number }): number;
+  enqueue(method: string, args?: Record<string, any>, opts?: { queue?: string; runAfter?: string; timeout?: number; maxAttempts?: number; backoff?: "fixed" | "exponential" }): number;
   /**
    * Queues one message from a registered template and returns the name of its
    * `Email Delivery` record.
@@ -85,6 +89,18 @@ export interface DDCoreAPI {
    * rolls back sends nothing, which is the whole reason it works this way.
    */
   sendMail(args: SendMailArgs): { delivery: string };
+  webhooks: {
+    /**
+     * Emits an app event to every enabled `Webhook` whose custom event is
+     * `event`, and returns the names of the `Webhook Delivery` records written.
+     *
+     * Written on *this* transaction and sent by a worker after it commits, so a
+     * request that rolls back tells no receiver anything. `data` becomes the
+     * payload's `data`, frozen now. `key` makes the emit idempotent per
+     * webhook: a second emit with the same key fails instead of sending twice.
+     */
+    emit(event: string, data?: any, opts?: { key?: string; reference?: { doctype: string; name: string } }): { deliveries: string[] };
+  };
   /** The site's title, as the desk and the framework's own mail display it. */
   siteName(): string;
   publish(event: string, payload: any, opts?: { user?: string; doctype?: string; name?: string }): void;

@@ -416,6 +416,36 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		return e.DeliverMail(c, a.Delivery, a.Subject, d.Blocks)
 	case "mail.result":
 		return nil, e.RecordMail(c, a.Delivery, a.Status, a.Error)
+	case "webhook.emit":
+		var r struct {
+			Event     string            `json:"event"`
+			Data      any               `json:"data"`
+			Key       string            `json:"key"`
+			Reference *WebhookReference `json:"reference"`
+		}
+		if err := json.Unmarshal(raw, &r); err != nil {
+			return nil, cerr.Internal("invalid arguments in {0}: {1}", op, err)
+		}
+		names, err := c.EmitWebhook(r.Event, r.Data, r.Reference, r.Key)
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"deliveries": names}, nil
+	case "webhook.validate":
+		return nil, c.ValidateWebhook(a.Doc)
+	case "webhook.deliver":
+		return nil, e.DeliverWebhook(c, a.Delivery)
+	case "webhook.replay":
+		if err := c.ReplayWebhook(a.Delivery); err != nil {
+			return nil, err
+		}
+		return map[string]any{"delivery": a.Delivery, "status": WebhookQueued}, nil
+	case "webhook.sweep":
+		n, err := e.SweepWebhookDeliveries(c.Ctx)
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"deliveries": n}, nil
 	case "jobSweep":
 		n, err := e.SweepJobs(c.Ctx)
 		if err != nil {

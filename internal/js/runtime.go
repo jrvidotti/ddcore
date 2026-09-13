@@ -106,13 +106,21 @@ func toGoError(err error) error {
 			if x := obj.Get("extra"); x != nil && !goja.IsUndefined(x) {
 				e.Extra = x.Export()
 			}
+			e.Key, e.TitleKey = str(obj.Get("key")), str(obj.Get("titleKey"))
+			if x := obj.Get("args"); x != nil && !goja.IsUndefined(x) && e.Key != "" {
+				if a, ok := x.Export().([]any); ok {
+					e.Args = a
+				}
+			}
 			return e
 		}
 		// A Go error thrown through the bridge: message carries the JSON.
 		msg := str(obj.Get("message"))
 		if i := strings.Index(msg, "ddcore:{"); i >= 0 {
 			var e cerr.Error
-			if json.Unmarshal([]byte(msg[i+6:]), &e) == nil {
+			// len("ddcore:"), not 6: the colon left in front made this parse
+			// fail every time.
+			if json.Unmarshal([]byte(msg[i+len("ddcore:"):]), &e) == nil {
 				e.Status = statusFor(e.Type)
 				return &e
 			}

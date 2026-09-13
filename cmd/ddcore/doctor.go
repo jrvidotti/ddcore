@@ -54,10 +54,11 @@ type doctorReport struct {
 	Ops       config.OpsPolicy    `json:"ops"`
 	// Secrets are names. A doctor report is pasted into issues and chat
 	// windows, and a secret that reaches one of those has to be rotated.
-	Secrets  []string      `json:"secrets"`
-	Vault    *vaultSection `json:"vault,omitempty"`
-	Critical []string      `json:"critical,omitempty"`
-	Warnings []string      `json:"warnings,omitempty"`
+	Secrets  []string              `json:"secrets"`
+	Vault    *vaultSection         `json:"vault,omitempty"`
+	Webhooks *engine.WebhookStatus `json:"webhooks,omitempty"`
+	Critical []string              `json:"critical,omitempty"`
+	Warnings []string              `json:"warnings,omitempty"`
 }
 
 type vaultSection struct {
@@ -220,6 +221,18 @@ func gatherDoctor(ctx context.Context, cfg *config.File, windowMin int) *doctorR
 		rep.Warnings = append(rep.Warnings, "renames could not be read: "+db.RedactError(err))
 	}
 
+	if ws, err := e.WebhookStatus(ctx); err == nil {
+		rep.Webhooks = &ws
+		if ws.Off && ws.Enabled > 0 {
+			// Deliberate during a rehearsal, and exactly the setting nobody
+			// remembers to undo afterwards.
+			rep.Warnings = append(rep.Warnings, fmt.Sprintf("webhooks: DDCORE_WEBHOOKS=off, %d enabled webhook(s) receive nothing", ws.Enabled))
+		}
+		if ws.FailedLast > 0 {
+			rep.Warnings = append(rep.Warnings, fmt.Sprintf("webhooks: %d delivery(ies) failed in the last 24h (ddcore webhooks list --status Failed)", ws.FailedLast))
+		}
+	}
+
 	h := e.Health(ctx, engine.HealthOpts{Queue: true, Errors: true})
 	rep.Queue, rep.Errors = h.Queue, h.Errors
 	rep.Warnings = append(rep.Warnings, h.Warnings...)
@@ -355,6 +368,13 @@ func (r *doctorReport) printTail(w io.Writer, p func(string, string, ...any)) {
 		} else {
 			p("vault", "key not configured (DDCORE_SECRET_KEY is missing)")
 		}
+	}
+	if r.Webhooks != nil {
+		state := "on"
+		if r.Webhooks.Off {
+			state = "off (DDCORE_WEBHOOKS)"
+		}
+		p("webhooks", "%s, %d enabled, %d retrying, %d failed/24h", state, r.Webhooks.Enabled, r.Webhooks.Retrying, r.Webhooks.FailedLast)
 	}
 	for _, x := range r.Warnings {
 		fmt.Fprintf(w, "warning:    %s\n", x)

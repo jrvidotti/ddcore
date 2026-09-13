@@ -22,8 +22,16 @@
     const i = msg.indexOf("ddcore:{");
     if (i >= 0) {
       try {
-        const o = JSON.parse(msg.slice(i + 6));
-        return new DDCoreError(o.type, o.title, o.message, o.extra);
+        // "ddcore:" is seven characters. Slicing at six left the colon in
+        // front of the JSON, the parse always failed, and every typed error
+        // raised in Go reached the border as a 500 ScriptError.
+        const o = JSON.parse(msg.slice(i + "ddcore:".length));
+        const err = new DDCoreError(o.type, o.title, o.message, o.extra);
+        // The English template and its arguments, so the HTTP border can still
+        // translate the message into the reader's language.
+        if (o.key) { err.key = o.key; err.args = o.args; }
+        if (o.titleKey) err.titleKey = o.titleKey;
+        return err;
       } catch (_) {}
     }
     return e;
@@ -575,6 +583,14 @@
         key: args.key || "",
       });
     },
+    webhooks: {
+      // Written on this transaction, like sendMail: a request that rolls back
+      // has told no receiver anything.
+      emit(event, data, opts) {
+        opts = opts || {};
+        return call("webhook.emit", { event: String(event), data: data === undefined ? null : data, key: opts.key || "", reference: opts.reference || null });
+      },
+    },
     publish(event, payload, opts) { call("publish", { event, payload, opts: opts || {} }); },
     log: {
       info: (...a) => call("log", { level: "info", args: a.map(String) }),
@@ -625,6 +641,14 @@
       load(delivery) { return call("mail.load", { delivery }); },
       deliver(delivery, subject, blocks) { return call("mail.deliver", { delivery, subject, blocks }); },
       result(delivery, status, error) { call("mail.result", { delivery, status, error: error || "" }); },
+    },
+    // The delivery half of webhooks, reached only from core/services/webhooks.ts
+    // and the Webhook controller. Not on DDCoreAPI.
+    __webhooks: {
+      validate(doc) { call("webhook.validate", { doc }); },
+      deliver(delivery) { call("webhook.deliver", { delivery }); },
+      replay(delivery) { return call("webhook.replay", { delivery }); },
+      sweep() { return call("webhook.sweep", {}); },
     },
     __authSweep() { return call("authSweep", {}); },
     __jobSweep() { return call("jobSweep", {}); },

@@ -32,6 +32,7 @@ ALTER TABLE ddcore_job ADD COLUMN IF NOT EXISTS cancel_requested timestamptz;
 ALTER TABLE ddcore_job ADD COLUMN IF NOT EXISTS cancelled_by text;
 ALTER TABLE ddcore_job ADD COLUMN IF NOT EXISTS retry_of bigint;
 ALTER TABLE ddcore_job ADD COLUMN IF NOT EXISTS retried_as bigint;
+ALTER TABLE ddcore_job ADD COLUMN IF NOT EXISTS backoff text NOT NULL DEFAULT 'fixed';
 CREATE INDEX IF NOT EXISTS ddcore_job_status ON ddcore_job(status, run_after);
 CREATE INDEX IF NOT EXISTS ddcore_job_lease ON ddcore_job(status, lease_until);
 -- The retention sweep and the administrative list both read by status and age;
