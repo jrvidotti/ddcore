@@ -12,6 +12,18 @@ import (
 
 // InternalSchema are the framework tables that are not DocTypes.
 const InternalSchema = `
+CREATE TABLE IF NOT EXISTS ddcore_notification (
+  name text PRIMARY KEY, rule text NOT NULL, recipient text NOT NULL,
+  reference_doctype text NOT NULL, reference_name text NOT NULL, identity text NOT NULL,
+  title text NOT NULL DEFAULT '', message text NOT NULL DEFAULT '', desk boolean NOT NULL,
+  read boolean NOT NULL DEFAULT false, creation timestamptz NOT NULL DEFAULT clock_timestamp(),
+  email_delivery text,
+  UNIQUE(rule, reference_doctype, reference_name, recipient, identity));
+CREATE INDEX IF NOT EXISTS ddcore_notification_inbox ON ddcore_notification(recipient, creation DESC, name DESC) WHERE desk;
+CREATE TABLE IF NOT EXISTS ddcore_notification_due (
+  rule text NOT NULL, reference_doctype text NOT NULL, reference_name text NOT NULL, due timestamptz NOT NULL,
+  PRIMARY KEY (rule, reference_doctype, reference_name, due));
+CREATE INDEX IF NOT EXISTS ddcore_notification_email ON ddcore_notification(email_delivery) WHERE email_delivery IS NOT NULL;
 CREATE TABLE IF NOT EXISTS ddcore_session (
   sid text PRIMARY KEY, "user" text NOT NULL, created timestamptz NOT NULL DEFAULT now(),
   last_seen timestamptz NOT NULL DEFAULT now(), expires timestamptz NOT NULL, data jsonb);

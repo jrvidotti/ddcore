@@ -476,8 +476,14 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 	if err := c.queueDocWebhooks(d.Name, saved, "on_insert"); err != nil {
 		return nil, err
 	}
+	if err := c.queueDocNotifications(d.Name, saved, nil, "on_insert"); err != nil {
+		return nil, err
+	}
 	if saved.Docstatus() == 1 {
 		if err := c.queueDocWebhooks(d.Name, saved, "on_submit"); err != nil {
+			return nil, err
+		}
+		if err := c.queueDocNotifications(d.Name, saved, nil, "on_submit"); err != nil {
 			return nil, err
 		}
 	}
@@ -607,6 +613,9 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 		return nil, err
 	}
 	if err := c.queueDocWebhooks(d.Name, saved, webhookSaveEvent[action]); err != nil {
+		return nil, err
+	}
+	if err := c.queueDocNotifications(d.Name, saved, before, webhookSaveEvent[action]); err != nil {
 		return nil, err
 	}
 	c.notify(d, saved, action)

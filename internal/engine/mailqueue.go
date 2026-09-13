@@ -235,6 +235,14 @@ func (c *Ctx) findFile(ref string) (map[string]any, error) {
 // reason ddcore_job counts its own attempts there: the attempt happened whether
 // or not the work that followed it committed.
 func (e *Engine) LoadMail(c *Ctx, delivery string) (map[string]any, error) {
+	allowed, err := c.notificationMailAllowed(delivery)
+	if err != nil {
+		return nil, err
+	}
+	if !allowed {
+		e.recordMail(c, delivery, MailFailed, "Notification access revoked")
+		return map[string]any{"skip": true}, nil
+	}
 	rows, err := db.Select(c.Ctx, c.Q(),
 		`SELECT name, "to", template, lang, args, attachments, status FROM tab_email_delivery WHERE name = $1`, delivery)
 	if err != nil {
@@ -244,6 +252,9 @@ func (e *Engine) LoadMail(c *Ctx, delivery string) (map[string]any, error) {
 		return nil, cerr.NotFound("Email Delivery {0} does not exist", delivery)
 	}
 	r := rows[0]
+	if r["status"] == MailSent || r["status"] == MailUncertain {
+		return map[string]any{"skip": true}, nil
+	}
 	if _, err := e.DB.Pool.Exec(c.Ctx, `UPDATE tab_email_delivery SET attempts = attempts + 1 WHERE name = $1`, delivery); err != nil {
 		e.Log.Warn("could not count a delivery attempt", "delivery", delivery, "err", err)
 	}
@@ -263,6 +274,14 @@ func (e *Engine) LoadMail(c *Ctx, delivery string) (map[string]any, error) {
 // the caller to dispatch, and records nothing. Every other transport is sent
 // and recorded here.
 func (e *Engine) DeliverMail(c *Ctx, delivery, subject string, blocks []mail.Block) (map[string]any, error) {
+	allowed, err := c.notificationMailAllowed(delivery)
+	if err != nil {
+		return nil, err
+	}
+	if !allowed {
+		e.recordMail(c, delivery, MailFailed, "Notification access revoked")
+		return map[string]any{}, nil
+	}
 	rows, err := db.Select(c.Ctx, c.Q(), `SELECT "to", attachments FROM tab_email_delivery WHERE name = $1`, delivery)
 	if err != nil {
 		return nil, err

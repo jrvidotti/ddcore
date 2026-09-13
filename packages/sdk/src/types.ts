@@ -480,3 +480,18 @@ export interface Document<T = any> {
   toJSON(): any;
   flags: Record<string, any>;
 }
+
+/** Persistent notifications. Recipients are active User names, never external addresses. */
+export interface NotificationDef<D = Record<string, any>> {
+  name: string;
+  doctype: string;
+  /** Exactly one of event or date must be declared. */
+  event?: "on_insert" | "on_update" | "on_submit" | "on_cancel";
+  /** Offset in calendar days in the site's timezone; overdue matches are recovered. */
+  date?: { field: string; days: number };
+  condition?: (doc: D, before: D | null) => boolean;
+  recipients: (doc: D, before: D | null) => string[];
+  /** Plain text rendered in the recipient's language. */
+  desk?: { title: (doc: D, before: D | null) => string; message: (doc: D, before: D | null) => string };
+  email?: { template: string; args: (doc: D, before: D | null) => Record<string, any> };
+}

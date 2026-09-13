@@ -75,6 +75,9 @@ func New(e *engine.Engine, desk fs.FS) *Server {
 		r.Group(func(r chi.Router) {
 			r.Use(s.requireLogin)
 			r.Get("/events", s.events)
+			r.Get("/notifications", s.listNotifications)
+			r.Get("/notifications/count", s.notificationCount)
+			r.Patch("/notifications/{name}", s.setNotificationRead)
 			r.Get("/search/link", s.linkSearch)
 			r.Get("/search/link-titles", s.linkTitles)
 			r.Post("/search/link-titles", s.linkTitles)

@@ -121,6 +121,11 @@ type env struct {
 
 func setup(t *testing.T) *env {
 	t.Helper()
+	return setupApp(t, testApp(t))
+}
+
+func setupApp(t *testing.T, appDir string) *env {
+	t.Helper()
 	ctx := context.Background()
 	dsn, adminDSN, dbName := testDSN()
 	if dbName == "" {
@@ -138,7 +143,7 @@ func setup(t *testing.T) *env {
 		t.Fatal(err)
 	}
 	e0.DB.Close()
-	e, err := engine.New(ctx, engine.Config{DSN: dsn, Apps: []js.App{{Name: "demo", Dir: testApp(t)}}, Test: true, DataDir: t.TempDir(), Dev: true})
+	e, err := engine.New(ctx, engine.Config{DSN: dsn, Apps: []js.App{{Name: "demo", Dir: appDir}}, Test: true, DataDir: t.TempDir(), Dev: true})
 	if err != nil {
 		t.Fatal(err)
 	}

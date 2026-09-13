@@ -1,3 +1,10 @@
+// Keep these response types aligned with the public Desk SDK.
+export interface DeskNotification {
+  name: string; title: string; message: string; creation: string; read: boolean;
+  reference_doctype: string; reference_name: string;
+}
+export interface NotificationListOptions { limit?: number; offset?: number; read?: boolean }
+export interface NotificationPage { data: DeskNotification[]; total: number }
 // Thin client for the ddcore HTTP API. Every error becomes a DDCoreError with
 // type/title/message so the UI can show it the same way the server phrased it.
 export class DDCoreError extends Error {
@@ -73,6 +80,12 @@ export const api = {
   post: <T = any>(url: string, body?: any) => request<T>("POST", url, body),
   put: <T = any>(url: string, body?: any) => request<T>("PUT", url, body),
   delete: <T = any>(url: string) => request<T>("DELETE", url),
+
+  notifications: {
+    list: (options: NotificationListOptions = {}) => request<NotificationPage>("GET", "/api/notifications" + q(options)),
+    count: () => request<number>("GET", "/api/notifications/count"),
+    setRead: (name: string, read: boolean) => request<DeskNotification>("PATCH", "/api/notifications/" + encodeURIComponent(name), { read }),
+  },
 
   login: (usr: string, pwd: string) => request("POST", "/api/login", { usr, pwd }),
   logout: () => request("POST", "/api/logout"),

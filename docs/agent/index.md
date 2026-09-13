@@ -15,6 +15,7 @@ Available documents (also as MCP resources `ddcore://docs/<name>`):
 - `report-api` — `defineReport`, `defineWorkspace`, cards and charts
 - `extending` — adding fields to, and overriding properties of, another app's DocTypes
 - `mail` — mail templates, blocks, attachments and the delivery record
+- `notifications` — persistent event/date rules, authorized recipients, Desk inbox and optional email
 - `webhooks` — outgoing webhooks: subscriptions, signed delivery after commit, retries, replay and the audit record
 - `i18n` — English as the source language, catalogues, Select values, dates and the site timezone
 - `migrations` — renames, fieldtype changes, patches and the expand → contract route

@@ -94,7 +94,25 @@ export interface DialogSpec {
   size?: "sm" | "md" | "lg";
 }
 
+/** A persisted notification visible to the current authenticated user. */
+export interface DeskNotification {
+  name: string;
+  title: string;
+  message: string;
+  creation: string;
+  read: boolean;
+  reference_doctype: string;
+  reference_name: string;
+}
+export interface NotificationListOptions { limit?: number; offset?: number; read?: boolean }
+export interface NotificationPage { data: DeskNotification[]; total: number }
+
 export interface DeskAPI {
+  notifications: {
+    list(options?: NotificationListOptions): Promise<NotificationPage>;
+    count(): Promise<number>;
+    setRead(name: string, read: boolean): Promise<DeskNotification>;
+  };
   _(s: string, args?: any[]): string;
   __(s: string, args?: any[]): string;
   call(path: string, args?: Record<string, any>): Promise<any>;

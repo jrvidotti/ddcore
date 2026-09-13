@@ -2,7 +2,8 @@
   import "../app.css";
   import { __, loadBoot, isLoggedIn, siteName } from "$lib/boot.svelte";
   import { installDeskSDK, loadAppIncludes } from "$lib/desk-sdk";
-  import { connectEvents } from "$lib/events";
+  import { connectEvents, disconnectEvents } from "$lib/events";
+  import { startNotifications, stopNotifications } from "$lib/notifications.svelte";
   import { clearMetaCache } from "$lib/meta";
   import Sidebar from "$lib/components/Sidebar.svelte";
   import Toasts from "$lib/components/Toasts.svelte";
@@ -14,7 +15,7 @@
   import { onMessage } from "$lib/api";
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
-  import { onMount } from "svelte";
+  import { onMount, onDestroy } from "svelte";
 
   let { children } = $props();
   let ready = $state(false);
@@ -32,6 +33,11 @@
     }
   }
 
+  $effect(() => {
+    if (isLogin) { stopNotifications(); disconnectEvents(); }
+  });
+  onDestroy(() => { stopNotifications(); disconnectEvents(); });
+
   onMount(async () => {
     installDeskSDK();
     onMessage((m) => toast(m.message, { title: m.title, indicator: m.indicator || "blue" }));
@@ -42,6 +48,7 @@
       if (b.user === "Guest" && !isLogin) { goto("/login?redirect=" + encodeURIComponent(page.url.pathname + page.url.search)); }
       else if (b.user !== "Guest") {
         await loadAppIncludes(b.apps, b.loaded);
+        startNotifications();
         connectEvents(async () => { clearMetaCache(); const nb = await loadBoot(); await loadAppIncludes(nb.apps, nb.loaded); toast(__("Apps reloaded"), { indicator: "blue", timeout: 2000 }); });
       }
     } catch (e) { console.error(e); }

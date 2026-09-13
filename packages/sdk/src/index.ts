@@ -1,7 +1,7 @@
 // @ddcore/sdk — the API apps use on the server (runs inside the ddcore binary).
 import type {
   AppDef, BaseDoc, ControllerDef, Context, DoctypeDef, Document, ExtensionDef, Filters, ListArgs,
-  MailTemplateDef, PatchDef, ReportDef, SendMailArgs, WorkspaceDef,
+  MailTemplateDef, NotificationDef, PatchDef, ReportDef, SendMailArgs, WorkspaceDef,
 } from "./types";
 export * from "./types";
 
@@ -251,3 +251,9 @@ export function whitelisted<F extends (...a: any[]) => any>(fn: F, opts: Whiteli
 export const _ = (text: string, args?: any[]) => ddcore._(text, args);
 
 export type { Document, Context };
+
+/** Declares a synchronous notification rule in notifications/*.notification.ts. */
+export function defineNotification<D = Record<string, any>>(def: NotificationDef<D>): NotificationDef<D> {
+  __ddcore.register("notification", def);
+  return def;
+}
