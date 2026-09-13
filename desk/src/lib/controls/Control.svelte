@@ -19,12 +19,14 @@
 
   let {
     field, value, onchange, onbusychange = undefined, doc = {}, readOnly = false, mandatory = false, error = "", compact = false, query = undefined, inGrid = false,
-    buttons = [],
+    buttons = [], extraOptions = [],
   }: {
     field: Field; value: any; onchange: (v: any) => void; doc?: any; readOnly?: boolean; mandatory?: boolean; error?: string; compact?: boolean;
     query?: () => { filters?: any }; inGrid?: boolean; onbusychange?: (busy: boolean) => void;
     /** actions attached to this field, rendered beside the input (see frm.addFieldButton) */
     buttons?: FieldButton[];
+    /** Select only: choices appended after a divider, beyond the field's options (list filters). */
+    extraOptions?: { value: string; label: string }[];
   } = $props();
 
   const id = `f-${Math.random().toString(36).slice(2, 8)}`;
@@ -99,6 +101,10 @@
           <select {id} class="input" class:error={!!shownError} disabled={ro} value={value ?? ""} onchange={(e) => onchange((e.target as HTMLSelectElement).value || null)}>
             {#if !selectOptions(field).includes("")}<option value=""></option>{/if}
             {#each selectOptions(field) as o, i}<option value={o}>{selectLabels(field)[i] ?? o}</option>{/each}
+            {#if extraOptions.length}
+              <hr />
+              {#each extraOptions as o (o.value)}<option value={o.value}>{o.label}</option>{/each}
+            {/if}
           </select>
         {:else if ft === "Link" || ft === "Dynamic Link"}
           <LinkControl {field} {value} {onchange} {doc} readOnly={ro} {query} {error} {id} />

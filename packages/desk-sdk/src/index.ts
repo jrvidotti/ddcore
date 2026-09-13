@@ -158,6 +158,15 @@ export interface ListViewOptions<T extends BaseDoc = BaseDoc> {
   indicator?: (row: T) => { label: string; color: string } | null | undefined;
   /** `false` hides the docstatus filter of a submittable DocType. Default `true`. */
   docstatusFilter?: boolean;
+  /** Fields fetched beyond the columns, for `indicator`, `badges` and `formatters`. */
+  fields?: (keyof T & string)[];
+  /** Extra indicators shown after the status, in the same cell. */
+  badges?: (row: T) => { label: string; color: string }[] | null | undefined;
+  /**
+   * Choices appended after a divider to a standard Select filter, keyed by fieldname. Choosing
+   * one applies its `filters` in place of `[field, "=", value]`.
+   */
+  filterOptions?: Partial<Record<keyof T & string, { value: string; label: string; filters: [string, string, any][] }[]>>;
 }
 
 export declare function defineListView<T extends BaseDoc = BaseDoc>(doctype: string, opts: ListViewOptions<T>): void;

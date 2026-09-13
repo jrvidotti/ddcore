@@ -150,6 +150,24 @@ Most lists need no `indicator` at all: declare `optionColors` on the status fiel
 colours and translates it on its own. Reach for `indicator` only when the label is not a field
 value — and never key a colour on text a reader sees, since that changes with the language.
 
+Badges and extra filter choices go together when a status has sub-states that are not a value of the
+field — say, open entries that are also overdue:
+
+```ts
+defineListView<Entry>("Entry", {
+  fields: ["overdue_count"],            // fetched though not a column
+  badges: (row) => (row.overdue_count ? [{ label: __("Overdue"), color: "red" }] : []),
+  filterOptions: {
+    status: [{ value: "overdue", label: __("Overdue"), filters: [["status", "=", "Open"], ["overdue_count", ">=", 1]] }],
+  },
+});
+```
+
+`badges` are drawn after the status, in the same cell. `filterOptions` appends choices after a
+divider to that field's standard filter; choosing one sends its `filters` instead of an equality, and
+the URL carries its `value` (`?status=overdue`). Filters only reach columns, so a sub-state computed
+from other documents has to be stored on the document to be filterable.
+
 A DocType may have **several** form scripts: its owner's `<snake>.form.ts`, plus one per app extending it
 (`extensions/<snake>.form.ts` — see `extending`). Their handlers accumulate, in app load order; every `refresh`,
 `validate` and `onChange` runs. `defineListView` is the exception: one per DocType, and the last registration wins.

@@ -14,6 +14,7 @@
   import { subscribe } from "$lib/events";
   import { toCsv, downloadCsv } from "$lib/csv";
   import { deskSDK } from "$lib/desk-sdk";
+  import { buildListFilters, type ListFilterOption } from "./list-filters";
   import { clearListFilters, listStateFromSearchParams, listStateToSearchParams, type ListUrlState } from "./list-state";
   import { exportChoice, exportChoices, exportUrl } from "./export-options";
 
@@ -46,6 +47,9 @@
     formatters?: Record<string, (value: any, row: any) => string>;
     indicator?: (row: any) => { label: string; color: string } | null | undefined;
     docstatusFilter?: boolean;
+    fields?: string[];
+    badges?: (row: any) => { label: string; color: string }[] | null | undefined;
+    filterOptions?: Record<string, ListFilterOption[] | undefined>;
   }
   const settings = $derived<ListSettings>(deskSDK.listSettings(doctype) || {});
 
@@ -110,7 +114,7 @@
 
   function buildFilters() {
     const out: any[] = [];
-    for (const [k, v] of Object.entries(filters)) if (v !== null && v !== undefined && v !== "") out.push([k, "=", v]);
+    out.push(...buildListFilters(filters, settings.filterOptions));
     if (showDocstatusFilter && docstatusFilter !== "") out.push(["docstatus", "=", Number(docstatusFilter)]);
     return out;
   }
@@ -127,7 +131,7 @@
     if (!meta) return;
     loading = true;
     try {
-      const fields = ["name", "modified", "docstatus", "owner", ...columns.map((c) => c.fieldname!)];
+      const fields = ["name", "modified", "docstatus", "owner", ...columns.map((c) => c.fieldname!), ...(settings.fields || [])];
       if (statusField && !fields.includes(statusField.fieldname!)) fields.push(statusField.fieldname!);
       const res = await api.list(doctype, { filters: buildFilters(), or_filters: buildOr(), fields: [...new Set(fields)], order_by: orderBy || undefined, limit: pageSize, start, with_count: true });
       rows = res.rows;
@@ -293,7 +297,7 @@
     {#each stdFilters as f (f.fieldname)}
       <div class="select-filter" class:labelled={!!f.label}>
         {#if f.fieldtype === "Check"}<span class="label-spacer" aria-hidden="true">&nbsp;</span>{/if}
-        <Control field={{ ...f, reqd: false, readOnly: false, default: undefined }} value={filters[f.fieldname!]} onchange={(v) => updateFilter(f.fieldname!, v)} compact />
+        <Control field={{ ...f, reqd: false, readOnly: false, default: undefined }} value={filters[f.fieldname!]} onchange={(v) => updateFilter(f.fieldname!, v)} compact extraOptions={settings.filterOptions?.[f.fieldname!] || []} />
         {#if f.fieldtype === "Select" && filters[f.fieldname!] !== null && filters[f.fieldname!] !== undefined && filters[f.fieldname!] !== ""}
           <button class="btn icon filter-clear" onclick={() => clearFilter(f.fieldname!)} title={__("Remove the {0} filter", [f.label])} aria-label={__("Remove the {0} filter", [f.label])}><Icon name="x" size={14} /></button>
         {/if}
@@ -340,19 +344,20 @@
                   {@const linkTitle = getLinkTitle(linkTarget, linkVal)}
                   <a href={`/app/${encodeURIComponent(linkTarget)}/${encodeURIComponent(linkVal)}`} title={linkVal} onclick={(e) => e.stopPropagation()}>{linkTitle || linkVal}</a>
                 {:else if c.fieldname === statusField?.fieldname}
-                  <span class="indicator {statusColor(r[c.fieldname!], c)}">{__(r[c.fieldname!])}</span>
+                  <span class="badges"><span class="indicator {statusColor(r[c.fieldname!], c)}">{__(r[c.fieldname!])}</span>{#if !showIndicatorColumn}{@render badges(r)}{/if}</span>
                 {:else}
                   {cellText(r, c)}
                 {/if}
               </td>
             {/each}
             {#if showIndicatorColumn}
-              <td>
+              <td><span class="badges">
                 {#if settings.indicator}
                   {@const ind = settings.indicator(r)}
                   {#if ind}<span class="indicator {ind.color}">{ind.label}</span>{/if}
                 {:else if statusOf(r)}<span class="indicator {statusColor(statusOf(r), statusField ?? undefined)}">{statusLabelOf(r)}</span>{/if}
-              </td>
+                {@render badges(r)}
+              </span></td>
             {/if}
             <td class="num muted small">{timeAgo(r.modified)}</td>
           </tr>
@@ -374,7 +379,12 @@
 </div>
 {/if}
 
+{#snippet badges(r: any)}
+  {#each settings.badges?.(r) || [] as b (b.label)}<span class="indicator {b.color}">{b.label}</span>{/each}
+{/snippet}
+
 <style>
+  .badges { display: inline-flex; flex-wrap: wrap; gap: 4px; }
   .list-filters { padding: 12px 14px; margin-bottom: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px 10px; align-items: start; }
   .filter-search { grid-column: span 2; min-width: 0; }
   .filter-search label, .select-filter > label, .label-spacer { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
