@@ -22,8 +22,16 @@
     const i = msg.indexOf("ddcore:{");
     if (i >= 0) {
       try {
-        const o = JSON.parse(msg.slice(i + 6));
-        return new DDCoreError(o.type, o.title, o.message, o.extra);
+        // "ddcore:" is seven characters. Slicing at six left the colon in
+        // front of the JSON, the parse always failed, and every typed error
+        // raised in Go reached the border as a 500 ScriptError.
+        const o = JSON.parse(msg.slice(i + "ddcore:".length));
+        const err = new DDCoreError(o.type, o.title, o.message, o.extra);
+        // The English template and its arguments, so the HTTP border can still
+        // translate the message into the reader's language.
+        if (o.key) { err.key = o.key; err.args = o.args; }
+        if (o.titleKey) err.titleKey = o.titleKey;
+        return err;
       } catch (_) {}
     }
     return e;
