@@ -198,8 +198,33 @@ export interface DeskAPI {
 }
 
 export declare function defineForm<T extends BaseDoc = BaseDoc>(doctype: string, handlers: FormHandlers<T>): void;
+export type DeskViewMode = "list" | "calendar" | "cards";
+
+export interface CalendarViewOptions<T extends BaseDoc = BaseDoc> {
+  /** Required: Date or Datetime field to plot records on the calendar */
+  field: keyof T & string;
+  /** Optional: Datetime or Date field for range spans */
+  endField?: keyof T & string;
+  /** Field shown as label inside the calendar chip (defaults to titleField or name) */
+  titleField?: keyof T & string;
+  /** Field determining chip color (e.g. "status", uses optionColors automatically) */
+  colorField?: keyof T & string;
+}
+
+export interface CardViewOptions<T extends BaseDoc = BaseDoc> {
+  title?: keyof T & string;
+  subtitle?: keyof T & string;
+  dateField?: keyof T & string;
+  indicator?: (row: T) => { label: string; color: string } | null | undefined;
+  badges?: (row: T) => { label: string; color: string }[] | null | undefined;
+}
+
 /** Adjustments for a DocType's list view (see docs/agent/form-api.md). */
 export interface ListViewOptions<T extends BaseDoc = BaseDoc> {
+  /** Allowed views for this DocType; defaults to ["list", "cards"] (or ["list", "calendar", "cards"] when calendar is defined) */
+  views?: DeskViewMode[];
+  calendar?: CalendarViewOptions<T>;
+  card?: CardViewOptions<T>;
   /** Displayed columns, overriding `inListView` from meta. */
   columns?: (keyof T & string)[];
   /** Initial filters; URL query string still takes precedence. */

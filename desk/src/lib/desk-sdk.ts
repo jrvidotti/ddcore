@@ -10,6 +10,46 @@ import { getMeta } from "./meta";
 import { addDays, addMonths, monthEnd, monthStart, today } from "./datetime";
 import { getRememberedWorkspace } from "./components/sidebar-workspace";
 
+export type BaseDoc = Record<string, any>;
+export type DeskViewMode = "list" | "calendar" | "cards";
+
+export interface CalendarViewOptions<T extends BaseDoc = BaseDoc> {
+  /** Required: Date or Datetime field to plot records on the calendar */
+  field: keyof T & string;
+  /** Optional: Datetime or Date field for range spans */
+  endField?: keyof T & string;
+  /** Field shown as label inside the calendar chip (defaults to titleField or name) */
+  titleField?: keyof T & string;
+  /** Field determining chip color (e.g. "status", uses optionColors automatically) */
+  colorField?: keyof T & string;
+}
+
+export interface CardViewOptions<T extends BaseDoc = BaseDoc> {
+  title?: keyof T & string;
+  subtitle?: keyof T & string;
+  dateField?: keyof T & string;
+  indicator?: (row: T) => { label: string; color: string } | null | undefined;
+  badges?: (row: T) => { label: string; color: string }[] | null | undefined;
+}
+
+export interface ListViewOptions<T extends BaseDoc = BaseDoc> {
+  /** Allowed views for this DocType; defaults to ["list", "cards"] (or ["list", "calendar", "cards"] when calendar is defined) */
+  views?: DeskViewMode[];
+  calendar?: CalendarViewOptions<T>;
+  card?: CardViewOptions<T>;
+  columns?: (keyof T & string)[];
+  filters?: Partial<Record<keyof T & string, any>>;
+  orderBy?: string;
+  pageSize?: number;
+  formatters?: Partial<Record<keyof T & string, (value: any, row: T) => string>>;
+  indicator?: (row: T) => { label: string; color: string } | null | undefined;
+  docstatusFilter?: boolean;
+  modifiedColumn?: boolean;
+  fields?: (keyof T & string)[];
+  badges?: (row: T) => { label: string; color: string }[] | null | undefined;
+  filterOptions?: Partial<Record<keyof T & string, { value: string; label: string; filters: [string, string, any][] }[]>>;
+}
+
 const listRegistry = new Map<string, any>();
 
 export const deskSDK = {
