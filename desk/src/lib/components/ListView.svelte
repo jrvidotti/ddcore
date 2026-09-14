@@ -3,7 +3,7 @@
   import { api } from "$lib/api";
   import { getMeta, selectLabels, selectOptions, type Meta, type Field, isLayout } from "$lib/meta";
   import { formatValue, statusColor, timeAgo } from "$lib/format";
-  import { __, doctypeLabel } from "$lib/boot.svelte";
+  import { __, boot, doctypeLabel } from "$lib/boot.svelte";
   import { showError, toast, confirm, dialog } from "$lib/ui.svelte";
   import { getLinkTitle, registerTitles } from "$lib/titles.svelte";
   import Control from "$lib/controls/Control.svelte";
@@ -70,6 +70,37 @@
   const showDocstatusFilter = $derived(!!meta?.doctype.submittable && settings.docstatusFilter !== false);
   const showModifiedColumn = $derived(settings.modifiedColumn !== false);
   const stdFilters = $derived(meta ? meta.doctype.fields.filter((f) => f.inStandardFilter && !isLayout(f)) : []);
+  const isDocTypeRef = (f: Field) =>
+    f.fieldname === "ref_doctype" || f.fieldname === "reference_doctype" || (!!f.fieldname && f.fieldname.endsWith("_doctype"));
+
+  const doctypeChoices = $derived.by(() => {
+    const dts = boot.data?.doctypes || {};
+    const names = Object.keys(dts);
+    names.sort((a, b) => {
+      const la = dts[a]?.label || a;
+      const lb = dts[b]?.label || b;
+      return la.localeCompare(lb);
+    });
+    return {
+      options: names,
+      optionLabels: names.map((n) => dts[n]?.label || n),
+    };
+  });
+
+  function filterField(f: Field): Field {
+    if (isDocTypeRef(f) && f.fieldtype === "Data") {
+      return {
+        ...f,
+        fieldtype: "Select",
+        options: doctypeChoices.options,
+        optionLabels: doctypeChoices.optionLabels,
+        reqd: false,
+        readOnly: false,
+        default: undefined,
+      };
+    }
+    return { ...f, reqd: false, readOnly: false, default: undefined };
+  }
   const statusField = $derived(meta?.doctype.fields.find((f) => f.fieldname === "status"));
   /**
    * Whether to add the trailing indicator column. A `status` field that is
@@ -106,11 +137,20 @@
     goto(`/app/${encodeURIComponent(doctype)}${lastUrlSearch}`, { noScroll: true, keepFocus: true });
     load();
   }
-  function updateFilter(name: string, value: any) {
+  let filterTimer: any;
+  function updateFilter(name: string, value: any, debounce = false) {
     const next = { ...filters };
     if (value === null || value === undefined || value === "") delete next[name];
     else next[name] = value;
-    updateListState({ ...currentListState(), filters: next, page: 1 });
+    if (debounce) {
+      applyListState({ ...currentListState(), filters: next, page: 1 });
+      clearTimeout(filterTimer);
+      filterTimer = setTimeout(() => {
+        updateListState({ ...currentListState(), filters: next, page: 1 });
+      }, 250);
+    } else {
+      updateListState({ ...currentListState(), filters: next, page: 1 });
+    }
   }
   function clearFilter(name: string) { updateFilter(name, null); }
 
@@ -267,7 +307,9 @@
   }
   function cellText(r: any, c: Field) {
     const fx = settings.formatters?.[c.fieldname!];
-    return fx ? fx(r[c.fieldname!], r) : formatValue(r[c.fieldname!], c);
+    if (fx) return fx(r[c.fieldname!], r);
+    if (isDocTypeRef(c) && r[c.fieldname!]) return doctypeLabel(r[c.fieldname!]);
+    return formatValue(r[c.fieldname!], c);
   }
 </script>
 
@@ -301,11 +343,12 @@
       </div>
     {/if}
     {#each stdFilters as f (f.fieldname)}
-      <div class="select-filter" class:labelled={!!f.label}>
-        {#if f.fieldtype === "Check"}<span class="label-spacer" aria-hidden="true">&nbsp;</span>{/if}
-        <Control field={{ ...f, reqd: false, readOnly: false, default: undefined }} value={filters[f.fieldname!]} onchange={(v) => updateFilter(f.fieldname!, v)} compact extraOptions={settings.filterOptions?.[f.fieldname!] || []} />
-        {#if f.fieldtype === "Select" && filters[f.fieldname!] !== null && filters[f.fieldname!] !== undefined && filters[f.fieldname!] !== ""}
-          <button class="btn icon filter-clear" onclick={() => clearFilter(f.fieldname!)} title={__("Remove the {0} filter", [f.label])} aria-label={__("Remove the {0} filter", [f.label])}><Icon name="x" size={14} /></button>
+      {@const ff = filterField(f)}
+      <div class="select-filter" class:labelled={!!ff.label}>
+        {#if ff.fieldtype === "Check"}<span class="label-spacer" aria-hidden="true">&nbsp;</span>{/if}
+        <Control field={ff} value={filters[f.fieldname!]} onchange={(v) => updateFilter(f.fieldname!, v, ff.fieldtype === "Data")} compact extraOptions={settings.filterOptions?.[f.fieldname!] || []} />
+        {#if (ff.fieldtype === "Select" || ff.fieldtype === "Data") && filters[f.fieldname!] !== null && filters[f.fieldname!] !== undefined && filters[f.fieldname!] !== ""}
+          <button class="btn icon filter-clear" onclick={() => clearFilter(f.fieldname!)} title={__("Remove the {0} filter", [ff.label])} aria-label={__("Remove the {0} filter", [ff.label])}><Icon name="x" size={14} /></button>
         {/if}
       </div>
     {/each}

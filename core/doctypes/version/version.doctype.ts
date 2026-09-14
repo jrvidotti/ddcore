@@ -3,10 +3,11 @@ import { defineDoctype } from "@ddcore/sdk";
 export default defineDoctype({
   name: "Version",
   module: "Core",
-  label: "Version",
+  sortField: "creation",
+  sortOrder: "desc",
   fields: [
-    { fieldname: "ref_doctype", fieldtype: "Data", label: "DocType", searchIndex: true },
-    { fieldname: "docname", fieldtype: "Data", label: "Document", searchIndex: true },
+    { fieldname: "ref_doctype", fieldtype: "Data", label: "DocType", searchIndex: true, inListView: true, inStandardFilter: true },
+    { fieldname: "docname", fieldtype: "Data", label: "Document", searchIndex: true, inListView: true, inStandardFilter: true },
     { fieldname: "data", fieldtype: "JSON", label: "Changes" },
   ],
   permissions: [
