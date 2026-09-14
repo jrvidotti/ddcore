@@ -43,11 +43,28 @@
     wsMenuOpen = false;
     rememberWorkspace(name);
     remembered = name;
+    if (typeof window !== "undefined" && window.innerWidth <= 800) {
+      open = false;
+    }
     goto(`/app/${encodeURIComponent(name)}`);
   }
 
+  function onWindowClick(e: MouseEvent) {
+    if (!open || typeof window === "undefined" || window.innerWidth > 800) return;
+    const target = e.target as HTMLElement | null;
+    if (target?.closest("aside.sidebar a")) {
+      open = false;
+    }
+  }
+
   const itemHref = (it: any) => workspaceItemHref(activeWorkspace?.name || "", it);
-  async function logout() { await api.logout(); stopNotifications(); disconnectEvents(); location.href = "/login"; }
+  async function logout() {
+    if (typeof window !== "undefined" && window.innerWidth <= 800) open = false;
+    await api.logout();
+    stopNotifications();
+    disconnectEvents();
+    location.href = "/login";
+  }
   const otherDoctypes = $derived(systemDoctypes(boot.data));
   let showCore = $state(false);
 
@@ -68,11 +85,14 @@
   }
 </script>
 
-<svelte:window onpointerdown={onPointerDown} onkeydown={onKeydown} />
+<svelte:window onpointerdown={onPointerDown} onkeydown={onKeydown} onclick={onWindowClick} />
 
 <aside class="sidebar" class:open>
   <div class="brand">
     <a href="/app" style="display:flex;align-items:center;gap:8px;color:inherit;text-decoration:none"><span class="logo">{siteLogo()}</span><strong>{siteName()}</strong></a>
+    <button class="btn icon sidebar-close-btn" onclick={() => (open = false)} aria-label={__("Close menu")} type="button">
+      <Icon name="x" size={16} />
+    </button>
   </div>
   {#if workspaces.length > 1}
     <div class="workspace-switcher dropdown">
@@ -144,10 +164,10 @@
       </button>
       {#if menuOpen}
         <div class="menu up" role="menu">
-          <button role="menuitem" onclick={() => { menuOpen = false; goto("/app/profile"); }}>
+          <button role="menuitem" onclick={() => { menuOpen = false; if (typeof window !== "undefined" && window.innerWidth <= 800) open = false; goto("/app/profile"); }}>
             <Icon name="user" size={14} /> {__("My profile")}
           </button>
-          <button role="menuitem" onclick={() => { menuOpen = false; openShortcutsHelp(); }}>
+          <button role="menuitem" onclick={() => { menuOpen = false; if (typeof window !== "undefined" && window.innerWidth <= 800) open = false; openShortcutsHelp(); }}>
             <Icon name="keyboard" size={14} /> {__("Keyboard shortcuts")}
           </button>
           <button role="menuitem" onclick={logout}>
@@ -163,6 +183,7 @@
   .sidebar { width: var(--sidebar-w); background: #fff; border-right: 1px solid var(--border); display: flex; flex-direction: column; height: 100vh; position: sticky; top: 0; flex-shrink: 0; }
   .brand { padding: 14px 16px; border-bottom: 1px solid var(--border); font-size: 15px; }
   .logo { display: inline-flex; width: 26px; height: 26px; border-radius: 7px; background: var(--primary); color: #fff; align-items: center; justify-content: center; font-weight: 700; overflow: hidden; }
+  .sidebar-close-btn { display: none; }
   .workspace-switcher { padding: 8px 10px; border-bottom: 1px solid var(--border); }
   .workspace-btn { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 8px; border: 1px solid var(--border); background: #fafafa; border-radius: 6px; cursor: pointer; text-align: left; font-size: 13px; font-weight: 500; color: var(--text); }
   .workspace-btn:hover { background: #f3f4f6; }
@@ -188,5 +209,11 @@
   /* The footer sits at the bottom of the viewport, so the menu opens upward. */
   :global(.dropdown .menu.up) { top: auto; bottom: 100%; margin: 0 0 4px; left: 0; right: 0; }
   :global(.dropdown .menu.up button) { display: flex; align-items: center; gap: 8px; }
-  @media (max-width: 800px) { .sidebar { position: fixed; z-index: 50; transform: translateX(-100%); transition: transform .15s; } .sidebar.open { transform: none; } }
+  @media (max-width: 800px) {
+    .brand { display: flex; align-items: center; justify-content: space-between; }
+    .sidebar-close-btn { display: inline-flex; width: 28px; height: 28px; padding: 0; align-items: center; justify-content: center; border: 0; background: none; color: var(--muted); cursor: pointer; border-radius: 4px; }
+    .sidebar-close-btn:hover { background: #f3f4f6; color: var(--text); }
+    .sidebar { position: fixed; z-index: 50; transform: translateX(-100%); transition: transform .2s ease; box-shadow: none; }
+    .sidebar.open { transform: none; box-shadow: 4px 0 24px rgba(0, 0, 0, 0.15); }
+  }
 </style>

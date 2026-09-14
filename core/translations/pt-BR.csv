@@ -18,7 +18,7 @@ Allowed,Permitido,# core.doctypes.audit_event.audit_event.doctype
 Amend,Emendar,# desk/src/lib/components/FormView.svelte:364
 An account was created for you on {0}. Choose a password to get in.,Uma conta foi criada para você em {0}. Escolha uma senha para entrar.,# core/mail/invite.mail.ts:22
 Apply,Aplicar,# desk/src/lib/controls/Grid.svelte:29
-Apps reloaded,Apps recarregadas,# desk/src/routes/+layout.svelte:54
+Apps reloaded,Apps recarregadas,# desk/src/routes/+layout.svelte:100
 Arguments,Argumentos,# core.doctypes.email_delivery.email_delivery.doctype
 Ask for a new link,Pedir um novo link,# desk/src/routes/login/reset/+page.svelte:47
 Assign,Atribuir,# desk/src/lib/components/AssignModal.svelte:118
@@ -68,6 +68,7 @@ Choose at least one document event,Escolha pelo menos um evento de documento,# i
 Clear,Limpar,# desk/src/lib/controls/Control.svelte:163
 Clear filters,Limpar filtros,# desk/src/lib/components/ListView.svelte:360
 Close,Fechar,# desk/src/lib/components/AssignModal.svelte:73
+Close menu,Fechar menu,# desk/src/lib/components/Sidebar.svelte:93
 "Close modals, menus or dialogs","Fechar modais, menus ou diálogos",# desk/src/lib/shortcuts.ts:100
 Close the options list,Fechar lista de opções,# desk/src/lib/shortcuts.ts:108
 Closed,Fechado,# desk/src/routes/app/todo/+page.svelte:132
@@ -261,7 +262,7 @@ No tasks found,Nenhuma tarefa encontrada,# desk/src/routes/app/todo/+page.svelte
 No workspace declared. Create an app with ddcore new-app and declare a workspace.,Nenhum workspace declarado. Crie um app com ddcore new-app e declare um workspace.,# desk/src/routes/app/+page.svelte:20
 Not saved,Não salvo,# desk/src/lib/components/FormView.svelte:313
 Notification not found,Notificação não encontrada,# internal/engine/notifications.go:315
-Notifications,Notificações,# desk/src/lib/components/Sidebar.svelte:110
+Notifications,Notificações,# desk/src/lib/components/Sidebar.svelte:130
 OK,OK,# desk/src/lib/ui.svelte.ts:96
 On Cancel,Ao Cancelar,# core.doctypes.webhook.webhook.doctype
 On Delete,Ao Excluir,# core.doctypes.webhook.webhook.doctype
@@ -272,6 +273,7 @@ Only a System Manager may replay a webhook delivery,Somente um System Manager po
 Only cancelled documents can be amended,Só documentos cancelados podem ser emendados,# internal/engine/doc.go:692
 Only submitted documents can be cancelled,Só documentos enviados podem ser cancelados,# internal/engine/doc.go:675
 Open,Aberto,# desk/src/routes/app/todo/+page.svelte:131
+Open menu,Abrir menu,# desk/src/routes/+layout.svelte:131
 Open the full history,Abrir histórico completo,# desk/src/lib/components/DocSidebar.svelte:182
 Open the month picker,Abrir seletor de mês,# desk/src/lib/controls/MonthControl.svelte:181
 Origin,Origem,# core.doctypes.email_delivery.email_delivery.doctype
@@ -349,7 +351,7 @@ Sign in,Entrar,# desk/src/routes/login/+page.svelte:22
 Sign in to continue,Faça login para continuar,# core/services/api_keys.ts:14
 Sign in to upload files,Faça login para enviar arquivos,# internal/api/api.go:1228
 Sign in with the password you just chose.,Entre com a senha que você acabou de escolher.,# desk/src/routes/login/reset/+page.svelte:55
-Sign out,Sair,# desk/src/lib/components/Sidebar.svelte:154
+Sign out,Sair,# desk/src/lib/components/Sidebar.svelte:174
 Sign out everywhere else,Sair dos outros dispositivos,# desk/src/lib/components/Profile.svelte:193
 Sign out of every other device?,Sair de todos os outros dispositivos?,# desk/src/lib/components/Profile.svelte:95
 Signing Secret,Segredo de Assinatura,# core.doctypes.webhook.webhook.doctype
@@ -364,7 +366,7 @@ Submit,Enviar,# desk/src/lib/components/FormView.svelte:358
 Submit {0} permanently?,Enviar permanentemente {0}?,# desk/src/lib/components/FormView.svelte:358
 Submitted,Enviado,# desk/src/lib/components/ListView.svelte:224
 Submitted document,Documento enviado,# internal/engine/doc.go:1391
-System,Sistema,# desk/src/lib/components/Sidebar.svelte:128
+System,Sistema,# desk/src/lib/components/Sidebar.svelte:148
 System User,Usuário do sistema,# core.doctypes.user.user.doctype
 Target DocType,DocType Alvo,# core.doctypes.audit_event.audit_event.doctype
 Target Name,Nome do Alvo,# core.doctypes.audit_event.audit_event.doctype
@@ -399,7 +401,7 @@ Timeout must be between {0} and {1} seconds,O tempo limite deve estar entre {0} 
 Title,Título,# desk/src/lib/components/FormView.svelte:221
 To,Para,# core.doctypes.email_delivery.email_delivery.doctype
 "To change it, click the title above or Rename in the menu.","Para alterar, clique no título acima ou em Renomear no menu.",# desk/src/lib/form.svelte.ts:122
-To-Do,Tarefas,# desk/src/lib/components/Sidebar.svelte:114
+To-Do,Tarefas,# desk/src/lib/components/Sidebar.svelte:134
 To-Do List,Lista de Tarefas,# desk/src/routes/app/todo/+page.svelte:138
 ToDo,Tarefa,# core.doctypes.todo.todo.doctype
 Too many attempts. Try again in {0} second(s),Tentativas demais. Tente de novo em {0} segundo(s),# internal/engine/throttle.go:69
@@ -493,10 +495,10 @@ webhook payload for {0} is not JSON: {1},o conteúdo do webhook para {0} não é
 {0} is required to name the document,{0} é obrigatório para nomear o documento,# internal/engine/naming.go:51
 "{0} is too large to store: ""{1}""","{0} é grande demais para ser armazenado: ""{1}""",# internal/engine/doc.go:163
 {0} notifications,{0} notificações,# desk/src/routes/app/notifications/+page.svelte:51
-{0} pending tasks,{0} tarefas pendentes,# desk/src/lib/components/Sidebar.svelte:115
+{0} pending tasks,{0} tarefas pendentes,# desk/src/lib/components/Sidebar.svelte:135
 {0} session(s) ended,{0} sessão(ões) encerrada(s),# desk/src/lib/components/Profile.svelte:99
 {0} tasks,{0} tarefas,# desk/src/routes/app/todo/+page.svelte:234
-{0} unread notifications,{0} notificações não lidas,# desk/src/lib/components/Sidebar.svelte:111
+{0} unread notifications,{0} notificações não lidas,# desk/src/lib/components/Sidebar.svelte:131
 {0} versions,{0} versões,# desk/src/lib/components/DocHistory.svelte:79
 {0} {1} already exists,{0} {1} já existe,# internal/engine/doc.go:895
 {0} {1} is cancelled and cannot be changed,{0} {1} está cancelado e não pode ser alterado,# internal/engine/doc.go:525
