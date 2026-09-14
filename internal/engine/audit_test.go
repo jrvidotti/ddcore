@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -108,6 +109,7 @@ func TestAuditImmutability(t *testing.T) {
 func TestAuditListCountAndPurge(t *testing.T) {
 	e := setup(t)
 	ctx := t.Context()
+	_, _ = e.DB.Pool.Exec(ctx, "TRUNCATE tab_audit_event")
 	c := e.NewCtx(ctx, "admin@example.com")
 
 	// Insert events with varying actions and outcomes
@@ -258,5 +260,91 @@ func TestAudit_RoleChanges(t *testing.T) {
 	disables, err := e.ListAuditEvents(ctx, AuditFilter{Action: "account.disable", TargetName: userName})
 	if err != nil || len(disables) != 1 {
 		t.Fatalf("expected 1 account.disable, got %d, err=%v", len(disables), err)
+	}
+}
+
+func TestAudit_AccountAdmin(t *testing.T) {
+	e := setup(t)
+	ctx := t.Context()
+
+	// 1. Call core.services.users.invite as Administrator
+	invitePayload := map[string]any{
+		"email":    "invited@example.com",
+		"fullName": "Invited User",
+	}
+	b, _ := json.Marshal(invitePayload)
+	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+		r, err := c.RT()
+		if err != nil {
+			return err
+		}
+		_, err = r.CallWhitelisted("core.services.users.invite", b)
+		return err
+	})
+	if err != nil {
+		t.Fatalf("invite failed: %v", err)
+	}
+
+	// Verify account.invite audit event
+	invites, err := e.ListAuditEvents(ctx, AuditFilter{Action: "account.invite", TargetName: "invited@example.com"})
+	if err != nil || len(invites) != 1 {
+		t.Fatalf("expected 1 account.invite event, got %d, err=%v", len(invites), err)
+	}
+
+	// 2. Call core.services.users.sendPasswordReset
+	resetPayload, _ := json.Marshal(map[string]any{"user": "invited@example.com"})
+	err = e.Run(ctx, "Administrator", func(c *Ctx) error {
+		r, err := c.RT()
+		if err != nil {
+			return err
+		}
+		_, err = r.CallWhitelisted("core.services.users.sendPasswordReset", resetPayload)
+		return err
+	})
+	if err != nil {
+		t.Fatalf("sendPasswordReset failed: %v", err)
+	}
+
+	resets, err := e.ListAuditEvents(ctx, AuditFilter{Action: "account.reset_password", TargetName: "invited@example.com"})
+	if err != nil || len(resets) != 1 {
+		t.Fatalf("expected 1 account.reset_password event, got %d, err=%v", len(resets), err)
+	}
+
+	// 3. Call core.services.users.unlockUser
+	unlockPayload, _ := json.Marshal(map[string]any{"user": "invited@example.com"})
+	err = e.Run(ctx, "Administrator", func(c *Ctx) error {
+		r, err := c.RT()
+		if err != nil {
+			return err
+		}
+		_, err = r.CallWhitelisted("core.services.users.unlockUser", unlockPayload)
+		return err
+	})
+	if err != nil {
+		t.Fatalf("unlockUser failed: %v", err)
+	}
+
+	unlocks, err := e.ListAuditEvents(ctx, AuditFilter{Action: "account.unlock", TargetName: "invited@example.com"})
+	if err != nil || len(unlocks) != 1 {
+		t.Fatalf("expected 1 account.unlock event, got %d, err=%v", len(unlocks), err)
+	}
+
+	// 4. Call core.services.users.revokeUserSessions
+	revokePayload, _ := json.Marshal(map[string]any{"user": "invited@example.com"})
+	err = e.Run(ctx, "Administrator", func(c *Ctx) error {
+		r, err := c.RT()
+		if err != nil {
+			return err
+		}
+		_, err = r.CallWhitelisted("core.services.users.revokeUserSessions", revokePayload)
+		return err
+	})
+	if err != nil {
+		t.Fatalf("revokeUserSessions failed: %v", err)
+	}
+
+	sessionRevokes, err := e.ListAuditEvents(ctx, AuditFilter{Action: "account.revoke_sessions", TargetName: "invited@example.com"})
+	if err != nil || len(sessionRevokes) != 1 {
+		t.Fatalf("expected 1 account.revoke_sessions event, got %d, err=%v", len(sessionRevokes), err)
 	}
 }

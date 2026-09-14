@@ -46,24 +46,28 @@ export const invite = whitelisted((args: {
   doc.insert();
 
   const rec = (ddcore as any).__auth.startRecovery(email, "invite");
+  ddcore.audit("account.invite", "User", email, { fullName });
   return { user: email, expires: rec.expires, link: rec.link || undefined };
 }, ADMIN);
 
 export const resendInvite = whitelisted((args: { user: string }) => {
   const user = requireUser(args.user);
   const rec = (ddcore as any).__auth.startRecovery(user, "invite");
+  ddcore.audit("account.resend_invite", "User", user);
   return { user, expires: rec.expires, link: rec.link || undefined };
 }, ADMIN);
 
 export const sendPasswordReset = whitelisted((args: { user: string }) => {
   const user = requireUser(args.user);
   const rec = (ddcore as any).__auth.startRecovery(user, "reset");
+  ddcore.audit("account.reset_password", "User", user);
   return { user, expires: rec.expires, link: rec.link || undefined };
 }, ADMIN);
 
 /** Ends every session of another account — the "they lost the laptop" button. */
 export const revokeUserSessions = whitelisted((args: { user: string }) => {
   const user = requireUser(args.user);
+  ddcore.audit("account.revoke_sessions", "User", user);
   return (ddcore as any).__auth.revokeSessions(user, {});
 }, ADMIN);
 
@@ -83,6 +87,7 @@ export const unlockUser = whitelisted((args: { user: string }) => {
   if (email && email.toLowerCase() !== String(user).toLowerCase()) {
     cleared += auth.clearAttempts("login:" + email.toLowerCase());
   }
+  ddcore.audit("account.unlock", "User", user, { cleared });
   return { user, cleared };
 }, ADMIN);
 

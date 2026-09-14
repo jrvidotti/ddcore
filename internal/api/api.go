@@ -879,6 +879,7 @@ func (s *Server) method(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			if !has && c.User != "Administrator" {
+				c.AuditDenied("method."+path, "", "", nil)
 				return nil, cerr.Permission("No permission for {0}", path)
 			}
 		}
