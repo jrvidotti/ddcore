@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
+
+	"github.com/jrvidotti/ddcore/internal/db"
 )
 
 func TestAssignment_ToDoDocTypeLoaded(t *testing.T) {
@@ -199,4 +202,62 @@ func TestAssignment_DoesNotGrantDocumentAccess(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func TestAssignment_DueDateReminder(t *testing.T) {
+	e := setupWith(t, nil)
+	ctx := context.Background()
+
+	// 1. Create a user 'ana@x.com'
+	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+		u, _ := c.NewDoc("User", Doc{
+			"email":      "ana@x.com",
+			"first_name": "Ana",
+			"full_name":  "Ana Gestora",
+			"enabled":    true,
+		})
+		if _, err := c.Insert(u, SaveOpts{}); err != nil {
+			return err
+		}
+
+		today := time.Now().Format("2006-01-02")
+		todo, err := c.NewDoc("ToDo", Doc{
+			"allocated_to": "ana@x.com",
+			"status":       "Open",
+			"date":         today,
+			"description":  "Tax filing deadline",
+		})
+		if err != nil {
+			return err
+		}
+		_, err = c.Insert(todo, SaveOpts{})
+		return err
+	})
+	if err != nil {
+		t.Fatalf("setup failed: %v", err)
+	}
+
+	// 2. Run notification sweep
+	if err := e.SweepNotifications(ctx, time.Now()); err != nil {
+		t.Fatalf("sweep failed: %v", err)
+	}
+
+	// 3. Verify ddcore_notification has the reminder for ana@x.com
+	rows, err := db.Select(ctx, e.DB.Pool, `SELECT title, message FROM ddcore_notification WHERE recipient='ana@x.com'`)
+	if err != nil {
+		t.Fatalf("failed to query notifications: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("expected 1 notification for ana, got %d", len(rows))
+	}
+
+	// 4. Second sweep must not duplicate
+	if err := e.SweepNotifications(ctx, time.Now()); err != nil {
+		t.Fatalf("second sweep failed: %v", err)
+	}
+	rows, _ = db.Select(ctx, e.DB.Pool, `SELECT title, message FROM ddcore_notification WHERE recipient='ana@x.com'`)
+	if len(rows) != 1 {
+		t.Fatalf("expected still 1 notification after second sweep, got %d", len(rows))
+	}
+}
+
 
