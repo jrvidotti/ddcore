@@ -680,6 +680,22 @@
       del(name) { return call("vault.del", { key: String(name) }); },
       list(prefix) { return call("vault.list", { prefix: prefix ? String(prefix) : "" }) || []; },
     },
+    audit(action, targetDoctype, targetName, detail) {
+      return call("audit", {
+        action: String(action),
+        targetDoctype: String(targetDoctype || ""),
+        targetName: String(targetName || ""),
+        detail: detail || null,
+      });
+    },
+    auditDenied(action, targetDoctype, targetName, detail) {
+      return call("auditDenied", {
+        action: String(action),
+        targetDoctype: String(targetDoctype || ""),
+        targetName: String(targetName || ""),
+        detail: detail || null,
+      });
+    },
     // Self-service auth. These exist because ddcore.db.sql is read-only: no TS
     // can write to ddcore_session or ddcore_auth_token, so every one of these
     // has to cross the bridge. They take the user explicitly, and the services

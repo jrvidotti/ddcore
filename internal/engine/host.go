@@ -73,6 +73,10 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		Status    string            `json:"status"`
 		Error     string            `json:"error"`
 		Prefix    string            `json:"prefix"`
+		Action        string            `json:"action"`
+		TargetDoctype string            `json:"targetDoctype"`
+		TargetName    string            `json:"targetName"`
+		Detail        any               `json:"detail"`
 	}
 	if err := json.Unmarshal(raw, &a); err != nil {
 		return nil, cerr.Internal("invalid arguments in {0}: {1}", op, err)
@@ -489,6 +493,19 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 	case "dropSessions":
 		_, err := e.DropSessions(c.Ctx, c.Q(), a.User, "")
 		return nil, err
+	case "audit":
+		var d map[string]any
+		if m, ok := a.Detail.(map[string]any); ok {
+			d = m
+		}
+		return nil, c.Audit(a.Action, a.TargetDoctype, a.TargetName, d)
+	case "auditDenied":
+		var d map[string]any
+		if m, ok := a.Detail.(map[string]any); ok {
+			d = m
+		}
+		c.AuditDenied(a.Action, a.TargetDoctype, a.TargetName, d)
+		return nil, nil
 	case "test.begin":
 		return nil, c.Begin()
 	case "test.rollback":

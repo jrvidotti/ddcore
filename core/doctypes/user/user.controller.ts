@@ -20,6 +20,33 @@ export default defineController("User", {
     // A changed password invalidates old sessions: if changed because the
     // password leaked, leaving existing sessions active would change nothing.
     const before = doc.getDocBeforeSave?.();
+    if (before) {
+      const oldRoles = new Set((before.roles || []).map((r: any) => String(r.role || "")));
+      const newRoles = new Set((doc.roles || []).map((r: any) => String(r.role || "")));
+      for (const r of newRoles) {
+        if (r && !oldRoles.has(r)) {
+          ddcore.audit("role.assign", "User", doc.name, { role: r });
+        }
+      }
+      for (const r of oldRoles) {
+        if (r && !newRoles.has(r)) {
+          ddcore.audit("role.revoke", "User", doc.name, { role: r });
+        }
+      }
+      if (Boolean(before.enabled) !== Boolean(doc.enabled)) {
+        if (doc.enabled) {
+          ddcore.audit("account.enable", "User", doc.name);
+        } else {
+          ddcore.audit("account.disable", "User", doc.name);
+        }
+      }
+    } else {
+      for (const r of doc.roles || []) {
+        if (r && r.role) {
+          ddcore.audit("role.assign", "User", doc.name, { role: String(r.role) });
+        }
+      }
+    }
     if (before && before.password_hash !== doc.password_hash) {
       (ddcore as any).__dropSessions(doc.name);
     }

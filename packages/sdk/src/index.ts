@@ -105,6 +105,15 @@ export interface DDCoreAPI {
   siteName(): string;
   publish(event: string, payload: any, opts?: { user?: string; doctype?: string; name?: string }): void;
   log: { info(...a: any[]): void; warn(...a: any[]): void; error(...a: any[]): void; debug(...a: any[]): void };
+  /**
+   * Records that the current user did something sensitive to a target (PRD-06).
+   * Written on the caller's transaction. Sensitive keys are redacted automatically.
+   */
+  audit(action: string, targetDoctype?: string, targetName?: string, detail?: Record<string, any>): void;
+  /**
+   * Records a refused sensitive action. Written directly to the pool so it survives rollback.
+   */
+  auditDenied(action: string, targetDoctype?: string, targetName?: string, detail?: Record<string, any>): void;
   utils: {
     flt(v: any, precision?: number): number;
     cint(v: any): number;

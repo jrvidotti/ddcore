@@ -172,3 +172,91 @@ func TestAuditListCountAndPurge(t *testing.T) {
 		t.Fatalf("purged row still present: %v", roleEventsAfterPurge)
 	}
 }
+
+func TestAudit_RoleChanges(t *testing.T) {
+	e := setup(t)
+	ctx := t.Context()
+
+	// 1. Create a user as Administrator with an initial role
+	var userName string
+	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+		u, err := c.NewDoc("User", Doc{
+			"email":     "testuser@example.com",
+			"full_name": "Test User",
+			"enabled":   true,
+			"roles": []any{
+				map[string]any{"role": "Gestor"},
+			},
+		})
+		if err != nil {
+			return err
+		}
+		saved, err := c.Insert(u, SaveOpts{})
+		if err != nil {
+			return err
+		}
+		userName = saved.Str("name")
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("create user failed: %v", err)
+	}
+
+	// Verify initial role.assign
+	events, err := e.ListAuditEvents(ctx, AuditFilter{Action: "role.assign", TargetName: userName})
+	if err != nil || len(events) != 1 {
+		t.Fatalf("expected 1 role.assign on insert, got %d, err=%v", len(events), err)
+	}
+	if !strings.Contains(db.Str(events[0]["detail"]), "Gestor") {
+		t.Fatalf("expected Gestor role in detail: %v", events[0])
+	}
+
+	// 2. Modify user roles: remove Gestor, add All
+	err = e.Run(ctx, "Administrator", func(c *Ctx) error {
+		u, err := c.GetDoc("User", userName)
+		if err != nil {
+			return err
+		}
+		u["roles"] = []any{
+			map[string]any{"role": "All"},
+		}
+		_, err = c.Save(u, SaveOpts{})
+		return err
+	})
+	if err != nil {
+		t.Fatalf("update roles failed: %v", err)
+	}
+
+	// Verify role.revoke and new role.assign
+	revokes, err := e.ListAuditEvents(ctx, AuditFilter{Action: "role.revoke", TargetName: userName})
+	if err != nil || len(revokes) != 1 {
+		t.Fatalf("expected 1 role.revoke, got %d, err=%v", len(revokes), err)
+	}
+	if !strings.Contains(db.Str(revokes[0]["detail"]), "Gestor") {
+		t.Fatalf("expected Gestor in revoke detail: %v", revokes[0])
+	}
+
+	assigns, err := e.ListAuditEvents(ctx, AuditFilter{Action: "role.assign", TargetName: userName})
+	if err != nil || len(assigns) != 2 {
+		t.Fatalf("expected 2 total role.assigns, got %d, err=%v", len(assigns), err)
+	}
+
+	// 3. Disable user
+	err = e.Run(ctx, "Administrator", func(c *Ctx) error {
+		u, err := c.GetDoc("User", userName)
+		if err != nil {
+			return err
+		}
+		u["enabled"] = false
+		_, err = c.Save(u, SaveOpts{})
+		return err
+	})
+	if err != nil {
+		t.Fatalf("disable user failed: %v", err)
+	}
+
+	disables, err := e.ListAuditEvents(ctx, AuditFilter{Action: "account.disable", TargetName: userName})
+	if err != nil || len(disables) != 1 {
+		t.Fatalf("expected 1 account.disable, got %d, err=%v", len(disables), err)
+	}
+}
