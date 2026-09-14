@@ -38,6 +38,9 @@
   let ready = false;
   let lastUrlSearch = "";
 
+  const workspace = $derived(page.params.workspace || "");
+  const wsPrefix = $derived(workspace ? `/app/${encodeURIComponent(workspace)}` : "/app");
+
   // options registered by the app via defineListView(doctype, {...})
   interface ListSettings {
     columns?: string[];
@@ -134,7 +137,7 @@
     applyListState(state);
     const params = listStateToSearchParams(state, urlFields);
     lastUrlSearch = params.size ? `?${params}` : "";
-    goto(`/app/${encodeURIComponent(doctype)}${lastUrlSearch}`, { noScroll: true, keepFocus: true });
+    goto(`${wsPrefix}/${encodeURIComponent(doctype)}${lastUrlSearch}`, { noScroll: true, keepFocus: true });
     load();
   }
   let filterTimer: any;
@@ -325,7 +328,7 @@
     {#if selected.size && meta?.permissions.delete}<button class="btn danger" onclick={deleteSelected}><Icon name="trash" size={14} />{__("Delete")} ({selected.size})</button>{/if}
     <button class="btn" onclick={load} title={__("Update")}><Icon name="refresh-cw" size={14} /></button>
     {#if meta?.permissions.export}<button class="btn" onclick={openExport} title={__("Export")}><Icon name="download" size={14} /></button>{/if}
-    {#if meta?.permissions.create}<a class="btn primary" href={`/app/${encodeURIComponent(doctype)}/new`}><Icon name="plus" size={14} />{__("New")}</a>{/if}
+    {#if meta?.permissions.create}<a class="btn primary" href={`${wsPrefix}/${encodeURIComponent(doctype)}/new`}><Icon name="plus" size={14} />{__("New")}</a>{/if}
   </div>
 
   <div class="card list-filters">
@@ -375,10 +378,10 @@
       </thead>
       <tbody>
         {#each rows as r (r.name)}
-          <tr class="row" style="cursor:pointer" onclick={() => goto(`/app/${encodeURIComponent(doctype)}/${encodeURIComponent(r.name)}`)}>
+          <tr class="row" style="cursor:pointer" onclick={() => goto(`${wsPrefix}/${encodeURIComponent(doctype)}/${encodeURIComponent(r.name)}`)}>
             <td onclick={(e) => { e.stopPropagation(); toggle(r.name); }}><input type="checkbox" checked={selected.has(r.name)} onclick={(e) => e.stopPropagation()} onchange={() => toggle(r.name)} /></td>
             {#if !columns.some((c) => c.fieldname === meta?.doctype.titleField) || meta?.doctype.naming?.field !== meta?.doctype.titleField}
-              <td><a href={`/app/${encodeURIComponent(doctype)}/${encodeURIComponent(r.name)}`} onclick={(e) => e.stopPropagation()}>{r.name}</a></td>
+              <td><a href={`${wsPrefix}/${encodeURIComponent(doctype)}/${encodeURIComponent(r.name)}`} onclick={(e) => e.stopPropagation()}>{r.name}</a></td>
             {/if}
             {#each columns as c}
               <td class:num={num(c)} class:bold={c.bold} style:font-weight={c.bold ? 600 : undefined}>
@@ -386,12 +389,12 @@
                   {@const linkTarget = c.options}
                   {@const linkVal = r[c.fieldname!]}
                   {@const linkTitle = getLinkTitle(linkTarget, linkVal)}
-                  <a href={`/app/${encodeURIComponent(linkTarget)}/${encodeURIComponent(linkVal)}`} title={linkVal} onclick={(e) => e.stopPropagation()}>{linkTitle || linkVal}</a>
+                  <a href={`${wsPrefix}/${encodeURIComponent(linkTarget)}/${encodeURIComponent(linkVal)}`} title={linkVal} onclick={(e) => e.stopPropagation()}>{linkTitle || linkVal}</a>
                 {:else if c.fieldtype === "Dynamic Link" && r[c.fieldname!]}
                   {@const linkTarget = r[c.options]}
                   {@const linkVal = r[c.fieldname!]}
                   {@const linkTitle = getLinkTitle(linkTarget, linkVal)}
-                  <a href={`/app/${encodeURIComponent(linkTarget)}/${encodeURIComponent(linkVal)}`} title={linkVal} onclick={(e) => e.stopPropagation()}>{linkTitle || linkVal}</a>
+                  <a href={`${wsPrefix}/${encodeURIComponent(linkTarget)}/${encodeURIComponent(linkVal)}`} title={linkVal} onclick={(e) => e.stopPropagation()}>{linkTitle || linkVal}</a>
                 {:else if c.fieldname === statusField?.fieldname}
                   <span class="badges"><span class="indicator {statusColor(r[c.fieldname!], c)}">{__(r[c.fieldname!])}</span>{#if !showIndicatorColumn}{@render badges(r)}{/if}</span>
                 {:else}

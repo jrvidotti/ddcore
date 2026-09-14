@@ -23,7 +23,16 @@
     if (String(card.aggregate || "").startsWith("sum:")) return formatCurrency(v.value);
     return formatNumber(v.value);
   };
-  const href = (s: any) => s.route || (s.doctype ? `/app/${encodeURIComponent(s.doctype)}` : s.report ? `/app/report/${encodeURIComponent(s.report)}` : "#");
+  const href = (s: any) => s.route || (s.doctype ? `/app/${encodeURIComponent(ws?.name || "")}/${encodeURIComponent(s.doctype)}` : s.report ? `/app/${encodeURIComponent(ws?.name || "")}/report/${encodeURIComponent(s.report)}` : "#");
+  const cardHref = (c: any) => {
+    if (c.route) {
+      if (c.route.startsWith("/app/") && ws?.name && !c.route.startsWith(`/app/${ws.name}/`)) {
+        return c.route.replace(/^\/app\//, `/app/${encodeURIComponent(ws.name)}/`);
+      }
+      return c.route;
+    }
+    return c.doctype ? `/app/${encodeURIComponent(ws?.name || "")}/${encodeURIComponent(c.doctype)}` : "#";
+  };
 </script>
 
 {#if ws}
@@ -32,7 +41,7 @@
     {#if ws.numberCards?.length}
       <div class="cards">
         {#each ws.numberCards as c}
-          <a class="card ncard" href={c.route || "#"} style="--c: var(--{c.color || 'blue'})">
+          <a class="card ncard" href={cardHref(c)} style="--c: var(--{c.color || 'blue'})">
             <div class="l">{c.label}</div>
             <div class="v">{fmt(c, cards[c.name])}</div>
           </a>

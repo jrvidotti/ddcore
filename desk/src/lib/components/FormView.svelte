@@ -38,6 +38,9 @@
   const currentDraftKey = () => draftKey(boot.data?.user, doctype, draftRecord());
   /** set when the user has agreed to leave, so the guard lets the navigation through */
   let leaving = false;
+
+  const workspace = $derived(page.params.workspace || "");
+  const wsPrefix = $derived(workspace ? `/app/${encodeURIComponent(workspace)}` : "/app");
   /** set once the record is deleted: it must never get a draft again */
   let gone = false;
   /** the draft is only kept in step after the one it may have recovered is in */
@@ -248,7 +251,7 @@
     try {
       const nn = await api.docMethod(doctype, frm.doc.name, "rename", { name: v.name.trim() });
       leaving = true; // a full page load, deliberate: the guard has nothing to ask
-      location.href = `/app/${encodeURIComponent(doctype)}/${encodeURIComponent(nn)}`;
+      location.href = `${wsPrefix}/${encodeURIComponent(doctype)}/${encodeURIComponent(nn)}`;
     } catch (e) { showError(e); }
   }
   async function duplicate() {
@@ -257,7 +260,7 @@
     for (const f of frm.meta.doctype.fields) if (f.fieldtype === "Table") copy[f.fieldname!] = (copy[f.fieldname!] || []).map((r: any) => ({ ...r, name: undefined, parent: undefined }));
     frm.load(copy);
     duplicated = true; // the URL says /new now, and so must the draft
-    history.replaceState(null, "", `/app/${encodeURIComponent(doctype)}/new`);
+    history.replaceState(null, "", `${wsPrefix}/${encodeURIComponent(doctype)}/new`);
     await frm.runRefresh();
     toast(__("Copy created — save it to keep it"), { indicator: "blue" });
   }
@@ -296,7 +299,7 @@
   <div class="page form-page">
     <div class="page-head">
       <div>
-        <div class="small muted"><a href={`/app/${encodeURIComponent(doctype)}`}>{frm.meta.doctype.label}</a></div>
+        <div class="small muted"><a href={`${wsPrefix}/${encodeURIComponent(doctype)}`}>{frm.meta.doctype.label}</a></div>
         <h1 style="display:flex;align-items:center;gap:8px">
           {#if canEditTitle}
             <button type="button" class="title-edit-btn" onclick={onEditTitle} title={editTitleTooltip}>

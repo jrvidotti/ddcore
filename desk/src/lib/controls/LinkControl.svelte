@@ -5,6 +5,8 @@
   import { boot } from "$lib/boot.svelte";
   import { getLinkTitle, setLinkTitle } from "$lib/titles.svelte";
   import { anchored } from "./floating";
+  import { page } from "$app/state";
+  import { getRememberedWorkspace } from "$lib/components/sidebar-workspace";
 
   let { field, value, onchange, doc = {}, readOnly = false, query = undefined, error = "", id = "" }:
     { field: Field; value: any; onchange: (v: any) => void; doc?: any; readOnly?: boolean; query?: () => { filters?: any }; error?: string; id?: string } = $props();
@@ -96,6 +98,8 @@
   }
 
   const label = $derived(target && boot.data?.doctypes[target]?.label);
+  const workspace = $derived(page.params?.workspace || getRememberedWorkspace() || "");
+  const wsPrefix = $derived(workspace ? `/app/${encodeURIComponent(workspace)}` : "/app");
 </script>
 
 <div class="link-wrap">
@@ -103,7 +107,7 @@
     title={value ? `${text}${text !== value ? ` (${value})` : ""}` : ""}
     onfocus={() => { focused = true; if (!readOnly) search(text); }} {oninput} {onblur} {onkeydown} data-fieldtype="Link" />
   {#if value && target}
-    <a class="open" href={`/app/${encodeURIComponent(target)}/${encodeURIComponent(value)}`} title="Abrir {label || target}{value ? ` (${value})` : ""}">↗</a>
+    <a class="open" href={`${wsPrefix}/${encodeURIComponent(target)}/${encodeURIComponent(value)}`} title="Abrir {label || target}{value ? ` (${value})` : ""}">↗</a>
   {/if}
   {#if open && !readOnly && options.length}
     <div class="options" role="listbox" use:anchored={{ anchor: inputEl, matchWidth: true, gap: 2 }}>

@@ -13,6 +13,7 @@
   import { deskSDK } from "$lib/desk-sdk";
   import { toCsv, downloadCsv } from "$lib/csv";
   import { reportFiltersFromSearchParams, reportFiltersToSearchParams } from "./report-state";
+  import { getRememberedWorkspace } from "./sidebar-workspace";
 
   let { name }: { name: string } = $props();
   let meta = $state<any>(null);
@@ -22,6 +23,8 @@
   let ready = false;
   let lastUrlSearch = "";
   const label = $derived(meta?.label || boot.data?.reports[name]?.label || name);
+  const workspace = $derived(page.params.workspace || getRememberedWorkspace() || "");
+  const wsPrefix = $derived(workspace ? `/app/${encodeURIComponent(workspace)}` : "/app");
 
   function defaultFor(f: any) {
     const d = f.default;
@@ -52,7 +55,7 @@
     filters = { ...filters, [fieldname]: value };
     const params = reportFiltersToSearchParams(filters, meta?.filters || []);
     lastUrlSearch = params.size ? `?${params}` : "";
-    goto(`/app/report/${encodeURIComponent(name)}${lastUrlSearch}`, { noScroll: true, keepFocus: true });
+    goto(`${wsPrefix}/report/${encodeURIComponent(name)}${lastUrlSearch}`, { noScroll: true, keepFocus: true });
     run();
   }
   $effect(() => {
@@ -120,7 +123,7 @@
                 <td class:num={num(c)}>
                   {#if c.fieldtype === "Link" && r[c.fieldname]}
                     {@const linkTitle = getLinkTitle(c.options, r[c.fieldname]) || r[c.fieldname]}
-                    <a href={`/app/${encodeURIComponent(c.options)}/${encodeURIComponent(r[c.fieldname])}`} title={r[c.fieldname]}>{linkTitle}</a>
+                    <a href={`${wsPrefix}/${encodeURIComponent(c.options)}/${encodeURIComponent(r[c.fieldname])}`} title={r[c.fieldname]}>{linkTitle}</a>
                   {:else if c.fieldname === "status" && r[c.fieldname]}<span class="indicator {statusColor(r[c.fieldname], c)}">{__(r[c.fieldname])}</span>
                   {:else}<span style:color={c.fieldtype === "Currency" && r[c.fieldname] < 0 ? "var(--red)" : undefined}>{formatValue(r[c.fieldname], c)}</span>{/if}
                 </td>

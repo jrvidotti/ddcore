@@ -8,6 +8,7 @@ import { __ } from "./boot.svelte";
 import { formatCurrency, formatDate, formatNumber, formatValue, roundCurrency, statusColor } from "./format";
 import { getMeta } from "./meta";
 import { addDays, addMonths, monthEnd, monthStart, today } from "./datetime";
+import { getRememberedWorkspace } from "./components/sidebar-workspace";
 
 const listRegistry = new Map<string, any>();
 
@@ -46,7 +47,12 @@ export const deskSDK = {
     datetime: { today: () => today(), addMonths, addDays, monthStart, monthEnd },
     meta: getMeta,
     route: (path: string) => import("$app/navigation").then((n) => n.goto(path)),
-    setRoute: (...parts: string[]) => import("$app/navigation").then((n) => n.goto("/app/" + parts.map(encodeURIComponent).join("/"))),
+    setRoute: (...parts: string[]) => {
+      const rem = getRememberedWorkspace();
+      const first = parts[0] || "";
+      const path = rem && first !== rem ? `/app/${encodeURIComponent(rem)}/` + parts.map(encodeURIComponent).join("/") : "/app/" + parts.map(encodeURIComponent).join("/");
+      return import("$app/navigation").then((n) => n.goto(path));
+    },
   },
 };
 

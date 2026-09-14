@@ -9,6 +9,12 @@ import { __ } from "./boot.svelte";
 import { goto } from "$app/navigation";
 import { validateEmailFields } from "./email";
 import { registerTitles } from "./titles.svelte";
+import { getRememberedWorkspace } from "./components/sidebar-workspace";
+
+function currentWsPrefix(): string {
+  const ws = getRememberedWorkspace();
+  return ws ? `/app/${encodeURIComponent(ws)}` : "/app";
+}
 
 export interface FormHandlers {
   setup?: (frm: FormController) => void;
@@ -295,7 +301,7 @@ export class FormController {
       this.load(saved);
       for (const h of this.handlers) { try { await h.afterSave?.(this); } catch (e) { showError(e); } }
       toast(action === "submit" ? __("Submitted") : action === "cancel" ? __("Cancelled") : __("Saved"), { indicator: "green", timeout: 2000 });
-      if (wasNew && !this.isSingle) goto(`/app/${encodeURIComponent(dt)}/${encodeURIComponent(saved.name)}`, { replaceState: true });
+      if (wasNew && !this.isSingle) goto(`${currentWsPrefix()}/${encodeURIComponent(dt)}/${encodeURIComponent(saved.name)}`, { replaceState: true });
       else await this.runRefresh();
       return true;
     } catch (e: any) {
@@ -346,13 +352,13 @@ export class FormController {
   async delete() {
     await api.remove(this.doctype, this.doc.name);
     toast(__("Deleted"), { indicator: "green", timeout: 2000 });
-    goto(`/app/${encodeURIComponent(this.doctype)}`);
+    goto(`${currentWsPrefix()}/${encodeURIComponent(this.doctype)}`);
   }
 
   async amend() {
     const doc = await api.docMethod(this.doctype, this.doc.name, "amend");
     this.load(doc);
-    goto(`/app/${encodeURIComponent(this.doctype)}/new`, { state: { doc } });
+    goto(`${currentWsPrefix()}/${encodeURIComponent(this.doctype)}/new`, { state: { doc } });
   }
 
   /** Calls a controller method on this document; returns its result and reloads the doc. */
@@ -372,7 +378,7 @@ export async function createForm(doctype: string, name?: string, initial?: any):
   await loadFormScript(meta);
   let doc: any;
   if (meta.doctype.isSingle) {
-    if (name === "new") await goto(`/app/${encodeURIComponent(doctype)}`, { replaceState: true });
+    if (name === "new") await goto(`${currentWsPrefix()}/${encodeURIComponent(doctype)}`, { replaceState: true });
     doc = await api.getSingle(doctype);
   }
   else if (name && name !== "new") doc = await api.getDoc(doctype, name);
