@@ -90,14 +90,16 @@ The Desk provides a dedicated control for `Vault` fields:
 
 ## 5. Audit Logging
 
-Every read, write, and delete operation on the vault is automatically audited in the `Vault Audit Log` DocType:
-- `secret_name`: Name of the vault key.
-- `action`: `read`, `write`, or `delete`.
-- `user`: User email who triggered the action.
+Every read, write, and delete operation on the vault is automatically audited in the `Audit Event` DocType (PRD-06):
+- `action`: `vault.read`, `vault.write`, or `vault.delete`.
+- `target_doctype`: `Vault Secret`.
+- `target_name`: Name of the vault key.
+- `actor`: User email who triggered the action (or `System`).
+- `outcome`: `Allowed` (or `Denied`).
 - `ip`: Client IP address.
 - `request_id`: Request correlation ID.
 
-System Managers can review audit logs in the Desk under the **Core** module.
+System Managers can review audit events in the Desk at `/app/audit-event` or via `ddcore audit list`.
 
 ---
 

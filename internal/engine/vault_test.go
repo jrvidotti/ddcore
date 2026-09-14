@@ -165,10 +165,10 @@ func TestVaultCRUDAndAuditing(t *testing.T) {
 		t.Fatalf("expected deleted, got ok=%v, val=%q", ok, val)
 	}
 
-	// 7. Verify audit log entries
-	auditLogs, err := c.GetList("Vault Audit Log", ListArgs{
-		Fields:            []string{"name", "secret_name", "action", "user", "request_id"},
-		Filters:           map[string]any{"secret_name": "asaas:token:PES-1"},
+	// 7. Verify audit event entries
+	auditLogs, err := c.GetList("Audit Event", ListArgs{
+		Fields:            []string{"name", "action", "outcome", "actor", "target_doctype", "target_name", "request_id"},
+		Filters:           map[string]any{"target_doctype": "Vault Secret", "target_name": "asaas:token:PES-1"},
 		OrderBy:           "creation asc",
 		IgnorePermissions: true,
 	})
@@ -177,10 +177,12 @@ func TestVaultCRUDAndAuditing(t *testing.T) {
 	}
 	// We expect: 1 write, 2 reads, 1 delete, 1 read
 	if len(auditLogs) < 3 {
-		t.Fatalf("expected at least 3 audit log records, got %d", len(auditLogs))
+		t.Fatalf("expected at least 3 audit event records, got %d", len(auditLogs))
 	}
 	first := auditLogs[0]
-	if db.Str(first["action"]) != "write" || db.Str(first["user"]) != "admin@example.com" || db.Str(first["request_id"]) != "req-test-123" {
+	if db.Str(first["action"]) != "vault.write" || db.Str(first["outcome"]) != "Allowed" ||
+		db.Str(first["actor"]) != "admin@example.com" || db.Str(first["target_doctype"]) != "Vault Secret" ||
+		db.Str(first["target_name"]) != "asaas:token:PES-1" || db.Str(first["request_id"]) != "req-test-123" {
 		t.Fatalf("unexpected first audit record: %v", first)
 	}
 }
@@ -228,3 +230,67 @@ if (v2 !== null) throw new Error("expected null after del, got " + v2);
 		t.Fatalf("expected ok, got %s", out)
 	}
 }
+
+func TestVaultAbsorptionPatch(t *testing.T) {
+	e := setup(t)
+	ctx := t.Context()
+
+	// 1. Create temporary tab_vault_audit_log table to simulate pre-migration state
+	_, err := e.DB.Pool.Exec(ctx, `CREATE TABLE IF NOT EXISTS tab_vault_audit_log (
+		name text primary key,
+		owner text,
+		creation timestamptz default now(),
+		modified timestamptz default now(),
+		modified_by text,
+		docstatus smallint default 0,
+		secret_name text,
+		action text,
+		"user" text,
+		ip text,
+		request_id text
+	)`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer e.DB.Pool.Exec(ctx, "DROP TABLE IF EXISTS tab_vault_audit_log")
+
+	// 2. Insert legacy rows
+	_, err = e.DB.Pool.Exec(ctx, `INSERT INTO tab_vault_audit_log
+		(name, owner, action, "user", secret_name, ip, request_id) VALUES
+		('val-1', 'admin@example.com', 'write', 'admin@example.com', 'stripe:key:1', '127.0.0.1', 'req-legacy-1'),
+		('val-2', 'admin@example.com', 'read', 'admin@example.com', 'stripe:key:1', '127.0.0.1', 'req-legacy-2')`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Clear patch record so Migrate runs it against the legacy table
+	_, _ = e.DB.Pool.Exec(ctx, "DELETE FROM ddcore_patch WHERE name = '0001_absorb_vault_audit_log'")
+
+	// 3. Execute migration (which executes beforeSchema patches including 0001_absorb_vault_audit_log)
+	if _, err := e.Migrate(ctx, false); err != nil {
+		t.Fatalf("migrate failed: %v", err)
+	}
+
+	// 4. Verify tab_vault_audit_log no longer exists
+	var tableExists bool
+	err = e.DB.Pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'tab_vault_audit_log')`).Scan(&tableExists)
+	if err != nil || tableExists {
+		t.Fatalf("expected tab_vault_audit_log to be dropped, exists=%v, err=%v", tableExists, err)
+	}
+
+	// 5. Verify rows migrated into tab_audit_event
+	rows, err := db.Select(ctx, e.DB.Pool, `SELECT name, action, outcome, actor, target_doctype, target_name, request_id
+		FROM tab_audit_event WHERE name IN ('val-1', 'val-2') ORDER BY name ASC`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("expected 2 migrated rows, got %d", len(rows))
+	}
+	if db.Str(rows[0]["action"]) != "vault.write" || db.Str(rows[0]["target_name"]) != "stripe:key:1" || db.Str(rows[0]["request_id"]) != "req-legacy-1" {
+		t.Fatalf("unexpected migrated row 0: %+v", rows[0])
+	}
+	if db.Str(rows[1]["action"]) != "vault.read" || db.Str(rows[1]["outcome"]) != "Allowed" {
+		t.Fatalf("unexpected migrated row 1: %+v", rows[1])
+	}
+}
+

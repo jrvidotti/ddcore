@@ -490,7 +490,7 @@ func TestOPS06_ReplayResendsTheSameEventAndAudits(t *testing.T) {
 	}
 
 	rows, err := db.Select(ctx, e.DB.Pool, `SELECT action, outcome, actor, target_doctype, target_name, detail::text AS detail
-		FROM tab_audit_event ORDER BY creation`)
+		FROM tab_audit_event WHERE action = 'webhook.replay' ORDER BY creation`)
 	if err != nil {
 		t.Fatal(err)
 	}

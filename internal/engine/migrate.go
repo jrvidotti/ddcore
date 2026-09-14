@@ -79,6 +79,9 @@ func (e *Engine) Migrate(ctx context.Context, prune bool) (*MigrateResult, error
 		if err := db.Apply(ctx, c.Tx, keep); err != nil {
 			return err
 		}
+		if err := absorbVaultAuditLog(ctx, c.Tx); err != nil {
+			return err
+		}
 		res.DDL = plan
 		for _, st := range keep {
 			if st.Kind == db.KindRenameTable || st.Kind == db.KindRenameColumn {
@@ -258,3 +261,21 @@ func (r *MigrateResult) String() string {
 	}
 	return b.String()
 }
+
+// absorbVaultAuditLog copies rows from legacy tab_vault_audit_log into tab_audit_event and drops tab_vault_audit_log (PRD-06).
+func absorbVaultAuditLog(ctx context.Context, q db.Querier) error {
+	_, err := q.Exec(ctx, `
+		DO $$
+		BEGIN
+			IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = 'tab_vault_audit_log') THEN
+				INSERT INTO tab_audit_event (name, owner, creation, modified, modified_by, docstatus, action, outcome, actor, target_doctype, target_name, ip, request_id, detail)
+				SELECT name, owner, creation, modified, modified_by, docstatus, 'vault.' || action, 'Allowed', "user", 'Vault Secret', secret_name, ip, request_id, NULL
+				FROM tab_vault_audit_log
+				ON CONFLICT (name) DO NOTHING;
+				DROP TABLE tab_vault_audit_log;
+			END IF;
+		END $$;
+	`)
+	return err
+}
+

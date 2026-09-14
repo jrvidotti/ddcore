@@ -38,7 +38,7 @@ func TestNotificationReloadKeepsLastValidState(t *testing.T) {
 	if len(e.Notifications) != 1 || e.Notifications[0].Name != "Second" {
 		t.Fatalf("%+v", e.Notifications)
 	}
-	for _, target := range []string{"Missing", "Has Role", "Email Delivery", "Webhook Delivery", "Vault Audit Log", "Audit Event", "Version", "Error Log"} {
+	for _, target := range []string{"Missing", "Has Role", "Email Delivery", "Webhook Delivery", "Audit Event", "Version", "Error Log"} {
 		write("Invalid", target)
 		if err := e.Load(); err == nil {
 			t.Fatal("accepted invalid target " + target)

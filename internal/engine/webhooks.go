@@ -60,7 +60,7 @@ var webhookSaveEvent = map[string]string{
 // wants "an email went out" should be told so by the app that sent it.
 var webhookUnwatchable = map[string]bool{
 	"Webhook": true, "Webhook Delivery": true, "Audit Event": true, "Version": true,
-	"Error Log": true, "Email Delivery": true, "Vault Audit Log": true,
+	"Error Log": true, "Email Delivery": true,
 }
 
 // A custom event name is a dotted lowercase identifier, and "doc." belongs to

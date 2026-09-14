@@ -66,24 +66,16 @@ func DecryptVault(key, ciphertext, nonce []byte) (string, error) {
 }
 
 func (e *Engine) recordVaultAudit(c *Ctx, secretName, action string) {
-	if c == nil || c.E == nil {
+	auditAction := "vault." + action
+	if c != nil && c.E != nil {
+		_ = c.Audit(auditAction, "Vault Secret", secretName, nil)
 		return
 	}
-	ip := ""
-	if c.Request != nil {
-		ip = db.Str(c.Request["ip"])
-	}
-	user := c.User
-	if user == "" {
-		user = "System"
-	}
-	q := c.Q()
-	ctx := c.Ctx
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	_, _ = q.Exec(ctx, `INSERT INTO tab_vault_audit_log (name, owner, creation, modified, modified_by, docstatus, secret_name, action, "user", ip, request_id) VALUES ($1, $2, now(), now(), $3, 0, $4, $5, $6, $7, $8)`,
-		RandomToken(), user, user, secretName, action, user, ip, c.ReqID)
+	ctx := context.Background()
+	_, _ = e.DB.Pool.Exec(ctx, `INSERT INTO tab_audit_event
+		(name, owner, creation, modified, modified_by, docstatus, action, outcome, actor, target_doctype, target_name, ip, request_id, detail)
+		VALUES ($1, 'System', now(), now(), 'System', 0, $2, 'Allowed', 'System', 'Vault Secret', $3, NULL, NULL, NULL)`,
+		RandomToken(), auditAction, secretName)
 }
 
 // VaultSet writes an encrypted secret to ddcore_vault and records an audit log entry.
