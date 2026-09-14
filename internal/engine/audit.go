@@ -70,12 +70,13 @@ func (c *Ctx) AuditDenied(action, targetDoctype, targetName string, detail map[s
 	}
 }
 
-func (c *Ctx) writeAudit(q db.Querier, action, outcome, targetDoctype, targetName string, detail map[string]any) error {
-	ip := ""
-	if c.Request != nil {
-		ip = db.Str(c.Request["ip"])
-	}
-	actor := c.User
+// RecordAudit records an audit event directly on the engine's DB pool.
+func (e *Engine) RecordAudit(ctx context.Context, actor, action, outcome, targetDoctype, targetName string, detail map[string]any) error {
+	return e.RecordAuditOn(ctx, e.DB.Pool, actor, action, outcome, targetDoctype, targetName, "", "", detail)
+}
+
+// RecordAuditOn records an audit event on the provided querier (tx or pool).
+func (e *Engine) RecordAuditOn(ctx context.Context, q db.Querier, actor, action, outcome, targetDoctype, targetName, ip, reqID string, detail map[string]any) error {
 	if actor == "" {
 		actor = "System"
 	}
@@ -88,15 +89,23 @@ func (c *Ctx) writeAudit(q db.Querier, action, outcome, targetDoctype, targetNam
 		}
 		detailJSON = string(b)
 	}
-	ctx := c.Ctx
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	_, err := q.Exec(ctx, `INSERT INTO tab_audit_event
 		(name, owner, creation, modified, modified_by, docstatus, action, outcome, actor, target_doctype, target_name, ip, request_id, detail)
 		VALUES ($1, $2, now(), now(), $2, 0, $3, $4, $2, $5, $6, NULLIF($7, ''), NULLIF($8, ''), $9)`,
-		RandomToken(), actor, action, outcome, targetDoctype, targetName, ip, c.ReqID, detailJSON)
+		RandomToken(), actor, action, outcome, targetDoctype, targetName, ip, reqID, detailJSON)
 	return err
+}
+
+func (c *Ctx) writeAudit(q db.Querier, action, outcome, targetDoctype, targetName string, detail map[string]any) error {
+	ip := ""
+	if c.Request != nil {
+		ip = db.Str(c.Request["ip"])
+	}
+	actor := c.User
+	return c.E.RecordAuditOn(c.Ctx, q, actor, action, outcome, targetDoctype, targetName, ip, c.ReqID, detail)
 }
 
 // AuditFilter narrows an audit listing.

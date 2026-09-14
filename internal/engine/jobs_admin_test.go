@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -710,3 +711,64 @@ func TestRequeueStaleThreeOutcomes(t *testing.T) {
 		t.Error("an exhausted job must say why it stopped")
 	}
 }
+
+func TestAudit_JobAdmin(t *testing.T) {
+	e := setup(t)
+	ctx := t.Context()
+	_, _ = e.DB.Pool.Exec(ctx, "TRUNCATE tab_audit_event")
+
+	// 1. Cancel a queued job
+	qID := plantJob(t, e, map[string]any{"status": "queued", "method": "demo.services.loop.ok", "queue": "default"})
+	act, err := e.CancelJob(ctx, qID, "admin@example.com")
+	if err != nil {
+		t.Fatalf("CancelJob failed: %v", err)
+	}
+	if act.Status != "cancelled" {
+		t.Fatalf("expected status cancelled, got %s", act.Status)
+	}
+
+	cancelEvents, err := e.ListAuditEvents(ctx, AuditFilter{Action: "job.cancel", TargetName: fmt.Sprint(qID)})
+	if err != nil || len(cancelEvents) != 1 {
+		t.Fatalf("expected 1 job.cancel audit event, got %d, err=%v", len(cancelEvents), err)
+	}
+	if cancelEvents[0]["actor"] != "admin@example.com" {
+		t.Errorf("expected actor admin@example.com, got %v", cancelEvents[0]["actor"])
+	}
+	if cancelEvents[0]["outcome"] != "Allowed" {
+		t.Errorf("expected outcome Allowed, got %v", cancelEvents[0]["outcome"])
+	}
+
+	// 2. Retry a failed job
+	fID := plantJob(t, e, map[string]any{"status": "failed", "method": "demo.services.loop.ok", "queue": "default"})
+	retryAct, err := e.RetryJob(ctx, fID, false, "admin@example.com")
+	if err != nil {
+		t.Fatalf("RetryJob failed: %v", err)
+	}
+	if retryAct.Status != "retried" || retryAct.NewID == 0 {
+		t.Fatalf("expected retry status retried with newId > 0, got %+v", retryAct)
+	}
+
+	retryEvents, err := e.ListAuditEvents(ctx, AuditFilter{Action: "job.retry"})
+	if err != nil || len(retryEvents) != 1 {
+		t.Fatalf("expected 1 job.retry audit event, got %d, err=%v", len(retryEvents), err)
+	}
+	if retryEvents[0]["actor"] != "admin@example.com" {
+		t.Errorf("expected actor admin@example.com, got %v", retryEvents[0]["actor"])
+	}
+
+	// 3. Purge jobs
+	purgeCounts, err := e.PurgeJobs(ctx, PurgeOpts{DoneDays: 30, FailedDays: 30, DryRun: false}, "admin@example.com")
+	if err != nil {
+		t.Fatalf("PurgeJobs failed: %v", err)
+	}
+	_ = purgeCounts
+
+	purgeEvents, err := e.ListAuditEvents(ctx, AuditFilter{Action: "job.purge"})
+	if err != nil || len(purgeEvents) != 1 {
+		t.Fatalf("expected 1 job.purge audit event, got %d, err=%v", len(purgeEvents), err)
+	}
+	if purgeEvents[0]["actor"] != "admin@example.com" {
+		t.Errorf("expected actor admin@example.com, got %v", purgeEvents[0]["actor"])
+	}
+}
+

@@ -58,6 +58,16 @@ func TestJobRoutesRequireSystemManager(t *testing.T) {
 	if r := x.call("GET", "/api/jobs/1", nil, root); r.Status != 200 {
 		t.Errorf("a System Manager should read job 1: %d %s", r.Status, r.Raw)
 	}
+
+	// Verify that unauthorized attempts logged Denied audit events
+	var deniedCount int
+	if err := x.e.DB.Pool.QueryRow(context.Background(),
+		`SELECT count(*) FROM tab_audit_event WHERE action = 'job.admin' AND outcome = 'Denied'`).Scan(&deniedCount); err != nil {
+		t.Fatal(err)
+	}
+	if deniedCount < 6 {
+		t.Errorf("expected at least 6 Denied job.admin events, got %d", deniedCount)
+	}
 	_ = id
 }
 

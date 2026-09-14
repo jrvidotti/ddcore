@@ -35,7 +35,7 @@ type JobAction struct {
 // COALESCE, rather than plain assignment, keeps the first requester: asking
 // twice is not an error, and the first person to ask is the one worth recording.
 func (e *Engine) CancelJob(ctx context.Context, id int64, user string) (JobAction, error) {
-	const q = `WITH t AS (SELECT id, status FROM ddcore_job WHERE id = $1 FOR UPDATE),
+	const q = `WITH t AS (SELECT id, status, method, queue FROM ddcore_job WHERE id = $1 FOR UPDATE),
 	 u AS (
 	   UPDATE ddcore_job j SET
 	     cancel_requested = COALESCE(j.cancel_requested, now()),
@@ -45,11 +45,11 @@ func (e *Engine) CancelJob(ctx context.Context, id int64, user string) (JobActio
 	     lease_until = CASE WHEN j.status = 'queued' THEN NULL        ELSE j.lease_until END
 	   FROM t WHERE j.id = t.id AND t.status IN ('queued', 'running')
 	   RETURNING j.status)
-	 SELECT t.status, (SELECT status FROM u) FROM t`
+	 SELECT t.status, t.method, t.queue, (SELECT status FROM u) FROM t`
 
-	var was string
+	var was, method, queue string
 	var now *string
-	if err := e.DB.Pool.QueryRow(ctx, q, id, user).Scan(&was, &now); err != nil {
+	if err := e.DB.Pool.QueryRow(ctx, q, id, user).Scan(&was, &method, &queue, &now); err != nil {
 		if err == pgx.ErrNoRows {
 			return JobAction{}, cerr.NotFound("Job {0} does not exist", id)
 		}
@@ -61,6 +61,11 @@ func (e *Engine) CancelJob(ctx context.Context, id int64, user string) (JobActio
 		return JobAction{ID: id, Status: was},
 			cerr.Validation("Job {0} is already {1} and cannot be cancelled", id, was)
 	}
+	_ = e.RecordAudit(ctx, user, "job.cancel", "Allowed", "Job", fmt.Sprint(id), map[string]any{
+		"method": method,
+		"queue":  queue,
+		"status": *now,
+	})
 	if *now == "cancelled" {
 		return JobAction{ID: id, Status: "cancelled"}, nil
 	}
@@ -82,14 +87,15 @@ func (e *Engine) CancelJob(ctx context.Context, id int64, user string) (JobActio
 //
 // A second retry is refused unless forced, so that pressing the button twice
 // does not quietly fan one failure out into several jobs.
-func (e *Engine) RetryJob(ctx context.Context, id int64, force bool) (JobAction, error) {
+func (e *Engine) RetryJob(ctx context.Context, id int64, force bool, actor ...string) (JobAction, error) {
 	const q = `INSERT INTO ddcore_job (method, args, queue, "user", timeout_seconds, max_attempts, request_id, backoff, retry_of)
 	 SELECT method, args, queue, "user", timeout_seconds, max_attempts, request_id, backoff, id
 	   FROM ddcore_job
 	  WHERE id = $1 AND status IN ('failed', 'cancelled') AND ($2 OR retried_as IS NULL)
-	 RETURNING id`
+	 RETURNING id, method, queue`
 	var newID int64
-	if err := e.DB.Pool.QueryRow(ctx, q, id, force).Scan(&newID); err != nil {
+	var method, queue string
+	if err := e.DB.Pool.QueryRow(ctx, q, id, force).Scan(&newID, &method, &queue); err != nil {
 		if err == pgx.ErrNoRows {
 			return JobAction{}, e.explainRetryRefusal(ctx, id)
 		}
@@ -99,6 +105,15 @@ func (e *Engine) RetryJob(ctx context.Context, id int64, force bool) (JobAction,
 		`UPDATE ddcore_job SET retried_as = $2 WHERE id = $1`, id, newID); err != nil {
 		return JobAction{}, err
 	}
+	user := "System"
+	if len(actor) > 0 && actor[0] != "" {
+		user = actor[0]
+	}
+	_ = e.RecordAudit(ctx, user, "job.retry", "Allowed", "Job", fmt.Sprint(id), map[string]any{
+		"newId":  newID,
+		"method": method,
+		"queue":  queue,
+	})
 	return JobAction{ID: id, Status: "retried", NewID: newID}, nil
 }
 
@@ -148,7 +163,7 @@ const purgeBatch = 5000
 // `finished = now()` on jobs going back to the *queue*, so a site upgrading into
 // this code still holds queued rows carrying a finish time, and an age-only
 // predicate would delete work that has never run.
-func (e *Engine) PurgeJobs(ctx context.Context, o PurgeOpts) (PurgeCounts, error) {
+func (e *Engine) PurgeJobs(ctx context.Context, o PurgeOpts, actor ...string) (PurgeCounts, error) {
 	var n PurgeCounts
 	var err error
 	if n.Done, err = e.purge(ctx, []string{"done"}, o.DoneDays, o.DryRun); err != nil {
@@ -157,7 +172,21 @@ func (e *Engine) PurgeJobs(ctx context.Context, o PurgeOpts) (PurgeCounts, error
 	// Cancelled jobs keep the failures' window: both are the record of something
 	// that did not complete, and both are read long after the fact.
 	n.Failed, err = e.purge(ctx, []string{"failed", "cancelled"}, o.FailedDays, o.DryRun)
-	return n, err
+	if err != nil {
+		return n, err
+	}
+	user := "System"
+	if len(actor) > 0 && actor[0] != "" {
+		user = actor[0]
+	}
+	_ = e.RecordAudit(ctx, user, "job.purge", "Allowed", "Job", "", map[string]any{
+		"done":       n.Done,
+		"failed":     n.Failed,
+		"dryRun":     o.DryRun,
+		"doneDays":   o.DoneDays,
+		"failedDays": o.FailedDays,
+	})
+	return n, nil
 }
 
 // QueueStat is one queue's standing. The site-wide aggregate in the health

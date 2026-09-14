@@ -15,8 +15,10 @@ import (
 // the site runs and the user each one runs as, and the actions stop work and
 // run it again — so every route here sits behind the same role as the health
 // report, checked inside the transaction rather than at the router.
-func requireJobAdmin(c *engine.Ctx) error {
+func requireJobAdmin(c *engine.Ctx, r *http.Request) error {
 	if !c.HasRole("System Manager") {
+		target := urlParam(r, "id")
+		c.AuditDenied("job.admin", "Job", target, nil)
 		return cerr.Permission("Administering jobs requires the System Manager role")
 	}
 	return nil
@@ -74,7 +76,7 @@ func atoiOr(s string, d int) int {
 // to a payload, where the caller already holds the database.
 func (s *Server) listJobs(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
-		if err := requireJobAdmin(c); err != nil {
+		if err := requireJobAdmin(c, r); err != nil {
 			return nil, err
 		}
 		f, err := jobFilter(r)
@@ -98,7 +100,7 @@ func (s *Server) listJobs(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) getJob(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
-		if err := requireJobAdmin(c); err != nil {
+		if err := requireJobAdmin(c, r); err != nil {
 			return nil, err
 		}
 		id, err := jobID(r)
@@ -112,7 +114,7 @@ func (s *Server) getJob(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) jobStats(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
-		if err := requireJobAdmin(c); err != nil {
+		if err := requireJobAdmin(c, r); err != nil {
 			return nil, err
 		}
 		window := s.E.Cfg.Ops.Window()
@@ -125,7 +127,7 @@ func (s *Server) jobStats(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) retryJob(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
-		if err := requireJobAdmin(c); err != nil {
+		if err := requireJobAdmin(c, r); err != nil {
 			return nil, err
 		}
 		id, err := jobID(r)
@@ -136,13 +138,13 @@ func (s *Server) retryJob(w http.ResponseWriter, r *http.Request) {
 			Force bool `json:"force"`
 		}
 		decodeBody(r, &body)
-		return s.E.RetryJob(c.Ctx, id, body.Force)
+		return s.E.RetryJob(c.Ctx, id, body.Force, c.User)
 	})
 }
 
 func (s *Server) cancelJob(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
-		if err := requireJobAdmin(c); err != nil {
+		if err := requireJobAdmin(c, r); err != nil {
 			return nil, err
 		}
 		id, err := jobID(r)
@@ -158,7 +160,7 @@ func (s *Server) cancelJob(w http.ResponseWriter, r *http.Request) {
 // own, the same ones the nightly sweep uses.
 func (s *Server) purgeJobs(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
-		if err := requireJobAdmin(c); err != nil {
+		if err := requireJobAdmin(c, r); err != nil {
 			return nil, err
 		}
 		var body struct {
@@ -178,7 +180,7 @@ func (s *Server) purgeJobs(w http.ResponseWriter, r *http.Request) {
 		if body.FailedDays != nil {
 			o.FailedDays = *body.FailedDays
 		}
-		return s.E.PurgeJobs(c.Ctx, o)
+		return s.E.PurgeJobs(c.Ctx, o, c.User)
 	})
 }
 
