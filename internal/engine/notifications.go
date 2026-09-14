@@ -217,6 +217,30 @@ func (c *Ctx) queueNotification(rule js.Notification, doc, before Doc, identity 
 	return nil
 }
 
+// NotifyUser records a persistent notification for user (e.g. on assignment).
+func (c *Ctx) NotifyUser(user, refDoctype, refName, title, message string) error {
+	if user == "" || user == "Guest" || user == c.User {
+		return nil
+	}
+	ok, err := c.notificationAccess(user, refDoctype, refName)
+	if err != nil || !ok {
+		return err
+	}
+	name := RandomToken()
+	identity := fmt.Sprintf("assignment:%s:%s:%s", refDoctype, refName, name)
+	tag, err := c.Q().Exec(c.Ctx, `INSERT INTO ddcore_notification
+   (name,rule,recipient,reference_doctype,reference_name,identity,desk,title,message)
+   VALUES($1,'assignment',$2,$3,$4,$5,true,$6,$7) ON CONFLICT DO NOTHING`,
+		name, user, refDoctype, refName, identity, title, message)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() > 0 {
+		c.notificationsChanged(user)
+	}
+	return nil
+}
+
 func notificationFromRow(r map[string]any) Notification {
 	created, _ := r["creation"].(time.Time)
 	return Notification{Name: db.Str(r["name"]), Title: db.Str(r["title"]), Message: db.Str(r["message"]), Creation: created, Read: r["read"] == true,
