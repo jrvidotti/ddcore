@@ -12,8 +12,8 @@
   import Icon from "$lib/components/Icon.svelte";
   import ShortcutsModal from "$lib/components/ShortcutsModal.svelte";
   import { ui, toast } from "$lib/ui.svelte";
-  import { shouldToggleShortcuts, toggleShortcutsHelp, shortcutsState, closeShortcutsHelp } from "$lib/shortcuts.svelte";
-  import { onMessage } from "$lib/api";
+  import { shouldToggleShortcuts, toggleShortcutsHelp, shortcutsState, closeShortcutsHelp, openShortcutsHelp } from "$lib/shortcuts.svelte";
+  import { api, onMessage } from "$lib/api";
   import { page } from "$app/state";
   import { goto, afterNavigate } from "$app/navigation";
   import { onMount, onDestroy, untrack } from "svelte";
@@ -26,6 +26,7 @@
   let { children } = $props();
   let ready = $state(false);
   let sidebarOpen = $state(false);
+  let userMenuOpen = $state(false);
   const isLogin = $derived(page.url.pathname.startsWith("/login"));
 
   const displayName = $derived(boot.data?.userDoc?.full_name || boot.data?.user || "");
@@ -46,6 +47,10 @@
       closeShortcutsHelp();
       return;
     }
+    if (userMenuOpen && e.key === "Escape") {
+      userMenuOpen = false;
+      return;
+    }
     if (sidebarOpen && e.key === "Escape") {
       sidebarOpen = false;
       return;
@@ -56,8 +61,28 @@
     }
   }
 
-  // Automatically close sidebar on mobile when navigating to another route
+  function onWindowPointerDown(e: PointerEvent) {
+    const target = e.target as HTMLElement | null;
+    if (userMenuOpen && !target?.closest(".mobile-user-dropdown")) {
+      userMenuOpen = false;
+    }
+  }
+
+  async function handleLogout() {
+    userMenuOpen = false;
+    if (typeof window !== "undefined" && window.innerWidth <= 800) {
+      sidebarOpen = false;
+    }
+    await api.logout();
+    stopNotifications();
+    stopPendingTasks();
+    disconnectEvents();
+    location.href = "/login";
+  }
+
+  // Automatically close sidebar and user menu on mobile when navigating to another route
   afterNavigate(() => {
+    userMenuOpen = false;
     if (typeof window !== "undefined" && window.innerWidth <= 800) {
       sidebarOpen = false;
     }
@@ -108,7 +133,7 @@
 </script>
 
 <svelte:head><title>{siteName()}</title></svelte:head>
-<svelte:window onkeydown={onWindowKeydown} />
+<svelte:window onkeydown={onWindowKeydown} onpointerdown={onWindowPointerDown} />
 
 {#if ui.busy > 0}<div class="busy-bar"></div>{/if}
 {#if !ready}
@@ -130,7 +155,10 @@
       <header class="mobile-topbar">
         <button
           class="btn icon mobile-menu-btn"
-          onclick={() => (sidebarOpen = !sidebarOpen)}
+          onclick={() => {
+            sidebarOpen = !sidebarOpen;
+            if (sidebarOpen) userMenuOpen = false;
+          }}
           aria-label={sidebarOpen ? __("Close menu") : __("Open menu")}
           aria-expanded={sidebarOpen}
           type="button"
@@ -153,9 +181,48 @@
               <span class="notification-count" aria-label={__("{0} unread notifications", [notifications.unread])}>{notifications.unread}</span>
             {/if}
           </a>
-          <a href="/app/profile" class="mobile-avatar" aria-label={__("My profile")}>
-            {avatarInitial(displayName)}
-          </a>
+          <div class="dropdown mobile-user-dropdown">
+            <button
+              class="mobile-avatar-btn"
+              onclick={() => (userMenuOpen = !userMenuOpen)}
+              aria-label={__("User menu")}
+              aria-haspopup="menu"
+              aria-expanded={userMenuOpen}
+              type="button"
+            >
+              {avatarInitial(displayName)}
+            </button>
+            {#if userMenuOpen}
+              <div class="menu" role="menu">
+                <div class="mobile-user-info">
+                  <div class="mobile-user-name">{displayName}</div>
+                  {#if boot.data?.user && boot.data.user !== displayName}
+                    <div class="mobile-user-email">{boot.data.user}</div>
+                  {/if}
+                </div>
+                <div class="mobile-menu-divider"></div>
+                <button
+                  role="menuitem"
+                  onclick={() => { userMenuOpen = false; goto("/app/profile"); }}
+                >
+                  <Icon name="user" size={14} /> <span>{__("My profile")}</span>
+                </button>
+                <button
+                  role="menuitem"
+                  onclick={() => { userMenuOpen = false; openShortcutsHelp(); }}
+                >
+                  <Icon name="keyboard" size={14} /> <span>{__("Keyboard shortcuts")}</span>
+                </button>
+                <div class="mobile-menu-divider"></div>
+                <button
+                  role="menuitem"
+                  onclick={handleLogout}
+                >
+                  <Icon name="log-out" size={14} /> <span>{__("Sign out")}</span>
+                </button>
+              </div>
+            {/if}
+          </div>
         </div>
       </header>
       {@render children()}
@@ -270,7 +337,7 @@
       font-weight: 600;
       line-height: 14px;
     }
-    .mobile-avatar {
+    .mobile-avatar-btn {
       display: inline-flex;
       width: 28px;
       height: 28px;
@@ -281,7 +348,65 @@
       justify-content: center;
       font-size: 12px;
       font-weight: 600;
-      text-decoration: none;
+      border: 0;
+      padding: 0;
+      cursor: pointer;
+    }
+    .mobile-user-dropdown {
+      position: relative;
+    }
+    .mobile-user-dropdown .menu {
+      position: absolute;
+      right: 0;
+      top: calc(100% + 8px);
+      min-width: 200px;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+      z-index: 60;
+      padding: 4px;
+    }
+    .mobile-user-dropdown .menu button {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      text-align: left;
+      padding: 8px 10px;
+      border: 0;
+      background: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--text);
+    }
+    .mobile-user-dropdown .menu button:hover {
+      background: #f3f4f6;
+    }
+    .mobile-user-info {
+      padding: 8px 10px 6px;
+    }
+    .mobile-user-name {
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--text);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .mobile-user-email {
+      font-size: 11px;
+      color: var(--muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      margin-top: 2px;
+    }
+    .mobile-menu-divider {
+      height: 1px;
+      background: var(--border);
+      margin: 4px 0;
     }
     .sidebar-backdrop {
       display: block;

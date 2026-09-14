@@ -18,7 +18,7 @@ Allowed,Permitido,# core.doctypes.audit_event.audit_event.doctype
 Amend,Emendar,# desk/src/lib/components/FormView.svelte:364
 An account was created for you on {0}. Choose a password to get in.,Uma conta foi criada para você em {0}. Escolha uma senha para entrar.,# core/mail/invite.mail.ts:22
 Apply,Aplicar,# desk/src/lib/controls/Grid.svelte:29
-Apps reloaded,Apps recarregadas,# desk/src/routes/+layout.svelte:100
+Apps reloaded,Apps recarregadas,# desk/src/routes/+layout.svelte:128
 Arguments,Argumentos,# core.doctypes.email_delivery.email_delivery.doctype
 Ask for a new link,Pedir um novo link,# desk/src/routes/login/reset/+page.svelte:47
 Assign,Atribuir,# desk/src/lib/components/AssignModal.svelte:118
@@ -273,7 +273,7 @@ Only a System Manager may replay a webhook delivery,Somente um System Manager po
 Only cancelled documents can be amended,Só documentos cancelados podem ser emendados,# internal/engine/doc.go:692
 Only submitted documents can be cancelled,Só documentos enviados podem ser cancelados,# internal/engine/doc.go:675
 Open,Aberto,# desk/src/routes/app/todo/+page.svelte:131
-Open menu,Abrir menu,# desk/src/routes/+layout.svelte:131
+Open menu,Abrir menu,# desk/src/routes/+layout.svelte:162
 Open the full history,Abrir histórico completo,# desk/src/lib/components/DocSidebar.svelte:182
 Open the month picker,Abrir seletor de mês,# desk/src/lib/controls/MonthControl.svelte:181
 Origin,Origem,# core.doctypes.email_delivery.email_delivery.doctype
@@ -423,6 +423,7 @@ Uploading…,Enviando...,# desk/src/lib/controls/AttachControl.svelte:27
 Urgent,Urgente,# desk/src/lib/components/AssignModal.svelte:99
 User,Usuário,# core.doctypes.api_key.api_key.doctype
 User is disabled,Usuário desativado,# internal/engine/auth.go:99
+User menu,Menu do usuário,# desk/src/routes/+layout.svelte:188
 User {0} already exists,O usuário {0} já existe,# core/services/users.ts:37
 User {0} does not exist,Usuário {0} não existe,# core/services/users.ts:96
 User {0} does not exist or is disabled,Usuário {0} não existe ou está desativado,# internal/api/assignments.go:44
