@@ -1,6 +1,6 @@
 # ddcore Feature Roadmap
 
-Updated: September 13, 2026.
+Updated: September 14, 2026.
 
 This roadmap prioritizes reusable framework capabilities by expected benefit relative
 to implementation effort and ongoing maintenance. It is derived from the
@@ -43,34 +43,24 @@ reports, jobs/scheduler, files, Version/Comment, and the existing CLI/MCP tools.
 | PRD-04 | Authorized job inspection, retry, cancellation, retention and per-queue/per-method metrics, over `ddcore jobs`, a System Manager-only HTTP surface and MCP tools; cooperative cancellation of a running job; a daily retention sweep with windows in `ops`; `request_id` carried from the request that queued the work. See [operations](docs/agent/ops.md). | No Desk screen: administration is the CLI and the API. Jobs have no priority and workers no per-queue affinity. A job blocked inside a host call is not interruptible, so cancellation latency is unbounded for it. Payloads are readable only through `ddcore jobs show`, never over HTTP. Nothing is exactly-once: a cancel rolls back the database work and no external effect, and a retry may repeat one. |
 | OPS-02 | Business email: file-based templates in `mail/<name>.mail.ts`, a block vocabulary rendered to both parts of the message, `ddcore.sendMail` writing on the caller's transaction, authorized `File` attachments with a size cap, and an `Email Delivery` record per message. The framework's own invitation and recovery messages are two of these templates. See [mail](docs/agent/mail.md). | No inbound mail or IMAP (deferred below); no CC/BCC, Reply-To, per-message From, or resend; attachments must be `File` documents, not raw bytes. A `sensitive` template keeps its arguments out of the delivery record, but they travel in the job payload, so a live token sits in `ddcore_job` until the PRD-04 retention sweep removes it. `Uncertain` records an ambiguous SMTP outcome; it does not resolve it. |
 | OPS-03 | Persistent event/date notification rules through `defineNotification`, transactional per-recipient occurrences, authorized Desk inbox and read/unread state, database deduplication, optional template email and recipient-only after-commit SSE invalidation. See [notifications](docs/agent/notifications.md). | No visual rule editor, individual preferences, push, assignments or custom events. Sent email cannot be withdrawn after access revocation. A date rule resolves recipients once, when its condition first holds for that date. Listing and counting recheck access per stored occurrence, so their cost grows with the inbox; there is no retention sweep for read notifications. |
-| OPS-06 | Outgoing webhooks: `Webhook` subscriptions for document lifecycle events and app events (`ddcore.webhooks.emit`), a `Webhook Delivery` record and job written on the caller's transaction, Standard Webhooks signatures with a Vault-held key, a stable `webhook-id` across retries and replay, per-webhook timeout and attempts with exponential job backoff, System Manager replay recorded in a new `Audit Event` DocType, `DDCORE_WEBHOOKS=off` for rehearsals, retention, `ddcore webhooks` and a doctor section. See [webhooks](docs/agent/webhooks.md). | Delivery is at least once: a timeout is retried, so receivers must deduplicate on `webhook-id`. No per-webhook condition, field selection, custom headers, dual-key secret rotation or private-network (SSRF) restriction; `dbSet` and rename emit nothing. `Audit Event` covers only webhook replay; PRD-06 extends it and should absorb `Vault Audit Log`. A host-blocked HTTP call is not interruptible by job cancellation. |
+| OPS-06 | Outgoing webhooks: `Webhook` subscriptions for document lifecycle events and app events (`ddcore.webhooks.emit`), a `Webhook Delivery` record and job written on the caller's transaction, Standard Webhooks signatures with a Vault-held key, a stable `webhook-id` across retries and replay, per-webhook timeout and attempts with exponential job backoff, System Manager replay recorded in a new `Audit Event` DocType, `DDCORE_WEBHOOKS=off` for rehearsals, retention, `ddcore webhooks` and a doctor section. See [webhooks](docs/agent/webhooks.md). | Delivery is at least once: a timeout is retried, so receivers must deduplicate on `webhook-id`. No per-webhook condition, field selection, custom headers, dual-key secret rotation or private-network (SSRF) restriction; `dbSet` and rename emit nothing. `Audit Event` covers only webhook replay (extended into unified administrative audit under PRD-06). A host-blocked HTTP call is not interruptible by job cancellation. |
 | OPS-05 | Assignments and pending work: standard `ToDo` DocType in Core, document assignment workflow (`assign`, `complete`, `revoke`), strict referenced-document access filtering on `/api/todo/pending`, due date reminder notifications, Desk sidebar widget and `/app/todo` central. See [assignments](docs/agent/assignments.md). | Assignment does not grant document access; revocation and access changes hide tasks. Automatic assignment rules remain demand-driven in OPS-09. |
+| PRD-06 | Administrative audit coverage: unified audit ledger in `Audit Event` (`tab_audit_event`) absorbing `Vault Audit Log`, engine-level immutability against API/Desk mutations, transactional split (allowed actions committed with transaction, denied attempts written directly to connection pool), recursive sensitive payload redaction, scheduled retention sweep via `ops.auditRetentionDays`, and `ddcore audit list\|purge` CLI. Covers role assign/revoke, user account status/invites/unlocks/sessions, background job cancel/retry/purge, Vault Secret read/write/delete, webhook replay, and method authorization denials. See [audit](docs/agent/audit.md). | Document approval, import, and sharing audit events arrive with their respective capabilities (OPS-04, DAT-01, SEC-03). Internal system vault reads during webhook signing bypass auditing to avoid worker log noise. No cryptographic tamper-evident chaining or external SIEM/syslog export. |
 
 The authentication mail transport already supported SMTP and a configurable app
 transport, and business email (OPS-02) is built on it, so OPS-03 inherits a
 delivery record, a template mechanism and a rendering vocabulary rather than
 starting from an SMTP client. Outgoing webhooks (OPS-06) added exponential job
-backoff and the first `Audit Event` producer, which notifications and PRD-06
-extend rather than re-create. The job worker has retries, timeouts, leases,
-heartbeats, and now cancellation and retention (PRD-04), so a durable delivery
-service builds on administration that already exists.
+backoff and the first `Audit Event` producer, which PRD-06 expanded into unified
+administrative audit coverage across framework services. The job worker has retries,
+timeouts, leases, heartbeats, and now cancellation and retention (PRD-04), so a durable
+delivery service builds on administration that already exists.
 
 Treat the residuals above as bounded follow-up work. Address security or monetary
 correctness residuals before deploying a flow that relies on them, and recheck their
 status when implementation starts.
 
-## Stage 1 — Reusable operational services
-
-Reuse Postgres transactions, jobs, SMTP, and SSE. Introduce the minimum protected
-audit-event facility needed by the first service, then extend it as other producers
-arrive. Share delivery bookkeeping where behavior is common without requiring a
-separate broker.
-
-| Capability | Benefit / effort | Dependencies and minimum acceptance |
-| --- | --- | --- |
-| **Administrative audit coverage** — PRD-06 (Done) | High / M. Makes sensitive operations investigable across services. | Unified audit facility in `tab_audit_event` absorbing Vault Audit Log. Covers roles, accounts, background jobs, webhooks, vault secrets, method denials. Strict immutability, recursive sensitive-field redaction, `ops.auditRetentionDays` policy and `ddcore audit list|purge` CLI. |
-
-## Stage 2 — Broader administrative application support
+## Stage 1 — Broader administrative application support
 
 These capabilities unlock more apps but cost more to design and maintain. Access
 controls come first here because subsequent output and sharing features must reuse
@@ -85,7 +75,7 @@ their enforcement.
 | **Document sharing** — SEC-03 | Medium / M. Supports collaboration beyond static roles. | Define how grants interact with scopes/field restrictions, plus revocation and audit. Test every exposed read path after revoke. Keep permission editors and role profiles in the demand-driven backlog. |
 | **Core/app compatibility contract** — PRD-07 | High / M. Reduces upgrade failures as shared APIs grow. | Declare supported version ranges, reject incompatible combinations, document changes, and test representative consumers during upgrades. Pin exact versions before any production pilot. |
 
-## Stage 3 — Migration and production tooling
+## Stage 2 — Migration and production tooling
 
 This stage follows framework reuse in the default backlog, but its required outcomes
 are prerequisites for a production migration. Operational scripts and documented
