@@ -131,7 +131,11 @@
     if (!meta) return;
     loading = true;
     try {
-      const fields = ["name", "modified", "docstatus", "owner", ...columns.map((c) => c.fieldname!), ...(settings.fields || [])];
+      // A Dynamic Link column needs its sibling type column too, even when that
+      // one is not shown: without it the cell links to /app/undefined/<name>
+      // and the server has no DocType to resolve the title against.
+      const dynamicTypes = columns.filter((c) => c.fieldtype === "Dynamic Link" && typeof c.options === "string").map((c) => c.options as string);
+      const fields = ["name", "modified", "docstatus", "owner", ...columns.map((c) => c.fieldname!), ...dynamicTypes, ...(settings.fields || [])];
       if (statusField && !fields.includes(statusField.fieldname!)) fields.push(statusField.fieldname!);
       const res = await api.list(doctype, { filters: buildFilters(), or_filters: buildOr(), fields: [...new Set(fields)], order_by: orderBy || undefined, limit: pageSize, start, with_count: true });
       rows = res.rows;
