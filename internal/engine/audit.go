@@ -3,9 +3,51 @@ package engine
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"regexp"
+	"strings"
+	"time"
 
 	"github.com/jrvidotti/ddcore/internal/db"
 )
+
+var sensitiveKeyPattern = regexp.MustCompile(`(?i)(password|secret|token|key|hash|credential|auth|ciphertext|nonce)`)
+
+// SanitizeAuditDetail redacts sensitive keys and truncates oversized strings.
+func SanitizeAuditDetail(detail map[string]any) map[string]any {
+	if detail == nil {
+		return nil
+	}
+	out := make(map[string]any, len(detail))
+	for k, v := range detail {
+		if sensitiveKeyPattern.MatchString(k) {
+			out[k] = "[REDACTED]"
+			continue
+		}
+		out[k] = sanitizeAuditValue(v)
+	}
+	return out
+}
+
+func sanitizeAuditValue(v any) any {
+	switch val := v.(type) {
+	case string:
+		if len(val) > 500 {
+			return val[:500] + "…"
+		}
+		return val
+	case map[string]any:
+		return SanitizeAuditDetail(val)
+	case []any:
+		res := make([]any, len(val))
+		for i, item := range val {
+			res[i] = sanitizeAuditValue(item)
+		}
+		return res
+	default:
+		return v
+	}
+}
 
 // Audit records that the current user did something sensitive to a target.
 //
@@ -13,9 +55,8 @@ import (
 // happen, and a record claiming it did would be a false record. A refusal is
 // the opposite case — see AuditDenied.
 //
-// This is the minimum the first operational service needed (a webhook replay).
 // detail is for identifiers and states, never for a secret or a payload: every
-// System Manager reads this table.
+// System Manager reads this table. Sensitive keys are redacted automatically.
 func (c *Ctx) Audit(action, targetDoctype, targetName string, detail map[string]any) error {
 	return c.writeAudit(c.Q(), action, "Allowed", targetDoctype, targetName, detail)
 }
@@ -40,7 +81,8 @@ func (c *Ctx) writeAudit(q db.Querier, action, outcome, targetDoctype, targetNam
 	}
 	var detailJSON any
 	if len(detail) > 0 {
-		b, err := json.Marshal(detail)
+		sanitized := SanitizeAuditDetail(detail)
+		b, err := json.Marshal(sanitized)
 		if err != nil {
 			return err
 		}
@@ -55,4 +97,92 @@ func (c *Ctx) writeAudit(q db.Querier, action, outcome, targetDoctype, targetNam
 		VALUES ($1, $2, now(), now(), $2, 0, $3, $4, $2, $5, $6, NULLIF($7, ''), NULLIF($8, ''), $9)`,
 		RandomToken(), actor, action, outcome, targetDoctype, targetName, ip, c.ReqID, detailJSON)
 	return err
+}
+
+// AuditFilter narrows an audit listing.
+type AuditFilter struct {
+	Action        string
+	Actor         string
+	TargetDocType string
+	TargetName    string
+	Outcome       string
+	Since         *time.Time
+	Until         *time.Time
+	Limit         int
+	Start         int
+}
+
+func (f AuditFilter) where() (string, []any) {
+	var clauses []string
+	var args []any
+	add := func(sql string, v any) {
+		args = append(args, v)
+		clauses = append(clauses, fmt.Sprintf(sql, len(args)))
+	}
+	if f.Action != "" {
+		add("action = $%d", f.Action)
+	}
+	if f.Actor != "" {
+		add("actor = $%d", f.Actor)
+	}
+	if f.TargetDocType != "" {
+		add("target_doctype = $%d", f.TargetDocType)
+	}
+	if f.TargetName != "" {
+		add("target_name = $%d", f.TargetName)
+	}
+	if f.Outcome != "" {
+		add("outcome = $%d", f.Outcome)
+	}
+	if f.Since != nil {
+		add("creation >= $%d", *f.Since)
+	}
+	if f.Until != nil {
+		add("creation <= $%d", *f.Until)
+	}
+	if len(clauses) == 0 {
+		return "", nil
+	}
+	return " WHERE " + strings.Join(clauses, " AND "), args
+}
+
+const auditColumns = `name, owner, creation, modified, modified_by, docstatus, action, outcome, actor, target_doctype, target_name, ip, request_id, detail`
+
+// ListAuditEvents reads audit events, newest first.
+func (e *Engine) ListAuditEvents(ctx context.Context, f AuditFilter) ([]map[string]any, error) {
+	where, args := f.where()
+	limit := f.Limit
+	if limit <= 0 {
+		limit = 20
+	}
+	args = append(args, limit, f.Start)
+	q := fmt.Sprintf(`SELECT %s FROM tab_audit_event%s ORDER BY creation DESC, name DESC LIMIT $%d OFFSET $%d`,
+		auditColumns, where, len(args)-1, len(args))
+	return db.Select(ctx, e.DB.Pool, q, args...)
+}
+
+// CountAuditEvents counts audit events matching the filter.
+func (e *Engine) CountAuditEvents(ctx context.Context, f AuditFilter) (int64, error) {
+	where, args := f.where()
+	var n int64
+	err := e.DB.Pool.QueryRow(ctx, `SELECT count(*) FROM tab_audit_event`+where, args...).Scan(&n)
+	return n, err
+}
+
+// PurgeAuditEvents deletes audit events older than days. DryRun returns the count without deleting.
+func (e *Engine) PurgeAuditEvents(ctx context.Context, days int, dryRun bool) (int, error) {
+	if days <= 0 {
+		return 0, nil
+	}
+	const where = `creation < now() - make_interval(days => $1)`
+	if dryRun {
+		var n int
+		err := e.DB.Pool.QueryRow(ctx, `SELECT count(*) FROM tab_audit_event WHERE `+where, days).Scan(&n)
+		return n, err
+	}
+	tag, err := e.DB.Pool.Exec(ctx, `DELETE FROM tab_audit_event WHERE `+where, days)
+	if err != nil {
+		return 0, err
+	}
+	return int(tag.RowsAffected()), nil
 }

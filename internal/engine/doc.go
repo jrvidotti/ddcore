@@ -398,6 +398,9 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 	if d.IsChild {
 		return nil, cerr.Validation("{0} is a child table", d.Name)
 	}
+	if d.Name == "Audit Event" {
+		return nil, cerr.Permission("Audit Event records are immutable and cannot be created directly")
+	}
 	permission := "create"
 	if d.IsSingle {
 		permission = "write"
@@ -499,6 +502,9 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 	d, err := c.St.DocType(doc.DocType())
 	if err != nil {
 		return nil, err
+	}
+	if d.Name == "Audit Event" {
+		return nil, cerr.Permission("Audit Event records are immutable and cannot be modified")
 	}
 	// FOR UPDATE: subsequent callers wait here and only then compare the
 	// timestamp, instead of reading a version that is actively being modified.
@@ -786,6 +792,9 @@ func (c *Ctx) Delete(doctype, name string, ignorePerms, force bool) error {
 	d, err := c.St.DocType(doctype)
 	if err != nil {
 		return err
+	}
+	if doctype == "Audit Event" {
+		return cerr.Permission("Audit Event records are immutable and cannot be deleted")
 	}
 	if d.IsSingle {
 		return cerr.Validation("Single DocTypes cannot be deleted or renamed")
