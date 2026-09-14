@@ -22,20 +22,29 @@ func TestNotificationReloadKeepsLastValidState(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	appRules := func(rules []js.Notification, app string) []js.Notification {
+		var out []js.Notification
+		for _, n := range rules {
+			if n.App == app {
+				out = append(out, n)
+			}
+		}
+		return out
+	}
 	write("First", "User")
 	e, err := New(context.Background(), Config{Apps: []js.App{{Name: "notify", Dir: dir}}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer func() { e.Current().Pool.Close() }()
-	if len(e.Notifications) != 1 || e.Notifications[0].Name != "First" {
+	if notifyRules := appRules(e.Notifications, "notify"); len(notifyRules) != 1 || notifyRules[0].Name != "First" {
 		t.Fatalf("%+v", e.Notifications)
 	}
 	write("Second", "User")
 	if err := e.Load(); err != nil {
 		t.Fatal(err)
 	}
-	if len(e.Notifications) != 1 || e.Notifications[0].Name != "Second" {
+	if notifyRules := appRules(e.Notifications, "notify"); len(notifyRules) != 1 || notifyRules[0].Name != "Second" {
 		t.Fatalf("%+v", e.Notifications)
 	}
 	for _, target := range []string{"Missing", "Has Role", "Email Delivery", "Webhook Delivery", "Vault Audit Log", "Audit Event", "Version", "Error Log"} {
@@ -43,7 +52,7 @@ func TestNotificationReloadKeepsLastValidState(t *testing.T) {
 		if err := e.Load(); err == nil {
 			t.Fatal("accepted invalid target " + target)
 		}
-		if len(e.Current().Notifications) != 1 || e.Current().Notifications[0].Name != "Second" {
+		if notifyRules := appRules(e.Current().Notifications, "notify"); len(notifyRules) != 1 || notifyRules[0].Name != "Second" {
 			t.Fatal("failed reload replaced active rules")
 		}
 	}
@@ -62,7 +71,7 @@ func TestNotificationReloadKeepsLastValidState(t *testing.T) {
 	if err := e.Load(); err != nil {
 		t.Fatal(err)
 	}
-	if len(e.Notifications) != 0 {
+	if notifyRules := appRules(e.Notifications, "notify"); len(notifyRules) != 0 {
 		t.Fatal("removed rule remained active")
 	}
 }

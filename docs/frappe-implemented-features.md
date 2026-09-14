@@ -98,6 +98,7 @@ References: [form API](agent/form-api.md), [report API](agent/report-api.md),
 |---|---|
 | Persistent Queue | `ddcore.enqueue` creates jobs in Postgres; workers use `FOR UPDATE SKIP LOCKED`. |
 | Persistent Notifications | `defineNotification` event/date rules, recipient authorization and deduplication, Desk inbox with persistent read state, optional template email and recipient-only SSE refresh. See [notifications](agent/notifications.md). |
+| Assignments and Pending Work | Standard `ToDo` DocType in Core, document assignment workflow (`assign`/`complete`/`revoke`), strict referenced-document access filtering, due date notification reminders, Desk sidebar widget, and `/app/todo` pending work central. See [assignments](agent/assignments.md) (OPS-05). |
 | Scheduler | Cron and frequencies `all`, `hourly`, `daily`, `weekly`, and `monthly` declared in app manifest. |
 | Job Robustness | Timeout, retries with `maxAttempts`, result/error tracking, lease with heartbeat fenced on the attempt, requeuing on worker interruption without consuming an attempt, and `request_id` carried from the request that queued the job. |
 | Job Management | `ddcore jobs list|show|stats|retry|cancel|purge|scheduled|run|work`, a System Manager-only HTTP surface under `/api/jobs`, and MCP tools. Cancelling a running job interrupts it and rolls back its transaction; retry queues a linked new job; retention sweeps daily by the windows in `ops`. Arguments and results are printed by `jobs show` only. |
