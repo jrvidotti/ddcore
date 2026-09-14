@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 
 	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/db"
@@ -204,5 +205,82 @@ func (s *Server) listDocAssignments(w http.ResponseWriter, r *http.Request) {
 			OrderBy:  "creation desc",
 			Limit:    100,
 		})
+	})
+}
+
+func (s *Server) pendingWork(w http.ResponseWriter, r *http.Request) {
+	s.run(w, r, func(c *engine.Ctx) (any, error) {
+		q := r.URL.Query()
+		status := q.Get("status")
+		if status == "" {
+			status = "Open"
+		}
+		scope := q.Get("scope")
+		if scope == "" {
+			scope = "mine"
+		}
+		limit := 20
+		offset := 0
+		if q.Has("limit") {
+			if n, err := strconv.Atoi(q.Get("limit")); err == nil && n > 0 && n <= 100 {
+				limit = n
+			}
+		}
+		if q.Has("offset") {
+			if n, err := strconv.Atoi(q.Get("offset")); err == nil && n >= 0 {
+				offset = n
+			}
+		}
+
+		filters := map[string]any{}
+		if status != "all" {
+			filters["status"] = status
+		}
+		if scope == "assigned_by_me" {
+			filters["assigned_by"] = c.User
+		} else {
+			filters["allocated_to"] = c.User
+		}
+
+		allCandidates, err := c.GetList("ToDo", engine.ListArgs{
+			Filters: filters,
+			Fields:  []string{"name", "status", "priority", "date", "allocated_to", "assigned_by", "description", "reference_type", "reference_name", "creation", "modified"},
+			OrderBy: "creation desc",
+			Limit:   1000,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		var filtered []map[string]any
+		for _, item := range allCandidates {
+			refType := db.Str(item["reference_type"])
+			refName := db.Str(item["reference_name"])
+			if refType != "" && refName != "" {
+				if err := s.requireDocRead(c, refType, refName); err != nil {
+					continue // skip items whose reference doc the user cannot read
+				}
+			}
+			filtered = append(filtered, item)
+		}
+
+		total := len(filtered)
+		start := offset
+		if start > total {
+			start = total
+		}
+		end := start + limit
+		if end > total {
+			end = total
+		}
+		page := filtered[start:end]
+		if page == nil {
+			page = []map[string]any{}
+		}
+
+		return map[string]any{
+			"data":  page,
+			"total": total,
+		}, nil
 	})
 }

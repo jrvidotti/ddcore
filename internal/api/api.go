@@ -91,6 +91,7 @@ func New(e *engine.Engine, desk fs.FS) *Server {
 			r.Post("/assignments/assign", s.assignDoc)
 			r.Post("/assignments/complete", s.completeAssignment)
 			r.Post("/assignments/revoke", s.revokeAssignment)
+			r.Get("/todo/pending", s.pendingWork)
 			r.Get("/health/report", s.healthReport)
 			// Job administration. Every one of these checks the System Manager
 			// role inside the handler, exactly as the health report does; the
