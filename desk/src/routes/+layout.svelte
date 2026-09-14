@@ -15,8 +15,8 @@
   import { shouldToggleShortcuts, toggleShortcutsHelp, shortcutsState, closeShortcutsHelp } from "$lib/shortcuts.svelte";
   import { onMessage } from "$lib/api";
   import { page } from "$app/state";
-  import { goto } from "$app/navigation";
-  import { onMount, onDestroy } from "svelte";
+  import { goto, afterNavigate } from "$app/navigation";
+  import { onMount, onDestroy, untrack } from "svelte";
   import {
     resolveActiveWorkspace,
     getRememberedWorkspace,
@@ -56,10 +56,9 @@
     }
   }
 
-  $effect(() => {
-    // Automatically close sidebar on mobile when navigating to another route
-    const _path = page.url.pathname;
-    if (sidebarOpen && typeof window !== "undefined" && window.innerWidth <= 800) {
+  // Automatically close sidebar on mobile when navigating to another route
+  afterNavigate(() => {
+    if (typeof window !== "undefined" && window.innerWidth <= 800) {
       sidebarOpen = false;
     }
   });
@@ -80,8 +79,10 @@
     };
   });
 
+  // The stop functions read and write store state (`revision++`); untracked, so the effect
+  // depends on `isLogin` alone instead of re-running on its own writes.
   $effect(() => {
-    if (isLogin) { stopNotifications(); stopPendingTasks(); disconnectEvents(); }
+    if (isLogin) untrack(() => { stopNotifications(); stopPendingTasks(); disconnectEvents(); });
   });
   onDestroy(() => { stopNotifications(); stopPendingTasks(); disconnectEvents(); });
 
@@ -92,7 +93,9 @@
       const b = await loadBoot();
       // app.html ships lang="en"; the boot is what knows the real one
       document.documentElement.lang = b.lang;
-      if (b.user === "Guest" && !isLogin) { goto("/login?redirect=" + encodeURIComponent(page.url.pathname + page.url.search)); }
+      // Awaited: rendering the page before the URL changes lets its own redirect (/app → a
+      // workspace) replace this one, and a guest never reaches the sign-in form.
+      if (b.user === "Guest" && !isLogin) { await goto("/login?redirect=" + encodeURIComponent(page.url.pathname + page.url.search)); }
       else if (b.user !== "Guest") {
         await loadAppIncludes(b.apps, b.loaded);
         startNotifications();
@@ -194,6 +197,7 @@
       border: 0;
       background: none;
       color: inherit;
+      cursor: pointer;
     }
     .mobile-brand {
       display: flex;
