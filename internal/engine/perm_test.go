@@ -10,6 +10,20 @@ import (
 	"github.com/jrvidotti/ddcore/internal/js"
 )
 
+func TestUserPermissionDocTypeLoaded(t *testing.T) {
+	e := setupPerm(t)
+	dt, ok := e.Meta.Get("User Permission")
+	if !ok {
+		t.Fatalf("expected User Permission DocType to be loaded")
+	}
+	if dt.TableName() != "tab_user_permission" {
+		t.Fatalf("expected table name tab_user_permission, got %s", dt.TableName())
+	}
+	if f := dt.Field("for_value"); f == nil || !f.Reqd {
+		t.Fatalf("expected for_value field to be required")
+	}
+}
+
 // permApp: Pedido (Gestor) with two child tables, one having allowOnSubmit.
 func permApp(t *testing.T) string {
 	dir := t.TempDir()

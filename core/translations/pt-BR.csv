@@ -17,6 +17,7 @@ All rows matching the filters ({0}) as NDJSON with the child tables,Todas as lin
 Allowed,Permitido,# core.doctypes.audit_event.audit_event.doctype
 Amend,Emendar,# desk/src/lib/components/FormView.svelte:364
 An account was created for you on {0}. Choose a password to get in.,Uma conta foi criada para você em {0}. Escolha uma senha para entrar.,# core/mail/invite.mail.ts:22
+Applicable For,Aplicável Para,# core.doctypes.user_permission.user_permission.doctype
 Apply,Aplicar,# desk/src/lib/controls/Grid.svelte:29
 Apps reloaded,Apps recarregadas,# desk/src/routes/+layout.svelte:128
 Arguments,Argumentos,# core.doctypes.email_delivery.email_delivery.doctype
@@ -153,6 +154,7 @@ Fill this in to set or change the password.,Preencha para definir ou trocar a se
 "Filter by field, value or user…","Filtrar por campo, valor ou usuário...",# desk/src/lib/components/DocHistory.svelte:69
 Filter {0} by {1} and {2},Filtre {0} por {1} e {2},# internal/api/api.go:1005
 Fix the invalid email fields.,Corrija os campos de e-mail inválidos.,# desk/src/lib/form.svelte.ts:273
+For Value,Para o Valor,# core.doctypes.user_permission.user_permission.doctype
 Forgotten password,Esqueci a senha,# desk/src/routes/login/forgot/+page.svelte:37
 Form & editing,Formulário & Edição,# desk/src/lib/shortcuts.ts:89
 Full name,Nome completo,# desk/src/lib/components/Profile.svelte:157
@@ -187,6 +189,7 @@ Invalid number of days,Número de dias inválido,# core/services/api_keys.ts:37
 Invalid upload: {0},upload inválido: {0},# internal/api/api.go:1236
 Invalid username or password,Usuário ou senha inválidos,# internal/engine/auth.go:90
 Invalid {0}: {1},{0} inválido: {1},# internal/api/api.go:309
+Is Default,É Padrão,# core.doctypes.user_permission.user_permission.doctype
 Job,Job,# core.doctypes.email_delivery.email_delivery.doctype
 Job {0} does not exist,O job {0} não existe,# internal/engine/jobs_admin.go:54
 Job {0} is already {1} and cannot be cancelled,O job {0} já está {1} e não pode ser cancelado,# internal/engine/jobs_admin.go:62
@@ -276,6 +279,7 @@ Open,Aberto,# desk/src/routes/app/todo/+page.svelte:131
 Open menu,Abrir menu,# desk/src/routes/+layout.svelte:162
 Open the full history,Abrir histórico completo,# desk/src/lib/components/DocSidebar.svelte:182
 Open the month picker,Abrir seletor de mês,# desk/src/lib/controls/MonthControl.svelte:181
+"Optional DocType to restrict this rule to. If empty, applies globally.","DocType opcional para restringir esta regra. Se vazio, aplica globalmente.",# core.doctypes.user_permission.user_permission.doctype
 Origin,Origem,# core.doctypes.email_delivery.email_delivery.doctype
 Outcome,Resultado,# core.doctypes.audit_event.audit_event.doctype
 Password,Senha,# desk/src/lib/components/Profile.svelte:170
@@ -375,11 +379,13 @@ Task instructions / notes,Instruções / notas da tarefa,# desk/src/lib/componen
 Tell us the address you sign in with and we will send a link to set a new password.,Diga o endereço com que você entra e enviaremos um link para definir uma nova senha.,# desk/src/routes/login/forgot/+page.svelte:38
 Template,Modelo,# core.doctypes.email_delivery.email_delivery.doctype
 That key is not yours,Essa chave não é sua,# core/services/api_keys.ts:43
+"The DocType that defines the restricted scope, e.g. Company or Branch.","O DocType que define o escopo restrito, ex.: Company ou Branch.",# core.doctypes.user_permission.user_permission.doctype
 The current password is not right,A senha atual não confere,# core/services/profile.ts:99
 The document was changed by someone else after you opened it. Reload and try again.,O documento foi alterado por outro usuário depois que você o abriu. Recarregue e tente de novo.,# internal/engine/doc.go:549
 The email address names the account and cannot be changed here. Roles are granted by an administrator.,O e-mail é o nome da conta e não pode ser alterado aqui. Os papéis são concedidos por um administrador.,# desk/src/lib/components/Profile.svelte:149
 "The framework's own DocTypes: users, roles, files, comments and versions.","DocTypes do próprio framework: usuários, papéis, arquivos, comentários e versões.",# core app
 "The name an app passes to ddcore.webhooks.emit, e.g. shop.order_paid.","O nome que um app passa para ddcore.webhooks.emit, p. ex. shop.order_paid.",# core.doctypes.webhook.webhook.doctype
+The name/ID of the allowed document.,O nome/ID do documento permitido.,# core.doctypes.user_permission.user_permission.doctype
 The page on screen ({0}) as CSV,A página na tela ({0}) em CSV,# desk/src/lib/components/ListView.svelte:271
 The password cannot be blank,A senha não pode ficar em branco,# internal/engine/password.go:41
 The password cannot be the same as the username,A senha não pode ser igual ao nome de usuário,# internal/engine/password.go:44
@@ -422,6 +428,7 @@ Update,Atualizar,# desk/src/lib/components/FormView.svelte:361
 Uploading…,Enviando...,# desk/src/lib/controls/AttachControl.svelte:27
 Urgent,Urgente,# desk/src/lib/components/AssignModal.svelte:99
 User,Usuário,# core.doctypes.api_key.api_key.doctype
+User Permission,Permissão de Usuário,# core.doctypes.user_permission.user_permission.doctype
 User is disabled,Usuário desativado,# internal/engine/auth.go:99
 User menu,Menu do usuário,# desk/src/routes/+layout.svelte:188
 User {0} already exists,O usuário {0} já existe,# core/services/users.ts:37
