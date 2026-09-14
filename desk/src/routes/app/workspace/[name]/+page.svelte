@@ -1,6 +1,9 @@
 <script lang="ts">
   import { page } from "$app/state";
-  import Workspace from "$lib/components/Workspace.svelte";
+  import { goto } from "$app/navigation";
   const name = $derived(page.params.name ?? "");
+  $effect(() => {
+    if (name) goto(`/app/${encodeURIComponent(name)}`, { replaceState: true });
+  });
 </script>
-{#key name}<Workspace {name} />{/key}
+<div class="page muted">…</div>

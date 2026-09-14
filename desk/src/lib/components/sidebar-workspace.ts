@@ -94,7 +94,7 @@ export function resolveWorkspaceForReport(
  */
 export function workspaceItemHref(
   workspaceName: string,
-  item: { route?: string; doctype?: string; report?: string },
+  item: { label?: string; icon?: string; route?: string; doctype?: string; report?: string },
 ): string {
   if (item.route) return item.route;
   if (item.doctype) {
