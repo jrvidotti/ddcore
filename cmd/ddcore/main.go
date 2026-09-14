@@ -48,6 +48,7 @@ Usage: ddcore <command> [options]
   export      export a DocType (or --all) to NDJSON/CSV with a manifest
   jobs        inspect, retry, cancel and purge the queue (run: ddcore jobs)
   webhooks    list and replay outgoing webhook deliveries (run: ddcore webhooks)
+  audit       inspect and purge administrative audit events (run: ddcore audit)
   user        user add|invite|passwd|reset|unlock|sessions (run: ddcore user)
   apikey      apikey <user> [--label x] [--days N]  → prints key:secret
   mcp         MCP server (stdio) for agents
@@ -88,6 +89,8 @@ func main() {
 		err = cmdJobs(args)
 	case "webhooks":
 		err = cmdWebhooks(args)
+	case "audit":
+		err = cmdAudit(args)
 	case "user":
 		err = cmdUser(args)
 	case "apikey":

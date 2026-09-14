@@ -195,3 +195,14 @@ func (e *Engine) PurgeAuditEvents(ctx context.Context, days int, dryRun bool) (i
 	}
 	return int(tag.RowsAffected()), nil
 }
+
+// SweepAuditEvents is the scheduled retention pass for audit events.
+// If ops.auditRetentionDays <= 0, it does nothing and keeps events forever.
+func (e *Engine) SweepAuditEvents(ctx context.Context) (int, error) {
+	days := e.Cfg.Ops.AuditRetentionDays()
+	if days <= 0 {
+		return 0, nil
+	}
+	return e.PurgeAuditEvents(ctx, days, false)
+}
+

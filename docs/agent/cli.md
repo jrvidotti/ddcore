@@ -25,6 +25,7 @@ flag is an error (it never becomes an argument silently).
 | `ddcore export <DocType>\|--all [--children] [--attachments] [--out DIR]` | exports the whole set to NDJSON/CSV with a manifest of checksums (see `export`) |
 | `ddcore jobs list\|show\|stats\|retry\|cancel\|purge\|scheduled\|run <fn>\|work` | the queue and the scheduler (see `ops`); `show` is the only command that prints a job's arguments |
 | `ddcore webhooks list\|replay <delivery>...` | outgoing webhook deliveries (see `webhooks`); a replay is recorded as an Audit Event |
+| `ddcore audit list\|purge` | inspect and purge administrative audit events (see `audit`) |
 | `ddcore user add <email> <name> --password x --role R` / `user passwd <email> <password>` | users; `passwd` also ends that user's other sessions |
 | `ddcore user invite <email> <name> --role R` | creates the account with no password and sends the invitation link |
 | `ddcore user reset <email>` | sends a password-recovery link |

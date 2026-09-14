@@ -48,6 +48,8 @@ type OpsPolicy struct {
 	// payload is a copy of a document as it was, so keeping it for ever keeps
 	// data an erasure elsewhere was meant to remove. Zero keeps for ever.
 	WebhookRetentionDays *int `json:"webhookRetentionDays"`
+	// AuditEventRetentionDays is how long an Audit Event is kept. Zero keeps for ever.
+	AuditEventRetentionDays *int `json:"auditRetentionDays"`
 }
 
 // DoneRetentionDays and FailedRetentionDays resolve the pointers into the one
@@ -56,6 +58,7 @@ type OpsPolicy struct {
 func (o OpsPolicy) DoneRetentionDays() int            { return derefOr(o.JobRetentionDays, 0) }
 func (o OpsPolicy) FailedRetentionDays() int          { return derefOr(o.JobRetentionFailedDays, 0) }
 func (o OpsPolicy) WebhookDeliveryRetentionDays() int { return derefOr(o.WebhookRetentionDays, 0) }
+func (o OpsPolicy) AuditRetentionDays() int           { return derefOr(o.AuditEventRetentionDays, 0) }
 
 func derefOr(p *int, d int) int {
 	if p == nil {
@@ -66,11 +69,12 @@ func derefOr(p *int, d int) int {
 
 // DefaultOps is the policy a site gets when it says nothing.
 func DefaultOps() OpsPolicy {
-	done, failed, webhooks := 7, 30, 30
+	done, failed, webhooks, audit := 7, 30, 30, 0
 	return OpsPolicy{
 		WindowMinutes: 15, QueueBacklog: 100, QueueAgeSeconds: 300,
 		JobFailures: 5, ErrorLogEntries: 20, ReadyTimeoutMs: 2000, SlowRequestMs: 2000,
 		JobRetentionDays: &done, JobRetentionFailedDays: &failed, WebhookRetentionDays: &webhooks,
+		AuditEventRetentionDays: &audit,
 	}
 }
 
@@ -116,6 +120,7 @@ func (o OpsPolicy) validate() error {
 		{"jobRetentionDays", o.JobRetentionDays},
 		{"jobRetentionFailedDays", o.JobRetentionFailedDays},
 		{"webhookRetentionDays", o.WebhookRetentionDays},
+		{"auditRetentionDays", o.AuditEventRetentionDays},
 	} {
 		if c.v != nil && *c.v < 0 {
 			return fmt.Errorf("ops.%s must be zero (keep forever) or greater", c.name)
@@ -152,6 +157,9 @@ func (o OpsPolicy) WithDefaults() OpsPolicy {
 	}
 	if o.WebhookRetentionDays == nil {
 		o.WebhookRetentionDays = d.WebhookRetentionDays
+	}
+	if o.AuditEventRetentionDays == nil {
+		o.AuditEventRetentionDays = d.AuditEventRetentionDays
 	}
 	return o
 }

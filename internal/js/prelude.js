@@ -731,6 +731,7 @@
     },
     __authSweep() { return call("authSweep", {}); },
     __jobSweep() { return call("jobSweep", {}); },
+    __auditSweep() { return call("auditSweep", {}); },
     // `user` lets the policy refuse a password that is the account name. It
     // throws when the password is below the site's minimum.
     __hashPassword(password, user) { return call("hashPassword", { text: password, user: user || "" }); },

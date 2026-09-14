@@ -21,6 +21,7 @@ Available documents (also as MCP resources `ddcore://docs/<name>`):
 - `migrations` — renames, fieldtype changes, patches and the expand → contract route
 - `export` — exporting a whole DocType, children and attachments, by HTTP or CLI
 - `vault` — encrypted credential vault (`ddcore.vault.*`), `Vault` fieldtype, and audit logging
+- `audit` — unified administrative audit events (`tab_audit_event`), sanitization, immutability, retention and CLI inspection
 - `cli` — the `ddcore` commands and the development loop
 - `ops` — liveness and readiness probes, request correlation, queue signals and `doctor`
 - `feature-requests` — when a gap belongs in the framework, and how to report it upstream

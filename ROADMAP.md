@@ -68,7 +68,7 @@ separate broker.
 | Capability | Benefit / effort | Dependencies and minimum acceptance |
 | --- | --- | --- |
 | **Assignments and pending work** — OPS-05 | Medium / M. Provides shared team task handling without copying demo domain models. | Add assign/revoke/complete, due dates, and “my pending work”; reuse notifications for reminders. Assignment must not grant document access. Test revocation, completion, and recipient visibility. |
-| **Administrative audit coverage** — PRD-06 | High / M. Makes sensitive operations investigable across services. | Extend the audit facility with actor, target, action, outcome, and correlation for delivery replay, permissions, import, approval, and administration as those features arrive. Protect access and sensitive values; test that secrets and restricted payloads are excluded. |
+| **Administrative audit coverage** — PRD-06 (Done) | High / M. Makes sensitive operations investigable across services. | Unified audit facility in `tab_audit_event` absorbing Vault Audit Log. Covers roles, accounts, background jobs, webhooks, vault secrets, method denials. Strict immutability, recursive sensitive-field redaction, `ops.auditRetentionDays` policy and `ddcore audit list\|purge` CLI. |
 
 ## Stage 2 — Broader administrative application support
 

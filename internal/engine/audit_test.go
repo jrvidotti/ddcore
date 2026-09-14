@@ -348,3 +348,40 @@ func TestAudit_AccountAdmin(t *testing.T) {
 		t.Fatalf("expected 1 account.revoke_sessions event, got %d, err=%v", len(sessionRevokes), err)
 	}
 }
+
+func TestAudit_Sweep(t *testing.T) {
+	e := setup(t)
+	ctx := t.Context()
+	_, _ = e.DB.Pool.Exec(ctx, "TRUNCATE tab_audit_event")
+
+	c := e.NewCtx(ctx, "admin@example.com")
+	_ = c.Audit("role.assign", "User", "u1", nil)
+
+	// Backdate the event to 40 days ago
+	_, err := e.DB.Pool.Exec(ctx, `UPDATE tab_audit_event SET creation = now() - interval '40 days'`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// 1. When AuditRetentionDays is 0 (default), Sweep does nothing
+	purged, err := e.SweepAuditEvents(ctx)
+	if err != nil || purged != 0 {
+		t.Fatalf("expected 0 purged with retention=0, got %d, err=%v", purged, err)
+	}
+
+	// 2. Configure retention to 30 days
+	days := 30
+	e.Cfg.Ops.AuditEventRetentionDays = &days
+
+	purged, err = e.SweepAuditEvents(ctx)
+	if err != nil || purged != 1 {
+		t.Fatalf("expected 1 purged with retention=30, got %d, err=%v", purged, err)
+	}
+
+	// 3. Verify event is gone
+	count, err := e.CountAuditEvents(ctx, AuditFilter{})
+	if err != nil || count != 0 {
+		t.Fatalf("expected 0 events remaining, got %d, err=%v", count, err)
+	}
+}
+

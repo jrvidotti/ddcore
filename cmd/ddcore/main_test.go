@@ -262,3 +262,35 @@ func TestLogFormatFollowsTheEnvironmentThenTheDestination(t *testing.T) {
 		}
 	}
 }
+
+func TestAuditFlags(t *testing.T) {
+	fs := newFlagSet("audit list")
+	f := addAuditFilterFlags(fs)
+	asJSON := fs.Bool("json", false, "print JSON")
+	args := []string{"--action", "role.assign", "--actor", "admin@example.com", "--target", "User:1", "--outcome", "Allowed", "--since", "24h", "--limit", "50", "--json"}
+	if err := parseFlags(fs, args); err != nil {
+		t.Fatal(err)
+	}
+	if *f.action != "role.assign" || *f.actor != "admin@example.com" || *f.target != "User:1" || *f.outcome != "Allowed" || *f.limit != 50 || !*asJSON {
+		t.Fatalf("unexpected flag values: %+v", f)
+	}
+	filter, err := f.filter()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if filter.Action != "role.assign" || filter.Actor != "admin@example.com" || filter.TargetName != "User:1" || filter.Outcome != "Allowed" || filter.Limit != 50 || filter.Since == nil {
+		t.Fatalf("unexpected filter: %+v", filter)
+	}
+
+	// Purge flags
+	purgeFS := newFlagSet("audit purge")
+	days := purgeFS.Int("days", -1, "delete audit events")
+	dry := purgeFS.Bool("dry-run", false, "dry run")
+	if err := parseFlags(purgeFS, []string{"--days", "90", "--dry-run"}); err != nil {
+		t.Fatal(err)
+	}
+	if *days != 90 || !*dry {
+		t.Fatalf("unexpected purge flags: days=%d, dry=%v", *days, *dry)
+	}
+}
+

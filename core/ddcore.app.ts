@@ -9,7 +9,7 @@ export default defineApp({
   // scheduler, so every read path filters on expiry itself.
   scheduler: {
     hourly: ["core.services.auth.sweep"],
-    daily: ["core.services.jobs.sweep", "core.services.webhooks.sweep"],
+    daily: ["core.services.jobs.sweep", "core.services.webhooks.sweep", "core.services.audit.sweep"],
   },
   afterInstall(ctx) {
     for (const role of ["System Manager", "All", "Guest"]) {
