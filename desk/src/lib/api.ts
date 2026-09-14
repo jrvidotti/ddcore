@@ -5,6 +5,39 @@ export interface DeskNotification {
 }
 export interface NotificationListOptions { limit?: number; offset?: number; read?: boolean }
 export interface NotificationPage { data: DeskNotification[]; total: number }
+
+export interface ToDoDoc {
+  name: string;
+  status: "Open" | "Closed" | "Cancelled";
+  priority: "Low" | "Medium" | "High" | "Urgent";
+  date?: string;
+  allocated_to: string;
+  assigned_by: string;
+  description?: string;
+  reference_type?: string;
+  reference_name?: string;
+  creation?: string;
+  modified?: string;
+}
+
+export interface AssignArgs {
+  allocated_to: string;
+  date?: string;
+  priority?: "Low" | "Medium" | "High" | "Urgent";
+  description?: string;
+}
+
+export interface PendingWorkOptions {
+  limit?: number;
+  offset?: number;
+  status?: string;
+  scope?: "assigned_to_me" | "assigned_by_me";
+}
+
+export interface PendingWorkPage {
+  data: ToDoDoc[];
+  total: number;
+}
 // Thin client for the ddcore HTTP API. Every error becomes a DDCoreError with
 // type/title/message so the UI can show it the same way the server phrased it.
 export class DDCoreError extends Error {
@@ -85,6 +118,19 @@ export const api = {
     list: (options: NotificationListOptions = {}) => request<NotificationPage>("GET", "/api/notifications" + q(options)),
     count: () => request<number>("GET", "/api/notifications/count"),
     setRead: (name: string, read: boolean) => request<DeskNotification>("PATCH", "/api/notifications/" + encodeURIComponent(name), { read }),
+  },
+
+  assignments: {
+    assign: (doctype: string, name: string, args: AssignArgs) =>
+      request<ToDoDoc>("POST", "/api/assignments/assign", { doctype, name, ...args }),
+    complete: (name: string) =>
+      request<ToDoDoc>("POST", "/api/assignments/complete", { name }),
+    revoke: (name: string) =>
+      request<{ success: boolean }>("POST", "/api/assignments/revoke", { name }),
+    forDoc: (doctype: string, name: string) =>
+      request<ToDoDoc[]>("GET", `/api/assignments/${encodeURIComponent(doctype)}/${encodeURIComponent(name)}`),
+    pending: (options: PendingWorkOptions = {}) =>
+      request<PendingWorkPage>("GET", "/api/todo/pending" + q(options)),
   },
 
   login: (usr: string, pwd: string) => request("POST", "/api/login", { usr, pwd }),

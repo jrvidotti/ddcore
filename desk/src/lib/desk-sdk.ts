@@ -22,6 +22,7 @@ export const deskSDK = {
     call: (path: string, args?: any) => api.call(path, args),
     api,
     notifications: api.notifications,
+    assignments: api.assignments,
     db: {
       getValue: async (doctype: string, name: string | Record<string, any>, field: string | string[]) => {
         const fields = Array.isArray(field) ? field : [field];
