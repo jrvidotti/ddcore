@@ -19,6 +19,11 @@ describe("deskSDK listRegistry", () => {
     expect(deskSDK.listSettings("Contrato")).toEqual({ docstatusFilter: false });
   });
 
+  it("registers and retrieves the modifiedColumn option", () => {
+    deskSDK.defineListView("Contrato", { modifiedColumn: false });
+    expect(deskSDK.listSettings("Contrato")).toEqual({ modifiedColumn: false });
+  });
+
   it("allows registering list options without docstatusFilter", () => {
     deskSDK.defineListView("Task", { pageSize: 50 });
     expect(deskSDK.listSettings("Task")).toEqual({ pageSize: 50 });

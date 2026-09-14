@@ -138,6 +138,7 @@ defineListView("Entry", {
   formatters: { amount: (v, row) => ddcore.format.currency(v) }, // the cell's text
   indicator: (row) => (row.balance > 0 ? { label: __("Open"), color: "red" } : { label: __("Settled"), color: "green" }),
   docstatusFilter: false,               // hides the "Document status" filter of a submittable DocType
+  modifiedColumn: false,                // hides the trailing "Modified" column
 });
 ```
 

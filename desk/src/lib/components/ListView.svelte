@@ -47,6 +47,7 @@
     formatters?: Record<string, (value: any, row: any) => string>;
     indicator?: (row: any) => { label: string; color: string } | null | undefined;
     docstatusFilter?: boolean;
+    modifiedColumn?: boolean;
     fields?: string[];
     badges?: (row: any) => { label: string; color: string }[] | null | undefined;
     filterOptions?: Record<string, ListFilterOption[] | undefined>;
@@ -67,6 +68,7 @@
   });
   /** `defineListView({ docstatusFilter: false })` drops it where a `status` field already tells drafts apart. */
   const showDocstatusFilter = $derived(!!meta?.doctype.submittable && settings.docstatusFilter !== false);
+  const showModifiedColumn = $derived(settings.modifiedColumn !== false);
   const stdFilters = $derived(meta ? meta.doctype.fields.filter((f) => f.inStandardFilter && !isLayout(f)) : []);
   const statusField = $derived(meta?.doctype.fields.find((f) => f.fieldname === "status"));
   /**
@@ -325,7 +327,7 @@
             <th class:num={num(c)} onclick={() => sort(c)} style="cursor:pointer">{c.label} {#if orderBy.startsWith(c.fieldname + " ")}{orderBy.endsWith("asc") ? "↑" : "↓"}{/if}</th>
           {/each}
           {#if showIndicatorColumn}<th>{__("Status")}</th>{/if}
-          <th class="num">{__("Modified")}</th>
+          {#if showModifiedColumn}<th class="num">{__("Modified")}</th>{/if}
         </tr>
       </thead>
       <tbody>
@@ -363,7 +365,7 @@
                 {@render badges(r)}
               </span></td>
             {/if}
-            <td class="num muted small">{timeAgo(r.modified)}</td>
+            {#if showModifiedColumn}<td class="num muted small">{timeAgo(r.modified)}</td>{/if}
           </tr>
         {/each}
         {#if !loading && !rows.length}

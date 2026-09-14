@@ -214,6 +214,8 @@ export interface ListViewOptions<T extends BaseDoc = BaseDoc> {
   indicator?: (row: T) => { label: string; color: string } | null | undefined;
   /** `false` hides the docstatus filter of a submittable DocType. Default `true`. */
   docstatusFilter?: boolean;
+  /** `false` hides the trailing "Modified" column. Default `true`. */
+  modifiedColumn?: boolean;
   /** Fields fetched beyond the columns, for `indicator`, `badges` and `formatters`. */
   fields?: (keyof T & string)[];
   /** Extra indicators shown after the status, in the same cell. */
