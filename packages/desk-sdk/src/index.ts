@@ -107,11 +107,49 @@ export interface DeskNotification {
 export interface NotificationListOptions { limit?: number; offset?: number; read?: boolean }
 export interface NotificationPage { data: DeskNotification[]; total: number }
 
+/** A ToDo document representing an assignment or pending task. */
+export interface ToDoDoc {
+  name: string;
+  status: "Open" | "Closed" | "Cancelled";
+  priority: "Low" | "Medium" | "High" | "Urgent";
+  date?: string;
+  allocated_to: string;
+  assigned_by: string;
+  description?: string;
+  reference_type?: string;
+  reference_name?: string;
+  creation?: string;
+  modified?: string;
+}
+export interface AssignArgs {
+  allocated_to: string;
+  date?: string;
+  priority?: "Low" | "Medium" | "High" | "Urgent";
+  description?: string;
+}
+export interface PendingWorkOptions {
+  limit?: number;
+  offset?: number;
+  status?: string;
+  scope?: "assigned_to_me" | "assigned_by_me";
+}
+export interface PendingWorkPage {
+  data: ToDoDoc[];
+  total: number;
+}
+
 export interface DeskAPI {
   notifications: {
     list(options?: NotificationListOptions): Promise<NotificationPage>;
     count(): Promise<number>;
     setRead(name: string, read: boolean): Promise<DeskNotification>;
+  };
+  assignments: {
+    assign(doctype: string, name: string, args: AssignArgs): Promise<ToDoDoc>;
+    complete(name: string): Promise<ToDoDoc>;
+    revoke(name: string): Promise<{ success: boolean }>;
+    forDoc(doctype: string, name: string): Promise<ToDoDoc[]>;
+    pending(options?: PendingWorkOptions): Promise<PendingWorkPage>;
   };
   _(s: string, args?: any[]): string;
   __(s: string, args?: any[]): string;

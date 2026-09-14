@@ -87,6 +87,11 @@ func New(e *engine.Engine, desk fs.FS) *Server {
 			r.Get("/workspace/{name}/chart/{chart}", s.chart)
 			r.Get("/comments/{doctype}/{name}", s.comments)
 			r.Get("/versions/{doctype}/{name}", s.versions)
+			r.Get("/assignments/{doctype}/{name}", s.listDocAssignments)
+			r.Post("/assignments/assign", s.assignDoc)
+			r.Post("/assignments/complete", s.completeAssignment)
+			r.Post("/assignments/revoke", s.revokeAssignment)
+			r.Get("/todo/pending", s.pendingWork)
 			r.Get("/health/report", s.healthReport)
 			// Job administration. Every one of these checks the System Manager
 			// role inside the handler, exactly as the health report does; the

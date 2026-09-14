@@ -4,6 +4,7 @@
   import { installDeskSDK, loadAppIncludes } from "$lib/desk-sdk";
   import { connectEvents, disconnectEvents } from "$lib/events";
   import { startNotifications, stopNotifications } from "$lib/notifications.svelte";
+  import { startPendingTasks, stopPendingTasks } from "$lib/assignments.svelte";
   import { clearMetaCache } from "$lib/meta";
   import Sidebar from "$lib/components/Sidebar.svelte";
   import Toasts from "$lib/components/Toasts.svelte";
@@ -34,9 +35,9 @@
   }
 
   $effect(() => {
-    if (isLogin) { stopNotifications(); disconnectEvents(); }
+    if (isLogin) { stopNotifications(); stopPendingTasks(); disconnectEvents(); }
   });
-  onDestroy(() => { stopNotifications(); disconnectEvents(); });
+  onDestroy(() => { stopNotifications(); stopPendingTasks(); disconnectEvents(); });
 
   onMount(async () => {
     installDeskSDK();
@@ -49,6 +50,7 @@
       else if (b.user !== "Guest") {
         await loadAppIncludes(b.apps, b.loaded);
         startNotifications();
+        startPendingTasks();
         connectEvents(async () => { clearMetaCache(); const nb = await loadBoot(); await loadAppIncludes(nb.apps, nb.loaded); toast(__("Apps reloaded"), { indicator: "blue", timeout: 2000 }); });
       }
     } catch (e) { console.error(e); }

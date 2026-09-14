@@ -6,6 +6,7 @@
   import { api } from "$lib/api";
   import { goto } from "$app/navigation";
   import { notifications, stopNotifications } from "$lib/notifications.svelte";
+  import { pendingTasks } from "$lib/assignments.svelte";
   import { disconnectEvents } from "$lib/events";
   import { systemDoctypes } from "./sidebar";
 
@@ -44,6 +45,10 @@
     <a href="/app/notifications" class:active={active("/app/notifications")}>
       <Icon name="bell" /><span>{__("Notifications")}</span>
       {#if notifications.unread > 0}<span class="notification-count" aria-label={__("{0} unread notifications", [notifications.unread])}>{notifications.unread}</span>{/if}
+    </a>
+    <a href="/app/todo" class:active={active("/app/todo")}>
+      <Icon name="check-square" /><span>{__("To-Do")}</span>
+      {#if pendingTasks.count > 0}<span class="notification-count" aria-label={__("{0} pending tasks", [pendingTasks.count])}>{pendingTasks.count}</span>{/if}
     </a>
     {#each workspaces as ws}
       {#if workspaces.length > 1}<div class="group">{ws.label || ws.name}</div>{/if}
