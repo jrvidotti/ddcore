@@ -9,12 +9,44 @@
   import { pendingTasks } from "$lib/assignments.svelte";
   import { disconnectEvents } from "$lib/events";
   import { systemDoctypes } from "./sidebar";
+  import {
+    resolveActiveWorkspace,
+    rememberWorkspace,
+    getRememberedWorkspace,
+    workspaceItemHref,
+    type WorkspaceItem,
+  } from "./sidebar-workspace";
 
   let { open = $bindable(true) }: { open?: boolean } = $props();
-  const workspaces = $derived(boot.data?.workspaces || []);
+  const workspaces = $derived((boot.data?.workspaces || []) as WorkspaceItem[]);
   const current = $derived(page.url.pathname);
   const active = (href: string) => current === href || current.startsWith(href + "/") || current.startsWith(href + "?");
-  const itemHref = (it: any) => it.route || (it.doctype ? `/app/${encodeURIComponent(it.doctype)}` : it.report ? `/app/report/${encodeURIComponent(it.report)}` : "");
+
+  let remembered = $state(getRememberedWorkspace());
+  const activeWorkspace = $derived(resolveActiveWorkspace({
+    currentPath: current,
+    workspaces,
+    doctypes: boot.data?.doctypes,
+    remembered,
+  }));
+
+  $effect(() => {
+    if (activeWorkspace?.name && activeWorkspace.name !== remembered) {
+      remembered = activeWorkspace.name;
+      rememberWorkspace(activeWorkspace.name);
+    }
+  });
+
+  let wsMenuOpen = $state(false);
+
+  function selectWorkspace(name: string) {
+    wsMenuOpen = false;
+    rememberWorkspace(name);
+    remembered = name;
+    goto(`/app/${encodeURIComponent(name)}`);
+  }
+
+  const itemHref = (it: any) => workspaceItemHref(activeWorkspace?.name || "", it);
   async function logout() { await api.logout(); stopNotifications(); disconnectEvents(); location.href = "/login"; }
   const otherDoctypes = $derived(systemDoctypes(boot.data));
   let showCore = $state(false);
@@ -23,15 +55,16 @@
   const displayName = $derived(boot.data?.userDoc?.full_name || boot.data?.user || "");
   const avatarInitial = (name: string) => (name || "U").trim().charAt(0).toUpperCase();
 
-  // Same close-on-outside-click contract FormView's dropdown uses: a click
-  // inside .dropdown is the menu's own business, anything else closes it.
   function onPointerDown(e: PointerEvent) {
-    if (!menuOpen) return;
-    if ((e.target as HTMLElement | null)?.closest(".dropdown")) return;
-    menuOpen = false;
+    const target = e.target as HTMLElement | null;
+    if (menuOpen && !target?.closest(".foot .dropdown")) menuOpen = false;
+    if (wsMenuOpen && !target?.closest(".workspace-switcher")) wsMenuOpen = false;
   }
   function onKeydown(e: KeyboardEvent) {
-    if (e.key === "Escape") menuOpen = false;
+    if (e.key === "Escape") {
+      menuOpen = false;
+      wsMenuOpen = false;
+    }
   }
 </script>
 
@@ -41,6 +74,37 @@
   <div class="brand">
     <a href="/app" style="display:flex;align-items:center;gap:8px;color:inherit;text-decoration:none"><span class="logo">{siteLogo()}</span><strong>{siteName()}</strong></a>
   </div>
+  {#if workspaces.length > 1}
+    <div class="workspace-switcher dropdown">
+      <button class="workspace-btn" onclick={() => (wsMenuOpen = !wsMenuOpen)} aria-haspopup="menu" aria-expanded={wsMenuOpen}>
+        <span class="ws-icon"><Icon name={activeWorkspace?.icon || "layout-dashboard"} size={16} /></span>
+        <span class="ws-label">{activeWorkspace?.label || activeWorkspace?.name}</span>
+        <Icon name={wsMenuOpen ? "chevron-up" : "chevron-down"} size={13} />
+      </button>
+      {#if wsMenuOpen}
+        <div class="menu" role="menu">
+          {#each workspaces as ws}
+            <button
+              role="menuitem"
+              class:selected={ws.name === activeWorkspace?.name}
+              onclick={() => selectWorkspace(ws.name)}
+            >
+              <Icon name={ws.icon || "layout-dashboard"} size={14} />
+              <span class="ws-option-label">{ws.label || ws.name}</span>
+              {#if ws.name === activeWorkspace?.name}
+                <Icon name="check" size={14} />
+              {/if}
+            </button>
+          {/each}
+        </div>
+      {/if}
+    </div>
+  {:else if workspaces.length === 1}
+    <div class="workspace-static-header">
+      <Icon name={workspaces[0].icon || "layout-dashboard"} size={16} />
+      <span>{workspaces[0].label || workspaces[0].name}</span>
+    </div>
+  {/if}
   <nav>
     <a href="/app/notifications" class:active={active("/app/notifications")}>
       <Icon name="bell" /><span>{__("Notifications")}</span>
@@ -50,23 +114,23 @@
       <Icon name="check-square" /><span>{__("To-Do")}</span>
       {#if pendingTasks.count > 0}<span class="notification-count" aria-label={__("{0} pending tasks", [pendingTasks.count])}>{pendingTasks.count}</span>{/if}
     </a>
-    {#each workspaces as ws}
-      {#if workspaces.length > 1}<div class="group">{ws.label || ws.name}</div>{/if}
-      {#each ws.sidebar || [] as it}
+    {#if activeWorkspace}
+      {#each activeWorkspace.sidebar || [] as it}
         {#if itemHref(it)}
           <a href={itemHref(it)} class:active={active(itemHref(it))} class:child={!it.icon}><Icon name={it.icon || "circle"} size={it.icon ? 16 : 6} /><span>{it.label}</span></a>
         {:else}
           <div class="group">{it.label}</div>
         {/if}
       {/each}
-    {/each}
+    {/if}
     {#if otherDoctypes.length}
       <div class="group" style="cursor:pointer" onclick={() => (showCore = !showCore)} role="button" tabindex="0" onkeydown={(e) => e.key === "Enter" && (showCore = !showCore)}>
         {__("System")} <Icon name={showCore ? "chevron-down" : "chevron-right"} size={12} />
       </div>
       {#if showCore}
         {#each otherDoctypes as [name, d]}
-          <a href={`/app/${encodeURIComponent(name)}`} class:active={active(`/app/${encodeURIComponent(name)}`)}><Icon name={d.icon || "circle"} size={d.icon ? 16 : 6} /><span>{d.label}</span></a>
+          {@const coreHref = `/app/${encodeURIComponent(activeWorkspace?.name || "core")}/${encodeURIComponent(name)}`}
+          <a href={coreHref} class:active={active(coreHref)}><Icon name={d.icon || "circle"} size={d.icon ? 16 : 6} /><span>{d.label}</span></a>
         {/each}
       {/if}
     {/if}
@@ -99,6 +163,16 @@
   .sidebar { width: var(--sidebar-w); background: #fff; border-right: 1px solid var(--border); display: flex; flex-direction: column; height: 100vh; position: sticky; top: 0; flex-shrink: 0; }
   .brand { padding: 14px 16px; border-bottom: 1px solid var(--border); font-size: 15px; }
   .logo { display: inline-flex; width: 26px; height: 26px; border-radius: 7px; background: var(--primary); color: #fff; align-items: center; justify-content: center; font-weight: 700; overflow: hidden; }
+  .workspace-switcher { padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  .workspace-btn { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 8px; border: 1px solid var(--border); background: #fafafa; border-radius: 6px; cursor: pointer; text-align: left; font-size: 13px; font-weight: 500; color: var(--text); }
+  .workspace-btn:hover { background: #f3f4f6; }
+  .workspace-btn .ws-icon { display: flex; align-items: center; color: var(--primary); }
+  .workspace-btn .ws-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .workspace-switcher .menu { width: calc(100% - 20px); left: 10px; right: 10px; }
+  .workspace-switcher .menu button { display: flex; align-items: center; gap: 8px; }
+  .workspace-switcher .menu button.selected { background: #eff6ff; color: var(--primary); font-weight: 500; }
+  .workspace-switcher .menu .ws-option-label { flex: 1; text-align: left; }
+  .workspace-static-header { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 13px; font-weight: 600; color: var(--text); }
   nav { flex: 1; overflow: auto; padding: 8px; }
   nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--text); font-size: 13px; }
   nav a:hover { background: #f3f4f6; text-decoration: none; }
