@@ -30,6 +30,7 @@ var coreRefs = []struct {
 	{table: "ddcore_notification_due", doctypeCol: "reference_doctype", nameCol: "reference_name"},
 	{table: "tab_file", doctypeCol: "attached_to_doctype", nameCol: "attached_to_name"},
 	{table: "tab_comment", doctypeCol: "reference_doctype", nameCol: "reference_name"},
+	{table: "tab_to_do", doctypeCol: "reference_type", nameCol: "reference_name"},
 	{table: "tab_version", doctypeCol: "ref_doctype", nameCol: "docname"},
 	{table: "tab_email_delivery", doctypeCol: "reference_doctype", nameCol: "reference_name", keepOnDelete: true},
 	// A webhook delivery is the same kind of record: the event reached somebody

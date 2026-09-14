@@ -922,9 +922,11 @@ func (c *Ctx) Rename(doctype, oldName, newName string) (string, error) {
 	// every one of them, keepOnDelete or not: a record that survives its
 	// document must still point at the name that document answers to now.
 	for _, ref := range coreRefs {
-		q.Exec(c.Ctx, fmt.Sprintf("UPDATE %s SET %s = $1 WHERE %s = $2 AND %s = $3",
+		if _, err := q.Exec(c.Ctx, fmt.Sprintf("UPDATE %s SET %s = $1 WHERE %s = $2 AND %s = $3",
 			db.Ident(ref.table), db.Ident(ref.nameCol), db.Ident(ref.doctypeCol), db.Ident(ref.nameCol)),
-			newName, doctype, oldName)
+			newName, doctype, oldName); err != nil {
+			return "", fmt.Errorf("coreRefs update %s: %w", ref.table, err)
+		}
 	}
 	delete(c.docCache, c.docKey(doctype, oldName))
 	doc["name"] = newName

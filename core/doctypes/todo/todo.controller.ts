@@ -14,6 +14,11 @@ export default defineController("ToDo", {
       doc.assigned_by = ddcore.user();
     }
   },
+  permissionQuery(user) {
+    const roles = ddcore.getRoles(user) || [];
+    if (roles.indexOf("System Manager") >= 0) return undefined;
+    return { allocated_to: user };
+  },
   hasPermission(doc, ptype, user) {
     if (!doc) return undefined; // doctype verification: filter is applied per row
     const roles = ddcore.getRoles(user) || [];
