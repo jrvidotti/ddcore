@@ -4,7 +4,7 @@
   import type { CalendarViewOptions } from "$lib/desk-sdk";
   import type { Meta } from "$lib/meta";
   import { dayNames, getCalendarDays, monthTitles } from "$lib/controls/date-format";
-  import { today, toDatetimeLocal } from "$lib/datetime";
+  import { fromDatetimeLocal, today, toDatetimeLocal } from "$lib/datetime";
   import { statusColor } from "$lib/format";
   import Icon from "../Icon.svelte";
 
@@ -64,7 +64,8 @@
       {#each days as day (day.iso)}
         <div class="day" class:outside={!day.isCurrentMonth} class:today={day.iso === todayIso}>
           {#if meta.permissions.create}
-            <a class="day-number create" href={`${wsPrefix}/${encodeURIComponent(doctype)}/new?${encodeURIComponent(calendar.field)}=${day.iso}`} aria-label={`${__("New")} — ${day.iso}`} title={`${__("New")} — ${day.iso}`}>{day.day}</a>
+            {@const prefill = dateField?.fieldtype === "Datetime" ? fromDatetimeLocal(day.iso + "T00:00") : day.iso}
+            <a class="day-number create" href={`${wsPrefix}/${encodeURIComponent(doctype)}/new?${encodeURIComponent(calendar.field)}=${encodeURIComponent(prefill || day.iso)}`} aria-label={`${__("New")} — ${day.iso}`} title={`${__("New")} — ${day.iso}`}>{day.day}</a>
           {:else}<span class="day-number">{day.day}</span>{/if}
           <div class="events">
             {#each byDay.get(day.iso) || [] as row (row.name)}
