@@ -1,6 +1,8 @@
 import { api, type AssignArgs, type ToDoDoc } from "./api";
+import { subscribe } from "./events";
 
 export const pendingTasks = $state({ count: 0, revision: 0 });
+let stopPending: (() => void) | null = null;
 
 export async function refreshPendingCount() {
   try {
@@ -10,6 +12,31 @@ export async function refreshPendingCount() {
   } catch {
     pendingTasks.count = 0;
   }
+}
+
+export function startPendingTasks() {
+  if (stopPending) return;
+  const refresh = () => { void refreshPendingCount(); };
+  const visible = () => { if (typeof document !== "undefined" && document.visibilityState === "visible") refresh(); };
+  const changed = subscribe("notifications_changed", refresh);
+  const reconnected = subscribe("hello", refresh);
+  if (typeof document !== "undefined") {
+    document.addEventListener("visibilitychange", visible);
+  }
+  stopPending = () => {
+    changed(); reconnected();
+    if (typeof document !== "undefined") {
+      document.removeEventListener("visibilitychange", visible);
+    }
+  };
+  refresh();
+}
+
+export function stopPendingTasks() {
+  stopPending?.();
+  stopPending = null;
+  pendingTasks.count = 0;
+  pendingTasks.revision++;
 }
 
 export class DocAssignments {
