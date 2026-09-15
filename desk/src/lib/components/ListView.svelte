@@ -45,6 +45,7 @@
   let isMobile = $state(false);
   let currentView = $state("list");
   let loadVersion = 0;
+  let loadedQueryKey = "";
 
   const initialDate = today();
   let calendarYear = $state(Number(initialDate.slice(0, 4)));
@@ -218,12 +219,23 @@
       }
       if (statusField && !fields.includes(statusField.fieldname!)) fields.push(statusField.fieldname!);
       const isCalendar = currentView === "calendar" && !!calendar?.field;
-      const res = await api.list(doctype, { filters: buildFilters(), or_filters: buildOr(), fields: [...new Set(fields)], order_by: orderBy || undefined, limit: isCalendar ? 500 : pageSize, start: isCalendar ? 0 : start, with_count: true });
+      const query = { filters: buildFilters(), or_filters: buildOr(), fields: [...new Set(fields)], order_by: orderBy || undefined, limit: isCalendar ? 500 : pageSize, start: isCalendar ? 0 : start, with_count: true };
+      // List and Cards share a query and selection. Normalize unordered query
+      // parts so restoring the same filters from the URL also keeps selection.
+      const queryKey = JSON.stringify({ ...query, doctype,
+        filters: query.filters.map((filter) => JSON.stringify(filter)).sort(),
+        or_filters: query.or_filters?.map((filter) => JSON.stringify(filter)).sort(),
+        fields: [...query.fields].sort(),
+      });
+      const preserveSelection = queryKey === loadedQueryKey;
+      if (!preserveSelection) selected = new Set();
+      const res = await api.list(doctype, query);
       if (version !== loadVersion) return;
       rows = res.rows;
       total = res.count;
       if (res.titles) registerTitles(res.titles);
-      selected = new Set();
+      selected = preserveSelection ? new Set(rows.filter((row) => selected.has(row.name)).map((row) => row.name)) : new Set();
+      loadedQueryKey = queryKey;
       error = "";
     } catch (e: any) { if (version === loadVersion) { error = e.message; showError(e); } } finally { if (version === loadVersion) loading = false; }
   }
