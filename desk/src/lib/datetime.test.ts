@@ -88,6 +88,16 @@ describe("datetime-local", () => {
     }
   });
 
+  it("serializes calendar-day midnight without changing the selected local day", () => {
+    const cuiaba = fromDatetimeLocal("2026-09-14T00:00", "America/Cuiaba");
+    expect(cuiaba).toBe("2026-09-14T04:00:00.000Z");
+    expect(toDatetimeLocal(cuiaba, "America/Cuiaba")).toBe("2026-09-14T00:00");
+
+    const tokyo = fromDatetimeLocal("2026-09-14T00:00", "Asia/Tokyo");
+    expect(tokyo).toBe("2026-09-13T15:00:00.000Z");
+    expect(toDatetimeLocal(tokyo, "Asia/Tokyo")).toBe("2026-09-14T00:00");
+  });
+
   it("lands on the right side of a DST change", () => {
     // Europe/Lisbon springs forward at 01:00 on 2026-03-29 (UTC+0 → UTC+1).
     // A single offset probe would read the wrong offset for one of these.

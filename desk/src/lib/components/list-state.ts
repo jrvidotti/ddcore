@@ -9,6 +9,35 @@ export interface ListUrlState {
   orderBy: string;
   page: number;
   pageSize: number;
+  view?: string;
+}
+
+export function resolveAllowedViews(settings?: { views?: string[]; calendar?: { field?: string } }): string[] {
+  if (settings?.views && settings.views.length > 0) {
+    return [...settings.views];
+  }
+  if (settings?.calendar?.field) {
+    return ["list", "calendar", "cards"];
+  }
+  return ["list", "cards"];
+}
+
+export function resolveActiveView(
+  allowedViews: string[],
+  urlView?: string | null,
+  storedView?: string | null,
+  isMobile?: boolean,
+): string {
+  if (urlView && allowedViews.includes(urlView)) {
+    return urlView;
+  }
+  if (storedView && allowedViews.includes(storedView)) {
+    return storedView;
+  }
+  if (isMobile && allowedViews.includes("cards")) {
+    return "cards";
+  }
+  return allowedViews[0] || "list";
 }
 
 function filterValue(field: Field, value: string): any {
@@ -41,6 +70,7 @@ export function listStateFromSearchParams(params: URLSearchParams, fields: Field
     orderBy: params.get("order_by") ?? defaults.orderBy,
     page: positiveInt(params.get("page"), 1),
     pageSize: listPageSizes.includes(requestedSize as (typeof listPageSizes)[number]) ? requestedSize : defaults.pageSize,
+    view: params.get("view") ?? undefined,
   };
 }
 
@@ -56,6 +86,7 @@ export function listStateToSearchParams(state: ListUrlState, fields: Field[]): U
   if (state.orderBy) params.set("order_by", state.orderBy);
   if (state.page > 1) params.set("page", String(state.page));
   params.set("page_size", String(state.pageSize));
+  if (state.view && state.view !== "list") params.set("view", state.view);
   return params;
 }
 
