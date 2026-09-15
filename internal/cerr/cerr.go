@@ -77,6 +77,7 @@ func Mandatory(msg string, a ...any) *Error  { return New("MandatoryError", 417,
 // belong in Extra through WithRetryAfter, because the number is data the
 // caller acts on, not prose it reads.
 func TooMany(msg string, a ...any) *Error { return New("TooManyRequestsError", 429, msg, a...) }
+func Unavailable(msg string, a ...any) *Error { return New("UnavailableError", 503, msg, a...) }
 
 // WithRetryAfter records how many seconds the caller must wait. The API
 // border turns it into the `Retry-After` header, and it travels in the body
