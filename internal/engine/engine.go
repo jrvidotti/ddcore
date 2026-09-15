@@ -125,6 +125,7 @@ type Snapshot struct {
 	// its arguments may be stored.
 	MailTemplates map[string]MailTemplate    `json:"mailTemplates"`
 	Notifications map[string]js.Notification `json:"notifications"`
+	Workflows     map[string]js.Workflow     `json:"workflows"`
 	Apps          map[string]*AppMeta        `json:"apps"`
 	Whitelisted   []Whitelisted              `json:"whitelisted"`
 	Patches       []Patch                    `json:"patches"`
@@ -146,14 +147,16 @@ type MailTemplate struct {
 // a new one and swaps the pointer atomically, so that no caller observes new
 // metadata with an old pool (B08).
 type State struct {
-	Notifications []js.Notification
-	Meta          *meta.Registry
-	Snap          *Snapshot
-	Apps          []js.App
-	Pool          *js.Pool
-	I18n          *I18n
-	Loaded        time.Time
-	whitelisted   map[string]map[string]any
+	Notifications     []js.Notification
+	Workflows         map[string]*js.Workflow
+	WorkflowByDocType map[string]*js.Workflow
+	Meta              *meta.Registry
+	Snap              *Snapshot
+	Apps              []js.App
+	Pool              *js.Pool
+	I18n              *I18n
+	Loaded            time.Time
+	whitelisted       map[string]map[string]any
 	// metaCache holds the translated copies of DocTypes, per language. It
 	// needs no invalidation: a reload builds a new State and this dies with
 	// the old one.
@@ -466,7 +469,27 @@ func (e *Engine) Load() error {
 	for _, w := range snap.Whitelisted {
 		wl[w.Path] = w.Opts
 	}
-	st := &State{Notifications: notifications, Meta: reg, Snap: snap, Apps: apps, Pool: pool, I18n: i18n, Loaded: time.Now(), whitelisted: wl}
+	workflows := make(map[string]*js.Workflow, len(snap.Workflows))
+	workflowsByDocType := make(map[string]*js.Workflow, len(snap.Workflows))
+	for k := range snap.Workflows {
+		wf := snap.Workflows[k]
+		workflows[k] = &wf
+		if wf.Doctype != "" {
+			workflowsByDocType[wf.Doctype] = &wf
+		}
+	}
+	st := &State{
+		Notifications:     notifications,
+		Workflows:         workflows,
+		WorkflowByDocType: workflowsByDocType,
+		Meta:              reg,
+		Snap:              snap,
+		Apps:              apps,
+		Pool:              pool,
+		I18n:              i18n,
+		Loaded:            time.Now(),
+		whitelisted:       wl,
+	}
 	e.mu.Lock()
 	old := e.cur.Swap(st)
 	e.State = st
@@ -477,6 +500,14 @@ func (e *Engine) Load() error {
 	}
 	e.Log.Info("apps loaded", "apps", len(apps), "doctypes", len(reg.DocTypes))
 	return nil
+}
+
+// WorkflowFor returns the workflow defined for the given doctype, or nil if none.
+func (s *State) WorkflowFor(doctype string) *js.Workflow {
+	if s == nil || s.WorkflowByDocType == nil {
+		return nil
+	}
+	return s.WorkflowByDocType[doctype]
 }
 
 // mergedMeta is the JSON of every DocType an extension touched, keyed by name:
@@ -594,12 +625,13 @@ type Ctx struct {
 	// no request is behind the work — a migration, a test, a CLI command.
 	ReqID string
 
-	roles       []string
-	rt          *js.Runtime
-	savepoint   int
-	roSavepoint int
-	docCache    map[string]Doc
-	afterCommit []func()
+	roles                []string
+	rt                   *js.Runtime
+	savepoint            int
+	roSavepoint          int
+	docCache             map[string]Doc
+	afterCommit          []func()
+	inWorkflowTransition bool
 }
 
 func (e *Engine) NewCtx(ctx context.Context, user string) *Ctx {
@@ -698,6 +730,34 @@ func (c *Ctx) WithIgnorePermissions(fn func() error) error {
 	old := c.Flags["ignorePermissions"]
 	c.Flags["ignorePermissions"] = true
 	defer func() { c.Flags["ignorePermissions"] = old }()
+	return fn()
+}
+
+// WorkflowFor returns the workflow defined for the given doctype, or nil if none.
+func (c *Ctx) WorkflowFor(doctype string) *js.Workflow {
+	if c == nil || c.St == nil {
+		return nil
+	}
+	return c.St.WorkflowFor(doctype)
+}
+
+// InWorkflowTransition reports whether execution is currently inside a workflow transition.
+func (c *Ctx) InWorkflowTransition() bool {
+	return c != nil && c.inWorkflowTransition
+}
+
+// SetInWorkflowTransition sets the workflow transition guard bypass flag.
+func (c *Ctx) SetInWorkflowTransition(v bool) {
+	if c != nil {
+		c.inWorkflowTransition = v
+	}
+}
+
+// WithWorkflowTransition runs fn with inWorkflowTransition set to true.
+func (c *Ctx) WithWorkflowTransition(fn func() error) error {
+	old := c.inWorkflowTransition
+	c.inWorkflowTransition = true
+	defer func() { c.inWorkflowTransition = old }()
 	return fn()
 }
 

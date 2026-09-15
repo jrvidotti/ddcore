@@ -48,6 +48,11 @@ func (w *Workflow) GetState(name string) *WorkflowState {
 	return nil
 }
 
+// FindState is an alias for GetState.
+func (w *Workflow) FindState(name string) *WorkflowState {
+	return w.GetState(name)
+}
+
 // EvaluateWorkflowCondition evaluates the condition of a workflow transition against a document.
 func (rt *Runtime) EvaluateWorkflowCondition(wfName string, transitionIdx int, doc json.RawMessage) (bool, error) {
 	docStr := string(doc)
