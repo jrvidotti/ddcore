@@ -123,12 +123,22 @@ type Snapshot struct {
 	// MailTemplates arrives without its `subject` and `body` functions: Go
 	// never renders a template, it only needs to know one exists and whether
 	// its arguments may be stored.
-	MailTemplates map[string]MailTemplate    `json:"mailTemplates"`
-	Notifications map[string]js.Notification `json:"notifications"`
-	Apps          map[string]*AppMeta        `json:"apps"`
-	Whitelisted   []Whitelisted              `json:"whitelisted"`
-	Patches       []Patch                    `json:"patches"`
-	Extensions    []*meta.Extension          `json:"extensions"`
+	MailTemplates  map[string]MailTemplate    `json:"mailTemplates"`
+	PrintTemplates map[string]PrintTemplate   `json:"printTemplates"`
+	Notifications  map[string]js.Notification `json:"notifications"`
+	Apps           map[string]*AppMeta        `json:"apps"`
+	Whitelisted    []Whitelisted              `json:"whitelisted"`
+	Patches        []Patch                    `json:"patches"`
+	Extensions     []*meta.Extension          `json:"extensions"`
+}
+
+// PrintTemplate is a declared document print format, as Go sees it.
+type PrintTemplate struct {
+	Name       string `json:"name"`
+	Doctype    string `json:"doctype"`
+	Label      string `json:"label"`
+	App        string `json:"app"`
+	SourceFile string `json:"sourceFile"`
 }
 
 // MailTemplate is a declared message, as Go sees it.

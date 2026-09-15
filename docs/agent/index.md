@@ -21,6 +21,7 @@ Available documents (also as MCP resources `ddcore://docs/<name>`):
 - `i18n` — English as the source language, catalogues, Select values, dates and the site timezone
 - `migrations` — renames, fieldtype changes, patches and the expand → contract route
 - `export` — exporting a whole DocType, children and attachments, by HTTP or CLI
+- `print` — print templates, print block builders, Letter Head branding, and server-side PDF generation
 - `vault` — encrypted credential vault (`ddcore.vault.*`), `Vault` fieldtype, and audit logging
 - `audit` — unified administrative audit events (`tab_audit_event`), sanitization, immutability, retention and CLI inspection
 - `cli` — the `ddcore` commands and the development loop

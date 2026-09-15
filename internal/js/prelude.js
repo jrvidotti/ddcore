@@ -67,6 +67,7 @@
     reports: {},
     workspaces: {},
     mailTemplates: {},
+    printTemplates: {},
     notifications: Object.create(null),
     apps: {},
     modules: {},
@@ -109,6 +110,21 @@
           value.app = reg.app;
           value.sourceFile = reg.current;
           reg.mailTemplates[value.name] = value;
+          break;
+        }
+        case "print": {
+          const prev = reg.printTemplates[value.name];
+          if (prev) {
+            throw new DDCoreError("ValidationError", "", "Print template " + value.name + " is defined twice: " +
+              prev.app + " (" + prev.sourceFile + ") and " + reg.app + " (" + reg.current + "). " +
+              "A template name is unique across every installed app, like a DocType name.");
+          }
+          if (!value || typeof value.name !== "string" || !value.name.trim()) throw new DDCoreError("ValidationError", "", "Print template: name is required");
+          if (!value.doctype || typeof value.doctype !== "string") throw new DDCoreError("ValidationError", "", "Print template " + value.name + ": doctype is required");
+          if (typeof value.body !== "function") throw new DDCoreError("ValidationError", "", "Print template " + value.name + ": body must be a function");
+          value.app = reg.app;
+          value.sourceFile = reg.current;
+          reg.printTemplates[value.name] = value;
           break;
         }
         case "notification": {
@@ -199,6 +215,8 @@
     // needs to know one exists and whether its arguments may be stored.
     const mailTemplates = {};
     for (const n in reg.mailTemplates) mailTemplates[n] = stripFns(reg.mailTemplates[n]);
+    const printTemplates = {};
+    for (const n in reg.printTemplates) printTemplates[n] = stripFns(reg.printTemplates[n]);
     const notifications = Object.create(null);
     for (const n in reg.notifications) notifications[n] = { ...stripFns(reg.notifications[n]), desk: !!reg.notifications[n].desk };
     const apps = {};
@@ -227,7 +245,7 @@
       return { doctype: x.doctype, app: x.app, sourceFile: x.sourceFile,
         fields: ext.fields, set: ext.set, props: ext.doctype, permissions: ext.permissions };
     });
-    return JSON.stringify({ doctypes, reports, workspaces, mailTemplates, notifications, apps, whitelisted, patches, extensions });
+    return JSON.stringify({ doctypes, reports, workspaces, mailTemplates, printTemplates, notifications, apps, whitelisted, patches, extensions });
   };
 
   const notificationCall = (fn, doc, before) => {
@@ -299,6 +317,103 @@
         subject: String(t.subject ? t.subject(args) : ""),
         blocks: (t.body ? t.body(args, mailBlocks) : []) || [],
       };
+    } finally {
+      globalThis.__ddcoreLang = previous;
+    }
+  };
+
+  const printBlocks = {
+    header: (title, opts = {}) => ({
+      type: "header",
+      title: String(title ?? ""),
+      subtitle: opts && opts.subtitle ? String(opts.subtitle) : undefined,
+      badge: opts && opts.badge ? String(opts.badge) : undefined,
+      badgeColor: opts && opts.badgeColor ? String(opts.badgeColor) : undefined,
+    }),
+    keyValues: (pairs, opts = {}) => ({
+      type: "keyValues",
+      columns: Number(opts && opts.columns) || 2,
+      pairs: (pairs || []).map(([k, v]) => [String(k ?? ""), String(v ?? "")]),
+    }),
+    section: (title, blocks = []) => ({
+      type: "section",
+      title: title ? String(title) : undefined,
+      blocks: Array.isArray(blocks) ? blocks : [],
+    }),
+    table: (headers, rows, opts = {}) => ({
+      type: "table",
+      headers: (headers || []).map((h) => String(h ?? "")),
+      rows: (rows || []).map((r) => (r || []).map((c) => String(c ?? ""))),
+      aligns: (opts && opts.aligns || []).map((a) => String(a)),
+    }),
+    totals: (rows) => ({
+      type: "totals",
+      pairs: (rows || []).map(([k, v]) => [String(k ?? ""), String(v ?? "")]),
+    }),
+    p: (text) => ({ type: "p", text: String(text ?? "") }),
+    h: (level, text) => ({ type: "h", level: Number(level) || 2, text: String(text ?? "") }),
+    h1: (text) => ({ type: "h", level: 1, text: String(text ?? "") }),
+    h2: (text) => ({ type: "h", level: 2, text: String(text ?? "") }),
+    h3: (text) => ({ type: "h", level: 3, text: String(text ?? "") }),
+    rule: () => ({ type: "rule" }),
+    divider: () => ({ type: "rule" }),
+    pageBreak: () => ({ type: "pageBreak" }),
+    raw: (html) => ({ type: "raw", html: String(html ?? "") }),
+    html: (html) => ({ type: "raw", html: String(html ?? "") }),
+    columns: (cols) => ({ type: "columns", columns: Array.isArray(cols) ? cols : [] }),
+  };
+
+  const formatNumberHelper = (val, decimals, lang) => {
+    const n = Number(val) || 0;
+    const dec = decimals !== undefined ? decimals : 2;
+    const parts = n.toFixed(dec >= 0 ? dec : 2).split(".");
+    let intPart = parts[0];
+    const fracPart = parts[1];
+    const isPT = (lang || "").toLowerCase().startsWith("pt");
+    const thousandsSep = isPT ? "." : ",";
+    const decimalSep = isPT ? "," : ".";
+    const sign = intPart.startsWith("-") ? "-" : "";
+    if (sign) intPart = intPart.slice(1);
+    const grouped = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, thousandsSep);
+    if (dec === 0) return sign + grouped;
+    return sign + grouped + decimalSep + (fracPart || "00");
+  };
+
+  const makePrintContext = (lang) => {
+    const l = lang || globalThis.__ddcoreLang || "en";
+    return {
+      formatCurrency: (val) => formatNumberHelper(val, 2, l),
+      formatDate: (val) => {
+        if (!val) return "";
+        const s = String(val).trim();
+        const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (m) {
+          if (l.toLowerCase().startsWith("pt")) return `${m[3]}/${m[2]}/${m[1]}`;
+          return `${m[1]}-${m[2]}-${m[3]}`;
+        }
+        return s;
+      },
+      formatDateTime: (val) => {
+        if (!val) return "";
+        return String(val);
+      },
+      formatNumber: (val, decimals = 2) => formatNumberHelper(val, decimals, l),
+    };
+  };
+
+  reg.renderPrint = function (name, docJSON, lang) {
+    const t = reg.printTemplates[name];
+    if (!t) {
+      throw new DDCoreError("NotFoundError", "", "Print template " + String(name) + " does not exist");
+    }
+    const previous = globalThis.__ddcoreLang;
+    if (lang) globalThis.__ddcoreLang = lang;
+    try {
+      const ctx = makePrintContext(globalThis.__ddcoreLang);
+      const doc = typeof docJSON === "string" ? JSON.parse(docJSON) : docJSON;
+      const wrappedDoc = doc instanceof Document ? doc : new Document(doc);
+      const blocks = (t.body ? t.body(wrappedDoc, printBlocks, ctx) : []) || [];
+      return JSON.stringify({ blocks });
     } finally {
       globalThis.__ddcoreLang = previous;
     }

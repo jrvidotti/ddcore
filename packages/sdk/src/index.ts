@@ -1,7 +1,7 @@
 // @ddcore/sdk — the API apps use on the server (runs inside the ddcore binary).
 import type {
   AppDef, BaseDoc, ControllerDef, Context, DoctypeDef, Document, ExtensionDef, Filters, ListArgs,
-  MailTemplateDef, NotificationDef, PatchDef, ReportDef, SendMailArgs, WorkspaceDef,
+  MailTemplateDef, NotificationDef, PatchDef, PrintTemplateDef, ReportDef, SendMailArgs, WorkspaceDef,
 } from "./types";
 export * from "./types";
 
@@ -219,6 +219,15 @@ export function extendDoctype<T extends BaseDoc = BaseDoc>(doctype: string, ext:
  */
 export function defineMailTemplate<A = any>(def: MailTemplateDef<A>): MailTemplateDef<A> {
   __ddcore.register("mail", def);
+  return def;
+}
+
+/**
+ * Declares a document print template: `export default definePrintTemplate({…})`
+ * in `print/<name>.print.ts`. See `docs/agent/print.md`.
+ */
+export function definePrintTemplate<T = any>(def: PrintTemplateDef<T>): PrintTemplateDef<T> {
+  __ddcore.register("print", def);
   return def;
 }
 

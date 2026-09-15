@@ -264,6 +264,10 @@
     await frm.runRefresh();
     toast(__("Copy created — save it to keep it"), { indicator: "blue" });
   }
+  function openPrint() {
+    if (!frm || frm.isNew) return;
+    goto(`${wsPrefix}/${encodeURIComponent(doctype)}/${encodeURIComponent(name)}/print`);
+  }
   // dropdowns close on any click outside them (mouseleave used to need two clicks)
   function onPointerDown(e: PointerEvent) {
     if (!(menuOpen || openGroup)) return;
@@ -331,10 +335,12 @@
         {/if}
       {/each}
       {#if !frm.isNew}
+        <button class="btn icon" title={__("Print")} onclick={openPrint} aria-label={__("Print")}><Icon name="printer" /></button>
         <div class="dropdown">
           <button class="btn icon" onclick={() => (menuOpen = !menuOpen)} aria-label="Menu"><Icon name="more-horizontal" /></button>
           {#if menuOpen}
             <div class="menu" role="menu" tabindex="-1">
+              <button onclick={() => { menuOpen = false; openPrint(); }}>{__("Print")}</button>
               <button onclick={() => { menuOpen = false; frm?.reload(); }}>{__("Reload")}</button>
               {#if !frm.isSingle && frm.perm.create}<button onclick={() => { menuOpen = false; duplicate(); }}>{__("Duplicate")}</button>{/if}
               {#if frm.meta.doctype.allowRename && frm.perm.write && frm.docstatus === 0}<button onclick={() => { menuOpen = false; rename(); }}>{__("Rename")}</button>{/if}

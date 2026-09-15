@@ -411,3 +411,66 @@ export default defineApp({ name: "demo", title: "Demo" });`)
 		t.Fatal("bundle registered modules under the directory name")
 	}
 }
+
+func TestPrintTemplateRegistrationAndRender(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "print"), 0o755)
+	os.WriteFile(filepath.Join(dir, "ddcore.app.ts"), []byte(`import { defineApp } from "@ddcore/sdk";
+export default defineApp({ name: "demo", title: "Demo" });`), 0o644)
+	os.WriteFile(filepath.Join(dir, "print/invoice.print.ts"), []byte(`import { definePrintTemplate, _ } from "@ddcore/sdk";
+export default definePrintTemplate({
+  name: "demo.invoice",
+  doctype: "Sales Invoice",
+  label: "Invoice Format",
+  body: (doc, b, ctx) => [
+    b.header(_("Sales Invoice"), { subtitle: doc.name }),
+    b.keyValues([[_("Customer"), doc.customer]]),
+    b.table([_("Item"), _("Price")], [[doc.item, ctx.formatCurrency(doc.price)]]),
+  ],
+});`), 0o644)
+
+	b, err := BuildServer(App{Name: "demo", Dir: dir}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := &fakeHost{}
+	pool, err := NewPool(h, []*Bundle{b}, 1, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+
+	rt, _ := pool.Acquire()
+	defer pool.Release(rt)
+
+	snapJSON, err := rt.Meta()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var snap struct {
+		PrintTemplates map[string]struct {
+			Name    string `json:"name"`
+			Doctype string `json:"doctype"`
+			Label   string `json:"label"`
+		} `json:"printTemplates"`
+	}
+	if err := json.Unmarshal(snapJSON, &snap); err != nil {
+		t.Fatal(err)
+	}
+	pt, ok := snap.PrintTemplates["demo.invoice"]
+	if !ok {
+		t.Fatalf("print template demo.invoice not found in snapshot: %s", snapJSON)
+	}
+	if pt.Doctype != "Sales Invoice" || pt.Label != "Invoice Format" {
+		t.Fatalf("unexpected template metadata: %+v", pt)
+	}
+
+	resJSON, err := rt.RenderPrint("demo.invoice", `{"name":"INV-001","customer":"Alice","item":"Book","price":29.99}`, "en")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(resJSON, "Sales Invoice") || !strings.Contains(resJSON, "INV-001") {
+		t.Fatalf("unexpected render output: %s", resJSON)
+	}
+}
+
