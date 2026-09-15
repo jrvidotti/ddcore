@@ -10,6 +10,7 @@ Actor,Autor,# core.doctypes.audit_event.audit_event.doctype
 Add row,Adicionar linha,# desk/src/lib/controls/Grid.svelte:118
 Address,Endereço,# desk/src/lib/components/Profile.svelte:197
 Administering jobs requires the System Manager role,Administrar jobs exige o papel System Manager,# internal/api/jobs.go:22
+Align,Alinhamento,# core.doctypes.letter_head.letter_head.doctype
 All,Todos,# desk/src/lib/components/ListView.svelte:343
 All rows matching the filters ({0}) as CSV,Todas as linhas que casam com os filtros ({0}) em CSV,# desk/src/lib/components/ListView.svelte:272
 All rows matching the filters ({0}) as NDJSON,Todas as linhas que casam com os filtros ({0}) em NDJSON,# desk/src/lib/components/ListView.svelte:273
@@ -52,6 +53,7 @@ Cancel {0}?,Cancelar {0}?,# desk/src/lib/components/FormView.svelte:362
 Cancelled,Cancelado,# desk/src/lib/components/ListView.svelte:224
 Cannot delete,Não é possível apagar,# internal/engine/doc.go:1445
 Card {0} does not exist,Card {0} não existe,# internal/api/api.go:1123
+Center,Centro,# core.doctypes.letter_head.letter_head.doctype
 Change,Alterar,# desk/src/lib/controls/Control.svelte:160
 Change history,Histórico de Alterações,# desk/src/lib/components/DocSidebar.svelte:212
 Change my password,Trocar minha senha,# desk/src/routes/login/reset/+page.svelte:74
@@ -104,7 +106,7 @@ Desk access,Acesso ao desk,# core.doctypes.role.role.doctype
 Detail,Detalhe,# core.doctypes.audit_event.audit_event.doctype
 Details,Detalhes,# desk/src/lib/components/FormView.svelte:168
 Device,Dispositivo,# desk/src/lib/components/Profile.svelte:197
-Disabled,Desativado,# core.doctypes.role.role.doctype
+Disabled,Desativado,# core.doctypes.letter_head.letter_head.doctype
 Discard,Descartar,# desk/src/lib/components/FormView.svelte:350
 Discard changes,Descartar alterações,# desk/src/lib/components/FormView.svelte:157
 Discard your unsaved changes?,Descartar suas alterações não salvas?,# desk/src/lib/components/FormView.svelte:157
@@ -153,6 +155,7 @@ Fill this in to set or change the password.,Preencha para definir ou trocar a se
 "Filter by field, value or user…","Filtrar por campo, valor ou usuário...",# desk/src/lib/components/DocHistory.svelte:69
 Filter {0} by {1} and {2},Filtre {0} por {1} e {2},# internal/api/api.go:1005
 Fix the invalid email fields.,Corrija os campos de e-mail inválidos.,# desk/src/lib/form.svelte.ts:273
+Footer HTML,HTML do Rodapé,# core.doctypes.letter_head.letter_head.doctype
 Forgotten password,Esqueci a senha,# desk/src/routes/login/forgot/+page.svelte:37
 Form & editing,Formulário & Edição,# desk/src/lib/shortcuts.ts:89
 Full name,Nome completo,# desk/src/lib/components/Profile.svelte:157
@@ -160,6 +163,7 @@ Full name is required,O nome completo é obrigatório,# core/services/profile.ts
 HTTPS address that receives a signed POST for every matching event.,Endereço HTTPS que recebe um POST assinado a cada evento correspondente.,# core.doctypes.webhook.webhook.doctype
 Has Role,Has Role,# core.doctypes.has_role.has_role.doctype
 Hash,Hash,# core.doctypes.user.user.doctype
+Header HTML,HTML do Cabeçalho,# core.doctypes.letter_head.letter_head.doctype
 High,Alta,# desk/src/lib/components/AssignModal.svelte:98
 History,Histórico,# desk/src/lib/components/DocSidebar.svelte:174
 I forgot my password,Esqueci minha senha,# desk/src/routes/login/+page.svelte:27
@@ -187,6 +191,7 @@ Invalid number of days,Número de dias inválido,# core/services/api_keys.ts:37
 Invalid upload: {0},upload inválido: {0},# internal/api/api.go:1236
 Invalid username or password,Usuário ou senha inválidos,# internal/engine/auth.go:90
 Invalid {0}: {1},{0} inválido: {1},# internal/api/api.go:309
+Is Default,É Padrão,# core.doctypes.letter_head.letter_head.doctype
 Job,Job,# core.doctypes.email_delivery.email_delivery.doctype
 Job {0} does not exist,O job {0} não existe,# internal/engine/jobs_admin.go:54
 Job {0} is already {1} and cannot be cancelled,O job {0} já está {1} e não pode ser cancelado,# internal/engine/jobs_admin.go:62
@@ -201,11 +206,15 @@ Last used,Último uso,# desk/src/lib/components/Profile.svelte:242
 Leave blank for a key that never expires.,Deixe em branco para uma chave que nunca expira.,# core.doctypes.api_key.api_key.doctype
 Leave blank to follow the site language.,Deixe em branco para seguir o idioma do site.,# core.doctypes.user.user.doctype
 Leave without saving? Your changes are kept as a draft.,Sair sem salvar? Suas alterações ficam guardadas como rascunho.,# desk/src/lib/components/FormView.svelte:150
+Left,Esquerda,# core.doctypes.letter_head.letter_head.doctype
+Letter Head,Timbre,# core.doctypes.letter_head.letter_head.doctype
+Letter Head Name,Nome do Timbre,# core.doctypes.letter_head.letter_head.doctype
 Like,Curtida,# core.doctypes.comment.comment.doctype
 Loading notifications…,Carregando notificações…,# desk/src/routes/app/notifications/+page.svelte:32
 Loading tasks…,Carregando tarefas…,# desk/src/routes/app/todo/+page.svelte:145
 Loading...,Carregando...,# desk/src/lib/components/DocSidebar.svelte:96
 Loading…,Carregando...,# desk/src/lib/components/FormView.svelte:418
+Logo Image,Imagem do Logo,# core.doctypes.letter_head.letter_head.doctype
 Low,Baixa,# desk/src/lib/components/AssignModal.svelte:96
 Mail template {0} does not exist,O modelo de mensagem {0} não existe,# internal/engine/mailqueue.go:87
 Mark as completed,Marcar como concluída,# desk/src/routes/app/todo/+page.svelte:161
@@ -318,6 +327,7 @@ Retry,Tentar novamente,# desk/src/routes/app/notifications/+page.svelte:30
 Retrying,Retentando,# core.doctypes.webhook_delivery.webhook_delivery.doctype
 Revoke,Revogar,# desk/src/lib/components/DocSidebar.svelte:135
 Revoke the key {0}?,Revogar a chave {0}?,# desk/src/lib/components/Profile.svelte:116
+Right,Direita,# core.doctypes.letter_head.letter_head.doctype
 Role,Papel,# core.doctypes.has_role.has_role.doctype
 Role {0} is repeated,Papel {0} repetido,# core/doctypes/user/user.controller.ts:14
 Roles,Papéis,# desk/src/lib/components/Profile.svelte:140
