@@ -8,6 +8,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,8 +18,9 @@ import (
 )
 
 const (
-	sec01AlfaUser = "user_alfa@x.com"
-	sec01BetaUser = "user_beta@x.com"
+	sec01AlfaUser    = "user_alfa@x.com"
+	sec01BetaUser    = "user_beta@x.com"
+	sec01ManagerUser = "scoped_manager@x.com"
 )
 
 func sec01APIApp(t *testing.T) string {
@@ -55,10 +57,14 @@ func setupSEC01API(t *testing.T) (*env, string, string) {
 	x := setupApp(t, sec01APIApp(t))
 	var alfaRecord, betaRecord string
 	x.asAdmin(func(c *engine.Ctx) error {
-		for _, user := range []string{sec01AlfaUser, sec01BetaUser} {
+		for _, user := range []struct{ email, role string }{
+			{sec01AlfaUser, "Scope User"},
+			{sec01BetaUser, "Scope User"},
+			{sec01ManagerUser, "System Manager"},
+		} {
 			doc, err := c.NewDoc("User", engine.Doc{
-				"email": user, "full_name": user, "new_password": "segredo123",
-				"roles": []any{map[string]any{"role": "Scope User"}},
+				"email": user.email, "full_name": user.email, "new_password": "segredo123",
+				"roles": []any{map[string]any{"role": user.role}},
 			})
 			if err != nil {
 				return err
@@ -95,12 +101,19 @@ func setupSEC01API(t *testing.T) (*env, string, string) {
 				}
 			}
 		}
-		for _, user := range []string{sec01AlfaUser, sec01BetaUser} {
-			company := "Alfa"
-			if user == sec01BetaUser {
-				company = "Beta"
-			}
-			doc, err := c.NewDoc("User Permission", engine.Doc{"user": user, "allow": "Test Company", "for_value": company})
+		comment, err := c.NewDoc("Comment", engine.Doc{"reference_doctype": "Test Record", "reference_name": betaRecord, "content": "Beta comment"})
+		if err != nil {
+			return err
+		}
+		if _, err := c.Insert(comment, engine.SaveOpts{}); err != nil {
+			return err
+		}
+		for _, permission := range []struct{ user, company string }{
+			{sec01AlfaUser, "Alfa"},
+			{sec01BetaUser, "Beta"},
+			{sec01ManagerUser, "Alfa"},
+		} {
+			doc, err := c.NewDoc("User Permission", engine.Doc{"user": permission.user, "allow": "Test Company", "for_value": permission.company})
 			if err != nil {
 				return err
 			}
@@ -151,7 +164,8 @@ func TestSEC01_CrossCuttingChannels(t *testing.T) {
 	x, alfaRecord, betaRecord := setupSEC01API(t)
 	alfa := "sid:" + x.sid(sec01AlfaUser)
 	admin := "sid:" + x.sid("Administrator")
-	upload := x.uploadAttachment(alfa, "Test Record", betaRecord, "sec01-beta.txt", "beta")
+	beta := "sid:" + x.sid(sec01BetaUser)
+	upload := x.uploadAttachment(beta, "Test Record", betaRecord, "sec01-beta.txt", "beta")
 	if upload.Status != 200 {
 		t.Fatalf("upload Beta attachment: %d %s", upload.Status, upload.Raw)
 	}
@@ -169,19 +183,6 @@ func TestSEC01_CrossCuttingChannels(t *testing.T) {
 	}
 	if r := x.call("GET", "/api/versions/Test%20Record/"+betaRecord, nil, admin); r.Status != 200 {
 		t.Errorf("Administrator lost version access: %d %s", r.Status, r.Raw)
-	}
-
-	authorize := x.s.eventAuthorizer(context.Background(), sec01AlfaUser)
-	if authorize("Test Record", betaRecord) {
-		t.Error("scoped user authorized for Beta document event")
-	}
-	ch := x.e.Events.Subscribe(sec01AlfaUser, authorize)
-	defer x.e.Events.Unsubscribe(ch)
-	x.e.Events.Publish(engine.Event{Name: "doc_update", Doctype: "Test Record", DocName: betaRecord})
-	select {
-	case ev := <-ch:
-		t.Errorf("scoped user received Beta document event: %+v", ev)
-	default:
 	}
 
 	r := x.call("GET", "/api/export/Test%20Record", nil, alfa)
@@ -213,5 +214,189 @@ func TestSEC01_CrossCuttingChannels(t *testing.T) {
 		if len(events) == 0 {
 			t.Errorf("missing %s audit event for %s", action, fmt.Sprint(sec01AlfaUser))
 		}
+	}
+}
+
+func TestSEC01_ProductionNotificationsRespectScopeChanges(t *testing.T) {
+	x, _, betaRecord := setupSEC01API(t)
+	authorize := x.s.eventAuthorizer(context.Background(), sec01AlfaUser)
+	if authorize("Test Record", betaRecord) {
+		t.Fatal("Alfa scope authorized a Beta document before a grant")
+	}
+	ch := x.e.Events.Subscribe(sec01AlfaUser, authorize)
+	defer x.e.Events.Unsubscribe(ch)
+	betaAuthorize := x.s.eventAuthorizer(context.Background(), sec01BetaUser)
+	betaCh := x.e.Events.Subscribe(sec01BetaUser, betaAuthorize)
+	defer x.e.Events.Unsubscribe(betaCh)
+
+	var permission string
+	x.asAdmin(func(c *engine.Ctx) error {
+		doc, err := c.NewDoc("User Permission", engine.Doc{"user": sec01AlfaUser, "allow": "Test Company", "for_value": "Beta"})
+		if err != nil {
+			return err
+		}
+		saved, err := c.Insert(doc, engine.SaveOpts{})
+		permission = saved.Name()
+		return err
+	})
+	if !authorize("Test Record", betaRecord) {
+		t.Error("grant did not invalidate the cached Beta SSE denial")
+	}
+
+	x.asAdmin(func(c *engine.Ctx) error {
+		doc, err := c.GetDoc("User Permission", permission)
+		if err != nil {
+			return err
+		}
+		doc["for_value"] = "Alfa"
+		_, err = c.Save(doc, engine.SaveOpts{})
+		return err
+	})
+	if authorize("Test Record", betaRecord) {
+		t.Error("Save did not invalidate the cached Beta SSE grant")
+	}
+
+	x.asAdmin(func(c *engine.Ctx) error {
+		_, err := c.DBSet("User Permission", permission, engine.Doc{"for_value": "Beta"}, true)
+		return err
+	})
+	if !authorize("Test Record", betaRecord) {
+		t.Error("DBSet did not invalidate the cached Beta SSE denial")
+	}
+
+	x.asAdmin(func(c *engine.Ctx) error {
+		return c.Delete("User Permission", permission, false, false)
+	})
+	if authorize("Test Record", betaRecord) {
+		t.Error("revoke did not invalidate the cached Beta SSE grant")
+	}
+	for {
+		select {
+		case <-ch:
+		default:
+			goto drained
+		}
+	}
+
+drained:
+
+	x.asAdmin(func(c *engine.Ctx) error {
+		doc, err := c.GetDoc("Test Record", betaRecord)
+		if err != nil {
+			return err
+		}
+		doc["title"] = "Beta notification"
+		_, err = c.Save(doc, engine.SaveOpts{})
+		return err
+	})
+	for {
+		select {
+		case event := <-ch:
+			if event.Name == "doc_update" && event.Payload.(map[string]any)["name"] == betaRecord {
+				t.Errorf("production notification leaked Beta document: %+v", event)
+			}
+		default:
+			goto alfaDrained
+		}
+	}
+
+alfaDrained:
+	received := false
+	for {
+		select {
+		case event := <-betaCh:
+			if event.Name == "doc_update" && event.Doctype == "Test Record" && event.DocName == betaRecord {
+				received = true
+			}
+		default:
+			if !received {
+				t.Error("authorized Beta user did not receive the production document notification")
+			}
+			return
+		}
+	}
+}
+
+func TestSEC01_ScopedSystemManagerCannotListReferencedHistory(t *testing.T) {
+	x, _, betaRecord := setupSEC01API(t)
+	manager := "sid:" + x.sid(sec01ManagerUser)
+	for _, tc := range []struct {
+		doctype string
+		filters string
+	}{
+		{"Version", fmt.Sprintf(`{"ref_doctype":"Test Record","docname":"%s"}`, betaRecord)},
+		{"Comment", fmt.Sprintf(`{"reference_doctype":"Test Record","reference_name":"%s"}`, betaRecord)},
+	} {
+		path := "/api/resource/" + tc.doctype + "?filters=" + url.QueryEscape(tc.filters)
+		if r := x.call("GET", path, nil, manager); r.Status != 403 || r.errType() != "PermissionError" {
+			t.Errorf("scoped System Manager listed Beta %s: %d %s", tc.doctype, r.Status, r.Raw)
+		}
+	}
+}
+
+func TestSEC01_UserPermissionScopeMutationsAreAudited(t *testing.T) {
+	x, _, _ := setupSEC01API(t)
+	count := func(action string) int64 {
+		n, err := x.e.CountAuditEvents(x.ctx, engine.AuditFilter{Action: action, TargetDocType: "User", TargetName: sec01BetaUser})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+	hasForValue := func(action, want string) bool {
+		events, err := x.e.ListAuditEvents(x.ctx, engine.AuditFilter{Action: action, TargetDocType: "User", TargetName: sec01BetaUser, Limit: 50})
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, event := range events {
+			if detail, ok := event["detail"].(map[string]any); ok && fmt.Sprint(detail["for_value"]) == want {
+				return true
+			}
+		}
+		return false
+	}
+	grants, revokes := count("permission.scope_grant"), count("permission.scope_revoke")
+	var permission string
+	x.asAdmin(func(c *engine.Ctx) error {
+		doc, err := c.NewDoc("User Permission", engine.Doc{"user": sec01BetaUser, "allow": "Test Company", "for_value": "Beta"})
+		if err != nil {
+			return err
+		}
+		saved, err := c.Insert(doc, engine.SaveOpts{})
+		permission = saved.Name()
+		return err
+	})
+	grants++
+	x.asAdmin(func(c *engine.Ctx) error {
+		doc, err := c.GetDoc("User Permission", permission)
+		if err != nil {
+			return err
+		}
+		doc["for_value"] = "Alfa"
+		_, err = c.Save(doc, engine.SaveOpts{})
+		return err
+	})
+	if got := count("permission.scope_grant"); got != grants+1 {
+		t.Errorf("Save grant audit count = %d, want %d", got, grants+1)
+	}
+	if got := count("permission.scope_revoke"); got != revokes+1 {
+		t.Errorf("Save revoke audit count = %d, want %d", got, revokes+1)
+	}
+
+	x.asAdmin(func(c *engine.Ctx) error {
+		_, err := c.DBSet("User Permission", permission, engine.Doc{"for_value": "Beta"}, true)
+		return err
+	})
+	if got := count("permission.scope_grant"); got != grants+2 {
+		t.Errorf("DBSet grant audit count = %d, want %d", got, grants+2)
+	}
+	if got := count("permission.scope_revoke"); got != revokes+2 {
+		t.Errorf("DBSet revoke audit count = %d, want %d", got, revokes+2)
+	}
+	if !hasForValue("permission.scope_grant", "Alfa") {
+		t.Error("Save did not record the granted Alfa scope")
+	}
+	if !hasForValue("permission.scope_revoke", "Alfa") {
+		t.Error("DBSet did not record the revoked Alfa scope")
 	}
 }

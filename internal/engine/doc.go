@@ -502,11 +502,7 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 	}
 	c.notify(d, saved, "insert")
 	if d.Name == "User Permission" {
-		if err := c.Audit("permission.scope_grant", "User", saved.Str("user"), map[string]any{
-			"allow":          saved.Str("allow"),
-			"for_value":      saved.Str("for_value"),
-			"applicable_for": saved.Str("applicable_for"),
-		}); err != nil {
+		if err := c.auditUserPermissionGrant(saved); err != nil {
 			return nil, err
 		}
 		c.invalidateUserPermissionCache(saved)
@@ -660,6 +656,14 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 	}
 	c.notify(d, saved, action)
 	if d.Name == "User Permission" {
+		if userPermissionScopeChanged(before, saved) {
+			if err := c.auditUserPermissionRevoke(before); err != nil {
+				return nil, err
+			}
+			if err := c.auditUserPermissionGrant(saved); err != nil {
+				return nil, err
+			}
+		}
 		c.invalidateUserPermissionCache(before, saved)
 	}
 	return saved, nil
@@ -787,14 +791,14 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 	if len(values) == 0 {
 		return modified, nil
 	}
-	oldUser := ""
+	var beforePermission Doc
 	if d.Name == "User Permission" {
-		rows, err := db.Select(c.Ctx, c.Q(), `SELECT "user" FROM tab_user_permission WHERE name = $1`, name)
+		rows, err := db.Select(c.Ctx, c.Q(), `SELECT "user", allow, for_value, applicable_for FROM tab_user_permission WHERE name = $1`, name)
 		if err != nil {
 			return modified, err
 		}
 		if len(rows) > 0 {
-			oldUser = db.Str(rows[0]["user"])
+			beforePermission = Doc(rows[0])
 		}
 	}
 	var b db.Builder
@@ -827,16 +831,27 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 		return modified, cerr.NotFound("{0} {1} not found", doctype, name)
 	}
 	if d.Name == "User Permission" {
-		newUser := oldUser
-		if user, ok := values["user"]; ok {
-			newUser = db.Str(user)
+		afterPermission := Doc{}
+		for _, field := range []string{"user", "allow", "for_value", "applicable_for"} {
+			afterPermission[field] = beforePermission[field]
+			if value, ok := values[field]; ok {
+				afterPermission[field] = value
+			}
 		}
-		c.invalidateUserPermissionCache(Doc{"user": oldUser}, Doc{"user": newUser})
+		if userPermissionScopeChanged(beforePermission, afterPermission) {
+			if err := c.auditUserPermissionRevoke(beforePermission); err != nil {
+				return modified, err
+			}
+			if err := c.auditUserPermissionGrant(afterPermission); err != nil {
+				return modified, err
+			}
+		}
+		c.invalidateUserPermissionCache(beforePermission, afterPermission)
 	}
 	// only after commit: a rolled back transaction must not announce
 	// changes that never took place (B20).
 	c.AfterCommit(func() {
-		c.E.Events.Publish(Event{Name: "doc_update", Payload: map[string]any{"doctype": doctype, "name": name}})
+		c.E.Events.Publish(Event{Name: "doc_update", Doctype: doctype, DocName: name, Payload: map[string]any{"doctype": doctype, "name": name}})
 	})
 	return modified, nil
 }
@@ -924,10 +939,7 @@ func (c *Ctx) Delete(doctype, name string, ignorePerms, force bool) error {
 		return err
 	}
 	if d.Name == "User Permission" {
-		if err := c.Audit("permission.scope_revoke", "User", doc.Str("user"), map[string]any{
-			"allow":     doc.Str("allow"),
-			"for_value": doc.Str("for_value"),
-		}); err != nil {
+		if err := c.auditUserPermissionRevoke(doc); err != nil {
 			return err
 		}
 		c.invalidateUserPermissionCache(doc)
@@ -1031,8 +1043,32 @@ func (c *Ctx) GetDocIgnoringPerms(doctype, name string) (Doc, error) {
 
 func (c *Ctx) notify(d *meta.DocType, doc Doc, action string) {
 	c.AfterCommit(func() {
-		c.E.Events.Publish(Event{Name: "doc_update", Payload: map[string]any{"doctype": d.Name, "name": doc.Name(), "action": action, "modified": doc["modified"], "user": c.User}})
+		c.E.Events.Publish(Event{Name: "doc_update", Doctype: d.Name, DocName: doc.Name(), Payload: map[string]any{"doctype": d.Name, "name": doc.Name(), "action": action, "modified": doc["modified"], "user": c.User}})
 		c.E.Events.Publish(Event{Name: "list_update", Payload: map[string]any{"doctype": d.Name}})
+	})
+}
+
+func userPermissionScopeChanged(before, after Doc) bool {
+	for _, field := range []string{"user", "allow", "for_value", "applicable_for"} {
+		if before.Str(field) != after.Str(field) {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *Ctx) auditUserPermissionGrant(doc Doc) error {
+	return c.Audit("permission.scope_grant", "User", doc.Str("user"), map[string]any{
+		"allow":          doc.Str("allow"),
+		"for_value":      doc.Str("for_value"),
+		"applicable_for": doc.Str("applicable_for"),
+	})
+}
+
+func (c *Ctx) auditUserPermissionRevoke(doc Doc) error {
+	return c.Audit("permission.scope_revoke", "User", doc.Str("user"), map[string]any{
+		"allow":     doc.Str("allow"),
+		"for_value": doc.Str("for_value"),
 	})
 }
 

@@ -68,6 +68,7 @@ func (c *Ctx) invalidateUserPermissionCache(docs ...Doc) {
 	c.AfterCommit(func() {
 		for user := range users {
 			c.E.Cache.Del("user_perms:" + user)
+			c.E.Cache.DelPrefix("evperm:" + user + ":")
 		}
 	})
 }

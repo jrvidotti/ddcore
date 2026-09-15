@@ -964,8 +964,17 @@ func (s *Server) referenceGuard(c *engine.Ctx, doctype string, filters any) erro
 	if !ok {
 		return nil
 	}
-	if c.User == "Administrator" || c.HasRole("System Manager") {
+	if c.User == "Administrator" || c.IgnorePermissions() {
 		return nil
+	}
+	if c.HasRole("System Manager") {
+		perms, err := c.UserPermissions()
+		if err != nil {
+			return err
+		}
+		if len(perms) == 0 {
+			return nil
+		}
 	}
 	fs, err := db.ParseFilters(filters)
 	if err != nil {
