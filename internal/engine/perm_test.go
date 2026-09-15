@@ -27,19 +27,29 @@ func TestUserPermissionDocTypeLoaded(t *testing.T) {
 func TestUserPermissionsResolutionAndCacheInvalidation(t *testing.T) {
 	e := setupPerm(t)
 	ctx := context.Background()
-	const user = "ana@x.com"
+	const (
+		user    = "ana@x.com"
+		newUser = "ze@x.com"
+	)
 
-	resolve := func(want int, wantValue string) {
+	resolve := func(target string, want int, wantValue string) {
 		t.Helper()
-		if err := e.Run(ctx, user, func(c *Ctx) error {
+		if err := e.Run(ctx, target, func(c *Ctx) error {
 			perms, err := c.UserPermissions()
 			if err != nil {
 				return err
 			}
+			cached, err := c.UserPermissions()
+			if err != nil {
+				return err
+			}
+			if c.userPerms == nil || len(cached) != len(perms) {
+				t.Fatalf("expected UserPermissions to retain its request-local cache")
+			}
 			if len(perms) != want {
 				t.Fatalf("expected %d user permissions, got %d", want, len(perms))
 			}
-			if want > 0 && (perms[0].User != user || perms[0].Allow != "Company" || perms[0].ForValue != wantValue || !perms[0].IsDefault) {
+			if want > 0 && (perms[0].User != target || perms[0].Allow != "Company" || perms[0].ForValue != wantValue || !perms[0].IsDefault) {
 				t.Fatalf("unexpected user permission: %+v", perms[0])
 			}
 			return nil
@@ -49,7 +59,7 @@ func TestUserPermissionsResolutionAndCacheInvalidation(t *testing.T) {
 	}
 
 	// Prewarm an empty result so the insert must invalidate the shared cache.
-	resolve(0, "")
+	resolve(user, 0, "")
 
 	var name string
 	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
@@ -67,7 +77,7 @@ func TestUserPermissionsResolutionAndCacheInvalidation(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("insert user permission: %v", err)
 	}
-	resolve(1, "Acme Corp")
+	resolve(user, 1, "Acme Corp")
 
 	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
 		doc, err := c.GetDoc("User Permission", name)
@@ -80,14 +90,24 @@ func TestUserPermissionsResolutionAndCacheInvalidation(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("update user permission: %v", err)
 	}
-	resolve(1, "Globex Corp")
+	resolve(user, 1, "Globex Corp")
+	resolve(newUser, 0, "")
+
+	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+		_, err := c.DBSet("User Permission", name, Doc{"user": newUser, "for_value": "Initech"}, true)
+		return err
+	}); err != nil {
+		t.Fatalf("DBSet user permission: %v", err)
+	}
+	resolve(user, 0, "")
+	resolve(newUser, 1, "Initech")
 
 	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
 		return c.Delete("User Permission", name, false, false)
 	}); err != nil {
 		t.Fatalf("delete user permission: %v", err)
 	}
-	resolve(0, "")
+	resolve(newUser, 0, "")
 
 	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
 		perms, err := c.UserPermissions()

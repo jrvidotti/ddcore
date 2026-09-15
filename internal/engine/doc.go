@@ -756,6 +756,16 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 	if len(values) == 0 {
 		return modified, nil
 	}
+	oldUser := ""
+	if d.Name == "User Permission" {
+		rows, err := db.Select(c.Ctx, c.Q(), `SELECT "user" FROM tab_user_permission WHERE name = $1`, name)
+		if err != nil {
+			return modified, err
+		}
+		if len(rows) > 0 {
+			oldUser = db.Str(rows[0]["user"])
+		}
+	}
 	var b db.Builder
 	var sets []string
 	for k, v := range values {
@@ -784,6 +794,13 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 	}
 	if tag.RowsAffected() == 0 {
 		return modified, cerr.NotFound("{0} {1} not found", doctype, name)
+	}
+	if d.Name == "User Permission" {
+		newUser := oldUser
+		if user, ok := values["user"]; ok {
+			newUser = db.Str(user)
+		}
+		c.invalidateUserPermissionCache(Doc{"user": oldUser}, Doc{"user": newUser})
 	}
 	// only after commit: a rolled back transaction must not announce
 	// changes that never took place (B20).
