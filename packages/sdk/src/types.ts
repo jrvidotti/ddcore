@@ -495,3 +495,29 @@ export interface NotificationDef<D = Record<string, any>> {
   desk?: { title: (doc: D, before: D | null) => string; message: (doc: D, before: D | null) => string };
   email?: { template: string; args: (doc: D, before: D | null) => Record<string, any> };
 }
+
+export interface WorkflowStateDef {
+  state: string;
+  docstatus?: 0 | 1 | 2;
+  allowEdit?: string;
+  updateFields?: Record<string, any>;
+}
+
+export interface WorkflowTransitionDef<D = Record<string, any>> {
+  state: string;
+  action: string;
+  nextState: string;
+  allowed: string | string[];
+  allowSelfApproval?: boolean;
+  condition?: (doc: D) => boolean;
+}
+
+export interface WorkflowDef<D = Record<string, any>> {
+  name: string;
+  doctype: string;
+  stateField?: string;
+  initialState: string;
+  states: WorkflowStateDef[];
+  transitions: WorkflowTransitionDef<D>[];
+}
+

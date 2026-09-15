@@ -1,7 +1,7 @@
 // @ddcore/sdk — the API apps use on the server (runs inside the ddcore binary).
 import type {
   AppDef, BaseDoc, ControllerDef, Context, DoctypeDef, Document, ExtensionDef, Filters, ListArgs,
-  MailTemplateDef, NotificationDef, PatchDef, ReportDef, SendMailArgs, WorkspaceDef,
+  MailTemplateDef, NotificationDef, PatchDef, ReportDef, SendMailArgs, WorkflowDef, WorkspaceDef,
 } from "./types";
 export * from "./types";
 
@@ -266,3 +266,10 @@ export function defineNotification<D = Record<string, any>>(def: NotificationDef
   __ddcore.register("notification", def);
   return def;
 }
+
+/** Declares an approval workflow in workflows/*.workflow.ts. */
+export function defineWorkflow<D = Record<string, any>>(def: WorkflowDef<D>): WorkflowDef<D> {
+  __ddcore.register("workflow", def);
+  return def;
+}
+
