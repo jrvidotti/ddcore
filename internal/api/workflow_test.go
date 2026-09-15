@@ -67,7 +67,7 @@ export default defineWorkflow({
     { state: "Draft", docstatus: 0, allowEdit: "Autor" },
     { state: "Pending Approval", docstatus: 0, allowEdit: "Editor" },
     { state: "Approved", docstatus: 1, allowEdit: "", updateFields: { status: "Published" } },
-    { state: "Rejected", docstatus: 0, allowEdit: "" },
+    { state: "Rejected", docstatus: 2, allowEdit: "" },
   ],
   transitions: [
     { state: "Draft", action: "Submit for Approval", nextState: "Pending Approval", allowed: "Autor" },
@@ -178,6 +178,9 @@ func TestWorkflowAPI_ApplyAndActions(t *testing.T) {
 	if wfData["state"] != "Draft" {
 		t.Fatalf("expected state Draft, got %v", wfData["state"])
 	}
+	if wfData["allowEdit"] != true {
+		t.Fatalf("expected allowEdit true for autor (holds the Draft state's allowEdit role), got %v", wfData["allowEdit"])
+	}
 	actions, ok := wfData["actions"].([]any)
 	if !ok || len(actions) != 1 {
 		t.Fatalf("expected 1 action for autor in Draft state, got %v", wfData["actions"])
@@ -195,6 +198,9 @@ func TestWorkflowAPI_ApplyAndActions(t *testing.T) {
 	if editorWf["state"] != "Draft" {
 		t.Fatalf("expected state Draft, got %v", editorWf["state"])
 	}
+	if editorWf["allowEdit"] != false {
+		t.Fatalf("expected allowEdit false for editor (lacks the Draft state's allowEdit role), got %v", editorWf["allowEdit"])
+	}
 	editorActions := editorWf["actions"].([]any)
 	if len(editorActions) != 0 {
 		t.Fatalf("expected 0 actions for editor in Draft, got %v", editorActions)
@@ -208,6 +214,9 @@ func TestWorkflowAPI_ApplyAndActions(t *testing.T) {
 	if actionsData["state"] != "Draft" {
 		t.Fatalf("expected state Draft, got %v", actionsData["state"])
 	}
+	if actionsData["allowEdit"] != true {
+		t.Fatalf("expected allowEdit true for autor, got %v", actionsData["allowEdit"])
+	}
 	actList := actionsData["actions"].([]any)
 	if len(actList) != 1 {
 		t.Fatalf("expected 1 action, got %v", actList)
@@ -219,6 +228,9 @@ func TestWorkflowAPI_ApplyAndActions(t *testing.T) {
 	actionsData = r.Body["data"].(map[string]any)
 	if actionsData["state"] != "Draft" {
 		t.Fatalf("expected state Draft, got %v", actionsData["state"])
+	}
+	if actionsData["allowEdit"] != false {
+		t.Fatalf("expected allowEdit false for editor, got %v", actionsData["allowEdit"])
 	}
 	if len(actionsData["actions"].([]any)) != 0 {
 		t.Fatalf("expected 0 actions for editor, got %v", actionsData["actions"])
@@ -406,8 +418,8 @@ func TestWorkflowAPI_SelfApprovalAndConditions(t *testing.T) {
 	if rejectedDoc["workflow_state"] != "Rejected" {
 		t.Fatalf("expected workflow_state Rejected, got %v", rejectedDoc["workflow_state"])
 	}
-	if rejectedDoc["docstatus"].(float64) != 0 {
-		t.Fatalf("expected docstatus 0, got %v", rejectedDoc["docstatus"])
+	if rejectedDoc["docstatus"].(float64) != 2 {
+		t.Fatalf("expected docstatus 2, got %v", rejectedDoc["docstatus"])
 	}
 }
 
@@ -464,6 +476,16 @@ func TestWorkflowAPI_PermissionAndLifecycleGuards(t *testing.T) {
 		"conteudo": "Edicao pelo editor permitida",
 	}, editor)
 	x.expect(r, 200, "")
+	// PUT /api/resource must preserve _workflow (state pill and action buttons
+	// must not vanish, nor the native Submit button reappear, after a save).
+	savedDoc := r.Body["data"].(map[string]any)
+	savedWf, ok := savedDoc["_workflow"].(map[string]any)
+	if !ok || savedWf == nil {
+		t.Fatalf("expected _workflow to survive PUT /api/resource, got %v", savedDoc)
+	}
+	if savedWf["state"] != "Pending Approval" || savedWf["allowEdit"] != true {
+		t.Fatalf("expected _workflow {state: Pending Approval, allowEdit: true} after PUT, got %v", savedWf)
+	}
 
 	// 5. Apply on doctype without workflow -> 417
 	r = x.call("POST", "/api/workflow/apply", map[string]any{

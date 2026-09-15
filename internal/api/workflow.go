@@ -13,6 +13,39 @@ type workflowApplyRequest struct {
 	Action  string `json:"action"`
 }
 
+// enrichWorkflow attaches "_workflow" (current state, whether the acting user
+// may edit fields in that state, and the actions available to them) to doc
+// when its doctype has an active workflow. It is a no-op otherwise.
+func (s *Server) enrichWorkflow(c *engine.Ctx, doctype string, doc engine.Doc) error {
+	wf := c.WorkflowFor(doctype)
+	if wf == nil || doc == nil {
+		return nil
+	}
+	actions, err := c.AvailableWorkflowActions(doctype, doc)
+	if err != nil {
+		return err
+	}
+	if actions == nil {
+		actions = []engine.WorkflowAvailableAction{}
+	}
+	state := doc.Str(wf.StateField)
+	if state == "" {
+		state = wf.InitialState
+	}
+	canEdit := true
+	if st := wf.FindState(state); st != nil && st.AllowEdit != "" {
+		if c.User != "Administrator" && !c.IgnorePermissions() {
+			canEdit = c.HasRole(st.AllowEdit)
+		}
+	}
+	doc["_workflow"] = map[string]any{
+		"state":     state,
+		"allowEdit": canEdit,
+		"actions":   actions,
+	}
+	return nil
+}
+
 func (s *Server) applyWorkflowTransition(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
 		var body workflowApplyRequest
@@ -29,31 +62,12 @@ func (s *Server) applyWorkflowTransition(w http.ResponseWriter, r *http.Request)
 		if err != nil {
 			return nil, err
 		}
-		wf := c.WorkflowFor(body.Doctype)
-		if wf != nil {
-			actions, err := c.AvailableWorkflowActions(body.Doctype, saved)
-			if err != nil {
-				return nil, err
-			}
-			if actions == nil {
-				actions = []engine.WorkflowAvailableAction{}
-			}
-			state := saved.Str(wf.StateField)
-			if state == "" {
-				state = wf.InitialState
-			}
-			saved["_workflow"] = map[string]any{
-				"state":   state,
-				"actions": actions,
-			}
+		if err := s.enrichWorkflow(c, body.Doctype, saved); err != nil {
+			return nil, err
 		}
 		c.ResolveLinkTitles(body.Doctype, saved)
 		return c.RedactDoc(body.Doctype, saved), nil
 	})
-}
-
-func (s *Server) applyWorkflowTransitionHandler(w http.ResponseWriter, r *http.Request) {
-	s.applyWorkflowTransition(w, r)
 }
 
 func (s *Server) workflowActions(w http.ResponseWriter, r *http.Request) {
@@ -70,33 +84,16 @@ func (s *Server) workflowActions(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, err
 		}
-		wf := c.WorkflowFor(doctype)
-		var currentState string
-		var actions []engine.WorkflowAvailableAction
-		if wf != nil {
-			currentState = doc.Str(wf.StateField)
-			if currentState == "" {
-				currentState = wf.InitialState
-			}
-			acts, err := c.AvailableWorkflowActions(doctype, doc)
-			if err != nil {
-				return nil, err
-			}
-			if acts != nil {
-				actions = acts
-			} else {
-				actions = []engine.WorkflowAvailableAction{}
-			}
-		} else {
-			actions = []engine.WorkflowAvailableAction{}
+		if err := s.enrichWorkflow(c, doctype, doc); err != nil {
+			return nil, err
+		}
+		if wf, _ := doc["_workflow"].(map[string]any); wf != nil {
+			return wf, nil
 		}
 		return map[string]any{
-			"state":   currentState,
-			"actions": actions,
+			"state":     "",
+			"allowEdit": true,
+			"actions":   []engine.WorkflowAvailableAction{},
 		}, nil
 	})
-}
-
-func (s *Server) workflowActionsHandler(w http.ResponseWriter, r *http.Request) {
-	s.workflowActions(w, r)
 }

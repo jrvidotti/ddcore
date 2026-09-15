@@ -73,6 +73,8 @@ Each transition defines:
 - `allowSelfApproval`: Optional boolean (default: `true`). If `false`, the user who created the document (`owner`) cannot trigger this transition, even if they possess the authorized role.
 - `condition`: Optional synchronous JavaScript function `(doc) => boolean` running on goja. Evaluated against the document before applying the transition. If it returns `false`, the transition is rejected. Never use `async`/`await` or Promises.
 
+Workflows are linear state machines: `ApplyWorkflowTransition` matches the first transition whose `state` and `action` fit the current state and stops there, without checking its `condition`. Declaring two transitions from the same state with the same `action` name is a modeling error — the second is unreachable — so keep `action` unique per `state`.
+
 ## Server-side enforcement and bypass prevention
 
 The ddcore engine strictly protects workflow integrity at the database layer:
@@ -131,6 +133,7 @@ Response:
     "status": "Approved",
     "_workflow": {
       "state": "Approved",
+      "allowEdit": true,
       "actions": []
     }
   }
@@ -141,15 +144,19 @@ Response:
 
 `GET /api/workflow/actions?doctype=Order&name=ORD-0001`
 
-Returns the currently available workflow actions for the authenticated user, taking into account current state, caller roles, self-approval rules, and condition functions.
+Returns the current state, whether the authenticated caller may edit fields in it, and the workflow actions available to them, taking into account caller roles, self-approval rules, and condition functions.
 
 Response:
 ```json
 {
-  "data": [
-    { "action": "Approve", "nextState": "Approved" },
-    { "action": "Reject", "nextState": "Rejected" }
-  ]
+  "data": {
+    "state": "Pending Approval",
+    "allowEdit": false,
+    "actions": [
+      { "action": "Approve", "nextState": "Approved" },
+      { "action": "Reject", "nextState": "Rejected" }
+    ]
+  }
 }
 ```
 
@@ -157,7 +164,7 @@ Response:
 
 `GET /api/resource/{doctype}/{name}`
 
-When fetching a document whose DocType has an active workflow, the response automatically includes a `_workflow` envelope containing the current state and available actions for the caller:
+When fetching, creating, updating, or applying a transition on a document whose DocType has an active workflow, the response automatically includes a `_workflow` envelope containing the current state, whether the caller may edit fields in it (`allowEdit`), and the actions available to them:
 
 ```json
 {
@@ -167,6 +174,7 @@ When fetching a document whose DocType has an active workflow, the response auto
     "docstatus": 0,
     "_workflow": {
       "state": "Pending Approval",
+      "allowEdit": false,
       "actions": [
         { "action": "Approve", "nextState": "Approved" },
         { "action": "Reject", "nextState": "Rejected" }

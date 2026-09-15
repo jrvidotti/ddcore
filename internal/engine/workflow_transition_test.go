@@ -23,6 +23,12 @@ export default defineController("Artigo", {
   onSubmit(doc) {
     ddcore.db.setValue("Artigo", doc.name, "submitted_hook_ran", 1);
   },
+  beforeCancel(doc) {
+    doc.before_cancel_hook_ran = 1;
+  },
+  onCancel(doc) {
+    ddcore.db.setValue("Artigo", doc.name, "cancel_hook_ran", 1);
+  },
 });`,
 		"doctypes/artigo/artigo.doctype.ts": `import { defineDoctype } from "@ddcore/sdk";
 export default defineDoctype({
@@ -35,6 +41,8 @@ export default defineDoctype({
     { fieldname: "workflow_state", fieldtype: "Data", label: "Workflow State" },
     { fieldname: "status", fieldtype: "Data", label: "Status" },
     { fieldname: "submitted_hook_ran", fieldtype: "Int", label: "Submitted Hook Ran" },
+    { fieldname: "before_cancel_hook_ran", fieldtype: "Int", label: "Before Cancel Hook Ran" },
+    { fieldname: "cancel_hook_ran", fieldtype: "Int", label: "Cancel Hook Ran" },
   ],
   permissions: [
     { role: "Autor", read: true, write: true, create: true, delete: true },
@@ -52,6 +60,7 @@ export default defineWorkflow({
     { state: "Draft", docstatus: 0, allowEdit: "Autor" },
     { state: "Pending Approval", docstatus: 0, allowEdit: "Editor" },
     { state: "Approved", docstatus: 1, allowEdit: "", updateFields: { status: "Published" } },
+    { state: "Archived", docstatus: 1, allowEdit: "", updateFields: { status: "Archived" } },
     { state: "Rejected", docstatus: 2, allowEdit: "" },
   ],
   transitions: [
@@ -65,6 +74,7 @@ export default defineWorkflow({
       condition: (doc) => doc.conteudo && doc.conteudo.length > 5,
     },
     { state: "Pending Approval", action: "Reject", nextState: "Rejected", allowed: "Editor" },
+    { state: "Approved", action: "Archive", nextState: "Archived", allowed: "Editor" },
   ],
 });`,
 	}
@@ -251,6 +261,138 @@ func TestWorkflow_ApplyTransition_SuccessAndDocstatusBinding(t *testing.T) {
 	expectedComment2 := "editor@x.com applied action 'Approve' (Pending Approval → Approved)"
 	if db.Str(crows[1]["content"]) != expectedComment2 {
 		t.Fatalf("expected comment %q, got %q", expectedComment2, db.Str(crows[1]["content"]))
+	}
+}
+
+// TestWorkflow_ApplyTransition_RejectFromDraftCancelsDocument verifies that a
+// transition from a docstatus 0 state (Pending Approval) to a docstatus 2
+// state (Rejected) succeeds, sets docstatus = 2, and runs the beforeCancel
+// and onCancel hooks, instead of failing with "Invalid docstatus transition
+// (0 → 2)" as it did before c.inWorkflowTransition exempted this path.
+func TestWorkflow_ApplyTransition_RejectFromDraftCancelsDocument(t *testing.T) {
+	e := setupWith(t, workflowTestFiles())
+	setupWorkflowTestUsers(t, e)
+	ctx := context.Background()
+
+	var docName string
+	err := e.Run(ctx, "autor@x.com", func(c *Ctx) error {
+		doc, err := c.NewDoc("Artigo", Doc{
+			"titulo":   "Article to reject",
+			"conteudo": "Detailed content longer than 5 chars",
+		})
+		if err != nil {
+			return err
+		}
+		saved, err := c.Insert(doc, SaveOpts{})
+		if err != nil {
+			return err
+		}
+		docName = saved.Name()
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("insert failed: %v", err)
+	}
+
+	err = e.Run(ctx, "autor@x.com", func(c *Ctx) error {
+		_, err := c.ApplyWorkflowTransition("Artigo", docName, "Submit for Approval")
+		return err
+	})
+	if err != nil {
+		t.Fatalf("Submit for Approval failed: %v", err)
+	}
+
+	err = e.Run(ctx, "editor@x.com", func(c *Ctx) error {
+		saved, err := c.ApplyWorkflowTransition("Artigo", docName, "Reject")
+		if err != nil {
+			return err
+		}
+		if saved.Str("workflow_state") != "Rejected" {
+			t.Fatalf("expected state Rejected, got %s", saved.Str("workflow_state"))
+		}
+		if saved.Docstatus() != 2 {
+			t.Fatalf("expected docstatus 2 (cancelled), got %d", saved.Docstatus())
+		}
+
+		beforeCancelRan, err := c.GetValue("Artigo", docName, "before_cancel_hook_ran")
+		if err != nil || toFloat(beforeCancelRan) != 1 {
+			t.Fatalf("expected beforeCancel hook to set before_cancel_hook_ran=1, got %v (err: %v)", beforeCancelRan, err)
+		}
+		cancelRan, err := c.GetValue("Artigo", docName, "cancel_hook_ran")
+		if err != nil || toFloat(cancelRan) != 1 {
+			t.Fatalf("expected onCancel hook to set cancel_hook_ran=1, got %v (err: %v)", cancelRan, err)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("Reject failed: %v", err)
+	}
+}
+
+// TestWorkflow_ApplyTransition_PostSubmitTransitionUpdatesStateField verifies
+// that a workflow transition between two submitted states (docstatus 1 → 1,
+// action "update_after_submit") is not blocked by checkAllowOnSubmit: the
+// workflow's stateField and the target state's updateFields keys must be
+// exempt from the "cannot be changed after submission" guard.
+func TestWorkflow_ApplyTransition_PostSubmitTransitionUpdatesStateField(t *testing.T) {
+	e := setupWith(t, workflowTestFiles())
+	setupWorkflowTestUsers(t, e)
+	ctx := context.Background()
+
+	var docName string
+	err := e.Run(ctx, "autor@x.com", func(c *Ctx) error {
+		doc, err := c.NewDoc("Artigo", Doc{
+			"titulo":   "Article to archive",
+			"conteudo": "Detailed content longer than 5 chars",
+		})
+		if err != nil {
+			return err
+		}
+		saved, err := c.Insert(doc, SaveOpts{})
+		if err != nil {
+			return err
+		}
+		docName = saved.Name()
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("insert failed: %v", err)
+	}
+
+	err = e.Run(ctx, "autor@x.com", func(c *Ctx) error {
+		_, err := c.ApplyWorkflowTransition("Artigo", docName, "Submit for Approval")
+		return err
+	})
+	if err != nil {
+		t.Fatalf("Submit for Approval failed: %v", err)
+	}
+
+	err = e.Run(ctx, "editor@x.com", func(c *Ctx) error {
+		_, err := c.ApplyWorkflowTransition("Artigo", docName, "Approve")
+		return err
+	})
+	if err != nil {
+		t.Fatalf("Approve failed: %v", err)
+	}
+
+	err = e.Run(ctx, "editor@x.com", func(c *Ctx) error {
+		saved, err := c.ApplyWorkflowTransition("Artigo", docName, "Archive")
+		if err != nil {
+			return err
+		}
+		if saved.Str("workflow_state") != "Archived" {
+			t.Fatalf("expected state Archived, got %s", saved.Str("workflow_state"))
+		}
+		if saved.Docstatus() != 1 {
+			t.Fatalf("expected docstatus to remain 1, got %d", saved.Docstatus())
+		}
+		if saved.Str("status") != "Archived" {
+			t.Fatalf("expected updateFields to set status 'Archived', got %q", saved.Str("status"))
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("Archive (post-submit transition) failed: %v", err)
 	}
 }
 

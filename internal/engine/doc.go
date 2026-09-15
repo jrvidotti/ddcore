@@ -524,7 +524,7 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 	switch {
 	case oldStatus == 0 && newStatus == 1:
 		action = "submit"
-	case oldStatus == 1 && newStatus == 2:
+	case (oldStatus == 1 || (c.inWorkflowTransition && oldStatus == 0)) && newStatus == 2:
 		action = "cancel"
 	case oldStatus == 1 && newStatus == 1:
 		action = "update_after_submit"
@@ -1412,8 +1412,19 @@ func (c *Ctx) validateChildren(d *meta.DocType, doc Doc, opts SaveOpts) error {
 }
 
 func (c *Ctx) checkAllowOnSubmit(d *meta.DocType, before, doc Doc) error {
+	var exempt map[string]bool
+	if c.inWorkflowTransition {
+		if wf := c.WorkflowFor(d.Name); wf != nil {
+			exempt = map[string]bool{wf.StateField: true}
+			if st := wf.FindState(doc.Str(wf.StateField)); st != nil {
+				for k := range st.UpdateFields {
+					exempt[k] = true
+				}
+			}
+		}
+	}
 	for _, f := range d.Fields {
-		if f.Fieldname == "" || meta.LayoutTypes[f.Fieldtype] || f.AllowOnSubmit {
+		if f.Fieldname == "" || meta.LayoutTypes[f.Fieldtype] || f.AllowOnSubmit || exempt[f.Fieldname] {
 			continue
 		}
 		if f.Fieldtype == "Table" {

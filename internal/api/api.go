@@ -712,22 +712,8 @@ func (s *Server) get(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, err
 		}
-		if wf := c.WorkflowFor(doctype); wf != nil {
-			actions, err := c.AvailableWorkflowActions(doctype, doc)
-			if err != nil {
-				return nil, err
-			}
-			if actions == nil {
-				actions = []engine.WorkflowAvailableAction{}
-			}
-			state := doc.Str(wf.StateField)
-			if state == "" {
-				state = wf.InitialState
-			}
-			doc["_workflow"] = map[string]any{
-				"state":   state,
-				"actions": actions,
-			}
+		if err := s.enrichWorkflow(c, doctype, doc); err != nil {
+			return nil, err
 		}
 		c.ResolveLinkTitles(doctype, doc)
 		return c.RedactDoc(doctype, doc), nil
@@ -762,7 +748,7 @@ func (s *Server) create(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, err
 		}
-		return redacted(c, chi.URLParam(r, "doctype"))(c.Insert(doc, engine.SaveOpts{}))
+		return redacted(s, c, chi.URLParam(r, "doctype"))(c.Insert(doc, engine.SaveOpts{}))
 	})
 }
 
@@ -786,7 +772,7 @@ func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 			}
 			doc[k] = v
 		}
-		return redacted(c, dt)(c.Save(doc, engine.SaveOpts{}))
+		return redacted(s, c, dt)(c.Save(doc, engine.SaveOpts{}))
 	})
 }
 
@@ -828,11 +814,11 @@ func (s *Server) docMethod(w http.ResponseWriter, r *http.Request) {
 			}
 			switch m {
 			case "submit":
-				return redacted(c, dt)(c.Submit(doc))
+				return redacted(s, c, dt)(c.Submit(doc))
 			case "cancel":
-				return redacted(c, dt)(c.Cancel(doc))
+				return redacted(s, c, dt)(c.Cancel(doc))
 			}
-			return redacted(c, dt)(c.Save(doc, engine.SaveOpts{}))
+			return redacted(s, c, dt)(c.Save(doc, engine.SaveOpts{}))
 		case "amend":
 			return c.Amend(dt, name)
 		case "rename":
@@ -1499,9 +1485,12 @@ var _ = db.Str
 // redacted blanks Password fields on a document heading back to a client. It
 // takes the (doc, err) pair straight from an engine call so a handler cannot
 // accidentally return the unredacted one.
-func redacted(c *engine.Ctx, doctype string) func(engine.Doc, error) (any, error) {
+func redacted(s *Server, c *engine.Ctx, doctype string) func(engine.Doc, error) (any, error) {
 	return func(doc engine.Doc, err error) (any, error) {
 		if err != nil {
+			return nil, err
+		}
+		if err := s.enrichWorkflow(c, doctype, doc); err != nil {
 			return nil, err
 		}
 		return c.RedactDoc(doctype, doc), nil
