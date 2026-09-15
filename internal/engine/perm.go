@@ -9,6 +9,69 @@ import (
 	"github.com/jrvidotti/ddcore/internal/meta"
 )
 
+// UserPerm represents an active scope restriction for a user.
+type UserPerm struct {
+	Name          string
+	User          string
+	Allow         string
+	ForValue      string
+	ApplicableFor string
+	IsDefault     bool
+}
+
+// UserPermissions returns the active scope restrictions for the current user.
+// Administrator and operations that ignore permissions have no restrictions.
+func (c *Ctx) UserPermissions() ([]UserPerm, error) {
+	if c.User == "Administrator" || c.IgnorePermissions() {
+		return nil, nil
+	}
+	if c.userPerms != nil {
+		return c.userPerms, nil
+	}
+	key := "user_perms:" + c.User
+	if v, ok := c.E.Cache.Get(key); ok {
+		c.userPerms = v.([]UserPerm)
+		return c.userPerms, nil
+	}
+	rows, err := db.Select(c.Ctx, c.Q(), `SELECT name, "user", allow, for_value, applicable_for, is_default
+		FROM tab_user_permission WHERE "user" = $1 ORDER BY allow, for_value`, c.User)
+	if err != nil {
+		return nil, err
+	}
+	perms := make([]UserPerm, 0, len(rows))
+	for _, r := range rows {
+		isDefault, _ := r["is_default"].(bool)
+		perms = append(perms, UserPerm{
+			Name:          db.Str(r["name"]),
+			User:          db.Str(r["user"]),
+			Allow:         db.Str(r["allow"]),
+			ForValue:      db.Str(r["for_value"]),
+			ApplicableFor: db.Str(r["applicable_for"]),
+			IsDefault:     isDefault,
+		})
+	}
+	c.userPerms = perms
+	c.E.Cache.Set(key, perms, 0)
+	return perms, nil
+}
+
+func (c *Ctx) invalidateUserPermissionCache(docs ...Doc) {
+	users := map[string]struct{}{}
+	for _, doc := range docs {
+		if user := doc.Str("user"); user != "" {
+			users[user] = struct{}{}
+		}
+	}
+	if len(users) == 0 {
+		return
+	}
+	c.AfterCommit(func() {
+		for user := range users {
+			c.E.Cache.Del("user_perms:" + user)
+		}
+	})
+}
+
 // Roles returns the roles of the current user (cached per ctx).
 func (c *Ctx) Roles() ([]string, error) {
 	if c.roles != nil {

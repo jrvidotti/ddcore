@@ -24,6 +24,100 @@ func TestUserPermissionDocTypeLoaded(t *testing.T) {
 	}
 }
 
+func TestUserPermissionsResolutionAndCacheInvalidation(t *testing.T) {
+	e := setupPerm(t)
+	ctx := context.Background()
+	const user = "ana@x.com"
+
+	resolve := func(want int, wantValue string) {
+		t.Helper()
+		if err := e.Run(ctx, user, func(c *Ctx) error {
+			perms, err := c.UserPermissions()
+			if err != nil {
+				return err
+			}
+			if len(perms) != want {
+				t.Fatalf("expected %d user permissions, got %d", want, len(perms))
+			}
+			if want > 0 && (perms[0].User != user || perms[0].Allow != "Company" || perms[0].ForValue != wantValue || !perms[0].IsDefault) {
+				t.Fatalf("unexpected user permission: %+v", perms[0])
+			}
+			return nil
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Prewarm an empty result so the insert must invalidate the shared cache.
+	resolve(0, "")
+
+	var name string
+	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+		doc, err := c.Insert(Doc{
+			"doctype":    "User Permission",
+			"user":       user,
+			"allow":      "Company",
+			"for_value":  "Acme Corp",
+			"is_default": true,
+		}, SaveOpts{})
+		if err == nil {
+			name = doc.Name()
+		}
+		return err
+	}); err != nil {
+		t.Fatalf("insert user permission: %v", err)
+	}
+	resolve(1, "Acme Corp")
+
+	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+		doc, err := c.GetDoc("User Permission", name)
+		if err != nil {
+			return err
+		}
+		doc["for_value"] = "Globex Corp"
+		_, err = c.Save(doc, SaveOpts{})
+		return err
+	}); err != nil {
+		t.Fatalf("update user permission: %v", err)
+	}
+	resolve(1, "Globex Corp")
+
+	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+		return c.Delete("User Permission", name, false, false)
+	}); err != nil {
+		t.Fatalf("delete user permission: %v", err)
+	}
+	resolve(0, "")
+
+	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+		perms, err := c.UserPermissions()
+		if err != nil {
+			return err
+		}
+		if len(perms) != 0 {
+			t.Fatalf("expected Administrator permissions to be bypassed, got %d", len(perms))
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := e.Run(ctx, user, func(c *Ctx) error {
+		return c.WithIgnorePermissions(func() error {
+			perms, err := c.UserPermissions()
+			if err != nil {
+				return err
+			}
+			if len(perms) != 0 {
+				t.Fatalf("expected ignored permissions to be bypassed, got %d", len(perms))
+			}
+			return nil
+		})
+	}); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // permApp: Pedido (Gestor) with two child tables, one having allowOnSubmit.
 func permApp(t *testing.T) string {
 	dir := t.TempDir()

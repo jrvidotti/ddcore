@@ -491,6 +491,9 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 		}
 	}
 	c.notify(d, saved, "insert")
+	if d.Name == "User Permission" {
+		c.invalidateUserPermissionCache(saved)
+	}
 	return saved, nil
 }
 
@@ -625,6 +628,9 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 		return nil, err
 	}
 	c.notify(d, saved, action)
+	if d.Name == "User Permission" {
+		c.invalidateUserPermissionCache(before, saved)
+	}
 	return saved, nil
 }
 
@@ -861,6 +867,9 @@ func (c *Ctx) Delete(doctype, name string, ignorePerms, force bool) error {
 	}
 	if err := c.queueDocWebhooks(d.Name, doc, "on_trash"); err != nil {
 		return err
+	}
+	if d.Name == "User Permission" {
+		c.invalidateUserPermissionCache(doc)
 	}
 	c.AfterCommit(func() {
 		c.E.Events.Publish(Event{Name: "list_update", Payload: map[string]any{"doctype": doctype}})

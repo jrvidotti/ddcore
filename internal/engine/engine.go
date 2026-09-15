@@ -595,6 +595,7 @@ type Ctx struct {
 	ReqID string
 
 	roles       []string
+	userPerms   []UserPerm
 	rt          *js.Runtime
 	savepoint   int
 	roSavepoint int
