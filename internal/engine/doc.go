@@ -502,6 +502,13 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 	}
 	c.notify(d, saved, "insert")
 	if d.Name == "User Permission" {
+		if err := c.Audit("permission.scope_grant", "User", saved.Str("user"), map[string]any{
+			"allow":          saved.Str("allow"),
+			"for_value":      saved.Str("for_value"),
+			"applicable_for": saved.Str("applicable_for"),
+		}); err != nil {
+			return nil, err
+		}
 		c.invalidateUserPermissionCache(saved)
 	}
 	return saved, nil
@@ -917,6 +924,12 @@ func (c *Ctx) Delete(doctype, name string, ignorePerms, force bool) error {
 		return err
 	}
 	if d.Name == "User Permission" {
+		if err := c.Audit("permission.scope_revoke", "User", doc.Str("user"), map[string]any{
+			"allow":     doc.Str("allow"),
+			"for_value": doc.Str("for_value"),
+		}); err != nil {
+			return err
+		}
 		c.invalidateUserPermissionCache(doc)
 	}
 	c.AfterCommit(func() {

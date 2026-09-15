@@ -23,13 +23,17 @@ func (c *Ctx) CanReadFile(f map[string]any) bool {
 	if f == nil {
 		return false
 	}
-	if db.Str(f["owner"]) == c.User || c.HasRole("System Manager") {
+	if c.User == "Administrator" || c.IgnorePermissions() {
 		return true
 	}
 	if dt, dn := db.Str(f["attached_to_doctype"]), db.Str(f["attached_to_name"]); dt != "" && dn != "" {
 		if _, err := c.GetDoc(dt, dn); err == nil {
 			return true
 		}
+		return false
+	}
+	if db.Str(f["owner"]) == c.User || c.HasRole("System Manager") {
+		return true
 	}
 	return false
 }

@@ -540,26 +540,43 @@ func TestB04_VersionAndCommentFollowReference(t *testing.T) {
 
 func TestB20_EventAuthorizerFollowsPermissions(t *testing.T) {
 	x := setup(t)
+	var pedido string
+	x.asAdmin(func(c *engine.Ctx) error {
+		pessoa, err := c.NewDoc("Pessoa", engine.Doc{"nome": "Cliente SSE"})
+		if err != nil {
+			return err
+		}
+		if _, err := c.Insert(pessoa, engine.SaveOpts{}); err != nil {
+			return err
+		}
+		doc, err := c.NewDoc("Pedido", engine.Doc{"cliente": pessoa.Name()})
+		if err != nil {
+			return err
+		}
+		saved, err := c.Insert(doc, engine.SaveOpts{})
+		pedido = saved.Name()
+		return err
+	})
 	ana := x.s.eventAuthorizer(x.ctx, "ana@x.com")
 	ze := x.s.eventAuthorizer(x.ctx, "ze@x.com")
 	guest := x.s.eventAuthorizer(x.ctx, "Guest")
-	if !ana("Pedido", "PED-0001") {
+	if !ana("Pedido", pedido) {
 		t.Error("Gestor should receive Pedido events")
 	}
-	if ze("Pedido", "PED-0001") {
+	if ze("Pedido", pedido) {
 		t.Error("user without role should not receive Pedido events")
 	}
-	if guest("Pedido", "PED-0001") {
+	if guest("Pedido", pedido) {
 		t.Error("Guest should not receive Pedido events")
 	}
-	// the response is cached per user/doctype
-	if _, ok := x.e.Cache.Get("evperm:ze@x.com:Pedido"); !ok {
+	// the response is cached per user/document
+	if _, ok := x.e.Cache.Get("evperm:ze@x.com:Pedido:" + pedido); !ok {
 		t.Error("the decision should be cached")
 	}
 	// and reaches the hub: events for a restricted doctype are not delivered
 	ch := x.e.Events.Subscribe("ze@x.com", ze)
 	defer x.e.Events.Unsubscribe(ch)
-	x.e.Events.Publish(engine.Event{Name: "doc_update", Doctype: "Pedido", DocName: "PED-0001"})
+	x.e.Events.Publish(engine.Event{Name: "doc_update", Doctype: "Pedido", DocName: pedido})
 	select {
 	case ev := <-ch:
 		t.Fatalf("restricted event delivered: %+v", ev)
