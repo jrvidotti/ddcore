@@ -10,10 +10,10 @@ Actor,Autor,# core.doctypes.audit_event.audit_event.doctype
 Add row,Adicionar linha,# desk/src/lib/controls/Grid.svelte:118
 Address,Endereço,# desk/src/lib/components/Profile.svelte:197
 Administering jobs requires the System Manager role,Administrar jobs exige o papel System Manager,# internal/api/jobs.go:22
-All,Todos,# desk/src/lib/components/ListView.svelte:343
-All rows matching the filters ({0}) as CSV,Todas as linhas que casam com os filtros ({0}) em CSV,# desk/src/lib/components/ListView.svelte:272
-All rows matching the filters ({0}) as NDJSON,Todas as linhas que casam com os filtros ({0}) em NDJSON,# desk/src/lib/components/ListView.svelte:273
-All rows matching the filters ({0}) as NDJSON with the child tables,Todas as linhas que casam com os filtros ({0}) em NDJSON com as tabelas filhas,# desk/src/lib/components/ListView.svelte:274
+All,Todos,# desk/src/lib/components/ListView.svelte:408
+All rows matching the filters ({0}) as CSV,Todas as linhas que casam com os filtros ({0}) em CSV,# desk/src/lib/components/ListView.svelte:330
+All rows matching the filters ({0}) as NDJSON,Todas as linhas que casam com os filtros ({0}) em NDJSON,# desk/src/lib/components/ListView.svelte:331
+All rows matching the filters ({0}) as NDJSON with the child tables,Todas as linhas que casam com os filtros ({0}) em NDJSON com as tabelas filhas,# desk/src/lib/components/ListView.svelte:332
 Allowed,Permitido,# core.doctypes.audit_event.audit_event.doctype
 Amend,Emendar,# desk/src/lib/components/FormView.svelte:364
 An account was created for you on {0}. Choose a password to get in.,Uma conta foi criada para você em {0}. Escolha uma senha para entrar.,# core/mail/invite.mail.ts:22
@@ -46,12 +46,14 @@ Audit Event records are immutable and cannot be deleted,Registros de Evento de A
 Audit Event records are immutable and cannot be modified,Registros de Evento de Auditoria são imutáveis e não podem ser modificados,# internal/engine/doc.go:507
 Back to sign in,Voltar para o acesso,# desk/src/routes/login/forgot/+page.svelte:32
 "CSV cannot carry child tables: use format=ndjson, or `ddcore export`, which writes one file per table.","O CSV não comporta tabelas filhas: use format=ndjson, ou `ddcore export`, que grava um arquivo por tabela.",# internal/api/export.go:54
+Calendar,Calendário,# desk/src/lib/components/ListView.svelte:389
 Cancel,Cancelar,# desk/src/lib/components/AssignModal.svelte:116
 Cancel {0} {1} before deleting,Cancele {0} {1} antes de apagar,# internal/engine/doc.go:812
 Cancel {0}?,Cancelar {0}?,# desk/src/lib/components/FormView.svelte:362
-Cancelled,Cancelado,# desk/src/lib/components/ListView.svelte:224
+Cancelled,Cancelado,# desk/src/lib/components/ListView.svelte:282
 Cannot delete,Não é possível apagar,# internal/engine/doc.go:1445
 Card {0} does not exist,Card {0} não existe,# internal/api/api.go:1123
+Cards,Cartões,# desk/src/lib/components/ListView.svelte:390
 Change,Alterar,# desk/src/lib/controls/Control.svelte:160
 Change history,Histórico de Alterações,# desk/src/lib/components/DocSidebar.svelte:212
 Change my password,Trocar minha senha,# desk/src/routes/login/reset/+page.svelte:74
@@ -66,7 +68,7 @@ Choose a new password for {0}.,Escolha uma nova senha para {0}.,# desk/src/route
 Choose a password for {0}.,Escolha uma senha para {0}.,# desk/src/routes/login/reset/+page.svelte:64
 Choose at least one document event,Escolha pelo menos um evento de documento,# internal/engine/webhooks.go:565
 Clear,Limpar,# desk/src/lib/controls/Control.svelte:163
-Clear filters,Limpar filtros,# desk/src/lib/components/ListView.svelte:360
+Clear filters,Limpar filtros,# desk/src/lib/components/ListView.svelte:425
 Close,Fechar,# desk/src/lib/components/AssignModal.svelte:73
 Close menu,Fechar menu,# desk/src/lib/components/Sidebar.svelte:93
 "Close modals, menus or dialogs","Fechar modais, menus ou diálogos",# desk/src/lib/shortcuts.ts:100
@@ -91,7 +93,7 @@ DDCore,DDCore,# core app
 Delete,Excluir,# desk/src/lib/components/Dialogs.svelte:66
 Delete attachment,Excluir anexo,# desk/src/lib/controls/Grid.svelte:39
 Delete this attachment?,Excluir este anexo?,# desk/src/lib/controls/Grid.svelte:42
-Delete {0} record(s)?,Apagar {0} registro(s)?,# desk/src/lib/components/ListView.svelte:243
+Delete {0} record(s)?,Apagar {0} registro(s)?,# desk/src/lib/components/ListView.svelte:301
 Delete {0}?,Apagar {0}?,# desk/src/lib/components/FormView.svelte:236
 Deleted,Apagado,# desk/src/lib/form.svelte.ts:354
 Delivery,Entrega,# core.doctypes.webhook.webhook.doctype
@@ -112,9 +114,9 @@ DocType,DocType,# core.doctypes.comment.comment.doctype
 DocType {0} does not exist,DocType {0} não existe,# internal/engine/engine.go:559
 Document,Documento,# core.doctypes.comment.comment.doctype
 Document Events,Eventos do Documento,# core.doctypes.webhook.webhook.doctype
-Document status,Situação do documento,# desk/src/lib/components/ListView.svelte:341
+Document status,Situação do documento,# desk/src/lib/components/ListView.svelte:406
 Done,Pronto,# desk/src/lib/components/Profile.svelte:225
-Draft,Rascunho,# desk/src/lib/components/ListView.svelte:224
+Draft,Rascunho,# desk/src/lib/components/ListView.svelte:282
 Due Date,Data de Vencimento,# desk/src/lib/components/AssignModal.svelte:90
 Duplicate,Duplicar,# desk/src/lib/components/FormView.svelte:339
 Duplicate name,Nome duplicado,# internal/engine/doc.go:1338
@@ -138,9 +140,9 @@ Event Name,Nome do Evento,# core.doctypes.webhook.webhook.doctype
 Event Type,Tipo de Evento,# core.doctypes.webhook.webhook.doctype
 Expires,Expira em,# desk/src/lib/components/Profile.svelte:242
 Expires in (days),Expira em (dias),# desk/src/lib/components/Profile.svelte:234
-Export,Exportar,# desk/src/lib/components/ListView.svelte:258
+Export,Exportar,# desk/src/lib/components/ListView.svelte:316
 Export of Single DocTypes is not supported: {0}.,A exportação de DocTypes Single não é suportada: {0}.,# internal/engine/export.go:167
-Exported {0} of {1} rows (the current page),Exportadas {0} de {1} linhas (página atual),# desk/src/lib/components/ListView.svelte:309
+Exported {0} of {1} rows (the current page),Exportadas {0} de {1} linhas (página atual),# desk/src/lib/components/ListView.svelte:367
 Failed,Falhou,# core.doctypes.email_delivery.email_delivery.doctype
 Failed to decrypt vault secret: authentication error,Falha ao descriptografar segredo do cofre: erro de autenticação,# internal/engine/vault.go:63
 Field,Campo,# core.doctypes.file.file.doctype
@@ -202,6 +204,7 @@ Leave blank for a key that never expires.,Deixe em branco para uma chave que nun
 Leave blank to follow the site language.,Deixe em branco para seguir o idioma do site.,# core.doctypes.user.user.doctype
 Leave without saving? Your changes are kept as a draft.,Sair sem salvar? Suas alterações ficam guardadas como rascunho.,# desk/src/lib/components/FormView.svelte:150
 Like,Curtida,# core.doctypes.comment.comment.doctype
+List,Lista,# desk/src/lib/components/ListView.svelte:388
 Loading notifications…,Carregando notificações…,# desk/src/routes/app/notifications/+page.svelte:32
 Loading tasks…,Carregando tarefas…,# desk/src/routes/app/todo/+page.svelte:145
 Loading...,Carregando...,# desk/src/lib/components/DocSidebar.svelte:96
@@ -217,20 +220,20 @@ Medium,Média,# desk/src/lib/components/AssignModal.svelte:97
 Method {0} does not exist on {1},Método {0} não existe em {1},# internal/api/api.go:830
 Method {0} does not exist or is not whitelisted,Método {0} não existe ou não é whitelisted,# internal/api/api.go:863
 Missing file field,campo file ausente,# internal/api/api.go:1240
-Modified,Modificado,# desk/src/lib/components/ListView.svelte:376
+Modified,Modificado,# desk/src/lib/components/views/TableView.svelte:39
 Modified by,Modificado por,# desk/src/lib/components/DocSidebar.svelte:77
 Move through the list options,Navegar entre as opções da lista,# desk/src/lib/shortcuts.ts:106
 My profile,Meu perfil,# desk/src/lib/components/Profile.svelte:128
-Name,Nome,# desk/src/lib/components/ListView.svelte:298
+Name,Nome,# desk/src/lib/components/ListView.svelte:356
 Name and language,Nome e idioma,# desk/src/lib/components/Profile.svelte:154
 Navigation & modals,Navegação & Modais,# desk/src/lib/shortcuts.ts:96
-New,Novo,# desk/src/lib/components/ListView.svelte:331
+New,Novo,# desk/src/lib/components/ListView.svelte:396
 New Task,Nova Tarefa,# desk/src/routes/app/todo/+page.svelte:96
 New name,Novo nome,# desk/src/lib/components/FormView.svelte:248
 New password,Nova senha,# desk/src/lib/components/Profile.svelte:177
 New {0},Novo {0},# desk/src/lib/components/FormView.svelte:202
 Next,Próxima,# desk/src/routes/app/notifications/+page.svelte:53
-Next month,Próximo mês,# desk/src/lib/controls/DateControl.svelte:239
+Next month,Próximo mês,# desk/src/lib/components/views/CalendarView.svelte:58
 Next year,Próximo ano,# desk/src/lib/controls/MonthControl.svelte:205
 No,Não,# desk/src/lib/components/history.ts:130
 No active assignments,Nenhuma atribuição ativa,# desk/src/lib/components/DocSidebar.svelte:98
@@ -255,7 +258,7 @@ No permission to rename {0},Sem permissão para renomear {0},# internal/engine/d
 No permission to revoke this task,Sem permissão para revogar esta tarefa,# internal/api/assignments.go:164
 No permission to submit {0},Sem permissão para enviar {0},# internal/engine/doc.go:424
 No recipient,Sem destinatário,# internal/engine/mailqueue.go:101
-No records,Nenhum registro,# desk/src/lib/components/ListView.svelte:418
+No records,Nenhum registro,# desk/src/lib/components/ReportView.svelte:133
 No report permission on {0},Sem permissão de relatório em {0},# internal/api/api.go:1045
 No rows,Nenhuma linha,# desk/src/lib/controls/Grid.svelte:113
 No tasks found,Nenhuma tarefa encontrada,# desk/src/routes/app/todo/+page.svelte:149
@@ -285,7 +288,7 @@ Payload,Conteúdo,# core.doctypes.webhook_delivery.webhook_delivery.doctype
 Pick the highlighted option,Selecionar opção destacada,# desk/src/lib/shortcuts.ts:107
 Post a comment on the form,Enviar comentário no formulário,# desk/src/lib/shortcuts.ts:92
 Previous,Anterior,# desk/src/routes/app/notifications/+page.svelte:52
-Previous month,Mês anterior,# desk/src/lib/controls/DateControl.svelte:230
+Previous month,Mês anterior,# desk/src/lib/components/views/CalendarView.svelte:56
 Previous year,Ano anterior,# desk/src/lib/controls/MonthControl.svelte:196
 Priority,Prioridade,# desk/src/lib/components/AssignModal.svelte:94
 Private,Privado,# core.doctypes.file.file.doctype
@@ -301,8 +304,8 @@ Reference Name,Nome de Referência,# core.doctypes.email_delivery.email_delivery
 Refresh,Atualizar,# desk/src/routes/app/notifications/+page.svelte:18
 Reload,Recarregar,# desk/src/lib/components/FormView.svelte:338
 Remove,Remover,# desk/src/lib/controls/AttachControl.svelte:29
-Remove the status filter,Remover filtro de status,# desk/src/lib/components/ListView.svelte:345
-Remove the {0} filter,Remover filtro de {0},# desk/src/lib/components/ListView.svelte:354
+Remove the status filter,Remover filtro de status,# desk/src/lib/components/ListView.svelte:410
+Remove the {0} filter,Remover filtro de {0},# desk/src/lib/components/ListView.svelte:419
 Rename,Renomear,# desk/src/lib/components/FormView.svelte:340
 Rename {0},Renomear {0},# desk/src/lib/components/FormView.svelte:213
 Replace,Substituir,# desk/src/lib/controls/AttachControl.svelte:27
@@ -331,13 +334,15 @@ Save or update the record,Salvar ou atualizar registro,# desk/src/lib/shortcuts.
 Save the document first,Salve o documento antes,# desk/src/lib/form.svelte.ts:366
 Saved,Salvo,# desk/src/lib/form.svelte.ts:303
 Saving...,Salvando...,# desk/src/routes/app/todo/+page.svelte:316
-Search,Buscar,# desk/src/lib/components/ListView.svelte:336
+Search,Buscar,# desk/src/lib/components/ListView.svelte:401
 Search & selection (Link fields),Busca & Seleção (Campos Link),# desk/src/lib/shortcuts.ts:104
-Search…,Buscar...,# desk/src/lib/components/ListView.svelte:337
+Search…,Buscar...,# desk/src/lib/components/ListView.svelte:402
 Secret hash,Hash do segredo,# core.doctypes.api_key.api_key.doctype
 Secret {0} is not configured on this site,O segredo {0} não está configurado neste site,# internal/engine/secrets.go:64
 See the full history,Ver histórico completo,# desk/src/lib/components/DocHistory.svelte:240
 Seen,Visto,# core.doctypes.error_log.error_log.doctype
+Select all,Selecionar todos,# desk/src/lib/components/views/TableView.svelte:31
+Select {0},Selecionar {0},# desk/src/lib/components/views/CardView.svelte:45
 Send the link,Enviar o link,# desk/src/routes/login/forgot/+page.svelte:41
 "Send this event to the receiver again, with the same webhook-id?","Enviar este evento ao receptor novamente, com o mesmo webhook-id?",# core/doctypes/webhook_delivery/webhook_delivery.form.ts:9
 Sent,Enviado,# core.doctypes.email_delivery.email_delivery.doctype
@@ -360,11 +365,11 @@ Size,Tamanho,# core.doctypes.file.file.doctype
 "Someone asked to reset the password for this account on {0}. If it was not you, ignore this message: nothing has changed.","Alguém pediu para redefinir a senha desta conta em {0}. Se não foi você, ignore esta mensagem: nada mudou.",# core/mail/reset.mail.ts:16
 Source,Origem,# core.doctypes.error_log.error_log.doctype
 Standard Webhooks key. A whsec_ prefix marks a base64 key; anything else is used as is.,Chave Standard Webhooks. O prefixo whsec_ indica uma chave em base64; qualquer outro valor é usado como está.,# core.doctypes.webhook.webhook.doctype
-Status,Status,# desk/src/lib/components/ListView.svelte:375
+Status,Status,# desk/src/lib/components/views/TableView.svelte:38
 Subject,Assunto,# core.doctypes.email_delivery.email_delivery.doctype
 Submit,Enviar,# desk/src/lib/components/FormView.svelte:358
 Submit {0} permanently?,Enviar permanentemente {0}?,# desk/src/lib/components/FormView.svelte:358
-Submitted,Enviado,# desk/src/lib/components/ListView.svelte:224
+Submitted,Enviado,# desk/src/lib/components/ListView.svelte:282
 Submitted document,Documento enviado,# internal/engine/doc.go:1391
 System,Sistema,# desk/src/lib/components/Sidebar.svelte:148
 System User,Usuário do sistema,# core.doctypes.user.user.doctype
@@ -380,7 +385,7 @@ The document was changed by someone else after you opened it. Reload and try aga
 The email address names the account and cannot be changed here. Roles are granted by an administrator.,O e-mail é o nome da conta e não pode ser alterado aqui. Os papéis são concedidos por um administrador.,# desk/src/lib/components/Profile.svelte:149
 "The framework's own DocTypes: users, roles, files, comments and versions.","DocTypes do próprio framework: usuários, papéis, arquivos, comentários e versões.",# core app
 "The name an app passes to ddcore.webhooks.emit, e.g. shop.order_paid.","O nome que um app passa para ddcore.webhooks.emit, p. ex. shop.order_paid.",# core.doctypes.webhook.webhook.doctype
-The page on screen ({0}) as CSV,A página na tela ({0}) em CSV,# desk/src/lib/components/ListView.svelte:271
+The page on screen ({0}) as CSV,A página na tela ({0}) em CSV,# desk/src/lib/components/ListView.svelte:329
 The password cannot be blank,A senha não pode ficar em branco,# internal/engine/password.go:41
 The password cannot be the same as the username,A senha não pode ser igual ao nome de usuário,# internal/engine/password.go:44
 The password must have at least {0} characters,A senha precisa ter ao menos {0} caracteres,# internal/engine/password.go:35
@@ -404,6 +409,7 @@ To,Para,# core.doctypes.email_delivery.email_delivery.doctype
 To-Do,Tarefas,# desk/src/lib/components/Sidebar.svelte:134
 To-Do List,Lista de Tarefas,# desk/src/routes/app/todo/+page.svelte:138
 ToDo,Tarefa,# core.doctypes.todo.todo.doctype
+Today,Hoje,# desk/src/lib/components/views/CalendarView.svelte:57
 Too many attempts. Try again in {0} second(s),Tentativas demais. Tente de novo em {0} segundo(s),# internal/engine/throttle.go:69
 Total,Total,# desk/src/lib/components/ReportView.svelte:84
 Type,Tipo,# desk/src/lib/components/Profile.svelte:137
@@ -466,7 +472,7 @@ job {0} timed out,job {0} excedeu o tempo limite,# internal/engine/jobs.go:127
 name is required,name é obrigatório,# internal/api/assignments.go:106
 never,nunca,# desk/src/lib/components/Profile.svelte:235
 patch sql: {0},sql do patch: {0},# internal/engine/query.go:414
-records,registros,# desk/src/lib/components/ListView.svelte:423
+records,registros,# desk/src/lib/components/ListView.svelte:440
 runtime without a context (op {0}),runtime sem contexto (op {0}),# internal/engine/host.go:25
 since: {0} is not a duration,since: {0} não é uma duração,# internal/api/jobs.go:57
 title,título,# desk/src/lib/components/FormView.svelte:212
@@ -480,7 +486,7 @@ webhook payload for {0} is not JSON: {1},o conteúdo do webhook para {0} não é
 {0} cannot be changed after submission,Não é permitido alterar {0} depois do envio,# internal/engine/doc.go:1391
 {0} cannot be renamed,{0} não permite renomear,# internal/engine/doc.go:885
 {0} cannot be watched by a webhook,{0} não pode ser observado por um webhook,# internal/engine/webhooks.go:556
-{0} deleted,{0} apagado(s),# desk/src/lib/components/ListView.svelte:246
+{0} deleted,{0} apagado(s),# desk/src/lib/components/ListView.svelte:304
 {0} is a child table,{0} é uma tabela filha,# internal/engine/doc.go:399
 {0} is a child table: edit it through the parent document,{0} é uma tabela filha: edite pelo documento pai,# internal/api/api.go:726
 {0} is a child table: export the DocType that embeds it.,{0} é uma tabela filha: exporte o DocType que a contém.,# internal/engine/export.go:164
