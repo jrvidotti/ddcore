@@ -266,6 +266,14 @@ func (c *Ctx) scopeFilters(d *meta.DocType) ([]db.Filter, error) {
 				// An IN filter intentionally excludes null and empty field values.
 				out = append(out, db.Filter{Field: f.Fieldname, Op: "in", Value: allowedValues})
 			}
+			if f.Fieldtype == "Dynamic Link" && d.Field(f.OptionsString()) != nil {
+				// A Dynamic Link is restricted only when its selector points at the
+				// allowed DocType. Other selector values remain independently scoped.
+				out = append(out, db.Filter{
+					Field: f.Fieldname, Op: "in", Value: allowedValues,
+					IfField: f.OptionsString(), IfValue: allow,
+				})
+			}
 		}
 	}
 	return out, nil

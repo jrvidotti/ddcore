@@ -9,9 +9,11 @@ import (
 // Filter is one condition: [field, op, value] — field may be "Child DocType.field"
 // resolved by the caller into a table join.
 type Filter struct {
-	Field string
-	Op    string
-	Value any
+	Field   string
+	Op      string
+	Value   any
+	IfField string // apply this filter only when IfField equals IfValue
+	IfValue any
 }
 
 var validOps = map[string]string{
@@ -139,11 +141,11 @@ func ParseFilters(v any) ([]Filter, error) {
 		for k, val := range x {
 			if arr, ok := val.([]any); ok && len(arr) == 2 {
 				if op, ok := arr[0].(string); ok && validOps[strings.ToLower(op)] != "" {
-					out = append(out, Filter{k, op, arr[1]})
+					out = append(out, Filter{Field: k, Op: op, Value: arr[1]})
 					continue
 				}
 			}
-			out = append(out, Filter{k, "=", val})
+			out = append(out, Filter{Field: k, Op: "=", Value: val})
 		}
 	case []any:
 		for _, item := range x {
@@ -153,11 +155,11 @@ func ParseFilters(v any) ([]Filter, error) {
 			}
 			switch len(arr) {
 			case 2:
-				out = append(out, Filter{fmt.Sprint(arr[0]), "=", arr[1]})
+				out = append(out, Filter{Field: fmt.Sprint(arr[0]), Op: "=", Value: arr[1]})
 			case 3:
-				out = append(out, Filter{fmt.Sprint(arr[0]), fmt.Sprint(arr[1]), arr[2]})
+				out = append(out, Filter{Field: fmt.Sprint(arr[0]), Op: fmt.Sprint(arr[1]), Value: arr[2]})
 			case 4:
-				out = append(out, Filter{fmt.Sprint(arr[0]) + "." + fmt.Sprint(arr[1]), fmt.Sprint(arr[2]), arr[3]})
+				out = append(out, Filter{Field: fmt.Sprint(arr[0]) + "." + fmt.Sprint(arr[1]), Op: fmt.Sprint(arr[2]), Value: arr[3]})
 			default:
 				return nil, fmt.Errorf("invalid filter: %v", item)
 			}

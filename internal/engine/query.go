@@ -87,6 +87,18 @@ func (c *Ctx) filterSQL(d *meta.DocType, b *db.Builder, filters []db.Filter, col
 	}
 	var parts []string
 	for _, f := range own {
+		if f.IfField != "" {
+			ifCol := col(f.IfField)
+			if ifCol == "" {
+				return "", fmt.Errorf("unknown field in conditional filter: %q", f.IfField)
+			}
+			w, err := b.Where([]db.Filter{{Field: f.Field, Op: f.Op, Value: f.Value}}, col)
+			if err != nil {
+				return "", err
+			}
+			parts = append(parts, fmt.Sprintf("(%s IS DISTINCT FROM %s OR (%s))", ifCol, b.Arg(f.IfValue), w))
+			continue
+		}
 		op := strings.ToLower(strings.TrimSpace(f.Op))
 		fld := d.Field(f.Field)
 		if (op == "like" || op == "not like") && fld != nil && fld.Fieldtype == "Link" {
@@ -234,8 +246,13 @@ func (c *Ctx) GetList(doctype string, a ListArgs) ([]map[string]any, error) {
 	if err != nil {
 		return nil, cerr.Validation("Invalid filters: {0}", err)
 	}
-	if !a.IgnorePermissions && !c.IgnorePermissions() {
-		pf, err := c.permissionFilters(d)
+	if !c.IgnorePermissions() {
+		var pf []db.Filter
+		if a.IgnorePermissions {
+			pf, err = c.scopeFilters(d)
+		} else {
+			pf, err = c.permissionFilters(d)
+		}
 		if err != nil {
 			return nil, err
 		}
