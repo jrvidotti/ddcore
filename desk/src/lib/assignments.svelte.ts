@@ -129,7 +129,7 @@ export class PendingWork {
       const result = await api.assignments.pending({
         limit: this.limit,
         offset: start,
-        status: this.status === "all" ? undefined : this.status,
+        status: this.status,
         scope: this.scope,
       });
       if (this.destroyed || current !== this.request) return;

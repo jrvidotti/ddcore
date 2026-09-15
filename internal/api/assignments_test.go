@@ -68,6 +68,31 @@ func TestAssignments_AssignCompleteRevokeHTTP(t *testing.T) {
 		t.Fatalf("expected status Closed, got %v", completedTodo["status"])
 	}
 
+	// Bia checks pending work: default (Open) returns 0, Closed returns 1, all returns 1
+	r = x.call("GET", "/api/todo/pending", nil, bia)
+	x.expect(r, 200, "")
+	if len(r.Body["data"].(map[string]any)["data"].([]any)) != 0 {
+		t.Fatalf("expected 0 open tasks for bia, got %v", r.Body["data"])
+	}
+
+	r = x.call("GET", "/api/todo/pending?status=Closed", nil, bia)
+	x.expect(r, 200, "")
+	if len(r.Body["data"].(map[string]any)["data"].([]any)) != 1 {
+		t.Fatalf("expected 1 closed task for bia, got %v", r.Body["data"])
+	}
+
+	r = x.call("GET", "/api/todo/pending?status=all", nil, bia)
+	x.expect(r, 200, "")
+	if len(r.Body["data"].(map[string]any)["data"].([]any)) != 1 {
+		t.Fatalf("expected 1 task with status=all for bia, got %v", r.Body["data"])
+	}
+
+	r = x.call("GET", "/api/todo/pending?status=All", nil, bia)
+	x.expect(r, 200, "")
+	if len(r.Body["data"].(map[string]any)["data"].([]any)) != 1 {
+		t.Fatalf("expected 1 task with status=All for bia, got %v", r.Body["data"])
+	}
+
 	// 8. Revoke assignment by Ana
 	r = x.call("POST", "/api/assignments/revoke", map[string]any{"name": todoName}, ana)
 	x.expect(r, 200, "")

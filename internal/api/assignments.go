@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/db"
@@ -233,7 +234,7 @@ func (s *Server) pendingWork(w http.ResponseWriter, r *http.Request) {
 		}
 
 		filters := map[string]any{}
-		if status != "all" {
+		if !strings.EqualFold(status, "all") {
 			filters["status"] = status
 		}
 		if scope == "assigned_by_me" {

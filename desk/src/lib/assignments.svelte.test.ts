@@ -99,6 +99,23 @@ describe("PendingWork", () => {
     expect(pw.loading).toBe(false);
   });
 
+  it("loads pending work with status 'all'", async () => {
+    const pendingSpy = vi.spyOn(api.assignments, "pending").mockResolvedValue({
+      data: [sampleTodo],
+      total: 1,
+    });
+    const pw = new PendingWork();
+
+    await pw.load(0, "all", "assigned_to_me");
+
+    expect(pendingSpy).toHaveBeenCalledWith({
+      limit: 20,
+      offset: 0,
+      status: "all",
+      scope: "assigned_to_me",
+    });
+  });
+
   it("refreshes pending task counter badge", async () => {
     vi.spyOn(api.assignments, "pending").mockResolvedValue({
       data: [sampleTodo],
