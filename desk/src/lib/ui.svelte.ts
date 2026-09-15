@@ -26,6 +26,7 @@ export interface DialogHandle {
   setValue(f: string, v: any): void;
   getValue(f: string): any;
   setHtml(f: string, html: string): void;
+  setDfProperty(fieldname: string, prop: string, value: any): void;
   hide(): void;
   show(): void;
   busy: boolean;
@@ -75,6 +76,10 @@ export function dialog(spec: DialogSpec): DialogHandle {
     setValue(f, v) { const me = live(); me.values[f] = v; spec.onChange?.(f, me.values, me); },
     getValue(f) { return live().values[f]; },
     setHtml(f, html) { live().html[f] = html; },
+    setDfProperty(fieldname, prop, value) {
+      const field = live().spec.fields?.find((f) => f.fieldname === fieldname);
+      if (field) (field as any)[prop] = value;
+    },
     hide() { const i = ui.dialogs.findIndex((d) => d.id === id); if (i >= 0) ui.dialogs.splice(i, 1); },
     show() { if (!ui.dialogs.find((d) => d.id === id)) ui.dialogs.push(h); },
   };

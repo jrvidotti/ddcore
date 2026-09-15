@@ -103,7 +103,7 @@ every `refresh` — declare in `refresh` whatever must survive a save or a reloa
 
 - `ddcore.call("app.services.file.fn", args)` — a whitelisted function
 - `ddcore.db.getValue/getList/count/getDoc/setValue/insert` (asynchronous: `await` them)
-- `ddcore.ui.Dialog({ title, fields, values, primaryLabel, primaryAction(values, dlg), dangerLabel, dangerAction(values, dlg), onChange(field, values, dlg), size })` → `dlg.show()/hide()/setValue/getValue/setHtml(htmlField, html)`
+- `ddcore.ui.Dialog({ title, fields, values, primaryLabel, primaryAction(values, dlg), dangerLabel, dangerAction(values, dlg), onChange(field, values, dlg), size })` → `dlg.show()/hide()/setValue/getValue/setHtml(htmlField, html)/setDfProperty(field, property, value)`
 - `ddcore.ui.msgprint(msg, { title, indicator })`, `ddcore.ui.toast`, `ddcore.ui.confirm(msg)`, `ddcore.ui.prompt(title, fields)`, `ddcore.ui.showError(e)`
 - `ddcore.format.currency/date/number/value/statusColor`, `ddcore.datetime.today/addMonths/addDays/monthStart/monthEnd`
 - `__("text", [args])` — translation; the key is its English text. See `i18n`.

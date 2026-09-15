@@ -75,6 +75,7 @@ export interface DialogHandle {
   setValue(f: string, v: any): void;
   getValue(f: string): any;
   setHtml(f: string, html: string): void;
+  setDfProperty(fieldname: string, prop: string, value: any): void;
   hide(): void;
   show(): void;
   busy: boolean;
