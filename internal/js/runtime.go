@@ -77,6 +77,20 @@ func newRuntime(host Host, bundles []*Bundle, test bool) (*Runtime, error) {
 	return rt, nil
 }
 
+type noopHost struct{}
+
+func (n *noopHost) HostCall(rt *Runtime, op string, args json.RawMessage) (any, error) {
+	return nil, nil
+}
+
+// New creates a new Runtime with the given bundle and host.
+func New(bundle *Bundle, host Host) (*Runtime, error) {
+	if host == nil {
+		host = &noopHost{}
+	}
+	return newRuntime(host, []*Bundle{bundle}, false)
+}
+
 func (rt *Runtime) load(b *Bundle) error {
 	mod := rt.vm.NewObject()
 	exp := rt.vm.NewObject()

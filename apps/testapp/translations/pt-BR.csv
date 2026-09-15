@@ -1,5 +1,6 @@
 Actions,Ações,# apps/testapp/doctypes/task/task.form.ts:18
 Assignee,Responsável,# apps/testapp/print/project_summary.print.ts:20
+Client,Cliente,# testapp.doctypes.pedido.pedido.doctype
 Code,Código,# testapp.doctypes.project.project.doctype
 Complete,Concluir,# apps/testapp/doctypes/task/task.form.ts:19
 Completed,Concluída,# apps/testapp/print/project_summary.print.ts:11
@@ -21,6 +22,7 @@ Milestones,Marcos,# apps/testapp/print/project_summary.print.ts:27
 No project description provided.,Nenhuma descrição do projeto informada.,# apps/testapp/print/project_summary.print.ts:18
 Open,Aberta,# testapp.doctypes.task.task.doctype
 Open Tasks,Tarefas Abertas,# testapp workspace
+Order,Pedido,# testapp.doctypes.pedido.pedido.doctype
 Overdue,Atrasada,# testapp.doctypes.task.task.doctype
 Overview,Visão Geral,# testapp workspace
 Planned,Planejado,# apps/testapp/print/project_summary.print.ts:11
@@ -42,4 +44,6 @@ Test App: Projects,App de Teste: Projetos,# testapp app
 The due date cannot be earlier than the project start ({0}).,A data limite não pode ser anterior ao início do projeto ({0}).,# apps/testapp/doctypes/task/task.controller.ts:23
 The end date cannot be earlier than the start date.,A data final não pode ser anterior à data de início.,# apps/testapp/doctypes/project/project.controller.ts:7
 Title,Título,# apps/testapp/print/project_summary.print.ts:28
+Total,Total,# testapp.doctypes.pedido.pedido.doctype
 Tracking,Acompanhamento,# testapp workspace
+Workflow State,Estado do Workflow,# testapp.doctypes.pedido.pedido.doctype

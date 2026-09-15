@@ -111,7 +111,13 @@ export class FormController {
   get isDirty() { return JSON.stringify(this.doc) !== this.original; }
   get docstatus(): number { return Number(this.doc.docstatus || 0); }
   get isSubmittable() { return !!this.meta.doctype.submittable; }
-  get readOnly() { return (this.isSingle && !this.perm.write) || this.docstatus === 2 || (this.docstatus === 1 && !this.meta.doctype.fields.some((f) => f.allowOnSubmit)); }
+  get workflow() { return this.doc?._workflow; }
+  get readOnly() {
+    if (this.workflow && (this.workflow.allowEdit === false || !this.perm?.write)) {
+      return true;
+    }
+    return (this.isSingle && !this.perm?.write) || this.docstatus === 2 || (this.docstatus === 1 && !this.meta.doctype.fields.some((f) => f.allowOnSubmit));
+  }
   get perm() { return this.meta.permissions; }
 
   field(fieldname: string): Field | undefined {
@@ -126,6 +132,7 @@ export class FormController {
 
   /** Whether a field can be edited right now (docstatus, readOnly, allowOnSubmit, readOnlyDependsOn). */
   isFieldEditable(f: Field): boolean {
+    if (this.workflow && (this.workflow.allowEdit === false || !this.perm?.write)) return false;
     if (this.isSingle && (!this.perm.write || f.fieldname === "name")) return false;
     if (f.fieldname === "name" && !this.isNew) return false;
     if (f.readOnly) return false;
@@ -278,6 +285,8 @@ export class FormController {
 
   async save(action: "save" | "submit" | "cancel" = "save"): Promise<boolean> {
     if (this.saving || (this.isSingle && (this.readOnly || action !== "save"))) return false;
+    if (this.workflow && (action === "submit" || action === "cancel")) return false;
+    if (this.readOnly && action === "save") return false;
     if (action !== "cancel" && !this.validateMandatory()) return false;
     for (const h of this.handlers) {
       try { if ((await h.validate?.(this)) === false) return false; await h.beforeSave?.(this); } catch (e) { showError(e); return false; }
@@ -313,8 +322,40 @@ export class FormController {
       ui.busy--;
     }
   }
-  submit() { return this.save("submit"); }
-  cancel() { return this.save("cancel"); }
+  submit() {
+    if (this.workflow) return Promise.resolve(false);
+    return this.save("submit");
+  }
+  cancel() {
+    if (this.workflow) return Promise.resolve(false);
+    return this.save("cancel");
+  }
+
+  async applyWorkflowAction(action: string): Promise<boolean> {
+    if (this.saving) return false;
+    this.saving = true;
+    ui.busy++;
+    try {
+      const res = await api.post("/api/workflow/apply", {
+        doctype: this.doctype,
+        name: this.doc.name,
+        action,
+      });
+      this.load(res);
+      for (const h of this.handlers) {
+        try { await h.afterSave?.(this); } catch (e) { showError(e); }
+      }
+      toast(__("Action '{0}' applied", [action]), { indicator: "green", timeout: 2000 });
+      await this.runRefresh();
+      return true;
+    } catch (e: any) {
+      showError(e);
+      return false;
+    } finally {
+      this.saving = false;
+      ui.busy--;
+    }
+  }
 
   loadedAt = 0;
   load(doc: any) {

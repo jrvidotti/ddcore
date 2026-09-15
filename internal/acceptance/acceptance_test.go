@@ -173,7 +173,7 @@ func TestInstalacao(t *testing.T) {
 		}
 		// the fixture app does not create business data on install; what must
 		// exist is its meta, migrated to the new database
-		for _, doctype := range []string{"Project", "Task", "Project Milestone"} {
+		for _, doctype := range []string{"Project", "Task", "Project Milestone", "Pedido"} {
 			if _, err := c.St.DocType(doctype); err != nil {
 				t.Errorf("fixture app DocType %q missing after migrate: %v", doctype, err)
 			}

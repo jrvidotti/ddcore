@@ -69,6 +69,8 @@
     mailTemplates: {},
     printTemplates: {},
     notifications: Object.create(null),
+    workflows: Object.create(null),
+    workflowsByDoctype: Object.create(null),
     apps: {},
     modules: {},
     modulesByApp: {},
@@ -151,6 +153,35 @@
           reg.notifications[value.name] = value;
           break;
         }
+        case "workflow": {
+          const fail = (msg) => { throw new DDCoreError("ValidationError", "", "Workflow " + (value?.name || "<unnamed>") + ": " + msg); };
+          if (!value || typeof value.name !== "string" || !value.name.trim()) fail("name is required");
+          if (reg.workflows[value.name]) fail("name is defined twice");
+          if (typeof value.doctype !== "string" || !value.doctype.trim()) fail("doctype is required");
+          if (reg.workflowsByDoctype[value.doctype]) fail("DocType " + value.doctype + " already has a workflow defined");
+          if (typeof value.initialState !== "string" || !value.initialState.trim()) fail("initialState is required");
+          if (!Array.isArray(value.states) || value.states.length === 0) fail("states array is required");
+          if (!Array.isArray(value.transitions) || value.transitions.length === 0) fail("transitions array is required");
+          const stateNames = new Set(value.states.map((s) => s.state));
+          if (!stateNames.has(value.initialState)) fail("initialState must exist in states");
+          value.transitions.forEach((tr, i) => {
+            if (!stateNames.has(tr.state)) fail("transition " + i + " state '" + tr.state + "' does not exist in states");
+            if (!stateNames.has(tr.nextState)) fail("transition " + i + " nextState '" + tr.nextState + "' does not exist in states");
+            if (!tr.action) fail("transition " + i + " action is required");
+            if (!tr.allowed) fail("transition " + i + " allowed role is required");
+            if (tr.condition !== undefined) {
+              if (typeof tr.condition !== "function" || tr.condition.constructor?.name === "AsyncFunction" || tr.condition.constructor?.name === "GeneratorFunction") {
+                fail("transition " + i + " condition must be a function");
+              }
+            }
+          });
+          value.app = reg.app;
+          value.sourceFile = reg.current;
+          value.stateField = value.stateField || "workflow_state";
+          reg.workflows[value.name] = value;
+          reg.workflowsByDoctype[value.doctype] = value.name;
+          break;
+        }
         case "report":
           value.app = reg.app;
           reg.reports[value.name] = value;
@@ -219,6 +250,33 @@
     for (const n in reg.printTemplates) printTemplates[n] = stripFns(reg.printTemplates[n]);
     const notifications = Object.create(null);
     for (const n in reg.notifications) notifications[n] = { ...stripFns(reg.notifications[n]), desk: !!reg.notifications[n].desk };
+    const workflows = {};
+    for (const n in reg.workflows) {
+      const wf = reg.workflows[n];
+      workflows[n] = {
+        name: wf.name,
+        doctype: wf.doctype,
+        stateField: wf.stateField || "workflow_state",
+        initialState: wf.initialState,
+        app: wf.app,
+        sourceFile: wf.sourceFile,
+        states: wf.states.map((s) => ({
+          state: s.state,
+          docstatus: s.docstatus !== undefined ? s.docstatus : 0,
+          allowEdit: s.allowEdit || "",
+          updateFields: s.updateFields || null,
+        })),
+        transitions: wf.transitions.map((t, idx) => ({
+          index: idx,
+          state: t.state,
+          action: t.action,
+          nextState: t.nextState,
+          allowed: Array.isArray(t.allowed) ? t.allowed : [t.allowed],
+          allowSelfApproval: t.allowSelfApproval !== false,
+          hasCondition: typeof t.condition === "function",
+        })),
+      };
+    }
     const apps = {};
     for (const n in reg.apps) {
       const a = stripFns(reg.apps[n]);
@@ -245,7 +303,7 @@
       return { doctype: x.doctype, app: x.app, sourceFile: x.sourceFile,
         fields: ext.fields, set: ext.set, props: ext.doctype, permissions: ext.permissions };
     });
-    return JSON.stringify({ doctypes, reports, workspaces, mailTemplates, printTemplates, notifications, apps, whitelisted, patches, extensions });
+    return JSON.stringify({ doctypes, reports, workspaces, mailTemplates, printTemplates, notifications, workflows, apps, whitelisted, patches, extensions });
   };
 
   const notificationCall = (fn, doc, before) => {
@@ -282,6 +340,18 @@
       if (!result.emailArgs || typeof result.emailArgs !== "object" || Array.isArray(result.emailArgs)) throw new DDCoreError("ValidationError", "", "Notification email args must be an object");
     }
     return JSON.stringify(result);
+  };
+
+  reg.evaluateWorkflowCondition = function (name, transitionIndex, docJSON) {
+    const wf = reg.workflows[name];
+    if (!wf) throw new DDCoreError("ValidationError", "", "Unknown workflow: " + name);
+    const tr = wf.transitions[transitionIndex];
+    if (!tr) throw new DDCoreError("ValidationError", "", "Unknown transition index: " + transitionIndex);
+    if (!tr.condition) return "true";
+    const doc = docJSON ? JSON.parse(docJSON) : {};
+    const res = tr.condition(doc);
+    if (res && typeof res.then === "function") throw new DDCoreError("ValidationError", "", "Workflow condition must be synchronous");
+    return res ? "true" : "false";
   };
 
   // -------------------------------------------------------------------- mail

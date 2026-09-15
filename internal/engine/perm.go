@@ -156,6 +156,19 @@ func (c *Ctx) HasPermission(doctype, ptype string, doc Doc) (bool, error) {
 	if ownerOnly && doc != nil && doc.Str("owner") != c.User {
 		return false, nil
 	}
+	if ptype == "write" && doc != nil && !c.inWorkflowTransition {
+		if wf := c.WorkflowFor(doctype); wf != nil {
+			st := doc.Str(wf.StateField)
+			if st == "" {
+				st = wf.InitialState
+			}
+			if state := wf.GetState(st); state != nil && state.AllowEdit != "" {
+				if !c.HasRole(state.AllowEdit) {
+					return false, nil
+				}
+			}
+		}
+	}
 	if d.HasController() {
 		rt, err := c.RT()
 		if err != nil {

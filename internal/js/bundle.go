@@ -238,6 +238,11 @@ func BuildServer(app App, includeTests bool) (*Bundle, error) {
 	return &Bundle{App: app.Name, Code: string(res.OutputFiles[0].Contents), Files: files}, nil
 }
 
+// BuildServerBundle compiles an app's server-side bundle.
+func BuildServerBundle(app App, includeTests bool) (*Bundle, error) {
+	return BuildServer(app, includeTests)
+}
+
 func absDir(d string) string {
 	if a, err := filepath.Abs(d); err == nil {
 		return a

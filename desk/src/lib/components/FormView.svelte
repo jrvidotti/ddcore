@@ -25,6 +25,7 @@
   let frm = $state<FormController | null>(null);
   let error = $state("");
   let menuOpen = $state(false);
+  let workflowMenuOpen = $state(false);
   let activeTab = $state(0);
   let collapsed = $state<Record<number, boolean>>({});
   let stale = $state(false);
@@ -289,13 +290,14 @@
   }
   // dropdowns close on any click outside them (mouseleave used to need two clicks)
   function onPointerDown(e: PointerEvent) {
-    if (!(menuOpen || openGroup)) return;
+    if (!(menuOpen || openGroup || workflowMenuOpen)) return;
     if ((e.target as HTMLElement | null)?.closest(".dropdown")) return;
     menuOpen = false;
     openGroup = "";
+    workflowMenuOpen = false;
   }
   function onKey(e: KeyboardEvent) {
-    if (e.key === "Escape") { menuOpen = false; openGroup = ""; }
+    if (e.key === "Escape") { menuOpen = false; openGroup = ""; workflowMenuOpen = false; }
     if ((e.ctrlKey || e.metaKey) && e.key === "s") {
       e.preventDefault();
       if (!frm || frm.readOnly) return;
@@ -303,6 +305,13 @@
       // shortcut does not move focus: flush it before reading the document
       commitFocusedEdit(document.activeElement);
       frm.save();
+    }
+  }
+
+  async function handleWorkflowAction(action: string) {
+    if (!frm) return;
+    if (await confirm(__("{0} {1}?", [action, frm.doc.name]), __(action))) {
+      await frm.applyWorkflowAction(action);
     }
   }
   const groups = $derived.by(() => {
@@ -332,7 +341,11 @@
           {:else}
             <span>{title}</span>
           {/if}
-          {#if status}<span class="indicator {statusColor(status, statusField)}">{statusLabel}</span>{/if}
+          {#if frm.workflow?.state}
+            <span class="indicator workflow-state {statusColor(frm.workflow.state, statusField)}">{__(frm.workflow.state)}</span>
+          {:else if status}
+            <span class="indicator {statusColor(status, statusField)}">{statusLabel}</span>
+          {/if}
           {#if frm.isDirty && !frm.isNew}<span class="indicator orange">{__("Not saved")}</span>{/if}
         </h1>
       </div>
@@ -373,23 +386,53 @@
         </div>
       {/if}
       {#if frm.isDirty}<button class="btn" disabled={frm.saving} onclick={discard}>{__("Discard")}</button>{/if}
+      {#if frm.workflow?.actions && frm.workflow.actions.length > 0 && !frm.isNew}
+        {#if frm.workflow.actions.length > 2}
+          <div class="dropdown">
+            <button class="btn primary" disabled={frm.saving} onclick={() => (workflowMenuOpen = !workflowMenuOpen)}>{__("Actions")} <Icon name="chevron-down" size={14} /></button>
+            {#if workflowMenuOpen}
+              <div class="menu" role="menu" tabindex="-1">
+                {#each frm.workflow.actions as act}
+                  <button onclick={async () => {
+                    workflowMenuOpen = false;
+                    await handleWorkflowAction(act.action);
+                  }}>{__(act.action)}</button>
+                {/each}
+              </div>
+            {/if}
+          </div>
+        {:else}
+          {#each frm.workflow.actions as act, i}
+            <button class="btn" class:primary={i === 0} disabled={frm.saving} onclick={() => handleWorkflowAction(act.action)}>{__(act.action)}</button>
+          {/each}
+        {/if}
+      {/if}
       {#if frm.primaryAction}
         <button class="btn primary" onclick={frm.primaryAction.action}>{frm.primaryAction.label}</button>
       {:else if frm.isSubmittable}
         {#if frm.docstatus === 0}
           {#if frm.isDirty || frm.isNew}
-            <button class="btn primary" disabled={frm.saving} onclick={() => frm?.save()} title="{__('Save')} ({modKey}+S)">{__("Save")}<kbd class="btn-kbd">{modKey}S</kbd></button>
-          {:else if frm.perm.submit}
+            {#if !frm.readOnly}
+              <button class="btn primary" disabled={frm.saving} onclick={() => frm?.save()} title="{__('Save')} ({modKey}+S)">{__("Save")}<kbd class="btn-kbd">{modKey}S</kbd></button>
+            {/if}
+          {:else if !frm.workflow && frm.perm.submit}
             <button class="btn primary" disabled={frm.saving} onclick={async () => (await confirm(__("Submit {0} permanently?", [frm?.doc.name]), __("Submit"))) && frm?.submit()}>{__("Submit")}</button>
           {/if}
         {:else if frm.docstatus === 1}
-          {#if frm.isDirty}<button class="btn primary" disabled={frm.saving} onclick={() => frm?.save()} title="{__('Update')} ({modKey}+S)">{__("Update")}<kbd class="btn-kbd">{modKey}S</kbd></button>
-          {:else if frm.perm.cancel}<button class="btn" disabled={frm.saving} onclick={async () => (await confirm(__("Cancel {0}?", [frm?.doc.name]), __("Cancel"))) && frm?.cancel()}>{__("Cancel")}</button>{/if}
+          {#if frm.isDirty}
+            {#if !frm.readOnly}
+              <button class="btn primary" disabled={frm.saving} onclick={() => frm?.save()} title="{__('Update')} ({modKey}+S)">{__("Update")}<kbd class="btn-kbd">{modKey}S</kbd></button>
+            {/if}
+          {:else if !frm.workflow && frm.perm.cancel}
+            <button class="btn" disabled={frm.saving} onclick={async () => (await confirm(__("Cancel {0}?", [frm?.doc.name]), __("Cancel"))) && frm?.cancel()}>{__("Cancel")}</button>
+          {/if}
         {:else if frm.perm.amend}
           <button class="btn primary" onclick={() => frm?.amend()}>{__("Amend")}</button>
         {/if}
-      {:else if frm.perm.write || (!frm.isSingle && frm.isNew && frm.perm.create)}
-        <button class="btn primary" disabled={frm.saving || (!frm.isDirty && !frm.isNew)} onclick={() => frm?.save()} title="{__('Save')} ({modKey}+S)">{__("Save")}<kbd class="btn-kbd">{modKey}S</kbd></button>
+      {:else if !frm.readOnly && (frm.perm.write || (!frm.isSingle && frm.isNew && frm.perm.create))}
+        {#if !frm.workflow || frm.isDirty || frm.isNew}
+          <button class="btn primary" disabled={frm.saving || (!frm.isDirty && !frm.isNew)} onclick={() => frm?.save()} title="{__('Save')} ({modKey}+S)">{__("Save")}<kbd class="btn-kbd">{modKey}S</kbd></button>
+        {/if}
       {/if}
     </div>
 

@@ -133,7 +133,7 @@ export function timeAgo(v: any): string {
  * text a human happens to be reading.
  */
 const CANONICAL_COLORS: Record<string, string> = {
-  draft: "orange", pending: "orange", partial: "orange", waiting: "orange", "on hold": "orange",
+  draft: "orange", pending: "orange", "pending approval": "orange", partial: "orange", waiting: "orange", "on hold": "orange",
   open: "blue", "in progress": "blue", active: "blue", rented: "blue", closed: "blue",
   completed: "green", done: "green", paid: "green", approved: "green", submitted: "green",
   available: "green", current: "green",

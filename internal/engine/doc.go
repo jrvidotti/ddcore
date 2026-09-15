@@ -427,6 +427,13 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 	} else if doc.Docstatus() != 0 {
 		return nil, cerr.Validation("Invalid docstatus for an insert")
 	}
+	if wf := c.WorkflowFor(d.Name); wf != nil {
+		if doc[wf.StateField] == nil || doc[wf.StateField] == "" {
+			doc[wf.StateField] = wf.InitialState
+		} else if doc.Str(wf.StateField) != wf.InitialState && !opts.IgnorePermissions && !c.IgnorePermissions() {
+			return nil, cerr.Validation("New {0} must start in initial workflow state '{1}'", d.Name, wf.InitialState)
+		}
+	}
 	doc["__islocal"] = true
 	now := time.Now()
 	doc["owner"], doc["creation"], doc["modified"], doc["modified_by"] = c.User, now, now, c.User
@@ -533,7 +540,7 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 	switch {
 	case oldStatus == 0 && newStatus == 1:
 		action = "submit"
-	case oldStatus == 1 && newStatus == 2:
+	case (oldStatus == 1 || (c.inWorkflowTransition && oldStatus == 0)) && newStatus == 2:
 		action = "cancel"
 	case oldStatus == 1 && newStatus == 1:
 		action = "update_after_submit"
@@ -546,13 +553,21 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 	if action != "save" && !d.Submittable {
 		return nil, cerr.Validation("{0} is not submittable", c.T(d.Label))
 	}
+	if wf := c.WorkflowFor(d.Name); wf != nil && !c.inWorkflowTransition {
+		if doc.Str(wf.StateField) != before.Str(wf.StateField) {
+			return nil, cerr.Validation("Cannot manually modify workflow state field '{0}'. Use workflow actions to transition.", wf.StateField)
+		}
+		if before.Docstatus() != doc.Docstatus() {
+			return nil, cerr.Validation("Direct submit or cancel is disabled for documents governed by workflow '{0}'", wf.Name)
+		}
+	}
 	ptype := "write"
 	if action == "submit" {
 		ptype = "submit"
 	} else if action == "cancel" {
 		ptype = "cancel"
 	}
-	if !opts.IgnorePermissions && !c.IgnorePermissions() {
+	if !opts.IgnorePermissions && !c.IgnorePermissions() && !c.inWorkflowTransition {
 		if ok, err := c.HasPermission(d.Name, ptype, before); err != nil {
 			return nil, err
 		} else if !ok {
@@ -717,6 +732,21 @@ func (c *Ctx) Cancel(doc Doc) (Doc, error) {
 	}
 	doc["docstatus"] = 2
 	return c.Save(doc, SaveOpts{})
+}
+
+// SaveDoc is an alias for Save.
+func (c *Ctx) SaveDoc(doc Doc, opts SaveOpts) (Doc, error) {
+	return c.Save(doc, opts)
+}
+
+// SubmitDoc is an alias for Submit.
+func (c *Ctx) SubmitDoc(doc Doc) (Doc, error) {
+	return c.Submit(doc)
+}
+
+// CancelDoc is an alias for Cancel.
+func (c *Ctx) CancelDoc(doc Doc) (Doc, error) {
+	return c.Cancel(doc)
 }
 
 // Amend creates a draft copy of a cancelled document.
@@ -1488,8 +1518,19 @@ func (c *Ctx) validateChildren(d *meta.DocType, doc Doc, opts SaveOpts) error {
 }
 
 func (c *Ctx) checkAllowOnSubmit(d *meta.DocType, before, doc Doc) error {
+	var exempt map[string]bool
+	if c.inWorkflowTransition {
+		if wf := c.WorkflowFor(d.Name); wf != nil {
+			exempt = map[string]bool{wf.StateField: true}
+			if st := wf.FindState(doc.Str(wf.StateField)); st != nil {
+				for k := range st.UpdateFields {
+					exempt[k] = true
+				}
+			}
+		}
+	}
 	for _, f := range d.Fields {
-		if f.Fieldname == "" || meta.LayoutTypes[f.Fieldtype] || f.AllowOnSubmit {
+		if f.Fieldname == "" || meta.LayoutTypes[f.Fieldtype] || f.AllowOnSubmit || exempt[f.Fieldname] {
 			continue
 		}
 		if f.Fieldtype == "Table" {
