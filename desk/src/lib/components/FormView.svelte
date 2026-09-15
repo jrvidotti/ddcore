@@ -364,7 +364,7 @@
       {#if frm.workflow?.actions && frm.workflow.actions.length > 0 && !frm.isNew}
         {#if frm.workflow.actions.length > 2}
           <div class="dropdown">
-            <button class="btn primary" onclick={() => (workflowMenuOpen = !workflowMenuOpen)}>{__("Actions")} <Icon name="chevron-down" size={14} /></button>
+            <button class="btn primary" disabled={frm.saving} onclick={() => (workflowMenuOpen = !workflowMenuOpen)}>{__("Actions")} <Icon name="chevron-down" size={14} /></button>
             {#if workflowMenuOpen}
               <div class="menu" role="menu" tabindex="-1">
                 {#each frm.workflow.actions as act}
