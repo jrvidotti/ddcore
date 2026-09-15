@@ -110,6 +110,8 @@ func New(e *engine.Engine, desk fs.FS) *Server {
 		r.Put("/resource/{doctype}/{name}", s.update)
 		r.Delete("/resource/{doctype}/{name}", s.remove)
 		r.Post("/resource/{doctype}/{name}/{method}", s.docMethod)
+		r.Post("/workflow/apply", s.applyWorkflowTransition)
+		r.Get("/workflow/actions", s.workflowActions)
 		r.Post("/method/{path}", s.method)
 		r.Get("/method/{path}", s.method)
 		r.Get("/health", s.liveness)
@@ -705,12 +707,30 @@ func (s *Server) count(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) get(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
-		doc, err := c.GetDoc(urlParam(r, "doctype"), urlParam(r, "name"))
+		doctype, name := urlParam(r, "doctype"), urlParam(r, "name")
+		doc, err := c.GetDoc(doctype, name)
 		if err != nil {
 			return nil, err
 		}
-		c.ResolveLinkTitles(urlParam(r, "doctype"), doc)
-		return c.RedactDoc(urlParam(r, "doctype"), doc), nil
+		if wf := c.WorkflowFor(doctype); wf != nil {
+			actions, err := c.AvailableWorkflowActions(doctype, doc)
+			if err != nil {
+				return nil, err
+			}
+			if actions == nil {
+				actions = []engine.WorkflowAvailableAction{}
+			}
+			state := doc.Str(wf.StateField)
+			if state == "" {
+				state = wf.InitialState
+			}
+			doc["_workflow"] = map[string]any{
+				"state":   state,
+				"actions": actions,
+			}
+		}
+		c.ResolveLinkTitles(doctype, doc)
+		return c.RedactDoc(doctype, doc), nil
 	})
 }
 
