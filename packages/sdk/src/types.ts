@@ -177,9 +177,15 @@ export interface PrintBlockBuilder {
   totals(rows: [label: string, value: string][]): PrintBlock;
   p(text: string): PrintBlock;
   h(level: 1 | 2 | 3 | 4, text: string): PrintBlock;
+  h1(text: string): PrintBlock;
+  h2(text: string): PrintBlock;
+  h3(text: string): PrintBlock;
   rule(): PrintBlock;
+  divider(): PrintBlock;
   pageBreak(): PrintBlock;
   raw(html: string): PrintBlock;
+  html(html: string): PrintBlock;
+  columns(cols: PrintBlock[][]): PrintBlock;
 }
 
 /**

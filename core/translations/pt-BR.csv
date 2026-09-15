@@ -165,7 +165,7 @@ Form & editing,Formulário & Edição,# desk/src/lib/shortcuts.ts:89
 Format,Formato,# desk/src/lib/components/PrintView.svelte:169
 Full name,Nome completo,# desk/src/lib/components/Profile.svelte:157
 Full name is required,O nome completo é obrigatório,# core/services/profile.ts:55
-"Gotenberg PDF generation failed (status {0}): {1}","Falha na geração de PDF via Gotenberg (status {0}): {1}",# internal/print/pdf.go:142
+Gotenberg PDF generation failed (status {0}): {1},Falha na geração de PDF via Gotenberg (status {0}): {1},# internal/print/pdf.go:142
 HTTPS address that receives a signed POST for every matching event.,Endereço HTTPS que recebe um POST assinado a cada evento correspondente.,# core.doctypes.webhook.webhook.doctype
 Has Role,Has Role,# core.doctypes.has_role.has_role.doctype
 Hash,Hash,# core.doctypes.user.user.doctype
@@ -295,7 +295,7 @@ Open the month picker,Abrir seletor de mês,# desk/src/lib/controls/MonthControl
 Origin,Origem,# core.doctypes.email_delivery.email_delivery.doctype
 Outcome,Resultado,# core.doctypes.audit_event.audit_event.doctype
 "PDF command failed: {0}, output: {1}","Falha no comando de PDF: {0}, saída: {1}",# internal/print/pdf.go:235
-"PDF generator not configured on server. Please use browser print.","Gerador de PDF não configurado no servidor. Por favor, utilize a impressão do navegador.",# desk/src/lib/components/PrintView.svelte:119
+PDF generator not configured on server. Please use browser print.,"Gerador de PDF não configurado no servidor. Por favor, utilize a impressão do navegador.",# desk/src/lib/components/PrintView.svelte:119
 Password,Senha,# desk/src/lib/components/Profile.svelte:170
 Password changed. Your other sessions were signed out.,Senha trocada. Suas outras sessões foram encerradas.,# desk/src/lib/components/Profile.svelte:81
 Password set,Senha definida,# desk/src/routes/login/reset/+page.svelte:52
@@ -307,7 +307,7 @@ Previous month,Mês anterior,# desk/src/lib/controls/DateControl.svelte:230
 Previous year,Ano anterior,# desk/src/lib/controls/MonthControl.svelte:196
 Print,Imprimir,# desk/src/lib/components/FormView.svelte:338
 Print Preview,Visualização de Impressão,# desk/src/lib/components/PrintView.svelte:232
-"Print template {0} does not exist","Modelo de impressão {0} não existe",# internal/engine/print.go:106
+Print template {0} does not exist,Modelo de impressão {0} não existe,# internal/engine/print.go:106
 "Print template {0} is for {1}, not {2}","Modelo de impressão {0} é para {1}, não {2}",# internal/engine/print.go:113
 Priority,Prioridade,# desk/src/lib/components/AssignModal.svelte:94
 Private,Privado,# core.doctypes.file.file.doctype
@@ -485,15 +485,15 @@ ddcore.db.sql only accepts SELECT,ddcore.db.sql aceita apenas SELECT,# internal/
 e.g. the invoicing script,ex.: o script de faturamento,# desk/src/lib/components/Profile.svelte:231
 enqueue: backoff must be {0} or {1},enqueue: backoff deve ser {0} ou {1},# internal/engine/jobs.go:88
 enqueue: provide the method,enqueue: informe o método,# internal/engine/jobs.go:59
-"failed to build Gotenberg request: {0}","falha ao construir requisição para o Gotenberg: {0}",# internal/print/pdf.go:130
-"failed to create temp directory for PDF render: {0}","falha ao criar diretório temporário para renderização de PDF: {0}",# internal/print/pdf.go:162
-"failed to finalize Gotenberg payload: {0}","falha ao finalizar payload para o Gotenberg: {0}",# internal/print/pdf.go:124
-"failed to prepare Gotenberg payload: {0}","falha ao preparar payload para o Gotenberg: {0}",# internal/print/pdf.go:90
-"failed to read Gotenberg PDF response: {0}","falha ao ler resposta de PDF do Gotenberg: {0}",# internal/print/pdf.go:147
-"failed to read rendered PDF from {0}: {1}","falha ao ler PDF renderizado de {0}: {1}",# internal/print/pdf.go:196
-"failed to read rendered PDF: {0}","falha ao ler PDF renderizado: {0}",# internal/print/pdf.go:240
-"failed to write Gotenberg HTML payload: {0}","falha ao escrever payload HTML para o Gotenberg: {0}",# internal/print/pdf.go:93
-"failed to write temporary HTML file: {0}","falha ao escrever arquivo HTML temporário: {0}",# internal/print/pdf.go:170
+failed to build Gotenberg request: {0},falha ao construir requisição para o Gotenberg: {0},# internal/print/pdf.go:130
+failed to create temp directory for PDF render: {0},falha ao criar diretório temporário para renderização de PDF: {0},# internal/print/pdf.go:162
+failed to finalize Gotenberg payload: {0},falha ao finalizar payload para o Gotenberg: {0},# internal/print/pdf.go:124
+failed to prepare Gotenberg payload: {0},falha ao preparar payload para o Gotenberg: {0},# internal/print/pdf.go:90
+failed to read Gotenberg PDF response: {0},falha ao ler resposta de PDF do Gotenberg: {0},# internal/print/pdf.go:147
+failed to read rendered PDF from {0}: {1},falha ao ler PDF renderizado de {0}: {1},# internal/print/pdf.go:196
+failed to read rendered PDF: {0},falha ao ler PDF renderizado: {0},# internal/print/pdf.go:240
+failed to write Gotenberg HTML payload: {0},falha ao escrever payload HTML para o Gotenberg: {0},# internal/print/pdf.go:93
+failed to write temporary HTML file: {0},falha ao escrever arquivo HTML temporário: {0},# internal/print/pdf.go:170
 getValue: invalid fields,getValue: fields inválido,# internal/engine/host.go:157
 http: {0},http: {0},# internal/engine/host.go:584
 invalid arguments in {0}: {1},argumentos inválidos em {0}: {1},# internal/engine/host.go:82

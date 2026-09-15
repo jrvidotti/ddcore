@@ -352,9 +352,15 @@
     }),
     p: (text) => ({ type: "p", text: String(text ?? "") }),
     h: (level, text) => ({ type: "h", level: Number(level) || 2, text: String(text ?? "") }),
+    h1: (text) => ({ type: "h", level: 1, text: String(text ?? "") }),
+    h2: (text) => ({ type: "h", level: 2, text: String(text ?? "") }),
+    h3: (text) => ({ type: "h", level: 3, text: String(text ?? "") }),
     rule: () => ({ type: "rule" }),
+    divider: () => ({ type: "rule" }),
     pageBreak: () => ({ type: "pageBreak" }),
     raw: (html) => ({ type: "raw", html: String(html ?? "") }),
+    html: (html) => ({ type: "raw", html: String(html ?? "") }),
+    columns: (cols) => ({ type: "columns", columns: Array.isArray(cols) ? cols : [] }),
   };
 
   const formatNumberHelper = (val, decimals, lang) => {
