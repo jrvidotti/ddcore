@@ -85,8 +85,13 @@ async function request<T = any>(method: string, url: string, body?: any, opts: {
   const res = await fetch(url, { method, headers, body: payload, credentials: "same-origin" });
   const text = await res.text();
   let data: any = null;
-  try { data = text ? JSON.parse(text) : null; } catch { data = { error: { type: "InternalError", message: text.slice(0, 500) } }; }
-  if (!res.ok || (data && data.error)) {
+  const contentType = res.headers.get("Content-Type") || "";
+  if (contentType.includes("application/json") || (!contentType.includes("text/html") && text.trim().startsWith("{"))) {
+    try { data = text ? JSON.parse(text) : null; } catch { data = { error: { type: "InternalError", message: text.slice(0, 500) } }; }
+  } else {
+    data = text;
+  }
+  if (!res.ok || (data && typeof data === "object" && data.error)) {
     const e = data?.error || { type: "HTTPError", message: res.statusText };
     if (res.status === 401 && typeof window !== "undefined" && !location.pathname.startsWith("/login")) {
       location.href = "/login?redirect=" + encodeURIComponent(location.pathname + location.search);
@@ -95,6 +100,7 @@ async function request<T = any>(method: string, url: string, body?: any, opts: {
       e.requestId || res.headers.get("X-Request-Id") || undefined);
   }
   if (data?.messages) for (const m of data.messages) messages.push(m);
+  if (typeof data === "string") return data as any;
   return opts.raw ? data : data?.data;
 }
 
@@ -131,6 +137,17 @@ export const api = {
       request<ToDoDoc[]>("GET", `/api/assignments/${encodeURIComponent(doctype)}/${encodeURIComponent(name)}`),
     pending: (options: PendingWorkOptions = {}) =>
       request<PendingWorkPage>("GET", "/api/todo/pending" + q(options)),
+  },
+
+  print: {
+    formats: (doctype: string) =>
+      request<{ name: string; label: string; default?: boolean }[]>("GET", `/api/print/formats/${encodeURIComponent(doctype)}`),
+    letterheads: () =>
+      request<{ name: string; is_default?: boolean; disabled?: boolean }[]>("GET", "/api/letterheads"),
+    html: (doctype: string, name: string, params: { format?: string; letterhead?: string; lang?: string } = {}) =>
+      request<string>("GET", `/api/print/${encodeURIComponent(doctype)}/${encodeURIComponent(name)}` + q(params)),
+    pdfUrl: (doctype: string, name: string, params: { format?: string; letterhead?: string; lang?: string; download?: boolean } = {}) =>
+      `/api/print/${encodeURIComponent(doctype)}/${encodeURIComponent(name)}/pdf` + q(params),
   },
 
   login: (usr: string, pwd: string) => request("POST", "/api/login", { usr, pwd }),
