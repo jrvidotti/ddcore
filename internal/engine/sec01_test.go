@@ -28,19 +28,32 @@ export default defineApp({ name: "scope_test", title: "Scope Test", roles: ["Sco
 	write("doctypes/test_company/test_company.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
 export default defineDoctype({ name: "Test Company", naming: { field: "title" },
   fields: [{ fieldname: "title", fieldtype: "Data", label: "Title", reqd: true }],
-  permissions: [{ role: "Scope User", read: true }] });`)
+  permissions: [{ role: "Scope User", read: true, create: true }] });`)
 	write("doctypes/test_division/test_division.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
 export default defineDoctype({ name: "Test Division", naming: { field: "title" },
   fields: [{ fieldname: "title", fieldtype: "Data", label: "Title", reqd: true }],
   permissions: [{ role: "Scope User", read: true }] });`)
 	write("doctypes/test_record/test_record.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
-export default defineDoctype({ name: "Test Record", naming: { field: "title" },
+export default defineDoctype({ name: "Test Record", naming: { field: "title" }, submittable: true,
   fields: [
     { fieldname: "title", fieldtype: "Data", label: "Title", reqd: true },
     { fieldname: "company", fieldtype: "Link", label: "Company", options: "Test Company" },
     { fieldname: "division", fieldtype: "Link", label: "Division", options: "Test Division" },
+    { fieldname: "items", fieldtype: "Table", label: "Items", options: "Test Record Item" },
   ],
-  permissions: [{ role: "Scope User", read: true, create: true, write: true, delete: true }] });`)
+  permissions: [{ role: "Scope User", read: true, create: true, write: true, delete: true, submit: true }] });`)
+	write("doctypes/test_record/test_record.controller.ts", `import { defineController } from "@ddcore/sdk";
+export default defineController("Test Record", {
+  beforeSave(doc) {
+    if (doc.title === "Hook Insert Beta" || doc.title === "Hook Save Beta") doc.company = "Beta";
+  },
+  beforeSubmit(doc) {
+    if (doc.title === "Hook Submit Beta") doc.company = "Beta";
+  },
+});`)
+	write("doctypes/test_record_item/test_record_item.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
+export default defineDoctype({ name: "Test Record Item", isChild: true,
+  fields: [{ fieldname: "company", fieldtype: "Link", label: "Company", options: "Test Company" }] });`)
 	write("doctypes/test_dynamic_record/test_dynamic_record.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
 export default defineDoctype({ name: "Test Dynamic Record", naming: { field: "title" },
   fields: [
@@ -353,6 +366,137 @@ func TestSEC01_DocLifecycle(t *testing.T) {
 			_, err := c.GetDoc("Test Record", betaRecord)
 			return err
 		})
+	}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestSEC01_DocLifecycleScopeCannotBeBypassed(t *testing.T) {
+	e := setupSEC01(t)
+	ctx := context.Background()
+	const alfaUser = "user_alfa@x.com"
+	var alfaIgnoreSaveRecord, alfaSaveRecord, alfaSubmitRecord, betaRecord string
+
+	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+		u, err := c.NewDoc("User", Doc{
+			"email": alfaUser, "full_name": alfaUser,
+			"roles": []any{map[string]any{"role": "Scope User"}},
+		})
+		if err != nil {
+			return err
+		}
+		if _, err := c.Insert(u, SaveOpts{}); err != nil {
+			return err
+		}
+		for _, name := range []string{"Alfa", "Beta"} {
+			doc, err := c.NewDoc("Test Company", Doc{"title": name})
+			if err != nil {
+				return err
+			}
+			if _, err := c.Insert(doc, SaveOpts{}); err != nil {
+				return err
+			}
+		}
+		for _, title := range []string{"Alfa Ignore Save Record", "Alfa Save Record", "Alfa Submit Record", "Beta Record"} {
+			company := "Alfa"
+			if title == "Beta Record" {
+				company = "Beta"
+			}
+			doc, err := c.NewDoc("Test Record", Doc{"title": title, "company": company})
+			if err != nil {
+				return err
+			}
+			saved, err := c.Insert(doc, SaveOpts{})
+			if err != nil {
+				return err
+			}
+			switch title {
+			case "Alfa Ignore Save Record":
+				alfaIgnoreSaveRecord = saved.Name()
+			case "Alfa Save Record":
+				alfaSaveRecord = saved.Name()
+			case "Alfa Submit Record":
+				alfaSubmitRecord = saved.Name()
+			case "Beta Record":
+				betaRecord = saved.Name()
+			}
+		}
+		permission, err := c.NewDoc("User Permission", Doc{"user": alfaUser, "allow": "Test Company", "for_value": "Alfa"})
+		if err != nil {
+			return err
+		}
+		_, err = c.Insert(permission, SaveOpts{})
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := e.Run(ctx, alfaUser, func(c *Ctx) error {
+		company, err := c.NewDoc("Test Company", Doc{"title": "Gamma"})
+		if err != nil {
+			return err
+		}
+		if _, err := c.Insert(company, SaveOpts{}); err == nil || cerr.From(err).Type != "PermissionError" {
+			t.Errorf("Insert scoped entity after naming: expected PermissionError, got %v", err)
+		}
+
+		bypassInsert, err := c.NewDoc("Test Record", Doc{"title": "Ignore Permissions Beta", "company": "Beta"})
+		if err != nil {
+			return err
+		}
+		if _, err := c.Insert(bypassInsert, SaveOpts{IgnorePermissions: true}); err == nil || cerr.From(err).Type != "PermissionError" {
+			t.Errorf("Insert with SaveOpts.IgnorePermissions: expected PermissionError, got %v", err)
+		}
+		bypassSave, err := c.GetDoc("Test Record", alfaIgnoreSaveRecord)
+		if err != nil {
+			return err
+		}
+		bypassSave["company"] = "Beta"
+		if _, err := c.Save(bypassSave, SaveOpts{IgnorePermissions: true}); err == nil || cerr.From(err).Type != "PermissionError" {
+			t.Errorf("Save with SaveOpts.IgnorePermissions: expected PermissionError, got %v", err)
+		}
+
+		if err := c.Delete("Test Record", betaRecord, true, false); err == nil || cerr.From(err).Type != "PermissionError" {
+			t.Errorf("Delete with ignorePerms: expected PermissionError, got %v", err)
+		}
+
+		childScope, err := c.NewDoc("Test Record", Doc{
+			"title": "Child Beta", "company": "Alfa",
+			"items": []any{map[string]any{"company": "Beta"}},
+		})
+		if err != nil {
+			return err
+		}
+		if _, err := c.Insert(childScope, SaveOpts{}); err == nil || cerr.From(err).Type != "PermissionError" {
+			t.Errorf("Insert child Link outside scope: expected PermissionError, got %v", err)
+		}
+
+		hookInsert, err := c.NewDoc("Test Record", Doc{"title": "Hook Insert Beta", "company": "Alfa"})
+		if err != nil {
+			return err
+		}
+		if _, err := c.Insert(hookInsert, SaveOpts{}); err == nil || cerr.From(err).Type != "PermissionError" {
+			t.Errorf("Insert after beforeSave hook: expected PermissionError, got %v", err)
+		}
+
+		saveDoc, err := c.GetDoc("Test Record", alfaSaveRecord)
+		if err != nil {
+			return err
+		}
+		saveDoc["title"] = "Hook Save Beta"
+		if _, err := c.Save(saveDoc, SaveOpts{}); err == nil || cerr.From(err).Type != "PermissionError" {
+			t.Errorf("Save after beforeSave hook: expected PermissionError, got %v", err)
+		}
+
+		submitDoc, err := c.GetDoc("Test Record", alfaSubmitRecord)
+		if err != nil {
+			return err
+		}
+		submitDoc["title"], submitDoc["docstatus"] = "Hook Submit Beta", 1
+		if _, err := c.Save(submitDoc, SaveOpts{}); err == nil || cerr.From(err).Type != "PermissionError" {
+			t.Errorf("Save after beforeSubmit hook: expected PermissionError, got %v", err)
+		}
+		return nil
 	}); err != nil {
 		t.Fatal(err)
 	}

@@ -450,6 +450,16 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 			return nil, err
 		}
 	}
+	if !c.IgnorePermissions() {
+		if ok, err := c.checkUserPermissions(d, doc); err != nil {
+			return nil, err
+		} else if !ok {
+			if d.IsSingle {
+				return nil, cerr.Permission("No permission ({0}) on {1} {2}", "write", c.T(d.Label), "singleton")
+			}
+			return nil, cerr.Permission("No permission to create {0}", c.T(d.Label))
+		}
+	}
 	if err := c.writeInsert(d, doc); err != nil {
 		return nil, err
 	}
@@ -533,22 +543,21 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 	if action != "save" && !d.Submittable {
 		return nil, cerr.Validation("{0} is not submittable", c.T(d.Label))
 	}
+	ptype := "write"
+	if action == "submit" {
+		ptype = "submit"
+	} else if action == "cancel" {
+		ptype = "cancel"
+	}
 	if !opts.IgnorePermissions && !c.IgnorePermissions() {
-		ptype := "write"
-		if action == "submit" {
-			ptype = "submit"
-		} else if action == "cancel" {
-			ptype = "cancel"
-		}
 		if ok, err := c.HasPermission(d.Name, ptype, before); err != nil {
 			return nil, err
 		} else if !ok {
 			return nil, cerr.Permission("No permission ({0}) on {1} {2}", ptype, c.T(d.Label), doc.Name())
 		}
-		// Authorize the existing document first (including ownership), then
-		// authorize the proposed document so a scoped field cannot move a
-		// permitted record outside the user's allowed values.
-		if ok, err := c.HasPermission(d.Name, ptype, doc); err != nil {
+	}
+	if !c.IgnorePermissions() {
+		if ok, err := c.checkUserPermissions(d, before); err != nil {
 			return nil, err
 		} else if !ok {
 			return nil, cerr.Permission("No permission ({0}) on {1} {2}", ptype, c.T(d.Label), doc.Name())
@@ -589,6 +598,13 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 	case "cancel":
 		if err := c.runHook(d, "beforeCancel", doc, before); err != nil {
 			return nil, err
+		}
+	}
+	if !c.IgnorePermissions() {
+		if ok, err := c.checkUserPermissions(d, doc); err != nil {
+			return nil, err
+		} else if !ok {
+			return nil, cerr.Permission("No permission ({0}) on {1} {2}", ptype, c.T(d.Label), doc.Name())
 		}
 	}
 	if err := c.writeUpdate(d, doc, before["modified"]); err != nil {
@@ -836,6 +852,13 @@ func (c *Ctx) Delete(doctype, name string, ignorePerms, force bool) error {
 	}
 	if !ignorePerms && !c.IgnorePermissions() {
 		if ok, _ := c.HasPermission(doctype, "delete", doc); !ok {
+			return cerr.Permission("No permission to delete {0} {1}", c.T(d.Label), name)
+		}
+	}
+	if !c.IgnorePermissions() {
+		if ok, err := c.checkUserPermissions(d, doc); err != nil {
+			return err
+		} else if !ok {
 			return cerr.Permission("No permission to delete {0} {1}", c.T(d.Label), name)
 		}
 	}

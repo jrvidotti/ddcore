@@ -186,6 +186,12 @@ func (c *Ctx) checkUserPermissions(d *meta.DocType, doc Doc) (bool, error) {
 	if c.User == "Administrator" || c.IgnorePermissions() || doc == nil {
 		return true, nil
 	}
+	return c.checkUserPermissionsFor(d, doc, d.Name)
+}
+
+// checkUserPermissionsFor validates doc and its Table rows using the scope
+// applicable to the enclosing document lifecycle.
+func (c *Ctx) checkUserPermissionsFor(d *meta.DocType, doc Doc, applicableFor string) (bool, error) {
 	perms, err := c.UserPermissions()
 	if err != nil || len(perms) == 0 {
 		return true, err
@@ -193,7 +199,7 @@ func (c *Ctx) checkUserPermissions(d *meta.DocType, doc Doc) (bool, error) {
 
 	grouped := make(map[string]map[string]bool)
 	for _, p := range perms {
-		if p.ApplicableFor != "" && !strings.EqualFold(p.ApplicableFor, d.Name) {
+		if p.ApplicableFor != "" && !strings.EqualFold(p.ApplicableFor, applicableFor) {
 			continue
 		}
 		if grouped[p.Allow] == nil {
@@ -219,6 +225,18 @@ func (c *Ctx) checkUserPermissions(d *meta.DocType, doc Doc) (bool, error) {
 				if val == "" || !allowedMap[val] {
 					return false, nil
 				}
+			}
+		}
+	}
+	for _, tf := range d.TableFields() {
+		child, err := c.St.DocType(tf.OptionsString())
+		if err != nil {
+			return false, err
+		}
+		for _, row := range doc.Children(tf.Fieldname) {
+			ok, err := c.checkUserPermissionsFor(child, row, applicableFor)
+			if err != nil || !ok {
+				return false, err
 			}
 		}
 	}
