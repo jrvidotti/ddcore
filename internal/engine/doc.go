@@ -450,6 +450,16 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 			return nil, err
 		}
 	}
+	if !c.IgnorePermissions() {
+		if ok, err := c.checkUserPermissions(d, doc); err != nil {
+			return nil, err
+		} else if !ok {
+			if d.IsSingle {
+				return nil, cerr.Permission("No permission ({0}) on {1} {2}", "write", c.T(d.Label), "singleton")
+			}
+			return nil, cerr.Permission("No permission to create {0}", c.T(d.Label))
+		}
+	}
 	if err := c.writeInsert(d, doc); err != nil {
 		return nil, err
 	}
@@ -491,6 +501,12 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 		}
 	}
 	c.notify(d, saved, "insert")
+	if d.Name == "User Permission" {
+		if err := c.auditUserPermissionGrant(saved); err != nil {
+			return nil, err
+		}
+		c.invalidateUserPermissionCache(saved)
+	}
 	return saved, nil
 }
 
@@ -530,14 +546,21 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 	if action != "save" && !d.Submittable {
 		return nil, cerr.Validation("{0} is not submittable", c.T(d.Label))
 	}
+	ptype := "write"
+	if action == "submit" {
+		ptype = "submit"
+	} else if action == "cancel" {
+		ptype = "cancel"
+	}
 	if !opts.IgnorePermissions && !c.IgnorePermissions() {
-		ptype := "write"
-		if action == "submit" {
-			ptype = "submit"
-		} else if action == "cancel" {
-			ptype = "cancel"
-		}
 		if ok, err := c.HasPermission(d.Name, ptype, before); err != nil {
+			return nil, err
+		} else if !ok {
+			return nil, cerr.Permission("No permission ({0}) on {1} {2}", ptype, c.T(d.Label), doc.Name())
+		}
+	}
+	if !c.IgnorePermissions() {
+		if ok, err := c.checkUserPermissions(d, before); err != nil {
 			return nil, err
 		} else if !ok {
 			return nil, cerr.Permission("No permission ({0}) on {1} {2}", ptype, c.T(d.Label), doc.Name())
@@ -578,6 +601,13 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 	case "cancel":
 		if err := c.runHook(d, "beforeCancel", doc, before); err != nil {
 			return nil, err
+		}
+	}
+	if !c.IgnorePermissions() {
+		if ok, err := c.checkUserPermissions(d, doc); err != nil {
+			return nil, err
+		} else if !ok {
+			return nil, cerr.Permission("No permission ({0}) on {1} {2}", ptype, c.T(d.Label), doc.Name())
 		}
 	}
 	if err := c.writeUpdate(d, doc, before["modified"]); err != nil {
@@ -625,6 +655,17 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 		return nil, err
 	}
 	c.notify(d, saved, action)
+	if d.Name == "User Permission" {
+		if userPermissionScopeChanged(before, saved) {
+			if err := c.auditUserPermissionRevoke(before); err != nil {
+				return nil, err
+			}
+			if err := c.auditUserPermissionGrant(saved); err != nil {
+				return nil, err
+			}
+		}
+		c.invalidateUserPermissionCache(before, saved)
+	}
 	return saved, nil
 }
 
@@ -750,6 +791,16 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 	if len(values) == 0 {
 		return modified, nil
 	}
+	var beforePermission Doc
+	if d.Name == "User Permission" {
+		rows, err := db.Select(c.Ctx, c.Q(), `SELECT "user", allow, for_value, applicable_for FROM tab_user_permission WHERE name = $1`, name)
+		if err != nil {
+			return modified, err
+		}
+		if len(rows) > 0 {
+			beforePermission = Doc(rows[0])
+		}
+	}
 	var b db.Builder
 	var sets []string
 	for k, v := range values {
@@ -779,10 +830,28 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 	if tag.RowsAffected() == 0 {
 		return modified, cerr.NotFound("{0} {1} not found", doctype, name)
 	}
+	if d.Name == "User Permission" {
+		afterPermission := Doc{}
+		for _, field := range []string{"user", "allow", "for_value", "applicable_for"} {
+			afterPermission[field] = beforePermission[field]
+			if value, ok := values[field]; ok {
+				afterPermission[field] = value
+			}
+		}
+		if userPermissionScopeChanged(beforePermission, afterPermission) {
+			if err := c.auditUserPermissionRevoke(beforePermission); err != nil {
+				return modified, err
+			}
+			if err := c.auditUserPermissionGrant(afterPermission); err != nil {
+				return modified, err
+			}
+		}
+		c.invalidateUserPermissionCache(beforePermission, afterPermission)
+	}
 	// only after commit: a rolled back transaction must not announce
 	// changes that never took place (B20).
 	c.AfterCommit(func() {
-		c.E.Events.Publish(Event{Name: "doc_update", Payload: map[string]any{"doctype": doctype, "name": name}})
+		c.E.Events.Publish(Event{Name: "doc_update", Doctype: doctype, DocName: name, Payload: map[string]any{"doctype": doctype, "name": name}})
 	})
 	return modified, nil
 }
@@ -805,6 +874,13 @@ func (c *Ctx) Delete(doctype, name string, ignorePerms, force bool) error {
 	}
 	if !ignorePerms && !c.IgnorePermissions() {
 		if ok, _ := c.HasPermission(doctype, "delete", doc); !ok {
+			return cerr.Permission("No permission to delete {0} {1}", c.T(d.Label), name)
+		}
+	}
+	if !c.IgnorePermissions() {
+		if ok, err := c.checkUserPermissions(d, doc); err != nil {
+			return err
+		} else if !ok {
 			return cerr.Permission("No permission to delete {0} {1}", c.T(d.Label), name)
 		}
 	}
@@ -861,6 +937,12 @@ func (c *Ctx) Delete(doctype, name string, ignorePerms, force bool) error {
 	}
 	if err := c.queueDocWebhooks(d.Name, doc, "on_trash"); err != nil {
 		return err
+	}
+	if d.Name == "User Permission" {
+		if err := c.auditUserPermissionRevoke(doc); err != nil {
+			return err
+		}
+		c.invalidateUserPermissionCache(doc)
 	}
 	c.AfterCommit(func() {
 		c.E.Events.Publish(Event{Name: "list_update", Payload: map[string]any{"doctype": doctype}})
@@ -961,8 +1043,32 @@ func (c *Ctx) GetDocIgnoringPerms(doctype, name string) (Doc, error) {
 
 func (c *Ctx) notify(d *meta.DocType, doc Doc, action string) {
 	c.AfterCommit(func() {
-		c.E.Events.Publish(Event{Name: "doc_update", Payload: map[string]any{"doctype": d.Name, "name": doc.Name(), "action": action, "modified": doc["modified"], "user": c.User}})
+		c.E.Events.Publish(Event{Name: "doc_update", Doctype: d.Name, DocName: doc.Name(), Payload: map[string]any{"doctype": d.Name, "name": doc.Name(), "action": action, "modified": doc["modified"], "user": c.User}})
 		c.E.Events.Publish(Event{Name: "list_update", Payload: map[string]any{"doctype": d.Name}})
+	})
+}
+
+func userPermissionScopeChanged(before, after Doc) bool {
+	for _, field := range []string{"user", "allow", "for_value", "applicable_for"} {
+		if before.Str(field) != after.Str(field) {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *Ctx) auditUserPermissionGrant(doc Doc) error {
+	return c.Audit("permission.scope_grant", "User", doc.Str("user"), map[string]any{
+		"allow":          doc.Str("allow"),
+		"for_value":      doc.Str("for_value"),
+		"applicable_for": doc.Str("applicable_for"),
+	})
+}
+
+func (c *Ctx) auditUserPermissionRevoke(doc Doc) error {
+	return c.Audit("permission.scope_revoke", "User", doc.Str("user"), map[string]any{
+		"allow":     doc.Str("allow"),
+		"for_value": doc.Str("for_value"),
 	})
 }
 

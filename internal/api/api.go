@@ -952,31 +952,13 @@ var referenceFields = map[string][2]string{
 	"Version": {"ref_doctype", "docname"},
 }
 
-// requireDocRead checks the user may read doctype/name, loading only the
-// columns the permission rules need.
+// requireDocRead checks the user may read doctype/name.
 func (s *Server) requireDocRead(c *engine.Ctx, doctype, name string) error {
 	if doctype == "" || name == "" {
 		return cerr.Permission("Provide the reference document")
 	}
-	d, err := s.E.DocType(doctype)
-	if err != nil {
-		return err
-	}
-	vals, err := c.GetValues(doctype, name, []string{"name", "owner", "docstatus"})
-	if err != nil {
-		return err
-	}
-	if vals == nil {
-		return cerr.NotFound("{0} {1} not found", c.T(d.Label), name)
-	}
-	ok, err := c.HasPermission(doctype, "read", engine.Doc(vals))
-	if err != nil {
-		return err
-	}
-	if !ok {
-		return cerr.Permission("No permission to read {0} {1}", c.T(d.Label), name)
-	}
-	return nil
+	_, err := c.GetDoc(doctype, name)
+	return err
 }
 
 // referenceGuard refuses a listing of Comment/Version that does not pin a
@@ -986,8 +968,17 @@ func (s *Server) referenceGuard(c *engine.Ctx, doctype string, filters any) erro
 	if !ok {
 		return nil
 	}
-	if c.User == "Administrator" || c.HasRole("System Manager") {
+	if c.User == "Administrator" || c.IgnorePermissions() {
 		return nil
+	}
+	if c.HasRole("System Manager") {
+		perms, err := c.UserPermissions()
+		if err != nil {
+			return err
+		}
+		if len(perms) == 0 {
+			return nil
+		}
 	}
 	fs, err := db.ParseFilters(filters)
 	if err != nil {
@@ -1195,19 +1186,24 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 }
 
 // eventAuthorizer decides whether an SSE subscriber may see events about a
-// doctype (B20). The answer is cached for a minute per user/doctype because
-// it is consulted on every published event.
+// doctype (B20). The answer is cached for a minute per user/document because
+// document-level scopes can differ within a doctype.
 func (s *Server) eventAuthorizer(ctx context.Context, u string) engine.Authorizer {
 	return func(doctype, name string) bool {
-		key := "evperm:" + u + ":" + doctype
+		key := fmt.Sprintf("evperm:%s:%s:%s", u, doctype, name)
 		if v, ok := s.E.Cache.Get(key); ok {
 			return v.(bool)
 		}
 		allowed := false
 		if err := s.E.Run(ctx, u, func(c *engine.Ctx) error {
-			ok, err := c.HasPermission(doctype, "read", nil)
-			allowed = ok
-			return err
+			if name == "" {
+				ok, err := c.HasPermission(doctype, "read", nil)
+				allowed = ok
+				return err
+			}
+			_, err := c.GetDoc(doctype, name)
+			allowed = err == nil
+			return nil
 		}); err != nil {
 			return false
 		}

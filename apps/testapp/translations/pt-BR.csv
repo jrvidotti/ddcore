@@ -28,7 +28,7 @@ Planning,Planejamento,# testapp workspace
 Priority,Prioridade,# testapp.doctypes.task.task.doctype
 Progress,Progresso,# apps/testapp/print/project_summary.print.ts:24
 Project,Projeto,# testapp.doctypes.project.project.doctype
-"Project Code: {0}","Código do Projeto: {0}",# apps/testapp/print/project_summary.print.ts:16
+Project Code: {0},Código do Projeto: {0},# apps/testapp/print/project_summary.print.ts:16
 Project Milestone,Marco Projeto,# testapp.doctypes.project_milestone.project_milestone.doctype
 Projects,Projetos,# testapp workspace
 Reopen,Reabrir,# apps/testapp/doctypes/task/task.form.ts:20

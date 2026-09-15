@@ -9,6 +9,70 @@ import (
 	"github.com/jrvidotti/ddcore/internal/meta"
 )
 
+// UserPerm represents an active scope restriction for a user.
+type UserPerm struct {
+	Name          string
+	User          string
+	Allow         string
+	ForValue      string
+	ApplicableFor string
+	IsDefault     bool
+}
+
+// UserPermissions returns the active scope restrictions for the current user.
+// Administrator and operations that ignore permissions have no restrictions.
+func (c *Ctx) UserPermissions() ([]UserPerm, error) {
+	if c.User == "Administrator" || c.IgnorePermissions() {
+		return nil, nil
+	}
+	if c.userPerms != nil {
+		return c.userPerms, nil
+	}
+	key := "user_perms:" + c.User
+	if v, ok := c.E.Cache.Get(key); ok {
+		c.userPerms = v.([]UserPerm)
+		return c.userPerms, nil
+	}
+	rows, err := db.Select(c.Ctx, c.Q(), `SELECT name, "user", allow, for_value, applicable_for, is_default
+		FROM tab_user_permission WHERE "user" = $1 ORDER BY allow, for_value`, c.User)
+	if err != nil {
+		return nil, err
+	}
+	perms := make([]UserPerm, 0, len(rows))
+	for _, r := range rows {
+		isDefault, _ := r["is_default"].(bool)
+		perms = append(perms, UserPerm{
+			Name:          db.Str(r["name"]),
+			User:          db.Str(r["user"]),
+			Allow:         db.Str(r["allow"]),
+			ForValue:      db.Str(r["for_value"]),
+			ApplicableFor: db.Str(r["applicable_for"]),
+			IsDefault:     isDefault,
+		})
+	}
+	c.userPerms = perms
+	c.E.Cache.Set(key, perms, 0)
+	return perms, nil
+}
+
+func (c *Ctx) invalidateUserPermissionCache(docs ...Doc) {
+	users := map[string]struct{}{}
+	for _, doc := range docs {
+		if user := doc.Str("user"); user != "" {
+			users[user] = struct{}{}
+		}
+	}
+	if len(users) == 0 {
+		return
+	}
+	c.AfterCommit(func() {
+		for user := range users {
+			c.E.Cache.Del("user_perms:" + user)
+			c.E.Cache.DelPrefix("evperm:" + user + ":")
+		}
+	})
+}
+
 // Roles returns the roles of the current user (cached per ctx).
 func (c *Ctx) Roles() ([]string, error) {
 	if c.roles != nil {
@@ -109,6 +173,74 @@ func (c *Ctx) HasPermission(doctype, ptype string, doc Doc) (bool, error) {
 			return false, nil
 		}
 	}
+	if doc != nil {
+		ok, err := c.checkUserPermissions(d, doc)
+		if err != nil || !ok {
+			return false, err
+		}
+	}
+	return true, nil
+}
+
+// checkUserPermissions validates whether doc satisfies active scope restrictions.
+func (c *Ctx) checkUserPermissions(d *meta.DocType, doc Doc) (bool, error) {
+	if c.User == "Administrator" || c.IgnorePermissions() || doc == nil {
+		return true, nil
+	}
+	return c.checkUserPermissionsFor(d, doc, d.Name)
+}
+
+// checkUserPermissionsFor validates doc and its Table rows using the scope
+// applicable to the enclosing document lifecycle.
+func (c *Ctx) checkUserPermissionsFor(d *meta.DocType, doc Doc, applicableFor string) (bool, error) {
+	perms, err := c.UserPermissions()
+	if err != nil || len(perms) == 0 {
+		return true, err
+	}
+
+	grouped := make(map[string]map[string]bool)
+	for _, p := range perms {
+		if p.ApplicableFor != "" && !strings.EqualFold(p.ApplicableFor, applicableFor) {
+			continue
+		}
+		if grouped[p.Allow] == nil {
+			grouped[p.Allow] = make(map[string]bool)
+		}
+		grouped[p.Allow][p.ForValue] = true
+	}
+
+	for allow, allowedMap := range grouped {
+		if len(allowedMap) == 0 {
+			continue
+		}
+		if strings.EqualFold(d.Name, allow) {
+			name := doc.Name()
+			if name != "" && !allowedMap[name] {
+				return false, nil
+			}
+			continue
+		}
+		for _, f := range d.Fields {
+			if f.Fieldtype == "Link" && strings.EqualFold(f.OptionsString(), allow) {
+				val := db.Str(doc[f.Fieldname])
+				if val == "" || !allowedMap[val] {
+					return false, nil
+				}
+			}
+		}
+	}
+	for _, tf := range d.TableFields() {
+		child, err := c.St.DocType(tf.OptionsString())
+		if err != nil {
+			return false, err
+		}
+		for _, row := range doc.Children(tf.Fieldname) {
+			ok, err := c.checkUserPermissionsFor(child, row, applicableFor)
+			if err != nil || !ok {
+				return false, err
+			}
+		}
+	}
 	return true, nil
 }
 
@@ -166,6 +298,51 @@ func (c *Ctx) ReadableParentsOf(child string) ([]string, error) {
 		}
 		if ok && !contains(out, cp.Parent.Name) {
 			out = append(out, cp.Parent.Name)
+		}
+	}
+	return out, nil
+}
+
+// scopeFilters builds filters enforcing User Permission rules for doctype d.
+func (c *Ctx) scopeFilters(d *meta.DocType) ([]db.Filter, error) {
+	if c.User == "Administrator" || c.IgnorePermissions() {
+		return nil, nil
+	}
+	perms, err := c.UserPermissions()
+	if err != nil || len(perms) == 0 {
+		return nil, err
+	}
+
+	grouped := make(map[string][]any)
+	for _, p := range perms {
+		if p.ApplicableFor != "" && !strings.EqualFold(p.ApplicableFor, d.Name) {
+			continue
+		}
+		grouped[p.Allow] = append(grouped[p.Allow], p.ForValue)
+	}
+
+	var out []db.Filter
+	for allow, allowedValues := range grouped {
+		if len(allowedValues) == 0 {
+			continue
+		}
+		if strings.EqualFold(d.Name, allow) {
+			out = append(out, db.Filter{Field: "name", Op: "in", Value: allowedValues})
+			continue
+		}
+		for _, f := range d.Fields {
+			if f.Fieldtype == "Link" && strings.EqualFold(f.OptionsString(), allow) {
+				// An IN filter intentionally excludes null and empty field values.
+				out = append(out, db.Filter{Field: f.Fieldname, Op: "in", Value: allowedValues})
+			}
+			if f.Fieldtype == "Dynamic Link" && d.Field(f.OptionsString()) != nil {
+				// A Dynamic Link is restricted only when its selector points at the
+				// allowed DocType. Other selector values remain independently scoped.
+				out = append(out, db.Filter{
+					Field: f.Fieldname, Op: "in", Value: allowedValues,
+					IfField: f.OptionsString(), IfValue: allow,
+				})
+			}
 		}
 	}
 	return out, nil
@@ -245,11 +422,13 @@ func (c *Ctx) childPermission(d *meta.DocType, ptype string, doc Doc) (bool, err
 	return c.HasPermission(parent.Name, parentPtype, pdoc)
 }
 
-// permissionFilters adds ifOwner and controller permissionQuery filters.
+// permissionFilters adds child, ifOwner, controller permissionQuery, and
+// User Permission scope filters.
 func (c *Ctx) permissionFilters(d *meta.DocType) ([]db.Filter, error) {
-	if c.User == "Administrator" {
+	if c.User == "Administrator" || c.IgnorePermissions() {
 		return nil, nil
 	}
+	var out []db.Filter
 	if d.IsChild {
 		// child rows are only visible through the doctypes that embed them
 		parents, err := c.ReadableParentsOf(d.Name)
@@ -260,41 +439,46 @@ func (c *Ctx) permissionFilters(d *meta.DocType) ([]db.Filter, error) {
 		for _, p := range parents {
 			vals = append(vals, p)
 		}
-		return []db.Filter{{Field: "parenttype", Op: "in", Value: vals}}, nil
-	}
-	roles, err := c.Roles()
-	if err != nil {
-		return nil, err
-	}
-	ownerOnly := true
-	for _, p := range d.Permissions {
-		if contains(roles, p.Role) && (p.Read || p.Report) && !p.IfOwner {
-			ownerOnly = false
-		}
-	}
-	var out []db.Filter
-	if ownerOnly {
-		out = append(out, db.Filter{Field: "owner", Op: "=", Value: c.User})
-	}
-	if d.HasController() {
-		rt, err := c.RT()
+		out = append(out, db.Filter{Field: "parenttype", Op: "in", Value: vals})
+	} else {
+		roles, err := c.Roles()
 		if err != nil {
 			return nil, err
 		}
-		raw, err := rt.PermissionQuery(d.Name, c.User)
-		if err != nil {
-			return nil, err
+		ownerOnly := true
+		for _, p := range d.Permissions {
+			if contains(roles, p.Role) && (p.Read || p.Report) && !p.IfOwner {
+				ownerOnly = false
+			}
 		}
-		if len(raw) > 0 {
-			var v any
-			json.Unmarshal(raw, &v)
-			f, err := db.ParseFilters(v)
+		if ownerOnly {
+			out = append(out, db.Filter{Field: "owner", Op: "=", Value: c.User})
+		}
+		if d.HasController() {
+			rt, err := c.RT()
 			if err != nil {
 				return nil, err
 			}
-			out = append(out, f...)
+			raw, err := rt.PermissionQuery(d.Name, c.User)
+			if err != nil {
+				return nil, err
+			}
+			if len(raw) > 0 {
+				var v any
+				json.Unmarshal(raw, &v)
+				f, err := db.ParseFilters(v)
+				if err != nil {
+					return nil, err
+				}
+				out = append(out, f...)
+			}
 		}
 	}
+	sf, err := c.scopeFilters(d)
+	if err != nil {
+		return nil, err
+	}
+	out = append(out, sf...)
 	return out, nil
 }
 
