@@ -197,6 +197,11 @@ func (rt *Runtime) ApplyMeta(merged map[string]json.RawMessage) error {
 	return err
 }
 
+// RenderPrint renders a document with a declared print template.
+func (rt *Runtime) RenderPrint(name string, docJSON string, lang string) (string, error) {
+	return rt.callReg("renderPrint", name, docJSON, lang)
+}
+
 func (rt *Runtime) HasHook(doctype, event string) bool {
 	fn, _ := goja.AssertFunction(rt.reg.Get("hasHook"))
 	v, err := fn(rt.reg, rt.vm.ToValue(doctype), rt.vm.ToValue(event))

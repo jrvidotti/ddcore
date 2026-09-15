@@ -158,6 +158,50 @@ export interface SendMailArgs {
   key?: string;
 }
 
+/**
+ * A block returned by a print template body.
+ */
+export interface PrintBlock {
+  type: string;
+  [key: string]: any;
+}
+
+/**
+ * Vocabulary of blocks available to print templates.
+ */
+export interface PrintBlockBuilder {
+  header(title: string, opts?: { subtitle?: string; badge?: string; badgeColor?: string }): PrintBlock;
+  keyValues(pairs: [label: string, value: any][], opts?: { columns?: 2 | 3 | 4 }): PrintBlock;
+  section(title?: string, blocks?: PrintBlock[]): PrintBlock;
+  table(headers: string[], rows: (string | number | null | undefined)[][], opts?: { aligns?: ("left" | "right" | "center")[] }): PrintBlock;
+  totals(rows: [label: string, value: string][]): PrintBlock;
+  p(text: string): PrintBlock;
+  h(level: 1 | 2 | 3 | 4, text: string): PrintBlock;
+  rule(): PrintBlock;
+  pageBreak(): PrintBlock;
+  raw(html: string): PrintBlock;
+}
+
+/**
+ * Context helpers passed to print templates.
+ */
+export interface PrintContext {
+  formatCurrency(val: any): string;
+  formatDate(val: any): string;
+  formatDateTime(val: any): string;
+  formatNumber(val: any, decimals?: number): string;
+}
+
+/**
+ * A document print template declared in `print/<name>.print.ts`.
+ */
+export interface PrintTemplateDef<T = any> {
+  name: string;
+  doctype: string;
+  label: string;
+  body: (doc: T, b: PrintBlockBuilder, ctx: PrintContext) => PrintBlock[];
+}
+
 export interface PermDef {
   role: string;
   read?: boolean; write?: boolean; create?: boolean; delete?: boolean;
