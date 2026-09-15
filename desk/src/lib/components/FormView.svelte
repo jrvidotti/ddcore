@@ -18,6 +18,7 @@
   import DocSidebar from "./DocSidebar.svelte";
   import { cellWidthClass, LINE_SLOTS, packLines } from "./form-layout";
   import { isSectionCollapsed, toggleSection } from "./section-state";
+  import { resolveActiveTab, tabToSearchParams } from "./form-tabs";
   import { commitFocusedEdit, getModifierKey, openShortcutsHelp } from "$lib/shortcuts.svelte";
 
   let { doctype, name }: { doctype: string; name: string } = $props();
@@ -178,6 +179,24 @@
     }
     return out;
   });
+
+  $effect(() => {
+    if (tabs.length <= 1) return;
+    const nextTab = resolveActiveTab(tabs, page.url.searchParams.get("tab"));
+    if (activeTab !== nextTab) activeTab = nextTab;
+  });
+
+  function switchTab(i: number) {
+    activeTab = i;
+    if (typeof window === "undefined") return;
+    const params = tabToSearchParams(tabs, i, page.url.searchParams);
+    const search = params.size ? `?${params}` : "";
+    const next = `${page.url.pathname}${search}${page.url.hash}`;
+    if (next !== `${page.url.pathname}${page.url.search}${page.url.hash}`) {
+      goto(next, { replaceState: true, noScroll: true, keepFocus: true });
+    }
+  }
+
   const statusField = $derived(frm?.meta.doctype.fields.find((f) => f.fieldname === "status"));
   /** The canonical status value — what the colour is keyed on. */
   const status = $derived.by(() => {
@@ -377,7 +396,7 @@
     <div class="form-body">
       <div class="form-main">
         {#if tabs.length > 1}
-          <div class="tabs">{#each tabs as t, i}<button class:active={activeTab === i} onclick={() => (activeTab = i)}>{t.label}</button>{/each}</div>
+          <div class="tabs">{#each tabs as t, i}<button class:active={activeTab === i} onclick={() => switchTab(i)}>{t.label}</button>{/each}</div>
         {/if}
         {#each tabs[activeTab]?.sections || [] as sec, si}
           {#if visibleSection(sec) && sec.fields.some((f) => frm!.isFieldVisible(f))}
