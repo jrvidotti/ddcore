@@ -234,6 +234,43 @@ func (c *Ctx) ReadableParentsOf(child string) ([]string, error) {
 	return out, nil
 }
 
+// scopeFilters builds filters enforcing User Permission rules for doctype d.
+func (c *Ctx) scopeFilters(d *meta.DocType) ([]db.Filter, error) {
+	if c.User == "Administrator" || c.IgnorePermissions() {
+		return nil, nil
+	}
+	perms, err := c.UserPermissions()
+	if err != nil || len(perms) == 0 {
+		return nil, err
+	}
+
+	grouped := make(map[string][]any)
+	for _, p := range perms {
+		if p.ApplicableFor != "" && !strings.EqualFold(p.ApplicableFor, d.Name) {
+			continue
+		}
+		grouped[p.Allow] = append(grouped[p.Allow], p.ForValue)
+	}
+
+	var out []db.Filter
+	for allow, allowedValues := range grouped {
+		if len(allowedValues) == 0 {
+			continue
+		}
+		if strings.EqualFold(d.Name, allow) {
+			out = append(out, db.Filter{Field: "name", Op: "in", Value: allowedValues})
+			continue
+		}
+		for _, f := range d.Fields {
+			if f.Fieldtype == "Link" && strings.EqualFold(f.OptionsString(), allow) {
+				// An IN filter intentionally excludes null and empty field values.
+				out = append(out, db.Filter{Field: f.Fieldname, Op: "in", Value: allowedValues})
+			}
+		}
+	}
+	return out, nil
+}
+
 // childPermission resolves a child row's permission through its parent
 // document: read follows the parent's read, every mutation follows the
 // parent's write and the parent's docstatus (B02). A child row is never
@@ -308,11 +345,13 @@ func (c *Ctx) childPermission(d *meta.DocType, ptype string, doc Doc) (bool, err
 	return c.HasPermission(parent.Name, parentPtype, pdoc)
 }
 
-// permissionFilters adds ifOwner and controller permissionQuery filters.
+// permissionFilters adds child, ifOwner, controller permissionQuery, and
+// User Permission scope filters.
 func (c *Ctx) permissionFilters(d *meta.DocType) ([]db.Filter, error) {
-	if c.User == "Administrator" {
+	if c.User == "Administrator" || c.IgnorePermissions() {
 		return nil, nil
 	}
+	var out []db.Filter
 	if d.IsChild {
 		// child rows are only visible through the doctypes that embed them
 		parents, err := c.ReadableParentsOf(d.Name)
@@ -323,41 +362,46 @@ func (c *Ctx) permissionFilters(d *meta.DocType) ([]db.Filter, error) {
 		for _, p := range parents {
 			vals = append(vals, p)
 		}
-		return []db.Filter{{Field: "parenttype", Op: "in", Value: vals}}, nil
-	}
-	roles, err := c.Roles()
-	if err != nil {
-		return nil, err
-	}
-	ownerOnly := true
-	for _, p := range d.Permissions {
-		if contains(roles, p.Role) && (p.Read || p.Report) && !p.IfOwner {
-			ownerOnly = false
-		}
-	}
-	var out []db.Filter
-	if ownerOnly {
-		out = append(out, db.Filter{Field: "owner", Op: "=", Value: c.User})
-	}
-	if d.HasController() {
-		rt, err := c.RT()
+		out = append(out, db.Filter{Field: "parenttype", Op: "in", Value: vals})
+	} else {
+		roles, err := c.Roles()
 		if err != nil {
 			return nil, err
 		}
-		raw, err := rt.PermissionQuery(d.Name, c.User)
-		if err != nil {
-			return nil, err
+		ownerOnly := true
+		for _, p := range d.Permissions {
+			if contains(roles, p.Role) && (p.Read || p.Report) && !p.IfOwner {
+				ownerOnly = false
+			}
 		}
-		if len(raw) > 0 {
-			var v any
-			json.Unmarshal(raw, &v)
-			f, err := db.ParseFilters(v)
+		if ownerOnly {
+			out = append(out, db.Filter{Field: "owner", Op: "=", Value: c.User})
+		}
+		if d.HasController() {
+			rt, err := c.RT()
 			if err != nil {
 				return nil, err
 			}
-			out = append(out, f...)
+			raw, err := rt.PermissionQuery(d.Name, c.User)
+			if err != nil {
+				return nil, err
+			}
+			if len(raw) > 0 {
+				var v any
+				json.Unmarshal(raw, &v)
+				f, err := db.ParseFilters(v)
+				if err != nil {
+					return nil, err
+				}
+				out = append(out, f...)
+			}
 		}
 	}
+	sf, err := c.scopeFilters(d)
+	if err != nil {
+		return nil, err
+	}
+	out = append(out, sf...)
 	return out, nil
 }
 
