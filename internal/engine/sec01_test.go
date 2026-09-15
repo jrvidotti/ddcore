@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/js"
 )
 
@@ -39,7 +40,7 @@ export default defineDoctype({ name: "Test Record", naming: { field: "title" },
     { fieldname: "company", fieldtype: "Link", label: "Company", options: "Test Company" },
     { fieldname: "division", fieldtype: "Link", label: "Division", options: "Test Division" },
   ],
-  permissions: [{ role: "Scope User", read: true }] });`)
+  permissions: [{ role: "Scope User", read: true, create: true, write: true, delete: true }] });`)
 	write("doctypes/test_dynamic_record/test_dynamic_record.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
 export default defineDoctype({ name: "Test Dynamic Record", naming: { field: "title" },
   fields: [
@@ -263,6 +264,95 @@ func TestSEC01_QueryFilters(t *testing.T) {
 			t.Fatalf("direct entity query ignored Beta scope: %#v", companies)
 		}
 		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestSEC01_DocLifecycle(t *testing.T) {
+	e := setupSEC01(t)
+	ctx := context.Background()
+	const alfaUser = "user_alfa@x.com"
+	var alfaRecord, betaRecord string
+
+	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+		u, err := c.NewDoc("User", Doc{
+			"email": alfaUser, "full_name": alfaUser,
+			"roles": []any{map[string]any{"role": "Scope User"}},
+		})
+		if err != nil {
+			return err
+		}
+		if _, err := c.Insert(u, SaveOpts{}); err != nil {
+			return err
+		}
+		for _, name := range []string{"Alfa", "Beta"} {
+			doc, err := c.NewDoc("Test Company", Doc{"title": name})
+			if err != nil {
+				return err
+			}
+			if _, err := c.Insert(doc, SaveOpts{}); err != nil {
+				return err
+			}
+		}
+		for _, record := range []struct{ title, company string }{
+			{"Alfa Record", "Alfa"},
+			{"Beta Record", "Beta"},
+		} {
+			doc, err := c.NewDoc("Test Record", Doc{"title": record.title, "company": record.company})
+			if err != nil {
+				return err
+			}
+			saved, err := c.Insert(doc, SaveOpts{})
+			if err != nil {
+				return err
+			}
+			if record.company == "Alfa" {
+				alfaRecord = saved.Name()
+			} else {
+				betaRecord = saved.Name()
+			}
+		}
+		permission, err := c.NewDoc("User Permission", Doc{"user": alfaUser, "allow": "Test Company", "for_value": "Alfa"})
+		if err != nil {
+			return err
+		}
+		_, err = c.Insert(permission, SaveOpts{})
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := e.Run(ctx, alfaUser, func(c *Ctx) error {
+		if _, err := c.GetDoc("Test Record", betaRecord); err == nil || cerr.From(err).Type != "PermissionError" {
+			t.Fatalf("GetDoc Beta Record: expected PermissionError, got %v", err)
+		}
+
+		blocked, err := c.NewDoc("Test Record", Doc{"title": "Blocked Insert", "company": "Beta"})
+		if err != nil {
+			return err
+		}
+		if _, err := c.Insert(blocked, SaveOpts{}); err == nil || cerr.From(err).Type != "PermissionError" {
+			t.Fatalf("Insert Beta Record: expected PermissionError, got %v", err)
+		}
+
+		allowed, err := c.GetDoc("Test Record", alfaRecord)
+		if err != nil {
+			return err
+		}
+		allowed["company"] = "Beta"
+		if _, err := c.Save(allowed, SaveOpts{}); err == nil || cerr.From(err).Type != "PermissionError" {
+			t.Fatalf("Save Alfa Record as Beta: expected PermissionError, got %v", err)
+		}
+
+		if err := c.Delete("Test Record", betaRecord, false, false); err == nil || cerr.From(err).Type != "PermissionError" {
+			t.Fatalf("Delete Beta Record: expected PermissionError, got %v", err)
+		}
+
+		return c.WithIgnorePermissions(func() error {
+			_, err := c.GetDoc("Test Record", betaRecord)
+			return err
+		})
 	}); err != nil {
 		t.Fatal(err)
 	}

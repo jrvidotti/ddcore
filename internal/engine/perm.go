@@ -172,6 +172,56 @@ func (c *Ctx) HasPermission(doctype, ptype string, doc Doc) (bool, error) {
 			return false, nil
 		}
 	}
+	if doc != nil {
+		ok, err := c.checkUserPermissions(d, doc)
+		if err != nil || !ok {
+			return false, err
+		}
+	}
+	return true, nil
+}
+
+// checkUserPermissions validates whether doc satisfies active scope restrictions.
+func (c *Ctx) checkUserPermissions(d *meta.DocType, doc Doc) (bool, error) {
+	if c.User == "Administrator" || c.IgnorePermissions() || doc == nil {
+		return true, nil
+	}
+	perms, err := c.UserPermissions()
+	if err != nil || len(perms) == 0 {
+		return true, err
+	}
+
+	grouped := make(map[string]map[string]bool)
+	for _, p := range perms {
+		if p.ApplicableFor != "" && !strings.EqualFold(p.ApplicableFor, d.Name) {
+			continue
+		}
+		if grouped[p.Allow] == nil {
+			grouped[p.Allow] = make(map[string]bool)
+		}
+		grouped[p.Allow][p.ForValue] = true
+	}
+
+	for allow, allowedMap := range grouped {
+		if len(allowedMap) == 0 {
+			continue
+		}
+		if strings.EqualFold(d.Name, allow) {
+			name := doc.Name()
+			if name != "" && !allowedMap[name] {
+				return false, nil
+			}
+			continue
+		}
+		for _, f := range d.Fields {
+			if f.Fieldtype == "Link" && strings.EqualFold(f.OptionsString(), allow) {
+				val := db.Str(doc[f.Fieldname])
+				if val == "" || !allowedMap[val] {
+					return false, nil
+				}
+			}
+		}
+	}
 	return true, nil
 }
 

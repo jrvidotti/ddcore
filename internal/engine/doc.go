@@ -545,6 +545,14 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 		} else if !ok {
 			return nil, cerr.Permission("No permission ({0}) on {1} {2}", ptype, c.T(d.Label), doc.Name())
 		}
+		// Authorize the existing document first (including ownership), then
+		// authorize the proposed document so a scoped field cannot move a
+		// permitted record outside the user's allowed values.
+		if ok, err := c.HasPermission(d.Name, ptype, doc); err != nil {
+			return nil, err
+		} else if !ok {
+			return nil, cerr.Permission("No permission ({0}) on {1} {2}", ptype, c.T(d.Label), doc.Name())
+		}
 	}
 	// optimistic concurrency
 	if m, ok := doc["modified"]; ok && m != nil && before["modified"] != nil {
