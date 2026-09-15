@@ -59,6 +59,8 @@ export interface AnchoredParams {
   align?: "start" | "end";
   matchWidth?: boolean;
   gap?: number;
+  /** Changes when the panel's contents change, so its height is remeasured. */
+  content?: unknown;
 }
 
 /**
@@ -75,9 +77,10 @@ export function anchored(node: HTMLElement, params: AnchoredParams) {
     if (!anchor?.isConnected) return;
     const rect = anchor.getBoundingClientRect();
 
-    // scrollHeight is the height the panel *wants*, whatever cap is on it
-    // right now — measuring it does not disturb the layout, so the
-    // ResizeObserver below settles after one pass instead of oscillating.
+    // Let content changes grow the panel before measuring it. A previous
+    // placement may have capped max-height, which keeps ResizeObserver from
+    // noticing that scrollHeight increased.
+    node.style.maxHeight = "none";
     const wanted = node.scrollHeight + (node.offsetHeight - node.clientHeight);
     const pos = computeAnchoredPosition({
       anchor: { left: rect.left, top: rect.top, width: rect.width, height: rect.height },

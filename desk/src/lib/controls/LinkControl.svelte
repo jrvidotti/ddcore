@@ -18,6 +18,7 @@
   let options = $state<any[]>([]);
   let active = $state(0);
   let timer: any;
+  let searchVersion = 0;
   let focused = $state(false);
   let inputEl: HTMLInputElement | null = $state(null);
 
@@ -44,10 +45,13 @@
 
   async function search(txt: string) {
     if (!target) { options = []; return; }
+    const version = ++searchVersion;
     try {
       const filters = query?.()?.filters;
-      options = await api.linkSearch(target, txt, filters, 20);
-      for (const o of options) {
+      const results = await api.linkSearch(target, txt, filters, 20);
+      if (version !== searchVersion) return;
+      options = results;
+      for (const o of results) {
         setLinkTitle(target, o.name, getOptionTitle(o));
       }
       active = 0;
@@ -58,6 +62,11 @@
   function oninput(e: Event) {
     text = (e.target as HTMLInputElement).value;
     clearTimeout(timer);
+    if (text === "") {
+      onchange(null);
+      void search("");
+      return;
+    }
     timer = setTimeout(() => search(text), 150);
   }
 
@@ -69,8 +78,21 @@
     open = false;
   }
 
+  function clear() {
+    clearTimeout(timer);
+    searchVersion++;
+    text = "";
+    options = [];
+    open = false;
+    onchange(null);
+    void search("");
+    inputEl?.focus();
+  }
+
   function onblur() {
     focused = false;
+    clearTimeout(timer);
+    searchVersion++;
     setTimeout(() => {
       open = false;
       const curTitle = currentTitle || value || "";
@@ -102,15 +124,18 @@
   const wsPrefix = $derived(workspace ? `/app/${encodeURIComponent(workspace)}` : "/app");
 </script>
 
-<div class="link-wrap">
+<div class="link-wrap" class:has-open={!!value && !!target} class:has-clear={!!value && !!target && !readOnly}>
   <input bind:this={inputEl} {id} class="input" class:error={!!error} readonly={readOnly || !target} value={text} placeholder={target ? "" : "Escolha o tipo antes"} autocomplete="off"
     title={value ? `${text}${text !== value ? ` (${value})` : ""}` : ""}
     onfocus={() => { focused = true; if (!readOnly) search(text); }} {oninput} {onblur} {onkeydown} data-fieldtype="Link" />
   {#if value && target}
+    {#if !readOnly}
+      <button type="button" class="clear" aria-label="Limpar {label || target} ({value})" title="Limpar {label || target} ({value})" onmousedown={(e) => e.preventDefault()} onclick={clear}>×</button>
+    {/if}
     <a class="open" href={`${wsPrefix}/${encodeURIComponent(target)}/${encodeURIComponent(value)}`} title="Abrir {label || target}{value ? ` (${value})` : ""}">↗</a>
   {/if}
   {#if open && !readOnly && options.length}
-    <div class="options" role="listbox" use:anchored={{ anchor: inputEl, matchWidth: true, gap: 2 }}>
+    <div class="options" role="listbox" use:anchored={{ anchor: inputEl, matchWidth: true, gap: 2, content: options.length }}>
       {#each options as o, i}
         <div role="option" tabindex="-1" aria-selected={i === active} class:active={i === active} onmousedown={() => pick(o)}>
           <div>{getOptionTitle(o)}</div>
