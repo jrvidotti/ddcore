@@ -1,9 +1,10 @@
 <script lang="ts">
   import { __, doctypeLabel } from "$lib/boot.svelte";
   import type { ListViewOptions } from "$lib/desk-sdk";
-  import { isLayout, type Field, type Meta } from "$lib/meta";
+  import type { Field, Meta } from "$lib/meta";
   import { formatValue, statusColor } from "$lib/format";
   import { getLinkTitle } from "$lib/titles.svelte";
+  import { resolveCardFields } from "./card-fields";
 
   let { rows, meta, doctype, wsPrefix, selected, settings = {}, onToggle, cellText, loading = false }: {
     rows: any[]; meta: Meta; doctype: string; wsPrefix: string; selected: Set<string>;
@@ -11,9 +12,8 @@
     cellText?: (row: any, field: Field) => string; loading?: boolean;
   } = $props();
   const card = $derived(settings.card || {});
-  const titleField = $derived(card.title || meta.doctype.titleField || "name");
+  const cardInfo = $derived(resolveCardFields(meta.doctype, settings.card));
   const statusField = $derived(meta.doctype.fields.find((f) => f.fieldname === "status"));
-  const keyFields = $derived(meta.doctype.fields.filter((f) => f.inListView && f.fieldname && !isLayout(f) && f.fieldtype !== "Table" && ![titleField, card.subtitle, card.dateField, "status"].includes(f.fieldname)).slice(0, 3));
 
   function text(row: any, name: string) {
     const field = meta.doctype.fields.find((f) => f.fieldname === name);
@@ -43,16 +43,16 @@
     <article class="card record" class:selected={selected.has(row.name)}>
       <header>
         <input type="checkbox" aria-label={__("Select {0}", [row.name])} checked={selected.has(row.name)} onclick={(e) => e.stopPropagation()} onchange={() => onToggle(row.name)} />
-        <a class="title" href={`${wsPrefix}/${encodeURIComponent(doctype)}/${encodeURIComponent(row.name)}`}>{text(row, titleField) || row.name}</a>
+        <a class="title" href={`${wsPrefix}/${encodeURIComponent(doctype)}/${encodeURIComponent(row.name)}`}>{text(row, cardInfo.title) || row.name}</a>
         {#if ind}<span class="indicator {ind.color}">{ind.label}</span>{/if}
       </header>
-      {#if card.subtitle}<div class="subtitle muted">{text(row, card.subtitle)}</div>{/if}
-      {#if keyFields.length}
-        <dl>{#each keyFields as field}<div><dt>{field.label}</dt><dd>{text(row, field.fieldname!)}</dd></div>{/each}</dl>
+      {#if cardInfo.subtitle}<div class="subtitle muted">{text(row, cardInfo.subtitle)}</div>{/if}
+      {#if cardInfo.keyFields.length}
+        <dl>{#each cardInfo.keyFields as field}<div><dt>{field.label}</dt><dd>{text(row, field.fieldname!)}</dd></div>{/each}</dl>
       {/if}
-      {#if card.dateField || badges.length}
+      {#if cardInfo.dateField || badges.length}
         <footer>
-          {#if card.dateField}<span class="muted small">{text(row, card.dateField)}</span>{/if}
+          {#if cardInfo.dateField}<span class="muted small">{text(row, cardInfo.dateField)}</span>{/if}
           <span class="badges">{#each badges as badge (badge.label)}<span class="indicator {badge.color}">{badge.label}</span>{/each}</span>
         </footer>
       {/if}

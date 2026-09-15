@@ -4,9 +4,10 @@
   import type { CalendarViewOptions } from "$lib/desk-sdk";
   import type { Meta } from "$lib/meta";
   import { dayNames, getCalendarDays, monthTitles } from "$lib/controls/date-format";
-  import { fromDatetimeLocal, today, toDatetimeLocal } from "$lib/datetime";
+  import { fromDatetimeLocal, today } from "$lib/datetime";
   import { statusColor } from "$lib/format";
   import Icon from "../Icon.svelte";
+  import { groupCalendarRows, isCalendarDatetime } from "./calendar-state";
 
   let { rows, meta, doctype, wsPrefix, calendar, viewYear = Number(today().slice(0, 4)), viewMonth = Number(today().slice(5, 7)), onMonthChange }: {
     rows: any[]; meta: Meta; doctype: string; wsPrefix: string; calendar: CalendarViewOptions;
@@ -17,20 +18,9 @@
   const days = $derived(getCalendarDays(viewYear, viewMonth));
   const titleField = $derived(calendar.titleField || meta.doctype.titleField || "name");
   const colorField = $derived(meta.doctype.fields.find((f) => f.fieldname === (calendar.colorField || "status")));
-  const dateField = $derived(meta.doctype.fields.find((f) => f.fieldname === calendar.field));
+  const isDatetime = $derived(isCalendarDatetime(meta.doctype.fields, calendar.field));
   const todayIso = $derived(today());
-  const byDay = $derived.by(() => {
-    const groups = new Map<string, any[]>();
-    for (const row of rows) {
-      const value = row[calendar.field];
-      const iso = dateField?.fieldtype === "Datetime" ? toDatetimeLocal(value).slice(0, 10) : String(value ?? "").slice(0, 10);
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) continue;
-      const group = groups.get(iso) || [];
-      group.push(row);
-      groups.set(iso, group);
-    }
-    return groups;
-  });
+  const byDay = $derived(groupCalendarRows(rows, calendar.field, meta.doctype.fields));
 
   // Notify on first render too, so the parent fetches overflow days in the grid.
   $effect(() => {
@@ -64,7 +54,7 @@
       {#each days as day (day.iso)}
         <div class="day" class:outside={!day.isCurrentMonth} class:today={day.iso === todayIso}>
           {#if meta.permissions.create}
-            {@const prefill = dateField?.fieldtype === "Datetime" ? fromDatetimeLocal(day.iso + "T00:00") : day.iso}
+            {@const prefill = isDatetime ? fromDatetimeLocal(day.iso + "T00:00") : day.iso}
             <a class="day-number create" href={`${wsPrefix}/${encodeURIComponent(doctype)}/new?${encodeURIComponent(calendar.field)}=${encodeURIComponent(prefill || day.iso)}`} aria-label={`${__("New")} — ${day.iso}`} title={`${__("New")} — ${day.iso}`}>{day.day}</a>
           {:else}<span class="day-number">{day.day}</span>{/if}
           <div class="events">

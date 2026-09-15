@@ -22,6 +22,8 @@
   import TableView from "./views/TableView.svelte";
   import CardView from "./views/CardView.svelte";
   import CalendarView from "./views/CalendarView.svelte";
+  import { calendarRangeFilters } from "./views/calendar-state";
+  import { resolveCardFields } from "./views/card-fields";
 
   let { doctype }: { doctype: string } = $props();
   let meta = $state<Meta | null>(null);
@@ -177,14 +179,8 @@
     const out: any[] = [];
     out.push(...buildListFilters(filters, settings.filterOptions));
     if (showDocstatusFilter && docstatusFilter !== "") out.push(["docstatus", "=", Number(docstatusFilter)]);
-    if (currentView === "calendar" && settings.calendar?.field) {
-      const field = settings.calendar.field;
-      const isDatetime = meta?.doctype.fields.find((f) => f.fieldname === field)?.fieldtype === "Datetime";
-      // Postgres timestamps have microsecond precision; include the final day's
-      // last instant after converting its wall-clock time in the site's zone.
-      const rangeStart = isDatetime ? fromDatetimeLocal(`${gridStartIso}T00:00`) : gridStartIso;
-      const rangeEnd = isDatetime ? fromDatetimeLocal(`${gridEndIso}T23:59`)?.replace(":00.000Z", ":59.999999Z") : gridEndIso;
-      out.push([field, ">=", rangeStart], [field, "<=", rangeEnd]);
+    if (currentView === "calendar" && settings.calendar?.field && meta?.doctype?.fields) {
+      out.push(...calendarRangeFilters(settings.calendar.field, meta.doctype.fields, gridStartIso, gridEndIso));
     }
     return out;
   }
@@ -202,14 +198,10 @@
     const version = ++loadVersion;
     loading = true;
     try {
-      const card = settings.card || {};
-      const cardTitle = card.title || meta.doctype.titleField || "name";
-      // Cards use their own first three eligible fields, even when an app has
-      // configured a different set of table columns.
-      const cardFields = meta.doctype.fields.filter((f) => f.inListView && f.fieldname && !isLayout(f) && f.fieldtype !== "Table" && ![cardTitle, card.subtitle, card.dateField, "status"].includes(f.fieldname)).slice(0, 3);
+      const cardInfo = resolveCardFields(meta.doctype, settings.card);
       const calendar = settings.calendar;
       const fields = ["name", "modified", "docstatus", "owner", ...columns.map((c) => c.fieldname!), ...(settings.fields || []),
-        cardTitle, card.subtitle, card.dateField, ...cardFields.map((f) => f.fieldname!),
+        ...cardInfo.fetchFields,
         calendar?.field, calendar?.endField, calendar?.titleField || meta.doctype.titleField, calendar?.colorField,
       ].filter((field): field is string => !!field);
       // Every requested Dynamic Link needs its sibling type field for both

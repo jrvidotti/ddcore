@@ -29,7 +29,11 @@
   <thead>
     <tr>
       <th style="width:28px"><input type="checkbox" aria-label={__("Select all")} checked={rows.length > 0 && rows.every((r) => selected.has(r.name))} onchange={(e) => onSelectAll(e.currentTarget.checked)} /></th>
-      {#if showName}<th><button class="sort" onclick={() => onSort({ fieldname: "name", fieldtype: "Data" })}>{__("Name")}</button></th>{/if}
+      {#if showName}
+        <th aria-sort={orderBy.startsWith("name ") ? (orderBy.endsWith("asc") ? "ascending" : "descending") : "none"}>
+          <button class="sort" onclick={() => onSort({ fieldname: "name", fieldtype: "Data" })}>{__("Name")} {#if orderBy.startsWith("name ")}{orderBy.endsWith("asc") ? "↑" : "↓"}{/if}</button>
+        </th>
+      {/if}
       {#each columns as c}
         <th class:num={num(c)} aria-sort={orderBy.startsWith(c.fieldname + " ") ? (orderBy.endsWith("asc") ? "ascending" : "descending") : "none"}>
           <button class="sort" onclick={() => onSort(c)}>{c.label} {#if orderBy.startsWith(c.fieldname + " ")}{orderBy.endsWith("asc") ? "↑" : "↓"}{/if}</button>
@@ -41,7 +45,7 @@
   </thead>
   <tbody>
     {#each rows as r (r.name)}
-      <tr class="row" style="cursor:pointer" onclick={() => goto(documentUrl(r.name))}>
+      <tr class="row" style="cursor:pointer" tabindex="0" onclick={() => goto(documentUrl(r.name))} onkeydown={(e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); goto(documentUrl(r.name)); } }}>
         <td onclick={(e) => { e.stopPropagation(); onToggle(r.name); }}><input type="checkbox" aria-label={__("Select {0}", [r.name])} checked={selected.has(r.name)} onclick={(e) => e.stopPropagation()} onchange={() => onToggle(r.name)} /></td>
         {#if showName}<td><a href={documentUrl(r.name)} onclick={(e) => e.stopPropagation()}>{r.name}</a></td>{/if}
         {#each columns as c}
@@ -79,4 +83,5 @@
   .badges { display: inline-flex; flex-wrap: wrap; gap: 4px; }
   .sort { border: 0; padding: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
   .sort:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+  .row:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
 </style>
