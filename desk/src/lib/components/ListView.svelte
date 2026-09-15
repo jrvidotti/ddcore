@@ -2,7 +2,7 @@
   // List view generated from meta: standard filters, search, sort, paging, bulk delete.
   import { api } from "$lib/api";
   import { getMeta, selectLabels, selectOptions, type Meta, type Field, isLayout } from "$lib/meta";
-  import { formatValue, statusColor, timeAgo } from "$lib/format";
+  import { formatValue } from "$lib/format";
   import { __, boot, doctypeLabel } from "$lib/boot.svelte";
   import { showError, toast, confirm, dialog } from "$lib/ui.svelte";
   import { getLinkTitle, registerTitles } from "$lib/titles.svelte";
@@ -10,13 +10,18 @@
   import Icon from "./Icon.svelte";
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
   import { subscribe } from "$lib/events";
   import { toCsv, downloadCsv } from "$lib/csv";
-  import { deskSDK } from "$lib/desk-sdk";
-  import { buildListFilters, type ListFilterOption } from "./list-filters";
-  import { clearListFilters, listStateFromSearchParams, listStateToSearchParams, type ListUrlState } from "./list-state";
+  import { deskSDK, type DeskViewMode, type ListViewOptions } from "$lib/desk-sdk";
+  import { fromDatetimeLocal, today } from "$lib/datetime";
+  import { getCalendarDays } from "$lib/controls/date-format";
+  import { buildListFilters } from "./list-filters";
+  import { clearListFilters, listStateFromSearchParams, listStateToSearchParams, resolveAllowedViews, resolveActiveView, type ListUrlState } from "./list-state";
   import { exportChoice, exportChoices, exportUrl } from "./export-options";
+  import TableView from "./views/TableView.svelte";
+  import CardView from "./views/CardView.svelte";
+  import CalendarView from "./views/CalendarView.svelte";
 
   let { doctype }: { doctype: string } = $props();
   let meta = $state<Meta | null>(null);
@@ -37,25 +42,29 @@
   let timer: any;
   let ready = false;
   let lastUrlSearch = "";
+  let isMobile = $state(false);
+  let currentView = $state("list");
+  let loadVersion = 0;
+
+  const initialDate = today();
+  let calendarYear = $state(Number(initialDate.slice(0, 4)));
+  let calendarMonth = $state(Number(initialDate.slice(5, 7)));
+  const initialDays = getCalendarDays(Number(initialDate.slice(0, 4)), Number(initialDate.slice(5, 7)));
+  let gridStartIso = $state(initialDays[0].iso);
+  let gridEndIso = $state(initialDays[initialDays.length - 1].iso);
 
   const workspace = $derived(page.params.workspace || "");
   const wsPrefix = $derived(workspace ? `/app/${encodeURIComponent(workspace)}` : "/app");
 
   // options registered by the app via defineListView(doctype, {...})
-  interface ListSettings {
-    columns?: string[];
-    filters?: Record<string, any>;
-    orderBy?: string;
-    pageSize?: number;
-    formatters?: Record<string, (value: any, row: any) => string>;
-    indicator?: (row: any) => { label: string; color: string } | null | undefined;
-    docstatusFilter?: boolean;
-    modifiedColumn?: boolean;
-    fields?: string[];
-    badges?: (row: any) => { label: string; color: string }[] | null | undefined;
-    filterOptions?: Record<string, ListFilterOption[] | undefined>;
+  const settings = $derived<ListViewOptions>(deskSDK.listSettings(doctype) || {});
+  const allowedViews = $derived(resolveAllowedViews(settings));
+
+  function resolveView(urlView?: string | null) {
+    let storedView: string | null = null;
+    try { if (typeof window !== "undefined") storedView = window.localStorage.getItem(`ddcore_view_${doctype}`); } catch { /* Storage can be disabled by the browser. */ }
+    return resolveActiveView(allowedViews, urlView, storedView, isMobile);
   }
-  const settings = $derived<ListSettings>(deskSDK.listSettings(doctype) || {});
 
   const columns = $derived.by(() => {
     if (!meta) return [] as Field[];
@@ -71,7 +80,6 @@
   });
   /** `defineListView({ docstatusFilter: false })` drops it where a `status` field already tells drafts apart. */
   const showDocstatusFilter = $derived(!!meta?.doctype.submittable && settings.docstatusFilter !== false);
-  const showModifiedColumn = $derived(settings.modifiedColumn !== false);
   const stdFilters = $derived(meta ? meta.doctype.fields.filter((f) => f.inStandardFilter && !isLayout(f)) : []);
   const isDocTypeRef = (f: Field) =>
     f.fieldname === "ref_doctype" || f.fieldname === "reference_doctype" || (!!f.fieldname && f.fieldname.endsWith("_doctype"));
@@ -105,15 +113,6 @@
     return { ...f, reqd: false, readOnly: false, default: undefined };
   }
   const statusField = $derived(meta?.doctype.fields.find((f) => f.fieldname === "status"));
-  /**
-   * Whether to add the trailing indicator column. A `status` field that is
-   * already a visible column does not need a second one beside it — that
-   * column shows the same value with the same colour.
-   */
-  const showIndicatorColumn = $derived(
-    !!settings.indicator ||
-      (!columns.some((c) => c.fieldname === statusField?.fieldname) && (!!statusField || !!meta?.doctype.submittable)),
-  );
   const urlFields = $derived(meta?.doctype.fields.filter((f) => f.fieldname && !isLayout(f)) || []);
   const hasActiveFilters = $derived(Object.values(filters).some((v) => v !== null && v !== undefined && v !== "") || !!search || (showDocstatusFilter && docstatusFilter !== ""));
 
@@ -123,7 +122,7 @@
     };
   }
   function currentListState(): ListUrlState {
-    return { filters: { ...filters }, search, docstatusFilter, orderBy, page: Math.floor(start / pageSize) + 1, pageSize };
+    return { filters: { ...filters }, search, docstatusFilter, orderBy, page: Math.floor(start / pageSize) + 1, pageSize, view: currentView };
   }
   function applyListState(state: ListUrlState) {
     filters = state.filters;
@@ -132,13 +131,29 @@
     orderBy = state.orderBy;
     pageSize = state.pageSize;
     start = (state.page - 1) * state.pageSize;
+    currentView = resolveView(state.view);
   }
   function updateListState(state: ListUrlState) {
     applyListState(state);
     const params = listStateToSearchParams(state, urlFields);
+    // An explicit List choice must also survive another browser's preference.
+    if (state.view) params.set("view", state.view);
     lastUrlSearch = params.size ? `?${params}` : "";
     goto(`${wsPrefix}/${encodeURIComponent(doctype)}${lastUrlSearch}`, { noScroll: true, keepFocus: true });
     load();
+  }
+  function setView(mode: DeskViewMode) {
+    if (!allowedViews.includes(mode)) return;
+    try { if (typeof window !== "undefined") window.localStorage.setItem(`ddcore_view_${doctype}`, mode); } catch { /* URL state still works without storage. */ }
+    updateListState({ ...currentListState(), view: mode });
+  }
+  function changeMonth(year: number, month: number, startIso: string, endIso: string) {
+    const changed = gridStartIso !== startIso || gridEndIso !== endIso;
+    calendarYear = year;
+    calendarMonth = month;
+    gridStartIso = startIso;
+    gridEndIso = endIso;
+    if (changed && ready && currentView === "calendar") load();
   }
   let filterTimer: any;
   function updateFilter(name: string, value: any, debounce = false) {
@@ -161,6 +176,15 @@
     const out: any[] = [];
     out.push(...buildListFilters(filters, settings.filterOptions));
     if (showDocstatusFilter && docstatusFilter !== "") out.push(["docstatus", "=", Number(docstatusFilter)]);
+    if (currentView === "calendar" && settings.calendar?.field) {
+      const field = settings.calendar.field;
+      const isDatetime = meta?.doctype.fields.find((f) => f.fieldname === field)?.fieldtype === "Datetime";
+      // Postgres timestamps have microsecond precision; include the final day's
+      // last instant after converting its wall-clock time in the site's zone.
+      const rangeStart = isDatetime ? fromDatetimeLocal(`${gridStartIso}T00:00`) : gridStartIso;
+      const rangeEnd = isDatetime ? fromDatetimeLocal(`${gridEndIso}T23:59`)?.replace(":00.000Z", ":59.999999Z") : gridEndIso;
+      out.push([field, ">=", rangeStart], [field, "<=", rangeEnd]);
+    }
     return out;
   }
   function buildOr() {
@@ -174,33 +198,56 @@
   }
   async function load() {
     if (!meta) return;
+    const version = ++loadVersion;
     loading = true;
     try {
-      // A Dynamic Link column needs its sibling type column too, even when that
-      // one is not shown: without it the cell links to /app/undefined/<name>
-      // and the server has no DocType to resolve the title against.
-      const dynamicTypes = columns.filter((c) => c.fieldtype === "Dynamic Link" && typeof c.options === "string").map((c) => c.options as string);
-      const fields = ["name", "modified", "docstatus", "owner", ...columns.map((c) => c.fieldname!), ...dynamicTypes, ...(settings.fields || [])];
+      const card = settings.card || {};
+      const cardTitle = card.title || meta.doctype.titleField || "name";
+      // Cards use their own first three eligible fields, even when an app has
+      // configured a different set of table columns.
+      const cardFields = meta.doctype.fields.filter((f) => f.inListView && f.fieldname && !isLayout(f) && f.fieldtype !== "Table" && ![cardTitle, card.subtitle, card.dateField, "status"].includes(f.fieldname)).slice(0, 3);
+      const calendar = settings.calendar;
+      const fields = ["name", "modified", "docstatus", "owner", ...columns.map((c) => c.fieldname!), ...(settings.fields || []),
+        cardTitle, card.subtitle, card.dateField, ...cardFields.map((f) => f.fieldname!),
+        calendar?.field, calendar?.endField, calendar?.titleField || meta.doctype.titleField, calendar?.colorField,
+      ].filter((field): field is string => !!field);
+      // Every requested Dynamic Link needs its sibling type field for both
+      // the rendered link and the API's title resolution.
+      for (const field of meta.doctype.fields) {
+        if (field.fieldname && fields.includes(field.fieldname) && field.fieldtype === "Dynamic Link" && typeof field.options === "string") fields.push(field.options);
+      }
       if (statusField && !fields.includes(statusField.fieldname!)) fields.push(statusField.fieldname!);
-      const res = await api.list(doctype, { filters: buildFilters(), or_filters: buildOr(), fields: [...new Set(fields)], order_by: orderBy || undefined, limit: pageSize, start, with_count: true });
+      const isCalendar = currentView === "calendar" && !!calendar?.field;
+      const res = await api.list(doctype, { filters: buildFilters(), or_filters: buildOr(), fields: [...new Set(fields)], order_by: orderBy || undefined, limit: isCalendar ? 500 : pageSize, start: isCalendar ? 0 : start, with_count: true });
+      if (version !== loadVersion) return;
       rows = res.rows;
       total = res.count;
       if (res.titles) registerTitles(res.titles);
       selected = new Set();
       error = "";
-    } catch (e: any) { error = e.message; showError(e); } finally { loading = false; }
+    } catch (e: any) { if (version === loadVersion) { error = e.message; showError(e); } } finally { if (version === loadVersion) loading = false; }
   }
   $effect(() => {
     const search = page.url.search;
-    if (!ready || !meta || search === lastUrlSearch) return;
-    lastUrlSearch = search;
-    applyListState(listStateFromSearchParams(page.url.searchParams, urlFields, defaultListState()));
-    load();
+    if (!meta) return;
+    untrack(() => {
+      if (!ready || search === lastUrlSearch) return;
+      lastUrlSearch = search;
+      applyListState(listStateFromSearchParams(page.url.searchParams, urlFields, defaultListState()));
+      load();
+    });
   });
   // The cleanup must be registered synchronously: onMount ignores whatever an
   // async callback resolves to, so the subscription would outlive the view.
   onMount(() => {
     let alive = true;
+    isMobile = window.innerWidth < 768;
+    const onResize = () => {
+      isMobile = window.innerWidth < 768;
+      const next = resolveView(page.url.searchParams.get("view"));
+      if (ready && next !== currentView) { currentView = next; load(); }
+    };
+    window.addEventListener("resize", onResize);
     const off = subscribe("list_update", (p: any) => { if (alive && p.doctype === doctype) load(); });
     (async () => {
       try {
@@ -213,14 +260,13 @@
         await load();
       } catch (e: any) { if (alive) { error = e.message; loading = false; showError(e); } }
     })();
-    return () => { alive = false; off(); clearTimeout(timer); };
+    return () => { alive = false; loadVersion++; off(); window.removeEventListener("resize", onResize); clearTimeout(timer); clearTimeout(filterTimer); };
   });
   function onSearch() { clearTimeout(timer); timer = setTimeout(() => updateListState({ ...currentListState(), search, page: 1 }), 250); }
   function sort(f: Field) {
     const cur = orderBy.split(" ");
     updateListState({ ...currentListState(), orderBy: cur[0] === f.fieldname && cur[1] === "asc" ? `${f.fieldname} desc` : `${f.fieldname} asc` });
   }
-  const num = (f: Field) => ["Int", "Float", "Currency", "Percent"].includes(f.fieldtype);
   function docstatusLabel(r: any) { return Number(r.docstatus) === 2 ? __("Cancelled") : Number(r.docstatus) === 1 ? __("Submitted") : __("Draft"); }
   /** The canonical status value — what colours and comparisons key on. */
   function statusOf(r: any) {
@@ -325,6 +371,13 @@
 <div class="page">
   <div class="page-head">
     <h1>{meta?.doctype.label || doctypeLabel(doctype)}</h1>
+    {#if allowedViews.length > 1}
+      <div class="view-switcher">
+        {#if allowedViews.includes("list")}<button class="btn icon" class:active={currentView === "list"} aria-pressed={currentView === "list"} onclick={() => setView("list")} title={__("List")} aria-label={__("List")}><Icon name="list" size={14} /></button>{/if}
+        {#if allowedViews.includes("calendar")}<button class="btn icon" class:active={currentView === "calendar"} aria-pressed={currentView === "calendar"} onclick={() => setView("calendar")} title={__("Calendar")} aria-label={__("Calendar")}><Icon name="calendar" size={14} /></button>{/if}
+        {#if allowedViews.includes("cards")}<button class="btn icon" class:active={currentView === "cards"} aria-pressed={currentView === "cards"} onclick={() => setView("cards")} title={__("Cards")} aria-label={__("Cards")}><Icon name="layout-grid" size={14} /></button>{/if}
+      </div>
+    {/if}
     {#if selected.size && meta?.permissions.delete}<button class="btn danger" onclick={deleteSelected}><Icon name="trash" size={14} />{__("Delete")} ({selected.size})</button>{/if}
     <button class="btn" onclick={load} title={__("Update")}><Icon name="refresh-cw" size={14} /></button>
     {#if meta?.permissions.export}<button class="btn" onclick={openExport} title={__("Export")}><Icon name="download" size={14} /></button>{/if}
@@ -361,82 +414,40 @@
     </div>
   </div>
 
-  <div class="card" style="overflow:auto">
-    <table class="grid">
-      <thead>
-        <tr>
-          <th style="width:28px"><input type="checkbox" checked={rows.length > 0 && selected.size === rows.length} onchange={(e) => (selected = (e.target as HTMLInputElement).checked ? new Set(rows.map((r) => r.name)) : new Set())} /></th>
-          {#if !columns.some((c) => c.fieldname === meta?.doctype.titleField) || meta?.doctype.naming?.field !== meta?.doctype.titleField}
-            <th onclick={() => sort({ fieldname: "name", fieldtype: "Data" })} style="cursor:pointer">{__("Name")}</th>
-          {/if}
-          {#each columns as c}
-            <th class:num={num(c)} onclick={() => sort(c)} style="cursor:pointer">{c.label} {#if orderBy.startsWith(c.fieldname + " ")}{orderBy.endsWith("asc") ? "↑" : "↓"}{/if}</th>
-          {/each}
-          {#if showIndicatorColumn}<th>{__("Status")}</th>{/if}
-          {#if showModifiedColumn}<th class="num">{__("Modified")}</th>{/if}
-        </tr>
-      </thead>
-      <tbody>
-        {#each rows as r (r.name)}
-          <tr class="row" style="cursor:pointer" onclick={() => goto(`${wsPrefix}/${encodeURIComponent(doctype)}/${encodeURIComponent(r.name)}`)}>
-            <td onclick={(e) => { e.stopPropagation(); toggle(r.name); }}><input type="checkbox" checked={selected.has(r.name)} onclick={(e) => e.stopPropagation()} onchange={() => toggle(r.name)} /></td>
-            {#if !columns.some((c) => c.fieldname === meta?.doctype.titleField) || meta?.doctype.naming?.field !== meta?.doctype.titleField}
-              <td><a href={`${wsPrefix}/${encodeURIComponent(doctype)}/${encodeURIComponent(r.name)}`} onclick={(e) => e.stopPropagation()}>{r.name}</a></td>
-            {/if}
-            {#each columns as c}
-              <td class:num={num(c)} class:bold={c.bold} style:font-weight={c.bold ? 600 : undefined}>
-                {#if c.fieldtype === "Link" && r[c.fieldname!]}
-                  {@const linkTarget = c.options}
-                  {@const linkVal = r[c.fieldname!]}
-                  {@const linkTitle = getLinkTitle(linkTarget, linkVal)}
-                  <a href={`${wsPrefix}/${encodeURIComponent(linkTarget)}/${encodeURIComponent(linkVal)}`} title={linkVal} onclick={(e) => e.stopPropagation()}>{linkTitle || linkVal}</a>
-                {:else if c.fieldtype === "Dynamic Link" && r[c.fieldname!]}
-                  {@const linkTarget = r[c.options]}
-                  {@const linkVal = r[c.fieldname!]}
-                  {@const linkTitle = getLinkTitle(linkTarget, linkVal)}
-                  <a href={`${wsPrefix}/${encodeURIComponent(linkTarget)}/${encodeURIComponent(linkVal)}`} title={linkVal} onclick={(e) => e.stopPropagation()}>{linkTitle || linkVal}</a>
-                {:else if c.fieldname === statusField?.fieldname}
-                  <span class="badges"><span class="indicator {statusColor(r[c.fieldname!], c)}">{__(r[c.fieldname!])}</span>{#if !showIndicatorColumn}{@render badges(r)}{/if}</span>
-                {:else}
-                  {cellText(r, c)}
-                {/if}
-              </td>
-            {/each}
-            {#if showIndicatorColumn}
-              <td><span class="badges">
-                {#if settings.indicator}
-                  {@const ind = settings.indicator(r)}
-                  {#if ind}<span class="indicator {ind.color}">{ind.label}</span>{/if}
-                {:else if statusOf(r)}<span class="indicator {statusColor(statusOf(r), statusField ?? undefined)}">{statusLabelOf(r)}</span>{/if}
-                {@render badges(r)}
-              </span></td>
-            {/if}
-            {#if showModifiedColumn}<td class="num muted small">{timeAgo(r.modified)}</td>{/if}
-          </tr>
-        {/each}
-        {#if !loading && !rows.length}
-          <tr><td colspan="20" class="empty">{__("No records")}</td></tr>
+  {#if meta}
+    {#if currentView === "calendar" && settings.calendar}
+      <CalendarView {rows} {meta} {doctype} {wsPrefix} calendar={settings.calendar} viewYear={calendarYear} viewMonth={calendarMonth} onMonthChange={changeMonth} />
+    {:else}
+      <div class:card={currentView !== "cards"} class="list-results">
+        {#if currentView === "cards"}
+          <CardView {rows} {meta} {doctype} {wsPrefix} {selected} {settings} {cellText} {loading} onToggle={toggle} />
+        {:else}
+          <TableView {rows} {meta} {doctype} {wsPrefix} {columns} {selected} {orderBy} {loading} {settings} {cellText} {statusOf} {statusLabelOf} onSort={sort} onToggle={toggle} onSelectAll={(checked) => selected = checked ? new Set(rows.map((r) => r.name)) : new Set()} />
         {/if}
-      </tbody>
-    </table>
-    <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-top:1px solid var(--border)">
-      <span class="muted small">{total} {__("records")}</span>
-      <span class="spacer"></span>
-      <select class="input" style="width:auto" bind:value={pageSize} onchange={() => updateListState({ ...currentListState(), pageSize: Number(pageSize), page: 1 })}>{#each [20, 50, 100, 500] as n}<option value={n}>{n}</option>{/each}</select>
-      <button class="btn sm" disabled={start === 0} onclick={() => updateListState({ ...currentListState(), page: Math.max(1, Math.floor(start / pageSize)) })}><Icon name="chevron-left" size={14} /></button>
-      <span class="small muted">{Math.floor(start / pageSize) + 1} / {Math.max(1, Math.ceil(total / pageSize))}</span>
-      <button class="btn sm" disabled={start + pageSize >= total} onclick={() => updateListState({ ...currentListState(), page: Math.floor(start / pageSize) + 2 })}><Icon name="chevron-right" size={14} /></button>
-    </div>
-  </div>
+        <div class="pagination" class:card={currentView === "cards"}>
+          <span class="muted small">{total} {__("records")}</span>
+          <span class="spacer"></span>
+          <select class="input" style="width:auto" bind:value={pageSize} onchange={() => updateListState({ ...currentListState(), pageSize: Number(pageSize), page: 1 })}>{#each [20, 50, 100, 500] as n}<option value={n}>{n}</option>{/each}</select>
+          <button class="btn sm" disabled={start === 0} onclick={() => updateListState({ ...currentListState(), page: Math.max(1, Math.floor(start / pageSize)) })}><Icon name="chevron-left" size={14} /></button>
+          <span class="small muted">{Math.floor(start / pageSize) + 1} / {Math.max(1, Math.ceil(total / pageSize))}</span>
+          <button class="btn sm" disabled={start + pageSize >= total} onclick={() => updateListState({ ...currentListState(), page: Math.floor(start / pageSize) + 2 })}><Icon name="chevron-right" size={14} /></button>
+        </div>
+      </div>
+    {/if}
+  {/if}
 </div>
 {/if}
 
-{#snippet badges(r: any)}
-  {#each settings.badges?.(r) || [] as b (b.label)}<span class="indicator {b.color}">{b.label}</span>{/each}
-{/snippet}
-
 <style>
-  .badges { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+  .view-switcher { display: flex; }
+  .view-switcher .btn { border-radius: 0; }
+  .view-switcher .btn:first-child { border-radius: var(--radius) 0 0 var(--radius); }
+  .view-switcher .btn:last-child { border-radius: 0 var(--radius) var(--radius) 0; }
+  .view-switcher .btn + .btn { margin-left: -1px; }
+  .view-switcher .active { color: var(--primary); background: var(--bg); position: relative; border-color: var(--primary); }
+  .list-results { overflow: auto; }
+  .pagination { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--border); }
+  .pagination.card { margin-top: 12px; }
   .list-filters { padding: 12px 14px; margin-bottom: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px 10px; align-items: start; }
   .filter-search { grid-column: span 2; min-width: 0; }
   .filter-search label, .select-filter > label, .label-spacer { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
