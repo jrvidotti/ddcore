@@ -5,6 +5,7 @@ API Key,Chave de API,# core.doctypes.api_key.api_key.doctype
 API keys,Chaves de API,# desk/src/lib/components/Profile.svelte:220
 Account,Conta,# desk/src/lib/components/Profile.svelte:134
 Action,Ação,# core.doctypes.audit_event.audit_event.doctype
+Action '{0}' is not valid for {1} {2} in state '{3}',Ação '{0}' não é válida para {1} {2} no estado '{3}',# internal/engine/workflow.go:105
 Active sessions,Sessões ativas,# desk/src/lib/components/Profile.svelte:192
 Actor,Autor,# core.doctypes.audit_event.audit_event.doctype
 Add row,Adicionar linha,# desk/src/lib/controls/Grid.svelte:118
@@ -76,6 +77,7 @@ Closed,Fechado,# desk/src/routes/app/todo/+page.svelte:132
 Comment,Comentário,# desk/src/lib/components/DocSidebar.svelte:158
 Comments,Comentários,# desk/src/lib/components/DocSidebar.svelte:152
 Complete,Concluir,# desk/src/lib/components/DocSidebar.svelte:125
+Condition for action '{0}' was not met,A condição para a ação '{0}' não foi atendida,# internal/engine/workflow.go:146
 Configured,Configurado,# desk/src/lib/controls/Control.svelte:155
 Confirm,Confirmar,# desk/src/lib/ui.svelte.ts:88
 Confirm the new password,Confirme a nova senha,# desk/src/lib/components/Profile.svelte:181
@@ -251,6 +253,7 @@ No permission to amend {0},Sem permissão para emendar {0},# internal/engine/doc
 No permission to complete this task,Sem permissão para concluir esta tarefa,# internal/api/assignments.go:117
 No permission to create {0},Sem permissão para criar {0},# internal/engine/doc.go:418
 No permission to delete {0} {1},Sem permissão para apagar {0} {1},# internal/engine/doc.go:838
+No permission to execute action '{0}' on {1} {2},Sem permissão para executar a ação '{0}' em {1} {2},# internal/engine/workflow.go:125
 No permission to export {0},Sem permissão para exportar {0},# internal/engine/export.go:176
 No permission to list {0},Sem permissão para listar {0},# internal/engine/query.go:175
 No permission to read {0} {1},Sem permissão para ler {0} {1},# internal/api/api.go:973
@@ -262,6 +265,7 @@ No records,Nenhum registro,# desk/src/lib/components/ListView.svelte:418
 No report permission on {0},Sem permissão de relatório em {0},# internal/api/api.go:1045
 No rows,Nenhuma linha,# desk/src/lib/controls/Grid.svelte:113
 No tasks found,Nenhuma tarefa encontrada,# desk/src/routes/app/todo/+page.svelte:149
+No workflow configured for {0},Nenhum workflow configurado para {0},# internal/engine/workflow.go:82
 No workspace declared. Create an app with ddcore new-app and declare a workspace.,Nenhum workspace declarado. Crie um app com ddcore new-app e declare um workspace.,# desk/src/routes/app/+page.svelte:20
 Not saved,Não salvo,# desk/src/lib/components/FormView.svelte:313
 Notification not found,Notificação não encontrada,# internal/engine/notifications.go:315
@@ -341,6 +345,7 @@ Secret hash,Hash do segredo,# core.doctypes.api_key.api_key.doctype
 Secret {0} is not configured on this site,O segredo {0} não está configurado neste site,# internal/engine/secrets.go:64
 See the full history,Ver histórico completo,# desk/src/lib/components/DocHistory.svelte:240
 Seen,Visto,# core.doctypes.error_log.error_log.doctype
+Self-approval is not allowed for action '{0}' on {1} {2},Auto-aprovação não é permitida para a ação '{0}' em {1} {2},# internal/engine/workflow.go:131
 Send the link,Enviar o link,# desk/src/routes/login/forgot/+page.svelte:41
 "Send this event to the receiver again, with the same webhook-id?","Enviar este evento ao receptor novamente, com o mesmo webhook-id?",# core/doctypes/webhook_delivery/webhook_delivery.form.ts:9
 Sent,Enviado,# core.doctypes.email_delivery.email_delivery.doctype

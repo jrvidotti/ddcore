@@ -545,7 +545,7 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 			return nil, cerr.Validation("Direct submit or cancel is disabled for documents governed by workflow '{0}'", wf.Name)
 		}
 	}
-	if !opts.IgnorePermissions && !c.IgnorePermissions() {
+	if !opts.IgnorePermissions && !c.IgnorePermissions() && !c.inWorkflowTransition {
 		ptype := "write"
 		if action == "submit" {
 			ptype = "submit"
