@@ -152,9 +152,9 @@ The two print endpoints take the same query parameters:
 
 `page_format` and `landscape` are written into the HTML's `@page` rule, which is
 what the browser's print dialog and Chrome follow; a PDF command follows them if
-the tool reads `@page`. The PDF endpoint
-also takes `download` — `1` or `true` sends the file as an attachment named
-`<doctype>-<name>.pdf`; otherwise it is inline.
+the tool reads `@page`. The PDF endpoint also takes `download`: `1` or `true`
+sends the file as an attachment named `<doctype>-<name>.pdf`; otherwise it is
+inline.
 
 ## PDF
 
@@ -177,8 +177,8 @@ restart. In order:
 A request waits for a free slot for as long as the request lasts. The limits are
 fixed.
 
-When no renderer is available, or Gotenberg cannot be reached, the PDF endpoint
-answers 503 `UnavailableError`. Any other renderer failure — Gotenberg answering
+When no renderer is available, or Gotenberg cannot be reached or does not start
+answering within the 60 seconds, the PDF endpoint answers 503 `UnavailableError`. Any other renderer failure — Gotenberg answering
 with an error, Chrome or the command failing — is a 500.
 
 ## Desk

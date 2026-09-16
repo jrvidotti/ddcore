@@ -344,6 +344,20 @@ job is never touched whatever its age.
 Like the auth sweep, this is hygiene and never correctness. Nothing may depend on
 it having run: if it never ran, the table would only grow.
 
+## PDF rendering
+
+The print endpoints' PDF renderer is configured by two environment variables,
+read on the first PDF request and kept for the life of the process:
+
+- `DDCORE_GOTENBERG_URL` — the base URL of a Gotenberg service, for example
+  `http://gotenberg:3000`. It takes precedence over everything else.
+- `DDCORE_PDF_COMMAND` — a command that turns `{in}` (an HTML file) into `{out}`
+  (the PDF), for example `weasyprint {in} {out}`.
+
+With neither set, a local Chrome, Chromium, Brave or Edge is used if one is
+found; with none, the PDF endpoint answers 503. Changing either variable needs a
+restart. See [print.md](print.md).
+
 ## What this does not do
 
 There is no `/metrics` endpoint and no OpenTelemetry. The authenticated report
