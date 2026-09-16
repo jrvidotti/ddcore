@@ -19,28 +19,33 @@ Assignments and personal tasks are stored in `tab_to_do` using standard document
 
 Standalone personal tasks have `reference_type` and `reference_name` unset. Document assignments link to a target record.
 
-## Authorization and Security Invariant
+## Authorization
 
 > [!IMPORTANT]
 > **Assignment never grants document access.**
 > An assignment is an operational pointer, not an authorization mechanism. The authenticated user must independently have read permission on the referenced document through role permissions, user permissions, and controller `hasPermission` / `permissionQuery` hooks.
 
-When a user's permission to a referenced document is denied or revoked:
-1. `GET /api/todo/pending` filters out the task from the user's pending work listing.
-2. Direct read attempts to `/api/resource/{doctype}/{name}` return `403 Forbidden`.
-3. Renaming or deleting the referenced document cascades automatically via `referenceFields` cascades in `internal/engine/rename.go`.
+When a user loses read permission on a referenced document, `GET /api/todo/pending` and `GET /api/assignments/{doctype}/{name}` stop showing its tasks to that user, and a direct read of the document through `/api/resource/{doctype}/{name}` returns `403 Forbidden`.
+
+Renaming a document updates `reference_type` and `reference_name` on its ToDos through `coreRefs` in `internal/engine/rename.go`. Deleting a document deletes its ToDos with a direct `DELETE`; no ToDo hooks run.
+
+### Generic ToDo CRUD
+
+`/api/resource/ToDo` follows the ToDo controller. A System Manager can do everything. Anyone else can read and write a ToDo when they are its assigner or its assignee and can read the referenced document, if there is one; only the assigner can delete it. The listing shows the tasks allocated to the caller. On insert, `assigned_by` is set to the creating user; only a System Manager can record another user as assigner.
 
 ## HTTP API
 
-All assignment endpoints require an authenticated user.
+All assignment endpoints require an authenticated user. Assignments are available only over HTTP and through the Desk SDK: there is no server-side `ddcore.assign*` function, CLI command or MCP tool.
 
 | Method | Endpoint | Description |
 | --- | --- | --- |
 | `POST` | `/api/assignments/assign` | Assigns a document to a user. Creates a `ToDo`, adds a `Workflow` Comment on the target document, and notifies the assignee. |
-| `POST` | `/api/assignments/complete` | Closes a `ToDo` (`status: "Closed"`) and adds a timeline Comment. Allowed for the assignee, assigner, or System Manager. |
-| `POST` | `/api/assignments/revoke` | Cancels a `ToDo` (`status: "Cancelled"`) and adds a timeline Comment. Allowed for the assigner or System Manager. |
-| `GET` | `/api/assignments/{doctype}/{name}` | Lists assignments for a specific document. Requires read permission on the document. |
-| `GET` | `/api/todo/pending` | Lists pending work for the current user. Filters out any tasks whose referenced documents are not readable by the caller. |
+| `POST` | `/api/assignments/complete` | Closes a `ToDo` (`status: "Closed"`) and adds a timeline Comment. Allowed for the assignee, the assigner, or a System Manager. |
+| `POST` | `/api/assignments/revoke` | Cancels a `ToDo` (`status: "Cancelled"`) and adds a timeline Comment. Allowed for the assigner, the assignee, or a System Manager. Returns `{ "success": true }`. |
+| `GET` | `/api/assignments/{doctype}/{name}` | Lists the assignments of a document. Requires read permission on the document. |
+| `GET` | `/api/todo/pending` | Lists pending work for the current user, leaving out tasks whose referenced documents the caller cannot read. |
+
+Assignment actions write no `Audit Event`. Nothing prevents a second open assignment of the same document to the same user. Timeline comments are written in English.
 
 ### Assigning a document
 
@@ -56,15 +61,25 @@ Request body:
 }
 ```
 
+The caller needs read permission on the target document. `allocated_to` must be an existing, enabled user. Unknown JSON fields are rejected, and `priority` defaults to `Medium`.
+
+The assignee's notification is written in the assignee's language: the title is "Assigned: {doctype} {name}", and the message is the description, or "{user} assigned {doctype} {name} to you" when there is none. No notification is sent when users assign to themselves, or when the assignee cannot read the document. A failed notification or timeline comment is logged instead of being returned as the endpoint's error.
+
 Response: `{ "data": ToDoDoc }`
+
+### Listing a document's assignments
+
+Anyone who can read the document sees every assignment on it, whoever the assignee is. Cancelled tasks are left out, and at most 100 are returned, newest first.
 
 ### Listing pending work
 
 Query parameters:
 - `limit`: number of records per page (default: 20, max: 100).
 - `offset`: page offset (default: 0).
-- `status`: filter by status (`Open`, `Closed`, or omit for all).
-- `scope`: `assigned_to_me` (default) or `assigned_by_me`.
+- `status`: `Open` (the default), `Closed`, `Cancelled`, or `all` for every status.
+- `scope`: `assigned_by_me` lists tasks the caller assigned; any other value, or none, lists tasks assigned to the caller.
+
+The endpoint loads at most 1000 candidate tasks, newest first, then drops those whose referenced document the caller cannot read, then pages. A user with more than 1000 matching tasks can see truncated results. `total` is the count after the access check.
 
 Response:
 ```json
@@ -110,7 +125,7 @@ const pending = await ddcore.assignments.pending({
 ## Due Date Reminders
 
 The core app registers a date-driven persistent notification rule (`core.todo_due`) on `ToDo`:
-- Evaluated daily during scheduler notification sweeps (`e.SweepNotifications`).
+- Evaluated by the notification sweep, which the scheduler queues every five minutes while it is running.
 - Triggers for open `ToDo` items where `date` is today.
 - Generates a persistent Desk notification for the assignee (`allocated_to`).
 - Deduplicated via the notification log to ensure users receive at most one reminder per task due date.
