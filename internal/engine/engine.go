@@ -862,8 +862,12 @@ func (c *Ctx) WithSavepoint(fn func() error) error {
 	}
 	pending := len(c.afterCommit)
 	if err := fn(); err != nil {
-		c.Tx.Exec(c.Ctx, "ROLLBACK TO SAVEPOINT "+sp)
-		c.Tx.Exec(c.Ctx, "RELEASE SAVEPOINT "+sp)
+		if _, rbErr := c.Tx.Exec(c.Ctx, "ROLLBACK TO SAVEPOINT "+sp); rbErr != nil {
+			c.E.Log.Warn("could not roll back to savepoint", "savepoint", sp, "err", rbErr)
+		}
+		if _, relErr := c.Tx.Exec(c.Ctx, "RELEASE SAVEPOINT "+sp); relErr != nil {
+			c.E.Log.Warn("could not release savepoint", "savepoint", sp, "err", relErr)
+		}
 		c.afterCommit = c.afterCommit[:pending]
 		c.docCache = map[string]Doc{}
 		return err

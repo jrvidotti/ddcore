@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/js"
 )
 
@@ -385,13 +386,15 @@ func TestWorkflow_DeleteGuard(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "in workflow state 'Pending Approval'") {
 		t.Fatalf("expected delete of a pending document to be refused, got %v", err)
 	}
-	if err := e.Run(ctx, "autor@x.com", func(c *Ctx) error { return c.Delete("Artigo", pending, true, false) }); err == nil {
-		t.Fatalf("expected ignorePerms to still refuse the delete")
+	err = e.Run(ctx, "autor@x.com", func(c *Ctx) error { return c.Delete("Artigo", pending, true, false) })
+	if err == nil || cerr.From(err).Type != "PermissionError" || !strings.Contains(err.Error(), "in workflow state 'Pending Approval'") {
+		t.Fatalf("expected ignorePerms to still refuse the delete with a PermissionError, got %v", err)
 	}
-	if err := e.Run(ctx, "autor@x.com", func(c *Ctx) error {
+	err = e.Run(ctx, "autor@x.com", func(c *Ctx) error {
 		return c.WithIgnorePermissions(func() error { return c.Delete("Artigo", pending, false, false) })
-	}); err == nil {
-		t.Fatalf("expected c.IgnorePermissions() to still refuse the delete")
+	})
+	if err == nil || cerr.From(err).Type != "PermissionError" || !strings.Contains(err.Error(), "in workflow state 'Pending Approval'") {
+		t.Fatalf("expected c.IgnorePermissions() to still refuse the delete with a PermissionError, got %v", err)
 	}
 
 	// an Editor, whose role satisfies "Pending Approval"'s allowEdit, may delete
@@ -424,11 +427,13 @@ func TestWorkflow_DBSetGuard(t *testing.T) {
 			return err
 		}
 		name := saved.Name()
-		if err := c.SetValue("Artigo", name, Doc{"workflow_state": "Approved"}); err == nil {
-			t.Fatalf("expected a DBSet of the state field to be refused")
+		if err := c.SetValue("Artigo", name, Doc{"workflow_state": "Approved"}); err == nil ||
+			cerr.From(err).Type != "ValidationError" || !strings.Contains(err.Error(), "Cannot manually modify workflow state field") {
+			t.Fatalf("expected a DBSet of the state field to be refused with a ValidationError, got %v", err)
 		}
-		if err := c.SetValue("Artigo", name, Doc{"docstatus": 1}); err == nil {
-			t.Fatalf("expected a DBSet of docstatus to be refused")
+		if err := c.SetValue("Artigo", name, Doc{"docstatus": 1}); err == nil ||
+			cerr.From(err).Type != "ValidationError" || !strings.Contains(err.Error(), "Direct submit or cancel is disabled") {
+			t.Fatalf("expected a DBSet of docstatus to be refused with a ValidationError, got %v", err)
 		}
 		if err := c.SetValue("Artigo", name, Doc{"status": "Anything"}); err != nil {
 			t.Fatalf("expected a DBSet of another field to succeed, got %v", err)
@@ -442,8 +447,8 @@ func TestWorkflow_DBSetGuard(t *testing.T) {
 		// not lift the guard either — only a workflow transition does
 		if err := c.WithIgnorePermissions(func() error {
 			return c.SetValue("Artigo", name, Doc{"workflow_state": "Draft"})
-		}); err == nil {
-			t.Fatalf("expected a DBSet with c.IgnorePermissions() to still be refused")
+		}); err == nil || cerr.From(err).Type != "ValidationError" || !strings.Contains(err.Error(), "Cannot manually modify workflow state field") {
+			t.Fatalf("expected a DBSet with c.IgnorePermissions() to still be refused with a ValidationError, got %v", err)
 		}
 		return nil
 	})
@@ -520,6 +525,13 @@ BEGIN RAISE EXCEPTION 'induced failure'; END $$ LANGUAGE plpgsql;
 CREATE TRIGGER ddcore_test_fail BEFORE INSERT ON tab_comment FOR EACH ROW EXECUTE FUNCTION ddcore_test_fail();`); err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() {
+		if _, err := e.DB.Pool.Exec(ctx, `
+DROP TRIGGER IF EXISTS ddcore_test_fail ON tab_comment;
+DROP FUNCTION IF EXISTS ddcore_test_fail();`); err != nil {
+			t.Fatalf("cleanup: %v", err)
+		}
+	})
 	if err := e.Run(ctx, "autor@x.com", func(c *Ctx) error {
 		_, err := c.ApplyWorkflowTransition("Artigo", name, "Submit for Approval")
 		return err
