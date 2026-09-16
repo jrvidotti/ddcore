@@ -55,14 +55,14 @@ export default definePrintTemplate({
       (doc.items || []).map((item: any) => [
         item.description,
         item.qty,
-        ctx.formatCurrency(item.rate, doc.currency),
-        ctx.formatCurrency(item.amount, doc.currency),
+        ctx.formatCurrency(item.rate),
+        ctx.formatCurrency(item.amount),
       ])
     ),
     b.keyValues([
-      [_("Subtotal"), ctx.formatCurrency(doc.subtotal, doc.currency)],
-      [_("Taxes"), ctx.formatCurrency(doc.taxes, doc.currency)],
-      [_("Grand Total"), ctx.formatCurrency(doc.grand_total, doc.currency)],
+      [_("Subtotal"), ctx.formatCurrency(doc.subtotal)],
+      [_("Taxes"), ctx.formatCurrency(doc.taxes)],
+      [_("Grand Total"), ctx.formatCurrency(doc.grand_total)],
     ]),
   ],
 });
@@ -84,10 +84,10 @@ The print block builder provides typed, auto-escaping components designed for CS
 ### The Print Context (`ctx`)
 
 `ctx` provides locale-aware formatting utilities:
-- `ctx.formatCurrency(value, currency?)`: Formats numeric amounts using site or document currency and user locale (e.g. `R$ 1.500,00` or `$1,500.00`).
-- `ctx.formatDate(value)`: Formats civil dates (e.g. `14/09/2026`).
-- `ctx.formatDatetime(value)`: Formats timestamps in the site timezone.
-- `ctx.lang`: The target language code (`"pt-BR"`, `"en"`, etc.).
+- `ctx.formatCurrency(value)`: Formats an amount with two decimals in the print language (e.g. `1.500,00`). It carries **no currency symbol**; for `R$ 1.500,00` use `ddcore.utils.formatCurrency(value)`, which follows the site currency.
+- `ctx.formatDate(value)`: Formats civil dates — `dd/mm/yyyy` for `pt*` languages (e.g. `14/09/2026`), ISO otherwise.
+- `ctx.formatDateTime(value)`: Returns the timestamp as stored.
+- `ctx.formatNumber(value, decimals = 2)`: Formats a number in the print language.
 
 ---
 

@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"sync"
 	"testing"
@@ -765,3 +766,89 @@ func TestWorkflow_AvailableActionsAndValidationErrors(t *testing.T) {
 	}
 }
 
+
+// TestWorkflow_ApplyWorkflowFromTS covers doc.applyWorkflow, the server-side
+// binding: it runs the same checks and lifecycle hooks as the HTTP endpoint,
+// and an amendment of the cancelled document starts over at the initial state.
+func TestWorkflow_ApplyWorkflowFromTS(t *testing.T) {
+	e := setupWith(t, workflowTestFiles())
+	setupWorkflowTestUsers(t, e)
+	ctx := context.Background()
+
+	eval := func(user, code string) (json.RawMessage, error) {
+		var out json.RawMessage
+		err := e.Run(ctx, user, func(c *Ctx) error {
+			rt, err := c.RT()
+			if err != nil {
+				return err
+			}
+			out, err = rt.Eval(code)
+			return err
+		})
+		return out, err
+	}
+
+	raw, err := eval("autor@x.com", `(() => {
+		const d = ddcore.newDoc("Artigo", { titulo: "Via TS", conteudo: "Detailed content" }).insert();
+		d.applyWorkflow("Submit for Approval");
+		return { name: d.name, state: d.workflow_state, docstatus: d.docstatus };
+	})()`)
+	if err != nil {
+		t.Fatalf("applyWorkflow as autor failed: %v", err)
+	}
+	var r struct {
+		Name      string `json:"name"`
+		State     string `json:"state"`
+		Docstatus int    `json:"docstatus"`
+	}
+	if err := json.Unmarshal(raw, &r); err != nil {
+		t.Fatal(err)
+	}
+	if r.State != "Pending Approval" || r.Docstatus != 0 {
+		t.Fatalf("expected Pending Approval/0, got %+v", r)
+	}
+
+	// the role check is not skipped because the call comes from app code
+	_, err = eval("autor@x.com", `ddcore.getDoc("Artigo", "`+r.Name+`").applyWorkflow("Reject")`)
+	if err == nil || !strings.Contains(err.Error(), "No permission") {
+		t.Fatalf("expected permission error for autor rejecting, got %v", err)
+	}
+
+	raw, err = eval("editor@x.com", `(() => {
+		const d = ddcore.getDoc("Artigo", "`+r.Name+`").applyWorkflow("Reject");
+		return { name: d.name, state: d.workflow_state, docstatus: d.docstatus };
+	})()`)
+	if err != nil {
+		t.Fatalf("applyWorkflow as editor failed: %v", err)
+	}
+	if err := json.Unmarshal(raw, &r); err != nil {
+		t.Fatal(err)
+	}
+	if r.State != "Rejected" || r.Docstatus != 2 {
+		t.Fatalf("expected Rejected/2, got %+v", r)
+	}
+
+	err = e.Run(ctx, "Administrator", func(c *Ctx) error {
+		if v, _ := c.GetValue("Artigo", r.Name, "cancel_hook_ran"); toFloat(v) != 1 {
+			t.Fatalf("expected onCancel to run, got %v", v)
+		}
+		draft, err := c.Amend("Artigo", r.Name)
+		if err != nil {
+			return err
+		}
+		if draft.Str("workflow_state") != "" {
+			t.Fatalf("expected amend to clear the state, got %q", draft.Str("workflow_state"))
+		}
+		saved, err := c.Insert(draft, SaveOpts{})
+		if err != nil {
+			return err
+		}
+		if saved.Str("workflow_state") != "Draft" {
+			t.Fatalf("expected amended document in Draft, got %q", saved.Str("workflow_state"))
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("amend failed: %v", err)
+	}
+}

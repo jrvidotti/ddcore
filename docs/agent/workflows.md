@@ -94,6 +94,28 @@ The ddcore engine strictly protects workflow integrity at the database layer:
 5. **Atomic Row Locking (`FOR UPDATE`):**
    Transitions execute under a PostgreSQL row lock (`SELECT ... FOR UPDATE`). Concurrent approval requests serialize safely: the first caller transitions the state, and the subsequent caller reads the updated state, encounters an invalid transition from the new state, and fails cleanly with `ValidationError` without duplicating side effects.
 
+## Server-side transitions
+
+A document governed by a workflow cannot be submitted or cancelled with `doc.submit()` /
+`doc.cancel()`, not even with `ignorePermissions`. App code — tests, fixtures, scheduled jobs,
+patches — applies the action instead:
+
+```ts
+const order = ddcore.getDoc<Order>("Order", "ORD-0001");
+order.applyWorkflow("Approve"); // reloads `order` with the new state and docstatus
+```
+
+`doc.applyWorkflow(action)` runs the same transition as `POST /api/workflow/apply`: the caller's
+roles, `allowSelfApproval` and `condition` are checked, the row is locked, `before/onSubmit` or
+`before/onCancel` run when the target state's docstatus changes, and the audit event and timeline
+comment are written. The document must already be saved. `Administrator` passes every role and
+self-approval check, which is what a test running as `Administrator` relies on.
+
+## Amending
+
+Amending a cancelled document clears the state field on the copy, so the amendment starts over at
+`initialState` when it is inserted.
+
 ## Audit trail and timeline comments
 
 Every workflow transition generates verifiable audit and history records:

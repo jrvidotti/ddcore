@@ -138,6 +138,10 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		return c.Save(a.Doc, saveOpts(a.Opts))
 	case "doc.cancel":
 		return c.Cancel(a.Doc)
+	case "doc.applyWorkflow":
+		// the same transition POST /api/workflow/apply runs: role, self-approval,
+		// condition, row lock, audit and timeline comment
+		return c.ApplyWorkflowTransition(a.Doctype, nameStr(), a.Action)
 	case "doc.delete":
 		return nil, c.Delete(a.Doctype, nameStr(), a.Opts["ignorePermissions"] == true, a.Opts["force"] == true)
 	case "doc.dbSet":

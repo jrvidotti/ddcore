@@ -770,6 +770,10 @@ func (c *Ctx) Amend(doctype, name string) (Doc, error) {
 		delete(doc, k)
 	}
 	doc["docstatus"], doc["__islocal"] = 0, true
+	// the amendment starts the workflow over: a copied state would be refused on insert
+	if wf := c.WorkflowFor(doctype); wf != nil {
+		delete(doc, wf.StateField)
+	}
 	if d.Field("amended_from") != nil {
 		doc["amended_from"] = name
 	}

@@ -515,6 +515,8 @@ export interface Document<T = any> {
   save(opts?: { ignorePermissions?: boolean; ignoreVersion?: boolean }): this;
   submit(): this;
   cancel(): this;
+  /** runs a workflow action on the saved document, as the Desk's action buttons do */
+  applyWorkflow(action: string): this;
   delete(): void;
   reload(): this;
   /** write columns directly, bypassing validate (allowed after submit) */

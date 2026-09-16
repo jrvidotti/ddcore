@@ -522,6 +522,7 @@
     save(opts) { return this._apply(call("doc.save", { doc: this, opts })); }
     submit() { this.docstatus = 1; return this.save(); }
     cancel() { return this._apply(call("doc.cancel", { doc: this })); }
+    applyWorkflow(action) { return this._apply(call("doc.applyWorkflow", { doctype: this.doctype, name: this.name, action })); }
     delete(opts) { call("doc.delete", { doctype: this.doctype, name: this.name, opts }); }
     reload() { return this._apply(call("getDoc", { doctype: this.doctype, name: this.name })); }
     dbSet(field, value) {
