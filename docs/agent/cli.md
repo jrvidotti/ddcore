@@ -18,7 +18,7 @@ flag is an error (it never becomes an argument silently).
 | `ddcore migrate [--dry-run] [--prune]` | beforeSchema patches → DDL → afterInstall + fixtures → afterSchema patches → the drops → afterMigrate, in one transaction; then generates types. `--dry-run` reports the plan; a rename or conversion it cannot make safely is refused and nothing is applied (`migrations`) |
 | `ddcore types` | generates `.ddcore/types.d.ts` and materialises the embedded SDK typings per app |
 | `ddcore i18n extract [--app n\|--all] [--lang pt-BR] [--check] [--prune]` | rewrites `translations/<lang>.csv` from the code; `--check` reports and exits non-zero |
-| `ddcore test [--filter re] [-v]` | runs `*.test.ts` (each `it` in a rolled-back transaction) |
+| `ddcore test [--app name] [--filter re] [-v]` | runs `*.test.ts` (each `it` in a rolled-back transaction) |
 | `ddcore exec app.mod.fn --args '{}'` | runs a function as Administrator |
 | `ddcore eval '<ts>' [--commit]` | runs loose TS with `ddcore.*` (rolls back by default) |
 | `ddcore demo [--app name]` | runs `<app>.services.demo.generate` for every app that has `services/demo.ts` |

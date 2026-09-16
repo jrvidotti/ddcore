@@ -87,11 +87,18 @@ type LoginPage struct {
 
 const Name = "ddcore.json"
 
+// Default is the configuration a site gets when ddcore.json says nothing. Load
+// starts from it and `ddcore init` writes it, so a freshly created file loads
+// as written: a zero in a policy block is a refusal, not "use the default".
+func Default() *File {
+	return &File{Apps: []string{}, Port: 8080, Workers: 2, Lang: "pt-BR", Currency: "BRL",
+		Timezone: "UTC", Auth: DefaultAuth(), Ops: DefaultOps()}
+}
+
 // Load reads ddcore.json from dir (or its parents) and applies env overrides.
 func Load(dir string) (*File, string, error) {
 	path, err := find(dir)
-	f := &File{Port: 8080, Workers: 2, Lang: "pt-BR", Currency: "BRL", Timezone: "UTC",
-		Auth: DefaultAuth(), Ops: DefaultOps()}
+	f := Default()
 	if err == nil {
 		b, err := os.ReadFile(path)
 		if err != nil {
@@ -193,6 +200,36 @@ func find(dir string) (string, error) {
 		}
 		d = parent
 	}
+}
+
+// Edit changes ddcore.json in dir (or its parents) through fn and saves it
+// when fn reports a change. It works on the file as written, not on what Load
+// resolves: a DSN from .env or an app directory made absolute must never end
+// up in the committed file. A result that Load would refuse is not saved.
+func Edit(dir string, fn func(f *File, path string) bool) (string, error) {
+	path, err := find(dir)
+	if err != nil {
+		return "", fmt.Errorf("%s not found (run `ddcore init`): %w", Name, err)
+	}
+	orig, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	f := Default()
+	if err := json.Unmarshal(orig, f); err != nil {
+		return "", fmt.Errorf("%s: %w", path, err)
+	}
+	if !fn(f, path) {
+		return path, nil
+	}
+	if err := f.Save(path); err != nil {
+		return "", err
+	}
+	if _, _, err := Load(filepath.Dir(path)); err != nil {
+		_ = os.WriteFile(path, orig, 0o644)
+		return "", err
+	}
+	return path, nil
 }
 
 func (f *File) Save(path string) error {

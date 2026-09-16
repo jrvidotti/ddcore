@@ -233,7 +233,7 @@ func BuildServer(app App, includeTests bool) (*Bundle, error) {
 		AbsWorkingDir: absDir(app.Dir),
 	})
 	if len(res.Errors) > 0 {
-		return nil, fmt.Errorf("erro ao compilar app %s:\n%s", app.Name, formatMessages(res.Errors))
+		return nil, fmt.Errorf("cannot compile app %s:\n%s", app.Name, formatMessages(res.Errors))
 	}
 	return &Bundle{App: app.Name, Code: string(res.OutputFiles[0].Contents), Files: files}, nil
 }
@@ -291,7 +291,7 @@ func BuildClient(app App, entry string) (string, error) {
 		AbsWorkingDir: absDir(app.Dir),
 	})
 	if len(res.Errors) > 0 {
-		return "", fmt.Errorf("erro ao compilar %s/%s:\n%s", app.Name, entry, formatMessages(res.Errors))
+		return "", fmt.Errorf("cannot compile %s/%s:\n%s", app.Name, entry, formatMessages(res.Errors))
 	}
 	return string(res.OutputFiles[0].Contents), nil
 }

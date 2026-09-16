@@ -287,3 +287,59 @@ func TestLoginDemoAccountNeedsBoth(t *testing.T) {
 		t.Errorf("a user without a password is dropped, got %+v", f.Login)
 	}
 }
+
+// `ddcore init` writes Default; the next command must be able to read it back.
+func TestDefaultSurvivesASaveAndLoad(t *testing.T) {
+	clearMailEnv(t)
+	dir := t.TempDir()
+	if err := Default().Save(filepath.Join(dir, Name)); err != nil {
+		t.Fatal(err)
+	}
+	f, _, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load of a saved Default: %v", err)
+	}
+	if f.Auth != DefaultAuth() {
+		t.Errorf("auth changed on the round trip: %+v", f.Auth)
+	}
+}
+
+// Edit works on the file as written: what the environment overrides and what
+// Load resolves must not be committed.
+func TestEditKeepsTheEnvironmentOutOfTheFile(t *testing.T) {
+	clearMailEnv(t)
+	dir := site(t, `{"dsn":"postgres://file","apps":["apps/one"]}`)
+	t.Setenv("DDCORE_DSN", "postgres://secret-from-env")
+	if _, err := Edit(dir, func(f *File, _ string) bool {
+		f.Apps = append(f.Apps, "apps/two")
+		return true
+	}); err != nil {
+		t.Fatalf("Edit: %v", err)
+	}
+	b, err := os.ReadFile(filepath.Join(dir, Name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(b)
+	if strings.Contains(s, "secret-from-env") || !strings.Contains(s, "postgres://file") {
+		t.Errorf("the environment's DSN leaked into the file:\n%s", s)
+	}
+	if !strings.Contains(s, `"apps/one"`) || !strings.Contains(s, `"apps/two"`) || strings.Contains(s, dir) {
+		t.Errorf("apps should stay relative as written:\n%s", s)
+	}
+}
+
+func TestEditDoesNotSaveWhatLoadRefuses(t *testing.T) {
+	clearMailEnv(t)
+	const body = `{"dsn":"postgres://file"}`
+	dir := site(t, body)
+	if _, err := Edit(dir, func(f *File, _ string) bool {
+		f.Auth.SessionDays = 0
+		return true
+	}); err == nil {
+		t.Fatal("expected Edit to refuse a zero sessionDays")
+	}
+	if b, _ := os.ReadFile(filepath.Join(dir, Name)); string(b) != body {
+		t.Errorf("the refused edit was left on disk:\n%s", b)
+	}
+}
