@@ -2,6 +2,7 @@
 // locale rather than fixed at "mm/yyyy". See date-format.ts for the reasoning.
 
 import { monthNames, monthShape } from "../locale";
+import { partAt, type DateStep } from "./date-format";
 
 /** Abbreviated month names for the month picker's grid. */
 export const monthLabelsShort = (): string[] => monthNames("short");
@@ -78,4 +79,35 @@ export function maskMonthInput(raw: string): string {
   if (n === 0) m = "01";
   else if (n > 12) m = "12";
   return y ? `${m}${sep}${y}` : `${m}${sep}`;
+}
+
+/**
+ * Steps the month or the year under the caret by `delta` — see stepDate. The
+ * month wraps within the year without carrying; an empty input fills with the
+ * month of `todayIso`.
+ */
+export function stepMonth(text: string, caret: number, delta: number, todayIso: string): DateStep | null {
+  const { monthFirst, sep } = monthShape();
+  const order = monthFirst ? (["month", "year"] as const) : (["year", "month"] as const);
+  const locate = (iso: string, kind: "month" | "year"): DateStep => {
+    const idx = order.indexOf(kind);
+    const start = idx === 0 ? 0 : (order[0] === "year" ? 4 : 2) + sep.length;
+    return { text: formatMonth(iso), iso, start, end: start + (kind === "year" ? 4 : 2) };
+  };
+
+  const current = text.trim();
+  if (!current) {
+    const today = parseMonth(todayIso);
+    return today ? locate(today.iso, order[partAt("", caret, 2)]) : null;
+  }
+  const p = parseMonth(current);
+  if (!p) return null;
+
+  // a pasted ISO is year first whatever the locale writes
+  const own = /^\d{4}-/.test(current) ? (["year", "month"] as const) : order;
+  const kind = own[partAt(current, caret, 2)];
+  let { year, month } = p;
+  if (kind === "month") month = ((((month - 1 + delta) % 12) + 12) % 12) + 1;
+  else year = Math.min(9999, Math.max(1000, year + delta));
+  return locate(`${year}-${String(month).padStart(2, "0")}-01`, kind);
 }

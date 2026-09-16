@@ -305,6 +305,7 @@ Only submitted documents can be cancelled,Só documentos enviados podem ser canc
 Open,Aberto,# desk/src/routes/app/todo/+page.svelte:131
 Open menu,Abrir menu,# desk/src/routes/+layout.svelte:162
 Open the full history,Abrir histórico completo,# desk/src/lib/components/DocSidebar.svelte:182
+Open the date picker,Abrir seletor de data,# desk/src/lib/controls/DateControl.svelte:235
 Open the month picker,Abrir seletor de mês,# desk/src/lib/controls/MonthControl.svelte:181
 "Optional DocType to restrict this rule to. If empty, applies globally.","DocType opcional para restringir esta regra. Se vazio, aplica globalmente.",# core.doctypes.user_permission.user_permission.doctype
 Origin,Origem,# core.doctypes.email_delivery.email_delivery.doctype

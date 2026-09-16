@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { useLocale } from "../locale.test";
 import {
-  daysInMonth, formatDateLocal, getCalendarDays, maskDateInput, parseDateLocal,
+  daysInMonth, formatDateLocal, getCalendarDays, maskDateInput, parseDateLocal, stepDate,
 } from "./date-format";
-import { formatMonth, maskMonthInput, parseMonth } from "./month-format";
+import { formatMonth, maskMonthInput, parseMonth, stepMonth } from "./month-format";
 
 // This used to be date-format.test.mjs, asserting "dd/mm/yyyy" and Portuguese
 // month names. It is now parameterised by locale — and it runs under vitest,
@@ -118,5 +118,54 @@ describe("getCalendarDays", () => {
     expect(apr[0].month).toBe(3);
     expect(apr[3].isCurrentMonth).toBe(true);
     expect(apr[3].day).toBe(1);
+  });
+});
+
+describe("stepDate", () => {
+  const TODAY = "2026-09-16";
+
+  it("steps the part under the caret, in the locale's order", () => {
+    useLocale("pt-BR");
+    expect(stepDate("16/09/2026", 0, 1, TODAY)).toEqual({ text: "17/09/2026", iso: "2026-09-17", start: 0, end: 2 });
+    expect(stepDate("16/09/2026", 2, 1, TODAY)?.text).toBe("17/09/2026"); // right after the day still counts
+    expect(stepDate("16/09/2026", 4, -1, TODAY)).toEqual({ text: "16/08/2026", iso: "2026-08-16", start: 3, end: 5 });
+    expect(stepDate("16/09/2026", 10, 1, TODAY)).toEqual({ text: "16/09/2027", iso: "2027-09-16", start: 6, end: 10 });
+
+    useLocale("en-US", "USD");
+    expect(stepDate("09/16/2026", 0, 1, TODAY)).toEqual({ text: "10/16/2026", iso: "2026-10-16", start: 0, end: 2 });
+    expect(stepDate("09/16/2026", 4, 1, TODAY)).toEqual({ text: "09/17/2026", iso: "2026-09-17", start: 3, end: 5 });
+  });
+
+  it("wraps each part without carrying, and clamps the day", () => {
+    useLocale("pt-BR");
+    expect(stepDate("30/09/2026", 0, 1, TODAY)?.iso).toBe("2026-09-01");
+    expect(stepDate("01/09/2026", 0, -1, TODAY)?.iso).toBe("2026-09-30");
+    expect(stepDate("16/12/2026", 3, 1, TODAY)?.iso).toBe("2026-01-16");
+    expect(stepDate("31/01/2026", 3, 1, TODAY)?.iso).toBe("2026-02-28");
+    expect(stepDate("29/02/2024", 6, 1, TODAY)?.iso).toBe("2025-02-28");
+  });
+
+  it("fills an empty input with today, and leaves a half-typed one alone", () => {
+    useLocale("pt-BR");
+    expect(stepDate("", 0, 1, TODAY)).toEqual({ text: "16/09/2026", iso: "2026-09-16", start: 0, end: 2 });
+    expect(stepDate("16/0", 4, 1, TODAY)).toBe(null);
+  });
+
+  it("reads a pasted ISO in its own order", () => {
+    useLocale("pt-BR");
+    expect(stepDate("2026-09-16", 0, 1, TODAY)).toEqual({ text: "16/09/2027", iso: "2027-09-16", start: 6, end: 10 });
+  });
+});
+
+describe("stepMonth", () => {
+  const TODAY = "2026-09-16";
+
+  it("steps the month or the year under the caret", () => {
+    useLocale("pt-BR");
+    expect(stepMonth("09/2026", 0, 1, TODAY)).toEqual({ text: "10/2026", iso: "2026-10-01", start: 0, end: 2 });
+    expect(stepMonth("09/2026", 5, -1, TODAY)).toEqual({ text: "09/2025", iso: "2025-09-01", start: 3, end: 7 });
+    expect(stepMonth("12/2026", 1, 1, TODAY)?.iso).toBe("2026-01-01");
+    expect(stepMonth("", 0, 1, TODAY)?.text).toBe("09/2026");
+    expect(stepMonth("0", 1, 1, TODAY)).toBe(null);
   });
 });

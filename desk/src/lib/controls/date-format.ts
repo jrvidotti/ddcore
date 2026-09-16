@@ -127,6 +127,62 @@ export function maskDateInput(raw: string): string {
   return out.join(sep) + (done ? sep : "");
 }
 
+/** What an arrow key leaves in the input: the new text, its ISO, and the part to select. */
+export interface DateStep {
+  text: string;
+  iso: string;
+  start: number;
+  end: number;
+}
+
+/** Which part the caret is in: the separators before it, counted. */
+export function partAt(text: string, caret: number, parts: number): number {
+  const before = text.slice(0, Math.max(0, caret)).replace(/\d/g, "").length;
+  return Math.min(before, parts - 1);
+}
+
+/**
+ * Steps the part of the date under the caret by `delta`, as a native date
+ * input does with the arrow keys. Each part wraps within itself without
+ * carrying — day 31 goes up to day 1 of the same month — and the day is
+ * clamped when the month or year changes under it (31/01 → 28/02).
+ *
+ * An empty input fills with `todayIso` rather than stepping, so the first
+ * press lands on today. Text that does not parse yet is left alone: stepping
+ * would throw away what the user is typing.
+ */
+export function stepDate(text: string, caret: number, delta: number, todayIso: string): DateStep | null {
+  const { order, sep, widths } = shape();
+  const locate = (iso: string, idx: number): DateStep => {
+    const out = formatDateLocal(iso);
+    let start = 0;
+    for (let i = 0; i < idx; i++) start += widths[i] + sep.length;
+    return { text: out, iso, start, end: start + widths[idx] };
+  };
+
+  const current = text.trim();
+  if (!current) {
+    const today = parseDateLocal(todayIso);
+    return today ? locate(today.iso, partAt("", caret, order.length)) : null;
+  }
+  const p = parseDateLocal(current);
+  if (!p) return null;
+
+  // a pasted ISO is year-month-day whatever the locale writes
+  const own = ISO.test(current) ? (["year", "month", "day"] as const) : order;
+  const kind = own[partAt(current, caret, own.length)];
+  const wrap = (n: number, size: number) => ((((n - 1) % size) + size) % size) + 1;
+
+  let { year, month, day } = p;
+  if (kind === "day") day = wrap(day + delta, daysInMonth(year, month));
+  else if (kind === "month") month = wrap(month + delta, 12);
+  else year = Math.min(9999, Math.max(1000, year + delta));
+  day = Math.min(day, daysInMonth(year, month));
+
+  const iso = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  return locate(iso, order.indexOf(kind));
+}
+
 export interface CalendarDay {
   day: number;
   month: number;

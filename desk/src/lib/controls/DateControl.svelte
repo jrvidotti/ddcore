@@ -4,6 +4,7 @@
   import { anchored } from "./floating";
   import type { Field } from "$lib/meta";
   import Icon from "$lib/components/Icon.svelte";
+  import { dateShape } from "$lib/locale";
   import {
     dayNames,
     monthTitles,
@@ -12,6 +13,7 @@
     getCalendarDays,
     maskDateInput,
     parseDateLocal,
+    stepDate,
     type CalendarDay,
   } from "./date-format.ts";
 
@@ -92,9 +94,13 @@
   }
 
   function onInput(e: Event) {
-    const raw = (e.target as HTMLInputElement).value;
-    text = maskDateInput(raw);
-    if (text.length === 10) {
+    const target = e.target as HTMLInputElement;
+    text = maskDateInput(target.value);
+    // written back by hand: when the mask drops a keystroke, `text` does not
+    // change, so the render would leave the extra character in the input
+    target.value = text;
+    // complete once every digit is in, whatever the separator's width
+    if (text.replace(/\D/g, "").length === 8) {
       const p = parseDateLocal(text);
       if (p) {
         viewYear = p.year;
@@ -107,13 +113,15 @@
   function onKeyDown(e: KeyboardEvent) {
     if (e.key === "Backspace") {
       const target = e.target as HTMLInputElement;
+      const { sep } = dateShape();
       if (
-        text.endsWith("/") &&
+        text.endsWith(sep) &&
         target.selectionStart === target.selectionEnd &&
         target.selectionStart === text.length
       ) {
+        // the separator was typed by the mask, so it goes with the digit before it
         e.preventDefault();
-        text = text.slice(0, -2);
+        text = text.slice(0, -(sep.length + 1));
       }
     } else if (e.key === "Enter") {
       commit();
@@ -127,6 +135,21 @@
     } else if ((e.key === "ArrowDown" || e.key === "Down") && e.altKey) {
       e.preventDefault();
       togglePicker();
+    } else if ((e.key === "ArrowUp" || e.key === "ArrowDown") && !e.altKey && !e.ctrlKey && !e.metaKey) {
+      // the part under the caret steps, as in a native date input
+      if (readOnly) return;
+      e.preventDefault();
+      const target = e.target as HTMLInputElement;
+      const s = stepDate(text, target.selectionStart ?? 0, e.key === "ArrowUp" ? 1 : -1, todayIso);
+      if (s) {
+        text = s.text;
+        viewYear = Number(s.iso.slice(0, 4));
+        viewMonth = Number(s.iso.slice(5, 7));
+        onchange(s.iso);
+        // written now, not on the next render, so the selection has text to land on
+        target.value = s.text;
+        target.setSelectionRange(s.start, s.end);
+      }
     }
   }
 
@@ -212,7 +235,7 @@
       type="button"
       class="cal-btn"
       tabindex="-1"
-      aria-label="Abrir seletor de data"
+      aria-label={__("Open the date picker")}
       onmousedown={(e) => e.preventDefault()}
       onclick={togglePicker}
     >
@@ -267,11 +290,11 @@
 
       <div class="popover-foot">
         <button type="button" class="btn-link" onclick={pickToday}>
-          Hoje
+          {__("Today")}
         </button>
         {#if value}
           <button type="button" class="btn-link muted" onclick={clearDate}>
-            Limpar
+            {__("Clear")}
           </button>
         {/if}
       </div>
