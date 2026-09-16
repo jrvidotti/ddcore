@@ -8,7 +8,7 @@
   import { notifications, stopNotifications } from "$lib/notifications.svelte";
   import { pendingTasks } from "$lib/assignments.svelte";
   import { disconnectEvents } from "$lib/events";
-  import { systemDoctypes } from "./sidebar";
+  import { isActiveLink, systemDoctypes } from "./sidebar";
   import {
     resolveActiveWorkspace,
     rememberWorkspace,
@@ -20,7 +20,7 @@
   let { open = $bindable(true) }: { open?: boolean } = $props();
   const workspaces = $derived((boot.data?.workspaces || []) as WorkspaceItem[]);
   const current = $derived(page.url.pathname);
-  const active = (href: string) => current === href || current.startsWith(href + "/") || current.startsWith(href + "?");
+  const active = (href: string) => isActiveLink(current, href, workspaces.map((w) => w.name));
 
   let remembered = $state(getRememberedWorkspace());
   const activeWorkspace = $derived(resolveActiveWorkspace({

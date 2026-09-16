@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { systemDoctypes } from "./sidebar";
+import { isActiveLink, systemDoctypes } from "./sidebar";
 import type { Boot } from "$lib/boot.svelte";
 
 function bootWith(roles: string[]): Boot {
@@ -37,5 +37,30 @@ describe("systemDoctypes", () => {
 
   it("survives being asked before the boot payload arrived", () => {
     expect(systemDoctypes(null)).toEqual([]);
+  });
+});
+
+describe("isActiveLink", () => {
+  const ws = ["Alugueis", "Manutencao"];
+
+  it("lights a DocType link on its list and its forms", () => {
+    expect(isActiveLink("/app/Alugueis/Contrato", "/app/Alugueis/Contrato", ws)).toBe(true);
+    expect(isActiveLink("/app/Alugueis/Contrato/CTR-1", "/app/Alugueis/Contrato", ws)).toBe(true);
+    expect(isActiveLink("/app/Alugueis/Imovel", "/app/Alugueis/Contrato", ws)).toBe(false);
+  });
+
+  it("lights the workspace dashboard only on the dashboard", () => {
+    expect(isActiveLink("/app/Alugueis", "/app/Alugueis", ws)).toBe(true);
+    expect(isActiveLink("/app/alugueis/", "/app/Alugueis", ws)).toBe(true);
+    expect(isActiveLink("/app/Alugueis/Contrato", "/app/Alugueis", ws)).toBe(false);
+  });
+
+  it("treats the legacy dashboard route the same way", () => {
+    expect(isActiveLink("/app/Alugueis", "/app/workspace/Alugueis", ws)).toBe(true);
+    expect(isActiveLink("/app/Alugueis/Contrato", "/app/workspace/Alugueis", ws)).toBe(false);
+  });
+
+  it("matches encoded names", () => {
+    expect(isActiveLink("/app/Alugueis/Configuracao%20Alugueis", "/app/Alugueis/Configuracao%20Alugueis", ws)).toBe(true);
   });
 });
