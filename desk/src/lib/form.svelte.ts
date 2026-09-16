@@ -106,7 +106,13 @@ export class FormController {
 
   // ------------------------------------------------------------- doc state
   get isSingle() { return !!this.meta.doctype.isSingle; }
-  get isNew() { return !!this.doc.__islocal || !this.doc.name; }
+  /**
+   * A Single is never new: before its first save the server already answers with
+   * the declared defaults, which are the settings in effect (`__islocal` only says
+   * no row was written yet). Treating it as new labelled it "New" and hid its menu
+   * and sidebar.
+   */
+  get isNew() { return !this.isSingle && (!!this.doc.__islocal || !this.doc.name); }
   isNewDoc() { return this.isNew; }
   get isDirty() { return JSON.stringify(this.doc) !== this.original; }
   get docstatus(): number { return Number(this.doc.docstatus || 0); }

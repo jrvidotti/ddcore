@@ -72,10 +72,13 @@
 </script>
 
 <aside class="doc-sidebar">
-  <div class="small muted">
-    <div>{__("Created by")} <b>{frm.doc.owner}</b> · {formatDatetime(frm.doc.creation)}</div>
-    <div>{__("Modified by")} <b>{frm.doc.modified_by}</b> · {timeAgo(frm.doc.modified)}</div>
-  </div>
+  <!-- a Single never saved has nobody and no date to show -->
+  {#if frm.doc.creation}
+    <div class="small muted">
+      <div>{__("Created by")} <b>{frm.doc.owner}</b> · {formatDatetime(frm.doc.creation)}</div>
+      <div>{__("Modified by")} <b>{frm.doc.modified_by}</b> · {timeAgo(frm.doc.modified)}</div>
+    </div>
+  {/if}
 
   {#if !frm.isNew}
     <div class="block">

@@ -31,6 +31,9 @@ defineForm<Entry>("Entry", {
 `trigger(field)`, `save()`, `submit()`, `cancel()`, `reload()`, `discardChanges()`,
 `call(method, args, { reload })` → calls the controller's `methods.<method>` and reloads the doc.
 
+`isNew` is always `false` on a Single: before its first save the form already holds the declared
+defaults, which are the settings in effect.
+
 ### Field width and layout
 
 A form is laid out by sizing its fields, not by splitting it into columns: a line is four slots

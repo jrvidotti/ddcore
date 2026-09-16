@@ -24,6 +24,7 @@ export interface Frm<T extends BaseDoc = BaseDoc> {
   doc: T;
   doctype: string;
   meta: { doctype: any; children: Record<string, any>; permissions: Record<string, boolean> };
+  /** `false` on a Single, even before its first save. */
   readonly isNew: boolean;
   readonly isDirty: boolean;
   readonly docstatus: number;

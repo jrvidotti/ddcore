@@ -22,6 +22,12 @@ describe("Single forms", () => {
   expect(frm.readOnly).toBe(true);
   expect(frm.isFieldEditable(frm.meta.doctype.fields[0])).toBe(false);
  });
+ it("is not new before its first save", () => {
+  const frm = new FormController(meta(true), {doctype:"Settings",name:"singleton",__islocal:true,enabled:true});
+  expect(frm.isNew).toBe(false);
+  expect(frm.isNewDoc()).toBe(false);
+  expect(frm.isDirty).toBe(false);
+ });
  it("uses PUT for the first save", async () => {
   const frm = new FormController(meta(true), {doctype:"Settings",name:"singleton",__islocal:true,enabled:false});
   vi.mocked(api.update).mockResolvedValue({doctype:"Settings",name:"singleton",enabled:false});
