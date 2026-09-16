@@ -811,6 +811,9 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 	if err != nil {
 		return modified, err
 	}
+	if d.Name == "Audit Event" {
+		return modified, cerr.Permission("Audit Event records are immutable and cannot be modified")
+	}
 	if d.IsSingle {
 		if name != "singleton" {
 			return modified, cerr.Validation("Invalid Single identity for {0}", d.Name)
