@@ -186,3 +186,121 @@ func TestPendingWork_FiltersUnauthorizedDocuments(t *testing.T) {
 	x.expect(r, 403, "")
 }
 
+// ToDo's permissionQuery narrows every listing to allocated_to = user. The
+// assignment endpoints must show the assigner their tasks and every assignee
+// the other assignees of a document they can read.
+func TestAssignments_ParticipantsSeeEachOther(t *testing.T) {
+	x := setup(t)
+	ana, bia, ze := "sid:"+x.sid("ana@x.com"), "sid:"+x.sid("bia@x.com"), "sid:"+x.sid("ze@x.com")
+
+	r := x.call("POST", "/api/resource/Pessoa", map[string]any{"nome": "Shared Doc"}, ana)
+	x.expect(r, 200, "")
+	for _, who := range []string{"bia@x.com", "root@x.com"} {
+		r = x.call("POST", "/api/assignments/assign", map[string]any{
+			"doctype": "Pessoa", "name": "Shared Doc", "allocated_to": who,
+		}, ana)
+		x.expect(r, 200, "")
+	}
+
+	// Ana (Gestor, not System Manager) sees both tasks she assigned.
+	r = x.call("GET", "/api/todo/pending?scope=assigned_by_me", nil, ana)
+	x.expect(r, 200, "")
+	if got := r.Body["data"].(map[string]any)["data"].([]any); len(got) != 2 {
+		t.Fatalf("assigner expected 2 tasks under assigned_by_me, got %d: %v", len(got), got)
+	}
+	// Assigned to Ana: nothing.
+	r = x.call("GET", "/api/todo/pending", nil, ana)
+	x.expect(r, 200, "")
+	if got := r.Body["data"].(map[string]any)["data"].([]any); len(got) != 0 {
+		t.Fatalf("assigner expected 0 tasks assigned to her, got %v", got)
+	}
+
+	// Bia, one of the assignees, sees every assignee in the document sidebar.
+	r = x.call("GET", "/api/assignments/Pessoa/Shared Doc", nil, bia)
+	x.expect(r, 200, "")
+	if got := r.Body["data"].([]any); len(got) != 2 {
+		t.Fatalf("assignee expected 2 assignments on the document, got %d: %v", len(got), got)
+	}
+	// The generic listing stays allocated-to-only.
+	r = x.call("GET", "/api/resource/ToDo", nil, bia)
+	x.expect(r, 200, "")
+	if got := r.Body["data"].([]any); len(got) != 1 {
+		t.Fatalf("generic ToDo listing expected 1 row for bia, got %d: %v", len(got), got)
+	}
+
+	// Ze cannot read the document: 403 on the sidebar.
+	r = x.call("GET", "/api/assignments/Pessoa/Shared Doc", nil, ze)
+	x.expect(r, 403, "")
+
+	// Bia assigns too; once she loses read access (she is not the owner),
+	// her assigned_by_me list hides the task.
+	r = x.call("POST", "/api/assignments/assign", map[string]any{
+		"doctype": "Pessoa", "name": "Shared Doc", "allocated_to": "ze@x.com",
+	}, bia)
+	x.expect(r, 200, "")
+	r = x.call("GET", "/api/todo/pending?scope=assigned_by_me", nil, bia)
+	x.expect(r, 200, "")
+	if got := r.Body["data"].(map[string]any)["data"].([]any); len(got) != 1 {
+		t.Fatalf("bia expected 1 task under assigned_by_me, got %v", got)
+	}
+	x.asAdmin(func(c *engine.Ctx) error {
+		_, err := c.Q().Exec(c.Ctx, `DELETE FROM tab_has_role WHERE parent='bia@x.com' AND role='Gestor'`)
+		return err
+	})
+	x.e.Cache.Del("roles:bia@x.com")
+	r = x.call("GET", "/api/todo/pending?scope=assigned_by_me", nil, bia)
+	x.expect(r, 200, "")
+	if got := r.Body["data"].(map[string]any)["data"].([]any); len(got) != 0 {
+		t.Fatalf("assigner without read access expected 0 tasks, got %v", got)
+	}
+	r = x.call("GET", "/api/assignments/Pessoa/Shared Doc", nil, bia)
+	x.expect(r, 403, "")
+}
+
+func TestToDo_AssignedByCannotBeSpoofed(t *testing.T) {
+	x := setup(t)
+	bia, root := "sid:"+x.sid("bia@x.com"), "sid:"+x.sid("root@x.com")
+
+	r := x.call("POST", "/api/resource/ToDo", map[string]any{
+		"description": "Spoofed", "allocated_to": "bia@x.com", "assigned_by": "ana@x.com",
+	}, bia)
+	x.expect(r, 200, "")
+	if got := r.Body["data"].(map[string]any)["assigned_by"]; got != "bia@x.com" {
+		t.Fatalf("assigned_by = %v, want bia@x.com", got)
+	}
+
+	r = x.call("POST", "/api/resource/ToDo", map[string]any{
+		"description": "On behalf", "allocated_to": "bia@x.com", "assigned_by": "ana@x.com",
+	}, root)
+	x.expect(r, 200, "")
+	if got := r.Body["data"].(map[string]any)["assigned_by"]; got != "ana@x.com" {
+		t.Fatalf("System Manager assigned_by = %v, want ana@x.com", got)
+	}
+}
+
+func TestAssignments_NotificationInRecipientLanguage(t *testing.T) {
+	x := setup(t)
+	ana, bia := "sid:"+x.sid("ana@x.com"), "sid:"+x.sid("bia@x.com")
+	x.asAdmin(func(c *engine.Ctx) error {
+		_, err := c.Q().Exec(c.Ctx, `UPDATE tab_user SET language='pt-BR' WHERE name='bia@x.com'`)
+		return err
+	})
+
+	r := x.call("POST", "/api/resource/Pessoa", map[string]any{"nome": "Lang Doc"}, ana)
+	x.expect(r, 200, "")
+	r = x.call("POST", "/api/assignments/assign", map[string]any{
+		"doctype": "Pessoa", "name": "Lang Doc", "allocated_to": "bia@x.com",
+	}, ana)
+	x.expect(r, 200, "")
+
+	r = x.call("GET", "/api/notifications", nil, bia)
+	x.expect(r, 200, "")
+	items := r.Body["data"].(map[string]any)["data"].([]any)
+	if len(items) != 1 {
+		t.Fatalf("expected 1 notification, got %v", items)
+	}
+	n := items[0].(map[string]any)
+	if n["title"] != "Atribuído: Pessoa Lang Doc" || n["message"] != "ana@x.com atribuiu Pessoa Lang Doc a você" {
+		t.Fatalf("notification not in recipient language: %v", n)
+	}
+}

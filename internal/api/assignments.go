@@ -80,16 +80,26 @@ func (s *Server) assignDoc(w http.ResponseWriter, r *http.Request) {
 			"content":           commentContent,
 		})
 		if err == nil {
-			_, _ = c.Insert(comment, engine.SaveOpts{})
+			_, err = c.Insert(comment, engine.SaveOpts{})
+		}
+		if err != nil {
+			c.E.Log.Warn("assignment timeline comment failed", "doctype", body.Doctype, "name", body.Name, "err", err)
 		}
 
-		// 3. Dispatch persistent notification
-		title := fmt.Sprintf("Assigned: %s %s", body.Doctype, body.Name)
+		// 3. Dispatch persistent notification, written in the assignee's language
+		lang := c.RecipientLang([]string{body.AllocatedTo})
+		label := body.Doctype
+		if d, err := c.St.DocType(body.Doctype); err == nil {
+			label = c.St.I18n.T(lang, d.Label)
+		}
+		title := c.St.I18n.T(lang, "Assigned: {0} {1}", label, body.Name)
 		msg := body.Description
 		if msg == "" {
-			msg = fmt.Sprintf("%s assigned %s %s to you", c.User, body.Doctype, body.Name)
+			msg = c.St.I18n.T(lang, "{0} assigned {1} {2} to you", c.User, label, body.Name)
 		}
-		_ = c.NotifyUser(body.AllocatedTo, body.Doctype, body.Name, title, msg)
+		if err := c.NotifyUser(body.AllocatedTo, body.Doctype, body.Name, title, msg); err != nil {
+			c.E.Log.Warn("assignment notification failed", "doctype", body.Doctype, "name", body.Name, "user", body.AllocatedTo, "err", err)
+		}
 
 		return inserted, nil
 	})
@@ -196,15 +206,18 @@ func (s *Server) listDocAssignments(w http.ResponseWriter, r *http.Request) {
 		if err := s.requireDocRead(c, doctype, name); err != nil {
 			return nil, err
 		}
+		// Anyone who can read the document sees every assignee, not only the
+		// rows ToDo's permissionQuery would leave them (allocated_to = user).
 		return c.GetList("ToDo", engine.ListArgs{
+			IgnorePermissions: true,
 			Filters: map[string]any{
 				"reference_type": doctype,
 				"reference_name": name,
 				"status":         []any{"!=", "Cancelled"},
 			},
-			Fields:   []string{"name", "status", "priority", "date", "allocated_to", "assigned_by", "description", "creation", "modified"},
-			OrderBy:  "creation desc",
-			Limit:    100,
+			Fields:  []string{"name", "status", "priority", "date", "allocated_to", "assigned_by", "description", "creation", "modified"},
+			OrderBy: "creation desc",
+			Limit:   100,
 		})
 	})
 }
@@ -243,11 +256,15 @@ func (s *Server) pendingWork(w http.ResponseWriter, r *http.Request) {
 			filters["allocated_to"] = c.User
 		}
 
+		// The participant filter above replaces ToDo's permissionQuery, which
+		// would hide assigned_by_me tasks allocated to someone else; the
+		// referenced document is still rechecked per row below.
 		allCandidates, err := c.GetList("ToDo", engine.ListArgs{
-			Filters: filters,
-			Fields:  []string{"name", "status", "priority", "date", "allocated_to", "assigned_by", "description", "reference_type", "reference_name", "creation", "modified"},
-			OrderBy: "creation desc",
-			Limit:   1000,
+			IgnorePermissions: true,
+			Filters:           filters,
+			Fields:            []string{"name", "status", "priority", "date", "allocated_to", "assigned_by", "description", "reference_type", "reference_name", "creation", "modified"},
+			OrderBy:           "creation desc",
+			Limit:             1000,
 		})
 		if err != nil {
 			return nil, err

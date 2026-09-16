@@ -10,8 +10,11 @@ function canReadReference(doctype: string, docname: string): boolean {
 
 export default defineController("ToDo", {
   beforeInsert(doc) {
-    if (!doc.assigned_by) {
-      doc.assigned_by = ddcore.user();
+    // Only a System Manager may record a ToDo on someone else's behalf.
+    const user = ddcore.user();
+    const roles = ddcore.getRoles(user) || [];
+    if (roles.indexOf("System Manager") < 0 || !doc.assigned_by) {
+      doc.assigned_by = user;
     }
   },
   permissionQuery(user) {

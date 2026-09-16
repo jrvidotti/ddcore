@@ -36,6 +36,7 @@ Assigned by me,Atribuídos por mim,# desk/src/routes/app/todo/+page.svelte:119
 Assigned by {0},Atribuído por {0},# desk/src/routes/app/todo/+page.svelte:195
 Assigned to me,Atribuídos para mim,# desk/src/routes/app/todo/+page.svelte:110
 Assigned to {0},Atribuído para {0},# desk/src/routes/app/todo/+page.svelte:197
+Assigned: {0} {1},Atribuído: {0} {1},# internal/api/assignments.go:95
 Assigning...,Atribuindo...,# desk/src/lib/components/AssignModal.svelte:118
 Assignment due today: {0},Tarefa com vencimento hoje: {0},# core/notifications/todo_due.notification.ts:10
 Attach,Anexar,# desk/src/lib/controls/AttachControl.svelte:32
@@ -273,7 +274,7 @@ No permission for this file,Sem permissão para este arquivo,# internal/api/api.
 No permission for workspace {0},Sem permissão para o workspace {0},# internal/api/api.go:1154
 No permission for {0},Sem permissão para {0},# internal/api/api.go:601
 No permission to amend {0},Sem permissão para emendar {0},# internal/engine/doc.go:766
-No permission to complete this task,Sem permissão para concluir esta tarefa,# internal/api/assignments.go:118
+No permission to complete this task,Sem permissão para concluir esta tarefa,# internal/api/assignments.go:128
 No permission to create {0},Sem permissão para criar {0},# internal/engine/doc.go:418
 No permission to delete {0} {1},Sem permissão para apagar {0} {1},# internal/engine/doc.go:921
 No permission to execute action '{0}' on {1} {2},Sem permissão para executar a ação '{0}' em {1} {2},# internal/engine/workflow.go:125
@@ -281,7 +282,7 @@ No permission to export {0},Sem permissão para exportar {0},# internal/engine/e
 No permission to list {0},Sem permissão para listar {0},# internal/engine/query.go:187
 No permission to read {0} {1},Sem permissão para ler {0} {1},# internal/engine/doc.go:302
 No permission to rename {0},Sem permissão para renomear {0},# internal/engine/doc.go:1018
-No permission to revoke this task,Sem permissão para revogar esta tarefa,# internal/api/assignments.go:165
+No permission to revoke this task,Sem permissão para revogar esta tarefa,# internal/api/assignments.go:175
 No permission to submit {0},Sem permissão para enviar {0},# internal/engine/doc.go:424
 No recipient,Sem destinatário,# internal/engine/mailqueue.go:101
 No records,Nenhum registro,# desk/src/lib/components/ReportView.svelte:133
@@ -523,7 +524,7 @@ getValue: invalid fields,getValue: fields inválido,# internal/engine/host.go:16
 http: {0},http: {0},# internal/engine/host.go:588
 invalid arguments in {0}: {1},argumentos inválidos em {0}: {1},# internal/engine/host.go:82
 job {0} timed out,job {0} excedeu o tempo limite,# internal/engine/jobs.go:127
-name is required,name é obrigatório,# internal/api/assignments.go:107
+name is required,name é obrigatório,# internal/api/assignments.go:117
 never,nunca,# desk/src/lib/components/Profile.svelte:235
 patch sql: {0},sql do patch: {0},# internal/engine/query.go:435
 records,registros,# desk/src/lib/components/ListView.svelte:432
@@ -537,6 +538,7 @@ webhook payload for {0} is not JSON: {1},o conteúdo do webhook para {0} não é
 "{0} ""{1}"" already exists on {2} {3}","{0} ""{1}"" já existe em {2} {3}",# internal/engine/doc.go:1415
 {0} already exists,{0} já existe,# internal/engine/doc.go:1506
 {0} already exists on {1} {2},{0} já existe em {1} {2},# internal/engine/doc.go:1452
+{0} assigned {1} {2} to you,{0} atribuiu {1} {2} a você,# internal/api/assignments.go:98
 {0} cannot be changed after submission,Não é permitido alterar {0} depois do envio,# internal/engine/doc.go:1567
 {0} cannot be renamed,{0} não permite renomear,# internal/engine/doc.go:1011
 {0} cannot be watched by a webhook,{0} não pode ser observado por um webhook,# internal/engine/webhooks.go:572
