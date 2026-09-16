@@ -237,6 +237,11 @@ func New(e *engine.Engine) *mcp.Server {
 			err := s.run(ctx, func(c *engine.Ctx) error {
 				var e error
 				rows, e = c.GetList(in.Doctype, engine.ListArgs{Filters: in.Filters, Fields: in.Fields, OrderBy: in.OrderBy, Limit: in.Limit, Start: in.Start})
+				if d, err := c.St.DocType(in.Doctype); err == nil {
+					for _, r := range rows {
+						engine.RedactPassword(d, engine.Doc(r))
+					}
+				}
 				return e
 			})
 			if err != nil {
@@ -383,6 +388,11 @@ func New(e *engine.Engine) *mcp.Server {
 					res, err := rt.RunMethod(in.Doctype, in.Method, doc.JSON(), b)
 					if err != nil {
 						return err
+					}
+					var rdoc engine.Doc
+					if json.Unmarshal(res.Doc, &rdoc) == nil && rdoc != nil {
+						out = map[string]any{"result": res.Result, "doc": c.RedactDoc(in.Doctype, rdoc)}
+						return nil
 					}
 					out = map[string]any{"result": res.Result, "doc": res.Doc}
 					return nil

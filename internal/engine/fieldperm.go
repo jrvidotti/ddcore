@@ -1,6 +1,8 @@
 package engine
 
 import (
+	"encoding/json"
+
 	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/db"
 	"github.com/jrvidotti/ddcore/internal/meta"
@@ -347,4 +349,65 @@ func (c *Ctx) insertFieldBase(d *meta.DocType, doc Doc) (Doc, error) {
 		}
 	}
 	return c.fieldDefaults(d), nil
+}
+
+// RedactVersionData filters a Version's `data` diff for the current user: a
+// change to a field they cannot read is a copy of its value, so it goes too.
+// The diff is stored once for every reader, which is why this happens on the
+// way out rather than when the Version is written.
+func (c *Ctx) RedactVersionData(refDoctype string, data any) any {
+	d, err := c.St.DocType(refDoctype)
+	if err != nil || !c.hasRestrictedFields(d) {
+		return data
+	}
+	a := c.FieldAccess(d)
+	if a.all {
+		return data
+	}
+	var m map[string]any
+	switch v := data.(type) {
+	case map[string]any:
+		m = v
+	case string:
+		if json.Unmarshal([]byte(v), &m) != nil {
+			return nil
+		}
+	case []byte:
+		if json.Unmarshal(v, &m) != nil {
+			return nil
+		}
+	default:
+		return data
+	}
+	changed, _ := m["changed"].(map[string]any)
+	for key, pair := range changed {
+		f := d.Field(key)
+		if !a.CanRead(f) {
+			delete(changed, key)
+			continue
+		}
+		if f == nil || f.Fieldtype != "Table" {
+			continue
+		}
+		cd, err := c.St.DocType(f.OptionsString())
+		if err != nil || !cd.HasRestrictedFields() {
+			continue
+		}
+		sides, _ := pair.([]any)
+		for _, side := range sides {
+			rows, _ := side.([]any)
+			for _, r := range rows {
+				row, _ := r.(map[string]any)
+				for _, cf := range cd.Fields {
+					if cf.Fieldname != "" && !a.CanRead(cf) {
+						delete(row, cf.Fieldname)
+					}
+				}
+			}
+		}
+	}
+	if _, ok := data.(map[string]any); ok {
+		return m
+	}
+	return string(mustJSON(m))
 }

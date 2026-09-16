@@ -176,13 +176,21 @@ func (c *Ctx) exportPlan(a ExportArgs) (*meta.DocType, []string, []db.Filter, er
 			return nil, nil, nil, cerr.Permission("No permission to export {0}", c.T(d.Label))
 		}
 	}
+	access := c.FieldAccess(d)
 	columns := a.Fields
 	if len(columns) == 0 {
-		columns = ExportColumns(d)
+		for _, col := range ExportColumns(d) {
+			if access.CanRead(d.Field(col)) {
+				columns = append(columns, col)
+			}
+		}
 	} else {
 		for _, f := range columns {
 			if !exportableColumn(d, f) {
 				return nil, nil, nil, cerr.Validation("Unknown field: {0}", f)
+			}
+			if !access.CanRead(d.Field(f)) {
+				return nil, nil, nil, cerr.Permission("No permission to read field {0} of {1}", f, c.T(d.Label))
 			}
 		}
 	}
@@ -319,15 +327,20 @@ func keysetFilters(base []db.Filter, last string) any {
 // permission filters applied.
 func (c *Ctx) exportChildren(d *meta.DocType, names []string, sum *ExportSummary) (map[string]map[string][]any, error) {
 	out := map[string]map[string][]any{}
+	access := c.FieldAccess(d)
 	for _, tf := range d.TableFields() {
+		if !access.CanRead(tf) {
+			continue
+		}
 		child, err := c.St.DocType(tf.OptionsString())
 		if err != nil {
 			return nil, err
 		}
-		cols := ExportColumns(child)
-		sel := make([]string, len(cols))
-		for i, col := range cols {
-			sel[i] = db.Ident(col)
+		var sel []string
+		for _, col := range ExportColumns(child) {
+			if access.CanRead(child.Field(col)) {
+				sel = append(sel, db.Ident(col))
+			}
 		}
 		sql := fmt.Sprintf(
 			"SELECT %s FROM %s WHERE parenttype = $1 AND parentfield = $2 AND parent = ANY($3) ORDER BY parent, idx",
@@ -384,7 +397,16 @@ func (c *Ctx) exportFiles(doctype string, names []string, sum *ExportSummary) (m
 		return nil, err
 	}
 	out := map[string][]ExportFile{}
+	d, err := c.St.DocType(doctype)
+	if err != nil {
+		return nil, err
+	}
+	access := c.FieldAccess(d)
 	for _, r := range rows {
+		// an attachment held by a field the user cannot read is that field's value
+		if field := db.Str(r["attached_to_field"]); field != "" && !access.CanRead(d.Field(field)) {
+			continue
+		}
 		f := ExportFile{
 			Name:        db.Str(r["name"]),
 			AttachedTo:  db.Str(r["attached_to_name"]),

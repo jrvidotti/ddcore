@@ -1,12 +1,16 @@
 package engine
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/jrvidotti/ddcore/internal/cerr"
+	"github.com/jrvidotti/ddcore/internal/db"
 	"github.com/jrvidotti/ddcore/internal/js"
 )
 
@@ -16,7 +20,7 @@ const (
 	sec02Auditor = "auditor@x.com"
 )
 
-func sec02App(t *testing.T) string {
+func sec02App(t *testing.T, extra map[string]string) string {
 	t.Helper()
 	dir := t.TempDir()
 	write := func(rel, src string) {
@@ -41,10 +45,11 @@ export default defineDoctype({ name: "Employee", naming: { field: "title" }, sub
     { fieldname: "lines", fieldtype: "Table", label: "Lines", options: "Employee Line" },
     { fieldname: "bonuses", fieldtype: "Table", label: "Bonuses", options: "Employee Bonus", permlevel: 1 },
     { fieldname: "amended_from", fieldtype: "Link", label: "Amended From", options: "Employee", readOnly: true },
+    { fieldname: "contract", fieldtype: "Attach", label: "Contract", permlevel: 1 },
   ],
   permissions: [
-    { role: "Staff", read: true, write: true, create: true, submit: true, cancel: true, amend: true },
-    { role: "HR", read: true, write: true, create: true, submit: true, cancel: true, amend: true },
+    { role: "Staff", read: true, write: true, create: true, submit: true, cancel: true, amend: true, export: true },
+    { role: "HR", read: true, write: true, create: true, submit: true, cancel: true, amend: true, export: true },
     { role: "HR", permlevel: 1, read: true, write: true },
     { role: "HR", permlevel: 2, read: true },
     { role: "Auditor", permlevel: 1, read: true },
@@ -62,10 +67,13 @@ export default defineDoctype({ name: "Employee Line", isChild: true, fields: [
 export default defineDoctype({ name: "Employee Bonus", isChild: true, fields: [
   { fieldname: "value", fieldtype: "Currency", label: "Value" },
 ] });`)
+	for rel, src := range extra {
+		write(rel, src)
+	}
 	return dir
 }
 
-func setupSEC02(t *testing.T) *Engine {
+func setupSEC02(t *testing.T, extra ...map[string]string) *Engine {
 	t.Helper()
 	ctx := context.Background()
 	adminDSN, dbName := adminDSNFor(testDSN)
@@ -82,7 +90,7 @@ func setupSEC02(t *testing.T) *Engine {
 		t.Fatal(err)
 	}
 	e0.DB.Close()
-	e, err := New(ctx, Config{DSN: testDSN, Apps: []js.App{{Name: "fieldperm_test", Dir: sec02App(t)}}, Test: true})
+	e, err := New(ctx, Config{DSN: testDSN, Apps: []js.App{{Name: "fieldperm_test", Dir: sec02App(t, mergeFiles(extra))}}, Test: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,6 +117,16 @@ func setupSEC02(t *testing.T) *Engine {
 		t.Fatal(err)
 	}
 	return e
+}
+
+func mergeFiles(all []map[string]string) map[string]string {
+	out := map[string]string{}
+	for _, m := range all {
+		for k, v := range m {
+			out[k] = v
+		}
+	}
+	return out
 }
 
 func wantPermissionError(t *testing.T, what string, err error) {
@@ -393,4 +411,228 @@ func TestSEC02_AmendCarriesRestrictedValues(t *testing.T) {
 		}
 		return nil
 	})
+}
+
+func TestSEC02_Egress(t *testing.T) {
+	t.Setenv("DDCORE_SECRET_KEY", "sec02-test-master-key")
+	e := setupSEC02(t, map[string]string{
+		"notifications/salary.notification.ts": `import { defineNotification } from "@ddcore/sdk";
+export default defineNotification({ name: "salary", doctype: "Employee", event: "on_update",
+  recipients() { return ["staff@x.com", "hr@x.com"] },
+  desk: { title(doc) { return "Salary " + doc.salary }, message(doc) { return "Department " + doc.department } } });`,
+	})
+	ctx := context.Background()
+	addWebhookFor(t, e, "Employee")
+	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+		doc, err := c.GetDoc("Employee", "Ana")
+		if err != nil {
+			return err
+		}
+		doc["salary"], doc["department"] = 150, "Finance"
+		doc.Children("lines")[0]["amount"] = 6
+		if _, err := c.Save(doc, SaveOpts{}); err != nil {
+			return err
+		}
+		for _, f := range []Doc{
+			{"file_name": "contract.pdf", "file_url": "/private/files/contract.pdf", "is_private": true,
+				"attached_to_doctype": "Employee", "attached_to_name": "Ana", "attached_to_field": "contract"},
+			{"file_name": "photo.png", "file_url": "/private/files/photo.png", "is_private": true,
+				"attached_to_doctype": "Employee", "attached_to_name": "Ana"},
+		} {
+			fd, _ := c.NewDoc("File", f)
+			if _, err := c.Insert(fd, SaveOpts{}); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("webhook payload carries level 0 only", func(t *testing.T) {
+		rows, err := db.Select(ctx, e.DB.Pool, `SELECT payload::text AS payload FROM tab_webhook_delivery`)
+		if err != nil || len(rows) != 1 {
+			t.Fatalf("deliveries: %v %v", rows, err)
+		}
+		payload := db.Str(rows[0]["payload"])
+		if strings.Contains(payload, "salary") || strings.Contains(payload, "bonuses") || strings.Contains(payload, "amount") {
+			t.Fatalf("webhook leaked a restricted field: %s", payload)
+		}
+		if !strings.Contains(payload, "Finance") {
+			t.Fatalf("webhook lost a level-0 field: %s", payload)
+		}
+	})
+
+	t.Run("notification renders what the recipient may read", func(t *testing.T) {
+		rows, err := db.Select(ctx, e.DB.Pool, `SELECT recipient, title FROM ddcore_notification`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := map[string]string{}
+		for _, r := range rows {
+			got[db.Str(r["recipient"])] = db.Str(r["title"])
+		}
+		if got[sec02Staff] != "Salary undefined" || got[sec02HR] != "Salary 150" {
+			t.Fatalf("titles = %v", got)
+		}
+	})
+
+	t.Run("version diff", func(t *testing.T) {
+		check := func(user string, wantSalary bool) {
+			t.Helper()
+			if err := e.Run(ctx, user, func(c *Ctx) error {
+				rows, err := c.GetList("Version", ListArgs{Fields: []string{"name", "data"}, Filters: map[string]any{"ref_doctype": "Employee", "docname": "Ana"}})
+				if err != nil {
+					return err
+				}
+				if len(rows) != 1 {
+					t.Fatalf("versions = %v", rows)
+				}
+				if _, ok := rows[0]["__version_ref"]; ok {
+					t.Fatalf("internal column leaked: %v", rows[0])
+				}
+				listed := string(mustJSON(rows[0]["data"]))
+				doc, err := c.GetDoc("Version", db.Str(rows[0]["name"]))
+				if err != nil {
+					return err
+				}
+				got := string(mustJSON(c.RedactDoc("Version", doc)["data"]))
+				for _, data := range []string{listed, got} {
+					if strings.Contains(data, "salary") != wantSalary || strings.Contains(data, "amount") != wantSalary {
+						t.Fatalf("%s version data: %s", user, data)
+					}
+					if !strings.Contains(data, "Finance") {
+						t.Fatalf("%s lost level-0 change: %s", user, data)
+					}
+				}
+				return nil
+			}); err != nil {
+				t.Fatal(err)
+			}
+		}
+		check(sec02Staff, false)
+		check(sec02HR, true)
+	})
+
+	t.Run("export", func(t *testing.T) {
+		if err := e.Run(ctx, sec02Staff, func(c *Ctx) error {
+			var buf bytes.Buffer
+			if _, err := c.Export(ExportArgs{Doctype: "Employee", Children: true, Attachments: true}, NewNDJSONSink(&buf)); err != nil {
+				return err
+			}
+			out := buf.String()
+			for _, leak := range []string{"salary", "amount", "bonuses", "contract.pdf"} {
+				if strings.Contains(out, leak) {
+					t.Fatalf("export leaked %s: %s", leak, out)
+				}
+			}
+			if !strings.Contains(out, "Finance") || !strings.Contains(out, "photo.png") {
+				t.Fatalf("export lost readable data: %s", out)
+			}
+			_, err := c.Export(ExportArgs{Doctype: "Employee", Fields: []string{"name", "salary"}}, NewNDJSONSink(&buf))
+			wantPermissionError(t, "export of a restricted column", err)
+			return nil
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if err := e.Run(ctx, sec02HR, func(c *Ctx) error {
+			var buf bytes.Buffer
+			if _, err := c.Export(ExportArgs{Doctype: "Employee", Children: true, Attachments: true}, NewNDJSONSink(&buf)); err != nil {
+				return err
+			}
+			if out := buf.String(); !strings.Contains(out, "salary") || !strings.Contains(out, "contract.pdf") {
+				t.Fatalf("HR export incomplete: %s", out)
+			}
+			return nil
+		}); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("print", func(t *testing.T) {
+		render := func(user string) string {
+			var html string
+			if err := e.Run(ctx, user, func(c *Ctx) error {
+				var err error
+				html, err = c.PrintDoc("Employee", "Ana", "standard", "none", "en")
+				return err
+			}); err != nil {
+				t.Fatal(err)
+			}
+			return html
+		}
+		if html := render(sec02Staff); strings.Contains(html, "Salary") || strings.Contains(html, "Amount") || strings.Contains(html, "Bonuses") {
+			t.Fatalf("print leaked a restricted field: %s", html)
+		}
+		if html := render(sec02HR); !strings.Contains(html, "Salary") || !strings.Contains(html, "Amount") {
+			t.Fatalf("HR print incomplete: %s", html)
+		}
+	})
+
+	t.Run("files", func(t *testing.T) {
+		if err := e.Run(ctx, sec02Staff, func(c *Ctx) error {
+			restricted := map[string]any{"owner": "Administrator", "attached_to_doctype": "Employee", "attached_to_name": "Ana", "attached_to_field": "contract"}
+			open := map[string]any{"owner": "Administrator", "attached_to_doctype": "Employee", "attached_to_name": "Ana"}
+			if c.CanReadFile(restricted) || !c.CanReadFile(open) {
+				t.Fatal("staff file access must follow the attachment field")
+			}
+			if restricted, canWrite := c.AttachmentFieldRestricted("Employee", "contract"); !restricted || canWrite {
+				t.Fatal("staff may not upload into a restricted field")
+			}
+			return nil
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if err := e.Run(ctx, sec02HR, func(c *Ctx) error {
+			if !c.CanReadFile(map[string]any{"owner": "Administrator", "attached_to_doctype": "Employee", "attached_to_name": "Ana", "attached_to_field": "contract"}) {
+				t.Fatal("HR reads the contract")
+			}
+			return nil
+		}); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("ddcore.redact", func(t *testing.T) {
+		if err := e.Run(ctx, sec02Staff, func(c *Ctx) error {
+			doc, err := c.GetDoc("Employee", "Ana")
+			if err != nil {
+				return err
+			}
+			args, _ := json.Marshal(map[string]any{"doctype": "Employee", "doc": doc})
+			rt, err := c.RT()
+			if err != nil {
+				return err
+			}
+			res, err := c.E.HostCall(rt, "redact", args)
+			if err != nil {
+				return err
+			}
+			out := string(mustJSON(res))
+			if strings.Contains(out, "salary") || !strings.Contains(out, "Finance") {
+				t.Fatalf("redact = %s", out)
+			}
+			if toFloat(doc["salary"]) != 150 {
+				t.Fatal("redact must not change the caller's document")
+			}
+			return nil
+		}); err != nil {
+			t.Fatal(err)
+		}
+	})
+}
+
+func addWebhookFor(t *testing.T, e *Engine, doctype string) {
+	t.Helper()
+	if err := e.Run(context.Background(), "Administrator", func(c *Ctx) error {
+		doc, err := c.NewDoc("Webhook", Doc{"url": "http://127.0.0.1:9/hook", "event_type": "Document", "webhook_doctype": doctype,
+			"on_update": true, "secret": "whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw", "max_attempts": 1})
+		if err != nil {
+			return err
+		}
+		_, err = c.Insert(doc, SaveOpts{})
+		return err
+	}); err != nil {
+		t.Fatalf("webhook: %v", err)
+	}
 }

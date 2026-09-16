@@ -70,8 +70,8 @@ type Field struct {
 	// Permlevel groups the field under the permission rows of the same level
 	// (SEC-02). Level 0 follows the DocType's own permissions; a field at a
 	// higher level is read and written only by a role granted that level.
-	Permlevel int `json:"permlevel,omitempty"`
-	IgnoreUserPerms    bool   `json:"-"`
+	Permlevel       int  `json:"permlevel,omitempty"`
+	IgnoreUserPerms bool `json:"-"`
 	// OptionColors maps a Select's canonical (English) value to an indicator
 	// colour. Keyed by the value, never by its label, so it is
 	// language-independent by construction.

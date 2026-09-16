@@ -1812,6 +1812,27 @@ func isSecretField(name string) bool {
 
 // ------------------------------------------------------------ versions
 
+// versionRows copies child rows for a Version diff, without secret columns.
+func versionRows(cd *meta.DocType, rows []Doc) []any {
+	out := make([]any, len(rows))
+	for i, r := range rows {
+		x := map[string]any{}
+		for k, v := range r {
+			if cd != nil {
+				if f := cd.Field(k); f != nil && (f.Fieldtype == "Password" || f.Fieldtype == "Vault") {
+					continue
+				}
+			}
+			if isSecretField(k) {
+				continue
+			}
+			x[k] = v
+		}
+		out[i] = x
+	}
+	return out
+}
+
 func (c *Ctx) saveVersion(d *meta.DocType, before, after Doc) {
 	changed := map[string][]any{}
 	for _, f := range d.Fields {
@@ -1828,6 +1849,12 @@ func (c *Ctx) saveVersion(d *meta.DocType, before, after Doc) {
 			a, b = stripChildMeta(before.Children(f.Fieldname)), stripChildMeta(after.Children(f.Fieldname))
 		}
 		if string(mustJSON(a)) != string(mustJSON(b)) {
+			if f.Fieldtype == "Table" {
+				// a child row's secrets stay out of history just as the parent's do
+				cd, _ := c.St.DocType(f.OptionsString())
+				changed[f.Fieldname] = []any{versionRows(cd, before.Children(f.Fieldname)), versionRows(cd, after.Children(f.Fieldname))}
+				continue
+			}
 			changed[f.Fieldname] = []any{before[f.Fieldname], after[f.Fieldname]}
 		}
 	}

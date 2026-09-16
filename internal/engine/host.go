@@ -222,6 +222,13 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 			doc = a.Doc
 		}
 		return c.HasPermission(a.Doctype, orDefault(a.Ptype, "read"), doc)
+	case "redact":
+		// the border an app's own endpoint or report crosses: what an API read
+		// of this document would show the current user (SEC-02)
+		if a.Doc == nil {
+			return nil, nil
+		}
+		return c.RedactDoc(a.Doctype, a.Doc.Clone()), nil
 	case "msgprint":
 		m := Message{Message: a.Message}
 		if t, ok := a.Opts["title"].(string); ok {

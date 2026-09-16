@@ -144,5 +144,8 @@ func (c *Ctx) RedactDoc(doctype string, doc Doc) Doc {
 		}
 	}
 	c.redactFields(d, c.FieldAccess(d), doc)
+	if d.Name == "Version" && doc["data"] != nil {
+		doc["data"] = c.RedactVersionData(doc.Str("ref_doctype"), doc["data"])
+	}
 	return doc
 }

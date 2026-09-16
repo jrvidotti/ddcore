@@ -55,6 +55,14 @@ export interface DDCoreAPI {
    * takes it as a plain map and never requires a whole document.
    */
   hasPermission(doctype: string, ptype?: string, doc?: Partial<BaseDoc> | string, user?: string): boolean;
+  /**
+   * A copy of `doc` as an API read would return it to the current user:
+   * Password and Vault values blanked, and every field above the user's
+   * permission level removed, child rows included. Server code sees whole
+   * documents; call this before a whitelisted method, a report or a published
+   * event hands one to a client. See `field-permissions`.
+   */
+  redact<T extends Partial<BaseDoc>>(doctype: string, doc: T): Partial<T>;
   throw(message: string, opts?: { title?: string; type?: string }): never;
   msgprint(message: string, opts?: { title?: string; indicator?: string; alert?: boolean }): void;
   _(text: string, args?: any[]): string;

@@ -82,7 +82,8 @@ func (c *Ctx) PrintDoc(doctype, name, format, letterheadName, lang string) (stri
 	}
 
 	// 4. Sanitize document: strip passwords, vault fields, and restricted fields
-	sanitized := c.sanitizeDocForPrint(d, doc)
+	access := c.FieldAccess(d)
+	sanitized := c.sanitizeDocForPrint(d, doc, access)
 
 	// 5. Render body
 	var bodyHTML string
@@ -98,6 +99,7 @@ func (c *Ctx) PrintDoc(doctype, name, format, letterheadName, lang string) (stri
 			FormatValue: func(f *meta.Field, val any) string {
 				return c.formatPrintValue(f, val, lang)
 			},
+			CanRead: access.CanRead,
 		}
 		blocks := print.StandardTemplate(d, sanitized, opts)
 		bodyHTML = print.RenderBlocks(blocks)
@@ -189,12 +191,14 @@ func (c *Ctx) resolveLetterHead(name string) (*print.LetterHead, error) {
 	}, nil
 }
 
-func (c *Ctx) sanitizeDocForPrint(d *meta.DocType, doc Doc) map[string]any {
+// sanitizeDocForPrint copies doc without secrets and without the fields the
+// reader's access cannot read; a child row is judged by the parent's access.
+func (c *Ctx) sanitizeDocForPrint(d *meta.DocType, doc Doc, access FieldAccess) map[string]any {
 	out := make(map[string]any, len(doc))
 	for k, v := range doc {
 		f := d.Field(k)
 		if f != nil {
-			if f.Fieldtype == "Password" || f.Fieldtype == "Vault" {
+			if f.Fieldtype == "Password" || f.Fieldtype == "Vault" || !access.CanRead(f) {
 				continue
 			}
 			if f.Fieldtype == "Table" {
@@ -203,7 +207,7 @@ func (c *Ctx) sanitizeDocForPrint(d *meta.DocType, doc Doc) map[string]any {
 					rows := doc.Children(k)
 					childOut := make([]any, 0, len(rows))
 					for _, cr := range rows {
-						childOut = append(childOut, c.sanitizeDocForPrint(cd, cr))
+						childOut = append(childOut, c.sanitizeDocForPrint(cd, cr, access))
 					}
 					out[k] = childOut
 					continue

@@ -328,6 +328,13 @@ func (c *Ctx) GetList(doctype string, a ListArgs) ([]map[string]any, error) {
 	if len(sel) == 0 {
 		sel = append(sel, `"t".`+db.Ident("name"))
 	}
+	// a Version's diff is filtered by the reader's access to the document it
+	// describes, so that DocType has to come back with the row
+	versionRef := d.Name == "Version" && !a.IgnorePermissions && !c.IgnorePermissions() &&
+		c.User != "Administrator" && !hasAgg && a.GroupBy == ""
+	if versionRef {
+		sel = append(sel, `"t".`+db.Ident("ref_doctype")+" AS "+db.Ident("__version_ref"))
+	}
 	// checked before the permission filters join them: those are the
 	// framework's own conditions, and may well sit on a restricted Link
 	for _, f := range append(append([]db.Filter(nil), filters...), orFilters...) {
@@ -425,6 +432,14 @@ func (c *Ctx) GetList(doctype string, a ListArgs) ([]map[string]any, error) {
 	}
 	if rows == nil {
 		rows = []map[string]any{}
+	}
+	if versionRef {
+		for _, r := range rows {
+			if r["data"] != nil {
+				r["data"] = c.RedactVersionData(db.Str(r["__version_ref"]), r["data"])
+			}
+			delete(r, "__version_ref")
+		}
 	}
 	return rows, nil
 }

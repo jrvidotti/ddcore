@@ -66,8 +66,10 @@ type CSVSink struct {
 	columns []string
 	parent  *csv.Writer
 	child   map[string]*csv.Writer
-	files   *csv.Writer
-	flush   []*csv.Writer
+	// childCols are the columns each child table's file was opened with.
+	childCols map[string][]string
+	files     *csv.Writer
+	flush     []*csv.Writer
 }
 
 var exportFileColumns = []string{"name", "attached_to", "field", "file_name", "file_url", "size", "content_type", "is_private", "sha256", "missing"}
@@ -119,9 +121,21 @@ func (s *CSVSink) Doc(doc Doc, files []ExportFile) error {
 		if err != nil {
 			return err
 		}
-		cols := ExportColumns(child)
+		cols := s.childCols[tf.Fieldname]
 		cw := s.child[tf.Fieldname]
 		if cw == nil {
+			// a column the export left out for this user (a restricted
+			// field) is left out of the header too, not written blank
+			cols = nil
+			for _, col := range ExportColumns(child) {
+				if _, ok := rows[0][col]; ok {
+					cols = append(cols, col)
+				}
+			}
+			if s.childCols == nil {
+				s.childCols = map[string][]string{}
+			}
+			s.childCols[tf.Fieldname] = cols
 			if cw, err = s.writer(s.d.Name+"."+tf.Fieldname, cols); err != nil {
 				return err
 			}

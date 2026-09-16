@@ -12,6 +12,10 @@ type StandardFormatOptions struct {
 	GetChildMeta func(doctype string) *meta.DocType
 	FormatValue  func(f *meta.Field, val any) string
 	Translate    func(text string) string
+	// CanRead hides a field the reader's permission level does not reach
+	// (SEC-02). The document already arrives without its value; this keeps its
+	// label and column header out too. Nil reads everything.
+	CanRead func(f *meta.Field) bool
 }
 
 // StandardTemplate builds standard print blocks from a DocType definition and document data.
@@ -108,7 +112,7 @@ func StandardTemplate(d *meta.DocType, doc map[string]any, opts StandardFormatOp
 		if f.Fieldtype == "Password" || f.Fieldtype == "Vault" {
 			continue
 		}
-		if f.Hidden {
+		if f.Hidden || (opts.CanRead != nil && !opts.CanRead(f)) {
 			continue
 		}
 
@@ -178,7 +182,8 @@ func renderChildTable(f *meta.Field, val any, opts StandardFormatOptions) []Bloc
 	var aligns []string
 
 	for _, cf := range cd.Fields {
-		if cf.Hidden || meta.LayoutTypes[cf.Fieldtype] || cf.Fieldtype == "Password" || cf.Fieldtype == "Vault" {
+		if cf.Hidden || meta.LayoutTypes[cf.Fieldtype] || cf.Fieldtype == "Password" || cf.Fieldtype == "Vault" ||
+			(opts.CanRead != nil && !opts.CanRead(cf)) {
 			continue
 		}
 		// Prefer inListView fields or non-empty fields
