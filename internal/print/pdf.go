@@ -28,6 +28,32 @@ type PDFOptions struct {
 	MarginRight  string
 }
 
+// NormalizePageFormat returns the canonical spelling of a supported page
+// format ("A4" or "Letter", any case), with "" meaning A4. ok is false for
+// anything else.
+func NormalizePageFormat(s string) (format string, ok bool) {
+	switch strings.ToUpper(strings.TrimSpace(s)) {
+	case "", "A4":
+		return "A4", true
+	case "LETTER":
+		return "Letter", true
+	}
+	return "", false
+}
+
+// PageSize is the value of the CSS @page `size` property for these options,
+// e.g. "A4 portrait". An unsupported format falls back to A4.
+func (o PDFOptions) PageSize() string {
+	format, ok := NormalizePageFormat(o.Format)
+	if !ok {
+		format = "A4"
+	}
+	if o.Landscape {
+		return format + " landscape"
+	}
+	return format + " portrait"
+}
+
 // PDFRenderer converts an HTML document string into raw PDF bytes.
 type PDFRenderer interface {
 	RenderPDF(ctx context.Context, htmlContent string, opts PDFOptions) ([]byte, error)

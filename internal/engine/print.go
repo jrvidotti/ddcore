@@ -49,7 +49,8 @@ func (c *Ctx) ListPrintFormats(doctype string) ([]PrintFormatInfo, error) {
 }
 
 // PrintDoc renders a document to a complete HTML document with print styling.
-func (c *Ctx) PrintDoc(doctype, name, format, letterheadName, lang string) (string, error) {
+// page sets the size and orientation written into the HTML's @page rule.
+func (c *Ctx) PrintDoc(doctype, name, format, letterheadName, lang string, page print.PDFOptions) (string, error) {
 	d, err := c.St.DocType(doctype)
 	if err != nil {
 		return "", err
@@ -153,7 +154,7 @@ func (c *Ctx) PrintDoc(doctype, name, format, letterheadName, lang string) (stri
 		}
 	}
 	title := fmt.Sprintf("%s - %s", c.St.I18n.T(lang, d.Label), docTitle)
-	return print.AssembleHTML(bodyHTML, lh, title, lang), nil
+	return print.AssembleHTML(bodyHTML, lh, title, lang, page), nil
 }
 
 func (c *Ctx) resolveLetterHead(name string) (*print.LetterHead, error) {

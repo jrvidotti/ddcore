@@ -134,3 +134,31 @@ func TestPrintAPI_LetterheadsAndPDF(t *testing.T) {
 		t.Fatalf("expected attachment Content-Disposition, got: %s", cd)
 	}
 }
+
+// page_format and landscape shape the @page rule of the HTML as well as the
+// PDF; an unsupported page format is refused rather than ignored.
+func TestPrintAPI_PageFormat(t *testing.T) {
+	x := setup(t)
+	x.asAdmin(func(c *engine.Ctx) error {
+		p, err := c.NewDoc("Pessoa", engine.Doc{"nome": "Paula", "tipo": "PF"})
+		if err != nil {
+			return err
+		}
+		_, err = c.Insert(p, engine.SaveOpts{})
+		return err
+	})
+	anaAuth := "sid:" + x.sid("ana@x.com")
+
+	r := x.call(http.MethodGet, "/api/print/Pessoa/Paula", nil, anaAuth)
+	x.expect(r, http.StatusOK, "")
+	if !strings.Contains(r.Raw, "size: A4 portrait;") {
+		t.Fatalf("expected A4 portrait by default: %s", r.Raw)
+	}
+	r = x.call(http.MethodGet, "/api/print/Pessoa/Paula?page_format=Letter&landscape=1", nil, anaAuth)
+	x.expect(r, http.StatusOK, "")
+	if !strings.Contains(r.Raw, "size: Letter landscape;") {
+		t.Fatalf("expected Letter landscape: %s", r.Raw)
+	}
+	x.expect(x.call(http.MethodGet, "/api/print/Pessoa/Paula?page_format=Legal", nil, anaAuth), http.StatusExpectationFailed, "ValidationError")
+	x.expect(x.call(http.MethodGet, "/api/print/Pessoa/Paula/pdf?page_format=Legal", nil, anaAuth), http.StatusExpectationFailed, "ValidationError")
+}

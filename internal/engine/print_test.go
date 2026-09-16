@@ -4,6 +4,8 @@ import (
 	"context"
 	"strings"
 	"testing"
+
+	"github.com/jrvidotti/ddcore/internal/print"
 )
 
 func TestPrintDoc_StandardFormatAndSecurity(t *testing.T) {
@@ -74,7 +76,7 @@ export default defineDoctype({
 
 	// 2. Render standard format as Admin in pt-BR
 	cAdmin := e.NewCtx(ctx, "Administrator")
-	htmlOut, err := cAdmin.PrintDoc("Contract", docName, "standard", "none", "pt-BR")
+	htmlOut, err := cAdmin.PrintDoc("Contract", docName, "standard", "none", "pt-BR", print.PDFOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -111,7 +113,7 @@ export default defineDoctype({
 
 	// Guest / unauthorized user trying to print Secret Doc
 	cGuest := e.NewCtx(ctx, "Guest")
-	_, err = cGuest.PrintDoc("Secret Doc", "SEC-001", "standard", "none", "en")
+	_, err = cGuest.PrintDoc("Secret Doc", "SEC-001", "standard", "none", "en", print.PDFOptions{})
 	if err == nil {
 		t.Fatal("expected unauthorized user to fail printing Secret Doc, got nil")
 	}
@@ -179,7 +181,7 @@ export default definePrintTemplate({
 	}
 
 	// Render custom template
-	htmlOut, err := cAdmin.PrintDoc("Receipt", docName, "demo.receipt_custom", "none", "pt-BR")
+	htmlOut, err := cAdmin.PrintDoc("Receipt", docName, "demo.receipt_custom", "none", "pt-BR", print.PDFOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -236,7 +238,7 @@ export default definePrintTemplate({
 	if err != nil {
 		t.Fatal(err)
 	}
-	out, err := e.NewCtx(ctx, "Administrator").PrintDoc("Invoice", "INV-1", "demo.invoice_columns", "none", "en")
+	out, err := e.NewCtx(ctx, "Administrator").PrintDoc("Invoice", "INV-1", "demo.invoice_columns", "none", "en", print.PDFOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -269,7 +271,7 @@ export default defineDoctype({
 		t.Fatal(err)
 	}
 	for lang, want := range map[string]string{"en": "$ 50,000.50", "pt-BR": "US$ 50.000,50"} {
-		out, err := e.NewCtx(ctx, "Administrator").PrintDoc("Fee", "FEE-1", "standard", "none", lang)
+		out, err := e.NewCtx(ctx, "Administrator").PrintDoc("Fee", "FEE-1", "standard", "none", lang, print.PDFOptions{})
 		if err != nil {
 			t.Fatal(err)
 		}

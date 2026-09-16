@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/db"
 	"github.com/jrvidotti/ddcore/internal/engine"
 	"github.com/jrvidotti/ddcore/internal/print"
@@ -41,30 +42,54 @@ func (s *Server) listLetterHeads(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// printParams reads the query parameters both print endpoints share.
+type printParams struct {
+	format, letterhead, lang string
+	page                     print.PDFOptions
+}
+
+func (s *Server) printParams(r *http.Request) (printParams, error) {
+	q := r.URL.Query()
+	p := printParams{format: q.Get("format"), letterhead: q.Get("letterhead"), lang: q.Get("lang")}
+	if p.format == "" {
+		p.format = "standard"
+	}
+	if p.lang == "" {
+		p.lang = s.langFor(r)
+	}
+	pageFormat, ok := print.NormalizePageFormat(q.Get("page_format"))
+	if !ok {
+		return p, cerr.Validation("Page format {0} is not supported: use A4 or Letter", q.Get("page_format"))
+	}
+	p.page = print.PDFOptions{
+		Format:    pageFormat,
+		Landscape: q.Get("landscape") == "1" || q.Get("landscape") == "true",
+	}
+	return p, nil
+}
+
+// renderPrint runs PrintDoc for the request's document and parameters.
+func (s *Server) renderPrint(r *http.Request, p printParams) (string, error) {
+	var htmlOut string
+	c := s.E.NewCtx(r.Context(), user(r))
+	c.Lang = p.lang
+	err := c.Run(func(c *engine.Ctx) error {
+		var err error
+		htmlOut, err = c.PrintDoc(urlParam(r, "doctype"), urlParam(r, "name"), p.format, p.letterhead, p.lang, p.page)
+		return err
+	})
+	return htmlOut, err
+}
+
 // GET /api/print/{doctype}/{name}
 // Renders the document to a full HTML document ready for printing or preview.
 func (s *Server) printDoc(w http.ResponseWriter, r *http.Request) {
-	doctype := urlParam(r, "doctype")
-	name := urlParam(r, "name")
-	q := r.URL.Query()
-	format := q.Get("format")
-	if format == "" {
-		format = "standard"
+	p, err := s.printParams(r)
+	if err != nil {
+		s.writeErr(w, r, err)
+		return
 	}
-	letterhead := q.Get("letterhead")
-	lang := q.Get("lang")
-	if lang == "" {
-		lang = s.langFor(r)
-	}
-
-	var htmlOut string
-	c := s.E.NewCtx(r.Context(), user(r))
-	c.Lang = lang
-	err := c.Run(func(c *engine.Ctx) error {
-		var err error
-		htmlOut, err = c.PrintDoc(doctype, name, format, letterhead, lang)
-		return err
-	})
+	htmlOut, err := s.renderPrint(r, p)
 	if err != nil {
 		s.writeErr(w, r, err)
 		return
@@ -80,47 +105,26 @@ func (s *Server) printDoc(w http.ResponseWriter, r *http.Request) {
 func (s *Server) printDocPDF(w http.ResponseWriter, r *http.Request) {
 	doctype := urlParam(r, "doctype")
 	name := urlParam(r, "name")
-	q := r.URL.Query()
-	format := q.Get("format")
-	if format == "" {
-		format = "standard"
+	p, err := s.printParams(r)
+	if err != nil {
+		s.writeErr(w, r, err)
+		return
 	}
-	letterhead := q.Get("letterhead")
-	lang := q.Get("lang")
-	if lang == "" {
-		lang = s.langFor(r)
-	}
-
-	var htmlOut string
-	c := s.E.NewCtx(r.Context(), user(r))
-	c.Lang = lang
-	err := c.Run(func(c *engine.Ctx) error {
-		var err error
-		htmlOut, err = c.PrintDoc(doctype, name, format, letterhead, lang)
-		return err
-	})
+	htmlOut, err := s.renderPrint(r, p)
 	if err != nil {
 		s.writeErr(w, r, err)
 		return
 	}
 
-	pdfOpts := print.PDFOptions{
-		Format:    q.Get("page_format"),
-		Landscape: q.Get("landscape") == "1" || q.Get("landscape") == "true",
-	}
-	if pdfOpts.Format == "" {
-		pdfOpts.Format = "A4"
-	}
-
 	renderer := print.GetDefaultRenderer()
-	pdfBytes, err := renderer.RenderPDF(r.Context(), htmlOut, pdfOpts)
+	pdfBytes, err := renderer.RenderPDF(r.Context(), htmlOut, p.page)
 	if err != nil {
 		s.writeErr(w, r, err)
 		return
 	}
 
 	disposition := "inline"
-	if q.Get("download") == "1" || q.Get("download") == "true" {
+	if q := r.URL.Query(); q.Get("download") == "1" || q.Get("download") == "true" {
 		disposition = "attachment"
 	}
 	filename := fmt.Sprintf("%s-%s.pdf", doctype, name)

@@ -209,7 +209,7 @@ func TestAssembleHTML_WithLetterheadAndStyles(t *testing.T) {
 	}
 
 	body := `<div class="print-content">Hello World</div>`
-	fullHTML := AssembleHTML(body, lh, "Test Document", "pt-BR")
+	fullHTML := AssembleHTML(body, lh, "Test Document", "pt-BR", PDFOptions{})
 
 	if !strings.Contains(fullHTML, `<html lang="pt-BR">`) {
 		t.Fatalf("lang attribute missing or incorrect: %s", fullHTML)
@@ -253,5 +253,25 @@ func TestRenderBlocks_Columns(t *testing.T) {
 	}
 	if !strings.Contains(out, "Billed To") || !strings.Contains(out, "Acme &lt;Ltd&gt;") || !strings.Contains(out, "Issue Date") {
 		t.Fatalf("cell blocks missing or unescaped: %s", out)
+	}
+}
+
+// The page size and orientation reach the HTML as an @page rule, which is what
+// Chrome and a PDF command read; only Gotenberg also gets them as form fields.
+func TestAssembleHTML_PageSize(t *testing.T) {
+	cases := []struct {
+		opts PDFOptions
+		want string
+	}{
+		{PDFOptions{}, "size: A4 portrait;"},
+		{PDFOptions{Format: "a4", Landscape: true}, "size: A4 landscape;"},
+		{PDFOptions{Format: "Letter"}, "size: Letter portrait;"},
+		{PDFOptions{Format: "LETTER", Landscape: true}, "size: Letter landscape;"},
+	}
+	for _, c := range cases {
+		out := AssembleHTML("<p>x</p>", nil, "T", "en", c.opts)
+		if !strings.Contains(out, c.want) {
+			t.Fatalf("%+v: expected %q in: %s", c.opts, c.want, out)
+		}
 	}
 }
