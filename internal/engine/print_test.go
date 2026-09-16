@@ -246,3 +246,35 @@ export default definePrintTemplate({
 		}
 	}
 }
+
+// The standard layout prints money in the site currency, with the grouping
+// and decimal mark of the print language: the language does not pick the
+// currency.
+func TestPrintDoc_CurrencyFollowsSiteCurrency(t *testing.T) {
+	ctx := context.Background()
+	e := setupWith(t, map[string]string{
+		"doctypes/fee/fee.doctype.ts": `import { defineDoctype } from "@ddcore/sdk";
+export default defineDoctype({
+  name: "Fee",
+  fields: [{ fieldname: "amount", fieldtype: "Currency", label: "Amount" }],
+  permissions: [{ role: "System Manager", read: true, write: true, create: true }],
+});`,
+	})
+	e.Cfg.Currency = "USD"
+	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+		_, err := c.Insert(Doc{"doctype": "Fee", "name": "FEE-1", "amount": 50000.5}, SaveOpts{})
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for lang, want := range map[string]string{"en": "$ 50,000.50", "pt-BR": "US$ 50.000,50"} {
+		out, err := e.NewCtx(ctx, "Administrator").PrintDoc("Fee", "FEE-1", "standard", "none", lang)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(out, want) || strings.Contains(out, "R$") {
+			t.Fatalf("%s: expected %q, got: %s", lang, want, out)
+		}
+	}
+}
