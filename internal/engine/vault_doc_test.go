@@ -146,3 +146,59 @@ export default defineDoctype({
 		t.Fatalf("expected api_key deleted from vault on doc delete, got %q", val1Deleted)
 	}
 }
+
+// A rename must carry a default-shaped vault key ("<DocType>:<field>:<name>")
+// to the new name, or the secret is orphaned under a name the document no
+// longer answers to.
+func TestVaultRenameCarriesDefaultShapedSecret(t *testing.T) {
+	extra := map[string]string{
+		"doctypes/integration_account/integration_account.doctype.ts": `import { defineDoctype } from "@ddcore/sdk";
+export default defineDoctype({
+  name: "Integration Account",
+  naming: { field: "account_name" },
+  allowRename: true,
+  fields: [
+    { fieldname: "account_name", fieldtype: "Data", label: "Account Name", reqd: true },
+    { fieldname: "api_key", fieldtype: "Vault", label: "API Key" },
+  ],
+  permissions: [{ role: "All", read: true, write: true, create: true, delete: true }],
+});`,
+	}
+
+	e := setupWith(t, extra)
+	t.Setenv("DDCORE_SECRET_KEY", "test-master-key-xyz")
+	ctx := t.Context()
+	c := e.NewCtx(ctx, "admin@example.com")
+
+	doc, err := c.NewDoc("Integration Account", Doc{
+		"account_name": "old-name",
+		"api_key":      "sk_live_123456",
+	})
+	if err != nil {
+		t.Fatalf("failed to create doc: %v", err)
+	}
+	saved, err := c.Insert(doc, SaveOpts{})
+	if err != nil {
+		t.Fatalf("insert failed: %v", err)
+	}
+	docName := saved.Name()
+
+	oldKey := "Integration Account:api_key:" + docName
+	if _, ok, _ := e.VaultGet(c, oldKey); !ok {
+		t.Fatalf("expected secret under %q before rename", oldKey)
+	}
+
+	newName, err := c.Rename("Integration Account", docName, "new-name")
+	if err != nil {
+		t.Fatalf("rename failed: %v", err)
+	}
+
+	newKey := "Integration Account:api_key:" + newName
+	val, ok, err := e.VaultGet(c, newKey)
+	if err != nil || !ok || val != "sk_live_123456" {
+		t.Fatalf("expected secret readable under %q after rename, got ok=%v val=%q err=%v", newKey, ok, val, err)
+	}
+	if _, ok, _ := e.VaultGet(c, oldKey); ok {
+		t.Fatalf("expected secret no longer readable under old key %q after rename", oldKey)
+	}
+}

@@ -87,12 +87,12 @@ func TestNotificationRejectsPromiseAndInvalidResults(t *testing.T) {
 }
 func TestNotificationTargetValidation(t *testing.T) {
 	reg := meta.NewRegistry()
-	for _, d := range []*meta.DocType{{Name: "Task", Fields: []*meta.Field{{Fieldname: "due", Fieldtype: "Date"}, {Fieldname: "title", Fieldtype: "Data"}}}, {Name: "Child", IsChild: true}, {Name: "Email Delivery"}} {
+	for _, d := range []*meta.DocType{{Name: "Task", Fields: []*meta.Field{{Fieldname: "due", Fieldtype: "Date"}, {Fieldname: "title", Fieldtype: "Data"}}}, {Name: "Child", IsChild: true}, {Name: "Email Delivery"}, {Name: "Webhook"}} {
 		if err := reg.Add(d); err != nil {
 			t.Fatal(err)
 		}
 	}
-	for _, rule := range []Notification{{Name: "unknown", Doctype: "Missing"}, {Name: "child", Doctype: "Child"}, {Name: "internal", Doctype: "Email Delivery"}, {Name: "bad date", Doctype: "Task", Date: &NotificationDate{Field: "title"}}, {Name: "missing mail", Doctype: "Task", Email: &NotificationEmail{Template: "Missing"}}} {
+	for _, rule := range []Notification{{Name: "unknown", Doctype: "Missing"}, {Name: "child", Doctype: "Child"}, {Name: "internal", Doctype: "Email Delivery"}, {Name: "internal webhook", Doctype: "Webhook"}, {Name: "bad date", Doctype: "Task", Date: &NotificationDate{Field: "title"}}, {Name: "missing mail", Doctype: "Task", Email: &NotificationEmail{Template: "Missing"}}} {
 		if err := rule.ValidateTarget(reg, func(string) bool { return false }); err == nil {
 			t.Fatalf("accepted %+v", rule)
 		}

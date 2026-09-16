@@ -12,6 +12,7 @@ import (
 	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/db"
 	"github.com/jrvidotti/ddcore/internal/js"
+	"github.com/jrvidotti/ddcore/internal/print"
 )
 
 const (
@@ -559,7 +560,7 @@ export default defineNotification({ name: "salary", doctype: "Employee", event: 
 			var html string
 			if err := e.Run(ctx, user, func(c *Ctx) error {
 				var err error
-				html, err = c.PrintDoc("Employee", "Ana", "standard", "none", "en")
+				html, err = c.PrintDoc("Employee", "Ana", "standard", "none", "en", print.PDFOptions{})
 				return err
 			}); err != nil {
 				t.Fatal(err)

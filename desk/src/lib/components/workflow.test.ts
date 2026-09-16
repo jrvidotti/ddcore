@@ -22,8 +22,11 @@ vi.mock("../ui.svelte", () => ({
   ui: { busy: 0 },
 }));
 
+const catalogue: Record<string, string> = { Approve: "Aprovar" };
+
 vi.mock("../boot.svelte", () => ({
   __: (s: string, args?: any[]) => {
+    s = catalogue[s] ?? s;
     if (!args || !args.length) return s;
     return s.replace(/\{(\d+)\}/g, (_, i) => String(args[Number(i)] ?? ""));
   },
@@ -188,6 +191,23 @@ describe("Workflow form integration", () => {
       expect.stringContaining("Submit for Approval"),
       expect.objectContaining({ indicator: "green" }),
     );
+  });
+
+  it("names the applied action in the user's language", async () => {
+    const doc = { name: "ART-001", doctype: "Artigo", _workflow: { state: "Pending Approval", actions: [{ action: "Approve", nextState: "Approved" }] } };
+    const frm = new FormController(makeMeta(), doc);
+    vi.mocked(api.post).mockResolvedValue({ ...doc, _workflow: { state: "Approved", actions: [] } });
+    expect(await frm.applyWorkflowAction("Approve")).toBe(true);
+    expect(toast).toHaveBeenCalledWith("Action 'Aprovar' applied", expect.anything());
+  });
+
+  it("refuses to apply an action over unsaved edits", async () => {
+    const doc = { name: "ART-001", doctype: "Artigo", titulo: "a", _workflow: { state: "Draft", actions: [{ action: "Submit for Approval", nextState: "Pending Approval" }] } };
+    const frm = new FormController(makeMeta(), doc);
+    frm.doc.titulo = "edited";
+    expect(frm.isDirty).toBe(true);
+    expect(await frm.applyWorkflowAction("Submit for Approval")).toBe(false);
+    expect(api.post).not.toHaveBeenCalled();
   });
 
   it("handles workflow transition errors gracefully", async () => {

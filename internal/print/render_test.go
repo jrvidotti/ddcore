@@ -105,8 +105,8 @@ func TestStandardTemplate_AutoGenerationAndFieldOmission(t *testing.T) {
 		Fields: []*meta.Field{
 			{Fieldname: "supplier_name", Fieldtype: "Data", Label: "Supplier Name"},
 			{Fieldname: "date", Fieldtype: "Date", Label: "Order Date"},
-			{Fieldname: "secret_token", Fieldtype: "Password", Label: "Secret Token"}, // Must be omitted!
-			{Fieldname: "vault_key", Fieldtype: "Vault", Label: "Vault Key"},          // Must be omitted!
+			{Fieldname: "secret_token", Fieldtype: "Password", Label: "Secret Token"},               // Must be omitted!
+			{Fieldname: "vault_key", Fieldtype: "Vault", Label: "Vault Key"},                        // Must be omitted!
 			{Fieldname: "internal_notes", Fieldtype: "Text", Label: "Internal Notes", Hidden: true}, // Hidden: omitted!
 			{Fieldtype: "Section Break", Label: "Financial Details"},
 			{Fieldname: "currency", Fieldtype: "Data", Label: "Currency"},
@@ -209,7 +209,7 @@ func TestAssembleHTML_WithLetterheadAndStyles(t *testing.T) {
 	}
 
 	body := `<div class="print-content">Hello World</div>`
-	fullHTML := AssembleHTML(body, lh, "Test Document", "pt-BR")
+	fullHTML := AssembleHTML(body, lh, "Test Document", "pt-BR", PDFOptions{})
 
 	if !strings.Contains(fullHTML, `<html lang="pt-BR">`) {
 		t.Fatalf("lang attribute missing or incorrect: %s", fullHTML)
@@ -231,5 +231,47 @@ func TestAssembleHTML_WithLetterheadAndStyles(t *testing.T) {
 	}
 	if !strings.Contains(fullHTML, `Hello World`) {
 		t.Fatal("document body missing")
+	}
+}
+
+// A columns block carries its cells as lists of blocks, and each cell renders
+// its blocks the same way the top level does, escaping included.
+func TestRenderBlocks_Columns(t *testing.T) {
+	blocks := []Block{{
+		Type: "columns",
+		Cells: [][]Block{
+			{{Type: "h", Level: 3, Text: "Billed To"}, {Type: "p", Text: "Acme <Ltd>"}},
+			{{Type: "keyValues", Columns: 2, Pairs: [][]string{{"Issue Date", "2026-09-14"}}}},
+		},
+	}}
+	out := RenderBlocks(blocks)
+	if !strings.Contains(out, `<div class="print-columns" style="grid-template-columns: repeat(2, 1fr)">`) {
+		t.Fatalf("expected a two-column grid, got: %s", out)
+	}
+	if strings.Count(out, `<div class="print-column">`) != 2 {
+		t.Fatalf("expected two cells, got: %s", out)
+	}
+	if !strings.Contains(out, "Billed To") || !strings.Contains(out, "Acme &lt;Ltd&gt;") || !strings.Contains(out, "Issue Date") {
+		t.Fatalf("cell blocks missing or unescaped: %s", out)
+	}
+}
+
+// The page size and orientation reach the HTML as an @page rule, which is what
+// Chrome and a PDF command read; only Gotenberg also gets them as form fields.
+func TestAssembleHTML_PageSize(t *testing.T) {
+	cases := []struct {
+		opts PDFOptions
+		want string
+	}{
+		{PDFOptions{}, "size: A4 portrait;"},
+		{PDFOptions{Format: "a4", Landscape: true}, "size: A4 landscape;"},
+		{PDFOptions{Format: "Letter"}, "size: Letter portrait;"},
+		{PDFOptions{Format: "LETTER", Landscape: true}, "size: Letter landscape;"},
+	}
+	for _, c := range cases {
+		out := AssembleHTML("<p>x</p>", nil, "T", "en", c.opts)
+		if !strings.Contains(out, c.want) {
+			t.Fatalf("%+v: expected %q in: %s", c.opts, c.want, out)
+		}
 	}
 }

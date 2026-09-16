@@ -1,8 +1,6 @@
 package engine
 
 import (
-	"fmt"
-
 	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/js"
 )
@@ -177,16 +175,23 @@ func (c *Ctx) ApplyWorkflowTransition(doctype, name, action string) (Doc, error)
 	if err := c.Audit("workflow.transition", doctype, name, detail); err != nil {
 		return nil, err
 	}
-	commentContent := fmt.Sprintf("%s applied action '%s' (%s → %s)", c.User, action, currentState, matched.NextState)
-	comment, err := c.NewDoc("Comment", Doc{
-		"comment_type":      "Workflow",
-		"reference_doctype": doctype,
-		"reference_type":    doctype,
-		"reference_name":    name,
-		"content":           commentContent,
-	})
-	if err == nil {
-		_, _ = c.Insert(comment, SaveOpts{IgnorePermissions: true})
+	// The timeline comment is a side effect: a failure is rolled back to its
+	// savepoint and logged, and the transition still commits.
+	if err := c.WithSavepoint(func() error {
+		comment, err := c.NewDoc("Comment", Doc{
+			"comment_type":      "Workflow",
+			"reference_doctype": doctype,
+			"reference_type":    doctype,
+			"reference_name":    name,
+			"content":           c.T("{0} applied action '{1}' ({2} → {3})", c.User, c.T(action), c.T(currentState), c.T(matched.NextState)),
+		})
+		if err != nil {
+			return err
+		}
+		_, err = c.Insert(comment, SaveOpts{IgnorePermissions: true})
+		return err
+	}); err != nil {
+		c.E.Log.Warn("workflow timeline comment failed", "doctype", doctype, "name", name, "action", action, "err", err)
 	}
 
 	return saved, nil

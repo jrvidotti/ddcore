@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/jrvidotti/ddcore/internal/db"
+	"github.com/jrvidotti/ddcore/internal/js"
 	"github.com/jrvidotti/ddcore/internal/meta"
 )
 
@@ -118,10 +119,40 @@ func (c *Ctx) HasRole(role string) bool {
 	return false
 }
 
+// workflowStateAllowsEdit reports whether the user's roles may edit a
+// document in state: an empty allowEdit leaves editing to the DocType's
+// write permission.
+func (c *Ctx) workflowStateAllowsEdit(state *js.WorkflowState) bool {
+	return state.AllowEdit == "" || c.HasRole(state.AllowEdit)
+}
+
+// unscopedOnlyDoctypes are administered only by users without access scopes.
+// A Webhook sends every document of a DocType to an outside address, and a
+// Webhook Delivery's payload names its document in plain Data fields that no
+// scope filter applies to, so neither can be limited to a scope. A User
+// Permission is the scope itself: a scoped user who could write one could lift
+// their own. The refusal is part of the scope, so ignorePermissions does not
+// lift it; the framework's own writes raise the context instead, and
+// UserPermissions reads the table directly.
+var unscopedOnlyDoctypes = map[string]bool{"Webhook": true, "Webhook Delivery": true, "User Permission": true}
+
+// refusedToScopedUser reports whether doctype is closed to the current user
+// because the user has access scopes.
+func (c *Ctx) refusedToScopedUser(doctype string) (bool, error) {
+	if !unscopedOnlyDoctypes[doctype] {
+		return false, nil
+	}
+	perms, err := c.UserPermissions()
+	return len(perms) > 0, err
+}
+
 // HasPermission decides whether the user may perform ptype on doctype/doc.
 func (c *Ctx) HasPermission(doctype, ptype string, doc Doc) (bool, error) {
 	if c.User == "Administrator" || c.IgnorePermissions() {
 		return true, nil
+	}
+	if refused, err := c.refusedToScopedUser(doctype); err != nil || refused {
+		return false, err
 	}
 	d, err := c.St.DocType(doctype)
 	if err != nil {
@@ -163,10 +194,8 @@ func (c *Ctx) HasPermission(doctype, ptype string, doc Doc) (bool, error) {
 			if st == "" {
 				st = wf.InitialState
 			}
-			if state := wf.GetState(st); state != nil && state.AllowEdit != "" {
-				if !c.HasRole(state.AllowEdit) {
-					return false, nil
-				}
+			if state := wf.GetState(st); state != nil && !c.workflowStateAllowsEdit(state) {
+				return false, nil
 			}
 		}
 	}
@@ -200,6 +229,9 @@ func (c *Ctx) HasPermission(doctype, ptype string, doc Doc) (bool, error) {
 func (c *Ctx) checkUserPermissions(d *meta.DocType, doc Doc) (bool, error) {
 	if c.User == "Administrator" || c.IgnorePermissions() || doc == nil {
 		return true, nil
+	}
+	if refused, err := c.refusedToScopedUser(d.Name); err != nil || refused {
+		return false, err
 	}
 	return c.checkUserPermissionsFor(d, doc, d.Name)
 }
@@ -239,6 +271,16 @@ func (c *Ctx) checkUserPermissionsFor(d *meta.DocType, doc Doc, applicableFor st
 				val := db.Str(doc[f.Fieldname])
 				if val == "" || !allowedMap[val] {
 					return false, nil
+				}
+			}
+			if f.Fieldtype == "Dynamic Link" && d.Field(f.OptionsString()) != nil {
+				// A Dynamic Link is restricted only when its selector points at the
+				// allowed DocType, mirroring scopeFilters' IfField/IfValue semantics.
+				if strings.EqualFold(db.Str(doc[f.OptionsString()]), allow) {
+					val := db.Str(doc[f.Fieldname])
+					if val == "" || !allowedMap[val] {
+						return false, nil
+					}
 				}
 			}
 		}
@@ -325,6 +367,10 @@ func (c *Ctx) scopeFilters(d *meta.DocType) ([]db.Filter, error) {
 	perms, err := c.UserPermissions()
 	if err != nil || len(perms) == 0 {
 		return nil, err
+	}
+	if unscopedOnlyDoctypes[d.Name] {
+		// An empty IN renders as FALSE: no row is in scope.
+		return []db.Filter{{Field: "name", Op: "in", Value: []any{}}}, nil
 	}
 
 	grouped := make(map[string][]any)

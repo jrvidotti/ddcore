@@ -104,6 +104,11 @@ func TestAuditImmutability(t *testing.T) {
 	if err := c.Delete("Audit Event", eventName, false, false); err == nil || cerr.From(err).Type != "PermissionError" {
 		t.Fatalf("expected PermissionError on direct Delete of Audit Event, got: %v", err)
 	}
+
+	// Attempt direct DBSet
+	if _, err := c.DBSet("Audit Event", eventName, Doc{"action": "tampered.action"}, true); err == nil || cerr.From(err).Type != "PermissionError" {
+		t.Fatalf("expected PermissionError on direct DBSet of Audit Event, got: %v", err)
+	}
 }
 
 func TestAuditListCountAndPurge(t *testing.T) {

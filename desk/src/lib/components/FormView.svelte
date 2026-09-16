@@ -310,7 +310,7 @@
 
   async function handleWorkflowAction(action: string) {
     if (!frm) return;
-    if (await confirm(__("{0} {1}?", [action, frm.doc.name]), __(action))) {
+    if (await confirm(__("{0} {1}?", [__(action), frm.doc.name]), __(action))) {
       await frm.applyWorkflowAction(action);
     }
   }
@@ -389,7 +389,7 @@
       {#if frm.workflow?.actions && frm.workflow.actions.length > 0 && !frm.isNew}
         {#if frm.workflow.actions.length > 2}
           <div class="dropdown">
-            <button class="btn primary" disabled={frm.saving} onclick={() => (workflowMenuOpen = !workflowMenuOpen)}>{__("Actions")} <Icon name="chevron-down" size={14} /></button>
+            <button class="btn primary" disabled={frm.saving || frm.isDirty} onclick={() => (workflowMenuOpen = !workflowMenuOpen)}>{__("Actions")} <Icon name="chevron-down" size={14} /></button>
             {#if workflowMenuOpen}
               <div class="menu" role="menu" tabindex="-1">
                 {#each frm.workflow.actions as act}
@@ -403,7 +403,7 @@
           </div>
         {:else}
           {#each frm.workflow.actions as act, i}
-            <button class="btn" class:primary={i === 0} disabled={frm.saving} onclick={() => handleWorkflowAction(act.action)}>{__(act.action)}</button>
+            <button class="btn" class:primary={i === 0} disabled={frm.saving || frm.isDirty} onclick={() => handleWorkflowAction(act.action)}>{__(act.action)}</button>
           {/each}
         {/if}
       {/if}

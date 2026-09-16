@@ -55,6 +55,26 @@ func TestRequireSecretNamesTheVariableNotTheValue(t *testing.T) {
 	}
 }
 
+// The vault master key lives under the same DDCORE_SECRET_ prefix as an app
+// secret (DDCORE_SECRET_KEY), but it is not an app secret: an app that asked
+// for ddcore.secret("key") must not get it back.
+func TestSecretRefusesTheVaultMasterKey(t *testing.T) {
+	e := &Engine{}
+	t.Setenv(MasterKeyEnvName, "super-secret-master-key")
+
+	if v, ok := e.Secret("key"); ok {
+		t.Errorf("expected the master key to be refused, got %q", v)
+	}
+	if _, err := e.RequireSecret("key"); err == nil {
+		t.Error("expected RequireSecret to refuse the master key")
+	}
+	for _, n := range e.SecretNames() {
+		if n == "KEY" {
+			t.Error("SecretNames must not list the vault master key")
+		}
+	}
+}
+
 func TestSecretNamesOmitsValues(t *testing.T) {
 	e := &Engine{}
 	t.Setenv("DDCORE_SECRET_UM", "valor-um")

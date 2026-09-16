@@ -40,7 +40,7 @@ type auditFilterFlags struct {
 
 func addAuditFilterFlags(fs *flag.FlagSet) auditFilterFlags {
 	return auditFilterFlags{
-		action:  fs.String("action", "", "action prefix or exact match (e.g. role.assign, vault.write)"),
+		action:  fs.String("action", "", "exact action match (e.g. role.assign, vault.write)"),
 		actor:   fs.String("actor", "", "the user or service that triggered the event"),
 		target:  fs.String("target", "", "target document name or identifier"),
 		outcome: fs.String("outcome", "", "Allowed or Denied"),

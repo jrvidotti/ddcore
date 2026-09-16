@@ -479,6 +479,12 @@ func (e *Engine) Load() error {
 	for _, w := range snap.Whitelisted {
 		wl[w.Path] = w.Opts
 	}
+	for _, name := range sortedWorkflowNames(snap.Workflows) {
+		if err := snap.Workflows[name].ValidateTarget(reg); err != nil {
+			pool.Close()
+			return err
+		}
+	}
 	workflows := make(map[string]*js.Workflow, len(snap.Workflows))
 	workflowsByDocType := make(map[string]*js.Workflow, len(snap.Workflows))
 	for k := range snap.Workflows {
@@ -847,6 +853,36 @@ func (c *Ctx) RollbackTo() error {
 	return err
 }
 
+// WithSavepoint runs fn inside a savepoint of the current transaction. When fn
+// fails, its writes, cached documents and after-commit callbacks are undone
+// and the transaction stays usable, so a best-effort side effect can fail
+// without taking the caller's work down with it.
+func (c *Ctx) WithSavepoint(fn func() error) error {
+	if c.Tx == nil {
+		return fn()
+	}
+	c.roSavepoint++
+	sp := fmt.Sprintf("ddcore_sp%d", c.roSavepoint)
+	defer func() { c.roSavepoint-- }()
+	if _, err := c.Tx.Exec(c.Ctx, "SAVEPOINT "+sp); err != nil {
+		return err
+	}
+	pending := len(c.afterCommit)
+	if err := fn(); err != nil {
+		if _, rbErr := c.Tx.Exec(c.Ctx, "ROLLBACK TO SAVEPOINT "+sp); rbErr != nil {
+			c.E.Log.Warn("could not roll back to savepoint", "savepoint", sp, "err", rbErr)
+		}
+		if _, relErr := c.Tx.Exec(c.Ctx, "RELEASE SAVEPOINT "+sp); relErr != nil {
+			c.E.Log.Warn("could not release savepoint", "savepoint", sp, "err", relErr)
+		}
+		c.afterCommit = c.afterCommit[:pending]
+		c.docCache = map[string]Doc{}
+		return err
+	}
+	_, err := c.Tx.Exec(c.Ctx, "RELEASE SAVEPOINT "+sp)
+	return err
+}
+
 // ---------------------------------------------------------------- app files
 
 // AppDir returns the directory of an app (for reading form scripts etc.).
@@ -902,6 +938,15 @@ func (e *Engine) Eval(ctx context.Context, code string, commit bool) (json.RawMe
 		return err
 	})
 	return out, logs, err
+}
+
+func sortedWorkflowNames(workflows map[string]js.Workflow) []string {
+	names := make([]string, 0, len(workflows))
+	for name := range workflows {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
 
 func sortedNotificationNames(rules map[string]js.Notification) []string {

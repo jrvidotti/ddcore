@@ -430,8 +430,16 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 	if wf := c.WorkflowFor(d.Name); wf != nil {
 		if doc[wf.StateField] == nil || doc[wf.StateField] == "" {
 			doc[wf.StateField] = wf.InitialState
-		} else if doc.Str(wf.StateField) != wf.InitialState && !opts.IgnorePermissions && !c.IgnorePermissions() {
+		} else if doc.Str(wf.StateField) != wf.InitialState && !c.inWorkflowTransition {
+			// like SaveDoc's guard, this yields only to a workflow transition, never
+			// to opts.IgnorePermissions or c.IgnorePermissions() — a bulk import or a
+			// background job cannot insert a document past the initial state; data
+			// repair belongs in a migration patch's ctx.sql.
 			return nil, cerr.Validation("New {0} must start in initial workflow state '{1}'", d.Name, wf.InitialState)
+		}
+		// a submitted insert would skip every approval the workflow requires
+		if initial := wf.GetState(wf.InitialState); initial != nil && doc.Docstatus() != initial.Docstatus && !c.inWorkflowTransition {
+			return nil, cerr.Validation("New {0} must start with the docstatus of initial workflow state '{1}'", d.Name, wf.InitialState)
 		}
 	}
 	if c.fieldPermissionsApply(d, opts) {
@@ -801,7 +809,7 @@ func (c *Ctx) Amend(doctype, name string) (Doc, error) {
 	n := 1
 	for {
 		cand := fmt.Sprintf("%s-%d", base, n)
-		if ok, _ := c.Exists(doctype, cand); !ok {
+		if ok, _ := c.nameExists(doctype, cand); !ok {
 			doc["name"] = cand
 			break
 		}
@@ -825,6 +833,28 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 	if err != nil {
 		return modified, err
 	}
+	if d.Name == "Audit Event" {
+		return modified, cerr.Permission("Audit Event records are immutable and cannot be modified")
+	}
+	if !c.IgnorePermissions() {
+		if refused, err := c.refusedToScopedUser(d.Name); err != nil {
+			return modified, err
+		} else if refused {
+			return modified, cerr.Permission("No permission ({0}) on {1} {2}", "write", c.T(d.Label), name)
+		}
+	}
+	// the state field and docstatus move only through a workflow transition;
+	// this does not yield to c.IgnorePermissions() (raised for every background
+	// job) — a job that needs to repair workflow data uses a migration patch's
+	// ctx.sql instead.
+	if wf := c.WorkflowFor(d.Name); wf != nil && !c.inWorkflowTransition {
+		if _, ok := values[wf.StateField]; ok {
+			return modified, cerr.Validation("Cannot manually modify workflow state field '{0}'. Use workflow actions to transition.", wf.StateField)
+		}
+		if _, ok := values["docstatus"]; ok {
+			return modified, cerr.Validation("Direct submit or cancel is disabled for documents governed by workflow '{0}'", wf.Name)
+		}
+	}
 	if d.IsSingle {
 		if name != "singleton" {
 			return modified, cerr.Validation("Invalid Single identity for {0}", d.Name)
@@ -838,6 +868,42 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 	}
 	if len(values) == 0 {
 		return modified, nil
+	}
+	if !c.IgnorePermissions() {
+		// scope: neither the stored document nor the written values may be out
+		// of the user's scope, as for Save
+		if perms, err := c.UserPermissions(); err != nil {
+			return modified, err
+		} else if len(perms) > 0 {
+			stored, err := c.GetDocIgnoringPerms(d.Name, name)
+			if err != nil {
+				return modified, err
+			}
+			merged := Doc{}
+			for k, v := range stored {
+				merged[k] = v
+			}
+			for k, v := range values {
+				merged[k] = v
+			}
+			// A child row's scope applies under its parent's applicable_for,
+			// the same rule Save enforces (perm.go's recursion into table
+			// rows). d.Name (the child DocType's own name) would miss any
+			// rule scoped to the parent DocType.
+			applicableFor := d.Name
+			if d.IsChild {
+				if pt := stored.Str("parenttype"); pt != "" {
+					applicableFor = pt
+				}
+			}
+			for _, doc := range []Doc{stored, merged} {
+				if ok, err := c.checkUserPermissionsFor(d, doc, applicableFor); err != nil {
+					return modified, err
+				} else if !ok {
+					return modified, cerr.Permission("No permission ({0}) on {1} {2}", "write", c.T(d.Label), name)
+				}
+			}
+		}
 	}
 	var beforePermission Doc
 	if d.Name == "User Permission" {
@@ -932,6 +998,22 @@ func (c *Ctx) Delete(doctype, name string, ignorePerms, force bool) error {
 			return cerr.Permission("No permission to delete {0} {1}", c.T(d.Label), name)
 		}
 	}
+	// a draft that has left the initial state is deleted only by a role that
+	// may edit it there; a cancelled document keeps the rules above. This does
+	// not yield to ignorePerms or c.IgnorePermissions() — ddcore.deleteDoc(...,
+	// {ignorePermissions:true}) and a background job (which always runs with
+	// c.IgnorePermissions() true) cannot delete a document out from under an
+	// approval; data repair belongs in a migration patch's ctx.sql.
+	if wf := c.WorkflowFor(doctype); wf != nil && doc.Docstatus() == 0 && c.User != "Administrator" {
+		st := doc.Str(wf.StateField)
+		if st == "" {
+			st = wf.InitialState
+		}
+		state := wf.GetState(st)
+		if state == nil || state.Docstatus != 0 || (st != wf.InitialState && !c.workflowStateAllowsEdit(state)) {
+			return cerr.Permission("No permission to delete {0} {1} in workflow state '{2}'", c.T(d.Label), name, c.T(st))
+		}
+	}
 	if doc.Docstatus() == 1 {
 		return cerr.Validation("Cancel {0} {1} before deleting", c.T(d.Label), name)
 	}
@@ -1021,7 +1103,7 @@ func (c *Ctx) Rename(doctype, oldName, newName string) (string, error) {
 	if ok, _ := c.HasPermission(doctype, "write", doc); !ok && !c.IgnorePermissions() {
 		return "", cerr.Permission("No permission to rename {0}", c.T(d.Label))
 	}
-	if ok, _ := c.Exists(doctype, newName); ok {
+	if ok, _ := c.nameExists(doctype, newName); ok {
 		return "", cerr.Duplicate("{0} {1} already exists", c.T(d.Label), newName)
 	}
 	if err := c.runHook(d, "beforeRename", doc, nil); err != nil {
@@ -1033,6 +1115,21 @@ func (c *Ctx) Rename(doctype, oldName, newName string) (string, error) {
 	}
 	if d.Naming.Field != "" {
 		q.Exec(c.Ctx, fmt.Sprintf("UPDATE %s SET %s = $1 WHERE name = $1", db.Ident(d.TableName()), db.Ident(d.Naming.Field)), newName)
+	}
+	// Vault keys default to "<DocType>:<Fieldname>:<name>" (DeriveVaultKey); a
+	// rename must carry the default-shaped ones to the new name, or the
+	// secret is orphaned under a name the document no longer answers to. A
+	// custom key template is not touched — see the vault docs for the
+	// limitation.
+	for _, f := range d.Fields {
+		if f.Fieldtype != "Vault" || f.OptionsString() != "" {
+			continue
+		}
+		oldKey := c.DeriveVaultKey(d, f, Doc{"name": oldName})
+		newKey := c.DeriveVaultKey(d, f, Doc{"name": newName})
+		if _, err := q.Exec(c.Ctx, "UPDATE ddcore_vault SET name = $1 WHERE name = $2", newKey, oldKey); err != nil {
+			return "", err
+		}
 	}
 	for _, other := range c.St.Meta.DocTypes {
 		t := db.Ident(other.TableName())
@@ -1368,7 +1465,7 @@ func (c *Ctx) checkLinks(d *meta.DocType, doc Doc) error {
 		}
 		switch f.Fieldtype {
 		case "Link":
-			if ok, err := c.Exists(f.OptionsString(), v); err != nil {
+			if ok, err := c.nameExists(f.OptionsString(), v); err != nil {
 				return err
 			} else if !ok {
 				return cerr.LinkExists("{0}: {1} \"{2}\" does not exist", c.T(f.Label), f.OptionsString(), v).WithTitleKey("Invalid link")
@@ -1381,7 +1478,7 @@ func (c *Ctx) checkLinks(d *meta.DocType, doc Doc) error {
 			if _, err := c.St.DocType(target); err != nil {
 				return cerr.Validation("{0}: DocType \"{1}\" does not exist", c.T(f.Label), target)
 			}
-			if ok, err := c.Exists(target, v); err != nil {
+			if ok, err := c.nameExists(target, v); err != nil {
 				return err
 			} else if !ok {
 				return cerr.LinkExists("{0}: {1} \"{2}\" does not exist", c.T(f.Label), target, v).WithTitleKey("Invalid link")

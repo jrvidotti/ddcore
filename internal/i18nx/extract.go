@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/jrvidotti/ddcore/internal/engine"
+	"github.com/jrvidotti/ddcore/internal/js"
 	"github.com/jrvidotti/ddcore/internal/meta"
 )
 
@@ -108,6 +109,16 @@ func collectMeta(s *Set, e *engine.Engine, t Target) {
 			CollectTree(s, map[string]any(rep), t.App+" report")
 		}
 	}
+	for _, wf := range st.Snap.Workflows {
+		if wf.App == t.App {
+			CollectWorkflow(s, wf, workflowRef(t, wf))
+		}
+	}
+	for _, pt := range st.Snap.PrintTemplates {
+		if pt.App == t.App {
+			CollectPrintTemplate(s, pt, printTemplateRef(t, pt))
+		}
+	}
 	if am, ok := st.Snap.Apps[t.App]; ok {
 		var tree map[string]any
 		if b, err := json.Marshal(am); err == nil {
@@ -148,4 +159,21 @@ func metaRef(t Target, d *meta.DocType) string {
 		return rel
 	}
 	return d.SourceFile
+}
+
+// printTemplateRef names the print template's source module, or the app when
+// unknown.
+func printTemplateRef(t Target, pt engine.PrintTemplate) string {
+	if pt.SourceFile == "" {
+		return t.App + " print"
+	}
+	return pt.SourceFile
+}
+
+// workflowRef names the workflow's source module, or the app when unknown.
+func workflowRef(t Target, wf js.Workflow) string {
+	if wf.SourceFile == "" {
+		return t.App + " workflow"
+	}
+	return wf.SourceFile
 }

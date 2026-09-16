@@ -73,26 +73,51 @@ func (s *Server) assignDoc(w http.ResponseWriter, r *http.Request) {
 		if body.Description != "" {
 			commentContent += fmt.Sprintf(": %s", body.Description)
 		}
-		comment, err := c.NewDoc("Comment", engine.Doc{
-			"comment_type":      "Workflow",
-			"reference_doctype": body.Doctype,
-			"reference_name":    body.Name,
-			"content":           commentContent,
-		})
-		if err == nil {
-			_, _ = c.Insert(comment, engine.SaveOpts{})
-		}
+		addTimelineComment(c, body.Doctype, body.Name, commentContent)
 
-		// 3. Dispatch persistent notification
-		title := fmt.Sprintf("Assigned: %s %s", body.Doctype, body.Name)
+		// 3. Dispatch persistent notification, written in the assignee's language
+		lang := c.RecipientLang([]string{body.AllocatedTo})
+		label := body.Doctype
+		if d, err := c.St.DocType(body.Doctype); err == nil {
+			label = c.St.I18n.T(lang, d.Label)
+		}
+		title := c.St.I18n.T(lang, "Assigned: {0} {1}", label, body.Name)
 		msg := body.Description
 		if msg == "" {
-			msg = fmt.Sprintf("%s assigned %s %s to you", c.User, body.Doctype, body.Name)
+			msg = c.St.I18n.T(lang, "{0} assigned {1} {2} to you", c.User, label, body.Name)
 		}
-		_ = c.NotifyUser(body.AllocatedTo, body.Doctype, body.Name, title, msg)
+		// Best effort, like the comment: a failure is rolled back to its
+		// savepoint and logged, and the assignment still commits.
+		if err := c.WithSavepoint(func() error {
+			return c.NotifyUser(body.AllocatedTo, body.Doctype, body.Name, title, msg)
+		}); err != nil {
+			c.E.Log.Warn("assignment notification failed", "doctype", body.Doctype, "name", body.Name, "user", body.AllocatedTo, "err", err)
+		}
 
 		return inserted, nil
 	})
+}
+
+// addTimelineComment records a Workflow comment on the referenced document. It
+// is a side effect of the assignment action: a failure is rolled back to a
+// savepoint and logged instead of aborting the request transaction.
+func addTimelineComment(c *engine.Ctx, doctype, name, content string) {
+	err := c.WithSavepoint(func() error {
+		comment, err := c.NewDoc("Comment", engine.Doc{
+			"comment_type":      "Workflow",
+			"reference_doctype": doctype,
+			"reference_name":    name,
+			"content":           content,
+		})
+		if err != nil {
+			return err
+		}
+		_, err = c.Insert(comment, engine.SaveOpts{})
+		return err
+	})
+	if err != nil {
+		c.E.Log.Warn("assignment timeline comment failed", "doctype", doctype, "name", name, "err", err)
+	}
 }
 
 func (s *Server) completeAssignment(w http.ResponseWriter, r *http.Request) {
@@ -124,18 +149,8 @@ func (s *Server) completeAssignment(w http.ResponseWriter, r *http.Request) {
 			return nil, err
 		}
 
-		refType := doc.Str("reference_type")
-		refName := doc.Str("reference_name")
-		if refType != "" && refName != "" {
-			comment, err := c.NewDoc("Comment", engine.Doc{
-				"comment_type":      "Workflow",
-				"reference_doctype": refType,
-				"reference_name":    refName,
-				"content":           fmt.Sprintf("%s completed assignment", c.User),
-			})
-			if err == nil {
-				_, _ = c.Insert(comment, engine.SaveOpts{})
-			}
+		if refType, refName := doc.Str("reference_type"), doc.Str("reference_name"); refType != "" && refName != "" {
+			addTimelineComment(c, refType, refName, fmt.Sprintf("%s completed assignment", c.User))
 		}
 
 		return saved, nil
@@ -171,18 +186,8 @@ func (s *Server) revokeAssignment(w http.ResponseWriter, r *http.Request) {
 			return nil, err
 		}
 
-		refType := doc.Str("reference_type")
-		refName := doc.Str("reference_name")
-		if refType != "" && refName != "" {
-			comment, err := c.NewDoc("Comment", engine.Doc{
-				"comment_type":      "Workflow",
-				"reference_doctype": refType,
-				"reference_name":    refName,
-				"content":           fmt.Sprintf("%s revoked assignment for %s", c.User, doc.Str("allocated_to")),
-			})
-			if err == nil {
-				_, _ = c.Insert(comment, engine.SaveOpts{})
-			}
+		if refType, refName := doc.Str("reference_type"), doc.Str("reference_name"); refType != "" && refName != "" {
+			addTimelineComment(c, refType, refName, fmt.Sprintf("%s revoked assignment for %s", c.User, doc.Str("allocated_to")))
 		}
 
 		return map[string]any{"success": true}, nil
@@ -196,15 +201,18 @@ func (s *Server) listDocAssignments(w http.ResponseWriter, r *http.Request) {
 		if err := s.requireDocRead(c, doctype, name); err != nil {
 			return nil, err
 		}
+		// Anyone who can read the document sees every assignee, not only the
+		// rows ToDo's permissionQuery would leave them (allocated_to = user).
 		return c.GetList("ToDo", engine.ListArgs{
+			IgnorePermissions: true,
 			Filters: map[string]any{
 				"reference_type": doctype,
 				"reference_name": name,
 				"status":         []any{"!=", "Cancelled"},
 			},
-			Fields:   []string{"name", "status", "priority", "date", "allocated_to", "assigned_by", "description", "creation", "modified"},
-			OrderBy:  "creation desc",
-			Limit:    100,
+			Fields:  []string{"name", "status", "priority", "date", "allocated_to", "assigned_by", "description", "creation", "modified"},
+			OrderBy: "creation desc",
+			Limit:   100,
 		})
 	})
 }
@@ -243,11 +251,15 @@ func (s *Server) pendingWork(w http.ResponseWriter, r *http.Request) {
 			filters["allocated_to"] = c.User
 		}
 
+		// The participant filter above replaces ToDo's permissionQuery, which
+		// would hide assigned_by_me tasks allocated to someone else; the
+		// referenced document is still rechecked per row below.
 		allCandidates, err := c.GetList("ToDo", engine.ListArgs{
-			Filters: filters,
-			Fields:  []string{"name", "status", "priority", "date", "allocated_to", "assigned_by", "description", "reference_type", "reference_name", "creation", "modified"},
-			OrderBy: "creation desc",
-			Limit:   1000,
+			IgnorePermissions: true,
+			Filters:           filters,
+			Fields:            []string{"name", "status", "priority", "date", "allocated_to", "assigned_by", "description", "reference_type", "reference_name", "creation", "modified"},
+			OrderBy:           "creation desc",
+			Limit:             1000,
 		})
 		if err != nil {
 			return nil, err

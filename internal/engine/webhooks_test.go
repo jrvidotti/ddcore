@@ -659,6 +659,130 @@ func TestOPS06_SweepKeepsDeliveriesOnTheirWay(t *testing.T) {
 	}
 }
 
+// A user with access scopes cannot administer webhooks: a subscription would
+// send every document of a DocType to an outside address, and a delivery's
+// payload is not filtered by scope. A document write of the same user still
+// queues its deliveries.
+func TestOPS06_ScopedUsersCannotAdministerWebhooks(t *testing.T) {
+	e := setupWebhooks(t)
+	rcv := newReceiver(t)
+	ctx := context.Background()
+	const scoped, unscoped = "scoped@x.com", "unscoped@x.com"
+	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+		for _, user := range []string{scoped, unscoped} {
+			u, err := c.NewDoc("User", Doc{"email": user, "full_name": user, "roles": []any{
+				map[string]any{"role": "System Manager"}, map[string]any{"role": "Gestor"},
+			}})
+			if err != nil {
+				return err
+			}
+			if _, err := c.Insert(u, SaveOpts{}); err != nil {
+				return err
+			}
+		}
+		_, err := c.Insert(Doc{"doctype": "User Permission", "user": scoped, "allow": "Pessoa", "for_value": "Iris"}, SaveOpts{})
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	addWebhook(t, e, rcv.URL, nil)
+
+	// The scoped user's in-scope write succeeds and queues its delivery.
+	err = e.Run(ctx, scoped, func(c *Ctx) error {
+		p, _ := c.NewDoc("Pessoa", Doc{"nome": "Iris"})
+		_, err := c.Insert(p, SaveOpts{})
+		return err
+	})
+	if err != nil {
+		t.Fatalf("scoped insert: %v", err)
+	}
+	deliveries := hookDeliveries(t, e)
+	if len(deliveries) != 1 || db.Str(deliveries[0]["reference_name"]) != "Iris" {
+		t.Fatalf("deliveries = %v", deliveries)
+	}
+	runJobs(t, e)
+	delivery := db.Str(deliveries[0]["name"])
+	if got := hookDeliveries(t, e)[0]; db.Str(got["status"]) != WebhookSent || len(rcv.got()) != 1 {
+		t.Fatalf("scoped user's delivery = %v, requests = %d", got, len(rcv.got()))
+	}
+	hook := db.Str(deliveries[0]["webhook"])
+
+	isPermission := func(err error) bool {
+		return err != nil && cerr.From(err).Type == cerr.From(cerr.Permission("x")).Type
+	}
+	newHook := func(c *Ctx) error {
+		doc, err := c.NewDoc("Webhook", Doc{"url": rcv.URL, "event_type": "Document", "webhook_doctype": "Pessoa",
+			"on_insert": true, "secret": hookSecret, "max_attempts": 3})
+		if err != nil {
+			return err
+		}
+		_, err = c.Insert(doc, SaveOpts{})
+		return err
+	}
+	listDeliveries := func(c *Ctx) error {
+		_, err := c.GetList("Webhook Delivery", ListArgs{Fields: []string{"name", "payload"}})
+		return err
+	}
+	replay := func(c *Ctx) error { return c.ReplayWebhook(delivery) }
+
+	for i, fn := range []func(*Ctx) error{newHook, listDeliveries, replay} {
+		if err := e.Run(ctx, scoped, fn); !isPermission(err) {
+			t.Fatalf("scoped action %d = %v", i, err)
+		}
+	}
+	var denied int
+	if err := e.DB.Pool.QueryRow(ctx, `SELECT count(*) FROM tab_audit_event
+		WHERE action = 'webhook.replay' AND outcome = 'Denied' AND actor = $1`, scoped).Scan(&denied); err != nil {
+		t.Fatal(err)
+	}
+	if denied != 1 {
+		t.Fatalf("denied replay audit rows = %d", denied)
+	}
+
+	// Skipping role permissions does not skip the scope: app code calling
+	// getAll, getValue, exists, insert or dbSet with ignorePermissions is
+	// refused the same way.
+	err = e.Run(ctx, scoped, func(c *Ctx) error {
+		for _, dt := range []string{"Webhook", "Webhook Delivery"} {
+			rows, err := c.GetList(dt, ListArgs{Fields: []string{"name"}, IgnorePermissions: true})
+			if err != nil {
+				return err
+			}
+			if len(rows) != 0 {
+				t.Errorf("scoped getAll %s = %v", dt, rows)
+			}
+		}
+		if ok, err := c.Exists("Webhook Delivery", delivery); err != nil || ok {
+			t.Errorf("scoped exists = %v, %v", ok, err)
+		}
+		if v, err := c.GetValue("Webhook", hook, "url"); err != nil || (v != nil && v != "") {
+			t.Errorf("scoped getValue = %v, %v", v, err)
+		}
+		doc, err := c.NewDoc("Webhook", Doc{"url": rcv.URL, "event_type": "Document", "webhook_doctype": "Pessoa",
+			"on_insert": true, "secret": hookSecret, "max_attempts": 3})
+		if err != nil {
+			return err
+		}
+		if _, err := c.Insert(doc, SaveOpts{IgnorePermissions: true}); !isPermission(err) {
+			t.Errorf("scoped insert ignoring permissions = %v", err)
+		}
+		if _, err := c.DBSet("Webhook", hook, Doc{"url": "https://attacker.example"}, true); !isPermission(err) {
+			t.Errorf("scoped dbSet = %v", err)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for i, fn := range []func(*Ctx) error{newHook, listDeliveries, replay} {
+		if err := e.Run(ctx, unscoped, fn); err != nil {
+			t.Fatalf("unscoped action %d = %v", i, err)
+		}
+	}
+}
+
 // A typed error raised in Go and let through by a service must reach the HTTP
 // border with its type. It used to arrive as a 500 ScriptError, because goja
 // appends the stack after the error's JSON and the decoder refused the tail.

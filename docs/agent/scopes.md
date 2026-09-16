@@ -14,8 +14,9 @@ Scopes choose documents. To hide *fields* inside a document the user may read, s
 
 ## The `User Permission` DocType
 
-`User Permission` is a Core DocType stored in `tab_user_permission`. Only `System Manager`
-may read or change it.
+`User Permission` is a Core DocType stored in `tab_user_permission`. Only `Administrator`
+and a `System Manager` without scope rows of their own may read or change it (see "Scope
+administration" under "Enforced surfaces").
 
 | Field | Type | Meaning |
 | --- | --- | --- |
@@ -51,19 +52,23 @@ different DocType.
 - **A DocType with no link to the `allow` DocType** is not restricted by that rule.
 - **Child tables**: writes and direct reads also check the `Link` fields of every child
   row, under the parent's `applicable_for`.
-- **Dynamic Link**: a list query filters a `Dynamic Link` field only on the rows whose
-  selector field holds the `allow` DocType. Rows pointing at other DocTypes pass.
-  See [Limitations](#limitations).
+- **Dynamic Link**: a list query, a direct read or write, and a child row all restrict a
+  `Dynamic Link` field only when its selector field holds the `allow` DocType. Rows pointing
+  at other DocTypes pass.
 
 ## Who is unrestricted
 
 - `Administrator`.
 - Any user without `User Permission` rows. This is the default: scopes are opt-in per user.
+- Background jobs, including jobs a scoped user enqueued (see "Background jobs" below).
 - Framework-internal operations that raise the whole context to ignore permissions, such
-  as the mail queue, attachment export and renames.
+  as the mail queue, attachment export and renames. The framework's own duplicate-name,
+  rename and link checks also look names up without a scope, so saving a document that
+  links to an out-of-scope name does not report the link as missing.
 
 A `System Manager` **with** scope rows is scoped like anyone else. That includes history
-and comment listings, which a System Manager can otherwise list unpinned.
+and comment listings, which a System Manager can otherwise list unpinned, and `User
+Permission` itself, which such a user cannot read or change.
 
 ## What app code sees
 
@@ -72,10 +77,16 @@ Scopes are applied below the SDK, so app code cannot opt out:
 | Call | Role permissions | Scope |
 | --- | --- | --- |
 | `ddcore.db.getList`, `count` | enforced | enforced |
-| `ddcore.db.getAll`, `getList({ ignorePermissions: true })`, `getValue`, `exists` | skipped | **enforced** |
-| `ddcore.getDoc` | enforced | enforced (Link fields, child rows) |
+| `ddcore.db.getAll`, `getList({ ignorePermissions: true })`, `getValue`, `exists` (by name and by filters) | skipped | **enforced** |
+| `ddcore.getDoc` | enforced | enforced (Link fields, Dynamic Link fields, child rows) |
 | `insert` / `save` / `delete` / `submit` / `cancel`, with or without `ignorePermissions` | per option | **enforced** |
+| `ddcore.db.setValue`, `doc.dbSet` | skipped | **enforced**: refused if the stored document, or the stored document with the new values, is out of scope |
 | `ddcore.db.sql` | not applied | **not applied** |
+
+`Webhook`, `Webhook Delivery` and `User Permission` are closed to a user with access scopes
+on every one of these calls except `ddcore.db.sql`: lists and `getAll` return no rows,
+`getValue` returns nothing, `exists` returns `null`, and `insert`, `save`, `delete`,
+`setValue` and `dbSet` are refused, with or without `ignorePermissions`.
 
 A report that uses `ddcore.db.getList` inherits the scope. A report or service that uses
 `ddcore.db.sql` must filter by scope itself.
@@ -85,8 +96,14 @@ with the scope.
 
 ### Background jobs
 
-A job runs as the user who enqueued it, so that user's scope applies to the job. Scheduled
-methods (`scheduler` in `defineApp`) run as `Administrator` and are unscoped.
+A job runs as the user who enqueued it: `ddcore.session.user` and the actor of any audit
+event it records are that user. Every job, however, runs with permissions ignored for its
+whole context, so no role permission and no access scope applies inside it, even when a
+scoped user enqueued it. A method a scoped user can enqueue therefore runs unscoped: app
+code that enqueues work on behalf of a scoped user must filter by that user's scope itself,
+for example by passing the in-scope names as arguments after reading them with
+`ddcore.db.getList` in the request. Scheduled methods (`scheduler` in `defineApp`) run as
+`Administrator` and are also unscoped.
 
 ## Enforced surfaces
 
@@ -101,7 +118,9 @@ methods (`scheduler` in `defineApp`) run as `Administrator` and are unscoped.
 | Files | An attached file is readable only if its document is; an unattached file stays with its owner and System Manager |
 | Versions and comments | Refused unless the referenced document is readable |
 | Realtime events (SSE) | Document events are delivered only to users who can read the document |
-| Notifications | Listing and counting recheck access, so a scope change hides old occurrences |
+| Notifications | Recipient filtering, listing, counting, read-state changes and the email-send recheck all recheck access, so a scope change stops a new occurrence and hides or blocks an existing one |
+| Scope administration | A scoped user is refused every permission on `User Permission`, including their own rows, and app code running as that user cannot reach them with `ignorePermissions`, `setValue` or `dbSet`. Scope administration belongs to a `System Manager` without scope rows, or `Administrator` |
+| Webhooks | A scoped user is refused every permission on `Webhook` and `Webhook Delivery`, including replay, and app code running as that user cannot reach them with `ignorePermissions`: webhook administration is for unscoped users. The user's own document writes still queue and send deliveries (see `webhooks`) |
 
 ## Caching
 
@@ -122,11 +141,19 @@ An update that changes `user`, `allow`, `for_value` or `applicable_for`, includi
 
 ## Limitations
 
-- **Dynamic Link is checked in queries only.** Direct reads and writes check `Link` fields
-  and child rows, but not `Dynamic Link` fields. A scoped user can open an out-of-scope
-  document by name when a `Dynamic Link` is its only link to the scope.
 - `ddcore.db.sql` ignores scopes.
 - `is_default` is not used to prefill forms.
 - Scope rules are per user. There are no scope groups or role-based scopes, and no Desk editor
   beyond the generic `User Permission` form.
-- No automated test yet covers a report or a job running under a scoped user.
+- Background jobs run with permissions ignored, so a job a scoped user enqueued is unscoped.
+- No automated test yet covers a report running under a scoped user.
+- Link validation (checking that a Link field's value names an existing document) looks
+  the name up without a scope, so it does not report an out-of-scope name as missing. Combined
+  with direct access and `dbSet` returning `PermissionError` for an out-of-scope name but
+  `NotFound` for one that does not exist at all, a scoped user who tries both can tell the two
+  cases apart — a limited way to learn that an out-of-scope document exists.
+- `setValue`/`dbSet` on a user's own `User` record is scope-checked like any other document. A
+  scoped user whose own `User` record is itself out of scope (for example an app-added Link on
+  `User` left empty, or an `allow: User` rule with no matching `for_value`) cannot change their
+  language or profile through `core/services/profile.ts` or `core/services/i18n.ts`, which write
+  through `setValue` — the same refusal `save` would give.

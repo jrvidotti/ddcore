@@ -1,4 +1,6 @@
 Actions,Ações,# apps/testapp/doctypes/task/task.form.ts:18
+Approve,Aprovar,# testapp.workflows.pedido_approval.workflow
+Approved,Aprovado,# testapp.workflows.pedido_approval.workflow
 Assignee,Responsável,# apps/testapp/print/project_summary.print.ts:20
 Budget,Orçamento,# testapp.doctypes.project.project.doctype
 Client,Cliente,# testapp.doctypes.pedido.pedido.doctype
@@ -8,6 +10,7 @@ Completed,Concluída,# apps/testapp/print/project_summary.print.ts:11
 Completed at,Concluída em,# testapp.doctypes.task.task.doctype
 Completed on,Concluído em,# testapp.doctypes.project_milestone.project_milestone.doctype
 Description,Descrição,# testapp.doctypes.project.project.doctype
+Draft,Rascunho,# testapp.workflows.pedido_approval.workflow
 Due Date,Data de Vencimento,# apps/testapp/print/project_summary.print.ts:28
 Due date,Data limite,# testapp.doctypes.project_milestone.project_milestone.doctype
 End date,Data final,# apps/testapp/print/project_summary.print.ts:23
@@ -26,6 +29,7 @@ Open Tasks,Tarefas Abertas,# testapp workspace
 Order,Pedido,# testapp.doctypes.pedido.pedido.doctype
 Overdue,Atrasada,# testapp.doctypes.task.task.doctype
 Overview,Visão Geral,# testapp workspace
+Pending Approval,Aguardando Aprovação,# testapp.workflows.pedido_approval.workflow
 Planned,Planejado,# apps/testapp/print/project_summary.print.ts:11
 Planning,Planejamento,# testapp workspace
 Priority,Prioridade,# testapp.doctypes.task.task.doctype
@@ -33,11 +37,15 @@ Progress,Progresso,# apps/testapp/print/project_summary.print.ts:24
 Project,Projeto,# testapp.doctypes.project.project.doctype
 Project Code: {0},Código do Projeto: {0},# apps/testapp/print/project_summary.print.ts:16
 Project Milestone,Marco Projeto,# testapp.doctypes.project_milestone.project_milestone.doctype
+Project Summary,Resumo do Projeto,# testapp.print.project_summary.print
 Projects,Projetos,# testapp workspace
+Reject,Rejeitar,# testapp.workflows.pedido_approval.workflow
+Rejected,Rejeitado,# testapp.workflows.pedido_approval.workflow
 Reopen,Reabrir,# apps/testapp/doctypes/task/task.form.ts:20
 Start,Iniciar,# apps/testapp/doctypes/task/task.form.ts:18
 Start date,Data de início,# apps/testapp/print/project_summary.print.ts:22
 Status,Status,# apps/testapp/print/project_summary.print.ts:21
+Submit for Approval,Enviar para Aprovação,# testapp.workflows.pedido_approval.workflow
 Task,Tarefa,# testapp.doctypes.task.task.doctype
 Tasks,Tarefas,# apps/testapp/workspaces/projects.workspace.ts:32
 Tasks by Status,Tarefas por Status,# testapp workspace

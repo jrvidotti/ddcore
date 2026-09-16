@@ -22,6 +22,8 @@ type Block struct {
 	Level      int        `json:"level,omitempty"`
 	HTML       string     `json:"html,omitempty"`
 	Blocks     []Block    `json:"blocks,omitempty"`
+	// Cells are the columns of a "columns" block, each a list of blocks.
+	Cells [][]Block `json:"cells,omitempty"`
 }
 
 // RenderHTML converts a slice of Blocks into escaped, styled HTML.
@@ -143,6 +145,20 @@ func (b Block) RenderHTML() string {
 			lvl = 2
 		}
 		return fmt.Sprintf(`<h%d class="print-heading">%s</h%d>`, lvl, html.EscapeString(b.Text), lvl)
+
+	case "columns":
+		if len(b.Cells) == 0 {
+			return ""
+		}
+		var sb strings.Builder
+		sb.WriteString(fmt.Sprintf(`<div class="print-columns" style="grid-template-columns: repeat(%d, 1fr)">`, len(b.Cells)))
+		for _, cell := range b.Cells {
+			sb.WriteString(`<div class="print-column">`)
+			sb.WriteString(RenderBlocks(cell))
+			sb.WriteString(`</div>`)
+		}
+		sb.WriteString(`</div>`)
+		return sb.String()
 
 	case "rule":
 		return `<hr class="print-hr">`

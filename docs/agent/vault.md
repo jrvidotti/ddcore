@@ -10,14 +10,17 @@ There are two kinds of secrets in an application:
 
 ## 1. Master Encryption Key
 
-The vault uses **AES-256-GCM** authenticated encryption. The encryption key is derived from the `DDCORE_SECRET_KEY` environment variable:
+The vault uses **AES-256-GCM** authenticated encryption. The encryption key is derived from the `DDCORE_SECRET_KEY` environment variable by trimming it and hashing it with SHA-256 — any non-empty string works, hex is not decoded, and there is no length requirement:
 
 ```bash
-# In production: provide a 32-byte (64 hex characters or 32 raw bytes) key
-export DDCORE_SECRET_KEY="0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+export DDCORE_SECRET_KEY="a long, random value provisioned once per deployment"
 ```
 
 If `DDCORE_SECRET_KEY` is not set, vault operations fail immediately with a configuration error, preventing plaintext storage.
+
+`ddcore.secret("key")` cannot read this variable: `Engine.Secret` refuses any
+name that maps to `DDCORE_SECRET_KEY`, so the master key is unreachable from
+app code even though it shares the same environment prefix as an app secret.
 
 ---
 
@@ -65,12 +68,14 @@ export default defineDoctype({
 ### Key properties of `Vault` fields:
 1. **Virtual field (no column):** `Vault` fields never generate a column in `tab_<doctype>`. They are persisted exclusively in the encrypted `ddcore_vault` table.
 2. **Key derivation:**
-   - Default: `${DocType}:${fieldname}:${doc.name}` (e.g. `Integration Account:api_key:ACC-00001`).
-   - Custom template in `options`: interpolates document fields using `{field}` placeholders (e.g. `options: "custom:token:{name}"`).
-3. **Lifecycle on save:**
-   - On `insert` or `save`, if a string value is passed, it is encrypted and saved in the vault under the derived key.
-   - If `{ clear: true }` is passed, the secret is removed from the vault.
-   - If `{ configured: true }`, `null`, or unchanged, the current vault secret is preserved.
+   - Default: `${DocType}:${fieldname}:${doc.name}` (e.g. `Integration Account:api_key:ACC-00001`). Renaming the document re-keys this shape automatically.
+   - Custom template in `options`: interpolates document fields using `{field}` placeholders (e.g. `options: "custom:token:{name}"`). A rename does not re-key a custom template — see Limitations.
+3. **Lifecycle on save:** a `Vault` field accepts one of a few shapes:
+   - A non-empty string encrypts and saves it under the derived key.
+   - An empty string, `null`, `{ configured: true }` (what a read gives back), or
+     the field simply not appearing leaves the current vault secret untouched.
+   - `{ value: "…" }` or `{ secret: "…" }` sets it, same as a plain string.
+   - `{ clear: true }` removes it from the vault.
    - On document `delete`, associated vault entries are cleaned up automatically.
 4. **Border security:**
    - Reading documents via REST API, Desk, or MCP never returns the plaintext secret. The field is redacted to `{ "configured": true }` if present, or `null` if not configured.
@@ -90,8 +95,8 @@ The Desk provides a dedicated control for `Vault` fields:
 
 ## 5. Audit Logging
 
-Every read, write, and delete operation on the vault is automatically audited in the `Audit Event` DocType (PRD-06):
-- `action`: `vault.read`, `vault.write`, or `vault.delete`.
+`ddcore.vault.set`, `ddcore.vault.get`, and `ddcore.vault.del` are audited in the `Audit Event` DocType (PRD-06):
+- `action`: `vault.write`, `vault.read`, or `vault.delete`.
 - `target_doctype`: `Vault Secret`.
 - `target_name`: Name of the vault key.
 - `actor`: User email who triggered the action (or `System`).
@@ -99,7 +104,19 @@ Every read, write, and delete operation on the vault is automatically audited in
 - `ip`: Client IP address.
 - `request_id`: Request correlation ID.
 
-System Managers can review audit events in the Desk at `/app/audit-event` or via `ddcore audit list`.
+Two paths are not audited:
+- `ddcore.vault.list` never touches the audit log — it never returns a value,
+  only key names.
+- Framework code reading a key it owns on its own schedule, such as signing
+  each webhook delivery attempt, reads the vault without recording an entry.
+  An audit row per retry would bury the reads a person made under the ones a
+  worker made. Anything an app or a person asks for through `ddcore.vault.get`
+  still goes through the audited path.
+
+Writing the audit entry itself is best-effort: if it fails, the vault
+operation still succeeds and the failure is silently discarded.
+
+System Managers can review audit events in the Desk at `/app/Audit Event` or via `ddcore audit list`.
 
 ---
 
@@ -110,4 +127,14 @@ Run `ddcore doctor` to inspect the vault status:
 ddcore doctor
 ```
 
-The report indicates whether `DDCORE_SECRET_KEY` is configured, the total count of stored secrets, and their key names (values are never displayed).
+The report indicates whether `DDCORE_SECRET_KEY` is configured, the total count of stored secrets, and their key names — values are never displayed, but the names themselves are printed, and a key can leak a detail (a document name, a tenant) worth keeping out of a report pasted into an issue.
+
+---
+
+## 7. Limitations
+
+- **No key rotation.** A different `DDCORE_SECRET_KEY` makes every existing secret fail to decrypt; there is no re-encryption path. Doctor only warns when the key is missing, not when it has changed.
+- **Backups are useless alone.** A database backup carries the ciphertext but not the key; restoring it without the same `DDCORE_SECRET_KEY`, provisioned separately, leaves every secret undecryptable.
+- **No permission check inside `ddcore.vault.*`.** Server code — a controller, a service, a job — is trusted with any key it names; the boundary is that this API only exists on the server, never in desk-sdk.
+- **`ddcore doctor` prints vault key names**, not values (see above).
+- **Some renames still orphan a secret.** A default-shaped key (`<DocType>:<fieldname>:<name>`) is re-keyed on rename. A custom key template in `options`, and removing a child row during an update, are not: the secret stays in `ddcore_vault` under a key nothing reads anymore.

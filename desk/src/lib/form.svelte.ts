@@ -338,7 +338,8 @@ export class FormController {
   }
 
   async applyWorkflowAction(action: string): Promise<boolean> {
-    if (this.saving) return false;
+    // applying reloads the document: unsaved edits would be dropped silently
+    if (this.saving || this.isDirty) return false;
     this.saving = true;
     ui.busy++;
     try {
@@ -351,7 +352,7 @@ export class FormController {
       for (const h of this.handlers) {
         try { await h.afterSave?.(this); } catch (e) { showError(e); }
       }
-      toast(__("Action '{0}' applied", [action]), { indicator: "green", timeout: 2000 });
+      toast(__("Action '{0}' applied", [__(action)]), { indicator: "green", timeout: 2000 });
       await this.runRefresh();
       return true;
     } catch (e: any) {

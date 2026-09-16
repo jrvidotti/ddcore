@@ -278,8 +278,15 @@ func (c *Ctx) queueWebhook(s webhookSub, event string, data any, ref *WebhookRef
 	if err != nil {
 		return "", err
 	}
-	saved, err := c.Insert(doc, SaveOpts{IgnorePermissions: true})
-	if err != nil {
+	// Raised, not just SaveOpts.IgnorePermissions: the user whose write caused
+	// the event may have access scopes, and those close Webhook and Webhook
+	// Delivery to them, including the check that the webhook Link exists.
+	var saved Doc
+	if err := c.WithIgnorePermissions(func() error {
+		var err error
+		saved, err = c.Insert(doc, SaveOpts{IgnorePermissions: true})
+		return err
+	}); err != nil {
 		return "", err
 	}
 	name := saved.Name()
@@ -402,8 +409,8 @@ func (e *Engine) DeliverWebhook(c *Ctx, delivery string) error {
 	return nil
 }
 
-// webhookSecret reads a subscription's signing key without writing a Vault
-// Audit Log row per attempt; see vaultRead.
+// webhookSecret reads a subscription's signing key directly from the vault,
+// without the permission check and audit of a person's read; see vaultRead.
 func (e *Engine) webhookSecret(c *Ctx, webhook string) (string, error) {
 	key, err := MasterKey()
 	if err != nil {
@@ -494,13 +501,22 @@ func (e *Engine) recordWebhook(ctx context.Context, delivery, status string, cod
 // ReplayWebhook sends a finished delivery again: the same webhook-id and the
 // same body, with a fresh set of attempts.
 //
-// Only a System Manager may, and every replay — allowed or refused — leaves an
-// Audit Event, because it sends data to a third party on a person's say-so.
-// A delivery still on its way is refused rather than doubled.
+// Only a System Manager without access scopes may. An allowed replay and a
+// refusal for either reason leave an Audit Event, because a replay sends data
+// to a third party on a person's say-so. A delivery still on its way is
+// refused rather than doubled.
 func (c *Ctx) ReplayWebhook(delivery string) error {
-	if !c.IgnorePermissions() && !c.HasRole("System Manager") {
-		c.AuditDenied("webhook.replay", "Webhook Delivery", delivery, nil)
-		return cerr.Permission("Only a System Manager may replay a webhook delivery")
+	if !c.IgnorePermissions() {
+		if !c.HasRole("System Manager") {
+			c.AuditDenied("webhook.replay", "Webhook Delivery", delivery, nil)
+			return cerr.Permission("Only a System Manager may replay a webhook delivery")
+		}
+		if scoped, err := c.refusedToScopedUser("Webhook Delivery"); err != nil {
+			return err
+		} else if scoped {
+			c.AuditDenied("webhook.replay", "Webhook Delivery", delivery, nil)
+			return cerr.Permission("A user with access scopes may not replay a webhook delivery")
+		}
 	}
 	rows, err := db.Select(c.Ctx, c.Q(), `SELECT d.status, d.webhook, w.timeout, w.max_attempts
 		FROM tab_webhook_delivery d LEFT JOIN tab_webhook w ON w.name = d.webhook

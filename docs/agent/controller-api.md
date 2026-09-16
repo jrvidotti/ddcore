@@ -39,14 +39,15 @@ Every message a person reads goes through `_()`, and the key is its English text
 
 Fields are properties; child tables are arrays. Methods: `insert()`, `save()`, `submit()`, `cancel()`, `delete()`, `reload()`,
 `dbSet(field, value)` / `dbSet({ ... })` (writes straight through, no validate — allowed after submission), `append(table, row)`, `isNew()`,
-`getDocBeforeSave()`, `hasValueChanged(field)`, `runMethod(name, args)`, `doc.flags` (free-form, per request).
+`getDocBeforeSave()`, `hasValueChanged(field)`, `runMethod(name, args)`, `applyWorkflow(action)` (applies a workflow transition and
+reloads the document with the new state and docstatus; see `workflows`), `doc.flags` (free-form, per request).
 
 ## `ddcore.*` (global on the server)
 
 - `ddcore.db.getValue(doctype, name | filters, field | [fields])` — a value or an object (or `null`)
 - `ddcore.db.getList(doctype, { filters, fields, orderBy, limit, start, groupBy })` — respects permissions; `getAll` skips role permissions but still applies user access scopes (see `scopes`)
-- `ddcore.db.setValue(doctype, name, field, value)` / `setValue(doctype, name, { ... })` — no validate; updates `modified`
-- `ddcore.db.count(doctype, filters)`, `ddcore.db.exists(doctype, name | filters)` → the name or `null`
+- `ddcore.db.setValue(doctype, name, field, value)` / `setValue(doctype, name, { ... })` — no validate; updates `modified`; skips role permissions but applies user access scopes, the closed-DocType, workflow and Audit Event refusals (see `scopes`)
+- `ddcore.db.count(doctype, filters)`, `ddcore.db.exists(doctype, name | filters)` → the name or `null`; applies user access scopes (see `scopes`)
 - `ddcore.db.sql("SELECT ... WHERE x = $1", [v])` — read-only; tables are `tab_<snake>`
 - `ddcore.getDoc(doctype, name)`, `ddcore.newDoc(doctype, values)`, `ddcore.deleteDoc(doctype, name, { force })`
 - `ddcore.throw(msg, { title, type })`, `ddcore.msgprint(msg, { title, indicator, alert })`, `ddcore._(text, args)` / `_()`

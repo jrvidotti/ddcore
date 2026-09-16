@@ -164,6 +164,9 @@
           if (!Array.isArray(value.transitions) || value.transitions.length === 0) fail("transitions array is required");
           const stateNames = new Set(value.states.map((s) => s.state));
           if (!stateNames.has(value.initialState)) fail("initialState must exist in states");
+          value.states.forEach((s) => {
+            if (s.docstatus !== undefined && s.docstatus !== 0 && s.docstatus !== 1 && s.docstatus !== 2) fail("state " + s.state + ": docstatus must be 0, 1 or 2");
+          });
           value.transitions.forEach((tr, i) => {
             if (!stateNames.has(tr.state)) fail("transition " + i + " state '" + tr.state + "' does not exist in states");
             if (!stateNames.has(tr.nextState)) fail("transition " + i + " nextState '" + tr.nextState + "' does not exist in states");
@@ -430,7 +433,10 @@
     pageBreak: () => ({ type: "pageBreak" }),
     raw: (html) => ({ type: "raw", html: String(html ?? "") }),
     html: (html) => ({ type: "raw", html: String(html ?? "") }),
-    columns: (cols) => ({ type: "columns", columns: Array.isArray(cols) ? cols : [] }),
+    columns: (cols) => ({
+      type: "columns",
+      cells: (Array.isArray(cols) ? cols : []).map((cell) => (Array.isArray(cell) ? cell : [])),
+    }),
   };
 
   const formatNumberHelper = (val, decimals, lang) => {
