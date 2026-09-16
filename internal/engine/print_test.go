@@ -318,6 +318,37 @@ func TestLetterHead_OneDefault(t *testing.T) {
 	}
 }
 
+// Saving a disabled Letter Head as the default must not clear the flag on the
+// enabled default, or prints would silently lose their letterhead.
+func TestLetterHead_DisabledCannotBecomeDefault(t *testing.T) {
+	ctx := context.Background()
+	e := setup(t)
+	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+		if _, err := c.Insert(Doc{"doctype": "Letter Head", "letter_head_name": "Enabled", "is_default": true}, SaveOpts{}); err != nil {
+			return err
+		}
+		off, err := c.Insert(Doc{"doctype": "Letter Head", "letter_head_name": "Off", "disabled": true}, SaveOpts{})
+		if err != nil {
+			return err
+		}
+		off["is_default"] = true
+		if _, err := c.Save(off, SaveOpts{}); err != nil {
+			return err
+		}
+		enabled, err := c.GetDoc("Letter Head", "Enabled")
+		if err != nil {
+			return err
+		}
+		if enabled["is_default"] != true {
+			t.Fatalf("saving a disabled Letter Head as default cleared the enabled default")
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 // With no letterhead named, the default is used, and the choice among several
 // defaults written behind the controller's back is the most recently modified
 // one, not whatever order the table returns. A named letterhead that does not
