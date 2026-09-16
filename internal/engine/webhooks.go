@@ -276,8 +276,15 @@ func (c *Ctx) queueWebhook(s webhookSub, event string, data any, ref *WebhookRef
 	if err != nil {
 		return "", err
 	}
-	saved, err := c.Insert(doc, SaveOpts{IgnorePermissions: true})
-	if err != nil {
+	// Raised, not just SaveOpts.IgnorePermissions: the user whose write caused
+	// the event may have access scopes, and those close Webhook and Webhook
+	// Delivery to them, including the check that the webhook Link exists.
+	var saved Doc
+	if err := c.WithIgnorePermissions(func() error {
+		var err error
+		saved, err = c.Insert(doc, SaveOpts{IgnorePermissions: true})
+		return err
+	}); err != nil {
 		return "", err
 	}
 	name := saved.Name()
@@ -502,9 +509,9 @@ func (c *Ctx) ReplayWebhook(delivery string) error {
 			c.AuditDenied("webhook.replay", "Webhook Delivery", delivery, nil)
 			return cerr.Permission("Only a System Manager may replay a webhook delivery")
 		}
-		if ok, err := c.HasPermission("Webhook Delivery", "read", nil); err != nil {
+		if scoped, err := c.refusedToScopedUser("Webhook Delivery"); err != nil {
 			return err
-		} else if !ok {
+		} else if scoped {
 			c.AuditDenied("webhook.replay", "Webhook Delivery", delivery, nil)
 			return cerr.Permission("A user with access scopes may not replay a webhook delivery")
 		}

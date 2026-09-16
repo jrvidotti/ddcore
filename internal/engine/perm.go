@@ -121,19 +121,28 @@ func (c *Ctx) HasRole(role string) bool {
 // unscopedOnlyDoctypes are administered only by users without access scopes.
 // A Webhook sends every document of a DocType to an outside address, and a
 // Webhook Delivery's payload names its document in plain Data fields that no
-// scope filter applies to, so neither can be limited to a scope.
+// scope filter applies to, so neither can be limited to a scope. The refusal
+// is part of the scope, so ignorePermissions does not lift it; the framework's
+// own writes raise the context instead.
 var unscopedOnlyDoctypes = map[string]bool{"Webhook": true, "Webhook Delivery": true}
+
+// refusedToScopedUser reports whether doctype is closed to the current user
+// because the user has access scopes.
+func (c *Ctx) refusedToScopedUser(doctype string) (bool, error) {
+	if !unscopedOnlyDoctypes[doctype] {
+		return false, nil
+	}
+	perms, err := c.UserPermissions()
+	return len(perms) > 0, err
+}
 
 // HasPermission decides whether the user may perform ptype on doctype/doc.
 func (c *Ctx) HasPermission(doctype, ptype string, doc Doc) (bool, error) {
 	if c.User == "Administrator" || c.IgnorePermissions() {
 		return true, nil
 	}
-	if unscopedOnlyDoctypes[doctype] {
-		perms, err := c.UserPermissions()
-		if err != nil || len(perms) > 0 {
-			return false, err
-		}
+	if refused, err := c.refusedToScopedUser(doctype); err != nil || refused {
+		return false, err
 	}
 	d, err := c.St.DocType(doctype)
 	if err != nil {
@@ -211,6 +220,9 @@ func (c *Ctx) HasPermission(doctype, ptype string, doc Doc) (bool, error) {
 func (c *Ctx) checkUserPermissions(d *meta.DocType, doc Doc) (bool, error) {
 	if c.User == "Administrator" || c.IgnorePermissions() || doc == nil {
 		return true, nil
+	}
+	if refused, err := c.refusedToScopedUser(d.Name); err != nil || refused {
+		return false, err
 	}
 	return c.checkUserPermissionsFor(d, doc, d.Name)
 }
@@ -346,6 +358,10 @@ func (c *Ctx) scopeFilters(d *meta.DocType) ([]db.Filter, error) {
 	perms, err := c.UserPermissions()
 	if err != nil || len(perms) == 0 {
 		return nil, err
+	}
+	if unscopedOnlyDoctypes[d.Name] {
+		// An empty IN renders as FALSE: no row is in scope.
+		return []db.Filter{{Field: "name", Op: "in", Value: []any{}}}, nil
 	}
 
 	grouped := make(map[string][]any)

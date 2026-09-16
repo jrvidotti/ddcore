@@ -349,10 +349,14 @@ func (c *Ctx) Count(doctype string, filters any, orFilters ...any) (int64, error
 	return int64(toFloat(rows[0]["n"])), nil
 }
 
-// Exists reports whether a document exists (no permission check).
+// Exists reports whether a document exists (no permission check). Only the
+// DocTypes closed to users with access scopes are hidden from such a user.
 func (c *Ctx) Exists(doctype, name string) (bool, error) {
 	d, err := c.St.DocType(doctype)
 	if err != nil {
+		return false, err
+	}
+	if refused, err := c.refusedToScopedUser(d.Name); err != nil || refused {
 		return false, err
 	}
 	var one int

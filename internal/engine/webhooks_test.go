@@ -703,6 +703,10 @@ func TestOPS06_ScopedUsersCannotAdministerWebhooks(t *testing.T) {
 	}
 	runJobs(t, e)
 	delivery := db.Str(deliveries[0]["name"])
+	if got := hookDeliveries(t, e)[0]; db.Str(got["status"]) != WebhookSent || len(rcv.got()) != 1 {
+		t.Fatalf("scoped user's delivery = %v, requests = %d", got, len(rcv.got()))
+	}
+	hook := db.Str(deliveries[0]["webhook"])
 
 	isPermission := func(err error) bool {
 		return err != nil && cerr.From(err).Type == cerr.From(cerr.Permission("x")).Type
@@ -728,10 +732,48 @@ func TestOPS06_ScopedUsersCannotAdministerWebhooks(t *testing.T) {
 		}
 	}
 	var denied int
-	e.DB.Pool.QueryRow(ctx, `SELECT count(*) FROM tab_audit_event
-		WHERE action = 'webhook.replay' AND outcome = 'Denied' AND actor = $1`, scoped).Scan(&denied)
+	if err := e.DB.Pool.QueryRow(ctx, `SELECT count(*) FROM tab_audit_event
+		WHERE action = 'webhook.replay' AND outcome = 'Denied' AND actor = $1`, scoped).Scan(&denied); err != nil {
+		t.Fatal(err)
+	}
 	if denied != 1 {
 		t.Fatalf("denied replay audit rows = %d", denied)
+	}
+
+	// Skipping role permissions does not skip the scope: app code calling
+	// getAll, getValue, exists, insert or dbSet with ignorePermissions is
+	// refused the same way.
+	err = e.Run(ctx, scoped, func(c *Ctx) error {
+		for _, dt := range []string{"Webhook", "Webhook Delivery"} {
+			rows, err := c.GetList(dt, ListArgs{Fields: []string{"name"}, IgnorePermissions: true})
+			if err != nil {
+				return err
+			}
+			if len(rows) != 0 {
+				t.Errorf("scoped getAll %s = %v", dt, rows)
+			}
+		}
+		if ok, err := c.Exists("Webhook Delivery", delivery); err != nil || ok {
+			t.Errorf("scoped exists = %v, %v", ok, err)
+		}
+		if v, err := c.GetValue("Webhook", hook, "url"); err != nil || (v != nil && v != "") {
+			t.Errorf("scoped getValue = %v, %v", v, err)
+		}
+		doc, err := c.NewDoc("Webhook", Doc{"url": rcv.URL, "event_type": "Document", "webhook_doctype": "Pessoa",
+			"on_insert": true, "secret": hookSecret, "max_attempts": 3})
+		if err != nil {
+			return err
+		}
+		if _, err := c.Insert(doc, SaveOpts{IgnorePermissions: true}); !isPermission(err) {
+			t.Errorf("scoped insert ignoring permissions = %v", err)
+		}
+		if _, err := c.DBSet("Webhook", hook, Doc{"url": "https://attacker.example"}, true); !isPermission(err) {
+			t.Errorf("scoped dbSet = %v", err)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	for i, fn := range []func(*Ctx) error{newHook, listDeliveries, replay} {

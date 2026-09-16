@@ -74,6 +74,11 @@ Scopes are applied below the SDK, so app code cannot opt out:
 | `insert` / `save` / `delete` / `submit` / `cancel`, with or without `ignorePermissions` | per option | **enforced** |
 | `ddcore.db.sql` | not applied | **not applied** |
 
+`Webhook` and `Webhook Delivery` are closed to a user with access scopes on every one of
+these calls except `ddcore.db.sql`: lists and `getAll` return no rows, `getValue` returns
+nothing, `exists` returns `false`, and `insert`, `save`, `delete` and `dbSet` are refused,
+with or without `ignorePermissions`.
+
 A report that uses `ddcore.db.getList` inherits the scope. A report or service that uses
 `ddcore.db.sql` must filter by scope itself.
 
@@ -99,7 +104,7 @@ methods (`scheduler` in `defineApp`) run as `Administrator` and are unscoped.
 | Versions and comments | Refused unless the referenced document is readable |
 | Realtime events (SSE) | Document events are delivered only to users who can read the document |
 | Notifications | Listing and counting recheck access, so a scope change hides old occurrences |
-| Webhooks | A scoped user is refused every permission on `Webhook` and `Webhook Delivery`, including replay: webhook administration is for unscoped users. The user's own document writes still queue deliveries (see `webhooks`) |
+| Webhooks | A scoped user is refused every permission on `Webhook` and `Webhook Delivery`, including replay, and app code running as that user cannot reach them with `ignorePermissions`: webhook administration is for unscoped users. The user's own document writes still queue and send deliveries (see `webhooks`) |
 
 ## Caching
 
