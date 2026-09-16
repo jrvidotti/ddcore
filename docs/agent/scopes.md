@@ -9,6 +9,9 @@ need a `permissionQuery`/`hasPermission` hook to separate companies or units.
 A scope only **narrows** access. A user still needs a role permission for the DocType.
 A `User Permission` never grants access to anything.
 
+Scopes choose documents. To hide *fields* inside a document the user may read, see
+`field-permissions`.
+
 ## The `User Permission` DocType
 
 `User Permission` is a Core DocType stored in `tab_user_permission`. Only `System Manager`

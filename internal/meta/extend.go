@@ -48,7 +48,7 @@ var FieldProps = map[string]bool{
 	"mandatoryDependsOn": true, "allowOnSubmit": true, "inListView": true,
 	"inStandardFilter": true, "searchIndex": true, "length": true, "precision": true,
 	"columns": true, "width": true, "gridEditMode": true, "collapsible": true, "bold": true,
-	"optionColors": true, "options": true,
+	"optionColors": true, "options": true, "permlevel": true,
 }
 
 // DoctypeProps are the DocType properties an extension may override. `naming`,
@@ -180,15 +180,20 @@ func (r *Registry) ApplyExtensions(exts []*Extension, apps Apps) error {
 				fail("grants permissions on a child DocType, which has none of its own")
 				break
 			}
-			if prev := claims[key(e.Doctype, p.Role, "")]; prev != nil {
-				fail("also grants %q, already granted by app %q (%s)", p.Role, prev.App, prev.SourceFile)
+			claim := key(e.Doctype, p.Role, fmt.Sprint(p.Permlevel))
+			grant := fmt.Sprintf("%q", p.Role)
+			if p.Permlevel > 0 {
+				grant = fmt.Sprintf("%q at permlevel %d", p.Role, p.Permlevel)
+			}
+			if prev := claims[claim]; prev != nil {
+				fail("also grants %s, already granted by app %q (%s)", grant, prev.App, prev.SourceFile)
 				continue
 			}
-			if hasRole(d.Permissions, p.Role) {
-				fail("grants %q, which app %q already grants — an extension only adds roles", p.Role, d.App)
+			if hasRole(d.Permissions, p.Role, p.Permlevel) {
+				fail("grants %s, which app %q already grants — an extension only adds roles", grant, d.App)
 				continue
 			}
-			claims[key(e.Doctype, p.Role, "")] = e
+			claims[claim] = e
 			d.Permissions = append(d.Permissions, p)
 		}
 
@@ -321,9 +326,9 @@ func ownerOf(d *DocType, f *Field) string {
 
 func key(doctype, field, prop string) string { return doctype + "\x00" + field + "\x00" + prop }
 
-func hasRole(perms []Perm, role string) bool {
+func hasRole(perms []Perm, role string, permlevel int) bool {
 	for _, p := range perms {
-		if p.Role == role {
+		if p.Role == role && p.Permlevel == permlevel {
 			return true
 		}
 	}

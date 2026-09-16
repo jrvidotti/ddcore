@@ -194,7 +194,8 @@ func (c *Ctx) queueDocWebhooks(doctype string, doc Doc, event string) error {
 
 // webhookDoc is the document as a receiver may see it: a copy, so redaction
 // never touches what the caller still holds, with every Password and Vault
-// field removed the same way an API read removes them.
+// field removed the same way an API read removes them, and every field above
+// permission level 0 removed whoever made the change.
 func (c *Ctx) webhookDoc(doctype string, doc Doc) Doc {
 	b, err := json.Marshal(doc)
 	if err != nil {
@@ -209,7 +210,8 @@ func (c *Ctx) webhookDoc(doctype string, doc Doc) Doc {
 			delete(cp, k)
 		}
 	}
-	return c.RedactDoc(doctype, cp)
+	// a webhook has no reading user, so it carries only unrestricted fields
+	return c.RedactFieldsFor(doctype, c.RedactDoc(doctype, cp), Level0FieldAccess())
 }
 
 // EmitWebhook is ddcore.webhooks.emit: an app's own event, delivered to every

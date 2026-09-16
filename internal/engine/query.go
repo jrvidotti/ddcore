@@ -46,6 +46,51 @@ func (c *Ctx) columnResolver(d *meta.DocType, joins map[string]*meta.DocType) fu
 	}
 }
 
+// canReadColumn reports whether a list may expose field ("field" or
+// "Child DocType.field") under the given field access. A child column is
+// hidden when the column itself or every Table field embedding it is.
+func (c *Ctx) canReadColumn(d *meta.DocType, a FieldAccess, field string) bool {
+	if a.all {
+		return true
+	}
+	field = strings.Trim(strings.TrimSpace(field), "`\"")
+	if i := strings.Index(field, "."); i > 0 {
+		ct, cf := field[:i], field[i+1:]
+		child, ok := c.St.Meta.Get(ct)
+		if !ok {
+			return true // unknown: the resolver reports it
+		}
+		if !a.CanRead(child.Field(cf)) {
+			return false
+		}
+		for _, tf := range d.TableFields() {
+			if strings.EqualFold(tf.OptionsString(), ct) && !a.CanRead(tf) {
+				return false
+			}
+		}
+		return true
+	}
+	return a.CanRead(d.Field(field))
+}
+
+// readableColumns is `"t".*` narrowed to the columns the access may read.
+func (c *Ctx) readableColumns(d *meta.DocType, a FieldAccess) []string {
+	var out []string
+	cols := append([]string(nil), meta.StdColumns...)
+	if d.IsChild {
+		cols = append(cols, meta.ChildColumns...)
+	}
+	for _, name := range cols {
+		out = append(out, `"t".`+db.Ident(name))
+	}
+	for _, f := range d.DataFields() {
+		if a.CanRead(f) {
+			out = append(out, `"t".`+db.Ident(f.Fieldname))
+		}
+	}
+	return out
+}
+
 // hasChildTable reports whether ct is the options of a Table field of d.
 func hasChildTable(d *meta.DocType, ct string) bool {
 	for _, f := range d.TableFields() {
@@ -188,7 +233,28 @@ func (c *Ctx) GetList(doctype string, a ListArgs) ([]map[string]any, error) {
 		}
 	}
 	joins := map[string]*meta.DocType{}
-	col := c.columnResolver(d, joins)
+	resolve := c.columnResolver(d, joins)
+	// field permissions (SEC-02): a field the user cannot read is left out of
+	// the select list, and naming it anywhere it would shape the result —
+	// a filter, a sort, a grouping, an aggregate — is refused, so the query
+	// cannot be used as an oracle for the value.
+	access := FullFieldAccess()
+	if !a.IgnorePermissions && !c.IgnorePermissions() && c.hasRestrictedFields(d) {
+		access = c.FieldAccess(d)
+	}
+	denied := ""
+	col := func(field string) string {
+		if !c.canReadColumn(d, access, field) {
+			if denied == "" {
+				denied = strings.Trim(field, "`\"")
+			}
+			return ""
+		}
+		return resolve(field)
+	}
+	deniedErr := func() error {
+		return cerr.Permission("No permission to read field {0} of {1}", denied, c.T(d.Label))
+	}
 	var b db.Builder
 
 	// select list
@@ -200,7 +266,11 @@ func (c *Ctx) GetList(doctype string, a ListArgs) ([]map[string]any, error) {
 	for _, f := range a.Fields {
 		f = strings.TrimSpace(f)
 		if f == "*" {
-			sel = append(sel, `"t".*`)
+			if access.all || !c.hasRestrictedFields(d) {
+				sel = append(sel, `"t".*`)
+			} else {
+				sel = append(sel, c.readableColumns(d, access)...)
+			}
 			continue
 		}
 		if m := aggRe.FindStringSubmatch(f); m != nil {
@@ -208,6 +278,9 @@ func (c *Ctx) GetList(doctype string, a ListArgs) ([]map[string]any, error) {
 			arg := "*"
 			if m[2] != "*" {
 				arg = col(m[2])
+				if denied != "" {
+					return nil, deniedErr()
+				}
 				if arg == "" {
 					return nil, cerr.Validation("Unknown field: {0}", m[2])
 				}
@@ -220,11 +293,17 @@ func (c *Ctx) GetList(doctype string, a ListArgs) ([]map[string]any, error) {
 			continue
 		}
 		if m := aliasRe.FindStringSubmatch(f); m != nil {
+			if !c.canReadColumn(d, access, m[1]) {
+				continue
+			}
 			cexpr := col(m[1])
 			if cexpr == "" {
 				return nil, cerr.Validation("Unknown field: {0}", m[1])
 			}
 			sel = append(sel, cexpr+" AS "+db.Ident(m[2]))
+			continue
+		}
+		if !c.canReadColumn(d, access, f) {
 			continue
 		}
 		cexpr := col(f)
@@ -246,6 +325,26 @@ func (c *Ctx) GetList(doctype string, a ListArgs) ([]map[string]any, error) {
 	if err != nil {
 		return nil, cerr.Validation("Invalid filters: {0}", err)
 	}
+	if len(sel) == 0 {
+		sel = append(sel, `"t".`+db.Ident("name"))
+	}
+	// a Version's diff is filtered by the reader's access to the document it
+	// describes, so that DocType has to come back with the row
+	versionRef := d.Name == "Version" && !a.IgnorePermissions && !c.IgnorePermissions() &&
+		c.User != "Administrator" && !hasAgg && a.GroupBy == ""
+	if versionRef {
+		sel = append(sel, `"t".`+db.Ident("ref_doctype")+" AS "+db.Ident("__version_ref"))
+	}
+	// checked before the permission filters join them: those are the
+	// framework's own conditions, and may well sit on a restricted Link
+	for _, f := range append(append([]db.Filter(nil), filters...), orFilters...) {
+		for _, name := range []string{f.Field, f.IfField} {
+			if name != "" && !c.canReadColumn(d, access, name) {
+				denied = strings.Trim(name, "`\"")
+				return nil, deniedErr()
+			}
+		}
+	}
 	if !c.IgnorePermissions() {
 		var pf []db.Filter
 		if a.IgnorePermissions {
@@ -258,14 +357,16 @@ func (c *Ctx) GetList(doctype string, a ListArgs) ([]map[string]any, error) {
 		}
 		filters = append(filters, pf...)
 	}
-	where, err := c.filterSQL(d, &b, filters, col)
+	// filters resolve without the field check: the caller's were vetted above,
+	// and the permission filters are the framework's own
+	where, err := c.filterSQL(d, &b, filters, resolve)
 	if err != nil {
 		return nil, cerr.Validation("Invalid filters: {0}", err)
 	}
 	if len(orFilters) > 0 {
 		var ors []string
 		for _, f := range orFilters {
-			w, err := c.filterSQL(d, &b, []db.Filter{f}, col)
+			w, err := c.filterSQL(d, &b, []db.Filter{f}, resolve)
 			if err != nil {
 				return nil, cerr.Validation("Invalid filters: {0}", err)
 			}
@@ -279,6 +380,9 @@ func (c *Ctx) GetList(doctype string, a ListArgs) ([]map[string]any, error) {
 		}
 	}
 	orderBy, err := db.ParseOrderBy(a.OrderBy, col)
+	if denied != "" {
+		return nil, deniedErr()
+	}
 	if err != nil {
 		return nil, cerr.Validation("Invalid filters: {0}", err)
 	}
@@ -307,6 +411,9 @@ func (c *Ctx) GetList(doctype string, a ListArgs) ([]map[string]any, error) {
 	}
 	if a.GroupBy != "" {
 		g := col(a.GroupBy)
+		if denied != "" {
+			return nil, deniedErr()
+		}
 		if g == "" {
 			return nil, cerr.Validation("Unknown groupBy: {0}", a.GroupBy)
 		}
@@ -327,6 +434,14 @@ func (c *Ctx) GetList(doctype string, a ListArgs) ([]map[string]any, error) {
 	}
 	if rows == nil {
 		rows = []map[string]any{}
+	}
+	if versionRef {
+		for _, r := range rows {
+			if r["data"] != nil {
+				r["data"] = c.RedactVersionData(db.Str(r["__version_ref"]), r["data"])
+			}
+			delete(r, "__version_ref")
+		}
 	}
 	return rows, nil
 }

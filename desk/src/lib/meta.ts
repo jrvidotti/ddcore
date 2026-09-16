@@ -9,6 +9,8 @@ export interface Field {
   readOnly?: boolean; hidden?: boolean; fetchFrom?: string; dependsOn?: string; readOnlyDependsOn?: string; mandatoryDependsOn?: string;
   allowOnSubmit?: boolean; inListView?: boolean; inStandardFilter?: boolean; length?: number; precision?: number; description?: string;
   columns?: number; width?: FieldWidth; gridEditMode?: "inline" | "dialog"; collapsible?: boolean; bold?: boolean;
+  /** Field permission level; see `applyFieldLevels`. */
+  permlevel?: number;
   /** Display text for a Select, aligned with `options`; filled by the server. */
   optionLabels?: string[];
   /** Indicator colour per canonical (English) Select value. */
@@ -29,8 +31,34 @@ export interface Meta {
   doctype: DocTypeMeta;
   children: Record<string, DocTypeMeta>;
   permissions: Record<string, boolean>;
+  /** Field permission levels this user reads and writes, for the DocType and its children. */
+  fieldLevels?: FieldLevels;
   series: string[] | null;
   linkTitles: Record<string, string>;
+}
+
+export interface FieldLevels { read: number[]; write: number[] }
+
+/**
+ * Shapes the meta to the user's field permission levels (SEC-02): a field they
+ * cannot read is removed — the server never sends its value, and a form, grid,
+ * list column or filter built on it would only show a blank or earn a 403 —
+ * and a field they cannot write is read-only. The server enforces both; this
+ * only keeps the screen honest. Child tables follow the parent's levels.
+ */
+export function applyFieldLevels(m: Meta): Meta {
+  const levels = m.fieldLevels;
+  if (!levels) return m;
+  const read = new Set(levels.read), write = new Set(levels.write);
+  const shape = (d: DocTypeMeta): DocTypeMeta => ({
+    ...d,
+    fields: d.fields
+      .filter((f) => read.has(f.permlevel || 0))
+      .map((f) => (write.has(f.permlevel || 0) ? f : { ...f, readOnly: true })),
+  });
+  const children: Record<string, DocTypeMeta> = {};
+  for (const [name, child] of Object.entries(m.children || {})) children[name] = shape(child);
+  return { ...m, doctype: shape(m.doctype), children };
 }
 
 const cache = new Map<string, Promise<Meta>>();
@@ -40,7 +68,8 @@ export function getMeta(doctype: string): Promise<Meta> {
   if (!p) {
     p = api
       .meta(doctype)
-      .then((m) => {
+      .then((raw) => {
+        const m = applyFieldLevels(raw);
         if (m.doctype.naming?.prompt && !m.doctype.fields.some((f: Field) => f.fieldname === "name")) {
           const nameField: Field = {
             fieldname: "name",

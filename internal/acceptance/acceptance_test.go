@@ -449,6 +449,86 @@ func TestDemo(t *testing.T) {
 	}
 }
 
+// --------------------------------------------------------- field permissions
+
+// TestFieldPermissions: the fixture's Project.budget is permlevel 1, granted to
+// Project Manager only. A contributor reads the project without it and cannot
+// filter on or change it; a manager reads and writes it.
+func TestFieldPermissions(t *testing.T) {
+	e := setup(t, "_fieldperm")
+	ctx := context.Background()
+	err := e.Run(ctx, "Administrator", func(c *engine.Ctx) error {
+		for email, role := range map[string]string{"manager@x.com": "Project Manager", "contributor@x.com": "Project Contributor"} {
+			u, _ := c.NewDoc("User", engine.Doc{"email": email, "full_name": email, "roles": []any{map[string]any{"role": role}}})
+			if _, err := c.Insert(u, engine.SaveOpts{}); err != nil {
+				return err
+			}
+		}
+		p, _ := c.NewDoc("Project", engine.Doc{"code": "P-1", "title": "Secret budget", "assignee": "manager@x.com",
+			"start_date": "2026-09-01", "budget": 5000})
+		_, err := c.Insert(p, engine.SaveOpts{})
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv, _ := server(t, e)
+	token := func(user string) string {
+		tok, err := e.CreateAPIKey(ctx, user, "acceptance")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return tok
+	}
+	contributor, manager := token("contributor@x.com"), token("manager@x.com")
+
+	doc := getJSON(t, srv, contributor, "/api/resource/Project/P-1")["data"].(map[string]any)
+	if _, ok := doc["budget"]; ok || doc["title"] != "Secret budget" {
+		t.Fatalf("contributor document: %v", doc)
+	}
+	if doc := getJSON(t, srv, manager, "/api/resource/Project/P-1")["data"].(map[string]any); doc["budget"] == nil {
+		t.Fatalf("manager must see the budget: %v", doc)
+	}
+	rows := getJSON(t, srv, contributor, "/api/resource/Project?fields="+url.QueryEscape(`["*"]`))["data"].([]any)
+	if _, ok := rows[0].(map[string]any)["budget"]; ok {
+		t.Fatalf("list leaked budget: %v", rows)
+	}
+	do := func(method, path, tok string, body any) int {
+		b, _ := json.Marshal(body)
+		req, _ := http.NewRequest(method, srv.URL+path, bytes.NewReader(b))
+		req.Header.Set("Authorization", "token "+tok)
+		req.Header.Set("Content-Type", "application/json")
+		res, err := srv.Client().Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		res.Body.Close()
+		return res.StatusCode
+	}
+	if st := do("GET", "/api/resource/Project?filters="+url.QueryEscape(`[["budget",">",1]]`), contributor, nil); st != 403 {
+		t.Fatalf("filter on budget = %d, want 403", st)
+	}
+	if st := do("PUT", "/api/resource/Project/P-1", contributor, map[string]any{"budget": 1}); st != 403 {
+		t.Fatalf("contributor budget change = %d, want 403", st)
+	}
+	if st := do("PUT", "/api/resource/Project/P-1", manager, map[string]any{"budget": 6000}); st != 200 {
+		t.Fatalf("manager budget change = %d", st)
+	}
+	err = e.Run(ctx, "Administrator", func(c *engine.Ctx) error {
+		v, err := c.GetValue("Project", "P-1", "budget")
+		if err != nil {
+			return err
+		}
+		if db.Str(v) != "6000" && !strings.HasPrefix(db.Str(v), "6000.") {
+			t.Fatalf("budget = %v, want 6000", v)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 // --------------------------------------------------------------- extensions
 
 // extensaoApp extends the fixture app's Task from another app: a Custom Field,

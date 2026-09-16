@@ -67,7 +67,11 @@ type Field struct {
 	GridEditMode       string `json:"gridEditMode,omitempty"`
 	Collapsible        bool   `json:"collapsible,omitempty"`
 	Bold               bool   `json:"bold,omitempty"`
-	IgnoreUserPerms    bool   `json:"-"`
+	// Permlevel groups the field under the permission rows of the same level
+	// (SEC-02). Level 0 follows the DocType's own permissions; a field at a
+	// higher level is read and written only by a role granted that level.
+	Permlevel       int  `json:"permlevel,omitempty"`
+	IgnoreUserPerms bool `json:"-"`
 	// OptionColors maps a Select's canonical (English) value to an indicator
 	// colour. Keyed by the value, never by its label, so it is
 	// language-independent by construction.
@@ -149,6 +153,22 @@ type Perm struct {
 	Report  bool   `json:"report,omitempty"`
 	Export  bool   `json:"export,omitempty"`
 	IfOwner bool   `json:"ifOwner,omitempty"`
+	// Permlevel is the field level this row grants. A row above level 0 grants
+	// only read and write on that level's fields — never the document itself.
+	Permlevel int `json:"permlevel,omitempty"`
+}
+
+// MaxPermlevel is the highest field permission level.
+const MaxPermlevel = 9
+
+// HasRestrictedFields reports whether any field sits above permission level 0.
+func (d *DocType) HasRestrictedFields() bool {
+	for _, f := range d.Fields {
+		if f.Permlevel > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func (p Perm) Has(ptype string) bool {
@@ -515,6 +535,7 @@ func (r *Registry) Validate() error {
 			named("searchFields", sf)
 		}
 		validateUniqueKeys(d, e)
+		validateFieldPermissions(r, d, e)
 		if d.IsChild && len(d.Permissions) > 0 {
 			e("a child DocType has no permissions")
 		}
@@ -626,6 +647,65 @@ func validateUniqueKeys(d *DocType, e func(string, ...any)) {
 		}
 		sets[set] = k.Name
 	}
+}
+
+// validateFieldPermissions checks permlevel declarations (SEC-02). A field that
+// identifies or describes a document outside its own form — its name, title,
+// search text — is shown to everyone who may see the document, so it cannot
+// be restricted; nor can a level-0 field copy a restricted value in.
+func validateFieldPermissions(r *Registry, d *DocType, e func(string, ...any)) {
+	for _, f := range d.Fields {
+		if f.Permlevel < 0 || f.Permlevel > MaxPermlevel {
+			e("field %q: permlevel %d is out of range (0 to %d)", f.Fieldname, f.Permlevel, MaxPermlevel)
+		}
+		if f.Permlevel > 0 && LayoutTypes[f.Fieldtype] {
+			e("field %q: a %s holds no value, so it has no permlevel", f.Fieldname, f.Fieldtype)
+		}
+		if f.FetchFrom != "" && f.Permlevel == 0 {
+			parts := strings.SplitN(f.FetchFrom, ".", 2)
+			if len(parts) == 2 {
+				if lf := d.Field(parts[0]); lf != nil && lf.Fieldtype == "Link" {
+					if t, ok := r.DocTypes[lf.OptionsString()]; ok {
+						if src := t.Field(parts[1]); src != nil && src.Permlevel > 0 {
+							e("field %q: fetchFrom %q copies a permlevel %d field into a permlevel 0 one", f.Fieldname, f.FetchFrom, src.Permlevel)
+						}
+					}
+				}
+			}
+		}
+	}
+	level0 := func(what, fieldname string) {
+		if f := d.Field(fieldname); f != nil && f.Permlevel > 0 {
+			e("%s %q has permlevel %d; it identifies the document and must be permlevel 0", what, fieldname, f.Permlevel)
+		}
+	}
+	level0("titleField", d.TitleField)
+	level0("naming.field", d.Naming.Field)
+	for _, sf := range d.SearchFields {
+		level0("searchFields", sf)
+	}
+	for _, name := range namingFormatFields(d.Naming.Format) {
+		level0("naming.format", name)
+	}
+	for _, p := range d.Permissions {
+		if p.Permlevel < 0 || p.Permlevel > MaxPermlevel {
+			e("permission for %q: permlevel %d is out of range (0 to %d)", p.Role, p.Permlevel, MaxPermlevel)
+			continue
+		}
+		if p.Permlevel > 0 && (p.Create || p.Delete || p.Submit || p.Cancel || p.Amend || p.Report || p.Export || p.IfOwner) {
+			e("permission for %q at permlevel %d may only grant read and write", p.Role, p.Permlevel)
+		}
+	}
+}
+
+var namingFormatRe = regexp.MustCompile(`\{([a-z][a-z0-9_]*)\}`)
+
+func namingFormatFields(format string) []string {
+	var out []string
+	for _, m := range namingFormatRe.FindAllStringSubmatch(format, -1) {
+		out = append(out, m[1])
+	}
+	return out
 }
 
 // SelectValues returns the Select options as strings.

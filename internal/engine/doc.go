@@ -434,6 +434,15 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 			return nil, cerr.Validation("New {0} must start in initial workflow state '{1}'", d.Name, wf.InitialState)
 		}
 	}
+	if c.fieldPermissionsApply(d, opts) {
+		base, err := c.insertFieldBase(d, doc)
+		if err != nil {
+			return nil, err
+		}
+		if err := c.applyFieldWrites(d, base, doc); err != nil {
+			return nil, err
+		}
+	}
 	doc["__islocal"] = true
 	now := time.Now()
 	doc["owner"], doc["creation"], doc["modified"], doc["modified_by"] = c.User, now, now, c.User
@@ -589,6 +598,11 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 	}
 	doc["owner"], doc["creation"] = before["owner"], before["creation"]
 	doc["modified"], doc["modified_by"] = time.Now(), c.User
+	if c.fieldPermissionsApply(d, opts) {
+		if err := c.applyFieldWrites(d, before, doc); err != nil {
+			return nil, err
+		}
+	}
 	if action == "update_after_submit" {
 		if err := c.checkAllowOnSubmit(d, before, doc); err != nil {
 			return nil, err
@@ -1798,6 +1812,27 @@ func isSecretField(name string) bool {
 
 // ------------------------------------------------------------ versions
 
+// versionRows copies child rows for a Version diff, without secret columns.
+func versionRows(cd *meta.DocType, rows []Doc) []any {
+	out := make([]any, len(rows))
+	for i, r := range rows {
+		x := map[string]any{}
+		for k, v := range r {
+			if cd != nil {
+				if f := cd.Field(k); f != nil && (f.Fieldtype == "Password" || f.Fieldtype == "Vault") {
+					continue
+				}
+			}
+			if isSecretField(k) {
+				continue
+			}
+			x[k] = v
+		}
+		out[i] = x
+	}
+	return out
+}
+
 func (c *Ctx) saveVersion(d *meta.DocType, before, after Doc) {
 	changed := map[string][]any{}
 	for _, f := range d.Fields {
@@ -1814,6 +1849,12 @@ func (c *Ctx) saveVersion(d *meta.DocType, before, after Doc) {
 			a, b = stripChildMeta(before.Children(f.Fieldname)), stripChildMeta(after.Children(f.Fieldname))
 		}
 		if string(mustJSON(a)) != string(mustJSON(b)) {
+			if f.Fieldtype == "Table" {
+				// a child row's secrets stay out of history just as the parent's do
+				cd, _ := c.St.DocType(f.OptionsString())
+				changed[f.Fieldname] = []any{versionRows(cd, before.Children(f.Fieldname)), versionRows(cd, after.Children(f.Fieldname))}
+				continue
+			}
 			changed[f.Fieldname] = []any{before[f.Fieldname], after[f.Fieldname]}
 		}
 	}

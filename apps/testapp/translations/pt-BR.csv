@@ -1,5 +1,6 @@
 Actions,Ações,# apps/testapp/doctypes/task/task.form.ts:18
 Assignee,Responsável,# apps/testapp/print/project_summary.print.ts:20
+Budget,Orçamento,# testapp.doctypes.project.project.doctype
 Client,Cliente,# testapp.doctypes.pedido.pedido.doctype
 Code,Código,# testapp.doctypes.project.project.doctype
 Complete,Concluir,# apps/testapp/doctypes/task/task.form.ts:19

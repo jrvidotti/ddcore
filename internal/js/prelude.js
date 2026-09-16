@@ -774,6 +774,7 @@
     deleteDoc(doctype, name, opts) { call("doc.delete", { doctype, name, opts }); },
     getMeta(doctype) { return reg.doctypes[doctype] || call("getMeta", { doctype }); },
     hasPermission(doctype, ptype, doc, user) { return call("hasPermission", { doctype, ptype: ptype || "read", doc, user }); },
+    redact(doctype, doc) { return call("redact", { doctype, doc }); },
     throw(message, opts) {
       opts = opts || {};
       throw new DDCoreError(opts.type || "ValidationError", opts.title, message, opts.extra);

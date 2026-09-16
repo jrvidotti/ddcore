@@ -627,7 +627,11 @@ func (s *Server) getMeta(w http.ResponseWriter, r *http.Request) {
 		}
 		// permissions and series are computed from the canonical DocType; the
 		// payload carries the translated copy.
-		return map[string]any{"doctype": st.TranslateDocType(d, c.Lang), "children": childMeta, "permissions": c.Permissions(d), "series": engine.SeriesOptions(d), "linkTitles": linkTitles}, nil
+		// the field levels this user reads and writes; they apply to the
+		// children too, whose fields are judged by this DocType's rows
+		readLevels, writeLevels := c.FieldAccess(d).Levels()
+		fieldLevels := map[string]any{"read": readLevels, "write": writeLevels}
+		return map[string]any{"doctype": st.TranslateDocType(d, c.Lang), "children": childMeta, "permissions": c.Permissions(d), "fieldLevels": fieldLevels, "series": engine.SeriesOptions(d), "linkTitles": linkTitles}, nil
 	})
 }
 
@@ -674,7 +678,10 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request) {
 			return nil, err
 		}
 		var docs []engine.Doc
+		ld, _ := s.E.DocType(urlParam(r, "doctype"))
 		for _, r := range rows {
+			// a Password column never leaves through a list either
+			engine.RedactPassword(ld, engine.Doc(r))
 			docs = append(docs, engine.Doc(r))
 		}
 		titles := c.ResolveLinkTitles(urlParam(r, "doctype"), docs...)
@@ -824,7 +831,7 @@ func (s *Server) docMethod(w http.ResponseWriter, r *http.Request) {
 			}
 			return redacted(s, c, dt)(c.Save(doc, engine.SaveOpts{}))
 		case "amend":
-			return c.Amend(dt, name)
+			return redacted(s, c, dt)(c.Amend(dt, name))
 		case "rename":
 			nn, _ := args["name"].(string)
 			return c.Rename(dt, name, nn)
@@ -851,6 +858,11 @@ func (s *Server) docMethod(w http.ResponseWriter, r *http.Request) {
 		res, err := rt.RunMethod(dt, m, doc.JSON(), b)
 		if err != nil {
 			return nil, err
+		}
+		// the method saw the whole document; the client sees what it may read
+		var out engine.Doc
+		if len(res.Doc) > 0 && json.Unmarshal(res.Doc, &out) == nil && out != nil {
+			return map[string]any{"result": res.Result, "doc": c.RedactDoc(dt, out)}, nil
 		}
 		return map[string]any{"result": res.Result, "doc": res.Doc}, nil
 	})
@@ -1247,6 +1259,14 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 		}
 		defer f.Close()
 		private := r.FormValue("is_private") != "0"
+		// a file uploaded into a restricted field is that field's value: only
+		// its writers may put one there, and it is never public (SEC-02)
+		if restricted, canWrite := c.AttachmentFieldRestricted(r.FormValue("doctype"), r.FormValue("fieldname")); restricted {
+			if !canWrite {
+				return nil, cerr.Permission("Not permitted to change {0}", r.FormValue("fieldname"))
+			}
+			private = true
+		}
 		sub := "public"
 		if private {
 			sub = "private"
