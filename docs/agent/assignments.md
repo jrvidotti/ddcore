@@ -31,7 +31,7 @@ Renaming a document updates `reference_type` and `reference_name` on its ToDos t
 
 ### Generic ToDo CRUD
 
-`/api/resource/ToDo` follows the ToDo controller. A System Manager can do everything. Anyone else can read and write a ToDo when they are its assigner or its assignee and can read the referenced document, if there is one; only the assigner can delete it. The listing shows the tasks allocated to the caller. On insert, `assigned_by` is set to the creating user; only a System Manager can record another user as assigner.
+`/api/resource/ToDo` follows the ToDo controller. A System Manager can do everything. Anyone else can read and write a ToDo when they are its assigner or its assignee and can read the referenced document, if there is one; only the assigner can delete it. The listing shows the tasks allocated to the caller. On insert, `assigned_by` is set to the creating user; only a System Manager can record another user as assigner. On update, anyone but a System Manager is refused a change to `assigned_by`, `allocated_to`, `reference_type` or `reference_name`: an assignment changes hands through the assignment endpoints, not by editing the ToDo.
 
 ## HTTP API
 
@@ -63,7 +63,7 @@ Request body:
 
 The caller needs read permission on the target document. `allocated_to` must be an existing, enabled user. Unknown JSON fields are rejected, and `priority` defaults to `Medium`.
 
-The assignee's notification is written in the assignee's language: the title is "Assigned: {doctype} {name}", and the message is the description, or "{user} assigned {doctype} {name} to you" when there is none. No notification is sent when users assign to themselves, or when the assignee cannot read the document. A failed notification or timeline comment is logged instead of being returned as the endpoint's error.
+The assignee's notification is written in the assignee's language: the title is "Assigned: {doctype} {name}", and the message is the description, or "{user} assigned {doctype} {name} to you" when there is none. No notification is sent when users assign to themselves, or when the assignee cannot read the document. The timeline comment and the notification each run in a savepoint: when one fails, its writes are rolled back, the error is logged, and the assignment still commits. Completing and revoking treat their timeline comments the same way.
 
 Response: `{ "data": ToDoDoc }`
 
