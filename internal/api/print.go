@@ -25,7 +25,7 @@ func (s *Server) listLetterHeads(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
 		rows, err := db.Select(c.Ctx, c.Q(), `SELECT name, is_default, disabled FROM "tab_letter_head" WHERE disabled = false ORDER BY is_default DESC, name ASC`)
 		if err != nil {
-			return []map[string]any{}, nil
+			return nil, err
 		}
 		var result []map[string]any
 		for _, row := range rows {

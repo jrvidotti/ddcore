@@ -19,11 +19,17 @@ type PrintFormatInfo struct {
 	Default bool   `json:"default"`
 }
 
-// ListPrintFormats returns all valid print formats for the given DocType.
+// ListPrintFormats returns all valid print formats for the given DocType, to a
+// user who may read it.
 func (c *Ctx) ListPrintFormats(doctype string) ([]PrintFormatInfo, error) {
-	_, err := c.St.DocType(doctype)
+	d, err := c.St.DocType(doctype)
 	if err != nil {
 		return nil, err
+	}
+	if ok, err := c.HasPermission(d.Name, "read", nil); err != nil {
+		return nil, err
+	} else if !ok {
+		return nil, cerr.Permission("No permission for {0}", c.T(d.Label))
 	}
 
 	formats := []PrintFormatInfo{
@@ -167,15 +173,23 @@ func (c *Ctx) resolveLetterHead(name string) (*print.LetterHead, error) {
 	var err error
 
 	if name != "" {
-		rows, err = db.Select(c.Ctx, c.Q(), `SELECT letter_head_name, header_html, footer_html, align, image, disabled, is_default FROM tab_letter_head WHERE name = $1 AND NOT disabled`, name)
+		rows, err = db.Select(c.Ctx, c.Q(), `SELECT letter_head_name, header_html, footer_html, align, image, disabled, is_default FROM tab_letter_head WHERE name = $1`, name)
 	} else {
-		rows, err = db.Select(c.Ctx, c.Q(), `SELECT letter_head_name, header_html, footer_html, align, image, disabled, is_default FROM tab_letter_head WHERE is_default AND NOT disabled LIMIT 1`)
+		// The controller keeps one default; should several exist anyway (a
+		// direct SQL write), the most recently modified wins.
+		rows, err = db.Select(c.Ctx, c.Q(), `SELECT letter_head_name, header_html, footer_html, align, image, disabled, is_default FROM tab_letter_head WHERE is_default AND NOT disabled ORDER BY modified DESC, name LIMIT 1`)
 	}
 	if err != nil {
 		return nil, err
 	}
 	if len(rows) == 0 {
+		if name != "" {
+			return nil, cerr.Validation("Letter Head {0} does not exist", name)
+		}
 		return nil, nil
+	}
+	if name != "" && db.Str(rows[0]["disabled"]) == "1" {
+		return nil, cerr.Validation("Letter Head {0} is disabled", name)
 	}
 
 	r := rows[0]

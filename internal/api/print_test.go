@@ -162,3 +162,31 @@ func TestPrintAPI_PageFormat(t *testing.T) {
 	x.expect(x.call(http.MethodGet, "/api/print/Pessoa/Paula?page_format=Legal", nil, anaAuth), http.StatusExpectationFailed, "ValidationError")
 	x.expect(x.call(http.MethodGet, "/api/print/Pessoa/Paula/pdf?page_format=Legal", nil, anaAuth), http.StatusExpectationFailed, "ValidationError")
 }
+
+// The format and letterhead lists answer signed-in users only, and the format
+// list also needs read permission on the DocType.
+func TestPrintAPI_ListsRequireLoginAndRead(t *testing.T) {
+	x := setup(t)
+	x.expect(x.call(http.MethodGet, "/api/print/formats/Pessoa", nil, ""), http.StatusUnauthorized, "AuthenticationError")
+	x.expect(x.call(http.MethodGet, "/api/letterheads", nil, ""), http.StatusUnauthorized, "AuthenticationError")
+	zeAuth := "sid:" + x.sid("ze@x.com")
+	// Pessoa lets everyone read their own records; Pedido is Gestor-only
+	x.expect(x.call(http.MethodGet, "/api/print/formats/Pessoa", nil, zeAuth), http.StatusOK, "")
+	x.expect(x.call(http.MethodGet, "/api/print/formats/Pedido", nil, zeAuth), http.StatusForbidden, "PermissionError")
+	x.expect(x.call(http.MethodGet, "/api/print/formats/Pedido", nil, "sid:"+x.sid("ana@x.com")), http.StatusOK, "")
+	x.expect(x.call(http.MethodGet, "/api/letterheads", nil, zeAuth), http.StatusOK, "")
+}
+
+// A failing query is an error, not an empty list of letterheads.
+func TestPrintAPI_LetterheadsReportsQueryErrors(t *testing.T) {
+	x := setup(t)
+	if _, err := x.e.DB.Pool.Exec(x.ctx, `DROP TABLE tab_letter_head`); err != nil {
+		t.Fatal(err)
+	}
+	r := x.call(http.MethodGet, "/api/letterheads", nil, "sid:"+x.sid("ana@x.com"))
+	// Before, the handler returned [] and the request failed only at commit,
+	// with a message that named nothing.
+	if r.Status < 500 || !strings.Contains(r.Raw, "tab_letter_head") {
+		t.Fatalf("expected the query error, got %d: %s", r.Status, r.Raw)
+	}
+}

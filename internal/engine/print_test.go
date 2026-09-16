@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/print"
 )
 
@@ -277,6 +278,88 @@ export default defineDoctype({
 		}
 		if !strings.Contains(out, want) || strings.Contains(out, "R$") {
 			t.Fatalf("%s: expected %q, got: %s", lang, want, out)
+		}
+	}
+}
+
+// Saving a Letter Head as the default clears the flag on every other one, so
+// "the default" names one record.
+func TestLetterHead_OneDefault(t *testing.T) {
+	ctx := context.Background()
+	e := setup(t)
+	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+		for _, n := range []string{"First", "Second"} {
+			if _, err := c.Insert(Doc{"doctype": "Letter Head", "letter_head_name": n, "is_default": true}, SaveOpts{}); err != nil {
+				return err
+			}
+		}
+		first, err := c.GetDoc("Letter Head", "First")
+		if err != nil {
+			return err
+		}
+		if first["is_default"] == true {
+			t.Fatalf("saving Second as default left First as default too")
+		}
+		first["is_default"] = true
+		if _, err := c.Save(first, SaveOpts{}); err != nil {
+			return err
+		}
+		second, err := c.GetDoc("Letter Head", "Second")
+		if err != nil {
+			return err
+		}
+		if second["is_default"] == true {
+			t.Fatalf("saving First as default left Second as default too")
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// With no letterhead named, the default is used, and the choice among several
+// defaults written behind the controller's back is the most recently modified
+// one, not whatever order the table returns. A named letterhead that does not
+// exist or is disabled is an error, not a print without one.
+func TestPrintDoc_LetterHeadSelection(t *testing.T) {
+	ctx := context.Background()
+	e := setup(t)
+	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+		for _, lh := range []Doc{
+			{"doctype": "Letter Head", "letter_head_name": "Old", "header_html": "<b>OLD-HEADER</b>"},
+			{"doctype": "Letter Head", "letter_head_name": "New", "header_html": "<b>NEW-HEADER</b>"},
+			{"doctype": "Letter Head", "letter_head_name": "Off", "header_html": "<b>OFF-HEADER</b>", "disabled": true},
+		} {
+			if _, err := c.Insert(lh, SaveOpts{}); err != nil {
+				return err
+			}
+		}
+		// Old is updated first, so a scan returns it first; New is the newer one.
+		if _, err := c.Q().Exec(c.Ctx, `UPDATE tab_letter_head SET is_default = true, modified = now() - interval '1 hour' WHERE name = 'Old'`); err != nil {
+			return err
+		}
+		if _, err := c.Q().Exec(c.Ctx, `UPDATE tab_letter_head SET is_default = true, modified = now() WHERE name = 'New'`); err != nil {
+			return err
+		}
+		_, err := c.Insert(Doc{"doctype": "Pessoa", "nome": "Lia", "tipo": "PF"}, SaveOpts{})
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := e.NewCtx(ctx, "Administrator")
+	out, err := c.PrintDoc("Pessoa", "Lia", "standard", "", "en", print.PDFOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "NEW-HEADER") || strings.Contains(out, "OLD-HEADER") {
+		t.Fatalf("expected the most recently modified default letterhead: %s", out)
+	}
+	for _, name := range []string{"Missing", "Off"} {
+		_, err := c.PrintDoc("Pessoa", "Lia", "standard", name, "en", print.PDFOptions{})
+		if err == nil || cerr.From(err).Type != "ValidationError" {
+			t.Fatalf("letterhead %q: expected ValidationError, got %v", name, err)
 		}
 	}
 }

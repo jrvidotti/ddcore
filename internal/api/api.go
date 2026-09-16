@@ -93,6 +93,8 @@ func New(e *engine.Engine, desk fs.FS) *Server {
 			r.Post("/assignments/revoke", s.revokeAssignment)
 			r.Get("/todo/pending", s.pendingWork)
 			r.Get("/health/report", s.healthReport)
+			r.Get("/letterheads", s.listLetterHeads)
+			r.Get("/print/formats/{doctype}", s.printFormats)
 			// Job administration. Every one of these checks the System Manager
 			// role inside the handler, exactly as the health report does; the
 			// group only guarantees there is a user to check.
@@ -110,8 +112,6 @@ func New(e *engine.Engine, desk fs.FS) *Server {
 		r.Put("/resource/{doctype}/{name}", s.update)
 		r.Delete("/resource/{doctype}/{name}", s.remove)
 		r.Post("/resource/{doctype}/{name}/{method}", s.docMethod)
-		r.Get("/letterheads", s.listLetterHeads)
-		r.Get("/print/formats/{doctype}", s.printFormats)
 		r.Get("/print/{doctype}/{name}/pdf", s.printDocPDF)
 		r.Get("/print/{doctype}/{name}", s.printDoc)
 		r.Post("/workflow/apply", s.applyWorkflowTransition)
