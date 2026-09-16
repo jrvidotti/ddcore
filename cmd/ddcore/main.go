@@ -14,6 +14,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -165,37 +166,37 @@ func load(test bool, dev bool) (*engine.Engine, *config.File, error) {
 func cmdInit(args []string) error {
 	fs := newFlagSet("init")
 	dsn := fs.String("dsn", "postgres://ddcore:ddcore@localhost:5432/ddcore?sslmode=disable", "Postgres connection")
-	port := fs.Int("port", 8080, "porta HTTP")
+	port := fs.Int("port", 8080, "HTTP port")
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
 	// Idempotent: in a checkout that already contains ddcore.json, the bootstrap
 	// script's `init && migrate` must work — update what was requested and notify.
 	if _, err := os.Stat(config.Name); err == nil {
-		cur, path, err := config.Load(".")
-		if err != nil {
-			return fmt.Errorf("%s exists but could not be read: %w", config.Name, err)
-		}
 		changed := false
-		fs.Visit(func(f *flag.Flag) {
-			switch f.Name {
-			case "dsn":
-				cur.DSN, changed = *dsn, true
-			case "port":
-				cur.Port, changed = *port, true
-			}
+		path, err := config.Edit(".", func(cur *config.File, _ string) bool {
+			fs.Visit(func(f *flag.Flag) {
+				switch f.Name {
+				case "dsn":
+					cur.DSN, changed = *dsn, true
+				case "port":
+					cur.Port, changed = *port, true
+				}
+			})
+			return changed
 		})
+		if err != nil {
+			return err
+		}
 		if !changed {
 			fmt.Printf("%s already exists — nothing to do (use --dsn/--port to update)\n", config.Name)
 			return nil
 		}
-		if err := cur.Save(path); err != nil {
-			return err
-		}
-		fmt.Println("atualizado", path)
+		fmt.Println("updated", path)
 		return nil
 	}
-	f := &config.File{DSN: *dsn, Port: *port, Workers: 2, Scheduler: false, Lang: "pt-BR", Currency: "BRL", Timezone: "UTC", Apps: []string{}, Dev: true}
+	f := config.Default()
+	f.DSN, f.Port, f.Dev = *dsn, *port, true
 	if err := f.Save(config.Name); err != nil {
 		return err
 	}
@@ -229,7 +230,7 @@ func cmdNewApp(args []string) error {
 		return err
 	}
 	if fs.NArg() < 1 {
-		return fmt.Errorf("uso: ddcore new-app <nome>")
+		return fmt.Errorf("usage: ddcore new-app <name>")
 	}
 	name := fs.Arg(0)
 	if *dir == "" {
@@ -238,20 +239,25 @@ func cmdNewApp(args []string) error {
 	if err := scaffold.App(*dir, name, *title); err != nil {
 		return err
 	}
-	cfg, path, err := config.Load(".")
-	if err == nil {
-		abs, _ := filepath.Abs(*dir)
-		rel, _ := filepath.Rel(filepath.Dir(path), abs)
-		cfg.Apps = append(cfg.Apps, rel)
-		// keep paths relative in the file
-		for i, a := range cfg.Apps {
-			if r, err := filepath.Rel(filepath.Dir(path), a); err == nil && !strings.HasPrefix(r, "..") {
-				cfg.Apps[i] = r
-			}
+	abs, err := filepath.Abs(*dir)
+	if err != nil {
+		return err
+	}
+	if _, err := config.Edit(".", func(cfg *config.File, path string) bool {
+		// relative to ddcore.json, so the file means the same on every machine
+		entry := abs
+		if r, err := filepath.Rel(filepath.Dir(path), abs); err == nil && !strings.HasPrefix(r, "..") {
+			entry = r
 		}
-		if err := cfg.Save(path); err != nil {
-			return err
+		if slices.Contains(cfg.Apps, entry) {
+			return false
 		}
+		cfg.Apps = append(cfg.Apps, entry)
+		return true
+	}); err != nil {
+		// the app exists on disk but no site will load it: say so rather than
+		// leave `migrate` to report an app it never heard of
+		return fmt.Errorf("app %s created at %s, but not registered: %w", name, *dir, err)
 	}
 	fmt.Printf("app %s created at %s\n", name, *dir)
 	return nil
