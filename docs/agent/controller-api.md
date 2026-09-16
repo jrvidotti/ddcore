@@ -39,7 +39,8 @@ Every message a person reads goes through `_()`, and the key is its English text
 
 Fields are properties; child tables are arrays. Methods: `insert()`, `save()`, `submit()`, `cancel()`, `delete()`, `reload()`,
 `dbSet(field, value)` / `dbSet({ ... })` (writes straight through, no validate — allowed after submission), `append(table, row)`, `isNew()`,
-`getDocBeforeSave()`, `hasValueChanged(field)`, `runMethod(name, args)`, `doc.flags` (free-form, per request).
+`getDocBeforeSave()`, `hasValueChanged(field)`, `runMethod(name, args)`, `applyWorkflow(action)` (applies a workflow transition and
+reloads the document with the new state and docstatus; see `workflows`), `doc.flags` (free-form, per request).
 
 ## `ddcore.*` (global on the server)
 
