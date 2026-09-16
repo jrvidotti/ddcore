@@ -88,7 +88,9 @@ use of `Percent` would reach.
 `fieldname, fieldtype, label, options, optionColors, reqd, unique, default, readOnly, hidden, fetchFrom, dependsOn,
 readOnlyDependsOn, mandatoryDependsOn, allowOnSubmit, inListView, inStandardFilter, searchIndex,
 length, precision, description, columns (grid width 1–12), width (`"sm"` | `"md"` | `"lg"` | `"full"`), gridEditMode (`"inline"` default or `"dialog"`), collapsible, bold,
-renamedFrom, convert`
+permlevel, renamedFrom, convert`
+
+- `permlevel`: 0–9, default 0. A field above 0 is read and written only by roles granted that level by a permission row with the same `permlevel`; the server omits it from every response and refuses a change from anyone else. `hidden` and `readOnly` are screen hints and protect nothing. See `field-permissions`.
 
 - `label` and `description` are **catalogue keys**: write them in English. See `i18n`.
 - `width`: `"sm"` | `"md"` | `"lg"` | `"full"`. How much of a form line the control takes: `sm`/`md` a quarter, `lg` a half, `full` the whole line — a form has no columns, its shape comes from the widths. Defaults to `sm` for `Date`, `Month`, `Time`, `Int`, `Percent`; `md` for `Datetime`, `Float`, `Currency`; `full` for `Text`, `Small Text`, `Text Editor`, `JSON`, `Table`, `HTML`; `lg` for every other type. Fields pack a line greedily, aligned so a half-line field never starts in the middle of a quarter. See `form-api`.
@@ -109,7 +111,10 @@ defineDoctype({
   titleField: "name", searchFields: ["name", "tax_id"], sortField: "modified", sortOrder: "desc", icon: "building-2",
   uniqueKeys: [{ name: "customer_number", fields: ["customer", "number"] }],
   fields: [...],
-  permissions: [{ role: "Manager", read: true, write: true, create: true, delete: true, submit: true, cancel: true, amend: true, report: true, export: true, ifOwner: false }],
+  permissions: [
+    { role: "Manager", read: true, write: true, create: true, delete: true, submit: true, cancel: true, amend: true, report: true, export: true, ifOwner: false },
+    { role: "Manager", permlevel: 1, read: true, write: true },   // fields declared with permlevel: 1 — see `field-permissions`
+  ],
 });
 ```
 

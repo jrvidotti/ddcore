@@ -36,7 +36,9 @@ rules. Child DocTypes and internal delivery/audit records cannot be rule targets
 Invalid definitions fail loading, including missing email templates.
 
 `condition`, `recipients`, Desk content and email arguments receive the current
-document and the previous document (`null` on insert). All functions are synchronous:
+document and the previous document (`null` on insert). `condition` and `recipients` see
+every field; Desk content and email arguments are rendered once per recipient, from a
+copy without the fields above that recipient's permission level (see `field-permissions`). All functions are synchronous:
 never use `async`, `await` or return a Promise. A false condition skips the occurrence;
 evaluation errors roll back the document operation, occurrences and jobs together.
 

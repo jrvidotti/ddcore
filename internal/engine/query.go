@@ -357,14 +357,16 @@ func (c *Ctx) GetList(doctype string, a ListArgs) ([]map[string]any, error) {
 		}
 		filters = append(filters, pf...)
 	}
-	where, err := c.filterSQL(d, &b, filters, col)
+	// filters resolve without the field check: the caller's were vetted above,
+	// and the permission filters are the framework's own
+	where, err := c.filterSQL(d, &b, filters, resolve)
 	if err != nil {
 		return nil, cerr.Validation("Invalid filters: {0}", err)
 	}
 	if len(orFilters) > 0 {
 		var ors []string
 		for _, f := range orFilters {
-			w, err := c.filterSQL(d, &b, []db.Filter{f}, col)
+			w, err := c.filterSQL(d, &b, []db.Filter{f}, resolve)
 			if err != nil {
 				return nil, cerr.Validation("Invalid filters: {0}", err)
 			}

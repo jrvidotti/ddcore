@@ -40,6 +40,7 @@ export default defineDoctype({ name: "Employee", naming: { field: "title" }, sub
   fields: [
     { fieldname: "title", fieldtype: "Data", label: "Title", reqd: true },
     { fieldname: "department", fieldtype: "Data", label: "Department" },
+    { fieldname: "cost_center", fieldtype: "Link", label: "Cost Center", options: "Cost Center", permlevel: 1 },
     { fieldname: "salary", fieldtype: "Currency", label: "Salary", permlevel: 1 },
     { fieldname: "review", fieldtype: "Small Text", label: "Review", permlevel: 2 },
     { fieldname: "lines", fieldtype: "Table", label: "Lines", options: "Employee Line" },
@@ -58,6 +59,10 @@ export default defineDoctype({ name: "Employee", naming: { field: "title" }, sub
 export default defineController("Employee", {
   beforeSave(doc) { if (doc.department === "Hooked") doc.salary = 42; },
 });`)
+	write("doctypes/cost_center/cost_center.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
+export default defineDoctype({ name: "Cost Center", naming: { field: "title" },
+  fields: [{ fieldname: "title", fieldtype: "Data", label: "Title", reqd: true }],
+  permissions: [{ role: "Staff", read: true }] });`)
 	write("doctypes/employee_line/employee_line.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
 export default defineDoctype({ name: "Employee Line", isChild: true, fields: [
   { fieldname: "label", fieldtype: "Data", label: "Label" },
@@ -634,5 +639,46 @@ func addWebhookFor(t *testing.T, e *Engine, doctype string) {
 		return err
 	}); err != nil {
 		t.Fatalf("webhook: %v", err)
+	}
+}
+
+// A scope on a Link the user cannot read is the framework's own condition: it
+// must still narrow the list without the field check refusing the query.
+func TestSEC02_ScopeOnRestrictedLink(t *testing.T) {
+	e := setupSEC02(t)
+	ctx := context.Background()
+	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+		for _, cc := range []string{"North", "South"} {
+			d, _ := c.NewDoc("Cost Center", Doc{"title": cc})
+			if _, err := c.Insert(d, SaveOpts{}); err != nil {
+				return err
+			}
+		}
+		doc, _ := c.GetDoc("Employee", "Ana")
+		doc["cost_center"] = "North"
+		if _, err := c.Save(doc, SaveOpts{}); err != nil {
+			return err
+		}
+		other, _ := c.NewDoc("Employee", Doc{"title": "Bia", "cost_center": "South"})
+		if _, err := c.Insert(other, SaveOpts{}); err != nil {
+			return err
+		}
+		up, _ := c.NewDoc("User Permission", Doc{"user": sec02Staff, "allow": "Cost Center", "for_value": "North"})
+		_, err := c.Insert(up, SaveOpts{})
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.Run(ctx, sec02Staff, func(c *Ctx) error {
+		rows, err := c.GetList("Employee", ListArgs{Fields: []string{"name"}, OrderBy: "modified desc"})
+		if err != nil {
+			t.Fatalf("scoped list: %v", err)
+		}
+		if len(rows) != 1 || rows[0]["name"] != "Ana" {
+			t.Fatalf("scope did not apply: %v", rows)
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
 	}
 }

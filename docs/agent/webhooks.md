@@ -89,7 +89,9 @@ receiver can verify with any of its libraries:
 
 For a document event, `data.doc` is the document with its children, as it was
 when the event happened — not as it is when a retry goes out an hour later.
-Every `Password` and `Vault` field is removed, exactly as an API read removes it.
+Every `Password` and `Vault` field is removed, exactly as an API read removes it, and so
+is every field above permission level 0 (`permlevel`), whoever made the change: a webhook
+has no reading user to judge by. See `field-permissions`.
 
 ## Delivery
 

@@ -136,7 +136,8 @@ Printing strictly enforces document security:
 3. **Field Redaction:** Sensitive fields are stripped before template execution:
    - All `Password` fields are omitted.
    - All `Vault` secrets are redacted.
-   - Restricted or hidden fields are never leaked.
+   - Fields above the user's permission level (`permlevel`) are omitted, with their labels and child-table columns, from standard and custom templates. See `field-permissions`.
+   - A custom template's own `ddcore.db` calls are server code and are not filtered.
 
 ---
 
