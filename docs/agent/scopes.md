@@ -99,6 +99,7 @@ methods (`scheduler` in `defineApp`) run as `Administrator` and are unscoped.
 | Versions and comments | Refused unless the referenced document is readable |
 | Realtime events (SSE) | Document events are delivered only to users who can read the document |
 | Notifications | Listing and counting recheck access, so a scope change hides old occurrences |
+| Webhooks | A scoped user is refused every permission on `Webhook` and `Webhook Delivery`, including replay: webhook administration is for unscoped users. The user's own document writes still queue deliveries (see `webhooks`) |
 
 ## Caching
 
