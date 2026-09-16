@@ -83,9 +83,9 @@ apps/library/
   services/           business functions
 ```
 
-The new site uses `"lang": "pt-BR"` and `"currency": "BRL"`. Change them in `ddcore.json` if
-you want another default. Every string you write stays English, and the language only decides
-how the Desk translates it.
+The new site uses `"lang": "en"` and `"currency": "USD"`. Change them in `ddcore.json` for
+another default, such as `"pt-BR"` and `"BRL"`. Every string you write stays English, and the
+language only decides how the Desk translates it.
 
 ---
 

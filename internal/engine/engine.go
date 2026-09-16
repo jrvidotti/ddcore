@@ -218,10 +218,10 @@ func (e *Engine) Current() *State { return e.cur.Load() }
 // New connects to the database and loads all apps.
 func New(ctx context.Context, cfg Config) (*Engine, error) {
 	if cfg.Lang == "" {
-		cfg.Lang = "pt-BR"
+		cfg.Lang = "en"
 	}
 	if cfg.Currency == "" {
-		cfg.Currency = "BRL"
+		cfg.Currency = "USD"
 	}
 	if cfg.Timezone == "" {
 		cfg.Timezone = "UTC"

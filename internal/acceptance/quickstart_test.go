@@ -100,11 +100,16 @@ func TestQuickstartGuide(t *testing.T) {
 	run("init", "--dsn", dsn, "--port", strconv.Itoa(port))
 	run("new-app", "library")
 	var cfg struct {
-		Apps []string `json:"apps"`
+		Apps     []string `json:"apps"`
+		Lang     string   `json:"lang"`
+		Currency string   `json:"currency"`
 	}
 	b, _ := os.ReadFile(filepath.Join(dir, "ddcore.json"))
 	if err := json.Unmarshal(b, &cfg); err != nil || len(cfg.Apps) != 1 || cfg.Apps[0] != "apps/library" {
 		t.Fatalf("new-app did not register apps/library: %v\n%s", err, b)
+	}
+	if cfg.Lang != "en" || cfg.Currency != "USD" {
+		t.Fatalf("the guide promises an en/USD site, init wrote %s/%s", cfg.Lang, cfg.Currency)
 	}
 
 	// 4–5. Define a DocType and migrate
