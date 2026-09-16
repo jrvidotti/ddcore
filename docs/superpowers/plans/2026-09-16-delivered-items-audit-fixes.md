@@ -526,3 +526,9 @@ Doc fixes:
   - the enforced-surfaces table gets a `User Permission` administration row: scoped users are refused, so scope administration belongs to unscoped administrators;
   - the "Who is unrestricted" section is accurate.
 - `ROADMAP.md` SEC-01 row: delivered text reflects the above.
+
+Doc correction (also Task 9): `RunJob` (`internal/engine/jobs.go:~114`) sets `c.Flags["ignorePermissions"] = true` for every job, so no role permission or user access scope applies inside a job, even one a scoped user enqueued. `docs/agent/scopes.md` ("Background jobs") wrongly says the enqueuer's scope applies.
+- Correct scopes.md: jobs run as the enqueuing user for `ddcore.session`/audit actor, but with permissions and scopes lifted.
+- Say plainly that a method a scoped user can enqueue runs unscoped, so app code that enqueues work for a scoped user must filter by scope itself.
+- Update the ROADMAP SEC-01 residual to match.
+- Do not change `RunJob`.
