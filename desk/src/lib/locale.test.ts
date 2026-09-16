@@ -55,17 +55,29 @@ describe("date shape", () => {
   it("is derived, so it is not day-first everywhere", () => {
     useLocale("pt-BR");
     expect(dateShape().order).toEqual(["day", "month", "year"]);
-    expect(dateShape().placeholder).toBe("dd/mm/yyyy");
+    expect(dateShape().placeholder).toBe("dd/mm/aaaa");
 
     useLocale("en-US", "USD");
     expect(dateShape().order).toEqual(["month", "day", "year"]);
     expect(dateShape().placeholder).toBe("mm/dd/yyyy");
   });
 
+  it("spells the placeholder in the locale's letters", () => {
+    useLocale("fr");
+    expect(dateShape().placeholder).toBe("jj/mm/aaaa");
+
+    useLocale("de", "EUR");
+    expect(dateShape().placeholder).toBe("TT.MM.JJJJ");
+
+    // no letter case, no convention: the English letters stay
+    useLocale("ja", "JPY");
+    expect(dateShape().placeholder).toBe("yyyy/mm/dd");
+  });
+
   it("carries into the month shape", () => {
     useLocale("pt-BR");
     expect(monthShape().monthFirst).toBe(true);
-    expect(monthShape().placeholder).toBe("mm/yyyy");
+    expect(monthShape().placeholder).toBe("mm/aaaa");
   });
 });
 

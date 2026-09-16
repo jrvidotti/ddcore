@@ -133,18 +133,43 @@ export function dateShape(): DateShape {
     const order = parts.filter((p) => p.type === "day" || p.type === "month" || p.type === "year")
       .map((p) => p.type as "day" | "month" | "year");
     const sep = parts.find((p) => p.type === "literal")?.value.trim() || "/";
-    const token: Record<"day" | "month" | "year", string> = { day: "dd", month: "mm", year: "yyyy" };
+    const token = fieldTokens();
     const shape: ("day" | "month" | "year")[] = order.length === 3 ? order : ["day", "month", "year"];
     return { order: shape, sep, placeholder: shape.map((o) => token[o]).join(sep) };
   });
+}
+
+/**
+ * The letters a placeholder spells each field with: "dd/mm/aaaa" in
+ * Portuguese, "jj/mm/aaaa" in French, "TT.MM.JJJJ" in German. Each is the
+ * initial of the field's name in the locale, which is the convention those
+ * languages already follow. A script without letter case (日, يوم) has no such
+ * convention, so it keeps the English letters, as does a runtime without
+ * `Intl.DisplayNames`.
+ */
+function fieldTokens(): Record<"day" | "month" | "year", string> {
+  const fallback = { day: "dd", month: "mm", year: "yyyy" };
+  try {
+    const names = new Intl.DisplayNames(locale(), { type: "dateTimeField" });
+    const initial = (f: "day" | "month" | "year") => {
+      const c = names.of(f)?.charAt(0) ?? "";
+      return c.toLowerCase() !== c.toUpperCase() ? c : "";
+    };
+    const d = initial("day"), m = initial("month"), y = initial("year");
+    if (!d || !m || !y) return fallback;
+    return { day: d.repeat(2), month: m.repeat(2), year: y.repeat(4) };
+  } catch {
+    return fallback;
+  }
 }
 
 /** The month/year order, for the Month control. */
 export function monthShape(): { monthFirst: boolean; sep: string; placeholder: string } {
   return cached(`mshape:${locale()}`, () => {
     const { order, sep } = dateShape();
+    const { month, year } = fieldTokens();
     const monthFirst = order.indexOf("month") < order.indexOf("year");
-    return { monthFirst, sep, placeholder: monthFirst ? `mm${sep}yyyy` : `yyyy${sep}mm` };
+    return { monthFirst, sep, placeholder: monthFirst ? `${month}${sep}${year}` : `${year}${sep}${month}` };
   });
 }
 
