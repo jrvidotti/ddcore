@@ -72,29 +72,38 @@ Each transition defines:
 - `action`: Name of the user action triggering the transition (e.g. `"Submit for Approval"`, `"Approve"`, `"Reject"`).
 - `nextState`: Destination state name. Must exist in `states`.
 - `allowed`: Role name or array of role names authorized to trigger this transition. Checked against the authenticated caller's roles. `Administrator` always passes.
-- `allowSelfApproval`: Optional boolean (default: `true`). If `false`, the user who created the document (`owner`) cannot trigger this transition, even if they possess the authorized role. `c.IgnorePermissions()` (server-side jobs, patches, `Administrator`) skips the role check but not this one — a non-`Administrator` owner running with `ignorePermissions` still cannot self-approve.
+- `allowSelfApproval`: Optional boolean (default: `true`). If `false`, the user who created the document (`owner`) cannot trigger this transition, even if they possess the authorized role. Running with `ignorePermissions` (a background job, a patch) skips the role check but not this one — a non-`Administrator` owner still cannot self-approve while `ignorePermissions` is raised. `Administrator` is exempt from self-approval through its own check (any `Administrator` action is allowed, whether or not `ignorePermissions` is set), not because `ignorePermissions` happens to be set.
 - `condition`: Optional synchronous JavaScript function `(doc) => boolean` running on goja. `doc` is a plain JSON object (the document's field values), not a `Document` instance — it has no methods. Evaluated before applying the transition; if it returns `false`, the transition is rejected. Never use `async`/`await` or Promises. A condition that throws hides the action from `GET /api/workflow/actions`'s list without failing the request; applying that action returns the thrown error to the caller without writing a `Denied` audit entry (unlike a wrong role, a self-approval violation, or a condition that returns `false`, which do write one).
 
 Workflows are linear state machines: `ApplyWorkflowTransition` matches the first transition whose `state` and `action` fit the current state and stops there, without checking its `condition`. Declaring two transitions from the same state with the same `action` name is a modeling error — the second is unreachable — so keep `action` unique per `state`.
 
 ## Server-side enforcement and bypass prevention
 
-A workflow's guards run in `Insert`, `Delete`, `DBSet` and `SaveDoc`. Each yields to
-`opts.IgnorePermissions` or `c.IgnorePermissions()` (set by server-side jobs, patches and
-fixtures that opt in), except the load-time checks below, which always run. The delete guard
-also exempts `Administrator` outright.
+A workflow's guards run in `Insert`, `Delete`, `DBSet` and `SaveDoc`. The insert, delete and
+direct state/docstatus mutation guards (1-3 below) are not lifted by `ignorePermissions`,
+whether passed as an option (`doc.insert({ ignorePermissions: true })`,
+`ddcore.deleteDoc(doctype, name, { ignorePermissions: true })`) or already raised on the
+context, which every enqueued job and scheduled method runs with. They yield only to an
+in-progress workflow transition, exactly like the state field and docstatus checks `SaveDoc`
+already enforces for a plain save: a workflow document cannot be submitted or cancelled "not
+even with ignorePermissions" (see below), and the same now holds for inserting, deleting and
+`db.setValue`-ing one. A patch that genuinely needs to repair workflow data (a bad migration, a
+one-off correction) writes SQL directly through `ctx.sql` in a `patches/*.ts` file, bypassing the
+document API rather than asking it for an exemption. The state editability guard (4) and row
+locking (5) are unrelated to that escape and keep their own rules, described below; the
+load-time checks (6) always run regardless.
 
 1. **Insert guard:**
    Inserting a document whose DocType has an active workflow initializes `doc[stateField]` to `initialState` when it is empty or omitted. An explicit state other than `initialState`, or a `docstatus` other than the initial state's, is rejected with a `ValidationError`. This closes the path where `POST /api/resource/<DocType> {docstatus: 1}` (or `doc.insert()` on a document built with `docstatus: 1`) would create a submitted document still sitting in the initial state.
 
 2. **Delete guard:**
-   Deleting a document governed by a workflow is refused with a `PermissionError` unless its current state has `docstatus: 0` and either the state is `initialState` or the user's roles satisfy that state's `allowEdit` (the same check `HasPermission(..., "write")` applies). A document with `docstatus: 1` still hits the existing "cancel before deleting" rule, and one with `docstatus: 2` follows the delete permission the DocType already grants — this guard only narrows drafts that have left `initialState`. Without it, a document's owner could delete it while it awaited approval, discarding the pending decision.
+   Deleting a document governed by a workflow is refused with a `PermissionError` unless its current state has `docstatus: 0` and either the state is `initialState` or the user's roles satisfy that state's `allowEdit` (the same check `HasPermission(..., "write")` applies; a state with no `allowEdit` restriction allows the delete, same as it allows a plain field edit). A document with `docstatus: 1` still hits the existing "cancel before deleting" rule, and one with `docstatus: 2` follows the delete permission the DocType already grants — this guard only narrows drafts that have left `initialState`. Without it, a document's owner could delete it while it awaited approval, discarding the pending decision. `Administrator` is exempt outright, as it is from the DocType's own delete permission.
 
 3. **Direct state field / docstatus mutation guard:**
    `DBSet` and `SaveDoc` both refuse a write to `doc[stateField]` or `docstatus` outside a workflow transition (`inWorkflowTransition`), with a `ValidationError`. Client code, form scripts and `ddcore.db.setValue` cannot alter either field directly; only `doc.applyWorkflow(action)` / `POST /api/workflow/apply` can.
 
 4. **State editability guard (`allowEdit`):**
-   When a document is in a state with `allowEdit: "Role"`, a user lacking that role (other than `Administrator`, or a context running with `c.IgnorePermissions()`) fails the DocType's `write` permission check for that document, so a plain field save is rejected with a `PermissionError`.
+   When a document is in a state with `allowEdit: "Role"`, a user lacking that role (other than `Administrator`, or a context running with `c.IgnorePermissions()`) fails the DocType's `write` permission check for that document, so a plain field save is rejected with a `PermissionError`. Unlike guards 1-3, this one is a permission check like any other, so it follows the DocType's usual `ignorePermissions` rules.
 
 5. **Atomic row locking (`FOR UPDATE`):**
    Transitions execute under a PostgreSQL row lock (`SELECT ... FOR UPDATE`). Concurrent approval requests serialize: the first caller transitions the state, and the subsequent caller reads the updated state, finds no transition matching the old state and action, and fails with a `ValidationError` without duplicating side effects.
@@ -147,7 +156,10 @@ Every workflow transition writes an audit event and a timeline comment:
 - **Document Timeline (`tab_comment`):**
   - A timeline comment with `comment_type: "Workflow"` is posted to the document, built from the
     translation key `"{0} applied action '{1}' ({2} → {3})"` with the acting user's id and the
-    translated action, from-state and to-state names.
+    translated action, from-state and to-state names. Translation uses the acting user's own
+    language (`c.Lang`) at the moment the transition runs, so the comment is stored already
+    translated into the approver's language, not the reader's — a reader in a different language
+    sees the approver's wording, not their own.
   - The comment insert runs inside a savepoint; a failure there is rolled back and logged
     (`workflow timeline comment failed`), and the transition still commits — a broken comment
     never undoes an approval.

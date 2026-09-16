@@ -100,7 +100,9 @@ export default defineWorkflow({
 		t.Fatalf("1. Insert uninitialized failed: %v", err)
 	}
 
-	// 2. Insert with invalid non-initial state: rejected unless IgnorePermissions
+	// 2. Insert with invalid non-initial state: rejected, and not lifted by
+	// opts.IgnorePermissions or a raised c.IgnorePermissions() (simulating a
+	// background job)
 	err = e.Run(ctx, "autor@x.com", func(c *Ctx) error {
 		doc, err := c.NewDoc("Artigo", Doc{"titulo": "Invalid State Article", "workflow_state": "Approved"})
 		if err != nil {
@@ -114,13 +116,22 @@ export default defineWorkflow({
 			t.Fatalf("unexpected error message: %v", err)
 		}
 
-		// With IgnorePermissions, it should be allowed
-		allowedDoc, err := c.Insert(doc, SaveOpts{IgnorePermissions: true})
-		if err != nil {
-			t.Fatalf("expected insert with IgnorePermissions to succeed, got %v", err)
+		// opts.IgnorePermissions does not lift the guard
+		if _, err := c.Insert(doc, SaveOpts{IgnorePermissions: true}); err == nil {
+			t.Fatalf("expected opts.IgnorePermissions to still refuse the insert")
+		} else if !strings.Contains(err.Error(), "must start in initial workflow state 'Draft'") {
+			t.Fatalf("unexpected error message: %v", err)
 		}
-		if allowedDoc.Str("workflow_state") != "Approved" {
-			t.Fatalf("expected workflow_state to be 'Approved', got %q", allowedDoc.Str("workflow_state"))
+
+		// c.IgnorePermissions() (a raised context, as every background job runs
+		// with) does not lift the guard either
+		if err := c.WithIgnorePermissions(func() error {
+			_, err := c.Insert(doc, SaveOpts{})
+			return err
+		}); err == nil {
+			t.Fatalf("expected c.IgnorePermissions() to still refuse the insert")
+		} else if !strings.Contains(err.Error(), "must start in initial workflow state 'Draft'") {
+			t.Fatalf("unexpected error message: %v", err)
 		}
 		return nil
 	})
@@ -289,7 +300,9 @@ export default defineWorkflow({
 
 // TestWorkflow_InsertRefusesDocstatusOutsideInitialState: an insert carrying
 // docstatus 1 would create a submitted document still in the initial state,
-// skipping every approval, even for a role holding submit permission.
+// skipping every approval, even for a role holding submit permission. Neither
+// opts.IgnorePermissions nor a raised c.IgnorePermissions() (as every
+// background job runs with) lifts the guard.
 func TestWorkflow_InsertRefusesDocstatusOutsideInitialState(t *testing.T) {
 	e := setupWith(t, workflowTestFiles())
 	setupWorkflowTestUsers(t, e)
@@ -304,13 +317,22 @@ func TestWorkflow_InsertRefusesDocstatusOutsideInitialState(t *testing.T) {
 		} else if !strings.Contains(err.Error(), "must start with the docstatus of initial workflow state 'Draft'") {
 			t.Fatalf("unexpected error: %v", err)
 		}
+
 		doc, _ = c.NewDoc("Artigo", Doc{"titulo": "Pre-submitted", "docstatus": 1})
-		saved, err := c.Insert(doc, SaveOpts{IgnorePermissions: true})
-		if err != nil {
-			t.Fatalf("expected IgnorePermissions to allow the insert, got %v", err)
+		if _, err := c.Insert(doc, SaveOpts{IgnorePermissions: true}); err == nil {
+			t.Fatalf("expected opts.IgnorePermissions to still refuse the insert")
+		} else if !strings.Contains(err.Error(), "must start with the docstatus of initial workflow state 'Draft'") {
+			t.Fatalf("unexpected error: %v", err)
 		}
-		if saved.Docstatus() != 1 {
-			t.Fatalf("expected docstatus 1, got %d", saved.Docstatus())
+
+		doc, _ = c.NewDoc("Artigo", Doc{"titulo": "Pre-submitted", "docstatus": 1})
+		if err := c.WithIgnorePermissions(func() error {
+			_, err := c.Insert(doc, SaveOpts{})
+			return err
+		}); err == nil {
+			t.Fatalf("expected c.IgnorePermissions() to still refuse the insert")
+		} else if !strings.Contains(err.Error(), "must start with the docstatus of initial workflow state 'Draft'") {
+			t.Fatalf("unexpected error: %v", err)
 		}
 		return nil
 	})
@@ -355,15 +377,29 @@ func TestWorkflow_DeleteGuard(t *testing.T) {
 		t.Fatalf("expected the owner to delete a draft in the initial state, got %v", err)
 	}
 
-	// the owner may not delete it once it waits for an Editor's approval
+	// the owner may not delete it once it waits for an Editor's approval, and
+	// neither ignorePerms nor a raised c.IgnorePermissions() lifts the guard
 	pending := insert("Pending to delete")
 	apply("autor@x.com", pending, "Submit for Approval")
 	err := e.Run(ctx, "autor@x.com", func(c *Ctx) error { return c.Delete("Artigo", pending, false, false) })
 	if err == nil || !strings.Contains(err.Error(), "in workflow state 'Pending Approval'") {
 		t.Fatalf("expected delete of a pending document to be refused, got %v", err)
 	}
-	if err := e.Run(ctx, "autor@x.com", func(c *Ctx) error { return c.Delete("Artigo", pending, true, false) }); err != nil {
-		t.Fatalf("expected ignorePerms to allow the delete, got %v", err)
+	if err := e.Run(ctx, "autor@x.com", func(c *Ctx) error { return c.Delete("Artigo", pending, true, false) }); err == nil {
+		t.Fatalf("expected ignorePerms to still refuse the delete")
+	}
+	if err := e.Run(ctx, "autor@x.com", func(c *Ctx) error {
+		return c.WithIgnorePermissions(func() error { return c.Delete("Artigo", pending, false, false) })
+	}); err == nil {
+		t.Fatalf("expected c.IgnorePermissions() to still refuse the delete")
+	}
+
+	// an Editor, whose role satisfies "Pending Approval"'s allowEdit, may delete
+	// it there even though the state is not initialState. Editor holds no
+	// DocType-level delete permission, so ignorePerms clears that unrelated
+	// check and isolates the workflow guard being exercised.
+	if err := e.Run(ctx, "editor@x.com", func(c *Ctx) error { return c.Delete("Artigo", pending, true, false) }); err != nil {
+		t.Fatalf("expected an Editor to delete a pending document, got %v", err)
 	}
 
 	// a cancelled document keeps the existing rules
@@ -402,10 +438,12 @@ func TestWorkflow_DBSetGuard(t *testing.T) {
 		}); err != nil {
 			t.Fatalf("expected a DBSet inside a transition to succeed, got %v", err)
 		}
+		// a raised c.IgnorePermissions() (as every background job runs with) does
+		// not lift the guard either — only a workflow transition does
 		if err := c.WithIgnorePermissions(func() error {
 			return c.SetValue("Artigo", name, Doc{"workflow_state": "Draft"})
-		}); err != nil {
-			t.Fatalf("expected a DBSet with ignorePermissions to succeed, got %v", err)
+		}); err == nil {
+			t.Fatalf("expected a DBSet with c.IgnorePermissions() to still be refused")
 		}
 		return nil
 	})

@@ -430,11 +430,15 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 	if wf := c.WorkflowFor(d.Name); wf != nil {
 		if doc[wf.StateField] == nil || doc[wf.StateField] == "" {
 			doc[wf.StateField] = wf.InitialState
-		} else if doc.Str(wf.StateField) != wf.InitialState && !opts.IgnorePermissions && !c.IgnorePermissions() {
+		} else if doc.Str(wf.StateField) != wf.InitialState && !c.inWorkflowTransition {
+			// like SaveDoc's guard, this yields only to a workflow transition, never
+			// to opts.IgnorePermissions or c.IgnorePermissions() — a bulk import or a
+			// background job cannot insert a document past the initial state; data
+			// repair belongs in a migration patch's ctx.sql.
 			return nil, cerr.Validation("New {0} must start in initial workflow state '{1}'", d.Name, wf.InitialState)
 		}
 		// a submitted insert would skip every approval the workflow requires
-		if initial := wf.GetState(wf.InitialState); initial != nil && doc.Docstatus() != initial.Docstatus && !opts.IgnorePermissions && !c.IgnorePermissions() {
+		if initial := wf.GetState(wf.InitialState); initial != nil && doc.Docstatus() != initial.Docstatus && !c.inWorkflowTransition {
 			return nil, cerr.Validation("New {0} must start with the docstatus of initial workflow state '{1}'", d.Name, wf.InitialState)
 		}
 	}
@@ -825,8 +829,11 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 			return modified, cerr.Permission("No permission ({0}) on {1} {2}", "write", c.T(d.Label), name)
 		}
 	}
-	// the state field and docstatus move only through a workflow transition
-	if wf := c.WorkflowFor(d.Name); wf != nil && !c.inWorkflowTransition && !c.IgnorePermissions() {
+	// the state field and docstatus move only through a workflow transition;
+	// this does not yield to c.IgnorePermissions() (raised for every background
+	// job) — a job that needs to repair workflow data uses a migration patch's
+	// ctx.sql instead.
+	if wf := c.WorkflowFor(d.Name); wf != nil && !c.inWorkflowTransition {
 		if _, ok := values[wf.StateField]; ok {
 			return modified, cerr.Validation("Cannot manually modify workflow state field '{0}'. Use workflow actions to transition.", wf.StateField)
 		}
@@ -942,8 +949,12 @@ func (c *Ctx) Delete(doctype, name string, ignorePerms, force bool) error {
 		}
 	}
 	// a draft that has left the initial state is deleted only by a role that
-	// may edit it there; a cancelled document keeps the rules above
-	if wf := c.WorkflowFor(doctype); wf != nil && doc.Docstatus() == 0 && !ignorePerms && !c.IgnorePermissions() && c.User != "Administrator" {
+	// may edit it there; a cancelled document keeps the rules above. This does
+	// not yield to ignorePerms or c.IgnorePermissions() — ddcore.deleteDoc(...,
+	// {ignorePermissions:true}) and a background job (which always runs with
+	// c.IgnorePermissions() true) cannot delete a document out from under an
+	// approval; data repair belongs in a migration patch's ctx.sql.
+	if wf := c.WorkflowFor(doctype); wf != nil && doc.Docstatus() == 0 && c.User != "Administrator" {
 		st := doc.Str(wf.StateField)
 		if st == "" {
 			st = wf.InitialState
