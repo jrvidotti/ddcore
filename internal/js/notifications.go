@@ -42,7 +42,7 @@ func (n Notification) ValidateTarget(reg *meta.Registry, hasTemplate func(string
 		return fmt.Errorf("notification %s: unknown DocType %s", n.Name, n.Doctype)
 	}
 	switch n.Doctype {
-	case "Notification", "Notification Occurrence", "Email Delivery", "Webhook Delivery", "Version", "Error Log", "Audit Event":
+	case "Webhook", "Webhook Delivery", "Audit Event", "Email Delivery", "Version", "Error Log":
 		return fmt.Errorf("notification %s: internal delivery and audit DocTypes are not supported", n.Name)
 	}
 	if d.IsChild {

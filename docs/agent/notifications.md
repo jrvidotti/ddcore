@@ -32,18 +32,22 @@ Names are unique across installed apps; prefix them with the app name. Declare o
 `event` or one `date` trigger, and at least one of `desk` and `email`. The supported
 events are `on_insert`, `on_update`, `on_submit` and `on_cancel`, with the same
 lifecycle boundaries as outgoing webhooks. `dbSet`, rename and delete do not trigger
-rules. Child DocTypes and internal delivery/audit records cannot be rule targets.
-Invalid definitions fail loading, including missing email templates.
+rules. Single and Child DocTypes and internal delivery/audit records cannot be rule
+targets. Invalid definitions fail loading, including missing email templates and a
+declared `email` without `email.args`.
 
 `condition`, `recipients`, Desk content and email arguments receive the current
 document and the previous document (`null` on insert). All functions are synchronous:
-never use `async`, `await` or return a Promise. A false condition skips the occurrence;
-evaluation errors roll back the document operation, occurrences and jobs together.
+never use `async`, `await` or return a Promise. `condition` must return a boolean; a
+non-boolean result throws and rolls back the document operation, occurrences and jobs
+together, same as any other evaluation error. A false condition skips the occurrence.
 
 `recipients` returns active User identifiers, not arbitrary external email addresses.
 Duplicate recipients collapse to one occurrence. Missing, disabled and unauthorized
-users are discarded. Read authorization includes role permissions and the controller's
-`hasPermission` and `permissionQuery` hooks. A notification never grants document access.
+users are discarded. Read authorization includes role permissions, [user access
+scopes](scopes.md) and the controller's `hasPermission` and `permissionQuery` hooks. A
+notification never grants document access. A recipient whose User has no email address
+gets no email; there is no error or fallback.
 
 Desk title and message are plain text. Use literal `_()` keys and translate them in
 `translations/<lang>.csv`; content renders in the recipient's language. Email uses an
@@ -69,9 +73,11 @@ export default defineNotification({
 ```
 
 The field must be `Date` or `Datetime`; `days` is an integer calendar-day offset
-(negative before the field value, zero at it, positive after it). The scheduler
-queues its internal sweep every five minutes and scans in batches of 100 using the site's timezone, including daylight
-saving transitions. It catches up overdue matching documents after downtime and
+(negative before the field value, zero at it, positive after it). The internal sweep
+is queued every five minutes and scans in batches of 100 using the site's timezone,
+including daylight saving transitions, but only while the scheduler is running (a
+`dev` or `jobs` process); date rules are never evaluated otherwise. It
+catches up overdue matching documents after downtime and
 on first activation, including historical dates. Use `condition` to limit that set.
 Date callbacks have no prior save document.
 
@@ -88,9 +94,13 @@ event identity, so separate updates can notify again. Retries do not create new 
 All operations use the authenticated user. There is no recipient selector, even for
 an administrator. Every listing, unread count and read-state change rechecks access
 to the referenced document, one document read per stored occurrence, so the cost
-of a count grows with the user's inbox. Deleted documents and revoked access hide the occurrence;
-renames update its document reference. Email attempts recheck access before sending.
-An email already sent cannot be withdrawn after access changes.
+of a count grows with the user's inbox. Access includes [user access scopes](scopes.md):
+a scope change is observed the same way a role or permission change is. Deleted
+documents and revoked access or scope hide the occurrence; renames update its document
+reference. Email attempts recheck access, including scopes, before sending.
+An email already sent cannot be withdrawn after access changes. There is no retention
+sweep for read notifications: they remain in `ddcore_notification` until the
+referenced document is deleted or access is revoked.
 
 The internal `ddcore_notification` table is not a DocType. Generic REST, reports and
 export cannot expose it. Use these dedicated endpoints:
@@ -117,5 +127,7 @@ produced offline are recovered. Logging out clears the local connection and stat
 recipient. It carries no document content; clients fetch the authorized persisted
 state. Rollback emits no invalidation. SSE is a refresh hint, not the durable inbox.
 
-This version does not include a visual rule editor, user preferences, push delivery,
-assignments or custom event triggers.
+This version does not include a visual rule editor, user preferences, push delivery
+or custom event triggers. [Assignments](assignments.md) land in the same inbox
+through `NotifyUser` and the core `todo_due` date rule, not through app-defined
+notification rules.

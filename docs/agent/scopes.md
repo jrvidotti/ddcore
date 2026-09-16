@@ -103,7 +103,7 @@ methods (`scheduler` in `defineApp`) run as `Administrator` and are unscoped.
 | Files | An attached file is readable only if its document is; an unattached file stays with its owner and System Manager |
 | Versions and comments | Refused unless the referenced document is readable |
 | Realtime events (SSE) | Document events are delivered only to users who can read the document |
-| Notifications | Listing and counting recheck access, so a scope change hides old occurrences |
+| Notifications | Recipient filtering, listing, counting, read-state changes and the email-send recheck all recheck access, so a scope change stops a new occurrence and hides or blocks an existing one |
 | Webhooks | A scoped user is refused every permission on `Webhook` and `Webhook Delivery`, including replay, and app code running as that user cannot reach them with `ignorePermissions`: webhook administration is for unscoped users. The user's own document writes still queue and send deliveries (see `webhooks`) |
 
 ## Caching
