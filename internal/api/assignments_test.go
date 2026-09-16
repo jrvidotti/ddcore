@@ -304,3 +304,82 @@ func TestAssignments_NotificationInRecipientLanguage(t *testing.T) {
 		t.Fatalf("notification not in recipient language: %v", n)
 	}
 }
+
+func TestToDo_UpdateCannotRewriteAssignment(t *testing.T) {
+	x := setup(t)
+	ana, bia, root := "sid:"+x.sid("ana@x.com"), "sid:"+x.sid("bia@x.com"), "sid:"+x.sid("root@x.com")
+
+	r := x.call("POST", "/api/resource/Pessoa", map[string]any{"nome": "Update Doc"}, ana)
+	x.expect(r, 200, "")
+	r = x.call("POST", "/api/assignments/assign", map[string]any{
+		"doctype": "Pessoa", "name": "Update Doc", "allocated_to": "bia@x.com",
+	}, ana)
+	x.expect(r, 200, "")
+	name := fmt.Sprint(r.Body["data"].(map[string]any)["name"])
+
+	for _, change := range []map[string]any{
+		{"assigned_by": "root@x.com"},
+		{"allocated_to": "ana@x.com"},
+		{"reference_name": "Other Doc"},
+	} {
+		r = x.call("PUT", "/api/resource/ToDo/"+name, change, bia)
+		x.expect(r, 417, "ValidationError")
+	}
+	r = x.call("GET", "/api/resource/ToDo/"+name, nil, bia)
+	x.expect(r, 200, "")
+	got := r.Body["data"].(map[string]any)
+	if got["assigned_by"] != "ana@x.com" || got["allocated_to"] != "bia@x.com" || got["reference_name"] != "Update Doc" {
+		t.Fatalf("assignment rewritten: %v", got)
+	}
+
+	// Other fields stay editable by a participant.
+	r = x.call("PUT", "/api/resource/ToDo/"+name, map[string]any{"description": "Edited"}, bia)
+	x.expect(r, 200, "")
+	// A System Manager may still rewrite the assignment.
+	r = x.call("PUT", "/api/resource/ToDo/"+name, map[string]any{"assigned_by": "root@x.com"}, root)
+	x.expect(r, 200, "")
+}
+
+// A database failure in a side effect (timeline comment, notification) must
+// not abort the request transaction: the assignment itself still commits.
+func TestAssignments_SideEffectFailureStillCommits(t *testing.T) {
+	x := setup(t)
+	ana, bia := "sid:"+x.sid("ana@x.com"), "sid:"+x.sid("bia@x.com")
+	r := x.call("POST", "/api/resource/Pessoa", map[string]any{"nome": "Faulty Doc"}, ana)
+	x.expect(r, 200, "")
+
+	x.asAdmin(func(c *engine.Ctx) error {
+		_, err := c.Q().Exec(c.Ctx, `
+CREATE OR REPLACE FUNCTION ddcore_test_fail() RETURNS trigger AS $$
+BEGIN RAISE EXCEPTION 'induced failure'; END $$ LANGUAGE plpgsql;
+CREATE TRIGGER ddcore_test_fail BEFORE INSERT ON tab_comment FOR EACH ROW EXECUTE FUNCTION ddcore_test_fail();
+CREATE TRIGGER ddcore_test_fail BEFORE INSERT ON ddcore_notification FOR EACH ROW EXECUTE FUNCTION ddcore_test_fail();`)
+		return err
+	})
+	t.Cleanup(func() {
+		x.asAdmin(func(c *engine.Ctx) error {
+			_, err := c.Q().Exec(c.Ctx, `
+DROP TRIGGER IF EXISTS ddcore_test_fail ON tab_comment;
+DROP TRIGGER IF EXISTS ddcore_test_fail ON ddcore_notification;
+DROP FUNCTION IF EXISTS ddcore_test_fail();`)
+			return err
+		})
+	})
+
+	r = x.call("POST", "/api/assignments/assign", map[string]any{
+		"doctype": "Pessoa", "name": "Faulty Doc", "allocated_to": "bia@x.com",
+	}, ana)
+	x.expect(r, 200, "")
+	name := fmt.Sprint(r.Body["data"].(map[string]any)["name"])
+
+	r = x.call("POST", "/api/assignments/complete", map[string]any{"name": name}, bia)
+	x.expect(r, 200, "")
+	r = x.call("POST", "/api/assignments/revoke", map[string]any{"name": name}, ana)
+	x.expect(r, 200, "")
+
+	r = x.call("GET", "/api/resource/ToDo/"+name, nil, ana)
+	x.expect(r, 200, "")
+	if got := r.Body["data"].(map[string]any)["status"]; got != "Cancelled" {
+		t.Fatalf("status = %v, want Cancelled", got)
+	}
+}

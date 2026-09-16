@@ -840,6 +840,32 @@ func (c *Ctx) RollbackTo() error {
 	return err
 }
 
+// WithSavepoint runs fn inside a savepoint of the current transaction. When fn
+// fails, its writes, cached documents and after-commit callbacks are undone
+// and the transaction stays usable, so a best-effort side effect can fail
+// without taking the caller's work down with it.
+func (c *Ctx) WithSavepoint(fn func() error) error {
+	if c.Tx == nil {
+		return fn()
+	}
+	c.roSavepoint++
+	sp := fmt.Sprintf("ddcore_sp%d", c.roSavepoint)
+	defer func() { c.roSavepoint-- }()
+	if _, err := c.Tx.Exec(c.Ctx, "SAVEPOINT "+sp); err != nil {
+		return err
+	}
+	pending := len(c.afterCommit)
+	if err := fn(); err != nil {
+		c.Tx.Exec(c.Ctx, "ROLLBACK TO SAVEPOINT "+sp)
+		c.Tx.Exec(c.Ctx, "RELEASE SAVEPOINT "+sp)
+		c.afterCommit = c.afterCommit[:pending]
+		c.docCache = map[string]Doc{}
+		return err
+	}
+	_, err := c.Tx.Exec(c.Ctx, "RELEASE SAVEPOINT "+sp)
+	return err
+}
+
 // ---------------------------------------------------------------- app files
 
 // AppDir returns the directory of an app (for reading form scripts etc.).

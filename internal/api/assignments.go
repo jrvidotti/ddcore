@@ -73,18 +73,7 @@ func (s *Server) assignDoc(w http.ResponseWriter, r *http.Request) {
 		if body.Description != "" {
 			commentContent += fmt.Sprintf(": %s", body.Description)
 		}
-		comment, err := c.NewDoc("Comment", engine.Doc{
-			"comment_type":      "Workflow",
-			"reference_doctype": body.Doctype,
-			"reference_name":    body.Name,
-			"content":           commentContent,
-		})
-		if err == nil {
-			_, err = c.Insert(comment, engine.SaveOpts{})
-		}
-		if err != nil {
-			c.E.Log.Warn("assignment timeline comment failed", "doctype", body.Doctype, "name", body.Name, "err", err)
-		}
+		addTimelineComment(c, body.Doctype, body.Name, commentContent)
 
 		// 3. Dispatch persistent notification, written in the assignee's language
 		lang := c.RecipientLang([]string{body.AllocatedTo})
@@ -97,12 +86,38 @@ func (s *Server) assignDoc(w http.ResponseWriter, r *http.Request) {
 		if msg == "" {
 			msg = c.St.I18n.T(lang, "{0} assigned {1} {2} to you", c.User, label, body.Name)
 		}
-		if err := c.NotifyUser(body.AllocatedTo, body.Doctype, body.Name, title, msg); err != nil {
+		// Best effort, like the comment: a failure is rolled back to its
+		// savepoint and logged, and the assignment still commits.
+		if err := c.WithSavepoint(func() error {
+			return c.NotifyUser(body.AllocatedTo, body.Doctype, body.Name, title, msg)
+		}); err != nil {
 			c.E.Log.Warn("assignment notification failed", "doctype", body.Doctype, "name", body.Name, "user", body.AllocatedTo, "err", err)
 		}
 
 		return inserted, nil
 	})
+}
+
+// addTimelineComment records a Workflow comment on the referenced document. It
+// is a side effect of the assignment action: a failure is rolled back to a
+// savepoint and logged instead of aborting the request transaction.
+func addTimelineComment(c *engine.Ctx, doctype, name, content string) {
+	err := c.WithSavepoint(func() error {
+		comment, err := c.NewDoc("Comment", engine.Doc{
+			"comment_type":      "Workflow",
+			"reference_doctype": doctype,
+			"reference_name":    name,
+			"content":           content,
+		})
+		if err != nil {
+			return err
+		}
+		_, err = c.Insert(comment, engine.SaveOpts{})
+		return err
+	})
+	if err != nil {
+		c.E.Log.Warn("assignment timeline comment failed", "doctype", doctype, "name", name, "err", err)
+	}
 }
 
 func (s *Server) completeAssignment(w http.ResponseWriter, r *http.Request) {
@@ -134,18 +149,8 @@ func (s *Server) completeAssignment(w http.ResponseWriter, r *http.Request) {
 			return nil, err
 		}
 
-		refType := doc.Str("reference_type")
-		refName := doc.Str("reference_name")
-		if refType != "" && refName != "" {
-			comment, err := c.NewDoc("Comment", engine.Doc{
-				"comment_type":      "Workflow",
-				"reference_doctype": refType,
-				"reference_name":    refName,
-				"content":           fmt.Sprintf("%s completed assignment", c.User),
-			})
-			if err == nil {
-				_, _ = c.Insert(comment, engine.SaveOpts{})
-			}
+		if refType, refName := doc.Str("reference_type"), doc.Str("reference_name"); refType != "" && refName != "" {
+			addTimelineComment(c, refType, refName, fmt.Sprintf("%s completed assignment", c.User))
 		}
 
 		return saved, nil
@@ -181,18 +186,8 @@ func (s *Server) revokeAssignment(w http.ResponseWriter, r *http.Request) {
 			return nil, err
 		}
 
-		refType := doc.Str("reference_type")
-		refName := doc.Str("reference_name")
-		if refType != "" && refName != "" {
-			comment, err := c.NewDoc("Comment", engine.Doc{
-				"comment_type":      "Workflow",
-				"reference_doctype": refType,
-				"reference_name":    refName,
-				"content":           fmt.Sprintf("%s revoked assignment for %s", c.User, doc.Str("allocated_to")),
-			})
-			if err == nil {
-				_, _ = c.Insert(comment, engine.SaveOpts{})
-			}
+		if refType, refName := doc.Str("reference_type"), doc.Str("reference_name"); refType != "" && refName != "" {
+			addTimelineComment(c, refType, refName, fmt.Sprintf("%s revoked assignment for %s", c.User, doc.Str("allocated_to")))
 		}
 
 		return map[string]any{"success": true}, nil
