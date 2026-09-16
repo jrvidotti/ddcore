@@ -775,6 +775,83 @@ func TestSEC01_ExistsDBSetAndScopeAdministration(t *testing.T) {
 	}
 }
 
+// TestSEC01_DBSetChildRowScopeUsesParentApplicableFor: a scope rule with
+// applicable_for "Test Record" restricts a Link field on a Test Record Item
+// child row the same way Save checks it — under the parent DocType, not the
+// child's own name. A direct DBSet on the child row must resolve the same
+// applicable_for, or a scope limited to one DocType would silently stop
+// applying to that DocType's own child rows.
+func TestSEC01_DBSetChildRowScopeUsesParentApplicableFor(t *testing.T) {
+	e := setupSEC01(t)
+	ctx := context.Background()
+	const scopedUser = "child_scope_user@x.com"
+	var itemName string
+
+	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+		u, err := c.NewDoc("User", Doc{"email": scopedUser, "full_name": scopedUser,
+			"roles": []any{map[string]any{"role": "Scope User"}}})
+		if err != nil {
+			return err
+		}
+		if _, err := c.Insert(u, SaveOpts{}); err != nil {
+			return err
+		}
+		for _, name := range []string{"Alfa", "Beta"} {
+			doc, err := c.NewDoc("Test Company", Doc{"title": name})
+			if err != nil {
+				return err
+			}
+			if _, err := c.Insert(doc, SaveOpts{}); err != nil {
+				return err
+			}
+		}
+		record, err := c.NewDoc("Test Record", Doc{
+			"title": "With Item", "company": "Alfa",
+			"items": []any{map[string]any{"company": "Alfa"}},
+		})
+		if err != nil {
+			return err
+		}
+		saved, err := c.Insert(record, SaveOpts{})
+		if err != nil {
+			return err
+		}
+		full, err := c.GetDoc("Test Record", saved.Name())
+		if err != nil {
+			return err
+		}
+		items := full.Children("items")
+		if len(items) != 1 {
+			t.Fatalf("expected one item row, got %#v", full["items"])
+		}
+		itemName = items[0].Name()
+
+		// Scoped to "Alfa" only for "Test Record": without resolving the
+		// child row's parenttype, a direct DBSet on "Test Record Item" would
+		// check applicable_for "Test Record Item", not match this rule, and
+		// skip the restriction entirely.
+		permission, err := c.NewDoc("User Permission", Doc{
+			"user": scopedUser, "allow": "Test Company", "for_value": "Alfa", "applicable_for": "Test Record",
+		})
+		if err != nil {
+			return err
+		}
+		_, err = c.Insert(permission, SaveOpts{})
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := e.Run(ctx, scopedUser, func(c *Ctx) error {
+		if _, err := c.DBSet("Test Record Item", itemName, Doc{"company": "Beta"}, true); err == nil || cerr.From(err).Type != "PermissionError" {
+			t.Fatalf("DBSet moving a child row out of the parent's scope: expected PermissionError, got %v", err)
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func hasName(rows []map[string]any, want string) bool {
 	for _, row := range rows {
 		if row["name"] == want {

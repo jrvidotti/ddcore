@@ -872,8 +872,18 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 			for k, v := range values {
 				merged[k] = v
 			}
+			// A child row's scope applies under its parent's applicable_for,
+			// the same rule Save enforces (perm.go's recursion into table
+			// rows). d.Name (the child DocType's own name) would miss any
+			// rule scoped to the parent DocType.
+			applicableFor := d.Name
+			if d.IsChild {
+				if pt := stored.Str("parenttype"); pt != "" {
+					applicableFor = pt
+				}
+			}
 			for _, doc := range []Doc{stored, merged} {
-				if ok, err := c.checkUserPermissions(d, doc); err != nil {
+				if ok, err := c.checkUserPermissionsFor(d, doc, applicableFor); err != nil {
 					return modified, err
 				} else if !ok {
 					return modified, cerr.Permission("No permission ({0}) on {1} {2}", "write", c.T(d.Label), name)
