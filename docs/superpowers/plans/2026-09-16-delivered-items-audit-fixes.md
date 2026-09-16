@@ -496,3 +496,33 @@ Other docs:
   - no audit event for prints;
   - Letter Head HTML unescaped by design (System Manager content);
   - fixed renderer concurrency.
+
+### Task 9: SEC-01 scopes — remaining bypasses found during execution
+
+Added by the controller during execution. The Task 4 implementer found these gaps, and the controller confirmed them in code.
+
+Code fixes:
+1. **`Ctx.Exists` ignores scopes.** `Ctx.Exists(doctype, name)` (`internal/engine/query.go`, behind `ddcore.db.exists(doctype, name)`) runs a raw `SELECT 1 … WHERE name = $1`, so a scoped user can probe out-of-scope names. `docs/agent/scopes.md` lists `exists` as scope-enforced. `ExistsWhere` and `GetValues` already go through `GetList`, which applies `scopeFilters`.
+   - Make the by-name form apply the same scope filters, for example by delegating to the `GetList` path with `IgnorePermissions: true` and a `name` filter.
+   - Keep Task 4's webhook refusal behavior.
+2. **`DBSet` ignores scopes.** `DBSet` (`internal/engine/doc.go`, behind `ddcore.db.setValue` and `doc.dbSet`) writes without any scope check.
+   - When the context is not raised (`!c.IgnorePermissions()`) and the user has scope rows, refuse the write if the stored document is out of scope, or if the written values would move it out of scope. Use `checkUserPermissions` on the stored row, and on the stored row merged with the new values.
+   - Before changing it, grep every framework-internal `DBSet`/`SetValue` caller (workflow transitions, notifications, assignments, mail/webhook status, rename, vault) and make sure each either runs in a raised context or legitimately acts for the user. A scoped user's normal operations must keep working.
+3. **Scoped administrators can edit `User Permission`.** A System Manager with `User Permission` rows can create, change or delete `User Permission` documents, including their own, and so lift their own scope.
+   - Refuse every permission type on `User Permission` to a user with scope rows, at both the role level and the scope level, following exactly the pattern Task 4 used for `Webhook`/`Webhook Delivery` (reuse its helper; do not duplicate it).
+   - Unscoped System Managers and Administrator are unaffected.
+
+Tests go in `internal/engine/sec01_test.go` (reuse `setupSEC01`), for a scoped user:
+- `Exists` of an out-of-scope name is false and of an in-scope name is true;
+- `DBSet` on an out-of-scope document is refused;
+- `DBSet` moving an in-scope document's company to an out-of-scope value is refused;
+- `DBSet` inside a document in scope succeeds;
+- `Insert`/`Save`/`Delete` of `User Permission` is refused, including with `SaveOpts{IgnorePermissions:true}` and `GetList(... IgnorePermissions:true)`;
+- an unscoped System Manager can still manage `User Permission`.
+
+Doc fixes:
+- `docs/agent/scopes.md`:
+  - the app-code table covers `exists` (by name and by filters) and `db.setValue`/`dbSet`;
+  - the enforced-surfaces table gets a `User Permission` administration row: scoped users are refused, so scope administration belongs to unscoped administrators;
+  - the "Who is unrestricted" section is accurate.
+- `ROADMAP.md` SEC-01 row: delivered text reflects the above.
