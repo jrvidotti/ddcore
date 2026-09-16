@@ -16,6 +16,7 @@ func clearMailEnv(t *testing.T) {
 		"DDCORE_SMTP_HOST", "DDCORE_SMTP_PORT", "DDCORE_SMTP_USERNAME",
 		"DDCORE_SMTP_PASSWORD", "DDCORE_SMTP_TLS", "DDCORE_URL", "DDCORE_TRUST_PROXY",
 		"DDCORE_DSN", "DDCORE_PORT", "DATABASE_URL", "PORT",
+		"DDCORE_LOGIN_NOTICE", "DDCORE_LOGIN_DEMO_USER", "DDCORE_LOGIN_DEMO_PASSWORD",
 	} {
 		t.Setenv(k, "")
 		os.Unsetenv(k)
@@ -251,3 +252,38 @@ func TestPlatformPortOverridesJSONAndDDCOREPortWins(t *testing.T) {
 	}
 }
 
+func TestLoginPage(t *testing.T) {
+	clearMailEnv(t)
+	dir := site(t, `{"login":{"notice":"From the file","demoUser":"visitor@example.com","demoPassword":"file-pw"}}`)
+	f, _, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if f.Login != (LoginPage{Notice: "From the file", DemoUser: "visitor@example.com", DemoPassword: "file-pw"}) {
+		t.Errorf("ddcore.json: got %+v", f.Login)
+	}
+
+	t.Setenv("DDCORE_LOGIN_NOTICE", `Public demo\nData resets`)
+	t.Setenv("DDCORE_LOGIN_DEMO_PASSWORD", "env-pw")
+	if f, _, err = Load(dir); err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if f.Login.Notice != "Public demo\nData resets" {
+		t.Errorf("a literal \\n in the variable is a line break, got %q", f.Login.Notice)
+	}
+	if f.Login.DemoUser != "visitor@example.com" || f.Login.DemoPassword != "env-pw" {
+		t.Errorf("the environment overrides the file field by field, got %+v", f.Login)
+	}
+}
+
+func TestLoginDemoAccountNeedsBoth(t *testing.T) {
+	clearMailEnv(t)
+	t.Setenv("DDCORE_LOGIN_DEMO_USER", "visitor@example.com")
+	f, _, err := Load(site(t, `{}`))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if f.Login.DemoUser != "" || f.Login.DemoPassword != "" {
+		t.Errorf("a user without a password is dropped, got %+v", f.Login)
+	}
+}

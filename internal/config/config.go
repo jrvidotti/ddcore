@@ -63,10 +63,26 @@ type File struct {
 	// claim any address, and the throttle that keys on the address becomes a
 	// way to lock out a stranger.
 	TrustProxy bool `json:"trustProxy"`
+	// Login is what the sign-in screen tells a visitor before they sign in.
+	Login LoginPage `json:"login"`
 	// Mail comes from the environment only — see the package comment.
 	Mail Mail `json:"-"`
 	// Webhooks comes from the environment only, like Mail.
 	Webhooks Webhooks `json:"-"`
+}
+
+// LoginPage is served by the public /api/boot to anyone who opens the site,
+// signed in or not. It is meant for a public demo or a maintenance note: never
+// put a real account's password here.
+type LoginPage struct {
+	// Notice is plain text, shown as written — it is the operator's sentence,
+	// not a catalogue key, so it is not translated. A literal \n in the
+	// environment variable is a line break.
+	Notice string `json:"notice"`
+	// DemoUser and DemoPassword offer a button that fills in the form. Both
+	// or neither: one alone is dropped.
+	DemoUser     string `json:"demoUser"`
+	DemoPassword string `json:"demoPassword"`
 }
 
 const Name = "ddcore.json"
@@ -108,6 +124,14 @@ func Load(dir string) (*File, string, error) {
 	}
 	f.URL = strings.TrimSuffix(env("DDCORE_URL", f.URL), "/")
 	f.TrustProxy = envBool("DDCORE_TRUST_PROXY", f.TrustProxy)
+	f.Login.Notice = strings.ReplaceAll(env("DDCORE_LOGIN_NOTICE", f.Login.Notice), `\n`, "\n")
+	f.Login.DemoUser = env("DDCORE_LOGIN_DEMO_USER", f.Login.DemoUser)
+	f.Login.DemoPassword = env("DDCORE_LOGIN_DEMO_PASSWORD", f.Login.DemoPassword)
+	if f.Login.DemoUser == "" || f.Login.DemoPassword == "" {
+		// half an account fills half the form, which only teaches the visitor
+		// that the offer does not work
+		f.Login.DemoUser, f.Login.DemoPassword = "", ""
+	}
 	if f.Mail, err = mailFromEnv(); err != nil {
 		return nil, "", err
 	}

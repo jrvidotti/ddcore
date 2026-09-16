@@ -55,6 +55,31 @@ two spellings (its name and its e-mail), and the command clears both.
 a proxy you control sets it: otherwise any client picks the address we hold
 responsible, and the address throttle becomes a way to lock out a stranger.
 
+### A notice on the sign-in screen
+
+A deployment can put a notice above the form and offer a demo account, with a
+button that fills the form in. Set it in `ddcore.json` or, per deployment, in
+the environment, which wins field by field:
+
+```json
+{ "login": { "notice": "Public demo — data resets every 6 hours.", "demoUser": "visitor@example.com", "demoPassword": "demo-visitor" } }
+```
+
+```env
+DDCORE_LOGIN_NOTICE=Public demo — data resets every 6 hours.\nFeel free to break things.
+DDCORE_LOGIN_DEMO_USER=visitor@example.com
+DDCORE_LOGIN_DEMO_PASSWORD=demo-visitor
+```
+
+- All three go out in the public `/api/boot` (`site.login`) to anyone who opens
+  the site. They are for a shared demo account or a maintenance note, **never a
+  real account's password**. Give the demo user a role that cannot administer
+  the site.
+- The notice is plain text, shown as written, with its line breaks; `\n` in the
+  variable is one. It is the operator's sentence, not a catalogue key, so it is
+  not translated.
+- The demo account is offered only when both user and password are set.
+
 ## Sessions
 
 One TTL, read from the policy in both the SQL and the cookie. Sessions record

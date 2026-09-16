@@ -45,6 +45,8 @@ A production `ddcore` deployment consists of three primary components:
 | `DDCORE_PORT` | HTTP port for the server to listen on (default `8090`) | `8090` |
 | `DDCORE_SECRET_KEY` | 32-byte secret key used for session cookies and vault encryption | `openssl rand -hex 32` |
 | `DDCORE_ENV` | Environment identifier (`production`, `staging`, `development`) | `production` |
+| `DDCORE_LOGIN_NOTICE` | Plain-text notice above the sign-in form (`\n` breaks the line) | `Public demo — data resets every 6 hours.` |
+| `DDCORE_LOGIN_DEMO_USER` / `DDCORE_LOGIN_DEMO_PASSWORD` | A demo account offered on the sign-in screen, with a button that fills the form. Public to every visitor: never a real password | `visitor@example.com` / `demo-visitor` |
 
 ---
 

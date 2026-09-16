@@ -30,6 +30,8 @@ export interface Boot {
     // derivations that "should" agree is the bug nobody finds until a JPY
     // invoice is off by a yen
     currencyPrecision?: number; rounding?: "commercial" | "bankers";
+    /** What the sign-in screen offers a visitor; each field only when configured. */
+    login?: { notice?: string; demoUser?: string; demoPassword?: string };
   };
   loaded: number;
 }

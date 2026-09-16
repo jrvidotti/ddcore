@@ -23,6 +23,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/jrvidotti/ddcore/internal/cerr"
+	"github.com/jrvidotti/ddcore/internal/config"
 	"github.com/jrvidotti/ddcore/internal/db"
 	"github.com/jrvidotti/ddcore/internal/engine"
 	"github.com/jrvidotti/ddcore/internal/js"
@@ -493,6 +494,20 @@ func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 
 // ------------------------------------------------------------------ boot & meta
 
+// loginPage is what the sign-in screen offers before anyone signs in. The
+// notice is the operator's own sentence and goes out as written, not as a
+// catalogue key. Empty fields are left out so the desk tests for presence.
+func loginPage(l config.LoginPage) map[string]any {
+	out := map[string]any{}
+	if l.Notice != "" {
+		out["notice"] = l.Notice
+	}
+	if l.DemoUser != "" && l.DemoPassword != "" {
+		out["demoUser"], out["demoPassword"] = l.DemoUser, l.DemoPassword
+	}
+	return out
+}
+
 func (s *Server) boot(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
 		roles, _ := c.Roles()
@@ -559,6 +574,7 @@ func (s *Server) boot(w http.ResponseWriter, r *http.Request) {
 				// is the bug nobody finds until a JPY invoice is off by a yen
 				"currencyPrecision": s.E.CurrencyPrecision(), "rounding": s.E.Cfg.Rounding.String(),
 				"timezone": s.E.Cfg.Timezone, "dev": s.E.Cfg.Dev, "scheduler": s.E.Cfg.Scheduler, "version": engine.Version,
+				"login": loginPage(s.E.Cfg.Login),
 			},
 			"loaded": s.E.Loaded.UnixMilli(),
 		}, nil

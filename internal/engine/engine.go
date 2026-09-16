@@ -78,6 +78,9 @@ type Config struct {
 	SiteURL string
 	// TrustProxy makes the API believe X-Forwarded-For.
 	TrustProxy bool
+	// Login is the sign-in screen's notice and demo account, served to
+	// visitors by /api/boot.
+	Login config.LoginPage
 }
 
 // AppMeta is what defineApp produced, minus functions.

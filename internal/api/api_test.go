@@ -15,6 +15,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jrvidotti/ddcore/internal/config"
 	"github.com/jrvidotti/ddcore/internal/engine"
 	"github.com/jrvidotti/ddcore/internal/js"
 	"github.com/jrvidotti/ddcore/internal/mcp"
@@ -826,5 +827,34 @@ func TestLinkFieldSearchAPI(t *testing.T) {
 	emptyData := emptyRes["data"].(map[string]any)
 	if len(emptyData["rows"].([]any)) != 0 || int(emptyData["count"].(float64)) != 0 {
 		t.Fatalf("expected 0 results for nonexistent term, got %v", emptyData)
+	}
+}
+
+// The sign-in screen's notice and demo account reach a visitor who has not
+// signed in, and a half-configured account is not offered.
+func TestBootLoginPage(t *testing.T) {
+	x := setup(t)
+	login := func() map[string]any {
+		r := x.call("GET", "/api/boot", nil, "")
+		if r.Status != 200 {
+			t.Fatalf("boot: %d %s", r.Status, r.Raw)
+		}
+		site := r.Body["data"].(map[string]any)["site"].(map[string]any)
+		l, _ := site["login"].(map[string]any)
+		return l
+	}
+	if l := login(); len(l) != 0 {
+		t.Fatalf("nothing configured, nothing served: %v", l)
+	}
+
+	x.e.Cfg.Login = config.LoginPage{Notice: "Public demo", DemoUser: "visitor@example.com", DemoPassword: "demo-visitor"}
+	l := login()
+	if l["notice"] != "Public demo" || l["demoUser"] != "visitor@example.com" || l["demoPassword"] != "demo-visitor" {
+		t.Fatalf("login page: %v", l)
+	}
+
+	x.e.Cfg.Login = config.LoginPage{Notice: "Maintenance tonight", DemoUser: "visitor@example.com"}
+	if l := login(); l["notice"] != "Maintenance tonight" || l["demoUser"] != nil {
+		t.Fatalf("a user without a password is not offered: %v", l)
 	}
 }
