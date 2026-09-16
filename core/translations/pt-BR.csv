@@ -1,6 +1,7 @@
 1 version,1 versão,# desk/src/lib/components/DocHistory.svelte:79
 A message needs a recipient,Uma mensagem precisa de um destinatário,# internal/engine/mailqueue.go:101
-A webhook outside development must use https,Um webhook fora do ambiente de desenvolvimento precisa usar https,# internal/engine/webhooks.go:546
+A user with access scopes may not replay a webhook delivery,Um usuário com escopos de acesso não pode reenviar uma entrega de webhook,# internal/engine/webhooks.go:509
+A webhook outside development must use https,Um webhook fora do ambiente de desenvolvimento precisa usar https,# internal/engine/webhooks.go:555
 API Key,Chave de API,# core.doctypes.api_key.api_key.doctype
 API keys,Chaves de API,# desk/src/lib/components/Profile.svelte:220
 Account,Conta,# desk/src/lib/components/Profile.svelte:134
@@ -74,7 +75,7 @@ Check your email,Verifique seu e-mail,# desk/src/routes/login/forgot/+page.svelt
 Choose a new password,Escolher uma nova senha,# core/mail/reset.mail.ts:17
 Choose a new password for {0}.,Escolha uma nova senha para {0}.,# desk/src/routes/login/reset/+page.svelte:65
 Choose a password for {0}.,Escolha uma senha para {0}.,# desk/src/routes/login/reset/+page.svelte:64
-Choose at least one document event,Escolha pelo menos um evento de documento,# internal/engine/webhooks.go:565
+Choose at least one document event,Escolha pelo menos um evento de documento,# internal/engine/webhooks.go:574
 "Chromium PDF conversion failed: {0}, output: {1}","Falha na conversão de PDF via Chromium: {0}, saída: {1}",# internal/print/pdf.go:190
 Clear,Limpar,# desk/src/lib/controls/Control.svelte:163
 Clear filters,Limpar filtros,# desk/src/lib/components/ListView.svelte:417
@@ -107,7 +108,7 @@ Delete {0} record(s)?,Apagar {0} registro(s)?,# desk/src/lib/components/ListView
 Delete {0}?,Apagar {0}?,# desk/src/lib/components/FormView.svelte:256
 Deleted,Apagado,# desk/src/lib/form.svelte.ts:395
 Delivery,Entrega,# core.doctypes.webhook.webhook.doctype
-Delivery in progress,Entrega em andamento,# internal/engine/webhooks.go:516
+Delivery in progress,Entrega em andamento,# internal/engine/webhooks.go:525
 Delivery queued again,Entrega enfileirada novamente,# core/doctypes/webhook_delivery/webhook_delivery.form.ts:13
 Denied,Negado,# core.doctypes.audit_event.audit_event.doctype
 Describe what this key is for,Descreva para que serve esta chave,# core/services/api_keys.ts:35
@@ -192,7 +193,7 @@ Invalid CSV separator: {0},Separador de CSV inválido: {0},# internal/api/export
 Invalid JSON: {0},JSON inválido: {0},# internal/api/api.go:303
 Invalid Single identity for {0},Identidade Single inválida para {0},# internal/engine/doc.go:276
 Invalid Single identity or status for {0},Identidade ou estado Single inválido para {0},# internal/engine/doc.go:825
-Invalid URL,URL inválida,# internal/engine/webhooks.go:541
+Invalid URL,URL inválida,# internal/engine/webhooks.go:550
 "Invalid date and time in {0}: ""{1}""","Data/hora inválida em {0}: ""{1}""",# internal/engine/doc.go:214
 "Invalid date in {0}: ""{1}""","Data inválida em {0}: ""{1}""",# internal/engine/doc.go:188
 Invalid docstatus for an insert,docstatus inválido para inserção,# internal/engine/doc.go:428
@@ -238,7 +239,7 @@ Mark as completed,Marcar como concluída,# desk/src/routes/app/todo/+page.svelte
 Mark as read,Marcar como lida,# desk/src/routes/app/notifications/+page.svelte:44
 Mark as unread,Marcar como não lida,# desk/src/routes/app/notifications/+page.svelte:44
 Max Attempts,Máximo de Tentativas,# core.doctypes.webhook.webhook.doctype
-Max attempts must be between {0} and {1},O máximo de tentativas deve estar entre {0} e {1},# internal/engine/webhooks.go:577
+Max attempts must be between {0} and {1},O máximo de tentativas deve estar entre {0} e {1},# internal/engine/webhooks.go:586
 Medium,Média,# desk/src/lib/components/AssignModal.svelte:97
 Method {0} does not exist on {1},Método {0} não existe em {1},# internal/api/api.go:840
 Method {0} does not exist or is not whitelisted,Método {0} não existe ou não é whitelisted,# internal/api/api.go:873
@@ -299,7 +300,7 @@ On Delete,Ao Excluir,# core.doctypes.webhook.webhook.doctype
 On Insert,Ao Inserir,# core.doctypes.webhook.webhook.doctype
 On Submit,Ao Submeter,# core.doctypes.webhook.webhook.doctype
 On Update,Ao Atualizar,# core.doctypes.webhook.webhook.doctype
-Only a System Manager may replay a webhook delivery,Somente um System Manager pode reenviar uma entrega de webhook,# internal/engine/webhooks.go:501
+Only a System Manager may replay a webhook delivery,Somente um System Manager pode reenviar uma entrega de webhook,# internal/engine/webhooks.go:503
 Only cancelled documents can be amended,Só documentos cancelados podem ser emendados,# internal/engine/doc.go:763
 Only submitted documents can be cancelled,Só documentos enviados podem ser cancelados,# internal/engine/doc.go:731
 Open,Aberto,# desk/src/routes/app/todo/+page.svelte:131
@@ -430,7 +431,7 @@ The password cannot be blank,A senha não pode ficar em branco,# internal/engine
 The password cannot be the same as the username,A senha não pode ser igual ao nome de usuário,# internal/engine/password.go:44
 The password must have at least {0} characters,A senha precisa ter ao menos {0} caracteres,# internal/engine/password.go:35
 The password must have at most {0} characters,A senha pode ter no máximo {0} caracteres,# internal/engine/password.go:38
-The webhook of delivery {0} was deleted,O webhook da entrega {0} foi excluído,# internal/engine/webhooks.go:519
+The webhook of delivery {0} was deleted,O webhook da entrega {0} foi excluído,# internal/engine/webhooks.go:528
 This device,Este dispositivo,# desk/src/lib/components/Profile.svelte:204
 This endpoint requires an API key (Authorization: token key:secret),Este endpoint exige uma chave de API (Authorization: token chave:segredo),# internal/api/api.go:371
 This endpoint requires the System Manager role,Este endpoint exige o papel System Manager,# internal/api/api.go:389
@@ -442,7 +443,7 @@ This month,Este mês,# desk/src/lib/controls/MonthControl.svelte:232
 This record changed after your unsaved edits. Keep your edits?,Este registro mudou depois das suas alterações não salvas. Manter suas alterações?,# desk/src/lib/components/FormView.svelte:99
 This report requires the System Manager role,Este relatório exige o papel System Manager,# internal/api/health.go:64
 Timeout (seconds),Tempo Limite (segundos),# core.doctypes.webhook.webhook.doctype
-Timeout must be between {0} and {1} seconds,O tempo limite deve estar entre {0} e {1} segundos,# internal/engine/webhooks.go:574
+Timeout must be between {0} and {1} seconds,O tempo limite deve estar entre {0} e {1} segundos,# internal/engine/webhooks.go:583
 Title,Título,# desk/src/lib/components/FormView.svelte:241
 To,Para,# core.doctypes.email_delivery.email_delivery.doctype
 "To change it, click the title above or Rename in the menu.","Para alterar, clique no título acima ou em Renomear no menu.",# desk/src/lib/form.svelte.ts:128
@@ -482,8 +483,8 @@ Version,Versão,# core.doctypes.version.version.doctype
 View row,Visualizar linha,# desk/src/lib/controls/Grid.svelte:107
 Webhook,Webhook,# core.doctypes.webhook.webhook.doctype
 Webhook Delivery,Entrega de Webhook,# core.doctypes.webhook_delivery.webhook_delivery.doctype
-Webhook Delivery {0} is still on its way ({1}),A entrega de webhook {0} ainda está em andamento ({1}),# internal/engine/webhooks.go:515
-Webhook Delivery {0} not found,Entrega de webhook {0} não encontrada,# internal/engine/webhooks.go:510
+Webhook Delivery {0} is still on its way ({1}),A entrega de webhook {0} ainda está em andamento ({1}),# internal/engine/webhooks.go:524
+Webhook Delivery {0} not found,Entrega de webhook {0} não encontrada,# internal/engine/webhooks.go:519
 Webhook has no secret field,Webhook não tem campo de segredo,# internal/engine/webhooks.go:416
 Webhook {0} has no signing secret,O webhook {0} não tem segredo de assinatura,# internal/engine/webhooks.go:423
 Website User,Usuário do site,# core.doctypes.user.user.doctype
@@ -538,7 +539,7 @@ webhook payload for {0} is not JSON: {1},o conteúdo do webhook para {0} não é
 {0} already exists on {1} {2},{0} já existe em {1} {2},# internal/engine/doc.go:1445
 {0} cannot be changed after submission,Não é permitido alterar {0} depois do envio,# internal/engine/doc.go:1560
 {0} cannot be renamed,{0} não permite renomear,# internal/engine/doc.go:1004
-{0} cannot be watched by a webhook,{0} não pode ser observado por um webhook,# internal/engine/webhooks.go:556
+{0} cannot be watched by a webhook,{0} não pode ser observado por um webhook,# internal/engine/webhooks.go:565
 {0} deleted,{0} apagado(s),# desk/src/lib/components/ListView.svelte:296
 {0} is a child table,{0} é uma tabela filha,# internal/engine/doc.go:399
 {0} is a child table: edit it through the parent document,{0} é uma tabela filha: edite pelo documento pai,# internal/api/api.go:736
@@ -549,7 +550,7 @@ webhook payload for {0} is not JSON: {1},o conteúdo do webhook para {0} não é
 "{0} is not a number: ""{1}""","{0} não é um número: ""{1}""",# internal/engine/doc.go:85
 {0} is not a valid email address,{0} não é um endereço de e-mail válido,# internal/engine/mailqueue.go:96
 {0} is not a valid webhook event name,{0} não é um nome de evento de webhook válido,# internal/engine/webhooks.go:224
-{0} is not an http or https address,{0} não é um endereço http ou https,# internal/engine/webhooks.go:541
+{0} is not an http or https address,{0} não é um endereço http ou https,# internal/engine/webhooks.go:550
 {0} is not submittable,{0} não é submetível,# internal/engine/doc.go:554
 {0} is read-only on this document,{0} é somente leitura neste documento,# internal/engine/doc.go:1334
 {0} is required to name the document,{0} é obrigatório para nomear o documento,# internal/engine/naming.go:51

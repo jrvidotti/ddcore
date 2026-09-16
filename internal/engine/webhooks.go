@@ -400,8 +400,8 @@ func (e *Engine) DeliverWebhook(c *Ctx, delivery string) error {
 	return nil
 }
 
-// webhookSecret reads a subscription's signing key without writing a Vault
-// Audit Log row per attempt; see vaultRead.
+// webhookSecret reads a subscription's signing key directly from the vault,
+// without the permission check and audit of a person's read; see vaultRead.
 func (e *Engine) webhookSecret(c *Ctx, webhook string) (string, error) {
 	key, err := MasterKey()
 	if err != nil {
@@ -492,13 +492,22 @@ func (e *Engine) recordWebhook(ctx context.Context, delivery, status string, cod
 // ReplayWebhook sends a finished delivery again: the same webhook-id and the
 // same body, with a fresh set of attempts.
 //
-// Only a System Manager may, and every replay — allowed or refused — leaves an
-// Audit Event, because it sends data to a third party on a person's say-so.
-// A delivery still on its way is refused rather than doubled.
+// Only a System Manager without access scopes may. An allowed replay and a
+// refusal for either reason leave an Audit Event, because a replay sends data
+// to a third party on a person's say-so. A delivery still on its way is
+// refused rather than doubled.
 func (c *Ctx) ReplayWebhook(delivery string) error {
-	if !c.IgnorePermissions() && !c.HasRole("System Manager") {
-		c.AuditDenied("webhook.replay", "Webhook Delivery", delivery, nil)
-		return cerr.Permission("Only a System Manager may replay a webhook delivery")
+	if !c.IgnorePermissions() {
+		if !c.HasRole("System Manager") {
+			c.AuditDenied("webhook.replay", "Webhook Delivery", delivery, nil)
+			return cerr.Permission("Only a System Manager may replay a webhook delivery")
+		}
+		if ok, err := c.HasPermission("Webhook Delivery", "read", nil); err != nil {
+			return err
+		} else if !ok {
+			c.AuditDenied("webhook.replay", "Webhook Delivery", delivery, nil)
+			return cerr.Permission("A user with access scopes may not replay a webhook delivery")
+		}
 	}
 	rows, err := db.Select(c.Ctx, c.Q(), `SELECT d.status, d.webhook, w.timeout, w.max_attempts
 		FROM tab_webhook_delivery d LEFT JOIN tab_webhook w ON w.name = d.webhook

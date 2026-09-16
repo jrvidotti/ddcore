@@ -118,10 +118,22 @@ func (c *Ctx) HasRole(role string) bool {
 	return false
 }
 
+// unscopedOnlyDoctypes are administered only by users without access scopes.
+// A Webhook sends every document of a DocType to an outside address, and a
+// Webhook Delivery's payload names its document in plain Data fields that no
+// scope filter applies to, so neither can be limited to a scope.
+var unscopedOnlyDoctypes = map[string]bool{"Webhook": true, "Webhook Delivery": true}
+
 // HasPermission decides whether the user may perform ptype on doctype/doc.
 func (c *Ctx) HasPermission(doctype, ptype string, doc Doc) (bool, error) {
 	if c.User == "Administrator" || c.IgnorePermissions() {
 		return true, nil
+	}
+	if unscopedOnlyDoctypes[doctype] {
+		perms, err := c.UserPermissions()
+		if err != nil || len(perms) > 0 {
+			return false, err
+		}
 	}
 	d, err := c.St.DocType(doctype)
 	if err != nil {
