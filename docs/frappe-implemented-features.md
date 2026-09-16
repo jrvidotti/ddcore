@@ -130,8 +130,9 @@ References: [CLI](agent/cli.md), [MCP](../internal/mcp/mcp.go),
 - `isSingle` exists in DocType types, but the migrator does not create a Singleton table;
   this document does not consider persistent Settings implemented.
 - `Password` is `text` at rest; values are not exposed via API reads, `Version`, or export,
-  but there is no encrypted vault. Integration credentials belong in `.env` via `ddcore.secret`,
-  not in a column.
+  but a person-entered `Password` field itself is still not encrypted. Integration credentials
+  belong in `.env` via `ddcore.secret`, or in the encrypted `Vault` fieldtype / `ddcore.vault.*`
+  for a per-record credential — see [vault](agent/vault.md).
 - Email sending covers app messages as well as password reset and invitations: file-based
   templates, a block vocabulary rendered to text and HTML, authorized `File` attachments and a
   per-message delivery record. It is still not a full email product: no inbound mail or IMAP,

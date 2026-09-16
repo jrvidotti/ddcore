@@ -209,6 +209,13 @@ the last day), the public URL, the session policy, the thresholds in force, and 
 **names** of the configured secrets — never their values, because this report
 gets pasted into issues and chat windows.
 
+It also reports the vault: whether `DDCORE_SECRET_KEY` — the environment
+variable the vault's master encryption key is derived from — is configured,
+how many secrets `ddcore_vault` holds, and their key names. As with an
+integration secret, a value is never printed, but a key name is (see
+[vault.md](vault.md)). Secrets existing without a configured key is a warning,
+since every one of them fails to decrypt until the key is set again.
+
 It works with the database down. The probe runs before, and independently of,
 the engine, so an unreachable database produces a report that says so plus every
 section that needs no database — not a bare `error:` line. That is the situation

@@ -50,7 +50,7 @@ When an app manages credentials per document (e.g. per-customer tokens, OAuth re
 const token = ddcore.vault.get("Integration Account:api_key:" + doc.name);
 ```
 
-Secrets in the vault are encrypted with AES-256-GCM using `DDCORE_SECRET_KEY`, stored in `ddcore_vault` outside the document table, never leak through REST API or MCP (redacted to `{ configured: true }`), never enter Version diffs, and every access is audited in `tab_vault_audit_log`. See [vault.md](vault.md).
+Secrets in the vault are encrypted with AES-256-GCM using `DDCORE_SECRET_KEY`, stored in `ddcore_vault` outside the document table, never leak through REST API or MCP (redacted to `{ configured: true }`), never enter Version diffs, and a read or write through `ddcore.vault.*` is audited in `Audit Event`. See [vault.md](vault.md).
 
 3. **Person passwords (`Password`)**:
 `Password` is for a secret a *person* types and this site stores (plain text at rest, blanked on read through the API, excluded from Version and export). For machine credentials and integration tokens, always use `Vault` or `ddcore.secret`.
