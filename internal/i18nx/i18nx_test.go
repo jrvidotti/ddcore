@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/jrvidotti/ddcore/internal/engine"
 	"github.com/jrvidotti/ddcore/internal/js"
 )
 
@@ -100,6 +101,7 @@ func f(c *Ctx, x string) error {
 	}
 	_ = cerr.New("Custom", 400, "not a key: New takes the type first")
 	_ = c.T("A literal through T")
+	_ = cerr.Unavailable("No renderer for {0}", x)
 	return cerr.Permission("No permission for {0}", x)
 }`)
 	// the skip list keeps deliberate English out of the catalogue
@@ -121,7 +123,7 @@ func f() error { return cerr.Validation("from a test") }`)
 			t.Fatal(err)
 		}
 	}
-	want := []string{"A literal through T", "No permission for {0}", "a user error", "{0} is required"}
+	want := []string{"A literal through T", "No permission for {0}", "No renderer for {0}", "a user error", "{0} is required"}
 	if got := texts(s); !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %q, want %q", got, want)
 	}
@@ -182,6 +184,18 @@ func TestCollectWorkflow(t *testing.T) {
 		Transitions: []js.WorkflowTransition{{State: "Draft", Action: "Submit for Approval", NextState: "Pending Approval"}},
 	}, "demo workflow")
 	want := []string{"Draft", "Pending Approval", "Submit for Approval"}
+	if got := texts(s); !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+}
+
+// The format list shows a print template's label through c.T, falling back to
+// its name, so the label is a key of the app that declares the template.
+func TestCollectPrintTemplate(t *testing.T) {
+	s := NewSet()
+	CollectPrintTemplate(s, engine.PrintTemplate{Name: "demo.receipt", Label: "Official Receipt"}, "demo print")
+	CollectPrintTemplate(s, engine.PrintTemplate{Name: "demo.unlabeled"}, "demo print")
+	want := []string{"Official Receipt"}
 	if got := texts(s); !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
 	}

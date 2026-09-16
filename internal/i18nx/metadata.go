@@ -1,6 +1,7 @@
 package i18nx
 
 import (
+	"github.com/jrvidotti/ddcore/internal/engine"
 	"github.com/jrvidotti/ddcore/internal/js"
 	"github.com/jrvidotti/ddcore/internal/meta"
 )
@@ -58,6 +59,15 @@ func CollectWorkflow(s *Set, wf js.Workflow, file string) {
 	}
 	for _, tr := range wf.Transitions {
 		s.Add(tr.Action, file, 0)
+	}
+}
+
+// CollectPrintTemplate collects a print template's label: the format list
+// shows it through c.T. A template without a label shows its name, which is an
+// identifier and is not collected.
+func CollectPrintTemplate(s *Set, pt engine.PrintTemplate, file string) {
+	if pt.Label != "" {
+		s.Add(pt.Label, file, 0)
 	}
 }
 
