@@ -3,9 +3,9 @@
 The official example application, [ddcore-demo](https://github.com/jrvidotti/ddcore-demo), is an executable tutorial that demonstrates how real-world business entities, relational links, lifecycle hooks, and workspaces are structured in `ddcore` (*Data Driven Core*).
 
 ::: tip Live Interactive Demo
-A public instance of `ddcore-demo` is deployed on Railway:
+A public instance of `ddcore-demo` is deployed at `demo.ddcore.dev`:
 
-👉 **[Launch Live Demo (ddcore-demo.up.railway.app)](https://ddcore-demo.up.railway.app)**
+👉 **[Launch Live Demo (demo.ddcore.dev)](https://demo.ddcore.dev)**
 
 Sign in as **`visitor@example.com`** with the password **`demo-visitor`**. The visitor is a Project Manager: it can change projects, tasks, and invoices, but not users or system settings. Everything visitors change is wiped and seeded again every six hours.
 

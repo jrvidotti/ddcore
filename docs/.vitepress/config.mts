@@ -3,7 +3,7 @@ import { defineConfig } from 'vitepress'
 export default defineConfig({
   title: 'ddcore',
   description: 'ddcore (Data Driven Core) — Build business applications from TypeScript models in Go, TypeScript, and PostgreSQL',
-  base: process.env.VITEPRESS_BASE || '/ddcore/',
+  base: process.env.VITEPRESS_BASE || '/',
   srcExclude: [
     'superpowers/**',
     'outreach-plan.md',
@@ -20,7 +20,7 @@ export default defineConfig({
       {
         text: 'Demo',
         items: [
-          { text: 'Live Demo', link: 'https://ddcore-demo.up.railway.app' },
+          { text: 'Live Demo', link: 'https://demo.ddcore.dev' },
           { text: 'Demo Walkthrough', link: '/guide/demo' },
           { text: 'Demo Source Code', link: 'https://github.com/jrvidotti/ddcore-demo' }
         ]

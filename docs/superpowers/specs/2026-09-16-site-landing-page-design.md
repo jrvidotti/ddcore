@@ -36,7 +36,7 @@ release, hardware, workload, dataset, concurrency, error rate, and methodology.
 
 The existing Markdown reference in `docs/agent/` remains canonical. Publish it
 alongside human-oriented guides using VitePress and GitHub Actions at the intended
-GitHub Pages URL, `https://jrvidotti.github.io/ddcore/`.
+GitHub Pages custom domain, `https://ddcore.dev`.
 
 ---
 
@@ -328,7 +328,7 @@ In the GitHub repository settings:
 - Go to **Settings** > **Pages**.
 - Under **Build and deployment** > **Source**, select **GitHub Actions**.
 - Verify the `github-pages` environment permits deployment from `main`.
-- Successful eligible workflows publish to `https://jrvidotti.github.io/ddcore/`.
+- Successful eligible workflows publish to `https://ddcore.dev` (custom domain; `docs/public/CNAME`).
   Repository configuration and the live deployment must be verified separately
   from generating the workflow file.
 
