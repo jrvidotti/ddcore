@@ -136,7 +136,8 @@ func (c *Ctx) HasPermission(doctype, ptype string, doc Doc) (bool, error) {
 	}
 	allowed, ownerOnly := false, true
 	for _, p := range d.Permissions {
-		if !contains(roles, p.Role) || !p.Has(ptype) {
+		// a row above level 0 grants fields, never the document (SEC-02)
+		if p.Permlevel > 0 || !contains(roles, p.Role) || !p.Has(ptype) {
 			continue
 		}
 		allowed = true
@@ -287,7 +288,7 @@ func (c *Ctx) readIsOwnerOnly(d *meta.DocType) bool {
 		return true
 	}
 	for _, p := range d.Permissions {
-		if contains(roles, p.Role) && (p.Read || p.Report) && !p.IfOwner {
+		if p.Permlevel == 0 && contains(roles, p.Role) && (p.Read || p.Report) && !p.IfOwner {
 			return false
 		}
 	}
@@ -460,7 +461,7 @@ func (c *Ctx) permissionFilters(d *meta.DocType) ([]db.Filter, error) {
 		}
 		ownerOnly := true
 		for _, p := range d.Permissions {
-			if contains(roles, p.Role) && (p.Read || p.Report) && !p.IfOwner {
+			if p.Permlevel == 0 && contains(roles, p.Role) && (p.Read || p.Report) && !p.IfOwner {
 				ownerOnly = false
 			}
 		}

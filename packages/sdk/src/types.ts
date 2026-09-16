@@ -31,6 +31,14 @@ export interface FieldDef {
   default?: string | number | boolean;
   readOnly?: boolean;
   hidden?: boolean;
+  /**
+   * Field permission level (0–9, default 0). A field above 0 is read and
+   * written only by roles granted that level in `permissions` — the server
+   * omits it from every response and refuses changes from anyone else, which
+   * `hidden` and `readOnly` never do. It cannot be the title, naming or search
+   * field. See `field-permissions`.
+   */
+  permlevel?: number;
   /** "link_field.target_field" — copied from the linked doc on save */
   fetchFrom?: string;
   /** JS expression over `doc`, evaluated on desk and server */
@@ -213,6 +221,12 @@ export interface PermDef {
   read?: boolean; write?: boolean; create?: boolean; delete?: boolean;
   submit?: boolean; cancel?: boolean; amend?: boolean; report?: boolean; export?: boolean;
   ifOwner?: boolean;
+  /**
+   * The field level this row grants (default 0). A row above 0 grants only
+   * `read` and `write` on that level's fields, and never access to the
+   * document itself: pair it with a level-0 row for the same role.
+   */
+  permlevel?: number;
 }
 
 export interface NamingDef {

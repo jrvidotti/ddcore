@@ -118,7 +118,8 @@ func (c *Ctx) redactVault(d *meta.DocType, doc Doc) {
 	}
 }
 
-// RedactDoc looks the doctype up and redacts, children included.
+// RedactDoc looks the doctype up and redacts, children included: secrets for
+// everyone, and the fields the current user's permission levels cannot read.
 func (c *Ctx) RedactDoc(doctype string, doc Doc) Doc {
 	if doc == nil {
 		return doc
@@ -142,5 +143,6 @@ func (c *Ctx) RedactDoc(doctype string, doc Doc) Doc {
 			c.redactVault(cd, row)
 		}
 	}
+	c.redactFields(d, c.FieldAccess(d), doc)
 	return doc
 }

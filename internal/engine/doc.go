@@ -434,6 +434,15 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 			return nil, cerr.Validation("New {0} must start in initial workflow state '{1}'", d.Name, wf.InitialState)
 		}
 	}
+	if c.fieldPermissionsApply(d, opts) {
+		base, err := c.insertFieldBase(d, doc)
+		if err != nil {
+			return nil, err
+		}
+		if err := c.applyFieldWrites(d, base, doc); err != nil {
+			return nil, err
+		}
+	}
 	doc["__islocal"] = true
 	now := time.Now()
 	doc["owner"], doc["creation"], doc["modified"], doc["modified_by"] = c.User, now, now, c.User
@@ -589,6 +598,11 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 	}
 	doc["owner"], doc["creation"] = before["owner"], before["creation"]
 	doc["modified"], doc["modified_by"] = time.Now(), c.User
+	if c.fieldPermissionsApply(d, opts) {
+		if err := c.applyFieldWrites(d, before, doc); err != nil {
+			return nil, err
+		}
+	}
 	if action == "update_after_submit" {
 		if err := c.checkAllowOnSubmit(d, before, doc); err != nil {
 			return nil, err

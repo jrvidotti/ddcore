@@ -483,6 +483,13 @@ func (e *Engine) Load() error {
 	workflowsByDocType := make(map[string]*js.Workflow, len(snap.Workflows))
 	for k := range snap.Workflows {
 		wf := snap.Workflows[k]
+		// the state is shown to, and moved by, everyone the workflow serves
+		if d, ok := reg.Get(wf.Doctype); ok {
+			if f := d.Field(wf.StateField); f != nil && f.Permlevel > 0 {
+				pool.Close()
+				return fmt.Errorf("workflow %q: state field %q has permlevel %d; it must be permlevel 0", wf.Name, wf.StateField, f.Permlevel)
+			}
+		}
 		workflows[k] = &wf
 		if wf.Doctype != "" {
 			workflowsByDocType[wf.Doctype] = &wf
