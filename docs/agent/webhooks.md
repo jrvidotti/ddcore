@@ -21,7 +21,7 @@ filter applies to, so neither can be limited to a scope.
 
 The refusal is part of the scope, so `ignorePermissions` does not lift it: app
 code running as that user gets no rows from `getAll` or
-`getList({ ignorePermissions: true })`, nothing from `getValue`, `false` from
+`getList({ ignorePermissions: true })`, nothing from `getValue`, `null` from
 `exists`, and a refusal from `insert`, `save`, `delete` and `dbSet`.
 `ddcore.db.sql` is not checked. A scoped user's own document writes still queue
 their deliveries, which the framework writes on the user's behalf.

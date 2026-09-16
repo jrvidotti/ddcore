@@ -1,6 +1,6 @@
 # Administrative Audit Coverage
 
-Sensitive administrative actions across the framework are recorded in a unified `Audit Event` log (`tab_audit_event`): who did what to which target, whether it was allowed or denied, and when. The log is append-only — nothing, including the engine, can update or delete a row once written — sanitized against credential leakage, and subject to an operational retention policy.
+Sensitive administrative actions across the framework are recorded in a unified `Audit Event` log (`tab_audit_event`): who did what to which target, whether it was allowed or denied, and when. The document API — `Insert`, `Save`, `Delete` and `DBSet`, whether reached through `ddcore.db`, the HTTP API or the Go engine directly — cannot alter or remove a row once written. The log is sanitized against credential leakage, and subject to an operational retention policy that can still purge or, through a migration patch's `ctx.sql`, rewrite rows (see "Retention" and "CLI Tooling" below).
 
 ---
 
@@ -27,7 +27,7 @@ Sensitive administrative actions across the framework are recorded in a unified 
 | `vault.read` | `Vault Secret` | Vault secret read | — |
 | `vault.write` | `Vault Secret` | Vault secret stored or updated | — |
 | `vault.delete` | `Vault Secret` | Vault secret deleted | — |
-| `webhook.replay` | `Webhook Delivery` | Outgoing webhook redelivered. `Denied` when the caller is not a System Manager. | `{"webhook": "...", "previous_status": "..."}` |
+| `webhook.replay` | `Webhook Delivery` | Outgoing webhook redelivered. `Denied` when the caller is not a System Manager, or is a System Manager with access scopes. | `{"webhook": "...", "previous_status": "..."}` |
 | `method.<path>` | none | A whitelisted method's `roles` option refused the caller | Outcome: `Denied` |
 
 `permission.scope_grant` and `permission.scope_revoke` also fire from `DBSet`
@@ -53,7 +53,7 @@ the same way the engine's own entries are redacted. On the Go side these are
 
 ## Security & Immutability Guarantees
 
-1. **Immutability:** `Insert`, `Save`, `Delete` and `DBSet` all refuse `Audit Event` with a `PermissionError`, whether the caller goes through `ddcore.db`, the HTTP API (`/api/resource/Audit Event`), or the Go engine directly. There is no path — internal or app-authored — that updates or removes a row once written.
+1. **Immutability:** `Insert`, `Save`, `Delete` and `DBSet` all refuse `Audit Event` with a `PermissionError`, whether the caller goes through `ddcore.db`, the HTTP API (`/api/resource/Audit Event`), or the Go engine directly. That is the only path closed: the retention sweep (`ops.auditRetentionDays`), `ddcore audit purge`, and a migration patch's `ctx.sql` can still remove or rewrite rows (see "Retention Policy" and "CLI Tooling").
 2. **Payload Sanitization:** Any detail dictionary is inspected recursively before persistence. Keys matching sensitive patterns (`password`, `secret`, `token`, `key`, `hash`, `credential`, `auth`, `ciphertext`, `nonce`) are replaced with `[REDACTED]`. String values exceeding 500 characters are truncated.
 3. **Transaction Safety:**
    - Permitted events (`Allowed`) are recorded on the caller's active database transaction so a rolled-back operation does not leave a false record.

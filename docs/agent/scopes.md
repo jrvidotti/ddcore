@@ -75,14 +75,14 @@ Scopes are applied below the SDK, so app code cannot opt out:
 | --- | --- | --- |
 | `ddcore.db.getList`, `count` | enforced | enforced |
 | `ddcore.db.getAll`, `getList({ ignorePermissions: true })`, `getValue`, `exists` (by name and by filters) | skipped | **enforced** |
-| `ddcore.getDoc` | enforced | enforced (Link fields, child rows) |
+| `ddcore.getDoc` | enforced | enforced (Link fields, Dynamic Link fields, child rows) |
 | `insert` / `save` / `delete` / `submit` / `cancel`, with or without `ignorePermissions` | per option | **enforced** |
 | `ddcore.db.setValue`, `doc.dbSet` | skipped | **enforced**: refused if the stored document, or the stored document with the new values, is out of scope |
 | `ddcore.db.sql` | not applied | **not applied** |
 
 `Webhook`, `Webhook Delivery` and `User Permission` are closed to a user with access scopes
 on every one of these calls except `ddcore.db.sql`: lists and `getAll` return no rows,
-`getValue` returns nothing, `exists` returns `false`, and `insert`, `save`, `delete`,
+`getValue` returns nothing, `exists` returns `null`, and `insert`, `save`, `delete`,
 `setValue` and `dbSet` are refused, with or without `ignorePermissions`.
 
 A report that uses `ddcore.db.getList` inherits the scope. A report or service that uses
@@ -144,3 +144,13 @@ An update that changes `user`, `allow`, `for_value` or `applicable_for`, includi
   beyond the generic `User Permission` form.
 - Background jobs run with permissions ignored, so a job a scoped user enqueued is unscoped.
 - No automated test yet covers a report running under a scoped user.
+- Link validation (checking that a Link field's value names an existing document) looks
+  the name up without a scope, so it does not report an out-of-scope name as missing. Combined
+  with direct access and `dbSet` returning `PermissionError` for an out-of-scope name but
+  `NotFound` for one that does not exist at all, a scoped user who tries both can tell the two
+  cases apart — a limited way to learn that an out-of-scope document exists.
+- `setValue`/`dbSet` on a user's own `User` record is scope-checked like any other document. A
+  scoped user whose own `User` record is itself out of scope (for example an app-added Link on
+  `User` left empty, or an `allow: User` rule with no matching `for_value`) cannot change their
+  language or profile through `core/services/profile.ts` or `core/services/i18n.ts`, which write
+  through `setValue` — the same refusal `save` would give.

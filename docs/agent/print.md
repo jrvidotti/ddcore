@@ -118,9 +118,12 @@ content. Its fields are `letter_head_name`, `is_default`, `disabled`, `align`
 (`Left`, `Center` or `Right`), `image` (an attached logo) and `header_html` and
 `footer_html`. System Manager edits them; every user can read them.
 
-Only one Letter Head is the default: saving one with `is_default` clears the flag
-on the others. Should several defaults exist anyway (written by SQL, say), the
-most recently modified enabled one is used.
+Only one Letter Head is the default: saving an enabled one with `is_default` set
+clears the flag on the others. Saving a disabled one as the default does not
+touch the others' flag — a disabled Letter Head never becomes, or clears, the
+default, since prints must not silently lose their letterhead. Should several
+defaults exist anyway (written by SQL, say), the most recently modified enabled
+one is used.
 
 The header is the logo, then `header_html`; the footer is `footer_html`; both
 follow `align`. `header_html` and `footer_html` are inserted unescaped, as
