@@ -180,7 +180,9 @@ exactly like production, or the rehearsal is not a rehearsal.
     "readyTimeoutMs": 2000,
     "slowRequestMs": 2000,
     "jobRetentionDays": 7,
-    "jobRetentionFailedDays": 30
+    "jobRetentionFailedDays": 30,
+    "webhookRetentionDays": 30,
+    "auditRetentionDays": 0
   }
 }
 ```
@@ -190,10 +192,12 @@ written as zero or negative is refused at boot rather than quietly replaced —
 a zero threshold is not "no threshold", it is an alarm that fires on the first
 job.
 
-The two retention windows are the exception, and deliberately so: there **zero
+The retention windows are the exception, and deliberately so: there **zero
 means keep forever**, because "delete nothing" is a real answer for a table of
-failures and the thresholds above have no such reading. Only a negative
-retention window is refused.
+jobs, webhook deliveries or audit events, and the thresholds above have no such
+reading. There are four such windows — `jobRetentionDays`,
+`jobRetentionFailedDays`, `webhookRetentionDays` and `auditRetentionDays` — and
+only a negative retention window is refused.
 
 ## `ddcore doctor`
 
@@ -327,10 +331,15 @@ Outgoing webhook deliveries have a window of their own, `webhookRetentionDays`
 (default 30), swept daily by `core.services.webhooks.sweep`; only `Sent` and
 `Failed` deliveries are removed. See [webhooks](webhooks.md).
 
+`Audit Event` has its own window, `auditRetentionDays` (default 0, keep
+forever), swept daily by `core.services.audit.sweep`, where the scheduler is
+enabled. See [audit](audit.md).
+
 **Zero means keep forever**, and it is the one place in `ops` where zero is not
 "unset" — failures are the evidence of what went wrong and some sites keep them
-indefinitely. A negative value is refused at boot. Only finished jobs are ever
-deleted; a queued or running job is never touched whatever its age.
+indefinitely, and the same reasoning applies to audit events. A negative value
+is refused at boot. Only finished jobs are ever deleted; a queued or running
+job is never touched whatever its age.
 
 Like the auth sweep, this is hygiene and never correctness. Nothing may depend on
 it having run: if it never ran, the table would only grow.
