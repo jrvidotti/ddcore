@@ -1029,8 +1029,8 @@ func (c *Ctx) Rename(doctype, oldName, newName string) (string, error) {
 		if f.Fieldtype != "Vault" || f.OptionsString() != "" {
 			continue
 		}
-		oldKey := d.Name + ":" + f.Fieldname + ":" + oldName
-		newKey := d.Name + ":" + f.Fieldname + ":" + newName
+		oldKey := c.DeriveVaultKey(d, f, Doc{"name": oldName})
+		newKey := c.DeriveVaultKey(d, f, Doc{"name": newName})
 		if _, err := q.Exec(c.Ctx, "UPDATE ddcore_vault SET name = $1 WHERE name = $2", newKey, oldKey); err != nil {
 			return "", err
 		}
