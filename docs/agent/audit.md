@@ -10,6 +10,8 @@ All sensitive administrative actions across the framework are recorded in a unif
 |---|---|---|---|
 | `role.assign` | `User` | Role added to user account | `{"role": "..."}` |
 | `role.revoke` | `User` | Role removed from user account | `{"role": "..."}` |
+| `permission.scope_grant` | `User` | User access scope granted (`User Permission` created or changed) | `{"allow": "...", "for_value": "...", "applicable_for": "..."}` |
+| `permission.scope_revoke` | `User` | User access scope revoked (`User Permission` deleted or changed) | `{"allow": "...", "for_value": "..."}` |
 | `account.enable` | `User` | User account enabled | `{"enabled": true}` |
 | `account.disable` | `User` | User account disabled | `{"enabled": false}` |
 | `account.invite` | `User` | User invitation sent | `{"fullName": "..."}` |

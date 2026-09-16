@@ -44,7 +44,7 @@ Fields are properties; child tables are arrays. Methods: `insert()`, `save()`, `
 ## `ddcore.*` (global on the server)
 
 - `ddcore.db.getValue(doctype, name | filters, field | [fields])` — a value or an object (or `null`)
-- `ddcore.db.getList(doctype, { filters, fields, orderBy, limit, start, groupBy })` — respects permissions; `getAll` ignores them
+- `ddcore.db.getList(doctype, { filters, fields, orderBy, limit, start, groupBy })` — respects permissions; `getAll` skips role permissions but still applies user access scopes (see `scopes`)
 - `ddcore.db.setValue(doctype, name, field, value)` / `setValue(doctype, name, { ... })` — no validate; updates `modified`
 - `ddcore.db.count(doctype, filters)`, `ddcore.db.exists(doctype, name | filters)` → the name or `null`
 - `ddcore.db.sql("SELECT ... WHERE x = $1", [v])` — read-only; tables are `tab_<snake>`
