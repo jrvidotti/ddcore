@@ -91,7 +91,7 @@ const Name = "ddcore.json"
 // starts from it and `ddcore init` writes it, so a freshly created file loads
 // as written: a zero in a policy block is a refusal, not "use the default".
 func Default() *File {
-	return &File{Apps: []string{}, Port: 8080, Workers: 2, Lang: "pt-BR", Currency: "BRL",
+	return &File{Apps: []string{}, Port: 8080, Workers: 2, Lang: "en", Currency: "USD",
 		Timezone: "UTC", Auth: DefaultAuth(), Ops: DefaultOps()}
 }
 

@@ -144,7 +144,10 @@ func setupApp(t *testing.T, appDir string) *env {
 		t.Fatal(err)
 	}
 	e0.DB.Close()
-	e, err := engine.New(ctx, engine.Config{DSN: dsn, Apps: []js.App{{Name: "demo", Dir: appDir}}, Test: true, DataDir: t.TempDir(), Dev: true})
+	// pt-BR on purpose: a site language other than the "en" fallback is what
+	// lets the language-negotiation tests tell the two apart.
+	e, err := engine.New(ctx, engine.Config{DSN: dsn, Apps: []js.App{{Name: "demo", Dir: appDir}}, Test: true, DataDir: t.TempDir(), Dev: true,
+		Lang: "pt-BR", Currency: "BRL"})
 	if err != nil {
 		t.Fatal(err)
 	}

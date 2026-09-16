@@ -133,7 +133,10 @@ func setupWith(t *testing.T, extra map[string]string) *Engine {
 		t.Fatal(err)
 	}
 	e0.DB.Close()
-	e, err := New(ctx, Config{DSN: testDSN, Apps: []js.App{{Name: "demo", Dir: testApp(t, extra)}}, Test: true})
+	// The test site is Brazilian on purpose, so translation and currency
+	// formatting are exercised away from the English/USD default.
+	e, err := New(ctx, Config{DSN: testDSN, Apps: []js.App{{Name: "demo", Dir: testApp(t, extra)}}, Test: true,
+		Lang: "pt-BR", Currency: "BRL"})
 	if err != nil {
 		t.Fatal(err)
 	}
