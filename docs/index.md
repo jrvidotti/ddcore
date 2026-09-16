@@ -10,8 +10,8 @@ hero:
       text: Build your first app
       link: /guide/first-app
     - theme: alt
-      text: Explore the example app
-      link: https://github.com/jrvidotti/ddcore-demo
+      text: Try live demo
+      link: https://ddcore-demo.up.railway.app
 
 features:
   - title: One Model, Several Layers
@@ -97,7 +97,7 @@ export default defineController<Task>("Task", {
 
 Once defined, `ddcore migrate` automatically creates the PostgreSQL table `tab_task`, indexes, and generated TypeScript types. Running `ddcore dev` starts the application with automatic hot reload and an interactive Desk at `http://localhost:8090`.
 
-Explore a complete reference implementation in the [ddcore-demo](https://github.com/jrvidotti/ddcore-demo) repository and read the [Example App Walkthrough](/guide/demo).
+Test the [live demo](https://ddcore-demo.up.railway.app), explore the complete reference implementation in the [ddcore-demo](https://github.com/jrvidotti/ddcore-demo) repository, and read the [Example App Walkthrough](/guide/demo).
 
 ---
 

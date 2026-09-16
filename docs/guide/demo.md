@@ -2,6 +2,14 @@
 
 The official example application, [ddcore-demo](https://github.com/jrvidotti/ddcore-demo), is an executable tutorial that demonstrates how real-world business entities, relational links, lifecycle hooks, and workspaces are structured in `ddcore`.
 
+::: tip Live Interactive Demo
+A public instance of `ddcore-demo` is deployed on Railway:
+
+👉 **[Launch Live Demo (ddcore-demo.up.railway.app)](https://ddcore-demo.up.railway.app)**
+
+Explore the Desk, inspect Projects, update Tasks, and observe real-time progress calculations in action.
+:::
+
 ---
 
 ## 1. Overview of the Demo App

@@ -17,7 +17,14 @@ export default defineConfig({
       { text: 'Get Started', link: '/guide/first-app' },
       { text: 'Documentation', link: '/agent/' },
       { text: 'Architecture', link: '/guide/architecture' },
-      { text: 'Demo App', link: 'https://github.com/jrvidotti/ddcore-demo' },
+      {
+        text: 'Demo',
+        items: [
+          { text: 'Live Demo', link: 'https://ddcore-demo.up.railway.app' },
+          { text: 'Demo Walkthrough', link: '/guide/demo' },
+          { text: 'Demo Source Code', link: 'https://github.com/jrvidotti/ddcore-demo' }
+        ]
+      },
       { text: 'GitHub', link: 'https://github.com/jrvidotti/ddcore' }
     ],
     sidebar: [
