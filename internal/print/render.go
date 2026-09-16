@@ -143,6 +143,14 @@ func AssembleHTML(bodyHTML string, letterhead *LetterHead, title string, lang st
     .print-grid.cols-2 { grid-template-columns: 1fr 1fr; }
     .print-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
     .print-grid.cols-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+    .print-columns {
+      display: grid;
+      gap: 12px 24px;
+      margin-bottom: 20px;
+    }
+    .print-column {
+      min-width: 0;
+    }
     .grid-item .label {
       font-size: 8pt;
       font-weight: 600;

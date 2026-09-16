@@ -197,3 +197,52 @@ export default definePrintTemplate({
 		t.Fatalf("expected formatted date in pt-BR, got: %s", htmlOut)
 	}
 }
+
+// The columns example of docs/agent/print.md, run through the engine: the
+// builder's output must unmarshal into print.Block and render every cell.
+func TestPrintDoc_ColumnsTemplate(t *testing.T) {
+	ctx := context.Background()
+	e := setupWith(t, map[string]string{
+		"doctypes/invoice/invoice.doctype.ts": `import { defineDoctype } from "@ddcore/sdk";
+export default defineDoctype({
+  name: "Invoice",
+  fields: [
+    { fieldname: "customer_name", fieldtype: "Data", label: "Customer Name" },
+    { fieldname: "posting_date", fieldtype: "Date", label: "Posting Date" },
+    { fieldname: "grand_total", fieldtype: "Currency", label: "Grand Total" },
+  ],
+  permissions: [{ role: "System Manager", read: true, write: true, create: true }],
+});`,
+		"print/invoice_columns.print.ts": `import { definePrintTemplate, _ } from "@ddcore/sdk";
+export default definePrintTemplate({
+  name: "demo.invoice_columns",
+  doctype: "Invoice",
+  label: "Invoice with columns",
+  body: (doc, b, ctx) => [
+    b.header(doc.name, { subtitle: _("Invoice") }),
+    b.columns([
+      [b.h(3, _("Billed To")), b.p(doc.customer_name)],
+      [b.keyValues([[_("Posting Date"), ctx.formatDate(doc.posting_date)]])],
+    ]),
+    b.rule(),
+    b.totals([[_("Grand Total"), ctx.formatCurrency(doc.grand_total)]]),
+  ],
+});`,
+	})
+	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+		_, err := c.Insert(Doc{"doctype": "Invoice", "name": "INV-1", "customer_name": "Acme <Ltd>", "posting_date": "2026-09-14", "grand_total": 10}, SaveOpts{})
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := e.NewCtx(ctx, "Administrator").PrintDoc("Invoice", "INV-1", "demo.invoice_columns", "none", "en")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`class="print-columns"`, "Billed To", "Acme &lt;Ltd&gt;", "Posting Date", "2026-09-14", "Grand Total"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("missing %q in: %s", want, out)
+		}
+	}
+}

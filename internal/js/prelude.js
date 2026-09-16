@@ -433,7 +433,10 @@
     pageBreak: () => ({ type: "pageBreak" }),
     raw: (html) => ({ type: "raw", html: String(html ?? "") }),
     html: (html) => ({ type: "raw", html: String(html ?? "") }),
-    columns: (cols) => ({ type: "columns", columns: Array.isArray(cols) ? cols : [] }),
+    columns: (cols) => ({
+      type: "columns",
+      cells: (Array.isArray(cols) ? cols : []).map((cell) => (Array.isArray(cell) ? cell : [])),
+    }),
   };
 
   const formatNumberHelper = (val, decimals, lang) => {
