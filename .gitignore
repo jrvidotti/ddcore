@@ -10,3 +10,5 @@ desk/build/
 /data/
 .playwright-mcp/
 .worktrees/
+docs/.vitepress/dist
+docs/.vitepress/cache

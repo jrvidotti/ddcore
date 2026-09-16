@@ -1,4 +1,4 @@
-.PHONY: build desk test check vet i18n test-go test-desk dev stop kill migrate help docker-up docker-down docker-logs docker-status docker-psql db-up db-down db-logs db-status db-psql
+.PHONY: build desk test check vet i18n test-go test-desk dev stop kill migrate help docker-up docker-down docker-logs docker-status docker-psql db-up db-down db-logs db-status db-psql docs-dev docs-build docs-preview
 
 PORT ?= 8090
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
@@ -72,3 +72,14 @@ kill: stop ## alias for stop
 
 migrate: ## apply schema migrations
 	./bin/ddcore migrate
+
+docs-dev: ## start documentation preview locally (VitePress)
+	npm --prefix docs ci
+	npm --prefix docs run docs:dev
+
+docs-build: ## build documentation site (VitePress)
+	npm --prefix docs ci
+	npm --prefix docs run docs:build
+
+docs-preview: ## preview the built documentation site
+	npm --prefix docs run docs:preview
