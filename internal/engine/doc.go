@@ -1020,6 +1020,21 @@ func (c *Ctx) Rename(doctype, oldName, newName string) (string, error) {
 	if d.Naming.Field != "" {
 		q.Exec(c.Ctx, fmt.Sprintf("UPDATE %s SET %s = $1 WHERE name = $1", db.Ident(d.TableName()), db.Ident(d.Naming.Field)), newName)
 	}
+	// Vault keys default to "<DocType>:<Fieldname>:<name>" (DeriveVaultKey); a
+	// rename must carry the default-shaped ones to the new name, or the
+	// secret is orphaned under a name the document no longer answers to. A
+	// custom key template is not touched — see the vault docs for the
+	// limitation.
+	for _, f := range d.Fields {
+		if f.Fieldtype != "Vault" || f.OptionsString() != "" {
+			continue
+		}
+		oldKey := d.Name + ":" + f.Fieldname + ":" + oldName
+		newKey := d.Name + ":" + f.Fieldname + ":" + newName
+		if _, err := q.Exec(c.Ctx, "UPDATE ddcore_vault SET name = $1 WHERE name = $2", newKey, oldKey); err != nil {
+			return "", err
+		}
+	}
 	for _, other := range c.St.Meta.DocTypes {
 		t := db.Ident(other.TableName())
 		if other.IsChild {

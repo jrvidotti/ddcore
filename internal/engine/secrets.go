@@ -51,7 +51,13 @@ func (e *Engine) Secret(name string) (string, bool) {
 	if strings.TrimSpace(name) == "" {
 		return "", false
 	}
-	v, ok := os.LookupEnv(SecretEnvName(name))
+	envName := SecretEnvName(name)
+	if envName == MasterKeyEnvName {
+		// DDCORE_SECRET_KEY holds the vault master key, not an app secret.
+		// An app that names "key" must not get it back through this door.
+		return "", false
+	}
+	v, ok := os.LookupEnv(envName)
 	return v, ok && v != ""
 }
 
@@ -72,6 +78,11 @@ func (e *Engine) SecretNames() []string {
 	var out []string
 	for _, kv := range os.Environ() {
 		k, v, _ := strings.Cut(kv, "=")
+		if k == MasterKeyEnvName {
+			// The vault master key is not an integration secret; it never
+			// belongs in the list `ddcore doctor` prints for app secrets.
+			continue
+		}
 		if strings.HasPrefix(k, secretPrefix) && v != "" {
 			out = append(out, strings.TrimPrefix(k, secretPrefix))
 		}
