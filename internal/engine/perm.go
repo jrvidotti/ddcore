@@ -240,6 +240,16 @@ func (c *Ctx) checkUserPermissionsFor(d *meta.DocType, doc Doc, applicableFor st
 					return false, nil
 				}
 			}
+			if f.Fieldtype == "Dynamic Link" && d.Field(f.OptionsString()) != nil {
+				// A Dynamic Link is restricted only when its selector points at the
+				// allowed DocType, mirroring scopeFilters' IfField/IfValue semantics.
+				if strings.EqualFold(db.Str(doc[f.OptionsString()]), allow) {
+					val := db.Str(doc[f.Fieldname])
+					if val == "" || !allowedMap[val] {
+						return false, nil
+					}
+				}
+			}
 		}
 	}
 	for _, tf := range d.TableFields() {

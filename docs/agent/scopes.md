@@ -48,9 +48,9 @@ different DocType.
 - **A DocType with no link to the `allow` DocType** is not restricted by that rule.
 - **Child tables**: writes and direct reads also check the `Link` fields of every child
   row, under the parent's `applicable_for`.
-- **Dynamic Link**: a list query filters a `Dynamic Link` field only on the rows whose
-  selector field holds the `allow` DocType. Rows pointing at other DocTypes pass.
-  See [Limitations](#limitations).
+- **Dynamic Link**: a list query, a direct read or write, and a child row all restrict a
+  `Dynamic Link` field only when its selector field holds the `allow` DocType. Rows pointing
+  at other DocTypes pass.
 
 ## Who is unrestricted
 
@@ -119,9 +119,6 @@ An update that changes `user`, `allow`, `for_value` or `applicable_for`, includi
 
 ## Limitations
 
-- **Dynamic Link is checked in queries only.** Direct reads and writes check `Link` fields
-  and child rows, but not `Dynamic Link` fields. A scoped user can open an out-of-scope
-  document by name when a `Dynamic Link` is its only link to the scope.
 - `ddcore.db.sql` ignores scopes.
 - `is_default` is not used to prefill forms.
 - Scope rules are per user. There are no scope groups or role-based scopes, and no Desk editor

@@ -502,6 +502,88 @@ func TestSEC01_DocLifecycleScopeCannotBeBypassed(t *testing.T) {
 	}
 }
 
+func TestSEC01_DirectAccessDynamicLink(t *testing.T) {
+	e := setupSEC01(t)
+	ctx := context.Background()
+	const alfaUser = "user_alfa@x.com"
+	var alfaDynamic, betaDynamic, userDynamic string
+
+	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+		u, err := c.NewDoc("User", Doc{
+			"email": alfaUser, "full_name": alfaUser,
+			"roles": []any{map[string]any{"role": "Scope User"}},
+		})
+		if err != nil {
+			return err
+		}
+		if _, err := c.Insert(u, SaveOpts{}); err != nil {
+			return err
+		}
+		for _, name := range []string{"Alfa", "Beta"} {
+			doc, err := c.NewDoc("Test Company", Doc{"title": name})
+			if err != nil {
+				return err
+			}
+			if _, err := c.Insert(doc, SaveOpts{}); err != nil {
+				return err
+			}
+		}
+		for _, record := range []struct{ title, partyType, partyName string }{
+			{"Alfa Dynamic", "Test Company", "Alfa"},
+			{"Beta Dynamic", "Test Company", "Beta"},
+			{"User Dynamic", "User", alfaUser},
+		} {
+			doc, err := c.NewDoc("Test Dynamic Record", Doc{"title": record.title, "party_type": record.partyType, "party_name": record.partyName})
+			if err != nil {
+				return err
+			}
+			saved, err := c.Insert(doc, SaveOpts{})
+			if err != nil {
+				return err
+			}
+			switch record.title {
+			case "Alfa Dynamic":
+				alfaDynamic = saved.Name()
+			case "Beta Dynamic":
+				betaDynamic = saved.Name()
+			case "User Dynamic":
+				userDynamic = saved.Name()
+			}
+		}
+		permission, err := c.NewDoc("User Permission", Doc{"user": alfaUser, "allow": "Test Company", "for_value": "Alfa"})
+		if err != nil {
+			return err
+		}
+		_, err = c.Insert(permission, SaveOpts{})
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := e.Run(ctx, alfaUser, func(c *Ctx) error {
+		if _, err := c.GetDoc("Test Dynamic Record", betaDynamic); err == nil || cerr.From(err).Type != "PermissionError" {
+			t.Fatalf("GetDoc Beta Dynamic: expected PermissionError, got %v", err)
+		}
+
+		allowed, err := c.GetDoc("Test Dynamic Record", alfaDynamic)
+		if err != nil {
+			t.Fatalf("GetDoc Alfa Dynamic: expected success, got %v", err)
+		}
+
+		if _, err := c.GetDoc("Test Dynamic Record", userDynamic); err != nil {
+			t.Fatalf("GetDoc User Dynamic: expected success (selector names an unrestricted DocType), got %v", err)
+		}
+
+		allowed["party_name"] = "Beta"
+		if _, err := c.Save(allowed, SaveOpts{}); err == nil || cerr.From(err).Type != "PermissionError" {
+			t.Fatalf("Save Alfa Dynamic moved to Beta: expected PermissionError, got %v", err)
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func hasName(rows []map[string]any, want string) bool {
 	for _, row := range rows {
 		if row["name"] == want {
