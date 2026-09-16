@@ -197,7 +197,7 @@ func (c *Ctx) installApps(ctx context.Context, rt *js.Runtime, fresh map[string]
 		}
 		app := c.St.Snap.Apps[name]
 		for _, role := range app.Roles {
-			if ok, _ := c.Exists("Role", role); !ok {
+			if ok, _ := c.nameExists("Role", role); !ok {
 				doc, _ := c.NewDoc("Role", Doc{"role_name": role})
 				if _, err := c.Insert(doc, SaveOpts{IgnorePermissions: true}); err != nil {
 					return fmt.Errorf("role %s: %w", role, err)
@@ -236,11 +236,11 @@ func (c *Ctx) applyFixtures() error {
 					return err
 				}
 				if n := doc.Str("name"); n != "" {
-					if ok, _ := c.Exists(dt, n); ok {
+					if ok, _ := c.nameExists(dt, n); ok {
 						continue
 					}
 				} else if d, _ := c.St.DocType(dt); d != nil && d.Naming.Field != "" {
-					if ok, _ := c.Exists(dt, doc.Str(d.Naming.Field)); ok {
+					if ok, _ := c.nameExists(dt, doc.Str(d.Naming.Field)); ok {
 						continue
 					}
 				}

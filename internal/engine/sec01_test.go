@@ -584,6 +584,197 @@ func TestSEC01_DirectAccessDynamicLink(t *testing.T) {
 	}
 }
 
+// TestSEC01_ExistsDBSetAndScopeAdministration covers the by-name exists, the
+// direct column write and the administration of User Permission itself.
+func TestSEC01_ExistsDBSetAndScopeAdministration(t *testing.T) {
+	e := setupSEC01(t)
+	ctx := context.Background()
+	const (
+		scopedManager   = "scoped_manager@x.com"
+		unscopedManager = "unscoped_manager@x.com"
+		otherUser       = "other_user@x.com"
+	)
+	var alfaRecord, betaRecord, ownPermission string
+
+	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+		for _, user := range []struct {
+			email string
+			roles []any
+		}{
+			{scopedManager, []any{map[string]any{"role": "System Manager"}, map[string]any{"role": "Scope User"}}},
+			{unscopedManager, []any{map[string]any{"role": "System Manager"}}},
+			{otherUser, []any{map[string]any{"role": "Scope User"}}},
+		} {
+			u, err := c.NewDoc("User", Doc{"email": user.email, "full_name": user.email, "roles": user.roles})
+			if err != nil {
+				return err
+			}
+			if _, err := c.Insert(u, SaveOpts{}); err != nil {
+				return err
+			}
+		}
+		for _, name := range []string{"Alfa", "Beta"} {
+			doc, err := c.NewDoc("Test Company", Doc{"title": name})
+			if err != nil {
+				return err
+			}
+			if _, err := c.Insert(doc, SaveOpts{}); err != nil {
+				return err
+			}
+		}
+		for _, company := range []string{"Alfa", "Beta"} {
+			doc, err := c.NewDoc("Test Record", Doc{"title": company + " Record", "company": company})
+			if err != nil {
+				return err
+			}
+			saved, err := c.Insert(doc, SaveOpts{})
+			if err != nil {
+				return err
+			}
+			if company == "Alfa" {
+				alfaRecord = saved.Name()
+			} else {
+				betaRecord = saved.Name()
+			}
+		}
+		permission, err := c.NewDoc("User Permission", Doc{"user": scopedManager, "allow": "Test Company", "for_value": "Alfa"})
+		if err != nil {
+			return err
+		}
+		saved, err := c.Insert(permission, SaveOpts{})
+		if err != nil {
+			return err
+		}
+		ownPermission = saved.Name()
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	isPermissionError := func(err error) bool { return err != nil && cerr.From(err).Type == "PermissionError" }
+
+	if err := e.Run(ctx, scopedManager, func(c *Ctx) error {
+		if ok, err := c.Exists("Test Record", betaRecord); err != nil || ok {
+			t.Errorf("Exists out-of-scope record = %v, %v; want false", ok, err)
+		}
+		if ok, err := c.Exists("Test Record", alfaRecord); err != nil || !ok {
+			t.Errorf("Exists in-scope record = %v, %v; want true", ok, err)
+		}
+
+		if _, err := c.DBSet("Test Record", betaRecord, Doc{"title": "Beta Changed"}, true); !isPermissionError(err) {
+			t.Errorf("DBSet out-of-scope record: expected PermissionError, got %v", err)
+		}
+		if _, err := c.DBSet("Test Record", alfaRecord, Doc{"company": "Beta"}, true); !isPermissionError(err) {
+			t.Errorf("DBSet moving record out of scope: expected PermissionError, got %v", err)
+		}
+		if _, err := c.DBSet("Test Record", alfaRecord, Doc{"title": "Alfa Changed"}, true); err != nil {
+			t.Errorf("DBSet inside scope: expected success, got %v", err)
+		}
+
+		own, err := c.GetDocIgnoringPerms("User Permission", ownPermission)
+		if err != nil {
+			return err
+		}
+		for _, opts := range []SaveOpts{{}, {IgnorePermissions: true}} {
+			grant, err := c.NewDoc("User Permission", Doc{"user": scopedManager, "allow": "Test Company", "for_value": "Beta"})
+			if err != nil {
+				return err
+			}
+			if _, err := c.Insert(grant, opts); !isPermissionError(err) {
+				t.Errorf("Insert User Permission (ignorePermissions=%v): expected PermissionError, got %v", opts.IgnorePermissions, err)
+			}
+			changed := Doc{}
+			for k, v := range own {
+				changed[k] = v
+			}
+			changed["for_value"] = "Beta"
+			if _, err := c.Save(changed, opts); !isPermissionError(err) {
+				t.Errorf("Save User Permission (ignorePermissions=%v): expected PermissionError, got %v", opts.IgnorePermissions, err)
+			}
+		}
+		if _, err := c.DBSet("User Permission", ownPermission, Doc{"for_value": "Beta"}, true); !isPermissionError(err) {
+			t.Errorf("DBSet User Permission: expected PermissionError, got %v", err)
+		}
+		for _, ignore := range []bool{false, true} {
+			if err := c.Delete("User Permission", ownPermission, ignore, false); !isPermissionError(err) {
+				t.Errorf("Delete User Permission (ignorePerms=%v): expected PermissionError, got %v", ignore, err)
+			}
+		}
+		if rows, err := c.GetList("User Permission", ListArgs{IgnorePermissions: true}); err != nil || len(rows) != 0 {
+			t.Errorf("GetList User Permission ignoring permissions = %v, %v; want no rows", rows, err)
+		}
+		if ok, err := c.Exists("User Permission", ownPermission); err != nil || ok {
+			t.Errorf("Exists User Permission = %v, %v; want false", ok, err)
+		}
+		if ok, err := c.HasPermission("User Permission", "read", nil); err != nil || ok {
+			t.Errorf("HasPermission read User Permission = %v, %v; want false", ok, err)
+		}
+		// the user's own scope is still read by the engine
+		if perms, err := c.UserPermissions(); err != nil || len(perms) != 1 || perms[0].ForValue != "Alfa" {
+			t.Errorf("UserPermissions = %v, %v; want the Alfa rule", perms, err)
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	scopeCount := func(user string) int {
+		t.Helper()
+		var n int
+		if err := e.Run(ctx, user, func(c *Ctx) error {
+			perms, err := c.UserPermissions()
+			n = len(perms)
+			return err
+		}); err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+	grants := func() int64 {
+		t.Helper()
+		n, err := e.CountAuditEvents(ctx, AuditFilter{Action: "permission.scope_grant", TargetDocType: "User", TargetName: otherUser})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+	if n := scopeCount(otherUser); n != 0 {
+		t.Fatalf("other user scope rows before grant = %d, want 0", n)
+	}
+	grantsBefore := grants()
+	var granted string
+	if err := e.Run(ctx, unscopedManager, func(c *Ctx) error {
+		doc, err := c.NewDoc("User Permission", Doc{"user": otherUser, "allow": "Test Company", "for_value": "Alfa"})
+		if err != nil {
+			return err
+		}
+		saved, err := c.Insert(doc, SaveOpts{})
+		if err != nil {
+			return err
+		}
+		granted = saved.Name()
+		saved["for_value"] = "Beta"
+		_, err = c.Save(saved, SaveOpts{})
+		return err
+	}); err != nil {
+		t.Fatalf("unscoped System Manager insert/save User Permission: %v", err)
+	}
+	if n := scopeCount(otherUser); n != 1 {
+		t.Errorf("other user scope rows after grant = %d, want 1", n)
+	}
+	if got := grants(); got != grantsBefore+2 {
+		t.Errorf("scope_grant audit count = %d, want %d", got, grantsBefore+2)
+	}
+	if err := e.Run(ctx, unscopedManager, func(c *Ctx) error {
+		return c.Delete("User Permission", granted, false, false)
+	}); err != nil {
+		t.Fatalf("unscoped System Manager delete User Permission: %v", err)
+	}
+	if n := scopeCount(otherUser); n != 0 {
+		t.Errorf("other user scope rows after delete = %d, want 0", n)
+	}
+}
+
 func hasName(rows []map[string]any, want string) bool {
 	for _, row := range rows {
 		if row["name"] == want {

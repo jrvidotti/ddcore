@@ -795,7 +795,7 @@ func (c *Ctx) Amend(doctype, name string) (Doc, error) {
 	n := 1
 	for {
 		cand := fmt.Sprintf("%s-%d", base, n)
-		if ok, _ := c.Exists(doctype, cand); !ok {
+		if ok, _ := c.nameExists(doctype, cand); !ok {
 			doc["name"] = cand
 			break
 		}
@@ -854,6 +854,32 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 	}
 	if len(values) == 0 {
 		return modified, nil
+	}
+	if !c.IgnorePermissions() {
+		// scope: neither the stored document nor the written values may be out
+		// of the user's scope, as for Save
+		if perms, err := c.UserPermissions(); err != nil {
+			return modified, err
+		} else if len(perms) > 0 {
+			stored, err := c.GetDocIgnoringPerms(d.Name, name)
+			if err != nil {
+				return modified, err
+			}
+			merged := Doc{}
+			for k, v := range stored {
+				merged[k] = v
+			}
+			for k, v := range values {
+				merged[k] = v
+			}
+			for _, doc := range []Doc{stored, merged} {
+				if ok, err := c.checkUserPermissions(d, doc); err != nil {
+					return modified, err
+				} else if !ok {
+					return modified, cerr.Permission("No permission ({0}) on {1} {2}", "write", c.T(d.Label), name)
+				}
+			}
+		}
 	}
 	var beforePermission Doc
 	if d.Name == "User Permission" {
@@ -1053,7 +1079,7 @@ func (c *Ctx) Rename(doctype, oldName, newName string) (string, error) {
 	if ok, _ := c.HasPermission(doctype, "write", doc); !ok && !c.IgnorePermissions() {
 		return "", cerr.Permission("No permission to rename {0}", c.T(d.Label))
 	}
-	if ok, _ := c.Exists(doctype, newName); ok {
+	if ok, _ := c.nameExists(doctype, newName); ok {
 		return "", cerr.Duplicate("{0} {1} already exists", c.T(d.Label), newName)
 	}
 	if err := c.runHook(d, "beforeRename", doc, nil); err != nil {
@@ -1415,7 +1441,7 @@ func (c *Ctx) checkLinks(d *meta.DocType, doc Doc) error {
 		}
 		switch f.Fieldtype {
 		case "Link":
-			if ok, err := c.Exists(f.OptionsString(), v); err != nil {
+			if ok, err := c.nameExists(f.OptionsString(), v); err != nil {
 				return err
 			} else if !ok {
 				return cerr.LinkExists("{0}: {1} \"{2}\" does not exist", c.T(f.Label), f.OptionsString(), v).WithTitleKey("Invalid link")
@@ -1428,7 +1454,7 @@ func (c *Ctx) checkLinks(d *meta.DocType, doc Doc) error {
 			if _, err := c.St.DocType(target); err != nil {
 				return cerr.Validation("{0}: DocType \"{1}\" does not exist", c.T(f.Label), target)
 			}
-			if ok, err := c.Exists(target, v); err != nil {
+			if ok, err := c.nameExists(target, v); err != nil {
 				return err
 			} else if !ok {
 				return cerr.LinkExists("{0}: {1} \"{2}\" does not exist", c.T(f.Label), target, v).WithTitleKey("Invalid link")

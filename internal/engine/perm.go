@@ -129,10 +129,12 @@ func (c *Ctx) workflowStateAllowsEdit(state *js.WorkflowState) bool {
 // unscopedOnlyDoctypes are administered only by users without access scopes.
 // A Webhook sends every document of a DocType to an outside address, and a
 // Webhook Delivery's payload names its document in plain Data fields that no
-// scope filter applies to, so neither can be limited to a scope. The refusal
-// is part of the scope, so ignorePermissions does not lift it; the framework's
-// own writes raise the context instead.
-var unscopedOnlyDoctypes = map[string]bool{"Webhook": true, "Webhook Delivery": true}
+// scope filter applies to, so neither can be limited to a scope. A User
+// Permission is the scope itself: a scoped user who could write one could lift
+// their own. The refusal is part of the scope, so ignorePermissions does not
+// lift it; the framework's own writes raise the context instead, and
+// UserPermissions reads the table directly.
+var unscopedOnlyDoctypes = map[string]bool{"Webhook": true, "Webhook Delivery": true, "User Permission": true}
 
 // refusedToScopedUser reports whether doctype is closed to the current user
 // because the user has access scopes.

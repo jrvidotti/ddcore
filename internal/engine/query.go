@@ -349,14 +349,31 @@ func (c *Ctx) Count(doctype string, filters any, orFilters ...any) (int64, error
 	return int64(toFloat(rows[0]["n"])), nil
 }
 
-// Exists reports whether a document exists (no permission check). Only the
-// DocTypes closed to users with access scopes are hidden from such a user.
+// Exists is db.exists by name: no role permission check, but the user's access
+// scope applies, as for ExistsWhere. A DocType closed to users with access
+// scopes never exists for such a user.
 func (c *Ctx) Exists(doctype, name string) (bool, error) {
 	d, err := c.St.DocType(doctype)
 	if err != nil {
 		return false, err
 	}
 	if refused, err := c.refusedToScopedUser(d.Name); err != nil || refused {
+		return false, err
+	}
+	if perms, err := c.UserPermissions(); err != nil {
+		return false, err
+	} else if len(perms) > 0 {
+		found, err := c.ExistsWhere(d.Name, map[string]any{"name": name})
+		return found != "", err
+	}
+	return c.nameExists(d.Name, name)
+}
+
+// nameExists reports whether a name is taken, whoever can see it: the
+// framework's own duplicate-name, rename and link checks use it.
+func (c *Ctx) nameExists(doctype, name string) (bool, error) {
+	d, err := c.St.DocType(doctype)
+	if err != nil {
 		return false, err
 	}
 	var one int

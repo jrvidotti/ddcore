@@ -70,7 +70,7 @@ func (c *Ctx) setName(d *meta.DocType, doc Doc) error {
 	if doc.Str("name") == "" {
 		doc["name"] = randomName()
 	}
-	if ok, _ := c.Exists(d.Name, doc.Str("name")); ok {
+	if ok, _ := c.nameExists(d.Name, doc.Str("name")); ok {
 		return cerr.Duplicate("{0} {1} already exists", c.T(d.Label), doc.Str("name")).WithTitleKey("Duplicate name")
 	}
 	return nil
