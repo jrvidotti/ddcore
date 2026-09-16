@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/jrvidotti/ddcore/internal/db"
+	"github.com/jrvidotti/ddcore/internal/js"
 	"github.com/jrvidotti/ddcore/internal/meta"
 )
 
@@ -118,6 +119,13 @@ func (c *Ctx) HasRole(role string) bool {
 	return false
 }
 
+// workflowStateAllowsEdit reports whether the user's roles may edit a
+// document in state: an empty allowEdit leaves editing to the DocType's
+// write permission.
+func (c *Ctx) workflowStateAllowsEdit(state *js.WorkflowState) bool {
+	return state.AllowEdit == "" || c.HasRole(state.AllowEdit)
+}
+
 // unscopedOnlyDoctypes are administered only by users without access scopes.
 // A Webhook sends every document of a DocType to an outside address, and a
 // Webhook Delivery's payload names its document in plain Data fields that no
@@ -183,10 +191,8 @@ func (c *Ctx) HasPermission(doctype, ptype string, doc Doc) (bool, error) {
 			if st == "" {
 				st = wf.InitialState
 			}
-			if state := wf.GetState(st); state != nil && state.AllowEdit != "" {
-				if !c.HasRole(state.AllowEdit) {
-					return false, nil
-				}
+			if state := wf.GetState(st); state != nil && !c.workflowStateAllowsEdit(state) {
+				return false, nil
 			}
 		}
 	}

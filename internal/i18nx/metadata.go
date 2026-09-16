@@ -1,6 +1,7 @@
 package i18nx
 
 import (
+	"github.com/jrvidotti/ddcore/internal/js"
 	"github.com/jrvidotti/ddcore/internal/meta"
 )
 
@@ -45,6 +46,18 @@ func CollectDocType(s *Set, d *meta.DocType, app, file string) {
 		for _, o := range selectOptions(f) {
 			s.Add(o, file, 0)
 		}
+	}
+}
+
+// CollectWorkflow collects a workflow's state and action names: the desk shows
+// both through __(), so each name is a key. Roles are identifiers and are not
+// collected.
+func CollectWorkflow(s *Set, wf js.Workflow, file string) {
+	for _, st := range wf.States {
+		s.Add(st.State, file, 0)
+	}
+	for _, tr := range wf.Transitions {
+		s.Add(tr.Action, file, 0)
 	}
 }
 

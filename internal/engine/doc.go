@@ -433,6 +433,10 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 		} else if doc.Str(wf.StateField) != wf.InitialState && !opts.IgnorePermissions && !c.IgnorePermissions() {
 			return nil, cerr.Validation("New {0} must start in initial workflow state '{1}'", d.Name, wf.InitialState)
 		}
+		// a submitted insert would skip every approval the workflow requires
+		if initial := wf.GetState(wf.InitialState); initial != nil && doc.Docstatus() != initial.Docstatus && !opts.IgnorePermissions && !c.IgnorePermissions() {
+			return nil, cerr.Validation("New {0} must start with the docstatus of initial workflow state '{1}'", d.Name, wf.InitialState)
+		}
 	}
 	doc["__islocal"] = true
 	now := time.Now()
@@ -821,6 +825,15 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 			return modified, cerr.Permission("No permission ({0}) on {1} {2}", "write", c.T(d.Label), name)
 		}
 	}
+	// the state field and docstatus move only through a workflow transition
+	if wf := c.WorkflowFor(d.Name); wf != nil && !c.inWorkflowTransition && !c.IgnorePermissions() {
+		if _, ok := values[wf.StateField]; ok {
+			return modified, cerr.Validation("Cannot manually modify workflow state field '{0}'. Use workflow actions to transition.", wf.StateField)
+		}
+		if _, ok := values["docstatus"]; ok {
+			return modified, cerr.Validation("Direct submit or cancel is disabled for documents governed by workflow '{0}'", wf.Name)
+		}
+	}
 	if d.IsSingle {
 		if name != "singleton" {
 			return modified, cerr.Validation("Invalid Single identity for {0}", d.Name)
@@ -926,6 +939,18 @@ func (c *Ctx) Delete(doctype, name string, ignorePerms, force bool) error {
 			return err
 		} else if !ok {
 			return cerr.Permission("No permission to delete {0} {1}", c.T(d.Label), name)
+		}
+	}
+	// a draft that has left the initial state is deleted only by a role that
+	// may edit it there; a cancelled document keeps the rules above
+	if wf := c.WorkflowFor(doctype); wf != nil && doc.Docstatus() == 0 && !ignorePerms && !c.IgnorePermissions() && c.User != "Administrator" {
+		st := doc.Str(wf.StateField)
+		if st == "" {
+			st = wf.InitialState
+		}
+		state := wf.GetState(st)
+		if state == nil || state.Docstatus != 0 || (st != wf.InitialState && !c.workflowStateAllowsEdit(state)) {
+			return cerr.Permission("No permission to delete {0} {1} in workflow state '{2}'", c.T(d.Label), name, c.T(st))
 		}
 	}
 	if doc.Docstatus() == 1 {

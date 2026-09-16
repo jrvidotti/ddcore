@@ -479,6 +479,12 @@ func (e *Engine) Load() error {
 	for _, w := range snap.Whitelisted {
 		wl[w.Path] = w.Opts
 	}
+	for _, name := range sortedWorkflowNames(snap.Workflows) {
+		if err := snap.Workflows[name].ValidateTarget(reg); err != nil {
+			pool.Close()
+			return err
+		}
+	}
 	workflows := make(map[string]*js.Workflow, len(snap.Workflows))
 	workflowsByDocType := make(map[string]*js.Workflow, len(snap.Workflows))
 	for k := range snap.Workflows {
@@ -921,6 +927,15 @@ func (e *Engine) Eval(ctx context.Context, code string, commit bool) (json.RawMe
 		return err
 	})
 	return out, logs, err
+}
+
+func sortedWorkflowNames(workflows map[string]js.Workflow) []string {
+	names := make([]string, 0, len(workflows))
+	for name := range workflows {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
 
 func sortedNotificationNames(rules map[string]js.Notification) []string {

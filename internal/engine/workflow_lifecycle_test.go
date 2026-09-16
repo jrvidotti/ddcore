@@ -2,8 +2,11 @@ package engine
 
 import (
 	"context"
+	"log/slog"
 	"strings"
 	"testing"
+
+	"github.com/jrvidotti/ddcore/internal/js"
 )
 
 func TestWorkflow_LifecycleGuards(t *testing.T) {
@@ -281,5 +284,220 @@ export default defineWorkflow({
 	})
 	if err != nil {
 		t.Fatalf("6. inWorkflowTransition bypass test failed: %v", err)
+	}
+}
+
+// TestWorkflow_InsertRefusesDocstatusOutsideInitialState: an insert carrying
+// docstatus 1 would create a submitted document still in the initial state,
+// skipping every approval, even for a role holding submit permission.
+func TestWorkflow_InsertRefusesDocstatusOutsideInitialState(t *testing.T) {
+	e := setupWith(t, workflowTestFiles())
+	setupWorkflowTestUsers(t, e)
+	ctx := context.Background()
+	err := e.Run(ctx, "editor@x.com", func(c *Ctx) error {
+		doc, err := c.NewDoc("Artigo", Doc{"titulo": "Pre-submitted", "docstatus": 1})
+		if err != nil {
+			return err
+		}
+		if _, err := c.Insert(doc, SaveOpts{}); err == nil {
+			t.Fatalf("expected an insert with docstatus 1 to be refused")
+		} else if !strings.Contains(err.Error(), "must start with the docstatus of initial workflow state 'Draft'") {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		doc, _ = c.NewDoc("Artigo", Doc{"titulo": "Pre-submitted", "docstatus": 1})
+		saved, err := c.Insert(doc, SaveOpts{IgnorePermissions: true})
+		if err != nil {
+			t.Fatalf("expected IgnorePermissions to allow the insert, got %v", err)
+		}
+		if saved.Docstatus() != 1 {
+			t.Fatalf("expected docstatus 1, got %d", saved.Docstatus())
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestWorkflow_DeleteGuard: a document waiting for approval cannot be deleted
+// by a user whose role may not edit it in that state.
+func TestWorkflow_DeleteGuard(t *testing.T) {
+	e := setupWith(t, workflowTestFiles())
+	setupWorkflowTestUsers(t, e)
+	ctx := context.Background()
+	insert := func(title string) string {
+		var name string
+		if err := e.Run(ctx, "autor@x.com", func(c *Ctx) error {
+			doc, _ := c.NewDoc("Artigo", Doc{"titulo": title, "conteudo": "long enough content"})
+			saved, err := c.Insert(doc, SaveOpts{})
+			if err != nil {
+				return err
+			}
+			name = saved.Name()
+			return nil
+		}); err != nil {
+			t.Fatal(err)
+		}
+		return name
+	}
+	apply := func(user, name, action string) {
+		if err := e.Run(ctx, user, func(c *Ctx) error {
+			_, err := c.ApplyWorkflowTransition("Artigo", name, action)
+			return err
+		}); err != nil {
+			t.Fatalf("%s failed: %v", action, err)
+		}
+	}
+
+	// the owner deletes a draft in the initial state
+	draft := insert("Draft to delete")
+	if err := e.Run(ctx, "autor@x.com", func(c *Ctx) error { return c.Delete("Artigo", draft, false, false) }); err != nil {
+		t.Fatalf("expected the owner to delete a draft in the initial state, got %v", err)
+	}
+
+	// the owner may not delete it once it waits for an Editor's approval
+	pending := insert("Pending to delete")
+	apply("autor@x.com", pending, "Submit for Approval")
+	err := e.Run(ctx, "autor@x.com", func(c *Ctx) error { return c.Delete("Artigo", pending, false, false) })
+	if err == nil || !strings.Contains(err.Error(), "in workflow state 'Pending Approval'") {
+		t.Fatalf("expected delete of a pending document to be refused, got %v", err)
+	}
+	if err := e.Run(ctx, "autor@x.com", func(c *Ctx) error { return c.Delete("Artigo", pending, true, false) }); err != nil {
+		t.Fatalf("expected ignorePerms to allow the delete, got %v", err)
+	}
+
+	// a cancelled document keeps the existing rules
+	rejected := insert("Rejected to delete")
+	apply("autor@x.com", rejected, "Submit for Approval")
+	apply("editor@x.com", rejected, "Reject")
+	if err := e.Run(ctx, "autor@x.com", func(c *Ctx) error { return c.Delete("Artigo", rejected, false, false) }); err != nil {
+		t.Fatalf("expected the owner to delete a cancelled document, got %v", err)
+	}
+}
+
+// TestWorkflow_DBSetGuard: db.setValue must not move a document between
+// workflow states or change its docstatus behind the transition's back.
+func TestWorkflow_DBSetGuard(t *testing.T) {
+	e := setupWith(t, workflowTestFiles())
+	setupWorkflowTestUsers(t, e)
+	ctx := context.Background()
+	err := e.Run(ctx, "autor@x.com", func(c *Ctx) error {
+		doc, _ := c.NewDoc("Artigo", Doc{"titulo": "DBSet target"})
+		saved, err := c.Insert(doc, SaveOpts{})
+		if err != nil {
+			return err
+		}
+		name := saved.Name()
+		if err := c.SetValue("Artigo", name, Doc{"workflow_state": "Approved"}); err == nil {
+			t.Fatalf("expected a DBSet of the state field to be refused")
+		}
+		if err := c.SetValue("Artigo", name, Doc{"docstatus": 1}); err == nil {
+			t.Fatalf("expected a DBSet of docstatus to be refused")
+		}
+		if err := c.SetValue("Artigo", name, Doc{"status": "Anything"}); err != nil {
+			t.Fatalf("expected a DBSet of another field to succeed, got %v", err)
+		}
+		if err := c.WithWorkflowTransition(func() error {
+			return c.SetValue("Artigo", name, Doc{"workflow_state": "Pending Approval"})
+		}); err != nil {
+			t.Fatalf("expected a DBSet inside a transition to succeed, got %v", err)
+		}
+		if err := c.WithIgnorePermissions(func() error {
+			return c.SetValue("Artigo", name, Doc{"workflow_state": "Draft"})
+		}); err != nil {
+			t.Fatalf("expected a DBSet with ignorePermissions to succeed, got %v", err)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestWorkflow_LoadTimeValidation: a workflow the save lifecycle could never
+// run fails loading instead of failing on the first transition.
+func TestWorkflow_LoadTimeValidation(t *testing.T) {
+	wf := func(doctype, stateField, states, transitions string) map[string]string {
+		return map[string]string{"workflows/bad.workflow.ts": `import { defineWorkflow } from "@ddcore/sdk";
+export default defineWorkflow({ name: "Bad", doctype: "` + doctype + `", stateField: "` + stateField + `", initialState: "A",
+  states: [` + states + `], transitions: [` + transitions + `] });`}
+	}
+	pedidoField := map[string]string{"doctypes/pessoa/pessoa.doctype.ts": `import { defineDoctype } from "@ddcore/sdk";
+export default defineDoctype({ name: "Pessoa", naming: { field: "nome" },
+  fields: [{ fieldname: "nome", fieldtype: "Data", label: "Nome", reqd: true }, { fieldname: "workflow_state", fieldtype: "Data", label: "Workflow State" }],
+  permissions: [{ role: "Gestor", read: true, write: true, create: true, delete: true }] });`}
+	cases := []struct {
+		name  string
+		files []map[string]string
+		want  string
+	}{
+		{"unknown doctype", []map[string]string{wf("Nope", "workflow_state", `{ state: "A" }, { state: "B" }`, `{ state: "A", action: "Go", nextState: "B", allowed: "Gestor" }`)}, "unknown DocType Nope"},
+		{"unknown state field", []map[string]string{wf("Pedido", "workflow_state", `{ state: "A" }, { state: "B" }`, `{ state: "A", action: "Go", nextState: "B", allowed: "Gestor" }`)}, "state field workflow_state is not a field of Pedido"},
+		{"docstatus out of range", []map[string]string{pedidoField, wf("Pessoa", "workflow_state", `{ state: "A" }, { state: "B", docstatus: 3 }`, `{ state: "A", action: "Go", nextState: "B", allowed: "Gestor" }`)}, "docstatus must be 0, 1 or 2"},
+		{"submitted state on non-submittable", []map[string]string{pedidoField, wf("Pessoa", "workflow_state", `{ state: "A" }, { state: "B", docstatus: 1 }`, `{ state: "A", action: "Go", nextState: "B", allowed: "Gestor" }`)}, "Pessoa is not submittable"},
+		{"docstatus 1 back to 0", []map[string]string{pedidoField, {"doctypes/pessoa/pessoa.doctype.ts": `import { defineDoctype } from "@ddcore/sdk";
+export default defineDoctype({ name: "Pessoa", naming: { field: "nome" }, submittable: true,
+  fields: [{ fieldname: "nome", fieldtype: "Data", label: "Nome", reqd: true }, { fieldname: "workflow_state", fieldtype: "Data", label: "Workflow State" }],
+  permissions: [{ role: "Gestor", read: true, write: true, create: true, delete: true }] });`}, wf("Pessoa", "workflow_state", `{ state: "A" }, { state: "B", docstatus: 1 }`, `{ state: "A", action: "Go", nextState: "B", allowed: "Gestor" }, { state: "B", action: "Back", nextState: "A", allowed: "Gestor" }`)}, "cannot go from docstatus 1 to 0"},
+		{"leaves cancelled", []map[string]string{pedidoField, {"doctypes/pessoa/pessoa.doctype.ts": `import { defineDoctype } from "@ddcore/sdk";
+export default defineDoctype({ name: "Pessoa", naming: { field: "nome" }, submittable: true,
+  fields: [{ fieldname: "nome", fieldtype: "Data", label: "Nome", reqd: true }, { fieldname: "workflow_state", fieldtype: "Data", label: "Workflow State" }],
+  permissions: [{ role: "Gestor", read: true, write: true, create: true, delete: true }] });`}, wf("Pessoa", "workflow_state", `{ state: "A" }, { state: "B", docstatus: 2 }`, `{ state: "A", action: "Go", nextState: "B", allowed: "Gestor" }, { state: "B", action: "Reopen", nextState: "A", allowed: "Gestor" }`)}, "cannot leave cancelled state B"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := New(context.Background(), Config{Apps: []js.App{{Name: "demo", Dir: testApp(t, tc.files...)}}, LogLevel: slog.LevelError})
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("expected a load error containing %q, got %v", tc.want, err)
+			}
+		})
+	}
+	// the fixture workflow itself loads
+	if _, err := New(context.Background(), Config{Apps: []js.App{{Name: "demo", Dir: testApp(t, workflowTestFiles())}}, LogLevel: slog.LevelError}); err != nil {
+		t.Fatalf("expected a valid workflow to load, got %v", err)
+	}
+}
+
+// TestWorkflow_CommentFailureStillCommits: a database failure writing the
+// timeline comment must not abort the transition's transaction.
+func TestWorkflow_CommentFailureStillCommits(t *testing.T) {
+	e := setupWith(t, workflowTestFiles())
+	setupWorkflowTestUsers(t, e)
+	ctx := context.Background()
+	var name string
+	if err := e.Run(ctx, "autor@x.com", func(c *Ctx) error {
+		doc, _ := c.NewDoc("Artigo", Doc{"titulo": "Comment failure"})
+		saved, err := c.Insert(doc, SaveOpts{})
+		if err != nil {
+			return err
+		}
+		name = saved.Name()
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.DB.Pool.Exec(ctx, `
+CREATE OR REPLACE FUNCTION ddcore_test_fail() RETURNS trigger AS $$
+BEGIN RAISE EXCEPTION 'induced failure'; END $$ LANGUAGE plpgsql;
+CREATE TRIGGER ddcore_test_fail BEFORE INSERT ON tab_comment FOR EACH ROW EXECUTE FUNCTION ddcore_test_fail();`); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.Run(ctx, "autor@x.com", func(c *Ctx) error {
+		_, err := c.ApplyWorkflowTransition("Artigo", name, "Submit for Approval")
+		return err
+	}); err != nil {
+		t.Fatalf("expected the transition to commit despite the comment failure, got %v", err)
+	}
+	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+		st, err := c.GetValue("Artigo", name, "workflow_state")
+		if err != nil {
+			return err
+		}
+		if st != "Pending Approval" {
+			t.Fatalf("expected state Pending Approval, got %v", st)
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
 	}
 }

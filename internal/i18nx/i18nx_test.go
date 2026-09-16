@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"github.com/jrvidotti/ddcore/internal/js"
 )
 
 func texts(s *Set) []string {
@@ -168,5 +170,19 @@ func TestCatalogRoundTrip(t *testing.T) {
 	want = "Delete,,# desk/src/a.svelte:20\nSave,Salvar,# desk/src/a.svelte:12\n"
 	if string(b) != want {
 		t.Fatalf("with --prune wrote:\n%s\nwant:\n%s", b, want)
+	}
+}
+
+// The desk renders a workflow's state and action names through __(), so they
+// are keys of the catalogue of the app that defines the workflow.
+func TestCollectWorkflow(t *testing.T) {
+	s := NewSet()
+	CollectWorkflow(s, js.Workflow{
+		States:      []js.WorkflowState{{State: "Draft"}, {State: "Pending Approval"}},
+		Transitions: []js.WorkflowTransition{{State: "Draft", Action: "Submit for Approval", NextState: "Pending Approval"}},
+	}, "demo workflow")
+	want := []string{"Draft", "Pending Approval", "Submit for Approval"}
+	if got := texts(s); !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %v, want %v", got, want)
 	}
 }

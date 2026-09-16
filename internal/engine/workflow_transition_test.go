@@ -153,6 +153,8 @@ func TestWorkflow_ApplyTransition_SuccessAndDocstatusBinding(t *testing.T) {
 
 	// 2. Autor applies "Submit for Approval" -> Pending Approval (docstatus 0)
 	err = e.Run(ctx, "autor@x.com", func(c *Ctx) error {
+		// the comment is written in the actor's language; assert the English keys
+		c.Lang = "en"
 		saved, err := c.ApplyWorkflowTransition("Artigo", docName, "Submit for Approval")
 		if err != nil {
 			return err
@@ -216,6 +218,8 @@ func TestWorkflow_ApplyTransition_SuccessAndDocstatusBinding(t *testing.T) {
 
 	// 4. Editor applies "Approve" -> Approved (docstatus 1, sets updateFields { status: "Published" }, runs onSubmit hook)
 	err = e.Run(ctx, "editor@x.com", func(c *Ctx) error {
+		// the comment is written in the actor's language; assert the English keys
+		c.Lang = "en"
 		saved, err := c.ApplyWorkflowTransition("Artigo", docName, "Approve")
 		if err != nil {
 			return err
