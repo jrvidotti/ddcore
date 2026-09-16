@@ -7,7 +7,16 @@ A public instance of `ddcore-demo` is deployed on Railway:
 
 👉 **[Launch Live Demo (ddcore-demo.up.railway.app)](https://ddcore-demo.up.railway.app)**
 
-Explore the Desk, inspect Projects, update Tasks, and observe real-time progress calculations in action.
+Sign in as **`visitor@example.com`** with the password **`demo-visitor`**. The visitor is a Project Manager: it can change projects, tasks, and invoices, but not users or system settings. Everything visitors change is wiped and seeded again every six hours.
+
+A first walkthrough:
+
+1. Open the **Projects** workspace: number cards, chart, and shortcuts.
+2. Open project `PORTAL` and read its milestones and derived progress.
+3. Start and complete one of its tasks, then watch the project's progress change.
+4. Set a task's due date before its project starts, and see the server refuse it.
+5. Open the **Tasks by Status** report, built on the same services.
+6. Read the model, controller, and test behind each step in the [repository](https://github.com/jrvidotti/ddcore-demo).
 :::
 
 ---
@@ -37,7 +46,7 @@ ddcore user passwd Administrator admin1234
 ddcore dev
 ```
 
-Navigate to `http://localhost:8090` and log in as `Administrator`.
+Navigate to `http://localhost:8092` (the port set in the demo's `ddcore.json`) and log in as `Administrator`.
 
 To populate the database with realistic sample projects, tasks, and users, seed the demo data:
 
