@@ -1,6 +1,6 @@
 # Example Application Walkthrough (`ddcore-demo`)
 
-The official example application, [ddcore-demo](https://github.com/jrvidotti/ddcore-demo), is an executable tutorial that demonstrates how real-world business entities, relational links, lifecycle hooks, and workspaces are structured in `ddcore`.
+The official example application, [ddcore-demo](https://github.com/jrvidotti/ddcore-demo), is an executable tutorial that demonstrates how real-world business entities, relational links, lifecycle hooks, and workspaces are structured in `ddcore` (*Data Driven Core*).
 
 ::: tip Live Interactive Demo
 A public instance of `ddcore-demo` is deployed on Railway:

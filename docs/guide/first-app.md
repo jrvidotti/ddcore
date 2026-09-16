@@ -2,7 +2,7 @@
 
 > **Documentation note:** This guide describes developing an outside application with `ddcore` without cloning or compiling the framework source repository. It targets the latest published binary release on macOS and Linux.
 
-This tutorial guides you through creating a complete standalone business application: configuring PostgreSQL, initializing an app directory, defining a **DocType**, running database migrations, managing users, creating records in the Desk, and adding server-side validation.
+This tutorial guides you through creating a complete standalone business application with **ddcore** (*Data Driven Core*): configuring PostgreSQL, initializing an app directory, defining a **DocType**, running database migrations, managing users, creating records in the Desk, and adding server-side validation.
 
 ---
 

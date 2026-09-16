@@ -2,7 +2,7 @@ import { defineConfig } from 'vitepress'
 
 export default defineConfig({
   title: 'ddcore',
-  description: 'Data Driven Core — Build business applications from TypeScript models',
+  description: 'ddcore (Data Driven Core) — Build business applications from TypeScript models in Go, TypeScript, and PostgreSQL',
   base: process.env.VITEPRESS_BASE || '/ddcore/',
   srcExclude: [
     'superpowers/**',
@@ -94,7 +94,7 @@ export default defineConfig({
       { icon: 'github', link: 'https://github.com/jrvidotti/ddcore' }
     ],
     footer: {
-      message: 'MIT Licensed · Development documentation (main)',
+      message: 'MIT Licensed · ddcore (Data Driven Core) · Development documentation (main)',
       copyright: 'Copyright © 2026 ddcore contributors'
     }
   }

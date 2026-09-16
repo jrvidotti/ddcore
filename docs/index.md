@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: ddcore
-  text: Build business applications from TypeScript models.
-  tagline: Define your data and business rules. ddcore provides database tables, forms, lists, APIs, and access controls, with a Go runtime and built-in MCP tools for agent-assisted development.
+  text: Data Driven Core
+  tagline: Build business applications from TypeScript models. Define your data dictionary once; ddcore drives database tables, forms, lists, APIs, and access controls automatically.
   actions:
     - theme: brand
       text: Build your first app
@@ -30,7 +30,7 @@ features:
 
 <div class="tip custom-block" style="padding-top: 8px">
 
-**MIT-licensed · Go + TypeScript + PostgreSQL · Self-hosted**
+**MIT-licensed · Data Driven Core (Go + TypeScript + PostgreSQL) · Self-hosted**
 
 </div>
 
@@ -98,6 +98,10 @@ export default defineController<Task>("Task", {
 Once defined, `ddcore migrate` automatically creates the PostgreSQL table `tab_task`, indexes, and generated TypeScript types. Running `ddcore dev` starts the application with automatic hot reload and an interactive Desk at `http://localhost:8090`.
 
 Test the [live demo](https://ddcore-demo.up.railway.app), explore the complete reference implementation in the [ddcore-demo](https://github.com/jrvidotti/ddcore-demo) repository, and read the [Example App Walkthrough](/guide/demo).
+
+::: tip Why "Data Driven Core"?
+In **ddcore**, your data dictionary (DocType) is the single source of truth that drives all application layers: PostgreSQL relational schemas, REST APIs, reactive Svelte 5 Desk screens, strict TypeScript types, and permission rules.
+:::
 
 ---
 

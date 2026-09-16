@@ -6,7 +6,10 @@ Understanding the architectural foundations and runtime execution model of `ddco
 
 ## 1. Lineage & Core Philosophy
 
-The design of `ddcore` (*Data Driven Core*) is inspired by the declarative model pioneered by the [Frappe Framework](https://frappeframework.com) (the foundation of ERPNext). 
+The design of `ddcore` (*Data Driven Core*) is inspired by the declarative model pioneered by the [Frappe Framework](https://frappeframework.com) (the foundation of ERPNext).
+
+### The Data-Driven Paradigm
+The name **ddcore** stands for **Data Driven Core**. It reflects the framework's foundational philosophy: instead of writing repetitive boilerplate for database migrations, REST endpoints, UI screens, form validations, and permission checks, the data definition itself (**DocType**) acts as the single engine that drives every layer of the application.
 
 In traditional application development, developers write repetitive code across multiple layers:
 1. Database DDL statements (tables, columns, foreign keys, indexes).
