@@ -8,6 +8,7 @@ export default defineConfig({
     'superpowers/**',
     'outreach-plan.md',
     'frappe-port-inventory.md',
+    'frappe-rest-gap-analysis.md',
     'frappe-implemented-features.md',
   ],
   ignoreDeadLinks: false,
