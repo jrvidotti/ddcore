@@ -37,6 +37,8 @@ export interface Boot {
       password?: boolean;
       providers?: { id: string; label: string }[];
     };
+    /** Present only while the site is paused (PRD-02). */
+    maintenance?: { enabled: boolean; reason?: string } | null;
   };
   loaded: number;
 }

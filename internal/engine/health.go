@@ -21,6 +21,9 @@ type Health struct {
 	Queue     *QueueHealth `json:"queue,omitempty"`
 	Errors    *ErrorHealth `json:"errors,omitempty"`
 	Scheduler SchedHealth  `json:"scheduler"`
+	// Maintenance is reported, never turned into a status: a paused site is a
+	// decision, and readiness failing would make an orchestrator undo it.
+	Maintenance *MaintenanceState `json:"maintenance,omitempty"`
 	// Warnings are rendered English sentences, not keys: they are read by an
 	// operator in a terminal or a JSON payload, never by the desk.
 	Warnings []string `json:"warnings,omitempty"`
@@ -113,6 +116,9 @@ func (e *Engine) Health(ctx context.Context, o HealthOpts) Health {
 		return h
 	}
 	h.Status = "ok"
+	if w := e.backupWarning(ctx); w != "" {
+		h.Warnings = append(h.Warnings, w)
+	}
 	if o.Queue {
 		q, err := e.QueueHealth(ctx, ops.Window())
 		if err != nil {

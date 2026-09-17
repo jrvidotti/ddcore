@@ -48,6 +48,24 @@ func exercise(t *testing.T, s Store) {
 	if err != nil || !bytes.Equal(got, body) {
 		t.Fatalf("ReadAll: %q %v", got, err)
 	}
+	listed := map[string]int64{}
+	if err := s.List(ctx, "private/", func(k string, info Info) error {
+		listed[k] = info.Size
+		return nil
+	}); err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if listed[key] != int64(len(body)) {
+		t.Fatalf("List did not return %s with its size: %v", key, listed)
+	}
+	if err := s.List(ctx, "public/", func(k string, _ Info) error {
+		if k == key {
+			t.Errorf("List(public/) returned %s", k)
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("List: %v", err)
+	}
 	if err := s.Delete(ctx, key); err != nil {
 		t.Fatal(err)
 	}

@@ -182,7 +182,8 @@ exactly like production, or the rehearsal is not a rehearsal.
     "jobRetentionDays": 7,
     "jobRetentionFailedDays": 30,
     "webhookRetentionDays": 30,
-    "auditRetentionDays": 0
+    "auditRetentionDays": 0,
+    "backupMaxAgeHours": 0
   }
 }
 ```
@@ -199,6 +200,10 @@ reading. There are four such windows — `jobRetentionDays`,
 `jobRetentionFailedDays`, `webhookRetentionDays` and `auditRetentionDays` — and
 only a negative retention window is refused.
 
+`backupMaxAgeHours` is the other zero-means-off field: when set, the health report
+and `doctor` warn once the newest successful `ddcore backup` is older than that
+many hours (see [backup.md](backup.md)).
+
 ## `ddcore doctor`
 
 ```
@@ -212,6 +217,10 @@ mail, outgoing webhooks (on or off, how many are enabled, retrying, and failed i
 the last day), the public URL, the session policy, the thresholds in force, and the
 **names** of the configured secrets — never their values, because this report
 gets pasted into issues and chat windows.
+
+It also reports maintenance mode (and warns while it is on), which core and app
+versions last migrated the database, and the newest `ddcore backup` with any
+failures since (see [backup.md](backup.md)).
 
 It also reports the vault: whether `DDCORE_SECRET_KEY` — the environment
 variable the vault's master encryption key is derived from — is configured,
@@ -357,6 +366,14 @@ read on the first PDF request and kept for the life of the process:
 With neither set, a local Chrome, Chromium, Brave or Edge is used if one is
 found; with none, the PDF endpoint answers 503. Changing either variable needs a
 restart. See [print.md](print.md).
+
+## Maintenance, backup and restore
+
+`ddcore maintenance on|off` pauses writes, workers and the scheduler on every
+process without failing readiness. `ddcore backup` and `ddcore restore` produce and
+consume a checksummed archive of the database, stored files and configuration.
+`ops.backupMaxAgeHours` turns on a health warning for a stale backup. See
+[backup.md](backup.md).
 
 ## What this does not do
 

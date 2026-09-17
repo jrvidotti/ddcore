@@ -118,7 +118,14 @@ You can containerize your application using Docker:
 ```dockerfile
 FROM debian:bookworm-slim
 
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl && rm -rf /var/lib/apt/lists/*
+# postgresql-client provides pg_dump/pg_restore for `ddcore backup` and `restore`;
+# its major version must be at least the server's (17 here)
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl gnupg \
+ && install -d /usr/share/postgresql-common/pgdg \
+ && curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+ && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
+ && apt-get update && apt-get install -y --no-install-recommends postgresql-client-17 \
+ && rm -rf /var/lib/apt/lists/*
 
 # Install latest ddcore binary
 RUN curl -fsSL https://raw.githubusercontent.com/jrvidotti/ddcore/main/install.sh | sh
@@ -128,7 +135,7 @@ COPY ddcore.json ./
 COPY apps/ ./apps/
 
 EXPOSE 8090
-CMD ["ddcore", "run"]
+CMD ["ddcore", "start"]
 ```
 
 ### Example `docker-compose.yml`:
@@ -214,16 +221,27 @@ For more details on logging, queue telemetry, and request correlation IDs, see t
 
 ## 7. Backup & Disaster Recovery
 
-Because all application state and metadata reside in PostgreSQL:
+`ddcore backup` writes one checksummed archive holding the database (`pg_dump`), every
+stored file (local or S3), the configuration and the core/app versions. Secrets are
+never included: provision `DDCORE_SECRET_KEY`, `DDCORE_SECRET_*`, SMTP and S3
+credentials on the restore target separately.
 
-### Database Backup
 ```bash
-pg_dump -Fc -U ddcore -h localhost ddcore_prod > ddcore_backup_$(date +%Y%m%d_%H%M%S).dump
+# nightly, from cron or a systemd timer; --to s3 copies it off the machine
+ddcore backup --to s3 --keep 14
+
+# a controlled cutover: pause writes and jobs for a consistent archive
+ddcore backup --maintenance --to s3
 ```
 
-### Database Restore
+Restore into an isolated, empty database and data directory, verify, and time it:
+
 ```bash
-pg_restore -c -U ddcore -h localhost -d ddcore_prod ddcore_backup_20260916_120000.dump
+DDCORE_DSN=postgres://ddcore:…@localhost/ddcore_drill DDCORE_DATA_DIR=/srv/drill \
+  ddcore restore s3:ddcore-20260917-020000.tar --smoke
 ```
 
-Store backups in off-site encrypted object storage (e.g. AWS S3 or Cloudflare R2) and test restoration periodically.
+The restored site stays in maintenance mode until `ddcore maintenance off`. The
+host or image needs `pg_dump`/`pg_restore` at least as new as the server. See the
+[backup, restore and maintenance reference](/agent/backup) for the archive format,
+rollback with `--allow-older-binary`, and the cutover runbook.

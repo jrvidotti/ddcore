@@ -395,6 +395,9 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := c.checkWritable(d.Name); err != nil {
+		return nil, err
+	}
 	if d.IsChild {
 		return nil, cerr.Validation("{0} is a child table", d.Name)
 	}
@@ -546,6 +549,9 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 	}
 	d, err := c.St.DocType(doc.DocType())
 	if err != nil {
+		return nil, err
+	}
+	if err := c.checkWritable(d.Name); err != nil {
 		return nil, err
 	}
 	if d.Name == "Audit Event" {
@@ -843,6 +849,9 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 	if err != nil {
 		return modified, err
 	}
+	if err := c.checkWritable(d.Name); err != nil {
+		return modified, err
+	}
 	if d.Name == "Audit Event" {
 		return modified, cerr.Permission("Audit Event records are immutable and cannot be modified")
 	}
@@ -1023,6 +1032,9 @@ func (c *Ctx) Delete(doctype, name string, ignorePerms, force bool) error {
 	if err != nil {
 		return err
 	}
+	if err := c.checkWritable(d.Name); err != nil {
+		return err
+	}
 	if doctype == "Audit Event" {
 		return cerr.Permission("Audit Event records are immutable and cannot be deleted")
 	}
@@ -1170,6 +1182,9 @@ func (c *Ctx) Delete(doctype, name string, ignorePerms, force bool) error {
 func (c *Ctx) Rename(doctype, oldName, newName string) (string, error) {
 	d, err := c.St.DocType(doctype)
 	if err != nil {
+		return "", err
+	}
+	if err := c.checkWritable(d.Name); err != nil {
 		return "", err
 	}
 	if d.IsSingle {

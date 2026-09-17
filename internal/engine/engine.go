@@ -87,6 +87,13 @@ type Config struct {
 	// OIDC lists the single sign-on providers. Their callback addresses are
 	// built from SiteURL.
 	OIDC []config.OIDCProvider
+	// EnforceMaintenance makes this process honour maintenance mode: refuse
+	// writes, stop claiming jobs, skip scheduled runs. A server sets it; the
+	// CLI does not, and that is the bypass an operator works through.
+	EnforceMaintenance bool
+	// AllowOlderBinary lets this binary open a database a newer core or app
+	// version migrated — the deliberate rollback. See CheckSiteVersion.
+	AllowOlderBinary bool
 }
 
 // AppMeta is what defineApp produced, minus functions.
@@ -220,6 +227,7 @@ type Engine struct {
 	// oidc caches discovered providers; see oidcClientFor.
 	oidcMu sync.Mutex
 	oidc   map[string]*oidcClient
+	maint  maintenanceCache
 }
 
 // Storage is where the bytes of File documents are kept.
@@ -283,6 +291,12 @@ func New(ctx context.Context, cfg Config) (*Engine, error) {
 	}
 	if err := e.Load(); err != nil {
 		return nil, err
+	}
+	if e.DB != nil {
+		if err := e.CheckSiteVersion(ctx); err != nil {
+			e.DB.Close()
+			return nil, err
+		}
 	}
 	return e, nil
 }

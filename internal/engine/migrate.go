@@ -57,6 +57,9 @@ func (e *Engine) Migrate(ctx context.Context, prune bool) (*MigrateResult, error
 	res := &MigrateResult{}
 	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
 		c.Flags["ignorePermissions"] = true
+		// a migration is exactly the work a maintenance window is opened for,
+		// including the one `dev --auto-migrate` runs inside a server
+		c.Flags[bypassMaintenanceFlag] = true
 		if err := db.EnsureInternal(ctx, c.Tx); err != nil {
 			return err
 		}
@@ -110,7 +113,7 @@ func (e *Engine) Migrate(ctx context.Context, prune bool) (*MigrateResult, error
 				}
 			}
 		}
-		return nil
+		return c.recordSiteVersion()
 	})
 	if err != nil {
 		return nil, err

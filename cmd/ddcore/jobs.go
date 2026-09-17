@@ -90,6 +90,7 @@ func withEngine(fn func(*engine.Engine, context.Context) error) error {
 }
 
 func jobsWork() error {
+	enforceMaintenance = true
 	e, cfg, err := load(false, false)
 	if err != nil {
 		return err

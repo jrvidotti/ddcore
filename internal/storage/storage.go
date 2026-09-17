@@ -42,6 +42,9 @@ type Store interface {
 	// Serve answers a download request for an object whose permission check
 	// the caller has already made.
 	Serve(w http.ResponseWriter, r *http.Request, key string, s Serving) error
+	// List calls fn for every object whose key starts with prefix, in no
+	// particular order. It is how a backup reaches bytes no File row names.
+	List(ctx context.Context, prefix string, fn func(key string, info Info) error) error
 	// Backend names the store for logs and `ddcore doctor`.
 	Backend() string
 }

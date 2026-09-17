@@ -73,6 +73,9 @@ type File struct {
 	Storage Storage `json:"-"`
 	// OIDC lists the single sign-on providers, from the environment only.
 	OIDC []OIDCProvider `json:"-"`
+	// Backup comes from the environment only, like Storage, whose bucket it
+	// borrows when it is given none of its own.
+	Backup Backup `json:"-"`
 }
 
 // LoginPage is served by the public /api/boot to anyone who opens the site,
@@ -156,6 +159,9 @@ func Load(dir string) (*File, string, error) {
 	if f.OIDC, err = oidcFromEnv(); err != nil {
 		return nil, "", err
 	}
+	if f.Backup, err = backupFromEnv(f.Storage); err != nil {
+		return nil, "", err
+	}
 	base := filepath.Dir(path)
 	for i, a := range f.Apps {
 		if !filepath.IsAbs(a) {
@@ -185,10 +191,18 @@ func Load(dir string) (*File, string, error) {
 	if err := f.Ops.validate(); err != nil {
 		return nil, "", fmt.Errorf("%s: %w", path, err)
 	}
+	// DDCORE_DATA_DIR moves uploads and local backups per deployment — a
+	// restore drill beside production needs a data directory of its own
+	f.DataDir = env("DDCORE_DATA_DIR", f.DataDir)
 	if f.DataDir == "" {
 		f.DataDir = filepath.Join(base, "data")
 	} else if !filepath.IsAbs(f.DataDir) {
 		f.DataDir = filepath.Join(base, f.DataDir)
+	}
+	if f.Backup.Dir == "" {
+		f.Backup.Dir = filepath.Join(f.DataDir, "backups")
+	} else if !filepath.IsAbs(f.Backup.Dir) {
+		f.Backup.Dir = filepath.Join(base, f.Backup.Dir)
 	}
 	return f, path, nil
 }

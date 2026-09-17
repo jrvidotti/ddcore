@@ -11,7 +11,7 @@ import (
 )
 
 // InternalSchema are the framework tables that are not DocTypes.
-const InternalSchema = `
+var InternalSchema = `
 CREATE TABLE IF NOT EXISTS ddcore_notification (
   name text PRIMARY KEY, rule text NOT NULL, recipient text NOT NULL,
   reference_doctype text NOT NULL, reference_name text NOT NULL, identity text NOT NULL,
@@ -89,6 +89,22 @@ CREATE INDEX IF NOT EXISTS ddcore_user_identity_user ON ddcore_user_identity("us
 CREATE TABLE IF NOT EXISTS ddcore_vault (
   name text PRIMARY KEY, ciphertext bytea NOT NULL, nonce bytea NOT NULL,
   created timestamptz NOT NULL DEFAULT now(), updated timestamptz NOT NULL DEFAULT now());
+` + OpsSchema
+
+// OpsSchema holds the operational ledgers (PRD-01/PRD-02). It is separate from
+// InternalSchema because maintenance and backup commands create it on a
+// database that may never have been migrated by this binary.
+const OpsSchema = `
+CREATE TABLE IF NOT EXISTS ddcore_site_version (
+  id bigserial PRIMARY KEY, migrated timestamptz NOT NULL DEFAULT now(),
+  core text NOT NULL, apps jsonb NOT NULL DEFAULT '{}');
+CREATE TABLE IF NOT EXISTS ddcore_maintenance (
+  id int PRIMARY KEY DEFAULT 1 CHECK (id = 1), enabled boolean NOT NULL DEFAULT false,
+  reason text NOT NULL DEFAULT '', since timestamptz, actor text NOT NULL DEFAULT '');
+CREATE TABLE IF NOT EXISTS ddcore_backup_log (
+  id bigserial PRIMARY KEY, kind text NOT NULL DEFAULT 'backup', started timestamptz NOT NULL,
+  finished timestamptz, location text NOT NULL DEFAULT '', bytes bigint NOT NULL DEFAULT 0,
+  ok boolean NOT NULL DEFAULT false, error text NOT NULL DEFAULT '');
 `
 
 type column struct {
@@ -857,5 +873,12 @@ func Apply(ctx context.Context, q Querier, sts []Statement) error {
 // anything else in a migration runs, patches included.
 func EnsureInternal(ctx context.Context, q Querier) error {
 	_, err := q.Exec(ctx, InternalSchema)
+	return err
+}
+
+// EnsureOps creates only the operational ledgers. Maintenance, backup and
+// restore call it so they work on a database migrated by an older binary.
+func EnsureOps(ctx context.Context, q Querier) error {
+	_, err := q.Exec(ctx, OpsSchema)
 	return err
 }
