@@ -95,6 +95,7 @@ export function getShortcutsList(mac?: boolean): ShortcutGroup[] {
     {
       category: __("Navigation & modals"),
       shortcuts: [
+        { keys: [mod, "K"], description: __("Search documents and DocTypes") },
         { keys: ["?"], description: __("Show this shortcuts window") },
         { keys: [mod, "/"], description: __("Show this shortcuts window") },
         { keys: ["Esc"], description: __("Close modals, menus or dialogs") },

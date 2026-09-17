@@ -11,7 +11,7 @@ import { addDays, addMonths, monthEnd, monthStart, today } from "./datetime";
 import { getRememberedWorkspace } from "./components/sidebar-workspace";
 
 export type BaseDoc = Record<string, any>;
-export type DeskViewMode = "list" | "calendar" | "cards";
+export type DeskViewMode = "list" | "calendar" | "cards" | "kanban" | "gantt";
 
 export interface CalendarViewOptions<T extends BaseDoc = BaseDoc> {
   /** Required: Date or Datetime field to plot records on the calendar */
@@ -32,11 +32,39 @@ export interface CardViewOptions<T extends BaseDoc = BaseDoc> {
   badges?: (row: T) => { label: string; color: string }[] | null | undefined;
 }
 
+export interface KanbanViewOptions<T extends BaseDoc = BaseDoc> {
+  /** Required: the Select field whose values are the columns; dragging a card writes it. */
+  field: keyof T & string;
+  /** Columns in order; defaults to the field's options. */
+  columns?: string[];
+  /** Field shown as the card title (defaults to titleField or name) */
+  titleField?: keyof T & string;
+  /** Field shown under the title */
+  subtitleField?: keyof T & string;
+  /** Field determining the card's indicator color (defaults to the column field) */
+  colorField?: keyof T & string;
+}
+
+export interface GanttViewOptions<T extends BaseDoc = BaseDoc> {
+  /** Required: Date or Datetime field where a bar starts */
+  startField: keyof T & string;
+  /** Required: Date or Datetime field where a bar ends; rows without one are not drawn */
+  endField: keyof T & string;
+  /** Field shown as the row label (defaults to titleField or name) */
+  titleField?: keyof T & string;
+  /** Field determining bar color (e.g. "status", uses optionColors automatically) */
+  colorField?: keyof T & string;
+  /** Numeric field from 0 to 100 drawn as progress inside the bar */
+  progressField?: keyof T & string;
+}
+
 export interface ListViewOptions<T extends BaseDoc = BaseDoc> {
-  /** Allowed views for this DocType; defaults to ["list", "cards"] (or ["list", "calendar", "cards"] when calendar is defined) */
+  /** Allowed views for this DocType; defaults to ["list", "cards"] plus "calendar", "kanban" and "gantt" for each one configured */
   views?: DeskViewMode[];
   calendar?: CalendarViewOptions<T>;
   card?: CardViewOptions<T>;
+  kanban?: KanbanViewOptions<T>;
+  gantt?: GanttViewOptions<T>;
   columns?: (keyof T & string)[];
   filters?: Partial<Record<keyof T & string, any>>;
   orderBy?: string;
@@ -65,6 +93,7 @@ export const deskSDK = {
     notifications: api.notifications,
     assignments: api.assignments,
     shares: api.shares,
+    search: { global: (txt: string, limit?: number) => api.globalSearch(txt, limit) },
     db: {
       getValue: async (doctype: string, name: string | Record<string, any>, field: string | string[]) => {
         const fields = Array.isArray(field) ? field : [field];

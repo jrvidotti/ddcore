@@ -1,6 +1,7 @@
 <script lang="ts">
   import { boot, __, isLoggedIn, siteName, siteLogo } from "$lib/boot.svelte";
-  import { openShortcutsHelp } from "$lib/shortcuts.svelte";
+  import { openShortcutsHelp, openSearch } from "$lib/shortcuts.svelte";
+  import { getModifierKey } from "$lib/shortcuts";
   import Icon from "./Icon.svelte";
   import { page } from "$app/state";
   import { api } from "$lib/api";
@@ -126,6 +127,9 @@
     </div>
   {/if}
   <nav>
+    <button class="search-btn" type="button" onclick={() => { if (typeof window !== "undefined" && window.innerWidth <= 800) open = false; openSearch(); }}>
+      <Icon name="search" /><span>{__("Search")}</span><kbd class="kbd">{getModifierKey()} K</kbd>
+    </button>
     <a href="/app/notifications" class:active={active("/app/notifications")}>
       <Icon name="bell" /><span>{__("Notifications")}</span>
       {#if notifications.unread > 0}<span class="notification-count" aria-label={__("{0} unread notifications", [notifications.unread])}>{notifications.unread}</span>{/if}
@@ -196,6 +200,10 @@
   .workspace-static-header { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 13px; font-weight: 600; color: var(--text); }
   nav { flex: 1; overflow: auto; padding: 8px; }
   nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--text); font-size: 13px; }
+  .search-btn { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 10px; margin-bottom: 4px; border: 1px solid var(--border); border-radius: 6px; background: #fafafa; color: var(--muted); font-size: 13px; cursor: pointer; text-align: left; }
+  .search-btn span { flex: 1; }
+  .search-btn:hover { background: #f3f4f6; }
+  .search-btn .kbd { font-size: 11px; }
   nav a:hover { background: #f3f4f6; text-decoration: none; }
   nav a.active { background: #eff6ff; color: var(--primary); font-weight: 500; }
   .notification-count { margin-left: auto; border-radius: 12px; padding: 1px 7px; background: var(--primary); color: white; font-size: 11px; }
