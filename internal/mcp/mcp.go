@@ -69,11 +69,11 @@ func fail(err error) (*mcp.CallToolResult, any, error) {
 	msg := e.Error()
 	switch e.Type {
 	case "DoesNotExistError":
-		msg += "\nDica: use list_doctypes / list_docs para ver o que existe."
+		msg += "\nHint: use list_doctypes / list_docs to see what exists."
 	case "PermissionError":
-		msg += "\nDica: o MCP roda como Administrator; verifique o DocType e o campo."
+		msg += "\nHint: the MCP server runs as Administrator; check the DocType and the field."
 	case "ScriptError":
-		msg += "\nDica: erro no TS do app; veja o stack acima e corrija o arquivo."
+		msg += "\nHint: an error in the app's TypeScript; read the stack above and fix the file."
 	}
 	if strings.Contains(msg, "column") && strings.Contains(msg, "does not exist") {
 		msg += "\nHint: a column is pending — run the migrate tool."
