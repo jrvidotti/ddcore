@@ -14,7 +14,8 @@ Available documents (also as MCP resources `ddcore://docs/<name>`):
 - `scopes` — user access scopes (`User Permission`): restricting users to companies, units or customers across every read and write path
 - `sharing` — document sharing (`Document Share`): per-user read/write/share grants on one document, scope override, audit
 - `controller-api` — `defineController`, hooks, methods, the server's `ddcore.*` API
-- `form-api` — `defineForm`, `frm.*`, dialogs (desk)
+- `form-api` — `defineForm`, `frm.*`, dialogs, `defineListView` and its Calendar, Kanban, Gantt and Card views (desk)
+- `search` — global search: the Mod+K palette, which DocTypes are searched (`globalSearch`), ranking and authorization
 - `report-api` — `defineReport`, `defineWorkspace`, cards and charts
 - `extending` — adding fields to, and overriding properties of, another app's DocTypes
 - `mail` — mail templates, blocks, attachments and the delivery record

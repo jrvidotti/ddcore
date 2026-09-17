@@ -18,12 +18,12 @@ describe("gantt window", () => {
 
   it("builds day, week and month windows", () => {
     const day = ganttWindow("2026-09-17", "day");
-    expect([day.start, day.end, day.days, day.columns.length]).toEqual(["2026-09-13", "2026-10-03", 21, 21]);
+    expect([day.start, day.end, day.days, day.columns.length]).toEqual(["2026-09-06", "2026-09-26", 21, 21]);
     const week = ganttWindow("2026-09-17", "week");
-    expect([week.start, week.end, week.days, week.columns[1].start]).toEqual(["2026-09-13", "2026-12-05", 84, "2026-09-20"]);
+    expect([week.start, week.end, week.days, week.columns[1].start]).toEqual(["2026-09-06", "2026-11-28", 84, "2026-09-13"]);
     const month = ganttWindow("2026-09-17", "month");
-    expect([month.start, month.end, month.days]).toEqual(["2026-09-01", "2027-08-31", 365]);
-    expect(month.columns.map((c) => c.days).slice(0, 3)).toEqual([30, 31, 30]);
+    expect([month.start, month.end, month.days]).toEqual(["2026-08-01", "2027-07-31", 365]);
+    expect(month.columns.map((c) => c.days).slice(0, 3)).toEqual([31, 30, 31]);
   });
 
   it("moves the anchor by a step of each scale", () => {
@@ -35,16 +35,16 @@ describe("gantt window", () => {
   it("queries the rows overlapping the window", () => {
     const win = ganttWindow("2026-09-17", "day");
     expect(ganttRangeFilters("start_date", "due_date", fields, win)).toEqual([
-      ["start_date", "<=", "2026-10-03"],
-      ["due_date", ">=", "2026-09-13"],
+      ["start_date", "<=", "2026-09-26"],
+      ["due_date", ">=", "2026-09-06"],
     ]);
     const [, end] = ganttRangeFilters("start_date", "ends_at", fields, win, "UTC");
-    expect(end).toEqual(["ends_at", ">=", "2026-09-13T00:00:00.000Z"]);
+    expect(end).toEqual(["ends_at", ">=", "2026-09-06T00:00:00.000Z"]);
   });
 });
 
 describe("gantt bars", () => {
-  const win = ganttWindow("2026-09-17", "day"); // 2026-09-13 .. 2026-10-03, 21 days
+  const win = ganttWindow("2026-09-24", "day"); // 2026-09-13 .. 2026-10-03, 21 days
 
   it("places a bar inside the window", () => {
     const bar = ganttBar({ start_date: "2026-09-14", due_date: "2026-09-20", progress: 40 }, opts, fields, win)!;

@@ -50,10 +50,13 @@ export function weekStart(d: string): string {
   return addDays(d, -dow);
 }
 
-/** The window a scale shows around an anchor day: it starts at the anchor's week (or month). */
+/**
+ * The window a scale shows around an anchor day: it starts one week (or one
+ * month) before the anchor's, so work that began just before it stays in view.
+ */
 export function ganttWindow(anchor: string, scale: GanttScale): GanttWindow {
   const columns: GanttColumn[] = [];
-  let cursor = scale === "month" ? monthStart(anchor) : weekStart(anchor);
+  let cursor = scale === "month" ? addMonths(monthStart(anchor), -1) : addDays(weekStart(anchor), -7);
   for (let i = 0; i < COLUMNS[scale]; i++) {
     const next = scale === "day" ? addDays(cursor, 1) : scale === "week" ? addDays(cursor, 7) : addMonths(cursor, 1);
     columns.push({ start: cursor, days: dayDiff(cursor, next) });

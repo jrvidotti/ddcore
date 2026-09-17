@@ -28,6 +28,12 @@
   let dragging = $state("");
   let over = $state<string | null>(null);
 
+  function colorLabel(row: any): string {
+    const v = String(row[kanban.colorField!]);
+    if (colorField?.fieldtype !== "Select") return v;
+    const i = selectOptions(colorField).indexOf(v);
+    return i >= 0 ? selectLabels(colorField)[i] : v;
+  }
   function subtitle(row: any): string {
     if (!subtitleField) return "";
     const v = row[subtitleField.fieldname!];
@@ -92,7 +98,7 @@
             <span class="title">{row[titleField] || row.name}</span>
             {#if subtitle(row)}<span class="muted small">{subtitle(row)}</span>{/if}
             {#if kanban.colorField && kanban.colorField !== kanban.field && row[kanban.colorField]}
-              <span class="indicator {statusColor(row[kanban.colorField], colorField)} small">{__(String(row[kanban.colorField]))}</span>
+              <span class="indicator {statusColor(row[kanban.colorField], colorField)} small">{colorLabel(row)}</span>
             {/if}
           </a>
         {/each}

@@ -172,6 +172,42 @@ divider to that field's standard filter; choosing one sends its `filters` instea
 the URL carries its `value` (`?status=overdue`). Filters only reach columns, so a sub-state computed
 from other documents has to be stored on the document to be filterable.
 
+### Views: Calendar, Kanban, Gantt and Cards
+
+Besides the table, a list can offer other views of the same filtered rows. A segmented switcher in
+the list header shows the views, and the choice is kept in the URL (`?view=kanban`) and per DocType
+in the browser. Each view appears once it is configured. `views` sets the order, or a subset:
+
+```ts
+defineListView<Task>("Task", {
+  views: ["list", "calendar", "kanban", "gantt", "cards"], // default: list, then each configured view, then cards
+  calendar: { field: "due_date", endField: "completed_at", titleField: "title", colorField: "status" },
+  kanban: { field: "priority", columns: ["High", "Medium", "Low"], titleField: "title", subtitleField: "project", colorField: "status" },
+  gantt: { startField: "start_date", endField: "due_date", titleField: "title", colorField: "status", progressField: "percent_done" },
+  card: { title: "title", subtitle: "project", dateField: "due_date" },
+});
+```
+
+- **Cards** is the default on a phone.
+- **Calendar** plots each row on the day of `field` (Date or Datetime) and loads the visible month.
+- **Kanban** makes a column of each value of a **Select** `field`.
+  - Columns follow `columns` or the field's options, with their translated labels and `optionColors`.
+  - A value outside those still gets a column, so no card is hidden, and rows with no value go to "(empty)".
+  - Dragging a card to another column saves the field at once, sending the row's `modified`, so a
+    stale card is refused. The card moves back if the server refuses the save (permission, workflow,
+    validation, or a concurrent change).
+  - Cards are draggable only when the user may write the DocType and the field is not read-only
+    (declared, or above the user's permission level); submitted documents never move.
+  - Group by a field the user edits: a field a controller computes is usually `readOnly`, and its
+    board is read-only.
+- **Gantt** draws a bar from `startField` to `endField` (Date or Datetime; `creation` works too).
+  - Scales are Day, Week and Month, with previous, today and next navigation; clicking a bar opens the document.
+  - The view loads only rows overlapping the window, and a row without an end date is not drawn.
+  - `progressField` (0–100) shades the bar. The view is read-only: bars are not dragged.
+
+Kanban, Gantt and Calendar load up to 500 rows matching the filters instead of a page. When more
+match, Kanban and Gantt say so and ask for narrower filters.
+
 A DocType may have **several** form scripts: its owner's `<snake>.form.ts`, plus one per app extending it
 (`extensions/<snake>.form.ts` — see `extending`). Their handlers accumulate, in app load order; every `refresh`,
 `validate` and `onChange` runs. `defineListView` is the exception: one per DocType, and the last registration wins.
