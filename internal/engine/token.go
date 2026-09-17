@@ -176,5 +176,11 @@ func (e *Engine) SweepAuth(ctx context.Context) (SweepCounts, error) {
 		return n, err
 	}
 	n.Attempts = int(tag.RowsAffected())
+
+	// A sign-in state is worthless the moment it expires, and nothing reads
+	// an old one.
+	if _, err := e.DB.Pool.Exec(ctx, `DELETE FROM ddcore_oidc_state WHERE expires < now()`); err != nil {
+		return n, err
+	}
 	return n, nil
 }

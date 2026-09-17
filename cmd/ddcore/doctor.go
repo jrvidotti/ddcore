@@ -62,6 +62,7 @@ type doctorReport struct {
 	URL       string              `json:"url"`
 	URLSet    bool                `json:"urlConfigured"`
 	Sessions  sessionSection      `json:"sessions"`
+	SSO       ssoSection          `json:"sso"`
 	Ops       config.OpsPolicy    `json:"ops"`
 	// Secrets are names. A doctor report is pasted into issues and chat
 	// windows, and a secret that reaches one of those has to be rotated.
@@ -70,6 +71,20 @@ type doctorReport struct {
 	Webhooks *engine.WebhookStatus `json:"webhooks,omitempty"`
 	Critical []string              `json:"critical,omitempty"`
 	Warnings []string              `json:"warnings,omitempty"`
+}
+
+// ssoSection names the providers and whether each answered discovery — never
+// a client id or secret.
+type ssoSection struct {
+	PasswordLogin bool          `json:"passwordLogin"`
+	Providers     []ssoProvider `json:"providers"`
+}
+
+type ssoProvider struct {
+	ID       string `json:"id"`
+	Issuer   string `json:"issuer"`
+	Callback string `json:"callback"`
+	Error    string `json:"error,omitempty"`
 }
 
 type vaultSection struct {
@@ -154,6 +169,7 @@ func gatherDoctor(ctx context.Context, cfg *config.File, windowMin int) *doctorR
 		URL: cfg.PublicURL(), URLSet: cfg.HasPublicURL(), Ops: cfg.Ops,
 		Sessions: sessionSection{cfg.Auth.SessionDays, cfg.Auth.MaxLoginAttempts, cfg.Auth.LockoutMinutes},
 		Secrets:  []string{},
+		SSO:      ssoSection{PasswordLogin: cfg.Auth.AllowPasswordLogin(), Providers: []ssoProvider{}},
 	}
 	rep.Database = db.Probe(ctx, cfg.DSN, cfg.Ops.ReadyTimeout())
 	if !rep.Database.OK {
@@ -235,6 +251,19 @@ func gatherDoctor(ctx context.Context, cfg *config.File, windowMin int) *doctorR
 		}
 	} else {
 		rep.Warnings = append(rep.Warnings, "renames could not be read: "+db.RedactError(err))
+	}
+
+	for _, p := range cfg.OIDC {
+		sp := ssoProvider{ID: p.ID, Issuer: p.Issuer, Callback: e.OIDCCallbackURL(p.ID)}
+		// A provider that does not answer is a warning, not a failure: the
+		// site still serves everyone who signs in some other way.
+		dctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		if err := e.OIDCDiscover(dctx, p.ID); err != nil {
+			sp.Error = err.Error()
+			rep.Warnings = append(rep.Warnings, fmt.Sprintf("sso: provider %s did not answer discovery: %s", p.ID, err))
+		}
+		cancel()
+		rep.SSO.Providers = append(rep.SSO.Providers, sp)
 	}
 
 	if ws, err := e.WebhookStatus(ctx); err == nil {
@@ -372,6 +401,19 @@ func (r *doctorReport) printTail(w io.Writer, p func(string, string, ...any)) {
 	p("url", "%s", url)
 	p("sessions", "%d day(s), lockout after %d failed attempts for %d minute(s)",
 		r.Sessions.Days, r.Sessions.MaxLoginAttempts, r.Sessions.LockoutMinutes)
+	if len(r.SSO.Providers) == 0 {
+		p("sso", "no providers")
+	} else {
+		ids := make([]string, 0, len(r.SSO.Providers))
+		for _, x := range r.SSO.Providers {
+			ids = append(ids, x.ID)
+		}
+		pw := "password sign-in on"
+		if !r.SSO.PasswordLogin {
+			pw = "password sign-in off (Administrator only)"
+		}
+		p("sso", "%s; %s", strings.Join(ids, ", "), pw)
+	}
 	p("ops", "backlog %d, age %ds, %d failure(s)/%dm, %d error(s)/%dm",
 		r.Ops.QueueBacklog, r.Ops.QueueAgeSeconds, r.Ops.JobFailures, r.Ops.WindowMinutes,
 		r.Ops.ErrorLogEntries, r.Ops.WindowMinutes)

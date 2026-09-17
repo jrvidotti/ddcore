@@ -73,6 +73,19 @@ CREATE TABLE IF NOT EXISTS ddcore_auth_token (
   used timestamptz, created_by text, ip text);
 CREATE INDEX IF NOT EXISTS ddcore_auth_token_user ON ddcore_auth_token("user", kind);
 CREATE INDEX IF NOT EXISTS ddcore_auth_token_expires ON ddcore_auth_token(expires);
+-- Single sign-on. A state row lives for the ten minutes between sending the
+-- browser to the provider and its return, and is spent once. An identity binds
+-- a provider's stable subject to a User, so a later change of address at the
+-- provider does not move the person to another account.
+CREATE TABLE IF NOT EXISTS ddcore_oidc_state (
+  state_hash text PRIMARY KEY, provider text NOT NULL, nonce text NOT NULL, verifier text NOT NULL,
+  redirect text NOT NULL DEFAULT '', ip text, created timestamptz NOT NULL DEFAULT now(), expires timestamptz NOT NULL);
+CREATE INDEX IF NOT EXISTS ddcore_oidc_state_expires ON ddcore_oidc_state(expires);
+CREATE TABLE IF NOT EXISTS ddcore_user_identity (
+  provider text NOT NULL, subject text NOT NULL, "user" text NOT NULL, email text NOT NULL DEFAULT '',
+  created timestamptz NOT NULL DEFAULT now(), last_login timestamptz,
+  PRIMARY KEY (provider, subject));
+CREATE INDEX IF NOT EXISTS ddcore_user_identity_user ON ddcore_user_identity("user");
 CREATE TABLE IF NOT EXISTS ddcore_vault (
   name text PRIMARY KEY, ciphertext bytea NOT NULL, nonce bytea NOT NULL,
   created timestamptz NOT NULL DEFAULT now(), updated timestamptz NOT NULL DEFAULT now());

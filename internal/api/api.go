@@ -70,6 +70,9 @@ func New(e *engine.Engine, desk fs.FS) *Server {
 		r.Post("/auth/token", s.authToken)
 		r.Post("/auth/reset-password", s.resetPassword)
 		r.Post("/auth/accept-invite", s.acceptInvite)
+		// Single sign-on: redirects, not JSON. See oidc.go.
+		r.Get("/auth/oidc/{provider}/start", s.oidcStart)
+		r.Get("/auth/oidc/{provider}/callback", s.oidcCallback)
 		r.Get("/boot", s.boot)
 		r.Get("/meta/{doctype}", s.getMeta)
 		r.Get("/translations", s.translations)
@@ -503,8 +506,14 @@ func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 // loginPage is what the sign-in screen offers before anyone signs in. The
 // notice is the operator's own sentence and goes out as written, not as a
 // catalogue key. Empty fields are left out so the desk tests for presence.
-func loginPage(l config.LoginPage) map[string]any {
-	out := map[string]any{}
+func loginPage(l config.LoginPage, auth config.AuthPolicy, sso []config.OIDCProvider) map[string]any {
+	// id and label only: the issuer and the client id are not secrets, but
+	// nothing on the sign-in screen needs them either
+	providers := []map[string]any{}
+	for _, p := range sso {
+		providers = append(providers, map[string]any{"id": p.ID, "label": p.Label})
+	}
+	out := map[string]any{"password": auth.AllowPasswordLogin(), "providers": providers}
 	if l.Notice != "" {
 		out["notice"] = l.Notice
 	}
@@ -580,7 +589,7 @@ func (s *Server) boot(w http.ResponseWriter, r *http.Request) {
 				// is the bug nobody finds until a JPY invoice is off by a yen
 				"currencyPrecision": s.E.CurrencyPrecision(), "rounding": s.E.Cfg.Rounding.String(),
 				"timezone": s.E.Cfg.Timezone, "dev": s.E.Cfg.Dev, "scheduler": s.E.Cfg.Scheduler, "version": engine.Version,
-				"login": loginPage(s.E.Cfg.Login),
+				"login": loginPage(s.E.Cfg.Login, s.E.Cfg.Auth, s.E.Cfg.OIDC),
 			},
 			"loaded": s.E.Loaded.UnixMilli(),
 		}, nil

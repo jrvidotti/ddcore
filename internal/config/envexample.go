@@ -37,6 +37,27 @@ const EnvExample = `# ddcore — the environment this site runs in.
 # DDCORE_LOGIN_DEMO_USER=visitor@example.com
 # DDCORE_LOGIN_DEMO_PASSWORD=
 
+# --- single sign-on ----------------------------------------------------------
+# Sign in through an OpenID Connect provider — Google, a self-hosted PocketID,
+# or any other. Nobody gets an account this way: the provider's verified e-mail
+# must already belong to a User (invite them first). Needs DDCORE_URL, since the
+# callback registered at the provider is <DDCORE_URL>/api/auth/oidc/<id>/callback.
+# To allow single sign-on only, set "auth": {"passwordLogin": false} in
+# ddcore.json; Administrator keeps a password either way.
+# DDCORE_OIDC_PROVIDERS=google,pocketid
+
+# Google: the issuer defaults to https://accounts.google.com.
+# DDCORE_OIDC_GOOGLE_CLIENT_ID=
+# DDCORE_OIDC_GOOGLE_CLIENT_SECRET=
+# DDCORE_OIDC_GOOGLE_ALLOWED_DOMAINS=example.com   # optional, comma-separated
+
+# PocketID (or any other provider): the issuer is required.
+# DDCORE_OIDC_POCKETID_ISSUER=https://id.example.com
+# DDCORE_OIDC_POCKETID_CLIENT_ID=
+# DDCORE_OIDC_POCKETID_CLIENT_SECRET=
+# DDCORE_OIDC_POCKETID_LABEL=PocketID               # the button's text
+# DDCORE_OIDC_POCKETID_SCOPES=openid email profile
+
 # --- logging -----------------------------------------------------------------
 # The log's shape is a property of where the process runs, not of the site: a
 # terminal reads text, a platform that ships stdout to a collector needs

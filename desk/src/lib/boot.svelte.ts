@@ -31,7 +31,12 @@ export interface Boot {
     // invoice is off by a yen
     currencyPrecision?: number; rounding?: "commercial" | "bankers";
     /** What the sign-in screen offers a visitor; each field only when configured. */
-    login?: { notice?: string; demoUser?: string; demoPassword?: string };
+    login?: {
+      notice?: string; demoUser?: string; demoPassword?: string;
+      /** false when the site signs people in through single sign-on only */
+      password?: boolean;
+      providers?: { id: string; label: string }[];
+    };
   };
   loaded: number;
 }

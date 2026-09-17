@@ -99,16 +99,29 @@ func (e *Engine) login(ctx context.Context, user, password string, from LoginFro
 			return cerr.Auth("User is disabled")
 		}
 		name := db.Str(rows[0]["name"])
-		sid = RandomToken()
-		if _, err := c.Tx.Exec(ctx, `INSERT INTO ddcore_session (sid, "user", expires, ip, user_agent)
-			VALUES ($1, $2, now() + $3::interval, $4, $5)`,
-			sid, name, intervalOf(e.Cfg.Auth.SessionTTL()), from.IP, truncate(from.UserAgent, 400)); err != nil {
-			return err
+		if !e.Cfg.Auth.AllowPasswordLogin() && name != "Administrator" {
+			// After the password, for the same reason as "disabled" above.
+			return cerr.Auth("Password sign-in is disabled. Use single sign-on.")
 		}
-		_, err = c.Tx.Exec(ctx, `UPDATE tab_user SET last_login = now() WHERE name = $1`, name)
+		sid, err = e.createSession(c, name, from)
 		return err
 	})
 	return sid, err
+}
+
+// createSession opens a session for a user whose identity the caller has
+// already established — by password or by a provider's signed token.
+func (e *Engine) createSession(c *Ctx, user string, from LoginFrom) (string, error) {
+	sid := RandomToken()
+	if _, err := c.Tx.Exec(c.Ctx, `INSERT INTO ddcore_session (sid, "user", expires, ip, user_agent)
+		VALUES ($1, $2, now() + $3::interval, $4, $5)`,
+		sid, user, intervalOf(e.Cfg.Auth.SessionTTL()), from.IP, truncate(from.UserAgent, 400)); err != nil {
+		return "", err
+	}
+	if _, err := c.Tx.Exec(c.Ctx, `UPDATE tab_user SET last_login = now() WHERE name = $1`, user); err != nil {
+		return "", err
+	}
+	return sid, nil
 }
 
 func (e *Engine) Logout(ctx context.Context, sid string) {

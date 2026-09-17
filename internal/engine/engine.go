@@ -84,6 +84,9 @@ type Config struct {
 	// Login is the sign-in screen's notice and demo account, served to
 	// visitors by /api/boot.
 	Login config.LoginPage
+	// OIDC lists the single sign-on providers. Their callback addresses are
+	// built from SiteURL.
+	OIDC []config.OIDCProvider
 }
 
 // AppMeta is what defineApp produced, minus functions.
@@ -214,6 +217,9 @@ type Engine struct {
 	// See webhookSubs.
 	webhookMu sync.Mutex
 	webhooks  []webhookSub
+	// oidc caches discovered providers; see oidcClientFor.
+	oidcMu sync.Mutex
+	oidc   map[string]*oidcClient
 }
 
 // Storage is where the bytes of File documents are kept.

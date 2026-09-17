@@ -1,7 +1,7 @@
-(empty),(vazio),# desk/src/lib/components/views/KanbanView.svelte:67
+(empty),(vazio),# desk/src/lib/components/views/KanbanView.svelte:73
 1 version,1 versão,# desk/src/lib/components/DocHistory.svelte:79
 A document cannot be shared with {0},Um documento não pode ser compartilhado com {0},# internal/engine/share.go:292
-A message needs a recipient,Uma mensagem precisa de um destinatário,# internal/engine/mailqueue.go:101
+A message needs a recipient,Uma mensagem precisa de um destinatário,# internal/engine/mailqueue.go:100
 A user with access scopes may not replay a webhook delivery,Um usuário com escopos de acesso não pode reenviar uma entrega de webhook,# internal/engine/webhooks.go:518
 A webhook outside development must use https,Um webhook fora do ambiente de desenvolvimento precisa usar https,# internal/engine/webhooks.go:564
 API Key,Chave de API,# core.doctypes.api_key.api_key.doctype
@@ -16,6 +16,7 @@ Actor,Autor,# core.doctypes.audit_event.audit_event.doctype
 Add row,Adicionar linha,# desk/src/lib/controls/Grid.svelte:118
 Address,Endereço,# desk/src/lib/components/Profile.svelte:197
 Administering jobs requires the System Manager role,Administrar jobs exige o papel System Manager,# internal/api/jobs.go:22
+Administrator sign-in,Entrar como Administrator,# desk/src/routes/login/+page.svelte:80
 Align,Alinhamento,# core.doctypes.letter_head.letter_head.doctype
 All,Todos,# desk/src/lib/components/ListView.svelte:443
 All rows matching the filters ({0}) as CSV,Todas as linhas que casam com os filtros ({0}) em CSV,# desk/src/lib/components/ListView.svelte:363
@@ -46,8 +47,8 @@ Attached to (DocType),Anexado a (DocType),# core.doctypes.file.file.doctype
 Attached to (name),Anexado a (nome),# core.doctypes.file.file.doctype
 Attachment,Anexo,# core.doctypes.comment.comment.doctype
 Attachments,Anexos,# core.doctypes.email_delivery.email_delivery.doctype
-Attachments are too large,Anexos grandes demais,# internal/engine/mailqueue.go:203
-Attachments total more than the {0} bytes this site allows on one message,Os anexos somam mais que os {0} bytes que este site permite em uma mensagem,# internal/engine/mailqueue.go:202
+Attachments are too large,Anexos grandes demais,# internal/engine/mailqueue.go:202
+Attachments total more than the {0} bytes this site allows on one message,Os anexos somam mais que os {0} bytes que este site permite em uma mensagem,# internal/engine/mailqueue.go:201
 Attempts,Tentativas,# core.doctypes.email_delivery.email_delivery.doctype
 Audit Event,Evento de Auditoria,# core.doctypes.audit_event.audit_event.doctype
 Audit Event records are immutable and cannot be created directly,Registros de Evento de Auditoria são imutáveis e não podem ser criados diretamente,# internal/engine/doc.go:402
@@ -64,9 +65,9 @@ Cancel,Cancelar,# desk/src/lib/components/AssignModal.svelte:116
 Cancel {0} {1} before deleting,Cancele {0} {1} antes de apagar,# internal/engine/doc.go:1065
 Cancel {0}?,Cancelar {0}?,# desk/src/lib/components/FormView.svelte:427
 Cancelled,Cancelado,# desk/src/lib/components/ListView.svelte:315
-Cannot delete,Não é possível apagar,# internal/engine/doc.go:1766
+Cannot delete,Não é possível apagar,# internal/engine/doc.go:1802
 Cannot manually modify workflow state field '{0}'. Use workflow actions to transition.,Não é permitido alterar manualmente o campo de estado de workflow '{0}'. Use ações de workflow para a transição.,# internal/engine/doc.go:580
-Card {0} does not exist,Card {0} não existe,# internal/api/api.go:1163
+Card {0} does not exist,Card {0} não existe,# internal/api/api.go:1174
 Cards,Cartões,# desk/src/lib/components/ListView.svelte:425
 Center,Centro,# core.doctypes.letter_head.letter_head.doctype
 Change,Alterar,# desk/src/lib/controls/Control.svelte:160
@@ -98,6 +99,7 @@ Configured,Configurado,# desk/src/lib/controls/Control.svelte:155
 Confirm,Confirmar,# desk/src/lib/ui.svelte.ts:93
 Confirm the new password,Confirme a nova senha,# desk/src/lib/components/Profile.svelte:181
 Content,Conteúdo,# core.doctypes.comment.comment.doctype
+Continue with {0},Continuar com {0},# desk/src/routes/login/+page.svelte:68
 Copy created — save it to keep it,Cópia criada — salve para gravar,# desk/src/lib/components/FormView.svelte:285
 Copy this key now — it is not shown again.,Copie esta chave agora — ela não é mostrada de novo.,# desk/src/lib/components/Profile.svelte:223
 Could not load the form script: {0},Falha ao carregar o script do formulário: {0},# desk/src/lib/form.svelte.ts:55
@@ -130,7 +132,7 @@ Discard,Descartar,# desk/src/lib/components/FormView.svelte:388
 Discard changes,Descartar alterações,# desk/src/lib/components/FormView.svelte:159
 Discard your unsaved changes?,Descartar suas alterações não salvas?,# desk/src/lib/components/FormView.svelte:159
 DocType,DocType,# core.doctypes.comment.comment.doctype
-DocType {0} does not exist,DocType {0} não existe,# internal/engine/engine.go:623
+DocType {0} does not exist,DocType {0} não existe,# internal/engine/engine.go:641
 Document,Documento,# core.doctypes.comment.comment.doctype
 Document Events,Eventos do Documento,# core.doctypes.webhook.webhook.doctype
 Document Share,Compartilhamento de Documento,# core.doctypes.document_share.document_share.doctype
@@ -141,14 +143,14 @@ Download PDF,Baixar PDF,# desk/src/lib/components/PrintView.svelte:202
 Draft,Rascunho,# desk/src/lib/components/ListView.svelte:315
 Due Date,Data de Vencimento,# desk/src/lib/components/AssignModal.svelte:90
 Duplicate,Duplicar,# desk/src/lib/components/FormView.svelte:377
-Duplicate name,Nome duplicado,# internal/engine/doc.go:1648
-Duplicate value,Valor duplicado,# internal/engine/doc.go:1560
-Duplicate value in {0},Valor duplicado em {0},# internal/engine/doc.go:1658
+Duplicate name,Nome duplicado,# internal/engine/doc.go:1684
+Duplicate value,Valor duplicado,# internal/engine/doc.go:1596
+Duplicate value in {0},Valor duplicado em {0},# internal/engine/doc.go:1694
 Edit row,Editar linha,# desk/src/lib/controls/Grid.svelte:107
 Edit {0},Editar {0},# desk/src/lib/components/FormView.svelte:232
 Email,E-mail,# desk/src/lib/components/Profile.svelte:136
 Email Delivery,Entrega de E-mail,# core.doctypes.email_delivery.email_delivery.doctype
-Email Delivery {0} does not exist,A entrega de e-mail {0} não existe,# internal/engine/mailqueue.go:252
+Email Delivery {0} does not exist,A entrega de e-mail {0} não existe,# internal/engine/mailqueue.go:251
 Email is required,O e-mail é obrigatório,# core/services/users.ts:35
 Enabled,Ativo,# core.doctypes.api_key.api_key.doctype
 End,Encerrar,# desk/src/lib/components/Profile.svelte:210
@@ -164,19 +166,19 @@ Event Type,Tipo de Evento,# core.doctypes.webhook.webhook.doctype
 Expires,Expira em,# desk/src/lib/components/Profile.svelte:242
 Expires in (days),Expira em (dias),# desk/src/lib/components/Profile.svelte:234
 Export,Exportar,# desk/src/lib/components/ListView.svelte:349
-Export of Single DocTypes is not supported: {0}.,A exportação de DocTypes Single não é suportada: {0}.,# internal/engine/export.go:167
+Export of Single DocTypes is not supported: {0}.,A exportação de DocTypes Single não é suportada: {0}.,# internal/engine/export.go:166
 Exported {0} of {1} rows (the current page),Exportadas {0} de {1} linhas (página atual),# desk/src/lib/components/ListView.svelte:400
 Failed,Falhou,# core.doctypes.email_delivery.email_delivery.doctype
 Failed to decrypt vault secret: authentication error,Falha ao descriptografar segredo do cofre: erro de autenticação,# internal/engine/vault.go:63
 Field,Campo,# core.doctypes.file.file.doctype
 Field {0} does not exist on {1},Campo {0} não existe em {1},# internal/engine/doc.go:954
 File,Arquivo,# core.doctypes.file.file.doctype
-File {0} does not exist,O arquivo {0} não existe,# internal/engine/mailqueue.go:195
+File {0} does not exist,O arquivo {0} não existe,# internal/engine/mailqueue.go:194
 Fill in the required fields: {0},Preencha os campos obrigatórios: {0},# desk/src/lib/form.svelte.ts:282
 Fill in {0},Preencha {0},# desk/src/lib/components/Dialogs.svelte:16
 Fill this in to set or change the password.,Preencha para definir ou trocar a senha.,# core.doctypes.user.user.doctype
 "Filter by field, value or user…","Filtrar por campo, valor ou usuário...",# desk/src/lib/components/DocHistory.svelte:69
-Filter {0} by {1} and {2},Filtre {0} por {1} e {2},# internal/api/api.go:1045
+Filter {0} by {1} and {2},Filtre {0} por {1} e {2},# internal/api/api.go:1056
 Fix the invalid email fields.,Corrija os campos de e-mail inválidos.,# desk/src/lib/form.svelte.ts:286
 Footer HTML,HTML do Rodapé,# core.doctypes.letter_head.letter_head.doctype
 For Value,Para o Valor,# core.doctypes.user_permission.user_permission.doctype
@@ -194,14 +196,14 @@ Hash,Hash,# core.doctypes.user.user.doctype
 Header HTML,HTML do Cabeçalho,# core.doctypes.letter_head.letter_head.doctype
 High,Alta,# desk/src/lib/components/AssignModal.svelte:98
 History,Histórico,# desk/src/lib/components/DocSidebar.svelte:259
-I forgot my password,Esqueci minha senha,# desk/src/routes/login/+page.svelte:47
+I forgot my password,Esqueci minha senha,# desk/src/routes/login/+page.svelte:77
 IP Address,Endereço IP,# core.doctypes.audit_event.audit_event.doctype
 Idempotency Key,Chave de Idempotência,# core.doctypes.email_delivery.email_delivery.doctype
 "If that address belongs to an account, a link to choose a new password is on its way. The link can only be used once, and expires.","Se esse endereço pertence a uma conta, um link para escolher uma nova senha está a caminho. O link só pode ser usado uma vez e expira.",# desk/src/routes/login/forgot/+page.svelte:30
 Info,Informação,# core.doctypes.comment.comment.doctype
-Invalid API key,Chave de API inválida,# internal/api/api.go:342
+Invalid API key,Chave de API inválida,# internal/api/api.go:347
 Invalid CSV separator: {0},Separador de CSV inválido: {0},# internal/api/export.go:61
-Invalid JSON: {0},JSON inválido: {0},# internal/api/api.go:308
+Invalid JSON: {0},JSON inválido: {0},# internal/api/api.go:313
 Invalid Single identity for {0},Identidade Single inválida para {0},# internal/engine/doc.go:276
 Invalid Single identity or status for {0},Identidade ou estado Single inválido para {0},# internal/engine/doc.go:876
 Invalid URL,URL inválida,# internal/engine/webhooks.go:559
@@ -212,14 +214,14 @@ Invalid docstatus for an insert,docstatus inválido para inserção,# internal/e
 Invalid docstatus transition ({0} → {1}),Transição de docstatus inválida ({0} → {1}),# internal/engine/doc.go:573
 Invalid email,E-mail inválido,# desk/src/lib/controls/Control.svelte:70
 Invalid event,Evento inválido,# internal/engine/webhooks.go:226
-Invalid filters: {0},Filtros inválidos: {0},# internal/api/api.go:1030
-Invalid link,Link inválido,# internal/engine/doc.go:1530
+Invalid filters: {0},Filtros inválidos: {0},# internal/api/api.go:1041
+Invalid link,Link inválido,# internal/engine/doc.go:1566
 "Invalid month in {0}: ""{1}""","Mês/ano inválido em {0}: ""{1}""",# internal/engine/doc.go:201
 Invalid number of days,Número de dias inválido,# core/services/api_keys.ts:37
 "Invalid time in {0}: ""{1}""","Hora inválida em {0}: ""{1}""",# internal/engine/doc.go:225
-Invalid upload: {0},upload inválido: {0},# internal/api/api.go:1281
+Invalid upload: {0},upload inválido: {0},# internal/api/api.go:1284
 Invalid username or password,Usuário ou senha inválidos,# internal/engine/auth.go:90
-Invalid {0}: {1},{0} inválido: {1},# internal/api/api.go:320
+Invalid {0}: {1},{0} inválido: {1},# internal/api/api.go:325
 Is Default,É Padrão,# core.doctypes.letter_head.letter_head.doctype
 Job,Job,# core.doctypes.email_delivery.email_delivery.doctype
 Job {0} does not exist,O job {0} não existe,# internal/engine/jobs_admin.go:54
@@ -249,16 +251,16 @@ Loading...,Carregando...,# desk/src/lib/components/DocSidebar.svelte:121
 Loading…,Carregando...,# desk/src/lib/components/FormView.svelte:486
 Logo Image,Imagem do Logo,# core.doctypes.letter_head.letter_head.doctype
 Low,Baixa,# desk/src/lib/components/AssignModal.svelte:96
-Mail template {0} does not exist,O modelo de mensagem {0} não existe,# internal/engine/mailqueue.go:87
+Mail template {0} does not exist,O modelo de mensagem {0} não existe,# internal/engine/mailqueue.go:86
 Mark as completed,Marcar como concluída,# desk/src/routes/app/todo/+page.svelte:161
 Mark as read,Marcar como lida,# desk/src/routes/app/notifications/+page.svelte:44
 Mark as unread,Marcar como não lida,# desk/src/routes/app/notifications/+page.svelte:44
 Max Attempts,Máximo de Tentativas,# core.doctypes.webhook.webhook.doctype
 Max attempts must be between {0} and {1},O máximo de tentativas deve estar entre {0} e {1},# internal/engine/webhooks.go:595
 Medium,Média,# desk/src/lib/components/AssignModal.svelte:97
-Method {0} does not exist on {1},Método {0} não existe em {1},# internal/api/api.go:867
-Method {0} does not exist or is not whitelisted,Método {0} não existe ou não é whitelisted,# internal/api/api.go:905
-Missing file field,campo file ausente,# internal/api/api.go:1285
+Method {0} does not exist on {1},Método {0} não existe em {1},# internal/api/api.go:878
+Method {0} does not exist or is not whitelisted,Método {0} não existe ou não é whitelisted,# internal/api/api.go:916
+Missing file field,campo file ausente,# internal/api/api.go:1288
 Modified,Modificado,# desk/src/lib/components/views/TableView.svelte:43
 Modified by,Modificado por,# desk/src/lib/components/DocSidebar.svelte:101
 Month,Mês,# desk/src/lib/components/views/GanttView.svelte:25
@@ -285,35 +287,35 @@ No history recorded,Nenhum histórico registrado,# desk/src/lib/components/DocHi
 No keys yet.,Nenhuma chave ainda.,# desk/src/lib/components/Profile.svelte:258
 No notifications,Nenhuma notificação,# desk/src/routes/app/notifications/+page.svelte:34
 No permission ({0}) on {1} {2},Sem permissão ({0}) em {1} {2},# internal/engine/doc.go:416
-No permission for report {0},Sem permissão para o relatório {0},# internal/api/api.go:1079
-No permission for the file {0},Sem permissão para o arquivo {0},# internal/engine/mailqueue.go:198
-No permission for this file,Sem permissão para este arquivo,# internal/api/api.go:1385
-No permission for workspace {0},Sem permissão para o workspace {0},# internal/api/api.go:1193
-No permission for {0},Sem permissão para {0},# internal/api/api.go:621
+No permission for report {0},Sem permissão para o relatório {0},# internal/api/api.go:1090
+No permission for the file {0},Sem permissão para o arquivo {0},# internal/engine/mailqueue.go:197
+No permission for this file,Sem permissão para este arquivo,# internal/api/api.go:1392
+No permission for workspace {0},Sem permissão para o workspace {0},# internal/api/api.go:1204
+No permission for {0},Sem permissão para {0},# internal/api/api.go:632
 No permission to amend {0},Sem permissão para emendar {0},# internal/engine/doc.go:798
 No permission to complete this task,Sem permissão para concluir esta tarefa,# internal/api/assignments.go:143
 No permission to create {0},Sem permissão para criar {0},# internal/engine/doc.go:418
 No permission to delete {0} {1},Sem permissão para apagar {0} {1},# internal/engine/doc.go:1038
 No permission to delete {0} {1} in workflow state '{2}',Sem permissão para apagar {0} {1} no estado de workflow '{2}',# internal/engine/doc.go:1061
 No permission to execute action '{0}' on {1} {2},Sem permissão para executar a ação '{0}' em {1} {2},# internal/engine/workflow.go:123
-No permission to export {0},Sem permissão para exportar {0},# internal/engine/export.go:176
+No permission to export {0},Sem permissão para exportar {0},# internal/engine/export.go:175
 No permission to list {0},Sem permissão para listar {0},# internal/engine/query.go:251
-No permission to read field {0} of {1},Sem permissão para ler o campo {0} de {1},# internal/engine/export.go:193
+No permission to read field {0} of {1},Sem permissão para ler o campo {0} de {1},# internal/engine/export.go:192
 No permission to read {0} {1},Sem permissão para ler {0} {1},# internal/engine/doc.go:302
-No permission to rename {0},Sem permissão para renomear {0},# internal/engine/doc.go:1159
+No permission to rename {0},Sem permissão para renomear {0},# internal/engine/doc.go:1190
 No permission to revoke this task,Sem permissão para revogar esta tarefa,# internal/api/assignments.go:180
 No permission to submit {0},Sem permissão para enviar {0},# internal/engine/doc.go:424
-No recipient,Sem destinatário,# internal/engine/mailqueue.go:101
+No recipient,Sem destinatário,# internal/engine/mailqueue.go:100
 No records,Nenhum registro,# desk/src/lib/components/ReportView.svelte:133
 No records in this period,Nenhum registro neste período,# desk/src/lib/components/views/GanttView.svelte:79
-No report permission on {0},Sem permissão de relatório em {0},# internal/api/api.go:1085
+No report permission on {0},Sem permissão de relatório em {0},# internal/api/api.go:1096
 No results,Nenhum resultado,# desk/src/lib/components/SearchPalette.svelte:108
 No rows,Nenhuma linha,# desk/src/lib/controls/Grid.svelte:113
 No tasks found,Nenhuma tarefa encontrada,# desk/src/routes/app/todo/+page.svelte:149
 No workflow configured for {0},Nenhum workflow configurado para {0},# internal/engine/workflow.go:80
 No workspace declared. Create an app with ddcore new-app and declare a workspace.,Nenhum workspace declarado. Crie um app com ddcore new-app e declare um workspace.,# desk/src/routes/app/+page.svelte:20
 None,Nenhum,# desk/src/lib/components/PrintView.svelte:181
-Not permitted to change {0},Sem permissão para alterar {0},# internal/api/api.go:1293
+Not permitted to change {0},Sem permissão para alterar {0},# internal/api/api.go:1296
 Not saved,Não salvo,# desk/src/lib/components/FormView.svelte:349
 Not shared with anyone,Não compartilhado com ninguém,# desk/src/lib/components/DocSidebar.svelte:194
 Notification not found,Notificação não encontrada,# internal/engine/notifications.go:331
@@ -343,6 +345,7 @@ Page format {0} is not supported: use A4 or Letter,Formato de página {0} não s
 Password,Senha,# desk/src/lib/components/Profile.svelte:170
 Password changed. Your other sessions were signed out.,Senha trocada. Suas outras sessões foram encerradas.,# desk/src/lib/components/Profile.svelte:81
 Password set,Senha definida,# desk/src/routes/login/reset/+page.svelte:52
+Password sign-in is disabled. Use single sign-on.,O acesso com senha está desativado. Use o login único (SSO).,# internal/engine/auth.go:104
 Payload,Conteúdo,# core.doctypes.webhook_delivery.webhook_delivery.doctype
 Pick the highlighted option,Selecionar opção destacada,# desk/src/lib/shortcuts.ts:108
 Post a comment on the form,Enviar comentário no formulário,# desk/src/lib/shortcuts.ts:92
@@ -357,11 +360,11 @@ Priority,Prioridade,# desk/src/lib/components/AssignModal.svelte:94
 Private,Privado,# core.doctypes.file.file.doctype
 Profile saved,Perfil salvo,# desk/src/lib/components/Profile.svelte:68
 Provide the document name,Informe o nome do documento,# internal/engine/naming.go:62
-Provide the reference document,Informe o documento de referência,# internal/api/api.go:1003
+Provide the reference document,Informe o documento de referência,# internal/api/api.go:1014
 Queued,Na fila,# core.doctypes.email_delivery.email_delivery.doctype
 Reach the user even when the document is outside their User Permission scope.,Alcança o usuário mesmo quando o documento está fora do escopo de User Permission dele.,# desk/src/lib/components/ShareModal.svelte:79
 Read,Lida,# desk/src/routes/app/notifications/+page.svelte:25
-Read-only field,Campo somente leitura,# internal/engine/doc.go:1486
+Read-only field,Campo somente leitura,# internal/engine/doc.go:1522
 Reference DocType,DocType de Referência,# core.doctypes.email_delivery.email_delivery.doctype
 Reference Document,Documento de Referência,# core.doctypes.todo.todo.doctype
 Reference Name,Nome de Referência,# core.doctypes.email_delivery.email_delivery.doctype
@@ -376,9 +379,9 @@ Rename {0},Renomear {0},# desk/src/lib/components/FormView.svelte:233
 Rendering print preview...,Renderizando visualização de impressão...,# desk/src/lib/components/PrintView.svelte:217
 Replace,Substituir,# desk/src/lib/controls/AttachControl.svelte:27
 Replay,Reenviar,# core/doctypes/webhook_delivery/webhook_delivery.form.ts:8
-Report {0} does not exist,Relatório {0} não existe,# internal/api/api.go:1075
+Report {0} does not exist,Relatório {0} não existe,# internal/api/api.go:1086
 Request ID,ID da Requisição,# core.doctypes.audit_event.audit_event.doctype
-Request without a CSRF header,Requisição sem cabeçalho CSRF,# internal/api/api.go:350
+Request without a CSRF header,Requisição sem cabeçalho CSRF,# internal/api/api.go:355
 Required,Obrigatório,# desk/src/lib/form.svelte.ts:275
 Required fields,Campos obrigatórios,# desk/src/lib/components/Dialogs.svelte:16
 Reset your password on {0},Redefina sua senha em {0},# core/mail/reset.mail.ts:14
@@ -393,7 +396,7 @@ Rights,Direitos,# desk/src/lib/components/ShareModal.svelte:68
 Role,Papel,# core.doctypes.has_role.has_role.doctype
 Role {0} is repeated,Papel {0} repetido,# core/doctypes/user/user.controller.ts:14
 Roles,Papéis,# desk/src/lib/components/Profile.svelte:140
-Route {0} does not exist,rota {0} não existe,# internal/api/api.go:1501
+Route {0} does not exist,rota {0} não existe,# internal/api/api.go:1508
 Row,Linha,# desk/src/lib/controls/Grid.svelte:28
 Row #{0} changed,Linha #{0} alterada,# desk/src/lib/components/DocHistory.svelte:170
 Row added,Linha adicionada,# desk/src/lib/components/DocHistory.svelte:146
@@ -433,15 +436,16 @@ Shortcuts,Atalhos,# desk/src/lib/components/Workspace.svelte:58
 Show,Mostrar,# desk/src/routes/app/notifications/+page.svelte:21
 Show this shortcuts window,Exibir esta janela de atalhos,# desk/src/lib/shortcuts.ts:99
 Showing the first {0} of {1} records; narrow the filters to see the rest,Exibindo os primeiros {0} de {1} registros; refine os filtros para ver o restante,# desk/src/lib/components/ListView.svelte:468
-Sign in,Entrar,# desk/src/routes/login/+page.svelte:30
+Sign in,Entrar,# desk/src/routes/login/+page.svelte:53
 Sign in to continue,Faça login para continuar,# core/services/api_keys.ts:14
-Sign in to upload files,Faça login para enviar arquivos,# internal/api/api.go:1273
+Sign in to upload files,Faça login para enviar arquivos,# internal/api/api.go:1276
 Sign in with the password you just chose.,Entre com a senha que você acabou de escolher.,# desk/src/routes/login/reset/+page.svelte:55
 Sign out,Sair,# desk/src/lib/components/Sidebar.svelte:178
 Sign out everywhere else,Sair dos outros dispositivos,# desk/src/lib/components/Profile.svelte:193
 Sign out of every other device?,Sair de todos os outros dispositivos?,# desk/src/lib/components/Profile.svelte:95
 Signing Secret,Segredo de Assinatura,# core.doctypes.webhook.webhook.doctype
 Single DocTypes cannot be deleted or renamed,DocTypes Single não podem ser excluídos ou renomeados,# internal/engine/doc.go:1030
+Single sign-on failed. Try again.,O login único (SSO) falhou. Tente novamente.,# desk/src/routes/login/+page.svelte:34
 Size,Tamanho,# core.doctypes.file.file.doctype
 "Someone asked to reset the password for this account on {0}. If it was not you, ignore this message: nothing has changed.","Alguém pediu para redefinir a senha desta conta em {0}. Se não foi você, ignore esta mensagem: nada mudou.",# core/mail/reset.mail.ts:16
 Source,Origem,# core.doctypes.error_log.error_log.doctype
@@ -452,7 +456,7 @@ Subject,Assunto,# core.doctypes.email_delivery.email_delivery.doctype
 Submit,Enviar,# desk/src/lib/components/FormView.svelte:419
 Submit {0} permanently?,Enviar permanentemente {0}?,# desk/src/lib/components/FormView.svelte:419
 Submitted,Enviado,# desk/src/lib/components/ListView.svelte:315
-Submitted document,Documento enviado,# internal/engine/doc.go:1712
+Submitted document,Documento enviado,# internal/engine/doc.go:1748
 System,Sistema,# desk/src/lib/components/Sidebar.svelte:152
 System User,Usuário do sistema,# core.doctypes.user.user.doctype
 Target DocType,DocType Alvo,# core.doctypes.audit_event.audit_event.doctype
@@ -463,7 +467,7 @@ Tell us the address you sign in with and we will send a link to set a new passwo
 Template,Modelo,# core.doctypes.email_delivery.email_delivery.doctype
 That key is not yours,Essa chave não é sua,# core/services/api_keys.ts:43
 "The DocType that defines the restricted scope, e.g. Company or Branch.","O DocType que define o escopo restrito, ex.: Company ou Branch.",# core.doctypes.user_permission.user_permission.doctype
-The Kanban field {0} is not a field of {1},O campo {0} do Kanban não é um campo de {1},# desk/src/lib/components/views/KanbanView.svelte:60
+The Kanban field {0} is not a field of {1},O campo {0} do Kanban não é um campo de {1},# desk/src/lib/components/views/KanbanView.svelte:66
 The current password is not right,A senha atual não confere,# core/services/profile.ts:99
 The document was changed by someone else after you opened it. Reload and try again.,O documento foi alterado por outro usuário depois que você o abriu. Recarregue e tente de novo.,# internal/engine/doc.go:609
 The email address names the account and cannot be changed here. Roles are granted by an administrator.,O e-mail é o nome da conta e não pode ser alterado aqui. Os papéis são concedidos por um administrador.,# desk/src/lib/components/Profile.svelte:149
@@ -475,10 +479,14 @@ The password cannot be blank,A senha não pode ficar em branco,# internal/engine
 The password cannot be the same as the username,A senha não pode ser igual ao nome de usuário,# internal/engine/password.go:44
 The password must have at least {0} characters,A senha precisa ter ao menos {0} caracteres,# internal/engine/password.go:35
 The password must have at most {0} characters,A senha pode ter no máximo {0} caracteres,# internal/engine/password.go:38
+The provider did not confirm this e-mail address.,O provedor não confirmou este endereço de e-mail.,# desk/src/routes/login/+page.svelte:29
+The sign-in expired or was started in another browser. Try again.,O acesso expirou ou foi iniciado em outro navegador. Tente novamente.,# desk/src/routes/login/+page.svelte:33
 The webhook of delivery {0} was deleted,O webhook da entrega {0} foi excluído,# internal/engine/webhooks.go:537
+There is no account for this e-mail address. Ask an administrator to invite you.,Não há conta para este endereço de e-mail. Peça a um administrador para convidar você.,# desk/src/routes/login/+page.svelte:28
 This device,Este dispositivo,# desk/src/lib/components/Profile.svelte:204
-This endpoint requires an API key (Authorization: token key:secret),Este endpoint exige uma chave de API (Authorization: token chave:segredo),# internal/api/api.go:376
-This endpoint requires the System Manager role,Este endpoint exige o papel System Manager,# internal/api/api.go:394
+This e-mail domain is not allowed to sign in here.,Este domínio de e-mail não tem permissão para entrar aqui.,# desk/src/routes/login/+page.svelte:31
+This endpoint requires an API key (Authorization: token key:secret),Este endpoint exige uma chave de API (Authorization: token chave:segredo),# internal/api/api.go:381
+This endpoint requires the System Manager role,Este endpoint exige o papel System Manager,# internal/api/api.go:399
 "This export has {0} rows and the limit here is {1}. Narrow the filters, or run `ddcore export` for the whole set.","Esta exportação tem {0} linhas e o limite aqui é {1}. Restrinja os filtros, ou rode `ddcore export` para o conjunto inteiro.",# internal/api/export.go:131
 This link can only be used once.,Este link só pode ser usado uma vez.,# core/mail/invite.mail.ts:24
 This link does not work,Este link não funciona,# desk/src/routes/login/reset/+page.svelte:45
@@ -496,6 +504,7 @@ To-Do List,Lista de Tarefas,# desk/src/routes/app/todo/+page.svelte:138
 ToDo,Tarefa,# core.doctypes.todo.todo.doctype
 Today,Hoje,# desk/src/lib/components/views/CalendarView.svelte:47
 Too many attempts. Try again in {0} second(s),Tentativas demais. Tente de novo em {0} segundo(s),# internal/engine/throttle.go:69
+Too many attempts. Try again later.,Muitas tentativas. Tente novamente mais tarde.,# desk/src/routes/login/+page.svelte:32
 Total,Total,# desk/src/lib/components/ReportView.svelte:84
 Try again,Tentar novamente,# desk/src/lib/components/PrintView.svelte:225
 Type,Tipo,# desk/src/lib/components/Profile.svelte:137
@@ -506,23 +515,24 @@ Undo,Desfazer,# desk/src/lib/controls/Control.svelte:147
 Unexpected server error,Erro inesperado no servidor,# internal/api/observe.go:193
 Unknown device,Dispositivo desconhecido,# desk/src/lib/components/Profile.svelte:203
 Unknown export format: {0},Formato de exportação desconhecido: {0},# internal/api/export.go:46
-Unknown field: {0},Campo desconhecido: {0},# internal/engine/export.go:190
+Unknown field: {0},Campo desconhecido: {0},# internal/engine/export.go:189
 Unknown groupBy: {0},groupBy desconhecido: {0},# internal/engine/query.go:437
+Unknown sign-in provider,Provedor de acesso desconhecido,# internal/api/oidc.go:32
 Unread,Não lida,# desk/src/routes/app/notifications/+page.svelte:24
 Unsaved changes,Alterações não salvas,# desk/src/lib/components/FormView.svelte:99
 Unsaved changes recovered,Alterações não salvas recuperadas,# desk/src/lib/components/FormView.svelte:105
 Update,Atualizar,# desk/src/lib/components/FormView.svelte:424
 Uploading…,Enviando...,# desk/src/lib/controls/AttachControl.svelte:27
 Urgent,Urgente,# desk/src/lib/components/AssignModal.svelte:99
-Use demo account,Usar conta de demonstração,# desk/src/routes/login/+page.svelte:39
+Use demo account,Usar conta de demonstração,# desk/src/routes/login/+page.svelte:62
 User,Usuário,# core.doctypes.api_key.api_key.doctype
 User Permission,Permissão de Usuário,# core.doctypes.user_permission.user_permission.doctype
-User is disabled,Usuário desativado,# internal/engine/auth.go:99
+User is disabled,Usuário desativado,# desk/src/routes/login/+page.svelte:30
 User menu,Menu do usuário,# desk/src/routes/+layout.svelte:198
 User {0} already exists,O usuário {0} já existe,# core/services/users.ts:37
 User {0} does not exist,Usuário {0} não existe,# core/services/users.ts:96
 User {0} does not exist or is disabled,Usuário {0} não existe ou está desativado,# internal/api/assignments.go:45
-Username,Usuário,# desk/src/routes/login/+page.svelte:36
+Username,Usuário,# desk/src/routes/login/+page.svelte:59
 Vault secret key ({0}) is not configured on this site,Chave secreta do cofre ({0}) não está configurada neste site,# internal/engine/vault.go:27
 Vault secret name cannot be empty,Nome do segredo do cofre não pode ser vazio,# internal/engine/vault.go:85
 Version,Versão,# core.doctypes.version.version.doctype
@@ -543,7 +553,7 @@ Will be cleared on save,Será removido ao salvar,# desk/src/lib/controls/Control
 Workflow,Fluxo,# core.doctypes.comment.comment.doctype
 "Workspace ""{0}"" not found.","Workspace ""{0}"" não encontrado.",# desk/src/routes/app/[workspace]/+page.svelte:42
 Workspace not found,Workspace não encontrado,# desk/src/lib/components/Workspace.svelte:75
-Workspace {0} does not exist,Workspace {0} não existe,# internal/api/api.go:1186
+Workspace {0} does not exist,Workspace {0} não existe,# internal/api/api.go:1197
 Write a comment,Escreva um comentário,# desk/src/lib/components/DocSidebar.svelte:241
 Yes,Sim,# desk/src/lib/components/history.ts:130
 You cannot grant {0} on {1} {2} without holding it,Você não pode conceder {0} em {1} {2} sem tê-lo,# internal/engine/share.go:306
@@ -576,6 +586,7 @@ invalid arguments in {0}: {1},argumentos inválidos em {0}: {1},# internal/engin
 job {0} timed out,job {0} excedeu o tempo limite,# internal/engine/jobs.go:127
 name is required,name é obrigatório,# internal/api/assignments.go:132
 never,nunca,# desk/src/lib/components/Profile.svelte:235
+or,ou,# desk/src/routes/login/+page.svelte:70
 patch sql: {0},sql do patch: {0},# internal/engine/query.go:586
 records,registros,# desk/src/lib/components/ListView.svelte:481
 runtime without a context (op {0}),runtime sem contexto (op {0}),# internal/engine/host.go:25
@@ -585,29 +596,29 @@ to submit,para enviar,# desk/src/lib/components/DocSidebar.svelte:244
 unknown bridge operation: {0},operação desconhecida no bridge: {0},# internal/engine/host.go:548
 user is required,user é obrigatório,# internal/engine/share.go:288
 webhook payload for {0} is not JSON: {1},o conteúdo do webhook para {0} não é JSON: {1},# internal/engine/webhooks.go:263
-"{0} ""{1}"" already exists","{0} ""{1}"" já existe",# internal/engine/doc.go:1655
-"{0} ""{1}"" already exists on {2} {3}","{0} ""{1}"" já existe em {2} {3}",# internal/engine/doc.go:1560
-{0} already exists,{0} já existe,# internal/engine/doc.go:1651
-{0} already exists on {1} {2},{0} já existe em {1} {2},# internal/engine/doc.go:1597
+"{0} ""{1}"" already exists","{0} ""{1}"" já existe",# internal/engine/doc.go:1691
+"{0} ""{1}"" already exists on {2} {3}","{0} ""{1}"" já existe em {2} {3}",# internal/engine/doc.go:1596
+{0} already exists,{0} já existe,# internal/engine/doc.go:1687
+{0} already exists on {1} {2},{0} já existe em {1} {2},# internal/engine/doc.go:1633
 {0} applied action '{1}' ({2} → {3}),{0} aplicou a ação '{1}' ({2} → {3}),# internal/engine/workflow.go:186
 {0} assigned {1} {2} to you,{0} atribuiu {1} {2} a você,# internal/api/assignments.go:87
-{0} cannot be changed after submission,Não é permitido alterar {0} depois do envio,# internal/engine/doc.go:1712
-{0} cannot be renamed,{0} não permite renomear,# internal/engine/doc.go:1152
+{0} cannot be changed after submission,Não é permitido alterar {0} depois do envio,# internal/engine/doc.go:1748
+{0} cannot be renamed,{0} não permite renomear,# internal/engine/doc.go:1183
 {0} cannot be watched by a webhook,{0} não pode ser observado por um webhook,# internal/engine/webhooks.go:574
 {0} deleted,{0} apagado(s),# desk/src/lib/components/ListView.svelte:337
 {0} documents cannot be shared,Documentos de {0} não podem ser compartilhados,# internal/engine/share.go:242
 {0} is a child table,{0} é uma tabela filha,# internal/engine/doc.go:399
-{0} is a child table: edit it through the parent document,{0} é uma tabela filha: edite pelo documento pai,# internal/api/api.go:763
-{0} is a child table: export the DocType that embeds it.,{0} é uma tabela filha: exporte o DocType que a contém.,# internal/engine/export.go:164
-{0} is not a delivery status,{0} não é um status de entrega,# internal/engine/mailqueue.go:364
+{0} is a child table: edit it through the parent document,{0} é uma tabela filha: edite pelo documento pai,# internal/api/api.go:774
+{0} is a child table: export the DocType that embeds it.,{0} é uma tabela filha: exporte o DocType que a contém.,# internal/engine/export.go:163
+{0} is not a delivery status,{0} não é um status de entrega,# internal/engine/mailqueue.go:363
 {0} is not a job id,{0} não é um id de job,# internal/api/jobs.go:31
 {0} is not a language this site serves,{0} não é um idioma que este site oferece,# core/services/i18n.ts:25
 "{0} is not a number: ""{1}""","{0} não é um número: ""{1}""",# internal/engine/doc.go:85
-{0} is not a valid email address,{0} não é um endereço de e-mail válido,# internal/engine/mailqueue.go:96
+{0} is not a valid email address,{0} não é um endereço de e-mail válido,# internal/engine/mailqueue.go:95
 {0} is not a valid webhook event name,{0} não é um nome de evento de webhook válido,# internal/engine/webhooks.go:226
 {0} is not an http or https address,{0} não é um endereço http ou https,# internal/engine/webhooks.go:559
 {0} is not submittable,{0} não é submetível,# internal/engine/doc.go:576
-{0} is read-only on this document,{0} é somente leitura neste documento,# internal/engine/doc.go:1486
+{0} is read-only on this document,{0} é somente leitura neste documento,# internal/engine/doc.go:1522
 {0} is required to name the document,{0} é obrigatório para nomear o documento,# internal/engine/naming.go:51
 "{0} is too large to store: ""{1}""","{0} é grande demais para ser armazenado: ""{1}""",# internal/engine/doc.go:163
 {0} notifications,{0} notificações,# desk/src/routes/app/notifications/+page.svelte:51
@@ -618,17 +629,17 @@ webhook payload for {0} is not JSON: {1},o conteúdo do webhook para {0} não é
 {0} tasks,{0} tarefas,# desk/src/routes/app/todo/+page.svelte:234
 {0} unread notifications,{0} notificações não lidas,# desk/src/lib/components/Sidebar.svelte:135
 {0} versions,{0} versões,# desk/src/lib/components/DocHistory.svelte:79
-{0} {1} already exists,{0} {1} já existe,# internal/engine/doc.go:1162
+{0} {1} already exists,{0} {1} já existe,# internal/engine/doc.go:1193
 {0} {1} is cancelled and cannot be changed,{0} {1} está cancelado e não pode ser alterado,# internal/engine/doc.go:570
-{0} {1} is linked from {2} {3},{0} {1} está vinculado a {2} {3},# internal/engine/doc.go:1766
+{0} {1} is linked from {2} {3},{0} {1} está vinculado a {2} {3},# internal/engine/doc.go:1802
 {0} {1} is not shared with {2},{0} {1} não está compartilhado com {2},# internal/engine/share.go:383
 {0} {1} not found,{0} {1} não encontrado,# internal/engine/doc.go:307
-{0} {1} was changed by someone else. Reload and try again.,O documento {0} {1} foi alterado por outro usuário. Recarregue e tente de novo.,# internal/engine/doc.go:1853
+{0} {1} was changed by someone else. Reload and try again.,O documento {0} {1} foi alterado por outro usuário. Recarregue e tente de novo.,# internal/engine/doc.go:1889
 {0} {1}?,{0} {1}?,# desk/src/lib/components/FormView.svelte:313
-"{0}, row {1}: {2}","{0}, linha {1}: {2}",# internal/engine/doc.go:1677
-"{0}: ""{1}"" is not a valid email address","{0}: ""{1}"" não é um endereço de e-mail válido",# internal/engine/doc.go:1364
-"{0}: DocType ""{1}"" does not exist","{0}: DocType ""{1}"" não existe",# internal/engine/doc.go:1538
-{0}: choose the type before the link,{0}: informe o tipo antes do vínculo,# internal/engine/doc.go:1535
+"{0}, row {1}: {2}","{0}, linha {1}: {2}",# internal/engine/doc.go:1713
+"{0}: ""{1}"" is not a valid email address","{0}: ""{1}"" não é um endereço de e-mail válido",# internal/engine/doc.go:1400
+"{0}: DocType ""{1}"" does not exist","{0}: DocType ""{1}"" não existe",# internal/engine/doc.go:1574
+{0}: choose the type before the link,{0}: informe o tipo antes do vínculo,# internal/engine/doc.go:1571
 {0}: empty name,{0}: nome vazio,# internal/engine/doc.go:280
-"{0}: value ""{1}"" is not one of the options","{0}: valor ""{1}"" não está entre as opções",# internal/engine/doc.go:1513
-"{0}: {1} ""{2}"" does not exist","{0}: {1} ""{2}"" não existe",# internal/engine/doc.go:1530
+"{0}: value ""{1}"" is not one of the options","{0}: valor ""{1}"" não está entre as opções",# internal/engine/doc.go:1549
+"{0}: {1} ""{2}"" does not exist","{0}: {1} ""{2}"" não existe",# internal/engine/doc.go:1566

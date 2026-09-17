@@ -66,7 +66,11 @@ func (s *Server) forgotPassword(w http.ResponseWriter, r *http.Request) {
 	}
 	s.authRecord(r, "forgot", body.Usr, false)
 
-	if user, ok := s.E.FindUserForRecovery(r.Context(), body.Usr); ok {
+	// With password sign-in off a reset link would set a password nobody can
+	// use — except Administrator's, which is the way back in when the
+	// identity provider is down.
+	if user, ok := s.E.FindUserForRecovery(r.Context(), body.Usr); ok &&
+		(s.E.Cfg.Auth.AllowPasswordLogin() || user == "Administrator") {
 		var rec *engine.Recovery
 		err := s.E.Run(r.Context(), "Administrator", func(c *engine.Ctx) error {
 			var e error

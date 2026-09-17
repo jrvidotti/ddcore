@@ -71,6 +71,8 @@ type File struct {
 	Webhooks Webhooks `json:"-"`
 	// Storage comes from the environment only, like Mail.
 	Storage Storage `json:"-"`
+	// OIDC lists the single sign-on providers, from the environment only.
+	OIDC []OIDCProvider `json:"-"`
 }
 
 // LoginPage is served by the public /api/boot to anyone who opens the site,
@@ -151,6 +153,9 @@ func Load(dir string) (*File, string, error) {
 	if f.Storage, err = storageFromEnv(); err != nil {
 		return nil, "", err
 	}
+	if f.OIDC, err = oidcFromEnv(); err != nil {
+		return nil, "", err
+	}
 	base := filepath.Dir(path)
 	for i, a := range f.Apps {
 		if !filepath.IsAbs(a) {
@@ -168,6 +173,9 @@ func Load(dir string) (*File, string, error) {
 	if err := f.Auth.validate(); err != nil {
 		// access policy is not a place to guess either: a site that asks for a
 		// lockout nobody implements must not quietly run without one
+		return nil, "", fmt.Errorf("%s: %w", path, err)
+	}
+	if err := f.validateOIDC(); err != nil {
 		return nil, "", fmt.Errorf("%s: %w", path, err)
 	}
 	// A partial `ops` block leaves the fields it omits at zero, and a zero
