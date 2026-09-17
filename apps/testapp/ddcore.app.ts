@@ -10,6 +10,7 @@ export default defineApp({
   name: "testapp",
   title: "Test App: Projects",
   version: "0.1.0",
+  ddcore: ">=0.1.0 <1.0.0",
   roles: ["Project Manager", "Project Contributor"],
   scheduler: {
     daily: ["testapp.services.tasks.markOverdue"],

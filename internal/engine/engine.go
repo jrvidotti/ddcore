@@ -90,6 +90,7 @@ type AppMeta struct {
 	Description     string                      `json:"description"`
 	Requires        []string                    `json:"requires"`
 	Version         string                      `json:"version"`
+	Ddcore          string                      `json:"ddcore"`
 	Scheduler       map[string]any              `json:"scheduler"`
 	Desk            map[string]any              `json:"desk"`
 	Roles           []string                    `json:"roles"`
@@ -383,6 +384,12 @@ func (e *Engine) Load() error {
 	if err := checkAppNames(apps, snap); err != nil {
 		pool.Close()
 		return err
+	}
+	if skipped, err := checkCoreCompat(snap, Version); err != nil {
+		pool.Close()
+		return err
+	} else if skipped {
+		e.Log.Warn("core version is not a release; ddcore ranges are not enforced", "version", Version)
 	}
 	// `requires` is only known after reading metadata: validate and, if the
 	// declared order violates dependencies, recompile in correct order.

@@ -30,6 +30,14 @@ unless --strict, because this command is mostly run by a person who wants to
 read it, not by a script that wants to fail.
 `
 
+// appInfo is an app's own version and the ddcore range it declares: the two
+// numbers an upgrade is checked against.
+type appInfo struct {
+	Name    string `json:"name"`
+	Version string `json:"version,omitempty"`
+	Ddcore  string `json:"ddcore,omitempty"`
+}
+
 // doctorReport is the whole report as data, so that the text and the JSON are
 // two renderings of one thing rather than two things that drift.
 type doctorReport struct {
@@ -38,6 +46,7 @@ type doctorReport struct {
 	DSN       string              `json:"dsn"`
 	Engine    string              `json:"engineError,omitempty"`
 	Apps      []string            `json:"apps,omitempty"`
+	AppInfo   []appInfo           `json:"appInfo,omitempty"`
 	DocTypes  int                 `json:"doctypes"`
 	Migrate   *migrateSection     `json:"migrate,omitempty"`
 	Orphans   *orphanSection      `json:"orphans,omitempty"`
@@ -162,6 +171,11 @@ func gatherDoctor(ctx context.Context, cfg *config.File, windowMin int) *doctorR
 	defer e.DB.Close()
 
 	rep.Apps = e.AppOrder()
+	for _, n := range rep.Apps {
+		if am := e.Snap.Apps[n]; am != nil {
+			rep.AppInfo = append(rep.AppInfo, appInfo{Name: n, Version: am.Version, Ddcore: am.Ddcore})
+		}
+	}
 	rep.DocTypes = len(e.Meta.DocTypes)
 	rep.Scheduler = e.SchedulerHealth()
 	if names := e.SecretNames(); len(names) > 0 {
@@ -284,6 +298,11 @@ func (r *doctorReport) print(w io.Writer) {
 		return
 	}
 	p("apps", "%v", r.Apps)
+	for _, a := range r.AppInfo {
+		if a.Version != "" || a.Ddcore != "" {
+			cont("%s %s, ddcore %s", a.Name, orDash(a.Version), orDash(a.Ddcore))
+		}
+	}
 	p("doctypes", "%d", r.DocTypes)
 	if r.Migrate != nil {
 		if r.Migrate.Refused != "" {

@@ -928,3 +928,26 @@ func TestRecuperacaoDeSenha(t *testing.T) {
 	}
 }
 
+
+// TestCoreCompatRefusesLoad: an app declaring a ddcore range the binary is
+// outside of stops the load with an error naming it (PRD-07), while the
+// fixture's own range lets the same site load.
+func TestCoreCompatRefusesLoad(t *testing.T) {
+	setup(t, "_compat")
+	dir := t.TempDir()
+	src := `import { defineApp } from "@ddcore/sdk";
+export default defineApp({ name: "future", title: "Future", ddcore: ">=999.0.0" });`
+	if err := os.WriteFile(filepath.Join(dir, "ddcore.app.ts"), []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	dsn, _, _ := dsnFor("_compat")
+	e, err := engine.New(context.Background(), engine.Config{
+		DSN: dsn, Apps: []js.App{testApp(t), {Name: "future", Dir: dir}}, Lang: "pt-BR", Currency: "BRL",
+	})
+	if err == nil {
+		e.DB.Close()
+	}
+	if err == nil || !strings.Contains(err.Error(), "app future requires ddcore >=999.0.0") {
+		t.Fatalf("expected the incompatible app to refuse the load, got %v", err)
+	}
+}

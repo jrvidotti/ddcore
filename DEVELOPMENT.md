@@ -407,6 +407,10 @@ The framework adheres to [Semantic Versioning 2.0.0](https://semver.org/):
     - Cross-compiles standalone static binaries with `CGO_ENABLED=0` for Darwin and Linux (`darwin-amd64`, `darwin-arm64`, `linux-amd64`, `linux-arm64`).
     - Packages archives (`ddcore-<os>-<arch>.tar.gz`) with checksums (`SHA256SUMS`) and attaches them to the GitHub Release.
   - Pushing to the `main` branch updates the rolling release `latest` for developers.
+  - Before tagging, move `CHANGELOG.md`'s *Unreleased* entries under the new version. A change that
+    breaks an app — the server or desk SDK, REST payloads, hooks, engine contracts — goes under
+    **Breaking** with its upgrade path, and bumps the version so that apps' `ddcore:` ranges exclude
+    it (see the compatibility contract in `docs/agent/conventions.md`).
   - The framework itself publishes no container image: an app builds its own image and fetches
     the binary of the release it pins, so there is nothing for the framework to keep in a registry.
 

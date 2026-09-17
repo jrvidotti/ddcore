@@ -97,7 +97,12 @@ func cmdExport(args []string) error {
 
 	run := &exportRun{
 		DDCore: engine.Version, Site: e.SiteTitle(), User: *user, Started: time.Now(), Dir: dir,
-		Format: *format, Filters: parsedFilters,
+		Format: *format, Filters: parsedFilters, Apps: map[string]string{},
+	}
+	for _, n := range e.AppOrder() {
+		if am := e.Snap.Apps[n]; am != nil && am.Version != "" {
+			run.Apps[n] = am.Version
+		}
 	}
 	ctx := context.Background()
 	for _, dt := range doctypes {
@@ -143,16 +148,17 @@ func cmdExport(args []string) error {
 // exportRun is the manifest: what was asked, what came out, and the checksum of
 // every file written, so a second run can be compared with this one.
 type exportRun struct {
-	DDCore   string          `json:"ddcore"`
-	Site     string          `json:"site"`
-	User     string          `json:"user"`
-	Dir      string          `json:"dir"`
-	Format   string          `json:"format"`
-	Filters  any             `json:"filters,omitempty"`
-	Started  time.Time       `json:"started"`
-	Finished time.Time       `json:"finished"`
-	Skipped  []string        `json:"skipped,omitempty"`
-	Exports  []*exportResult `json:"exports"`
+	DDCore   string            `json:"ddcore"`
+	Apps     map[string]string `json:"apps,omitempty"` // app name → declared version
+	Site     string            `json:"site"`
+	User     string            `json:"user"`
+	Dir      string            `json:"dir"`
+	Format   string            `json:"format"`
+	Filters  any               `json:"filters,omitempty"`
+	Started  time.Time         `json:"started"`
+	Finished time.Time         `json:"finished"`
+	Skipped  []string          `json:"skipped,omitempty"`
+	Exports  []*exportResult   `json:"exports"`
 }
 
 type exportResult struct {
