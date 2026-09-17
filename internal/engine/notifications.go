@@ -38,6 +38,13 @@ func (c *Ctx) withNotificationUser(user string, fn func(*Ctx) error) error {
 	child := c.E.NewCtx(c.Ctx, user)
 	child.St, child.Tx, child.rt = c.St, c.Tx, rt
 	child.Lang = c.RecipientLang([]string{user})
+	// Shares are read from this transaction for the same reason as the roles
+	// below: a share written a moment ago is not in the process cache yet.
+	child.shares, err = child.loadShares(user)
+	if err != nil {
+		return err
+	}
+	child.sharesLoaded, child.sharesDirty = true, true
 	// Authorization must observe role revocation even within this transaction,
 	// before the ordinary role cache's after-commit invalidation.
 	if user != "Administrator" {
@@ -222,6 +229,12 @@ func (c *Ctx) queueNotification(rule js.Notification, doc, before Doc, identity 
 
 // NotifyUser records a persistent notification for user (e.g. on assignment).
 func (c *Ctx) NotifyUser(user, refDoctype, refName, title, message string) error {
+	return c.notifyUserAs("assignment", user, refDoctype, refName, title, message)
+}
+
+// notifyUserAs records a direct notification under rule ("assignment",
+// "share"), for a recipient who can read the document.
+func (c *Ctx) notifyUserAs(rule, user, refDoctype, refName, title, message string) error {
 	if user == "" || user == "Guest" || user == c.User {
 		return nil
 	}
@@ -230,11 +243,11 @@ func (c *Ctx) NotifyUser(user, refDoctype, refName, title, message string) error
 		return err
 	}
 	name := RandomToken()
-	identity := fmt.Sprintf("assignment:%s:%s:%s", refDoctype, refName, name)
+	identity := fmt.Sprintf("%s:%s:%s:%s", rule, refDoctype, refName, name)
 	tag, err := c.Q().Exec(c.Ctx, `INSERT INTO ddcore_notification
    (name,rule,recipient,reference_doctype,reference_name,identity,desk,title,message)
-   VALUES($1,'assignment',$2,$3,$4,$5,true,$6,$7) ON CONFLICT DO NOTHING`,
-		name, user, refDoctype, refName, identity, title, message)
+   VALUES($1,$2,$3,$4,$5,$6,true,$7,$8) ON CONFLICT DO NOTHING`,
+		name, rule, user, refDoctype, refName, identity, title, message)
 	if err != nil {
 		return err
 	}

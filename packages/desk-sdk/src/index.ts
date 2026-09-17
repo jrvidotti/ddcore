@@ -123,6 +123,29 @@ export interface ToDoDoc {
   creation?: string;
   modified?: string;
 }
+/** One user's share on one document (SEC-03). */
+export interface DocShare {
+  name: string;
+  user: string;
+  share_doctype: string;
+  share_name: string;
+  read: boolean;
+  write: boolean;
+  share: boolean;
+  override_scope: boolean;
+  owner: string;
+}
+export interface DocSharesInfo {
+  shares: DocShare[];
+  canShare: boolean;
+  canOverrideScope: boolean;
+}
+export interface ShareArgs {
+  user: string;
+  write?: boolean;
+  share?: boolean;
+  overrideScope?: boolean;
+}
 export interface AssignArgs {
   allocated_to: string;
   date?: string;
@@ -152,6 +175,12 @@ export interface DeskAPI {
     revoke(name: string): Promise<{ success: boolean }>;
     forDoc(doctype: string, name: string): Promise<ToDoDoc[]>;
     pending(options?: PendingWorkOptions): Promise<PendingWorkPage>;
+  };
+  /** Document sharing (SEC-03). Read is always granted; the server checks the sharer. */
+  shares: {
+    forDoc(doctype: string, name: string): Promise<DocSharesInfo>;
+    add(doctype: string, name: string, args: ShareArgs): Promise<DocShare>;
+    remove(doctype: string, name: string, user: string): Promise<{ ok: boolean }>;
   };
   _(s: string, args?: any[]): string;
   __(s: string, args?: any[]): string;

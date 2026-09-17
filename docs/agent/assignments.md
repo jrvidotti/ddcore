@@ -23,7 +23,7 @@ Standalone personal tasks have `reference_type` and `reference_name` unset. Docu
 
 > [!IMPORTANT]
 > **Assignment never grants document access.**
-> An assignment is an operational pointer, not an authorization mechanism. The authenticated user must independently have read permission on the referenced document through role permissions, user permissions, and controller `hasPermission` / `permissionQuery` hooks.
+> An assignment is an operational pointer, not an authorization mechanism. The authenticated user must independently have read permission on the referenced document through role permissions, a document share, user permissions, and controller `hasPermission` / `permissionQuery` hooks. To give an assignee access, share the document with them (see `sharing`).
 
 When a user loses read permission on a referenced document, `GET /api/todo/pending` and `GET /api/assignments/{doctype}/{name}` stop showing its tasks to that user, and a direct read of the document through `/api/resource/{doctype}/{name}` returns `403 Forbidden`.
 

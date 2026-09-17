@@ -5,6 +5,9 @@ which *fields* of that document they see and change: a salary on an employee rec
 everyone in the team opens, a cost price on an item the sales desk sells, a review only HR
 writes.
 
+A document share (see `sharing`) grants level 0 only: fields above level 0 still need a
+role row for their level.
+
 `hidden` and `readOnly` are screen hints. The server still sends a hidden field's value to
 anyone who reads the document, and accepts a change to a read-only field from any API
 client. A field that has to stay confidential needs a permission level.

@@ -152,6 +152,7 @@ type Perm struct {
 	Amend   bool   `json:"amend,omitempty"`
 	Report  bool   `json:"report,omitempty"`
 	Export  bool   `json:"export,omitempty"`
+	Share   bool   `json:"share,omitempty"` // share one document with another user (SEC-03)
 	IfOwner bool   `json:"ifOwner,omitempty"`
 	// Permlevel is the field level this row grants. A row above level 0 grants
 	// only read and write on that level's fields — never the document itself.
@@ -191,6 +192,8 @@ func (p Perm) Has(ptype string) bool {
 		return p.Report
 	case "export":
 		return p.Export
+	case "share":
+		return p.Share
 	}
 	return false
 }
@@ -692,7 +695,7 @@ func validateFieldPermissions(r *Registry, d *DocType, e func(string, ...any)) {
 			e("permission for %q: permlevel %d is out of range (0 to %d)", p.Role, p.Permlevel, MaxPermlevel)
 			continue
 		}
-		if p.Permlevel > 0 && (p.Create || p.Delete || p.Submit || p.Cancel || p.Amend || p.Report || p.Export || p.IfOwner) {
+		if p.Permlevel > 0 && (p.Create || p.Delete || p.Submit || p.Cancel || p.Amend || p.Report || p.Export || p.Share || p.IfOwner) {
 			e("permission for %q at permlevel %d may only grant read and write", p.Role, p.Permlevel)
 		}
 	}

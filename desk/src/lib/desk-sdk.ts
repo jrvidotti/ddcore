@@ -64,6 +64,7 @@ export const deskSDK = {
     api,
     notifications: api.notifications,
     assignments: api.assignments,
+    shares: api.shares,
     db: {
       getValue: async (doctype: string, name: string | Record<string, any>, field: string | string[]) => {
         const fields = Array.isArray(field) ? field : [field];

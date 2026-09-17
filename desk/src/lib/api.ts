@@ -20,6 +20,30 @@ export interface ToDoDoc {
   modified?: string;
 }
 
+/** One user's share on one document (SEC-03). */
+export interface DocShare {
+  name: string;
+  user: string;
+  share_doctype: string;
+  share_name: string;
+  read: boolean;
+  write: boolean;
+  share: boolean;
+  override_scope: boolean;
+  owner: string;
+}
+export interface DocSharesInfo {
+  shares: DocShare[];
+  canShare: boolean;
+  canOverrideScope: boolean;
+}
+export interface ShareArgs {
+  user: string;
+  write?: boolean;
+  share?: boolean;
+  overrideScope?: boolean;
+}
+
 export interface AssignArgs {
   allocated_to: string;
   date?: string;
@@ -137,6 +161,15 @@ export const api = {
       request<ToDoDoc[]>("GET", `/api/assignments/${encodeURIComponent(doctype)}/${encodeURIComponent(name)}`),
     pending: (options: PendingWorkOptions = {}) =>
       request<PendingWorkPage>("GET", "/api/todo/pending" + q(options)),
+  },
+
+  shares: {
+    forDoc: (doctype: string, name: string) =>
+      request<DocSharesInfo>("GET", `/api/shares/${encodeURIComponent(doctype)}/${encodeURIComponent(name)}`),
+    add: (doctype: string, name: string, args: ShareArgs) =>
+      request<DocShare>("POST", "/api/shares/add", { doctype, name, read: true, ...args }),
+    remove: (doctype: string, name: string, user: string) =>
+      request<{ ok: boolean }>("POST", "/api/shares/remove", { doctype, name, user }),
   },
 
   print: {

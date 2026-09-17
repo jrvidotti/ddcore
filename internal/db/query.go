@@ -14,6 +14,10 @@ type Filter struct {
 	Value   any
 	IfField string // apply this filter only when IfField equals IfValue
 	IfValue any
+	// Any holds groups of filters: a row matches when every filter of at least
+	// one group does. It is how the framework ORs its own permission branches
+	// (a role grant or a document share) and is never parsed from a request.
+	Any [][]Filter
 }
 
 var validOps = map[string]string{

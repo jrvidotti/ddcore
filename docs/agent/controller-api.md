@@ -52,6 +52,7 @@ reloads the document with the new state and docstatus; see `workflows`), `doc.fl
 - `ddcore.getDoc(doctype, name)`, `ddcore.newDoc(doctype, values)`, `ddcore.deleteDoc(doctype, name, { force })`
 - `ddcore.throw(msg, { title, type })`, `ddcore.msgprint(msg, { title, indicator, alert })`, `ddcore._(text, args)` / `_()`
 - `ddcore.session` → `{ user, roles, lang, request }`; `ddcore.user()`; `ddcore.getRoles(user)`; `ddcore.hasPermission(doctype, ptype, doc)`
+- `ddcore.share.add(doctype, name, user, { write, share, overrideScope })` / `remove(doctype, name, user)` / `list(doctype, name)` — per-user document shares, checked with the current user as sharer. See `sharing`
 - `ddcore.redact(doctype, doc)` → a copy of `doc` as an API read would show it to the current user: Password/Vault blanked and fields above their permission level removed. Server code sees whole documents; redact before a method or report hands one to a client. See `field-permissions`
 - `ddcore.cache.get/set(key, value, ttlSeconds)/del`
 - `ddcore.http.get(url, opts?)` / `del(url, opts?)` send GET / DELETE requests.

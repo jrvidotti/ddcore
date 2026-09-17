@@ -2,6 +2,7 @@
 import type {
   AppDef, BaseDoc, ControllerDef, Context, DoctypeDef, Document, ExtensionDef, Filters, ListArgs,
   MailTemplateDef, NotificationDef, PatchDef, PrintTemplateDef, ReportDef, SendMailArgs, WorkflowDef, WorkspaceDef,
+  DocShare, DocShares, ShareRights,
 } from "./types";
 export * from "./types";
 
@@ -113,6 +114,18 @@ export interface DDCoreAPI {
   siteName(): string;
   publish(event: string, payload: any, opts?: { user?: string; doctype?: string; name?: string }): void;
   log: { info(...a: any[]): void; warn(...a: any[]): void; error(...a: any[]): void; debug(...a: any[]): void };
+  /**
+   * Document sharing (SEC-03): per-user grants on one document, checked with
+   * the current user as the sharer. See `docs/agent/sharing.md`.
+   */
+  share: {
+    /** Grants or updates `user`'s share. Read is always granted. */
+    add(doctype: string, name: string, user: string, rights?: ShareRights): DocShare;
+    /** Removes `user`'s share. The recipient may always drop their own. */
+    remove(doctype: string, name: string, user: string): void;
+    /** Who the document is shared with; without the share right, only your own share. */
+    list(doctype: string, name: string): DocShares;
+  };
   /**
    * Records that the current user did something sensitive to a target (PRD-06).
    * Written on the caller's transaction. Sensitive keys are redacted automatically.

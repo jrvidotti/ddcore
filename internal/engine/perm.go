@@ -133,8 +133,10 @@ func (c *Ctx) workflowStateAllowsEdit(state *js.WorkflowState) bool {
 // Permission is the scope itself: a scoped user who could write one could lift
 // their own. The refusal is part of the scope, so ignorePermissions does not
 // lift it; the framework's own writes raise the context instead, and
-// UserPermissions reads the table directly.
-var unscopedOnlyDoctypes = map[string]bool{"Webhook": true, "Webhook Delivery": true, "User Permission": true}
+// UserPermissions reads the table directly. A Document Share can override a
+// scope, so administering one directly is closed the same way; ddcore.share.*
+// checks the sharer instead.
+var unscopedOnlyDoctypes = map[string]bool{"Webhook": true, "Webhook Delivery": true, "User Permission": true, "Document Share": true}
 
 // refusedToScopedUser reports whether doctype is closed to the current user
 // because the user has access scopes.
@@ -176,16 +178,23 @@ func (c *Ctx) HasPermission(doctype, ptype string, doc Doc) (bool, error) {
 			ownerOnly = false
 		}
 	}
-	if ptype == "read" || ptype == "write" {
-		// report/export imply read for listing purposes
+	if allowed && ownerOnly && doc != nil && doc.Str("owner") != c.User {
+		allowed = false
 	}
-	if !allowed && ptype == "amend" {
-		return false, nil
+	if !allowed && shareable(ptype) {
+		// a share stands in for the role grant (SEC-03); the workflow, the
+		// controller and the scopes below still have their say
+		if doc != nil {
+			s, err := c.shareOn(d.Name, doc.Name())
+			if err != nil {
+				return false, err
+			}
+			allowed = s != nil && s.grants(ptype)
+		} else if allowed, err = c.sharedWithDoctype(d.Name, ptype); err != nil {
+			return false, err
+		}
 	}
 	if !allowed {
-		return false, nil
-	}
-	if ownerOnly && doc != nil && doc.Str("owner") != c.User {
 		return false, nil
 	}
 	if ptype == "write" && doc != nil && !c.inWorkflowTransition {
@@ -217,7 +226,7 @@ func (c *Ctx) HasPermission(doctype, ptype string, doc Doc) (bool, error) {
 		}
 	}
 	if doc != nil {
-		ok, err := c.checkUserPermissions(d, doc)
+		ok, err := c.scopeAllows(d, doc, ptype)
 		if err != nil || !ok {
 			return false, err
 		}
@@ -359,8 +368,22 @@ func (c *Ctx) ReadableParentsOf(child string) ([]string, error) {
 	return out, nil
 }
 
-// scopeFilters builds filters enforcing User Permission rules for doctype d.
+// scopeFilters builds filters enforcing User Permission rules for doctype d,
+// lifted for the documents a share overrides them on.
 func (c *Ctx) scopeFilters(d *meta.DocType) ([]db.Filter, error) {
+	strict, err := c.strictScopeFilters(d)
+	if err != nil || len(strict) == 0 || d.IsChild {
+		return strict, err
+	}
+	_, override, err := c.sharedNames(d.Name)
+	if err != nil || len(override) == 0 {
+		return strict, err
+	}
+	return []db.Filter{{Any: [][]db.Filter{strict, {{Field: "name", Op: "in", Value: override}}}}}, nil
+}
+
+// strictScopeFilters builds filters enforcing User Permission rules for doctype d.
+func (c *Ctx) strictScopeFilters(d *meta.DocType) ([]db.Filter, error) {
 	if c.User == "Administrator" || c.IgnorePermissions() {
 		return nil, nil
 	}
@@ -483,12 +506,12 @@ func (c *Ctx) childPermission(d *meta.DocType, ptype string, doc Doc) (bool, err
 }
 
 // permissionFilters adds child, ifOwner, controller permissionQuery, and
-// User Permission scope filters.
+// User Permission scope filters, then ORs in the documents shared with the
+// user (SEC-03).
 func (c *Ctx) permissionFilters(d *meta.DocType) ([]db.Filter, error) {
 	if c.User == "Administrator" || c.IgnorePermissions() {
 		return nil, nil
 	}
-	var out []db.Filter
 	if d.IsChild {
 		// child rows are only visible through the doctypes that embed them
 		parents, err := c.ReadableParentsOf(d.Name)
@@ -499,53 +522,80 @@ func (c *Ctx) permissionFilters(d *meta.DocType) ([]db.Filter, error) {
 		for _, p := range parents {
 			vals = append(vals, p)
 		}
-		out = append(out, db.Filter{Field: "parenttype", Op: "in", Value: vals})
-	} else {
-		roles, err := c.Roles()
+		sf, err := c.strictScopeFilters(d)
 		if err != nil {
 			return nil, err
 		}
-		ownerOnly := true
-		for _, p := range d.Permissions {
-			if p.Permlevel == 0 && contains(roles, p.Role) && (p.Read || p.Report) && !p.IfOwner {
-				ownerOnly = false
-			}
-		}
-		if ownerOnly {
-			out = append(out, db.Filter{Field: "owner", Op: "=", Value: c.User})
-		}
-		if d.HasController() {
-			rt, err := c.RT()
-			if err != nil {
-				return nil, err
-			}
-			raw, err := rt.PermissionQuery(d.Name, c.User)
-			if err != nil {
-				return nil, err
-			}
-			if len(raw) > 0 {
-				var v any
-				json.Unmarshal(raw, &v)
-				f, err := db.ParseFilters(v)
-				if err != nil {
-					return nil, err
-				}
-				out = append(out, f...)
-			}
-		}
+		return append([]db.Filter{{Field: "parenttype", Op: "in", Value: vals}}, sf...), nil
 	}
-	sf, err := c.scopeFilters(d)
+	roles, err := c.Roles()
 	if err != nil {
 		return nil, err
 	}
-	out = append(out, sf...)
-	return out, nil
+	roleRead, ownerOnly := false, true
+	for _, p := range d.Permissions {
+		if p.Permlevel == 0 && contains(roles, p.Role) && (p.Read || p.Report) {
+			roleRead = true
+			if !p.IfOwner {
+				ownerOnly = false
+			}
+		}
+	}
+	var query []db.Filter
+	if d.HasController() {
+		rt, err := c.RT()
+		if err != nil {
+			return nil, err
+		}
+		raw, err := rt.PermissionQuery(d.Name, c.User)
+		if err != nil {
+			return nil, err
+		}
+		if len(raw) > 0 {
+			var v any
+			json.Unmarshal(raw, &v)
+			if query, err = db.ParseFilters(v); err != nil {
+				return nil, err
+			}
+		}
+	}
+	strict, err := c.strictScopeFilters(d)
+	if err != nil {
+		return nil, err
+	}
+	var byRole []db.Filter
+	if ownerOnly {
+		byRole = append(byRole, db.Filter{Field: "owner", Op: "=", Value: c.User})
+	}
+	byRole = append(append(byRole, query...), strict...)
+
+	scoped, override, err := c.sharedNames(d.Name)
+	if err != nil {
+		return nil, err
+	}
+	if len(scoped) == 0 && len(override) == 0 {
+		return byRole, nil
+	}
+	// a share answers to the controller's permissionQuery as a role grant does,
+	// and to the scopes unless it overrides them
+	var groups [][]db.Filter
+	if roleRead {
+		groups = append(groups, byRole)
+	}
+	if len(scoped) > 0 {
+		g := append([]db.Filter{{Field: "name", Op: "in", Value: scoped}}, query...)
+		groups = append(groups, append(g, strict...))
+	}
+	if len(override) > 0 {
+		groups = append(groups, append([]db.Filter{{Field: "name", Op: "in", Value: override}}, query...))
+	}
+	return []db.Filter{{Any: groups}}, nil
 }
 
 // Permissions summarises what the user can do with a doctype (for the desk).
 func (c *Ctx) Permissions(d *meta.DocType) map[string]bool {
 	out := map[string]bool{}
-	for _, p := range []string{"read", "write", "create", "delete", "submit", "cancel", "amend", "report", "export"} {
+	for _, p := range []string{"read", "write", "create", "delete", "submit", "cancel", "amend", "report", "export", "share"} {
 		ok, _ := c.HasPermission(d.Name, p, nil)
 		out[p] = ok
 	}

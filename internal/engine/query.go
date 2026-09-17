@@ -132,6 +132,25 @@ func (c *Ctx) filterSQL(d *meta.DocType, b *db.Builder, filters []db.Filter, col
 	}
 	var parts []string
 	for _, f := range own {
+		if f.Any != nil {
+			var groups []string
+			for _, g := range f.Any {
+				w, err := c.filterSQL(d, b, g, col)
+				if err != nil {
+					return "", err
+				}
+				if w == "" {
+					w = "TRUE"
+				}
+				groups = append(groups, "("+w+")")
+			}
+			if len(groups) == 0 {
+				parts = append(parts, "FALSE")
+			} else {
+				parts = append(parts, "("+strings.Join(groups, " OR ")+")")
+			}
+			continue
+		}
 		if f.IfField != "" {
 			ifCol := col(f.IfField)
 			if ifCol == "" {
