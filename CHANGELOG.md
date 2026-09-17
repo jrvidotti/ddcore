@@ -12,6 +12,8 @@ not every commit that went into it.
 
 ## Unreleased
 
+## 0.15.0 — 2026-09-17
+
 ### Added
 
 - Release awareness: this file now ships inside the binary and is served as the MCP resource
