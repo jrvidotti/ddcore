@@ -116,8 +116,12 @@ func cmdRestore(args []string) error {
 
 	res := &restoreResult{Archive: fs.Arg(0)}
 	begin := time.Now()
+	dbReplaced := false
 	report := func(runErr error) error {
 		res.Seconds = time.Since(begin).Seconds()
+		if w := afterDatabaseWarning(dbReplaced, runErr); w != "" {
+			res.Warnings = append(res.Warnings, w)
+		}
 		if *asJSON {
 			enc := json.NewEncoder(os.Stdout)
 			enc.SetIndent("", "  ")
@@ -235,6 +239,7 @@ func cmdRestore(args []string) error {
 		return report(err)
 	}
 	p.done(fmt.Sprintf("%d tables", len(man.Tables)))
+	dbReplaced = true
 
 	// 4. files
 	if !*noFiles && man.Files > 0 {
@@ -608,4 +613,15 @@ func printRestore(r *restoreResult) {
 	if r.Maintenance {
 		fmt.Println("the restored site is in maintenance mode: check it, then `ddcore maintenance off`")
 	}
+}
+
+// afterDatabaseWarning is what the operator is told when a restore stops once
+// the database has been replaced. Steps 4 and later are not undone — the old
+// site is gone and the new one is behind the pause — so the failure alone,
+// which reads like "nothing happened", is not the whole story.
+func afterDatabaseWarning(dbReplaced bool, runErr error) string {
+	if !dbReplaced || runErr == nil {
+		return ""
+	}
+	return "the database was restored before this failure and the target is still paused: finish or redo the restore, then `ddcore maintenance off`"
 }

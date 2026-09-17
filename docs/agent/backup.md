@@ -27,7 +27,7 @@ The flag lives in the database (`ddcore_maintenance`), so every server and every
 |---|---|
 | HTTP | `POST`/`PUT`/`PATCH`/`DELETE` answer **503** with `{"error": {"type": "MaintenanceError", "extra": {"reason", "retryAfter"}}}` and a `Retry-After: 60` header. `GET`/`HEAD`/`OPTIONS`, sign-in, sign-out, `/api/auth/*`, link-title lookups, `/mcp` and the probes stay open. |
 | Engine | Insert, save, submit, cancel, delete, rename, `dbSet`/`setValue` and `enqueue` refuse with the same error. This also covers a `GET` whitelisted method that writes. `Error Log` is exempt from the guard, so the window still records faults; an HTTP refusal is not one of them and leaves no row. |
-| Workers | Stop claiming jobs. A job already running finishes, but the writes it tries are refused. That refusal is a failed attempt like any other: it writes an Error Log row, uses up an attempt, and on the last one the job ends `failed` rather than waiting for the window to close. |
+| Workers | Stop claiming jobs. A job already running finishes, but the writes it tries are refused. The job is then given back to the queue **without** consuming an attempt and without an Error Log row — the pause is a decision, not the job's fault — and it waits there until the window closes. Work the job did outside the database is not undone, so a job that is not safe to run twice should be drained before the pause (`ddcore jobs stats`). |
 | Scheduler | Skips every run (logged). A run it skips is not made up later. |
 | Desk | Shows a banner with the reason (from `/api/boot`, the `maintenance` event, or the first refused save). The event is a poll behind the same cache, so an open desk can be about four seconds behind; a refused save is immediate. |
 | Readiness | **Unchanged.** `/readyz` stays 200: a paused site is a decision, and an orchestrator must not restart it out of one. `/api/health/report` includes `maintenance`, and `doctor` warns. |
@@ -229,14 +229,15 @@ particular reports it as the critical **"the apps could not be loaded"**, which 
 misleading — the real reason is in the report's `engine` field.
 
 `--allow-older-binary` (any command) or `DDCORE_ALLOW_OLDER_BINARY=1` overrides the
-refusal. The variable also accepts `true`, `yes` and `on`; the flag is bare only, and
-`--allow-older-binary=true` is rejected as an unknown flag. This is the deliberate
+refusal. Both read `1`, `true`, `yes` and `on`, so the flag takes a value or stands bare.
+This is the deliberate
 rollback, and it is safe only when every migration since the older release was
 **expand-only**, meaning it added nothing the old code cannot ignore. See the
 expand → backfill → contract route in [migrations](migrations.md). An old binary
 running `migrate` with the override records its own, older versions as the newest
-row — and a `dev` or otherwise unparseable core does the same, which silently
-disables the core half of the check for every binary after it. A contraction (a
+row. A `dev` or otherwise unparseable core cannot be compared, so it does not
+become the newest row's core: the last release is carried forward, and the guard
+survives a migration from a development build. A contraction (a
 dropped or renamed column, a converted type) is never rollback-compatible. Its only
 way back is a restore.
 

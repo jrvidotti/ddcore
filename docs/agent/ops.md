@@ -245,11 +245,13 @@ the command exists for.
 
 Exit `1` means a **critical** finding: the database is unreachable, the apps
 could not be loaded, a migration is refused, or an undeclared structure still
-holds data. `apps: could not be loaded` covers every refusal to load, including
-an app whose `ddcore` range excludes this binary and the rollback guard of
-[backup.md](backup.md); the reason is on the line below it, and the sections
-that need a loaded engine — the per-app versions and ranges among them — are
-missing from that report. The likeliest cause in the field is a binary built
+holds data. `apps: could not be loaded` covers every refusal to load, an app
+whose `ddcore` range excludes this binary among them; the reason is on the line
+below it, and the sections that need a loaded engine — the per-app versions and
+ranges among them — are missing from that report. The rollback guard of
+[backup.md](backup.md) has a critical of its own, `this binary is older than the
+release that migrated the database`, since that one is about the binary and not
+about app code. The likeliest cause in the field is a binary built
 without `-ldflags`, which reports the default version `0.1.0` and so refuses
 every app pinning a real release: check the `version` line before the apps
 (see [conventions.md](conventions.md)). Warnings — pending DDL, a backlog, recent failures — exit `0`

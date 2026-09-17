@@ -82,7 +82,15 @@ func (c *Ctx) recordSiteVersion() error {
 	if err != nil {
 		return err
 	}
-	_, err = c.Tx.Exec(c.Ctx, `INSERT INTO ddcore_site_version (core, apps) VALUES ($1, $2)`, Version, string(apps))
+	// A core that does not parse — a `dev` build, a bare hash — cannot be
+	// compared, so recording it as the newest row would leave every later
+	// binary passing the check against a version nobody can read. Carry the
+	// last release forward instead: the apps still move, the guard still holds.
+	core := Version
+	if _, ok := parseCoreVersion(core); !ok && last != nil {
+		core = last.Core
+	}
+	_, err = c.Tx.Exec(c.Ctx, `INSERT INTO ddcore_site_version (core, apps) VALUES ($1, $2)`, core, string(apps))
 	return err
 }
 
@@ -105,11 +113,11 @@ func OlderThanSite(sv *SiteVersion, core string, apps map[string]string) []strin
 	}
 	sort.Strings(names)
 	for _, n := range names {
-		was, ok := parseVersion(sv.Apps[n])
+		was, _, ok := parseVersion(sv.Apps[n])
 		if !ok {
 			continue
 		}
-		have, ok := parseVersion(apps[n])
+		have, _, ok := parseVersion(apps[n])
 		if !ok {
 			continue
 		}
@@ -119,6 +127,10 @@ func OlderThanSite(sv *SiteVersion, core string, apps map[string]string) []strin
 	}
 	return out
 }
+
+// ErrOlderBinary is the rollback refusal, so a caller can tell it apart from
+// an app that would not load: the two send an operator to different places.
+var ErrOlderBinary = errors.New("this binary is older than the database")
 
 // CheckSiteVersion refuses a binary older than the one that last migrated the
 // database, unless Config.AllowOlderBinary. A database that cannot be read is
@@ -137,6 +149,6 @@ func (e *Engine) CheckSiteVersion(ctx context.Context) error {
 		e.Log.Warn("running a binary older than the database's last migration", "older", strings.Join(older, "; "))
 		return nil
 	}
-	return fmt.Errorf("this binary is older than the database: %s. Roll forward, or pass --allow-older-binary (DDCORE_ALLOW_OLDER_BINARY=1) if every change since was expand-only; see docs/agent/backup.md",
-		strings.Join(older, "; "))
+	return fmt.Errorf("%w: %s. Roll forward, or pass --allow-older-binary (DDCORE_ALLOW_OLDER_BINARY=1) if every change since was expand-only; see docs/agent/backup.md",
+		ErrOlderBinary, strings.Join(older, "; "))
 }

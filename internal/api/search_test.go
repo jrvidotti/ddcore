@@ -157,3 +157,48 @@ func TestGlobalSearch_RanksAndRespectsAccess(t *testing.T) {
 	x.expect(r, 417, "ValidationError")
 	x.expect(x.call("GET", "/api/search/global?txt=alpha", nil, ""), 401, "AuthenticationError")
 }
+
+// The per-DocType cap is a cap on what comes back, not on what is ranked: an
+// exact match must survive a DocType with more matches than the cap.
+func TestGlobalSearch_ExactMatchSurvivesTheCap(t *testing.T) {
+	x := setupSearchAPI(t)
+	x.asAdmin(func(c *engine.Ctx) error {
+		// "beta" first, so `modified desc` puts every other match ahead of it
+		for _, name := range []string{"beta", "beta one", "beta two", "beta three", "beta four", "beta five", "beta six"} {
+			d, err := c.NewDoc("Search Project", engine.Doc{"project_name": name})
+			if err != nil {
+				return err
+			}
+			if _, err := c.Insert(d, engine.SaveOpts{}); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+
+	hits := searchHits(t, x.globalSearch(searchUser, "beta", ""))
+	if len(hits) == 0 || hits[0] != "Search Project/beta" {
+		t.Errorf("the exact match should come first, got %v", hits)
+	}
+}
+
+// What the user typed is a substring to look for, not a pattern: `%` and `_`
+// match themselves.
+func TestGlobalSearch_WildcardsAreLiteral(t *testing.T) {
+	x := setupSearchAPI(t)
+	x.asAdmin(func(c *engine.Ctx) error {
+		for _, name := range []string{"100% pure", "100 ok", "a_b", "axb"} {
+			d, err := c.NewDoc("Search Project", engine.Doc{"project_name": name})
+			if err != nil {
+				return err
+			}
+			if _, err := c.Insert(d, engine.SaveOpts{}); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+
+	sameHits(t, "percent", searchHits(t, x.globalSearch(searchUser, "100%", "")), "Search Project/100% pure")
+	sameHits(t, "underscore", searchHits(t, x.globalSearch(searchUser, "a_b", "")), "Search Project/a_b")
+}

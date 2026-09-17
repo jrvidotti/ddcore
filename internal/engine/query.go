@@ -690,13 +690,23 @@ func searchArgs(d *meta.DocType, txt string) ListArgs {
 	fields := searchFieldsOf(d)
 	args := ListArgs{Fields: fields}
 	if txt != "" {
+		needle := escapeLike(txt)
 		var ors []any
 		for _, f := range fields {
-			ors = append(ors, []any{f, "like", "%" + txt + "%"})
+			ors = append(ors, []any{f, "like", "%" + needle + "%"})
 		}
 		args.OrFilters = ors
 	}
 	return args
+}
+
+// escapeLike neuters LIKE's wildcards in text a person typed: searching for
+// `100%` or `a_b` looks for those characters, not for anything at all. A
+// `like` filter an app writes itself is left alone — there the wildcards are
+// the point.
+func escapeLike(s string) string {
+	r := strings.NewReplacer(`\`, `\\`, "%", `\%`, "_", `\_`)
+	return r.Replace(s)
 }
 
 // ResolveLinkTitles loads the titles for all Link and Dynamic Link values in docs

@@ -3,8 +3,10 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jrvidotti/ddcore/internal/config"
 	"github.com/jrvidotti/ddcore/internal/db"
@@ -132,5 +134,41 @@ func TestDoctorVaultReporting(t *testing.T) {
 	outUnconf := renderDoctor(t, rUnconf)
 	if !strings.Contains(outUnconf, "vault:      key not configured (DDCORE_SECRET_KEY is missing)") {
 		t.Fatalf("unexpected unconfigured vault report:\n%s", outUnconf)
+	}
+}
+
+// The storage line is read by someone checking where bytes go; a bucket with
+// no prefix must not look like a truncated path.
+func TestDoctorStorageSummaryWithoutPrefix(t *testing.T) {
+	cfg := &config.File{DataDir: "/srv/site/data"}
+	if got := storageSummary(cfg); got != "local /srv/site/data/files" {
+		t.Errorf("local: %q", got)
+	}
+	cfg.Storage = config.Storage{Backend: config.StorageS3, S3: config.S3{
+		Endpoint: "minio:9000", Bucket: "ddcore", PresignTTL: 5 * time.Minute,
+	}}
+	if got := storageSummary(cfg); got != "s3 minio:9000/ddcore (presigned links valid 5m0s)" {
+		t.Errorf("no prefix: %q", got)
+	}
+	cfg.Storage.S3.Prefix = "site-a"
+	if got := storageSummary(cfg); got != "s3 minio:9000/ddcore/site-a (presigned links valid 5m0s)" {
+		t.Errorf("with prefix: %q", got)
+	}
+}
+
+// A rollback refusal is not a broken app: sending the reader to look at app
+// code for it costs an outage's worth of time.
+func TestDoctorNamesARollbackRefusal(t *testing.T) {
+	r := &doctorReport{
+		Engine:   "this binary is older than the database: core 0.14.0 (database migrated by 0.15.0). Roll forward, or pass --allow-older-binary",
+		Critical: []string{engineCritical(fmt.Errorf("%w: core 0.14.0 (database migrated by 0.15.0)", engine.ErrOlderBinary))},
+		Ops:      config.DefaultOps(),
+	}
+	out := renderDoctor(t, r)
+	if strings.Contains(out, "the apps could not be loaded") {
+		t.Errorf("a rollback refusal is reported as an app failure:\n%s", out)
+	}
+	if !strings.Contains(out, "older than the database") {
+		t.Errorf("the critical does not say what happened:\n%s", out)
 	}
 }

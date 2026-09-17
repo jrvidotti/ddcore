@@ -303,6 +303,15 @@ func (e *Engine) runOneJob(ctx context.Context) (bool, error) {
 			WHERE id = $1 AND status = 'running' AND attempts = $2`, id, attempt)
 		publish(map[string]any{"ok": false, "cancelled": true})
 
+	case isMaintenanceErr(runErr):
+		// The site was paused under the job. Like a worker shutting down, that
+		// is a decision and not a fault: give the job back without consuming
+		// the attempt, and file no Error Log row. The worker claims nothing
+		// while the flag is on, so the row simply waits for the window to close.
+		write(`UPDATE ddcore_job SET status = 'queued', attempts = attempts - 1, started = NULL,
+			lease_until = NULL, error = NULL, run_after = now()
+			WHERE id = $1 AND status = 'running' AND attempts = $2`, id, attempt)
+
 	case ctx.Err() != nil && !errors.Is(jobErr, context.DeadlineExceeded):
 		// The worker is stopping, so the job did not fail — it was never allowed
 		// to finish. Give it back without consuming the attempt, or a rolling

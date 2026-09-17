@@ -420,8 +420,8 @@
       <div class="view-switcher">
         {#if allowedViews.includes("list")}<button class="btn icon" class:active={currentView === "list"} aria-pressed={currentView === "list"} onclick={() => setView("list")} title={__("List")} aria-label={__("List")}><Icon name="list" size={14} /></button>{/if}
         {#if allowedViews.includes("calendar")}<button class="btn icon" class:active={currentView === "calendar"} aria-pressed={currentView === "calendar"} onclick={() => setView("calendar")} title={__("Calendar")} aria-label={__("Calendar")}><Icon name="calendar" size={14} /></button>{/if}
-        {#if allowedViews.includes("kanban") && settings.kanban}<button class="btn icon" class:active={currentView === "kanban"} aria-pressed={currentView === "kanban"} onclick={() => setView("kanban")} title={__("Kanban")} aria-label={__("Kanban")}><Icon name="square-kanban" size={14} /></button>{/if}
-        {#if allowedViews.includes("gantt") && settings.gantt}<button class="btn icon" class:active={currentView === "gantt"} aria-pressed={currentView === "gantt"} onclick={() => setView("gantt")} title={__("Gantt")} aria-label={__("Gantt")}><Icon name="chart-gantt" size={14} /></button>{/if}
+        {#if allowedViews.includes("kanban")}<button class="btn icon" class:active={currentView === "kanban"} aria-pressed={currentView === "kanban"} onclick={() => setView("kanban")} title={__("Kanban")} aria-label={__("Kanban")}><Icon name="square-kanban" size={14} /></button>{/if}
+        {#if allowedViews.includes("gantt")}<button class="btn icon" class:active={currentView === "gantt"} aria-pressed={currentView === "gantt"} onclick={() => setView("gantt")} title={__("Gantt")} aria-label={__("Gantt")}><Icon name="chart-gantt" size={14} /></button>{/if}
         {#if allowedViews.includes("cards")}<button class="btn icon" class:active={currentView === "cards"} aria-pressed={currentView === "cards"} onclick={() => setView("cards")} title={__("Cards")} aria-label={__("Cards")}><Icon name="layout-grid" size={14} /></button>{/if}
       </div>
     {/if}

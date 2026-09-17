@@ -197,6 +197,13 @@ func MaintenanceError(st MaintenanceState) *cerr.Error {
 	return err
 }
 
+// isMaintenanceErr reports whether a failure is the pause refusing a write,
+// rather than anything the work itself got wrong.
+func isMaintenanceErr(err error) bool {
+	var ce *cerr.Error
+	return errors.As(err, &ce) && ce.Type == "MaintenanceError"
+}
+
 // bypassMaintenanceFlag marks a unit of work that runs inside the window on
 // purpose — a migration — even in a process that enforces it.
 const bypassMaintenanceFlag = "bypassMaintenance"

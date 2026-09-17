@@ -115,6 +115,38 @@ func TestMaintenancePausesWorkers(t *testing.T) {
 	waitForStatus(t, e, id, "done")
 }
 
+// A job caught mid-run by the pause is given back, not failed: the window is a
+// decision, so it must not spend the job's last attempt or file a fault.
+func TestMaintenanceRequeuesRunningJob(t *testing.T) {
+	e := setupWith(t, map[string]string{
+		"services/writer.ts": `export function write() { ddcore.newDoc("Pessoa", { nome: "Escrita", tipo: "PF" }).insert(); return { ok: true }; }`,
+	})
+	ctx := context.Background()
+	id := plantJob(t, e, map[string]any{"method": "demo.services.writer.write", "attempts": 2, "max_attempts": 3})
+	e.Cfg.EnforceMaintenance = true
+	if _, err := e.SetMaintenance(ctx, true, "cutover", "tester"); err != nil {
+		t.Fatal(err)
+	}
+	if ran, err := e.runOneJob(ctx); err != nil || !ran {
+		t.Fatalf("runOneJob: ran=%v err=%v", ran, err)
+	}
+
+	j := readJob(t, e, id)
+	if j["status"] != "queued" {
+		t.Errorf("status = %v, want queued", j["status"])
+	}
+	if got := int(toFloat(j["attempts"])); got != 2 {
+		t.Errorf("attempts = %d, want the attempt given back (2)", got)
+	}
+	var logged int
+	if err := e.DB.Pool.QueryRow(ctx, `SELECT count(*) FROM tab_error_log`).Scan(&logged); err != nil {
+		t.Fatal(err)
+	}
+	if logged != 0 {
+		t.Errorf("a paused write filed %d Error Log rows", logged)
+	}
+}
+
 // The ledger records the versions that migrated, once per change, and an
 // older binary is refused unless it is told the rollback is deliberate.
 func TestSiteVersionLedger(t *testing.T) {
@@ -150,6 +182,36 @@ func TestSiteVersionLedger(t *testing.T) {
 	defer func() { e.Cfg.AllowOlderBinary = false }()
 	if err := e.CheckSiteVersion(ctx); err != nil {
 		t.Fatalf("--allow-older-binary: %v", err)
+	}
+}
+
+// A core that cannot be compared must not erase the release the ledger already
+// holds: recording `dev` as the newest row would leave every later binary,
+// however old, passing the core check unnoticed.
+func TestSiteVersionLedgerKeepsLastRelease(t *testing.T) {
+	e := setup(t)
+	ctx := context.Background()
+	if _, err := e.DB.Pool.Exec(ctx, `INSERT INTO ddcore_site_version (core, apps) VALUES ('v99.0.0', '{"demo":"9.0.0"}')`); err != nil {
+		t.Fatal(err)
+	}
+	was := Version
+	Version = "dev"
+	defer func() { Version = was }()
+
+	if _, err := e.Migrate(ctx, false); err != nil {
+		t.Fatal(err)
+	}
+	sv, err := LastSiteVersion(ctx, e.DB.Pool)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sv.Core != "v99.0.0" {
+		t.Errorf("core = %q, want the last release v99.0.0 carried forward", sv.Core)
+	}
+
+	Version = was
+	if err := e.CheckSiteVersion(ctx); err == nil {
+		t.Error("a migrate by a dev build must not disarm the rollback guard")
 	}
 }
 

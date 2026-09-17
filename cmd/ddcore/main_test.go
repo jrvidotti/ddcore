@@ -294,3 +294,32 @@ func TestAuditFlags(t *testing.T) {
 	}
 }
 
+
+// The rollback override is a global flag, stripped before the command parses
+// its own — but every other boolean here takes `=true`, so this one must too
+// rather than failing as an unknown flag.
+func TestAllowOlderBinaryFlagForms(t *testing.T) {
+	for _, c := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"--allow-older-binary", "doctor"}, "1"},
+		{[]string{"--allow-older-binary=true", "doctor"}, "true"},
+		{[]string{"-allow-older-binary=yes", "doctor"}, "yes"},
+		{[]string{"--allow-older-binary=false", "doctor"}, "false"},
+	} {
+		t.Setenv("DDCORE_ALLOW_OLDER_BINARY", "")
+		got := stripGlobalFlags(c.args)
+		if len(got) != 1 || got[0] != "doctor" {
+			t.Errorf("%v: remaining args = %v, want [doctor]", c.args, got)
+		}
+		if env := os.Getenv("DDCORE_ALLOW_OLDER_BINARY"); env != c.want {
+			t.Errorf("%v: DDCORE_ALLOW_OLDER_BINARY = %q, want %q", c.args, env, c.want)
+		}
+	}
+	t.Setenv("DDCORE_ALLOW_OLDER_BINARY", "")
+	stripGlobalFlags([]string{"--allow-older-binary=false", "doctor"})
+	if allowOlderBinary() {
+		t.Error("--allow-older-binary=false should not turn the override on")
+	}
+}

@@ -39,6 +39,10 @@ const (
 	OIDCErrDisabled   = "disabled"
 	OIDCErrDomain     = "domain"
 	OIDCErrThrottled  = "throttled"
+	// Ours, not the provider's: a database that went away, a bug. The desk
+	// shows the same general sentence, but the log and the audit detail no
+	// longer send an operator to look at the identity provider.
+	OIDCErrServer = "server"
 )
 
 // OIDCError is a refused sign-in. Code is safe to show; Err is for the log.
@@ -289,6 +293,11 @@ func (e *Engine) OIDCCallback(ctx context.Context, id, code, state, cookieState 
 		return "", redirect, err
 	}
 	e.ClearAttempts(ctx, throttleKey("login", user))
+	if from.IP != "" {
+		// As a password sign-in does: the address is a shared one, so its
+		// failures must not outlive a sign-in that plainly worked.
+		e.ClearAttempts(ctx, ipKey)
+	}
 	return sid, redirect, nil
 }
 

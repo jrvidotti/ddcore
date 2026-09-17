@@ -39,5 +39,30 @@ taken it.
   before this release have no ledger row and are not checked until their next `migrate`.
 - `storage.Store` has a new `List` method; an embedder with its own store must implement it.
 
-- An app whose `version` is not `MAJOR.MINOR.PATCH` (for example `"1.0"` is fine, `"beta"` is not)
-  no longer loads. Fix the value or remove it.
+- An app whose `version` is not a version — `"1"`, `"1.0"` and `"1.0.0"` are all fine, `"beta"` and
+  `"1.0.0-rc.1"` are not — no longer loads. Fix the value or remove it.
+
+### Fixed
+
+- `^` and `~` with an abbreviated version now bound what the author left out, as npm does: `^0` is
+  every `0.x`, `^0.0` every `0.0.x`, and `~1` every `1.x`. The spelt-out forms are unchanged.
+- A job whose write is refused by maintenance mode goes back to the queue without consuming an
+  attempt and without an Error Log row, instead of failing — on its last attempt it used to die of
+  a pause that was nobody's fault.
+- Global search applies its five-hits-per-DocType cap after ranking, so an exact match is no longer
+  lost behind more recently modified rows, and `%` and `_` in the search text now match themselves
+  instead of acting as wildcards.
+- A `migrate` run by a build with no release version (a `dev` binary) no longer replaces the
+  ledger's core version, which silently disarmed the rollback guard for every later binary.
+- `ddcore.share.*` refuses a right it does not know (`override_scope` for `overrideScope`) with the
+  same `417` as the endpoint, rather than dropping it and granting a share without it.
+- Single sign-on clears the client address's failed attempts on a successful sign-in, as a password
+  sign-in does, and a failure on the server's own side is reported as `sso_error=server` rather than
+  blamed on the provider.
+- `--allow-older-binary=true` is accepted; only the bare flag used to be.
+- `ddcore doctor` reports a rollback refusal as its own critical instead of "the apps could not be
+  loaded", and prints an S3 bucket with no prefix without a trailing slash.
+- `ddcore restore` warns when it stops after the database was replaced: the target keeps the
+  restored database and stays paused.
+- A list view listed in `views` but never configured no longer shows a button that falls back to
+  the table.

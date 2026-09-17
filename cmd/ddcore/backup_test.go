@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"errors"
 	"strings"
 	"testing"
 
@@ -231,4 +232,20 @@ func rewriteEntry(in, out, name, body string) error {
 		}
 	}
 	return tw.Close()
+}
+
+// Nothing after the database step can be undone. A failure there leaves a
+// restored database behind a pause, and the operator has to be told: the
+// printed error alone reads like "nothing happened".
+func TestRestoreWarnsWhenItStopsAfterTheDatabase(t *testing.T) {
+	if got := afterDatabaseWarning(false, errors.New("archive is corrupt")); got != "" {
+		t.Errorf("a failure before the database step needs no warning, got %q", got)
+	}
+	if got := afterDatabaseWarning(true, nil); got != "" {
+		t.Errorf("a run that worked needs no warning, got %q", got)
+	}
+	got := afterDatabaseWarning(true, errors.New("storage unreachable"))
+	if !strings.Contains(got, "maintenance off") || !strings.Contains(got, "database") {
+		t.Errorf("the warning does not say what was left behind: %q", got)
+	}
 }
