@@ -34,6 +34,9 @@ func TestMaintenanceMode(t *testing.T) {
 	if r := x.call("POST", "/api/login", map[string]any{"usr": "ana@x.com", "pwd": "segredo123"}, ""); r.Status == 503 {
 		t.Errorf("sign-in stays open: %s", r.Raw)
 	}
+	if r := x.call("POST", "/mcp", map[string]any{}, admin); r.Status == 503 {
+		t.Errorf("MCP stays open, so maintenance_set can switch the pause off: %s", r.Raw)
+	}
 	for _, p := range []string{"/healthz", "/readyz"} {
 		if r := x.call("GET", p, nil, ""); r.Status != 200 {
 			t.Errorf("%s while paused: %d", p, r.Status)

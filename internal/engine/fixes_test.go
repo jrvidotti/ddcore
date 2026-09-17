@@ -879,6 +879,8 @@ func TestCoreCompatRanges(t *testing.T) {
 		{">=0.14 <1", "v0.20.3-4-gabc123-dirty", true},
 		{"^0.14.0", "v0.14.9", true},
 		{"^0.14.0", "v0.15.0", false},
+		{"^0.0.3", "v0.0.3", true},
+		{"^0.0.3", "v0.0.4", false},
 		{"^1.2.0", "v1.9.0", true},
 		{"^1.2.0", "v2.0.0", false},
 		{"~1.2.3", "v1.2.9", true},
