@@ -16,6 +16,7 @@ export default defineDoctype({
   icon: "send",
   naming: { hash: true },
   titleField: "event",
+  globalSearch: false,
   sortField: "creation",
   sortOrder: "desc",
   fields: [

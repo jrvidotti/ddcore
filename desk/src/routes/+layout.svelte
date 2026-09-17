@@ -11,8 +11,10 @@
   import Dialogs from "$lib/components/Dialogs.svelte";
   import Icon from "$lib/components/Icon.svelte";
   import ShortcutsModal from "$lib/components/ShortcutsModal.svelte";
+  import SearchPalette from "$lib/components/SearchPalette.svelte";
+  import { shouldOpenSearch } from "$lib/components/search-palette";
   import { ui, toast } from "$lib/ui.svelte";
-  import { shouldToggleShortcuts, toggleShortcutsHelp, shortcutsState, closeShortcutsHelp, openShortcutsHelp } from "$lib/shortcuts.svelte";
+  import { shouldToggleShortcuts, toggleShortcutsHelp, shortcutsState, closeShortcutsHelp, openShortcutsHelp, searchState, openSearch, closeSearch } from "$lib/shortcuts.svelte";
   import { api, onMessage } from "$lib/api";
   import { page } from "$app/state";
   import { goto, afterNavigate } from "$app/navigation";
@@ -43,6 +45,11 @@
   });
 
   function onWindowKeydown(e: KeyboardEvent) {
+    if (isLoggedIn() && !isLogin && shouldOpenSearch(e)) {
+      e.preventDefault();
+      if (searchState.open) closeSearch(); else { closeShortcutsHelp(); openSearch(); }
+      return;
+    }
     if (shortcutsState.open && e.key === "Escape") {
       closeShortcutsHelp();
       return;
@@ -175,6 +182,9 @@
         </a>
 
         <div class="mobile-actions">
+          <button class="btn icon mobile-action-btn" onclick={openSearch} aria-label={__("Search")} type="button">
+            <Icon name="search" size={18} />
+          </button>
           <a href="/app/notifications" class="btn icon mobile-action-btn" aria-label={__("Notifications")}>
             <Icon name="bell" size={18} />
             {#if notifications.unread > 0}
@@ -232,6 +242,7 @@
 <Toasts />
 <Dialogs />
 <ShortcutsModal />
+{#if ready && !isLogin && isLoggedIn()}<SearchPalette />{/if}
 
 <style>
   .shell { display: flex; min-height: 100vh; }

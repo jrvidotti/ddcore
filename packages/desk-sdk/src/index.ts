@@ -182,6 +182,10 @@ export interface DeskAPI {
     add(doctype: string, name: string, args: ShareArgs): Promise<DocShare>;
     remove(doctype: string, name: string, user: string): Promise<{ ok: boolean }>;
   };
+  /** Global search (OPS-08): documents the user can read whose name, title or search fields contain txt. */
+  search: {
+    global(txt: string, limit?: number): Promise<GlobalSearchHit[]>;
+  };
   _(s: string, args?: any[]): string;
   __(s: string, args?: any[]): string;
   call(path: string, args?: Record<string, any>): Promise<any>;
@@ -228,8 +232,17 @@ export interface DeskAPI {
   setRoute(...parts: string[]): Promise<void>;
 }
 
+export interface GlobalSearchHit {
+  doctype: string;
+  /** The DocType's translated label. */
+  label: string;
+  name: string;
+  /** The title field's value, or the name. */
+  title: string;
+}
+
 export declare function defineForm<T extends BaseDoc = BaseDoc>(doctype: string, handlers: FormHandlers<T>): void;
-export type DeskViewMode = "list" | "calendar" | "cards";
+export type DeskViewMode = "list" | "calendar" | "cards" | "kanban" | "gantt";
 
 export interface CalendarViewOptions<T extends BaseDoc = BaseDoc> {
   /** Required: Date or Datetime field to plot records on the calendar */
@@ -250,12 +263,40 @@ export interface CardViewOptions<T extends BaseDoc = BaseDoc> {
   badges?: (row: T) => { label: string; color: string }[] | null | undefined;
 }
 
+export interface KanbanViewOptions<T extends BaseDoc = BaseDoc> {
+  /** Required: the Select field whose values are the columns; dragging a card writes it. */
+  field: keyof T & string;
+  /** Columns in order; defaults to the field's options. */
+  columns?: string[];
+  /** Field shown as the card title (defaults to titleField or name) */
+  titleField?: keyof T & string;
+  /** Field shown under the title */
+  subtitleField?: keyof T & string;
+  /** Field determining the card's indicator color (defaults to the column field) */
+  colorField?: keyof T & string;
+}
+
+export interface GanttViewOptions<T extends BaseDoc = BaseDoc> {
+  /** Required: Date or Datetime field where a bar starts */
+  startField: keyof T & string;
+  /** Required: Date or Datetime field where a bar ends; rows without one are not drawn */
+  endField: keyof T & string;
+  /** Field shown as the row label (defaults to titleField or name) */
+  titleField?: keyof T & string;
+  /** Field determining bar color (e.g. "status", uses optionColors automatically) */
+  colorField?: keyof T & string;
+  /** Numeric field from 0 to 100 drawn as progress inside the bar */
+  progressField?: keyof T & string;
+}
+
 /** Adjustments for a DocType's list view (see docs/agent/form-api.md). */
 export interface ListViewOptions<T extends BaseDoc = BaseDoc> {
-  /** Allowed views for this DocType; defaults to ["list", "cards"] (or ["list", "calendar", "cards"] when calendar is defined) */
+  /** Allowed views for this DocType; defaults to ["list", "cards"] plus "calendar", "kanban" and "gantt" for each one configured */
   views?: DeskViewMode[];
   calendar?: CalendarViewOptions<T>;
   card?: CardViewOptions<T>;
+  kanban?: KanbanViewOptions<T>;
+  gantt?: GanttViewOptions<T>;
   /** Displayed columns, overriding `inListView` from meta. */
   columns?: (keyof T & string)[];
   /** Initial filters; URL query string still takes precedence. */

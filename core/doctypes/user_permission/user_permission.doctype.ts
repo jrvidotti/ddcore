@@ -7,6 +7,7 @@ export default defineDoctype({
   icon: "shield",
   naming: { hash: true },
   titleField: "for_value",
+  globalSearch: false,
   searchFields: ["user", "allow", "for_value"],
   trackChanges: true,
   fields: [

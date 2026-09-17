@@ -14,3 +14,13 @@ export function closeShortcutsHelp() {
 export function toggleShortcutsHelp() {
   shortcutsState.open = !shortcutsState.open;
 }
+
+export const searchState = $state<{ open: boolean }>({ open: false });
+
+export function openSearch() {
+  searchState.open = true;
+}
+
+export function closeSearch() {
+  searchState.open = false;
+}

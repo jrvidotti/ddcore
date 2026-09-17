@@ -657,6 +657,18 @@ func (c *Ctx) LinkSearch(doctype, txt string, filters any, limit int) ([]map[str
 	if err != nil {
 		return nil, err
 	}
+	args := searchArgs(d, txt)
+	args.Filters = filters
+	args.Limit = limit
+	if limit <= 0 {
+		args.Limit = 20
+	}
+	return c.GetList(doctype, args)
+}
+
+// searchFieldsOf lists the columns a text search matches: name, the title
+// field, then each search field, without duplicates.
+func searchFieldsOf(d *meta.DocType) []string {
 	fields := []string{"name"}
 	seen := map[string]bool{"name": true}
 	if d.TitleField != "" && d.HasColumn(d.TitleField) && !seen[d.TitleField] {
@@ -669,7 +681,14 @@ func (c *Ctx) LinkSearch(doctype, txt string, filters any, limit int) ([]map[str
 			seen[sf] = true
 		}
 	}
-	args := ListArgs{Fields: fields, Filters: filters, Limit: limit}
+	return fields
+}
+
+// searchArgs selects the search fields and, for a non-empty txt, ORs a
+// substring match over each of them.
+func searchArgs(d *meta.DocType, txt string) ListArgs {
+	fields := searchFieldsOf(d)
+	args := ListArgs{Fields: fields}
 	if txt != "" {
 		var ors []any
 		for _, f := range fields {
@@ -677,10 +696,7 @@ func (c *Ctx) LinkSearch(doctype, txt string, filters any, limit int) ([]map[str
 		}
 		args.OrFilters = ors
 	}
-	if limit <= 0 {
-		args.Limit = 20
-	}
-	return c.GetList(doctype, args)
+	return args
 }
 
 // ResolveLinkTitles loads the titles for all Link and Dynamic Link values in docs

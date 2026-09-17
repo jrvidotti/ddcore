@@ -15,6 +15,7 @@ export default defineDoctype({
   icon: "share-2",
   naming: { hash: true },
   titleField: "share_name",
+  globalSearch: false,
   searchFields: ["user", "share_doctype", "share_name"],
   uniqueKeys: [{ name: "user_document", fields: ["user", "share_doctype", "share_name"] }],
   fields: [

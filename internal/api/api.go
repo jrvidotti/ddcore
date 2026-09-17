@@ -82,6 +82,7 @@ func New(e *engine.Engine, desk fs.FS) *Server {
 			r.Get("/notifications/count", s.notificationCount)
 			r.Patch("/notifications/{name}", s.setNotificationRead)
 			r.Get("/search/link", s.linkSearch)
+			r.Get("/search/global", s.globalSearch)
 			r.Get("/search/link-titles", s.linkTitles)
 			r.Post("/search/link-titles", s.linkTitles)
 			r.Get("/export/{doctype}", s.export)
@@ -952,6 +953,13 @@ func (s *Server) linkSearch(w http.ResponseWriter, r *http.Request) {
 		}
 		limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 		return c.LinkSearch(r.URL.Query().Get("doctype"), r.URL.Query().Get("txt"), filters, limit)
+	})
+}
+
+func (s *Server) globalSearch(w http.ResponseWriter, r *http.Request) {
+	s.run(w, r, func(c *engine.Ctx) (any, error) {
+		limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+		return c.GlobalSearch(r.URL.Query().Get("txt"), limit)
 	})
 }
 

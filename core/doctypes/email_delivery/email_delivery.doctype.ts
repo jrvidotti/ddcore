@@ -19,6 +19,7 @@ export default defineDoctype({
   label: "Email Delivery",
   icon: "mail",
   titleField: "subject",
+  globalSearch: false,
   sortField: "creation",
   sortOrder: "desc",
   fields: [

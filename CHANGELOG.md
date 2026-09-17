@@ -10,6 +10,11 @@ taken it.
 
 ### Added
 
+- Global search (OPS-08): a Mod+K palette in the desk and `GET /api/search/global`, matching the
+  title and search fields of every DocType the user can list, with roles, scopes, shares and field
+  levels applied. `globalSearch` on a DocType opts it in or out. Core log DocTypes are opted out.
+- Kanban and Gantt list views (OPS-08) through `defineListView({ kanban, gantt })`. Dragging a
+  Kanban card saves its Select field.
 - Core/app compatibility contract (PRD-07): `defineApp({ ddcore: "<range>" })` declares the ddcore
   releases an app supports, and a binary outside the range refuses to load it. `ddcore doctor` and
   the export manifest report each app's version and range.

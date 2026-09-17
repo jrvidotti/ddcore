@@ -299,6 +299,13 @@ export interface DoctypeDef {
   sortOrder?: "asc" | "desc";
   searchFields?: string[];
   /**
+   * Whether the Desk's global search looks into this DocType. By default it
+   * does when the DocType declares `titleField` or `searchFields` (never for
+   * a child table or a Single); `true` includes it anyway (matching `name`),
+   * `false` leaves it out.
+   */
+  globalSearch?: boolean;
+  /**
    * Compound business keys, enforced by a partial unique index each.
    *
    * `unique` on a field covers one column; this covers the keys that span

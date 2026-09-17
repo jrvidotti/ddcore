@@ -212,6 +212,8 @@ export const api = {
     request("POST", `/api/resource/${encodeURIComponent(doctype)}/${encodeURIComponent(name)}/${encodeURIComponent(method)}`, args),
   call: (path: string, args: any = {}) => request("POST", `/api/method/${path}`, args),
   linkSearch: (doctype: string, txt: string, filters?: any, limit = 20) => request<any[]>("GET", "/api/search/link" + q({ doctype, txt, filters, limit })),
+  globalSearch: (txt: string, limit = 20) =>
+    request<{ doctype: string; label: string; name: string; title: string }[]>("GET", "/api/search/global" + q({ txt, limit })),
   linkTitles: (doctype: string, names: string[]) =>
     request<Record<string, Record<string, string>>>("GET", "/api/search/link-titles" + q({ doctype, names: names.join(",") })),
   report: (name: string, filters: any) => request("GET", `/api/report/${encodeURIComponent(name)}` + q({ filters })),

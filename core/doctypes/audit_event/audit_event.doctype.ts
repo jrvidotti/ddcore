@@ -16,6 +16,7 @@ export default defineDoctype({
   icon: "shield",
   naming: { hash: true },
   titleField: "action",
+  globalSearch: false,
   sortField: "creation",
   sortOrder: "desc",
   fields: [
