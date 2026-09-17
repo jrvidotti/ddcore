@@ -207,7 +207,7 @@ many hours (see [backup.md](backup.md)).
 ## `ddcore doctor`
 
 ```
-ddcore doctor [--json] [--strict] [--window N]
+ddcore doctor [--json] [--strict] [--window N] [--no-update-check]
 ```
 
 It reports the version, the site, the database (with the DSN's password
@@ -230,6 +230,28 @@ provider beyond the discovery probe described in [auth.md](auth.md).
 It also reports maintenance mode (and warns while it is on), which core and app
 versions last migrated the database, and the newest `ddcore backup` with any
 failures since (see [backup.md](backup.md)).
+
+It also asks GitHub for the newest published release and warns when this binary
+is behind it:
+
+```
+version:    v0.14.0
+            v0.15.0 is available
+...
+warning:    a newer ddcore release is available: v0.15.0 (this binary is v0.14.0)
+```
+
+It is a warning, so `--strict` fails on a stale binary. The lookup runs before
+the engine is loaded, because a binary too old for the apps in front of it is
+exactly the case where the answer helps and the report has already given up by
+then. It asks at most once an hour, it never reports what it could not reach —
+an air-gapped site is a normal site, not a finding — and it says nothing at all
+when this binary is not a release (a `dev` build has no version to compare).
+`--no-update-check` skips the lookup for one run; `DDCORE_UPDATE_CHECK=off`
+skips it for every run, on a machine with no outbound internet access or
+wherever the request is unwelcome. What actually changed is the changelog,
+embedded in the binary and served over MCP as `ddcore://changelog` — the
+`whats_new` tool returns the part of it above the running version.
 
 It also reports the vault: whether `DDCORE_SECRET_KEY` — the environment
 variable the vault's master encryption key is derived from — is configured,

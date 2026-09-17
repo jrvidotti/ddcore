@@ -83,6 +83,11 @@ The framework follows **Semantic Versioning 2.0.0** (`vMAJOR.MINOR.PATCH`):
   - New backwards-compatible capabilities or hooks increment MINOR (PATCH while `0.x`).
   - Bug fixes and optimizations increment PATCH.
   - Every breaking change is listed under **Breaking** in `CHANGELOG.md`, with the upgrade path.
+- **The changelog is written before the tag**: entries accumulate under `## Unreleased` and are
+  promoted to a `## <version> — <YYYY-MM-DD>` heading in the commit the tag then points at. The
+  file ships inside the binary — `ddcore://changelog` and the `whats_new` MCP tool read it — so a
+  version tagged without its section publishes news no reader can find. The procedure is in
+  [`DEVELOPMENT.md`](https://github.com/jrvidotti/ddcore/blob/main/DEVELOPMENT.md).
 
 ## App compatibility contract
 

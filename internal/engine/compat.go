@@ -75,6 +75,27 @@ func parseCoreVersion(s string) (semver, bool) {
 	return v, ok
 }
 
+// IsRelease reports whether s names a release at all. `v0.14.0` and the
+// `git describe` build `v0.14.0-3-gabc123` do; `dev`, `latest` and a bare hash
+// do not.
+func IsRelease(s string) bool {
+	_, ok := parseCoreVersion(s)
+	return ok
+}
+
+// Newer reports whether release b is newer than release a, by the same reading
+// of a version that the compatibility contract uses: `v0.14.0-3-gabc123` is
+// release 0.14.0. ok is false when either side is not a release — a `dev` or
+// `latest` build — and no comparison is meaningful.
+func Newer(a, b string) (newer bool, ok bool) {
+	av, aok := parseCoreVersion(a)
+	bv, bok := parseCoreVersion(b)
+	if !aok || !bok {
+		return false, false
+	}
+	return bv.cmp(av) > 0, true
+}
+
 type constraint struct {
 	op string // >=, >, <=, <, =
 	v  semver

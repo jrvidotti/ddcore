@@ -407,12 +407,32 @@ The framework adheres to [Semantic Versioning 2.0.0](https://semver.org/):
     - Cross-compiles standalone static binaries with `CGO_ENABLED=0` for Darwin and Linux (`darwin-amd64`, `darwin-arm64`, `linux-amd64`, `linux-arm64`).
     - Packages archives (`ddcore-<os>-<arch>.tar.gz`) with checksums (`SHA256SUMS`) and attaches them to the GitHub Release.
   - Pushing to the `main` branch updates the rolling release `latest` for developers.
-  - Before tagging, move `CHANGELOG.md`'s *Unreleased* entries under the new version. A change that
-    breaks an app — the server or desk SDK, REST payloads, hooks, engine contracts — goes under
-    **Breaking** with its upgrade path, and bumps the version so that apps' `ddcore:` ranges exclude
-    it (see the compatibility contract in `docs/agent/conventions.md`).
   - The framework itself publishes no container image: an app builds its own image and fetches
     the binary of the release it pins, so there is nothing for the framework to keep in a registry.
+
+- **Cutting a release** — in this order, because the tag is what publishes the binaries and
+  nothing downstream re-reads the changelog afterwards:
+  1. **Write the changelog as you go.** Every change an app would notice lands under
+     `## Unreleased` in `CHANGELOG.md` in the same commit that makes it. A change that breaks an
+     app — the server or desk SDK, REST payloads, hooks, engine contracts — goes under
+     **Breaking** with its upgrade path.
+  2. **Pick the version** by the bump rules below and the compatibility contract in
+     [`docs/agent/conventions.md`](docs/agent/conventions.md). A **Breaking** entry must bump the
+     version far enough that apps' `ddcore:` ranges exclude it.
+  3. **Promote the section.** Rename `## Unreleased` to `## <version> — <YYYY-MM-DD>` (e.g.
+     `## 0.15.0 — 2026-09-20`) and add a fresh, empty `## Unreleased` above it. The heading is
+     parsed, so keep the version first on the line; `## [0.15.0] - 2026-09-20` is read too.
+  4. **Commit that**, then tag and push:
+     ```bash
+     git commit -am "chore(release): 0.15.0"
+     git tag v0.15.0 && git push origin main v0.15.0
+     ```
+  5. **Check the release** once the workflow finishes: the archives and `SHA256SUMS` are attached,
+     and `ddcore doctor` on an older binary now reports the new release.
+
+  Never tag before step 3. The changelog is embedded in the binary and served over MCP
+  (`ddcore://changelog`, the `whats_new` tool), and `ddcore doctor` warns when a newer release
+  exists — all three point at a section that has to be there before the tag is.
 
 - **Developer CLI installation**:
   - External developers can install the CLI directly into `~/.local/bin/ddcore` with a single command:

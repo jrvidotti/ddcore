@@ -49,3 +49,15 @@ Always consult the documentation in [`docs/agent/index.md`](docs/agent/index.md)
    apps' TypeScript).
 5. **MCP:** `.mcp.json` points at `./bin/ddcore mcp`; use the ddcore MCP tools to inspect
    metadata, run methods and apply migrations rather than touching the database by hand.
+   `ddcore://changelog` and the `whats_new` tool report what changed since the running version.
+6. **Releases: feed the changelog before the tag.** Every change an app would notice goes under
+   `## Unreleased` in [`CHANGELOG.md`](CHANGELOG.md) **in the same commit that makes it** —
+   under `Added`, `Changed`, `Fixed`, or `Breaking` with its upgrade path.
+   **Before tagging a version, move the `Unreleased` entries under a new
+   `## <version> — <YYYY-MM-DD>` heading and leave `Unreleased` empty; only then create and push
+   the `v*` tag**, which is what triggers the release workflow. Never tag first: the tag is what
+   publishes the binaries, and a release whose changelog section does not exist ships news
+   nobody can read — the binary serves `CHANGELOG.md` over MCP and `ddcore doctor` points at it
+   when a newer release exists. Which digit to bump is in
+   [`docs/agent/conventions.md`](docs/agent/conventions.md); the full procedure is in
+   [`DEVELOPMENT.md`](DEVELOPMENT.md).

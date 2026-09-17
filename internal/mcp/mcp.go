@@ -13,10 +13,12 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	ddcore "github.com/jrvidotti/ddcore"
 	"github.com/jrvidotti/ddcore/docs"
 	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/db"
 	"github.com/jrvidotti/ddcore/internal/engine"
+	"github.com/jrvidotti/ddcore/internal/release"
 	"github.com/jrvidotti/ddcore/internal/scaffold"
 	"github.com/jrvidotti/ddcore/internal/typegen"
 )
@@ -84,6 +86,7 @@ func New(e *engine.Engine) *mcp.Server {
 	s := &server{e: e}
 	srv := mcp.NewServer(&mcp.Implementation{Name: "ddcore", Version: engine.Version}, &mcp.ServerOptions{
 		Instructions: "Development server for the ddcore framework. Start by reading the resource ddcore://docs/index. " +
+			"What changed recently is in ddcore://changelog; whats_new reports it against the running version. " +
 			"Typical flow: get_doctype / scaffold_doctype → migrate → insert_doc / list_docs → run_tests. " +
 			"Every label is an English key: after adding one, i18n_extract → set_translations until nothing is missing. " +
 			"The app's TS files are the source of truth: edit them and the server reloads.",
@@ -614,7 +617,32 @@ func New(e *engine.Engine) *mcp.Server {
 			return text(map[string]any{"apps": apps, "whitelisted": e.WhitelistedPaths(), "reports": reports, "workspaces": ws}), nil, nil
 		})
 
+	mcp.AddTool(srv, &mcp.Tool{Name: "whats_new", Description: "What changed in ddcore since the running version: the changelog entries above it, the newest published release, and whether an upgrade is available."},
+		func(ctx context.Context, req *mcp.CallToolRequest, in struct {
+			Since string `json:"since,omitempty" jsonschema:"changelog entries newer than this version (default: the running one)"`
+		}) (*mcp.CallToolResult, any, error) {
+			since := in.Since
+			if since == "" {
+				since = engine.Version
+			}
+			out := map[string]any{
+				"ddcore":    engine.Version,
+				"since":     since,
+				"changelog": release.Since(ddcore.Changelog, since),
+			}
+			// A failed lookup is not an error: the changelog is the half of the
+			// answer that matters, and it is already in hand.
+			if u, err := release.Check(ctx, engine.Version); err == nil && u != nil {
+				out["latest"], out["updateAvailable"] = u.Latest, u.Available
+			}
+			return text(out), nil, nil
+		})
+
 	// ---- resources
+	srv.AddResource(&mcp.Resource{URI: "ddcore://changelog", Name: "changelog", MIMEType: "text/markdown", Description: "what changed in each ddcore release"},
+		func(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
+			return &mcp.ReadResourceResult{Contents: []*mcp.ResourceContents{{URI: req.Params.URI, MIMEType: "text/markdown", Text: ddcore.Changelog}}}, nil
+		})
 	for _, n := range docNames() {
 		name := n
 		srv.AddResource(&mcp.Resource{URI: "ddcore://docs/" + name, Name: "docs/" + name, MIMEType: "text/markdown", Description: "ddcore reference: " + name},

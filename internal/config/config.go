@@ -69,6 +69,8 @@ type File struct {
 	Mail Mail `json:"-"`
 	// Webhooks comes from the environment only, like Mail.
 	Webhooks Webhooks `json:"-"`
+	// UpdateCheck comes from the environment only, like Webhooks.
+	UpdateCheck UpdateCheck `json:"-"`
 	// Storage comes from the environment only, like Mail.
 	Storage Storage `json:"-"`
 	// OIDC lists the single sign-on providers, from the environment only.
@@ -151,6 +153,9 @@ func Load(dir string) (*File, string, error) {
 	}
 	f.Mail.Dev = f.Dev || envBool("DDCORE_DEV", false)
 	if f.Webhooks, err = webhooksFromEnv(); err != nil {
+		return nil, "", err
+	}
+	if f.UpdateCheck, err = updateCheckFromEnv(); err != nil {
 		return nil, "", err
 	}
 	if f.Storage, err = storageFromEnv(); err != nil {
