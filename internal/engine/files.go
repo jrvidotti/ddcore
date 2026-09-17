@@ -1,6 +1,12 @@
 package engine
 
-import "github.com/jrvidotti/ddcore/internal/db"
+import (
+	"context"
+	"time"
+
+	"github.com/jrvidotti/ddcore/internal/db"
+	"github.com/jrvidotti/ddcore/internal/storage"
+)
 
 // FilePermFields is what CanReadFile needs to decide. Kept next to the rule so
 // a caller cannot select half of it and get a quiet "no".
@@ -68,4 +74,28 @@ func (c *Ctx) AttachmentFieldRestricted(doctype, field string) (restricted, canW
 		return false, true
 	}
 	return true, c.FieldAccess(d).CanWrite(f)
+}
+
+// deleteFileBytesAfterCommit removes the stored bytes of deleted File rows once
+// the deletion is committed: a rolled-back delete must still find its bytes.
+// It is best effort — the rows are already gone, so a storage failure is
+// logged as an orphan rather than turned into an error nobody can act on.
+func (c *Ctx) deleteFileBytesAfterCommit(fileURLs ...string) {
+	if len(fileURLs) == 0 {
+		return
+	}
+	store := c.E.Storage()
+	c.AfterCommit(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		for _, u := range fileURLs {
+			key, ok := storage.KeyFromURL(u)
+			if !ok {
+				continue
+			}
+			if err := store.Delete(ctx, key); err != nil {
+				c.E.Log.Warn("file bytes left behind after delete", "file_url", u, "backend", store.Backend(), "err", err)
+			}
+		}
+	})
 }

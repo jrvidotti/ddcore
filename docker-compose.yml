@@ -18,6 +18,42 @@ services:
       timeout: 5s
       retries: 5
 
+  # S3-compatible storage for trying DDCORE_STORAGE=s3 locally. Opt-in:
+  #   docker compose --profile s3 up -d
+  # Console at http://localhost:9001 (ddcore / ddcore-secret); see docs/agent/storage.md.
+  minio:
+    image: quay.io/minio/minio:latest
+    container_name: ddcore-minio
+    profiles: ["s3"]
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ddcore
+      MINIO_ROOT_PASSWORD: ddcore-secret
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  minio-init:
+    image: quay.io/minio/mc:latest
+    profiles: ["s3"]
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "mc alias set local http://minio:9000 ddcore ddcore-secret &&
+      mc mb --ignore-existing local/ddcore"
+    restart: "no"
+
 volumes:
   postgres_data:
     name: ddcore_postgres_data
+  minio_data:
+    name: ddcore_minio_data

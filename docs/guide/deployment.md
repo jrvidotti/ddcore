@@ -30,7 +30,7 @@ A production `ddcore` deployment consists of three primary components:
 ### Minimum Specifications:
 - **Operating System:** Linux (Ubuntu 22.04+, Debian 12+, RHEL 9+, Alpine Linux) on `x86_64` (amd64) or `aarch64` (arm64).
 - **RAM:** 512 MB minimum (1 GB+ recommended).
-- **Disk:** Sufficient storage for PostgreSQL data and uploaded user files.
+- **Disk:** Sufficient storage for PostgreSQL data and, unless `DDCORE_STORAGE=s3` keeps them in a bucket, uploaded user files.
 - **Dependencies:** PostgreSQL 14 or higher. No Node.js runtime or Python environment is required on the production host.
 
 ---
@@ -45,6 +45,7 @@ A production `ddcore` deployment consists of three primary components:
 | `DDCORE_PORT` | HTTP port for the server to listen on (default `8090`) | `8090` |
 | `DDCORE_SECRET_KEY` | 32-byte secret key used for session cookies and vault encryption | `openssl rand -hex 32` |
 | `DDCORE_ENV` | Environment identifier (`production`, `staging`, `development`) | `production` |
+| `DDCORE_STORAGE` | Where uploaded file bytes live: `local` (`<dataDir>/files`, the default) or `s3`, with the `DDCORE_S3_*` variables. See [storage](../agent/storage.md) | `s3` |
 | `DDCORE_LOGIN_NOTICE` | Plain-text notice above the sign-in form (`\n` breaks the line) | `Public demo — data resets every 6 hours.` |
 | `DDCORE_LOGIN_DEMO_USER` / `DDCORE_LOGIN_DEMO_PASSWORD` | A demo account offered on the sign-in screen, with a button that fills the form. Public to every visitor: never a real password | `visitor@example.com` / `demo-visitor` |
 

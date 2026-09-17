@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -57,6 +58,7 @@ type doctorReport struct {
 	Scheduler engine.SchedHealth  `json:"scheduler"`
 	Workers   int                 `json:"workers"`
 	Mail      string              `json:"mail"`
+	Storage   string              `json:"storage"`
 	URL       string              `json:"url"`
 	URLSet    bool                `json:"urlConfigured"`
 	Sessions  sessionSection      `json:"sessions"`
@@ -148,7 +150,7 @@ func cmdDoctor(args []string) error {
 func gatherDoctor(ctx context.Context, cfg *config.File, windowMin int) *doctorReport {
 	rep := &doctorReport{
 		DDCore: engine.Version, DSN: db.RedactDSN(cfg.DSN),
-		Workers: cfg.Workers, Mail: mailSummary(cfg),
+		Workers: cfg.Workers, Mail: mailSummary(cfg), Storage: storageSummary(cfg),
 		URL: cfg.PublicURL(), URLSet: cfg.HasPublicURL(), Ops: cfg.Ops,
 		Sessions: sessionSection{cfg.Auth.SessionDays, cfg.Auth.MaxLoginAttempts, cfg.Auth.LockoutMinutes},
 		Secrets:  []string{},
@@ -362,6 +364,7 @@ func (r *doctorReport) print(w io.Writer) {
 func (r *doctorReport) printTail(w io.Writer, p func(string, string, ...any)) {
 	p("workers", "%d", r.Workers)
 	p("mail", "%s", r.Mail)
+	p("storage", "%s", r.Storage)
 	url := r.URL
 	if !r.URLSet {
 		url += "  → not configured; set DDCORE_URL in .env before mailing a recovery link"
@@ -441,4 +444,13 @@ func mailSummary(cfg *config.File) string {
 	default:
 		return "log — links are written to the log, not delivered"
 	}
+}
+
+// storageSummary names where file bytes live, never the credentials.
+func storageSummary(cfg *config.File) string {
+	if cfg.Storage.Backend != config.StorageS3 {
+		return "local " + filepath.Join(cfg.DataDir, "files")
+	}
+	s3 := cfg.Storage.S3
+	return fmt.Sprintf("s3 %s/%s/%s (presigned links valid %s)", s3.Endpoint, s3.Bucket, s3.Prefix, s3.PresignTTL)
 }

@@ -290,18 +290,18 @@ func (s *copyingSink) Doc(doc engine.Doc, files []engine.ExportFile) error {
 			continue
 		}
 		s.seen[f.FileURL] = true
-		if err := copyFile(s.c.AttachmentPath(f.FileURL), filepath.Join(s.dir, filepath.Base(f.FileURL))); err != nil {
+		if err := copyAttachment(s.c, f.FileURL, filepath.Join(s.dir, filepath.Base(f.FileURL))); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func copyFile(src, dst string) error {
+func copyAttachment(c *engine.Ctx, fileURL, dst string) error {
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return err
 	}
-	in, err := os.Open(src)
+	in, err := c.OpenAttachment(fileURL)
 	if err != nil {
 		return err
 	}

@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -28,6 +29,7 @@ import (
 	"github.com/jrvidotti/ddcore/internal/engine"
 	"github.com/jrvidotti/ddcore/internal/js"
 	"github.com/jrvidotti/ddcore/internal/meta"
+	"github.com/jrvidotti/ddcore/internal/storage"
 )
 
 type Server struct {
@@ -1251,14 +1253,6 @@ func (s *Server) eventAuthorizer(ctx context.Context, u string) engine.Authorize
 
 // ------------------------------------------------------------------ files
 
-func (s *Server) dataDir() string {
-	d := s.E.Cfg.DataDir
-	if d == "" {
-		d = "data"
-	}
-	return d
-}
-
 func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
 		if c.User == "Guest" {
@@ -1286,31 +1280,29 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 			}
 			private = true
 		}
-		sub := "public"
-		if private {
-			sub = "private"
-		}
 		name := randomFileName(hdr.Filename)
-		dir := filepath.Join(s.dataDir(), "files", sub)
-		if err := os.MkdirAll(dir, 0o755); err != nil {
-			return nil, err
-		}
-		out, err := os.Create(filepath.Join(dir, name))
-		if err != nil {
-			return nil, err
-		}
-		defer out.Close()
-		n, err := io.Copy(out, f)
-		if err != nil {
-			return nil, err
-		}
 		url := "/files/" + name
 		if private {
 			url = "/private/files/" + name
 		}
-		doc, _ := c.NewDoc("File", engine.Doc{"file_name": hdr.Filename, "file_url": url, "file_size": n, "content_type": hdr.Header.Get("Content-Type"), "is_private": private,
+		key, _ := storage.KeyFromURL(url)
+		contentType := hdr.Header.Get("Content-Type")
+		if err := s.E.Storage().Put(c.Ctx, key, f, hdr.Size, contentType); err != nil {
+			return nil, err
+		}
+		doc, err := c.NewDoc("File", engine.Doc{"file_name": hdr.Filename, "file_url": url, "file_size": hdr.Size, "content_type": contentType, "is_private": private,
 			"attached_to_doctype": r.FormValue("doctype"), "attached_to_name": r.FormValue("docname"), "attached_to_field": r.FormValue("fieldname")})
-		return c.Insert(doc, engine.SaveOpts{IgnorePermissions: true})
+		if err == nil {
+			doc, err = c.Insert(doc, engine.SaveOpts{IgnorePermissions: true})
+		}
+		if err != nil {
+			// no row will ever name these bytes: take them back out
+			if derr := s.E.Storage().Delete(context.WithoutCancel(c.Ctx), key); derr != nil {
+				s.E.Log.Warn("uploaded bytes left behind after a failed insert", "file_url", url, "err", derr)
+			}
+			return nil, err
+		}
+		return doc, nil
 	})
 }
 
@@ -1335,22 +1327,28 @@ func randomFileName(orig string) string {
 }
 
 // serveUpload hands out user files as downloads, never as active content.
-func serveUpload(w http.ResponseWriter, r *http.Request, prefix, dir string) {
+// Only images and PDFs are displayed in place.
+func (s *Server) serveUpload(w http.ResponseWriter, r *http.Request) {
+	key, ok := storage.KeyFromURL(r.URL.Path)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Content-Security-Policy", "default-src 'none'; sandbox")
-	name := filepath.Base(r.URL.Path)
-	ext := strings.ToLower(filepath.Ext(name))
+	name := path.Base(key)
+	ext := strings.ToLower(path.Ext(name))
 	inline := ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".gif" || ext == ".webp" || ext == ".pdf"
-	if inline {
-		w.Header().Set("Content-Disposition", fmt.Sprintf("inline; filename=%q", name))
-	} else {
-		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", name))
+	err := s.E.Storage().Serve(w, r, key, storage.Serving{Name: name, Inline: inline})
+	if errors.Is(err, storage.ErrNotFound) {
+		http.NotFound(w, r)
+	} else if err != nil {
+		s.writeErr(w, r, err)
 	}
-	http.StripPrefix(prefix, http.FileServer(http.Dir(dir))).ServeHTTP(w, r)
 }
 
 func (s *Server) file(w http.ResponseWriter, r *http.Request) {
-	serveUpload(w, r, "/files/", filepath.Join(s.dataDir(), "files", "public"))
+	s.serveUpload(w, r)
 }
 
 // privateFile serves a private upload only to users who may read the
@@ -1377,7 +1375,7 @@ func (s *Server) privateFile(w http.ResponseWriter, r *http.Request) {
 		s.writeErr(w, r, cerr.Permission("No permission for this file"))
 		return
 	}
-	serveUpload(w, r, "/private/files/", filepath.Join(s.dataDir(), "files", "private"))
+	s.serveUpload(w, r)
 }
 
 // ------------------------------------------------------------------ app assets & desk
