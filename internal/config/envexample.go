@@ -129,6 +129,12 @@ const EnvExample = `# ddcore — the environment this site runs in.
 # DDCORE_BACKUP_S3_PATH_STYLE=false
 # DDCORE_ALLOW_OLDER_BINARY=            # 1 lets a rollback open a database a newer release migrated
 
+# --- update check ------------------------------------------------------------
+# ` + "`" + `ddcore doctor` + "`" + ` asks GitHub for the newest published release and warns when this
+# binary is behind it. Turn it off on a machine with no outbound internet access,
+# or wherever the lookup is unwelcome; nothing else is affected.
+# DDCORE_UPDATE_CHECK=on
+
 # --- outgoing webhooks -------------------------------------------------------
 # Subscriptions are Webhook documents, set up in the desk. This switch is for a
 # deployment that must have no outgoing business effects — a migration

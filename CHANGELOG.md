@@ -10,6 +10,14 @@ taken it.
 
 ### Added
 
+- Release awareness: this file now ships inside the binary and is served as the MCP resource
+  `ddcore://changelog`. The `whats_new` tool returns the part of it above the running version,
+  together with the newest published release.
+- `ddcore doctor` asks GitHub for the newest published release and warns when the binary is
+  behind it, so `--strict` fails on a stale one. It asks at most once an hour, stays silent when
+  it cannot reach GitHub or when the binary is not a release, and is skipped by
+  `--no-update-check` for one run or `DDCORE_UPDATE_CHECK=off` for every run.
+
 - Backup, restore and maintenance (PRD-01, PRD-02):
   - `ddcore backup` writes one checksummed archive of the database, stored files, configuration
     and versions, with optional S3 upload and retention.

@@ -2,8 +2,11 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -11,6 +14,7 @@ import (
 	"github.com/jrvidotti/ddcore/internal/config"
 	"github.com/jrvidotti/ddcore/internal/db"
 	"github.com/jrvidotti/ddcore/internal/engine"
+	"github.com/jrvidotti/ddcore/internal/release"
 )
 
 func renderDoctor(t *testing.T, r *doctorReport) string {
@@ -170,5 +174,134 @@ func TestDoctorNamesARollbackRefusal(t *testing.T) {
 	}
 	if !strings.Contains(out, "older than the database") {
 		t.Errorf("the critical does not say what happened:\n%s", out)
+	}
+}
+
+// The update check is the one finding a site can act on without reading
+// anything else, so it has to reach the report and the warnings alike.
+func TestDoctorReportsANewerRelease(t *testing.T) {
+	r := &doctorReport{
+		DDCore:   "v0.14.0",
+		Database: db.Health{OK: true},
+		Update:   &release.Update{Current: "v0.14.0", Latest: "v0.15.0", Available: true},
+		Warnings: []string{"a newer ddcore release is available: v0.15.0 (this binary is v0.14.0)"},
+		Ops:      config.DefaultOps(),
+	}
+	out := renderDoctor(t, r)
+	if !strings.Contains(out, "version:    v0.14.0") {
+		t.Fatalf("the running version is missing:\n%s", out)
+	}
+	if !strings.Contains(out, "v0.15.0 is available") {
+		t.Fatalf("the available release is not next to the version:\n%s", out)
+	}
+	if !strings.Contains(out, "warning:    a newer ddcore release is available") {
+		t.Fatalf("the warning is not in the report:\n%s", out)
+	}
+	if code := r.exitCode(true); code != 1 {
+		t.Fatalf("--strict must fail on a stale binary, got %d", code)
+	}
+	if code := r.exitCode(false); code != 0 {
+		t.Fatalf("a stale binary is not a critical finding, got %d", code)
+	}
+}
+
+// Up to date, and the report says nothing about it: an operator reading this
+// every morning must not learn to skim past a line that is always there.
+func TestDoctorIsSilentWhenUpToDate(t *testing.T) {
+	r := &doctorReport{
+		DDCore:   "v0.15.0",
+		Database: db.Health{OK: true},
+		Update:   &release.Update{Current: "v0.15.0", Latest: "v0.15.0"},
+		Ops:      config.DefaultOps(),
+	}
+	if out := renderDoctor(t, r); strings.Contains(out, "is available") {
+		t.Fatalf("nothing should be announced:\n%s", out)
+	}
+}
+
+// doctorConfig is the least a report needs: a database that refuses at once, so
+// the gather reaches its early return without waiting on a dial.
+func doctorConfig() *config.File {
+	return &config.File{
+		DSN: "postgres://nobody@127.0.0.1:1/nothing?sslmode=disable",
+		Ops: config.DefaultOps(),
+	}
+}
+
+// The lookup runs before the engine is loaded on purpose: a binary too old for
+// the apps in front of it is exactly the case where knowing a newer release
+// exists is the answer, and by then the gather has already given up.
+func TestGatherDoctorChecksForUpdatesBeforeTheEngineLoads(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"tag_name":"v99.0.0"}`))
+	}))
+	defer srv.Close()
+	defer release.SetEndpointForTest(srv.URL)()
+
+	rep := gatherDoctor(context.Background(), doctorConfig(), 0, true)
+	if rep.Engine == "" {
+		t.Fatal("this test needs the engine to fail to load")
+	}
+	if rep.Update == nil || !rep.Update.Available {
+		t.Fatalf("the update was not reported: %+v", rep.Update)
+	}
+	if !strings.Contains(strings.Join(rep.Warnings, "\n"), "a newer ddcore release is available: v99.0.0") {
+		t.Fatalf("the warning is missing: %v", rep.Warnings)
+	}
+}
+
+// Off means no request at all, not a request whose answer is dropped.
+func TestGatherDoctorSkipsTheCheckWhenOff(t *testing.T) {
+	calls := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		_, _ = w.Write([]byte(`{"tag_name":"v99.0.0"}`))
+	}))
+	defer srv.Close()
+	defer release.SetEndpointForTest(srv.URL)()
+
+	rep := gatherDoctor(context.Background(), doctorConfig(), 0, false)
+	if rep.Update != nil {
+		t.Errorf("want no update section, got %+v", rep.Update)
+	}
+	if calls != 0 {
+		t.Errorf("want no request, got %d", calls)
+	}
+	for _, w := range rep.Warnings {
+		if strings.Contains(w, "release is available") {
+			t.Errorf("unexpected warning: %q", w)
+		}
+	}
+}
+
+// A lookup that cannot be made is not a finding: an air-gapped site is a
+// normal site, and a doctor that warned about its own reachability would be
+// noise on every run.
+func TestGatherDoctorIsQuietWhenTheLookupFails(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+	defer release.SetEndpointForTest(srv.URL)()
+
+	rep := gatherDoctor(context.Background(), doctorConfig(), 0, true)
+	if rep.Update != nil {
+		t.Errorf("want no update section, got %+v", rep.Update)
+	}
+	for _, w := range rep.Warnings {
+		if strings.Contains(w, "release is available") {
+			t.Errorf("unexpected warning: %q", w)
+		}
+	}
+}
+
+func TestDoctorUpdateFlagIsParsed(t *testing.T) {
+	fs := newFlagSet("doctor")
+	noUpdate := fs.Bool("no-update-check", false, "")
+	if err := parseFlags(fs, []string{"--no-update-check"}); err != nil {
+		t.Fatal(err)
+	}
+	if !*noUpdate {
+		t.Fatal("--no-update-check did not parse")
 	}
 }

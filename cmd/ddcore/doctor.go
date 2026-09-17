@@ -15,15 +15,19 @@ import (
 	"github.com/jrvidotti/ddcore/internal/config"
 	"github.com/jrvidotti/ddcore/internal/db"
 	"github.com/jrvidotti/ddcore/internal/engine"
+	"github.com/jrvidotti/ddcore/internal/release"
 )
 
 const doctorUsage = `ddcore doctor — report what this site's database, metadata and queue look like
 
-Usage: ddcore doctor [--json] [--strict] [--window N]
+Usage: ddcore doctor [--json] [--strict] [--window N] [--no-update-check]
 
   --json       print the report as JSON instead of text
   --strict     exit non-zero for warnings too, not only for critical findings
   --window N   minutes of history for the failure counts (default: ops.windowMinutes)
+  --no-update-check
+               skip the lookup of the newest published release
+               (DDCORE_UPDATE_CHECK=off does the same for every run)
 
 Exit code 1 means a critical finding: the database is unreachable, the apps
 could not be loaded, a migration is refused, or an undeclared structure still
@@ -74,8 +78,12 @@ type doctorReport struct {
 	Maintenance *engine.MaintenanceState `json:"maintenance,omitempty"`
 	MigratedBy  *engine.SiteVersion      `json:"migratedBy,omitempty"`
 	Backup      *engine.BackupStatus     `json:"backup,omitempty"`
-	Critical    []string                 `json:"critical,omitempty"`
-	Warnings    []string                 `json:"warnings,omitempty"`
+	// Update is absent when the check was switched off, when this binary is
+	// not a release, or when the lookup failed — an offline site is a normal
+	// site, not a finding.
+	Update   *release.Update `json:"update,omitempty"`
+	Critical []string        `json:"critical,omitempty"`
+	Warnings []string        `json:"warnings,omitempty"`
 }
 
 // ssoSection names the providers and whether each answered discovery — never
@@ -132,6 +140,7 @@ func cmdDoctor(args []string) error {
 	asJSON := fs.Bool("json", false, "print the report as JSON")
 	strict := fs.Bool("strict", false, "exit non-zero for warnings too")
 	window := fs.Int("window", 0, "minutes of history for the failure counts")
+	noUpdate := fs.Bool("no-update-check", false, "skip the lookup of the newest published release")
 	fs.Usage = func() { fmt.Print(doctorUsage) }
 	if err := parseFlags(fs, args); err != nil {
 		return err
@@ -146,7 +155,7 @@ func cmdDoctor(args []string) error {
 		return err
 	}
 	ctx := context.Background()
-	rep := gatherDoctor(ctx, cfg, *window)
+	rep := gatherDoctor(ctx, cfg, *window, !*noUpdate && !cfg.UpdateCheck.Off)
 	if *asJSON {
 		b, err := json.MarshalIndent(rep, "", "  ")
 		if err != nil {
@@ -167,7 +176,7 @@ func cmdDoctor(args []string) error {
 // gatherDoctor builds the report. Every error that reaches it goes through
 // db.RedactError first: this output is pasted into issues and chat windows, and
 // a failure from the database layer quotes the connection string back at you.
-func gatherDoctor(ctx context.Context, cfg *config.File, windowMin int) *doctorReport {
+func gatherDoctor(ctx context.Context, cfg *config.File, windowMin int, updateCheck bool) *doctorReport {
 	rep := &doctorReport{
 		DDCore: engine.Version, DSN: db.RedactDSN(cfg.DSN),
 		Workers: cfg.Workers, Mail: mailSummary(cfg), Storage: storageSummary(cfg),
@@ -179,6 +188,20 @@ func gatherDoctor(ctx context.Context, cfg *config.File, windowMin int) *doctorR
 	rep.Database = db.Probe(ctx, cfg.DSN, cfg.Ops.ReadyTimeout())
 	if !rep.Database.OK {
 		rep.Critical = append(rep.Critical, "database unreachable")
+	}
+	// Before the engine is loaded, because an engine that will not load is
+	// often an engine too old for the apps in front of it, and that is exactly
+	// when knowing a newer release exists helps. A lookup that fails says
+	// nothing: a site with no outbound internet access is a normal site.
+	if updateCheck {
+		uctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		if u, err := release.Check(uctx, engine.Version); err == nil && u != nil {
+			rep.Update = u
+			if u.Available {
+				rep.Warnings = append(rep.Warnings, fmt.Sprintf("a newer ddcore release is available: %s (this binary is %s)", u.Latest, u.Current))
+			}
+		}
+		cancel()
 	}
 	window := cfg.Ops.Window()
 	if windowMin > 0 {
@@ -335,6 +358,9 @@ func (r *doctorReport) print(w io.Writer) {
 	}
 
 	p("version", "%s", r.DDCore)
+	if r.Update != nil && r.Update.Available {
+		cont("%s is available", r.Update.Latest)
+	}
 	if r.Database.OK {
 		p("database", "ok (%.1f ms) %s", r.Database.LatencyMS, r.DSN)
 	} else {

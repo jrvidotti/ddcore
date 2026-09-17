@@ -35,6 +35,11 @@ Available documents (also as MCP resources `ddcore://docs/<name>`):
 - `ops` — liveness and readiness probes, request correlation, queue signals and `doctor`
 - `feature-requests` — when a gap belongs in the framework, and how to report it upstream
 
+What changed between releases is not in this list — it is the changelog, served as its own
+resource `ddcore://changelog`. The `whats_new` tool returns the part of it above the version you
+are running, together with the newest published release; `ddcore doctor` warns when that release
+is ahead of your binary. Read it after an upgrade, and before reporting a gap.
+
 ## Typical flow
 
 1. In a monorepo, `ddcore new-app <name>` creates `apps/<name>`; in an app's own

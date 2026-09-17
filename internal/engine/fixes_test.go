@@ -255,7 +255,7 @@ func TestB21_DbSetUpdatesModified(t *testing.T) {
 }
 
 // B14 — unique indexes: the predicate must match the column type
-// (`<> ''` only on text) and changing searchIndex ↔ unique must recreate the index,
+// (`<> ”` only on text) and changing searchIndex ↔ unique must recreate the index,
 // since the name is the same.
 func TestB14_UniqueIndexes(t *testing.T) {
 	e := setup(t)
@@ -953,6 +953,53 @@ func TestCoreCompatRanges(t *testing.T) {
 	for _, ok := range []string{"1", "1.4", "v1.4.0"} {
 		if _, err := checkCoreCompat(&Snapshot{Apps: map[string]*AppMeta{"x": {Name: "x", Version: ok}}}, "dev"); err != nil {
 			t.Errorf("version %q should be accepted: %v", ok, err)
+		}
+	}
+}
+
+// IsRelease and Newer are what the update check compares with, and they must
+// read a version exactly as the compatibility contract does: a `git describe`
+// build counts as the release it sits on, and a `dev` binary is not a release
+// at all — so nothing is ever reported as an upgrade from one.
+func TestIsReleaseAndNewer(t *testing.T) {
+	for _, c := range []struct {
+		s  string
+		ok bool
+	}{
+		{"v0.14.0", true},
+		{"0.14.0", true},
+		{"v0.14.0-3-gabc123", true},
+		{"v0.14.0-3-gabc123-dirty", true},
+		{"v0.15.0-rc.1", true},
+		{"dev", false},
+		{"latest", false},
+		{"abc1234", false},
+		{"", false},
+		{"v0.14", false},
+	} {
+		if got := IsRelease(c.s); got != c.ok {
+			t.Errorf("IsRelease(%q) = %v, want %v", c.s, got, c.ok)
+		}
+	}
+
+	for _, c := range []struct {
+		a, b      string
+		newer, ok bool
+	}{
+		{"v0.14.0", "v0.15.0", true, true},
+		{"v0.14.0", "v0.14.1", true, true},
+		{"v0.14.0", "v0.14.0", false, true},
+		{"v0.15.0", "v0.14.0", false, true},
+		{"v0.14.0-3-gabc123", "v0.15.0", true, true},
+		// A describe build sits on top of the release it names, so the release
+		// itself is not newer than it.
+		{"v0.14.0-3-gabc123", "v0.14.0", false, true},
+		{"dev", "v0.15.0", false, false},
+		{"v0.14.0", "nightly", false, false},
+	} {
+		newer, ok := Newer(c.a, c.b)
+		if newer != c.newer || ok != c.ok {
+			t.Errorf("Newer(%q, %q) = %v, %v; want %v, %v", c.a, c.b, newer, ok, c.newer, c.ok)
 		}
 	}
 }
