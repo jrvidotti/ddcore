@@ -12,9 +12,20 @@ export interface ListUrlState {
   view?: string;
 }
 
-export function resolveAllowedViews(settings?: { views?: string[]; calendar?: { field?: string }; kanban?: { field?: string }; gantt?: { startField?: string; endField?: string } }): string[] {
+type ListViewSettings = { views?: string[]; calendar?: { field?: string }; kanban?: { field?: string }; gantt?: { startField?: string; endField?: string } };
+
+function viewIsConfigured(view: string, settings?: ListViewSettings): boolean {
+  if (view === "calendar") return !!settings?.calendar?.field;
+  if (view === "kanban") return !!settings?.kanban?.field;
+  if (view === "gantt") return !!(settings?.gantt?.startField && settings.gantt.endField);
+  return true;
+}
+
+export function resolveAllowedViews(settings?: ListViewSettings): string[] {
   if (settings?.views && settings.views.length > 0) {
-    return [...settings.views];
+    // An explicit list still has to meet the same configuration requirements as
+    // the derived one, so a view never gets a button that silently does nothing.
+    return settings.views.filter((view) => viewIsConfigured(view, settings));
   }
   const views = ["list"];
   if (settings?.calendar?.field) views.push("calendar");

@@ -131,10 +131,10 @@ ddcore.share.list("Sales Order", "SO-0001"); // DocShares: { shares, canShare, c
 ddcore.share.remove("Sales Order", "SO-0001", "ana@example.com"); // void
 ```
 
-These calls are synchronous and use the current user as the sharer, with the same engine
-checks as the endpoints. The decoding differs: the endpoints refuse an unknown body field
-with `417`, while the SDK decodes `rights` leniently, so a misspelled key (`override_scope`
-for `overrideScope`) is dropped in silence and the share is granted without it.
+These calls are synchronous and use the current user as the sharer, with the same checks as
+the endpoints, decoding included: a key that is not a right — `override_scope` for
+`overrideScope`, say — is refused with `417` rather than dropped, so a share never quietly
+grants less than the caller asked for.
 
 Inside a job (`ignorePermissions`), the checks on the sharer's rights are skipped, including
 the override one; the recipient is still validated. A job runs as the user who enqueued it,

@@ -108,7 +108,11 @@ is never checked against the binary, so declare the range by hand.
   | --------- | ------------------ | -------- | ------------------ |
   | `^1.4.0`  | `>=1.4.0 <2.0.0`   | `~1.4.0` | `>=1.4.0 <1.5.0`   |
   | `^0.14.0` | `>=0.14.0 <0.15.0` | `~0.14`  | `>=0.14.0 <0.15.0` |
-  | `^0.0.3`  | `>=0.0.3 <0.0.4`   | `~1`     | `>=1.0.0 <1.1.0`   |
+  | `^0.0.3`  | `>=0.0.3 <0.0.4`   | `~1`     | `>=1.0.0 <2.0.0`   |
+  | `^0`      | `>=0.0.0 <1.0.0`   | `^0.0`   | `>=0.0.0 <0.1.0`   |
+
+  A part nobody wrote is a range, not a zero: `^0` is every `0.x` while the spelt-out `^0.0.0`
+  is that patch alone, and `~1` bounds the major the way `^1` does.
 
 - A version is `1`, `1.4` or `1.4.0`, with or without a leading `v`; a missing minor or patch reads
   as 0, so `>=0.14` is `>=0.14.0`. Nothing else is a version: `||`, a comma, `*`, `x` and a
@@ -116,7 +120,7 @@ is never checked against the binary, so declare the range by hand.
   version — `">= 0.14.0"` fails with `"" is not a version`. A whitespace-only string is `empty range`,
   not an absent one.
 - `version` is the app's own release. It is recorded and never compared, and only its shape is
-  checked — by the same loose grammar, so `"1.4"` passes although the error names `MAJOR.MINOR.PATCH`.
+  checked — by the same loose grammar, so `"1"` and `"1.4"` pass.
 - The check runs on every load of the apps: every command that opens the engine (startup, `migrate`,
   `doctor`, `test`, `export`, `mcp`), `dev`'s hot reload, and the MCP tools that reload — `reload`,
   `validate_meta`, `migrate`, `scaffold_doctype`, `i18n_extract`, `set_translations`.
@@ -125,7 +129,7 @@ is never checked against the binary, so declare the range by hand.
   joined with `; `:
   - `app shop requires ddcore >=0.14.0 <0.16.0, but this binary is 0.1.0`
   - `app shop declares an invalid ddcore range ">= 0.14.0": "" is not a version`
-  - `app shop declares version "1.4.0-beta.1", which is not MAJOR.MINOR.PATCH`
+  - `app shop declares version "1.4.0-beta.1", which is not a version (1, 1.2 or 1.2.3)`
 
   An invalid range or `version` is refused even on a binary that is not a release.
 - A build on top of a release (`v0.14.0-3-gabc123`) counts as that release, and so does a pre-release

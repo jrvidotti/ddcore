@@ -5,9 +5,9 @@
 an unrecognised `rounding` stops the server at startup rather than quietly using another rule.
 `DDCORE_DSN` overrides the dsn, and `DDCORE_DATA_DIR` the `dataDir`.
 Every command accepts `--allow-older-binary`, the rollback override described in `backup`.
-It is a global flag, stripped from the arguments before the command sees them, so it takes
-no value: write it bare (`--allow-older-binary=true` is refused as an unknown flag), or set
-`DDCORE_ALLOW_OLDER_BINARY` to `1`, `true`, `yes` or `on`.
+It is a global flag, stripped from the arguments before the command sees them: write it bare,
+as `--allow-older-binary=true`, or set `DDCORE_ALLOW_OLDER_BINARY`. All three read the same
+truths — `1`, `true`, `yes` or `on` — so `--allow-older-binary=false` leaves the override off.
 
 Options may come **before or after** the positional arguments, as `--flag value` or
 `--flag=value`; `--` ends the options and everything after it is positional. An undeclared

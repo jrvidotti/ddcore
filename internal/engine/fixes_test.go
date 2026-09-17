@@ -885,6 +885,18 @@ func TestCoreCompatRanges(t *testing.T) {
 		{"^1.2.0", "v2.0.0", false},
 		{"~1.2.3", "v1.2.9", true},
 		{"~1.2.3", "v1.3.0", false},
+		// An abbreviated version after ^ or ~ fixes only the parts it names,
+		// as in npm: the omitted ones are a range, not a zero.
+		{"^0", "v0.9.0", true},
+		{"^0", "v1.0.0", false},
+		{"^0.0", "v0.0.9", true},
+		{"^0.0", "v0.1.0", false},
+		{"^1", "v1.9.0", true},
+		{"^1", "v2.0.0", false},
+		{"~1", "v1.9.0", true},
+		{"~1", "v2.0.0", false},
+		{"~0.14", "v0.14.9", true},
+		{"~0.14", "v0.15.0", false},
 		{"0.14.0", "v0.14.0", true},
 		{"=0.14.0", "v0.14.1", false},
 		{">0.14.0 <=0.15.0", "v0.15.0", true},
@@ -928,6 +940,19 @@ func TestCoreCompatRanges(t *testing.T) {
 	} {
 		if _, err := checkCoreCompat(&Snapshot{Apps: map[string]*AppMeta{"x": bad}}, "dev"); err == nil {
 			t.Errorf("expected %+v to be refused even on a dev build", bad)
+		}
+	}
+
+	// The refusal describes the grammar the loader actually accepts: `1`,
+	// `1.2` and `1.2.3` all pass, so promising MAJOR.MINOR.PATCH sends the
+	// reader looking for a rule that is not enforced.
+	_, err = checkCoreCompat(&Snapshot{Apps: map[string]*AppMeta{"x": {Name: "x", Version: "one"}}}, "dev")
+	if err == nil || strings.Contains(err.Error(), "MAJOR.MINOR.PATCH") {
+		t.Errorf("version refusal should describe the accepted grammar, got %v", err)
+	}
+	for _, ok := range []string{"1", "1.4", "v1.4.0"} {
+		if _, err := checkCoreCompat(&Snapshot{Apps: map[string]*AppMeta{"x": {Name: "x", Version: ok}}}, "dev"); err != nil {
+			t.Errorf("version %q should be accepted: %v", ok, err)
 		}
 	}
 }

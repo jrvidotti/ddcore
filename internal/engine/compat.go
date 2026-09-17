@@ -38,23 +38,26 @@ func (v semver) cmp(o semver) int {
 
 var versionRe = regexp.MustCompile(`^v?(\d+)(?:\.(\d+))?(?:\.(\d+))?$`)
 
-// parseVersion reads `1`, `1.2`, `1.2.3`, with or without a leading `v`.
-func parseVersion(s string) (semver, bool) {
+// parseVersion reads `1`, `1.2`, `1.2.3`, with or without a leading `v`. parts
+// is how many were written: `^` and `~` bound what the author left out, so
+// `~1` cannot be told from `~1.0` once the zeros are filled in.
+func parseVersion(s string) (v semver, parts int, ok bool) {
 	m := versionRe.FindStringSubmatch(s)
 	if m == nil {
-		return semver{}, false
+		return semver{}, 0, false
 	}
-	var v semver
 	for i := 0; i < 3; i++ {
-		if m[i+1] != "" {
-			n, err := strconv.Atoi(m[i+1])
-			if err != nil {
-				return semver{}, false
-			}
-			v[i] = n
+		if m[i+1] == "" {
+			continue
 		}
+		n, err := strconv.Atoi(m[i+1])
+		if err != nil {
+			return semver{}, 0, false
+		}
+		v[i] = n
+		parts = i + 1
 	}
-	return v, true
+	return v, parts, true
 }
 
 var coreVersionRe = regexp.MustCompile(`^v?(\d+\.\d+\.\d+)(?:-.*)?$`)
@@ -68,7 +71,8 @@ func parseCoreVersion(s string) (semver, bool) {
 	if m == nil {
 		return semver{}, false
 	}
-	return parseVersion(m[1])
+	v, _, ok := parseVersion(m[1])
+	return v, ok
 }
 
 type constraint struct {
@@ -116,7 +120,7 @@ func parseRange(s string) (versionRange, error) {
 				break
 			}
 		}
-		v, ok := parseVersion(p)
+		v, parts, ok := parseVersion(p)
 		if !ok {
 			return nil, fmt.Errorf("%q is not a version", p)
 		}
@@ -124,17 +128,31 @@ func parseRange(s string) (versionRange, error) {
 		case "":
 			r = append(r, constraint{"=", v})
 		case "^":
-			// npm: the leftmost non-zero part is fixed
-			upper := semver{v[0] + 1, 0, 0}
+			// npm: the leftmost non-zero part is fixed, and a part nobody wrote
+			// is a range rather than a zero — `^0` is every 0.x, `^0.0` every
+			// 0.0.x, while the spelt-out `^0.0.0` is that patch alone.
+			var upper semver
 			switch {
-			case v[0] == 0 && v[1] == 0:
-				upper = semver{0, 0, v[2] + 1}
-			case v[0] == 0:
+			case v[0] > 0:
+				upper = semver{v[0] + 1, 0, 0}
+			case v[1] > 0:
 				upper = semver{0, v[1] + 1, 0}
+			case v[2] > 0 || parts == 3:
+				upper = semver{0, 0, v[2] + 1}
+			case parts == 2:
+				upper = semver{0, 1, 0}
+			default:
+				upper = semver{1, 0, 0}
 			}
 			r = append(r, constraint{">=", v}, constraint{"<", upper})
 		case "~":
-			r = append(r, constraint{">=", v}, constraint{"<", semver{v[0], v[1] + 1, 0}})
+			// npm: with a minor written, the minor is fixed; without one, `~1`
+			// bounds the major the way `^1` does.
+			upper := semver{v[0], v[1] + 1, 0}
+			if parts == 1 {
+				upper = semver{v[0] + 1, 0, 0}
+			}
+			r = append(r, constraint{">=", v}, constraint{"<", upper})
 		default:
 			r = append(r, constraint{op, v})
 		}
@@ -163,8 +181,8 @@ func checkCoreCompat(snap *Snapshot, core string) (skipped bool, err error) {
 			continue
 		}
 		if am.Version != "" {
-			if _, ok := parseVersion(am.Version); !ok {
-				problems = append(problems, fmt.Sprintf("app %s declares version %q, which is not MAJOR.MINOR.PATCH", n, am.Version))
+			if _, _, ok := parseVersion(am.Version); !ok {
+				problems = append(problems, fmt.Sprintf("app %s declares version %q, which is not a version (1, 1.2 or 1.2.3)", n, am.Version))
 			}
 		}
 		if am.Ddcore == "" {

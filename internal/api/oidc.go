@@ -75,7 +75,7 @@ func (s *Server) oidcCallback(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) oidcFail(w http.ResponseWriter, r *http.Request, err error) {
-	code := engine.OIDCErrProvider
+	code := engine.OIDCErrServer
 	var oe *engine.OIDCError
 	if errors.As(err, &oe) {
 		code = oe.Code

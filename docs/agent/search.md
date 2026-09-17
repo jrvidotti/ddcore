@@ -47,15 +47,17 @@ GET /api/search/global?txt=<text>&limit=<n>
 
 - **Sign-in:** required. A guest gets 401.
 - **`txt`:** trimmed, then 2 to 140 characters. Anything else is a `ValidationError` (417).
-- **`limit`:** defaults to 20 and is capped at 50. Each DocType contributes at most 5 hits, taken
-  **before** the ranking: its first 5 rows in list order (`sortField`/`sortOrder`, else `modified`
-  descending). So an exact match is lost when its DocType has more than 5 matches ahead of it.
+- **`limit`:** defaults to 20 and is capped at 50. Each DocType contributes at most 5 hits, kept
+  **after** the ranking, so the 5 are its best matches and not merely its most recent. Each DocType
+  is read up to 50 rows deep for that ranking (in list order: `sortField`/`sortOrder`, else
+  `modified` descending), so a word matching more rows than that in one DocType can still hide an
+  exact match — search for more of the title, not less.
 - **Response:** `data` is a list of `{ doctype, label, name, title }`.
   - `label` is the DocType's translated label.
   - `title` is the title field's value, or the name when there is none.
 - **Matching:** a case- and accent-insensitive substring match (`ILIKE` over the same folding as a
-  list filter), so `cafe` finds `Café`. `%` and `_` in the text are not escaped, so they reach the
-  `ILIKE` as its wildcards.
+  list filter), so `cafe` finds `Café`. `%` and `_` are escaped, so they match themselves: a
+  search for `100%` does not match `100 ok`. A `like` filter an app writes keeps its wildcards.
 - **Ranking:** hits whose name or title equal the text come first, then those that start with it,
   then every other match. Within a rank, hits keep DocType order — alphabetical by DocType **name**,
   not by label — and then the list order.

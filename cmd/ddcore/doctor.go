@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -187,7 +188,7 @@ func gatherDoctor(ctx context.Context, cfg *config.File, windowMin int) *doctorR
 	e, _, err := load(false, false)
 	if err != nil {
 		rep.Engine = db.RedactError(err)
-		rep.Critical = append(rep.Critical, "the apps could not be loaded")
+		rep.Critical = append(rep.Critical, engineCritical(err))
 		return rep
 	}
 	defer e.DB.Close()
@@ -530,5 +531,19 @@ func storageSummary(cfg *config.File) string {
 		return "local " + filepath.Join(cfg.DataDir, "files")
 	}
 	s3 := cfg.Storage.S3
-	return fmt.Sprintf("s3 %s/%s/%s (presigned links valid %s)", s3.Endpoint, s3.Bucket, s3.Prefix, s3.PresignTTL)
+	where := s3.Endpoint + "/" + s3.Bucket
+	if s3.Prefix != "" {
+		where += "/" + s3.Prefix
+	}
+	return fmt.Sprintf("s3 %s (presigned links valid %s)", where, s3.PresignTTL)
+}
+
+// engineCritical names the refusal in one line, for the critical list. A
+// rollback the ledger refused is not a broken app, and saying so sends the
+// reader to the binary's version rather than to app code.
+func engineCritical(err error) string {
+	if errors.Is(err, engine.ErrOlderBinary) {
+		return "this binary is older than the release that migrated the database"
+	}
+	return "the apps could not be loaded"
 }

@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -490,6 +491,20 @@ func TestShare_RefusalsRenameAndDelete(t *testing.T) {
 	runAs(t, e, sharePlain, func(c *Ctx) error {
 		_, err := c.GetList("Shared Note", ListArgs{})
 		wantStatus(t, err, 403)
+		return nil
+	})
+}
+
+// A right the caller misspelled is a mistake, not a silent no: the server SDK
+// refuses an unknown key the way the endpoint does, or an app would think it
+// granted an override it never granted.
+func TestShare_ServerSDKRefusesUnknownRight(t *testing.T) {
+	e := setupShare(t)
+	runAs(t, e, shareEditor, func(c *Ctx) error {
+		rt := &js.Runtime{Ctx: c}
+		raw := `{"doctype":"Shared Note","name":"N1","user":"` + sharePlain + `","rights":{"override_scope":true}}`
+		_, err := e.HostCall(rt, "share.add", json.RawMessage(raw))
+		wantStatus(t, err, 417)
 		return nil
 	})
 }

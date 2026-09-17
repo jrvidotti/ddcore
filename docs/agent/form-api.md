@@ -177,11 +177,10 @@ from other documents has to be stored on the document to be filterable.
 
 Besides the table, a list can offer other views of the same filtered rows. A segmented switcher in
 the list header shows the views, and the choice is kept in the URL (`?view=kanban`) and per DocType
-in the browser. Each view appears once it is configured, unless `views` is given: an explicit list
-is taken as written, so a listed `calendar` with no `calendar` block still shows its button and
-falls back to the table. `kanban` and `gantt` need their block for the button, and a `gantt` block
-without `endField` gives a button that only says "No records in this period". `views` sets the
-order, or a subset:
+in the browser. A view appears once it is configured: `calendar` needs its `field`, `kanban` its
+`field`, and `gantt` both `startField` and `endField`; `list` and `cards` are always available.
+`views` sets the order, or a subset, and is filtered by the same rule — a view listed there but
+never configured is dropped rather than shown as a button that falls back to the table:
 
 ```ts
 defineListView<Task>("Task", {

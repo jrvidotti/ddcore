@@ -153,6 +153,16 @@ func stripGlobalFlags(args []string) []string {
 			os.Setenv("DDCORE_ALLOW_OLDER_BINARY", "1")
 			continue
 		}
+		// `--flag=value` is how every other boolean here is written, so it
+		// cannot fall through to the command's own FlagSet as an unknown flag.
+		if v, ok := strings.CutPrefix(a, "--allow-older-binary="); ok {
+			os.Setenv("DDCORE_ALLOW_OLDER_BINARY", v)
+			continue
+		}
+		if v, ok := strings.CutPrefix(a, "-allow-older-binary="); ok {
+			os.Setenv("DDCORE_ALLOW_OLDER_BINARY", v)
+			continue
+		}
 		out = append(out, a)
 	}
 	return out

@@ -17,6 +17,11 @@ const (
 	globalSearchDefault    = 20
 	globalSearchMax        = 50
 	globalSearchPerDocType = 5
+	// What one DocType is asked for before ranking. The cap above is what it
+	// contributes to the answer; reading only that many rows would decide the
+	// ranking by `modified` instead, and drop an exact match the user is
+	// almost certainly looking for.
+	globalSearchScan = 50
 )
 
 // SearchHit is one document found by GlobalSearch.
@@ -58,7 +63,7 @@ func (c *Ctx) GlobalSearch(txt string, limit int) ([]SearchHit, error) {
 			continue
 		}
 		args := searchArgs(d, txt)
-		args.Limit = globalSearchPerDocType
+		args.Limit = globalSearchScan
 		rows, err := c.GetList(name, args)
 		if err != nil {
 			var ce *cerr.Error
@@ -82,9 +87,19 @@ func (c *Ctx) GlobalSearch(txt string, limit int) ([]SearchHit, error) {
 		}
 	}
 	sort.SliceStable(hits, func(i, j int) bool { return hits[i].rank < hits[j].rank })
+	// The per-DocType cap is applied here, on the ranked list, so one crowded
+	// DocType cannot fill the answer and the best hit of each is kept.
 	out := make([]SearchHit, 0, min(limit, len(hits)))
-	for i := 0; i < len(hits) && i < limit; i++ {
-		out = append(out, hits[i].SearchHit)
+	taken := map[string]int{}
+	for _, h := range hits {
+		if len(out) >= limit {
+			break
+		}
+		if taken[h.Doctype] >= globalSearchPerDocType {
+			continue
+		}
+		taken[h.Doctype]++
+		out = append(out, h.SearchHit)
 	}
 	return out, nil
 }

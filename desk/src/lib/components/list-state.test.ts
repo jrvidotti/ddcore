@@ -103,7 +103,23 @@ describe("view resolution", () => {
   });
 
   it("respects explicit views array from settings", () => {
-    expect(resolveAllowedViews({ views: ["calendar", "list"] })).toEqual(["calendar", "list"]);
+    expect(resolveAllowedViews({ views: ["calendar", "list"], calendar: { field: "due_date" } })).toEqual(["calendar", "list"]);
+  });
+
+  it("drops an explicit calendar view without a configured field", () => {
+    expect(resolveAllowedViews({ views: ["list", "calendar"] })).toEqual(["list"]);
+  });
+
+  it("drops an explicit gantt view configured with only a start field", () => {
+    expect(resolveAllowedViews({ views: ["list", "gantt"], gantt: { startField: "start_date" } })).toEqual(["list"]);
+  });
+
+  it("keeps an explicit kanban view when its field is configured, preserving the given order", () => {
+    expect(resolveAllowedViews({ views: ["kanban", "list"], kanban: { field: "status" } })).toEqual(["kanban", "list"]);
+  });
+
+  it("keeps explicit list and cards views without any other settings", () => {
+    expect(resolveAllowedViews({ views: ["cards", "list"] })).toEqual(["cards", "list"]);
   });
 
   it("resolves active view giving highest priority to URL param", () => {

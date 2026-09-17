@@ -159,14 +159,18 @@ through the provider without ever accepting the invitation.
 
 A failure of the flow redirects to `/login?sso_error=<code>`, where the desk
 shows a translated message. The codes are `state`, `provider`,
-`unverified_email`, `no_account`, `disabled`, `domain` and `throttled`; a
-cancelled sign-in and an error raised on our own side both arrive as `provider`.
+`unverified_email`, `no_account`, `disabled`, `domain`, `throttled` and
+`server`. A cancelled sign-in arrives as `provider`; a failure on our own side —
+a database that went away, a bug — is `server`, so the logs do not send anyone
+to the identity provider for it. The desk shows the same general sentence for
+both.
 An id that is not configured is the exception: `start` answers **404
 `DoesNotExistError`** as JSON, since nothing is under way to send anywhere.
 
 Callback failures are throttled per **client address**, `maxLoginAttempts × 5`
 inside the lockout window — the looser limit, because an office shares one
-address. A completed sign-in clears that account's password-login failures.
+address. A completed sign-in clears both that account's password-login failures
+and the address's, as a password sign-in does.
 
 **Audit.** A callback writes `account.login_sso`, `Allowed` or `Denied`, with
 the provider and the reason in the detail. Two paths never reach it: a throttled

@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -334,5 +335,38 @@ func TestSEC05_PasswordLoginOff(t *testing.T) {
 	}
 	if strings.Contains(r.Raw, "s3cret") || strings.Contains(r.Raw, "client-1") {
 		t.Fatal("boot leaks provider credentials")
+	}
+}
+
+// A sign-in that worked clears the address's failures, as a password sign-in
+// does: an office that fumbled a few attempts must not stay near the limit.
+func TestSEC05_SuccessClearsAddressThrottle(t *testing.T) {
+	x, idp := ssoEnv(t)
+	for range 2 {
+		if loc, _ := x.ssoLogin(idp, "", map[string]any{"sub": "sub-x", "email": "nobody@x.com"}); loc != "/login?sso_error=no_account" {
+			t.Fatalf("expected a refusal, got %q", loc)
+		}
+	}
+	if n := x.countSQL(`SELECT count(*) FROM ddcore_login_attempt WHERE identity LIKE 'ssoip:%' AND NOT ok`); n != 2 {
+		t.Fatalf("failures recorded against the address: %d, want 2", n)
+	}
+
+	if _, sid := x.ssoLogin(idp, "", nil); sid == "" {
+		t.Fatal("the sign-in should have worked")
+	}
+	if n := x.countSQL(`SELECT count(*) FROM ddcore_login_attempt WHERE identity LIKE 'ssoip:%' AND NOT ok`); n != 0 {
+		t.Errorf("a completed sign-in left %d failures against the address", n)
+	}
+}
+
+// Our own failure is not the provider's fault: it gets a code of its own, so
+// an operator reading the logs is not sent to the identity provider.
+func TestSEC05_InternalFailureIsNotBlamedOnTheProvider(t *testing.T) {
+	x, _ := ssoEnv(t)
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("GET", "/api/auth/oidc/idp/callback", nil)
+	x.s.oidcFail(w, r, errors.New("the database went away"))
+	if loc := w.Header().Get("Location"); loc != "/login?sso_error=server" {
+		t.Errorf("Location = %q, want /login?sso_error=server", loc)
 	}
 }

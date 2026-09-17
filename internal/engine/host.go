@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -517,7 +518,13 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 			User    string      `json:"user"`
 			Rights  ShareRights `json:"rights"`
 		}
-		if err := json.Unmarshal(raw, &sa); err != nil {
+		// Strictly, as the endpoint decodes it: `override_scope` is the column's
+		// name and `overrideScope` the argument's, so the near miss is the one
+		// mistake to expect — and ignoring it would hand back a share that
+		// silently grants less than the caller asked for.
+		dec := json.NewDecoder(bytes.NewReader(raw))
+		dec.DisallowUnknownFields()
+		if err := dec.Decode(&sa); err != nil {
 			return nil, cerr.Validation("Invalid arguments: {0}", err)
 		}
 		switch op {
