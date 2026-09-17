@@ -6,6 +6,10 @@ Changes that matter to an app built on ddcore, newest first. The format follows
 upgrade path, and apps should keep their `ddcore:` range below that release until they have
 taken it.
 
+The sections for 0.1.0 through 0.14.0 were written after the fact, from the repository's history.
+They record what an app would notice in each release — a capability, a contract, a default — and
+not every commit that went into it.
+
 ## Unreleased
 
 ### Added
@@ -26,6 +30,20 @@ taken it.
   - `ddcore maintenance on|off` pauses writes and jobs on every process and shows a Desk banner.
   - `DDCORE_DATA_DIR` overrides `dataDir`. `ops.backupMaxAgeHours` warns on a stale backup.
 
+- S3-compatible file storage (PRD-05): `DDCORE_STORAGE=s3` with `DDCORE_S3_*` (AWS, R2, MinIO,
+  B2) beside the default `local` backend under `<dataDir>/files`. `file_url` is the only name on
+  both; a download is permission-checked by the server and then streamed, or redirected to a
+  short-lived presigned URL; deleting a File or its document removes the bytes after commit, and
+  a failed upload removes what it wrote. Mail, export and the CLI read through the store. See
+  [storage](docs/agent/storage.md).
+- Document sharing (SEC-03): the Core `Document Share` DocType grants one user `read`, `write` or
+  `share` on one document, given by someone holding the `share` right and capped by their own
+  write. A share stands in for a missing role grant on reads, lists, counts, link search, saves,
+  `dbSet`, attachments, versions and comments, print, SSE and notifications, while controller
+  hooks, workflow `allowEdit` and docstatus still apply. **Override security scope** lifts the
+  recipient's User Permission scopes for the granted rights only. Renames move shares and
+  deletions remove them; every grant, change and revocation is an audit event. `/api/shares/*`,
+  `ddcore.share.*` and a Desk sidebar section. See [sharing](docs/agent/sharing.md).
 - Global search (OPS-08): a Mod+K palette in the desk and `GET /api/search/global`, matching the
   title and search fields of every DocType the user can list, with roles, scopes, shares and field
   levels applied. `globalSearch` on a DocType opts it in or out. Core log DocTypes are opted out.
@@ -74,3 +92,379 @@ taken it.
   restored database and stays paused.
 - A list view listed in `views` but never configured no longer shows a button that falls back to
   the table.
+
+## 0.14.0 — 2026-09-16
+
+### Breaking
+
+- A new site is English and US dollars. `ddcore init`, and a `ddcore.json` that omits `lang` or
+  `currency`, now mean `en` and `USD` instead of `pt-BR` and `BRL`. A site that relied on the old
+  default must declare `"lang": "pt-BR"` and `"currency": "BRL"` before upgrading, or its screens,
+  its catalogue lookups and its money precision all change underneath it.
+
+### Fixed
+
+- The quickstart works end to end on a published binary: `ddcore init` wrote an auth block of
+  zeros that every later command refused (`auth.sessionDays must be greater than zero`), and
+  `ddcore new-app` swallowed the error and left the app unregistered. `init` now writes the same
+  defaults `Load` starts from, `new-app` reports a registration failure instead of hiding it, and
+  neither persists environment overrides or resolved absolute paths into the file.
+
+## 0.13.0 — 2026-09-16
+
+### Added
+
+- The sign-in screen can carry a notice and offer a demo account whose button fills the form in,
+  configured in `ddcore.json` (`login.notice`, `login.demoUser`, `login.demoPassword`) or per
+  deployment with `DDCORE_LOGIN_NOTICE`, `DDCORE_LOGIN_DEMO_USER` and `DDCORE_LOGIN_DEMO_PASSWORD`,
+  and served to visitors as `site.login` in `/api/boot`. The account is offered only when both
+  halves are set.
+- The documentation site moved to its own domain: the reference is served at `ddcore.dev` and the
+  public demo at `demo.ddcore.dev`.
+
+## 0.12.0 — 2026-09-16
+
+### Added
+
+- Field permissions (SEC-02): a `permlevel` on a field, and permission rows per level, remove what
+  a user may not read from documents, lists, export, Version diffs, print, per-recipient
+  notifications and webhook payloads, and refuse a filter, sort, grouping or aggregate over them.
+  An unwritable change is refused before the hooks run; values the user never saw survive a save
+  and are carried by an amendment; a child table is judged by its parent. `fieldLevels` reaches
+  the Desk, and `ddcore.redact` is there for app code, which stays trusted otherwise. See
+  [field permissions](docs/agent/field-permissions.md).
+- `doc.applyWorkflow` applies a workflow transition from server code, with the same guards the
+  HTTP endpoint uses.
+- The documentation site: a landing page and the human guides, built with VitePress and published
+  to GitHub Pages.
+- The Desk steps date parts with the arrow keys, and spells date placeholders in the reader's own
+  letters rather than in English ones.
+
+### Fixed
+
+- Access scopes (SEC-01) no longer have a way around them: `db.exists` and `dbSet` apply them — a
+  `dbSet` on a child row resolves its scope under the parent — Dynamic Link fields are checked on
+  direct reads and writes, a scoped user is refused `User Permission` itself, and webhook
+  administration and delivery are closed to scoped users below `ignorePermissions`.
+- Workflows close the same class of escape: insert, delete and `db.setValue` no longer bypass a
+  workflow's guards, `ignorePermissions` does not lift them, and a workflow is validated when the
+  app loads rather than at the first transition.
+- The vault's master key no longer leaks through `ddcore.secret`, and renaming a record re-keys
+  its secrets instead of orphaning them.
+- Assignments: an update to a `ToDo` cannot rewrite the assignment or spoof `assigned_by`, the
+  side effects are isolated in savepoints, and assigners and co-assignees see their own tasks.
+- Print: the page format and orientation are written into the HTML, Currency prints in the site
+  currency, the columns block renders, and a disabled `Letter Head` can neither become nor clear
+  the default.
+- A notification rule no longer offers internal DocTypes as targets, `Audit Event` refuses
+  `dbSet`, a Single is never "new" even before its first save, and the workspace dashboard link
+  lights only on the dashboard.
+
+## 0.11.0 — 2026-09-15
+
+### Added
+
+- Declarative approval workflows (OPS-04): `defineWorkflow` declares states bound to `docstatus`,
+  the fields each state lets a role edit (`allowEdit`), and transitions with an action, the roles
+  allowed to take it, `allowSelfApproval` and a synchronous TypeScript condition. The transition
+  engine locks the row, writes a `workflow.transition` audit event and a timeline comment, and
+  refuses a state's frozen fields to everyone. The Desk draws the action buttons and the state
+  pill and locks what the state locks, over `/api/.../workflow` and its actions endpoint. See
+  [workflows](docs/agent/workflows.md).
+- A dialog's field properties can be changed after it opens, and the Desk keeps the active tab of
+  a form in a query parameter, so a reload and a shared link come back to the same tab.
+
+## 0.10.0 — 2026-09-15
+
+### Added
+
+- User access scopes (SEC-01): the Core `User Permission` DocType gives a user `allow`/`for_value`
+  rules, optionally limited to one DocType, enforced below the SDK on lists, counts, link search,
+  direct reads, the whole document lifecycle, export, attachments, versions and comments, SSE
+  events and notifications, `Dynamic Link` fields included. Two users with identical roles, System
+  Manager among them, stay isolated; `ignorePermissions` skips role checks but not scopes;
+  `Administrator` and the framework's own elevated contexts are unscoped, and a scoped user is
+  refused `User Permission` itself, so scope administration belongs to unscoped administrators.
+  Grants and revocations are recorded as `permission.scope_grant` and `scope_revoke`. See
+  [scopes](docs/agent/scopes.md).
+
+### Fixed
+
+- A Link field offers fresh choices after it is cleared, instead of the list it had before.
+
+## 0.9.0 — 2026-09-15
+
+### Added
+
+- Print templates and PDF (OPS-01): a standard layout built from the DocType's metadata, app
+  templates in `print/<name>.print.ts` through `definePrintTemplate` (header, section, keyValues,
+  table, totals, columns, headings, rules, page breaks and raw HTML), the Core `Letter Head`
+  DocType with a single default, `print`, `pdf` and letterhead endpoints, and PDF through
+  Gotenberg, a configured command or a local headless Chrome. Read permission and the caller's
+  scopes apply to the document, and the Desk previews it at
+  `/app/[workspace]/[doctype]/[name]/print`. See [print templates](docs/agent/print.md).
+- Specialized list views: `defineListView` gains a Calendar and a Card view beside the table, with
+  a switcher whose choice is kept in the URL and in the browser, so a link opens on the view it
+  was shared from.
+
+## 0.8.0 — 2026-09-14
+
+### Added
+
+- The workspace became part of the route: the Desk lives under `/app/[workspace]`, with a
+  workspace selector and a sidebar filtered to that workspace's items, and internal navigation
+  carries the prefix. An old `/app/<DocType>` link still opens the DocType and moves itself into
+  the workspace that owns it.
+- A mobile layout: a top bar, a drawer with a backdrop that dismisses itself on navigation, and
+  the options menu opening on a tap of the avatar.
+- The Version list gained DocType and Document filters and columns, so a record's history can be
+  found without a query.
+
+## 0.7.1 — 2026-09-14
+
+### Added
+
+- `defineListView({ modifiedColumn: false })` hides the Modified column for a list that has a more
+  meaningful date of its own.
+
+### Fixed
+
+- A list fetches the type column behind a `Dynamic Link` column, so the link resolves instead of
+  rendering a bare name.
+
+## 0.7.0 — 2026-09-13
+
+### Added
+
+- Assignments and pending work (OPS-05): the Core `ToDo` DocType, `assign`, `complete` and
+  `revoke` on a document, `GET /api/todo/pending` filtered by access to the referenced documents,
+  a due-date reminder delivered through the notification inbox, an assignment widget on the form's
+  sidebar and a `/app/todo` central with a badge in the sidebar. An assignment does not grant
+  access: revoking access hides the task. See [assignments](docs/agent/assignments.md).
+- Administrative audit coverage (PRD-06): one `Audit Event` ledger, which absorbs the Vault Audit
+  Log, written on the caller's transaction for what was allowed and directly on the pool for what
+  was denied, immutable against API and Desk mutations, with recursive redaction of sensitive
+  payloads, a scheduled retention sweep through `ops.auditRetentionDays` and
+  `ddcore audit list|purge`. It covers role grants and revocations, account status, invitations,
+  unlocks and sessions, scope grants, workflow transitions allowed and denied, job cancel, retry
+  and purge, vault reads and writes, webhook replay and method authorization denials. See
+  [audit](docs/agent/audit.md).
+
+## 0.6.0 — 2026-09-13
+
+### Added
+
+- Notifications (OPS-03): `defineNotification` declares event and date rules; an occurrence is
+  written per recipient on the caller's transaction, deduplicated by the database, listed in an
+  authorized Desk inbox with read and unread state, optionally e-mailed through a template, and
+  pushed to the recipient alone over SSE after the commit. See
+  [notifications](docs/agent/notifications.md).
+- Outgoing webhooks (OPS-06): `Webhook` subscriptions for document lifecycle events and for app
+  events through `ddcore.webhooks.emit`, a `Webhook Delivery` and its job written on the caller's
+  transaction, Standard Webhooks signatures with a key held in the vault, a `webhook-id` stable
+  across retries and replay, a per-webhook timeout and attempt count with exponential job backoff,
+  System Manager replay recorded in the audit, `DDCORE_WEBHOOKS=off` for a rehearsal, retention,
+  `ddcore webhooks` and a doctor section. Delivery is at least once, so a receiver deduplicates on
+  `webhook-id`. See [webhooks](docs/agent/webhooks.md).
+
+### Fixed
+
+- A Go error keeps its type when it crosses a JS frame, so a controller sees a validation error as
+  one instead of as an anonymous failure.
+
+## 0.5.4 — 2026-09-13
+
+### Added
+
+- `defineListView` gains `fields` (fetch more than the columns, for an indicator, a badge or a
+  formatter), `badges` (extra indicators drawn after the status, in the same cell) and
+  `filterOptions` (choices appended after a divider to a standard Select filter, each applying its
+  own filters in place of the equality).
+- `defineListView({ docstatusFilter: false })` hides the docstatus filter of a submittable DocType
+  that already shows a status field of its own.
+
+## 0.5.3 — 2026-09-12
+
+### Fixed
+
+- Check filters and the clear button line up with the other inputs of the list's filter row.
+
+## 0.5.2 — 2026-09-12
+
+### Added
+
+- In development, `DDCORE_MAIL_DEBUG` redirects every SMTP message to one address through plus-tag
+  subaddressing (`tenant@example.com` becomes `admin+tenant_example_com@…`), with the real
+  recipient kept in an `X-Original-To` header.
+
+## 0.5.1 — 2026-09-12
+
+### Added
+
+- The `Vault` fieldtype (SEC-06): a per-record secret encrypted with AES-256-GCM in its own
+  `ddcore_vault` schema, with no column on the document's table, read and written through
+  `ddcore.vault.*`, redacted everywhere a value would otherwise travel, audited, editable in the
+  Desk and reported by `ddcore doctor`. See [vault](docs/agent/vault.md).
+- `ddcore.http` gains `put`, `patch` and `del`, and a response carries its headers with canonical
+  HTTP casing. `opts.method` no longer overrides the verb the function name already chose.
+
+## 0.5.0 — 2026-09-12
+
+### Added
+
+- The MCP server extracts and fills translation catalogues, through `i18n_extract` and
+  `set_translations`, so a missing key can be found and answered without leaving the tool.
+
+## 0.4.1 — 2026-09-12
+
+### Changed
+
+- No container image is published any more. An app builds its own image and downloads the binary
+  of the release it pins.
+
+### Fixed
+
+- The sign-in screen focuses its first field without `autofocus`, so a password manager and the
+  browser's own restore no longer fight over it.
+
+## 0.4.0 — 2026-09-12
+
+### Added
+
+- A form keeps what was typed. Edits are kept in the browser, one draft per user and record, for
+  seven days and written as they are made; leaving a dirty form asks first, inside the desk and
+  through the browser's own dialog on a reload; coming back puts the draft back and says so, and
+  asks when someone else saved the record in between. "Discard changes" in the form's menu, and
+  `frm.discardChanges()`, return to the document as it was loaded without asking the server again.
+- A form field declares its width — `sm`, `md`, `lg` or `full` — and a line is four slots, so
+  narrow fields pair side by side and collapse to full width on a phone. Date, Month, Time, Int
+  and Percent default to `sm`, Datetime, Float and Currency to `md`, the fallback is `lg`, and the
+  types that are unreadable narrow keep `full`.
+
+### Breaking
+
+- The `Column Break` fieldtype is gone: a form's shape now comes from the width of its fields, and
+  the same field no longer renders at a different size on either side of a break. A DocType that
+  still declares one loads — an obsolete fieldtype is dropped when the app is read, with a warning
+  naming the DocType — so an app written against an older ddcore keeps working while it is
+  cleaned up.
+
+### Fixed
+
+- `Cmd+S` saves what is still being typed, instead of the value the field had before the caret
+  entered it.
+- The generated `tsconfig` no longer emits `baseUrl`, the core's own TypeScript is typechecked,
+  and `hasPermission`'s declared document type is wide enough for what it is given.
+
+## 0.3.0 — 2026-09-11
+
+### Added
+
+- Business email (OPS-02): file-based templates in `mail/<name>.mail.ts`, a block vocabulary
+  rendered into both parts of the message, `ddcore.sendMail` writing on the caller's transaction,
+  authorized `File` attachments with a size cap, and an `Email Delivery` record per message. The
+  framework's own invitation and recovery messages are two of these templates, and a `sensitive`
+  template keeps its arguments out of the delivery record. See [mail](docs/agent/mail.md).
+
+## 0.2.0 — 2026-09-11
+
+### Added
+
+- Job administration (PRD-04): `ddcore jobs`, a System Manager-only HTTP surface and MCP tools
+  inspect, retry and cancel jobs — a running job is cancelled cooperatively — with per-queue and
+  per-method metrics, a daily retention sweep whose windows live in `ops`, and the `request_id` of
+  the request that queued the work carried onto the job. See [operations](docs/agent/ops.md).
+- An action can be attached to a field, not only to the document, so the button sits beside the
+  input it fills and the framework can see it: a translated label, `hidden` and `dependsOn`
+  instead of an `HTML` field, an `esc()` per app and a delegated click listener.
+- `desk.logo` finally does something: the brand mark is the one declared by the first app in load
+  order, or the initial of the site's name, in the sidebar and on the sign-in screens alike.
+
+### Breaking
+
+- `site` is gone from `ddcore.json`, from `config.File` and from `engine.Config`. The site's name
+  is now the `title` of the first app that is not the core, resolved on the server so that the
+  sidebar, a recovery e-mail and `/health` cannot disagree, and translated for whoever is reading.
+  A config that still carries the key loads and ignores it, so no deployment breaks — but every
+  one of them is renamed by its app on the next start, and a site that wants a name other than its
+  app's title no longer has a way to say so. `doctor` loses its `site:` line, and `/health` can no
+  longer tell two deployments of one app apart.
+
+### Fixed
+
+- The site's name is a catalogue key wherever it is shown, in the sidebar and in the mail.
+
+## 0.1.2 — 2026-09-11
+
+### Fixed
+
+- An account is administered, and a refusal says so. `User` granted `All` an `ifOwner` read, and
+  the owner of a User row is whoever created the account, so the grant freed no row at all while
+  still passing every doc-less check: the DocType travelled in the boot payload, the desk listed
+  it, and the list came back `200` with the query quietly narrowed to nothing, where a refusal
+  belonged. `User` is now System Manager only; what a person may do to their own account keeps
+  going through the profile service.
+- The server writes its log to stdout, where a platform reads it as output instead of painting
+  every line — INFO included — as an error. Every other command keeps the log on stderr, because
+  there stdout belongs to the command: an exported NDJSON, a printed API key, `doctor --json` or
+  the MCP JSON-RPC stream.
+
+## 0.1.1 — 2026-09-11
+
+### Changed
+
+- The example app left this repository for
+  [ddcore-demo](https://github.com/jrvidotti/ddcore-demo), where it is built against the published
+  binary and takes the path a real app takes. What stays here is `apps/testapp`, the fixture
+  `internal/acceptance` needs.
+
+### Fixed
+
+- The language picker's own labels and the profile's field rows are translated like everything
+  else.
+
+## 0.1.0 — 2026-09-11
+
+The first release.
+
+### Added
+
+- The framework: file-based DocType metadata with controllers and lifecycle hooks, role
+  permissions, REST and RPC endpoints, a generated Desk with forms, lists, reports and
+  workspaces, jobs and a scheduler, files, Version and Comment, the `ddcore` CLI, an MCP server,
+  and typings generated from the metadata.
+- Internationalization: English is the canonical language and every user-facing string is a
+  catalogue key, translated on the server for metadata and mirrored into the runtime for app code.
+  `ddcore i18n extract` builds the catalogue and a missing key fails the build; the language
+  resolution chain, one timezone per site and regional formatting come with it, and the Go core,
+  the CLI, the MCP server and the developer errors all speak keys. See [i18n](docs/agent/i18n.md).
+- Money and dates (DAT-06): an exact decimal rounding kernel shared by the server, the app runtime
+  and the Desk, the site's currency precision and rounding rule applied to coercion and to what a
+  Currency field commits, and one site clock. An impossible precision is refused at `migrate`.
+- Export (DAT-02): a whole DocType with its children and an attachment manifest, over
+  `GET /api/export/<DocType>` and `ddcore export`, permission-checked on the server, capped, and
+  flagged as truncated only when something was actually cut. The list's export offers the whole
+  filtered set rather than the page on screen. See [export](docs/agent/export.md).
+- Migrations (DAT-04): declared renames through `renamedFrom`, a refused conversion where data
+  could be lost, and phased patches in `patches/NNNN_name.ts`. Compound business keys through
+  `uniqueKeys` (DAT-05), checked before the write and enforced by a partial unique index under
+  concurrency. See [migrations](docs/agent/migrations.md).
+- `extendDoctype` (DAT-09): one app adds fields and property overrides to another app's DocType,
+  versioned like the rest of the metadata. See [extensions](docs/agent/extending.md).
+- Single DocTypes through `isSingle` (DAT-03): one configuration document per DocType, with
+  defaults before the first save, permissions on the read and on that save, and Desk editing at
+  `/app/{doctype}`.
+- Authentication and account self-service (SEC-04): password recovery and invitations over public
+  routes with single-use tokens, a password minimum every path goes through, a lockout that
+  answers `429` instead of taking another guess, one source for the session TTL and a cookie that
+  says `Secure`, a profile with sessions and API keys of one's own behind an avatar menu, and
+  `ddcore user invite|unlock|sessions` from the terminal. A minimal SMTP transport with a
+  pluggable send method carries the messages. See [authentication](docs/agent/auth.md).
+- Configuration split (SEC-04): the environment in `.env`, the site's decisions in `ddcore.json`,
+  with an integration secret living in the environment rather than in a column (SEC-06).
+- Operations (PRD-03): liveness separated from database readiness, a request correlation id and a
+  duration on every request, queue failure and age signals, thresholds in `ops`, and a `doctor`
+  that reports instead of dying when the database is down. See [operations](docs/agent/ops.md).
+- Distribution (PRD-02): a release workflow that publishes static archives for Darwin and Linux on
+  amd64 and arm64 with `SHA256SUMS`, an `install.sh`, `ddcore version` with the version injected
+  at build time, and `PORT`/`DATABASE_URL` support for a platform deployment.
