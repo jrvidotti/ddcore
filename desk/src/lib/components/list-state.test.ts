@@ -96,6 +96,12 @@ describe("view resolution", () => {
     expect(resolveAllowedViews({ calendar: { field: "due_date" } })).toEqual(["list", "calendar", "cards"]);
   });
 
+  it("adds kanban and gantt only when fully configured", () => {
+    expect(resolveAllowedViews({ calendar: { field: "due_date" }, kanban: { field: "status" }, gantt: { startField: "start_date", endField: "due_date" } }))
+      .toEqual(["list", "calendar", "kanban", "gantt", "cards"]);
+    expect(resolveAllowedViews({ gantt: { startField: "start_date" } })).toEqual(["list", "cards"]);
+  });
+
   it("respects explicit views array from settings", () => {
     expect(resolveAllowedViews({ views: ["calendar", "list"] })).toEqual(["calendar", "list"]);
   });

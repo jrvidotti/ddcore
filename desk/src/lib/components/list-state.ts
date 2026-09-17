@@ -12,14 +12,16 @@ export interface ListUrlState {
   view?: string;
 }
 
-export function resolveAllowedViews(settings?: { views?: string[]; calendar?: { field?: string } }): string[] {
+export function resolveAllowedViews(settings?: { views?: string[]; calendar?: { field?: string }; kanban?: { field?: string }; gantt?: { startField?: string; endField?: string } }): string[] {
   if (settings?.views && settings.views.length > 0) {
     return [...settings.views];
   }
-  if (settings?.calendar?.field) {
-    return ["list", "calendar", "cards"];
-  }
-  return ["list", "cards"];
+  const views = ["list"];
+  if (settings?.calendar?.field) views.push("calendar");
+  if (settings?.kanban?.field) views.push("kanban");
+  if (settings?.gantt?.startField && settings.gantt.endField) views.push("gantt");
+  views.push("cards");
+  return views;
 }
 
 export function resolveActiveView(

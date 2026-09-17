@@ -22,6 +22,10 @@
   import TableView from "./views/TableView.svelte";
   import CardView from "./views/CardView.svelte";
   import CalendarView from "./views/CalendarView.svelte";
+  import KanbanView from "./views/KanbanView.svelte";
+  import GanttView from "./views/GanttView.svelte";
+  import { moveKanbanRow, kanbanValue } from "./views/kanban-state";
+  import { ganttRangeFilters, ganttWindow, type GanttScale } from "./views/gantt-state";
   import { calendarRangeFilters } from "./views/calendar-state";
   import { resolveCardFields } from "./views/card-fields";
 
@@ -55,6 +59,11 @@
   const initialDays = getCalendarDays(Number(initialDate.slice(0, 4)), Number(initialDate.slice(5, 7)));
   let gridStartIso = $state(initialDays[0].iso);
   let gridEndIso = $state(initialDays[initialDays.length - 1].iso);
+
+  let ganttScale = $state<GanttScale>("week");
+  let ganttAnchor = $state(initialDate);
+  /** Kanban and Gantt load one unpaginated window of rows, capped like the calendar. */
+  const VIEW_LIMIT = 500;
 
   const workspace = $derived(page.params.workspace || "");
   const wsPrefix = $derived(workspace ? `/app/${encodeURIComponent(workspace)}` : "/app");
@@ -158,6 +167,30 @@
     gridEndIso = endIso;
     if (changed && ready && currentView === "calendar") load();
   }
+  function changeGantt(scale: GanttScale, anchor: string) {
+    const changed = scale !== ganttScale || anchor !== ganttAnchor;
+    ganttScale = scale;
+    ganttAnchor = anchor;
+    if (changed && ready && currentView === "gantt") load();
+  }
+  /**
+   * Moves a Kanban card at once and saves the new column; a refusal (write
+   * permission, a workflow, validation) puts the card back where it was.
+   */
+  async function moveCard(name: string, value: string) {
+    const field = settings.kanban?.field;
+    if (!field) return;
+    const row = rows.find((r) => r.name === name);
+    if (!row) return;
+    const previous = kanbanValue(row, field);
+    rows = moveKanbanRow(rows, name, field, value);
+    try {
+      await api.update(doctype, name, { [field]: value === "" ? null : value, modified: row.modified });
+    } catch (e) {
+      rows = moveKanbanRow(rows, name, field, previous);
+      showError(e);
+    }
+  }
   let filterTimer: any;
   function updateFilter(name: string, value: any, debounce = false) {
     const next = { ...filters };
@@ -182,6 +215,9 @@
     if (currentView === "calendar" && settings.calendar?.field && meta?.doctype?.fields) {
       out.push(...calendarRangeFilters(settings.calendar.field, meta.doctype.fields, gridStartIso, gridEndIso));
     }
+    if (currentView === "gantt" && settings.gantt?.startField && settings.gantt.endField && meta?.doctype?.fields) {
+      out.push(...ganttRangeFilters(settings.gantt.startField, settings.gantt.endField, meta.doctype.fields, ganttWindow(ganttAnchor, ganttScale)));
+    }
     return out;
   }
   function buildOr() {
@@ -200,9 +236,12 @@
     try {
       const cardInfo = resolveCardFields(meta.doctype, settings.card);
       const calendar = settings.calendar;
+      const { kanban, gantt } = settings;
       const fields = ["name", "modified", "docstatus", "owner", ...columns.map((c) => c.fieldname!), ...(settings.fields || []),
         ...cardInfo.fetchFields,
         calendar?.field, calendar?.endField, calendar?.titleField || meta.doctype.titleField, calendar?.colorField,
+        kanban?.field, kanban?.titleField, kanban?.subtitleField, kanban?.colorField,
+        gantt?.startField, gantt?.endField, gantt?.titleField, gantt?.colorField, gantt?.progressField,
       ].filter((field): field is string => !!field);
       // Every requested Dynamic Link needs its sibling type field for both
       // the rendered link and the API's title resolution.
@@ -210,8 +249,10 @@
         if (field.fieldname && fields.includes(field.fieldname) && field.fieldtype === "Dynamic Link" && typeof field.options === "string") fields.push(field.options);
       }
       if (statusField && !fields.includes(statusField.fieldname!)) fields.push(statusField.fieldname!);
-      const isCalendar = currentView === "calendar" && !!calendar?.field;
-      const query = { filters: buildFilters(), or_filters: buildOr(), fields: [...new Set(fields)], order_by: orderBy || undefined, limit: isCalendar ? 500 : pageSize, start: isCalendar ? 0 : start, with_count: true };
+      const unpaged = (currentView === "calendar" && !!calendar?.field) || (currentView === "kanban" && !!kanban?.field)
+        || (currentView === "gantt" && !!gantt?.startField && !!gantt?.endField);
+      const order = currentView === "gantt" && gantt?.startField && !orderBy ? `${gantt.startField} asc` : orderBy || undefined;
+      const query = { filters: buildFilters(), or_filters: buildOr(), fields: [...new Set(fields)], order_by: order, limit: unpaged ? VIEW_LIMIT : pageSize, start: unpaged ? 0 : start, with_count: true };
       // List and Cards share a query and selection. Normalize unordered query
       // parts so restoring the same filters from the URL also keeps selection.
       const queryKey = JSON.stringify({ ...query, doctype,
@@ -379,6 +420,8 @@
       <div class="view-switcher">
         {#if allowedViews.includes("list")}<button class="btn icon" class:active={currentView === "list"} aria-pressed={currentView === "list"} onclick={() => setView("list")} title={__("List")} aria-label={__("List")}><Icon name="list" size={14} /></button>{/if}
         {#if allowedViews.includes("calendar")}<button class="btn icon" class:active={currentView === "calendar"} aria-pressed={currentView === "calendar"} onclick={() => setView("calendar")} title={__("Calendar")} aria-label={__("Calendar")}><Icon name="calendar" size={14} /></button>{/if}
+        {#if allowedViews.includes("kanban") && settings.kanban}<button class="btn icon" class:active={currentView === "kanban"} aria-pressed={currentView === "kanban"} onclick={() => setView("kanban")} title={__("Kanban")} aria-label={__("Kanban")}><Icon name="square-kanban" size={14} /></button>{/if}
+        {#if allowedViews.includes("gantt") && settings.gantt}<button class="btn icon" class:active={currentView === "gantt"} aria-pressed={currentView === "gantt"} onclick={() => setView("gantt")} title={__("Gantt")} aria-label={__("Gantt")}><Icon name="chart-gantt" size={14} /></button>{/if}
         {#if allowedViews.includes("cards")}<button class="btn icon" class:active={currentView === "cards"} aria-pressed={currentView === "cards"} onclick={() => setView("cards")} title={__("Cards")} aria-label={__("Cards")}><Icon name="layout-grid" size={14} /></button>{/if}
       </div>
     {/if}
@@ -421,6 +464,12 @@
   {#if meta}
     {#if currentView === "calendar" && settings.calendar}
       <CalendarView {rows} {meta} {doctype} {wsPrefix} calendar={settings.calendar} viewYear={calendarYear} viewMonth={calendarMonth} onMonthChange={changeMonth} />
+    {:else if currentView === "kanban" && settings.kanban}
+      {#if total > rows.length}<div class="view-notice muted small">{__("Showing the first {0} of {1} records; narrow the filters to see the rest", [rows.length, total])}</div>{/if}
+      <KanbanView {rows} {meta} {doctype} {wsPrefix} {loading} kanban={settings.kanban} onMove={moveCard} />
+    {:else if currentView === "gantt" && settings.gantt}
+      {#if total > rows.length}<div class="view-notice muted small">{__("Showing the first {0} of {1} records; narrow the filters to see the rest", [rows.length, total])}</div>{/if}
+      <GanttView {rows} {meta} {doctype} {wsPrefix} gantt={settings.gantt} scale={ganttScale} anchor={ganttAnchor} onChange={changeGantt} />
     {:else}
       <div class:card={currentView !== "cards"} class="list-results">
         {#if currentView === "cards"}
@@ -450,6 +499,7 @@
   .view-switcher .btn + .btn { margin-left: -1px; }
   .view-switcher .active { color: var(--primary); background: var(--bg); position: relative; border-color: var(--primary); }
   .list-results { overflow: auto; }
+  .view-notice { margin: 0 0 8px; }
   .pagination { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--border); }
   .pagination.card { margin-top: 12px; }
   .list-filters { padding: 12px 14px; margin-bottom: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px 10px; align-items: start; }
