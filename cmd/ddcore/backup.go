@@ -284,6 +284,12 @@ func runBackup(ctx context.Context, e *engine.Engine, cfg *config.File, o backup
 		store := e.Storage()
 		for _, prefix := range []string{"public/", "private/"} {
 			err := store.List(ctx, prefix, func(key string, info storage.Info) error {
+				// restore admits only what safeEntry allows; a stray .DS_Store or
+				// .gitkeep is no stored file, and archiving it would make restore
+				// refuse the whole archive
+				if !safeEntry("files/" + key) {
+					return nil
+				}
 				rc, oinfo, err := store.Open(ctx, key)
 				if err != nil {
 					return fmt.Errorf("%s: %w", key, err)

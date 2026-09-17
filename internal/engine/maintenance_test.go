@@ -184,3 +184,54 @@ func TestMaintenanceWithoutTable(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// A stale cache is refreshed by one caller at a time, and nobody queues behind
+// that read while a state is known: a caller inside a write transaction already
+// holds a pool connection, and waiting on a read that needs another one can
+// stall every request once the pool is full.
+func TestMaintenanceRefreshDoesNotQueue(t *testing.T) {
+	e := setup(t)
+	ctx := context.Background()
+	if _, err := e.SetMaintenance(ctx, true, "Upgrade", "t"); err != nil {
+		t.Fatal(err)
+	}
+	inflight := make(chan struct{})
+	e.maint.mu.Lock()
+	e.maint.read, e.maint.refreshing = time.Time{}, inflight
+	e.maint.mu.Unlock()
+
+	done := make(chan MaintenanceState, 1)
+	go func() { done <- e.Maintenance(ctx) }()
+	select {
+	case st := <-done:
+		if !st.Enabled || st.Reason != "Upgrade" {
+			t.Errorf("while another read is out, the last known state: %+v", st)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("Maintenance waited on a refresh already in flight")
+	}
+
+	// with nothing known yet a caller waits, but no longer than its context
+	e.maint.mu.Lock()
+	e.maint.known = false
+	e.maint.mu.Unlock()
+	cctx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
+	defer cancel()
+	go func() { done <- e.Maintenance(cctx) }()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Maintenance outlived its context waiting on a refresh")
+	}
+
+	e.maint.mu.Lock()
+	e.maint.refreshing = nil
+	e.maint.mu.Unlock()
+	close(inflight)
+	if !e.Maintenance(ctx).Enabled {
+		t.Error("a fresh read after the refresh cleared")
+	}
+	if _, err := e.SetMaintenance(ctx, false, "", "t"); err != nil {
+		t.Fatal(err)
+	}
+}

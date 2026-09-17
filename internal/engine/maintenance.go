@@ -39,24 +39,66 @@ const maintenanceTTL = 2 * time.Second
 type maintenanceCache struct {
 	mu    sync.Mutex
 	state MaintenanceState
-	read  time.Time
+	read  time.Time // the last read attempt, failed or not
+	known bool      // state came from the database at least once
+	// refreshing is open while one caller reads the flag. Nobody holds mu
+	// across that read: callers inside a write transaction already hold a pool
+	// connection, and queueing them behind a read that needs another one
+	// stalls every request once the pool is full.
+	refreshing chan struct{}
 }
 
 // Maintenance returns the current flag, from the cache when it is fresh. A
 // database without the table has never been paused, and a read that fails for
 // another reason keeps the last known state rather than guessing "open".
+//
+// One caller refreshes a stale cache at a time; the others keep the last known
+// state meanwhile, and only wait when no read has ever succeeded. A failed read
+// counts as an attempt, so a database outage costs one query per TTL window
+// rather than one per request.
 func (e *Engine) Maintenance(ctx context.Context) MaintenanceState {
-	e.maint.mu.Lock()
-	defer e.maint.mu.Unlock()
-	if time.Since(e.maint.read) < maintenanceTTL {
-		return e.maint.state
+	m := &e.maint
+	m.mu.Lock()
+	if time.Since(m.read) < maintenanceTTL {
+		st := m.state
+		m.mu.Unlock()
+		return st
 	}
+	if ch := m.refreshing; ch != nil {
+		st, known := m.state, m.known
+		m.mu.Unlock()
+		if known {
+			return st
+		}
+		select {
+		case <-ch:
+		case <-ctx.Done():
+		}
+		m.mu.Lock()
+		defer m.mu.Unlock()
+		return m.state
+	}
+	ch := make(chan struct{})
+	m.refreshing = ch
+	started := m.read
+	m.mu.Unlock()
+
 	st, err := e.readMaintenance(ctx)
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.refreshing = nil
+	close(ch)
+	if m.read != started {
+		// SetMaintenance wrote a newer state while this read was out
+		return m.state
+	}
+	m.read = time.Now()
 	if err != nil {
 		e.Log.Warn("could not read the maintenance flag", "err", db.RedactError(err))
-		return e.maint.state
+		return m.state
 	}
-	e.maint.state, e.maint.read = st, time.Now()
+	m.state, m.known = st, true
 	return st
 }
 
@@ -102,7 +144,7 @@ func (e *Engine) SetMaintenance(ctx context.Context, on bool, reason, actor stri
 		return st, err
 	}
 	e.maint.mu.Lock()
-	e.maint.state, e.maint.read = st, time.Now()
+	e.maint.state, e.maint.read, e.maint.known = st, time.Now(), true
 	e.maint.mu.Unlock()
 	action := "ops.maintenance_off"
 	if on {

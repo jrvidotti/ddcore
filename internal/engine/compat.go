@@ -126,7 +126,10 @@ func parseRange(s string) (versionRange, error) {
 		case "^":
 			// npm: the leftmost non-zero part is fixed
 			upper := semver{v[0] + 1, 0, 0}
-			if v[0] == 0 {
+			switch {
+			case v[0] == 0 && v[1] == 0:
+				upper = semver{0, 0, v[2] + 1}
+			case v[0] == 0:
 				upper = semver{0, v[1] + 1, 0}
 			}
 			r = append(r, constraint{">=", v}, constraint{"<", upper})

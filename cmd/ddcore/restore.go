@@ -18,6 +18,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jrvidotti/ddcore/internal/config"
 	"github.com/jrvidotti/ddcore/internal/db"
 	"github.com/jrvidotti/ddcore/internal/engine"
@@ -201,12 +202,19 @@ func cmdRestore(args []string) error {
 		target.Close()
 		return fmt.Errorf("the target database %s already holds a site (%d tables): restore into an empty database, or pass --force to replace it", db.RedactDSN(cfg.DSN), occupied)
 	}
+	pausedHere := false
 	if occupied > 0 {
 		// pause whatever is serving the target before its tables are dropped
-		// under it; the servers see this within their cache window
+		// under it; the servers see this within their cache window. A target
+		// the operator had already paused stays paused whatever happens next.
+		var wasPaused bool
+		if err := target.Pool.QueryRow(ctx, `SELECT enabled FROM ddcore_maintenance WHERE id = 1`).Scan(&wasPaused); err != nil && !errors.Is(err, pgx.ErrNoRows) && !db.UndefinedTable(err) {
+			wasPaused = true // unknown: never switch off a pause this restore did not make
+		}
 		if err := setMaintenanceSQL(ctx, target, true, "Restore in progress"); err != nil {
 			res.Warnings = append(res.Warnings, "could not pause the target: "+db.RedactError(err))
 		} else {
+			pausedHere = !wasPaused
 			sleepCtx(ctx, 3*time.Second)
 		}
 	}
@@ -216,6 +224,13 @@ func cmdRestore(args []string) error {
 	err = restoreTool.Run(ctx, cfg.DSN, []string{"--clean", "--if-exists", "--no-owner", "--no-acl", "--exit-on-error", "--single-transaction",
 		filepath.Join(dir, "db.dump")}, nil)
 	if err != nil {
+		// the transaction rolled back, so the old site is intact: let it serve
+		// again rather than leave it refusing every write
+		if pausedHere {
+			if uerr := setMaintenanceSQL(context.WithoutCancel(ctx), target, false, ""); uerr != nil {
+				res.Warnings = append(res.Warnings, "the target is still paused; run `ddcore maintenance off`: "+db.RedactError(uerr))
+			}
+		}
 		target.Close()
 		return report(err)
 	}

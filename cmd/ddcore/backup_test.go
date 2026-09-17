@@ -122,6 +122,11 @@ func TestBackupRestoreRoundTrip(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	// a stray dotfile is no stored file: backup leaves it out, or restore
+	// would refuse the whole archive
+	if err := os.WriteFile(filepath.Join(work, "src", "files", "public", ".DS_Store"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	e.DB.Close()
 	archive := filepath.Join(work, "site.tar")
 	if err := cmdBackup([]string{"--out", archive}); err != nil {
@@ -155,6 +160,22 @@ func TestBackupRestoreRoundTrip(t *testing.T) {
 	if err := cmdRestore([]string{archive}); err == nil || !strings.Contains(err.Error(), "--force") {
 		t.Errorf("restore over an existing site: %v", err)
 	}
+
+	// a --force restore that fails leaves the old site as it was, open again
+	if _, err := e.SetMaintenance(ctx, false, "", "t"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.DB.Pool.Exec(ctx, `CREATE VIEW restore_blocker AS SELECT * FROM ddcore_session`); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmdRestore([]string{archive, "--force"}); err == nil {
+		t.Error("a restore whose tables cannot be dropped should fail")
+	}
+	var paused bool
+	if err := e.DB.Pool.QueryRow(ctx, `SELECT enabled FROM ddcore_maintenance WHERE id = 1`).Scan(&paused); err != nil || paused {
+		t.Errorf("after a failed --force restore the target is paused=%v (%v)", paused, err)
+	}
+	e.DB.Pool.Exec(ctx, `DROP VIEW restore_blocker`)
 
 	// a damaged archive is refused before anything is touched
 	damaged := filepath.Join(work, "damaged.tar")

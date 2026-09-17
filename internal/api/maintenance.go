@@ -35,6 +35,12 @@ func maintenanceExempt(r *http.Request) bool {
 	if isProbePath(p) || strings.HasPrefix(p, "/api/auth/") {
 		return true
 	}
+	// MCP speaks POST for reads too, and its maintenance_set tool is how an
+	// operator switches the pause back off: like stdio `ddcore mcp`, its tools
+	// meet the engine guard instead
+	if p == "/mcp" || strings.HasPrefix(p, "/mcp/") {
+		return true
+	}
 	switch p {
 	case "/api/login", "/api/logout", "/api/search/link-titles":
 		return true
