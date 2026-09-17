@@ -28,6 +28,11 @@ type AuthPolicy struct {
 	// SelfServiceAPIKeys lets a user mint and revoke their own API keys. Nil
 	// means allowed.
 	SelfServiceAPIKeys *bool `json:"selfServiceApiKeys"`
+	// PasswordLogin lets people sign in with a password. Nil means allowed.
+	// Turning it off leaves single sign-on as the only way in for everyone
+	// except Administrator, who keeps a password so that an outage at the
+	// identity provider is not also an outage of the site's administration.
+	PasswordLogin *bool `json:"passwordLogin,omitempty"`
 }
 
 // DefaultAuth is the policy a site gets when it says nothing.
@@ -52,6 +57,10 @@ func (a AuthPolicy) APIKeyTTL() time.Duration {
 
 func (a AuthPolicy) AllowSelfServiceAPIKeys() bool {
 	return a.SelfServiceAPIKeys == nil || *a.SelfServiceAPIKeys
+}
+
+func (a AuthPolicy) AllowPasswordLogin() bool {
+	return a.PasswordLogin == nil || *a.PasswordLogin
 }
 
 func (a AuthPolicy) validate() error {

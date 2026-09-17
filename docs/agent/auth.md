@@ -17,7 +17,8 @@ account out exactly as production does or the rehearsal proves nothing:
   "resetMinutes": 60,         // how long a recovery link is good for
   "inviteHours": 72,
   "secureCookie": null,       // null = decide per request
-  "selfServiceApiKeys": true
+  "selfServiceApiKeys": true,
+  "passwordLogin": true       // false = single sign-on only (Administrator keeps a password)
 }
 ```
 
@@ -79,6 +80,83 @@ DDCORE_LOGIN_DEMO_PASSWORD=demo-visitor
   variable is one. It is the operator's sentence, not a catalogue key, so it is
   not translated.
 - The demo account is offered only when both user and password are set.
+
+## Single sign-on (OpenID Connect)
+
+Google, a self-hosted [PocketID](https://pocket-id.org), or any other OpenID
+Connect provider. It is one generic client: the authorization code flow with
+PKCE, discovery from the issuer, and the `id_token` verified for signature,
+issuer, audience, expiry and nonce. Providers differ only in their variables.
+
+```bash
+DDCORE_URL=https://erp.example.com             # required: the callback is built from it
+DDCORE_OIDC_PROVIDERS=google,pocketid
+
+DDCORE_OIDC_GOOGLE_CLIENT_ID=...               # issuer defaults to https://accounts.google.com
+DDCORE_OIDC_GOOGLE_CLIENT_SECRET=...
+DDCORE_OIDC_GOOGLE_ALLOWED_DOMAINS=example.com # optional
+
+DDCORE_OIDC_POCKETID_ISSUER=https://id.example.com
+DDCORE_OIDC_POCKETID_CLIENT_ID=...
+DDCORE_OIDC_POCKETID_CLIENT_SECRET=...
+# optional for any provider: _LABEL (the button), _SCOPES (default "openid email profile")
+```
+
+A provider id is lowercase letters, digits and `_`. Any id other than `google`
+needs `_ISSUER`. A provider missing its client credentials, or configured without
+`DDCORE_URL`, is refused at load.
+
+**Registering the client.** The redirect URI is
+`<DDCORE_URL>/api/auth/oidc/<id>/callback`; `ddcore doctor` prints it for each
+provider and checks that discovery answers.
+
+- Google: Google Cloud Console → APIs & Services → Credentials → *OAuth client
+  ID*, type *Web application*, with that URI under *Authorized redirect URIs*.
+- PocketID: *OIDC Clients* → *Add*, with that URI as the callback URL. It is a
+  confidential client, so leave *Public client* off; PKCE is always sent.
+
+**Nobody gets an account this way.** The provider proves who someone is, and the
+site still decides whether they may use it:
+
+1. The `email` claim must be present and `email_verified` must be true.
+2. The address must be in `_ALLOWED_DOMAINS`, when that list is set.
+3. The first sign-in links the provider's `sub` to the **enabled** User with that
+   address. Later sign-ins resolve by `sub`, so an address changed at the
+   provider still lands on the same account. The link is kept in
+   `ddcore_user_identity`; deleting or renaming the User carries it along.
+
+Invite people first (`ddcore user invite`, or the desk). They can then sign in
+through the provider without ever accepting the invitation.
+
+**The flow.**
+
+- `GET /api/auth/oidc/<id>/start?redirect=/app/...` stores a single-use state
+  with a nonce and a PKCE verifier for ten minutes, binds the state to the
+  browser with an `HttpOnly` cookie, and redirects to the provider.
+- `GET /api/auth/oidc/<id>/callback` requires the state in the query string and
+  in the cookie to match, spends it, exchanges the code, and sets the same `sid`
+  cookie a password sign-in sets.
+- Only a path on this site is accepted as `redirect`: `//host`, `/\host` and
+  absolute URLs fall back to `/app`.
+
+Every failure redirects to `/login?sso_error=<code>`, where the desk shows a
+translated message. The codes are `state`, `provider` (including a cancelled
+sign-in), `unverified_email`, `no_account`, `disabled`, `domain` and `throttled`.
+Callback failures are throttled per address, like a password.
+
+**Audit.** Every callback writes `account.login_sso`, `Allowed` or `Denied`,
+with the provider and the reason in the detail. A first link also writes
+`account.identity_link`.
+
+**Password sign-in off.** Set `"passwordLogin": false` and `POST /api/login`
+refuses everyone but `Administrator`, and forgot-password sends nothing to
+anyone else. The desk hides the form behind an *Administrator sign-in* link.
+Administrator keeps a password so that an outage at the provider is not also an
+outage of the site's administration. Setting `false` with no provider
+configured is refused at load.
+
+`/api/boot` exposes `site.login.password` and `site.login.providers`
+(`{id, label}` only) to the sign-in screen.
 
 ## Sessions
 
@@ -190,13 +268,15 @@ every read through the API, absent from `Version`, absent from an export.
 
 ## Housekeeping
 
-`core.services.auth.sweep` deletes expired sessions, old tokens and old
-attempts, hourly, where the site enables the scheduler. It is hygiene and never
+`core.services.auth.sweep` deletes expired sessions, old tokens, old
+attempts and expired single sign-on states, hourly, where the site enables the scheduler. It is hygiene and never
 correctness: every read path filters on expiry itself, so if it never ran
 nothing would become valid again — the tables would only grow.
 
 ## Not here yet
 
-A real CSRF token (the check is header-presence only), MFA and SSO (SEC-05),
+A real CSRF token (the check is header-presence only), MFA and LDAP (SEC-05),
+automatic provisioning or role mapping from a provider, provider-initiated
+(single) logout, a screen to see or remove one's linked identities,
 e-mail verification on a changed address, and an admin UI for unlocking or
 listing another user's sessions.

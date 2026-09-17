@@ -1147,6 +1147,14 @@ func (c *Ctx) Delete(doctype, name string, ignorePerms, force bool) error {
 		}
 		c.invalidateUserPermissionCache(doc)
 	}
+	if d.Name == "User" {
+		// Not a DocType, so the meta cannot find it: a sign-in identity left
+		// behind would sign a stranger into a User later created with the
+		// same name.
+		if _, err := c.Q().Exec(c.Ctx, `DELETE FROM ddcore_user_identity WHERE "user" = $1`, name); err != nil {
+			return err
+		}
+	}
 	if d.Name == shareDoctype {
 		if err := c.auditShareDeleted(doc); err != nil {
 			return err
@@ -1244,6 +1252,11 @@ func (c *Ctx) Rename(doctype, oldName, newName string) (string, error) {
 		}
 		if ref.table == "tab_document_share" && tag.RowsAffected() > 0 {
 			c.allSharesChanged()
+		}
+	}
+	if d.Name == "User" {
+		if _, err := q.Exec(c.Ctx, `UPDATE ddcore_user_identity SET "user" = $1 WHERE "user" = $2`, newName, oldName); err != nil {
+			return "", fmt.Errorf("identity rename: %w", err)
 		}
 	}
 	delete(c.docCache, c.docKey(doctype, oldName))

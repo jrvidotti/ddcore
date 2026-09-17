@@ -10,6 +10,10 @@ taken it.
 
 ### Added
 
+- Single sign-on through OpenID Connect (SEC-05, partial): Google, PocketID or any OIDC provider,
+  configured with `DDCORE_OIDC_*` in `.env`. It signs in existing Users only, linked by a verified
+  e-mail address. `auth.passwordLogin: false` in `ddcore.json` leaves single sign-on as the only way
+  in, except for Administrator. See [authentication](docs/agent/auth.md).
 - Core/app compatibility contract (PRD-07): `defineApp({ ddcore: "<range>" })` declares the ddcore
   releases an app supports, and a binary outside the range refuses to load it. `ddcore doctor` and
   the export manifest report each app's version and range.

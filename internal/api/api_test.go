@@ -846,8 +846,8 @@ func TestBootLoginPage(t *testing.T) {
 		l, _ := site["login"].(map[string]any)
 		return l
 	}
-	if l := login(); len(l) != 0 {
-		t.Fatalf("nothing configured, nothing served: %v", l)
+	if l := login(); l["notice"] != nil || l["demoUser"] != nil || l["password"] != true || len(l["providers"].([]any)) != 0 {
+		t.Fatalf("nothing configured, nothing served but the sign-in methods: %v", l)
 	}
 
 	x.e.Cfg.Login = config.LoginPage{Notice: "Public demo", DemoUser: "visitor@example.com", DemoPassword: "demo-visitor"}
