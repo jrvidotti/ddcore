@@ -82,13 +82,16 @@ the run. There is no row cap here.
 <out>/<DocType>.ndjson                   (or <DocType>.csv + <DocType>.<field>.csv per child table)
 <out>/<DocType>.files.csv                (the attachment manifest, CSV only)
 <out>/files/<file>                       (the attachment bytes, with --attachments)
-<out>/manifest.json                      (counts, checksums, filters, user, version, timings)
+<out>/manifest.json                      (counts, checksums, filters, user, versions, timings)
 ```
 
 `manifest.json` is what makes a load reconcilable: it carries the sha256 of
 every file written and of every attachment, so two runs of the same export can
 be compared and what was loaded downstream can be checked against what was
-taken.
+taken. It also records the core version and an `apps` map of each loaded app's
+declared `version` — the value only, never the `ddcore` range it accepts, so a
+manifest says what produced the export and not what could read it back (see
+[conventions.md](conventions.md)).
 
 ## Formats
 
@@ -114,7 +117,7 @@ Child tables in CSV are separate files keyed back by `parent`, `parenttype`,
 exported document with their `sha256`, and the CLI copies the bytes into
 `<out>/files/`. A file attached to several documents is copied once.
 
-A row whose bytes are gone from disk is marked `"missing": true` rather than
+A row whose bytes the store cannot find is marked `"missing": true` rather than
 skipped: that is a finding for the reconciliation, not a reason to abort.
 
 An attachment on a document you may read is yours to export even when someone

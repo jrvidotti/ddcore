@@ -80,7 +80,7 @@ Scopes are applied below the SDK, so app code cannot opt out:
 | `ddcore.db.getAll`, `getList({ ignorePermissions: true })`, `getValue`, `exists` (by name and by filters) | skipped | **enforced** |
 | `ddcore.getDoc` | enforced | enforced (Link fields, Dynamic Link fields, child rows) |
 | `insert` / `save` / `delete` / `submit` / `cancel`, with or without `ignorePermissions` | per option | **enforced** |
-| `ddcore.db.setValue`, `doc.dbSet` | skipped | **enforced**: refused if the stored document, or the stored document with the new values, is out of scope |
+| `ddcore.db.setValue`, `doc.dbSet` | skipped | **enforced**: refused if the stored document, or the stored document with the new values, is out of scope, unless a share overrides the scope for `write` (see `sharing`) |
 | `ddcore.db.sql` | not applied | **not applied** |
 
 `Webhook`, `Webhook Delivery`, `User Permission` and `Document Share` are closed to a user with access scopes
@@ -120,7 +120,7 @@ for example by passing the in-scope names as arguments after reading them with
 | Realtime events (SSE) | Document events are delivered only to users who can read the document |
 | Notifications | Recipient filtering, listing, counting, read-state changes and the email-send recheck all recheck access, so a scope change stops a new occurrence and hides or blocks an existing one |
 | Scope administration | A scoped user is refused every permission on `User Permission`, including their own rows, and app code running as that user cannot reach them with `ignorePermissions`, `setValue` or `dbSet`. Scope administration belongs to a `System Manager` without scope rows, or `Administrator` |
-| Document shares | A share of an out-of-scope document stays refused, unless it was given with **Override security scope** by an unscoped System Manager: that share lifts the scope for the rights it grants (read, write), never for delete, submit or cancel. A scoped user is refused `Document Share` itself (see `sharing`) |
+| Document shares | A share of an out-of-scope document stays refused, unless it was given with **Override security scope** by an unscoped System Manager, `Administrator` or an elevated context: that share lifts the scope for the rights it grants (read, write, share), never for delete, submit, cancel or amend. A scoped user is refused `Document Share` itself (see `sharing`) |
 | Webhooks | A scoped user is refused every permission on `Webhook` and `Webhook Delivery`, including replay, and app code running as that user cannot reach them with `ignorePermissions`: webhook administration is for unscoped users. The user's own document writes still queue and send deliveries (see `webhooks`) |
 
 ## Caching

@@ -211,12 +211,21 @@ ddcore doctor [--json] [--strict] [--window N]
 ```
 
 It reports the version, the site, the database (with the DSN's password
-redacted), the apps and doctypes, pending DDL, undeclared structures, pending
+redacted), the apps and doctypes — each app with its own `version` and the
+`ddcore` range it declares (see [conventions.md](conventions.md)) — pending DDL,
+undeclared structures, pending
 patches, applied renames, the queue, the Error Log, the scheduler, the workers,
 mail, outgoing webhooks (on or off, how many are enabled, retrying, and failed in
 the last day), the public URL, the session policy, the thresholds in force, and the
 **names** of the configured secrets — never their values, because this report
 gets pasted into issues and chat windows.
+
+It also reports where file bytes live (`local <dataDir>/files`, or the S3
+endpoint, bucket, prefix and presigned-link lifetime — never the credentials; see
+[storage.md](storage.md)) and single sign-on: the configured provider ids and
+whether password sign-in is on, or `no providers`. Only `--json` carries each
+provider's callback URL. Neither check contacts the bucket or the identity
+provider beyond the discovery probe described in [auth.md](auth.md).
 
 It also reports maintenance mode (and warns while it is on), which core and app
 versions last migrated the database, and the newest `ddcore backup` with any
@@ -236,7 +245,14 @@ the command exists for.
 
 Exit `1` means a **critical** finding: the database is unreachable, the apps
 could not be loaded, a migration is refused, or an undeclared structure still
-holds data. Warnings — pending DDL, a backlog, recent failures — exit `0`
+holds data. `apps: could not be loaded` covers every refusal to load, including
+an app whose `ddcore` range excludes this binary and the rollback guard of
+[backup.md](backup.md); the reason is on the line below it, and the sections
+that need a loaded engine — the per-app versions and ranges among them — are
+missing from that report. The likeliest cause in the field is a binary built
+without `-ldflags`, which reports the default version `0.1.0` and so refuses
+every app pinning a real release: check the `version` line before the apps
+(see [conventions.md](conventions.md)). Warnings — pending DDL, a backlog, recent failures — exit `0`
 unless `--strict`, because this is mostly run by a person reading it rather than
 a script failing on it.
 
@@ -370,7 +386,10 @@ restart. See [print.md](print.md).
 ## Maintenance, backup and restore
 
 `ddcore maintenance on|off` pauses writes, workers and the scheduler on every
-process without failing readiness. `ddcore backup` and `ddcore restore` produce and
+process without failing readiness. A job already running is not spared: its
+writes are refused, which costs it an attempt and writes an Error Log row, so
+drain the queue (`ddcore jobs stats`) before pausing for a cutover.
+`ddcore backup` and `ddcore restore` produce and
 consume a checksummed archive of the database, stored files and configuration.
 `ops.backupMaxAgeHours` turns on a health warning for a stale backup. See
 [backup.md](backup.md).

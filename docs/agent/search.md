@@ -35,7 +35,9 @@ export default defineDoctype({
 
 The matched columns are the same as a Link field's search: `name`, then `titleField`, then each
 of `searchFields`. Keep them short, indexed text, such as codes, titles and names. A long text
-field in `searchFields` makes every search scan it.
+field in `searchFields` makes every search scan it. A matched column that is a **Link** also
+matches the linked document's title and search fields, through an `EXISTS` subquery over the
+target table — correct, but a query the target's own indexes have to carry.
 
 ## The endpoint
 
@@ -45,14 +47,18 @@ GET /api/search/global?txt=<text>&limit=<n>
 
 - **Sign-in:** required. A guest gets 401.
 - **`txt`:** trimmed, then 2 to 140 characters. Anything else is a `ValidationError` (417).
-- **`limit`:** defaults to 20 and is capped at 50. Each DocType contributes at most 5 hits.
+- **`limit`:** defaults to 20 and is capped at 50. Each DocType contributes at most 5 hits, taken
+  **before** the ranking: its first 5 rows in list order (`sortField`/`sortOrder`, else `modified`
+  descending). So an exact match is lost when its DocType has more than 5 matches ahead of it.
 - **Response:** `data` is a list of `{ doctype, label, name, title }`.
   - `label` is the DocType's translated label.
   - `title` is the title field's value, or the name when there is none.
 - **Matching:** a case- and accent-insensitive substring match (`ILIKE` over the same folding as a
-  list filter), so `cafe` finds `Café`.
+  list filter), so `cafe` finds `Café`. `%` and `_` in the text are not escaped, so they reach the
+  `ILIKE` as its wildcards.
 - **Ranking:** hits whose name or title equal the text come first, then those that start with it,
-  then every other match. Within a rank, hits keep DocType order and then the list order.
+  then every other match. Within a rank, hits keep DocType order — alphabetical by DocType **name**,
+  not by label — and then the list order.
 
 From desk code, `ddcore.search.global(txt, limit?)` calls the same endpoint.
 

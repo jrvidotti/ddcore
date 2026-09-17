@@ -47,7 +47,7 @@ The rules:
 - **A level is never a way in.** A row above level 0 grants fields, not the document: the
   role still needs a level-0 row (or another of the user's roles does). A row above 0 may
   set only `read` and `write`. `create`, `delete`, `submit`, `cancel`, `amend`, `report`,
-  `export` and `ifOwner` are refused when the meta loads.
+  `export`, `share` and `ifOwner` are refused when the meta loads.
 - **`write` implies `read`** at the same level.
 - **Standard columns** (`name`, `owner`, `creation`, `modified`, `modified_by`,
   `docstatus`, and a child row's `parent`, `parenttype`, `parentfield` and `idx`) are

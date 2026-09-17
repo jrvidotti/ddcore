@@ -133,4 +133,6 @@ state. Rollback emits no invalidation. SSE is a refresh hint, not the durable in
 This version does not include a visual rule editor, user preferences, push delivery
 or custom event triggers. [Assignments](assignments.md) land in the same inbox
 through `NotifyUser` and the core `todo_due` date rule, not through app-defined
-notification rules.
+notification rules. A new [document share](sharing.md) lands there the same way, under
+rule `share`; the recipient must be able to read the document, and they are never
+notified of their own action.

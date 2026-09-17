@@ -109,6 +109,7 @@ every `refresh` — declare in `refresh` whatever must survive a save or a reloa
 - `ddcore.ui.Dialog({ title, fields, values, primaryLabel, primaryAction(values, dlg), dangerLabel, dangerAction(values, dlg), onChange(field, values, dlg), size })` → `dlg.show()/hide()/setValue/getValue/setHtml(htmlField, html)/setDfProperty(field, property, value)`
 - `ddcore.ui.msgprint(msg, { title, indicator })`, `ddcore.ui.toast`, `ddcore.ui.confirm(msg)`, `ddcore.ui.prompt(title, fields)`, `ddcore.ui.showError(e)`
 - `ddcore.format.currency/date/number/value/statusColor`, `ddcore.datetime.today/addMonths/addDays/monthStart/monthEnd`
+- `ddcore.search.global(txt, limit?)` — the documents the global search palette lists. See `search`
 - `__("text", [args])` — translation; the key is its English text. See `i18n`.
 
 ### Dates and times
@@ -176,7 +177,11 @@ from other documents has to be stored on the document to be filterable.
 
 Besides the table, a list can offer other views of the same filtered rows. A segmented switcher in
 the list header shows the views, and the choice is kept in the URL (`?view=kanban`) and per DocType
-in the browser. Each view appears once it is configured. `views` sets the order, or a subset:
+in the browser. Each view appears once it is configured, unless `views` is given: an explicit list
+is taken as written, so a listed `calendar` with no `calendar` block still shows its button and
+falls back to the table. `kanban` and `gantt` need their block for the button, and a `gantt` block
+without `endField` gives a button that only says "No records in this period". `views` sets the
+order, or a subset:
 
 ```ts
 defineListView<Task>("Task", {
@@ -193,6 +198,11 @@ defineListView<Task>("Task", {
 - **Kanban** makes a column of each value of a **Select** `field`.
   - Columns follow `columns` or the field's options, with their translated labels and `optionColors`.
   - A value outside those still gets a column, so no card is hidden, and rows with no value go to "(empty)".
+  - `titleField` defaults to the DocType's `titleField`, then `name`; `colorField` defaults to `field`,
+    and a card shows an indicator only when `colorField` names another field.
+  - A `field` the DocType does not have — or one above the reader's permission level — renders
+    "The Kanban field {0} is not a field of {1}". Nothing enforces **Select**: another fieldtype still
+    renders, with the columns built from the loaded rows alone.
   - Dragging a card to another column saves the field at once, sending the row's `modified`, so a
     stale card is refused. The card moves back if the server refuses the save (permission, workflow,
     validation, or a concurrent change).
@@ -202,7 +212,12 @@ defineListView<Task>("Task", {
     board is read-only.
 - **Gantt** draws a bar from `startField` to `endField` (Date or Datetime; `creation` works too).
   - Scales are Day, Week and Month, with previous, today and next navigation; clicking a bar opens the document.
-  - The view loads only rows overlapping the window, and a row without an end date is not drawn.
+    Week is the default and shows 12 weeks; Day shows 21 days, Month 12 months. The window starts one week —
+    one month, at the Month scale — before the anchor's, and previous/next move 7 days, 4 weeks or 3 months.
+  - Rows order by `startField asc` unless `orderBy` says otherwise. `titleField` defaults to the DocType's
+    `titleField`, then `name`, and `colorField` to `status`.
+  - The view loads only rows overlapping the window, a row without an end date is not drawn, and an end
+    before the start is clamped to the start.
   - `progressField` (0–100) shades the bar. The view is read-only: bars are not dragged.
 
 Kanban, Gantt and Calendar load up to 500 rows matching the filters instead of a page. When more

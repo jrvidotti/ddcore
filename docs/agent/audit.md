@@ -31,8 +31,8 @@ Sensitive administrative actions across the framework are recorded in a unified 
 | `vault.write` | `Vault Secret` | Vault secret stored or updated | — |
 | `vault.delete` | `Vault Secret` | Vault secret deleted | — |
 | `webhook.replay` | `Webhook Delivery` | Outgoing webhook redelivered. `Denied` when the caller is not a System Manager, or is a System Manager with access scopes. | `{"webhook": "...", "previous_status": "..."}` |
-| `ops.maintenance_on` | none | Maintenance mode switched on (CLI, MCP) | `{"reason": "..."}` |
-| `ops.maintenance_off` | none | Maintenance mode switched off | — |
+| `ops.maintenance_on` | none | Maintenance mode switched on by `ddcore maintenance on`, the `maintenance_set` tool, or `backup --maintenance` opening its window. `ddcore restore` writes the flag without an engine and records nothing. | `{"reason": "..."}` |
+| `ops.maintenance_off` | none | Maintenance mode switched off, by the same three | `{"reason": ""}` — the reason is cleared, and the key is always written |
 | `backup.create` | none | `ddcore backup` ran. `Denied` records a failed run | `{"archive": "...", "bytes": N, "files": N, "uploaded": bool, "error": "..."}` |
 | `backup.restore` | none | `ddcore restore` restored an archive into this database | `{"archive": "...", "ddcore": "...", "started": "...", "files": N}` |
 | `method.<path>` | none | A whitelisted method's `roles` option refused the caller | Outcome: `Denied` |

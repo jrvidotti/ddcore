@@ -7,9 +7,9 @@ run **on the server, synchronously** (no `await`), and its form scripts run in t
 
 Available documents (also as MCP resources `ddcore://docs/<name>`):
 
-- `conventions` — an app's layout, naming, what never to do
+- `conventions` — an app's layout, naming, what never to do, and the core/app compatibility contract (`version`, the `ddcore` range)
 - `fieldtypes` — every fieldtype and field property
-- `auth` — sign-in, lockout, recovery, invitation, self-service and secrets
+- `auth` — sign-in, single sign-on (OpenID Connect providers), lockout, recovery, invitation, self-service and secrets
 - `field-permissions` — field levels (`permlevel`): confidential fields omitted from every read path and protected on write
 - `scopes` — user access scopes (`User Permission`): restricting users to companies, units or customers across every read and write path
 - `sharing` — document sharing (`Document Share`): per-user read/write/share grants on one document, scope override, audit

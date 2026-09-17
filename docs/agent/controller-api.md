@@ -20,7 +20,7 @@ export default defineController<Order>("Order", {
     summary(doc, args, ctx) { return { items: doc.items.length }; },
     settle(doc, args) { doc.append("settlements", { /* … */ }); doc.save(); return { balance: doc.balance }; },
   },
-  hasPermission(doc, ptype, user) { /* true|false|undefined */ },
+  hasPermission(doc, ptype, user) { /* true|false|undefined; ptype includes "share" — see `sharing` */ },
   permissionQuery(user) { return [["owner", "=", user]]; },
 });
 

@@ -102,13 +102,23 @@ DDCORE_OIDC_POCKETID_CLIENT_SECRET=...
 # optional for any provider: _LABEL (the button), _SCOPES (default "openid email profile")
 ```
 
-A provider id is lowercase letters, digits and `_`. Any id other than `google`
-needs `_ISSUER`. A provider missing its client credentials, or configured without
-`DDCORE_URL`, is refused at load.
+A provider id starts with a letter and goes on in lowercase letters, digits and
+`_`, up to 32 characters; the list is lowercased as it is read and a repeated id
+is refused. Any id other than `google` needs `_ISSUER`, which must be an
+`http(s)` URL and loses a trailing `/`. A provider missing its client
+credentials, or configured without `DDCORE_URL`, is refused at load. `_SCOPES`
+is separated by commas or spaces and always gains `openid`; `_ALLOWED_DOMAINS`
+is comma-separated, matched case-insensitively, and a leading `@` is dropped;
+`_LABEL` defaults to *Google*, *PocketID* or the id itself.
 
 **Registering the client.** The redirect URI is
-`<DDCORE_URL>/api/auth/oidc/<id>/callback`; `ddcore doctor` prints it for each
-provider and checks that discovery answers.
+`<DDCORE_URL>/api/auth/oidc/<id>/callback`. `ddcore doctor --json` carries it
+per provider in `sso.providers[]` together with a five-second discovery probe —
+a provider that does not answer is a warning, never critical; the text report
+only names the configured ids and whether password sign-in is on. Discovery is
+fetched once per provider and kept, with a ten-second timeout on every call out;
+a failure is not kept, so a provider that was down is tried again on the next
+sign-in rather than until a restart.
 
 - Google: Google Cloud Console → APIs & Services → Credentials → *OAuth client
   ID*, type *Web application*, with that URI under *Authorized redirect URIs*.
@@ -119,38 +129,55 @@ provider and checks that discovery answers.
 site still decides whether they may use it:
 
 1. The `email` claim must be present and `email_verified` must be true.
-2. The address must be in `_ALLOWED_DOMAINS`, when that list is set.
-3. The first sign-in links the provider's `sub` to the **enabled** User with that
-   address. Later sign-ins resolve by `sub`, so an address changed at the
-   provider still lands on the same account. The link is kept in
-   `ddcore_user_identity`; deleting or renaming the User carries it along.
+2. The address must be in `_ALLOWED_DOMAINS`, when that list is set — checked on
+   every sign-in, not only the first, so narrowing the list takes effect at once.
+3. The first sign-in links the provider's `sub` to the **enabled** User whose
+   e-mail is that address, or failing that whose name is, compared without case.
+   `Guest` is never matched; `Administrator` is. Later sign-ins resolve by `sub`,
+   so an address changed at the provider still lands on the same account; a
+   linked User since disabled is refused with `disabled`, and a link left
+   pointing at a deleted User falls back to matching the address again. The link
+   is kept in `ddcore_user_identity`; deleting or renaming the User carries it
+   along.
 
 Invite people first (`ddcore user invite`, or the desk). They can then sign in
 through the provider without ever accepting the invitation.
 
 **The flow.**
 
-- `GET /api/auth/oidc/<id>/start?redirect=/app/...` stores a single-use state
-  with a nonce and a PKCE verifier for ten minutes, binds the state to the
-  browser with an `HttpOnly` cookie, and redirects to the provider.
+- `GET /api/auth/oidc/<id>/start?redirect=/app/...` stores a single-use state —
+  hashed, with a nonce and a PKCE verifier — in `ddcore_oidc_state` for ten
+  minutes, binds it to the browser with an `HttpOnly` `ddcore_oidc_state` cookie
+  (path `/api/auth/oidc/`, `SameSite=Lax`, the same ten minutes), and redirects
+  to the provider. The route takes no session and writes a row per request; the
+  sweep below clears the expired ones.
 - `GET /api/auth/oidc/<id>/callback` requires the state in the query string and
   in the cookie to match, spends it, exchanges the code, and sets the same `sid`
   cookie a password sign-in sets.
 - Only a path on this site is accepted as `redirect`: `//host`, `/\host` and
   absolute URLs fall back to `/app`.
 
-Every failure redirects to `/login?sso_error=<code>`, where the desk shows a
-translated message. The codes are `state`, `provider` (including a cancelled
-sign-in), `unverified_email`, `no_account`, `disabled`, `domain` and `throttled`.
-Callback failures are throttled per address, like a password.
+A failure of the flow redirects to `/login?sso_error=<code>`, where the desk
+shows a translated message. The codes are `state`, `provider`,
+`unverified_email`, `no_account`, `disabled`, `domain` and `throttled`; a
+cancelled sign-in and an error raised on our own side both arrive as `provider`.
+An id that is not configured is the exception: `start` answers **404
+`DoesNotExistError`** as JSON, since nothing is under way to send anywhere.
 
-**Audit.** Every callback writes `account.login_sso`, `Allowed` or `Denied`,
-with the provider and the reason in the detail. A first link also writes
-`account.identity_link`.
+Callback failures are throttled per **client address**, `maxLoginAttempts × 5`
+inside the lockout window — the looser limit, because an office shares one
+address. A completed sign-in clears that account's password-login failures.
+
+**Audit.** A callback writes `account.login_sso`, `Allowed` or `Denied`, with
+the provider and the reason in the detail. Two paths never reach it: a throttled
+callback, and the provider's own `?error=` return, which is answered before the
+callback runs. A first link also writes `account.identity_link`.
 
 **Password sign-in off.** Set `"passwordLogin": false` and `POST /api/login`
 refuses everyone but `Administrator`, and forgot-password sends nothing to
-anyone else. The desk hides the form behind an *Administrator sign-in* link.
+anyone else. The refusal is answered only once the password has verified, for
+the reason a disabled account is. The desk hides the form behind an
+*Administrator sign-in* link.
 Administrator keeps a password so that an outage at the provider is not also an
 outage of the site's administration. Setting `false` with no provider
 configured is refused at load.
@@ -275,8 +302,16 @@ nothing would become valid again — the tables would only grow.
 
 ## Not here yet
 
-A real CSRF token (the check is header-presence only), MFA and LDAP (SEC-05),
-automatic provisioning or role mapping from a provider, provider-initiated
-(single) logout, a screen to see or remove one's linked identities,
-e-mail verification on a changed address, and an admin UI for unlocking or
-listing another user's sessions.
+A real CSRF token (the check is header-presence only), MFA, LDAP and automatic
+provisioning or role mapping from a provider (SEC-05, in the demand-driven
+backlog), provider-initiated (single) logout, a screen to see or remove one's
+linked identities (unlinking is a `DELETE` in `ddcore_user_identity`), e-mail
+verification on a changed address, and an admin UI for unlocking or listing
+another user's sessions.
+
+Sharp edges of the single sign-on that is here: provider configuration is read
+at boot, so a change to `DDCORE_OIDC_*` needs a restart and not a reload; with
+password sign-in off, an invitation or an administrator's reset link still sets
+a password nobody but Administrator can use; and `email_verified` is taken at
+the provider's word, so a provider is trusted for every address it says it
+checked.

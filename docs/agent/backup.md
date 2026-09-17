@@ -25,19 +25,28 @@ The flag lives in the database (`ddcore_maintenance`), so every server and every
 
 | Surface | Behaviour |
 |---|---|
-| HTTP | `POST`/`PUT`/`PATCH`/`DELETE` answer **503** with `{"error": {"type": "MaintenanceError", "extra": {"reason", "retryAfter"}}}` and a `Retry-After` header. `GET`/`HEAD`, sign-in, sign-out, `/api/auth/*`, link-title lookups and the probes stay open. |
-| Engine | Insert, save, submit, cancel, delete, rename, `dbSet`/`setValue` and `enqueue` refuse with the same error. This also covers a `GET` whitelisted method that writes. Error Log rows are still written. A refusal never creates one. |
-| Workers | Stop claiming jobs. A job that was already running finishes, but writes it tries are refused and it fails into its normal retry. |
+| HTTP | `POST`/`PUT`/`PATCH`/`DELETE` answer **503** with `{"error": {"type": "MaintenanceError", "extra": {"reason", "retryAfter"}}}` and a `Retry-After: 60` header. `GET`/`HEAD`/`OPTIONS`, sign-in, sign-out, `/api/auth/*`, link-title lookups, `/mcp` and the probes stay open. |
+| Engine | Insert, save, submit, cancel, delete, rename, `dbSet`/`setValue` and `enqueue` refuse with the same error. This also covers a `GET` whitelisted method that writes. `Error Log` is exempt from the guard, so the window still records faults; an HTTP refusal is not one of them and leaves no row. |
+| Workers | Stop claiming jobs. A job already running finishes, but the writes it tries are refused. That refusal is a failed attempt like any other: it writes an Error Log row, uses up an attempt, and on the last one the job ends `failed` rather than waiting for the window to close. |
 | Scheduler | Skips every run (logged). A run it skips is not made up later. |
-| Desk | Shows a banner with the reason (from `/api/boot`, the `maintenance` event, or the first refused save). |
+| Desk | Shows a banner with the reason (from `/api/boot`, the `maintenance` event, or the first refused save). The event is a poll behind the same cache, so an open desk can be about four seconds behind; a refused save is immediate. |
 | Readiness | **Unchanged.** `/readyz` stays 200: a paused site is a decision, and an orchestrator must not restart it out of one. `/api/health/report` includes `maintenance`, and `doctor` warns. |
 
 **The CLI is the bypass.** Only the processes that serve traffic or run jobs (`dev`,
-`start`, `jobs work`) enforce the flag. `backup`, `restore`, `migrate`, `exec`, `eval`,
-`user` and the MCP server keep writing, and that window is exactly what they are for. A
-migration always runs, including `dev --auto-migrate` inside a server. Turning the
-flag on or off is recorded as the Audit Event `ops.maintenance_on` or
-`ops.maintenance_off`. The MCP tools are `maintenance_status` and `maintenance_set`.
+`start`, `jobs work`) enforce the flag. `backup`, `restore`, `migrate`, `exec`, `eval`
+and `user` keep writing, and that window is exactly what they are for. A migration
+always runs, including `dev --auto-migrate` inside a server.
+
+The MCP tools are `maintenance_status` and `maintenance_set`. `/mcp` is exempt from
+the HTTP gate — otherwise `maintenance_set` could not switch the pause off — but a
+tool that writes still meets the engine guard inside a server. Stdio `ddcore mcp` is
+a CLI process and meets neither.
+
+`ddcore maintenance` and `maintenance_set` record the Audit Event
+`ops.maintenance_on` or `ops.maintenance_off`, and so does `backup --maintenance` for
+both ends of its own window. `restore` writes the flag directly, without an engine,
+and records nothing. The actor is `mcp` for the tool and `cli:<DDCORE_ACTOR>` for the
+CLI, falling back to `USER`, then `USERNAME`, then plain `cli`.
 
 What it does not stop: raw `ddcore.db.sql` writes, session bookkeeping on sign-in,
 and anything outside ddcore (a webhook receiver, a cron job talking to the database
@@ -68,10 +77,21 @@ without a row. `--maintenance` pauses the site for the run (and resumes it
 afterwards, unless it was already paused), which makes files and database
 consistent. Use it for a cutover. A nightly backup of a busy site usually doesn't.
 
+Two details of that window. The dump is taken inside it, so `ddcore_maintenance` in
+the archive says on, with the reason `Backup in progress` — `ddcore restore`
+overwrites that in its state step, but `pg_restore` run by hand does not, and leaves
+the database paused. And the pause is lifted as soon as the archive is written,
+before the `--to s3` upload and the `--keep` prune, which run on an open site.
+
+Only entries a restore would admit are archived: a stray `.DS_Store` or `.gitkeep`
+under a storage prefix is left out rather than making the whole archive unrestorable.
+
 The archive is written as `<out>.partial` and renamed only once complete, so a failed
 run leaves nothing that looks like a backup. Each run is recorded in
 `ddcore_backup_log` (what `doctor` reads) and as an Audit Event `backup.create`
-(`Denied` when it failed, with the redacted error).
+(`Denied` when it failed, with the redacted error). A failure *before* the run starts
+— an unreadable configuration, an unknown `--to`, a backup bucket that is not
+configured — reaches neither: it is an error on stderr and nothing else.
 
 **Requirements.** `pg_dump` must be on `PATH` and at least as new as the server (major
 version), which the command checks before dumping. Container images need
@@ -81,12 +101,21 @@ child process in `PGPASSWORD`, never in its argument list.
 **Off-site copy.** `--to s3` uploads the finished archive to
 `s3://<bucket>/<prefix>/ddcore-….tar`. Every `DDCORE_BACKUP_S3_*` variable you leave
 unset falls back to the matching `DDCORE_S3_*`, and the prefix defaults to
-`<DDCORE_S3_PREFIX>/backups`, so a site already storing files in a bucket needs no
-more configuration. Use a separate bucket (or at least separate credentials with
-write-only access) when a compromised application server must not be able to delete
-its own backups. `--keep N` (or `DDCORE_BACKUP_KEEP`) then deletes all but the newest
-N archives, locally and in the bucket. It only considers names this command
-generates.
+`<DDCORE_S3_PREFIX>/backups` (plain `backups` when the site stores files locally), so
+a site already storing files in a bucket needs no more configuration. A bucket counts
+as configured only with a bucket name, an access key **and** a secret key, so an
+instance profile or IAM role on its own is not enough; an endpoint is a host, and one
+containing `://` is refused at startup, as is a `DDCORE_BACKUP_KEEP` that is not a
+whole number. Use a separate bucket (or at least separate credentials with write-only
+access) when a compromised application server must not be able to delete its own
+backups.
+
+`--keep N` (or `DDCORE_BACKUP_KEEP`) then deletes all but the newest N archives,
+locally and in the bucket. It sweeps `DDCORE_BACKUP_DIR` and the bucket prefix only,
+never a directory you pointed `--out` at, and only names of the form
+`ddcore-YYYYMMDD-HHMMSS.tar`: an archive written under a custom `--out` name is
+neither pruned nor counted against N. A prune that fails is a warning — the backup
+itself succeeded.
 
 **Scheduling.** The binary does not schedule backups. Run the command from cron, a
 systemd timer, a Kubernetes CronJob or Railway's cron service. Set
@@ -112,21 +141,29 @@ ddcore restore <archive.tar | s3:<name>> [--verify-only] [--smoke] [--smoke-user
 It restores into whatever this directory is configured for: `DDCORE_DSN`,
 `DDCORE_DATA_DIR`/`DDCORE_STORAGE`/`DDCORE_S3_*`. A restore drill beside production
 is therefore a second `.env` pointing at a new database and a new data directory or
-bucket prefix. The command runs these phases in order:
+bucket prefix. The command runs these steps in order:
 
 1. **fetch**: a local path, or `s3:<name>` downloaded from the backup bucket.
 2. **verify**: the whole archive is unpacked and every entry is checked against the
    manifest (size and sha256). The command refuses an entry the manifest doesn't
    list, a listed entry that is missing, any path outside the backup layout, and an
-   unknown archive format. `--verify-only` stops here.
-3. **target checks**: the command refuses an archive made by a newer core unless
-   `--allow-older-binary`. It refuses a database that already holds a site unless
-   `--force`. With `--force`, it switches maintenance on in the target first and
-   waits for its servers to pause.
+   unknown archive format. `--verify-only` stops here. Unpacking goes into a
+   `.restore-*` directory beside `DDCORE_BACKUP_DIR` — normally `dataDir` — so that
+   filesystem needs room for a second copy of the archive's contents, and for an
+   `s3:` source a third, the download itself.
+3. **target checks**: the command refuses an archive whose core **or any app** is
+   newer than this binary, unless `--allow-older-binary`. It refuses a database that
+   already holds a site unless `--force`. With `--force`, it switches maintenance on
+   in the target first and waits for its servers to pause.
 4. **database**: `pg_restore --clean --if-exists --no-owner --no-acl --exit-on-error
-   --single-transaction`. A failure leaves the target as it was.
+   --single-transaction`. A failure rolls the transaction back and leaves the target
+   as it was; if this restore was what paused it, the pause is switched off again, so
+   the intact old site serves rather than refusing every write. A pause the operator
+   had already set is left on.
 5. **files**: every archived object is written to the target store. Objects already
-   there and absent from the archive are left alone.
+   there and absent from the archive are left alone. Nothing after step 4 can be
+   undone: a failure here leaves the restored database in place, and the target
+   still paused with `Restore in progress`.
 6. **state**: maintenance is left **on** (unless `--online`) and every session is
    deleted (unless `--keep-sessions`), so nothing acts on restored data and nobody is
    signed in to it until someone has looked.
@@ -137,10 +174,20 @@ bucket prefix. The command runs these phases in order:
    archived is a failure, more is allowed for fixtures), then up to 20 random
    `File` rows whose bytes must open. It then signs in as `--smoke-user` with
    `DDCORE_SMOKE_PASSWORD` (the session it creates is deleted), or without that
-   user checks that an enabled administrator exists. A failed check exits non-zero.
+   user checks that an enabled administrator exists. A failed check exits non-zero;
+   `--smoke-user` with no `DDCORE_SMOKE_PASSWORD` is one of those failures, not an
+   error raised up front.
 
-The output lists each phase's duration and the total, which is the measured recovery
-time. The restore is recorded as the Audit Event `backup.restore`.
+`config/ddcore.json` and `config/env.json` are read by nobody: they are there to be
+looked at. A restore never writes a configuration file, and never provisions a secret.
+
+The output times **fetch**, **verify**, **database**, **files**, **migrate** and
+**smoke**; the target checks and the state step are not timed. The total is the
+measured recovery time. The restore is recorded as the Audit Event `backup.restore`
+and as a `ddcore_backup_log` row of kind `restore`. An error before the database
+phase — an unreadable archive, an empty `DDCORE_DSN`, no `pg_restore` on `PATH`
+(whose version, unlike `pg_dump`'s, is not checked), a binary older than the archive,
+an occupied target without `--force` — is printed on its own, with no phase report.
 
 ### A restore drill
 
@@ -176,14 +223,22 @@ binary compares itself with the newest row:
 - a `dev`/`latest` build, or an app without a version, cannot be compared and is
   not refused.
 
+"Every command" is literal: the check runs while the engine opens, so a refused
+binary cannot even run `maintenance off`, `backup` or `doctor`. `doctor` in
+particular reports it as the critical **"the apps could not be loaded"**, which is
+misleading — the real reason is in the report's `engine` field.
+
 `--allow-older-binary` (any command) or `DDCORE_ALLOW_OLDER_BINARY=1` overrides the
-refusal. This is the deliberate rollback, and it is safe only when every migration
-since the older release was **expand-only**, meaning it added nothing the old code
-cannot ignore. See the expand → backfill → contract route in
-[migrations](migrations.md). An old binary running `migrate` with the override
-records its own, older versions as the newest row. A contraction (a dropped or
-renamed column, a converted type) is never rollback-compatible. Its only way back is
-a restore.
+refusal. The variable also accepts `true`, `yes` and `on`; the flag is bare only, and
+`--allow-older-binary=true` is rejected as an unknown flag. This is the deliberate
+rollback, and it is safe only when every migration since the older release was
+**expand-only**, meaning it added nothing the old code cannot ignore. See the
+expand → backfill → contract route in [migrations](migrations.md). An old binary
+running `migrate` with the override records its own, older versions as the newest
+row — and a `dev` or otherwise unparseable core does the same, which silently
+disables the core half of the check for every binary after it. A contraction (a
+dropped or renamed column, a converted type) is never rollback-compatible. Its only
+way back is a restore.
 
 ### Cutover and return
 
@@ -207,10 +262,11 @@ a restore.
 | Variable | Meaning |
 |---|---|
 | `DDCORE_DATA_DIR` | overrides `dataDir` (uploads, local backups) |
-| `DDCORE_BACKUP_DIR` | local archive directory, default `<dataDir>/backups` |
-| `DDCORE_BACKUP_KEEP` | default for `--keep`, 0 keeps all |
+| `DDCORE_BACKUP_DIR` | local archive directory, default `<dataDir>/backups`; a relative path resolves against the directory holding `ddcore.json` |
+| `DDCORE_BACKUP_KEEP` | default for `--keep`, 0 keeps all; anything but a whole number is refused at startup |
+| `DDCORE_ACTOR` | who the CLI records as the actor (`cli:<value>`); falls back to `USER`, then `USERNAME` |
 | `DDCORE_BACKUP_S3_ENDPOINT`, `_REGION`, `_BUCKET`, `_ACCESS_KEY`, `_SECRET_KEY`, `_PREFIX`, `_USE_SSL`, `_PATH_STYLE` | the backup bucket; each defaults to its `DDCORE_S3_*` counterpart |
-| `DDCORE_ALLOW_OLDER_BINARY` | `1` = the rollback override |
+| `DDCORE_ALLOW_OLDER_BINARY` | `1`, `true`, `yes` or `on` = the rollback override |
 | `DDCORE_SMOKE_PASSWORD` | the password `restore --smoke --smoke-user` signs in with |
 | `ops.backupMaxAgeHours` (`ddcore.json`) | warn when the newest backup is older; 0 = off |
 

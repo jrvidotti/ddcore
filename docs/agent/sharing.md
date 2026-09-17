@@ -66,8 +66,9 @@ their `User Permission` scopes. It lifts the scope for exactly the rights the sh
 
 - **Read override:** the document opens, lists, counts and shows up in `db.exists`/`getValue`.
 - **Write override:** the document can also be saved and `dbSet`.
-- **Still refused:** delete, submit and cancel stay refused by the scope, and `User Permission`, `Webhook`
-  and `Webhook Delivery` stay closed to a scoped user.
+- **Still refused:** delete, submit, cancel and amend stay refused by the scope, and
+  `Document Share`, `User Permission`, `Webhook` and `Webhook Delivery` stay closed to a
+  scoped user. An override lifts `read`, `write` and `share`, and nothing else.
 
 Only a **System Manager without scope rows of their own**, `Administrator`, or an elevated
 context may give an override. A refused attempt is recorded as a `Denied`
@@ -91,6 +92,13 @@ A System Manager can read and export the rows. No role may write them through th
 resource API: use the endpoints or `ddcore.share.*`, which check the sharer. A user with
 access scopes is refused the DocType entirely.
 
+> **Warning.** `ignorePermissions` lifts that refusal for app code, not for scoped users.
+> Code running with permissions ignored — a job, a migration, an explicit
+> `ignorePermissions` — can `insert`, `save` or `dbSet` a `Document Share` row directly and
+> so grant any right, override included, without a single sharer check. The audit events
+> and the cache invalidation below still fire, so such a grant is recorded, but nothing
+> validates it. Share through `ddcore.share.*` unless you mean to bypass the checks.
+
 A rename moves a document's shares, and deleting a document deletes them.
 
 ## HTTP API
@@ -99,21 +107,40 @@ A rename moves a document's shares, and deleting a document deletes them.
 | --- | --- | --- |
 | `GET` | `/api/shares/{doctype}/{name}` | `{ shares, canShare, canOverrideScope }`. The caller must read the document; without the `share` right, `shares` holds only the caller's own share |
 | `POST` | `/api/shares/add` | `{ doctype, name, user, read, write, share, overrideScope }` → the `Document Share` row |
-| `POST` | `/api/shares/remove` | `{ doctype, name, user }` → `{ ok: true }`; `404` when no such share exists |
+| `POST` | `/api/shares/remove` | `{ doctype, name, user }` → `{ ok: true }` |
 
-Unknown body fields are refused with `417`.
+`canOverrideScope` is computed only when `canShare` is true, and is `false` otherwise: a
+caller who cannot share never sees it as `true`.
+
+| Status | When |
+| --- | --- |
+| `401` | `Guest`, or no session |
+| `403` | The caller lacks `share` on the document, lacks `write` for a write share, or may not give an override |
+| `404` | The document does not exist, or `remove` names a share that does not exist |
+| `417` | Sharing with yourself, with `Administrator` or `Guest`, or with a missing or disabled user; a DocType that cannot be shared; a missing `doctype`, `name` or `user`; invalid JSON, an unknown body field, or a body over 4096 bytes |
+
+Order matters: the `share` right is checked **before** the recipient is validated, so a
+caller who cannot share learns nothing about the user they named.
 
 ## Server SDK
 
 ```ts
+// add(doctype, name, user, rights?) → DocShare. Rights are the last argument.
 ddcore.share.add("Sales Order", "SO-0001", "ana@example.com", { write: true });
-ddcore.share.list("Sales Order", "SO-0001"); // { shares, canShare, canOverrideScope }
-ddcore.share.remove("Sales Order", "SO-0001", "ana@example.com");
+ddcore.share.list("Sales Order", "SO-0001"); // DocShares: { shares, canShare, canOverrideScope }
+ddcore.share.remove("Sales Order", "SO-0001", "ana@example.com"); // void
 ```
 
-These calls are synchronous and use the current user as the sharer, with the same checks
-as the endpoints. Inside a job (`ignorePermissions`), the checks on the sharer's rights are
-skipped, including the override one; the recipient is still validated.
+These calls are synchronous and use the current user as the sharer, with the same engine
+checks as the endpoints. The decoding differs: the endpoints refuse an unknown body field
+with `417`, while the SDK decodes `rights` leniently, so a misspelled key (`override_scope`
+for `overrideScope`) is dropped in silence and the share is granted without it.
+
+Inside a job (`ignorePermissions`), the checks on the sharer's rights are skipped, including
+the override one; the recipient is still validated. A job runs as the user who enqueued it,
+and a document cannot be shared with the sharer, so `ddcore.share.add` in a job can never
+share with that user — share with them from the request instead, or enqueue under another
+user.
 
 ## Desk
 
@@ -122,7 +149,21 @@ skipped, including the override one; the recipient is still validated.
 - **Share button:** it opens a dialog with a user picker, *Can Write*, *Can Share* and, for a user
   who may give one, *Override Security Scope*.
 - **Desk SDK:** `ddcore.shares.forDoc / add / remove` expose the same endpoints to desk
-  scripts.
+  scripts. They are asynchronous, and `add` takes the recipient inside an object
+  (`ShareArgs`), unlike the server SDK's positional `user`:
+
+```ts
+import { ddcore } from "@ddcore/desk-sdk";
+
+// Who a document is shared with: DocSharesInfo { shares, canShare, canOverrideScope }
+const info = await ddcore.shares.forDoc("Sales Order", "SO-0001");
+
+// Grant or update a share → DocShare
+await ddcore.shares.add("Sales Order", "SO-0001", { user: "ana@example.com", write: true });
+
+// Revoke → { ok: true }
+await ddcore.shares.remove("Sales Order", "SO-0001", "ana@example.com");
+```
 
 ## Notifications
 

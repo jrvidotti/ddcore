@@ -4,7 +4,7 @@
 
 ```
 <app>/                         # the repository root, or apps/<app>/ in a monorepo
-  ddcore.app.ts                  defineApp: title, roles, scheduler, docEvents, desk, afterInstall, fixtures
+  ddcore.app.ts                  defineApp: title, version, ddcore, roles, scheduler, docEvents, desk, afterInstall, fixtures
   doctypes/<snake>/
     <snake>.doctype.ts          defineDoctype (meta)
     <snake>.controller.ts       defineController (rules, methods)
@@ -98,14 +98,44 @@ export default defineApp({
 });
 ```
 
+All three fields are optional, and `ddcore new-app` writes none of them: an app without `ddcore`
+is never checked against the binary, so declare the range by hand.
+
 - `ddcore` is a list of space-separated constraints that must all hold: `>=`, `>`, `<=`, `<`,
-  `=` (or a bare version), `^X.Y.Z` (same major; same minor while the major is 0) and `~X.Y.Z`
-  (same minor). A leading `v` and a missing minor/patch are accepted (`>=0.14`).
-- A binary outside the range **refuses to load**: startup, `migrate` and `doctor` fail, and `dev`
-  keeps serving the last good state, with every incompatible app named in one error. An invalid
-  range, or a `version` that is not `MAJOR.MINOR.PATCH`, is refused the same way.
-- A build on top of a release (`v0.14.0-3-gabc123`) counts as that release. A binary that is not
-  a release (`dev`, `latest`) still parses the ranges but does not enforce them, and logs a warning.
+  `=` (or a bare version), `^` and `~`:
+
+  | range     | allows             | range    | allows             |
+  | --------- | ------------------ | -------- | ------------------ |
+  | `^1.4.0`  | `>=1.4.0 <2.0.0`   | `~1.4.0` | `>=1.4.0 <1.5.0`   |
+  | `^0.14.0` | `>=0.14.0 <0.15.0` | `~0.14`  | `>=0.14.0 <0.15.0` |
+  | `^0.0.3`  | `>=0.0.3 <0.0.4`   | `~1`     | `>=1.0.0 <1.1.0`   |
+
+- A version is `1`, `1.4` or `1.4.0`, with or without a leading `v`; a missing minor or patch reads
+  as 0, so `>=0.14` is `>=0.14.0`. Nothing else is a version: `||`, a comma, `*`, `x` and a
+  pre-release or build suffix (`1.4.0-beta.1`) are all load errors, and an operator must touch its
+  version — `">= 0.14.0"` fails with `"" is not a version`. A whitespace-only string is `empty range`,
+  not an absent one.
+- `version` is the app's own release. It is recorded and never compared, and only its shape is
+  checked — by the same loose grammar, so `"1.4"` passes although the error names `MAJOR.MINOR.PATCH`.
+- The check runs on every load of the apps: every command that opens the engine (startup, `migrate`,
+  `doctor`, `test`, `export`, `mcp`), `dev`'s hot reload, and the MCP tools that reload — `reload`,
+  `validate_meta`, `migrate`, `scaffold_doctype`, `i18n_extract`, `set_translations`.
+- A binary outside the range **refuses to load**: the command fails, and `dev` and `mcp` keep serving
+  the last good state. Every problem is named in one error, `incompatible apps: ` followed by them
+  joined with `; `:
+  - `app shop requires ddcore >=0.14.0 <0.16.0, but this binary is 0.1.0`
+  - `app shop declares an invalid ddcore range ">= 0.14.0": "" is not a version`
+  - `app shop declares version "1.4.0-beta.1", which is not MAJOR.MINOR.PATCH`
+
+  An invalid range or `version` is refused even on a binary that is not a release.
+- A build on top of a release (`v0.14.0-3-gabc123`) counts as that release, and so does a pre-release
+  tag: `v0.15.0-rc.1` is `0.15.0`. Only `dev`, `latest` or a bare hash are not releases; those parse
+  the ranges but do not enforce them, and log
+  `core version is not a release; ddcore ranges are not enforced`.
+- **A build that injects no version is still a release.** `internal/engine.Version` defaults to
+  `0.1.0`, and only the `Makefile` and the release workflow override it through `-ldflags`. A plain
+  `go build`, `go run` or `go install` therefore reports release `0.1.0` and enforces ranges against
+  it, so an app declaring `>=0.14.0` fails to load with `but this binary is 0.1.0`.
 - `ddcore version` prints the binary's version; `ddcore doctor` lists each app's version and range,
   and the `export` manifest records the app versions next to the core's.
 - Because `0.x` minors may break, bound the range above (`^0.14.0` or `<0.15.0`) and widen it after

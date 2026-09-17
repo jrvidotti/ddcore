@@ -108,17 +108,22 @@ defineDoctype({
   name: "Contract", module: "Sales", label: "Contract",
   naming: { series: "CTR-.YYYY.-.####" } | { field: "code" } | { format: "{index}-{period}" } | { hash: true } | { prompt: true },
   submittable: true, isChild: false, trackChanges: true, allowRename: true, renamedFrom: "Old Name",
-  titleField: "name", searchFields: ["name", "tax_id"], sortField: "modified", sortOrder: "desc", icon: "building-2",
+  titleField: "name", searchFields: ["name", "tax_id"], globalSearch: true, sortField: "modified", sortOrder: "desc", icon: "building-2",
   uniqueKeys: [{ name: "customer_number", fields: ["customer", "number"] }],
   fields: [...],
   permissions: [
-    { role: "Manager", read: true, write: true, create: true, delete: true, submit: true, cancel: true, amend: true, report: true, export: true, ifOwner: false },
+    { role: "Manager", read: true, write: true, create: true, delete: true, submit: true, cancel: true, amend: true, report: true, export: true, share: true, ifOwner: false },
     { role: "Manager", permlevel: 1, read: true, write: true },   // fields declared with permlevel: 1 — see `field-permissions`
   ],
 });
 ```
 
 Series: `.YYYY.`, `.YY.`, `.MM.`, `.DD.`, `.####.` (a zero-padded counter), `.{field}.`. A `naming_series` field (Select) lets the user pick the series.
+
+`globalSearch` says whether the desk's global search looks into the DocType; it defaults to on
+when there is a `titleField` or `searchFields`, and never applies to a child table or a Single.
+See `search`. `share` in a permission row lets the role share one document with another user —
+see `sharing`.
 
 `allowRename` is about renaming a *document*; `renamedFrom` is about renaming the *DocType*,
 which moves the table and repoints every stored reference. See `migrations`.
