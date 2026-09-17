@@ -63,6 +63,10 @@ func (s *Server) healthReport(w http.ResponseWriter, r *http.Request) {
 		if !c.HasRole("System Manager") {
 			return nil, cerr.Permission("This report requires the System Manager role")
 		}
-		return s.E.Health(r.Context(), engine.HealthOpts{Queue: true, Errors: true}), nil
+		h := s.E.Health(r.Context(), engine.HealthOpts{Queue: true, Errors: true})
+		if st := s.E.Maintenance(r.Context()); st.Enabled {
+			h.Maintenance = &st
+		}
+		return h, nil
 	})
 }

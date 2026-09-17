@@ -50,6 +50,11 @@ type OpsPolicy struct {
 	WebhookRetentionDays *int `json:"webhookRetentionDays"`
 	// AuditEventRetentionDays is how long an Audit Event is kept. Zero keeps for ever.
 	AuditEventRetentionDays *int `json:"auditRetentionDays"`
+	// BackupMaxAgeHours is how old the newest successful `ddcore backup` may be
+	// before doctor and the health report warn. Zero, the default, does not
+	// check: a site that backs up with its platform's own tooling has no row
+	// to look at, and an alarm it cannot silence would teach it to ignore them.
+	BackupMaxAgeHours int `json:"backupMaxAgeHours"`
 }
 
 // DoneRetentionDays and FailedRetentionDays resolve the pointers into the one
@@ -109,6 +114,9 @@ func (o OpsPolicy) validate() error {
 	// timeout fires first and the site is marked down without ever being asked.
 	if o.ReadyTimeoutMs > 10_000 {
 		return fmt.Errorf("ops.readyTimeoutMs must be 10000 or less")
+	}
+	if o.BackupMaxAgeHours < 0 {
+		return fmt.Errorf("ops.backupMaxAgeHours must be zero (off) or greater")
 	}
 	// Retention admits zero, which is "keep forever". Only a negative window is
 	// meaningless, and it is refused here rather than read as a date in the

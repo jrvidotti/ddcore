@@ -83,6 +83,7 @@ export default defineConfig({
         text: 'Operations & Production',
         items: [
           { text: 'Ops, Health & Observability', link: '/agent/ops' },
+          { text: 'Backup, Restore & Maintenance', link: '/agent/backup' },
           { text: 'Internationalization (i18n)', link: '/agent/i18n' },
           { text: 'Upstream Feature Requests', link: '/agent/feature-requests' }
         ]

@@ -58,6 +58,9 @@ func (c *Ctx) Enqueue(method string, args map[string]any, opts map[string]any) (
 	if method == "" {
 		return 0, cerr.Validation("enqueue: provide the method")
 	}
+	if err := c.checkWritable(""); err != nil {
+		return 0, err
+	}
 	queue := "default"
 	if q, ok := opts["queue"].(string); ok && q != "" {
 		queue = q
@@ -187,6 +190,16 @@ func (e *Engine) Worker(ctx context.Context, id int) {
 		case <-ctx.Done():
 			return
 		default:
+		}
+		// paused: claim nothing, and leave expired leases alone too — requeueing
+		// them is a write, and the job they belong to cannot run anyway
+		if e.Paused(ctx) {
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(2 * time.Second):
+			}
+			continue
 		}
 		if err := e.requeueStale(ctx); err != nil {
 			e.Log.Error("requeue", "id", id, "err", err)
@@ -431,6 +444,10 @@ func (e *Engine) StartScheduler(ctx context.Context) *cron.Cron {
 		for _, f := range fns {
 			method := fmt.Sprint(f)
 			cr.AddFunc(spec, func() {
+				if e.Paused(ctx) {
+					e.Log.Info("scheduler: skipped, site in maintenance", "method", method)
+					return
+				}
 				e.Log.Info("scheduler", "method", method)
 				e.Run(ctx, "Administrator", func(c *Ctx) error {
 					_, err := c.Enqueue(method, nil, map[string]any{"queue": "scheduler"})

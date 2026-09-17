@@ -27,3 +27,10 @@ func UniqueViolation(err error) (index string, ok bool) {
 	}
 	return pg.ConstraintName, true
 }
+
+// UndefinedTable reports whether err is Postgres saying a relation does not
+// exist — a ledger read on a database no migration has touched yet.
+func UndefinedTable(err error) bool {
+	var pg *pgconn.PgError
+	return errors.As(err, &pg) && pg.Code == "42P01"
+}

@@ -84,6 +84,13 @@ type Config struct {
 	// Login is the sign-in screen's notice and demo account, served to
 	// visitors by /api/boot.
 	Login config.LoginPage
+	// EnforceMaintenance makes this process honour maintenance mode: refuse
+	// writes, stop claiming jobs, skip scheduled runs. A server sets it; the
+	// CLI does not, and that is the bypass an operator works through.
+	EnforceMaintenance bool
+	// AllowOlderBinary lets this binary open a database a newer core or app
+	// version migrated — the deliberate rollback. See CheckSiteVersion.
+	AllowOlderBinary bool
 }
 
 // AppMeta is what defineApp produced, minus functions.
@@ -214,6 +221,7 @@ type Engine struct {
 	// See webhookSubs.
 	webhookMu sync.Mutex
 	webhooks  []webhookSub
+	maint     maintenanceCache
 }
 
 // Storage is where the bytes of File documents are kept.
@@ -277,6 +285,12 @@ func New(ctx context.Context, cfg Config) (*Engine, error) {
 	}
 	if err := e.Load(); err != nil {
 		return nil, err
+	}
+	if e.DB != nil {
+		if err := e.CheckSiteVersion(ctx); err != nil {
+			e.DB.Close()
+			return nil, err
+		}
 	}
 	return e, nil
 }

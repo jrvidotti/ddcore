@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // Local keeps files under a directory on this machine, in the layout uploads
@@ -77,4 +78,41 @@ func (l *Local) Serve(w http.ResponseWriter, r *http.Request, key string, s Serv
 	w.Header().Set("Content-Type", servedType(s))
 	http.ServeContent(w, r, s.Name, info.ModTime, rc.(*os.File))
 	return nil
+}
+
+// List walks the directory. A prefix that names no directory yet — a site that
+// has never had a private upload — lists nothing rather than failing.
+func (l *Local) List(ctx context.Context, prefix string, fn func(key string, info Info) error) error {
+	root := filepath.Clean(l.Root)
+	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				return nil
+			}
+			return err
+		}
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		rel, err := filepath.Rel(root, p)
+		if err != nil {
+			return err
+		}
+		key := filepath.ToSlash(rel)
+		if !strings.HasPrefix(key, prefix) {
+			return nil
+		}
+		st, err := d.Info()
+		if err != nil {
+			return err
+		}
+		return fn(key, Info{Size: st.Size(), ModTime: st.ModTime()})
+	})
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	return err
 }

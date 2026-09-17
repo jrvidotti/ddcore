@@ -55,17 +55,23 @@ Usage: ddcore <command> [options]
   mcp         MCP server (stdio) for agents
   docs        print the framework documentation
   doctor      database readiness, meta, queue and errors (--json, --strict)
+  maintenance maintenance on [--reason x] | off | status — pause writes and jobs
+  backup      write a .tar of the database, files, config and versions (--to s3)
+  restore     restore <archive> into this site's database and storage (--smoke)
   version     print the framework version
 
 Variables: DDCORE_DSN overrides the dsn in ddcore.json.
+Global flag: --allow-older-binary (DDCORE_ALLOW_OLDER_BINARY=1) opens a database
+a newer release migrated — a rollback; see ` + "`ddcore docs backup`" + `.
 `
 
 func main() {
-	if len(os.Args) < 2 {
+	argv := stripGlobalFlags(os.Args[1:])
+	if len(argv) < 1 {
 		fmt.Print(usage)
 		os.Exit(2)
 	}
-	cmd, args := os.Args[1], os.Args[2:]
+	cmd, args := argv[0], argv[1:]
 	var err error
 	switch cmd {
 	case "init":
@@ -111,6 +117,12 @@ func main() {
 		fmt.Print(mcp.Docs(name))
 	case "doctor":
 		err = cmdDoctor(args)
+	case "maintenance":
+		err = cmdMaintenance(args)
+	case "backup":
+		err = cmdBackup(args)
+	case "restore":
+		err = cmdRestore(args)
 	case "version", "-v", "--version":
 		fmt.Printf("ddcore %s (%s/%s)\n", engine.Version, runtime.GOOS, runtime.GOARCH)
 		return
@@ -124,6 +136,34 @@ func main() {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
+}
+
+// enforceMaintenance is set by the commands that serve traffic or run jobs
+// (`dev`, `start`, `jobs work`) before they load the engine. Every other
+// command leaves it false, which is what makes the CLI the maintenance bypass.
+var enforceMaintenance bool
+
+// stripGlobalFlags removes the flags every command accepts, turning them into
+// the environment variables load reads, so no command's FlagSet has to know
+// about them.
+func stripGlobalFlags(args []string) []string {
+	out := args[:0:0]
+	for _, a := range args {
+		if a == "--allow-older-binary" || a == "-allow-older-binary" {
+			os.Setenv("DDCORE_ALLOW_OLDER_BINARY", "1")
+			continue
+		}
+		out = append(out, a)
+	}
+	return out
+}
+
+func allowOlderBinary() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("DDCORE_ALLOW_OLDER_BINARY"))) {
+	case "1", "true", "yes", "on":
+		return true
+	}
+	return false
 }
 
 // load builds the engine from ddcore.json.
@@ -153,6 +193,7 @@ func load(test bool, dev bool) (*engine.Engine, *config.File, error) {
 		DSN: cfg.DSN, Apps: apps, Workers: cfg.Workers, Scheduler: cfg.Scheduler, Dev: isDev, Test: test,
 		Port: cfg.Port, Lang: cfg.Lang, Currency: cfg.Currency, CurrencyPrecision: cfg.CurrencyPrecision, Rounding: cfg.RoundingMode(), Timezone: cfg.Timezone, DataDir: cfg.DataDir, Root: root, ExportMaxRows: cfg.ExportMaxRows, LogLevel: level,
 		Auth: cfg.Auth, Ops: cfg.Ops, LogJSON: logJSON(), LogOut: logOut, Mail: cfg.Mail, Webhooks: cfg.Webhooks, Storage: cfg.Storage, SiteURL: cfg.PublicURL(), TrustProxy: cfg.TrustProxy, Login: cfg.Login,
+		EnforceMaintenance: enforceMaintenance, AllowOlderBinary: allowOlderBinary(),
 	})
 	if err == nil && !cfg.HasPublicURL() {
 		// Say it once, at boot, rather than letting someone discover it in a
@@ -273,6 +314,7 @@ func cmdServe(args []string, dev bool) error {
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
+	enforceMaintenance = true
 	e, cfg, err := load(false, dev)
 	if err != nil {
 		return err
@@ -299,6 +341,10 @@ func cmdServe(args []string, dev bool) error {
 		srv.MCPHandler = srv.RequireAdminAPIKey(mcp.HTTPHandler(e))
 		srv.Router.Handle("/mcp", srv.MCPHandler)
 		srv.Router.Handle("/mcp/*", srv.MCPHandler)
+	}
+	go e.WatchMaintenance(ctx)
+	if st := e.Maintenance(ctx); st.Enabled {
+		e.Log.Warn("site is in maintenance mode: writes and jobs are paused — `ddcore maintenance off` to resume", "reason", st.Reason, "since", st.Since)
 	}
 	for i := 0; i < cfg.Workers; i++ {
 		go e.Worker(ctx, i)

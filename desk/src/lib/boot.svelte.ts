@@ -32,6 +32,8 @@ export interface Boot {
     currencyPrecision?: number; rounding?: "commercial" | "bankers";
     /** What the sign-in screen offers a visitor; each field only when configured. */
     login?: { notice?: string; demoUser?: string; demoPassword?: string };
+    /** Present only while the site is paused (PRD-02). */
+    maintenance?: { enabled: boolean; reason?: string } | null;
   };
   loaded: number;
 }

@@ -61,7 +61,7 @@ func New(e *engine.Engine, desk fs.FS) *Server {
 	// both leave carrying the same id the caller was handed. recoverPanic
 	// replaces chi's Recoverer, which writes a bare 500 nobody can look up.
 	r.Use(s.observe, s.recoverPanic, middleware.Compress(5))
-	r.Use(s.auth)
+	r.Use(s.auth, s.maintenance)
 	r.Route("/api", func(r chi.Router) {
 		r.Post("/login", s.login)
 		r.Post("/logout", s.logout)
@@ -214,7 +214,9 @@ func (s *Server) writeError(w http.ResponseWriter, r *http.Request, err error, r
 	// A 500 is the one the caller cannot act on and the operator has to find
 	// later, so it earns a row keyed by the same id the caller was shown.
 	// 4xx are the caller's own doing and are already in the access log.
-	if record && status >= 500 {
+	// A maintenance refusal is a 503 by design, not a fault: every paused
+	// write would otherwise leave an Error Log row behind.
+	if record && status >= 500 && e.Type != "MaintenanceError" {
 		s.E.LogError(r.Context(), "api."+r.Method+" "+r.URL.Path, err)
 	}
 	writeJSON(w, status, map[string]any{"error": e})
@@ -580,7 +582,7 @@ func (s *Server) boot(w http.ResponseWriter, r *http.Request) {
 				// is the bug nobody finds until a JPY invoice is off by a yen
 				"currencyPrecision": s.E.CurrencyPrecision(), "rounding": s.E.Cfg.Rounding.String(),
 				"timezone": s.E.Cfg.Timezone, "dev": s.E.Cfg.Dev, "scheduler": s.E.Cfg.Scheduler, "version": engine.Version,
-				"login": loginPage(s.E.Cfg.Login),
+				"login": loginPage(s.E.Cfg.Login), "maintenance": s.maintenanceBoot(r),
 			},
 			"loaded": s.E.Loaded.UnixMilli(),
 		}, nil

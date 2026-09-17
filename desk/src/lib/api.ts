@@ -62,6 +62,8 @@ export interface PendingWorkPage {
   data: ToDoDoc[];
   total: number;
 }
+import { setMaintenance } from "./maintenance.svelte";
+
 // Thin client for the ddcore HTTP API. Every error becomes a DDCoreError with
 // type/title/message so the UI can show it the same way the server phrased it.
 export class DDCoreError extends Error {
@@ -120,6 +122,9 @@ async function request<T = any>(method: string, url: string, body?: any, opts: {
     if (res.status === 401 && typeof window !== "undefined" && !location.pathname.startsWith("/login")) {
       location.href = "/login?redirect=" + encodeURIComponent(location.pathname + location.search);
     }
+    // a paused site refuses every write; the banner should appear on the first
+    // refusal rather than wait for the event stream to catch up
+    if (e.type === "MaintenanceError") setMaintenance({ enabled: true, reason: e.extra?.reason });
     throw new DDCoreError(e.type, e.title || "", e.message, res.status, e.extra, e.key, e.args,
       e.requestId || res.headers.get("X-Request-Id") || undefined);
   }

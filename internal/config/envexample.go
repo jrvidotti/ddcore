@@ -89,6 +89,25 @@ const EnvExample = `# ddcore — the environment this site runs in.
 # DDCORE_S3_PATH_STYLE=false            # true for MinIO and most self-hosted servers
 # DDCORE_S3_PRESIGN_TTL=5m              # how long a download link stays valid
 
+# --- backups -----------------------------------------------------------------
+# ` + "`" + `ddcore backup` + "`" + ` writes one .tar (database dump, file bytes, config, versions)
+# here; it needs pg_dump on PATH, at least as new as the server. ` + "`" + `--to s3` + "`" + ` also
+# copies it to a bucket: every DDCORE_BACKUP_S3_* left unset is taken from
+# DDCORE_S3_* above, under the prefix <DDCORE_S3_PREFIX>/backups. Secrets are
+# never written into an archive — provision them on the restore target.
+# DDCORE_DATA_DIR=                      # overrides dataDir in ddcore.json (uploads, local backups)
+# DDCORE_BACKUP_DIR=                    # default <dataDir>/backups
+# DDCORE_BACKUP_KEEP=0                  # archives --keep leaves in place; 0 keeps all
+# DDCORE_BACKUP_S3_ENDPOINT=
+# DDCORE_BACKUP_S3_REGION=
+# DDCORE_BACKUP_S3_BUCKET=
+# DDCORE_BACKUP_S3_ACCESS_KEY=
+# DDCORE_BACKUP_S3_SECRET_KEY=
+# DDCORE_BACKUP_S3_PREFIX=
+# DDCORE_BACKUP_S3_USE_SSL=true
+# DDCORE_BACKUP_S3_PATH_STYLE=false
+# DDCORE_ALLOW_OLDER_BINARY=            # 1 lets a rollback open a database a newer release migrated
+
 # --- outgoing webhooks -------------------------------------------------------
 # Subscriptions are Webhook documents, set up in the desk. This switch is for a
 # deployment that must have no outgoing business effects — a migration

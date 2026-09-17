@@ -7,7 +7,7 @@ let reconnect: ReturnType<typeof setTimeout> | null = null;
 export function connectEvents(onReload?: () => void) {
   if (source) return;
   source = new EventSource("/api/events");
-  const names = ["doc_update", "list_update", "progress", "job_done", "reload", "reload_error", "hello", "notifications_changed"];
+  const names = ["doc_update", "list_update", "progress", "job_done", "reload", "reload_error", "hello", "notifications_changed", "maintenance"];
   for (const n of names) {
     source.addEventListener(n, (e: MessageEvent) => {
       let payload: any = null;

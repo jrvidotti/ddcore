@@ -79,6 +79,11 @@ func Mandatory(msg string, a ...any) *Error  { return New("MandatoryError", 417,
 func TooMany(msg string, a ...any) *Error { return New("TooManyRequestsError", 429, msg, a...) }
 func Unavailable(msg string, a ...any) *Error { return New("UnavailableError", 503, msg, a...) }
 
+// Maintenance refuses a write while the site is paused for a cutover, a backup
+// or a restore. It is a 503 like Unavailable, but a type of its own, so the
+// desk can tell "try again after the window" from "the server is broken".
+func Maintenance(msg string, a ...any) *Error { return New("MaintenanceError", 503, msg, a...) }
+
 // WithRetryAfter records how many seconds the caller must wait. The API
 // border turns it into the `Retry-After` header, and it travels in the body
 // too, so a client that never reads headers can still count down.

@@ -512,6 +512,23 @@ func New(e *engine.Engine) *mcp.Server {
 			return text(rows), nil, nil
 		})
 
+	mcp.AddTool(srv, &mcp.Tool{Name: "maintenance_status", Description: "Whether the site is in maintenance mode (writes and jobs paused), since when, by whom and why."},
+		func(ctx context.Context, req *mcp.CallToolRequest, in struct{}) (*mcp.CallToolResult, any, error) {
+			return text(e.Maintenance(ctx)), nil, nil
+		})
+
+	mcp.AddTool(srv, &mcp.Tool{Name: "maintenance_set", Description: "Turns maintenance mode on or off. While on, servers refuse writes with 503, workers stop claiming jobs and the scheduler skips its runs; the CLI and this tool keep working. Recorded as an Audit Event."},
+		func(ctx context.Context, req *mcp.CallToolRequest, in struct {
+			Enabled bool   `json:"enabled"`
+			Reason  string `json:"reason,omitempty" jsonschema:"shown to users in the desk banner"`
+		}) (*mcp.CallToolResult, any, error) {
+			st, err := e.SetMaintenance(ctx, in.Enabled, in.Reason, "mcp")
+			if err != nil {
+				return fail(err)
+			}
+			return text(st), nil, nil
+		})
+
 	mcp.AddTool(srv, &mcp.Tool{Name: "get_job", Description: "One background job, without its arguments or result."},
 		func(ctx context.Context, req *mcp.CallToolRequest, in struct {
 			ID int64 `json:"id"`

@@ -2,7 +2,8 @@
   import "../app.css";
   import { __, loadBoot, isLoggedIn, siteName, siteLogo, boot } from "$lib/boot.svelte";
   import { installDeskSDK, loadAppIncludes } from "$lib/desk-sdk";
-  import { connectEvents, disconnectEvents } from "$lib/events";
+  import { connectEvents, disconnectEvents, subscribe } from "$lib/events";
+  import { maintenance, setMaintenance } from "$lib/maintenance.svelte";
   import { startNotifications, stopNotifications, notifications } from "$lib/notifications.svelte";
   import { startPendingTasks, stopPendingTasks } from "$lib/assignments.svelte";
   import { clearMetaCache } from "$lib/meta";
@@ -125,6 +126,7 @@
       const b = await loadBoot();
       // app.html ships lang="en"; the boot is what knows the real one
       document.documentElement.lang = b.lang;
+      setMaintenance(b.site?.maintenance);
       // Awaited: rendering the page before the URL changes lets its own redirect (/app → a
       // workspace) replace this one, and a guest never reaches the sign-in form.
       if (b.user === "Guest" && !isLogin) { await goto("/login?redirect=" + encodeURIComponent(page.url.pathname + page.url.search)); }
@@ -132,6 +134,7 @@
         await loadAppIncludes(b.apps, b.loaded);
         startNotifications();
         startPendingTasks();
+        subscribe("maintenance", (p) => setMaintenance(p));
         connectEvents(async () => { clearMetaCache(); const nb = await loadBoot(); await loadAppIncludes(nb.apps, nb.loaded); toast(__("Apps reloaded"), { indicator: "blue", timeout: 2000 }); });
       }
     } catch (e) { console.error(e); }
@@ -235,6 +238,12 @@
           </div>
         </div>
       </header>
+      {#if maintenance.enabled}
+        <div class="maintenance-banner" role="status">
+          <Icon name="alert-triangle" size={14} />
+          <span><strong>{__("Maintenance mode")}</strong> — {__("changes are paused until the site reopens.")}{#if maintenance.reason} {maintenance.reason}{/if}</span>
+        </div>
+      {/if}
       {@render children()}
     </main>
   </div>
@@ -247,6 +256,10 @@
 <style>
   .shell { display: flex; min-height: 100vh; }
   main { flex: 1; min-width: 0; }
+  .maintenance-banner {
+    display: flex; align-items: center; gap: 8px; padding: 8px 16px;
+    background: #fef3c7; color: #92400e; border-bottom: 1px solid #fcd34d; font-size: 13px;
+  }
   .mobile-topbar { display: none; }
   .sidebar-backdrop { display: none; }
 

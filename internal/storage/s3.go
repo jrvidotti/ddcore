@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -103,5 +104,27 @@ func (s *S3) Serve(w http.ResponseWriter, r *http.Request, key string, sv Servin
 	// the link expires, so neither the browser nor a proxy may keep the redirect
 	w.Header().Set("Cache-Control", "no-store")
 	http.Redirect(w, r, u.String(), http.StatusFound)
+	return nil
+}
+
+// List pages through the bucket under the configured prefix, handing back keys
+// with that prefix stripped so they mean the same thing on both backends.
+func (s *S3) List(ctx context.Context, prefix string, fn func(key string, info Info) error) error {
+	strip := ""
+	if s.cfg.Prefix != "" {
+		strip = s.cfg.Prefix + "/"
+	}
+	// cancelled on return, so stopping early does not leave the lister's
+	// goroutine blocked on a channel nobody reads
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	for obj := range s.client.ListObjects(ctx, s.cfg.Bucket, minio.ListObjectsOptions{Prefix: strip + prefix, Recursive: true}) {
+		if obj.Err != nil {
+			return obj.Err
+		}
+		if err := fn(strings.TrimPrefix(obj.Key, strip), Info{Size: obj.Size, ModTime: obj.LastModified}); err != nil {
+			return err
+		}
+	}
 	return nil
 }

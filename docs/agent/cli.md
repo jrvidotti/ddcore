@@ -3,7 +3,8 @@
 `ddcore.json` in the site directory: `dsn`, `apps` (directories), `port`, `workers`, `scheduler`, `lang`, `currency`, `currencyPrecision`, `rounding`, `timezone`, `dev`, `exportMaxRows`, `auth`, `ops`.
 `currencyPrecision` defaults to the currency's ISO minor unit and `rounding` to `"commercial"`;
 an unrecognised `rounding` stops the server at startup rather than quietly using another rule.
-`DDCORE_DSN` overrides the dsn.
+`DDCORE_DSN` overrides the dsn, and `DDCORE_DATA_DIR` the `dataDir`.
+Every command accepts `--allow-older-binary`, the rollback override described in `backup`.
 
 Options may come **before or after** the positional arguments, as `--flag value` or
 `--flag=value`; `--` ends the options and everything after it is positional. An undeclared
@@ -39,6 +40,9 @@ the first account on a new site. Once `DDCORE_MAIL_TRANSPORT` is set they print
 only the expiry — a live recovery link has no business in shell history.
 | `ddcore mcp` | MCP server (stdio) |
 | `ddcore docs [name]` | this documentation |
+| `ddcore maintenance on [--reason x]\|off\|status` | pauses HTTP writes, workers and the scheduler across every process; the CLI keeps writing (see `backup`) |
+| `ddcore backup [--out f.tar] [--maintenance] [--no-files] [--to s3] [--keep N]` | one verifiable `.tar`: `pg_dump`, stored files, config, versions and checksums; secrets by name only (see `backup`) |
+| `ddcore restore <f.tar\|s3:name> [--verify-only] [--smoke] [--force] [--online]` | verifies, restores into the configured database and storage, migrates, leaves the site paused, and prints each phase's time |
 | `ddcore doctor [--json] [--strict] [--window N]` | probes the database, then reports meta, pending DDL, undeclared columns and tables, pending patches, applied renames, queue, Error Log and scheduler. Works with the database down. Exits non-zero on a critical finding; `--strict` also on a warning (see `ops`) |
 
 ## An app in its own repository

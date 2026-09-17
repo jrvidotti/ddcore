@@ -68,8 +68,12 @@ type doctorReport struct {
 	Secrets  []string              `json:"secrets"`
 	Vault    *vaultSection         `json:"vault,omitempty"`
 	Webhooks *engine.WebhookStatus `json:"webhooks,omitempty"`
-	Critical []string              `json:"critical,omitempty"`
-	Warnings []string              `json:"warnings,omitempty"`
+	// Maintenance, MigratedBy and Backup are the recovery picture (PRD-01/02).
+	Maintenance *engine.MaintenanceState `json:"maintenance,omitempty"`
+	MigratedBy  *engine.SiteVersion      `json:"migratedBy,omitempty"`
+	Backup      *engine.BackupStatus     `json:"backup,omitempty"`
+	Critical    []string                 `json:"critical,omitempty"`
+	Warnings    []string                 `json:"warnings,omitempty"`
 }
 
 type vaultSection struct {
@@ -249,6 +253,20 @@ func gatherDoctor(ctx context.Context, cfg *config.File, windowMin int) *doctorR
 		}
 	}
 
+	if st := e.Maintenance(ctx); st.Enabled {
+		rep.Maintenance = &st
+		rep.Warnings = append(rep.Warnings, "maintenance mode is on: writes and jobs are paused (ddcore maintenance off)")
+	}
+	if sv, err := engine.LastSiteVersion(ctx, e.DB.Pool); err == nil {
+		rep.MigratedBy = sv
+	}
+	if b, err := e.LastBackup(ctx); err == nil {
+		rep.Backup = b
+		if b != nil && b.Failures > 0 {
+			rep.Warnings = append(rep.Warnings, fmt.Sprintf("%d backup(s) failed since the last successful one", b.Failures))
+		}
+	}
+
 	h := e.Health(ctx, engine.HealthOpts{Queue: true, Errors: true})
 	rep.Queue, rep.Errors = h.Queue, h.Errors
 	rep.Warnings = append(rep.Warnings, h.Warnings...)
@@ -358,6 +376,24 @@ func (r *doctorReport) print(w io.Writer) {
 		}
 	}
 	p("scheduler", "%v, %d entr%s", r.Scheduler.Enabled, r.Scheduler.Entries, plural(int64(r.Scheduler.Entries)))
+	if m := r.Maintenance; m != nil {
+		p("paused", "maintenance ON since %s by %s — %s", m.Since.Format(time.RFC3339), orDash(m.Actor), orDash(m.Reason))
+	} else {
+		p("paused", "no (maintenance off)")
+	}
+	if sv := r.MigratedBy; sv != nil {
+		apps := make([]string, 0, len(sv.Apps))
+		for n, v := range sv.Apps {
+			apps = append(apps, n+" "+v)
+		}
+		sort.Strings(apps)
+		p("migrated", "by ddcore %s at %s; %s", sv.Core, sv.Migrated.Format(time.RFC3339), orDash(strings.Join(apps, ", ")))
+	}
+	if b := r.Backup; b != nil {
+		p("backup", "%s ago, %s (%s)", time.Since(b.Finished).Round(time.Minute), b.Location, humanBytes(b.Bytes))
+	} else {
+		p("backup", "none recorded by ddcore backup")
+	}
 	r.printTail(w, p)
 }
 
