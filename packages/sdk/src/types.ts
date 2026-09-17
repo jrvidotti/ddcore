@@ -496,8 +496,15 @@ export interface AppDef {
   name: string;
   title: string;
   description?: string;
+  /** apps that must be installed (and load) before this one; core is implicit */
   requires?: string[];
+  /** this app's own release, `MAJOR.MINOR.PATCH` */
   version?: string;
+  /**
+   * The ddcore releases this app supports, e.g. `">=0.14.0 <1.0.0"` or `"^0.14.0"`.
+   * A binary outside the range refuses to load the app. See `docs/agent/conventions.md`.
+   */
+  ddcore?: string;
   docEvents?: Record<string, Partial<Record<DocEvent, (doc: BaseDoc & Document<any>, ctx: Context) => void>>>;
   scheduler?: {
     cron?: Record<string, string[]>;

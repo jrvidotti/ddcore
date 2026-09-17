@@ -23,7 +23,8 @@ export default extendDoctype("Lead", {          // Lead belongs to the `crm` app
 ```
 
 `ddcore.app.ts` must declare the host: `requires: ["crm"]`. Core is implicit — it always loads
-first. Files go in `extensions/<snake>.extend.ts`; a form script for the same DocType sits beside
+first, and the core releases the app supports go in `ddcore:` (see the compatibility contract in
+`conventions`). Files go in `extensions/<snake>.extend.ts`; a form script for the same DocType sits beside
 it as `extensions/<snake>.form.ts`.
 
 The merge happens once, in the engine, before the meta is validated. From then on there is one

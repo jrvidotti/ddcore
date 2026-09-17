@@ -865,3 +865,67 @@ func TestLinkFieldSearchByTitleAndSearchFields(t *testing.T) {
 		return nil
 	})
 }
+
+// PRD-07: an app declares the ddcore releases it supports, and a binary outside
+// that range refuses to load it — every offending app named at once.
+func TestCoreCompatRanges(t *testing.T) {
+	cases := []struct {
+		rng, core string
+		ok        bool
+	}{
+		{">=0.14.0 <1.0.0", "v0.14.0", true},
+		{">=0.14.0 <1.0.0", "0.13.9", false},
+		{">=0.14.0 <1.0.0", "v1.0.0", false},
+		{">=0.14 <1", "v0.20.3-4-gabc123-dirty", true},
+		{"^0.14.0", "v0.14.9", true},
+		{"^0.14.0", "v0.15.0", false},
+		{"^1.2.0", "v1.9.0", true},
+		{"^1.2.0", "v2.0.0", false},
+		{"~1.2.3", "v1.2.9", true},
+		{"~1.2.3", "v1.3.0", false},
+		{"0.14.0", "v0.14.0", true},
+		{"=0.14.0", "v0.14.1", false},
+		{">0.14.0 <=0.15.0", "v0.15.0", true},
+	}
+	for _, c := range cases {
+		snap := &Snapshot{Apps: map[string]*AppMeta{"a": {Name: "a", Ddcore: c.rng}}}
+		_, err := checkCoreCompat(snap, c.core)
+		if (err == nil) != c.ok {
+			t.Errorf("range %q on %s: err = %v, want ok=%v", c.rng, c.core, err, c.ok)
+		}
+	}
+
+	snap := &Snapshot{Apps: map[string]*AppMeta{
+		"core": {Name: "core"},
+		"shop": {Name: "shop", Ddcore: ">=0.15.0"},
+		"crm":  {Name: "crm", Ddcore: "<0.14.0"},
+		"fine": {Name: "fine", Ddcore: "^0.14.0"},
+	}}
+	_, err := checkCoreCompat(snap, "v0.14.2")
+	if err == nil {
+		t.Fatal("expected incompatible apps to refuse the load")
+	}
+	for _, want := range []string{"app shop requires ddcore >=0.15.0, but this binary is 0.14.2", "app crm requires ddcore <0.14.0"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q does not mention %q", err, want)
+		}
+	}
+	if strings.Contains(err.Error(), "fine") {
+		t.Errorf("a compatible app is listed: %v", err)
+	}
+
+	// A non-release binary still parses ranges but does not enforce them.
+	skipped, err := checkCoreCompat(snap, "dev")
+	if err != nil || !skipped {
+		t.Fatalf("dev build: skipped=%v err=%v", skipped, err)
+	}
+	for _, bad := range []*AppMeta{
+		{Name: "x", Ddcore: ">=banana"},
+		{Name: "x", Ddcore: "  "}, // present but blank is a typo, not "no range"
+		{Name: "x", Version: "one"},
+	} {
+		if _, err := checkCoreCompat(&Snapshot{Apps: map[string]*AppMeta{"x": bad}}, "dev"); err == nil {
+			t.Errorf("expected %+v to be refused even on a dev build", bad)
+		}
+	}
+}

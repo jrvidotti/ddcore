@@ -77,9 +77,38 @@ The framework follows **Semantic Versioning 2.0.0** (`vMAJOR.MINOR.PATCH`):
   - Pushing a version tag `v*` triggers the `Release` GitHub Action, creating a GitHub Release with cross-platform static archives (`ddcore-<os>-<arch>.tar.gz` and `SHA256SUMS`) for Darwin and Linux (amd64/arm64).
   - Pushing to `main` updates the rolling release `latest` used by the installer script (`install.sh`).
   - No container image is published: an app builds its own image and downloads the binary of the release it pins.
-- **App compatibility (`requires`)**:
-  - Apps declare compatibility constraints in `ddcore.app.ts` (`requires: { ddcore: ">=0.1.0" }`).
-  - Breaking changes to public server/desk SDKs or engine contracts increment MAJOR.
-  - New backwards-compatible capabilities or hooks increment MINOR.
+- **Version bumps**:
+  - Breaking changes to public server/desk SDKs or engine contracts increment MAJOR (while the
+    framework is `0.x`, they increment MINOR).
+  - New backwards-compatible capabilities or hooks increment MINOR (PATCH while `0.x`).
   - Bug fixes and optimizations increment PATCH.
+  - Every breaking change is listed under **Breaking** in `CHANGELOG.md`, with the upgrade path.
+
+## App compatibility contract
+
+An app declares its own release and the ddcore releases it supports in `ddcore.app.ts`:
+
+```ts
+export default defineApp({
+  name: "shop",
+  title: "Shop",
+  version: "1.4.0",
+  requires: ["crm"],          // apps, not versions: core is implicit
+  ddcore: ">=0.14.0 <0.16.0", // the ddcore releases this app was tested against
+});
+```
+
+- `ddcore` is a list of space-separated constraints that must all hold: `>=`, `>`, `<=`, `<`,
+  `=` (or a bare version), `^X.Y.Z` (same major; same minor while the major is 0) and `~X.Y.Z`
+  (same minor). A leading `v` and a missing minor/patch are accepted (`>=0.14`).
+- A binary outside the range **refuses to load**: startup, `migrate` and `doctor` fail, and `dev`
+  keeps serving the last good state, with every incompatible app named in one error. An invalid
+  range, or a `version` that is not `MAJOR.MINOR.PATCH`, is refused the same way.
+- A build on top of a release (`v0.14.0-3-gabc123`) counts as that release. A binary that is not
+  a release (`dev`, `latest`) still parses the ranges but does not enforce them, and logs a warning.
+- `ddcore version` prints the binary's version; `ddcore doctor` lists each app's version and range,
+  and the `export` manifest records the app versions next to the core's.
+- Because `0.x` minors may break, bound the range above (`^0.14.0` or `<0.15.0`) and widen it after
+  testing against the new release. Before a production pilot, pin the exact binary version the app
+  was tested with in its image build, and upgrade by changing that pin and the range together.
 

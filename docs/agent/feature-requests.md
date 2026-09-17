@@ -55,7 +55,7 @@ cares, it is a service.
   GitHub; cite the ID when the gap is already listed.
 - **Confirm it is really missing.** `ddcore docs <name>` (or `ddcore://docs/<name>`) and the
   generated `.ddcore/types.d.ts` are the authority on what the installed version exposes.
-- **Check the version.** `ddcore version` against the app's `requires: { ddcore: ">=…" }` — the
+- **Check the version.** `ddcore version` against the app's `ddcore: ">=…"` range in `defineApp` — the
   capability may already exist in a release newer than the one installed.
 - **Write the workaround first.** The app has to keep shipping, and the workaround is the request's
   strongest evidence: it is what the issue reports under *What an app has to do instead*.
