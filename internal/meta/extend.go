@@ -57,7 +57,7 @@ var FieldProps = map[string]bool{
 var DoctypeProps = map[string]bool{
 	"label": true, "description": true, "icon": true, "titleField": true,
 	"sortField": true, "sortOrder": true, "searchFields": true,
-	"trackChanges": true, "allowRename": true,
+	"trackChanges": true, "allowRename": true, "globalSearch": true,
 }
 
 // textProps are the properties whose value is a catalogue key. Overriding one
@@ -282,6 +282,11 @@ func setDoctypeProp(d *DocType, prop string, v any) error {
 		d.TrackChanges, err = boolean()
 	case "allowRename":
 		d.AllowRename, err = boolean()
+	case "globalSearch":
+		var b bool
+		if b, err = boolean(); err == nil {
+			d.GlobalSearch = &b
+		}
 	case "searchFields":
 		list, ok := v.([]any)
 		if !ok {

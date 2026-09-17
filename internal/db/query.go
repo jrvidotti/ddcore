@@ -37,6 +37,21 @@ func AccentInsensitive(expr string) string {
 	return fmt.Sprintf("lower(translate(%s::text, '%s', '%s'))", expr, accentFrom, accentTo)
 }
 
+// FoldAccents is AccentInsensitive in Go: it lowercases s and strips the
+// same accents, so code ranking rows can compare text the way the query
+// matched it.
+func FoldAccents(s string) string {
+	to := []rune(accentTo)
+	var b strings.Builder
+	for _, r := range s {
+		if i := strings.IndexRune(accentFrom, r); i >= 0 {
+			r = to[len([]rune(accentFrom[:i]))]
+		}
+		b.WriteRune(r)
+	}
+	return strings.ToLower(b.String())
+}
+
 // Ident quotes a Postgres identifier after validating it.
 func Ident(s string) string {
 	if !identRe.MatchString(s) {

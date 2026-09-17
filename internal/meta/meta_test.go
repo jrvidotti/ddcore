@@ -397,3 +397,24 @@ func TestValidateAcceptsUniqueKeys(t *testing.T) {
 		t.Fatalf("a well-formed pair of keys must load: %v", err)
 	}
 }
+
+func TestGloballySearchable(t *testing.T) {
+	yes, no := true, false
+	for _, tc := range []struct {
+		what string
+		d    DocType
+		want bool
+	}{
+		{"no title nor search fields", DocType{}, false},
+		{"title field", DocType{TitleField: "title"}, true},
+		{"search fields", DocType{SearchFields: []string{"code"}}, true},
+		{"opted in", DocType{GlobalSearch: &yes}, true},
+		{"opted out", DocType{TitleField: "title", GlobalSearch: &no}, false},
+		{"child table", DocType{TitleField: "title", IsChild: true, GlobalSearch: &yes}, false},
+		{"single", DocType{TitleField: "title", IsSingle: true, GlobalSearch: &yes}, false},
+	} {
+		if got := tc.d.GloballySearchable(); got != tc.want {
+			t.Errorf("%s: GloballySearchable() = %v, want %v", tc.what, got, tc.want)
+		}
+	}
+}

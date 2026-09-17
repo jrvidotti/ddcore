@@ -162,6 +162,19 @@ type Perm struct {
 // MaxPermlevel is the highest field permission level.
 const MaxPermlevel = 9
 
+// GloballySearchable reports whether global search looks into this DocType:
+// never a child table or a Single; otherwise the explicit globalSearch flag,
+// or, without one, whether the DocType declares a title or search fields.
+func (d *DocType) GloballySearchable() bool {
+	if d.IsChild || d.IsSingle {
+		return false
+	}
+	if d.GlobalSearch != nil {
+		return *d.GlobalSearch
+	}
+	return d.TitleField != "" || len(d.SearchFields) > 0
+}
+
 // HasRestrictedFields reports whether any field sits above permission level 0.
 func (d *DocType) HasRestrictedFields() bool {
 	for _, f := range d.Fields {
@@ -241,6 +254,9 @@ type DocType struct {
 	SortField    string   `json:"sortField,omitempty"`
 	SortOrder    string   `json:"sortOrder,omitempty"`
 	SearchFields []string `json:"searchFields,omitempty"`
+	// GlobalSearch opts a DocType in (true) or out (false) of the Desk's
+	// global search; nil leaves it to GloballySearchable's default.
+	GlobalSearch *bool `json:"globalSearch,omitempty"`
 	// UniqueKeys are the compound business keys, one partial unique index each.
 	UniqueKeys  []UniqueKey `json:"uniqueKeys,omitempty"`
 	Fields      []*Field    `json:"fields"`
