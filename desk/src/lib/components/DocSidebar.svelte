@@ -1,14 +1,17 @@
 <script lang="ts">
-  // Right column of the form: metadata, comments, versions, assignments.
+  // Right column of the form: metadata, assignments, shares, comments, versions.
   import type { FormController } from "$lib/form.svelte";
-  import { api, type AssignArgs } from "$lib/api";
-  import { __ } from "$lib/boot.svelte";
+  import { api, type AssignArgs, type ShareArgs } from "$lib/api";
+  import { __, boot } from "$lib/boot.svelte";
   import { formatDatetime, timeAgo } from "$lib/format";
   import { showError } from "$lib/ui.svelte";
   import { onMount } from "svelte";
   import Icon from "./Icon.svelte";
   import DocHistory from "./DocHistory.svelte";
   import AssignModal from "./AssignModal.svelte";
+  import ShareModal from "./ShareModal.svelte";
+  import { DocSharesState } from "$lib/shares.svelte";
+  import { shareRightLabels, canRemoveShare } from "./doc-sidebar-share";
   import { getModifierKey } from "$lib/shortcuts.svelte";
   import { DocAssignments } from "$lib/assignments.svelte";
   import { isAssignmentOverdue, assignmentInitial, priorityBadgeClass } from "./doc-sidebar-assignment";
@@ -20,9 +23,11 @@
   let showVersions = $state(false);
   let showModal = $state(false);
   let showAssignModal = $state(false);
+  let showShareModal = $state(false);
   const modKey = $derived(getModifierKey());
 
   const assignState = new DocAssignments("", "");
+  const shareState = new DocSharesState("", "");
 
   async function load() {
     try {
@@ -32,6 +37,11 @@
         assignState.doctype = frm.doctype;
         assignState.name = frm.doc.name;
         await assignState.load();
+        if (!frm.meta.doctype.isSingle) {
+          shareState.doctype = frm.doctype;
+          shareState.name = frm.doc.name;
+          await shareState.load();
+        }
       }
     } catch {}
   }
@@ -50,6 +60,18 @@
   async function handleAssign(args: AssignArgs) {
     await assignState.assign(args);
     comments = await api.comments(frm.doctype, frm.doc.name);
+  }
+
+  async function handleShare(args: ShareArgs) {
+    await shareState.add(args);
+  }
+
+  async function removeShare(user: string) {
+    try {
+      await shareState.remove(user);
+    } catch (e) {
+      showError(e);
+    }
   }
 
   async function completeTask(name: string) {
@@ -151,6 +173,66 @@
     </div>
   {/if}
 
+  {#if !frm.isNew && !frm.meta.doctype.isSingle && (shareState.canShare || shareState.rows.length > 0)}
+    <div class="block">
+      <div class="assignments-head">
+        <h4>{__("Shared With")}</h4>
+        {#if shareState.canShare}
+          <button
+            type="button"
+            class="btn sm btn-assign"
+            onclick={() => (showShareModal = true)}
+            aria-label={__("Share")}
+          >
+            <Icon name="share-2" size={13} />
+            <span>{__("Share")}</span>
+          </button>
+        {/if}
+      </div>
+
+      {#if shareState.rows.length === 0}
+        <div class="small muted">{__("Not shared with anyone")}</div>
+      {:else}
+        <div class="assignments-list">
+          {#each shareState.rows as share (share.user)}
+            <div class="assignment-item">
+              <div class="assignment-main">
+                <div class="assignment-user">
+                  <span class="avatar-sm">{assignmentInitial(share.user)}</span>
+                  <span class="small user-name" title={share.user}>{share.user}</span>
+                </div>
+                <div class="assignment-meta small muted">
+                  {#each shareRightLabels(share) as right}
+                    <span class="priority-badge priority-low">{__(right)}</span>
+                  {/each}
+                  {#if share.override_scope}
+                    <span class="priority-badge priority-high" title={__("Override Security Scope")}>
+                      <Icon name="shield" size={10} />
+                    </span>
+                  {/if}
+                </div>
+              </div>
+              {#if canRemoveShare(share, shareState.canShare, boot.data?.user ?? "")}
+                <div class="assignment-actions">
+                  <button
+                    type="button"
+                    class="btn icon sm"
+                    title={__("Remove share")}
+                    aria-label={__("Remove share")}
+                    disabled={shareState.pending === share.user}
+                    onclick={() => removeShare(share.user)}
+                  >
+                    <Icon name="x" size={13} />
+                  </button>
+                </div>
+              {/if}
+            </div>
+          {/each}
+        </div>
+      {/if}
+    </div>
+  {/if}
+
   <div class="block">
     <h4>{__("Comments")}</h4>
     {#each comments as c}
@@ -226,6 +308,15 @@
       </div>
     </div>
   </div>
+{/if}
+
+{#if showShareModal}
+  <ShareModal
+    open={showShareModal}
+    canOverrideScope={shareState.canOverrideScope}
+    onshare={handleShare}
+    onclose={() => (showShareModal = false)}
+  />
 {/if}
 
 {#if showAssignModal}

@@ -12,6 +12,9 @@ Sensitive administrative actions across the framework are recorded in a unified 
 | `role.revoke` | `User` | Role removed from a user account | `{"role": "..."}` |
 | `permission.scope_grant` | `User` | User access scope granted (`User Permission` created or changed) | `{"allow": "...", "for_value": "...", "applicable_for": "..."}` |
 | `permission.scope_revoke` | `User` | User access scope revoked (`User Permission` deleted or changed) | `{"allow": "...", "for_value": "..."}` |
+| `permission.share_grant` | the document | Document shared with a user. `Denied` when the sharer lacks `share`, lacks `write` for a write share, or may not override a scope | `{"user": "...", "read": bool, "write": bool, "share": bool, "override_scope": bool}` |
+| `permission.share_update` | the document | Rights of an existing share changed | same as `share_grant` |
+| `permission.share_revoke` | the document | Share removed. `Denied` when the caller may not remove it | `{"user": "..."}` |
 | `account.enable` | `User` | User account enabled | none |
 | `account.disable` | `User` | User account disabled | none |
 | `account.invite` | `User` | User invitation sent | `{"fullName": "..."}` |

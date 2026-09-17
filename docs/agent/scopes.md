@@ -6,8 +6,8 @@ are data, not code. A System Manager grants them by creating `User Permission`
 documents, and the engine enforces them on every read and write path. An app does not
 need a `permissionQuery`/`hasPermission` hook to separate companies or units.
 
-A scope only **narrows** access. A user still needs a role permission for the DocType.
-A `User Permission` never grants access to anything.
+A scope only **narrows** access. A user still needs a role permission for the DocType, or
+a share of the document (see `sharing`). A `User Permission` never grants access to anything.
 
 Scopes choose documents. To hide *fields* inside a document the user may read, see
 `field-permissions`.
@@ -83,7 +83,7 @@ Scopes are applied below the SDK, so app code cannot opt out:
 | `ddcore.db.setValue`, `doc.dbSet` | skipped | **enforced**: refused if the stored document, or the stored document with the new values, is out of scope |
 | `ddcore.db.sql` | not applied | **not applied** |
 
-`Webhook`, `Webhook Delivery` and `User Permission` are closed to a user with access scopes
+`Webhook`, `Webhook Delivery`, `User Permission` and `Document Share` are closed to a user with access scopes
 on every one of these calls except `ddcore.db.sql`: lists and `getAll` return no rows,
 `getValue` returns nothing, `exists` returns `null`, and `insert`, `save`, `delete`,
 `setValue` and `dbSet` are refused, with or without `ignorePermissions`.
@@ -120,6 +120,7 @@ for example by passing the in-scope names as arguments after reading them with
 | Realtime events (SSE) | Document events are delivered only to users who can read the document |
 | Notifications | Recipient filtering, listing, counting, read-state changes and the email-send recheck all recheck access, so a scope change stops a new occurrence and hides or blocks an existing one |
 | Scope administration | A scoped user is refused every permission on `User Permission`, including their own rows, and app code running as that user cannot reach them with `ignorePermissions`, `setValue` or `dbSet`. Scope administration belongs to a `System Manager` without scope rows, or `Administrator` |
+| Document shares | A share of an out-of-scope document stays refused, unless it was given with **Override security scope** by an unscoped System Manager: that share lifts the scope for the rights it grants (read, write), never for delete, submit or cancel. A scoped user is refused `Document Share` itself (see `sharing`) |
 | Webhooks | A scoped user is refused every permission on `Webhook` and `Webhook Delivery`, including replay, and app code running as that user cannot reach them with `ignorePermissions`: webhook administration is for unscoped users. The user's own document writes still queue and send deliveries (see `webhooks`) |
 
 ## Caching

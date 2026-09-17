@@ -531,6 +531,11 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 		}
 		c.invalidateUserPermissionCache(saved)
 	}
+	if d.Name == shareDoctype {
+		if err := c.auditShareSaved(nil, saved); err != nil {
+			return nil, err
+		}
+	}
 	return saved, nil
 }
 
@@ -592,7 +597,7 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 		}
 	}
 	if !c.IgnorePermissions() {
-		if ok, err := c.checkUserPermissions(d, before); err != nil {
+		if ok, err := c.scopeAllows(d, before, ptype); err != nil {
 			return nil, err
 		} else if !ok {
 			return nil, cerr.Permission("No permission ({0}) on {1} {2}", ptype, c.T(d.Label), doc.Name())
@@ -641,7 +646,7 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 		}
 	}
 	if !c.IgnorePermissions() {
-		if ok, err := c.checkUserPermissions(d, doc); err != nil {
+		if ok, err := c.scopeAllows(d, doc, ptype); err != nil {
 			return nil, err
 		} else if !ok {
 			return nil, cerr.Permission("No permission ({0}) on {1} {2}", ptype, c.T(d.Label), doc.Name())
@@ -702,6 +707,11 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 			}
 		}
 		c.invalidateUserPermissionCache(before, saved)
+	}
+	if d.Name == shareDoctype {
+		if err := c.auditShareSaved(before, saved); err != nil {
+			return nil, err
+		}
 	}
 	return saved, nil
 }
@@ -896,13 +906,33 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 					applicableFor = pt
 				}
 			}
+			// a share that overrides the scopes for write lifts them here too;
+			// a child row is shared through its parent
+			sharedDoctype, sharedName := d.Name, name
+			if d.IsChild {
+				sharedDoctype, sharedName = stored.Str("parenttype"), stored.Str("parent")
+			}
 			for _, doc := range []Doc{stored, merged} {
 				if ok, err := c.checkUserPermissionsFor(d, doc, applicableFor); err != nil {
 					return modified, err
 				} else if !ok {
-					return modified, cerr.Permission("No permission ({0}) on {1} {2}", "write", c.T(d.Label), name)
+					if lifted, err := c.scopeOverridden(sharedDoctype, sharedName, "write"); err != nil {
+						return modified, err
+					} else if !lifted {
+						return modified, cerr.Permission("No permission ({0}) on {1} {2}", "write", c.T(d.Label), name)
+					}
 				}
 			}
+		}
+	}
+	var beforeShare Doc
+	if d.Name == shareDoctype {
+		rows, err := db.Select(c.Ctx, c.Q(), `SELECT "user", share_doctype, share_name, "read", "write", "share", override_scope FROM tab_document_share WHERE name = $1`, name)
+		if err != nil {
+			return modified, err
+		}
+		if len(rows) > 0 {
+			beforeShare = Doc(rows[0])
 		}
 	}
 	var beforePermission Doc
@@ -961,6 +991,23 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 			}
 		}
 		c.invalidateUserPermissionCache(beforePermission, afterPermission)
+	}
+	if beforeShare != nil {
+		afterShare := Doc{}
+		for k, v := range beforeShare {
+			afterShare[k] = v
+			if value, ok := values[k]; ok {
+				if f := d.Field(k); f != nil {
+					if cv, err := c.castValue(f, value); err == nil {
+						value = cv
+					}
+				}
+				afterShare[k] = value
+			}
+		}
+		if err := c.auditShareSaved(beforeShare, afterShare); err != nil {
+			return modified, err
+		}
 	}
 	// only after commit: a rolled back transaction must not announce
 	// changes that never took place (B20).
@@ -1058,8 +1105,11 @@ func (c *Ctx) Delete(doctype, name string, ignorePerms, force bool) error {
 		if ref.keepOnDelete {
 			continue
 		}
-		c.Q().Exec(c.Ctx, fmt.Sprintf("DELETE FROM %s WHERE %s = $1 AND %s = $2",
+		tag, err := c.Q().Exec(c.Ctx, fmt.Sprintf("DELETE FROM %s WHERE %s = $1 AND %s = $2",
 			db.Ident(ref.table), db.Ident(ref.doctypeCol), db.Ident(ref.nameCol)), doctype, name)
+		if err == nil && ref.table == "tab_document_share" && tag.RowsAffected() > 0 {
+			c.allSharesChanged()
+		}
 	}
 	delete(c.docCache, c.docKey(doctype, name))
 	if err := c.runHook(d, "afterDelete", doc, nil); err != nil {
@@ -1073,6 +1123,11 @@ func (c *Ctx) Delete(doctype, name string, ignorePerms, force bool) error {
 			return err
 		}
 		c.invalidateUserPermissionCache(doc)
+	}
+	if d.Name == shareDoctype {
+		if err := c.auditShareDeleted(doc); err != nil {
+			return err
+		}
 	}
 	c.AfterCommit(func() {
 		c.E.Events.Publish(Event{Name: "list_update", Payload: map[string]any{"doctype": doctype}})
@@ -1158,10 +1213,14 @@ func (c *Ctx) Rename(doctype, oldName, newName string) (string, error) {
 	// every one of them, keepOnDelete or not: a record that survives its
 	// document must still point at the name that document answers to now.
 	for _, ref := range coreRefs {
-		if _, err := q.Exec(c.Ctx, fmt.Sprintf("UPDATE %s SET %s = $1 WHERE %s = $2 AND %s = $3",
+		tag, err := q.Exec(c.Ctx, fmt.Sprintf("UPDATE %s SET %s = $1 WHERE %s = $2 AND %s = $3",
 			db.Ident(ref.table), db.Ident(ref.nameCol), db.Ident(ref.doctypeCol), db.Ident(ref.nameCol)),
-			newName, doctype, oldName); err != nil {
+			newName, doctype, oldName)
+		if err != nil {
 			return "", fmt.Errorf("coreRefs update %s: %w", ref.table, err)
+		}
+		if ref.table == "tab_document_share" && tag.RowsAffected() > 0 {
+			c.allSharesChanged()
 		}
 	}
 	delete(c.docCache, c.docKey(doctype, oldName))

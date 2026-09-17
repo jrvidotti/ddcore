@@ -510,6 +510,23 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 	case "dropSessions":
 		_, err := e.DropSessions(c.Ctx, c.Q(), a.User, "")
 		return nil, err
+	case "share.add", "share.remove", "share.list":
+		var sa struct {
+			Doctype string      `json:"doctype"`
+			Name    string      `json:"name"`
+			User    string      `json:"user"`
+			Rights  ShareRights `json:"rights"`
+		}
+		if err := json.Unmarshal(raw, &sa); err != nil {
+			return nil, cerr.Validation("Invalid arguments: {0}", err)
+		}
+		switch op {
+		case "share.add":
+			return c.ShareDoc(sa.Doctype, sa.Name, sa.User, sa.Rights)
+		case "share.remove":
+			return nil, c.UnshareDoc(sa.Doctype, sa.Name, sa.User)
+		}
+		return c.ListDocShares(sa.Doctype, sa.Name)
 	case "audit":
 		var d map[string]any
 		if m, ok := a.Detail.(map[string]any); ok {

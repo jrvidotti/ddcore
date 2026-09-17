@@ -653,6 +653,9 @@ type Ctx struct {
 
 	roles                []string
 	userPerms            []UserPerm
+	shares               []DocShare
+	sharesLoaded         bool
+	sharesDirty          bool
 	rt                   *js.Runtime
 	savepoint            int
 	roSavepoint          int

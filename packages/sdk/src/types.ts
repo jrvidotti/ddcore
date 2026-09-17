@@ -147,6 +147,33 @@ export interface MailTemplateDef<A = any> {
 }
 
 /** What `ddcore.sendMail` takes. */
+/** What a share grants. `read` is implied; `overrideScope` needs an unscoped System Manager. */
+export interface ShareRights {
+  read?: boolean;
+  write?: boolean;
+  share?: boolean;
+  overrideScope?: boolean;
+}
+
+/** One user's share on one document (the `Document Share` row). */
+export interface DocShare {
+  name: string;
+  user: string;
+  share_doctype: string;
+  share_name: string;
+  read: boolean;
+  write: boolean;
+  share: boolean;
+  override_scope: boolean;
+  owner: string;
+}
+
+export interface DocShares {
+  shares: DocShare[];
+  canShare: boolean;
+  canOverrideScope: boolean;
+}
+
 export interface SendMailArgs {
   /** The `name` of a registered mail template. */
   template: string;
@@ -220,6 +247,8 @@ export interface PermDef {
   role: string;
   read?: boolean; write?: boolean; create?: boolean; delete?: boolean;
   submit?: boolean; cancel?: boolean; amend?: boolean; report?: boolean; export?: boolean;
+  /** Lets the role share one document with another user (see `docs/agent/sharing.md`). */
+  share?: boolean;
   ifOwner?: boolean;
   /**
    * The field level this row grants (default 0). A row above 0 grants only

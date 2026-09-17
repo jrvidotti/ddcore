@@ -873,6 +873,17 @@
       del(name) { return call("vault.del", { key: String(name) }); },
       list(prefix) { return call("vault.list", { prefix: prefix ? String(prefix) : "" }) || []; },
     },
+    // Document sharing (SEC-03). Checked against the current user as sharer,
+    // like the /api/shares endpoints.
+    share: {
+      add(doctype, name, user, rights) {
+        return call("share.add", { doctype: String(doctype), name: String(name), user: String(user), rights: rights || {} });
+      },
+      remove(doctype, name, user) {
+        call("share.remove", { doctype: String(doctype), name: String(name), user: String(user) });
+      },
+      list(doctype, name) { return call("share.list", { doctype: String(doctype), name: String(name) }); },
+    },
     audit(action, targetDoctype, targetName, detail) {
       return call("audit", {
         action: String(action),
