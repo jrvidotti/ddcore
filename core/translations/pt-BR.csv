@@ -207,7 +207,7 @@ Invalid JSON: {0},JSON inválido: {0},# internal/api/api.go:315
 Invalid Single identity for {0},Identidade Single inválida para {0},# internal/engine/doc.go:276
 Invalid Single identity or status for {0},Identidade ou estado Single inválido para {0},# internal/engine/doc.go:885
 Invalid URL,URL inválida,# internal/engine/webhooks.go:559
-Invalid arguments: {0},Argumentos inválidos: {0},# internal/engine/host.go:521
+Invalid arguments: {0},Argumentos inválidos: {0},# internal/engine/host.go:528
 "Invalid date and time in {0}: ""{1}""","Data/hora inválida em {0}: ""{1}""",# internal/engine/doc.go:214
 "Invalid date in {0}: ""{1}""","Data inválida em {0}: ""{1}""",# internal/engine/doc.go:188
 Invalid docstatus for an insert,docstatus inválido para inserção,# internal/engine/doc.go:431
@@ -332,6 +332,7 @@ Only a System Manager without access scopes can override a security scope,Só um
 Only cancelled documents can be amended,Só documentos cancelados podem ser emendados,# internal/engine/doc.go:801
 Only submitted documents can be cancelled,Só documentos enviados podem ser cancelados,# internal/engine/doc.go:769
 Open,Aberto,# desk/src/routes/app/todo/+page.svelte:131
+Open file,Abrir arquivo,# desk/src/lib/controls/Grid.svelte:93
 Open menu,Abrir menu,# desk/src/routes/+layout.svelte:172
 Open the date picker,Abrir seletor de data,# desk/src/lib/controls/DateControl.svelte:238
 Open the full history,Abrir histórico completo,# desk/src/lib/components/DocSidebar.svelte:267
@@ -412,7 +413,7 @@ Search,Buscar,# desk/src/lib/components/ListView.svelte:436
 Search & selection (Link fields),Busca & Seleção (Campos Link),# desk/src/lib/shortcuts.ts:105
 Search documents and DocTypes,Buscar documentos e DocTypes,# desk/src/lib/shortcuts.ts:98
 Search documents and DocTypes…,Buscar documentos e DocTypes…,# desk/src/lib/components/SearchPalette.svelte:82
-Search for between {0} and {1} characters,Busque entre {0} e {1} caracteres,# internal/engine/search.go:40
+Search for between {0} and {1} characters,Busque entre {0} e {1} caracteres,# internal/engine/search.go:45
 Search…,Buscar...,# desk/src/lib/components/ListView.svelte:437
 Secret hash,Hash do segredo,# core.doctypes.api_key.api_key.doctype
 Secret {0} is not configured on this site,O segredo {0} não está configurado neste site,# internal/engine/secrets.go:70
@@ -482,7 +483,7 @@ The password must have at least {0} characters,A senha precisa ter ao menos {0} 
 The password must have at most {0} characters,A senha pode ter no máximo {0} caracteres,# internal/engine/password.go:38
 The provider did not confirm this e-mail address.,O provedor não confirmou este endereço de e-mail.,# desk/src/routes/login/+page.svelte:29
 The sign-in expired or was started in another browser. Try again.,O acesso expirou ou foi iniciado em outro navegador. Tente novamente.,# desk/src/routes/login/+page.svelte:33
-The site is in maintenance mode; changes are paused. Try again shortly.,O site está em modo de manutenção; as alterações estão pausadas. Tente novamente em instantes.,# internal/engine/maintenance.go:147
+The site is in maintenance mode; changes are paused. Try again shortly.,O site está em modo de manutenção; as alterações estão pausadas. Tente novamente em instantes.,# internal/engine/maintenance.go:189
 The webhook of delivery {0} was deleted,O webhook da entrega {0} foi excluído,# internal/engine/webhooks.go:537
 There is no account for this e-mail address. Ask an administrator to invite you.,Não há conta para este endereço de e-mail. Peça a um administrador para convidar você.,# desk/src/routes/login/+page.svelte:28
 This device,Este dispositivo,# desk/src/lib/components/Profile.svelte:204
@@ -583,20 +584,20 @@ failed to read rendered PDF from {0}: {1},falha ao ler PDF renderizado de {0}: {
 failed to read rendered PDF: {0},falha ao ler PDF renderizado: {0},# internal/print/pdf.go:266
 failed to write Gotenberg HTML payload: {0},falha ao escrever payload HTML para o Gotenberg: {0},# internal/print/pdf.go:119
 failed to write temporary HTML file: {0},falha ao escrever arquivo HTML temporário: {0},# internal/print/pdf.go:196
-getValue: invalid fields,getValue: fields inválido,# internal/engine/host.go:161
-http: {0},http: {0},# internal/engine/host.go:612
-invalid arguments in {0}: {1},argumentos inválidos em {0}: {1},# internal/engine/host.go:82
+getValue: invalid fields,getValue: fields inválido,# internal/engine/host.go:162
+http: {0},http: {0},# internal/engine/host.go:619
+invalid arguments in {0}: {1},argumentos inválidos em {0}: {1},# internal/engine/host.go:83
 job {0} timed out,job {0} excedeu o tempo limite,# internal/engine/jobs.go:130
 name is required,name é obrigatório,# internal/api/assignments.go:132
 never,nunca,# desk/src/lib/components/Profile.svelte:235
 or,ou,# desk/src/routes/login/+page.svelte:70
 patch sql: {0},sql do patch: {0},# internal/engine/query.go:586
 records,registros,# desk/src/lib/components/ListView.svelte:481
-runtime without a context (op {0}),runtime sem contexto (op {0}),# internal/engine/host.go:25
+runtime without a context (op {0}),runtime sem contexto (op {0}),# internal/engine/host.go:26
 since: {0} is not a duration,since: {0} não é uma duração,# internal/api/jobs.go:57
 title,título,# desk/src/lib/components/FormView.svelte:232
 to submit,para enviar,# desk/src/lib/components/DocSidebar.svelte:244
-unknown bridge operation: {0},operação desconhecida no bridge: {0},# internal/engine/host.go:548
+unknown bridge operation: {0},operação desconhecida no bridge: {0},# internal/engine/host.go:555
 user is required,user é obrigatório,# internal/engine/share.go:288
 webhook payload for {0} is not JSON: {1},o conteúdo do webhook para {0} não é JSON: {1},# internal/engine/webhooks.go:263
 "{0} ""{1}"" already exists","{0} ""{1}"" já existe",# internal/engine/doc.go:1706

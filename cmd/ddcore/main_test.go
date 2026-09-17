@@ -11,15 +11,15 @@ import (
 // execFlags mirrors cmdExec's declarations.
 func execFlags() (*flag.FlagSet, *string) {
 	fs := newFlagSet("exec")
-	return fs, fs.String("args", "{}", "argumentos JSON")
+	return fs, fs.String("args", "{}", "JSON arguments")
 }
 
 // userAddFlags mirrors `ddcore user add`.
 func userAddFlags() (*flag.FlagSet, *string, *multi) {
 	fs := newFlagSet("user add")
-	pw := fs.String("password", "", "senha")
+	pw := fs.String("password", "", "password")
 	roles := &multi{}
-	fs.Var(roles, "role", "papel (repetível)")
+	fs.Var(roles, "role", "role (repeatable)")
 	return fs, pw, roles
 }
 

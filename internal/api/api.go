@@ -1503,7 +1503,7 @@ func serveJS(w http.ResponseWriter, code string) {
 // deskHandler serves the SPA: static files when they exist, index.html otherwise.
 func (s *Server) deskHandler(w http.ResponseWriter, r *http.Request) {
 	if s.Desk == nil {
-		http.Error(w, "desk não compilado: rode `make desk` ou use a API", 404)
+		http.Error(w, "desk not built: run `make desk`, or use the API", 404)
 		return
 	}
 	if strings.HasPrefix(r.URL.Path, "/api/") {

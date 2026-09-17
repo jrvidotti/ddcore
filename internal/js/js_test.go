@@ -117,7 +117,7 @@ test("` + name + ` test", () => expect(true).toBe(true));`
 		if name == "segundo" {
 			testSource = `import "@ddcore/sdk/test";
 describe("segundo", () => {
-  beforeAll(() => { throw new Error("hook de segundo não deve executar"); });
+  beforeAll(() => { throw new Error("the hook of segundo must not run"); });
   test("segundo test", () => expect(true).toBe(true));
 });`
 		}

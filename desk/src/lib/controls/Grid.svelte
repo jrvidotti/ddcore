@@ -90,7 +90,7 @@
                 {#if dialogOnly}
                   {#if c.fieldtype === "Attach" && row[c.fieldname!]}
                     {@const file = fileNameParts(row[c.fieldname!])}
-                    <a class="file-link" href={row[c.fieldname!]} target="_blank" rel="noopener" title={file.full} aria-label={`${__("Abrir arquivo")}: ${file.full}`}>
+                    <a class="file-link" href={row[c.fieldname!]} target="_blank" rel="noopener" title={file.full} aria-label={__("Open file") + ": " + file.full}>
                       <Icon name="paperclip" size={14} /><span class="file-stem">{file.stem}</span><span class="file-extension">{file.extension}</span>
                     </a>
                   {:else}

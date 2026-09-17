@@ -319,8 +319,8 @@ func cmdServe(args []string, dev bool) error {
 	// where a platform reads it as a log instead of as a stream of errors.
 	logOut = os.Stdout
 	fs := newFlagSet("serve")
-	autoMigrate := fs.Bool("auto-migrate", dev, "aplica DDL pendente ao (re)carregar")
-	port := fs.Int("port", 0, "porta")
+	autoMigrate := fs.Bool("auto-migrate", dev, "apply pending DDL on (re)load")
+	port := fs.Int("port", 0, "port")
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
@@ -450,9 +450,9 @@ func cmdTypes(args []string) error {
 
 func testFlags() (*flag.FlagSet, *string, *bool, *string) {
 	fs := newFlagSet("test")
-	filter := fs.String("filter", "", "regex sobre nome/arquivo do teste")
-	verbose := fs.Bool("v", false, "lista todos os testes")
-	app := fs.String("app", "", "roda testes de um app carregado")
+	filter := fs.String("filter", "", "regex over the test's name and file")
+	verbose := fs.Bool("v", false, "list every test")
+	app := fs.String("app", "", "run the tests of one loaded app")
 	return fs, filter, verbose, app
 }
 
@@ -512,7 +512,7 @@ func cmdTest(args []string) error {
 
 func cmdExec(args []string) error {
 	fs := newFlagSet("exec")
-	argsJSON := fs.String("args", "{}", "argumentos JSON")
+	argsJSON := fs.String("args", "{}", "JSON arguments")
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
@@ -630,7 +630,7 @@ func cmdUser(args []string) error {
 	switch args[0] {
 	case "add":
 		fs := newFlagSet("user add")
-		pw := fs.String("password", "", "senha")
+		pw := fs.String("password", "", "password")
 		var roles multi
 		fs.Var(&roles, "role", "role (repeatable)")
 		if err := parseFlags(fs, args[1:]); err != nil {
