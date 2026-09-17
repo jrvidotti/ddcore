@@ -25,6 +25,7 @@ import (
 	"github.com/jrvidotti/ddcore/internal/mail"
 	"github.com/jrvidotti/ddcore/internal/meta"
 	"github.com/jrvidotti/ddcore/internal/num"
+	"github.com/jrvidotti/ddcore/internal/storage"
 )
 
 type Config struct {
@@ -73,6 +74,8 @@ type Config struct {
 	// Webhooks switches outgoing webhooks off for a deployment that must have
 	// no external effects. The zero value sends.
 	Webhooks config.Webhooks
+	// Storage says where uploaded bytes live; the zero value is DataDir/files.
+	Storage config.Storage
 	// SiteURL is the public base those links are built from, already
 	// defaulted to localhost by config.PublicURL.
 	SiteURL string
@@ -206,11 +209,15 @@ type Engine struct {
 	casts    castOpts
 	mailOnce sync.Once
 	mailer   mail.Sender
+	store    storage.Store
 	// webhooks caches the enabled subscriptions; nil means "read them again".
 	// See webhookSubs.
 	webhookMu sync.Mutex
 	webhooks  []webhookSub
 }
+
+// Storage is where the bytes of File documents are kept.
+func (e *Engine) Storage() storage.Store { return e.store }
 
 // Current returns the state this moment sees. Each request captures it once
 // and uses that same reference until the end.
@@ -256,6 +263,11 @@ func New(ctx context.Context, cfg Config) (*Engine, error) {
 	cfg.Mail.Dev = cfg.Dev
 	cfg.Ops = cfg.Ops.WithDefaults()
 	e := &Engine{Cfg: cfg, Log: slog.New(logHandler(cfg)), Events: NewHub(), Cache: NewCache()}
+	store, err := storage.New(ctx, cfg.Storage, cfg.DataDir)
+	if err != nil {
+		return nil, err
+	}
+	e.store = store
 	if cfg.DSN != "" {
 		d, err := db.Open(ctx, cfg.DSN)
 		if err != nil {

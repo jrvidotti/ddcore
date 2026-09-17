@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -342,7 +341,7 @@ func (e *Engine) readAttachments(c *Ctx, stored any) ([]mail.Attachment, error) 
 		if row == nil {
 			return nil, fmt.Errorf("attachment %s no longer exists", n)
 		}
-		content, err := os.ReadFile(c.AttachmentPath(db.Str(row["file_url"])))
+		content, err := c.ReadAttachment(db.Str(row["file_url"]))
 		if err != nil {
 			return nil, fmt.Errorf("attachment %s: %w", n, err)
 		}

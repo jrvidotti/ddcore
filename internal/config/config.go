@@ -69,6 +69,8 @@ type File struct {
 	Mail Mail `json:"-"`
 	// Webhooks comes from the environment only, like Mail.
 	Webhooks Webhooks `json:"-"`
+	// Storage comes from the environment only, like Mail.
+	Storage Storage `json:"-"`
 }
 
 // LoginPage is served by the public /api/boot to anyone who opens the site,
@@ -144,6 +146,9 @@ func Load(dir string) (*File, string, error) {
 	}
 	f.Mail.Dev = f.Dev || envBool("DDCORE_DEV", false)
 	if f.Webhooks, err = webhooksFromEnv(); err != nil {
+		return nil, "", err
+	}
+	if f.Storage, err = storageFromEnv(); err != nil {
 		return nil, "", err
 	}
 	base := filepath.Dir(path)

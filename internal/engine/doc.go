@@ -1097,6 +1097,29 @@ func (c *Ctx) Delete(doctype, name string, ignorePerms, force bool) error {
 	if _, err := c.Q().Exec(c.Ctx, fmt.Sprintf("DELETE FROM %s WHERE name = $1", db.Ident(d.TableName())), name); err != nil {
 		return err
 	}
+	if d.Name == "File" {
+		c.deleteFileBytesAfterCommit(db.Str(doc["file_url"]))
+	}
+	// Attachments go with their document, and so do their bytes. Read the urls
+	// before the rows disappear below.
+	var attached []string
+	rows, err := c.Q().Query(c.Ctx, "SELECT file_url FROM tab_file WHERE attached_to_doctype = $1 AND attached_to_name = $2", doctype, name)
+	if err != nil {
+		return err
+	}
+	for rows.Next() {
+		var u string
+		if err := rows.Scan(&u); err != nil {
+			rows.Close()
+			return err
+		}
+		attached = append(attached, u)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	c.deleteFileBytesAfterCommit(attached...)
 	// The tables that name a document without linking to it. File was missing
 	// here: deleting a document left its attachments behind, pointing at a name
 	// nothing answers to. Email Delivery is deliberately exempt — see

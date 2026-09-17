@@ -24,14 +24,13 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/db"
 	"github.com/jrvidotti/ddcore/internal/meta"
+	"github.com/jrvidotti/ddcore/internal/storage"
 )
 
 // DefaultExportBatch is how many documents one page of the walk carries.
@@ -62,7 +61,7 @@ type ExportArgs struct {
 }
 
 // ExportFile is one attachment in the manifest. The bytes are not here: a
-// sink that wants them reads FileURL through Ctx.AttachmentPath.
+// sink that wants them reads FileURL through Ctx.OpenAttachment.
 type ExportFile struct {
 	Name        string `json:"name"` // the File document
 	AttachedTo  string `json:"attachedTo"`
@@ -417,7 +416,7 @@ func (c *Ctx) exportFiles(doctype string, names []string, sum *ExportSummary) (m
 			ContentType: db.Str(r["content_type"]),
 			Private:     r["is_private"] == true,
 		}
-		sha, size, err := checksum(c.AttachmentPath(f.FileURL))
+		sha, size, err := c.checksum(f.FileURL)
 		if err != nil {
 			// A row whose bytes are gone is a finding for the reconciliation,
 			// not a reason to abort the export: say so and carry on.
@@ -440,28 +439,35 @@ func toAnySlice(s []string) []any {
 	return out
 }
 
-// AttachmentPath maps a File's url to its path on disk, mirroring what the
-// upload handler writes.
-func (c *Ctx) AttachmentPath(fileURL string) string {
-	dir := c.E.Cfg.DataDir
-	if dir == "" {
-		dir = "data"
+// OpenAttachment opens the bytes behind a File's url, wherever the site keeps
+// them. A url with nothing stored under it is storage.ErrNotFound.
+func (c *Ctx) OpenAttachment(fileURL string) (io.ReadCloser, error) {
+	key, ok := storage.KeyFromURL(fileURL)
+	if !ok {
+		return nil, storage.ErrNotFound
 	}
-	sub := "public"
-	if strings.HasPrefix(fileURL, "/private/") {
-		sub = "private"
-	}
-	return filepath.Join(dir, "files", sub, filepath.Base(fileURL))
+	rc, _, err := c.E.Storage().Open(c.Ctx, key)
+	return rc, err
 }
 
-func checksum(path string) (string, int64, error) {
-	f, err := os.Open(path)
+// ReadAttachment reads the whole of a File's bytes.
+func (c *Ctx) ReadAttachment(fileURL string) ([]byte, error) {
+	rc, err := c.OpenAttachment(fileURL)
+	if err != nil {
+		return nil, err
+	}
+	defer rc.Close()
+	return io.ReadAll(rc)
+}
+
+func (c *Ctx) checksum(fileURL string) (string, int64, error) {
+	rc, err := c.OpenAttachment(fileURL)
 	if err != nil {
 		return "", 0, err
 	}
-	defer f.Close()
+	defer rc.Close()
 	h := sha256.New()
-	n, err := io.Copy(h, f)
+	n, err := io.Copy(h, rc)
 	if err != nil {
 		return "", 0, err
 	}
