@@ -632,7 +632,7 @@ func addWebhookFor(t *testing.T, e *Engine, doctype string) {
 	t.Helper()
 	if err := e.Run(context.Background(), "Administrator", func(c *Ctx) error {
 		doc, err := c.NewDoc("Webhook", Doc{"url": "http://127.0.0.1:9/hook", "event_type": "Document", "webhook_doctype": doctype,
-			"on_update": true, "secret": "whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw", "max_attempts": 1})
+			"on_update": true, "secret": hookSecret, "max_attempts": 1})
 		if err != nil {
 			return err
 		}

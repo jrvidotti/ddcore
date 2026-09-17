@@ -36,9 +36,9 @@ that is not a duration in range, or an unknown backend stops the process at boot
 Nothing else is checked there: no connection is opened until the first request,
 so a bucket that does not exist, a wrong key or an unreachable endpoint surfaces
 only on the first upload or download. `ddcore doctor` does not probe the bucket
-either; it prints `storage: s3 <endpoint>/<bucket>/<prefix> (presigned links valid
-<ttl>)`, without the `/<prefix>` when there is none, or `storage: local
-<dataDir>/files` — never the keys. The same string is
+either; it prints `storage: s3 <endpoint>/<bucket>/<prefix> (presigned links
+valid <ttl>)`, without the `/<prefix>` when there is none, or
+`storage: local <dataDir>/files` — never the keys. The same string is
 the `storage` field of `doctor --json`.
 
 Object keys are `<prefix>/public/<name>` and `<prefix>/private/<name>`: the
