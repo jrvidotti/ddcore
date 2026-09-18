@@ -97,7 +97,7 @@ func setupShare(t *testing.T) *Engine {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { e.DB.Close() })
-	err = e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err = e.Run(ctx, "Admin", func(c *Ctx) error {
 		users := map[string][]string{
 			shareSM:      {"System Manager", "Note Editor"},
 			shareEditor:  {"Note Editor"},
@@ -303,8 +303,8 @@ func TestShare_GrantsReadWriteAndRevokes(t *testing.T) {
 	})
 
 	// the controller still vetoes a shared write (it vetoes the editor too, so
-	// only Administrator can hand that write out)
-	runAs(t, e, "Administrator", func(c *Ctx) error {
+	// only Admin can hand that write out)
+	runAs(t, e, "Admin", func(c *Ctx) error {
 		_, err := c.ShareDoc("Shared Note", "Vetoed", sharePlain, ShareRights{Write: true})
 		return err
 	})
@@ -464,7 +464,7 @@ func TestShare_RefusalsRenameAndDelete(t *testing.T) {
 		_, err = c.ShareDoc("Shared Note", "N1", sharePlain, ShareRights{})
 		return err
 	})
-	runAs(t, e, "Administrator", func(c *Ctx) error {
+	runAs(t, e, "Admin", func(c *Ctx) error {
 		_, err := c.ShareDoc("User Permission", "x", sharePlain, ShareRights{})
 		wantStatus(t, err, 417)
 		if _, err := c.Rename("Shared Note", "N1", "N1-renamed"); err != nil {
@@ -478,10 +478,10 @@ func TestShare_RefusalsRenameAndDelete(t *testing.T) {
 		}
 		return nil
 	})
-	runAs(t, e, "Administrator", func(c *Ctx) error {
+	runAs(t, e, "Admin", func(c *Ctx) error {
 		return c.Delete("Shared Note", "N1-renamed", false, false)
 	})
-	runAs(t, e, "Administrator", func(c *Ctx) error {
+	runAs(t, e, "Admin", func(c *Ctx) error {
 		n, err := c.Count(shareDoctype, nil)
 		if err != nil || n != 0 {
 			t.Fatalf("shares after delete = %d, %v", n, err)

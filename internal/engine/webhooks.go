@@ -335,7 +335,7 @@ func (e *Engine) DeliverWebhook(c *Ctx, delivery string) error {
 		return err
 	}
 	if len(rows) == 0 {
-		// Pruned or deleted by an administrator while the job waited.
+		// Pruned or deleted by an admin while the job waited.
 		return nil
 	}
 	row := rows[0]

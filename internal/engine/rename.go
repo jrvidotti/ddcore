@@ -191,7 +191,7 @@ func (c *Ctx) oldNameGone(rn Rename) (bool, error) {
 // AppliedRenames is AppliedRenames for a caller outside a transaction.
 func (e *Engine) AppliedRenames(ctx context.Context) ([]Rename, error) {
 	var out []Rename
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		c.Flags["ignorePermissions"] = true
 		var err error
 		out, err = c.AppliedRenames()

@@ -30,7 +30,7 @@ type AuthPolicy struct {
 	SelfServiceAPIKeys *bool `json:"selfServiceApiKeys"`
 	// PasswordLogin lets people sign in with a password. Nil means allowed.
 	// Turning it off leaves single sign-on as the only way in for everyone
-	// except Administrator, who keeps a password so that an outage at the
+	// except Admin, who keeps a password so that an outage at the
 	// identity provider is not also an outage of the site's administration.
 	PasswordLogin *bool `json:"passwordLogin,omitempty"`
 }

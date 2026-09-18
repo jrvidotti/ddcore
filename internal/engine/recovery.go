@@ -68,7 +68,7 @@ func (e *Engine) StartRecovery(c *Ctx, user, kind, ip string) (*Recovery, error)
 // resetting a password may be that the account is not theirs any more.
 func (e *Engine) CompleteRecovery(ctx context.Context, token, kind, password, fullName string) (string, error) {
 	var user string
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		at, err := e.ConsumeToken(ctx, c.Tx, token, kind)
 		if err != nil {
 			return err

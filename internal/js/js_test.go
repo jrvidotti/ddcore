@@ -27,7 +27,7 @@ func (h *fakeHost) HostCall(rt *Runtime, op string, args json.RawMessage) (any, 
 	h.calls = append(h.calls, op)
 	switch op {
 	case "session":
-		return map[string]any{"user": "Administrator", "roles": []string{"System Manager"}, "lang": "pt-BR"}, nil
+		return map[string]any{"user": "Admin", "roles": []string{"System Manager"}, "lang": "pt-BR"}, nil
 	case "translate":
 		var a struct{ Text string }
 		json.Unmarshal(args, &a)
@@ -88,7 +88,7 @@ export function addMonths(a) { return ddcore.utils.addMonths("2026-01-31", 1) }`
 		t.Fatalf("expected ValidationError, got %v", err)
 	}
 	r, err := rt.RunMethod("X", "dobro", json.RawMessage(`{"doctype":"X","name":"1","a":5}`), json.RawMessage(`{}`))
-	if err != nil || string(r.Result) != `{"v":10,"user":"Administrator"}` {
+	if err != nil || string(r.Result) != `{"v":10,"user":"Admin"}` {
 		t.Fatalf("method: %v %s", err, r.Result)
 	}
 	w, err := rt.CallWhitelisted("demo.doctypes.x.x.controller.hello", json.RawMessage(`{"nome":"mundo"}`))

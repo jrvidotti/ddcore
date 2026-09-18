@@ -95,7 +95,7 @@ event identity, so separate updates can notify again. Retries do not create new 
 ## Reading and authorization
 
 All operations use the authenticated user. There is no recipient selector, even for
-an administrator. Every listing, unread count and read-state change rechecks access
+an admin. Every listing, unread count and read-state change rechecks access
 to the referenced document, one document read per stored occurrence, so the cost
 of a count grows with the user's inbox. Access includes [user access scopes](scopes.md):
 a scope change is observed the same way a role or permission change is. Deleted

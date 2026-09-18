@@ -110,10 +110,10 @@ func setup(t *testing.T, suffix string, extra ...js.App) *engine.Engine {
 }
 
 // server wraps the engine in the same HTTP surface `ddcore start` exposes,
-// authenticated as Administrator through an API key.
+// authenticated as Admin through an API key.
 func server(t *testing.T, e *engine.Engine) (*httptest.Server, string) {
 	t.Helper()
-	tok, err := e.CreateAPIKey(context.Background(), "Administrator", "acceptance")
+	tok, err := e.CreateAPIKey(context.Background(), "Admin", "acceptance")
 	if err != nil {
 		t.Fatalf("apikey: %v", err)
 	}
@@ -152,7 +152,7 @@ func TestInstalacao(t *testing.T) {
 	e := setup(t, "")
 	ctx := context.Background()
 
-	err := e.Run(ctx, "Administrator", func(c *engine.Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *engine.Ctx) error {
 		exists := func(doctype, name string) bool {
 			ok, err := c.Exists(doctype, name)
 			if err != nil {
@@ -160,8 +160,8 @@ func TestInstalacao(t *testing.T) {
 			}
 			return ok
 		}
-		if !exists("User", "Administrator") {
-			t.Error("Administrator user was not created by core installation")
+		if !exists("User", "Admin") {
+			t.Error("Admin user was not created by core installation")
 		}
 		if !exists("Role", "System Manager") {
 			t.Error("System Manager role was not created by core installation")
@@ -201,7 +201,7 @@ func TestBootHome(t *testing.T) {
 		t.Fatal("/api/boot did not return an object in data")
 	}
 
-	if boot["user"] != "Administrator" {
+	if boot["user"] != "Admin" {
 		t.Fatalf("authenticated boot returned user=%v", boot["user"])
 	}
 
@@ -247,7 +247,7 @@ func TestBootHome(t *testing.T) {
 		}
 	}
 	if ws == nil {
-		t.Fatalf("workspace %q was not returned in Administrator boot", home)
+		t.Fatalf("workspace %q was not returned in Admin boot", home)
 	}
 	sidebar, _ := ws["sidebar"].([]any)
 	if len(sidebar) == 0 {
@@ -431,7 +431,7 @@ func TestDemo(t *testing.T) {
 		t.Errorf("the second run created %v record(s), want 0", got)
 	}
 
-	err := e.Run(ctx, "Administrator", func(c *engine.Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *engine.Ctx) error {
 		for doctype, want := range map[string]int64{"Project": 1, "Task": 3, "Project Milestone": 3} {
 			n, err := c.Count(doctype, nil)
 			if err != nil {
@@ -457,7 +457,7 @@ func TestDemo(t *testing.T) {
 func TestFieldPermissions(t *testing.T) {
 	e := setup(t, "_fieldperm")
 	ctx := context.Background()
-	err := e.Run(ctx, "Administrator", func(c *engine.Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *engine.Ctx) error {
 		for email, role := range map[string]string{"manager@x.com": "Project Manager", "contributor@x.com": "Project Contributor"} {
 			u, _ := c.NewDoc("User", engine.Doc{"email": email, "full_name": email, "roles": []any{map[string]any{"role": role}}})
 			if _, err := c.Insert(u, engine.SaveOpts{}); err != nil {
@@ -514,7 +514,7 @@ func TestFieldPermissions(t *testing.T) {
 	if st := do("PUT", "/api/resource/Project/P-1", manager, map[string]any{"budget": 6000}); st != 200 {
 		t.Fatalf("manager budget change = %d", st)
 	}
-	err = e.Run(ctx, "Administrator", func(c *engine.Ctx) error {
+	err = e.Run(ctx, "Admin", func(c *engine.Ctx) error {
 		v, err := c.GetValue("Project", "P-1", "budget")
 		if err != nil {
 			return err
@@ -614,13 +614,13 @@ func TestExtensao(t *testing.T) {
 
 	// and the field saves: it is a column like any other
 	ctx := context.Background()
-	err := e.Run(ctx, "Administrator", func(c *engine.Ctx) error {
-		p, _ := c.NewDoc("Project", engine.Doc{"code": "PRJ-EXT", "title": "Extensão", "assignee": "Administrator", "start_date": "2026-01-01"})
+	err := e.Run(ctx, "Admin", func(c *engine.Ctx) error {
+		p, _ := c.NewDoc("Project", engine.Doc{"code": "PRJ-EXT", "title": "Extensão", "assignee": "Admin", "start_date": "2026-01-01"})
 		if _, err := c.Insert(p, engine.SaveOpts{}); err != nil {
 			return err
 		}
 		task, _ := c.NewDoc("Task", engine.Doc{
-			"code": "T-EXT", "project": p.Name(), "title": "Tarefa", "assignee": "Administrator",
+			"code": "T-EXT", "project": p.Name(), "title": "Tarefa", "assignee": "Admin",
 			"due_date": "2026-02-01", "cost_centre": "CC-1",
 		})
 		if _, err := c.Insert(task, engine.SaveOpts{}); err != nil {
@@ -651,7 +651,7 @@ func fieldOf(fields []any, name string) map[string]any {
 
 func runDemo(t *testing.T, e *engine.Engine, ctx context.Context) map[string]any {
 	t.Helper()
-	raw, err := e.RunJob(ctx, "Administrator", "testapp.services.demo.generate", nil)
+	raw, err := e.RunJob(ctx, "Admin", "testapp.services.demo.generate", nil)
 	if err != nil {
 		t.Fatalf("run the demo: %v", err)
 	}
@@ -722,7 +722,7 @@ func TestSchemaEvolution(t *testing.T) {
 		t.Fatal("fresh installation ran patches instead of recording them")
 	}
 
-	if err := e.Run(ctx, "Administrator", func(c *engine.Ctx) error {
+	if err := e.Run(ctx, "Admin", func(c *engine.Ctx) error {
 		c.Flags["ignorePermissions"] = true
 		doc, err := c.NewDoc("Nota", engine.Doc{"numero": "NF-1", "valor_texto": "1250.50"})
 		if err != nil {
@@ -802,7 +802,7 @@ func TestRecuperacaoDeSenha(t *testing.T) {
 	const oldPwd = "senhaantiga123"
 	const newPwd = "senhanova1234"
 
-	err := e.Run(ctx, "Administrator", func(c *engine.Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *engine.Ctx) error {
 		d, err := c.NewDoc("User", engine.Doc{
 			"email":         user,
 			"full_name":     "Recuperante",

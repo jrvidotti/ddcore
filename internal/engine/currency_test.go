@@ -158,7 +158,7 @@ func setupMoney(t *testing.T, cfg Config) *Engine {
 func TestCurrencyReachesTheColumnRounded(t *testing.T) {
 	e := setupMoney(t, Config{Currency: "USD"})
 	ctx := context.Background()
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		d, _ := c.NewDoc("Fatura", Doc{
 			"emissao": "2018-11-04", // Brazil's DST start: local midnight did not exist
 			"total":   10.005,
@@ -241,7 +241,7 @@ func TestNaiveThirdsDoNotAddUp(t *testing.T) {
 func TestAJapaneseSiteStoresWholeYen(t *testing.T) {
 	e := setupMoney(t, Config{Currency: "JPY", Rounding: num.HalfToEven})
 	ctx := context.Background()
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		d, _ := c.NewDoc("Fatura", Doc{"emissao": "2026-03-01", "total": 1234.5})
 		saved, err := c.Insert(d, SaveOpts{IgnorePermissions: true})
 		if err != nil {

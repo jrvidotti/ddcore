@@ -150,8 +150,8 @@ migration, trigger the validation, run a test, and show the resulting screen.
 Evaluate saved developer effort through observed tasks, not a generic AI claim.
 
 Operational boundary: stdio is available through `ddcore mcp`; the CLI mounts HTTP
-MCP during `dev` behind an Administrator/System Manager API key. Tool execution
-uses Administrator authority. Public demo visitors should receive a normal app
+MCP during `dev` behind an Admin/System Manager API key. Tool execution
+uses Admin authority. Public demo visitors should receive a normal app
 experience, not access to this development endpoint.
 
 ### Business application depth and maturity
@@ -278,7 +278,7 @@ test output. Publish the resulting diff so viewers can reproduce the workflow.
 
 - Published demo version matches its linked source and documentation.
 - Fictional seed data, a documented reset process, and appropriate visitor roles.
-- No visitor access to Administrator credentials or development MCP tools.
+- No visitor access to Admin credentials or development MCP tools.
 - Email and webhooks use controlled demo transports/destinations.
 - A complete first walkthrough works from a fresh session.
 - Loading and layout have been checked on desktop and mobile.

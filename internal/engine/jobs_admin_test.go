@@ -28,7 +28,7 @@ func plantJob(t *testing.T, e *Engine, cols map[string]any) int64 {
 		 VALUES ($1, $2, $3, $4, $5, COALESCE($6, now()), COALESCE($7, now()),
 		         $8, $9, $10, $11, $12, $13, $14) RETURNING id`,
 		get("method", "demo.services.loop.ok"), get("args", nil), get("queue", "default"),
-		get("user", "Administrator"), get("status", "queued"),
+		get("user", "Admin"), get("status", "queued"),
 		get("run_after", nil), get("enqueued", nil), get("started", nil), get("finished", nil),
 		get("lease_until", nil), get("attempts", 0), get("max_attempts", 3),
 		get("error", nil), get("cancel_requested", nil)).Scan(&id)
@@ -155,7 +155,7 @@ func TestCancelRunningJob(t *testing.T) {
 
 	// The pooled VM must survive the interrupt, or the cancellation costs the
 	// worker every job after it.
-	res, err := e.RunJob(ctx, "Administrator", "demo.services.loop.ok", map[string]any{"x": 7})
+	res, err := e.RunJob(ctx, "Admin", "demo.services.loop.ok", map[string]any{"x": 7})
 	if err != nil || !strings.Contains(string(res), `"x":7`) {
 		t.Fatalf("the runtime did not survive the cancel: %s %v", res, err)
 	}
@@ -421,7 +421,7 @@ func TestEnqueueAcceptsMaxAttempts(t *testing.T) {
 	ctx := context.Background()
 
 	var id int64
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		var err error
 		id, err = c.Enqueue("demo.services.loop.ok", nil, map[string]any{"maxAttempts": 1})
 		return err
@@ -438,7 +438,7 @@ func TestEnqueueAcceptsMaxAttempts(t *testing.T) {
 	}
 
 	// Saying nothing still means the shipped default.
-	err = e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err = e.Run(ctx, "Admin", func(c *Ctx) error {
 		var err error
 		id, err = c.Enqueue("demo.services.loop.ok", nil, nil)
 		return err
@@ -525,7 +525,7 @@ func TestScheduledSweepRunsAndPurges(t *testing.T) {
 		"status": "done", "finished": time.Now().Add(-365 * 24 * time.Hour),
 	})
 
-	res, err := e.RunJob(ctx, "Administrator", "core.services.jobs.sweep", nil)
+	res, err := e.RunJob(ctx, "Admin", "core.services.jobs.sweep", nil)
 	if err != nil {
 		t.Fatalf("the scheduler entry does not run: %v", err)
 	}

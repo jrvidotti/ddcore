@@ -52,7 +52,7 @@ export default defineDoctype({
 
 	// 1. Insert contract document
 	var docName string
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		doc, err := c.Insert(Doc{
 			"doctype": "Contract",
 			"name":    "CTR-001",
@@ -76,7 +76,7 @@ export default defineDoctype({
 	}
 
 	// 2. Render standard format as Admin in pt-BR
-	cAdmin := e.NewCtx(ctx, "Administrator")
+	cAdmin := e.NewCtx(ctx, "Admin")
 	htmlOut, err := cAdmin.PrintDoc("Contract", docName, "standard", "none", "pt-BR", print.PDFOptions{})
 	if err != nil {
 		t.Fatal(err)
@@ -100,7 +100,7 @@ export default defineDoctype({
 
 	// 3. Unauthorized access check
 	// Insert Secret Doc
-	err = e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err = e.Run(ctx, "Admin", func(c *Ctx) error {
 		_, err := c.Insert(Doc{
 			"doctype": "Secret Doc",
 			"name":    "SEC-001",
@@ -153,7 +153,7 @@ export default definePrintTemplate({
 	})
 
 	var docName string
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		doc, err := c.Insert(Doc{
 			"doctype": "Receipt",
 			"name":    "REC-999",
@@ -171,7 +171,7 @@ export default definePrintTemplate({
 		t.Fatal(err)
 	}
 
-	cAdmin := e.NewCtx(ctx, "Administrator")
+	cAdmin := e.NewCtx(ctx, "Admin")
 	// Check format listing
 	formats, err := cAdmin.ListPrintFormats("Receipt")
 	if err != nil {
@@ -232,14 +232,14 @@ export default definePrintTemplate({
   ],
 });`,
 	})
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		_, err := c.Insert(Doc{"doctype": "Invoice", "name": "INV-1", "customer_name": "Acme <Ltd>", "posting_date": "2026-09-14", "grand_total": 10}, SaveOpts{})
 		return err
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	out, err := e.NewCtx(ctx, "Administrator").PrintDoc("Invoice", "INV-1", "demo.invoice_columns", "none", "en", print.PDFOptions{})
+	out, err := e.NewCtx(ctx, "Admin").PrintDoc("Invoice", "INV-1", "demo.invoice_columns", "none", "en", print.PDFOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -264,7 +264,7 @@ export default defineDoctype({
 });`,
 	})
 	e.Cfg.Currency = "USD"
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		_, err := c.Insert(Doc{"doctype": "Fee", "name": "FEE-1", "amount": 50000.5}, SaveOpts{})
 		return err
 	})
@@ -272,7 +272,7 @@ export default defineDoctype({
 		t.Fatal(err)
 	}
 	for lang, want := range map[string]string{"en": "$ 50,000.50", "pt-BR": "US$ 50.000,50"} {
-		out, err := e.NewCtx(ctx, "Administrator").PrintDoc("Fee", "FEE-1", "standard", "none", lang, print.PDFOptions{})
+		out, err := e.NewCtx(ctx, "Admin").PrintDoc("Fee", "FEE-1", "standard", "none", lang, print.PDFOptions{})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -287,7 +287,7 @@ export default defineDoctype({
 func TestLetterHead_OneDefault(t *testing.T) {
 	ctx := context.Background()
 	e := setup(t)
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		for _, n := range []string{"First", "Second"} {
 			if _, err := c.Insert(Doc{"doctype": "Letter Head", "letter_head_name": n, "is_default": true}, SaveOpts{}); err != nil {
 				return err
@@ -323,7 +323,7 @@ func TestLetterHead_OneDefault(t *testing.T) {
 func TestLetterHead_DisabledCannotBecomeDefault(t *testing.T) {
 	ctx := context.Background()
 	e := setup(t)
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		if _, err := c.Insert(Doc{"doctype": "Letter Head", "letter_head_name": "Enabled", "is_default": true}, SaveOpts{}); err != nil {
 			return err
 		}
@@ -356,7 +356,7 @@ func TestLetterHead_DisabledCannotBecomeDefault(t *testing.T) {
 func TestPrintDoc_LetterHeadSelection(t *testing.T) {
 	ctx := context.Background()
 	e := setup(t)
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		for _, lh := range []Doc{
 			{"doctype": "Letter Head", "letter_head_name": "Old", "header_html": "<b>OLD-HEADER</b>"},
 			{"doctype": "Letter Head", "letter_head_name": "New", "header_html": "<b>NEW-HEADER</b>"},
@@ -379,7 +379,7 @@ func TestPrintDoc_LetterHeadSelection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c := e.NewCtx(ctx, "Administrator")
+	c := e.NewCtx(ctx, "Admin")
 	out, err := c.PrintDoc("Pessoa", "Lia", "standard", "", "en", print.PDFOptions{})
 	if err != nil {
 		t.Fatal(err)

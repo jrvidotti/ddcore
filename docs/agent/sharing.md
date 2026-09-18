@@ -29,7 +29,7 @@ permissions: [
 ```
 
 `share` is a level-0 right: a row above level 0 may not grant it. No DocType is shareable
-until a role gets `share: true`. `Administrator` and elevated contexts
+until a role gets `share: true`. `Admin` and elevated contexts
 (`ignorePermissions`, jobs) can always share.
 
 Other checks when a share is granted:
@@ -38,7 +38,7 @@ Other checks when a share is granted:
   `write` on that document, so a read-only sharer can hand out read access and nothing
   more.
 - **The recipient** must be an existing, enabled user other than the sharer,
-  `Administrator` or `Guest`.
+  `Admin` or `Guest`.
 - **Some documents cannot be shared:** child rows, Singles, `Document Share`, `Audit Event`,
   `User Permission`, `Webhook` and `Webhook Delivery`.
 - **Updating a share:** sharing again with the same user replaces that user's rights (one
@@ -70,7 +70,7 @@ their `User Permission` scopes. It lifts the scope for exactly the rights the sh
   `Document Share`, `User Permission`, `Webhook` and `Webhook Delivery` stay closed to a
   scoped user. An override lifts `read`, `write` and `share`, and nothing else.
 
-Only a **System Manager without scope rows of their own**, `Administrator`, or an elevated
+Only a **System Manager without scope rows of their own**, `Admin`, or an elevated
 context may give an override. A refused attempt is recorded as a `Denied`
 `permission.share_grant`. A scoped recipient holding the `share` right may re-share the
 document, but never with an override.
@@ -117,7 +117,7 @@ caller who cannot share never sees it as `true`.
 | `401` | `Guest`, or no session |
 | `403` | The caller lacks `share` on the document, lacks `write` for a write share, or may not give an override |
 | `404` | The document does not exist, or `remove` names a share that does not exist |
-| `417` | Sharing with yourself, with `Administrator` or `Guest`, or with a missing or disabled user; a DocType that cannot be shared; a missing `doctype`, `name` or `user`; invalid JSON, an unknown body field, or a body over 4096 bytes |
+| `417` | Sharing with yourself, with `Admin` or `Guest`, or with a missing or disabled user; a DocType that cannot be shared; a missing `doctype`, `name` or `user`; invalid JSON, an unknown body field, or a body over 4096 bytes |
 
 Order matters: the `share` right is checked **before** the recipient is validated, so a
 caller who cannot share learns nothing about the user they named.

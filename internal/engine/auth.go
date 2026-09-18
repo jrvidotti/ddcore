@@ -77,7 +77,7 @@ func (e *Engine) Login(ctx context.Context, user, password string, from LoginFro
 
 func (e *Engine) login(ctx context.Context, user, password string, from LoginFrom) (string, error) {
 	var sid string
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		rows, err := db.Select(ctx, c.Tx, `SELECT name, password_hash, enabled FROM tab_user WHERE lower(name) = lower($1) OR lower(email) = lower($1) LIMIT 1`, strings.TrimSpace(user))
 		if err != nil {
 			return err
@@ -99,7 +99,7 @@ func (e *Engine) login(ctx context.Context, user, password string, from LoginFro
 			return cerr.Auth("User is disabled")
 		}
 		name := db.Str(rows[0]["name"])
-		if !e.Cfg.Auth.AllowPasswordLogin() && name != "Administrator" {
+		if !e.Cfg.Auth.AllowPasswordLogin() && name != "Admin" {
 			// After the password, for the same reason as "disabled" above.
 			return cerr.Auth("Password sign-in is disabled. Use single sign-on.")
 		}
@@ -205,7 +205,7 @@ func (e *Engine) UserFromAPIKey(ctx context.Context, token string) (string, erro
 // CreateAPIKey issues a key for a user and returns "key:secret".
 func (e *Engine) CreateAPIKey(ctx context.Context, user, label string) (string, error) {
 	var token string
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		out, err := e.CreateAPIKeyFor(c, user, label, 0)
 		if err != nil {
 			return err
@@ -266,7 +266,7 @@ func (e *Engine) SetPasswordExcept(ctx context.Context, user, password, exceptSi
 	if err != nil {
 		return err
 	}
-	return e.Run(ctx, "Administrator", func(c *Ctx) error {
+	return e.Run(ctx, "Admin", func(c *Ctx) error {
 		tag, err := c.Tx.Exec(ctx, `UPDATE tab_user SET password_hash = $2 WHERE name = $1`, user, hash)
 		if err != nil {
 			return err

@@ -36,7 +36,7 @@ Asking for one by name is a validation error, not a silent omission.
 A field above the exporting user's permission level (`permlevel`) is left out of the
 default columns, out of child tables and, for a file held by that field, out of the
 attachments. Asking for it by name is a `PermissionError`. The CLI exports as
-Administrator unless `--user` says otherwise. See `field-permissions`.
+Admin unless `--user` says otherwise. See `field-permissions`.
 
 Row-level authorisation is the same as a list's: `ifOwner` and the controller's
 `permissionQuery` restrict an export exactly as they restrict `getList`.

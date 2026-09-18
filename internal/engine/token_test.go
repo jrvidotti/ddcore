@@ -15,7 +15,7 @@ func TestTokenIsSingleUse(t *testing.T) {
 	e := setupPerm(t)
 	ctx := context.Background()
 
-	token, expires, err := e.IssueToken(ctx, "ze@x.com", TokenReset, time.Hour, "Administrator", "127.0.0.1")
+	token, expires, err := e.IssueToken(ctx, "ze@x.com", TokenReset, time.Hour, "Admin", "127.0.0.1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -34,7 +34,7 @@ func TestTokenIsSingleUse(t *testing.T) {
 		t.Fatalf("peeking twice must not consume: %v", err)
 	}
 
-	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		at, err := e.ConsumeToken(ctx, c.Tx, token, TokenReset)
 		if err != nil {
 			return err
@@ -48,7 +48,7 @@ func TestTokenIsSingleUse(t *testing.T) {
 	}
 
 	// consuming again is rejected, and with ValidationError rather than 500
-	err = e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err = e.Run(ctx, "Admin", func(c *Ctx) error {
 		_, err := e.ConsumeToken(ctx, c.Tx, token, TokenReset)
 		return err
 	})
@@ -93,7 +93,7 @@ func TestTokenExpires(t *testing.T) {
 	if _, err := e.PeekToken(ctx, token); err == nil {
 		t.Error("an expired token cannot be peeked")
 	}
-	err = e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err = e.Run(ctx, "Admin", func(c *Ctx) error {
 		_, err := e.ConsumeToken(ctx, c.Tx, token, TokenReset)
 		return err
 	})
@@ -111,7 +111,7 @@ func TestTokenKindIsChecked(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err = e.Run(ctx, "Admin", func(c *Ctx) error {
 		_, err := e.ConsumeToken(ctx, c.Tx, token, TokenReset)
 		return err
 	})
@@ -138,7 +138,7 @@ func TestTokenRaceHasExactlyOneWinner(t *testing.T) {
 	for i := 0; i < racers; i++ {
 		go func() {
 			defer wg.Done()
-			err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+			err := e.Run(ctx, "Admin", func(c *Ctx) error {
 				_, err := e.ConsumeToken(ctx, c.Tx, token, TokenReset)
 				return err
 			})

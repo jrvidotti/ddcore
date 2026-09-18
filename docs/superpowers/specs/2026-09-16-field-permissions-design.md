@@ -31,7 +31,7 @@ expect.
 `FieldAccess` is a bitmask computed from the user's roles and the DocType's rows. Level 0
 is always granted. Whether the user reaches the document at all stays with the existing
 document checks. Child DocTypes use the parent's rows, and a child listed directly uses the
-intersection over every embedding parent. Administrator and `IgnorePermissions` contexts
+intersection over every embedding parent. Admin and `IgnorePermissions` contexts
 get full access.
 
 **Rationale:** it keeps one authority per question. Document access remains where SEC-01,

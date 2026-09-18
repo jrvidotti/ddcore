@@ -30,11 +30,11 @@ func TestAssignment_ControllerLifecycle(t *testing.T) {
 	e := setupWith(t, nil)
 	ctx := context.Background()
 
-	// 1. Insert a ToDo as Administrator without assigned_by -> beforeInsert sets assigned_by to Administrator
+	// 1. Insert a ToDo as Admin without assigned_by -> beforeInsert sets assigned_by to Admin
 	var todoName string
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		doc, err := c.NewDoc("ToDo", Doc{
-			"allocated_to": "Administrator",
+			"allocated_to": "Admin",
 			"description":  "Personal task",
 			"status":       "Open",
 		})
@@ -46,8 +46,8 @@ func TestAssignment_ControllerLifecycle(t *testing.T) {
 			return err
 		}
 		todoName = inserted.Name()
-		if inserted.Str("assigned_by") != "Administrator" {
-			t.Fatalf("expected assigned_by to be Administrator, got %v", inserted.Str("assigned_by"))
+		if inserted.Str("assigned_by") != "Admin" {
+			t.Fatalf("expected assigned_by to be Admin, got %v", inserted.Str("assigned_by"))
 		}
 		return nil
 	})
@@ -64,7 +64,7 @@ func TestAssignment_RenameAndDeletionCascade(t *testing.T) {
 	ctx := context.Background()
 
 	var todoName string
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		p, err := c.NewDoc("Pessoa", Doc{"nome": "Original Cascade"})
 		if err != nil {
 			return err
@@ -74,7 +74,7 @@ func TestAssignment_RenameAndDeletionCascade(t *testing.T) {
 		}
 
 		todo, err := c.NewDoc("ToDo", Doc{
-			"allocated_to":   "Administrator",
+			"allocated_to":   "Admin",
 			"reference_type": "Pessoa",
 			"reference_name": "Original Cascade",
 			"description":    "Review person",
@@ -94,7 +94,7 @@ func TestAssignment_RenameAndDeletionCascade(t *testing.T) {
 	}
 
 	// 1. Rename Pessoa
-	err = e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err = e.Run(ctx, "Admin", func(c *Ctx) error {
 		if _, err := c.Rename("Pessoa", "Original Cascade", "Renamed Cascade"); err != nil {
 			return err
 		}
@@ -112,7 +112,7 @@ func TestAssignment_RenameAndDeletionCascade(t *testing.T) {
 	}
 
 	// 2. Delete Pessoa
-	err = e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err = e.Run(ctx, "Admin", func(c *Ctx) error {
 		if err := c.Delete("Pessoa", "Renamed Cascade", false, false); err != nil {
 			return err
 		}
@@ -132,7 +132,7 @@ func TestAssignment_DoesNotGrantDocumentAccess(t *testing.T) {
 	ctx := context.Background()
 
 	// Create user 'ze' with only 'Atendente' role (cannot read Pessoa)
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		u, _ := c.NewDoc("User", Doc{
 			"email":      "ze@x.com",
 			"first_name": "Ze",
@@ -208,7 +208,7 @@ func TestAssignment_DueDateReminder(t *testing.T) {
 	ctx := context.Background()
 
 	// 1. Create a user 'ana@x.com'
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		u, _ := c.NewDoc("User", Doc{
 			"email":      "ana@x.com",
 			"first_name": "Ana",

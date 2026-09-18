@@ -13,7 +13,7 @@
     submit?.focus();
   }
   const providers = $derived(offer?.providers ?? []);
-  // with password sign-in off the form stays reachable for Administrator,
+  // with password sign-in off the form stays reachable for Admin,
   // who keeps a password for the day the identity provider is down
   let showPassword = $state(false);
   const passwordForm = $derived(offer?.password !== false || showPassword);
@@ -25,7 +25,7 @@
   function ssoMessage(code: string | null): string {
     switch (code) {
       case null: return "";
-      case "no_account": return __("There is no account for this e-mail address. Ask an administrator to invite you.");
+      case "no_account": return __("There is no account for this e-mail address. Ask an admin to invite you.");
       case "unverified_email": return __("The provider did not confirm this e-mail address.");
       case "disabled": return __("User is disabled");
       case "domain": return __("This e-mail domain is not allowed to sign in here.");
@@ -77,7 +77,7 @@
         <a class="small" href="/login/forgot" style="text-align:center">{__("I forgot my password")}</a>
       {/if}
     {:else}
-      <button type="button" class="small link" onclick={() => (showPassword = true)}>{__("Administrator sign-in")}</button>
+      <button type="button" class="small link" onclick={() => (showPassword = true)}>{__("Admin sign-in")}</button>
     {/if}
   </form>
 </div>

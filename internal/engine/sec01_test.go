@@ -107,7 +107,7 @@ func TestSEC01_QueryFilters(t *testing.T) {
 	)
 	var alfaRecord, betaRecord, alfaDynamic, userDynamic string
 
-	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		for _, user := range []string{alfaUser, betaUser} {
 			u, err := c.NewDoc("User", Doc{
 				"email": user, "full_name": user,
@@ -288,7 +288,7 @@ func TestSEC01_DocLifecycle(t *testing.T) {
 	const alfaUser = "user_alfa@x.com"
 	var alfaRecord, betaRecord string
 
-	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		u, err := c.NewDoc("User", Doc{
 			"email": alfaUser, "full_name": alfaUser,
 			"roles": []any{map[string]any{"role": "Scope User"}},
@@ -377,7 +377,7 @@ func TestSEC01_DocLifecycleScopeCannotBeBypassed(t *testing.T) {
 	const alfaUser = "user_alfa@x.com"
 	var alfaIgnoreSaveRecord, alfaSaveRecord, alfaSubmitRecord, betaRecord string
 
-	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		u, err := c.NewDoc("User", Doc{
 			"email": alfaUser, "full_name": alfaUser,
 			"roles": []any{map[string]any{"role": "Scope User"}},
@@ -508,7 +508,7 @@ func TestSEC01_DirectAccessDynamicLink(t *testing.T) {
 	const alfaUser = "user_alfa@x.com"
 	var alfaDynamic, betaDynamic, userDynamic string
 
-	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		u, err := c.NewDoc("User", Doc{
 			"email": alfaUser, "full_name": alfaUser,
 			"roles": []any{map[string]any{"role": "Scope User"}},
@@ -596,7 +596,7 @@ func TestSEC01_ExistsDBSetAndScopeAdministration(t *testing.T) {
 	)
 	var alfaRecord, betaRecord, ownPermission string
 
-	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		for _, user := range []struct {
 			email string
 			roles []any
@@ -787,7 +787,7 @@ func TestSEC01_DBSetChildRowScopeUsesParentApplicableFor(t *testing.T) {
 	const scopedUser = "child_scope_user@x.com"
 	var itemName string
 
-	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		u, err := c.NewDoc("User", Doc{"email": scopedUser, "full_name": scopedUser,
 			"roles": []any{map[string]any{"role": "Scope User"}}})
 		if err != nil {

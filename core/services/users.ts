@@ -6,7 +6,7 @@ import { whitelisted, _ } from "@ddcore/sdk";
  *
  * These are the counterpart of `profile.ts`, and the difference in tone is
  * deliberate. A public recovery endpoint must never say whether an address
- * exists; an administrator pressing "send invitation" is entitled to be told
+ * exists; an admin pressing "send invitation" is entitled to be told
  * plainly when it does not, because they are already allowed to read the list
  * of users.
  *

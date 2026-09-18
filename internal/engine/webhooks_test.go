@@ -83,7 +83,7 @@ func addWebhook(t *testing.T, e *Engine, url string, values Doc) string {
 		v[k] = x
 	}
 	var name string
-	err := e.Run(context.Background(), "Administrator", func(c *Ctx) error {
+	err := e.Run(context.Background(), "Admin", func(c *Ctx) error {
 		doc, err := c.NewDoc("Webhook", v)
 		if err != nil {
 			return err
@@ -100,7 +100,7 @@ func addWebhook(t *testing.T, e *Engine, url string, values Doc) string {
 
 func insertHookPessoa(t *testing.T, e *Engine, nome string) {
 	t.Helper()
-	err := e.Run(context.Background(), "Administrator", func(c *Ctx) error {
+	err := e.Run(context.Background(), "Admin", func(c *Ctx) error {
 		p, _ := c.NewDoc("Pessoa", Doc{"nome": nome, "segredo": "hunter2"})
 		_, err := c.Insert(p, SaveOpts{})
 		return err
@@ -223,7 +223,7 @@ func TestOPS06_RollbackSendsNothing(t *testing.T) {
 	e := setupWebhooks(t)
 	rcv := newReceiver(t)
 	addWebhook(t, e, rcv.URL, nil)
-	err := e.Run(context.Background(), "Administrator", func(c *Ctx) error {
+	err := e.Run(context.Background(), "Admin", func(c *Ctx) error {
 		p, _ := c.NewDoc("Pessoa", Doc{"nome": "Bia"})
 		if _, err := c.Insert(p, SaveOpts{}); err != nil {
 			return err
@@ -289,7 +289,7 @@ func TestOPS06_ExponentialBackoffGrowsAndIsCapped(t *testing.T) {
 	e := setup(t)
 	ctx := context.Background()
 	var id int64
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		var err error
 		id, err = c.Enqueue("demo.services.loop.ok", nil, map[string]any{"backoff": "exponential", "maxAttempts": 20})
 		return err
@@ -327,7 +327,7 @@ func TestOPS06_ExponentialBackoffGrowsAndIsCapped(t *testing.T) {
 	if backoff != BackoffExponential {
 		t.Fatalf("a retried job lost its backoff: %q", backoff)
 	}
-	err = e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err = e.Run(ctx, "Admin", func(c *Ctx) error {
 		_, err := c.Enqueue("demo.services.loop.ok", nil, map[string]any{"backoff": "random"})
 		return err
 	})
@@ -420,7 +420,7 @@ func TestOPS06_SubmitAndDeleteAreEvents(t *testing.T) {
 	addWebhook(t, e, rcv.URL, Doc{"on_insert": false, "on_update": false, "on_trash": true})
 	insertHookPessoa(t, e, "Hugo")
 	ctx := context.Background()
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		p, _ := c.NewDoc("Pedido", Doc{"cliente": "Hugo"})
 		p, err := c.Insert(p, SaveOpts{})
 		if err != nil {
@@ -438,7 +438,7 @@ func TestOPS06_SubmitAndDeleteAreEvents(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := e.Run(ctx, "Administrator", func(c *Ctx) error { return c.Delete("Pessoa", "Hugo", false, true) }); err != nil {
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error { return c.Delete("Pessoa", "Hugo", false, true) }); err != nil {
 		t.Fatal(err)
 	}
 	var events []string
@@ -462,7 +462,7 @@ func TestOPS06_ReplayResendsTheSameEventAndAudits(t *testing.T) {
 
 	// Somebody without the role is refused, and the refusal is on record even
 	// though its transaction rolled back.
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		u, _ := c.NewDoc("User", Doc{"email": "joao@x.com", "full_name": "João"})
 		_, err := c.Insert(u, SaveOpts{})
 		return err
@@ -475,11 +475,11 @@ func TestOPS06_ReplayResendsTheSameEventAndAudits(t *testing.T) {
 		t.Fatalf("replay without the role = %v", err)
 	}
 
-	if err := e.Run(ctx, "Administrator", func(c *Ctx) error { return c.ReplayWebhook(name) }); err != nil {
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error { return c.ReplayWebhook(name) }); err != nil {
 		t.Fatal(err)
 	}
 	// A second replay while the first is still queued would send it twice.
-	err = e.Run(ctx, "Administrator", func(c *Ctx) error { return c.ReplayWebhook(name) })
+	err = e.Run(ctx, "Admin", func(c *Ctx) error { return c.ReplayWebhook(name) })
 	if err == nil || !strings.Contains(err.Error(), "still on its way") {
 		t.Fatalf("replay of a queued delivery = %v", err)
 	}
@@ -521,7 +521,7 @@ func TestOPS06_EmitCustomEvent(t *testing.T) {
 
 	emit := func(key string) ([]string, error) {
 		var out []string
-		err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+		err := e.Run(ctx, "Admin", func(c *Ctx) error {
 			rt, err := c.RT()
 			if err != nil {
 				return err
@@ -562,7 +562,7 @@ func TestOPS06_EmitCustomEvent(t *testing.T) {
 	}
 
 	for _, bad := range []string{"doc.on_submit", "Shop Paid", ""} {
-		err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+		err := e.Run(ctx, "Admin", func(c *Ctx) error {
 			_, err := c.EmitWebhook(bad, nil, nil, "")
 			return err
 		})
@@ -630,7 +630,7 @@ func TestOPS06_WebhookValidation(t *testing.T) {
 		for k, x := range tc.values {
 			v[k] = x
 		}
-		err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+		err := e.Run(ctx, "Admin", func(c *Ctx) error {
 			doc, _ := c.NewDoc("Webhook", v)
 			_, err := c.Insert(doc, SaveOpts{})
 			return err
@@ -672,7 +672,7 @@ func TestOPS06_ScopedUsersCannotAdministerWebhooks(t *testing.T) {
 	rcv := newReceiver(t)
 	ctx := context.Background()
 	const scoped, unscoped = "scoped@x.com", "unscoped@x.com"
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		for _, user := range []string{scoped, unscoped} {
 			u, err := c.NewDoc("User", Doc{"email": user, "full_name": user, "roles": []any{
 				map[string]any{"role": "System Manager"}, map[string]any{"role": "Gestor"},
@@ -792,7 +792,7 @@ func TestOPS06_ScopedUsersCannotAdministerWebhooks(t *testing.T) {
 // appends the stack after the error's JSON and the decoder refused the tail.
 func TestOPS06_ReplayErrorKeepsItsTypeThroughTheBridge(t *testing.T) {
 	e := setupWebhooks(t)
-	err := e.Run(context.Background(), "Administrator", func(c *Ctx) error {
+	err := e.Run(context.Background(), "Admin", func(c *Ctx) error {
 		rt, err := c.RT()
 		if err != nil {
 			return err

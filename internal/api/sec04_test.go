@@ -185,7 +185,7 @@ func TestSEC04_PasswordPolicyOnEveryPath(t *testing.T) {
 	shortPwd := "abc"
 
 	// 1. User form and `ddcore user add`, via new_password -> __hashPassword
-	err := x.e.Run(x.ctx, "Administrator", func(c *engine.Ctx) error {
+	err := x.e.Run(x.ctx, "Admin", func(c *engine.Ctx) error {
 		d, _ := c.NewDoc("User", engine.Doc{"email": "nova@x.com", "full_name": "Nova", "new_password": shortPwd})
 		_, err := c.Insert(d, engine.SaveOpts{})
 		return err

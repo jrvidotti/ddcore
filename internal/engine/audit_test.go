@@ -65,7 +65,7 @@ func TestAuditSanitization(t *testing.T) {
 func TestAuditImmutability(t *testing.T) {
 	e := setup(t)
 	ctx := t.Context()
-	c := e.NewCtx(ctx, "Administrator")
+	c := e.NewCtx(ctx, "Admin")
 	c.Flags["ignorePermissions"] = false
 
 	// Attempt direct Insert
@@ -184,9 +184,9 @@ func TestAudit_RoleChanges(t *testing.T) {
 	e := setup(t)
 	ctx := t.Context()
 
-	// 1. Create a user as Administrator with an initial role
+	// 1. Create a user as Admin with an initial role
 	var userName string
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		u, err := c.NewDoc("User", Doc{
 			"email":     "testuser@example.com",
 			"full_name": "Test User",
@@ -219,7 +219,7 @@ func TestAudit_RoleChanges(t *testing.T) {
 	}
 
 	// 2. Modify user roles: remove Gestor, add All
-	err = e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err = e.Run(ctx, "Admin", func(c *Ctx) error {
 		u, err := c.GetDoc("User", userName)
 		if err != nil {
 			return err
@@ -249,7 +249,7 @@ func TestAudit_RoleChanges(t *testing.T) {
 	}
 
 	// 3. Disable user
-	err = e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err = e.Run(ctx, "Admin", func(c *Ctx) error {
 		u, err := c.GetDoc("User", userName)
 		if err != nil {
 			return err
@@ -272,13 +272,13 @@ func TestAudit_AccountAdmin(t *testing.T) {
 	e := setup(t)
 	ctx := t.Context()
 
-	// 1. Call core.services.users.invite as Administrator
+	// 1. Call core.services.users.invite as Admin
 	invitePayload := map[string]any{
 		"email":    "invited@example.com",
 		"fullName": "Invited User",
 	}
 	b, _ := json.Marshal(invitePayload)
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		r, err := c.RT()
 		if err != nil {
 			return err
@@ -298,7 +298,7 @@ func TestAudit_AccountAdmin(t *testing.T) {
 
 	// 2. Call core.services.users.sendPasswordReset
 	resetPayload, _ := json.Marshal(map[string]any{"user": "invited@example.com"})
-	err = e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err = e.Run(ctx, "Admin", func(c *Ctx) error {
 		r, err := c.RT()
 		if err != nil {
 			return err
@@ -317,7 +317,7 @@ func TestAudit_AccountAdmin(t *testing.T) {
 
 	// 3. Call core.services.users.unlockUser
 	unlockPayload, _ := json.Marshal(map[string]any{"user": "invited@example.com"})
-	err = e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err = e.Run(ctx, "Admin", func(c *Ctx) error {
 		r, err := c.RT()
 		if err != nil {
 			return err
@@ -336,7 +336,7 @@ func TestAudit_AccountAdmin(t *testing.T) {
 
 	// 4. Call core.services.users.revokeUserSessions
 	revokePayload, _ := json.Marshal(map[string]any{"user": "invited@example.com"})
-	err = e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err = e.Run(ctx, "Admin", func(c *Ctx) error {
 		r, err := c.RT()
 		if err != nil {
 			return err

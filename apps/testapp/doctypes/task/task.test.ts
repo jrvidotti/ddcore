@@ -7,7 +7,7 @@ function makeProject(values: Partial<Project> = {}) {
   return ddcore.newDoc<Project>("Project", {
     code: "P-" + u().randomString(6),
     title: "Test project",
-    assignee: "Administrator",
+    assignee: "Admin",
     start_date: u().addDays(u().today(), -30),
     ...values,
   }).insert();
@@ -18,7 +18,7 @@ function makeTask(project: string, values: Partial<Task> = {}) {
     code: "T-" + u().randomString(6),
     project,
     title: "Test task",
-    assignee: "Administrator",
+    assignee: "Admin",
     due_date: u().addDays(u().today(), 7),
     ...values,
   }).insert();

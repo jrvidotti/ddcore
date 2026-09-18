@@ -167,14 +167,14 @@ migration would do without applying it, run `ddcore migrate --dry-run`.
 
 ## 6. Sign in to the Desk
 
-Give the built-in `Administrator` account a password, then start the development server:
+Give the built-in `Admin` account a password, then start the development server:
 
 ```bash
-ddcore user passwd Administrator admin1234
+ddcore user passwd Admin admin1234
 ddcore dev
 ```
 
-Open `http://localhost:8080/app/library/Book` and sign in as `Administrator` / `admin1234`.
+Open `http://localhost:8080/app/library/Book` and sign in as `Admin` / `admin1234`.
 That URL is the Book list: `/app/<workspace>/<DocType>`, where `library` stands in for a
 workspace you will create in the next step. Click **New**, fill in
 ISBN, Title and Author, and save. The record is stored in the `tab_book` table, with its

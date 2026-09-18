@@ -174,7 +174,7 @@ func setupApp(t *testing.T, appDir string) *env {
 		}
 		return nil
 	})
-	if err := e.SetPassword(ctx, "Administrator", "admin12345"); err != nil {
+	if err := e.SetPassword(ctx, "Admin", "admin12345"); err != nil {
 		t.Fatal(err)
 	}
 	return x
@@ -182,7 +182,7 @@ func setupApp(t *testing.T, appDir string) *env {
 
 func (x *env) asAdmin(fn func(c *engine.Ctx) error) {
 	x.t.Helper()
-	if err := x.e.Run(x.ctx, "Administrator", fn); err != nil {
+	if err := x.e.Run(x.ctx, "Admin", fn); err != nil {
 		x.t.Fatal(err)
 	}
 }
@@ -195,7 +195,7 @@ func (x *env) as(user string, fn func(c *engine.Ctx) error) error {
 func (x *env) sid(user string) string {
 	x.t.Helper()
 	pwd := "segredo123"
-	if user == "Administrator" {
+	if user == "Admin" {
 		pwd = "admin12345"
 	}
 	sid, err := x.e.Login(x.ctx, user, pwd, engine.LoginFrom{IP: "127.0.0.1", UserAgent: "test"})
@@ -295,15 +295,15 @@ func TestB01_MCPRequiresAPIKey(t *testing.T) {
 	x := setup(t)
 	// without credential
 	x.expect(x.mcpCall(""), 401, "AuthenticationError")
-	// session cookie, even for Administrator, does not apply to HTTP MCP
-	x.expect(x.mcpCall("sid:"+x.sid("Administrator")), 401, "AuthenticationError")
+	// session cookie, even for Admin, does not apply to HTTP MCP
+	x.expect(x.mcpCall("sid:"+x.sid("Admin")), 401, "AuthenticationError")
 	// invalid key
 	x.expect(x.mcpCall("token:abc:def"), 401, "AuthenticationError")
 	// valid key of user without administrative role
 	x.expect(x.mcpCall("token:"+x.apiKey("ze@x.com")), 403, "PermissionError")
 	x.expect(x.mcpCall("token:"+x.apiKey("ana@x.com")), 403, "PermissionError")
-	// System Manager and Administrator pass
-	for _, u := range []string{"root@x.com", "Administrator"} {
+	// System Manager and Admin pass
+	for _, u := range []string{"root@x.com", "Admin"} {
 		r := x.mcpCall("token:" + x.apiKey(u))
 		if r.Status != 200 || !strings.Contains(r.Raw, "db_user") {
 			t.Fatalf("%s: expected 200 with result, got %d: %s", u, r.Status, r.Raw)
@@ -317,7 +317,7 @@ func TestB02_ChildResourceEndpointsFollowParent(t *testing.T) {
 	x := setup(t)
 	var roleRow string
 	x.asAdmin(func(c *engine.Ctx) error {
-		u, err := c.GetDoc("User", "Administrator")
+		u, err := c.GetDoc("User", "Admin")
 		if err != nil {
 			return err
 		}
@@ -345,8 +345,8 @@ func TestB02_ChildResourceEndpointsFollowParent(t *testing.T) {
 		}
 		return nil
 	})
-	// not even for Administrator: child is edited through the parent
-	x.expect(x.call("PUT", "/api/resource/Has%20Role/"+roleRow, map[string]any{"role": "Guest"}, "sid:"+x.sid("Administrator")), 417, "ValidationError")
+	// not even for Admin: child is edited through the parent
+	x.expect(x.call("PUT", "/api/resource/Has%20Role/"+roleRow, map[string]any{"role": "Guest"}, "sid:"+x.sid("Admin")), 417, "ValidationError")
 
 	// Gestor reads rows from their own Pedido; user without role does not
 	var item string
@@ -646,7 +646,7 @@ func TestLacuna_APIKeyDeUsuarioDesativado(t *testing.T) {
 // be decoded before becoming a document name.
 func TestLacuna_ParametroDeRotaPercentCodificado(t *testing.T) {
 	x := setup(t)
-	admin := "sid:" + x.sid("Administrator")
+	admin := "sid:" + x.sid("Admin")
 	for _, p := range []string{
 		"/api/resource/User/ana%40x.com",
 		"/api/comments/User/ana%40x.com",
@@ -739,9 +739,9 @@ func TestLacuna_MetaComETag(t *testing.T) {
 
 func TestLinkTitlesAPI(t *testing.T) {
 	x := setup(t)
-	admin := "sid:" + x.sid("Administrator")
+	admin := "sid:" + x.sid("Admin")
 	// Test GET /api/search/link-titles
-	r := x.call("GET", "/api/search/link-titles?doctype=User&names=Administrator", nil, admin)
+	r := x.call("GET", "/api/search/link-titles?doctype=User&names=Admin", nil, admin)
 	if r.Status != 200 {
 		t.Fatalf("link-titles GET: %d %s", r.Status, r.Raw)
 	}
@@ -752,12 +752,12 @@ func TestLinkTitlesAPI(t *testing.T) {
 		t.Fatalf("expected data object, got %v", data)
 	}
 	userMap, ok := d["User"].(map[string]any)
-	if !ok || userMap["Administrator"] != "Administrator" {
-		t.Fatalf("expected User.Administrator title, got %v", d)
+	if !ok || userMap["Admin"] != "Admin" {
+		t.Fatalf("expected User.Admin title, got %v", d)
 	}
 
 	// Test POST /api/search/link-titles
-	rPost := x.call("POST", "/api/search/link-titles", map[string]any{"User": []string{"Administrator"}}, admin)
+	rPost := x.call("POST", "/api/search/link-titles", map[string]any{"User": []string{"Admin"}}, admin)
 	if rPost.Status != 200 {
 		t.Fatalf("link-titles POST: %d %s", rPost.Status, rPost.Raw)
 	}
@@ -779,7 +779,7 @@ func TestLinkTitlesAPI(t *testing.T) {
 
 func TestLinkFieldSearchAPI(t *testing.T) {
 	x := setup(t)
-	admin := "sid:" + x.sid("Administrator")
+	admin := "sid:" + x.sid("Admin")
 
 	// Create Pessoa and Pedido
 	r1 := x.call("POST", "/api/resource/Pessoa", map[string]any{"nome": "Carlos Comércio", "tipo": "PF"}, admin)

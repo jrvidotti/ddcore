@@ -55,7 +55,7 @@ type MigrateResult struct {
 // throws rolls the contraction back with everything else.
 func (e *Engine) Migrate(ctx context.Context, prune bool) (*MigrateResult, error) {
 	res := &MigrateResult{}
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		c.Flags["ignorePermissions"] = true
 		// a migration is exactly the work a maintenance window is opened for,
 		// including the one `dev --auto-migrate` runs inside a server
@@ -83,6 +83,9 @@ func (e *Engine) Migrate(ctx context.Context, prune bool) (*MigrateResult, error
 			return err
 		}
 		if err := absorbVaultAuditLog(ctx, c.Tx); err != nil {
+			return err
+		}
+		if err := renameLegacyAdmin(ctx, c); err != nil {
 			return err
 		}
 		res.DDL = plan

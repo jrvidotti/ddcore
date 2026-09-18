@@ -81,11 +81,11 @@ func shareFromRow(r map[string]any) DocShare {
 	}
 }
 
-// Shares returns the documents shared with the current user. Administrator and
+// Shares returns the documents shared with the current user. Admin and
 // elevated contexts need none. The process cache is bypassed once this ctx has
 // written a share, so its own transaction sees the change before commit.
 func (c *Ctx) Shares() ([]DocShare, error) {
-	if c.User == "Administrator" || c.User == "Guest" || c.User == "" || c.IgnorePermissions() {
+	if c.User == "Admin" || c.User == "Guest" || c.User == "" || c.IgnorePermissions() {
 		return nil, nil
 	}
 	if c.sharesLoaded {
@@ -215,10 +215,10 @@ func (c *Ctx) allSharesChanged() {
 }
 
 // CanOverrideScope reports whether the current user may give a share that
-// overrides the recipient's scopes: an administrator who is not scoped
+// overrides the recipient's scopes: an admin who is not scoped
 // themselves, since the scope is theirs to lift.
 func (c *Ctx) CanOverrideScope() (bool, error) {
-	if c.User == "Administrator" || c.IgnorePermissions() {
+	if c.User == "Admin" || c.IgnorePermissions() {
 		return true, nil
 	}
 	perms, err := c.UserPermissions()
@@ -288,7 +288,7 @@ func (c *Ctx) ShareDoc(doctype, name, user string, r ShareRights) (DocShare, err
 		return out, cerr.Validation("user is required")
 	case user == c.User:
 		return out, cerr.Validation("You cannot share a document with yourself")
-	case user == "Administrator" || user == "Guest":
+	case user == "Admin" || user == "Guest":
 		return out, cerr.Validation("A document cannot be shared with {0}", user)
 	}
 	rows, err := db.Select(c.Ctx, c.Q(), `SELECT enabled FROM tab_user WHERE name = $1`, user)

@@ -37,7 +37,7 @@ export default defineDoctype({ name: "Pessoa", naming: { hash: true }, allowRena
 // novaPessoa inserts one Pessoa and returns whatever the save said.
 func novaPessoa(t *testing.T, e *Engine, tipo, codigo string) error {
 	t.Helper()
-	return e.Run(context.Background(), "Administrator", func(c *Ctx) error {
+	return e.Run(context.Background(), "Admin", func(c *Ctx) error {
 		c.Flags["ignorePermissions"] = true
 		doc, err := c.NewDoc("Pessoa", Doc{"nome": "X", "tipo": tipo, "codigo": codigo})
 		if err != nil {
@@ -98,7 +98,7 @@ func TestSavingADocumentDoesNotCollideWithItself(t *testing.T) {
 		t.Fatal(err)
 	}
 	rows := sqlRows(t, e, `SELECT name FROM tab_pessoa LIMIT 1`)
-	err := e.Run(context.Background(), "Administrator", func(c *Ctx) error {
+	err := e.Run(context.Background(), "Admin", func(c *Ctx) error {
 		c.Flags["ignorePermissions"] = true
 		doc, err := c.GetDoc("Pessoa", db.Str(rows[0]["name"]))
 		if err != nil {
@@ -128,7 +128,7 @@ func TestTwoTransactionsCannotCreateTheSameBusinessKey(t *testing.T) {
 	errA, errB := make(chan error, 1), make(chan error, 1)
 
 	go func() {
-		errA <- e.Run(ctx, "Administrator", func(c *Ctx) error {
+		errA <- e.Run(ctx, "Admin", func(c *Ctx) error {
 			c.Flags["ignorePermissions"] = true
 			doc, err := c.NewDoc("Pessoa", Doc{"nome": "A", "tipo": "PF", "codigo": "SHARED"})
 			if err != nil {
@@ -225,7 +225,7 @@ func TestADuplicateIsReportedByWhichConstraintItHit(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := e.Run(context.Background(), "Administrator", func(c *Ctx) error {
+			err := e.Run(context.Background(), "Admin", func(c *Ctx) error {
 				d, _ := c.St.DocType("Pessoa")
 				doc := Doc{"name": "PES-1", "nome": "A", "tipo": "PF", "codigo": "K"}
 				got := cerr.From(c.duplicateErr(d, doc, pgErr(tc.constraint)))
@@ -252,7 +252,7 @@ func TestADuplicateIsReportedByWhichConstraintItHit(t *testing.T) {
 func TestAnUnrelatedErrorIsNotCalledADuplicate(t *testing.T) {
 	e := setupWithKey(t)
 	boom := errors.New("connection reset")
-	err := e.Run(context.Background(), "Administrator", func(c *Ctx) error {
+	err := e.Run(context.Background(), "Admin", func(c *Ctx) error {
 		d, _ := c.St.DocType("Pessoa")
 		if got := c.duplicateErr(d, Doc{"name": "PES-1"}, boom); got != boom {
 			t.Fatalf("got %v, want the original error back", got)

@@ -64,7 +64,7 @@ func indexDef(t *testing.T, e *Engine, name string) string {
 func insertPessoa(t *testing.T, e *Engine, values Doc) string {
 	t.Helper()
 	var name string
-	err := e.Run(context.Background(), "Administrator", func(c *Ctx) error {
+	err := e.Run(context.Background(), "Admin", func(c *Ctx) error {
 		c.Flags["ignorePermissions"] = true
 		doc, err := c.NewDoc("Pessoa", values)
 		if err != nil {
@@ -331,7 +331,7 @@ func TestRenameDocType(t *testing.T) {
 	insertPessoa(t, e, Doc{"nome": "Gil", "tipo": "PF"})
 
 	var pedido string
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		c.Flags["ignorePermissions"] = true
 		doc, err := c.NewDoc("Pedido", Doc{"cliente": "Gil", "itens": []any{
 			map[string]any{"descricao": "a", "qtd": 2, "valor": 10},
@@ -420,7 +420,7 @@ func TestDocumentRenameKeepsAttachments(t *testing.T) {
 	ctx := context.Background()
 	name := insertPessoa(t, e, Doc{"nome": "Hugo", "tipo": "PF"})
 
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		c.Flags["ignorePermissions"] = true
 		f, err := c.NewDoc("File", Doc{"file_name": "h.pdf", "file_url": "/files/h.pdf",
 			"attached_to_doctype": "Pessoa", "attached_to_name": name})
@@ -537,7 +537,7 @@ func TestBareExecutePatchStillWorks(t *testing.T) {
 // and it must stay unreachable from a controller, a service or a report.
 func TestPatchSQLIsOnlyForPatches(t *testing.T) {
 	e := setup(t)
-	err := e.Run(context.Background(), "Administrator", func(c *Ctx) error {
+	err := e.Run(context.Background(), "Admin", func(c *Ctx) error {
 		_, err := c.PatchSQL(`UPDATE tab_pessoa SET nome = 'x'`, nil)
 		return err
 	})
@@ -545,7 +545,7 @@ func TestPatchSQLIsOnlyForPatches(t *testing.T) {
 		t.Fatalf("write SQL outside a patch should be refused, got %v", err)
 	}
 	// And ddcore.db.sql stays read-only.
-	err = e.Run(context.Background(), "Administrator", func(c *Ctx) error {
+	err = e.Run(context.Background(), "Admin", func(c *Ctx) error {
 		_, err := c.SQL(`UPDATE tab_pessoa SET nome = 'x'`, nil)
 		return err
 	})

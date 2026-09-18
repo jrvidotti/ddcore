@@ -57,14 +57,14 @@ Direct client mutations must never bypass workflow rules:
 - **Auto-initialization:** When inserting a document whose DocType has an active workflow, if `doc[stateField]` is empty or not provided, the engine sets it to `initialState`. Attempting to insert a document with a non-initial state is rejected (`ValidationError`) unless running with `c.IgnorePermissions()`.
 - **Direct State Field Guard:** In `SaveDoc`, any mutation where `doc[stateField] != before[stateField]` without going through a workflow transition is rejected with `400 ValidationError`.
 - **Direct Submit/Cancel Guard:** In `SaveDoc` and `SubmitDoc`/`CancelDoc`, calling submit (`docstatus: 1`) or cancel (`docstatus: 2`) directly on a document governed by an active workflow is rejected: transitions are the sole authority for advancing docstatus.
-- **State Editability Guard (`allowEdit`):** When in a state specifying `allowEdit`, only users with that role (or `Administrator` / `c.IgnorePermissions()`) are permitted to edit document fields. Other users attempting to save changes receive a `403 PermissionError`.
+- **State Editability Guard (`allowEdit`):** When in a state specifying `allowEdit`, only users with that role (or `Admin` / `c.IgnorePermissions()`) are permitted to edit document fields. Other users attempting to save changes receive a `403 PermissionError`.
 
 ### 3. Atomic Transitions and Concurrency Protection (`FOR UPDATE`)
 Transitions are executed atomically through `c.ApplyWorkflowTransition(doctype, name, action)`:
 1. **Row Lock:** Acquires a row lock using PostgreSQL `FOR UPDATE` (`c.getDocForUpdate`).
 2. **Transition Validation:** Reads current state; validates that a transition exists for `(current_state, action)`.
 3. **Role & Self-Approval Checks:**
-   - Verifies `c.User` holds at least one role in `transition.Allowed` (or `Administrator`). Unauthorized attempts record `AuditDenied` and return `PermissionError`.
+   - Verifies `c.User` holds at least one role in `transition.Allowed` (or `Admin`). Unauthorized attempts record `AuditDenied` and return `PermissionError`.
    - If `!transition.AllowSelfApproval` and `before.Str("owner") == c.User`, rejects with `PermissionError` (self-approval prohibited).
 4. **Condition Evaluation:** If `transition.HasCondition`, runs `rt.EvalWorkflowCondition(wf.Name, transition.Index, before.JSON())`. If false, records `AuditDenied` and returns `ValidationError`.
 5. **State & Docstatus Mutation:**

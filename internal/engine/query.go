@@ -350,7 +350,7 @@ func (c *Ctx) GetList(doctype string, a ListArgs) ([]map[string]any, error) {
 	// a Version's diff is filtered by the reader's access to the document it
 	// describes, so that DocType has to come back with the row
 	versionRef := d.Name == "Version" && !a.IgnorePermissions && !c.IgnorePermissions() &&
-		c.User != "Administrator" && !hasAgg && a.GroupBy == ""
+		c.User != "Admin" && !hasAgg && a.GroupBy == ""
 	if versionRef {
 		sel = append(sel, `"t".`+db.Ident("ref_doctype")+" AS "+db.Ident("__version_ref"))
 	}
@@ -574,7 +574,7 @@ func (c *Ctx) SetValue(doctype, name string, values Doc) error {
 // rewrites modified/modified_by on every row and writes a Version per row for a
 // trackChanges DocType: an audit trail that says a person edited the data when
 // a migration moved it. A patch is already the most privileged thing here — it
-// runs as Administrator inside the migration — so DDL is allowed too. That is
+// runs as Admin inside the migration — so DDL is allowed too. That is
 // deliberate: it keeps the planner from ever being a dead end, because anything
 // it refuses the author can still do by hand in a beforeSchema patch.
 func (c *Ctx) PatchSQL(query string, params []any) ([]map[string]any, error) {

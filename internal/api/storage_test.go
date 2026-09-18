@@ -48,7 +48,7 @@ func (x *env) stored(fileURL string) bool {
 // its own or along with the document it is attached to.
 func TestPRD05_DeletingAFileDeletesItsBytes(t *testing.T) {
 	x := setup(t)
-	admin := "sid:" + x.sid("Administrator")
+	admin := "sid:" + x.sid("Admin")
 
 	r := x.call("POST", "/api/resource/Pessoa", map[string]any{"nome": "Com Anexo"}, admin)
 	if r.Status != 200 {

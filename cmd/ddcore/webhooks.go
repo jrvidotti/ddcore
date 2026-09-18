@@ -84,9 +84,9 @@ func webhooksReplay(args []string) error {
 	return withEngine(func(e *engine.Engine, ctx context.Context) error {
 		failed := 0
 		for _, name := range args {
-			// Administrator, as every administrative CLI command acts: whoever
+			// Admin, as every administrative CLI command acts: whoever
 			// runs this already holds the database.
-			err := e.Run(ctx, "Administrator", func(c *engine.Ctx) error { return c.ReplayWebhook(name) })
+			err := e.Run(ctx, "Admin", func(c *engine.Ctx) error { return c.ReplayWebhook(name) })
 			if err != nil {
 				failed++
 				fmt.Fprintf(os.Stderr, "%s: %v\n", name, err)

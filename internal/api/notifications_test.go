@@ -92,7 +92,7 @@ export default defineNotification({
 		x.expect(x.call("PATCH", "/api/notifications/"+name, body, ana), 417, "ValidationError")
 	}
 	for _, route := range []string{"/api/resource/ddcore_notification", "/api/count/ddcore_notification", "/api/export/ddcore_notification", "/api/report/ddcore_notification"} {
-		r := x.call("GET", route, nil, "sid:"+x.sid("Administrator"))
+		r := x.call("GET", route, nil, "sid:"+x.sid("Admin"))
 		if r.Status == 200 || strings.Contains(r.Raw, "Details Second") {
 			t.Fatalf("generic access to notification storage: %s %s", route, r.Raw)
 		}
@@ -111,7 +111,7 @@ export default defineNotification({
 	// Changing ownership removes that final permission too.
 	x.asAdmin(func(c *engine.Ctx) error {
 		for _, n := range []string{"First", "Second"} {
-			if _, err := c.DBSet("Pessoa", n, engine.Doc{"owner": "Administrator"}, false); err != nil {
+			if _, err := c.DBSet("Pessoa", n, engine.Doc{"owner": "Admin"}, false); err != nil {
 				return err
 			}
 		}

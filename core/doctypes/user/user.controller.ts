@@ -2,7 +2,7 @@ import { defineController, _ } from "@ddcore/sdk";
 
 export default defineController("User", {
   validate(doc) {
-    doc.email = String(doc.email || "").trim().toLowerCase() === "administrator" ? "Administrator" : String(doc.email || "").trim();
+    doc.email = String(doc.email || "").trim().toLowerCase() === "admin" ? "Admin" : String(doc.email || "").trim();
     if (doc.new_password) {
       // __hashPassword applies the site's password policy and throws when the
       // password is too short — every path that sets one goes through it.

@@ -77,11 +77,11 @@ checks are untouched.
 By default a share is bound by the recipient's User Permission scopes, like any role grant.
 `override_scope` lifts the scope for the rights the share grants (read, write) on that one
 document. It never lifts delete, submit or cancel, and never reopens the DocTypes closed to
-scoped users. Only a System Manager without scope rows, `Administrator` or an elevated
+scoped users. Only a System Manager without scope rows, `Admin` or an elevated
 context may set it.
 
-**Rationale:** the product needs both. Scopes are an administrator's isolation boundary, so
-by default a colleague must not be able to share across it. Sometimes the administrator
+**Rationale:** the product needs both. Scopes are an admin's isolation boundary, so
+by default a colleague must not be able to share across it. Sometimes the admin
 wants exactly one exception, and that exception belongs to someone who is not scoped
 themselves. Requiring System Manager, and not merely "unscoped", keeps an ordinary unscoped
 user from lifting a boundary somebody else set.
@@ -103,7 +103,7 @@ DocType (`unscopedOnlyDoctypes`). Insert, Save, DBSet and Delete of the DocType 
 and drop the recipient's share cache after commit. The writing ctx re-reads its own
 transaction immediately.
 
-**Rationale:** it mirrors `User Permission`. However a row changes, even by `Administrator`
+**Rationale:** it mirrors `User Permission`. However a row changes, even by `Admin`
 through the resource API, audit and invalidation happen in one place. Denied attempts are
 written on the pool, as for workflows.
 

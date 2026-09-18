@@ -62,7 +62,7 @@ func TestUserPermissionsResolutionAndCacheInvalidation(t *testing.T) {
 	resolve(user, 0, "")
 
 	var name string
-	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		doc, err := c.Insert(Doc{
 			"doctype":    "User Permission",
 			"user":       user,
@@ -79,7 +79,7 @@ func TestUserPermissionsResolutionAndCacheInvalidation(t *testing.T) {
 	}
 	resolve(user, 1, "Acme Corp")
 
-	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		doc, err := c.GetDoc("User Permission", name)
 		if err != nil {
 			return err
@@ -93,7 +93,7 @@ func TestUserPermissionsResolutionAndCacheInvalidation(t *testing.T) {
 	resolve(user, 1, "Globex Corp")
 	resolve(newUser, 0, "")
 
-	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		_, err := c.DBSet("User Permission", name, Doc{"user": newUser, "for_value": "Initech"}, true)
 		return err
 	}); err != nil {
@@ -102,20 +102,20 @@ func TestUserPermissionsResolutionAndCacheInvalidation(t *testing.T) {
 	resolve(user, 0, "")
 	resolve(newUser, 1, "Initech")
 
-	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		return c.Delete("User Permission", name, false, false)
 	}); err != nil {
 		t.Fatalf("delete user permission: %v", err)
 	}
 	resolve(newUser, 0, "")
 
-	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		perms, err := c.UserPermissions()
 		if err != nil {
 			return err
 		}
 		if len(perms) != 0 {
-			t.Fatalf("expected Administrator permissions to be bypassed, got %d", len(perms))
+			t.Fatalf("expected Admin permissions to be bypassed, got %d", len(perms))
 		}
 		return nil
 	}); err != nil {
@@ -191,7 +191,7 @@ func setupPerm(t *testing.T) *Engine {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { e.DB.Close() })
-	err = e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err = e.Run(ctx, "Admin", func(c *Ctx) error {
 		for _, u := range []struct{ email, role string }{{"ana@x.com", "Gestor"}, {"ze@x.com", ""}} {
 			d, _ := c.NewDoc("User", Doc{"email": u.email, "full_name": u.email})
 			if u.role != "" {
@@ -215,15 +215,15 @@ func TestB02_ChildPermissionFollowsParent(t *testing.T) {
 	e := setupPerm(t)
 	ctx := context.Background()
 
-	// Administrator's Has Role row
+	// Admin's Has Role row
 	var roleRow string
-	e.Run(ctx, "Administrator", func(c *Ctx) error {
-		u, _ := c.GetDoc("User", "Administrator")
+	e.Run(ctx, "Admin", func(c *Ctx) error {
+		u, _ := c.GetDoc("User", "Admin")
 		roleRow = u.Children("roles")[0].Name()
 		return nil
 	})
 	if roleRow == "" {
-		t.Fatal("Administrator has no Has Role")
+		t.Fatal("Admin has no Has Role")
 	}
 
 	for _, user := range []string{"Guest", "ze@x.com"} {
@@ -231,7 +231,7 @@ func TestB02_ChildPermissionFollowsParent(t *testing.T) {
 			if ok, _ := c.HasPermission("Has Role", "read", Doc{"name": roleRow}); ok {
 				t.Errorf("%s: read on Has Role by name should be denied", user)
 			}
-			if ok, _ := c.HasPermission("Has Role", "read", Doc{"parenttype": "User", "parent": "Administrator", "parentfield": "roles"}); ok {
+			if ok, _ := c.HasPermission("Has Role", "read", Doc{"parenttype": "User", "parent": "Admin", "parentfield": "roles"}); ok {
 				t.Errorf("%s: read on Has Role with parent should be denied", user)
 			}
 			if ok, _ := c.HasPermission("Has Role", "read", nil); ok {
@@ -258,7 +258,7 @@ func TestB02_ChildPermissionFollowsParent(t *testing.T) {
 		}
 	}
 	// nothing changed
-	e.Run(ctx, "Administrator", func(c *Ctx) error {
+	e.Run(ctx, "Admin", func(c *Ctx) error {
 		v, _ := c.GetValue("Has Role", roleRow, "role")
 		if v != "System Manager" {
 			t.Fatalf("row modified: %v", v)

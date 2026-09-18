@@ -267,7 +267,7 @@ func (e *Engine) OIDCCallback(ctx context.Context, id, code, state, cookieState 
 		}
 	}
 
-	err = e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err = e.Run(ctx, "Admin", func(c *Ctx) error {
 		var linked bool
 		user, linked, err = e.resolveIdentity(c, id, idt.Subject, email)
 		if err != nil {

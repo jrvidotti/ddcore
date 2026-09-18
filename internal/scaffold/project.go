@@ -122,9 +122,9 @@ func readme(p ProjectInfo) string {
 	}
 	b.WriteString("cp .env.example .env                              # optional: per-machine settings and secrets\n")
 	b.WriteString("ddcore migrate                                    # creates the tables, generates the typings\n")
-	b.WriteString("ddcore user passwd Administrator <password>       # the first sign-in\n")
+	b.WriteString("ddcore user passwd Admin <password>       # the first sign-in\n")
 	b.WriteString("ddcore dev                                        # hot reload\n```\n\n")
-	fmt.Fprintf(&b, "Open <http://localhost:%d> and sign in as `Administrator`.\n\n", p.Port)
+	fmt.Fprintf(&b, "Open <http://localhost:%d> and sign in as `Admin`.\n\n", p.Port)
 	fmt.Fprintf(&b, "The site connects to `%s` (`dsn` in `ddcore.json`). ", p.DSN)
 	b.WriteString("To use another database on one machine, set `DDCORE_DSN` in `.env` instead of editing `ddcore.json`.\n")
 	if p.Compose {
@@ -146,7 +146,7 @@ func readme(p ProjectInfo) string {
 	b.WriteString("other clients take the same command:\n\n")
 	b.WriteString("```json\n{ \"mcpServers\": { \"ddcore\": { \"command\": \"ddcore\", \"args\": [\"mcp\"] } } }\n```\n\n")
 	fmt.Fprintf(&b, "While `ddcore dev` runs, the same server answers over HTTP at `http://localhost:%d/mcp`, for\n", p.Port)
-	b.WriteString("an Administrator API key (`ddcore apikey Administrator`) sent as `Authorization: token key:secret`.\n\n")
+	b.WriteString("an Admin API key (`ddcore apikey Admin`) sent as `Authorization: token key:secret`.\n\n")
 	b.WriteString("The conventions an agent must follow are in [`AGENTS.md`](AGENTS.md) (`CLAUDE.md` points at it).\n\n")
 	b.WriteString("## Layout\n\n```\n")
 	b.WriteString("ddcore.json          the site: database, port, apps, language, currency (committed)\n")

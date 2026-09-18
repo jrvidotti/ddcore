@@ -7,7 +7,7 @@ describe("titles store", () => {
   beforeEach(() => {
     clearTitleCache();
     boot.data = {
-      user: "Administrator",
+      user: "Admin",
       roles: ["System Manager"],
       userDoc: null,
       lang: "pt-BR",

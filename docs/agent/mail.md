@@ -117,7 +117,7 @@ exactly-once delivery, and this is the framework declining to pretend otherwise.
 
 **The rendered body is never stored.** A message is re-rendered from its
 template and arguments whenever it is needed, which keeps the table small and
-keeps the body's contents out of a table administrators can read.
+keeps the body's contents out of a table admins can read.
 
 Deleting the document a message refers to does **not** delete the record: an
 order can be deleted, an invoice that already reached a customer cannot be

@@ -39,7 +39,7 @@ func cmdExport(args []string) error {
 	children := fs.Bool("children", false, "include the child tables")
 	attachments := fs.Bool("attachments", false, "include the attachments and copy their bytes")
 	all := fs.Bool("all", false, "every DocType of the site")
-	user := fs.String("user", "Administrator", "export as this user, applying his permissions")
+	user := fs.String("user", "Admin", "export as this user, applying his permissions")
 	sep := fs.String("sep", ",", "CSV column separator")
 	batch := fs.Int("batch", 0, "documents per page of the walk")
 	if err := parseFlags(fs, args); err != nil {

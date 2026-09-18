@@ -21,7 +21,7 @@ export function generate(): DemoResult {
       code: "DEMO",
       title: "Demonstration project",
       description: "Created by `ddcore demo` to exercise the example app.",
-      assignee: "Administrator",
+      assignee: "Admin",
       start_date: u().addDays(today, -30),
       end_date: u().addDays(today, 60),
     });
@@ -44,7 +44,7 @@ export function generate(): DemoResult {
       code: t.code,
       project: "DEMO",
       title: t.title,
-      assignee: "Administrator",
+      assignee: "Admin",
       priority: t.priority,
       due_date: u().addDays(today, t.days),
     }).insert();

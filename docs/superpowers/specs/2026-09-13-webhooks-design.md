@@ -81,7 +81,7 @@ looks for. `Vault Audit Log` is left alone: folding it in is PRD-06's job.
 
 **11. A replay of an in-flight delivery is refused.** `Queued` or `Retrying` means
 a job still owns it; a second job would double the send. The row is locked
-`FOR UPDATE` so two administrators pressing the button race on the lock, not on
+`FOR UPDATE` so two admins pressing the button race on the lock, not on
 the status.
 
 **12. `DDCORE_WEBHOOKS=off` queues nothing.** For rehearsals and restored copies.

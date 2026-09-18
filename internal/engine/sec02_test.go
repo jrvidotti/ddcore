@@ -105,7 +105,7 @@ func setupSEC02(t *testing.T, extra ...map[string]string) *Engine {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { e.DB.Close() })
-	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		for user, role := range map[string]string{sec02Staff: "Staff", sec02HR: "HR", sec02Auditor: "Auditor"} {
 			u, _ := c.NewDoc("User", Doc{"email": user, "full_name": user, "roles": []any{map[string]any{"role": role}}})
 			if _, err := c.Insert(u, SaveOpts{}); err != nil {
@@ -186,9 +186,9 @@ func TestSEC02_ReadRedaction(t *testing.T) {
 		t.Fatalf("HR must see child amount: %v", hr.Children("lines"))
 	}
 
-	admin := read("Administrator")
+	admin := read("Admin")
 	if toFloat(admin["salary"]) != 100 {
-		t.Fatalf("Administrator must see everything: %v", admin)
+		t.Fatalf("Admin must see everything: %v", admin)
 	}
 }
 
@@ -283,7 +283,7 @@ func TestSEC02_Writes(t *testing.T) {
 	// the desk round trip: read redacted, change a visible field, save
 	stored := func() Doc {
 		var out Doc
-		e.Run(ctx, "Administrator", func(c *Ctx) error {
+		e.Run(ctx, "Admin", func(c *Ctx) error {
 			out, _ = c.GetDoc("Employee", "Ana")
 			return nil
 		})
@@ -378,7 +378,7 @@ func TestSEC02_Writes(t *testing.T) {
 func TestSEC02_AmendCarriesRestrictedValues(t *testing.T) {
 	e := setupSEC02(t)
 	ctx := context.Background()
-	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		doc, _ := c.GetDoc("Employee", "Ana")
 		doc["docstatus"] = 1
 		if _, err := c.Save(doc, SaveOpts{}); err != nil {
@@ -407,7 +407,7 @@ func TestSEC02_AmendCarriesRestrictedValues(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("staff amend: %v", err)
 	}
-	e.Run(ctx, "Administrator", func(c *Ctx) error {
+	e.Run(ctx, "Admin", func(c *Ctx) error {
 		doc, err := c.GetDoc("Employee", amended)
 		if err != nil {
 			t.Fatal(err)
@@ -429,7 +429,7 @@ export default defineNotification({ name: "salary", doctype: "Employee", event: 
 	})
 	ctx := context.Background()
 	addWebhookFor(t, e, "Employee")
-	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		doc, err := c.GetDoc("Employee", "Ana")
 		if err != nil {
 			return err
@@ -577,8 +577,8 @@ export default defineNotification({ name: "salary", doctype: "Employee", event: 
 
 	t.Run("files", func(t *testing.T) {
 		if err := e.Run(ctx, sec02Staff, func(c *Ctx) error {
-			restricted := map[string]any{"owner": "Administrator", "attached_to_doctype": "Employee", "attached_to_name": "Ana", "attached_to_field": "contract"}
-			open := map[string]any{"owner": "Administrator", "attached_to_doctype": "Employee", "attached_to_name": "Ana"}
+			restricted := map[string]any{"owner": "Admin", "attached_to_doctype": "Employee", "attached_to_name": "Ana", "attached_to_field": "contract"}
+			open := map[string]any{"owner": "Admin", "attached_to_doctype": "Employee", "attached_to_name": "Ana"}
 			if c.CanReadFile(restricted) || !c.CanReadFile(open) {
 				t.Fatal("staff file access must follow the attachment field")
 			}
@@ -590,7 +590,7 @@ export default defineNotification({ name: "salary", doctype: "Employee", event: 
 			t.Fatal(err)
 		}
 		if err := e.Run(ctx, sec02HR, func(c *Ctx) error {
-			if !c.CanReadFile(map[string]any{"owner": "Administrator", "attached_to_doctype": "Employee", "attached_to_name": "Ana", "attached_to_field": "contract"}) {
+			if !c.CanReadFile(map[string]any{"owner": "Admin", "attached_to_doctype": "Employee", "attached_to_name": "Ana", "attached_to_field": "contract"}) {
 				t.Fatal("HR reads the contract")
 			}
 			return nil
@@ -630,7 +630,7 @@ export default defineNotification({ name: "salary", doctype: "Employee", event: 
 
 func addWebhookFor(t *testing.T, e *Engine, doctype string) {
 	t.Helper()
-	if err := e.Run(context.Background(), "Administrator", func(c *Ctx) error {
+	if err := e.Run(context.Background(), "Admin", func(c *Ctx) error {
 		doc, err := c.NewDoc("Webhook", Doc{"url": "http://127.0.0.1:9/hook", "event_type": "Document", "webhook_doctype": doctype,
 			"on_update": true, "secret": hookSecret, "max_attempts": 1})
 		if err != nil {
@@ -648,7 +648,7 @@ func addWebhookFor(t *testing.T, e *Engine, doctype string) {
 func TestSEC02_ScopeOnRestrictedLink(t *testing.T) {
 	e := setupSEC02(t)
 	ctx := context.Background()
-	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		for _, cc := range []string{"North", "South"} {
 			d, _ := c.NewDoc("Cost Center", Doc{"title": cc})
 			if _, err := c.Insert(d, SaveOpts{}); err != nil {

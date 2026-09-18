@@ -28,7 +28,7 @@ type FieldAccess struct {
 	read, write uint32
 }
 
-// FullFieldAccess sees and writes every level (Administrator, privileged work).
+// FullFieldAccess sees and writes every level (Admin, privileged work).
 func FullFieldAccess() FieldAccess { return FieldAccess{all: true} }
 
 // Level0FieldAccess sees only unrestricted fields — the rule for payloads that
@@ -87,7 +87,7 @@ func (a FieldAccess) intersect(b FieldAccess) FieldAccess {
 // DocType it is what every embedding parent grants — a row's column is only
 // as visible as the strictest parent it can be listed under.
 func (c *Ctx) FieldAccess(d *meta.DocType) FieldAccess {
-	if c.User == "Administrator" || c.IgnorePermissions() {
+	if c.User == "Admin" || c.IgnorePermissions() {
 		return FullFieldAccess()
 	}
 	if d == nil {
@@ -186,7 +186,7 @@ func (c *Ctx) RedactFieldsFor(doctype string, doc Doc, a FieldAccess) Doc {
 // to field permissions at all.
 func (c *Ctx) fieldPermissionsApply(d *meta.DocType, opts SaveOpts) bool {
 	return !opts.IgnorePermissions && !c.IgnorePermissions() && !c.inWorkflowTransition &&
-		c.User != "Administrator" && c.hasRestrictedFields(d)
+		c.User != "Admin" && c.hasRestrictedFields(d)
 }
 
 // applyFieldWrites enforces field permissions on an incoming document before

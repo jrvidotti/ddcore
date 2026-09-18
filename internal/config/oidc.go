@@ -103,7 +103,7 @@ func (f *File) validateOIDC() error {
 		return fmt.Errorf("DDCORE_OIDC_PROVIDERS needs DDCORE_URL: the callback address is built from it")
 	}
 	if !f.Auth.AllowPasswordLogin() && len(f.OIDC) == 0 {
-		return fmt.Errorf("auth.passwordLogin is false but no DDCORE_OIDC_PROVIDERS is configured: nobody but Administrator could sign in")
+		return fmt.Errorf("auth.passwordLogin is false but no DDCORE_OIDC_PROVIDERS is configured: nobody but Admin could sign in")
 	}
 	return nil
 }

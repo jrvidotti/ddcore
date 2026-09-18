@@ -19,7 +19,7 @@ import (
 func TestB06_SQLReadonlyRejectsWrites(t *testing.T) {
 	e := setup(t)
 	ctx := context.Background()
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		_, err := c.SQL(`WITH changed AS (
 			UPDATE tab_role SET modified_by = 'audit' WHERE name = $1 RETURNING name
 		) SELECT * FROM changed`, []any{"Gestor"})
@@ -44,7 +44,7 @@ func TestB06_SQLReadonlyRejectsWrites(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	e.Run(ctx, "Administrator", func(c *Ctx) error {
+	e.Run(ctx, "Admin", func(c *Ctx) error {
 		v, _ := c.GetValue("Role", "Gestor", "modified_by")
 		if db.Str(v) == "audit" {
 			t.Fatalf("modified_by was saved by the CTE")
@@ -59,7 +59,7 @@ func TestB06_SQLReadonlyRejectsWrites(t *testing.T) {
 func TestB07_LostUpdate(t *testing.T) {
 	e := setup(t)
 	ctx := context.Background()
-	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		u, _ := c.NewDoc("User", Doc{"email": "co@x.com", "full_name": "Original"})
 		_, err := c.Insert(u, SaveOpts{})
 		return err
@@ -68,7 +68,7 @@ func TestB07_LostUpdate(t *testing.T) {
 	}
 	// T2 reads the stale version before T1 writes
 	var stale Doc
-	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		var err error
 		stale, err = c.GetDoc("User", "co@x.com")
 		return err
@@ -78,7 +78,7 @@ func TestB07_LostUpdate(t *testing.T) {
 
 	t1Saved, t1Commit, t1Done := make(chan struct{}), make(chan struct{}), make(chan error, 1)
 	go func() {
-		t1Done <- e.Run(ctx, "Administrator", func(c *Ctx) error {
+		t1Done <- e.Run(ctx, "Admin", func(c *Ctx) error {
 			d, err := c.GetDoc("User", "co@x.com")
 			if err != nil {
 				return err
@@ -96,7 +96,7 @@ func TestB07_LostUpdate(t *testing.T) {
 
 	t2Done := make(chan error, 1)
 	go func() {
-		t2Done <- e.Run(ctx, "Administrator", func(c *Ctx) error {
+		t2Done <- e.Run(ctx, "Admin", func(c *Ctx) error {
 			d := stale.Clone()
 			d["language"] = "en"
 			_, err := c.Save(d, SaveOpts{})
@@ -119,7 +119,7 @@ func TestB07_LostUpdate(t *testing.T) {
 	if got := cerr.From(err).Type; got != "TimestampMismatchError" {
 		t.Fatalf("expected TimestampMismatchError, got %s (%v)", got, err)
 	}
-	e.Run(ctx, "Administrator", func(c *Ctx) error {
+	e.Run(ctx, "Admin", func(c *Ctx) error {
 		d, err := c.GetDoc("User", "co@x.com")
 		if err != nil {
 			return err
@@ -135,7 +135,7 @@ func TestB07_LostUpdate(t *testing.T) {
 func TestB07_InvalidTimestampRejected(t *testing.T) {
 	e := setup(t)
 	ctx := context.Background()
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		u, _ := c.NewDoc("User", Doc{"email": "ts@x.com", "full_name": "TS"})
 		if _, err := c.Insert(u, SaveOpts{}); err != nil {
 			return err
@@ -161,7 +161,7 @@ func TestB07_InvalidTimestampRejected(t *testing.T) {
 func TestB03_ChildDoesNotSwitchParent(t *testing.T) {
 	e := setup(t)
 	ctx := context.Background()
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		a, _ := c.NewDoc("User", Doc{"email": "a@x.com", "full_name": "A"})
 		a["roles"] = []any{map[string]any{"role": "Gestor"}}
 		a, err := c.Insert(a, SaveOpts{})
@@ -214,7 +214,7 @@ func TestB03_ChildDoesNotSwitchParent(t *testing.T) {
 func TestB21_DbSetUpdatesModified(t *testing.T) {
 	e := setup(t)
 	ctx := context.Background()
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		c.Flags["ignorePermissions"] = true
 		p, _ := c.NewDoc("Pessoa", Doc{"nome": "Cli", "tipo": "PF"})
 		if _, err := c.Insert(p, SaveOpts{}); err != nil {
@@ -262,7 +262,7 @@ func TestB14_UniqueIndexes(t *testing.T) {
 	ctx := context.Background()
 	indexdef := func(name string) string {
 		var out string
-		e.Run(ctx, "Administrator", func(c *Ctx) error {
+		e.Run(ctx, "Admin", func(c *Ctx) error {
 			rows, err := c.SQL(`SELECT indexdef FROM pg_indexes WHERE indexname = $1`, []any{name})
 			if err != nil {
 				return err
@@ -325,7 +325,7 @@ func TestDBLockSerializes(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		e.Run(ctx, "Administrator", func(c *Ctx) error {
+		e.Run(ctx, "Admin", func(c *Ctx) error {
 			if err := c.Lock("contrato:1"); err != nil {
 				t.Error(err)
 				return err
@@ -340,7 +340,7 @@ func TestDBLockSerializes(t *testing.T) {
 	}()
 	<-firstReleased
 	time.Sleep(50 * time.Millisecond)
-	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		if err := c.Lock("contrato:1"); err != nil {
 			return err
 		}
@@ -364,7 +364,7 @@ func TestDBLockSerializes(t *testing.T) {
 func TestB19_FilterOnChildDoesNotDuplicate(t *testing.T) {
 	e := setup(t)
 	ctx := context.Background()
-	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		if _, err := c.Insert(mustDoc(t, c, "Pessoa", Doc{"nome": "Cli", "cpf": "900"}), SaveOpts{}); err != nil {
 			return err
 		}
@@ -379,7 +379,7 @@ func TestB19_FilterOnChildDoesNotDuplicate(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		f := []any{[]any{"Item Pedido", "descricao", "=", "Cadeira"}}
 		rows, err := c.GetList("Pedido", ListArgs{Filters: f, Fields: []string{"name"}})
 		if err != nil {
@@ -447,7 +447,7 @@ func mustDoc(t *testing.T, c *Ctx, dt string, values Doc) Doc {
 func TestB08_ReloadKeepsPoolConsistent(t *testing.T) {
 	e := setup(t)
 	ctx := context.Background()
-	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		_, err := c.Insert(mustDoc(t, c, "Pessoa", Doc{"nome": "Reload", "cpf": "808"}), SaveOpts{})
 		return err
 	}); err != nil {
@@ -467,7 +467,7 @@ func TestB08_ReloadKeepsPoolConsistent(t *testing.T) {
 					return
 				default:
 				}
-				err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+				err := e.Run(ctx, "Admin", func(c *Ctx) error {
 					if c.St != c.E.Current() && c.St == nil {
 						t.Error("ctx without state")
 					}
@@ -514,7 +514,7 @@ func TestB08_ReloadKeepsPoolConsistent(t *testing.T) {
 
 	// after reload the new ctx uses the new pool and the old one was decommissioned
 	st := e.Current()
-	c := e.NewCtx(ctx, "Administrator")
+	c := e.NewCtx(ctx, "Admin")
 	if c.St != st {
 		t.Fatalf("NewCtx did not capture the current state")
 	}
@@ -530,7 +530,7 @@ func TestB15_JobTimeout(t *testing.T) {
 	ctx := context.Background()
 
 	start := time.Now()
-	_, err := e.RunJob(withTimeout(ctx, 2*time.Second), "Administrator", "demo.services.loop.travar", nil)
+	_, err := e.RunJob(withTimeout(ctx, 2*time.Second), "Admin", "demo.services.loop.travar", nil)
 	if err == nil {
 		t.Fatalf("expected timeout error")
 	}
@@ -542,7 +542,7 @@ func TestB15_JobTimeout(t *testing.T) {
 	}
 
 	// the VM remains usable after interruption
-	res, err := e.RunJob(ctx, "Administrator", "demo.services.loop.ok", map[string]any{"x": 7})
+	res, err := e.RunJob(ctx, "Admin", "demo.services.loop.ok", map[string]any{"x": 7})
 	if err != nil || !strings.Contains(string(res), `"x":7`) {
 		t.Fatalf("runtime did not survive interrupt: %s %v", res, err)
 	}
@@ -559,7 +559,7 @@ func TestB15_ExpiredLeaseReturnsToQueue(t *testing.T) {
 	e := setup(t)
 	ctx := context.Background()
 	var id int64
-	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		var err error
 		id, err = c.Enqueue("demo.services.loop.ok", nil, map[string]any{"timeout": 5})
 		return err
@@ -604,7 +604,7 @@ func TestB15_ExpiredLeaseReturnsToQueue(t *testing.T) {
 func TestAllowOnSubmitAfterHooks(t *testing.T) {
 	e := setup(t)
 	ctx := context.Background()
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		if _, err := c.Insert(mustDoc(t, c, "Pessoa", Doc{"nome": "Sub", "cpf": "777"}), SaveOpts{}); err != nil {
 			return err
 		}
@@ -634,7 +634,7 @@ func TestAllowOnSubmitAfterHooks(t *testing.T) {
 func TestReadOnlyDependsOnServerSide(t *testing.T) {
 	e := setup(t)
 	ctx := context.Background()
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		p, err := c.Insert(mustDoc(t, c, "Pessoa", Doc{"nome": "RO", "cpf": "555", "tipo": "PF", "codigo": "A"}), SaveOpts{})
 		if err != nil {
 			return err
@@ -668,7 +668,7 @@ func TestReadOnlyDependsOnServerSide(t *testing.T) {
 func TestB04_VersionDoesNotStoreSecret(t *testing.T) {
 	e := setup(t)
 	ctx := context.Background()
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		p, err := c.Insert(mustDoc(t, c, "Pessoa", Doc{"nome": "Seg", "cpf": "444", "segredo": "abc"}), SaveOpts{})
 		if err != nil {
 			return err
@@ -774,13 +774,13 @@ func TestAppNameMismatchRefusesTheLoad(t *testing.T) {
 func TestResolveLinkTitles(t *testing.T) {
 	e := setup(t)
 	ctx := context.Background()
-	e.Run(ctx, "Administrator", func(c *Ctx) error {
-		titles, err := c.LinkTitles("User", []string{"Administrator", "inexistente"})
+	e.Run(ctx, "Admin", func(c *Ctx) error {
+		titles, err := c.LinkTitles("User", []string{"Admin", "inexistente"})
 		if err != nil {
 			t.Fatalf("LinkTitles error: %v", err)
 		}
-		if titles["Administrator"] != "Administrator" {
-			t.Fatalf("expected 'Administrator', got %q", titles["Administrator"])
+		if titles["Admin"] != "Admin" {
+			t.Fatalf("expected 'Admin', got %q", titles["Admin"])
 		}
 		if titles["inexistente"] != "inexistente" {
 			t.Fatalf("expected fallback to name, got %q", titles["inexistente"])
@@ -792,7 +792,7 @@ func TestResolveLinkTitles(t *testing.T) {
 func TestLinkFieldSearchByTitleAndSearchFields(t *testing.T) {
 	e := setup(t)
 	ctx := context.Background()
-	e.Run(ctx, "Administrator", func(c *Ctx) error {
+	e.Run(ctx, "Admin", func(c *Ctx) error {
 		p, err := c.NewDoc("Pessoa", Doc{"nome": "Maria Comércio", "cpf": "999.888.777-66"})
 		if err != nil {
 			t.Fatal(err)

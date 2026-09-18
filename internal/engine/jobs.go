@@ -113,7 +113,7 @@ func (e *Engine) RunJob(ctx context.Context, user, method string, args map[strin
 	var out json.RawMessage
 	// The transaction uses a context without the deadline: the timeout needs
 	// to interrupt the VM, without interfering with transaction rollback.
-	err := e.Run(context.WithoutCancel(ctx), orDefault(user, "Administrator"), func(c *Ctx) error {
+	err := e.Run(context.WithoutCancel(ctx), orDefault(user, "Admin"), func(c *Ctx) error {
 		c.Flags["ignorePermissions"] = true
 		rt, err := c.RT()
 		if err != nil {
@@ -299,7 +299,7 @@ func (e *Engine) runOneJob(ctx context.Context) (bool, error) {
 		// no Error Log row: a cancellation is not a fault, and logging it as one
 		// would bury real errors and push the health report over its threshold.
 		write(`UPDATE ddcore_job SET status = 'cancelled', finished = now(), lease_until = NULL,
-			error = 'cancelled by ' || COALESCE(cancelled_by, 'an administrator')
+			error = 'cancelled by ' || COALESCE(cancelled_by, 'an admin')
 			WHERE id = $1 AND status = 'running' AND attempts = $2`, id, attempt)
 		publish(map[string]any{"ok": false, "cancelled": true})
 
@@ -436,7 +436,7 @@ func (e *Engine) LogError(ctx context.Context, method string, err error) {
 	// keep a bound: this runs on an error path and must not hold a connection.
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer cancel()
-	e.Run(ctx, "Administrator", func(c *Ctx) error {
+	e.Run(ctx, "Admin", func(c *Ctx) error {
 		doc, _ := c.NewDoc("Error Log", Doc{"method": method, "error": err.Error(), "request_id": id})
 		_, e := c.Insert(doc, SaveOpts{IgnorePermissions: true})
 		return e
@@ -458,7 +458,7 @@ func (e *Engine) StartScheduler(ctx context.Context) *cron.Cron {
 					return
 				}
 				e.Log.Info("scheduler", "method", method)
-				e.Run(ctx, "Administrator", func(c *Ctx) error {
+				e.Run(ctx, "Admin", func(c *Ctx) error {
 					_, err := c.Enqueue(method, nil, map[string]any{"queue": "scheduler"})
 					return err
 				})

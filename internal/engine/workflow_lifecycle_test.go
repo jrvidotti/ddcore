@@ -61,7 +61,7 @@ export default defineWorkflow({
 	}
 
 	// Create test users: autor_user (Autor) and editor_user (Editor)
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		u1, _ := c.NewDoc("User", Doc{"email": "autor@x.com", "full_name": "Autor User", "new_password": "password123"})
 		u1["roles"] = []any{map[string]any{"role": "Autor"}}
 		if _, err := c.Insert(u1, SaveOpts{}); err != nil {
@@ -255,8 +255,8 @@ export default defineWorkflow({
 		t.Fatalf("5. allowEdit tests for Autor failed: %v", err)
 	}
 
-	// Administrator can edit regardless of allowEdit
-	err = e.Run(ctx, "Administrator", func(c *Ctx) error {
+	// Admin can edit regardless of allowEdit
+	err = e.Run(ctx, "Admin", func(c *Ctx) error {
 		doc, err := c.GetDoc("Artigo", articleDoc.Name())
 		if err != nil {
 			return err
@@ -266,18 +266,18 @@ export default defineWorkflow({
 			return err
 		}
 		if !ok {
-			t.Fatalf("expected Administrator to have write permission")
+			t.Fatalf("expected Admin to have write permission")
 		}
-		doc["conteudo"] = "Administrator edit"
+		doc["conteudo"] = "Admin edit"
 		_, err = c.Save(doc, SaveOpts{})
 		return err
 	})
 	if err != nil {
-		t.Fatalf("5. allowEdit tests for Administrator failed: %v", err)
+		t.Fatalf("5. allowEdit tests for Admin failed: %v", err)
 	}
 
 	// 6. inWorkflowTransition bypasses direct mutation and submit guards
-	err = e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err = e.Run(ctx, "Admin", func(c *Ctx) error {
 		doc, err := c.GetDoc("Artigo", articleDoc.Name())
 		if err != nil {
 			return err
@@ -538,7 +538,7 @@ DROP FUNCTION IF EXISTS ddcore_test_fail();`); err != nil {
 	}); err != nil {
 		t.Fatalf("expected the transition to commit despite the comment failure, got %v", err)
 	}
-	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		st, err := c.GetValue("Artigo", name, "workflow_state")
 		if err != nil {
 			return err

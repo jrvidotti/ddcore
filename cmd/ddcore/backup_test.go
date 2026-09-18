@@ -115,7 +115,7 @@ func TestBackupRestoreRoundTrip(t *testing.T) {
 	if _, err := e.Migrate(ctx, false); err != nil {
 		t.Fatal(err)
 	}
-	if err := e.SetPassword(ctx, "Administrator", "restore-drill-1"); err != nil {
+	if err := e.SetPassword(ctx, "Admin", "restore-drill-1"); err != nil {
 		t.Fatal(err)
 	}
 	for key, body := range map[string]string{"public/a.txt": "hello", "private/b.pdf": "%PDF"} {
@@ -141,7 +141,7 @@ func TestBackupRestoreRoundTrip(t *testing.T) {
 	t.Setenv("DDCORE_DSN", dst)
 	t.Setenv("DDCORE_DATA_DIR", filepath.Join(work, "dst"))
 	t.Setenv("DDCORE_SMOKE_PASSWORD", "restore-drill-1")
-	if err := cmdRestore([]string{archive, "--smoke", "--smoke-user", "Administrator"}); err != nil {
+	if err := cmdRestore([]string{archive, "--smoke", "--smoke-user", "Admin"}); err != nil {
 		t.Fatalf("restore: %v", err)
 	}
 	store := storage.NewLocal(filepath.Join(work, "dst", "files"))

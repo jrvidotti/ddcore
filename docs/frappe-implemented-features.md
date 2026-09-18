@@ -40,7 +40,7 @@ References: [fieldtypes](agent/fieldtypes.md), [migrations](agent/migrations.md)
 | Hooks | `beforeValidate`, `validate`, `beforeSave`, `beforeInsert`, `afterInsert`, `onUpdate`, submit/cancel, `onUpdateAfterSubmit`, delete, and rename; also `docEvents` in manifest. |
 | RPC | Controller methods and `whitelisted` functions, accessible via HTTP and Desk. |
 | Bridge `ddcore.*` | Database, documents, messages/errors, session, roles, permissions, cache, synchronous HTTP, jobs, SSE, logs, and utilities. |
-| Role-Based Permissions | `read`, `write`, `create`, `delete`, `submit`, `cancel`, `amend`, `report`, `export`, and `ifOwner`; Administrator bypasses checks. |
+| Role-Based Permissions | `read`, `write`, `create`, `delete`, `submit`, `cancel`, `amend`, `report`, `export`, and `ifOwner`; Admin bypasses checks. |
 | App Rules | `hasPermission` and `permissionQuery` complement declarative rules. |
 | Authentication | User, Role, Has Role, cookie session, CSRF, Argon2id password, and `key:secret` API key; inactive users/keys do not authenticate. |
 | Login Protection | Attempts in `ddcore_login_attempt`, lockout by account and IP, 429 response with `Retry-After`, decoy hashing to prevent account enumeration, and `ddcore user unlock`. |

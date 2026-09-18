@@ -61,7 +61,7 @@ Each state defines:
   - `1`: Submitted (invokes `beforeSubmit` and `onSubmit` hooks when a transition changes docstatus to 1)
   - `2`: Cancelled (invokes `beforeCancel` and `onCancel` hooks when a transition changes docstatus to 2)
   A state with `docstatus: 1` or `2` requires the DocType to be `submittable`; the load-time check below rejects the workflow otherwise.
-- `allowEdit`: Optional role name. When specified, only users with this role (or `Administrator`) can modify document fields while in this state. If omitted, normal DocType role permissions apply.
+- `allowEdit`: Optional role name. When specified, only users with this role (or `Admin`) can modify document fields while in this state. If omitted, normal DocType role permissions apply.
 - `updateFields`: Optional map of field values to set atomically when the document enters this state (e.g. `{ status: "Approved" }`).
 - State and action names are translation keys: the Desk shows both through `__()`, and `ddcore i18n extract` collects them into the app's translation catalogue.
 
@@ -71,8 +71,8 @@ Each transition defines:
 - `state`: Origin state name. Must exist in `states`.
 - `action`: Name of the user action triggering the transition (e.g. `"Submit for Approval"`, `"Approve"`, `"Reject"`).
 - `nextState`: Destination state name. Must exist in `states`.
-- `allowed`: Role name or array of role names authorized to trigger this transition. Checked against the authenticated caller's roles. `Administrator` always passes.
-- `allowSelfApproval`: Optional boolean (default: `true`). If `false`, the user who created the document (`owner`) cannot trigger this transition, even if they possess the authorized role. Running with `ignorePermissions` (a background job, a patch) skips the role check but not this one — a non-`Administrator` owner still cannot self-approve while `ignorePermissions` is raised. `Administrator` is exempt from self-approval through its own check (any `Administrator` action is allowed, whether or not `ignorePermissions` is set), not because `ignorePermissions` happens to be set.
+- `allowed`: Role name or array of role names authorized to trigger this transition. Checked against the authenticated caller's roles. `Admin` always passes.
+- `allowSelfApproval`: Optional boolean (default: `true`). If `false`, the user who created the document (`owner`) cannot trigger this transition, even if they possess the authorized role. Running with `ignorePermissions` (a background job, a patch) skips the role check but not this one — a non-`Admin` owner still cannot self-approve while `ignorePermissions` is raised. `Admin` is exempt from self-approval through its own check (any `Admin` action is allowed, whether or not `ignorePermissions` is set), not because `ignorePermissions` happens to be set.
 - `condition`: Optional synchronous JavaScript function `(doc) => boolean` running on goja. `doc` is a plain JSON object (the document's field values), not a `Document` instance — it has no methods. Evaluated before applying the transition; if it returns `false`, the transition is rejected. Never use `async`/`await` or Promises. A condition that throws hides the action from `GET /api/workflow/actions`'s list without failing the request; applying that action returns the thrown error to the caller without writing a `Denied` audit entry (unlike a wrong role, a self-approval violation, or a condition that returns `false`, which do write one).
 
 Workflows are linear state machines: `ApplyWorkflowTransition` matches the first transition whose `state` and `action` fit the current state and stops there, without checking its `condition`. Declaring two transitions from the same state with the same `action` name is a modeling error — the second is unreachable — so keep `action` unique per `state`.
@@ -97,13 +97,13 @@ load-time checks (6) always run regardless.
    Inserting a document whose DocType has an active workflow initializes `doc[stateField]` to `initialState` when it is empty or omitted. An explicit state other than `initialState`, or a `docstatus` other than the initial state's, is rejected with a `ValidationError`. This closes the path where `POST /api/resource/<DocType> {docstatus: 1}` (or `doc.insert()` on a document built with `docstatus: 1`) would create a submitted document still sitting in the initial state.
 
 2. **Delete guard:**
-   Deleting a document governed by a workflow is refused with a `PermissionError` unless its current state has `docstatus: 0` and either the state is `initialState` or the user's roles satisfy that state's `allowEdit` (the same check `HasPermission(..., "write")` applies; a state with no `allowEdit` restriction allows the delete, same as it allows a plain field edit). A document with `docstatus: 1` still hits the existing "cancel before deleting" rule, and one with `docstatus: 2` follows the delete permission the DocType already grants — this guard only narrows drafts that have left `initialState`. Without it, a document's owner could delete it while it awaited approval, discarding the pending decision. `Administrator` is exempt outright, as it is from the DocType's own delete permission.
+   Deleting a document governed by a workflow is refused with a `PermissionError` unless its current state has `docstatus: 0` and either the state is `initialState` or the user's roles satisfy that state's `allowEdit` (the same check `HasPermission(..., "write")` applies; a state with no `allowEdit` restriction allows the delete, same as it allows a plain field edit). A document with `docstatus: 1` still hits the existing "cancel before deleting" rule, and one with `docstatus: 2` follows the delete permission the DocType already grants — this guard only narrows drafts that have left `initialState`. Without it, a document's owner could delete it while it awaited approval, discarding the pending decision. `Admin` is exempt outright, as it is from the DocType's own delete permission.
 
 3. **Direct state field / docstatus mutation guard:**
    `DBSet` and `SaveDoc` both refuse a write to `doc[stateField]` or `docstatus` outside a workflow transition (`inWorkflowTransition`), with a `ValidationError`. Client code, form scripts and `ddcore.db.setValue` cannot alter either field directly; only `doc.applyWorkflow(action)` / `POST /api/workflow/apply` can.
 
 4. **State editability guard (`allowEdit`):**
-   When a document is in a state with `allowEdit: "Role"`, a user lacking that role (other than `Administrator`, or a context running with `c.IgnorePermissions()`) fails the DocType's `write` permission check for that document, so a plain field save is rejected with a `PermissionError`. Unlike guards 1-3, this one is a permission check like any other, so it follows the DocType's usual `ignorePermissions` rules.
+   When a document is in a state with `allowEdit: "Role"`, a user lacking that role (other than `Admin`, or a context running with `c.IgnorePermissions()`) fails the DocType's `write` permission check for that document, so a plain field save is rejected with a `PermissionError`. Unlike guards 1-3, this one is a permission check like any other, so it follows the DocType's usual `ignorePermissions` rules.
 
 5. **Atomic row locking (`FOR UPDATE`):**
    Transitions execute under a PostgreSQL row lock (`SELECT ... FOR UPDATE`). Concurrent approval requests serialize: the first caller transitions the state, and the subsequent caller reads the updated state, finds no transition matching the old state and action, and fails with a `ValidationError` without duplicating side effects.
@@ -134,8 +134,8 @@ roles, `allowSelfApproval` and `condition` are checked, the row is locked, the t
 through the full save lifecycle (`validate`, `beforeSave`, `onUpdate` or `onUpdateAfterSubmit`,
 `beforeSubmit`/`onSubmit` or `beforeCancel`/`onCancel` when docstatus changes, webhooks,
 notifications), and the audit event and timeline comment are written. The document must already
-be saved. `Administrator` passes every role and self-approval check, which is what a test running
-as `Administrator` relies on.
+be saved. `Admin` passes every role and self-approval check, which is what a test running
+as `Admin` relies on.
 
 A transition requires read access to the document and a role listed in the matched transition's
 `allowed` — it does not require the DocType's `submit`, `cancel` or `write` permission (the save

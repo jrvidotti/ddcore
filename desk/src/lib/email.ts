@@ -19,7 +19,7 @@ export function validEmail(value: string): boolean {
 }
 
 export function isSystemUserEmail(doctype: string, fieldname: string, value: string): boolean {
-  return doctype === "User" && fieldname === "email" && (value === "Administrator" || value === "Guest");
+  return doctype === "User" && fieldname === "email" && (value === "Admin" || value === "Guest");
 }
 
 export function validateEmailFields(fields: Field[], doc: Record<string, any>, doctype: string): Record<string, string> {

@@ -34,7 +34,7 @@ func (s *Server) enrichWorkflow(c *engine.Ctx, doctype string, doc engine.Doc) e
 	}
 	canEdit := true
 	if st := wf.FindState(state); st != nil && st.AllowEdit != "" {
-		if c.User != "Administrator" && !c.IgnorePermissions() {
+		if c.User != "Admin" && !c.IgnorePermissions() {
 			canEdit = c.HasRole(st.AllowEdit)
 		}
 	}

@@ -92,7 +92,7 @@ func TestCheckEmailsAllowsEmptyAndSystemUsers(t *testing.T) {
 		t.Fatalf("optional empty email: %v", err)
 	}
 	user := &meta.DocType{Name: "User", Fields: []*meta.Field{{Fieldname: "email", Fieldtype: "Email", Label: "E-mail"}}}
-	for _, value := range []string{"Administrator", "Guest"} {
+	for _, value := range []string{"Admin", "Guest"} {
 		if err := c.checkEmails(user, Doc{"email": value}); err != nil {
 			t.Fatalf("system user %q: %v", value, err)
 		}

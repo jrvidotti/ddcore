@@ -14,7 +14,7 @@ Scopes choose documents. To hide *fields* inside a document the user may read, s
 
 ## The `User Permission` DocType
 
-`User Permission` is a Core DocType stored in `tab_user_permission`. Only `Administrator`
+`User Permission` is a Core DocType stored in `tab_user_permission`. Only `Admin`
 and a `System Manager` without scope rows of their own may read or change it (see "Scope
 administration" under "Enforced surfaces").
 
@@ -58,7 +58,7 @@ different DocType.
 
 ## Who is unrestricted
 
-- `Administrator`.
+- `Admin`.
 - Any user without `User Permission` rows. This is the default: scopes are opt-in per user.
 - Background jobs, including jobs a scoped user enqueued (see "Background jobs" below).
 - Framework-internal operations that raise the whole context to ignore permissions, such
@@ -103,7 +103,7 @@ scoped user enqueued it. A method a scoped user can enqueue therefore runs unsco
 code that enqueues work on behalf of a scoped user must filter by that user's scope itself,
 for example by passing the in-scope names as arguments after reading them with
 `ddcore.db.getList` in the request. Scheduled methods (`scheduler` in `defineApp`) run as
-`Administrator` and are also unscoped.
+`Admin` and are also unscoped.
 
 ## Enforced surfaces
 
@@ -114,13 +114,13 @@ for example by passing the in-scope names as arguments after reading them with
 | Insert | Refused if the new document is out of scope |
 | Update | Refused if the stored document *or* the new values are out of scope, so a record cannot be moved into another company |
 | Delete, submit, cancel, amend | Refused for out-of-scope documents |
-| Export (`/api/export`) | Only in-scope documents are exported. `ddcore export` runs as `Administrator`, and is therefore unscoped, unless `--user` is passed |
+| Export (`/api/export`) | Only in-scope documents are exported. `ddcore export` runs as `Admin`, and is therefore unscoped, unless `--user` is passed |
 | Files | An attached file is readable only if its document is; an unattached file stays with its owner and System Manager |
 | Versions and comments | Refused unless the referenced document is readable |
 | Realtime events (SSE) | Document events are delivered only to users who can read the document |
 | Notifications | Recipient filtering, listing, counting, read-state changes and the email-send recheck all recheck access, so a scope change stops a new occurrence and hides or blocks an existing one |
-| Scope administration | A scoped user is refused every permission on `User Permission`, including their own rows, and app code running as that user cannot reach them with `ignorePermissions`, `setValue` or `dbSet`. Scope administration belongs to a `System Manager` without scope rows, or `Administrator` |
-| Document shares | A share of an out-of-scope document stays refused, unless it was given with **Override security scope** by an unscoped System Manager, `Administrator` or an elevated context: that share lifts the scope for the rights it grants (read, write, share), never for delete, submit, cancel or amend. A scoped user is refused `Document Share` itself (see `sharing`) |
+| Scope administration | A scoped user is refused every permission on `User Permission`, including their own rows, and app code running as that user cannot reach them with `ignorePermissions`, `setValue` or `dbSet`. Scope administration belongs to a `System Manager` without scope rows, or `Admin` |
+| Document shares | A share of an out-of-scope document stays refused, unless it was given with **Override security scope** by an unscoped System Manager, `Admin` or an elevated context: that share lifts the scope for the rights it grants (read, write, share), never for delete, submit, cancel or amend. A scoped user is refused `Document Share` itself (see `sharing`) |
 | Webhooks | A scoped user is refused every permission on `Webhook` and `Webhook Delivery`, including replay, and app code running as that user cannot reach them with `ignorePermissions`: webhook administration is for unscoped users. The user's own document writes still queue and send deliveries (see `webhooks`) |
 
 ## Caching

@@ -20,7 +20,7 @@ SEC-01 establishes reusable user access scopes (the generic equivalent of Frappe
    export, files, history/versions, and real-time events (SSE).
 3. Guarantees that two users with identical roles (e.g. two System Managers or two Sales Managers)
    assigned different scopes remain strictly isolated.
-4. Preserves privileged execution contexts (`Administrator` and explicit `c.IgnorePermissions()`).
+4. Preserves privileged execution contexts (`Admin` and explicit `c.IgnorePermissions()`).
 
 ## Key Decisions
 
@@ -49,7 +49,7 @@ scopes are modeled as a first-class standard DocType in the Core module:
 ### 2. In-Memory Resolution and Caching
 Scope rules must not incur round-trip queries on every row evaluation or permission check:
 - `engine.Ctx` provides `(c *Ctx) UserPermissions() ([]UserPerm, error)`.
-- Returns an empty list immediately for `Administrator` or when `c.IgnorePermissions()` is true.
+- Returns an empty list immediately for `Admin` or when `c.IgnorePermissions()` is true.
 - Cached on the context (`c.userPerms`) for the lifetime of the request.
 - Cached in `c.E.Cache` under `"user_perms:" + user`.
 - Cache is invalidated whenever a `User Permission` document is created, updated, or deleted
@@ -58,7 +58,7 @@ Scope rules must not incur round-trip queries on every row evaluation or permiss
 ### 3. Query Engine Enforcement (`permissionFilters`)
 The engine's `permissionFilters(d *meta.DocType)` in `internal/engine/perm.go` is the central
 chokepoint for set-based queries:
-- Bypassed for `Administrator` and `c.IgnorePermissions()`.
+- Bypassed for `Admin` and `c.IgnorePermissions()`.
 - For each distinct `allow` DocType with active permissions for `c.User`:
   - Filters matching the current DocType `d` (`up.ApplicableFor == "" || up.ApplicableFor == d.Name`).
   - Assembles `allowedValues = []any{...}`.
@@ -85,7 +85,7 @@ Because `GetList` is the common foundation:
 Set-based query filtering prevents finding or listing out-of-scope records, but direct reads
 and mutations must be validated per record:
 - New engine function `(c *Ctx) checkUserPermissions(d *meta.DocType, doc Doc) (bool, error)`:
-  - Bypasses `Administrator` and `c.IgnorePermissions()`.
+  - Bypasses `Admin` and `c.IgnorePermissions()`.
   - When `doc != nil`:
     - Checks `doc.Name()` if `d.Name == allow`.
     - Checks all `Link` fields pointing to `allow`.
@@ -107,7 +107,7 @@ and mutations must be validated per record:
   via `c.GetDoc(attached_to_doctype, attached_to_name)`.
 - If the attached document belongs to an out-of-scope company, `GetDoc` returns a permission error,
   and `CanReadFile` evaluates to `false`.
-- The historical check `c.HasRole("System Manager")` is refined so that non-Administrator users
+- The historical check `c.HasRole("System Manager")` is refined so that non-Admin users
   with active `User Permission` cannot bypass scope restrictions on attached files.
 
 #### History / Versions (`Version` DocType)
@@ -144,4 +144,4 @@ Automated tests in `internal/engine/sec01_test.go` and `internal/api/sec01_test.
    - Files (`CanReadFile`)
    - History (`requireDocRead` for versions)
    - Events (`Hub.Publish` filtering)
-5. Assert that `Administrator` and `ignorePermissions: true` have full, unrestricted access.
+5. Assert that `Admin` and `ignorePermissions: true` have full, unrestricted access.

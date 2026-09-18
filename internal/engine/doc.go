@@ -1063,7 +1063,7 @@ func (c *Ctx) Delete(doctype, name string, ignorePerms, force bool) error {
 	// {ignorePermissions:true}) and a background job (which always runs with
 	// c.IgnorePermissions() true) cannot delete a document out from under an
 	// approval; data repair belongs in a migration patch's ctx.sql.
-	if wf := c.WorkflowFor(doctype); wf != nil && doc.Docstatus() == 0 && c.User != "Administrator" {
+	if wf := c.WorkflowFor(doctype); wf != nil && doc.Docstatus() == 0 && c.User != "Admin" {
 		st := doc.Str(wf.StateField)
 		if st == "" {
 			st = wf.InitialState
@@ -1210,9 +1210,29 @@ func (c *Ctx) Rename(doctype, oldName, newName string) (string, error) {
 	if err := c.runHook(d, "beforeRename", doc, nil); err != nil {
 		return "", err
 	}
+	if err := c.moveName(d, oldName, newName); err != nil {
+		return "", err
+	}
+	delete(c.docCache, c.docKey(doctype, oldName))
+	doc["name"] = newName
+	if err := c.runHook(d, "afterRename", doc, nil); err != nil {
+		return "", err
+	}
+	c.AfterCommit(func() {
+		c.E.Events.Publish(Event{Name: "list_update", Payload: map[string]any{"doctype": doctype}})
+	})
+	return newName, nil
+}
+
+// moveName is the data half of Rename: the row, its vault keys, and every
+// reference the meta and coreRefs know about. It checks nothing and runs no
+// hook, which is what lets a migration rename a document its DocType does not
+// allow a person to rename.
+func (c *Ctx) moveName(d *meta.DocType, oldName, newName string) error {
+	doctype := d.Name
 	q := c.Q()
 	if _, err := q.Exec(c.Ctx, fmt.Sprintf("UPDATE %s SET name = $1 WHERE name = $2", db.Ident(d.TableName())), newName, oldName); err != nil {
-		return "", err
+		return err
 	}
 	if d.Naming.Field != "" {
 		q.Exec(c.Ctx, fmt.Sprintf("UPDATE %s SET %s = $1 WHERE name = $1", db.Ident(d.TableName()), db.Ident(d.Naming.Field)), newName)
@@ -1229,7 +1249,7 @@ func (c *Ctx) Rename(doctype, oldName, newName string) (string, error) {
 		oldKey := c.DeriveVaultKey(d, f, Doc{"name": oldName})
 		newKey := c.DeriveVaultKey(d, f, Doc{"name": newName})
 		if _, err := q.Exec(c.Ctx, "UPDATE ddcore_vault SET name = $1 WHERE name = $2", newKey, oldKey); err != nil {
-			return "", err
+			return err
 		}
 	}
 	for _, other := range c.St.Meta.DocTypes {
@@ -1242,7 +1262,7 @@ func (c *Ctx) Rename(doctype, oldName, newName string) (string, error) {
 			case "Link":
 				if f.OptionsString() == doctype {
 					if _, err := q.Exec(c.Ctx, fmt.Sprintf("UPDATE %s SET %s = $1 WHERE %s = $2", t, db.Ident(f.Fieldname), db.Ident(f.Fieldname)), newName, oldName); err != nil {
-						return "", err
+						return err
 					}
 				}
 			case "Dynamic Link":
@@ -1263,7 +1283,7 @@ func (c *Ctx) Rename(doctype, oldName, newName string) (string, error) {
 			db.Ident(ref.table), db.Ident(ref.nameCol), db.Ident(ref.doctypeCol), db.Ident(ref.nameCol)),
 			newName, doctype, oldName)
 		if err != nil {
-			return "", fmt.Errorf("coreRefs update %s: %w", ref.table, err)
+			return fmt.Errorf("coreRefs update %s: %w", ref.table, err)
 		}
 		if ref.table == "tab_document_share" && tag.RowsAffected() > 0 {
 			c.allSharesChanged()
@@ -1271,18 +1291,10 @@ func (c *Ctx) Rename(doctype, oldName, newName string) (string, error) {
 	}
 	if d.Name == "User" {
 		if _, err := q.Exec(c.Ctx, `UPDATE ddcore_user_identity SET "user" = $1 WHERE "user" = $2`, newName, oldName); err != nil {
-			return "", fmt.Errorf("identity rename: %w", err)
+			return fmt.Errorf("identity rename: %w", err)
 		}
 	}
-	delete(c.docCache, c.docKey(doctype, oldName))
-	doc["name"] = newName
-	if err := c.runHook(d, "afterRename", doc, nil); err != nil {
-		return "", err
-	}
-	c.AfterCommit(func() {
-		c.E.Events.Publish(Event{Name: "list_update", Payload: map[string]any{"doctype": doctype}})
-	})
-	return newName, nil
+	return nil
 }
 
 // GetDocIgnoringPerms loads without the read check.
@@ -1408,7 +1420,7 @@ func (c *Ctx) checkEmails(d *meta.DocType, doc Doc) error {
 			continue
 		}
 		value := doc.Str(f.Fieldname)
-		if d.Name == "User" && f.Fieldname == "email" && (value == "Administrator" || value == "Guest") {
+		if d.Name == "User" && f.Fieldname == "email" && (value == "Admin" || value == "Guest") {
 			continue
 		}
 		if !validEmail(value) {

@@ -949,7 +949,7 @@ func (e *Engine) RunTests(ctx context.Context, filter, app string) ([]js.TestRes
 		return nil, fmt.Errorf("the engine was not loaded in test mode")
 	}
 	var out []js.TestResult
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		c.Flags["rollback"] = true
 		// Tests run in the source language, whatever the site is set to. An
 		// assertion is about a message's *key*; making it depend on
@@ -966,11 +966,11 @@ func (e *Engine) RunTests(ctx context.Context, filter, app string) ([]js.TestRes
 	return out, err
 }
 
-// Eval runs a TS snippet as Administrator; returns its JSON result and logs.
+// Eval runs a TS snippet as Admin; returns its JSON result and logs.
 func (e *Engine) Eval(ctx context.Context, code string, commit bool) (json.RawMessage, []string, error) {
 	var out json.RawMessage
 	var logs []string
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		c.Flags["rollback"] = !commit
 		c.Flags["captureLogs"] = true
 		c.Flags["logs"] = []string{}

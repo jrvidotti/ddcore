@@ -18,7 +18,7 @@ account out exactly as production does or the rehearsal proves nothing:
   "inviteHours": 72,
   "secureCookie": null,       // null = decide per request
   "selfServiceApiKeys": true,
-  "passwordLogin": true       // false = single sign-on only (Administrator keeps a password)
+  "passwordLogin": true       // false = single sign-on only (Admin keeps a password)
 }
 ```
 
@@ -133,7 +133,7 @@ site still decides whether they may use it:
    every sign-in, not only the first, so narrowing the list takes effect at once.
 3. The first sign-in links the provider's `sub` to the **enabled** User whose
    e-mail is that address, or failing that whose name is, compared without case.
-   `Guest` is never matched; `Administrator` is. Later sign-ins resolve by `sub`,
+   `Guest` is never matched; `Admin` is. Later sign-ins resolve by `sub`,
    so an address changed at the provider still lands on the same account; a
    linked User since disabled is refused with `disabled`, and a link left
    pointing at a deleted User falls back to matching the address again. The link
@@ -178,11 +178,11 @@ callback, and the provider's own `?error=` return, which is answered before the
 callback runs. A first link also writes `account.identity_link`.
 
 **Password sign-in off.** Set `"passwordLogin": false` and `POST /api/login`
-refuses everyone but `Administrator`, and forgot-password sends nothing to
+refuses everyone but `Admin`, and forgot-password sends nothing to
 anyone else. The refusal is answered only once the password has verified, for
 the reason a disabled account is. The desk hides the form behind an
-*Administrator sign-in* link.
-Administrator keeps a password so that an outage at the provider is not also an
+*Admin sign-in* link.
+Admin keeps a password so that an outage at the provider is not also an
 outage of the site's administration. Setting `false` with no provider
 configured is refused at load.
 
@@ -315,7 +315,7 @@ another user's sessions.
 
 Sharp edges of the single sign-on that is here: provider configuration is read
 at boot, so a change to `DDCORE_OIDC_*` needs a restart and not a reload; with
-password sign-in off, an invitation or an administrator's reset link still sets
-a password nobody but Administrator can use; and `email_verified` is taken at
+password sign-in off, an invitation or an admin's reset link still sets
+a password nobody but Admin can use; and `email_verified` is taken at
 the provider's word, so a provider is trusted for every address it says it
 checked.

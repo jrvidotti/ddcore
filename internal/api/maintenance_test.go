@@ -9,7 +9,7 @@ import (
 func TestMaintenanceMode(t *testing.T) {
 	x := setup(t)
 	x.e.Cfg.EnforceMaintenance = true
-	admin := "sid:" + x.sid("Administrator")
+	admin := "sid:" + x.sid("Admin")
 
 	if r := x.call("POST", "/api/resource/Pessoa", map[string]any{"nome": "Antes"}, admin); r.Status != 200 {
 		t.Fatalf("create before pausing: %d %s", r.Status, r.Raw)

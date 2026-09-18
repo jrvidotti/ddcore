@@ -68,7 +68,7 @@ func TestSEC04_SelfServiceCannotEscalate(t *testing.T) {
 		return nil
 	})
 	// and the user still exists under the same name
-	if err := x.e.Run(x.ctx, "Administrator", func(c *engine.Ctx) error {
+	if err := x.e.Run(x.ctx, "Admin", func(c *engine.Ctx) error {
 		_, err := c.GetDoc("User", "ze@x.com")
 		return err
 	}); err != nil {

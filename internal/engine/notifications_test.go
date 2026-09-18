@@ -26,16 +26,16 @@ func TestNotificationsCommitRollbackAndRecipients(t *testing.T) {
 	e := setupWith(t, map[string]string{
 		"notifications/person.notification.ts": `import {defineNotification} from "@ddcore/sdk";
 export default defineNotification({name:"person",doctype:"Pessoa",event:"on_insert",
- recipients(doc) { return ["Administrator", "Administrator", "missing@example.com", "Guest"] },
+ recipients(doc) { return ["Admin", "Admin", "missing@example.com", "Guest"] },
  desk:{title(doc){return "Created " + doc.nome},message(doc){return "Hello"}}});`,
 	})
 	ctx := context.Background()
-	own := e.Events.Subscribe("Administrator", nil)
+	own := e.Events.Subscribe("Admin", nil)
 	other := e.Events.Subscribe("another@example.com", nil)
 	defer e.Events.Unsubscribe(own)
 	defer e.Events.Unsubscribe(other)
 	abort := errors.New("abort")
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		d, _ := c.NewDoc("Pessoa", Doc{"nome": "rollback"})
 		if _, err := c.Insert(d, SaveOpts{}); err != nil {
 			return err
@@ -50,7 +50,7 @@ export default defineNotification({name:"person",doctype:"Pessoa",event:"on_inse
 		t.Fatalf("rollback emitted %#v", ev)
 	default:
 	}
-	err = e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err = e.Run(ctx, "Admin", func(c *Ctx) error {
 		n, err := c.NotificationCount()
 		if err != nil {
 			return err
@@ -79,7 +79,7 @@ export default defineNotification({name:"person",doctype:"Pessoa",event:"on_inse
 			t.Fatal("recipient leak")
 		}
 	}
-	err = e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err = e.Run(ctx, "Admin", func(c *Ctx) error {
 		page, err := c.ListNotifications(20, 0, nil)
 		if err != nil {
 			return err

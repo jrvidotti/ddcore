@@ -42,11 +42,11 @@ cd ddcore-demo
 
 # Ensure your PostgreSQL database is running (configured in ddcore.json)
 ddcore migrate
-ddcore user passwd Administrator admin1234
+ddcore user passwd Admin admin1234
 ddcore dev
 ```
 
-Navigate to `http://localhost:8092` (the port set in the demo's `ddcore.json`) and log in as `Administrator`.
+Navigate to `http://localhost:8092` (the port set in the demo's `ddcore.json`) and log in as `Admin`.
 
 To populate the database with realistic sample projects, tasks, and users, seed the demo data:
 

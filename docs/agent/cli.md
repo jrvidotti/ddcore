@@ -23,7 +23,7 @@ flag is an error (it never becomes an argument silently).
 | `ddcore types` | generates `.ddcore/types.d.ts` and materialises the embedded SDK typings per app |
 | `ddcore i18n extract [--app n\|--all] [--lang pt-BR] [--check] [--prune]` | rewrites `translations/<lang>.csv` from the code; `--check` reports and exits non-zero |
 | `ddcore test [--app name] [--filter re] [-v]` | runs `*.test.ts` (each `it` in a rolled-back transaction) |
-| `ddcore exec app.mod.fn --args '{}'` | runs a function as Administrator |
+| `ddcore exec app.mod.fn --args '{}'` | runs a function as Admin |
 | `ddcore eval '<ts>' [--commit]` | runs loose TS with `ddcore.*` (rolls back by default) |
 | `ddcore demo [--app name]` | runs `<app>.services.demo.generate` for every app that has `services/demo.ts` |
 | `ddcore export <DocType>\|--all [--children] [--attachments] [--out DIR]` | exports the whole set to NDJSON/CSV with a manifest of checksums (see `export`) |

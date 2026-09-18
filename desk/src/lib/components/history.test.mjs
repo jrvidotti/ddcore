@@ -40,7 +40,7 @@ test("diffTable detects added rows and strips internal metadata", () => {
     {
       idx: 1,
       name: "3mj649p8s0",
-      owner: "Administrator",
+      owner: "Admin",
       parent: "PES-00002",
       arquivo: "/private/files/img.jpeg",
       creation: "2026-09-10T07:27:37.647441-04:00",
@@ -148,7 +148,7 @@ test("parseVersion processes full version with standard and child table changes"
 
   const rawVersion = {
     name: "v123",
-    owner: "Administrator",
+    owner: "Admin",
     creation: new Date().toISOString(),
     data: JSON.stringify({
       changed: {
@@ -162,7 +162,7 @@ test("parseVersion processes full version with standard and child table changes"
   };
 
   const parsed = parseVersion(rawVersion, fakeFrm);
-  assert.equal(parsed.owner, "Administrator");
+  assert.equal(parsed.owner, "Admin");
   assert.equal(parsed.changes.length, 2);
 
   const emailChange = parsed.changes.find((c) => c.field === "email");
@@ -212,13 +212,13 @@ test("parseVersion accurately reflects PES-00002 real versions from database", (
 
   const vRow1 = {
     name: "ntfgsx5nn4",
-    owner: "Administrator",
+    owner: "Admin",
     creation: "2026-09-10 13:15:56.142761+00",
     data: {
       changed: {
         anexos: [
-          [{ idx: 1, name: "3mj649p8s0", owner: "Administrator", parent: "PES-00002", arquivo: "/private/files/WhatsApp_Image_2026-09-09_at_14_27_59_340731000.jpeg", doctype: "Anexo Documento", creation: "2026-09-10T07:27:37.647441-04:00", modified: "2026-09-10T07:29:08.733148-04:00", validade: null, descricao: "TESTE", docstatus: 0, parenttype: "Pessoa", modified_by: "Administrator", parentfield: "anexos", tipo_documento: "Documento Pessoal" }],
-          [{ idx: 1, name: "3mj649p8s0", owner: "Administrator", parent: "PES-00002", arquivo: "/private/files/WhatsApp_Image_2026-09-09_at_14_40_39_737162000.jpeg", doctype: "Anexo Documento", creation: "2026-09-10T07:27:37.647441-04:00", modified: "2026-09-10T09:15:56.153557-04:00", validade: null, descricao: "TESTE", docstatus: 0, parenttype: "Pessoa", modified_by: "Administrator", parentfield: "anexos", tipo_documento: "Matrícula" }]
+          [{ idx: 1, name: "3mj649p8s0", owner: "Admin", parent: "PES-00002", arquivo: "/private/files/WhatsApp_Image_2026-09-09_at_14_27_59_340731000.jpeg", doctype: "Anexo Documento", creation: "2026-09-10T07:27:37.647441-04:00", modified: "2026-09-10T07:29:08.733148-04:00", validade: null, descricao: "TESTE", docstatus: 0, parenttype: "Pessoa", modified_by: "Admin", parentfield: "anexos", tipo_documento: "Documento Pessoal" }],
+          [{ idx: 1, name: "3mj649p8s0", owner: "Admin", parent: "PES-00002", arquivo: "/private/files/WhatsApp_Image_2026-09-09_at_14_40_39_737162000.jpeg", doctype: "Anexo Documento", creation: "2026-09-10T07:27:37.647441-04:00", modified: "2026-09-10T09:15:56.153557-04:00", validade: null, descricao: "TESTE", docstatus: 0, parenttype: "Pessoa", modified_by: "Admin", parentfield: "anexos", tipo_documento: "Matrícula" }]
         ]
       }
     }

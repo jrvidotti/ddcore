@@ -317,8 +317,8 @@ func TestSEC05_PasswordLoginOff(t *testing.T) {
 
 	r := x.call("POST", "/api/login", map[string]any{"usr": "ana@x.com", "pwd": "segredo123"}, "")
 	x.expect(r, 401, "AuthenticationError")
-	if _, err := x.e.Login(x.ctx, "Administrator", "admin12345", engine.LoginFrom{}); err != nil {
-		t.Fatalf("Administrator keeps a password: %v", err)
+	if _, err := x.e.Login(x.ctx, "Admin", "admin12345", engine.LoginFrom{}); err != nil {
+		t.Fatalf("Admin keeps a password: %v", err)
 	}
 
 	before := x.countSQL(`SELECT count(*) FROM ddcore_auth_token`)

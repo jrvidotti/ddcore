@@ -61,7 +61,7 @@ func TestSEC04_DisabledUserSessionsAndKeysRevoked(t *testing.T) {
 	x.expect(x.call("GET", "/api/boot", nil, "sid:"+sid), 200, "")
 	x.expect(x.call("GET", "/api/boot", nil, "token:"+key), 200, "")
 
-	// Administrator disables the user via form/controller
+	// Admin disables the user via form/controller
 	x.asAdmin(func(c *engine.Ctx) error {
 		u, err := c.GetDoc("User", "ana@x.com")
 		if err != nil {

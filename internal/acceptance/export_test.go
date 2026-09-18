@@ -37,12 +37,12 @@ func getRaw(t *testing.T, srv *httptest.Server, tok, path string) *http.Response
 
 func seedProjects(t *testing.T, e *engine.Engine, n int) {
 	t.Helper()
-	err := e.Run(context.Background(), "Administrator", func(c *engine.Ctx) error {
+	err := e.Run(context.Background(), "Admin", func(c *engine.Ctx) error {
 		for i := 0; i < n; i++ {
 			d, err := c.NewDoc("Project", engine.Doc{
 				"code":       fmt.Sprintf("P-%04d", i),
 				"title":      fmt.Sprintf("Projeto %d", i),
-				"assignee":   "Administrator",
+				"assignee":   "Admin",
 				"start_date": "2026-01-01",
 			})
 			if err != nil {
@@ -191,7 +191,7 @@ func TestExportDeniedWithoutExportPermission(t *testing.T) {
 	srv, _ := server(t, e)
 	seedProjects(t, e, 2)
 
-	err := e.Run(context.Background(), "Administrator", func(c *engine.Ctx) error {
+	err := e.Run(context.Background(), "Admin", func(c *engine.Ctx) error {
 		d, err := c.NewDoc("User", engine.Doc{"email": "contrib@x.com", "full_name": "Contrib"})
 		if err != nil {
 			return err

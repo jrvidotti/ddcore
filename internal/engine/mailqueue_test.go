@@ -57,7 +57,7 @@ func TestOPS02_SendingWritesARecordAndAJob(t *testing.T) {
 	e := setupMail(t)
 	ctx := context.Background()
 
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		return c.SendTemplate("demo.aviso", "ana@x.com", map[string]any{
 			"pedido": "PED-1", "nome": "Ana", "url": "https://example.com/1",
 		})
@@ -113,7 +113,7 @@ func TestOPS02_RollbackSendsNothing(t *testing.T) {
 	e := setupMail(t)
 	ctx := context.Background()
 
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		if err := c.SendTemplate("demo.aviso", "ana@x.com", map[string]any{"pedido": "P", "nome": "Ana", "url": "/x"}); err != nil {
 			return err
 		}
@@ -139,7 +139,7 @@ func TestOPS02_SensitiveTemplateStoresNoArguments(t *testing.T) {
 	ctx := context.Background()
 
 	const link = "https://example.com/reset?token=deadbeef"
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		return c.SendTemplate("demo.segredo", "ana@x.com", map[string]any{"link": link})
 	})
 	if err != nil {
@@ -171,12 +171,12 @@ func TestOPS02_SensitiveTemplateStoresNoArguments(t *testing.T) {
 }
 
 // The reader's language, not the sender's and not the site's. The sender here
-// is Administrator on a pt-BR site; the reader has chosen English.
+// is Admin on a pt-BR site; the reader has chosen English.
 func TestOPS02_MessageIsWrittenInTheRecipientsLanguage(t *testing.T) {
 	e := setupMail(t)
 	ctx := context.Background()
 
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		u, err := c.NewDoc("User", Doc{"email": "ana@x.com", "full_name": "Ana", "language": "en"})
 		if err != nil {
 			return err
@@ -209,7 +209,7 @@ func TestOPS02_IdempotencyKeyRefusesASecondSend(t *testing.T) {
 	ctx := context.Background()
 
 	send := func() error {
-		return e.Run(ctx, "Administrator", func(c *Ctx) error {
+		return e.Run(ctx, "Admin", func(c *Ctx) error {
 			_, err := c.QueueMail(MailRequest{
 				Template: "demo.aviso", To: []string{"ana@x.com"}, Subject: "S", Lang: "en", Key: "pedido-1",
 			})
@@ -229,7 +229,7 @@ func TestOPS02_IdempotencyKeyRefusesASecondSend(t *testing.T) {
 	// Without a key, two identical messages are two messages — resending an
 	// invitation is a thing people do on purpose.
 	for i := 0; i < 2; i++ {
-		err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+		err := e.Run(ctx, "Admin", func(c *Ctx) error {
 			_, err := c.QueueMail(MailRequest{Template: "demo.aviso", To: []string{"ana@x.com"}, Subject: "S", Lang: "en"})
 			return err
 		})
@@ -244,7 +244,7 @@ func TestOPS02_IdempotencyKeyRefusesASecondSend(t *testing.T) {
 
 func TestOPS02_RefusesAnInvalidRecipient(t *testing.T) {
 	e := setupMail(t)
-	err := e.Run(context.Background(), "Administrator", func(c *Ctx) error {
+	err := e.Run(context.Background(), "Admin", func(c *Ctx) error {
 		_, err := c.QueueMail(MailRequest{Template: "demo.aviso", To: []string{"not an address"}, Subject: "S"})
 		return err
 	})
@@ -255,7 +255,7 @@ func TestOPS02_RefusesAnInvalidRecipient(t *testing.T) {
 
 func TestOPS02_RefusesAnUnknownTemplate(t *testing.T) {
 	e := setupMail(t)
-	err := e.Run(context.Background(), "Administrator", func(c *Ctx) error {
+	err := e.Run(context.Background(), "Admin", func(c *Ctx) error {
 		return c.SendTemplate("demo.naoexiste", "ana@x.com", nil)
 	})
 	if err == nil || !strings.Contains(err.Error(), "does not exist") {
@@ -267,7 +267,7 @@ func TestOPS02_RefusesAnUnknownTemplate(t *testing.T) {
 // Pessoa, one with nothing at all.
 func mailUsers(t *testing.T, e *Engine) {
 	t.Helper()
-	err := e.Run(context.Background(), "Administrator", func(c *Ctx) error {
+	err := e.Run(context.Background(), "Admin", func(c *Ctx) error {
 		for _, u := range []struct{ email, role string }{{"ana@x.com", "Gestor"}, {"ze@x.com", ""}} {
 			d, err := c.NewDoc("User", Doc{"email": u.email, "full_name": u.email})
 			if err != nil {
@@ -392,7 +392,7 @@ func TestOPS02_HistoryOutlivesItsDocument(t *testing.T) {
 	ctx := context.Background()
 	mailUsers(t, e)
 
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		_, err := c.QueueMail(MailRequest{
 			Template: "demo.aviso", To: []string{"ana@x.com"}, Subject: "S", Lang: "en",
 			Reference: &MailReference{Doctype: "Pessoa", Name: "Cliente"},
@@ -403,7 +403,7 @@ func TestOPS02_HistoryOutlivesItsDocument(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		_, err := c.Rename("Pessoa", "Cliente", "Cliente Novo")
 		return err
 	}); err != nil {
@@ -414,7 +414,7 @@ func TestOPS02_HistoryOutlivesItsDocument(t *testing.T) {
 		t.Fatalf("rename did not follow the reference: %v", rows)
 	}
 
-	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		return c.Delete("Pessoa", "Cliente Novo", true, false)
 	}); err != nil {
 		t.Fatal(err)
@@ -434,7 +434,7 @@ func TestOPS02_JSONFieldIsNotEncodedTwice(t *testing.T) {
 	e := setupMail(t)
 	ctx := context.Background()
 
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		return c.SendTemplate("demo.aviso", "ana@x.com", map[string]any{"pedido": "PED-1", "nome": "Ana", "url": "/x"})
 	})
 	if err != nil {
@@ -499,7 +499,7 @@ func TestOPS02_WorkerDeliversAndRecordsTheOutcome(t *testing.T) {
 	e.Log = slog.New(slog.NewTextHandler(&log, nil))
 	e.mailOnce = sync.Once{} // rebuild the transport against the capturing log
 
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		return c.SendTemplate("demo.aviso", "ana@x.com", map[string]any{
 			"pedido": "PED-1", "nome": "Ana", "url": "https://example.com/1",
 		})
@@ -541,7 +541,7 @@ func TestOPS02_SensitiveMessageStillDelivers(t *testing.T) {
 	e.mailOnce = sync.Once{}
 
 	const link = "https://example.com/reset?token=deadbeef"
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		return c.SendTemplate("demo.segredo", "ana@x.com", map[string]any{"link": link})
 	})
 	if err != nil {

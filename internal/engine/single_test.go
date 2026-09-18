@@ -15,7 +15,7 @@ export default defineDoctype({name: "Settings", isSingle: true, fields: [
  {fieldname: "enabled", fieldtype: "Check", label: "Enabled", default: true},
  {fieldname: "items", fieldtype: "Table", label: "Items", options: "Item Pedido"}
 ], permissions: [{role: "All", read: true, write: true}]});`})
-	err := e.Run(context.Background(), "Administrator", func(c *Ctx) error {
+	err := e.Run(context.Background(), "Admin", func(c *Ctx) error {
 		doc, err := c.GetDoc("Settings", "")
 		if err != nil {
 			return err
@@ -59,7 +59,7 @@ func TestSingleFirstSaveConcurrency(t *testing.T) {
 	results := make(chan error, 2)
 	for i := 0; i < 2; i++ {
 		go func() {
-			results <- e.Run(context.Background(), "Administrator", func(c *Ctx) error {
+			results <- e.Run(context.Background(), "Admin", func(c *Ctx) error {
 				doc, err := c.GetDoc("Settings", "")
 				if err != nil {
 					ready <- struct{}{}
@@ -84,7 +84,7 @@ func TestSingleFirstSaveConcurrency(t *testing.T) {
 func TestSinglePermissionsRollbackAndSDK(t *testing.T) {
 	e := setupWith(t, map[string]string{"doctypes/settings/settings.doctype.ts": `import { defineDoctype } from "@ddcore/sdk"; export default defineDoctype({name: "Settings", isSingle: true, trackChanges: true, fields: [{fieldname:"value", fieldtype:"Data", label:"Value", default:"initial"}], permissions:[{role:"All", read:true, create:true},{role:"Gestor", read:true, write:true}]});`})
 	ctx := context.Background()
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		for _, name := range []string{"reader@example.com", "writer@example.com"} {
 			u, err := c.NewDoc("User", Doc{"email": name, "full_name": name})
 			if err != nil {
@@ -160,7 +160,7 @@ func TestSingleUpdateHooksAndConflict(t *testing.T) {
 	})
 	ctx := context.Background()
 	var stale Doc
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		doc, err := c.GetDoc("Settings", "")
 		if err != nil {
 			return err
@@ -171,7 +171,7 @@ func TestSingleUpdateHooksAndConflict(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err = e.Run(ctx, "Admin", func(c *Ctx) error {
 		doc, err := c.GetDoc("Settings", "")
 		if err != nil {
 			return err
@@ -189,11 +189,11 @@ func TestSingleUpdateHooksAndConflict(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = e.Run(ctx, "Administrator", func(c *Ctx) error { stale["value"] = 2; _, err := c.Save(stale, SaveOpts{}); return err })
+	err = e.Run(ctx, "Admin", func(c *Ctx) error { stale["value"] = 2; _, err := c.Save(stale, SaveOpts{}); return err })
 	if err == nil || cerr.From(err).Type != "TimestampMismatchError" {
 		t.Fatalf("stale update: %v", err)
 	}
-	err = e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err = e.Run(ctx, "Admin", func(c *Ctx) error {
 		doc, err := c.GetDoc("Settings", "")
 		if err != nil {
 			return err
@@ -210,7 +210,7 @@ func TestSingleUpdateHooksAndConflict(t *testing.T) {
 func TestSingleDeclaredRenames(t *testing.T) {
 	e := setupWith(t, map[string]string{"doctypes/settings/settings.doctype.ts": `import { defineDoctype } from "@ddcore/sdk"; export default defineDoctype({name: "Settings", isSingle: true, fields: [{fieldname:"value",fieldtype:"Data",label:"Value"}]});`})
 	ctx := context.Background()
-	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		doc, err := c.GetDoc("Settings", "")
 		if err != nil {
 			return err
@@ -234,7 +234,7 @@ func TestSingleDeclaredRenames(t *testing.T) {
 	if plan, err := e.Plan(ctx, false); err != nil || len(plan) != 0 {
 		t.Fatalf("migration not idempotent: %v %v", plan, err)
 	}
-	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		doc, err := c.GetDoc("Renamed Settings", "")
 		if err != nil {
 			return err

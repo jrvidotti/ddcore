@@ -568,13 +568,13 @@ func smokeCheckSite(ctx context.Context, e *engine.Engine, man *backupManifest, 
 		}
 	} else {
 		var n int
-		err := e.DB.Pool.QueryRow(ctx, `SELECT count(*) FROM tab_user u WHERE u.enabled AND (u.name = 'Administrator'
+		err := e.DB.Pool.QueryRow(ctx, `SELECT count(*) FROM tab_user u WHERE u.enabled AND (u.name = 'Admin'
 			OR EXISTS (SELECT 1 FROM tab_has_role r WHERE r.parent = u.name AND r.role = 'System Manager'))`).Scan(&n)
-		detail := fmt.Sprintf("%d enabled administrator(s); pass --smoke-user to sign in for real", n)
+		detail := fmt.Sprintf("%d enabled admin(s); pass --smoke-user to sign in for real", n)
 		if err != nil {
 			detail = db.RedactError(err)
 		}
-		out = append(out, smokeCheck{Name: "administrator exists", OK: err == nil && n > 0, Detail: detail})
+		out = append(out, smokeCheck{Name: "admin exists", OK: err == nil && n > 0, Detail: detail})
 	}
 	return out
 }

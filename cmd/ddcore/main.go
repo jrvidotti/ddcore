@@ -290,7 +290,7 @@ func cmdInit(args []string) error {
 	}
 	fmt.Println("  ddcore new-app <name>")
 	fmt.Println("  ddcore migrate")
-	fmt.Println("  ddcore user passwd Administrator <password>")
+	fmt.Println("  ddcore user passwd Admin <password>")
 	fmt.Printf("  ddcore dev                                    → http://localhost:%d\n", *port)
 	return nil
 }
@@ -411,7 +411,7 @@ func cmdServe(args []string, dev bool) error {
 	}
 	srv := api.New(e, desk.FS())
 	if dev {
-		// MCP over HTTP only with Administrator/System Manager API key (B01)
+		// MCP over HTTP only with Admin/System Manager API key (B01)
 		srv.MCPHandler = srv.RequireAdminAPIKey(mcp.HTTPHandler(e))
 		srv.Router.Handle("/mcp", srv.MCPHandler)
 		srv.Router.Handle("/mcp/*", srv.MCPHandler)
@@ -594,7 +594,7 @@ func cmdExec(args []string) error {
 	if err := json.Unmarshal([]byte(*argsJSON), &a); err != nil {
 		return fmt.Errorf("--args: %w", err)
 	}
-	res, err := e.RunJob(context.Background(), "Administrator", fs.Arg(0), a)
+	res, err := e.RunJob(context.Background(), "Admin", fs.Arg(0), a)
 	if err != nil {
 		return err
 	}
@@ -657,7 +657,7 @@ func cmdDemo(args []string) error {
 		if *app != "" && name != *app {
 			continue
 		}
-		// `generate` does not need to be whitelisted (runs as Administrator), so
+		// `generate` does not need to be whitelisted (runs as Admin), so
 		// app existence is checked by file
 		if dir := e.AppDir(name); dir == "" {
 			continue
@@ -665,7 +665,7 @@ func cmdDemo(args []string) error {
 			continue
 		}
 		method := name + ".services.demo.generate"
-		res, err := e.RunJob(context.Background(), "Administrator", method, nil)
+		res, err := e.RunJob(context.Background(), "Admin", method, nil)
 		if err != nil {
 			return fmt.Errorf("%s: %w", method, err)
 		}
@@ -705,7 +705,7 @@ func cmdUser(args []string) error {
 		if fs.NArg() < 2 {
 			return fmt.Errorf("uso: ddcore user add <email> <nome>")
 		}
-		return e.Run(ctx, "Administrator", func(c *engine.Ctx) error {
+		return e.Run(ctx, "Admin", func(c *engine.Ctx) error {
 			doc, err := c.NewDoc("User", engine.Doc{"email": fs.Arg(0), "full_name": strings.Join(fs.Args()[1:], " "), "new_password": *pw, "enabled": true})
 			if err != nil {
 				return err
@@ -744,7 +744,7 @@ func cmdUser(args []string) error {
 			return fmt.Errorf("usage: ddcore user invite <email> <name> [--role R]")
 		}
 		email, name := fs.Arg(0), strings.Join(fs.Args()[1:], " ")
-		return e.Run(ctx, "Administrator", func(c *engine.Ctx) error {
+		return e.Run(ctx, "Admin", func(c *engine.Ctx) error {
 			doc, err := c.NewDoc("User", engine.Doc{"email": email, "full_name": name, "enabled": true})
 			if err != nil {
 				return err
@@ -769,7 +769,7 @@ func cmdUser(args []string) error {
 		if len(args) < 2 {
 			return fmt.Errorf("usage: ddcore user reset <email>")
 		}
-		return e.Run(ctx, "Administrator", func(c *engine.Ctx) error {
+		return e.Run(ctx, "Admin", func(c *engine.Ctx) error {
 			rec, err := e.StartRecovery(c, args[1], engine.TokenReset, "")
 			if err != nil {
 				return err
@@ -875,7 +875,7 @@ func cmdAPIKey(args []string) error {
 	defer e.DB.Close()
 	ctx := context.Background()
 	var out map[string]any
-	if err := e.Run(ctx, "Administrator", func(c *engine.Ctx) error {
+	if err := e.Run(ctx, "Admin", func(c *engine.Ctx) error {
 		var err error
 		out, err = e.CreateAPIKeyFor(c, fs.Arg(0), *label, *days)
 		return err

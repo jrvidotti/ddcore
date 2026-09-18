@@ -174,7 +174,7 @@ bucket prefix. The command runs these steps in order:
    archived is a failure, more is allowed for fixtures), then up to 20 random
    `File` rows whose bytes must open. It then signs in as `--smoke-user` with
    `DDCORE_SMOKE_PASSWORD` (the session it creates is deleted), or without that
-   user checks that an enabled administrator exists. A failed check exits non-zero;
+   user checks that an enabled admin exists. A failed check exits non-zero;
    `--smoke-user` with no `DDCORE_SMOKE_PASSWORD` is one of those failures, not an
    error raised up front.
 

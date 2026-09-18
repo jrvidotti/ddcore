@@ -56,7 +56,7 @@ The rules:
   fields' levels are judged by the parent's rows. A `Table` field with a level restricts the
   whole table: its rows, and adding or removing them. Listing a child DocType directly uses
   the strictest level across every DocType that embeds it.
-- **Administrator** and privileged contexts (jobs, migrations and patches,
+- **Admin** and privileged contexts (jobs, migrations and patches,
   `ignorePermissions`, `getAll`, a workflow transition's own field updates) see and write
   every level.
 
@@ -91,7 +91,7 @@ framework hands a document out:
 | `/private/files` and mail attachments | A file whose `attached_to_field` is restricted needs read on that field |
 | `GET /api/meta/{doctype}` | Adds `fieldLevels: { read: number[], write: number[] }` for the current user. Field definitions are not secret and stay in the meta |
 
-Password and Vault redaction still applies on top of this for every user, Administrator
+Password and Vault redaction still applies on top of this for every user, Admin
 included.
 
 ## Writing

@@ -154,7 +154,7 @@ func setupWith(t *testing.T, extra map[string]string) *Engine {
 func TestLifecycle(t *testing.T) {
 	e := setup(t)
 	ctx := context.Background()
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		// user + roles
 		u, _ := c.NewDoc("User", Doc{"email": "ana@x.com", "full_name": "Ana", "new_password": "segredo123"})
 		u["roles"] = []any{map[string]any{"role": "Gestor"}}
@@ -297,7 +297,7 @@ func TestLifecycle(t *testing.T) {
 	}
 
 	// permissions: user without role does not read Pedido
-	err = e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err = e.Run(ctx, "Admin", func(c *Ctx) error {
 		u, _ := c.NewDoc("User", Doc{"email": "ze@x.com", "full_name": "Zé"})
 		_, err := c.Insert(u, SaveOpts{})
 		return err
@@ -320,7 +320,7 @@ func TestLifecycle(t *testing.T) {
 	}
 
 	// test runner in savepoints
-	err = e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err = e.Run(ctx, "Admin", func(c *Ctx) error {
 		rt, _ := c.RT()
 		res, err := rt.RunTests("", "")
 		if err != nil {

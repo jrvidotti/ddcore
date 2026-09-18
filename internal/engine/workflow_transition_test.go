@@ -83,7 +83,7 @@ export default defineWorkflow({
 
 func setupWorkflowTestUsers(t *testing.T, e *Engine) {
 	ctx := context.Background()
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		u1, _ := c.NewDoc("User", Doc{"email": "autor@x.com", "full_name": "Autor User", "new_password": "password123"})
 		u1["roles"] = []any{map[string]any{"role": "Autor"}}
 		if _, err := c.Insert(u1, SaveOpts{}); err != nil {
@@ -519,7 +519,7 @@ func TestWorkflow_ApplyTransition_RoleAndConditionDenied(t *testing.T) {
 		}
 		doc3Name = saved.Name()
 
-		// Advance to Pending Approval using WithWorkflowTransition or Administrator
+		// Advance to Pending Approval using WithWorkflowTransition or Admin
 		return nil
 	})
 	if err != nil {
@@ -527,7 +527,7 @@ func TestWorkflow_ApplyTransition_RoleAndConditionDenied(t *testing.T) {
 	}
 
 	// Advance doc3 to Pending Approval
-	err = e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err = e.Run(ctx, "Admin", func(c *Ctx) error {
 		doc, err := c.GetDoc("Artigo", doc3Name)
 		if err != nil {
 			return err
@@ -577,19 +577,19 @@ func TestWorkflow_ApplyTransition_RoleAndConditionDenied(t *testing.T) {
 		t.Fatalf("self-approval test failed: %v", err)
 	}
 
-	// Administrator CAN self-approve
-	err = e.Run(ctx, "Administrator", func(c *Ctx) error {
+	// Admin CAN self-approve
+	err = e.Run(ctx, "Admin", func(c *Ctx) error {
 		saved, err := c.ApplyWorkflowTransition("Artigo", doc3Name, "Approve")
 		if err != nil {
 			return err
 		}
 		if saved.Str("workflow_state") != "Approved" {
-			t.Fatalf("expected Administrator to bypass self-approval check, got %s", saved.Str("workflow_state"))
+			t.Fatalf("expected Admin to bypass self-approval check, got %s", saved.Str("workflow_state"))
 		}
 		return nil
 	})
 	if err != nil {
-		t.Fatalf("administrator approval failed: %v", err)
+		t.Fatalf("admin approval failed: %v", err)
 	}
 }
 
@@ -694,7 +694,7 @@ func TestWorkflow_ApplyTransition_Concurrency(t *testing.T) {
 	}
 
 	// Verify document is docstatus 1
-	err = e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err = e.Run(ctx, "Admin", func(c *Ctx) error {
 		doc, err := c.GetDoc("Artigo", docName)
 		if err != nil {
 			return err
@@ -770,7 +770,6 @@ func TestWorkflow_AvailableActionsAndValidationErrors(t *testing.T) {
 	}
 }
 
-
 // TestWorkflow_ApplyWorkflowFromTS covers doc.applyWorkflow, the server-side
 // binding: it runs the same checks and lifecycle hooks as the HTTP endpoint,
 // and an amendment of the cancelled document starts over at the initial state.
@@ -832,7 +831,7 @@ func TestWorkflow_ApplyWorkflowFromTS(t *testing.T) {
 		t.Fatalf("expected Rejected/2, got %+v", r)
 	}
 
-	err = e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err = e.Run(ctx, "Admin", func(c *Ctx) error {
 		if v, _ := c.GetValue("Artigo", r.Name, "cancel_hook_ran"); toFloat(v) != 1 {
 			t.Fatalf("expected onCancel to run, got %v", v)
 		}

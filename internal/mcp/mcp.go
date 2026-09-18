@@ -71,7 +71,7 @@ func fail(err error) (*mcp.CallToolResult, any, error) {
 	case "DoesNotExistError":
 		msg += "\nHint: use list_doctypes / list_docs to see what exists."
 	case "PermissionError":
-		msg += "\nHint: the MCP server runs as Administrator; check the DocType and the field."
+		msg += "\nHint: the MCP server runs as Admin; check the DocType and the field."
 	case "ScriptError":
 		msg += "\nHint: an error in the app's TypeScript; read the stack above and fix the file."
 	}
@@ -559,7 +559,7 @@ func New(e *engine.Engine) *mcp.Server {
 		func(ctx context.Context, req *mcp.CallToolRequest, in struct {
 			ID int64 `json:"id"`
 		}) (*mcp.CallToolResult, any, error) {
-			act, err := e.CancelJob(ctx, in.ID, "Administrator")
+			act, err := e.CancelJob(ctx, in.ID, "Admin")
 			if err != nil {
 				return fail(err)
 			}
@@ -664,7 +664,7 @@ func New(e *engine.Engine) *mcp.Server {
 }
 
 func (s *server) run(ctx context.Context, fn func(c *engine.Ctx) error) error {
-	return s.e.Run(ctx, "Administrator", fn)
+	return s.e.Run(ctx, "Admin", fn)
 }
 
 func (s *server) writeTypes() []string {

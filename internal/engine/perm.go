@@ -21,9 +21,9 @@ type UserPerm struct {
 }
 
 // UserPermissions returns the active scope restrictions for the current user.
-// Administrator and operations that ignore permissions have no restrictions.
+// Admin and operations that ignore permissions have no restrictions.
 func (c *Ctx) UserPermissions() ([]UserPerm, error) {
-	if c.User == "Administrator" || c.IgnorePermissions() {
+	if c.User == "Admin" || c.IgnorePermissions() {
 		return nil, nil
 	}
 	if c.userPerms != nil {
@@ -88,8 +88,8 @@ func (c *Ctx) Roles() ([]string, error) {
 }
 
 func (c *Ctx) RolesOf(user string) ([]string, error) {
-	if user == "Administrator" {
-		return []string{"Administrator", "System Manager", "All"}, nil
+	if user == "Admin" {
+		return []string{"Admin", "System Manager", "All"}, nil
 	}
 	if user == "" || user == "Guest" {
 		return []string{"Guest"}, nil
@@ -150,7 +150,7 @@ func (c *Ctx) refusedToScopedUser(doctype string) (bool, error) {
 
 // HasPermission decides whether the user may perform ptype on doctype/doc.
 func (c *Ctx) HasPermission(doctype, ptype string, doc Doc) (bool, error) {
-	if c.User == "Administrator" || c.IgnorePermissions() {
+	if c.User == "Admin" || c.IgnorePermissions() {
 		return true, nil
 	}
 	if refused, err := c.refusedToScopedUser(doctype); err != nil || refused {
@@ -236,7 +236,7 @@ func (c *Ctx) HasPermission(doctype, ptype string, doc Doc) (bool, error) {
 
 // checkUserPermissions validates whether doc satisfies active scope restrictions.
 func (c *Ctx) checkUserPermissions(d *meta.DocType, doc Doc) (bool, error) {
-	if c.User == "Administrator" || c.IgnorePermissions() || doc == nil {
+	if c.User == "Admin" || c.IgnorePermissions() || doc == nil {
 		return true, nil
 	}
 	if refused, err := c.refusedToScopedUser(d.Name); err != nil || refused {
@@ -384,7 +384,7 @@ func (c *Ctx) scopeFilters(d *meta.DocType) ([]db.Filter, error) {
 
 // strictScopeFilters builds filters enforcing User Permission rules for doctype d.
 func (c *Ctx) strictScopeFilters(d *meta.DocType) ([]db.Filter, error) {
-	if c.User == "Administrator" || c.IgnorePermissions() {
+	if c.User == "Admin" || c.IgnorePermissions() {
 		return nil, nil
 	}
 	perms, err := c.UserPermissions()
@@ -509,7 +509,7 @@ func (c *Ctx) childPermission(d *meta.DocType, ptype string, doc Doc) (bool, err
 // User Permission scope filters, then ORs in the documents shared with the
 // user (SEC-03).
 func (c *Ctx) permissionFilters(d *meta.DocType) ([]db.Filter, error) {
-	if c.User == "Administrator" || c.IgnorePermissions() {
+	if c.User == "Admin" || c.IgnorePermissions() {
 		return nil, nil
 	}
 	if d.IsChild {

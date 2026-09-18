@@ -64,7 +64,7 @@ func cmdJobs(args []string) error {
 			return fmt.Errorf("usage: ddcore jobs run <fn>")
 		}
 		return withEngine(func(e *engine.Engine, ctx context.Context) error {
-			res, err := e.RunJob(ctx, "Administrator", rest[0], nil)
+			res, err := e.RunJob(ctx, "Admin", rest[0], nil)
 			if err != nil {
 				return err
 			}
@@ -321,7 +321,7 @@ func jobsCancel(args []string) error {
 	}
 	return withEngine(func(e *engine.Engine, ctx context.Context) error {
 		for _, id := range ids {
-			act, err := e.CancelJob(ctx, id, "Administrator")
+			act, err := e.CancelJob(ctx, id, "Admin")
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "job %d: %v\n", id, err)
 				continue

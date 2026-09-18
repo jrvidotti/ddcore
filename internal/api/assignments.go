@@ -138,7 +138,7 @@ func (s *Server) completeAssignment(w http.ResponseWriter, r *http.Request) {
 		}
 
 		roles, _ := c.Roles()
-		isMgr := c.User == "Administrator" || contains(roles, "System Manager")
+		isMgr := c.User == "Admin" || contains(roles, "System Manager")
 		if !isMgr && c.User != doc.Str("allocated_to") && c.User != doc.Str("assigned_by") {
 			return nil, cerr.Permission("No permission to complete this task")
 		}
@@ -175,7 +175,7 @@ func (s *Server) revokeAssignment(w http.ResponseWriter, r *http.Request) {
 		}
 
 		roles, _ := c.Roles()
-		isMgr := c.User == "Administrator" || contains(roles, "System Manager")
+		isMgr := c.User == "Admin" || contains(roles, "System Manager")
 		if !isMgr && c.User != doc.Str("assigned_by") && c.User != doc.Str("allocated_to") {
 			return nil, cerr.Permission("No permission to revoke this task")
 		}

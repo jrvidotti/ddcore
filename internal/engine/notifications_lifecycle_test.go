@@ -15,10 +15,10 @@ func TestNotificationsLifecycleAndPreviousDocument(t *testing.T) {
 		files["notifications/"+event+".notification.ts"] = `import {defineNotification} from "@ddcore/sdk";
 export default defineNotification({name:"` + event + `",doctype:"Pedido",event:"` + event + `",
  condition(doc,before) { return "` + event + `" !== "on_update" || doc.obs !== before.obs },
- recipients(){return ["Administrator"]},desk:{title(){return "` + event + `"},message(doc,before){return JSON.stringify({current:doc.docstatus,previous:before ? before.docstatus : null,obs:doc.obs,old:before ? before.obs : null})}}});`
+ recipients(){return ["Admin"]},desk:{title(){return "` + event + `"},message(doc,before){return JSON.stringify({current:doc.docstatus,previous:before ? before.docstatus : null,obs:doc.obs,old:before ? before.obs : null})}}});`
 	}
 	e := setupWith(t, files)
-	err := e.Run(context.Background(), "Administrator", func(c *Ctx) error {
+	err := e.Run(context.Background(), "Admin", func(c *Ctx) error {
 		customer, _ := c.NewDoc("Pessoa", Doc{"nome": "Lifecycle customer"})
 		if _, err := c.Insert(customer, SaveOpts{}); err != nil {
 			return err
@@ -87,9 +87,9 @@ export default defineNotification({name:"` + event + `",doctype:"Pedido",event:"
 
 func TestNotificationsDBSetRenameDeleteDoNotTrigger(t *testing.T) {
 	e := setupWith(t, map[string]string{"notifications/person.notification.ts": `import {defineNotification} from "@ddcore/sdk";
-for (const event of ["on_insert","on_update"]) defineNotification({name:event,doctype:"Pessoa",event,recipients:()=>["Administrator"],desk:{title:()=>event,message:()=>"Message"}});`})
+for (const event of ["on_insert","on_update"]) defineNotification({name:event,doctype:"Pessoa",event,recipients:()=>["Admin"],desk:{title:()=>event,message:()=>"Message"}});`})
 	ctx := context.Background()
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		person, _ := c.NewDoc("Pessoa", Doc{"nome": "Original"})
 		if _, err := c.Insert(person, SaveOpts{}); err != nil {
 			return err
@@ -119,7 +119,7 @@ for (const event of ["on_insert","on_update"]) defineNotification({name:event,do
 	if len(rows) != 1 || db.Str(rows[0]["rule"]) != "on_insert" || db.Str(rows[0]["reference_name"]) != "Renamed" {
 		t.Fatalf("unexpected occurrences: %+v", rows)
 	}
-	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		page, err := c.ListNotifications(20, 0, nil)
 		if page.Total != 0 {
 			t.Fatal("deleted document remains visible")
@@ -134,20 +134,20 @@ func TestNotificationsEvaluationErrorRollsBackSourceMailAndEvents(t *testing.T) 
 	files := map[string]string{
 		"mail/update.mail.ts": `import {defineMailTemplate} from "@ddcore/sdk";export default defineMailTemplate({name:"notice",subject:()=>"Notice",body:(args,b)=>[b.p("Message")]});`,
 		"notifications/person.notification.ts": `import {defineNotification} from "@ddcore/sdk";
-defineNotification({name:"insert",doctype:"Pessoa",event:"on_insert",recipients:()=>["Administrator"],desk:{title:()=>"Created",message:()=>"Message"},email:{template:"notice",args:()=>({})}});
-defineNotification({name:"update",doctype:"Pessoa",event:"on_update",condition(){throw new Error("notification evaluation failed")},recipients:()=>["Administrator"],desk:{title:()=>"Changed",message:()=>"Message"}});`,
+defineNotification({name:"insert",doctype:"Pessoa",event:"on_insert",recipients:()=>["Admin"],desk:{title:()=>"Created",message:()=>"Message"},email:{template:"notice",args:()=>({})}});
+defineNotification({name:"update",doctype:"Pessoa",event:"on_update",condition(){throw new Error("notification evaluation failed")},recipients:()=>["Admin"],desk:{title:()=>"Changed",message:()=>"Message"}});`,
 	}
 	e := setupWith(t, files)
 	ctx := context.Background()
-	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
-		_, err := c.DBSet("User", "Administrator", Doc{"email": "admin@example.com"}, false)
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
+		_, err := c.DBSet("User", "Admin", Doc{"email": "admin@example.com"}, false)
 		return err
 	}); err != nil {
 		t.Fatal(err)
 	}
-	events := e.Events.Subscribe("Administrator", nil)
+	events := e.Events.Subscribe("Admin", nil)
 	defer e.Events.Unsubscribe(events)
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		person, _ := c.NewDoc("Pessoa", Doc{"nome": "Rollback evaluation"})
 		person, err := c.Insert(person, SaveOpts{})
 		if err != nil {

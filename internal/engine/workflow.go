@@ -28,7 +28,7 @@ func (c *Ctx) AvailableWorkflowActions(doctype string, doc Doc) ([]WorkflowAvail
 			continue
 		}
 		// Check roles
-		hasRole := c.User == "Administrator" || c.IgnorePermissions()
+		hasRole := c.User == "Admin" || c.IgnorePermissions()
 		if !hasRole {
 			for _, role := range tr.Allowed {
 				if c.HasRole(role) {
@@ -41,7 +41,7 @@ func (c *Ctx) AvailableWorkflowActions(doctype string, doc Doc) ([]WorkflowAvail
 			continue
 		}
 		// Check self approval
-		if !tr.AllowSelfApproval && doc.Str("owner") == c.User && c.User != "Administrator" {
+		if !tr.AllowSelfApproval && doc.Str("owner") == c.User && c.User != "Admin" {
 			continue
 		}
 		// Check condition
@@ -104,7 +104,7 @@ func (c *Ctx) ApplyWorkflowTransition(doctype, name, action string) (Doc, error)
 	}
 
 	// 3. Check role authorization
-	hasRole := c.User == "Administrator" || c.IgnorePermissions()
+	hasRole := c.User == "Admin" || c.IgnorePermissions()
 	if !hasRole {
 		for _, role := range matched.Allowed {
 			if c.HasRole(role) {
@@ -124,7 +124,7 @@ func (c *Ctx) ApplyWorkflowTransition(doctype, name, action string) (Doc, error)
 	}
 
 	// 4. Check self approval
-	if !matched.AllowSelfApproval && doc.Str("owner") == c.User && c.User != "Administrator" {
+	if !matched.AllowSelfApproval && doc.Str("owner") == c.User && c.User != "Admin" {
 		c.AuditDenied("workflow.transition", doctype, name, detail)
 		return nil, cerr.Permission("Self-approval is not allowed for action '{0}' on {1} {2}", action, doctype, name)
 	}

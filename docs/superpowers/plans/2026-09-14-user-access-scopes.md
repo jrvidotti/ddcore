@@ -4,7 +4,7 @@
 
 **Goal:** Provide reusable user access scopes (User Permissions) to isolate business entities (companies, units, branches, customers) across reads, searches, writes, reports, export, files, history, and real-time events.
 
-**Architecture:** A standalone Core DocType `User Permission` (`tab_user_permission`) stores user scope assignments. The query builder (`permissionFilters` in `internal/engine/perm.go`) automatically injects scope restrictions for set-based queries (`GetList`, `Count`, `LinkSearch`, `Export`, reports). The document lifecycle (`HasPermission` in `internal/engine/perm.go` and `doc.go`) validates single-document reads and mutations (`GetDoc`, `Insert`, `Update`, `Delete`). Cross-cutting channels (`CanReadFile`, `requireDocRead`, `eventAuthorizer`) enforce isolation for files, version history, and real-time events. `Administrator` and explicit `c.IgnorePermissions()` contexts retain full bypass.
+**Architecture:** A standalone Core DocType `User Permission` (`tab_user_permission`) stores user scope assignments. The query builder (`permissionFilters` in `internal/engine/perm.go`) automatically injects scope restrictions for set-based queries (`GetList`, `Count`, `LinkSearch`, `Export`, reports). The document lifecycle (`HasPermission` in `internal/engine/perm.go` and `doc.go`) validates single-document reads and mutations (`GetDoc`, `Insert`, `Update`, `Delete`). Cross-cutting channels (`CanReadFile`, `requireDocRead`, `eventAuthorizer`) enforce isolation for files, version history, and real-time events. `Admin` and explicit `c.IgnorePermissions()` contexts retain full bypass.
 
 **Tech Stack:** Go 1.24, PostgreSQL, TypeScript, ddcore framework SDK.
 
@@ -13,7 +13,7 @@
 ## Global Constraints
 - Strictly follow the repository guidelines in [`AGENTS.md`](../../AGENTS.md): synchronous server TypeScript, generated typings, English canonical strings with translations, zero external dependencies unless justified.
 - Strict segregation: link fields referencing a restricted DocType must strictly match one of the user's allowed values; records with null/empty values in the restricted field are hidden from scoped users.
-- Role isolation: two users with identical roles (even `System Manager`) assigned different scopes must remain strictly isolated. Only `Administrator` and `c.IgnorePermissions()` bypass scope restrictions.
+- Role isolation: two users with identical roles (even `System Manager`) assigned different scopes must remain strictly isolated. Only `Admin` and `c.IgnorePermissions()` bypass scope restrictions.
 - All code comments, documentation, and commits must be written in English.
 
 ---
@@ -184,9 +184,9 @@ type UserPerm struct {
 }
 
 // UserPermissions returns the active scope restrictions for the current user.
-// Bypassed immediately for Administrator or when IgnorePermissions() is active.
+// Bypassed immediately for Admin or when IgnorePermissions() is active.
 func (c *Ctx) UserPermissions() ([]UserPerm, error) {
-	if c.User == "Administrator" || c.IgnorePermissions() {
+	if c.User == "Admin" || c.IgnorePermissions() {
 		return nil, nil
 	}
 	if c.userPerms != nil {
@@ -250,7 +250,7 @@ func TestUserPermissionsResolutionAndCache(t *testing.T) {
 	e := testEngine(t)
 	ctx := context.Background()
 	// Insert user permission as admin
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		_, err := c.Insert(Doc{
 			"doctype": "User Permission",
 			"user": "test_user@example.com",
@@ -282,14 +282,14 @@ func TestUserPermissionsResolutionAndCache(t *testing.T) {
 		t.Fatalf("error: %v", err)
 	}
 
-	// Test Administrator returns empty (bypassed)
-	err = e.Run(ctx, "Administrator", func(c *Ctx) error {
+	// Test Admin returns empty (bypassed)
+	err = e.Run(ctx, "Admin", func(c *Ctx) error {
 		perms, err := c.UserPermissions()
 		if err != nil {
 			return err
 		}
 		if len(perms) != 0 {
-			t.Fatalf("expected 0 perms for Administrator, got %d", len(perms))
+			t.Fatalf("expected 0 perms for Admin, got %d", len(perms))
 		}
 		return nil
 	})
@@ -329,7 +329,7 @@ Implement scope filters builder:
 ```go
 // scopeFilters builds filters enforcing User Permission rules for doctype d.
 func (c *Ctx) scopeFilters(d *meta.DocType) ([]db.Filter, error) {
-	if c.User == "Administrator" || c.IgnorePermissions() {
+	if c.User == "Admin" || c.IgnorePermissions() {
 		return nil, nil
 	}
 	perms, err := c.UserPermissions()
@@ -415,7 +415,7 @@ git commit -m "feat(engine): inject user access scope filters in permissionFilte
 ```go
 // checkUserPermissions validates whether doc satisfies active scope restrictions.
 func (c *Ctx) checkUserPermissions(d *meta.DocType, doc Doc) (bool, error) {
-	if c.User == "Administrator" || c.IgnorePermissions() || doc == nil {
+	if c.User == "Admin" || c.IgnorePermissions() || doc == nil {
 		return true, nil
 	}
 	perms, err := c.UserPermissions()
@@ -525,7 +525,7 @@ func (c *Ctx) CanReadFile(f map[string]any) bool {
 	if f == nil {
 		return false
 	}
-	if c.User == "Administrator" || c.IgnorePermissions() {
+	if c.User == "Admin" || c.IgnorePermissions() {
 		return true
 	}
 	if dt, dn := db.Str(f["attached_to_doctype"]), db.Str(f["attached_to_name"]); dt != "" && dn != "" {
@@ -641,7 +641,7 @@ Document user access scopes for developers and operators:
 - What user access scopes are and how they work.
 - Schema of `User Permission`.
 - Scope behavior across reads, writes, searches, exports, files, and events.
-- Privileged contexts (`Administrator` and `ignorePermissions`).
+- Privileged contexts (`Admin` and `ignorePermissions`).
 
 - [ ] **Step 2: Update `ROADMAP.md`**
 

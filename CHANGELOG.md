@@ -12,6 +12,15 @@ not every commit that went into it.
 
 ## Unreleased
 
+### Breaking
+
+- The superuser is now `Admin` instead of `Administrator`. A new database gets `Admin`, and on an
+  existing one the next `ddcore migrate` renames the user in place, with its roles, sessions,
+  tokens, audit entries, `owner`/`modified_by` columns and every Link to it. Sign in as `Admin`
+  with the same password. App code that names the user — `c.User == "Administrator"`, a test that
+  signs in as it, a fixture that links to it — must say `Admin`. The rename is skipped when both
+  users already exist.
+
 ## 0.15.1 — 2026-09-18
 
 ### Added
@@ -27,7 +36,7 @@ not every commit that went into it.
   the conventions for coding agents (`CLAUDE.md` is a symlink to it), a `.mcp.json` that
   registers `ddcore mcp`, and a `.gitignore` that keeps `.env`, `.ddcore/` and `data/` out. It
   never overwrites an existing file. Its closing message lists every step up to
-  `ddcore user passwd Administrator` and the URL.
+  `ddcore user passwd Admin` and the URL.
 - `ddcore new-app` writes `version: "0.1.0"` and a `ddcore` range for the running minor release
   (`>=0.15.0 <0.16.0` on 0.15.x) into `ddcore.app.ts`. A build that is not a release leaves the
   range commented out.
@@ -86,7 +95,7 @@ not every commit that went into it.
 - Single sign-on through OpenID Connect (SEC-05, partial): Google, PocketID or any OIDC provider,
   configured with `DDCORE_OIDC_*` in `.env`. It signs in existing Users only, linked by a verified
   e-mail address. `auth.passwordLogin: false` in `ddcore.json` leaves single sign-on as the only way
-  in, except for Administrator. See [authentication](docs/agent/auth.md).
+  in, except for Admin. See [authentication](docs/agent/auth.md).
 - Core/app compatibility contract (PRD-07): `defineApp({ ddcore: "<range>" })` declares the ddcore
   releases an app supports, and a binary outside the range refuses to load it. `ddcore doctor` and
   the export manifest report each app's version and range.
@@ -217,8 +226,8 @@ not every commit that went into it.
   direct reads, the whole document lifecycle, export, attachments, versions and comments, SSE
   events and notifications, `Dynamic Link` fields included. Two users with identical roles, System
   Manager among them, stay isolated; `ignorePermissions` skips role checks but not scopes;
-  `Administrator` and the framework's own elevated contexts are unscoped, and a scoped user is
-  refused `User Permission` itself, so scope administration belongs to unscoped administrators.
+  `Admin` and the framework's own elevated contexts are unscoped, and a scoped user is
+  refused `User Permission` itself, so scope administration belongs to unscoped admins.
   Grants and revocations are recorded as `permission.scope_grant` and `scope_revoke`. See
   [scopes](docs/agent/scopes.md).
 

@@ -29,7 +29,7 @@ func (c *Ctx) CanReadFile(f map[string]any) bool {
 	if f == nil {
 		return false
 	}
-	if c.User == "Administrator" || c.IgnorePermissions() {
+	if c.User == "Admin" || c.IgnorePermissions() {
 		return true
 	}
 	if dt, dn := db.Str(f["attached_to_doctype"]), db.Str(f["attached_to_name"]); dt != "" && dn != "" {

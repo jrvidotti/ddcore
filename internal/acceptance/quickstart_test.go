@@ -131,7 +131,7 @@ func TestQuickstartGuide(t *testing.T) {
 	}
 
 	// 6–8. Sign in, find Book in the sidebar, see the rule refuse a write
-	run("user", "passwd", "Administrator", "admin1234")
+	run("user", "passwd", "Admin", "admin1234")
 	srv := exec.Command(bin, "start")
 	srv.Dir, srv.Env = dir, cleanEnv()
 	var log bytes.Buffer
@@ -160,7 +160,7 @@ func TestQuickstartGuide(t *testing.T) {
 		buf.ReadFrom(res.Body)
 		return res.StatusCode, buf.String()
 	}
-	if code, body := post("/api/login", `{"usr":"Administrator","pwd":"admin1234"}`); code != 200 {
+	if code, body := post("/api/login", `{"usr":"Admin","pwd":"admin1234"}`); code != 200 {
 		t.Fatalf("login: %d %s", code, body)
 	}
 	boot := getWithClient(t, client, base+"/api/boot")

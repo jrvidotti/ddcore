@@ -47,7 +47,7 @@ func (c *Ctx) withNotificationUser(user string, fn func(*Ctx) error) error {
 	child.sharesLoaded, child.sharesDirty = true, true
 	// Authorization must observe role revocation even within this transaction,
 	// before the ordinary role cache's after-commit invalidation.
-	if user != "Administrator" {
+	if user != "Admin" {
 		rows, err := db.Select(c.Ctx, c.Q(), `SELECT role FROM tab_has_role WHERE parent=$1 AND parenttype='User'`, user)
 		if err != nil {
 			return err
@@ -413,7 +413,7 @@ func (e *Engine) SweepNotifications(ctx context.Context, now time.Time) error {
 		cursor := ""
 		for {
 			count := 0
-			c := e.NewCtx(ctx, "Administrator")
+			c := e.NewCtx(ctx, "Admin")
 			c.St = st
 			err := c.Run(func(c *Ctx) error {
 				rows, err := db.Select(ctx, c.Q(), fmt.Sprintf(`SELECT name, %[2]s AS due FROM %[1]s

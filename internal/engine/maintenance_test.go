@@ -17,7 +17,7 @@ func TestMaintenanceGuardsWrites(t *testing.T) {
 	e := setup(t)
 	ctx := context.Background()
 	insert := func() error {
-		return e.Run(ctx, "Administrator", func(c *Ctx) error {
+		return e.Run(ctx, "Admin", func(c *Ctx) error {
 			d, _ := c.NewDoc("Pessoa", Doc{"nome": "M " + time.Now().Format("150405.000000")})
 			_, err := c.Insert(d, SaveOpts{})
 			return err
@@ -42,13 +42,13 @@ func TestMaintenanceGuardsWrites(t *testing.T) {
 	if m, _ := ce.Extra.(map[string]any); m["reason"] != "cutover" {
 		t.Errorf("the refusal should carry the reason: %#v", ce.Extra)
 	}
-	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		_, err := c.Enqueue("demo.services.loop.ok", nil, nil)
 		return err
 	}); !errors.As(err, &ce) || ce.Type != "MaintenanceError" {
 		t.Fatalf("enqueue while paused: %v", err)
 	}
-	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		_, err := c.DBSet("Pessoa", "nobody", Doc{"limite": 1}, false)
 		return err
 	}); !errors.As(err, &ce) || ce.Type != "MaintenanceError" {

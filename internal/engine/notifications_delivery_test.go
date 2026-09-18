@@ -34,7 +34,7 @@ func notificationFixture() map[string]string {
 
 func seedNotificationUsers(t *testing.T, e *Engine) {
 	t.Helper()
-	err := e.Run(context.Background(), "Administrator", func(c *Ctx) error {
+	err := e.Run(context.Background(), "Admin", func(c *Ctx) error {
 		for _, u := range []struct {
 			name, lang string
 			enabled    bool
@@ -53,7 +53,7 @@ func seedNotificationUsers(t *testing.T, e *Engine) {
 
 func insertReminder(t *testing.T, e *Engine, name, due string, valid bool) {
 	t.Helper()
-	err := e.Run(context.Background(), "Administrator", func(c *Ctx) error {
+	err := e.Run(context.Background(), "Admin", func(c *Ctx) error {
 		d, _ := c.NewDoc("Reminder", Doc{"title": name, "due": due, "reader": "reader@example.com", "valid": valid})
 		_, err := c.Insert(d, SaveOpts{})
 		return err
@@ -107,7 +107,7 @@ func TestNotificationsDateRecoveryDedupRenameAndRevocation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = e.Run(ctx, "Administrator", func(c *Ctx) error { _, err := c.Rename("Reminder", "Historical", "Renamed"); return err })
+	err = e.Run(ctx, "Admin", func(c *Ctx) error { _, err := c.Rename("Reminder", "Historical", "Renamed"); return err })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,7 +117,7 @@ func TestNotificationsDateRecoveryDedupRenameAndRevocation(t *testing.T) {
 	if len(deliveries(t, e)) != 1 {
 		t.Fatal("rename duplicated date")
 	}
-	err = e.Run(ctx, "Administrator", func(c *Ctx) error { return c.SetValue("Reminder", "Renamed", Doc{"due": "2021-01-01"}) })
+	err = e.Run(ctx, "Admin", func(c *Ctx) error { return c.SetValue("Reminder", "Renamed", Doc{"due": "2021-01-01"}) })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,8 +128,8 @@ func TestNotificationsDateRecoveryDedupRenameAndRevocation(t *testing.T) {
 		t.Fatal("changed due date not delivered")
 	}
 	// Revocation by permissionQuery hides rows and prevents transport, even when
-	// the worker's own context is Administrator with ignorePermissions enabled.
-	err = e.Run(ctx, "Administrator", func(c *Ctx) error { return c.SetValue("Reminder", "Renamed", Doc{"reader": "other@example.com"}) })
+	// the worker's own context is Admin with ignorePermissions enabled.
+	err = e.Run(ctx, "Admin", func(c *Ctx) error { return c.SetValue("Reminder", "Renamed", Doc{"reader": "other@example.com"}) })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,7 +144,7 @@ func TestNotificationsDateRecoveryDedupRenameAndRevocation(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, row := range deliveries(t, e) {
-		if _, err := e.RunJob(ctx, "Administrator", mailJobMethod, map[string]any{"delivery": row["name"]}); err != nil {
+		if _, err := e.RunJob(ctx, "Admin", mailJobMethod, map[string]any{"delivery": row["name"]}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -164,7 +164,7 @@ func TestNotificationsEmailRollbackAndRetry(t *testing.T) {
 	seedNotificationUsers(t, e)
 	ctx := context.Background()
 	abort := errors.New("abort")
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		d, _ := c.NewDoc("Reminder", Doc{"title": "Rollback", "reader": "reader@example.com", "valid": true})
 		if _, err := c.Insert(d, SaveOpts{}); err != nil {
 			return err
@@ -189,13 +189,13 @@ func TestNotificationsEmailRollbackAndRetry(t *testing.T) {
 		t.Fatal(rows)
 	}
 	args := map[string]any{"delivery": db.Str(rows[0]["name"])}
-	if _, err := e.RunJob(ctx, "Administrator", mailJobMethod, args); err == nil {
+	if _, err := e.RunJob(ctx, "Admin", mailJobMethod, args); err == nil {
 		t.Fatal("expected transport failure")
 	}
-	if _, err := e.RunJob(ctx, "Administrator", mailJobMethod, args); err != nil {
+	if _, err := e.RunJob(ctx, "Admin", mailJobMethod, args); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.RunJob(ctx, "Administrator", mailJobMethod, args); err != nil {
+	if _, err := e.RunJob(ctx, "Admin", mailJobMethod, args); err != nil {
 		t.Fatal(err)
 	}
 	if sender.calls != 2 {
@@ -242,7 +242,7 @@ func TestNotificationsSweepMarksOnlyMatchedDates(t *testing.T) {
 		t.Fatalf("marks after first sweep: %+v", m)
 	}
 	// A condition that starts to hold is still picked up on a later sweep.
-	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		return c.SetValue("Reminder", "Pending", Doc{"valid": true})
 	}); err != nil {
 		t.Fatal(err)
@@ -257,7 +257,7 @@ func TestNotificationsSweepMarksOnlyMatchedDates(t *testing.T) {
 		t.Fatalf("deliveries = %d, want 2", n)
 	}
 	// Deleting the document removes its mark with it.
-	if err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		return c.Delete("Reminder", "Matched", false, false)
 	}); err != nil {
 		t.Fatal(err)

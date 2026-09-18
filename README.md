@@ -51,13 +51,13 @@ ddcore init --name myapp --db-port 5432         # ddcore.json + docker-compose.y
 docker compose up -d                            # starts Postgres (myapp:myapp@localhost:5432/myapp)
 ddcore new-app library                        # scaffolds apps/library and registers it
 ddcore migrate                                # creates the tables, generates the typings
-ddcore user passwd Administrator admin1234
+ddcore user passwd Admin admin1234
 ddcore dev                                    # hot reload; the port is in ddcore.json
 ```
 
 `ddcore init` also writes the project's own `README.md`, an `AGENTS.md` for coding agents
 (`CLAUDE.md` links to it) and a `.mcp.json` that registers `ddcore mcp`. Sign in as
-`Administrator`. From there, the
+`Admin`. From there, the
 [first-app tutorial](https://ddcore.dev/guide/first-app) walks through a DocType, a server-side
 validation rule and a test.
 
@@ -91,8 +91,8 @@ folder. Other clients use the same command:
 The server gives the agent the embedded reference (`ddcore://docs/*`) and tools to inspect
 metadata, scaffold DocTypes, preview and apply migrations, work with records, read logs and run
 tests. The agent edits your TypeScript files with its own tools; the files stay the source of
-truth. `ddcore dev` also serves MCP over HTTP at `/mcp`, behind an Administrator or System
-Manager API key. MCP tools run with Administrator authority. They are development tooling:
+truth. `ddcore dev` also serves MCP over HTTP at `/mcp`, behind an Admin or System
+Manager API key. MCP tools run with Admin authority. They are development tooling:
 `ddcore start` (production) does not mount them.
 
 ---
@@ -107,7 +107,7 @@ git clone https://github.com/jrvidotti/ddcore && cd ddcore
 make docker-up                                   # dev Postgres (container ddcore-pg, port 5455)
 make build                                       # the Desk (npm) + the binary at bin/ddcore
 make migrate                                     # the core's DDL
-./bin/ddcore user passwd Administrator admin1234 # the Administrator's password
+./bin/ddcore user passwd Admin admin1234 # the Admin's password
 make dev                                         # http://localhost:8090
 ```
 

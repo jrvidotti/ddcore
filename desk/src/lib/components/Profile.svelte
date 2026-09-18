@@ -146,7 +146,7 @@
         </div>
       </div>
       <p class="small muted" style="margin:10px 0 0">
-        {__("The email address names the account and cannot be changed here. Roles are granted by an administrator.")}
+        {__("The email address names the account and cannot be changed here. Roles are granted by an admin.")}
       </p>
     </div>
 

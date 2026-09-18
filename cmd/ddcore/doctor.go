@@ -473,7 +473,7 @@ func (r *doctorReport) printTail(w io.Writer, p func(string, string, ...any)) {
 		}
 		pw := "password sign-in on"
 		if !r.SSO.PasswordLogin {
-			pw = "password sign-in off (Administrator only)"
+			pw = "password sign-in off (Admin only)"
 		}
 		p("sso", "%s; %s", strings.Join(ids, ", "), pw)
 	}

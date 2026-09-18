@@ -14,7 +14,7 @@ func TestB20_HubFiltersEventsByPermission(t *testing.T) {
 	anon := h.Subscribe("Guest", nil)
 
 	h.Publish(Event{Name: "doc_update", Doctype: "Pedido", DocName: "PED-0001"})
-	h.Publish(Event{Name: "doc_update", Doctype: "User", DocName: "Administrator"})
+	h.Publish(Event{Name: "doc_update", Doctype: "User", DocName: "Admin"})
 	h.Publish(Event{Name: "reload"}) // events without a document remain broadcast
 	h.Publish(Event{Name: "job_done", User: "ze@x.com", Doctype: "Pedido"})
 

@@ -33,7 +33,7 @@ func (x *env) issueFor(user, kind string) string {
 	x.t.Helper()
 	var token string
 	x.asAdmin(func(c *engine.Ctx) error {
-		t, _, err := x.e.IssueToken(x.ctx, user, kind, x.e.Cfg.Auth.ResetTTL(), "Administrator", "127.0.0.1")
+		t, _, err := x.e.IssueToken(x.ctx, user, kind, x.e.Cfg.Auth.ResetTTL(), "Admin", "127.0.0.1")
 		token = t
 		return err
 	})

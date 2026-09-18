@@ -2,7 +2,7 @@
 
 A webhook tells somebody else's server that something happened here. The
 framework records every event it owes a receiver, sends it after the change
-commits, signs it, retries it with backoff, and lets an administrator send it
+commits, signs it, retries it with backoff, and lets an admin send it
 again. An app does not write an HTTP client or a retry loop for this.
 
 ## A subscription

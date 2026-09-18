@@ -34,8 +34,8 @@ test("field validation normalizes values, reports invalid emails and preserves s
   assert.deepEqual(validateEmailFields(fields, doc, "Pessoa"), { secondary: "E-mail inválido" });
   assert.equal(doc.email, "pessoa@example.com");
 
-  const administrator = { email: "Administrator" };
-  assert.deepEqual(validateEmailFields(fields.slice(0, 1), administrator, "User"), {});
+  const admin = { email: "Admin" };
+  assert.deepEqual(validateEmailFields(fields.slice(0, 1), admin, "User"), {});
 });
 
 test("field validation clears errors after correction and stores optional whitespace as null", () => {

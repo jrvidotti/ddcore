@@ -374,7 +374,7 @@ func (s *Server) auth(next http.Handler) http.Handler {
 
 // RequireAdminAPIKey guards administrative handlers (the MCP HTTP transport):
 // only an `Authorization: token key:secret` header is accepted — never a
-// session cookie — and the key must belong to Administrator or a user with
+// session cookie — and the key must belong to Admin or a user with
 // the System Manager role.
 func (s *Server) RequireAdminAPIKey(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -397,7 +397,7 @@ func (s *Server) RequireAdminAPIKey(next http.Handler) http.Handler {
 			s.writeErr(w, r, err)
 			return
 		}
-		if u != "Administrator" && !containsFold(roles, "System Manager") {
+		if u != "Admin" && !containsFold(roles, "System Manager") {
 			s.writeErr(w, r, cerr.Permission("This endpoint requires the System Manager role"))
 			return
 		}
@@ -938,7 +938,7 @@ func (s *Server) method(w http.ResponseWriter, r *http.Request) {
 					has = true
 				}
 			}
-			if !has && c.User != "Administrator" {
+			if !has && c.User != "Admin" {
 				c.AuditDenied("method."+path, "", "", nil)
 				return nil, cerr.Permission("No permission for {0}", path)
 			}
@@ -1026,7 +1026,7 @@ func (s *Server) referenceGuard(c *engine.Ctx, doctype string, filters any) erro
 	if !ok {
 		return nil
 	}
-	if c.User == "Administrator" || c.IgnorePermissions() {
+	if c.User == "Admin" || c.IgnorePermissions() {
 		return nil
 	}
 	if c.HasRole("System Manager") {
@@ -1088,7 +1088,7 @@ func (s *Server) report(w http.ResponseWriter, r *http.Request) {
 			return nil, cerr.NotFound("Report {0} does not exist", name)
 		}
 		roles, _ := c.Roles()
-		if !allowed(rep["roles"], roles) && c.User != "Administrator" {
+		if !allowed(rep["roles"], roles) && c.User != "Admin" {
 			return nil, cerr.Permission("No permission for report {0}", name)
 		}
 		if ref, _ := rep["refDoctype"].(string); ref != "" {
@@ -1202,7 +1202,7 @@ func (s *Server) workspace(c *engine.Ctx, name string) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	if !allowed(ws["roles"], roles) && c.User != "Administrator" {
+	if !allowed(ws["roles"], roles) && c.User != "Admin" {
 		return nil, cerr.Permission("No permission for workspace {0}", name)
 	}
 	return ws, nil

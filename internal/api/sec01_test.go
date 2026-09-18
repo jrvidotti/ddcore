@@ -163,7 +163,7 @@ func (x *env) uploadAttachment(auth, doctype, name, filename, content string) re
 func TestSEC01_CrossCuttingChannels(t *testing.T) {
 	x, alfaRecord, betaRecord := setupSEC01API(t)
 	alfa := "sid:" + x.sid(sec01AlfaUser)
-	admin := "sid:" + x.sid("Administrator")
+	admin := "sid:" + x.sid("Admin")
 	beta := "sid:" + x.sid(sec01BetaUser)
 	upload := x.uploadAttachment(beta, "Test Record", betaRecord, "sec01-beta.txt", "beta")
 	if upload.Status != 200 {
@@ -175,14 +175,14 @@ func TestSEC01_CrossCuttingChannels(t *testing.T) {
 		t.Errorf("scoped user downloaded Beta attachment: %d %s", r.Status, r.Raw)
 	}
 	if r := x.call("GET", fileURL, nil, admin); r.Status != 200 || r.Raw != "beta" {
-		t.Errorf("Administrator lost attachment access: %d %s", r.Status, r.Raw)
+		t.Errorf("Admin lost attachment access: %d %s", r.Status, r.Raw)
 	}
 
 	if r := x.call("GET", "/api/versions/Test%20Record/"+betaRecord, nil, alfa); r.Status != 403 || r.errType() != "PermissionError" {
 		t.Errorf("scoped user read Beta version history: %d %s", r.Status, r.Raw)
 	}
 	if r := x.call("GET", "/api/versions/Test%20Record/"+betaRecord, nil, admin); r.Status != 200 {
-		t.Errorf("Administrator lost version access: %d %s", r.Status, r.Raw)
+		t.Errorf("Admin lost version access: %d %s", r.Status, r.Raw)
 	}
 
 	r := x.call("GET", "/api/export/Test%20Record", nil, alfa)

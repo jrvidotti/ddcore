@@ -75,7 +75,7 @@ func setupExport(t *testing.T) *Engine {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { e.DB.Close() })
-	err = e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err = e.Run(ctx, "Admin", func(c *Ctx) error {
 		for _, u := range []struct{ email, role string }{
 			{"exp@x.com", "Exportador"}, {"leitor@x.com", "Leitor"},
 			{"ana@x.com", "Dono"}, {"ze@x.com", "Dono"},
@@ -166,7 +166,7 @@ func exportAs(t *testing.T, e *Engine, user string, a ExportArgs) (*collector, e
 // the failure an OFFSET walk makes and the reason for the keyset.
 func TestExportWalksEveryPage(t *testing.T) {
 	e := setupExport(t)
-	makeNotas(t, e, "Administrator", "N", 250)
+	makeNotas(t, e, "Admin", "N", 250)
 
 	col, err := exportAs(t, e, "exp@x.com", ExportArgs{Doctype: "Nota", Batch: 40})
 	if err != nil {
@@ -195,7 +195,7 @@ func TestExportWalksEveryPage(t *testing.T) {
 // phantom extra page, nor stop one row early.
 func TestExportHandlesExactPageBoundary(t *testing.T) {
 	e := setupExport(t)
-	makeNotas(t, e, "Administrator", "N", 80)
+	makeNotas(t, e, "Admin", "N", 80)
 
 	col, err := exportAs(t, e, "exp@x.com", ExportArgs{Doctype: "Nota", Batch: 40})
 	if err != nil {
@@ -231,10 +231,10 @@ func (s *deletingSink) Doc(d Doc, f []ExportFile) error {
 
 func TestExportDoesNotSkipWhenTheSetShrinks(t *testing.T) {
 	e := setupExport(t)
-	makeNotas(t, e, "Administrator", "N", 100)
+	makeNotas(t, e, "Admin", "N", 100)
 
 	var sink *deletingSink
-	err := e.Run(context.Background(), "Administrator", func(c *Ctx) error {
+	err := e.Run(context.Background(), "Admin", func(c *Ctx) error {
 		sink = &deletingSink{c: c, after: 10}
 		_, err := c.Export(ExportArgs{Doctype: "Nota", Batch: 10}, sink)
 		return err
@@ -258,7 +258,7 @@ func TestExportDoesNotSkipWhenTheSetShrinks(t *testing.T) {
 
 func TestExportNestsChildrenInIdxOrder(t *testing.T) {
 	e := setupExport(t)
-	err := e.Run(context.Background(), "Administrator", func(c *Ctx) error {
+	err := e.Run(context.Background(), "Admin", func(c *Ctx) error {
 		d, _ := c.NewDoc("Nota", Doc{"titulo": "Com itens"})
 		d["itens"] = []any{
 			map[string]any{"descricao": "a", "qtd": 1},
@@ -307,7 +307,7 @@ func TestExportNestsChildrenInIdxOrder(t *testing.T) {
 // document has the same shape.
 func TestExportEmptyChildTableIsAnEmptyList(t *testing.T) {
 	e := setupExport(t)
-	makeNotas(t, e, "Administrator", "N", 1)
+	makeNotas(t, e, "Admin", "N", 1)
 
 	col, err := exportAs(t, e, "exp@x.com", ExportArgs{Doctype: "Nota", Children: true})
 	if err != nil {
@@ -347,7 +347,7 @@ func TestExportHonoursIfOwner(t *testing.T) {
 // permission, and until now nothing on the server checked it.
 func TestExportRequiresExportPermission(t *testing.T) {
 	e := setupExport(t)
-	makeNotas(t, e, "Administrator", "N", 3)
+	makeNotas(t, e, "Admin", "N", 3)
 
 	_, err := exportAs(t, e, "leitor@x.com", ExportArgs{Doctype: "Nota"})
 	if err == nil {
@@ -361,7 +361,7 @@ func TestExportRequiresExportPermission(t *testing.T) {
 // A secret must never be in a file that travels.
 func TestExportOmitsPasswordFields(t *testing.T) {
 	e := setupExport(t)
-	err := e.Run(context.Background(), "Administrator", func(c *Ctx) error {
+	err := e.Run(context.Background(), "Admin", func(c *Ctx) error {
 		d, _ := c.NewDoc("Nota", Doc{"titulo": "Com segredo", "segredo": "hunter2"})
 		_, err := c.Insert(d, SaveOpts{})
 		return err
@@ -415,7 +415,7 @@ func TestExportRefusesAChildDoctype(t *testing.T) {
 // whole set is the mistake the flag exists to prevent.
 func TestExportLimitMarksTruncated(t *testing.T) {
 	e := setupExport(t)
-	makeNotas(t, e, "Administrator", "N", 50)
+	makeNotas(t, e, "Admin", "N", 50)
 
 	col, err := exportAs(t, e, "exp@x.com", ExportArgs{Doctype: "Nota", Limit: 20, Batch: 7})
 	if err != nil {
@@ -453,8 +453,8 @@ func TestExportLimitMarksTruncated(t *testing.T) {
 
 func TestExportAppliesFilters(t *testing.T) {
 	e := setupExport(t)
-	makeNotas(t, e, "Administrator", "A", 10)
-	makeNotas(t, e, "Administrator", "B", 5)
+	makeNotas(t, e, "Admin", "A", 10)
+	makeNotas(t, e, "Admin", "B", 5)
 
 	col, err := exportAs(t, e, "exp@x.com", ExportArgs{
 		Doctype: "Nota",
@@ -478,7 +478,7 @@ func TestExportAppliesFilters(t *testing.T) {
 // checksum, and an honest flag when the bytes are gone.
 func TestExportManifestsAttachments(t *testing.T) {
 	e := setupExport(t)
-	makeNotas(t, e, "Administrator", "N", 1)
+	makeNotas(t, e, "Admin", "N", 1)
 
 	body := []byte("conteúdo do anexo")
 	dir := filepath.Join(e.Cfg.DataDir, "files", "private")
@@ -490,7 +490,7 @@ func TestExportManifestsAttachments(t *testing.T) {
 	}
 
 	var nota string
-	err := e.Run(context.Background(), "Administrator", func(c *Ctx) error {
+	err := e.Run(context.Background(), "Admin", func(c *Ctx) error {
 		rows, err := c.GetList("Nota", ListArgs{Fields: []string{"name"}})
 		if err != nil {
 			return err
@@ -558,7 +558,7 @@ func TestExportCarriesAttachmentsOwnedByOthers(t *testing.T) {
 	e := setupExport(t)
 	makeNotas(t, e, "ana@x.com", "A", 1)
 
-	err := e.Run(context.Background(), "Administrator", func(c *Ctx) error {
+	err := e.Run(context.Background(), "Admin", func(c *Ctx) error {
 		rows, err := c.GetList("Nota", ListArgs{Fields: []string{"name"}, IgnorePermissions: true})
 		if err != nil {
 			return err
@@ -577,7 +577,7 @@ func TestExportCarriesAttachmentsOwnedByOthers(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(col.files[0]) != 1 {
-		t.Fatalf("Administrator attachment missing from ana's export: %v", col.files[0])
+		t.Fatalf("Admin attachment missing from ana's export: %v", col.files[0])
 	}
 }
 
@@ -587,7 +587,7 @@ func TestExportCarriesAttachmentsOwnedByOthers(t *testing.T) {
 // two files are compared side by side during a reconciliation.
 func TestExportSinksAgreeOnValues(t *testing.T) {
 	e := setupExport(t)
-	err := e.Run(context.Background(), "Administrator", func(c *Ctx) error {
+	err := e.Run(context.Background(), "Admin", func(c *Ctx) error {
 		d, _ := c.NewDoc("Nota", Doc{"titulo": `Rua "do Meio", 3`, "valor": 10.5, "ativo": false})
 		_, err := c.Insert(d, SaveOpts{})
 		return err
@@ -653,7 +653,7 @@ func TestExportSinksAgreeOnValues(t *testing.T) {
 // The manifest line is how a consumer knows the stream was not cut short.
 func TestNDJSONSinkClosesWithTheManifest(t *testing.T) {
 	e := setupExport(t)
-	makeNotas(t, e, "Administrator", "N", 3)
+	makeNotas(t, e, "Admin", "N", 3)
 
 	var buf bytes.Buffer
 	err := e.Run(context.Background(), "exp@x.com", func(c *Ctx) error {
@@ -687,7 +687,7 @@ func TestNDJSONSinkClosesWithTheManifest(t *testing.T) {
 // Children go to their own CSV, keyed back to the parent.
 func TestCSVSinkSplitsChildTables(t *testing.T) {
 	e := setupExport(t)
-	err := e.Run(context.Background(), "Administrator", func(c *Ctx) error {
+	err := e.Run(context.Background(), "Admin", func(c *Ctx) error {
 		d, _ := c.NewDoc("Nota", Doc{"titulo": "Com itens"})
 		d["itens"] = []any{map[string]any{"descricao": "a", "qtd": 1}, map[string]any{"descricao": "b", "qtd": 2}}
 		_, err := c.Insert(d, SaveOpts{})

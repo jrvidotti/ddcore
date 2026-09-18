@@ -121,7 +121,7 @@ func TestExtensionFieldBecomesAColumn(t *testing.T) {
 		t.Fatalf("FormApps=%v", got)
 	}
 
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		doc, err := c.NewDoc("Produto", Doc{"codigo": "P-1", "nome": "Cadeira", "garantia_meses": 24})
 		if err != nil {
 			return err
@@ -173,7 +173,7 @@ func TestExtensionPermissionsChain(t *testing.T) {
 		t.Fatal("extension role was not added to permissions")
 	}
 
-	err := e.Run(ctx, "Administrator", func(c *Ctx) error {
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		u, _ := c.NewDoc("User", Doc{"email": "ana@x.com", "full_name": "Ana"})
 		u["roles"] = []any{map[string]any{"role": "Vendedor"}}
 		if _, err := c.Insert(u, SaveOpts{}); err != nil {
