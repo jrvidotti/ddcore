@@ -21,6 +21,15 @@ not every commit that went into it.
   signs in as it, a fixture that links to it — must say `Admin`. The rename is skipped when both
   users already exist.
 
+### Added
+
+- `ddcore migrate` gives `Admin` a generated 10-character password (lowercase, uppercase, digit and
+  symbol; longer when `auth.minPasswordLength` asks for more) when it has none, which is what a
+  first install leaves, and prints it once to stderr. `dev`/`start --auto-migrate` and `restore`
+  print it the same way, and the MCP `migrate` tool returns it as `adminPassword`. Only the hash is
+  kept, and a password Admin already has is never replaced. The step
+  `ddcore user passwd Admin <password>` is no longer needed to sign in the first time.
+
 ## 0.15.1 — 2026-09-18
 
 ### Added

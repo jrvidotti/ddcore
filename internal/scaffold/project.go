@@ -121,10 +121,10 @@ func readme(p ProjectInfo) string {
 		b.WriteString("docker compose up -d                              # PostgreSQL, see docker-compose.yml\n")
 	}
 	b.WriteString("cp .env.example .env                              # optional: per-machine settings and secrets\n")
-	b.WriteString("ddcore migrate                                    # creates the tables, generates the typings\n")
-	b.WriteString("ddcore user passwd Admin <password>       # the first sign-in\n")
+	b.WriteString("ddcore migrate                                    # creates the tables and prints the Admin password\n")
 	b.WriteString("ddcore dev                                        # hot reload\n```\n\n")
-	fmt.Fprintf(&b, "Open <http://localhost:%d> and sign in as `Admin`.\n\n", p.Port)
+	fmt.Fprintf(&b, "Open <http://localhost:%d> and sign in as `Admin` with the password `ddcore migrate` printed.\n"+
+		"Change it with `ddcore user passwd Admin <password>`.\n\n", p.Port)
 	fmt.Fprintf(&b, "The site connects to `%s` (`dsn` in `ddcore.json`). ", p.DSN)
 	b.WriteString("To use another database on one machine, set `DDCORE_DSN` in `.env` instead of editing `ddcore.json`.\n")
 	if p.Compose {

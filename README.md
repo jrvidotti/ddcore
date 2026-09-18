@@ -50,8 +50,7 @@ mkdir my-project && cd my-project
 ddcore init --name myapp --db-port 5432         # ddcore.json + docker-compose.yml
 docker compose up -d                            # starts Postgres (myapp:myapp@localhost:5432/myapp)
 ddcore new-app library                        # scaffolds apps/library and registers it
-ddcore migrate                                # creates the tables, generates the typings
-ddcore user passwd Admin admin1234
+ddcore migrate                                # creates the tables, prints the Admin password
 ddcore dev                                    # hot reload; the port is in ddcore.json
 ```
 
@@ -106,8 +105,7 @@ and `make`.
 git clone https://github.com/jrvidotti/ddcore && cd ddcore
 make docker-up                                   # dev Postgres (container ddcore-pg, port 5455)
 make build                                       # the Desk (npm) + the binary at bin/ddcore
-make migrate                                     # the core's DDL
-./bin/ddcore user passwd Admin admin1234 # the Admin's password
+make migrate                                     # the core's DDL; prints the Admin password
 make dev                                         # http://localhost:8090
 ```
 

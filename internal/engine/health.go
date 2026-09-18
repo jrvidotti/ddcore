@@ -40,13 +40,13 @@ type QueueHealth struct {
 	// Stalled is running jobs whose lease expired: the worker holding them is
 	// gone. It is the same predicate requeueStale acts on, so this is exactly
 	// the number a live worker would put back.
-	Stalled               int64   `json:"stalled"`
-	FailedInWindow        int64   `json:"failedInWindow"`
-	DoneInWindow          int64   `json:"doneInWindow"`
+	Stalled        int64 `json:"stalled"`
+	FailedInWindow int64 `json:"failedInWindow"`
+	DoneInWindow   int64 `json:"doneInWindow"`
 	// CancelledInWindow separates work somebody stopped from work that broke.
 	// Counting the two together would have an operator hunting a fault that was
 	// in fact an administrative decision.
-	CancelledInWindow int64 `json:"cancelledInWindow"`
+	CancelledInWindow     int64   `json:"cancelledInWindow"`
 	OldestQueuedSeconds   float64 `json:"oldestQueuedSeconds"`
 	LongestRunningSeconds float64 `json:"longestRunningSeconds"`
 	WindowMinutes         int     `json:"windowMinutes"`

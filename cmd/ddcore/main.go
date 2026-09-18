@@ -289,8 +289,7 @@ func cmdInit(args []string) error {
 		fmt.Println("  docker compose up -d")
 	}
 	fmt.Println("  ddcore new-app <name>")
-	fmt.Println("  ddcore migrate")
-	fmt.Println("  ddcore user passwd Admin <password>")
+	fmt.Println("  ddcore migrate                                → prints the Admin password")
 	fmt.Printf("  ddcore dev                                    → http://localhost:%d\n", *port)
 	return nil
 }
@@ -399,9 +398,11 @@ func cmdServe(args []string, dev bool) error {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 	if *autoMigrate {
-		if _, err := e.Migrate(ctx, false); err != nil {
+		res, err := e.Migrate(ctx, false)
+		if err != nil {
 			return err
 		}
+		showAdminPassword(res)
 	} else if plan, err := e.Plan(ctx, false); err != nil {
 		// A refusal surfaces here too: swallowing it would report "0 pending"
 		// for a migration the planner will not run.
@@ -439,8 +440,11 @@ func cmdServe(args []string, dev bool) error {
 			if *autoMigrate {
 				if res, err := e.Migrate(ctx, false); err != nil {
 					e.Log.Error("migrate failed", "err", err)
-				} else if len(res.DDL) > 0 {
-					e.Log.Info("migrate", "ddl", len(res.DDL))
+				} else {
+					if len(res.DDL) > 0 {
+						e.Log.Info("migrate", "ddl", len(res.DDL))
+					}
+					showAdminPassword(res)
 				}
 			}
 			e.Cache.Clear()
@@ -496,6 +500,7 @@ func cmdMigrate(args []string) error {
 	}
 	fmt.Print(db.Report(res.DDL))
 	fmt.Println("ok:", res.String())
+	showAdminPassword(res)
 	return cmdTypes(nil)
 }
 
@@ -937,4 +942,16 @@ func logJSON() bool {
 	// would be a dependency taken on for one bit that is already here.
 	fi, err := f.Stat()
 	return err != nil || fi.Mode()&os.ModeCharDevice == 0
+}
+
+// showAdminPassword prints the password a migration generated for Admin. It
+// goes to stderr, so a command whose stdout is JSON stays parseable, and it is
+// the only time anyone sees it: the database keeps the hash.
+func showAdminPassword(res *engine.MigrateResult) {
+	if res == nil || res.AdminPassword == "" {
+		return
+	}
+	fmt.Fprintf(os.Stderr, "\n  Admin password: %s\n\n"+
+		"  Generated because Admin had none. It is shown only this once;\n"+
+		"  change it with `ddcore user passwd Admin <password>`.\n\n", res.AdminPassword)
 }

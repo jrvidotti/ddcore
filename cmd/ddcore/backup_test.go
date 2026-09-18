@@ -3,11 +3,11 @@ package main
 import (
 	"archive/tar"
 	"context"
+	"errors"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"errors"
 	"strings"
 	"testing"
 

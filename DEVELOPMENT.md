@@ -306,8 +306,7 @@ value *is* its key: `_(row.status)` and nothing else. See `docs/agent/i18n.md`.
 ```bash
 make docker-up                               # dev Postgres (container ddcore-pg, port 5455)
 make build                                   # desk (npm) + the binary at bin/ddcore
-make migrate                                 # the core's DDL + installing the fixture app
-./bin/ddcore user passwd Admin admin1234
+make migrate                                 # the core's DDL + the fixture app; prints the Admin password
 ./bin/ddcore demo                            # demonstration data (idempotent)
 make dev                                     # http://localhost:8090
 ```

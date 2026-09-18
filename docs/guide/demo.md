@@ -41,8 +41,7 @@ git clone https://github.com/jrvidotti/ddcore-demo.git
 cd ddcore-demo
 
 # Ensure your PostgreSQL database is running (configured in ddcore.json)
-ddcore migrate
-ddcore user passwd Admin admin1234
+ddcore migrate    # prints the Admin password
 ddcore dev
 ```
 

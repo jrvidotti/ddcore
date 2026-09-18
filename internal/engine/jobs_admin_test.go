@@ -771,4 +771,3 @@ func TestAudit_JobAdmin(t *testing.T) {
 		t.Errorf("expected actor admin@example.com, got %v", purgeEvents[0]["actor"])
 	}
 }
-

@@ -259,5 +259,3 @@ func TestAssignment_DueDateReminder(t *testing.T) {
 		t.Fatalf("expected still 1 notification after second sweep, got %d", len(rows))
 	}
 }
-
-

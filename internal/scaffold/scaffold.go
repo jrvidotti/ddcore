@@ -62,19 +62,19 @@ export default defineApp({
 
 // DoctypeSpec is what the MCP/CLI receives to scaffold a DocType.
 type DoctypeSpec struct {
-	Name        string           `json:"name"`
-	Label       string           `json:"label,omitempty"`
-	Module      string           `json:"module,omitempty"`
-	Naming      *meta.Naming     `json:"naming,omitempty"`
-	Submittable bool             `json:"submittable,omitempty"`
-	IsChild     bool             `json:"isChild,omitempty"`
-	TrackChanges bool            `json:"trackChanges,omitempty"`
-	TitleField  string           `json:"titleField,omitempty"`
-	Fields      []map[string]any `json:"fields"`
-	Roles       []string         `json:"roles,omitempty"`
-	WithController bool          `json:"withController,omitempty"`
-	WithForm    bool             `json:"withForm,omitempty"`
-	WithTest    bool             `json:"withTest,omitempty"`
+	Name           string           `json:"name"`
+	Label          string           `json:"label,omitempty"`
+	Module         string           `json:"module,omitempty"`
+	Naming         *meta.Naming     `json:"naming,omitempty"`
+	Submittable    bool             `json:"submittable,omitempty"`
+	IsChild        bool             `json:"isChild,omitempty"`
+	TrackChanges   bool             `json:"trackChanges,omitempty"`
+	TitleField     string           `json:"titleField,omitempty"`
+	Fields         []map[string]any `json:"fields"`
+	Roles          []string         `json:"roles,omitempty"`
+	WithController bool             `json:"withController,omitempty"`
+	WithForm       bool             `json:"withForm,omitempty"`
+	WithTest       bool             `json:"withTest,omitempty"`
 }
 
 func tsValue(v any) string {

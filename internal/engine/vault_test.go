@@ -293,4 +293,3 @@ func TestVaultAbsorptionPatch(t *testing.T) {
 		t.Fatalf("unexpected migrated row 1: %+v", rows[1])
 	}
 }
-

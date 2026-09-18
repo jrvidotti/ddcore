@@ -804,10 +804,10 @@ func TestRecuperacaoDeSenha(t *testing.T) {
 
 	err := e.Run(ctx, "Admin", func(c *engine.Ctx) error {
 		d, err := c.NewDoc("User", engine.Doc{
-			"email":         user,
-			"full_name":     "Recuperante",
-			"new_password":  oldPwd,
-			"user_type":     "System User",
+			"email":        user,
+			"full_name":    "Recuperante",
+			"new_password": oldPwd,
+			"user_type":    "System User",
 		})
 		if err != nil {
 			return err
@@ -927,7 +927,6 @@ func TestRecuperacaoDeSenha(t *testing.T) {
 		t.Errorf("login with new password should succeed with 200, got %d", resNew.StatusCode)
 	}
 }
-
 
 // TestCoreCompatRefusesLoad: an app declaring a ddcore range the binary is
 // outside of stops the load with an error naming it (PRD-07), while the

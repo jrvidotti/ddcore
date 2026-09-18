@@ -167,10 +167,11 @@ migration would do without applying it, run `ddcore migrate --dry-run`.
 
 ## 6. Sign in to the Desk
 
-Give the built-in `Admin` account a password, then start the development server:
+The first `ddcore migrate` gave the built-in `Admin` account a generated password and printed
+it once. Sign in with it, or set your own, then start the development server:
 
 ```bash
-ddcore user passwd Admin admin1234
+ddcore user passwd Admin <password>   # optional
 ddcore dev
 ```
 

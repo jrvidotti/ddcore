@@ -473,4 +473,3 @@ export default definePrintTemplate({
 		t.Fatalf("unexpected render output: %s", resJSON)
 	}
 }
-

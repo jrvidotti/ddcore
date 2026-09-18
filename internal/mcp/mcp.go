@@ -174,10 +174,15 @@ func New(e *engine.Engine) *mcp.Server {
 				return fail(err)
 			}
 			s.writeTypes()
-			return text(map[string]any{
+			out := map[string]any{
 				"report": db.Report(res.DDL), "ddl": db.SQL(res.DDL), "patches": res.Patches,
 				"installed": res.Installed, "renames": res.Renames, "recorded": res.Recorded,
-			}), nil, nil
+			}
+			if res.AdminPassword != "" {
+				// Shown once, like the CLI does: the database keeps only the hash.
+				out["adminPassword"] = res.AdminPassword
+			}
+			return text(out), nil, nil
 		})
 
 	mcp.AddTool(srv, &mcp.Tool{Name: "i18n_extract", Description: "Rewrites translations/<lang>.csv from the code and the metadata (`ddcore i18n extract`), keeping every translation already there, and reports per app what is missing, orphan or dynamic. Run it after adding a label, then fill the missing keys with set_translations. With check it writes nothing."},

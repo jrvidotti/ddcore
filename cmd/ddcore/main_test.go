@@ -295,7 +295,6 @@ func TestAuditFlags(t *testing.T) {
 	}
 }
 
-
 // The rollback override is a global flag, stripped before the command parses
 // its own — but every other boolean here takes `=true`, so this one must too
 // rather than failing as an unknown flag.

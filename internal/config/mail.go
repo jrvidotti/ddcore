@@ -166,4 +166,3 @@ func RedirectDebugEmail(recipient, debugEmail string) string {
 	}
 	return fmt.Sprintf("%s+%s@%s", user, tag, domain)
 }
-

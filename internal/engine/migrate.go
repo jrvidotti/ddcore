@@ -30,6 +30,9 @@ type MigrateResult struct {
 	Renames   []db.Statement
 	// Recorded are the patches a first install wrote down without running.
 	Recorded []string
+	// AdminPassword is the password this run generated for Admin, in clear,
+	// when Admin had none. It is shown once and not stored anywhere else.
+	AdminPassword string
 }
 
 // Migrate brings the database to the meta, in one transaction.
@@ -42,12 +45,13 @@ type MigrateResult struct {
 //  2. beforeSchema patches, against the shape the database still has
 //  3. the plan, computed *after* those patches — one of them may have changed
 //     the schema by hand, and a plan from before would be stale
-//  4. the additive DDL: renames, creates, adds, declared conversions, indexes
+//  4. the additive DDL: renames, creates, adds, declared conversions, indexes,
+//     then the rename of a pre-0.16 Administrator to Admin
 //  5. the reference sweep for each DocType this run renamed
 //  6. installing new apps, then fixtures
 //  7. afterSchema patches — where a backfill lives
 //  8. the drops, last, so step 7 could still read what step 8 removes
-//  9. afterMigrate
+//  9. a generated password for an Admin that has none, then afterMigrate
 //
 // It stays one transaction. Postgres has transactional DDL, so a failure
 // anywhere leaves nothing behind — and that is what makes the "validate" step
@@ -107,6 +111,9 @@ func (e *Engine) Migrate(ctx context.Context, prune bool) (*MigrateResult, error
 			return err
 		}
 		if err := db.Apply(ctx, c.Tx, drop); err != nil {
+			return err
+		}
+		if res.AdminPassword, err = ensureAdminPassword(ctx, c); err != nil {
 			return err
 		}
 		for _, name := range c.St.AppOrder() {
@@ -284,4 +291,3 @@ func absorbVaultAuditLog(ctx context.Context, q db.Querier) error {
 	`)
 	return err
 }
-

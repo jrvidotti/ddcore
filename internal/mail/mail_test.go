@@ -241,4 +241,3 @@ func TestDebugRedirect(t *testing.T) {
 		}
 	})
 }
-

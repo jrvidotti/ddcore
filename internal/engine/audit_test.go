@@ -389,4 +389,3 @@ func TestAudit_Sweep(t *testing.T) {
 		t.Fatalf("expected 0 events remaining, got %d, err=%v", count, err)
 	}
 }
-

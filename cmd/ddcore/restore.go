@@ -285,6 +285,7 @@ func cmdRestore(args []string) error {
 			return report(fmt.Errorf("migrate after restore: %w", err))
 		}
 		p.done(fmt.Sprintf("%d DDL, %d patches", len(mr.DDL), len(mr.Patches)))
+		showAdminPassword(mr)
 	}
 	e.RecordAudit(ctx, cliActor(), "backup.restore", "Allowed", "", "", map[string]any{
 		"archive": filepath.Base(res.Archive), "ddcore": man.DDCore, "started": man.Started, "files": man.Files})

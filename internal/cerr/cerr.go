@@ -76,7 +76,7 @@ func Mandatory(msg string, a ...any) *Error  { return New("MandatoryError", 417,
 // guessed at, a recovery being requested in a loop. The seconds still to wait
 // belong in Extra through WithRetryAfter, because the number is data the
 // caller acts on, not prose it reads.
-func TooMany(msg string, a ...any) *Error { return New("TooManyRequestsError", 429, msg, a...) }
+func TooMany(msg string, a ...any) *Error     { return New("TooManyRequestsError", 429, msg, a...) }
 func Unavailable(msg string, a ...any) *Error { return New("UnavailableError", 503, msg, a...) }
 
 // Maintenance refuses a write while the site is paused for a cutover, a backup

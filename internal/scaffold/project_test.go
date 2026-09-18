@@ -41,7 +41,7 @@ func TestProjectWritesTheGuides(t *testing.T) {
 		t.Fatal(".gitignore does not keep .env out")
 	}
 	r := read("README.md")
-	for _, want := range []string{"# gestao", dsn, "docker compose up -d", "http://localhost:8080", "ddcore user passwd Admin", "AGENTS.md"} {
+	for _, want := range []string{"# gestao", dsn, "docker compose up -d", "http://localhost:8080", "prints the Admin password", "AGENTS.md"} {
 		if !strings.Contains(r, want) {
 			t.Errorf("README misses %q", want)
 		}

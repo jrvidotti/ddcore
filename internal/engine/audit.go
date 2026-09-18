@@ -205,4 +205,3 @@ func (e *Engine) SweepAuditEvents(ctx context.Context) (int, error) {
 	}
 	return e.PurgeAuditEvents(ctx, days, false)
 }
-
