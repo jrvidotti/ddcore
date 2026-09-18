@@ -228,14 +228,14 @@ func cmdInit(args []string) error {
 	if set["dsn"] && (set["name"] || set["db-port"]) {
 		return fmt.Errorf("use --dsn or --name/--db-port, not both")
 	}
+	wd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	if *name == "" {
+		*name = scaffold.DBName(filepath.Base(wd))
+	}
 	if *dsn == "" {
-		if *name == "" {
-			wd, err := os.Getwd()
-			if err != nil {
-				return err
-			}
-			*name = scaffold.DBName(filepath.Base(wd))
-		}
 		if !scaffold.DBNameRe.MatchString(*name) {
 			return fmt.Errorf("--name %q: use lowercase letters, digits and _, not starting with a digit", *name)
 		}
@@ -276,11 +276,22 @@ func cmdInit(args []string) error {
 	if err != nil {
 		return err
 	}
-	next := "ddcore new-app <name> && ddcore migrate && ddcore dev"
-	if compose {
-		next = "docker compose up -d && " + next
+	files, err := scaffold.Project(".", scaffold.ProjectInfo{Name: *name, DSN: *dsn, Port: *port, Compose: compose})
+	for _, f := range files {
+		fmt.Println("created", f)
 	}
-	fmt.Println("created", config.Name, "— now:", next)
+	if err != nil {
+		return err
+	}
+	fmt.Println("created", config.Name)
+	fmt.Println("\nnext:")
+	if compose {
+		fmt.Println("  docker compose up -d")
+	}
+	fmt.Println("  ddcore new-app <name>")
+	fmt.Println("  ddcore migrate")
+	fmt.Println("  ddcore user passwd Administrator <password>")
+	fmt.Printf("  ddcore dev                                    → http://localhost:%d\n", *port)
 	return nil
 }
 
@@ -339,7 +350,8 @@ func cmdNewApp(args []string) error {
 	if *dir == "" {
 		*dir = filepath.Join("apps", name)
 	}
-	if err := scaffold.App(*dir, name, *title); err != nil {
+	rng, _ := engine.AppRange(engine.Version)
+	if err := scaffold.App(*dir, name, *title, rng); err != nil {
 		return err
 	}
 	abs, err := filepath.Abs(*dir)

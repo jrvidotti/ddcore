@@ -21,13 +21,19 @@ func write(path, content string) error {
 	return os.WriteFile(path, []byte(content), 0o644)
 }
 
-// App creates the skeleton of an app.
-func App(dir, name, title string) error {
+// App creates the skeleton of an app. ddcoreRange is the `ddcore` range of
+// releases it is written against; empty leaves the line commented out, for a
+// binary that cannot say which release it is.
+func App(dir, name, title, ddcoreRange string) error {
 	if title == "" {
 		title = strings.ToUpper(name[:1]) + name[1:]
 	}
 	if !meta.ValidIdentAscii(name) {
 		return fmt.Errorf("invalid app name %q: use lowercase letters, digits and _", name)
+	}
+	rangeLine := fmt.Sprintf("  ddcore: %q, // the ddcore releases this app is tested against", ddcoreRange)
+	if ddcoreRange == "" {
+		rangeLine = `  // ddcore: ">=0.15.0 <0.16.0", // the ddcore releases this app is tested against`
 	}
 	files := map[string]string{
 		"ddcore.app.ts": fmt.Sprintf(`import { defineApp } from "@ddcore/sdk";
@@ -35,28 +41,14 @@ func App(dir, name, title string) error {
 export default defineApp({
   name: %q,
   title: %q,
+  version: "0.1.0",
+%s
   roles: [],
   // docEvents: { "User": { validate(doc) {} } },
   // scheduler: { daily: ["%s.services.tasks.daily"] },
   desk: { include: [] },
 });
-`, name, title, name),
-		"CLAUDE.md": fmt.Sprintf(`# App %s (ddcore)
-
-**ddcore** framework app: DocTypes in TypeScript, core in Go, PostgreSQL.
-
-- `+"`doctypes/<snake>/<snake>.doctype.ts`"+` — meta (`+"`defineDoctype`"+`). Fieldnames in snake_case ASCII.
-- `+"`doctypes/<snake>/<snake>.controller.ts`"+` — rules (`+"`defineController`"+`): validate, onSubmit, methods.
-- `+"`doctypes/<snake>/<snake>.form.ts`"+` — desk script (`+"`defineForm`"+`).
-- `+"`doctypes/<snake>/<snake>.test.ts`"+` — tests (`+"`ddcore test`"+`), each `+"`it`"+` runs in a rolled-back transaction.
-- `+"`services/*.ts`"+` — business functions; export with `+"`whitelisted()`"+` to expose at `+"`/api/method/%s.services.<file>.<fn>`"+`.
-- `+"`reports/*.report.ts`"+`, `+"`workspaces/*.workspace.ts`"+`, `+"`patches/NNNN_*.ts`"+`, `+"`translations/pt-BR.csv`"+`.
-
-Commands: `+"`ddcore dev`"+` (hot-reload + auto-migrate), `+"`ddcore migrate --dry-run`"+`, `+"`ddcore test`"+`, `+"`ddcore types`"+`, `+"`ddcore eval '<ts>'`"+`.
-Full reference: `+"`ddcore docs`"+` or MCP resources `+"`ddcore://docs/*`"+` (`+"`ddcore mcp`"+`).
-
-Inviolable rules: server code is **synchronous** (no await); `+"`mandatoryDependsOn`"+` is validated on the server; never call commit.
-`, title, name),
+`, name, title, rangeLine, name),
 		"translations/pt-BR.csv": "",
 		"services/.keep":         "",
 	}

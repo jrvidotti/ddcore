@@ -227,3 +227,15 @@ func checkCoreCompat(snap *Snapshot, core string) (skipped bool, err error) {
 	}
 	return skipped, nil
 }
+
+// AppRange is the `ddcore` range `ddcore new-app` writes for an app started
+// on this binary: from its minor release up to, not including, the next one.
+// ok is false for a binary that is not a release, including the unstamped
+// default 0.1.0, whose number says nothing about the API an app is written to.
+func AppRange(core string) (string, bool) {
+	v, ok := parseCoreVersion(core)
+	if !ok || strings.TrimSpace(core) == "0.1.0" {
+		return "", false
+	}
+	return fmt.Sprintf(">=%d.%d.0 <%d.%d.0", v[0], v[1], v[0], v[1]+1), true
+}

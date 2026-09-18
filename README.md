@@ -55,7 +55,9 @@ ddcore user passwd Administrator admin1234
 ddcore dev                                    # hot reload; the port is in ddcore.json
 ```
 
-Sign in as `Administrator`. From there, the
+`ddcore init` also writes the project's own `README.md`, an `AGENTS.md` for coding agents
+(`CLAUDE.md` links to it) and a `.mcp.json` that registers `ddcore mcp`. Sign in as
+`Administrator`. From there, the
 [first-app tutorial](https://ddcore.dev/guide/first-app) walks through a DocType, a server-side
 validation rule and a test.
 
@@ -78,7 +80,9 @@ Three rules save most first-day surprises:
 
 ### Developing with an AI agent
 
-`ddcore new-app` writes a `CLAUDE.md` for the app. Point your agent at the MCP server:
+`ddcore init` writes `AGENTS.md` with the project's conventions (`CLAUDE.md` links to it) and a
+`.mcp.json` that points the agent at the MCP server. Claude Code picks both up when it opens the
+folder. Other clients use the same command:
 
 ```json
 { "mcpServers": { "ddcore": { "command": "ddcore", "args": ["mcp"] } } }

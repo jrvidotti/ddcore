@@ -15,8 +15,8 @@ flag is an error (it never becomes an argument silently).
 
 | Command | What it does |
 |---|---|
-| `ddcore init [--name n] [--db-port p] [--dsn ...] [--port ...]` | creates `ddcore.json`, `.env.example` and a `docker-compose.yml` running the Postgres of a local dsn (never overwrites an existing compose file). `--name`/`--db-port` build `postgres://n:n@localhost:p/n?sslmode=disable` (name defaults to the directory, port to 5432); `--dsn` is the alternative for an existing database. If `ddcore.json` exists, updates the dsn/port given (idempotent) |
-| `ddcore new-app <name>` | scaffolds the app, registers it in ddcore.json, writes CLAUDE.md; it writes neither `version` nor a `ddcore` range, so add them by hand (see `conventions`) |
+| `ddcore init [--name n] [--db-port p] [--dsn ...] [--port ...]` | creates `ddcore.json`, `.env.example`, `README.md`, `AGENTS.md` (with `CLAUDE.md` linked to it), `.mcp.json`, `.gitignore` and a `docker-compose.yml` running the Postgres of a local dsn (never overwrites an existing file). `--name`/`--db-port` build `postgres://n:n@localhost:p/n?sslmode=disable` (name defaults to the directory, port to 5432); `--dsn` is the alternative for an existing database. If `ddcore.json` exists, updates the dsn/port given (idempotent) |
+| `ddcore new-app <name>` | scaffolds the app and registers it in ddcore.json; `ddcore.app.ts` gets `version: "0.1.0"` and a `ddcore` range for the running minor release (see `conventions`) |
 | `ddcore dev` | server with hot reload (rebuilds when a .ts/.csv is saved) and `--auto-migrate`; serves `/mcp` |
 | `ddcore start` | production server (no watcher) |
 | `ddcore migrate [--dry-run] [--prune]` | beforeSchema patches → DDL → afterInstall + fixtures → afterSchema patches → the drops → afterMigrate, in one transaction; then generates types. `--dry-run` reports the plan; a rename or conversion it cannot make safely is refused and nothing is applied (`migrations`) |

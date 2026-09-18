@@ -69,7 +69,7 @@ PostgreSQL, skip Compose and pass the connection instead:
 `docker compose up -d` starts the database in the background and keeps its data in a Docker
 volume. `docker compose down` stops it, and `docker compose down -v` also deletes the data.
 
-`ddcore init` writes three files:
+`ddcore init` writes these files:
 
 - `ddcore.json`: the site's settings. It holds the database, the port (`8080`), the apps to
   load, and the default language and currency. Commit this file.
@@ -79,13 +79,20 @@ volume. `docker compose down` stops it, and `docker compose down -v` also delete
   the DSN in `ddcore.json`. It is for development only; see
   [Deployment](/guide/deployment) for production. `init` writes it only when the DSN points at
   this machine, and never replaces a compose file that already exists.
+- `README.md`: how to set up and run this project, with its real database and port.
+- `AGENTS.md`: the conventions a coding agent must follow. `CLAUDE.md` is a link to it, so
+  Claude Code reads the same file.
+- `.mcp.json`: registers `ddcore mcp`, so a coding agent opened in this folder gets the ddcore
+  tools and the framework reference.
+- `.gitignore`: keeps `.env`, the generated `.ddcore/` and `data/` out of the repository.
+
+None of them is overwritten if it already exists. At the end, `init` prints the remaining steps.
 
 `ddcore new-app library` creates `apps/library` and adds it to `apps` in `ddcore.json`:
 
 ```
 apps/library/
-  ddcore.app.ts       the app's definition: name, title, roles
-  CLAUDE.md           conventions, for you and for a coding agent
+  ddcore.app.ts       the app's definition: name, title, version, the ddcore range, roles
   translations/       one CSV per language
   services/           business functions
 ```

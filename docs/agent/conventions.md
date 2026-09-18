@@ -103,8 +103,10 @@ export default defineApp({
 });
 ```
 
-All three fields are optional, and `ddcore new-app` writes none of them: an app without `ddcore`
-is never checked against the binary, so declare the range by hand.
+All three fields are optional. `ddcore new-app` writes `version: "0.1.0"` and a `ddcore` range
+from the running binary's minor release to the next (`>=0.15.0 <0.16.0` on 0.15.x); on a build
+that is not a release it leaves the `ddcore` line commented out. An app without `ddcore` is never
+checked against the binary, so keep the range when you widen it by hand.
 
 - `ddcore` is a list of space-separated constraints that must all hold: `>=`, `>`, `<=`, `<`,
   `=` (or a bare version), `^` and `~`:

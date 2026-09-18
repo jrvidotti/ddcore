@@ -21,11 +21,21 @@ not every commit that went into it.
 - `ddcore init --name <n> --db-port <p>` builds the DSN
   `postgres://n:n@localhost:p/n?sslmode=disable`, so you no longer have to type it out. `--dsn`
   still points at an existing database, and it cannot be combined with the two new flags.
+- `ddcore init` also writes the project's `README.md` (setup, commands, MCP), `AGENTS.md` with
+  the conventions for coding agents (`CLAUDE.md` is a symlink to it), a `.mcp.json` that
+  registers `ddcore mcp`, and a `.gitignore` that keeps `.env`, `.ddcore/` and `data/` out. It
+  never overwrites an existing file. Its closing message lists every step up to
+  `ddcore user passwd Administrator` and the URL.
+- `ddcore new-app` writes `version: "0.1.0"` and a `ddcore` range for the running minor release
+  (`>=0.15.0 <0.16.0` on 0.15.x) into `ddcore.app.ts`. A build that is not a release leaves the
+  range commented out.
 
 ### Changed
 
 - Without `--dsn` or `--name`, `ddcore init` now names the database, user and password after the
   directory (for example `my-shop` becomes `my_shop`) instead of `ddcore`.
+- `ddcore new-app` no longer writes `apps/<app>/CLAUDE.md`. The guide now lives once, at the
+  project root, as `AGENTS.md`. Existing apps keep their file.
 
 ## 0.15.0 — 2026-09-17
 

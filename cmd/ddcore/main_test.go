@@ -355,6 +355,11 @@ func TestInitNameAndDBPortBuildTheDSN(t *testing.T) {
 	if c := readFile(t, "docker-compose.yml"); !strings.Contains(c, `"5467:5432"`) || !strings.Contains(c, `POSTGRES_DB: "myapp"`) {
 		t.Fatalf("compose does not match the dsn:\n%s", c)
 	}
+	for _, f := range []string{"AGENTS.md", "CLAUDE.md", ".mcp.json", ".gitignore", "README.md"} {
+		if _, err := os.Stat(f); err != nil {
+			t.Errorf("init did not write %s: %v", f, err)
+		}
+	}
 }
 
 func TestInitDefaultsTheNameToTheDirectory(t *testing.T) {
