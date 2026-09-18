@@ -15,7 +15,7 @@ flag is an error (it never becomes an argument silently).
 
 | Command | What it does |
 |---|---|
-| `ddcore init --dsn ... --port ...` | creates `ddcore.json`; if it exists, updates the dsn/port given (idempotent) |
+| `ddcore init [--name n] [--db-port p] [--dsn ...] [--port ...]` | creates `ddcore.json`, `.env.example` and a `docker-compose.yml` running the Postgres of a local dsn (never overwrites an existing compose file). `--name`/`--db-port` build `postgres://n:n@localhost:p/n?sslmode=disable` (name defaults to the directory, port to 5432); `--dsn` is the alternative for an existing database. If `ddcore.json` exists, updates the dsn/port given (idempotent) |
 | `ddcore new-app <name>` | scaffolds the app, registers it in ddcore.json, writes CLAUDE.md; it writes neither `version` nor a `ddcore` range, so add them by hand (see `conventions`) |
 | `ddcore dev` | server with hot reload (rebuilds when a .ts/.csv is saved) and `--auto-migrate`; serves `/mcp` |
 | `ddcore start` | production server (no watcher) |
@@ -53,7 +53,8 @@ only the expiry — a live recovery link has no business in shell history.
 
 ```bash
 mkdir my_app && cd my_app
-ddcore init
+ddcore init --name my_app          # add --db-port if 5432 is taken
+docker compose up -d               # the Postgres init wrote docker-compose.yml for
 ddcore new-app my_app --dir .
 ddcore migrate
 ddcore test
