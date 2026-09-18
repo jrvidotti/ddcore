@@ -12,6 +12,21 @@ not every commit that went into it.
 
 ## Unreleased
 
+### Added
+
+- `ddcore init` writes a `docker-compose.yml` that runs PostgreSQL with the user, password,
+  database and port in the DSN, so `docker compose up -d` gives a new project its database.
+  It writes the file only for a DSN on this machine, and leaves an existing `compose.yaml`,
+  `compose.yml`, `docker-compose.yaml` or `docker-compose.yml` alone.
+- `ddcore init --name <n> --db-port <p>` builds the DSN
+  `postgres://n:n@localhost:p/n?sslmode=disable`, so you no longer have to type it out. `--dsn`
+  still points at an existing database, and it cannot be combined with the two new flags.
+
+### Changed
+
+- Without `--dsn` or `--name`, `ddcore init` now names the database, user and password after the
+  directory (for example `my-shop` becomes `my_shop`) instead of `ddcore`.
+
 ## 0.15.0 — 2026-09-17
 
 ### Added

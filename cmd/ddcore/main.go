@@ -216,31 +216,49 @@ func load(test bool, dev bool) (*engine.Engine, *config.File, error) {
 
 func cmdInit(args []string) error {
 	fs := newFlagSet("init")
-	dsn := fs.String("dsn", "postgres://ddcore:ddcore@localhost:5432/ddcore?sslmode=disable", "Postgres connection")
+	dsn := fs.String("dsn", "", "Postgres connection (an existing or remote database)")
+	name := fs.String("name", "", "database name, user and password (defaults to the directory's name)")
+	dbPort := fs.Int("db-port", 5432, "port of the local Postgres")
 	port := fs.Int("port", 8080, "HTTP port")
 	if err := parseFlags(fs, args); err != nil {
 		return err
+	}
+	set := map[string]bool{}
+	fs.Visit(func(f *flag.Flag) { set[f.Name] = true })
+	if set["dsn"] && (set["name"] || set["db-port"]) {
+		return fmt.Errorf("use --dsn or --name/--db-port, not both")
+	}
+	if *dsn == "" {
+		if *name == "" {
+			wd, err := os.Getwd()
+			if err != nil {
+				return err
+			}
+			*name = scaffold.DBName(filepath.Base(wd))
+		}
+		if !scaffold.DBNameRe.MatchString(*name) {
+			return fmt.Errorf("--name %q: use lowercase letters, digits and _, not starting with a digit", *name)
+		}
+		*dsn = scaffold.LocalDSN(*name, *dbPort)
 	}
 	// Idempotent: in a checkout that already contains ddcore.json, the bootstrap
 	// script's `init && migrate` must work — update what was requested and notify.
 	if _, err := os.Stat(config.Name); err == nil {
 		changed := false
 		path, err := config.Edit(".", func(cur *config.File, _ string) bool {
-			fs.Visit(func(f *flag.Flag) {
-				switch f.Name {
-				case "dsn":
-					cur.DSN, changed = *dsn, true
-				case "port":
-					cur.Port, changed = *port, true
-				}
-			})
+			if set["dsn"] || set["name"] || set["db-port"] {
+				cur.DSN, changed = *dsn, true
+			}
+			if set["port"] {
+				cur.Port, changed = *port, true
+			}
 			return changed
 		})
 		if err != nil {
 			return err
 		}
 		if !changed {
-			fmt.Printf("%s already exists — nothing to do (use --dsn/--port to update)\n", config.Name)
+			fmt.Printf("%s already exists — nothing to do (use --dsn, --name/--db-port or --port to update)\n", config.Name)
 			return nil
 		}
 		fmt.Println("updated", path)
@@ -254,8 +272,42 @@ func cmdInit(args []string) error {
 	if err := writeEnvExample(); err != nil {
 		return err
 	}
-	fmt.Println("created", config.Name, "— now: ddcore new-app <name> && ddcore migrate && ddcore dev")
+	compose, err := writeCompose(*dsn)
+	if err != nil {
+		return err
+	}
+	next := "ddcore new-app <name> && ddcore migrate && ddcore dev"
+	if compose {
+		next = "docker compose up -d && " + next
+	}
+	fmt.Println("created", config.Name, "— now:", next)
 	return nil
+}
+
+// composeFiles are the names `docker compose` looks for; init leaves a
+// project that already has one of them alone.
+var composeFiles = []string{"compose.yaml", "compose.yml", "docker-compose.yaml", "docker-compose.yml"}
+
+// writeCompose drops a docker-compose.yml running the Postgres the dsn points
+// at, so a new project needs Docker rather than a database set up by hand. It
+// reports whether it wrote one.
+func writeCompose(dsn string) (bool, error) {
+	for _, n := range composeFiles {
+		if _, err := os.Stat(n); err == nil {
+			fmt.Println(n, "already exists — left as is")
+			return false, nil
+		}
+	}
+	content, ok := scaffold.Compose(dsn)
+	if !ok {
+		fmt.Println("no docker-compose.yml: the dsn does not point at a Postgres on this machine")
+		return false, nil
+	}
+	if err := os.WriteFile("docker-compose.yml", []byte(content), 0o644); err != nil {
+		return false, err
+	}
+	fmt.Println("created docker-compose.yml — `docker compose up -d` starts the database")
+	return true, nil
 }
 
 // writeEnvExample drops the committed record of which environment variables

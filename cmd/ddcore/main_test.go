@@ -4,6 +4,7 @@ import (
 	"flag"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -321,5 +322,95 @@ func TestAllowOlderBinaryFlagForms(t *testing.T) {
 	stripGlobalFlags([]string{"--allow-older-binary=false", "doctor"})
 	if allowOlderBinary() {
 		t.Error("--allow-older-binary=false should not turn the override on")
+	}
+}
+
+// initIn runs `ddcore init` in a fresh directory named dir.
+func initIn(t *testing.T, dir string, args ...string) (string, error) {
+	t.Helper()
+	root := filepath.Join(t.TempDir(), dir)
+	if err := os.Mkdir(root, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(root)
+	return root, cmdInit(args)
+}
+
+func readFile(t *testing.T, name string) string {
+	t.Helper()
+	b, err := os.ReadFile(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
+}
+
+func TestInitNameAndDBPortBuildTheDSN(t *testing.T) {
+	if _, err := initIn(t, "x", "--name", "myapp", "--db-port", "5467"); err != nil {
+		t.Fatal(err)
+	}
+	if cfg := readFile(t, "ddcore.json"); !strings.Contains(cfg, "postgres://myapp:myapp@localhost:5467/myapp?sslmode=disable") {
+		t.Fatalf("dsn not built from --name/--db-port:\n%s", cfg)
+	}
+	if c := readFile(t, "docker-compose.yml"); !strings.Contains(c, `"5467:5432"`) || !strings.Contains(c, `POSTGRES_DB: "myapp"`) {
+		t.Fatalf("compose does not match the dsn:\n%s", c)
+	}
+}
+
+func TestInitDefaultsTheNameToTheDirectory(t *testing.T) {
+	if _, err := initIn(t, "my-library"); err != nil {
+		t.Fatal(err)
+	}
+	if cfg := readFile(t, "ddcore.json"); !strings.Contains(cfg, "postgres://my_library:my_library@localhost:5432/my_library") {
+		t.Fatalf("dsn not derived from the directory:\n%s", cfg)
+	}
+}
+
+func TestInitRejectsDSNWithName(t *testing.T) {
+	if _, err := initIn(t, "x", "--dsn", "postgres://a:a@localhost/a", "--name", "b"); err == nil {
+		t.Fatal("--dsn with --name should be rejected")
+	}
+}
+
+func TestInitRejectsInvalidName(t *testing.T) {
+	if _, err := initIn(t, "x", "--name", "My-App"); err == nil {
+		t.Fatal("an invalid --name should be rejected")
+	}
+}
+
+func TestInitLeavesAnExistingComposeAlone(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "p")
+	os.Mkdir(root, 0o755)
+	t.Chdir(root)
+	os.WriteFile("compose.yaml", []byte("mine"), 0o644)
+	if err := cmdInit(nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat("docker-compose.yml"); err == nil {
+		t.Fatal("init wrote docker-compose.yml next to an existing compose.yaml")
+	}
+	if readFile(t, "compose.yaml") != "mine" {
+		t.Fatal("init touched compose.yaml")
+	}
+}
+
+func TestInitSkipsComposeForRemoteDSN(t *testing.T) {
+	if _, err := initIn(t, "x", "--dsn", "postgres://a:a@db.example.com/a"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat("docker-compose.yml"); err == nil {
+		t.Fatal("a remote dsn needs no docker-compose.yml")
+	}
+}
+
+func TestInitAgainUpdatesTheDSNFromName(t *testing.T) {
+	if _, err := initIn(t, "x", "--name", "one"); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmdInit([]string{"--name", "two", "--db-port", "5999"}); err != nil {
+		t.Fatal(err)
+	}
+	if cfg := readFile(t, "ddcore.json"); !strings.Contains(cfg, "postgres://two:two@localhost:5999/two") {
+		t.Fatalf("second init did not update the dsn:\n%s", cfg)
 	}
 }

@@ -139,6 +139,11 @@ CMD ["ddcore", "start"]
 ```
 
 ### Example `docker-compose.yml`:
+
+The `docker-compose.yml` that `ddcore init` writes runs only a development database, with the
+password in the file. For production, use a file like this one, with secrets taken from the
+environment:
+
 ```yaml
 version: '3.8'
 

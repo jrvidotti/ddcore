@@ -28,12 +28,9 @@ runs on the published binary.
 ### Prerequisites
 
 - macOS or Linux (amd64 or arm64)
-- PostgreSQL 14+ and an empty database. With Docker, for example:
-
-  ```bash
-  docker run -d --name myapp-pg -p 5432:5432 \
-    -e POSTGRES_USER=myapp -e POSTGRES_PASSWORD=myapp -e POSTGRES_DB=myapp postgres:16
-  ```
+- [Docker](https://docs.docker.com/get-docker/) with Compose (recommended): `ddcore init` writes
+  a `docker-compose.yml` that runs the database. Or PostgreSQL 14+ with an empty database, which
+  you pass with `ddcore init --dsn "postgres://..."` instead.
 
 ### Install the CLI
 
@@ -50,7 +47,8 @@ is writable, otherwise `~/.local/bin`. Pin a version with `VERSION=v0.13.0` befo
 
 ```bash
 mkdir my-project && cd my-project
-ddcore init --dsn "postgres://myapp:myapp@localhost:5432/myapp?sslmode=disable"
+ddcore init --name myapp --db-port 5432         # ddcore.json + docker-compose.yml
+docker compose up -d                            # starts Postgres (myapp:myapp@localhost:5432/myapp)
 ddcore new-app library                        # scaffolds apps/library and registers it
 ddcore migrate                                # creates the tables, generates the typings
 ddcore user passwd Administrator admin1234

@@ -20,25 +20,18 @@ need to clone or compile the framework, and you do not need Go or Node.js. You w
 
 - macOS or Linux, on amd64 or arm64.
 - `curl`.
-- **PostgreSQL 14+** with an empty database you can connect to.
+- **A database**, one of:
+  - **Docker with Compose** (recommended). `ddcore init` writes a `docker-compose.yml` that runs
+    PostgreSQL for the project, so there is nothing to set up by hand. Port `5432` must be free
+    on your machine; step 3 shows how to pick another.
+  - **PostgreSQL 14+** that you already run. Create a user and a database:
 
-If you have Docker, this starts a suitable database:
-
-```bash
-docker run -d --name library-pg -p 5432:5432 \
-  -e POSTGRES_USER=library -e POSTGRES_PASSWORD=library -e POSTGRES_DB=library \
-  postgres:16
-```
-
-With an existing server, create a user and a database instead:
-
-```sql
-CREATE USER library WITH PASSWORD 'library';
-CREATE DATABASE library OWNER library;
-```
+    ```sql
+    CREATE USER library WITH PASSWORD 'library';
+    CREATE DATABASE library OWNER library;
+    ```
 
 The rest of this page uses `postgres://library:library@localhost:5432/library?sslmode=disable`.
-Replace it if your database differs.
 
 ---
 
@@ -62,16 +55,30 @@ export PATH="$HOME/.local/bin:$PATH"
 
 ```bash
 mkdir my-library && cd my-library
-ddcore init --dsn "postgres://library:library@localhost:5432/library?sslmode=disable"
+ddcore init --name library
+docker compose up -d
 ddcore new-app library
 ```
 
-`ddcore init` writes two files:
+`--name library` is the database's name, user and password, so the site connects to
+`postgres://library:library@localhost:5432/library`. Without it, the name comes from the
+directory. If port `5432` is taken, add `--db-port 5433` (any free port). With your own
+PostgreSQL, skip Compose and pass the connection instead:
+`ddcore init --dsn "postgres://library:library@localhost:5432/library?sslmode=disable"`.
+
+`docker compose up -d` starts the database in the background and keeps its data in a Docker
+volume. `docker compose down` stops it, and `docker compose down -v` also deletes the data.
+
+`ddcore init` writes three files:
 
 - `ddcore.json`: the site's settings. It holds the database, the port (`8080`), the apps to
   load, and the default language and currency. Commit this file.
 - `.env.example`: the environment variables a deployment can set. Copy it to `.env` (which you
   do not commit) for anything secret or specific to one machine, such as `DDCORE_DSN`.
+- `docker-compose.yml`: a PostgreSQL container whose user, password, database and port match
+  the DSN in `ddcore.json`. It is for development only; see
+  [Deployment](/guide/deployment) for production. `init` writes it only when the DSN points at
+  this machine, and never replaces a compose file that already exists.
 
 `ddcore new-app library` creates `apps/library` and adds it to `apps` in `ddcore.json`:
 
