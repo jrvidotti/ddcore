@@ -454,7 +454,9 @@ func cmdServe(args []string, dev bool) error {
 		defer c()
 		h.Shutdown(sctx)
 	}()
-	e.Log.Info("ddcore running", "url", fmt.Sprintf("http://localhost:%d", cfg.Port), "dev", dev, "apps", e.AppOrder())
+	// listen is where this process answers; url is the public address links are
+	// built from, which behind a proxy is a different host altogether.
+	e.Log.Info("ddcore running", "listen", fmt.Sprintf("http://localhost:%d", cfg.Port), "url", cfg.PublicURL(), "dev", dev, "apps", e.AppOrder())
 	if err := h.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		return err
 	}

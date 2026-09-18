@@ -12,6 +12,8 @@ not every commit that went into it.
 
 ## Unreleased
 
+## 0.15.1 — 2026-09-18
+
 ### Added
 
 - `ddcore init` writes a `docker-compose.yml` that runs PostgreSQL with the user, password,
@@ -36,6 +38,11 @@ not every commit that went into it.
   directory (for example `my-shop` becomes `my_shop`) instead of `ddcore`.
 - `ddcore new-app` no longer writes `apps/<app>/CLAUDE.md`. The guide now lives once, at the
   project root, as `AGENTS.md`. Existing apps keep their file.
+
+### Fixed
+
+- The `ddcore running` log line reports the configured public `url` instead of always
+  `http://localhost:<port>`; the local address moved to a `listen` field.
 
 ## 0.15.0 — 2026-09-17
 
