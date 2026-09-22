@@ -315,6 +315,40 @@ func castValueWith(f *meta.Field, v any, o castOpts) (any, error) {
 	return db.Str(v), nil
 }
 
+// ClampRating clamps a stored rating to [0, f.RatingMax()].
+// Nil or empty values remain nil.
+func ClampRating(f *meta.Field, v any) any {
+	if v == nil || v == "" {
+		return nil
+	}
+	n := toFloat(v)
+	if math.IsNaN(n) || math.IsInf(n, 0) {
+		return nil
+	}
+	r := int64(math.Round(n))
+	max := int64(f.RatingMax())
+	if r < 0 {
+		return int64(0)
+	}
+	if r > max {
+		return max
+	}
+	return r
+}
+
+func (c *Ctx) clampRatings(d *meta.DocType, doc Doc) {
+	if d == nil || doc == nil {
+		return
+	}
+	for _, f := range d.Fields {
+		if f.Fieldtype == "Rating" {
+			if v, ok := doc[f.Fieldname]; ok && v != nil {
+				doc[f.Fieldname] = ClampRating(f, v)
+			}
+		}
+	}
+}
+
 // ------------------------------------------------------------ load & new
 
 func (c *Ctx) docKey(dt, name string) string { return dt + "\x00" + name }
@@ -382,6 +416,7 @@ func (c *Ctx) getDoc(doctype, name string, forUpdate bool) (Doc, error) {
 	}
 	doc := Doc(rows[0])
 	doc["doctype"] = doctype
+	c.clampRatings(d, doc)
 	for _, tf := range d.TableFields() {
 		child, _ := c.St.DocType(tf.OptionsString())
 		crows, err := db.Select(c.Ctx, c.Q(), fmt.Sprintf("SELECT * FROM %s WHERE parent = $1 AND parenttype = $2 AND parentfield = $3 ORDER BY idx", db.Ident(child.TableName())), name, doctype, tf.Fieldname)
@@ -391,6 +426,7 @@ func (c *Ctx) getDoc(doctype, name string, forUpdate bool) (Doc, error) {
 		list := make([]any, 0, len(crows))
 		for _, r := range crows {
 			r["doctype"] = child.Name
+			c.clampRatings(child, Doc(r))
 			list = append(list, r)
 		}
 		doc[tf.Fieldname] = list

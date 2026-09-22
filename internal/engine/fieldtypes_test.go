@@ -232,3 +232,78 @@ func TestFormatDuration(t *testing.T) {
 		}
 	}
 }
+
+// A Rating column can hold a value outside its range — the field's `options`
+// may have been lowered, or the column was an Int before. Reading clamps the
+// value so callers (API, desk, reports) receive a value within [0, max].
+func TestRatingOutOfRangeIsClampedOnRead(t *testing.T) {
+	e := setupWith(t, map[string]string{"doctypes/note/note.doctype.ts": fieldtypesDoctype})
+	if err := e.Run(context.Background(), "Admin", func(c *Ctx) error {
+		doc, err := c.NewDoc("Note", Doc{"title": "Clamp Test", "score": 3})
+		if err != nil {
+			return err
+		}
+		saved, err := c.Insert(doc, SaveOpts{})
+		if err != nil {
+			return err
+		}
+
+		// Directly write out-of-range ratings via SQL (e.g. legacy data from before type change)
+		if _, err := c.Q().Exec(c.Ctx, `UPDATE tab_note SET score = 42 WHERE id = $1`, saved.ID()); err != nil {
+			return err
+		}
+
+		loaded, err := c.GetDoc("Note", saved.ID())
+		if err != nil {
+			return err
+		}
+		if got := loaded["score"]; got != int64(5) {
+			t.Fatalf("GetDoc score over max: got %v (%T), want int64(5)", got, got)
+		}
+
+		rows, err := c.GetList("Note", ListArgs{Filters: map[string]any{"id": saved.ID()}, Fields: []string{"id", "score"}})
+		if err != nil {
+			return err
+		}
+		if len(rows) != 1 || rows[0]["score"] != int64(5) {
+			t.Fatalf("GetList score over max: got %v, want int64(5)", rows[0]["score"])
+		}
+
+		val, err := c.GetValue("Note", saved.ID(), "score")
+		if err != nil {
+			return err
+		}
+		if val != int64(5) {
+			t.Fatalf("GetValue score over max: got %v, want int64(5)", val)
+		}
+
+		// Test negative value clamped to 0
+		if _, err := c.Q().Exec(c.Ctx, `UPDATE tab_note SET score = -5 WHERE id = $1`, saved.ID()); err != nil {
+			return err
+		}
+		loadedNeg, err := c.GetDoc("Note", saved.ID())
+		if err != nil {
+			return err
+		}
+		if got := loadedNeg["score"]; got != int64(0) {
+			t.Fatalf("GetDoc score negative: got %v, want int64(0)", got)
+		}
+
+		// Test null rating remains nil
+		if _, err := c.Q().Exec(c.Ctx, `UPDATE tab_note SET score = NULL WHERE id = $1`, saved.ID()); err != nil {
+			return err
+		}
+		loadedNull, err := c.GetDoc("Note", saved.ID())
+		if err != nil {
+			return err
+		}
+		if got := loadedNull["score"]; got != nil {
+			t.Fatalf("GetDoc null score: got %v, want nil", got)
+		}
+
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+}
+

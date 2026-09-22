@@ -11,10 +11,12 @@ export default defineWorkspace({
     { label: "Overview", route: "/app/workspace/Projects", icon: "layout-dashboard" },
     { label: "Projects", doctype: "Project", icon: "notepad-text" },
     { label: "Tasks", doctype: "Task", icon: "list" },
+    { label: "Task Categories", doctype: "Task Category", icon: "folder-tree" },
   ],
   shortcuts: [
     { label: "Projects", doctype: "Project", icon: "notepad-text" },
     { label: "Tasks", doctype: "Task", icon: "list" },
+    { label: "Task Categories", doctype: "Task Category", icon: "folder-tree" },
   ],
   numberCards: [
     { name: "open_tasks", label: "Open Tasks", doctype: "Task", filters: { status: ["in", ["Open", "In progress"]] }, color: "green", route: "/app/Task?status=Open" },
@@ -35,7 +37,13 @@ export default defineWorkspace({
     },
   ],
   links: [
-    { label: "Planning", items: [{ label: "Projects", doctype: "Project" }] },
+    {
+      label: "Planning",
+      items: [
+        { label: "Projects", doctype: "Project" },
+        { label: "Task Categories", doctype: "Task Category" },
+      ],
+    },
     { label: "Tracking", items: [{ label: "Tasks", doctype: "Task" }] },
   ],
 });

@@ -1,19 +1,27 @@
 Actions,Ações,# apps/testapp/doctypes/task/task.form.ts:18
 Approve,Aprovar,# testapp.workflows.pedido_approval.workflow
 Approved,Aprovado,# testapp.workflows.pedido_approval.workflow
-Assignee,Responsável,# apps/testapp/print/project_summary.print.ts:20
+Assignee,Responsável,# apps/testapp/print/project_summary.print.ts:27
 Budget,Orçamento,# testapp.doctypes.project.project.doctype
+Category,Categoria,# testapp.doctypes.task.task.doctype
 Client,Cliente,# testapp.doctypes.pedido.pedido.doctype
 Code,Código,# testapp.doctypes.project.project.doctype
+Code Snippet,Trecho de Código,# testapp.doctypes.task.task.doctype
+Color,Cor,# testapp.doctypes.task.task.doctype
+Color tag for this task,Etiqueta de cor para esta tarefa,# testapp.doctypes.task.task.doctype
 Complete,Concluir,# apps/testapp/doctypes/task/task.form.ts:19
 Completed,Concluída,# apps/testapp/print/project_summary.print.ts:11
 Completed at,Concluída em,# testapp.doctypes.task.task.doctype
 Completed on,Concluído em,# testapp.doctypes.project_milestone.project_milestone.doctype
+Complexity,Complexidade,# testapp.doctypes.task.task.doctype
+Cover Image,Imagem de Capa,# testapp.doctypes.project.project.doctype
 Description,Descrição,# testapp.doctypes.project.project.doctype
 Draft,Rascunho,# testapp.workflows.pedido_approval.workflow
-Due Date,Data de Vencimento,# apps/testapp/print/project_summary.print.ts:28
+Due Date,Data de Vencimento,# apps/testapp/print/project_summary.print.ts:35
 Due date,Data limite,# testapp.doctypes.project_milestone.project_milestone.doctype
-End date,Data final,# apps/testapp/print/project_summary.print.ts:23
+End date,Data final,# apps/testapp/print/project_summary.print.ts:30
+Estimated duration,Duração estimada,# testapp.doctypes.task.task.doctype
+Estimated time in seconds,Tempo estimado em segundos,# testapp.doctypes.task.task.doctype
 High,Alta,# testapp.doctypes.task.task.doctype
 In progress,Em andamento,# testapp.doctypes.project.project.doctype
 Invalid dates,Datas inválidas,# apps/testapp/doctypes/project/project.controller.ts:7
@@ -21,41 +29,50 @@ Invalid due date,Prazo inválido,# apps/testapp/doctypes/task/task.controller.ts
 Invalid milestone,Marco inválido,# apps/testapp/doctypes/project/project.controller.ts:17
 Is Group,É grupo,# testapp.doctypes.task_category.task_category.doctype
 Low,Baixa,# testapp.doctypes.task.task.doctype
+Markdown task notes and checklist,Notas da tarefa e checklist em Markdown,# testapp.doctypes.task.task.doctype
 Medium,Média,# testapp.doctypes.task.task.doctype
+Milestone blocker,Bloqueador de marco,# testapp.doctypes.task.task.doctype
 Milestone {0} cannot be completed before the project starts.,O marco {0} não pode ser concluído antes do início do projeto.,# apps/testapp/doctypes/project/project.controller.ts:16
-Milestones,Marcos,# apps/testapp/print/project_summary.print.ts:27
+Milestones,Marcos,# apps/testapp/print/project_summary.print.ts:34
 No project description provided.,Nenhuma descrição do projeto informada.,# apps/testapp/print/project_summary.print.ts:18
+Notes,Notas,# testapp.doctypes.task.task.doctype
 Open,Aberta,# testapp.doctypes.task.task.doctype
 Open Tasks,Tarefas Abertas,# testapp workspace
 Order,Pedido,# testapp.doctypes.pedido.pedido.doctype
 Overdue,Atrasada,# testapp.doctypes.task.task.doctype
-Overview,Visão Geral,# testapp workspace
+Overview,Visão Geral,# apps/testapp/print/project_summary.print.ts:22
 Parent Task Category,Categoria de tarefa pai,# testapp.doctypes.task_category.task_category.doctype
 Pending Approval,Aguardando Aprovação,# testapp.workflows.pedido_approval.workflow
 Planned,Planejado,# apps/testapp/print/project_summary.print.ts:11
 Planning,Planejamento,# testapp workspace
 Priority,Prioridade,# testapp.doctypes.task.task.doctype
-Progress,Progresso,# apps/testapp/print/project_summary.print.ts:24
+Progress,Progresso,# apps/testapp/print/project_summary.print.ts:31
 Project,Projeto,# testapp.doctypes.project.project.doctype
 Project Code: {0},Código do Projeto: {0},# apps/testapp/print/project_summary.print.ts:16
 Project Milestone,Marco Projeto,# testapp.doctypes.project_milestone.project_milestone.doctype
 Project Summary,Resumo do Projeto,# testapp.print.project_summary.print
+Project cover image,Imagem de capa do projeto,# testapp.doctypes.project.project.doctype
 Projects,Projetos,# testapp workspace
 Reject,Rejeitar,# testapp.workflows.pedido_approval.workflow
 Rejected,Rejeitado,# testapp.workflows.pedido_approval.workflow
+Relevant code sample,Exemplo de código relevante,# testapp.doctypes.task.task.doctype
 Reopen,Reabrir,# apps/testapp/doctypes/task/task.form.ts:20
+Rich text project overview,Visão geral do projeto em rich text,# testapp.doctypes.project.project.doctype
 Start,Iniciar,# apps/testapp/doctypes/task/task.form.ts:18
-Start date,Data de início,# apps/testapp/print/project_summary.print.ts:22
-Status,Status,# apps/testapp/print/project_summary.print.ts:21
+Start date,Data de início,# apps/testapp/print/project_summary.print.ts:29
+Status,Status,# apps/testapp/print/project_summary.print.ts:28
 Submit for Approval,Enviar para Aprovação,# testapp.workflows.pedido_approval.workflow
 Task,Tarefa,# testapp.doctypes.task.task.doctype
+Task Categories,Categorias de Tarefa,# testapp workspace
 Task Category,Categoria de tarefa,# testapp.doctypes.task_category.task_category.doctype
-Tasks,Tarefas,# apps/testapp/workspaces/projects.workspace.ts:32
+Task complexity rating (1 to 5 stars),Avaliação de complexidade da tarefa (1 a 5 estrelas),# testapp.doctypes.task.task.doctype
+Tasks,Tarefas,# apps/testapp/workspaces/projects.workspace.ts:34
 Tasks by Status,Tarefas por Status,# testapp workspace
 Test App: Projects,App de Teste: Projetos,# testapp app
 The due date cannot be earlier than the project start ({0}).,A data limite não pode ser anterior ao início do projeto ({0}).,# apps/testapp/doctypes/task/task.controller.ts:23
 The end date cannot be earlier than the start date.,A data final não pode ser anterior à data de início.,# apps/testapp/doctypes/project/project.controller.ts:7
-Title,Título,# apps/testapp/print/project_summary.print.ts:28
+Title,Título,# apps/testapp/print/project_summary.print.ts:35
 Total,Total,# testapp.doctypes.pedido.pedido.doctype
 Tracking,Acompanhamento,# testapp workspace
+Whether this task blocks milestone release,Se esta tarefa bloqueia a conclusão do marco,# testapp.doctypes.task.task.doctype
 Workflow State,Estado do Workflow,# testapp.doctypes.pedido.pedido.doctype

@@ -505,6 +505,9 @@ func (c *Ctx) GetList(doctype string, a ListArgs) ([]map[string]any, error) {
 			delete(r, "__version_ref")
 		}
 	}
+	for _, r := range rows {
+		c.clampRatings(d, Doc(r))
+	}
 	return rows, nil
 }
 

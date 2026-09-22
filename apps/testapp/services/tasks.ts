@@ -74,3 +74,12 @@ export function summaryByStatus(filters: SummaryFilters = {}): SummaryRow[] {
 
 // There is no label map any more: a Select value *is* its own key, so a
 // display label is `_(status)` at the point of rendering.
+
+/**
+ * Returns all tasks that belong to the given Task Category or any of its descendants (DAT-07).
+ */
+export function tasksByCategoryBranch(category: string): Task[] {
+  return ddcore.db.getList<Task>("Task", {
+    filters: [["task_category", "descendants of (inclusive)", category]],
+  });
+}

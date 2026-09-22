@@ -154,8 +154,8 @@ permlevel, renamedFrom, convert`
   `Attach Image` keeps the column too, but a stored value that is not a colour
   or an image URL will fail on that document's next save — and so will every
   other change to that document, since a save casts every field. The same
-  applies to an `Int` holding more than a `Rating`'s number of stars, or a
-  negative `Duration`. Backfill first, the way `migrations` describes.
+  applies to a negative `Duration`, while a `Rating` holding a value outside
+  its range clamps to `[0, options]` on read. Backfill first, the way `migrations` describes.
 - `convert: { from: "Data" }`: authorises a column-type change `migrate` would otherwise refuse, naming the fieldtype the database still holds. No SQL — a conversion a plain cast cannot express goes through expand → backfill → validate → contract.
 
 ## DocType properties

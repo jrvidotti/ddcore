@@ -98,4 +98,53 @@ describe("Task", () => {
     expect(target.progress).toBe(100);
     expect(target.status).toBe("Completed");
   });
+
+  it("stores and reads the new fieldtypes (DAT-08)", () => {
+    const p = makeProject();
+    const t = makeTask(p.id, {
+      estimated_duration: 3600,
+      complexity: 4,
+      color: "#2563eb",
+      notes: "## Requirements\n- item 1",
+      snippet: "console.log('hello');",
+      is_blocker: true,
+    });
+
+    t.reload();
+    expect(t.estimated_duration).toBe(3600);
+    expect(t.complexity).toBe(4);
+    expect(t.color).toBe("#2563eb");
+    expect(t.notes).toBe("## Requirements\n- item 1");
+    expect(t.snippet).toBe("console.log('hello');");
+    expect(t.is_blocker).toBe(true);
+  });
+
+  it("filters tasks by tree category branch (DAT-07)", () => {
+    const rootCat = "Root Cat " + u().randomString(4);
+    const childCat = "Child Cat " + u().randomString(4);
+
+    ddcore.newDoc("Task Category", {
+      title: rootCat,
+      is_group: true,
+    }).insert();
+
+    ddcore.newDoc("Task Category", {
+      title: childCat,
+      parent_task_category: rootCat,
+      is_group: false,
+    }).insert();
+
+    const p = makeProject();
+    const t1 = makeTask(p.id, { task_category: childCat });
+    const t2 = makeTask(p.id, { task_category: rootCat });
+
+    const matched = ddcore.db.getList<Task>("Task", {
+      filters: [["task_category", "descendants of (inclusive)", rootCat]],
+    });
+
+    const ids = matched.map((m) => m.id);
+    expect(ids).toContain(t1.id);
+    expect(ids).toContain(t2.id);
+  });
 });
+

@@ -2,17 +2,18 @@
   // A Rating is a whole number of stars. Clearing it stores null, which is not
   // the same as zero: a report can tell an unrated document from a bad one.
   import { __ } from "$lib/boot.svelte";
-  import { ratingMax, ratingOnKey, ratingOnPick, ratingStars } from "./rating-state";
+  import { clampRating, ratingMax, ratingOnKey, ratingOnPick, ratingStars } from "./rating-state";
 
   let { field, value, onchange, readOnly = false, id = "" }:
     { field: any; value: any; onchange: (v: any) => void; readOnly?: boolean; id?: string } = $props();
 
   const max = $derived(ratingMax(field?.options));
-  const stars = $derived(ratingStars(value, max));
+  const clamped = $derived(clampRating(value, max));
+  const stars = $derived(ratingStars(clamped, max));
 
   function onkeydown(e: KeyboardEvent) {
     if (readOnly) return;
-    const next = ratingOnKey(value, e.key, max);
+    const next = ratingOnKey(clamped, e.key, max);
     if (next === undefined) return;
     e.preventDefault();
     onchange(next);
@@ -28,7 +29,7 @@
   aria-label={field?.label || __("Rating")}
   aria-valuemin="0"
   aria-valuemax={max}
-  aria-valuenow={Number(value) || 0}
+  aria-valuenow={clamped ?? 0}
   aria-readonly={readOnly}
   {onkeydown}
 >
@@ -40,10 +41,10 @@
       disabled={readOnly}
       tabindex="-1"
       aria-label={__("{0} of {1}", [String(i + 1), String(max)])}
-      onclick={() => onchange(ratingOnPick(value, i + 1))}
+      onclick={() => onchange(ratingOnPick(clamped, i + 1))}
     >★</button>
   {/each}
-  {#if value !== null && value !== undefined && !readOnly}
+  {#if clamped !== null && !readOnly}
     <button type="button" class="clear" title={__("Clear")} onclick={() => onchange(null)}>×</button>
   {/if}
 </div>

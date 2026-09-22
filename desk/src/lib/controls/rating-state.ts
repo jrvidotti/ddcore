@@ -11,6 +11,14 @@ export function ratingMax(options: any): number {
   return Number.isFinite(n) && n >= 1 && n <= 10 ? n : DEFAULT_RATING_MAX;
 }
 
+/** Clamps a rating to [0, max]. null or empty remains null (unrated). */
+export function clampRating(value: any, max: number): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const n = Math.round(Number(value));
+  if (!Number.isFinite(n)) return null;
+  return Math.max(0, Math.min(max, n));
+}
+
 /** What clicking star `star` does: picking the current one clears the field. */
 export function ratingOnPick(current: any, star: number): number | null {
   return Number(current) === star ? null : star;

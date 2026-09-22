@@ -11,11 +11,18 @@ export default definePrintTemplate({
       m.completed ? _("Completed") : _("Planned"),
     ]);
 
-    return [
+    const blocks: any[] = [
       b.header(doc.title || doc.id, {
         subtitle: _("Project Code: {0}", [doc.code]),
       }),
       b.p(doc.description || _("No project description provided.")),
+    ];
+
+    if (doc.overview) {
+      blocks.push(b.richText(doc.overview, _("Overview")));
+    }
+
+    blocks.push(
       b.keyValues([
         [_("Assignee"), doc.assignee || "-"],
         [_("Status"), doc.status || "-"],
@@ -26,6 +33,8 @@ export default definePrintTemplate({
       b.divider(),
       b.h2(_("Milestones")),
       b.table([_("Title"), _("Due Date"), _("Status")], milestones),
-    ];
+    );
+
+    return blocks;
   },
 });

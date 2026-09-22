@@ -48,20 +48,28 @@
     onkeydown={(e) => e.key === "Enter" && commit((e.currentTarget as HTMLInputElement).value)}
   />
   {#if value && !readOnly}
-    <button type="button" class="btn sm" onclick={() => { text = ""; onchange(null); }}>{__("Clear")}</button>
+    <button type="button" class="btn sm clear-btn" onclick={() => { text = ""; onchange(null); }}>{__("Clear")}</button>
   {/if}
 </div>
 
 <style>
-  .color-row { display: flex; gap: 6px; align-items: center; }
+  .color-row { display: flex; gap: 6px; align-items: center; min-width: 180px; }
   .swatch {
     width: 32px;
+    min-width: 32px;
     height: 30px;
+    flex-shrink: 0;
     padding: 2px;
     border: 1px solid var(--border);
     border-radius: 6px;
     background: var(--bg-input, #fff);
     cursor: pointer;
   }
-  .hex { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; text-transform: lowercase; }
+  .hex {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    text-transform: lowercase;
+    min-width: 95px;
+    flex: 1;
+  }
+  .clear-btn { flex-shrink: 0; }
 </style>

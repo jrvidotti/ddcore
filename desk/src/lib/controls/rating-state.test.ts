@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ratingMax, ratingOnKey, ratingOnPick, ratingStars } from "./rating-state";
+import { clampRating, ratingMax, ratingOnKey, ratingOnPick, ratingStars } from "./rating-state";
 
 describe("ratingMax", () => {
   it("takes the number of stars from options, within reason", () => {
@@ -8,6 +8,23 @@ describe("ratingMax", () => {
     expect(ratingMax("3")).toBe(3);
     expect(ratingMax(0)).toBe(5);
     expect(ratingMax(99)).toBe(5);
+  });
+});
+
+describe("clampRating", () => {
+  it("keeps values within range", () => {
+    expect(clampRating(3, 5)).toBe(3);
+    expect(clampRating(0, 5)).toBe(0);
+    expect(clampRating(5, 5)).toBe(5);
+  });
+  it("clamps out-of-range values", () => {
+    expect(clampRating(42, 5)).toBe(5);
+    expect(clampRating(-3, 5)).toBe(0);
+  });
+  it("preserves null and undefined as not rated", () => {
+    expect(clampRating(null, 5)).toBe(null);
+    expect(clampRating(undefined, 5)).toBe(null);
+    expect(clampRating("", 5)).toBe(null);
   });
 });
 
@@ -30,4 +47,8 @@ describe("the keyboard", () => {
 describe("ratingStars", () => {
   it("fills up to the value", () => expect(ratingStars(2, 4)).toEqual([true, true, false, false]));
   it("treats null as none filled", () => expect(ratingStars(null, 3)).toEqual([false, false, false]));
+  it("clamps values outside range", () => {
+    expect(ratingStars(42, 5)).toEqual([true, true, true, true, true]);
+    expect(ratingStars(-3, 5)).toEqual([false, false, false, false, false]);
+  });
 });

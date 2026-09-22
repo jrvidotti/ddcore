@@ -141,6 +141,7 @@ func (c *Ctx) RedactDoc(doctype string, doc Doc) Doc {
 	}
 	RedactPassword(d, doc)
 	c.redactVault(d, doc)
+	c.clampRatings(d, doc)
 	for _, f := range d.Fields {
 		if f.Fieldtype != "Table" || f.OptionsString() == "" {
 			continue
@@ -152,6 +153,7 @@ func (c *Ctx) RedactDoc(doctype string, doc Doc) Doc {
 		for _, row := range doc.Children(f.Fieldname) {
 			RedactPassword(cd, row)
 			c.redactVault(cd, row)
+			c.clampRatings(cd, row)
 		}
 	}
 	c.redactFields(d, c.FieldAccess(d), doc)
