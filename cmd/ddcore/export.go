@@ -96,8 +96,8 @@ func cmdExport(args []string) error {
 		}
 	}
 
-	run := &exportRun{
-		DDCore: engine.Version, Layout: exportLayout, Site: e.SiteTitle(), User: *user, Started: time.Now(), Dir: dir,
+	run := &engine.ExportManifest{
+		DDCore: engine.Version, Layout: engine.ExportLayout, Site: e.SiteTitle(), User: *user, Started: time.Now(), Dir: dir,
 		Format: *format, Filters: parsedFilters, Apps: map[string]string{},
 	}
 	for _, n := range e.AppOrder() {
@@ -146,42 +146,6 @@ func cmdExport(args []string) error {
 	return nil
 }
 
-// exportLayout is the current arrangement of an export directory; see
-// exportRun.Layout.
-const exportLayout = 2
-
-// exportRun is the manifest: what was asked, what came out, and the checksum of
-// every file written, so a second run can be compared with this one.
-type exportRun struct {
-	DDCore string `json:"ddcore"`
-	// Layout is how this directory is arranged. 1 wrote the attachment bytes
-	// to files/<base name>; 2 writes them to files/<storage key>. An importer
-	// reads it to know which one it is looking at.
-	Layout   int               `json:"exportFormat"`
-	Apps     map[string]string `json:"apps,omitempty"` // app name → declared version
-	Site     string            `json:"site"`
-	User     string            `json:"user"`
-	Dir      string            `json:"dir"`
-	Format   string            `json:"format"`
-	Filters  any               `json:"filters,omitempty"`
-	Started  time.Time         `json:"started"`
-	Finished time.Time         `json:"finished"`
-	Skipped  []string          `json:"skipped,omitempty"`
-	Exports  []*exportResult   `json:"exports"`
-}
-
-type exportResult struct {
-	Summary     *engine.ExportSummary `json:"summary"`
-	Outputs     []exportOutput        `json:"outputs"`
-	Attachments []engine.ExportFile   `json:"attachments,omitempty"`
-}
-
-type exportOutput struct {
-	File   string `json:"file"`
-	Bytes  int64  `json:"bytes"`
-	SHA256 string `json:"sha256"`
-}
-
 func totalChildRows(s *engine.ExportSummary) int64 {
 	var n int64
 	for _, v := range s.ChildRows {
@@ -206,8 +170,8 @@ func (w *hashedFile) Write(p []byte) (int, error) {
 	return n, err
 }
 
-func exportOne(ctx context.Context, e *engine.Engine, user, dir, dt, format string, sep rune, args engine.ExportArgs) (*exportResult, error) {
-	res := &exportResult{}
+func exportOne(ctx context.Context, e *engine.Engine, user, dir, dt, format string, sep rune, args engine.ExportArgs) (*engine.ExportResult, error) {
+	res := &engine.ExportResult{}
 	var files []*hashedFile
 	defer func() {
 		for _, f := range files {
@@ -268,7 +232,7 @@ func exportOne(ctx context.Context, e *engine.Engine, user, dir, dt, format stri
 		if err := f.f.Close(); err != nil {
 			return nil, err
 		}
-		res.Outputs = append(res.Outputs, exportOutput{File: f.name, Bytes: f.n, SHA256: hex.EncodeToString(f.h.Sum(nil))})
+		res.Outputs = append(res.Outputs, engine.ExportOutput{File: f.name, Bytes: f.n, SHA256: hex.EncodeToString(f.h.Sum(nil))})
 	}
 	files = nil
 	return res, nil
@@ -282,7 +246,7 @@ type copyingSink struct {
 	engine.ExportSink
 	c    *engine.Ctx
 	dir  string
-	res  *exportResult
+	res  *engine.ExportResult
 	seen map[string]bool
 }
 
