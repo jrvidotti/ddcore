@@ -28,6 +28,7 @@ import (
 	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/engine"
 	"github.com/jrvidotti/ddcore/internal/meta"
+	"github.com/jrvidotti/ddcore/internal/storage"
 )
 
 func cmdExport(args []string) error {
@@ -96,7 +97,7 @@ func cmdExport(args []string) error {
 	}
 
 	run := &exportRun{
-		DDCore: engine.Version, Site: e.SiteTitle(), User: *user, Started: time.Now(), Dir: dir,
+		DDCore: engine.Version, Layout: exportLayout, Site: e.SiteTitle(), User: *user, Started: time.Now(), Dir: dir,
 		Format: *format, Filters: parsedFilters, Apps: map[string]string{},
 	}
 	for _, n := range e.AppOrder() {
@@ -145,10 +146,18 @@ func cmdExport(args []string) error {
 	return nil
 }
 
+// exportLayout is the current arrangement of an export directory; see
+// exportRun.Layout.
+const exportLayout = 2
+
 // exportRun is the manifest: what was asked, what came out, and the checksum of
 // every file written, so a second run can be compared with this one.
 type exportRun struct {
-	DDCore   string            `json:"ddcore"`
+	DDCore string `json:"ddcore"`
+	// Layout is how this directory is arranged. 1 wrote the attachment bytes
+	// to files/<base name>; 2 writes them to files/<storage key>. An importer
+	// reads it to know which one it is looking at.
+	Layout   int               `json:"exportFormat"`
 	Apps     map[string]string `json:"apps,omitempty"` // app name → declared version
 	Site     string            `json:"site"`
 	User     string            `json:"user"`
@@ -290,11 +299,22 @@ func (s *copyingSink) Doc(doc engine.Doc, files []engine.ExportFile) error {
 			continue
 		}
 		s.seen[f.FileURL] = true
-		if err := copyAttachment(s.c, f.FileURL, filepath.Join(s.dir, filepath.Base(f.FileURL))); err != nil {
+		if err := copyAttachment(s.c, f.FileURL, filepath.Join(s.dir, attachmentPath(f.FileURL))); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// attachmentPath is where an attachment's bytes go under <out>/files. It is the
+// file's storage key ("public/x", "private/x"), not its base name: two files
+// may share a base name across the two prefixes, and the importer puts the
+// bytes back by the same key.
+func attachmentPath(fileURL string) string {
+	if key, ok := storage.KeyFromURL(fileURL); ok {
+		return filepath.FromSlash(key)
+	}
+	return filepath.Base(fileURL)
 }
 
 func copyAttachment(c *engine.Ctx, fileURL, dst string) error {

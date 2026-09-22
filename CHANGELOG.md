@@ -35,6 +35,13 @@ not every commit that went into it.
   a tree DocType, expands a branch at a time, links each node to its form and offers "Add child" on
   a group. A node whose parent the user cannot read is shown as a root.
 
+### Changed
+
+- `ddcore export --attachments` writes the attachment bytes to `<out>/files/public/<file>` and
+  `<out>/files/private/<file>` — their storage key — instead of `<out>/files/<file>`. A public and
+  a private file sharing a base name no longer overwrite each other. `manifest.json` records the
+  layout in `exportFormat`.
+
 ### Fixed
 
 - `descendants of` was accepted as a filter operator and compiled into `=`, which answered a

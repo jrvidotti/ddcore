@@ -81,9 +81,14 @@ the run. There is no row cap here.
 ```
 <out>/<DocType>.ndjson                   (or <DocType>.csv + <DocType>.<field>.csv per child table)
 <out>/<DocType>.files.csv                (the attachment manifest, CSV only)
-<out>/files/<file>                       (the attachment bytes, with --attachments)
+<out>/files/public/<file>                (the attachment bytes, with --attachments)
+<out>/files/private/<file>               (a private file keeps its own prefix)
 <out>/manifest.json                      (counts, checksums, filters, user, versions, timings)
 ```
+
+The bytes sit under their storage key rather than their base name, so a public
+and a private file that happen to share a name do not overwrite each other;
+`manifest.json` records the layout as `"exportFormat": 2`.
 
 `manifest.json` is what makes a load reconcilable: it carries the sha256 of
 every file written and of every attachment, so two runs of the same export can
