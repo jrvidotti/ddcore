@@ -59,6 +59,8 @@ export default defineDoctype({ name: "Pessoa", idGeneration: { field: "nome" }, 
     { fieldname: "nome", fieldtype: "Data", label: "Nome", reqd: true },
     { fieldname: "tipo", fieldtype: "Select", label: "Tipo", options: ["PF", "PJ"], default: "PF" },
     { fieldname: "contatos", fieldtype: "Table", label: "Contatos", options: "Contato Pessoa" },
+    { fieldname: "bio", fieldtype: "Text Editor", label: "Bio" },
+    { fieldname: "foto", fieldtype: "Attach Image", label: "Foto" },
   ],
   permissions: [{ role: "Gestor", read: true, write: true, create: true, delete: true, report: true }, { role: "All", read: true, ifOwner: true }] });`)
 	w("doctypes/contato_pessoa/contato_pessoa.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
@@ -669,6 +671,32 @@ func (x *env) upload(auth, filename, content string) resp {
 	mw := multipart.NewWriter(&buf)
 	fw, _ := mw.CreateFormFile("file", filename)
 	fw.Write([]byte(content))
+	mw.Close()
+	req, _ := http.NewRequest("POST", x.ts.URL+"/api/upload", &buf)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	req.Header.Set("X-Requested-With", "test")
+	req.AddCookie(&http.Cookie{Name: "sid", Value: strings.TrimPrefix(auth, "sid:")})
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		x.t.Fatal(err)
+	}
+	defer res.Body.Close()
+	raw, _ := io.ReadAll(res.Body)
+	out := resp{Status: res.StatusCode, Raw: string(raw), Header: res.Header}
+	json.Unmarshal(raw, &out.Body)
+	return out
+}
+
+// uploadTo posts a file as the value of one field, which is what the desk does
+// and what an Attach Image is checked against.
+func (x *env) uploadTo(auth, filename, content, doctype, fieldname string) resp {
+	x.t.Helper()
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	fw, _ := mw.CreateFormFile("file", filename)
+	fw.Write([]byte(content))
+	mw.WriteField("doctype", doctype)
+	mw.WriteField("fieldname", fieldname)
 	mw.Close()
 	req, _ := http.NewRequest("POST", x.ts.URL+"/api/upload", &buf)
 	req.Header.Set("Content-Type", mw.FormDataContentType())

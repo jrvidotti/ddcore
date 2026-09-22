@@ -9,6 +9,7 @@ import (
 
 	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/db"
+	"github.com/jrvidotti/ddcore/internal/richtext"
 )
 
 func workflowTestFiles() map[string]string {
@@ -193,7 +194,8 @@ func TestWorkflow_ApplyTransition_SuccessAndDocstatusBinding(t *testing.T) {
 		t.Fatalf("expected comment_type Workflow, got %s", db.Str(crows[0]["comment_type"]))
 	}
 	expectedComment1 := "autor@x.com applied action 'Submit for Approval' (Draft → Pending Approval)"
-	if db.Str(crows[0]["content"]) != expectedComment1 {
+	// a timeline comment is rich text since DAT-08, so compare what it reads as
+	if richtext.ToText(db.Str(crows[0]["content"])) != expectedComment1 {
 		t.Fatalf("expected comment %q, got %q", expectedComment1, db.Str(crows[0]["content"]))
 	}
 
@@ -264,7 +266,7 @@ func TestWorkflow_ApplyTransition_SuccessAndDocstatusBinding(t *testing.T) {
 		t.Fatalf("expected 2 timeline comments, got %d (err: %v)", len(crows), err)
 	}
 	expectedComment2 := "editor@x.com applied action 'Approve' (Pending Approval → Approved)"
-	if db.Str(crows[1]["content"]) != expectedComment2 {
+	if richtext.ToText(db.Str(crows[1]["content"])) != expectedComment2 {
 		t.Fatalf("expected comment %q, got %q", expectedComment2, db.Str(crows[1]["content"]))
 	}
 }
@@ -685,7 +687,7 @@ func TestWorkflow_ApplyTransition_Concurrency(t *testing.T) {
 	}
 	approveComments := 0
 	for _, cr := range crows {
-		if strings.Contains(db.Str(cr["content"]), "'Approve'") {
+		if strings.Contains(richtext.ToText(db.Str(cr["content"])), "'Approve'") {
 			approveComments++
 		}
 	}

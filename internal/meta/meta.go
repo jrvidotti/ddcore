@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"unicode"
 )
@@ -17,9 +18,10 @@ var LayoutTypes = map[string]bool{"Section Break": true, "Tab Break": true, "HTM
 // ColumnType maps a fieldtype to its Postgres column type ("" = no column).
 func ColumnType(ft string) string {
 	switch ft {
-	case "Data", "Email", "Small Text", "Text", "Text Editor", "Select", "Link", "Dynamic Link", "Attach", "Password":
+	case "Data", "Email", "Small Text", "Text", "Text Editor", "Markdown Editor", "Code", "Color",
+		"Select", "Link", "Dynamic Link", "Attach", "Attach Image", "Password":
 		return "text"
-	case "Int":
+	case "Int", "Duration", "Rating":
 		return "bigint"
 	case "Float":
 		return "double precision"
@@ -39,7 +41,7 @@ func ColumnType(ft string) string {
 	return ""
 }
 
-var ValidFieldTypes = []string{"Data", "Email", "Small Text", "Text", "Text Editor", "Int", "Float", "Currency", "Percent", "Check", "Date", "Month", "Datetime", "Time", "Select", "Link", "Dynamic Link", "Table", "Attach", "JSON", "Password", "Vault", "Section Break", "Tab Break", "HTML"}
+var ValidFieldTypes = []string{"Data", "Email", "Small Text", "Text", "Text Editor", "Markdown Editor", "Code", "Int", "Float", "Currency", "Percent", "Check", "Rating", "Duration", "Color", "Date", "Month", "Datetime", "Time", "Select", "Link", "Dynamic Link", "Table", "Attach", "Attach Image", "JSON", "Password", "Vault", "Section Break", "Tab Break", "HTML"}
 
 type Field struct {
 	Fieldname          string `json:"fieldname,omitempty"`
@@ -140,6 +142,48 @@ func (f *Field) OptionsString() string {
 	}
 	return ""
 }
+
+// DefaultRatingMax is how many stars a Rating has when `options` says nothing.
+const DefaultRatingMax = 5
+
+// MaxRatingMax is the largest rating a field may declare: past ten stars the
+// control is unreadable and the value is really a Float.
+const MaxRatingMax = 10
+
+// RatingMax is how many stars the field holds. `options` carries it as a
+// number, which JSON decodes as a float64, or as the string an app wrote by
+// hand. Out-of-range values are refused by Validate, so this only has to agree
+// with it on what the number is.
+func (f *Field) RatingMax() int {
+	switch o := f.Options.(type) {
+	case float64:
+		return int(o)
+	case int:
+		return o
+	case string:
+		if n, err := strconv.Atoi(strings.TrimSpace(o)); err == nil {
+			return n
+		}
+	}
+	return DefaultRatingMax
+}
+
+// DurationFlags are the display options a Duration accepts. They hide a unit in
+// the control and in every formatted value; the stored number of seconds is
+// never affected.
+var DurationFlags = map[string]bool{"hideDays": true, "hideSeconds": true}
+
+// DurationHides reports whether the field declares a display flag.
+func (f *Field) DurationHides(flag string) bool {
+	for _, v := range f.SelectValues() {
+		if v == flag {
+			return true
+		}
+	}
+	return false
+}
+
+var codeLanguageRe = regexp.MustCompile(`^[a-z0-9+#._-]*$`)
 
 type Perm struct {
 	Role    string `json:"role"`
@@ -481,7 +525,7 @@ func (r *Registry) Validate() error {
 				e("invalid fieldname %q (use ascii snake_case)", f.Fieldname)
 			}
 			if seen[f.Fieldname] {
-				e("fieldname %q duplicado", f.Fieldname)
+				e("duplicate fieldname %q", f.Fieldname)
 			}
 			seen[f.Fieldname] = true
 			if d.IsStdColumn(f.Fieldname) || f.Fieldname == "doctype" {
@@ -519,6 +563,24 @@ func (r *Registry) Validate() error {
 					if _, ok := f.Options.(string); !ok {
 						e("field %q (Select) needs options as a list", f.Fieldname)
 					}
+				}
+			case "Rating":
+				// The number of stars decides what a stored value means, so a
+				// typo here would silently rescale the whole column.
+				if f.Options != nil {
+					if n := f.RatingMax(); n < 1 || n > MaxRatingMax {
+						e("field %q (Rating): options is the number of stars, 1 to %d, not %v", f.Fieldname, MaxRatingMax, f.Options)
+					}
+				}
+			case "Duration":
+				for _, flag := range f.SelectValues() {
+					if !DurationFlags[flag] {
+						e("field %q (Duration): unknown option %q (hideDays, hideSeconds)", f.Fieldname, flag)
+					}
+				}
+			case "Code":
+				if lang := f.OptionsString(); !codeLanguageRe.MatchString(lang) {
+					e("field %q (Code): options is the language, lowercase (%q)", f.Fieldname, lang)
 				}
 			}
 			for _, prev := range f.RenamedFrom {

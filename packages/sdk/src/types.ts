@@ -1,9 +1,10 @@
 // Types shared by the meta model, the server bridge and the desk.
 
 export type FieldType =
-  | "Data" | "Email" | "Small Text" | "Text" | "Text Editor" | "Int" | "Float" | "Currency" | "Percent"
+  | "Data" | "Email" | "Small Text" | "Text" | "Text Editor" | "Markdown Editor" | "Code"
+  | "Int" | "Float" | "Currency" | "Percent" | "Rating" | "Duration" | "Color"
   | "Check" | "Date" | "Month" | "Datetime" | "Time" | "Select" | "Link" | "Dynamic Link" | "Table"
-  | "Attach" | "JSON" | "Password" | "Vault" | "Section Break" | "Tab Break" | "HTML";
+  | "Attach" | "Attach Image" | "JSON" | "Password" | "Vault" | "Section Break" | "Tab Break" | "HTML";
 
 export type FieldWidth = "sm" | "md" | "lg" | "full";
 
@@ -17,8 +18,13 @@ export interface FieldDef {
    * A Select's options are its canonical values — English, and what the
    * database holds. Their display text comes from the catalogue, so a
    * translation never changes what is stored or compared.
+   *
+   * The other types that read it: `Rating` takes the number of stars (1–10,
+   * default 5), `Code` the language (`"sql"`, `"ts"`) and `Duration` the
+   * display flags `["hideDays", "hideSeconds"]`. None of those are catalogue
+   * keys — they are never translated.
    */
-  options?: string | string[];
+  options?: string | string[] | number;
   /**
    * Select only: indicator colour per option, keyed by the canonical value.
    *
@@ -218,6 +224,12 @@ export interface PrintBlockBuilder {
   rule(): PrintBlock;
   divider(): PrintBlock;
   pageBreak(): PrintBlock;
+  /** A Text Editor value, rendered as markup and cleaned by the server's allowlist. */
+  richText(html: string, title?: string): PrintBlock;
+  /** A Markdown Editor source, rendered and cleaned the same way. */
+  markdown(text: string, title?: string): PrintBlock;
+  /** Preformatted text, escaped, keeping its whitespace (a Code field). */
+  pre(text: string, title?: string): PrintBlock;
   raw(html: string): PrintBlock;
   html(html: string): PrintBlock;
   columns(cols: PrintBlock[][]): PrintBlock;

@@ -41,6 +41,7 @@ export default defineDoctype({ name: "Nota", idGeneration: { field: "titulo" },
     { fieldname: "valor", fieldtype: "Currency", label: "Amount" },
     { fieldname: "ativo", fieldtype: "Check", label: "Active", default: true },
     { fieldname: "segredo", fieldtype: "Password", label: "Secret" },
+    { fieldname: "corpo", fieldtype: "Text Editor", label: "Body" },
     { fieldname: "itens", fieldtype: "Table", label: "Items", options: "Item Nota" },
   ],
   permissions: [
@@ -386,6 +387,28 @@ func TestExportOmitsPasswordFields(t *testing.T) {
 	// nor by asking for it explicitly
 	if _, err := exportAs(t, e, "exp@x.com", ExportArgs{Doctype: "Nota", Fields: []string{"id", "segredo"}}); err == nil {
 		t.Fatal("requesting Password field explicitly should be rejected")
+	}
+}
+
+// An export is a copy, so rich text leaves as the markup that is stored.
+// Stripping it here would make a re-import lose the formatting.
+func TestExportCarriesRichTextUnchanged(t *testing.T) {
+	e := setupExport(t)
+	const body = "<p>hello <strong>world</strong></p>"
+	err := e.Run(context.Background(), "Admin", func(c *Ctx) error {
+		d, _ := c.NewDoc("Nota", Doc{"titulo": "Com rich text", "corpo": body})
+		_, err := c.Insert(d, SaveOpts{})
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	col, err := exportAs(t, e, "exp@x.com", ExportArgs{Doctype: "Nota"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := fmt.Sprint(col.docs[0]["corpo"]); got != body {
+		t.Fatalf("exported rich text as %q, want %q", got, body)
 	}
 }
 

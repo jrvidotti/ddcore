@@ -1,7 +1,7 @@
 <script lang="ts">
   // Child table: inline editing by default, with an opt-in dialog-only mode.
   import type { Field, DocTypeMeta } from "$lib/meta";
-  import { isLayout } from "$lib/meta";
+  import { isLayout, isNumericFieldtype } from "$lib/meta";
   import Control from "./Control.svelte";
   import Icon from "$lib/components/Icon.svelte";
   import { evalExpr } from "$lib/expr";
@@ -56,7 +56,7 @@
     frm.trigger(field.fieldname!);
   }
   function remove(i: number) { frm.removeChild(field.fieldname!, i); frm.trigger(field.fieldname!); }
-  const num = (f: Field) => ["Int", "Float", "Currency", "Percent"].includes(f.fieldtype);
+  const num = (f: Field) => isNumericFieldtype(f.fieldtype);
   function rowEditable(f: Field, row: any) {
     return editable && !f.readOnly && !(f.readOnlyDependsOn && evalExpr(f.readOnlyDependsOn, row, frm.doc));
   }

@@ -2,7 +2,8 @@ import { __ } from "../boot.svelte";
 // Version history processing and diff utilities for ddcore desk forms.
 import type { FormController } from "../form.svelte";
 import type { DocTypeMeta, Field } from "../meta";
-import { formatDate, formatDatetime, formatCurrency, formatNumber, timeAgo } from "../format.ts";
+import { formatDate, formatDatetime, formatCurrency, formatNumber, formatValue, timeAgo } from "../format.ts";
+import { htmlToText } from "../richtext.ts";
 
 export const IGNORED_CHILD_FIELDS = new Set([
   "idx",
@@ -152,6 +153,20 @@ export function formatDiffValue(val: any, field?: Partial<Field>, fieldname?: st
 
   if (field?.fieldtype === "Int") {
     return { value: val, formatted: String(Math.round(Number(val))), isAttach: false };
+  }
+
+  // Rich text and Markdown diff as what they read as: a diff of raw markup
+  // shows tags nobody wrote and hides the sentence that changed.
+  if (field?.fieldtype === "Text Editor") {
+    return { value: val, formatted: htmlToText(String(val)), isAttach: false };
+  }
+
+  if (field?.fieldtype === "Markdown Editor" || field?.fieldtype === "Code") {
+    return { value: val, formatted: String(val), isAttach: false };
+  }
+
+  if (field?.fieldtype === "Duration" || field?.fieldtype === "Rating" || field?.fieldtype === "Color") {
+    return { value: val, formatted: formatValue(val, field), isAttach: false };
   }
 
   if (typeof val === "object") {

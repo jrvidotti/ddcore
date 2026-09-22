@@ -33,6 +33,10 @@ Two things never leave, whatever is asked for:
 
 Asking for one by name is a validation error, not a silent omission.
 
+A `Text Editor` column carries its stored HTML, unchanged, which is what makes
+an export a faithful copy; a consumer that wants plain text strips it. A
+`Markdown Editor` carries its source, and a `Duration` or `Rating` its integer.
+
 A field above the exporting user's permission level (`permlevel`) is left out of the
 default columns, out of child tables and, for a file held by that field, out of the
 attachments. Asking for it by name is a `PermissionError`. The CLI exports as

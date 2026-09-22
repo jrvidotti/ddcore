@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"html"
 	"strings"
+
+	"github.com/jrvidotti/ddcore/internal/richtext"
 )
 
 // Block is one structural piece of a printed document.
@@ -24,6 +26,16 @@ type Block struct {
 	Blocks     []Block    `json:"blocks,omitempty"`
 	// Cells are the columns of a "columns" block, each a list of blocks.
 	Cells [][]Block `json:"cells,omitempty"`
+}
+
+// labelled puts a block's title above it, the way the key/value grid labels an
+// ordinary field, so a full-width value is not printed without saying what it
+// is.
+func (b Block) labelled(body string) string {
+	if b.Title == "" {
+		return body
+	}
+	return `<div class="print-field"><div class="label">` + html.EscapeString(b.Title) + `</div>` + body + `</div>`
 }
 
 // RenderHTML converts a slice of Blocks into escaped, styled HTML.
@@ -165,6 +177,30 @@ func (b Block) RenderHTML() string {
 
 	case "pageBreak":
 		return `<div class="page-break"></div>`
+
+	case "richText":
+		// A Text Editor value, already cleaned when it was stored. It is
+		// cleaned again here because a template can build this block from
+		// anything it reads, and print is the one surface that renders markup
+		// instead of escaping it.
+		body := richtext.Sanitize(b.HTML)
+		if body == "" {
+			return ""
+		}
+		return b.labelled(`<div class="print-richtext">` + body + `</div>`)
+
+	case "markdown":
+		body := richtext.Markdown(b.Text)
+		if body == "" {
+			return ""
+		}
+		return b.labelled(`<div class="print-richtext">` + body + `</div>`)
+
+	case "pre":
+		if b.Text == "" {
+			return ""
+		}
+		return b.labelled(`<pre class="print-pre">` + html.EscapeString(b.Text) + `</pre>`)
 
 	case "raw":
 		// Raw HTML escape hatch — rendered unescaped by deliberate design for custom markup

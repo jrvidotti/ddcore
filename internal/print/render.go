@@ -28,6 +28,15 @@ func AssembleHTML(bodyHTML string, letterhead *LetterHead, title string, lang st
 		title = "Document"
 	}
 
+	// An image in a printed document is a path on this site (`/files/…`). A PDF
+	// is rendered from a temporary file, so without a base the path would mean
+	// the renderer's filesystem root and every image would be a blank box.
+	// A private file still needs a session the renderer does not have.
+	var baseTag string
+	if page.SiteURL != "" {
+		baseTag = fmt.Sprintf(`<base href="%s/">`, html.EscapeString(strings.TrimRight(page.SiteURL, "/")))
+	}
+
 	var headerSection string
 	var footerSection string
 
@@ -57,6 +66,7 @@ func AssembleHTML(bodyHTML string, letterhead *LetterHead, title string, lang st
 <html lang="%s">
 <head>
   <meta charset="utf-8">
+  %s
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>%s</title>
   <style>
@@ -181,6 +191,58 @@ func AssembleHTML(bodyHTML string, letterhead *LetterHead, title string, lang st
       color: #334155;
     }
 
+    .print-field {
+      margin-bottom: 16px;
+    }
+    .print-field > .label {
+      font-size: 8pt;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: #64748b;
+      margin-bottom: 4px;
+      letter-spacing: 0.02em;
+    }
+    .print-richtext {
+      color: #1e293b;
+      font-size: 9.5pt;
+    }
+    .print-richtext > :first-child { margin-top: 0; }
+    .print-richtext > :last-child { margin-bottom: 0; }
+    .print-richtext p { margin: 0 0 8px; }
+    .print-richtext h1 { font-size: 14pt; }
+    .print-richtext h2 { font-size: 12.5pt; }
+    .print-richtext h3, .print-richtext h4 { font-size: 11pt; }
+    .print-richtext ul, .print-richtext ol { margin: 0 0 8px; padding-left: 20px; }
+    .print-richtext blockquote {
+      margin: 0 0 8px;
+      padding-left: 10px;
+      border-left: 3px solid #e2e8f0;
+      color: #475569;
+    }
+    .print-richtext img { max-width: 100%%; }
+    .print-richtext table {
+      width: 100%%;
+      border-collapse: collapse;
+      margin-bottom: 8px;
+    }
+    .print-richtext th, .print-richtext td {
+      border: 1px solid #e2e8f0;
+      padding: 4px 8px;
+      text-align: left;
+    }
+    .print-pre {
+      margin: 0;
+      padding: 8px 10px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 3px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 8.5pt;
+      color: #0f172a;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
     table.print-table {
       width: 100%%;
       border-collapse: collapse;
@@ -279,6 +341,7 @@ func AssembleHTML(bodyHTML string, letterhead *LetterHead, title string, lang st
 </body>
 </html>`,
 		html.EscapeString(lang),
+		baseTag,
 		html.EscapeString(title),
 		page.PageSize(),
 		headerSection,

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"regexp"
 	"strings"
 	"time"
 
@@ -11,7 +12,36 @@ import (
 	"github.com/jrvidotti/ddcore/internal/db"
 	"github.com/jrvidotti/ddcore/internal/meta"
 	"github.com/jrvidotti/ddcore/internal/num"
+	"github.com/jrvidotti/ddcore/internal/richtext"
 )
+
+// A Color is stored as `#rrggbb`, lowercase, so two spellings of the same
+// colour are one value in a filter and one swatch on screen.
+var (
+	hexColorRe = regexp.MustCompile(`^#?([0-9a-f]{3}|[0-9a-f]{6})$`)
+	// imageFileRe is an Attach restricted to what a browser renders inline.
+	// SVG is left out on purpose: it carries script.
+	imageFileRe = regexp.MustCompile(`(?i)^/(private/)?files/[^?#]+\.(png|jpe?g|gif|webp)$`)
+	imageExtRe  = regexp.MustCompile(`(?i)\.(png|jpe?g|gif|webp)$`)
+)
+
+// IsImageFileName reports whether a file name is one an Attach Image accepts.
+// The upload handler asks before storing the bytes, so a file the field would
+// refuse never reaches the store.
+func IsImageFileName(name string) bool { return imageExtRe.MatchString(name) }
+
+func normalizeColor(s string) (string, bool) {
+	s = strings.ToLower(strings.TrimSpace(s))
+	m := hexColorRe.FindStringSubmatch(s)
+	if m == nil {
+		return "", false
+	}
+	h := m[1]
+	if len(h) == 3 { // #abc is the same colour as #aabbcc, written short
+		h = string([]byte{h[0], h[0], h[1], h[1], h[2], h[2]})
+	}
+	return "#" + h, true
+}
 
 // Doc is a document as a plain map; child tables are []any of Doc.
 type Doc map[string]any
@@ -179,6 +209,50 @@ func castValueWith(f *meta.Field, v any, o castOpts) (any, error) {
 			return x == "1" || strings.EqualFold(x, "true"), nil
 		}
 		return toFloat(v) != 0, nil
+	case "Text Editor":
+		// Rich text is cleaned on the way in, never on the way out: what the
+		// database holds is what every reader — API, print, export, desk —
+		// gets. The markup an editor or a paste carries is trimmed to the
+		// allowlist rather than refused, because the content is not the
+		// author's mistake. See internal/richtext.
+		s := richtext.Normalize(db.Str(v))
+		if richtext.IsEmpty(s) {
+			// every editor leaves an empty paragraph behind when a field is
+			// cleared, and `reqd` has to see that as empty
+			return nil, nil
+		}
+		return s, nil
+	case "Duration":
+		n, err := finite(f, v)
+		if err != nil {
+			return nil, err
+		}
+		if n < 0 {
+			return nil, cerr.Validation("Invalid duration in {0}: \"{1}\"", f.Label, db.Str(v))
+		}
+		return int64(math.Round(n)), nil
+	case "Rating":
+		n, err := finite(f, v)
+		if err != nil {
+			return nil, err
+		}
+		r, max := int64(math.Round(n)), int64(f.RatingMax())
+		if r < 0 || r > max {
+			return nil, cerr.Validation("{0} takes a rating from 0 to {1}", f.Label, fmt.Sprint(max))
+		}
+		return r, nil
+	case "Color":
+		s, ok := normalizeColor(db.Str(v))
+		if !ok {
+			return nil, cerr.Validation("Invalid colour in {0}: \"{1}\"", f.Label, db.Str(v))
+		}
+		return s, nil
+	case "Attach Image":
+		s := strings.TrimSpace(db.Str(v))
+		if !imageFileRe.MatchString(s) {
+			return nil, cerr.Validation("{0} takes an image file (png, jpg, gif, webp)", f.Label)
+		}
+		return s, nil
 	case "Date":
 		s := db.Str(v)
 		if len(s) >= 10 {
@@ -2151,6 +2225,13 @@ func (c *Ctx) saveVersion(d *meta.DocType, before, after Doc) {
 		var a, b any = before[f.Fieldname], after[f.Fieldname]
 		if f.Fieldtype == "Table" {
 			a, b = stripChildMeta(before.Children(f.Fieldname)), stripChildMeta(after.Children(f.Fieldname))
+		}
+		// A Text Editor value written before rich text existed is plain text,
+		// and the first save turns it into the paragraphs it always meant. The
+		// stored bytes change, the content does not, so comparing what the
+		// column would hold keeps that conversion out of the timeline.
+		if f.Fieldtype == "Text Editor" && c.sameFieldValue(f, a, b) {
+			continue
 		}
 		if string(mustJSON(a)) != string(mustJSON(b)) {
 			if f.Fieldtype == "Table" {

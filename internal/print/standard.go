@@ -2,6 +2,7 @@ package print
 
 import (
 	"fmt"
+	"html"
 	"strings"
 
 	"github.com/jrvidotti/ddcore/internal/meta"
@@ -133,6 +134,27 @@ func StandardTemplate(d *meta.DocType, doc map[string]any, opts StandardFormatOp
 		if label == "" {
 			label = f.Fieldname
 		}
+
+		// A long value is a block of its own: rich text and Markdown are
+		// rendered as the markup they are — escaping them here is what used to
+		// print literal tags — and code keeps its whitespace.
+		switch f.Fieldtype {
+		case "Text Editor", "Markdown Editor", "Code", "Attach Image":
+			flushKeyValues()
+			b := Block{Title: tr(label)}
+			switch f.Fieldtype {
+			case "Text Editor":
+				b.Type, b.HTML = "richText", str(val)
+			case "Markdown Editor":
+				b.Type, b.Text = "markdown", str(val)
+			case "Code":
+				b.Type, b.Text = "pre", str(val)
+			case "Attach Image":
+				b.Type, b.HTML = "richText", `<img src="`+html.EscapeString(str(val))+`" alt="`+html.EscapeString(tr(label))+`">`
+			}
+			blocks = append(blocks, b)
+			continue
+		}
 		valStr := fmtVal(f, val)
 		if valStr != "" {
 			currentPairs = append(currentPairs, []string{tr(label), valStr})
@@ -195,7 +217,7 @@ func renderChildTable(f *meta.Field, val any, opts StandardFormatOptions) []Bloc
 			}
 			headers = append(headers, tr(colLabel))
 			switch cf.Fieldtype {
-			case "Int", "Float", "Currency", "Percent":
+			case "Int", "Float", "Currency", "Percent", "Duration", "Rating":
 				aligns = append(aligns, "right")
 			case "Check":
 				aligns = append(aligns, "center")

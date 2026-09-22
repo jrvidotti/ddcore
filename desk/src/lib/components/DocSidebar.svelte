@@ -12,6 +12,7 @@
   import ShareModal from "./ShareModal.svelte";
   import { DocSharesState } from "$lib/shares.svelte";
   import { shareRightLabels, canRemoveShare } from "./doc-sidebar-share";
+  import { fromPlainText, normalizeRichText, sanitizeHtml } from "$lib/richtext";
   import { getModifierKey } from "$lib/shortcuts.svelte";
   import { DocAssignments } from "$lib/assignments.svelte";
   import { isAssignmentOverdue, assignmentInitial, priorityBadgeClass } from "./doc-sidebar-assignment";
@@ -51,7 +52,9 @@
   async function addComment() {
     if (!text.trim()) return;
     try {
-      await api.insert("Comment", { reference_doctype: frm.doctype, reference_id: frm.doc.id, content: text, comment_type: "Comment" });
+      // the box is plain text, and saying so is what keeps "a<b and b>c" from
+      // being read as a tag by the server's markup detection
+      await api.insert("Comment", { reference_doctype: frm.doctype, reference_id: frm.doc.id, content: fromPlainText(text), comment_type: "Comment" });
       text = "";
       await load();
     } catch (e) { showError(e); }
@@ -236,7 +239,10 @@
   <div class="block">
     <h4>{__("Comments")}</h4>
     {#each comments as c}
-      <div class="comment"><div class="small muted"><b>{c.owner}</b> · {timeAgo(c.creation)}</div><div>{c.content}</div></div>
+      <!-- a comment is rich text (DAT-08): the server cleans what it stores,
+           and this cleans again, because a row may predate that or come from
+           a direct SQL write -->
+      <div class="comment"><div class="small muted"><b>{c.owner}</b> · {timeAgo(c.creation)}</div><div class="comment-body">{@html sanitizeHtml(normalizeRichText(String(c.content ?? "")))}</div></div>
     {/each}
     <textarea class="input" rows="2" placeholder={__("Write a comment")} bind:value={text} onkeydown={(e) => (e.ctrlKey || e.metaKey) && e.key === "Enter" && addComment()}></textarea>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px">
@@ -330,6 +336,11 @@
 {/if}
 
 <style>
+  .comment-body { font-size: 13px; line-height: 1.5; }
+  .comment-body :global(p) { margin: 0 0 6px; }
+  .comment-body :global(:last-child) { margin-bottom: 0; }
+  .comment-body :global(ul), .comment-body :global(ol) { margin: 0 0 6px; padding-left: 18px; }
+  .comment-body :global(img) { max-width: 100%; border-radius: 4px; }
   .doc-sidebar { width: 260px; flex-shrink: 0; }
   .block { margin-top: 18px; }
   h4 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 8px; }

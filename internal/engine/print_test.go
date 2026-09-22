@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/jrvidotti/ddcore/internal/cerr"
+	"github.com/jrvidotti/ddcore/internal/meta"
 	"github.com/jrvidotti/ddcore/internal/print"
 )
 
@@ -391,6 +392,73 @@ func TestPrintDoc_LetterHeadSelection(t *testing.T) {
 		_, err := c.PrintDoc("Pessoa", "Lia", "standard", name, "en", print.PDFOptions{})
 		if err == nil || cerr.From(err).Type != "ValidationError" {
 			t.Fatalf("letterhead %q: expected ValidationError, got %v", name, err)
+		}
+	}
+}
+
+// Printing a document is where rich text stops being escaped: the reader gets
+// the paragraphs, and an attack that reached the column through another door
+// still does not reach the page.
+func TestPrintDoc_RichTextAndFieldControls(t *testing.T) {
+	ctx := context.Background()
+	e := setupWith(t, map[string]string{"doctypes/note/note.doctype.ts": fieldtypesDoctype})
+	var id string
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
+		doc, err := c.NewDoc("Note", Doc{
+			"title": "Printed", "body": "<p>rich <strong>text</strong></p>",
+			"readme": "## Readme\n\ntext", "snippet": "select 1",
+			"spent": 5400, "score": 4, "accent": "#abc",
+		})
+		if err != nil {
+			return err
+		}
+		saved, err := c.Insert(doc, SaveOpts{})
+		if err != nil {
+			return err
+		}
+		id = saved.ID()
+		// a value the sanitizer never saw, as a direct SQL write or an older
+		// archive would leave behind
+		_, err = c.Q().Exec(c.Ctx, `UPDATE tab_note SET locked = $1 WHERE id = $2`, `<p>ok</p><script>alert(1)</script>`, id)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
+		out, err := c.PrintDoc("Note", id, "standard", "none", "en", print.PDFOptions{})
+		if err != nil {
+			return err
+		}
+		for _, want := range []string{"rich <strong>text</strong>", "<h2>Readme</h2>", `class="print-pre"`, "1h 30m", "★★★★☆", "#aabbcc"} {
+			if !strings.Contains(out, want) {
+				t.Errorf("printed document is missing %q", want)
+			}
+		}
+		if strings.Contains(out, "<script") || strings.Contains(out, "alert(1)") {
+			t.Errorf("printed document kept a script: %s", out)
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// A Rating column can hold a value outside its range — its `options` may have
+// been lowered, or the column may have been an Int before. Printing is a read,
+// so it shows what it can instead of failing the whole document.
+func TestFormatPrintValueClampsARatingOutOfRange(t *testing.T) {
+	c := &Ctx{}
+	f := &meta.Field{Fieldname: "score", Fieldtype: "Rating", Label: "Score", Options: float64(5)}
+	for _, tc := range []struct {
+		in   any
+		want string
+	}{
+		{4, "★★★★☆"},
+		{42, "★★★★★"},
+		{-3, "☆☆☆☆☆"},
+	} {
+		if got := c.formatPrintValue(f, tc.in, "en"); got != tc.want {
+			t.Errorf("formatPrintValue(%v) = %q, want %q", tc.in, got, tc.want)
 		}
 	}
 }

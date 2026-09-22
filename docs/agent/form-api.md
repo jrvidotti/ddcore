@@ -49,7 +49,7 @@ A form is laid out by sizing its fields, not by splitting it into columns: a lin
 - **Defaults by fieldtype:**
   - `sm`: `Date`, `Month`, `Time`, `Int`, `Percent`.
   - `md`: `Datetime`, `Float`, `Currency`.
-  - `full`: `Text`, `Small Text`, `Text Editor`, `JSON`, `Table`, `HTML`.
+  - `full`: `Text`, `Small Text`, `Text Editor`, `Markdown Editor`, `Code`, `JSON`, `Table`, `HTML`.
   - `lg`: every other type (`Data`, `Link`, `Select`, `Check`, `Attach`, `Password`, etc.).
 - **Line packing:**
   Fields fill the line greedily, so `[Status 1/2][Start 1/4][End 1/4]` share one line. A field of

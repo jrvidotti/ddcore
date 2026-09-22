@@ -1,9 +1,10 @@
 import type { Field } from "$lib/meta";
+import { isNumericFieldtype } from "../meta";
 
 function filterValue(field: Field, value: string): any {
   if (value === "") return "";
   if (field.fieldtype === "Check") return value === "true" || value === "1";
-  if (["Int", "Float", "Currency", "Percent"].includes(field.fieldtype)) {
+  if (isNumericFieldtype(field.fieldtype)) {
     const n = Number(value);
     return Number.isFinite(n) ? n : null;
   }

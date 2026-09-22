@@ -580,6 +580,42 @@ func saveOpts(o map[string]any) SaveOpts {
 // American reading it in Portuguese still wants "$" if it is USD. Choosing the
 // language tag *from the currency*, as this did, conflated them and got both
 // wrong for every mixed case.
+// FormatDuration writes whole seconds the way a person reads them: "1d 2h 30m".
+// A hidden unit is not dropped, it is folded into the next one — with days
+// hidden, a day and a half is "36h" and not "12h".
+func FormatDuration(secs int64, hideDays, hideSeconds bool) string {
+	if secs < 0 {
+		secs = 0
+	}
+	if hideSeconds {
+		secs -= secs % 60
+	}
+	var parts []string
+	if !hideDays {
+		if d := secs / 86400; d > 0 {
+			parts = append(parts, fmt.Sprintf("%dd", d))
+		}
+		secs %= 86400
+	}
+	if h := secs / 3600; h > 0 {
+		parts = append(parts, fmt.Sprintf("%dh", h))
+	}
+	secs %= 3600
+	if m := secs / 60; m > 0 {
+		parts = append(parts, fmt.Sprintf("%dm", m))
+	}
+	if s := secs % 60; s > 0 && !hideSeconds {
+		parts = append(parts, fmt.Sprintf("%ds", s))
+	}
+	if len(parts) == 0 {
+		if hideSeconds {
+			return "0m"
+		}
+		return "0s"
+	}
+	return strings.Join(parts, " ")
+}
+
 func FormatCurrency(v float64, code, lang string, precision int) string {
 	tag, err := language.Parse(lang)
 	if err != nil {

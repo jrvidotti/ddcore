@@ -67,7 +67,9 @@ as the user who asked for the print.
 
 ## Blocks
 
-`body` returns blocks. Text is escaped when rendered; only `raw`/`html` is not.
+`body` returns blocks. Text is escaped when rendered; `richText` and `markdown`
+render markup, cleaned by the allowlist, and only `raw`/`html` is neither
+escaped nor cleaned.
 
 - `b.header(title, { subtitle, badge, badgeColor })` — a title line with an
   optional subtitle and badge. `badgeColor` is `green`, `red`, `blue`, `orange`
@@ -86,6 +88,13 @@ as the user who asked for the print.
 - `b.h(level, text)` — a heading; `b.h1`, `b.h2` and `b.h3` are shorthands.
 - `b.rule()` — a horizontal line; `b.divider()` is the same block.
 - `b.pageBreak()` — starts a new page.
+- `b.richText(html, title?)` — a `Text Editor` value, rendered as the markup it
+  is and cleaned by the server's allowlist first, so a template cannot print
+  what a document may not hold. `title` labels it like a field.
+- `b.markdown(source, title?)` — a `Markdown Editor` source, rendered and
+  cleaned the same way.
+- `b.pre(text, title?)` — preformatted text, escaped, keeping its whitespace: a
+  `Code` field.
 - `b.html(markup)` / `b.raw(markup)` — markup inserted as written, unescaped.
 
 A block type the renderer does not know renders as nothing.

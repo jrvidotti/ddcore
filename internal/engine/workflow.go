@@ -3,6 +3,7 @@ package engine
 import (
 	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/js"
+	"github.com/jrvidotti/ddcore/internal/richtext"
 )
 
 // WorkflowAvailableAction describes an action available for a document in its current state.
@@ -183,7 +184,7 @@ func (c *Ctx) ApplyWorkflowTransition(doctype, name, action string) (Doc, error)
 			"reference_doctype": doctype,
 			"reference_type":    doctype,
 			"reference_id":      name,
-			"content":           c.T("{0} applied action '{1}' ({2} → {3})", c.User, c.T(action), c.T(currentState), c.T(matched.NextState)),
+			"content":           richtext.FromPlainText(c.T("{0} applied action '{1}' ({2} → {3})", c.User, c.T(action), c.T(currentState), c.T(matched.NextState))),
 		})
 		if err != nil {
 			return err
