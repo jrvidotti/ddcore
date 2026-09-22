@@ -266,7 +266,7 @@ notifications), `share_name` → `share_id` (Document Share), `attached_to_name`
 `attached_to_id` (File), `target_name` → `target_id` (Audit Event), and Version's `docname`
 → `doc_id`.
 
-There is no alias. An app's own code and patches say `id` where they said `name`: `doc.id`,
+There is no alias. `upgrade-0.17` is the checklist for moving an app's source across. In short, an app's own code and patches say `id` where they said `name`: `doc.id`,
 filters and `fields` on `id`, `titleField: "id"`, `idGeneration` for `naming`, `idLabel` for
 `nameLabel`, an `id_series` field for `naming_series`, `{id}` in a Vault key template. After
 the rename `name` is an ordinary fieldname: a DocType may declare one, and it is not the key.

@@ -23,7 +23,8 @@ not every commit that went into it.
   (`doc_id`), global search hits, the realtime `doc_update` payload, the webhook envelope's
   `data.id`, and the MCP tools `get_doc`, `update_doc`, `delete_doc`, `submit_doc`, `cancel_doc`
   and `call_method`. The desk's document route is `/app/<workspace>/<doctype>/<id>`. There is no
-  alias: code that still says `name` for the key fails on an unknown column.
+  alias: a filter, field list or SQL that still says `name` fails on an unknown field or column,
+  but `doc.name` reads `undefined` without an error, and `tsc` does not flag it.
   On an existing database the next `ddcore migrate` renames the column on every DocType table
   before anything else runs, so every patch — `beforeSchema` or `afterSchema` — sees `id`; primary
   keys, Single checks and indexes follow on their own, and `migrate --dry-run` previews it. App
@@ -32,6 +33,8 @@ not every commit that went into it.
   `name` is now an ordinary fieldname an app may declare; declaring it does not bring the old key
   back. Update apps' `ddcore:` range to `>=0.17.0` once they have been through their code and
   their patches, run or not: a 0.17 binary warns about any app whose range still reaches below it.
+  The step-by-step checklist, including what fails silently, is `docs/agent/upgrade-0.17.md`
+  (`ddcore://docs/upgrade-0.17`).
 - The fields that held another document's key follow: `reference_name` → `reference_id`
   (Comment, ToDo, Email Delivery, Webhook Delivery, notifications), `share_name` → `share_id`
   (Document Share), `attached_to_name` → `attached_to_id` (File), `target_name` → `target_id`

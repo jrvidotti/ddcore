@@ -25,6 +25,7 @@ Available documents (also as MCP resources `ddcore://docs/<name>`):
 - `webhooks` — outgoing webhooks: subscriptions, signed delivery after commit, retries, replay and the audit record
 - `i18n` — English as the source language, catalogues, Select values, dates and the site timezone
 - `migrations` — renames, fieldtype changes, patches and the expand → contract route
+- `upgrade-0.17` — moving an app across the 0.17 key rename (`name` → `id`): what to rename, what fails silently, how to find it
 - `storage` — where uploaded file bytes live (local or S3-compatible), download access and deletion
 - `backup` — `ddcore backup`/`restore`, maintenance mode, the site version ledger and rollback
 - `export` — exporting a whole DocType, children and attachments, by HTTP or CLI
@@ -54,7 +55,7 @@ is ahead of your binary. Read it after an upgrade, and before reporting a gap.
 
 - Single DocTypes (`isSingle`) expose one settings document with a fixed `singleton` identity; see `controller-api`.
 - One DocType = one table `tab_<snake_case>`; child tables (`isChild`) have `parent`, `parenttype`, `parentfield`, `idx`.
-- Standard columns: `id` (PK, text), `owner`, `creation`, `modified`, `modified_by`, `docstatus` (0 draft, 1 submitted, 2 cancelled). The key is `id` (`doc.id`, filters and `fields` on `id`); `name` is an ordinary fieldname an app may declare. A pre-0.17 database is moved from `name` to `id` by `migrate` — see `migrations`.
+- Standard columns: `id` (PK, text), `owner`, `creation`, `modified`, `modified_by`, `docstatus` (0 draft, 1 submitted, 2 cancelled). The key is `id` (`doc.id`, filters and `fields` on `id`); `name` is an ordinary fieldname an app may declare. A pre-0.17 database is moved from `name` to `id` by `migrate` — see `migrations`; an app written before 0.17 is moved by `upgrade-0.17`.
 - Lifecycle: `beforeValidate → validate → beforeSave → (insert|update) → afterInsert/onUpdate`; `beforeSubmit → onSubmit`; `beforeCancel → onCancel`; `onTrash → afterDelete`.
 - The core validates `reqd`, `unique`, `uniqueKeys` (compound business keys, checked before the write *and* enforced by a partial unique index, so a race cannot slip through), a Select's `options`, that links exist, `fetchFrom`, `mandatoryDependsOn` (**on the server**) and refuses to change a field without `allowOnSubmit` once submitted.
 - One transaction per request or job. An error rolls it back. There is no `commit()` for an app.

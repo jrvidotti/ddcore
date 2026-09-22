@@ -54,7 +54,8 @@ export default defineConfig({
           { text: 'Server Controller API', link: '/agent/controller-api' },
           { text: 'Desk & Form API', link: '/agent/form-api' },
           { text: 'Reports & Workspaces', link: '/agent/report-api' },
-          { text: 'Schema Migrations', link: '/agent/migrations' }
+          { text: 'Schema Migrations', link: '/agent/migrations' },
+          { text: 'Upgrading to 0.17 (name → id)', link: '/agent/upgrade-0.17' }
         ]
       },
       {
