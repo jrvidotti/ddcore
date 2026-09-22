@@ -140,3 +140,24 @@ describe("view resolution", () => {
     expect(resolveActiveView(["list", "cards"], null, null, false)).toBe("list");
   });
 });
+
+describe("tree view", () => {
+  it("is offered only to a tree DocType, and first", () => {
+    expect(resolveAllowedViews({}, true)).toEqual(["tree", "list", "cards"]);
+    expect(resolveAllowedViews({}, false)).toEqual(["list", "cards"]);
+  });
+
+  it("is dropped from an explicit list when the DocType is not a tree", () => {
+    expect(resolveAllowedViews({ views: ["tree", "list"] }, false)).toEqual(["list"]);
+    expect(resolveAllowedViews({ views: ["list", "tree"] }, true)).toEqual(["list", "tree"]);
+  });
+
+  it("is what a phone opens, ahead of cards", () => {
+    expect(resolveActiveView(["tree", "list", "cards"], null, null, true)).toBe("tree");
+    expect(resolveActiveView(["list", "cards"], null, null, true)).toBe("cards");
+  });
+
+  it("still yields to an explicit choice in the URL", () => {
+    expect(resolveActiveView(["tree", "list", "cards"], "list", null, true)).toBe("list");
+  });
+});

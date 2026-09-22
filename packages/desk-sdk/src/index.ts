@@ -242,7 +242,7 @@ export interface GlobalSearchHit {
 }
 
 export declare function defineForm<T extends BaseDoc = BaseDoc>(doctype: string, handlers: FormHandlers<T>): void;
-export type DeskViewMode = "list" | "calendar" | "cards" | "kanban" | "gantt";
+export type DeskViewMode = "list" | "calendar" | "cards" | "kanban" | "gantt" | "tree";
 
 export interface CalendarViewOptions<T extends BaseDoc = BaseDoc> {
   /** Required: Date or Datetime field to plot records on the calendar */
@@ -291,7 +291,11 @@ export interface GanttViewOptions<T extends BaseDoc = BaseDoc> {
 
 /** Adjustments for a DocType's list view (see docs/agent/form-api.md). */
 export interface ListViewOptions<T extends BaseDoc = BaseDoc> {
-  /** Allowed views for this DocType; defaults to ["list", "cards"] plus "calendar", "kanban" and "gantt" for each one configured */
+  /**
+   * Allowed views for this DocType; defaults to ["list", "cards"] plus
+   * "calendar", "kanban" and "gantt" for each one configured. A tree DocType
+   * (`isTree`) gets "tree" as well, first and so by default.
+   */
   views?: DeskViewMode[];
   calendar?: CalendarViewOptions<T>;
   card?: CardViewOptions<T>;

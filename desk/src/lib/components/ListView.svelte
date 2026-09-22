@@ -24,6 +24,7 @@
   import CalendarView from "./views/CalendarView.svelte";
   import KanbanView from "./views/KanbanView.svelte";
   import GanttView from "./views/GanttView.svelte";
+  import TreeView from "./views/TreeView.svelte";
   import { moveKanbanRow, kanbanValue } from "./views/kanban-state";
   import { ganttRangeFilters, ganttWindow, type GanttScale } from "./views/gantt-state";
   import { calendarRangeFilters } from "./views/calendar-state";
@@ -71,7 +72,10 @@
 
   // options registered by the app via defineListView(doctype, {...})
   const settings = $derived<ListViewOptions>(deskSDK.listSettings(doctype) || {});
-  const allowedViews = $derived(resolveAllowedViews(settings));
+  const allowedViews = $derived(resolveAllowedViews(settings, meta?.doctype.isTree));
+  const isTreeView = $derived(currentView === "tree" && !!meta?.doctype.isTree);
+  /** Bumped on a list_update so the tree reloads the branches it has open. */
+  let treeReload = $state(0);
 
   function resolveView(urlView?: string | null) {
     let storedView: string | null = null;
@@ -232,6 +236,12 @@
   }
   async function load() {
     if (!meta) return;
+    if (isTreeView) {
+      // the tree loads its own levels through /api/tree
+      treeReload++;
+      loading = false;
+      return;
+    }
     const version = ++loadVersion;
     loading = true;
     try {
@@ -421,6 +431,7 @@
     <h1>{meta?.doctype.label || doctypeLabel(doctype)}</h1>
     {#if allowedViews.length > 1}
       <div class="view-switcher">
+        {#if allowedViews.includes("tree")}<button class="btn icon" class:active={currentView === "tree"} aria-pressed={currentView === "tree"} onclick={() => setView("tree")} title={__("Tree")} aria-label={__("Tree")}><Icon name="list-tree" size={14} /></button>{/if}
         {#if allowedViews.includes("list")}<button class="btn icon" class:active={currentView === "list"} aria-pressed={currentView === "list"} onclick={() => setView("list")} title={__("List")} aria-label={__("List")}><Icon name="list" size={14} /></button>{/if}
         {#if allowedViews.includes("calendar")}<button class="btn icon" class:active={currentView === "calendar"} aria-pressed={currentView === "calendar"} onclick={() => setView("calendar")} title={__("Calendar")} aria-label={__("Calendar")}><Icon name="calendar" size={14} /></button>{/if}
         {#if allowedViews.includes("kanban")}<button class="btn icon" class:active={currentView === "kanban"} aria-pressed={currentView === "kanban"} onclick={() => setView("kanban")} title={__("Kanban")} aria-label={__("Kanban")}><Icon name="square-kanban" size={14} /></button>{/if}
@@ -434,6 +445,9 @@
     {#if meta?.permissions.create}<a class="btn primary" href={`${wsPrefix}/${encodeURIComponent(doctype)}/new`}><Icon name="plus" size={14} />{__("New")}</a>{/if}
   </div>
 
+  {#if isTreeView}
+    <p class="muted small view-notice">{__("Filters and search apply to the list view")}</p>
+  {:else}
   <div class="card list-filters">
     <div class="filter-search">
       <label for="list-search">{__("Search")}</label>
@@ -463,9 +477,12 @@
       <button class="btn" disabled={!hasActiveFilters} onclick={() => updateListState(clearListFilters(currentListState()))}><Icon name="x" size={14} />{__("Clear filters")}</button>
     </div>
   </div>
+  {/if}
 
   {#if meta}
-    {#if currentView === "calendar" && settings.calendar}
+    {#if isTreeView}
+      <TreeView {meta} {doctype} {wsPrefix} reloadKey={treeReload} />
+    {:else if currentView === "calendar" && settings.calendar}
       <CalendarView {rows} {meta} {doctype} {wsPrefix} calendar={settings.calendar} viewYear={calendarYear} viewMonth={calendarMonth} onMonthChange={changeMonth} />
     {:else if currentView === "kanban" && settings.kanban}
       {#if total > rows.length}<div class="view-notice muted small">{__("Showing the first {0} of {1} records; narrow the filters to see the rest", [rows.length, total])}</div>{/if}

@@ -14,20 +14,23 @@ export interface ListUrlState {
 
 type ListViewSettings = { views?: string[]; calendar?: { field?: string }; kanban?: { field?: string }; gantt?: { startField?: string; endField?: string } };
 
-function viewIsConfigured(view: string, settings?: ListViewSettings): boolean {
+function viewIsConfigured(view: string, settings?: ListViewSettings, isTree?: boolean): boolean {
   if (view === "calendar") return !!settings?.calendar?.field;
   if (view === "kanban") return !!settings?.kanban?.field;
   if (view === "gantt") return !!(settings?.gantt?.startField && settings.gantt.endField);
+  if (view === "tree") return !!isTree;
   return true;
 }
 
-export function resolveAllowedViews(settings?: ListViewSettings): string[] {
+export function resolveAllowedViews(settings?: ListViewSettings, isTree?: boolean): string[] {
   if (settings?.views && settings.views.length > 0) {
     // An explicit list still has to meet the same configuration requirements as
     // the derived one, so a view never gets a button that silently does nothing.
-    return settings.views.filter((view) => viewIsConfigured(view, settings));
+    return settings.views.filter((view) => viewIsConfigured(view, settings, isTree));
   }
-  const views = ["list"];
+  // A hierarchy reads as a hierarchy first: the tree comes before the flat
+  // list, and so is what a DocType with `isTree` opens on.
+  const views = isTree ? ["tree", "list"] : ["list"];
   if (settings?.calendar?.field) views.push("calendar");
   if (settings?.kanban?.field) views.push("kanban");
   if (settings?.gantt?.startField && settings.gantt.endField) views.push("gantt");
@@ -47,8 +50,10 @@ export function resolveActiveView(
   if (storedView && allowedViews.includes(storedView)) {
     return storedView;
   }
-  if (isMobile && allowedViews.includes("cards")) {
-    return "cards";
+  if (isMobile) {
+    // A tree is already a phone-shaped layout: one column of indented rows.
+    if (allowedViews.includes("tree")) return "tree";
+    if (allowedViews.includes("cards")) return "cards";
   }
   return allowedViews[0] || "list";
 }

@@ -34,6 +34,10 @@ func (r *Registry) ApplyTrees() {
 			continue
 		}
 		pf := d.TreeParentField()
+		// The default is written back, so everything downstream — the desk's
+		// meta, the typings, a controller — reads the parent field by name
+		// instead of having to derive it.
+		d.ParentField = pf
 		added := false
 		if pf != "" && d.Field(pf) == nil {
 			label := d.Label

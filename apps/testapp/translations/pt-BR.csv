@@ -19,6 +19,7 @@ In progress,Em andamento,# testapp.doctypes.project.project.doctype
 Invalid dates,Datas inválidas,# apps/testapp/doctypes/project/project.controller.ts:7
 Invalid due date,Prazo inválido,# apps/testapp/doctypes/task/task.controller.ts:24
 Invalid milestone,Marco inválido,# apps/testapp/doctypes/project/project.controller.ts:17
+Is Group,É grupo,# testapp.doctypes.task_category.task_category.doctype
 Low,Baixa,# testapp.doctypes.task.task.doctype
 Medium,Média,# testapp.doctypes.task.task.doctype
 Milestone {0} cannot be completed before the project starts.,O marco {0} não pode ser concluído antes do início do projeto.,# apps/testapp/doctypes/project/project.controller.ts:16
@@ -29,6 +30,7 @@ Open Tasks,Tarefas Abertas,# testapp workspace
 Order,Pedido,# testapp.doctypes.pedido.pedido.doctype
 Overdue,Atrasada,# testapp.doctypes.task.task.doctype
 Overview,Visão Geral,# testapp workspace
+Parent Task Category,Categoria de tarefa pai,# testapp.doctypes.task_category.task_category.doctype
 Pending Approval,Aguardando Aprovação,# testapp.workflows.pedido_approval.workflow
 Planned,Planejado,# apps/testapp/print/project_summary.print.ts:11
 Planning,Planejamento,# testapp workspace
@@ -47,6 +49,7 @@ Start date,Data de início,# apps/testapp/print/project_summary.print.ts:22
 Status,Status,# apps/testapp/print/project_summary.print.ts:21
 Submit for Approval,Enviar para Aprovação,# testapp.workflows.pedido_approval.workflow
 Task,Tarefa,# testapp.doctypes.task.task.doctype
+Task Category,Categoria de tarefa,# testapp.doctypes.task_category.task_category.doctype
 Tasks,Tarefas,# apps/testapp/workspaces/projects.workspace.ts:32
 Tasks by Status,Tarefas por Status,# testapp workspace
 Test App: Projects,App de Teste: Projetos,# testapp app
