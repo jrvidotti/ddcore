@@ -324,3 +324,23 @@ func TestImportDocIsAdminOnly(t *testing.T) {
 		t.Fatal("an ordinary user must not import")
 	}
 }
+
+// Everything else a load writes is history, but a role is a live grant on this
+// site from the moment it lands — and skipping the hooks skipped the audit the
+// User controller writes.
+func TestImportDocAuditsTheAccessItGrants(t *testing.T) {
+	e := setupImport(t)
+	doc := Doc{"doctype": "User", "id": "importado@x.com", "email": "importado@x.com",
+		"full_name": "Importado", "enabled": true,
+		"roles": []any{map[string]any{"doctype": "Has Role", "id": "hr1", "role": "Operador"}}}
+	if err := importAs(t, e, "Admin", doc); err != nil {
+		t.Fatal(err)
+	}
+	got := scalar(t, e, `SELECT count(*) FROM tab_audit_event WHERE action = 'role.assign' AND target_id = $1`, "importado@x.com")
+	if got != int64(1) {
+		t.Fatalf("role.assign events = %v", got)
+	}
+	if d := scalar(t, e, `SELECT detail::text FROM tab_audit_event WHERE action = 'role.assign' AND target_id = $1`, "importado@x.com"); !strings.Contains(d.(string), "import") {
+		t.Fatalf("detail = %v; the event should say where the grant came from", d)
+	}
+}

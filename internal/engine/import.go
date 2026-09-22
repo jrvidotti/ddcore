@@ -121,7 +121,39 @@ func (c *Ctx) ImportDoc(doc Doc, opts ImportOpts) (*ImportResult, error) {
 	if err := c.markNotificationsDone(d, doc, now); err != nil {
 		return nil, err
 	}
+	if err := c.auditImportedPrivileges(d, doc); err != nil {
+		return nil, err
+	}
 	return res, nil
+}
+
+// auditImportedPrivileges records the access a load hands out. Everything else
+// an import writes is history, but a role, a scope or a share is a live grant
+// on *this* site from the moment it lands — and skipping the hooks skipped the
+// audit the User controller would have written. The caches that answer those
+// questions are dropped for the same reason.
+func (c *Ctx) auditImportedPrivileges(d *meta.DocType, doc Doc) error {
+	switch d.Name {
+	case "User":
+		for _, row := range doc.Children("roles") {
+			if role := row.Str("role"); role != "" {
+				if err := c.Audit("role.assign", "User", doc.ID(), map[string]any{"role": role, "source": "import"}); err != nil {
+					return err
+				}
+			}
+		}
+	case "User Permission":
+		if err := c.auditUserPermissionGrant(doc); err != nil {
+			return err
+		}
+		c.invalidateUserPermissionCache(doc)
+	case shareDoctype:
+		if err := c.auditShareSaved(nil, doc); err != nil {
+			return err
+		}
+		c.sharesChanged(doc.Str("user"))
+	}
+	return nil
 }
 
 // canImport keeps the path with whoever administers the site. A scoped user is
