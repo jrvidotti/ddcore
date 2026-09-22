@@ -176,3 +176,25 @@ func jsonHas(raw []byte, key string) (any, bool) {
 	v, ok := m[key]
 	return v, ok
 }
+
+// The url is what a browser fetches, so it is the url that decides whether the
+// bytes could run here — a record may carry any file_name it likes.
+func TestUnsafePublicExtJudgesTheStoredName(t *testing.T) {
+	cases := []struct {
+		names []string
+		bad   bool
+	}{
+		{[]string{"public/evil.html", "innocent.txt"}, true},
+		{[]string{"public/x.bin", "report.HTML"}, true},
+		{[]string{"public/x.svg"}, true},
+		{[]string{"public/x.ph p"}, true},
+		{[]string{"public/x.verylongextension"}, true},
+		{[]string{"public/nota.pdf", "nota.pdf"}, false},
+		{[]string{"public/noext"}, false},
+	}
+	for _, tc := range cases {
+		if bad, _ := unsafePublicExt(tc.names...); bad != tc.bad {
+			t.Fatalf("%v: bad = %v, want %v", tc.names, bad, tc.bad)
+		}
+	}
+}

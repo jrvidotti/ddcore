@@ -436,3 +436,26 @@ func TestAttachmentPathKeepsPublicAndPrivateApart(t *testing.T) {
 		t.Fatalf("fallback = %q", got)
 	}
 }
+
+func TestImportFlagsAfterPositional(t *testing.T) {
+	fs, o := importFlags()
+	if err := parseFlags(fs, []string{"export/2026", "--dry-run", "--batch", "50", "--only", "Project,Task"}); err != nil {
+		t.Fatal(err)
+	}
+	if fs.NArg() != 1 || fs.Arg(0) != "export/2026" {
+		t.Fatalf("args = %v", fs.Args())
+	}
+	if !o.dryRun || o.batch != 50 || o.only != "Project,Task" {
+		t.Fatalf("opts = %+v", o)
+	}
+}
+
+func TestSplitListTrimsAndDropsEmpties(t *testing.T) {
+	got := splitList(" Project , , Task ")
+	if len(got) != 2 || got[0] != "Project" || got[1] != "Task" {
+		t.Fatalf("splitList = %#v", got)
+	}
+	if splitList("  ") != nil {
+		t.Fatal("an empty list is nil, not one empty name")
+	}
+}

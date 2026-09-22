@@ -32,6 +32,29 @@ import (
 var dangerousExt = map[string]bool{".html": true, ".htm": true, ".svg": true, ".xhtml": true,
 	".xml": true, ".js": true, ".mjs": true, ".wasm": true, ".shtml": true}
 
+// unsafePublicExt applies the upload handler's rule to an imported public
+// file: an extension a browser would execute on this origin, one with a
+// character outside [a-z0-9], an empty one or an implausibly long one. Upload
+// rewrites such a name to .bin because it chooses the stored name; an import
+// keeps the url it is given, so it has to refuse instead.
+func unsafePublicExt(names ...string) (bool, string) {
+	for _, name := range names {
+		ext := strings.ToLower(filepath.Ext(name))
+		switch {
+		case ext == "":
+			continue
+		case dangerousExt[ext], ext == ".", len(ext) > 10:
+			return true, ext
+		}
+		for _, r := range ext[1:] {
+			if !(r >= 'a' && r <= 'z' || r >= '0' && r <= '9') {
+				return true, ext
+			}
+		}
+	}
+	return false, ""
+}
+
 // importAttachments loads the files one document carries. It returns how many
 // it wrote; a file already on the site is left alone, so a second run neither
 // duplicates the row nor rewrites the bytes.
@@ -57,8 +80,14 @@ func (c *Ctx) importAttachments(a ImportArgs, src *ImportSource, stage importSta
 		if !ok {
 			return n, notes, cerr.Validation("%s is not a file url this site can hold", f.FileURL)
 		}
-		if strings.HasPrefix(key, "public/") && dangerousExt[strings.ToLower(filepath.Ext(f.FileName))] {
-			return n, notes, cerr.Validation("%s is public and would be served as active content from this site", f.FileURL)
+		if strings.HasPrefix(key, "public/") {
+			// What decides how a browser treats the bytes is the url it
+			// fetches, not the name the record carries, so the url is what is
+			// judged — and the name too, since it reaches the browser in the
+			// Content-Disposition of a download.
+			if bad, ext := unsafePublicExt(key, f.FileName); bad {
+				return n, notes, cerr.Validation("%s is public and %q would be served as active content from this site", f.FileURL, ext)
+			}
 		}
 		exists, err := c.idExists("File", f.ID)
 		if err != nil {

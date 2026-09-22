@@ -47,6 +47,7 @@ Usage: ddcore <command> [options]
   eval        run loose TS: ddcore eval 'ddcore.db.count("User")' [--commit]
   demo        seed example data (<app>.services.demo.generate, idempotent)
   export      export a DocType (or --all) to NDJSON/CSV with a manifest
+  import      load an export directory into this site (run: ddcore import)
   jobs        inspect, retry, cancel and purge the queue (run: ddcore jobs)
   webhooks    list and replay outgoing webhook deliveries (run: ddcore webhooks)
   audit       inspect and purge administrative audit events (run: ddcore audit)
@@ -104,6 +105,8 @@ func main() {
 		err = cmdAPIKey(args)
 	case "mcp":
 		err = cmdMCP(args)
+	case "import":
+		err = cmdImport(args)
 	case "export":
 		err = cmdExport(args)
 	case "demo":

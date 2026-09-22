@@ -387,3 +387,23 @@ func (c *Ctx) sameAsStored(doctype string, doc Doc) (bool, error) {
 	}
 	return true, nil
 }
+
+// ImportRunErrors are the lines a run could not load.
+func (e *Engine) ImportRunErrors(ctx context.Context, runID string, limit int) ([]ImportError, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	rows, err := db.Select(ctx, e.DB.Pool, `SELECT doctype, source_id, line, phase, message
+		FROM ddcore_import_error WHERE run_id = $1 ORDER BY id LIMIT $2`, runID, limit)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]ImportError, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, ImportError{
+			Doctype: db.Str(r["doctype"]), ID: db.Str(r["source_id"]),
+			Line: int(toFloat(r["line"])), Phase: db.Str(r["phase"]), Message: db.Str(r["message"]),
+		})
+	}
+	return out, nil
+}
