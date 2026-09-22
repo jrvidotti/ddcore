@@ -96,7 +96,9 @@ layer entirely: `ddcore.db.sql` and a patch's SQL. What they write is what the
 column gets.
 
 Filters: `{ field: value, other: [">", 10] }` or `[["field", "=", v], ["Child Table", "field", ">", v]]`.
-Operators: `= != > >= < <= like not like in not in between is set not set`.
+Operators: `= != > >= < <= like not like in not in between is set not set`, plus the tree
+operators `descendants of`, `descendants of (inclusive)`, `not descendants of`, `ancestors of`
+and `not ancestors of` on a tree DocType's `id` or a Link to one (see `trees`).
 `fields` accepts aggregates: `"count(id) as n"`, `"sum(amount) as total"`.
 
 ## Tests

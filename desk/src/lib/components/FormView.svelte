@@ -3,6 +3,7 @@
   // toolbar (save/submit/cancel/amend/delete), form-script buttons, sidebar.
   import { createForm, FormController, type Button } from "$lib/form.svelte";
   import { isLayout, selectLabels, selectOptions, type Field } from "$lib/meta";
+  import { treeParentQuery } from "./views/tree-state";
   import Control from "$lib/controls/Control.svelte";
   import Grid from "$lib/controls/Grid.svelte";
   import Icon from "./Icon.svelte";
@@ -196,6 +197,17 @@
     if (next !== `${page.url.pathname}${page.url.search}${page.url.hash}`) {
       goto(next, { replaceState: true, noScroll: true, keepFocus: true });
     }
+  }
+
+  /**
+   * A tree's parent field offers groups only, never the document itself or one
+   * of its descendants (DAT-07) — the three rules the server enforces on save,
+   * applied here so the picker does not offer what the save would refuse. An
+   * app's own setQuery for the field wins over it.
+   */
+  function parentQuery(f: Field) {
+    if (!frm || !frm.meta.doctype.isTree || f.fieldname !== frm.meta.doctype.parentField) return undefined;
+    return () => treeParentQuery(frm!.doc);
   }
 
   const statusField = $derived(frm?.meta.doctype.fields.find((f) => f.fieldname === "status"));
@@ -465,7 +477,7 @@
                           <div class="field">{@html f.options || ""}</div>
                         {:else}
                           <Control field={f} value={frm.doc[f.fieldname!]} onchange={(v) => frm?.setValue(f.fieldname!, v)} doc={frm.doc}
-                            readOnly={!frm.isFieldEditable(f)} mandatory={frm.isFieldMandatory(f)} error={frm.fieldErrors[f.fieldname!] || ""} query={frm.queries.get(f.fieldname!)}
+                            readOnly={!frm.isFieldEditable(f)} mandatory={frm.isFieldMandatory(f)} error={frm.fieldErrors[f.fieldname!] || ""} query={frm.queries.get(f.fieldname!) || parentQuery(f)}
                             buttons={frm.fieldButtons[f.fieldname!] || []} />
                         {/if}
                       </div>

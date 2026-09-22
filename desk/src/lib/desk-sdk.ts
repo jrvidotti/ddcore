@@ -11,7 +11,7 @@ import { addDays, addMonths, monthEnd, monthStart, today } from "./datetime";
 import { getRememberedWorkspace } from "./components/sidebar-workspace";
 
 export type BaseDoc = Record<string, any>;
-export type DeskViewMode = "list" | "calendar" | "cards" | "kanban" | "gantt";
+export type DeskViewMode = "list" | "calendar" | "cards" | "kanban" | "gantt" | "tree";
 
 export interface CalendarViewOptions<T extends BaseDoc = BaseDoc> {
   /** Required: Date or Datetime field to plot records on the calendar */

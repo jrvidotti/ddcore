@@ -18,12 +18,35 @@ type Filter struct {
 	// one group does. It is how the framework ORs its own permission branches
 	// (a role grant or a document share) and is never parsed from a request.
 	Any [][]Filter
+	// Tree is the hierarchy a tree operator walks (DAT-07). The caller resolves
+	// it from the meta — the column being filtered is a tree's own id or a Link
+	// pointing at one — so a request never names a table itself.
+	Tree *TreeRef
+}
+
+// TreeRef is the table a tree operator recurses over: rows are joined from
+// ParentCol to the document key, `id`.
+type TreeRef struct {
+	Table     string
+	ParentCol string
+}
+
+// TreeOps are the operators that walk a hierarchy. Each needs Filter.Tree.
+var TreeOps = map[string]bool{
+	"descendants of": true, "descendants of (inclusive)": true, "not descendants of": true,
+	"ancestors of": true, "not ancestors of": true,
 }
 
 var validOps = map[string]string{
 	"=": "=", "!=": "<>", ">": ">", ">=": ">=", "<": "<", "<=": "<=",
 	"like": "ILIKE", "not like": "NOT ILIKE", "in": "IN", "not in": "NOT IN",
-	"between": "BETWEEN", "is": "IS", "descendants of": "=", "set": "set", "not set": "not set",
+	"between": "BETWEEN", "is": "IS", "set": "set", "not set": "not set",
+	// The tree operators render as a recursive subquery, not as an SQL
+	// operator; the value here only marks them valid. Before 0.17 "descendants
+	// of" was mapped to "=", which answered a hierarchy question with an
+	// exact match — silently wrong rather than refused.
+	"descendants of": "tree", "descendants of (inclusive)": "tree", "not descendants of": "tree",
+	"ancestors of": "tree", "not ancestors of": "tree",
 }
 
 var identRe = regexp.MustCompile(`^[a-z_][a-z0-9_]*$`)
@@ -89,6 +112,15 @@ func (b *Builder) Where(filters []Filter, col func(field string) string) (string
 		if !ok {
 			return "", fmt.Errorf("invalid operator: %q", f.Op)
 		}
+		switch {
+		case TreeOps[op]:
+			w, err := b.treeWhere(c, op, f)
+			if err != nil {
+				return "", err
+			}
+			parts = append(parts, w)
+			continue
+		}
 		switch op {
 		case "in", "not in":
 			vals, ok := f.Value.([]any)
@@ -147,6 +179,87 @@ func (b *Builder) Where(filters []Filter, col func(field string) string) (string
 		return "", nil
 	}
 	return strings.Join(parts, " AND "), nil
+}
+
+// treeWhere renders a tree operator: the set of ids the hierarchy answers with
+// becomes a recursive subquery, and the filtered column is tested against it.
+//
+// An empty value renders FALSE (or TRUE for a negated operator), the same rule
+// an empty `in` follows: no root means no descendants to match.
+func (b *Builder) treeWhere(c, op string, f Filter) (string, error) {
+	if f.Tree == nil {
+		return "", fmt.Errorf("operator %q needs a field that is a tree DocType's id or a Link to one", op)
+	}
+	var roots []string
+	switch v := f.Value.(type) {
+	case nil:
+	case []any:
+		for _, x := range v {
+			if s := Str(x); s != "" {
+				roots = append(roots, s)
+			}
+		}
+	case []string:
+		for _, s := range v {
+			if s != "" {
+				roots = append(roots, s)
+			}
+		}
+	default:
+		// One id, never comma-split: a document key may contain a comma.
+		if s := Str(v); s != "" {
+			roots = append(roots, s)
+		}
+	}
+	negated := strings.HasPrefix(op, "not ")
+	if len(roots) == 0 {
+		if negated {
+			return "TRUE", nil
+		}
+		return "FALSE", nil
+	}
+	set := b.treeSet(f.Tree, op, roots)
+	if negated {
+		// Frappe's ifnull semantics: a row with no value is outside the
+		// subtree, so a negated operator keeps it.
+		return fmt.Sprintf("(%s IS NULL OR %s::text = '' OR %s NOT IN (%s))", c, c, c, set), nil
+	}
+	return fmt.Sprintf("%s IN (%s)", c, set), nil
+}
+
+// treeSet is the recursive subquery listing the ids an operator selects.
+//
+// UNION — not UNION ALL — is what makes it terminate: each id enters the result
+// once, so a cycle (rows written by raw SQL, or a hierarchy built before the
+// DocType declared isTree) stops instead of recursing forever.
+func (b *Builder) treeSet(t *TreeRef, op string, roots []string) string {
+	tab, parent, key := Ident(t.Table), Ident(t.ParentCol), Ident("id")
+	arg := b.Arg(roots)
+	switch op {
+	case "ancestors of", "not ancestors of":
+		return fmt.Sprintf(
+			`WITH RECURSIVE a(id) AS (`+
+				`SELECT n.%[2]s FROM %[1]s n WHERE n.%[3]s = ANY(%[4]s) AND COALESCE(n.%[2]s::text, '') <> '' `+
+				`UNION SELECT n.%[2]s FROM %[1]s n JOIN a ON n.%[3]s = a.id WHERE COALESCE(n.%[2]s::text, '') <> ''`+
+				`) SELECT a.id FROM a`,
+			tab, parent, key, arg)
+	case "descendants of (inclusive)":
+		// Seeded with the values themselves, so the inclusive form still
+		// matches an id that no row answers to — the same as `in`.
+		return fmt.Sprintf(
+			`WITH RECURSIVE d(id) AS (`+
+				`SELECT unnest(%[4]s::text[]) `+
+				`UNION SELECT n.%[3]s FROM %[1]s n JOIN d ON n.%[2]s = d.id`+
+				`) SELECT d.id FROM d`,
+			tab, parent, key, arg)
+	default: // "descendants of", "not descendants of"
+		return fmt.Sprintf(
+			`WITH RECURSIVE d(id) AS (`+
+				`SELECT n.%[3]s FROM %[1]s n WHERE n.%[2]s = ANY(%[4]s) `+
+				`UNION SELECT n.%[3]s FROM %[1]s n JOIN d ON n.%[2]s = d.id`+
+				`) SELECT d.id FROM d`,
+			tab, parent, key, arg)
+	}
 }
 
 // ParseFilters accepts the JSON shapes `[[f,op,v],...]`, `[[f,v],...]`,

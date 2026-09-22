@@ -216,6 +216,10 @@ export const api = {
   docMethod: (doctype: string, id: string, method: string, args: any = {}) =>
     request("POST", `/api/resource/${encodeURIComponent(doctype)}/${encodeURIComponent(id)}/${encodeURIComponent(method)}`, args),
   call: (path: string, args: any = {}) => request("POST", `/api/method/${path}`, args),
+  /** One level of a tree DocType (DAT-07); an empty parent asks for the roots. */
+  treeChildren: (doctype: string, parent = "", limit = 500) =>
+    request<{ nodes: { id: string; title: string; parent: string; is_group: boolean; children: number }[]; hasMore: boolean }>(
+      "GET", `/api/tree/${encodeURIComponent(doctype)}` + q({ parent, limit })),
   linkSearch: (doctype: string, txt: string, filters?: any, limit = 20) => request<any[]>("GET", "/api/search/link" + q({ doctype, txt, filters, limit })),
   globalSearch: (txt: string, limit = 20) =>
     request<{ doctype: string; label: string; id: string; title: string }[]>("GET", "/api/search/global" + q({ txt, limit })),

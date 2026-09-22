@@ -49,6 +49,10 @@ different DocType.
   `options` is the `allow` DocType. With two such fields, both must hold allowed values.
 - **Empty is out of scope.** A document whose restricted link is empty is hidden and
   rejected, so a user scoped to company A cannot see unassigned records.
+- **A tree `allow` DocType covers its branch.** When the DocType named by `allow` is declared
+  `isTree`, a rule for one value allows that document and every descendant of it, on the tree
+  itself and on every Link into it. "Territory: Brazil" is about Brazil and everything in it.
+  See `trees`.
 - **A DocType with no link to the `allow` DocType** is not restricted by that rule.
 - **Child tables**: writes and direct reads also check the `Link` fields of every child
   row, under the parent's `applicable_for`.

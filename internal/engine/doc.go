@@ -454,6 +454,10 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 			return nil, err
 		}
 	}
+	// before any row lock, so every tree writer queues in the same order
+	if err := c.lockTree(d); err != nil {
+		return nil, err
+	}
 	doc["__islocal"] = true
 	now := time.Now()
 	doc["owner"], doc["creation"], doc["modified"], doc["modified_by"] = c.User, now, now, c.User
@@ -470,6 +474,10 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 		return nil, err
 	}
 	if err := c.runHook(d, "beforeSave", doc, nil); err != nil {
+		return nil, err
+	}
+	// after the hooks: a parent a hook set is checked like one the caller sent
+	if err := c.checkTree(d, doc, nil, opts); err != nil {
 		return nil, err
 	}
 	if doc.Docstatus() == 1 {
@@ -556,6 +564,11 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 	}
 	if d.Name == "Audit Event" {
 		return nil, cerr.Permission("Audit Event records are immutable and cannot be modified")
+	}
+	// the hierarchy first, then the row: a tree's structural writes take the
+	// same two locks in the same order, so they queue instead of deadlocking.
+	if err := c.lockTree(d); err != nil {
+		return nil, err
 	}
 	// FOR UPDATE: subsequent callers wait here and only then compare the
 	// timestamp, instead of reading a version that is actively being modified.
@@ -650,6 +663,9 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 		if err := c.runHook(d, "beforeCancel", doc, before); err != nil {
 			return nil, err
 		}
+	}
+	if err := c.checkTree(d, doc, before, opts); err != nil {
+		return nil, err
 	}
 	if !c.IgnorePermissions() {
 		if ok, err := c.scopeAllows(d, doc, ptype); err != nil {
@@ -888,6 +904,30 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 	if len(values) == 0 {
 		return modified, nil
 	}
+	// dbSet writes columns without hooks or validation, which is the point of
+	// it — except for the two columns that hold a hierarchy together. Left
+	// unchecked here, one call could put a subtree under itself and every
+	// later query over it would be wrong.
+	if d.IsTree {
+		_, movesParent := values[d.TreeParentField()]
+		_, movesGroup := values[meta.IsGroupField]
+		if movesParent || movesGroup {
+			if err := c.lockTree(d); err != nil {
+				return modified, err
+			}
+			stored, err := c.GetDocIgnoringPerms(d.Name, name)
+			if err != nil {
+				return modified, err
+			}
+			merged := stored.Clone()
+			for k, v := range values {
+				merged[k] = v
+			}
+			if err := c.checkTree(d, merged, stored, SaveOpts{}); err != nil {
+				return modified, err
+			}
+		}
+	}
 	if !c.IgnorePermissions() {
 		// scope: neither the stored document nor the written values may be out
 		// of the user's scope, as for Save
@@ -1041,6 +1081,9 @@ func (c *Ctx) Delete(doctype, name string, ignorePerms, force bool) error {
 	if d.IsSingle {
 		return cerr.Validation("Single DocTypes cannot be deleted or renamed")
 	}
+	if err := c.lockTree(d); err != nil {
+		return err
+	}
 	doc, err := c.GetDocIgnoringPerms(doctype, name)
 	if err != nil {
 		return err
@@ -1077,6 +1120,11 @@ func (c *Ctx) Delete(doctype, name string, ignorePerms, force bool) error {
 		return cerr.Validation("Cancel {0} {1} before deleting", c.T(d.Label), name)
 	}
 	if err := c.runHook(d, "onTrash", doc, nil); err != nil {
+		return err
+	}
+	// after onTrash, so a controller may still move or delete the children
+	// itself; never skipped by force, which would orphan them.
+	if err := c.checkTreeDelete(d, name); err != nil {
 		return err
 	}
 	if !force {
@@ -1206,6 +1254,9 @@ func (c *Ctx) Rename(doctype, oldID, newID string) (string, error) {
 	}
 	if ok, _ := c.idExists(doctype, newID); ok {
 		return "", cerr.Duplicate("{0} {1} already exists", c.T(d.Label), newID)
+	}
+	if err := c.lockTree(d); err != nil {
+		return "", err
 	}
 	if err := c.runHook(d, "beforeRename", doc, nil); err != nil {
 		return "", err

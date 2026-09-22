@@ -180,14 +180,16 @@ divider to that field's standard filter; choosing one sends its `filters` instea
 the URL carries its `value` (`?status=overdue`). Filters only reach columns, so a sub-state computed
 from other documents has to be stored on the document to be filterable.
 
-### Views: Calendar, Kanban, Gantt and Cards
+### Views: Tree, Calendar, Kanban, Gantt and Cards
 
 Besides the table, a list can offer other views of the same filtered rows. A segmented switcher in
 the list header shows the views, and the choice is kept in the URL (`?view=kanban`) and per DocType
 in the browser. A view appears once it is configured: `calendar` needs its `field`, `kanban` its
 `field`, and `gantt` both `startField` and `endField`; `list` and `cards` are always available.
-`views` sets the order, or a subset, and is filtered by the same rule — a view listed there but
-never configured is dropped rather than shown as a button that falls back to the table:
+`tree` needs nothing configured here but a DocType declared `isTree`, and comes first for one, so
+a hierarchy opens as a hierarchy (see `trees`). `views` sets the order, or a subset, and is
+filtered by the same rule — a view listed there but never configured is dropped rather than shown
+as a button that falls back to the table:
 
 ```ts
 defineListView<Task>("Task", {

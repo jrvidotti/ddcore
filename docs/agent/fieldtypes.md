@@ -107,7 +107,7 @@ permlevel, renamedFrom, convert`
 defineDoctype({
   name: "Contract", module: "Sales", label: "Contract", idLabel: "Contract No.",
   idGeneration: { series: "CTR-.YYYY.-.####" } | { field: "code" } | { format: "{index}-{period}" } | { hash: true } | { prompt: true },
-  submittable: true, isChild: false, trackChanges: true, allowRename: true, renamedFrom: "Old Name",
+  submittable: true, isChild: false, isTree: false, trackChanges: true, allowRename: true, renamedFrom: "Old Name",
   titleField: "id", searchFields: ["id", "tax_id"], globalSearch: true, sortField: "modified", sortOrder: "desc", icon: "building-2",
   uniqueKeys: [{ name: "customer_number", fields: ["customer", "number"] }],
   fields: [...],
@@ -130,6 +130,10 @@ list's id column instead of "ID", and it labels the id when it is asked for (`id
 or renamed. It changes display only: filters, `orderBy`, the API and every query still say
 `id`. Left out, the column is headed "ID". To hide the column rather than relabel it, see
 `idColumn` in `form-api`.
+
+`isTree` makes the documents a hierarchy: the DocType gets a self-referencing Link for the
+parent (`parent_<snake(name)>`, or the one `parentField` names) and an `is_group` Check, and
+the engine keeps the hierarchy from folding onto itself. See `trees`.
 
 `allowRename` is about renaming a *document*; `renamedFrom` is about renaming the *DocType*,
 which moves the table and repoints every stored reference. See `migrations`.

@@ -12,6 +12,35 @@ not every commit that went into it.
 
 ## Unreleased
 
+### Added
+
+- Tree DocTypes (DAT-07): `defineDoctype({ isTree: true })` makes a DocType a hierarchy. It gets a
+  self-referencing Link — `parent_<snake(name)>`, or the `parentField` you name — and an `is_group`
+  Check, both added unless you declare them yourself. The engine keeps the hierarchy honest on
+  every write: the parent must exist and be a group, a document cannot be moved under itself or
+  under one of its own descendants, a group with children stays a group, and deleting a document
+  that still has children is refused with a message that says so (and is not waived by `force`).
+  `dbSet` is checked too when it writes either column. Structural writes on one tree DocType are
+  serialised by an advisory lock, so two concurrent moves cannot weave a cycle between them.
+  See [trees](docs/agent/trees.md).
+- Tree filter operators, usable anywhere filters are — `getList`, REST, reports, the Desk:
+  `descendants of`, `descendants of (inclusive)`, `not descendants of`, `ancestors of` and
+  `not ancestors of`, over a tree's own `id` or over a Link pointing at one. They compile to a
+  recursive query and compose with permissions, scopes and shares like any other filter.
+- A User Permission whose `allow` is a tree DocType now covers the branch below the value it names
+  (SEC-01): "Territory: Brazil" grants Brazil and everything under it, on lists, counts, link
+  search, direct reads and writes. See [scopes](docs/agent/scopes.md).
+- `GET /api/tree/{doctype}?parent=&limit=` returns one level of a hierarchy with each node's
+  readable child count, and the Desk's new **Tree** view is built on it: it is the default view for
+  a tree DocType, expands a branch at a time, links each node to its form and offers "Add child" on
+  a group. A node whose parent the user cannot read is shown as a root.
+
+### Fixed
+
+- `descendants of` was accepted as a filter operator and compiled into `=`, which answered a
+  hierarchy question with an exact match — a wrong result, with no error. It now walks the tree,
+  and naming it on a field that is neither a tree's `id` nor a Link to a tree is refused.
+
 ## 0.17.0 — 2026-09-22
 
 ### Breaking

@@ -299,6 +299,16 @@ export interface DoctypeDef {
   submittable?: boolean;
   isChild?: boolean;
   isSingle?: boolean;
+  /**
+   * A hierarchical DocType (DAT-07): its documents form a tree through a
+   * self-referencing Link — `parentField`, `parent_<snake(name)>` by default —
+   * and only a document with `is_group` set may have children. Both fields are
+   * added for you unless you declare them yourself, which is how you place or
+   * relabel them. See `trees`.
+   */
+  isTree?: boolean;
+  /** The Link field holding the parent; `parent_<snake(name)>` by default. Needs `isTree`. */
+  parentField?: string;
   trackChanges?: boolean;
   allowRename?: boolean;
   titleField?: string;
@@ -356,7 +366,16 @@ export interface ChildDoc extends BaseDoc {
   idx: number;
 }
 
-export type FilterOp = "=" | "!=" | ">" | ">=" | "<" | "<=" | "like" | "not like" | "in" | "not in" | "between" | "is" | "set" | "not set";
+export type FilterOp =
+  | "=" | "!=" | ">" | ">=" | "<" | "<=" | "like" | "not like" | "in" | "not in"
+  | "between" | "is" | "set" | "not set"
+  /**
+   * Tree operators (DAT-07). They address the `id` of a tree DocType or a Link
+   * pointing at one, and the value is one id or a list of them:
+   * `["id", "descendants of", "Brazil"]`, `["territory", "descendants of (inclusive)", "Brazil"]`.
+   */
+  | "descendants of" | "descendants of (inclusive)" | "not descendants of"
+  | "ancestors of" | "not ancestors of";
 export type FilterTuple = [string, FilterOp, any] | [string, any] | [string, string, FilterOp, any];
 export type Filters = FilterTuple[] | Record<string, any>;
 
