@@ -4,12 +4,18 @@
 |---|---|---|
 | Data | text | `length` limits the input |
 | Email | text | an email address; outer spaces are trimmed and the format is validated in the desk and on the server |
-| Small Text / Text / Text Editor | text | textarea (2 / 5 rows) |
+| Small Text / Text | text | textarea (2 / 5 rows) |
+| Text Editor | text | **rich text**: sanitized HTML, edited with a toolbar. See below |
+| Markdown Editor | text | the Markdown source as written, rendered (and sanitized) only for display and print |
+| Code | text | monospace, never trimmed; `options` is the language (`"sql"`, lowercase) |
 | Int | bigint | |
 | Float | double precision | a measurement; `precision` affects display only and the value is never rounded on save |
 | Currency | numeric(21,9) | **rounded on save** to the site's precision; shown with the symbol of `ddcore.json:currency`, grouped as the reader's language does |
 | Percent | numeric(21,9) | a rate: `precision` affects display only, shown with % |
 | Check | boolean | defaults to `false` |
+| Rating | bigint | 0 to `options` stars (1–10, default 5); `null` is "not rated", which is not zero |
+| Duration | bigint | whole seconds, shown as `1d 2h 30m`; `options: ["hideDays", "hideSeconds"]` hides a unit on screen and never changes the value |
+| Color | text | `#rrggbb`, lowercase; `#abc` is expanded and anything else is refused |
 | Date | date | value "YYYY-MM-DD"; a **civil date**, never converted between timezones |
 | Month | date | value "YYYY-MM-01", shown and edited in the locale's month order |
 | Datetime | timestamptz | ISO value; an **instant**, shown in the site's timezone |
@@ -19,11 +25,49 @@
 | Dynamic Link | text | `options: "<the field holding the DocType>"` |
 | Table | (child table) | `options: "Child DocType"` with `isChild: true`; `gridEditMode: "dialog"` turns off inline editing |
 | Attach | text | the file's URL (`/files/..` or `/private/files/..`) |
+| Attach Image | text | an Attach restricted to png, jpg, gif or webp, refused at upload as well as on save; SVG is not one of them, because it carries script |
 | JSON | jsonb | |
 | Password | text | not hashed automatically; never read back through the API, never in Version, never exported. **Not for an integration credential** — see below |
 | Vault | — | virtual field backed by the encrypted vault (`ddcore_vault`); never a column in `tab_<doctype>`, never in Version or export; masked in Desk and API. See [vault.md](vault.md) |
 | Section Break / Tab Break | — | layout; `label`, `collapsible`, `dependsOn` on a Section |
 | HTML | — | `options` is the rendered HTML |
+
+## Rich text
+
+A `Text Editor` value is HTML. The server cleans it on the way in — in the one
+place every write passes through — and stores the cleaned markup, so what the
+database holds is what the API, print, export and the desk all read.
+
+**What survives:** paragraphs, `h1`–`h4`, bold, italic, underline, strike,
+inline code and code blocks, bullet and numbered lists, quotes, horizontal
+rules, links and images. **What is removed:** `style`, event handlers,
+`script`, `iframe`, `svg`, `form`, and `javascript:`/`data:` URLs. Markup
+outside the list is *dropped, not refused*: a paste from a word processor is
+not the author's mistake, and the response carries the value that was kept.
+
+- **An image is a file this site serves** (`/files/…` or `/private/files/…`).
+  An external URL — `https` included — is removed: the PDF renderer fetches a
+  document's images from the server, so an outside address would make the
+  server issue a request the document's author chose.
+- **Links out of the site** get `target="_blank"` and
+  `rel="noopener noreferrer nofollow"`, which is what the desk's editor writes,
+  so a document survives being opened and saved unchanged.
+- **Tables are not allowed in rich text** yet: the editor cannot represent one,
+  and keeping what the editor would drop is how data disappears on the next
+  save. A `Markdown Editor` does have tables.
+- **An emptied editor stores `null`.** Every editor leaves `<p></p>` behind, and
+  `reqd` has to see that as empty.
+
+**Values written before this release are plain text**, and they are read as
+such: `a < b` keeps its `<` and is shown as a paragraph. The conversion is
+written back on the document's next save and is not recorded as a change.
+Nothing else converts, and the column does not change, so there is no
+migration.
+
+`ddcore.db.sql` writes bypass all of this, as they bypass every other field
+rule. The desk sanitizes again before rendering, so a row written that way is
+still safe to display, and a custom print template's `b.richText` block is
+re-cleaned when it renders.
 
 ## Secrets: `ddcore.secret`, `ddcore.vault`, and `Vault` fieldtype
 
@@ -93,12 +137,21 @@ permlevel, renamedFrom, convert`
 - `permlevel`: 0–9, default 0. A field above 0 is read and written only by roles granted that level by a permission row with the same `permlevel`; the server omits it from every response and refuses a change from anyone else. `hidden` and `readOnly` are screen hints and protect nothing. See `field-permissions`.
 
 - `label` and `description` are **catalogue keys**: write them in English. See `i18n`.
-- `width`: `"sm"` | `"md"` | `"lg"` | `"full"`. How much of a form line the control takes: `sm`/`md` a quarter, `lg` a half, `full` the whole line — a form has no columns, its shape comes from the widths. Defaults to `sm` for `Date`, `Month`, `Time`, `Int`, `Percent`; `md` for `Datetime`, `Float`, `Currency`; `full` for `Text`, `Small Text`, `Text Editor`, `JSON`, `Table`, `HTML`; `lg` for every other type. Fields pack a line greedily, aligned so a half-line field never starts in the middle of a quarter. See `form-api`.
+- `width`: `"sm"` | `"md"` | `"lg"` | `"full"`. How much of a form line the control takes: `sm`/`md` a quarter, `lg` a half, `full` the whole line — a form has no columns, its shape comes from the widths. Defaults to `sm` for `Date`, `Month`, `Time`, `Int`, `Percent`, `Rating`, `Color`; `md` for `Datetime`, `Float`, `Currency`, `Duration`; `full` for `Text`, `Small Text`, `Text Editor`, `Markdown Editor`, `Code`, `JSON`, `Table`, `HTML`; `lg` for every other type. Fields pack a line greedily, aligned so a half-line field never starts in the middle of a quarter. See `form-api`.
 - `default`: a literal value, or `"Today"` for Date/Datetime, `"__user"` for the current user.
 - `fetchFrom: "project.assignee"`: copied from the linked document on save. When `readOnly` it always overwrites; otherwise it fills only when empty.
 - `dependsOn`, `readOnlyDependsOn`, `mandatoryDependsOn`: a JS expression over `doc` (`"doc.type == 'PJ'"`) or a field name (truthy). Evaluated in the desk **and** on the server.
 - `optionColors` (Select): `{ Open: "blue", Overdue: "red" }`, keyed by the canonical value — never by its label.
 - `renamedFrom: "old_name"` (or a list, oldest first): the fieldname this field used to have, so `migrate` renames the column instead of adding an empty one beside it. See `migrations`.
+- `options` beyond Link, Table and Select: `Rating` takes the number of stars,
+  `Code` the language, and `Duration` its display flags. None of them are
+  catalogue keys — they are never translated, unlike a Select's options.
+- Changing a field from `Text`, `Small Text` or `Data` to `Text Editor`,
+  `Markdown Editor` or `Code`, or from `Int` to `Duration` or `Rating`, keeps
+  the same column: there is no DDL and no `convert`. `Data` → `Color` or
+  `Attach Image` keeps the column too, but a stored value that is not a colour
+  or an image URL will fail on that document's next save; backfill first, the
+  way `migrations` describes.
 - `convert: { from: "Data" }`: authorises a column-type change `migrate` would otherwise refuse, naming the fieldtype the database still holds. No SQL — a conversion a plain cast cannot express goes through expand → backfill → validate → contract.
 
 ## DocType properties

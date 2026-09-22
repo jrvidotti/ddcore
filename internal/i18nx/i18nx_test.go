@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"testing"
 
 	"github.com/jrvidotti/ddcore/internal/engine"
@@ -214,6 +215,28 @@ func TestCollectPrintTemplate(t *testing.T) {
 	CollectPrintTemplate(s, engine.PrintTemplate{Name: "demo.unlabeled"}, "demo print")
 	want := []string{"Official Receipt"}
 	if got := texts(s); !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+}
+
+// Only a Select's options are display text. A Code field's option is a
+// language, a Rating's is a number of stars and a Duration's are display flags
+// — collecting any of them would demand a translation for "sql" and then show
+// the translated word where a language name belongs.
+func TestCollectDocTypeLeavesNonSelectOptionsAlone(t *testing.T) {
+	d := &meta.DocType{Name: "Note", App: "crm", Label: "Note", Fields: []*meta.Field{
+		{Fieldname: "snippet", Fieldtype: "Code", Label: "Snippet", Options: "sql"},
+		{Fieldname: "score", Fieldtype: "Rating", Label: "Score", Options: float64(5)},
+		{Fieldname: "spent", Fieldtype: "Duration", Label: "Time spent", Options: []any{"hideDays"}},
+		{Fieldname: "state", Fieldtype: "Select", Label: "State", Options: []any{"Open", "Closed"}},
+	}}
+	s := NewSet()
+	CollectDocType(s, d, "crm", "crm doctype")
+	want := []string{"Note", "Snippet", "Score", "Time spent", "State", "Open", "Closed"}
+	got := texts(s)
+	sort.Strings(got)
+	sort.Strings(want)
+	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
 }
