@@ -12,6 +12,8 @@ not every commit that went into it.
 
 ## Unreleased
 
+## 0.17.0 — 2026-09-22
+
 ### Breaking
 
 - The document key is now `id` instead of `name`, everywhere: the column, filters, `fields`,
