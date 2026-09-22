@@ -1439,10 +1439,33 @@ func (c *Ctx) validate(d *meta.DocType, doc Doc, before Doc, opts SaveOpts) erro
 	if err := c.runHook(d, "validate", doc, before); err != nil {
 		return err
 	}
+	return c.validateFields(d, doc, opts, fieldChecks{})
+}
+
+// fieldChecks narrows the structural checks. An ordinary save wants all of
+// them; an import (DAT-01) is loading documents that were already valid
+// somewhere else, and has to keep what it was given rather than recompute it.
+type fieldChecks struct {
+	// skipFetch leaves fetchFrom alone, so a historical value is not
+	// overwritten with what the link says today.
+	skipFetch bool
+	// skipSecretMandatory exempts Password and Vault fields from the mandatory
+	// check: neither is ever exported, so a required one can only fail.
+	skipSecretMandatory bool
+	// deferLink says a Link field is checked after the load instead of now —
+	// a self link, a cycle, or a Dynamic Link. It is asked with the DocType
+	// the field belongs to, so a child table's fields can answer differently.
+	deferLink func(d *meta.DocType, fieldname string) bool
+}
+
+// validateFields is the hook-free half of validate: casting and the structural
+// checks, in the order a save runs them. It is what an import runs, and what
+// validate runs after the app's own validate hook.
+func (c *Ctx) validateFields(d *meta.DocType, doc Doc, opts SaveOpts, checks fieldChecks) error {
 	if err := c.castAll(d, doc); err != nil {
 		return err
 	}
-	if err := c.checkMandatory(d, doc); err != nil {
+	if err := c.checkMandatory(d, doc, checks); err != nil {
 		return err
 	}
 	if err := c.checkEmails(d, doc); err != nil {
@@ -1452,7 +1475,7 @@ func (c *Ctx) validate(d *meta.DocType, doc Doc, before Doc, opts SaveOpts) erro
 		return err
 	}
 	if !opts.IgnoreLinks {
-		if err := c.checkLinks(d, doc); err != nil {
+		if err := c.checkLinks(d, doc, checks); err != nil {
 			return err
 		}
 	}
@@ -1462,7 +1485,7 @@ func (c *Ctx) validate(d *meta.DocType, doc Doc, before Doc, opts SaveOpts) erro
 	if err := c.checkUniqueKeys(d, doc); err != nil {
 		return err
 	}
-	return c.validateChildren(d, doc, opts)
+	return c.validateChildren(d, doc, opts, checks)
 }
 
 func (c *Ctx) checkEmails(d *meta.DocType, doc Doc) error {
@@ -1530,7 +1553,7 @@ func (c *Ctx) fetchFrom(d *meta.DocType, doc Doc) error {
 	return nil
 }
 
-func (c *Ctx) checkMandatory(d *meta.DocType, doc Doc) error {
+func (c *Ctx) checkMandatory(d *meta.DocType, doc Doc, checks fieldChecks) error {
 	var missing []string
 	for _, f := range d.Fields {
 		if f.Fieldname == "" || meta.LayoutTypes[f.Fieldtype] {
@@ -1543,6 +1566,12 @@ func (c *Ctx) checkMandatory(d *meta.DocType, doc Doc) error {
 				return err
 			}
 			req = ok
+		}
+		if checks.skipSecretMandatory && (f.Fieldtype == "Vault" || f.Fieldtype == "Password") {
+			// Neither ever leaves a site: an export drops both. A load cannot
+			// supply what it was never given, so the record reports the
+			// secret as not migrated instead of failing here.
+			continue
 		}
 		if f.Fieldtype == "Vault" {
 			if req && isEmpty(doc[f.Fieldname]) {
@@ -1630,10 +1659,13 @@ func (c *Ctx) checkSelect(d *meta.DocType, doc Doc) error {
 	return nil
 }
 
-func (c *Ctx) checkLinks(d *meta.DocType, doc Doc) error {
+func (c *Ctx) checkLinks(d *meta.DocType, doc Doc, checks fieldChecks) error {
 	for _, f := range d.Fields {
 		v := doc.Str(f.Fieldname)
 		if v == "" {
+			continue
+		}
+		if checks.deferLink != nil && checks.deferLink(d, f.Fieldname) {
 			continue
 		}
 		switch f.Fieldtype {
@@ -1772,7 +1804,7 @@ func (c *Ctx) duplicateErr(d *meta.DocType, doc Doc, err error) error {
 	return cerr.Duplicate("Duplicate value in {0}", c.T(d.Label)).WithTitleKey("Duplicate value")
 }
 
-func (c *Ctx) validateChildren(d *meta.DocType, doc Doc, opts SaveOpts) error {
+func (c *Ctx) validateChildren(d *meta.DocType, doc Doc, opts SaveOpts, checks fieldChecks) error {
 	for _, tf := range d.TableFields() {
 		child, _ := c.St.DocType(tf.OptionsString())
 		rows := doc.Children(tf.Fieldname)
@@ -1784,17 +1816,19 @@ func (c *Ctx) validateChildren(d *meta.DocType, doc Doc, opts SaveOpts) error {
 			if err := c.castAll(child, row); err != nil {
 				return err
 			}
-			if err := c.fetchFrom(child, row); err != nil {
-				return err
+			if !checks.skipFetch {
+				if err := c.fetchFrom(child, row); err != nil {
+					return err
+				}
 			}
-			if err := c.checkMandatory(child, row); err != nil {
+			if err := c.checkMandatory(child, row, checks); err != nil {
 				return cerr.Validation("{0}, row {1}: {2}", c.T(tf.Label), i+1, cerr.From(err).Message).WithTitleKey("Required fields")
 			}
 			if err := c.checkSelect(child, row); err != nil {
 				return err
 			}
 			if !opts.IgnoreLinks {
-				if err := c.checkLinks(child, row); err != nil {
+				if err := c.checkLinks(child, row, checks); err != nil {
 					return err
 				}
 			}
