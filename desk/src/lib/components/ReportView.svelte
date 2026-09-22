@@ -11,6 +11,7 @@
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
   import { deskSDK } from "$lib/desk-sdk";
+  import { isNumericFieldtype } from "$lib/meta";
   import { toCsv, downloadCsv } from "$lib/csv";
   import { reportFiltersFromSearchParams, reportFiltersToSearchParams } from "./report-state";
   import { getRememberedWorkspace } from "./sidebar-workspace";
@@ -75,7 +76,7 @@
       await run();
     } catch (e) { showError(e); }
   });
-  const num = (c: any) => ["Int", "Float", "Currency", "Percent"].includes(c.fieldtype);
+  const num = (c: any) => isNumericFieldtype(c.fieldtype);
   const fmtSummary = (s: any) => (s.datatype === "Currency" ? formatCurrency(s.value) : s.datatype === "Int" ? String(s.value) : formatNumber(s.value));
   function exportCsv() {
     if (!result) return;

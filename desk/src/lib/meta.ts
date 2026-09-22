@@ -133,14 +133,28 @@ export const DEFAULT_FIELD_WIDTH: Record<string, FieldWidth> = {
   Datetime: "md",
   Float: "md",
   Currency: "md",
+  Rating: "sm",
+  Duration: "md",
+  Color: "sm",
   // types that only read well across the whole line
   Text: "full",
   "Small Text": "full",
   "Text Editor": "full",
+  "Markdown Editor": "full",
+  Code: "full",
   JSON: "full",
   Table: "full",
   HTML: "full",
 };
+
+/**
+ * The fieldtypes whose values are numbers, and are therefore read right
+ * aligned in a list, a grid and a report. Duration and Rating are stored as
+ * integers and belong here too.
+ */
+const NUMERIC_FIELDTYPES = new Set(["Int", "Float", "Currency", "Percent", "Duration", "Rating"]);
+
+export const isNumericFieldtype = (fieldtype?: string): boolean => NUMERIC_FIELDTYPES.has(fieldtype ?? "");
 
 /** How many quarters of a form line each width takes. See `form-layout.ts`. */
 export const FIELD_WIDTH_SLOTS: Record<FieldWidth, number> = { sm: 1, md: 1, lg: 2, full: 4 };

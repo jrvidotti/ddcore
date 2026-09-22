@@ -3,6 +3,7 @@
   import { __ } from "$lib/boot.svelte";
   import type { ListViewOptions } from "$lib/desk-sdk";
   import type { Field, Meta } from "$lib/meta";
+  import { isNumericFieldtype } from "$lib/meta";
   import { statusColor, timeAgo } from "$lib/format";
   import { getLinkTitle } from "$lib/titles.svelte";
   import { showIDColumn } from "./id-column";
@@ -22,7 +23,7 @@
   const showIndicatorColumn = $derived(!!settings.indicator ||
     (!columns.some((c) => c.fieldname === statusField?.fieldname) && (!!statusField || !!meta.doctype.submittable)));
   const showID = $derived(showIDColumn(meta.doctype, columns, settings));
-  const num = (f: Field) => ["Int", "Float", "Currency", "Percent"].includes(f.fieldtype);
+  const num = (f: Field) => isNumericFieldtype(f.fieldtype);
   const documentUrl = (id: string) => `${wsPrefix}/${encodeURIComponent(doctype)}/${encodeURIComponent(id)}`;
 </script>
 
@@ -57,6 +58,10 @@
               <a href={`${wsPrefix}/${encodeURIComponent(linkTarget)}/${encodeURIComponent(linkVal)}`} title={linkVal} onclick={(e) => e.stopPropagation()}>{getLinkTitle(linkTarget, linkVal) || linkVal}</a>
             {:else if !showID && c.fieldname === meta.doctype.titleField}
               <a href={documentUrl(r.id)} onclick={(e) => e.stopPropagation()}>{cellText(r, c) || r.id}</a>
+            {:else if c.fieldtype === "Color" && r[c.fieldname!]}
+              <span class="swatch" style:background={r[c.fieldname!]}></span>{cellText(r, c)}
+            {:else if c.fieldtype === "Attach Image" && r[c.fieldname!]}
+              <img class="thumb" src={r[c.fieldname!]} alt="" loading="lazy" />
             {:else if c.fieldname === statusField?.fieldname}
               <span class="badges"><span class="indicator {statusColor(r[c.fieldname!], c)}">{__(r[c.fieldname!])}</span>{#if !showIndicatorColumn}{@render badges(r)}{/if}</span>
             {:else}{cellText(r, c)}{/if}
@@ -83,6 +88,23 @@
 {/snippet}
 
 <style>
+  .swatch {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    margin-right: 6px;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    vertical-align: -1px;
+  }
+  .thumb {
+    width: 28px;
+    height: 28px;
+    object-fit: cover;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    display: block;
+  }
   .badges { display: inline-flex; flex-wrap: wrap; gap: 4px; }
   .sort { border: 0; padding: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
   .sort:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }

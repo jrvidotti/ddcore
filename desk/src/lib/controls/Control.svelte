@@ -8,6 +8,12 @@
   import { currencyPrecision } from "$lib/locale";
   import LinkControl from "./LinkControl.svelte";
   import AttachControl from "./AttachControl.svelte";
+  import RichTextControl from "./RichTextControl.svelte";
+  import MarkdownControl from "./MarkdownControl.svelte";
+  import CodeControl from "./CodeControl.svelte";
+  import DurationControl from "./DurationControl.svelte";
+  import RatingControl from "./RatingControl.svelte";
+  import ColorControl from "./ColorControl.svelte";
   import MonthControl from "./MonthControl.svelte";
   import DateControl from "./DateControl.svelte";
   import { __ } from "$lib/boot.svelte";
@@ -129,10 +135,22 @@
               onkeydown={(e) => e.key === "Enter" && commitNumber()} inputmode="decimal" />
             {#if ft === "Percent"}<span class="muted" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:12px">%</span>{/if}
           </div>
-        {:else if ft === "Small Text" || ft === "Text" || ft === "Text Editor"}
+        {:else if ft === "Small Text" || ft === "Text"}
           <textarea {id} class="input" class:error={!!shownError} readonly={ro} rows={ft === "Small Text" ? 2 : 5} value={value ?? ""} onchange={(e) => onchange((e.target as HTMLTextAreaElement).value || null)}></textarea>
-        {:else if ft === "Attach"}
-          <AttachControl {value} {onchange} {onbusychange} readOnly={ro} mandatory={req} {doc} fieldname={field.fieldname || ""} />
+        {:else if ft === "Text Editor"}
+          <RichTextControl {value} {onchange} readOnly={ro} error={shownError} {id} {doc} fieldname={field.fieldname || ""} />
+        {:else if ft === "Markdown Editor"}
+          <MarkdownControl {value} {onchange} readOnly={ro} error={shownError} {id} rows={inGrid ? 4 : 8} />
+        {:else if ft === "Code"}
+          <CodeControl {value} {onchange} readOnly={ro} error={shownError} {id} language={typeof field.options === "string" ? field.options : ""} rows={inGrid ? 4 : 8} />
+        {:else if ft === "Duration"}
+          <DurationControl {field} {value} {onchange} readOnly={ro} error={shownError} {id} {inGrid} />
+        {:else if ft === "Rating"}
+          <RatingControl {field} {value} {onchange} readOnly={ro} {id} />
+        {:else if ft === "Color"}
+          <ColorControl {value} {onchange} readOnly={ro} error={shownError} {id} />
+        {:else if ft === "Attach" || ft === "Attach Image"}
+          <AttachControl {value} {onchange} {onbusychange} readOnly={ro} mandatory={req} {doc} fieldname={field.fieldname || ""} image={ft === "Attach Image"} />
         {:else if ft === "JSON"}
           <textarea {id} class="input" readonly={ro} rows={4} value={typeof value === "string" ? value : JSON.stringify(value ?? null, null, 2)} onchange={(e) => { try { onchange(JSON.parse((e.target as HTMLTextAreaElement).value)); } catch { onchange((e.target as HTMLTextAreaElement).value); } }}></textarea>
         {:else if ft === "Password"}

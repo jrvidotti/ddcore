@@ -29,6 +29,7 @@ import (
 	"github.com/jrvidotti/ddcore/internal/engine"
 	"github.com/jrvidotti/ddcore/internal/js"
 	"github.com/jrvidotti/ddcore/internal/meta"
+	"github.com/jrvidotti/ddcore/internal/richtext"
 	"github.com/jrvidotti/ddcore/internal/storage"
 )
 
@@ -104,6 +105,9 @@ func New(e *engine.Engine, desk fs.FS) *Server {
 			r.Post("/shares/remove", s.unshareDoc)
 			r.Get("/health/report", s.healthReport)
 			r.Get("/letterheads", s.listLetterHeads)
+			// The desk previews Markdown through the server so the preview and
+			// the printed page come from the same renderer.
+			r.Post("/richtext/markdown", s.renderMarkdown)
 			r.Get("/print/formats/{doctype}", s.printFormats)
 			// Job administration. Every one of these checks the System Manager
 			// role inside the handler, exactly as the health report does; the
@@ -971,6 +975,24 @@ func (s *Server) globalSearch(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
 		limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 		return c.GlobalSearch(r.URL.Query().Get("txt"), limit)
+	})
+}
+
+// renderMarkdown renders a Markdown source the way print will. It reads no
+// document and writes nothing, so a signed-in user is all it asks for.
+func (s *Server) renderMarkdown(w http.ResponseWriter, r *http.Request) {
+	s.run(w, r, func(c *engine.Ctx) (any, error) {
+		var body struct {
+			Text string `json:"text"`
+		}
+		if err := readJSON(r, &body); err != nil {
+			return nil, err
+		}
+		const maxMarkdown = 256 << 10
+		if len(body.Text) > maxMarkdown {
+			return nil, cerr.Validation("The text is too long to preview")
+		}
+		return map[string]string{"html": richtext.Markdown(body.Text)}, nil
 	})
 }
 

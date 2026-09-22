@@ -67,6 +67,13 @@ not every commit that went into it.
 
 ### Changed
 
+- The desk edits rich text with a toolbar (bold, italic, strikethrough, headings, lists,
+  quote, code, link, image), previews Markdown through the server so the preview matches the
+  printed page, and gets controls for `Code` (monospace, Tab indents), `Duration` (one box per
+  unit), `Rating` (stars, keyboard-operable, clearing stores null), `Color` (picker and hex)
+  and `Attach Image` (thumbnail, image files only). A list cell shows rich text as one line of
+  text, a colour as a swatch and an image as a thumbnail, and a version diff compares the text
+  rather than the markup. The editor loads only on a form that has a rich-text field.
 - **`Text Editor` is rich text.** Its value is HTML, cleaned on the way in by an allowlist
   (paragraphs, headings, lists, quotes, code, links and images under `/files/`); scripts,
   styles, event handlers, iframes and external image URLs are removed rather than refused.

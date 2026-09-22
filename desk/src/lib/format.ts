@@ -4,6 +4,9 @@ import { getLinkTitle } from "./titles.svelte";
 import { __ } from "./boot.svelte";
 import { currencyFmt, currencyPrecision, dateFmt, decimalSep, groupSep, currencySymbol, numberFmt, relativeFmt, roundingMode, timezone } from "./locale";
 import { round } from "./round";
+import { htmlToLine } from "./richtext";
+import { formatDuration } from "./controls/duration-format";
+import { ratingMax } from "./controls/rating-state";
 
 export { formatMonth };
 
@@ -48,6 +51,12 @@ export function formatDatetime(v: any): string {
   }).format(d);
 }
 
+/** A Duration's display flags, which never change what is stored. */
+export const durationHides = (f: Partial<Field> | undefined, flag: string): boolean => {
+  const o = f?.options as unknown;
+  return Array.isArray(o) ? o.includes(flag) : o === flag;
+};
+
 export function formatValue(v: any, f?: Partial<Field>): string {
   if (v === null || v === undefined) return "";
   switch (f?.fieldtype) {
@@ -55,6 +64,21 @@ export function formatValue(v: any, f?: Partial<Field>): string {
     case "Percent": return formatNumber(v, f.precision ?? 2) + "%";
     case "Float": return formatNumber(v, f.precision);
     case "Int": return String(Math.round(Number(v)));
+    case "Duration": return formatDuration(v, {
+      hideDays: durationHides(f, "hideDays"), hideSeconds: durationHides(f, "hideSeconds"),
+    });
+    case "Rating": {
+      const max = ratingMax(f.options);
+      const n = Math.max(0, Math.min(max, Math.round(Number(v)) || 0));
+      return "★".repeat(n) + "☆".repeat(max - n);
+    }
+    // a cell is one line: rich text loses its markup, Markdown and code their
+    // line breaks
+    // no sanitizer here: the cell is text, not markup, and stripping the tags
+    // is what makes it text
+    case "Text Editor": return htmlToLine(String(v));
+    case "Markdown Editor":
+    case "Code": return String(v).replace(/\s+/g, " ").trim();
     case "Check": return v ? "✓" : "";
     case "Date": return (f as any)?.options === "month" || (f as any)?.format === "mm/yyyy" ? formatMonth(v) : formatDate(v);
     case "Month": return formatMonth(v);
