@@ -275,3 +275,53 @@ func TestAssembleHTML_PageSize(t *testing.T) {
 		}
 	}
 }
+
+// A richText block is the one place print renders markup instead of escaping
+// it, so it re-cleans what it is handed: a template builds its blocks from
+// anything it can read, including a column an older server wrote.
+func TestRichTextBlocksAreSanitizedAtRender(t *testing.T) {
+	out := RenderBlocks([]Block{
+		{Type: "richText", Title: "Notes", HTML: `<p>keep <strong>this</strong></p><script>alert(1)</script><img src=x onerror=alert(1)>`},
+		{Type: "markdown", Text: "# Heading\n\n<script>alert(1)</script>"},
+		{Type: "pre", Text: "select 1\n  from dual"},
+	})
+	for _, forbidden := range []string{"<script", "onerror", "alert(1)"} {
+		if strings.Contains(out, forbidden) {
+			t.Fatalf("rendered block kept %q: %s", forbidden, out)
+		}
+	}
+	for _, want := range []string{"<strong>this</strong>", "<h1>Heading</h1>", `class="print-pre"`, "select 1\n  from dual", ">Notes<"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("rendered block is missing %q: %s", want, out)
+		}
+	}
+}
+
+// A Text Editor field is a block of its own; printing it through the key/value
+// grid is what used to show literal tags to the reader.
+func TestStandardTemplateRendersLongFieldsAsBlocks(t *testing.T) {
+	d := &meta.DocType{Name: "Note", Label: "Note", Fields: []*meta.Field{
+		{Fieldname: "title", Fieldtype: "Data", Label: "Title"},
+		{Fieldname: "body", Fieldtype: "Text Editor", Label: "Body"},
+		{Fieldname: "readme", Fieldtype: "Markdown Editor", Label: "Readme"},
+		{Fieldname: "snippet", Fieldtype: "Code", Label: "Snippet"},
+		{Fieldname: "photo", Fieldtype: "Attach Image", Label: "Photo"},
+	}}
+	blocks := StandardTemplate(d, map[string]any{
+		"id": "N-1", "title": "One", "body": "<p>rich <em>text</em></p>",
+		"readme": "## Readme", "snippet": "select 1", "photo": "/files/a.png",
+	}, StandardFormatOptions{})
+	types := map[string]int{}
+	for _, b := range blocks {
+		types[b.Type]++
+	}
+	if types["richText"] != 2 || types["markdown"] != 1 || types["pre"] != 1 {
+		t.Fatalf("unexpected blocks: %v", types)
+	}
+	out := RenderBlocks(blocks)
+	for _, want := range []string{"rich <em>text</em>", "<h2>Readme</h2>", `src="/files/a.png"`} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("standard layout is missing %q: %s", want, out)
+		}
+	}
+}

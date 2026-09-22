@@ -1299,6 +1299,9 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 			}
 			private = true
 		}
+		if wantsImage, label := c.AttachmentFieldWantsImage(r.FormValue("doctype"), r.FormValue("fieldname")); wantsImage && !engine.IsImageFileName(hdr.Filename) {
+			return nil, cerr.Validation("{0} takes an image file (png, jpg, gif, webp)", label)
+		}
 		name := randomFileName(hdr.Filename)
 		url := "/files/" + name
 		if private {

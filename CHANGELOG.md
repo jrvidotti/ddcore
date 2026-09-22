@@ -58,6 +58,23 @@ not every commit that went into it.
   a `bigint`. `Duration` and `Rating` generate `number | null`; the rest generate `string | null`.
   Converting `Text`, `Small Text` or `Data` to a text type, or `Int` to `Duration`/`Rating`, keeps
   the same column and needs no `convert`. See [fieldtypes](docs/agent/fieldtypes.md).
+- Print renders a long value as a block of its own instead of a cell in the key/value grid:
+  rich text and Markdown as the markup they are (cleaned by the allowlist), `Code` as escaped
+  preformatted text and `Attach Image` as an image. Templates get `b.richText(html, title?)`,
+  `b.markdown(source, title?)` and `b.pre(text, title?)`; `b.raw`/`b.html` remain the
+  unchecked escape hatch. A `Duration` prints as `1d 2h 30m`, a `Rating` as stars, and both
+  align right in a child table. See [print templates](docs/agent/print.md).
+
+### Changed
+
+- **`Text Editor` is rich text.** Its value is HTML, cleaned on the way in by an allowlist
+  (paragraphs, headings, lists, quotes, code, links and images under `/files/`); scripts,
+  styles, event handlers, iframes and external image URLs are removed rather than refused.
+  A value written before this release is plain text: it is read as text — so `a < b` keeps
+  its `<` — and shown as paragraphs, converted for good on its next save without writing a
+  Version entry for the conversion. An empty editor (`<p></p>`) stores `null`, so `reqd`
+  still holds. `Comment.content` is one of these fields, so app code that reads or displays
+  it now receives HTML; `ddcore.db.sql` writes bypass the cleaning, as they always have.
 
 ## 0.16.0 — 2026-09-22
 

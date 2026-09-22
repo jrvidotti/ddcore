@@ -181,6 +181,58 @@ func AssembleHTML(bodyHTML string, letterhead *LetterHead, title string, lang st
       color: #334155;
     }
 
+    .print-field {
+      margin-bottom: 16px;
+    }
+    .print-field > .label {
+      font-size: 8pt;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: #64748b;
+      margin-bottom: 4px;
+      letter-spacing: 0.02em;
+    }
+    .print-richtext {
+      color: #1e293b;
+      font-size: 9.5pt;
+    }
+    .print-richtext > :first-child { margin-top: 0; }
+    .print-richtext > :last-child { margin-bottom: 0; }
+    .print-richtext p { margin: 0 0 8px; }
+    .print-richtext h1 { font-size: 14pt; }
+    .print-richtext h2 { font-size: 12.5pt; }
+    .print-richtext h3, .print-richtext h4 { font-size: 11pt; }
+    .print-richtext ul, .print-richtext ol { margin: 0 0 8px; padding-left: 20px; }
+    .print-richtext blockquote {
+      margin: 0 0 8px;
+      padding-left: 10px;
+      border-left: 3px solid #e2e8f0;
+      color: #475569;
+    }
+    .print-richtext img { max-width: 100%%; }
+    .print-richtext table {
+      width: 100%%;
+      border-collapse: collapse;
+      margin-bottom: 8px;
+    }
+    .print-richtext th, .print-richtext td {
+      border: 1px solid #e2e8f0;
+      padding: 4px 8px;
+      text-align: left;
+    }
+    .print-pre {
+      margin: 0;
+      padding: 8px 10px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 3px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 8.5pt;
+      color: #0f172a;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
     table.print-table {
       width: 100%%;
       border-collapse: collapse;

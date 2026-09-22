@@ -224,6 +224,12 @@ export interface PrintBlockBuilder {
   rule(): PrintBlock;
   divider(): PrintBlock;
   pageBreak(): PrintBlock;
+  /** A Text Editor value, rendered as markup and cleaned by the server's allowlist. */
+  richText(html: string, title?: string): PrintBlock;
+  /** A Markdown Editor source, rendered and cleaned the same way. */
+  markdown(text: string, title?: string): PrintBlock;
+  /** Preformatted text, escaped, keeping its whitespace (a Code field). */
+  pre(text: string, title?: string): PrintBlock;
   raw(html: string): PrintBlock;
   html(html: string): PrintBlock;
   columns(cols: PrintBlock[][]): PrintBlock;

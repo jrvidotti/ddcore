@@ -431,6 +431,11 @@
     rule: () => ({ type: "rule" }),
     divider: () => ({ type: "rule" }),
     pageBreak: () => ({ type: "pageBreak" }),
+    // richText renders a Text Editor value as the markup it is, cleaned by the
+    // server's allowlist. `raw`/`html` stay the unchecked escape hatch.
+    richText: (html, title) => ({ type: "richText", html: String(html ?? ""), title: String(title ?? "") }),
+    markdown: (text, title) => ({ type: "markdown", text: String(text ?? ""), title: String(title ?? "") }),
+    pre: (text, title) => ({ type: "pre", text: String(text ?? ""), title: String(title ?? "") }),
     raw: (html) => ({ type: "raw", html: String(html ?? "") }),
     html: (html) => ({ type: "raw", html: String(html ?? "") }),
     columns: (cols) => ({

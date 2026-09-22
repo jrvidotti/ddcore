@@ -11,6 +11,7 @@ import (
 	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/db"
 	"github.com/jrvidotti/ddcore/internal/engine"
+	"github.com/jrvidotti/ddcore/internal/richtext"
 )
 
 type assignRequest struct {
@@ -107,7 +108,10 @@ func addTimelineComment(c *engine.Ctx, doctype, name, content string) {
 			"comment_type":      "Workflow",
 			"reference_doctype": doctype,
 			"reference_id":      name,
-			"content":           content,
+			// server text, and the assignment's own description, are plain
+			// text: marking them as such is what keeps a `<` a `<` instead of
+			// the start of markup
+			"content": richtext.FromPlainText(content),
 		})
 		if err != nil {
 			return err

@@ -76,6 +76,25 @@ func (c *Ctx) AttachmentFieldRestricted(doctype, field string) (restricted, canW
 	return true, c.FieldAccess(d).CanWrite(f)
 }
 
+// AttachmentFieldWantsImage reports whether the field an upload names is an
+// Attach Image, along with its label for the message. The check repeats what
+// the field's own validation does, so bytes are never stored for a field that
+// would refuse their URL a moment later.
+func (c *Ctx) AttachmentFieldWantsImage(doctype, field string) (bool, string) {
+	if doctype == "" || field == "" {
+		return false, ""
+	}
+	d, err := c.St.DocType(doctype)
+	if err != nil {
+		return false, ""
+	}
+	f := d.Field(field)
+	if f == nil || f.Fieldtype != "Attach Image" {
+		return false, ""
+	}
+	return true, f.Label
+}
+
 // deleteFileBytesAfterCommit removes the stored bytes of deleted File rows once
 // the deletion is committed: a rolled-back delete must still find its bytes.
 // It is best effort — the rows are already gone, so a storage failure is

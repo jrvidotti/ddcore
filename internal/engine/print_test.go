@@ -394,3 +394,50 @@ func TestPrintDoc_LetterHeadSelection(t *testing.T) {
 		}
 	}
 }
+
+// Printing a document is where rich text stops being escaped: the reader gets
+// the paragraphs, and an attack that reached the column through another door
+// still does not reach the page.
+func TestPrintDoc_RichTextAndFieldControls(t *testing.T) {
+	ctx := context.Background()
+	e := setupWith(t, map[string]string{"doctypes/note/note.doctype.ts": fieldtypesDoctype})
+	var id string
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
+		doc, err := c.NewDoc("Note", Doc{
+			"title": "Printed", "body": "<p>rich <strong>text</strong></p>",
+			"readme": "## Readme\n\ntext", "snippet": "select 1",
+			"spent": 5400, "score": 4, "accent": "#abc",
+		})
+		if err != nil {
+			return err
+		}
+		saved, err := c.Insert(doc, SaveOpts{})
+		if err != nil {
+			return err
+		}
+		id = saved.ID()
+		// a value the sanitizer never saw, as a direct SQL write or an older
+		// archive would leave behind
+		_, err = c.Q().Exec(c.Ctx, `UPDATE tab_note SET locked = $1 WHERE id = $2`, `<p>ok</p><script>alert(1)</script>`, id)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
+		out, err := c.PrintDoc("Note", id, "standard", "none", "en", print.PDFOptions{})
+		if err != nil {
+			return err
+		}
+		for _, want := range []string{"rich <strong>text</strong>", "<h2>Readme</h2>", `class="print-pre"`, "1h 30m", "★★★★☆", "#aabbcc"} {
+			if !strings.Contains(out, want) {
+				t.Errorf("printed document is missing %q", want)
+			}
+		}
+		if strings.Contains(out, "<script") || strings.Contains(out, "alert(1)") {
+			t.Errorf("printed document kept a script: %s", out)
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+}
