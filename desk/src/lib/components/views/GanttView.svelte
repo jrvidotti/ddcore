@@ -15,7 +15,7 @@
   } = $props();
 
   const win = $derived(ganttWindow(anchor, scale));
-  const titleField = $derived(gantt.titleField || meta.doctype.titleField || "name");
+  const titleField = $derived(gantt.titleField || meta.doctype.titleField || "id");
   const colorField = $derived(meta.doctype.fields.find((f) => f.fieldname === (gantt.colorField || "status")));
   const bars = $derived(rows
     .map((row) => ({ row, bar: ganttBar(row, gantt, meta.doctype.fields, win) }))
@@ -56,9 +56,9 @@
           <div class="tick" style:width={`${(col.days / win.days) * 100}%`} class:weekend={isWeekend(col.start)}>{columnLabel(col.start)}</div>
         {/each}
       </div>
-      {#each bars as { row, bar } (row.name)}
-        {@const href = `${wsPrefix}/${encodeURIComponent(doctype)}/${encodeURIComponent(row.name)}`}
-        <a class="label-col row-label" {href} title={String(row[titleField] || row.name)}>{row[titleField] || row.name}</a>
+      {#each bars as { row, bar } (row.id)}
+        {@const href = `${wsPrefix}/${encodeURIComponent(doctype)}/${encodeURIComponent(row.id)}`}
+        <a class="label-col row-label" {href} title={String(row[titleField] || row.id)}>{row[titleField] || row.id}</a>
         <div class="timeline">
           {#each win.columns as col (col.start)}<div class="cell" class:weekend={isWeekend(col.start)} style:width={`${(col.days / win.days) * 100}%`}></div>{/each}
           {#if todayOffset !== null}<div class="today" style:left={`${todayOffset}%`}></div>{/if}
@@ -69,10 +69,10 @@
             {href}
             style:left={`${bar!.left}%`}
             style:width={`${bar!.width}%`}
-            title={`${row[titleField] || row.name}: ${bar!.start} → ${bar!.end}`}
+            title={`${row[titleField] || row.id}: ${bar!.start} → ${bar!.end}`}
           >
             {#if bar!.progress !== null}<span class="progress" style:width={`${bar!.progress}%`}></span>{/if}
-            <span class="bar-label">{row[titleField] || row.name}</span>
+            <span class="bar-label">{row[titleField] || row.id}</span>
           </a>
         </div>
       {:else}

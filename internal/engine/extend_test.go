@@ -29,7 +29,7 @@ func extendApps(t *testing.T) []js.App {
 	w("ddcore.app.ts", `import { defineApp } from "@ddcore/sdk";
 export default defineApp({ name: "loja", title: "Loja", roles: ["Vendedor"] });`)
 	w("doctypes/produto/produto.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
-export default defineDoctype({ name: "Produto", naming: { field: "codigo" }, label: "Produto",
+export default defineDoctype({ name: "Produto", idGeneration: { field: "codigo" }, label: "Produto",
   fields: [
     { fieldname: "codigo", fieldtype: "Data", label: "Code", reqd: true },
     { fieldname: "nome", fieldtype: "Data", label: "Name" },

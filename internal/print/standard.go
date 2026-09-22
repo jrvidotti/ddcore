@@ -32,17 +32,17 @@ func StandardTemplate(d *meta.DocType, doc map[string]any, opts StandardFormatOp
 	var blocks []Block
 
 	// 1. Document Header
-	docName := str(doc["name"])
+	docID := str(doc["id"])
 	title := tr(d.Label)
 	if title == "" {
 		title = d.Name
 	}
-	subtitle := docName
+	subtitle := docID
 	if d.TitleField != "" && doc[d.TitleField] != nil {
 		tVal := str(doc[d.TitleField])
 		if tVal != "" {
 			title = fmt.Sprintf("%s: %s", title, tVal)
-			subtitle = docName
+			subtitle = docID
 		}
 	}
 

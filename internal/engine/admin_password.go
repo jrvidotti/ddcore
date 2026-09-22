@@ -35,7 +35,7 @@ func ensureAdminPassword(ctx context.Context, c *Ctx) (string, error) {
 	if _, err := c.St.DocType("User"); err != nil {
 		return "", nil
 	}
-	rows, err := db.Select(ctx, c.Tx, `SELECT 1 FROM tab_user WHERE name = 'Admin' AND coalesce(password_hash, '') = ''`)
+	rows, err := db.Select(ctx, c.Tx, `SELECT 1 FROM tab_user WHERE id = 'Admin' AND coalesce(password_hash, '') = ''`)
 	if err != nil || len(rows) == 0 {
 		return "", err
 	}
@@ -51,7 +51,7 @@ func ensureAdminPassword(ctx context.Context, c *Ctx) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if _, err := c.Tx.Exec(ctx, `UPDATE tab_user SET password_hash = $1 WHERE name = 'Admin'`, hash); err != nil {
+	if _, err := c.Tx.Exec(ctx, `UPDATE tab_user SET password_hash = $1 WHERE id = 'Admin'`, hash); err != nil {
 		return "", err
 	}
 	return pw, nil

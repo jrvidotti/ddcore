@@ -39,11 +39,11 @@ func sec01APIApp(t *testing.T) string {
 	write("ddcore.app.ts", `import { defineApp } from "@ddcore/sdk";
 export default defineApp({ name: "demo", title: "Scope API Test", roles: ["Gestor", "Scope User"] });`)
 	write("doctypes/test_company/test_company.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
-export default defineDoctype({ name: "Test Company", naming: { field: "title" },
+export default defineDoctype({ name: "Test Company", idGeneration: { field: "title" },
   fields: [{ fieldname: "title", fieldtype: "Data", label: "Title", reqd: true }],
   permissions: [{ role: "Scope User", read: true, create: true }] });`)
 	write("doctypes/test_record/test_record.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
-export default defineDoctype({ name: "Test Record", naming: { field: "title" }, trackChanges: true,
+export default defineDoctype({ name: "Test Record", idGeneration: { field: "title" }, trackChanges: true,
   fields: [
     { fieldname: "title", fieldtype: "Data", label: "Title", reqd: true },
     { fieldname: "company", fieldtype: "Link", label: "Company", options: "Test Company" },
@@ -92,16 +92,16 @@ func setupSEC01API(t *testing.T) (*env, string, string) {
 				return err
 			}
 			if tc.company == "Alfa" {
-				alfaRecord = saved.Name()
+				alfaRecord = saved.ID()
 			} else {
-				betaRecord = saved.Name()
+				betaRecord = saved.ID()
 				saved["title"] = "Beta Record Revised"
 				if _, err := c.Save(saved, engine.SaveOpts{}); err != nil {
 					return err
 				}
 			}
 		}
-		comment, err := c.NewDoc("Comment", engine.Doc{"reference_doctype": "Test Record", "reference_name": betaRecord, "content": "Beta comment"})
+		comment, err := c.NewDoc("Comment", engine.Doc{"reference_doctype": "Test Record", "reference_id": betaRecord, "content": "Beta comment"})
 		if err != nil {
 			return err
 		}
@@ -131,7 +131,7 @@ func (x *env) uploadAttachment(auth, doctype, name, filename, content string) re
 	var buf bytes.Buffer
 	mw := multipart.NewWriter(&buf)
 	_ = mw.WriteField("doctype", doctype)
-	_ = mw.WriteField("docname", name)
+	_ = mw.WriteField("doc_id", name)
 	fw, err := mw.CreateFormFile("file", filename)
 	if err != nil {
 		x.t.Fatal(err)
@@ -202,11 +202,11 @@ func TestSEC01_CrossCuttingChannels(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		permission = saved.Name()
+		permission = saved.ID()
 		return c.Delete("User Permission", permission, false, false)
 	})
 	for _, action := range []string{"permission.scope_grant", "permission.scope_revoke"} {
-		events, err := x.e.ListAuditEvents(x.ctx, engine.AuditFilter{Action: action, TargetDocType: "User", TargetName: sec01AlfaUser})
+		events, err := x.e.ListAuditEvents(x.ctx, engine.AuditFilter{Action: action, TargetDocType: "User", TargetID: sec01AlfaUser})
 		if err != nil {
 			t.Errorf("list %s audit events: %v", action, err)
 			continue
@@ -236,7 +236,7 @@ func TestSEC01_ProductionNotificationsRespectScopeChanges(t *testing.T) {
 			return err
 		}
 		saved, err := c.Insert(doc, engine.SaveOpts{})
-		permission = saved.Name()
+		permission = saved.ID()
 		return err
 	})
 	if !authorize("Test Record", betaRecord) {
@@ -292,7 +292,7 @@ drained:
 	for {
 		select {
 		case event := <-ch:
-			if event.Name == "doc_update" && event.Payload.(map[string]any)["name"] == betaRecord {
+			if event.Name == "doc_update" && event.Payload.(map[string]any)["id"] == betaRecord {
 				t.Errorf("production notification leaked Beta document: %+v", event)
 			}
 		default:
@@ -305,7 +305,7 @@ alfaDrained:
 	for {
 		select {
 		case event := <-betaCh:
-			if event.Name == "doc_update" && event.Doctype == "Test Record" && event.DocName == betaRecord {
+			if event.Name == "doc_update" && event.Doctype == "Test Record" && event.DocID == betaRecord {
 				received = true
 			}
 		default:
@@ -324,8 +324,8 @@ func TestSEC01_ScopedSystemManagerCannotListReferencedHistory(t *testing.T) {
 		doctype string
 		filters string
 	}{
-		{"Version", fmt.Sprintf(`{"ref_doctype":"Test Record","docname":"%s"}`, betaRecord)},
-		{"Comment", fmt.Sprintf(`{"reference_doctype":"Test Record","reference_name":"%s"}`, betaRecord)},
+		{"Version", fmt.Sprintf(`{"ref_doctype":"Test Record","doc_id":"%s"}`, betaRecord)},
+		{"Comment", fmt.Sprintf(`{"reference_doctype":"Test Record","reference_id":"%s"}`, betaRecord)},
 	} {
 		path := "/api/resource/" + tc.doctype + "?filters=" + url.QueryEscape(tc.filters)
 		if r := x.call("GET", path, nil, manager); r.Status != 403 || r.errType() != "PermissionError" {
@@ -337,14 +337,14 @@ func TestSEC01_ScopedSystemManagerCannotListReferencedHistory(t *testing.T) {
 func TestSEC01_UserPermissionScopeMutationsAreAudited(t *testing.T) {
 	x, _, _ := setupSEC01API(t)
 	count := func(action string) int64 {
-		n, err := x.e.CountAuditEvents(x.ctx, engine.AuditFilter{Action: action, TargetDocType: "User", TargetName: sec01BetaUser})
+		n, err := x.e.CountAuditEvents(x.ctx, engine.AuditFilter{Action: action, TargetDocType: "User", TargetID: sec01BetaUser})
 		if err != nil {
 			t.Fatal(err)
 		}
 		return n
 	}
 	hasForValue := func(action, want string) bool {
-		events, err := x.e.ListAuditEvents(x.ctx, engine.AuditFilter{Action: action, TargetDocType: "User", TargetName: sec01BetaUser, Limit: 50})
+		events, err := x.e.ListAuditEvents(x.ctx, engine.AuditFilter{Action: action, TargetDocType: "User", TargetID: sec01BetaUser, Limit: 50})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -363,7 +363,7 @@ func TestSEC01_UserPermissionScopeMutationsAreAudited(t *testing.T) {
 			return err
 		}
 		saved, err := c.Insert(doc, engine.SaveOpts{})
-		permission = saved.Name()
+		permission = saved.ID()
 		return err
 	})
 	grants++

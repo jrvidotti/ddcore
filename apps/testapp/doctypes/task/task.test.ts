@@ -26,24 +26,24 @@ function makeTask(project: string, values: Partial<Task> = {}) {
 
 describe("Task", () => {
   it("is born Open", () => {
-    const t = makeTask(makeProject().name);
+    const t = makeTask(makeProject().id);
     expect(t.status).toBe("Open");
     expect(t.completed_at).toBeNull();
   });
 
   it("rejects a due date before the project start", () => {
     const p = makeProject({ start_date: u().today() });
-    expect(() => makeTask(p.name, { due_date: u().addDays(u().today(), -1) })).toThrow("due date cannot be earlier");
+    expect(() => makeTask(p.id, { due_date: u().addDays(u().today(), -1) })).toThrow("due date cannot be earlier");
   });
 
   it("start is idempotent", () => {
-    const t = makeTask(makeProject().name);
+    const t = makeTask(makeProject().id);
     expect(t.runMethod("start").status).toBe("In progress");
     expect(t.runMethod("start").status).toBe("In progress");
   });
 
   it("complete records the date and is idempotent", () => {
-    const t = makeTask(makeProject().name);
+    const t = makeTask(makeProject().id);
     const r = t.runMethod("complete");
     expect(r.status).toBe("Completed");
     expect(r.completed_at).toBeTruthy();
@@ -51,7 +51,7 @@ describe("Task", () => {
   });
 
   it("reopen clears the completion and goes back to Open", () => {
-    const t = makeTask(makeProject().name);
+    const t = makeTask(makeProject().id);
     t.runMethod("complete");
     const r = t.runMethod("reopen");
     expect(r.status).toBe("Open");
@@ -61,15 +61,15 @@ describe("Task", () => {
 
   it("reopening a task whose due date has passed goes back to Overdue", () => {
     const p = makeProject();
-    const t = makeTask(p.name, { due_date: u().addDays(u().today(), -3) });
+    const t = makeTask(p.id, { due_date: u().addDays(u().today(), -3) });
     t.runMethod("complete");
     expect(t.runMethod("reopen").status).toBe("Overdue");
   });
 
   it("deleting a task recalculates the project", () => {
     const p = makeProject();
-    const t = makeTask(p.name);
-    makeTask(p.name).runMethod("complete");
+    const t = makeTask(p.id);
+    makeTask(p.id).runMethod("complete");
     p.reload();
     expect(p.progress).toBe(50);
 
@@ -82,14 +82,14 @@ describe("Task", () => {
   it("moving a task recalculates both projects", () => {
     const origem = makeProject();
     const target = makeProject();
-    const t = makeTask(origem.name);
+    const t = makeTask(origem.id);
     t.runMethod("complete");
-    makeTask(origem.name);
+    makeTask(origem.id);
 
     origem.reload();
     expect(origem.progress).toBe(50);
 
-    t.set("project", target.name).save();
+    t.set("project", target.id).save();
 
     origem.reload();
     target.reload();

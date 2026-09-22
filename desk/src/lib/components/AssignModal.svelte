@@ -8,13 +8,13 @@
   let {
     open = false,
     doctype,
-    docname,
+    docId,
     onassign,
     onclose,
   }: {
     open: boolean;
     doctype: string;
-    docname: string;
+    docId: string;
     onassign: (args: AssignArgs) => Promise<void>;
     onclose: () => void;
   } = $props();

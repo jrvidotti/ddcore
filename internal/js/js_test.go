@@ -423,7 +423,7 @@ export default definePrintTemplate({
   doctype: "Sales Invoice",
   label: "Invoice Format",
   body: (doc, b, ctx) => [
-    b.header(_("Sales Invoice"), { subtitle: doc.name }),
+    b.header(_("Sales Invoice"), { subtitle: doc.id }),
     b.keyValues([[_("Customer"), doc.customer]]),
     b.table([_("Item"), _("Price")], [[doc.item, ctx.formatCurrency(doc.price)]]),
   ],
@@ -465,7 +465,7 @@ export default definePrintTemplate({
 		t.Fatalf("unexpected template metadata: %+v", pt)
 	}
 
-	resJSON, err := rt.RenderPrint("demo.invoice", `{"name":"INV-001","customer":"Alice","item":"Book","price":29.99}`, "en")
+	resJSON, err := rt.RenderPrint("demo.invoice", `{"id":"INV-001","customer":"Alice","item":"Book","price":29.99}`, "en")
 	if err != nil {
 		t.Fatal(err)
 	}

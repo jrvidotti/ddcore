@@ -178,8 +178,8 @@ func TestCurrencyReachesTheColumnRounded(t *testing.T) {
 			return err
 		}
 		rows, err := c.SQL(`SELECT total::text AS total, taxa::text AS taxa, peso, emissao::text AS emissao,
-			(SELECT sum(valor) FROM tab_parcela WHERE parent = f.name)::text AS soma
-			FROM tab_fatura f WHERE name = $1`, []any{saved.Name()})
+			(SELECT sum(valor) FROM tab_parcela WHERE parent = f.id)::text AS soma
+			FROM tab_fatura f WHERE id = $1`, []any{saved.ID()})
 		if err != nil {
 			return err
 		}
@@ -201,7 +201,7 @@ func TestCurrencyReachesTheColumnRounded(t *testing.T) {
 		}
 
 		// saving the document again must not look like an edit
-		reread, err := c.GetDoc("Fatura", saved.Name())
+		reread, err := c.GetDoc("Fatura", saved.ID())
 		if err != nil {
 			return err
 		}
@@ -247,7 +247,7 @@ func TestAJapaneseSiteStoresWholeYen(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		rows, err := c.SQL(`SELECT total::text AS total FROM tab_fatura WHERE name = $1`, []any{saved.Name()})
+		rows, err := c.SQL(`SELECT total::text AS total FROM tab_fatura WHERE id = $1`, []any{saved.ID()})
 		if err != nil {
 			return err
 		}

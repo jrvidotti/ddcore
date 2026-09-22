@@ -57,26 +57,26 @@ func sanitizeAuditValue(v any) any {
 //
 // detail is for identifiers and states, never for a secret or a payload: every
 // System Manager reads this table. Sensitive keys are redacted automatically.
-func (c *Ctx) Audit(action, targetDoctype, targetName string, detail map[string]any) error {
-	return c.writeAudit(c.Q(), action, "Allowed", targetDoctype, targetName, detail)
+func (c *Ctx) Audit(action, targetDoctype, targetID string, detail map[string]any) error {
+	return c.writeAudit(c.Q(), action, "Allowed", targetDoctype, targetID, detail)
 }
 
 // AuditDenied records a refused attempt. It is written on the pool, because
 // the refusal is about to roll back the caller's transaction and the attempt
 // is precisely what an investigation needs to find.
-func (c *Ctx) AuditDenied(action, targetDoctype, targetName string, detail map[string]any) {
-	if err := c.writeAudit(c.E.DB.Pool, action, "Denied", targetDoctype, targetName, detail); err != nil {
+func (c *Ctx) AuditDenied(action, targetDoctype, targetID string, detail map[string]any) {
+	if err := c.writeAudit(c.E.DB.Pool, action, "Denied", targetDoctype, targetID, detail); err != nil {
 		c.E.Log.Warn("could not record a refused action", "action", action, "err", err)
 	}
 }
 
 // RecordAudit records an audit event directly on the engine's DB pool.
-func (e *Engine) RecordAudit(ctx context.Context, actor, action, outcome, targetDoctype, targetName string, detail map[string]any) error {
-	return e.RecordAuditOn(ctx, e.DB.Pool, actor, action, outcome, targetDoctype, targetName, "", "", detail)
+func (e *Engine) RecordAudit(ctx context.Context, actor, action, outcome, targetDoctype, targetID string, detail map[string]any) error {
+	return e.RecordAuditOn(ctx, e.DB.Pool, actor, action, outcome, targetDoctype, targetID, "", "", detail)
 }
 
 // RecordAuditOn records an audit event on the provided querier (tx or pool).
-func (e *Engine) RecordAuditOn(ctx context.Context, q db.Querier, actor, action, outcome, targetDoctype, targetName, ip, reqID string, detail map[string]any) error {
+func (e *Engine) RecordAuditOn(ctx context.Context, q db.Querier, actor, action, outcome, targetDoctype, targetID, ip, reqID string, detail map[string]any) error {
 	if actor == "" {
 		actor = "System"
 	}
@@ -93,19 +93,19 @@ func (e *Engine) RecordAuditOn(ctx context.Context, q db.Querier, actor, action,
 		ctx = context.Background()
 	}
 	_, err := q.Exec(ctx, `INSERT INTO tab_audit_event
-		(name, owner, creation, modified, modified_by, docstatus, action, outcome, actor, target_doctype, target_name, ip, request_id, detail)
+		(id, owner, creation, modified, modified_by, docstatus, action, outcome, actor, target_doctype, target_id, ip, request_id, detail)
 		VALUES ($1, $2, now(), now(), $2, 0, $3, $4, $2, $5, $6, NULLIF($7, ''), NULLIF($8, ''), $9)`,
-		RandomToken(), actor, action, outcome, targetDoctype, targetName, ip, reqID, detailJSON)
+		RandomToken(), actor, action, outcome, targetDoctype, targetID, ip, reqID, detailJSON)
 	return err
 }
 
-func (c *Ctx) writeAudit(q db.Querier, action, outcome, targetDoctype, targetName string, detail map[string]any) error {
+func (c *Ctx) writeAudit(q db.Querier, action, outcome, targetDoctype, targetID string, detail map[string]any) error {
 	ip := ""
 	if c.Request != nil {
 		ip = db.Str(c.Request["ip"])
 	}
 	actor := c.User
-	return c.E.RecordAuditOn(c.Ctx, q, actor, action, outcome, targetDoctype, targetName, ip, c.ReqID, detail)
+	return c.E.RecordAuditOn(c.Ctx, q, actor, action, outcome, targetDoctype, targetID, ip, c.ReqID, detail)
 }
 
 // AuditFilter narrows an audit listing.
@@ -113,7 +113,7 @@ type AuditFilter struct {
 	Action        string
 	Actor         string
 	TargetDocType string
-	TargetName    string
+	TargetID      string
 	Outcome       string
 	Since         *time.Time
 	Until         *time.Time
@@ -137,8 +137,8 @@ func (f AuditFilter) where() (string, []any) {
 	if f.TargetDocType != "" {
 		add("target_doctype = $%d", f.TargetDocType)
 	}
-	if f.TargetName != "" {
-		add("target_name = $%d", f.TargetName)
+	if f.TargetID != "" {
+		add("target_id = $%d", f.TargetID)
 	}
 	if f.Outcome != "" {
 		add("outcome = $%d", f.Outcome)
@@ -155,7 +155,7 @@ func (f AuditFilter) where() (string, []any) {
 	return " WHERE " + strings.Join(clauses, " AND "), args
 }
 
-const auditColumns = `name, owner, creation, modified, modified_by, docstatus, action, outcome, actor, target_doctype, target_name, ip, request_id, detail`
+const auditColumns = `id, owner, creation, modified, modified_by, docstatus, action, outcome, actor, target_doctype, target_id, ip, request_id, detail`
 
 // ListAuditEvents reads audit events, newest first.
 func (e *Engine) ListAuditEvents(ctx context.Context, f AuditFilter) ([]map[string]any, error) {
@@ -165,7 +165,7 @@ func (e *Engine) ListAuditEvents(ctx context.Context, f AuditFilter) ([]map[stri
 		limit = 20
 	}
 	args = append(args, limit, f.Start)
-	q := fmt.Sprintf(`SELECT %s FROM tab_audit_event%s ORDER BY creation DESC, name DESC LIMIT $%d OFFSET $%d`,
+	q := fmt.Sprintf(`SELECT %s FROM tab_audit_event%s ORDER BY creation DESC, id DESC LIMIT $%d OFFSET $%d`,
 		auditColumns, where, len(args)-1, len(args))
 	return db.Select(ctx, e.DB.Pool, q, args...)
 }

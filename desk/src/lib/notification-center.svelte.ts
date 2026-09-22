@@ -35,9 +35,9 @@ export class NotificationCenter {
   }
 
   async toggle(row: DeskNotification) {
-    this.pending = row.name;
+    this.pending = row.id;
     try {
-      await api.notifications.setRead(row.name, !row.read);
+      await api.notifications.setRead(row.id, !row.read);
       if (!this.destroyed) await refreshNotifications();
     } catch (e) {
       if (!this.destroyed) { this.rows = []; this.error = e instanceof Error ? e.message : String(e); }

@@ -21,7 +21,7 @@
   import { resolveActiveTab, tabToSearchParams } from "./form-tabs";
   import { commitFocusedEdit, getModifierKey, openShortcutsHelp } from "$lib/shortcuts.svelte";
 
-  let { doctype, name }: { doctype: string; name: string } = $props();
+  let { doctype, id }: { doctype: string; id: string } = $props();
   let frm = $state<FormController | null>(null);
   let error = $state("");
   let menuOpen = $state(false);
@@ -36,7 +36,7 @@
   /** set by duplicate(), which turns the open record into an unsaved copy */
   let duplicated = $state(false);
   /** the record the draft belongs to */
-  const draftRecord = () => (duplicated ? "new" : name);
+  const draftRecord = () => (duplicated ? "new" : id);
   const currentDraftKey = () => draftKey(boot.data?.user, doctype, draftRecord());
   /** set when the user has agreed to leave, so the guard lets the navigation through */
   let leaving = false;
@@ -54,7 +54,7 @@
     let alive = true;
     const off = subscribe("doc_update", (p: any) => {
       // our own save also echoes here: only signal someone else's change
-      if (!alive || !frm || p.doctype !== doctype || p.name !== frm.doc.name) return;
+      if (!alive || !frm || p.doctype !== doctype || p.id !== frm.doc.id) return;
       if (frm.saving) return;
       if (Date.now() - frm.loadedAt < 3000) return;
       if (p.user && boot.data?.user && p.user === boot.data.user) return;
@@ -68,7 +68,7 @@
     (async () => {
       try {
         const initial = (history.state as any)?.["sveltekit:states"]?.doc || (page.state as any)?.doc;
-        const f = await createForm(doctype, name, initial);
+        const f = await createForm(doctype, id, initial);
         if (!alive) return; // navigated away while loading
         frm = f;
         if (f.isNew && !f.isSingle) {
@@ -110,7 +110,7 @@
 
   function persist(f: FormController) {
     const doc = $state.snapshot(f.doc) as any;
-    writeDraft(drafts, currentDraftKey(), { doctype, name: draftRecord(), doc, savedAt: Date.now(), modified: doc.modified ?? null });
+    writeDraft(drafts, currentDraftKey(), { doctype, id: draftRecord(), doc, savedAt: Date.now(), modified: doc.modified ?? null });
   }
 
   /**
@@ -219,8 +219,8 @@
   const title = $derived(
     frm
       ? frm.isSingle ? frm.meta.doctype.label : frm.isNew
-        ? frm.doc.name?.trim() || __("New {0}", [frm.meta.doctype.label])
-        : (frm.meta.doctype.titleField && frm.doc[frm.meta.doctype.titleField]) || frm.doc.name
+        ? frm.doc.id?.trim() || __("New {0}", [frm.meta.doctype.label])
+        : (frm.meta.doctype.titleField && frm.doc[frm.meta.doctype.titleField]) || frm.doc.id
       : ""
   );
 
@@ -253,7 +253,7 @@
   }
 
   async function remove() {
-    if (!frm || !(await confirm(__("Delete {0}?", [frm.doc.name]), __("Delete")))) return;
+    if (!frm || !(await confirm(__("Delete {0}?", [frm.doc.id]), __("Delete")))) return;
     leaving = true; // the record is going away: unsaved edits go with it
     try {
       await frm.delete();
@@ -265,19 +265,19 @@
     if (!frm) return;
     const label = frm.meta.doctype.label || frm.meta.doctype.name;
     const v = await prompt(__("Rename {0}", [label]), [
-      { fieldname: "name", fieldtype: "Data", label: frm.meta.doctype.nameLabel || __("New name"), reqd: true, default: frm.doc.name }
+      { fieldname: "id", fieldtype: "Data", label: frm.meta.doctype.idLabel || __("New ID"), reqd: true, default: frm.doc.id }
     ]);
-    if (!v || !v.name || v.name.trim() === frm.doc.name) return;
+    if (!v || !v.id || v.id.trim() === frm.doc.id) return;
     try {
-      const nn = await api.docMethod(doctype, frm.doc.name, "rename", { name: v.name.trim() });
+      const nn = await api.docMethod(doctype, frm.doc.id, "rename", { id: v.id.trim() });
       leaving = true; // a full page load, deliberate: the guard has nothing to ask
       location.href = `${wsPrefix}/${encodeURIComponent(doctype)}/${encodeURIComponent(nn)}`;
     } catch (e) { showError(e); }
   }
   async function duplicate() {
     if (!frm) return;
-    const copy = { ...frm.doc, name: undefined, __islocal: true, docstatus: 0, creation: undefined, modified: undefined, owner: undefined, amended_from: undefined };
-    for (const f of frm.meta.doctype.fields) if (f.fieldtype === "Table") copy[f.fieldname!] = (copy[f.fieldname!] || []).map((r: any) => ({ ...r, name: undefined, parent: undefined }));
+    const copy = { ...frm.doc, id: undefined, __islocal: true, docstatus: 0, creation: undefined, modified: undefined, owner: undefined, amended_from: undefined };
+    for (const f of frm.meta.doctype.fields) if (f.fieldtype === "Table") copy[f.fieldname!] = (copy[f.fieldname!] || []).map((r: any) => ({ ...r, id: undefined, parent: undefined }));
     frm.load(copy);
     duplicated = true; // the URL says /new now, and so must the draft
     history.replaceState(null, "", `${wsPrefix}/${encodeURIComponent(doctype)}/new`);
@@ -286,7 +286,7 @@
   }
   function openPrint() {
     if (!frm || frm.isNew) return;
-    goto(`${wsPrefix}/${encodeURIComponent(doctype)}/${encodeURIComponent(name)}/print`);
+    goto(`${wsPrefix}/${encodeURIComponent(doctype)}/${encodeURIComponent(id)}/print`);
   }
   // dropdowns close on any click outside them (mouseleave used to need two clicks)
   function onPointerDown(e: PointerEvent) {
@@ -310,7 +310,7 @@
 
   async function handleWorkflowAction(action: string) {
     if (!frm) return;
-    if (await confirm(__("{0} {1}?", [__(action), frm.doc.name]), __(action))) {
+    if (await confirm(__("{0} {1}?", [__(action), frm.doc.id]), __(action))) {
       await frm.applyWorkflowAction(action);
     }
   }
@@ -416,7 +416,7 @@
               <button class="btn primary" disabled={frm.saving} onclick={() => frm?.save()} title="{__('Save')} ({modKey}+S)">{__("Save")}<kbd class="btn-kbd">{modKey}S</kbd></button>
             {/if}
           {:else if !frm.workflow && frm.perm.submit}
-            <button class="btn primary" disabled={frm.saving} onclick={async () => (await confirm(__("Submit {0} permanently?", [frm?.doc.name]), __("Submit"))) && frm?.submit()}>{__("Submit")}</button>
+            <button class="btn primary" disabled={frm.saving} onclick={async () => (await confirm(__("Submit {0} permanently?", [frm?.doc.id]), __("Submit"))) && frm?.submit()}>{__("Submit")}</button>
           {/if}
         {:else if frm.docstatus === 1}
           {#if frm.isDirty}
@@ -424,7 +424,7 @@
               <button class="btn primary" disabled={frm.saving} onclick={() => frm?.save()} title="{__('Update')} ({modKey}+S)">{__("Update")}<kbd class="btn-kbd">{modKey}S</kbd></button>
             {/if}
           {:else if !frm.workflow && frm.perm.cancel}
-            <button class="btn" disabled={frm.saving} onclick={async () => (await confirm(__("Cancel {0}?", [frm?.doc.name]), __("Cancel"))) && frm?.cancel()}>{__("Cancel")}</button>
+            <button class="btn" disabled={frm.saving} onclick={async () => (await confirm(__("Cancel {0}?", [frm?.doc.id]), __("Cancel"))) && frm?.cancel()}>{__("Cancel")}</button>
           {/if}
         {:else if frm.perm.amend}
           <button class="btn primary" onclick={() => frm?.amend()}>{__("Amend")}</button>

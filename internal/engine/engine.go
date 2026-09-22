@@ -423,6 +423,9 @@ func (e *Engine) Load() error {
 	} else if skipped {
 		e.Log.Warn("core version is not a release; ddcore ranges are not enforced", "version", Version)
 	}
+	for _, n := range predatesIDKey(snap, Version) {
+		e.Log.Warn("app declares a ddcore range from before 0.17, when the document key became `id`; check its code and patches, then raise the range", "app", n, "ddcore", snap.Apps[n].Ddcore)
+	}
 	// `requires` is only known after reading metadata: validate and, if the
 	// declared order violates dependencies, recompile in correct order.
 	ordered, err := orderApps(apps, snap.Apps)

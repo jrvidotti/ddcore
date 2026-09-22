@@ -16,7 +16,7 @@ import (
 // Doc is a document as a plain map; child tables are []any of Doc.
 type Doc map[string]any
 
-func (d Doc) Name() string        { return db.Str(d["name"]) }
+func (d Doc) ID() string          { return db.Str(d["id"]) }
 func (d Doc) DocType() string     { return db.Str(d["doctype"]) }
 func (d Doc) Docstatus() int      { return int(toFloat(d["docstatus"])) }
 func (d Doc) Str(k string) string { return db.Str(d[k]) }
@@ -279,7 +279,7 @@ func (c *Ctx) getDoc(doctype, name string, forUpdate bool) (Doc, error) {
 	if name == "" {
 		return nil, cerr.NotFound("{0}: empty name", doctype)
 	}
-	sel := fmt.Sprintf("SELECT * FROM %s WHERE name = $1", db.Ident(d.TableName()))
+	sel := fmt.Sprintf("SELECT * FROM %s WHERE id = $1", db.Ident(d.TableName()))
 	if forUpdate && c.Tx != nil {
 		sel += " FOR UPDATE"
 	}
@@ -356,10 +356,10 @@ func (c *Ctx) NewDoc(doctype string, values Doc) (Doc, error) {
 		doc[k] = v
 	}
 	if d.IsSingle {
-		if doc.Name() != "" && doc.Name() != "singleton" {
+		if doc.ID() != "" && doc.ID() != "singleton" {
 			return nil, cerr.Validation("Invalid Single identity for {0}", d.Name)
 		}
-		doc["name"] = "singleton"
+		doc["id"] = "singleton"
 	}
 	return doc, nil
 }
@@ -407,7 +407,7 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 	permission := "create"
 	if d.IsSingle {
 		permission = "write"
-		if doc.Name() != "" && doc.Name() != "singleton" {
+		if doc.ID() != "" && doc.ID() != "singleton" {
 			return nil, cerr.Validation("Invalid Single identity for {0}", d.Name)
 		}
 	}
@@ -463,7 +463,7 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 	if err := c.runHook(d, "beforeInsert", doc, nil); err != nil {
 		return nil, err
 	}
-	if err := c.setName(d, doc); err != nil {
+	if err := c.setID(d, doc); err != nil {
 		return nil, err
 	}
 	if err := c.validate(d, doc, nil, opts); err != nil {
@@ -509,7 +509,7 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 			return nil, err
 		}
 	}
-	saved, err := c.GetDocIgnoringPerms(d.Name, doc.Name())
+	saved, err := c.GetDocIgnoringPerms(d.Name, doc.ID())
 	if err != nil {
 		return nil, err
 	}
@@ -544,7 +544,7 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 
 // Save updates an existing document (or inserts when __islocal).
 func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
-	if doc["__islocal"] == true || doc.Name() == "" {
+	if doc["__islocal"] == true || doc.ID() == "" {
 		return c.Insert(doc, opts)
 	}
 	d, err := c.St.DocType(doc.DocType())
@@ -559,7 +559,7 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 	}
 	// FOR UPDATE: subsequent callers wait here and only then compare the
 	// timestamp, instead of reading a version that is actively being modified.
-	before, err := c.getDocForUpdate(d.Name, doc.Name())
+	before, err := c.getDocForUpdate(d.Name, doc.ID())
 	if err != nil {
 		return nil, err
 	}
@@ -573,7 +573,7 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 	case oldStatus == 1 && newStatus == 1:
 		action = "update_after_submit"
 	case oldStatus == 2:
-		return nil, cerr.Validation("{0} {1} is cancelled and cannot be changed", c.T(d.Label), doc.Name())
+		return nil, cerr.Validation("{0} {1} is cancelled and cannot be changed", c.T(d.Label), doc.ID())
 	case oldStatus == 0 && newStatus == 0:
 	default:
 		return nil, cerr.Validation("Invalid docstatus transition ({0} → {1})", oldStatus, newStatus)
@@ -599,14 +599,14 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 		if ok, err := c.HasPermission(d.Name, ptype, before); err != nil {
 			return nil, err
 		} else if !ok {
-			return nil, cerr.Permission("No permission ({0}) on {1} {2}", ptype, c.T(d.Label), doc.Name())
+			return nil, cerr.Permission("No permission ({0}) on {1} {2}", ptype, c.T(d.Label), doc.ID())
 		}
 	}
 	if !c.IgnorePermissions() {
 		if ok, err := c.scopeAllows(d, before, ptype); err != nil {
 			return nil, err
 		} else if !ok {
-			return nil, cerr.Permission("No permission ({0}) on {1} {2}", ptype, c.T(d.Label), doc.Name())
+			return nil, cerr.Permission("No permission ({0}) on {1} {2}", ptype, c.T(d.Label), doc.ID())
 		}
 	}
 	// optimistic concurrency
@@ -655,7 +655,7 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 		if ok, err := c.scopeAllows(d, doc, ptype); err != nil {
 			return nil, err
 		} else if !ok {
-			return nil, cerr.Permission("No permission ({0}) on {1} {2}", ptype, c.T(d.Label), doc.Name())
+			return nil, cerr.Permission("No permission ({0}) on {1} {2}", ptype, c.T(d.Label), doc.ID())
 		}
 	}
 	if err := c.writeUpdate(d, doc, before["modified"]); err != nil {
@@ -692,7 +692,7 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 			return nil, err
 		}
 	}
-	saved, err := c.GetDocIgnoringPerms(d.Name, doc.Name())
+	saved, err := c.GetDocIgnoringPerms(d.Name, doc.ID())
 	if err != nil {
 		return nil, err
 	}
@@ -804,7 +804,7 @@ func (c *Ctx) Amend(doctype, name string) (Doc, error) {
 		return nil, cerr.Permission("No permission to amend {0}", c.T(d.Label))
 	}
 	doc := src.Clone()
-	for _, k := range []string{"name", "owner", "creation", "modified", "modified_by"} {
+	for _, k := range []string{"id", "owner", "creation", "modified", "modified_by"} {
 		delete(doc, k)
 	}
 	doc["docstatus"], doc["__islocal"] = 0, true
@@ -825,15 +825,15 @@ func (c *Ctx) Amend(doctype, name string) (Doc, error) {
 	n := 1
 	for {
 		cand := fmt.Sprintf("%s-%d", base, n)
-		if ok, _ := c.nameExists(doctype, cand); !ok {
-			doc["name"] = cand
+		if ok, _ := c.idExists(doctype, cand); !ok {
+			doc["id"] = cand
 			break
 		}
 		n++
 	}
 	for _, tf := range d.TableFields() {
 		for _, row := range doc.Children(tf.Fieldname) {
-			delete(row, "name")
+			delete(row, "id")
 			delete(row, "parent")
 		}
 	}
@@ -878,7 +878,7 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 		if name != "singleton" {
 			return modified, cerr.Validation("Invalid Single identity for {0}", d.Name)
 		}
-		if v, ok := values["name"]; ok && v != "singleton" {
+		if v, ok := values["id"]; ok && v != "singleton" {
 			return modified, cerr.Validation("Invalid Single identity for {0}", d.Name)
 		}
 		if v, ok := values["docstatus"]; ok && toFloat(v) != 0 {
@@ -936,7 +936,7 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 	}
 	var beforeShare Doc
 	if d.Name == shareDoctype {
-		rows, err := db.Select(c.Ctx, c.Q(), `SELECT "user", share_doctype, share_name, "read", "write", "share", override_scope FROM tab_document_share WHERE name = $1`, name)
+		rows, err := db.Select(c.Ctx, c.Q(), `SELECT "user", share_doctype, share_id, "read", "write", "share", override_scope FROM tab_document_share WHERE id = $1`, name)
 		if err != nil {
 			return modified, err
 		}
@@ -946,7 +946,7 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 	}
 	var beforePermission Doc
 	if d.Name == "User Permission" {
-		rows, err := db.Select(c.Ctx, c.Q(), `SELECT "user", allow, for_value, applicable_for FROM tab_user_permission WHERE name = $1`, name)
+		rows, err := db.Select(c.Ctx, c.Q(), `SELECT "user", allow, for_value, applicable_for FROM tab_user_permission WHERE id = $1`, name)
 		if err != nil {
 			return modified, err
 		}
@@ -975,7 +975,7 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 		modified = time.Now()
 		sets = append(sets, "modified = "+b.Arg(modified), "modified_by = "+b.Arg(c.User))
 	}
-	sql := fmt.Sprintf("UPDATE %s SET %s WHERE name = %s", db.Ident(d.TableName()), strings.Join(sets, ", "), b.Arg(name))
+	sql := fmt.Sprintf("UPDATE %s SET %s WHERE id = %s", db.Ident(d.TableName()), strings.Join(sets, ", "), b.Arg(name))
 	tag, err := c.Q().Exec(c.Ctx, sql, b.Args...)
 	if err != nil {
 		return modified, err
@@ -1021,7 +1021,7 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 	// only after commit: a rolled back transaction must not announce
 	// changes that never took place (B20).
 	c.AfterCommit(func() {
-		c.E.Events.Publish(Event{Name: "doc_update", Doctype: doctype, DocName: name, Payload: map[string]any{"doctype": doctype, "name": name}})
+		c.E.Events.Publish(Event{Name: "doc_update", Doctype: doctype, DocID: name, Payload: map[string]any{"doctype": doctype, "id": name}})
 	})
 	return modified, nil
 }
@@ -1106,7 +1106,7 @@ func (c *Ctx) Delete(doctype, name string, ignorePerms, force bool) error {
 			_ = c.E.VaultDel(c, key)
 		}
 	}
-	if _, err := c.Q().Exec(c.Ctx, fmt.Sprintf("DELETE FROM %s WHERE name = $1", db.Ident(d.TableName())), name); err != nil {
+	if _, err := c.Q().Exec(c.Ctx, fmt.Sprintf("DELETE FROM %s WHERE id = $1", db.Ident(d.TableName())), name); err != nil {
 		return err
 	}
 	if d.Name == "File" {
@@ -1115,7 +1115,7 @@ func (c *Ctx) Delete(doctype, name string, ignorePerms, force bool) error {
 	// Attachments go with their document, and so do their bytes. Read the urls
 	// before the rows disappear below.
 	var attached []string
-	rows, err := c.Q().Query(c.Ctx, "SELECT file_url FROM tab_file WHERE attached_to_doctype = $1 AND attached_to_name = $2", doctype, name)
+	rows, err := c.Q().Query(c.Ctx, "SELECT file_url FROM tab_file WHERE attached_to_doctype = $1 AND attached_to_id = $2", doctype, name)
 	if err != nil {
 		return err
 	}
@@ -1141,7 +1141,7 @@ func (c *Ctx) Delete(doctype, name string, ignorePerms, force bool) error {
 			continue
 		}
 		tag, err := c.Q().Exec(c.Ctx, fmt.Sprintf("DELETE FROM %s WHERE %s = $1 AND %s = $2",
-			db.Ident(ref.table), db.Ident(ref.doctypeCol), db.Ident(ref.nameCol)), doctype, name)
+			db.Ident(ref.table), db.Ident(ref.doctypeCol), db.Ident(ref.idCol)), doctype, name)
 		if err == nil && ref.table == "tab_document_share" && tag.RowsAffected() > 0 {
 			c.allSharesChanged()
 		}
@@ -1179,7 +1179,7 @@ func (c *Ctx) Delete(doctype, name string, ignorePerms, force bool) error {
 }
 
 // Rename changes a document's name and every link pointing to it.
-func (c *Ctx) Rename(doctype, oldName, newName string) (string, error) {
+func (c *Ctx) Rename(doctype, oldID, newID string) (string, error) {
 	d, err := c.St.DocType(doctype)
 	if err != nil {
 		return "", err
@@ -1190,52 +1190,52 @@ func (c *Ctx) Rename(doctype, oldName, newName string) (string, error) {
 	if d.IsSingle {
 		return "", cerr.Validation("Single DocTypes cannot be deleted or renamed")
 	}
-	newName = strings.TrimSpace(newName)
-	if newName == "" || newName == oldName {
-		return oldName, nil
+	newID = strings.TrimSpace(newID)
+	if newID == "" || newID == oldID {
+		return oldID, nil
 	}
 	if !d.AllowRename {
 		return "", cerr.Validation("{0} cannot be renamed", c.T(d.Label))
 	}
-	doc, err := c.GetDoc(doctype, oldName)
+	doc, err := c.GetDoc(doctype, oldID)
 	if err != nil {
 		return "", err
 	}
 	if ok, _ := c.HasPermission(doctype, "write", doc); !ok && !c.IgnorePermissions() {
 		return "", cerr.Permission("No permission to rename {0}", c.T(d.Label))
 	}
-	if ok, _ := c.nameExists(doctype, newName); ok {
-		return "", cerr.Duplicate("{0} {1} already exists", c.T(d.Label), newName)
+	if ok, _ := c.idExists(doctype, newID); ok {
+		return "", cerr.Duplicate("{0} {1} already exists", c.T(d.Label), newID)
 	}
 	if err := c.runHook(d, "beforeRename", doc, nil); err != nil {
 		return "", err
 	}
-	if err := c.moveName(d, oldName, newName); err != nil {
+	if err := c.moveID(d, oldID, newID); err != nil {
 		return "", err
 	}
-	delete(c.docCache, c.docKey(doctype, oldName))
-	doc["name"] = newName
+	delete(c.docCache, c.docKey(doctype, oldID))
+	doc["id"] = newID
 	if err := c.runHook(d, "afterRename", doc, nil); err != nil {
 		return "", err
 	}
 	c.AfterCommit(func() {
 		c.E.Events.Publish(Event{Name: "list_update", Payload: map[string]any{"doctype": doctype}})
 	})
-	return newName, nil
+	return newID, nil
 }
 
-// moveName is the data half of Rename: the row, its vault keys, and every
+// moveID is the data half of Rename: the row, its vault keys, and every
 // reference the meta and coreRefs know about. It checks nothing and runs no
 // hook, which is what lets a migration rename a document its DocType does not
 // allow a person to rename.
-func (c *Ctx) moveName(d *meta.DocType, oldName, newName string) error {
+func (c *Ctx) moveID(d *meta.DocType, oldID, newID string) error {
 	doctype := d.Name
 	q := c.Q()
-	if _, err := q.Exec(c.Ctx, fmt.Sprintf("UPDATE %s SET name = $1 WHERE name = $2", db.Ident(d.TableName())), newName, oldName); err != nil {
+	if _, err := q.Exec(c.Ctx, fmt.Sprintf("UPDATE %s SET id = $1 WHERE id = $2", db.Ident(d.TableName())), newID, oldID); err != nil {
 		return err
 	}
-	if d.Naming.Field != "" {
-		q.Exec(c.Ctx, fmt.Sprintf("UPDATE %s SET %s = $1 WHERE name = $1", db.Ident(d.TableName()), db.Ident(d.Naming.Field)), newName)
+	if d.IDGeneration.Field != "" {
+		q.Exec(c.Ctx, fmt.Sprintf("UPDATE %s SET %s = $1 WHERE id = $1", db.Ident(d.TableName()), db.Ident(d.IDGeneration.Field)), newID)
 	}
 	// Vault keys default to "<DocType>:<Fieldname>:<name>" (DeriveVaultKey); a
 	// rename must carry the default-shaped ones to the new name, or the
@@ -1246,8 +1246,8 @@ func (c *Ctx) moveName(d *meta.DocType, oldName, newName string) error {
 		if f.Fieldtype != "Vault" || f.OptionsString() != "" {
 			continue
 		}
-		oldKey := c.DeriveVaultKey(d, f, Doc{"name": oldName})
-		newKey := c.DeriveVaultKey(d, f, Doc{"name": newName})
+		oldKey := c.DeriveVaultKey(d, f, Doc{"id": oldID})
+		newKey := c.DeriveVaultKey(d, f, Doc{"id": newID})
 		if _, err := q.Exec(c.Ctx, "UPDATE ddcore_vault SET name = $1 WHERE name = $2", newKey, oldKey); err != nil {
 			return err
 		}
@@ -1255,33 +1255,33 @@ func (c *Ctx) moveName(d *meta.DocType, oldName, newName string) error {
 	for _, other := range c.St.Meta.DocTypes {
 		t := db.Ident(other.TableName())
 		if other.IsChild {
-			q.Exec(c.Ctx, fmt.Sprintf("UPDATE %s SET parent = $1 WHERE parent = $2 AND parenttype = $3", t), newName, oldName, doctype)
+			q.Exec(c.Ctx, fmt.Sprintf("UPDATE %s SET parent = $1 WHERE parent = $2 AND parenttype = $3", t), newID, oldID, doctype)
 		}
 		for _, f := range other.Fields {
 			switch f.Fieldtype {
 			case "Link":
 				if f.OptionsString() == doctype {
-					if _, err := q.Exec(c.Ctx, fmt.Sprintf("UPDATE %s SET %s = $1 WHERE %s = $2", t, db.Ident(f.Fieldname), db.Ident(f.Fieldname)), newName, oldName); err != nil {
+					if _, err := q.Exec(c.Ctx, fmt.Sprintf("UPDATE %s SET %s = $1 WHERE %s = $2", t, db.Ident(f.Fieldname), db.Ident(f.Fieldname)), newID, oldID); err != nil {
 						return err
 					}
 				}
 			case "Dynamic Link":
 				tf := f.OptionsString()
 				if other.Field(tf) != nil {
-					q.Exec(c.Ctx, fmt.Sprintf("UPDATE %s SET %s = $1 WHERE %s = $2 AND %s = $3", t, db.Ident(f.Fieldname), db.Ident(f.Fieldname), db.Ident(tf)), newName, oldName, doctype)
+					q.Exec(c.Ctx, fmt.Sprintf("UPDATE %s SET %s = $1 WHERE %s = $2 AND %s = $3", t, db.Ident(f.Fieldname), db.Ident(f.Fieldname), db.Ident(tf)), newID, oldID, doctype)
 				}
 			}
 		}
 	}
 	// Same tables, same omission: a renamed document used to lose its
 	// attachments, and with them the permission check on a private file, which
-	// reads File.attached_to_name to decide who may download it. Rename sweeps
+	// reads File.attached_to_id to decide who may download it. Rename sweeps
 	// every one of them, keepOnDelete or not: a record that survives its
 	// document must still point at the name that document answers to now.
 	for _, ref := range coreRefs {
 		tag, err := q.Exec(c.Ctx, fmt.Sprintf("UPDATE %s SET %s = $1 WHERE %s = $2 AND %s = $3",
-			db.Ident(ref.table), db.Ident(ref.nameCol), db.Ident(ref.doctypeCol), db.Ident(ref.nameCol)),
-			newName, doctype, oldName)
+			db.Ident(ref.table), db.Ident(ref.idCol), db.Ident(ref.doctypeCol), db.Ident(ref.idCol)),
+			newID, doctype, oldID)
 		if err != nil {
 			return fmt.Errorf("coreRefs update %s: %w", ref.table, err)
 		}
@@ -1290,7 +1290,7 @@ func (c *Ctx) moveName(d *meta.DocType, oldName, newName string) error {
 		}
 	}
 	if d.Name == "User" {
-		if _, err := q.Exec(c.Ctx, `UPDATE ddcore_user_identity SET "user" = $1 WHERE "user" = $2`, newName, oldName); err != nil {
+		if _, err := q.Exec(c.Ctx, `UPDATE ddcore_user_identity SET "user" = $1 WHERE "user" = $2`, newID, oldID); err != nil {
 			return fmt.Errorf("identity rename: %w", err)
 		}
 	}
@@ -1310,7 +1310,7 @@ func (c *Ctx) GetDocIgnoringPerms(doctype, name string) (Doc, error) {
 
 func (c *Ctx) notify(d *meta.DocType, doc Doc, action string) {
 	c.AfterCommit(func() {
-		c.E.Events.Publish(Event{Name: "doc_update", Doctype: d.Name, DocName: doc.Name(), Payload: map[string]any{"doctype": d.Name, "name": doc.Name(), "action": action, "modified": doc["modified"], "user": c.User}})
+		c.E.Events.Publish(Event{Name: "doc_update", Doctype: d.Name, DocID: doc.ID(), Payload: map[string]any{"doctype": d.Name, "id": doc.ID(), "action": action, "modified": doc["modified"], "user": c.User}})
 		c.E.Events.Publish(Event{Name: "list_update", Payload: map[string]any{"doctype": d.Name}})
 	})
 }
@@ -1495,7 +1495,7 @@ func (c *Ctx) checkMandatory(d *meta.DocType, doc Doc) error {
 		}
 		if f.Fieldtype == "Vault" {
 			if req && isEmpty(doc[f.Fieldname]) {
-				if doc.Name() != "" {
+				if doc.ID() != "" {
 					key := c.DeriveVaultKey(d, f, doc)
 					has, _ := c.E.VaultHas(c.Ctx, c.Q(), key)
 					if has {
@@ -1587,7 +1587,7 @@ func (c *Ctx) checkLinks(d *meta.DocType, doc Doc) error {
 		}
 		switch f.Fieldtype {
 		case "Link":
-			if ok, err := c.nameExists(f.OptionsString(), v); err != nil {
+			if ok, err := c.idExists(f.OptionsString(), v); err != nil {
 				return err
 			} else if !ok {
 				return cerr.LinkExists("{0}: {1} \"{2}\" does not exist", c.T(f.Label), f.OptionsString(), v).WithTitleKey("Invalid link")
@@ -1600,7 +1600,7 @@ func (c *Ctx) checkLinks(d *meta.DocType, doc Doc) error {
 			if _, err := c.St.DocType(target); err != nil {
 				return cerr.Validation("{0}: DocType \"{1}\" does not exist", c.T(f.Label), target)
 			}
-			if ok, err := c.nameExists(target, v); err != nil {
+			if ok, err := c.idExists(target, v); err != nil {
 				return err
 			} else if !ok {
 				return cerr.LinkExists("{0}: {1} \"{2}\" does not exist", c.T(f.Label), target, v).WithTitleKey("Invalid link")
@@ -1615,12 +1615,12 @@ func (c *Ctx) checkUnique(d *meta.DocType, doc Doc) error {
 		if !f.Unique || isEmpty(doc[f.Fieldname]) {
 			continue
 		}
-		rows, err := db.Select(c.Ctx, c.Q(), fmt.Sprintf("SELECT name FROM %s WHERE %s = $1 AND name <> $2 LIMIT 1", db.Ident(d.TableName()), db.Ident(f.Fieldname)), doc[f.Fieldname], doc.Name())
+		rows, err := db.Select(c.Ctx, c.Q(), fmt.Sprintf("SELECT id FROM %s WHERE %s = $1 AND id <> $2 LIMIT 1", db.Ident(d.TableName()), db.Ident(f.Fieldname)), doc[f.Fieldname], doc.ID())
 		if err != nil {
 			return err
 		}
 		if len(rows) > 0 {
-			return cerr.Duplicate("{0} \"{1}\" already exists on {2} {3}", c.T(f.Label), doc.Str(f.Fieldname), c.T(d.Label), rows[0]["name"]).WithTitleKey("Duplicate value")
+			return cerr.Duplicate("{0} \"{1}\" already exists on {2} {3}", c.T(f.Label), doc.Str(f.Fieldname), c.T(d.Label), rows[0]["id"]).WithTitleKey("Duplicate value")
 		}
 	}
 	return nil
@@ -1650,15 +1650,15 @@ func (c *Ctx) checkUniqueKeys(d *meta.DocType, doc Doc) error {
 		if len(where) == 0 {
 			continue
 		}
-		args = append(args, doc.Name())
-		rows, err := db.Select(c.Ctx, c.Q(), fmt.Sprintf("SELECT name FROM %s WHERE %s AND name <> $%d LIMIT 1",
+		args = append(args, doc.ID())
+		rows, err := db.Select(c.Ctx, c.Q(), fmt.Sprintf("SELECT id FROM %s WHERE %s AND id <> $%d LIMIT 1",
 			db.Ident(d.TableName()), strings.Join(where, " AND "), len(args)), args...)
 		if err != nil {
 			return err
 		}
 		if len(rows) > 0 {
 			return cerr.Duplicate("{0} already exists on {1} {2}",
-				c.keyValues(d, k, doc), c.T(d.Label), rows[0]["name"]).WithTitleKey("Duplicate value")
+				c.keyValues(d, k, doc), c.T(d.Label), rows[0]["id"]).WithTitleKey("Duplicate value")
 		}
 	}
 	return nil
@@ -1708,7 +1708,7 @@ func (c *Ctx) duplicateErr(d *meta.DocType, doc Doc, err error) error {
 		// An index on another table, or one whose name this DocType does not
 		// own: the collision is real, its name is simply not ours to read.
 	case suffix == "pkey":
-		return cerr.Duplicate("{0} {1} already exists", c.T(d.Label), doc.Name()).WithTitleKey("Duplicate name")
+		return cerr.Duplicate("{0} {1} already exists", c.T(d.Label), doc.ID()).WithTitleKey("Duplicate ID")
 	case strings.HasPrefix(suffix, "uk_"):
 		if k := d.UniqueKey(strings.TrimPrefix(suffix, "uk_")); k != nil {
 			return cerr.Duplicate("{0} already exists", c.keyValues(d, *k, doc)).WithTitleKey("Duplicate value")
@@ -1728,7 +1728,7 @@ func (c *Ctx) validateChildren(d *meta.DocType, doc Doc, opts SaveOpts) error {
 		list := make([]any, 0, len(rows))
 		for i, row := range rows {
 			row["doctype"], row["parenttype"], row["parentfield"], row["idx"] = child.Name, d.Name, tf.Fieldname, int64(i+1)
-			row["parent"] = doc["name"]
+			row["parent"] = doc["id"]
 			row["docstatus"] = doc["docstatus"]
 			if err := c.castAll(child, row); err != nil {
 				return err
@@ -1789,7 +1789,7 @@ func stripChildMeta(rows []Doc) []Doc {
 	out := make([]Doc, len(rows))
 	for i, r := range rows {
 		x := r.Clone()
-		for _, k := range []string{"modified", "modified_by", "creation", "owner", "docstatus", "__islocal", "__unsaved", "name", "parent"} {
+		for _, k := range []string{"modified", "modified_by", "creation", "owner", "docstatus", "__islocal", "__unsaved", "id", "parent"} {
 			delete(x, k)
 		}
 		out[i] = x
@@ -1806,23 +1806,23 @@ func (c *Ctx) checkLinksBeforeDelete(d *meta.DocType, name string) error {
 			var args []any
 			switch {
 			case f.Fieldtype == "Link" && f.OptionsString() == d.Name:
-				sql = fmt.Sprintf("SELECT name, parent, parenttype FROM %s WHERE %s = $1 LIMIT 1", db.Ident(other.TableName()), db.Ident(f.Fieldname))
+				sql = fmt.Sprintf("SELECT id, parent, parenttype FROM %s WHERE %s = $1 LIMIT 1", db.Ident(other.TableName()), db.Ident(f.Fieldname))
 				args = []any{name}
 			case f.Fieldtype == "Dynamic Link" && other.Field(f.OptionsString()) != nil:
-				sql = fmt.Sprintf("SELECT name, parent, parenttype FROM %s WHERE %s = $1 AND %s = $2 LIMIT 1", db.Ident(other.TableName()), db.Ident(f.Fieldname), db.Ident(f.OptionsString()))
+				sql = fmt.Sprintf("SELECT id, parent, parenttype FROM %s WHERE %s = $1 AND %s = $2 LIMIT 1", db.Ident(other.TableName()), db.Ident(f.Fieldname), db.Ident(f.OptionsString()))
 				args = []any{name, d.Name}
 			default:
 				continue
 			}
 			if !other.IsChild {
-				sql = strings.Replace(sql, "name, parent, parenttype", "name, NULL AS parent, NULL AS parenttype", 1)
+				sql = strings.Replace(sql, "id, parent, parenttype", "id, NULL AS parent, NULL AS parenttype", 1)
 			}
 			rows, err := db.Select(c.Ctx, c.Q(), sql, args...)
 			if err != nil {
 				return err
 			}
 			if len(rows) > 0 {
-				ref, refName := other.Name, db.Str(rows[0]["name"])
+				ref, refName := other.Name, db.Str(rows[0]["id"])
 				if other.IsChild {
 					ref, refName = db.Str(rows[0]["parenttype"]), db.Str(rows[0]["parent"])
 				}
@@ -1836,13 +1836,13 @@ func (c *Ctx) checkLinksBeforeDelete(d *meta.DocType, name string) error {
 // ------------------------------------------------------------ write
 
 func (c *Ctx) columnValues(d *meta.DocType, doc Doc) ([]string, []any, error) {
-	if d.IsSingle && (doc.Name() != "singleton" || doc.Docstatus() != 0) {
+	if d.IsSingle && (doc.ID() != "singleton" || doc.Docstatus() != 0) {
 		return nil, nil, cerr.Validation("Invalid Single identity or status for {0}", d.Name)
 	}
 	var cols []string
 	var vals []any
 	add := func(k string, v any) { cols = append(cols, db.Ident(k)); vals = append(vals, v) }
-	add("name", doc["name"])
+	add("id", doc["id"])
 	add("owner", doc["owner"])
 	add("creation", parseTimeOrNow(doc["creation"], c.E.Location()))
 	add("modified", parseTimeOrNow(doc["modified"], c.E.Location()))
@@ -1898,14 +1898,14 @@ func (c *Ctx) writeUpdate(d *meta.DocType, doc Doc, prevModified any) error {
 	var sets []string
 	var args []any
 	for i, col := range cols {
-		if col == `"name"` {
+		if col == `"id"` {
 			continue
 		}
 		args = append(args, vals[i])
 		sets = append(sets, fmt.Sprintf("%s = $%d", col, len(args)))
 	}
-	args = append(args, doc["name"])
-	sql := fmt.Sprintf("UPDATE %s SET %s WHERE name = $%d", db.Ident(d.TableName()), strings.Join(sets, ", "), len(args))
+	args = append(args, doc["id"])
+	sql := fmt.Sprintf("UPDATE %s SET %s WHERE id = $%d", db.Ident(d.TableName()), strings.Join(sets, ", "), len(args))
 	args = append(args, parseTimeOrNil(prevModified, c.E.Location()))
 	sql += fmt.Sprintf(" AND modified IS NOT DISTINCT FROM $%d", len(args))
 	tag, err := c.Q().Exec(c.Ctx, sql, args...)
@@ -1913,7 +1913,7 @@ func (c *Ctx) writeUpdate(d *meta.DocType, doc Doc, prevModified any) error {
 		return c.duplicateErr(d, doc, err)
 	}
 	if tag.RowsAffected() == 0 {
-		return cerr.Timestamp("{0} {1} was changed by someone else. Reload and try again.", c.T(d.Label), doc.Name())
+		return cerr.Timestamp("{0} {1} was changed by someone else. Reload and try again.", c.T(d.Label), doc.ID())
 	}
 	return nil
 }
@@ -1928,24 +1928,24 @@ func parseTimeOrNil(v any, loc *time.Location) any {
 	return nil
 }
 
-// childNames lists the rows already belonging to (parent, parenttype, parentfield).
-func (c *Ctx) childNames(child *meta.DocType, parent, parenttype, parentfield string) (map[string]bool, error) {
+// childIDs lists the rows already belonging to (parent, parenttype, parentfield).
+func (c *Ctx) childIDs(child *meta.DocType, parent, parenttype, parentfield string) (map[string]bool, error) {
 	out := map[string]bool{}
 	if parent == "" {
 		return out, nil
 	}
-	rows, err := db.Select(c.Ctx, c.Q(), fmt.Sprintf("SELECT name FROM %s WHERE parent = $1 AND parenttype = $2 AND parentfield = $3", db.Ident(child.TableName())), parent, parenttype, parentfield)
+	rows, err := db.Select(c.Ctx, c.Q(), fmt.Sprintf("SELECT id FROM %s WHERE parent = $1 AND parenttype = $2 AND parentfield = $3", db.Ident(child.TableName())), parent, parenttype, parentfield)
 	if err != nil {
 		return nil, err
 	}
 	for _, r := range rows {
-		out[db.Str(r["name"])] = true
+		out[db.Str(r["id"])] = true
 	}
 	return out, nil
 }
 
 func (c *Ctx) childExists(child *meta.DocType, name string) (bool, error) {
-	rows, err := db.Select(c.Ctx, c.Q(), fmt.Sprintf("SELECT 1 FROM %s WHERE name = $1", db.Ident(child.TableName())), name)
+	rows, err := db.Select(c.Ctx, c.Q(), fmt.Sprintf("SELECT 1 FROM %s WHERE id = $1", db.Ident(child.TableName())), name)
 	return len(rows) > 0, err
 }
 
@@ -1955,7 +1955,7 @@ func (c *Ctx) writeChildren(d *meta.DocType, doc Doc) error {
 		rows := doc.Children(tf.Fieldname)
 		keep := make([]any, 0, len(rows))
 		now := time.Now()
-		owned, err := c.childNames(child, doc.Str("name"), d.Name, tf.Fieldname)
+		owned, err := c.childIDs(child, doc.Str("id"), d.Name, tf.Fieldname)
 		if err != nil {
 			return err
 		}
@@ -1963,18 +1963,18 @@ func (c *Ctx) writeChildren(d *meta.DocType, doc Doc) error {
 			// A row only retains its received `name` if it already belongs to this
 			// parent/field. Otherwise it becomes a copy: without this, saving a
 			// document would hijack another document's child row (B03).
-			if n := row.Str("name"); n != "" && !owned[n] {
+			if n := row.Str("id"); n != "" && !owned[n] {
 				taken, err := c.childExists(child, n)
 				if err != nil {
 					return err
 				}
 				if taken {
-					row["name"] = randomName()
+					row["id"] = randomID()
 					row["creation"], row["owner"] = now, c.User
 				}
 			}
-			if row.Str("name") == "" {
-				row["name"] = randomName()
+			if row.Str("id") == "" {
+				row["id"] = randomID()
 				row["creation"], row["owner"] = now, c.User
 			}
 			if row["creation"] == nil {
@@ -1983,7 +1983,7 @@ func (c *Ctx) writeChildren(d *meta.DocType, doc Doc) error {
 			row["modified"], row["modified_by"] = now, c.User
 			row["idx"] = int64(i + 1)
 			row["docstatus"] = doc["docstatus"]
-			keep = append(keep, row["name"])
+			keep = append(keep, row["id"])
 			cols, vals, err := c.columnValues(child, row)
 			if err != nil {
 				return err
@@ -1992,11 +1992,11 @@ func (c *Ctx) writeChildren(d *meta.DocType, doc Doc) error {
 			var sets []string
 			for j, col := range cols {
 				ph[j] = fmt.Sprintf("$%d", j+1)
-				if col != `"name"` && col != `"creation"` && col != `"owner"` {
+				if col != `"id"` && col != `"creation"` && col != `"owner"` {
 					sets = append(sets, fmt.Sprintf("%s = EXCLUDED.%s", col, col))
 				}
 			}
-			sql := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s) ON CONFLICT (name) DO UPDATE SET %s",
+			sql := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s) ON CONFLICT (id) DO UPDATE SET %s",
 				db.Ident(child.TableName()), strings.Join(cols, ", "), strings.Join(ph, ", "), strings.Join(sets, ", "))
 			if _, err := c.Q().Exec(c.Ctx, sql, vals...); err != nil {
 				return fmt.Errorf("%w\nSQL: %s", err, sql)
@@ -2008,9 +2008,9 @@ func (c *Ctx) writeChildren(d *meta.DocType, doc Doc) error {
 		for _, n := range keep {
 			ph = append(ph, b.Arg(n))
 		}
-		sql := fmt.Sprintf("DELETE FROM %s WHERE parent = %s AND parenttype = %s AND parentfield = %s", db.Ident(child.TableName()), b.Arg(doc["name"]), b.Arg(d.Name), b.Arg(tf.Fieldname))
+		sql := fmt.Sprintf("DELETE FROM %s WHERE parent = %s AND parenttype = %s AND parentfield = %s", db.Ident(child.TableName()), b.Arg(doc["id"]), b.Arg(d.Name), b.Arg(tf.Fieldname))
 		if len(ph) > 0 {
-			sql += " AND name NOT IN (" + strings.Join(ph, ", ") + ")"
+			sql += " AND id NOT IN (" + strings.Join(ph, ", ") + ")"
 		}
 		if _, err := c.Q().Exec(c.Ctx, sql, b.Args...); err != nil {
 			return fmt.Errorf("%w\nSQL: %s %v", err, sql, b.Args)
@@ -2084,6 +2084,6 @@ func (c *Ctx) saveVersion(d *meta.DocType, before, after Doc) {
 		return
 	}
 	data := mustJSON(map[string]any{"changed": changed})
-	c.Q().Exec(c.Ctx, `INSERT INTO tab_version (name, owner, creation, modified, modified_by, docstatus, ref_doctype, docname, data)
-		VALUES ($1, $2, now(), now(), $2, 0, $3, $4, $5)`, randomName(), c.User, d.Name, after.Name(), string(data))
+	c.Q().Exec(c.Ctx, `INSERT INTO tab_version (id, owner, creation, modified, modified_by, docstatus, ref_doctype, doc_id, data)
+		VALUES ($1, $2, now(), now(), $2, 0, $3, $4, $5)`, randomID(), c.User, d.Name, after.ID(), string(data))
 }

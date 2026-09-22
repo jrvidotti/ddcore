@@ -14,13 +14,13 @@ import (
 // Notifications are internal records, deliberately absent from DocType metadata.
 // Their only public interface derives the recipient from the authenticated ctx.
 type Notification struct {
-	Name             string    `json:"name"`
+	ID               string    `json:"id"`
 	Title            string    `json:"title"`
 	Message          string    `json:"message"`
 	Creation         time.Time `json:"creation"`
 	Read             bool      `json:"read"`
 	ReferenceDoctype string    `json:"reference_doctype"`
-	ReferenceName    string    `json:"reference_name"`
+	ReferenceID      string    `json:"reference_id"`
 }
 type NotificationPage struct {
 	Data  []Notification `json:"data"`
@@ -68,7 +68,7 @@ func (c *Ctx) notificationAccess(user, doctype, name string) (bool, error) {
 	if user == "" || user == "Guest" {
 		return false, nil
 	}
-	rows, err := db.Select(c.Ctx, c.Q(), `SELECT enabled FROM tab_user WHERE name=$1`, user)
+	rows, err := db.Select(c.Ctx, c.Q(), `SELECT enabled FROM tab_user WHERE id=$1`, user)
 	if err != nil {
 		return false, err
 	}
@@ -93,7 +93,7 @@ func (c *Ctx) notificationAccess(user, doctype, name string) (bool, error) {
 			return err
 		}
 		// GetDoc checks the document hook; GetList also applies permissionQuery.
-		list, err := reader.GetList(doctype, ListArgs{Filters: map[string]any{"name": name}, Fields: []string{"name"}, Limit: 1})
+		list, err := reader.GetList(doctype, ListArgs{Filters: map[string]any{"id": name}, Fields: []string{"id"}, Limit: 1})
 		if err != nil {
 			if cerr.From(err).Status == 403 {
 				return nil
@@ -155,7 +155,7 @@ func (c *Ctx) queueNotification(rule js.Notification, doc, before Doc, identity 
 			continue
 		}
 		seen[user] = true
-		ok, err := c.notificationAccess(user, rule.Doctype, doc.Name())
+		ok, err := c.notificationAccess(user, rule.Doctype, doc.ID())
 		if err != nil {
 			return err
 		}
@@ -166,8 +166,8 @@ func (c *Ctx) queueNotification(rule js.Notification, doc, before Doc, identity 
 		// and leaves the transaction usable when another scanner already won.
 		name := RandomToken()
 		tag, err := c.Q().Exec(c.Ctx, `INSERT INTO ddcore_notification
-   (name,rule,recipient,reference_doctype,reference_name,identity,desk)
-   VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT DO NOTHING`, name, rule.Name, user, rule.Doctype, doc.Name(), identity, rule.Desk)
+   (id,rule,recipient,reference_doctype,reference_id,identity,desk)
+   VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT DO NOTHING`, name, rule.Name, user, rule.Doctype, doc.ID(), identity, rule.Desk)
 		if err != nil {
 			return err
 		}
@@ -186,13 +186,13 @@ func (c *Ctx) queueNotification(rule js.Notification, doc, before Doc, identity 
 		if err != nil {
 			return err
 		}
-		if _, err = c.Q().Exec(c.Ctx, `UPDATE ddcore_notification SET title=$2,message=$3 WHERE name=$1`, name, content.Title, content.Message); err != nil {
+		if _, err = c.Q().Exec(c.Ctx, `UPDATE ddcore_notification SET title=$2,message=$3 WHERE id=$1`, name, content.Title, content.Message); err != nil {
 			return err
 		}
 		if rule.Email != nil {
 			// User identifiers are resolved to their account's email, never interpreted
 			// as arbitrary external addresses supplied by a rule.
-			users, err := db.Select(c.Ctx, c.Q(), `SELECT email FROM tab_user WHERE name=$1`, user)
+			users, err := db.Select(c.Ctx, c.Q(), `SELECT email FROM tab_user WHERE id=$1`, user)
 			if err != nil {
 				return err
 			}
@@ -204,7 +204,7 @@ func (c *Ctx) queueNotification(rule js.Notification, doc, before Doc, identity 
 					}
 				}
 				payload, _ := json.Marshal(map[string]any{"template": rule.Email.Template, "to": []string{db.Str(users[0]["email"])}, "args": args,
-					"lang": c.RecipientLang([]string{user}), "reference": MailReference{Doctype: rule.Doctype, Name: doc.Name()}, "key": "notification:" + name})
+					"lang": c.RecipientLang([]string{user}), "reference": MailReference{Doctype: rule.Doctype, ID: doc.ID()}, "key": "notification:" + name})
 				result, err := rt.CallFunction("core.services.mail.queue", payload)
 				if err != nil {
 					return err
@@ -215,7 +215,7 @@ func (c *Ctx) queueNotification(rule js.Notification, doc, before Doc, identity 
 				if err = json.Unmarshal(result, &queued); err != nil {
 					return err
 				}
-				if _, err = c.Q().Exec(c.Ctx, `UPDATE ddcore_notification SET email_delivery=$2 WHERE name=$1`, name, queued.Delivery); err != nil {
+				if _, err = c.Q().Exec(c.Ctx, `UPDATE ddcore_notification SET email_delivery=$2 WHERE id=$1`, name, queued.Delivery); err != nil {
 					return err
 				}
 			}
@@ -245,7 +245,7 @@ func (c *Ctx) notifyUserAs(rule, user, refDoctype, refName, title, message strin
 	name := RandomToken()
 	identity := fmt.Sprintf("%s:%s:%s:%s", rule, refDoctype, refName, name)
 	tag, err := c.Q().Exec(c.Ctx, `INSERT INTO ddcore_notification
-   (name,rule,recipient,reference_doctype,reference_name,identity,desk,title,message)
+   (id,rule,recipient,reference_doctype,reference_id,identity,desk,title,message)
    VALUES($1,$2,$3,$4,$5,$6,true,$7,$8) ON CONFLICT DO NOTHING`,
 		name, rule, user, refDoctype, refName, identity, title, message)
 	if err != nil {
@@ -259,8 +259,8 @@ func (c *Ctx) notifyUserAs(rule, user, refDoctype, refName, title, message strin
 
 func notificationFromRow(r map[string]any) Notification {
 	created, _ := r["creation"].(time.Time)
-	return Notification{Name: db.Str(r["name"]), Title: db.Str(r["title"]), Message: db.Str(r["message"]), Creation: created, Read: r["read"] == true,
-		ReferenceDoctype: db.Str(r["reference_doctype"]), ReferenceName: db.Str(r["reference_name"])}
+	return Notification{ID: db.Str(r["id"]), Title: db.Str(r["title"]), Message: db.Str(r["message"]), Creation: created, Read: r["read"] == true,
+		ReferenceDoctype: db.Str(r["reference_doctype"]), ReferenceID: db.Str(r["reference_id"])}
 }
 
 // Walk in bounded database batches and paginate only after permission checks:
@@ -280,17 +280,17 @@ func (c *Ctx) ListNotifications(limit, offset int, read *bool) (NotificationPage
 		offset = 0
 	}
 	var cursorTime any
-	cursorName := ""
+	cursorID := ""
 	for {
-		rows, err := db.Select(c.Ctx, c.Q(), `SELECT name,title,message,creation,read,reference_doctype,reference_name
+		rows, err := db.Select(c.Ctx, c.Q(), `SELECT id,title,message,creation,read,reference_doctype,reference_id
    FROM ddcore_notification WHERE recipient=$1 AND desk AND ($2::boolean IS NULL OR read=$2)
-   AND ($3::timestamptz IS NULL OR (creation,name)<($3,$4)) ORDER BY creation DESC,name DESC LIMIT 100`, c.User, read, cursorTime, cursorName)
+   AND ($3::timestamptz IS NULL OR (creation,id)<($3,$4)) ORDER BY creation DESC,id DESC LIMIT 100`, c.User, read, cursorTime, cursorID)
 		if err != nil {
 			return out, err
 		}
 		for _, r := range rows {
 			n := notificationFromRow(r)
-			ok, err := c.notificationAccess(c.User, n.ReferenceDoctype, n.ReferenceName)
+			ok, err := c.notificationAccess(c.User, n.ReferenceDoctype, n.ReferenceID)
 			if err != nil {
 				return out, err
 			}
@@ -307,7 +307,7 @@ func (c *Ctx) ListNotifications(limit, offset int, read *bool) (NotificationPage
 		}
 		last := rows[len(rows)-1]
 		cursorTime = last["creation"]
-		cursorName = db.Str(last["name"])
+		cursorID = db.Str(last["id"])
 	}
 	return out, nil
 }
@@ -323,7 +323,7 @@ func (c *Ctx) SetNotificationRead(name string, read bool) (Notification, error) 
 	if c.User == "Guest" || c.User == "" {
 		return zero, cerr.Auth("Sign in to continue")
 	}
-	rows, err := db.Select(c.Ctx, c.Q(), `SELECT * FROM ddcore_notification WHERE name=$1 AND recipient=$2 AND desk FOR UPDATE`, name, c.User)
+	rows, err := db.Select(c.Ctx, c.Q(), `SELECT * FROM ddcore_notification WHERE id=$1 AND recipient=$2 AND desk FOR UPDATE`, name, c.User)
 	if err != nil {
 		return zero, err
 	}
@@ -331,14 +331,14 @@ func (c *Ctx) SetNotificationRead(name string, read bool) (Notification, error) 
 		return zero, cerr.NotFound("Notification not found")
 	}
 	n := notificationFromRow(rows[0])
-	ok, err := c.notificationAccess(c.User, n.ReferenceDoctype, n.ReferenceName)
+	ok, err := c.notificationAccess(c.User, n.ReferenceDoctype, n.ReferenceID)
 	if err != nil {
 		return zero, err
 	}
 	if !ok {
 		return zero, cerr.NotFound("Notification not found")
 	}
-	if _, err = c.Q().Exec(c.Ctx, `UPDATE ddcore_notification SET read=$2 WHERE name=$1`, name, read); err != nil {
+	if _, err = c.Q().Exec(c.Ctx, `UPDATE ddcore_notification SET read=$2 WHERE id=$1`, name, read); err != nil {
 		return zero, err
 	}
 	n.Read = read
@@ -349,7 +349,7 @@ func (c *Ctx) SetNotificationRead(name string, read bool) (Notification, error) 
 // notificationMailAllowed is checked before rendering and again before the
 // transport call. A revoked or deleted reference must never leave on a retry.
 func (c *Ctx) notificationMailAllowed(delivery string) (bool, error) {
-	rows, err := db.Select(c.Ctx, c.Q(), `SELECT recipient,reference_doctype,reference_name FROM ddcore_notification WHERE email_delivery=$1`, delivery)
+	rows, err := db.Select(c.Ctx, c.Q(), `SELECT recipient,reference_doctype,reference_id FROM ddcore_notification WHERE email_delivery=$1`, delivery)
 	if err != nil {
 		return false, err
 	}
@@ -357,7 +357,7 @@ func (c *Ctx) notificationMailAllowed(delivery string) (bool, error) {
 		return true, nil
 	}
 	r := rows[0]
-	return c.notificationAccess(db.Str(r["recipient"]), db.Str(r["reference_doctype"]), db.Str(r["reference_name"]))
+	return c.notificationAccess(db.Str(r["recipient"]), db.Str(r["reference_doctype"]), db.Str(r["reference_id"]))
 }
 
 func notificationDue(value any, fieldtype string, days int, loc *time.Location) time.Time {
@@ -416,8 +416,8 @@ func (e *Engine) SweepNotifications(ctx context.Context, now time.Time) error {
 			c := e.NewCtx(ctx, "Admin")
 			c.St = st
 			err := c.Run(func(c *Ctx) error {
-				rows, err := db.Select(ctx, c.Q(), fmt.Sprintf(`SELECT name, %[2]s AS due FROM %[1]s
-   WHERE name > $1 AND %[2]s IS NOT NULL AND %[2]s <= $2 ORDER BY name LIMIT 100`,
+				rows, err := db.Select(ctx, c.Q(), fmt.Sprintf(`SELECT id, %[2]s AS due FROM %[1]s
+   WHERE id > $1 AND %[2]s IS NOT NULL AND %[2]s <= $2 ORDER BY id LIMIT 100`,
 					db.Ident(d.TableName()), db.Ident(field.Fieldname)), cursor, cutoff)
 				if err != nil {
 					return err
@@ -428,22 +428,22 @@ func (e *Engine) SweepNotifications(ctx context.Context, now time.Time) error {
 				}
 				names := make([]string, len(rows))
 				for i, row := range rows {
-					names[i] = db.Str(row["name"])
+					names[i] = db.Str(row["id"])
 				}
 				cursor = names[len(names)-1]
-				marks, err := db.Select(ctx, c.Q(), `SELECT reference_name, due FROM ddcore_notification_due
-   WHERE rule = $1 AND reference_doctype = $2 AND reference_name = ANY($3)`, rule.Name, d.Name, names)
+				marks, err := db.Select(ctx, c.Q(), `SELECT reference_id, due FROM ddcore_notification_due
+   WHERE rule = $1 AND reference_doctype = $2 AND reference_id = ANY($3)`, rule.Name, d.Name, names)
 				if err != nil {
 					return err
 				}
 				done := map[string]bool{}
 				for _, m := range marks {
 					if t, ok := m["due"].(time.Time); ok {
-						done[db.Str(m["reference_name"])+"\x00"+t.UTC().Format(time.RFC3339Nano)] = true
+						done[db.Str(m["reference_id"])+"\x00"+t.UTC().Format(time.RFC3339Nano)] = true
 					}
 				}
 				for _, row := range rows {
-					name := db.Str(row["name"])
+					name := db.Str(row["id"])
 					due := notificationDue(row["due"], field.Fieldtype, rule.Date.Days, loc)
 					if due.IsZero() || due.After(now) || done[name+"\x00"+due.UTC().Format(time.RFC3339Nano)] {
 						continue
@@ -461,7 +461,7 @@ func (e *Engine) SweepNotifications(ctx context.Context, now time.Time) error {
 						continue
 					}
 					claim := func() (bool, error) {
-						tag, err := c.Q().Exec(c.Ctx, `INSERT INTO ddcore_notification_due (rule, reference_doctype, reference_name, due)
+						tag, err := c.Q().Exec(c.Ctx, `INSERT INTO ddcore_notification_due (rule, reference_doctype, reference_id, due)
    VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`, rule.Name, d.Name, name, due)
 						return err == nil && tag.RowsAffected() == 1, err
 					}

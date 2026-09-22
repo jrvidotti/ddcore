@@ -112,15 +112,15 @@ func TestExtensionSetsAProperty(t *testing.T) {
 	}
 }
 
-// nameLabel is a catalogue key, so overriding it moves the DocType's text to the
+// idLabel is a catalogue key, so overriding it moves the DocType's text to the
 // extending app, as label does.
-func TestExtensionSetsTheNameLabel(t *testing.T) {
+func TestExtensionSetsTheIDLabel(t *testing.T) {
 	r := hostRegistry()
-	mustApply(t, r, ext("billing", "Lead", `{"props":{"nameLabel":"Lead No."}}`))
+	mustApply(t, r, ext("billing", "Lead", `{"props":{"idLabel":"Lead No."}}`))
 
 	d, _ := r.Get("Lead")
-	if d.NameLabel != "Lead No." || d.TextAppOf() != "billing" {
-		t.Fatalf("nameLabel=%q owner=%q", d.NameLabel, d.TextAppOf())
+	if d.IDLabel != "Lead No." || d.TextAppOf() != "billing" {
+		t.Fatalf("idLabel=%q owner=%q", d.IDLabel, d.TextAppOf())
 	}
 }
 
@@ -128,9 +128,9 @@ func TestExtensionRefusesAPropertyThatIsIdentity(t *testing.T) {
 	r := hostRegistry()
 	err := apply(t, r,
 		ext("billing", "Lead", `{"set":{"title":{"fieldtype":"Int"}}}`),
-		ext("billing", "Role", `{"props":{"naming":{"field":"role_name"}}}`))
+		ext("billing", "Role", `{"props":{"idGeneration":{"field":"role_name"}}}`))
 	assertErr(t, err, `may not override "fieldtype" on field "title"`)
-	assertErr(t, err, `may not override "naming" on the DocType`)
+	assertErr(t, err, `may not override "idGeneration" on the DocType`)
 }
 
 // An extension cannot touch what migrate uses to move data: `renamedFrom` and

@@ -22,19 +22,19 @@ export default defineApp({
 		"doctypes/artigo/artigo.controller.ts": `import { defineController } from "@ddcore/sdk";
 export default defineController("Artigo", {
   onSubmit(doc) {
-    ddcore.db.setValue("Artigo", doc.name, "submitted_hook_ran", 1);
+    ddcore.db.setValue("Artigo", doc.id, "submitted_hook_ran", 1);
   },
   beforeCancel(doc) {
     doc.before_cancel_hook_ran = 1;
   },
   onCancel(doc) {
-    ddcore.db.setValue("Artigo", doc.name, "cancel_hook_ran", 1);
+    ddcore.db.setValue("Artigo", doc.id, "cancel_hook_ran", 1);
   },
 });`,
 		"doctypes/artigo/artigo.doctype.ts": `import { defineDoctype } from "@ddcore/sdk";
 export default defineDoctype({
   name: "Artigo",
-  naming: { series: "ART-.####" },
+  idGeneration: { series: "ART-.####" },
   submittable: true,
   fields: [
     { fieldname: "titulo", fieldtype: "Data", label: "Título", reqd: true },
@@ -128,7 +128,7 @@ func TestWorkflow_ApplyTransition_SuccessAndDocstatusBinding(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		docName = saved.Name()
+		docName = saved.ID()
 		if saved.Str("workflow_state") != "Draft" {
 			t.Fatalf("expected initial state Draft, got %s", saved.Str("workflow_state"))
 		}
@@ -172,7 +172,7 @@ func TestWorkflow_ApplyTransition_SuccessAndDocstatusBinding(t *testing.T) {
 	}
 
 	// Verify Audit log for "Submit for Approval"
-	rows, err := db.Select(ctx, e.DB.Pool, `SELECT actor, action, outcome, target_doctype, target_name, detail FROM tab_audit_event WHERE target_doctype = 'Artigo' AND target_name = $1 AND action = 'workflow.transition' ORDER BY creation ASC`, docName)
+	rows, err := db.Select(ctx, e.DB.Pool, `SELECT actor, action, outcome, target_doctype, target_id, detail FROM tab_audit_event WHERE target_doctype = 'Artigo' AND target_id = $1 AND action = 'workflow.transition' ORDER BY creation ASC`, docName)
 	if err != nil || len(rows) != 1 {
 		t.Fatalf("expected 1 audit event, got %d (err: %v)", len(rows), err)
 	}
@@ -185,7 +185,7 @@ func TestWorkflow_ApplyTransition_SuccessAndDocstatusBinding(t *testing.T) {
 	}
 
 	// Verify timeline Comment for "Submit for Approval"
-	crows, err := db.Select(ctx, e.DB.Pool, `SELECT comment_type, reference_doctype, reference_name, content FROM tab_comment WHERE reference_doctype = 'Artigo' AND reference_name = $1 ORDER BY creation ASC`, docName)
+	crows, err := db.Select(ctx, e.DB.Pool, `SELECT comment_type, reference_doctype, reference_id, content FROM tab_comment WHERE reference_doctype = 'Artigo' AND reference_id = $1 ORDER BY creation ASC`, docName)
 	if err != nil || len(crows) != 1 {
 		t.Fatalf("expected 1 timeline comment, got %d (err: %v)", len(crows), err)
 	}
@@ -246,7 +246,7 @@ func TestWorkflow_ApplyTransition_SuccessAndDocstatusBinding(t *testing.T) {
 	}
 
 	// Verify Audit log now has 2 Allowed events
-	rows, err = db.Select(ctx, e.DB.Pool, `SELECT actor, action, outcome, target_doctype, target_name, detail FROM tab_audit_event WHERE target_doctype = 'Artigo' AND target_name = $1 AND action = 'workflow.transition' ORDER BY creation ASC`, docName)
+	rows, err = db.Select(ctx, e.DB.Pool, `SELECT actor, action, outcome, target_doctype, target_id, detail FROM tab_audit_event WHERE target_doctype = 'Artigo' AND target_id = $1 AND action = 'workflow.transition' ORDER BY creation ASC`, docName)
 	if err != nil || len(rows) != 2 {
 		t.Fatalf("expected 2 audit events, got %d (err: %v)", len(rows), err)
 	}
@@ -259,7 +259,7 @@ func TestWorkflow_ApplyTransition_SuccessAndDocstatusBinding(t *testing.T) {
 	}
 
 	// Verify timeline Comment now has 2 comments
-	crows, err = db.Select(ctx, e.DB.Pool, `SELECT comment_type, reference_doctype, reference_name, content FROM tab_comment WHERE reference_doctype = 'Artigo' AND reference_name = $1 ORDER BY creation ASC`, docName)
+	crows, err = db.Select(ctx, e.DB.Pool, `SELECT comment_type, reference_doctype, reference_id, content FROM tab_comment WHERE reference_doctype = 'Artigo' AND reference_id = $1 ORDER BY creation ASC`, docName)
 	if err != nil || len(crows) != 2 {
 		t.Fatalf("expected 2 timeline comments, got %d (err: %v)", len(crows), err)
 	}
@@ -292,7 +292,7 @@ func TestWorkflow_ApplyTransition_RejectFromDraftCancelsDocument(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		docName = saved.Name()
+		docName = saved.ID()
 		return nil
 	})
 	if err != nil {
@@ -357,7 +357,7 @@ func TestWorkflow_ApplyTransition_PostSubmitTransitionUpdatesStateField(t *testi
 		if err != nil {
 			return err
 		}
-		docName = saved.Name()
+		docName = saved.ID()
 		return nil
 	})
 	if err != nil {
@@ -417,7 +417,7 @@ func TestWorkflow_ApplyTransition_RoleAndConditionDenied(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		doc1Name = saved.Name()
+		doc1Name = saved.ID()
 		return nil
 	})
 	if err != nil {
@@ -439,7 +439,7 @@ func TestWorkflow_ApplyTransition_RoleAndConditionDenied(t *testing.T) {
 	}
 
 	// Check AuditDenied was written to tab_audit_event for auditor@x.com
-	rows, err := db.Select(ctx, e.DB.Pool, `SELECT actor, action, outcome, target_doctype, target_name, detail FROM tab_audit_event WHERE target_doctype = 'Artigo' AND target_name = $1 AND outcome = 'Denied'`, doc1Name)
+	rows, err := db.Select(ctx, e.DB.Pool, `SELECT actor, action, outcome, target_doctype, target_id, detail FROM tab_audit_event WHERE target_doctype = 'Artigo' AND target_id = $1 AND outcome = 'Denied'`, doc1Name)
 	if err != nil || len(rows) != 1 {
 		t.Fatalf("expected 1 Denied audit row, got %d (err: %v)", len(rows), err)
 	}
@@ -458,7 +458,7 @@ func TestWorkflow_ApplyTransition_RoleAndConditionDenied(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		doc2Name = saved.Name()
+		doc2Name = saved.ID()
 		_, err = c.ApplyWorkflowTransition("Artigo", doc2Name, "Submit for Approval")
 		return err
 	})
@@ -497,7 +497,7 @@ func TestWorkflow_ApplyTransition_RoleAndConditionDenied(t *testing.T) {
 	}
 
 	// Check AuditDenied for condition failure
-	rows, err = db.Select(ctx, e.DB.Pool, `SELECT actor, action, outcome, target_doctype, target_name FROM tab_audit_event WHERE target_doctype = 'Artigo' AND target_name = $1 AND outcome = 'Denied'`, doc2Name)
+	rows, err = db.Select(ctx, e.DB.Pool, `SELECT actor, action, outcome, target_doctype, target_id FROM tab_audit_event WHERE target_doctype = 'Artigo' AND target_id = $1 AND outcome = 'Denied'`, doc2Name)
 	if err != nil || len(rows) != 1 {
 		t.Fatalf("expected 1 Denied audit row for doc2, got %d (err: %v)", len(rows), err)
 	}
@@ -517,7 +517,7 @@ func TestWorkflow_ApplyTransition_RoleAndConditionDenied(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		doc3Name = saved.Name()
+		doc3Name = saved.ID()
 
 		// Advance to Pending Approval using WithWorkflowTransition or Admin
 		return nil
@@ -613,7 +613,7 @@ func TestWorkflow_ApplyTransition_Concurrency(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		docName = saved.Name()
+		docName = saved.ID()
 		_, err = c.ApplyWorkflowTransition("Artigo", docName, "Submit for Approval")
 		return err
 	})
@@ -676,7 +676,7 @@ func TestWorkflow_ApplyTransition_Concurrency(t *testing.T) {
 	}
 
 	// Verify no duplicated comments (exactly 1 for Submit for Approval, 1 for Approve)
-	crows, err := db.Select(ctx, e.DB.Pool, `SELECT comment_type, content FROM tab_comment WHERE reference_doctype = 'Artigo' AND reference_name = $1 ORDER BY creation ASC`, docName)
+	crows, err := db.Select(ctx, e.DB.Pool, `SELECT comment_type, content FROM tab_comment WHERE reference_doctype = 'Artigo' AND reference_id = $1 ORDER BY creation ASC`, docName)
 	if err != nil {
 		t.Fatalf("failed to query comments: %v", err)
 	}
@@ -719,7 +719,7 @@ func TestWorkflow_AvailableActionsAndValidationErrors(t *testing.T) {
 
 	err := e.Run(ctx, "autor@x.com", func(c *Ctx) error {
 		// Non-existent workflow
-		actions, err := c.AvailableWorkflowActions("NonExistentDocType", Doc{"name": "test"})
+		actions, err := c.AvailableWorkflowActions("NonExistentDocType", Doc{"id": "test"})
 		if err != nil || actions != nil {
 			t.Fatalf("expected nil actions for unknown doctype, got %+v (err: %v)", actions, err)
 		}
@@ -752,13 +752,13 @@ func TestWorkflow_AvailableActionsAndValidationErrors(t *testing.T) {
 			return err
 		}
 
-		_, err = c.ApplyWorkflowTransition("Artigo", saved.Name(), "NonExistentAction")
+		_, err = c.ApplyWorkflowTransition("Artigo", saved.ID(), "NonExistentAction")
 		if err == nil || cerr.From(err).Type != "ValidationError" {
 			t.Fatalf("expected ValidationError for invalid action, got %v", err)
 		}
 
 		// Trying "Approve" directly from Draft state (only valid from Pending Approval)
-		_, err = c.ApplyWorkflowTransition("Artigo", saved.Name(), "Approve")
+		_, err = c.ApplyWorkflowTransition("Artigo", saved.ID(), "Approve")
 		if err == nil || cerr.From(err).Type != "ValidationError" {
 			t.Fatalf("expected ValidationError for invalid action from Draft, got %v", err)
 		}
@@ -794,13 +794,13 @@ func TestWorkflow_ApplyWorkflowFromTS(t *testing.T) {
 	raw, err := eval("autor@x.com", `(() => {
 		const d = ddcore.newDoc("Artigo", { titulo: "Via TS", conteudo: "Detailed content" }).insert();
 		d.applyWorkflow("Submit for Approval");
-		return { name: d.name, state: d.workflow_state, docstatus: d.docstatus };
+		return { id: d.id, state: d.workflow_state, docstatus: d.docstatus };
 	})()`)
 	if err != nil {
 		t.Fatalf("applyWorkflow as autor failed: %v", err)
 	}
 	var r struct {
-		Name      string `json:"name"`
+		Name      string `json:"id"`
 		State     string `json:"state"`
 		Docstatus int    `json:"docstatus"`
 	}
@@ -819,7 +819,7 @@ func TestWorkflow_ApplyWorkflowFromTS(t *testing.T) {
 
 	raw, err = eval("editor@x.com", `(() => {
 		const d = ddcore.getDoc("Artigo", "`+r.Name+`").applyWorkflow("Reject");
-		return { name: d.name, state: d.workflow_state, docstatus: d.docstatus };
+		return { id: d.id, state: d.workflow_state, docstatus: d.docstatus };
 	})()`)
 	if err != nil {
 		t.Fatalf("applyWorkflow as editor failed: %v", err)

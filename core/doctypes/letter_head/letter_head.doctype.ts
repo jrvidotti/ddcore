@@ -4,7 +4,7 @@ export default defineDoctype({
   name: "Letter Head",
   module: "Core",
   label: "Letter Head",
-  naming: { field: "letter_head_name" },
+  idGeneration: { field: "letter_head_name" },
   allowRename: true,
   icon: "file-text",
   fields: [

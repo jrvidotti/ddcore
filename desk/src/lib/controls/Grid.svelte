@@ -82,7 +82,7 @@
         </tr>
       </thead>
       <tbody>
-        {#each rows as row, i (row.name || i)}
+        {#each rows as row, i (row.id || i)}
           <tr class="row">
             <td class="muted">{i + 1}</td>
             {#each columns as c}
@@ -97,7 +97,7 @@
                     <span class="cell-value" title={formatValue(row[c.fieldname!], c)}>{formatValue(row[c.fieldname!], c) || "—"}</span>
                   {/if}
                 {:else if rowEditable(c, row) && (!c.dependsOn || evalExpr(c.dependsOn, row, frm.doc))}
-                  <Control field={c} value={row[c.fieldname!]} onchange={(v) => { row[c.fieldname!] = v; frm.trigger(field.fieldname!, childMeta.name, row.name); }} doc={row} compact inGrid />
+                  <Control field={c} value={row[c.fieldname!]} onchange={(v) => { row[c.fieldname!] = v; frm.trigger(field.fieldname!, childMeta.name, row.id); }} doc={row} compact inGrid />
                 {:else}
                   <span>{formatValue(row[c.fieldname!], c)}</span>
                 {/if}

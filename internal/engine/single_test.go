@@ -20,7 +20,7 @@ export default defineDoctype({name: "Settings", isSingle: true, fields: [
 		if err != nil {
 			return err
 		}
-		if doc.Name() != "singleton" || doc["__islocal"] != true || doc["enabled"] != true {
+		if doc.ID() != "singleton" || doc["__islocal"] != true || doc["enabled"] != true {
 			t.Fatalf("defaults: %v", doc)
 		}
 		doc["enabled"] = false
@@ -29,7 +29,7 @@ export default defineDoctype({name: "Settings", isSingle: true, fields: [
 		if err != nil {
 			return err
 		}
-		if saved.Name() != "singleton" || saved["enabled"] != false || len(saved.Children("items")) != 1 {
+		if saved.ID() != "singleton" || saved["enabled"] != false || len(saved.Children("items")) != 1 {
 			t.Fatalf("saved: %v", saved)
 		}
 		again, err := c.GetDoc("Settings", "")
@@ -139,10 +139,10 @@ func TestSinglePermissionsRollbackAndSDK(t *testing.T) {
 func TestSingleDatabaseInvariantAndMigration(t *testing.T) {
 	e := setupWith(t, map[string]string{"doctypes/settings/settings.doctype.ts": `import { defineDoctype } from "@ddcore/sdk"; export default defineDoctype({name: "Settings", isSingle: true, fields: []});`})
 	ctx := context.Background()
-	if _, err := e.DB.Pool.Exec(ctx, `INSERT INTO tab_settings(name) VALUES ('other')`); err == nil {
+	if _, err := e.DB.Pool.Exec(ctx, `INSERT INTO tab_settings (id) VALUES ('other')`); err == nil {
 		t.Fatal("database accepted alternate identity")
 	}
-	if _, err := e.DB.Pool.Exec(ctx, `INSERT INTO tab_settings(name,docstatus) VALUES ('singleton',1)`); err == nil {
+	if _, err := e.DB.Pool.Exec(ctx, `INSERT INTO tab_settings (id,docstatus) VALUES ('singleton',1)`); err == nil {
 		t.Fatal("database accepted submitted Single")
 	}
 	d, _ := e.DocType("Settings")
@@ -239,7 +239,7 @@ func TestSingleDeclaredRenames(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if doc.Str("renamed_value") != "retained" || doc.Name() != "singleton" {
+		if doc.Str("renamed_value") != "retained" || doc.ID() != "singleton" {
 			t.Fatalf("rename lost settings: %v", doc)
 		}
 		return nil

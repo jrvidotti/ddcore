@@ -67,7 +67,7 @@ same layout as the local `files/` directory.
 ## Deletion
 
 Deleting a `File` deletes its bytes, and deleting a document deletes the rows and
-bytes of the files naming it in `attached_to_doctype`/`attached_to_name`. The
+bytes of the files naming it in `attached_to_doctype`/`attached_to_id`. The
 bytes are removed **after the transaction commits**, so a rolled-back delete
 keeps them. Removal is best effort: if the store refuses, the delete still
 succeeds and the server logs `file bytes left behind after delete` with the
@@ -81,7 +81,7 @@ Deleting the row is the only thing that removes bytes. These do not:
 - editing a `File`'s `file_url` or `is_private` — nothing moves in the store, so
   the row ends up naming bytes that are not there and the old bytes no row;
 - deleting a document an attachment reaches only through an `Attach` value: an
-  upload that carried no `doctype`/`docname` has no `attached_to_*` to cascade from.
+  upload that carried no `doctype`/`doc_id` has no `attached_to_*` to cascade from.
 
 Role `All` holds `create` and `delete` on `File` with `ifOwner`, so any user can
 remove orphaned bytes by inserting a row with that `file_url` and deleting it

@@ -17,6 +17,14 @@ func (e *Engine) Plan(ctx context.Context, prune bool) ([]db.Statement, error) {
 		return nil, err
 	}
 	defer tx.Rollback(ctx)
+	// On a pre-0.17 database this is what keeps the preview honest: without it
+	// the plan would show an ADD COLUMN for the key on every table, and prune
+	// would refuse on the `name` column that still holds data. It goes before
+	// EnsureInternal, whose index on ddcore_notification names `id`. The
+	// transaction is rolled back, so nothing is kept.
+	if _, err := db.RenameLegacyPK(ctx, tx); err != nil {
+		return nil, err
+	}
 	if err := db.EnsureInternal(ctx, tx); err != nil {
 		return nil, err
 	}
@@ -41,7 +49,8 @@ type MigrateResult struct {
 // and the drops ran with it, so a rename was an empty new column beside a
 // doomed old one and no patch could do anything about it. Now:
 //
-//  1. the framework's own tables, so the ledgers exist
+//  1. the move of a pre-0.17 document key from `name` to `id`, then the
+//     framework's own tables, so the ledgers exist
 //  2. beforeSchema patches, against the shape the database still has
 //  3. the plan, computed *after* those patches — one of them may have changed
 //     the schema by hand, and a plan from before would be stale
@@ -64,6 +73,19 @@ func (e *Engine) Migrate(ctx context.Context, prune bool) (*MigrateResult, error
 		// a migration is exactly the work a maintenance window is opened for,
 		// including the one `dev --auto-migrate` runs inside a server
 		c.Flags[bypassMaintenanceFlag] = true
+		// First of all: from 0.17 on the document API emits `id`, so a
+		// beforeSchema patch calling ctx.getDoc against a database that still
+		// says `name` would fail on a column that is not there. Moving the key
+		// before any JS runs makes the rule one sentence — every patch, in
+		// either phase, sees `id`. It also precedes EnsureInternal, whose index
+		// on ddcore_notification names `id`.
+		moved, err := db.RenameLegacyPK(ctx, c.Tx)
+		if err != nil {
+			return err
+		}
+		if moved > 0 {
+			c.E.Log.Info("moved the document key to id", "tables", moved)
+		}
 		if err := db.EnsureInternal(ctx, c.Tx); err != nil {
 			return err
 		}
@@ -210,7 +232,7 @@ func (c *Ctx) installApps(ctx context.Context, rt *js.Runtime, fresh map[string]
 		}
 		app := c.St.Snap.Apps[name]
 		for _, role := range app.Roles {
-			if ok, _ := c.nameExists("Role", role); !ok {
+			if ok, _ := c.idExists("Role", role); !ok {
 				doc, _ := c.NewDoc("Role", Doc{"role_name": role})
 				if _, err := c.Insert(doc, SaveOpts{IgnorePermissions: true}); err != nil {
 					return fmt.Errorf("role %s: %w", role, err)
@@ -248,12 +270,12 @@ func (c *Ctx) applyFixtures() error {
 				if err != nil {
 					return err
 				}
-				if n := doc.Str("name"); n != "" {
-					if ok, _ := c.nameExists(dt, n); ok {
+				if n := doc.Str("id"); n != "" {
+					if ok, _ := c.idExists(dt, n); ok {
 						continue
 					}
-				} else if d, _ := c.St.DocType(dt); d != nil && d.Naming.Field != "" {
-					if ok, _ := c.nameExists(dt, doc.Str(d.Naming.Field)); ok {
+				} else if d, _ := c.St.DocType(dt); d != nil && d.IDGeneration.Field != "" {
+					if ok, _ := c.idExists(dt, doc.Str(d.IDGeneration.Field)); ok {
 						continue
 					}
 				}
@@ -281,10 +303,10 @@ func absorbVaultAuditLog(ctx context.Context, q db.Querier) error {
 		DO $$
 		BEGIN
 			IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = 'tab_vault_audit_log') THEN
-				INSERT INTO tab_audit_event (name, owner, creation, modified, modified_by, docstatus, action, outcome, actor, target_doctype, target_name, ip, request_id, detail)
-				SELECT name, owner, creation, modified, modified_by, docstatus, 'vault.' || action, 'Allowed', "user", 'Vault Secret', secret_name, ip, request_id, NULL
+				INSERT INTO tab_audit_event (id, owner, creation, modified, modified_by, docstatus, action, outcome, actor, target_doctype, target_id, ip, request_id, detail)
+				SELECT id, owner, creation, modified, modified_by, docstatus, 'vault.' || action, 'Allowed', "user", 'Vault Secret', secret_name, ip, request_id, NULL
 				FROM tab_vault_audit_log
-				ON CONFLICT (name) DO NOTHING;
+				ON CONFLICT (id) DO NOTHING;
 				DROP TABLE tab_vault_audit_log;
 			END IF;
 		END $$;

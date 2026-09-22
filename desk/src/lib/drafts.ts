@@ -5,8 +5,8 @@
 
 export interface Draft {
   doctype: string;
-  /** the record's name, or "new" while it has none */
-  name: string;
+  /** the record's id, or "new" while it has none */
+  id: string;
   /** the document as the user left it */
   doc: any;
   /** when the draft was written, ms since the epoch */
@@ -36,8 +36,8 @@ export function localDrafts(): DraftStore | null {
 }
 
 /** A draft belongs to one user on this machine, and to one record. */
-export function draftKey(user: string | null | undefined, doctype: string, name: string): string {
-  return `${DRAFT_PREFIX}${user || "guest"}:${doctype}:${name || "new"}`;
+export function draftKey(user: string | null | undefined, doctype: string, id: string): string {
+  return `${DRAFT_PREFIX}${user || "guest"}:${doctype}:${id || "new"}`;
 }
 
 export function readDraft(store: DraftStore | null, key: string, now = Date.now()): Draft | null {

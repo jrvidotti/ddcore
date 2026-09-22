@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 import { canDragKanban, groupKanbanRows, kanbanColumns, moveKanbanRow } from "./kanban-state";
 
 const rows = [
-  { name: "T1", status: "Open" },
-  { name: "T2", status: "Closed" },
-  { name: "T3", status: "Legacy" },
-  { name: "T4", status: null },
-  { name: "T5", status: "Open" },
+  { id: "T1", status: "Open" },
+  { id: "T2", status: "Closed" },
+  { id: "T3", status: "Legacy" },
+  { id: "T4", status: null },
+  { id: "T5", status: "Open" },
 ];
 
 describe("kanban view", () => {
@@ -22,20 +22,20 @@ describe("kanban view", () => {
   });
 
   it("lets configured columns set the order and subset", () => {
-    const cols = kanbanColumns([{ name: "T1", status: "Open" }], "status", { options: ["Open", "Closed"], labels: ["Aberto", "Fechado"], columns: ["Closed", "Open"] });
+    const cols = kanbanColumns([{ id: "T1", status: "Open" }], "status", { options: ["Open", "Closed"], labels: ["Aberto", "Fechado"], columns: ["Closed", "Open"] });
     expect(cols.map((c) => [c.value, c.label])).toEqual([["Closed", "Fechado"], ["Open", "Aberto"]]);
   });
 
   it("groups rows per column in load order", () => {
     const groups = groupKanbanRows(rows, "status");
-    expect(groups.get("Open")?.map((r) => r.name)).toEqual(["T1", "T5"]);
-    expect(groups.get("")?.map((r) => r.name)).toEqual(["T4"]);
+    expect(groups.get("Open")?.map((r) => r.id)).toEqual(["T1", "T5"]);
+    expect(groups.get("")?.map((r) => r.id)).toEqual(["T4"]);
   });
 
   it("moves a card without mutating the loaded rows", () => {
     const moved = moveKanbanRow(rows, "T1", "status", "Closed");
     expect(moved).not.toBe(rows);
-    expect(moved[0]).toEqual({ name: "T1", status: "Closed" });
+    expect(moved[0]).toEqual({ id: "T1", status: "Closed" });
     expect(rows[0].status).toBe("Open");
     expect(moveKanbanRow(rows, "T1", "status", "Open")).toBe(rows);
     expect(moveKanbanRow(rows, "missing", "status", "Open")).toBe(rows);

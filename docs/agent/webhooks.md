@@ -16,7 +16,7 @@ A user with access scopes (a `User Permission` row, see [scopes](scopes.md)) is
 refused every permission on `Webhook` and `Webhook Delivery`, System Manager or
 not: no list, read, create, write, delete, export or replay. A subscription sends
 every document of its DocType to an outside address, and a delivery's
-`reference_doctype` and `reference_name` are plain Data fields that no scope
+`reference_doctype` and `reference_id` are plain Data fields that no scope
 filter applies to, so neither can be limited to a scope.
 
 The refusal is part of the scope, so `ignorePermissions` does not lift it: app
@@ -65,9 +65,9 @@ deliberately skip the lifecycle, and a webhook is part of it.
 ## App events
 
 ```ts
-ddcore.webhooks.emit("shop.order_paid", { order: doc.name, total: doc.grand_total }, {
-  reference: { doctype: "Sales Order", name: doc.name },
-  key: `order-paid:${doc.name}`,       // optional
+ddcore.webhooks.emit("shop.order_paid", { order: doc.id, total: doc.grand_total }, {
+  reference: { doctype: "Sales Order", id: doc.id },
+  key: `order-paid:${doc.id}`,         // optional
 });
 // → { deliveries: ["k3j9…"] }
 ```
@@ -90,13 +90,13 @@ webhook-id: k3j9x0f2ab
 webhook-timestamp: 1789336574
 webhook-signature: v1,AphAXzEKQFNKZZ8tAMa2/zzUw+Fx/F6gUtZcgIGmdaE=
 
-{"data": {"doc": {…}, "name": "SO-0001", "doctype": "Sales Order"}, "type": "doc.on_submit", "timestamp": "2026-09-13T21:56:14.056335Z"}
+{"data": {"doc": {…}, "id": "SO-0001", "doctype": "Sales Order"}, "type": "doc.on_submit", "timestamp": "2026-09-13T21:56:14.056335Z"}
 ```
 
 The headers follow [Standard Webhooks](https://www.standardwebhooks.com/), so a
 receiver can verify with any of its libraries:
 
-- `webhook-id` is the `Webhook Delivery` name. It is **the same on every attempt
+- `webhook-id` is the `Webhook Delivery` id. It is **the same on every attempt
   and on a replay** — that is what a receiver deduplicates on.
 - `webhook-signature` is `v1,` + base64 HMAC-SHA256 of `<id>.<timestamp>.<body>`.
   A secret written `whsec_<base64>` is decoded as that spec's key format;

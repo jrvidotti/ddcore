@@ -46,7 +46,7 @@ func testApp(t *testing.T, extra ...map[string]string) string {
 	w("ddcore.app.ts", `import { defineApp } from "@ddcore/sdk";
 export default defineApp({ name: "demo", title: "Demo", roles: ["Gestor"], docEvents: { "*": { validate(doc) { doc.flags.seen = true } } } });`)
 	w("doctypes/pessoa/pessoa.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
-export default defineDoctype({ name: "Pessoa", naming: { field: "nome" }, allowRename: true, trackChanges: true, searchFields: ["cpf"],
+export default defineDoctype({ name: "Pessoa", idGeneration: { field: "nome" }, allowRename: true, trackChanges: true, searchFields: ["cpf"],
   fields: [
     { fieldname: "nome", fieldtype: "Data", label: "Nome", reqd: true },
     { fieldname: "cpf", fieldtype: "Data", label: "CPF", unique: true },
@@ -63,7 +63,7 @@ export default defineDoctype({ name: "Item Pedido", isChild: true, fields: [
   { fieldname: "qtd", fieldtype: "Int", label: "Qtd", default: 1 },
   { fieldname: "valor", fieldtype: "Currency", label: "Valor" } ] });`)
 	w("doctypes/pedido/pedido.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
-export default defineDoctype({ name: "Pedido", naming: { series: "PED-.YYYY.-.####" }, submittable: true, trackChanges: true,
+export default defineDoctype({ name: "Pedido", idGeneration: { series: "PED-.YYYY.-.####" }, submittable: true, trackChanges: true,
   fields: [
     { fieldname: "cliente", fieldtype: "Link", label: "Cliente", options: "Pessoa", reqd: true },
     { fieldname: "cliente_tipo", fieldtype: "Data", label: "Tipo do cliente", fetchFrom: "cliente.tipo", readOnly: true },
@@ -97,7 +97,7 @@ describe("Pedido", () => {
     p.append("itens", { descricao: "a", qtd: 2, valor: 10 });
     p.insert();
     expect(p.total).toBe(20);
-    expect(p.name).toMatch(/^PED-/);
+    expect(p.id).toMatch(/^PED-/);
   });
   it("fails without customer", () => { expect(() => ddcore.newDoc("Pedido").insert()).toThrow("required fields"); });
 });`)
@@ -209,7 +209,7 @@ func TestLifecycle(t *testing.T) {
 		if err != nil {
 			return fmt.Errorf("line 139: %w", err)
 		}
-		name = saved.Name()
+		name = saved.ID()
 		if !strings.HasPrefix(name, "PED-2026-") || saved.Str("cliente_tipo") != "PJ" || toFloat(saved["total"]) != 1000 {
 			t.Fatalf("unexpected doc: %v", saved)
 		}
@@ -229,12 +229,12 @@ func TestLifecycle(t *testing.T) {
 			return fmt.Errorf("line 157: %w", err)
 		}
 		// version saved
-		n, _ := c.Count("Version", map[string]any{"ref_doctype": "Pedido", "docname": name})
+		n, _ := c.Count("Version", map[string]any{"ref_doctype": "Pedido", "doc_id": name})
 		if n != 1 {
 			t.Fatalf("expected 1 version, got %d", n)
 		}
 		// filter by child
-		rows, err := c.GetList("Pedido", ListArgs{Filters: []any{[]any{"Item Pedido", "descricao", "=", "Cadeira"}}, Fields: []string{"name", "total"}})
+		rows, err := c.GetList("Pedido", ListArgs{Filters: []any{[]any{"Item Pedido", "descricao", "=", "Cadeira"}}, Fields: []string{"id", "total"}})
 		if err != nil || len(rows) != 1 {
 			t.Fatalf("child filter: %v %v", rows, err)
 		}
@@ -287,7 +287,7 @@ func TestLifecycle(t *testing.T) {
 		if err != nil {
 			return fmt.Errorf("line 217: %w", err)
 		}
-		if am.Name() != name+"-1" || am.Str("amended_from") != name || len(am.Children("itens")) != 3 {
+		if am.ID() != name+"-1" || am.Str("amended_from") != name || len(am.Children("itens")) != 3 {
 			t.Fatalf("amend: %v", am)
 		}
 		return nil

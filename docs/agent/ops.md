@@ -76,7 +76,7 @@ endpoint:
              "failedInWindow": 1, "doneInWindow": 340, "cancelledInWindow": 0,
              "oldestQueuedSeconds": 252, "longestRunningSeconds": 3, "windowMinutes": 15 },
   "errors": { "inWindow": 3, "windowMinutes": 15,
-              "latest": [{ "name": "…", "method": "job:demo.tasks.sweep", "requestId": "job:412" }] },
+              "latest": [{ "id": "…", "method": "job:demo.tasks.sweep", "requestId": "job:412" }] },
   "scheduler": { "enabled": true, "entries": 4 },
   "warnings": ["queue backlog: 214 runnable jobs (limit 100)"] }
 ```

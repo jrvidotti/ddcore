@@ -169,8 +169,8 @@ func (c *Ctx) filterSQL(d *meta.DocType, b *db.Builder, filters []db.Filter, col
 			targetDoc := fld.OptionsString()
 			if td, ok := c.St.Meta.Get(targetDoc); ok && td != nil {
 				var targetCols []string
-				seenCols := map[string]bool{"name": true}
-				if td.TitleField != "" && td.TitleField != "name" && td.HasColumn(td.TitleField) {
+				seenCols := map[string]bool{"id": true}
+				if td.TitleField != "" && td.TitleField != "id" && td.HasColumn(td.TitleField) {
 					targetCols = append(targetCols, td.TitleField)
 					seenCols[td.TitleField] = true
 				}
@@ -194,7 +194,7 @@ func (c *Ctx) filterSQL(d *meta.DocType, b *db.Builder, filters []db.Filter, col
 					}
 					targetWhere := strings.Join(targetConds, " OR ")
 					existsClause := fmt.Sprintf("EXISTS (SELECT 1 FROM %s AS %s WHERE %s.%s = %s AND (%s))",
-						db.Ident(td.TableName()), alias, alias, db.Ident("name"), colExpr, targetWhere)
+						db.Ident(td.TableName()), alias, alias, db.Ident("id"), colExpr, targetWhere)
 					directCond := fmt.Sprintf("%s ILIKE %s", db.AccentInsensitive(colExpr), db.AccentInsensitive(arg))
 					if op == "like" {
 						parts = append(parts, fmt.Sprintf("(%s OR %s)", directCond, existsClause))
@@ -226,7 +226,7 @@ func (c *Ctx) filterSQL(d *meta.DocType, b *db.Builder, filters []db.Filter, col
 		if err != nil {
 			return "", err
 		}
-		parts = append(parts, fmt.Sprintf("EXISTS (SELECT 1 FROM %s AS %s WHERE %s.parent = \"t\".name AND %s.parenttype = %s AND %s)",
+		parts = append(parts, fmt.Sprintf("EXISTS (SELECT 1 FROM %s AS %s WHERE %s.parent = \"t\".id AND %s.parenttype = %s AND %s)",
 			db.Ident(child.TableName()), alias, alias, alias, b.Arg(d.Name), w))
 	}
 	switch len(parts) {
@@ -279,7 +279,7 @@ func (c *Ctx) GetList(doctype string, a ListArgs) ([]map[string]any, error) {
 	// select list
 	var sel []string
 	if len(a.Fields) == 0 {
-		a.Fields = []string{"name"}
+		a.Fields = []string{"id"}
 	}
 	hasAgg := false
 	for _, f := range a.Fields {
@@ -345,7 +345,7 @@ func (c *Ctx) GetList(doctype string, a ListArgs) ([]map[string]any, error) {
 		return nil, cerr.Validation("Invalid filters: {0}", err)
 	}
 	if len(sel) == 0 {
-		sel = append(sel, `"t".`+db.Ident("name"))
+		sel = append(sel, `"t".`+db.Ident("id"))
 	}
 	// a Version's diff is filtered by the reader's access to the document it
 	// describes, so that DocType has to come back with the row
@@ -423,7 +423,7 @@ func (c *Ctx) GetList(doctype string, a ListArgs) ([]map[string]any, error) {
 	sql += strings.Join(sel, ", ") + " FROM " + db.Ident(d.TableName()) + ` AS "t"`
 	for ct, child := range joins {
 		alias := db.Ident("c_" + meta.Snake(ct))
-		sql += fmt.Sprintf(" JOIN %s AS %s ON %s.parent = \"t\".name AND %s.parenttype = %s", db.Ident(child.TableName()), alias, alias, alias, b.Arg(d.Name))
+		sql += fmt.Sprintf(" JOIN %s AS %s ON %s.parent = \"t\".id AND %s.parenttype = %s", db.Ident(child.TableName()), alias, alias, alias, b.Arg(d.Name))
 	}
 	if where != "" {
 		sql += " WHERE " + where
@@ -497,21 +497,21 @@ func (c *Ctx) Exists(doctype, name string) (bool, error) {
 	if perms, err := c.UserPermissions(); err != nil {
 		return false, err
 	} else if len(perms) > 0 {
-		found, err := c.ExistsWhere(d.Name, map[string]any{"name": name})
+		found, err := c.ExistsWhere(d.Name, map[string]any{"id": name})
 		return found != "", err
 	}
-	return c.nameExists(d.Name, name)
+	return c.idExists(d.Name, name)
 }
 
-// nameExists reports whether a name is taken, whoever can see it: the
+// idExists reports whether a name is taken, whoever can see it: the
 // framework's own duplicate-name, rename and link checks use it.
-func (c *Ctx) nameExists(doctype, name string) (bool, error) {
+func (c *Ctx) idExists(doctype, name string) (bool, error) {
 	d, err := c.St.DocType(doctype)
 	if err != nil {
 		return false, err
 	}
 	var one int
-	err = c.Q().QueryRow(c.Ctx, fmt.Sprintf("SELECT 1 FROM %s WHERE name = $1", db.Ident(d.TableName())), name).Scan(&one)
+	err = c.Q().QueryRow(c.Ctx, fmt.Sprintf("SELECT 1 FROM %s WHERE id = $1", db.Ident(d.TableName())), name).Scan(&one)
 	if err != nil {
 		if strings.Contains(err.Error(), "no rows") {
 			return false, nil
@@ -523,14 +523,14 @@ func (c *Ctx) nameExists(doctype, name string) (bool, error) {
 
 // ExistsWhere returns the name of the first document matching filters.
 func (c *Ctx) ExistsWhere(doctype string, filters any) (string, error) {
-	rows, err := c.GetList(doctype, ListArgs{Filters: filters, Fields: []string{"name"}, Limit: 1, IgnorePermissions: true})
+	rows, err := c.GetList(doctype, ListArgs{Filters: filters, Fields: []string{"id"}, Limit: 1, IgnorePermissions: true})
 	if err != nil {
 		return "", err
 	}
 	if len(rows) == 0 {
 		return "", nil
 	}
-	return db.Str(rows[0]["name"]), nil
+	return db.Str(rows[0]["id"]), nil
 }
 
 // GetValue reads one field of a document (no permission check, like frappe.db).
@@ -546,7 +546,7 @@ func (c *Ctx) GetValue(doctype, name, field string) (any, error) {
 func (c *Ctx) GetValues(doctype string, name any, fields []string) (map[string]any, error) {
 	var filters any
 	if s, ok := name.(string); ok {
-		filters = map[string]any{"name": s}
+		filters = map[string]any{"id": s}
 	} else {
 		filters = name
 	}
@@ -669,8 +669,8 @@ func (c *Ctx) LinkSearch(doctype, txt string, filters any, limit int) ([]map[str
 // searchFieldsOf lists the columns a text search matches: name, the title
 // field, then each search field, without duplicates.
 func searchFieldsOf(d *meta.DocType) []string {
-	fields := []string{"name"}
-	seen := map[string]bool{"name": true}
+	fields := []string{"id"}
+	seen := map[string]bool{"id": true}
 	if d.TitleField != "" && d.HasColumn(d.TitleField) && !seen[d.TitleField] {
 		fields = append(fields, d.TitleField)
 		seen[d.TitleField] = true
@@ -771,7 +771,7 @@ func (c *Ctx) ResolveLinkTitles(doctype string, docs ...Doc) map[string]map[stri
 	out := map[string]map[string]string{}
 	for target, nameSet := range byTarget {
 		td, err := c.St.DocType(target)
-		if err != nil || td.TitleField == "" || td.TitleField == "name" {
+		if err != nil || td.TitleField == "" || td.TitleField == "id" {
 			continue
 		}
 		if !td.HasColumn(td.TitleField) {
@@ -784,14 +784,14 @@ func (c *Ctx) ResolveLinkTitles(doctype string, docs ...Doc) map[string]map[stri
 		if len(names) == 0 {
 			continue
 		}
-		q := fmt.Sprintf("SELECT name, %s FROM %s WHERE name = ANY($1)", db.Ident(td.TitleField), db.Ident(td.TableName()))
+		q := fmt.Sprintf("SELECT id, %s FROM %s WHERE id = ANY($1)", db.Ident(td.TitleField), db.Ident(td.TableName()))
 		rows, err := db.Select(c.Ctx, c.Q(), q, names)
 		if err != nil {
 			continue
 		}
 		targetMap := map[string]string{}
 		for _, row := range rows {
-			name := fmt.Sprint(row["name"])
+			name := fmt.Sprint(row["id"])
 			title := fmt.Sprint(row[td.TitleField])
 			if title != "" && title != "<nil>" {
 				targetMap[name] = title
@@ -814,21 +814,21 @@ func (c *Ctx) LinkTitles(doctype string, names []string) (map[string]string, err
 	if err != nil {
 		return nil, err
 	}
-	if len(names) == 0 || d.TitleField == "" || d.TitleField == "name" || !d.HasColumn(d.TitleField) {
+	if len(names) == 0 || d.TitleField == "" || d.TitleField == "id" || !d.HasColumn(d.TitleField) {
 		out := map[string]string{}
 		for _, n := range names {
 			out[n] = n
 		}
 		return out, nil
 	}
-	q := fmt.Sprintf("SELECT name, %s FROM %s WHERE name = ANY($1)", db.Ident(d.TitleField), db.Ident(d.TableName()))
+	q := fmt.Sprintf("SELECT id, %s FROM %s WHERE id = ANY($1)", db.Ident(d.TitleField), db.Ident(d.TableName()))
 	rows, err := db.Select(c.Ctx, c.Q(), q, names)
 	if err != nil {
 		return nil, err
 	}
 	out := map[string]string{}
 	for _, row := range rows {
-		name := fmt.Sprint(row["name"])
+		name := fmt.Sprint(row["id"])
 		title := fmt.Sprint(row[d.TitleField])
 		if title != "" && title != "<nil>" {
 			out[name] = title

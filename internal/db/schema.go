@@ -13,16 +13,16 @@ import (
 // InternalSchema are the framework tables that are not DocTypes.
 var InternalSchema = `
 CREATE TABLE IF NOT EXISTS ddcore_notification (
-  name text PRIMARY KEY, rule text NOT NULL, recipient text NOT NULL,
-  reference_doctype text NOT NULL, reference_name text NOT NULL, identity text NOT NULL,
+  id text PRIMARY KEY, rule text NOT NULL, recipient text NOT NULL,
+  reference_doctype text NOT NULL, reference_id text NOT NULL, identity text NOT NULL,
   title text NOT NULL DEFAULT '', message text NOT NULL DEFAULT '', desk boolean NOT NULL,
   read boolean NOT NULL DEFAULT false, creation timestamptz NOT NULL DEFAULT clock_timestamp(),
   email_delivery text,
-  UNIQUE(rule, reference_doctype, reference_name, recipient, identity));
-CREATE INDEX IF NOT EXISTS ddcore_notification_inbox ON ddcore_notification(recipient, creation DESC, name DESC) WHERE desk;
+  UNIQUE(rule, reference_doctype, reference_id, recipient, identity));
+CREATE INDEX IF NOT EXISTS ddcore_notification_inbox ON ddcore_notification(recipient, creation DESC, id DESC) WHERE desk;
 CREATE TABLE IF NOT EXISTS ddcore_notification_due (
-  rule text NOT NULL, reference_doctype text NOT NULL, reference_name text NOT NULL, due timestamptz NOT NULL,
-  PRIMARY KEY (rule, reference_doctype, reference_name, due));
+  rule text NOT NULL, reference_doctype text NOT NULL, reference_id text NOT NULL, due timestamptz NOT NULL,
+  PRIMARY KEY (rule, reference_doctype, reference_id, due));
 CREATE INDEX IF NOT EXISTS ddcore_notification_email ON ddcore_notification(email_delivery) WHERE email_delivery IS NOT NULL;
 CREATE TABLE IF NOT EXISTS ddcore_session (
   sid text PRIMARY KEY, "user" text NOT NULL, created timestamptz NOT NULL DEFAULT now(),
@@ -117,7 +117,7 @@ type column struct {
 
 func stdColumns(d *meta.DocType) []column {
 	cols := []column{
-		{name: "name", typ: "text", notNull: true}, {name: "owner", typ: "text"},
+		{name: "id", typ: "text", notNull: true}, {name: "owner", typ: "text"},
 		{name: "creation", typ: "timestamptz"}, {name: "modified", typ: "timestamptz"},
 		{name: "modified_by", typ: "text"}, {name: "docstatus", typ: "smallint", notNull: true},
 	}
@@ -154,13 +154,13 @@ func createTable(d *meta.DocType) string {
 			def += " NOT NULL"
 		}
 		def += colDefault(c)
-		if c.name == "name" {
+		if c.name == "id" {
 			def += " PRIMARY KEY"
 		}
 		defs = append(defs, def)
 	}
 	if d.IsSingle {
-		defs = append(defs, "CONSTRAINT ddcore_single_identity CHECK (name = 'singleton' AND docstatus = 0)")
+		defs = append(defs, "CONSTRAINT ddcore_single_identity CHECK (id = 'singleton' AND docstatus = 0)")
 	}
 	return fmt.Sprintf("CREATE TABLE %s (\n  %s\n);", Ident(d.TableName()), strings.Join(defs, ",\n  "))
 }

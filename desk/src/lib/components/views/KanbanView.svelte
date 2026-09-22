@@ -10,7 +10,7 @@
     rows: any[]; meta: Meta; doctype: string; wsPrefix: string; kanban: KanbanViewOptions;
     loading?: boolean;
     /** Moves a card to another column; the parent updates the rows and saves. */
-    onMove: (name: string, value: string) => void;
+    onMove: (id: string, value: string) => void;
   } = $props();
 
   const field = $derived(meta.doctype.fields.find((f) => f.fieldname === kanban.field));
@@ -21,7 +21,7 @@
     columns: kanban.columns,
   }));
   const groups = $derived(groupKanbanRows(rows, kanban.field));
-  const titleField = $derived(kanban.titleField || meta.doctype.titleField || "name");
+  const titleField = $derived(kanban.titleField || meta.doctype.titleField || "id");
   const colorField = $derived(meta.doctype.fields.find((f) => f.fieldname === (kanban.colorField || kanban.field)));
   const subtitleField = $derived(kanban.subtitleField ? meta.doctype.fields.find((f) => f.fieldname === kanban.subtitleField) : undefined);
 
@@ -42,8 +42,8 @@
     return String(v);
   }
   function onDragStart(e: DragEvent, row: any) {
-    dragging = row.name;
-    e.dataTransfer?.setData("text/plain", row.name);
+    dragging = row.id;
+    e.dataTransfer?.setData("text/plain", row.id);
     if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
   }
   function onDragOver(e: DragEvent, value: string) {
@@ -53,11 +53,11 @@
   }
   function onDrop(e: DragEvent, value: string) {
     e.preventDefault();
-    const name = dragging || e.dataTransfer?.getData("text/plain") || "";
+    const id = dragging || e.dataTransfer?.getData("text/plain") || "";
     dragging = "";
     over = null;
-    const row = rows.find((r) => r.name === name);
-    if (row && kanbanValue(row, kanban.field) !== value) onMove(name, value);
+    const row = rows.find((r) => r.id === id);
+    if (row && kanbanValue(row, kanban.field) !== value) onMove(id, value);
   }
 </script>
 
@@ -84,18 +84,18 @@
         <span class="muted small">{cards.length}</span>
       </header>
       <div class="cards">
-        {#each cards as row (row.name)}
+        {#each cards as row (row.id)}
           {@const draggable = canDragKanban(row, writable)}
           <a
             class="kanban-card"
-            class:dragging={dragging === row.name}
+            class:dragging={dragging === row.id}
             class:locked={!draggable}
-            href={`${wsPrefix}/${encodeURIComponent(doctype)}/${encodeURIComponent(row.name)}`}
+            href={`${wsPrefix}/${encodeURIComponent(doctype)}/${encodeURIComponent(row.id)}`}
             draggable={draggable ? "true" : "false"}
             ondragstart={(e) => onDragStart(e, row)}
             ondragend={() => { dragging = ""; over = null; }}
           >
-            <span class="title">{row[titleField] || row.name}</span>
+            <span class="title">{row[titleField] || row.id}</span>
             {#if subtitle(row)}<span class="muted small">{subtitle(row)}</span>{/if}
             {#if kanban.colorField && kanban.colorField !== kanban.field && row[kanban.colorField]}
               <span class="indicator {statusColor(row[kanban.colorField], colorField)} small">{colorLabel(row)}</span>

@@ -74,7 +74,7 @@ In `task.doctype.ts`:
 ```
 
 This configuration:
-1. Creates a foreign key column `project` in `tab_task` referencing `tab_project.name`.
+1. Creates a foreign key column `project` in `tab_task` referencing `tab_project.id`.
 2. Adds a search autocomplete input in the Task form.
 3. Automatically enables filtering by Project in the Task list view.
 

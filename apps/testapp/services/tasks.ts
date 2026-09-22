@@ -24,21 +24,21 @@ export interface SummaryRow {
  * recalculates the project. One failure is logged and does not stop the run.
  */
 export function markOverdue(): number {
-  const pending = ddcore.db.getAll<{ name: string }>("Task", {
+  const pending = ddcore.db.getAll<{ id: string }>("Task", {
     filters: { status: ["in", ["Open", "In progress"]], due_date: ["<", ddcore.utils.today()] },
-    fields: ["name"],
+    fields: ["id"],
     limit: 10000,
   });
 
   let changed = 0;
   for (const row of pending) {
     try {
-      const task = ddcore.getDoc<Task>("Task", row.name);
+      const task = ddcore.getDoc<Task>("Task", row.id);
       task.status = "Overdue";
       task.save();
       changed++;
     } catch (e) {
-      ddcore.log.error("Could not mark task " + row.name + " as overdue: " + String(e));
+      ddcore.log.error("Could not mark task " + row.id + " as overdue: " + String(e));
     }
   }
   return changed;

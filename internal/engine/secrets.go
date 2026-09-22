@@ -113,7 +113,7 @@ func RedactPassword(d *meta.DocType, doc Doc) {
 }
 
 func (c *Ctx) redactVault(d *meta.DocType, doc Doc) {
-	if d == nil || doc == nil || doc.Name() == "" {
+	if d == nil || doc == nil || doc.ID() == "" {
 		return
 	}
 	for _, f := range d.Fields {

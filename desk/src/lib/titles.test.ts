@@ -41,7 +41,7 @@ describe("titles store", () => {
     expect(getLinkTitle("Pessoa", "PES-00001")).toBe("João Silva");
   });
 
-  it("returns name itself when DocType has no titleField", () => {
+  it("returns the id itself when DocType has no titleField", () => {
     expect(getLinkTitle("SemTitulo", "SEM-001")).toBe("SEM-001");
   });
 

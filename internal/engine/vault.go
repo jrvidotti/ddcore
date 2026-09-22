@@ -73,7 +73,7 @@ func (e *Engine) recordVaultAudit(c *Ctx, secretName, action string) {
 	}
 	ctx := context.Background()
 	_, _ = e.DB.Pool.Exec(ctx, `INSERT INTO tab_audit_event
-		(name, owner, creation, modified, modified_by, docstatus, action, outcome, actor, target_doctype, target_name, ip, request_id, detail)
+		(id, owner, creation, modified, modified_by, docstatus, action, outcome, actor, target_doctype, target_id, ip, request_id, detail)
 		VALUES ($1, 'System', now(), now(), 'System', 0, $2, 'Allowed', 'System', 'Vault Secret', $3, NULL, NULL, NULL)`,
 		RandomToken(), auditAction, secretName)
 }
@@ -265,12 +265,12 @@ func (e *Engine) VaultStatus(ctx context.Context) (configured bool, count int, n
 }
 
 // DeriveVaultKey computes the vault key for a document field.
-// If options template is provided (e.g. "asaas:token:{name}"), it interpolates document fields.
+// If options template is provided (e.g. "asaas:token:{id}"), it interpolates document fields.
 // Otherwise, it defaults to "<DocType>:<Fieldname>:<docName>".
 func (c *Ctx) DeriveVaultKey(d *meta.DocType, f *meta.Field, doc Doc) string {
 	tmpl := f.OptionsString()
 	if tmpl == "" {
-		return d.Name + ":" + f.Fieldname + ":" + doc.Name()
+		return d.Name + ":" + f.Fieldname + ":" + doc.ID()
 	}
 	res := tmpl
 	for k, v := range doc {
@@ -279,8 +279,8 @@ func (c *Ctx) DeriveVaultKey(d *meta.DocType, f *meta.Field, doc Doc) string {
 			res = strings.ReplaceAll(res, token, db.Str(v))
 		}
 	}
-	if strings.Contains(res, "{name}") {
-		res = strings.ReplaceAll(res, "{name}", doc.Name())
+	if strings.Contains(res, "{id}") {
+		res = strings.ReplaceAll(res, "{id}", doc.ID())
 	}
 	return res
 }

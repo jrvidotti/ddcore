@@ -82,6 +82,7 @@ const agentsMD = "# Guidelines for coding agents\n\n" +
 	"## Layout of an app (`apps/<app>/`)\n\n" +
 	"- `ddcore.app.ts` — `defineApp`: name, title, version, `ddcore` range, roles, scheduler, docEvents.\n" +
 	"- `doctypes/<snake>/<snake>.doctype.ts` — meta (`defineDoctype`). Fieldnames in snake_case ASCII.\n" +
+	"  Every document's key is `id` (`doc.id`, `filters: { id: … }`); `idGeneration` decides how it is made.\n" +
 	"- `doctypes/<snake>/<snake>.controller.ts` — rules (`defineController`): validate, onSubmit, methods.\n" +
 	"- `doctypes/<snake>/<snake>.form.ts` — desk script (`defineForm`), runs in the browser.\n" +
 	"- `doctypes/<snake>/<snake>.test.ts` — tests (`ddcore test`); each `it` runs in a rolled-back transaction.\n" +

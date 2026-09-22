@@ -8,7 +8,7 @@
 
   let { rows, meta, doctype, wsPrefix, selected, settings = {}, onToggle, cellText, loading = false }: {
     rows: any[]; meta: Meta; doctype: string; wsPrefix: string; selected: Set<string>;
-    settings?: ListViewOptions; onToggle: (name: string) => void;
+    settings?: ListViewOptions; onToggle: (id: string) => void;
     cellText?: (row: any, field: Field) => string; loading?: boolean;
   } = $props();
   const card = $derived(settings.card || {});
@@ -37,13 +37,13 @@
 </script>
 
 <div class="cards">
-  {#each rows as row (row.name)}
+  {#each rows as row (row.id)}
     {@const ind = indicator(row)}
     {@const badges = (card.badges || settings.badges)?.(row) || []}
-    <article class="card record" class:selected={selected.has(row.name)}>
+    <article class="card record" class:selected={selected.has(row.id)}>
       <header>
-        <input type="checkbox" aria-label={__("Select {0}", [row.name])} checked={selected.has(row.name)} onclick={(e) => e.stopPropagation()} onchange={() => onToggle(row.name)} />
-        <a class="title" href={`${wsPrefix}/${encodeURIComponent(doctype)}/${encodeURIComponent(row.name)}`}>{text(row, cardInfo.title) || row.name}</a>
+        <input type="checkbox" aria-label={__("Select {0}", [row.id])} checked={selected.has(row.id)} onclick={(e) => e.stopPropagation()} onchange={() => onToggle(row.id)} />
+        <a class="title" href={`${wsPrefix}/${encodeURIComponent(doctype)}/${encodeURIComponent(row.id)}`}>{text(row, cardInfo.title) || row.id}</a>
         {#if ind}<span class="indicator {ind.color}">{ind.label}</span>{/if}
       </header>
       {#if cardInfo.subtitle}<div class="subtitle muted">{text(row, cardInfo.subtitle)}</div>{/if}

@@ -53,7 +53,7 @@ func (f auditFilterFlags) filter() (engine.AuditFilter, error) {
 	out := engine.AuditFilter{
 		Action:     *f.action,
 		Actor:      *f.actor,
-		TargetName: *f.target,
+		TargetID: *f.target,
 		Outcome:    *f.outcome,
 		Limit:      *f.limit,
 	}
@@ -105,9 +105,9 @@ func auditList(args []string) error {
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 		fmt.Fprintln(w, "TIME\tACTOR\tACTION\tOUTCOME\tTARGET\tIP\tDETAIL")
 		for _, r := range rows {
-			target := fmt.Sprintf("%v:%v", r["target_doctype"], r["target_name"])
+			target := fmt.Sprintf("%v:%v", r["target_doctype"], r["target_id"])
 			if r["target_doctype"] == nil || r["target_doctype"] == "" {
-				target = fmt.Sprint(r["target_name"])
+				target = fmt.Sprint(r["target_id"])
 			}
 			ip := ""
 			if r["ip"] != nil {

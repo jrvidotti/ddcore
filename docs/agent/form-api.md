@@ -143,7 +143,7 @@ defineListView("Entry", {
   indicator: (row) => (row.balance > 0 ? { label: __("Open"), color: "red" } : { label: __("Settled"), color: "green" }),
   docstatusFilter: false,               // hides the "Document status" filter of a submittable DocType
   modifiedColumn: false,                // hides the trailing "Modified" column
-  nameColumn: false,                    // hides the leading document-name column
+  idColumn: false,                      // hides the leading document-id column
 });
 ```
 
@@ -152,11 +152,11 @@ status column and may return `null` to show nothing on that row. `docstatusFilte
 submittable DocType whose `status` field already separates draft, submitted and cancelled — the
 docstatus filter would only repeat it.
 
-`nameColumn: false` suits a DocType whose name means nothing to a reader: a `hash`, or a code
+`idColumn: false` suits a DocType whose id means nothing to a reader: a `hash`, or a code
 already shown in another column. The list leaves the column out on its own when the title field
-is a column and is the name (`naming: { field }` equal to `titleField`). With the column hidden,
-the row stays clickable and the title field's cell links to the document. To rename the
-column instead of hiding it, set `nameLabel` on the DocType (see `fieldtypes`).
+is a column and is the id (`idGeneration: { field }` equal to `titleField`). With the column hidden,
+the row stays clickable and the title field's cell links to the document. To relabel the
+column instead of hiding it, set `idLabel` on the DocType (see `fieldtypes`).
 
 Most lists need no `indicator` at all: declare `optionColors` on the status field and the desk
 colours and translates it on its own. Reach for `indicator` only when the label is not a field
@@ -204,7 +204,7 @@ defineListView<Task>("Task", {
 - **Kanban** makes a column of each value of a **Select** `field`.
   - Columns follow `columns` or the field's options, with their translated labels and `optionColors`.
   - A value outside those still gets a column, so no card is hidden, and rows with no value go to "(empty)".
-  - `titleField` defaults to the DocType's `titleField`, then `name`; `colorField` defaults to `field`,
+  - `titleField` defaults to the DocType's `titleField`, then `id`; `colorField` defaults to `field`,
     and a card shows an indicator only when `colorField` names another field.
   - A `field` the DocType does not have — or one above the reader's permission level — renders
     "The Kanban field {0} is not a field of {1}". Nothing enforces **Select**: another fieldtype still
@@ -221,7 +221,7 @@ defineListView<Task>("Task", {
     Week is the default and shows 12 weeks; Day shows 21 days, Month 12 months. The window starts one week —
     one month, at the Month scale — before the anchor's, and previous/next move 7 days, 4 weeks or 3 months.
   - Rows order by `startField asc` unless `orderBy` says otherwise. `titleField` defaults to the DocType's
-    `titleField`, then `name`, and `colorField` to `status`.
+    `titleField`, then `id`, and `colorField` to `status`.
   - The view loads only rows overlapping the window, a row without an end date is not drawn, and an end
     before the start is clamped to the start.
   - `progressField` (0–100) shades the bar. The view is read-only: bars are not dragged.

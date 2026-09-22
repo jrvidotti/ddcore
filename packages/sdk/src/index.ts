@@ -10,13 +10,13 @@ declare const __ddcore: { register(kind: string, value: any): void; current: str
 
 // The host injects `ddcore` (bridge to Go) before any module runs.
 export interface DDCoreDB {
-  getValue<T = any>(doctype: string, name: string | Filters, field: string): T;
-  getValue<T = Record<string, any>>(doctype: string, name: string | Filters, fields: string[]): T | null;
+  getValue<T = any>(doctype: string, id: string | Filters, field: string): T;
+  getValue<T = Record<string, any>>(doctype: string, id: string | Filters, fields: string[]): T | null;
   getList<T = Record<string, any>>(doctype: string, args?: ListArgs): T[];
   getAll<T = Record<string, any>>(doctype: string, args?: ListArgs): T[];
-  setValue(doctype: string, name: string, field: string | Record<string, any>, value?: any): void;
+  setValue(doctype: string, id: string, field: string | Record<string, any>, value?: any): void;
   count(doctype: string, filters?: Filters, orFilters?: Filters): number;
-  exists(doctype: string, nameOrFilters: string | Filters): string | null;
+  exists(doctype: string, idOrFilters: string | Filters): string | null;
   /** read-only SQL with $1.. placeholders */
   sql<T = Record<string, any>>(query: string, params?: any[]): T[];
   /**
@@ -45,14 +45,14 @@ export interface HttpResponse {
 export interface DDCoreAPI {
   db: DDCoreDB;
   session: Context;
-  /** For Single DocTypes, omit the name to load settings (defaults before the first save). */
-  getDoc<T extends BaseDoc = BaseDoc>(doctype: string, name?: string | Filters): T & Document<T>;
+  /** For Single DocTypes, omit the id to load settings (defaults before the first save). */
+  getDoc<T extends BaseDoc = BaseDoc>(doctype: string, id?: string | Filters): T & Document<T>;
   newDoc<T extends BaseDoc = BaseDoc>(doctype: string, values?: Partial<T>): T & Document<T>;
-  deleteDoc(doctype: string, name: string, opts?: { ignorePermissions?: boolean; force?: boolean }): void;
+  deleteDoc(doctype: string, id: string, opts?: { ignorePermissions?: boolean; force?: boolean }): void;
   getMeta(doctype: string): DoctypeDef;
   /**
    * `doc` carries only what the permission rules read — the doctype is already
-   * the first argument, so a `{ name, owner }` pair is a complete call. The host
+   * the first argument, so an `{ id, owner }` pair is a complete call. The host
    * takes it as a plain map and never requires a whole document.
    */
   hasPermission(doctype: string, ptype?: string, doc?: Partial<BaseDoc> | string, user?: string): boolean;
@@ -90,7 +90,7 @@ export interface DDCoreAPI {
    */
   enqueue(method: string, args?: Record<string, any>, opts?: { queue?: string; runAfter?: string; timeout?: number; maxAttempts?: number; backoff?: "fixed" | "exponential" }): number;
   /**
-   * Queues one message from a registered template and returns the name of its
+   * Queues one message from a registered template and returns the id of its
    * `Email Delivery` record.
    *
    * Synchronous, like everything else here, but delivery is not: the message is
@@ -101,18 +101,18 @@ export interface DDCoreAPI {
   webhooks: {
     /**
      * Emits an app event to every enabled `Webhook` whose custom event is
-     * `event`, and returns the names of the `Webhook Delivery` records written.
+     * `event`, and returns the ids of the `Webhook Delivery` records written.
      *
      * Written on *this* transaction and sent by a worker after it commits, so a
      * request that rolls back tells no receiver anything. `data` becomes the
      * payload's `data`, frozen now. `key` makes the emit idempotent per
      * webhook: a second emit with the same key fails instead of sending twice.
      */
-    emit(event: string, data?: any, opts?: { key?: string; reference?: { doctype: string; name: string } }): { deliveries: string[] };
+    emit(event: string, data?: any, opts?: { key?: string; reference?: { doctype: string; id: string } }): { deliveries: string[] };
   };
   /** The site's title, as the desk and the framework's own mail display it. */
   siteName(): string;
-  publish(event: string, payload: any, opts?: { user?: string; doctype?: string; name?: string }): void;
+  publish(event: string, payload: any, opts?: { user?: string; doctype?: string; id?: string }): void;
   log: { info(...a: any[]): void; warn(...a: any[]): void; error(...a: any[]): void; debug(...a: any[]): void };
   /**
    * Document sharing (SEC-03): per-user grants on one document, checked with
@@ -120,21 +120,21 @@ export interface DDCoreAPI {
    */
   share: {
     /** Grants or updates `user`'s share. Read is always granted. */
-    add(doctype: string, name: string, user: string, rights?: ShareRights): DocShare;
+    add(doctype: string, id: string, user: string, rights?: ShareRights): DocShare;
     /** Removes `user`'s share. The recipient may always drop their own. */
-    remove(doctype: string, name: string, user: string): void;
+    remove(doctype: string, id: string, user: string): void;
     /** Who the document is shared with; without the share right, only your own share. */
-    list(doctype: string, name: string): DocShares;
+    list(doctype: string, id: string): DocShares;
   };
   /**
    * Records that the current user did something sensitive to a target (PRD-06).
    * Written on the caller's transaction. Sensitive keys are redacted automatically.
    */
-  audit(action: string, targetDoctype?: string, targetName?: string, detail?: Record<string, any>): void;
+  audit(action: string, targetDoctype?: string, targetID?: string, detail?: Record<string, any>): void;
   /**
    * Records a refused sensitive action. Written directly to the pool so it survives rollback.
    */
-  auditDenied(action: string, targetDoctype?: string, targetName?: string, detail?: Record<string, any>): void;
+  auditDenied(action: string, targetDoctype?: string, targetID?: string, detail?: Record<string, any>): void;
   utils: {
     flt(v: any, precision?: number): number;
     cint(v: any): number;
@@ -178,9 +178,9 @@ export interface DDCoreAPI {
   isTest(): boolean;
   /** true when running in a job/migrate rather than a request */
   isJob(): boolean;
-  form: { addComment?(doctype: string, name: string, text: string): void };
+  form: { addComment?(doctype: string, id: string, text: string): void };
   callMethod(method: string, args?: Record<string, any>): any;
-  rename(doctype: string, oldName: string, newName: string): string;
+  rename(doctype: string, oldID: string, newID: string): string;
   /**
    * An integration credential, read from the environment — `.env` in
    * development, the platform in production — and never from a column.

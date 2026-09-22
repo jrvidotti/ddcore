@@ -23,14 +23,14 @@ func (s *Server) printFormats(w http.ResponseWriter, r *http.Request) {
 // Returns active letterheads with default status.
 func (s *Server) listLetterHeads(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
-		rows, err := db.Select(c.Ctx, c.Q(), `SELECT name, is_default, disabled FROM "tab_letter_head" WHERE disabled = false ORDER BY is_default DESC, name ASC`)
+		rows, err := db.Select(c.Ctx, c.Q(), `SELECT id, is_default, disabled FROM "tab_letter_head" WHERE disabled = false ORDER BY is_default DESC, id ASC`)
 		if err != nil {
 			return nil, err
 		}
 		var result []map[string]any
 		for _, row := range rows {
 			result = append(result, map[string]any{
-				"name":       row["name"],
+				"id":         row["id"],
 				"is_default": row["is_default"] == true,
 				"disabled":   row["disabled"] == true,
 			})
@@ -75,13 +75,13 @@ func (s *Server) renderPrint(r *http.Request, p printParams) (string, error) {
 	c.Lang = p.lang
 	err := c.Run(func(c *engine.Ctx) error {
 		var err error
-		htmlOut, err = c.PrintDoc(urlParam(r, "doctype"), urlParam(r, "name"), p.format, p.letterhead, p.lang, p.page)
+		htmlOut, err = c.PrintDoc(urlParam(r, "doctype"), urlParam(r, "id"), p.format, p.letterhead, p.lang, p.page)
 		return err
 	})
 	return htmlOut, err
 }
 
-// GET /api/print/{doctype}/{name}
+// GET /api/print/{doctype}/{id}
 // Renders the document to a full HTML document ready for printing or preview.
 func (s *Server) printDoc(w http.ResponseWriter, r *http.Request) {
 	p, err := s.printParams(r)
@@ -100,11 +100,11 @@ func (s *Server) printDoc(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(htmlOut))
 }
 
-// GET /api/print/{doctype}/{name}/pdf
+// GET /api/print/{doctype}/{id}/pdf
 // Renders the document to PDF and streams raw PDF bytes.
 func (s *Server) printDocPDF(w http.ResponseWriter, r *http.Request) {
 	doctype := urlParam(r, "doctype")
-	name := urlParam(r, "name")
+	name := urlParam(r, "id")
 	p, err := s.printParams(r)
 	if err != nil {
 		s.writeErr(w, r, err)

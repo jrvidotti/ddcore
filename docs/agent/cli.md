@@ -75,8 +75,8 @@ npm. `DDCORE_TEST_DSN` points at the disposable database the tests use.
 - Every response carries `X-Request-Id`, and every error body repeats it as `requestId`. See `ops`.
 - `POST /api/login {usr, pwd}` → `sid` cookie; a mutating request with a cookie needs the `X-DDCore-CSRF: 1` header.
 - `GET /api/resource/<DocType>?filters=[...]&fields=[...]&order_by=&limit=&start=&with_count=1`
-- `POST /api/resource/<DocType>` (insert), `GET/PUT/DELETE /api/resource/<DocType>/<name>`
-- `POST /api/resource/<DocType>/<name>/<submit|cancel|amend|rename|method>`
+- `POST /api/resource/<DocType>` (insert), `GET/PUT/DELETE /api/resource/<DocType>/<id>`
+- `POST /api/resource/<DocType>/<id>/<submit|cancel|amend|rename|method>` (rename body: `{ "id": "<new id>" }`)
 - `POST /api/method/<app.folder.file.fn>` (whitelisted)
 - `GET /api/meta/<DocType>`, `/api/boot`, `/api/search/link?doctype=&txt=`, `/api/search/global?txt=&limit=` (see `search`), `/api/report/<name>`, `/api/events` (SSE), `POST /api/upload`
 - `GET /api/export/<DocType>?format=csv|ndjson&filters=[...]&children=1&attachments=1` — the whole filtered set as a download, gated by the `export` permission (see `export`)
@@ -90,6 +90,7 @@ npm. `DDCORE_TEST_DSN` points at the disposable database the tests use.
 
 Tools: `list_doctypes`, `get_doctype`, `scaffold_doctype`, `validate_meta`, `migrate`, `i18n_extract`, `set_translations`, `generate_types`, `get_doc`, `list_docs`, `insert_doc`,
 `update_doc`, `delete_doc`, `submit_doc`, `cancel_doc`, `call_method`, `sql_query`, `eval`, `run_tests`, `get_logs`, `list_jobs`, `get_job`, `retry_job`, `cancel_job`, `purge_jobs`, `maintenance_status`, `maintenance_set`, `reload`, `list_apps`.
+The document tools (`get_doc`, `update_doc`, `delete_doc`, `submit_doc`, `cancel_doc`, `call_method`) name the document with `id`.
 `/mcp` is exempt from the maintenance gate, so `maintenance_set` can switch the pause back
 off; the writing tools still meet the engine's own guard while it is on (see `backup`).
 Resources: `ddcore://docs/<name>`, `ddcore://meta/<DocType>`.

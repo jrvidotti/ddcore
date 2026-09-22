@@ -75,7 +75,7 @@ func (e *Engine) CompleteRecovery(ctx context.Context, token, kind, password, fu
 		}
 		user = at.User
 
-		rows, err := db.Select(ctx, c.Tx, `SELECT enabled FROM tab_user WHERE name = $1`, user)
+		rows, err := db.Select(ctx, c.Tx, `SELECT enabled FROM tab_user WHERE id = $1`, user)
 		if err != nil {
 			return err
 		}
@@ -92,11 +92,11 @@ func (e *Engine) CompleteRecovery(ctx context.Context, token, kind, password, fu
 		if err != nil {
 			return err
 		}
-		if _, err := c.Tx.Exec(ctx, `UPDATE tab_user SET password_hash = $2 WHERE name = $1`, user, hash); err != nil {
+		if _, err := c.Tx.Exec(ctx, `UPDATE tab_user SET password_hash = $2 WHERE id = $1`, user, hash); err != nil {
 			return err
 		}
 		if fullName = strings.TrimSpace(fullName); fullName != "" && kind == TokenInvite {
-			if _, err := c.Tx.Exec(ctx, `UPDATE tab_user SET full_name = $2 WHERE name = $1`, user, fullName); err != nil {
+			if _, err := c.Tx.Exec(ctx, `UPDATE tab_user SET full_name = $2 WHERE id = $1`, user, fullName); err != nil {
 				return err
 			}
 		}
@@ -124,15 +124,15 @@ func (e *Engine) CompleteRecovery(ctx context.Context, token, kind, password, fu
 // reports whether a link may be sent to it. It never reports *why* not.
 func (e *Engine) FindUserForRecovery(ctx context.Context, typed string) (string, bool) {
 	rows, err := db.Select(ctx, e.DB.Pool,
-		`SELECT name, enabled FROM tab_user
-		 WHERE lower(name) = lower($1) OR lower(email) = lower($1) LIMIT 1`, strings.TrimSpace(typed))
+		`SELECT id, enabled FROM tab_user
+		 WHERE lower(id) = lower($1) OR lower(email) = lower($1) LIMIT 1`, strings.TrimSpace(typed))
 	if err != nil || len(rows) == 0 {
 		return "", false
 	}
 	if en, ok := rows[0]["enabled"].(bool); ok && !en {
 		return "", false
 	}
-	name := db.Str(rows[0]["name"])
+	name := db.Str(rows[0]["id"])
 	// Guest is a real row and must never be recoverable into.
 	if strings.EqualFold(name, "Guest") {
 		return "", false

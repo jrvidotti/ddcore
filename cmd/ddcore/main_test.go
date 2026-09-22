@@ -279,7 +279,7 @@ func TestAuditFlags(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if filter.Action != "role.assign" || filter.Actor != "admin@example.com" || filter.TargetName != "User:1" || filter.Outcome != "Allowed" || filter.Limit != 50 || filter.Since == nil {
+	if filter.Action != "role.assign" || filter.Actor != "admin@example.com" || filter.TargetID != "User:1" || filter.Outcome != "Allowed" || filter.Limit != 50 || filter.Since == nil {
 		t.Fatalf("unexpected filter: %+v", filter)
 	}
 

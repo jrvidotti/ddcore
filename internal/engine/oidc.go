@@ -304,15 +304,15 @@ func (e *Engine) OIDCCallback(ctx context.Context, id, code, state, cookieState 
 // resolveIdentity finds the User a provider's subject signs in as: the one it
 // was linked to before, or else the enabled User with the verified address.
 func (e *Engine) resolveIdentity(c *Ctx, provider, subject, email string) (user string, linked bool, err error) {
-	rows, err := db.Select(c.Ctx, c.Tx, `SELECT u.name, u.enabled FROM ddcore_user_identity i
-		JOIN tab_user u ON u.name = i."user" WHERE i.provider = $1 AND i.subject = $2`, provider, subject)
+	rows, err := db.Select(c.Ctx, c.Tx, `SELECT u.id, u.enabled FROM ddcore_user_identity i
+		JOIN tab_user u ON u.id = i."user" WHERE i.provider = $1 AND i.subject = $2`, provider, subject)
 	if err != nil {
 		return "", false, err
 	}
 	linked = len(rows) > 0
 	if !linked {
-		rows, err = db.Select(c.Ctx, c.Tx, `SELECT name, enabled FROM tab_user
-			WHERE lower(email) = $1 OR lower(name) = $1 ORDER BY (lower(email) = $1) DESC LIMIT 1`, email)
+		rows, err = db.Select(c.Ctx, c.Tx, `SELECT id, enabled FROM tab_user
+			WHERE lower(email) = $1 OR lower(id) = $1 ORDER BY (lower(email) = $1) DESC LIMIT 1`, email)
 		if err != nil {
 			return "", false, err
 		}
@@ -325,7 +325,7 @@ func (e *Engine) resolveIdentity(c *Ctx, provider, subject, email string) (user 
 	if len(rows) == 0 {
 		return "", false, oidcErr(OIDCErrNoAccount, nil)
 	}
-	name := db.Str(rows[0]["name"])
+	name := db.Str(rows[0]["id"])
 	if name == "Guest" {
 		return "", false, oidcErr(OIDCErrNoAccount, nil)
 	}

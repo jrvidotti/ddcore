@@ -16,7 +16,7 @@ export default defineDoctype({
   module: "Core",
   label: "Webhook",
   icon: "send",
-  naming: { hash: true },
+  idGeneration: { hash: true },
   titleField: "url",
   trackChanges: true,
   fields: [

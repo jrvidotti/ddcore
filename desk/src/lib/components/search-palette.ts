@@ -6,7 +6,7 @@ import { resolveWorkspaceForDoctype, type WorkspaceItem } from "./sidebar-worksp
 export interface SearchHit {
   doctype: string;
   label: string;
-  name: string;
+  id: string;
   title: string;
 }
 
@@ -14,8 +14,8 @@ export interface PaletteItem {
   kind: "doctype" | "document";
   doctype: string;
   label: string;
-  /** The document name; empty for a DocType entry. */
-  name: string;
+  /** The document id; empty for a DocType entry. */
+  id: string;
   /** The line shown: the DocType label, or the document title. */
   title: string;
   href: string;
@@ -62,7 +62,7 @@ export function buildItems(
     kind: "doctype",
     doctype,
     label,
-    name: "",
+    id: "",
     title: label,
     href: `/app/${ws(doctype)}/${encodeURIComponent(doctype)}`,
   }));
@@ -71,9 +71,9 @@ export function buildItems(
       kind: "document",
       doctype: h.doctype,
       label: h.label,
-      name: h.name,
-      title: h.title || h.name,
-      href: `/app/${ws(h.doctype)}/${encodeURIComponent(h.doctype)}/${encodeURIComponent(h.name)}`,
+      id: h.id,
+      title: h.title || h.id,
+      href: `/app/${ws(h.doctype)}/${encodeURIComponent(h.doctype)}/${encodeURIComponent(h.id)}`,
     });
   }
   return items;

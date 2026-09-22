@@ -36,21 +36,21 @@ func renameLegacyAdmin(ctx context.Context, c *Ctx) error {
 	if err != nil {
 		return nil // no core app loaded: nothing to rename
 	}
-	rows, err := db.Select(ctx, c.Tx, `SELECT name FROM tab_user WHERE name IN ($1, $2)`, legacyAdmin, "Admin")
+	rows, err := db.Select(ctx, c.Tx, `SELECT id FROM tab_user WHERE id IN ($1, $2)`, legacyAdmin, "Admin")
 	if err != nil {
 		return err
 	}
-	if len(rows) != 1 || db.Str(rows[0]["name"]) != legacyAdmin {
+	if len(rows) != 1 || db.Str(rows[0]["id"]) != legacyAdmin {
 		return nil
 	}
-	if err := c.moveName(d, legacyAdmin, "Admin"); err != nil {
+	if err := c.moveID(d, legacyAdmin, "Admin"); err != nil {
 		return fmt.Errorf("rename %s: %w", legacyAdmin, err)
 	}
-	if _, err := c.Tx.Exec(ctx, `UPDATE tab_user SET full_name = 'Admin' WHERE name = 'Admin' AND full_name = $1`, legacyAdmin); err != nil {
+	if _, err := c.Tx.Exec(ctx, `UPDATE tab_user SET full_name = 'Admin' WHERE id = 'Admin' AND full_name = $1`, legacyAdmin); err != nil {
 		return err
 	}
 	// owner and modified_by are standard columns, not fields, so the Link
-	// sweep in moveName never sees them.
+	// sweep in moveID never sees them.
 	for _, dt := range c.St.Meta.DocTypes {
 		t := db.Ident(dt.TableName())
 		for _, col := range []string{"owner", "modified_by"} {

@@ -5,7 +5,7 @@
   import type { Field, Meta } from "$lib/meta";
   import { statusColor, timeAgo } from "$lib/format";
   import { getLinkTitle } from "$lib/titles.svelte";
-  import { showNameColumn } from "./name-column";
+  import { showIDColumn } from "./id-column";
 
   let {
     rows, meta, doctype, wsPrefix, columns, selected, orderBy, loading = false,
@@ -13,7 +13,7 @@
   }: {
     rows: any[]; meta: Meta; doctype: string; wsPrefix: string; columns: Field[];
     selected: Set<string>; orderBy: string; loading?: boolean; settings?: ListViewOptions;
-    onSort: (field: Field) => void; onToggle: (name: string) => void;
+    onSort: (field: Field) => void; onToggle: (id: string) => void;
     onSelectAll: (checked: boolean) => void; cellText: (row: any, field: Field) => string;
     statusOf: (row: any) => string; statusLabelOf: (row: any) => string;
   } = $props();
@@ -21,18 +21,18 @@
   const statusField = $derived(meta.doctype.fields.find((f) => f.fieldname === "status"));
   const showIndicatorColumn = $derived(!!settings.indicator ||
     (!columns.some((c) => c.fieldname === statusField?.fieldname) && (!!statusField || !!meta.doctype.submittable)));
-  const showName = $derived(showNameColumn(meta.doctype, columns, settings));
+  const showID = $derived(showIDColumn(meta.doctype, columns, settings));
   const num = (f: Field) => ["Int", "Float", "Currency", "Percent"].includes(f.fieldtype);
-  const documentUrl = (name: string) => `${wsPrefix}/${encodeURIComponent(doctype)}/${encodeURIComponent(name)}`;
+  const documentUrl = (id: string) => `${wsPrefix}/${encodeURIComponent(doctype)}/${encodeURIComponent(id)}`;
 </script>
 
 <table class="grid">
   <thead>
     <tr>
-      <th style="width:28px"><input type="checkbox" aria-label={__("Select all")} checked={rows.length > 0 && rows.every((r) => selected.has(r.name))} onchange={(e) => onSelectAll(e.currentTarget.checked)} /></th>
-      {#if showName}
-        <th aria-sort={orderBy.startsWith("name ") ? (orderBy.endsWith("asc") ? "ascending" : "descending") : "none"}>
-          <button class="sort" onclick={() => onSort({ fieldname: "name", fieldtype: "Data" })}>{meta.doctype.nameLabel || __("Name")} {#if orderBy.startsWith("name ")}{orderBy.endsWith("asc") ? "↑" : "↓"}{/if}</button>
+      <th style="width:28px"><input type="checkbox" aria-label={__("Select all")} checked={rows.length > 0 && rows.every((r) => selected.has(r.id))} onchange={(e) => onSelectAll(e.currentTarget.checked)} /></th>
+      {#if showID}
+        <th aria-sort={orderBy.startsWith("id ") ? (orderBy.endsWith("asc") ? "ascending" : "descending") : "none"}>
+          <button class="sort" onclick={() => onSort({ fieldname: "id", fieldtype: "Data" })}>{meta.doctype.idLabel || __("ID")} {#if orderBy.startsWith("id ")}{orderBy.endsWith("asc") ? "↑" : "↓"}{/if}</button>
         </th>
       {/if}
       {#each columns as c}
@@ -45,18 +45,18 @@
     </tr>
   </thead>
   <tbody>
-    {#each rows as r (r.name)}
-      <tr class="row" style="cursor:pointer" tabindex="0" onclick={() => goto(documentUrl(r.name))} onkeydown={(e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); goto(documentUrl(r.name)); } }}>
-        <td onclick={(e) => { e.stopPropagation(); onToggle(r.name); }}><input type="checkbox" aria-label={__("Select {0}", [r.name])} checked={selected.has(r.name)} onclick={(e) => e.stopPropagation()} onchange={() => onToggle(r.name)} /></td>
-        {#if showName}<td><a href={documentUrl(r.name)} onclick={(e) => e.stopPropagation()}>{r.name}</a></td>{/if}
+    {#each rows as r (r.id)}
+      <tr class="row" style="cursor:pointer" tabindex="0" onclick={() => goto(documentUrl(r.id))} onkeydown={(e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); goto(documentUrl(r.id)); } }}>
+        <td onclick={(e) => { e.stopPropagation(); onToggle(r.id); }}><input type="checkbox" aria-label={__("Select {0}", [r.id])} checked={selected.has(r.id)} onclick={(e) => e.stopPropagation()} onchange={() => onToggle(r.id)} /></td>
+        {#if showID}<td><a href={documentUrl(r.id)} onclick={(e) => e.stopPropagation()}>{r.id}</a></td>{/if}
         {#each columns as c}
           <td class:num={num(c)} class:bold={c.bold} style:font-weight={c.bold ? 600 : undefined}>
             {#if (c.fieldtype === "Link" || c.fieldtype === "Dynamic Link") && r[c.fieldname!]}
               {@const linkTarget = c.fieldtype === "Dynamic Link" ? r[c.options] : c.options}
               {@const linkVal = r[c.fieldname!]}
               <a href={`${wsPrefix}/${encodeURIComponent(linkTarget)}/${encodeURIComponent(linkVal)}`} title={linkVal} onclick={(e) => e.stopPropagation()}>{getLinkTitle(linkTarget, linkVal) || linkVal}</a>
-            {:else if !showName && c.fieldname === meta.doctype.titleField}
-              <a href={documentUrl(r.name)} onclick={(e) => e.stopPropagation()}>{cellText(r, c) || r.name}</a>
+            {:else if !showID && c.fieldname === meta.doctype.titleField}
+              <a href={documentUrl(r.id)} onclick={(e) => e.stopPropagation()}>{cellText(r, c) || r.id}</a>
             {:else if c.fieldname === statusField?.fieldname}
               <span class="badges"><span class="indicator {statusColor(r[c.fieldname!], c)}">{__(r[c.fieldname!])}</span>{#if !showIndicatorColumn}{@render badges(r)}{/if}</span>
             {:else}{cellText(r, c)}{/if}

@@ -71,7 +71,7 @@ func TestUserPermissionsResolutionAndCacheInvalidation(t *testing.T) {
 			"is_default": true,
 		}, SaveOpts{})
 		if err == nil {
-			name = doc.Name()
+			name = doc.ID()
 		}
 		return err
 	}); err != nil {
@@ -148,7 +148,7 @@ func permApp(t *testing.T) string {
 	w("ddcore.app.ts", `import { defineApp } from "@ddcore/sdk";
 export default defineApp({ name: "demo", title: "Demo", roles: ["Gestor"] });`)
 	w("doctypes/pessoa/pessoa.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
-export default defineDoctype({ name: "Pessoa", naming: { field: "nome" },
+export default defineDoctype({ name: "Pessoa", idGeneration: { field: "nome" },
   fields: [{ fieldname: "nome", fieldtype: "Data", label: "Nome", reqd: true }],
   permissions: [{ role: "Gestor", read: true, write: true, create: true, delete: true }, { role: "All", read: true }] });`)
 	w("doctypes/item/item.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
@@ -158,7 +158,7 @@ export default defineDoctype({ name: "Item Pedido", isChild: true, fields: [
 export default defineDoctype({ name: "Nota Pedido", isChild: true, fields: [
   { fieldname: "texto", fieldtype: "Data", label: "Texto" } ] });`)
 	w("doctypes/pedido/pedido.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
-export default defineDoctype({ name: "Pedido", naming: { series: "PED-.####" }, submittable: true,
+export default defineDoctype({ name: "Pedido", idGeneration: { series: "PED-.####" }, submittable: true,
   fields: [
     { fieldname: "cliente", fieldtype: "Link", label: "Cliente", options: "Pessoa", reqd: true },
     { fieldname: "itens", fieldtype: "Table", label: "Itens", options: "Item Pedido" },
@@ -219,7 +219,7 @@ func TestB02_ChildPermissionFollowsParent(t *testing.T) {
 	var roleRow string
 	e.Run(ctx, "Admin", func(c *Ctx) error {
 		u, _ := c.GetDoc("User", "Admin")
-		roleRow = u.Children("roles")[0].Name()
+		roleRow = u.Children("roles")[0].ID()
 		return nil
 	})
 	if roleRow == "" {
@@ -228,7 +228,7 @@ func TestB02_ChildPermissionFollowsParent(t *testing.T) {
 
 	for _, user := range []string{"Guest", "ze@x.com"} {
 		err := e.Run(ctx, user, func(c *Ctx) error {
-			if ok, _ := c.HasPermission("Has Role", "read", Doc{"name": roleRow}); ok {
+			if ok, _ := c.HasPermission("Has Role", "read", Doc{"id": roleRow}); ok {
 				t.Errorf("%s: read on Has Role by name should be denied", user)
 			}
 			if ok, _ := c.HasPermission("Has Role", "read", Doc{"parenttype": "User", "parent": "Admin", "parentfield": "roles"}); ok {
@@ -276,39 +276,39 @@ func TestB02_ChildPermissionFollowsParent(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		ped, item, nota = saved.Name(), saved.Children("itens")[0].Name(), saved.Children("notas")[0].Name()
+		ped, item, nota = saved.ID(), saved.Children("itens")[0].ID(), saved.Children("notas")[0].ID()
 		for _, dt := range []string{"Item Pedido", "Nota Pedido"} {
 			for _, pt := range []string{"read", "write", "delete"} {
 				n := item
 				if dt == "Nota Pedido" {
 					n = nota
 				}
-				if ok, err := c.HasPermission(dt, pt, Doc{"name": n}); !ok || err != nil {
+				if ok, err := c.HasPermission(dt, pt, Doc{"id": n}); !ok || err != nil {
 					t.Errorf("draft: %s %s should be permitted: %v", pt, dt, err)
 				}
 			}
 		}
-		rows, err := c.GetList("Item Pedido", ListArgs{Fields: []string{"name", "parenttype"}})
+		rows, err := c.GetList("Item Pedido", ListArgs{Fields: []string{"id", "parenttype"}})
 		if err != nil || len(rows) != 1 {
 			t.Errorf("GetList Item Pedido as Gestor: %v %v", rows, err)
 		}
 		if _, err := c.Submit(saved); err != nil {
 			return err
 		}
-		if ok, _ := c.HasPermission("Item Pedido", "write", Doc{"name": item}); ok {
+		if ok, _ := c.HasPermission("Item Pedido", "write", Doc{"id": item}); ok {
 			t.Errorf("submitted: write on Item Pedido should be denied")
 		}
-		if ok, _ := c.HasPermission("Nota Pedido", "write", Doc{"name": nota}); !ok {
+		if ok, _ := c.HasPermission("Nota Pedido", "write", Doc{"id": nota}); !ok {
 			t.Errorf("submitted: write on Nota Pedido (allowOnSubmit) should be permitted")
 		}
-		if ok, _ := c.HasPermission("Item Pedido", "read", Doc{"name": item}); !ok {
+		if ok, _ := c.HasPermission("Item Pedido", "read", Doc{"id": item}); !ok {
 			t.Errorf("submitted: read on Item Pedido should be permitted")
 		}
 		doc, _ := c.GetDoc("Pedido", ped)
 		if _, err := c.Cancel(doc); err != nil {
 			return err
 		}
-		if ok, _ := c.HasPermission("Nota Pedido", "write", Doc{"name": nota}); ok {
+		if ok, _ := c.HasPermission("Nota Pedido", "write", Doc{"id": nota}); ok {
 			t.Errorf("cancelled: write on Nota Pedido should be denied")
 		}
 		return nil
@@ -318,7 +318,7 @@ func TestB02_ChildPermissionFollowsParent(t *testing.T) {
 	}
 	// user without role does not read Pedido children nor list Item Pedido
 	e.Run(ctx, "ze@x.com", func(c *Ctx) error {
-		if ok, _ := c.HasPermission("Item Pedido", "read", Doc{"name": item}); ok {
+		if ok, _ := c.HasPermission("Item Pedido", "read", Doc{"id": item}); ok {
 			t.Errorf("ze: read on Item Pedido should be denied")
 		}
 		if _, err := c.GetList("Item Pedido", ListArgs{}); err == nil {

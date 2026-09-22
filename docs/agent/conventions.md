@@ -52,7 +52,8 @@ see `i18n`.
 - DocType name: ASCII, spaces allowed, capitalised (`"Project Milestone"`). Becomes the table `tab_project_milestone` and the interface `ProjectMilestone`.
 - `fieldname`: ASCII snake_case (`due_date`).
 - **Labels are English, because a label is a catalogue key.** An accent belongs in `translations/<lang>.csv`, never in the code. See `i18n`.
-- Reserved: `name, owner, creation, modified, modified_by, docstatus, doctype, parent, parenttype, parentfield, idx`.
+- Reserved: `id, owner, creation, modified, modified_by, docstatus, doctype, parent, parenttype, parentfield, idx`.
+  `name` is not reserved: it is an ordinary fieldname a DocType may declare, and declaring it does not make it the document key.
 
 ## Rules that do not change
 

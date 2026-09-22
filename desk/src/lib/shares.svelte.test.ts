@@ -3,7 +3,7 @@ import { api, type DocShare } from "./api";
 import { DocSharesState } from "./shares.svelte";
 
 const share: DocShare = {
-  name: "abc", user: "ana@x.com", share_doctype: "Pessoa", share_name: "Cliente A",
+  id: "abc", user: "ana@x.com", share_doctype: "Pessoa", share_id: "Cliente A",
   read: true, write: false, share: false, override_scope: false, owner: "admin@x.com",
 };
 

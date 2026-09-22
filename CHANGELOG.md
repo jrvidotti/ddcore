@@ -12,6 +12,43 @@ not every commit that went into it.
 
 ## Unreleased
 
+### Breaking
+
+- The document key is now `id` instead of `name`, everywhere: the column, filters, `fields`,
+  `orderBy`, `titleField`/`searchFields`, `BaseDoc.id` in the SDK, `doc.id` in controllers and
+  form scripts, the REST routes (`/api/resource/{doctype}/{id}`, `/api/print/…/{id}`,
+  `/api/comments|versions|assignments|shares/{doctype}/{id}`, `PATCH /api/notifications/{id}`),
+  the request bodies of assignments, shares and workflow (`{ doctype, id, … }`,
+  `?doctype=…&id=…`), the rename body (`{ "id": … }`), link titles (`?ids=`), the upload field
+  (`doc_id`), global search hits, the realtime `doc_update` payload, the webhook envelope's
+  `data.id`, and the MCP tools `get_doc`, `update_doc`, `delete_doc`, `submit_doc`, `cancel_doc`
+  and `call_method`. The desk's document route is `/app/<workspace>/<doctype>/<id>`. There is no
+  alias: code that still says `name` for the key fails on an unknown column.
+  On an existing database the next `ddcore migrate` renames the column on every DocType table
+  before anything else runs, so every patch — `beforeSchema` or `afterSchema` — sees `id`; primary
+  keys, Single checks and indexes follow on their own, and `migrate --dry-run` previews it. App
+  code must say `id` wherever it meant the key: `doc.id`, `ddcore.getDoc(doctype, id)`,
+  `filters: { id: … }`, `fields: ["id"]`, `"count(id) as n"`, raw SQL in patches and reports.
+  `name` is now an ordinary fieldname an app may declare; declaring it does not bring the old key
+  back. Update apps' `ddcore:` range to `>=0.17.0` once they have been through their code and
+  their patches, run or not: a 0.17 binary warns about any app whose range still reaches below it.
+- The fields that held another document's key follow: `reference_name` → `reference_id`
+  (Comment, ToDo, Email Delivery, Webhook Delivery, notifications), `share_name` → `share_id`
+  (Document Share), `attached_to_name` → `attached_to_id` (File), `target_name` → `target_id`
+  (Audit Event), and Version's `docname` → `doc_id`. `migrate` renames them, their indexes
+  included; filters and reports that name them must use the new names.
+- The vocabulary around the key follows it: `naming` on a DocType is `idGeneration` (same
+  `series`, `field`, `hash`, `prompt`, `format`), the `naming_series` field is `id_series`,
+  `nameLabel` is `idLabel`, and `defineListView(…, { nameColumn: false })` is
+  `{ idColumn: false }`. The list's leading column is headed "ID" by default. A Vault field's key
+  template says `{id}` where it said `{name}`; a template still saying `{name}` is refused at load
+  unless the DocType declares a field called `name`. Keys already stored in the vault are values
+  and do not move.
+- `ddcore export` (NDJSON and CSV) writes the key as an `id` column, and the attachment manifest's
+  `name` is `id`; a consumer of those files must read the new column. A backup taken before 0.17
+  restores as it was and is brought up by the migrate `ddcore restore` runs; with `--no-migrate`,
+  `--smoke` now says to run `ddcore migrate` instead of failing on the column.
+
 ## 0.16.0 — 2026-09-22
 
 ### Breaking

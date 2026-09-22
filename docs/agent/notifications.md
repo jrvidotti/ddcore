@@ -18,12 +18,12 @@ export default defineNotification({
   condition: (doc, before) => doc.total > 0,
   recipients: (doc, before) => [doc.owner],
   desk: {
-    title: (doc) => _("Order {0} submitted", [doc.name]),
+    title: (doc) => _("Order {0} submitted", [doc.id]),
     message: (doc) => _("Your order is ready for review."),
   },
   email: {
     template: "shop.order_submitted",
-    args: (doc) => ({ order: doc.name }),
+    args: (doc) => ({ order: doc.id }),
   },
 });
 ```
@@ -69,7 +69,7 @@ export default defineNotification({
   condition: (doc) => doc.status === "Open",
   recipients: (doc) => [doc.owner],
   desk: {
-    title: (doc) => _("Order {0} is overdue", [doc.name]),
+    title: (doc) => _("Order {0} is overdue", [doc.id]),
     message: () => _("Review the outstanding order."),
   },
 });
@@ -112,16 +112,16 @@ export cannot expose it. Use these dedicated endpoints:
 | --- | --- | --- |
 | List | `GET /api/notifications?limit=20&offset=0&read=false` | `{data: {data: Notification[], total: number}}` |
 | Unread count | `GET /api/notifications/count` | `{data: number}` |
-| Set read state | `PATCH /api/notifications/{name}` with `{read: true}` or `{read: false}` | `{data: Notification}` |
+| Set read state | `PATCH /api/notifications/{id}` with `{read: true}` or `{read: false}` | `{data: Notification}` |
 
 `limit` defaults to 20 and accepts 1–100; `offset` defaults to zero and is nonnegative.
 Omit `read` for both states, or use `true` or `false`. Results are newest first and
 the total reflects the filter and current access. Unknown or repeated query parameters
-are rejected. A notification has `name`, `title`, `message`, `creation`, `read`,
-`reference_doctype` and `reference_name`.
+are rejected. A notification has `id`, `title`, `message`, `creation`, `read`,
+`reference_doctype` and `reference_id`.
 
 The Desk SDK exposes `ddcore.notifications.list({limit, offset, read})`,
-`ddcore.notifications.count()` and `ddcore.notifications.setRead(name, read)`. The central
+`ddcore.notifications.count()` and `ddcore.notifications.setRead(id, read)`. The central
 shows unread count, document links and individual read/unread actions. It refreshes
 on opening, tab return, SSE updates and reconnection, so persisted notifications
 produced offline are recovered. Logging out clears the local connection and state.

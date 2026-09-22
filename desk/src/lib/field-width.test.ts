@@ -65,7 +65,7 @@ describe("field width resolution", () => {
       permissions: { read: true, write: true },
     } as unknown as Meta;
 
-    const frm = new FormController(meta, { doctype: "Invoice", name: "INV-1" });
+    const frm = new FormController(meta, { doctype: "Invoice", id: "INV-1" });
 
     const f1 = frm.field("due_date");
     expect(f1).toBeDefined();

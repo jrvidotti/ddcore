@@ -52,7 +52,7 @@ export default defineNotification({name:"` + event + `",doctype:"Pedido",event:"
 	if err != nil {
 		t.Fatal(err)
 	}
-	rows, err := db.Select(context.Background(), e.DB.Pool, `SELECT rule,message FROM ddcore_notification ORDER BY creation,name`)
+	rows, err := db.Select(context.Background(), e.DB.Pool, `SELECT rule,message FROM ddcore_notification ORDER BY creation, id`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,7 +104,7 @@ for (const event of ["on_insert","on_update"]) defineNotification({name:event,do
 		if err != nil {
 			return err
 		}
-		if page.Total != 1 || page.Data[0].ReferenceName != "Renamed" {
+		if page.Total != 1 || page.Data[0].ReferenceID != "Renamed" {
 			t.Fatalf("rename reference: %+v", page)
 		}
 		return c.Delete("Pessoa", "Renamed", false, false)
@@ -112,11 +112,11 @@ for (const event of ["on_insert","on_update"]) defineNotification({name:event,do
 	if err != nil {
 		t.Fatal(err)
 	}
-	rows, err := db.Select(ctx, e.DB.Pool, `SELECT rule,reference_name FROM ddcore_notification`)
+	rows, err := db.Select(ctx, e.DB.Pool, `SELECT rule,reference_id FROM ddcore_notification`)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(rows) != 1 || db.Str(rows[0]["rule"]) != "on_insert" || db.Str(rows[0]["reference_name"]) != "Renamed" {
+	if len(rows) != 1 || db.Str(rows[0]["rule"]) != "on_insert" || db.Str(rows[0]["reference_id"]) != "Renamed" {
 		t.Fatalf("unexpected occurrences: %+v", rows)
 	}
 	if err := e.Run(ctx, "Admin", func(c *Ctx) error {

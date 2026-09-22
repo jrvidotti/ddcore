@@ -31,27 +31,27 @@
 
   async function load() {
     try {
-      comments = await api.comments(frm.doctype, frm.doc.name);
-      if (frm.meta.doctype.trackChanges) versions = await api.versions(frm.doctype, frm.doc.name);
+      comments = await api.comments(frm.doctype, frm.doc.id);
+      if (frm.meta.doctype.trackChanges) versions = await api.versions(frm.doctype, frm.doc.id);
       if (!frm.isNew) {
         assignState.doctype = frm.doctype;
-        assignState.name = frm.doc.name;
+        assignState.id = frm.doc.id;
         await assignState.load();
         if (!frm.meta.doctype.isSingle) {
           shareState.doctype = frm.doctype;
-          shareState.name = frm.doc.name;
+          shareState.id = frm.doc.id;
           await shareState.load();
         }
       }
     } catch {}
   }
   onMount(load);
-  $effect(() => { frm.doc.modified; frm.doc.name; load(); });
+  $effect(() => { frm.doc.modified; frm.doc.id; load(); });
 
   async function addComment() {
     if (!text.trim()) return;
     try {
-      await api.insert("Comment", { reference_doctype: frm.doctype, reference_name: frm.doc.name, content: text, comment_type: "Comment" });
+      await api.insert("Comment", { reference_doctype: frm.doctype, reference_id: frm.doc.id, content: text, comment_type: "Comment" });
       text = "";
       await load();
     } catch (e) { showError(e); }
@@ -59,7 +59,7 @@
 
   async function handleAssign(args: AssignArgs) {
     await assignState.assign(args);
-    comments = await api.comments(frm.doctype, frm.doc.name);
+    comments = await api.comments(frm.doctype, frm.doc.id);
   }
 
   async function handleShare(args: ShareArgs) {
@@ -74,19 +74,19 @@
     }
   }
 
-  async function completeTask(name: string) {
+  async function completeTask(id: string) {
     try {
-      await assignState.complete(name);
-      comments = await api.comments(frm.doctype, frm.doc.name);
+      await assignState.complete(id);
+      comments = await api.comments(frm.doctype, frm.doc.id);
     } catch (e) {
       showError(e);
     }
   }
 
-  async function revokeTask(name: string) {
+  async function revokeTask(id: string) {
     try {
-      await assignState.revoke(name);
-      comments = await api.comments(frm.doctype, frm.doc.name);
+      await assignState.revoke(id);
+      comments = await api.comments(frm.doctype, frm.doc.id);
     } catch (e) {
       showError(e);
     }
@@ -149,8 +149,8 @@
                     class="btn icon sm"
                     title={__("Complete")}
                     aria-label={__("Complete")}
-                    disabled={assignState.pending === todo.name}
-                    onclick={() => completeTask(todo.name)}
+                    disabled={assignState.pending === todo.id}
+                    onclick={() => completeTask(todo.id)}
                   >
                     <Icon name="check" size={13} />
                   </button>
@@ -159,8 +159,8 @@
                     class="btn icon sm"
                     title={__("Revoke")}
                     aria-label={__("Revoke")}
-                    disabled={assignState.pending === todo.name}
-                    onclick={() => revokeTask(todo.name)}
+                    disabled={assignState.pending === todo.id}
+                    onclick={() => revokeTask(todo.id)}
                   >
                     <Icon name="x" size={13} />
                   </button>
@@ -294,7 +294,7 @@
       <div class="head">
         <div class="modal-title-wrap">
           <Icon name="history" size={18} />
-          <h3>{__("Change history")} · {frm.doc.name}</h3>
+          <h3>{__("Change history")} · {frm.doc.id}</h3>
         </div>
         <button class="btn icon" onclick={() => (showModal = false)} aria-label="Fechar">
           <Icon name="x" size={16} />
@@ -323,7 +323,7 @@
   <AssignModal
     open={showAssignModal}
     doctype={frm.doctype}
-    docname={frm.doc.name}
+    docId={frm.doc.id}
     onassign={handleAssign}
     onclose={() => (showAssignModal = false)}
   />

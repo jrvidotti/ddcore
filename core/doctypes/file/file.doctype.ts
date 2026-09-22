@@ -13,7 +13,7 @@ export default defineDoctype({
     { fieldname: "content_type", fieldtype: "Data", label: "Type" },
     { fieldname: "is_private", fieldtype: "Check", label: "Private", default: true },
     { fieldname: "attached_to_doctype", fieldtype: "Data", label: "Attached to (DocType)", searchIndex: true },
-    { fieldname: "attached_to_name", fieldtype: "Data", label: "Attached to (name)", searchIndex: true },
+    { fieldname: "attached_to_id", renamedFrom: "attached_to_name", fieldtype: "Data", label: "Attached to (ID)", searchIndex: true },
     { fieldname: "attached_to_field", fieldtype: "Data", label: "Field" },
   ],
   permissions: [{ role: "System Manager", read: true, write: true, create: true, delete: true }, { role: "All", read: true, write: true, create: true, delete: true, ifOwner: true }],

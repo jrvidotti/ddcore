@@ -39,7 +39,7 @@ func TestMigrateGeneratesAdminPassword(t *testing.T) {
 	if len(res.AdminPassword) != adminPasswordLength {
 		t.Fatalf("no password generated: %q", res.AdminPassword)
 	}
-	rows := sqlRows(t, e, `SELECT password_hash FROM tab_user WHERE name = 'Admin'`)
+	rows := sqlRows(t, e, `SELECT password_hash FROM tab_user WHERE id = 'Admin'`)
 	if !CheckPassword(db.Str(rows[0]["password_hash"]), res.AdminPassword) {
 		t.Fatal("the stored hash does not match the password shown")
 	}

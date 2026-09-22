@@ -87,7 +87,7 @@ export default defineNotification({name:"person",doctype:"Pessoa",event:"on_inse
 		if page.Total != 1 || len(page.Data) != 1 || page.Data[0].Title != "Created committed" {
 			t.Fatalf("%+v", page)
 		}
-		if _, err = c.SetNotificationRead(page.Data[0].Name, true); err != nil {
+		if _, err = c.SetNotificationRead(page.Data[0].ID, true); err != nil {
 			return err
 		}
 		n, err := c.NotificationCount()

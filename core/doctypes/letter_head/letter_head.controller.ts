@@ -9,11 +9,11 @@ export default defineController("Letter Head", {
   onUpdate(doc) {
     if (!doc.is_default || doc.disabled) return;
     const others = ddcore.db.getAll("Letter Head", {
-      fields: ["name"],
-      filters: { is_default: true, name: ["!=", doc.name] },
+      fields: ["id"],
+      filters: { is_default: true, id: ["!=", doc.id] },
     });
     for (const other of others) {
-      ddcore.db.setValue("Letter Head", other.name, "is_default", false);
+      ddcore.db.setValue("Letter Head", other.id, "is_default", false);
     }
   },
 });

@@ -216,22 +216,22 @@ func TestMetaTranslatedAndETag(t *testing.T) {
 	}
 }
 
-// nameLabel is a catalogue key like label, translated with the rest of the meta.
-func TestMetaTranslatesTheNameLabel(t *testing.T) {
+// idLabel is a catalogue key like label, translated with the rest of the meta.
+func TestMetaTranslatesTheIDLabel(t *testing.T) {
 	x := setup(t)
 	d, err := x.e.DocType("User")
 	if err != nil {
 		t.Fatal(err)
 	}
-	d.NameLabel = "User" // a key the core catalogue already translates
+	d.IDLabel = "User" // a key the core catalogue already translates
 	r := x.call("GET", "/api/meta/User", nil, "sid:"+x.sid("root@x.com"), "X-Lang", "pt-BR")
 	data, _ := r.Body["data"].(map[string]any)
 	dt, _ := data["doctype"].(map[string]any)
-	if got := dt["nameLabel"]; got != "Usuário" {
-		t.Fatalf("pt-BR nameLabel = %v, want Usuário", got)
+	if got := dt["idLabel"]; got != "Usuário" {
+		t.Fatalf("pt-BR idLabel = %v, want Usuário", got)
 	}
-	if d.NameLabel != "User" {
-		t.Fatalf("the registry was mutated: nameLabel = %q", d.NameLabel)
+	if d.IDLabel != "User" {
+		t.Fatalf("the registry was mutated: idLabel = %q", d.IDLabel)
 	}
 }
 

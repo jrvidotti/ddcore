@@ -54,7 +54,7 @@ func TestPRD05_DeletingAFileDeletesItsBytes(t *testing.T) {
 	if r.Status != 200 {
 		t.Fatalf("create Pessoa: %d %s", r.Status, r.Raw)
 	}
-	pessoa := fmt.Sprint(r.Body["data"].(map[string]any)["name"])
+	pessoa := fmt.Sprint(r.Body["data"].(map[string]any)["id"])
 
 	up := x.uploadAttachment(admin, "Pessoa", pessoa, "nota.pdf", "anexo")
 	if up.Status != 200 {
@@ -74,7 +74,7 @@ func TestPRD05_DeletingAFileDeletesItsBytes(t *testing.T) {
 		t.Fatalf("upload: %d %s", up.Status, up.Raw)
 	}
 	data := up.Body["data"].(map[string]any)
-	detached, fileName := fmt.Sprint(data["file_url"]), fmt.Sprint(data["name"])
+	detached, fileName := fmt.Sprint(data["file_url"]), fmt.Sprint(data["id"])
 	if !x.stored(detached) {
 		t.Fatal("upload did not store the bytes")
 	}

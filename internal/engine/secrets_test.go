@@ -101,7 +101,7 @@ func TestRedactPasswordBlanksSecretsOnTheWayOut(t *testing.T) {
 		{Fieldname: "webhook_password", Fieldtype: "Data"},
 		{Fieldname: "endpoint", Fieldtype: "Data"},
 	}}
-	doc := Doc{"name": "x", "token": "tok", "api_secret": "s", "webhook_password": "p", "endpoint": "https://x"}
+	doc := Doc{"id": "x", "token": "tok", "api_secret": "s", "webhook_password": "p", "endpoint": "https://x"}
 	RedactPassword(d, doc)
 
 	for _, f := range []string{"token", "api_secret", "webhook_password"} {
@@ -109,7 +109,7 @@ func TestRedactPasswordBlanksSecretsOnTheWayOut(t *testing.T) {
 			t.Errorf("%s should have been redacted, got %v", f, doc[f])
 		}
 	}
-	if doc["endpoint"] != "https://x" || doc["name"] != "x" {
+	if doc["endpoint"] != "https://x" || doc["id"] != "x" {
 		t.Errorf("non-secret fields must survive: %v", doc)
 	}
 }

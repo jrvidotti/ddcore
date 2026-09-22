@@ -73,7 +73,7 @@ func TestAuditImmutability(t *testing.T) {
 		"action":         "tamper.insert",
 		"outcome":        "Allowed",
 		"target_doctype": "User",
-		"target_name":    "admin",
+		"target_id":      "admin",
 	})
 	if _, err := c.Insert(doc, SaveOpts{}); err == nil || cerr.From(err).Type != "PermissionError" {
 		t.Fatalf("expected PermissionError on direct Insert of Audit Event, got: %v", err)
@@ -84,11 +84,11 @@ func TestAuditImmutability(t *testing.T) {
 		t.Fatalf("legit audit failed: %v", err)
 	}
 
-	rows, err := db.Select(ctx, e.DB.Pool, `SELECT name FROM tab_audit_event WHERE action = 'legit.action'`)
+	rows, err := db.Select(ctx, e.DB.Pool, `SELECT id FROM tab_audit_event WHERE action = 'legit.action'`)
 	if err != nil || len(rows) == 0 {
 		t.Fatalf("failed to find audit event: %v", err)
 	}
-	eventName := db.Str(rows[0]["name"])
+	eventName := db.Str(rows[0]["id"])
 
 	// Attempt direct Save / update
 	eventDoc, err := c.GetDocIgnoringPerms("Audit Event", eventName)
@@ -202,7 +202,7 @@ func TestAudit_RoleChanges(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		userName = saved.Str("name")
+		userName = saved.Str("id")
 		return nil
 	})
 	if err != nil {
@@ -210,7 +210,7 @@ func TestAudit_RoleChanges(t *testing.T) {
 	}
 
 	// Verify initial role.assign
-	events, err := e.ListAuditEvents(ctx, AuditFilter{Action: "role.assign", TargetName: userName})
+	events, err := e.ListAuditEvents(ctx, AuditFilter{Action: "role.assign", TargetID: userName})
 	if err != nil || len(events) != 1 {
 		t.Fatalf("expected 1 role.assign on insert, got %d, err=%v", len(events), err)
 	}
@@ -235,7 +235,7 @@ func TestAudit_RoleChanges(t *testing.T) {
 	}
 
 	// Verify role.revoke and new role.assign
-	revokes, err := e.ListAuditEvents(ctx, AuditFilter{Action: "role.revoke", TargetName: userName})
+	revokes, err := e.ListAuditEvents(ctx, AuditFilter{Action: "role.revoke", TargetID: userName})
 	if err != nil || len(revokes) != 1 {
 		t.Fatalf("expected 1 role.revoke, got %d, err=%v", len(revokes), err)
 	}
@@ -243,7 +243,7 @@ func TestAudit_RoleChanges(t *testing.T) {
 		t.Fatalf("expected Gestor in revoke detail: %v", revokes[0])
 	}
 
-	assigns, err := e.ListAuditEvents(ctx, AuditFilter{Action: "role.assign", TargetName: userName})
+	assigns, err := e.ListAuditEvents(ctx, AuditFilter{Action: "role.assign", TargetID: userName})
 	if err != nil || len(assigns) != 2 {
 		t.Fatalf("expected 2 total role.assigns, got %d, err=%v", len(assigns), err)
 	}
@@ -262,7 +262,7 @@ func TestAudit_RoleChanges(t *testing.T) {
 		t.Fatalf("disable user failed: %v", err)
 	}
 
-	disables, err := e.ListAuditEvents(ctx, AuditFilter{Action: "account.disable", TargetName: userName})
+	disables, err := e.ListAuditEvents(ctx, AuditFilter{Action: "account.disable", TargetID: userName})
 	if err != nil || len(disables) != 1 {
 		t.Fatalf("expected 1 account.disable, got %d, err=%v", len(disables), err)
 	}
@@ -291,7 +291,7 @@ func TestAudit_AccountAdmin(t *testing.T) {
 	}
 
 	// Verify account.invite audit event
-	invites, err := e.ListAuditEvents(ctx, AuditFilter{Action: "account.invite", TargetName: "invited@example.com"})
+	invites, err := e.ListAuditEvents(ctx, AuditFilter{Action: "account.invite", TargetID: "invited@example.com"})
 	if err != nil || len(invites) != 1 {
 		t.Fatalf("expected 1 account.invite event, got %d, err=%v", len(invites), err)
 	}
@@ -310,7 +310,7 @@ func TestAudit_AccountAdmin(t *testing.T) {
 		t.Fatalf("sendPasswordReset failed: %v", err)
 	}
 
-	resets, err := e.ListAuditEvents(ctx, AuditFilter{Action: "account.reset_password", TargetName: "invited@example.com"})
+	resets, err := e.ListAuditEvents(ctx, AuditFilter{Action: "account.reset_password", TargetID: "invited@example.com"})
 	if err != nil || len(resets) != 1 {
 		t.Fatalf("expected 1 account.reset_password event, got %d, err=%v", len(resets), err)
 	}
@@ -329,7 +329,7 @@ func TestAudit_AccountAdmin(t *testing.T) {
 		t.Fatalf("unlockUser failed: %v", err)
 	}
 
-	unlocks, err := e.ListAuditEvents(ctx, AuditFilter{Action: "account.unlock", TargetName: "invited@example.com"})
+	unlocks, err := e.ListAuditEvents(ctx, AuditFilter{Action: "account.unlock", TargetID: "invited@example.com"})
 	if err != nil || len(unlocks) != 1 {
 		t.Fatalf("expected 1 account.unlock event, got %d, err=%v", len(unlocks), err)
 	}
@@ -348,7 +348,7 @@ func TestAudit_AccountAdmin(t *testing.T) {
 		t.Fatalf("revokeUserSessions failed: %v", err)
 	}
 
-	sessionRevokes, err := e.ListAuditEvents(ctx, AuditFilter{Action: "account.revoke_sessions", TargetName: "invited@example.com"})
+	sessionRevokes, err := e.ListAuditEvents(ctx, AuditFilter{Action: "account.revoke_sessions", TargetID: "invited@example.com"})
 	if err != nil || len(sessionRevokes) != 1 {
 		t.Fatalf("expected 1 account.revoke_sessions event, got %d, err=%v", len(sessionRevokes), err)
 	}

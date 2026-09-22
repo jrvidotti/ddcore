@@ -15,7 +15,7 @@ import (
 
 type assignRequest struct {
 	Doctype     string `json:"doctype"`
-	Name        string `json:"name"`
+	ID          string `json:"id"`
 	AllocatedTo string `json:"allocated_to"`
 	Description string `json:"description"`
 	Date        string `json:"date"`
@@ -23,7 +23,7 @@ type assignRequest struct {
 }
 
 type completeOrRevokeRequest struct {
-	Name string `json:"name"`
+	ID string `json:"id"`
 }
 
 func (s *Server) assignDoc(w http.ResponseWriter, r *http.Request) {
@@ -34,13 +34,13 @@ func (s *Server) assignDoc(w http.ResponseWriter, r *http.Request) {
 		if err := dec.Decode(&body); err != nil {
 			return nil, cerr.Validation("Invalid JSON: {0}", err)
 		}
-		if body.Doctype == "" || body.Name == "" || body.AllocatedTo == "" {
-			return nil, cerr.Validation("doctype, name and allocated_to are required")
+		if body.Doctype == "" || body.ID == "" || body.AllocatedTo == "" {
+			return nil, cerr.Validation("doctype, id and allocated_to are required")
 		}
-		if err := s.requireDocRead(c, body.Doctype, body.Name); err != nil {
+		if err := s.requireDocRead(c, body.Doctype, body.ID); err != nil {
 			return nil, err
 		}
-		userRows, err := db.Select(c.Ctx, c.Q(), `SELECT enabled FROM tab_user WHERE name=$1`, body.AllocatedTo)
+		userRows, err := db.Select(c.Ctx, c.Q(), `SELECT enabled FROM tab_user WHERE id=$1`, body.AllocatedTo)
 		if err != nil || len(userRows) == 0 || userRows[0]["enabled"] != true {
 			return nil, cerr.Validation("User {0} does not exist or is disabled", body.AllocatedTo)
 		}
@@ -58,7 +58,7 @@ func (s *Server) assignDoc(w http.ResponseWriter, r *http.Request) {
 			"assigned_by":    c.User,
 			"description":    body.Description,
 			"reference_type": body.Doctype,
-			"reference_name": body.Name,
+			"reference_id":   body.ID,
 		})
 		if err != nil {
 			return nil, err
@@ -73,7 +73,7 @@ func (s *Server) assignDoc(w http.ResponseWriter, r *http.Request) {
 		if body.Description != "" {
 			commentContent += fmt.Sprintf(": %s", body.Description)
 		}
-		addTimelineComment(c, body.Doctype, body.Name, commentContent)
+		addTimelineComment(c, body.Doctype, body.ID, commentContent)
 
 		// 3. Dispatch persistent notification, written in the assignee's language
 		lang := c.RecipientLang([]string{body.AllocatedTo})
@@ -81,17 +81,17 @@ func (s *Server) assignDoc(w http.ResponseWriter, r *http.Request) {
 		if d, err := c.St.DocType(body.Doctype); err == nil {
 			label = c.St.I18n.T(lang, d.Label)
 		}
-		title := c.St.I18n.T(lang, "Assigned: {0} {1}", label, body.Name)
+		title := c.St.I18n.T(lang, "Assigned: {0} {1}", label, body.ID)
 		msg := body.Description
 		if msg == "" {
-			msg = c.St.I18n.T(lang, "{0} assigned {1} {2} to you", c.User, label, body.Name)
+			msg = c.St.I18n.T(lang, "{0} assigned {1} {2} to you", c.User, label, body.ID)
 		}
 		// Best effort, like the comment: a failure is rolled back to its
 		// savepoint and logged, and the assignment still commits.
 		if err := c.WithSavepoint(func() error {
-			return c.NotifyUser(body.AllocatedTo, body.Doctype, body.Name, title, msg)
+			return c.NotifyUser(body.AllocatedTo, body.Doctype, body.ID, title, msg)
 		}); err != nil {
-			c.E.Log.Warn("assignment notification failed", "doctype", body.Doctype, "name", body.Name, "user", body.AllocatedTo, "err", err)
+			c.E.Log.Warn("assignment notification failed", "doctype", body.Doctype, "id", body.ID, "user", body.AllocatedTo, "err", err)
 		}
 
 		return inserted, nil
@@ -106,7 +106,7 @@ func addTimelineComment(c *engine.Ctx, doctype, name, content string) {
 		comment, err := c.NewDoc("Comment", engine.Doc{
 			"comment_type":      "Workflow",
 			"reference_doctype": doctype,
-			"reference_name":    name,
+			"reference_id":      name,
 			"content":           content,
 		})
 		if err != nil {
@@ -116,7 +116,7 @@ func addTimelineComment(c *engine.Ctx, doctype, name, content string) {
 		return err
 	})
 	if err != nil {
-		c.E.Log.Warn("assignment timeline comment failed", "doctype", doctype, "name", name, "err", err)
+		c.E.Log.Warn("assignment timeline comment failed", "doctype", doctype, "id", name, "err", err)
 	}
 }
 
@@ -128,11 +128,11 @@ func (s *Server) completeAssignment(w http.ResponseWriter, r *http.Request) {
 		if err := dec.Decode(&body); err != nil {
 			return nil, cerr.Validation("Invalid JSON: {0}", err)
 		}
-		if body.Name == "" {
-			return nil, cerr.Validation("name is required")
+		if body.ID == "" {
+			return nil, cerr.Validation("id is required")
 		}
 
-		doc, err := c.GetDoc("ToDo", body.Name)
+		doc, err := c.GetDoc("ToDo", body.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -149,7 +149,7 @@ func (s *Server) completeAssignment(w http.ResponseWriter, r *http.Request) {
 			return nil, err
 		}
 
-		if refType, refName := doc.Str("reference_type"), doc.Str("reference_name"); refType != "" && refName != "" {
+		if refType, refName := doc.Str("reference_type"), doc.Str("reference_id"); refType != "" && refName != "" {
 			addTimelineComment(c, refType, refName, fmt.Sprintf("%s completed assignment", c.User))
 		}
 
@@ -165,11 +165,11 @@ func (s *Server) revokeAssignment(w http.ResponseWriter, r *http.Request) {
 		if err := dec.Decode(&body); err != nil {
 			return nil, cerr.Validation("Invalid JSON: {0}", err)
 		}
-		if body.Name == "" {
-			return nil, cerr.Validation("name is required")
+		if body.ID == "" {
+			return nil, cerr.Validation("id is required")
 		}
 
-		doc, err := c.GetDoc("ToDo", body.Name)
+		doc, err := c.GetDoc("ToDo", body.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -186,7 +186,7 @@ func (s *Server) revokeAssignment(w http.ResponseWriter, r *http.Request) {
 			return nil, err
 		}
 
-		if refType, refName := doc.Str("reference_type"), doc.Str("reference_name"); refType != "" && refName != "" {
+		if refType, refName := doc.Str("reference_type"), doc.Str("reference_id"); refType != "" && refName != "" {
 			addTimelineComment(c, refType, refName, fmt.Sprintf("%s revoked assignment for %s", c.User, doc.Str("allocated_to")))
 		}
 
@@ -197,7 +197,7 @@ func (s *Server) revokeAssignment(w http.ResponseWriter, r *http.Request) {
 func (s *Server) listDocAssignments(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
 		doctype := urlParam(r, "doctype")
-		name := urlParam(r, "name")
+		name := urlParam(r, "id")
 		if err := s.requireDocRead(c, doctype, name); err != nil {
 			return nil, err
 		}
@@ -207,10 +207,10 @@ func (s *Server) listDocAssignments(w http.ResponseWriter, r *http.Request) {
 			IgnorePermissions: true,
 			Filters: map[string]any{
 				"reference_type": doctype,
-				"reference_name": name,
+				"reference_id":   name,
 				"status":         []any{"!=", "Cancelled"},
 			},
-			Fields:  []string{"name", "status", "priority", "date", "allocated_to", "assigned_by", "description", "creation", "modified"},
+			Fields:  []string{"id", "status", "priority", "date", "allocated_to", "assigned_by", "description", "creation", "modified"},
 			OrderBy: "creation desc",
 			Limit:   100,
 		})
@@ -257,7 +257,7 @@ func (s *Server) pendingWork(w http.ResponseWriter, r *http.Request) {
 		allCandidates, err := c.GetList("ToDo", engine.ListArgs{
 			IgnorePermissions: true,
 			Filters:           filters,
-			Fields:            []string{"name", "status", "priority", "date", "allocated_to", "assigned_by", "description", "reference_type", "reference_name", "creation", "modified"},
+			Fields:            []string{"id", "status", "priority", "date", "allocated_to", "assigned_by", "description", "reference_type", "reference_id", "creation", "modified"},
 			OrderBy:           "creation desc",
 			Limit:             1000,
 		})
@@ -268,7 +268,7 @@ func (s *Server) pendingWork(w http.ResponseWriter, r *http.Request) {
 		var filtered []map[string]any
 		for _, item := range allCandidates {
 			refType := db.Str(item["reference_type"])
-			refName := db.Str(item["reference_name"])
+			refName := db.Str(item["reference_id"])
 			if refType != "" && refName != "" {
 				if err := s.requireDocRead(c, refType, refName); err != nil {
 					continue // skip items whose reference doc the user cannot read

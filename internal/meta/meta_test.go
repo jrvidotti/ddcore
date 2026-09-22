@@ -34,7 +34,7 @@ func TestVaultFieldtype(t *testing.T) {
 		Name: "Conta",
 		Fields: []*Field{
 			{Fieldname: "titulo", Fieldtype: "Data"},
-			{Fieldname: "api_token", Fieldtype: "Vault", Options: "asaas:token:{name}"},
+			{Fieldname: "api_token", Fieldtype: "Vault", Options: "asaas:token:{id}"},
 		},
 	}
 	r.Add(d)
@@ -270,25 +270,25 @@ func TestValidateRejectsDanglingFieldReferences(t *testing.T) {
 		})
 	}
 	// All three may name a standard column, which is not in Fields:
-	// `titleField: "name"` and `searchFields: ["name"]` are both documented.
+	// `titleField: "id"` and `searchFields: ["id"]` are both documented.
 	r := NewRegistry()
-	r.Add(&DocType{Name: "A", SortField: "modified", TitleField: "name", SearchFields: []string{"name", "x"},
+	r.Add(&DocType{Name: "A", SortField: "modified", TitleField: "id", SearchFields: []string{"id", "x"},
 		Fields: []*Field{{Fieldname: "x", Fieldtype: "Data"}}})
 	if err := r.Validate(); err != nil {
 		t.Fatalf("a standard column is not a dangling reference: %v", err)
 	}
 }
 
-// nameLabel heads the name column; a blank one would leave it headed by nothing.
-func TestValidateRejectsABlankNameLabel(t *testing.T) {
+// idLabel heads the name column; a blank one would leave it headed by nothing.
+func TestValidateRejectsABlankIDLabel(t *testing.T) {
 	r := NewRegistry()
-	r.Add(&DocType{Name: "A", NameLabel: "  ", Fields: []*Field{{Fieldname: "x", Fieldtype: "Data"}}})
-	if err := r.Validate(); err == nil || !strings.Contains(err.Error(), "nameLabel") {
-		t.Fatalf("wanted an error mentioning nameLabel, got %v", err)
+	r.Add(&DocType{Name: "A", IDLabel: "  ", Fields: []*Field{{Fieldname: "x", Fieldtype: "Data"}}})
+	if err := r.Validate(); err == nil || !strings.Contains(err.Error(), "idLabel") {
+		t.Fatalf("wanted an error mentioning idLabel, got %v", err)
 	}
 	var d DocType
-	if err := json.Unmarshal([]byte(`{"name":"B","nameLabel":"Contract No."}`), &d); err != nil || d.NameLabel != "Contract No." {
-		t.Fatalf("nameLabel did not round-trip: %q, %v", d.NameLabel, err)
+	if err := json.Unmarshal([]byte(`{"name":"B","idLabel":"Contract No."}`), &d); err != nil || d.IDLabel != "Contract No." {
+		t.Fatalf("idLabel did not round-trip: %q, %v", d.IDLabel, err)
 	}
 }
 
@@ -429,5 +429,33 @@ func TestGloballySearchable(t *testing.T) {
 		if got := tc.d.GloballySearchable(); got != tc.want {
 			t.Errorf("%s: GloballySearchable() = %v, want %v", tc.what, got, tc.want)
 		}
+	}
+}
+
+// `name` was the document key before 0.17: a field may now be called that, but
+// may not claim the old key through renamedFrom, and a Vault template may not
+// say {name} unless there is such a field to fill it.
+func TestValidateTheFormerKeyName(t *testing.T) {
+	for _, c := range []struct {
+		d    *DocType
+		want string
+	}{
+		{&DocType{Name: "A", Fields: []*Field{{Fieldname: "code", Fieldtype: "Data", RenamedFrom: Names{"name"}}}}, "was the document key before 0.17"},
+		{&DocType{Name: "B", Fields: []*Field{{Fieldname: "tok", Fieldtype: "Vault", Options: "x:{name}"}}}, "which is {id} since 0.17"},
+		{&DocType{Name: "C", Fields: []*Field{{Fieldname: "id", Fieldtype: "Data"}}}, `fieldname "id" is reserved`},
+	} {
+		r := NewRegistry()
+		r.Add(c.d)
+		if err := r.Validate(); err == nil || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("%s: wanted %q, got %v", c.d.Name, c.want, err)
+		}
+	}
+	r := NewRegistry()
+	r.Add(&DocType{Name: "D", Fields: []*Field{
+		{Fieldname: "name", Fieldtype: "Data"},
+		{Fieldname: "tok", Fieldtype: "Vault", Options: "x:{name}"},
+	}})
+	if err := r.Validate(); err != nil {
+		t.Fatalf("a field called name, and a template that uses it: %v", err)
 	}
 }

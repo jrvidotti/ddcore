@@ -37,7 +37,7 @@ func sec02App(t *testing.T, extra map[string]string) string {
 	write("ddcore.app.ts", `import { defineApp } from "@ddcore/sdk";
 export default defineApp({ name: "fieldperm_test", title: "Field Permission Test", roles: ["Staff", "HR", "Auditor"] });`)
 	write("doctypes/employee/employee.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
-export default defineDoctype({ name: "Employee", naming: { field: "title" }, submittable: true, trackChanges: true,
+export default defineDoctype({ name: "Employee", idGeneration: { field: "title" }, submittable: true, trackChanges: true,
   fields: [
     { fieldname: "title", fieldtype: "Data", label: "Title", reqd: true },
     { fieldname: "department", fieldtype: "Data", label: "Department" },
@@ -61,7 +61,7 @@ export default defineController("Employee", {
   beforeSave(doc) { if (doc.department === "Hooked") doc.salary = 42; },
 });`)
 	write("doctypes/cost_center/cost_center.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
-export default defineDoctype({ name: "Cost Center", naming: { field: "title" },
+export default defineDoctype({ name: "Cost Center", idGeneration: { field: "title" },
   fields: [{ fieldname: "title", fieldtype: "Data", label: "Title", reqd: true }],
   permissions: [{ role: "Staff", read: true }] });`)
 	write("doctypes/employee_line/employee_line.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
@@ -200,7 +200,7 @@ func TestSEC02_LevelRowNeverGrantsTheDocument(t *testing.T) {
 		}
 		_, err := c.GetDoc("Employee", "Ana")
 		wantPermissionError(t, "auditor get", err)
-		_, err = c.GetList("Employee", ListArgs{Fields: []string{"name"}})
+		_, err = c.GetList("Employee", ListArgs{Fields: []string{"id"}})
 		wantPermissionError(t, "auditor list", err)
 		return nil
 	}); err != nil {
@@ -222,7 +222,7 @@ func TestSEC02_ListQueries(t *testing.T) {
 		if _, ok := rows[0]["salary"]; ok {
 			t.Fatalf("* exposed salary: %v", rows[0])
 		}
-		rows, err = c.GetList("Employee", ListArgs{Fields: []string{"name", "salary", "salary as pay", "Employee Line.amount"}})
+		rows, err = c.GetList("Employee", ListArgs{Fields: []string{"id", "salary", "salary as pay", "Employee Line.amount"}})
 		if err != nil {
 			return err
 		}
@@ -230,7 +230,7 @@ func TestSEC02_ListQueries(t *testing.T) {
 			t.Fatalf("restricted columns must be omitted, got %v", rows[0])
 		}
 		rows, err = c.GetList("Employee", ListArgs{Fields: []string{"salary"}})
-		if err != nil || len(rows) != 1 || rows[0]["name"] != "Ana" {
+		if err != nil || len(rows) != 1 || rows[0]["id"] != "Ana" {
 			t.Fatalf("a list of only restricted fields falls back to name: %v %v", rows, err)
 		}
 		for what, args := range map[string]ListArgs{
@@ -266,7 +266,7 @@ func TestSEC02_ListQueries(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := e.Run(ctx, sec02HR, func(c *Ctx) error {
-		rows, err := c.GetList("Employee", ListArgs{Fields: []string{"name", "salary"}, Filters: []any{[]any{"salary", ">", 50}}, OrderBy: "salary desc"})
+		rows, err := c.GetList("Employee", ListArgs{Fields: []string{"id", "salary"}, Filters: []any{[]any{"salary", ">", 50}}, OrderBy: "salary desc"})
 		if err != nil || len(rows) != 1 || toFloat(rows[0]["salary"]) != 100 {
 			t.Fatalf("HR list: %v %v", rows, err)
 		}
@@ -402,7 +402,7 @@ func TestSEC02_AmendCarriesRestrictedValues(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		amended = saved.Name()
+		amended = saved.ID()
 		return nil
 	}); err != nil {
 		t.Fatalf("staff amend: %v", err)
@@ -441,9 +441,9 @@ export default defineNotification({ name: "salary", doctype: "Employee", event: 
 		}
 		for _, f := range []Doc{
 			{"file_name": "contract.pdf", "file_url": "/private/files/contract.pdf", "is_private": true,
-				"attached_to_doctype": "Employee", "attached_to_name": "Ana", "attached_to_field": "contract"},
+				"attached_to_doctype": "Employee", "attached_to_id": "Ana", "attached_to_field": "contract"},
 			{"file_name": "photo.png", "file_url": "/private/files/photo.png", "is_private": true,
-				"attached_to_doctype": "Employee", "attached_to_name": "Ana"},
+				"attached_to_doctype": "Employee", "attached_to_id": "Ana"},
 		} {
 			fd, _ := c.NewDoc("File", f)
 			if _, err := c.Insert(fd, SaveOpts{}); err != nil {
@@ -487,7 +487,7 @@ export default defineNotification({ name: "salary", doctype: "Employee", event: 
 		check := func(user string, wantSalary bool) {
 			t.Helper()
 			if err := e.Run(ctx, user, func(c *Ctx) error {
-				rows, err := c.GetList("Version", ListArgs{Fields: []string{"name", "data"}, Filters: map[string]any{"ref_doctype": "Employee", "docname": "Ana"}})
+				rows, err := c.GetList("Version", ListArgs{Fields: []string{"id", "data"}, Filters: map[string]any{"ref_doctype": "Employee", "doc_id": "Ana"}})
 				if err != nil {
 					return err
 				}
@@ -498,7 +498,7 @@ export default defineNotification({ name: "salary", doctype: "Employee", event: 
 					t.Fatalf("internal column leaked: %v", rows[0])
 				}
 				listed := string(mustJSON(rows[0]["data"]))
-				doc, err := c.GetDoc("Version", db.Str(rows[0]["name"]))
+				doc, err := c.GetDoc("Version", db.Str(rows[0]["id"]))
 				if err != nil {
 					return err
 				}
@@ -535,7 +535,7 @@ export default defineNotification({ name: "salary", doctype: "Employee", event: 
 			if !strings.Contains(out, "Finance") || !strings.Contains(out, "photo.png") {
 				t.Fatalf("export lost readable data: %s", out)
 			}
-			_, err := c.Export(ExportArgs{Doctype: "Employee", Fields: []string{"name", "salary"}}, NewNDJSONSink(&buf))
+			_, err := c.Export(ExportArgs{Doctype: "Employee", Fields: []string{"id", "salary"}}, NewNDJSONSink(&buf))
 			wantPermissionError(t, "export of a restricted column", err)
 			return nil
 		}); err != nil {
@@ -577,8 +577,8 @@ export default defineNotification({ name: "salary", doctype: "Employee", event: 
 
 	t.Run("files", func(t *testing.T) {
 		if err := e.Run(ctx, sec02Staff, func(c *Ctx) error {
-			restricted := map[string]any{"owner": "Admin", "attached_to_doctype": "Employee", "attached_to_name": "Ana", "attached_to_field": "contract"}
-			open := map[string]any{"owner": "Admin", "attached_to_doctype": "Employee", "attached_to_name": "Ana"}
+			restricted := map[string]any{"owner": "Admin", "attached_to_doctype": "Employee", "attached_to_id": "Ana", "attached_to_field": "contract"}
+			open := map[string]any{"owner": "Admin", "attached_to_doctype": "Employee", "attached_to_id": "Ana"}
 			if c.CanReadFile(restricted) || !c.CanReadFile(open) {
 				t.Fatal("staff file access must follow the attachment field")
 			}
@@ -590,7 +590,7 @@ export default defineNotification({ name: "salary", doctype: "Employee", event: 
 			t.Fatal(err)
 		}
 		if err := e.Run(ctx, sec02HR, func(c *Ctx) error {
-			if !c.CanReadFile(map[string]any{"owner": "Admin", "attached_to_doctype": "Employee", "attached_to_name": "Ana", "attached_to_field": "contract"}) {
+			if !c.CanReadFile(map[string]any{"owner": "Admin", "attached_to_doctype": "Employee", "attached_to_id": "Ana", "attached_to_field": "contract"}) {
 				t.Fatal("HR reads the contract")
 			}
 			return nil
@@ -671,11 +671,11 @@ func TestSEC02_ScopeOnRestrictedLink(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := e.Run(ctx, sec02Staff, func(c *Ctx) error {
-		rows, err := c.GetList("Employee", ListArgs{Fields: []string{"name"}, OrderBy: "modified desc"})
+		rows, err := c.GetList("Employee", ListArgs{Fields: []string{"id"}, OrderBy: "modified desc"})
 		if err != nil {
 			t.Fatalf("scoped list: %v", err)
 		}
-		if len(rows) != 1 || rows[0]["name"] != "Ana" {
+		if len(rows) != 1 || rows[0]["id"] != "Ana" {
 			t.Fatalf("scope did not apply: %v", rows)
 		}
 		return nil

@@ -18,7 +18,7 @@ export interface Field {
 }
 
 export interface DocTypeMeta {
-  name: string; app: string; label: string; nameLabel?: string; module?: string; naming: any; submittable?: boolean; isChild?: boolean; isSingle?: boolean; trackChanges?: boolean;
+  name: string; app: string; label: string; idLabel?: string; module?: string; idGeneration: any; submittable?: boolean; isChild?: boolean; isSingle?: boolean; trackChanges?: boolean;
   allowRename?: boolean; titleField?: string; sortField?: string; sortOrder?: string; searchFields?: string[]; fields: Field[];
   permissions?: any[]; icon?: string; methods?: string[];
   /** Compound business keys; enforced on the server, shown here only for reference. */
@@ -70,14 +70,14 @@ export function getMeta(doctype: string): Promise<Meta> {
       .meta(doctype)
       .then((raw) => {
         const m = applyFieldLevels(raw);
-        if (m.doctype.naming?.prompt && !m.doctype.fields.some((f: Field) => f.fieldname === "name")) {
-          const nameField: Field = {
-            fieldname: "name",
+        if (m.doctype.idGeneration?.prompt && !m.doctype.fields.some((f: Field) => f.fieldname === "id")) {
+          const idField: Field = {
+            fieldname: "id",
             fieldtype: "Data",
-            label: m.doctype.nameLabel || m.doctype.label || __("Name"),
+            label: m.doctype.idLabel || m.doctype.label || __("ID"),
             reqd: true,
           };
-          m.doctype.fields = [nameField, ...m.doctype.fields];
+          m.doctype.fields = [idField, ...m.doctype.fields];
         }
         return m;
       })

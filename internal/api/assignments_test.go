@@ -18,7 +18,7 @@ func TestAssignments_AssignCompleteRevokeHTTP(t *testing.T) {
 	// 2. Ana assigns "Cliente A" to Bia
 	assignPayload := map[string]any{
 		"doctype":      "Pessoa",
-		"name":         "Cliente A",
+		"id":           "Cliente A",
 		"allocated_to": "bia@x.com",
 		"description":  "Please contact client",
 		"date":         "2026-09-25",
@@ -27,7 +27,7 @@ func TestAssignments_AssignCompleteRevokeHTTP(t *testing.T) {
 	r = x.call("POST", "/api/assignments/assign", assignPayload, ana)
 	x.expect(r, 200, "")
 	todo := r.Body["data"].(map[string]any)
-	todoName := fmt.Sprint(todo["name"])
+	todoName := fmt.Sprint(todo["id"])
 	if todo["status"] != "Open" || todo["allocated_to"] != "bia@x.com" || todo["assigned_by"] != "ana@x.com" {
 		t.Fatalf("unexpected todo data: %v", todo)
 	}
@@ -61,7 +61,7 @@ func TestAssignments_AssignCompleteRevokeHTTP(t *testing.T) {
 	x.expect(r, 403, "")
 
 	// 7. Complete assignment by Bia
-	r = x.call("POST", "/api/assignments/complete", map[string]any{"name": todoName}, bia)
+	r = x.call("POST", "/api/assignments/complete", map[string]any{"id": todoName}, bia)
 	x.expect(r, 200, "")
 	completedTodo := r.Body["data"].(map[string]any)
 	if completedTodo["status"] != "Closed" {
@@ -94,7 +94,7 @@ func TestAssignments_AssignCompleteRevokeHTTP(t *testing.T) {
 	}
 
 	// 8. Revoke assignment by Ana
-	r = x.call("POST", "/api/assignments/revoke", map[string]any{"name": todoName}, ana)
+	r = x.call("POST", "/api/assignments/revoke", map[string]any{"id": todoName}, ana)
 	x.expect(r, 200, "")
 }
 
@@ -109,7 +109,7 @@ func TestPendingWork_FiltersUnauthorizedDocuments(t *testing.T) {
 	// Ana assigns Pessoa Secreta to Ze
 	r = x.call("POST", "/api/assignments/assign", map[string]any{
 		"doctype":      "Pessoa",
-		"name":         "Pessoa Secreta",
+		"id":           "Pessoa Secreta",
 		"allocated_to": "ze@x.com",
 		"description":  "Secret review",
 	}, ana)
@@ -142,7 +142,7 @@ func TestPendingWork_FiltersUnauthorizedDocuments(t *testing.T) {
 
 	// Grant role Gestor to Ze so Ze CAN read Pessoa
 	x.asAdmin(func(c *engine.Ctx) error {
-		_, err := c.Q().Exec(c.Ctx, `INSERT INTO tab_has_role (name, parent, parenttype, parentfield, role) VALUES ($1, 'ze@x.com', 'User', 'roles', 'Gestor')`, engine.RandomToken())
+		_, err := c.Q().Exec(c.Ctx, `INSERT INTO tab_has_role (id, parent, parenttype, parentfield, role) VALUES ($1, 'ze@x.com', 'User', 'roles', 'Gestor')`, engine.RandomToken())
 		return err
 	})
 	x.e.Cache.Del("roles:ze@x.com")
@@ -150,7 +150,7 @@ func TestPendingWork_FiltersUnauthorizedDocuments(t *testing.T) {
 	// Ana assigns Compartilhada to Ze
 	r = x.call("POST", "/api/assignments/assign", map[string]any{
 		"doctype":      "Pessoa",
-		"name":         "Compartilhada",
+		"id":           "Compartilhada",
 		"allocated_to": "ze@x.com",
 		"description":  "Shared task",
 	}, ana)
@@ -197,7 +197,7 @@ func TestAssignments_ParticipantsSeeEachOther(t *testing.T) {
 	x.expect(r, 200, "")
 	for _, who := range []string{"bia@x.com", "root@x.com"} {
 		r = x.call("POST", "/api/assignments/assign", map[string]any{
-			"doctype": "Pessoa", "name": "Shared Doc", "allocated_to": who,
+			"doctype": "Pessoa", "id": "Shared Doc", "allocated_to": who,
 		}, ana)
 		x.expect(r, 200, "")
 	}
@@ -235,7 +235,7 @@ func TestAssignments_ParticipantsSeeEachOther(t *testing.T) {
 	// Bia assigns too; once she loses read access (she is not the owner),
 	// her assigned_by_me list hides the task.
 	r = x.call("POST", "/api/assignments/assign", map[string]any{
-		"doctype": "Pessoa", "name": "Shared Doc", "allocated_to": "ze@x.com",
+		"doctype": "Pessoa", "id": "Shared Doc", "allocated_to": "ze@x.com",
 	}, bia)
 	x.expect(r, 200, "")
 	r = x.call("GET", "/api/todo/pending?scope=assigned_by_me", nil, bia)
@@ -282,14 +282,14 @@ func TestAssignments_NotificationInRecipientLanguage(t *testing.T) {
 	x := setup(t)
 	ana, bia := "sid:"+x.sid("ana@x.com"), "sid:"+x.sid("bia@x.com")
 	x.asAdmin(func(c *engine.Ctx) error {
-		_, err := c.Q().Exec(c.Ctx, `UPDATE tab_user SET language='pt-BR' WHERE name='bia@x.com'`)
+		_, err := c.Q().Exec(c.Ctx, `UPDATE tab_user SET language='pt-BR' WHERE id='bia@x.com'`)
 		return err
 	})
 
 	r := x.call("POST", "/api/resource/Pessoa", map[string]any{"nome": "Lang Doc"}, ana)
 	x.expect(r, 200, "")
 	r = x.call("POST", "/api/assignments/assign", map[string]any{
-		"doctype": "Pessoa", "name": "Lang Doc", "allocated_to": "bia@x.com",
+		"doctype": "Pessoa", "id": "Lang Doc", "allocated_to": "bia@x.com",
 	}, ana)
 	x.expect(r, 200, "")
 
@@ -312,15 +312,15 @@ func TestToDo_UpdateCannotRewriteAssignment(t *testing.T) {
 	r := x.call("POST", "/api/resource/Pessoa", map[string]any{"nome": "Update Doc"}, ana)
 	x.expect(r, 200, "")
 	r = x.call("POST", "/api/assignments/assign", map[string]any{
-		"doctype": "Pessoa", "name": "Update Doc", "allocated_to": "bia@x.com",
+		"doctype": "Pessoa", "id": "Update Doc", "allocated_to": "bia@x.com",
 	}, ana)
 	x.expect(r, 200, "")
-	name := fmt.Sprint(r.Body["data"].(map[string]any)["name"])
+	name := fmt.Sprint(r.Body["data"].(map[string]any)["id"])
 
 	for _, change := range []map[string]any{
 		{"assigned_by": "root@x.com"},
 		{"allocated_to": "ana@x.com"},
-		{"reference_name": "Other Doc"},
+		{"reference_id": "Other Doc"},
 	} {
 		r = x.call("PUT", "/api/resource/ToDo/"+name, change, bia)
 		x.expect(r, 417, "ValidationError")
@@ -328,7 +328,7 @@ func TestToDo_UpdateCannotRewriteAssignment(t *testing.T) {
 	r = x.call("GET", "/api/resource/ToDo/"+name, nil, bia)
 	x.expect(r, 200, "")
 	got := r.Body["data"].(map[string]any)
-	if got["assigned_by"] != "ana@x.com" || got["allocated_to"] != "bia@x.com" || got["reference_name"] != "Update Doc" {
+	if got["assigned_by"] != "ana@x.com" || got["allocated_to"] != "bia@x.com" || got["reference_id"] != "Update Doc" {
 		t.Fatalf("assignment rewritten: %v", got)
 	}
 
@@ -367,14 +367,14 @@ DROP FUNCTION IF EXISTS ddcore_test_fail();`)
 	})
 
 	r = x.call("POST", "/api/assignments/assign", map[string]any{
-		"doctype": "Pessoa", "name": "Faulty Doc", "allocated_to": "bia@x.com",
+		"doctype": "Pessoa", "id": "Faulty Doc", "allocated_to": "bia@x.com",
 	}, ana)
 	x.expect(r, 200, "")
-	name := fmt.Sprint(r.Body["data"].(map[string]any)["name"])
+	name := fmt.Sprint(r.Body["data"].(map[string]any)["id"])
 
-	r = x.call("POST", "/api/assignments/complete", map[string]any{"name": name}, bia)
+	r = x.call("POST", "/api/assignments/complete", map[string]any{"id": name}, bia)
 	x.expect(r, 200, "")
-	r = x.call("POST", "/api/assignments/revoke", map[string]any{"name": name}, ana)
+	r = x.call("POST", "/api/assignments/revoke", map[string]any{"id": name}, ana)
 	x.expect(r, 200, "")
 
 	r = x.call("GET", "/api/resource/ToDo/"+name, nil, ana)

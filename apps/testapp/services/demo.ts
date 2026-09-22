@@ -29,7 +29,7 @@ export function generate(): DemoResult {
     project.append("milestones", { title: "Implementation", due_date: u().addDays(today, 20) });
     project.append("milestones", { title: "Delivery", due_date: u().addDays(today, 55) });
     project.insert();
-    created.push(project.name);
+    created.push(project.id);
   }
 
   const tasks: { code: string; title: string; priority: Task["priority"]; days: number; action?: "start" | "complete" }[] = [
@@ -49,7 +49,7 @@ export function generate(): DemoResult {
       due_date: u().addDays(today, t.days),
     }).insert();
     if (t.action) task.runMethod(t.action);
-    created.push(task.name);
+    created.push(task.id);
   }
 
   return { created, count: created.length };

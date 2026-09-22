@@ -78,7 +78,7 @@ func (e *Engine) Login(ctx context.Context, user, password string, from LoginFro
 func (e *Engine) login(ctx context.Context, user, password string, from LoginFrom) (string, error) {
 	var sid string
 	err := e.Run(ctx, "Admin", func(c *Ctx) error {
-		rows, err := db.Select(ctx, c.Tx, `SELECT name, password_hash, enabled FROM tab_user WHERE lower(name) = lower($1) OR lower(email) = lower($1) LIMIT 1`, strings.TrimSpace(user))
+		rows, err := db.Select(ctx, c.Tx, `SELECT id, password_hash, enabled FROM tab_user WHERE lower(id) = lower($1) OR lower(email) = lower($1) LIMIT 1`, strings.TrimSpace(user))
 		if err != nil {
 			return err
 		}
@@ -98,7 +98,7 @@ func (e *Engine) login(ctx context.Context, user, password string, from LoginFro
 			// the fact that it exists.
 			return cerr.Auth("User is disabled")
 		}
-		name := db.Str(rows[0]["name"])
+		name := db.Str(rows[0]["id"])
 		if !e.Cfg.Auth.AllowPasswordLogin() && name != "Admin" {
 			// After the password, for the same reason as "disabled" above.
 			return cerr.Auth("Password sign-in is disabled. Use single sign-on.")
@@ -118,7 +118,7 @@ func (e *Engine) createSession(c *Ctx, user string, from LoginFrom) (string, err
 		sid, user, intervalOf(e.Cfg.Auth.SessionTTL()), from.IP, truncate(from.UserAgent, 400)); err != nil {
 		return "", err
 	}
-	if _, err := c.Tx.Exec(c.Ctx, `UPDATE tab_user SET last_login = now() WHERE name = $1`, user); err != nil {
+	if _, err := c.Tx.Exec(c.Ctx, `UPDATE tab_user SET last_login = now() WHERE id = $1`, user); err != nil {
 		return "", err
 	}
 	return sid, nil
@@ -158,7 +158,7 @@ func (e *Engine) UserFromAPIKey(ctx context.Context, token string) (string, erro
 		row = v.(map[string]any)
 	} else {
 		rows, err := db.Select(ctx, e.DB.Pool, `SELECT k."user", k.secret_hash, k.enabled, k.expires, u.enabled AS user_enabled
-			FROM tab_api_key k JOIN tab_user u ON u.name = k."user" WHERE k.name = $1`, key)
+			FROM tab_api_key k JOIN tab_user u ON u.id = k."user" WHERE k.id = $1`, key)
 		if err != nil || len(rows) == 0 {
 			return "", err
 		}
@@ -198,7 +198,7 @@ func (e *Engine) UserFromAPIKey(ctx context.Context, token string) (string, erro
 		return "", nil
 	}
 	e.Cache.Del(fails)
-	go e.DB.Pool.Exec(context.Background(), `UPDATE tab_api_key SET last_used = now() WHERE name = $1`, key)
+	go e.DB.Pool.Exec(context.Background(), `UPDATE tab_api_key SET last_used = now() WHERE id = $1`, key)
 	return db.Str(row["user"]), nil
 }
 
@@ -242,7 +242,7 @@ func (e *Engine) CreateAPIKeyFor(c *Ctx, user, label string, days int) (map[stri
 		return nil, err
 	}
 	return map[string]any{
-		"name": saved.Name(), "token": saved.Name() + ":" + secret, "expires": expires,
+		"id": saved.ID(), "token": saved.ID() + ":" + secret, "expires": expires,
 	}, nil
 }
 
@@ -267,7 +267,7 @@ func (e *Engine) SetPasswordExcept(ctx context.Context, user, password, exceptSi
 		return err
 	}
 	return e.Run(ctx, "Admin", func(c *Ctx) error {
-		tag, err := c.Tx.Exec(ctx, `UPDATE tab_user SET password_hash = $2 WHERE name = $1`, user, hash)
+		tag, err := c.Tx.Exec(ctx, `UPDATE tab_user SET password_hash = $2 WHERE id = $1`, user, hash)
 		if err != nil {
 			return err
 		}

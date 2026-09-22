@@ -180,7 +180,7 @@ func TestSEC04_MyAPIKeysAreMineOnly(t *testing.T) {
 
 	// and ana cannot revoke bia's key
 	r := x.call("POST", "/api/method/core.services.api_keys.revokeMyAPIKey",
-		map[string]any{"name": splitKey(biaKey)}, "sid:"+anaSid)
+		map[string]any{"id": splitKey(biaKey)}, "sid:"+anaSid)
 	if r.Status == 200 {
 		t.Error("revoking another user's key should be rejected")
 	}

@@ -39,7 +39,7 @@ const mailJobMethod = "core.services.mail.send"
 // MailReference is the document a message is about.
 type MailReference struct {
 	Doctype string `json:"doctype"`
-	Name    string `json:"name"`
+	ID      string `json:"id"`
 }
 
 // MailRequest is one call to ddcore.sendMail, after the prelude has resolved
@@ -66,7 +66,7 @@ type MailRequest struct {
 // user and mailing them in the same request sees the language just written.
 func (c *Ctx) RecipientLang(to []string) string {
 	for _, addr := range to {
-		rows, err := db.Select(c.Ctx, c.Q(), `SELECT language FROM tab_user WHERE name = $1`, normalizeEmail(addr))
+		rows, err := db.Select(c.Ctx, c.Q(), `SELECT language FROM tab_user WHERE id = $1`, normalizeEmail(addr))
 		if err == nil && len(rows) > 0 {
 			if l := db.Str(rows[0]["language"]); l != "" {
 				return l
@@ -122,7 +122,7 @@ func (c *Ctx) QueueMail(r MailRequest) (map[string]any, error) {
 	}
 	if r.Reference != nil && r.Reference.Doctype != "" {
 		values["reference_doctype"] = r.Reference.Doctype
-		values["reference_name"] = r.Reference.Name
+		values["reference_id"] = r.Reference.ID
 	}
 
 	doc, err := c.NewDoc("Email Delivery", values)
@@ -134,7 +134,7 @@ func (c *Ctx) QueueMail(r MailRequest) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	name := saved.Name()
+	name := saved.ID()
 
 	jobArgs := map[string]any{"delivery": name}
 	if len(r.JobArgs) > 0 {
@@ -144,7 +144,7 @@ func (c *Ctx) QueueMail(r MailRequest) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	if _, err := c.Q().Exec(c.Ctx, `UPDATE tab_email_delivery SET job = $2 WHERE name = $1`, name, id); err != nil {
+	if _, err := c.Q().Exec(c.Ctx, `UPDATE tab_email_delivery SET job = $2 WHERE id = $1`, name, id); err != nil {
 		return nil, err
 	}
 	return map[string]any{"delivery": name}, nil
@@ -201,14 +201,14 @@ func (c *Ctx) authorizeAttachments(refs []string) ([]string, error) {
 			return nil, cerr.Validation("Attachments total more than the {0} bytes this site allows on one message", limit).
 				WithTitleKey("Attachments are too large")
 		}
-		out = append(out, db.Str(row["name"]))
+		out = append(out, db.Str(row["id"]))
 	}
 	return out, nil
 }
 
 // mailFileFields is everything the sender needs about an attachment, plus
 // whatever CanReadFile has to see.
-var mailFileFields = append([]string{"name", "file_name", "file_url", "file_size", "content_type"}, FilePermFields...)
+var mailFileFields = append([]string{"id", "file_name", "file_url", "file_size", "content_type"}, FilePermFields...)
 
 // findFile accepts what an app is likely to be holding: a File document name,
 // or the file_url that an Attach field stores. The lookup ignores File's own
@@ -243,7 +243,7 @@ func (e *Engine) LoadMail(c *Ctx, delivery string) (map[string]any, error) {
 		return map[string]any{"skip": true}, nil
 	}
 	rows, err := db.Select(c.Ctx, c.Q(),
-		`SELECT name, "to", template, lang, args, attachments, status FROM tab_email_delivery WHERE name = $1`, delivery)
+		`SELECT id, "to", template, lang, args, attachments, status FROM tab_email_delivery WHERE id = $1`, delivery)
 	if err != nil {
 		return nil, err
 	}
@@ -254,7 +254,7 @@ func (e *Engine) LoadMail(c *Ctx, delivery string) (map[string]any, error) {
 	if r["status"] == MailSent || r["status"] == MailUncertain {
 		return map[string]any{"skip": true}, nil
 	}
-	if _, err := e.DB.Pool.Exec(c.Ctx, `UPDATE tab_email_delivery SET attempts = attempts + 1 WHERE name = $1`, delivery); err != nil {
+	if _, err := e.DB.Pool.Exec(c.Ctx, `UPDATE tab_email_delivery SET attempts = attempts + 1 WHERE id = $1`, delivery); err != nil {
 		e.Log.Warn("could not count a delivery attempt", "delivery", delivery, "err", err)
 	}
 
@@ -281,7 +281,7 @@ func (e *Engine) DeliverMail(c *Ctx, delivery, subject string, blocks []mail.Blo
 		e.recordMail(c, delivery, MailFailed, "Notification access revoked")
 		return map[string]any{}, nil
 	}
-	rows, err := db.Select(c.Ctx, c.Q(), `SELECT "to", attachments FROM tab_email_delivery WHERE name = $1`, delivery)
+	rows, err := db.Select(c.Ctx, c.Q(), `SELECT "to", attachments FROM tab_email_delivery WHERE id = $1`, delivery)
 	if err != nil {
 		return nil, err
 	}
@@ -375,7 +375,7 @@ func (e *Engine) recordMail(c *Ctx, delivery, status, errText string) {
 		sentAt = time.Now().In(e.Location())
 	}
 	e.DB.Pool.Exec(c.Ctx,
-		`UPDATE tab_email_delivery SET status = $2, error = $3, sent_at = COALESCE($4, sent_at), modified = now() WHERE name = $1`,
+		`UPDATE tab_email_delivery SET status = $2, error = $3, sent_at = COALESCE($4, sent_at), modified = now() WHERE id = $1`,
 		delivery, status, errText, sentAt)
 }
 

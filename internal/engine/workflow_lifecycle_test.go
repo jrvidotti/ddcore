@@ -22,7 +22,7 @@ export default defineApp({
 		"doctypes/artigo/artigo.doctype.ts": `import { defineDoctype } from "@ddcore/sdk";
 export default defineDoctype({
   name: "Artigo",
-  naming: { series: "ART-.####" },
+  idGeneration: { series: "ART-.####" },
   submittable: true,
   fields: [
     { fieldname: "titulo", fieldtype: "Data", label: "Título", reqd: true },
@@ -142,7 +142,7 @@ export default defineWorkflow({
 
 	// 3. SaveDoc: direct modification of stateField: rejected
 	err = e.Run(ctx, "autor@x.com", func(c *Ctx) error {
-		doc, err := c.GetDoc("Artigo", articleDoc.Name())
+		doc, err := c.GetDoc("Artigo", articleDoc.ID())
 		if err != nil {
 			return err
 		}
@@ -162,7 +162,7 @@ export default defineWorkflow({
 
 	// 4. SaveDoc: direct submit (docstatus 1): rejected
 	err = e.Run(ctx, "autor@x.com", func(c *Ctx) error {
-		doc, err := c.GetDoc("Artigo", articleDoc.Name())
+		doc, err := c.GetDoc("Artigo", articleDoc.ID())
 		if err != nil {
 			return err
 		}
@@ -176,7 +176,7 @@ export default defineWorkflow({
 		}
 
 		// SubmitDoc / Submit should also fail with same error
-		doc, err = c.GetDoc("Artigo", articleDoc.Name())
+		doc, err = c.GetDoc("Artigo", articleDoc.ID())
 		if err != nil {
 			return err
 		}
@@ -198,7 +198,7 @@ export default defineWorkflow({
 	// editor@x.com has "Editor" role, which has write permission on Artigo doctype,
 	// but NOT "Autor" role.
 	err = e.Run(ctx, "editor@x.com", func(c *Ctx) error {
-		doc, err := c.GetDoc("Artigo", articleDoc.Name())
+		doc, err := c.GetDoc("Artigo", articleDoc.ID())
 		if err != nil {
 			return err
 		}
@@ -226,7 +226,7 @@ export default defineWorkflow({
 
 	// autor@x.com has "Autor" role, which matches allowEdit.
 	err = e.Run(ctx, "autor@x.com", func(c *Ctx) error {
-		doc, err := c.GetDoc("Artigo", articleDoc.Name())
+		doc, err := c.GetDoc("Artigo", articleDoc.ID())
 		if err != nil {
 			return err
 		}
@@ -257,7 +257,7 @@ export default defineWorkflow({
 
 	// Admin can edit regardless of allowEdit
 	err = e.Run(ctx, "Admin", func(c *Ctx) error {
-		doc, err := c.GetDoc("Artigo", articleDoc.Name())
+		doc, err := c.GetDoc("Artigo", articleDoc.ID())
 		if err != nil {
 			return err
 		}
@@ -278,7 +278,7 @@ export default defineWorkflow({
 
 	// 6. inWorkflowTransition bypasses direct mutation and submit guards
 	err = e.Run(ctx, "Admin", func(c *Ctx) error {
-		doc, err := c.GetDoc("Artigo", articleDoc.Name())
+		doc, err := c.GetDoc("Artigo", articleDoc.ID())
 		if err != nil {
 			return err
 		}
@@ -356,7 +356,7 @@ func TestWorkflow_DeleteGuard(t *testing.T) {
 			if err != nil {
 				return err
 			}
-			name = saved.Name()
+			name = saved.ID()
 			return nil
 		}); err != nil {
 			t.Fatal(err)
@@ -426,7 +426,7 @@ func TestWorkflow_DBSetGuard(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		name := saved.Name()
+		name := saved.ID()
 		if err := c.SetValue("Artigo", name, Doc{"workflow_state": "Approved"}); err == nil ||
 			cerr.From(err).Type != "ValidationError" || !strings.Contains(err.Error(), "Cannot manually modify workflow state field") {
 			t.Fatalf("expected a DBSet of the state field to be refused with a ValidationError, got %v", err)
@@ -466,7 +466,7 @@ export default defineWorkflow({ name: "Bad", doctype: "` + doctype + `", stateFi
   states: [` + states + `], transitions: [` + transitions + `] });`}
 	}
 	pedidoField := map[string]string{"doctypes/pessoa/pessoa.doctype.ts": `import { defineDoctype } from "@ddcore/sdk";
-export default defineDoctype({ name: "Pessoa", naming: { field: "nome" },
+export default defineDoctype({ name: "Pessoa", idGeneration: { field: "nome" },
   fields: [{ fieldname: "nome", fieldtype: "Data", label: "Nome", reqd: true }, { fieldname: "workflow_state", fieldtype: "Data", label: "Workflow State" }],
   permissions: [{ role: "Gestor", read: true, write: true, create: true, delete: true }] });`}
 	cases := []struct {
@@ -479,11 +479,11 @@ export default defineDoctype({ name: "Pessoa", naming: { field: "nome" },
 		{"docstatus out of range", []map[string]string{pedidoField, wf("Pessoa", "workflow_state", `{ state: "A" }, { state: "B", docstatus: 3 }`, `{ state: "A", action: "Go", nextState: "B", allowed: "Gestor" }`)}, "docstatus must be 0, 1 or 2"},
 		{"submitted state on non-submittable", []map[string]string{pedidoField, wf("Pessoa", "workflow_state", `{ state: "A" }, { state: "B", docstatus: 1 }`, `{ state: "A", action: "Go", nextState: "B", allowed: "Gestor" }`)}, "Pessoa is not submittable"},
 		{"docstatus 1 back to 0", []map[string]string{pedidoField, {"doctypes/pessoa/pessoa.doctype.ts": `import { defineDoctype } from "@ddcore/sdk";
-export default defineDoctype({ name: "Pessoa", naming: { field: "nome" }, submittable: true,
+export default defineDoctype({ name: "Pessoa", idGeneration: { field: "nome" }, submittable: true,
   fields: [{ fieldname: "nome", fieldtype: "Data", label: "Nome", reqd: true }, { fieldname: "workflow_state", fieldtype: "Data", label: "Workflow State" }],
   permissions: [{ role: "Gestor", read: true, write: true, create: true, delete: true }] });`}, wf("Pessoa", "workflow_state", `{ state: "A" }, { state: "B", docstatus: 1 }`, `{ state: "A", action: "Go", nextState: "B", allowed: "Gestor" }, { state: "B", action: "Back", nextState: "A", allowed: "Gestor" }`)}, "cannot go from docstatus 1 to 0"},
 		{"leaves cancelled", []map[string]string{pedidoField, {"doctypes/pessoa/pessoa.doctype.ts": `import { defineDoctype } from "@ddcore/sdk";
-export default defineDoctype({ name: "Pessoa", naming: { field: "nome" }, submittable: true,
+export default defineDoctype({ name: "Pessoa", idGeneration: { field: "nome" }, submittable: true,
   fields: [{ fieldname: "nome", fieldtype: "Data", label: "Nome", reqd: true }, { fieldname: "workflow_state", fieldtype: "Data", label: "Workflow State" }],
   permissions: [{ role: "Gestor", read: true, write: true, create: true, delete: true }] });`}, wf("Pessoa", "workflow_state", `{ state: "A" }, { state: "B", docstatus: 2 }`, `{ state: "A", action: "Go", nextState: "B", allowed: "Gestor" }, { state: "B", action: "Reopen", nextState: "A", allowed: "Gestor" }`)}, "cannot leave cancelled state B"},
 	}
@@ -514,7 +514,7 @@ func TestWorkflow_CommentFailureStillCommits(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		name = saved.Name()
+		name = saved.ID()
 		return nil
 	}); err != nil {
 		t.Fatal(err)

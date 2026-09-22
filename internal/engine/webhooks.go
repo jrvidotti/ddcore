@@ -96,7 +96,7 @@ type webhookSub struct {
 // WebhookReference is the document a custom event is about.
 type WebhookReference struct {
 	Doctype string `json:"doctype"`
-	Name    string `json:"name"`
+	ID      string `json:"id"`
 }
 
 // webhookSubs returns the enabled subscriptions, reading them once and then
@@ -112,7 +112,7 @@ func (e *Engine) webhookSubs(ctx context.Context) ([]webhookSub, error) {
 	if e.webhooks != nil {
 		return e.webhooks, nil
 	}
-	rows, err := db.Select(ctx, e.DB.Pool, `SELECT name, event_type, webhook_doctype, custom_event,
+	rows, err := db.Select(ctx, e.DB.Pool, `SELECT id, event_type, webhook_doctype, custom_event,
 		on_insert, on_update, on_submit, on_cancel, on_trash, timeout, max_attempts
 		FROM tab_webhook WHERE enabled`)
 	if err != nil {
@@ -129,7 +129,7 @@ func (e *Engine) webhookSubs(ctx context.Context) ([]webhookSub, error) {
 	subs := make([]webhookSub, 0, len(rows))
 	for _, r := range rows {
 		s := webhookSub{
-			Name: db.Str(r["name"]), EventType: db.Str(r["event_type"]),
+			Name: db.Str(r["id"]), EventType: db.Str(r["event_type"]),
 			Doctype: db.Str(r["webhook_doctype"]), CustomEvent: db.Str(r["custom_event"]),
 			Events:      map[string]bool{},
 			Timeout:     clampInt(int(toFloat(r["timeout"])), webhookMinTimeout, webhookMaxTimeout, webhookDefaultTimeout),
@@ -182,8 +182,8 @@ func (c *Ctx) queueDocWebhooks(doctype string, doc Doc, event string) error {
 	if len(matched) == 0 {
 		return nil
 	}
-	data := map[string]any{"doctype": doctype, "name": doc.Name(), "doc": c.webhookDoc(doctype, doc)}
-	ref := &WebhookReference{Doctype: doctype, Name: doc.Name()}
+	data := map[string]any{"doctype": doctype, "id": doc.ID(), "doc": c.webhookDoc(doctype, doc)}
+	ref := &WebhookReference{Doctype: doctype, ID: doc.ID()}
 	for _, s := range matched {
 		if _, err := c.queueWebhook(s, "doc."+event, data, ref, ""); err != nil {
 			return err
@@ -272,7 +272,7 @@ func (c *Ctx) queueWebhook(s webhookSub, event string, data any, ref *WebhookRef
 	}
 	if ref != nil && ref.Doctype != "" {
 		values["reference_doctype"] = ref.Doctype
-		values["reference_name"] = ref.Name
+		values["reference_id"] = ref.ID
 	}
 	doc, err := c.NewDoc("Webhook Delivery", values)
 	if err != nil {
@@ -289,7 +289,7 @@ func (c *Ctx) queueWebhook(s webhookSub, event string, data any, ref *WebhookRef
 	}); err != nil {
 		return "", err
 	}
-	name := saved.Name()
+	name := saved.ID()
 	if err := c.enqueueWebhookJob(name, s.Timeout, s.MaxAttempts); err != nil {
 		return "", err
 	}
@@ -306,7 +306,7 @@ func (c *Ctx) enqueueWebhookJob(delivery string, timeout, maxAttempts int) error
 	if err != nil {
 		return err
 	}
-	_, err = c.Q().Exec(c.Ctx, `UPDATE tab_webhook_delivery SET job = $2 WHERE name = $1`, delivery, id)
+	_, err = c.Q().Exec(c.Ctx, `UPDATE tab_webhook_delivery SET job = $2 WHERE id = $1`, delivery, id)
 	return err
 }
 
@@ -330,7 +330,7 @@ func (e errWebhookRetry) Error() string { return e.msg }
 // Standard Webhooks contract asks it to.
 func (e *Engine) DeliverWebhook(c *Ctx, delivery string) error {
 	rows, err := db.Select(c.Ctx, e.DB.Pool,
-		`SELECT webhook, payload::text AS payload, status, job FROM tab_webhook_delivery WHERE name = $1`, delivery)
+		`SELECT webhook, payload::text AS payload, status, job FROM tab_webhook_delivery WHERE id = $1`, delivery)
 	if err != nil {
 		return err
 	}
@@ -347,7 +347,7 @@ func (e *Engine) DeliverWebhook(c *Ctx, delivery string) error {
 	// after it commits.
 	var attempts int
 	if err := e.DB.Pool.QueryRow(c.Ctx,
-		`UPDATE tab_webhook_delivery SET attempts = attempts + 1, modified = now() WHERE name = $1 RETURNING attempts`,
+		`UPDATE tab_webhook_delivery SET attempts = attempts + 1, modified = now() WHERE id = $1 RETURNING attempts`,
 		delivery).Scan(&attempts); err != nil {
 		return err
 	}
@@ -361,7 +361,7 @@ func (e *Engine) DeliverWebhook(c *Ctx, delivery string) error {
 	}
 
 	hooks, err := db.Select(c.Ctx, e.DB.Pool,
-		`SELECT name, url, enabled, timeout FROM tab_webhook WHERE name = $1`, db.Str(row["webhook"]))
+		`SELECT id, url, enabled, timeout FROM tab_webhook WHERE id = $1`, db.Str(row["webhook"]))
 	if err != nil {
 		return err
 	}
@@ -371,7 +371,7 @@ func (e *Engine) DeliverWebhook(c *Ctx, delivery string) error {
 	}
 	hook := hooks[0]
 
-	secret, err := e.webhookSecret(c, db.Str(hook["name"]))
+	secret, err := e.webhookSecret(c, db.Str(hook["id"]))
 	if err != nil {
 		// A key that cannot be read will not become readable by waiting.
 		e.recordWebhook(c.Ctx, delivery, WebhookFailed, 0, err.Error())
@@ -424,7 +424,7 @@ func (e *Engine) webhookSecret(c *Ctx, webhook string) (string, error) {
 	if f == nil {
 		return "", cerr.Internal("Webhook has no secret field")
 	}
-	secret, ok, err := vaultRead(c.Ctx, e.DB.Pool, key, c.DeriveVaultKey(d, f, Doc{"name": webhook}))
+	secret, ok, err := vaultRead(c.Ctx, e.DB.Pool, key, c.DeriveVaultKey(d, f, Doc{"id": webhook}))
 	if err != nil {
 		return "", err
 	}
@@ -492,7 +492,7 @@ func (e *Engine) recordWebhook(ctx context.Context, delivery, status string, cod
 		errText = errText[:1000]
 	}
 	if _, err := e.DB.Pool.Exec(ctx, `UPDATE tab_webhook_delivery SET status = $2, response_status = NULLIF($3, 0),
-		error = NULLIF($4, ''), sent_at = COALESCE($5, sent_at), modified = now() WHERE name = $1`,
+		error = NULLIF($4, ''), sent_at = COALESCE($5, sent_at), modified = now() WHERE id = $1`,
 		delivery, status, code, errText, sentAt); err != nil {
 		e.Log.Warn("could not record a webhook outcome", "delivery", delivery, "err", err)
 	}
@@ -519,8 +519,8 @@ func (c *Ctx) ReplayWebhook(delivery string) error {
 		}
 	}
 	rows, err := db.Select(c.Ctx, c.Q(), `SELECT d.status, d.webhook, w.timeout, w.max_attempts
-		FROM tab_webhook_delivery d LEFT JOIN tab_webhook w ON w.name = d.webhook
-		WHERE d.name = $1 FOR UPDATE OF d`, delivery)
+		FROM tab_webhook_delivery d LEFT JOIN tab_webhook w ON w.id = d.webhook
+		WHERE d.id = $1 FOR UPDATE OF d`, delivery)
 	if err != nil {
 		return err
 	}
@@ -537,7 +537,7 @@ func (c *Ctx) ReplayWebhook(delivery string) error {
 		return cerr.Validation("The webhook of delivery {0} was deleted", delivery)
 	}
 	if _, err := c.Q().Exec(c.Ctx, `UPDATE tab_webhook_delivery SET status = $2, attempts = 0, error = NULL,
-		response_status = NULL, modified = now() WHERE name = $1`, delivery, WebhookQueued); err != nil {
+		response_status = NULL, modified = now() WHERE id = $1`, delivery, WebhookQueued); err != nil {
 		return err
 	}
 	if err := c.enqueueWebhookJob(delivery,

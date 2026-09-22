@@ -9,7 +9,7 @@ defineForm("Webhook Delivery", {
       const ok = await ddcore.ui.confirm(__("Send this event to the receiver again, with the same webhook-id?"));
       if (!ok) return;
       try {
-        await ddcore.call("core.services.webhooks.replay", { delivery: frm.doc.name });
+        await ddcore.call("core.services.webhooks.replay", { delivery: frm.doc.id });
         ddcore.ui.toast(__("Delivery queued again"));
         await frm.reload();
       } catch (e) {

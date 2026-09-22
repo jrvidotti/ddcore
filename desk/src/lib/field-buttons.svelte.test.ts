@@ -15,7 +15,7 @@ const meta = {
   permissions: { read: true, write: true },
 } as unknown as Meta;
 
-const frm = () => new FormController(meta, { doctype: "Person", name: "P-1" });
+const frm = () => new FormController(meta, { doctype: "Person", id: "P-1" });
 
 describe("field buttons", () => {
   it("keeps each button under the field it belongs to", () => {

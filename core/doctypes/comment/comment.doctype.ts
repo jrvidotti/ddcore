@@ -8,7 +8,7 @@ export default defineDoctype({
   fields: [
     { fieldname: "comment_type", fieldtype: "Select", label: "Type", options: ["Comment", "Info", "Like", "Attachment", "Workflow"], default: "Comment" },
     { fieldname: "reference_doctype", fieldtype: "Data", label: "DocType", searchIndex: true },
-    { fieldname: "reference_name", fieldtype: "Data", label: "Document", searchIndex: true },
+    { fieldname: "reference_id", renamedFrom: "reference_name", fieldtype: "Data", label: "Document", searchIndex: true },
     { fieldname: "content", fieldtype: "Text Editor", label: "Content" },
   ],
   permissions: [

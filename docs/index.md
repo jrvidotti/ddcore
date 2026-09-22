@@ -58,7 +58,7 @@ export default defineDoctype({
   name: "Task",
   module: "Projects",
   label: "Task",
-  naming: { field: "code" },
+  idGeneration: { field: "code" },
   titleField: "title",
   trackChanges: true,
   fields: [

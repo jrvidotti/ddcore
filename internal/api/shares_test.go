@@ -32,7 +32,7 @@ func sharesAPIApp(t *testing.T) string {
 	write("ddcore.app.ts", `import { defineApp } from "@ddcore/sdk";
 export default defineApp({ name: "demo", title: "Share API Test", roles: ["Gestor", "Note Editor"] });`)
 	write("doctypes/shared_note/shared_note.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
-export default defineDoctype({ name: "Shared Note", naming: { field: "title" }, trackChanges: true,
+export default defineDoctype({ name: "Shared Note", idGeneration: { field: "title" }, trackChanges: true,
   fields: [
     { fieldname: "title", fieldtype: "Data", label: "Title", reqd: true },
     { fieldname: "body", fieldtype: "Data", label: "Body" },
@@ -109,14 +109,14 @@ func TestShares_HTTPGrantEveryChannelThenRevoke(t *testing.T) {
 	}
 	closed("before the share")
 
-	r := x.call("POST", "/api/shares/add", map[string]any{"doctype": "Shared Note", "name": "N1", "user": sharePlainUser, "read": true}, editor)
+	r := x.call("POST", "/api/shares/add", map[string]any{"doctype": "Shared Note", "id": "N1", "user": sharePlainUser, "read": true}, editor)
 	x.expect(r, 200, "")
 	if d := r.Body["data"].(map[string]any); d["user"] != sharePlainUser || d["read"] != true || d["write"] != false {
 		t.Fatalf("share = %v", d)
 	}
 	// unknown fields and a grant by someone without the share right are refused
-	x.expect(x.call("POST", "/api/shares/add", map[string]any{"doctype": "Shared Note", "name": "N1", "user": shareEditorUser, "admin": true}, plain), 417, "")
-	x.expect(x.call("POST", "/api/shares/add", map[string]any{"doctype": "Shared Note", "name": "N1", "user": shareEditorUser}, plain), 403, "PermissionError")
+	x.expect(x.call("POST", "/api/shares/add", map[string]any{"doctype": "Shared Note", "id": "N1", "user": shareEditorUser, "admin": true}, plain), 417, "")
+	x.expect(x.call("POST", "/api/shares/add", map[string]any{"doctype": "Shared Note", "id": "N1", "user": shareEditorUser}, plain), 403, "PermissionError")
 
 	for name, path := range channels {
 		if r := x.call("GET", path, nil, plain); r.Status != 200 {
@@ -145,16 +145,16 @@ func TestShares_HTTPGrantEveryChannelThenRevoke(t *testing.T) {
 		t.Errorf("notifications = %v", notes)
 	}
 
-	x.expect(x.call("POST", "/api/shares/remove", map[string]any{"doctype": "Shared Note", "name": "N1", "user": sharePlainUser}, editor), 200, "")
+	x.expect(x.call("POST", "/api/shares/remove", map[string]any{"doctype": "Shared Note", "id": "N1", "user": sharePlainUser}, editor), 200, "")
 	closed("after the revoke")
 	r = x.call("GET", "/api/notifications", nil, plain)
 	if notes := r.Body["data"].(map[string]any)["data"].([]any); len(notes) != 0 {
 		t.Errorf("notifications after revoke = %v", notes)
 	}
-	x.expect(x.call("POST", "/api/shares/remove", map[string]any{"doctype": "Shared Note", "name": "N1", "user": sharePlainUser}, editor), 404, "")
+	x.expect(x.call("POST", "/api/shares/remove", map[string]any{"doctype": "Shared Note", "id": "N1", "user": sharePlainUser}, editor), 404, "")
 
 	for _, action := range []string{"permission.share_grant", "permission.share_revoke"} {
-		n, err := x.e.CountAuditEvents(x.ctx, engine.AuditFilter{Action: action, TargetDocType: "Shared Note", TargetName: "N1", Outcome: "Allowed"})
+		n, err := x.e.CountAuditEvents(x.ctx, engine.AuditFilter{Action: action, TargetDocType: "Shared Note", TargetID: "N1", Outcome: "Allowed"})
 		if err != nil || n != 1 {
 			t.Errorf("%s audit events = %d, %v", action, n, err)
 		}

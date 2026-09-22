@@ -45,13 +45,13 @@ export class DocAssignments {
   error = $state("");
   pending = $state("");
 
-  constructor(public doctype: string, public name: string) {}
+  constructor(public doctype: string, public id: string) {}
 
   async load() {
     this.loading = true;
     this.error = "";
     try {
-      this.rows = await api.assignments.forDoc(this.doctype, this.name);
+      this.rows = await api.assignments.forDoc(this.doctype, this.id);
     } catch (e) {
       this.error = e instanceof Error ? e.message : String(e);
       this.rows = [];
@@ -63,7 +63,7 @@ export class DocAssignments {
   async assign(args: AssignArgs) {
     this.error = "";
     try {
-      await api.assignments.assign(this.doctype, this.name, args);
+      await api.assignments.assign(this.doctype, this.id, args);
       await this.load();
       await refreshPendingCount();
     } catch (e) {
@@ -76,7 +76,7 @@ export class DocAssignments {
     this.pending = todoName;
     try {
       const updated = await api.assignments.complete(todoName);
-      const idx = this.rows.findIndex((r) => r.name === todoName);
+      const idx = this.rows.findIndex((r) => r.id === todoName);
       if (idx !== -1) {
         this.rows[idx] = updated;
       }
@@ -93,7 +93,7 @@ export class DocAssignments {
     this.pending = todoName;
     try {
       await api.assignments.revoke(todoName);
-      this.rows = this.rows.filter((r) => r.name !== todoName);
+      this.rows = this.rows.filter((r) => r.id !== todoName);
       await refreshPendingCount();
     } catch (e) {
       this.error = e instanceof Error ? e.message : String(e);

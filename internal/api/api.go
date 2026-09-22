@@ -83,7 +83,7 @@ func New(e *engine.Engine, desk fs.FS) *Server {
 			r.Get("/events", s.events)
 			r.Get("/notifications", s.listNotifications)
 			r.Get("/notifications/count", s.notificationCount)
-			r.Patch("/notifications/{name}", s.setNotificationRead)
+			r.Patch("/notifications/{id}", s.setNotificationRead)
 			r.Get("/search/link", s.linkSearch)
 			r.Get("/search/global", s.globalSearch)
 			r.Get("/search/link-titles", s.linkTitles)
@@ -92,14 +92,14 @@ func New(e *engine.Engine, desk fs.FS) *Server {
 			r.Get("/report/{name}", s.report)
 			r.Get("/workspace/{name}/card/{card}", s.numberCard)
 			r.Get("/workspace/{name}/chart/{chart}", s.chart)
-			r.Get("/comments/{doctype}/{name}", s.comments)
-			r.Get("/versions/{doctype}/{name}", s.versions)
-			r.Get("/assignments/{doctype}/{name}", s.listDocAssignments)
+			r.Get("/comments/{doctype}/{id}", s.comments)
+			r.Get("/versions/{doctype}/{id}", s.versions)
+			r.Get("/assignments/{doctype}/{id}", s.listDocAssignments)
 			r.Post("/assignments/assign", s.assignDoc)
 			r.Post("/assignments/complete", s.completeAssignment)
 			r.Post("/assignments/revoke", s.revokeAssignment)
 			r.Get("/todo/pending", s.pendingWork)
-			r.Get("/shares/{doctype}/{name}", s.listDocShares)
+			r.Get("/shares/{doctype}/{id}", s.listDocShares)
 			r.Post("/shares/add", s.shareDoc)
 			r.Post("/shares/remove", s.unshareDoc)
 			r.Get("/health/report", s.healthReport)
@@ -118,12 +118,12 @@ func New(e *engine.Engine, desk fs.FS) *Server {
 		r.Get("/count/{doctype}", s.count)
 		r.Get("/resource/{doctype}", s.list)
 		r.Post("/resource/{doctype}", s.create)
-		r.Get("/resource/{doctype}/{name}", s.get)
-		r.Put("/resource/{doctype}/{name}", s.update)
-		r.Delete("/resource/{doctype}/{name}", s.remove)
-		r.Post("/resource/{doctype}/{name}/{method}", s.docMethod)
-		r.Get("/print/{doctype}/{name}/pdf", s.printDocPDF)
-		r.Get("/print/{doctype}/{name}", s.printDoc)
+		r.Get("/resource/{doctype}/{id}", s.get)
+		r.Put("/resource/{doctype}/{id}", s.update)
+		r.Delete("/resource/{doctype}/{id}", s.remove)
+		r.Post("/resource/{doctype}/{id}/{method}", s.docMethod)
+		r.Get("/print/{doctype}/{id}/pdf", s.printDocPDF)
+		r.Get("/print/{doctype}/{id}", s.printDoc)
 		r.Post("/workflow/apply", s.applyWorkflowTransition)
 		r.Get("/workflow/actions", s.workflowActions)
 		r.Post("/method/{path}", s.method)
@@ -530,7 +530,7 @@ func (s *Server) boot(w http.ResponseWriter, r *http.Request) {
 		roles, _ := c.Roles()
 		var userDoc map[string]any
 		if c.User != "Guest" {
-			userDoc, _ = c.GetValues("User", c.User, []string{"name", "full_name", "language", "user_type"})
+			userDoc, _ = c.GetValues("User", c.User, []string{"id", "full_name", "language", "user_type"})
 			// the only place that reads User.language: cache it here so
 			// langFor never has to touch the database, and honour it now —
 			// the payload below is built after this point, so the boot
@@ -751,7 +751,7 @@ func (s *Server) count(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) get(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
-		doctype, name := urlParam(r, "doctype"), urlParam(r, "name")
+		doctype, name := urlParam(r, "doctype"), urlParam(r, "id")
 		doc, err := c.GetDoc(doctype, name)
 		if err != nil {
 			return nil, err
@@ -802,7 +802,7 @@ func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 		if err := readJSON(r, &body); err != nil {
 			return nil, err
 		}
-		dt, name := urlParam(r, "doctype"), urlParam(r, "name")
+		dt, name := urlParam(r, "doctype"), urlParam(r, "id")
 		if err := s.childGuard(dt); err != nil {
 			return nil, err
 		}
@@ -811,7 +811,7 @@ func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 			return nil, err
 		}
 		for k, v := range body {
-			if k == "name" || k == "doctype" || k == "owner" || k == "creation" {
+			if k == "id" || k == "doctype" || k == "owner" || k == "creation" {
 				continue
 			}
 			doc[k] = v
@@ -825,14 +825,14 @@ func (s *Server) remove(w http.ResponseWriter, r *http.Request) {
 		if err := s.childGuard(urlParam(r, "doctype")); err != nil {
 			return nil, err
 		}
-		return map[string]any{"ok": true}, c.Delete(urlParam(r, "doctype"), urlParam(r, "name"), false, false)
+		return map[string]any{"ok": true}, c.Delete(urlParam(r, "doctype"), urlParam(r, "id"), false, false)
 	})
 }
 
 // docMethod: submit, cancel, amend, rename or a controller method.
 func (s *Server) docMethod(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
-		dt, name, m := urlParam(r, "doctype"), urlParam(r, "name"), urlParam(r, "method")
+		dt, name, m := urlParam(r, "doctype"), urlParam(r, "id"), urlParam(r, "method")
 		if err := s.childGuard(dt); err != nil {
 			return nil, err
 		}
@@ -851,7 +851,7 @@ func (s *Server) docMethod(w http.ResponseWriter, r *http.Request) {
 			}
 			if body, ok := args["doc"].(map[string]any); ok {
 				for k, v := range body {
-					if k != "name" && k != "doctype" && k != "owner" && k != "creation" {
+					if k != "id" && k != "doctype" && k != "owner" && k != "creation" {
 						doc[k] = v
 					}
 				}
@@ -866,7 +866,7 @@ func (s *Server) docMethod(w http.ResponseWriter, r *http.Request) {
 		case "amend":
 			return redacted(s, c, dt)(c.Amend(dt, name))
 		case "rename":
-			nn, _ := args["name"].(string)
+			nn, _ := args["id"].(string)
 			return c.Rename(dt, name, nn)
 		case "run_method":
 			m, _ = args["method"].(string)
@@ -990,10 +990,10 @@ func (s *Server) linkTitles(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		dt := r.URL.Query().Get("doctype")
-		namesStr := r.URL.Query().Get("names")
+		idsStr := r.URL.Query().Get("ids")
 		var names []string
-		if namesStr != "" {
-			names = strings.Split(namesStr, ",")
+		if idsStr != "" {
+			names = strings.Split(idsStr, ",")
 		}
 		m, err := c.LinkTitles(dt, names)
 		if err != nil {
@@ -1006,8 +1006,8 @@ func (s *Server) linkTitles(w http.ResponseWriter, r *http.Request) {
 // referenceFields maps the doctypes whose rows only describe another
 // document — their visibility follows the referenced document (B04).
 var referenceFields = map[string][2]string{
-	"Comment": {"reference_doctype", "reference_name"},
-	"Version": {"ref_doctype", "docname"},
+	"Comment": {"reference_doctype", "reference_id"},
+	"Version": {"ref_doctype", "doc_id"},
 }
 
 // requireDocRead checks the user may read doctype/name.
@@ -1062,19 +1062,19 @@ func (s *Server) referenceGuard(c *engine.Ctx, doctype string, filters any) erro
 
 func (s *Server) comments(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
-		if err := s.requireDocRead(c, urlParam(r, "doctype"), urlParam(r, "name")); err != nil {
+		if err := s.requireDocRead(c, urlParam(r, "doctype"), urlParam(r, "id")); err != nil {
 			return nil, err
 		}
-		return c.GetList("Comment", engine.ListArgs{Filters: map[string]any{"reference_doctype": urlParam(r, "doctype"), "reference_name": urlParam(r, "name")}, Fields: []string{"name", "owner", "creation", "content", "comment_type"}, OrderBy: "creation asc", Limit: 200})
+		return c.GetList("Comment", engine.ListArgs{Filters: map[string]any{"reference_doctype": urlParam(r, "doctype"), "reference_id": urlParam(r, "id")}, Fields: []string{"id", "owner", "creation", "content", "comment_type"}, OrderBy: "creation asc", Limit: 200})
 	})
 }
 
 func (s *Server) versions(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
-		if err := s.requireDocRead(c, urlParam(r, "doctype"), urlParam(r, "name")); err != nil {
+		if err := s.requireDocRead(c, urlParam(r, "doctype"), urlParam(r, "id")); err != nil {
 			return nil, err
 		}
-		return c.GetList("Version", engine.ListArgs{Filters: map[string]any{"ref_doctype": urlParam(r, "doctype"), "docname": urlParam(r, "name")}, Fields: []string{"name", "owner", "creation", "data"}, OrderBy: "creation desc", Limit: 50})
+		return c.GetList("Version", engine.ListArgs{Filters: map[string]any{"ref_doctype": urlParam(r, "doctype"), "doc_id": urlParam(r, "id")}, Fields: []string{"id", "owner", "creation", "data"}, OrderBy: "creation desc", Limit: 50})
 	})
 }
 
@@ -1310,7 +1310,7 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 			return nil, err
 		}
 		doc, err := c.NewDoc("File", engine.Doc{"file_name": hdr.Filename, "file_url": url, "file_size": hdr.Size, "content_type": contentType, "is_private": private,
-			"attached_to_doctype": r.FormValue("doctype"), "attached_to_name": r.FormValue("docname"), "attached_to_field": r.FormValue("fieldname")})
+			"attached_to_doctype": r.FormValue("doctype"), "attached_to_id": r.FormValue("doc_id"), "attached_to_field": r.FormValue("fieldname")})
 		if err == nil {
 			doc, err = c.Insert(doc, engine.SaveOpts{IgnorePermissions: true})
 		}

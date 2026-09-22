@@ -13,7 +13,7 @@ export default defineDoctype({
     { fieldname: "assigned_by", fieldtype: "Link", label: "Assigned By", options: "User", readOnly: true },
     { fieldname: "description", fieldtype: "Small Text", label: "Description" },
     { fieldname: "reference_type", fieldtype: "Data", label: "Reference DocType", searchIndex: true },
-    { fieldname: "reference_name", fieldtype: "Data", label: "Reference Document", searchIndex: true },
+    { fieldname: "reference_id", renamedFrom: "reference_name", fieldtype: "Data", label: "Reference Document", searchIndex: true },
   ],
   permissions: [
     { role: "System Manager", read: true, write: true, create: true, delete: true, report: true, export: true },

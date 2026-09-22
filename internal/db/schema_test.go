@@ -220,3 +220,18 @@ func TestCreateTableOmitsVaultField(t *testing.T) {
 		t.Fatalf("CreateTableSQL should contain Data field:\n%s", sql)
 	}
 }
+
+// meta.StdColumns names the standard columns and stdColumns types them. Nothing
+// else ties the two: were one changed alone, Plan would add the other's column
+// to every table without a word.
+func TestStdColumnsAgreeWithMeta(t *testing.T) {
+	cols := stdColumns(&meta.DocType{})
+	if len(cols) != len(meta.StdColumns) {
+		t.Fatalf("%d typed columns, %d named", len(cols), len(meta.StdColumns))
+	}
+	for i, c := range cols {
+		if c.name != meta.StdColumns[i] {
+			t.Errorf("column %d: typed %q, named %q", i, c.name, meta.StdColumns[i])
+		}
+	}
+}

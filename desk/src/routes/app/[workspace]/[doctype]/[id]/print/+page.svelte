@@ -3,9 +3,9 @@
   import PrintView from "$lib/components/PrintView.svelte";
 
   const doctype = $derived(page.params.doctype ?? "");
-  const name = $derived(page.params.name ?? "");
+  const id = $derived(page.params.id ?? "");
 </script>
 
-{#key doctype + "/" + name}
-  <PrintView {doctype} {name} />
+{#key doctype + "/" + id}
+  <PrintView {doctype} {id} />
 {/key}

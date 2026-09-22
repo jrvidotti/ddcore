@@ -35,7 +35,7 @@ export default defineDoctype({ name: "Item Nota", isChild: true, fields: [
   { fieldname: "descricao", fieldtype: "Data", label: "Description" },
   { fieldname: "qtd", fieldtype: "Int", label: "Quantity" } ] });`)
 	w("doctypes/nota/nota.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
-export default defineDoctype({ name: "Nota", naming: { field: "titulo" },
+export default defineDoctype({ name: "Nota", idGeneration: { field: "titulo" },
   fields: [
     { fieldname: "titulo", fieldtype: "Data", label: "Title", reqd: true },
     { fieldname: "valor", fieldtype: "Currency", label: "Amount" },
@@ -122,7 +122,7 @@ func (c *collector) End(s *ExportSummary) error {
 func (c *collector) names() []string {
 	out := make([]string, len(c.docs))
 	for i, d := range c.docs {
-		out[i] = d.Name()
+		out[i] = d.ID()
 	}
 	return out
 }
@@ -224,7 +224,7 @@ func (s *deletingSink) Doc(d Doc, f []ExportFile) error {
 	}
 	if !s.done && len(s.collector.docs) == s.after {
 		s.done = true
-		return s.c.Delete("Nota", s.collector.docs[0].Name(), false, true)
+		return s.c.Delete("Nota", s.collector.docs[0].ID(), false, true)
 	}
 	return nil
 }
@@ -284,7 +284,7 @@ func TestExportNestsChildrenInIdxOrder(t *testing.T) {
 		if got := itens[i].Str("descricao"); got != want {
 			t.Errorf("child %d: expected %q, got %q", i, want, got)
 		}
-		if itens[i].Str("parent") != col.docs[0].Name() {
+		if itens[i].Str("parent") != col.docs[0].ID() {
 			t.Errorf("child %d lost its link to parent", i)
 		}
 	}
@@ -384,7 +384,7 @@ func TestExportOmitsPasswordFields(t *testing.T) {
 	}
 
 	// nor by asking for it explicitly
-	if _, err := exportAs(t, e, "exp@x.com", ExportArgs{Doctype: "Nota", Fields: []string{"name", "segredo"}}); err == nil {
+	if _, err := exportAs(t, e, "exp@x.com", ExportArgs{Doctype: "Nota", Fields: []string{"id", "segredo"}}); err == nil {
 		t.Fatal("requesting Password field explicitly should be rejected")
 	}
 }
@@ -468,8 +468,8 @@ func TestExportAppliesFilters(t *testing.T) {
 		t.Fatalf("expected 10 A notas, got %d", col.sum.Rows)
 	}
 	for _, d := range col.docs {
-		if !strings.HasPrefix(d.Name(), "A-") {
-			t.Fatalf("filter let through %s", d.Name())
+		if !strings.HasPrefix(d.ID(), "A-") {
+			t.Fatalf("filter let through %s", d.ID())
 		}
 	}
 }
@@ -491,17 +491,17 @@ func TestExportManifestsAttachments(t *testing.T) {
 
 	var nota string
 	err := e.Run(context.Background(), "Admin", func(c *Ctx) error {
-		rows, err := c.GetList("Nota", ListArgs{Fields: []string{"name"}})
+		rows, err := c.GetList("Nota", ListArgs{Fields: []string{"id"}})
 		if err != nil {
 			return err
 		}
-		nota = rows[0]["name"].(string)
+		nota = rows[0]["id"].(string)
 		for _, f := range []Doc{
 			{"file_name": "anexo.txt", "file_url": "/private/files/abc.txt", "file_size": len(body),
 				"content_type": "text/plain", "is_private": true,
-				"attached_to_doctype": "Nota", "attached_to_name": nota, "attached_to_field": "anexo"},
+				"attached_to_doctype": "Nota", "attached_to_id": nota, "attached_to_field": "anexo"},
 			{"file_name": "sumido.txt", "file_url": "/private/files/nao-existe.txt", "file_size": 10,
-				"is_private": true, "attached_to_doctype": "Nota", "attached_to_name": nota},
+				"is_private": true, "attached_to_doctype": "Nota", "attached_to_id": nota},
 		} {
 			d, _ := c.NewDoc("File", f)
 			if _, err := c.Insert(d, SaveOpts{IgnorePermissions: true}); err != nil {
@@ -559,12 +559,12 @@ func TestExportCarriesAttachmentsOwnedByOthers(t *testing.T) {
 	makeNotas(t, e, "ana@x.com", "A", 1)
 
 	err := e.Run(context.Background(), "Admin", func(c *Ctx) error {
-		rows, err := c.GetList("Nota", ListArgs{Fields: []string{"name"}, IgnorePermissions: true})
+		rows, err := c.GetList("Nota", ListArgs{Fields: []string{"id"}, IgnorePermissions: true})
 		if err != nil {
 			return err
 		}
 		d, _ := c.NewDoc("File", Doc{"file_name": "de-outro.txt", "file_url": "/private/files/x.txt",
-			"is_private": true, "attached_to_doctype": "Nota", "attached_to_name": rows[0]["name"]})
+			"is_private": true, "attached_to_doctype": "Nota", "attached_to_id": rows[0]["id"]})
 		_, err = c.Insert(d, SaveOpts{IgnorePermissions: true})
 		return err
 	})

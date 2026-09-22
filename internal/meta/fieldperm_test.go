@@ -41,8 +41,8 @@ func TestSEC02_FieldPermissionValidation(t *testing.T) {
 		{"row grants create", func(d *DocType) { d.Permissions[1].Create = true }, "may only grant read and write"},
 		{"row with ifOwner", func(d *DocType) { d.Permissions[1].IfOwner = true }, "may only grant read and write"},
 		{"restricted title", func(d *DocType) { d.TitleField = "salary" }, "titleField \"salary\" has permlevel 1"},
-		{"restricted naming field", func(d *DocType) { d.Naming.Field = "salary" }, "naming.field"},
-		{"restricted naming format", func(d *DocType) { d.Naming.Format = "{title}-{salary}" }, "naming.format"},
+		{"restricted naming field", func(d *DocType) { d.IDGeneration.Field = "salary" }, "idGeneration.field"},
+		{"restricted naming format", func(d *DocType) { d.IDGeneration.Format = "{title}-{salary}" }, "idGeneration.format"},
 		{"restricted search field", func(d *DocType) { d.SearchFields = []string{"title", "salary"} }, "searchFields"},
 		{"fetch into level 0", func(d *DocType) {
 			d.Fields = append(d.Fields, &Field{Fieldname: "cost_copy", Fieldtype: "Currency", FetchFrom: "source.cost"})

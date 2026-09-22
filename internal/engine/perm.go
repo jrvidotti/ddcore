@@ -12,7 +12,7 @@ import (
 
 // UserPerm represents an active scope restriction for a user.
 type UserPerm struct {
-	Name          string
+	ID            string
 	User          string
 	Allow         string
 	ForValue      string
@@ -34,7 +34,7 @@ func (c *Ctx) UserPermissions() ([]UserPerm, error) {
 		c.userPerms = v.([]UserPerm)
 		return c.userPerms, nil
 	}
-	rows, err := db.Select(c.Ctx, c.Q(), `SELECT name, "user", allow, for_value, applicable_for, is_default
+	rows, err := db.Select(c.Ctx, c.Q(), `SELECT id, "user", allow, for_value, applicable_for, is_default
 		FROM tab_user_permission WHERE "user" = $1 ORDER BY allow, for_value`, c.User)
 	if err != nil {
 		return nil, err
@@ -43,7 +43,7 @@ func (c *Ctx) UserPermissions() ([]UserPerm, error) {
 	for _, r := range rows {
 		isDefault, _ := r["is_default"].(bool)
 		perms = append(perms, UserPerm{
-			Name:          db.Str(r["name"]),
+			ID:            db.Str(r["id"]),
 			User:          db.Str(r["user"]),
 			Allow:         db.Str(r["allow"]),
 			ForValue:      db.Str(r["for_value"]),
@@ -185,7 +185,7 @@ func (c *Ctx) HasPermission(doctype, ptype string, doc Doc) (bool, error) {
 		// a share stands in for the role grant (SEC-03); the workflow, the
 		// controller and the scopes below still have their say
 		if doc != nil {
-			s, err := c.shareOn(d.Name, doc.Name())
+			s, err := c.shareOn(d.Name, doc.ID())
 			if err != nil {
 				return false, err
 			}
@@ -269,7 +269,7 @@ func (c *Ctx) checkUserPermissionsFor(d *meta.DocType, doc Doc, applicableFor st
 			continue
 		}
 		if strings.EqualFold(d.Name, allow) {
-			name := doc.Name()
+			name := doc.ID()
 			if name != "" && !allowedMap[name] {
 				return false, nil
 			}
@@ -379,7 +379,7 @@ func (c *Ctx) scopeFilters(d *meta.DocType) ([]db.Filter, error) {
 	if err != nil || len(override) == 0 {
 		return strict, err
 	}
-	return []db.Filter{{Any: [][]db.Filter{strict, {{Field: "name", Op: "in", Value: override}}}}}, nil
+	return []db.Filter{{Any: [][]db.Filter{strict, {{Field: "id", Op: "in", Value: override}}}}}, nil
 }
 
 // strictScopeFilters builds filters enforcing User Permission rules for doctype d.
@@ -393,7 +393,7 @@ func (c *Ctx) strictScopeFilters(d *meta.DocType) ([]db.Filter, error) {
 	}
 	if unscopedOnlyDoctypes[d.Name] {
 		// An empty IN renders as FALSE: no row is in scope.
-		return []db.Filter{{Field: "name", Op: "in", Value: []any{}}}, nil
+		return []db.Filter{{Field: "id", Op: "in", Value: []any{}}}, nil
 	}
 
 	grouped := make(map[string][]any)
@@ -410,7 +410,7 @@ func (c *Ctx) strictScopeFilters(d *meta.DocType) ([]db.Filter, error) {
 			continue
 		}
 		if strings.EqualFold(d.Name, allow) {
-			out = append(out, db.Filter{Field: "name", Op: "in", Value: allowedValues})
+			out = append(out, db.Filter{Field: "id", Op: "in", Value: allowedValues})
 			continue
 		}
 		for _, f := range d.Fields {
@@ -447,7 +447,7 @@ func (c *Ctx) childPermission(d *meta.DocType, ptype string, doc Doc) (bool, err
 	}
 	pt, pn, pf := doc.Str("parenttype"), doc.Str("parent"), doc.Str("parentfield")
 	if pt == "" || pn == "" || pf == "" {
-		if doc == nil || doc.Name() == "" {
+		if doc == nil || doc.ID() == "" {
 			// doctype-level check (listing, meta): allow when at least one
 			// embedding doctype is allowed; the listing is filtered by
 			// permissionFilters.
@@ -469,7 +469,7 @@ func (c *Ctx) childPermission(d *meta.DocType, ptype string, doc Doc) (bool, err
 			}
 			return false, nil
 		}
-		rows, err := db.Select(c.Ctx, c.Q(), fmt.Sprintf(`SELECT parenttype, parent, parentfield FROM %s WHERE name = $1`, db.Ident(d.TableName())), doc.Name())
+		rows, err := db.Select(c.Ctx, c.Q(), fmt.Sprintf(`SELECT parenttype, parent, parentfield FROM %s WHERE id = $1`, db.Ident(d.TableName())), doc.ID())
 		if err != nil || len(rows) == 0 {
 			return false, err
 		}
@@ -486,7 +486,7 @@ func (c *Ctx) childPermission(d *meta.DocType, ptype string, doc Doc) (bool, err
 	if f == nil || f.Fieldtype != "Table" || !strings.EqualFold(f.OptionsString(), d.Name) {
 		return false, nil
 	}
-	rows, err := db.Select(c.Ctx, c.Q(), fmt.Sprintf(`SELECT * FROM %s WHERE name = $1`, db.Ident(parent.TableName())), pn)
+	rows, err := db.Select(c.Ctx, c.Q(), fmt.Sprintf(`SELECT * FROM %s WHERE id = $1`, db.Ident(parent.TableName())), pn)
 	if err != nil || len(rows) == 0 {
 		return false, err
 	}
@@ -583,11 +583,11 @@ func (c *Ctx) permissionFilters(d *meta.DocType) ([]db.Filter, error) {
 		groups = append(groups, byRole)
 	}
 	if len(scoped) > 0 {
-		g := append([]db.Filter{{Field: "name", Op: "in", Value: scoped}}, query...)
+		g := append([]db.Filter{{Field: "id", Op: "in", Value: scoped}}, query...)
 		groups = append(groups, append(g, strict...))
 	}
 	if len(override) > 0 {
-		groups = append(groups, append([]db.Filter{{Field: "name", Op: "in", Value: override}}, query...))
+		groups = append(groups, append([]db.Filter{{Field: "id", Op: "in", Value: override}}, query...))
 	}
 	return []db.Filter{{Any: groups}}, nil
 }

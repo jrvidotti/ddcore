@@ -13,8 +13,8 @@ func TestB20_HubFiltersEventsByPermission(t *testing.T) {
 	ze := h.Subscribe("ze@x.com", func(doctype, name string) bool { return false })
 	anon := h.Subscribe("Guest", nil)
 
-	h.Publish(Event{Name: "doc_update", Doctype: "Pedido", DocName: "PED-0001"})
-	h.Publish(Event{Name: "doc_update", Doctype: "User", DocName: "Admin"})
+	h.Publish(Event{Name: "doc_update", Doctype: "Pedido", DocID: "PED-0001"})
+	h.Publish(Event{Name: "doc_update", Doctype: "User", DocID: "Admin"})
 	h.Publish(Event{Name: "reload"}) // events without a document remain broadcast
 	h.Publish(Event{Name: "job_done", User: "ze@x.com", Doctype: "Pedido"})
 
@@ -30,7 +30,7 @@ func TestB20_HubFiltersEventsByPermission(t *testing.T) {
 		}
 	}
 	got := drain(ana)
-	if len(got) != 2 || got[0].Name != "doc_update" || got[0].DocName != "PED-0001" || got[1].Name != "reload" {
+	if len(got) != 2 || got[0].Name != "doc_update" || got[0].DocID != "PED-0001" || got[1].Name != "reload" {
 		t.Fatalf("ana should receive Pedido and reload, got %+v", got)
 	}
 	if got := drain(ze); len(got) != 1 || got[0].Name != "reload" {

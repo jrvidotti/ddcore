@@ -55,8 +55,8 @@ export function groupKanbanRows<T extends Record<string, any>>(rows: T[], field:
 }
 
 /** The rows with one card moved to another column; the same array when nothing changes. */
-export function moveKanbanRow<T extends Record<string, any>>(rows: T[], name: string, field: string, value: string): T[] {
-  const i = rows.findIndex((r) => r.name === name);
+export function moveKanbanRow<T extends Record<string, any>>(rows: T[], id: string, field: string, value: string): T[] {
+  const i = rows.findIndex((r) => r.id === id);
   if (i < 0 || kanbanValue(rows[i], field) === value) return rows;
   const next = rows.slice();
   next[i] = { ...rows[i], [field]: value === "" ? null : value };

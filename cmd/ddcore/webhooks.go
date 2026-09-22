@@ -45,8 +45,8 @@ func webhooksList(args []string) error {
 		return err
 	}
 	return withEngine(func(e *engine.Engine, ctx context.Context) error {
-		rows, err := db.Select(ctx, e.DB.Pool, `SELECT name, creation, webhook, event, status, attempts, response_status,
-			reference_doctype, reference_name, error
+		rows, err := db.Select(ctx, e.DB.Pool, `SELECT id, creation, webhook, event, status, attempts, response_status,
+			reference_doctype, reference_id, error
 			FROM tab_webhook_delivery
 			WHERE ($1 = '' OR status = $1) AND ($2 = '' OR webhook = $2)
 			ORDER BY creation DESC LIMIT $3`, *status, *webhook, *limit)
@@ -64,13 +64,13 @@ func webhooksList(args []string) error {
 			}
 			ref := db.Str(r["reference_doctype"])
 			if ref != "" {
-				ref += " " + db.Str(r["reference_name"])
+				ref += " " + db.Str(r["reference_id"])
 			}
 			errText := db.Str(r["error"])
 			if len(errText) > 60 {
 				errText = errText[:60] + "…"
 			}
-			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%v\t%v\t%s\t%s\n", db.Str(r["name"]), created, db.Str(r["event"]),
+			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%v\t%v\t%s\t%s\n", db.Str(r["id"]), created, db.Str(r["event"]),
 				db.Str(r["status"]), r["attempts"], nilDash(r["response_status"]), ref, errText)
 		}
 		return tw.Flush()

@@ -60,7 +60,7 @@ export default defineDoctype({
     { fieldname: "account_name", fieldtype: "Data", label: "Account Name", reqd: true },
     { fieldname: "api_key", fieldtype: "Vault", label: "API Key", reqd: true },
     // Custom key naming using doc fields interpolation:
-    { fieldname: "custom_token", fieldtype: "Vault", label: "Custom Token", options: "custom:token:{name}" },
+    { fieldname: "custom_token", fieldtype: "Vault", label: "Custom Token", options: "custom:token:{id}" },
   ],
 });
 ```
@@ -68,8 +68,8 @@ export default defineDoctype({
 ### Key properties of `Vault` fields:
 1. **Virtual field (no column):** `Vault` fields never generate a column in `tab_<doctype>`. They are persisted exclusively in the encrypted `ddcore_vault` table.
 2. **Key derivation:**
-   - Default: `${DocType}:${fieldname}:${doc.name}` (e.g. `Integration Account:api_key:ACC-00001`). Renaming the document re-keys this shape automatically.
-   - Custom template in `options`: interpolates document fields using `{field}` placeholders (e.g. `options: "custom:token:{name}"`). A rename does not re-key a custom template — see Limitations.
+   - Default: `${DocType}:${fieldname}:${doc.id}` (e.g. `Integration Account:api_key:ACC-00001`). Renaming the document re-keys this shape automatically.
+   - Custom template in `options`: interpolates document fields using `{field}` placeholders, `{id}` for the document id (e.g. `options: "custom:token:{id}"`). `{name}` is refused unless the DocType declares a field named `name`. A rename does not re-key a custom template — see Limitations.
 3. **Lifecycle on save:** a `Vault` field accepts one of a few shapes:
    - A non-empty string encrypts and saves it under the derived key.
    - An empty string, `null`, `{ configured: true }` (what a read gives back), or
@@ -98,7 +98,7 @@ The Desk provides a dedicated control for `Vault` fields:
 `ddcore.vault.set`, `ddcore.vault.get`, and `ddcore.vault.del` are audited in the `Audit Event` DocType (PRD-06):
 - `action`: `vault.write`, `vault.read`, or `vault.delete`.
 - `target_doctype`: `Vault Secret`.
-- `target_name`: Name of the vault key.
+- `target_id`: the vault key.
 - `actor`: User email who triggered the action (or `System`).
 - `outcome`: `Allowed` (or `Denied`).
 - `ip`: Client IP address.
@@ -127,7 +127,7 @@ Run `ddcore doctor` to inspect the vault status:
 ddcore doctor
 ```
 
-The report indicates whether `DDCORE_SECRET_KEY` is configured, the total count of stored secrets, and their key names — values are never displayed, but the names themselves are printed, and a key can leak a detail (a document name, a tenant) worth keeping out of a report pasted into an issue.
+The report indicates whether `DDCORE_SECRET_KEY` is configured, the total count of stored secrets, and their key names — values are never displayed, but the names themselves are printed, and a key can leak a detail (a document id, a tenant) worth keeping out of a report pasted into an issue.
 
 ---
 
@@ -137,4 +137,4 @@ The report indicates whether `DDCORE_SECRET_KEY` is configured, the total count 
 - **Backups are useless alone.** A database backup carries the ciphertext but not the key; restoring it without the same `DDCORE_SECRET_KEY`, provisioned separately, leaves every secret undecryptable.
 - **No permission check inside `ddcore.vault.*`.** Server code — a controller, a service, a job — is trusted with any key it names; the boundary is that this API only exists on the server, never in desk-sdk.
 - **`ddcore doctor` prints vault key names**, not values (see above).
-- **Some renames still orphan a secret.** A default-shaped key (`<DocType>:<fieldname>:<name>`) is re-keyed on rename. A custom key template in `options`, and removing a child row during an update, are not: the secret stays in `ddcore_vault` under a key nothing reads anymore.
+- **Some renames still orphan a secret.** A default-shaped key (`<DocType>:<fieldname>:<id>`) is re-keyed on rename. A custom key template in `options`, and removing a child row during an update, are not: the secret stays in `ddcore_vault` under a key nothing reads anymore.

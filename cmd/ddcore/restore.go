@@ -569,10 +569,15 @@ func smokeCheckSite(ctx context.Context, e *engine.Engine, man *backupManifest, 
 		}
 	} else {
 		var n int
-		err := e.DB.Pool.QueryRow(ctx, `SELECT count(*) FROM tab_user u WHERE u.enabled AND (u.name = 'Admin'
-			OR EXISTS (SELECT 1 FROM tab_has_role r WHERE r.parent = u.name AND r.role = 'System Manager'))`).Scan(&n)
+		err := e.DB.Pool.QueryRow(ctx, `SELECT count(*) FROM tab_user u WHERE u.enabled AND (u.id = 'Admin'
+			OR EXISTS (SELECT 1 FROM tab_has_role r WHERE r.parent = u.id AND r.role = 'System Manager'))`).Scan(&n)
 		detail := fmt.Sprintf("%d enabled admin(s); pass --smoke-user to sign in for real", n)
-		if err != nil {
+		switch {
+		case db.UndefinedColumn(err):
+			// --no-migrate on an archive from before 0.17: the key is still
+			// called `name`, and migrate is what moves it.
+			detail = "the restored database predates 0.17; run `ddcore migrate`"
+		case err != nil:
 			detail = db.RedactError(err)
 		}
 		out = append(out, smokeCheck{Name: "admin exists", OK: err == nil && n > 0, Detail: detail})

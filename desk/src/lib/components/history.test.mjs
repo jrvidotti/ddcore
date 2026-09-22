@@ -147,7 +147,7 @@ test("parseVersion processes full version with standard and child table changes"
   };
 
   const rawVersion = {
-    name: "v123",
+    id: "v123",
     owner: "Admin",
     creation: new Date().toISOString(),
     data: JSON.stringify({

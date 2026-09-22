@@ -27,7 +27,7 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 	}
 	var a struct {
 		Doctype       string            `json:"doctype"`
-		Name          json.RawMessage   `json:"name"`
+		ID            json.RawMessage   `json:"id"`
 		Fields        json.RawMessage   `json:"fields"`
 		Field         string            `json:"field"`
 		Args          json.RawMessage   `json:"args"`
@@ -55,8 +55,8 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		Payload       any               `json:"payload"`
 		User          string            `json:"user"`
 		Ptype         string            `json:"ptype"`
-		OldName       string            `json:"oldName"`
-		NewName       string            `json:"newName"`
+		OldID         string            `json:"oldID"`
+		NewID         string            `json:"newID"`
 		Currency      string            `json:"currency"`
 		To            []string          `json:"to"`
 		Subject       string            `json:"subject"`
@@ -69,22 +69,21 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		Days          float64           `json:"days"`
 		Limit         float64           `json:"limit"`
 		Minutes       float64           `json:"minutes"`
-		ID            string            `json:"id"`
 		Delivery      string            `json:"delivery"`
 		Status        string            `json:"status"`
 		Error         string            `json:"error"`
 		Prefix        string            `json:"prefix"`
 		Action        string            `json:"action"`
 		TargetDoctype string            `json:"targetDoctype"`
-		TargetName    string            `json:"targetName"`
+		TargetID      string            `json:"targetID"`
 		Detail        any               `json:"detail"`
 	}
 	if err := json.Unmarshal(raw, &a); err != nil {
 		return nil, cerr.Internal("invalid arguments in {0}: {1}", op, err)
 	}
-	nameStr := func() string {
+	idStr := func() string {
 		var s string
-		json.Unmarshal(a.Name, &s)
+		json.Unmarshal(a.ID, &s)
 		return s
 	}
 	switch op {
@@ -130,7 +129,7 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		d, err := c.St.DocType(a.Doctype)
 		return d, err
 	case "getDoc":
-		return c.GetDoc(a.Doctype, nameStr())
+		return c.GetDoc(a.Doctype, idStr())
 	case "newDoc":
 		return c.NewDoc(a.Doctype, a.Values)
 	case "doc.insert":
@@ -142,12 +141,12 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 	case "doc.applyWorkflow":
 		// the same transition POST /api/workflow/apply runs: role, self-approval,
 		// condition, row lock, audit and timeline comment
-		return c.ApplyWorkflowTransition(a.Doctype, nameStr(), a.Action)
+		return c.ApplyWorkflowTransition(a.Doctype, idStr(), a.Action)
 	case "doc.delete":
-		return nil, c.Delete(a.Doctype, nameStr(), a.Opts["ignorePermissions"] == true, a.Opts["force"] == true)
+		return nil, c.Delete(a.Doctype, idStr(), a.Opts["ignorePermissions"] == true, a.Opts["force"] == true)
 	case "doc.dbSet":
 		// returns the new modified timestamp for the prelude to synchronize the document (B21)
-		modified, err := c.DBSet(a.Doctype, nameStr(), a.Values, true)
+		modified, err := c.DBSet(a.Doctype, idStr(), a.Values, true)
 		if err != nil {
 			return nil, err
 		}
@@ -162,10 +161,10 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 			return nil, cerr.Validation("getValue: invalid fields")
 		}
 		var s string
-		if json.Unmarshal(a.Name, &s) == nil {
+		if json.Unmarshal(a.ID, &s) == nil {
 			name = s
 		} else {
-			json.Unmarshal(a.Name, &name)
+			json.Unmarshal(a.ID, &name)
 		}
 		m, err := c.GetValues(a.Doctype, name, fields)
 		if err != nil {
@@ -187,12 +186,12 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		json.Unmarshal(a.Args, &la)
 		return c.GetList(a.Doctype, la)
 	case "db.setValue":
-		return nil, c.SetValue(a.Doctype, nameStr(), a.Values)
+		return nil, c.SetValue(a.Doctype, idStr(), a.Values)
 	case "db.count":
 		return c.Count(a.Doctype, a.Filters, a.OrFilters)
 	case "db.exists":
 		var s string
-		if json.Unmarshal(a.Name, &s) == nil {
+		if json.Unmarshal(a.ID, &s) == nil {
 			ok, err := c.Exists(a.Doctype, s)
 			if err != nil || !ok {
 				return nil, err
@@ -200,7 +199,7 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 			return s, nil
 		}
 		var f any
-		json.Unmarshal(a.Name, &f)
+		json.Unmarshal(a.ID, &f)
 		n, err := c.ExistsWhere(a.Doctype, f)
 		if err != nil || n == "" {
 			return nil, err
@@ -292,7 +291,7 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		}
 		return nil, nil
 	case "rename":
-		return c.Rename(a.Doctype, a.OldName, a.NewName)
+		return c.Rename(a.Doctype, a.OldID, a.NewID)
 	case "hashPassword":
 		// Routed through the policy so that the User form, `ddcore user add`
 		// and any app that writes new_password all meet the same minimum. The
@@ -326,7 +325,7 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		}
 		return out, nil
 	case "auth.revokeSessions":
-		if a.ID != "" {
+		if handle := idStr(); handle != "" {
 			// Revoking one, addressed by handle. Scoped to the user, so a
 			// handle guessed from someone else's list reaches nothing.
 			rows, err := db.Select(c.Ctx, e.DB.Pool,
@@ -336,7 +335,7 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 			}
 			for _, r := range rows {
 				sid := db.Str(r["sid"])
-				if TokenHandle(sid) != a.ID {
+				if TokenHandle(sid) != handle {
 					continue
 				}
 				e.Cache.Del("sid:" + sid)
@@ -356,7 +355,7 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 	case "auth.currentSid":
 		return c.Sid, nil
 	case "auth.checkPassword":
-		rows, err := db.Select(c.Ctx, c.Q(), `SELECT password_hash FROM tab_user WHERE name = $1`, a.User)
+		rows, err := db.Select(c.Ctx, c.Q(), `SELECT password_hash FROM tab_user WHERE id = $1`, a.User)
 		if err != nil || len(rows) == 0 {
 			return false, err
 		}
@@ -395,19 +394,19 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		// is System Manager only — deliberately, since read there would be
 		// read on everyone's keys. Scoped to the one user instead.
 		return db.Select(c.Ctx, c.Q(),
-			`SELECT name, label, enabled, creation, last_used, expires FROM tab_api_key
+			`SELECT id, label, enabled, creation, last_used, expires FROM tab_api_key
 			 WHERE "user" = $1 ORDER BY creation DESC LIMIT 100`, a.User)
 	case "auth.revokeAPIKey":
 		// The owner is part of the WHERE, so a name from someone else's list
 		// deletes nothing rather than deleting theirs.
-		tag, err := c.Q().Exec(c.Ctx, `DELETE FROM tab_api_key WHERE name = $1 AND "user" = $2`, nameStr(), a.User)
+		tag, err := c.Q().Exec(c.Ctx, `DELETE FROM tab_api_key WHERE id = $1 AND "user" = $2`, idStr(), a.User)
 		if err != nil {
 			return nil, err
 		}
 		if tag.RowsAffected() == 0 {
 			return nil, cerr.NotFound("That key is not yours")
 		}
-		e.Cache.Del("apikey:" + nameStr())
+		e.Cache.Del("apikey:" + idStr())
 		return map[string]any{"ok": true}, nil
 	case "mail.prepare":
 		// The language the message will be written in, decided before the
@@ -514,7 +513,7 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 	case "share.add", "share.remove", "share.list":
 		var sa struct {
 			Doctype string      `json:"doctype"`
-			Name    string      `json:"name"`
+			ID      string      `json:"id"`
 			User    string      `json:"user"`
 			Rights  ShareRights `json:"rights"`
 		}
@@ -529,23 +528,23 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		}
 		switch op {
 		case "share.add":
-			return c.ShareDoc(sa.Doctype, sa.Name, sa.User, sa.Rights)
+			return c.ShareDoc(sa.Doctype, sa.ID, sa.User, sa.Rights)
 		case "share.remove":
-			return nil, c.UnshareDoc(sa.Doctype, sa.Name, sa.User)
+			return nil, c.UnshareDoc(sa.Doctype, sa.ID, sa.User)
 		}
-		return c.ListDocShares(sa.Doctype, sa.Name)
+		return c.ListDocShares(sa.Doctype, sa.ID)
 	case "audit":
 		var d map[string]any
 		if m, ok := a.Detail.(map[string]any); ok {
 			d = m
 		}
-		return nil, c.Audit(a.Action, a.TargetDoctype, a.TargetName, d)
+		return nil, c.Audit(a.Action, a.TargetDoctype, a.TargetID, d)
 	case "auditDenied":
 		var d map[string]any
 		if m, ok := a.Detail.(map[string]any); ok {
 			d = m
 		}
-		c.AuditDenied(a.Action, a.TargetDoctype, a.TargetName, d)
+		c.AuditDenied(a.Action, a.TargetDoctype, a.TargetID, d)
 		return nil, nil
 	case "test.begin":
 		return nil, c.Begin()

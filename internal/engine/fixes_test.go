@@ -21,7 +21,7 @@ func TestB06_SQLReadonlyRejectsWrites(t *testing.T) {
 	ctx := context.Background()
 	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		_, err := c.SQL(`WITH changed AS (
-			UPDATE tab_role SET modified_by = 'audit' WHERE name = $1 RETURNING name
+			UPDATE tab_role SET modified_by = 'audit' WHERE id = $1 RETURNING id
 		) SELECT * FROM changed`, []any{"Gestor"})
 		if err == nil {
 			t.Fatalf("expected write CTE rejection")
@@ -30,7 +30,7 @@ func TestB06_SQLReadonlyRejectsWrites(t *testing.T) {
 			t.Fatalf("expected read-only transaction error, got: %v", err)
 		}
 		// the transaction remains usable and SET LOCAL was rolled back
-		rows, err := c.SQL(`SELECT modified_by FROM tab_role WHERE name = $1`, []any{"Gestor"})
+		rows, err := c.SQL(`SELECT modified_by FROM tab_role WHERE id = $1`, []any{"Gestor"})
 		if err != nil {
 			t.Fatalf("SELECT after rejection failed: %v", err)
 		}
@@ -174,7 +174,7 @@ func TestB03_ChildDoesNotSwitchParent(t *testing.T) {
 			return err
 		}
 		childOfA := a.Children("roles")[0]
-		origName := childOfA.Str("name")
+		origName := childOfA.Str("id")
 		if origName == "" {
 			t.Fatalf("child row without name: %v", childOfA)
 		}
@@ -191,13 +191,13 @@ func TestB03_ChildDoesNotSwitchParent(t *testing.T) {
 		if len(a.Children("roles")) != 1 {
 			t.Fatalf("A lost its child row: %v", a["roles"])
 		}
-		if a.Children("roles")[0].Str("name") != origName {
+		if a.Children("roles")[0].Str("id") != origName {
 			t.Fatalf("A's child row changed its name")
 		}
 		if len(b.Children("roles")) != 1 {
 			t.Fatalf("B should have a copy: %v", b["roles"])
 		}
-		if b.Children("roles")[0].Str("name") == origName {
+		if b.Children("roles")[0].Str("id") == origName {
 			t.Fatalf("B kept the exact same row as A (%s)", origName)
 		}
 		return nil
@@ -237,7 +237,7 @@ func TestB21_DbSetUpdatesModified(t *testing.T) {
 		if err := json.Unmarshal(res.Doc, &out); err != nil {
 			return err
 		}
-		current, err := c.GetDoc("Pedido", ped.Name())
+		current, err := c.GetDoc("Pedido", ped.ID())
 		if err != nil {
 			return err
 		}
@@ -381,7 +381,7 @@ func TestB19_FilterOnChildDoesNotDuplicate(t *testing.T) {
 	}
 	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		f := []any{[]any{"Item Pedido", "descricao", "=", "Cadeira"}}
-		rows, err := c.GetList("Pedido", ListArgs{Filters: f, Fields: []string{"name"}})
+		rows, err := c.GetList("Pedido", ListArgs{Filters: f, Fields: []string{"id"}})
 		if err != nil {
 			return err
 		}
@@ -677,7 +677,7 @@ func TestB04_VersionDoesNotStoreSecret(t *testing.T) {
 		if _, err := c.Save(p, SaveOpts{}); err != nil {
 			return err
 		}
-		rows, err := c.GetList("Version", ListArgs{Filters: map[string]any{"ref_doctype": "Pessoa", "docname": "Seg"}, Fields: []string{"data"}, IgnorePermissions: true})
+		rows, err := c.GetList("Version", ListArgs{Filters: map[string]any{"ref_doctype": "Pessoa", "doc_id": "Seg"}, Fields: []string{"data"}, IgnorePermissions: true})
 		if err != nil {
 			return err
 		}
@@ -701,7 +701,7 @@ func TestB04_VersionDoesNotStoreSecret(t *testing.T) {
 		if _, err := c.Save(u, SaveOpts{}); err != nil {
 			return err
 		}
-		vs, err := c.GetList("Version", ListArgs{Filters: map[string]any{"ref_doctype": "User", "docname": "seg@x.com"}, Fields: []string{"data"}, IgnorePermissions: true})
+		vs, err := c.GetList("Version", ListArgs{Filters: map[string]any{"ref_doctype": "User", "doc_id": "seg@x.com"}, Fields: []string{"data"}, IgnorePermissions: true})
 		if err != nil {
 			return err
 		}

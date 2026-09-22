@@ -620,13 +620,13 @@ func TestExtensao(t *testing.T) {
 			return err
 		}
 		task, _ := c.NewDoc("Task", engine.Doc{
-			"code": "T-EXT", "project": p.Name(), "title": "Tarefa", "assignee": "Admin",
+			"code": "T-EXT", "project": p.ID(), "title": "Tarefa", "assignee": "Admin",
 			"due_date": "2026-02-01", "cost_centre": "CC-1",
 		})
 		if _, err := c.Insert(task, engine.SaveOpts{}); err != nil {
 			return err
 		}
-		back, err := c.GetDoc("Task", task.Name())
+		back, err := c.GetDoc("Task", task.ID())
 		if err != nil {
 			return err
 		}
@@ -681,7 +681,7 @@ func migracaoApp(t *testing.T) js.App {
 	w("ddcore.app.ts", `import { defineApp } from "@ddcore/sdk";
 export default defineApp({ name: "migracao", title: "Migração", roles: ["Migrador"] });`)
 	w("doctypes/nota/nota.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
-export default defineDoctype({ name: "Nota", naming: { field: "numero" }, fields: [
+export default defineDoctype({ name: "Nota", idGeneration: { field: "numero" }, fields: [
   { fieldname: "numero", fieldtype: "Data", label: "Number", reqd: true, unique: true },
   { fieldname: "valor_texto", fieldtype: "Data", label: "Amount (text)" },
   { fieldname: "valor", fieldtype: "Currency", label: "Amount" },
@@ -770,7 +770,7 @@ func TestSchemaEvolution(t *testing.T) {
 
 	// Data survived the rename, and the after-patch backfill saw the
 	// already-renamed column.
-	got, err := db.Select(ctx, e.DB.Pool, `SELECT valor_origem, valor FROM tab_nota WHERE name = 'NF-1'`)
+	got, err := db.Select(ctx, e.DB.Pool, `SELECT valor_origem, valor FROM tab_nota WHERE id = 'NF-1'`)
 	if err != nil {
 		t.Fatal(err)
 	}

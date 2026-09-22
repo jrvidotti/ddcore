@@ -32,15 +32,15 @@
 
   function getOptionTitle(o: any): string {
     if (titleField && o[titleField]) return String(o[titleField]);
-    return o.name;
+    return o.id;
   }
 
   function getOptionSubtitle(o: any): string {
     if (titleField && o[titleField]) {
-      const others = Object.entries(o).filter(([k, v]) => k !== "name" && k !== titleField && v).map(([, v]) => v);
-      return [o.name, ...others].join(" · ");
+      const others = Object.entries(o).filter(([k, v]) => k !== "id" && k !== titleField && v).map(([, v]) => v);
+      return [o.id, ...others].join(" · ");
     }
-    return Object.entries(o).filter(([k, v]) => k !== "name" && v).map(([, v]) => v).join(" · ");
+    return Object.entries(o).filter(([k, v]) => k !== "id" && v).map(([, v]) => v).join(" · ");
   }
 
   async function search(txt: string) {
@@ -52,7 +52,7 @@
       if (version !== searchVersion) return;
       options = results;
       for (const o of results) {
-        setLinkTitle(target, o.name, getOptionTitle(o));
+        setLinkTitle(target, o.id, getOptionTitle(o));
       }
       active = 0;
       open = true;
@@ -72,8 +72,8 @@
 
   function pick(o: any) {
     const optTitle = getOptionTitle(o);
-    setLinkTitle(target, o.name, optTitle);
-    onchange(o.name);
+    setLinkTitle(target, o.id, optTitle);
+    onchange(o.id);
     text = optTitle;
     open = false;
   }
@@ -99,7 +99,7 @@
       if (text === "" && value) {
         onchange(null);
       } else if (text !== curTitle && text !== value && text !== "") {
-        const exact = options.find((o) => o.name === text || getOptionTitle(o) === text || Object.values(o).includes(text));
+        const exact = options.find((o) => o.id === text || getOptionTitle(o) === text || Object.values(o).includes(text));
         if (exact) {
           pick(exact);
         } else {

@@ -82,7 +82,7 @@ Workflows are linear state machines: `ApplyWorkflowTransition` matches the first
 A workflow's guards run in `Insert`, `Delete`, `DBSet` and `SaveDoc`. The insert, delete and
 direct state/docstatus mutation guards (1-3 below) are not lifted by `ignorePermissions`,
 whether passed as an option (`doc.insert({ ignorePermissions: true })`,
-`ddcore.deleteDoc(doctype, name, { ignorePermissions: true })`) or already raised on the
+`ddcore.deleteDoc(doctype, id, { ignorePermissions: true })`) or already raised on the
 context, which every enqueued job and scheduled method runs with. They yield only to an
 in-progress workflow transition, exactly like the state field and docstatus checks `SaveDoc`
 already enforces for a plain save: a workflow document cannot be submitted or cancelled "not
@@ -177,7 +177,7 @@ Request:
 ```json
 {
   "doctype": "Order",
-  "name": "ORD-0001",
+  "id": "ORD-0001",
   "action": "Approve"
 }
 ```
@@ -186,7 +186,7 @@ Response:
 ```json
 {
   "data": {
-    "name": "ORD-0001",
+    "id": "ORD-0001",
     "workflow_state": "Approved",
     "docstatus": 1,
     "status": "Approved",
@@ -201,7 +201,7 @@ Response:
 
 ### List available actions
 
-`GET /api/workflow/actions?doctype=Order&name=ORD-0001`
+`GET /api/workflow/actions?doctype=Order&id=ORD-0001`
 
 Returns the current state, whether the authenticated caller may edit fields in it, and the workflow actions available to them, taking into account caller roles, self-approval rules, and condition functions.
 
@@ -224,14 +224,14 @@ returns `{"state": "", "allowEdit": true, "actions": []}`.
 
 ### Integrated Document Resource
 
-`GET /api/resource/{doctype}/{name}`
+`GET /api/resource/{doctype}/{id}`
 
 When fetching, creating, updating, or applying a transition on a document whose DocType has an active workflow, the response automatically includes a `_workflow` envelope containing the current state, whether the caller may edit fields in it (`allowEdit`), and the actions available to them:
 
 ```json
 {
   "data": {
-    "name": "ORD-0001",
+    "id": "ORD-0001",
     "workflow_state": "Pending Approval",
     "docstatus": 0,
     "_workflow": {

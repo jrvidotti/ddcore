@@ -126,7 +126,7 @@ func TestStandardTemplate_AutoGenerationAndFieldOmission(t *testing.T) {
 	}
 
 	doc := map[string]any{
-		"name":           "PO-2026-001",
+		"id":             "PO-2026-001",
 		"docstatus":      1, // Submitted
 		"supplier_name":  "Acme Corp",
 		"date":           "2026-09-14",

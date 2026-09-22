@@ -7,7 +7,7 @@ export default defineNotification({
   condition: (doc) => doc.status === "Open",
   recipients: (doc) => [doc.allocated_to],
   desk: {
-    title: (doc) => _("Assignment due today: {0}", [doc.description || doc.name]),
+    title: (doc) => _("Assignment due today: {0}", [doc.description || doc.id]),
     message: (doc) => _("Task assigned by {0} is due today", [doc.assigned_by]),
   },
 });

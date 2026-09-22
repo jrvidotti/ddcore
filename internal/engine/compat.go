@@ -228,6 +228,51 @@ func checkCoreCompat(snap *Snapshot, core string) (skipped bool, err error) {
 	return skipped, nil
 }
 
+// idKeyRelease is the release that renamed the document key from `name` to
+// `id`. An app written before it and still claiming to run on it probably
+// says `name` somewhere the compiler cannot see — a filter, a raw SQL patch —
+// and would fail at the first query instead of at load.
+var idKeyRelease = semver{0, 17, 0}
+
+// predatesIDKey names the apps whose declared range reaches below 0.17.0, in
+// order. It only warns: a range like `>=0.14.0 <1.0.0` may belong to an app
+// that has already been updated and simply never narrowed its floor. A binary
+// older than 0.17.0, or not a release at all, warns about nothing: the build
+// between the change and its tag still reports the previous version.
+func predatesIDKey(snap *Snapshot, core string) []string {
+	if cv, ok := parseCoreVersion(core); !ok || cv.cmp(idKeyRelease) < 0 {
+		return nil
+	}
+	var out []string
+	for n, am := range snap.Apps {
+		if am == nil || am.Ddcore == "" {
+			continue
+		}
+		r, err := parseRange(am.Ddcore)
+		if err != nil {
+			continue
+		}
+		if r.lowerBound().cmp(idKeyRelease) < 0 {
+			out = append(out, n)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// lowerBound is the least version the range could allow: the tightest of its
+// `>=`, `>` and `=` constraints, or 0.0.0 when it has none. A `>` bound counts
+// as its own version, which is close enough for a warning.
+func (r versionRange) lowerBound() semver {
+	var lo semver
+	for _, c := range r {
+		if (c.op == ">=" || c.op == ">" || c.op == "=") && c.v.cmp(lo) > 0 {
+			lo = c.v
+		}
+	}
+	return lo
+}
+
 // AppRange is the `ddcore` range `ddcore new-app` writes for an app started
 // on this binary: from its minor release up to, not including, the next one.
 // ok is false for a binary that is not a release, including the unstamped

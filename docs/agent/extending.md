@@ -45,7 +45,7 @@ last good state and `migrate` stops:
 - an extension grants a role the host already grants at the same `permlevel` — an extension only *adds* roles. Granting a field level (`permlevel: 1`) to a role the host grants at level 0 is an addition; setting `permlevel` on a host field through `set` is allowed too. See `field-permissions`.
 
 Not overridable at all: `fieldname` and `fieldtype`, a Link's or a Table's `options` (they name
-the target), and `naming`, `isChild`, `isSingle`, `submittable` and `module` on the DocType. Those
+the target), and `idGeneration`, `isChild`, `isSingle`, `submittable` and `module` on the DocType. Those
 decide what the document *is*, and stay with the app that declares it. A Select's `options` are
 text and may be replaced.
 

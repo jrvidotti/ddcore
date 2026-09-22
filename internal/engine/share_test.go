@@ -30,11 +30,11 @@ func shareApp(t *testing.T) string {
 	writeAppFile(t, dir, "ddcore.app.ts", `import { defineApp } from "@ddcore/sdk";
 export default defineApp({ name: "share_test", title: "Share Test", roles: ["Note Editor", "Note Reader", "Scoped Staff"] });`)
 	writeAppFile(t, dir, "doctypes/share_company/share_company.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
-export default defineDoctype({ name: "Share Company", naming: { field: "title" },
+export default defineDoctype({ name: "Share Company", idGeneration: { field: "title" },
   fields: [{ fieldname: "title", fieldtype: "Data", label: "Title", reqd: true }],
   permissions: [{ role: "Scoped Staff", read: true }, { role: "Note Editor", read: true }] });`)
 	writeAppFile(t, dir, "doctypes/shared_note/shared_note.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
-export default defineDoctype({ name: "Shared Note", naming: { field: "title" }, allowRename: true,
+export default defineDoctype({ name: "Shared Note", idGeneration: { field: "title" }, allowRename: true,
   fields: [
     { fieldname: "title", fieldtype: "Data", label: "Title", reqd: true },
     { fieldname: "company", fieldtype: "Link", label: "Company", options: "Share Company" },
@@ -176,16 +176,16 @@ func wantStatus(t *testing.T, err error, status int) {
 func listNames(t *testing.T, c *Ctx, doctype string, args ListArgs) []string {
 	t.Helper()
 	if args.Fields == nil {
-		args.Fields = []string{"name"}
+		args.Fields = []string{"id"}
 	}
-	args.OrderBy = "name asc"
+	args.OrderBy = "id asc"
 	rows, err := c.GetList(doctype, args)
 	if err != nil {
 		t.Fatalf("GetList %s: %v", doctype, err)
 	}
 	var out []string
 	for _, r := range rows {
-		out = append(out, r["name"].(string))
+		out = append(out, r["id"].(string))
 	}
 	return out
 }
@@ -344,7 +344,7 @@ func TestShare_GrantsReadWriteAndRevokes(t *testing.T) {
 			return err
 		}
 		for _, n := range page.Data {
-			if n.ReferenceName == "N1" {
+			if n.ReferenceID == "N1" {
 				t.Fatal("a revoked share's notification is still listed")
 			}
 		}

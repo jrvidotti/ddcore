@@ -15,7 +15,7 @@ import (
 func notificationFixture() map[string]string {
 	return map[string]string{
 		"doctypes/reminder/reminder.doctype.ts": `import {defineDoctype} from "@ddcore/sdk";
- export default defineDoctype({name:"Reminder",allowRename:true,naming:{field:"title"},fields:[
+ export default defineDoctype({name:"Reminder",allowRename:true,idGeneration:{field:"title"},fields:[
  {fieldname:"title",fieldtype:"Data",label:"Title"},{fieldname:"due",fieldtype:"Date",label:"Due"},
  {fieldname:"valid",fieldtype:"Check",label:"Valid",default:true},{fieldname:"reader",fieldtype:"Data",label:"Reader"}],
  permissions:[{role:"All",read:true},{role:"System Manager",write:true,create:true,delete:true}]});`,
@@ -144,7 +144,7 @@ func TestNotificationsDateRecoveryDedupRenameAndRevocation(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, row := range deliveries(t, e) {
-		if _, err := e.RunJob(ctx, "Admin", mailJobMethod, map[string]any{"delivery": row["name"]}); err != nil {
+		if _, err := e.RunJob(ctx, "Admin", mailJobMethod, map[string]any{"delivery": row["id"]}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -188,7 +188,7 @@ func TestNotificationsEmailRollbackAndRetry(t *testing.T) {
 	if len(rows) != 1 {
 		t.Fatal(rows)
 	}
-	args := map[string]any{"delivery": db.Str(rows[0]["name"])}
+	args := map[string]any{"delivery": db.Str(rows[0]["id"])}
 	if _, err := e.RunJob(ctx, "Admin", mailJobMethod, args); err == nil {
 		t.Fatal("expected transport failure")
 	}
@@ -229,7 +229,7 @@ func TestNotificationsSweepMarksOnlyMatchedDates(t *testing.T) {
 	now := time.Date(2026, 9, 13, 12, 0, 0, 0, time.UTC)
 	marks := func() []map[string]any {
 		t.Helper()
-		rows, err := db.Select(ctx, e.DB.Pool, `SELECT reference_name FROM ddcore_notification_due ORDER BY reference_name`)
+		rows, err := db.Select(ctx, e.DB.Pool, `SELECT reference_id FROM ddcore_notification_due ORDER BY reference_id`)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -238,7 +238,7 @@ func TestNotificationsSweepMarksOnlyMatchedDates(t *testing.T) {
 	if err := e.SweepNotifications(ctx, now); err != nil {
 		t.Fatal(err)
 	}
-	if m := marks(); len(m) != 1 || m[0]["reference_name"] != "Matched" {
+	if m := marks(); len(m) != 1 || m[0]["reference_id"] != "Matched" {
 		t.Fatalf("marks after first sweep: %+v", m)
 	}
 	// A condition that starts to hold is still picked up on a later sweep.
@@ -262,7 +262,7 @@ func TestNotificationsSweepMarksOnlyMatchedDates(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if m := marks(); len(m) != 1 || m[0]["reference_name"] != "Pending" {
+	if m := marks(); len(m) != 1 || m[0]["reference_id"] != "Pending" {
 		t.Fatalf("marks after delete: %+v", m)
 	}
 }

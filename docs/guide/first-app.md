@@ -117,7 +117,7 @@ export default defineDoctype({
   name: "Book",
   module: "Library",
   label: "Book",
-  naming: { field: "isbn" },
+  idGeneration: { field: "isbn" },
   titleField: "title",
   trackChanges: true,
   fields: [
@@ -140,7 +140,7 @@ export default defineDoctype({
 });
 ```
 
-`naming: { field: "isbn" }` makes the ISBN the record's name, and `trackChanges` keeps a
+`idGeneration: { field: "isbn" }` makes the ISBN the record's id, and `trackChanges` keeps a
 version history. All field types are in the [Fieldtypes Reference](/agent/fieldtypes).
 
 ---
@@ -283,7 +283,7 @@ describe("Book", () => {
       published_year: 1978,
     }).insert();
 
-    expect(book.name).toBe("978-0131103627");
+    expect(book.id).toBe("978-0131103627");
     expect(book.status).toBe("Available");
   });
 

@@ -54,7 +54,7 @@ is ahead of your binary. Read it after an upgrade, and before reporting a gap.
 
 - Single DocTypes (`isSingle`) expose one settings document with a fixed `singleton` identity; see `controller-api`.
 - One DocType = one table `tab_<snake_case>`; child tables (`isChild`) have `parent`, `parenttype`, `parentfield`, `idx`.
-- Standard columns: `name` (PK, text), `owner`, `creation`, `modified`, `modified_by`, `docstatus` (0 draft, 1 submitted, 2 cancelled).
+- Standard columns: `id` (PK, text), `owner`, `creation`, `modified`, `modified_by`, `docstatus` (0 draft, 1 submitted, 2 cancelled). The key is `id` (`doc.id`, filters and `fields` on `id`); `name` is an ordinary fieldname an app may declare. A pre-0.17 database is moved from `name` to `id` by `migrate` — see `migrations`.
 - Lifecycle: `beforeValidate → validate → beforeSave → (insert|update) → afterInsert/onUpdate`; `beforeSubmit → onSubmit`; `beforeCancel → onCancel`; `onTrash → afterDelete`.
 - The core validates `reqd`, `unique`, `uniqueKeys` (compound business keys, checked before the write *and* enforced by a partial unique index, so a race cannot slip through), a Select's `options`, that links exist, `fetchFrom`, `mandatoryDependsOn` (**on the server**) and refuses to change a field without `allowOnSubmit` once submitted.
 - One transaction per request or job. An error rolls it back. There is no `commit()` for an app.

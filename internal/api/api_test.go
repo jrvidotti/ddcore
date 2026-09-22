@@ -54,7 +54,7 @@ export default defineDoctype({name: "Settings", isSingle: true, fields: [
  {fieldname:"secret", fieldtype:"Password", label:"Secret"}
 ], permissions:[{role:"Gestor", read:true, write:true}]});`)
 	w("doctypes/pessoa/pessoa.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
-export default defineDoctype({ name: "Pessoa", naming: { field: "nome" }, titleField: "nome", trackChanges: true,
+export default defineDoctype({ name: "Pessoa", idGeneration: { field: "nome" }, titleField: "nome", trackChanges: true,
   fields: [
     { fieldname: "nome", fieldtype: "Data", label: "Nome", reqd: true },
     { fieldname: "tipo", fieldtype: "Select", label: "Tipo", options: ["PF", "PJ"], default: "PF" },
@@ -72,7 +72,7 @@ export default defineDoctype({ name: "Item Pedido", isChild: true, fields: [
 export default defineDoctype({ name: "Nota Pedido", isChild: true, fields: [
   { fieldname: "texto", fieldtype: "Data", label: "Texto" } ] });`)
 	w("doctypes/pedido/pedido.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
-export default defineDoctype({ name: "Pedido", naming: { series: "PED-.####" }, submittable: true, trackChanges: true,
+export default defineDoctype({ name: "Pedido", idGeneration: { series: "PED-.####" }, submittable: true, trackChanges: true,
   fields: [
     { fieldname: "cliente", fieldtype: "Link", label: "Cliente", options: "Pessoa", reqd: true },
     { fieldname: "obs", fieldtype: "Small Text", label: "Obs", allowOnSubmit: true },
@@ -93,7 +93,7 @@ export default defineWorkspace({ name: "Aberto", label: "Aberto", sidebar: [],
   numberCards: [{ name: "pedidos", label: "Pedidos", doctype: "Pedido" }] });`)
 	w("reports/pessoas.report.ts", `import { defineReport } from "@ddcore/sdk";
 export default defineReport({ name: "Pessoas", refDoctype: "Pessoa", roles: ["Gestor"], filters: [],
-  execute() { return { columns: [{ fieldname: "name", label: "Nome" }], rows: ddcore.db.getList("Pessoa", { fields: ["name"] }) }; } });`)
+  execute() { return { columns: [{ fieldname: "id", label: "Nome" }], rows: ddcore.db.getList("Pessoa", { fields: ["id"] }) }; } });`)
 	// "Loop" is a key the core catalogue does not have: the app supplies a
 	// translation for it, so a test can prove the border does *not* apply it
 	// to a message the JS runtime already translated.
@@ -321,7 +321,7 @@ func TestB02_ChildResourceEndpointsFollowParent(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		roleRow = u.Children("roles")[0].Name()
+		roleRow = u.Children("roles")[0].ID()
 		return nil
 	})
 	// Guest and user without role cannot read Has Role row
@@ -361,13 +361,13 @@ func TestB02_ChildResourceEndpointsFollowParent(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		item = saved.Children("itens")[0].Name()
+		item = saved.Children("itens")[0].ID()
 		return nil
 	})
 	if r := x.call("GET", "/api/resource/Item%20Pedido/"+item, nil, "sid:"+x.sid("ana@x.com")); r.Status != 200 {
 		t.Fatalf("Gestor should read the row: %d %s", r.Status, r.Raw)
 	}
-	if r := x.call("GET", "/api/resource/Item%20Pedido?fields=%5B%22name%22%5D", nil, "sid:"+x.sid("ana@x.com")); r.Status != 200 {
+	if r := x.call("GET", "/api/resource/Item%20Pedido?fields=%5B%22id%22%5D", nil, "sid:"+x.sid("ana@x.com")); r.Status != 200 {
 		t.Fatalf("Gestor should list rows: %d %s", r.Status, r.Raw)
 	}
 	x.expect(x.call("GET", "/api/resource/Item%20Pedido/"+item, nil, "sid:"+x.sid("ze@x.com")), 403, "PermissionError")
@@ -491,18 +491,18 @@ func TestB04_VersionAndCommentFollowReference(t *testing.T) {
 	}
 	var version string
 	x.asAdmin(func(c *engine.Ctx) error {
-		rows, err := c.GetList("Version", engine.ListArgs{Filters: map[string]any{"ref_doctype": "Pessoa", "docname": "Reservada"}, Fields: []string{"name"}})
+		rows, err := c.GetList("Version", engine.ListArgs{Filters: map[string]any{"ref_doctype": "Pessoa", "doc_id": "Reservada"}, Fields: []string{"id"}})
 		if err != nil {
 			return err
 		}
 		if len(rows) == 0 {
 			t.Fatal("no Version recorded")
 		}
-		version = fmt.Sprint(rows[0]["name"])
+		version = fmt.Sprint(rows[0]["id"])
 		return nil
 	})
 
-	verFilter := `/api/resource/Version?filters=` + url.QueryEscape(`{"ref_doctype":"Pessoa","docname":"Reservada"}`)
+	verFilter := `/api/resource/Version?filters=` + url.QueryEscape(`{"ref_doctype":"Pessoa","doc_id":"Reservada"}`)
 	// user without permission on Pessoa cannot reach history through any path
 	x.expect(x.call("GET", "/api/versions/Pessoa/Reservada", nil, ze), 403, "PermissionError")
 	x.expect(x.call("GET", "/api/resource/Version", nil, ze), 403, "PermissionError")
@@ -517,15 +517,15 @@ func TestB04_VersionAndCommentFollowReference(t *testing.T) {
 	}
 
 	// comments follow the commented document; author controls edits
-	r = x.call("POST", "/api/resource/Comment", map[string]any{"reference_doctype": "Pessoa", "reference_name": "Reservada", "content": "oi"}, ana)
+	r = x.call("POST", "/api/resource/Comment", map[string]any{"reference_doctype": "Pessoa", "reference_id": "Reservada", "content": "oi"}, ana)
 	if r.Status != 200 {
 		t.Fatalf("comment: %d %s", r.Status, r.Raw)
 	}
-	comment := fmt.Sprint(r.Body["data"].(map[string]any)["name"])
+	comment := fmt.Sprint(r.Body["data"].(map[string]any)["id"])
 	x.expect(x.call("GET", "/api/comments/Pessoa/Reservada", nil, ze), 403, "PermissionError")
 	x.expect(x.call("GET", "/api/resource/Comment/"+comment, nil, ze), 403, "PermissionError")
 	x.expect(x.call("GET", "/api/resource/Comment", nil, ze), 403, "PermissionError")
-	x.expect(x.call("POST", "/api/resource/Comment", map[string]any{"reference_doctype": "Pessoa", "reference_name": "Reservada", "content": "invasor"}, ze), 403, "PermissionError")
+	x.expect(x.call("POST", "/api/resource/Comment", map[string]any{"reference_doctype": "Pessoa", "reference_id": "Reservada", "content": "invasor"}, ze), 403, "PermissionError")
 	if r := x.call("GET", "/api/comments/Pessoa/Reservada", nil, bia); r.Status != 200 {
 		t.Fatalf("another Gestor should read comments: %d %s", r.Status, r.Raw)
 	}
@@ -553,12 +553,12 @@ func TestB20_EventAuthorizerFollowsPermissions(t *testing.T) {
 		if _, err := c.Insert(pessoa, engine.SaveOpts{}); err != nil {
 			return err
 		}
-		doc, err := c.NewDoc("Pedido", engine.Doc{"cliente": pessoa.Name()})
+		doc, err := c.NewDoc("Pedido", engine.Doc{"cliente": pessoa.ID()})
 		if err != nil {
 			return err
 		}
 		saved, err := c.Insert(doc, engine.SaveOpts{})
-		pedido = saved.Name()
+		pedido = saved.ID()
 		return err
 	})
 	ana := x.s.eventAuthorizer(x.ctx, "ana@x.com")
@@ -580,7 +580,7 @@ func TestB20_EventAuthorizerFollowsPermissions(t *testing.T) {
 	// and reaches the hub: events for a restricted doctype are not delivered
 	ch := x.e.Events.Subscribe("ze@x.com", ze)
 	defer x.e.Events.Unsubscribe(ch)
-	x.e.Events.Publish(engine.Event{Name: "doc_update", Doctype: "Pedido", DocName: pedido})
+	x.e.Events.Publish(engine.Event{Name: "doc_update", Doctype: "Pedido", DocID: pedido})
 	select {
 	case ev := <-ch:
 		t.Fatalf("restricted event delivered: %+v", ev)
@@ -741,7 +741,7 @@ func TestLinkTitlesAPI(t *testing.T) {
 	x := setup(t)
 	admin := "sid:" + x.sid("Admin")
 	// Test GET /api/search/link-titles
-	r := x.call("GET", "/api/search/link-titles?doctype=User&names=Admin", nil, admin)
+	r := x.call("GET", "/api/search/link-titles?doctype=User&ids=Admin", nil, admin)
 	if r.Status != 200 {
 		t.Fatalf("link-titles GET: %d %s", r.Status, r.Raw)
 	}

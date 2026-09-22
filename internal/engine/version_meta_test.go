@@ -15,7 +15,7 @@ func TestVersionDocType_ListViewAndFilterFields(t *testing.T) {
 		t.Errorf("expected SortField=creation, SortOrder=desc; got %s %s", d.SortField, d.SortOrder)
 	}
 
-	for _, fieldname := range []string{"ref_doctype", "docname"} {
+	for _, fieldname := range []string{"ref_doctype", "doc_id"} {
 		f := d.Field(fieldname)
 		if f == nil {
 			t.Fatalf("field %s missing from Version DocType", fieldname)

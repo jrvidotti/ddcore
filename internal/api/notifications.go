@@ -80,6 +80,6 @@ func (s *Server) setNotificationRead(w http.ResponseWriter, r *http.Request) {
 		if err := decoder.Decode(new(any)); err != io.EOF {
 			return nil, cerr.Validation("Invalid JSON: {0}", "expected one object")
 		}
-		return c.SetNotificationRead(urlParam(r, "name"), *body.Read)
+		return c.SetNotificationRead(urlParam(r, "id"), *body.Read)
 	})
 }

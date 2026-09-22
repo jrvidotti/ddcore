@@ -4,7 +4,7 @@ export default defineDoctype({
   name: "User",
   module: "Core",
   label: "User",
-  naming: { field: "email" },
+  idGeneration: { field: "email" },
   titleField: "full_name",
   searchFields: ["full_name"],
   trackChanges: true,

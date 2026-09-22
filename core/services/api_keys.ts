@@ -38,10 +38,10 @@ export const createMyAPIKey = whitelisted((args: { label?: string; days?: number
   return (ddcore as any).__auth.createAPIKey(user, label, Math.floor(days));
 });
 
-export const revokeMyAPIKey = whitelisted((args: { name: string }) => {
-  const name = String(args.name ?? "").trim();
-  if (!name) ddcore.throw(_("That key is not yours"));
-  // The owner is part of the delete's WHERE on the host side, so a name taken
+export const revokeMyAPIKey = whitelisted((args: { id: string }) => {
+  const id = String(args.id ?? "").trim();
+  if (!id) ddcore.throw(_("That key is not yours"));
+  // The owner is part of the delete's WHERE on the host side, so an id taken
   // from someone else's list removes nothing instead of removing theirs.
-  return (ddcore as any).__auth.revokeAPIKey(me(), name);
+  return (ddcore as any).__auth.revokeAPIKey(me(), id);
 });

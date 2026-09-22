@@ -9,13 +9,13 @@ export class DocSharesState {
   error = $state("");
   pending = $state("");
 
-  constructor(public doctype: string, public name: string) {}
+  constructor(public doctype: string, public id: string) {}
 
   async load() {
     this.loading = true;
     this.error = "";
     try {
-      const res = await api.shares.forDoc(this.doctype, this.name);
+      const res = await api.shares.forDoc(this.doctype, this.id);
       this.rows = res.shares;
       this.canShare = res.canShare;
       this.canOverrideScope = res.canOverrideScope;
@@ -30,14 +30,14 @@ export class DocSharesState {
   }
 
   async add(args: ShareArgs) {
-    await api.shares.add(this.doctype, this.name, args);
+    await api.shares.add(this.doctype, this.id, args);
     await this.load();
   }
 
   async remove(user: string) {
     this.pending = user;
     try {
-      await api.shares.remove(this.doctype, this.name, user);
+      await api.shares.remove(this.doctype, this.id, user);
       this.rows = this.rows.filter((r) => r.user !== user);
     } finally {
       this.pending = "";

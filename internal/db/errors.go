@@ -34,3 +34,11 @@ func UndefinedTable(err error) bool {
 	var pg *pgconn.PgError
 	return errors.As(err, &pg) && pg.Code == "42P01"
 }
+
+// UndefinedColumn reports whether err is Postgres saying a column does not
+// exist — a query written for the current schema run against a database an
+// older binary left behind.
+func UndefinedColumn(err error) bool {
+	var pg *pgconn.PgError
+	return errors.As(err, &pg) && pg.Code == "42703"
+}

@@ -61,7 +61,7 @@ type ErrorHealth struct {
 // ErrorRef carries the request id so a report and a user's complaint can be
 // joined without opening the desk.
 type ErrorRef struct {
-	Name      string `json:"name"`
+	ID        string `json:"id"`
 	Method    string `json:"method"`
 	RequestID string `json:"requestId,omitempty"`
 	Creation  string `json:"creation"`
@@ -216,14 +216,14 @@ func (e *Engine) ErrorHealth(ctx context.Context, window time.Duration, limit in
 	// newest rows regardless would print months-old failures underneath a line
 	// that says "in 15m", which reads as though they were.
 	rows, err := db.Select(ctx, e.DB.Pool,
-		`SELECT name, method, request_id, creation FROM `+table+`
+		`SELECT id, method, request_id, creation FROM `+table+`
 		 WHERE creation > now() - make_interval(secs => $1) ORDER BY creation DESC LIMIT $2`, window.Seconds(), limit)
 	if err != nil {
 		return nil, err
 	}
 	for _, r := range rows {
 		out.Latest = append(out.Latest, ErrorRef{
-			Name: db.Str(r["name"]), Method: db.Str(r["method"]),
+			ID: db.Str(r["id"]), Method: db.Str(r["method"]),
 			RequestID: db.Str(r["request_id"]), Creation: db.Str(r["creation"]),
 		})
 	}

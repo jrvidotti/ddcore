@@ -78,13 +78,13 @@ document, but never with an override.
 ## The `Document Share` DocType
 
 Each share is a `Document Share` row in `tab_document_share`, unique per
-`(user, share_doctype, share_name)`.
+`(user, share_doctype, share_id)`.
 
 | Field | Type | Meaning |
 | --- | --- | --- |
 | `user` | Link (`User`) | The recipient |
 | `share_doctype` | Data | The shared document's DocType |
-| `share_name` | Data | The shared document's name |
+| `share_id` | Data | The shared document's id |
 | `read`, `write`, `share` | Check | The rights granted |
 | `override_scope` | Check | Whether the share lifts the recipient's scopes |
 
@@ -105,9 +105,9 @@ A rename moves a document's shares, and deleting a document deletes them.
 
 | Method | Path | Body / result |
 | --- | --- | --- |
-| `GET` | `/api/shares/{doctype}/{name}` | `{ shares, canShare, canOverrideScope }`. The caller must read the document; without the `share` right, `shares` holds only the caller's own share |
-| `POST` | `/api/shares/add` | `{ doctype, name, user, read, write, share, overrideScope }` → the `Document Share` row |
-| `POST` | `/api/shares/remove` | `{ doctype, name, user }` → `{ ok: true }` |
+| `GET` | `/api/shares/{doctype}/{id}` | `{ shares, canShare, canOverrideScope }`. The caller must read the document; without the `share` right, `shares` holds only the caller's own share |
+| `POST` | `/api/shares/add` | `{ doctype, id, user, read, write, share, overrideScope }` → the `Document Share` row |
+| `POST` | `/api/shares/remove` | `{ doctype, id, user }` → `{ ok: true }` |
 
 `canOverrideScope` is computed only when `canShare` is true, and is `false` otherwise: a
 caller who cannot share never sees it as `true`.
@@ -117,7 +117,7 @@ caller who cannot share never sees it as `true`.
 | `401` | `Guest`, or no session |
 | `403` | The caller lacks `share` on the document, lacks `write` for a write share, or may not give an override |
 | `404` | The document does not exist, or `remove` names a share that does not exist |
-| `417` | Sharing with yourself, with `Admin` or `Guest`, or with a missing or disabled user; a DocType that cannot be shared; a missing `doctype`, `name` or `user`; invalid JSON, an unknown body field, or a body over 4096 bytes |
+| `417` | Sharing with yourself, with `Admin` or `Guest`, or with a missing or disabled user; a DocType that cannot be shared; a missing `doctype`, `id` or `user`; invalid JSON, an unknown body field, or a body over 4096 bytes |
 
 Order matters: the `share` right is checked **before** the recipient is validated, so a
 caller who cannot share learns nothing about the user they named.
@@ -125,7 +125,7 @@ caller who cannot share learns nothing about the user they named.
 ## Server SDK
 
 ```ts
-// add(doctype, name, user, rights?) → DocShare. Rights are the last argument.
+// add(doctype, id, user, rights?) → DocShare. Rights are the last argument.
 ddcore.share.add("Sales Order", "SO-0001", "ana@example.com", { write: true });
 ddcore.share.list("Sales Order", "SO-0001"); // DocShares: { shares, canShare, canOverrideScope }
 ddcore.share.remove("Sales Order", "SO-0001", "ana@example.com"); // void

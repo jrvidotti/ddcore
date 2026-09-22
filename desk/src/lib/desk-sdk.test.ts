@@ -19,9 +19,9 @@ describe("deskSDK listRegistry", () => {
     expect(deskSDK.listSettings("Contrato")).toEqual({ docstatusFilter: false });
   });
 
-  it("registers and retrieves the nameColumn option", () => {
-    deskSDK.defineListView("Empresa", { nameColumn: false });
-    expect(deskSDK.listSettings("Empresa")).toEqual({ nameColumn: false });
+  it("registers and retrieves the idColumn option", () => {
+    deskSDK.defineListView("Empresa", { idColumn: false });
+    expect(deskSDK.listSettings("Empresa")).toEqual({ idColumn: false });
   });
 
   it("registers and retrieves the modifiedColumn option", () => {

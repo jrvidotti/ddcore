@@ -176,10 +176,10 @@ func TestCatalogRoundTrip(t *testing.T) {
 	}
 }
 
-// A DocType's nameLabel heads its list's name column, so it is a key — of the
+// A DocType's idLabel heads its list's name column, so it is a key — of the
 // app that owns the DocType's own text, and of no other.
-func TestCollectDocTypeNameLabel(t *testing.T) {
-	d := &meta.DocType{Name: "Contract", App: "crm", Label: "Contract", NameLabel: "Contract No."}
+func TestCollectDocTypeIDLabel(t *testing.T) {
+	d := &meta.DocType{Name: "Contract", App: "crm", Label: "Contract", IDLabel: "Contract No."}
 	s := NewSet()
 	CollectDocType(s, d, "crm", "crm doctype")
 	if got, want := texts(s), []string{"Contract", "Contract No."}; !reflect.DeepEqual(got, want) {

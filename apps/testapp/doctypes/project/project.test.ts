@@ -66,8 +66,8 @@ describe("Project", () => {
 
   it("one of two completed: progress 50 and status In progress", () => {
     const p = makeProject();
-    const t = makeTask(p.name);
-    makeTask(p.name);
+    const t = makeTask(p.id);
+    makeTask(p.id);
     t.runMethod("complete");
 
     p.reload();
@@ -77,8 +77,8 @@ describe("Project", () => {
 
   it("all completed: progress 100 and status Completed", () => {
     const p = makeProject();
-    makeTask(p.name).runMethod("complete");
-    makeTask(p.name).runMethod("complete");
+    makeTask(p.id).runMethod("complete");
+    makeTask(p.id).runMethod("complete");
 
     p.reload();
     expect(p.progress).toBe(100);

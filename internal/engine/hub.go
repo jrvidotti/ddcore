@@ -10,7 +10,7 @@ type Event struct {
 	Payload any    `json:"payload"`
 	User    string `json:"-"` // "" = broadcast
 	Doctype string `json:"-"`
-	DocName string `json:"-"`
+	DocID   string `json:"-"`
 }
 
 // Authorizer answers whether a subscriber may see events about a document.
@@ -53,7 +53,7 @@ func (h *Hub) Publish(ev Event) {
 		if ev.User != "" && ev.User != sub.user {
 			continue
 		}
-		if ev.Doctype != "" && (sub.authorize == nil || !sub.authorize(ev.Doctype, ev.DocName)) {
+		if ev.Doctype != "" && (sub.authorize == nil || !sub.authorize(ev.Doctype, ev.DocID)) {
 			continue
 		}
 		select {

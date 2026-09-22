@@ -13,7 +13,7 @@
     if (!f) return;
     try {
       await runAttachOperation(setBusy, async () => {
-        const file = await api.upload(f, { doctype: doc?.parenttype || doc?.doctype, docname: doc?.parent || doc?.name, fieldname });
+        const file = await api.upload(f, { doctype: doc?.parenttype || doc?.doctype, docId: doc?.parent || doc?.id, fieldname });
         onchange(file.file_url);
       });
     } catch (err) { showError(err); }

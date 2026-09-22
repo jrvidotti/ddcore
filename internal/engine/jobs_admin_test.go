@@ -727,7 +727,7 @@ func TestAudit_JobAdmin(t *testing.T) {
 		t.Fatalf("expected status cancelled, got %s", act.Status)
 	}
 
-	cancelEvents, err := e.ListAuditEvents(ctx, AuditFilter{Action: "job.cancel", TargetName: fmt.Sprint(qID)})
+	cancelEvents, err := e.ListAuditEvents(ctx, AuditFilter{Action: "job.cancel", TargetID: fmt.Sprint(qID)})
 	if err != nil || len(cancelEvents) != 1 {
 		t.Fatalf("expected 1 job.cancel audit event, got %d, err=%v", len(cancelEvents), err)
 	}

@@ -63,10 +63,10 @@ leaking a struct into somebody's inbox.
 const { delivery } = ddcore.sendMail({
   template: "shop.order_confirmed",
   to: customer.email,
-  args: { order: doc.name, customer: doc.customer_name, url: link, lines },
-  attach: [doc.invoice],                          // File names, or a file_url
-  reference: { doctype: "Sales Order", name: doc.name },
-  key: `order-confirmed:${doc.name}`,             // optional
+  args: { order: doc.id, customer: doc.customer_name, url: link, lines },
+  attach: [doc.invoice],                          // File ids, or a file_url
+  reference: { doctype: "Sales Order", id: doc.id },
+  key: `order-confirmed:${doc.id}`,               // optional
 });
 ```
 
@@ -89,7 +89,7 @@ people do on purpose.
 
 ## Attachments
 
-`attach` takes `File` document names, or the `file_url` an `Attach` field
+`attach` takes `File` document ids, or the `file_url` an `Attach` field
 stores. Permission is decided once, when the message is queued, in your context:
 read permission on the document a file hangs from is read permission on the
 file, and a detached file belongs to its owner. It is the same rule
@@ -102,7 +102,7 @@ default), summed from `File.file_size` before anything is queued.
 
 Every message becomes an `Email Delivery`, at `/app/email-delivery` for a System
 Manager. It holds the recipient, the subject, the template and its arguments,
-the language, the attachment names, the reference, and the outcome:
+the language, the attachments, the reference, and the outcome:
 
 | Status | Meaning |
 | --- | --- |
@@ -179,5 +179,5 @@ see [authentication](auth.md) and `.env.example`:
 
 There is no inbound mail, no IMAP, no bounce handling, no CC or BCC, no
 Reply-To, no per-message From, and no resend button. An app that generates a PDF
-writes a `File` first and attaches it by name; there is no way to attach raw
+writes a `File` first and attaches it by id; there is no way to attach raw
 bytes, because bytes with no owner have no retention policy and no permission.

@@ -57,7 +57,7 @@ export interface Frm<T extends BaseDoc = BaseDoc> {
   reload(): Promise<void>;
   /** throws the unsaved edits away and goes back to the document as it was loaded */
   discardChanges(): Promise<void>;
-  /** calls a controller method (POST /api/resource/:doctype/:name/:method) and reloads the doc */
+  /** calls a controller method (POST /api/resource/:doctype/:id/:method) and reloads the doc */
   call(method: string, args?: Record<string, any>, opts?: { freeze?: boolean; reload?: boolean }): Promise<any>;
 }
 
@@ -98,20 +98,20 @@ export interface DialogSpec {
 
 /** A persisted notification visible to the current authenticated user. */
 export interface DeskNotification {
-  name: string;
+  id: string;
   title: string;
   message: string;
   creation: string;
   read: boolean;
   reference_doctype: string;
-  reference_name: string;
+  reference_id: string;
 }
 export interface NotificationListOptions { limit?: number; offset?: number; read?: boolean }
 export interface NotificationPage { data: DeskNotification[]; total: number }
 
 /** A ToDo document representing an assignment or pending task. */
 export interface ToDoDoc {
-  name: string;
+  id: string;
   status: "Open" | "Closed" | "Cancelled";
   priority: "Low" | "Medium" | "High" | "Urgent";
   date?: string;
@@ -119,16 +119,16 @@ export interface ToDoDoc {
   assigned_by: string;
   description?: string;
   reference_type?: string;
-  reference_name?: string;
+  reference_id?: string;
   creation?: string;
   modified?: string;
 }
 /** One user's share on one document (SEC-03). */
 export interface DocShare {
-  name: string;
+  id: string;
   user: string;
   share_doctype: string;
-  share_name: string;
+  share_id: string;
   read: boolean;
   write: boolean;
   share: boolean;
@@ -167,22 +167,22 @@ export interface DeskAPI {
   notifications: {
     list(options?: NotificationListOptions): Promise<NotificationPage>;
     count(): Promise<number>;
-    setRead(name: string, read: boolean): Promise<DeskNotification>;
+    setRead(id: string, read: boolean): Promise<DeskNotification>;
   };
   assignments: {
-    assign(doctype: string, name: string, args: AssignArgs): Promise<ToDoDoc>;
-    complete(name: string): Promise<ToDoDoc>;
-    revoke(name: string): Promise<{ success: boolean }>;
-    forDoc(doctype: string, name: string): Promise<ToDoDoc[]>;
+    assign(doctype: string, id: string, args: AssignArgs): Promise<ToDoDoc>;
+    complete(id: string): Promise<ToDoDoc>;
+    revoke(id: string): Promise<{ success: boolean }>;
+    forDoc(doctype: string, id: string): Promise<ToDoDoc[]>;
     pending(options?: PendingWorkOptions): Promise<PendingWorkPage>;
   };
   /** Document sharing (SEC-03). Read is always granted; the server checks the sharer. */
   shares: {
-    forDoc(doctype: string, name: string): Promise<DocSharesInfo>;
-    add(doctype: string, name: string, args: ShareArgs): Promise<DocShare>;
-    remove(doctype: string, name: string, user: string): Promise<{ ok: boolean }>;
+    forDoc(doctype: string, id: string): Promise<DocSharesInfo>;
+    add(doctype: string, id: string, args: ShareArgs): Promise<DocShare>;
+    remove(doctype: string, id: string, user: string): Promise<{ ok: boolean }>;
   };
-  /** Global search (OPS-08): documents the user can read whose name, title or search fields contain txt. */
+  /** Global search (OPS-08): documents the user can read whose id, title or search fields contain txt. */
   search: {
     global(txt: string, limit?: number): Promise<GlobalSearchHit[]>;
   };
@@ -190,13 +190,13 @@ export interface DeskAPI {
   __(s: string, args?: any[]): string;
   call(path: string, args?: Record<string, any>): Promise<any>;
   db: {
-    getValue(doctype: string, name: string | Record<string, any>, field: string): Promise<any>;
-    getValue(doctype: string, name: string | Record<string, any>, fields: string[]): Promise<Record<string, any> | null>;
+    getValue(doctype: string, id: string | Record<string, any>, field: string): Promise<any>;
+    getValue(doctype: string, id: string | Record<string, any>, fields: string[]): Promise<Record<string, any> | null>;
     getList(doctype: string, args?: { filters?: Filters; fields?: string[]; orderBy?: string; limit?: number; start?: number }): Promise<any[]>;
     count(doctype: string, filters?: Filters): Promise<number>;
     getSingle(doctype: string): Promise<any>;
-    getDoc(doctype: string, name: string): Promise<any>;
-    setValue(doctype: string, name: string, values: Record<string, any>): Promise<any>;
+    getDoc(doctype: string, id: string): Promise<any>;
+    setValue(doctype: string, id: string, values: Record<string, any>): Promise<any>;
     insert(doc: Record<string, any> & { doctype: string }): Promise<any>;
   };
   ui: {
@@ -236,8 +236,8 @@ export interface GlobalSearchHit {
   doctype: string;
   /** The DocType's translated label. */
   label: string;
-  name: string;
-  /** The title field's value, or the name. */
+  id: string;
+  /** The title field's value, or the id. */
   title: string;
 }
 
@@ -249,7 +249,7 @@ export interface CalendarViewOptions<T extends BaseDoc = BaseDoc> {
   field: keyof T & string;
   /** Optional: Datetime or Date field for range spans */
   endField?: keyof T & string;
-  /** Field shown as label inside the calendar chip (defaults to titleField or name) */
+  /** Field shown as label inside the calendar chip (defaults to titleField or id) */
   titleField?: keyof T & string;
   /** Field determining chip color (e.g. "status", uses optionColors automatically) */
   colorField?: keyof T & string;
@@ -268,7 +268,7 @@ export interface KanbanViewOptions<T extends BaseDoc = BaseDoc> {
   field: keyof T & string;
   /** Columns in order; defaults to the field's options. */
   columns?: string[];
-  /** Field shown as the card title (defaults to titleField or name) */
+  /** Field shown as the card title (defaults to titleField or id) */
   titleField?: keyof T & string;
   /** Field shown under the title */
   subtitleField?: keyof T & string;
@@ -281,7 +281,7 @@ export interface GanttViewOptions<T extends BaseDoc = BaseDoc> {
   startField: keyof T & string;
   /** Required: Date or Datetime field where a bar ends; rows without one are not drawn */
   endField: keyof T & string;
-  /** Field shown as the row label (defaults to titleField or name) */
+  /** Field shown as the row label (defaults to titleField or id) */
   titleField?: keyof T & string;
   /** Field determining bar color (e.g. "status", uses optionColors automatically) */
   colorField?: keyof T & string;
@@ -314,10 +314,10 @@ export interface ListViewOptions<T extends BaseDoc = BaseDoc> {
   /** `false` hides the trailing "Modified" column. Default `true`. */
   modifiedColumn?: boolean;
   /**
-   * `false` hides the leading document-name column. Default `true`. The row
+   * `false` hides the leading document-id column. Default `true`. The row
    * stays clickable, and the title field's cell links to the document.
    */
-  nameColumn?: boolean;
+  idColumn?: boolean;
   /** Fields fetched beyond the columns, for `indicator`, `badges` and `formatters`. */
   fields?: (keyof T & string)[];
   /** Extra indicators shown after the status, in the same cell. */

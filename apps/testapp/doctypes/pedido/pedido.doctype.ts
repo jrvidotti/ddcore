@@ -4,7 +4,7 @@ export default defineDoctype({
   name: "Pedido",
   module: "Projects",
   label: "Order",
-  naming: { series: "PED-.####" },
+  idGeneration: { series: "PED-.####" },
   titleField: "client",
   submittable: true,
   trackChanges: true,

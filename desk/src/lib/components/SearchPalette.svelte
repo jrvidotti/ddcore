@@ -90,7 +90,7 @@
         {#if loading}<span class="muted small">…</span>{/if}
       </div>
       <ul id="search-results" class="search-results" role="listbox">
-        {#each items as item, i (item.kind + item.doctype + item.name)}
+        {#each items as item, i (item.kind + item.doctype + item.id)}
           <li id={`search-item-${i}`} role="option" aria-selected={i === index}>
             <a href={item.href} class:active={i === index} onclick={(e) => { e.preventDefault(); open(item); }} onmousemove={() => (index = i)}>
               <Icon name={item.kind === "doctype" ? "list" : "notepad-text"} size={14} />

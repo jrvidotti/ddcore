@@ -35,7 +35,7 @@ export interface FieldDef {
    * Field permission level (0–9, default 0). A field above 0 is read and
    * written only by roles granted that level in `permissions` — the server
    * omits it from every response and refuses changes from anyone else, which
-   * `hidden` and `readOnly` never do. It cannot be the title, naming or search
+   * `hidden` and `readOnly` never do. It cannot be the title, idGeneration or search
    * field. See `field-permissions`.
    */
   permlevel?: number;
@@ -157,10 +157,10 @@ export interface ShareRights {
 
 /** One user's share on one document (the `Document Share` row). */
 export interface DocShare {
-  name: string;
+  id: string;
   user: string;
   share_doctype: string;
-  share_name: string;
+  share_id: string;
   read: boolean;
   write: boolean;
   share: boolean;
@@ -182,10 +182,10 @@ export interface SendMailArgs {
   args?: Record<string, any>;
   /** Overrides the reader's language. Defaults to the recipient's, then the site's. */
   lang?: string;
-  /** `File` document names, or their `file_url`. Authorized against the caller. */
+  /** `File` document ids, or their `file_url`. Authorized against the caller. */
   attach?: string[];
   /** The document this message is about, for the delivery record. */
-  reference?: { doctype: string; name: string };
+  reference?: { doctype: string; id: string };
   /**
    * Makes the send idempotent: a second call with the same key is refused by a
    * unique index rather than delivered twice.
@@ -258,7 +258,8 @@ export interface PermDef {
   permlevel?: number;
 }
 
-export interface NamingDef {
+/** How a new document gets its `id`. With none of these set, it is a random hash. */
+export interface IDGenerationDef {
   /** e.g. "CTR-.YYYY.-.####" */
   series?: string;
   field?: string;
@@ -289,12 +290,12 @@ export interface DoctypeDef {
   module?: string;
   label?: string;
   /**
-   * What the desk calls the document name, a catalogue key like `label`:
-   * `"Contract No."` heads the list's name column instead of "Name". Display
-   * only — filters, `orderBy` and the API still address it as `name`.
+   * What the desk calls the document's `id`, a catalogue key like `label`:
+   * `"Contract No."` heads the list's id column instead of "ID". Display
+   * only — filters, `orderBy` and the API still address it as `id`.
    */
-  nameLabel?: string;
-  naming?: NamingDef;
+  idLabel?: string;
+  idGeneration?: IDGenerationDef;
   submittable?: boolean;
   isChild?: boolean;
   isSingle?: boolean;
@@ -307,7 +308,7 @@ export interface DoctypeDef {
   /**
    * Whether the Desk's global search looks into this DocType. By default it
    * does when the DocType declares `titleField` or `searchFields` (never for
-   * a child table or a Single); `true` includes it anyway (matching `name`),
+   * a child table or a Single); `true` includes it anyway (matching `id`),
    * `false` leaves it out.
    */
   globalSearch?: boolean;
@@ -337,7 +338,7 @@ export interface DoctypeDef {
 
 export interface BaseDoc {
   doctype: string;
-  name: string;
+  id: string;
   owner?: string;
   creation?: string;
   modified?: string;
@@ -366,7 +367,7 @@ export interface ListArgs {
   orderBy?: string;
   limit?: number;
   start?: number;
-  /** "count(name) as total" style aggregates are allowed in fields */
+  /** "count(id) as total" style aggregates are allowed in fields */
   groupBy?: string;
 }
 
@@ -526,7 +527,7 @@ export interface ExtensionDef<T extends BaseDoc = BaseDoc> {
 }
 
 export interface ControllerDef<T extends BaseDoc = BaseDoc> extends Partial<Record<DocEvent, DocHook<T>>> {
-  /** callable from the desk/API via POST /api/resource/:doctype/:name/:method */
+  /** callable from the desk/API via POST /api/resource/:doctype/:id/:method */
   methods?: Record<string, (doc: T & Document<T>, args: Record<string, any>, ctx: Context) => any>;
   hasPermission?: (doc: T, ptype: string, user: string) => boolean | undefined;
   permissionQuery?: (user: string) => Filters | undefined;
@@ -596,7 +597,7 @@ export interface Document<T = any> {
   flags: Record<string, any>;
 }
 
-/** Persistent notifications. Recipients are active User names, never external addresses. */
+/** Persistent notifications. Recipients are active User ids, never external addresses. */
 export interface NotificationDef<D = Record<string, any>> {
   name: string;
   doctype: string;

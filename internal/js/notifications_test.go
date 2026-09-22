@@ -26,7 +26,7 @@ func notificationRuntime(t *testing.T, definition string) (*Runtime, error) {
 	return newRuntime(&fakeHost{}, []*Bundle{bundle}, false)
 }
 func TestNotificationDiscoveryEvaluation(t *testing.T) {
-	rt, err := notificationRuntime(t, `export default defineNotification({name:"Changed",doctype:"Task",event:"on_update",condition:(doc,before)=>doc.status!==before.status,recipients:(doc)=>[doc.owner,doc.owner],desk:{title:(doc)=>doc.status,message:(doc,before)=>before.status+" -> "+doc.status},email:{template:"Update",args:(doc)=>({name:doc.name})}});`)
+	rt, err := notificationRuntime(t, `export default defineNotification({name:"Changed",doctype:"Task",event:"on_update",condition:(doc,before)=>doc.status!==before.status,recipients:(doc)=>[doc.owner,doc.owner],desk:{title:(doc)=>doc.status,message:(doc,before)=>before.status+" -> "+doc.status},email:{template:"Update",args:(doc)=>({id:doc.id})}});`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,14 +37,14 @@ func TestNotificationDiscoveryEvaluation(t *testing.T) {
 	if !strings.Contains(string(raw), `"notifications":{"Changed"`) || !strings.Contains(string(raw), `"desk":true`) {
 		t.Fatal(string(raw))
 	}
-	doc := json.RawMessage(`{"name":"one","owner":"alice","status":"Done"}`)
+	doc := json.RawMessage(`{"id":"one","owner":"alice","status":"Done"}`)
 	before := json.RawMessage(`{"status":"Open"}`)
 	eval, err := rt.EvaluateNotification("Changed", doc, before)
 	if err != nil || !eval.Matches || len(eval.Recipients) != 1 || eval.Recipients[0] != "alice" {
 		t.Fatalf("%+v %v", eval, err)
 	}
 	content, err := rt.RenderNotification("Changed", doc, before)
-	if err != nil || content.Title != "Done" || content.Message != "Open -> Done" || string(content.EmailArgs) != `{"name":"one"}` {
+	if err != nil || content.Title != "Done" || content.Message != "Open -> Done" || string(content.EmailArgs) != `{"id":"one"}` {
 		t.Fatalf("%+v %v", content, err)
 	}
 	eval, err = rt.EvaluateNotification("Changed", doc, doc)

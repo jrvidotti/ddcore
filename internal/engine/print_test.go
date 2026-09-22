@@ -55,7 +55,7 @@ export default defineDoctype({
 	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		doc, err := c.Insert(Doc{
 			"doctype": "Contract",
-			"name":    "CTR-001",
+			"id":      "CTR-001",
 			"client":  "Acme Brazil",
 			"amount":  50000.50,
 			"secret":  "topsecretpass",
@@ -68,7 +68,7 @@ export default defineDoctype({
 		if err != nil {
 			return err
 		}
-		docName = doc.Name()
+		docName = doc.ID()
 		return nil
 	})
 	if err != nil {
@@ -103,7 +103,7 @@ export default defineDoctype({
 	err = e.Run(ctx, "Admin", func(c *Ctx) error {
 		_, err := c.Insert(Doc{
 			"doctype": "Secret Doc",
-			"name":    "SEC-001",
+			"id":      "SEC-001",
 			"title":   "Top Secret Mission",
 		}, SaveOpts{})
 		return err
@@ -142,7 +142,7 @@ export default definePrintTemplate({
   doctype: "Receipt",
   label: "Official Receipt",
   body: (doc, b, ctx) => [
-    b.header(_("Official Receipt"), { subtitle: doc.name }),
+    b.header(_("Official Receipt"), { subtitle: doc.id }),
     b.p(_("Received from {0}", [doc.donor])),
     b.keyValues([
       [_("Contribution"), ctx.formatCurrency(doc.amount)],
@@ -156,7 +156,7 @@ export default definePrintTemplate({
 	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		doc, err := c.Insert(Doc{
 			"doctype": "Receipt",
-			"name":    "REC-999",
+			"id":      "REC-999",
 			"donor":   "Carlos Silva",
 			"amount":  250.00,
 			"date":    "2026-09-14",
@@ -164,7 +164,7 @@ export default definePrintTemplate({
 		if err != nil {
 			return err
 		}
-		docName = doc.Name()
+		docName = doc.ID()
 		return nil
 	})
 	if err != nil {
@@ -222,7 +222,7 @@ export default definePrintTemplate({
   doctype: "Invoice",
   label: "Invoice with columns",
   body: (doc, b, ctx) => [
-    b.header(doc.name, { subtitle: _("Invoice") }),
+    b.header(doc.id, { subtitle: _("Invoice") }),
     b.columns([
       [b.h(3, _("Billed To")), b.p(doc.customer_name)],
       [b.keyValues([[_("Posting Date"), ctx.formatDate(doc.posting_date)]])],
@@ -233,7 +233,7 @@ export default definePrintTemplate({
 });`,
 	})
 	err := e.Run(ctx, "Admin", func(c *Ctx) error {
-		_, err := c.Insert(Doc{"doctype": "Invoice", "name": "INV-1", "customer_name": "Acme <Ltd>", "posting_date": "2026-09-14", "grand_total": 10}, SaveOpts{})
+		_, err := c.Insert(Doc{"doctype": "Invoice", "id": "INV-1", "customer_name": "Acme <Ltd>", "posting_date": "2026-09-14", "grand_total": 10}, SaveOpts{})
 		return err
 	})
 	if err != nil {
@@ -265,7 +265,7 @@ export default defineDoctype({
 	})
 	e.Cfg.Currency = "USD"
 	err := e.Run(ctx, "Admin", func(c *Ctx) error {
-		_, err := c.Insert(Doc{"doctype": "Fee", "name": "FEE-1", "amount": 50000.5}, SaveOpts{})
+		_, err := c.Insert(Doc{"doctype": "Fee", "id": "FEE-1", "amount": 50000.5}, SaveOpts{})
 		return err
 	})
 	if err != nil {
@@ -367,10 +367,10 @@ func TestPrintDoc_LetterHeadSelection(t *testing.T) {
 			}
 		}
 		// Old is updated first, so a scan returns it first; New is the newer one.
-		if _, err := c.Q().Exec(c.Ctx, `UPDATE tab_letter_head SET is_default = true, modified = now() - interval '1 hour' WHERE name = 'Old'`); err != nil {
+		if _, err := c.Q().Exec(c.Ctx, `UPDATE tab_letter_head SET is_default = true, modified = now() - interval '1 hour' WHERE id = 'Old'`); err != nil {
 			return err
 		}
-		if _, err := c.Q().Exec(c.Ctx, `UPDATE tab_letter_head SET is_default = true, modified = now() WHERE name = 'New'`); err != nil {
+		if _, err := c.Q().Exec(c.Ctx, `UPDATE tab_letter_head SET is_default = true, modified = now() WHERE id = 'New'`); err != nil {
 			return err
 		}
 		_, err := c.Insert(Doc{"doctype": "Pessoa", "nome": "Lia", "tipo": "PF"}, SaveOpts{})

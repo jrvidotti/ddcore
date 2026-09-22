@@ -3,7 +3,7 @@ import { api, type DeskNotification, type NotificationPage } from "./api";
 import { NotificationCenter } from "./notification-center.svelte";
 import { notifications, stopNotifications } from "./notifications.svelte";
 
-const notice = { name: "n1", title: "Review", message: "New task", read: false, creation: "2026-01-01T00:00:00Z", reference_doctype: "Task", reference_name: "task1" } satisfies DeskNotification;
+const notice = { id: "n1", title: "Review", message: "New task", read: false, creation: "2026-01-01T00:00:00Z", reference_doctype: "Task", reference_id: "task1" } satisfies DeskNotification;
 afterEach(() => { vi.restoreAllMocks(); stopNotifications(); });
 
 describe("notification center", () => {

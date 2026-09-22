@@ -23,7 +23,7 @@ func setupWithKey(t *testing.T) *Engine {
 	t.Helper()
 	return setupWith(t, map[string]string{
 		"doctypes/pessoa/pessoa.doctype.ts": `import { defineDoctype } from "@ddcore/sdk";
-export default defineDoctype({ name: "Pessoa", naming: { hash: true }, allowRename: true,
+export default defineDoctype({ name: "Pessoa", idGeneration: { hash: true }, allowRename: true,
   uniqueKeys: [{ name: "tipo_codigo", fields: ["tipo", "codigo"] }],
   fields: [
     { fieldname: "nome", fieldtype: "Data", label: "Nome", reqd: true },
@@ -97,10 +97,10 @@ func TestSavingADocumentDoesNotCollideWithItself(t *testing.T) {
 	if err := novaPessoa(t, e, "PF", "A-1"); err != nil {
 		t.Fatal(err)
 	}
-	rows := sqlRows(t, e, `SELECT name FROM tab_pessoa LIMIT 1`)
+	rows := sqlRows(t, e, `SELECT id FROM tab_pessoa LIMIT 1`)
 	err := e.Run(context.Background(), "Admin", func(c *Ctx) error {
 		c.Flags["ignorePermissions"] = true
-		doc, err := c.GetDoc("Pessoa", db.Str(rows[0]["name"]))
+		doc, err := c.GetDoc("Pessoa", db.Str(rows[0]["id"]))
 		if err != nil {
 			return err
 		}
@@ -218,7 +218,7 @@ func TestADuplicateIsReportedByWhichConstraintItHit(t *testing.T) {
 	}{
 		{"compound key", "tab_pessoa_uk_tipo_codigo", "{0} already exists", "Duplicate value"},
 		{"unique field", "tab_pessoa_nome", `{0} "{1}" already exists`, "Duplicate value"},
-		{"primary key", "tab_pessoa_pkey", "{0} {1} already exists", "Duplicate name"},
+		{"primary key", "tab_pessoa_pkey", "{0} {1} already exists", "Duplicate ID"},
 		// Not ours to read: another table's constraint, or a hand-made index.
 		{"someone else's", "tab_pedido_cliente", "Duplicate value in {0}", "Duplicate value"},
 		{"a key since removed", "tab_pessoa_uk_gone", "Duplicate value in {0}", "Duplicate value"},
@@ -227,7 +227,7 @@ func TestADuplicateIsReportedByWhichConstraintItHit(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			err := e.Run(context.Background(), "Admin", func(c *Ctx) error {
 				d, _ := c.St.DocType("Pessoa")
-				doc := Doc{"name": "PES-1", "nome": "A", "tipo": "PF", "codigo": "K"}
+				doc := Doc{"id": "PES-1", "nome": "A", "tipo": "PF", "codigo": "K"}
 				got := cerr.From(c.duplicateErr(d, doc, pgErr(tc.constraint)))
 				if got.Type != "DuplicateEntryError" {
 					t.Fatalf("type = %q, want DuplicateEntryError", got.Type)
@@ -254,7 +254,7 @@ func TestAnUnrelatedErrorIsNotCalledADuplicate(t *testing.T) {
 	boom := errors.New("connection reset")
 	err := e.Run(context.Background(), "Admin", func(c *Ctx) error {
 		d, _ := c.St.DocType("Pessoa")
-		if got := c.duplicateErr(d, Doc{"name": "PES-1"}, boom); got != boom {
+		if got := c.duplicateErr(d, Doc{"id": "PES-1"}, boom); got != boom {
 			t.Fatalf("got %v, want the original error back", got)
 		}
 		return nil

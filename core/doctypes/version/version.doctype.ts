@@ -7,7 +7,7 @@ export default defineDoctype({
   sortOrder: "desc",
   fields: [
     { fieldname: "ref_doctype", fieldtype: "Data", label: "DocType", searchIndex: true, inListView: true, inStandardFilter: true },
-    { fieldname: "docname", fieldtype: "Data", label: "Document", searchIndex: true, inListView: true, inStandardFilter: true },
+    { fieldname: "doc_id", renamedFrom: "docname", fieldtype: "Data", label: "Document", searchIndex: true, inListView: true, inStandardFilter: true },
     { fieldname: "data", fieldtype: "JSON", label: "Changes" },
   ],
   permissions: [

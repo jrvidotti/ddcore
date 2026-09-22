@@ -4,5 +4,5 @@
   const doctype = $derived(page.params.doctype ?? "");
 </script>
 {#key doctype}
-  <FormView {doctype} name="new" />
+  <FormView {doctype} id="new" />
 {/key}

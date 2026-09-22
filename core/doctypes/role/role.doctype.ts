@@ -4,7 +4,7 @@ export default defineDoctype({
   name: "Role",
   module: "Core",
   label: "Role",
-  naming: { field: "role_name" },
+  idGeneration: { field: "role_name" },
   allowRename: true,
   icon: "shield",
   fields: [

@@ -240,7 +240,7 @@ func TestSEC05_Refusals(t *testing.T) {
 			}
 		})
 	}
-	if n := x.countSQL(`SELECT count(*) FROM tab_user WHERE name='nobody@x.com'`); n != 0 {
+	if n := x.countSQL(`SELECT count(*) FROM tab_user WHERE id='nobody@x.com'`); n != 0 {
 		t.Fatal("a user was provisioned")
 	}
 	if n := x.countSQL(`SELECT count(*) FROM tab_audit_event WHERE action='account.login_sso' AND outcome='Denied'`); n != len(cases) {

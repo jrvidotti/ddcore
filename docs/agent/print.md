@@ -9,7 +9,7 @@ what the PDF renderer converts, so a preview and its PDF come from one render.
 Every DocType has a `standard` format, with no code.
 
 - The header is the DocType's label, followed by `: <value>` when the DocType
-  has a `titleField` with a value, and the document name as the subtitle. A
+  has a `titleField` with a value, and the document id as the subtitle. A
   submittable DocType gets a badge: Draft, Submitted or Cancelled. Other
   DocTypes get none.
 - Fields go into a fixed two-column grid, in declaration order. A Section Break
@@ -38,7 +38,7 @@ export default definePrintTemplate({
   doctype: "Invoice",
   label: "Official Invoice",
   body: (doc, b, ctx) => [
-    b.header(doc.name, { subtitle: _("Invoice"), badge: _("Paid"), badgeColor: "green" }),
+    b.header(doc.id, { subtitle: _("Invoice"), badge: _("Paid"), badgeColor: "green" }),
     b.columns([
       [b.h(3, _("Billed To")), b.p(doc.customer_name)],
       [b.keyValues([[_("Posting Date"), ctx.formatDate(doc.posting_date)]])],
@@ -138,9 +138,9 @@ it: they are not repeated on each page, and there are no page numbers.
 | Endpoint | Returns |
 | --- | --- |
 | `GET /api/print/formats/{doctype}` | `[{name, label, default}]`, `standard` first |
-| `GET /api/letterheads` | enabled Letter Heads, `[{name, is_default, disabled}]`, default first |
-| `GET /api/print/{doctype}/{name}` | the HTML |
-| `GET /api/print/{doctype}/{name}/pdf` | the PDF |
+| `GET /api/letterheads` | enabled Letter Heads, `[{id, is_default, disabled}]`, default first |
+| `GET /api/print/{doctype}/{id}` | the HTML |
+| `GET /api/print/{doctype}/{id}/pdf` | the PDF |
 
 The two lists require a signed-in user, and the format list also requires
 `read` permission on the DocType. The two print endpoints check `read`
@@ -149,8 +149,8 @@ permission on the document, as described above.
 The two print endpoints take the same query parameters:
 
 - `format` — `standard` (the default) or a template name.
-- `letterhead` — a Letter Head name, `none` for no Letter Head, or empty for the
-  default. A name that does not exist or is disabled is a `ValidationError`.
+- `letterhead` — a Letter Head id, `none` for no Letter Head, or empty for the
+  default. An id that does not exist or is disabled is a `ValidationError`.
 - `lang` — the print language; without it, the request's language.
 - `page_format` — `A4` (the default) or `Letter`, in any case. Anything else is a
   `ValidationError`.
@@ -159,7 +159,7 @@ The two print endpoints take the same query parameters:
 `page_format` and `landscape` are written into the HTML's `@page` rule, which is
 what the browser's print dialog and Chrome follow; a PDF command follows them if
 the tool reads `@page`. The PDF endpoint also takes `download`: `1` or `true`
-sends the file as an attachment named `<doctype>-<name>.pdf`; otherwise it is
+sends the file as an attachment named `<doctype>-<id>.pdf`; otherwise it is
 inline.
 
 ## PDF
@@ -190,7 +190,7 @@ with an error, Chrome or the command failing — is a 500.
 ## Desk
 
 A saved document's form has a Print button, also in its actions menu, that
-opens `/app/<workspace>/<doctype>/<name>/print`. The page shows the HTML in an iframe,
+opens `/app/<workspace>/<doctype>/<id>/print`. The page shows the HTML in an iframe,
 with pickers for the format, the Letter Head (preselecting the default) and the
 language. The language picker offers a fixed list: Português (Brasil), English
 and Español. The desk does not send `page_format` or `landscape`.

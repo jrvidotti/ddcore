@@ -31,8 +31,8 @@ describe("global search palette", () => {
 
   it("lists DocTypes before documents and keeps the server's order", () => {
     const items = buildItems("task", [
-      { doctype: "Task", label: "Task", name: "TASK-2", title: "Task two" },
-      { doctype: "User", label: "Usuário", name: "a@x.com", title: "" },
+      { doctype: "Task", label: "Task", id: "TASK-2", title: "Task two" },
+      { doctype: "User", label: "Usuário", id: "a@x.com", title: "" },
     ], { doctypes, workspaces, remembered: "" });
     expect(items.map((i) => [i.kind, i.title, i.href])).toEqual([
       ["doctype", "Task", "/app/work/Task"],

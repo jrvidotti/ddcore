@@ -24,7 +24,7 @@ class FakeStore implements DraftStore {
 
 const NOW = Date.UTC(2026, 0, 10);
 const draft = (over: Partial<Draft> = {}): Draft =>
-  ({ doctype: "Task", name: "TASK-1", doc: { name: "TASK-1", subject: "typed" }, savedAt: NOW, modified: "2026-01-01 10:00:00", ...over });
+  ({ doctype: "Task", id: "TASK-1", doc: { id: "TASK-1", subject: "typed" }, savedAt: NOW, modified: "2026-01-01 10:00:00", ...over });
 
 let store: FakeStore;
 beforeEach(() => { store = new FakeStore(); });
@@ -110,7 +110,7 @@ describe("pruneDrafts", () => {
 });
 
 describe("draftDecision", () => {
-  const server = { name: "TASK-1", subject: "saved", modified: "2026-01-01 10:00:00" };
+  const server = { id: "TASK-1", subject: "saved", modified: "2026-01-01 10:00:00" };
 
   it("has nothing to do without a draft", () => {
     expect(draftDecision(null, server)).toBe("none");

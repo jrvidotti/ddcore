@@ -28,7 +28,7 @@
 {#key doctype}
   {#await meta then m}
     {#if m.doctype.isSingle}
-      <FormView {doctype} name="singleton" />
+      <FormView {doctype} id="singleton" />
     {:else}
       <ListView {doctype} />
     {/if}

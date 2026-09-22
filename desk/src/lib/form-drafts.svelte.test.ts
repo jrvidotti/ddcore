@@ -12,7 +12,7 @@ const meta = {
   permissions: { read: true, write: true, create: true },
 } as unknown as Meta;
 
-const saved = () => ({ doctype: "Task", name: "TASK-1", subject: "saved", modified: "2026-01-01 10:00:00" });
+const saved = () => ({ doctype: "Task", id: "TASK-1", subject: "saved", modified: "2026-01-01 10:00:00" });
 
 describe("restoring a draft", () => {
   it("puts the typed values back and leaves the form dirty", () => {

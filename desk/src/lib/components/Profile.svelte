@@ -10,7 +10,7 @@
   import { onMount } from "svelte";
 
   type Profile = {
-    name: string; email: string; fullName: string;
+    id: string; email: string; fullName: string;
     language: string | null; userType: string; lastLogin: string | null; roles: string[];
   };
 
@@ -113,9 +113,9 @@
   }
 
   async function revokeKey(k: any) {
-    if (!(await confirm(__("Revoke the key {0}?", [k.label || k.name])))) return;
+    if (!(await confirm(__("Revoke the key {0}?", [k.label || k.id])))) return;
     try {
-      await api.call("core.services.api_keys.revokeMyAPIKey", { name: k.name });
+      await api.call("core.services.api_keys.revokeMyAPIKey", { id: k.id });
       await loadKeys();
       toast(__("Key revoked"), { indicator: "green" });
     } catch (e) { showError(e); }
@@ -244,7 +244,7 @@
           <tbody>
             {#each keys as k}
               <tr class:expired={isExpired(k.expires)}>
-                <td>{k.label || k.name}</td>
+                <td>{k.label || k.id}</td>
                 <td class="small muted">{when(k.last_used)}</td>
                 <td class="small muted">{k.expires ? when(k.expires) : __("never")}</td>
                 <td style="text-align:right">

@@ -37,7 +37,7 @@ export default defineDoctype({
     // Version: the pair is swept by name on rename, and deliberately *not* on
     // delete — see coreRefs in internal/engine/rename.go.
     { fieldname: "reference_doctype", fieldtype: "Data", label: "Reference DocType", searchIndex: true },
-    { fieldname: "reference_name", fieldtype: "Data", label: "Reference Name", searchIndex: true },
+    { fieldname: "reference_id", renamedFrom: "reference_name", fieldtype: "Data", label: "Reference ID", searchIndex: true },
     { fieldname: "key", fieldtype: "Data", label: "Idempotency Key", unique: true },
     { fieldname: "job", fieldtype: "Int", label: "Job" },
 

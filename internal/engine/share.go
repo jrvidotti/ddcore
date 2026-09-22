@@ -15,10 +15,10 @@ const shareDoctype = "Document Share"
 // Share; OverrideScope lets the share reach the user through their User
 // Permission scopes, for exactly the rights the share grants.
 type DocShare struct {
-	Name          string `json:"name"`
+	ID            string `json:"id"`
 	User          string `json:"user"`
 	Doctype       string `json:"share_doctype"`
-	DocName       string `json:"share_name"`
+	DocID         string `json:"share_id"`
 	Read          bool   `json:"read"`
 	Write         bool   `json:"write"`
 	Share         bool   `json:"share"`
@@ -60,8 +60,8 @@ func shareable(ptype string) bool {
 }
 
 func (c *Ctx) loadShares(user string) ([]DocShare, error) {
-	rows, err := db.Select(c.Ctx, c.Q(), `SELECT name, "user", share_doctype, share_name, "read", "write", "share", override_scope, owner
-		FROM tab_document_share WHERE "user" = $1 ORDER BY share_doctype, share_name`, user)
+	rows, err := db.Select(c.Ctx, c.Q(), `SELECT id, "user", share_doctype, share_id, "read", "write", "share", override_scope, owner
+		FROM tab_document_share WHERE "user" = $1 ORDER BY share_doctype, share_id`, user)
 	if err != nil {
 		return nil, err
 	}
@@ -74,8 +74,8 @@ func (c *Ctx) loadShares(user string) ([]DocShare, error) {
 
 func shareFromRow(r map[string]any) DocShare {
 	return DocShare{
-		Name: db.Str(r["name"]), User: db.Str(r["user"]),
-		Doctype: db.Str(r["share_doctype"]), DocName: db.Str(r["share_name"]),
+		ID: db.Str(r["id"]), User: db.Str(r["user"]),
+		Doctype: db.Str(r["share_doctype"]), DocID: db.Str(r["share_id"]),
 		Read: r["read"] == true, Write: r["write"] == true, Share: r["share"] == true,
 		OverrideScope: r["override_scope"] == true, Owner: db.Str(r["owner"]),
 	}
@@ -119,7 +119,7 @@ func (c *Ctx) shareOn(doctype, name string) (*DocShare, error) {
 		return nil, err
 	}
 	for i := range shares {
-		if shares[i].DocName == name && strings.EqualFold(shares[i].Doctype, doctype) {
+		if shares[i].DocID == name && strings.EqualFold(shares[i].Doctype, doctype) {
 			return &shares[i], nil
 		}
 	}
@@ -154,9 +154,9 @@ func (c *Ctx) sharedNames(doctype string) (scoped, override []any, err error) {
 			continue
 		}
 		if s.OverrideScope {
-			override = append(override, s.DocName)
+			override = append(override, s.DocID)
 		} else {
-			scoped = append(scoped, s.DocName)
+			scoped = append(scoped, s.DocID)
 		}
 	}
 	return scoped, override, nil
@@ -182,7 +182,7 @@ func (c *Ctx) scopeAllows(d *meta.DocType, doc Doc, ptype string) (bool, error) 
 	if err != nil || ok {
 		return ok, err
 	}
-	return c.scopeOverridden(d.Name, doc.Name(), ptype)
+	return c.scopeOverridden(d.Name, doc.ID(), ptype)
 }
 
 // sharesChanged drops the cached shares of users, now for this ctx and after
@@ -232,7 +232,7 @@ func (c *Ctx) CanOverrideScope() (bool, error) {
 // applies to.
 func (c *Ctx) shareTarget(doctype, name string) (*meta.DocType, Doc, error) {
 	if doctype == "" || name == "" {
-		return nil, nil, cerr.Validation("doctype and name are required")
+		return nil, nil, cerr.Validation("doctype and id are required")
 	}
 	d, err := c.St.DocType(doctype)
 	if err != nil {
@@ -249,8 +249,8 @@ func (c *Ctx) shareTarget(doctype, name string) (*meta.DocType, Doc, error) {
 }
 
 func (c *Ctx) shareRow(user, doctype, name string) (*DocShare, error) {
-	rows, err := db.Select(c.Ctx, c.Q(), `SELECT name, "user", share_doctype, share_name, "read", "write", "share", override_scope, owner
-		FROM tab_document_share WHERE "user" = $1 AND share_doctype = $2 AND share_name = $3`, user, doctype, name)
+	rows, err := db.Select(c.Ctx, c.Q(), `SELECT id, "user", share_doctype, share_id, "read", "write", "share", override_scope, owner
+		FROM tab_document_share WHERE "user" = $1 AND share_doctype = $2 AND share_id = $3`, user, doctype, name)
 	if err != nil || len(rows) == 0 {
 		return nil, err
 	}
@@ -291,7 +291,7 @@ func (c *Ctx) ShareDoc(doctype, name, user string, r ShareRights) (DocShare, err
 	case user == "Admin" || user == "Guest":
 		return out, cerr.Validation("A document cannot be shared with {0}", user)
 	}
-	rows, err := db.Select(c.Ctx, c.Q(), `SELECT enabled FROM tab_user WHERE name = $1`, user)
+	rows, err := db.Select(c.Ctx, c.Q(), `SELECT enabled FROM tab_user WHERE id = $1`, user)
 	if err != nil {
 		return out, err
 	}
@@ -318,13 +318,13 @@ func (c *Ctx) ShareDoc(doctype, name, user string, r ShareRights) (DocShare, err
 	if err != nil {
 		return out, err
 	}
-	values := Doc{"user": user, "share_doctype": d.Name, "share_name": name,
+	values := Doc{"user": user, "share_doctype": d.Name, "share_id": name,
 		"read": r.Read, "write": r.Write, "share": r.Share, "override_scope": r.OverrideScope}
 	var saved Doc
 	err = c.WithIgnorePermissions(func() error {
 		var row Doc
 		if existing != nil {
-			row, err = c.GetDoc(shareDoctype, existing.Name)
+			row, err = c.GetDoc(shareDoctype, existing.ID)
 			if err != nil {
 				return err
 			}
@@ -361,7 +361,7 @@ func (c *Ctx) notifyShare(d *meta.DocType, name, user string) {
 	if err := c.WithSavepoint(func() error {
 		return c.notifyUserAs("share", user, d.Name, name, title, msg)
 	}); err != nil {
-		c.E.Log.Warn("share notification failed", "doctype", d.Name, "name", name, "user", user, "err", err)
+		c.E.Log.Warn("share notification failed", "doctype", d.Name, "id", name, "user", user, "err", err)
 	}
 }
 
@@ -395,7 +395,7 @@ func (c *Ctx) UnshareDoc(doctype, name, user string) error {
 		}
 	}
 	return c.WithIgnorePermissions(func() error {
-		return c.Delete(shareDoctype, existing.Name, true, false)
+		return c.Delete(shareDoctype, existing.ID, true, false)
 	})
 }
 
@@ -415,8 +415,8 @@ func (c *Ctx) ListDocShares(doctype, name string) (DocShares, error) {
 			return out, err
 		}
 	}
-	rows, err := db.Select(c.Ctx, c.Q(), `SELECT name, "user", share_doctype, share_name, "read", "write", "share", override_scope, owner
-		FROM tab_document_share WHERE share_doctype = $1 AND share_name = $2 ORDER BY creation, name`, d.Name, name)
+	rows, err := db.Select(c.Ctx, c.Q(), `SELECT id, "user", share_doctype, share_id, "read", "write", "share", override_scope, owner
+		FROM tab_document_share WHERE share_doctype = $1 AND share_id = $2 ORDER BY creation, id`, d.Name, name)
 	if err != nil {
 		return out, err
 	}
@@ -434,7 +434,7 @@ func shareRightsOf(doc Doc) ShareRights {
 }
 
 func shareTargetChanged(before, after Doc) bool {
-	for _, f := range []string{"user", "share_doctype", "share_name"} {
+	for _, f := range []string{"user", "share_doctype", "share_id"} {
 		if before.Str(f) != after.Str(f) {
 			return true
 		}
@@ -447,7 +447,7 @@ func shareTargetChanged(before, after Doc) bool {
 func (c *Ctx) auditShareSaved(before, after Doc) error {
 	switch {
 	case before == nil:
-		if err := c.Audit("permission.share_grant", after.Str("share_doctype"), after.Str("share_name"), shareDetail(after.Str("user"), shareRightsOf(after))); err != nil {
+		if err := c.Audit("permission.share_grant", after.Str("share_doctype"), after.Str("share_id"), shareDetail(after.Str("user"), shareRightsOf(after))); err != nil {
 			return err
 		}
 	case shareTargetChanged(before, after):
@@ -456,7 +456,7 @@ func (c *Ctx) auditShareSaved(before, after Doc) error {
 		}
 		return c.auditShareSaved(nil, after)
 	case shareRightsOf(before) != shareRightsOf(after):
-		if err := c.Audit("permission.share_update", after.Str("share_doctype"), after.Str("share_name"), shareDetail(after.Str("user"), shareRightsOf(after))); err != nil {
+		if err := c.Audit("permission.share_update", after.Str("share_doctype"), after.Str("share_id"), shareDetail(after.Str("user"), shareRightsOf(after))); err != nil {
 			return err
 		}
 	}
@@ -466,5 +466,5 @@ func (c *Ctx) auditShareSaved(before, after Doc) error {
 
 func (c *Ctx) auditShareDeleted(doc Doc) error {
 	c.sharesChanged(doc.Str("user"))
-	return c.Audit("permission.share_revoke", doc.Str("share_doctype"), doc.Str("share_name"), map[string]any{"user": doc.Str("user")})
+	return c.Audit("permission.share_revoke", doc.Str("share_doctype"), doc.Str("share_id"), map[string]any{"user": doc.Str("user")})
 }

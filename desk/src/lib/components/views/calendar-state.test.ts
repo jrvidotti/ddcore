@@ -10,10 +10,10 @@ const fields: Field[] = [
 describe("calendar days and query bounds", () => {
   it.each(["creation", "modified", "starts_at"])("groups %s by the site's day across UTC midnight", (field) => {
     const rows = [
-      { name: "late", [field]: "2026-09-15T03:59:59.999999Z" },
-      { name: "next", [field]: "2026-09-15T04:00:00.000Z" },
-      { name: "empty", [field]: null },
-      { name: "invalid", [field]: "not a date" },
+      { id: "late", [field]: "2026-09-15T03:59:59.999999Z" },
+      { id: "next", [field]: "2026-09-15T04:00:00.000Z" },
+      { id: "empty", [field]: null },
+      { id: "invalid", [field]: "not a date" },
     ];
     expect([...groupCalendarRows(rows, field, fields, "America/Cuiaba")]).toEqual([
       ["2026-09-14", [rows[0]]],
@@ -36,7 +36,7 @@ describe("calendar days and query bounds", () => {
   });
 
   it("keeps Date grouping and inclusive bounds as civil dates", () => {
-    const rows = [{ name: "due", due_date: "2026-09-14" }, { name: "empty", due_date: "" }];
+    const rows = [{ id: "due", due_date: "2026-09-14" }, { id: "empty", due_date: "" }];
     expect([...groupCalendarRows(rows, "due_date", fields, "America/Cuiaba")]).toEqual([["2026-09-14", [rows[0]]]]);
     expect(calendarRangeFilters("due_date", fields, "2026-08-30", "2026-10-03", "Asia/Tokyo")).toEqual([
       ["due_date", ">=", "2026-08-30"], ["due_date", "<=", "2026-10-03"],

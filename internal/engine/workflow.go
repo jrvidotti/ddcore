@@ -182,7 +182,7 @@ func (c *Ctx) ApplyWorkflowTransition(doctype, name, action string) (Doc, error)
 			"comment_type":      "Workflow",
 			"reference_doctype": doctype,
 			"reference_type":    doctype,
-			"reference_name":    name,
+			"reference_id":      name,
 			"content":           c.T("{0} applied action '{1}' ({2} → {3})", c.User, c.T(action), c.T(currentState), c.T(matched.NextState)),
 		})
 		if err != nil {
@@ -191,7 +191,7 @@ func (c *Ctx) ApplyWorkflowTransition(doctype, name, action string) (Doc, error)
 		_, err = c.Insert(comment, SaveOpts{IgnorePermissions: true})
 		return err
 	}); err != nil {
-		c.E.Log.Warn("workflow timeline comment failed", "doctype", doctype, "name", name, "action", action, "err", err)
+		c.E.Log.Warn("workflow timeline comment failed", "doctype", doctype, "id", name, "action", action, "err", err)
 	}
 
 	return saved, nil

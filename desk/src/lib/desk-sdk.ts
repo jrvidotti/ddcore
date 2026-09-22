@@ -18,7 +18,7 @@ export interface CalendarViewOptions<T extends BaseDoc = BaseDoc> {
   field: keyof T & string;
   /** Optional: Datetime or Date field for range spans */
   endField?: keyof T & string;
-  /** Field shown as label inside the calendar chip (defaults to titleField or name) */
+  /** Field shown as label inside the calendar chip (defaults to titleField or id) */
   titleField?: keyof T & string;
   /** Field determining chip color (e.g. "status", uses optionColors automatically) */
   colorField?: keyof T & string;
@@ -37,7 +37,7 @@ export interface KanbanViewOptions<T extends BaseDoc = BaseDoc> {
   field: keyof T & string;
   /** Columns in order; defaults to the field's options. */
   columns?: string[];
-  /** Field shown as the card title (defaults to titleField or name) */
+  /** Field shown as the card title (defaults to titleField or id) */
   titleField?: keyof T & string;
   /** Field shown under the title */
   subtitleField?: keyof T & string;
@@ -50,7 +50,7 @@ export interface GanttViewOptions<T extends BaseDoc = BaseDoc> {
   startField: keyof T & string;
   /** Required: Date or Datetime field where a bar ends; rows without one are not drawn */
   endField: keyof T & string;
-  /** Field shown as the row label (defaults to titleField or name) */
+  /** Field shown as the row label (defaults to titleField or id) */
   titleField?: keyof T & string;
   /** Field determining bar color (e.g. "status", uses optionColors automatically) */
   colorField?: keyof T & string;
@@ -73,7 +73,7 @@ export interface ListViewOptions<T extends BaseDoc = BaseDoc> {
   indicator?: (row: T) => { label: string; color: string } | null | undefined;
   docstatusFilter?: boolean;
   modifiedColumn?: boolean;
-  nameColumn?: boolean;
+  idColumn?: boolean;
   fields?: (keyof T & string)[];
   badges?: (row: T) => { label: string; color: string }[] | null | undefined;
   filterOptions?: Partial<Record<keyof T & string, { value: string; label: string; filters: [string, string, any][] }[]>>;
@@ -96,9 +96,9 @@ export const deskSDK = {
     shares: api.shares,
     search: { global: (txt: string, limit?: number) => api.globalSearch(txt, limit) },
     db: {
-      getValue: async (doctype: string, name: string | Record<string, any>, field: string | string[]) => {
+      getValue: async (doctype: string, id: string | Record<string, any>, field: string | string[]) => {
         const fields = Array.isArray(field) ? field : [field];
-        const rows = await api.list(doctype, { filters: typeof name === "string" ? { name } : name, fields, limit: 1 });
+        const rows = await api.list(doctype, { filters: typeof id === "string" ? { id } : id, fields, limit: 1 });
         const row = rows[0];
         if (!row) return null;
         return Array.isArray(field) ? row : row[field];
@@ -106,8 +106,8 @@ export const deskSDK = {
       getList: (doctype: string, args: any = {}) => api.list(doctype, { filters: args.filters, fields: args.fields, order_by: args.orderBy, limit: args.limit, start: args.start }),
       count: (doctype: string, filters?: any) => api.count(doctype, filters),
       getSingle: (doctype: string) => api.getSingle(doctype),
-      getDoc: (doctype: string, name: string) => api.getDoc(doctype, name),
-      setValue: (doctype: string, name: string, values: any) => api.update(doctype, name, values),
+      getDoc: (doctype: string, id: string) => api.getDoc(doctype, id),
+      setValue: (doctype: string, id: string, values: any) => api.update(doctype, id, values),
       insert: (doc: any) => api.insert(doc.doctype, doc),
     },
     ui: { Dialog: dialog, dialog, msgprint: (m: string, o: any = {}) => toast(m, { title: o.title, indicator: o.indicator || "blue" }), alert: (m: string) => toast(m, { indicator: "blue" }), confirm, prompt, showError, toast },

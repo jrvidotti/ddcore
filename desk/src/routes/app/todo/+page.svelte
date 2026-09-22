@@ -50,12 +50,12 @@
 
   async function toggleComplete(row: ToDoDoc) {
     if (row.status === "Open") {
-      await pw.complete(row.name);
+      await pw.complete(row.id);
     }
   }
 
   async function revokeTask(row: ToDoDoc) {
-    await pw.revoke(row.name);
+    await pw.revoke(row.id);
   }
 
   async function createStandaloneTask() {
@@ -150,13 +150,13 @@
       </div>
     {:else}
       <ul class="task-list">
-        {#each pw.rows as row (row.name)}
+        {#each pw.rows as row (row.id)}
           <li class="task-row" class:completed={row.status === "Closed"}>
             <div class="task-check">
               <input
                 type="checkbox"
                 checked={row.status === "Closed"}
-                disabled={row.status !== "Open" || pw.pending === row.name}
+                disabled={row.status !== "Open" || pw.pending === row.id}
                 onchange={() => toggleComplete(row)}
                 aria-label={__("Mark as completed")}
               />
@@ -165,7 +165,7 @@
             <div class="task-content">
               <div class="task-header">
                 <span class="task-desc" class:done-text={row.status === "Closed"}>
-                  {row.description || row.name}
+                  {row.description || row.id}
                 </span>
                 <span class="priority-badge {priorityBadgeClass(row.priority)}">
                   {__(row.priority)}
@@ -173,13 +173,13 @@
               </div>
 
               <div class="task-meta">
-                {#if row.reference_type && row.reference_name}
+                {#if row.reference_type && row.reference_id}
                   <a
                     class="ref-doc"
-                    href={`/app/${encodeURIComponent(row.reference_type)}/${encodeURIComponent(row.reference_name)}`}
+                    href={`/app/${encodeURIComponent(row.reference_type)}/${encodeURIComponent(row.reference_id)}`}
                   >
                     <Icon name="file-text" size={12} />
-                    {doctypeLabel(row.reference_type)} · {row.reference_name}
+                    {doctypeLabel(row.reference_type)} · {row.reference_id}
                   </a>
                 {/if}
 
@@ -207,7 +207,7 @@
                   class="btn icon sm"
                   title={__("Complete")}
                   aria-label={__("Complete")}
-                  disabled={pw.pending === row.name}
+                  disabled={pw.pending === row.id}
                   onclick={() => toggleComplete(row)}
                 >
                   <Icon name="check" size={14} />
@@ -217,7 +217,7 @@
                   class="btn icon sm"
                   title={__("Revoke")}
                   aria-label={__("Revoke")}
-                  disabled={pw.pending === row.name}
+                  disabled={pw.pending === row.id}
                   onclick={() => revokeTask(row)}
                 >
                   <Icon name="x" size={14} />

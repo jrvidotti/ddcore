@@ -42,8 +42,8 @@ func setupMail(t *testing.T) *Engine { return setupWith(t, mailApp()) }
 func deliveries(t *testing.T, e *Engine) []map[string]any {
 	t.Helper()
 	rows, err := db.Select(context.Background(), e.DB.Pool,
-		`SELECT name, "to", subject, status, template, lang, args, attachments, job, attempts, sent_at, error,
-		        reference_doctype, reference_name
+		`SELECT id, "to", subject, status, template, lang, args, attachments, job, attempts, sent_at, error,
+		        reference_doctype, reference_id
 		 FROM tab_email_delivery ORDER BY creation`)
 	if err != nil {
 		t.Fatal(err)
@@ -94,7 +94,7 @@ func TestOPS02_SendingWritesARecordAndAJob(t *testing.T) {
 		t.Fatalf("expected one queued job, got %d", len(jobs))
 	}
 	jobArgs := asMap(jobs[0]["args"])
-	if db.Str(jobArgs["delivery"]) != db.Str(r["name"]) {
+	if db.Str(jobArgs["delivery"]) != db.Str(r["id"]) {
 		t.Errorf("the job does not name the delivery: %v", jobArgs)
 	}
 	// An ordinary template's arguments live on the record, so the job payload
@@ -300,7 +300,7 @@ func file(t *testing.T, e *Engine, owner, url string, size int, attachedTo strin
 		values := Doc{"file_name": "nota.pdf", "file_url": url, "file_size": size, "content_type": "application/pdf"}
 		if attachedTo != "" {
 			values["attached_to_doctype"] = "Pessoa"
-			values["attached_to_name"] = attachedTo
+			values["attached_to_id"] = attachedTo
 		}
 		d, err := c.NewDoc("File", values)
 		if err != nil {
@@ -310,7 +310,7 @@ func file(t *testing.T, e *Engine, owner, url string, size int, attachedTo strin
 		if err != nil {
 			return err
 		}
-		name = saved.Name()
+		name = saved.ID()
 		return nil
 	})
 	if err != nil {
@@ -395,7 +395,7 @@ func TestOPS02_HistoryOutlivesItsDocument(t *testing.T) {
 	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		_, err := c.QueueMail(MailRequest{
 			Template: "demo.aviso", To: []string{"ana@x.com"}, Subject: "S", Lang: "en",
-			Reference: &MailReference{Doctype: "Pessoa", Name: "Cliente"},
+			Reference: &MailReference{Doctype: "Pessoa", ID: "Cliente"},
 		})
 		return err
 	})
@@ -410,7 +410,7 @@ func TestOPS02_HistoryOutlivesItsDocument(t *testing.T) {
 		t.Fatal(err)
 	}
 	rows := deliveries(t, e)
-	if len(rows) != 1 || db.Str(rows[0]["reference_name"]) != "Cliente Novo" {
+	if len(rows) != 1 || db.Str(rows[0]["reference_id"]) != "Cliente Novo" {
 		t.Fatalf("rename did not follow the reference: %v", rows)
 	}
 
@@ -423,8 +423,8 @@ func TestOPS02_HistoryOutlivesItsDocument(t *testing.T) {
 	if len(rows) != 1 {
 		t.Fatalf("deleting the document deleted the record of a message that already went out: %v", rows)
 	}
-	if got := db.Str(rows[0]["reference_name"]); got != "Cliente Novo" {
-		t.Errorf("reference_name = %q — the record should still say what the message was about", got)
+	if got := db.Str(rows[0]["reference_id"]); got != "Cliente Novo" {
+		t.Errorf("reference_id = %q — the record should still say what the message was about", got)
 	}
 }
 

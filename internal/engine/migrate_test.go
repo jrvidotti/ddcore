@@ -71,7 +71,7 @@ func insertPessoa(t *testing.T, e *Engine, values Doc) string {
 			return err
 		}
 		n, err := c.Insert(doc, SaveOpts{IgnorePermissions: true})
-		name = n.Str("name")
+		name = n.Str("id")
 		return err
 	})
 	if err != nil {
@@ -343,7 +343,7 @@ func TestRenameDocType(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		pedido = saved.Str("name")
+		pedido = saved.Str("id")
 		// Pedido has trackChanges, and a Version row is written on update, not
 		// on insert — so there is something for the sweep to move.
 		saved["obs"] = "toca"
@@ -351,7 +351,7 @@ func TestRenameDocType(t *testing.T) {
 			return err
 		}
 		f, err := c.NewDoc("File", Doc{"file_name": "a.pdf", "file_url": "/files/a.pdf",
-			"attached_to_doctype": "Pedido", "attached_to_name": pedido})
+			"attached_to_doctype": "Pedido", "attached_to_id": pedido})
 		if err != nil {
 			return err
 		}
@@ -373,7 +373,7 @@ func TestRenameDocType(t *testing.T) {
 
 	migrar(t, e, true, "rename doctype")
 
-	if len(sqlRows(t, e, `SELECT 1 FROM tab_ordem WHERE name = $1`, pedido)) != 1 {
+	if len(sqlRows(t, e, `SELECT 1 FROM tab_ordem WHERE id = $1`, pedido)) != 1 {
 		t.Fatal("the row did not move to tab_ordem")
 	}
 	if columnType(t, e, "tab_pedido", "name") != "" {
@@ -386,8 +386,8 @@ func TestRenameDocType(t *testing.T) {
 	}
 	for _, q := range []struct{ what, sql string }{
 		{"child parenttype", `SELECT 1 FROM tab_item_pedido WHERE parenttype = 'Ordem' AND parent = $1`},
-		{"file", `SELECT 1 FROM tab_file WHERE attached_to_doctype = 'Ordem' AND attached_to_name = $1`},
-		{"version", `SELECT 1 FROM tab_version WHERE ref_doctype = 'Ordem' AND docname = $1`},
+		{"file", `SELECT 1 FROM tab_file WHERE attached_to_doctype = 'Ordem' AND attached_to_id = $1`},
+		{"version", `SELECT 1 FROM tab_version WHERE ref_doctype = 'Ordem' AND doc_id = $1`},
 	} {
 		if len(sqlRows(t, e, q.sql, pedido)) == 0 {
 			t.Fatalf("%s was not repointed at the new DocType name", q.what)
@@ -414,7 +414,7 @@ func TestRenameDocType(t *testing.T) {
 // TestDocumentRenameKeepsAttachments — a defect this work turned up rather than
 // introduced: Ctx.Rename swept Version and Comment but not File, so a renamed
 // document lost its attachments, and with them the permission check on a
-// private file, which reads attached_to_name to decide who may download it.
+// private file, which reads attached_to_id to decide who may download it.
 func TestDocumentRenameKeepsAttachments(t *testing.T) {
 	e := setup(t)
 	ctx := context.Background()
@@ -423,7 +423,7 @@ func TestDocumentRenameKeepsAttachments(t *testing.T) {
 	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		c.Flags["ignorePermissions"] = true
 		f, err := c.NewDoc("File", Doc{"file_name": "h.pdf", "file_url": "/files/h.pdf",
-			"attached_to_doctype": "Pessoa", "attached_to_name": name})
+			"attached_to_doctype": "Pessoa", "attached_to_id": name})
 		if err != nil {
 			return err
 		}
@@ -436,7 +436,7 @@ func TestDocumentRenameKeepsAttachments(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(sqlRows(t, e, `SELECT 1 FROM tab_file WHERE attached_to_name = 'Hugo Renomeado'`)) != 1 {
+	if len(sqlRows(t, e, `SELECT 1 FROM tab_file WHERE attached_to_id = 'Hugo Renomeado'`)) != 1 {
 		t.Fatal("the attachment did not follow the rename")
 	}
 }
@@ -451,7 +451,7 @@ export default definePatch({
   phase: "beforeSchema",
   execute(ctx) {
     const cols = ctx.sql("SELECT column_name FROM information_schema.columns WHERE table_name = 'tab_pessoa' AND column_name = 'apelido'");
-    ctx.sql("INSERT INTO tab_pessoa (name, docstatus, nome, codigo) VALUES ($1, 0, $2, $3)",
+    ctx.sql("INSERT INTO tab_pessoa (id, docstatus, nome, codigo) VALUES ($1, 0, $2, $3)",
       ["marca-antes", "antes", String(cols.length)]);
   },
 });`,
@@ -459,7 +459,7 @@ export default definePatch({
 export default definePatch({
   execute(ctx) {
     const cols = ctx.sql("SELECT column_name FROM information_schema.columns WHERE table_name = 'tab_pessoa' AND column_name = 'apelido'");
-    ctx.sql("INSERT INTO tab_pessoa (name, docstatus, nome, codigo) VALUES ($1, 0, $2, $3)",
+    ctx.sql("INSERT INTO tab_pessoa (id, docstatus, nome, codigo) VALUES ($1, 0, $2, $3)",
       ["marca-depois", "depois", String(cols.length)]);
   },
 });`,
@@ -468,7 +468,7 @@ export default definePatch({
 	// The app installs fresh, so both patches were recorded rather than run:
 	// a patch describes a change to data a new database does not have, and a
 	// beforeSchema one would run against tables that do not exist yet.
-	if len(sqlRows(t, e, `SELECT 1 FROM tab_pessoa WHERE name LIKE 'marca-%'`)) != 0 {
+	if len(sqlRows(t, e, `SELECT 1 FROM tab_pessoa WHERE id LIKE 'marca-%'`)) != 0 {
 		t.Fatal("a fresh install ran its patches instead of recording them")
 	}
 	ran := sqlRows(t, e, `SELECT name FROM ddcore_patch WHERE app = 'demo'`)
@@ -490,7 +490,7 @@ export default definePatch({
 		t.Fatalf("both patches should have run, got %v", res.Patches)
 	}
 
-	rows := sqlRows(t, e, `SELECT name, codigo FROM tab_pessoa WHERE name LIKE 'marca-%' ORDER BY name`)
+	rows := sqlRows(t, e, `SELECT id, codigo FROM tab_pessoa WHERE id LIKE 'marca-%' ORDER BY id`)
 	if len(rows) != 2 {
 		t.Fatalf("expected both marks, got %v", rows)
 	}
@@ -513,7 +513,7 @@ export default definePatch({
 func TestBareExecutePatchStillWorks(t *testing.T) {
 	e := setupWith(t, map[string]string{
 		"patches/0001_nu.ts": `export function execute(ctx: any) {
-  ctx.sql("INSERT INTO tab_pessoa (name, docstatus, nome) VALUES ('nu', 0, 'nu')");
+  ctx.sql("INSERT INTO tab_pessoa (id, docstatus, nome) VALUES ('nu', 0, 'nu')");
 }`,
 	})
 	if _, err := e.DB.Pool.Exec(context.Background(), `DELETE FROM ddcore_patch`); err != nil {
@@ -528,7 +528,7 @@ func TestBareExecutePatchStillWorks(t *testing.T) {
 			t.Fatal("a patch with no phase must default to afterSchema")
 		}
 	}
-	if len(sqlRows(t, e, `SELECT 1 FROM tab_pessoa WHERE name = 'nu'`)) != 1 {
+	if len(sqlRows(t, e, `SELECT 1 FROM tab_pessoa WHERE id = 'nu'`)) != 1 {
 		t.Fatal("the bare patch did not run")
 	}
 }

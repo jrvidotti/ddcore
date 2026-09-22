@@ -62,7 +62,7 @@ describe("Workflow form integration", () => {
 
   it("determines available workflow actions from doc._workflow", () => {
     const doc = {
-      name: "PED-1",
+      id: "PED-1",
       doctype: "Pedido",
       _workflow: {
         state: "Pending Approval",
@@ -78,7 +78,7 @@ describe("Workflow form integration", () => {
   it("exposes workflow getter on FormController", () => {
     const meta = makeMeta();
     const doc = {
-      name: "ART-001",
+      id: "ART-001",
       doctype: "Artigo",
       _workflow: {
         state: "Draft",
@@ -92,7 +92,7 @@ describe("Workflow form integration", () => {
   it("makes form and fields read-only when _workflow.allowEdit is false", () => {
     const meta = makeMeta({ write: true });
     const doc = {
-      name: "ART-001",
+      id: "ART-001",
       doctype: "Artigo",
       _workflow: {
         state: "Pending Approval",
@@ -108,7 +108,7 @@ describe("Workflow form integration", () => {
   it("makes form and fields read-only when workflow is present and write permission is denied", () => {
     const meta = makeMeta({ write: false });
     const doc = {
-      name: "ART-001",
+      id: "ART-001",
       doctype: "Artigo",
       _workflow: {
         state: "Draft",
@@ -123,7 +123,7 @@ describe("Workflow form integration", () => {
   it("keeps form editable when workflow allows edit and user has write permission", () => {
     const meta = makeMeta({ write: true });
     const doc = {
-      name: "ART-001",
+      id: "ART-001",
       doctype: "Artigo",
       _workflow: {
         state: "Draft",
@@ -139,7 +139,7 @@ describe("Workflow form integration", () => {
   it("suppresses direct manual submit and cancel when workflow is present", async () => {
     const meta = makeMeta({ submittable: true, write: true });
     const doc = {
-      name: "ART-001",
+      id: "ART-001",
       doctype: "Artigo",
       docstatus: 0,
       _workflow: {
@@ -157,7 +157,7 @@ describe("Workflow form integration", () => {
   it("calls api.post to apply workflow transition and reloads document", async () => {
     const meta = makeMeta();
     const doc = {
-      name: "ART-001",
+      id: "ART-001",
       doctype: "Artigo",
       _workflow: {
         state: "Draft",
@@ -182,7 +182,7 @@ describe("Workflow form integration", () => {
     expect(ok).toBe(true);
     expect(api.post).toHaveBeenCalledWith("/api/workflow/apply", {
       doctype: "Artigo",
-      name: "ART-001",
+      id: "ART-001",
       action: "Submit for Approval",
     });
     expect(frm.workflow?.state).toBe("Pending Approval");
@@ -194,7 +194,7 @@ describe("Workflow form integration", () => {
   });
 
   it("names the applied action in the user's language", async () => {
-    const doc = { name: "ART-001", doctype: "Artigo", _workflow: { state: "Pending Approval", actions: [{ action: "Approve", nextState: "Approved" }] } };
+    const doc = { id: "ART-001", doctype: "Artigo", _workflow: { state: "Pending Approval", actions: [{ action: "Approve", nextState: "Approved" }] } };
     const frm = new FormController(makeMeta(), doc);
     vi.mocked(api.post).mockResolvedValue({ ...doc, _workflow: { state: "Approved", actions: [] } });
     expect(await frm.applyWorkflowAction("Approve")).toBe(true);
@@ -202,7 +202,7 @@ describe("Workflow form integration", () => {
   });
 
   it("refuses to apply an action over unsaved edits", async () => {
-    const doc = { name: "ART-001", doctype: "Artigo", titulo: "a", _workflow: { state: "Draft", actions: [{ action: "Submit for Approval", nextState: "Pending Approval" }] } };
+    const doc = { id: "ART-001", doctype: "Artigo", titulo: "a", _workflow: { state: "Draft", actions: [{ action: "Submit for Approval", nextState: "Pending Approval" }] } };
     const frm = new FormController(makeMeta(), doc);
     frm.doc.titulo = "edited";
     expect(frm.isDirty).toBe(true);
@@ -213,7 +213,7 @@ describe("Workflow form integration", () => {
   it("handles workflow transition errors gracefully", async () => {
     const meta = makeMeta();
     const doc = {
-      name: "ART-001",
+      id: "ART-001",
       doctype: "Artigo",
       _workflow: {
         state: "Draft",

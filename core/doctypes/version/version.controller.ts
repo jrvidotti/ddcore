@@ -5,7 +5,7 @@ function canReadReference(doctype: string, docname: string): boolean {
   if (!doctype || !docname) return false;
   const owner = ddcore.db.getValue(doctype, docname, "owner");
   if (owner === undefined || owner === null) return false; // deleted document
-  return ddcore.hasPermission(doctype, "read", { name: docname, owner }) === true;
+  return ddcore.hasPermission(doctype, "read", { id: docname, owner }) === true;
 }
 
 export default defineController("Version", {
@@ -14,6 +14,6 @@ export default defineController("Version", {
     if ((ddcore.getRoles(user) || []).indexOf("System Manager") >= 0) return true;
     // history is immutable for regular users
     if (ptype !== "read" && ptype !== "report" && ptype !== "export") return false;
-    return canReadReference(String(doc.ref_doctype || ""), String(doc.docname || ""));
+    return canReadReference(String(doc.ref_doctype || ""), String(doc.doc_id || ""));
   },
 });

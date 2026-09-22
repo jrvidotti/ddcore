@@ -6,7 +6,7 @@ import { formatDate, formatDatetime, formatCurrency, formatNumber, timeAgo } fro
 
 export const IGNORED_CHILD_FIELDS = new Set([
   "idx",
-  "name",
+  "id",
   "owner",
   "parent",
   "parentfield",
@@ -176,20 +176,30 @@ function summarizeRow(row: any, childMeta?: DocTypeMeta): TableRowSummary {
   }
   return {
     rowIdx: Number(row.idx) || 1,
-    rowName: String(row.name || ""),
+    rowName: String(row.id || ""),
     fields,
   };
 }
 
+// A Version written before 0.17 keeps its child rows as they were then, keyed
+// by `name`. A row with no `id` but a `name` is one of those: read the key from
+// where it was, so old history still pairs its rows instead of showing every
+// row as removed and added again.
+function legacyRow(r: any): any {
+  if (!r || typeof r !== "object" || r.id !== undefined || r.name === undefined) return r;
+  const { name, ...rest } = r;
+  return { ...rest, id: name };
+}
+
 export function diffTable(beforeRows: any[], afterRows: any[], childMeta?: DocTypeMeta): TableDiff {
-  const before = Array.isArray(beforeRows) ? beforeRows : [];
-  const after = Array.isArray(afterRows) ? afterRows : [];
+  const before = (Array.isArray(beforeRows) ? beforeRows : []).map(legacyRow);
+  const after = (Array.isArray(afterRows) ? afterRows : []).map(legacyRow);
 
   const beforeMap = new Map<string, any>();
-  before.forEach((r, i) => beforeMap.set(r?.name || `idx_${r?.idx || i + 1}`, r));
+  before.forEach((r, i) => beforeMap.set(r?.id || `idx_${r?.idx || i + 1}`, r));
 
   const afterMap = new Map<string, any>();
-  after.forEach((r, i) => afterMap.set(r?.name || `idx_${r?.idx || i + 1}`, r));
+  after.forEach((r, i) => afterMap.set(r?.id || `idx_${r?.idx || i + 1}`, r));
 
   const added: TableRowSummary[] = [];
   const removed: TableRowSummary[] = [];
@@ -230,7 +240,7 @@ export function diffTable(beforeRows: any[], afterRows: any[], childMeta?: DocTy
       if (changes.length > 0) {
         modified.push({
           rowIdx: Number(row.idx) || Number(prev.idx) || 1,
-          rowName: String(row.name || prev.name || key),
+          rowName: String(row.id || prev.id || key),
           changes,
         });
       }
@@ -304,7 +314,7 @@ export function parseVersion(v: any, frm?: FormController): ParsedVersion {
   }
 
   return {
-    id: String(v.name || ""),
+    id: String(v.id || ""),
     owner: String(v.owner || "Sistema"),
     creation: String(v.creation || ""),
     relativeTime: timeAgo(v.creation),

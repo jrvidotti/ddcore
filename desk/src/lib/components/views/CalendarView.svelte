@@ -16,7 +16,7 @@
   } = $props();
 
   const days = $derived(getCalendarDays(viewYear, viewMonth));
-  const titleField = $derived(calendar.titleField || meta.doctype.titleField || "name");
+  const titleField = $derived(calendar.titleField || meta.doctype.titleField || "id");
   const colorField = $derived(meta.doctype.fields.find((f) => f.fieldname === (calendar.colorField || "status")));
   const isDatetime = $derived(isCalendarDatetime(meta.doctype.fields, calendar.field));
   const todayIso = $derived(today());
@@ -58,8 +58,8 @@
             <a class="day-number create" href={`${wsPrefix}/${encodeURIComponent(doctype)}/new?${encodeURIComponent(calendar.field)}=${encodeURIComponent(prefill || day.iso)}`} aria-label={`${__("New")} — ${day.iso}`} title={`${__("New")} — ${day.iso}`}>{day.day}</a>
           {:else}<span class="day-number">{day.day}</span>{/if}
           <div class="events">
-            {#each byDay.get(day.iso) || [] as row (row.name)}
-              <a class="indicator event {statusColor(row[calendar.colorField || "status"], colorField)}" href={`${wsPrefix}/${encodeURIComponent(doctype)}/${encodeURIComponent(row.name)}`} title={String(row[titleField] || row.name)}>{row[titleField] || row.name}</a>
+            {#each byDay.get(day.iso) || [] as row (row.id)}
+              <a class="indicator event {statusColor(row[calendar.colorField || "status"], colorField)}" href={`${wsPrefix}/${encodeURIComponent(doctype)}/${encodeURIComponent(row.id)}`} title={String(row[titleField] || row.id)}>{row[titleField] || row.id}</a>
             {/each}
           </div>
         </div>

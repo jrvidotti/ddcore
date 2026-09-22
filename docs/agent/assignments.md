@@ -15,9 +15,9 @@ Assignments and personal tasks are stored in `tab_to_do` using standard document
 | `assigned_by` | Link (`User`) | User who created the assignment |
 | `description` | Small Text | Task description or instructions |
 | `reference_type` | Data | Referenced DocType name (e.g. `Order`, `Customer`) |
-| `reference_name` | Data | Referenced document name (e.g. `ORD-0001`) |
+| `reference_id` | Data | Referenced document id (e.g. `ORD-0001`) |
 
-Standalone personal tasks have `reference_type` and `reference_name` unset. Document assignments link to a target record.
+Standalone personal tasks have `reference_type` and `reference_id` unset. Document assignments link to a target record.
 
 ## Authorization
 
@@ -25,13 +25,13 @@ Standalone personal tasks have `reference_type` and `reference_name` unset. Docu
 > **Assignment never grants document access.**
 > An assignment is an operational pointer, not an authorization mechanism. The authenticated user must independently have read permission on the referenced document through role permissions, a document share, user permissions, and controller `hasPermission` / `permissionQuery` hooks. To give an assignee access, share the document with them (see `sharing`).
 
-When a user loses read permission on a referenced document, `GET /api/todo/pending` and `GET /api/assignments/{doctype}/{name}` stop showing its tasks to that user, and a direct read of the document through `/api/resource/{doctype}/{name}` returns `403 Forbidden`.
+When a user loses read permission on a referenced document, `GET /api/todo/pending` and `GET /api/assignments/{doctype}/{id}` stop showing its tasks to that user, and a direct read of the document through `/api/resource/{doctype}/{id}` returns `403 Forbidden`.
 
-Renaming a document updates `reference_type` and `reference_name` on its ToDos through `coreRefs` in `internal/engine/rename.go`. Deleting a document deletes its ToDos with a direct `DELETE`; no ToDo hooks run.
+Renaming a document updates `reference_type` and `reference_id` on its ToDos through `coreRefs` in `internal/engine/rename.go`. Deleting a document deletes its ToDos with a direct `DELETE`; no ToDo hooks run.
 
 ### Generic ToDo CRUD
 
-`/api/resource/ToDo` follows the ToDo controller. A System Manager can do everything. Anyone else can read and write a ToDo when they are its assigner or its assignee and can read the referenced document, if there is one; only the assigner can delete it. The listing shows the tasks allocated to the caller. On insert, `assigned_by` is set to the creating user; only a System Manager can record another user as assigner. On update, anyone but a System Manager is refused a change to `assigned_by`, `allocated_to`, `reference_type` or `reference_name`: an assignment changes hands through the assignment endpoints, not by editing the ToDo.
+`/api/resource/ToDo` follows the ToDo controller. A System Manager can do everything. Anyone else can read and write a ToDo when they are its assigner or its assignee and can read the referenced document, if there is one; only the assigner can delete it. The listing shows the tasks allocated to the caller. On insert, `assigned_by` is set to the creating user; only a System Manager can record another user as assigner. On update, anyone but a System Manager is refused a change to `assigned_by`, `allocated_to`, `reference_type` or `reference_id`: an assignment changes hands through the assignment endpoints, not by editing the ToDo.
 
 ## HTTP API
 
@@ -40,9 +40,9 @@ All assignment endpoints require an authenticated user. Assignments are availabl
 | Method | Endpoint | Description |
 | --- | --- | --- |
 | `POST` | `/api/assignments/assign` | Assigns a document to a user. Creates a `ToDo`, adds a `Workflow` Comment on the target document, and notifies the assignee. |
-| `POST` | `/api/assignments/complete` | Closes a `ToDo` (`status: "Closed"`) and adds a timeline Comment. Allowed for the assignee, the assigner, or a System Manager. |
-| `POST` | `/api/assignments/revoke` | Cancels a `ToDo` (`status: "Cancelled"`) and adds a timeline Comment. Allowed for the assigner, the assignee, or a System Manager. Returns `{ "success": true }`. |
-| `GET` | `/api/assignments/{doctype}/{name}` | Lists the assignments of a document. Requires read permission on the document. |
+| `POST` | `/api/assignments/complete` | Closes the `ToDo` named by `{ id }` (`status: "Closed"`) and adds a timeline Comment. Allowed for the assignee, the assigner, or a System Manager. |
+| `POST` | `/api/assignments/revoke` | Cancels the `ToDo` named by `{ id }` (`status: "Cancelled"`) and adds a timeline Comment. Allowed for the assigner, the assignee, or a System Manager. Returns `{ "success": true }`. |
+| `GET` | `/api/assignments/{doctype}/{id}` | Lists the assignments of a document. Requires read permission on the document. |
 | `GET` | `/api/todo/pending` | Lists pending work for the current user, leaving out tasks whose referenced documents the caller cannot read. |
 
 Assignment actions write no `Audit Event`. Nothing prevents a second open assignment of the same document to the same user. Timeline comments are written in English.
@@ -53,7 +53,7 @@ Request body:
 ```json
 {
   "doctype": "Order",
-  "name": "ORD-0001",
+  "id": "ORD-0001",
   "allocated_to": "alice@example.com",
   "priority": "High",
   "date": "2026-09-20",
@@ -63,7 +63,7 @@ Request body:
 
 The caller needs read permission on the target document. `allocated_to` must be an existing, enabled user. Unknown JSON fields are rejected, and `priority` defaults to `Medium`.
 
-The assignee's notification is written in the assignee's language: the title is "Assigned: {doctype} {name}", and the message is the description, or "{user} assigned {doctype} {name} to you" when there is none. No notification is sent when users assign to themselves, or when the assignee cannot read the document. The timeline comment and the notification each run in a savepoint: when one fails, its writes are rolled back, the error is logged, and the assignment still commits. Completing and revoking treat their timeline comments the same way.
+The assignee's notification is written in the assignee's language: the title is "Assigned: {doctype} {id}", and the message is the description, or "{user} assigned {doctype} {id} to you" when there is none. No notification is sent when users assign to themselves, or when the assignee cannot read the document. The timeline comment and the notification each run in a savepoint: when one fails, its writes are rolled back, the error is logged, and the assignment still commits. Completing and revoking treat their timeline comments the same way.
 
 Response: `{ "data": ToDoDoc }`
 

@@ -30,7 +30,7 @@
   {#key segment}
     {#await getMeta(segment) then m}
       {#if m.doctype.isSingle}
-        <FormView doctype={segment} name="singleton" />
+        <FormView doctype={segment} id="singleton" />
       {:else}
         <ListView doctype={segment} />
       {/if}

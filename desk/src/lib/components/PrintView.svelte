@@ -7,11 +7,11 @@
   import { toast } from "$lib/ui.svelte";
   import Icon from "./Icon.svelte";
 
-  let { doctype, name }: { doctype: string; name: string } = $props();
+  let { doctype, id }: { doctype: string; id: string } = $props();
 
   let formats = $state<{ name: string; label: string; default?: boolean }[]>([]);
   let selectedFormat = $state("standard");
-  let letterheads = $state<{ name: string; is_default?: boolean; disabled?: boolean }[]>([]);
+  let letterheads = $state<{ id: string; is_default?: boolean; disabled?: boolean }[]>([]);
   let selectedLetterhead = $state("");
   let selectedLang = $state("pt-BR");
 
@@ -51,7 +51,7 @@
 
       const defLh = letterheads.find((l) => l.is_default);
       if (defLh) {
-        selectedLetterhead = defLh.name;
+        selectedLetterhead = defLh.id;
       }
 
       await loadHTML();
@@ -65,7 +65,7 @@
   async function loadHTML() {
     rendering = true;
     try {
-      const html = await api.print.html(doctype, name, {
+      const html = await api.print.html(doctype, id, {
         format: selectedFormat,
         letterhead: selectedLetterhead,
         lang: selectedLang,
@@ -106,7 +106,7 @@
 
   async function downloadPDF() {
     downloadingPDF = true;
-    const url = api.print.pdfUrl(doctype, name, {
+    const url = api.print.pdfUrl(doctype, id, {
       format: selectedFormat,
       letterhead: selectedLetterhead,
       lang: selectedLang,
@@ -133,7 +133,7 @@
       const blobUrl = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = blobUrl;
-      a.download = `${doctype}-${name}.pdf`;
+      a.download = `${doctype}-${id}.pdf`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -146,7 +146,7 @@
   }
 
   function goBack() {
-    goto(`${wsPrefix}/${encodeURIComponent(doctype)}/${encodeURIComponent(name)}`);
+    goto(`${wsPrefix}/${encodeURIComponent(doctype)}/${encodeURIComponent(id)}`);
   }
 </script>
 
@@ -159,7 +159,7 @@
       </button>
       <div class="header-title">
         <span class="muted">{doctype} /</span>
-        <strong>{name}</strong>
+        <strong>{id}</strong>
       </div>
     </div>
 
@@ -180,7 +180,7 @@
         <select id="print-letterhead" class="select-input" bind:value={selectedLetterhead} onchange={loadHTML}>
           <option value="none">{__("None")}</option>
           {#each letterheads as lh}
-            <option value={lh.name}>{lh.name} {lh.is_default ? `(${__("Default")})` : ""}</option>
+            <option value={lh.id}>{lh.id} {lh.is_default ? `(${__("Default")})` : ""}</option>
           {/each}
         </select>
       </div>

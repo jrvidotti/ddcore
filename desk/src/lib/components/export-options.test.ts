@@ -19,9 +19,9 @@ describe("export URL", () => {
     const p = params(exportUrl({
       doctype: "Task",
       format: "csv",
-      orFilters: [["name", "like", "%ana%"]],
+      orFilters: [["id", "like", "%ana%"]],
     }));
-    expect(JSON.parse(p.get("or_filters")!)).toEqual([["name", "like", "%ana%"]]);
+    expect(JSON.parse(p.get("or_filters")!)).toEqual([["id", "like", "%ana%"]]);
     expect(p.get("filters")).toBeNull();
   });
 

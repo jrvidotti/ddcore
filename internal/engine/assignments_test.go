@@ -18,7 +18,7 @@ func TestAssignment_ToDoDocTypeLoaded(t *testing.T) {
 	if dt.Module != "Core" {
 		t.Fatalf("expected module Core, got %s", dt.Module)
 	}
-	expectedFields := []string{"status", "priority", "date", "allocated_to", "assigned_by", "description", "reference_type", "reference_name"}
+	expectedFields := []string{"status", "priority", "date", "allocated_to", "assigned_by", "description", "reference_type", "reference_id"}
 	for _, f := range expectedFields {
 		if dt.Field(f) == nil {
 			t.Errorf("missing expected field %s on ToDo", f)
@@ -45,7 +45,7 @@ func TestAssignment_ControllerLifecycle(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		todoName = inserted.Name()
+		todoName = inserted.ID()
 		if inserted.Str("assigned_by") != "Admin" {
 			t.Fatalf("expected assigned_by to be Admin, got %v", inserted.Str("assigned_by"))
 		}
@@ -76,7 +76,7 @@ func TestAssignment_RenameAndDeletionCascade(t *testing.T) {
 		todo, err := c.NewDoc("ToDo", Doc{
 			"allocated_to":   "Admin",
 			"reference_type": "Pessoa",
-			"reference_name": "Original Cascade",
+			"reference_id":   "Original Cascade",
 			"description":    "Review person",
 		})
 		if err != nil {
@@ -86,7 +86,7 @@ func TestAssignment_RenameAndDeletionCascade(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		todoName = ins.Name()
+		todoName = ins.ID()
 		return nil
 	})
 	if err != nil {
@@ -102,8 +102,8 @@ func TestAssignment_RenameAndDeletionCascade(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if tDoc.Str("reference_name") != "Renamed Cascade" {
-			t.Fatalf("expected reference_name to be Renamed Cascade, got %s", tDoc.Str("reference_name"))
+		if tDoc.Str("reference_id") != "Renamed Cascade" {
+			t.Fatalf("expected reference_id to be Renamed Cascade, got %s", tDoc.Str("reference_id"))
 		}
 		return nil
 	})
@@ -153,7 +153,7 @@ func TestAssignment_DoesNotGrantDocumentAccess(t *testing.T) {
 		todo, _ := c.NewDoc("ToDo", Doc{
 			"allocated_to":   "ze@x.com",
 			"reference_type": "Pessoa",
-			"reference_name": "Confidencial",
+			"reference_id":   "Confidencial",
 			"description":    "Confidential task",
 		})
 		if _, err := c.Insert(todo, SaveOpts{}); err != nil {
@@ -183,7 +183,7 @@ func TestAssignment_DoesNotGrantDocumentAccess(t *testing.T) {
 		todos, err := c.GetList("ToDo", ListArgs{
 			Filters: map[string]any{
 				"reference_type": "Pessoa",
-				"reference_name": "Confidencial",
+				"reference_id":   "Confidencial",
 			},
 		})
 		if err != nil {
@@ -191,7 +191,7 @@ func TestAssignment_DoesNotGrantDocumentAccess(t *testing.T) {
 		}
 		// If returned, each item must be checked by hasPermission
 		for _, row := range todos {
-			doc, err := c.GetDoc("ToDo", fmt.Sprint(row["name"]))
+			doc, err := c.GetDoc("ToDo", fmt.Sprint(row["id"]))
 			if err == nil {
 				t.Fatalf("expected GetDoc on ToDo to fail for unauthorized referenced doc, got %v", doc)
 			}

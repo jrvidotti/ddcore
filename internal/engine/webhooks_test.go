@@ -89,7 +89,7 @@ func addWebhook(t *testing.T, e *Engine, url string, values Doc) string {
 			return err
 		}
 		saved, err := c.Insert(doc, SaveOpts{})
-		name = saved.Name()
+		name = saved.ID()
 		return err
 	})
 	if err != nil {
@@ -113,8 +113,8 @@ func insertHookPessoa(t *testing.T, e *Engine, nome string) {
 func hookDeliveries(t *testing.T, e *Engine) []map[string]any {
 	t.Helper()
 	rows, err := db.Select(context.Background(), e.DB.Pool,
-		`SELECT name, webhook, event, status, attempts, response_status, error, job, key,
-		        reference_doctype, reference_name, payload::text AS payload
+		`SELECT id, webhook, event, status, attempts, response_status, error, job, key,
+		        reference_doctype, reference_id, payload::text AS payload
 		 FROM tab_webhook_delivery ORDER BY creation`)
 	if err != nil {
 		t.Fatal(err)
@@ -173,7 +173,7 @@ func TestOPS06_DocumentEventIsDeliveredSigned(t *testing.T) {
 	}
 	d := ds[0]
 	if db.Str(d["status"]) != WebhookQueued || db.Str(d["event"]) != "doc.on_insert" ||
-		db.Str(d["webhook"]) != hook || db.Str(d["reference_name"]) != "Ana" || toFloat(d["job"]) == 0 {
+		db.Str(d["webhook"]) != hook || db.Str(d["reference_id"]) != "Ana" || toFloat(d["job"]) == 0 {
 		t.Fatalf("delivery = %v", d)
 	}
 	if strings.Contains(db.Str(d["payload"]), "hunter2") {
@@ -193,21 +193,21 @@ func TestOPS06_DocumentEventIsDeliveredSigned(t *testing.T) {
 	}
 	r := got[0]
 	ts, _ := strconv.ParseInt(r.Timestamp, 10, 64)
-	if r.ID != db.Str(d["name"]) || r.Signature != SignWebhook(hookSecret, r.ID, ts, r.Body) {
+	if r.ID != db.Str(d["id"]) || r.Signature != SignWebhook(hookSecret, r.ID, ts, r.Body) {
 		t.Fatalf("headers id=%s sig=%s", r.ID, r.Signature)
 	}
 	var env struct {
 		Type string `json:"type"`
 		Data struct {
 			Doctype string         `json:"doctype"`
-			Name    string         `json:"name"`
+			ID      string         `json:"id"`
 			Doc     map[string]any `json:"doc"`
 		} `json:"data"`
 	}
 	if err := json.Unmarshal(r.Body, &env); err != nil {
 		t.Fatal(err)
 	}
-	if env.Type != "doc.on_insert" || env.Data.Doctype != "Pessoa" || env.Data.Name != "Ana" || env.Data.Doc["nome"] != "Ana" {
+	if env.Type != "doc.on_insert" || env.Data.Doctype != "Pessoa" || env.Data.ID != "Ana" || env.Data.Doc["nome"] != "Ana" {
 		t.Fatalf("envelope = %s", r.Body)
 	}
 	if env.Data.Doc["segredo"] != nil {
@@ -399,7 +399,7 @@ func TestOPS06_DisabledWebhookDoesNotSend(t *testing.T) {
 	rcv := newReceiver(t)
 	hook := addWebhook(t, e, rcv.URL, nil)
 	insertHookPessoa(t, e, "Gil")
-	if _, err := e.DB.Pool.Exec(context.Background(), `UPDATE tab_webhook SET enabled = false WHERE name = $1`, hook); err != nil {
+	if _, err := e.DB.Pool.Exec(context.Background(), `UPDATE tab_webhook SET enabled = false WHERE id = $1`, hook); err != nil {
 		t.Fatal(err)
 	}
 	runJobs(t, e)
@@ -457,7 +457,7 @@ func TestOPS06_ReplayResendsTheSameEventAndAudits(t *testing.T) {
 	insertHookPessoa(t, e, "Iris")
 	runJobs(t, e)
 	d := hookDeliveries(t, e)[0]
-	name := db.Str(d["name"])
+	name := db.Str(d["id"])
 	ctx := context.Background()
 
 	// Somebody without the role is refused, and the refusal is on record even
@@ -493,7 +493,7 @@ func TestOPS06_ReplayResendsTheSameEventAndAudits(t *testing.T) {
 		t.Fatalf("after replay = %v", after)
 	}
 
-	rows, err := db.Select(ctx, e.DB.Pool, `SELECT action, outcome, actor, target_doctype, target_name, detail::text AS detail
+	rows, err := db.Select(ctx, e.DB.Pool, `SELECT action, outcome, actor, target_doctype, target_id, detail::text AS detail
 		FROM tab_audit_event WHERE action = 'webhook.replay' ORDER BY creation`)
 	if err != nil {
 		t.Fatal(err)
@@ -505,7 +505,7 @@ func TestOPS06_ReplayResendsTheSameEventAndAudits(t *testing.T) {
 		t.Fatalf("denied row = %v", rows[0])
 	}
 	if db.Str(rows[1]["outcome"]) != "Allowed" || db.Str(rows[1]["action"]) != "webhook.replay" ||
-		db.Str(rows[1]["target_name"]) != name || !strings.Contains(db.Str(rows[1]["detail"]), "Failed") {
+		db.Str(rows[1]["target_id"]) != name || !strings.Contains(db.Str(rows[1]["detail"]), "Failed") {
 		t.Fatalf("allowed row = %v", rows[1])
 	}
 	if strings.Contains(db.Str(rows[1]["detail"]), hookSecret) {
@@ -651,14 +651,14 @@ func TestOPS06_SweepKeepsDeliveriesOnTheirWay(t *testing.T) {
 	insertHookPessoa(t, e, "Lia")
 	ctx := context.Background()
 	if _, err := e.DB.Pool.Exec(ctx, `UPDATE tab_webhook_delivery SET modified = now() - interval '90 days',
-		status = CASE WHEN reference_name = 'Leo' THEN 'Sent' ELSE 'Retrying' END`); err != nil {
+		status = CASE WHEN reference_id = 'Leo' THEN 'Sent' ELSE 'Retrying' END`); err != nil {
 		t.Fatal(err)
 	}
 	n, err := e.SweepWebhookDeliveries(ctx)
 	if err != nil || n != 1 {
 		t.Fatalf("swept %d, %v", n, err)
 	}
-	if ds := hookDeliveries(t, e); len(ds) != 1 || db.Str(ds[0]["reference_name"]) != "Lia" {
+	if ds := hookDeliveries(t, e); len(ds) != 1 || db.Str(ds[0]["reference_id"]) != "Lia" {
 		t.Fatalf("left = %v", ds)
 	}
 }
@@ -702,11 +702,11 @@ func TestOPS06_ScopedUsersCannotAdministerWebhooks(t *testing.T) {
 		t.Fatalf("scoped insert: %v", err)
 	}
 	deliveries := hookDeliveries(t, e)
-	if len(deliveries) != 1 || db.Str(deliveries[0]["reference_name"]) != "Iris" {
+	if len(deliveries) != 1 || db.Str(deliveries[0]["reference_id"]) != "Iris" {
 		t.Fatalf("deliveries = %v", deliveries)
 	}
 	runJobs(t, e)
-	delivery := db.Str(deliveries[0]["name"])
+	delivery := db.Str(deliveries[0]["id"])
 	if got := hookDeliveries(t, e)[0]; db.Str(got["status"]) != WebhookSent || len(rcv.got()) != 1 {
 		t.Fatalf("scoped user's delivery = %v, requests = %d", got, len(rcv.got()))
 	}
@@ -725,7 +725,7 @@ func TestOPS06_ScopedUsersCannotAdministerWebhooks(t *testing.T) {
 		return err
 	}
 	listDeliveries := func(c *Ctx) error {
-		_, err := c.GetList("Webhook Delivery", ListArgs{Fields: []string{"name", "payload"}})
+		_, err := c.GetList("Webhook Delivery", ListArgs{Fields: []string{"id", "payload"}})
 		return err
 	}
 	replay := func(c *Ctx) error { return c.ReplayWebhook(delivery) }
@@ -749,7 +749,7 @@ func TestOPS06_ScopedUsersCannotAdministerWebhooks(t *testing.T) {
 	// refused the same way.
 	err = e.Run(ctx, scoped, func(c *Ctx) error {
 		for _, dt := range []string{"Webhook", "Webhook Delivery"} {
-			rows, err := c.GetList(dt, ListArgs{Fields: []string{"name"}, IgnorePermissions: true})
+			rows, err := c.GetList(dt, ListArgs{Fields: []string{"id"}, IgnorePermissions: true})
 			if err != nil {
 				return err
 			}

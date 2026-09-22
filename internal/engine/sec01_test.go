@@ -26,15 +26,15 @@ func sec01App(t *testing.T) string {
 	write("ddcore.app.ts", `import { defineApp } from "@ddcore/sdk";
 export default defineApp({ name: "scope_test", title: "Scope Test", roles: ["Scope User"] });`)
 	write("doctypes/test_company/test_company.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
-export default defineDoctype({ name: "Test Company", naming: { field: "title" },
+export default defineDoctype({ name: "Test Company", idGeneration: { field: "title" },
   fields: [{ fieldname: "title", fieldtype: "Data", label: "Title", reqd: true }],
   permissions: [{ role: "Scope User", read: true, create: true }] });`)
 	write("doctypes/test_division/test_division.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
-export default defineDoctype({ name: "Test Division", naming: { field: "title" },
+export default defineDoctype({ name: "Test Division", idGeneration: { field: "title" },
   fields: [{ fieldname: "title", fieldtype: "Data", label: "Title", reqd: true }],
   permissions: [{ role: "Scope User", read: true }] });`)
 	write("doctypes/test_record/test_record.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
-export default defineDoctype({ name: "Test Record", naming: { field: "title" }, submittable: true,
+export default defineDoctype({ name: "Test Record", idGeneration: { field: "title" }, submittable: true,
   fields: [
     { fieldname: "title", fieldtype: "Data", label: "Title", reqd: true },
     { fieldname: "company", fieldtype: "Link", label: "Company", options: "Test Company" },
@@ -55,7 +55,7 @@ export default defineController("Test Record", {
 export default defineDoctype({ name: "Test Record Item", isChild: true,
   fields: [{ fieldname: "company", fieldtype: "Link", label: "Company", options: "Test Company" }] });`)
 	write("doctypes/test_dynamic_record/test_dynamic_record.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
-export default defineDoctype({ name: "Test Dynamic Record", naming: { field: "title" },
+export default defineDoctype({ name: "Test Dynamic Record", idGeneration: { field: "title" },
   fields: [
     { fieldname: "title", fieldtype: "Data", label: "Title", reqd: true },
     { fieldname: "party_type", fieldtype: "Data", label: "Party Type" },
@@ -154,11 +154,11 @@ func TestSEC01_QueryFilters(t *testing.T) {
 			}
 			if record.company == "Alfa" {
 				if record.division == "Alfa Division" {
-					alfaRecord = saved.Name()
+					alfaRecord = saved.ID()
 				}
 			}
 			if record.company == "Beta" {
-				betaRecord = saved.Name()
+				betaRecord = saved.ID()
 			}
 		}
 		for _, record := range []struct{ title, partyType, partyName string }{
@@ -175,10 +175,10 @@ func TestSEC01_QueryFilters(t *testing.T) {
 				return err
 			}
 			if record.title == "Alfa Dynamic" {
-				alfaDynamic = saved.Name()
+				alfaDynamic = saved.ID()
 			}
 			if record.title == "User Dynamic" {
-				userDynamic = saved.Name()
+				userDynamic = saved.ID()
 			}
 		}
 		for _, permission := range []Doc{
@@ -201,11 +201,11 @@ func TestSEC01_QueryFilters(t *testing.T) {
 	}
 
 	if err := e.Run(ctx, alfaUser, func(c *Ctx) error {
-		rows, err := c.GetList("Test Record", ListArgs{Fields: []string{"name", "company"}})
+		rows, err := c.GetList("Test Record", ListArgs{Fields: []string{"id", "company"}})
 		if err != nil {
 			return err
 		}
-		if len(rows) != 1 || rows[0]["name"] != alfaRecord || rows[0]["company"] != "Alfa" {
+		if len(rows) != 1 || rows[0]["id"] != alfaRecord || rows[0]["company"] != "Alfa" {
 			t.Fatalf("GetList leaked records outside Alfa: %#v", rows)
 		}
 
@@ -221,19 +221,19 @@ func TestSEC01_QueryFilters(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if len(links) != 1 || links[0]["name"] != alfaRecord {
+		if len(links) != 1 || links[0]["id"] != alfaRecord {
 			t.Fatalf("LinkSearch leaked records outside Alfa: %#v", links)
 		}
 
-		companies, err := c.GetList("Test Company", ListArgs{Fields: []string{"name"}})
+		companies, err := c.GetList("Test Company", ListArgs{Fields: []string{"id"}})
 		if err != nil {
 			return err
 		}
-		if len(companies) != 1 || companies[0]["name"] != "Alfa" {
+		if len(companies) != 1 || companies[0]["id"] != "Alfa" {
 			t.Fatalf("direct entity query ignored Alfa scope: %#v", companies)
 		}
 
-		divisions, err := c.GetList("Test Division", ListArgs{Fields: []string{"name"}})
+		divisions, err := c.GetList("Test Division", ListArgs{Fields: []string{"id"}})
 		if err != nil {
 			return err
 		}
@@ -241,7 +241,7 @@ func TestSEC01_QueryFilters(t *testing.T) {
 			t.Fatalf("applicable_for scope leaked outside Test Record: %#v", divisions)
 		}
 
-		dynamic, err := c.GetList("Test Dynamic Record", ListArgs{Fields: []string{"name"}})
+		dynamic, err := c.GetList("Test Dynamic Record", ListArgs{Fields: []string{"id"}})
 		if err != nil {
 			return err
 		}
@@ -249,11 +249,11 @@ func TestSEC01_QueryFilters(t *testing.T) {
 			t.Fatalf("Dynamic Link scope leaked a restricted party: %#v", dynamic)
 		}
 
-		ignored, err := c.GetList("Test Record", ListArgs{Fields: []string{"name"}, IgnorePermissions: true})
+		ignored, err := c.GetList("Test Record", ListArgs{Fields: []string{"id"}, IgnorePermissions: true})
 		if err != nil {
 			return err
 		}
-		if len(ignored) != 1 || ignored[0]["name"] != alfaRecord {
+		if len(ignored) != 1 || ignored[0]["id"] != alfaRecord {
 			t.Fatalf("ListArgs.IgnorePermissions bypassed Alfa scope: %#v", ignored)
 		}
 		return nil
@@ -262,18 +262,18 @@ func TestSEC01_QueryFilters(t *testing.T) {
 	}
 
 	if err := e.Run(ctx, betaUser, func(c *Ctx) error {
-		rows, err := c.GetList("Test Record", ListArgs{Fields: []string{"name"}})
+		rows, err := c.GetList("Test Record", ListArgs{Fields: []string{"id"}})
 		if err != nil {
 			return err
 		}
-		if len(rows) != 1 || rows[0]["name"] != betaRecord {
+		if len(rows) != 1 || rows[0]["id"] != betaRecord {
 			t.Fatalf("Beta user did not receive an isolated scope: %#v", rows)
 		}
-		companies, err := c.GetList("Test Company", ListArgs{Fields: []string{"name"}})
+		companies, err := c.GetList("Test Company", ListArgs{Fields: []string{"id"}})
 		if err != nil {
 			return err
 		}
-		if len(companies) != 1 || companies[0]["name"] != "Beta" {
+		if len(companies) != 1 || companies[0]["id"] != "Beta" {
 			t.Fatalf("direct entity query ignored Beta scope: %#v", companies)
 		}
 		return nil
@@ -321,9 +321,9 @@ func TestSEC01_DocLifecycle(t *testing.T) {
 				return err
 			}
 			if record.company == "Alfa" {
-				alfaRecord = saved.Name()
+				alfaRecord = saved.ID()
 			} else {
-				betaRecord = saved.Name()
+				betaRecord = saved.ID()
 			}
 		}
 		permission, err := c.NewDoc("User Permission", Doc{"user": alfaUser, "allow": "Test Company", "for_value": "Alfa"})
@@ -412,13 +412,13 @@ func TestSEC01_DocLifecycleScopeCannotBeBypassed(t *testing.T) {
 			}
 			switch title {
 			case "Alfa Ignore Save Record":
-				alfaIgnoreSaveRecord = saved.Name()
+				alfaIgnoreSaveRecord = saved.ID()
 			case "Alfa Save Record":
-				alfaSaveRecord = saved.Name()
+				alfaSaveRecord = saved.ID()
 			case "Alfa Submit Record":
-				alfaSubmitRecord = saved.Name()
+				alfaSubmitRecord = saved.ID()
 			case "Beta Record":
-				betaRecord = saved.Name()
+				betaRecord = saved.ID()
 			}
 		}
 		permission, err := c.NewDoc("User Permission", Doc{"user": alfaUser, "allow": "Test Company", "for_value": "Alfa"})
@@ -437,7 +437,7 @@ func TestSEC01_DocLifecycleScopeCannotBeBypassed(t *testing.T) {
 			return err
 		}
 		if _, err := c.Insert(company, SaveOpts{}); err == nil || cerr.From(err).Type != "PermissionError" {
-			t.Errorf("Insert scoped entity after naming: expected PermissionError, got %v", err)
+			t.Errorf("Insert scoped entity after idGeneration: expected PermissionError, got %v", err)
 		}
 
 		bypassInsert, err := c.NewDoc("Test Record", Doc{"title": "Ignore Permissions Beta", "company": "Beta"})
@@ -543,11 +543,11 @@ func TestSEC01_DirectAccessDynamicLink(t *testing.T) {
 			}
 			switch record.title {
 			case "Alfa Dynamic":
-				alfaDynamic = saved.Name()
+				alfaDynamic = saved.ID()
 			case "Beta Dynamic":
-				betaDynamic = saved.Name()
+				betaDynamic = saved.ID()
 			case "User Dynamic":
-				userDynamic = saved.Name()
+				userDynamic = saved.ID()
 			}
 		}
 		permission, err := c.NewDoc("User Permission", Doc{"user": alfaUser, "allow": "Test Company", "for_value": "Alfa"})
@@ -632,9 +632,9 @@ func TestSEC01_ExistsDBSetAndScopeAdministration(t *testing.T) {
 				return err
 			}
 			if company == "Alfa" {
-				alfaRecord = saved.Name()
+				alfaRecord = saved.ID()
 			} else {
-				betaRecord = saved.Name()
+				betaRecord = saved.ID()
 			}
 		}
 		permission, err := c.NewDoc("User Permission", Doc{"user": scopedManager, "allow": "Test Company", "for_value": "Alfa"})
@@ -645,7 +645,7 @@ func TestSEC01_ExistsDBSetAndScopeAdministration(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		ownPermission = saved.Name()
+		ownPermission = saved.ID()
 		return nil
 	}); err != nil {
 		t.Fatal(err)
@@ -732,7 +732,7 @@ func TestSEC01_ExistsDBSetAndScopeAdministration(t *testing.T) {
 	}
 	grants := func() int64 {
 		t.Helper()
-		n, err := e.CountAuditEvents(ctx, AuditFilter{Action: "permission.scope_grant", TargetDocType: "User", TargetName: otherUser})
+		n, err := e.CountAuditEvents(ctx, AuditFilter{Action: "permission.scope_grant", TargetDocType: "User", TargetID: otherUser})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -752,7 +752,7 @@ func TestSEC01_ExistsDBSetAndScopeAdministration(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		granted = saved.Name()
+		granted = saved.ID()
 		saved["for_value"] = "Beta"
 		_, err = c.Save(saved, SaveOpts{})
 		return err
@@ -816,7 +816,7 @@ func TestSEC01_DBSetChildRowScopeUsesParentApplicableFor(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		full, err := c.GetDoc("Test Record", saved.Name())
+		full, err := c.GetDoc("Test Record", saved.ID())
 		if err != nil {
 			return err
 		}
@@ -824,7 +824,7 @@ func TestSEC01_DBSetChildRowScopeUsesParentApplicableFor(t *testing.T) {
 		if len(items) != 1 {
 			t.Fatalf("expected one item row, got %#v", full["items"])
 		}
-		itemName = items[0].Name()
+		itemName = items[0].ID()
 
 		// Scoped to "Alfa" only for "Test Record": without resolving the
 		// child row's parenttype, a direct DBSet on "Test Record Item" would
@@ -854,7 +854,7 @@ func TestSEC01_DBSetChildRowScopeUsesParentApplicableFor(t *testing.T) {
 
 func hasName(rows []map[string]any, want string) bool {
 	for _, row := range rows {
-		if row["name"] == want {
+		if row["id"] == want {
 			return true
 		}
 	}

@@ -3,14 +3,14 @@ import { api, type ToDoDoc, type PendingWorkPage } from "./api";
 import { DocAssignments, PendingWork, pendingTasks, refreshPendingCount } from "./assignments.svelte";
 
 const sampleTodo: ToDoDoc = {
-  name: "TODO-0001",
+  id: "TODO-0001",
   status: "Open",
   priority: "Medium",
   allocated_to: "ana@x.com",
   assigned_by: "admin@x.com",
   description: "Please review document",
   reference_type: "Pessoa",
-  reference_name: "Cliente A",
+  reference_id: "Cliente A",
   date: "2026-09-15",
 };
 

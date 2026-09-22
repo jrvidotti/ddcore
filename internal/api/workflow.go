@@ -9,7 +9,7 @@ import (
 
 type workflowApplyRequest struct {
 	Doctype string `json:"doctype"`
-	Name    string `json:"name"`
+	ID      string `json:"id"`
 	Action  string `json:"action"`
 }
 
@@ -52,13 +52,13 @@ func (s *Server) applyWorkflowTransition(w http.ResponseWriter, r *http.Request)
 		if err := readJSON(r, &body); err != nil {
 			return nil, err
 		}
-		if body.Doctype == "" || body.Name == "" || body.Action == "" {
-			return nil, cerr.Validation("doctype, name and action are required")
+		if body.Doctype == "" || body.ID == "" || body.Action == "" {
+			return nil, cerr.Validation("doctype, id and action are required")
 		}
-		if err := s.requireDocRead(c, body.Doctype, body.Name); err != nil {
+		if err := s.requireDocRead(c, body.Doctype, body.ID); err != nil {
 			return nil, err
 		}
-		saved, err := c.ApplyWorkflowTransition(body.Doctype, body.Name, body.Action)
+		saved, err := c.ApplyWorkflowTransition(body.Doctype, body.ID, body.Action)
 		if err != nil {
 			return nil, err
 		}
@@ -73,9 +73,9 @@ func (s *Server) applyWorkflowTransition(w http.ResponseWriter, r *http.Request)
 func (s *Server) workflowActions(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
 		doctype := r.URL.Query().Get("doctype")
-		name := r.URL.Query().Get("name")
+		name := r.URL.Query().Get("id")
 		if doctype == "" || name == "" {
-			return nil, cerr.Validation("doctype and name are required")
+			return nil, cerr.Validation("doctype and id are required")
 		}
 		if err := s.requireDocRead(c, doctype, name); err != nil {
 			return nil, err

@@ -32,7 +32,7 @@ func sec02APIApp(t *testing.T) string {
 	write("ddcore.app.ts", `import { defineApp } from "@ddcore/sdk";
 export default defineApp({ name: "demo", title: "Field Permission API Test", roles: ["Gestor", "HR"] });`)
 	write("doctypes/employee/employee.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
-export default defineDoctype({ name: "Employee", naming: { field: "title" },
+export default defineDoctype({ name: "Employee", idGeneration: { field: "title" },
   fields: [
     { fieldname: "title", fieldtype: "Data", label: "Title", reqd: true },
     { fieldname: "department", fieldtype: "Data", label: "Department" },
@@ -56,7 +56,7 @@ func (x *env) uploadToField(auth, doctype, name, field, private string) resp {
 	var buf bytes.Buffer
 	mw := multipart.NewWriter(&buf)
 	_ = mw.WriteField("doctype", doctype)
-	_ = mw.WriteField("docname", name)
+	_ = mw.WriteField("doc_id", name)
 	_ = mw.WriteField("fieldname", field)
 	_ = mw.WriteField("is_private", private)
 	fw, _ := mw.CreateFormFile("file", "contract.pdf")
@@ -111,7 +111,7 @@ func TestSEC02_API(t *testing.T) {
 		if _, ok := r.Body["data"].(map[string]any)["salary"]; ok {
 			t.Fatalf("get leaked salary: %s", r.Raw)
 		}
-		r = x.call("GET", "/api/resource/Employee?fields="+url.QueryEscape(`["name","salary"]`), nil, ana)
+		r = x.call("GET", "/api/resource/Employee?fields="+url.QueryEscape(`["id","salary"]`), nil, ana)
 		x.expect(r, 200, "")
 		if strings.Contains(r.Raw, "salary") {
 			t.Fatalf("list leaked salary: %s", r.Raw)

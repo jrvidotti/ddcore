@@ -31,7 +31,7 @@ export default defineApp({
 	w("doctypes/artigo/artigo.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
 export default defineDoctype({
   name: "Artigo",
-  naming: { series: "ART-.####" },
+  idGeneration: { series: "ART-.####" },
   submittable: true,
   fields: [
     { fieldname: "titulo", fieldtype: "Data", label: "Título", reqd: true },
@@ -49,7 +49,7 @@ export default defineDoctype({
 	w("doctypes/pessoa/pessoa.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
 export default defineDoctype({
   name: "Pessoa",
-  naming: { field: "nome" },
+  idGeneration: { field: "nome" },
   fields: [
     { fieldname: "nome", fieldtype: "Data", label: "Nome", reqd: true },
   ],
@@ -161,7 +161,7 @@ func TestWorkflowAPI_ApplyAndActions(t *testing.T) {
 	}, autor)
 	x.expect(r, 200, "")
 	artigoDoc := r.Body["data"].(map[string]any)
-	artigoName := fmt.Sprint(artigoDoc["name"])
+	artigoName := fmt.Sprint(artigoDoc["id"])
 	if artigoName == "" {
 		t.Fatalf("expected non-empty artigo name, got %v", artigoDoc)
 	}
@@ -208,7 +208,7 @@ func TestWorkflowAPI_ApplyAndActions(t *testing.T) {
 
 	// 3. GET /api/workflow/actions
 	// For Autor: returns state Draft and actions
-	r = x.call("GET", "/api/workflow/actions?doctype=Artigo&name="+artigoName, nil, autor)
+	r = x.call("GET", "/api/workflow/actions?doctype=Artigo&id="+artigoName, nil, autor)
 	x.expect(r, 200, "")
 	actionsData := r.Body["data"].(map[string]any)
 	if actionsData["state"] != "Draft" {
@@ -223,7 +223,7 @@ func TestWorkflowAPI_ApplyAndActions(t *testing.T) {
 	}
 
 	// For Editor: returns state Draft and empty actions
-	r = x.call("GET", "/api/workflow/actions?doctype=Artigo&name="+artigoName, nil, editor)
+	r = x.call("GET", "/api/workflow/actions?doctype=Artigo&id="+artigoName, nil, editor)
 	x.expect(r, 200, "")
 	actionsData = r.Body["data"].(map[string]any)
 	if actionsData["state"] != "Draft" {
@@ -241,14 +241,14 @@ func TestWorkflowAPI_ApplyAndActions(t *testing.T) {
 	x.expect(r, 417, "ValidationError")
 
 	// Non-existent document
-	r = x.call("GET", "/api/workflow/actions?doctype=Artigo&name=NONEXISTENT", nil, autor)
+	r = x.call("GET", "/api/workflow/actions?doctype=Artigo&id=NONEXISTENT", nil, autor)
 	x.expect(r, 404, "DoesNotExistError")
 
 	// 4. POST /api/workflow/apply
 	// Unauthorized action: Editor tries to apply "Submit for Approval" -> 403
 	r = x.call("POST", "/api/workflow/apply", map[string]any{
 		"doctype": "Artigo",
-		"name":    artigoName,
+		"id":      artigoName,
 		"action":  "Submit for Approval",
 	}, editor)
 	x.expect(r, 403, "PermissionError")
@@ -256,14 +256,14 @@ func TestWorkflowAPI_ApplyAndActions(t *testing.T) {
 	// Missing fields in apply -> 417
 	r = x.call("POST", "/api/workflow/apply", map[string]any{
 		"doctype": "Artigo",
-		"name":    artigoName,
+		"id":      artigoName,
 	}, autor)
 	x.expect(r, 417, "ValidationError")
 
 	// Autor applies valid transition "Submit for Approval" -> 200 OK
 	r = x.call("POST", "/api/workflow/apply", map[string]any{
 		"doctype": "Artigo",
-		"name":    artigoName,
+		"id":      artigoName,
 		"action":  "Submit for Approval",
 	}, autor)
 	x.expect(r, 200, "")
@@ -281,7 +281,7 @@ func TestWorkflowAPI_ApplyAndActions(t *testing.T) {
 
 	// In Pending Approval:
 	// GET /api/workflow/actions for Editor: should see Approve and Reject
-	r = x.call("GET", "/api/workflow/actions?doctype=Artigo&name="+artigoName, nil, editor)
+	r = x.call("GET", "/api/workflow/actions?doctype=Artigo&id="+artigoName, nil, editor)
 	x.expect(r, 200, "")
 	editorActionsData := r.Body["data"].(map[string]any)
 	editorActs := editorActionsData["actions"].([]any)
@@ -292,7 +292,7 @@ func TestWorkflowAPI_ApplyAndActions(t *testing.T) {
 	// Editor applies Approve -> 200 OK
 	r = x.call("POST", "/api/workflow/apply", map[string]any{
 		"doctype": "Artigo",
-		"name":    artigoName,
+		"id":      artigoName,
 		"action":  "Approve",
 	}, editor)
 	x.expect(r, 200, "")
@@ -318,7 +318,7 @@ func TestWorkflowAPI_ApplyAndActions(t *testing.T) {
 	// Auditor cannot execute transitions
 	r = x.call("POST", "/api/workflow/apply", map[string]any{
 		"doctype": "Artigo",
-		"name":    artigoName,
+		"id":      artigoName,
 		"action":  "Approve",
 	}, auditor)
 	x.expect(r, 417, "ValidationError") // State is already Approved, no transition
@@ -345,19 +345,19 @@ func TestWorkflowAPI_SelfApprovalAndConditions(t *testing.T) {
 		"conteudo": "Conteudo longo para aprovar",
 	}, autoreditor)
 	x.expect(r, 200, "")
-	artigoName := fmt.Sprint(r.Body["data"].(map[string]any)["name"])
+	artigoName := fmt.Sprint(r.Body["data"].(map[string]any)["id"])
 
 	// Transition to Pending Approval
 	r = x.call("POST", "/api/workflow/apply", map[string]any{
 		"doctype": "Artigo",
-		"name":    artigoName,
+		"id":      artigoName,
 		"action":  "Submit for Approval",
 	}, autoreditor)
 	x.expect(r, 200, "")
 
 	// autoreditor checks actions in Pending Approval:
 	// Approve has allowSelfApproval: false, so it must NOT be available
-	r = x.call("GET", "/api/workflow/actions?doctype=Artigo&name="+artigoName, nil, autoreditor)
+	r = x.call("GET", "/api/workflow/actions?doctype=Artigo&id="+artigoName, nil, autoreditor)
 	x.expect(r, 200, "")
 	actions := r.Body["data"].(map[string]any)["actions"].([]any)
 	if len(actions) != 1 {
@@ -370,7 +370,7 @@ func TestWorkflowAPI_SelfApprovalAndConditions(t *testing.T) {
 	// autoreditor attempts to apply Approve -> 403 (PermissionError)
 	r = x.call("POST", "/api/workflow/apply", map[string]any{
 		"doctype": "Artigo",
-		"name":    artigoName,
+		"id":      artigoName,
 		"action":  "Approve",
 	}, autoreditor)
 	x.expect(r, 403, "PermissionError")
@@ -382,17 +382,17 @@ func TestWorkflowAPI_SelfApprovalAndConditions(t *testing.T) {
 		"conteudo": "1234",
 	}, autoreditor)
 	x.expect(r, 200, "")
-	shortName := fmt.Sprint(r.Body["data"].(map[string]any)["name"])
+	shortName := fmt.Sprint(r.Body["data"].(map[string]any)["id"])
 
 	r = x.call("POST", "/api/workflow/apply", map[string]any{
 		"doctype": "Artigo",
-		"name":    shortName,
+		"id":      shortName,
 		"action":  "Submit for Approval",
 	}, autoreditor)
 	x.expect(r, 200, "")
 
 	// Editor (not owner) checks actions: condition for Approve fails (length <= 5), so only Reject is available
-	r = x.call("GET", "/api/workflow/actions?doctype=Artigo&name="+shortName, nil, editor)
+	r = x.call("GET", "/api/workflow/actions?doctype=Artigo&id="+shortName, nil, editor)
 	x.expect(r, 200, "")
 	editorActs := r.Body["data"].(map[string]any)["actions"].([]any)
 	if len(editorActs) != 1 || editorActs[0].(map[string]any)["action"] != "Reject" {
@@ -402,7 +402,7 @@ func TestWorkflowAPI_SelfApprovalAndConditions(t *testing.T) {
 	// Editor attempts to apply Approve -> 417 (ValidationError: condition not met)
 	r = x.call("POST", "/api/workflow/apply", map[string]any{
 		"doctype": "Artigo",
-		"name":    shortName,
+		"id":      shortName,
 		"action":  "Approve",
 	}, editor)
 	x.expect(r, 417, "ValidationError")
@@ -410,7 +410,7 @@ func TestWorkflowAPI_SelfApprovalAndConditions(t *testing.T) {
 	// Editor applies Reject -> 200 OK
 	r = x.call("POST", "/api/workflow/apply", map[string]any{
 		"doctype": "Artigo",
-		"name":    shortName,
+		"id":      shortName,
 		"action":  "Reject",
 	}, editor)
 	x.expect(r, 200, "")
@@ -433,15 +433,15 @@ func TestWorkflowAPI_PermissionAndLifecycleGuards(t *testing.T) {
 		"conteudo": "Conteudo interessante",
 	}, autor)
 	x.expect(r, 200, "")
-	artigoName := fmt.Sprint(r.Body["data"].(map[string]any)["name"])
+	artigoName := fmt.Sprint(r.Body["data"].(map[string]any)["id"])
 
 	// 1. Ze (no read permission on Artigo) tries to read actions or apply transition -> 403
-	r = x.call("GET", "/api/workflow/actions?doctype=Artigo&name="+artigoName, nil, ze)
+	r = x.call("GET", "/api/workflow/actions?doctype=Artigo&id="+artigoName, nil, ze)
 	x.expect(r, 403, "PermissionError")
 
 	r = x.call("POST", "/api/workflow/apply", map[string]any{
 		"doctype": "Artigo",
-		"name":    artigoName,
+		"id":      artigoName,
 		"action":  "Submit for Approval",
 	}, ze)
 	x.expect(r, 403, "PermissionError")
@@ -460,7 +460,7 @@ func TestWorkflowAPI_PermissionAndLifecycleGuards(t *testing.T) {
 	// Transition to Pending Approval (allowEdit: "Editor")
 	r = x.call("POST", "/api/workflow/apply", map[string]any{
 		"doctype": "Artigo",
-		"name":    artigoName,
+		"id":      artigoName,
 		"action":  "Submit for Approval",
 	}, autor)
 	x.expect(r, 200, "")
@@ -490,7 +490,7 @@ func TestWorkflowAPI_PermissionAndLifecycleGuards(t *testing.T) {
 	// 5. Apply on doctype without workflow -> 417
 	r = x.call("POST", "/api/workflow/apply", map[string]any{
 		"doctype": "Pessoa",
-		"name":    "Ninguem",
+		"id":      "Ninguem",
 		"action":  "Approve",
 	}, autor)
 	x.expect(r, 404, "DoesNotExistError") // requireDocRead fails first if not found

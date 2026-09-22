@@ -17,7 +17,7 @@ func TestMigrateRenamesLegacyAdministrator(t *testing.T) {
 
 	// Turn this fresh database into one a 0.15 binary would have left.
 	for _, q := range []string{
-		`UPDATE tab_user SET name = 'Administrator', email = 'Administrator', full_name = 'Administrator' WHERE name = 'Admin'`,
+		`UPDATE tab_user SET id = 'Administrator', email = 'Administrator', full_name = 'Administrator' WHERE id = 'Admin'`,
 		`UPDATE tab_has_role SET parent = 'Administrator' WHERE parent = 'Admin' AND parenttype = 'User'`,
 		`UPDATE tab_pessoa SET owner = 'Administrator', modified_by = 'Administrator'`,
 		`INSERT INTO ddcore_session (sid, "user", expires) VALUES ('legacy', 'Administrator', now() + interval '1 day')`,
@@ -31,17 +31,17 @@ func TestMigrateRenamesLegacyAdministrator(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if rows := sqlRows(t, e, `SELECT name FROM tab_user WHERE name = 'Administrator'`); len(rows) != 0 {
+	if rows := sqlRows(t, e, `SELECT id FROM tab_user WHERE id = 'Administrator'`); len(rows) != 0 {
 		t.Fatal("Administrator is still a user")
 	}
-	u := sqlRows(t, e, `SELECT email, full_name FROM tab_user WHERE name = 'Admin'`)
+	u := sqlRows(t, e, `SELECT email, full_name FROM tab_user WHERE id = 'Admin'`)
 	if len(u) != 1 || db.Str(u[0]["email"]) != "Admin" || db.Str(u[0]["full_name"]) != "Admin" {
 		t.Fatalf("Admin not renamed in place: %v", u)
 	}
 	if rows := sqlRows(t, e, `SELECT role FROM tab_has_role WHERE parent = 'Admin' AND role = 'System Manager'`); len(rows) != 1 {
 		t.Fatal("Admin lost System Manager")
 	}
-	p := sqlRows(t, e, `SELECT owner, modified_by FROM tab_pessoa WHERE name = $1`, pessoa)
+	p := sqlRows(t, e, `SELECT owner, modified_by FROM tab_pessoa WHERE id = $1`, pessoa)
 	if db.Str(p[0]["owner"]) != "Admin" || db.Str(p[0]["modified_by"]) != "Admin" {
 		t.Fatalf("owner columns not moved: %v", p)
 	}

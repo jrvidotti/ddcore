@@ -211,7 +211,9 @@ func (p Perm) Has(ptype string) bool {
 	return false
 }
 
-type Naming struct {
+// IDGeneration is how a new document gets its id: from a series, a field's
+// value, a format, a hash, or a prompt to the person creating it.
+type IDGeneration struct {
 	Series string `json:"series,omitempty"`
 	Field  string `json:"field,omitempty"`
 	Hash   bool   `json:"hash,omitempty"`
@@ -244,20 +246,20 @@ type DocType struct {
 	App    string `json:"app"`
 	Module string `json:"module,omitempty"`
 	Label  string `json:"label,omitempty"`
-	// NameLabel is what the desk calls the document name (a catalogue key):
-	// "Contract No." rather than "Name". Display only — the column, filters,
-	// orderBy and the API still say `name`.
-	NameLabel    string   `json:"nameLabel,omitempty"`
-	Naming       Naming   `json:"naming"`
-	Submittable  bool     `json:"submittable,omitempty"`
-	IsChild      bool     `json:"isChild,omitempty"`
-	IsSingle     bool     `json:"isSingle,omitempty"`
-	TrackChanges bool     `json:"trackChanges,omitempty"`
-	AllowRename  bool     `json:"allowRename,omitempty"`
-	TitleField   string   `json:"titleField,omitempty"`
-	SortField    string   `json:"sortField,omitempty"`
-	SortOrder    string   `json:"sortOrder,omitempty"`
-	SearchFields []string `json:"searchFields,omitempty"`
+	// IDLabel is what the desk calls the document's id (a catalogue key):
+	// "Contract No." rather than "ID". Display only — the column, filters,
+	// orderBy and the API still say `id`.
+	IDLabel      string       `json:"idLabel,omitempty"`
+	IDGeneration IDGeneration `json:"idGeneration"`
+	Submittable  bool         `json:"submittable,omitempty"`
+	IsChild      bool         `json:"isChild,omitempty"`
+	IsSingle     bool         `json:"isSingle,omitempty"`
+	TrackChanges bool         `json:"trackChanges,omitempty"`
+	AllowRename  bool         `json:"allowRename,omitempty"`
+	TitleField   string       `json:"titleField,omitempty"`
+	SortField    string       `json:"sortField,omitempty"`
+	SortOrder    string       `json:"sortOrder,omitempty"`
+	SearchFields []string     `json:"searchFields,omitempty"`
 	// GlobalSearch opts a DocType in (true) or out (false) of the Desk's
 	// global search; nil leaves it to GloballySearchable's default.
 	GlobalSearch *bool `json:"globalSearch,omitempty"`
@@ -290,8 +292,9 @@ type DocType struct {
 	fieldMap map[string]*Field
 }
 
-// Standard columns every table has.
-var StdColumns = []string{"name", "owner", "creation", "modified", "modified_by", "docstatus"}
+// Standard columns every table has. The order is the one db.stdColumns builds,
+// and a unit test holds the two lists together.
+var StdColumns = []string{"id", "owner", "creation", "modified", "modified_by", "docstatus"}
 var ChildColumns = []string{"parent", "parenttype", "parentfield", "idx"}
 
 func (d *DocType) TableName() string { return "tab_" + Snake(d.Name) }
@@ -455,8 +458,8 @@ func (r *Registry) Validate() error {
 	}
 	for _, d := range r.DocTypes {
 		e := func(msg string, a ...any) { errs = append(errs, d.Name+": "+fmt.Sprintf(msg, a...)) }
-		if d.IsSingle && (d.IsChild || d.Submittable || d.AllowRename || d.Naming != (Naming{})) {
-			e("Single DocTypes cannot be child tables, submittable, renamable, or declare naming rules")
+		if d.IsSingle && (d.IsChild || d.Submittable || d.AllowRename || d.IDGeneration != (IDGeneration{})) {
+			e("Single DocTypes cannot be child tables, submittable, renamable, or declare idGeneration")
 		}
 		seen := map[string]bool{}
 		renamedFrom := map[string]string{} // old fieldname -> the field claiming it
@@ -496,6 +499,14 @@ func (r *Registry) Validate() error {
 				} else if f.Fieldtype == "Table" && !t.IsChild {
 					e("field %q: %q is not isChild", f.Fieldname, target)
 				}
+			case "Vault":
+				// `{name}` stood for the document key before 0.17. Now it would
+				// only match a field called `name`, and without one the key
+				// would carry the literal text — every document sharing one
+				// secret. Caught here rather than on the first save.
+				if strings.Contains(f.OptionsString(), "{name}") && d.Field("name") == nil {
+					e("field %q (Vault): the key template says {name}, which is {id} since 0.17", f.Fieldname)
+				}
 			case "Select":
 				if _, ok := f.Options.([]any); !ok {
 					if _, ok := f.Options.(string); !ok {
@@ -511,6 +522,12 @@ func (r *Registry) Validate() error {
 					e("renamedFrom on field %q names the field itself", f.Fieldname)
 				case d.IsStdColumn(prev) || prev == "doctype":
 					e("renamedFrom %q on field %q is a reserved column", prev, f.Fieldname)
+				case prev == "name":
+					// `name` was the document key before 0.17 and migrate has
+					// already moved it to `id` by the time a rename is planned,
+					// so this would find no column to move. A field may be
+					// called `name` now; it just cannot claim the old key.
+					e("renamedFrom %q on field %q: `name` was the document key before 0.17, and migrate moves it to `id` on its own", prev, f.Fieldname)
 				case renamedFrom[prev] != "":
 					// Two fields claiming the same old column would race for it.
 					e("field %q and field %q both declare renamedFrom %q", renamedFrom[prev], f.Fieldname, prev)
@@ -537,11 +554,11 @@ func (r *Registry) Validate() error {
 				}
 			}
 		}
-		if d.NameLabel != "" && strings.TrimSpace(d.NameLabel) == "" {
-			e("nameLabel is blank")
+		if d.IDLabel != "" && strings.TrimSpace(d.IDLabel) == "" {
+			e("idLabel is blank")
 		}
-		if d.Naming.Field != "" && d.Field(d.Naming.Field) == nil {
-			e("naming.field %q does not exist", d.Naming.Field)
+		if d.IDGeneration.Field != "" && d.Field(d.IDGeneration.Field) == nil {
+			e("idGeneration.field %q does not exist", d.IDGeneration.Field)
 		}
 		// A field can be renamed and leave these behind pointing at a name
 		// nothing answers to. They are the half of a rename the declaration
@@ -706,12 +723,12 @@ func validateFieldPermissions(r *Registry, d *DocType, e func(string, ...any)) {
 		}
 	}
 	level0("titleField", d.TitleField)
-	level0("naming.field", d.Naming.Field)
+	level0("idGeneration.field", d.IDGeneration.Field)
 	for _, sf := range d.SearchFields {
 		level0("searchFields", sf)
 	}
-	for _, name := range namingFormatFields(d.Naming.Format) {
-		level0("naming.format", name)
+	for _, name := range idFormatFields(d.IDGeneration.Format) {
+		level0("idGeneration.format", name)
 	}
 	for _, p := range d.Permissions {
 		if p.Permlevel < 0 || p.Permlevel > MaxPermlevel {
@@ -724,11 +741,11 @@ func validateFieldPermissions(r *Registry, d *DocType, e func(string, ...any)) {
 	}
 }
 
-var namingFormatRe = regexp.MustCompile(`\{([a-z][a-z0-9_]*)\}`)
+var idFormatRe = regexp.MustCompile(`\{([a-z][a-z0-9_]*)\}`)
 
-func namingFormatFields(format string) []string {
+func idFormatFields(format string) []string {
 	var out []string
-	for _, m := range namingFormatRe.FindAllStringSubmatch(format, -1) {
+	for _, m := range idFormatRe.FindAllStringSubmatch(format, -1) {
 		out = append(out, m[1])
 	}
 	return out

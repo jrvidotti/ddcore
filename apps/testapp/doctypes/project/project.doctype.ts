@@ -4,7 +4,7 @@ export default defineDoctype({
   name: "Project",
   module: "Projects",
   label: "Project",
-  naming: { field: "code" },
+  idGeneration: { field: "code" },
   titleField: "title",
   trackChanges: true,
   fields: [

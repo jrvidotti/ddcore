@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { DocTypeMeta, Field } from "../../meta";
 import { resolveCardFields } from "./card-fields";
 
-const meta = (fields: Field[]): DocTypeMeta => ({ name: "Task", app: "testapp", label: "Task", naming: {}, titleField: "subject", fields });
+const meta = (fields: Field[]): DocTypeMeta => ({ name: "Task", app: "testapp", label: "Task", idGeneration: {}, titleField: "subject", fields });
 const bodyFields: Field[] = ["subject", "priority", "project", "assignee", "notes"].map((fieldname) => ({ fieldname, fieldtype: "Data", inListView: true }));
 
 describe("card field resolution", () => {
@@ -26,11 +26,11 @@ describe("card field resolution", () => {
   });
 
   it("honors explicit title, subtitle and date ahead of metadata fallbacks", () => {
-    const resolved = resolveCardFields(meta([{ fieldname: "due", fieldtype: "Date" }, ...bodyFields]), { title: "name", subtitle: "project", dateField: "modified" });
+    const resolved = resolveCardFields(meta([{ fieldname: "due", fieldtype: "Date" }, ...bodyFields]), { title: "id", subtitle: "project", dateField: "modified" });
     expect(resolved).toEqual({
-      title: "name", subtitle: "project", dateField: "modified",
+      title: "id", subtitle: "project", dateField: "modified",
       keyFields: [bodyFields[0], bodyFields[1], bodyFields[3]],
-      fetchFields: ["name", "project", "modified", "subject", "priority", "assignee"],
+      fetchFields: ["id", "project", "modified", "subject", "priority", "assignee"],
     });
   });
 

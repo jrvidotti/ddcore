@@ -14,7 +14,7 @@ import (
 
 const alphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
 
-func randomName() string {
+func randomID() string {
 	b := make([]byte, 10)
 	rand.Read(b)
 	for i := range b {
@@ -25,53 +25,53 @@ func randomName() string {
 
 var hashRun = regexp.MustCompile(`#+`)
 
-// setName decides the name of a new document following the naming rule.
-func (c *Ctx) setName(d *meta.DocType, doc Doc) error {
+// setID decides the id of a new document following its idGeneration rule.
+func (c *Ctx) setID(d *meta.DocType, doc Doc) error {
 	if d.IsSingle {
-		doc["name"] = "singleton"
+		doc["id"] = "singleton"
 		return nil
 	}
-	n := d.Naming
+	g := d.IDGeneration
 	switch {
-	case doc.Str("amended_from") != "" && doc.Str("name") != "":
+	case doc.Str("amended_from") != "" && doc.Str("id") != "":
 		// amended documents keep "<original>-<n>"
-	case n.Series != "":
-		series := n.Series
-		if doc.Str("naming_series") != "" {
-			series = doc.Str("naming_series")
+	case g.Series != "":
+		series := g.Series
+		if doc.Str("id_series") != "" {
+			series = doc.Str("id_series")
 		}
-		name, err := c.nextInSeries(series, doc)
+		id, err := c.nextInSeries(series, doc)
 		if err != nil {
 			return err
 		}
-		doc["name"] = name
-	case n.Field != "":
-		v := strings.TrimSpace(doc.Str(n.Field))
+		doc["id"] = id
+	case g.Field != "":
+		v := strings.TrimSpace(doc.Str(g.Field))
 		if v == "" {
-			return cerr.Mandatory("{0} is required to name the document", c.T(d.Field(n.Field).Label))
+			return cerr.Mandatory("{0} is required to identify the document", c.T(d.Field(g.Field).Label))
 		}
-		doc["name"] = v
-	case n.Format != "":
-		name, err := c.formatName(n.Format, doc)
+		doc["id"] = v
+	case g.Format != "":
+		id, err := c.formatID(g.Format, doc)
 		if err != nil {
 			return err
 		}
-		doc["name"] = name
-	case n.Prompt:
-		if strings.TrimSpace(doc.Str("name")) == "" {
-			return cerr.Mandatory("Provide the document name")
+		doc["id"] = id
+	case g.Prompt:
+		if strings.TrimSpace(doc.Str("id")) == "" {
+			return cerr.Mandatory("Provide the document ID")
 		}
 	default:
-		if strings.TrimSpace(doc.Str("name")) == "" {
-			doc["name"] = randomName()
+		if strings.TrimSpace(doc.Str("id")) == "" {
+			doc["id"] = randomID()
 		}
 	}
-	doc["name"] = strings.TrimSpace(doc.Str("name"))
-	if doc.Str("name") == "" {
-		doc["name"] = randomName()
+	doc["id"] = strings.TrimSpace(doc.Str("id"))
+	if doc.Str("id") == "" {
+		doc["id"] = randomID()
 	}
-	if ok, _ := c.nameExists(d.Name, doc.Str("name")); ok {
-		return cerr.Duplicate("{0} {1} already exists", c.T(d.Label), doc.Str("name")).WithTitleKey("Duplicate name")
+	if ok, _ := c.idExists(d.Name, doc.Str("id")); ok {
+		return cerr.Duplicate("{0} {1} already exists", c.T(d.Label), doc.Str("id")).WithTitleKey("Duplicate ID")
 	}
 	return nil
 }
@@ -121,8 +121,8 @@ func (c *Ctx) nextCounter(key string) (int64, error) {
 
 var fmtField = regexp.MustCompile(`\{([a-zA-Z_#]+)\}`)
 
-// formatName renders "{imovel}-{YYYY}-{###}".
-func (c *Ctx) formatName(format string, doc Doc) (string, error) {
+// formatID renders "{imovel}-{YYYY}-{###}".
+func (c *Ctx) formatID(format string, doc Doc) (string, error) {
 	now := time.Now()
 	counter := 0
 	out := fmtField.ReplaceAllStringFunc(format, func(m string) string {
@@ -155,11 +155,11 @@ func (c *Ctx) formatName(format string, doc Doc) (string, error) {
 
 // SeriesOptions returns the series prefixes a doctype allows.
 func SeriesOptions(d *meta.DocType) []string {
-	if f := d.Field("naming_series"); f != nil {
+	if f := d.Field("id_series"); f != nil {
 		return f.SelectValues()
 	}
-	if d.Naming.Series != "" {
-		return []string{d.Naming.Series}
+	if d.IDGeneration.Series != "" {
+		return []string{d.IDGeneration.Series}
 	}
 	return nil
 }

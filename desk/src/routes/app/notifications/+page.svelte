@@ -34,12 +34,12 @@
       <div class="state muted"><Icon name="bell" size={28} /><p>{__("No notifications")}</p></div>
     {:else}
       <ul>
-        {#each center.rows as row (row.name)}
+        {#each center.rows as row (row.id)}
           <li class:unread={!row.read}>
             <div class="content">
               <div class="heading"><h2>{row.title}</h2><span class="status">{row.read ? __("Read") : __("Unread")}</span></div>
               <p class="message">{row.message}</p>
-              <div class="metadata"><time datetime={row.creation}>{formatDatetime(row.creation)}</time><a href={`/app/${encodeURIComponent(row.reference_doctype)}/${encodeURIComponent(row.reference_name)}`}>{doctypeLabel(row.reference_doctype)} · {row.reference_name}</a></div>
+              <div class="metadata"><time datetime={row.creation}>{formatDatetime(row.creation)}</time><a href={`/app/${encodeURIComponent(row.reference_doctype)}/${encodeURIComponent(row.reference_id)}`}>{doctypeLabel(row.reference_doctype)} · {row.reference_id}</a></div>
             </div>
             <button class="btn small" disabled={center.pending !== ""} onclick={() => center.toggle(row)}>{row.read ? __("Mark as unread") : __("Mark as read")}</button>
           </li>

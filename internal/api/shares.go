@@ -14,7 +14,7 @@ import (
 
 type shareRequest struct {
 	Doctype       string `json:"doctype"`
-	Name          string `json:"name"`
+	ID            string `json:"id"`
 	User          string `json:"user"`
 	Read          bool   `json:"read"`
 	Write         bool   `json:"write"`
@@ -24,7 +24,7 @@ type shareRequest struct {
 
 type unshareRequest struct {
 	Doctype string `json:"doctype"`
-	Name    string `json:"name"`
+	ID      string `json:"id"`
 	User    string `json:"user"`
 }
 
@@ -39,7 +39,7 @@ func decodeStrict(r *http.Request, v any) error {
 
 func (s *Server) listDocShares(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
-		return c.ListDocShares(urlParam(r, "doctype"), urlParam(r, "name"))
+		return c.ListDocShares(urlParam(r, "doctype"), urlParam(r, "id"))
 	})
 }
 
@@ -49,7 +49,7 @@ func (s *Server) shareDoc(w http.ResponseWriter, r *http.Request) {
 		if err := decodeStrict(r, &body); err != nil {
 			return nil, err
 		}
-		return c.ShareDoc(body.Doctype, body.Name, body.User, engine.ShareRights{
+		return c.ShareDoc(body.Doctype, body.ID, body.User, engine.ShareRights{
 			Read: body.Read, Write: body.Write, Share: body.Share, OverrideScope: body.OverrideScope,
 		})
 	})
@@ -61,9 +61,9 @@ func (s *Server) unshareDoc(w http.ResponseWriter, r *http.Request) {
 		if err := decodeStrict(r, &body); err != nil {
 			return nil, err
 		}
-		if body.Doctype == "" || body.Name == "" || body.User == "" {
-			return nil, cerr.Validation("doctype, name and user are required")
+		if body.Doctype == "" || body.ID == "" || body.User == "" {
+			return nil, cerr.Validation("doctype, id and user are required")
 		}
-		return map[string]any{"ok": true}, c.UnshareDoc(body.Doctype, body.Name, body.User)
+		return map[string]any{"ok": true}, c.UnshareDoc(body.Doctype, body.ID, body.User)
 	})
 }

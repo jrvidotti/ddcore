@@ -12,12 +12,12 @@ func TestVaultDocLifecycle(t *testing.T) {
 		"doctypes/integration_account/integration_account.doctype.ts": `import { defineDoctype } from "@ddcore/sdk";
 export default defineDoctype({
   name: "Integration Account",
-  naming: { series: "ACC-.###" },
+  idGeneration: { series: "ACC-.###" },
   trackChanges: true,
   fields: [
     { fieldname: "account_name", fieldtype: "Data", label: "Account Name", reqd: true },
     { fieldname: "api_key", fieldtype: "Vault", label: "API Key" },
-    { fieldname: "custom_token", fieldtype: "Vault", label: "Custom Token", options: "custom:token:{name}" },
+    { fieldname: "custom_token", fieldtype: "Vault", label: "Custom Token", options: "custom:token:{id}" },
   ],
   permissions: [{ role: "All", read: true, write: true, create: true, delete: true }],
 });`,
@@ -42,13 +42,13 @@ export default defineDoctype({
 	if err != nil {
 		t.Fatalf("insert failed: %v", err)
 	}
-	docName := saved.Name()
+	docName := saved.ID()
 	if !strings.HasPrefix(docName, "ACC-") {
 		t.Fatalf("expected ACC- name prefix, got %q", docName)
 	}
 
 	// 2. Verify NO columns exist in tab_integration_account
-	rows, err := db.Select(c.Ctx, c.Q(), "SELECT * FROM tab_integration_account WHERE name = $1", docName)
+	rows, err := db.Select(c.Ctx, c.Q(), "SELECT * FROM tab_integration_account WHERE id = $1", docName)
 	if err != nil || len(rows) == 0 {
 		t.Fatalf("select row failed: len=%d, err=%v", len(rows), err)
 	}
@@ -102,7 +102,7 @@ export default defineDoctype({
 	// 6. Check Version diff does not contain Vault fields
 	versions, err := c.GetList("Version", ListArgs{
 		Fields:            []string{"data"},
-		Filters:           map[string]any{"docname": docName},
+		Filters:           map[string]any{"doc_id": docName},
 		IgnorePermissions: true,
 	})
 	if err != nil {
@@ -155,7 +155,7 @@ func TestVaultRenameCarriesDefaultShapedSecret(t *testing.T) {
 		"doctypes/integration_account/integration_account.doctype.ts": `import { defineDoctype } from "@ddcore/sdk";
 export default defineDoctype({
   name: "Integration Account",
-  naming: { field: "account_name" },
+  idGeneration: { field: "account_name" },
   allowRename: true,
   fields: [
     { fieldname: "account_name", fieldtype: "Data", label: "Account Name", reqd: true },
@@ -181,7 +181,7 @@ export default defineDoctype({
 	if err != nil {
 		t.Fatalf("insert failed: %v", err)
 	}
-	docName := saved.Name()
+	docName := saved.ID()
 
 	oldKey := "Integration Account:api_key:" + docName
 	if _, ok, _ := e.VaultGet(c, oldKey); !ok {

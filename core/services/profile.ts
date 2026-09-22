@@ -25,10 +25,10 @@ function me(): string {
 export const getMyProfile = whitelisted(() => {
   const user = me();
   const d = ddcore.db.getValue("User", user, [
-    "name", "email", "full_name", "language", "user_type", "last_login",
+    "id", "email", "full_name", "language", "user_type", "last_login",
   ]) as any;
   return {
-    name: d?.name ?? user,
+    id: d?.id ?? user,
     email: d?.email ?? user,
     fullName: d?.full_name ?? "",
     language: d?.language ?? null,

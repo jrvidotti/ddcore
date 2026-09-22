@@ -8,7 +8,7 @@ export default defineReport({
   execute(filters, ctx) {
     const rows = ddcore.db.getList("Contract", { filters: {/* … */}, fields: [/* … */], limit: 10000 });
     return {
-      columns: [{ fieldname: "name", label: _("Contract"), fieldtype: "Link", options: "Contract", width: 140 }, /* … */],
+      columns: [{ fieldname: "id", label: _("Contract"), fieldtype: "Link", options: "Contract", width: 140 }, /* … */],
       rows,
       summary: [{ label: _("Total"), value: 10, datatype: "Currency", indicator: "red" }],
       chart: { type: "bar", labels: [/* … */], datasets: [{ name: _("Revenue"), values: [/* … */] }] },

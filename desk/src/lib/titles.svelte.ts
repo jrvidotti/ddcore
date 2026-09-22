@@ -11,41 +11,41 @@ export function registerTitles(titles: Record<string, Record<string, string>>) {
   if (!titles) return;
   for (const [dt, map] of Object.entries(titles)) {
     if (!cache[dt]) cache[dt] = {};
-    for (const [name, title] of Object.entries(map)) {
-      if (title) cache[dt][name] = title;
+    for (const [id, title] of Object.entries(map)) {
+      if (title) cache[dt][id] = title;
     }
   }
 }
 
 /** Sets a single link title in the reactive cache. */
-export function setLinkTitle(doctype: string, name: string, title: string) {
-  if (!doctype || !name) return;
+export function setLinkTitle(doctype: string, id: string, title: string) {
+  if (!doctype || !id) return;
   if (!cache[doctype]) cache[doctype] = {};
-  cache[doctype][name] = title;
+  cache[doctype][id] = title;
 }
 
 /**
  * Returns the title for a document if cached. If uncached and the doctype
- * has a titleField, schedules a background batch fetch and returns name as fallback.
+ * has a titleField, schedules a background batch fetch and returns the id as fallback.
  */
-export function getLinkTitle(doctype: string, name: string): string {
-  if (!doctype || !name) return "";
-  const existing = cache[doctype]?.[name];
+export function getLinkTitle(doctype: string, id: string): string {
+  if (!doctype || !id) return "";
+  const existing = cache[doctype]?.[id];
   if (existing !== undefined) return existing;
 
-  // If doctype metadata is known and has no titleField (or titleField === "name"),
-  // then name is the title.
+  // If doctype metadata is known and has no titleField (or titleField === "id"),
+  // then the id is the title.
   const dtMeta = boot.data?.doctypes[doctype];
-  if (boot.ready && dtMeta && (!dtMeta.titleField || dtMeta.titleField === "name")) {
-    return name;
+  if (boot.ready && dtMeta && (!dtMeta.titleField || dtMeta.titleField === "id")) {
+    return id;
   }
 
-  queueFetch(doctype, name);
-  return name;
+  queueFetch(doctype, id);
+  return id;
 }
 
-export function hasLinkTitle(doctype: string, name: string): boolean {
-  return cache[doctype]?.[name] !== undefined;
+export function hasLinkTitle(doctype: string, id: string): boolean {
+  return cache[doctype]?.[id] !== undefined;
 }
 
 export function clearTitleCache() {
@@ -54,9 +54,9 @@ export function clearTitleCache() {
   }
 }
 
-function queueFetch(doctype: string, name: string) {
+function queueFetch(doctype: string, id: string) {
   if (!pending.has(doctype)) pending.set(doctype, new Set());
-  pending.get(doctype)!.add(name);
+  pending.get(doctype)!.add(id);
 
   clearTimeout(batchTimer);
   batchTimer = setTimeout(flushPending, 30);
@@ -73,7 +73,7 @@ async function flushPending() {
       const res = await api.linkTitles(doctype, names);
       if (res) registerTitles(res);
     } catch {
-      // Ignore errors, fallback to name
+      // Ignore errors, fallback to the id
     }
   }
 }

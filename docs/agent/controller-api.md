@@ -5,7 +5,7 @@ import { defineController, whitelisted, _ } from "@ddcore/sdk";
 import type { Order } from "../../.ddcore/types";
 
 export default defineController<Order>("Order", {
-  beforeInsert(doc) {},                 // before naming
+  beforeInsert(doc) {},                 // before the id is generated
   validate(doc, ctx) {                  // every write (insert and update)
     doc.total = (doc.items || []).reduce((s, i) => s + ddcore.utils.flt(i.qty) * ddcore.utils.flt(i.amount), 0);
     if (doc.total < 0) ddcore.throw(_("Negative total"), { title: _("Order") });
@@ -16,7 +16,7 @@ export default defineController<Order>("Order", {
   onUpdateAfterSubmit(doc) {},
   onTrash(doc) {}, afterDelete(doc) {},
   beforeRename(doc) {}, afterRename(doc) {},
-  methods: {                            // POST /api/resource/Order/<name>/<method>; in the desk: frm.call("summary", { x: 1 })
+  methods: {                            // POST /api/resource/Order/<id>/<method>; in the desk: frm.call("summary", { x: 1 })
     summary(doc, args, ctx) { return { items: doc.items.length }; },
     settle(doc, args) { doc.append("settlements", { /* … */ }); doc.save(); return { balance: doc.balance }; },
   },
@@ -44,15 +44,15 @@ reloads the document with the new state and docstatus; see `workflows`), `doc.fl
 
 ## `ddcore.*` (global on the server)
 
-- `ddcore.db.getValue(doctype, name | filters, field | [fields])` — a value or an object (or `null`)
+- `ddcore.db.getValue(doctype, id | filters, field | [fields])` — a value or an object (or `null`)
 - `ddcore.db.getList(doctype, { filters, fields, orderBy, limit, start, groupBy })` — respects permissions; `getAll` skips role permissions but still applies user access scopes (see `scopes`)
-- `ddcore.db.setValue(doctype, name, field, value)` / `setValue(doctype, name, { ... })` — no validate; updates `modified`; skips role permissions but applies user access scopes, the closed-DocType, workflow and Audit Event refusals (see `scopes`)
-- `ddcore.db.count(doctype, filters)`, `ddcore.db.exists(doctype, name | filters)` → the name or `null`; applies user access scopes (see `scopes`)
+- `ddcore.db.setValue(doctype, id, field, value)` / `setValue(doctype, id, { ... })` — no validate; updates `modified`; skips role permissions but applies user access scopes, the closed-DocType, workflow and Audit Event refusals (see `scopes`)
+- `ddcore.db.count(doctype, filters)`, `ddcore.db.exists(doctype, id | filters)` → the id or `null`; applies user access scopes (see `scopes`)
 - `ddcore.db.sql("SELECT ... WHERE x = $1", [v])` — read-only; tables are `tab_<snake>`
-- `ddcore.getDoc(doctype, name)`, `ddcore.newDoc(doctype, values)`, `ddcore.deleteDoc(doctype, name, { force })`
+- `ddcore.getDoc(doctype, id)`, `ddcore.newDoc(doctype, values)`, `ddcore.deleteDoc(doctype, id, { force })`, `ddcore.rename(doctype, oldID, newID)`
 - `ddcore.throw(msg, { title, type })`, `ddcore.msgprint(msg, { title, indicator, alert })`, `ddcore._(text, args)` / `_()`
-- `ddcore.session` → `{ user, roles, lang, request }`; `ddcore.user()`; `ddcore.getRoles(user)`; `ddcore.hasPermission(doctype, ptype, doc)`
-- `ddcore.share.add(doctype, name, user, { write, share, overrideScope })` / `remove(doctype, name, user)` / `list(doctype, name)` — per-user document shares, checked with the current user as sharer. See `sharing`
+- `ddcore.session` → `{ user, roles, lang, request }`; `ddcore.user()`; `ddcore.getRoles(user)`; `ddcore.hasPermission(doctype, ptype, doc)` (`doc` may be just `{ id, owner }`)
+- `ddcore.share.add(doctype, id, user, { write, share, overrideScope })` / `remove(doctype, id, user)` / `list(doctype, id)` — per-user document shares, checked with the current user as sharer. See `sharing`
 - `ddcore.redact(doctype, doc)` → a copy of `doc` as an API read would show it to the current user: Password/Vault blanked and fields above their permission level removed. Server code sees whole documents; redact before a method or report hands one to a client. See `field-permissions`
 - `ddcore.cache.get/set(key, value, ttlSeconds)/del`
 - `ddcore.http.get(url, opts?)` / `del(url, opts?)` send GET / DELETE requests.
@@ -97,7 +97,7 @@ column gets.
 
 Filters: `{ field: value, other: [">", 10] }` or `[["field", "=", v], ["Child Table", "field", ">", v]]`.
 Operators: `= != > >= < <= like not like in not in between is set not set`.
-`fields` accepts aggregates: `"count(name) as n"`, `"sum(amount) as total"`.
+`fields` accepts aggregates: `"count(id) as n"`, `"sum(amount) as total"`.
 
 ## Tests
 
@@ -116,7 +116,7 @@ toBeCloseTo, toHaveLength, toMatch, toThrow(text|regex), `.not`.
 
 Declare `isSingle: true` for one configuration per DocType and instance. Singles use
 normal typed tables, standard metadata, validation, hooks and child tables, with
-`name: "singleton"` and `docstatus: 0` enforced by PostgreSQL.
+`id: "singleton"` and `docstatus: 0` enforced by PostgreSQL.
 
 ```ts
 const settings = ddcore.getDoc("Project Settings");
@@ -125,7 +125,7 @@ settings.save();
 settings.reload();
 ```
 
-Omitting the name is supported only for Singles. Before the first save, `getDoc`
+Omitting the id is supported only for Singles. Before the first save, `getDoc`
 returns an unsaved document with the usual defaults and empty child tables; reading
 never inserts a record. Defaults do not overwrite persisted values. Saving requires
 `write`, including the first save; `create` alone does not grant it. Reads require
@@ -140,7 +140,7 @@ saves produce one success and one duplicate conflict. Updates use the ordinary
 REST uses `GET` / `PUT /api/resource/{doctype}/singleton`; PUT also performs the
 first save. POST to `/api/resource/{doctype}` inserts only once. Other identities,
 deleting, renaming a record, submitting, cancelling and amending are unsupported.
-Singles cannot declare naming rules, `allowRename`, `submittable`, or `isChild`.
+Singles cannot declare `idGeneration`, `allowRename`, `submittable`, or `isChild`.
 List/count/database queries see only persisted rows. Export of Singles is not yet
 supported. Password redaction and attachment/history permissions still apply.
 

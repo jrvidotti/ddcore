@@ -49,7 +49,7 @@ The rules:
   set only `read` and `write`. `create`, `delete`, `submit`, `cancel`, `amend`, `report`,
   `export`, `share` and `ifOwner` are refused when the meta loads.
 - **`write` implies `read`** at the same level.
-- **Standard columns** (`name`, `owner`, `creation`, `modified`, `modified_by`,
+- **Standard columns** (`id`, `owner`, `creation`, `modified`, `modified_by`,
   `docstatus`, and a child row's `parent`, `parenttype`, `parentfield` and `idx`) are
   always level 0.
 - **Child tables follow the parent.** A child DocType has no permissions of its own, so its
@@ -68,7 +68,7 @@ permission row at a level for a role the owner already grants at level 0. See `e
 A field that identifies a document outside its own form cannot be restricted. Everyone who
 can find the document sees it, so these must be level 0:
 
-- `titleField`, `searchFields`, `naming.field` and every `{field}` in `naming.format`;
+- `titleField`, `searchFields`, `idGeneration.field` and every `{field}` in `idGeneration.format`;
 - a workflow's state field;
 - a level-0 field whose `fetchFrom` copies a field above level 0. Copying a restricted value
   into an unrestricted field would publish it. Give the destination a level instead.
@@ -80,7 +80,7 @@ framework hands a document out:
 
 | Path | Behaviour |
 | --- | --- |
-| `GET /api/resource/{doctype}/{name}`, create, update, submit, cancel, save, amend, workflow actions | Omitted, child rows included |
+| `GET /api/resource/{doctype}/{id}`, create, update, submit, cancel, save, amend, workflow actions | Omitted, child rows included |
 | A controller method (`run_method`) | The method sees the whole document; the `doc` in the response is redacted |
 | Lists, `count`, link search, number cards (`/api/resource/{doctype}`, `ddcore.db.getList`, `ddcore.db.count`) | `*` and a named field leave the column out. A filter, `or_filters`, `order_by`, `group_by` or aggregate (`sum(salary)`) on the field is a `PermissionError`, so a query cannot probe the value |
 | Export (HTTP and CLI) | Default columns leave it out; naming it is a `PermissionError`; child columns and attachments held by the field are left out |
@@ -102,7 +102,7 @@ set a restricted field on the user's behalf, for example a computed commission.
 1. **What the writer could not see is kept.** A field the user cannot read that arrives
    absent or `null` keeps its stored value, or its default on an insert. The Desk saves the
    whole document it was given, and that document never had the field. Child rows are
-   matched by `name`. A new row gets the default for the columns the user cannot read.
+   matched by `id`. A new row gets the default for the columns the user cannot read.
 2. **Anything else is compared.** A field the user cannot write must equal the stored value,
    or the default on an insert. If it does not, the save fails with `PermissionError` "Not
    permitted to change {0}". In a restricted `Table`, adding, removing or editing a row is a
@@ -131,8 +131,8 @@ script report or `ddcore.publish` hands a document to a client, pass it through
 `ddcore.redact`:
 
 ```ts
-export const employeeCard = whitelisted((args: { name: string }) => {
-  const doc = ddcore.getDoc("Employee", args.name);
+export const employeeCard = whitelisted((args: { id: string }) => {
+  const doc = ddcore.getDoc("Employee", args.id);
   return ddcore.redact("Employee", doc); // what GET /api/resource would return to this user
 });
 ```

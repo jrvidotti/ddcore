@@ -12,7 +12,7 @@ export default definePrintTemplate({
     ]);
 
     return [
-      b.header(doc.title || doc.name, {
+      b.header(doc.title || doc.id, {
         subtitle: _("Project Code: {0}", [doc.code]),
       }),
       b.p(doc.description || _("No project description provided.")),

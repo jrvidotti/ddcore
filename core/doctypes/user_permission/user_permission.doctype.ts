@@ -5,7 +5,7 @@ export default defineDoctype({
   module: "Core",
   label: "User Permission",
   icon: "shield",
-  naming: { hash: true },
+  idGeneration: { hash: true },
   titleField: "for_value",
   globalSearch: false,
   searchFields: ["user", "allow", "for_value"],

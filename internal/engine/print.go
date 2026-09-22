@@ -154,7 +154,7 @@ func (c *Ctx) PrintDoc(doctype, name, format, letterheadName, lang string, page 
 	}
 
 	// 6. Assemble HTML
-	docTitle := doc.Name()
+	docTitle := doc.ID()
 	if d.TitleField != "" && doc[d.TitleField] != nil {
 		tVal := db.Str(doc[d.TitleField])
 		if tVal != "" {
@@ -175,11 +175,11 @@ func (c *Ctx) resolveLetterHead(name string) (*print.LetterHead, error) {
 	var err error
 
 	if name != "" {
-		rows, err = db.Select(c.Ctx, c.Q(), `SELECT letter_head_name, header_html, footer_html, align, image, disabled, is_default FROM tab_letter_head WHERE name = $1`, name)
+		rows, err = db.Select(c.Ctx, c.Q(), `SELECT letter_head_name, header_html, footer_html, align, image, disabled, is_default FROM tab_letter_head WHERE id = $1`, name)
 	} else {
 		// The controller keeps one default; should several exist anyway (a
 		// direct SQL write), the most recently modified wins.
-		rows, err = db.Select(c.Ctx, c.Q(), `SELECT letter_head_name, header_html, footer_html, align, image, disabled, is_default FROM tab_letter_head WHERE is_default AND NOT disabled ORDER BY modified DESC, name LIMIT 1`)
+		rows, err = db.Select(c.Ctx, c.Q(), `SELECT letter_head_name, header_html, footer_html, align, image, disabled, is_default FROM tab_letter_head WHERE is_default AND NOT disabled ORDER BY modified DESC, id LIMIT 1`)
 	}
 	if err != nil {
 		return nil, err

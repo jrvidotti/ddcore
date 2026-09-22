@@ -22,7 +22,7 @@ it does everywhere else.
 
 ## What comes out, and what never does
 
-Every column of the DocType, in a stable order: `name`, the fields as the app
+Every column of the DocType, in a stable order: `id`, the fields as the app
 declared them, then `owner`, `creation`, `modified`, `modified_by` and
 `docstatus`. The audit columns are there because a reconciliation needs them.
 

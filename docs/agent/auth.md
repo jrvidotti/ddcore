@@ -261,7 +261,7 @@ each checks `ddcore.session.user` before touching anything:
 - `sessions.listMySessions` · `sessions.revokeMySession({id})` ·
   `sessions.revokeMyOtherSessions`
 - `api_keys.listMyAPIKeys` · `api_keys.createMyAPIKey({label, days?})` ·
-  `api_keys.revokeMyAPIKey({name})`
+  `api_keys.revokeMyAPIKey({id})`
 
 `updateMyProfile` enumerates its two fields and never spreads `args` — that
 enumeration is the security of the function, since the write underneath skips

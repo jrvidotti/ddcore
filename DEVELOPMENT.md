@@ -100,7 +100,7 @@ In behavioural terms, the core is what guarantees:
 
 - **The lifecycle** — `beforeValidate → validate → beforeSave → (insert|update) →
   afterInsert/onUpdate`; `beforeSubmit → onSubmit`; `beforeCancel → onCancel`;
-  `onTrash → afterDelete`. `docstatus` 0/1/2, naming, `amended_from`, child tables
+  `onTrash → afterDelete`. `docstatus` 0/1/2, id generation, `amended_from`, child tables
   (`parent`/`parenttype`/`parentfield`/`idx`).
 - **Structural validation, on the server** — `reqd`, `unique`, a Select's `options`, that
   links exist, `fetchFrom`, `mandatoryDependsOn`, and refusing to change a field without
@@ -208,7 +208,7 @@ ddcore.app.ts                   the manifest: name, roles, scheduler, desk
 tsconfig.json                   resolves @ddcore/sdk into packages/sdk/src (in a standalone
                                 app it points at .ddcore/ instead)
 doctypes/<name>/
-  <name>.doctype.ts             meta: fields, permissions, naming          [server, declarative]
+  <name>.doctype.ts             meta: fields, permissions, id generation   [server, declarative]
   <name>.controller.ts          lifecycle hooks and methods                [server, synchronous]
   <name>.form.ts                the form's behaviour in the desk           [browser, async]
   <name>.test.ts                tests                                      [ddcore test]
@@ -230,7 +230,7 @@ Taking `Project` as the example:
 
 **1. `project.doctype.ts` — the meta.** Purely declarative. Fields with a `fieldtype` (`Data`,
 `Link`, `Select`, `Percent`, `Table`…), `reqd`, `unique`, `readOnly`, `inListView`,
-`inStandardFilter`, `naming: { field: "code" }`, `titleField`, `trackChanges`. From this the
+`inStandardFilter`, `idGeneration: { field: "code" }`, `titleField`, `trackChanges`. From this the
 core derives the Postgres schema, the form's layout, the list's columns, the filters and the
 typings in `.ddcore/types.d.ts`.
 
@@ -238,7 +238,7 @@ typings in `.ddcore/types.d.ts`.
 export default defineDoctype({
   name: "Project",
   module: "Projects",
-  naming: { field: "code" },
+  idGeneration: { field: "code" },
   titleField: "title",
   fields: [
     { fieldname: "code", fieldtype: "Data", label: "Code", reqd: true, unique: true, inListView: true },
@@ -373,7 +373,7 @@ installation, boot, translation and `/app` against a real Postgres over real HTT
 
 1. **Desk** — `doctypes/task/task.form.ts` shows the `Complete` button according to the state
    and calls `frm.call("complete")`.
-2. **Core** — receives `POST /api/resource/Task/:name/complete` (`internal/api`),
+2. **Core** — receives `POST /api/resource/Task/:id/complete` (`internal/api`),
    authenticates, checks permission, opens the transaction, loads the document
    (`internal/engine`) and invokes the controller's method in goja (`internal/js`).
 3. **Controller** — `task.controller.ts:methods.complete` is idempotent: if it is already

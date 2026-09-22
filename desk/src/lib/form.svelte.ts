@@ -112,7 +112,7 @@ export class FormController {
    * no row was written yet). Treating it as new labelled it "New" and hid its menu
    * and sidebar.
    */
-  get isNew() { return !this.isSingle && (!!this.doc.__islocal || !this.doc.name); }
+  get isNew() { return !this.isSingle && (!!this.doc.__islocal || !this.doc.id); }
   isNewDoc() { return this.isNew; }
   get isDirty() { return JSON.stringify(this.doc) !== this.original; }
   get docstatus(): number { return Number(this.doc.docstatus || 0); }
@@ -130,7 +130,7 @@ export class FormController {
     const f = this.meta.doctype.fields.find((x) => x.fieldname === fieldname);
     if (!f) return undefined;
     const props = { ...(this.dfProps[fieldname] || {}) };
-    if (fieldname === "name" && !this.isNew && !props.description && this.meta.doctype.naming?.prompt) {
+    if (fieldname === "id" && !this.isNew && !props.description && this.meta.doctype.idGeneration?.prompt) {
       props.description = __("To change it, click the title above or Rename in the menu.");
     }
     return { ...f, ...props };
@@ -139,8 +139,8 @@ export class FormController {
   /** Whether a field can be edited right now (docstatus, readOnly, allowOnSubmit, readOnlyDependsOn). */
   isFieldEditable(f: Field): boolean {
     if (this.workflow && (this.workflow.allowEdit === false || !this.perm?.write)) return false;
-    if (this.isSingle && (!this.perm.write || f.fieldname === "name")) return false;
-    if (f.fieldname === "name" && !this.isNew) return false;
+    if (this.isSingle && (!this.perm.write || f.fieldname === "id")) return false;
+    if (f.fieldname === "id" && !this.isNew) return false;
     if (f.readOnly) return false;
     if (this.docstatus === 2) return false;
     if (this.docstatus === 1 && !f.allowOnSubmit) return false;
@@ -187,7 +187,7 @@ export class FormController {
     if (!link || !target) { for (const t of targets) if (t.readOnly) this.doc[t.fieldname!] = null; return; }
     const fields = targets.map((t) => t.fetchFrom!.split(".")[1]);
     try {
-      const rows = await api.list(target, { filters: { name: link }, fields, limit: 1 });
+      const rows = await api.list(target, { filters: { id: link }, fields, limit: 1 });
       const row = rows[0] || {};
       for (const t of targets) {
         const src = t.fetchFrom!.split(".")[1];
@@ -308,15 +308,15 @@ export class FormController {
         if (action === "submit") this.doc.docstatus = 1;
         saved = await api.insert(dt, this.doc);
       } else if (action === "save") {
-        saved = await api.update(dt, this.doc.name, this.doc);
+        saved = await api.update(dt, this.doc.id, this.doc);
       } else {
-        saved = await api.docMethod(dt, this.doc.name, action, { doc: this.doc });
+        saved = await api.docMethod(dt, this.doc.id, action, { doc: this.doc });
       }
       const wasNew = this.isNew;
       this.load(saved);
       for (const h of this.handlers) { try { await h.afterSave?.(this); } catch (e) { showError(e); } }
       toast(action === "submit" ? __("Submitted") : action === "cancel" ? __("Cancelled") : __("Saved"), { indicator: "green", timeout: 2000 });
-      if (wasNew && !this.isSingle) goto(`${currentWsPrefix()}/${encodeURIComponent(dt)}/${encodeURIComponent(saved.name)}`, { replaceState: true });
+      if (wasNew && !this.isSingle) goto(`${currentWsPrefix()}/${encodeURIComponent(dt)}/${encodeURIComponent(saved.id)}`, { replaceState: true });
       else await this.runRefresh();
       return true;
     } catch (e: any) {
@@ -345,7 +345,7 @@ export class FormController {
     try {
       const res = await api.post("/api/workflow/apply", {
         doctype: this.doctype,
-        name: this.doc.name,
+        id: this.doc.id,
         action,
       });
       this.load(res);
@@ -392,19 +392,19 @@ export class FormController {
   async reload() {
     if (this.isNew && !this.isSingle) return;
     try {
-      this.load(await api.getDoc(this.doctype, this.doc.name));
+      this.load(await api.getDoc(this.doctype, this.doc.id));
       await this.runRefresh();
     } catch (e) { showError(e); }
   }
 
   async delete() {
-    await api.remove(this.doctype, this.doc.name);
+    await api.remove(this.doctype, this.doc.id);
     toast(__("Deleted"), { indicator: "green", timeout: 2000 });
     goto(`${currentWsPrefix()}/${encodeURIComponent(this.doctype)}`);
   }
 
   async amend() {
-    const doc = await api.docMethod(this.doctype, this.doc.name, "amend");
+    const doc = await api.docMethod(this.doctype, this.doc.id, "amend");
     this.load(doc);
     goto(`${currentWsPrefix()}/${encodeURIComponent(this.doctype)}/new`, { state: { doc } });
   }
@@ -414,22 +414,22 @@ export class FormController {
     if (this.isNew) { toast(__("Save the document first"), { indicator: "orange" }); return; }
     ui.busy++;
     try {
-      const res = await api.docMethod(this.doctype, this.doc.name, method, args);
+      const res = await api.docMethod(this.doctype, this.doc.id, method, args);
       if (opts.reload !== false && res?.doc) { this.load(res.doc); await this.runRefresh(); }
       return res?.result;
     } catch (e) { showError(e); throw e; } finally { ui.busy--; }
   }
 }
 
-export async function createForm(doctype: string, name?: string, initial?: any): Promise<FormController> {
+export async function createForm(doctype: string, id?: string, initial?: any): Promise<FormController> {
   const meta = await getMeta(doctype);
   await loadFormScript(meta);
   let doc: any;
   if (meta.doctype.isSingle) {
-    if (name === "new") await goto(`${currentWsPrefix()}/${encodeURIComponent(doctype)}`, { replaceState: true });
+    if (id === "new") await goto(`${currentWsPrefix()}/${encodeURIComponent(doctype)}`, { replaceState: true });
     doc = await api.getSingle(doctype);
   }
-  else if (name && name !== "new") doc = await api.getDoc(doctype, name);
+  else if (id && id !== "new") doc = await api.getDoc(doctype, id);
   else doc = { ...newDoc(meta), ...(initial || {}) };
   const frm = new FormController(meta, doc);
   await frm.runSetup();

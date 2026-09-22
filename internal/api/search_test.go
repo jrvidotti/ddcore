@@ -31,7 +31,7 @@ func searchAPIApp(t *testing.T) string {
 	write("ddcore.app.ts", `import { defineApp } from "@ddcore/sdk";
 export default defineApp({ name: "demo", title: "Search Test", roles: ["Gestor", "Searcher", "Other"] });`)
 	write("doctypes/search_project/search_project.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
-export default defineDoctype({ name: "Search Project", naming: { field: "project_name" }, titleField: "project_name",
+export default defineDoctype({ name: "Search Project", idGeneration: { field: "project_name" }, titleField: "project_name",
   fields: [
     { fieldname: "project_name", fieldtype: "Data", label: "Project Name", reqd: true },
     { fieldname: "lines", fieldtype: "Table", label: "Lines", options: "Search Line" },
@@ -41,15 +41,15 @@ export default defineDoctype({ name: "Search Project", naming: { field: "project
 export default defineDoctype({ name: "Search Line", isChild: true, titleField: "line",
   fields: [{ fieldname: "line", fieldtype: "Data", label: "Line" }] });`)
 	write("doctypes/search_note/search_note.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
-export default defineDoctype({ name: "Search Note", naming: { field: "title" },
+export default defineDoctype({ name: "Search Note", idGeneration: { field: "title" },
   fields: [{ fieldname: "title", fieldtype: "Data", label: "Title", reqd: true }],
   permissions: [{ role: "Searcher", read: true }] });`)
 	write("doctypes/search_hidden/search_hidden.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
-export default defineDoctype({ name: "Search Hidden", naming: { field: "title" }, titleField: "title", globalSearch: false,
+export default defineDoctype({ name: "Search Hidden", idGeneration: { field: "title" }, titleField: "title", globalSearch: false,
   fields: [{ fieldname: "title", fieldtype: "Data", label: "Title", reqd: true }],
   permissions: [{ role: "Searcher", read: true }] });`)
 	write("doctypes/search_private/search_private.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
-export default defineDoctype({ name: "Search Private", naming: { field: "title" }, titleField: "title",
+export default defineDoctype({ name: "Search Private", idGeneration: { field: "title" }, titleField: "title",
   fields: [{ fieldname: "title", fieldtype: "Data", label: "Title", reqd: true }],
   permissions: [{ role: "Other", read: true, share: true }] });`)
 	return dir
@@ -118,7 +118,7 @@ func searchHits(t *testing.T, r resp) []string {
 	var out []string
 	for _, h := range r.Body["data"].([]any) {
 		m := h.(map[string]any)
-		out = append(out, m["doctype"].(string)+"/"+m["name"].(string))
+		out = append(out, m["doctype"].(string)+"/"+m["id"].(string))
 	}
 	return out
 }

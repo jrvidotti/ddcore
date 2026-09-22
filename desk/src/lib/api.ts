@@ -1,13 +1,13 @@
 // Keep these response types aligned with the public Desk SDK.
 export interface DeskNotification {
-  name: string; title: string; message: string; creation: string; read: boolean;
-  reference_doctype: string; reference_name: string;
+  id: string; title: string; message: string; creation: string; read: boolean;
+  reference_doctype: string; reference_id: string;
 }
 export interface NotificationListOptions { limit?: number; offset?: number; read?: boolean }
 export interface NotificationPage { data: DeskNotification[]; total: number }
 
 export interface ToDoDoc {
-  name: string;
+  id: string;
   status: "Open" | "Closed" | "Cancelled";
   priority: "Low" | "Medium" | "High" | "Urgent";
   date?: string;
@@ -15,17 +15,17 @@ export interface ToDoDoc {
   assigned_by: string;
   description?: string;
   reference_type?: string;
-  reference_name?: string;
+  reference_id?: string;
   creation?: string;
   modified?: string;
 }
 
 /** One user's share on one document (SEC-03). */
 export interface DocShare {
-  name: string;
+  id: string;
   user: string;
   share_doctype: string;
-  share_name: string;
+  share_id: string;
   read: boolean;
   write: boolean;
   share: boolean;
@@ -152,40 +152,40 @@ export const api = {
   notifications: {
     list: (options: NotificationListOptions = {}) => request<NotificationPage>("GET", "/api/notifications" + q(options)),
     count: () => request<number>("GET", "/api/notifications/count"),
-    setRead: (name: string, read: boolean) => request<DeskNotification>("PATCH", "/api/notifications/" + encodeURIComponent(name), { read }),
+    setRead: (id: string, read: boolean) => request<DeskNotification>("PATCH", "/api/notifications/" + encodeURIComponent(id), { read }),
   },
 
   assignments: {
-    assign: (doctype: string, name: string, args: AssignArgs) =>
-      request<ToDoDoc>("POST", "/api/assignments/assign", { doctype, name, ...args }),
-    complete: (name: string) =>
-      request<ToDoDoc>("POST", "/api/assignments/complete", { name }),
-    revoke: (name: string) =>
-      request<{ success: boolean }>("POST", "/api/assignments/revoke", { name }),
-    forDoc: (doctype: string, name: string) =>
-      request<ToDoDoc[]>("GET", `/api/assignments/${encodeURIComponent(doctype)}/${encodeURIComponent(name)}`),
+    assign: (doctype: string, id: string, args: AssignArgs) =>
+      request<ToDoDoc>("POST", "/api/assignments/assign", { doctype, id, ...args }),
+    complete: (id: string) =>
+      request<ToDoDoc>("POST", "/api/assignments/complete", { id }),
+    revoke: (id: string) =>
+      request<{ success: boolean }>("POST", "/api/assignments/revoke", { id }),
+    forDoc: (doctype: string, id: string) =>
+      request<ToDoDoc[]>("GET", `/api/assignments/${encodeURIComponent(doctype)}/${encodeURIComponent(id)}`),
     pending: (options: PendingWorkOptions = {}) =>
       request<PendingWorkPage>("GET", "/api/todo/pending" + q(options)),
   },
 
   shares: {
-    forDoc: (doctype: string, name: string) =>
-      request<DocSharesInfo>("GET", `/api/shares/${encodeURIComponent(doctype)}/${encodeURIComponent(name)}`),
-    add: (doctype: string, name: string, args: ShareArgs) =>
-      request<DocShare>("POST", "/api/shares/add", { doctype, name, read: true, ...args }),
-    remove: (doctype: string, name: string, user: string) =>
-      request<{ ok: boolean }>("POST", "/api/shares/remove", { doctype, name, user }),
+    forDoc: (doctype: string, id: string) =>
+      request<DocSharesInfo>("GET", `/api/shares/${encodeURIComponent(doctype)}/${encodeURIComponent(id)}`),
+    add: (doctype: string, id: string, args: ShareArgs) =>
+      request<DocShare>("POST", "/api/shares/add", { doctype, id, read: true, ...args }),
+    remove: (doctype: string, id: string, user: string) =>
+      request<{ ok: boolean }>("POST", "/api/shares/remove", { doctype, id, user }),
   },
 
   print: {
     formats: (doctype: string) =>
       request<{ name: string; label: string; default?: boolean }[]>("GET", `/api/print/formats/${encodeURIComponent(doctype)}`),
     letterheads: () =>
-      request<{ name: string; is_default?: boolean; disabled?: boolean }[]>("GET", "/api/letterheads"),
-    html: (doctype: string, name: string, params: { format?: string; letterhead?: string; lang?: string } = {}) =>
-      request<string>("GET", `/api/print/${encodeURIComponent(doctype)}/${encodeURIComponent(name)}` + q(params)),
-    pdfUrl: (doctype: string, name: string, params: { format?: string; letterhead?: string; lang?: string; download?: boolean } = {}) =>
-      `/api/print/${encodeURIComponent(doctype)}/${encodeURIComponent(name)}/pdf` + q(params),
+      request<{ id: string; is_default?: boolean; disabled?: boolean }[]>("GET", "/api/letterheads"),
+    html: (doctype: string, id: string, params: { format?: string; letterhead?: string; lang?: string } = {}) =>
+      request<string>("GET", `/api/print/${encodeURIComponent(doctype)}/${encodeURIComponent(id)}` + q(params)),
+    pdfUrl: (doctype: string, id: string, params: { format?: string; letterhead?: string; lang?: string; download?: boolean } = {}) =>
+      `/api/print/${encodeURIComponent(doctype)}/${encodeURIComponent(id)}/pdf` + q(params),
   },
 
   login: (usr: string, pwd: string) => request("POST", "/api/login", { usr, pwd }),
@@ -209,28 +209,28 @@ export const api = {
     request("GET", `/api/resource/${encodeURIComponent(doctype)}` + q(params as any)),
   count: (doctype: string, filters?: any, or_filters?: any) => request<number>("GET", `/api/count/${encodeURIComponent(doctype)}` + q({ filters, or_filters })),
   getSingle: (doctype: string) => request("GET", `/api/resource/${encodeURIComponent(doctype)}/singleton`),
-  getDoc: (doctype: string, name: string) => request("GET", `/api/resource/${encodeURIComponent(doctype)}/${encodeURIComponent(name)}`),
+  getDoc: (doctype: string, id: string) => request("GET", `/api/resource/${encodeURIComponent(doctype)}/${encodeURIComponent(id)}`),
   insert: (doctype: string, doc: any) => request("POST", `/api/resource/${encodeURIComponent(doctype)}`, doc),
-  update: (doctype: string, name: string, doc: any) => request("PUT", `/api/resource/${encodeURIComponent(doctype)}/${encodeURIComponent(name)}`, doc),
-  remove: (doctype: string, name: string) => request("DELETE", `/api/resource/${encodeURIComponent(doctype)}/${encodeURIComponent(name)}`),
-  docMethod: (doctype: string, name: string, method: string, args: any = {}) =>
-    request("POST", `/api/resource/${encodeURIComponent(doctype)}/${encodeURIComponent(name)}/${encodeURIComponent(method)}`, args),
+  update: (doctype: string, id: string, doc: any) => request("PUT", `/api/resource/${encodeURIComponent(doctype)}/${encodeURIComponent(id)}`, doc),
+  remove: (doctype: string, id: string) => request("DELETE", `/api/resource/${encodeURIComponent(doctype)}/${encodeURIComponent(id)}`),
+  docMethod: (doctype: string, id: string, method: string, args: any = {}) =>
+    request("POST", `/api/resource/${encodeURIComponent(doctype)}/${encodeURIComponent(id)}/${encodeURIComponent(method)}`, args),
   call: (path: string, args: any = {}) => request("POST", `/api/method/${path}`, args),
   linkSearch: (doctype: string, txt: string, filters?: any, limit = 20) => request<any[]>("GET", "/api/search/link" + q({ doctype, txt, filters, limit })),
   globalSearch: (txt: string, limit = 20) =>
-    request<{ doctype: string; label: string; name: string; title: string }[]>("GET", "/api/search/global" + q({ txt, limit })),
-  linkTitles: (doctype: string, names: string[]) =>
-    request<Record<string, Record<string, string>>>("GET", "/api/search/link-titles" + q({ doctype, names: names.join(",") })),
+    request<{ doctype: string; label: string; id: string; title: string }[]>("GET", "/api/search/global" + q({ txt, limit })),
+  linkTitles: (doctype: string, ids: string[]) =>
+    request<Record<string, Record<string, string>>>("GET", "/api/search/link-titles" + q({ doctype, ids: ids.join(",") })),
   report: (name: string, filters: any) => request("GET", `/api/report/${encodeURIComponent(name)}` + q({ filters })),
   numberCard: (ws: string, card: string) => request("GET", `/api/workspace/${encodeURIComponent(ws)}/card/${encodeURIComponent(card)}`),
   chart: (ws: string, chart: string) => request("GET", `/api/workspace/${encodeURIComponent(ws)}/chart/${encodeURIComponent(chart)}`),
-  comments: (doctype: string, name: string) => request<any[]>("GET", `/api/comments/${encodeURIComponent(doctype)}/${encodeURIComponent(name)}`),
-  versions: (doctype: string, name: string) => request<any[]>("GET", `/api/versions/${encodeURIComponent(doctype)}/${encodeURIComponent(name)}`),
-  upload: (file: File, opts: { doctype?: string; docname?: string; fieldname?: string; isPrivate?: boolean } = {}) => {
+  comments: (doctype: string, id: string) => request<any[]>("GET", `/api/comments/${encodeURIComponent(doctype)}/${encodeURIComponent(id)}`),
+  versions: (doctype: string, id: string) => request<any[]>("GET", `/api/versions/${encodeURIComponent(doctype)}/${encodeURIComponent(id)}`),
+  upload: (file: File, opts: { doctype?: string; docId?: string; fieldname?: string; isPrivate?: boolean } = {}) => {
     const fd = new FormData();
     fd.append("file", file);
     if (opts.doctype) fd.append("doctype", opts.doctype);
-    if (opts.docname) fd.append("docname", opts.docname);
+    if (opts.docId) fd.append("doc_id", opts.docId);
     if (opts.fieldname) fd.append("fieldname", opts.fieldname);
     fd.append("is_private", opts.isPrivate === false ? "0" : "1");
     return request("POST", "/api/upload", fd);

@@ -63,7 +63,7 @@ type ExportArgs struct {
 // ExportFile is one attachment in the manifest. The bytes are not here: a
 // sink that wants them reads FileURL through Ctx.OpenAttachment.
 type ExportFile struct {
-	Name        string `json:"name"` // the File document
+	ID          string `json:"id"` // the File document
 	AttachedTo  string `json:"attachedTo"`
 	Field       string `json:"field,omitempty"`
 	FileName    string `json:"fileName"`
@@ -119,7 +119,7 @@ func (c *Ctx) SnapshotIsolation() error {
 // name, the declared fields as the app declared them, then the audit columns.
 // Layout fields have no column and secrets are dropped.
 func ExportColumns(d *meta.DocType) []string {
-	out := []string{"name"}
+	out := []string{"id"}
 	for _, f := range d.DataFields() {
 		if f.Fieldtype == "Password" || redactedColumns[d.Name][f.Fieldname] {
 			continue
@@ -130,7 +130,7 @@ func ExportColumns(d *meta.DocType) []string {
 		out = append(out, meta.ChildColumns...)
 	}
 	for _, c := range meta.StdColumns {
-		if c != "name" {
+		if c != "id" {
 			out = append(out, c)
 		}
 	}
@@ -239,7 +239,7 @@ func (c *Ctx) Export(a ExportArgs, sink ExportSink) (*ExportSummary, error) {
 				// them to ignore it.
 				more, err := c.GetList(d.Name, ListArgs{
 					Filters: keysetFilters(base, last), OrFilters: a.OrFilters,
-					Fields: []string{"name"}, OrderBy: "name asc", Limit: 1,
+					Fields: []string{"id"}, OrderBy: "id asc", Limit: 1,
 				})
 				if err != nil {
 					return nil, err
@@ -255,7 +255,7 @@ func (c *Ctx) Export(a ExportArgs, sink ExportSink) (*ExportSummary, error) {
 			Filters:   keysetFilters(base, last),
 			OrFilters: a.OrFilters,
 			Fields:    columns,
-			OrderBy:   "name asc",
+			OrderBy:   "id asc",
 			Limit:     page,
 		})
 		if err != nil {
@@ -266,7 +266,7 @@ func (c *Ctx) Export(a ExportArgs, sink ExportSink) (*ExportSummary, error) {
 		}
 		names := make([]string, len(rows))
 		for i, r := range rows {
-			names[i] = db.Str(r["name"])
+			names[i] = db.Str(r["id"])
 		}
 		var children map[string]map[string][]any
 		if a.Children {
@@ -312,7 +312,7 @@ func keysetFilters(base []db.Filter, last string) any {
 		out = append(out, []any{f.Field, f.Op, f.Value})
 	}
 	if last != "" {
-		out = append(out, []any{"name", ">", last})
+		out = append(out, []any{"id", ">", last})
 	}
 	return out
 }
@@ -385,10 +385,10 @@ func (c *Ctx) exportFiles(doctype string, names []string, sum *ExportSummary) (m
 		rows, e = c.GetList("File", ListArgs{
 			Filters: []any{
 				[]any{"attached_to_doctype", "=", doctype},
-				[]any{"attached_to_name", "in", toAnySlice(names)},
+				[]any{"attached_to_id", "in", toAnySlice(names)},
 			},
-			Fields:  []string{"name", "file_name", "file_url", "file_size", "content_type", "is_private", "attached_to_name", "attached_to_field"},
-			OrderBy: "attached_to_name asc, creation asc",
+			Fields:  []string{"id", "file_name", "file_url", "file_size", "content_type", "is_private", "attached_to_id", "attached_to_field"},
+			OrderBy: "attached_to_id asc, creation asc",
 		})
 		return e
 	})
@@ -407,8 +407,8 @@ func (c *Ctx) exportFiles(doctype string, names []string, sum *ExportSummary) (m
 			continue
 		}
 		f := ExportFile{
-			Name:        db.Str(r["name"]),
-			AttachedTo:  db.Str(r["attached_to_name"]),
+			ID:          db.Str(r["id"]),
+			AttachedTo:  db.Str(r["attached_to_id"]),
 			Field:       db.Str(r["attached_to_field"]),
 			FileName:    db.Str(r["file_name"]),
 			FileURL:     db.Str(r["file_url"]),

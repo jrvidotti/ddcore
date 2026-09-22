@@ -15,7 +15,7 @@ import (
 // document, because keeping three copies is how tab_file came to be forgotten
 // in two of them.
 var coreRefs = []struct {
-	table, doctypeCol, nameCol string
+	table, doctypeCol, idCol string
 	// keepOnDelete leaves the row where it is when the document it names is
 	// deleted. An attachment, a comment and a version belong to their document
 	// and go with it. A delivery record does not: it says that a message left
@@ -24,21 +24,21 @@ var coreRefs = []struct {
 	// what the message was about at the time, not a live link.
 	keepOnDelete bool
 }{
-	{table: "ddcore_notification", doctypeCol: "reference_doctype", nameCol: "reference_name", keepOnDelete: true},
+	{table: "ddcore_notification", doctypeCol: "reference_doctype", idCol: "reference_id", keepOnDelete: true},
 	// The sweep's record of a date already notified: it follows a rename so the
 	// date is not notified again, and goes with a deleted document.
-	{table: "ddcore_notification_due", doctypeCol: "reference_doctype", nameCol: "reference_name"},
-	{table: "tab_file", doctypeCol: "attached_to_doctype", nameCol: "attached_to_name"},
-	{table: "tab_comment", doctypeCol: "reference_doctype", nameCol: "reference_name"},
-	{table: "tab_to_do", doctypeCol: "reference_type", nameCol: "reference_name"},
+	{table: "ddcore_notification_due", doctypeCol: "reference_doctype", idCol: "reference_id"},
+	{table: "tab_file", doctypeCol: "attached_to_doctype", idCol: "attached_to_id"},
+	{table: "tab_comment", doctypeCol: "reference_doctype", idCol: "reference_id"},
+	{table: "tab_to_do", doctypeCol: "reference_type", idCol: "reference_id"},
 	// A share grants access to its document and goes with it.
-	{table: "tab_document_share", doctypeCol: "share_doctype", nameCol: "share_name"},
-	{table: "tab_version", doctypeCol: "ref_doctype", nameCol: "docname"},
-	{table: "tab_email_delivery", doctypeCol: "reference_doctype", nameCol: "reference_name", keepOnDelete: true},
+	{table: "tab_document_share", doctypeCol: "share_doctype", idCol: "share_id"},
+	{table: "tab_version", doctypeCol: "ref_doctype", idCol: "doc_id"},
+	{table: "tab_email_delivery", doctypeCol: "reference_doctype", idCol: "reference_id", keepOnDelete: true},
 	// A webhook delivery is the same kind of record: the event reached somebody
 	// else's server, and deleting the document does not recall it.
-	{table: "tab_webhook_delivery", doctypeCol: "reference_doctype", nameCol: "reference_name", keepOnDelete: true},
-	{table: "tab_audit_event", doctypeCol: "target_doctype", nameCol: "target_name", keepOnDelete: true},
+	{table: "tab_webhook_delivery", doctypeCol: "reference_doctype", idCol: "reference_id", keepOnDelete: true},
+	{table: "tab_audit_event", doctypeCol: "target_doctype", idCol: "target_id", keepOnDelete: true},
 }
 
 // docTypeRefColumns is every (table, column) that stores a DocType *name*,

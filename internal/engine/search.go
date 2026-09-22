@@ -28,7 +28,7 @@ const (
 type SearchHit struct {
 	Doctype string `json:"doctype"`
 	Label   string `json:"label"`
-	Name    string `json:"name"`
+	ID      string `json:"id"`
 	Title   string `json:"title"`
 }
 
@@ -77,13 +77,13 @@ func (c *Ctx) GlobalSearch(txt string, limit int) ([]SearchHit, error) {
 			label = d.Name
 		}
 		for _, r := range rows {
-			h := SearchHit{Doctype: d.Name, Label: c.T(label), Name: fmt.Sprint(r["name"]), Title: fmt.Sprint(r["name"])}
+			h := SearchHit{Doctype: d.Name, Label: c.T(label), ID: fmt.Sprint(r["id"]), Title: fmt.Sprint(r["id"])}
 			if d.TitleField != "" {
 				if t, ok := r[d.TitleField]; ok && t != nil && fmt.Sprint(t) != "" {
 					h.Title = fmt.Sprint(t)
 				}
 			}
-			hits = append(hits, ranked{h, searchRank(needle, h.Name, h.Title)})
+			hits = append(hits, ranked{h, searchRank(needle, h.ID, h.Title)})
 		}
 	}
 	sort.SliceStable(hits, func(i, j int) bool { return hits[i].rank < hits[j].rank })

@@ -5,7 +5,7 @@ function canReadReference(doctype: string, docname: string): boolean {
   if (!doctype || !docname) return false;
   const owner = ddcore.db.getValue(doctype, docname, "owner");
   if (owner === undefined || owner === null) return false; // document deleted or not found
-  return ddcore.hasPermission(doctype, "read", { name: docname, owner }) === true;
+  return ddcore.hasPermission(doctype, "read", { id: docname, owner }) === true;
 }
 
 export default defineController("ToDo", {
@@ -24,7 +24,7 @@ export default defineController("ToDo", {
     if (roles.indexOf("System Manager") >= 0) return;
     // Who assigned what to whom changes only through the assignment endpoints;
     // otherwise an assignee could name someone else as assigner.
-    for (const field of ["assigned_by", "allocated_to", "reference_type", "reference_name"] as const) {
+    for (const field of ["assigned_by", "allocated_to", "reference_type", "reference_id"] as const) {
       if (String(before[field] ?? "") !== String(doc[field] ?? "")) {
         ddcore.throw(_("{0} of a ToDo cannot be changed", [field]));
       }
@@ -40,8 +40,8 @@ export default defineController("ToDo", {
     const roles = ddcore.getRoles(user) || [];
     if (roles.indexOf("System Manager") >= 0) return true;
     if (user !== doc.allocated_to && user !== doc.assigned_by) return false;
-    if (doc.reference_type && doc.reference_name) {
-      if (!canReadReference(String(doc.reference_type), String(doc.reference_name))) {
+    if (doc.reference_type && doc.reference_id) {
+      if (!canReadReference(String(doc.reference_type), String(doc.reference_id))) {
         return false;
       }
     }

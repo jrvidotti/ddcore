@@ -29,11 +29,11 @@ export default defineDoctype({
 - `globalSearch: false` leaves a DocType out even though it has a title. The Core logs do this:
   Audit Event, Document Share, Email Delivery, User Permission and Webhook Delivery.
 - `globalSearch: true` searches a DocType that has neither a title nor search fields. The search
-  then matches its `name` only.
+  then matches its `id` only.
 - An app can change the flag on another app's DocType with `extendDoctype`
   (`doctype: { globalSearch: false }`), as it does any other DocType property.
 
-The matched columns are the same as a Link field's search: `name`, then `titleField`, then each
+The matched columns are the same as a Link field's search: `id`, then `titleField`, then each
 of `searchFields`. Keep them short, indexed text, such as codes, titles and names. A long text
 field in `searchFields` makes every search scan it. A matched column that is a **Link** also
 matches the linked document's title and search fields, through an `EXISTS` subquery over the
@@ -52,13 +52,13 @@ GET /api/search/global?txt=<text>&limit=<n>
   is read up to 50 rows deep for that ranking (in list order: `sortField`/`sortOrder`, else
   `modified` descending), so a word matching more rows than that in one DocType can still hide an
   exact match — search for more of the title, not less.
-- **Response:** `data` is a list of `{ doctype, label, name, title }`.
+- **Response:** `data` is a list of `{ doctype, label, id, title }`.
   - `label` is the DocType's translated label.
-  - `title` is the title field's value, or the name when there is none.
+  - `title` is the title field's value, or the id when there is none.
 - **Matching:** a case- and accent-insensitive substring match (`ILIKE` over the same folding as a
   list filter), so `cafe` finds `Café`. `%` and `_` are escaped, so they match themselves: a
   search for `100%` does not match `100 ok`. A `like` filter an app writes keeps its wildcards.
-- **Ranking:** hits whose name or title equal the text come first, then those that start with it,
+- **Ranking:** hits whose id or title equal the text come first, then those that start with it,
   then every other match. Within a rank, hits keep DocType order — alphabetical by DocType **name**,
   not by label — and then the list order.
 

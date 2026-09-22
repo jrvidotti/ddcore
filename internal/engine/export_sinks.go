@@ -72,7 +72,7 @@ type CSVSink struct {
 	flush     []*csv.Writer
 }
 
-var exportFileColumns = []string{"name", "attached_to", "field", "file_name", "file_url", "size", "content_type", "is_private", "sha256", "missing"}
+var exportFileColumns = []string{"id", "attached_to", "field", "file_name", "file_url", "size", "content_type", "is_private", "sha256", "missing"}
 
 func (s *CSVSink) Begin(d *meta.DocType, columns []string) error {
 	s.d, s.columns, s.child = d, columns, map[string]*csv.Writer{}
@@ -156,7 +156,7 @@ func (s *CSVSink) Doc(doc Doc, files []ExportFile) error {
 			s.files = w
 		}
 		if err := s.files.Write([]string{
-			f.Name, f.AttachedTo, f.Field, f.FileName, f.FileURL,
+			f.ID, f.AttachedTo, f.Field, f.FileName, f.FileURL,
 			strconv.FormatInt(f.Size, 10), f.ContentType,
 			strconv.FormatBool(f.Private), f.SHA256, strconv.FormatBool(f.Missing),
 		}); err != nil {

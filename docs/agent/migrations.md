@@ -249,3 +249,29 @@ migration machinery. A DocType rename keeps the document identity `singleton`.
 Switching an existing table between regular and Single metadata is refused. Plan
 an explicit data migration instead; the framework never chooses a settings record
 from existing rows or silently discards records. Migration remains idempotent.
+
+## The 0.17 key rename: `name` → `id`
+
+From 0.17 the document key column is `id`. On a database written by an earlier release,
+`ddcore migrate` renames `name` to `id` on every `tab_*` table (and on `ddcore_notification`)
+before anything else reads the database — before step 1, the `beforeSchema` patches and the
+plan — so every patch, `beforeSchema` or `afterSchema`, already sees `id`. `--dry-run` shows
+the plan as it would be after that rename. It is `ALTER TABLE … RENAME COLUMN`: the primary key,
+the Single CHECK constraint and every index follow the column in place, and no data moves.
+On a database that already has `id`, it does nothing.
+
+The core's reference columns move through ordinary `renamedFrom` declarations on the core
+DocTypes: `reference_name` → `reference_id` (Comment, ToDo, Email Delivery, Webhook Delivery,
+notifications), `share_name` → `share_id` (Document Share), `attached_to_name` →
+`attached_to_id` (File), `target_name` → `target_id` (Audit Event), and Version's `docname`
+→ `doc_id`.
+
+There is no alias. An app's own code and patches say `id` where they said `name`: `doc.id`,
+filters and `fields` on `id`, `titleField: "id"`, `idGeneration` for `naming`, `idLabel` for
+`nameLabel`, an `id_series` field for `naming_series`, `{id}` in a Vault key template. After
+the rename `name` is an ordinary fieldname: a DocType may declare one, and it is not the key.
+A pending patch whose SQL still says `name` fails on 0.17; change it to `id`.
+
+`ddcore export` writes the key as an `id` column from 0.17 on; a consumer of an older export
+reads its `name` column instead. To carry a 0.16 site across, restore its backup with
+`ddcore restore`, which migrates it.

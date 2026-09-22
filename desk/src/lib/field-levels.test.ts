@@ -3,7 +3,7 @@ import { applyFieldLevels, type Meta } from "./meta";
 
 const meta = (fieldLevels?: Meta["fieldLevels"]): Meta => ({
   doctype: {
-    name: "Employee", app: "hr", label: "Employee", naming: {},
+    name: "Employee", app: "hr", label: "Employee", idGeneration: {},
     fields: [
       { fieldname: "title", fieldtype: "Data" },
       { fieldname: "salary", fieldtype: "Currency", permlevel: 1 },
@@ -13,7 +13,7 @@ const meta = (fieldLevels?: Meta["fieldLevels"]): Meta => ({
   },
   children: {
     "Employee Line": {
-      name: "Employee Line", app: "hr", label: "Employee Line", naming: {}, isChild: true,
+      name: "Employee Line", app: "hr", label: "Employee Line", idGeneration: {}, isChild: true,
       fields: [
         { fieldname: "label", fieldtype: "Data" },
         { fieldname: "amount", fieldtype: "Currency", permlevel: 1 },

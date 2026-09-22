@@ -7,7 +7,7 @@ func TestSingleIncompatibleMetadata(t *testing.T) {
 		func(d *DocType) { d.IsChild = true },
 		func(d *DocType) { d.Submittable = true },
 		func(d *DocType) { d.AllowRename = true },
-		func(d *DocType) { d.Naming = Naming{Hash: true} },
+		func(d *DocType) { d.IDGeneration = IDGeneration{Hash: true} },
 	} {
 		d := &DocType{Name: "Settings", IsSingle: true}
 		change(d)

@@ -10,7 +10,7 @@ import (
 
 // FilePermFields is what CanReadFile needs to decide. Kept next to the rule so
 // a caller cannot select half of it and get a quiet "no".
-var FilePermFields = []string{"owner", "attached_to_doctype", "attached_to_name", "attached_to_field"}
+var FilePermFields = []string{"owner", "attached_to_doctype", "attached_to_id", "attached_to_field"}
 
 // CanReadFile decides who may read one File row.
 //
@@ -32,7 +32,7 @@ func (c *Ctx) CanReadFile(f map[string]any) bool {
 	if c.User == "Admin" || c.IgnorePermissions() {
 		return true
 	}
-	if dt, dn := db.Str(f["attached_to_doctype"]), db.Str(f["attached_to_name"]); dt != "" && dn != "" {
+	if dt, dn := db.Str(f["attached_to_doctype"]), db.Str(f["attached_to_id"]); dt != "" && dn != "" {
 		if _, err := c.GetDoc(dt, dn); err != nil {
 			return false
 		}

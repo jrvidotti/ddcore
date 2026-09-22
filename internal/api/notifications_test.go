@@ -19,7 +19,7 @@ import { defineNotification } from "@ddcore/sdk";
 export default defineNotification({
  name: "demo.created", doctype: "Pessoa", event: "on_insert",
  recipients: () => ["ana@x.com", "bia@x.com", "ze@x.com"],
- desk: {title: doc => "Created " + doc.name, message: doc => "Details " + doc.name}
+ desk: {title: doc => "Created " + doc.id, message: doc => "Details " + doc.id}
 });`), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -36,15 +36,15 @@ export default defineNotification({
 		return p["data"].([]any), p["total"].(float64)
 	}
 	rows, total := page(ana, "?limit=1&offset=0")
-	if total != 2 || len(rows) != 1 || rows[0].(map[string]any)["reference_name"] != "Second" {
+	if total != 2 || len(rows) != 1 || rows[0].(map[string]any)["reference_id"] != "Second" {
 		t.Fatalf("newest first and paginated: %v, %v", rows, total)
 	}
-	name := rows[0].(map[string]any)["name"].(string)
-	if older, total := page(ana, "?limit=1&offset=1"); total != 2 || len(older) != 1 || older[0].(map[string]any)["reference_name"] != "First" {
+	name := rows[0].(map[string]any)["id"].(string)
+	if older, total := page(ana, "?limit=1&offset=1"); total != 2 || len(older) != 1 || older[0].(map[string]any)["reference_id"] != "First" {
 		t.Fatalf("second page: %v, %v", older, total)
 	}
 	otherRows, _ := page(bia, "")
-	if otherRows[0].(map[string]any)["name"] == name {
+	if otherRows[0].(map[string]any)["id"] == name {
 		t.Fatal("recipients must have independent occurrences")
 	}
 	if rows, total := page(ze, ""); len(rows) != 0 || total != 0 {

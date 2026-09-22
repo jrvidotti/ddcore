@@ -28,7 +28,7 @@
   import { ganttRangeFilters, ganttWindow, type GanttScale } from "./views/gantt-state";
   import { calendarRangeFilters } from "./views/calendar-state";
   import { resolveCardFields } from "./views/card-fields";
-  import { showNameColumn } from "./views/name-column";
+  import { showIDColumn } from "./views/id-column";
 
   let { doctype }: { doctype: string } = $props();
   let meta = $state<Meta | null>(null);
@@ -178,17 +178,17 @@
    * Moves a Kanban card at once and saves the new column; a refusal (write
    * permission, a workflow, validation) puts the card back where it was.
    */
-  async function moveCard(name: string, value: string) {
+  async function moveCard(id: string, value: string) {
     const field = settings.kanban?.field;
     if (!field) return;
-    const row = rows.find((r) => r.name === name);
+    const row = rows.find((r) => r.id === id);
     if (!row) return;
     const previous = kanbanValue(row, field);
-    rows = moveKanbanRow(rows, name, field, value);
+    rows = moveKanbanRow(rows, id, field, value);
     try {
-      await api.update(doctype, name, { [field]: value === "" ? null : value, modified: row.modified });
+      await api.update(doctype, id, { [field]: value === "" ? null : value, modified: row.modified });
     } catch (e) {
-      rows = moveKanbanRow(rows, name, field, previous);
+      rows = moveKanbanRow(rows, id, field, previous);
       showError(e);
     }
   }
@@ -227,7 +227,7 @@
     const linkFields = (meta.doctype.fields || [])
       .filter((f) => f.fieldtype === "Link" && (f.inListView || f.inStandardFilter))
       .map((f) => f.fieldname!);
-    const fields = ["name", ...(meta.doctype.searchFields || []), meta.doctype.titleField, ...linkCols, ...linkFields].filter(Boolean) as string[];
+    const fields = ["id", ...(meta.doctype.searchFields || []), meta.doctype.titleField, ...linkCols, ...linkFields].filter(Boolean) as string[];
     return [...new Set(fields)].map((f) => [f, "like", `%${search}%`]);
   }
   async function load() {
@@ -238,7 +238,7 @@
       const cardInfo = resolveCardFields(meta.doctype, settings.card);
       const calendar = settings.calendar;
       const { kanban, gantt } = settings;
-      const fields = ["name", "modified", "docstatus", "owner", ...columns.map((c) => c.fieldname!), ...(settings.fields || []),
+      const fields = ["id", "modified", "docstatus", "owner", ...columns.map((c) => c.fieldname!), ...(settings.fields || []),
         ...cardInfo.fetchFields,
         calendar?.field, calendar?.endField, calendar?.titleField || meta.doctype.titleField, calendar?.colorField,
         kanban?.field, kanban?.titleField, kanban?.subtitleField, kanban?.colorField,
@@ -268,7 +268,7 @@
       rows = res.rows;
       total = res.count;
       if (res.titles) registerTitles(res.titles);
-      selected = preserveSelection ? new Set(rows.filter((row) => selected.has(row.name)).map((row) => row.name)) : new Set();
+      selected = preserveSelection ? new Set(rows.filter((row) => selected.has(row.id)).map((row) => row.id)) : new Set();
       loadedQueryKey = queryKey;
       error = "";
     } catch (e: any) { if (version === loadVersion) { error = e.message; showError(e); } } finally { if (version === loadVersion) loading = false; }
@@ -330,7 +330,7 @@
     if (meta?.doctype.submittable) return docstatusLabel(r);
     return "";
   }
-  function toggle(name: string) { const s = new Set(selected); s.has(name) ? s.delete(name) : s.add(name); selected = s; }
+  function toggle(id: string) { const s = new Set(selected); s.has(id) ? s.delete(id) : s.add(id); selected = s; }
   async function deleteSelected() {
     if (!(await confirm(__("Delete {0} record(s)?", [selected.size])))) return;
     let ok = 0;
@@ -386,10 +386,10 @@
 
   /** Exports the *loaded page* (not the whole result set) as CSV. */
   function exportLoadedPage() {
-    const withName = showNameColumn(meta!.doctype, columns, settings);
-    const keys = [...(withName ? ["name"] : []), ...columns.map((c) => c.fieldname!)];
-    const header = [...(withName ? [meta!.doctype.nameLabel || __("Name")] : []), ...columns.map((c) => c.label)];
-    const offset = withName ? 1 : 0;
+    const withID = showIDColumn(meta!.doctype, columns, settings);
+    const keys = [...(withID ? ["id"] : []), ...columns.map((c) => c.fieldname!)];
+    const header = [...(withID ? [meta!.doctype.idLabel || __("ID")] : []), ...columns.map((c) => c.label)];
+    const offset = withID ? 1 : 0;
     const exportRows = rows.map((r) => keys.map((k, idx) => {
       if (idx < offset) return r[k];
       const col = columns[idx - offset];
@@ -478,7 +478,7 @@
         {#if currentView === "cards"}
           <CardView {rows} {meta} {doctype} {wsPrefix} {selected} {settings} {cellText} {loading} onToggle={toggle} />
         {:else}
-          <TableView {rows} {meta} {doctype} {wsPrefix} {columns} {selected} {orderBy} {loading} {settings} {cellText} {statusOf} {statusLabelOf} onSort={sort} onToggle={toggle} onSelectAll={(checked) => selected = checked ? new Set(rows.map((r) => r.name)) : new Set()} />
+          <TableView {rows} {meta} {doctype} {wsPrefix} {columns} {selected} {orderBy} {loading} {settings} {cellText} {statusOf} {statusLabelOf} onSort={sort} onToggle={toggle} onSelectAll={(checked) => selected = checked ? new Set(rows.map((r) => r.id)) : new Set()} />
         {/if}
         <div class="pagination" class:card={currentView === "cards"}>
           <span class="muted small">{total} {__("records")}</span>

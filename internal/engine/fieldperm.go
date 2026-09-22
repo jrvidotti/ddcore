@@ -238,15 +238,15 @@ func (c *Ctx) applyTableWrites(tf *meta.Field, a FieldAccess, base, doc Doc) err
 	baseRows := base.Children(tf.Fieldname)
 	byName := make(map[string]Doc, len(baseRows))
 	for _, r := range baseRows {
-		if n := r.Name(); n != "" {
+		if n := r.ID(); n != "" {
 			byName[n] = r
 		}
 	}
 	var defaults Doc
 	rows := doc.Children(tf.Fieldname)
 	for i, row := range rows {
-		prev := byName[row.Name()]
-		if prev == nil && row.Name() == "" && i < len(baseRows) && baseRows[i].Name() == "" {
+		prev := byName[row.ID()]
+		if prev == nil && row.ID() == "" && i < len(baseRows) && baseRows[i].ID() == "" {
 			// an amendment's rows lost their names; they line up by position
 			prev = baseRows[i]
 		}
@@ -277,7 +277,7 @@ func (c *Ctx) applyTableWrites(tf *meta.Field, a FieldAccess, base, doc Doc) err
 	}
 	for i, row := range rows {
 		prev := baseRows[i]
-		if row.Name() != "" && prev.Name() != "" && row.Name() != prev.Name() {
+		if row.ID() != "" && prev.ID() != "" && row.ID() != prev.ID() {
 			return c.fieldWriteDenied(tf)
 		}
 		for _, cf := range cd.Fields {
@@ -341,7 +341,7 @@ func (c *Ctx) insertFieldBase(d *meta.DocType, doc Doc) (Doc, error) {
 			} else if ok {
 				for _, tf := range d.TableFields() {
 					for _, row := range src.Children(tf.Fieldname) {
-						delete(row, "name")
+						delete(row, "id")
 					}
 				}
 				return src, nil

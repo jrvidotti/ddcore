@@ -16,7 +16,7 @@ function rememberLang(l: string) {
 export interface Boot {
   user: string;
   roles: string[];
-  userDoc: { name: string; full_name: string; language?: string } | null;
+  userDoc: { id: string; full_name: string; language?: string } | null;
   lang: string;
   /** The languages the site serves, each labelled with its own autonym. */
   langs: { code: string; label: string }[];

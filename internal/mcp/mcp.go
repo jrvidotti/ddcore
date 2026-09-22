@@ -212,12 +212,12 @@ func New(e *engine.Engine) *mcp.Server {
 	mcp.AddTool(srv, &mcp.Tool{Name: "get_doc", Description: "Reads a document with its child tables."},
 		func(ctx context.Context, req *mcp.CallToolRequest, in struct {
 			Doctype string `json:"doctype"`
-			Name    string `json:"name"`
+			ID      string `json:"id"`
 		}) (*mcp.CallToolResult, any, error) {
 			var doc engine.Doc
 			err := s.run(ctx, func(c *engine.Ctx) error {
 				var e error
-				doc, e = c.GetDoc(in.Doctype, in.Name)
+				doc, e = c.GetDoc(in.Doctype, in.ID)
 				if e == nil && doc != nil {
 					doc = c.RedactDoc(in.Doctype, doc)
 				}
@@ -229,7 +229,7 @@ func New(e *engine.Engine) *mcp.Server {
 			return text(doc), nil, nil
 		})
 
-	mcp.AddTool(srv, &mcp.Tool{Name: "list_docs", Description: "Lists documents. filters: [[field, op, value], ...] or {field: value}; ops: = != > >= < <= like in not in between is set. fields accepts aggregates like \"count(name) as n\"."},
+	mcp.AddTool(srv, &mcp.Tool{Name: "list_docs", Description: "Lists documents. filters: [[field, op, value], ...] or {field: value}; ops: = != > >= < <= like in not in between is set. fields accepts aggregates like \"count(id) as n\"."},
 		func(ctx context.Context, req *mcp.CallToolRequest, in struct {
 			Doctype string   `json:"doctype"`
 			Filters any      `json:"filters,omitempty"`
@@ -288,12 +288,12 @@ func New(e *engine.Engine) *mcp.Server {
 	mcp.AddTool(srv, &mcp.Tool{Name: "update_doc", Description: "Updates fields of a document and saves (runs validate)."},
 		func(ctx context.Context, req *mcp.CallToolRequest, in struct {
 			Doctype string         `json:"doctype"`
-			Name    string         `json:"name"`
+			ID      string         `json:"id"`
 			Values  map[string]any `json:"values"`
 		}) (*mcp.CallToolResult, any, error) {
 			var doc engine.Doc
 			err := s.run(ctx, func(c *engine.Ctx) error {
-				d, err := c.GetDoc(in.Doctype, in.Name)
+				d, err := c.GetDoc(in.Doctype, in.ID)
 				if err != nil {
 					return err
 				}
@@ -315,10 +315,10 @@ func New(e *engine.Engine) *mcp.Server {
 	mcp.AddTool(srv, &mcp.Tool{Name: "delete_doc", Description: "Deletes a document (fails if linked, unless force=true)."},
 		func(ctx context.Context, req *mcp.CallToolRequest, in struct {
 			Doctype string `json:"doctype"`
-			Name    string `json:"name"`
+			ID      string `json:"id"`
 			Force   bool   `json:"force,omitempty"`
 		}) (*mcp.CallToolResult, any, error) {
-			err := s.run(ctx, func(c *engine.Ctx) error { return c.Delete(in.Doctype, in.Name, true, in.Force) })
+			err := s.run(ctx, func(c *engine.Ctx) error { return c.Delete(in.Doctype, in.ID, true, in.Force) })
 			if err != nil {
 				return fail(err)
 			}
@@ -328,11 +328,11 @@ func New(e *engine.Engine) *mcp.Server {
 	mcp.AddTool(srv, &mcp.Tool{Name: "submit_doc", Description: "Submits (docstatus 1) a submittable document."},
 		func(ctx context.Context, req *mcp.CallToolRequest, in struct {
 			Doctype string `json:"doctype"`
-			Name    string `json:"name"`
+			ID      string `json:"id"`
 		}) (*mcp.CallToolResult, any, error) {
 			var doc engine.Doc
 			err := s.run(ctx, func(c *engine.Ctx) error {
-				d, err := c.GetDoc(in.Doctype, in.Name)
+				d, err := c.GetDoc(in.Doctype, in.ID)
 				if err != nil {
 					return err
 				}
@@ -351,11 +351,11 @@ func New(e *engine.Engine) *mcp.Server {
 	mcp.AddTool(srv, &mcp.Tool{Name: "cancel_doc", Description: "Cancels (docstatus 2) a submitted document."},
 		func(ctx context.Context, req *mcp.CallToolRequest, in struct {
 			Doctype string `json:"doctype"`
-			Name    string `json:"name"`
+			ID      string `json:"id"`
 		}) (*mcp.CallToolResult, any, error) {
 			var doc engine.Doc
 			err := s.run(ctx, func(c *engine.Ctx) error {
-				d, err := c.GetDoc(in.Doctype, in.Name)
+				d, err := c.GetDoc(in.Doctype, in.ID)
 				if err != nil {
 					return err
 				}
@@ -371,10 +371,10 @@ func New(e *engine.Engine) *mcp.Server {
 			return text(doc), nil, nil
 		})
 
-	mcp.AddTool(srv, &mcp.Tool{Name: "call_method", Description: "Calls a document controller method (doctype+name+method) or a whitelisted function (path app.dir.file.fn)."},
+	mcp.AddTool(srv, &mcp.Tool{Name: "call_method", Description: "Calls a document controller method (doctype+id+method) or a whitelisted function (path app.dir.file.fn)."},
 		func(ctx context.Context, req *mcp.CallToolRequest, in struct {
 			Doctype string         `json:"doctype,omitempty"`
-			Name    string         `json:"name,omitempty"`
+			ID      string         `json:"id,omitempty"`
 			Method  string         `json:"method" jsonschema:"controller method name, or the function's full path"`
 			Args    map[string]any `json:"args,omitempty"`
 		}) (*mcp.CallToolResult, any, error) {
@@ -389,7 +389,7 @@ func New(e *engine.Engine) *mcp.Server {
 					return err
 				}
 				if in.Doctype != "" {
-					doc, err := c.GetDoc(in.Doctype, in.Name)
+					doc, err := c.GetDoc(in.Doctype, in.ID)
 					if err != nil {
 						return err
 					}
@@ -484,7 +484,7 @@ func New(e *engine.Engine) *mcp.Server {
 			var rows []map[string]any
 			err := s.run(ctx, func(c *engine.Ctx) error {
 				var e error
-				rows, e = c.GetList("Error Log", engine.ListArgs{Fields: []string{"name", "creation", "method", "error", "request_id"}, OrderBy: "creation desc", Limit: in.Limit})
+				rows, e = c.GetList("Error Log", engine.ListArgs{Fields: []string{"id", "creation", "method", "error", "request_id"}, OrderBy: "creation desc", Limit: in.Limit})
 				return e
 			})
 			if err != nil {

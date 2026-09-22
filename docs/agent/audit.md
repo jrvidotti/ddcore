@@ -47,8 +47,8 @@ Apps write to the same log through the SDK — the log is append-only, not
 engine-only:
 
 ```ts
-ddcore.audit(action: string, targetDoctype?: string, targetName?: string, detail?: Record<string, any>): void;
-ddcore.auditDenied(action: string, targetDoctype?: string, targetName?: string, detail?: Record<string, any>): void;
+ddcore.audit(action: string, targetDoctype?: string, targetID?: string, detail?: Record<string, any>): void;
+ddcore.auditDenied(action: string, targetDoctype?: string, targetID?: string, detail?: Record<string, any>): void;
 ```
 
 `audit` records an allowed action on the caller's transaction; `auditDenied`
@@ -107,7 +107,7 @@ ddcore audit list --json
 ```
 
 `--action` is an exact match, not a prefix. `--target` matches the target
-name (`target_name`), not the target doctype.
+id (`target_id`), not the target doctype.
 
 ### `ddcore audit purge`
 

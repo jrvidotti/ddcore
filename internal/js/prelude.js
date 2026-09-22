@@ -528,12 +528,12 @@
     save(opts) { return this._apply(call("doc.save", { doc: this, opts })); }
     submit() { this.docstatus = 1; return this.save(); }
     cancel() { return this._apply(call("doc.cancel", { doc: this })); }
-    applyWorkflow(action) { return this._apply(call("doc.applyWorkflow", { doctype: this.doctype, name: this.name, action })); }
-    delete(opts) { call("doc.delete", { doctype: this.doctype, name: this.name, opts }); }
-    reload() { return this._apply(call("getDoc", { doctype: this.doctype, name: this.name })); }
+    applyWorkflow(action) { return this._apply(call("doc.applyWorkflow", { doctype: this.doctype, id: this.id, action })); }
+    delete(opts) { call("doc.delete", { doctype: this.doctype, id: this.id, opts }); }
+    reload() { return this._apply(call("getDoc", { doctype: this.doctype, id: this.id })); }
     dbSet(field, value) {
       const values = typeof field === "object" ? field : { [field]: value };
-      const res = call("doc.dbSet", { doctype: this.doctype, name: this.name, values });
+      const res = call("doc.dbSet", { doctype: this.doctype, id: this.id, values });
       Object.assign(this, values);
       // the bridge also updated `modified`: without this, the next save()
       // would fail with TimestampMismatch without anyone having edited the document.
@@ -546,7 +546,7 @@
       const f = meta && meta.fields.find((x) => x.fieldname === fieldname);
       const r = Object.assign(Object.create(ChildRow.prototype), {
         doctype: f ? f.options : undefined,
-        parent: this.name, parenttype: this.doctype, parentfield: fieldname,
+        parent: this.id, parenttype: this.doctype, parentfield: fieldname,
         idx: rows.length + 1, docstatus: this.docstatus || 0,
       }, row || {});
       rows.push(r);
@@ -565,7 +565,7 @@
     runMethod(name, args) { return reg.runMethodOn(this, name, args || {}); }
     getTitle() {
       const meta = reg.doctypes[this.doctype];
-      return (meta && meta.titleField && this[meta.titleField]) || this.name;
+      return (meta && meta.titleField && this[meta.titleField]) || this.id;
     }
   }
   class ChildRow {
@@ -754,15 +754,15 @@
     version: "0.1.0",
     utils,
     db: {
-      getValue(doctype, name, fields) { return call("db.getValue", { doctype, name, fields }); },
+      getValue(doctype, id, fields) { return call("db.getValue", { doctype, id, fields }); },
       getList(doctype, args) { return call("db.getList", { doctype, args: args || {} }); },
       getAll(doctype, args) { return call("db.getList", { doctype, args: Object.assign({}, args || {}, { ignorePermissions: true }) }); },
-      setValue(doctype, name, field, value) {
+      setValue(doctype, id, field, value) {
         const values = typeof field === "object" ? field : { [field]: value };
-        call("db.setValue", { doctype, name, values });
+        call("db.setValue", { doctype, id, values });
       },
       count(doctype, filters, orFilters) { return call("db.count", { doctype, filters, orFilters }); },
-      exists(doctype, name) { return call("db.exists", { doctype, name }); },
+      exists(doctype, id) { return call("db.exists", { doctype, id }); },
       sql(query, params) { return call("db.sql", { query, params: params || [] }); },
       lock(key) { call("db.lock", { key: String(key) }); },
       getSingleValue(doctype, field) { return call("db.getSingleValue", { doctype, field }); },
@@ -770,14 +770,14 @@
     get session() { return makeContext(); },
     user() { return call("session").user; },
     getRoles(user) { return call("getRoles", { user }); },
-    getDoc(doctype, name) {
+    getDoc(doctype, id) {
       if (typeof doctype === "object") return new Document(doctype);
-      return new Document(call("getDoc", { doctype, name }));
+      return new Document(call("getDoc", { doctype, id }));
     },
     newDoc(doctype, values) {
       return new Document(call("newDoc", { doctype, values: values || {} }));
     },
-    deleteDoc(doctype, name, opts) { call("doc.delete", { doctype, name, opts }); },
+    deleteDoc(doctype, id, opts) { call("doc.delete", { doctype, id, opts }); },
     getMeta(doctype) { return reg.doctypes[doctype] || call("getMeta", { doctype }); },
     hasPermission(doctype, ptype, doc, user) { return call("hasPermission", { doctype, ptype: ptype || "read", doc, user }); },
     redact(doctype, doc) { return call("redact", { doctype, doc }); },
@@ -858,7 +858,7 @@
     isJob() { return !call("session").request; },
     form: {},
     callMethod(method, args) { return reg.callModule(method, args || {}); },
-    rename(doctype, oldName, newName) { return call("rename", { doctype, oldName, newName }); },
+    rename(doctype, oldID, newID) { return call("rename", { doctype, oldID, newID }); },
     // An integration credential comes from the environment (.env in
     // development, the platform in production), never from a column: a secret
     // in the database is a secret in every backup, export and Version diff.
@@ -876,27 +876,27 @@
     // Document sharing (SEC-03). Checked against the current user as sharer,
     // like the /api/shares endpoints.
     share: {
-      add(doctype, name, user, rights) {
-        return call("share.add", { doctype: String(doctype), name: String(name), user: String(user), rights: rights || {} });
+      add(doctype, id, user, rights) {
+        return call("share.add", { doctype: String(doctype), id: String(id), user: String(user), rights: rights || {} });
       },
-      remove(doctype, name, user) {
-        call("share.remove", { doctype: String(doctype), name: String(name), user: String(user) });
+      remove(doctype, id, user) {
+        call("share.remove", { doctype: String(doctype), id: String(id), user: String(user) });
       },
-      list(doctype, name) { return call("share.list", { doctype: String(doctype), name: String(name) }); },
+      list(doctype, id) { return call("share.list", { doctype: String(doctype), id: String(id) }); },
     },
-    audit(action, targetDoctype, targetName, detail) {
+    audit(action, targetDoctype, targetID, detail) {
       return call("audit", {
         action: String(action),
         targetDoctype: String(targetDoctype || ""),
-        targetName: String(targetName || ""),
+        targetID: String(targetID || ""),
         detail: detail || null,
       });
     },
-    auditDenied(action, targetDoctype, targetName, detail) {
+    auditDenied(action, targetDoctype, targetID, detail) {
       return call("auditDenied", {
         action: String(action),
         targetDoctype: String(targetDoctype || ""),
-        targetName: String(targetName || ""),
+        targetID: String(targetID || ""),
         detail: detail || null,
       });
     },
@@ -915,7 +915,7 @@
       clearAttempts(key) { return call("auth.clearAttempts", { key }); },
       createAPIKey(user, label, days) { return call("auth.createAPIKey", { user, label: label || "", days: days || 0 }); },
       apiKeys(user) { return call("auth.apiKeys", { user }); },
-      revokeAPIKey(user, name) { return call("auth.revokeAPIKey", { user, name }); },
+      revokeAPIKey(user, id) { return call("auth.revokeAPIKey", { user, id }); },
     },
     // The delivery half of the mail service, reached only from
     // core/services/mail.ts as a job target. Not on DDCoreAPI: an app queues a
@@ -998,9 +998,9 @@
     const result = reg.runMethodOn(doc, name, JSON.parse(argsJSON));
     // returns the persisted version: the method may have saved via dbSet/save and
     // the caller (desk, API) needs the document with the current timestamp.
-    if (!doc.__islocal && doc.name) {
+    if (!doc.__islocal && doc.id) {
       try {
-        doc._apply(call("getDoc", { doctype: doc.doctype, name: doc.name }));
+        doc._apply(call("getDoc", { doctype: doc.doctype, id: doc.id }));
       } catch (e) {
         // document deleted by the method itself: retain what is in memory
       }

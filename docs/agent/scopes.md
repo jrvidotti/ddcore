@@ -22,7 +22,7 @@ administration" under "Enforced surfaces").
 | --- | --- | --- |
 | `user` | Link (`User`) | The restricted user |
 | `allow` | Data | The DocType that defines the scope, e.g. `Company` |
-| `for_value` | Data | The `name` of an allowed document of that DocType |
+| `for_value` | Data | The `id` of an allowed document of that DocType |
 | `applicable_for` | Data | Optional. When set, the rule applies only to that DocType; when empty, to every DocType |
 | `is_default` | Check | Stored for Desk defaults. The framework does not read it yet |
 
@@ -43,7 +43,7 @@ different DocType.
 - **Values of one `allow` are OR-ed.** Two `Company` rules allow either company.
 - **Different `allow` DocTypes are AND-ed.** With both `Company` and `Branch` rules, a
   document must satisfy both.
-- **The scope DocType itself** is filtered on `name`. A user scoped to `Company: Alfa` lists
+- **The scope DocType itself** is filtered on `id`. A user scoped to `Company: Alfa` lists
   and opens only the `Alfa` company.
 - **A DocType that references the scope** is filtered on *every* `Link` field whose
   `options` is the `allow` DocType. With two such fields, both must hold allowed values.
@@ -62,9 +62,9 @@ different DocType.
 - Any user without `User Permission` rows. This is the default: scopes are opt-in per user.
 - Background jobs, including jobs a scoped user enqueued (see "Background jobs" below).
 - Framework-internal operations that raise the whole context to ignore permissions, such
-  as the mail queue, attachment export and renames. The framework's own duplicate-name,
-  rename and link checks also look names up without a scope, so saving a document that
-  links to an out-of-scope name does not report the link as missing.
+  as the mail queue, attachment export and renames. The framework's own duplicate-id,
+  rename and link checks also look ids up without a scope, so saving a document that
+  links to an out-of-scope id does not report the link as missing.
 
 A `System Manager` **with** scope rows is scoped like anyone else. That includes history
 and comment listings, which a System Manager can otherwise list unpinned, and `User
@@ -77,7 +77,7 @@ Scopes are applied below the SDK, so app code cannot opt out:
 | Call | Role permissions | Scope |
 | --- | --- | --- |
 | `ddcore.db.getList`, `count` | enforced | enforced |
-| `ddcore.db.getAll`, `getList({ ignorePermissions: true })`, `getValue`, `exists` (by name and by filters) | skipped | **enforced** |
+| `ddcore.db.getAll`, `getList({ ignorePermissions: true })`, `getValue`, `exists` (by id and by filters) | skipped | **enforced** |
 | `ddcore.getDoc` | enforced | enforced (Link fields, Dynamic Link fields, child rows) |
 | `insert` / `save` / `delete` / `submit` / `cancel`, with or without `ignorePermissions` | per option | **enforced** |
 | `ddcore.db.setValue`, `doc.dbSet` | skipped | **enforced**: refused if the stored document, or the stored document with the new values, is out of scope, unless a share overrides the scope for `write` (see `sharing`) |
@@ -101,7 +101,7 @@ event it records are that user. Every job, however, runs with permissions ignore
 whole context, so no role permission and no access scope applies inside it, even when a
 scoped user enqueued it. A method a scoped user can enqueue therefore runs unscoped: app
 code that enqueues work on behalf of a scoped user must filter by that user's scope itself,
-for example by passing the in-scope names as arguments after reading them with
+for example by passing the in-scope ids as arguments after reading them with
 `ddcore.db.getList` in the request. Scheduled methods (`scheduler` in `defineApp`) run as
 `Admin` and are also unscoped.
 
@@ -149,8 +149,8 @@ An update that changes `user`, `allow`, `for_value` or `applicable_for`, includi
 - Background jobs run with permissions ignored, so a job a scoped user enqueued is unscoped.
 - No automated test yet covers a report running under a scoped user.
 - Link validation (checking that a Link field's value names an existing document) looks
-  the name up without a scope, so it does not report an out-of-scope name as missing. Combined
-  with direct access and `dbSet` returning `PermissionError` for an out-of-scope name but
+  the id up without a scope, so it does not report an out-of-scope id as missing. Combined
+  with direct access and `dbSet` returning `PermissionError` for an out-of-scope id but
   `NotFound` for one that does not exist at all, a scoped user who tries both can tell the two
   cases apart — a limited way to learn that an out-of-scope document exists.
 - `setValue`/`dbSet` on a user's own `User` record is scope-checked like any other document. A

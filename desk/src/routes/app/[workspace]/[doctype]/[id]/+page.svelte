@@ -2,8 +2,8 @@
   import { page } from "$app/state";
   import FormView from "$lib/components/FormView.svelte";
   const doctype = $derived(page.params.doctype ?? "");
-  const name = $derived(page.params.name ?? "");
+  const id = $derived(page.params.id ?? "");
 </script>
-{#key doctype + "/" + name}
-  <FormView {doctype} {name} />
+{#key doctype + "/" + id}
+  <FormView {doctype} {id} />
 {/key}
