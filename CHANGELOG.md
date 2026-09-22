@@ -37,6 +37,7 @@ not every commit that went into it.
 
 ### Fixed
 
+- Checkbox fields in the Desk now render their `description` helper text below the label (with proper left alignment), as well as field validation errors and required asterisks.
 - `descendants of` was accepted as a filter operator and compiled into `=`, which answered a
   hierarchy question with an exact match — a wrong result, with no error. It now walks the tree,
   and naming it on a field that is neither a tree's `id` nor a Link to a tree is refused.

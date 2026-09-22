@@ -61,9 +61,13 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
 .field label .req { color: var(--red); margin-left: 2px; }
 .field .desc { font-size: 11px; color: var(--muted); margin-top: 3px; }
 .field .err { font-size: 11px; color: var(--red); margin-top: 3px; }
-.field.check { display: flex; align-items: center; gap: 8px; margin-top: auto; min-height: 32px; }
+.field.check { margin-top: auto; min-height: 32px; }
+.field.check .check-control { display: flex; align-items: center; gap: 8px; min-height: 32px; }
+.field.check input[type="checkbox"] { cursor: pointer; }
+.field.check input[type="checkbox"]:disabled { cursor: default; }
 .field.check label { margin: 0; color: var(--text); font-size: 13px; cursor: pointer; }
-.field .bold { font-weight: 600; }
+.field.check .desc, .field.check .err { margin-left: 22px; }
+.field .bold, .field.bold label { font-weight: 600; }
 .link-wrap { position: relative; }
 .link-wrap .options { position: fixed; background: #fff; border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,.12); z-index: 80; max-height: 260px; overflow: auto; }
 .link-wrap .options div { padding: 6px 10px; cursor: pointer; font-size: 13px; }
