@@ -459,3 +459,79 @@ func TestValidateTheFormerKeyName(t *testing.T) {
 		t.Fatalf("a field called name, and a template that uses it: %v", err)
 	}
 }
+
+func TestNewFieldtypeColumns(t *testing.T) {
+	for ft, want := range map[string]string{
+		"Text Editor": "text", "Markdown Editor": "text", "Code": "text",
+		"Color": "text", "Attach Image": "text",
+		"Duration": "bigint", "Rating": "bigint",
+	} {
+		if got := ColumnType(ft); got != want {
+			t.Errorf("ColumnType(%q)=%q want %q", ft, got, want)
+		}
+		if ColumnType(ft) == "" {
+			continue
+		}
+		// a fieldtype with a column that is not in the allowlist would be
+		// refused at load, which is the harder failure to read
+		found := false
+		for _, v := range ValidFieldTypes {
+			if v == ft {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("%q has a column but is not a valid fieldtype", ft)
+		}
+	}
+}
+
+func TestRatingAndDurationAndCodeOptions(t *testing.T) {
+	cases := []struct {
+		name  string
+		field *Field
+		bad   bool
+	}{
+		{"rating default", &Field{Fieldname: "r", Fieldtype: "Rating"}, false},
+		{"rating number", &Field{Fieldname: "r", Fieldtype: "Rating", Options: float64(3)}, false},
+		{"rating string", &Field{Fieldname: "r", Fieldtype: "Rating", Options: "10"}, false},
+		{"rating zero", &Field{Fieldname: "r", Fieldtype: "Rating", Options: float64(0)}, true},
+		{"rating too many", &Field{Fieldname: "r", Fieldtype: "Rating", Options: float64(11)}, true},
+		{"duration flags", &Field{Fieldname: "d", Fieldtype: "Duration", Options: []any{"hideDays", "hideSeconds"}}, false},
+		{"duration unknown flag", &Field{Fieldname: "d", Fieldtype: "Duration", Options: []any{"hideWeeks"}}, true},
+		{"code language", &Field{Fieldname: "c", Fieldtype: "Code", Options: "c++"}, false},
+		{"code uppercase", &Field{Fieldname: "c", Fieldtype: "Code", Options: "SQL"}, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			r := NewRegistry()
+			r.Add(&DocType{Name: "T", Fields: []*Field{tc.field}})
+			err := r.Validate()
+			if tc.bad && err == nil {
+				t.Fatalf("expected %v to be refused", tc.field.Options)
+			}
+			if !tc.bad && err != nil {
+				t.Fatalf("expected %v to be accepted: %v", tc.field.Options, err)
+			}
+		})
+	}
+}
+
+func TestRatingMaxDefaults(t *testing.T) {
+	for _, tc := range []struct {
+		options any
+		want    int
+	}{{nil, DefaultRatingMax}, {float64(7), 7}, {"4", 4}, {"junk", DefaultRatingMax}} {
+		f := &Field{Fieldtype: "Rating", Options: tc.options}
+		if got := f.RatingMax(); got != tc.want {
+			t.Errorf("RatingMax(%v)=%d want %d", tc.options, got, tc.want)
+		}
+	}
+}
+
+func TestDurationHides(t *testing.T) {
+	f := &Field{Fieldtype: "Duration", Options: []any{"hideSeconds"}}
+	if !f.DurationHides("hideSeconds") || f.DurationHides("hideDays") {
+		t.Fatalf("DurationHides read %v wrongly", f.Options)
+	}
+}

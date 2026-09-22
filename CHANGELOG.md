@@ -49,6 +49,16 @@ not every commit that went into it.
   restores as it was and is brought up by the migrate `ddcore restore` runs; with `--no-migrate`,
   `--smoke` now says to run `ddcore migrate` instead of failing on the column.
 
+### Added
+
+- Six fieldtypes (DAT-08): `Markdown Editor` and `Code` (`options` is the language) on a `text`
+  column, `Attach Image` (an `Attach` restricted to png/jpg/gif/webp, refused at upload too),
+  `Color` (normalised to `#rrggbb`), and `Duration` (whole seconds; `options: ["hideDays",
+  "hideSeconds"]` hides a unit on screen) and `Rating` (0 to `options` stars, 1–10, default 5) on
+  a `bigint`. `Duration` and `Rating` generate `number | null`; the rest generate `string | null`.
+  Converting `Text`, `Small Text` or `Data` to a text type, or `Int` to `Duration`/`Rating`, keeps
+  the same column and needs no `convert`. See [fieldtypes](docs/agent/fieldtypes.md).
+
 ## 0.16.0 — 2026-09-22
 
 ### Breaking

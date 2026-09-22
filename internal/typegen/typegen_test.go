@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/jrvidotti/ddcore/internal/meta"
@@ -83,5 +84,21 @@ func TestWritePreservesExistingTSConfig(t *testing.T) {
 	}
 	if string(b) != custom {
 		t.Fatalf("existing tsconfig was overwritten: %s", b)
+	}
+}
+
+func TestNumericFieldtypesGenerateNumbers(t *testing.T) {
+	reg := meta.NewRegistry()
+	reg.Add(&meta.DocType{Name: "Session", Module: "Core", Fields: []*meta.Field{
+		{Fieldname: "spent", Fieldtype: "Duration"},
+		{Fieldname: "score", Fieldtype: "Rating", Options: float64(5)},
+		{Fieldname: "notes", Fieldtype: "Text Editor"},
+		{Fieldname: "accent", Fieldtype: "Color"},
+	}})
+	out := Generate(reg)
+	for _, want := range []string{"spent: number | null", "score: number | null", "notes: string | null", "accent: string | null"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("generated types missing %q:\n%s", want, out)
+		}
 	}
 }

@@ -17,7 +17,7 @@ import (
 
 func tsType(f *meta.Field) string {
 	switch f.Fieldtype {
-	case "Int", "Float", "Currency", "Percent":
+	case "Int", "Float", "Currency", "Percent", "Duration", "Rating":
 		return "number | null"
 	case "Check":
 		return "boolean"
