@@ -12,6 +12,8 @@ not every commit that went into it.
 
 ## Unreleased
 
+## 0.16.0 — 2026-09-22
+
 ### Breaking
 
 - The superuser is now `Admin` instead of `Administrator`. A new database gets `Admin`, and on an
