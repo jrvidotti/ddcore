@@ -55,16 +55,16 @@ func OpenImportSource(dir string) (*ImportSource, error) {
 	b, err := os.ReadFile(filepath.Join(dir, "manifest.json"))
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return nil, cerr.Validation("%s is not an export directory: manifest.json is missing", dir)
+			return nil, cerr.Validation("{0} is not an export directory: manifest.json is missing", dir)
 		}
 		return nil, err
 	}
 	var m ExportManifest
 	if err := json.Unmarshal(b, &m); err != nil {
-		return nil, cerr.Validation("manifest.json is not readable: %v", err)
+		return nil, cerr.Validation("manifest.json is not readable: {0}", err)
 	}
 	if m.Format != "" && m.Format != "ndjson" {
-		return nil, cerr.Validation("only an ndjson export can be imported; this one is %s", m.Format)
+		return nil, cerr.Validation("Only an ndjson export can be imported; this one is {0}", m.Format)
 	}
 	if len(m.Exports) == 0 {
 		return nil, cerr.Validation("manifest.json lists no exports")
@@ -112,10 +112,10 @@ func (s *ImportSource) AttachmentPath(fileURL, key string) string {
 func (s *ImportSource) Open(doctype string) (*ImportReader, error) {
 	res := s.Result(doctype)
 	if res == nil {
-		return nil, cerr.Validation("the export holds no %s", doctype)
+		return nil, cerr.Validation("The export holds no {0}", doctype)
 	}
 	if len(res.Outputs) == 0 {
-		return nil, cerr.Validation("the manifest records no file for %s", doctype)
+		return nil, cerr.Validation("The manifest records no file for {0}", doctype)
 	}
 	name := res.Outputs[0].File
 	f, err := os.Open(filepath.Join(s.Dir, name))
@@ -164,7 +164,7 @@ func (r *ImportReader) Next() (ImportRecord, error) {
 		}
 		line, err := r.readLine()
 		if errors.Is(err, io.EOF) {
-			return ImportRecord{}, cerr.Validation("%s is truncated: it ends without its _manifest line, so the export did not finish", r.name)
+			return ImportRecord{}, cerr.Validation("{0} is truncated: it ends without its _manifest line, so the export did not finish", r.name)
 		}
 		if err != nil {
 			return ImportRecord{}, err
@@ -176,7 +176,7 @@ func (r *ImportReader) Next() (ImportRecord, error) {
 		dec.UseNumber()
 		var doc Doc
 		if err := dec.Decode(&doc); err != nil {
-			return ImportRecord{}, cerr.Validation("%s line %d is not a document: %v", r.name, r.line+1, err)
+			return ImportRecord{}, cerr.Validation("{0} line {1} is not a document: {2}", r.name, r.line+1, err)
 		}
 		if m, ok := doc["_manifest"]; ok {
 			r.done = true

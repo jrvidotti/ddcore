@@ -61,7 +61,7 @@ func ParseImportMap(b []byte) (*ImportMap, error) {
 	dec := json.NewDecoder(bytes.NewReader(b))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&m); err != nil {
-		return nil, cerr.Validation("the mapping is not readable: %v", err)
+		return nil, cerr.Validation("The mapping is not readable: {0}", err)
 	}
 	for name, dm := range m.Doctypes {
 		if err := checkOnExisting(name, dm); err != nil {
@@ -75,7 +75,7 @@ func checkOnExisting(name string, dm *ImportDocMap) error {
 	switch dm.OnExisting {
 	case "", OnExistingIdentical, OnExistingSkip, OnExistingError:
 	default:
-		return cerr.Validation("%s: onExisting is %q; it is one of identical, skip or error", name, dm.OnExisting)
+		return cerr.Validation("{0}: onExisting is {1}; it is one of identical, skip or error", name, dm.OnExisting)
 	}
 	for field, cm := range dm.Children {
 		if err := checkOnExisting(name+"."+field, cm); err != nil {

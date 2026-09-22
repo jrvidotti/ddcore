@@ -24,7 +24,7 @@ func (e *Engine) openImportRun(ctx context.Context, src *ImportSource, a ImportA
 			return nil, err
 		}
 		if run.Dir != a.Dir {
-			return nil, cerr.Validation("run %s loaded %s, not %s", a.Resume, run.Dir, a.Dir)
+			return nil, cerr.Validation("run {0} loaded {1}, not {2}", a.Resume, run.Dir, a.Dir)
 		}
 		run.Status = ImportRunning
 		return run, nil
@@ -55,7 +55,7 @@ func (e *Engine) ImportRunByID(ctx context.Context, id string) (*ImportRun, erro
 		return nil, err
 	}
 	if len(rows) == 0 {
-		return nil, cerr.NotFound("no import run %s", id)
+		return nil, cerr.NotFound("There is no import run {0}", id)
 	}
 	return importRunFromRow(rows[0])
 }
@@ -266,7 +266,7 @@ func (e *Engine) importOne(c *Ctx, a ImportArgs, src *ImportSource, run *ImportR
 	doc["doctype"] = stage.target
 	id := doc.ID()
 	if id == "" {
-		return cerr.Validation("the record has no id")
+		return cerr.Validation("The record has no id")
 	}
 	known, err := e.ledgerHas(c, source, rec.Doc.ID())
 	if err != nil {
@@ -286,14 +286,14 @@ func (e *Engine) importOne(c *Ctx, a ImportArgs, src *ImportSource, run *ImportR
 			out.skipped++
 			return e.ledgerWrite(c, a, run.ID, source, rec, stage.target, id, "skipped")
 		case OnExistingError:
-			return cerr.Duplicate("%s %s is already on this site", stage.target, id)
+			return cerr.Duplicate("{0} {1} is already on this site", stage.target, id)
 		default:
 			same, err := c.sameAsStored(stage.target, doc)
 			if err != nil {
 				return err
 			}
 			if !same {
-				return cerr.Duplicate("%s %s is already on this site and differs from the export", stage.target, id)
+				return cerr.Duplicate("{0} {1} is already on this site and differs from the export", stage.target, id)
 			}
 			out.skipped++
 			return e.ledgerWrite(c, a, run.ID, source, rec, stage.target, id, "skipped")

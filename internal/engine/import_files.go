@@ -78,7 +78,7 @@ func (c *Ctx) importAttachments(a ImportArgs, src *ImportSource, stage importSta
 		}
 		key, ok := storage.KeyFromURL(f.FileURL)
 		if !ok {
-			return n, notes, cerr.Validation("%s is not a file url this site can hold", f.FileURL)
+			return n, notes, cerr.Validation("{0} is not a file url this site can hold", f.FileURL)
 		}
 		if strings.HasPrefix(key, "public/") {
 			// What decides how a browser treats the bytes is the url it
@@ -86,7 +86,7 @@ func (c *Ctx) importAttachments(a ImportArgs, src *ImportSource, stage importSta
 			// judged — and the name too, since it reaches the browser in the
 			// Content-Disposition of a download.
 			if bad, ext := unsafePublicExt(key, f.FileName); bad {
-				return n, notes, cerr.Validation("%s is public and %q would be served as active content from this site", f.FileURL, ext)
+				return n, notes, cerr.Validation("{0} is public and {1} would be served as active content from this site", f.FileURL, ext)
 			}
 		}
 		exists, err := c.idExists("File", f.ID)
@@ -126,14 +126,14 @@ func (c *Ctx) putAttachmentBytes(src *ImportSource, f ExportFile, key string) er
 	b, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return cerr.Validation("%s is not in the export: %s", f.FileURL, filepath.Base(path))
+			return cerr.Validation("{0} is not in the export: {1} is missing", f.FileURL, filepath.Base(path))
 		}
 		return err
 	}
 	if f.SHA256 != "" {
 		sum := sha256.Sum256(b)
 		if got := hex.EncodeToString(sum[:]); got != f.SHA256 {
-			return cerr.Validation("%s does not match its checksum: the export recorded %s, the file on disk is %s", f.FileURL, short(f.SHA256), short(got))
+			return cerr.Validation("{0} does not match its checksum: the export recorded {1}, the file on disk is {2}", f.FileURL, short(f.SHA256), short(got))
 		}
 	}
 	if c.Flags["rollback"] == true {

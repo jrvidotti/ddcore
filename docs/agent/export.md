@@ -128,6 +128,12 @@ skipped: that is a finding for the reconciliation, not a reason to abort.
 An attachment on a document you may read is yours to export even when someone
 else uploaded it — the same rule `/private/files` applies.
 
+## Loading it back
+
+An export directory is what [`import`](import.md) reads: `ddcore import run <dir>`
+puts it into another site with the ids, owners and timestamps intact, and
+`ddcore import reconcile <dir>` checks the two agree.
+
 ## The desk
 
 A list's download button asks what to export: the page on screen (built in the

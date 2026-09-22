@@ -27,6 +27,7 @@ flag is an error (it never becomes an argument silently).
 | `ddcore eval '<ts>' [--commit]` | runs loose TS with `ddcore.*` (rolls back by default) |
 | `ddcore demo [--app name]` | runs `<app>.services.demo.generate` for every app that has `services/demo.ts` |
 | `ddcore export <DocType>\|--all [--children] [--attachments] [--out DIR]` | exports the whole set to NDJSON/CSV with a manifest of checksums (see `export`) |
+| `ddcore import plan\|run\|status\|reconcile <dir>` | loads an export directory into this site, resumable and idempotent (see `import`) |
 | `ddcore jobs list\|show\|stats\|retry\|cancel\|purge\|scheduled\|run <fn>\|work` | the queue and the scheduler (see `ops`); `show` is the only command that prints a job's arguments |
 | `ddcore webhooks list\|replay <delivery>...` | outgoing webhook deliveries (see `webhooks`); a replay is recorded as an Audit Event |
 | `ddcore audit list\|purge` | inspect and purge administrative audit events (see `audit`) |
