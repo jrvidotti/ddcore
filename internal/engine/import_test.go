@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -55,6 +56,10 @@ export default defineDoctype({ name: "Integracao", fields: [
   { fieldname: "token", fieldtype: "Vault", label: "Token", reqd: true },
   { fieldname: "senha", fieldtype: "Password", label: "Password", reqd: true },
  ], permissions: [{ role: "Operador", read: true, write: true, create: true }] });`)
+	w("doctypes/categoria/categoria.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
+export default defineDoctype({ name: "Categoria", isTree: true, idGeneration: { field: "titulo" },
+  fields: [ { fieldname: "titulo", fieldtype: "Data", label: "Title", reqd: true } ],
+  permissions: [{ role: "Operador", read: true, write: true, create: true }] });`)
 	w("notifications/fatura_due.notification.ts", `import { defineNotification, _ } from "@ddcore/sdk";
 export default defineNotification({
   name: "imp.fatura_due", doctype: "Fatura", date: { field: "vencimento", days: 0 },
@@ -342,5 +347,33 @@ func TestImportDocAuditsTheAccessItGrants(t *testing.T) {
 	}
 	if d := scalar(t, e, `SELECT detail::text FROM tab_audit_event WHERE action = 'role.assign' AND target_id = $1`, "importado@x.com"); !strings.Contains(d.(string), "import") {
 		t.Fatalf("detail = %v; the event should say where the grant came from", d)
+	}
+}
+
+// A hierarchy arrives in whatever order the export walked it, so a node often
+// precedes its parent — but a parent that is not a group is broken data, and
+// the load has to say so.
+func TestImportDocKeepsTreeInvariants(t *testing.T) {
+	e := setupImport(t)
+	deferParent := ImportOpts{Deferred: func(doctype, field string) bool { return field == "parent_categoria" }}
+	err := e.Run(context.Background(), "Admin", func(c *Ctx) error {
+		// The child comes first: its parent is not loaded yet.
+		if _, err := c.ImportDoc(Doc{"doctype": "Categoria", "id": "C-filha", "titulo": "Filha",
+			"parent_categoria": "C-mae"}, deferParent); err != nil {
+			return err
+		}
+		if _, err := c.ImportDoc(Doc{"doctype": "Categoria", "id": "C-mae", "titulo": "Mãe", "is_group": true}, deferParent); err != nil {
+			return err
+		}
+		// A leaf cannot take children, whichever order they arrive in.
+		_, err := c.ImportDoc(Doc{"doctype": "Categoria", "id": "C-neta", "titulo": "Neta",
+			"parent_categoria": "C-filha"}, deferParent)
+		if err == nil {
+			return fmt.Errorf("a parent that is not a group must be refused")
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 }

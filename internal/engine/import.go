@@ -106,8 +106,23 @@ func (c *Ctx) ImportDoc(doc Doc, opts ImportOpts) (*ImportResult, error) {
 		}
 	}
 	res.Notes = append(res.Notes, secretNotes(c, d)...)
-	if err := c.validateFields(d, doc, SaveOpts{IgnorePermissions: true}, checks); err != nil {
+	opt := SaveOpts{IgnorePermissions: true}
+	if err := c.validateFields(d, doc, opt, checks); err != nil {
 		return nil, err
+	}
+	// A tree's invariants are structural, not a hook: a parent that is not a
+	// group, or a node under its own descendant, is broken data wherever it
+	// came from. The one part that has to yield is the parent's existence —
+	// the parent field is a self link, so it is loaded in the same pass and
+	// verified with the other deferred links at the end.
+	if d.IsTree {
+		treeOpt := opt
+		if checks.deferLink != nil && checks.deferLink(d, d.TreeParentField()) {
+			treeOpt.IgnoreLinks = true
+		}
+		if err := c.checkTree(d, doc, nil, treeOpt); err != nil {
+			return nil, err
+		}
 	}
 	if err := c.writeInsert(d, doc); err != nil {
 		return nil, err
