@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/jrvidotti/ddcore/internal/cerr"
+	"github.com/jrvidotti/ddcore/internal/meta"
 	"github.com/jrvidotti/ddcore/internal/print"
 )
 
@@ -439,5 +440,25 @@ func TestPrintDoc_RichTextAndFieldControls(t *testing.T) {
 		return nil
 	}); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// A Rating column can hold a value outside its range — its `options` may have
+// been lowered, or the column may have been an Int before. Printing is a read,
+// so it shows what it can instead of failing the whole document.
+func TestFormatPrintValueClampsARatingOutOfRange(t *testing.T) {
+	c := &Ctx{}
+	f := &meta.Field{Fieldname: "score", Fieldtype: "Rating", Label: "Score", Options: float64(5)}
+	for _, tc := range []struct {
+		in   any
+		want string
+	}{
+		{4, "★★★★☆"},
+		{42, "★★★★★"},
+		{-3, "☆☆☆☆☆"},
+	} {
+		if got := c.formatPrintValue(f, tc.in, "en"); got != tc.want {
+			t.Errorf("formatPrintValue(%v) = %q, want %q", tc.in, got, tc.want)
+		}
 	}
 }

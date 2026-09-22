@@ -3,6 +3,8 @@
   "normalize": [
     { "name": "plain text becomes a paragraph", "in": "plain text", "out": "<p>plain text</p>" },
     { "name": "plain text keeps its angle brackets", "in": "a < b and b > c", "out": "<p>a &lt; b and b &gt; c</p>" },
+    { "name": "a comparison without spaces is not a tag", "in": "compare a<b and b>c", "out": "<p>compare a&lt;b and b&gt;c</p>" },
+    { "name": "prose naming a tag keeps its words", "in": "the <img> tag is missing here", "out": "<p>the &lt;img&gt; tag is missing here</p>" },
     { "name": "a single newline is a break", "in": "one\ntwo", "out": "<p>one<br>two</p>" },
     { "name": "a blank line starts a paragraph", "in": "one\n\ntwo", "out": "<p>one</p><p>two</p>" },
     { "name": "markup is kept", "in": "<p>already <strong>markup</strong></p>", "out": "<p>already <strong>markup</strong></p>" },

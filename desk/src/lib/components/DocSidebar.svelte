@@ -12,7 +12,7 @@
   import ShareModal from "./ShareModal.svelte";
   import { DocSharesState } from "$lib/shares.svelte";
   import { shareRightLabels, canRemoveShare } from "./doc-sidebar-share";
-  import { normalizeRichText, sanitizeHtml } from "$lib/richtext";
+  import { fromPlainText, normalizeRichText, sanitizeHtml } from "$lib/richtext";
   import { getModifierKey } from "$lib/shortcuts.svelte";
   import { DocAssignments } from "$lib/assignments.svelte";
   import { isAssignmentOverdue, assignmentInitial, priorityBadgeClass } from "./doc-sidebar-assignment";
@@ -52,7 +52,9 @@
   async function addComment() {
     if (!text.trim()) return;
     try {
-      await api.insert("Comment", { reference_doctype: frm.doctype, reference_id: frm.doc.id, content: text, comment_type: "Comment" });
+      // the box is plain text, and saying so is what keeps "a<b and b>c" from
+      // being read as a tag by the server's markup detection
+      await api.insert("Comment", { reference_doctype: frm.doctype, reference_id: frm.doc.id, content: fromPlainText(text), comment_type: "Comment" });
       text = "";
       await load();
     } catch (e) { showError(e); }

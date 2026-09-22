@@ -48,6 +48,17 @@ not every commit that went into it.
   `name` is `id`; a consumer of those files must read the new column. A backup taken before 0.17
   restores as it was and is brought up by the migrate `ddcore restore` runs; with `--no-migrate`,
   `--smoke` now says to run `ddcore migrate` instead of failing on the column.
+- **`Text Editor` is rich text**, so an app that reads or displays one — `Comment.content`
+  included — now receives HTML where it used to receive plain text. The value is cleaned on
+  the way in by an allowlist (paragraphs, headings, lists, quotes, code, links and images
+  under `/files/`); scripts, styles, event handlers, iframes and external image URLs are
+  removed rather than refused. A value written before this release is plain text: it is read
+  as text — so `a < b` keeps its `<` — and shown as paragraphs, converted for good on its
+  next save without writing a Version entry for the conversion. An empty editor (`<p></p>`)
+  stores `null`, so `reqd` still holds. Upgrade path: render such a value as HTML (the desk
+  and print already do) or strip it with `ddcore.redact`-style text extraction, and write
+  plain text through the field as plain text — the server escapes it. `ddcore.db.sql` writes
+  bypass the cleaning, as they always have.
 
 ### Added
 
@@ -74,14 +85,6 @@ not every commit that went into it.
   and `Attach Image` (thumbnail, image files only). A list cell shows rich text as one line of
   text, a colour as a swatch and an image as a thumbnail, and a version diff compares the text
   rather than the markup. The editor loads only on a form that has a rich-text field.
-- **`Text Editor` is rich text.** Its value is HTML, cleaned on the way in by an allowlist
-  (paragraphs, headings, lists, quotes, code, links and images under `/files/`); scripts,
-  styles, event handlers, iframes and external image URLs are removed rather than refused.
-  A value written before this release is plain text: it is read as text — so `a < b` keeps
-  its `<` — and shown as paragraphs, converted for good on its next save without writing a
-  Version entry for the conversion. An empty editor (`<p></p>`) stores `null`, so `reqd`
-  still holds. `Comment.content` is one of these fields, so app code that reads or displays
-  it now receives HTML; `ddcore.db.sql` writes bypass the cleaning, as they always have.
 
 ## 0.16.0 — 2026-09-22
 

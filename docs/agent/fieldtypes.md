@@ -46,9 +46,11 @@ outside the list is *dropped, not refused*: a paste from a word processor is
 not the author's mistake, and the response carries the value that was kept.
 
 - **An image is a file this site serves** (`/files/…` or `/private/files/…`).
-  An external URL — `https` included — is removed: the PDF renderer fetches a
-  document's images from the server, so an outside address would make the
-  server issue a request the document's author chose.
+  An external URL — `https` included — is removed: a PDF is rendered by headless
+  Chrome or Gotenberg against the site's own address, so an outside URL would
+  make *that server* fetch an address the document's author chose, and would
+  make every reader a hit on somebody else's server. A public file prints; a
+  `/private/files/…` one does not, because the renderer holds no session.
 - **Links out of the site** get `target="_blank"` and
   `rel="noopener noreferrer nofollow"`, which is what the desk's editor writes,
   so a document survives being opened and saved unchanged.
@@ -150,8 +152,10 @@ permlevel, renamedFrom, convert`
   `Markdown Editor` or `Code`, or from `Int` to `Duration` or `Rating`, keeps
   the same column: there is no DDL and no `convert`. `Data` → `Color` or
   `Attach Image` keeps the column too, but a stored value that is not a colour
-  or an image URL will fail on that document's next save; backfill first, the
-  way `migrations` describes.
+  or an image URL will fail on that document's next save — and so will every
+  other change to that document, since a save casts every field. The same
+  applies to an `Int` holding more than a `Rating`'s number of stars, or a
+  negative `Duration`. Backfill first, the way `migrations` describes.
 - `convert: { from: "Data" }`: authorises a column-type change `migrate` would otherwise refuse, naming the fieldtype the database still holds. No SQL — a conversion a plain cast cannot express goes through expand → backfill → validate → contract.
 
 ## DocType properties

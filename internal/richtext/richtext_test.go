@@ -217,3 +217,33 @@ func TestSharedFixture(t *testing.T) {
 		}
 	}
 }
+
+// A sentence that compares two variables is not markup. Reading it as markup
+// deletes the words between the brackets, with no error and no version row to
+// recover them from, which is the worst failure this package can have.
+func TestProseIsNotMistakenForMarkup(t *testing.T) {
+	for in, want := range map[string]string{
+		"compare a<b and b>c":           "<p>compare a&lt;b and b&gt;c</p>",
+		"the <img> tag is missing here": "<p>the &lt;img&gt; tag is missing here</p>",
+		"x<y<z":                         "<p>x&lt;y&lt;z</p>",
+		"<not a tag>":                   "<p>&lt;not a tag&gt;</p>",
+	} {
+		if got := Normalize(in); got != want {
+			t.Errorf("Normalize(%q) = %q, want %q", in, got, want)
+		}
+	}
+	// and what an editor writes is still markup
+	for _, in := range []string{"<p>x</p>", "<hr>", `<img src="/files/a.png">`, "<ul><li>x</li></ul>"} {
+		if !LooksLikeHTML(in) {
+			t.Errorf("LooksLikeHTML(%q) = false", in)
+		}
+	}
+}
+
+// An <img> whose src the allowlist removed shows nothing, so it cannot stand
+// in for content a required field asks for.
+func TestIsEmptyIgnoresAnImageWithoutASource(t *testing.T) {
+	if !IsEmpty(Sanitize(`<p><img src="https://evil.example/p.gif"></p>`)) {
+		t.Fatal("an image stripped of its src counted as content")
+	}
+}

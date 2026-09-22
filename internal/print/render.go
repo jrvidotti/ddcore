@@ -28,6 +28,15 @@ func AssembleHTML(bodyHTML string, letterhead *LetterHead, title string, lang st
 		title = "Document"
 	}
 
+	// An image in a printed document is a path on this site (`/files/…`). A PDF
+	// is rendered from a temporary file, so without a base the path would mean
+	// the renderer's filesystem root and every image would be a blank box.
+	// A private file still needs a session the renderer does not have.
+	var baseTag string
+	if page.SiteURL != "" {
+		baseTag = fmt.Sprintf(`<base href="%s/">`, html.EscapeString(strings.TrimRight(page.SiteURL, "/")))
+	}
+
 	var headerSection string
 	var footerSection string
 
@@ -57,6 +66,7 @@ func AssembleHTML(bodyHTML string, letterhead *LetterHead, title string, lang st
 <html lang="%s">
 <head>
   <meta charset="utf-8">
+  %s
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>%s</title>
   <style>
@@ -331,6 +341,7 @@ func AssembleHTML(bodyHTML string, letterhead *LetterHead, title string, lang st
 </body>
 </html>`,
 		html.EscapeString(lang),
+		baseTag,
 		html.EscapeString(title),
 		page.PageSize(),
 		headerSection,

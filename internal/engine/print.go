@@ -163,6 +163,7 @@ func (c *Ctx) PrintDoc(doctype, name, format, letterheadName, lang string, page 
 		}
 	}
 	title := fmt.Sprintf("%s - %s", c.St.I18n.T(lang, d.Label), docTitle)
+	page.SiteURL = c.E.Cfg.SiteURL
 	return print.AssembleHTML(bodyHTML, lh, title, lang, page), nil
 }
 
@@ -289,7 +290,17 @@ func (c *Ctx) formatPrintValue(f *meta.Field, val any, lang string) string {
 	case "Duration":
 		return FormatDuration(int64(toFloat(val)), f.DurationHides("hideDays"), f.DurationHides("hideSeconds"))
 	case "Rating":
-		n, max := int(toFloat(val)), f.RatingMax()
+		// A stored value can be outside the range — the field's `options` may
+		// have been lowered, or the column may have been an Int — and printing
+		// is a read: it clamps rather than refusing the whole document.
+		max := f.RatingMax()
+		n := int(toFloat(val))
+		if n < 0 {
+			n = 0
+		}
+		if n > max {
+			n = max
+		}
 		return strings.Repeat("★", n) + strings.Repeat("☆", max-n)
 	default:
 		return fmt.Sprint(val)

@@ -161,6 +161,10 @@ export function formatDiffValue(val: any, field?: Partial<Field>, fieldname?: st
     return { value: val, formatted: htmlToText(String(val)), isAttach: false };
   }
 
+  if (field?.fieldtype === "Markdown Editor" || field?.fieldtype === "Code") {
+    return { value: val, formatted: String(val), isAttach: false };
+  }
+
   if (field?.fieldtype === "Duration" || field?.fieldtype === "Rating" || field?.fieldtype === "Color") {
     return { value: val, formatted: formatValue(val, field), isAttach: false };
   }

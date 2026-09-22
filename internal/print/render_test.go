@@ -325,3 +325,16 @@ func TestStandardTemplateRendersLongFieldsAsBlocks(t *testing.T) {
 		}
 	}
 }
+
+// A printed image is a path on this site, and a PDF is rendered from a
+// temporary file: without a base, `/files/a.png` would mean the renderer's
+// filesystem root and print as a blank box.
+func TestAssembleHTMLCarriesTheSiteAsItsBase(t *testing.T) {
+	out := AssembleHTML(`<img src="/files/a.png">`, nil, "T", "en", PDFOptions{SiteURL: "https://site.example/"})
+	if !strings.Contains(out, `<base href="https://site.example/">`) {
+		t.Fatalf("no base element: %s", out[:400])
+	}
+	if bare := AssembleHTML("<p>x</p>", nil, "T", "en", PDFOptions{}); strings.Contains(bare, "<base") {
+		t.Fatal("a site with no public URL should not get a base element")
+	}
+}

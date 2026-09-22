@@ -183,7 +183,7 @@ func (f *Field) DurationHides(flag string) bool {
 	return false
 }
 
-var codeLanguageRe = regexp.MustCompile(`^[a-z0-9+#-]*$`)
+var codeLanguageRe = regexp.MustCompile(`^[a-z0-9+#._-]*$`)
 
 type Perm struct {
 	Role    string `json:"role"`

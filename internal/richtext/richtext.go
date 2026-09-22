@@ -23,14 +23,15 @@ import (
 	goldmarkhtml "github.com/yuin/goldmark/renderer/html"
 )
 
-// imageSrcRe is what an <img> may point at: a file this site serves. An
-// external URL — https included — would make the PDF renderer fetch an address
-// the document's author chose (SSRF), and would turn every reader into a hit on
-// somebody else's server. Allowing it is a later opt-in, not a default.
+// imageSrcRe is what an <img> may point at: a file this site serves. A printed
+// document is rendered by headless Chrome or Gotenberg against the site's own
+// base address, so an external URL would make that renderer — a server, not the
+// reader's browser — fetch an address the document's author chose, and would
+// turn every reader into a hit on somebody else's server. Allowing it is a
+// later opt-in, not a default.
 //
-// No path segment may begin with a dot, which is what keeps `..` out: the PDF
-// renderer reads these paths from the filesystem, where a traversal is not a
-// broken image but a file being read.
+// No path segment may begin with a dot, which keeps `..` out of a path that is
+// resolved against the site.
 var imageSrcRe = regexp.MustCompile(`^/(private/)?files/[A-Za-z0-9_%+-][A-Za-z0-9._%+-]*(/[A-Za-z0-9_%+-][A-Za-z0-9._%+-]*)*$`)
 
 // codeClassRe keeps the one class the editor writes, so a code block survives a
@@ -86,14 +87,25 @@ func newPolicy(wide bool) *bluemonday.Policy {
 // twice without the second save looking like an edit.
 func Sanitize(s string) string { return strings.TrimSpace(htmlPolicy.Sanitize(s)) }
 
-// blockTagRe recognises a value that was written as markup. It names the tags
-// the allowlist keeps, so `a < b` and `<not-a-tag>` are still plain text — the
-// alternative, treating everything as markup, silently deletes a `<` and
-// whatever follows it from real data.
-var blockTagRe = regexp.MustCompile(`(?i)<(/?)(p|br|hr|div|blockquote|h[1-6]|strong|b|em|i|u|s|del|code|pre|ul|ol|li|a|img|table|thead|tbody|tr|th|td|span)(\s[^<>]*)?/?>`)
+// A value is markup when it carries a *closing* tag, or a void element with an
+// attribute. Everything this package writes, and everything an editor writes,
+// satisfies one of those.
+//
+// The narrow test is the point. A single opening tag is not enough, because
+// `compare a<b and b>c` contains one — `b` is a tag name and " and b" reads as
+// two attributes — and treating that sentence as markup deletes the words
+// between the brackets, permanently and without an error. Prose that mentions
+// `</p>` or `<img src=…>` is read as markup instead, which loses the literal
+// tag but keeps the sentence.
+var (
+	closingTagRe = regexp.MustCompile(`(?i)</(p|div|blockquote|h[1-6]|strong|b|em|i|u|s|del|code|pre|ul|ol|li|a|table|thead|tbody|tr|th|td|span)\s*>`)
+	voidTagRe    = regexp.MustCompile(`(?i)<(br|hr)\s*/?>|<img\s[^<>]*=[^<>]*>`)
+)
 
 // LooksLikeHTML reports whether the value carries markup this package knows.
-func LooksLikeHTML(s string) bool { return blockTagRe.MatchString(s) }
+func LooksLikeHTML(s string) bool {
+	return closingTagRe.MatchString(s) || voidTagRe.MatchString(s)
+}
 
 var newlines = regexp.MustCompile(`\r\n?`)
 
@@ -150,11 +162,15 @@ var blockLevelRe = regexp.MustCompile(`(?i)<(p|h[1-6]|ul|ol|li|blockquote|pre|hr
 // Every editor leaves `<p></p>` behind when a field is cleared, and a required
 // field that accepts it is a required field in name only.
 func IsEmpty(s string) bool {
-	if strings.Contains(strings.ToLower(s), "<img") {
+	// an <img> the allowlist stripped of its src shows nothing, so it does not
+	// count as content and cannot satisfy `reqd`
+	if imgWithSrcRe.MatchString(s) {
 		return false
 	}
 	return strings.TrimSpace(ToText(s)) == ""
 }
+
+var imgWithSrcRe = regexp.MustCompile(`(?i)<img\s[^<>]*src\s*=`)
 
 var (
 	blockBoundaryRe = regexp.MustCompile(`(?i)</(p|div|h[1-6]|li|tr|blockquote|pre)>|<br\s*/?>`)

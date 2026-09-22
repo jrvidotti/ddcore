@@ -12,10 +12,16 @@
   $effect(() => { text = value ? String(value) : ""; });
 
   function commit(v: string) {
-    text = v;
-    if (!v.trim()) { onchange(null); return; }
+    if (!v.trim()) { text = ""; onchange(null); return; }
     const n = normalizeColor(v);
-    if (n) onchange(n);
+    if (n) {
+      text = n;
+      onchange(n);
+      return;
+    }
+    // what was typed is not a colour: show the value that is still stored,
+    // rather than leaving text on screen that was never saved
+    text = value ? String(value) : "";
   }
 </script>
 

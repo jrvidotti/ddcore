@@ -48,10 +48,16 @@ export function sanitizeHtml(html: string): string {
   });
 }
 
-const BLOCK_TAG = /<(\/?)(p|br|hr|div|blockquote|h[1-6]|strong|b|em|i|u|s|del|code|pre|ul|ol|li|a|img|table|thead|tbody|tr|th|td|span)(\s[^<>]*)?\/?>/i;
+// A value is markup when it carries a closing tag, or a void element with an
+// attribute — which is everything an editor or this code writes. A lone
+// opening tag is not enough: `compare a<b and b>c` has one, and reading that
+// sentence as markup deletes the words between the brackets. Mirrors
+// LooksLikeHTML in internal/richtext.
+const CLOSING_TAG = /<\/(p|div|blockquote|h[1-6]|strong|b|em|i|u|s|del|code|pre|ul|ol|li|a|table|thead|tbody|tr|th|td|span)\s*>/i;
+const VOID_TAG = /<(br|hr)\s*\/?>|<img\s[^<>]*=[^<>]*>/i;
 
 /** Whether a stored value was written as markup, and not as plain text. */
-export const looksLikeHtml = (s: string) => BLOCK_TAG.test(s ?? "");
+export const looksLikeHtml = (s: string) => CLOSING_TAG.test(s ?? "") || VOID_TAG.test(s ?? "");
 
 const escapeText = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 

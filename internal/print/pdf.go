@@ -20,8 +20,12 @@ import (
 
 // PDFOptions controls the output page layout for PDF generation.
 type PDFOptions struct {
-	Format       string // "A4", "Letter", etc. Default "A4"
-	Landscape    bool
+	Format    string // "A4", "Letter", etc. Default "A4"
+	Landscape bool
+	// SiteURL is what a `/files/…` image resolves against. A PDF is rendered
+	// from a temporary file, where that path would mean the filesystem root,
+	// so without it every image in a printed document is a blank box.
+	SiteURL      string
 	MarginTop    string // e.g. "0mm", "10mm"
 	MarginBottom string
 	MarginLeft   string
