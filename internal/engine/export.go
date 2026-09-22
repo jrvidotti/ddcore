@@ -473,3 +473,45 @@ func (c *Ctx) checksum(fileURL string) (string, int64, error) {
 	}
 	return hex.EncodeToString(h.Sum(nil)), n, nil
 }
+
+// ExportLayout is the current arrangement of an export directory; see
+// ExportManifest.Layout.
+const ExportLayout = 2
+
+// ExportManifest is what `ddcore export` leaves in manifest.json: what was
+// asked, what came out, and the checksum of every file written, so a second run
+// can be compared with this one — and so an import can be reconciled against
+// what was actually taken. The importer reads this type, so it lives here
+// rather than in the command that writes it.
+type ExportManifest struct {
+	DDCore string `json:"ddcore"`
+	// Layout is how the directory is arranged. 1 wrote the attachment bytes to
+	// files/<base name>; 2 writes them to files/<storage key>. An importer
+	// reads it to know which one it is looking at.
+	Layout   int               `json:"exportFormat"`
+	Apps     map[string]string `json:"apps,omitempty"` // app name → declared version
+	Site     string            `json:"site"`
+	User     string            `json:"user"`
+	Dir      string            `json:"dir"`
+	Format   string            `json:"format"`
+	Filters  any               `json:"filters,omitempty"`
+	Started  time.Time         `json:"started"`
+	Finished time.Time         `json:"finished"`
+	Skipped  []string          `json:"skipped,omitempty"`
+	Exports  []*ExportResult   `json:"exports"`
+}
+
+// ExportResult is one DocType's part of the manifest.
+type ExportResult struct {
+	Summary     *ExportSummary `json:"summary"`
+	Outputs     []ExportOutput `json:"outputs"`
+	Attachments []ExportFile   `json:"attachments,omitempty"`
+}
+
+// ExportOutput is one written file, with the checksum of what was produced
+// rather than of what was meant to be.
+type ExportOutput struct {
+	File   string `json:"file"`
+	Bytes  int64  `json:"bytes"`
+	SHA256 string `json:"sha256"`
+}

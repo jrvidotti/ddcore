@@ -418,3 +418,44 @@ func TestInitAgainUpdatesTheDSNFromName(t *testing.T) {
 		t.Fatalf("second init did not update the dsn:\n%s", cfg)
 	}
 }
+
+// Two attachments can share a base name — one public, one private — and copying
+// both to <out>/files/<base> would leave the second overwriting the first. The
+// bytes go under their storage key, which is what the importer reads back.
+func TestAttachmentPathKeepsPublicAndPrivateApart(t *testing.T) {
+	pub := attachmentPath("/files/nota.pdf")
+	priv := attachmentPath("/private/files/nota.pdf")
+	if pub == priv {
+		t.Fatalf("public and private collide at %q", pub)
+	}
+	if pub != filepath.Join("public", "nota.pdf") || priv != filepath.Join("private", "nota.pdf") {
+		t.Fatalf("pub=%q priv=%q", pub, priv)
+	}
+	// A url the store cannot place still lands somewhere predictable.
+	if got := attachmentPath("weird"); got != "weird" {
+		t.Fatalf("fallback = %q", got)
+	}
+}
+
+func TestImportFlagsAfterPositional(t *testing.T) {
+	fs, o := importFlags()
+	if err := parseFlags(fs, []string{"export/2026", "--dry-run", "--batch", "50", "--only", "Project,Task"}); err != nil {
+		t.Fatal(err)
+	}
+	if fs.NArg() != 1 || fs.Arg(0) != "export/2026" {
+		t.Fatalf("args = %v", fs.Args())
+	}
+	if !o.dryRun || o.batch != 50 || o.only != "Project,Task" {
+		t.Fatalf("opts = %+v", o)
+	}
+}
+
+func TestSplitListTrimsAndDropsEmpties(t *testing.T) {
+	got := splitList(" Project , , Task ")
+	if len(got) != 2 || got[0] != "Project" || got[1] != "Task" {
+		t.Fatalf("splitList = %#v", got)
+	}
+	if splitList("  ") != nil {
+		t.Fatal("an empty list is nil, not one empty name")
+	}
+}

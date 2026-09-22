@@ -39,6 +39,11 @@ var coreRefs = []struct {
 	// else's server, and deleting the document does not recall it.
 	{table: "tab_webhook_delivery", doctypeCol: "reference_doctype", idCol: "reference_id", keepOnDelete: true},
 	{table: "tab_audit_event", doctypeCol: "target_doctype", idCol: "target_id", keepOnDelete: true},
+	// The import ledger (DAT-01) follows a rename, so a second run over the
+	// same export still recognises what it loaded. It stays behind a deletion
+	// on purpose: the line was loaded once, and a rerun must not bring the
+	// document back because somebody deleted it here.
+	{table: "ddcore_import_record", doctypeCol: "doctype", idCol: "id", keepOnDelete: true},
 }
 
 // docTypeRefColumns is every (table, column) that stores a DocType *name*,

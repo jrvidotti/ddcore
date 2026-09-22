@@ -3,10 +3,13 @@ package mcp
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/fs"
 	"net/http"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -88,6 +91,7 @@ func New(e *engine.Engine) *mcp.Server {
 		Instructions: "Development server for the ddcore framework. Start by reading the resource ddcore://docs/index. " +
 			"What changed recently is in ddcore://changelog; whats_new reports it against the running version. " +
 			"Typical flow: get_doctype / scaffold_doctype → migrate → insert_doc / list_docs → run_tests. " +
+			"Moving data between sites is export then import (plan, run, reconcile). " +
 			"Every label is an English key: after adding one, i18n_extract → set_translations until nothing is missing. " +
 			"The app's TS files are the source of truth: edit them and the server reloads.",
 	})
@@ -183,6 +187,76 @@ func New(e *engine.Engine) *mcp.Server {
 				out["adminPassword"] = res.AdminPassword
 			}
 			return text(out), nil, nil
+		})
+
+	mcp.AddTool(srv, &mcp.Tool{Name: "import", Description: "Loads a `ddcore export` directory into this site (DAT-01), keeping ids, owners and timestamps and replaying no effects: no controller hook, webhook, notification or email. action is plan (what would be loaded, writing nothing), run (load it; dry_run rehearses in one rolled-back transaction), status (the runs this site has seen, or one of them with its errors) or reconcile (compare the site with the export: rows, child rows, statuses, files and money). Two runs over the same directory load it once; a run that stops leaves a cursor, and passing its id as resume continues it. max_batches stops after that many batches so a long load advances over several calls."},
+		func(ctx context.Context, req *mcp.CallToolRequest, in struct {
+			Action      string   `json:"action" jsonschema:"one of plan, run, status, reconcile"`
+			Dir         string   `json:"dir,omitempty" jsonschema:"the export directory, as ddcore export wrote it"`
+			Map         string   `json:"map,omitempty" jsonschema:"path to a mapping file that renames doctypes and fields, drops, sets constants and remaps ids and users"`
+			DryRun      bool     `json:"dry_run,omitempty" jsonschema:"validate everything and write nothing"`
+			Batch       int      `json:"batch,omitempty" jsonschema:"lines per transaction (default 500)"`
+			MaxBatches  int      `json:"max_batches,omitempty" jsonschema:"stop after this many batches, leaving the run resumable"`
+			Only        []string `json:"only,omitempty" jsonschema:"load just these DocTypes"`
+			Resume      string   `json:"resume,omitempty" jsonschema:"continue this run"`
+			RunID       string   `json:"run_id,omitempty" jsonschema:"status: the run to report on"`
+			VerifyBytes bool     `json:"verify_bytes,omitempty" jsonschema:"reconcile: read every stored attachment back"`
+		}) (*mcp.CallToolResult, any, error) {
+			if in.Action == "status" {
+				if in.RunID != "" {
+					run, err := s.e.ImportRunByID(ctx, in.RunID)
+					if err != nil {
+						return fail(err)
+					}
+					errs, err := s.e.ImportRunErrors(ctx, in.RunID, 50)
+					if err != nil {
+						return fail(err)
+					}
+					run.Errors = errs
+					return text(run), nil, nil
+				}
+				runs, err := s.e.ImportRuns(ctx, 20)
+				if err != nil {
+					return fail(err)
+				}
+				return text(runs), nil, nil
+			}
+			if in.Dir == "" {
+				return fail(cerr.Validation("give the export directory"))
+			}
+			a := engine.ImportArgs{
+				Dir: in.Dir, DryRun: in.DryRun || in.Action == "plan", Batch: in.Batch,
+				MaxBatches: in.MaxBatches, Only: in.Only, Resume: in.Resume,
+				VerifyBytes: in.VerifyBytes, Actor: "mcp", BypassMaintenance: true,
+			}
+			if in.Map != "" {
+				b, err := os.ReadFile(in.Map)
+				if err != nil {
+					return fail(err)
+				}
+				m, err := engine.ParseImportMap(b)
+				if err != nil {
+					return fail(err)
+				}
+				sum := sha256.Sum256(b)
+				a.Map, a.MapSHA = m, hex.EncodeToString(sum[:])
+			}
+			switch in.Action {
+			case "reconcile":
+				rep, err := s.e.ImportReconcile(ctx, a)
+				if err != nil {
+					return fail(err)
+				}
+				return text(rep), nil, nil
+			case "plan", "run", "":
+				run, err := s.e.Import(ctx, a)
+				if err != nil {
+					return fail(err)
+				}
+				return text(run), nil, nil
+			default:
+				return fail(cerr.Validation("action is plan, run, status or reconcile, not %q", in.Action))
+			}
 		})
 
 	mcp.AddTool(srv, &mcp.Tool{Name: "i18n_extract", Description: "Rewrites translations/<lang>.csv from the code and the metadata (`ddcore i18n extract`), keeping every translation already there, and reports per app what is missing, orphan or dynamic. Run it after adding a label, then fill the missing keys with set_translations. With check it writes nothing."},

@@ -30,6 +30,7 @@ Available documents (also as MCP resources `ddcore://docs/<name>`):
 - `storage` — where uploaded file bytes live (local or S3-compatible), download access and deletion
 - `backup` — `ddcore backup`/`restore`, maintenance mode, the site version ledger and rollback
 - `export` — exporting a whole DocType, children and attachments, by HTTP or CLI
+- `import` — loading an export into a site: identities and metadata kept, effects not replayed, resumable, reconciled
 - `print` — print templates, print block builders, Letter Head branding, and server-side PDF generation
 - `vault` — encrypted credential vault (`ddcore.vault.*`), `Vault` fieldtype, and audit logging
 - `audit` — unified administrative audit events (`tab_audit_event`), sanitization, immutability, retention and CLI inspection

@@ -89,6 +89,27 @@ CREATE INDEX IF NOT EXISTS ddcore_user_identity_user ON ddcore_user_identity("us
 CREATE TABLE IF NOT EXISTS ddcore_vault (
   name text PRIMARY KEY, ciphertext bytea NOT NULL, nonce bytea NOT NULL,
   created timestamptz NOT NULL DEFAULT now(), updated timestamptz NOT NULL DEFAULT now());
+-- The import ledger (DAT-01). It is what makes a load resumable and idempotent:
+-- the cursor says where a run stopped, and the record rows say what is already
+-- in, so a second run over the same export writes nothing.
+CREATE TABLE IF NOT EXISTS ddcore_import_run (
+  id text PRIMARY KEY, dir text NOT NULL, manifest_sha text NOT NULL DEFAULT '', mapping_sha text NOT NULL DEFAULT '',
+  status text NOT NULL DEFAULT 'running', actor text NOT NULL DEFAULT '', dry_run boolean NOT NULL DEFAULT false,
+  started timestamptz NOT NULL DEFAULT now(), finished timestamptz,
+  cursor jsonb NOT NULL DEFAULT '{}'::jsonb, counts jsonb NOT NULL DEFAULT '{}'::jsonb,
+  lease_until timestamptz, message text);
+CREATE TABLE IF NOT EXISTS ddcore_import_record (
+  run_id text NOT NULL, source_doctype text NOT NULL, source_id text NOT NULL,
+  doctype text NOT NULL, id text NOT NULL, line_sha text NOT NULL DEFAULT '',
+  status text NOT NULL, creation timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (source_doctype, source_id));
+CREATE UNIQUE INDEX IF NOT EXISTS ddcore_import_record_target ON ddcore_import_record(doctype, id);
+CREATE INDEX IF NOT EXISTS ddcore_import_record_run ON ddcore_import_record(run_id);
+CREATE TABLE IF NOT EXISTS ddcore_import_error (
+  id bigserial PRIMARY KEY, run_id text NOT NULL, doctype text NOT NULL, source_id text NOT NULL DEFAULT '',
+  line int NOT NULL DEFAULT 0, phase text NOT NULL DEFAULT 'record', message text NOT NULL,
+  creation timestamptz NOT NULL DEFAULT now());
+CREATE INDEX IF NOT EXISTS ddcore_import_error_run ON ddcore_import_error(run_id);
 ` + OpsSchema
 
 // OpsSchema holds the operational ledgers (PRD-01/PRD-02). It is separate from

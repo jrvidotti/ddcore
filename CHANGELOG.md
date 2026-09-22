@@ -34,6 +34,25 @@ not every commit that went into it.
   readable child count, and the Desk's new **Tree** view is built on it: it is the default view for
   a tree DocType, expands a branch at a time, links each node to its form and offers "Add child" on
   a group. A node whose parent the user cannot read is shown as a root.
+- `ddcore import` loads a `ddcore export` directory into a site (DAT-01): `plan`, `run`,
+  `status` and `reconcile`, with `--dry-run`, `--resume`, `--batch`, `--only`, `--include`,
+  `--max-batches`, `--maintenance` and `--map`, plus an `import` MCP tool. A load keeps ids,
+  owners, timestamps and docstatus (including cancelled documents), runs no controller hook and
+  queues no webhook, notification, email or realtime event; it advances `ddcore_series` past the
+  ids it writes and marks already-past date notifications as done. Every line leaves a ledger
+  row, so a second run over the same directory writes nothing and an interrupted run resumes at
+  the first line that did not commit. Attachments are verified against the export's checksums
+  before their bytes are written. `reconcile` compares rows, child rows, docstatus, files and
+  per-docstatus Currency totals, and exits non-zero on any disagreement. A mapping file renames
+  DocTypes and fields, drops, sets constants and remaps ids and users. See
+  [import](docs/agent/import.md).
+
+### Changed
+
+- `ddcore export --attachments` writes the attachment bytes to `<out>/files/public/<file>` and
+  `<out>/files/private/<file>` — their storage key — instead of `<out>/files/<file>`. A public and
+  a private file sharing a base name no longer overwrite each other. `manifest.json` records the
+  layout in `exportFormat`.
 
 ### Fixed
 
