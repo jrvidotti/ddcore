@@ -250,3 +250,39 @@ func TestImportExcludesTheLedgersByDefault(t *testing.T) {
 		t.Fatal("the run should say what it left out and why")
 	}
 }
+
+// A run's own row has to read back the way it was written: the listing is how
+// an operator finds the run to resume.
+func TestImportRunReadsBackFromTheLedger(t *testing.T) {
+	e := setupImport(t)
+	dir := writeExport(t, map[string][]Doc{"Cliente": clientes(2)})
+	run := runImport(t, e, dir, ImportArgs{})
+	back, err := e.ImportRunByID(context.Background(), run.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if back.Started.IsZero() || back.Finished == nil {
+		t.Fatalf("timestamps did not survive: %+v", back)
+	}
+	if back.Status != ImportCompleted || back.Counts["Cliente"].Loaded != 2 {
+		t.Fatalf("run = %+v", back)
+	}
+	runs, err := e.ImportRuns(context.Background(), 5)
+	if err != nil || len(runs) != 1 {
+		t.Fatalf("runs = %v err = %v", runs, err)
+	}
+}
+
+// A dry run holds one transaction for the whole load: with one per batch, a
+// Project rolled back before its Tasks are read makes every link look broken.
+func TestImportDryRunResolvesLinksAcrossDoctypes(t *testing.T) {
+	e := setupImport(t)
+	dir := writeExport(t, map[string][]Doc{
+		"Cliente": clientes(1),
+		"Fatura":  {{"doctype": "Fatura", "id": "FAT-0001", "cliente": "C-001", "total": 5}},
+	})
+	run := runImport(t, e, dir, ImportArgs{DryRun: true, Batch: 1})
+	if run.Counts["Fatura"].Errors != 0 {
+		t.Fatalf("a rehearsal must see what it just loaded: %+v", run.Errors)
+	}
+}

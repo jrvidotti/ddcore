@@ -19,6 +19,7 @@ import (
 	"io"
 	"math/big"
 	"sort"
+	"strconv"
 
 	"github.com/jrvidotti/ddcore/internal/db"
 	"github.com/jrvidotti/ddcore/internal/meta"
@@ -130,8 +131,9 @@ func (e *Engine) reconcileDoctype(ctx context.Context, a ImportArgs, src *Import
 			}
 			// The site's own rounding, applied to the source value: that is
 			// what the load wrote, so that is what has to add up.
-			v := num.Round(toFloat(doc[f.Fieldname]), e.currencyPrecisionFor(f), e.Cfg.Rounding)
-			sourceTotals[key].Add(sourceTotals[key], ratOf(v))
+			prec := e.currencyPrecisionFor(f)
+			v := num.Round(toFloat(doc[f.Fieldname]), prec, e.Cfg.Rounding)
+			sourceTotals[key].Add(sourceTotals[key], decimalRat(v, prec))
 		}
 	}
 	for k, v := range sourceTotals {
@@ -139,7 +141,10 @@ func (e *Engine) reconcileDoctype(ctx context.Context, a ImportArgs, src *Import
 	}
 
 	// The database side, restricted to the ids this import actually loaded.
-	loaded, err := db.Select(ctx, e.DB.Pool, `SELECT id FROM ddcore_import_record WHERE source_doctype = $1 AND status = 'loaded'`, stage.source)
+	// Both loaded and skipped: a skipped line was skipped because the document
+	// is already there, which is exactly what reconciling should count.
+	loaded, err := db.Select(ctx, e.DB.Pool, `SELECT id FROM ddcore_import_record
+		WHERE source_doctype = $1 AND status IN ('loaded', 'skipped')`, stage.source)
 	if err != nil {
 		return nil, err
 	}
@@ -148,9 +153,11 @@ func (e *Engine) reconcileDoctype(ctx context.Context, a ImportArgs, src *Import
 		targetIDs = append(targetIDs, db.Str(row["id"]))
 	}
 	if len(targetIDs) == 0 {
-		rep.Mismatches = append(rep.Mismatches, ReconcileMismatch{Kind: "rows", Doctype: stage.source,
-			Detail: "the ledger holds no loaded record for this DocType",
-			Source: fmt.Sprint(side.SourceRows), Target: "0"})
+		if side.SourceRows > 0 {
+			rep.Mismatches = append(rep.Mismatches, ReconcileMismatch{Kind: "rows", Doctype: stage.source,
+				Detail: "the ledger holds no record of this DocType being loaded",
+				Source: fmt.Sprint(side.SourceRows), Target: "0"})
+		}
 		return side, nil
 	}
 	row := e.DB.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT count(*) FROM %s WHERE id = ANY($1)`, db.Ident(d.TableName())), targetIDs)
@@ -275,9 +282,13 @@ func (e *Engine) currencyPrecisionFor(f *meta.Field) int {
 	return e.CurrencyPrecision()
 }
 
-func ratOf(v float64) *big.Rat {
+// decimalRat reads a rounded value as the decimal it is meant to be. Going
+// through SetFloat64 would carry the binary approximation instead — 33.33 is
+// not exactly representable, and the database's own numeric sum is exact, so
+// the two would never agree.
+func decimalRat(v float64, prec int) *big.Rat {
 	r := new(big.Rat)
-	r.SetFloat64(v)
+	r.SetString(strconv.FormatFloat(v, 'f', prec, 64))
 	return r
 }
 

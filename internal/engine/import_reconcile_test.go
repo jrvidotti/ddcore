@@ -118,3 +118,36 @@ func TestImportReconcileNoticesNothingWasLoaded(t *testing.T) {
 		t.Fatalf("an empty site cannot reconcile with an export: %+v", rec)
 	}
 }
+
+// A DocType the export carries nothing of is not a disagreement, and a line
+// that was skipped because the document is already there is not a missing one.
+func TestImportReconcileCountsSkippedAndEmpty(t *testing.T) {
+	e := setupImport(t)
+	dir := writeExport(t, map[string][]Doc{"Cliente": clientes(2), "Fatura": {}})
+	// Put one of them there first, so the load skips it instead of writing it.
+	if err := importAs(t, e, "Admin", Doc{"doctype": "Cliente", "id": "C-001", "code": "C-001",
+		"nome": "Cliente C-001", "owner": "op@x.com"}); err != nil {
+		t.Fatal(err)
+	}
+	runImport(t, e, dir, ImportArgs{})
+	rec := reconcile(t, e, dir, ImportArgs{})
+	if !rec.OK {
+		t.Fatalf("mismatches = %+v", rec.Mismatches)
+	}
+}
+
+// Currency and Percent go through float64 in the export; the comparison has to
+// be decimal, or 33.33 never equals itself.
+func TestImportReconcileComparesDecimalsNotBinaryFloats(t *testing.T) {
+	e := setupImport(t)
+	dir := writeExport(t, map[string][]Doc{"Fatura": {
+		{"doctype": "Fatura", "id": "FAT-0001", "total": 33.33},
+		{"doctype": "Fatura", "id": "FAT-0002", "total": 0.1},
+		{"doctype": "Fatura", "id": "FAT-0003", "total": 0.2},
+	}})
+	runImport(t, e, dir, ImportArgs{})
+	rec := reconcile(t, e, dir, ImportArgs{})
+	if !rec.OK {
+		t.Fatalf("mismatches = %+v", rec.Mismatches)
+	}
+}

@@ -154,47 +154,59 @@ func (e *Engine) Import(ctx context.Context, a ImportArgs) (*ImportRun, error) {
 		run.Order = append(run.Order, s.source)
 	}
 
-	batches := 0
-	paused := false
-	for _, stage := range plan.stages {
-		if paused {
-			break
-		}
-		// One reader per DocType, held open across its batches: reopening the
-		// file to skip to the cursor each batch would re-parse the whole prefix.
-		reader, err := src.Open(stage.source)
-		if err != nil {
-			return run, err
-		}
-		if err := reader.SkipTo(run.Cursor[stage.source]); err != nil {
-			reader.Close()
-			return run, err
-		}
-		for {
-			if a.MaxBatches > 0 && batches >= a.MaxBatches {
-				paused = true
-				break
-			}
-			n, err := e.importBatch(ctx, src, reader, a, run, stage)
+	// A dry run holds one transaction for the whole load and rolls it back at
+	// the end. Anything narrower would be a rehearsal of a different thing:
+	// with a transaction per batch, a Project rolled back before its Tasks are
+	// read makes every link to it look broken.
+	loadAll := func(shared *Ctx) error {
+		batches := 0
+		for _, stage := range plan.stages {
+			reader, err := src.Open(stage.source)
 			if err != nil {
+				return err
+			}
+			// One reader per DocType, held open across its batches: reopening
+			// the file to skip to the cursor each batch would re-parse the
+			// whole prefix.
+			if err := reader.SkipTo(run.Cursor[stage.source]); err != nil {
 				reader.Close()
-				run.Status, run.Message = ImportFailed, err.Error()
-				_ = e.saveImportRun(ctx, run)
-				return run, err
+				return err
 			}
-			batches++
-			if n == 0 {
-				break
+			for {
+				if a.MaxBatches > 0 && batches >= a.MaxBatches {
+					reader.Close()
+					run.Status = ImportPaused
+					return nil
+				}
+				n, err := e.importBatch(ctx, shared, src, reader, a, run, stage)
+				if err != nil {
+					reader.Close()
+					return err
+				}
+				batches++
+				if n == 0 {
+					break
+				}
 			}
+			reader.Close()
 		}
-		reader.Close()
+		return e.verifyDeferredLinks(ctx, queryOf(e, shared), run, plan)
 	}
-	if paused {
-		run.Status = ImportPaused
-		return run, e.saveImportRun(ctx, run)
+
+	if a.DryRun {
+		c := e.NewCtx(ctx, "Admin")
+		c.Flags["rollback"] = true
+		err = c.Run(func(c *Ctx) error { return loadAll(c) })
+	} else {
+		err = loadAll(nil)
 	}
-	if err := e.verifyDeferredLinks(ctx, a, run, plan); err != nil {
+	if err != nil {
+		run.Status, run.Message = ImportFailed, err.Error()
+		_ = e.saveImportRun(ctx, run)
 		return run, err
+	}
+	if run.Status == ImportPaused {
+		return run, e.saveImportRun(ctx, run)
 	}
 	run.Status = ImportCompleted
 	for _, c := range run.Counts {
@@ -218,6 +230,15 @@ func (e *Engine) Import(ctx context.Context, a ImportArgs) (*ImportRun, error) {
 		})
 	}
 	return run, e.saveImportRun(ctx, run)
+}
+
+// queryOf is the querier a phase runs on: the dry run's own transaction, or
+// the pool when the batches committed on their own.
+func queryOf(e *Engine, shared *Ctx) db.Querier {
+	if shared != nil {
+		return shared.Q()
+	}
+	return e.DB.Pool
 }
 
 // importStage is one DocType's place in the load.
@@ -328,7 +349,7 @@ func missingColumnNotes(st *State, target, source string, columns []string) []st
 // verifyDeferredLinks is the finalize pass: every link the load order could
 // not satisfy — a self link, a cycle, a Dynamic Link — checked at once, now
 // that the whole set is in. One anti-join per field beats one query per row.
-func (e *Engine) verifyDeferredLinks(ctx context.Context, a ImportArgs, run *ImportRun, plan *importPlanned) error {
+func (e *Engine) verifyDeferredLinks(ctx context.Context, q db.Querier, run *ImportRun, plan *importPlanned) error {
 	st := e.Current()
 	for _, stage := range plan.stages {
 		if len(stage.deferred) == 0 {
@@ -357,7 +378,7 @@ func (e *Engine) verifyDeferredLinks(ctx context.Context, a ImportArgs, run *Imp
 			if f == nil {
 				continue
 			}
-			dangling, err := e.danglingLinks(ctx, a, owner, f.Fieldname, f)
+			dangling, err := e.danglingLinks(ctx, q, owner, f.Fieldname, f)
 			if err != nil {
 				return err
 			}
@@ -375,17 +396,13 @@ func (e *Engine) verifyDeferredLinks(ctx context.Context, a ImportArgs, run *Imp
 
 // danglingLinks finds the rows of one field that point at nothing. A Dynamic
 // Link is checked per target DocType, since its target is a value.
-func (e *Engine) danglingLinks(ctx context.Context, a ImportArgs, d *meta.DocType, fieldname string, f *meta.Field) ([]DanglingLink, error) {
-	if a.DryRun {
-		// The rows were rolled back; there is nothing left to join against.
-		return nil, nil
-	}
+func (e *Engine) danglingLinks(ctx context.Context, q db.Querier, d *meta.DocType, fieldname string, f *meta.Field) ([]DanglingLink, error) {
 	var targets []string
 	switch f.Fieldtype {
 	case "Link":
 		targets = []string{f.OptionsString()}
 	case "Dynamic Link":
-		rows, err := db.Select(ctx, e.DB.Pool, fmt.Sprintf(`SELECT DISTINCT %s AS t FROM %s WHERE %s IS NOT NULL AND %s <> ''`,
+		rows, err := db.Select(ctx, q, fmt.Sprintf(`SELECT DISTINCT %s AS t FROM %s WHERE %s IS NOT NULL AND %s <> ''`,
 			db.Ident(f.OptionsString()), db.Ident(d.TableName()), db.Ident(fieldname), db.Ident(fieldname)), nil)
 		if err != nil {
 			return nil, err
@@ -411,11 +428,11 @@ func (e *Engine) danglingLinks(ctx context.Context, a ImportArgs, d *meta.DocTyp
 			where = fmt.Sprintf(" AND s.%s = $1", db.Ident(f.OptionsString()))
 			args = append(args, target)
 		}
-		q := fmt.Sprintf(`SELECT s.id, s.%[1]s AS ref FROM %[2]s s
+		query := fmt.Sprintf(`SELECT s.id, s.%[1]s AS ref FROM %[2]s s
 			LEFT JOIN %[3]s t ON t.id = s.%[1]s
 			WHERE s.%[1]s IS NOT NULL AND s.%[1]s <> '' AND t.id IS NULL%[4]s LIMIT 200`,
 			db.Ident(fieldname), db.Ident(d.TableName()), db.Ident(td.TableName()), where)
-		rows, err := db.Select(ctx, e.DB.Pool, q, args...)
+		rows, err := db.Select(ctx, q, query, args...)
 		if err != nil {
 			return nil, err
 		}

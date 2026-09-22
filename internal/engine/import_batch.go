@@ -90,10 +90,11 @@ func importRunFromRow(r map[string]any) (*ImportRun, error) {
 	if b, ok := r["dry_run"].(bool); ok {
 		run.DryRun = b
 	}
-	if t, ok := r["started"].(time.Time); ok {
+	// db.Select normalises a timestamptz to an RFC3339 string on its way out.
+	if t := parseTime(r["started"], time.UTC); !t.IsZero() {
 		run.Started = t
 	}
-	if t, ok := r["finished"].(time.Time); ok {
+	if t := parseTime(r["finished"], time.UTC); !t.IsZero() {
 		run.Finished = &t
 	}
 	if err := decodeJSONColumn(r["counts"], &run.Counts); err != nil {
@@ -155,7 +156,7 @@ func lineSHA(doc Doc) string {
 // importBatch loads up to a.Batch lines of one DocType in one transaction,
 // advancing the cursor inside it. It returns how many lines it read; zero
 // means the file is done.
-func (e *Engine) importBatch(ctx context.Context, src *ImportSource, reader *ImportReader, a ImportArgs, run *ImportRun, stage importStage) (int, error) {
+func (e *Engine) importBatch(ctx context.Context, shared *Ctx, src *ImportSource, reader *ImportReader, a ImportArgs, run *ImportRun, stage importStage) (int, error) {
 	lines, err := readImportBatch(reader, a.Batch)
 	if err != nil {
 		return 0, err
@@ -165,9 +166,9 @@ func (e *Engine) importBatch(ctx context.Context, src *ImportSource, reader *Imp
 	}
 	// First attempt: no savepoints. A write error rolls the batch back and it
 	// is replayed one savepoint at a time.
-	outcome, err := e.runImportBatch(ctx, a, src, run, stage, lines, false)
+	outcome, err := e.runImportBatch(ctx, shared, a, src, run, stage, lines, false)
 	if err != nil {
-		outcome, err = e.runImportBatch(ctx, a, src, run, stage, lines, true)
+		outcome, err = e.runImportBatch(ctx, shared, a, src, run, stage, lines, true)
 		if err != nil {
 			return 0, err
 		}
@@ -211,13 +212,9 @@ type batchOutcome struct {
 
 // runImportBatch writes one batch. In careful mode each record gets its own
 // savepoint, so a write error costs that record and not the batch.
-func (e *Engine) runImportBatch(ctx context.Context, a ImportArgs, src *ImportSource, run *ImportRun, stage importStage, lines []ImportRecord, careful bool) (batchOutcome, error) {
+func (e *Engine) runImportBatch(ctx context.Context, shared *Ctx, a ImportArgs, src *ImportSource, run *ImportRun, stage importStage, lines []ImportRecord, careful bool) (batchOutcome, error) {
 	var out batchOutcome
-	c := e.NewCtx(ctx, "Admin")
-	if a.DryRun {
-		c.Flags["rollback"] = true
-	}
-	err := c.Run(func(c *Ctx) error {
+	batch := func(c *Ctx) error {
 		out = batchOutcome{}
 		for _, rec := range lines {
 			one := func() error { return e.importOne(c, a, src, run, stage, rec, &out) }
@@ -247,8 +244,15 @@ func (e *Engine) runImportBatch(ctx context.Context, a ImportArgs, src *ImportSo
 			return nil
 		}
 		return e.writeCursor(c, run, stage.source, lines[len(lines)-1].Line, out)
-	})
-	return out, err
+	}
+	if shared != nil {
+		// Inside the dry run's one transaction: a savepoint around the batch
+		// so a failed attempt can be replayed carefully without taking the
+		// rest of the rehearsal down with it.
+		return out, shared.WithSavepoint(func() error { return batch(shared) })
+	}
+	c := e.NewCtx(ctx, "Admin")
+	return out, c.Run(batch)
 }
 
 // importOne loads a single line: map it, decide what to do about a document
