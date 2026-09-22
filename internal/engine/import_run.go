@@ -65,6 +65,10 @@ type ImportArgs struct {
 	Resume     string   // continue this run
 	Actor      string
 	MaxBatches int // stop after this many batches and leave the run paused
+	// VerifyBytes has a reconciliation read every stored attachment back. It
+	// is off by default: it reads every byte the site holds for these
+	// documents, which on a real migration is the whole file store.
+	VerifyBytes bool
 }
 
 // ImportCounts is one DocType's tally.
