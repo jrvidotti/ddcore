@@ -265,7 +265,7 @@
     if (!frm) return;
     const label = frm.meta.doctype.label || frm.meta.doctype.name;
     const v = await prompt(__("Rename {0}", [label]), [
-      { fieldname: "name", fieldtype: "Data", label: __("New name"), reqd: true, default: frm.doc.name }
+      { fieldname: "name", fieldtype: "Data", label: frm.meta.doctype.nameLabel || __("New name"), reqd: true, default: frm.doc.name }
     ]);
     if (!v || !v.name || v.name.trim() === frm.doc.name) return;
     try {

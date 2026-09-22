@@ -73,6 +73,7 @@ export interface ListViewOptions<T extends BaseDoc = BaseDoc> {
   indicator?: (row: T) => { label: string; color: string } | null | undefined;
   docstatusFilter?: boolean;
   modifiedColumn?: boolean;
+  nameColumn?: boolean;
   fields?: (keyof T & string)[];
   badges?: (row: T) => { label: string; color: string }[] | null | undefined;
   filterOptions?: Partial<Record<keyof T & string, { value: string; label: string; filters: [string, string, any][] }[]>>;

@@ -279,6 +279,19 @@ func TestValidateRejectsDanglingFieldReferences(t *testing.T) {
 	}
 }
 
+// nameLabel heads the name column; a blank one would leave it headed by nothing.
+func TestValidateRejectsABlankNameLabel(t *testing.T) {
+	r := NewRegistry()
+	r.Add(&DocType{Name: "A", NameLabel: "  ", Fields: []*Field{{Fieldname: "x", Fieldtype: "Data"}}})
+	if err := r.Validate(); err == nil || !strings.Contains(err.Error(), "nameLabel") {
+		t.Fatalf("wanted an error mentioning nameLabel, got %v", err)
+	}
+	var d DocType
+	if err := json.Unmarshal([]byte(`{"name":"B","nameLabel":"Contract No."}`), &d); err != nil || d.NameLabel != "Contract No." {
+		t.Fatalf("nameLabel did not round-trip: %q, %v", d.NameLabel, err)
+	}
+}
+
 // numeric(21,9) cannot hold more than nine decimal places, so a field asking
 // for more is a developer error and belongs at migrate rather than in a silent
 // truncation on the first save.

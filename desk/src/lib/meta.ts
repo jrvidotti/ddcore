@@ -18,7 +18,7 @@ export interface Field {
 }
 
 export interface DocTypeMeta {
-  name: string; app: string; label: string; module?: string; naming: any; submittable?: boolean; isChild?: boolean; isSingle?: boolean; trackChanges?: boolean;
+  name: string; app: string; label: string; nameLabel?: string; module?: string; naming: any; submittable?: boolean; isChild?: boolean; isSingle?: boolean; trackChanges?: boolean;
   allowRename?: boolean; titleField?: string; sortField?: string; sortOrder?: string; searchFields?: string[]; fields: Field[];
   permissions?: any[]; icon?: string; methods?: string[];
   /** Compound business keys; enforced on the server, shown here only for reference. */
@@ -74,7 +74,7 @@ export function getMeta(doctype: string): Promise<Meta> {
           const nameField: Field = {
             fieldname: "name",
             fieldtype: "Data",
-            label: m.doctype.label || __("Name"),
+            label: m.doctype.nameLabel || m.doctype.label || __("Name"),
             reqd: true,
           };
           m.doctype.fields = [nameField, ...m.doctype.fields];

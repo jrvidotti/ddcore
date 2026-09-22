@@ -105,7 +105,7 @@ permlevel, renamedFrom, convert`
 
 ```ts
 defineDoctype({
-  name: "Contract", module: "Sales", label: "Contract",
+  name: "Contract", module: "Sales", label: "Contract", nameLabel: "Contract No.",
   naming: { series: "CTR-.YYYY.-.####" } | { field: "code" } | { format: "{index}-{period}" } | { hash: true } | { prompt: true },
   submittable: true, isChild: false, trackChanges: true, allowRename: true, renamedFrom: "Old Name",
   titleField: "name", searchFields: ["name", "tax_id"], globalSearch: true, sortField: "modified", sortOrder: "desc", icon: "building-2",
@@ -124,6 +124,12 @@ Series: `.YYYY.`, `.YY.`, `.MM.`, `.DD.`, `.####.` (a zero-padded counter), `.{f
 when there is a `titleField` or `searchFields`, and never applies to a child table or a Single.
 See `search`. `share` in a permission row lets the role share one document with another user —
 see `sharing`.
+
+`nameLabel` is what the desk calls the document name, a catalogue key like `label`. It heads the
+list's name column instead of "Name", and it labels the name when it is asked for (`naming: { prompt }`)
+or renamed. It changes display only: filters, `orderBy`, the API and every query still say
+`name`. Left out, the column is headed "Name". To hide the column rather than rename it, see
+`nameColumn` in `form-api`.
 
 `allowRename` is about renaming a *document*; `renamedFrom` is about renaming the *DocType*,
 which moves the table and repoints every stored reference. See `migrations`.

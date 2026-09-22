@@ -29,6 +29,19 @@ not every commit that went into it.
   print it the same way, and the MCP `migrate` tool returns it as `adminPassword`. Only the hash is
   kept, and a password Admin already has is never replaced. The step
   `ddcore user passwd Admin <password>` is no longer needed to sign in the first time.
+- `defineListView(doctype, { nameColumn: false })` hides the leading document-name column of a
+  list, for a DocType whose name means nothing to a reader, such as a `hash`. The row stays
+  clickable. The default is unchanged. ([#7](https://github.com/jrvidotti/ddcore/issues/7))
+- `nameLabel` on a DocType names its identifier: `nameLabel: "Contract No."` heads the list's name
+  column instead of "Name", and labels the name when it is prompted for or renamed. It is a
+  catalogue key, so `ddcore i18n extract` collects it and an extension may override it. It changes
+  display only: filters, `orderBy` and the API still say `name`.
+  ([#7](https://github.com/jrvidotti/ddcore/issues/7))
+
+### Changed
+
+- When a list has no name column, the title field's cell links to the document, so it can be
+  opened in a new tab.
 
 ## 0.15.1 — 2026-09-18
 

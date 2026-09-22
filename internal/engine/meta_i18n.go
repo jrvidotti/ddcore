@@ -60,6 +60,7 @@ func (st *State) TranslateDocType(d *meta.DocType, lang string) *meta.DocType {
 	}
 	out := *d
 	out.Label = t(d.Label)
+	out.NameLabel = t(d.NameLabel)
 	out.Description = t(d.Description)
 	out.Fields = make([]*meta.Field, len(d.Fields))
 	for i, f := range d.Fields {

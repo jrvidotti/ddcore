@@ -216,6 +216,25 @@ func TestMetaTranslatedAndETag(t *testing.T) {
 	}
 }
 
+// nameLabel is a catalogue key like label, translated with the rest of the meta.
+func TestMetaTranslatesTheNameLabel(t *testing.T) {
+	x := setup(t)
+	d, err := x.e.DocType("User")
+	if err != nil {
+		t.Fatal(err)
+	}
+	d.NameLabel = "User" // a key the core catalogue already translates
+	r := x.call("GET", "/api/meta/User", nil, "sid:"+x.sid("root@x.com"), "X-Lang", "pt-BR")
+	data, _ := r.Body["data"].(map[string]any)
+	dt, _ := data["doctype"].(map[string]any)
+	if got := dt["nameLabel"]; got != "Usuário" {
+		t.Fatalf("pt-BR nameLabel = %v, want Usuário", got)
+	}
+	if d.NameLabel != "User" {
+		t.Fatalf("the registry was mutated: nameLabel = %q", d.NameLabel)
+	}
+}
+
 // The registry is shared by every request in flight: translating for one must
 // not leave the next one reading Portuguese.
 func TestTranslationDoesNotMutateTheRegistry(t *testing.T) {

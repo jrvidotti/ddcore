@@ -8,6 +8,7 @@ import (
 
 	"github.com/jrvidotti/ddcore/internal/engine"
 	"github.com/jrvidotti/ddcore/internal/js"
+	"github.com/jrvidotti/ddcore/internal/meta"
 )
 
 func texts(s *Set) []string {
@@ -172,6 +173,22 @@ func TestCatalogRoundTrip(t *testing.T) {
 	want = "Delete,,# desk/src/a.svelte:20\nSave,Salvar,# desk/src/a.svelte:12\n"
 	if string(b) != want {
 		t.Fatalf("with --prune wrote:\n%s\nwant:\n%s", b, want)
+	}
+}
+
+// A DocType's nameLabel heads its list's name column, so it is a key — of the
+// app that owns the DocType's own text, and of no other.
+func TestCollectDocTypeNameLabel(t *testing.T) {
+	d := &meta.DocType{Name: "Contract", App: "crm", Label: "Contract", NameLabel: "Contract No."}
+	s := NewSet()
+	CollectDocType(s, d, "crm", "crm doctype")
+	if got, want := texts(s), []string{"Contract", "Contract No."}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+	other := NewSet()
+	CollectDocType(other, d, "billing", "billing doctype")
+	if got := texts(other); len(got) != 0 {
+		t.Fatalf("another app collected %v", got)
 	}
 }
 

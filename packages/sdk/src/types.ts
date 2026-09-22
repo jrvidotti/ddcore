@@ -288,6 +288,12 @@ export interface DoctypeDef {
   name: string;
   module?: string;
   label?: string;
+  /**
+   * What the desk calls the document name, a catalogue key like `label`:
+   * `"Contract No."` heads the list's name column instead of "Name". Display
+   * only — filters, `orderBy` and the API still address it as `name`.
+   */
+  nameLabel?: string;
   naming?: NamingDef;
   submittable?: boolean;
   isChild?: boolean;

@@ -55,14 +55,14 @@ var FieldProps = map[string]bool{
 // `isChild`, `isSingle` and `submittable` decide what the document *is*, and
 // stay with the app that declares it.
 var DoctypeProps = map[string]bool{
-	"label": true, "description": true, "icon": true, "titleField": true,
+	"label": true, "nameLabel": true, "description": true, "icon": true, "titleField": true,
 	"sortField": true, "sortOrder": true, "searchFields": true,
 	"trackChanges": true, "allowRename": true, "globalSearch": true,
 }
 
 // textProps are the properties whose value is a catalogue key. Overriding one
 // moves the key into the extending app's CSV — see Field.App.
-var textProps = map[string]bool{"label": true, "description": true, "options": true}
+var textProps = map[string]bool{"label": true, "nameLabel": true, "description": true, "options": true}
 
 // ApplyExtensions merges every extension into the registry.
 //
@@ -268,6 +268,8 @@ func setDoctypeProp(d *DocType, prop string, v any) error {
 	switch prop {
 	case "label":
 		d.Label, err = str()
+	case "nameLabel":
+		d.NameLabel, err = str()
 	case "description":
 		d.Description, err = str()
 	case "icon":

@@ -27,6 +27,7 @@ import (
 func CollectDocType(s *Set, d *meta.DocType, app, file string) {
 	if d.TextAppOf() == app {
 		s.Add(d.Label, file, 0)
+		s.Add(d.NameLabel, file, 0)
 		s.Add(d.Description, file, 0)
 	}
 	for _, f := range d.Fields {

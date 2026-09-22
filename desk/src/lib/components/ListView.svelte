@@ -28,6 +28,7 @@
   import { ganttRangeFilters, ganttWindow, type GanttScale } from "./views/gantt-state";
   import { calendarRangeFilters } from "./views/calendar-state";
   import { resolveCardFields } from "./views/card-fields";
+  import { showNameColumn } from "./views/name-column";
 
   let { doctype }: { doctype: string } = $props();
   let meta = $state<Meta | null>(null);
@@ -385,11 +386,13 @@
 
   /** Exports the *loaded page* (not the whole result set) as CSV. */
   function exportLoadedPage() {
-    const keys = ["name", ...columns.map((c) => c.fieldname!)];
-    const header = [__("Name"), ...columns.map((c) => c.label)];
+    const withName = showNameColumn(meta!.doctype, columns, settings);
+    const keys = [...(withName ? ["name"] : []), ...columns.map((c) => c.fieldname!)];
+    const header = [...(withName ? [meta!.doctype.nameLabel || __("Name")] : []), ...columns.map((c) => c.label)];
+    const offset = withName ? 1 : 0;
     const exportRows = rows.map((r) => keys.map((k, idx) => {
-      if (idx === 0) return r[k];
-      const col = columns[idx - 1];
+      if (idx < offset) return r[k];
+      const col = columns[idx - offset];
       if (col && (col.fieldtype === "Link" || col.fieldtype === "Dynamic Link") && r[k]) {
         const target = col.fieldtype === "Dynamic Link" ? r[col.options] : col.options;
         return getLinkTitle(target, r[k]) || r[k];

@@ -240,10 +240,14 @@ type UniqueKey struct {
 func (k UniqueKey) IndexSuffix() string { return "uk_" + k.Name }
 
 type DocType struct {
-	Name         string   `json:"name"`
-	App          string   `json:"app"`
-	Module       string   `json:"module,omitempty"`
-	Label        string   `json:"label,omitempty"`
+	Name   string `json:"name"`
+	App    string `json:"app"`
+	Module string `json:"module,omitempty"`
+	Label  string `json:"label,omitempty"`
+	// NameLabel is what the desk calls the document name (a catalogue key):
+	// "Contract No." rather than "Name". Display only — the column, filters,
+	// orderBy and the API still say `name`.
+	NameLabel    string   `json:"nameLabel,omitempty"`
 	Naming       Naming   `json:"naming"`
 	Submittable  bool     `json:"submittable,omitempty"`
 	IsChild      bool     `json:"isChild,omitempty"`
@@ -532,6 +536,9 @@ func (r *Registry) Validate() error {
 					e("fetchFrom %q on field %q: %q is not a Link", f.FetchFrom, f.Fieldname, parts[0])
 				}
 			}
+		}
+		if d.NameLabel != "" && strings.TrimSpace(d.NameLabel) == "" {
+			e("nameLabel is blank")
 		}
 		if d.Naming.Field != "" && d.Field(d.Naming.Field) == nil {
 			e("naming.field %q does not exist", d.Naming.Field)

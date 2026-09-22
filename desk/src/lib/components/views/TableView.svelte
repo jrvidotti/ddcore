@@ -5,6 +5,7 @@
   import type { Field, Meta } from "$lib/meta";
   import { statusColor, timeAgo } from "$lib/format";
   import { getLinkTitle } from "$lib/titles.svelte";
+  import { showNameColumn } from "./name-column";
 
   let {
     rows, meta, doctype, wsPrefix, columns, selected, orderBy, loading = false,
@@ -20,7 +21,7 @@
   const statusField = $derived(meta.doctype.fields.find((f) => f.fieldname === "status"));
   const showIndicatorColumn = $derived(!!settings.indicator ||
     (!columns.some((c) => c.fieldname === statusField?.fieldname) && (!!statusField || !!meta.doctype.submittable)));
-  const showName = $derived(!columns.some((c) => c.fieldname === meta.doctype.titleField) || meta.doctype.naming?.field !== meta.doctype.titleField);
+  const showName = $derived(showNameColumn(meta.doctype, columns, settings));
   const num = (f: Field) => ["Int", "Float", "Currency", "Percent"].includes(f.fieldtype);
   const documentUrl = (name: string) => `${wsPrefix}/${encodeURIComponent(doctype)}/${encodeURIComponent(name)}`;
 </script>
@@ -31,7 +32,7 @@
       <th style="width:28px"><input type="checkbox" aria-label={__("Select all")} checked={rows.length > 0 && rows.every((r) => selected.has(r.name))} onchange={(e) => onSelectAll(e.currentTarget.checked)} /></th>
       {#if showName}
         <th aria-sort={orderBy.startsWith("name ") ? (orderBy.endsWith("asc") ? "ascending" : "descending") : "none"}>
-          <button class="sort" onclick={() => onSort({ fieldname: "name", fieldtype: "Data" })}>{__("Name")} {#if orderBy.startsWith("name ")}{orderBy.endsWith("asc") ? "↑" : "↓"}{/if}</button>
+          <button class="sort" onclick={() => onSort({ fieldname: "name", fieldtype: "Data" })}>{meta.doctype.nameLabel || __("Name")} {#if orderBy.startsWith("name ")}{orderBy.endsWith("asc") ? "↑" : "↓"}{/if}</button>
         </th>
       {/if}
       {#each columns as c}
@@ -54,6 +55,8 @@
               {@const linkTarget = c.fieldtype === "Dynamic Link" ? r[c.options] : c.options}
               {@const linkVal = r[c.fieldname!]}
               <a href={`${wsPrefix}/${encodeURIComponent(linkTarget)}/${encodeURIComponent(linkVal)}`} title={linkVal} onclick={(e) => e.stopPropagation()}>{getLinkTitle(linkTarget, linkVal) || linkVal}</a>
+            {:else if !showName && c.fieldname === meta.doctype.titleField}
+              <a href={documentUrl(r.name)} onclick={(e) => e.stopPropagation()}>{cellText(r, c) || r.name}</a>
             {:else if c.fieldname === statusField?.fieldname}
               <span class="badges"><span class="indicator {statusColor(r[c.fieldname!], c)}">{__(r[c.fieldname!])}</span>{#if !showIndicatorColumn}{@render badges(r)}{/if}</span>
             {:else}{cellText(r, c)}{/if}

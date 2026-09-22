@@ -313,6 +313,11 @@ export interface ListViewOptions<T extends BaseDoc = BaseDoc> {
   docstatusFilter?: boolean;
   /** `false` hides the trailing "Modified" column. Default `true`. */
   modifiedColumn?: boolean;
+  /**
+   * `false` hides the leading document-name column. Default `true`. The row
+   * stays clickable, and the title field's cell links to the document.
+   */
+  nameColumn?: boolean;
   /** Fields fetched beyond the columns, for `indicator`, `badges` and `formatters`. */
   fields?: (keyof T & string)[];
   /** Extra indicators shown after the status, in the same cell. */

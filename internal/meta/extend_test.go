@@ -112,6 +112,18 @@ func TestExtensionSetsAProperty(t *testing.T) {
 	}
 }
 
+// nameLabel is a catalogue key, so overriding it moves the DocType's text to the
+// extending app, as label does.
+func TestExtensionSetsTheNameLabel(t *testing.T) {
+	r := hostRegistry()
+	mustApply(t, r, ext("billing", "Lead", `{"props":{"nameLabel":"Lead No."}}`))
+
+	d, _ := r.Get("Lead")
+	if d.NameLabel != "Lead No." || d.TextAppOf() != "billing" {
+		t.Fatalf("nameLabel=%q owner=%q", d.NameLabel, d.TextAppOf())
+	}
+}
+
 func TestExtensionRefusesAPropertyThatIsIdentity(t *testing.T) {
 	r := hostRegistry()
 	err := apply(t, r,

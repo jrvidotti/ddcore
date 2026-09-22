@@ -143,6 +143,7 @@ defineListView("Entry", {
   indicator: (row) => (row.balance > 0 ? { label: __("Open"), color: "red" } : { label: __("Settled"), color: "green" }),
   docstatusFilter: false,               // hides the "Document status" filter of a submittable DocType
   modifiedColumn: false,                // hides the trailing "Modified" column
+  nameColumn: false,                    // hides the leading document-name column
 });
 ```
 
@@ -150,6 +151,12 @@ Every key is optional. `formatters` returns **text** (not HTML); `indicator` rep
 status column and may return `null` to show nothing on that row. `docstatusFilter: false` suits a
 submittable DocType whose `status` field already separates draft, submitted and cancelled — the
 docstatus filter would only repeat it.
+
+`nameColumn: false` suits a DocType whose name means nothing to a reader: a `hash`, or a code
+already shown in another column. The list leaves the column out on its own when the title field
+is a column and is the name (`naming: { field }` equal to `titleField`). With the column hidden,
+the row stays clickable and the title field's cell links to the document. To rename the
+column instead of hiding it, set `nameLabel` on the DocType (see `fieldtypes`).
 
 Most lists need no `indicator` at all: declare `optionColors` on the status field and the desk
 colours and translates it on its own. Reach for `indicator` only when the label is not a field
