@@ -454,6 +454,11 @@ func (e *Engine) Load() error {
 			return err
 		}
 	}
+	// before the extensions, so the parent Link and `is_group` a tree DocType
+	// does not declare itself are ordinary fields by the time anything else
+	// looks at them: an extension may relabel them, and the schema planner,
+	// the typings and the extractor see them like any other.
+	reg.ApplyTrees()
 	// before Validate, so a field an extension adds is checked like any other:
 	// reserved names, duplicates, a Link that points nowhere.
 	graph := meta.Apps{Requires: map[string][]string{}}
@@ -693,15 +698,18 @@ type Ctx struct {
 	// no request is behind the work — a migration, a test, a CLI command.
 	ReqID string
 
-	roles                []string
-	userPerms            []UserPerm
-	shares               []DocShare
-	sharesLoaded         bool
-	sharesDirty          bool
-	rt                   *js.Runtime
-	savepoint            int
-	roSavepoint          int
-	docCache             map[string]Doc
+	roles        []string
+	userPerms    []UserPerm
+	shares       []DocShare
+	sharesLoaded bool
+	sharesDirty  bool
+	rt           *js.Runtime
+	savepoint    int
+	roSavepoint  int
+	docCache     map[string]Doc
+	// scopeAncestors memoises a tree value's ancestors while a User Permission
+	// scope is being checked row by row (DAT-07).
+	scopeAncestors       map[string][]string
 	afterCommit          []func()
 	inWorkflowTransition bool
 }

@@ -19,6 +19,8 @@ export interface Field {
 
 export interface DocTypeMeta {
   name: string; app: string; label: string; idLabel?: string; module?: string; idGeneration: any; submittable?: boolean; isChild?: boolean; isSingle?: boolean; trackChanges?: boolean;
+  /** Hierarchical DocType (DAT-07); `parentField` holds the parent Link's fieldname. */
+  isTree?: boolean; parentField?: string;
   allowRename?: boolean; titleField?: string; sortField?: string; sortOrder?: string; searchFields?: string[]; fields: Field[];
   permissions?: any[]; icon?: string; methods?: string[];
   /** Compound business keys; enforced on the server, shown here only for reference. */

@@ -85,6 +85,7 @@ func New(e *engine.Engine, desk fs.FS) *Server {
 			r.Get("/notifications/count", s.notificationCount)
 			r.Patch("/notifications/{id}", s.setNotificationRead)
 			r.Get("/search/link", s.linkSearch)
+			r.Get("/tree/{doctype}", s.treeChildren)
 			r.Get("/search/global", s.globalSearch)
 			r.Get("/search/link-titles", s.linkTitles)
 			r.Post("/search/link-titles", s.linkTitles)
@@ -953,6 +954,16 @@ func (s *Server) method(w http.ResponseWriter, r *http.Request) {
 			return nil, err
 		}
 		return res, nil
+	})
+}
+
+// treeChildren serves one level of a hierarchy (DAT-07): `?parent=` empty asks
+// for the roots. The engine reads through the ordinary list path, so this adds
+// no permission surface of its own.
+func (s *Server) treeChildren(w http.ResponseWriter, r *http.Request) {
+	s.run(w, r, func(c *engine.Ctx) (any, error) {
+		limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+		return c.TreeChildren(chi.URLParam(r, "doctype"), r.URL.Query().Get("parent"), limit)
 	})
 }
 

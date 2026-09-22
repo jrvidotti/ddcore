@@ -101,6 +101,33 @@ func hasChildTable(d *meta.DocType, ct string) bool {
 	return false
 }
 
+// treeRef resolves the hierarchy a tree operator walks: the DocType's own `id`
+// when it is a tree, or the target of a Link pointing at one. A Dynamic Link is
+// not resolved here — its target is a value, not a declaration — so the one
+// place that filters one (a User Permission scope, which knows the DocType from
+// the rule) carries its own TreeRef.
+//
+// Returning nil leaves db.Builder.Where to refuse the filter by name.
+func (c *Ctx) treeRef(d *meta.DocType, field string) *db.TreeRef {
+	field = strings.Trim(field, "`\"")
+	target := d
+	if field != "id" {
+		f := d.Field(field)
+		if f == nil || f.Fieldtype != "Link" {
+			return nil
+		}
+		t, ok := c.St.Meta.Get(f.OptionsString())
+		if !ok || t == nil {
+			return nil
+		}
+		target = t
+	}
+	if !target.IsTree {
+		return nil
+	}
+	return &db.TreeRef{Table: target.TableName(), ParentCol: target.TreeParentField()}
+}
+
 // filterSQL renders filters into a WHERE fragment. Conditions over a child
 // doctype become `EXISTS (SELECT 1 FROM tab_child ...)` instead of a JOIN: a
 // parent with two matching child rows would appear twice in the list
@@ -128,7 +155,14 @@ func (c *Ctx) filterSQL(d *meta.DocType, b *db.Builder, filters []db.Filter, col
 		if _, seen := byChild[ct]; !seen {
 			order = append(order, ct)
 		}
-		byChild[ct] = append(byChild[ct], db.Filter{Field: cf, Op: f.Op, Value: f.Value})
+		// a copy, not a literal: a filter carries more than field/op/value
+		// (Tree, IfField), and rebuilding it would drop the rest.
+		sub := f
+		sub.Field = cf
+		if db.TreeOps[strings.ToLower(strings.TrimSpace(sub.Op))] && sub.Tree == nil {
+			sub.Tree = c.treeRef(child, cf)
+		}
+		byChild[ct] = append(byChild[ct], sub)
 	}
 	var parts []string
 	for _, f := range own {
@@ -156,7 +190,9 @@ func (c *Ctx) filterSQL(d *meta.DocType, b *db.Builder, filters []db.Filter, col
 			if ifCol == "" {
 				return "", fmt.Errorf("unknown field in conditional filter: %q", f.IfField)
 			}
-			w, err := b.Where([]db.Filter{{Field: f.Field, Op: f.Op, Value: f.Value}}, col)
+			inner := f
+			inner.IfField, inner.IfValue = "", nil
+			w, err := b.Where([]db.Filter{inner}, col)
 			if err != nil {
 				return "", err
 			}
@@ -164,6 +200,9 @@ func (c *Ctx) filterSQL(d *meta.DocType, b *db.Builder, filters []db.Filter, col
 			continue
 		}
 		op := strings.ToLower(strings.TrimSpace(f.Op))
+		if db.TreeOps[op] && f.Tree == nil {
+			f.Tree = c.treeRef(d, f.Field)
+		}
 		fld := d.Field(f.Field)
 		if (op == "like" || op == "not like") && fld != nil && fld.Fieldtype == "Link" {
 			targetDoc := fld.OptionsString()
@@ -226,8 +265,12 @@ func (c *Ctx) filterSQL(d *meta.DocType, b *db.Builder, filters []db.Filter, col
 		if err != nil {
 			return "", err
 		}
-		parts = append(parts, fmt.Sprintf("EXISTS (SELECT 1 FROM %s AS %s WHERE %s.parent = \"t\".id AND %s.parenttype = %s AND %s)",
-			db.Ident(child.TableName()), alias, alias, alias, b.Arg(d.Name), w))
+		parentKey := col("id")
+		if parentKey == "" {
+			return "", fmt.Errorf("unknown field in filter: %q", "id")
+		}
+		parts = append(parts, fmt.Sprintf("EXISTS (SELECT 1 FROM %s AS %s WHERE %s.parent = %s AND %s.parenttype = %s AND %s)",
+			db.Ident(child.TableName()), alias, alias, parentKey, alias, b.Arg(d.Name), w))
 	}
 	switch len(parts) {
 	case 0:

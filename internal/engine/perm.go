@@ -270,7 +270,24 @@ func (c *Ctx) checkUserPermissionsFor(d *meta.DocType, doc Doc, applicableFor st
 		}
 		if strings.EqualFold(d.Name, allow) {
 			name := doc.ID()
-			if name != "" && !allowedMap[name] {
+			if name == "" {
+				continue
+			}
+			ok, err := c.withinScope(allow, name, allowedMap)
+			if err != nil {
+				return false, err
+			}
+			if !ok && d.IsTree {
+				// A document being created is not in the database yet, so the
+				// walk upwards starts at the parent the caller is writing. It
+				// also refuses a move *out* of scope, because the parent
+				// checked is the one being saved.
+				ok, err = c.withinScope(allow, doc.Str(d.TreeParentField()), allowedMap)
+				if err != nil {
+					return false, err
+				}
+			}
+			if !ok {
 				return false, nil
 			}
 			continue
@@ -278,7 +295,11 @@ func (c *Ctx) checkUserPermissionsFor(d *meta.DocType, doc Doc, applicableFor st
 		for _, f := range d.Fields {
 			if f.Fieldtype == "Link" && strings.EqualFold(f.OptionsString(), allow) {
 				val := db.Str(doc[f.Fieldname])
-				if val == "" || !allowedMap[val] {
+				ok, err := c.withinScope(allow, val, allowedMap)
+				if err != nil {
+					return false, err
+				}
+				if val == "" || !ok {
 					return false, nil
 				}
 			}
@@ -287,7 +308,11 @@ func (c *Ctx) checkUserPermissionsFor(d *meta.DocType, doc Doc, applicableFor st
 				// allowed DocType, mirroring scopeFilters' IfField/IfValue semantics.
 				if strings.EqualFold(db.Str(doc[f.OptionsString()]), allow) {
 					val := db.Str(doc[f.Fieldname])
-					if val == "" || !allowedMap[val] {
+					ok, err := c.withinScope(allow, val, allowedMap)
+					if err != nil {
+						return false, err
+					}
+					if val == "" || !ok {
 						return false, nil
 					}
 				}
@@ -307,6 +332,44 @@ func (c *Ctx) checkUserPermissionsFor(d *meta.DocType, doc Doc, applicableFor st
 		}
 	}
 	return true, nil
+}
+
+// withinScope answers whether `value` is covered by the allowed values of a
+// User Permission rule. For an ordinary DocType that is exact membership; for a
+// tree it also holds when one of the value's ancestors is allowed, which is
+// what makes a rule over a hierarchy cover the branch below it (DAT-07).
+//
+// The answer is memoised per request: a list of a hundred rows in three
+// territories asks about three values, not a hundred.
+func (c *Ctx) withinScope(allow, value string, allowed map[string]bool) (bool, error) {
+	if value == "" {
+		return false, nil
+	}
+	if allowed[value] {
+		return true, nil
+	}
+	ad, ok := c.St.Meta.Get(allow)
+	if !ok || ad == nil || !ad.IsTree {
+		return false, nil
+	}
+	key := allow + "\x00" + value
+	if c.scopeAncestors == nil {
+		c.scopeAncestors = map[string][]string{}
+	}
+	above, seen := c.scopeAncestors[key]
+	if !seen {
+		var err error
+		if above, err = c.treeAncestorsInclusive(ad, value); err != nil {
+			return false, err
+		}
+		c.scopeAncestors[key] = above
+	}
+	for _, a := range above {
+		if allowed[a] {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // childParent describes one Table field that embeds a child doctype.
@@ -409,20 +472,28 @@ func (c *Ctx) strictScopeFilters(d *meta.DocType) ([]db.Filter, error) {
 		if len(allowedValues) == 0 {
 			continue
 		}
+		// A rule over a hierarchy covers what hangs below the value it names:
+		// "Territory: Brazil" is about Brazil and everything in it, which is
+		// the only reading that makes a tree usable as a scope (DAT-07).
+		op, tree := "in", (*db.TreeRef)(nil)
+		if ad, ok := c.St.Meta.Get(allow); ok && ad != nil && ad.IsTree {
+			op = "descendants of (inclusive)"
+			tree = &db.TreeRef{Table: ad.TableName(), ParentCol: ad.TreeParentField()}
+		}
 		if strings.EqualFold(d.Name, allow) {
-			out = append(out, db.Filter{Field: "id", Op: "in", Value: allowedValues})
+			out = append(out, db.Filter{Field: "id", Op: op, Value: allowedValues, Tree: tree})
 			continue
 		}
 		for _, f := range d.Fields {
 			if f.Fieldtype == "Link" && strings.EqualFold(f.OptionsString(), allow) {
 				// An IN filter intentionally excludes null and empty field values.
-				out = append(out, db.Filter{Field: f.Fieldname, Op: "in", Value: allowedValues})
+				out = append(out, db.Filter{Field: f.Fieldname, Op: op, Value: allowedValues, Tree: tree})
 			}
 			if f.Fieldtype == "Dynamic Link" && d.Field(f.OptionsString()) != nil {
 				// A Dynamic Link is restricted only when its selector points at the
 				// allowed DocType. Other selector values remain independently scoped.
 				out = append(out, db.Filter{
-					Field: f.Fieldname, Op: "in", Value: allowedValues,
+					Field: f.Fieldname, Op: op, Value: allowedValues, Tree: tree,
 					IfField: f.OptionsString(), IfValue: allow,
 				})
 			}

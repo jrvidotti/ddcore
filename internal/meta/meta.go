@@ -254,6 +254,13 @@ type DocType struct {
 	Submittable  bool         `json:"submittable,omitempty"`
 	IsChild      bool         `json:"isChild,omitempty"`
 	IsSingle     bool         `json:"isSingle,omitempty"`
+	// IsTree makes the documents a hierarchy (DAT-07): a self-referencing Link
+	// holds the parent and `is_group` says which documents may have children.
+	// ApplyTrees adds both fields when the DocType does not declare them.
+	IsTree bool `json:"isTree,omitempty"`
+	// ParentField is the Link field holding the parent; TreeParentField falls
+	// back to `parent_<snake(name)>`.
+	ParentField string `json:"parentField,omitempty"`
 	TrackChanges bool         `json:"trackChanges,omitempty"`
 	AllowRename  bool         `json:"allowRename,omitempty"`
 	TitleField   string       `json:"titleField,omitempty"`
@@ -578,6 +585,7 @@ func (r *Registry) Validate() error {
 			named("searchFields", sf)
 		}
 		validateUniqueKeys(d, e)
+		validateTree(d, e)
 		validateFieldPermissions(r, d, e)
 		if d.IsChild && len(d.Permissions) > 0 {
 			e("a child DocType has no permissions")

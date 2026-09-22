@@ -321,3 +321,28 @@ func assertErr(t *testing.T, err error, want string) {
 		t.Fatalf("error %q does not mention %q", err, want)
 	}
 }
+
+// isTree and parentField decide what the document is, like isSingle: an
+// extension that could switch them on would be changing another app's schema.
+func TestExtendRefusesTreeProps(t *testing.T) {
+	for _, body := range []string{`{"props":{"isTree":true}}`, `{"props":{"parentField":"parent_lead"}}`} {
+		r := hostRegistry()
+		if err := apply(t, r, ext("billing", "Lead", body)); err == nil {
+			t.Fatalf("accepted %s", body)
+		}
+	}
+}
+
+// The fields a tree gets for free are ordinary fields by the time extensions
+// run, so relabelling one is allowed like any other.
+func TestExtendRelabelsInjectedTreeField(t *testing.T) {
+	r := hostRegistry()
+	r.Add(&DocType{Name: "Territory", App: "crm", Label: "Territory", IsTree: true, Fields: []*Field{
+		{Fieldname: "title", Fieldtype: "Data", Label: "Title"},
+	}})
+	r.ApplyTrees()
+	mustApply(t, r, ext("billing", "Territory", `{"set":{"parent_territory":{"label":"Region"}}}`))
+	if got := r.DocTypes["Territory"].Field("parent_territory").Label; got != "Region" {
+		t.Fatalf("label = %q", got)
+	}
+}

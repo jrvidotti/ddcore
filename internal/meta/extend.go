@@ -52,8 +52,8 @@ var FieldProps = map[string]bool{
 }
 
 // DoctypeProps are the DocType properties an extension may override. `idGeneration`,
-// `isChild`, `isSingle` and `submittable` decide what the document *is*, and
-// stay with the app that declares it.
+// `isChild`, `isSingle`, `isTree`, `parentField` and `submittable` decide what
+// the document *is*, and stay with the app that declares it.
 var DoctypeProps = map[string]bool{
 	"label": true, "idLabel": true, "description": true, "icon": true, "titleField": true,
 	"sortField": true, "sortOrder": true, "searchFields": true,
