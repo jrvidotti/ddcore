@@ -252,3 +252,9 @@ func (c *Ctx) markNotificationsDone(d *meta.DocType, doc Doc, now time.Time) err
 	}
 	return nil
 }
+
+// importAttachments is the attachment half of a loaded record; see
+// import_files.go.
+func (c *Ctx) importAttachments(a ImportArgs, stage importStage, rec ImportRecord, doc Doc) (int, error) {
+	return 0, nil
+}
