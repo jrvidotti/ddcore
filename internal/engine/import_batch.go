@@ -251,7 +251,7 @@ func (e *Engine) runImportBatch(ctx context.Context, shared *Ctx, a ImportArgs, 
 		// rest of the rehearsal down with it.
 		return out, shared.WithSavepoint(func() error { return batch(shared) })
 	}
-	c := e.NewCtx(ctx, "Admin")
+	c := e.importCtx(ctx, a)
 	return out, c.Run(batch)
 }
 

@@ -65,6 +65,10 @@ type ImportArgs struct {
 	Resume     string   // continue this run
 	Actor      string
 	MaxBatches int // stop after this many batches and leave the run paused
+	// BypassMaintenance lets a load run inside a maintenance window, the way
+	// migrate does. The CLI never needs it — it does not enforce maintenance
+	// at all — but the MCP tool is served by a running server that does.
+	BypassMaintenance bool
 	// VerifyBytes has a reconciliation read every stored attachment back. It
 	// is off by default: it reads every byte the site holds for these
 	// documents, which on a real migration is the whole file store.
@@ -194,7 +198,7 @@ func (e *Engine) Import(ctx context.Context, a ImportArgs) (*ImportRun, error) {
 	}
 
 	if a.DryRun {
-		c := e.NewCtx(ctx, "Admin")
+		c := e.importCtx(ctx, a)
 		c.Flags["rollback"] = true
 		err = c.Run(func(c *Ctx) error { return loadAll(c) })
 	} else {
@@ -230,6 +234,15 @@ func (e *Engine) Import(ctx context.Context, a ImportArgs) (*ImportRun, error) {
 		})
 	}
 	return run, e.saveImportRun(ctx, run)
+}
+
+// importCtx is the context a load's transactions run in.
+func (e *Engine) importCtx(ctx context.Context, a ImportArgs) *Ctx {
+	c := e.NewCtx(ctx, "Admin")
+	if a.BypassMaintenance {
+		c.Flags[bypassMaintenanceFlag] = true
+	}
+	return c
 }
 
 // queryOf is the querier a phase runs on: the dry run's own transaction, or
