@@ -155,7 +155,7 @@ func lineSHA(doc Doc) string {
 // importBatch loads up to a.Batch lines of one DocType in one transaction,
 // advancing the cursor inside it. It returns how many lines it read; zero
 // means the file is done.
-func (e *Engine) importBatch(ctx context.Context, reader *ImportReader, a ImportArgs, run *ImportRun, stage importStage) (int, error) {
+func (e *Engine) importBatch(ctx context.Context, src *ImportSource, reader *ImportReader, a ImportArgs, run *ImportRun, stage importStage) (int, error) {
 	lines, err := readImportBatch(reader, a.Batch)
 	if err != nil {
 		return 0, err
@@ -165,9 +165,9 @@ func (e *Engine) importBatch(ctx context.Context, reader *ImportReader, a Import
 	}
 	// First attempt: no savepoints. A write error rolls the batch back and it
 	// is replayed one savepoint at a time.
-	outcome, err := e.runImportBatch(ctx, a, run, stage, lines, false)
+	outcome, err := e.runImportBatch(ctx, a, src, run, stage, lines, false)
 	if err != nil {
-		outcome, err = e.runImportBatch(ctx, a, run, stage, lines, true)
+		outcome, err = e.runImportBatch(ctx, a, src, run, stage, lines, true)
 		if err != nil {
 			return 0, err
 		}
@@ -211,7 +211,7 @@ type batchOutcome struct {
 
 // runImportBatch writes one batch. In careful mode each record gets its own
 // savepoint, so a write error costs that record and not the batch.
-func (e *Engine) runImportBatch(ctx context.Context, a ImportArgs, run *ImportRun, stage importStage, lines []ImportRecord, careful bool) (batchOutcome, error) {
+func (e *Engine) runImportBatch(ctx context.Context, a ImportArgs, src *ImportSource, run *ImportRun, stage importStage, lines []ImportRecord, careful bool) (batchOutcome, error) {
 	var out batchOutcome
 	c := e.NewCtx(ctx, "Admin")
 	if a.DryRun {
@@ -220,7 +220,7 @@ func (e *Engine) runImportBatch(ctx context.Context, a ImportArgs, run *ImportRu
 	err := c.Run(func(c *Ctx) error {
 		out = batchOutcome{}
 		for _, rec := range lines {
-			one := func() error { return e.importOne(c, a, run, stage, rec, &out) }
+			one := func() error { return e.importOne(c, a, src, run, stage, rec, &out) }
 			var err error
 			if careful {
 				err = c.WithSavepoint(one)
@@ -253,7 +253,7 @@ func (e *Engine) runImportBatch(ctx context.Context, a ImportArgs, run *ImportRu
 
 // importOne loads a single line: map it, decide what to do about a document
 // that is already there, write it, and leave a ledger row.
-func (e *Engine) importOne(c *Ctx, a ImportArgs, run *ImportRun, stage importStage, rec ImportRecord, out *batchOutcome) error {
+func (e *Engine) importOne(c *Ctx, a ImportArgs, src *ImportSource, run *ImportRun, stage importStage, rec ImportRecord, out *batchOutcome) error {
 	source := stage.source
 	target, doc := a.Map.Apply(source, rec.Doc)
 	if target == "" {
@@ -305,11 +305,12 @@ func (e *Engine) importOne(c *Ctx, a ImportArgs, run *ImportRun, stage importSta
 	for _, n := range res.Notes {
 		out.notes = append(out.notes, stage.source+" "+id+": "+n)
 	}
-	files, err := c.importAttachments(a, stage, rec, doc)
+	files, notes, err := c.importAttachments(a, src, stage, rec, doc)
 	if err != nil {
 		return err
 	}
 	out.files += files
+	out.notes = append(out.notes, notes...)
 	return e.ledgerWrite(c, a, run.ID, source, rec, stage.target, id, "loaded")
 }
 

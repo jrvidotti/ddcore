@@ -137,6 +137,13 @@ func (e *Engine) Import(ctx context.Context, a ImportArgs) (*ImportRun, error) {
 	if err != nil {
 		return nil, err
 	}
+	if !a.DryRun {
+		// The load forges owner and creation on rows nobody here wrote: that
+		// belongs in the ledger every System Manager reads.
+		_ = e.RecordAudit(ctx, a.Actor, "import.run", "Allowed", "", run.ID, map[string]any{
+			"dir": a.Dir, "phase": "start", "doctypes": len(plan.stages),
+		})
+	}
 	run.Excluded = plan.excluded
 	run.Notes = plan.notes
 	for _, s := range plan.stages {
@@ -164,7 +171,7 @@ func (e *Engine) Import(ctx context.Context, a ImportArgs) (*ImportRun, error) {
 				paused = true
 				break
 			}
-			n, err := e.importBatch(ctx, reader, a, run, stage)
+			n, err := e.importBatch(ctx, src, reader, a, run, stage)
 			if err != nil {
 				reader.Close()
 				run.Status, run.Message = ImportFailed, err.Error()
@@ -196,6 +203,16 @@ func (e *Engine) Import(ctx context.Context, a ImportArgs) (*ImportRun, error) {
 	}
 	now := time.Now()
 	run.Finished = &now
+	if !a.DryRun {
+		loaded, skipped, failed := 0, 0, 0
+		for _, c := range run.Counts {
+			loaded, skipped, failed = loaded+c.Loaded, skipped+c.Skipped, failed+c.Errors
+		}
+		_ = e.RecordAudit(ctx, a.Actor, "import.run", "Allowed", "", run.ID, map[string]any{
+			"dir": a.Dir, "phase": "finish", "status": run.Status,
+			"loaded": loaded, "skipped": skipped, "errors": failed, "dangling": len(run.Dangling),
+		})
+	}
 	return run, e.saveImportRun(ctx, run)
 }
 
