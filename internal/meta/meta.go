@@ -307,10 +307,14 @@ type DocType struct {
 	IsTree bool `json:"isTree,omitempty"`
 	// ParentField is the Link field holding the parent; TreeParentField falls
 	// back to `parent_<snake(name)>`.
-	ParentField  string   `json:"parentField,omitempty"`
-	TrackChanges bool     `json:"trackChanges,omitempty"`
-	AllowRename  bool     `json:"allowRename,omitempty"`
-	TitleField   string   `json:"titleField,omitempty"`
+	ParentField  string `json:"parentField,omitempty"`
+	TrackChanges bool   `json:"trackChanges,omitempty"`
+	AllowRename  bool   `json:"allowRename,omitempty"`
+	TitleField   string `json:"titleField,omitempty"`
+	// ImageField names the Attach Image (or Attach) field that pictures a
+	// document; the Desk's Cards view shows it, with an initials avatar when
+	// it is empty or unreadable.
+	ImageField   string   `json:"imageField,omitempty"`
 	SortField    string   `json:"sortField,omitempty"`
 	SortOrder    string   `json:"sortOrder,omitempty"`
 	SearchFields []string `json:"searchFields,omitempty"`
@@ -646,6 +650,14 @@ func (r *Registry) Validate() error {
 		}
 		named("titleField", d.TitleField)
 		named("sortField", d.SortField)
+		// No permlevel check: a restricted photo only shows as the avatar.
+		if d.ImageField != "" {
+			if f := d.Field(d.ImageField); f == nil {
+				e("imageField %q does not exist", d.ImageField)
+			} else if f.Fieldtype != "Attach Image" && f.Fieldtype != "Attach" {
+				e("imageField %q is a %s, not an Attach Image or Attach field", d.ImageField, f.Fieldtype)
+			}
+		}
 		for _, sf := range d.SearchFields {
 			named("searchFields", sf)
 		}

@@ -28,6 +28,7 @@ export interface CardViewOptions<T extends BaseDoc = BaseDoc> {
   title?: keyof T & string;
   subtitle?: keyof T & string;
   dateField?: keyof T & string;
+  image?: keyof T & string;
   indicator?: (row: T) => { label: string; color: string } | null | undefined;
   badges?: (row: T) => { label: string; color: string }[] | null | undefined;
 }

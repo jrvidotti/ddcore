@@ -184,6 +184,11 @@ export function statusColor(v: string, field?: Partial<Field>): string {
   if (field?.optionColors?.[raw]) return field.optionColors[raw];
   const known = CANONICAL_COLORS[raw.toLowerCase()];
   if (known) return known;
+  return hashColor(raw);
+}
+
+/** A palette colour picked by hashing `raw`, so the same text always gets the same colour. */
+export function hashColor(raw: string): string {
   let h = 0;
   for (let i = 0; i < raw.length; i++) h = (h * 31 + raw.charCodeAt(i)) >>> 0;
   return PALETTE[h % PALETTE.length];

@@ -124,6 +124,20 @@ func TestExtensionSetsTheIDLabel(t *testing.T) {
 	}
 }
 
+// An app that adds a photo to someone else's DocType can make it the picture.
+func TestExtensionSetsTheImageField(t *testing.T) {
+	r := hostRegistry()
+	mustApply(t, r, ext("billing", "Lead", `{"fields":[{"fieldname":"logo","fieldtype":"Attach Image","label":"Logo"}],"props":{"imageField":"logo"}}`))
+
+	d, _ := r.Get("Lead")
+	if d.ImageField != "logo" {
+		t.Fatalf("imageField=%q", d.ImageField)
+	}
+	if err := r.Validate(); err != nil {
+		t.Fatalf("Validate: %v", err)
+	}
+}
+
 func TestExtensionRefusesAPropertyThatIsIdentity(t *testing.T) {
 	r := hostRegistry()
 	err := apply(t, r,

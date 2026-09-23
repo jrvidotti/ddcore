@@ -73,6 +73,9 @@ can find the document sees it, so these must be level 0:
 - a level-0 field whose `fetchFrom` copies a field above level 0. Copying a restricted value
   into an unrestricted field would publish it. Give the destination a level instead.
 
+`imageField` is not on this list: a photo may be restricted, and a reader who cannot see it gets
+the initials avatar in the Cards view instead.
+
 ## Reading
 
 A field the user cannot read is **omitted**. The key is absent, not null, everywhere the

@@ -21,6 +21,13 @@ not every commit that went into it.
   worker — with `job.reason` and `job.final`, so a document can show `Failed`. Both are called as
   `fn(args, job)`; the SDK exports `JobInfo` and `JobFailure`. `ddcore jobs show`, `/api/jobs` and
   the MCP job tools show them as `on_start` / `on_failure`. See `docs/agent/ops.md`. (#11)
+- **An image on each card in the Cards view.** `defineListView(…, { card: { image: "photo" } })`
+  names an Attach Image (or Attach) field. Each card shows it as a square thumbnail beside the
+  title, loaded lazily. A card whose image is empty or fails to load, or whose field is above the
+  reader's permlevel, shows an avatar with the title's initials, coloured by the title.
+  DocTypes gain `imageField`, which the card's `image` defaults to and `extendDoctype` may set.
+  The meta refuses an `imageField` that is not an Attach Image or Attach field. See `form-api` and
+  `fieldtypes`. (#12)
 
 ### Changed
 

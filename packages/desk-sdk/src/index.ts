@@ -256,10 +256,21 @@ export interface CalendarViewOptions<T extends BaseDoc = BaseDoc> {
 }
 
 export interface CardViewOptions<T extends BaseDoc = BaseDoc> {
+  /** Field shown as the card title (defaults to titleField or id) */
   title?: keyof T & string;
+  /** Field shown under the title */
   subtitle?: keyof T & string;
+  /** Date or Datetime shown in the footer (defaults to the first visible one) */
   dateField?: keyof T & string;
+  /**
+   * Attach Image (or Attach) field shown as a square thumbnail beside the title
+   * (defaults to the DocType's `imageField`). When it is empty, fails to load or
+   * is above the reader's permission level, the card shows the title's initials.
+   */
+  image?: keyof T & string;
+  /** Indicator beside the title (defaults to the list's `indicator`, then `status`) */
   indicator?: (row: T) => { label: string; color: string } | null | undefined;
+  /** Badges in the footer (defaults to the list's `badges`) */
   badges?: (row: T) => { label: string; color: string }[] | null | undefined;
 }
 

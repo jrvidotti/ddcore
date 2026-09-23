@@ -198,11 +198,23 @@ defineListView<Task>("Task", {
   calendar: { field: "due_date", endField: "completed_at", titleField: "title", colorField: "status" },
   kanban: { field: "priority", columns: ["High", "Medium", "Low"], titleField: "title", subtitleField: "project", colorField: "status" },
   gantt: { startField: "start_date", endField: "due_date", titleField: "title", colorField: "status", progressField: "percent_done" },
-  card: { title: "title", subtitle: "project", dateField: "due_date" },
+  card: { title: "title", subtitle: "project", dateField: "due_date", image: "cover" },
 });
 ```
 
 - **Cards** is the default on a phone.
+  - `title` defaults to the DocType's `titleField`, then `id`. `dateField` defaults to the first
+    visible Date or Datetime field.
+  - `image` names an **Attach Image** (or **Attach**) field, and defaults to the DocType's
+    `imageField` (see `fieldtypes`).
+    - Each card then shows it beside the title as a square thumbnail, cropped to fill.
+    - Thumbnails load lazily. A `/private/files/…` image follows the File's read access, like any
+      other private file.
+  - A card whose image is empty or fails to load shows an avatar instead:
+    - it holds the title's initials, from the first letter of the first and last words
+      ("MARIA DA SILVA" → `MS`, "Acme" → `A`);
+    - its colour is derived from the title, so the same title always gets the same colour;
+    - it also appears when the field is above the reader's permission level.
 - **Calendar** plots each row on the day of `field` (Date or Datetime) and loads the visible month.
 - **Kanban** makes a column of each value of a **Select** `field`.
   - Columns follow `columns` or the field's options, with their translated labels and `optionColors`.

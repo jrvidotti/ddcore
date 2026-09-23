@@ -28,7 +28,7 @@ describe("card field resolution", () => {
   it("honors explicit title, subtitle and date ahead of metadata fallbacks", () => {
     const resolved = resolveCardFields(meta([{ fieldname: "due", fieldtype: "Date" }, ...bodyFields]), { title: "id", subtitle: "project", dateField: "modified" });
     expect(resolved).toEqual({
-      title: "id", subtitle: "project", dateField: "modified",
+      title: "id", subtitle: "project", dateField: "modified", image: undefined, hasImage: false,
       keyFields: [bodyFields[0], bodyFields[1], bodyFields[3]],
       fetchFields: ["id", "project", "modified", "subject", "priority", "assignee"],
     });
@@ -38,5 +38,26 @@ describe("card field resolution", () => {
     const resolved = resolveCardFields(meta(bodyFields));
     expect(resolved.dateField).toBeUndefined();
     expect(resolved.fetchFields).toEqual(["subject", "priority", "project", "assignee"]);
+  });
+
+  it("fetches the card image and keeps its URL out of the key fields", () => {
+    const photo: Field = { fieldname: "photo", fieldtype: "Attach Image", inListView: true };
+    const resolved = resolveCardFields(meta([photo, ...bodyFields]), { image: "photo" });
+    expect(resolved).toMatchObject({ image: "photo", hasImage: true });
+    expect(resolved.keyFields.map((f) => f.fieldname)).toEqual(["priority", "project", "assignee"]);
+    expect(resolved.fetchFields).toEqual(["subject", "photo", "priority", "project", "assignee"]);
+  });
+
+  it("defaults the image to the DocType's imageField, and lets the card override it", () => {
+    const doctype = { ...meta([{ fieldname: "photo", fieldtype: "Attach Image" }, { fieldname: "logo", fieldtype: "Attach" }, ...bodyFields]), imageField: "photo" };
+    expect(resolveCardFields(doctype).image).toBe("photo");
+    expect(resolveCardFields(doctype, { image: "logo" }).image).toBe("logo");
+  });
+
+  it("keeps the avatar slot when the image field is above the reader's permlevel", () => {
+    // applyFieldLevels removes the field from the meta, and the server drops it from the rows
+    const resolved = resolveCardFields({ ...meta(bodyFields), imageField: "photo" });
+    expect(resolved).toMatchObject({ image: undefined, hasImage: true });
+    expect(resolved.fetchFields).not.toContain("photo");
   });
 });

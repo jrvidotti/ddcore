@@ -329,6 +329,14 @@ export interface DoctypeDef {
   trackChanges?: boolean;
   allowRename?: boolean;
   titleField?: string;
+  /**
+   * The Attach Image (or Attach) field that pictures a document — a person's
+   * photo, a company's logo. The Desk's Cards view shows it on each card, with
+   * the title's initials when it is empty. It may be restricted by `permlevel`:
+   * a reader who cannot see it gets the initials. Like `titleField`, it names
+   * the field by string, so a renamed field has to be changed here too.
+   */
+  imageField?: string;
   sortField?: string;
   sortOrder?: "asc" | "desc";
   searchFields?: string[];

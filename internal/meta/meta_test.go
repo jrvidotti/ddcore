@@ -279,6 +279,36 @@ func TestValidateRejectsDanglingFieldReferences(t *testing.T) {
 	}
 }
 
+// imageField names the picture of a document: an Attach Image or an Attach,
+// at any permlevel — a reader who cannot see it gets the initials avatar.
+func TestValidateImageField(t *testing.T) {
+	fields := func() []*Field {
+		return []*Field{
+			{Fieldname: "name_", Fieldtype: "Data"},
+			{Fieldname: "photo", Fieldtype: "Attach Image"},
+			{Fieldname: "scan", Fieldtype: "Attach"},
+			{Fieldname: "secret_photo", Fieldtype: "Attach Image", Permlevel: 1},
+		}
+	}
+	for _, ok := range []string{"photo", "scan", "secret_photo"} {
+		r := NewRegistry()
+		r.Add(&DocType{Name: "A", ImageField: ok, Fields: fields()})
+		if err := r.Validate(); err != nil {
+			t.Errorf("imageField %q: %v", ok, err)
+		}
+	}
+	for field, want := range map[string]string{
+		"gone":  `imageField "gone" does not exist`,
+		"name_": `imageField "name_" is a Data, not an Attach Image or Attach field`,
+	} {
+		r := NewRegistry()
+		r.Add(&DocType{Name: "A", ImageField: field, Fields: fields()})
+		if err := r.Validate(); err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("imageField %q: wanted %q, got %v", field, want, err)
+		}
+	}
+}
+
 // idLabel heads the name column; a blank one would leave it headed by nothing.
 func TestValidateRejectsABlankIDLabel(t *testing.T) {
 	r := NewRegistry()

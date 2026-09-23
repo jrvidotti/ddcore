@@ -165,7 +165,7 @@ defineDoctype({
   name: "Contract", module: "Sales", label: "Contract", idLabel: "Contract No.",
   idGeneration: { series: "CTR-.YYYY.-.####" } | { field: "code" } | { format: "{index}-{period}" } | { hash: true } | { prompt: true },
   submittable: true, isChild: false, isTree: false, trackChanges: true, allowRename: true, renamedFrom: "Old Name",
-  titleField: "id", searchFields: ["id", "tax_id"], globalSearch: true, sortField: "modified", sortOrder: "desc", icon: "building-2",
+  titleField: "id", imageField: "logo", searchFields: ["id", "tax_id"], globalSearch: true, sortField: "modified", sortOrder: "desc", icon: "building-2",
   uniqueKeys: [{ name: "customer_number", fields: ["customer", "number"] }],
   fields: [...],
   permissions: [
@@ -195,7 +195,13 @@ the engine keeps the hierarchy from folding onto itself. See `trees`.
 `allowRename` is about renaming a *document*; `renamedFrom` is about renaming the *DocType*,
 which moves the table and repoints every stored reference. See `migrations`.
 
-`titleField`, `sortField`, `searchFields` and `uniqueKeys` name a field by string, so a
+`imageField` names the **Attach Image** (or **Attach**) field that pictures a document, such as
+a person's photo or a company's logo. The desk's Cards view shows it on each card, and shows the
+title's initials when it is empty (see the Cards view in `form-api`). Unlike `titleField`, it may
+sit above permlevel 0: a reader who cannot see it gets the initials. Any other fieldtype is refused
+at load.
+
+`titleField`, `imageField`, `sortField`, `searchFields` and `uniqueKeys` name a field by string, so a
 renamed field has to be changed here too — the meta refuses to load while one of them points
 at a field that no longer exists.
 

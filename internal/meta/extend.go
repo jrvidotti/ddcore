@@ -55,7 +55,7 @@ var FieldProps = map[string]bool{
 // `isChild`, `isSingle`, `isTree`, `parentField` and `submittable` decide what
 // the document *is*, and stay with the app that declares it.
 var DoctypeProps = map[string]bool{
-	"label": true, "idLabel": true, "description": true, "icon": true, "titleField": true,
+	"label": true, "idLabel": true, "description": true, "icon": true, "titleField": true, "imageField": true,
 	"sortField": true, "sortOrder": true, "searchFields": true,
 	"trackChanges": true, "allowRename": true, "globalSearch": true,
 }
@@ -276,6 +276,8 @@ func setDoctypeProp(d *DocType, prop string, v any) error {
 		d.Icon, err = str()
 	case "titleField":
 		d.TitleField, err = str()
+	case "imageField":
+		d.ImageField, err = str()
 	case "sortField":
 		d.SortField, err = str()
 	case "sortOrder":
