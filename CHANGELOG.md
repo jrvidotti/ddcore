@@ -12,6 +12,16 @@ not every commit that went into it.
 
 ## Unreleased
 
+### Added
+
+- **Tree view labels and order** (DAT-07). `defineListView`'s new `tree` option sets how a
+  node is labelled and in which order a level is listed:
+  `tree: { title: "{acronym} - {title}", orderBy: "title asc" }`. `title` is a template, whose
+  placeholders are fetched and whose empty ones take their brackets and end separators with them,
+  or a `(row) => string` function with `fields`. `orderBy` replaces the default order (groups
+  first, then the title). `GET /api/tree/{doctype}` accepts `fields` and `order_by` for this, and
+  returns the fields under each node's `values`.
+
 ## 0.18.1 — 2026-09-23
 
 ### Added

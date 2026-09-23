@@ -2,6 +2,7 @@ package engine
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/jrvidotti/ddcore/internal/cerr"
@@ -170,6 +171,15 @@ func (c *Ctx) checkTreeDelete(d *meta.DocType, id string) error {
 // filtered; an unscoped one never gets here.
 const treeRootCandidates = 2000
 
+// TreeArgs shapes a TreeChildren read. Fields are returned under each node's
+// `values`, for a view that composes its own label; OrderBy replaces the
+// default order (groups first, then the title) and gets `id` as a tiebreak.
+type TreeArgs struct {
+	Limit   int
+	Fields  []string
+	OrderBy string
+}
+
 // TreeChildren lists one level of a hierarchy for the Desk's tree view: the
 // children of `parent`, or the roots when it is empty.
 //
@@ -178,7 +188,7 @@ const treeRootCandidates = 2000
 // counts, which are counted over what the user may read, never over what is
 // there. A user who can read a node but not its parent would otherwise see
 // nothing at all, so such a node is promoted to a root.
-func (c *Ctx) TreeChildren(doctype, parent string, limit int) (map[string]any, error) {
+func (c *Ctx) TreeChildren(doctype, parent string, args TreeArgs) (map[string]any, error) {
 	d, err := c.St.DocType(doctype)
 	if err != nil {
 		return nil, err
@@ -187,6 +197,7 @@ func (c *Ctx) TreeChildren(doctype, parent string, limit int) (map[string]any, e
 		return nil, cerr.Validation("{0} is not a tree", c.T(d.Label))
 	}
 	pf := d.TreeParentField()
+	limit := args.Limit
 	if limit <= 0 || limit > 500 {
 		limit = 500
 	}
@@ -195,9 +206,17 @@ func (c *Ctx) TreeChildren(doctype, parent string, limit int) (map[string]any, e
 	if title != "" && title != "id" {
 		fields = append(fields, title)
 	}
+	for _, f := range args.Fields {
+		if !slices.Contains(fields, f) {
+			fields = append(fields, f)
+		}
+	}
 	order := meta.IsGroupField + " desc, id asc"
 	if title != "" && title != "id" {
 		order = meta.IsGroupField + " desc, " + title + " asc"
+	}
+	if strings.TrimSpace(args.OrderBy) != "" {
+		order = args.OrderBy + ", id asc"
 	}
 
 	var rows []map[string]any
@@ -236,10 +255,18 @@ func (c *Ctx) TreeChildren(doctype, parent string, limit int) (map[string]any, e
 				label = s
 			}
 		}
-		nodes = append(nodes, map[string]any{
+		node := map[string]any{
 			"id": id, "title": label, "parent": db.Str(r[pf]),
 			meta.IsGroupField: truthy(r[meta.IsGroupField]), "children": counts[id],
-		})
+		}
+		if len(args.Fields) > 0 {
+			values := make(map[string]any, len(args.Fields))
+			for _, f := range args.Fields {
+				values[f] = r[f]
+			}
+			node["values"] = values
+		}
+		nodes = append(nodes, node)
 	}
 	return map[string]any{"nodes": nodes, "hasMore": hasMore}, nil
 }

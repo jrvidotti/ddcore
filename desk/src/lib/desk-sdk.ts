@@ -58,6 +58,20 @@ export interface GanttViewOptions<T extends BaseDoc = BaseDoc> {
   progressField?: keyof T & string;
 }
 
+export interface TreeViewOptions<T extends BaseDoc = BaseDoc> {
+  /**
+   * The node label: a template such as "{acronym} - {title}" (its placeholders
+   * are fetched; an empty one renders as nothing, with the empty brackets and
+   * end separators it leaves) or a function of the row, which sees `id`, the
+   * title field and `fields`. Defaults to the title field.
+   */
+  title?: string | ((row: T) => string);
+  /** Extra fields a `title` function reads. */
+  fields?: (keyof T & string)[];
+  /** Order within each level, e.g. "title asc"; replaces the default groups-first order. */
+  orderBy?: string;
+}
+
 export interface ListViewOptions<T extends BaseDoc = BaseDoc> {
   /** Allowed views for this DocType; defaults to ["list", "cards"] plus "calendar", "kanban" and "gantt" for each one configured */
   views?: DeskViewMode[];
@@ -65,6 +79,7 @@ export interface ListViewOptions<T extends BaseDoc = BaseDoc> {
   card?: CardViewOptions<T>;
   kanban?: KanbanViewOptions<T>;
   gantt?: GanttViewOptions<T>;
+  tree?: TreeViewOptions<T>;
   columns?: (keyof T & string)[];
   filters?: Partial<Record<keyof T & string, any>>;
   orderBy?: string;

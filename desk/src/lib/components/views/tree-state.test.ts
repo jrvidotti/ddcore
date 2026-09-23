@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { emptyTree, mergeChildren, toggle, visibleRows, loadedParents, treeParentQuery, expandAll, collapseAll, ROOT, type TreeNode } from "./tree-state";
+import { emptyTree, mergeChildren, toggle, visibleRows, loadedParents, treeParentQuery, expandAll, collapseAll, treeFields, treeLabel, ROOT, type TreeNode } from "./tree-state";
 
 const node = (id: string, parent = "", is_group = false, children = 0): TreeNode =>
   ({ id, title: id, parent, is_group, children });
@@ -105,5 +105,33 @@ describe("parent picker query", () => {
     const closed = collapseAll(state);
     expect(visibleRows(closed).map((r) => r.node.id)).toEqual(["World", "Antarctica"]);
     expect(toggle(closed, "World").needsLoad).toBe(false);
+  });
+});
+
+describe("tree labels", () => {
+  const cat: TreeNode = { id: "Design", title: "Design", parent: "", is_group: false, children: 0, values: { acronym: "DSG", title: "Design" } };
+
+  it("asks for a template's placeholders and the title field", () => {
+    expect(treeFields({ title: "{acronym} - {title}" }, "title")).toEqual(["acronym", "title"]);
+    expect(treeFields({ title: (r) => r.title, fields: ["acronym"] }, "title")).toEqual(["acronym", "title"]);
+    expect(treeFields({ title: "{id}: {acronym}" })).toEqual(["acronym"]);
+    expect(treeFields({ orderBy: "title asc" }, "title")).toEqual([]);
+    expect(treeFields(undefined, "title")).toEqual([]);
+  });
+
+  it("composes a label from a template or a function", () => {
+    expect(treeLabel(cat, { title: "{acronym} - {title}" })).toBe("DSG - Design");
+    expect(treeLabel(cat, { title: "{title} ({acronym})" })).toBe("Design (DSG)");
+    expect(treeLabel(cat, { title: (r) => `${r.id}/${r.acronym}` })).toBe("Design/DSG");
+  });
+
+  it("renders an empty placeholder as nothing, and a blank label as the title", () => {
+    const bare = { ...cat, values: { acronym: null, title: "Design" } };
+    expect(treeLabel(bare, { title: "{acronym} - {title}" })).toBe("Design");
+    expect(treeLabel(bare, { title: "{title} ({acronym})" })).toBe("Design");
+    expect(treeLabel(bare, { title: "{title} [{acronym}]" })).toBe("Design");
+    expect(treeLabel(cat, { title: "- {acronym} -" })).toBe("- DSG -");
+    expect(treeLabel({ ...cat, values: {} }, { title: "{acronym}" })).toBe("Design");
+    expect(treeLabel(cat)).toBe("Design");
   });
 });

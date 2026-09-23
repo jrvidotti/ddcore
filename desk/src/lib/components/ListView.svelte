@@ -485,7 +485,7 @@
 
   {#if meta}
     {#if isTreeView}
-      <TreeView {meta} {doctype} {wsPrefix} reloadKey={treeReload} />
+      <TreeView {meta} {doctype} {wsPrefix} reloadKey={treeReload} settings={settings.tree} />
     {:else if currentView === "calendar" && settings.calendar}
       <CalendarView {rows} {meta} {doctype} {wsPrefix} calendar={settings.calendar} viewYear={calendarYear} viewMonth={calendarMonth} onMonthChange={changeMonth} />
     {:else if currentView === "kanban" && settings.kanban}

@@ -7,6 +7,7 @@ package acceptance
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -20,16 +21,16 @@ func seedCategories(t *testing.T, e *engine.Engine) {
 	t.Helper()
 	err := e.Run(context.Background(), "Admin", func(c *engine.Ctx) error {
 		for _, n := range []struct {
-			title, parent string
-			group         bool
+			title, acronym, parent string
+			group                  bool
 		}{
-			{"All Categories", "", true},
-			{"Delivery", "All Categories", true},
-			{"Shipping", "Delivery", false},
-			{"Support", "All Categories", false},
+			{"All Categories", "ALL", "", true},
+			{"Delivery", "DLV", "All Categories", true},
+			{"Shipping", "SHP", "Delivery", false},
+			{"Support", "SUP", "All Categories", false},
 		} {
 			doc, err := c.NewDoc("Task Category", engine.Doc{
-				"title": n.title, "parent_task_category": n.parent, "is_group": n.group})
+				"title": n.title, "acronym": n.acronym, "parent_task_category": n.parent, "is_group": n.group})
 			if err != nil {
 				return err
 			}
@@ -98,6 +99,35 @@ func TestTrees(t *testing.T) {
 		}
 		if strings.Join(got, ",") != "Delivery,Support" {
 			t.Fatalf("children of the root = %v (groups first)", got)
+		}
+	})
+
+	t.Run("fields and order for a composed label", func(t *testing.T) {
+		res := getJSON(t, srv, tok, "/api/tree/Task%20Category?parent=All%20Categories&fields="+
+			url.QueryEscape(`["acronym","title"]`)+"&order_by="+url.QueryEscape("title desc"))
+		data, _ := res["data"].(map[string]any)
+		nodes, _ := data["nodes"].([]any)
+		var got []string
+		for _, n := range nodes {
+			node := n.(map[string]any)
+			values, _ := node["values"].(map[string]any)
+			got = append(got, fmt.Sprintf("%v:%v", node["id"], values["acronym"]))
+		}
+		// the order replaces groups-first: the leaf Support leads the group Delivery
+		if strings.Join(got, ",") != "Support:SUP,Delivery:DLV" {
+			t.Fatalf("nodes = %v", got)
+		}
+		for _, q := range []string{"fields=" + url.QueryEscape(`["nope"]`), "order_by=" + url.QueryEscape("nope asc")} {
+			req, _ := http.NewRequest("GET", srv.URL+"/api/tree/Task%20Category?"+q, nil)
+			req.Header.Set("Authorization", "token "+tok)
+			r, err := srv.Client().Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			r.Body.Close()
+			if r.StatusCode == 200 {
+				t.Fatalf("%s was accepted", q)
+			}
 		}
 	})
 

@@ -1,3 +1,4 @@
+Acronym,Sigla,# testapp.doctypes.task_category.task_category.doctype
 Actions,Ações,# apps/testapp/doctypes/task/task.form.ts:18
 Approve,Aprovar,# testapp.workflows.pedido_approval.workflow
 Approved,Aprovado,# testapp.workflows.pedido_approval.workflow

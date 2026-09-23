@@ -6,12 +6,14 @@
   import { showError } from "$lib/ui.svelte";
   import type { Meta } from "$lib/meta";
   import Icon from "../Icon.svelte";
-  import { emptyTree, mergeChildren, markLoading, toggle, visibleRows, loadedParents, expandAll, collapseAll, ROOT, type TreeState } from "./tree-state";
+  import { emptyTree, mergeChildren, markLoading, toggle, visibleRows, loadedParents, expandAll, collapseAll, treeFields, treeLabel, ROOT, type TreeState, type TreeViewSettings } from "./tree-state";
 
-  let { meta, doctype, wsPrefix, reloadKey = 0 }: {
+  let { meta, doctype, wsPrefix, reloadKey = 0, settings }: {
     meta: Meta; doctype: string; wsPrefix: string;
     /** Bumped by the list when a document changed, to reload the open branches. */
     reloadKey?: number;
+    /** The `tree` option of the DocType's `defineListView`. */
+    settings?: TreeViewSettings;
   } = $props();
 
   let tree = $state<TreeState>(emptyTree());
@@ -21,7 +23,9 @@
 
   async function loadLevel(parent: string) {
     try {
-      const res = await api.treeChildren(doctype, parent);
+      const res = await api.treeChildren(doctype, parent, undefined, {
+        fields: treeFields(settings, meta.doctype.titleField), orderBy: settings?.orderBy,
+      });
       tree = mergeChildren(tree, parent, res);
     } catch (e) {
       tree = { ...tree, loading: new Set([...tree.loading].filter((p) => p !== parent)) };
@@ -106,7 +110,7 @@
               <span class="toggle gap" aria-hidden="true"></span>
             {/if}
             <Icon name={row.expandable ? "folder" : "file"} size={14} />
-            <a class="title" href={`${wsPrefix}/${encodeURIComponent(doctype)}/${encodeURIComponent(row.node.id)}`}>{row.node.title}</a>
+            <a class="title" href={`${wsPrefix}/${encodeURIComponent(doctype)}/${encodeURIComponent(row.node.id)}`}>{treeLabel(row.node, settings)}</a>
             {#if row.expandable && row.node.children > 0}<span class="muted small count">{row.node.children}</span>{/if}
             {#if row.loading}<span class="muted small">{__("Loading…")}</span>{/if}
             {#if row.expandable && meta.permissions.create}

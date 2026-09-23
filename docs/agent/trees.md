@@ -117,9 +117,28 @@ a time, links each node to its form, and offers *Add child* on a group. Filters 
 belong to the list view; switch views to use them.
 
 ```
-GET /api/tree/{doctype}?parent=&limit=
-→ { "nodes": [{ "id", "title", "parent", "is_group", "children" }], "hasMore": false }
+GET /api/tree/{doctype}?parent=&limit=&fields=["acronym"]&order_by=title asc
+→ { "nodes": [{ "id", "title", "parent", "is_group", "children", "values": { "acronym" } }], "hasMore": false }
 ```
+
+A level lists groups first, then by the title field. `order_by` replaces that order outright
+(`id` stays the tiebreak), and `fields` returns those fields under each node's `values`, which
+exists only when fields were asked for. Both go through the list path's validation: an unknown
+field is refused.
+
+The view's label and order come from the `tree` option of `defineListView` (see `form-api`):
+
+```ts
+defineListView<TaskCategory>("Task Category", {
+  tree: { title: "{acronym} - {title}", orderBy: "title asc" },
+  // or: title: (r) => (r.acronym ? `${r.title} (${r.acronym})` : r.title), fields: ["acronym"]
+});
+```
+
+A template's placeholders are fetched for it. An empty one renders as nothing and takes the
+empty brackets and end separators it leaves with it, so the template above reads `Delivery` for
+a node without an acronym. A function sees `id`, the title field and `fields`. A label that comes
+out blank falls back to the title.
 
 An empty `parent` asks for the roots. Every read goes through the ordinary list path, so
 permissions, scopes and shares apply — including `children`, which counts only what the

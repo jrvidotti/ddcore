@@ -968,8 +968,18 @@ func (s *Server) method(w http.ResponseWriter, r *http.Request) {
 // no permission surface of its own.
 func (s *Server) treeChildren(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
-		limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-		return c.TreeChildren(chi.URLParam(r, "doctype"), r.URL.Query().Get("parent"), limit)
+		q := r.URL.Query()
+		limit, _ := strconv.Atoi(q.Get("limit"))
+		var fields []string
+		if fv, err := queryJSON(r, "fields"); err != nil {
+			return nil, err
+		} else if list, ok := fv.([]any); ok {
+			for _, f := range list {
+				fields = append(fields, fmt.Sprint(f))
+			}
+		}
+		return c.TreeChildren(chi.URLParam(r, "doctype"), q.Get("parent"),
+			engine.TreeArgs{Limit: limit, Fields: fields, OrderBy: q.Get("order_by")})
 	})
 }
 

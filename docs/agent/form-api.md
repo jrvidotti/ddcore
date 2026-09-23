@@ -187,7 +187,8 @@ the list header shows the views, and the choice is kept in the URL (`?view=kanba
 in the browser. A view appears once it is configured: `calendar` needs its `field`, `kanban` its
 `field`, and `gantt` both `startField` and `endField`; `list` and `cards` are always available.
 `tree` needs nothing configured here but a DocType declared `isTree`, and comes first for one, so
-a hierarchy opens as a hierarchy (see `trees`). `views` sets the order, or a subset, and is
+a hierarchy opens as a hierarchy (see `trees`); its `tree` option composes the node label and
+sets the order (`tree: { title: "{acronym} - {title}", orderBy: "title asc" }`). `views` sets the order, or a subset, and is
 filtered by the same rule — a view listed there but never configured is dropped rather than shown
 as a button that falls back to the table:
 

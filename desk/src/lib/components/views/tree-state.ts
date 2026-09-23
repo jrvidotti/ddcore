@@ -13,6 +13,63 @@ export interface TreeNode {
   is_group: boolean;
   /** Readable children, counted by the server. */
   children: number;
+  /** The fields a `tree` option asked for, when it asked for any. */
+  values?: Record<string, any>;
+}
+
+/** The `tree` option of `defineListView`: how a node is labelled and ordered. */
+export interface TreeViewSettings {
+  /** A template such as "{acronym} - {title}", or a function of the node's values. */
+  title?: string | ((row: Record<string, any>) => string);
+  /** Fields to fetch for a `title` function; a template's placeholders are fetched anyway. */
+  fields?: string[];
+  /** Replaces the default order (groups first, then the title), e.g. "title asc". */
+  orderBy?: string;
+}
+
+const PLACEHOLDER = /\{(\w+)\}/g;
+
+/**
+ * The fields the view asks the server for: a template's placeholders plus
+ * `fields`, and the DocType's title field whenever a label is composed, so a
+ * function can read it without listing it. `id` is on every node already.
+ */
+export function treeFields(settings?: TreeViewSettings, titleField = ""): string[] {
+  const out = new Set(settings?.fields ?? []);
+  if (typeof settings?.title === "string") {
+    for (const m of settings.title.matchAll(PLACEHOLDER)) out.add(m[1]);
+  }
+  if (settings?.title && titleField) out.add(titleField);
+  out.delete("id");
+  return [...out];
+}
+
+/** Separators left dangling at either end once a placeholder rendered empty. */
+const DANGLING = /^[\s\-–—:|/·,]+|[\s\-–—:|/·,]+$/g;
+
+/**
+ * A node's label under `settings.title`. A template's empty placeholder renders
+ * as nothing, taking the empty brackets and end separators it leaves with it,
+ * so "{acronym} - {title}" reads "Delivery" without an acronym; a label that
+ * ends up blank falls back to the node's title.
+ */
+export function treeLabel(node: TreeNode, settings?: TreeViewSettings): string {
+  const title = settings?.title;
+  if (!title) return node.title;
+  const values: Record<string, any> = { id: node.id, ...node.values };
+  let label: string;
+  if (typeof title === "function") {
+    label = String(title(values) ?? "");
+  } else {
+    let empty = false;
+    label = title.replace(PLACEHOLDER, (_, f: string) => {
+      const v = values[f] == null ? "" : String(values[f]);
+      if (!v) empty = true;
+      return v;
+    });
+    if (empty) label = label.replace(/\(\s*\)|\[\s*\]/g, "").replace(DANGLING, "");
+  }
+  return label.trim() || node.title;
 }
 
 export interface TreeChildrenResult {

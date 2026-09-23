@@ -1,5 +1,5 @@
 import { defineListView } from "@ddcore/desk-sdk";
-import type { Task } from "../.ddcore/types";
+import type { Task, TaskCategory } from "../.ddcore/types";
 
 // No `indicator` here on purpose: with `optionColors` declared on the Task's
 // status field, the desk already colours the status and translates its label.
@@ -32,4 +32,10 @@ defineListView<Task>("Task", {
     subtitle: "project",
     dateField: "due_date",
   },
+});
+
+// The tree reads "DLV - Delivery" and sorts on the title alone, groups and
+// leaves together.
+defineListView<TaskCategory>("Task Category", {
+  tree: { title: "{acronym} - {title}", orderBy: "title asc" },
 });

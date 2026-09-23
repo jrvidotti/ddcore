@@ -582,7 +582,7 @@ func TestTreeChildrenEndpointData(t *testing.T) {
 	ctx := context.Background()
 
 	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
-		res, err := c.TreeChildren("Test Territory", "", 50)
+		res, err := c.TreeChildren("Test Territory", "", TreeArgs{Limit: 50})
 		if err != nil {
 			return err
 		}
@@ -600,7 +600,7 @@ func TestTreeChildrenEndpointData(t *testing.T) {
 		if res["hasMore"] != false {
 			t.Fatalf("hasMore = %v", res["hasMore"])
 		}
-		res, err = c.TreeChildren("Test Territory", "World", 50)
+		res, err = c.TreeChildren("Test Territory", "World", TreeArgs{Limit: 50})
 		if err != nil {
 			return err
 		}
@@ -616,8 +616,37 @@ func TestTreeChildrenEndpointData(t *testing.T) {
 		t.Fatalf("tree children: %v", err)
 	}
 
+	// fields come back under `values`; an order replaces groups-first outright
 	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
-		_, err := c.TreeChildren("Test Client", "", 50)
+		res, err := c.TreeChildren("Test Territory", "", TreeArgs{Limit: 50, Fields: []string{"title"}, OrderBy: "title asc"})
+		if err != nil {
+			return err
+		}
+		nodes := res["nodes"].([]map[string]any)
+		var got []string
+		for _, n := range nodes {
+			got = append(got, db.Str(n["id"]))
+		}
+		if strings.Join(got, ",") != "Antarctica,World" {
+			t.Fatalf("roots ordered by title = %v", got)
+		}
+		values, _ := nodes[1]["values"].(map[string]any)
+		if db.Str(values["title"]) != "World" {
+			t.Fatalf("values = %v", nodes[1]["values"])
+		}
+		if _, err := c.TreeChildren("Test Territory", "", TreeArgs{Fields: []string{"nope"}}); err == nil {
+			t.Fatal("an unknown field was accepted")
+		}
+		if _, err := c.TreeChildren("Test Territory", "", TreeArgs{OrderBy: "nope asc"}); err == nil {
+			t.Fatal("an unknown order field was accepted")
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("tree fields and order: %v", err)
+	}
+
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
+		_, err := c.TreeChildren("Test Client", "", TreeArgs{Limit: 50})
 		if err == nil {
 			t.Fatal("a DocType that is not a tree was accepted")
 		}
@@ -653,7 +682,7 @@ func TestTreeChildrenPromotesScopedRoot(t *testing.T) {
 		t.Fatalf("seed: %v", err)
 	}
 	if err := e.Run(ctx, user, func(c *Ctx) error {
-		res, err := c.TreeChildren("Test Territory", "", 50)
+		res, err := c.TreeChildren("Test Territory", "", TreeArgs{Limit: 50})
 		if err != nil {
 			return err
 		}
