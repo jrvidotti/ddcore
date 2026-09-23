@@ -12,13 +12,7 @@ not every commit that went into it.
 
 ## Unreleased
 
-### Changed
-
-- **A Duration field is edited in one box**, `1d 2h 30m 0s`, in a form and in a grid alike,
-  instead of one number box per unit. ↑/↓ step the unit under the caret (Shift for 10, carrying
-  into the next unit), ←/→ move between units, digits fill the selected unit and move on when it
-  is full, Backspace zeroes it (and unsets an all-zero value), and a pasted `1h 30m` or `1:30` is
-  read as before. `hideDays`/`hideSeconds` still drop their unit; the stored value is unchanged.
+## 0.18.1 — 2026-09-23
 
 ### Added
 
@@ -49,6 +43,14 @@ not every commit that went into it.
 - **Expand all and Collapse all in the tree view** (DAT-07). Expanding fetches one level per
   round until every group is open; collapsing keeps what was loaded, so reopening a branch costs
   no request.
+
+### Changed
+
+- **A Duration field is edited in one box**, `1d 2h 30m 0s`, in a form and in a grid alike,
+  instead of one number box per unit. ↑/↓ step the unit under the caret (Shift for 10, carrying
+  into the next unit), ←/→ move between units, digits fill the selected unit and move on when it
+  is full, Backspace zeroes it (and unsets an all-zero value), and a pasted `1h 30m` or `1:30` is
+  read as before. `hideDays`/`hideSeconds` still drop their unit; the stored value is unchanged.
 
 ### Fixed
 
