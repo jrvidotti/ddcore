@@ -12,6 +12,8 @@ not every commit that went into it.
 
 ## Unreleased
 
+## 0.18.2 — 2026-09-23
+
 ### Added
 
 - **Tree view labels and order** (DAT-07). `defineListView`'s new `tree` option sets how a
