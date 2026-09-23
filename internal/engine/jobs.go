@@ -14,6 +14,7 @@ import (
 
 	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/db"
+	"github.com/jrvidotti/ddcore/internal/js"
 )
 
 // Job execution limits. The lease is renewed by heartbeat while the worker
@@ -92,14 +93,31 @@ func (c *Ctx) Enqueue(method string, args map[string]any, opts map[string]any) (
 		}
 		backoff = v
 	}
+	// Lifecycle callbacks, each a method path like the job's own. They are
+	// resolved when they run, as the job's method is: a typo surfaces as the
+	// attempt's error rather than as a refusal to queue.
+	hooks := map[string]string{}
+	for _, k := range []string{"onStart", "onFailure"} {
+		v, ok := opts[k]
+		if !ok || v == nil {
+			continue
+		}
+		str, ok := v.(string)
+		if !ok {
+			return 0, cerr.Validation("enqueue: {0} must be a method path", k)
+		}
+		hooks[k] = str
+	}
 	b, _ := json.Marshal(args)
 	var id int64
 	// The request id travels with the job, so the work a request queued can be
 	// found from the request, and the other way round.
 	err := c.Q().QueryRow(c.Ctx, `INSERT INTO ddcore_job
-		(method, args, queue, "user", run_after, timeout_seconds, max_attempts, request_id, backoff)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, NULLIF($8, ''), $9) RETURNING id`,
-		method, string(b), queue, c.User, runAfter, timeout, maxAttempts, RequestIDFrom(c.Ctx), backoff).Scan(&id)
+		(method, args, queue, "user", run_after, timeout_seconds, max_attempts, request_id, backoff,
+		 on_start, on_failure)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, NULLIF($8, ''), $9, NULLIF($10, ''), NULLIF($11, '')) RETURNING id`,
+		method, string(b), queue, c.User, runAfter, timeout, maxAttempts, RequestIDFrom(c.Ctx), backoff,
+		hooks["onStart"], hooks["onFailure"]).Scan(&id)
 	return id, err
 }
 
@@ -111,25 +129,97 @@ func (e *Engine) RunJob(ctx context.Context, user, method string, args map[strin
 		return nil, e.SweepNotifications(ctx, time.Now())
 	}
 	var out json.RawMessage
-	// The transaction uses a context without the deadline: the timeout needs
-	// to interrupt the VM, without interfering with transaction rollback.
+	b, _ := json.Marshal(args)
+	err := e.inJobTx(ctx, user, method, func(rt *js.Runtime) error {
+		var callErr error
+		out, callErr = rt.CallFunction(method, b)
+		return callErr
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// runJobHook runs one of a job's lifecycle callbacks in a transaction of its
+// own, which is the whole point of them: what onStart writes commits before the
+// body runs, and what onFailure writes survives the body's rollback.
+func (e *Engine) runJobHook(ctx context.Context, user, path string, args, info map[string]any) error {
+	b, _ := json.Marshal(args)
+	if b == nil || string(b) == "null" {
+		b = []byte("{}")
+	}
+	jb, _ := json.Marshal(info)
+	return e.inJobTx(ctx, user, path, func(rt *js.Runtime) error {
+		return rt.CallJobHook(path, b, jb)
+	})
+}
+
+// inJobTx is the transaction a job's code runs in: the job's user, permissions
+// ignored, and a VM that ctx interrupts. The transaction itself uses a context
+// without the deadline: the timeout needs to interrupt the VM, without
+// interfering with the rollback.
+func (e *Engine) inJobTx(ctx context.Context, user, method string, call func(rt *js.Runtime) error) error {
 	err := e.Run(context.WithoutCancel(ctx), orDefault(user, "Admin"), func(c *Ctx) error {
 		c.Flags["ignorePermissions"] = true
 		rt, err := c.RT()
 		if err != nil {
 			return err
 		}
-		b, _ := json.Marshal(args)
-		return rt.WithContext(ctx, func() error {
-			var callErr error
-			out, callErr = rt.CallFunction(method, b)
-			return callErr
-		})
+		return rt.WithContext(ctx, func() error { return call(rt) })
 	})
 	if err != nil && errors.Is(err, context.DeadlineExceeded) {
-		return nil, cerr.Validation("job {0} timed out", method)
+		return cerr.Validation("job {0} timed out", method)
 	}
-	return out, err
+	return err
+}
+
+// onFailureTimeout bounds a job's onFailure callback. It runs after the job's
+// own deadline, so it cannot share it, and it runs on paths — a worker
+// shutting down, an administrative cancel — that must not hang on app code.
+var onFailureTimeout = 30 * time.Second
+
+// jobFailure is what onFailure is told about the attempt that ended.
+type jobFailure struct {
+	id                   int64
+	method, user, queue  string
+	hook                 string
+	args                 map[string]any
+	attempt, maxAttempts int
+	reason, err          string
+	final                bool
+}
+
+// runOnFailure calls the job's onFailure, if it has one. A callback that
+// throws is filed in the Error Log against the job and changes nothing else:
+// the job has already failed, and that is what its row says.
+func (e *Engine) runOnFailure(ctx context.Context, f jobFailure) {
+	if f.hook == "" {
+		return
+	}
+	rctx := WithRequestID(context.WithoutCancel(ctx), fmt.Sprintf("job:%d", f.id))
+	hctx, cancel := context.WithTimeout(rctx, onFailureTimeout)
+	defer cancel()
+	info := map[string]any{
+		"id": f.id, "method": f.method, "queue": f.queue,
+		"attempt": f.attempt, "maxAttempts": f.maxAttempts,
+		"error": f.err, "reason": f.reason, "final": f.final,
+	}
+	if err := e.runJobHook(hctx, f.user, f.hook, f.args, info); err != nil {
+		e.LogError(rctx, "job:onFailure:"+f.method, err)
+	}
+}
+
+// jobArgs decodes the args column, which arrives as text or as a decoded map
+// depending on how the row was read.
+func jobArgs(v any) map[string]any {
+	var args map[string]any
+	if s, ok := v.(string); ok {
+		json.Unmarshal([]byte(s), &args)
+	} else if m, ok := v.(map[string]any); ok {
+		args = m
+	}
+	return args
 }
 
 // requeueStale puts back jobs whose worker died: running status with expired
@@ -163,7 +253,7 @@ func (e *Engine) requeueStale(ctx context.Context) error {
 		             WHEN attempts < max_attempts      THEN NULL
 		             ELSE 'worker interrupted: lease expired' END
 		WHERE status = 'running' AND lease_until IS NOT NULL AND lease_until < now()
-		RETURNING id, method, status, "user"`
+		RETURNING id, method, status, "user", args, queue, attempts, max_attempts, on_failure`
 	rows, err := db.Select(ctx, e.DB.Pool, q)
 	if err != nil {
 		return err
@@ -171,7 +261,21 @@ func (e *Engine) requeueStale(ctx context.Context) error {
 	// A job that ended here ends without anyone having been told. The enqueuer
 	// is waiting on job_done and would otherwise wait for a worker that is gone.
 	for _, r := range rows {
-		if db.Str(r["status"]) == "queued" {
+		status := db.Str(r["status"])
+		// The worker that ran onStart is gone, so nobody else will tell the
+		// document the attempt ended. RETURNING hands each row to exactly one
+		// sweeping worker, which makes this call exactly-once as well.
+		reason := "error"
+		if status == "cancelled" {
+			reason = "cancelled"
+		}
+		e.runOnFailure(ctx, jobFailure{
+			id: int64(toFloat(r["id"])), method: db.Str(r["method"]), user: db.Str(r["user"]),
+			queue: db.Str(r["queue"]), hook: db.Str(r["on_failure"]), args: jobArgs(r["args"]),
+			attempt: int(toFloat(r["attempts"])), maxAttempts: int(toFloat(r["max_attempts"])),
+			reason: reason, err: "worker interrupted: lease expired", final: status != "queued",
+		})
+		if status == "queued" {
 			continue
 		}
 		e.Events.Publish(Event{Name: "job_done", Payload: map[string]any{
@@ -224,7 +328,8 @@ func (e *Engine) runOneJob(ctx context.Context) (bool, error) {
 		return false, err
 	}
 	defer tx.Rollback(ctx)
-	rows, err := db.Select(ctx, tx, `SELECT id, method, args, "user", attempts, max_attempts, timeout_seconds FROM ddcore_job
+	rows, err := db.Select(ctx, tx, `SELECT id, method, args, "user", attempts, max_attempts, timeout_seconds,
+		queue, on_start, on_failure FROM ddcore_job
 		WHERE status = 'queued' AND run_after <= now() AND cancel_requested IS NULL
 		ORDER BY id LIMIT 1 FOR UPDATE SKIP LOCKED`)
 	if err != nil || len(rows) == 0 {
@@ -239,12 +344,7 @@ func (e *Engine) runOneJob(ctx context.Context) (bool, error) {
 	if err := tx.Commit(ctx); err != nil {
 		return false, err
 	}
-	var args map[string]any
-	if s, ok := j["args"].(string); ok {
-		json.Unmarshal([]byte(s), &args)
-	} else if m, ok := j["args"].(map[string]any); ok {
-		args = m
-	}
+	args := jobArgs(j["args"])
 	method := db.Str(j["method"])
 	e.Log.Info("job", "id", id, "method", method)
 
@@ -264,7 +364,21 @@ func (e *Engine) runOneJob(ctx context.Context) (bool, error) {
 		}
 		cancel()
 	})
-	res, runErr := e.RunJob(jobCtx, user, method, args)
+	maxAttempts := int(toFloat(j["max_attempts"]))
+	// onStart commits on its own before the body runs, so the document can say
+	// the job is running while it is. If it throws, the attempt has failed and
+	// the body does not run: the switch below cannot tell the two apart, and
+	// does not need to.
+	var res json.RawMessage
+	var runErr error
+	if hook := db.Str(j["on_start"]); hook != "" {
+		runErr = e.runJobHook(WithRequestID(jobCtx, fmt.Sprintf("job:%d", id)), user, hook, args,
+			map[string]any{"id": id, "method": method, "queue": db.Str(j["queue"]),
+				"attempt": attempt, "maxAttempts": maxAttempts})
+	}
+	if runErr == nil {
+		res, runErr = e.RunJob(jobCtx, user, method, args)
+	}
 	stopBeat() // joins the goroutine, so the flag is visible below
 	jobErr := jobCtx.Err()
 	cancel()
@@ -279,6 +393,13 @@ func (e *Engine) runOneJob(ctx context.Context) (bool, error) {
 		if _, err := e.DB.Pool.Exec(wctx, sql, a...); err != nil {
 			e.Log.Error("job finalize", "id", id, "err", err)
 		}
+	}
+	failed := func(reason string, final bool, msg string) {
+		e.runOnFailure(ctx, jobFailure{
+			id: id, method: method, user: user, queue: db.Str(j["queue"]),
+			hook: db.Str(j["on_failure"]), args: args, attempt: attempt, maxAttempts: maxAttempts,
+			reason: reason, err: msg, final: final,
+		})
 	}
 	publish := func(payload map[string]any) {
 		payload["id"], payload["method"] = id, method
@@ -301,6 +422,10 @@ func (e *Engine) runOneJob(ctx context.Context) (bool, error) {
 		write(`UPDATE ddcore_job SET status = 'cancelled', finished = now(), lease_until = NULL,
 			error = 'cancelled by ' || COALESCE(cancelled_by, 'an admin')
 			WHERE id = $1 AND status = 'running' AND attempts = $2`, id, attempt)
+		// Before the event, so whoever refreshes on it reads what onFailure wrote.
+		msg := "cancelled"
+		e.DB.Pool.QueryRow(wctx, `SELECT COALESCE(error, 'cancelled') FROM ddcore_job WHERE id = $1`, id).Scan(&msg)
+		failed("cancelled", true, msg)
 		publish(map[string]any{"ok": false, "cancelled": true})
 
 	case isMaintenanceErr(runErr):
@@ -322,7 +447,7 @@ func (e *Engine) runOneJob(ctx context.Context) (bool, error) {
 
 	default:
 		status := "failed"
-		if attempt < int(toFloat(j["max_attempts"])) {
+		if attempt < maxAttempts {
 			status = "queued"
 		}
 		// A job going back to the queue has not finished. Stamping it anyway left
@@ -336,6 +461,11 @@ func (e *Engine) runOneJob(ctx context.Context) (bool, error) {
 		// A failed run gets a handle of its own, so an Error Log row points at
 		// one execution and not merely at a method name.
 		e.LogError(WithRequestID(ctx, fmt.Sprintf("job:%d", id)), "job:"+method, runErr)
+		reason := "error"
+		if errors.Is(jobErr, context.DeadlineExceeded) {
+			reason = "timeout"
+		}
+		failed(reason, status == "failed", runErr.Error())
 		publish(map[string]any{"ok": false, "error": runErr.Error()})
 	}
 	return true, nil

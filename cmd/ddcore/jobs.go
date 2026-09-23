@@ -210,7 +210,7 @@ func jobsShow(args []string) error {
 		for _, k := range []string{"id", "method", "queue", "status", "user", "enqueued",
 			"run_after", "started", "finished", "attempts", "max_attempts", "timeout_seconds",
 			"request_id", "cancel_requested", "cancelled_by", "retry_of", "retried_as",
-			"error", "args", "result"} {
+			"on_start", "on_failure", "error", "args", "result"} {
 			if v, ok := j[k]; ok && v != nil {
 				fmt.Fprintf(w, "%s\t%v\n", k, v)
 			}

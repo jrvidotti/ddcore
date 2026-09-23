@@ -1092,6 +1092,11 @@
     const r = resolve(path)(JSON.parse(argsJSON), makeContext());
     return JSON.stringify(r === undefined ? null : r);
   };
+  // A job's onStart/onFailure: the job's args, then the attempt it is about.
+  reg.callJobHook = function (path, argsJSON, jobJSON) {
+    resolve(path)(JSON.parse(argsJSON), JSON.parse(jobJSON), makeContext());
+    return "null";
+  };
 
   reg.runReport = function (name, filtersJSON) {
     const r = reg.reports[name];

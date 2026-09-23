@@ -53,6 +53,24 @@ export interface ExternalDb {
   sql(query: string, params?: any[], opts?: ExternalDbOpts): Record<string, any>[];
 }
 
+/** The attempt a job's `onStart` callback is told about. */
+export interface JobInfo {
+  id: number;
+  method: string;
+  queue: string;
+  /** 1 on the first attempt; 0 for a job cancelled before any attempt. */
+  attempt: number;
+  maxAttempts: number;
+}
+
+/** What a job's `onFailure` callback is told about the attempt that ended. */
+export interface JobFailure extends JobInfo {
+  error: string;
+  reason: "error" | "timeout" | "cancelled";
+  /** False while another attempt is still coming. */
+  final: boolean;
+}
+
 export interface DDCoreAPI {
   db: DDCoreDB;
   session: Context;
@@ -98,8 +116,17 @@ export interface DDCoreAPI {
    * `backoff` is how long a failed attempt waits: `"fixed"` (the default) is
    * thirty seconds every time; `"exponential"` doubles from thirty seconds up to
    * an hour, which suits work that talks to somebody else's server.
+   *
+   * `onStart` and `onFailure` are method paths, like `method`, called as
+   * `fn(args, job)`. Each runs in a transaction of its own, committed apart from
+   * the job's, which is what lets a document say its job is running, or that it
+   * failed. `onStart` runs before the body on every attempt; if it throws, the
+   * attempt fails and the body does not run. `onFailure` runs after the body
+   * rolled back — on an error, a timeout, a cancellation, or a worker that died
+   * — with `job.final` false while a retry is still coming. If it throws, the
+   * error goes to the Error Log and the job stays failed.
    */
-  enqueue(method: string, args?: Record<string, any>, opts?: { queue?: string; runAfter?: string; timeout?: number; maxAttempts?: number; backoff?: "fixed" | "exponential" }): number;
+  enqueue(method: string, args?: Record<string, any>, opts?: { queue?: string; runAfter?: string; timeout?: number; maxAttempts?: number; backoff?: "fixed" | "exponential"; onStart?: string; onFailure?: string }): number;
   /**
    * Queues one message from a registered template and returns the id of its
    * `Email Delivery` record.

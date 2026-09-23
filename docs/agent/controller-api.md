@@ -60,9 +60,12 @@ reloads the document with the new state and docstatus; see `workflows`), `doc.fl
 - `ddcore.http.post(url, body?, opts?)` / `put(url, body?, opts?)` / `patch(url, body?, opts?)` send POST / PUT / PATCH requests. Object bodies are JSON-encoded; string bodies are sent unchanged.
 - All HTTP calls are synchronous and leave from the server. `HttpOpts` accepts `headers` (a string map) and `timeout` (seconds, default 15). The named method determines the verb; `opts.method` cannot override it. Replace older `post(url, body, { method: "PUT" })` or `get(url, { method: "DELETE" })` workarounds with `put` or `del`.
 - `HttpResponse` exposes `{ status, body, headers, json() }`. `body` is text and `json()` parses it. Response header names use Go's canonical HTTP casing (for example, `response.headers["Ratelimit-Remaining"]`); repeated values are joined with `", "`. HTTP error statuses are returned as responses; transport errors throw.
-- `ddcore.enqueue("app.services.mod.fn", args, { queue, runAfter, timeout, maxAttempts })` → the job id.
+- `ddcore.enqueue("app.services.mod.fn", args, { queue, runAfter, timeout, maxAttempts, backoff, onStart, onFailure })` → the job id.
   Written on the current transaction, so the job exists only if the request commits. `maxAttempts`
   defaults to 3; use `1` for work whose effects outside the database must not be repeated.
+  `onStart` / `onFailure` are method paths called as `fn(args, job)`, each in a transaction of its
+  own, so a document can show that its job is running or that it failed. See `ops` → "Lifecycle
+  callbacks".
 - `ddcore.publish(event, payload, { user })` — SSE to the desk
 - `ddcore.log.info/warn/error`
 - `ddcore.utils`: `flt(v, precision)`, `cint`, `cstr`, `getdate`, `nowdate()`, `now()`, `formatDate(d, "dd/mm/yyyy")`, `addDays`, `addMonths`, `addYears`,

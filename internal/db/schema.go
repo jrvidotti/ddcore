@@ -45,6 +45,10 @@ ALTER TABLE ddcore_job ADD COLUMN IF NOT EXISTS cancelled_by text;
 ALTER TABLE ddcore_job ADD COLUMN IF NOT EXISTS retry_of bigint;
 ALTER TABLE ddcore_job ADD COLUMN IF NOT EXISTS retried_as bigint;
 ALTER TABLE ddcore_job ADD COLUMN IF NOT EXISTS backoff text NOT NULL DEFAULT 'fixed';
+-- Lifecycle callbacks: method paths run in transactions of their own, so a
+-- document can show that its job is running, or that it failed.
+ALTER TABLE ddcore_job ADD COLUMN IF NOT EXISTS on_start text;
+ALTER TABLE ddcore_job ADD COLUMN IF NOT EXISTS on_failure text;
 CREATE INDEX IF NOT EXISTS ddcore_job_status ON ddcore_job(status, run_after);
 CREATE INDEX IF NOT EXISTS ddcore_job_lease ON ddcore_job(status, lease_until);
 -- The retention sweep and the administrative list both read by status and age;

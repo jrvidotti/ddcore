@@ -35,7 +35,8 @@ type JobAction struct {
 // COALESCE, rather than plain assignment, keeps the first requester: asking
 // twice is not an error, and the first person to ask is the one worth recording.
 func (e *Engine) CancelJob(ctx context.Context, id int64, user string) (JobAction, error) {
-	const q = `WITH t AS (SELECT id, status, method, queue FROM ddcore_job WHERE id = $1 FOR UPDATE),
+	const q = `WITH t AS (SELECT id, status, method, queue, args, "user", max_attempts, on_failure
+	   FROM ddcore_job WHERE id = $1 FOR UPDATE),
 	 u AS (
 	   UPDATE ddcore_job j SET
 	     cancel_requested = COALESCE(j.cancel_requested, now()),
@@ -45,11 +46,15 @@ func (e *Engine) CancelJob(ctx context.Context, id int64, user string) (JobActio
 	     lease_until = CASE WHEN j.status = 'queued' THEN NULL        ELSE j.lease_until END
 	   FROM t WHERE j.id = t.id AND t.status IN ('queued', 'running')
 	   RETURNING j.status)
-	 SELECT t.status, t.method, t.queue, (SELECT status FROM u) FROM t`
+	 SELECT t.status, t.method, t.queue, t.args, COALESCE(t."user", ''), t.max_attempts,
+	        COALESCE(t.on_failure, ''), (SELECT status FROM u) FROM t`
 
-	var was, method, queue string
+	var was, method, queue, owner, onFailure string
+	var args map[string]any
+	var maxAttempts int
 	var now *string
-	if err := e.DB.Pool.QueryRow(ctx, q, id, user).Scan(&was, &method, &queue, &now); err != nil {
+	if err := e.DB.Pool.QueryRow(ctx, q, id, user).Scan(&was, &method, &queue, &args, &owner,
+		&maxAttempts, &onFailure, &now); err != nil {
 		if err == pgx.ErrNoRows {
 			return JobAction{}, cerr.NotFound("Job {0} does not exist", id)
 		}
@@ -67,6 +72,12 @@ func (e *Engine) CancelJob(ctx context.Context, id int64, user string) (JobActio
 		"status": *now,
 	})
 	if *now == "cancelled" {
+		// Cancelled before any worker claimed it, so no worker will tell the
+		// document: its onFailure runs here, with no attempt behind it.
+		e.runOnFailure(ctx, jobFailure{
+			id: id, method: method, user: owner, queue: queue, hook: onFailure, args: args,
+			maxAttempts: maxAttempts, reason: "cancelled", err: "cancelled by " + user, final: true,
+		})
 		return JobAction{ID: id, Status: "cancelled"}, nil
 	}
 	// Running: the worker picks the request up on its next poll. Anything
@@ -88,8 +99,10 @@ func (e *Engine) CancelJob(ctx context.Context, id int64, user string) (JobActio
 // A second retry is refused unless forced, so that pressing the button twice
 // does not quietly fan one failure out into several jobs.
 func (e *Engine) RetryJob(ctx context.Context, id int64, force bool, actor ...string) (JobAction, error) {
-	const q = `INSERT INTO ddcore_job (method, args, queue, "user", timeout_seconds, max_attempts, request_id, backoff, retry_of)
-	 SELECT method, args, queue, "user", timeout_seconds, max_attempts, request_id, backoff, id
+	const q = `INSERT INTO ddcore_job (method, args, queue, "user", timeout_seconds, max_attempts, request_id, backoff,
+	   on_start, on_failure, retry_of)
+	 SELECT method, args, queue, "user", timeout_seconds, max_attempts, request_id, backoff,
+	   on_start, on_failure, id
 	   FROM ddcore_job
 	  WHERE id = $1 AND status IN ('failed', 'cancelled') AND ($2 OR retried_as IS NULL)
 	 RETURNING id, method, queue`
@@ -325,7 +338,7 @@ func (e *Engine) purge(ctx context.Context, statuses []string, days int, dry boo
 // already holds the database, and never over HTTP.
 const jobColumns = `id, method, queue, status, "user", enqueued, run_after, started, finished,
 	attempts, max_attempts, timeout_seconds, lease_until, request_id,
-	cancel_requested, cancelled_by, retry_of, retried_as, error`
+	cancel_requested, cancelled_by, retry_of, retried_as, on_start, on_failure, error`
 
 // JobFilter narrows a listing. Every field is optional and they combine with
 // AND, which is what an operator reading a queue expects.
