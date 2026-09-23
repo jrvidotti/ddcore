@@ -196,7 +196,7 @@ type State struct {
 // by an export manifest — which is the one that matters later, because a
 // reconciliation needs to know what produced the file.
 // It can be overridden at build time via -ldflags "-X github.com/jrvidotti/ddcore/internal/engine.Version=..."
-var Version = "0.18.2"
+var Version = "0.18.3"
 
 type Engine struct {
 	// *State is embedded solely to keep `e.Meta`, `e.Snap`, `e.Apps`,
