@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { emptyTree, mergeChildren, toggle, visibleRows, loadedParents, treeParentQuery, expandAll, collapseAll, treeFields, treeLabel, ROOT, type TreeNode } from "./tree-state";
+import { emptyTree, mergeChildren, toggle, visibleRows, loadedParents, treeParentQuery, expandAll, collapseAll, treeFields, treeLabel, rememberTreeExpand, getRememberedTreeExpand, ROOT, type TreeNode } from "./tree-state";
 
 const node = (id: string, parent = "", is_group = false, children = 0): TreeNode =>
   ({ id, title: id, parent, is_group, children });
@@ -133,5 +133,31 @@ describe("tree labels", () => {
     expect(treeLabel(cat, { title: "- {acronym} -" })).toBe("- DSG -");
     expect(treeLabel({ ...cat, values: {} }, { title: "{acronym}" })).toBe("Design");
     expect(treeLabel(cat)).toBe("Design");
+  });
+});
+
+describe("remembered expand mode", () => {
+  const memory = () => {
+    const m = new Map<string, string>();
+    return { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v) };
+  };
+
+  it("round-trips per DocType", () => {
+    const store = memory();
+    expect(getRememberedTreeExpand("Task Category", store)).toBe("");
+    rememberTreeExpand("Task Category", "expanded", store);
+    expect(getRememberedTreeExpand("Task Category", store)).toBe("expanded");
+    expect(getRememberedTreeExpand("Territory", store)).toBe("");
+    rememberTreeExpand("Task Category", "collapsed", store);
+    expect(getRememberedTreeExpand("Task Category", store)).toBe("collapsed");
+  });
+
+  it("ignores an unknown value and a storage that throws", () => {
+    const store = memory();
+    store.setItem("ddcore_tree_expand_Task Category", "sideways");
+    expect(getRememberedTreeExpand("Task Category", store)).toBe("");
+    const broken = { getItem: () => { throw new Error("denied"); }, setItem: () => { throw new Error("denied"); } };
+    expect(() => rememberTreeExpand("Task Category", "expanded", broken)).not.toThrow();
+    expect(getRememberedTreeExpand("Task Category", broken)).toBe("");
   });
 });

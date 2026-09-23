@@ -12,6 +12,12 @@ not every commit that went into it.
 
 ## Unreleased
 
+### Changed
+
+- **The tree view remembers Expand all / Collapse all.** The last of the two buttons clicked on
+  a DocType's tree is kept in the browser (`localStorage`, per DocType), and the tree opens fully
+  expanded next time when "Expand all" was the last choice.
+
 ## 0.18.2 — 2026-09-23
 
 ### Added

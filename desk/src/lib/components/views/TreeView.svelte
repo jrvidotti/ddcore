@@ -6,7 +6,7 @@
   import { showError } from "$lib/ui.svelte";
   import type { Meta } from "$lib/meta";
   import Icon from "../Icon.svelte";
-  import { emptyTree, mergeChildren, markLoading, toggle, visibleRows, loadedParents, expandAll, collapseAll, treeFields, treeLabel, ROOT, type TreeState, type TreeViewSettings } from "./tree-state";
+  import { emptyTree, mergeChildren, markLoading, toggle, visibleRows, loadedParents, expandAll, collapseAll, treeFields, treeLabel, rememberTreeExpand, getRememberedTreeExpand, ROOT, type TreeState, type TreeViewSettings } from "./tree-state";
 
   let { meta, doctype, wsPrefix, reloadKey = 0, settings }: {
     meta: Meta; doctype: string; wsPrefix: string;
@@ -41,10 +41,14 @@
 
   async function reload() {
     loading = true;
-    const parents = tree.children.size ? loadedParents(tree) : [ROOT];
+    const first = tree.children.size === 0;
+    const parents = first ? [ROOT] : loadedParents(tree);
     for (const parent of parents) tree = markLoading(tree, parent);
     await Promise.all(parents.map(loadLevel));
     loading = false;
+    // Only the first load applies the remembered choice: a later reload keeps
+    // whatever the user opened or closed since.
+    if (first && getRememberedTreeExpand(doctype) === "expanded") await onExpandAll();
   }
 
   let expanding = $state(false);
@@ -68,6 +72,11 @@
     }
   }
 
+  function onCollapseAll() {
+    rememberTreeExpand(doctype, "collapsed");
+    tree = collapseAll(tree);
+  }
+
   function childHref(parent: string) {
     const query = parentField ? `?${encodeURIComponent(parentField)}=${encodeURIComponent(parent)}` : "";
     return `${wsPrefix}/${encodeURIComponent(doctype)}/new${query}`;
@@ -84,10 +93,10 @@
 <div class="card tree">
   {#if rows.length > 0}
     <div class="bar">
-      <button class="btn sm" onclick={onExpandAll} disabled={expanding}>
+      <button class="btn sm" onclick={() => { rememberTreeExpand(doctype, "expanded"); onExpandAll(); }} disabled={expanding}>
         <Icon name="chevrons-up-down" size={14} />{__("Expand all")}
       </button>
-      <button class="btn sm" onclick={() => (tree = collapseAll(tree))} disabled={tree.expanded.size === 0}>
+      <button class="btn sm" onclick={onCollapseAll} disabled={tree.expanded.size === 0}>
         <Icon name="chevrons-down-up" size={14} />{__("Collapse all")}
       </button>
     </div>
