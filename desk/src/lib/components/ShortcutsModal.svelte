@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { focusTrap } from "$lib/focus-trap";
   import { shortcutsState, closeShortcutsHelp, getShortcutsList } from "$lib/shortcuts.svelte";
   import Icon from "./Icon.svelte";
   import { __ } from "$lib/boot.svelte";
@@ -9,6 +10,7 @@
 {#if shortcutsState.open}
   <div
     class="modal-bg"
+    use:focusTrap
     role="dialog"
     aria-modal="true"
     aria-labelledby="shortcuts-title"

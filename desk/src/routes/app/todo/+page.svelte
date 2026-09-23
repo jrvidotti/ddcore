@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { focusTrap } from "$lib/focus-trap";
   import { onDestroy, onMount } from "svelte";
   import { PendingWork, pendingTasks, refreshPendingCount } from "$lib/assignments.svelte";
   import { api, type ToDoDoc } from "$lib/api";
@@ -252,6 +253,7 @@
 {#if showNewModal}
   <div
     class="modal-bg"
+    use:focusTrap
     role="dialog"
     aria-modal="true"
     tabindex="-1"

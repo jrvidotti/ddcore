@@ -18,6 +18,9 @@ not every commit that went into it.
   action, wherever the focus is inside it — except in a textarea or rich text, where Enter keeps
   its new line (Ctrl/Cmd+Enter submits), on a focused button, or while a Link field's options are
   open. Covers `dialog()`, `confirm()` and `prompt()` from the desk SDK.
+- **A modal owns the focus while it is open.** It takes it on opening (its first field, or the
+  modal itself), keeps Tab inside, and hands it back to what had it on closing — so Escape closes
+  the Import, Share and Assign modals right away, without a click inside them first.
 - **`GET /api/file-info?url=<file_url>`** returns an upload's original `file_name`, `file_size`,
   `content_type`, `creation` and `owner` to whoever may read the file. It uses the same rule as
   `/private/files`, so a colleague who can read the document gets it even though `File` itself is

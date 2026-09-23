@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { focusTrap } from "$lib/focus-trap";
   import type { AssignArgs } from "$lib/api";
   import { __ } from "$lib/boot.svelte";
   import { showError } from "$lib/ui.svelte";
@@ -58,6 +59,7 @@
 {#if open}
   <div
     class="modal-bg"
+    use:focusTrap
     role="dialog"
     aria-modal="true"
     tabindex="-1"

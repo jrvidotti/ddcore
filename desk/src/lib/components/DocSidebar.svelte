@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { focusTrap } from "$lib/focus-trap";
   // Right column of the form: metadata, assignments, shares, comments, versions.
   import type { FormController } from "$lib/form.svelte";
   import { api, type AssignArgs, type ShareArgs } from "$lib/api";
@@ -291,6 +292,7 @@
 {#if showModal}
   <div
     class="modal-bg"
+    use:focusTrap
     role="dialog"
     aria-modal="true"
     tabindex="-1"

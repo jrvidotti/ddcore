@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { focusTrap } from "$lib/focus-trap";
   // Data Import: pick a CSV or XLSX file, see what a dry run makes of it —
   // which column goes to which field, and which rows would fail and why — and
   // only then write it. The server keeps nothing between the two requests:
@@ -132,7 +133,7 @@
 </script>
 
 {#if open}
-  <div class="modal-bg" role="dialog" aria-modal="true" tabindex="-1"
+  <div class="modal-bg" role="dialog" aria-modal="true" tabindex="-1" use:focusTrap
     onclick={(e) => e.target === e.currentTarget && !busy && close()}
     onkeydown={(e) => e.key === "Escape" && !busy && close()}>
     <div class="modal lg">

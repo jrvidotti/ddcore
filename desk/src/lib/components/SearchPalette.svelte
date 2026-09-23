@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { focusTrap } from "$lib/focus-trap";
   import { tick } from "svelte";
   import { goto } from "$app/navigation";
   import { api } from "$lib/api";
@@ -71,7 +72,7 @@
 
 {#if searchState.open}
   <div class="modal-bg" role="presentation" onclick={(e) => e.target === e.currentTarget && closeSearch()}>
-    <div class="modal search-palette" role="dialog" aria-modal="true" aria-label={__("Search")}>
+    <div class="modal search-palette" use:focusTrap role="dialog" aria-modal="true" aria-label={__("Search")}>
       <div class="search-input">
         <Icon name="search" size={16} />
         <input
