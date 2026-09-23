@@ -101,7 +101,7 @@ Clear filters,Limpar filtros,# desk/src/lib/components/ListView.svelte:481
 Close,Fechar,# desk/src/lib/components/AssignModal.svelte:73
 Close menu,Fechar menu,# desk/src/lib/components/Sidebar.svelte:94
 "Close modals, menus or dialogs","Fechar modais, menus ou diálogos",# desk/src/lib/shortcuts.ts:101
-Close the options list,Fechar lista de opções,# desk/src/lib/shortcuts.ts:109
+Close the options list,Fechar lista de opções,# desk/src/lib/shortcuts.ts:110
 Closed,Fechado,# desk/src/routes/app/todo/+page.svelte:132
 Code,Código,# desk/src/lib/controls/CodeControl.svelte:45
 Collapse,Recolher,# desk/src/lib/components/views/TreeView.svelte:115
@@ -116,6 +116,7 @@ Complete,Concluir,# desk/src/lib/components/DocSidebar.svelte:153
 Condition for action '{0}' was not met,A condição para a ação '{0}' não foi atendida,# internal/engine/workflow.go:145
 Configured,Configurado,# desk/src/lib/controls/Control.svelte:176
 Confirm,Confirmar,# desk/src/lib/ui.svelte.ts:93
+Confirm a dialog (its primary button),Confirmar um diálogo (seu botão principal),# desk/src/lib/shortcuts.ts:102
 Confirm the new password,Confirme a nova senha,# desk/src/lib/components/Profile.svelte:181
 Content,Conteúdo,# core.doctypes.comment.comment.doctype
 Continue with {0},Continuar com {0},# desk/src/routes/login/+page.svelte:68
@@ -134,7 +135,7 @@ Dates,Datas,# desk/src/lib/components/DataImportModal.svelte:159
 Day,Dia,# desk/src/lib/components/views/GanttView.svelte:25
 Day/month/year,Dia/mês/ano,# desk/src/lib/components/DataImportModal.svelte:161
 Decimal separator,Separador decimal,# desk/src/lib/components/DataImportModal.svelte:166
-Delete,Excluir,# desk/src/lib/components/Dialogs.svelte:66
+Delete,Excluir,# desk/src/lib/components/Dialogs.svelte:89
 Delete attachment,Excluir anexo,# desk/src/lib/controls/Grid.svelte:39
 Delete this attachment?,Excluir este anexo?,# desk/src/lib/controls/Grid.svelte:42
 Delete {0} record(s)?,Apagar {0} registro(s)?,# desk/src/lib/components/ListView.svelte:348
@@ -318,7 +319,7 @@ Modified,Modificado,# desk/src/lib/components/views/TableView.svelte:45
 Modified by,Modificado por,# desk/src/lib/components/DocSidebar.svelte:104
 Month,Mês,# desk/src/lib/components/views/GanttView.svelte:25
 Month/day/year,Mês/dia/ano,# desk/src/lib/components/DataImportModal.svelte:162
-Move through the list options,Navegar entre as opções da lista,# desk/src/lib/shortcuts.ts:107
+Move through the list options,Navegar entre as opções da lista,# desk/src/lib/shortcuts.ts:108
 My profile,Meu perfil,# desk/src/lib/components/Profile.svelte:128
 Name,Nome,# core.doctypes.file.file.doctype
 Name and language,Nome e idioma,# desk/src/lib/components/Profile.svelte:154
@@ -408,7 +409,7 @@ Password changed. Your other sessions were signed out.,Senha trocada. Suas outra
 Password set,Senha definida,# desk/src/routes/login/reset/+page.svelte:52
 Password sign-in is disabled. Use single sign-on.,O acesso com senha está desativado. Use o login único (SSO).,# internal/engine/auth.go:104
 Payload,Conteúdo,# core.doctypes.webhook_delivery.webhook_delivery.doctype
-Pick the highlighted option,Selecionar opção destacada,# desk/src/lib/shortcuts.ts:108
+Pick the highlighted option,Selecionar opção destacada,# desk/src/lib/shortcuts.ts:109
 "Point (1,234.56)","Ponto (1,234.56)",# desk/src/lib/components/DataImportModal.svelte:169
 Post a comment on the form,Enviar comentário no formulário,# desk/src/lib/shortcuts.ts:92
 Preview,Pré-visualizar,# desk/src/lib/controls/MarkdownControl.svelte:43
@@ -474,7 +475,7 @@ Saved,Salvo,# desk/src/lib/form.svelte.ts:318
 Saving...,Salvando...,# desk/src/routes/app/todo/+page.svelte:316
 Scale,Escala,# desk/src/lib/components/views/GanttView.svelte:40
 Search,Buscar,# desk/src/lib/components/ListView.svelte:457
-Search & selection (Link fields),Busca & Seleção (Campos Link),# desk/src/lib/shortcuts.ts:105
+Search & selection (Link fields),Busca & Seleção (Campos Link),# desk/src/lib/shortcuts.ts:106
 Search documents and DocTypes,Buscar documentos e DocTypes,# desk/src/lib/shortcuts.ts:98
 Search documents and DocTypes…,Buscar documentos e DocTypes…,# desk/src/lib/components/SearchPalette.svelte:82
 Search for between {0} and {1} characters,Busque entre {0} e {1} caracteres,# internal/engine/search.go:45

@@ -5,7 +5,7 @@
   import { __ } from "$lib/boot.svelte";
   import { showError } from "$lib/ui.svelte";
   import { cellWidthClass, LINE_SLOTS, packLines } from "./form-layout";
-  import { runDialogAction } from "./dialog-actions";
+  import { dialogKeyAction, runDialogAction } from "./dialog-actions";
 
   function cancel(d: DialogHandle) { (d as any).onCancel?.(); d.hide(); }
   async function primary(d: DialogHandle) {
@@ -23,6 +23,27 @@
     if (!d.spec.dangerAction) return;
     try { await runDialogAction(d.spec.dangerAction, d.values, d); } catch (e) { showError(e); }
   }
+  // Keys go to the dialog on top only: Escape cancels it, Enter runs its primary action.
+  function onWindowKeydown(e: KeyboardEvent) {
+    const d = ui.dialogs[ui.dialogs.length - 1];
+    if (!d) return;
+    const t = e.target as HTMLElement | null;
+    const action = dialogKeyAction({
+      key: e.key, ctrlKey: e.ctrlKey, metaKey: e.metaKey, shiftKey: e.shiftKey, altKey: e.altKey,
+      repeat: e.repeat, isComposing: e.isComposing, defaultPrevented: e.defaultPrevented,
+      targetTag: t?.tagName, targetEditable: !!t?.isContentEditable,
+    });
+    if (!action) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (action === "cancel") return cancel(d);
+    if (d.busy || !(d.spec.primaryAction || d.spec.primaryLabel)) return;
+    // text controls commit on change, which fires on blur
+    const active = document.activeElement as HTMLElement | null;
+    if (active && active !== document.body) active.blur();
+    primary(d);
+  }
+
   // sections inside dialogs: split the fields on Section Break
   function layout(fields: any[]) {
     const sections: any[][] = [[]];
@@ -37,8 +58,10 @@
   const DIALOG_SLOTS = LINE_SLOTS / 2;
 </script>
 
+<svelte:window onkeydown={onWindowKeydown} />
+
 {#each ui.dialogs as d (d.id)}
-  <div class="modal-bg" role="dialog" aria-modal="true" onkeydown={(e) => e.key === "Escape" && cancel(d)} tabindex="-1">
+  <div class="modal-bg" role="dialog" aria-modal="true" tabindex="-1">
     <div class="modal {d.spec.size || 'md'}">
       <div class="head"><h3>{d.spec.title}</h3><button class="btn icon" onclick={() => cancel(d)} aria-label="Fechar"><Icon name="x" /></button></div>
       <div class="body">

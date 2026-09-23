@@ -14,6 +14,10 @@ not every commit that went into it.
 
 ### Added
 
+- **Dialogs answer the keyboard.** Escape closes the dialog on top and Enter runs its primary
+  action, wherever the focus is inside it — except in a textarea or rich text, where Enter keeps
+  its new line (Ctrl/Cmd+Enter submits), on a focused button, or while a Link field's options are
+  open. Covers `dialog()`, `confirm()` and `prompt()` from the desk SDK.
 - **`GET /api/file-info?url=<file_url>`** returns an upload's original `file_name`, `file_size`,
   `content_type`, `creation` and `owner` to whoever may read the file. It uses the same rule as
   `/private/files`, so a colleague who can read the document gets it even though `File` itself is

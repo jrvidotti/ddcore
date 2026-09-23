@@ -116,7 +116,7 @@
     if (e.key === "ArrowDown") { active = Math.min(active + 1, options.length - 1); e.preventDefault(); }
     else if (e.key === "ArrowUp") { active = Math.max(active - 1, 0); e.preventDefault(); }
     else if (e.key === "Enter") { if (options[active]) pick(options[active]); e.preventDefault(); }
-    else if (e.key === "Escape") open = false;
+    else if (e.key === "Escape") { open = false; e.preventDefault(); }
   }
 
   const label = $derived(target && boot.data?.doctypes[target]?.label);

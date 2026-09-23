@@ -99,6 +99,7 @@ export function getShortcutsList(mac?: boolean): ShortcutGroup[] {
         { keys: ["?"], description: __("Show this shortcuts window") },
         { keys: [mod, "/"], description: __("Show this shortcuts window") },
         { keys: ["Esc"], description: __("Close modals, menus or dialogs") },
+        { keys: ["Enter"], description: __("Confirm a dialog (its primary button)") },
       ],
     },
     {
