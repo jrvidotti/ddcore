@@ -228,7 +228,10 @@ type Engine struct {
 	// oidc caches discovered providers; see oidcClientFor.
 	oidcMu sync.Mutex
 	oidc   map[string]*oidcClient
-	maint  maintenanceCache
+	// extDB keeps one pool per external database; see externalPool.
+	extDBMu sync.Mutex
+	extDB   map[string]*extPool
+	maint   maintenanceCache
 }
 
 // Storage is where the bytes of File documents are kept.

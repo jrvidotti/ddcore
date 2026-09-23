@@ -71,9 +71,11 @@ type doctorReport struct {
 	Ops       config.OpsPolicy    `json:"ops"`
 	// Secrets are names. A doctor report is pasted into issues and chat
 	// windows, and a secret that reaches one of those has to be rotated.
-	Secrets  []string              `json:"secrets"`
-	Vault    *vaultSection         `json:"vault,omitempty"`
-	Webhooks *engine.WebhookStatus `json:"webhooks,omitempty"`
+	Secrets []string      `json:"secrets"`
+	Vault   *vaultSection `json:"vault,omitempty"`
+	// ExternalDBs name where each external database points, never its login.
+	ExternalDBs []engine.ExternalDBInfo `json:"externalDbs,omitempty"`
+	Webhooks    *engine.WebhookStatus   `json:"webhooks,omitempty"`
 	// Maintenance, MigratedBy and Backup are the recovery picture (PRD-01/02).
 	Maintenance *engine.MaintenanceState `json:"maintenance,omitempty"`
 	MigratedBy  *engine.SiteVersion      `json:"migratedBy,omitempty"`
@@ -294,6 +296,22 @@ func gatherDoctor(ctx context.Context, cfg *config.File, windowMin int, updateCh
 		rep.SSO.Providers = append(rep.SSO.Providers, sp)
 	}
 
+	for _, x := range e.ExternalDBs() {
+		// Like an SSO provider, an external database that does not answer is
+		// a warning: only the reports that read it are affected.
+		if x.Error == "" {
+			dctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			if err := e.ExternalDBPing(dctx, x.Name); err != nil {
+				x.Error = err.Error()
+			}
+			cancel()
+		}
+		if x.Error != "" {
+			rep.Warnings = append(rep.Warnings, x.Error)
+		}
+		rep.ExternalDBs = append(rep.ExternalDBs, x)
+	}
+
 	if ws, err := e.WebhookStatus(ctx); err == nil {
 		rep.Webhooks = &ws
 		if ws.Off && ws.Enabled > 0 {
@@ -484,6 +502,13 @@ func (r *doctorReport) printTail(w io.Writer, p func(string, string, ...any)) {
 		p("secrets", "%d configured: %s", len(r.Secrets), strings.Join(r.Secrets, ", "))
 	} else {
 		p("secrets", "none configured")
+	}
+	for _, x := range r.ExternalDBs {
+		state := "ok"
+		if x.Error != "" {
+			state = "unreachable"
+		}
+		p("externaldb", "%s at %s/%s (%s)", x.Name, x.Host, x.Database, state)
 	}
 	if r.Vault != nil {
 		if r.Vault.Configured {

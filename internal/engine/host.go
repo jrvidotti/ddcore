@@ -254,6 +254,8 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		return nil, nil
 	case "http":
 		return httpCall(a.Method, a.URL, a.Body, a.Headers, a.Timeout)
+	case "externalDb.sql":
+		return c.ExternalSQL(a.Key, a.Query, a.Params, a.Timeout)
 	case "enqueue":
 		var q struct {
 			Method string         `json:"method"`

@@ -869,6 +869,14 @@
     // in the database is a secret in every backup, export and Version diff.
     // Returns null when the site was not given it.
     secret(name) { return call("secret", { text: name }); },
+    externalDb(name) {
+      const key = String(name);
+      return {
+        sql(query, params, opts) {
+          return call("externalDb.sql", { key, query, params: params || [], timeout: (opts && opts.timeout) || 0 });
+        },
+      };
+    },
     vault: {
       set(name, value) { return call("vault.set", { key: String(name), value: String(value) }); },
       get(name) {

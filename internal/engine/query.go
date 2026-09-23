@@ -645,8 +645,7 @@ func (c *Ctx) PatchSQL(query string, params []any) ([]map[string]any, error) {
 // and the savepoint is rolled back afterwards, leaving the caller's
 // transaction usable (and its `SET LOCAL` undone).
 func (c *Ctx) SQL(query string, params []any) ([]map[string]any, error) {
-	q := strings.TrimSpace(strings.ToLower(query))
-	if !strings.HasPrefix(q, "select") && !strings.HasPrefix(q, "with") {
+	if !isReadQuery(query) {
 		return nil, cerr.Permission("ddcore.db.sql only accepts SELECT")
 	}
 	if c.Tx == nil {

@@ -156,7 +156,7 @@ Discard,Descartar,# desk/src/lib/components/FormView.svelte:400
 Discard changes,Descartar alterações,# desk/src/lib/components/FormView.svelte:160
 Discard your unsaved changes?,Descartar suas alterações não salvas?,# desk/src/lib/components/FormView.svelte:160
 DocType,DocType,# core.doctypes.comment.comment.doctype
-DocType {0} does not exist,DocType {0} não existe,# internal/engine/engine.go:664
+DocType {0} does not exist,DocType {0} não existe,# internal/engine/engine.go:667
 Document,Documento,# core.doctypes.comment.comment.doctype
 Document Events,Eventos do Documento,# core.doctypes.webhook.webhook.doctype
 Document Share,Compartilhamento de Documento,# core.doctypes.document_share.document_share.doctype
@@ -197,6 +197,10 @@ Expires in (days),Expira em (dias),# desk/src/lib/components/Profile.svelte:234
 Export,Exportar,# desk/src/lib/components/ListView.svelte:363
 Export of Single DocTypes is not supported: {0}.,A exportação de DocTypes Single não é suportada: {0}.,# internal/engine/export.go:166
 Exported {0} of {1} rows (the current page),Exportadas {0} de {1} linhas (página atual),# desk/src/lib/components/ListView.svelte:416
+External database {0}: {1},Banco de dados externo {0}: {1},# internal/engine/externaldb.go:150
+External database {0}: {1} is not a port number,Banco de dados externo {0}: {1} não é um número de porta,# internal/engine/externaldb.go:81
+External database {0}: {1} is not configured,Banco de dados externo {0}: {1} não está configurado,# internal/engine/externaldb.go:71
+External database {0}: {1} names an unsupported driver (only sqlserver),Banco de dados externo {0}: {1} indica um driver não suportado (apenas sqlserver),# internal/engine/externaldb.go:90
 Failed,Falhou,# core.doctypes.email_delivery.email_delivery.doctype
 Failed to decrypt vault secret: authentication error,Falha ao descriptografar segredo do cofre: erro de autenticação,# internal/engine/vault.go:63
 Field,Campo,# desk/src/lib/components/DataImportModal.svelte:189
@@ -248,7 +252,7 @@ Invalid JSON: {0},JSON inválido: {0},# internal/api/api.go:322
 Invalid Single identity for {0},Identidade Single inválida para {0},# internal/engine/doc.go:384
 Invalid Single identity or status for {0},Identidade ou estado Single inválido para {0},# internal/engine/doc.go:1011
 Invalid URL,URL inválida,# internal/engine/webhooks.go:559
-Invalid arguments: {0},Argumentos inválidos: {0},# internal/engine/host.go:527
+Invalid arguments: {0},Argumentos inválidos: {0},# internal/engine/host.go:529
 "Invalid colour in {0}: ""{1}""","Cor inválida em {0}: ""{1}""",# internal/engine/doc.go:247
 Invalid column mapping: {0},Mapeamento de colunas inválido: {0},# internal/api/data_import.go:91
 "Invalid date and time in {0}: ""{1}""","Data/hora inválida em {0}: ""{1}""",# internal/engine/doc.go:288
@@ -360,7 +364,7 @@ No permission to rename {0},Sem permissão para renomear {0},# internal/engine/d
 No permission to revoke this task,Sem permissão para revogar esta tarefa,# internal/api/assignments.go:184
 No permission to submit {0},Sem permissão para enviar {0},# internal/engine/doc.go:537
 No recipient,Sem destinatário,# internal/engine/mailqueue.go:100
-No records,Nenhum registro,# desk/src/lib/components/ReportView.svelte:134
+No records,Nenhum registro,# desk/src/lib/components/ReportView.svelte:133
 No records in this period,Nenhum registro neste período,# desk/src/lib/components/views/GanttView.svelte:79
 No report permission on {0},Sem permissão de relatório em {0},# internal/api/api.go:1143
 No results,Nenhum resultado,# desk/src/lib/components/SearchPalette.svelte:108
@@ -589,7 +593,7 @@ ToDo,Tarefa,# core.doctypes.todo.todo.doctype
 Today,Hoje,# desk/src/lib/components/views/CalendarView.svelte:47
 Too many attempts. Try again in {0} second(s),Tentativas demais. Tente de novo em {0} segundo(s),# internal/engine/throttle.go:69
 Too many attempts. Try again later.,Muitas tentativas. Tente novamente mais tarde.,# desk/src/routes/login/+page.svelte:32
-Total,Total,# desk/src/lib/components/ReportView.svelte:85
+Total,Total,# desk/src/lib/components/ReportView.svelte:84
 Tree,Árvore,# desk/src/lib/components/ListView.svelte:437
 Try again,Tentar novamente,# desk/src/lib/components/PrintView.svelte:225
 Type,Tipo,# desk/src/lib/components/Profile.svelte:137
@@ -654,9 +658,11 @@ You have been invited to {0},Você foi convidado para {0},# core/mail/invite.mai
 changes are paused until the site reopens.,as alterações estão pausadas até o site reabrir.,# desk/src/routes/+layout.svelte:244
 ctx.sql is only available inside a patch,ctx.sql só existe dentro de um patch,# internal/engine/query.go:628
 d,d,# desk/src/lib/controls/DurationControl.svelte:23
-ddcore.db.lock requires a transaction,ddcore.db.lock exige uma transação,# internal/engine/query.go:694
-ddcore.db.lock: provide a key,ddcore.db.lock: informe uma chave,# internal/engine/query.go:691
-ddcore.db.sql only accepts SELECT,ddcore.db.sql aceita apenas SELECT,# internal/engine/query.go:650
+ddcore.db.lock requires a transaction,ddcore.db.lock exige uma transação,# internal/engine/query.go:693
+ddcore.db.lock: provide a key,ddcore.db.lock: informe uma chave,# internal/engine/query.go:690
+ddcore.db.sql only accepts SELECT,ddcore.db.sql aceita apenas SELECT,# internal/engine/query.go:649
+ddcore.externalDb().sql only accepts SELECT,ddcore.externalDb().sql aceita apenas SELECT,# internal/engine/externaldb.go:175
+ddcore.externalDb: provide a name,ddcore.externalDb: informe um nome,# internal/engine/externaldb.go:52
 doctype and id are required,doctype e id são obrigatórios,# internal/api/workflow.go:78
 "doctype, id and action are required","doctype, id e action são obrigatórios",# internal/api/workflow.go:56
 "doctype, id and allocated_to are required","doctype, id e allocated_to são obrigatórios",# internal/api/assignments.go:39
@@ -676,7 +682,7 @@ failed to write Gotenberg HTML payload: {0},falha ao escrever payload HTML para 
 failed to write temporary HTML file: {0},falha ao escrever arquivo HTML temporário: {0},# internal/print/pdf.go:200
 getValue: invalid fields,getValue: fields inválido,# internal/engine/host.go:161
 h,h,# desk/src/lib/controls/DurationControl.svelte:23
-http: {0},http: {0},# internal/engine/host.go:654
+http: {0},http: {0},# internal/engine/host.go:656
 id is required,id é obrigatório,# internal/api/assignments.go:136
 invalid arguments in {0}: {1},argumentos inválidos em {0}: {1},# internal/engine/host.go:82
 job {0} timed out,job {0} excedeu o tempo limite,# internal/engine/jobs.go:130
@@ -693,7 +699,7 @@ s,s,# desk/src/lib/controls/DurationControl.svelte:23
 since: {0} is not a duration,since: {0} não é uma duração,# internal/api/jobs.go:57
 title,título,# desk/src/lib/components/FormView.svelte:244
 to submit,para enviar,# desk/src/lib/components/DocSidebar.svelte:250
-unknown bridge operation: {0},operação desconhecida no bridge: {0},# internal/engine/host.go:554
+unknown bridge operation: {0},operação desconhecida no bridge: {0},# internal/engine/host.go:556
 user is required,user é obrigatório,# internal/engine/share.go:288
 webhook payload for {0} is not JSON: {1},o conteúdo do webhook para {0} não é JSON: {1},# internal/engine/webhooks.go:263
 "{0} ""{1}"" already exists","{0} ""{1}"" já existe",# internal/engine/doc.go:1911

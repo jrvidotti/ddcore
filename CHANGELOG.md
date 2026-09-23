@@ -21,6 +21,14 @@ not every commit that went into it.
   or a `(row) => string` function with `fields`. `orderBy` replaces the default order (groups
   first, then the title). `GET /api/tree/{doctype}` accepts `fields` and `order_by` for this, and
   returns the fields under each node's `values`.
+- **Read-only external databases** (#10). `ddcore.externalDb("sql_server").sql(query, params, { timeout })`
+  queries a SQL Server database from server code: a controller, service, report or job. The
+  connection comes from `DDCORE_SECRET_<NAME>_HOST`, `_PORT` (default 1433), `_DATABASE`, `_USER`,
+  `_PASSWORD` and the optional `_ENCRYPT`, so the credentials stay out of every backup. Only
+  `SELECT`/`WITH` is accepted, each call runs in a transaction that is always rolled back,
+  parameters are positional (`@p1`, …), the timeout defaults to 30 s, and rows are normalized
+  like `ddcore.db.sql` (decimals as numbers, dates as strings, GUIDs in canonical form).
+  `ddcore doctor` lists each external database and probes it. See `external-db`.
 
 ### Fixed
 

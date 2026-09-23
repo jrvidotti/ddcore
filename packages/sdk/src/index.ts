@@ -42,6 +42,17 @@ export interface HttpResponse {
   json(): any;
 }
 
+export interface ExternalDbOpts {
+  /** Timeout in seconds; defaults to 30. */
+  timeout?: number;
+}
+
+/** A read-only external database; see `ddcore.externalDb`. */
+export interface ExternalDb {
+  /** Runs a SELECT with positional `@p1`, `@p2`, … parameters. */
+  sql(query: string, params?: any[], opts?: ExternalDbOpts): Record<string, any>[];
+}
+
 export interface DDCoreAPI {
   db: DDCoreDB;
   session: Context;
@@ -192,6 +203,20 @@ export interface DDCoreAPI {
    * stays out of every backup, export and Version diff.
    */
   secret(name: string): string | null;
+  /**
+   * A read-only connection to a database that is not the site's own — only
+   * SQL Server for now. See `external-db`.
+   *
+   * `ddcore.externalDb("sql_server")` reads `DDCORE_SECRET_SQL_SERVER_HOST`,
+   * `_PORT` (default 1433), `_DATABASE`, `_USER`, `_PASSWORD` and the optional
+   * `_ENCRYPT`; a missing one is a ValidationError naming the variable.
+   *
+   * `sql` accepts only SELECT/WITH and runs in a transaction that is always
+   * rolled back. Parameters are positional — `@p1`, `@p2`, … — and never
+   * interpolated. `opts.timeout` is in seconds (default 30). Rows come back
+   * normalized like `ddcore.db.sql`: decimals as numbers, dates as strings.
+   */
+  externalDb(name: string): ExternalDb;
   /**
    * An encrypted credential vault, stored in the database but encrypted at
    * rest with `DDCORE_SECRET_KEY` and audited on every read, write and delete.

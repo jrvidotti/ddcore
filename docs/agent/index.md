@@ -33,6 +33,7 @@ Available documents (also as MCP resources `ddcore://docs/<name>`):
 - `import` — loading an export into a site: identities and metadata kept, effects not replayed, resumable, reconciled
 - `data-import` — loading a CSV/XLSX file from the Desk or HTTP: each row a normal insert or update as the user, with a dry run and per-row errors
 - `print` — print templates, print block builders, Letter Head branding, and server-side PDF generation
+- `external-db` — `ddcore.externalDb(name)`: read-only SQL Server queries from server code, configured from `DDCORE_SECRET_<NAME>_*`
 - `vault` — encrypted credential vault (`ddcore.vault.*`), `Vault` fieldtype, and audit logging
 - `audit` — unified administrative audit events (`tab_audit_event`), sanitization, immutability, retention and CLI inspection
 - `cli` — the `ddcore` commands and the development loop

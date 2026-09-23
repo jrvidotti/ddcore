@@ -77,6 +77,7 @@ export default defineConfig({
           { text: 'Event Notifications', link: '/agent/notifications' },
           { text: 'Email Templates & Delivery', link: '/agent/mail' },
           { text: 'Outgoing Webhooks', link: '/agent/webhooks' },
+          { text: 'External Databases', link: '/agent/external-db' },
           { text: 'Print Templates & PDF', link: '/agent/print' },
           { text: 'Data Export', link: '/agent/export' },
           { text: 'Data Import (CSV/XLSX)', link: '/agent/data-import' }
