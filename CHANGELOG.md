@@ -47,6 +47,10 @@ not every commit that went into it.
 
 ### Changed
 
+- **The form's confirmations name the document by its title.** Applying a workflow action,
+  deleting, submitting and cancelling asked about the id — a random hash on DocTypes with
+  `idGeneration: { hash: true }`. They now use the title the form's header shows, and a
+  workflow action reads `Approve "Maria - ID card"?`.
 - **A file picked on a document not saved yet is attached when the document is saved.** It was
   uploaded detached and stayed readable only by its uploader and System Manager, so a reviewer
   could not open an attachment on a document they could read. Each Attach value, including

@@ -14,7 +14,7 @@ Account,Conta,# desk/src/lib/components/Profile.svelte:137
 Action,Ação,# core.doctypes.audit_event.audit_event.doctype
 Action '{0}' applied,Ação '{0}' aplicada,# desk/src/lib/form.svelte.ts:355
 Action '{0}' is not valid for {1} {2} in state '{3}',Ação '{0}' não é válida para {1} {2} no estado '{3}',# internal/engine/workflow.go:104
-Actions,Ações,# desk/src/lib/components/FormView.svelte:404
+Actions,Ações,# desk/src/lib/components/FormView.svelte:405
 Active sessions,Sessões ativas,# desk/src/lib/components/Profile.svelte:195
 Actor,Autor,# core.doctypes.audit_event.audit_event.doctype
 Add child,Adicionar filho,# desk/src/lib/components/views/TreeView.svelte:131
@@ -28,7 +28,7 @@ All rows matching the filters ({0}) as CSV,Todas as linhas que casam com os filt
 All rows matching the filters ({0}) as NDJSON,Todas as linhas que casam com os filtros ({0}) em NDJSON,# desk/src/lib/components/ListView.svelte:381
 All rows matching the filters ({0}) as NDJSON with the child tables,Todas as linhas que casam com os filtros ({0}) em NDJSON com as tabelas filhas,# desk/src/lib/components/ListView.svelte:382
 Allowed,Permitido,# core.doctypes.audit_event.audit_event.doctype
-Amend,Emendar,# desk/src/lib/components/FormView.svelte:442
+Amend,Emendar,# desk/src/lib/components/FormView.svelte:443
 An account was created for you on {0}. Choose a password to get in.,Uma conta foi criada para você em {0}. Escolha uma senha para entrar.,# core/mail/invite.mail.ts:22
 Another column already fills this field,Outra coluna já preenche este campo,# internal/engine/data_import.go:433
 Applicable For,Aplicável Para,# core.doctypes.user_permission.user_permission.doctype
@@ -74,7 +74,7 @@ Can Share,Pode compartilhar,# desk/src/lib/components/ShareModal.svelte:73
 Can Write,Pode editar,# desk/src/lib/components/ShareModal.svelte:72
 Cancel,Cancelar,# desk/src/lib/components/AssignModal.svelte:118
 Cancel {0} {1} before deleting,Cancele {0} {1} antes de apagar,# internal/engine/doc.go:1236
-Cancel {0}?,Cancelar {0}?,# desk/src/lib/components/FormView.svelte:439
+Cancel {0}?,Cancelar {0}?,# desk/src/lib/components/FormView.svelte:440
 Cancelled,Cancelado,# desk/src/lib/components/ListView.svelte:332
 Cannot delete,Não é possível apagar,# internal/engine/doc.go:2030
 Cannot manually modify workflow state field '{0}'. Use workflow actions to transition.,Não é permitido alterar manualmente o campo de estado de workflow '{0}'. Use ações de workflow para a transição.,# internal/engine/doc.go:712
@@ -86,7 +86,7 @@ Change,Alterar,# desk/src/lib/controls/Control.svelte:183
 Change history,Histórico de Alterações,# desk/src/lib/components/DocSidebar.svelte:305
 Change my password,Trocar minha senha,# desk/src/routes/login/reset/+page.svelte:74
 Change password,Trocar a senha,# desk/src/lib/components/Profile.svelte:190
-Changed by someone else — reload,Alterado por outro usuário — recarregar,# desk/src/lib/components/FormView.svelte:365
+Changed by someone else — reload,Alterado por outro usuário — recarregar,# desk/src/lib/components/FormView.svelte:366
 Changes,Alterações,# core.doctypes.version.version.doctype
 Changes discarded,Alterações descartadas,# desk/src/lib/components/FormView.svelte:163
 Changing the password signs out every other device.,Trocar a senha desconecta todos os outros dispositivos.,# desk/src/lib/components/Profile.svelte:189
@@ -156,7 +156,7 @@ Details,Detalhes,# desk/src/lib/components/FormView.svelte:171
 Device,Dispositivo,# desk/src/lib/components/Profile.svelte:200
 Direct submit or cancel is disabled for documents governed by workflow '{0}',O envio ou cancelamento direto está desativado para documentos controlados pelo workflow '{0}',# internal/engine/doc.go:715
 Disabled,Desativado,# core.doctypes.letter_head.letter_head.doctype
-Discard,Descartar,# desk/src/lib/components/FormView.svelte:400
+Discard,Descartar,# desk/src/lib/components/FormView.svelte:401
 Discard changes,Descartar alterações,# desk/src/lib/components/FormView.svelte:160
 Discard your unsaved changes?,Descartar suas alterações não salvas?,# desk/src/lib/components/FormView.svelte:160
 DocType,DocType,# core.doctypes.comment.comment.doctype
@@ -172,7 +172,7 @@ Download rows with errors,Baixar linhas com erro,# desk/src/lib/components/DataI
 Download template,Baixar modelo,# desk/src/lib/components/DataImportModal.svelte:156
 Draft,Rascunho,# desk/src/lib/components/ListView.svelte:332
 Due Date,Data de Vencimento,# desk/src/lib/components/AssignModal.svelte:92
-Duplicate,Duplicar,# desk/src/lib/components/FormView.svelte:389
+Duplicate,Duplicar,# desk/src/lib/components/FormView.svelte:390
 Duplicate ID,ID duplicado,# internal/engine/doc.go:1910
 Duplicate value,Valor duplicado,# internal/engine/doc.go:1822
 Duplicate value in {0},Valor duplicado em {0},# internal/engine/doc.go:1920
@@ -283,7 +283,7 @@ Job {0} is {1}; only a failed or cancelled job can be retried,O job {0} está {1
 Job {0} was already retried as {1},O job {0} já foi repetido como {1},# internal/engine/jobs_admin.go:146
 Kanban,Kanban,# desk/src/lib/components/ListView.svelte:443
 Key revoked,Chave revogada,# desk/src/lib/components/Profile.svelte:123
-Keyboard shortcuts,Atalhos de teclado,# desk/src/lib/components/FormView.svelte:393
+Keyboard shortcuts,Atalhos de teclado,# desk/src/lib/components/FormView.svelte:394
 Language,Idioma,# desk/src/lib/components/PrintView.svelte:190
 Last login,Último acesso,# desk/src/lib/components/Profile.svelte:141
 Last seen,Último acesso,# desk/src/lib/components/Profile.svelte:200
@@ -304,7 +304,7 @@ Load more,Carregar mais,# desk/src/lib/components/portal/PortalList.svelte:53
 Loading notifications…,Carregando notificações…,# desk/src/routes/app/notifications/+page.svelte:32
 Loading tasks…,Carregando tarefas…,# desk/src/routes/app/todo/+page.svelte:146
 Loading...,Carregando...,# desk/src/lib/components/DocSidebar.svelte:125
-Loading…,Carregando...,# desk/src/lib/components/FormView.svelte:498
+Loading…,Carregando...,# desk/src/lib/components/FormView.svelte:499
 Logo Image,Imagem do Logo,# core.doctypes.letter_head.letter_head.doctype
 Low,Baixa,# desk/src/lib/components/AssignModal.svelte:98
 Mail template {0} does not exist,O modelo de mensagem {0} não existe,# internal/engine/mailqueue.go:86
@@ -382,7 +382,7 @@ None,Nenhum,# desk/src/lib/components/PrintView.svelte:181
 Not permitted to change {0},Sem permissão para alterar {0},# internal/api/api.go:1376
 Not permitted to upload files to {0},Sem permissão para enviar arquivos para {0},# internal/api/api.go:1469
 Not permitted to upload here,Sem permissão para enviar arquivos aqui,# internal/api/api.go:1428
-Not saved,Não salvo,# desk/src/lib/components/FormView.svelte:361
+Not saved,Não salvo,# desk/src/lib/components/FormView.svelte:362
 Not shared with anyone,Não compartilhado com ninguém,# desk/src/lib/components/DocSidebar.svelte:198
 Nothing here yet.,Nada por aqui ainda.,# desk/src/lib/components/portal/PortalList.svelte:22
 Notification not found,Notificação não encontrada,# internal/engine/notifications.go:331
@@ -428,7 +428,7 @@ Preview,Pré-visualizar,# desk/src/lib/controls/MarkdownControl.svelte:43
 Previous,Anterior,# desk/src/lib/components/views/GanttView.svelte:46
 Previous month,Mês anterior,# desk/src/lib/components/views/CalendarView.svelte:46
 Previous year,Ano anterior,# desk/src/lib/controls/MonthControl.svelte:217
-Print,Imprimir,# desk/src/lib/components/FormView.svelte:382
+Print,Imprimir,# desk/src/lib/components/FormView.svelte:383
 Print Preview,Visualização de Impressão,# desk/src/lib/components/PrintView.svelte:232
 Print template {0} does not exist,Modelo de impressão {0} não existe,# internal/engine/print.go:116
 "Print template {0} is for {1}, not {2}","Modelo de impressão {0} é para {1}, não {2}",# internal/engine/print.go:123
@@ -448,12 +448,12 @@ Reference Document,Documento de Referência,# core.doctypes.todo.todo.doctype
 Reference ID,ID de Referência,# core.doctypes.email_delivery.email_delivery.doctype
 Refresh,Atualizar,# desk/src/routes/app/notifications/+page.svelte:18
 Refuses a row changed since this file was exported,Recusa uma linha alterada desde que este arquivo foi exportado,# internal/engine/data_import.go:413
-Reload,Recarregar,# desk/src/lib/components/FormView.svelte:388
+Reload,Recarregar,# desk/src/lib/components/FormView.svelte:389
 Remove,Remover,# desk/src/lib/controls/AttachControl.svelte:83
 Remove share,Remover compartilhamento,# desk/src/lib/components/DocSidebar.svelte:224
 Remove the status filter,Remover filtro de status,# desk/src/lib/components/ListView.svelte:469
 Remove the {0} filter,Remover filtro de {0},# desk/src/lib/components/ListView.svelte:478
-Rename,Renomear,# desk/src/lib/components/FormView.svelte:390
+Rename,Renomear,# desk/src/lib/components/FormView.svelte:391
 Rename {0},Renomear {0},# desk/src/lib/components/FormView.svelte:245
 Rendering print preview...,Renderizando visualização de impressão...,# desk/src/lib/components/PrintView.svelte:217
 Replace,Substituir,# desk/src/lib/controls/AttachControl.svelte:81
@@ -480,7 +480,7 @@ Row,Linha,# desk/src/lib/components/DataImportModal.svelte:219
 Row #{0} changed,Linha #{0} alterada,# desk/src/lib/components/DocHistory.svelte:170
 Row added,Linha adicionada,# desk/src/lib/components/DocHistory.svelte:146
 Row removed,Linha removida,# desk/src/lib/components/DocHistory.svelte:207
-Save,Salvar,# desk/src/lib/components/FormView.svelte:428
+Save,Salvar,# desk/src/lib/components/FormView.svelte:429
 Save or update the record,Salvar ou atualizar registro,# desk/src/lib/shortcuts.ts:91
 Save the document first,Salve o documento antes,# desk/src/lib/form.svelte.ts:414
 Saved,Salvo,# desk/src/lib/components/portal/PortalForm.svelte:45
@@ -540,8 +540,8 @@ Status,Status,# desk/src/lib/components/portal/PortalList.svelte:29
 Strikethrough,Tachado,# desk/src/lib/controls/RichTextControl.svelte:113
 Subheading,Subtítulo,# desk/src/lib/controls/RichTextControl.svelte:116
 Subject,Assunto,# core.doctypes.email_delivery.email_delivery.doctype
-Submit,Enviar,# desk/src/lib/components/FormView.svelte:431
-Submit {0} permanently?,Enviar permanentemente {0}?,# desk/src/lib/components/FormView.svelte:431
+Submit,Enviar,# desk/src/lib/components/FormView.svelte:432
+Submit {0} permanently?,Enviar permanentemente {0}?,# desk/src/lib/components/FormView.svelte:432
 Submitted,Enviado,# desk/src/lib/components/ListView.svelte:332
 Submitted document,Documento enviado,# internal/engine/doc.go:1976
 System,Sistema,# desk/src/lib/components/Sidebar.svelte:152
@@ -627,7 +627,7 @@ Unknown sign-in provider,Provedor de acesso desconhecido,# internal/api/oidc.go:
 Unread,Não lida,# desk/src/routes/app/notifications/+page.svelte:24
 Unsaved changes,Alterações não salvas,# desk/src/lib/components/FormView.svelte:100
 Unsaved changes recovered,Alterações não salvas recuperadas,# desk/src/lib/components/FormView.svelte:106
-Update,Atualizar,# desk/src/lib/components/FormView.svelte:436
+Update,Atualizar,# desk/src/lib/components/FormView.svelte:437
 Update existing records,Atualizar registros existentes,# desk/src/lib/components/DataImportModal.svelte:150
 Updating needs an ID column naming the record each row changes,A atualização precisa de uma coluna ID indicando o registro que cada linha altera,# internal/engine/data_import.go:321
 Uploaded,Enviado em,# desk/src/lib/controls/AttachControl.svelte:73
@@ -723,6 +723,7 @@ user is required,user é obrigatório,# internal/engine/share.go:288
 webhook payload for {0} is not JSON: {1},o conteúdo do webhook para {0} não é JSON: {1},# internal/engine/webhooks.go:263
 "{0} ""{1}"" already exists","{0} ""{1}"" já existe",# internal/engine/doc.go:1917
 "{0} ""{1}"" already exists on {2} {3}","{0} ""{1}"" já existe em {2} {3}",# internal/engine/doc.go:1822
+"{0} ""{1}""?","{0} ""{1}""?",# desk/src/lib/components/FormView.svelte:326
 {0} already exists,{0} já existe,# internal/engine/doc.go:1913
 {0} already exists on {1} {2},{0} já existe em {1} {2},# internal/engine/doc.go:1859
 {0} applied action '{1}' ({2} → {3}),{0} aplicou a ação '{1}' ({2} → {3}),# internal/engine/workflow.go:187
@@ -795,7 +796,6 @@ webhook payload for {0} is not JSON: {1},o conteúdo do webhook para {0} não é
 {0} {1} was changed by someone else. Reload and try again.,O documento {0} {1} foi alterado por outro usuário. Recarregue e tente de novo.,# internal/engine/doc.go:2117
 {0} {1}: docstatus {2} on a DocType that is not submittable,{0} {1}: docstatus {2} em um DocType que não é submetível,# internal/engine/import.go:71
 {0} {1}: invalid docstatus {2},{0} {1}: docstatus {2} inválido,# internal/engine/import.go:73
-{0} {1}?,{0} {1}?,# desk/src/lib/components/FormView.svelte:325
 "{0}, row {1}: {2}","{0}, linha {1}: {2}",# internal/engine/doc.go:1941
 "{0}: ""{1}"" is not a date","{0}: ""{1}"" não é uma data",# internal/engine/data_import.go:644
 "{0}: ""{1}"" is not a date and time","{0}: ""{1}"" não é uma data e hora",# internal/engine/data_import.go:660

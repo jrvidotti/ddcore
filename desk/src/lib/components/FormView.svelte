@@ -265,7 +265,7 @@
   }
 
   async function remove() {
-    if (!frm || !(await confirm(__("Delete {0}?", [frm.doc.id]), __("Delete"), { destructive: true }))) return;
+    if (!frm || !(await confirm(__("Delete {0}?", [title]), __("Delete"), { destructive: true }))) return;
     leaving = true; // the record is going away: unsaved edits go with it
     try {
       await frm.delete();
@@ -322,7 +322,8 @@
 
   async function handleWorkflowAction(action: string) {
     if (!frm) return;
-    if (await confirm(__("{0} {1}?", [__(action), frm.doc.id]), __(action))) {
+    // the document's title, not its id: a hash id tells the reader nothing
+    if (await confirm(__('{0} "{1}"?', [__(action), title]), __(action))) {
       await frm.applyWorkflowAction(action);
     }
   }
@@ -428,7 +429,7 @@
               <button class="btn primary" disabled={frm.saving} onclick={() => frm?.save()} title="{__('Save')} ({modKey}+S)">{__("Save")}<kbd class="btn-kbd">{modKey}S</kbd></button>
             {/if}
           {:else if !frm.workflow && frm.perm.submit}
-            <button class="btn primary" disabled={frm.saving} onclick={async () => (await confirm(__("Submit {0} permanently?", [frm?.doc.id]), __("Submit"))) && frm?.submit()}>{__("Submit")}</button>
+            <button class="btn primary" disabled={frm.saving} onclick={async () => (await confirm(__("Submit {0} permanently?", [title]), __("Submit"))) && frm?.submit()}>{__("Submit")}</button>
           {/if}
         {:else if frm.docstatus === 1}
           {#if frm.isDirty}
@@ -436,7 +437,7 @@
               <button class="btn primary" disabled={frm.saving} onclick={() => frm?.save()} title="{__('Update')} ({modKey}+S)">{__("Update")}<kbd class="btn-kbd">{modKey}S</kbd></button>
             {/if}
           {:else if !frm.workflow && frm.perm.cancel}
-            <button class="btn" disabled={frm.saving} onclick={async () => (await confirm(__("Cancel {0}?", [frm?.doc.id]), __("Cancel"), { destructive: true })) && frm?.cancel()}>{__("Cancel")}</button>
+            <button class="btn" disabled={frm.saving} onclick={async () => (await confirm(__("Cancel {0}?", [title]), __("Cancel"), { destructive: true })) && frm?.cancel()}>{__("Cancel")}</button>
           {/if}
         {:else if frm.perm.amend}
           <button class="btn primary" onclick={() => frm?.amend()}>{__("Amend")}</button>
