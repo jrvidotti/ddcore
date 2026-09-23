@@ -12,6 +12,8 @@ not every commit that went into it.
 
 ## Unreleased
 
+## 0.19.1 — 2026-09-23
+
 ### Fixed
 
 - **A document's title in a form confirmation is escaped.** 0.19.0 put the title into the
