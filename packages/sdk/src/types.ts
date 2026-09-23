@@ -422,7 +422,7 @@ export interface ReportResult {
   totals?: Record<string, any>;
   chart?: ChartData;
   /** summary cards shown above the table */
-  summary?: { label: string; value: any; datatype?: "Currency" | "Int" | "Float" | "Data"; indicator?: string }[];
+  summary?: { label: string; value: any; datatype?: "Currency" | "Int" | "Float" | "Data" | "Date" | "Datetime"; indicator?: string }[];
 }
 
 export interface ChartData {

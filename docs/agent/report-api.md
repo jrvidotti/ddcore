@@ -17,10 +17,14 @@ export default defineReport({
 });
 ```
 Date filter defaults: `"Today"`, `"month_start"`, `"month_end"`, `"-11m"` (the first of the month, N months ago).
+A summary card's `datatype` is `Currency`, `Int`, `Float`, `Data`, `Date` or `Datetime`, and the
+card is formatted like a cell of that type; without one, a number is shown as a number and
+anything else as text.
 Route: `/app/report/<name>`; API: `GET /api/report/<name>?filters={...}`.
 
 A report's `name`, its column labels and its chart labels are all human-facing: `label:` in the
-definition is a catalogue key the server translates, and anything built inside `execute` goes
+definition is a catalogue key the server translates (a report's `label` defaults to its `name`,
+which is then the key), and anything built inside `execute` goes
 through `_()`. A status is its own key — `_(row.status)` — because a Select value is canonical
 English. See `i18n`.
 

@@ -99,6 +99,17 @@ export function formatValue(v: any, f?: Partial<Field>): string {
 }
 
 /**
+ * A report summary card. Its datatype is a fieldtype, formatted like a cell of
+ * that type; without one, a number is formatted as a number and anything else
+ * is shown as the text it is.
+ */
+export function formatSummary(s: { value: any; datatype?: string }): string {
+  if (s.datatype) return formatValue(s.value, { fieldtype: s.datatype } as Partial<Field>);
+  if (typeof s.value === "number") return formatNumber(s.value);
+  return s.value == null ? "" : String(s.value);
+}
+
+/**
  * Parses what the current locale prints: "1.234,56" in pt-BR, "1,234.56" in
  * en-US. The separators are derived, not assumed — reading "1,234" as 1.234
  * because the code knows only about commas is a silent, expensive error.

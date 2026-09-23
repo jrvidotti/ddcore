@@ -1,7 +1,7 @@
 <script lang="ts">
   import { api } from "$lib/api";
   import { boot, __ } from "$lib/boot.svelte";
-  import { formatValue, formatCurrency, formatNumber, statusColor } from "$lib/format";
+  import { formatValue, formatSummary, statusColor } from "$lib/format";
   import { getLinkTitle } from "$lib/titles.svelte";
   import Control from "$lib/controls/Control.svelte";
   import BarChart from "./BarChart.svelte";
@@ -77,7 +77,6 @@
     } catch (e) { showError(e); }
   });
   const num = (c: any) => isNumericFieldtype(c.fieldtype);
-  const fmtSummary = (s: any) => (s.datatype === "Currency" ? formatCurrency(s.value) : s.datatype === "Int" ? String(s.value) : formatNumber(s.value));
   function exportCsv() {
     if (!result) return;
     const cols = result.columns;
@@ -108,7 +107,7 @@
     </div>
   {/if}
   {#if result?.summary?.length}
-    <div class="summary">{#each result.summary as s}<div class="item {s.indicator || ''}"><div class="l">{s.label}</div><div class="v">{fmtSummary(s)}</div></div>{/each}</div>
+    <div class="summary">{#each result.summary as s}<div class="item {s.indicator || ''}"><div class="l">{s.label}</div><div class="v">{formatSummary(s)}</div></div>{/each}</div>
   {/if}
   {#if result?.chart}
     <div class="card" style="padding:16px 20px;margin-bottom:12px"><BarChart data={result.chart} /></div>

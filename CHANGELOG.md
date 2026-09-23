@@ -22,6 +22,16 @@ not every commit that went into it.
   first, then the title). `GET /api/tree/{doctype}` accepts `fields` and `order_by` for this, and
   returns the fields under each node's `values`.
 
+### Fixed
+
+- **A report summary card with `datatype: "Data"` shows its text** (#8). The desk formatted every
+  card that was not Currency or Int as a number, so a text value read `0`. A card is now formatted
+  like a cell of its `datatype`, which also accepts `"Date"` and `"Datetime"` (shown on the site
+  clock); with no `datatype`, a number is formatted as a number and anything else as text.
+- **`i18n extract` collects the name of a report with no `label`** (#9). Such a report is shown,
+  and translated, under its `name`, but the extractor never saw that key, so it stayed in English
+  and `--check` did not report it. Apps with unlabelled reports get a new key to translate.
+
 ## 0.18.1 — 2026-09-23
 
 ### Added

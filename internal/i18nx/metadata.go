@@ -109,3 +109,16 @@ func CollectTree(s *Set, v any, file string) {
 		}
 	}
 }
+
+// CollectReport collects a report's tree and, when it declares no label, its
+// name: the runtime shows and translates the name in that case
+// (orStr(label, name)), so the name is a catalogue key there too.
+func CollectReport(s *Set, rep map[string]any, file string) {
+	CollectTree(s, rep, file)
+	if l, _ := rep["label"].(string); l != "" {
+		return
+	}
+	if n, _ := rep["name"].(string); n != "" {
+		s.Add(n, file, 0)
+	}
+}

@@ -106,7 +106,7 @@ func collectMeta(s *Set, e *engine.Engine, t Target) {
 	}
 	for _, rep := range st.Snap.Reports {
 		if appOf(rep) == t.App {
-			CollectTree(s, map[string]any(rep), t.App+" report")
+			CollectReport(s, map[string]any(rep), t.App+" report")
 		}
 	}
 	for _, wf := range st.Snap.Workflows {

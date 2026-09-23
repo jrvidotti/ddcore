@@ -240,3 +240,18 @@ func TestCollectDocTypeLeavesNonSelectOptionsAlone(t *testing.T) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
 }
+
+// A report with no label is shown under its name, which the server translates;
+// with a label, the name is only an identifier.
+func TestCollectReportNameWithoutLabel(t *testing.T) {
+	s := NewSet()
+	CollectReport(s, map[string]any{"name": "Logged Claims"}, "crm report")
+	if got, want := texts(s), []string{"Logged Claims"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+	labelled := NewSet()
+	CollectReport(labelled, map[string]any{"name": "claims", "label": "Claims"}, "crm report")
+	if got, want := texts(labelled), []string{"Claims"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+}
