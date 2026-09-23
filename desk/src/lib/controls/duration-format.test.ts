@@ -55,25 +55,25 @@ const EN = { days: "d", hours: "h", minutes: "m", seconds: "s" };
 const PT = { days: "d", hours: "h", minutes: "min", seconds: "s" };
 
 describe("durationSegments", () => {
-  it("writes one box with every unit two digits wide, and where each unit is", () => {
+  it("writes every unit in one box, unpadded, and where each unit is", () => {
     expect(durationSegments(9000, {}, EN)).toEqual({
-      text: "00d 02h 30m 00s",
+      text: "0d 2h 30m 0s",
       segs: [
-        { unit: "days", start: 0, end: 2 },
-        { unit: "hours", start: 4, end: 6 },
-        { unit: "minutes", start: 8, end: 10 },
-        { unit: "seconds", start: 12, end: 14 },
+        { unit: "days", start: 0, end: 1 },
+        { unit: "hours", start: 3, end: 4 },
+        { unit: "minutes", start: 6, end: 8 },
+        { unit: "seconds", start: 10, end: 11 },
       ],
     });
   });
   it("follows a translated label's width", () => {
     const { text, segs } = durationSegments(9000, {}, PT);
-    expect(text).toBe("00d 02h 30min 00s");
-    expect(segs[3]).toEqual({ unit: "seconds", start: 14, end: 16 });
+    expect(text).toBe("0d 2h 30min 0s");
+    expect(segs[3]).toEqual({ unit: "seconds", start: 12, end: 13 });
   });
   it("drops a hidden unit and lets the first one grow", () => {
-    expect(durationSegments(93784, { hideDays: true, hideSeconds: true }, EN).text).toBe("26h 03m");
-    expect(durationSegments(200 * 86400, {}, EN).text).toBe("200d 00h 00m 00s");
+    expect(durationSegments(93784, { hideDays: true, hideSeconds: true }, EN).text).toBe("26h 3m");
+    expect(durationSegments(200 * 86400, {}, EN).text).toBe("200d 0h 0m 0s");
   });
 });
 
@@ -82,8 +82,9 @@ describe("segmentAt", () => {
   it("finds the unit under the caret, its label included", () => {
     expect(segmentAt(segs, 0)).toBe(0);
     expect(segmentAt(segs, 2)).toBe(0);
-    expect(segmentAt(segs, 4)).toBe(1);
-    expect(segmentAt(segs, 12)).toBe(2);
+    expect(segmentAt(segs, 3)).toBe(1);
+    expect(segmentAt(segs, 10)).toBe(2);
+    expect(segmentAt(segs, 11)).toBe(3);
     expect(segmentAt(segs, 99)).toBe(3);
   });
 });

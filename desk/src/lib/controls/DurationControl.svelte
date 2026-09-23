@@ -1,5 +1,5 @@
 <script lang="ts">
-  // A Duration is whole seconds, edited in one box that reads `01d 02h 30m 00s`:
+  // A Duration is whole seconds, edited in one box that reads `1d 2h 30m 0s`:
   // the arrows up and down step the unit under the caret, left and right move
   // between units, and digits fill the selected unit — as a native time input.
   import { __ } from "$lib/boot.svelte";

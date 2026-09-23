@@ -90,7 +90,7 @@ export interface DurationSegment {
 }
 
 /**
- * Writes the single-input form, `01d 02h 30m 00s`, and where each unit's
+ * Writes the single-input form, `1d 2h 30m 0s`, and where each unit's
  * digits are. The labels are the translated ones, so the ranges follow them.
  */
 export function durationSegments(secs: any, o: DurationOptions, labels: DurationLabels): { text: string; segs: DurationSegment[] } {
@@ -100,7 +100,7 @@ export function durationSegments(secs: any, o: DurationOptions, labels: Duration
   for (const unit of durationUnits(o)) {
     if (text) text += " ";
     const start = text.length;
-    text += String(parts[unit]).padStart(2, "0");
+    text += String(parts[unit]);
     segs.push({ unit, start, end: text.length });
     text += labels[unit];
   }

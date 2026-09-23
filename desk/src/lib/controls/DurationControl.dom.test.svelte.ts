@@ -23,14 +23,14 @@ function setup(initial: number | null) {
 describe("DurationControl", () => {
   it("steps the selected unit with up and down, and moves with left and right", () => {
     const t = setup(9000);
-    expect(t.input.value).toBe("00d 02h 30m 00s");
+    expect(t.input.value).toBe("0d 2h 30m 0s");
     t.input.focus();
     t.key("ArrowRight");
     t.key("ArrowRight");
     expect(t.selected()).toBe("30");
     t.key("ArrowUp");
     expect(t.props.value).toBe(9060);
-    expect(t.input.value).toBe("00d 02h 31m 00s");
+    expect(t.input.value).toBe("0d 2h 31m 0s");
     expect(t.selected()).toBe("31");
     t.key("ArrowLeft");
     t.key("ArrowDown");
@@ -48,7 +48,7 @@ describe("DurationControl", () => {
     t.key("1");
     t.key("5");
     expect(t.props.value).toBe(15 * 3600);
-    expect(t.selected()).toBe("00");
+    expect(t.selected()).toBe("0");
     t.key("Backspace");
     t.key("ArrowLeft");
     t.key("Backspace");
