@@ -12,6 +12,8 @@ not every commit that went into it.
 
 ## Unreleased
 
+## 0.18.4 — 2026-09-23
+
 ### Added
 
 - **Dialogs answer the keyboard.** Escape closes the dialog on top and Enter runs its primary
