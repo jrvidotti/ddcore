@@ -39,7 +39,7 @@
         dangerLabel: __("Delete attachment"),
         dangerAction: async (_values: Record<string, any>, dlg: any) => {
           await confirmRowRemoval(
-            () => confirm(__("Delete this attachment?"), __("Delete attachment")),
+            () => confirm(__("Delete this attachment?"), __("Delete attachment"), { destructive: true }),
             () => { remove(i); dlg.hide(); },
           );
         },

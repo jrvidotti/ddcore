@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("./boot.svelte", () => ({ __: (s: string) => s }));
 
-import { dialog, ui } from "./ui.svelte";
+import { confirm, dialog, ui } from "./ui.svelte";
 
 afterEach(() => {
   ui.dialogs.splice(0);
@@ -19,5 +19,34 @@ describe("dialog field properties", () => {
     d.setDfProperty("apply_late_fee", "hidden", true);
 
     expect(ui.dialogs[0].spec.fields?.[0].hidden).toBe(true);
+  });
+});
+
+describe("confirm", () => {
+  it("makes Yes the primary action of an ordinary question", async () => {
+    const answer = confirm("Send it again?");
+    const d = ui.dialogs[0];
+    expect(d.spec.primaryLabel).toBe("Yes");
+    expect(d.spec.dangerAction).toBeUndefined();
+    d.spec.primaryAction!({}, d);
+    expect(await answer).toBe(true);
+  });
+
+  it("makes No the primary action when the answer destroys something", async () => {
+    const answer = confirm("Discard your unsaved changes?", "Discard changes", { destructive: true });
+    const d = ui.dialogs[0];
+    expect(d.spec.primaryLabel).toBe("No");
+    expect(d.spec.dangerLabel).toBe("Yes");
+    expect(d.spec.hideSecondary).toBe(true);
+    d.spec.primaryAction!({}, d);
+    expect(await answer).toBe(false);
+    expect(ui.dialogs).toHaveLength(0);
+  });
+
+  it("answers yes to a destructive question only through the danger button", async () => {
+    const answer = confirm("Delete TASK-1?", "Delete", { destructive: true });
+    const d = ui.dialogs[0];
+    d.spec.dangerAction!({}, d);
+    expect(await answer).toBe(true);
   });
 });

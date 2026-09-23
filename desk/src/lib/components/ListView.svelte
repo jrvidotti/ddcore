@@ -348,7 +348,7 @@
   }
   function toggle(id: string) { const s = new Set(selected); s.has(id) ? s.delete(id) : s.add(id); selected = s; }
   async function deleteSelected() {
-    if (!(await confirm(__("Delete {0} record(s)?", [selected.size])))) return;
+    if (!(await confirm(__("Delete {0} record(s)?", [selected.size]), undefined, { destructive: true }))) return;
     let ok = 0;
     for (const n of selected) { try { await api.remove(doctype, n); ok++; } catch (e) { showError(e); } }
     toast(__("{0} deleted", [ok]), { indicator: "green" });

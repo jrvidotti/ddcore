@@ -88,7 +88,7 @@
       </div>
       <div class="foot">
         {#if d.spec.dangerAction}<button class="btn danger" disabled={d.busy} onclick={() => danger(d)}>{d.spec.dangerLabel || __("Delete")}</button><span class="spacer"></span>{/if}
-        <button class="btn" onclick={() => cancel(d)}>{d.spec.secondaryLabel || __("Cancel")}</button>
+        {#if !d.spec.hideSecondary}<button class="btn" onclick={() => cancel(d)}>{d.spec.secondaryLabel || __("Cancel")}</button>{/if}
         {#if d.spec.primaryAction || d.spec.primaryLabel}
           <button class="btn primary" disabled={d.busy} onclick={() => primary(d)}>{d.spec.primaryLabel || "OK"}</button>
         {/if}

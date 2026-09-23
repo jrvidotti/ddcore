@@ -113,7 +113,7 @@
   }
 
   async function revokeKey(k: any) {
-    if (!(await confirm(__("Revoke the key {0}?", [k.label || k.id])))) return;
+    if (!(await confirm(__("Revoke the key {0}?", [k.label || k.id]), undefined, { destructive: true }))) return;
     try {
       await api.call("core.services.api_keys.revokeMyAPIKey", { id: k.id });
       await loadKeys();

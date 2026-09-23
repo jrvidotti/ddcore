@@ -10,6 +10,8 @@ export interface DialogSpec {
   values?: Record<string, any>;
   primaryLabel?: string;
   secondaryLabel?: string;
+  /** leave out the secondary (Cancel) button, for a dialog whose primary action already cancels */
+  hideSecondary?: boolean;
   primaryAction?: (values: Record<string, any>, dialog: DialogHandle) => any;
   dangerLabel?: string;
   dangerAction?: (values: Record<string, any>, dialog: DialogHandle) => any;
@@ -87,12 +89,27 @@ export function dialog(spec: DialogSpec): DialogHandle {
   return h;
 }
 
-export function confirm(message: string, title?: string): Promise<boolean> {
+export interface ConfirmOptions {
+  /**
+   * The answer loses something (deletes, discards, revokes). "Yes" turns into
+   * a danger button and "No" becomes the primary one, so Enter keeps the data.
+   */
+  destructive?: boolean;
+}
+
+export function confirm(message: string, title?: string, opts: ConfirmOptions = {}): Promise<boolean> {
   return new Promise((resolve) => {
-    const h = dialog({
-      title: title ?? __("Confirm"), message, primaryLabel: __("Yes"), secondaryLabel: __("No"), size: "sm",
-      primaryAction: () => { resolve(true); h.hide(); },
-    });
+    const base = { title: title ?? __("Confirm"), message, size: "sm" as const };
+    const h = opts.destructive
+      ? dialog({
+        ...base, hideSecondary: true,
+        primaryLabel: __("No"), primaryAction: () => { resolve(false); h.hide(); },
+        dangerLabel: __("Yes"), dangerAction: () => { resolve(true); h.hide(); },
+      })
+      : dialog({
+        ...base, primaryLabel: __("Yes"), secondaryLabel: __("No"),
+        primaryAction: () => { resolve(true); h.hide(); },
+      });
     (h as any).onCancel = () => resolve(false);
     h.show();
   });

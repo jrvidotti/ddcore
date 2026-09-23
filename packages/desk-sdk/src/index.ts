@@ -204,7 +204,8 @@ export interface DeskAPI {
     dialog(spec: DialogSpec): DialogHandle;
     msgprint(message: string, opts?: { title?: string; indicator?: string }): void;
     alert(message: string): void;
-    confirm(message: string, title?: string): Promise<boolean>;
+    /** `destructive`: the confirm button is a danger one and "No" is the primary, so Enter keeps the data. */
+    confirm(message: string, title?: string, opts?: { destructive?: boolean }): Promise<boolean>;
     prompt(title: string, fields: FieldDef[], primaryLabel?: string): Promise<Record<string, any> | null>;
     showError(e: any): void;
     toast(message: string, opts?: { title?: string; indicator?: string; timeout?: number }): void;
