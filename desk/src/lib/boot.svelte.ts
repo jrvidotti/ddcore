@@ -22,7 +22,7 @@ export interface Boot {
   langs: { code: string; label: string }[];
   apps: { name: string; title: string; desk: { include?: string[]; home?: string; logo?: string } | null; hasDeskInclude: boolean }[];
   workspaces: any[];
-  doctypes: Record<string, { label: string; app: string; icon: string; module: string; titleField?: string }>;
+  doctypes: Record<string, { label: string; app: string; icon: string; module: string; titleField?: string; linkSubtitle?: string[] }>;
   reports: Record<string, { label: string; refDoctype?: string; app: string }>;
   site: {
     name: string; currency: string; timezone: string; dev: boolean; scheduler: boolean; version: string;

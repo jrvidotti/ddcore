@@ -45,6 +45,7 @@ func TestSEC02_FieldPermissionValidation(t *testing.T) {
 		{"restricted naming field", func(d *DocType) { d.IDGeneration.Field = "salary" }, "idGeneration.field"},
 		{"restricted naming format", func(d *DocType) { d.IDGeneration.Format = "{title}-{salary}" }, "idGeneration.format"},
 		{"restricted search field", func(d *DocType) { d.SearchFields = []string{"title", "salary"} }, "searchFields"},
+		{"restricted link subtitle", func(d *DocType) { d.LinkSubtitle = []string{"salary"} }, "linkSubtitle"},
 		{"fetch into level 0", func(d *DocType) {
 			d.Fields = append(d.Fields, &Field{Fieldname: "cost_copy", Fieldtype: "Currency", FetchFrom: "source.cost"})
 		}, "copies a permlevel 1 field"},

@@ -321,6 +321,9 @@ type DocType struct {
 	SortField    string   `json:"sortField,omitempty"`
 	SortOrder    string   `json:"sortOrder,omitempty"`
 	SearchFields []string `json:"searchFields,omitempty"`
+	// LinkSubtitle lists the fields a Link dropdown shows under each title,
+	// in order; nil keeps the default (id and searchFields). "id" is allowed.
+	LinkSubtitle []string `json:"linkSubtitle,omitempty"`
 	// GlobalSearch opts a DocType in (true) or out (false) of the Desk's
 	// global search; nil leaves it to GloballySearchable's default.
 	GlobalSearch *bool `json:"globalSearch,omitempty"`
@@ -664,6 +667,9 @@ func (r *Registry) Validate() error {
 		for _, sf := range d.SearchFields {
 			named("searchFields", sf)
 		}
+		for _, lf := range d.LinkSubtitle {
+			named("linkSubtitle", lf)
+		}
 		validateUniqueKeys(d, e)
 		validateTree(d, e)
 		validateFieldPermissions(r, d, e)
@@ -814,6 +820,9 @@ func validateFieldPermissions(r *Registry, d *DocType, e func(string, ...any)) {
 	level0("idGeneration.field", d.IDGeneration.Field)
 	for _, sf := range d.SearchFields {
 		level0("searchFields", sf)
+	}
+	for _, lf := range d.LinkSubtitle {
+		level0("linkSubtitle", lf)
 	}
 	for _, name := range idFormatFields(d.IDGeneration.Format) {
 		level0("idGeneration.format", name)

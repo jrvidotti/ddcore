@@ -352,3 +352,34 @@ func anyList(rows []Doc) []any {
 	}
 	return out
 }
+
+// linkSubtitle columns come back from a Link search for display, and a search
+// does not match on them.
+func TestLinkSearchSubtitleColumns(t *testing.T) {
+	e := setup(t)
+	e.Meta.DocTypes["Pessoa"].LinkSubtitle = []string{"email"}
+	err := e.Run(context.Background(), "Admin", func(c *Ctx) error {
+		p, _ := c.NewDoc("Pessoa", Doc{"nome": "Bia", "cpf": "111.222.333-44", "email": "bia@x.com"})
+		if _, err := c.Insert(p, SaveOpts{}); err != nil {
+			return err
+		}
+		rows, err := c.LinkSearch("Pessoa", "Bia", nil, 20)
+		if err != nil {
+			return err
+		}
+		if len(rows) != 1 || rows[0]["email"] != "bia@x.com" || rows[0]["cpf"] != "111.222.333-44" {
+			t.Fatalf("want the subtitle column next to the search fields, got %#v", rows)
+		}
+		rows, err = c.LinkSearch("Pessoa", "bia@x", nil, 20)
+		if err != nil {
+			return err
+		}
+		if len(rows) != 0 {
+			t.Fatalf("a subtitle column is shown, not searched: %#v", rows)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}

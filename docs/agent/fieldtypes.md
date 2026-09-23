@@ -165,7 +165,7 @@ defineDoctype({
   name: "Contract", module: "Sales", label: "Contract", idLabel: "Contract No.",
   idGeneration: { series: "CTR-.YYYY.-.####" } | { field: "code" } | { format: "{index}-{period}" } | { hash: true } | { prompt: true },
   submittable: true, isChild: false, isTree: false, trackChanges: true, allowRename: true, renamedFrom: "Old Name",
-  titleField: "id", imageField: "logo", searchFields: ["id", "tax_id"], globalSearch: true, sortField: "modified", sortOrder: "desc", icon: "building-2",
+  titleField: "id", imageField: "logo", searchFields: ["id", "tax_id"], linkSubtitle: ["tax_id"], globalSearch: true, sortField: "modified", sortOrder: "desc", icon: "building-2",
   uniqueKeys: [{ name: "customer_number", fields: ["customer", "number"] }],
   fields: [...],
   permissions: [
@@ -201,7 +201,21 @@ title's initials when it is empty (see the Cards view in `form-api`). Unlike `ti
 sit above permlevel 0: a reader who cannot see it gets the initials. Any other fieldtype is refused
 at load.
 
-`titleField`, `imageField`, `sortField`, `searchFields` and `uniqueKeys` name a field by string, so a
+`linkSubtitle` picks what a **Link** dropdown shows under each option's title: the listed
+fields, in order, joined with ` · `. Left out, the line shows the id and every `searchFields`
+value, so a DocType with random ids shows the random id. `linkSubtitle: ["cpf"]` shows the CPF
+alone, and `"id"` can be listed to keep the id. The fields are shown, not searched: to find a
+row by typing its value, list the field in `searchFields` too. Like `searchFields`, they must be
+permlevel 0. An app can set it on another app's DocType with `extendDoctype`.
+
+A Link field whose value is empty shows a **+** inside the input when the user may create the
+target DocType (not in a portal). It opens a dialog asking for the target's title field, its
+prompted id and every required field a person fills in (it leaves out hidden, read-only and
+`fetchFrom` fields), with the text typed so far in the title. **Create** inserts the document
+through the ordinary API, so the controller and validations run, and puts it in the field. When
+the target has a required child table, the **+** opens the full form in a new tab instead.
+
+`titleField`, `imageField`, `sortField`, `searchFields`, `linkSubtitle` and `uniqueKeys` name a field by string, so a
 renamed field has to be changed here too — the meta refuses to load while one of them points
 at a field that no longer exists.
 

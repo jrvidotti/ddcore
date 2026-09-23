@@ -347,6 +347,13 @@ export interface DoctypeDef {
   sortOrder?: "asc" | "desc";
   searchFields?: string[];
   /**
+   * The fields a Link dropdown shows under each option's title, in order,
+   * joined with " · " — e.g. `["cpf"]` to show the CPF and not the id. Left out,
+   * it shows the id and the `searchFields`. `"id"` may be listed. Shown, not
+   * searched: list a field in `searchFields` too for typing it to find the row.
+   */
+  linkSubtitle?: string[];
+  /**
    * Whether the Desk's global search looks into this DocType. By default it
    * does when the DocType declares `titleField` or `searchFields` (never for
    * a child table or a Single); `true` includes it anyway (matching `id`),

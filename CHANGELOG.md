@@ -12,6 +12,22 @@ not every commit that went into it.
 
 ## Unreleased
 
+### Added
+
+- **`linkSubtitle` on a DocType** picks the fields a Link dropdown shows under each title, such as
+  `linkSubtitle: ["cpf"]` to show the CPF without the random id. Left out, the line is unchanged
+  (the id and the `searchFields`). The fields must exist and be permlevel 0, and `extendDoctype`
+  can set them. See `fieldtypes`.
+- **Quick create from a Link field.** An empty Link shows a **+** inside the input when the user
+  may create the target. It opens a dialog with the target's title and required fields,
+  prefilled with the typed text, and selects the new document. A target with a required child
+  table opens its full form in a new tab instead.
+
+### Changed
+
+- **The Link dropdown is denser:** tighter rows, the subtitle right under the title, and long
+  titles cut with an ellipsis.
+
 ## 0.19.1 — 2026-09-23
 
 ### Fixed

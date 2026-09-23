@@ -2,11 +2,14 @@
   // Link / Dynamic Link: typeahead over /api/search/link with a shortcut to open the target.
   import { api } from "$lib/api";
   import type { Field } from "$lib/meta";
-  import { boot } from "$lib/boot.svelte";
+  import { boot, __ } from "$lib/boot.svelte";
   import { getLinkTitle, setLinkTitle } from "$lib/titles.svelte";
   import { anchored } from "./floating";
   import { page } from "$app/state";
   import { getRememberedWorkspace } from "$lib/components/sidebar-workspace";
+  import { getMeta } from "$lib/meta";
+  import { quickCreate } from "$lib/quick-create";
+  import Icon from "$lib/components/Icon.svelte";
 
   let { field, value, onchange, doc = {}, readOnly = false, query = undefined, error = "", id = "", search: searchFn = undefined }:
     { field: Field; value: any; onchange: (v: any) => void; doc?: any; readOnly?: boolean; query?: () => { filters?: any }; error?: string; id?: string;
@@ -31,6 +34,7 @@
   });
 
   const titleField = $derived(target ? boot.data?.doctypes[target]?.titleField : undefined);
+  const linkSubtitle = $derived(target ? boot.data?.doctypes[target]?.linkSubtitle : undefined);
 
   function getOptionTitle(o: any): string {
     if (searchFn) return String(o.title || o.id);
@@ -40,6 +44,7 @@
 
   function getOptionSubtitle(o: any): string {
     if (searchFn) return o.title && o.title !== o.id ? String(o.id) : "";
+    if (linkSubtitle?.length) return linkSubtitle.map((f) => o[f]).filter((v) => v !== null && v !== undefined && v !== "").join(" · ");
     if (titleField && o[titleField]) {
       const others = Object.entries(o).filter(([k, v]) => k !== "id" && k !== titleField && v).map(([, v]) => v);
       return [o.id, ...others].join(" · ");
@@ -123,15 +128,40 @@
     else if (e.key === "Escape") { open = false; e.preventDefault(); }
   }
 
+  // "+" creates the target in a dialog, for a user who may create it; the desk only, not a portal
+  let canCreate = $state(false);
+  $effect(() => {
+    const dt = target;
+    canCreate = false;
+    if (!dt || readOnly || searchFn) return;
+    getMeta(dt).then((m) => { if (dt === target) canCreate = !!m.permissions?.create; }).catch(() => {});
+  });
+  const showAdd = $derived(canCreate && !value && !!target && !readOnly && !searchFn);
+
+  async function add() {
+    clearTimeout(timer);
+    searchVersion++;
+    open = false;
+    const typed = text;
+    const created = await quickCreate(target, typed);
+    if (!created) return;
+    setLinkTitle(target, created.id, created.title);
+    onchange(created.id);
+    text = created.title;
+  }
+
   const label = $derived(target && boot.data?.doctypes[target]?.label);
   const workspace = $derived(page.params?.workspace || getRememberedWorkspace() || "");
   const wsPrefix = $derived(workspace ? `/app/${encodeURIComponent(workspace)}` : "/app");
 </script>
 
-<div class="link-wrap" class:has-open={!!value && !!target} class:has-clear={!!value && !!target && !readOnly}>
+<div class="link-wrap" class:has-open={!!value && !!target} class:has-clear={!!value && !!target && !readOnly} class:has-add={showAdd}>
   <input bind:this={inputEl} {id} class="input" class:error={!!error} readonly={readOnly || !target} value={text} placeholder={target ? "" : "Escolha o tipo antes"} autocomplete="off"
     title={value ? `${text}${text !== value ? ` (${value})` : ""}` : ""}
     onfocus={() => { focused = true; if (!readOnly) search(text); }} {oninput} {onblur} {onkeydown} data-fieldtype="Link" />
+  {#if showAdd}
+    <button type="button" class="add" aria-label={__("New {0}", [label || target])} title={__("New {0}", [label || target])} onmousedown={(e) => e.preventDefault()} onclick={add}><Icon name="plus" size={14} /></button>
+  {/if}
   {#if value && target}
     {#if !readOnly}
       <button type="button" class="clear" aria-label="Limpar {label || target} ({value})" title="Limpar {label || target} ({value})" onmousedown={(e) => e.preventDefault()} onclick={clear}>×</button>
@@ -142,7 +172,7 @@
     <div class="options" role="listbox" use:anchored={{ anchor: inputEl, matchWidth: true, gap: 2, content: options.length }}>
       {#each options as o, i}
         <div role="option" tabindex="-1" aria-selected={i === active} class:active={i === active} onmousedown={() => pick(o)}>
-          <div>{getOptionTitle(o)}</div>
+          <div class="ttl">{getOptionTitle(o)}</div>
           {#if getOptionSubtitle(o)}<div class="sub">{getOptionSubtitle(o)}</div>{/if}
         </div>
       {/each}

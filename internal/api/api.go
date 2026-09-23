@@ -610,7 +610,7 @@ func (s *Server) boot(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			if ok, _ := c.HasPermission(n, "read", nil); ok {
-				doctypes[n] = map[string]any{"label": c.T(d.Label), "app": d.App, "icon": d.Icon, "module": d.Module, "titleField": d.TitleField}
+				doctypes[n] = map[string]any{"label": c.T(d.Label), "app": d.App, "icon": d.Icon, "module": d.Module, "titleField": d.TitleField, "linkSubtitle": d.LinkSubtitle}
 			}
 		}
 		reports := map[string]any{}

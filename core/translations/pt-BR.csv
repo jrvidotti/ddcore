@@ -118,7 +118,7 @@ Comments,Comentários,# desk/src/lib/components/DocSidebar.svelte:241
 Complete,Concluir,# desk/src/lib/components/DocSidebar.svelte:154
 Condition for action '{0}' was not met,A condição para a ação '{0}' não foi atendida,# internal/engine/workflow.go:145
 Configured,Configurado,# desk/src/lib/controls/Control.svelte:178
-Confirm,Confirmar,# desk/src/lib/ui.svelte.ts:102
+Confirm,Confirmar,# desk/src/lib/ui.svelte.ts:111
 Confirm a dialog (its primary button),Confirmar um diálogo (seu botão principal),# desk/src/lib/shortcuts.ts:102
 Confirm the new password,Confirme a nova senha,# desk/src/lib/components/Profile.svelte:184
 Content,Conteúdo,# core.doctypes.comment.comment.doctype
@@ -127,6 +127,7 @@ Copy created — save it to keep it,Cópia criada — salve para gravar,# desk/s
 Copy this key now — it is not shown again.,Copie esta chave agora — ela não é mostrada de novo.,# desk/src/lib/components/Profile.svelte:227
 Could not load the form script: {0},Falha ao carregar o script do formulário: {0},# desk/src/lib/form.svelte.ts:55
 Could not read the file: {0},Não foi possível ler o arquivo: {0},# internal/engine/data_import.go:302
+Create,Criar,# desk/src/lib/quick-create.ts:61
 Create key,Criar chave,# desk/src/lib/components/Profile.svelte:241
 Create new records,Criar novos registros,# desk/src/lib/components/DataImportModal.svelte:149
 Created by,Criado por,# desk/src/lib/components/DocSidebar.svelte:104
@@ -363,7 +364,7 @@ No permission to delete {0} {1},Sem permissão para apagar {0} {1},# internal/en
 No permission to delete {0} {1} in workflow state '{2}',Sem permissão para apagar {0} {1} no estado de workflow '{2}',# internal/engine/doc.go:1232
 No permission to execute action '{0}' on {1} {2},Sem permissão para executar a ação '{0}' em {1} {2},# internal/engine/workflow.go:124
 No permission to export {0},Sem permissão para exportar {0},# internal/engine/export.go:175
-No permission to list {0},Sem permissão para listar {0},# internal/engine/query.go:294
+No permission to list {0},Sem permissão para listar {0},# internal/engine/query.go:295
 No permission to read field {0} of {1},Sem permissão para ler o campo {0} de {1},# internal/engine/export.go:192
 No permission to read {0} {1},Sem permissão para ler {0} {1},# internal/api/portal.go:366
 No permission to rename {0},Sem permissão para renomear {0},# internal/engine/doc.go:1369
@@ -388,7 +389,7 @@ Nothing here yet.,Nada por aqui ainda.,# desk/src/lib/components/portal/PortalLi
 Notification not found,Notificação não encontrada,# internal/engine/notifications.go:331
 Notifications,Notificações,# desk/src/lib/components/Sidebar.svelte:134
 Numbered list,Lista numerada,# desk/src/lib/controls/RichTextControl.svelte:119
-OK,OK,# desk/src/lib/ui.svelte.ts:118
+OK,OK,# desk/src/lib/ui.svelte.ts:127
 On Cancel,Ao Cancelar,# core.doctypes.webhook.webhook.doctype
 On Delete,Ao Excluir,# core.doctypes.webhook.webhook.doctype
 On Insert,Ao Inserir,# core.doctypes.webhook.webhook.doctype
@@ -405,6 +406,7 @@ Open,Aberto,# desk/src/routes/app/todo/+page.svelte:132
 Open file,Abrir arquivo,# desk/src/lib/controls/Grid.svelte:93
 Open menu,Abrir menu,# desk/src/routes/+layout.svelte:186
 Open the date picker,Abrir seletor de data,# desk/src/lib/controls/DateControl.svelte:238
+Open the full form,Abrir o formulário completo,# desk/src/lib/quick-create.ts:55
 Open the full history,Abrir histórico completo,# desk/src/lib/components/DocSidebar.svelte:274
 Open the month picker,Abrir seletor de mês,# desk/src/lib/controls/MonthControl.svelte:202
 "Optional DocType to restrict this rule to. If empty, applies globally.","DocType opcional para restringir esta regra. Se vazio, aplica globalmente.",# core.doctypes.user_permission.user_permission.doctype
@@ -621,7 +623,7 @@ Unexpected server error,Erro inesperado no servidor,# internal/api/observe.go:19
 Unknown device,Dispositivo desconhecido,# desk/src/lib/components/Profile.svelte:206
 Unknown export format: {0},Formato de exportação desconhecido: {0},# internal/api/export.go:46
 Unknown field: {0},Campo desconhecido: {0},# internal/engine/export.go:189
-Unknown groupBy: {0},groupBy desconhecido: {0},# internal/engine/query.go:480
+Unknown groupBy: {0},groupBy desconhecido: {0},# internal/engine/query.go:481
 Unknown import mode: {0},Modo de importação desconhecido: {0},# internal/engine/data_import.go:265
 Unknown sign-in provider,Provedor de acesso desconhecido,# internal/api/oidc.go:32
 Unread,Não lida,# desk/src/routes/app/notifications/+page.svelte:24
@@ -674,11 +676,11 @@ You cannot share a document with yourself,Você não pode compartilhar um docume
 You have been invited to {0},Você foi convidado para {0},# core/mail/invite.mail.ts:20
 Your account has no portal yet. Ask the people who invited you.,Sua conta ainda não tem um portal. Fale com quem convidou você.,# desk/src/routes/portal/+page.svelte:11
 changes are paused until the site reopens.,as alterações estão pausadas até o site reabrir.,# desk/src/routes/+layout.svelte:263
-ctx.sql is only available inside a patch,ctx.sql só existe dentro de um patch,# internal/engine/query.go:628
+ctx.sql is only available inside a patch,ctx.sql só existe dentro de um patch,# internal/engine/query.go:629
 d,d,# desk/src/lib/controls/DurationControl.svelte:23
-ddcore.db.lock requires a transaction,ddcore.db.lock exige uma transação,# internal/engine/query.go:693
-ddcore.db.lock: provide a key,ddcore.db.lock: informe uma chave,# internal/engine/query.go:690
-ddcore.db.sql only accepts SELECT,ddcore.db.sql aceita apenas SELECT,# internal/engine/query.go:649
+ddcore.db.lock requires a transaction,ddcore.db.lock exige uma transação,# internal/engine/query.go:694
+ddcore.db.lock: provide a key,ddcore.db.lock: informe uma chave,# internal/engine/query.go:691
+ddcore.db.sql only accepts SELECT,ddcore.db.sql aceita apenas SELECT,# internal/engine/query.go:650
 ddcore.externalDb().sql only accepts SELECT,ddcore.externalDb().sql aceita apenas SELECT,# internal/engine/externaldb.go:175
 ddcore.externalDb: provide a name,ddcore.externalDb: informe um nome,# internal/engine/externaldb.go:52
 doctype and id are required,doctype e id são obrigatórios,# internal/api/workflow.go:78
@@ -710,7 +712,7 @@ manifest.json is not readable: {0},manifest.json não pôde ser lido: {0},# inte
 manifest.json lists no exports,manifest.json não lista nenhuma exportação,# internal/engine/import_source.go:70
 never,nunca,# desk/src/lib/components/Profile.svelte:239
 or,ou,# desk/src/routes/login/+page.svelte:72
-patch sql: {0},sql do patch: {0},# internal/engine/query.go:632
+patch sql: {0},sql do patch: {0},# internal/engine/query.go:633
 records,registros,# desk/src/lib/components/ListView.svelte:508
 "run {0} loaded {1}, not {2}","a execução {0} carregou {1}, não {2}",# internal/engine/import_batch.go:27
 runtime without a context (op {0}),runtime sem contexto (op {0}),# internal/engine/host.go:26

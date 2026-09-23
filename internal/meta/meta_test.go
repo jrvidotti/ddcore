@@ -258,6 +258,8 @@ func TestValidateRejectsDanglingFieldReferences(t *testing.T) {
 			Fields: []*Field{{Fieldname: "x", Fieldtype: "Data"}}}},
 		{"searchFields", "searchFields", &DocType{Name: "A", SearchFields: []string{"gone"},
 			Fields: []*Field{{Fieldname: "x", Fieldtype: "Data"}}}},
+		{"linkSubtitle", "linkSubtitle", &DocType{Name: "A", LinkSubtitle: []string{"gone"},
+			Fields: []*Field{{Fieldname: "x", Fieldtype: "Data"}}}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

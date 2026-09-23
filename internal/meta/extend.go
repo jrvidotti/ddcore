@@ -57,7 +57,7 @@ var FieldProps = map[string]bool{
 // the document *is*, and stay with the app that declares it.
 var DoctypeProps = map[string]bool{
 	"label": true, "idLabel": true, "description": true, "icon": true, "titleField": true, "imageField": true,
-	"sortField": true, "sortOrder": true, "searchFields": true,
+	"sortField": true, "sortOrder": true, "searchFields": true, "linkSubtitle": true,
 	"trackChanges": true, "allowRename": true, "globalSearch": true,
 }
 
@@ -292,7 +292,7 @@ func setDoctypeProp(d *DocType, prop string, v any) error {
 		if b, err = boolean(); err == nil {
 			d.GlobalSearch = &b
 		}
-	case "searchFields":
+	case "searchFields", "linkSubtitle":
 		list, ok := v.([]any)
 		if !ok {
 			return fmt.Errorf("%q must be a list", prop)
@@ -305,7 +305,11 @@ func setDoctypeProp(d *DocType, prop string, v any) error {
 			}
 			out = append(out, s)
 		}
-		d.SearchFields = out
+		if prop == "linkSubtitle" {
+			d.LinkSubtitle = out
+		} else {
+			d.SearchFields = out
+		}
 	}
 	return err
 }

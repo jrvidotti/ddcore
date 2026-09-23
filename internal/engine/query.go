@@ -3,6 +3,7 @@ package engine
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/jrvidotti/ddcore/internal/cerr"
@@ -703,6 +704,13 @@ func (c *Ctx) LinkSearch(doctype, txt string, filters any, limit int) ([]map[str
 		return nil, err
 	}
 	args := searchArgs(d, txt)
+	// The subtitle columns are read for display only; the match stays on
+	// searchFieldsOf.
+	for _, f := range d.LinkSubtitle {
+		if d.HasColumn(f) && !slices.Contains(args.Fields, f) {
+			args.Fields = append(args.Fields, f)
+		}
+	}
 	args.Filters = filters
 	args.Limit = limit
 	if limit <= 0 {
