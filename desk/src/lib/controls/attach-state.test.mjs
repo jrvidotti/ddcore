@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { attachAction, runAttachOperation } from "./attach-state.ts";
+import { attachAction, fileLabel, formatFileSize, runAttachOperation, storedName } from "./attach-state.ts";
 
 test("a required existing attachment can be replaced but not cleared", () => {
   assert.equal(attachAction("/files/documento.pdf", true), "replace");
@@ -31,4 +31,17 @@ test("an attachment operation clears busy after an upload error", async () => {
   await assert.rejects(() => runAttachOperation((busy) => states.push(busy), async () => { throw new Error("upload falhou"); }), /upload falhou/);
 
   assert.deepEqual(states, [true, false]);
+});
+
+test("a file is labelled by its original name, falling back to the stored one", () => {
+  assert.equal(fileLabel({ file_name: "contrato.pdf" }, "/private/files/ab12.pdf"), "contrato.pdf");
+  assert.equal(fileLabel(null, "/private/files/ab12.pdf"), "ab12.pdf");
+  assert.equal(storedName(null), "");
+});
+
+test("file sizes read as bytes, KB and MB", () => {
+  assert.equal(formatFileSize(512), "512 B");
+  assert.equal(formatFileSize(1536), "1.5 KB");
+  assert.equal(formatFileSize(5 * 1024 * 1024), "5.0 MB");
+  assert.equal(formatFileSize(null), "");
 });

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 	"testing"
@@ -111,4 +112,37 @@ func TestPRD05_PublicFilesAreNotListed(t *testing.T) {
 			t.Errorf("GET %s: %d %s", p, r.Status, r.Raw)
 		}
 	}
+}
+
+// An upload is stored under a random name; /api/file-info gives the original
+// back, with its size and type, to whoever may read the file.
+func TestFileInfoFollowsTheAttachedDocument(t *testing.T) {
+	x := setup(t)
+	admin, ana, ze := "sid:"+x.sid("Admin"), "sid:"+x.sid("ana@x.com"), "sid:"+x.sid("ze@x.com")
+
+	r := x.call("POST", "/api/resource/Pessoa", map[string]any{"nome": "Com Foto"}, admin)
+	if r.Status != 200 {
+		t.Fatalf("create Pessoa: %d %s", r.Status, r.Raw)
+	}
+	pessoa := fmt.Sprint(r.Body["data"].(map[string]any)["id"])
+	up := x.uploadAttachment(admin, "Pessoa", pessoa, "contrato.pdf", "anexo")
+	if up.Status != 200 {
+		t.Fatalf("upload: %d %s", up.Status, up.Raw)
+	}
+	fileURL := fmt.Sprint(up.Body["data"].(map[string]any)["file_url"])
+	info := "/api/file-info?url=" + url.QueryEscape(fileURL)
+
+	for _, auth := range []string{admin, ana} {
+		got := x.call("GET", info, nil, auth)
+		if got.Status != 200 {
+			t.Fatalf("file-info: %d %s", got.Status, got.Raw)
+		}
+		d := got.Body["data"].(map[string]any)
+		if d["file_name"] != "contrato.pdf" || fmt.Sprint(d["file_size"]) != "5" {
+			t.Errorf("file-info: %v", d)
+		}
+	}
+	x.expect(x.call("GET", info, nil, ze), 403, "PermissionError")
+	// a url with no row behind it is refused, not reported missing
+	x.expect(x.call("GET", "/api/file-info?url=/private/files/nada.pdf", nil, ana), 403, "PermissionError")
 }

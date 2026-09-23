@@ -73,6 +73,12 @@ export interface FieldDef {
   width?: FieldWidth;
   /** Table editing mode; defaults to inline */
   gridEditMode?: "inline" | "dialog";
+  /**
+   * Attach / Attach Image: show the file's name next to its icon or thumbnail.
+   * Off by default — uploads are stored under a random name, and the icon or
+   * thumbnail already opens the file and shows its name, size and type on hover.
+   */
+  showFileName?: boolean;
   collapsible?: boolean;
   bold?: boolean;
   /**

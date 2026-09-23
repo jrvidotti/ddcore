@@ -9,6 +9,7 @@ export interface Field {
   readOnly?: boolean; hidden?: boolean; fetchFrom?: string; dependsOn?: string; readOnlyDependsOn?: string; mandatoryDependsOn?: string;
   allowOnSubmit?: boolean; inListView?: boolean; inStandardFilter?: boolean; length?: number; precision?: number; description?: string;
   columns?: number; width?: FieldWidth; gridEditMode?: "inline" | "dialog"; collapsible?: boolean; bold?: boolean;
+  showFileName?: boolean;
   /** Field permission level; see `applyFieldLevels`. */
   permlevel?: number;
   /** Display text for a Select, aligned with `options`; filled by the server. */

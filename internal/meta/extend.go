@@ -48,6 +48,7 @@ var FieldProps = map[string]bool{
 	"mandatoryDependsOn": true, "allowOnSubmit": true, "inListView": true,
 	"inStandardFilter": true, "searchIndex": true, "length": true, "precision": true,
 	"columns": true, "width": true, "gridEditMode": true, "collapsible": true, "bold": true,
+	"showFileName": true,
 	"optionColors": true, "options": true, "permlevel": true,
 }
 

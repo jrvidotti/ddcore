@@ -153,7 +153,7 @@
         {:else if ft === "Color"}
           <ColorControl {value} {onchange} readOnly={ro} error={shownError} {id} />
         {:else if ft === "Attach" || ft === "Attach Image"}
-          <AttachControl {value} {onchange} {onbusychange} readOnly={ro} mandatory={req} {doc} fieldname={field.fieldname || ""} image={ft === "Attach Image"} />
+          <AttachControl {value} {onchange} {onbusychange} readOnly={ro} mandatory={req} {doc} fieldname={field.fieldname || ""} image={ft === "Attach Image"} showFileName={!!field.showFileName} />
         {:else if ft === "JSON"}
           <textarea {id} class="input" readonly={ro} rows={4} value={typeof value === "string" ? value : JSON.stringify(value ?? null, null, 2)} onchange={(e) => { try { onchange(JSON.parse((e.target as HTMLTextAreaElement).value)); } catch { onchange((e.target as HTMLTextAreaElement).value); } }}></textarea>
         {:else if ft === "Password"}

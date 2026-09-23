@@ -12,6 +12,21 @@ not every commit that went into it.
 
 ## Unreleased
 
+### Added
+
+- **`GET /api/file-info?url=<file_url>`** returns an upload's original `file_name`, `file_size`,
+  `content_type`, `creation` and `owner` to whoever may read the file. It uses the same rule as
+  `/private/files`, so a colleague who can read the document gets it even though `File` itself is
+  owner-only.
+
+### Changed
+
+- **Attach and Attach Image controls hide the file name.** The desk shows the thumbnail, or a
+  file icon for a plain Attach. Either one opens the file and shows its original name, size, type
+  and uploader on hover. The stored name is random, so showing it said nothing. Set
+  `showFileName: true` on the field to show the name beside it again; it now shows the
+  original name, not the stored one.
+
 ## 0.18.3 — 2026-09-23
 
 ### Added

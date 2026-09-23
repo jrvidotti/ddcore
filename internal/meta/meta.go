@@ -67,8 +67,11 @@ type Field struct {
 	Columns            int    `json:"columns,omitempty"`
 	Width              string `json:"width,omitempty"`
 	GridEditMode       string `json:"gridEditMode,omitempty"`
-	Collapsible        bool   `json:"collapsible,omitempty"`
-	Bold               bool   `json:"bold,omitempty"`
+	// ShowFileName shows an Attach's file name next to its icon or thumbnail;
+	// by default the desk shows only those, with the file's details on hover.
+	ShowFileName bool `json:"showFileName,omitempty"`
+	Collapsible  bool `json:"collapsible,omitempty"`
+	Bold         bool `json:"bold,omitempty"`
 	// Permlevel groups the field under the permission rows of the same level
 	// (SEC-02). Level 0 follows the DocType's own permissions; a field at a
 	// higher level is read and written only by a role granted that level.

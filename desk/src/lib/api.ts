@@ -240,6 +240,8 @@ export const api = {
     fd.append("is_private", opts.isPrivate === false ? "0" : "1");
     return request("POST", "/api/upload", fd);
   },
+  /** An upload's original name, size and type, for whoever may read it. */
+  fileInfo: (url: string) => request<FileInfo>("GET", "/api/file-info" + q({ url })),
   /** Data Import: checks (dryRun) or loads a CSV/XLSX file into `doctype`. */
   dataImport: (doctype: string, file: File, opts: DataImportOptions) => {
     const fd = new FormData();
@@ -253,6 +255,14 @@ export const api = {
     return request<DataImportResult>("POST", `/api/data-import/${encodeURIComponent(doctype)}`, fd);
   },
 };
+
+export interface FileInfo {
+  file_name: string;
+  file_size: number | null;
+  content_type: string | null;
+  creation: string;
+  owner: string;
+}
 
 export interface DataImportOptions {
   mode: "insert" | "update";

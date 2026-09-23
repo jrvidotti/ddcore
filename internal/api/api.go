@@ -78,6 +78,7 @@ func New(e *engine.Engine, desk fs.FS) *Server {
 		r.Get("/meta/{doctype}", s.getMeta)
 		r.Get("/translations", s.translations)
 		r.Post("/upload", s.upload)
+		r.Get("/file-info", s.fileInfo)
 		// endpoints that never respond to anonymous visitors (B05)
 		r.Group(func(r chi.Router) {
 			r.Use(s.requireLogin)
@@ -1416,6 +1417,28 @@ func (s *Server) serveUpload(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) file(w http.ResponseWriter, r *http.Request) {
 	s.serveUpload(w, r)
+}
+
+// fileInfo describes one upload — its original name, size and type — to
+// whoever may read it. File itself is owner-only, so a colleague reading the
+// document could not ask /api/resource/File; the rule here is the one
+// privateFile applies to the bytes.
+func (s *Server) fileInfo(w http.ResponseWriter, r *http.Request) {
+	s.run(w, r, func(c *engine.Ctx) (any, error) {
+		if c.User == "Guest" {
+			return nil, cerr.Auth("Sign in to continue")
+		}
+		fields := append([]string{"file_name", "file_size", "content_type", "creation"}, engine.FilePermFields...)
+		f, err := c.GetValues("File", map[string]any{"file_url": r.URL.Query().Get("url")}, fields)
+		if err != nil {
+			return nil, err
+		}
+		if !c.CanReadFile(f) {
+			return nil, cerr.Permission("No permission for this file")
+		}
+		return map[string]any{"file_name": f["file_name"], "file_size": f["file_size"], "content_type": f["content_type"],
+			"creation": f["creation"], "owner": f["owner"]}, nil
+	})
 }
 
 // privateFile serves a private upload only to users who may read the

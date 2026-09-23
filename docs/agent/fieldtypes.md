@@ -24,8 +24,8 @@
 | Link | text | `options: "DocType"`; existence validated; index created automatically |
 | Dynamic Link | text | `options: "<the field holding the DocType>"` |
 | Table | (child table) | `options: "Child DocType"` with `isChild: true`; `gridEditMode: "dialog"` turns off inline editing |
-| Attach | text | the file's URL (`/files/..` or `/private/files/..`) |
-| Attach Image | text | an Attach restricted to png, jpg, gif or webp, refused at upload as well as on save; SVG is not one of them, because it carries script |
+| Attach | text | the file's URL (`/files/..` or `/private/files/..`); the desk shows an icon that opens the file and shows its original name, size and type on hover — `showFileName: true` also shows the name beside it |
+| Attach Image | text | an Attach restricted to png, jpg, gif or webp, refused at upload as well as on save; SVG is not one of them, because it carries script; the thumbnail stands in for the icon, and `showFileName` works the same |
 | JSON | jsonb | |
 | Password | text | not hashed automatically; never read back through the API, never in Version, never exported. **Not for an integration credential** — see below |
 | Vault | — | virtual field backed by the encrypted vault (`ddcore_vault`); never a column in `tab_<doctype>`, never in Version or export; masked in Desk and API. See [vault.md](vault.md) |
@@ -133,7 +133,7 @@ use of `Percent` would reach.
 
 `fieldname, fieldtype, label, options, optionColors, reqd, unique, default, readOnly, hidden, fetchFrom, dependsOn,
 readOnlyDependsOn, mandatoryDependsOn, allowOnSubmit, inListView, inStandardFilter, searchIndex,
-length, precision, description, columns (grid width 1–12), width (`"sm"` | `"md"` | `"lg"` | `"full"`), gridEditMode (`"inline"` default or `"dialog"`), collapsible, bold,
+length, precision, description, columns (grid width 1–12), width (`"sm"` | `"md"` | `"lg"` | `"full"`), gridEditMode (`"inline"` default or `"dialog"`), showFileName (Attach / Attach Image), collapsible, bold,
 permlevel, renamedFrom, convert`
 
 - `permlevel`: 0–9, default 0. A field above 0 is read and written only by roles granted that level by a permission row with the same `permlevel`; the server omits it from every response and refuses a change from anyone else. `hidden` and `readOnly` are screen hints and protect nothing. See `field-permissions`.
