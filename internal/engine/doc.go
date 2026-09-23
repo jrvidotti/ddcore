@@ -611,6 +611,9 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 	if err := c.writeChildren(d, doc); err != nil {
 		return nil, err
 	}
+	if err := c.claimAttachments(d, doc); err != nil {
+		return nil, err
+	}
 	if err := c.processVaultFields(d, doc); err != nil {
 		return nil, err
 	}
@@ -788,6 +791,9 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 		return nil, err
 	}
 	if err := c.writeChildren(d, doc); err != nil {
+		return nil, err
+	}
+	if err := c.claimAttachments(d, doc); err != nil {
 		return nil, err
 	}
 	if err := c.processVaultFields(d, doc); err != nil {

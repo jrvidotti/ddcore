@@ -26,6 +26,8 @@ export default defineController<Order>("Order", {
 
 // a loose function, exposed at POST /api/method/<app>.services.<file>.lookup
 export const lookup = whitelisted((args: { postcode: string }, ctx) => ({ /* … */ }), { allowGuest: false, roles: ["Manager"] });
+// callable by Website Users too (portals); their reads inside it see only what the portal grants
+export const myPayslips = whitelisted(() => ddcore.db.getList("Payslip", { fields: ["id", "period"] }), { portal: true });
 ```
 
 Hooks for another app's DocTypes: in `ddcore.app.ts`, `docEvents: { "User": { validate(doc) {} }, "*": { onUpdate(doc) {} } }`.
@@ -54,6 +56,7 @@ reloads the document with the new state and docstatus; see `workflows`), `doc.fl
 - `ddcore.throw(msg, { title, type })`, `ddcore.msgprint(msg, { title, indicator, alert })`, `ddcore._(text, args)` / `_()`
 - `ddcore.session` → `{ user, roles, lang, request }`; `ddcore.user()`; `ddcore.getRoles(user)`; `ddcore.hasPermission(doctype, ptype, doc)` (`doc` may be just `{ id, owner }`)
 - `ddcore.share.add(doctype, id, user, { write, share, overrideScope })` / `remove(doctype, id, user)` / `list(doctype, id)` — per-user document shares, checked with the current user as sharer. See `sharing`
+- `ddcore.users.invite({ email, fullName, roles?, userType? })` / `resendInvite(user)` — create an account and mail its invitation; returns `{ user, expires, link? }`. Without System Manager, only a Website User with no privileged role. See `portal`
 - `ddcore.redact(doctype, doc)` → a copy of `doc` as an API read would show it to the current user: Password/Vault blanked and fields above their permission level removed. Server code sees whole documents; redact before a method or report hands one to a client. See `field-permissions`
 - `ddcore.cache.get/set(key, value, ttlSeconds)/del`
 - `ddcore.http.get(url, opts?)` / `del(url, opts?)` send GET / DELETE requests.

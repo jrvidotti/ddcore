@@ -8,8 +8,10 @@
   import { page } from "$app/state";
   import { getRememberedWorkspace } from "$lib/components/sidebar-workspace";
 
-  let { field, value, onchange, doc = {}, readOnly = false, query = undefined, error = "", id = "" }:
-    { field: Field; value: any; onchange: (v: any) => void; doc?: any; readOnly?: boolean; query?: () => { filters?: any }; error?: string; id?: string } = $props();
+  let { field, value, onchange, doc = {}, readOnly = false, query = undefined, error = "", id = "", search: searchFn = undefined }:
+    { field: Field; value: any; onchange: (v: any) => void; doc?: any; readOnly?: boolean; query?: () => { filters?: any }; error?: string; id?: string;
+      /** Replaces /api/search/link, answering `{ id, title }` rows — a portal's own search (OPS-10). It also hides the link to the desk. */
+      search?: (txt: string) => Promise<{ id: string; title?: string }[]> } = $props();
 
   const target = $derived(field.fieldtype === "Dynamic Link" ? doc?.[field.options] : field.options);
   const currentTitle = $derived(target && value ? getLinkTitle(target, value) : "");
@@ -31,11 +33,13 @@
   const titleField = $derived(target ? boot.data?.doctypes[target]?.titleField : undefined);
 
   function getOptionTitle(o: any): string {
+    if (searchFn) return String(o.title || o.id);
     if (titleField && o[titleField]) return String(o[titleField]);
     return o.id;
   }
 
   function getOptionSubtitle(o: any): string {
+    if (searchFn) return o.title && o.title !== o.id ? String(o.id) : "";
     if (titleField && o[titleField]) {
       const others = Object.entries(o).filter(([k, v]) => k !== "id" && k !== titleField && v).map(([, v]) => v);
       return [o.id, ...others].join(" · ");
@@ -48,7 +52,7 @@
     const version = ++searchVersion;
     try {
       const filters = query?.()?.filters;
-      const results = await api.linkSearch(target, txt, filters, 20);
+      const results = searchFn ? await searchFn(txt) : await api.linkSearch(target, txt, filters, 20);
       if (version !== searchVersion) return;
       options = results;
       for (const o of results) {
@@ -132,7 +136,7 @@
     {#if !readOnly}
       <button type="button" class="clear" aria-label="Limpar {label || target} ({value})" title="Limpar {label || target} ({value})" onmousedown={(e) => e.preventDefault()} onclick={clear}>×</button>
     {/if}
-    <a class="open" href={`${wsPrefix}/${encodeURIComponent(target)}/${encodeURIComponent(value)}`} title="Abrir {label || target}{value ? ` (${value})` : ""}">↗</a>
+    {#if !searchFn}<a class="open" href={`${wsPrefix}/${encodeURIComponent(target)}/${encodeURIComponent(value)}`} title="Abrir {label || target}{value ? ` (${value})` : ""}">↗</a>{/if}
   {/if}
   {#if open && !readOnly && options.length}
     <div class="options" role="listbox" use:anchored={{ anchor: inputEl, matchWidth: true, gap: 2, content: options.length }}>

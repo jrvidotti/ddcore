@@ -41,6 +41,8 @@ type Server struct {
 	MCPHandler http.Handler
 	// MaxUpload caps the body of /api/upload (default 50 MB).
 	MaxUpload int64
+	// limiter bounds Website Users' portal writes (OPS-10).
+	limiter *portalLimiter
 }
 
 type ctxKey int
@@ -48,7 +50,7 @@ type ctxKey int
 const userKey ctxKey = 1
 
 func New(e *engine.Engine, desk fs.FS) *Server {
-	s := &Server{E: e, Desk: desk, MaxUpload: 50 << 20}
+	s := &Server{E: e, Desk: desk, MaxUpload: 50 << 20, limiter: newPortalLimiter()}
 	r := chi.NewRouter()
 	// RealIP rewrites RemoteAddr from X-Forwarded-For, which any client can
 	// send. Believing it unconditionally means an attacker picks the address
@@ -64,6 +66,8 @@ func New(e *engine.Engine, desk fs.FS) *Server {
 	r.Use(s.observe, s.recoverPanic, middleware.Compress(5))
 	r.Use(s.auth, s.maintenance)
 	r.Route("/api", func(r chi.Router) {
+		// a Website User reaches the portals and nothing else (OPS-10)
+		r.Use(s.confineWebsiteUsers)
 		r.Post("/login", s.login)
 		r.Post("/logout", s.logout)
 		// Recovery and invitation: public by necessity, throttled in auth.go.
@@ -79,6 +83,7 @@ func New(e *engine.Engine, desk fs.FS) *Server {
 		r.Get("/translations", s.translations)
 		r.Post("/upload", s.upload)
 		r.Get("/file-info", s.fileInfo)
+		s.portalRoutes(r)
 		// endpoints that never respond to anonymous visitors (B05)
 		r.Group(func(r chi.Router) {
 			r.Use(s.requireLogin)
@@ -456,7 +461,12 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 	}
 	s.E.Cache.Del("lang:" + body.Usr)
 	http.SetCookie(w, s.sessionCookie(r, sid))
-	writeJSON(w, 200, map[string]any{"data": map[string]any{"ok": true}})
+	// where the desk should land: a Website User's home is a portal (OPS-10)
+	home := "/app"
+	if u, _ := s.E.UserFromSession(r.Context(), sid); u != "" {
+		home = s.homeFor(r, u, "")
+	}
+	writeJSON(w, 200, map[string]any{"data": map[string]any{"ok": true, "home": home}})
 }
 
 // sessionCookie carries the session, and its lifetime is the policy's, not a
@@ -550,6 +560,37 @@ func (s *Server) boot(w http.ResponseWriter, r *http.Request) {
 				s.E.Cache.Set("lang:"+c.User, l, langCacheTTL)
 			}
 		}
+		// the languages the site serves, with the same autonyms the User.language
+		// picker carries (applyLanguageOptions) — the desk's profile screen needs
+		// them and User is a System Manager doctype, so borrowing its meta is not
+		// an option for the person whose language it is
+		var langs []map[string]any
+		for _, l := range c.St.I18n.Langs() {
+			langs = append(langs, map[string]any{"code": l, "label": engine.LanguageName(l)})
+		}
+		site := map[string]any{
+			// the one string in this block a reader actually sees, so it is
+			// a catalogue key like any other label; a title with no
+			// translation comes back as itself, which is already English
+			"name": c.T(s.E.SiteTitle()), "currency": s.E.Cfg.Currency,
+			// the server resolves the precision and the rule and the desk
+			// reads them: two independent derivations that "should" agree
+			// is the bug nobody finds until a JPY invoice is off by a yen
+			"currencyPrecision": s.E.CurrencyPrecision(), "rounding": s.E.Cfg.Rounding.String(),
+			"timezone": s.E.Cfg.Timezone, "dev": s.E.Cfg.Dev, "scheduler": s.E.Cfg.Scheduler, "version": engine.Version,
+			"login": loginPage(s.E.Cfg.Login, s.E.Cfg.Auth, s.E.Cfg.OIDC), "maintenance": s.maintenanceBoot(r),
+		}
+		if c.IsWebsiteUser() {
+			// a Website User sees the portals and nothing of the desk: not its
+			// apps, workspaces, DocTypes or reports (OPS-10)
+			// the collections stay, empty, so code shared with the desk reads
+			// them without a guard
+			return map[string]any{
+				"user": c.User, "roles": roles, "userDoc": userDoc, "lang": c.Lang, "langs": langs,
+				"apps": []any{}, "workspaces": []any{}, "doctypes": map[string]any{}, "reports": map[string]any{},
+				"website": true, "portals": portalsFor(c), "site": site, "loaded": s.E.Loaded.UnixMilli(),
+			}, nil
+		}
 		var apps []map[string]any
 		var workspaces []map[string]any
 		for _, name := range s.E.AppOrder() {
@@ -578,30 +619,10 @@ func (s *Server) boot(w http.ResponseWriter, r *http.Request) {
 				reports[n] = map[string]any{"label": c.T(orStr(rep["label"], n)), "refDoctype": rep["refDoctype"], "app": rep["app"]}
 			}
 		}
-		// the languages the site serves, with the same autonyms the User.language
-		// picker carries (applyLanguageOptions) — the desk's profile screen needs
-		// them and User is a System Manager doctype, so borrowing its meta is not
-		// an option for the person whose language it is
-		var langs []map[string]any
-		for _, l := range c.St.I18n.Langs() {
-			langs = append(langs, map[string]any{"code": l, "label": engine.LanguageName(l)})
-		}
 		return map[string]any{
 			"user": c.User, "roles": roles, "userDoc": userDoc, "lang": c.Lang, "langs": langs, "apps": apps,
-			"workspaces": workspaces, "doctypes": doctypes, "reports": reports,
-			"site": map[string]any{
-				// the one string in this block a reader actually sees, so it is
-				// a catalogue key like any other label; a title with no
-				// translation comes back as itself, which is already English
-				"name": c.T(s.E.SiteTitle()), "currency": s.E.Cfg.Currency,
-				// the server resolves the precision and the rule and the desk
-				// reads them: two independent derivations that "should" agree
-				// is the bug nobody finds until a JPY invoice is off by a yen
-				"currencyPrecision": s.E.CurrencyPrecision(), "rounding": s.E.Cfg.Rounding.String(),
-				"timezone": s.E.Cfg.Timezone, "dev": s.E.Cfg.Dev, "scheduler": s.E.Cfg.Scheduler, "version": engine.Version,
-				"login": loginPage(s.E.Cfg.Login, s.E.Cfg.Auth, s.E.Cfg.OIDC), "maintenance": s.maintenanceBoot(r),
-			},
-			"loaded": s.E.Loaded.UnixMilli(),
+			"workspaces": workspaces, "doctypes": doctypes, "reports": reports, "portals": portalsFor(c),
+			"site": site, "loaded": s.E.Loaded.UnixMilli(),
 		}, nil
 	})
 }
@@ -1319,6 +1340,10 @@ func (s *Server) eventAuthorizer(ctx context.Context, u string) engine.Authorize
 // ------------------------------------------------------------------ files
 
 func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
+	website := s.isWebsiteUser(r, user(r))
+	if website && !s.portalLimit(w, r, "upload", s.E.Cfg.Portal.Uploads()) {
+		return
+	}
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
 		if c.User == "Guest" {
 			return nil, cerr.Auth("Sign in to upload files")
@@ -1326,6 +1351,9 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 		max := s.MaxUpload
 		if max <= 0 {
 			max = 50 << 20
+		}
+		if website && s.E.Cfg.Portal.MaxUploadBytes() < max {
+			max = s.E.Cfg.Portal.MaxUploadBytes()
 		}
 		r.Body = http.MaxBytesReader(w, r.Body, max)
 		if err := r.ParseMultipartForm(max); err != nil {
@@ -1336,7 +1364,11 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 			return nil, cerr.Validation("Missing file field")
 		}
 		defer f.Close()
-		private := r.FormValue("is_private") != "0"
+		docID, err := s.uploadTarget(c, r.FormValue("doctype"), r.FormValue("doc_id"), r.FormValue("fieldname"))
+		if err != nil {
+			return nil, err
+		}
+		private := r.FormValue("is_private") != "0" || website
 		// a file uploaded into a restricted field is that field's value: only
 		// its writers may put one there, and it is never public (SEC-02)
 		if restricted, canWrite := c.AttachmentFieldRestricted(r.FormValue("doctype"), r.FormValue("fieldname")); restricted {
@@ -1359,7 +1391,7 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 			return nil, err
 		}
 		doc, err := c.NewDoc("File", engine.Doc{"file_name": hdr.Filename, "file_url": url, "file_size": hdr.Size, "content_type": contentType, "is_private": private,
-			"attached_to_doctype": r.FormValue("doctype"), "attached_to_id": r.FormValue("doc_id"), "attached_to_field": r.FormValue("fieldname")})
+			"attached_to_doctype": r.FormValue("doctype"), "attached_to_id": docID, "attached_to_field": r.FormValue("fieldname")})
 		if err == nil {
 			doc, err = c.Insert(doc, engine.SaveOpts{IgnorePermissions: true})
 		}
@@ -1380,6 +1412,63 @@ var dangerousExt = map[string]bool{".html": true, ".htm": true, ".svg": true, ".
 // randomFileName never reuses the uploaded name: it is unguessable and only
 // a safe extension survives, so a public file cannot be located by name nor
 // served as active content.
+// uploadTarget checks that the user may put a file on the document an upload
+// names, and returns the id to attach it to.
+//
+// Attaching is writing: a file on a document is read by everyone who reads the
+// document, so an upload that names one needs write on it. An upload for a
+// document not saved yet — no id, or an id the user typed that does not exist
+// yet — needs the right to create one, and is stored detached; the save that
+// names it attaches it (engine.claimAttachments). A Website User must always
+// say where the file goes, and it can only go into an attachment field a
+// portal page lets them edit (OPS-10).
+func (s *Server) uploadTarget(c *engine.Ctx, doctype, id, field string) (string, error) {
+	if doctype == "" {
+		if c.PortalMode() {
+			return "", cerr.Permission("Not permitted to upload here")
+		}
+		return "", nil
+	}
+	d, err := c.St.DocType(doctype)
+	if err != nil {
+		return "", err
+	}
+	if c.PortalMode() && !c.PortalUploadAllowed(d.Name, field) {
+		return "", cerr.Permission("Not permitted to upload here")
+	}
+	if id != "" {
+		var doc engine.Doc
+		err := c.WithIgnorePermissions(func() error {
+			var e error
+			doc, e = c.GetDoc(d.Name, id)
+			return e
+		})
+		if err == nil {
+			ok, err := c.HasPermission(d.Name, "write", doc)
+			if err != nil {
+				return "", err
+			}
+			if !ok {
+				return "", cerr.Permission("No permission ({0}) on {1} {2}", "write", c.T(d.Label), id)
+			}
+			return id, nil
+		}
+		if ce := cerr.From(err); ce == nil || ce.Status != http.StatusNotFound {
+			return "", err
+		}
+	}
+	for _, ptype := range []string{"create", "write"} {
+		ok, err := c.HasPermission(d.Name, ptype, nil)
+		if err != nil {
+			return "", err
+		}
+		if ok {
+			return "", nil
+		}
+	}
+	return "", cerr.Permission("Not permitted to upload files to {0}", c.T(d.Label))
+}
+
 func randomFileName(orig string) string {
 	ext := strings.ToLower(filepath.Ext(orig))
 	for _, r := range ext {

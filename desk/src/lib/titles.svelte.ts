@@ -55,6 +55,8 @@ export function clearTitleCache() {
 }
 
 function queueFetch(doctype: string, id: string) {
+  // a portal user has no title endpoint: the portal's responses carry theirs
+  if (boot.data?.website) return;
   if (!pending.has(doctype)) pending.set(doctype, new Set());
   pending.get(doctype)!.add(id);
 

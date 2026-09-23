@@ -687,3 +687,56 @@ export interface WorkflowDef<D = Record<string, any>> {
   transitions: WorkflowTransitionDef<D>[];
 }
 
+/** What `ddcore.users.invite` and `resendInvite` return. */
+export interface InviteResult {
+  user: string;
+  expires: string;
+  /** Only when the site does not really deliver mail. */
+  link?: string;
+}
+
+/**
+ * A self-service portal (OPS-10): the only thing a Website User can reach.
+ * See `docs/agent/portal.md`.
+ */
+export interface PortalDef {
+  /** Unique across apps; its URL name is the name in lower case with dashes. */
+  name: string;
+  title?: string;
+  /** The roles that reach this portal. */
+  roles: string[];
+  /**
+   * The record that stands for the signed-in user: the rows of `doctype`
+   * whose `userField` (a Link to User) is them. Over User itself, use
+   * `{ doctype: "User", userField: "id" }`.
+   */
+  identity: { doctype: string; userField: string; filters?: Record<string, any> };
+  pages: PortalPageDef[];
+}
+
+export interface PortalPageDef {
+  /** Lowercase letters, digits and dashes; the page's URL segment. */
+  name: string;
+  label: string;
+  description?: string;
+  doctype: string;
+  /** `list` (default) shows the user's rows; `record` shows their one row. */
+  kind?: "list" | "record";
+  /**
+   * What makes a row the user's own: page field → identity field. Every pair
+   * must hold. `{ employee: "id" }` reads "rows whose employee is my identity's id".
+   */
+  match: Record<string, string>;
+  /** The fields shown, level 0 only; no Table, Password or Vault. */
+  fields: string[];
+  /** The list's columns; the first four fields when omitted. */
+  listFields?: string[];
+  /** The fields the user may type into; a subset of `fields`, never a match field. */
+  editable?: string[];
+  create?: boolean;
+  write?: boolean;
+  /** A `whitelisted(fn, { portal: true })` method whose result prefills a new document. */
+  defaultsMethod?: string;
+  /** Buttons leading to other pages of the same portal; `new` opens its creation form. */
+  actions?: { label: string; page: string; new?: boolean }[];
+}

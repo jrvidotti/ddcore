@@ -25,7 +25,7 @@
 
   let {
     field, value, onchange, onbusychange = undefined, doc = {}, readOnly = false, mandatory = false, error = "", compact = false, query = undefined, inGrid = false,
-    buttons = [], extraOptions = [],
+    buttons = [], extraOptions = [], linkSearch = undefined,
   }: {
     field: Field; value: any; onchange: (v: any) => void; doc?: any; readOnly?: boolean; mandatory?: boolean; error?: string; compact?: boolean;
     query?: () => { filters?: any }; inGrid?: boolean; onbusychange?: (busy: boolean) => void;
@@ -33,6 +33,8 @@
     buttons?: FieldButton[];
     /** Select only: choices appended after a divider, beyond the field's options (list filters). */
     extraOptions?: { value: string; label: string }[];
+    /** Link only: a search of the caller's own, instead of /api/search/link (portals). */
+    linkSearch?: (txt: string) => Promise<{ id: string; title?: string }[]>;
   } = $props();
 
   const id = `f-${Math.random().toString(36).slice(2, 8)}`;
@@ -116,7 +118,7 @@
             {/if}
           </select>
         {:else if ft === "Link" || ft === "Dynamic Link"}
-          <LinkControl {field} {value} {onchange} {doc} readOnly={ro} {query} {error} {id} />
+          <LinkControl {field} {value} {onchange} {doc} readOnly={ro} {query} {error} {id} search={linkSearch} />
         {:else if ft === "Month" || (ft === "Date" && (field.options === "month" || (field as any).format === "mm/yyyy"))}
           <MonthControl {field} {value} {onchange} {id} readOnly={ro} error={shownError} {inGrid} />
         {:else if ft === "Date"}

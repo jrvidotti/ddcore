@@ -41,6 +41,18 @@ export interface Boot {
     maintenance?: { enabled: boolean; reason?: string } | null;
   };
   loaded: number;
+  /** The portals the user reaches (OPS-10). */
+  portals?: PortalSummary[];
+  /** A Website User: the portals are all they see. */
+  website?: boolean;
+}
+
+export interface PortalSummary {
+  name: string;
+  /** The portal's URL segment. */
+  slug: string;
+  title: string;
+  pages: { name: string; label: string; description?: string; kind: "list" | "record"; create?: boolean }[];
 }
 
 export const boot = $state<{ data: Boot | null; translations: Record<string, string>; ready: boolean }>({ data: null, translations: {}, ready: false });

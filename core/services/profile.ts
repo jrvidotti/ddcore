@@ -16,6 +16,9 @@ import { whitelisted, _ } from "@ddcore/sdk";
  * have dropped has to be dropped here by hand.
  */
 
+// A Website User manages their own account from the portal (OPS-10).
+const SELF = { portal: true };
+
 function me(): string {
   const user = ddcore.session.user;
   if (user === "Guest") ddcore.throw(_("Sign in to continue"));
@@ -36,7 +39,7 @@ export const getMyProfile = whitelisted(() => {
     lastLogin: d?.last_login ?? null,
     roles: ddcore.getRoles(user).filter((r) => r !== "All"),
   };
-});
+}, SELF);
 
 /**
  * The two fields a person may change about themselves.
@@ -72,7 +75,7 @@ export const updateMyProfile = whitelisted((args: { fullName?: string; language?
     ddcore.cache.del("roles:" + user);
   }
   return getMyProfileValues(user);
-});
+}, SELF);
 
 function getMyProfileValues(user: string) {
   const d = ddcore.db.getValue("User", user, ["full_name", "language"]) as any;
@@ -104,4 +107,4 @@ export const changeMyPassword = whitelisted((args: { current: string; password: 
   auth.setPassword(user, String(args.password ?? ""), auth.currentSid());
   auth.clearAttempts("pwchange:" + user);
   return { ok: true };
-});
+}, SELF);

@@ -12,6 +12,56 @@ not every commit that went into it.
 
 ## Unreleased
 
+### Breaking
+
+- **Website Users are confined to the portals.** `User.user_type = "Website User"` used to be
+  stored and ignored. Now such a user signs in to `/portal`, is sent there from any desk path,
+  and gets 403 from every `/api` route that is not the portal's: resources, meta, search,
+  reports, workspaces, notifications, events, and methods not whitelisted with
+  `portal: true`. Guest is unaffected. **Upgrade:** list them with
+  `ddcore eval 'ddcore.db.getAll("User", { filters: { user_type: "Website User" }, fields: ["id"] })'`
+  and set any that should keep the desk to `System User`.
+
+### Added
+
+- **Portals (OPS-10).** `definePortal` in `portal/<name>.portal.ts` declares a self-service portal
+  for Website Users. `roles` says who reaches it. `identity` finds the signed-in person's own
+  record (e.g. the Employee whose `user` is them), and pages over DocTypes each `match`
+  their rows to that identity, with the fields shown, the fields editable, and whether the
+  page creates or writes. The pages are a Website User's only grant, enforced inside the
+  permission check, so lists, reads, inserts, saves, uploads and downloads all follow them. The
+  workflow, controller hooks and scopes still apply after them. The desk serves `/portal`
+  with its own layout, list, record and form screens, and the account screen without API keys.
+  `/api/portal/*` serves the pages; `/api/boot` lists them as `portals`. See `docs/agent/portal.md`.
+- **`whitelisted(fn, { portal: true })`** makes a method callable by Website Users. It runs in
+  portal mode, so its `ddcore.getList`/`getDoc` see what the portals grant. The core's own
+  profile, password, session and language methods are marked.
+- **`ddcore.users.invite({ email, fullName, roles, userType })` and
+  `ddcore.users.resendInvite(user)`** let app code invite its portal users. Without System
+  Manager, they can only create a Website User, never with a privileged role.
+  `core.services.users.invite`/`resendInvite` now go through them.
+- **`portal` in `ddcore.json`** (`writesPerHour` 60, `uploadsPerHour` 30, `maxUploadMB` 10)
+  limits each Website User's portal writes and uploads. Past a limit the answer is 429 with
+  `Retry-After`.
+
+### Changed
+
+- **A file picked on a document not saved yet is attached when the document is saved.** It was
+  uploaded detached and stayed readable only by its uploader and System Manager, so a reviewer
+  could not open an attachment on a document they could read. Each Attach value, including
+  child rows, now claims the detached file it names if the saving user uploaded it.
+- **`POST /api/login` returns `home`**, `/portal` for a Website User and `/app` otherwise.
+  Single sign-on sends a Website User to `/portal` too.
+
+### Fixed
+
+- **An engine whose apps fail to load closes its database pool.** `engine.New` used to return the
+  error with the connections still open, which kept a test's database busy for whatever ran next.
+- **`POST /api/upload` checks write on the document it attaches to.** Any signed-in user could
+  hang a file on any document by id, and the file then followed that document's read
+  permission. An upload naming a document now needs write on it. One naming only a DocType, or
+  an id that does not exist yet, needs create or write on the DocType.
+
 ## 0.18.4 — 2026-09-23
 
 ### Added

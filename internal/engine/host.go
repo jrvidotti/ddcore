@@ -77,6 +77,10 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		TargetDoctype string            `json:"targetDoctype"`
 		TargetID      string            `json:"targetID"`
 		Detail        any               `json:"detail"`
+		Email         string            `json:"email"`
+		FullName      string            `json:"fullName"`
+		Roles         []string          `json:"roles"`
+		UserType      string            `json:"userType"`
 	}
 	if err := json.Unmarshal(raw, &a); err != nil {
 		return nil, cerr.Internal("invalid arguments in {0}: {1}", op, err)
@@ -364,6 +368,10 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		return CheckPassword(db.Str(rows[0]["password_hash"]), a.Password), nil
 	case "auth.setPassword":
 		return nil, e.SetPasswordExcept(c.Ctx, a.User, a.Password, a.ExceptSid)
+	case "users.invite":
+		return e.InviteUser(c, Invitation{Email: a.Email, FullName: a.FullName, Roles: a.Roles, UserType: a.UserType})
+	case "users.resendInvite":
+		return e.ResendInvite(c, a.User)
 	case "auth.startRecovery":
 		rec, err := e.StartRecovery(c, a.User, orDefault(a.Kind, TokenReset), db.Str(c.Request["ip"]))
 		if err != nil {

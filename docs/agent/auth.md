@@ -270,6 +270,13 @@ the permission check.
 System Manager only: `users.invite`, `users.resendInvite`,
 `users.sendPasswordReset`, `users.revokeUserSessions`, `users.unlockUser`.
 
+The first two are wrappers over `ddcore.users.invite` and `ddcore.users.resendInvite`, which
+app code calls directly to invite its own portal users. Without System Manager, that call can
+only create a **Website User** and never give a privileged role. A Website User
+(`user_type`) reaches the portals and nothing else, signs in to `/portal`, and is refused every
+other `/api` route. The profile, password, session and language methods above are
+open to them (`whitelisted(fn, { portal: true })`); the API key methods are not. See `portal`.
+
 ## Passwords
 
 The policy is applied where hashing happens — the `hashPassword` host op and

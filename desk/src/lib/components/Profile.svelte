@@ -9,6 +9,9 @@
   import { describeDevice, isExpired, languageField, passwordProblem, sortSessions, type SessionRow } from "./profile";
   import { onMount } from "svelte";
 
+  // A Website User has no API keys: the portal is their whole surface (OPS-10).
+  let { apiKeys = true }: { apiKeys?: boolean } = $props();
+
   type Profile = {
     id: string; email: string; fullName: string;
     language: string | null; userType: string; lastLogin: string | null; roles: string[];
@@ -38,7 +41,7 @@
       profile = await api.call("core.services.profile.getMyProfile");
       fullName = profile!.fullName;
       language = profile!.language;
-      await Promise.all([loadSessions(), loadKeys()]);
+      await Promise.all([loadSessions(), apiKeys ? loadKeys() : Promise.resolve()]);
     } catch (e) { showError(e); }
   }
 
@@ -216,6 +219,7 @@
       </table>
     </div>
 
+    {#if apiKeys}
     <div class="card sect">
       <h2>{__("API keys")}</h2>
       {#if mintedToken}
@@ -258,6 +262,7 @@
         <p class="small muted">{__("No keys yet.")}</p>
       {/if}
     </div>
+    {/if}
   {/if}
 </div>
 

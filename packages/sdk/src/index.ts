@@ -1,8 +1,8 @@
 // @ddcore/sdk — the API apps use on the server (runs inside the ddcore binary).
 import type {
   AppDef, BaseDoc, ControllerDef, Context, DoctypeDef, Document, ExtensionDef, Filters, ListArgs,
-  MailTemplateDef, NotificationDef, PatchDef, PrintTemplateDef, ReportDef, SendMailArgs, WorkflowDef, WorkspaceDef,
-  DocShare, DocShares, ShareRights,
+  MailTemplateDef, NotificationDef, PatchDef, PortalDef, PrintTemplateDef, ReportDef, SendMailArgs, WorkflowDef, WorkspaceDef,
+  DocShare, DocShares, InviteResult, ShareRights,
 } from "./types";
 export * from "./types";
 
@@ -163,6 +163,17 @@ export interface DDCoreAPI {
     remove(doctype: string, id: string, user: string): void;
     /** Who the document is shared with; without the share right, only your own share. */
     list(doctype: string, id: string): DocShares;
+  };
+  /**
+   * Accounts handed out by app code (OPS-10). A System Manager may invite any
+   * user; anyone else only a `Website User`, never with a privileged role —
+   * a Website User reaches the portals and nothing else. Who may call the
+   * app's own method is the app's whitelist to decide. `link` comes back when
+   * the site does not really deliver mail. See `docs/agent/portal.md`.
+   */
+  users: {
+    invite(args: { email: string; fullName: string; roles?: string[]; userType?: "System User" | "Website User" }): InviteResult;
+    resendInvite(user: string): InviteResult;
   };
   /**
    * Records that the current user did something sensitive to a target (PRD-06).
@@ -331,7 +342,17 @@ export function definePatch(def: PatchDef): PatchDef {
   return def;
 }
 
-export interface WhitelistOpts { allowGuest?: boolean; methods?: ("GET" | "POST")[]; roles?: string[] }
+export interface WhitelistOpts {
+  allowGuest?: boolean;
+  methods?: ("GET" | "POST")[];
+  roles?: string[];
+  /**
+   * Callable by Website Users (OPS-10). Everything else under /api is closed
+   * to them. The method still runs as the caller, in portal mode: its
+   * `ddcore.getList`/`getDoc` see only what the portals grant.
+   */
+  portal?: boolean;
+}
 
 /** Marks a function as callable via POST /api/method/<app>.<path>.<name>. */
 export function whitelisted<F extends (...a: any[]) => any>(fn: F, opts: WhitelistOpts = {}): F {
@@ -355,3 +376,11 @@ export function defineWorkflow<D = Record<string, any>>(def: WorkflowDef<D>): Wo
   return def;
 }
 
+/**
+ * Declares a self-service portal: `export default definePortal({…})` in
+ * `portal/<name>.portal.ts`. See `docs/agent/portal.md`.
+ */
+export function definePortal(def: PortalDef): PortalDef {
+  __ddcore.register("portal", def);
+  return def;
+}

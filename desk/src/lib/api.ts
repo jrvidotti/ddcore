@@ -188,7 +188,8 @@ export const api = {
       `/api/print/${encodeURIComponent(doctype)}/${encodeURIComponent(id)}/pdf` + q(params),
   },
 
-  login: (usr: string, pwd: string) => request("POST", "/api/login", { usr, pwd }),
+  /** `home` is where this user belongs: "/portal" for a Website User (OPS-10). */
+  login: (usr: string, pwd: string) => request<{ ok: boolean; home?: string }>("POST", "/api/login", { usr, pwd }),
   logout: () => request("POST", "/api/logout"),
 
   // Recovery and invitation. These answer for Guest, so they are the only

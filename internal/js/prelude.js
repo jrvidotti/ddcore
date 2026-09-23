@@ -71,6 +71,7 @@
     notifications: Object.create(null),
     workflows: Object.create(null),
     workflowsByDoctype: Object.create(null),
+    portals: Object.create(null),
     apps: {},
     modules: {},
     modulesByApp: {},
@@ -185,6 +186,19 @@
           reg.workflowsByDoctype[value.doctype] = value.name;
           break;
         }
+        case "portal": {
+          // the shape is checked here, the fields against the meta in Go
+          // (Portal.ValidateTarget), where every app's DocTypes are known
+          const fail = (msg) => { throw new DDCoreError("ValidationError", "", "Portal " + (value?.name || "<unnamed>") + ": " + msg); };
+          if (!value || typeof value.name !== "string" || !value.name.trim()) fail("name is required");
+          if (reg.portals[value.name]) fail("name is defined twice: " + reg.portals[value.name].app + " (" + reg.portals[value.name].sourceFile + ") and " + reg.app + " (" + reg.current + ")");
+          if (!value.identity || typeof value.identity.doctype !== "string" || typeof value.identity.userField !== "string") fail("identity needs doctype and userField");
+          if (!Array.isArray(value.pages) || value.pages.length === 0) fail("pages array is required");
+          value.app = reg.app;
+          value.sourceFile = reg.current;
+          reg.portals[value.name] = value;
+          break;
+        }
         case "report":
           value.app = reg.app;
           reg.reports[value.name] = value;
@@ -280,6 +294,16 @@
         })),
       };
     }
+    const portals = {};
+    for (const n in reg.portals) {
+      const p = stripFns(reg.portals[n]);
+      portals[n] = {
+        name: p.name, title: p.title || p.name, app: p.app, sourceFile: p.sourceFile,
+        roles: Array.isArray(p.roles) ? p.roles : (p.roles ? [p.roles] : []),
+        identity: p.identity,
+        pages: (p.pages || []).map((pg) => Object.assign({}, pg, { kind: pg.kind || "list" })),
+      };
+    }
     const apps = {};
     for (const n in reg.apps) {
       const a = stripFns(reg.apps[n]);
@@ -306,7 +330,7 @@
       return { doctype: x.doctype, app: x.app, sourceFile: x.sourceFile,
         fields: ext.fields, set: ext.set, props: ext.doctype, permissions: ext.permissions };
     });
-    return JSON.stringify({ doctypes, reports, workspaces, mailTemplates, printTemplates, notifications, workflows, apps, whitelisted, patches, extensions });
+    return JSON.stringify({ doctypes, reports, workspaces, mailTemplates, printTemplates, notifications, workflows, portals, apps, whitelisted, patches, extensions });
   };
 
   const notificationCall = (fn, doc, before) => {
@@ -896,6 +920,18 @@
         call("share.remove", { doctype: String(doctype), id: String(id), user: String(user) });
       },
       list(doctype, id) { return call("share.list", { doctype: String(doctype), id: String(id) }); },
+    },
+    // Accounts other code hands out: a portal app inviting its own users is
+    // the case this exists for. Go decides who may invite whom.
+    users: {
+      invite(args) {
+        args = args || {};
+        return call("users.invite", {
+          email: String(args.email || ""), fullName: String(args.fullName || ""),
+          roles: args.roles || [], userType: String(args.userType || ""),
+        });
+      },
+      resendInvite(user) { return call("users.resendInvite", { user: String(user || "") }); },
     },
     audit(action, targetDoctype, targetID, detail) {
       return call("audit", {

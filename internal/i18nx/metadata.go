@@ -63,6 +63,23 @@ func CollectWorkflow(s *Set, wf js.Workflow, file string) {
 	}
 }
 
+// CollectPortal collects what a portal shows its user: its title, and each
+// page's label, description and action labels.
+func CollectPortal(s *Set, p engine.Portal, file string) {
+	if p.Title != "" {
+		s.Add(p.Title, file, 0)
+	}
+	for _, pg := range p.Pages {
+		s.Add(pg.Label, file, 0)
+		if pg.Description != "" {
+			s.Add(pg.Description, file, 0)
+		}
+		for _, a := range pg.Actions {
+			s.Add(a.Label, file, 0)
+		}
+	}
+}
+
 // CollectPrintTemplate collects a print template's label: the format list
 // shows it through c.T. A template without a label shows its name, which is an
 // identifier and is not collected.

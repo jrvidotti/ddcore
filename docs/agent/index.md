@@ -12,6 +12,7 @@ Available documents (also as MCP resources `ddcore://docs/<name>`):
 - `auth` — sign-in, single sign-on (OpenID Connect providers), lockout, recovery, invitation, self-service and secrets
 - `field-permissions` — field levels (`permlevel`): confidential fields omitted from every read path and protected on write
 - `scopes` — user access scopes (`User Permission`): restricting users to companies, units or customers across every read and write path
+- `portal` — self-service portals (`definePortal`): Website Users, identity and match, pages, uploads, limits and inviting portal users
 - `sharing` — document sharing (`Document Share`): per-user read/write/share grants on one document, scope override, audit
 - `controller-api` — `defineController`, hooks, methods, the server's `ddcore.*` API
 - `form-api` — `defineForm`, `frm.*`, dialogs, `defineListView` and its Calendar, Kanban, Gantt and Card views (desk)

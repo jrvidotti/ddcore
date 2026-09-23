@@ -31,4 +31,4 @@ export const setMyLanguage = whitelisted((args: { language?: string | null }) =>
   ddcore.cache.del("lang:" + user);
 
   return { language };
-});
+}, { portal: true });

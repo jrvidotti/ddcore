@@ -19,9 +19,12 @@ function me(): string {
   return user;
 }
 
+// A Website User manages their own sessions from the portal (OPS-10).
+const SELF = { portal: true };
+
 export const listMySessions = whitelisted(() => ({
   sessions: (ddcore as any).__auth.sessions(me()),
-}));
+}), SELF);
 
 export const revokeMySession = whitelisted((args: { id: string }) => {
   const id = String(args.id ?? "").trim();
@@ -29,10 +32,10 @@ export const revokeMySession = whitelisted((args: { id: string }) => {
   // Scoped to this user on the host side too, so a handle copied from
   // somebody else's list reaches nothing.
   return (ddcore as any).__auth.revokeSessions(me(), { id });
-});
+}, SELF);
 
 /** Ends every session but the one asking — "sign out everywhere else". */
 export const revokeMyOtherSessions = whitelisted(() => {
   const auth = (ddcore as any).__auth;
   return auth.revokeSessions(me(), { exceptSid: auth.currentSid() });
-});
+}, SELF);

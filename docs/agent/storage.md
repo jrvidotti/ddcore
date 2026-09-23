@@ -64,6 +64,19 @@ same layout as the local `files/` directory.
   redirect only, so the bucket's own response carries neither.
 - A bare `/files/` lists nothing.
 
+### Uploading onto a document
+
+`POST /api/upload` with `doctype` and `doc_id` hangs the file on that document, which lets
+everyone who reads the document read the file. So it needs **write** on the document. With
+`doctype` and no `doc_id`, or with an id that does not exist yet (a document being created),
+it needs `create` or `write` on the DocType, and the file is stored detached. When the
+document is saved, each `Attach`/`Attach Image` value, child rows included, that names a
+detached file **the saving user uploaded** attaches it to the document, under the field, or
+the Table field for a row. From then on the file follows the document. Before this, a file
+picked on a new form stayed readable only by its uploader and System Manager. A Website User
+uploads only into an editable attachment field of a portal page, and always privately
+(see `portal`).
+
 ## Deletion
 
 Deleting a `File` deletes its bytes, and deleting a document deletes the rows and

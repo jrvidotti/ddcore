@@ -114,6 +114,11 @@ func collectMeta(s *Set, e *engine.Engine, t Target) {
 			CollectWorkflow(s, wf, workflowRef(t, wf))
 		}
 	}
+	for _, p := range st.Snap.Portals {
+		if p.App == t.App {
+			CollectPortal(s, p, portalRef(t, p))
+		}
+	}
 	for _, pt := range st.Snap.PrintTemplates {
 		if pt.App == t.App {
 			CollectPrintTemplate(s, pt, printTemplateRef(t, pt))
@@ -168,6 +173,14 @@ func printTemplateRef(t Target, pt engine.PrintTemplate) string {
 		return t.App + " print"
 	}
 	return pt.SourceFile
+}
+
+// portalRef names the portal's source module, or the app when unknown.
+func portalRef(t Target, p engine.Portal) string {
+	if p.SourceFile == "" {
+		return t.App + " portal"
+	}
+	return p.SourceFile
 }
 
 // workflowRef names the workflow's source module, or the app when unknown.

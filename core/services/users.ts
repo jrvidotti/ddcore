@@ -30,31 +30,18 @@ const ADMIN = { roles: ["System Manager"] };
 export const invite = whitelisted((args: {
   email: string; fullName: string; roles?: string[]; userType?: string;
 }) => {
-  const email = String(args.email ?? "").trim();
-  const fullName = String(args.fullName ?? "").trim();
-  if (!email) ddcore.throw(_("Email is required"));
-  if (!fullName) ddcore.throw(_("Full name is required"));
-  if (ddcore.db.exists("User", email)) ddcore.throw(_("User {0} already exists", [email]));
-
-  const doc = ddcore.newDoc("User", {
-    email,
-    full_name: fullName,
-    enabled: true,
-    user_type: args.userType || "System User",
+  // ddcore.users.invite validates, creates, mails and audits; the same call
+  // an app makes to invite people to its portal
+  return ddcore.users.invite({
+    email: String(args.email ?? ""),
+    fullName: String(args.fullName ?? ""),
+    roles: args.roles || [],
+    userType: (args.userType as any) || "System User",
   });
-  for (const role of args.roles || []) doc.append("roles", { role });
-  doc.insert();
-
-  const rec = (ddcore as any).__auth.startRecovery(email, "invite");
-  ddcore.audit("account.invite", "User", email, { fullName });
-  return { user: email, expires: rec.expires, link: rec.link || undefined };
 }, ADMIN);
 
 export const resendInvite = whitelisted((args: { user: string }) => {
-  const user = requireUser(args.user);
-  const rec = (ddcore as any).__auth.startRecovery(user, "invite");
-  ddcore.audit("account.resend_invite", "User", user);
-  return { user, expires: rec.expires, link: rec.link || undefined };
+  return ddcore.users.resendInvite(requireUser(args.user));
 }, ADMIN);
 
 export const sendPasswordReset = whitelisted((args: { user: string }) => {

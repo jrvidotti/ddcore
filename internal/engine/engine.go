@@ -89,6 +89,8 @@ type Config struct {
 	// OIDC lists the single sign-on providers. Their callback addresses are
 	// built from SiteURL.
 	OIDC []config.OIDCProvider
+	// Portal bounds what Website Users write through the portals (OPS-10).
+	Portal config.PortalPolicy
 	// EnforceMaintenance makes this process honour maintenance mode: refuse
 	// writes, stop claiming jobs, skip scheduled runs. A server sets it; the
 	// CLI does not, and that is the bypass an operator works through.
@@ -146,6 +148,7 @@ type Snapshot struct {
 	PrintTemplates map[string]PrintTemplate   `json:"printTemplates"`
 	Notifications  map[string]js.Notification `json:"notifications"`
 	Workflows      map[string]js.Workflow     `json:"workflows"`
+	Portals        map[string]Portal          `json:"portals"`
 	Apps           map[string]*AppMeta        `json:"apps"`
 	Whitelisted    []Whitelisted              `json:"whitelisted"`
 	Patches        []Patch                    `json:"patches"`
@@ -179,6 +182,8 @@ type State struct {
 	Notifications     []js.Notification
 	Workflows         map[string]*js.Workflow
 	WorkflowByDocType map[string]*js.Workflow
+	// Portals are the declared self-service portals (OPS-10), by name.
+	Portals           map[string]Portal
 	Meta              *meta.Registry
 	Snap              *Snapshot
 	Apps              []js.App
@@ -295,6 +300,11 @@ func New(ctx context.Context, cfg Config) (*Engine, error) {
 		e.DB = d
 	}
 	if err := e.Load(); err != nil {
+		// nobody gets the engine back to close it: an app that fails to load
+		// must not keep the database's connections open behind it
+		if e.DB != nil {
+			e.DB.Close()
+		}
 		return nil, err
 	}
 	if e.DB != nil {
@@ -556,7 +566,23 @@ func (e *Engine) Load() error {
 			workflowsByDocType[wf.Doctype] = &wf
 		}
 	}
+	portals := make(map[string]Portal, len(snap.Portals))
+	for _, name := range sortedPortalNames(snap.Portals) {
+		p := snap.Portals[name]
+		if err := p.ValidateTarget(reg, wl); err != nil {
+			pool.Close()
+			return err
+		}
+		for _, other := range portals {
+			if other.Slug() == p.Slug() {
+				pool.Close()
+				return fmt.Errorf("portal %q: its URL name %q is taken by portal %q", p.Name, p.Slug(), other.Name)
+			}
+		}
+		portals[name] = p
+	}
 	st := &State{
+		Portals:           portals,
 		Notifications:     notifications,
 		Workflows:         workflows,
 		WorkflowByDocType: workflowsByDocType,
@@ -717,6 +743,11 @@ type Ctx struct {
 	scopeAncestors       map[string][]string
 	afterCommit          []func()
 	inWorkflowTransition bool
+	// portal puts the request in portal mode (OPS-10); a Website User is in it
+	// regardless. userType and portalIdent memoise what that mode reads.
+	portal      bool
+	userType    string
+	portalIdent map[string][]Doc
 }
 
 func (e *Engine) NewCtx(ctx context.Context, user string) *Ctx {

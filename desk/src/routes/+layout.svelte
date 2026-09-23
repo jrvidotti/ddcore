@@ -17,6 +17,7 @@
   import { ui, toast } from "$lib/ui.svelte";
   import { shouldToggleShortcuts, toggleShortcutsHelp, shortcutsState, closeShortcutsHelp, openShortcutsHelp, searchState, openSearch, closeSearch } from "$lib/shortcuts.svelte";
   import { api, onMessage } from "$lib/api";
+  import { isPortalPath, portalRedirect } from "$lib/portal";
   import { page } from "$app/state";
   import { goto, afterNavigate } from "$app/navigation";
   import { onMount, onDestroy, untrack } from "svelte";
@@ -31,6 +32,8 @@
   let sidebarOpen = $state(false);
   let userMenuOpen = $state(false);
   const isLogin = $derived(page.url.pathname.startsWith("/login"));
+  // the portal draws its own chrome: none of the desk's shell (OPS-10)
+  const isPortal = $derived(isPortalPath(page.url.pathname));
 
   const displayName = $derived(boot.data?.userDoc?.full_name || boot.data?.user || "");
   const avatarInitial = (name: string) => (name || "U").trim().charAt(0).toUpperCase();
@@ -46,7 +49,7 @@
   });
 
   function onWindowKeydown(e: KeyboardEvent) {
-    if (isLoggedIn() && !isLogin && shouldOpenSearch(e)) {
+    if (isLoggedIn() && !isLogin && !isPortal && shouldOpenSearch(e)) {
       e.preventDefault();
       if (searchState.open) closeSearch(); else { closeShortcutsHelp(); openSearch(); }
       return;
@@ -118,6 +121,11 @@
     if (isLogin) untrack(() => { stopNotifications(); stopPendingTasks(); disconnectEvents(); });
   });
   onDestroy(() => { stopNotifications(); stopPendingTasks(); disconnectEvents(); });
+  // a link into the desk followed from the portal lands back in it
+  $effect(() => {
+    const to = ready ? portalRedirect(boot.data?.website, page.url.pathname) : null;
+    if (to) untrack(() => goto(to, { replaceState: true }));
+  });
 
   onMount(async () => {
     installDeskSDK();
@@ -130,6 +138,12 @@
       // Awaited: rendering the page before the URL changes lets its own redirect (/app → a
       // workspace) replace this one, and a guest never reaches the sign-in form.
       if (b.user === "Guest" && !isLogin) { await goto("/login?redirect=" + encodeURIComponent(page.url.pathname + page.url.search)); }
+      else if (b.website) {
+        // a Website User reaches the portals and nothing else; the desk's
+        // includes, notifications and event stream are desk API they are refused
+        const to = portalRedirect(b.website, page.url.pathname);
+        if (to) await goto(to, { replaceState: true });
+      }
       else if (b.user !== "Guest") {
         await loadAppIncludes(b.apps, b.loaded);
         startNotifications();
@@ -148,7 +162,7 @@
 {#if ui.busy > 0}<div class="busy-bar"></div>{/if}
 {#if !ready}
   <div class="page muted">…</div>
-{:else if isLogin || !isLoggedIn()}
+{:else if isLogin || !isLoggedIn() || isPortal}
   {@render children()}
 {:else}
   <div class="shell">
@@ -251,7 +265,7 @@
 <Toasts />
 <Dialogs />
 <ShortcutsModal />
-{#if ready && !isLogin && isLoggedIn()}<SearchPalette />{/if}
+{#if ready && !isLogin && !isPortal && isLoggedIn()}<SearchPalette />{/if}
 
 <style>
   .shell { display: flex; min-height: 100vh; }

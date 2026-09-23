@@ -163,36 +163,9 @@ func (c *Ctx) HasPermission(doctype, ptype string, doc Doc) (bool, error) {
 	if d.IsChild {
 		return c.childPermission(d, ptype, doc)
 	}
-	roles, err := c.Roles()
+	allowed, err := c.grantedBy(d, ptype, doc)
 	if err != nil {
 		return false, err
-	}
-	allowed, ownerOnly := false, true
-	for _, p := range d.Permissions {
-		// a row above level 0 grants fields, never the document (SEC-02)
-		if p.Permlevel > 0 || !contains(roles, p.Role) || !p.Has(ptype) {
-			continue
-		}
-		allowed = true
-		if !p.IfOwner {
-			ownerOnly = false
-		}
-	}
-	if allowed && ownerOnly && doc != nil && doc.Str("owner") != c.User {
-		allowed = false
-	}
-	if !allowed && shareable(ptype) {
-		// a share stands in for the role grant (SEC-03); the workflow, the
-		// controller and the scopes below still have their say
-		if doc != nil {
-			s, err := c.shareOn(d.Name, doc.ID())
-			if err != nil {
-				return false, err
-			}
-			allowed = s != nil && s.grants(ptype)
-		} else if allowed, err = c.sharedWithDoctype(d.Name, ptype); err != nil {
-			return false, err
-		}
 	}
 	if !allowed {
 		return false, nil
@@ -232,6 +205,48 @@ func (c *Ctx) HasPermission(doctype, ptype string, doc Doc) (bool, error) {
 		}
 	}
 	return true, nil
+}
+
+// grantedBy is HasPermission's grant step: what lets the user near the
+// document at all, before the workflow, the controller and the scopes have
+// their say. In portal mode that is a portal page and nothing else (OPS-10);
+// otherwise a role row, or a share standing in for one.
+func (c *Ctx) grantedBy(d *meta.DocType, ptype string, doc Doc) (bool, error) {
+	if c.PortalMode() {
+		return c.portalAllows(d.Name, ptype, doc)
+	}
+	roles, err := c.Roles()
+	if err != nil {
+		return false, err
+	}
+	allowed, ownerOnly := false, true
+	for _, p := range d.Permissions {
+		// a row above level 0 grants fields, never the document (SEC-02)
+		if p.Permlevel > 0 || !contains(roles, p.Role) || !p.Has(ptype) {
+			continue
+		}
+		allowed = true
+		if !p.IfOwner {
+			ownerOnly = false
+		}
+	}
+	if allowed && ownerOnly && doc != nil && doc.Str("owner") != c.User {
+		allowed = false
+	}
+	if !allowed && shareable(ptype) {
+		// a share stands in for the role grant (SEC-03); the workflow, the
+		// controller and the scopes below still have their say
+		if doc != nil {
+			s, err := c.shareOn(d.Name, doc.ID())
+			if err != nil {
+				return false, err
+			}
+			allowed = s != nil && s.grants(ptype)
+		} else if allowed, err = c.sharedWithDoctype(d.Name, ptype); err != nil {
+			return false, err
+		}
+	}
+	return allowed, nil
 }
 
 // checkUserPermissions validates whether doc satisfies active scope restrictions.
@@ -599,6 +614,22 @@ func (c *Ctx) permissionFilters(d *meta.DocType) ([]db.Filter, error) {
 		}
 		return append([]db.Filter{{Field: "parenttype", Op: "in", Value: vals}}, sf...), nil
 	}
+	if c.PortalMode() {
+		// a portal page is the only grant: no role rows, no shares (OPS-10)
+		own, err := c.portalFilters(d)
+		if err != nil {
+			return nil, err
+		}
+		query, err := c.permissionQueryFilters(d)
+		if err != nil {
+			return nil, err
+		}
+		strict, err := c.strictScopeFilters(d)
+		if err != nil {
+			return nil, err
+		}
+		return append(append(own, query...), strict...), nil
+	}
 	roles, err := c.Roles()
 	if err != nil {
 		return nil, err
@@ -612,23 +643,9 @@ func (c *Ctx) permissionFilters(d *meta.DocType) ([]db.Filter, error) {
 			}
 		}
 	}
-	var query []db.Filter
-	if d.HasController() {
-		rt, err := c.RT()
-		if err != nil {
-			return nil, err
-		}
-		raw, err := rt.PermissionQuery(d.Name, c.User)
-		if err != nil {
-			return nil, err
-		}
-		if len(raw) > 0 {
-			var v any
-			json.Unmarshal(raw, &v)
-			if query, err = db.ParseFilters(v); err != nil {
-				return nil, err
-			}
-		}
+	query, err := c.permissionQueryFilters(d)
+	if err != nil {
+		return nil, err
 	}
 	strict, err := c.strictScopeFilters(d)
 	if err != nil {
@@ -661,6 +678,24 @@ func (c *Ctx) permissionFilters(d *meta.DocType) ([]db.Filter, error) {
 		groups = append(groups, append([]db.Filter{{Field: "id", Op: "in", Value: override}}, query...))
 	}
 	return []db.Filter{{Any: groups}}, nil
+}
+
+// permissionQueryFilters are the controller's permissionQuery for the user.
+func (c *Ctx) permissionQueryFilters(d *meta.DocType) ([]db.Filter, error) {
+	if !d.HasController() {
+		return nil, nil
+	}
+	rt, err := c.RT()
+	if err != nil {
+		return nil, err
+	}
+	raw, err := rt.PermissionQuery(d.Name, c.User)
+	if err != nil || len(raw) == 0 {
+		return nil, err
+	}
+	var v any
+	json.Unmarshal(raw, &v)
+	return db.ParseFilters(v)
 }
 
 // Permissions summarises what the user can do with a doctype (for the desk).

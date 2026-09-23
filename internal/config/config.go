@@ -58,6 +58,8 @@ type File struct {
 	// Ops is the operational policy: the thresholds a health report and
 	// `ddcore doctor` call a warning.
 	Ops OpsPolicy `json:"ops"`
+	// Portal bounds what a Website User can write through the portals.
+	Portal PortalPolicy `json:"portal"`
 	// URL is the site's public base address. Recovery and invitation links are
 	// built from it, so a wrong one is worse than no mail at all.
 	URL string `json:"url"`
@@ -284,3 +286,35 @@ func (f *File) PublicURL() string {
 }
 
 func (f *File) HasPublicURL() bool { return f.URL != "" }
+
+// PortalPolicy is the abuse control on portal writes (OPS-10). Each limit is
+// per Website User, over a sliding hour; zero takes the default.
+type PortalPolicy struct {
+	WritesPerHour  int `json:"writesPerHour"`
+	UploadsPerHour int `json:"uploadsPerHour"`
+	MaxUploadMB    int `json:"maxUploadMB"`
+}
+
+const (
+	DefaultPortalWritesPerHour  = 60
+	DefaultPortalUploadsPerHour = 30
+	DefaultPortalMaxUploadMB    = 10
+)
+
+// Writes is the number of portal creates and updates allowed per hour.
+func (p PortalPolicy) Writes() int { return orDefaultInt(p.WritesPerHour, DefaultPortalWritesPerHour) }
+
+// Uploads is the number of portal uploads allowed per hour.
+func (p PortalPolicy) Uploads() int { return orDefaultInt(p.UploadsPerHour, DefaultPortalUploadsPerHour) }
+
+// MaxUploadBytes caps one upload by a Website User.
+func (p PortalPolicy) MaxUploadBytes() int64 {
+	return int64(orDefaultInt(p.MaxUploadMB, DefaultPortalMaxUploadMB)) << 20
+}
+
+func orDefaultInt(v, d int) int {
+	if v <= 0 {
+		return d
+	}
+	return v
+}

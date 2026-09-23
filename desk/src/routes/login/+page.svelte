@@ -2,6 +2,7 @@
   import { api } from "$lib/api";
   import { __, boot, siteLogo } from "$lib/boot.svelte";
   import { page } from "$app/state";
+  import { landing } from "$lib/portal";
   let usr = $state(""), pwd = $state(""), error = $state(""), busy = $state(false);
   let usrInput: HTMLInputElement | undefined = $state();
   let submit: HTMLButtonElement | undefined = $state();
@@ -17,7 +18,8 @@
   // who keeps a password for the day the identity provider is down
   let showPassword = $state(false);
   const passwordForm = $derived(offer?.password !== false || showPassword);
-  const redirect = $derived(page.url.searchParams.get("redirect") || "/app");
+  const asked = $derived(page.url.searchParams.get("redirect"));
+  const redirect = $derived(asked || "/app");
   function ssoHref(id: string) {
     return `/api/auth/oidc/${encodeURIComponent(id)}/start?redirect=${encodeURIComponent(redirect)}`;
   }
@@ -41,8 +43,8 @@
     e.preventDefault();
     busy = true; error = "";
     try {
-      await api.login(usr, pwd);
-      location.href = redirect;
+      const r = await api.login(usr, pwd);
+      location.href = landing(r?.home, asked);
     } catch (err: any) { error = err.message; } finally { busy = false; }
   }
 </script>

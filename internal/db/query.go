@@ -269,6 +269,9 @@ func ParseFilters(v any) ([]Filter, error) {
 	switch x := v.(type) {
 	case nil:
 		return nil, nil
+	case []Filter:
+		// built by the framework itself, never parsed from a request
+		return x, nil
 	case map[string]any:
 		for k, val := range x {
 			if arr, ok := val.([]any); ok && len(arr) == 2 {
