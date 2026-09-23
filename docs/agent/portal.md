@@ -172,9 +172,10 @@ follows the same rule. Both write the `account.invite` / `account.resend_invite`
 - `/portal` has its own layout: the site name, the pages of every portal the user
   reaches, and an account menu (profile, sign out). None of the desk's shell, search,
   notifications or event stream is loaded.
-- A Website User who opens any other desk path is sent to `/portal`. A desk user may open
-  `/portal` too, as a preview of what the portal grants them (usually nothing: they
-  have no identity row).
+- A Website User who opens any other desk path is sent to `/portal`. A desk user whose roles
+  reach a portal finds **My portal** in the account menu. Inside it they are judged like
+  anyone else, by the pages and their identity row: an HR analyst who is also an employee
+  sees their own records, and one with no identity row sees nothing.
 - Forms are built from the page's fields, and Link fields search through the page's own
   endpoint. Form scripts (`*.form.ts`) do not run in the portal.
 

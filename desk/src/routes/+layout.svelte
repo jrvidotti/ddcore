@@ -234,6 +234,11 @@
                 >
                   <Icon name="user" size={14} /> <span>{__("My profile")}</span>
                 </button>
+                {#if boot.data?.portals?.length}
+                  <button role="menuitem" onclick={() => { userMenuOpen = false; goto("/portal"); }}>
+                    <Icon name="external-link" size={14} /> <span>{__("My portal")}</span>
+                  </button>
+                {/if}
                 <button
                   role="menuitem"
                   onclick={() => { userMenuOpen = false; openShortcutsHelp(); }}

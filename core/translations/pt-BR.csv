@@ -308,7 +308,7 @@ Loading…,Carregando...,# desk/src/lib/components/FormView.svelte:498
 Logo Image,Imagem do Logo,# core.doctypes.letter_head.letter_head.doctype
 Low,Baixa,# desk/src/lib/components/AssignModal.svelte:98
 Mail template {0} does not exist,O modelo de mensagem {0} não existe,# internal/engine/mailqueue.go:86
-Maintenance mode,Modo de manutenção,# desk/src/routes/+layout.svelte:258
+Maintenance mode,Modo de manutenção,# desk/src/routes/+layout.svelte:263
 Mark as completed,Marcar como concluída,# desk/src/routes/app/todo/+page.svelte:162
 Mark as read,Marcar como lida,# desk/src/routes/app/notifications/+page.svelte:44
 Mark as unread,Marcar como não lida,# desk/src/routes/app/notifications/+page.svelte:44
@@ -324,6 +324,7 @@ Modified by,Modificado por,# desk/src/lib/components/DocSidebar.svelte:105
 Month,Mês,# desk/src/lib/components/views/GanttView.svelte:25
 Month/day/year,Mês/dia/ano,# desk/src/lib/components/DataImportModal.svelte:163
 Move through the list options,Navegar entre as opções da lista,# desk/src/lib/shortcuts.ts:108
+My portal,Meu portal,# desk/src/lib/components/Sidebar.svelte:177
 My profile,Meu perfil,# desk/src/lib/components/Profile.svelte:131
 Name,Nome,# core.doctypes.file.file.doctype
 Name and language,Nome e idioma,# desk/src/lib/components/Profile.svelte:157
@@ -524,7 +525,7 @@ Sign in,Entrar,# desk/src/routes/login/+page.svelte:55
 Sign in to continue,Faça login para continuar,# core/services/api_keys.ts:14
 Sign in to upload files,Faça login para enviar arquivos,# internal/api/api.go:1349
 Sign in with the password you just chose.,Entre com a senha que você acabou de escolher.,# desk/src/routes/login/reset/+page.svelte:55
-Sign out,Sair,# desk/src/lib/components/Sidebar.svelte:178
+Sign out,Sair,# desk/src/lib/components/Sidebar.svelte:184
 Sign out everywhere else,Sair dos outros dispositivos,# desk/src/lib/components/Profile.svelte:196
 Sign out of every other device?,Sair de todos os outros dispositivos?,# desk/src/lib/components/Profile.svelte:98
 Signing Secret,Segredo de Assinatura,# core.doctypes.webhook.webhook.doctype
@@ -672,7 +673,7 @@ You cannot grant {0} on {1} {2} without holding it,Você não pode conceder {0} 
 You cannot share a document with yourself,Você não pode compartilhar um documento com você mesmo,# internal/engine/share.go:290
 You have been invited to {0},Você foi convidado para {0},# core/mail/invite.mail.ts:20
 Your account has no portal yet. Ask the people who invited you.,Sua conta ainda não tem um portal. Fale com quem convidou você.,# desk/src/routes/portal/+page.svelte:11
-changes are paused until the site reopens.,as alterações estão pausadas até o site reabrir.,# desk/src/routes/+layout.svelte:258
+changes are paused until the site reopens.,as alterações estão pausadas até o site reabrir.,# desk/src/routes/+layout.svelte:263
 ctx.sql is only available inside a patch,ctx.sql só existe dentro de um patch,# internal/engine/query.go:628
 d,d,# desk/src/lib/controls/DurationControl.svelte:23
 ddcore.db.lock requires a transaction,ddcore.db.lock exige uma transação,# internal/engine/query.go:693

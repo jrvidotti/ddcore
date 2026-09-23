@@ -32,7 +32,8 @@ not every commit that went into it.
   permission check, so lists, reads, inserts, saves, uploads and downloads all follow them. The
   workflow, controller hooks and scopes still apply after them. The desk serves `/portal`
   with its own layout, list, record and form screens, and the account screen without API keys.
-  `/api/portal/*` serves the pages; `/api/boot` lists them as `portals`. See `docs/agent/portal.md`.
+  `/api/portal/*` serves the pages; `/api/boot` lists them as `portals`, and a desk user who
+  reaches a portal finds "My portal" in the account menu. See `docs/agent/portal.md`.
 - **`whitelisted(fn, { portal: true })`** makes a method callable by Website Users. It runs in
   portal mode, so its `ddcore.getList`/`getDoc` see what the portals grant. The core's own
   profile, password, session and language methods are marked.

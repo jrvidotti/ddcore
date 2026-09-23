@@ -171,6 +171,12 @@
           <button role="menuitem" onclick={() => { menuOpen = false; if (typeof window !== "undefined" && window.innerWidth <= 800) open = false; goto("/app/profile"); }}>
             <Icon name="user" size={14} /> {__("My profile")}
           </button>
+          {#if boot.data?.portals?.length}
+            <!-- a desk user who is also, say, an employee reaches their own portal (OPS-10) -->
+            <button role="menuitem" onclick={() => { menuOpen = false; goto("/portal"); }}>
+              <Icon name="external-link" size={14} /> {__("My portal")}
+            </button>
+          {/if}
           <button role="menuitem" onclick={() => { menuOpen = false; if (typeof window !== "undefined" && window.innerWidth <= 800) open = false; openShortcutsHelp(); }}>
             <Icon name="keyboard" size={14} /> {__("Keyboard shortcuts")}
           </button>
