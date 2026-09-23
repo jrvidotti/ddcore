@@ -154,6 +154,38 @@ export function collapseAll(state: TreeState): TreeState {
   return { ...state, expanded: new Set() };
 }
 
+/** The last "Expand all" / "Collapse all" chosen on a DocType's tree, kept in the browser. */
+export type TreeExpandMode = "expanded" | "collapsed";
+
+type Store = { getItem(k: string): string | null; setItem(k: string, v: string): void };
+
+function defaultStore(): Store | null {
+  try {
+    return (globalThis as any).localStorage ?? null;
+  } catch {
+    return null;
+  }
+}
+
+const expandKey = (doctype: string) => `ddcore_tree_expand_${doctype}`;
+
+export function rememberTreeExpand(doctype: string, mode: TreeExpandMode, store = defaultStore()): void {
+  try {
+    store?.setItem(expandKey(doctype), mode);
+  } catch {
+    /* private mode / SSR */
+  }
+}
+
+export function getRememberedTreeExpand(doctype: string, store = defaultStore()): TreeExpandMode | "" {
+  try {
+    const v = store?.getItem(expandKey(doctype));
+    return v === "expanded" || v === "collapsed" ? v : "";
+  } catch {
+    return "";
+  }
+}
+
 export function markLoading(state: TreeState, parent: string): TreeState {
   const loading = new Set(state.loading);
   loading.add(parent);

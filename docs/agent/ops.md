@@ -331,6 +331,63 @@ more than an hour — which is what work talking to somebody else's server wants
 A retried job keeps its backoff. Outgoing [webhooks](webhooks.md) use it. The status values are also what
 `--status` accepts, so they stay in English on a translated site.
 
+### Lifecycle callbacks
+
+A job is one transaction the framework owns, so everything it writes becomes
+visible only when it ends: a `Running` written at its start commits together
+with whatever it writes last, and a `Failed` written before it throws rolls back
+with everything else. `enqueue` takes two callbacks for exactly this, each a
+method path like the job's own, each run **in a transaction of its own**:
+
+```ts
+// the controller that queues the work
+afterInsert(doc) {
+  ddcore.enqueue("myapp.services.importer.run", { name: doc.id }, {
+    maxAttempts: 1,
+    timeout: 900,
+    onStart: "myapp.services.importer.started",
+    onFailure: "myapp.services.importer.failed",
+  });
+},
+```
+
+```ts
+// services/importer.ts
+import type { JobInfo, JobFailure } from "@ddcore/sdk";
+
+export function started(args: { name: string }, job: JobInfo) {
+  ddcore.db.setValue("My Import", args.name, { status: "Running" });
+}
+
+export function failed(args: { name: string }, job: JobFailure) {
+  if (!job.final) return; // a retry is coming
+  ddcore.db.setValue("My Import", args.name, { status: "Failed", messages: job.error });
+}
+```
+
+- **`onStart(args, job)`** runs on every attempt, after a worker claimed the job
+  and before the body, and commits before the body starts. It counts toward the
+  job's `timeout`. If it throws, the attempt fails like a body that threw: the
+  body does not run, the usual retry rules apply, and `onFailure` is called.
+- **`onFailure(args, job)`** runs after the body rolled back, and before the
+  `job_done` event is published, so a form refreshing on that event reads what
+  it wrote. `job.reason` is `"error"`, `"timeout"` or `"cancelled"`; `job.error`
+  is the message; `job.final` is false while another attempt is still coming. It
+  is also called when a job is cancelled before any worker claimed it
+  (`job.attempt` is 0) and when the worker running it died and its lease
+  expired. It is **not** called when a worker shuts down or the site enters
+  maintenance under a running job: the attempt is given back, nothing failed.
+  It has 30 seconds. If it throws, the error goes to the Error Log (method
+  `job:onFailure:<method>`) and the job stays failed.
+- `job` is `{ id, method, queue, attempt, maxAttempts }`, plus `error`, `reason`
+  and `final` for `onFailure`.
+- Both run as the job's user with permissions ignored, like the body, and share
+  its Error Log handle, `job:<id>`. A retried job keeps its callbacks.
+
+There is no `onSuccess`: the body's own writes commit with it. Nothing here
+hands app code a commit — the callbacks are two more short transactions the
+framework owns.
+
 ### Cancelling
 
 Cancelling a **queued** job is immediate and final. Cancelling a **running** job

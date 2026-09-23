@@ -17,7 +17,7 @@ Action '{0}' is not valid for {1} {2} in state '{3}',Ação '{0}' não é válid
 Actions,Ações,# desk/src/lib/components/FormView.svelte:404
 Active sessions,Sessões ativas,# desk/src/lib/components/Profile.svelte:192
 Actor,Autor,# core.doctypes.audit_event.audit_event.doctype
-Add child,Adicionar filho,# desk/src/lib/components/views/TreeView.svelte:117
+Add child,Adicionar filho,# desk/src/lib/components/views/TreeView.svelte:126
 Add row,Adicionar linha,# desk/src/lib/controls/Grid.svelte:118
 Address,Endereço,# desk/src/lib/components/Profile.svelte:197
 Admin sign-in,Entrar como Admin,# desk/src/routes/login/+page.svelte:80
@@ -104,8 +104,8 @@ Close menu,Fechar menu,# desk/src/lib/components/Sidebar.svelte:94
 Close the options list,Fechar lista de opções,# desk/src/lib/shortcuts.ts:109
 Closed,Fechado,# desk/src/routes/app/todo/+page.svelte:132
 Code,Código,# desk/src/lib/controls/CodeControl.svelte:45
-Collapse,Recolher,# desk/src/lib/components/views/TreeView.svelte:106
-Collapse all,Recolher tudo,# desk/src/lib/components/views/TreeView.svelte:91
+Collapse,Recolher,# desk/src/lib/components/views/TreeView.svelte:115
+Collapse all,Recolher tudo,# desk/src/lib/components/views/TreeView.svelte:100
 Colour,Cor,# desk/src/lib/controls/ColorControl.svelte:34
 Column in the file,Coluna no arquivo,# desk/src/lib/components/DataImportModal.svelte:189
 Columns,Colunas,# desk/src/lib/components/DataImportModal.svelte:187
@@ -190,8 +190,8 @@ Event,Evento,# core.doctypes.webhook_delivery.webhook_delivery.doctype
 Event Name,Nome do Evento,# core.doctypes.webhook.webhook.doctype
 Event Type,Tipo de Evento,# core.doctypes.webhook.webhook.doctype
 Excel 97-2003 (.xls) files are not supported: save the sheet as .xlsx or CSV,Arquivos do Excel 97-2003 (.xls) não são suportados: salve a planilha como .xlsx ou CSV,# internal/engine/data_import.go:300
-Expand,Expandir,# desk/src/lib/components/views/TreeView.svelte:106
-Expand all,Expandir tudo,# desk/src/lib/components/views/TreeView.svelte:88
+Expand,Expandir,# desk/src/lib/components/views/TreeView.svelte:115
+Expand all,Expandir tudo,# desk/src/lib/components/views/TreeView.svelte:97
 Expires,Expira em,# desk/src/lib/components/Profile.svelte:242
 Expires in (days),Expira em (dias),# desk/src/lib/components/Profile.svelte:234
 Export,Exportar,# desk/src/lib/components/ListView.svelte:363
@@ -273,10 +273,10 @@ Invalid {0}: {1},{0} inválido: {1},# internal/api/api.go:334
 Is Default,É Padrão,# core.doctypes.letter_head.letter_head.doctype
 Italic,Itálico,# desk/src/lib/controls/RichTextControl.svelte:112
 Job,Job,# core.doctypes.email_delivery.email_delivery.doctype
-Job {0} does not exist,O job {0} não existe,# internal/engine/jobs_admin.go:54
-Job {0} is already {1} and cannot be cancelled,O job {0} já está {1} e não pode ser cancelado,# internal/engine/jobs_admin.go:62
-Job {0} is {1}; only a failed or cancelled job can be retried,O job {0} está {1}; só um job failed ou cancelled pode ser repetido,# internal/engine/jobs_admin.go:135
-Job {0} was already retried as {1},O job {0} já foi repetido como {1},# internal/engine/jobs_admin.go:133
+Job {0} does not exist,O job {0} não existe,# internal/engine/jobs_admin.go:59
+Job {0} is already {1} and cannot be cancelled,O job {0} já está {1} e não pode ser cancelado,# internal/engine/jobs_admin.go:67
+Job {0} is {1}; only a failed or cancelled job can be retried,O job {0} está {1}; só um job failed ou cancelled pode ser repetido,# internal/engine/jobs_admin.go:148
+Job {0} was already retried as {1},O job {0} já foi repetido como {1},# internal/engine/jobs_admin.go:146
 Kanban,Kanban,# desk/src/lib/components/ListView.svelte:440
 Key revoked,Chave revogada,# desk/src/lib/components/Profile.svelte:120
 Keyboard shortcuts,Atalhos de teclado,# desk/src/lib/components/FormView.svelte:393
@@ -505,7 +505,7 @@ Sharing...,Compartilhando...,# desk/src/lib/components/ShareModal.svelte:87
 Shortcuts,Atalhos,# desk/src/lib/components/Workspace.svelte:58
 Show,Mostrar,# desk/src/routes/app/notifications/+page.svelte:21
 Show this shortcuts window,Exibir esta janela de atalhos,# desk/src/lib/shortcuts.ts:99
-Showing the first nodes only; open the list view to see the rest,Mostrando apenas os primeiros nós; use a visão em lista para ver o restante,# desk/src/lib/components/views/TreeView.svelte:121
+Showing the first nodes only; open the list view to see the rest,Mostrando apenas os primeiros nós; use a visão em lista para ver o restante,# desk/src/lib/components/views/TreeView.svelte:130
 Showing the first {0} of {1} records; narrow the filters to see the rest,Exibindo os primeiros {0} de {1} registros; refine os filtros para ver o restante,# desk/src/lib/components/ListView.svelte:492
 Showing {0} of {1} rows with errors; download them all below.,Mostrando {0} de {1} linhas com erro; baixe todas abaixo.,# desk/src/lib/components/DataImportModal.svelte:225
 Sign in,Entrar,# desk/src/routes/login/+page.svelte:53
@@ -668,8 +668,9 @@ doctype and id are required,doctype e id são obrigatórios,# internal/api/workf
 "doctype, id and allocated_to are required","doctype, id e allocated_to são obrigatórios",# internal/api/assignments.go:39
 "doctype, id and user are required","doctype, id e user são obrigatórios",# internal/api/shares.go:65
 e.g. the invoicing script,ex.: o script de faturamento,# desk/src/lib/components/Profile.svelte:231
-enqueue: backoff must be {0} or {1},enqueue: backoff deve ser {0} ou {1},# internal/engine/jobs.go:91
-enqueue: provide the method,enqueue: informe o método,# internal/engine/jobs.go:59
+enqueue: backoff must be {0} or {1},enqueue: backoff deve ser {0} ou {1},# internal/engine/jobs.go:92
+enqueue: provide the method,enqueue: informe o método,# internal/engine/jobs.go:60
+enqueue: {0} must be a method path,enqueue: {0} deve ser o caminho de um método,# internal/engine/jobs.go:107
 failed to build Gotenberg request: {0},falha ao construir requisição para o Gotenberg: {0},# internal/print/pdf.go:160
 failed to connect to Gotenberg service at {0}: {1},falha ao conectar ao serviço Gotenberg em {0}: {1},# internal/print/pdf.go:166
 failed to create temp directory for PDF render: {0},falha ao criar diretório temporário para renderização de PDF: {0},# internal/print/pdf.go:192
@@ -685,7 +686,7 @@ h,h,# desk/src/lib/controls/DurationControl.svelte:23
 http: {0},http: {0},# internal/engine/host.go:656
 id is required,id é obrigatório,# internal/api/assignments.go:136
 invalid arguments in {0}: {1},argumentos inválidos em {0}: {1},# internal/engine/host.go:82
-job {0} timed out,job {0} excedeu o tempo limite,# internal/engine/jobs.go:130
+job {0} timed out,job {0} excedeu o tempo limite,# internal/engine/jobs.go:172
 m,min,# desk/src/lib/controls/DurationControl.svelte:23
 manifest.json is not readable: {0},manifest.json não pôde ser lido: {0},# internal/engine/import_source.go:64
 manifest.json lists no exports,manifest.json não lista nenhuma exportação,# internal/engine/import_source.go:70

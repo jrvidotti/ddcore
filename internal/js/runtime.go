@@ -262,6 +262,13 @@ func (rt *Runtime) CallFunction(path string, args json.RawMessage) (json.RawMess
 	return json.RawMessage(s), err
 }
 
+// CallJobHook runs a job's lifecycle callback: the job's args, then what the
+// framework knows about the attempt.
+func (rt *Runtime) CallJobHook(path string, args, job json.RawMessage) error {
+	_, err := rt.callReg("callJobHook", path, string(args), string(job))
+	return err
+}
+
 func (rt *Runtime) RunReport(name string, filters json.RawMessage) (json.RawMessage, error) {
 	s, err := rt.callReg("runReport", name, string(filters))
 	return json.RawMessage(s), err
