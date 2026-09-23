@@ -8,7 +8,7 @@
   import Grid from "$lib/controls/Grid.svelte";
   import Icon from "./Icon.svelte";
   import { __, boot } from "$lib/boot.svelte";
-  import { showError, confirm, prompt, toast } from "$lib/ui.svelte";
+  import { showError, confirm, prompt, toast, escapeHtml } from "$lib/ui.svelte";
   import { statusColor, timeAgo } from "$lib/format";
   import { onMount } from "svelte";
   import { subscribe } from "$lib/events";
@@ -265,7 +265,7 @@
   }
 
   async function remove() {
-    if (!frm || !(await confirm(__("Delete {0}?", [title]), __("Delete"), { destructive: true }))) return;
+    if (!frm || !(await confirm(__("Delete {0}?", [escapeHtml(title)]), __("Delete"), { destructive: true }))) return;
     leaving = true; // the record is going away: unsaved edits go with it
     try {
       await frm.delete();
@@ -323,7 +323,7 @@
   async function handleWorkflowAction(action: string) {
     if (!frm) return;
     // the document's title, not its id: a hash id tells the reader nothing
-    if (await confirm(__('{0} "{1}"?', [__(action), title]), __(action))) {
+    if (await confirm(__('{0} "{1}"?', [escapeHtml(__(action)), escapeHtml(title)]), __(action))) {
       await frm.applyWorkflowAction(action);
     }
   }
@@ -429,7 +429,7 @@
               <button class="btn primary" disabled={frm.saving} onclick={() => frm?.save()} title="{__('Save')} ({modKey}+S)">{__("Save")}<kbd class="btn-kbd">{modKey}S</kbd></button>
             {/if}
           {:else if !frm.workflow && frm.perm.submit}
-            <button class="btn primary" disabled={frm.saving} onclick={async () => (await confirm(__("Submit {0} permanently?", [title]), __("Submit"))) && frm?.submit()}>{__("Submit")}</button>
+            <button class="btn primary" disabled={frm.saving} onclick={async () => (await confirm(__("Submit {0} permanently?", [escapeHtml(title)]), __("Submit"))) && frm?.submit()}>{__("Submit")}</button>
           {/if}
         {:else if frm.docstatus === 1}
           {#if frm.isDirty}
@@ -437,7 +437,7 @@
               <button class="btn primary" disabled={frm.saving} onclick={() => frm?.save()} title="{__('Update')} ({modKey}+S)">{__("Update")}<kbd class="btn-kbd">{modKey}S</kbd></button>
             {/if}
           {:else if !frm.workflow && frm.perm.cancel}
-            <button class="btn" disabled={frm.saving} onclick={async () => (await confirm(__("Cancel {0}?", [title]), __("Cancel"), { destructive: true })) && frm?.cancel()}>{__("Cancel")}</button>
+            <button class="btn" disabled={frm.saving} onclick={async () => (await confirm(__("Cancel {0}?", [escapeHtml(title)]), __("Cancel"), { destructive: true })) && frm?.cancel()}>{__("Cancel")}</button>
           {/if}
         {:else if frm.perm.amend}
           <button class="btn primary" onclick={() => frm?.amend()}>{__("Amend")}</button>

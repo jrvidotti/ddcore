@@ -97,6 +97,15 @@ export interface ConfirmOptions {
   destructive?: boolean;
 }
 
+/**
+ * Escapes text for a dialog message, which is rendered as HTML: a document's
+ * title or id is data someone typed, and must not become markup.
+ */
+export function escapeHtml(s: unknown): string {
+  return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
 export function confirm(message: string, title?: string, opts: ConfirmOptions = {}): Promise<boolean> {
   return new Promise((resolve) => {
     const base = { title: title ?? __("Confirm"), message, size: "sm" as const };

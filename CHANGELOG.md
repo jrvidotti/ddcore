@@ -12,6 +12,13 @@ not every commit that went into it.
 
 ## Unreleased
 
+### Fixed
+
+- **A document's title in a form confirmation is escaped.** 0.19.0 put the title into the
+  "Approve …?", "Delete …?", "Submit … permanently?" and "Cancel …?" dialogs, whose message is
+  rendered as HTML, so a title holding markup (a name typed as `<img onerror=…>`) ran script
+  for whoever opened the dialog. The title is now escaped. Upgrade from 0.19.0.
+
 ## 0.19.0 — 2026-09-23
 
 ### Breaking

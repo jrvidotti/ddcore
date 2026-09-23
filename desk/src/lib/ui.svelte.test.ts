@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("./boot.svelte", () => ({ __: (s: string) => s }));
 
-import { confirm, dialog, ui } from "./ui.svelte";
+import { confirm, dialog, escapeHtml, ui } from "./ui.svelte";
 
 afterEach(() => {
   ui.dialogs.splice(0);
@@ -48,5 +48,13 @@ describe("confirm", () => {
     const d = ui.dialogs[0];
     d.spec.dangerAction!({}, d);
     expect(await answer).toBe(true);
+  });
+});
+
+describe("escapeHtml", () => {
+  it("keeps a typed title from becoming markup in a dialog message", () => {
+    expect(escapeHtml('<img src=x onerror="alert(1)"> & \'x\''))
+      .toBe("&lt;img src=x onerror=&quot;alert(1)&quot;&gt; &amp; &#39;x&#39;");
+    expect(escapeHtml(null)).toBe("");
   });
 });
