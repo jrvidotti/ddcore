@@ -72,6 +72,31 @@ export function toggle(state: TreeState, id: string): { state: TreeState; needsL
   return { state: { ...state, expanded, loading }, needsLoad };
 }
 
+/**
+ * One step of "expand all": opens every group loaded so far and names the ones
+ * whose children still have to be fetched. The view calls it again after each
+ * batch arrives, one level deeper each time, until nothing is left to fetch.
+ */
+export function expandAll(state: TreeState): { state: TreeState; toLoad: string[] } {
+  const expanded = new Set(state.expanded);
+  const loading = new Set(state.loading);
+  const toLoad: string[] = [];
+  for (const node of state.nodes.values()) {
+    if (!node.is_group) continue;
+    expanded.add(node.id);
+    if (node.children > 0 && !state.children.has(node.id) && !loading.has(node.id)) {
+      loading.add(node.id);
+      toLoad.push(node.id);
+    }
+  }
+  return { state: { ...state, expanded, loading }, toLoad };
+}
+
+/** Closes every branch; what was loaded stays, so reopening costs no request. */
+export function collapseAll(state: TreeState): TreeState {
+  return { ...state, expanded: new Set() };
+}
+
 export function markLoading(state: TreeState, parent: string): TreeState {
   const loading = new Set(state.loading);
   loading.add(parent);
@@ -109,7 +134,7 @@ export function loadedParents(state: TreeState): string[] {
  * the same three rules the server enforces on save.
  */
 export function treeParentQuery(doc: { id?: string; __islocal?: boolean }): { filters: any[] } {
-  const filters: any[] = [["is_group", "=", 1]];
+  const filters: any[] = [["is_group", "=", true]];
   if (doc.id && !doc.__islocal) {
     filters.push(["id", "!=", doc.id], ["id", "not descendants of", doc.id]);
   }

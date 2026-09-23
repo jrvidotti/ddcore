@@ -38,6 +38,20 @@ not every commit that went into it.
 - **`import` permission flag** on DocType permission rows. It gates Data Import, together with
   `create` to insert or `write` to update. It defaults to off, so no role gains anything until
   an app grants it.
+- **Expand all and Collapse all in the tree view** (DAT-07). Expanding fetches one level per
+  round until every group is open; collapsing keeps what was loaded, so reopening a branch costs
+  no request.
+
+### Fixed
+
+- **An empty tree view no longer stays on "Loading…"** (DAT-07). The tree reloaded itself every
+  time a level arrived, so a hierarchy DocType with no records never left the loading state and
+  kept requesting `/api/tree`. It now loads once, and again only when a document changes.
+- **A tree document's parent picker searches again** (DAT-07). It filtered on `is_group = 1`,
+  which Postgres refuses for a boolean column, so opening the parent field on an existing
+  document failed with a server error. It now filters on `true`.
+- **Tree view leaves line up with their siblings** (DAT-07). A leaf's title was pushed to the
+  right edge of the card instead of sitting at its depth.
 
 ## 0.18.0 — 2026-09-22
 

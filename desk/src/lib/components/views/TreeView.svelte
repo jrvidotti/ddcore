@@ -1,11 +1,12 @@
 <script lang="ts">
   // Hierarchy view (DAT-07): one level at a time, from /api/tree.
+  import { untrack } from "svelte";
   import { api } from "$lib/api";
   import { __ } from "$lib/boot.svelte";
   import { showError } from "$lib/ui.svelte";
   import type { Meta } from "$lib/meta";
   import Icon from "../Icon.svelte";
-  import { emptyTree, mergeChildren, markLoading, toggle, visibleRows, loadedParents, ROOT, type TreeState } from "./tree-state";
+  import { emptyTree, mergeChildren, markLoading, toggle, visibleRows, loadedParents, expandAll, collapseAll, ROOT, type TreeState } from "./tree-state";
 
   let { meta, doctype, wsPrefix, reloadKey = 0 }: {
     meta: Meta; doctype: string; wsPrefix: string;
@@ -42,18 +43,51 @@
     loading = false;
   }
 
+  let expanding = $state(false);
+
+  /** Fetches the tree one level per round until every group is open. */
+  async function onExpandAll() {
+    expanding = true;
+    // a branch that failed to load is not asked for again in this round-trip
+    const attempted = new Set<string>();
+    try {
+      for (;;) {
+        const step = expandAll(tree);
+        tree = step.state;
+        const toLoad = step.toLoad.filter((id) => !attempted.has(id));
+        if (toLoad.length === 0) break;
+        for (const id of toLoad) attempted.add(id);
+        await Promise.all(toLoad.map(loadLevel));
+      }
+    } finally {
+      expanding = false;
+    }
+  }
+
   function childHref(parent: string) {
     const query = parentField ? `?${encodeURIComponent(parentField)}=${encodeURIComponent(parent)}` : "";
     return `${wsPrefix}/${encodeURIComponent(doctype)}/new${query}`;
   }
 
+  // Only `reloadKey` may re-run this: reload() reads `tree`, and tracking it
+  // would re-run the effect on every level it loads, forever.
   $effect(() => {
     reloadKey;
-    reload();
+    untrack(reload);
   });
 </script>
 
 <div class="card tree">
+  {#if rows.length > 0}
+    <div class="bar">
+      <button class="btn sm" onclick={onExpandAll} disabled={expanding}>
+        <Icon name="chevrons-up-down" size={14} />{__("Expand all")}
+      </button>
+      <button class="btn sm" onclick={() => (tree = collapseAll(tree))} disabled={tree.expanded.size === 0}>
+        <Icon name="chevrons-down-up" size={14} />{__("Collapse all")}
+      </button>
+    </div>
+  {/if}
   {#if loading && rows.length === 0}
     <p class="muted empty">{__("Loading…")}</p>
   {:else if rows.length === 0}
@@ -69,7 +103,7 @@
                 <Icon name={row.expanded ? "chevron-down" : "chevron-right"} size={14} />
               </button>
             {:else}
-              <span class="toggle spacer" aria-hidden="true"></span>
+              <span class="toggle gap" aria-hidden="true"></span>
             {/if}
             <Icon name={row.expandable ? "folder" : "file"} size={14} />
             <a class="title" href={`${wsPrefix}/${encodeURIComponent(doctype)}/${encodeURIComponent(row.node.id)}`}>{row.node.title}</a>
@@ -93,11 +127,12 @@
 
 <style>
   .tree { padding: 0.5rem 0.25rem; }
+  .bar { display: flex; gap: 0.4rem; padding: 0 0.5rem 0.5rem; margin-bottom: 0.25rem; border-bottom: 1px solid var(--border); }
   .level { list-style: none; margin: 0; padding: 0; }
   .row { display: flex; align-items: center; gap: 0.4rem; padding: 0.3rem 0.5rem; padding-left: calc(0.5rem + var(--depth) * 1.25rem); border-radius: var(--radius); }
   .row:hover { background: var(--bg-subtle, rgba(0, 0, 0, 0.04)); }
-  .toggle { width: 1.5rem; }
-  .toggle.spacer { display: inline-block; }
+  .toggle { width: 1.5rem; flex: none; }
+  .toggle.gap { display: inline-block; }
   .title { font-weight: 500; }
   .count { margin-left: 0.1rem; }
   .add { margin-left: auto; }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { emptyTree, mergeChildren, toggle, visibleRows, loadedParents, treeParentQuery, ROOT, type TreeNode } from "./tree-state";
+import { emptyTree, mergeChildren, toggle, visibleRows, loadedParents, treeParentQuery, expandAll, collapseAll, ROOT, type TreeNode } from "./tree-state";
 
 const node = (id: string, parent = "", is_group = false, children = 0): TreeNode =>
   ({ id, title: id, parent, is_group, children });
@@ -66,12 +66,44 @@ describe("tree state", () => {
 
 describe("parent picker query", () => {
   it("offers groups only", () => {
-    expect(treeParentQuery({ id: "new-1", __islocal: true }).filters).toEqual([["is_group", "=", 1]]);
+    expect(treeParentQuery({ id: "new-1", __islocal: true }).filters).toEqual([["is_group", "=", true]]);
   });
 
   it("excludes the document itself and its descendants", () => {
     expect(treeParentQuery({ id: "Brazil" }).filters).toEqual([
-      ["is_group", "=", 1], ["id", "!=", "Brazil"], ["id", "not descendants of", "Brazil"],
+      ["is_group", "=", true], ["id", "!=", "Brazil"], ["id", "not descendants of", "Brazil"],
     ]);
+  });
+
+  it("expands every group level by level, fetching only branches with unloaded children", () => {
+    let state = mergeChildren(seeded(), ROOT, { nodes: [node("World", "", true, 2), node("Antarctica"), node("Empty", "", true, 0)], hasMore: false });
+    const first = expandAll(state);
+    expect(first.toLoad).toEqual(["World"]);
+    expect([...first.state.expanded].sort()).toEqual(["Empty", "World"]);
+    expect(first.state.loading.has("World")).toBe(true);
+
+    state = mergeChildren(first.state, "World", { nodes: [node("Brazil", "World", true, 1), node("Chile", "World")], hasMore: false });
+    const second = expandAll(state);
+    expect(second.toLoad).toEqual(["Brazil"]);
+
+    state = mergeChildren(second.state, "Brazil", { nodes: [node("PR", "Brazil")], hasMore: false });
+    const third = expandAll(state);
+    expect(third.toLoad).toEqual([]);
+    expect(visibleRows(third.state).map((r) => [r.node.id, r.depth])).toEqual([
+      ["World", 0], ["Brazil", 1], ["PR", 2], ["Chile", 1], ["Antarctica", 0], ["Empty", 0],
+    ]);
+  });
+
+  it("does not ask again for a branch already being fetched", () => {
+    const first = expandAll(seeded());
+    expect(expandAll(first.state).toLoad).toEqual([]);
+  });
+
+  it("collapses every branch and keeps what it loaded", () => {
+    let state = toggle(seeded(), "World").state;
+    state = mergeChildren(state, "World", { nodes: [node("Brazil", "World")], hasMore: false });
+    const closed = collapseAll(state);
+    expect(visibleRows(closed).map((r) => r.node.id)).toEqual(["World", "Antarctica"]);
+    expect(toggle(closed, "World").needsLoad).toBe(false);
   });
 });

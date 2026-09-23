@@ -17,7 +17,7 @@ Action '{0}' is not valid for {1} {2} in state '{3}',Ação '{0}' não é válid
 Actions,Ações,# desk/src/lib/components/FormView.svelte:404
 Active sessions,Sessões ativas,# desk/src/lib/components/Profile.svelte:192
 Actor,Autor,# core.doctypes.audit_event.audit_event.doctype
-Add child,Adicionar filho,# desk/src/lib/components/views/TreeView.svelte:79
+Add child,Adicionar filho,# desk/src/lib/components/views/TreeView.svelte:113
 Add row,Adicionar linha,# desk/src/lib/controls/Grid.svelte:118
 Address,Endereço,# desk/src/lib/components/Profile.svelte:197
 Admin sign-in,Entrar como Admin,# desk/src/routes/login/+page.svelte:80
@@ -104,7 +104,8 @@ Close menu,Fechar menu,# desk/src/lib/components/Sidebar.svelte:94
 Close the options list,Fechar lista de opções,# desk/src/lib/shortcuts.ts:109
 Closed,Fechado,# desk/src/routes/app/todo/+page.svelte:132
 Code,Código,# desk/src/lib/controls/CodeControl.svelte:45
-Collapse,Recolher,# desk/src/lib/components/views/TreeView.svelte:68
+Collapse,Recolher,# desk/src/lib/components/views/TreeView.svelte:102
+Collapse all,Recolher tudo,# desk/src/lib/components/views/TreeView.svelte:87
 Colour,Cor,# desk/src/lib/controls/ColorControl.svelte:34
 Column in the file,Coluna no arquivo,# desk/src/lib/components/DataImportModal.svelte:189
 Columns,Colunas,# desk/src/lib/components/DataImportModal.svelte:187
@@ -189,7 +190,8 @@ Event,Evento,# core.doctypes.webhook_delivery.webhook_delivery.doctype
 Event Name,Nome do Evento,# core.doctypes.webhook.webhook.doctype
 Event Type,Tipo de Evento,# core.doctypes.webhook.webhook.doctype
 Excel 97-2003 (.xls) files are not supported: save the sheet as .xlsx or CSV,Arquivos do Excel 97-2003 (.xls) não são suportados: salve a planilha como .xlsx ou CSV,# internal/engine/data_import.go:300
-Expand,Expandir,# desk/src/lib/components/views/TreeView.svelte:68
+Expand,Expandir,# desk/src/lib/components/views/TreeView.svelte:102
+Expand all,Expandir tudo,# desk/src/lib/components/views/TreeView.svelte:84
 Expires,Expira em,# desk/src/lib/components/Profile.svelte:242
 Expires in (days),Expira em (dias),# desk/src/lib/components/Profile.svelte:234
 Export,Exportar,# desk/src/lib/components/ListView.svelte:363
@@ -499,7 +501,7 @@ Sharing...,Compartilhando...,# desk/src/lib/components/ShareModal.svelte:87
 Shortcuts,Atalhos,# desk/src/lib/components/Workspace.svelte:58
 Show,Mostrar,# desk/src/routes/app/notifications/+page.svelte:21
 Show this shortcuts window,Exibir esta janela de atalhos,# desk/src/lib/shortcuts.ts:99
-Showing the first nodes only; open the list view to see the rest,Mostrando apenas os primeiros nós; use a visão em lista para ver o restante,# desk/src/lib/components/views/TreeView.svelte:83
+Showing the first nodes only; open the list view to see the rest,Mostrando apenas os primeiros nós; use a visão em lista para ver o restante,# desk/src/lib/components/views/TreeView.svelte:117
 Showing the first {0} of {1} records; narrow the filters to see the rest,Exibindo os primeiros {0} de {1} registros; refine os filtros para ver o restante,# desk/src/lib/components/ListView.svelte:492
 Showing {0} of {1} rows with errors; download them all below.,Mostrando {0} de {1} linhas com erro; baixe todas abaixo.,# desk/src/lib/components/DataImportModal.svelte:225
 Sign in,Entrar,# desk/src/routes/login/+page.svelte:53
