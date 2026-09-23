@@ -25,6 +25,10 @@ live in their own repositories and build against the published binary.
 - The development server has **automatic hot reload** (file watching through `watch.Apps`).
   Editing a doctype, a controller, a service or a translation CSV reloads the definitions in
   memory, so **restarting the process is not necessary**.
+- **Always run `make build` when you finish changes on the current branch, and after merging
+  anything into it.** Hot reload covers app files only; the desk and the binary that
+  `./bin/ddcore dev` serves are rebuilt by `make build`, so skipping it leaves the running
+  server on stale code.
 - To restart explicitly when it really is necessary (after rebuilding the desk with
   `make build`, say), use `make stop` first.
 
