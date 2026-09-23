@@ -653,7 +653,7 @@ You cannot share a document with yourself,Você não pode compartilhar um docume
 You have been invited to {0},Você foi convidado para {0},# core/mail/invite.mail.ts:20
 changes are paused until the site reopens.,as alterações estão pausadas até o site reabrir.,# desk/src/routes/+layout.svelte:244
 ctx.sql is only available inside a patch,ctx.sql só existe dentro de um patch,# internal/engine/query.go:628
-d,d,# desk/src/lib/controls/DurationControl.svelte:45
+d,d,# desk/src/lib/controls/DurationControl.svelte:23
 ddcore.db.lock requires a transaction,ddcore.db.lock exige uma transação,# internal/engine/query.go:694
 ddcore.db.lock: provide a key,ddcore.db.lock: informe uma chave,# internal/engine/query.go:691
 ddcore.db.sql only accepts SELECT,ddcore.db.sql aceita apenas SELECT,# internal/engine/query.go:650
@@ -675,12 +675,12 @@ failed to read rendered PDF: {0},falha ao ler PDF renderizado: {0},# internal/pr
 failed to write Gotenberg HTML payload: {0},falha ao escrever payload HTML para o Gotenberg: {0},# internal/print/pdf.go:123
 failed to write temporary HTML file: {0},falha ao escrever arquivo HTML temporário: {0},# internal/print/pdf.go:200
 getValue: invalid fields,getValue: fields inválido,# internal/engine/host.go:161
-h,h,# desk/src/lib/controls/DurationControl.svelte:47
+h,h,# desk/src/lib/controls/DurationControl.svelte:23
 http: {0},http: {0},# internal/engine/host.go:654
 id is required,id é obrigatório,# internal/api/assignments.go:136
 invalid arguments in {0}: {1},argumentos inválidos em {0}: {1},# internal/engine/host.go:82
 job {0} timed out,job {0} excedeu o tempo limite,# internal/engine/jobs.go:130
-m,min,# desk/src/lib/controls/DurationControl.svelte:48
+m,min,# desk/src/lib/controls/DurationControl.svelte:23
 manifest.json is not readable: {0},manifest.json não pôde ser lido: {0},# internal/engine/import_source.go:64
 manifest.json lists no exports,manifest.json não lista nenhuma exportação,# internal/engine/import_source.go:70
 never,nunca,# desk/src/lib/components/Profile.svelte:235
@@ -689,7 +689,7 @@ patch sql: {0},sql do patch: {0},# internal/engine/query.go:632
 records,registros,# desk/src/lib/components/ListView.svelte:505
 "run {0} loaded {1}, not {2}","a execução {0} carregou {1}, não {2}",# internal/engine/import_batch.go:27
 runtime without a context (op {0}),runtime sem contexto (op {0}),# internal/engine/host.go:26
-s,s,# desk/src/lib/controls/DurationControl.svelte:50
+s,s,# desk/src/lib/controls/DurationControl.svelte:23
 since: {0} is not a duration,since: {0} não é uma duração,# internal/api/jobs.go:57
 title,título,# desk/src/lib/components/FormView.svelte:244
 to submit,para enviar,# desk/src/lib/components/DocSidebar.svelte:250

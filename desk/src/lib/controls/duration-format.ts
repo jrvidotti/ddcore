@@ -68,3 +68,70 @@ export function parseDuration(text: string, o: DurationOptions = {}): number | n
   for (const [, n, u] of units) total += Number(String(n).replace(",", ".")) * by[u];
   return Math.max(0, Math.floor(total));
 }
+
+export type DurationUnit = keyof DurationParts;
+export type DurationLabels = Record<DurationUnit, string>;
+
+const UNIT_SECS: Record<DurationUnit, number> = { days: 86400, hours: 3600, minutes: 60, seconds: 1 };
+// what a unit tops out at when a bigger unit sits before it; the first one has no top
+const UNIT_CAP: Record<DurationUnit, number> = { days: Infinity, hours: 23, minutes: 59, seconds: 59 };
+
+/** The units the control shows, biggest first. */
+export function durationUnits(o: DurationOptions = {}): DurationUnit[] {
+  const units: DurationUnit[] = ["days", "hours", "minutes", "seconds"];
+  return units.filter((u) => !(u === "days" && o.hideDays) && !(u === "seconds" && o.hideSeconds));
+}
+
+/** One unit's digits in the control's text: `start`..`end` is what a key edits. */
+export interface DurationSegment {
+  unit: DurationUnit;
+  start: number;
+  end: number;
+}
+
+/**
+ * Writes the single-input form, `01d 02h 30m 00s`, and where each unit's
+ * digits are. The labels are the translated ones, so the ranges follow them.
+ */
+export function durationSegments(secs: any, o: DurationOptions, labels: DurationLabels): { text: string; segs: DurationSegment[] } {
+  const parts = splitDuration(Number(secs) || 0, o);
+  let text = "";
+  const segs: DurationSegment[] = [];
+  for (const unit of durationUnits(o)) {
+    if (text) text += " ";
+    const start = text.length;
+    text += String(parts[unit]).padStart(2, "0");
+    segs.push({ unit, start, end: text.length });
+    text += labels[unit];
+  }
+  return { text, segs };
+}
+
+/** The segment the caret is in; right after a unit's digits still counts as that unit. */
+export function segmentAt(segs: DurationSegment[], caret: number): number {
+  let i = 0;
+  while (i + 1 < segs.length && segs[i + 1].start <= caret) i++;
+  return i;
+}
+
+/** An arrow on a unit: the total moves by that unit, carrying into the next, never below zero. */
+export const stepDuration = (secs: any, unit: DurationUnit, delta: number): number =>
+  Math.max(0, (Math.floor(Number(secs)) || 0) + UNIT_SECS[unit] * delta);
+
+/**
+ * A digit typed on a unit, as a native time input takes it: the first one
+ * replaces the unit, the second appends, and a unit after the first one moves
+ * on once it is full — or once no second digit could keep it under its cap.
+ */
+export function typeDigit(
+  secs: any, o: DurationOptions, unit: DurationUnit, buffer: string, digit: string,
+): { secs: number; buffer: string; advance: boolean } {
+  const lead = durationUnits(o)[0] === unit;
+  const cap = lead ? Infinity : UNIT_CAP[unit];
+  const typed = (buffer + digit).slice(0, lead ? 6 : 2);
+  const n = Math.min(Number(typed), cap);
+  const parts = splitDuration(Number(secs) || 0, o);
+  parts[unit] = n;
+  const advance = !lead && (typed.length >= 2 || n * 10 > cap);
+  return { secs: joinDuration(parts), buffer: advance ? "" : typed, advance };
+}
