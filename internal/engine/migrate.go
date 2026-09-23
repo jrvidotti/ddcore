@@ -123,6 +123,9 @@ func (e *Engine) Migrate(ctx context.Context, prune bool) (*MigrateResult, error
 				res.Renames = append(res.Renames, st)
 			}
 		}
+		if err := c.ensureAppRoles(); err != nil {
+			return err
+		}
 		if err := c.installApps(ctx, rt, fresh, res); err != nil {
 			return err
 		}
@@ -230,14 +233,16 @@ func runPatch(c *Ctx, rt *js.Runtime, path string) error {
 	return rt.RunPatch(path)
 }
 
-// installApps creates the declared roles and runs afterInstall for every app
-// installed for the first time.
-func (c *Ctx) installApps(ctx context.Context, rt *js.Runtime, fresh map[string]bool, res *MigrateResult) error {
+// ensureAppRoles creates every role an app declares that does not exist yet.
+// It runs on every migrate, not only when an app is installed: a role added to
+// an app that is already installed would otherwise never exist, and granting
+// it would fail with "Role does not exist".
+func (c *Ctx) ensureAppRoles() error {
 	for _, name := range c.St.AppOrder() {
-		if !fresh[name] {
+		app := c.St.Snap.Apps[name]
+		if app == nil {
 			continue
 		}
-		app := c.St.Snap.Apps[name]
 		for _, role := range app.Roles {
 			if ok, _ := c.idExists("Role", role); !ok {
 				doc, _ := c.NewDoc("Role", Doc{"role_name": role})
@@ -246,6 +251,18 @@ func (c *Ctx) installApps(ctx context.Context, rt *js.Runtime, fresh map[string]
 				}
 			}
 		}
+	}
+	return nil
+}
+
+// installApps runs afterInstall for every app installed for the first time;
+// its roles already exist (ensureAppRoles).
+func (c *Ctx) installApps(ctx context.Context, rt *js.Runtime, fresh map[string]bool, res *MigrateResult) error {
+	for _, name := range c.St.AppOrder() {
+		if !fresh[name] {
+			continue
+		}
+		app := c.St.Snap.Apps[name]
 		if app.HasAfterInstall {
 			if err := rt.AppHook(name, "afterInstall"); err != nil {
 				return fmt.Errorf("%s.afterInstall: %w", name, err)

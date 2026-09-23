@@ -55,6 +55,10 @@ not every commit that went into it.
 
 ### Fixed
 
+- **`migrate` creates roles added to an app that is already installed.** Roles declared in
+  `defineApp({ roles })` were created only on the app's first install, so a role added later
+  never existed and granting it failed with "Role … does not exist". Every migrate now creates
+  the declared roles that are missing.
 - **An engine whose apps fail to load closes its database pool.** `engine.New` used to return the
   error with the connections still open, which kept a test's database busy for whatever ran next.
 - **`POST /api/upload` checks write on the document it attaches to.** Any signed-in user could
