@@ -12,6 +12,8 @@ not every commit that went into it.
 
 ## Unreleased
 
+## 0.19.0 — 2026-09-23
+
 ### Breaking
 
 - **Website Users are confined to the portals.** `User.user_type = "Website User"` used to be
