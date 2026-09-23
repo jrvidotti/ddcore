@@ -98,6 +98,8 @@
   .title:focus-visible::after { outline: 2px solid var(--primary); outline-offset: 2px; }
   header .indicator { flex-shrink: 0; max-width: 45%; overflow-wrap: anywhere; }
   .subtitle { margin: 8px 0 0 28px; overflow-wrap: anywhere; }
+  .with-media header { align-items: center; }
+  .with-media header input { margin: 0; }
   .with-media .subtitle { margin: 4px 0 0; }
   dl { display: grid; gap: 8px; margin: 16px 0; }
   dl > div { display: flex; justify-content: space-between; gap: 12px; }
