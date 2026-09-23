@@ -59,8 +59,9 @@ defineDoctype({ name: "Rental Contract", renamedFrom: "Contrato", … })
 
 The table is renamed with every index it owns, including the primary key, and then every
 stored reference to the old **name** is repointed: child `parenttype`, every `Dynamic
-Link` discriminator, and `File.attached_to_doctype`, `Comment.reference_doctype`,
-`Version.ref_doctype`. A `Link`'s target comes from the meta, so it follows on its own —
+Link` discriminator, and the framework's own references — File, Comment, Version, ToDo,
+Document Share, Email Delivery, Webhook Delivery, Audit Event, notifications and the import
+ledger. A `Link`'s target comes from the meta, so it follows on its own —
 and the meta refuses to load while a `Link` still points at the old name, which is what
 stops a rename from being half done.
 

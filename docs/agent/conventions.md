@@ -135,7 +135,7 @@ checked against the binary, so keep the range when you widen it by hand.
 - A binary outside the range **refuses to load**: the command fails, and `dev` and `mcp` keep serving
   the last good state. Every problem is named in one error, `incompatible apps: ` followed by them
   joined with `; `:
-  - `app shop requires ddcore >=0.14.0 <0.16.0, but this binary is 0.1.0`
+  - `app shop requires ddcore >=0.14.0 <0.16.0, but this binary is 0.16.0`
   - `app shop declares an invalid ddcore range ">= 0.14.0": "" is not a version`
   - `app shop declares version "1.4.0-beta.1", which is not a version (1, 1.2 or 1.2.3)`
 
@@ -144,10 +144,11 @@ checked against the binary, so keep the range when you widen it by hand.
   tag: `v0.15.0-rc.1` is `0.15.0`. Only `dev`, `latest` or a bare hash are not releases; those parse
   the ranges but do not enforce them, and log
   `core version is not a release; ddcore ranges are not enforced`.
-- **A build that injects no version is still a release.** `internal/engine.Version` defaults to
-  `0.1.0`, and only the `Makefile` and the release workflow override it through `-ldflags`. A plain
-  `go build`, `go run` or `go install` therefore reports release `0.1.0` and enforces ranges against
-  it, so an app declaring `>=0.14.0` fails to load with `but this binary is 0.1.0`.
+- **A build that injects no version is still a release.** `internal/engine.Version` holds an
+  in-source default, bumped by hand in each release commit, and only the `Makefile` and the release
+  workflow override it through `-ldflags`. A plain `go build`, `go run` or `go install` therefore
+  reports that default as its release and enforces ranges against it, so an app whose range
+  excludes it fails to load with `but this binary is <default>`.
 - `ddcore version` prints the binary's version; `ddcore doctor` lists each app's version and range,
   and the `export` manifest records the app versions next to the core's.
 - Because `0.x` minors may break, bound the range above (`^0.14.0` or `<0.15.0`) and widen it after
