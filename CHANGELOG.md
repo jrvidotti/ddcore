@@ -12,8 +12,30 @@ not every commit that went into it.
 
 ## Unreleased
 
+## 0.18.0 — 2026-09-22
+
+### Breaking
+
+- **`Text Editor` is rich text.** Its value is HTML, cleaned on the way in by an allowlist
+  (paragraphs, headings, lists, quotes, code, links and images under `/files/`); scripts,
+  styles, event handlers, iframes and external image URLs are removed rather than refused.
+  A value written before this release is plain text: it is read as text — so `a < b` keeps
+  its `<` — and shown as paragraphs, converted for good on its next save without writing a
+  Version entry for the conversion. An empty editor (`<p></p>`) stores `null`, so `reqd`
+  still holds. Upgrade path: render such a value as HTML (the desk and print already do)
+  or strip it with `ddcore.redact`-style text extraction, and write plain text through the
+  field as plain text — the server escapes it. `ddcore.db.sql` writes bypass the cleaning,
+  as they always have.
+
 ### Added
 
+- Six fieldtypes (DAT-08): `Markdown Editor` and `Code` (`options` is the language) on a `text`
+  column, `Attach Image` (an `Attach` restricted to png/jpg/gif/webp, refused at upload too),
+  `Color` (normalised to `#rrggbb`), and `Duration` (whole seconds; `options: ["hideDays",
+  "hideSeconds"]` hides a unit on screen) and `Rating` (0 to `options` stars, 1–10, default 5;
+  clamped to `[0, options]` on read) on a `bigint`. `Duration` and `Rating` generate `number | null`;
+  the rest generate `string | null`. Converting `Text`, `Small Text` or `Data` to a text type, or
+  `Int` to `Duration`/`Rating`, keeps the same column and needs no `convert`. See [fieldtypes](docs/agent/fieldtypes.md).
 - Tree DocTypes (DAT-07): `defineDoctype({ isTree: true })` makes a DocType a hierarchy. It gets a
   self-referencing Link — `parent_<snake(name)>`, or the `parentField` you name — and an `is_group`
   Check, both added unless you declare them yourself. The engine keeps the hierarchy honest on
@@ -46,9 +68,23 @@ not every commit that went into it.
   per-docstatus Currency totals, and exits non-zero on any disagreement. A mapping file renames
   DocTypes and fields, drops, sets constants and remaps ids and users. See
   [import](docs/agent/import.md).
+- Print renders a long value as a block of its own instead of a cell in the key/value grid:
+  rich text and Markdown as the markup they are (cleaned by the allowlist), `Code` as escaped
+  preformatted text and `Attach Image` as an image. Templates get `b.richText(html, title?)`,
+  `b.markdown(source, title?)` and `b.pre(text, title?)`; `b.raw`/`b.html` remain the
+  unchecked escape hatch. A `Duration` prints as `1d 2h 30m`, a `Rating` as stars, and both
+  align right in a child table. Relative image paths resolve against the site address in PDFs.
+  See [print templates](docs/agent/print.md).
 
 ### Changed
 
+- The desk edits rich text with a toolbar (bold, italic, strikethrough, headings, lists,
+  quote, code, link, image), previews Markdown through the server so the preview matches the
+  printed page, and gets controls for `Code` (monospace, Tab indents), `Duration` (one box per
+  unit), `Rating` (stars, keyboard-operable, clearing stores null), `Color` (picker and hex)
+  and `Attach Image` (thumbnail, image files only). A list cell shows rich text as one line of
+  text, a colour as a swatch and an image as a thumbnail, and a version diff compares the text
+  rather than the markup. The editor loads only on a form that has a rich-text field.
 - `ddcore export --attachments` writes the attachment bytes to `<out>/files/public/<file>` and
   `<out>/files/private/<file>` — their storage key — instead of `<out>/files/<file>`. A public and
   a private file sharing a base name no longer overwrite each other. `manifest.json` records the
@@ -57,6 +93,7 @@ not every commit that went into it.
 ### Fixed
 
 - Checkbox fields in the Desk now render their `description` helper text below the label (with proper left alignment), as well as field validation errors and required asterisks.
+- Color control in the Desk now maintains a minimum width for the swatch and hex input so it does not shrink when the "Clear" button is displayed.
 - `descendants of` was accepted as a filter operator and compiled into `=`, which answered a
   hierarchy question with an exact match — a wrong result, with no error. It now walks the tree,
   and naming it on a field that is neither a tree's `id` nor a Link to a tree is refused.
@@ -102,43 +139,6 @@ not every commit that went into it.
   `name` is `id`; a consumer of those files must read the new column. A backup taken before 0.17
   restores as it was and is brought up by the migrate `ddcore restore` runs; with `--no-migrate`,
   `--smoke` now says to run `ddcore migrate` instead of failing on the column.
-- **`Text Editor` is rich text**, so an app that reads or displays one — `Comment.content`
-  included — now receives HTML where it used to receive plain text. The value is cleaned on
-  the way in by an allowlist (paragraphs, headings, lists, quotes, code, links and images
-  under `/files/`); scripts, styles, event handlers, iframes and external image URLs are
-  removed rather than refused. A value written before this release is plain text: it is read
-  as text — so `a < b` keeps its `<` — and shown as paragraphs, converted for good on its
-  next save without writing a Version entry for the conversion. An empty editor (`<p></p>`)
-  stores `null`, so `reqd` still holds. Upgrade path: render such a value as HTML (the desk
-  and print already do) or strip it with `ddcore.redact`-style text extraction, and write
-  plain text through the field as plain text — the server escapes it. `ddcore.db.sql` writes
-  bypass the cleaning, as they always have.
-
-### Added
-
-- Six fieldtypes (DAT-08): `Markdown Editor` and `Code` (`options` is the language) on a `text`
-  column, `Attach Image` (an `Attach` restricted to png/jpg/gif/webp, refused at upload too),
-  `Color` (normalised to `#rrggbb`), and `Duration` (whole seconds; `options: ["hideDays",
-  "hideSeconds"]` hides a unit on screen) and `Rating` (0 to `options` stars, 1–10, default 5) on
-  a `bigint`. `Duration` and `Rating` generate `number | null`; the rest generate `string | null`.
-  Converting `Text`, `Small Text` or `Data` to a text type, or `Int` to `Duration`/`Rating`, keeps
-  the same column and needs no `convert`. See [fieldtypes](docs/agent/fieldtypes.md).
-- Print renders a long value as a block of its own instead of a cell in the key/value grid:
-  rich text and Markdown as the markup they are (cleaned by the allowlist), `Code` as escaped
-  preformatted text and `Attach Image` as an image. Templates get `b.richText(html, title?)`,
-  `b.markdown(source, title?)` and `b.pre(text, title?)`; `b.raw`/`b.html` remain the
-  unchecked escape hatch. A `Duration` prints as `1d 2h 30m`, a `Rating` as stars, and both
-  align right in a child table. See [print templates](docs/agent/print.md).
-
-### Changed
-
-- The desk edits rich text with a toolbar (bold, italic, strikethrough, headings, lists,
-  quote, code, link, image), previews Markdown through the server so the preview matches the
-  printed page, and gets controls for `Code` (monospace, Tab indents), `Duration` (one box per
-  unit), `Rating` (stars, keyboard-operable, clearing stores null), `Color` (picker and hex)
-  and `Attach Image` (thumbnail, image files only). A list cell shows rich text as one line of
-  text, a colour as a swatch and an image as a thumbnail, and a version diff compares the text
-  rather than the markup. The editor loads only on a form that has a rich-text field.
 
 ## 0.16.0 — 2026-09-22
 
