@@ -12,6 +12,33 @@ not every commit that went into it.
 
 ## Unreleased
 
+### Added
+
+- **Data Import from CSV and XLSX** (DAT-01, the spreadsheet half). A list's toolbar has an
+  Import button. It opens a dialog that:
+  - checks a `.csv` or `.xlsx` file with a dry run;
+  - shows which column goes to which field (each one remappable);
+  - lists the rows that would fail and why, with a download of just those rows;
+  - then imports, creating records or updating them by `ID`.
+  
+  Each row is an ordinary insert or save as the uploader. Roles, scopes, field levels, hooks,
+  naming, workflows, webhooks and Version all apply, and each row commits on its own.
+  
+  Cells are parsed strictly by field type: the locale's decimal separator and date order,
+  Excel date serials, yes/no, Select labels in the user's language, and a Link by its title.
+  An export CSV re-imports unchanged in update mode, with `modified` guarding against
+  overwriting a later change.
+  
+  Also new:
+  - the endpoints `POST /api/data-import/<DocType>` and `GET /api/data-import/<DocType>/template`;
+  - the `importMaxRows` setting in `ddcore.json` (default 5000);
+  - a `data.import` audit event.
+  
+  See [data import](docs/agent/data-import.md).
+- **`import` permission flag** on DocType permission rows. It gates Data Import, together with
+  `create` to insert or `write` to update. It defaults to off, so no role gains anything until
+  an app grants it.
+
 ## 0.18.0 — 2026-09-22
 
 ### Breaking

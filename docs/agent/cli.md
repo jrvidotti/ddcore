@@ -1,6 +1,6 @@
 # CLI and the development loop
 
-`ddcore.json` in the site directory: `dsn`, `apps` (directories), `port`, `workers`, `scheduler`, `lang`, `currency`, `currencyPrecision`, `rounding`, `timezone`, `dev`, `exportMaxRows`, `auth`, `ops`.
+`ddcore.json` in the site directory: `dsn`, `apps` (directories), `port`, `workers`, `scheduler`, `lang`, `currency`, `currencyPrecision`, `rounding`, `timezone`, `dev`, `exportMaxRows`, `importMaxRows`, `auth`, `ops`.
 `currencyPrecision` defaults to the currency's ISO minor unit and `rounding` to `"commercial"`;
 an unrecognised `rounding` stops the server at startup rather than quietly using another rule.
 `DDCORE_DSN` overrides the dsn, and `DDCORE_DATA_DIR` the `dataDir`.
@@ -81,6 +81,7 @@ npm. `DDCORE_TEST_DSN` points at the disposable database the tests use.
 - `POST /api/method/<app.folder.file.fn>` (whitelisted)
 - `GET /api/meta/<DocType>`, `/api/boot`, `/api/search/link?doctype=&txt=`, `/api/search/global?txt=&limit=` (see `search`), `/api/report/<name>`, `/api/events` (SSE), `POST /api/upload`
 - `GET /api/export/<DocType>?format=csv|ndjson&filters=[...]&children=1&attachments=1` — the whole filtered set as a download, gated by the `export` permission (see `export`)
+- `POST /api/data-import/<DocType>` (multipart: `file`, `mode=insert|update`, `dry_run=1`, `decimal`, `date_order`, `sep`, `columns`) and `GET /api/data-import/<DocType>/template?sep=` — CSV/XLSX rows as ordinary saves, gated by the `import` permission (see `data-import`)
 - Errors: `{ "error": { "type", "title", "message", "key", "args" } }` with 417 (validation), 403, 404, 409, 401.
   `message` and `title` arrive already translated; `key` is the English template and `args` its values.
 - `X-Lang` picks the language of a response. Without it the server uses `User.language`, then

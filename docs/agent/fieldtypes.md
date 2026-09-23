@@ -169,7 +169,7 @@ defineDoctype({
   uniqueKeys: [{ name: "customer_number", fields: ["customer", "number"] }],
   fields: [...],
   permissions: [
-    { role: "Manager", read: true, write: true, create: true, delete: true, submit: true, cancel: true, amend: true, report: true, export: true, share: true, ifOwner: false },
+    { role: "Manager", read: true, write: true, create: true, delete: true, submit: true, cancel: true, amend: true, report: true, export: true, import: true, share: true, ifOwner: false },
     { role: "Manager", permlevel: 1, read: true, write: true },   // fields declared with permlevel: 1 — see `field-permissions`
   ],
 });
@@ -180,7 +180,7 @@ Series: `.YYYY.`, `.YY.`, `.MM.`, `.DD.`, `.####.` (a zero-padded counter), `.{f
 `globalSearch` says whether the desk's global search looks into the DocType; it defaults to on
 when there is a `titleField` or `searchFields`, and never applies to a child table or a Single.
 See `search`. `share` in a permission row lets the role share one document with another user —
-see `sharing`.
+see `sharing`. `import` lets it load rows from a CSV or XLSX file — see `data-import`.
 
 `idLabel` is what the desk calls the document id, a catalogue key like `label`. It heads the
 list's id column instead of "ID", and it labels the id when it is asked for (`idGeneration: { prompt }`)

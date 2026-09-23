@@ -204,7 +204,7 @@ func load(test bool, dev bool) (*engine.Engine, *config.File, error) {
 	cfg.Mail.Dev = isDev
 	e, err := engine.New(context.Background(), engine.Config{
 		DSN: cfg.DSN, Apps: apps, Workers: cfg.Workers, Scheduler: cfg.Scheduler, Dev: isDev, Test: test,
-		Port: cfg.Port, Lang: cfg.Lang, Currency: cfg.Currency, CurrencyPrecision: cfg.CurrencyPrecision, Rounding: cfg.RoundingMode(), Timezone: cfg.Timezone, DataDir: cfg.DataDir, Root: root, ExportMaxRows: cfg.ExportMaxRows, LogLevel: level,
+		Port: cfg.Port, Lang: cfg.Lang, Currency: cfg.Currency, CurrencyPrecision: cfg.CurrencyPrecision, Rounding: cfg.RoundingMode(), Timezone: cfg.Timezone, DataDir: cfg.DataDir, Root: root, ExportMaxRows: cfg.ExportMaxRows, ImportMaxRows: cfg.ImportMaxRows, LogLevel: level,
 		Auth: cfg.Auth, Ops: cfg.Ops, LogJSON: logJSON(), LogOut: logOut, Mail: cfg.Mail, Webhooks: cfg.Webhooks, Storage: cfg.Storage, SiteURL: cfg.PublicURL(), TrustProxy: cfg.TrustProxy, Login: cfg.Login, OIDC: cfg.OIDC,
 		EnforceMaintenance: enforceMaintenance, AllowOlderBinary: allowOlderBinary(),
 	})

@@ -35,6 +35,7 @@ Sensitive administrative actions across the framework are recorded in a unified 
 | `ops.maintenance_off` | none | Maintenance mode switched off, by the same three | `{"reason": ""}` — the reason is cleared, and the key is always written |
 | `backup.create` | none | `ddcore backup` ran. `Denied` records a failed run | `{"archive": "...", "bytes": N, "files": N, "uploaded": bool, "error": "..."}` |
 | `backup.restore` | none | `ddcore restore` restored an archive into this database | `{"archive": "...", "ddcore": "...", "started": "...", "files": N}` |
+| `data.import` | the DocType | A Data Import run (not a dry run) finished; the rows it wrote carry their own Version entries | `{"file": "...", "sha256": "...", "format": "csv\|xlsx", "mode": "insert\|update", "rows": N, "inserted": N, "updated": N, "errors": N}` |
 | `method.<path>` | none | A whitelisted method's `roles` option refused the caller | Outcome: `Denied` |
 
 `permission.scope_grant` and `permission.scope_revoke` also fire from `DBSet`

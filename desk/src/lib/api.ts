@@ -239,4 +239,47 @@ export const api = {
     fd.append("is_private", opts.isPrivate === false ? "0" : "1");
     return request("POST", "/api/upload", fd);
   },
+  /** Data Import: checks (dryRun) or loads a CSV/XLSX file into `doctype`. */
+  dataImport: (doctype: string, file: File, opts: DataImportOptions) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("mode", opts.mode);
+    fd.append("dry_run", opts.dryRun ? "1" : "0");
+    if (opts.sep) fd.append("sep", opts.sep);
+    fd.append("decimal", opts.decimal);
+    fd.append("date_order", opts.dateOrder);
+    if (opts.columns && Object.keys(opts.columns).length) fd.append("columns", JSON.stringify(opts.columns));
+    return request<DataImportResult>("POST", `/api/data-import/${encodeURIComponent(doctype)}`, fd);
+  },
 };
+
+export interface DataImportOptions {
+  mode: "insert" | "update";
+  dryRun: boolean;
+  /** CSV separator; empty lets the server read it from the header line. */
+  sep?: string;
+  decimal: "." | ",";
+  dateOrder: "dmy" | "mdy" | "ymd";
+  /** header → fieldname, or "" to ignore the column */
+  columns?: Record<string, string>;
+}
+
+export interface DataImportColumn {
+  index: number; header: string; fieldname?: string; label?: string;
+  status: "mapped" | "ignored" | "unknown"; reason?: string;
+}
+
+export interface DataImportRow {
+  row: number; status: "inserted" | "updated" | "error"; id?: string;
+  type?: string; message?: string; cells?: string[];
+}
+
+export interface DataImportResult {
+  doctype: string; mode: "insert" | "update"; dryRun: boolean;
+  file: { name: string; format: "csv" | "xlsx"; sep?: string; sha256: string };
+  headers: string[];
+  columns: DataImportColumn[];
+  fields: { fieldname: string; label: string; reqd?: boolean }[];
+  counts: { rows: number; inserted: number; updated: number; errors: number };
+  rows: DataImportRow[];
+}

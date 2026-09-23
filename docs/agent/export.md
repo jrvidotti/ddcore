@@ -67,6 +67,9 @@ page of the walk sees the same instant.
 - Above `exportMaxRows` in `ddcore.json` (default 100000) the request is
   refused and points at the CLI. An explicit `limit` is the caller accepting a
   sample, and is allowed; the manifest then carries `"truncated": true`.
+- A CSV export loads back through [Data Import](data-import.md) in update mode
+  unchanged: it carries `id` and `modified`, and the derived columns are
+  ignored on the way in.
 
 ## CLI
 

@@ -666,7 +666,7 @@ func (c *Ctx) permissionFilters(d *meta.DocType) ([]db.Filter, error) {
 // Permissions summarises what the user can do with a doctype (for the desk).
 func (c *Ctx) Permissions(d *meta.DocType) map[string]bool {
 	out := map[string]bool{}
-	for _, p := range []string{"read", "write", "create", "delete", "submit", "cancel", "amend", "report", "export", "share"} {
+	for _, p := range []string{"read", "write", "create", "delete", "submit", "cancel", "amend", "report", "export", "import", "share"} {
 		ok, _ := c.HasPermission(d.Name, p, nil)
 		out[p] = ok
 	}

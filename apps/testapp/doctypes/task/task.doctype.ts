@@ -36,7 +36,7 @@ export default defineDoctype({
     { fieldname: "is_blocker", fieldtype: "Check", label: "Milestone blocker", description: "Whether this task blocks milestone release" },
   ],
   permissions: [
-    { role: "Project Manager", read: true, write: true, create: true, delete: true, report: true, export: true },
+    { role: "Project Manager", read: true, write: true, create: true, delete: true, report: true, export: true, import: true },
     { role: "Project Contributor", read: true, write: true, create: true, report: true },
   ],
 });

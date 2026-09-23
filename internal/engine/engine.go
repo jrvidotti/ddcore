@@ -51,6 +51,7 @@ type Config struct {
 	// checkout is available.
 	Root          string
 	ExportMaxRows int // cap for GET /api/export; 0 = DefaultExportMaxRows
+	ImportMaxRows int // cap for POST /api/data-import; 0 = DefaultImportMaxRows
 	LogLevel      slog.Level
 	// Auth is the site's access policy. The zero value is not a policy —
 	// New fills it from config.DefaultAuth so a Config built by hand (tests,

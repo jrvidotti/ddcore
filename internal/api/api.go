@@ -91,6 +91,8 @@ func New(e *engine.Engine, desk fs.FS) *Server {
 			r.Get("/search/link-titles", s.linkTitles)
 			r.Post("/search/link-titles", s.linkTitles)
 			r.Get("/export/{doctype}", s.export)
+			r.Post("/data-import/{doctype}", s.dataImport)
+			r.Get("/data-import/{doctype}/template", s.dataImportTemplate)
 			r.Get("/report/{name}", s.report)
 			r.Get("/workspace/{name}/card/{card}", s.numberCard)
 			r.Get("/workspace/{name}/chart/{chart}", s.chart)

@@ -164,8 +164,8 @@ TTL passes, so restart them after loading users or permissions.
 
 ## Not covered
 
-No CSV or XLSX input, and no Desk screen: the input is an NDJSON export
-directory. Ids are never generated — a record without an id is an error, since
+The input is an NDJSON export directory; a spreadsheet a person fills in is
+loaded by [Data Import](data-import.md) instead, as ordinary saves. Ids are never generated — a record without an id is an error, since
 identity is the thing being preserved. Controller hooks cannot be opted into.
 An interrupted run can leave attachment bytes whose record rolled back; loading
 again writes the same key, and no sweep removes an orphan. A `Currency` value

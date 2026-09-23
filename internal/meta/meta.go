@@ -196,7 +196,8 @@ type Perm struct {
 	Amend   bool   `json:"amend,omitempty"`
 	Report  bool   `json:"report,omitempty"`
 	Export  bool   `json:"export,omitempty"`
-	Share   bool   `json:"share,omitempty"` // share one document with another user (SEC-03)
+	Import  bool   `json:"import,omitempty"` // load rows from a spreadsheet (Data Import)
+	Share   bool   `json:"share,omitempty"`  // share one document with another user (SEC-03)
 	IfOwner bool   `json:"ifOwner,omitempty"`
 	// Permlevel is the field level this row grants. A row above level 0 grants
 	// only read and write on that level's fields — never the document itself.
@@ -249,6 +250,8 @@ func (p Perm) Has(ptype string) bool {
 		return p.Report
 	case "export":
 		return p.Export
+	case "import":
+		return p.Import
 	case "share":
 		return p.Share
 	}
@@ -304,13 +307,13 @@ type DocType struct {
 	IsTree bool `json:"isTree,omitempty"`
 	// ParentField is the Link field holding the parent; TreeParentField falls
 	// back to `parent_<snake(name)>`.
-	ParentField string `json:"parentField,omitempty"`
-	TrackChanges bool         `json:"trackChanges,omitempty"`
-	AllowRename  bool         `json:"allowRename,omitempty"`
-	TitleField   string       `json:"titleField,omitempty"`
-	SortField    string       `json:"sortField,omitempty"`
-	SortOrder    string       `json:"sortOrder,omitempty"`
-	SearchFields []string     `json:"searchFields,omitempty"`
+	ParentField  string   `json:"parentField,omitempty"`
+	TrackChanges bool     `json:"trackChanges,omitempty"`
+	AllowRename  bool     `json:"allowRename,omitempty"`
+	TitleField   string   `json:"titleField,omitempty"`
+	SortField    string   `json:"sortField,omitempty"`
+	SortOrder    string   `json:"sortOrder,omitempty"`
+	SearchFields []string `json:"searchFields,omitempty"`
 	// GlobalSearch opts a DocType in (true) or out (false) of the Desk's
 	// global search; nil leaves it to GloballySearchable's default.
 	GlobalSearch *bool `json:"globalSearch,omitempty"`
@@ -805,7 +808,7 @@ func validateFieldPermissions(r *Registry, d *DocType, e func(string, ...any)) {
 			e("permission for %q: permlevel %d is out of range (0 to %d)", p.Role, p.Permlevel, MaxPermlevel)
 			continue
 		}
-		if p.Permlevel > 0 && (p.Create || p.Delete || p.Submit || p.Cancel || p.Amend || p.Report || p.Export || p.Share || p.IfOwner) {
+		if p.Permlevel > 0 && (p.Create || p.Delete || p.Submit || p.Cancel || p.Amend || p.Report || p.Export || p.Import || p.Share || p.IfOwner) {
 			e("permission for %q at permlevel %d may only grant read and write", p.Role, p.Permlevel)
 		}
 	}

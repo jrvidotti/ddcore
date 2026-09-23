@@ -15,7 +15,7 @@ export default defineDoctype({
     { fieldname: "status", fieldtype: "Data", label: "Status", readOnly: true, inListView: true },
   ],
   permissions: [
-    { role: "Project Manager", read: true, write: true, create: true, submit: true, cancel: true, report: true, export: true },
+    { role: "Project Manager", read: true, write: true, create: true, submit: true, cancel: true, report: true, export: true, import: true },
     { role: "Project Contributor", read: true, write: true, create: true },
   ],
 });

@@ -30,7 +30,7 @@ export default defineDoctype({
     { fieldname: "milestones", fieldtype: "Table", label: "Milestones", options: "Project Milestone", gridEditMode: "inline" },
   ],
   permissions: [
-    { role: "Project Manager", read: true, write: true, create: true, delete: true, report: true, export: true },
+    { role: "Project Manager", read: true, write: true, create: true, delete: true, report: true, export: true, import: true },
     { role: "Project Contributor", read: true },
     { role: "Project Manager", permlevel: 1, read: true, write: true },
   ],

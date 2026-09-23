@@ -48,7 +48,10 @@ type File struct {
 	DataDir  string `json:"dataDir"`
 	// ExportMaxRows caps GET /api/export so one download cannot hold a
 	// connection and a worker for an unbounded time. 0 = DefaultExportMaxRows.
-	ExportMaxRows int  `json:"exportMaxRows"`
+	ExportMaxRows int `json:"exportMaxRows"`
+	// ImportMaxRows caps the rows of one Data Import upload, which is written
+	// while the request waits. 0 = DefaultImportMaxRows.
+	ImportMaxRows int  `json:"importMaxRows"`
 	Dev           bool `json:"dev"`
 	// Auth is the access policy: session life, lockout, token expiry.
 	Auth AuthPolicy `json:"auth"`

@@ -259,6 +259,11 @@ export interface PermDef {
   role: string;
   read?: boolean; write?: boolean; create?: boolean; delete?: boolean;
   submit?: boolean; cancel?: boolean; amend?: boolean; report?: boolean; export?: boolean;
+  /**
+   * Lets the role load rows from a CSV/XLSX file (see `docs/agent/data-import.md`).
+   * Inserting also needs `create`, updating needs `write`.
+   */
+  import?: boolean;
   /** Lets the role share one document with another user (see `docs/agent/sharing.md`). */
   share?: boolean;
   ifOwner?: boolean;

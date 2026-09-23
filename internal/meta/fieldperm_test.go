@@ -40,6 +40,7 @@ func TestSEC02_FieldPermissionValidation(t *testing.T) {
 		{"row level out of range", func(d *DocType) { d.Permissions[1].Permlevel = 12 }, "out of range"},
 		{"row grants create", func(d *DocType) { d.Permissions[1].Create = true }, "may only grant read and write"},
 		{"row with ifOwner", func(d *DocType) { d.Permissions[1].IfOwner = true }, "may only grant read and write"},
+		{"row grants import", func(d *DocType) { d.Permissions[1].Import = true }, "may only grant read and write"},
 		{"restricted title", func(d *DocType) { d.TitleField = "salary" }, "titleField \"salary\" has permlevel 1"},
 		{"restricted naming field", func(d *DocType) { d.IDGeneration.Field = "salary" }, "idGeneration.field"},
 		{"restricted naming format", func(d *DocType) { d.IDGeneration.Format = "{title}-{salary}" }, "idGeneration.format"},
@@ -90,5 +91,12 @@ func TestSEC02_ExtensionMayGrantALevelToAnExistingRole(t *testing.T) {
 	}}, Apps{})
 	if err == nil || !strings.Contains(err.Error(), "at permlevel 1") {
 		t.Fatalf("a duplicate level grant must be refused, got %v", err)
+	}
+}
+
+func TestPermHasImport(t *testing.T) {
+	p := Perm{Role: "R", Import: true}
+	if !p.Has("import") || p.Has("export") || (Perm{}).Has("import") {
+		t.Fatal("import is its own flag")
 	}
 }

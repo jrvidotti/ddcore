@@ -78,7 +78,8 @@ export default defineConfig({
           { text: 'Email Templates & Delivery', link: '/agent/mail' },
           { text: 'Outgoing Webhooks', link: '/agent/webhooks' },
           { text: 'Print Templates & PDF', link: '/agent/print' },
-          { text: 'Data Export', link: '/agent/export' }
+          { text: 'Data Export', link: '/agent/export' },
+          { text: 'Data Import (CSV/XLSX)', link: '/agent/data-import' }
         ]
       },
       {
