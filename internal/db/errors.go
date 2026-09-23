@@ -2,6 +2,7 @@ package db
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/jackc/pgx/v5/pgconn"
 )
@@ -41,4 +42,14 @@ func UndefinedTable(err error) bool {
 func UndefinedColumn(err error) bool {
 	var pg *pgconn.PgError
 	return errors.As(err, &pg) && pg.Code == "42703"
+}
+
+// StaleCachedPlan reports whether err is Postgres refusing a prepared statement
+// whose result row type changed under it — a table altered after the statement
+// was planned, by a migration in this process or in another one. The code
+// alone (feature_not_supported) is too broad, so the message is checked too.
+func StaleCachedPlan(err error) bool {
+	var pg *pgconn.PgError
+	return errors.As(err, &pg) && pg.Code == "0A000" &&
+		strings.Contains(pg.Message, "cached plan must not change result type")
 }

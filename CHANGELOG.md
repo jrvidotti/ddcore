@@ -35,6 +35,16 @@ not every commit that went into it.
   a DocType's tree is kept in the browser (`localStorage`, per DocType), and the tree opens fully
   expanded next time when "Expand all" was the last choice.
 
+### Fixed
+
+- **No more `cached plan must not change result type` after a migration** (#14). A migration
+  that changed a table's columns (a new field, a new fieldtype) left the server's connections
+  holding statements prepared against the old row type. Requests reading that DocType then
+  failed, once per connection, until each one recovered. A migration that ran DDL now closes the
+  pool's connections. A migration run by another process (`ddcore migrate`, the `ddcore mcp`
+  server's `migrate` tool) is caught when a request hits a stale statement: the server resets its
+  pool and runs that request's transaction again, once.
+
 ## 0.18.2 — 2026-09-23
 
 ### Added

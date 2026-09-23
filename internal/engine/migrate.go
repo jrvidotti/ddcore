@@ -151,6 +151,13 @@ func (e *Engine) Migrate(ctx context.Context, prune bool) (*MigrateResult, error
 		return nil, err
 	}
 	e.Cache.Clear()
+	if len(res.DDL) > 0 {
+		// Every pooled connection holds statements planned against the old row
+		// types, and Postgres refuses to run one whose result type changed
+		// ("cached plan must not change result type"). Connections in use are
+		// closed when they come back.
+		e.DB.Pool.Reset()
+	}
 	return res, nil
 }
 

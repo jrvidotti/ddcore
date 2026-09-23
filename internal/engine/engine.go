@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"maps"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -735,7 +736,33 @@ func (e *Engine) Run(ctx context.Context, user string, fn func(c *Ctx) error) (e
 	return c.Run(fn)
 }
 
-func (c *Ctx) Run(fn func(c *Ctx) error) (err error) {
+func (c *Ctx) Run(fn func(c *Ctx) error) error {
+	flags := maps.Clone(c.Flags)
+	err := c.runOnce(fn)
+	if !db.StaleCachedPlan(err) {
+		return err
+	}
+	// A migration changed a table under statements this pool prepared before
+	// it — in another process, or this one's reset raced the request. pgx drops
+	// only the statement that failed, on the connection it failed on, so every
+	// other connection would fail the same way once; closing them all makes
+	// this the only request that notices. The failed statement aborted the
+	// transaction, so what is retried is the whole of it, from a clean ctx.
+	c.E.Log.Warn("prepared statement outlived a schema change; retrying the transaction", "err", err)
+	c.E.DB.Pool.Reset()
+	c.Tx = nil
+	c.Messages = nil
+	c.Flags = flags
+	c.shares, c.sharesLoaded, c.sharesDirty = nil, false, false
+	c.savepoint, c.roSavepoint = 0, 0
+	c.docCache = map[string]Doc{}
+	c.scopeAncestors = nil
+	c.afterCommit = nil
+	c.inWorkflowTransition = false
+	return c.runOnce(fn)
+}
+
+func (c *Ctx) runOnce(fn func(c *Ctx) error) (err error) {
 	tx, err := c.E.DB.Pool.Begin(c.Ctx)
 	if err != nil {
 		return err
