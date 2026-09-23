@@ -4,6 +4,7 @@
   import { api } from "$lib/api";
   import { __ } from "$lib/boot.svelte";
   import { showError } from "$lib/ui.svelte";
+  import { coalesce } from "$lib/coalesce";
   import type { Meta } from "$lib/meta";
   import Icon from "../Icon.svelte";
   import { emptyTree, mergeChildren, markLoading, toggle, visibleRows, loadedParents, expandAll, collapseAll, treeFields, treeLabel, rememberTreeExpand, getRememberedTreeExpand, ROOT, type TreeState, type TreeViewSettings } from "./tree-state";
@@ -82,11 +83,15 @@
     return `${wsPrefix}/${encodeURIComponent(doctype)}/new${query}`;
   }
 
+  // A burst of list_updates (one per row of a Data Import) must not start a
+  // full reload each: every reload fetches all the open branches at once.
+  const requestReload = coalesce(reload);
+
   // Only `reloadKey` may re-run this: reload() reads `tree`, and tracking it
   // would re-run the effect on every level it loads, forever.
   $effect(() => {
     reloadKey;
-    untrack(reload);
+    untrack(requestReload);
   });
 </script>
 

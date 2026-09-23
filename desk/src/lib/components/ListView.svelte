@@ -12,6 +12,7 @@
   import { goto } from "$app/navigation";
   import { onMount, untrack } from "svelte";
   import { subscribe } from "$lib/events";
+  import { coalesce } from "$lib/coalesce";
   import { toCsv, downloadCsv } from "$lib/csv";
   import { deskSDK, type DeskViewMode, type ListViewOptions } from "$lib/desk-sdk";
   import { fromDatetimeLocal, today } from "$lib/datetime";
@@ -307,7 +308,9 @@
       if (ready && next !== currentView) { currentView = next; load(); }
     };
     window.addEventListener("resize", onResize);
-    const off = subscribe("list_update", (p: any) => { if (alive && p.doctype === doctype) load(); });
+    // coalesced: a Data Import publishes one list_update per row
+    const refresh = coalesce(load);
+    const off = subscribe("list_update", (p: any) => { if (alive && p.doctype === doctype) refresh(); });
     (async () => {
       try {
         const m = await getMeta(doctype);

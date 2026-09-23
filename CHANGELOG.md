@@ -31,6 +31,13 @@ not every commit that went into it.
   `showFileName: true` on the field to show the name beside it again; it now shows the
   original name, not the stored one.
 
+### Fixed
+
+- **A burst of saves no longer floods the list with reloads.** The desk ran one full reload per
+  `list_update`, so a Data Import of ~100 rows in the tree view started over a thousand concurrent
+  `/api/tree` requests, which the browser refused with "Failed to fetch" toasts. Reloads are now
+  coalesced: while one runs, further updates queue a single follow-up. (#15)
+
 ## 0.18.3 — 2026-09-23
 
 ### Added
