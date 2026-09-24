@@ -9,6 +9,7 @@ import { __ } from "./boot.svelte";
 import { goto } from "$app/navigation";
 import { validateEmailFields } from "./email";
 import { registerTitles } from "./titles.svelte";
+import { dynamicLinksOf } from "./doctype-selector";
 import { getRememberedWorkspace } from "./components/sidebar-workspace";
 
 function currentWsPrefix(): string {
@@ -164,6 +165,10 @@ export class FormController {
       this.doc[k] = val;
       if (this.fieldErrors[k]) delete this.fieldErrors[k];
       this.trigger(k);
+      // a document of the old DocType means nothing under the new one
+      for (const link of dynamicLinksOf(this.meta.doctype, k)) {
+        if (!(link in values) && this.doc[link]) this.setValue(link, null);
+      }
     }
     return this;
   }

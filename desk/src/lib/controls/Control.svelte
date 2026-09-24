@@ -111,6 +111,8 @@
         {#if ft === "Select"}
           <select {id} class="input" class:error={!!shownError} disabled={ro} value={value ?? ""} onchange={(e) => onchange((e.target as HTMLSelectElement).value || null)}>
             {#if !selectOptions(field).includes("")}<option value=""></option>{/if}
+            <!-- a stored value outside the options (a DocType the user cannot see, a retired choice) still shows -->
+            {#if value && !selectOptions(field).includes(String(value))}<option value={value}>{value}</option>{/if}
             {#each selectOptions(field) as o, i}<option value={o}>{selectLabels(field)[i] ?? o}</option>{/each}
             {#if extraOptions.length}
               <hr />

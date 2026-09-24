@@ -46,6 +46,17 @@ var coreRefs = []struct {
 	{table: "ddcore_import_record", doctypeCol: "doctype", idCol: "id", keepOnDelete: true},
 }
 
+// deletedWithReference reports whether a (table, DocType column, id column)
+// is a coreRefs record deleted along with the document it names.
+func deletedWithReference(table, doctypeCol, idCol string) bool {
+	for _, r := range coreRefs {
+		if r.table == table && r.doctypeCol == doctypeCol && r.idCol == idCol {
+			return !r.keepOnDelete
+		}
+	}
+	return false
+}
+
 // docTypeRefColumns is every (table, column) that stores a DocType *name*,
 // derived from the meta rather than listed: child tables keep it in parenttype,
 // and a Dynamic Link keeps it in the sibling column its options name.

@@ -32,9 +32,24 @@ not every commit that went into it.
   link `titles`.
 - **ToDo list columns.** The generic ToDo list (System → ToDo) shows the description, status,
   priority, due date, assignee, assigner and reference, with colours for status and priority.
+- **A DocType picker for a Dynamic Link's type field.** A `Data` field named in a Dynamic Link's
+  `options` is shown in the desk (form, grid and list filters) as a list of the DocTypes the user
+  can see, and changing it clears the link, whose document belonged to the old DocType.
+
+### Changed
+
+- **ToDo's `reference_id` is a Dynamic Link** on `reference_type`. The ToDo form picks the
+  reference from lists instead of text boxes; a save naming a DocType or a document that does not
+  exist is refused, and lists show the referenced document's title. Deleting the referenced
+  document still deletes its ToDos rather than being blocked by them. The type field is labelled
+  "Reference Type" instead of "Reference DocType".
 
 ### Fixed
 
+- **Importing a DocType with a Dynamic Link** failed with "expected 0 arguments, got 1" while
+  checking for dangling links.
+- **A Select shows a stored value outside its options** (a DocType the user cannot see, a retired
+  choice) instead of rendering blank.
 - **To-Do reference links** open the referenced document in its workspace; they pointed at a
   route that does not exist.
 

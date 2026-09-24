@@ -14,10 +14,10 @@ Assignments and personal tasks are stored in `tab_to_do` using standard document
 | `allocated_to` | Link (`User`) | Required assignee user ID |
 | `assigned_by` | Link (`User`) | User who created the assignment |
 | `description` | Small Text | Task description or instructions |
-| `reference_type` | Data | Referenced DocType name (e.g. `Order`, `Customer`) |
-| `reference_id` | Data | Referenced document id (e.g. `ORD-0001`) |
+| `reference_type` | Data ("Reference Type") | Referenced DocType name (e.g. `Order`, `Customer`); a DocType list in the desk |
+| `reference_id` | Dynamic Link (`reference_type`) | Referenced document id (e.g. `ORD-0001`); must exist, and lists show its title |
 
-Standalone personal tasks have `reference_type` and `reference_id` unset. Document assignments link to a target record.
+Standalone personal tasks have `reference_type` and `reference_id` unset. Document assignments link to a target record. Although `reference_id` is a Dynamic Link, a ToDo never blocks deleting the document it names: the ToDo is deleted with it.
 
 ## Authorization
 

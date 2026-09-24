@@ -416,7 +416,7 @@ func (e *Engine) danglingLinks(ctx context.Context, q db.Querier, d *meta.DocTyp
 		targets = []string{f.OptionsString()}
 	case "Dynamic Link":
 		rows, err := db.Select(ctx, q, fmt.Sprintf(`SELECT DISTINCT %s AS t FROM %s WHERE %s IS NOT NULL AND %s <> ''`,
-			db.Ident(f.OptionsString()), db.Ident(d.TableName()), db.Ident(fieldname), db.Ident(fieldname)), nil)
+			db.Ident(f.OptionsString()), db.Ident(d.TableName()), db.Ident(fieldname), db.Ident(fieldname)))
 		if err != nil {
 			return nil, err
 		}

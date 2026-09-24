@@ -2010,6 +2010,11 @@ func (c *Ctx) checkLinksBeforeDelete(d *meta.DocType, name string) error {
 				sql = fmt.Sprintf("SELECT id, parent, parenttype FROM %s WHERE %s = $1 LIMIT 1", db.Ident(other.TableName()), db.Ident(f.Fieldname))
 				args = []any{name}
 			case f.Fieldtype == "Dynamic Link" && other.Field(f.OptionsString()) != nil:
+				// a ToDo's reference goes with the document (coreRefs below
+				// deletes it), so it is no reason to refuse the delete
+				if deletedWithReference(other.TableName(), f.OptionsString(), f.Fieldname) {
+					continue
+				}
 				sql = fmt.Sprintf("SELECT id, parent, parenttype FROM %s WHERE %s = $1 AND %s = $2 LIMIT 1", db.Ident(other.TableName()), db.Ident(f.Fieldname), db.Ident(f.OptionsString()))
 				args = []any{name, d.Name}
 			default:

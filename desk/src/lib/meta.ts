@@ -1,4 +1,5 @@
-import { __ } from "./boot.svelte";
+import { __, boot } from "./boot.svelte";
+import { applyDocTypeSelectors } from "./doctype-selector";
 // DocType meta as served by /api/meta, cached per session (invalidated on reload events).
 import { api } from "./api";
 
@@ -72,7 +73,7 @@ export function getMeta(doctype: string): Promise<Meta> {
     p = api
       .meta(doctype)
       .then((raw) => {
-        const m = applyFieldLevels(raw);
+        const m = applyDocTypeSelectors(applyFieldLevels(raw), boot.data?.doctypes);
         if (m.doctype.idGeneration?.prompt && !m.doctype.fields.some((f: Field) => f.fieldname === "id")) {
           const idField: Field = {
             fieldname: "id",

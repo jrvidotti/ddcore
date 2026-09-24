@@ -33,6 +33,7 @@
   import { calendarRangeFilters } from "./views/calendar-state";
   import { resolveCardFields } from "./views/card-fields";
   import { showIDColumn } from "./views/id-column";
+  import { docTypeChoices } from "$lib/doctype-selector";
 
   let { doctype }: { doctype: string } = $props();
   let meta = $state<Meta | null>(null);
@@ -105,19 +106,7 @@
   const isDocTypeRef = (f: Field) =>
     f.fieldname === "ref_doctype" || f.fieldname === "reference_doctype" || (!!f.fieldname && f.fieldname.endsWith("_doctype"));
 
-  const doctypeChoices = $derived.by(() => {
-    const dts = boot.data?.doctypes || {};
-    const names = Object.keys(dts);
-    names.sort((a, b) => {
-      const la = dts[a]?.label || a;
-      const lb = dts[b]?.label || b;
-      return la.localeCompare(lb);
-    });
-    return {
-      options: names,
-      optionLabels: names.map((n) => dts[n]?.label || n),
-    };
-  });
+  const doctypeChoices = $derived(docTypeChoices(boot.data?.doctypes));
 
   function filterField(f: Field): Field {
     if (isDocTypeRef(f) && f.fieldtype === "Data") {

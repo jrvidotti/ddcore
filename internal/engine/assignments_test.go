@@ -259,3 +259,26 @@ func TestAssignment_DueDateReminder(t *testing.T) {
 		t.Fatalf("expected still 1 notification after second sweep, got %d", len(rows))
 	}
 }
+
+// reference_id is a Dynamic Link: a ToDo cannot point at a document that
+// does not exist, nor at a DocType that does not.
+func TestToDo_ReferenceMustExist(t *testing.T) {
+	e := setupWith(t, nil)
+	for _, ref := range []Doc{
+		{"reference_type": "Pessoa", "reference_id": "Nobody"},
+		{"reference_type": "NoSuchType", "reference_id": "x"},
+	} {
+		err := e.Run(context.Background(), "Admin", func(c *Ctx) error {
+			todo, err := c.NewDoc("ToDo", Doc{"allocated_to": "Admin", "description": "ref check",
+				"reference_type": ref["reference_type"], "reference_id": ref["reference_id"]})
+			if err != nil {
+				return err
+			}
+			_, err = c.Insert(todo, SaveOpts{})
+			return err
+		})
+		if err == nil {
+			t.Fatalf("expected a ToDo pointing at %v to be refused", ref)
+		}
+	}
+}

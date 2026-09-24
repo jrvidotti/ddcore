@@ -22,7 +22,7 @@
 | Time | time | "HH:MM:SS"; a civil time, never converted |
 | Select | text | `options: ["A", "B"]`, canonical English, validated on the server; `optionColors` gives each value an indicator colour |
 | Link | text | `options: "DocType"`; existence validated; index created automatically |
-| Dynamic Link | text | `options: "<the field holding the DocType>"` |
+| Dynamic Link | text | `options: "<the field holding the DocType>"`; the DocType and the document are validated on save. When that field is a `Data`, the desk shows it as a list of the DocTypes the user can see, and changing it clears the link |
 | Table | (child table) | `options: "Child DocType"` with `isChild: true`; `gridEditMode: "dialog"` turns off inline editing |
 | Attach | text | the file's URL (`/files/..` or `/private/files/..`); the desk shows an icon that opens the file and shows its original name, size and type on hover — `showFileName: true` also shows the name beside it |
 | Attach Image | text | an Attach restricted to png, jpg, gif or webp, refused at upload as well as on save; SVG is not one of them, because it carries script; the thumbnail stands in for the icon, and `showFileName` works the same |
