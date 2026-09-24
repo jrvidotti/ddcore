@@ -65,6 +65,8 @@
     timer = setTimeout(() => search(text), 150);
   }
 
+  // the list stays open after a pick, so several values can be chosen in a row;
+  // the option's mousedown keeps the focus in the input for that
   function pick(o: any) {
     if (!link || !target || !child) return;
     setLinkTitle(target, o.id, optionTitle(o));
@@ -125,7 +127,7 @@
   {#if open && !readOnly && shown.length}
     <div class="ms-options" role="listbox" use:anchored={{ anchor: wrapEl, matchWidth: true, gap: 2, content: shown.length }}>
       {#each shown as o, i (o.id)}
-        <div role="option" tabindex="-1" aria-selected={i === active} class:active={i === active} onmousedown={() => pick(o)}>{optionTitle(o)}</div>
+        <div role="option" tabindex="-1" aria-selected={i === active} class:active={i === active} onmousedown={(e) => { e.preventDefault(); pick(o); }}>{optionTitle(o)}</div>
       {/each}
     </div>
   {/if}

@@ -49,10 +49,14 @@ describe("TableMultiSelectControl", () => {
     await vi.waitFor(() => expect(t.target.querySelectorAll("[role=option]").length).toBe(2));
     const options = [...t.target.querySelectorAll("[role=option]")];
     expect(options.map((o) => o.textContent)).toEqual(["Blue", "Green"]);
-    options[1].dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    const down = new MouseEvent("mousedown", { bubbles: true, cancelable: true });
+    options[1].dispatchEvent(down);
     flushSync();
+    // the input keeps the focus, so the list stays open for the next pick
+    expect(down.defaultPrevented).toBe(true);
     expect(t.props.value.map((r: any) => r.tag)).toEqual(["red", "green"]);
     expect(t.props.value[1]).toMatchObject({ doctype: "Note Tag", tag: "green", idx: 2 });
+    await vi.waitFor(() => expect([...t.target.querySelectorAll("[role=option]")].map((o) => o.textContent)).toEqual(["Blue"]));
     t.done();
   });
 

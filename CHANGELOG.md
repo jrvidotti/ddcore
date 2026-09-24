@@ -12,6 +12,12 @@ not every commit that went into it.
 
 ## Unreleased
 
+### Fixed
+
+- **A Table MultiSelect's list stays open after a pick.** Clicking an option used to take the focus
+  out of the input and close the list, so each value needed another click in the field. The list
+  now stays open and offers what is left.
+
 ## 0.19.5 — 2026-09-24
 
 ### Added
