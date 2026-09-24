@@ -12,6 +12,8 @@ not every commit that went into it.
 
 ## Unreleased
 
+## 0.19.5 — 2026-09-24
+
 ### Added
 
 - **Table MultiSelect field.** A field that holds several links to one DocType, such as tags,
