@@ -11,6 +11,8 @@ export interface ListUrlState {
   page: number;
   pageSize: number;
   view?: string;
+  /** The calendar's month, YYYY-MM. */
+  month?: string;
 }
 
 type ListViewSettings = { views?: string[]; calendar?: { field?: string }; kanban?: { field?: string }; gantt?: { startField?: string; endField?: string } };
@@ -90,6 +92,7 @@ export function listStateFromSearchParams(params: URLSearchParams, fields: Field
     page: positiveInt(params.get("page"), 1),
     pageSize: listPageSizes.includes(requestedSize as (typeof listPageSizes)[number]) ? requestedSize : defaults.pageSize,
     view: params.get("view") ?? undefined,
+    month: /^\d{4}-(0[1-9]|1[0-2])$/.test(params.get("month") || "") ? params.get("month")! : undefined,
   };
 }
 
@@ -106,6 +109,7 @@ export function listStateToSearchParams(state: ListUrlState, fields: Field[]): U
   if (state.page > 1) params.set("page", String(state.page));
   params.set("page_size", String(state.pageSize));
   if (state.view && state.view !== "list") params.set("view", state.view);
+  if (state.month && state.view === "calendar") params.set("month", state.month);
   return params;
 }
 

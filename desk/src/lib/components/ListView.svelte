@@ -140,7 +140,8 @@
     };
   }
   function currentListState(): ListUrlState {
-    return { filters: { ...filters }, search, docstatusFilter, orderBy, page: Math.floor(start / pageSize) + 1, pageSize, view: currentView };
+    return { filters: { ...filters }, search, docstatusFilter, orderBy, page: Math.floor(start / pageSize) + 1, pageSize, view: currentView,
+      month: currentView === "calendar" ? `${calendarYear}-${String(calendarMonth).padStart(2, "0")}` : undefined };
   }
   function applyListState(state: ListUrlState) {
     filters = state.filters;
@@ -150,6 +151,13 @@
     pageSize = state.pageSize;
     start = (state.page - 1) * state.pageSize;
     currentView = resolveView(state.view);
+    const month = state.month || today().slice(0, 7);
+    calendarYear = Number(month.slice(0, 4));
+    calendarMonth = Number(month.slice(5, 7));
+    // the grid follows at once, so the calendar's month notice finds nothing changed
+    const days = getCalendarDays(calendarYear, calendarMonth);
+    gridStartIso = days[0].iso;
+    gridEndIso = days[days.length - 1].iso;
   }
   function updateListState(state: ListUrlState) {
     applyListState(state);
@@ -171,7 +179,7 @@
     calendarMonth = month;
     gridStartIso = startIso;
     gridEndIso = endIso;
-    if (changed && ready && currentView === "calendar") load();
+    if (changed && ready && currentView === "calendar") updateListState(currentListState());
   }
   function changeGantt(scale: GanttScale, anchor: string) {
     const changed = scale !== ganttScale || anchor !== ganttAnchor;

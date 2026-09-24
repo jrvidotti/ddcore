@@ -37,6 +37,14 @@ describe("list URL state", () => {
     expect(state.view).toBe("calendar");
   });
 
+  it("keeps the calendar's month, and only on the calendar", () => {
+    const defaults = { filters: {}, search: "", docstatusFilter: "", orderBy: "", page: 1, pageSize: 20 };
+    expect(listStateFromSearchParams(new URLSearchParams("view=calendar&month=2026-03"), fields, defaults).month).toBe("2026-03");
+    expect(listStateFromSearchParams(new URLSearchParams("view=calendar&month=2026-13"), fields, defaults).month).toBeUndefined();
+    expect(listStateToSearchParams({ ...defaults, view: "calendar", month: "2026-03" }, fields).toString()).toBe("page_size=20&view=calendar&month=2026-03");
+    expect(listStateToSearchParams({ ...defaults, view: "list", month: "2026-03" }, fields).toString()).toBe("page_size=20");
+  });
+
   it("serializes only list state into stable parameters", () => {
     const params = listStateToSearchParams({
       filters: { status: "Atrasado", categoria: "CAT-1", ativo: false, valor: 25.5 },

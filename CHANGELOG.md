@@ -20,6 +20,8 @@ not every commit that went into it.
   stored value stays the English id, so permissions and `HasRole` are unchanged. Each role an app
   declares in `defineApp({ roles })` is now a catalogue key: run `ddcore i18n extract` and
   translate them, or `make check` reports them missing. See `docs/agent/i18n.md`.
+- **The calendar's month is in the URL.** Moving the calendar to another month sets
+  `?month=YYYY-MM`, so a reload, a shared link or the back button returns to that month.
 - **Calendar records span their days.** A calendar with `endField` now draws each record as a bar
   from its `field` day to its `endField` day, wrapping at the end of each week, and loads the
   records that overlap the month rather than only those that start in it. A record with no end
