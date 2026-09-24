@@ -110,6 +110,7 @@ type AppMeta struct {
 	Ddcore          string                      `json:"ddcore"`
 	Scheduler       map[string]any              `json:"scheduler"`
 	Desk            map[string]any              `json:"desk"`
+	Portal          map[string]any              `json:"portal"`
 	Roles           []string                    `json:"roles"`
 	Fixtures        map[string][]map[string]any `json:"fixtures"`
 	HasAfterInstall bool                        `json:"hasAfterInstall"`

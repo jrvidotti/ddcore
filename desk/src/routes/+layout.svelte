@@ -1,6 +1,6 @@
 <script lang="ts">
   import "../app.css";
-  import { __, loadBoot, isLoggedIn, siteName, siteLogo, boot } from "$lib/boot.svelte";
+  import { __, loadBoot, isLoggedIn, siteName, siteLogo, boot, type Boot } from "$lib/boot.svelte";
   import { installDeskSDK, loadAppIncludes } from "$lib/desk-sdk";
   import { connectEvents, disconnectEvents, subscribe } from "$lib/events";
   import { maintenance, setMaintenance } from "$lib/maintenance.svelte";
@@ -127,6 +127,15 @@
     if (to) untrack(() => goto(to, { replaceState: true }));
   });
 
+  const deskIncludeApps = (b: Boot) => b.apps.filter((a) => a.hasDeskInclude).map((a) => a.name);
+  // a desk user gets the portal's scripts on first entering "My portal", not at
+  // boot, so one who never opens it never runs them on desk forms; the effect
+  // re-runs on a reloaded boot, which picks up an app that just declared some
+  $effect(() => {
+    const b = boot.data;
+    if (ready && isPortal && b && !b.website && b.user !== "Guest") untrack(() => loadAppIncludes(b.portalIncludes ?? [], b.loaded, "portal"));
+  });
+
   onMount(async () => {
     installDeskSDK();
     onMessage((m) => toast(m.message, { title: m.title, indicator: m.indicator || "blue" }));
@@ -143,13 +152,14 @@
         // includes, notifications and event stream are desk API they are refused
         const to = portalRedirect(b.website, page.url.pathname);
         if (to) await goto(to, { replaceState: true });
+        await loadAppIncludes(b.portalIncludes ?? [], b.loaded, "portal");
       }
       else if (b.user !== "Guest") {
-        await loadAppIncludes(b.apps, b.loaded);
+        await loadAppIncludes(deskIncludeApps(b), b.loaded, "desk");
         startNotifications();
         startPendingTasks();
         subscribe("maintenance", (p) => setMaintenance(p));
-        connectEvents(async () => { clearMetaCache(); const nb = await loadBoot(); await loadAppIncludes(nb.apps, nb.loaded); toast(__("Apps reloaded"), { indicator: "blue", timeout: 2000 }); });
+        connectEvents(async () => { clearMetaCache(); const nb = await loadBoot(); await loadAppIncludes(deskIncludeApps(nb), nb.loaded, "desk"); toast(__("Apps reloaded"), { indicator: "blue", timeout: 2000 }); });
       }
     } catch (e) { console.error(e); }
     ready = true;

@@ -177,7 +177,32 @@ follows the same rule. Both write the `account.invite` / `account.resend_invite`
   anyone else, by the pages and their identity row: an HR analyst who is also an employee
   sees their own records, and one with no identity row sees nothing.
 - Forms are built from the page's fields, and Link fields search through the page's own
-  endpoint. Form scripts (`*.form.ts`) do not run in the portal.
+  endpoint. Form scripts (`*.form.ts`) do not run in the portal. Global scripts do, when they
+  are listed under `portal.include` (below).
+
+## Client scripts on portal pages
+
+`defineApp`'s `portal.include` lists client scripts, relative to the app dir, that load on
+every portal page. They are bundled on their own, apart from `desk.include`:
+
+```ts
+defineApp({
+  desk: { include: ["client/masks.ts"] },
+  portal: { include: ["client/masks.ts", "client/cep.ts"] },
+});
+```
+
+- A portal input carries `data-fieldname` and `data-fieldtype`, like a desk one, so a script that
+  works by event delegation on `document` behaves the same in both places.
+- To set a field from a script, write the value and fire `input`. The form state follows the
+  event, not the DOM:
+  `el.value = v; el.dispatchEvent(new Event("input", { bubbles: true }))`.
+- A Website User is refused the desk API. A script that calls the server calls a service
+  whitelisted with `{ portal: true }`.
+- A Website User loads these scripts at sign-in. A desk user loads them on first entering
+  **My portal**, and they stay loaded when that user goes back to the desk. A script listed in
+  both blocks then runs twice there, so it should guard its own setup
+  (`if (window.__myMasks) return; window.__myMasks = true;`).
 
 ## Not here yet
 

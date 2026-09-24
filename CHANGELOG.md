@@ -22,6 +22,11 @@ not every commit that went into it.
   may create the target. It opens a dialog with the target's title and required fields,
   prefilled with the typed text, and selects the new document. A target with a required child
   table opens its full form in a new tab instead.
+- **`portal.include` in `defineApp`** loads app client scripts on portal pages, served as
+  `/assets/apps/<app>/portal.js`. Use it for input masks or a lookup on a portal form. A Website
+  User gets them on every portal page, and a desk user gets them on first entering **My portal**.
+  The boot's `portalIncludes` names the apps that declare one. Form scripts (`*.form.ts`) still
+  do not run in the portal. See `portal`.
 
 ### Changed
 
