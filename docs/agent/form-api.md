@@ -65,7 +65,7 @@ A form is laid out by sizing its fields, not by splitting it into columns: a lin
 
 The desk keeps what the reader typed and did not save in the browser, one draft per user and
 record, for seven days. Leaving the form asks first — leave and keep the draft, stay, or
-**Discard changes** (`Delete`) and leave; coming back to the record puts the draft
+**Discard changes** (`Delete`, or ⌫ on a Mac) and leave; coming back to the record puts the draft
 back and says so, and a record saved by someone else in the meantime asks whether to keep the
 draft. **Discard changes** in the form's menu — `frm.discardChanges()` — throws the draft away
 and goes back to the document as it was loaded, without asking the server for it again.

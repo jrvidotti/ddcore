@@ -23,7 +23,8 @@ export interface DialogKey {
 
 /**
  * What a key pressed while a dialog is on top does: Escape cancels it, Enter
- * runs its primary action, Delete its danger action (for a dialog that opts in).
+ * runs its primary action, Delete its danger action (for a dialog that opts in;
+ * Backspace too, since that is the key a Mac labels "delete").
  * Enter is left alone where it already means something — a new line in a
  * textarea or rich text (unless Ctrl/Cmd is held), a focused button or link, an
  * option picked in a dropdown (defaultPrevented), or an IME composition. Delete
@@ -32,7 +33,7 @@ export interface DialogKey {
 export function dialogKeyAction(e: DialogKey): "cancel" | "primary" | "danger" | null {
   if (e.isComposing || e.defaultPrevented) return null;
   if (e.key === "Escape") return "cancel";
-  if (e.key === "Delete") {
+  if (e.key === "Delete" || e.key === "Backspace") {
     const tag = e.targetTag || "";
     if (e.repeat || e.targetEditable || tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return null;
     return "danger";

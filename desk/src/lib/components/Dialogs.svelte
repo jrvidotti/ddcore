@@ -7,6 +7,9 @@
   import { showError } from "$lib/ui.svelte";
   import { cellWidthClass, LINE_SLOTS, packLines } from "./form-layout";
   import { dialogKeyAction, runDialogAction } from "./dialog-actions";
+  import { isMac } from "$lib/shortcuts";
+
+  const deleteKey = isMac() ? "⌫" : "Del";
 
   function cancel(d: DialogHandle) { (d as any).onCancel?.(); d.hide(); }
   async function primary(d: DialogHandle) {
@@ -88,7 +91,7 @@
         {/each}
       </div>
       <div class="foot">
-        {#if d.spec.dangerAction}<button class="btn danger" disabled={d.busy} onclick={() => danger(d)}>{d.spec.dangerLabel || __("Delete")}{#if d.spec.dangerShortcut}<kbd class="btn-kbd">Del</kbd>{/if}</button><span class="spacer"></span>{/if}
+        {#if d.spec.dangerAction}<button class="btn danger" disabled={d.busy} onclick={() => danger(d)}>{d.spec.dangerLabel || __("Delete")}{#if d.spec.dangerShortcut}<kbd class="btn-kbd">{deleteKey}</kbd>{/if}</button><span class="spacer"></span>{/if}
         {#if !d.spec.hideSecondary}<button class="btn" onclick={() => cancel(d)}>{d.spec.secondaryLabel || __("Cancel")}</button>{/if}
         {#if d.spec.primaryAction || d.spec.primaryLabel}
           <button class="btn primary" disabled={d.busy} onclick={() => primary(d)}>{d.spec.primaryLabel || "OK"}</button>

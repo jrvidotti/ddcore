@@ -15,9 +15,10 @@ not every commit that went into it.
 ### Added
 
 - **Discard changes when leaving a form.** The "Unsaved changes" dialog shown on leaving a dirty
-  form has a **Discard changes** button, also on the `Delete` key, that throws the draft away and
-  leaves. Dialogs get the same through `dangerShortcut: true` on `ddcore.ui.Dialog`, which binds
-  `Delete` to the danger action (never while typing in a field).
+  form has a **Discard changes** button, also on the `Delete` key (⌫ on a Mac), that throws the
+  draft away and leaves. Dialogs get the same through `dangerShortcut: true` on
+  `ddcore.ui.Dialog`, which binds `Delete` and `Backspace` to the danger action (never while
+  typing in a field).
 - **The To-Do page reads like a DocType list.** `/app/todo` is now a sortable table (description,
   reference, priority, due date, the other party, status) with a filter bar — search, status,
   priority, due date, and the assigner or assignee — a page-size choice, and **Calendar** (by due

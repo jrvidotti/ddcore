@@ -38,7 +38,9 @@ describe("dialog keys", () => {
   it("Delete runs the danger action, except where text is typed", () => {
     expect(dialogKeyAction({ key: "Delete", targetTag: "DIV" })).toBe("danger");
     expect(dialogKeyAction({ key: "Delete", targetTag: "BUTTON" })).toBe("danger");
+    expect(dialogKeyAction({ key: "Backspace", targetTag: "DIV" })).toBe("danger");
     expect(dialogKeyAction({ key: "Delete", targetTag: "INPUT" })).toBeNull();
+    expect(dialogKeyAction({ key: "Backspace", targetTag: "INPUT" })).toBeNull();
     expect(dialogKeyAction({ key: "Delete", targetTag: "TEXTAREA" })).toBeNull();
     expect(dialogKeyAction({ key: "Delete", targetTag: "DIV", targetEditable: true })).toBeNull();
     expect(dialogKeyAction({ key: "Delete", targetTag: "DIV", repeat: true })).toBeNull();
