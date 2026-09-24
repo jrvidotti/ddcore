@@ -108,6 +108,7 @@ func New(e *engine.Engine, desk fs.FS) *Server {
 			r.Post("/assignments/assign", s.assignDoc)
 			r.Post("/assignments/complete", s.completeAssignment)
 			r.Post("/assignments/revoke", s.revokeAssignment)
+			r.Post("/assignments/reopen", s.reopenAssignment)
 			r.Get("/todo/pending", s.pendingWork)
 			r.Get("/shares/{doctype}/{id}", s.listDocShares)
 			r.Post("/shares/add", s.shareDoc)

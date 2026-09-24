@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api, type ToDoDoc, type PendingWorkPage } from "./api";
-import { DocAssignments, PendingWork, pendingTasks, refreshPendingCount } from "./assignments.svelte";
+import { DocAssignments, PendingWork, TODO_WINDOW_LIMIT, pendingTasks, refreshPendingCount } from "./assignments.svelte";
 
 const sampleTodo: ToDoDoc = {
   id: "TODO-0001",
@@ -125,6 +125,73 @@ describe("PendingWork", () => {
     await refreshPendingCount();
 
     expect(pendingTasks.count).toBe(5);
+  });
+
+  it("sends the filters, the order and the page size", async () => {
+    const pendingSpy = vi.spyOn(api.assignments, "pending").mockResolvedValue({ data: [], total: 0 });
+    const pw = new PendingWork();
+    pw.limit = 50;
+    pw.filters = { q: "leite", priority: "High", due: "", user: "bia@x.com" };
+    pw.orderBy = "priority desc";
+
+    await pw.load(50, "Open", "assigned_by_me");
+
+    expect(pendingSpy).toHaveBeenCalledWith({
+      limit: 50, offset: 50, status: "Open", scope: "assigned_by_me",
+      q: "leite", priority: "High", user: "bia@x.com", order_by: "priority desc",
+    });
+  });
+
+  it("loads a window unpaged for the calendar", async () => {
+    const pendingSpy = vi.spyOn(api.assignments, "pending").mockResolvedValue({ data: [], total: 0 });
+    const pw = new PendingWork();
+    pw.window = { date_from: "2026-08-30", date_to: "2026-10-10" };
+
+    await pw.load(40);
+
+    expect(pendingSpy).toHaveBeenCalledWith(expect.objectContaining({
+      limit: TODO_WINDOW_LIMIT, offset: 0, date_from: "2026-08-30", date_to: "2026-10-10",
+    }));
+  });
+
+  it("loads every status for the Kanban", async () => {
+    const pendingSpy = vi.spyOn(api.assignments, "pending").mockResolvedValue({ data: [], total: 0 });
+    const pw = new PendingWork();
+    pw.window = { allStatuses: true };
+
+    await pw.load(0, "Open");
+
+    expect(pendingSpy).toHaveBeenCalledWith({ limit: TODO_WINDOW_LIMIT, offset: 0, status: "all", scope: "assigned_to_me" });
+  });
+
+  it("moves a task through the matching endpoint", async () => {
+    vi.spyOn(api.assignments, "pending").mockResolvedValue({ data: [sampleTodo], total: 1 });
+    const complete = vi.spyOn(api.assignments, "complete").mockResolvedValue({ ...sampleTodo, status: "Closed" });
+    const revoke = vi.spyOn(api.assignments, "revoke").mockResolvedValue({ success: true });
+    const reopen = vi.spyOn(api.assignments, "reopen").mockResolvedValue(sampleTodo);
+    const pw = new PendingWork();
+    await pw.load(0);
+
+    await pw.setStatus(sampleTodo.id, "Closed");
+    pw.rows = [{ ...sampleTodo, status: "Closed" }];
+    await pw.setStatus(sampleTodo.id, "Open");
+    await pw.setStatus(sampleTodo.id, "Cancelled");
+
+    expect(complete).toHaveBeenCalledWith(sampleTodo.id);
+    expect(reopen).toHaveBeenCalledWith(sampleTodo.id);
+    expect(revoke).toHaveBeenCalledWith(sampleTodo.id);
+  });
+
+  it("puts the task back when the server refuses the move", async () => {
+    vi.spyOn(api.assignments, "pending").mockResolvedValue({ data: [sampleTodo], total: 1 });
+    vi.spyOn(api.assignments, "complete").mockRejectedValue(new Error("nope"));
+    const pw = new PendingWork();
+    await pw.load(0);
+
+    await expect(pw.setStatus(sampleTodo.id, "Closed")).rejects.toThrow("nope");
+
+    expect(pw.rows[0].status).toBe("Open");
+    expect(pw.pending).toBe("");
   });
 
   it("ignores stale responses after destroy", async () => {

@@ -42,6 +42,7 @@ All assignment endpoints require an authenticated user. Assignments are availabl
 | `POST` | `/api/assignments/assign` | Assigns a document to a user. Creates a `ToDo`, adds a `Workflow` Comment on the target document, and notifies the assignee. |
 | `POST` | `/api/assignments/complete` | Closes the `ToDo` named by `{ id }` (`status: "Closed"`) and adds a timeline Comment. Allowed for the assignee, the assigner, or a System Manager. |
 | `POST` | `/api/assignments/revoke` | Cancels the `ToDo` named by `{ id }` (`status: "Cancelled"`) and adds a timeline Comment. Allowed for the assigner, the assignee, or a System Manager. Returns `{ "success": true }`. |
+| `POST` | `/api/assignments/reopen` | Sets the `ToDo` named by `{ id }` back to `Open` and adds a timeline Comment. Allowed for the assignee, the assigner, or a System Manager. |
 | `GET` | `/api/assignments/{doctype}/{id}` | Lists the assignments of a document. Requires read permission on the document. |
 | `GET` | `/api/todo/pending` | Lists pending work for the current user, leaving out tasks whose referenced documents the caller cannot read. |
 
@@ -74,19 +75,26 @@ Anyone who can read the document sees every assignment on it, whoever the assign
 ### Listing pending work
 
 Query parameters:
-- `limit`: number of records per page (default: 20, max: 100).
+- `limit`: number of records per page (default: 20, max: 500).
 - `offset`: page offset (default: 0).
 - `status`: `Open` (the default), `Closed`, `Cancelled`, or `all` for every status.
 - `scope`: `assigned_by_me` lists tasks the caller assigned; any other value, or none, lists tasks assigned to the caller.
+- `user`: the other party — the assigner in the default scope, the assignee in `assigned_by_me`.
+- `priority`: one of `Low`, `Medium`, `High`, `Urgent`.
+- `date_from`, `date_to`: inclusive bounds on the due date (`YYYY-MM-DD`).
+- `no_date=1`: only tasks without a due date.
+- `q`: case-insensitive match on the description, the reference DocType or the reference id.
+- `order_by`: `<field> asc|desc` on `date`, `priority`, `status`, `description`, `creation`, `modified`, `allocated_to` or `assigned_by`; anything else sorts by `creation desc`, the default. `priority` sorts by urgency (`Low` < `Urgent`), and tasks without a value come last in either direction.
 
-The endpoint loads at most 1000 candidate tasks, newest first, then drops those whose referenced document the caller cannot read, then pages. A user with more than 1000 matching tasks can see truncated results. `total` is the count after the access check.
+The endpoint loads at most 1000 candidate tasks matching the filters, newest first, then drops those whose referenced document the caller cannot read, then sorts and pages. A user with more than 1000 matching tasks can see truncated results. `total` is the count after the access check. `titles` carries the link titles of the page's users, as `/api/resource` lists do.
 
 Response:
 ```json
 {
   "data": {
     "data": [ ... ],
-    "total": 5
+    "total": 5,
+    "titles": { "User": { "alice@example.com": "Alice" } }
   }
 }
 ```
@@ -112,6 +120,9 @@ await ddcore.assignments.complete("TODO-0001");
 // Revoke an assignment
 await ddcore.assignments.revoke("TODO-0001");
 
+// Reopen a closed or cancelled assignment
+await ddcore.assignments.reopen("TODO-0001");
+
 // Fetch assignments for a document
 const docTasks = await ddcore.assignments.forDoc("Order", "ORD-0001");
 
@@ -133,5 +144,10 @@ The core app registers a date-driven persistent notification rule (`core.todo_du
 ## Desk Integration
 
 1. **Document Sidebar (`DocSidebar.svelte`):** Active documents display an "Assigned To" section with assignee badges, due dates (highlighted red when overdue), priority pills, "+ Assign" modal, and direct complete/revoke buttons.
-2. **Pending Work Central (`/app/todo`):** Dedicated page listing user tasks with scope tabs ("Assigned to me", "Assigned by me"), status filters, checkboxes for instant completion, direct reference document links, and "+ New Task" modal for personal to-dos.
+2. **Pending Work Central (`/app/todo`):** Dedicated page over `/api/todo/pending`, with scope tabs ("Assigned to me", "Assigned by me") and three views, like a DocType list:
+   - **List:** a table of description, reference document, priority, due date (red when overdue), the other party, and status, sortable by its headers, with complete/revoke/reopen row actions and a page-size choice.
+   - **Calendar:** tasks by due date, month by month.
+   - **Kanban:** columns by status; dragging a card completes, revokes or reopens it through the assignment endpoints, so the timeline comment is written.
+
+   Filters sit behind a **Filters** button (with a count of the active ones) and start hidden unless the URL carries some. Filters (search, status, priority, due date — overdue, today, next 7 days, none — and the other party) and the view live in the URL; the view is also remembered per browser. The "+ New Task" modal creates personal to-dos.
 3. **Sidebar Badge:** Navigation sidebar displays a "To-Do" link with a badge indicating the current user's open task count.

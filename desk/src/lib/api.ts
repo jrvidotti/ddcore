@@ -56,11 +56,24 @@ export interface PendingWorkOptions {
   offset?: number;
   status?: string;
   scope?: "assigned_to_me" | "assigned_by_me";
+  priority?: string;
+  /** Inclusive bounds on the due date. */
+  date_from?: string;
+  date_to?: string;
+  /** 1 keeps only the tasks without a due date. */
+  no_date?: number;
+  /** The counterpart: the assigner in assigned_to_me, the assignee in assigned_by_me. */
+  user?: string;
+  q?: string;
+  /** "field asc|desc" on date, priority, status, description, creation, modified, allocated_to or assigned_by. */
+  order_by?: string;
 }
 
 export interface PendingWorkPage {
   data: ToDoDoc[];
   total: number;
+  /** Link titles of the page's rows (the users), by doctype then id. */
+  titles?: Record<string, Record<string, string>>;
 }
 import { setMaintenance } from "./maintenance.svelte";
 
@@ -162,6 +175,8 @@ export const api = {
       request<ToDoDoc>("POST", "/api/assignments/complete", { id }),
     revoke: (id: string) =>
       request<{ success: boolean }>("POST", "/api/assignments/revoke", { id }),
+    reopen: (id: string) =>
+      request<ToDoDoc>("POST", "/api/assignments/reopen", { id }),
     forDoc: (doctype: string, id: string) =>
       request<ToDoDoc[]>("GET", `/api/assignments/${encodeURIComponent(doctype)}/${encodeURIComponent(id)}`),
     pending: (options: PendingWorkOptions = {}) =>

@@ -159,10 +159,24 @@ export interface PendingWorkOptions {
   offset?: number;
   status?: string;
   scope?: "assigned_to_me" | "assigned_by_me";
+  priority?: string;
+  /** Inclusive bounds on the due date. */
+  date_from?: string;
+  date_to?: string;
+  /** 1 keeps only the tasks without a due date. */
+  no_date?: number;
+  /** The counterpart: the assigner in assigned_to_me, the assignee in assigned_by_me. */
+  user?: string;
+  /** Matches the description and the referenced document. */
+  q?: string;
+  /** "field asc|desc" on date, priority, status, description, creation, modified, allocated_to or assigned_by. */
+  order_by?: string;
 }
 export interface PendingWorkPage {
   data: ToDoDoc[];
   total: number;
+  /** Link titles of the page's rows (the users), by doctype then id. */
+  titles?: Record<string, Record<string, string>>;
 }
 
 export interface DeskAPI {
@@ -175,6 +189,7 @@ export interface DeskAPI {
     assign(doctype: string, id: string, args: AssignArgs): Promise<ToDoDoc>;
     complete(id: string): Promise<ToDoDoc>;
     revoke(id: string): Promise<{ success: boolean }>;
+    reopen(id: string): Promise<ToDoDoc>;
     forDoc(doctype: string, id: string): Promise<ToDoDoc[]>;
     pending(options?: PendingWorkOptions): Promise<PendingWorkPage>;
   };

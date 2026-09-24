@@ -383,3 +383,81 @@ DROP FUNCTION IF EXISTS ddcore_test_fail();`)
 		t.Fatalf("status = %v, want Cancelled", got)
 	}
 }
+
+func pendingDescriptions(t *testing.T, x *env, url, sid string) []string {
+	t.Helper()
+	r := x.call("GET", url, nil, sid)
+	x.expect(r, 200, "")
+	var out []string
+	for _, row := range r.Body["data"].(map[string]any)["data"].([]any) {
+		out = append(out, fmt.Sprint(row.(map[string]any)["description"]))
+	}
+	return out
+}
+
+func TestPendingWork_FiltersAndOrder(t *testing.T) {
+	x := setup(t)
+	ana := "sid:" + x.sid("ana@x.com")
+	x.sid("bia@x.com")
+	for _, td := range []map[string]any{
+		{"description": "Alpha report", "priority": "Low", "date": "2026-10-05"},
+		{"description": "Beta call", "priority": "Urgent", "date": "2026-10-01"},
+		{"description": "Gamma", "priority": "Medium"},
+	} {
+		td["allocated_to"] = "ana@x.com"
+		x.expect(x.call("POST", "/api/resource/ToDo", td, ana), 200, "")
+	}
+	x.expect(x.call("POST", "/api/resource/Pessoa", map[string]any{"nome": "Cliente F"}, ana), 200, "")
+	x.expect(x.call("POST", "/api/assignments/assign", map[string]any{
+		"doctype": "Pessoa", "id": "Cliente F", "allocated_to": "bia@x.com", "description": "For Bia",
+	}, ana), 200, "")
+
+	cases := []struct {
+		url  string
+		want string
+	}{
+		{"/api/todo/pending?priority=Urgent", "[Beta call]"},
+		{"/api/todo/pending?date_from=2026-10-01&date_to=2026-10-03", "[Beta call]"},
+		{"/api/todo/pending?no_date=1", "[Gamma]"},
+		{"/api/todo/pending?q=ALPHA", "[Alpha report]"},
+		// priority follows urgency, not the alphabet
+		{"/api/todo/pending?order_by=priority+desc", "[Beta call Gamma Alpha report]"},
+		// undated tasks come last in either direction
+		{"/api/todo/pending?order_by=date+asc", "[Beta call Alpha report Gamma]"},
+		{"/api/todo/pending?order_by=date+desc", "[Alpha report Beta call Gamma]"},
+		{"/api/todo/pending?order_by=description+asc&limit=2&offset=1", "[Beta call Gamma]"},
+		{"/api/todo/pending?scope=assigned_by_me&user=bia@x.com", "[For Bia]"},
+		{"/api/todo/pending?scope=assigned_by_me&user=ze@x.com", "[]"},
+	}
+	for _, tc := range cases {
+		if got := fmt.Sprint(pendingDescriptions(t, x, tc.url, ana)); got != tc.want {
+			t.Errorf("%s: got %s, want %s", tc.url, got, tc.want)
+		}
+	}
+	// an unknown sort column falls back to the default instead of reaching SQL
+	if got := len(pendingDescriptions(t, x, "/api/todo/pending?order_by=secret;drop", ana)); got != 3 {
+		t.Fatalf("bogus order_by: got %d rows", got)
+	}
+}
+
+func TestAssignments_Reopen(t *testing.T) {
+	x := setup(t)
+	ana, bia, ze := "sid:"+x.sid("ana@x.com"), "sid:"+x.sid("bia@x.com"), "sid:"+x.sid("ze@x.com")
+	x.expect(x.call("POST", "/api/resource/Pessoa", map[string]any{"nome": "Cliente R"}, ana), 200, "")
+	r := x.call("POST", "/api/assignments/assign", map[string]any{
+		"doctype": "Pessoa", "id": "Cliente R", "allocated_to": "bia@x.com", "description": "Reopen me",
+	}, ana)
+	x.expect(r, 200, "")
+	id := fmt.Sprint(r.Body["data"].(map[string]any)["id"])
+	x.expect(x.call("POST", "/api/assignments/complete", map[string]any{"id": id}, bia), 200, "")
+
+	x.expect(x.call("POST", "/api/assignments/reopen", map[string]any{"id": id}, ze), 403, "")
+	r = x.call("POST", "/api/assignments/reopen", map[string]any{"id": id}, bia)
+	x.expect(r, 200, "")
+	if st := r.Body["data"].(map[string]any)["status"]; st != "Open" {
+		t.Fatalf("expected Open after reopen, got %v", st)
+	}
+	if got := pendingDescriptions(t, x, "/api/todo/pending", bia); fmt.Sprint(got) != "[Reopen me]" {
+		t.Fatalf("reopened task missing from pending: %v", got)
+	}
+}

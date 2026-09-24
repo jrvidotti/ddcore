@@ -18,6 +18,24 @@ not every commit that went into it.
   form has a **Discard changes** button, also on the `Delete` key, that throws the draft away and
   leaves. Dialogs get the same through `dangerShortcut: true` on `ddcore.ui.Dialog`, which binds
   `Delete` to the danger action (never while typing in a field).
+- **The To-Do page reads like a DocType list.** `/app/todo` is now a sortable table (description,
+  reference, priority, due date, the other party, status) with a filter bar — search, status,
+  priority, due date, and the assigner or assignee — a page-size choice, and **Calendar** (by due
+  date) and **Kanban** (by status) views. Dragging a card completes, revokes or reopens the task.
+  The filter bar opens from a **Filters** button, which counts the active filters; it starts
+  closed unless the URL carries filters. Filters and the view are kept in the URL.
+- **`POST /api/assignments/reopen`** (`ddcore.assignments.reopen(id)`) sets a closed or cancelled
+  ToDo back to `Open`, with a timeline comment.
+- **`GET /api/todo/pending` filters and sorts:** `user`, `priority`, `date_from`, `date_to`,
+  `no_date`, `q` and `order_by`; `limit` goes up to 500, and the response carries the users'
+  link `titles`.
+- **ToDo list columns.** The generic ToDo list (System → ToDo) shows the description, status,
+  priority, due date, assignee, assigner and reference, with colours for status and priority.
+
+### Fixed
+
+- **To-Do reference links** open the referenced document in its workspace; they pointed at a
+  route that does not exist.
 
 ## 0.19.2 — 2026-09-23
 

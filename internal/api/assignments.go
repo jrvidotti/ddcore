@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -198,6 +199,43 @@ func (s *Server) revokeAssignment(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s *Server) reopenAssignment(w http.ResponseWriter, r *http.Request) {
+	s.run(w, r, func(c *engine.Ctx) (any, error) {
+		var body completeOrRevokeRequest
+		dec := json.NewDecoder(io.LimitReader(r.Body, 4096))
+		dec.DisallowUnknownFields()
+		if err := dec.Decode(&body); err != nil {
+			return nil, cerr.Validation("Invalid JSON: {0}", err)
+		}
+		if body.ID == "" {
+			return nil, cerr.Validation("id is required")
+		}
+
+		doc, err := c.GetDoc("ToDo", body.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		roles, _ := c.Roles()
+		isMgr := c.User == "Admin" || contains(roles, "System Manager")
+		if !isMgr && c.User != doc.Str("allocated_to") && c.User != doc.Str("assigned_by") {
+			return nil, cerr.Permission("No permission to reopen this task")
+		}
+
+		doc["status"] = "Open"
+		saved, err := c.Save(doc, engine.SaveOpts{})
+		if err != nil {
+			return nil, err
+		}
+
+		if refType, refName := doc.Str("reference_type"), doc.Str("reference_id"); refType != "" && refName != "" {
+			addTimelineComment(c, refType, refName, fmt.Sprintf("%s reopened assignment", c.User))
+		}
+
+		return saved, nil
+	})
+}
+
 func (s *Server) listDocAssignments(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
 		doctype := urlParam(r, "doctype")
@@ -221,6 +259,49 @@ func (s *Server) listDocAssignments(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// pendingPriorityRank orders ToDo priorities by urgency rather than by name.
+var pendingPriorityRank = map[string]int{"Low": 0, "Medium": 1, "High": 2, "Urgent": 3}
+
+// pendingSortFields are the columns /api/todo/pending may sort on.
+var pendingSortFields = map[string]bool{
+	"date": true, "priority": true, "status": true, "creation": true, "modified": true,
+	"allocated_to": true, "assigned_by": true, "description": true,
+}
+
+// parsePendingOrder reads "field asc|desc"; anything else sorts newest first.
+func parsePendingOrder(s string) (field string, desc bool) {
+	parts := strings.Fields(strings.ToLower(s))
+	if len(parts) == 0 || len(parts) > 2 || !pendingSortFields[parts[0]] {
+		return "creation", true
+	}
+	if len(parts) == 2 && parts[1] != "asc" && parts[1] != "desc" {
+		return "creation", true
+	}
+	return parts[0], len(parts) == 2 && parts[1] == "desc"
+}
+
+// sortPending sorts in memory: the rows are already loaded for the reference
+// check, and priority must follow urgency, not the alphabet. Empty values go
+// last in either direction, so undated tasks never lead a due-date sort.
+func sortPending(rows []map[string]any, field string, desc bool) {
+	sort.SliceStable(rows, func(i, j int) bool {
+		a, b := db.Str(rows[i][field]), db.Str(rows[j][field])
+		if (a == "") != (b == "") {
+			return b == ""
+		}
+		var cmp int
+		if field == "priority" {
+			cmp = pendingPriorityRank[a] - pendingPriorityRank[b]
+		} else {
+			cmp = strings.Compare(a, b)
+		}
+		if desc {
+			return cmp > 0
+		}
+		return cmp < 0
+	})
+}
+
 func (s *Server) pendingWork(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
 		q := r.URL.Query()
@@ -235,7 +316,7 @@ func (s *Server) pendingWork(w http.ResponseWriter, r *http.Request) {
 		limit := 20
 		offset := 0
 		if q.Has("limit") {
-			if n, err := strconv.Atoi(q.Get("limit")); err == nil && n > 0 && n <= 100 {
+			if n, err := strconv.Atoi(q.Get("limit")); err == nil && n > 0 && n <= 500 {
 				limit = n
 			}
 		}
@@ -245,14 +326,41 @@ func (s *Server) pendingWork(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		filters := map[string]any{}
+		filters := []any{}
 		if !strings.EqualFold(status, "all") {
-			filters["status"] = status
+			filters = append(filters, []any{"status", "=", status})
 		}
+		// the counterpart: who assigned my tasks, or whom I assigned them to
+		counterpart := "assigned_by"
 		if scope == "assigned_by_me" {
-			filters["assigned_by"] = c.User
+			filters = append(filters, []any{"assigned_by", "=", c.User})
+			counterpart = "allocated_to"
 		} else {
-			filters["allocated_to"] = c.User
+			filters = append(filters, []any{"allocated_to", "=", c.User})
+		}
+		if v := q.Get("user"); v != "" {
+			filters = append(filters, []any{counterpart, "=", v})
+		}
+		if v := q.Get("priority"); v != "" {
+			filters = append(filters, []any{"priority", "=", v})
+		}
+		if v := q.Get("date_from"); v != "" {
+			filters = append(filters, []any{"date", ">=", v})
+		}
+		if v := q.Get("date_to"); v != "" {
+			filters = append(filters, []any{"date", "<=", v})
+		}
+		if q.Get("no_date") == "1" {
+			filters = append(filters, []any{"date", "not set", nil})
+		}
+		var orFilters any
+		if v := strings.TrimSpace(q.Get("q")); v != "" {
+			like := "%" + v + "%"
+			orFilters = []any{
+				[]any{"description", "like", like},
+				[]any{"reference_type", "like", like},
+				[]any{"reference_id", "like", like},
+			}
 		}
 
 		// The participant filter above replaces ToDo's permissionQuery, which
@@ -261,6 +369,7 @@ func (s *Server) pendingWork(w http.ResponseWriter, r *http.Request) {
 		allCandidates, err := c.GetList("ToDo", engine.ListArgs{
 			IgnorePermissions: true,
 			Filters:           filters,
+			OrFilters:         orFilters,
 			Fields:            []string{"id", "status", "priority", "date", "allocated_to", "assigned_by", "description", "reference_type", "reference_id", "creation", "modified"},
 			OrderBy:           "creation desc",
 			Limit:             1000,
@@ -280,6 +389,8 @@ func (s *Server) pendingWork(w http.ResponseWriter, r *http.Request) {
 			}
 			filtered = append(filtered, item)
 		}
+		sortField, sortDesc := parsePendingOrder(q.Get("order_by"))
+		sortPending(filtered, sortField, sortDesc)
 
 		total := len(filtered)
 		start := offset
@@ -294,10 +405,15 @@ func (s *Server) pendingWork(w http.ResponseWriter, r *http.Request) {
 		if page == nil {
 			page = []map[string]any{}
 		}
+		docs := make([]engine.Doc, len(page))
+		for i, row := range page {
+			docs[i] = engine.Doc(row)
+		}
 
 		return map[string]any{
-			"data":  page,
-			"total": total,
+			"data":   page,
+			"total":  total,
+			"titles": c.ResolveLinkTitles("ToDo", docs...),
 		}, nil
 	})
 }
