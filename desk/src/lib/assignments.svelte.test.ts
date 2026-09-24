@@ -131,7 +131,7 @@ describe("PendingWork", () => {
     const pendingSpy = vi.spyOn(api.assignments, "pending").mockResolvedValue({ data: [], total: 0 });
     const pw = new PendingWork();
     pw.limit = 50;
-    pw.filters = { q: "leite", priority: "High", due: "", user: "bia@x.com" };
+    pw.filters = { q: "leite", priority: "High", due: "", date: "", user: "bia@x.com" };
     pw.orderBy = "priority desc";
 
     await pw.load(50, "Open", "assigned_by_me");

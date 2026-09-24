@@ -203,6 +203,10 @@ defineListView<Task>("Task", {
 });
 ```
 
+- **Calendar:** clicking a day lists that day's records, filtered on the calendar's `field` (a
+  `Datetime` field matches the whole day in the site's time zone); the **+** in a day's corner,
+  shown on hover, opens a new record with the field set to that day. A calendar on `creation` or
+  `modified` has the **+** only.
 - **Cards** is the default on a phone.
   - `title` defaults to the DocType's `titleField`, then `id`. `dateField` defaults to the first
     visible Date or Datetime field.

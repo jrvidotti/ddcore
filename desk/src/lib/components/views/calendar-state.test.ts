@@ -38,6 +38,9 @@ describe("calendar days and query bounds", () => {
   it("keeps Date grouping and inclusive bounds as civil dates", () => {
     const rows = [{ id: "due", due_date: "2026-09-14" }, { id: "empty", due_date: "" }];
     expect([...groupCalendarRows(rows, "due_date", fields, "America/Cuiaba")]).toEqual([["2026-09-14", [rows[0]]]]);
+    expect([...groupCalendarRows(rows, "due_date", fields, "America/Cuiaba", "2026-09-24")]).toEqual([
+      ["2026-09-14", [rows[0]]], ["2026-09-24", [rows[1]]],
+    ]);
     expect(calendarRangeFilters("due_date", fields, "2026-08-30", "2026-10-03", "Asia/Tokyo")).toEqual([
       ["due_date", ">=", "2026-08-30"], ["due_date", "<=", "2026-10-03"],
     ]);

@@ -6,13 +6,17 @@ export function isCalendarDatetime(fields: Field[], field: string): boolean {
   return fields.find((f) => f.fieldname === field)?.fieldtype === "Datetime";
 }
 
-export function groupCalendarRows<T extends Record<string, any>>(rows: T[], field: string, fields: Field[], tz?: string): Map<string, T[]> {
+/** Groups rows by day; a row without a date goes on `undatedOn` when one is given, else nowhere. */
+export function groupCalendarRows<T extends Record<string, any>>(rows: T[], field: string, fields: Field[], tz?: string, undatedOn?: string): Map<string, T[]> {
   const groups = new Map<string, T[]>();
   const isDatetime = isCalendarDatetime(fields, field);
   for (const row of rows) {
     const value = row[field];
-    const iso = isDatetime ? toDatetimeLocal(value, tz).slice(0, 10) : String(value ?? "").slice(0, 10);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) continue;
+    let iso = isDatetime ? toDatetimeLocal(value, tz).slice(0, 10) : String(value ?? "").slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+      if (!undatedOn) continue;
+      iso = undatedOn;
+    }
     const group = groups.get(iso) || [];
     group.push(row);
     groups.set(iso, group);

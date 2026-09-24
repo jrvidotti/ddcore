@@ -20,9 +20,15 @@
   import { cellWidthClass, LINE_SLOTS, packLines } from "./form-layout";
   import { isSectionCollapsed, toggleSection } from "./section-state";
   import { resolveActiveTab, tabToSearchParams } from "./form-tabs";
+  import { workspaceFor } from "./search-palette";
+  import { getRememberedWorkspace, type WorkspaceItem } from "./sidebar-workspace";
   import { commitFocusedEdit, getModifierKey, openShortcutsHelp } from "$lib/shortcuts.svelte";
 
-  let { doctype, id }: { doctype: string; id: string } = $props();
+  let { doctype, id, basePath: ownBase = "" }: {
+    doctype: string; id: string;
+    /** a page with its own routes for the doctype (the To-Do page: /app/todo); else the workspace's */
+    basePath?: string;
+  } = $props();
   let frm = $state<FormController | null>(null);
   let error = $state("");
   let menuOpen = $state(false);
@@ -43,7 +49,9 @@
   let leaving = false;
 
   const workspace = $derived(page.params.workspace || "");
-  const wsPrefix = $derived(workspace ? `/app/${encodeURIComponent(workspace)}` : "/app");
+  const wsPrefix = $derived(`/app/${encodeURIComponent(workspace || workspaceFor(doctype, (boot.data?.workspaces || []) as WorkspaceItem[], boot.data?.doctypes, getRememberedWorkspace()))}`);
+  /** the list, and the records under it */
+  const basePath = $derived(ownBase || `${wsPrefix}/${encodeURIComponent(doctype)}`);
   /** set once the record is deleted: it must never get a draft again */
   let gone = false;
   /** the draft is only kept in step after the one it may have recovered is in */
@@ -69,7 +77,7 @@
     (async () => {
       try {
         const initial = (history.state as any)?.["sveltekit:states"]?.doc || (page.state as any)?.doc;
-        const f = await createForm(doctype, id, initial);
+        const f = await createForm(doctype, id, initial, ownBase);
         if (!alive) return; // navigated away while loading
         frm = f;
         if (f.isNew && !f.isSingle) {
@@ -294,7 +302,7 @@
     try {
       const nn = await api.docMethod(doctype, frm.doc.id, "rename", { id: v.id.trim() });
       leaving = true; // a full page load, deliberate: the guard has nothing to ask
-      location.href = `${wsPrefix}/${encodeURIComponent(doctype)}/${encodeURIComponent(nn)}`;
+      location.href = `${basePath}/${encodeURIComponent(nn)}`;
     } catch (e) { showError(e); }
   }
   async function duplicate() {
@@ -303,7 +311,7 @@
     for (const f of frm.meta.doctype.fields) if (f.fieldtype === "Table") copy[f.fieldname!] = (copy[f.fieldname!] || []).map((r: any) => ({ ...r, id: undefined, parent: undefined }));
     frm.load(copy);
     duplicated = true; // the URL says /new now, and so must the draft
-    history.replaceState(null, "", `${wsPrefix}/${encodeURIComponent(doctype)}/new`);
+    history.replaceState(null, "", `${basePath}/new`);
     await frm.runRefresh();
     toast(__("Copy created — save it to keep it"), { indicator: "blue" });
   }
@@ -355,7 +363,7 @@
   <div class="page form-page">
     <div class="page-head">
       <div>
-        <div class="small muted"><a href={`${wsPrefix}/${encodeURIComponent(doctype)}`}>{frm.meta.doctype.label}</a></div>
+        <div class="small muted"><a href={basePath}>{frm.meta.doctype.label}</a></div>
         <h1 style="display:flex;align-items:center;gap:8px">
           {#if canEditTitle}
             <button type="button" class="title-edit-btn" onclick={onEditTitle} title={editTitleTooltip}>

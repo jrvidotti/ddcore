@@ -6,15 +6,22 @@
   import { getLinkTitle } from "$lib/titles.svelte";
   import { canDragKanban, groupKanbanRows, kanbanColumns, kanbanValue } from "./kanban-state";
 
-  let { rows, meta, doctype, wsPrefix, kanban, loading = false, onMove }: {
+  let { rows, meta, doctype, wsPrefix, basePath, kanban, loading = false, movable, onMove }: {
     rows: any[]; meta: Meta; doctype: string; wsPrefix: string; kanban: KanbanViewOptions;
+    /** where the records live; `${wsPrefix}/<doctype>` unless the page has its own routes */
+    basePath?: string;
     loading?: boolean;
+    /**
+     * Whether cards can move; by default when the field is writable. A page whose
+     * `onMove` goes through its own endpoint (the To-Do page) decides for itself.
+     */
+    movable?: boolean;
     /** Moves a card to another column; the parent updates the rows and saves. */
     onMove: (id: string, value: string) => void;
   } = $props();
 
   const field = $derived(meta.doctype.fields.find((f) => f.fieldname === kanban.field));
-  const writable = $derived(!!meta.permissions.write && !!field && !field.readOnly);
+  const writable = $derived(movable ?? (!!meta.permissions.write && !!field && !field.readOnly));
   const columns = $derived(kanbanColumns(rows, kanban.field, {
     options: field ? selectOptions(field) : [],
     labels: field ? selectLabels(field) : [],
@@ -90,7 +97,7 @@
             class="kanban-card"
             class:dragging={dragging === row.id}
             class:locked={!draggable}
-            href={`${wsPrefix}/${encodeURIComponent(doctype)}/${encodeURIComponent(row.id)}`}
+            href={`${basePath || `${wsPrefix}/${encodeURIComponent(doctype)}`}/${encodeURIComponent(row.id)}`}
             draggable={draggable ? "true" : "false"}
             ondragstart={(e) => onDragStart(e, row)}
             ondragend={() => { dragging = ""; over = null; }}

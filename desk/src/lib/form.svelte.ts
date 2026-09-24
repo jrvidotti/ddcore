@@ -12,6 +12,10 @@ import { registerTitles } from "./titles.svelte";
 import { dynamicLinksOf } from "./doctype-selector";
 import { getRememberedWorkspace } from "./components/sidebar-workspace";
 
+function recordBase(frm: { basePath: string; doctype: string }): string {
+  return frm.basePath || `${currentWsPrefix()}/${encodeURIComponent(frm.doctype)}`;
+}
+
 function currentWsPrefix(): string {
   const ws = getRememberedWorkspace();
   return ws ? `/app/${encodeURIComponent(ws)}` : "/app";
@@ -83,6 +87,11 @@ export class FormController {
   original = "";
   meta: Meta;
   doctype: string;
+  /**
+   * Where this doctype's list lives and its records under it. A page with its
+   * own routes (the To-Do page: /app/todo) sets it; otherwise the workspace's.
+   */
+  basePath = "";
   buttons = $state<Button[]>([]);
   fieldButtons = $state<Record<string, FieldButton[]>>({});
   primaryAction = $state<{ label: string; action: () => any } | null>(null);
@@ -321,7 +330,7 @@ export class FormController {
       this.load(saved);
       for (const h of this.handlers) { try { await h.afterSave?.(this); } catch (e) { showError(e); } }
       toast(action === "submit" ? __("Submitted") : action === "cancel" ? __("Cancelled") : __("Saved"), { indicator: "green", timeout: 2000 });
-      if (wasNew && !this.isSingle) goto(`${currentWsPrefix()}/${encodeURIComponent(dt)}/${encodeURIComponent(saved.id)}`, { replaceState: true });
+      if (wasNew && !this.isSingle) goto(`${recordBase(this)}/${encodeURIComponent(saved.id)}`, { replaceState: true });
       else await this.runRefresh();
       return true;
     } catch (e: any) {
@@ -405,13 +414,13 @@ export class FormController {
   async delete() {
     await api.remove(this.doctype, this.doc.id);
     toast(__("Deleted"), { indicator: "green", timeout: 2000 });
-    goto(`${currentWsPrefix()}/${encodeURIComponent(this.doctype)}`);
+    goto(recordBase(this));
   }
 
   async amend() {
     const doc = await api.docMethod(this.doctype, this.doc.id, "amend");
     this.load(doc);
-    goto(`${currentWsPrefix()}/${encodeURIComponent(this.doctype)}/new`, { state: { doc } });
+    goto(`${recordBase(this)}/new`, { state: { doc } });
   }
 
   /** Calls a controller method on this document; returns its result and reloads the doc. */
@@ -426,7 +435,7 @@ export class FormController {
   }
 }
 
-export async function createForm(doctype: string, id?: string, initial?: any): Promise<FormController> {
+export async function createForm(doctype: string, id?: string, initial?: any, basePath = ""): Promise<FormController> {
   const meta = await getMeta(doctype);
   await loadFormScript(meta);
   let doc: any;
@@ -437,6 +446,7 @@ export async function createForm(doctype: string, id?: string, initial?: any): P
   else if (id && id !== "new") doc = await api.getDoc(doctype, id);
   else doc = { ...newDoc(meta), ...(initial || {}) };
   const frm = new FormController(meta, doc);
+  frm.basePath = basePath;
   await frm.runSetup();
   await frm.runRefresh();
   return frm;

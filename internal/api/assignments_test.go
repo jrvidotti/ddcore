@@ -419,6 +419,8 @@ func TestPendingWork_FiltersAndOrder(t *testing.T) {
 		{"/api/todo/pending?priority=Urgent", "[Beta call]"},
 		{"/api/todo/pending?date_from=2026-10-01&date_to=2026-10-03", "[Beta call]"},
 		{"/api/todo/pending?no_date=1", "[Gamma]"},
+		// undated=1 adds the tasks without a due date to the window
+		{"/api/todo/pending?date_from=2026-10-01&date_to=2026-10-03&undated=1&order_by=date+asc", "[Beta call Gamma]"},
 		{"/api/todo/pending?q=ALPHA", "[Alpha report]"},
 		// priority follows urgency, not the alphabet
 		{"/api/todo/pending?order_by=priority+desc", "[Beta call Gamma Alpha report]"},

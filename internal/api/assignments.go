@@ -344,11 +344,15 @@ func (s *Server) pendingWork(w http.ResponseWriter, r *http.Request) {
 		if v := q.Get("priority"); v != "" {
 			filters = append(filters, []any{"priority", "=", v})
 		}
-		if v := q.Get("date_from"); v != "" {
-			filters = append(filters, []any{"date", ">=", v})
+		// undated=1 keeps the tasks without a due date alongside the window,
+		// which the loop below applies, since one filter list cannot say "or"
+		dateFrom, dateTo := q.Get("date_from"), q.Get("date_to")
+		undated := q.Get("undated") == "1"
+		if !undated && dateFrom != "" {
+			filters = append(filters, []any{"date", ">=", dateFrom})
 		}
-		if v := q.Get("date_to"); v != "" {
-			filters = append(filters, []any{"date", "<=", v})
+		if !undated && dateTo != "" {
+			filters = append(filters, []any{"date", "<=", dateTo})
 		}
 		if q.Get("no_date") == "1" {
 			filters = append(filters, []any{"date", "not set", nil})
@@ -380,6 +384,9 @@ func (s *Server) pendingWork(w http.ResponseWriter, r *http.Request) {
 
 		var filtered []map[string]any
 		for _, item := range allCandidates {
+			if undated && !inDueWindow(item["date"], dateFrom, dateTo) {
+				continue
+			}
 			refType := db.Str(item["reference_type"])
 			refName := db.Str(item["reference_id"])
 			if refType != "" && refName != "" {
@@ -416,4 +423,17 @@ func (s *Server) pendingWork(w http.ResponseWriter, r *http.Request) {
 			"titles": c.ResolveLinkTitles("ToDo", docs...),
 		}, nil
 	})
+}
+
+// inDueWindow reports whether a task's due date is unset or within the
+// inclusive bounds, either of which may be empty.
+func inDueWindow(v any, from, to string) bool {
+	date := db.Str(v)
+	if len(date) > 10 {
+		date = date[:10]
+	}
+	if date == "" {
+		return true
+	}
+	return (from == "" || date >= from) && (to == "" || date <= to)
 }

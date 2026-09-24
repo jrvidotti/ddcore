@@ -165,6 +165,8 @@ export interface PendingWorkOptions {
   date_to?: string;
   /** 1 keeps only the tasks without a due date. */
   no_date?: number;
+  /** 1 keeps the tasks without a due date too, alongside date_from/date_to. */
+  undated?: number;
   /** The counterpart: the assigner in assigned_to_me, the assignee in assigned_by_me. */
   user?: string;
   /** Matches the description and the referenced document. */

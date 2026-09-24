@@ -83,6 +83,7 @@ Query parameters:
 - `priority`: one of `Low`, `Medium`, `High`, `Urgent`.
 - `date_from`, `date_to`: inclusive bounds on the due date (`YYYY-MM-DD`).
 - `no_date=1`: only tasks without a due date.
+- `undated=1`: the tasks without a due date too, alongside `date_from`/`date_to` (the To-Do calendar shows them on today).
 - `q`: case-insensitive match on the description, the reference DocType or the reference id.
 - `order_by`: `<field> asc|desc` on `date`, `priority`, `status`, `description`, `creation`, `modified`, `allocated_to` or `assigned_by`; anything else sorts by `creation desc`, the default. `priority` sorts by urgency (`Low` < `Urgent`), and tasks without a value come last in either direction.
 
@@ -146,8 +147,11 @@ The core app registers a date-driven persistent notification rule (`core.todo_du
 1. **Document Sidebar (`DocSidebar.svelte`):** Active documents display an "Assigned To" section with assignee badges, due dates (highlighted red when overdue), priority pills, "+ Assign" modal, and direct complete/revoke buttons.
 2. **Pending Work Central (`/app/todo`):** Dedicated page over `/api/todo/pending`, with scope tabs ("Assigned to me", "Assigned by me") and three views, like a DocType list:
    - **List:** a table of description, reference document, priority, due date (red when overdue), the other party, and status, sortable by its headers, with complete/revoke/reopen row actions and a page-size choice.
-   - **Calendar:** tasks by due date, month by month.
+   - **Calendar:** tasks by due date, month by month; tasks without one sit on today. Clicking a day lists that day's tasks (`?date=YYYY-MM-DD`, today's including the undated ones); the **+** in a day's corner opens a new task due that day.
    - **Kanban:** columns by status; dragging a card completes, revokes or reopens it through the assignment endpoints, so the timeline comment is written.
 
+   Tasks open under the page — `/app/todo/new`, `/app/todo/<id>` — rather than under a workspace.
+
    Filters sit behind a **Filters** button (with a count of the active ones) and start hidden unless the URL carries some. Filters (search, status, priority, due date — overdue, today, next 7 days, none — and the other party) and the view live in the URL; the view is also remembered per browser. The "+ New Task" modal creates personal to-dos.
-3. **Sidebar Badge:** Navigation sidebar displays a "To-Do" link with a badge indicating the current user's open task count.
+3. **ToDo form:** Status is read-only; the header offers **Complete** and **Cancel** on an open task and **Reopen** on a closed or cancelled one, through the assignment endpoints.
+4. **Sidebar Badge:** Navigation sidebar displays a "To-Do" link with a badge indicating the current user's open task count.

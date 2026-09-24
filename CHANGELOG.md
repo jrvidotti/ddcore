@@ -12,6 +12,26 @@ not every commit that went into it.
 
 ## Unreleased
 
+### Added
+
+- **Tasks open under the To-Do page.** `/app/todo/new` and `/app/todo/<id>` show the ToDo form
+  there, instead of under whatever workspace ToDo belongs to; the page's list, calendar and board
+  link to them.
+- **Undated tasks on today.** The To-Do calendar shows the tasks without a due date on today.
+  `GET /api/todo/pending` takes `undated=1` to keep them alongside `date_from`/`date_to`.
+- **Status buttons on the ToDo form.** An open task offers **Complete** and **Cancel** in the
+  header, a closed or cancelled one **Reopen**; the assignment calls from a form script now also
+  refresh the sidebar's To-Do count.
+
+### Changed
+
+- **Clicking a calendar day lists that day's records** — on the To-Do page and in a DocType's
+  calendar view — instead of opening a new one; the new record is the **+** in the day's corner,
+  shown on hover. A filter set this way shows in the filter bar even when the field is not a
+  standard filter.
+- **ToDo's Status is read-only in the form**; it moves through the buttons, the To-Do page and the
+  assignment endpoints.
+
 ## 0.19.3 — 2026-09-24
 
 ### Added

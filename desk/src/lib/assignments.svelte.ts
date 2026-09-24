@@ -119,9 +119,10 @@ export class PendingWork {
   orderBy = $state("");
   /**
    * Set by the Calendar and Kanban views: rows come unpaged, capped at
-   * TODO_WINDOW_LIMIT, within these due-date bounds (the calendar's grid).
+   * TODO_WINDOW_LIMIT, within these due-date bounds (the calendar's grid),
+   * plus the undated tasks when `undated` is 1.
    */
-  window = $state<{ date_from?: string; date_to?: string; allStatuses?: boolean } | null>(null);
+  window = $state<{ date_from?: string; date_to?: string; undated?: number; allStatuses?: boolean } | null>(null);
   rows = $state<ToDoDoc[]>([]);
   total = $state(0);
   loading = $state(true);
@@ -144,7 +145,7 @@ export class PendingWork {
         // the Kanban's columns are the statuses: a status filter would empty all but one
         status: this.window?.allStatuses ? "all" : this.status,
         scope: this.scope,
-        ...todoQuery(this.filters, this.orderBy, today(), { date_from: this.window?.date_from, date_to: this.window?.date_to }),
+        ...todoQuery(this.filters, this.orderBy, today(), { date_from: this.window?.date_from, date_to: this.window?.date_to, undated: this.window?.undated }),
       });
       if (this.destroyed || current !== this.request) return;
       this.total = result.total;

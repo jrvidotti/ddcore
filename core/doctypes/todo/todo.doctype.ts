@@ -7,7 +7,7 @@ export default defineDoctype({
   icon: "check-square",
   titleField: "description",
   fields: [
-    { fieldname: "status", fieldtype: "Select", label: "Status", options: ["Open", "Closed", "Cancelled"], optionColors: { Open: "blue", Closed: "green", Cancelled: "gray" }, default: "Open", inListView: true, inStandardFilter: true },
+    { fieldname: "status", fieldtype: "Select", label: "Status", options: ["Open", "Closed", "Cancelled"], optionColors: { Open: "blue", Closed: "green", Cancelled: "gray" }, default: "Open", readOnly: true, inListView: true, inStandardFilter: true },
     { fieldname: "priority", fieldtype: "Select", label: "Priority", options: ["Low", "Medium", "High", "Urgent"], optionColors: { Low: "gray", Medium: "blue", High: "orange", Urgent: "red" }, default: "Medium", inListView: true, inStandardFilter: true },
     { fieldname: "date", fieldtype: "Date", label: "Due Date", inListView: true, inStandardFilter: true },
     { fieldname: "allocated_to", fieldtype: "Link", label: "Assigned To", options: "User", reqd: true, inListView: true, inStandardFilter: true },

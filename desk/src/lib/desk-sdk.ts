@@ -9,6 +9,13 @@ import { formatCurrency, formatDate, formatNumber, formatValue, roundCurrency, s
 import { getMeta } from "./meta";
 import { addDays, addMonths, monthEnd, monthStart, today } from "./datetime";
 import { getRememberedWorkspace } from "./components/sidebar-workspace";
+import { refreshPendingCount } from "./assignments.svelte";
+
+
+function withPendingCount<T>(result: T): T {
+  void refreshPendingCount();
+  return result;
+}
 
 export type BaseDoc = Record<string, any>;
 export type DeskViewMode = "list" | "calendar" | "cards" | "kanban" | "gantt" | "tree";
@@ -108,7 +115,14 @@ export const deskSDK = {
     call: (path: string, args?: any) => api.call(path, args),
     api,
     notifications: api.notifications,
-    assignments: api.assignments,
+    // a change to a task moves the sidebar's pending count, which only follows notifications
+    assignments: {
+      ...api.assignments,
+      assign: (...a: Parameters<typeof api.assignments.assign>) => api.assignments.assign(...a).then(withPendingCount),
+      complete: (id: string) => api.assignments.complete(id).then(withPendingCount),
+      revoke: (id: string) => api.assignments.revoke(id).then(withPendingCount),
+      reopen: (id: string) => api.assignments.reopen(id).then(withPendingCount),
+    },
     shares: api.shares,
     search: { global: (txt: string, limit?: number) => api.globalSearch(txt, limit) },
     db: {

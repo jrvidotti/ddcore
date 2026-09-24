@@ -102,7 +102,14 @@
   });
   /** `defineListView({ docstatusFilter: false })` drops it where a `status` field already tells drafts apart. */
   const showDocstatusFilter = $derived(!!meta?.doctype.submittable && settings.docstatusFilter !== false);
-  const stdFilters = $derived(meta ? meta.doctype.fields.filter((f) => f.inStandardFilter && !isLayout(f)) : []);
+  // a field filtered from elsewhere (a day picked on the calendar, a link) shows too, so it can be seen and cleared
+  const stdFilters = $derived(meta ? meta.doctype.fields.filter((f) => !isLayout(f) && (f.inStandardFilter || (!!f.fieldname && hasValue(filters[f.fieldname])))) : []);
+  const hasValue = (v: any) => v !== null && v !== undefined && v !== "";
+  const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+  /** A Datetime filter holding a bare day (picked on the calendar) stands for that whole day. */
+  const isDayFilter = (f: Field | undefined, v: any) => f?.fieldtype === "Datetime" && typeof v === "string" && ISO_DAY.test(v);
+  /** The calendar's field when it is one of the doctype's, so a picked day can filter on it. */
+  const calendarDayField = $derived(meta?.doctype.fields.find((f) => f.fieldname === settings.calendar?.field && (f.fieldtype === "Date" || f.fieldtype === "Datetime")));
   const isDocTypeRef = (f: Field) =>
     f.fieldname === "ref_doctype" || f.fieldname === "reference_doctype" || (!!f.fieldname && f.fieldname.endsWith("_doctype"));
 
@@ -120,6 +127,7 @@
         default: undefined,
       };
     }
+    if (isDayFilter(f, filters[f.fieldname!])) return { ...f, fieldtype: "Date", reqd: false, readOnly: false, default: undefined };
     return { ...f, reqd: false, readOnly: false, default: undefined };
   }
   const statusField = $derived(meta?.doctype.fields.find((f) => f.fieldname === "status"));
@@ -205,10 +213,22 @@
     }
   }
   function clearFilter(name: string) { updateFilter(name, null); }
+  /** A day picked on the calendar: the list of that day's records. */
+  function showDay(iso: string) {
+    const field = calendarDayField?.fieldname;
+    if (!field) return;
+    updateListState({ ...currentListState(), filters: { ...filters, [field]: iso }, page: 1, view: "list" });
+  }
 
   function buildFilters() {
     const out: any[] = [];
-    out.push(...buildListFilters(filters, settings.filterOptions));
+    const plain = { ...filters };
+    for (const f of meta?.doctype.fields || []) {
+      if (!f.fieldname || !isDayFilter(f, plain[f.fieldname])) continue;
+      out.push(...calendarRangeFilters(f.fieldname, meta!.doctype.fields, plain[f.fieldname], plain[f.fieldname]));
+      delete plain[f.fieldname];
+    }
+    out.push(...buildListFilters(plain, settings.filterOptions));
     if (showDocstatusFilter && docstatusFilter !== "") out.push(["docstatus", "=", Number(docstatusFilter)]);
     if (currentView === "calendar" && settings.calendar?.field && meta?.doctype?.fields) {
       out.push(...calendarRangeFilters(settings.calendar.field, meta.doctype.fields, gridStartIso, gridEndIso));
@@ -479,7 +499,8 @@
     {#if isTreeView}
       <TreeView {meta} {doctype} {wsPrefix} reloadKey={treeReload} settings={settings.tree} />
     {:else if currentView === "calendar" && settings.calendar}
-      <CalendarView {rows} {meta} {doctype} {wsPrefix} calendar={settings.calendar} viewYear={calendarYear} viewMonth={calendarMonth} onMonthChange={changeMonth} />
+      <CalendarView {rows} {meta} {doctype} {wsPrefix} calendar={settings.calendar} viewYear={calendarYear} viewMonth={calendarMonth} onMonthChange={changeMonth}
+        onDayClick={calendarDayField ? showDay : undefined} />
     {:else if currentView === "kanban" && settings.kanban}
       {#if total > rows.length}<div class="view-notice muted small">{__("Showing the first {0} of {1} records; narrow the filters to see the rest", [rows.length, total])}</div>{/if}
       <KanbanView {rows} {meta} {doctype} {wsPrefix} {loading} kanban={settings.kanban} onMove={moveCard} />

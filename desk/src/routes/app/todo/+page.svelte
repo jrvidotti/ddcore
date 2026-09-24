@@ -11,7 +11,7 @@
   import { __, boot, doctypeLabel, siteName } from "$lib/boot.svelte";
   import { showError } from "$lib/ui.svelte";
   import { getMeta, type Meta } from "$lib/meta";
-  import { statusColor } from "$lib/format";
+  import { formatDate, statusColor } from "$lib/format";
   import { today } from "$lib/datetime";
   import { getLinkTitle } from "$lib/titles.svelte";
   import { getCalendarDays } from "$lib/controls/date-format";
@@ -72,10 +72,25 @@
     return `/app/${encodeURIComponent(ws)}`;
   }
   const docHref = (doctype: string, id: string) => `${wsPrefixFor(doctype)}/${encodeURIComponent(doctype)}/${encodeURIComponent(id)}`;
+  // tasks open under this page, not under whatever workspace ToDo belongs to
+  const TODO_BASE = "/app/todo";
+  const todoHref = (id: string) => `${TODO_BASE}/${encodeURIComponent(id)}`;
   const todoPrefix = $derived(wsPrefixFor("ToDo"));
   const counterpartLabel = $derived(pw.scope === "assigned_by_me" ? __("Assigned To") : __("Assigned By"));
   const pageCount = $derived(Math.max(1, Math.ceil(pw.total / pw.limit)));
   const pageNumber = $derived(Math.floor(pw.offset / pw.limit) + 1);
+
+  /** The grid's days, plus the undated tasks when today is on it: they are shown on today. */
+  function calendarWindow(from: string, to: string) {
+    const now = today();
+    return from <= now && now <= to ? { date_from: from, date_to: to, undated: 1 } : { date_from: from, date_to: to };
+  }
+
+  /** A day picked on the calendar: the list of the tasks due that day. */
+  function showDay(iso: string) {
+    showFilters = true;
+    update({ view: "list", filters: { ...pw.filters, due: "", date: iso } });
+  }
 
   function currentState(): TodoUrlState {
     return {
@@ -92,7 +107,7 @@
     pw.limit = st.pageSize;
     search = st.filters.q;
     view = st.view;
-    pw.window = view === "calendar" ? { date_from: gridStart, date_to: gridEnd } : view === "kanban" ? { allStatuses: true } : null;
+    pw.window = view === "calendar" ? calendarWindow(gridStart, gridEnd) : view === "kanban" ? { allStatuses: true } : null;
   }
 
   /** Puts the state in the URL (so it survives a reload and the back button) and loads it. */
@@ -124,7 +139,7 @@
     gridStart = startIso;
     gridEnd = endIso;
     if (view === "calendar") {
-      pw.window = { date_from: startIso, date_to: endIso };
+      pw.window = calendarWindow(startIso, endIso);
       void pw.load(0);
     }
   }
@@ -256,7 +271,8 @@
     </div>
     <div class="select-filter">
       <label for="todo-due">{__("Due Date")}</label>
-      <select id="todo-due" class="input" value={pw.filters.due} onchange={(e) => setFilter({ due: e.currentTarget.value as TodoDue })}>
+      <select id="todo-due" class="input" value={pw.filters.date ? "date" : pw.filters.due} onchange={(e) => setFilter({ due: e.currentTarget.value as TodoDue, date: "" })}>
+        {#if pw.filters.date}<option value="date">{formatDate(pw.filters.date)}</option>{/if}
         <option value="">{__("All")}</option>
         {#each dues as [value, label]}<option {value}>{label}</option>{/each}
       </select>
@@ -282,12 +298,14 @@
   {:else if view === "calendar"}
     {#if meta}
       {#if pw.total > pw.rows.length}<div class="view-notice muted small">{__("Showing the first {0} of {1} records; narrow the filters to see the rest", [pw.rows.length, pw.total])}</div>{/if}
-      <CalendarView rows={pw.rows} {meta} doctype="ToDo" wsPrefix={todoPrefix} {calendar} viewYear={calendarYear} viewMonth={calendarMonth} onMonthChange={changeMonth} />
+      <CalendarView rows={pw.rows} {meta} doctype="ToDo" wsPrefix={todoPrefix} basePath={TODO_BASE} {calendar} viewYear={calendarYear} viewMonth={calendarMonth}
+        onMonthChange={changeMonth} onDayClick={showDay} undatedOn={today()} />
     {/if}
   {:else if view === "kanban"}
     {#if meta}
       {#if pw.total > pw.rows.length}<div class="view-notice muted small">{__("Showing the first {0} of {1} records; narrow the filters to see the rest", [pw.rows.length, pw.total])}</div>{/if}
-      <KanbanView rows={pw.rows} {meta} doctype="ToDo" wsPrefix={todoPrefix} loading={pw.loading} {kanban} onMove={moveCard} />
+      <!-- cards move through the assignment endpoints, which check who may; Status itself is read-only on the form -->
+      <KanbanView rows={pw.rows} {meta} doctype="ToDo" wsPrefix={todoPrefix} basePath={TODO_BASE} loading={pw.loading} {kanban} movable onMove={moveCard} />
     {/if}
   {:else}
     <div class="card list-results" aria-busy={pw.loading}>
@@ -312,7 +330,7 @@
                 <input type="checkbox" checked={row.status === "Closed"} disabled={row.status === "Cancelled" || pw.pending === row.id}
                   onchange={() => toggleDone(row)} aria-label={row.status === "Closed" ? __("Reopen") : __("Mark as completed")} />
               </td>
-              <td class="desc"><a href={docHref("ToDo", row.id)}>{row.description || row.id}</a></td>
+              <td class="desc"><a href={todoHref(row.id)}>{row.description || row.id}</a></td>
               <td>
                 {#if row.reference_type && row.reference_id}
                   <a class="ref-doc" href={docHref(row.reference_type, row.reference_id)}>

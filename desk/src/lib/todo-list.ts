@@ -10,6 +10,8 @@ export interface TodoFilters {
   q: string;
   priority: string;
   due: TodoDue;
+  /** One due date (ISO), picked on the calendar; it takes the place of `due`. */
+  date: string;
   /** The counterpart: who assigned my tasks, or whom I assigned them to. */
   user: string;
 }
@@ -30,13 +32,14 @@ export const TODO_PAGE_SIZES = [20, 50, 100, 500];
 const DUES: TodoDue[] = ["overdue", "today", "week", "none"];
 const VIEWS: TodoView[] = ["list", "calendar", "kanban"];
 
-export const emptyTodoFilters = (): TodoFilters => ({ q: "", priority: "", due: "", user: "" });
+export const emptyTodoFilters = (): TodoFilters => ({ q: "", priority: "", due: "", date: "", user: "" });
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 export function defaultTodoState(): TodoUrlState {
   return { scope: "assigned_to_me", status: "Open", filters: emptyTodoFilters(), orderBy: "", page: 1, pageSize: 20, view: "list" };
 }
 
-type DateWindow = Pick<PendingWorkOptions, "date_from" | "date_to" | "no_date">;
+type DateWindow = Pick<PendingWorkOptions, "date_from" | "date_to" | "no_date" | "undated">;
 
 /** The due-date window a "Due" choice stands for, relative to the site's today. */
 export function dueRange(due: TodoDue, today: string): DateWindow {
@@ -49,7 +52,18 @@ export function dueRange(due: TodoDue, today: string): DateWindow {
   }
 }
 
-/** Intersects two windows: the later start and the earlier end win. */
+/**
+ * The window for one day. Tasks without a due date are shown on today, so
+ * today's window keeps them too.
+ */
+export function dayRange(date: string, today: string): DateWindow {
+  return date === today ? { date_from: date, date_to: date, undated: 1 } : { date_from: date, date_to: date };
+}
+
+/**
+ * Intersects two windows: the later start and the earlier end win. Undated
+ * tasks stay only where every window with bounds lets them in.
+ */
 export function intersectRange(a: DateWindow, b: DateWindow): DateWindow {
   const out: DateWindow = {};
   for (const w of [a, b]) {
@@ -57,6 +71,8 @@ export function intersectRange(a: DateWindow, b: DateWindow): DateWindow {
   }
   if (a.date_from && b.date_from) out.date_from = a.date_from > b.date_from ? a.date_from : b.date_from;
   if (a.date_to && b.date_to) out.date_to = a.date_to < b.date_to ? a.date_to : b.date_to;
+  const letsUndatedIn = (w: DateWindow) => w.undated === 1 || (!w.date_from && !w.date_to);
+  if (out.undated && !(letsUndatedIn(a) && letsUndatedIn(b))) delete out.undated;
   return out;
 }
 
@@ -68,12 +84,13 @@ export function todoQuery(filters: TodoFilters, orderBy: string, today: string, 
   if (filters.priority) out.priority = filters.priority;
   if (filters.user) out.user = filters.user;
   if (orderBy) out.order_by = orderBy;
-  return { ...out, ...intersectRange(dueRange(filters.due, today), window) };
+  const range = filters.date ? dayRange(filters.date, today) : dueRange(filters.due, today);
+  return { ...out, ...intersectRange(range, window) };
 }
 
 /** How many of the filters are set, for the badge on the Filters button. */
 export function countTodoFilters(filters: TodoFilters): number {
-  return [filters.q.trim(), filters.priority, filters.due, filters.user].filter(Boolean).length;
+  return [filters.q.trim(), filters.priority, filters.due || filters.date, filters.user].filter(Boolean).length;
 }
 
 export function hasTodoFilters(filters: TodoFilters): boolean {
@@ -92,6 +109,7 @@ export function todoStateFromSearchParams(params: URLSearchParams): TodoUrlState
   const status = params.get("status");
   const priority = params.get("priority") || "";
   const due = (params.get("due") || "") as TodoDue;
+  const date = params.get("date") || "";
   const view = params.get("view") as TodoView | null;
   const page = Number(params.get("page"));
   const pageSize = Number(params.get("page_size"));
@@ -101,7 +119,8 @@ export function todoStateFromSearchParams(params: URLSearchParams): TodoUrlState
     filters: {
       q: params.get("q") || "",
       priority: (TODO_PRIORITIES as readonly string[]).includes(priority) ? priority : "",
-      due: DUES.includes(due) ? due : "",
+      due: !ISO_DATE.test(date) && DUES.includes(due) ? due : "",
+      date: ISO_DATE.test(date) ? date : "",
       user: params.get("user") || "",
     },
     orderBy: params.get("order_by") || "",
@@ -119,7 +138,8 @@ export function todoStateToSearchParams(state: TodoUrlState): URLSearchParams {
   if (state.status !== d.status) p.set("status", state.status);
   if (state.filters.q.trim()) p.set("q", state.filters.q.trim());
   if (state.filters.priority) p.set("priority", state.filters.priority);
-  if (state.filters.due) p.set("due", state.filters.due);
+  if (state.filters.date) p.set("date", state.filters.date);
+  else if (state.filters.due) p.set("due", state.filters.due);
   if (state.filters.user) p.set("user", state.filters.user);
   if (state.orderBy) p.set("order_by", state.orderBy);
   if (state.page > 1) p.set("page", String(state.page));
