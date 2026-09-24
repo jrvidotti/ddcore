@@ -1,11 +1,14 @@
 <script lang="ts">
   // A Color is stored as `#rrggbb`, lowercase. The field shows only the colour;
   // clicking it opens a popover with a grid of basic colours and, under
-  // Advanced, the browser's picker next to a text box that makes a brand
-  // colour pasteable.
+  // Advanced, a saturation/value square, a hue bar, the RGB channels and a
+  // text box that makes a brand colour pasteable. The browser's own picker
+  // cannot be drawn inside a page, so Advanced is this one.
+  import { untrack } from "svelte";
   import { __ } from "$lib/boot.svelte";
+  import Icon from "$lib/components/Icon.svelte";
   import { anchored } from "./floating";
-  import { BASIC_COLORS, normalizeColor } from "./color-state";
+  import { BASIC_COLORS, hexToRgb, hsvToRgb, normalizeColor, rgbToHex, rgbToHsv, type Hsv, type Rgb } from "./color-state";
 
   let { value, onchange, readOnly = false, error = "", id = "" }:
     { value: any; onchange: (v: any) => void; readOnly?: boolean; error?: string; id?: string } = $props();
@@ -41,6 +44,78 @@
     // what was typed is not a colour: show the value that is still stored,
     // rather than leaving text on screen that was never saved
     text = value ? String(value) : "";
+  }
+
+  // The Advanced picker works in HSV so the hue survives dragging to grey or
+  // black. It follows the stored value, and writes back when a drag ends.
+  let hsv = $state<Hsv>({ h: 0, s: 0, v: 0 });
+  const current = $derived(rgbToHex(hsvToRgb(hsv)));
+  const rgb = $derived(hsvToRgb(hsv));
+  $effect(() => {
+    const rgbValue = hexToRgb(hex);
+    // untracked: this runs when the stored value changes, not on every drag step
+    if (rgbValue && hex !== untrack(() => current)) hsv = rgbToHsv(rgbValue);
+  });
+
+  const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
+
+  function setHsv(next: Hsv, save: boolean) {
+    hsv = next;
+    text = current;
+    if (save && current !== hex) onchange(current);
+  }
+
+  // one handler for both the square and the hue bar: the pointer is captured
+  // on press, so a drag that leaves the element still steers it
+  function drag(e: PointerEvent, apply: (x: number, y: number) => Hsv) {
+    if (e.button !== 0) return;
+    const el = e.currentTarget as HTMLElement;
+    el.setPointerCapture?.(e.pointerId);
+    const move = (ev: PointerEvent) => {
+      const r = el.getBoundingClientRect();
+      setHsv(apply(clamp01((ev.clientX - r.left) / r.width), clamp01((ev.clientY - r.top) / r.height)), false);
+    };
+    const up = () => {
+      el.removeEventListener("pointermove", move);
+      el.removeEventListener("pointerup", up);
+      el.removeEventListener("pointercancel", up);
+      setHsv(hsv, true);
+    };
+    move(e);
+    el.addEventListener("pointermove", move);
+    el.addEventListener("pointerup", up);
+    el.addEventListener("pointercancel", up);
+  }
+
+  function onSvKey(e: KeyboardEvent) {
+    const step = e.shiftKey ? 0.1 : 0.01;
+    const d: Record<string, [number, number]> = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, step], ArrowDown: [0, -step] };
+    if (!d[e.key]) return;
+    e.preventDefault();
+    setHsv({ ...hsv, s: clamp01(hsv.s + d[e.key][0]), v: clamp01(hsv.v + d[e.key][1]) }, true);
+  }
+
+  function onHueKey(e: KeyboardEvent) {
+    const step = e.shiftKey ? 10 : 1;
+    const d: Record<string, number> = { ArrowLeft: -step, ArrowDown: -step, ArrowRight: step, ArrowUp: step };
+    if (!d[e.key]) return;
+    e.preventDefault();
+    setHsv({ ...hsv, h: Math.min(359, Math.max(0, hsv.h + d[e.key])) }, true);
+  }
+
+  function setChannel(k: keyof Rgb, v: string) {
+    setHsv(rgbToHsv({ ...rgb, [k]: Math.min(255, Math.max(0, Math.round(Number(v) || 0))) }), true);
+  }
+
+  const canEyedrop = typeof window !== "undefined" && "EyeDropper" in window;
+  async function eyedrop() {
+    try {
+      const { sRGBHex } = await new (window as any).EyeDropper().open();
+      const picked = hexToRgb(sRGBHex);
+      if (picked) setHsv(rgbToHsv(picked), true);
+    } catch {
+      // Escape during the pick rejects; nothing was chosen
+    }
   }
 
   function pick(c: string) {
@@ -80,7 +155,7 @@
     onclick={toggle}
     onkeydown={(e) => { if (e.key === "Escape" && open) { e.stopPropagation(); open = false; } }}
   >
-    <span class="swatch" class:empty={!hex} style:background-color={hex || null}></span>
+    <span class="swatch" class:no-colour={!hex} style:background-color={hex || null}></span>
   </button>
 
   {#if open && !readOnly}
@@ -113,28 +188,73 @@
         </div>
       {:else}
         <div class="advanced">
-          <input
-            type="color"
-            class="native"
-            value={hex || "#000000"}
-            aria-label={__("Colour")}
-            onchange={(e) => commit((e.target as HTMLInputElement).value)}
-          />
-          <input
-            type="text"
-            class="input hex"
-            value={text}
-            placeholder="#rrggbb"
-            spellcheck="false"
-            oninput={(e) => (text = (e.target as HTMLInputElement).value)}
-            onblur={(e) => commit((e.target as HTMLInputElement).value)}
-            onkeydown={(e) => e.key === "Enter" && commit((e.currentTarget as HTMLInputElement).value)}
-          />
+          <div
+            class="sv"
+            style:background-color={`hsl(${hsv.h} 100% 50%)`}
+            role="slider"
+            tabindex="0"
+            aria-label={__("Saturation and brightness")}
+            aria-valuenow={Math.round(hsv.s * 100)}
+            aria-valuetext={current}
+            onpointerdown={(e) => drag(e, (x, y) => ({ ...hsv, s: x, v: 1 - y }))}
+            onkeydown={onSvKey}
+          >
+            <span class="thumb" style:left={`${hsv.s * 100}%`} style:top={`${(1 - hsv.v) * 100}%`} style:background-color={current}></span>
+          </div>
+          <div class="row">
+            {#if canEyedrop}
+              <button type="button" class="btn icon sm eyedrop" aria-label={__("Pick a colour from the screen")} title={__("Pick a colour from the screen")} onclick={eyedrop}>
+                <Icon name="pipette" size={15} />
+              </button>
+            {/if}
+            <span class="preview" style:background-color={current}></span>
+            <div
+              class="hue"
+              role="slider"
+              tabindex="0"
+              aria-label={__("Hue")}
+              aria-valuemin={0}
+              aria-valuemax={359}
+              aria-valuenow={Math.round(hsv.h)}
+              onpointerdown={(e) => drag(e, (x) => ({ ...hsv, h: Math.min(359, x * 360) }))}
+              onkeydown={onHueKey}
+            >
+              <span class="thumb" style:left={`${(hsv.h / 360) * 100}%`} style:background-color={`hsl(${hsv.h} 100% 50%)`}></span>
+            </div>
+          </div>
+          <div class="channels">
+            {#each (["r", "g", "b"] as const) as k}
+              <label>
+                <input
+                  type="number"
+                  class="input"
+                  min="0"
+                  max="255"
+                  value={rgb[k]}
+                  onchange={(e) => setChannel(k, (e.target as HTMLInputElement).value)}
+                />
+                <span>{k.toUpperCase()}</span>
+              </label>
+            {/each}
+            <label class="hex-label">
+              <input
+                type="text"
+                class="input hex"
+                value={text}
+                placeholder="#rrggbb"
+                spellcheck="false"
+                oninput={(e) => (text = (e.target as HTMLInputElement).value)}
+                onblur={(e) => commit((e.target as HTMLInputElement).value)}
+                onkeydown={(e) => e.key === "Enter" && commit((e.currentTarget as HTMLInputElement).value)}
+              />
+              <span>Hex</span>
+            </label>
+          </div>
         </div>
       {/if}
 
       {#if value}
-        <div class="foot">
+        <div class="picker-foot">
           <button type="button" class="btn-link" onclick={clear}>{__("Clear")}</button>
         </div>
       {/if}
@@ -161,7 +281,7 @@
     box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
   }
   /* no colour: a diagonal line across white, as colour pickers usually draw it */
-  .swatch.empty {
+  .swatch.no-colour {
     background: linear-gradient(to top right, transparent calc(50% - 1px), #d1d5db calc(50% - 1px), #d1d5db calc(50% + 1px), transparent calc(50% + 1px)), #fff;
   }
 
@@ -200,22 +320,57 @@
   .cell:hover { transform: scale(1.12); }
   .cell.selected { outline: 2px solid var(--primary, #2563eb); outline-offset: 1px; }
 
-  .advanced { display: flex; flex-direction: column; gap: 6px; }
-  .native {
-    width: 100%;
-    height: 72px;
-    padding: 2px;
-    border: 1px solid var(--border);
+  .advanced { display: flex; flex-direction: column; gap: 10px; }
+  .sv {
+    position: relative;
+    height: 150px;
     border-radius: 6px;
-    background: var(--bg-input, #fff);
-    cursor: pointer;
+    background-image: linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, transparent);
+    cursor: crosshair;
+    touch-action: none;
   }
+  .thumb {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.3);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+  .row { display: flex; align-items: center; gap: 8px; }
+  .eyedrop { flex-shrink: 0; }
+  .preview {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
+  }
+  .hue {
+    position: relative;
+    flex: 1;
+    height: 12px;
+    border-radius: 6px;
+    background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+    cursor: pointer;
+    touch-action: none;
+  }
+  .hue .thumb { top: 50%; }
+  .sv:focus-visible, .hue:focus-visible { outline: 2px solid var(--primary, #2563eb); outline-offset: 2px; }
+  .channels { display: grid; grid-template-columns: repeat(3, 1fr) 1.9fr; gap: 4px; }
+  .channels label { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; color: var(--muted); }
+  .channels .input { padding: 4px; text-align: center; min-height: 28px; font-variant-numeric: tabular-nums; }
+  .channels input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+  .channels input[type="number"]::-webkit-inner-spin-button,
+  .channels input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
   .hex {
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     text-transform: lowercase;
   }
 
-  .foot { display: flex; justify-content: flex-end; margin-top: 8px; }
+  .picker-foot { display: flex; justify-content: flex-end; margin-top: 8px; }
   .btn-link {
     border: 0;
     background: transparent;

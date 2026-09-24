@@ -31,8 +31,9 @@ not every commit that went into it.
   Gantt bar, a coloured left edge on a Kanban card — instead of a palette colour hashed from the hex.
   A Select `colorField` is unchanged. See `docs/agent/form-api.md`.
 - **A Color field picks from a palette.** The field now shows only its colour, without the hex
-  beside it. Clicking it opens a picker on a grid of basic colours; its Advanced tab holds the
-  browser's colour picker and the `#rrggbb` text box. Clear moved into the picker.
+  beside it. Clicking it opens a picker on a grid of basic colours; its Advanced tab holds a full
+  picker drawn in the page — a saturation/brightness square, a hue bar, R, G and B boxes, the
+  `#rrggbb` text box, and an eyedropper where the browser offers one. Clear moved into the picker.
 
 ## 0.19.4 — 2026-09-24
 

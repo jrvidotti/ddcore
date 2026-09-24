@@ -32,3 +32,41 @@ export const BASIC_COLORS: string[] = [
   "#6b7280", "#dc2626", "#ea580c", "#d97706", "#ca8a04", "#16a34a", "#0d9488", "#2563eb", "#4f46e5", "#db2777",
   "#000000", "#991b1b", "#9a3412", "#92400e", "#854d0e", "#166534", "#115e59", "#1e40af", "#3730a3", "#9d174d",
 ];
+
+export interface Rgb { r: number; g: number; b: number }
+/** Hue in degrees [0, 360), saturation and value in [0, 1]. */
+export interface Hsv { h: number; s: number; v: number }
+
+export function hexToRgb(v: any): Rgb | null {
+  const hex = normalizeColor(v);
+  if (!hex) return null;
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  return { r, g, b };
+}
+
+export function rgbToHex({ r, g, b }: Rgb): string {
+  const byte = (n: number) => Math.round(Math.min(255, Math.max(0, n || 0))).toString(16).padStart(2, "0");
+  return "#" + byte(r) + byte(g) + byte(b);
+}
+
+export function rgbToHsv({ r, g, b }: Rgb): Hsv {
+  const [rr, gg, bb] = [r / 255, g / 255, b / 255];
+  const max = Math.max(rr, gg, bb);
+  const d = max - Math.min(rr, gg, bb);
+  let h = 0;
+  if (d) {
+    if (max === rr) h = ((gg - bb) / d) % 6;
+    else if (max === gg) h = (bb - rr) / d + 2;
+    else h = (rr - gg) / d + 4;
+    h = (h * 60 + 360) % 360;
+  }
+  return { h, s: max ? d / max : 0, v: max };
+}
+
+export function hsvToRgb({ h, s, v }: Hsv): Rgb {
+  const f = (n: number) => {
+    const k = (n + h / 60) % 6;
+    return Math.round(255 * (v - v * s * Math.max(0, Math.min(k, 4 - k, 1))));
+  };
+  return { r: f(5), g: f(3), b: f(1) };
+}

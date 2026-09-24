@@ -22,7 +22,7 @@ Add row,Adicionar linha,# desk/src/lib/controls/Grid.svelte:118
 Address,Endereço,# desk/src/lib/components/Profile.svelte:200
 Admin sign-in,Entrar como Admin,# desk/src/routes/login/+page.svelte:82
 Administering jobs requires the System Manager role,Administrar jobs exige o papel System Manager,# internal/api/jobs.go:22
-Advanced,Avançado,# desk/src/lib/controls/ColorControl.svelte:97
+Advanced,Avançado,# desk/src/lib/controls/ColorControl.svelte:172
 Align,Alinhamento,# core.doctypes.letter_head.letter_head.doctype
 All,Todos,# desk/src/lib/components/ListView.svelte:492
 All rows matching the filters ({0}) as CSV,Todas as linhas que casam com os filtros ({0}) em CSV,# desk/src/lib/components/ListView.svelte:405
@@ -64,7 +64,7 @@ Audit Event records are immutable and cannot be modified,Registros de Evento de 
 Back,Voltar,# desk/src/lib/components/PrintView.svelte:157
 Back to sign in,Voltar para o acesso,# desk/src/routes/login/forgot/+page.svelte:32
 Back to the desk,Voltar ao desk,# desk/src/routes/portal/+layout.svelte:46
-Basic,Básico,# desk/src/lib/controls/ColorControl.svelte:96
+Basic,Básico,# desk/src/lib/controls/ColorControl.svelte:171
 Bold,Negrito,# desk/src/lib/controls/RichTextControl.svelte:111
 Bulleted list,Lista com marcadores,# desk/src/lib/controls/RichTextControl.svelte:118
 "CSV cannot carry child tables: use format=ndjson, or `ddcore export`, which writes one file per table.","O CSV não comporta tabelas filhas: use format=ndjson, ou `ddcore export`, que grava um arquivo por tabela.",# internal/api/export.go:54
@@ -100,7 +100,7 @@ Choose a password for {0}.,Escolha uma senha para {0}.,# desk/src/routes/login/r
 Choose at least one document event,Escolha pelo menos um evento de documento,# internal/engine/webhooks.go:583
 Choose image,Escolher imagem,# desk/src/lib/controls/AttachControl.svelte:86
 "Chromium PDF conversion failed: {0}, output: {1}","Falha na conversão de PDF via Chromium: {0}, saída: {1}",# internal/print/pdf.go:220
-Clear,Limpar,# desk/src/lib/controls/ColorControl.svelte:138
+Clear,Limpar,# desk/src/lib/controls/ColorControl.svelte:258
 Clear filters,Limpar filtros,# desk/src/lib/components/ListView.svelte:509
 Close,Fechar,# desk/src/lib/components/AssignModal.svelte:75
 Close menu,Fechar menu,# desk/src/lib/components/Sidebar.svelte:94
@@ -110,7 +110,7 @@ Closed,Fechado,# core.doctypes.todo.todo.doctype
 Code,Código,# desk/src/lib/controls/CodeControl.svelte:45
 Collapse,Recolher,# desk/src/lib/components/views/TreeView.svelte:120
 Collapse all,Recolher tudo,# desk/src/lib/components/views/TreeView.svelte:105
-Colour,Cor,# desk/src/lib/controls/ColorControl.svelte:76
+Colour,Cor,# desk/src/lib/controls/ColorControl.svelte:151
 Column in the file,Coluna no arquivo,# desk/src/lib/components/DataImportModal.svelte:190
 Columns,Colunas,# desk/src/lib/components/DataImportModal.svelte:188
 "Comma (1.234,56)","Vírgula (1.234,56)",# desk/src/lib/components/DataImportModal.svelte:169
@@ -240,6 +240,7 @@ Header HTML,HTML do Cabeçalho,# core.doctypes.letter_head.letter_head.doctype
 Heading,Título,# desk/src/lib/controls/RichTextControl.svelte:115
 High,Alta,# desk/src/lib/components/AssignModal.svelte:100
 History,Histórico,# desk/src/lib/components/DocSidebar.svelte:266
+Hue,Matiz,# desk/src/lib/controls/ColorControl.svelte:215
 I forgot my password,Esqueci minha senha,# desk/src/routes/login/+page.svelte:79
 ID,ID,# desk/src/lib/components/DataImportModal.svelte:130
 IP Address,Endereço IP,# core.doctypes.audit_event.audit_event.doctype
@@ -431,6 +432,7 @@ Password changed. Your other sessions were signed out.,Senha trocada. Suas outra
 Password set,Senha definida,# desk/src/routes/login/reset/+page.svelte:52
 Password sign-in is disabled. Use single sign-on.,O acesso com senha está desativado. Use o login único (SSO).,# internal/engine/auth.go:104
 Payload,Conteúdo,# core.doctypes.webhook_delivery.webhook_delivery.doctype
+Pick a colour from the screen,Capturar uma cor da tela,# desk/src/lib/controls/ColorControl.svelte:206
 Pick the highlighted option,Selecionar opção destacada,# desk/src/lib/shortcuts.ts:109
 "Point (1,234.56)","Ponto (1,234.56)",# desk/src/lib/components/DataImportModal.svelte:170
 Portal {0} does not exist,O portal {0} não existe,# internal/api/portal.go:166
@@ -494,6 +496,7 @@ Row,Linha,# desk/src/lib/components/DataImportModal.svelte:219
 Row #{0} changed,Linha #{0} alterada,# desk/src/lib/components/DocHistory.svelte:170
 Row added,Linha adicionada,# desk/src/lib/components/DocHistory.svelte:146
 Row removed,Linha removida,# desk/src/lib/components/DocHistory.svelte:207
+Saturation and brightness,Saturação e brilho,# desk/src/lib/controls/ColorControl.svelte:196
 Save,Salvar,# desk/src/lib/components/FormView.svelte:448
 Save or update the record,Salvar ou atualizar registro,# desk/src/lib/shortcuts.ts:91
 Save the document first,Salve o documento antes,# core/doctypes/todo/to_do.form.ts:13

@@ -59,6 +59,20 @@ describe("ColorControl", () => {
     t.done();
   });
 
+  it("sets a channel under Advanced", () => {
+    const t = setup("#f97316");
+    t.click(t.trigger);
+    t.click(t.button("Advanced"));
+    const [r, g, b] = t.target.querySelectorAll<HTMLInputElement>('input[type="number"]');
+    expect([r.value, g.value, b.value]).toEqual(["249", "115", "22"]);
+    b.value = "255";
+    b.dispatchEvent(new Event("change", { bubbles: true }));
+    flushSync();
+    expect(t.props.value).toBe("#f973ff");
+    expect(t.target.querySelector<HTMLInputElement>("input.hex")!.value).toBe("#f973ff");
+    t.done();
+  });
+
   it("clears", () => {
     const t = setup("#16a34a");
     t.click(t.trigger);
