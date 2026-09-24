@@ -12,6 +12,8 @@ not every commit that went into it.
 
 ## Unreleased
 
+## 0.19.2 — 2026-09-23
+
 ### Added
 
 - **`linkSubtitle` on a DocType** picks the fields a Link dropdown shows under each title, such as
