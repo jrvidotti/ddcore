@@ -179,8 +179,8 @@
     if (!params.has("view")) {
       let stored: string | null = null;
       try { stored = window.localStorage.getItem(VIEW_KEY); } catch { /* storage may be disabled */ }
-      // a month grid and a board don't fit a phone; the list does
-      if (window.innerWidth >= 768 && (stored === "calendar" || stored === "kanban")) st.view = stored;
+      // a month grid and a board don't fit a phone; the list and the cards do
+      if (stored === "cards" || (window.innerWidth >= 768 && (stored === "calendar" || stored === "kanban"))) st.view = stored;
     }
     lastUrlSearch = page.url.search;
     ready = true;
@@ -217,6 +217,41 @@
   }
 </script>
 
+{#snippet pagination()}
+  <div class="pagination">
+    <span class="muted small" aria-live="polite">{__("{0} tasks", [pw.total])}</span>
+    <span class="spacer"></span>
+    <select class="input" style="width:auto" aria-label={__("Page size")} value={pw.limit} onchange={(e) => update({ pageSize: Number(e.currentTarget.value) })}>
+      {#each TODO_PAGE_SIZES as n}<option value={n}>{n}</option>{/each}
+    </select>
+    <button class="btn sm" disabled={pw.loading || pageNumber <= 1} onclick={() => commit({ ...currentState(), page: pageNumber - 1 })} aria-label={__("Previous")}><Icon name="chevron-left" size={14} /></button>
+    <span class="small muted">{pageNumber} / {pageCount}</span>
+    <button class="btn sm" disabled={pw.loading || pageNumber >= pageCount} onclick={() => commit({ ...currentState(), page: pageNumber + 1 })} aria-label={__("Next")}><Icon name="chevron-right" size={14} /></button>
+  </div>
+{/snippet}
+
+{#snippet taskActions(row: ToDoDoc)}
+  <div class="task-actions">
+    {#if row.status === "Open"}
+      <button type="button" class="btn icon sm" title={__("Complete")} aria-label={__("Complete")} disabled={pw.pending === row.id} onclick={() => run(pw.complete(row.id))}><Icon name="check" size={14} /></button>
+      <button type="button" class="btn icon sm" title={__("Revoke")} aria-label={__("Revoke")} disabled={pw.pending === row.id} onclick={() => run(pw.revoke(row.id))}><Icon name="x" size={14} /></button>
+    {:else}
+      <button type="button" class="btn icon sm" title={__("Reopen")} aria-label={__("Reopen")} disabled={pw.pending === row.id} onclick={() => run(pw.reopen(row.id))}><Icon name="rotate-ccw" size={14} /></button>
+    {/if}
+  </div>
+{/snippet}
+
+{#snippet doneToggle(row: ToDoDoc)}
+  <input type="checkbox" checked={row.status === "Closed"} disabled={row.status === "Cancelled" || pw.pending === row.id}
+    onchange={() => toggleDone(row)} aria-label={row.status === "Closed" ? __("Reopen") : __("Mark as completed")} />
+{/snippet}
+
+{#snippet reference(row: ToDoDoc)}
+  <a class="ref-doc" href={docHref(row.reference_type!, row.reference_id!)}>
+    <span class="muted">{doctypeLabel(row.reference_type!)}</span> · {getLinkTitle(row.reference_type!, row.reference_id!) || row.reference_id}
+  </a>
+{/snippet}
+
 <svelte:head><title>{__("To-Do")} · {siteName()}</title></svelte:head>
 
 <div class="page todo-page">
@@ -226,6 +261,7 @@
       <button class="btn icon" class:active={view === "list"} aria-pressed={view === "list"} onclick={() => setView("list")} title={__("List")} aria-label={__("List")}><Icon name="list" size={14} /></button>
       <button class="btn icon" class:active={view === "calendar"} aria-pressed={view === "calendar"} onclick={() => setView("calendar")} title={__("Calendar")} aria-label={__("Calendar")}><Icon name="calendar" size={14} /></button>
       <button class="btn icon" class:active={view === "kanban"} aria-pressed={view === "kanban"} onclick={() => setView("kanban")} title={__("Kanban")} aria-label={__("Kanban")}><Icon name="square-kanban" size={14} /></button>
+      <button class="btn icon" class:active={view === "cards"} aria-pressed={view === "cards"} onclick={() => setView("cards")} title={__("Cards")} aria-label={__("Cards")}><Icon name="layout-grid" size={14} /></button>
     </div>
     <button class="btn" onclick={() => pw.load(pw.offset)} disabled={pw.loading} title={__("Refresh")} aria-label={__("Refresh")}>
       <Icon name="refresh-cw" size={14} />
@@ -307,6 +343,30 @@
       <!-- cards move through the assignment endpoints, which check who may; Status itself is read-only on the form -->
       <KanbanView rows={pw.rows} {meta} doctype="ToDo" wsPrefix={todoPrefix} basePath={TODO_BASE} loading={pw.loading} {kanban} movable onMove={moveCard} />
     {/if}
+  {:else if view === "cards"}
+    <div class="todo-cards" aria-busy={pw.loading}>
+      {#each pw.rows as row (row.id)}
+        {@const counterpart = pw.scope === "assigned_by_me" ? row.allocated_to : row.assigned_by}
+        <article class="card task-card" class:done={row.status !== "Open"}>
+          <header>
+            {@render doneToggle(row)}
+            <a class="desc" href={todoHref(row.id)}>{row.description || row.id}</a>
+            <span class="indicator {statusColor(row.status, meta?.doctype.fields.find((f) => f.fieldname === "status"))}">{__(row.status)}</span>
+          </header>
+          {#if row.reference_type && row.reference_id}<div class="ref">{@render reference(row)}</div>{/if}
+          <dl>
+            <div><dt>{__("Priority")}</dt><dd><span class="priority-badge {priorityBadgeClass(row.priority)}">{__(row.priority)}</span></dd></div>
+            {#if row.date}<div><dt>{__("Due Date")}</dt><dd class:overdue={isAssignmentOverdue(row.date, row.status, initialDate)}>{formatDate(row.date)}</dd></div>{/if}
+            {#if counterpart}<div><dt>{counterpartLabel}</dt><dd>{userTitle(counterpart)}</dd></div>{/if}
+          </dl>
+          <footer>{@render taskActions(row)}</footer>
+        </article>
+      {/each}
+    </div>
+    {#if !pw.loading && !pw.rows.length}
+      <div class="card empty"><Icon name="check-square" size={24} /><p>{__("No tasks found")}</p></div>
+    {/if}
+    <div class="card cards-pagination">{@render pagination()}</div>
   {:else}
     <div class="card list-results" aria-busy={pw.loading}>
       <table class="grid">
@@ -326,32 +386,16 @@
           {#each pw.rows as row (row.id)}
             {@const counterpart = pw.scope === "assigned_by_me" ? row.allocated_to : row.assigned_by}
             <tr class="row" class:done={row.status !== "Open"}>
-              <td>
-                <input type="checkbox" checked={row.status === "Closed"} disabled={row.status === "Cancelled" || pw.pending === row.id}
-                  onchange={() => toggleDone(row)} aria-label={row.status === "Closed" ? __("Reopen") : __("Mark as completed")} />
-              </td>
+              <td>{@render doneToggle(row)}</td>
               <td class="desc"><a href={todoHref(row.id)}>{row.description || row.id}</a></td>
               <td class="ref">
-                {#if row.reference_type && row.reference_id}
-                  <a class="ref-doc" href={docHref(row.reference_type, row.reference_id)}>
-                    <span class="muted">{doctypeLabel(row.reference_type)}</span> · {getLinkTitle(row.reference_type, row.reference_id) || row.reference_id}
-                  </a>
-                {/if}
+                {#if row.reference_type && row.reference_id}{@render reference(row)}{/if}
               </td>
               <td class="nowrap"><span class="priority-badge {priorityBadgeClass(row.priority)}">{__(row.priority)}</span></td>
               <td class="nowrap" class:overdue={isAssignmentOverdue(row.date, row.status, initialDate)}>{formatDate(row.date)}</td>
               <td class="who">{userTitle(counterpart)}</td>
               <td class="nowrap"><span class="indicator {statusColor(row.status, meta?.doctype.fields.find((f) => f.fieldname === "status"))}">{__(row.status)}</span></td>
-              <td class="num">
-                <div class="task-actions">
-                  {#if row.status === "Open"}
-                    <button type="button" class="btn icon sm" title={__("Complete")} aria-label={__("Complete")} disabled={pw.pending === row.id} onclick={() => run(pw.complete(row.id))}><Icon name="check" size={14} /></button>
-                    <button type="button" class="btn icon sm" title={__("Revoke")} aria-label={__("Revoke")} disabled={pw.pending === row.id} onclick={() => run(pw.revoke(row.id))}><Icon name="x" size={14} /></button>
-                  {:else}
-                    <button type="button" class="btn icon sm" title={__("Reopen")} aria-label={__("Reopen")} disabled={pw.pending === row.id} onclick={() => run(pw.reopen(row.id))}><Icon name="rotate-ccw" size={14} /></button>
-                  {/if}
-                </div>
-              </td>
+              <td class="num">{@render taskActions(row)}</td>
             </tr>
           {/each}
           {#if !pw.loading && !pw.rows.length}
@@ -359,16 +403,7 @@
           {/if}
         </tbody>
       </table>
-      <div class="pagination">
-        <span class="muted small" aria-live="polite">{__("{0} tasks", [pw.total])}</span>
-        <span class="spacer"></span>
-        <select class="input" style="width:auto" aria-label={__("Page size")} value={pw.limit} onchange={(e) => update({ pageSize: Number(e.currentTarget.value) })}>
-          {#each TODO_PAGE_SIZES as n}<option value={n}>{n}</option>{/each}
-        </select>
-        <button class="btn sm" disabled={pw.loading || pageNumber <= 1} onclick={() => commit({ ...currentState(), page: pageNumber - 1 })} aria-label={__("Previous")}><Icon name="chevron-left" size={14} /></button>
-        <span class="small muted">{pageNumber} / {pageCount}</span>
-        <button class="btn sm" disabled={pw.loading || pageNumber >= pageCount} onclick={() => commit({ ...currentState(), page: pageNumber + 1 })} aria-label={__("Next")}><Icon name="chevron-right" size={14} /></button>
-      </div>
+      {@render pagination()}
     </div>
   {/if}
 </div>
@@ -497,7 +532,21 @@
   .ref { min-width: 160px; max-width: 300px; overflow-wrap: break-word; }
   .who { min-width: 120px; }
   .nowrap { white-space: nowrap; }
-  td.overdue { color: var(--danger, #dc2626); font-weight: 600; }
+  .overdue { color: var(--danger, #dc2626); font-weight: 600; }
+  .todo-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; margin-bottom: 12px; }
+  .task-card { min-width: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; }
+  .task-card:hover, .task-card:focus-within { border-color: var(--primary); }
+  .task-card header { display: flex; align-items: flex-start; gap: 10px; }
+  .task-card header input { flex-shrink: 0; width: 16px; height: 16px; margin: 2px 0 0; cursor: pointer; }
+  .task-card .desc { flex: 1; min-width: 0; max-width: none; color: var(--text); }
+  .task-card.done .desc { color: var(--muted); text-decoration: line-through; }
+  .task-card header .indicator { flex-shrink: 0; }
+  .task-card .ref { min-width: 0; max-width: none; margin-left: 26px; font-size: 13px; }
+  .task-card dl { display: grid; gap: 6px; margin: 0; }
+  .task-card dl > div { display: flex; justify-content: space-between; gap: 12px; }
+  .task-card dt { color: var(--muted); font-size: 12px; }
+  .task-card dd { margin: 0; text-align: right; overflow-wrap: anywhere; min-width: 0; }
+  .task-card footer { display: flex; justify-content: flex-end; margin-top: auto; padding-top: 10px; border-top: 1px solid var(--border); }
   .empty { text-align: center; padding: 36px 12px; color: var(--muted); }
   .empty p { margin: 6px 0 0; }
   .state { padding: 44px 20px; text-align: center; }

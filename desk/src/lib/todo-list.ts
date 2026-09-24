@@ -4,7 +4,7 @@ import type { PendingWorkOptions, ToDoDoc } from "./api";
 
 export type TodoScope = "assigned_to_me" | "assigned_by_me";
 export type TodoDue = "" | "overdue" | "today" | "week" | "none";
-export type TodoView = "list" | "calendar" | "kanban";
+export type TodoView = "list" | "calendar" | "kanban" | "cards";
 
 export interface TodoFilters {
   q: string;
@@ -30,7 +30,7 @@ export const TODO_STATUSES = ["Open", "Closed", "Cancelled"] as const;
 export const TODO_PRIORITIES = ["Low", "Medium", "High", "Urgent"] as const;
 export const TODO_PAGE_SIZES = [20, 50, 100, 500];
 const DUES: TodoDue[] = ["overdue", "today", "week", "none"];
-const VIEWS: TodoView[] = ["list", "calendar", "kanban"];
+const VIEWS: TodoView[] = ["list", "calendar", "kanban", "cards"];
 
 export const emptyTodoFilters = (): TodoFilters => ({ q: "", priority: "", due: "", date: "", user: "" });
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;

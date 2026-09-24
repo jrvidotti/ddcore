@@ -77,6 +77,9 @@ describe("URL state", () => {
     };
     expect(todoStateFromSearchParams(todoStateToSearchParams(st))).toEqual(st);
   });
+  it("reads the Cards view", () => {
+    expect(todoStateFromSearchParams(new URLSearchParams("view=cards")).view).toBe("cards");
+  });
   it("carries a picked date instead of the due choice", () => {
     const st = { ...defaultTodoState(), filters: { ...emptyTodoFilters(), date: "2026-09-24" } };
     expect(todoStateToSearchParams(st).toString()).toBe("date=2026-09-24");
