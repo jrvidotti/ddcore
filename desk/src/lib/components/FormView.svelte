@@ -8,7 +8,7 @@
   import Grid from "$lib/controls/Grid.svelte";
   import Icon from "./Icon.svelte";
   import { __, boot } from "$lib/boot.svelte";
-  import { showError, confirm, prompt, toast, escapeHtml } from "$lib/ui.svelte";
+  import { showError, confirm, dialog, prompt, toast, escapeHtml } from "$lib/ui.svelte";
   import { statusColor, timeAgo } from "$lib/format";
   import { onMount } from "svelte";
   import { subscribe } from "$lib/events";
@@ -149,11 +149,22 @@
     const to = nav.to?.url;
     if (!to) return;
     nav.cancel();
-    (async () => {
-      if (!(await confirm(__("Leave without saving? Your changes are kept as a draft."), __("Unsaved changes")))) return;
+    const go = async (discard: boolean) => {
+      h.hide();
+      // a clean form leaves nothing for the unmount to write back as a draft
+      if (discard && frm) { await frm.discardChanges(); clearDraft(drafts, currentDraftKey()); }
       leaving = true;
       await goto(to);
-    })();
+    };
+    const h = dialog({
+      title: __("Unsaved changes"), size: "sm",
+      message: __("Leave without saving? Your changes are kept as a draft."),
+      primaryLabel: __("Yes"), secondaryLabel: __("No"),
+      primaryAction: () => go(false),
+      dangerLabel: __("Discard changes"), dangerShortcut: true,
+      dangerAction: () => go(true),
+    });
+    h.show();
   });
 
   async function discard() {

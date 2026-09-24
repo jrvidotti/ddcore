@@ -15,6 +15,8 @@ export interface DialogSpec {
   primaryAction?: (values: Record<string, any>, dialog: DialogHandle) => any;
   dangerLabel?: string;
   dangerAction?: (values: Record<string, any>, dialog: DialogHandle) => any;
+  /** the Delete key runs the danger action too, and its button shows the key */
+  dangerShortcut?: boolean;
   onChange?: (fieldname: string, values: Record<string, any>, dialog: DialogHandle) => void;
   /** free-form message shown above the fields */
   message?: string;

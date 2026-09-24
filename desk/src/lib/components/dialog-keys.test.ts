@@ -34,4 +34,13 @@ describe("dialog keys", () => {
     expect(dialogKeyAction({ key: "Enter", targetTag: "INPUT", shiftKey: true })).toBeNull();
     expect(dialogKeyAction({ key: "a", targetTag: "INPUT" })).toBeNull();
   });
+
+  it("Delete runs the danger action, except where text is typed", () => {
+    expect(dialogKeyAction({ key: "Delete", targetTag: "DIV" })).toBe("danger");
+    expect(dialogKeyAction({ key: "Delete", targetTag: "BUTTON" })).toBe("danger");
+    expect(dialogKeyAction({ key: "Delete", targetTag: "INPUT" })).toBeNull();
+    expect(dialogKeyAction({ key: "Delete", targetTag: "TEXTAREA" })).toBeNull();
+    expect(dialogKeyAction({ key: "Delete", targetTag: "DIV", targetEditable: true })).toBeNull();
+    expect(dialogKeyAction({ key: "Delete", targetTag: "DIV", repeat: true })).toBeNull();
+  });
 });

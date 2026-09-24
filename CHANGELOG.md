@@ -12,6 +12,13 @@ not every commit that went into it.
 
 ## Unreleased
 
+### Added
+
+- **Discard changes when leaving a form.** The "Unsaved changes" dialog shown on leaving a dirty
+  form has a **Discard changes** button, also on the `Delete` key, that throws the draft away and
+  leaves. Dialogs get the same through `dangerShortcut: true` on `ddcore.ui.Dialog`, which binds
+  `Delete` to the danger action (never while typing in a field).
+
 ## 0.19.2 — 2026-09-23
 
 ### Added

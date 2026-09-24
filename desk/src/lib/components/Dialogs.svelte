@@ -34,10 +34,11 @@
       repeat: e.repeat, isComposing: e.isComposing, defaultPrevented: e.defaultPrevented,
       targetTag: t?.tagName, targetEditable: !!t?.isContentEditable,
     });
-    if (!action) return;
+    if (!action || (action === "danger" && !d.spec.dangerShortcut)) return;
     e.preventDefault();
     e.stopPropagation();
     if (action === "cancel") return cancel(d);
+    if (action === "danger") return d.busy ? undefined : danger(d);
     if (d.busy || !(d.spec.primaryAction || d.spec.primaryLabel)) return;
     // text controls commit on change, which fires on blur
     const active = document.activeElement as HTMLElement | null;
@@ -87,7 +88,7 @@
         {/each}
       </div>
       <div class="foot">
-        {#if d.spec.dangerAction}<button class="btn danger" disabled={d.busy} onclick={() => danger(d)}>{d.spec.dangerLabel || __("Delete")}</button><span class="spacer"></span>{/if}
+        {#if d.spec.dangerAction}<button class="btn danger" disabled={d.busy} onclick={() => danger(d)}>{d.spec.dangerLabel || __("Delete")}{#if d.spec.dangerShortcut}<kbd class="btn-kbd">Del</kbd>{/if}</button><span class="spacer"></span>{/if}
         {#if !d.spec.hideSecondary}<button class="btn" onclick={() => cancel(d)}>{d.spec.secondaryLabel || __("Cancel")}</button>{/if}
         {#if d.spec.primaryAction || d.spec.primaryLabel}
           <button class="btn primary" disabled={d.busy} onclick={() => primary(d)}>{d.spec.primaryLabel || "OK"}</button>

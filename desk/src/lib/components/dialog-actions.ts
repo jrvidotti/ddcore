@@ -23,14 +23,20 @@ export interface DialogKey {
 
 /**
  * What a key pressed while a dialog is on top does: Escape cancels it, Enter
- * runs its primary action. Enter is left alone where it already means
- * something — a new line in a textarea or rich text (unless Ctrl/Cmd is held),
- * a focused button or link, an option picked in a dropdown (defaultPrevented),
- * or an IME composition.
+ * runs its primary action, Delete its danger action (for a dialog that opts in).
+ * Enter is left alone where it already means something — a new line in a
+ * textarea or rich text (unless Ctrl/Cmd is held), a focused button or link, an
+ * option picked in a dropdown (defaultPrevented), or an IME composition. Delete
+ * is left alone wherever text is typed.
  */
-export function dialogKeyAction(e: DialogKey): "cancel" | "primary" | null {
+export function dialogKeyAction(e: DialogKey): "cancel" | "primary" | "danger" | null {
   if (e.isComposing || e.defaultPrevented) return null;
   if (e.key === "Escape") return "cancel";
+  if (e.key === "Delete") {
+    const tag = e.targetTag || "";
+    if (e.repeat || e.targetEditable || tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return null;
+    return "danger";
+  }
   if (e.key !== "Enter" || e.repeat || e.shiftKey || e.altKey) return null;
   const tag = e.targetTag || "";
   if (tag === "BUTTON" || tag === "A") return null;

@@ -64,7 +64,8 @@ A form is laid out by sizing its fields, not by splitting it into columns: a lin
 ### Unsaved changes
 
 The desk keeps what the reader typed and did not save in the browser, one draft per user and
-record, for seven days. Leaving the form asks first; coming back to the record puts the draft
+record, for seven days. Leaving the form asks first — leave and keep the draft, stay, or
+**Discard changes** (`Delete`) and leave; coming back to the record puts the draft
 back and says so, and a record saved by someone else in the meantime asks whether to keep the
 draft. **Discard changes** in the form's menu — `frm.discardChanges()` — throws the draft away
 and goes back to the document as it was loaded, without asking the server for it again.
@@ -106,7 +107,7 @@ every `refresh` — declare in `refresh` whatever must survive a save or a reloa
 
 - `ddcore.call("app.services.file.fn", args)` — a whitelisted function
 - `ddcore.db.getValue/getList/count/getDoc/setValue/insert` (asynchronous: `await` them)
-- `ddcore.ui.Dialog({ title, fields, values, primaryLabel, primaryAction(values, dlg), dangerLabel, dangerAction(values, dlg), onChange(field, values, dlg), size })` → `dlg.show()/hide()/setValue/getValue/setHtml(htmlField, html)/setDfProperty(field, property, value)`
+- `ddcore.ui.Dialog({ title, fields, values, primaryLabel, primaryAction(values, dlg), dangerLabel, dangerAction(values, dlg), dangerShortcut, onChange(field, values, dlg), size })` → `dlg.show()/hide()/setValue/getValue/setHtml(htmlField, html)/setDfProperty(field, property, value)`
 - `ddcore.ui.msgprint(msg, { title, indicator })`, `ddcore.ui.toast`, `ddcore.ui.confirm(msg, title?, { destructive? })` (with `destructive: true` the confirm button is red and "No" is the primary, so Enter keeps the data), `ddcore.ui.prompt(title, fields)`, `ddcore.ui.showError(e)`
 - `ddcore.format.currency/date/number/value/statusColor`, `ddcore.datetime.today/addMonths/addDays/monthStart/monthEnd`
 - `ddcore.search.global(txt, limit?)` — the documents the global search palette lists. See `search`
