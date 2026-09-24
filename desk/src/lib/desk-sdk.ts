@@ -149,13 +149,13 @@ export function installDeskSDK() {
   (window as any).__ = __;
 }
 
-const loadedIncludes = new Set<string>();
-/** Loads every app's desk include bundle once (client/*.ts declared in ddcore.app.ts). */
-export async function loadAppIncludes(apps: { name: string; hasDeskInclude: boolean }[], version: number) {
+const loadedIncludes = { desk: new Set<string>(), portal: new Set<string>() };
+/** Loads each named app's desk or portal include bundle once (client/*.ts declared in ddcore.app.ts). */
+export async function loadAppIncludes(apps: string[], version: number, kind: "desk" | "portal") {
   (window as any).__ddcoreLoaded = version;
-  for (const a of apps) {
-    if (!a.hasDeskInclude || loadedIncludes.has(a.name)) continue;
-    loadedIncludes.add(a.name);
-    try { await import(/* @vite-ignore */ `/assets/apps/${a.name}/desk.js?v=${version}`); } catch (e) { console.error("desk include", a.name, e); }
+  for (const name of apps) {
+    if (loadedIncludes[kind].has(name)) continue;
+    loadedIncludes[kind].add(name);
+    try { await import(/* @vite-ignore */ `/assets/apps/${name}/${kind}.js?v=${version}`); } catch (e) { console.error(`${kind} include`, name, e); }
   }
 }

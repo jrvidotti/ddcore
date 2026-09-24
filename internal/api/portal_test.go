@@ -36,7 +36,9 @@ func portalAPIApp(t *testing.T) string {
 		}
 	}
 	write("ddcore.app.ts", `import { defineApp } from "@ddcore/sdk";
-export default defineApp({ name: "demo", title: "Portal API Test", roles: ["Gestor", "Member", "Clerk"] });`)
+export default defineApp({ name: "demo", title: "Portal API Test", roles: ["Gestor", "Member", "Clerk"],
+  portal: { include: ["client/masks.ts"] } });`)
+	write("client/masks.ts", `console.log("portal-mask-marker");`)
 	write("doctypes/member/member.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
 export default defineDoctype({ name: "Member", titleField: "member_name",
   fields: [
@@ -182,6 +184,30 @@ func TestPortal_WebsiteUserIsConfined(t *testing.T) {
 	x.expect(x.call("GET", "/api/method/demo.services.portal.deskOnly", nil, desk), 200, "")
 	// Guest keeps its own rules
 	x.expect(x.call("GET", "/api/boot", nil, ""), 200, "")
+}
+
+// portal.include ships an app's client scripts to the portal as their own
+// bundle, and the boot names the apps that have one, the Website User's too.
+func TestPortal_ClientIncludes(t *testing.T) {
+	x := setupPortalAPI(t)
+	r := x.call("GET", "/assets/apps/demo/portal.js", nil, "")
+	if r.Status != 200 || !strings.Contains(r.Raw, "portal-mask-marker") {
+		t.Fatalf("portal.js = %d %q", r.Status, r.Raw)
+	}
+	// the desk bundle is separate: this app declares no desk include
+	if r := x.call("GET", "/assets/apps/demo/desk.js", nil, ""); r.Status != 200 || strings.TrimSpace(r.Raw) != "export {};" {
+		t.Fatalf("desk.js = %d %q", r.Status, r.Raw)
+	}
+	for _, user := range []string{portalAna, portalDesk} {
+		b := data(x.call("GET", "/api/boot", nil, "sid:"+x.sid(user)))
+		if inc, _ := b["portalIncludes"].([]any); len(inc) != 1 || inc[0] != "demo" {
+			t.Fatalf("%s: boot portalIncludes = %v", user, b["portalIncludes"])
+		}
+	}
+	// a Website User still sees none of the desk's apps
+	if apps, _ := data(x.call("GET", "/api/boot", nil, "sid:"+x.sid(portalAna)))["apps"].([]any); len(apps) != 0 {
+		t.Fatalf("a Website User's boot lists apps: %v", apps)
+	}
 }
 
 func TestPortal_LoginLandsInPortal(t *testing.T) {

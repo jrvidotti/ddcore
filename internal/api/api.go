@@ -588,7 +588,7 @@ func (s *Server) boot(w http.ResponseWriter, r *http.Request) {
 			return map[string]any{
 				"user": c.User, "roles": roles, "userDoc": userDoc, "lang": c.Lang, "langs": langs,
 				"apps": []any{}, "workspaces": []any{}, "doctypes": map[string]any{}, "reports": map[string]any{},
-				"website": true, "portals": portalsFor(c), "site": site, "loaded": s.E.Loaded.UnixMilli(),
+				"website": true, "portals": portalsFor(c), "portalIncludes": s.portalIncludeApps(), "site": site, "loaded": s.E.Loaded.UnixMilli(),
 			}, nil
 		}
 		var apps []map[string]any
@@ -621,7 +621,7 @@ func (s *Server) boot(w http.ResponseWriter, r *http.Request) {
 		}
 		return map[string]any{
 			"user": c.User, "roles": roles, "userDoc": userDoc, "lang": c.Lang, "langs": langs, "apps": apps,
-			"workspaces": workspaces, "doctypes": doctypes, "reports": reports, "portals": portalsFor(c),
+			"workspaces": workspaces, "doctypes": doctypes, "reports": reports, "portals": portalsFor(c), "portalIncludes": s.portalIncludeApps(),
 			"site": site, "loaded": s.E.Loaded.UnixMilli(),
 		}, nil
 	})
@@ -1559,14 +1559,26 @@ func (s *Server) privateFile(w http.ResponseWriter, r *http.Request) {
 
 // ------------------------------------------------------------------ app assets & desk
 
-func deskIncludes(a *engine.AppMeta) []string {
+func deskIncludes(a *engine.AppMeta) []string   { return includes(a.Desk) }
+func portalIncludes(a *engine.AppMeta) []string { return includes(a.Portal) }
+
+// includes reads the `include` list of a defineApp block (desk, portal).
+func includes(block map[string]any) []string {
 	var out []string
-	if a.Desk == nil {
-		return nil
-	}
-	if inc, ok := a.Desk["include"].([]any); ok {
+	if inc, ok := block["include"].([]any); ok {
 		for _, i := range inc {
 			out = append(out, fmt.Sprint(i))
+		}
+	}
+	return out
+}
+
+// portalIncludeApps names, in load order, the apps that ship client code to the portal.
+func (s *Server) portalIncludeApps() []string {
+	out := []string{}
+	for _, name := range s.E.AppOrder() {
+		if a := s.E.Snap.Apps[name]; a != nil && len(portalIncludes(a)) > 0 {
+			out = append(out, name)
 		}
 	}
 	return out
@@ -1575,7 +1587,8 @@ func deskIncludes(a *engine.AppMeta) []string {
 // appAsset serves compiled client code:
 //
 //	/assets/apps/<app>/forms/<doctype_snake>.js  – form script
-//	/assets/apps/<app>/desk.js                    – app-wide includes
+//	/assets/apps/<app>/desk.js                    – app-wide desk includes
+//	/assets/apps/<app>/portal.js                  – app-wide portal includes
 //	/assets/apps/<app>/static/*                   – files under <app>/public
 func (s *Server) appAsset(w http.ResponseWriter, r *http.Request) {
 	appName := urlParam(r, "app")
@@ -1601,7 +1614,9 @@ func (s *Server) appAsset(w http.ResponseWriter, r *http.Request) {
 	var err error
 	switch {
 	case rest == "desk.js":
-		code, err = s.buildDeskInclude(app)
+		code, err = buildInclude(app, deskIncludes(s.E.Snap.Apps[app.Name]), "desk")
+	case rest == "portal.js":
+		code, err = buildInclude(app, portalIncludes(s.E.Snap.Apps[app.Name]), "portal")
 	case strings.HasPrefix(rest, "forms/") && strings.HasSuffix(rest, ".js"):
 		snake := strings.TrimSuffix(strings.TrimPrefix(rest, "forms/"), ".js")
 		var entry string
@@ -1629,29 +1644,23 @@ func (s *Server) appAsset(w http.ResponseWriter, r *http.Request) {
 	serveJS(w, code)
 }
 
-func (s *Server) buildDeskInclude(app js.App) (string, error) {
-	inc := deskIncludes(s.E.Snap.Apps[app.Name])
+// buildInclude bundles an app's include list (desk or portal) through a
+// generated .ddcore/<kind>.entry.ts that imports every file.
+func buildInclude(app js.App, inc []string, kind string) (string, error) {
 	if len(inc) == 0 {
 		return "export {};", nil
 	}
-	// generate an entry importing every include
+	// includes are relative to the app dir and the entry lives in .ddcore/, hence ../
 	var b strings.Builder
 	for _, f := range inc {
-		fmt.Fprintf(&b, "import %q;\n", "./"+strings.TrimPrefix(f, "./"))
+		fmt.Fprintf(&b, "import %q;\n", "../"+strings.TrimPrefix(f, "./"))
 	}
 	tmp := filepath.Join(app.Dir, ".ddcore")
 	os.MkdirAll(tmp, 0o755)
-	entry := filepath.Join(tmp, "desk.entry.ts")
-	// includes are relative to app dir, so write the entry as ../
-	var b2 strings.Builder
-	for _, f := range inc {
-		fmt.Fprintf(&b2, "import %q;\n", "../"+strings.TrimPrefix(f, "./"))
-	}
-	_ = b
-	if err := os.WriteFile(entry, []byte(b2.String()), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmp, kind+".entry.ts"), []byte(b.String()), 0o644); err != nil {
 		return "", err
 	}
-	return js.BuildClient(app, ".ddcore/desk.entry.ts")
+	return js.BuildClient(app, ".ddcore/"+kind+".entry.ts")
 }
 
 func serveJS(w http.ResponseWriter, code string) {

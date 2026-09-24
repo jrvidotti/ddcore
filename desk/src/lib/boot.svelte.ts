@@ -21,6 +21,8 @@ export interface Boot {
   /** The languages the site serves, each labelled with its own autonym. */
   langs: { code: string; label: string }[];
   apps: { name: string; title: string; desk: { include?: string[]; home?: string; logo?: string } | null; hasDeskInclude: boolean }[];
+  /** apps that ship client code to the portal (`portal.include`), in load order */
+  portalIncludes?: string[];
   workspaces: any[];
   doctypes: Record<string, { label: string; app: string; icon: string; module: string; titleField?: string; linkSubtitle?: string[] }>;
   reports: Record<string, { label: string; refDoctype?: string; app: string }>;

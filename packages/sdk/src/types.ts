@@ -625,6 +625,14 @@ export interface AppDef {
      */
     logo?: string;
   };
+  portal?: {
+    /**
+     * Client scripts (relative to app dir) loaded on every portal page, for a
+     * Website User and for a desk user inside "My portal". Form scripts
+     * (`*.form.ts`) do not run in the portal; these do.
+     */
+    include?: string[];
+  };
   /** extra roles created on install */
   roles?: string[];
   fixtures?: Record<string, Record<string, any>[]>;
