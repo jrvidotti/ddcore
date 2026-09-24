@@ -115,7 +115,7 @@ export function confirm(message: string, title?: string, opts: ConfirmOptions = 
       ? dialog({
         ...base, hideSecondary: true,
         primaryLabel: __("No"), primaryAction: () => { resolve(false); h.hide(); },
-        dangerLabel: __("Yes"), dangerAction: () => { resolve(true); h.hide(); },
+        dangerLabel: __("Yes"), dangerShortcut: true, dangerAction: () => { resolve(true); h.hide(); },
       })
       : dialog({
         ...base, primaryLabel: __("Yes"), secondaryLabel: __("No"),
