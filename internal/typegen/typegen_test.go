@@ -102,3 +102,16 @@ func TestNumericFieldtypesGenerateNumbers(t *testing.T) {
 		}
 	}
 }
+
+func TestTableMultiSelectGeneratesChildRows(t *testing.T) {
+	reg := meta.NewRegistry()
+	reg.Add(&meta.DocType{Name: "Note Tag", Module: "Core", IsChild: true, Fields: []*meta.Field{
+		{Fieldname: "tag", Fieldtype: "Link", Options: "Note"},
+	}})
+	reg.Add(&meta.DocType{Name: "Note", Module: "Core", Fields: []*meta.Field{
+		{Fieldname: "tags", Fieldtype: "Table MultiSelect", Options: "Note Tag"},
+	}})
+	if out := Generate(reg); !strings.Contains(out, "tags: NoteTag[]") {
+		t.Errorf("generated types missing the rows:\n%s", out)
+	}
+}

@@ -125,7 +125,7 @@ func (c *Ctx) claimAttachments(d *meta.DocType, doc Doc) error {
 			if u := doc.Str(f.Fieldname); u != "" {
 				claims = append(claims, claim{u, f.Fieldname})
 			}
-		case "Table":
+		case "Table", "Table MultiSelect":
 			child, err := c.St.DocType(f.OptionsString())
 			if err != nil {
 				continue

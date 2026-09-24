@@ -218,7 +218,7 @@ func (c *Ctx) sanitizeDocForPrint(d *meta.DocType, doc Doc, access FieldAccess) 
 			if f.Fieldtype == "Password" || f.Fieldtype == "Vault" || !access.CanRead(f) {
 				continue
 			}
-			if f.Fieldtype == "Table" {
+			if meta.IsTableType(f.Fieldtype) {
 				cd, _ := c.St.DocType(f.OptionsString())
 				if cd != nil {
 					rows := doc.Children(k)

@@ -80,7 +80,7 @@ var portalNameRe = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 
 // portalFieldTypesRefused are the fieldtypes a page may not show: a Table has
 // no portal editor yet, and a secret never leaves the server.
-var portalFieldTypesRefused = map[string]bool{"Table": true, "Password": true, "Vault": true}
+var portalFieldTypesRefused = map[string]bool{"Table": true, "Table MultiSelect": true, "Password": true, "Vault": true}
 
 // Page returns the page called name, or nil.
 func (p *Portal) Page(name string) *PortalPage {

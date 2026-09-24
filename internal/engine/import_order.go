@@ -142,7 +142,7 @@ func linkFields(d *meta.DocType, lookup DoctypeLookup) []*meta.Field {
 		switch f.Fieldtype {
 		case "Link", "Dynamic Link":
 			out = append(out, f)
-		case "Table":
+		case "Table", "Table MultiSelect":
 			child, err := lookup(f.OptionsString())
 			if err != nil || child == nil {
 				continue

@@ -19,6 +19,8 @@ Every DocType has a `standard` format, with no code.
 - A Table field prints as a heading and a table. Its columns are the child
   DocType's visible fields: the first six, plus any later field marked
   `inListView`. Hidden, Password and Vault fields are left out here too.
+- A Table MultiSelect prints as one line of the grid: its values, joined with
+  `, `.
 - Currency prints in the site currency, with the grouping and decimal mark of the
   print language: with a USD site, `$ 50,000.50` in `en` and `US$ 50.000,50` in
   `pt-BR`. Date prints `dd/mm/yyyy` for a `pt*` language and ISO otherwise;

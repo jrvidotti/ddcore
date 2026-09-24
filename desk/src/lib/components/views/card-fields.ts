@@ -1,5 +1,5 @@
 import type { CardViewOptions } from "../../desk-sdk";
-import { isLayout, type DocTypeMeta, type Field } from "../../meta";
+import { isLayout, isTableType, type DocTypeMeta, type Field } from "../../meta";
 
 export interface CardFields {
   title: string;
@@ -20,7 +20,7 @@ export function resolveCardFields(doctype: DocTypeMeta, card: CardViewOptions = 
   // A field above the reader's permlevel is not in the meta, so it resolves to the avatar.
   const imageName = card.image || doctype.imageField;
   const image = imageName && doctype.fields.some((f) => f.fieldname === imageName) ? imageName : undefined;
-  const keyFields = doctype.fields.filter((f) => f.inListView && f.fieldname && !isLayout(f) && f.fieldtype !== "Table" && ![title, card.subtitle, dateField, imageName, "status"].includes(f.fieldname)).slice(0, 3);
+  const keyFields = doctype.fields.filter((f) => f.inListView && f.fieldname && !isLayout(f) && !isTableType(f.fieldtype) && ![title, card.subtitle, dateField, imageName, "status"].includes(f.fieldname)).slice(0, 3);
   return {
     title, subtitle: card.subtitle, dateField, image, hasImage: !!imageName, keyFields,
     fetchFields: [title, card.subtitle, dateField, image, ...keyFields.map((f) => f.fieldname)].filter((field): field is string => !!field),

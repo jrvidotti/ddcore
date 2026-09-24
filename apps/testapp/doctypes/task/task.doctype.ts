@@ -28,6 +28,7 @@ export default defineDoctype({
     { fieldname: "due_date", fieldtype: "Date", label: "Due date", reqd: true, inListView: true },
     { fieldname: "completed_at", fieldtype: "Datetime", label: "Completed at", readOnly: true },
     { fieldname: "task_category", fieldtype: "Link", label: "Category", options: "Task Category", inListView: true, inStandardFilter: true },
+    { fieldname: "tags", fieldtype: "Table MultiSelect", label: "Tags", options: "Task Tag" },
     { fieldname: "estimated_duration", fieldtype: "Duration", label: "Estimated duration", description: "Estimated time in seconds" },
     { fieldname: "complexity", fieldtype: "Rating", label: "Complexity", options: 5, description: "Task complexity rating (1 to 5 stars)" },
     { fieldname: "color", fieldtype: "Color", label: "Color", inListView: true, description: "Color tag for this task" },

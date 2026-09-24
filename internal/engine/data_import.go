@@ -337,7 +337,7 @@ func idSettable(d *meta.DocType) bool {
 // it can.
 func (c *Ctx) importableReason(d *meta.DocType, f *meta.Field, access FieldAccess) string {
 	switch {
-	case f.Fieldtype == "Table":
+	case meta.IsTableType(f.Fieldtype):
 		return c.T("Child tables are not imported from a spreadsheet")
 	case f.Fieldtype == "Password" || f.Fieldtype == "Vault":
 		return c.T("Secret fields are not imported")

@@ -1,7 +1,7 @@
 <script lang="ts">
   // List view generated from meta: standard filters, search, sort, paging, bulk delete.
   import { api } from "$lib/api";
-  import { getMeta, selectLabels, selectOptions, type Meta, type Field, isLayout } from "$lib/meta";
+  import { getMeta, selectLabels, selectOptions, type Meta, type Field, isLayout, isTableType } from "$lib/meta";
   import { formatValue } from "$lib/format";
   import { __, boot, doctypeLabel } from "$lib/boot.svelte";
   import { showError, toast, confirm, dialog } from "$lib/ui.svelte";
@@ -93,7 +93,7 @@
     // an explicit `columns` from defineListView wins over the meta's inListView
     const cols = settings.columns?.length
       ? (settings.columns.map((n) => meta!.doctype.fields.find((f) => f.fieldname === n)).filter(Boolean) as Field[])
-      : meta.doctype.fields.filter((f) => f.inListView && !isLayout(f) && f.fieldtype !== "Table");
+      : meta.doctype.fields.filter((f) => f.inListView && !isLayout(f) && !isTableType(f.fieldtype));
     if (!settings.columns?.length && meta.doctype.titleField && !cols.some((c) => c.fieldname === meta!.doctype.titleField)) {
       const tf = meta.doctype.fields.find((f) => f.fieldname === meta!.doctype.titleField);
       if (tf) cols.unshift(tf);

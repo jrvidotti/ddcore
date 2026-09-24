@@ -41,7 +41,7 @@ func ColumnType(ft string) string {
 	return ""
 }
 
-var ValidFieldTypes = []string{"Data", "Email", "Small Text", "Text", "Text Editor", "Markdown Editor", "Code", "Int", "Float", "Currency", "Percent", "Check", "Rating", "Duration", "Color", "Date", "Month", "Datetime", "Time", "Select", "Link", "Dynamic Link", "Table", "Attach", "Attach Image", "JSON", "Password", "Vault", "Section Break", "Tab Break", "HTML"}
+var ValidFieldTypes = []string{"Data", "Email", "Small Text", "Text", "Text Editor", "Markdown Editor", "Code", "Int", "Float", "Currency", "Percent", "Check", "Rating", "Duration", "Color", "Date", "Month", "Datetime", "Time", "Select", "Link", "Dynamic Link", "Table", "Table MultiSelect", "Attach", "Attach Image", "JSON", "Password", "Vault", "Section Break", "Tab Break", "HTML"}
 
 type Field struct {
 	Fieldname          string `json:"fieldname,omitempty"`
@@ -412,10 +412,31 @@ func (d *DocType) DataFields() []*Field {
 	return out
 }
 
+// IsTableType says whether a fieldtype stores its value as child rows: a
+// Table, or a Table MultiSelect, which is the same rows edited as a list of
+// links.
+func IsTableType(ft string) bool { return ft == "Table" || ft == "Table MultiSelect" }
+
+// MultiSelectLinkField is the one Link field of a Table MultiSelect's child
+// DocType, the field that holds each chosen value. Nil when the DocType has
+// none or more than one, which Validate refuses.
+func (d *DocType) MultiSelectLinkField() *Field {
+	var link *Field
+	for _, f := range d.Fields {
+		if f.Fieldtype == "Link" {
+			if link != nil {
+				return nil
+			}
+			link = f
+		}
+	}
+	return link
+}
+
 func (d *DocType) TableFields() []*Field {
 	var out []*Field
 	for _, f := range d.Fields {
-		if f.Fieldtype == "Table" {
+		if IsTableType(f.Fieldtype) {
 			out = append(out, f)
 		}
 	}
@@ -566,14 +587,25 @@ func (r *Registry) Validate() error {
 				e("field %q: invalid width %q (must be sm, md, lg, or full)", f.Fieldname, f.Width)
 			}
 			switch f.Fieldtype {
-			case "Link", "Table":
+			case "Link", "Table", "Table MultiSelect":
 				target := f.OptionsString()
 				if target == "" {
 					e("field %q (%s) needs options naming the target DocType", f.Fieldname, f.Fieldtype)
 				} else if t, ok := r.DocTypes[target]; !ok {
 					e("field %q points at DocType %q, which does not exist", f.Fieldname, target)
-				} else if f.Fieldtype == "Table" && !t.IsChild {
+				} else if IsTableType(f.Fieldtype) && !t.IsChild {
 					e("field %q: %q is not isChild", f.Fieldname, target)
+				} else if f.Fieldtype == "Table MultiSelect" {
+					// The control edits one value per row, so the row has to be
+					// that value and nothing a person would otherwise fill in.
+					if t.MultiSelectLinkField() == nil {
+						e("field %q (Table MultiSelect): %q needs exactly one Link field", f.Fieldname, target)
+					}
+					for _, cf := range t.Fields {
+						if cf.Fieldtype != "Link" && cf.Reqd && cf.Default == nil && !LayoutTypes[cf.Fieldtype] {
+							e("field %q (Table MultiSelect): %q.%s is required and has no default, which the control cannot fill", f.Fieldname, target, cf.Fieldname)
+						}
+					}
 				}
 			case "Vault":
 				// `{name}` stood for the document key before 0.17. Now it would

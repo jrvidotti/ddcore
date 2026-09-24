@@ -14,6 +14,15 @@ not every commit that went into it.
 
 ### Added
 
+- **Table MultiSelect field.** A field that holds several links to one DocType, such as tags,
+  categories or regions. It is stored as child rows of a child DocType that has exactly one Link
+  field, like Frappe's field of the same name, and the desk edits it as pills with a search to add
+  more. The value is rows in every response, but a write may send plain ids (`["A", "B"]`); a
+  value already held keeps its row. Empty and repeated values are refused, and each value is
+  checked like any Link, User Permission scopes included. Print shows the values on one line and
+  the history shows them as values. Switching a field between `Table` and `Table MultiSelect`
+  needs no migration. See `docs/agent/fieldtypes.md`.
+
 - **Role names show translated.** Role is `translateId`, a new DocType flag: the desk shows the
   id through the catalogue wherever it shows a title — a Link, a grid cell such as the User's
   roles, the list, the form header — and a Link search also matches the translated text. The

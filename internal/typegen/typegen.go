@@ -34,7 +34,7 @@ func tsType(f *meta.Field) string {
 			q = append(q, fmt.Sprintf("%q", o))
 		}
 		return strings.Join(q, " | ") + " | null"
-	case "Table":
+	case "Table", "Table MultiSelect":
 		return ifaceName(f.OptionsString()) + "[]"
 	case "JSON":
 		return "any"

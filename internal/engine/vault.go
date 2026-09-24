@@ -294,7 +294,7 @@ func (c *Ctx) processVaultFields(d *meta.DocType, doc Doc) error {
 			if err := c.processSingleVaultField(d, f, doc); err != nil {
 				return err
 			}
-		} else if f.Fieldtype == "Table" && f.OptionsString() != "" {
+		} else if meta.IsTableType(f.Fieldtype) && f.OptionsString() != "" {
 			child, err := c.St.DocType(f.OptionsString())
 			if err != nil || child == nil {
 				continue

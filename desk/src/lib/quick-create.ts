@@ -2,7 +2,7 @@
 // which inserts the document and hands its id back to the field.
 import { api } from "./api";
 import { __, boot } from "./boot.svelte";
-import { getMeta, isLayout, type DocTypeMeta, type Field } from "./meta";
+import { getMeta, isLayout, isTableType, type DocTypeMeta, type Field } from "./meta";
 import { dialog, escapeHtml } from "./ui.svelte";
 import { getRememberedWorkspace } from "./components/sidebar-workspace";
 
@@ -15,7 +15,7 @@ export function quickEntryFields(d: DocTypeMeta): Field[] | null {
   const out: Field[] = [];
   for (const f of d.fields) {
     if (!f.fieldname || isLayout(f)) continue;
-    if (f.fieldtype === "Table") {
+    if (isTableType(f.fieldtype)) {
       if (f.reqd) return null;
       continue;
     }

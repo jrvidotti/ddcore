@@ -4,6 +4,7 @@ import type { FormController } from "../form.svelte";
 import type { DocTypeMeta, Field } from "../meta";
 import { formatDate, formatDatetime, formatCurrency, formatNumber, formatValue, timeAgo } from "../format.ts";
 import { htmlToText } from "../richtext.ts";
+import { multiSelectLinkField, multiSelectValues } from "../controls/multiselect-state.ts";
 
 export const IGNORED_CHILD_FIELDS = new Set([
   "idx",
@@ -176,6 +177,14 @@ export function formatDiffValue(val: any, field?: Partial<Field>, fieldname?: st
   return { value: val, formatted: String(val), isAttach: false };
 }
 
+/** A Table MultiSelect's rows as the list of values they hold, by title. */
+export function formatMultiSelect(rows: any, childMeta?: DocTypeMeta): string {
+  const link = multiSelectLinkField(childMeta);
+  if (!link) return Array.isArray(rows) && rows.length ? `${rows.length}` : "—";
+  const values = multiSelectValues(rows, link.fieldname!);
+  return values.length ? values.map((v) => formatValue(v, link)).join(", ") : "—";
+}
+
 function summarizeRow(row: any, childMeta?: DocTypeMeta): TableRowSummary {
   const fields: Record<string, { label: string; formatted: string; isAttach: boolean; url?: string }> = {};
   for (const [k, v] of Object.entries(row)) {
@@ -287,6 +296,21 @@ export function parseVersion(v: any, frm?: FormController): ParsedVersion {
     const [oldVal, newVal] = pair;
 
     const fieldDef = frm?.field(field);
+    if (fieldDef?.fieldtype === "Table MultiSelect") {
+      const childMeta = frm?.meta?.children?.[fieldDef.options];
+      changes.push({
+        field,
+        label: fieldDef.label || humanize(field),
+        fieldtype: "Table MultiSelect",
+        isTable: false,
+        oldValue: oldVal,
+        newValue: newVal,
+        formattedOld: formatMultiSelect(oldVal, childMeta),
+        formattedNew: formatMultiSelect(newVal, childMeta),
+        isAttach: false,
+      });
+      continue;
+    }
     const isTable = fieldDef?.fieldtype === "Table" || (Array.isArray(oldVal) && Array.isArray(newVal));
 
     if (isTable) {

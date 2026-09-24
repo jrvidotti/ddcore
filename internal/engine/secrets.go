@@ -150,7 +150,7 @@ func (c *Ctx) RedactDoc(doctype string, doc Doc) Doc {
 	c.redactVault(d, doc)
 	c.clampRatings(d, doc)
 	for _, f := range d.Fields {
-		if f.Fieldtype != "Table" || f.OptionsString() == "" {
+		if !meta.IsTableType(f.Fieldtype) || f.OptionsString() == "" {
 			continue
 		}
 		cd, err := c.St.DocType(f.OptionsString())

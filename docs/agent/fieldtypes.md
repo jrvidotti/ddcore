@@ -24,6 +24,7 @@
 | Link | text | `options: "DocType"`; existence validated; index created automatically |
 | Dynamic Link | text | `options: "<the field holding the DocType>"`; the DocType and the document are validated on save. When that field is a `Data`, the desk shows it as a list of the DocTypes the user can see, and changing it clears the link |
 | Table | (child table) | `options: "Child DocType"` with `isChild: true`; `gridEditMode: "dialog"` turns off inline editing |
+| Table MultiSelect | (child table) | several links to one DocType, edited as pills: `options` is a child DocType with exactly one Link field. See below |
 | Attach | text | the file's URL (`/files/..` or `/private/files/..`); the desk shows an icon that opens the file and shows its original name, size and type on hover — `showFileName: true` also shows the name beside it |
 | Attach Image | text | an Attach restricted to png, jpg, gif or webp, refused at upload as well as on save; SVG is not one of them, because it carries script; the thumbnail stands in for the icon, and `showFileName` works the same |
 | JSON | jsonb | |
@@ -70,6 +71,46 @@ migration.
 rule. The desk sanitizes again before rendering, so a row written that way is
 still safe to display, and a custom print template's `b.richText` block is
 re-cleaned when it renders.
+
+## Table MultiSelect
+
+A document that points at *several* documents of one DocType — tags, categories,
+the regions a price applies to — holds them as child rows, one value per row, and
+the desk edits them as pills with a search to add more. It is Frappe's field of
+the same name, stored the same way, so its data comes across from Frappe
+unchanged.
+
+```ts
+// the child: exactly one Link, which is the value
+defineDoctype({ name: "Task Tag", module: "Projects", isChild: true, fields: [
+  { fieldname: "category", fieldtype: "Link", label: "Category", options: "Task Category", reqd: true },
+]});
+
+// on the parent
+{ fieldname: "tags", fieldtype: "Table MultiSelect", label: "Tags", options: "Task Tag" }
+```
+
+- **The child's shape is checked at load.** It must be `isChild` and have exactly
+  one Link field. Any other field it declares must be optional or have a
+  `default`, because the control has no way to fill it.
+- **The value is rows**, exactly as a Table's: `[{ id, category, idx, … }]` in
+  every response, in the generated types, in export and in print templates.
+- **A write may send the ids instead:** `"tags": ["Shipping", "Support"]` over
+  REST, MCP or `ddcore.db`. A value the document already held keeps its row and
+  its id, so sending the same list again changes nothing and records no Version.
+- **Every value is a Link.** It must exist, and a user with User Permission
+  scopes on the target can only choose values inside them. **An empty value is
+  refused, and so is the same value chosen twice.**
+- **`reqd`** means at least one value.
+- **Filtering** works the way it does on any child table, by naming the child's
+  field: `filters: [["Task Tag.category", "=", "Support"]]`.
+- **Changing a field between `Table` and `Table MultiSelect`** needs no
+  migration, because the rows are the same rows. The child only has to meet the
+  shape above.
+
+Not supported: a Table MultiSelect is not a list column or a Kanban/Calendar
+field. It cannot be loaded from a spreadsheet by Data Import, although
+`ddcore import` does load it. It cannot appear on a portal page.
 
 ## Secrets: `ddcore.secret`, `ddcore.vault`, and `Vault` fieldtype
 
@@ -139,13 +180,13 @@ permlevel, renamedFrom, convert`
 - `permlevel`: 0–9, default 0. A field above 0 is read and written only by roles granted that level by a permission row with the same `permlevel`; the server omits it from every response and refuses a change from anyone else. `hidden` and `readOnly` are screen hints and protect nothing. See `field-permissions`.
 
 - `label` and `description` are **catalogue keys**: write them in English. See `i18n`.
-- `width`: `"sm"` | `"md"` | `"lg"` | `"full"`. How much of a form line the control takes: `sm`/`md` a quarter, `lg` a half, `full` the whole line — a form has no columns, its shape comes from the widths. Defaults to `sm` for `Date`, `Month`, `Time`, `Int`, `Percent`, `Rating`, `Color`; `md` for `Datetime`, `Float`, `Currency`, `Duration`; `full` for `Text`, `Small Text`, `Text Editor`, `Markdown Editor`, `Code`, `JSON`, `Table`, `HTML`; `lg` for every other type. Fields pack a line greedily, aligned so a half-line field never starts in the middle of a quarter. See `form-api`.
+- `width`: `"sm"` | `"md"` | `"lg"` | `"full"`. How much of a form line the control takes: `sm`/`md` a quarter, `lg` a half, `full` the whole line — a form has no columns, its shape comes from the widths. Defaults to `sm` for `Date`, `Month`, `Time`, `Int`, `Percent`, `Rating`, `Color`; `md` for `Datetime`, `Float`, `Currency`, `Duration`; `full` for `Text`, `Small Text`, `Text Editor`, `Markdown Editor`, `Code`, `JSON`, `Table`, `HTML`; `lg` for every other type, `Table MultiSelect` included. Fields pack a line greedily, aligned so a half-line field never starts in the middle of a quarter. See `form-api`.
 - `default`: a literal value, or `"Today"` for Date/Datetime, `"__user"` for the current user.
 - `fetchFrom: "project.assignee"`: copied from the linked document on save. When `readOnly` it always overwrites; otherwise it fills only when empty.
 - `dependsOn`, `readOnlyDependsOn`, `mandatoryDependsOn`: a JS expression over `doc` (`"doc.type == 'PJ'"`) or a field name (truthy). Evaluated in the desk **and** on the server.
 - `optionColors` (Select): `{ Open: "blue", Overdue: "red" }`, keyed by the canonical value — never by its label.
 - `renamedFrom: "old_name"` (or a list, oldest first): the fieldname this field used to have, so `migrate` renames the column instead of adding an empty one beside it. See `migrations`.
-- `options` beyond Link, Table and Select: `Rating` takes the number of stars,
+- `options` beyond Link, Table, Table MultiSelect and Select: `Rating` takes the number of stars,
   `Code` the language, and `Duration` its display flags. None of them are
   catalogue keys — they are never translated, unlike a Select's options.
 - Changing a field from `Text`, `Small Text` or `Data` to `Text Editor`,
