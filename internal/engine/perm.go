@@ -569,7 +569,7 @@ func (c *Ctx) childPermission(d *meta.DocType, ptype string, doc Doc) (bool, err
 		return false, nil
 	}
 	f := parent.Field(pf)
-	if f == nil || f.Fieldtype != "Table" || !strings.EqualFold(f.OptionsString(), d.Name) {
+	if f == nil || !meta.IsTableType(f.Fieldtype) || !strings.EqualFold(f.OptionsString(), d.Name) {
 		return false, nil
 	}
 	rows, err := db.Select(c.Ctx, c.Q(), fmt.Sprintf(`SELECT * FROM %s WHERE id = $1`, db.Ident(parent.TableName())), pn)

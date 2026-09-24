@@ -66,7 +66,7 @@ export default definePortal({
 | `pages[].name` | Lowercase letters, digits and dashes; the page's URL segment. |
 | `pages[].kind` | `list` (default) lists the user's rows; `record` opens their single row directly. |
 | `pages[].match` | **Required.** Page field to identity field. Every pair must hold against one identity row. `id` is allowed on either side. |
-| `pages[].fields` | The fields shown. Level 0 only; never a Table, Password or Vault field. Fields the page does not name are never sent. |
+| `pages[].fields` | The fields shown. Level 0 only; never a Table, Table MultiSelect, Password or Vault field. Fields the page does not name are never sent. |
 | `pages[].listFields` | The list's columns. Defaults to the first four `fields`. |
 | `pages[].editable` | The fields the user may type into: a subset of `fields`, never a match field, never read-only. |
 | `pages[].create`, `pages[].write` | Whether the page creates documents, and whether it saves existing ones. Read is always granted. |

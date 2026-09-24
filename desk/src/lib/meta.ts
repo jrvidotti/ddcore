@@ -96,6 +96,9 @@ export function getMeta(doctype: string): Promise<Meta> {
 
 export function clearMetaCache() { cache.clear(); }
 
+/** A fieldtype stored as child rows: a Table, or a Table MultiSelect edited as a list of links. */
+export const isTableType = (fieldtype: string | undefined) => fieldtype === "Table" || fieldtype === "Table MultiSelect";
+
 export const isLayout = (f: Field) => ["Section Break", "Tab Break", "HTML"].includes(f.fieldtype);
 export const selectOptions = (f: Field): string[] => (Array.isArray(f.options) ? f.options.map(String) : typeof f.options === "string" ? f.options.split("\n") : []);
 
@@ -117,7 +120,7 @@ export function newDoc(meta: Meta): any {
   const d: any = { doctype: meta.doctype.name, docstatus: 0, __islocal: true };
   for (const f of meta.doctype.fields) {
     if (!f.fieldname || isLayout(f)) continue;
-    if (f.fieldtype === "Table") d[f.fieldname] = [];
+    if (isTableType(f.fieldtype)) d[f.fieldname] = [];
     else if (f.default !== undefined && f.default !== null) d[f.fieldname] = f.default === "Today" ? (f.fieldtype === "Month" ? thisMonth() : today()) : f.default === "This Month" ? thisMonth() : f.default;
     else if (f.fieldtype === "Check") d[f.fieldname] = false;
     else d[f.fieldname] = null;
@@ -148,6 +151,7 @@ export const DEFAULT_FIELD_WIDTH: Record<string, FieldWidth> = {
   Code: "full",
   JSON: "full",
   Table: "full",
+  "Table MultiSelect": "lg",
   HTML: "full",
 };
 

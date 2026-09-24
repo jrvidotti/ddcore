@@ -4,7 +4,7 @@ export type FieldType =
   | "Data" | "Email" | "Small Text" | "Text" | "Text Editor" | "Markdown Editor" | "Code"
   | "Int" | "Float" | "Currency" | "Percent" | "Rating" | "Duration" | "Color"
   | "Check" | "Date" | "Month" | "Datetime" | "Time" | "Select" | "Link" | "Dynamic Link" | "Table"
-  | "Attach" | "Attach Image" | "JSON" | "Password" | "Vault" | "Section Break" | "Tab Break" | "HTML";
+  | "Table MultiSelect" | "Attach" | "Attach Image" | "JSON" | "Password" | "Vault" | "Section Break" | "Tab Break" | "HTML";
 
 export type FieldWidth = "sm" | "md" | "lg" | "full";
 
@@ -14,6 +14,8 @@ export interface FieldDef {
   label?: string;
   /**
    * Link/Table/Dynamic Link: DocType or fieldname; Select: list of options.
+   * Table MultiSelect: a child DocType with exactly one Link field, which
+   * holds each chosen value.
    *
    * A Select's options are its canonical values — English, and what the
    * database holds. Their display text comes from the catalogue, so a

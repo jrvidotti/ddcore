@@ -153,7 +153,7 @@ func (c *Ctx) redactFields(d *meta.DocType, a FieldAccess, doc Doc) {
 			delete(doc, f.Fieldname)
 			continue
 		}
-		if f.Fieldtype != "Table" {
+		if !meta.IsTableType(f.Fieldtype) {
 			continue
 		}
 		cd, err := c.St.DocType(f.OptionsString())
@@ -206,7 +206,7 @@ func (c *Ctx) applyFieldWrites(d *meta.DocType, base, doc Doc) error {
 		if f.Fieldname == "" || meta.LayoutTypes[f.Fieldtype] {
 			continue
 		}
-		if f.Fieldtype == "Table" {
+		if meta.IsTableType(f.Fieldtype) {
 			if err := c.applyTableWrites(f, a, base, doc); err != nil {
 				return err
 			}
@@ -257,7 +257,7 @@ func (c *Ctx) applyTableWrites(tf *meta.Field, a FieldAccess, base, doc Doc) err
 			prev = defaults
 		}
 		for _, cf := range cd.Fields {
-			if cf.Fieldname == "" || meta.LayoutTypes[cf.Fieldtype] || cf.Fieldtype == "Table" {
+			if cf.Fieldname == "" || meta.LayoutTypes[cf.Fieldtype] || meta.IsTableType(cf.Fieldtype) {
 				continue
 			}
 			if !a.CanRead(cf) && row[cf.Fieldname] == nil {
@@ -304,7 +304,7 @@ func (c *Ctx) fieldDefaults(d *meta.DocType) Doc {
 			continue
 		}
 		switch {
-		case f.Fieldtype == "Table":
+		case meta.IsTableType(f.Fieldtype):
 			doc[f.Fieldname] = []any{}
 		case f.Default != nil:
 			doc[f.Fieldname] = c.defaultValue(f)
@@ -386,7 +386,7 @@ func (c *Ctx) RedactVersionData(refDoctype string, data any) any {
 			delete(changed, key)
 			continue
 		}
-		if f == nil || f.Fieldtype != "Table" {
+		if f == nil || !meta.IsTableType(f.Fieldtype) {
 			continue
 		}
 		cd, err := c.St.DocType(f.OptionsString())

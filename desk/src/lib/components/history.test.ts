@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { diffTable } from "./history";
+import { diffTable, formatMultiSelect } from "./history";
 
 const childMeta = {
   name: "Item",
@@ -31,5 +31,14 @@ describe("diffTable row identity", () => {
     expect(d.added).toEqual([]);
     expect(d.modified.map((m) => m.rowName)).toEqual(["r2"]);
     expect(d.modified[0].changes.map((c) => c.field)).toEqual(["qty"]);
+  });
+});
+
+describe("Table MultiSelect in history", () => {
+  const tagMeta = { name: "Note Tag", app: "x", label: "Note Tag", fields: [{ fieldname: "tag", label: "Tag", fieldtype: "Link", options: "Tag" }] } as any;
+
+  it("shows the values, not a table of rows", () => {
+    expect(formatMultiSelect([{ id: "a", tag: "red" }, { id: "b", tag: "blue" }], tagMeta)).toBe("red, blue");
+    expect(formatMultiSelect([], tagMeta)).toBe("—");
   });
 });

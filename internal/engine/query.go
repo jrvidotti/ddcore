@@ -834,7 +834,7 @@ func (c *Ctx) ResolveLinkTitles(doctype string, docs ...Doc) map[string]map[stri
 						collect(target, doc[f.Fieldname])
 					}
 				}
-			case "Table":
+			case "Table", "Table MultiSelect":
 				if opt := f.OptionsString(); opt != "" {
 					if rows, ok := doc[f.Fieldname].([]any); ok {
 						childDt, _ := c.St.DocType(opt)

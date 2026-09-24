@@ -117,8 +117,20 @@ func StandardTemplate(d *meta.DocType, doc map[string]any, opts StandardFormatOp
 			continue
 		}
 
+		// A Table MultiSelect is one line of values, not a table of one column
+		if f.Fieldtype == "Table MultiSelect" {
+			if v := multiSelectValue(f, doc[f.Fieldname], opts, fmtVal); v != "" {
+				label := f.Label
+				if label == "" {
+					label = f.Fieldname
+				}
+				currentPairs = append(currentPairs, []string{tr(label), v})
+			}
+			continue
+		}
+
 		// Child Table
-		if f.Fieldtype == "Table" {
+		if meta.IsTableType(f.Fieldtype) {
 			flushKeyValues()
 			childTableBlocks := renderChildTable(f, doc[f.Fieldname], opts)
 			blocks = append(blocks, childTableBlocks...)
@@ -164,6 +176,32 @@ func StandardTemplate(d *meta.DocType, doc map[string]any, opts StandardFormatOp
 	flushKeyValues()
 
 	return blocks
+}
+
+// multiSelectValue joins the chosen values of a Table MultiSelect, each
+// formatted as its child's Link field would be in a table cell.
+func multiSelectValue(f *meta.Field, val any, opts StandardFormatOptions, fmtVal func(*meta.Field, any) string) string {
+	if opts.GetChildMeta == nil {
+		return ""
+	}
+	cd := opts.GetChildMeta(f.OptionsString())
+	if cd == nil {
+		return ""
+	}
+	link := cd.MultiSelectLinkField()
+	if link == nil || (opts.CanRead != nil && !opts.CanRead(link)) {
+		return ""
+	}
+	rows, _ := val.([]any)
+	var out []string
+	for _, r := range rows {
+		if m, ok := r.(map[string]any); ok {
+			if s := fmtVal(link, m[link.Fieldname]); s != "" {
+				out = append(out, s)
+			}
+		}
+	}
+	return strings.Join(out, ", ")
 }
 
 func renderChildTable(f *meta.Field, val any, opts StandardFormatOptions) []Block {

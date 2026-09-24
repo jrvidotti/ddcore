@@ -90,7 +90,7 @@ result:
 - the workflow's state field;
 - `Password` and `Vault` fields;
 - `Attach` and `Attach Image` fields;
-- child tables;
+- child tables, `Table MultiSelect` included;
 - fields above the user's writable permission level.
 
 The request can override the matching with `columns`, a JSON object mapping a

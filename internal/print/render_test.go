@@ -338,3 +338,25 @@ func TestAssembleHTMLCarriesTheSiteAsItsBase(t *testing.T) {
 		t.Fatal("a site with no public URL should not get a base element")
 	}
 }
+
+// A Table MultiSelect prints as one line of values, not as a table with a
+// single column.
+func TestStandardTemplatePrintsMultiSelectAsALine(t *testing.T) {
+	child := &meta.DocType{Name: "Note Tag", IsChild: true, Fields: []*meta.Field{
+		{Fieldname: "tag", Fieldtype: "Link", Label: "Tag", Options: "Tag"},
+	}}
+	d := &meta.DocType{Name: "Note", Label: "Note", Fields: []*meta.Field{
+		{Fieldname: "tags", Fieldtype: "Table MultiSelect", Label: "Tags", Options: "Note Tag"},
+	}}
+	blocks := StandardTemplate(d, map[string]any{
+		"id": "N-1", "tags": []any{map[string]any{"tag": "red"}, map[string]any{"tag": "blue"}},
+	}, StandardFormatOptions{GetChildMeta: func(string) *meta.DocType { return child }})
+	for _, b := range blocks {
+		if b.Type == "table" {
+			t.Fatal("printed as a table")
+		}
+	}
+	if out := RenderBlocks(blocks); !strings.Contains(out, "red, blue") {
+		t.Fatalf("values missing: %s", out)
+	}
+}

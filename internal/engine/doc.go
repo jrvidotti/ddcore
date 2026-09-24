@@ -309,7 +309,7 @@ func castValueWith(f *meta.Field, v any, o castOpts) (any, error) {
 		}
 		b, err := json.Marshal(v)
 		return string(b), err
-	case "Table", "Vault":
+	case "Table", "Table MultiSelect", "Vault":
 		return v, nil
 	}
 	return db.Str(v), nil
@@ -452,7 +452,7 @@ func (c *Ctx) NewDoc(doctype string, values Doc) (Doc, error) {
 		if f.Fieldname == "" || meta.LayoutTypes[f.Fieldtype] {
 			continue
 		}
-		if f.Fieldtype == "Table" {
+		if meta.IsTableType(f.Fieldtype) {
 			doc[f.Fieldname] = []any{}
 		} else if f.Default != nil {
 			doc[f.Fieldname] = c.defaultValue(f)
@@ -514,6 +514,7 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 	if d.Name == "Audit Event" {
 		return nil, cerr.Permission("Audit Event records are immutable and cannot be created directly")
 	}
+	c.normalizeMultiSelect(d, doc, nil)
 	permission := "create"
 	if d.IsSingle {
 		permission = "write"
@@ -689,6 +690,7 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 	if err != nil {
 		return nil, err
 	}
+	c.normalizeMultiSelect(d, doc, before)
 	oldStatus, newStatus := before.Docstatus(), doc.Docstatus()
 	action := "save"
 	switch {
@@ -1625,7 +1627,7 @@ func (c *Ctx) checkEmails(d *meta.DocType, doc Doc) error {
 
 func (c *Ctx) castAll(d *meta.DocType, doc Doc) error {
 	for _, f := range d.Fields {
-		if f.Fieldname == "" || meta.LayoutTypes[f.Fieldtype] || f.Fieldtype == "Table" {
+		if f.Fieldname == "" || meta.LayoutTypes[f.Fieldtype] || meta.IsTableType(f.Fieldtype) {
 			continue
 		}
 		v, err := c.castValue(f, doc[f.Fieldname])
@@ -1734,7 +1736,7 @@ func (c *Ctx) checkReadOnlyDependsOn(d *meta.DocType, doc, before Doc) error {
 		if !ro {
 			continue
 		}
-		if f.Fieldtype == "Table" {
+		if meta.IsTableType(f.Fieldtype) {
 			if string(mustJSON(stripChildMeta(before.Children(f.Fieldname)))) == string(mustJSON(stripChildMeta(doc.Children(f.Fieldname)))) {
 				continue
 			}
@@ -1924,6 +1926,8 @@ func (c *Ctx) duplicateErr(d *meta.DocType, doc Doc, err error) error {
 }
 
 func (c *Ctx) validateChildren(d *meta.DocType, doc Doc, opts SaveOpts, checks fieldChecks) error {
+	// a hook may have set a Table MultiSelect to a list of ids
+	c.normalizeMultiSelect(d, doc, nil)
 	for _, tf := range d.TableFields() {
 		child, _ := c.St.DocType(tf.OptionsString())
 		rows := doc.Children(tf.Fieldname)
@@ -1953,6 +1957,11 @@ func (c *Ctx) validateChildren(d *meta.DocType, doc Doc, opts SaveOpts, checks f
 			}
 			list = append(list, map[string]any(row))
 		}
+		if tf.Fieldtype == "Table MultiSelect" {
+			if err := c.checkMultiSelect(tf, child, rows); err != nil {
+				return err
+			}
+		}
 		doc[tf.Fieldname] = list
 	}
 	return nil
@@ -1974,7 +1983,7 @@ func (c *Ctx) checkAllowOnSubmit(d *meta.DocType, before, doc Doc) error {
 		if f.Fieldname == "" || meta.LayoutTypes[f.Fieldtype] || f.AllowOnSubmit || exempt[f.Fieldname] {
 			continue
 		}
-		if f.Fieldtype == "Table" {
+		if meta.IsTableType(f.Fieldtype) {
 			if string(mustJSON(stripChildMeta(before.Children(f.Fieldname)))) != string(mustJSON(stripChildMeta(doc.Children(f.Fieldname)))) {
 				return cerr.Validation("{0} cannot be changed after submission", c.T(f.Label)).WithTitleKey("Submitted document")
 			}
@@ -2273,7 +2282,7 @@ func (c *Ctx) saveVersion(d *meta.DocType, before, after Doc) {
 			continue
 		}
 		var a, b any = before[f.Fieldname], after[f.Fieldname]
-		if f.Fieldtype == "Table" {
+		if meta.IsTableType(f.Fieldtype) {
 			a, b = stripChildMeta(before.Children(f.Fieldname)), stripChildMeta(after.Children(f.Fieldname))
 		}
 		// A Text Editor value written before rich text existed is plain text,
@@ -2284,7 +2293,7 @@ func (c *Ctx) saveVersion(d *meta.DocType, before, after Doc) {
 			continue
 		}
 		if string(mustJSON(a)) != string(mustJSON(b)) {
-			if f.Fieldtype == "Table" {
+			if meta.IsTableType(f.Fieldtype) {
 				// a child row's secrets stay out of history just as the parent's do
 				cd, _ := c.St.DocType(f.OptionsString())
 				changed[f.Fieldname] = []any{versionRows(cd, before.Children(f.Fieldname)), versionRows(cd, after.Children(f.Fieldname))}

@@ -66,10 +66,12 @@ Start,Iniciar,# apps/testapp/doctypes/task/task.form.ts:18
 Start date,Data de início,# apps/testapp/print/project_summary.print.ts:29
 Status,Status,# apps/testapp/print/project_summary.print.ts:28
 Submit for Approval,Enviar para Aprovação,# testapp.workflows.pedido_approval.workflow
+Tags,Etiquetas,# testapp.doctypes.task.task.doctype
 Task,Tarefa,# testapp.doctypes.task.task.doctype
 Task Categories,Categorias de Tarefa,# testapp workspace
 Task Category,Categoria de tarefa,# testapp.doctypes.task_category.task_category.doctype
 Task Portal,Portal de Tarefas,# testapp.portal.assignee.portal
+Task Tag,Etiqueta da tarefa,# testapp.doctypes.task_tag.task_tag.doctype
 Task complexity rating (1 to 5 stars),Avaliação de complexidade da tarefa (1 a 5 estrelas),# testapp.doctypes.task.task.doctype
 Tasks,Tarefas,# apps/testapp/workspaces/projects.workspace.ts:34
 Tasks by Status,Tarefas por Status,# testapp workspace

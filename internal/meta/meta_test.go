@@ -567,3 +567,53 @@ func TestDurationHides(t *testing.T) {
 		t.Fatalf("DurationHides read %v wrongly", f.Options)
 	}
 }
+
+// A Table MultiSelect edits one value per row, so its child has to be that
+// value: exactly one Link, and nothing else a person would have to fill in.
+func TestTableMultiSelectShape(t *testing.T) {
+	tag := &DocType{Name: "Tag", Fields: []*Field{{Fieldname: "title", Fieldtype: "Data"}}}
+	parent := &DocType{Name: "Note", Fields: []*Field{{Fieldname: "tags", Fieldtype: "Table MultiSelect", Options: "Note Tag"}}}
+	cases := []struct {
+		name  string
+		child *DocType
+		want  string
+	}{
+		{"one link", &DocType{Name: "Note Tag", IsChild: true, Fields: []*Field{
+			{Fieldname: "tag", Fieldtype: "Link", Options: "Tag", Reqd: true},
+			{Fieldname: "note", Fieldtype: "Data"},
+			{Fieldname: "weight", Fieldtype: "Int", Reqd: true, Default: float64(1)},
+		}}, ""},
+		{"not a child", &DocType{Name: "Note Tag", Fields: []*Field{
+			{Fieldname: "tag", Fieldtype: "Link", Options: "Tag"},
+		}}, "is not isChild"},
+		{"no link", &DocType{Name: "Note Tag", IsChild: true, Fields: []*Field{
+			{Fieldname: "tag", Fieldtype: "Data"},
+		}}, "exactly one Link field"},
+		{"two links", &DocType{Name: "Note Tag", IsChild: true, Fields: []*Field{
+			{Fieldname: "tag", Fieldtype: "Link", Options: "Tag"},
+			{Fieldname: "other", Fieldtype: "Link", Options: "Tag"},
+		}}, "exactly one Link field"},
+		{"required extra", &DocType{Name: "Note Tag", IsChild: true, Fields: []*Field{
+			{Fieldname: "tag", Fieldtype: "Link", Options: "Tag"},
+			{Fieldname: "note", Fieldtype: "Data", Reqd: true},
+		}}, "cannot fill"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			r := NewRegistry()
+			r.Add(tag)
+			r.Add(parent)
+			r.Add(tc.child)
+			err := r.Validate()
+			if tc.want == "" && err != nil {
+				t.Fatalf("expected the shape to be accepted: %v", err)
+			}
+			if tc.want != "" && (err == nil || !strings.Contains(err.Error(), tc.want)) {
+				t.Fatalf("wanted %q, got %v", tc.want, err)
+			}
+		})
+	}
+	if !IsTableType("Table MultiSelect") || ColumnType("Table MultiSelect") != "" {
+		t.Fatal("a Table MultiSelect is child rows, with no column of its own")
+	}
+}

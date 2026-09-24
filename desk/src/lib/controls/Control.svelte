@@ -7,6 +7,7 @@
   import { formatNumber, parseNumber, roundCurrency } from "$lib/format";
   import { currencyPrecision } from "$lib/locale";
   import LinkControl from "./LinkControl.svelte";
+  import TableMultiSelectControl from "./TableMultiSelectControl.svelte";
   import AttachControl from "./AttachControl.svelte";
   import RichTextControl from "./RichTextControl.svelte";
   import MarkdownControl from "./MarkdownControl.svelte";
@@ -121,6 +122,8 @@
           </select>
         {:else if ft === "Link" || ft === "Dynamic Link"}
           <LinkControl {field} {value} {onchange} {doc} readOnly={ro} {query} {error} {id} search={linkSearch} />
+        {:else if ft === "Table MultiSelect"}
+          <TableMultiSelectControl {field} {value} {onchange} {doc} readOnly={ro} {query} {error} {id} />
         {:else if ft === "Month" || (ft === "Date" && (field.options === "month" || (field as any).format === "mm/yyyy"))}
           <MonthControl {field} {value} {onchange} {id} readOnly={ro} error={shownError} {inGrid} />
         {:else if ft === "Date"}
