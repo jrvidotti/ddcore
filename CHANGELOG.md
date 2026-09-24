@@ -34,6 +34,13 @@ not every commit that went into it.
 
 ### Fixed
 
+- **Saving a User no longer erases its password.** A read blanks `password_hash` and the other
+  secret fields, and the desk sent that null back on save, which cleared the password and signed
+  the user out. `PUT /api/resource/...` and the save/submit/cancel methods now keep the stored
+  value of a Password or secret field that arrives null; a new value still applies.
+- **Changing a User's type takes effect at once.** `user_type` was cached with no expiry, so a
+  Website User promoted to System User stayed confined to the portal until a restart. Saving,
+  renaming or deleting a User now drops it.
 - **The To-Do list keeps its columns readable.** A long description wraps between words instead
   of splitting them letter by letter next to a reference that would not wrap; the reference wraps
   too, the priority, due date (now in the site's date format), status and actions stay on one

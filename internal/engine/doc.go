@@ -1330,6 +1330,7 @@ func (c *Ctx) Delete(doctype, name string, ignorePerms, force bool) error {
 		if _, err := c.Q().Exec(c.Ctx, `DELETE FROM ddcore_user_identity WHERE "user" = $1`, name); err != nil {
 			return err
 		}
+		c.E.Cache.Del("utype:" + name)
 	}
 	if d.Name == shareDoctype {
 		if err := c.auditShareDeleted(doc); err != nil {
@@ -1460,6 +1461,8 @@ func (c *Ctx) moveID(d *meta.DocType, oldID, newID string) error {
 		if _, err := q.Exec(c.Ctx, `UPDATE ddcore_user_identity SET "user" = $1 WHERE "user" = $2`, newID, oldID); err != nil {
 			return fmt.Errorf("identity rename: %w", err)
 		}
+		c.E.Cache.Del("utype:" + oldID)
+		c.E.Cache.Del("utype:" + newID)
 	}
 	return nil
 }

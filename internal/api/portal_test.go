@@ -363,3 +363,26 @@ func TestPortalLimiter_SlidingWindow(t *testing.T) {
 		t.Fatal("the window slides")
 	}
 }
+
+// user_type is cached per user: a Website User promoted to the desk must
+// reach it on the next sign-in, not after a restart.
+func TestPortal_PromotedWebsiteUserReachesTheDesk(t *testing.T) {
+	x := setupPortalAPI(t)
+	r := x.call("POST", "/api/login", map[string]any{"usr": portalAna, "pwd": "segredo123"}, "")
+	if data(r)["home"] != "/portal" {
+		t.Fatalf("a Website User lands on %v", data(r)["home"])
+	}
+	admin := "sid:" + x.sid("Admin")
+	x.expect(x.call("PUT", "/api/resource/User/"+portalAna, map[string]any{"user_type": "System User"}, admin), 200, "")
+
+	r = x.call("POST", "/api/login", map[string]any{"usr": portalAna, "pwd": "segredo123"}, "")
+	x.expect(r, 200, "")
+	if data(r)["home"] != "/app" {
+		t.Fatalf("a promoted user lands on %v", data(r)["home"])
+	}
+	ana := "sid:" + x.sid(portalAna)
+	if b := data(x.call("GET", "/api/boot", nil, ana)); b["website"] == true {
+		t.Fatalf("a promoted user's boot is still a Website User's: %v", b)
+	}
+	x.expect(x.call("GET", "/api/notifications", nil, ana), 200, "")
+}

@@ -103,13 +103,20 @@ func RedactPassword(d *meta.DocType, doc Doc) {
 		return
 	}
 	for _, f := range d.Fields {
-		if f.Fieldtype == "Password" && doc[f.Fieldname] != nil {
-			doc[f.Fieldname] = nil
-		}
-		if isSecretField(f.Fieldname) && doc[f.Fieldname] != nil {
+		if IsRedactedField(d, f.Fieldname) && doc[f.Fieldname] != nil {
 			doc[f.Fieldname] = nil
 		}
 	}
+}
+
+// IsRedactedField says whether RedactPassword blanks this field: a Password
+// field, or one named like a secret.
+func IsRedactedField(d *meta.DocType, fieldname string) bool {
+	if isSecretField(fieldname) {
+		return true
+	}
+	f := d.Field(fieldname)
+	return f != nil && f.Fieldtype == "Password"
 }
 
 func (c *Ctx) redactVault(d *meta.DocType, doc Doc) {

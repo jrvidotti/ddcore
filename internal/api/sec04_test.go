@@ -244,3 +244,29 @@ func msg(r resp) string {
 	}
 	return ""
 }
+
+// The desk saves the whole document it read, and a read blanks
+// password_hash: that null used to be written back, so saving a User form
+// without touching the password erased it and signed the user out.
+func TestSEC04_SavingAUserKeepsThePassword(t *testing.T) {
+	x := setup(t)
+	admin := "sid:" + x.sid("Admin")
+	ana := "sid:" + x.sid("ana@x.com")
+	r := x.call("GET", "/api/resource/User/ana@x.com", nil, admin)
+	x.expect(r, 200, "")
+	doc := r.Body["data"].(map[string]any)
+	if doc["password_hash"] != nil {
+		t.Fatalf("password_hash left the server: %v", doc["password_hash"])
+	}
+
+	x.expect(x.call("PUT", "/api/resource/User/ana@x.com", doc, admin), 200, "")
+	x.expect(x.goodLogin("ana@x.com", "segredo123"), 200, "")
+
+	doc = x.call("GET", "/api/resource/User/ana@x.com", nil, admin).Body["data"].(map[string]any)
+	x.expect(x.call("POST", "/api/resource/User/ana@x.com/save", map[string]any{"doc": doc}, admin), 200, "")
+	x.expect(x.goodLogin("ana@x.com", "segredo123"), 200, "")
+
+	if u, _ := x.call("GET", "/api/boot", nil, ana).Body["data"].(map[string]any); u == nil || u["user"] != "ana@x.com" {
+		t.Error("saving the User dropped her session")
+	}
+}

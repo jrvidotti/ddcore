@@ -840,12 +840,7 @@ func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, err
 		}
-		for k, v := range body {
-			if k == "id" || k == "doctype" || k == "owner" || k == "creation" {
-				continue
-			}
-			doc[k] = v
-		}
+		mergeBody(c, dt, doc, body)
 		return redacted(s, c, dt)(c.Save(doc, engine.SaveOpts{}))
 	})
 }
@@ -880,11 +875,7 @@ func (s *Server) docMethod(w http.ResponseWriter, r *http.Request) {
 				return nil, err
 			}
 			if body, ok := args["doc"].(map[string]any); ok {
-				for k, v := range body {
-					if k != "id" && k != "doctype" && k != "owner" && k != "creation" {
-						doc[k] = v
-					}
-				}
+				mergeBody(c, dt, doc, body)
 			}
 			switch m {
 			case "submit":
@@ -1707,6 +1698,24 @@ func (s *Server) deskHandler(w http.ResponseWriter, r *http.Request) {
 
 var _ = errors.New
 var _ = db.Str
+
+// mergeBody applies a client's copy of a document over the stored one. A
+// secret field comes back null because redacted blanked it on the way out:
+// taking that null as "clear it" erased User.password_hash on every desk save
+// of a User. A null secret therefore keeps the stored value; a new one is still
+// applied.
+func mergeBody(c *engine.Ctx, doctype string, doc engine.Doc, body map[string]any) {
+	d := c.St.Meta.DocTypes[doctype]
+	for k, v := range body {
+		if k == "id" || k == "doctype" || k == "owner" || k == "creation" {
+			continue
+		}
+		if v == nil && d != nil && engine.IsRedactedField(d, k) {
+			continue
+		}
+		doc[k] = v
+	}
+}
 
 // redacted blanks Password fields on a document heading back to a client. It
 // takes the (doc, err) pair straight from an engine call so a handler cannot

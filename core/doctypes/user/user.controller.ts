@@ -17,6 +17,9 @@ export default defineController("User", {
   },
   onUpdate(doc) {
     ddcore.cache.del("roles:" + doc.id);
+    // IsWebsiteUser reads user_type from this key: without dropping it, a
+    // Website User promoted to the desk stays confined to the portal.
+    ddcore.cache.del("utype:" + doc.id);
     // A changed password invalidates old sessions: if changed because the
     // password leaked, leaving existing sessions active would change nothing.
     const before = doc.getDocBeforeSave?.();
