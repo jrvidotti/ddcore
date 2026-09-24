@@ -128,10 +128,14 @@ func collectMeta(s *Set, e *engine.Engine, t Target) {
 		var tree map[string]any
 		if b, err := json.Marshal(am); err == nil {
 			json.Unmarshal(b, &tree)
-			// an app's `roles` are identifiers, and `title`/`description` are
-			// the only text defineApp carries.
+			// `title`/`description` are the only text defineApp carries
 			delete(tree, "fixtures")
 			CollectTree(s, tree, t.App+" app")
+		}
+		// a role stays an identifier, but Role is translateId: the desk shows
+		// the name through the catalogue, so each declared role is a key
+		for _, r := range am.Roles {
+			s.Add(r, t.App+" role", 0)
 		}
 	}
 }

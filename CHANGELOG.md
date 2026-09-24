@@ -12,6 +12,15 @@ not every commit that went into it.
 
 ## Unreleased
 
+### Added
+
+- **Role names show translated.** Role is `translateId`, a new DocType flag: the desk shows the
+  id through the catalogue wherever it shows a title — a Link, a grid cell such as the User's
+  roles, the list, the form header — and a Link search also matches the translated text. The
+  stored value stays the English id, so permissions and `HasRole` are unchanged. Each role an app
+  declares in `defineApp({ roles })` is now a catalogue key: run `ddcore i18n extract` and
+  translate them, or `make check` reports them missing. See `docs/agent/i18n.md`.
+
 ## 0.19.4 — 2026-09-24
 
 ### Added

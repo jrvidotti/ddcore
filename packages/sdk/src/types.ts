@@ -336,6 +336,14 @@ export interface DoctypeDef {
   allowRename?: boolean;
   titleField?: string;
   /**
+   * Shows the id translated: the desk treats it as a catalogue key wherever it
+   * shows the document's title — a Link, a grid cell, the list, the form
+   * header — and a Link search also matches the translated text. The stored
+   * value stays the canonical English id. For DocTypes whose ids are fixed
+   * keys declared in code, such as Role; ignored when `titleField` is set.
+   */
+  translateId?: boolean;
+  /**
    * The Attach Image (or Attach) field that pictures a document — a person's
    * photo, a company's logo. The Desk's Cards view shows it on each card, with
    * the title's initials when it is empty. It may be restricted by `permlevel`:

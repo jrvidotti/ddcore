@@ -697,11 +697,21 @@ func (c *Ctx) Lock(key string) error {
 	return err
 }
 
+// linkSearchScan caps how many documents a TranslateID search reads to match
+// the typed text against translated ids; such DocTypes hold a few dozen keys.
+const linkSearchScan = 1000
+
 // LinkSearch backs the Link control: searches name + searchFields.
 func (c *Ctx) LinkSearch(doctype, txt string, filters any, limit int) ([]map[string]any, error) {
 	d, err := c.St.DocType(doctype)
 	if err != nil {
 		return nil, err
+	}
+	if limit <= 0 {
+		limit = 20
+	}
+	if d.TitleIsTranslatedID() {
+		return c.linkSearchTranslated(d, txt, filters, limit)
 	}
 	args := searchArgs(d, txt)
 	// The subtitle columns are read for display only; the match stays on
@@ -713,10 +723,38 @@ func (c *Ctx) LinkSearch(doctype, txt string, filters any, limit int) ([]map[str
 	}
 	args.Filters = filters
 	args.Limit = limit
-	if limit <= 0 {
-		args.Limit = 20
-	}
 	return c.GetList(doctype, args)
+}
+
+// linkSearchTranslated searches a TranslateID DocType: the typed text matches
+// the id or its translation, so "Gerente" finds "HR Manager" in pt-BR, and
+// each row carries the translation as `_title` for the Link control to show.
+func (c *Ctx) linkSearchTranslated(d *meta.DocType, txt string, filters any, limit int) ([]map[string]any, error) {
+	args := ListArgs{Fields: []string{"id"}, Filters: filters, Limit: linkSearchScan}
+	for _, f := range d.LinkSubtitle {
+		if d.HasColumn(f) && !slices.Contains(args.Fields, f) {
+			args.Fields = append(args.Fields, f)
+		}
+	}
+	rows, err := c.GetList(d.Name, args)
+	if err != nil {
+		return nil, err
+	}
+	needle := strings.ToLower(strings.TrimSpace(txt))
+	out := []map[string]any{}
+	for _, r := range rows {
+		id := fmt.Sprint(r["id"])
+		title := c.T(id)
+		if needle != "" && !strings.Contains(strings.ToLower(id), needle) && !strings.Contains(strings.ToLower(title), needle) {
+			continue
+		}
+		r["_title"] = title
+		out = append(out, r)
+		if len(out) == limit {
+			break
+		}
+	}
+	return out, nil
 }
 
 // searchFieldsOf lists the columns a text search matches: name, the title
@@ -824,7 +862,18 @@ func (c *Ctx) ResolveLinkTitles(doctype string, docs ...Doc) map[string]map[stri
 	out := map[string]map[string]string{}
 	for target, nameSet := range byTarget {
 		td, err := c.St.DocType(target)
-		if err != nil || td.TitleField == "" || td.TitleField == "id" {
+		if err != nil {
+			continue
+		}
+		if td.TitleIsTranslatedID() {
+			targetMap := map[string]string{}
+			for n := range nameSet {
+				targetMap[n] = c.T(n)
+			}
+			out[target] = targetMap
+			continue
+		}
+		if td.TitleField == "" || td.TitleField == "id" {
 			continue
 		}
 		if !td.HasColumn(td.TitleField) {
@@ -866,6 +915,13 @@ func (c *Ctx) LinkTitles(doctype string, names []string) (map[string]string, err
 	d, err := c.St.DocType(doctype)
 	if err != nil {
 		return nil, err
+	}
+	if d.TitleIsTranslatedID() {
+		out := map[string]string{}
+		for _, n := range names {
+			out[n] = c.T(n)
+		}
+		return out, nil
 	}
 	if len(names) == 0 || d.TitleField == "" || d.TitleField == "id" || !d.HasColumn(d.TitleField) {
 		out := map[string]string{}

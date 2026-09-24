@@ -383,3 +383,37 @@ func TestLinkSearchSubtitleColumns(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// Role is translateId: a Link shows the role name through the catalogue and a
+// search matches the translated text, while the id stays the English key.
+func TestLinkTitlesTranslateID(t *testing.T) {
+	e := setup(t)
+	err := e.Run(context.Background(), "Admin", func(c *Ctx) error {
+		c.Lang = "pt-BR"
+		titles, err := c.LinkTitles("Role", []string{"System Manager"})
+		if err != nil {
+			return err
+		}
+		if titles["System Manager"] != "Administrador do Sistema" {
+			t.Fatalf("want the translated role name, got %#v", titles)
+		}
+		rows, err := c.LinkSearch("Role", "administrador", nil, 20)
+		if err != nil {
+			return err
+		}
+		if len(rows) != 1 || rows[0]["id"] != "System Manager" || rows[0]["_title"] != "Administrador do Sistema" {
+			t.Fatalf("want System Manager found by its translation, got %#v", rows)
+		}
+		rows, err = c.LinkSearch("Role", "system", nil, 20)
+		if err != nil {
+			return err
+		}
+		if len(rows) != 1 || rows[0]["id"] != "System Manager" {
+			t.Fatalf("the English id still matches, got %#v", rows)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}

@@ -52,8 +52,8 @@ func CollectDocType(s *Set, d *meta.DocType, app, file string) {
 }
 
 // CollectWorkflow collects a workflow's state and action names: the desk shows
-// both through __(), so each name is a key. Roles are identifiers and are not
-// collected.
+// both through __(), so each name is a key. Its roles are not collected here:
+// each app's declared roles are (see Extract).
 func CollectWorkflow(s *Set, wf js.Workflow, file string) {
 	for _, st := range wf.States {
 		s.Add(st.State, file, 0)

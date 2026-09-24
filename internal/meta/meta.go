@@ -223,6 +223,12 @@ func (d *DocType) GloballySearchable() bool {
 	return d.TitleField != "" || len(d.SearchFields) > 0
 }
 
+// TitleIsTranslatedID reports whether a document's display title is its id
+// run through the catalogue: TranslateID set and no TitleField to read instead.
+func (d *DocType) TitleIsTranslatedID() bool {
+	return d.TranslateID && (d.TitleField == "" || d.TitleField == "id")
+}
+
 // HasRestrictedFields reports whether any field sits above permission level 0.
 func (d *DocType) HasRestrictedFields() bool {
 	for _, f := range d.Fields {
@@ -314,6 +320,12 @@ type DocType struct {
 	TrackChanges bool   `json:"trackChanges,omitempty"`
 	AllowRename  bool   `json:"allowRename,omitempty"`
 	TitleField   string `json:"titleField,omitempty"`
+	// TranslateID makes the id a catalogue key for display: the desk shows
+	// the translated id wherever it shows the document's title (a Link, a
+	// grid cell, the list, the form header) while the stored value stays the
+	// canonical English id. Meant for DocTypes whose ids are fixed keys
+	// declared in code, such as Role; it has no effect with a TitleField.
+	TranslateID bool `json:"translateId,omitempty"`
 	// ImageField names the Attach Image (or Attach) field that pictures a
 	// document; the Desk's Cards view shows it, with an initials avatar when
 	// it is empty or unreadable.

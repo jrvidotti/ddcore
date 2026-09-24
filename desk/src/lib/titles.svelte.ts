@@ -1,6 +1,6 @@
 // Central reactive store for resolving, caching, and batch-fetching link titles in desk.
 import { api } from "./api";
-import { boot } from "./boot.svelte";
+import { __, boot } from "./boot.svelte";
 
 const cache = $state<Record<string, Record<string, string>>>({});
 const pending = new Map<string, Set<string>>();
@@ -34,10 +34,11 @@ export function getLinkTitle(doctype: string, id: string): string {
   if (existing !== undefined) return existing;
 
   // If doctype metadata is known and has no titleField (or titleField === "id"),
-  // then the id is the title.
+  // then the id is the title — translated when the DocType says its ids are
+  // catalogue keys (translateId, e.g. Role).
   const dtMeta = boot.data?.doctypes[doctype];
   if (boot.ready && dtMeta && (!dtMeta.titleField || dtMeta.titleField === "id")) {
-    return id;
+    return dtMeta.translateId ? __(id) : id;
   }
 
   queueFetch(doctype, id);

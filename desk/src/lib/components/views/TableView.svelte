@@ -49,7 +49,7 @@
     {#each rows as r (r.id)}
       <tr class="row" style="cursor:pointer" tabindex="0" onclick={() => goto(documentUrl(r.id))} onkeydown={(e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); goto(documentUrl(r.id)); } }}>
         <td onclick={(e) => { e.stopPropagation(); onToggle(r.id); }}><input type="checkbox" aria-label={__("Select {0}", [r.id])} checked={selected.has(r.id)} onclick={(e) => e.stopPropagation()} onchange={() => onToggle(r.id)} /></td>
-        {#if showID}<td><a href={documentUrl(r.id)} onclick={(e) => e.stopPropagation()}>{r.id}</a></td>{/if}
+        {#if showID}<td><a href={documentUrl(r.id)} onclick={(e) => e.stopPropagation()}>{meta.doctype.translateId ? __(r.id) : r.id}</a></td>{/if}
         {#each columns as c}
           <td class:num={num(c)} class:bold={c.bold} style:font-weight={c.bold ? 600 : undefined}>
             {#if (c.fieldtype === "Link" || c.fieldtype === "Dynamic Link") && r[c.fieldname!]}

@@ -51,6 +51,8 @@ Priority,Prioridade,# testapp.doctypes.task.task.doctype
 Progress,Progresso,# apps/testapp/print/project_summary.print.ts:31
 Project,Projeto,# testapp.doctypes.project.project.doctype
 Project Code: {0},Código do Projeto: {0},# apps/testapp/print/project_summary.print.ts:16
+Project Contributor,Colaborador do Projeto,# testapp role
+Project Manager,Gerente de Projeto,# testapp role
 Project Milestone,Marco Projeto,# testapp.doctypes.project_milestone.project_milestone.doctype
 Project Summary,Resumo do Projeto,# testapp.print.project_summary.print
 Project cover image,Imagem de capa do projeto,# testapp.doctypes.project.project.doctype

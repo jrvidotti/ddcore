@@ -6,6 +6,8 @@ export default defineDoctype({
   label: "Role",
   idGeneration: { field: "role_name" },
   allowRename: true,
+  // role names are keys declared in ddcore.app.ts: the desk shows them translated
+  translateId: true,
   icon: "shield",
   fields: [
     { fieldname: "role_name", fieldtype: "Data", label: "Name", reqd: true, unique: true, inListView: true },

@@ -251,7 +251,7 @@
     frm
       ? frm.isSingle ? frm.meta.doctype.label : frm.isNew
         ? frm.doc.id?.trim() || __("New {0}", [frm.meta.doctype.label])
-        : (frm.meta.doctype.titleField && frm.doc[frm.meta.doctype.titleField]) || frm.doc.id
+        : (frm.meta.doctype.titleField && frm.doc[frm.meta.doctype.titleField]) || (frm.meta.doctype.translateId ? __(frm.doc.id) : frm.doc.id)
       : ""
   );
 

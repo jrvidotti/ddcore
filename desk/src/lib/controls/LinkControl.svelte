@@ -38,6 +38,8 @@
 
   function getOptionTitle(o: any): string {
     if (searchFn) return String(o.title || o.id);
+    // a translateId target: the server sends the translated id
+    if (o._title) return String(o._title);
     if (titleField && o[titleField]) return String(o[titleField]);
     return o.id;
   }
@@ -45,6 +47,7 @@
   function getOptionSubtitle(o: any): string {
     if (searchFn) return o.title && o.title !== o.id ? String(o.id) : "";
     if (linkSubtitle?.length) return linkSubtitle.map((f) => o[f]).filter((v) => v !== null && v !== undefined && v !== "").join(" · ");
+    if (o._title) return o._title !== o.id ? String(o.id) : "";
     if (titleField && o[titleField]) {
       const others = Object.entries(o).filter(([k, v]) => k !== "id" && k !== titleField && v).map(([, v]) => v);
       return [o.id, ...others].join(" · ");

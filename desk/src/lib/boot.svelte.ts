@@ -24,7 +24,7 @@ export interface Boot {
   /** apps that ship client code to the portal (`portal.include`), in load order */
   portalIncludes?: string[];
   workspaces: any[];
-  doctypes: Record<string, { label: string; app: string; icon: string; module: string; titleField?: string; linkSubtitle?: string[] }>;
+  doctypes: Record<string, { label: string; app: string; icon: string; module: string; titleField?: string; translateId?: boolean; linkSubtitle?: string[] }>;
   reports: Record<string, { label: string; refDoctype?: string; app: string }>;
   site: {
     name: string; currency: string; timezone: string; dev: boolean; scheduler: boolean; version: string;
