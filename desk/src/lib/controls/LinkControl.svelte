@@ -26,6 +26,13 @@
   let searchVersion = 0;
   let focused = $state(false);
   let inputEl: HTMLInputElement | null = $state(null);
+  let listEl: HTMLDivElement | null = $state(null);
+
+  // Keep the option the arrow keys reach inside the list's scroll.
+  $effect(() => {
+    const el = listEl?.children[active] as HTMLElement | undefined;
+    el?.scrollIntoView({ block: "nearest" });
+  });
 
   $effect(() => {
     if (!focused) {
@@ -172,7 +179,7 @@
     {#if !searchFn}<a class="open" href={`${wsPrefix}/${encodeURIComponent(target)}/${encodeURIComponent(value)}`} title="Abrir {label || target}{value ? ` (${value})` : ""}">↗</a>{/if}
   {/if}
   {#if open && !readOnly && options.length}
-    <div class="options" role="listbox" use:anchored={{ anchor: inputEl, matchWidth: true, gap: 2, content: options.length }}>
+    <div bind:this={listEl} class="options" role="listbox" use:anchored={{ anchor: inputEl, matchWidth: true, gap: 2, content: options.length }}>
       {#each options as o, i}
         <div role="option" tabindex="-1" aria-selected={i === active} class:active={i === active} onmousedown={() => pick(o)}>
           <div class="ttl">{getOptionTitle(o)}</div>

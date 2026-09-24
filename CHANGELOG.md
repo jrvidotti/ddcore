@@ -35,6 +35,18 @@ not every commit that went into it.
   picker drawn in the page — a saturation/brightness square, a hue bar, R, G and B boxes, the
   `#rrggbb` text box, and an eyedropper where the browser offers one. Clear moved into the picker.
 
+### Changed
+
+- **A Link's option list fits its options.** The typeahead under a Link field used to be exactly
+  as wide as the input, so a narrow grid column cut every option off. It is now at least that
+  wide and grows to fit the longest option, up to 420px.
+
+### Fixed
+
+- **A Link's option list scrolls.** The mouse wheel no longer snaps the list back to the top, and
+  the arrow keys scroll the chosen option into view. The list is again capped at its 260px
+  height instead of reaching the edge of the window.
+
 ## 0.19.4 — 2026-09-24
 
 ### Added

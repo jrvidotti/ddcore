@@ -52,6 +52,30 @@ describe("computeAnchoredPosition", () => {
     expect(pos.width).toBe(300);
   });
 
+  it("grows past the anchor's width when its content is wider", () => {
+    const pos = computeAnchoredPosition({
+      anchor: { left: 100, top: 200, width: 190, height: 32 },
+      panel: { width: 320, height: 100 },
+      viewport,
+      matchWidth: true,
+    });
+
+    expect(pos.width).toBe(320);
+    expect(pos.left).toBe(100);
+  });
+
+  it("shifts a list wider than its anchor back into the viewport", () => {
+    const pos = computeAnchoredPosition({
+      anchor: { left: 800, top: 200, width: 190, height: 32 },
+      panel: { width: 320, height: 100 },
+      viewport,
+      matchWidth: true,
+    });
+
+    expect(pos.width).toBe(320);
+    expect(pos.left).toBe(672); // 1000 - 320 - margin
+  });
+
   it("keeps its own width, aligned to the anchor's right edge, when asked", () => {
     const pos = computeAnchoredPosition({
       anchor: { left: 100, top: 200, width: 300, height: 32 },

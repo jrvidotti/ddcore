@@ -16,7 +16,7 @@ export interface AnchoredOptions {
   viewport: { width: number; height: number };
   /** Which edge of the panel lines up with the anchor's. Default "start". */
   align?: "start" | "end";
-  /** Stretch the panel to the anchor's width (the Link typeahead does). */
+  /** Never narrower than the anchor; wider when the content asks for it (the Link typeahead does). */
   matchWidth?: boolean;
   /** Space between anchor and panel. */
   gap?: number;
@@ -41,7 +41,9 @@ export function computeAnchoredPosition(opts: AnchoredOptions): AnchoredPosition
   const roomAbove = anchor.top - gap - margin;
   const placement = panel.height <= roomBelow || roomBelow >= roomAbove ? "below" : "above";
 
-  const width = opts.matchWidth ? anchor.width : panel.width;
+  const width = opts.matchWidth
+    ? Math.min(Math.max(anchor.width, panel.width), viewport.width - 2 * margin)
+    : panel.width;
   const wanted = opts.align === "end" ? anchor.left + anchor.width - width : anchor.left;
   const left = Math.max(margin, Math.min(wanted, viewport.width - width - margin));
 
@@ -79,9 +81,20 @@ export function anchored(node: HTMLElement, params: AnchoredParams) {
 
     // Let content changes grow the panel before measuring it. A previous
     // placement may have capped max-height, which keeps ResizeObserver from
-    // noticing that scrollHeight increased.
+    // noticing that scrollHeight increased. The panel's own CSS max-height
+    // still caps it, and its scroll position survives the remeasure.
+    const scrollTop = node.scrollTop;
+    node.style.maxHeight = "";
+    const cssMax = parseFloat(getComputedStyle(node).maxHeight); // NaN for "none"
     node.style.maxHeight = "none";
-    const wanted = node.scrollHeight + (node.offsetHeight - node.clientHeight);
+    // Same for the width: measure the content's own width, floored at the
+    // anchor's, instead of the width a previous placement fixed.
+    if (current.matchWidth) {
+      node.style.width = "";
+      node.style.minWidth = `${rect.width}px`;
+    }
+    const natural = node.scrollHeight + (node.offsetHeight - node.clientHeight);
+    const wanted = Number.isFinite(cssMax) ? Math.min(natural, cssMax) : natural;
     const pos = computeAnchoredPosition({
       anchor: { left: rect.left, top: rect.top, width: rect.width, height: rect.height },
       panel: { width: node.offsetWidth, height: wanted },
@@ -97,11 +110,19 @@ export function anchored(node: HTMLElement, params: AnchoredParams) {
     node.style.maxHeight = `${Math.min(wanted, pos.maxHeight)}px`;
     if (current.matchWidth) node.style.width = `${pos.width}px`;
     node.dataset.placement = pos.placement;
+    node.scrollTop = scrollTop;
+  }
+
+  // The panel scrolling itself is not a reason to move it — and placing it
+  // then would throw away the scroll the user just made.
+  function onScroll(e: Event) {
+    if (e.target instanceof Node && node.contains(e.target)) return;
+    place();
   }
 
   place();
   // `capture` so a scroll in any ancestor — the grid card, a dialog — is seen.
-  window.addEventListener("scroll", place, true);
+  window.addEventListener("scroll", onScroll, true);
   window.addEventListener("resize", place);
   const observer = new ResizeObserver(place);
   observer.observe(node);
@@ -112,7 +133,7 @@ export function anchored(node: HTMLElement, params: AnchoredParams) {
       place();
     },
     destroy() {
-      window.removeEventListener("scroll", place, true);
+      window.removeEventListener("scroll", onScroll, true);
       window.removeEventListener("resize", place);
       observer.disconnect();
     },
