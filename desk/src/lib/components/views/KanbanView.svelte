@@ -101,10 +101,13 @@
             draggable={draggable ? "true" : "false"}
             ondragstart={(e) => onDragStart(e, row)}
             ondragend={() => { dragging = ""; over = null; }}
+            style:border-left-color={colorField?.fieldtype === "Color" && kanban.colorField !== kanban.field ? row[kanban.colorField!] || undefined : undefined}
+            class:tinted={colorField?.fieldtype === "Color" && kanban.colorField !== kanban.field && !!row[kanban.colorField!]}
           >
             <span class="title">{row[titleField] || row.id}</span>
             {#if subtitle(row)}<span class="muted small">{subtitle(row)}</span>{/if}
-            {#if kanban.colorField && kanban.colorField !== kanban.field && row[kanban.colorField]}
+            <!-- a Color field paints the card's edge instead: its value is a hex nobody reads -->
+            {#if kanban.colorField && kanban.colorField !== kanban.field && row[kanban.colorField] && colorField?.fieldtype !== "Color"}
               <span class="indicator {statusColor(row[kanban.colorField], colorField)} small">{colorLabel(row)}</span>
             {/if}
           </a>
@@ -123,6 +126,7 @@
   .kanban-card { display: grid; gap: 4px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); text-decoration: none; cursor: grab; }
   .kanban-card:hover { border-color: var(--primary); text-decoration: none; }
   .kanban-card.locked { cursor: pointer; }
+  .kanban-card.tinted { border-left-width: 4px; }
   .kanban-card.dragging { opacity: .5; }
   .kanban-card .title { font-weight: 500; overflow: hidden; text-overflow: ellipsis; }
   .kanban-card .indicator { justify-self: start; }

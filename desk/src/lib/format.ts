@@ -181,10 +181,25 @@ const PALETTE = ["blue", "green", "orange", "red", "purple", "gray"];
 export function statusColor(v: string, field?: Partial<Field>): string {
   const raw = String(v ?? "");
   if (!raw) return "gray";
+  // a Color field paints with its own value (colorStyle); the class is the fallback
+  if (field?.fieldtype === "Color") return "gray";
   if (field?.optionColors?.[raw]) return field.optionColors[raw];
   const known = CANONICAL_COLORS[raw.toLowerCase()];
   if (known) return known;
   return hashColor(raw);
+}
+
+/**
+ * The inline style that paints an indicator in a Color field's own value, as
+ * the palette's classes do: the hue lightened for the background and darkened
+ * for the text and the dot. Anything else — another fieldtype, an empty or
+ * malformed value — gets no style and keeps the class `statusColor` gave it.
+ */
+export function colorStyle(v: unknown, field?: Partial<Field>): string | undefined {
+  if (field?.fieldtype !== "Color") return undefined;
+  const hex = String(v ?? "");
+  if (!/^#[0-9a-f]{6}$/i.test(hex)) return undefined;
+  return `background: color-mix(in srgb, ${hex} 22%, white); color: color-mix(in srgb, ${hex} 70%, black)`;
 }
 
 /** A palette colour picked by hashing `raw`, so the same text always gets the same colour. */

@@ -250,6 +250,15 @@ defineListView<Task>("Task", {
     before the start is clamped to the start.
   - `progressField` (0–100) shades the bar. The view is read-only: bars are not dragged.
 
+**Colour.** `colorField` usually names a **Select**, and the view paints each record with the
+indicator colour of its value: the field's `optionColors`, then the framework's canonical statuses,
+then a colour derived from the text. When `colorField` names a **Color** field, the record is painted
+with the colour it holds instead — a calendar entry and a Gantt bar take its hue (lightened behind
+the text, darkened for the text and the dot), and a Kanban card takes it as a coloured left edge
+rather than an indicator showing the hex. A record whose Color field is empty keeps the neutral grey.
+This is what lets a user pick any colour for a record (a campaign, a project) with the Color field's
+picker and see it on the boards.
+
 Kanban, Gantt and Calendar load up to 500 rows matching the filters instead of a page. When more
 match, Kanban and Gantt say so and ask for narrower filters.
 

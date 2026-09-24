@@ -2,7 +2,7 @@
   import { __ } from "$lib/boot.svelte";
   import type { GanttViewOptions } from "$lib/desk-sdk";
   import type { Meta } from "$lib/meta";
-  import { statusColor } from "$lib/format";
+  import { colorStyle, statusColor } from "$lib/format";
   import { today } from "$lib/datetime";
   import { monthNames } from "$lib/locale";
   import Icon from "../Icon.svelte";
@@ -64,6 +64,7 @@
           {#if todayOffset !== null}<div class="today" style:left={`${todayOffset}%`}></div>{/if}
           <a
             class="bar indicator {statusColor(row[gantt.colorField || "status"], colorField)}"
+            style={colorStyle(row[gantt.colorField || "status"], colorField)}
             class:clipped-start={bar!.clippedStart}
             class:clipped-end={bar!.clippedEnd}
             {href}

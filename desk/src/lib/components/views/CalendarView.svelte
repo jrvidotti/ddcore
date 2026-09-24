@@ -5,7 +5,7 @@
   import type { Meta } from "$lib/meta";
   import { dayNames, getCalendarDays, monthTitles } from "$lib/controls/date-format";
   import { fromDatetimeLocal, today } from "$lib/datetime";
-  import { formatDate, statusColor } from "$lib/format";
+  import { colorStyle, formatDate, statusColor } from "$lib/format";
   import Icon from "../Icon.svelte";
   import { calendarLanes, isCalendarDatetime } from "./calendar-state";
 
@@ -73,7 +73,7 @@
               {#if slot}
                 {@const row = slot.row}
                 <!-- a span's later pieces repeat its link for the mouse only -->
-                <a class="indicator event {statusColor(row[calendar.colorField || "status"], colorField)}" class:continues-before={!slot.start} class:continues-after={!slot.end}
+                <a class="indicator event {statusColor(row[calendar.colorField || "status"], colorField)}" style={colorStyle(row[calendar.colorField || "status"], colorField)} class:continues-before={!slot.start} class:continues-after={!slot.end}
                   href={`${base}/${encodeURIComponent(row.id)}`} title={String(row[titleField] || row.id)}
                   tabindex={slot.label ? undefined : -1} aria-hidden={slot.label ? undefined : "true"}>{#if slot.label}{row[titleField] || row.id}{:else}&nbsp;{/if}</a>
               {:else}<div class="event-gap" aria-hidden="true"></div>{/if}

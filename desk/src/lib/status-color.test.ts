@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { statusColor } from "./format";
+import { colorStyle, statusColor } from "./format";
 
 // What this replaced was a regex over Portuguese word stems: "concluído" was
 // green and "completed" was grey. Colour must never be decided by the text a
@@ -45,5 +45,28 @@ describe("statusColor", () => {
     // "concluído" used to be green through a regex; it is now just an unknown
     // value, and an app that wants it coloured declares optionColors.
     expect(statusColor("Concluído")).not.toBe(statusColor("Completed"));
+  });
+});
+
+describe("colorStyle", () => {
+  const color = { fieldtype: "Color" };
+
+  it("paints with a Color field's own value", () => {
+    const style = colorStyle("#f97316", color)!;
+    expect(style).toContain("background: color-mix(in srgb, #f97316");
+    expect(style).toContain("color: color-mix(in srgb, #f97316");
+    // and the class underneath is the neutral one, never a hash of the hex
+    expect(statusColor("#f97316", color)).toBe("gray");
+  });
+
+  it("leaves every other field to the palette", () => {
+    expect(colorStyle("#f97316", { fieldtype: "Select" })).toBeUndefined();
+    expect(colorStyle("Open")).toBeUndefined();
+  });
+
+  it("ignores what is not a colour", () => {
+    expect(colorStyle("", color)).toBeUndefined();
+    expect(colorStyle("orange", color)).toBeUndefined();
+    expect(colorStyle("#f97316; position: fixed", color)).toBeUndefined();
   });
 });

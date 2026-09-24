@@ -24,6 +24,10 @@ not every commit that went into it.
   from its `field` day to its `endField` day, wrapping at the end of each week, and loads the
   records that overlap the month rather than only those that start in it. A record with no end
   still takes one day. `endField` was accepted before but ignored. See `docs/agent/form-api.md`.
+- **A Color field paints the boards.** When a Calendar, Gantt or Kanban `colorField` names a
+  **Color** field, each record is drawn in the colour it holds — the hue behind a calendar entry or a
+  Gantt bar, a coloured left edge on a Kanban card — instead of a palette colour hashed from the hex.
+  A Select `colorField` is unchanged. See `docs/agent/form-api.md`.
 
 ## 0.19.4 — 2026-09-24
 
