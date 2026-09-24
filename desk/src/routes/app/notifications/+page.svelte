@@ -39,9 +39,12 @@
             <div class="content">
               <div class="heading"><h2>{row.title}</h2><span class="status">{row.read ? __("Read") : __("Unread")}</span></div>
               <p class="message">{row.message}</p>
-              <div class="metadata"><time datetime={row.creation}>{formatDatetime(row.creation)}</time><a href={`/app/${encodeURIComponent(row.reference_doctype)}/${encodeURIComponent(row.reference_id)}`}>{doctypeLabel(row.reference_doctype)} · {row.reference_id}</a></div>
+              <div class="metadata"><time datetime={row.creation}>{formatDatetime(row.creation)}</time><span>{doctypeLabel(row.reference_doctype)} · {row.reference_id}</span></div>
             </div>
-            <button class="btn small" disabled={center.pending !== ""} onclick={() => center.toggle(row)}>{row.read ? __("Mark as unread") : __("Mark as read")}</button>
+            <div class="actions">
+              <button class="btn" disabled={center.pending !== ""} onclick={() => center.open(row)}><Icon name="external-link" />{__("Open document")}</button>
+              <button class="btn icon" disabled={center.pending !== ""} onclick={() => center.toggle(row)} title={row.read ? __("Mark as unread") : __("Mark as read")} aria-label={row.read ? __("Mark as unread") : __("Mark as read")}><Icon name={row.read ? "mail" : "check"} /></button>
+            </div>
           </li>
         {/each}
       </ul>
@@ -56,7 +59,7 @@
 
 <style>
   .notifications { max-width: 1100px; }
-  .page-head, .toolbar, .pagination, .heading, .metadata { display: flex; align-items: center; gap: 12px; }
+  .page-head, .toolbar, .pagination, .heading, .metadata, .actions { display: flex; align-items: center; gap: 12px; }
   .page-head { justify-content: space-between; margin-bottom: 24px; }
   h1 { margin: 0; }
   .toolbar { margin-bottom: 16px; }
@@ -70,6 +73,9 @@
   h2 { margin: 0; font-size: 14px; font-weight: 600; }
   .status { font-size: 11px; color: var(--muted); flex-shrink: 0; }
   .unread .status { color: var(--primary); }
+  li:not(.unread) .content { color: var(--muted); opacity: .75; }
+  li:not(.unread) h2 { font-weight: 500; }
+  .actions { flex-shrink: 0; gap: 8px; }
   .message { margin: 8px 0 12px; white-space: pre-wrap; }
   .metadata { flex-wrap: wrap; font-size: 12px; color: var(--muted); }
   .state { padding: 44px 20px; text-align: center; }

@@ -19,7 +19,8 @@ CREATE TABLE IF NOT EXISTS ddcore_notification (
   read boolean NOT NULL DEFAULT false, creation timestamptz NOT NULL DEFAULT clock_timestamp(),
   email_delivery text,
   UNIQUE(rule, reference_doctype, reference_id, recipient, identity));
-CREATE INDEX IF NOT EXISTS ddcore_notification_inbox ON ddcore_notification(recipient, creation DESC, id DESC) WHERE desk;
+DROP INDEX IF EXISTS ddcore_notification_inbox;
+CREATE INDEX IF NOT EXISTS ddcore_notification_inbox_unread_first ON ddcore_notification(recipient, read, creation DESC, id DESC) WHERE desk;
 CREATE TABLE IF NOT EXISTS ddcore_notification_due (
   rule text NOT NULL, reference_doctype text NOT NULL, reference_id text NOT NULL, due timestamptz NOT NULL,
   PRIMARY KEY (rule, reference_doctype, reference_id, due));

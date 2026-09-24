@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 )
@@ -95,6 +96,53 @@ export default defineNotification({name:"person",doctype:"Pessoa",event:"on_inse
 			t.Fatal(n)
 		}
 		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestNotificationsListUnreadFirst(t *testing.T) {
+	e := setupWith(t, nil)
+	ctx := context.Background()
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
+		d, _ := c.NewDoc("Pessoa", Doc{"nome": "inbox"})
+		if _, err := c.Insert(d, SaveOpts{}); err != nil {
+			return err
+		}
+		// 150 rows cross the 100-row batch; every third one (newest first) is read.
+		for i := 0; i < 150; i++ {
+			if _, err := c.Q().Exec(c.Ctx, `INSERT INTO ddcore_notification
+   (id,rule,recipient,reference_doctype,reference_id,identity,title,desk,read,creation)
+   VALUES ($1,'r','Admin','Pessoa',$2,$1,$1,true,$3,now() - make_interval(secs => $4))`,
+				fmt.Sprintf("n%03d", i), d.ID(), i%3 == 0, i); err != nil {
+				return err
+			}
+		}
+		var got []Notification
+		for offset := 0; offset < 150; offset += 40 {
+			page, err := c.ListNotifications(40, offset, nil)
+			if err != nil {
+				return err
+			}
+			if page.Total != 150 {
+				t.Fatalf("total %d", page.Total)
+			}
+			got = append(got, page.Data...)
+		}
+		if len(got) != 150 {
+			t.Fatalf("got %d rows", len(got))
+		}
+		for i := 1; i < len(got); i++ {
+			a, b := got[i-1], got[i]
+			if (a.Read && !b.Read) || (a.Read == b.Read && a.Creation.Before(b.Creation)) {
+				t.Fatalf("row %d out of order: %s(%v) before %s(%v)", i, a.ID, a.Read, b.ID, b.Read)
+			}
+		}
+		if got[0].ID != "n001" || got[100].ID != "n000" {
+			t.Fatalf("first unread %s, first read %s", got[0].ID, got[100].ID)
+		}
+		return nil
 	})
 	if err != nil {
 		t.Fatal(err)

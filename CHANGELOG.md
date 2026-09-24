@@ -27,6 +27,11 @@ not every commit that went into it.
 
 - **The Link dropdown is denser:** tighter rows, the subtitle right under the title, and long
   titles cut with an ellipsis.
+- **Notification center actions.** Each notification has an icon button to mark it as read or
+  unread, and an **Open document** button that first asks "Mark as read?" (Yes by default).
+  Read notifications are greyed out.
+- **`/api/notifications` lists unread notifications first,** newest first within each group, so
+  read ones sink to the bottom across pages.
 
 ## 0.19.1 — 2026-09-23
 

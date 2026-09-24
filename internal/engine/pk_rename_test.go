@@ -145,7 +145,7 @@ func TestMigrateMovesTheDocumentKeyFromNameToID(t *testing.T) {
 		columnType(t, e, "ddcore_notification_due", "reference_id") != "text" {
 		t.Error("ddcore_notification not moved to id")
 	}
-	if def := indexDef(t, e, "ddcore_notification_inbox"); !strings.Contains(def, "id DESC") {
+	if def := indexDef(t, e, "ddcore_notification_inbox_unread_first"); !strings.Contains(def, "id DESC") {
 		t.Errorf("notification inbox index = %q", def)
 	}
 	// What genuinely is a name stays one.

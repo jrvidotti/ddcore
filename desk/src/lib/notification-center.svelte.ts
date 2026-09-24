@@ -1,5 +1,8 @@
+import { goto } from "$app/navigation";
 import { api, type DeskNotification } from "./api";
+import { __ } from "./boot.svelte";
 import { refreshNotifications } from "./notifications.svelte";
+import { confirm } from "./ui.svelte";
 
 /** Owns one open center; stale requests cannot overwrite a newer page or session. */
 export class NotificationCenter {
@@ -42,6 +45,16 @@ export class NotificationCenter {
     } catch (e) {
       if (!this.destroyed) { this.rows = []; this.error = e instanceof Error ? e.message : String(e); }
     } finally { if (!this.destroyed) this.pending = ""; }
+  }
+
+  /** Opens the referenced document, offering to mark an unread notification as read first. */
+  async open(row: DeskNotification) {
+    if (!row.read && await confirm(__("Mark as read?"), __("Open document"))) {
+      if (this.destroyed) return;
+      await this.toggle(row);
+      if (this.error) return;
+    }
+    if (!this.destroyed) await goto(`/app/${encodeURIComponent(row.reference_doctype)}/${encodeURIComponent(row.reference_id)}`);
   }
 
   destroy() { this.destroyed = true; this.request++; this.rows = []; }

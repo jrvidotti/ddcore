@@ -311,8 +311,9 @@ Low,Baixa,# desk/src/lib/components/AssignModal.svelte:98
 Mail template {0} does not exist,O modelo de mensagem {0} não existe,# internal/engine/mailqueue.go:86
 Maintenance mode,Modo de manutenção,# desk/src/routes/+layout.svelte:263
 Mark as completed,Marcar como concluída,# desk/src/routes/app/todo/+page.svelte:162
-Mark as read,Marcar como lida,# desk/src/routes/app/notifications/+page.svelte:44
-Mark as unread,Marcar como não lida,# desk/src/routes/app/notifications/+page.svelte:44
+Mark as read,Marcar como lida,# desk/src/routes/app/notifications/+page.svelte:46
+Mark as read?,Marcar como lida?,# desk/src/lib/notification-center.svelte.ts:52
+Mark as unread,Marcar como não lida,# desk/src/routes/app/notifications/+page.svelte:46
 Markdown,Markdown,# desk/src/lib/controls/MarkdownControl.svelte:60
 Max Attempts,Máximo de Tentativas,# core.doctypes.webhook.webhook.doctype
 Max attempts must be between {0} and {1},O máximo de tentativas deve estar entre {0} e {1},# internal/engine/webhooks.go:595
@@ -386,7 +387,7 @@ Not permitted to upload here,Sem permissão para enviar arquivos aqui,# internal
 Not saved,Não salvo,# desk/src/lib/components/FormView.svelte:362
 Not shared with anyone,Não compartilhado com ninguém,# desk/src/lib/components/DocSidebar.svelte:198
 Nothing here yet.,Nada por aqui ainda.,# desk/src/lib/components/portal/PortalList.svelte:22
-Notification not found,Notificação não encontrada,# internal/engine/notifications.go:331
+Notification not found,Notificação não encontrada,# internal/engine/notifications.go:334
 Notifications,Notificações,# desk/src/lib/components/Sidebar.svelte:134
 Numbered list,Lista numerada,# desk/src/lib/controls/RichTextControl.svelte:119
 OK,OK,# desk/src/lib/ui.svelte.ts:127
@@ -403,6 +404,7 @@ Only an ndjson export can be imported; this one is {0},Só é possível importar
 Only cancelled documents can be amended,Só documentos cancelados podem ser emendados,# internal/engine/doc.go:933
 Only submitted documents can be cancelled,Só documentos enviados podem ser cancelados,# internal/engine/doc.go:901
 Open,Aberto,# desk/src/routes/app/todo/+page.svelte:132
+Open document,Abrir documento,# desk/src/lib/notification-center.svelte.ts:52
 Open file,Abrir arquivo,# desk/src/lib/controls/Grid.svelte:93
 Open menu,Abrir menu,# desk/src/routes/+layout.svelte:186
 Open the date picker,Abrir seletor de data,# desk/src/lib/controls/DateControl.svelte:238
@@ -768,7 +770,7 @@ webhook payload for {0} is not JSON: {1},o conteúdo do webhook para {0} não é
 "{0} is truncated: it ends without its _manifest line, so the export did not finish","{0} está truncado: termina sem a linha _manifest, ou seja, a exportação não concluiu",# internal/engine/import_source.go:167
 {0} line {1} is not a document: {2},{0} linha {1} não é um documento: {2},# internal/engine/import_source.go:179
 {0} not found,{0} não encontrado,# internal/api/portal.go:342
-{0} notifications,{0} notificações,# desk/src/routes/app/notifications/+page.svelte:51
+{0} notifications,{0} notificações,# desk/src/routes/app/notifications/+page.svelte:54
 {0} of a ToDo cannot be changed,{0} de uma tarefa não pode ser alterado,# core/doctypes/todo/todo.controller.ts:29
 {0} of {1},{0} de {1},# desk/src/lib/controls/RatingControl.svelte:43
 {0} pending tasks,{0} tarefas pendentes,# desk/src/lib/components/Sidebar.svelte:139

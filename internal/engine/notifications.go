@@ -279,12 +279,14 @@ func (c *Ctx) ListNotifications(limit, offset int, read *bool) (NotificationPage
 	if offset < 0 {
 		offset = 0
 	}
+	// Unread first, newest first within each group; the keyset cursor walks the same order.
 	var cursorTime any
-	cursorID := ""
+	cursorID, cursorRead := "", false
 	for {
 		rows, err := db.Select(c.Ctx, c.Q(), `SELECT id,title,message,creation,read,reference_doctype,reference_id
    FROM ddcore_notification WHERE recipient=$1 AND desk AND ($2::boolean IS NULL OR read=$2)
-   AND ($3::timestamptz IS NULL OR (creation,id)<($3,$4)) ORDER BY creation DESC,id DESC LIMIT 100`, c.User, read, cursorTime, cursorID)
+   AND ($3::timestamptz IS NULL OR read>$5 OR (read=$5 AND (creation,id)<($3,$4)))
+   ORDER BY read,creation DESC,id DESC LIMIT 100`, c.User, read, cursorTime, cursorID, cursorRead)
 		if err != nil {
 			return out, err
 		}
@@ -308,6 +310,7 @@ func (c *Ctx) ListNotifications(limit, offset int, read *bool) (NotificationPage
 		last := rows[len(rows)-1]
 		cursorTime = last["creation"]
 		cursorID = db.Str(last["id"])
+		cursorRead = last["read"] == true
 	}
 	return out, nil
 }
