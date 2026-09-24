@@ -12,6 +12,8 @@ not every commit that went into it.
 
 ## Unreleased
 
+## 0.19.4 — 2026-09-24
+
 ### Added
 
 - **Tasks open under the To-Do page.** `/app/todo/new` and `/app/todo/<id>` show the ToDo form
