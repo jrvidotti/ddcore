@@ -12,6 +12,8 @@ not every commit that went into it.
 
 ## Unreleased
 
+## 0.19.3 — 2026-09-24
+
 ### Added
 
 - **Discard changes when leaving a form.** The "Unsaved changes" dialog shown on leaving a dirty
