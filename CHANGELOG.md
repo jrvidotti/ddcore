@@ -20,6 +20,10 @@ not every commit that went into it.
   stored value stays the English id, so permissions and `HasRole` are unchanged. Each role an app
   declares in `defineApp({ roles })` is now a catalogue key: run `ddcore i18n extract` and
   translate them, or `make check` reports them missing. See `docs/agent/i18n.md`.
+- **Calendar records span their days.** A calendar with `endField` now draws each record as a bar
+  from its `field` day to its `endField` day, wrapping at the end of each week, and loads the
+  records that overlap the month rather than only those that start in it. A record with no end
+  still takes one day. `endField` was accepted before but ignored. See `docs/agent/form-api.md`.
 
 ## 0.19.4 — 2026-09-24
 

@@ -1,8 +1,8 @@
 // Pure logic behind the Gantt view: the date window a scale shows, the query
 // that loads the rows overlapping it, and where each bar sits.
-import { addDays, addMonths, monthStart, toDatetimeLocal } from "../../datetime";
+import { addDays, addMonths, monthStart } from "../../datetime";
 import type { Field } from "../../meta";
-import { calendarRangeFilters, isCalendarDatetime } from "./calendar-state";
+import { calendarDay, calendarRangeFilters } from "./calendar-state";
 
 export type GanttScale = "day" | "week" | "month";
 
@@ -81,12 +81,6 @@ export function ganttRangeFilters(startField: string, endField: string, fields: 
   return [startsBeforeEnd, endsAfterStart];
 }
 
-function dayOf(row: Record<string, any>, field: string, fields: Field[], tz?: string): string {
-  const v = row[field];
-  const iso = isCalendarDatetime(fields, field) ? toDatetimeLocal(v, tz).slice(0, 10) : String(v ?? "").slice(0, 10);
-  return /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso : "";
-}
-
 /** Where a row's bar sits in the window, or null when it has no span there. */
 export function ganttBar(
   row: Record<string, any>,
@@ -95,8 +89,8 @@ export function ganttBar(
   win: GanttWindow,
   tz?: string,
 ): GanttBar | null {
-  const start = dayOf(row, opts.startField, fields, tz);
-  let end = dayOf(row, opts.endField, fields, tz);
+  const start = calendarDay(row, opts.startField, fields, tz);
+  let end = calendarDay(row, opts.endField, fields, tz);
   if (!start || !end) return null;
   if (end < start) end = start;
   if (end < win.start || start > win.end) return null;

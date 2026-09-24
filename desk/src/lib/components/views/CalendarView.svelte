@@ -7,7 +7,7 @@
   import { fromDatetimeLocal, today } from "$lib/datetime";
   import { formatDate, statusColor } from "$lib/format";
   import Icon from "../Icon.svelte";
-  import { groupCalendarRows, isCalendarDatetime } from "./calendar-state";
+  import { calendarLanes, isCalendarDatetime } from "./calendar-state";
 
   let { rows, meta, doctype, wsPrefix, basePath, calendar, viewYear = Number(today().slice(0, 4)), viewMonth = Number(today().slice(5, 7)), onMonthChange, onDayClick, undatedOn }: {
     rows: any[]; meta: Meta; doctype: string; wsPrefix: string; calendar: CalendarViewOptions;
@@ -28,7 +28,7 @@
   const colorField = $derived(meta.doctype.fields.find((f) => f.fieldname === (calendar.colorField || "status")));
   const isDatetime = $derived(isCalendarDatetime(meta.doctype.fields, calendar.field));
   const todayIso = $derived(today());
-  const byDay = $derived(groupCalendarRows(rows, calendar.field, meta.doctype.fields, undefined, undatedOn));
+  const byDay = $derived(calendarLanes(rows, calendar, meta.doctype.fields, days, undefined, undatedOn));
 
   // Notify on first render too, so the parent fetches overflow days in the grid.
   $effect(() => {
@@ -69,8 +69,14 @@
             <a class="btn icon sm day-new" href={`${base}/new?${encodeURIComponent(calendar.field)}=${encodeURIComponent(prefill || day.iso)}`} aria-label={`${__("New")} — ${formatDate(day.iso)}`} title={`${__("New")} — ${formatDate(day.iso)}`}><Icon name="plus" size={14} /></a>
           {/if}
           <div class="events">
-            {#each byDay.get(day.iso) || [] as row (row.id)}
-              <a class="indicator event {statusColor(row[calendar.colorField || "status"], colorField)}" href={`${base}/${encodeURIComponent(row.id)}`} title={String(row[titleField] || row.id)}>{row[titleField] || row.id}</a>
+            {#each byDay.get(day.iso) || [] as slot, lane (slot?.row.id ?? `gap-${lane}`)}
+              {#if slot}
+                {@const row = slot.row}
+                <!-- a span's later pieces repeat its link for the mouse only -->
+                <a class="indicator event {statusColor(row[calendar.colorField || "status"], colorField)}" class:continues-before={!slot.start} class:continues-after={!slot.end}
+                  href={`${base}/${encodeURIComponent(row.id)}`} title={String(row[titleField] || row.id)}
+                  tabindex={slot.label ? undefined : -1} aria-hidden={slot.label ? undefined : "true"}>{#if slot.label}{row[titleField] || row.id}{:else}&nbsp;{/if}</a>
+              {:else}<div class="event-gap" aria-hidden="true"></div>{/if}
             {/each}
           </div>
         </div>
@@ -103,7 +109,11 @@
   .day:hover .day-new, .day-new:focus-visible { opacity: 1; }
   @media (hover: none) { .day-new { opacity: 1; } }
   .events { display: grid; gap: 4px; margin-top: 6px; }
-  .event { position: relative; z-index: 1; display: block; padding: 4px 6px; border-radius: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .event, .event-gap { height: 24px; }
+  .event { position: relative; z-index: 1; display: block; padding: 0 6px; line-height: 24px; border-radius: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* a span's pieces reach across the day's padding and border into one bar */
+  .event.continues-before { margin-left: -8px; border-top-left-radius: 0; border-bottom-left-radius: 0; }
+  .event.continues-after { margin-right: -9px; border-top-right-radius: 0; border-bottom-right-radius: 0; }
   .event::before { display: none; }
   .event:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
   @media (max-width: 480px) { .calendar-head { flex-wrap: wrap; } }

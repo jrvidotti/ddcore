@@ -30,7 +30,7 @@
   import TreeView from "./views/TreeView.svelte";
   import { moveKanbanRow, kanbanValue } from "./views/kanban-state";
   import { ganttRangeFilters, ganttWindow, type GanttScale } from "./views/gantt-state";
-  import { calendarRangeFilters } from "./views/calendar-state";
+  import { calendarRangeFilters, calendarSpanFilters } from "./views/calendar-state";
   import { resolveCardFields } from "./views/card-fields";
   import { showIDColumn } from "./views/id-column";
   import { docTypeChoices } from "$lib/doctype-selector";
@@ -230,13 +230,20 @@
     }
     out.push(...buildListFilters(plain, settings.filterOptions));
     if (showDocstatusFilter && docstatusFilter !== "") out.push(["docstatus", "=", Number(docstatusFilter)]);
-    if (currentView === "calendar" && settings.calendar?.field && meta?.doctype?.fields) {
+    // a calendar with an end field loads through calendarQueries instead
+    if (currentView === "calendar" && settings.calendar?.field && !settings.calendar.endField && meta?.doctype?.fields) {
       out.push(...calendarRangeFilters(settings.calendar.field, meta.doctype.fields, gridStartIso, gridEndIso));
     }
     if (currentView === "gantt" && settings.gantt?.startField && settings.gantt.endField && meta?.doctype?.fields) {
       out.push(...ganttRangeFilters(settings.gantt.startField, settings.gantt.endField, meta.doctype.fields, ganttWindow(ganttAnchor, ganttScale)));
     }
     return out;
+  }
+  /** The filter sets whose rows fill a spanning calendar, fetched apart and joined; [filters] otherwise. */
+  function calendarQueries(filters: any[]): any[][] {
+    const calendar = settings.calendar;
+    if (currentView !== "calendar" || !calendar?.field || !calendar.endField || !meta?.doctype?.fields) return [filters];
+    return calendarSpanFilters(calendar.field, calendar.endField, meta.doctype.fields, gridStartIso, gridEndIso).map((span) => [...filters, ...span]);
   }
   function buildOr() {
     if (!search || !meta || !meta.doctype) return undefined;
@@ -279,18 +286,19 @@
       const query = { filters: buildFilters(), or_filters: buildOr(), fields: [...new Set(fields)], order_by: order, limit: unpaged ? VIEW_LIMIT : pageSize, start: unpaged ? 0 : start, with_count: true };
       // List and Cards share a query and selection. Normalize unordered query
       // parts so restoring the same filters from the URL also keeps selection.
+      const filterSets = calendarQueries(query.filters);
       const queryKey = JSON.stringify({ ...query, doctype,
-        filters: query.filters.map((filter) => JSON.stringify(filter)).sort(),
+        filters: filterSets.map((filters) => filters.map((filter) => JSON.stringify(filter)).sort()),
         or_filters: query.or_filters?.map((filter) => JSON.stringify(filter)).sort(),
         fields: [...query.fields].sort(),
       });
       const preserveSelection = queryKey === loadedQueryKey;
       if (!preserveSelection) selected = new Set();
-      const res = await api.list(doctype, query);
+      const parts = await Promise.all(filterSets.map((filters) => api.list(doctype, { ...query, filters })));
       if (version !== loadVersion) return;
-      rows = res.rows;
-      total = res.count;
-      if (res.titles) registerTitles(res.titles);
+      rows = parts.flatMap((res) => res.rows);
+      total = parts.reduce((sum, res) => sum + res.count, 0);
+      for (const res of parts) if (res.titles) registerTitles(res.titles);
       selected = preserveSelection ? new Set(rows.filter((row) => selected.has(row.id)).map((row) => row.id)) : new Set();
       loadedQueryKey = queryKey;
       error = "";

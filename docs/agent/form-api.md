@@ -196,7 +196,7 @@ as a button that falls back to the table:
 ```ts
 defineListView<Task>("Task", {
   views: ["list", "calendar", "kanban", "gantt", "cards"], // default: list, then each configured view, then cards
-  calendar: { field: "due_date", endField: "completed_at", titleField: "title", colorField: "status" },
+  calendar: { field: "start_date", endField: "due_date", titleField: "title", colorField: "status" },
   kanban: { field: "priority", columns: ["High", "Medium", "Low"], titleField: "title", subtitleField: "project", colorField: "status" },
   gantt: { startField: "start_date", endField: "due_date", titleField: "title", colorField: "status", progressField: "percent_done" },
   card: { title: "title", subtitle: "project", dateField: "due_date", image: "cover" },
@@ -206,7 +206,11 @@ defineListView<Task>("Task", {
 - **Calendar:** clicking a day lists that day's records, filtered on the calendar's `field` (a
   `Datetime` field matches the whole day in the site's time zone); the **+** in a day's corner,
   shown on hover, opens a new record with the field set to that day. A calendar on `creation` or
-  `modified` has the **+** only.
+  `modified` has the **+** only. With `endField` (a Date or Datetime), each record is drawn as a
+  bar across every day from `field` to `endField`, and the bar wraps at the end of each week. A
+  record keeps its row within the week, and it shows on the calendar from the first day to the last
+  of the span, including one that started before the month shown. A record with no end (or an
+  end before its start) takes its start day alone.
 - **Cards** is the default on a phone.
   - `title` defaults to the DocType's `titleField`, then `id`. `dateField` defaults to the first
     visible Date or Datetime field.
