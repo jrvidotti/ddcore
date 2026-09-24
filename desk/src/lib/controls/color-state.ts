@@ -20,3 +20,15 @@ export function isDarkColor(v: any): boolean {
   // perceived luminance, the usual sRGB weights
   return (0.299 * r + 0.587 * g + 0.114 * b) / 255 < 0.6;
 }
+
+/**
+ * The Basic tab of the picker: ten hues across, light to dark down, with a
+ * grey column first. Read row by row, ten to a row.
+ */
+export const BASIC_COLORS: string[] = [
+  // grey     red        orange     amber      yellow     green      teal       blue       indigo     pink
+  "#ffffff", "#fecaca", "#fed7aa", "#fde68a", "#fef08a", "#bbf7d0", "#99f6e4", "#bfdbfe", "#c7d2fe", "#fbcfe8",
+  "#d1d5db", "#f87171", "#fb923c", "#fbbf24", "#facc15", "#4ade80", "#2dd4bf", "#60a5fa", "#818cf8", "#f472b6",
+  "#6b7280", "#dc2626", "#ea580c", "#d97706", "#ca8a04", "#16a34a", "#0d9488", "#2563eb", "#4f46e5", "#db2777",
+  "#000000", "#991b1b", "#9a3412", "#92400e", "#854d0e", "#166534", "#115e59", "#1e40af", "#3730a3", "#9d174d",
+];

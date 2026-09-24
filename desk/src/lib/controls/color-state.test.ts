@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isDarkColor, normalizeColor } from "./color-state";
+import { BASIC_COLORS, isDarkColor, normalizeColor } from "./color-state";
 
 describe("normalizeColor", () => {
   it("writes one colour one way", () => {
@@ -19,5 +19,13 @@ describe("isDarkColor", () => {
     expect(isDarkColor("#000000")).toBe(true);
     expect(isDarkColor("#ffffff")).toBe(false);
     expect(isDarkColor("not a colour")).toBe(false);
+  });
+});
+
+describe("BASIC_COLORS", () => {
+  it("holds each colour once, already written the stored way", () => {
+    for (const c of BASIC_COLORS) expect(normalizeColor(c)).toBe(c);
+    expect(new Set(BASIC_COLORS).size).toBe(BASIC_COLORS.length);
+    expect(BASIC_COLORS.length % 10).toBe(0);
   });
 });

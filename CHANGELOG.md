@@ -30,6 +30,9 @@ not every commit that went into it.
   **Color** field, each record is drawn in the colour it holds — the hue behind a calendar entry or a
   Gantt bar, a coloured left edge on a Kanban card — instead of a palette colour hashed from the hex.
   A Select `colorField` is unchanged. See `docs/agent/form-api.md`.
+- **A Color field picks from a palette.** The field now shows only its colour, without the hex
+  beside it. Clicking it opens a picker on a grid of basic colours; its Advanced tab holds the
+  browser's colour picker and the `#rrggbb` text box. Clear moved into the picker.
 
 ## 0.19.4 — 2026-09-24
 
