@@ -331,17 +331,17 @@
                   onchange={() => toggleDone(row)} aria-label={row.status === "Closed" ? __("Reopen") : __("Mark as completed")} />
               </td>
               <td class="desc"><a href={todoHref(row.id)}>{row.description || row.id}</a></td>
-              <td>
+              <td class="ref">
                 {#if row.reference_type && row.reference_id}
                   <a class="ref-doc" href={docHref(row.reference_type, row.reference_id)}>
                     <span class="muted">{doctypeLabel(row.reference_type)}</span> · {getLinkTitle(row.reference_type, row.reference_id) || row.reference_id}
                   </a>
                 {/if}
               </td>
-              <td><span class="priority-badge {priorityBadgeClass(row.priority)}">{__(row.priority)}</span></td>
-              <td class:overdue={isAssignmentOverdue(row.date, row.status, initialDate)}>{row.date || ""}</td>
-              <td>{userTitle(counterpart)}</td>
-              <td><span class="indicator {statusColor(row.status, meta?.doctype.fields.find((f) => f.fieldname === "status"))}">{__(row.status)}</span></td>
+              <td class="nowrap"><span class="priority-badge {priorityBadgeClass(row.priority)}">{__(row.priority)}</span></td>
+              <td class="nowrap" class:overdue={isAssignmentOverdue(row.date, row.status, initialDate)}>{formatDate(row.date)}</td>
+              <td class="who">{userTitle(counterpart)}</td>
+              <td class="nowrap"><span class="indicator {statusColor(row.status, meta?.doctype.fields.find((f) => f.fieldname === "status"))}">{__(row.status)}</span></td>
               <td class="num">
                 <div class="task-actions">
                   {#if row.status === "Open"}
@@ -446,7 +446,7 @@
 {/if}
 
 <style>
-  .page-head { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+  .page-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
   .page-head h1 { margin: 0 auto 0 0; }
   .view-switcher { display: flex; }
   .view-switcher .btn { border-radius: 0; }
@@ -485,13 +485,18 @@
   .select-filter { min-width: 0; }
   .select-filter :global(.field) { flex: 1; }
   .list-results { overflow: auto; }
+  /* below this the table scrolls sideways instead of squeezing its text columns */
+  .list-results .grid { min-width: 860px; }
   .view-notice { margin: 0 0 8px; }
   .sort { border: 0; padding: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
   .sort:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
-  .desc { font-weight: 500; max-width: 360px; word-break: break-word; }
+  /* long text wraps between words; only an unbroken string is split */
+  .desc { font-weight: 500; min-width: 200px; max-width: 360px; overflow-wrap: break-word; }
   .desc a { color: inherit; }
   tr.done .desc a { color: var(--muted); text-decoration: line-through; }
-  .ref-doc { white-space: nowrap; }
+  .ref { min-width: 160px; max-width: 300px; overflow-wrap: break-word; }
+  .who { min-width: 120px; }
+  .nowrap { white-space: nowrap; }
   td.overdue { color: var(--danger, #dc2626); font-weight: 600; }
   .empty { text-align: center; padding: 36px 12px; color: var(--muted); }
   .empty p { margin: 6px 0 0; }
@@ -509,7 +514,7 @@
   .priority-high { background: #ffedd5; color: #c2410c; }
   .priority-medium { background: #fef3c7; color: #b45309; }
   .priority-low { background: #f1f5f9; color: #475569; }
-  .task-actions { display: inline-flex; gap: 4px; }
+  .task-actions { display: inline-flex; gap: 4px; white-space: nowrap; }
   .pagination { display: flex; align-items: center; gap: 8px; padding: 10px 14px; }
   .pagination .spacer { flex: 1; }
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

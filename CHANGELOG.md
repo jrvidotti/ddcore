@@ -32,6 +32,13 @@ not every commit that went into it.
 - **ToDo's Status is read-only in the form**; it moves through the buttons, the To-Do page and the
   assignment endpoints.
 
+### Fixed
+
+- **The To-Do list keeps its columns readable.** A long description wraps between words instead
+  of splitting them letter by letter next to a reference that would not wrap; the reference wraps
+  too, the priority, due date (now in the site's date format), status and actions stay on one
+  line, and a narrow screen scrolls the table sideways rather than squeezing it.
+
 ## 0.19.3 — 2026-09-24
 
 ### Added
