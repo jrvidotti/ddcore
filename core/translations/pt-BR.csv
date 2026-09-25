@@ -18,7 +18,7 @@ Actions,Ações,# desk/src/lib/components/FormView.svelte:446
 Active sessions,Sessões ativas,# desk/src/lib/components/Profile.svelte:195
 Actor,Autor,# core.doctypes.audit_event.audit_event.doctype
 Add child,Adicionar filho,# desk/src/lib/components/views/TreeView.svelte:131
-Add row,Adicionar linha,# desk/src/lib/controls/Grid.svelte:175
+Add row,Adicionar linha,# desk/src/lib/controls/Grid.svelte:185
 Add {0},Adicionar {0},# desk/src/lib/controls/TableMultiSelectControl.svelte:124
 Address,Endereço,# desk/src/lib/components/Profile.svelte:200
 Admin sign-in,Entrar como Admin,# desk/src/routes/login/+page.svelte:82
@@ -34,7 +34,7 @@ Amend,Emendar,# desk/src/lib/components/FormView.svelte:484
 An account was created for you on {0}. Choose a password to get in.,Uma conta foi criada para você em {0}. Escolha uma senha para entrar.,# core/mail/invite.mail.ts:22
 Another column already fills this field,Outra coluna já preenche este campo,# internal/engine/data_import.go:439
 Applicable For,Aplicável Para,# core.doctypes.user_permission.user_permission.doctype
-Apply,Aplicar,# desk/src/lib/controls/Grid.svelte:67
+Apply,Aplicar,# desk/src/lib/controls/Grid.svelte:76
 Apps reloaded,Apps recarregadas,# desk/src/routes/+layout.svelte:163
 Arguments,Argumentos,# core.doctypes.email_delivery.email_delivery.doctype
 Ask for a new link,Pedir um novo link,# desk/src/routes/login/reset/+page.svelte:47
@@ -103,7 +103,7 @@ Choose image,Escolher imagem,# desk/src/lib/controls/AttachControl.svelte:86
 "Chromium PDF conversion failed: {0}, output: {1}","Falha na conversão de PDF via Chromium: {0}, saída: {1}",# internal/print/pdf.go:220
 Clear,Limpar,# desk/src/lib/controls/ColorControl.svelte:258
 Clear filters,Limpar filtros,# desk/src/lib/components/ListView.svelte:509
-Clear selection,Limpar seleção,# desk/src/lib/components/ReportGrid.svelte:54
+Clear selection,Limpar seleção,# desk/src/lib/components/ReportGrid.svelte:63
 Close,Fechar,# desk/src/lib/components/AssignModal.svelte:75
 Close menu,Fechar menu,# desk/src/lib/components/Sidebar.svelte:94
 "Close modals, menus or dialogs","Fechar modais, menus ou diálogos",# desk/src/lib/shortcuts.ts:101
@@ -143,11 +143,11 @@ Day,Dia,# desk/src/lib/components/views/GanttView.svelte:25
 Day/month/year,Dia/mês/ano,# desk/src/lib/components/DataImportModal.svelte:162
 Decimal separator,Separador decimal,# desk/src/lib/components/DataImportModal.svelte:167
 Delete,Excluir,# desk/src/lib/components/Dialogs.svelte:94
-Delete attachment,Excluir anexo,# desk/src/lib/controls/Grid.svelte:77
-Delete selected,Excluir selecionadas,# desk/src/lib/controls/Grid.svelte:50
-Delete this attachment?,Excluir este anexo?,# desk/src/lib/controls/Grid.svelte:80
+Delete attachment,Excluir anexo,# desk/src/lib/controls/Grid.svelte:86
+Delete selected,Excluir selecionadas,# desk/src/lib/controls/Grid.svelte:59
+Delete this attachment?,Excluir este anexo?,# desk/src/lib/controls/Grid.svelte:89
 Delete {0} record(s)?,Apagar {0} registro(s)?,# desk/src/lib/components/ListView.svelte:376
-Delete {0} rows?,Excluir {0} linhas?,# desk/src/lib/controls/Grid.svelte:50
+Delete {0} rows?,Excluir {0} linhas?,# desk/src/lib/controls/Grid.svelte:59
 Delete {0}?,Apagar {0}?,# desk/src/lib/components/FormView.svelte:309
 Deleted,Apagado,# desk/src/lib/form.svelte.ts:420
 Delivery,Entrega,# core.doctypes.webhook.webhook.doctype
@@ -182,7 +182,7 @@ Duplicate,Duplicar,# desk/src/lib/components/FormView.svelte:431
 Duplicate ID,ID duplicado,# internal/engine/doc.go:1953
 Duplicate value,Valor duplicado,# internal/engine/doc.go:1865
 Duplicate value in {0},Valor duplicado em {0},# internal/engine/doc.go:1963
-Edit row,Editar linha,# desk/src/lib/controls/Grid.svelte:164
+Edit row,Editar linha,# desk/src/lib/controls/Grid.svelte:174
 Edit {0},Editar {0},# desk/src/lib/components/FormView.svelte:285
 Email,E-mail,# desk/src/lib/components/Profile.svelte:139
 Email Delivery,Entrega de E-mail,# core.doctypes.email_delivery.email_delivery.doctype
@@ -384,11 +384,12 @@ No permission to reopen this task,Sem permissão para reabrir esta tarefa,# inte
 No permission to revoke this task,Sem permissão para revogar esta tarefa,# internal/api/assignments.go:185
 No permission to submit {0},Sem permissão para enviar {0},# internal/engine/doc.go:548
 No recipient,Sem destinatário,# internal/engine/mailqueue.go:100
-No records,Nenhum registro,# desk/src/lib/components/ReportGrid.svelte:87
+No records,Nenhum registro,# desk/src/lib/components/ReportGrid.svelte:96
 No records in this period,Nenhum registro neste período,# desk/src/lib/components/views/GanttView.svelte:80
 No report permission on {0},Sem permissão de relatório em {0},# internal/api/api.go:1175
 No results,Nenhum resultado,# desk/src/lib/components/SearchPalette.svelte:109
-No rows,Nenhuma linha,# desk/src/lib/controls/Grid.svelte:170
+No rows,Nenhuma linha,# desk/src/lib/controls/Grid.svelte:180
+No rows match the filters,Nenhuma linha corresponde aos filtros,# desk/src/lib/components/ReportGrid.svelte:96
 No tasks found,Nenhuma tarefa encontrada,# desk/src/routes/app/todo/+page.svelte:367
 No workflow configured for {0},Nenhum workflow configurado para {0},# internal/engine/workflow.go:81
 No workspace declared. Create an app with ddcore new-app and declare a workspace.,Nenhum workspace declarado. Crie um app com ddcore new-app e declare um workspace.,# desk/src/routes/app/+page.svelte:21
@@ -417,7 +418,7 @@ Only cancelled documents can be amended,Só documentos cancelados podem ser emen
 Only submitted documents can be cancelled,Só documentos enviados podem ser cancelados,# internal/engine/doc.go:917
 Open,Aberto,# core.doctypes.todo.todo.doctype
 Open document,Abrir documento,# desk/src/lib/notification-center.svelte.ts:52
-Open file,Abrir arquivo,# desk/src/lib/controls/Grid.svelte:150
+Open file,Abrir arquivo,# desk/src/lib/controls/Grid.svelte:160
 Open menu,Abrir menu,# desk/src/routes/+layout.svelte:197
 Open the date picker,Abrir seletor de data,# desk/src/lib/controls/DateControl.svelte:238
 Open the full form,Abrir o formulário completo,# desk/src/lib/quick-create.ts:55
@@ -521,8 +522,8 @@ Secret hash,Hash do segredo,# core.doctypes.api_key.api_key.doctype
 Secret {0} is not configured on this site,O segredo {0} não está configurado neste site,# internal/engine/secrets.go:70
 See the full history,Ver histórico completo,# desk/src/lib/components/DocHistory.svelte:240
 Seen,Visto,# core.doctypes.error_log.error_log.doctype
-Select all,Selecionar todos,# desk/src/lib/components/ReportGrid.svelte:63
-Select row {0},Selecionar linha {0},# desk/src/lib/components/ReportGrid.svelte:75
+Select all,Selecionar todos,# desk/src/lib/components/ReportGrid.svelte:72
+Select row {0},Selecionar linha {0},# desk/src/lib/components/ReportGrid.svelte:84
 Select {0},Selecionar {0},# desk/src/lib/components/views/CardView.svelte:55
 Self-approval is not allowed for action '{0}' on {1} {2},Auto-aprovação não é permitida para a ação '{0}' em {1} {2},# internal/engine/workflow.go:130
 Send the link,Enviar o link,# desk/src/routes/login/forgot/+page.svelte:41
@@ -558,7 +559,7 @@ Single DocTypes cannot be deleted or renamed,DocTypes Single não podem ser excl
 Single sign-on failed. Try again.,O login único (SSO) falhou. Tente novamente.,# desk/src/routes/login/+page.svelte:36
 Size,Tamanho,# desk/src/lib/controls/AttachControl.svelte:71
 "Someone asked to reset the password for this account on {0}. If it was not you, ignore this message: nothing has changed.","Alguém pediu para redefinir a senha desta conta em {0}. Se não foi você, ignore esta mensagem: nada mudou.",# core/mail/reset.mail.ts:16
-Sort by {0},Ordenar por {0},# desk/src/lib/components/ReportGrid.svelte:67
+Sort by {0},Ordenar por {0},# desk/src/lib/components/ReportGrid.svelte:76
 Source,Origem,# core.doctypes.error_log.error_log.doctype
 Standard,Padrão,# desk/src/lib/components/PrintView.svelte:46
 Standard Webhooks key. A whsec_ prefix marks a base64 key; anything else is used as is.,Chave Standard Webhooks. O prefixo whsec_ indica uma chave em base64; qualquer outro valor é usado como está.,# core.doctypes.webhook.webhook.doctype
@@ -638,7 +639,7 @@ Today,Hoje,# desk/src/lib/components/views/CalendarView.svelte:55
 Too many attempts. Try again in {0} second(s),Tentativas demais. Tente de novo em {0} segundo(s),# internal/engine/throttle.go:69
 Too many attempts. Try again later.,Muitas tentativas. Tente novamente mais tarde.,# desk/src/routes/login/+page.svelte:34
 Too many changes in a short time. Try again later.,Muitas alterações em pouco tempo. Tente novamente mais tarde.,# internal/api/portal.go:138
-Total,Total,# desk/src/lib/components/ReportGrid.svelte:44
+Total,Total,# desk/src/lib/components/ReportGrid.svelte:52
 Tree,Árvore,# desk/src/lib/components/ListView.svelte:465
 Try again,Tentar novamente,# desk/src/lib/components/PrintView.svelte:225
 Type,Tipo,# desk/src/lib/components/Profile.svelte:140
@@ -674,7 +675,7 @@ Username,Usuário,# desk/src/routes/login/+page.svelte:61
 Vault secret key ({0}) is not configured on this site,Chave secreta do cofre ({0}) não está configurada neste site,# internal/engine/vault.go:27
 Vault secret name cannot be empty,Nome do segredo do cofre não pode ser vazio,# internal/engine/vault.go:85
 Version,Versão,# core.doctypes.version.version.doctype
-View row,Visualizar linha,# desk/src/lib/controls/Grid.svelte:164
+View row,Visualizar linha,# desk/src/lib/controls/Grid.svelte:174
 Webhook,Webhook,# core.doctypes.webhook.webhook.doctype
 Webhook Delivery,Entrega de Webhook,# core.doctypes.webhook_delivery.webhook_delivery.doctype
 Webhook Delivery {0} is still on its way ({1}),A entrega de webhook {0} ainda está em andamento ({1}),# internal/engine/webhooks.go:533
@@ -805,7 +806,7 @@ webhook payload for {0} is not JSON: {1},o conteúdo do webhook para {0} não é
 {0} rows have errors and will be skipped. Import the other {1}?,{0} linhas têm erro e serão ignoradas. Importar as outras {1}?,# desk/src/lib/components/DataImportModal.svelte:113
 {0} rows imported,{0} linhas importadas,# desk/src/lib/components/DataImportModal.svelte:119
 "{0} rows read: {1} can be imported, {2} have errors.","{0} linhas lidas: {1} podem ser importadas, {2} têm erro.",# desk/src/lib/components/DataImportModal.svelte:214
-{0} selected,{0} selecionadas,# desk/src/lib/components/ReportGrid.svelte:53
+{0} selected,{0} selecionadas,# desk/src/lib/components/ReportGrid.svelte:62
 {0} session(s) ended,{0} sessão(ões) encerrada(s),# desk/src/lib/components/Profile.svelte:102
 {0} shared {1} {2} with you,{0} compartilhou {1} {2} com você,# internal/engine/share.go:360
 {0} takes a rating from 0 to {1},{0} aceita uma avaliação de 0 a {1},# internal/engine/doc.go:241

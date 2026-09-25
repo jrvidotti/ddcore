@@ -96,3 +96,51 @@ func TestComputedFieldValidation(t *testing.T) {
 		}
 	}
 }
+
+func TestGridFiltersValidation(t *testing.T) {
+	gf := func(label, filters string) GridFilter {
+		return GridFilter{Label: label, Filters: json.RawMessage(filters)}
+	}
+	table := func(fs ...GridFilter) *Field {
+		return &Field{Fieldname: "s", Fieldtype: "Table", Options: "Course Student", GridFilters: fs}
+	}
+	ok := []*Field{
+		table(gf("Named", `[["employee_name", "like", "a%"]]`), gf("Graded", `{"grade": 9}`), gf("Pair", `[["idx", 1]]`)),
+		{Fieldname: "r", Fieldtype: "Report", Options: "X", GridFilters: []GridFilter{gf("Any column", `[["whatever", "=", 1]]`)}},
+	}
+	if err := gridRegistry(ok...).Validate(); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct {
+		f    *Field
+		want string
+	}{
+		{table(gf("", `{"grade": 1}`)), "gridFilters[0] needs a label"},
+		{table(gf("x", `[]`)), "filters is empty"},
+		{table(gf("x", `"grade"`)), "must be a list"},
+		{table(gf("x", `[["grade"]]`)), "is [field, operator, value]"},
+		{table(gf("x", `[["grade", "descendants of", "a"]]`)), `operator "descendants of" cannot filter a grid`},
+		{table(gf("x", `[["nope", "=", 1]]`)), `filters on "nope", which is not a field`},
+		{table(gf("x", `{"sec": 1}`)), `filters on "sec", which is not a field`},
+		{&Field{Fieldname: "d", Fieldtype: "Data", GridFilters: []GridFilter{gf("x", `{"a": 1}`)}}, "gridFilters is for a Table or a Report field"},
+	} {
+		err := gridRegistry(c.f).Validate()
+		if err == nil || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("%s: want %q, got %v", c.f.GridFilters[0].Filters, c.want, err)
+		}
+	}
+}
+
+func TestGridFiltersRoundTripThroughJSON(t *testing.T) {
+	in := `{"fieldtype":"Table","gridFilters":[{"label":"In class","filters":[["in_class","=",1]],"default":true}]}`
+	var f Field
+	if err := json.Unmarshal([]byte(in), &f); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.GridFilters) != 1 || f.GridFilters[0].Label != "In class" || !f.GridFilters[0].Default {
+		t.Fatalf("parsed %+v", f.GridFilters)
+	}
+	if b, _ := json.Marshal(f); string(b) != in {
+		t.Fatalf("json=%s", b)
+	}
+}

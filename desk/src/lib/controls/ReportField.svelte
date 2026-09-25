@@ -53,7 +53,7 @@
   {:else if result}
     <ReportGrid columns={result.columns || []} rows={result.rows || []} {wsPrefix}
       filename={exportBaseName(frm.doctype, frm.doc.id, field.fieldname)} sheetName={field.label}
-      {baseSort} sortable={!!field.gridSortable} selectable={!!field.gridSelect} exportable={!!field.gridExport && canExport} />
+      {baseSort} filters={field.gridFilters || []} sortable={!!field.gridSortable} selectable={!!field.gridSelect} exportable={!!field.gridExport && canExport} />
   {:else if loading}
     <div class="card muted" style="padding:14px;text-align:center">{__("Loading...")}</div>
   {/if}

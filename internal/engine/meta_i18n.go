@@ -69,6 +69,13 @@ func (st *State) TranslateDocType(d *meta.DocType, lang string) *meta.DocType {
 		cp := *f
 		cp.Label = t(f.Label)
 		cp.Description = t(f.Description)
+		if f.GridFilters != nil {
+			cp.GridFilters = make([]meta.GridFilter, len(f.GridFilters))
+			for j, gf := range f.GridFilters {
+				gf.Label = t(gf.Label)
+				cp.GridFilters[j] = gf
+			}
+		}
 		if f.OptionLabels != nil {
 			// a field that carries its own labels is self-describing: its
 			// options are not catalogue material and must not be overwritten

@@ -38,11 +38,11 @@ Milestones,Marcos,# apps/testapp/print/project_summary.print.ts:34
 My tasks,Minhas tarefas,# testapp.portal.assignee.portal
 No project description provided.,Nenhuma descrição do projeto informada.,# apps/testapp/print/project_summary.print.ts:18
 Notes,Notas,# testapp.doctypes.task.task.doctype
-Open,Aberta,# testapp.doctypes.task.task.doctype
+Open,Aberta,# testapp.doctypes.project.project.doctype
 Open Tasks,Tarefas Abertas,# testapp workspace
 Open tasks,Tarefas abertas,# testapp.doctypes.project.project.doctype
 Order,Pedido,# testapp.doctypes.pedido.pedido.doctype
-Overdue,Atrasada,# testapp.doctypes.project_milestone.project_milestone.doctype
+Overdue,Atrasada,# testapp.doctypes.project.project.doctype
 Overview,Visão Geral,# apps/testapp/print/project_summary.print.ts:22
 Parent Task Category,Categoria de tarefa pai,# testapp.doctypes.task_category.task_category.doctype
 Pending Approval,Aguardando Aprovação,# testapp.workflows.pedido_approval.workflow

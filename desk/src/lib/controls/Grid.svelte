@@ -11,8 +11,9 @@
   import type { FormController } from "$lib/form.svelte";
   import { applyRowChanges, confirmRowRemoval, createChildDraft, fileNameParts, gridEditMode } from "./grid-state";
   import { getLinkTitle } from "$lib/titles.svelte";
-  import { downloadTable, exportBaseName, exportTable, nextSort, sortRows, type GridSortState } from "$lib/grid-rows";
+  import { downloadTable, exportBaseName, exportTable, filterRows, nextSort, sortRows, type GridSortState } from "$lib/grid-rows";
   import GridExport from "./GridExport.svelte";
+  import GridFilters from "./GridFilters.svelte";
 
   let { frm, field, childMeta }: { frm: FormController; field: Field; childMeta: DocTypeMeta } = $props();
   const rows = $derived((frm.doc[field.fieldname!] ||= []) as any[]);
@@ -31,7 +32,13 @@
   const baseSort = $derived<GridSortState | null>(field.gridSort?.field ? { field: field.gridSort.field, order: field.gridSort.order === "desc" ? "desc" : "asc" } : null);
   let userSort = $state<GridSortState | null>(null);
   const sort = $derived(userSort ?? baseSort);
-  const viewRows = $derived(sortRows(rows, sort, childMeta.fields, getLinkTitle));
+  // preset filters narrow what is shown the same way: selection, "select all"
+  // and export follow the rows on screen
+  const presets = $derived(field.gridFilters || []);
+  let activeFilters = $state<Set<number> | null>(null);
+  const active = $derived(activeFilters ?? new Set(presets.flatMap((f, i) => (f.default ? [i] : []))));
+  const visibleRows = $derived(filterRows(rows, [...active].map((i) => presets[i]?.filters).filter(Boolean), childMeta.fields));
+  const viewRows = $derived(sortRows(visibleRows, sort, childMeta.fields, getLinkTitle));
   const sortable = $derived(!!field.gridSortable);
   const selectable = $derived(!!field.gridSelect);
   const showIndex = $derived(field.gridIndex !== false);
@@ -39,13 +46,14 @@
   let selected = $state<Set<any>>(new Set());
   // only rows still in the table count: a removed row, or every row after a
   // reload (which brings new row objects), drops out of the selection
-  const chosen = $derived(rows.filter((r) => selected.has(r)));
-  const allSelected = $derived(rows.length > 0 && chosen.length === rows.length);
+  const chosen = $derived(visibleRows.filter((r) => selected.has(r)));
+  const allSelected = $derived(visibleRows.length > 0 && chosen.length === visibleRows.length);
   const canDelete = $derived(!dialogOnly && editable && !cannotDelete);
 
   function toggleSort(c: Field) { userSort = nextSort(sort, c.fieldname!, baseSort); }
   function toggle(row: any) { const s = new Set(selected); if (s.has(row)) s.delete(row); else s.add(row); selected = s; }
-  function toggleAll(on: boolean) { selected = on ? new Set(rows) : new Set(); }
+  function toggleAll(on: boolean) { selected = on ? new Set(visibleRows) : new Set(); }
+  function toggleFilter(i: number) { const s = new Set(active); if (s.has(i)) s.delete(i); else s.add(i); activeFilters = s; }
   async function deleteSelected() {
     const n = chosen.length;
     if (!n || !(await confirm(__("Delete {0} rows?", [n]), __("Delete selected"), { destructive: true }))) return;
@@ -109,8 +117,9 @@
 <div class="field grid-field">
   <span class="label">{field.label}{#if frm.isFieldMandatory(field)}<span class="req">*</span>{/if}</span>
   <div class="card" style="overflow:auto">
-    {#if exportable || (selectable && chosen.length)}
+    {#if exportable || presets.length || (selectable && chosen.length)}
       <div class="grid-toolbar">
+        {#if presets.length}<GridFilters filters={presets} {active} ontoggle={toggleFilter} />{/if}
         {#if selectable && chosen.length}
           <span class="muted">{__("{0} selected", [chosen.length])}</span>
           {#if canDelete}<button class="btn sm danger" onclick={deleteSelected}><Icon name="trash" size={14} />{__("Delete selected")}</button>{/if}
@@ -167,8 +176,8 @@
             </td>
           </tr>
         {/each}
-        {#if !rows.length}
-          <tr><td colspan={columns.length + 1 + (selectable ? 1 : 0) + (showIndex ? 1 : 0)} class="muted" style="text-align:center;padding:14px">{__("No rows")}</td></tr>
+        {#if !viewRows.length}
+          <tr><td colspan={columns.length + 1 + (selectable ? 1 : 0) + (showIndex ? 1 : 0)} class="muted" style="text-align:center;padding:14px">{rows.length ? __("No rows match the filters") : __("No rows")}</td></tr>
         {/if}
       </tbody>
     </table>

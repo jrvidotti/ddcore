@@ -8,6 +8,14 @@ export type FieldType =
 
 export type FieldWidth = "sm" | "md" | "lg" | "full";
 
+/** One preset filter of a form grid (see `FieldDef.gridFilters`). */
+export interface GridFilter {
+  label: string;
+  /** `[["in_class", "=", 1]]` or `{ in_class: 1 }`; no tree operators */
+  filters: [string, FilterOp, any][] | [string, any][] | Record<string, any>;
+  default?: boolean;
+}
+
 export interface FieldDef {
   fieldname?: string;
   fieldtype: FieldType;
@@ -89,6 +97,14 @@ export interface FieldDef {
   gridExport?: boolean;
   /** Table or Report: row checkboxes; a Table also gets "Delete selected" */
   gridSelect?: boolean;
+  /**
+   * Table or Report: preset toggles above the grid, each showing only the rows
+   * that match its `filters` (list-style tuples or an object, evaluated in the
+   * browser on the loaded rows, `computed` fields included). Toggles that are
+   * on combine with AND; `default: true` turns one on when the form opens.
+   * Display only: rows and their `idx` are untouched. `label` is a catalogue key.
+   */
+  gridFilters?: GridFilter[];
   /** Table only: `false` hides the `#` column (each row's stored `idx`) */
   gridIndex?: boolean;
   /**

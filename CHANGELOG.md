@@ -14,6 +14,15 @@ not every commit that went into it.
 
 ### Added
 
+- **Preset row filters on form grids** (#19). A `Table` or `Report` field takes
+  `gridFilters: [{ label, filters, default? }]`: toggles above the grid, each showing only the
+  rows that match its list-style filters (`[["in_class", "=", 1]]` or `{ in_class: 1 }`).
+  They run in the browser on the loaded rows, so they work on `computed` columns too. Toggles
+  that are on combine with AND; `default: true` turns one on when the form opens. Display only,
+  like `gridSort`: rows and their `idx` are untouched. Selection, "select all", export and a
+  Report's totals follow the filtered rows. Labels are catalogue keys. The fields a Table's
+  filters name, and their operators, are checked at load; tree operators are refused.
+
 - **`gridIndex: false` hides a Table grid's `#` column** (#20), for a grid sorted by something
   other than `idx`, where each row's stored position means little on screen. The column still
   shows by default. It can be set from `extendDoctype` and from `frm.setDfProperty`; on any
