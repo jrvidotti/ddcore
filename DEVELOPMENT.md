@@ -311,7 +311,10 @@ make migrate                                 # the core's DDL + the fixture app;
 make dev                                     # http://localhost:8090
 ```
 
-Requirements: Docker, Go and Node.js. The Go tests use the `ddcore_test` database (recreated);
+Requirements: Docker, Go and Node.js. The Go tests use databases named after `ddcore_test` plus
+the process id (`ddcore_test_p12345…`), so two runs at once never drop each other's; each run
+drops its own at the end, and the next run sweeps what a killed one left. A test gets a copy of a
+template migrated once per app (`internal/testdb`), not a migrate of its own.
 `DDCORE_DSN` and `DDCORE_TEST_DSN` override the DSN of any command.
 
 ### The two loops

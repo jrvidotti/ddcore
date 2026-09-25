@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -19,26 +20,18 @@ import (
 	"github.com/jrvidotti/ddcore/internal/engine"
 	"github.com/jrvidotti/ddcore/internal/js"
 	"github.com/jrvidotti/ddcore/internal/mcp"
+	"github.com/jrvidotti/ddcore/internal/testdb"
 )
 
-// The api tests use the database named in DDCORE_TEST_DSN with an "_api"
-// suffix so they never collide with the engine package tests; that database
-// is dropped and recreated by setup.
-func testDSN() (dsn, adminDSN, dbName string) {
-	base := os.Getenv("DDCORE_TEST_DSN")
-	if base == "" {
-		base = "postgres://ddcore:ddcore@localhost:5455/ddcore_test?sslmode=disable"
-	}
-	u, err := url.Parse(base)
-	if err != nil {
-		return "", "", ""
-	}
-	dbName = strings.TrimPrefix(u.Path, "/") + "_api"
-	u.Path = "/" + dbName
-	dsn = u.String()
-	u.Path = "/postgres"
-	return dsn, u.String(), dbName
+// The api tests use the database named in DDCORE_TEST_DSN with the process id
+// and an "_api" suffix (see testdb), so they never collide with the engine
+// package tests or with another run; that database is recreated by setup.
+func testDSN() string {
+	base := testdb.BaseDSN()
+	return testdb.WithDatabase(base, testdb.Database(base)+"_api")
 }
+
+func TestMain(m *testing.M) { os.Exit(testdb.Main(m)) }
 
 func testApp(t *testing.T) string {
 	dir := t.TempDir()
@@ -130,30 +123,35 @@ func setup(t *testing.T) *env {
 func setupApp(t *testing.T, appDir string) *env {
 	t.Helper()
 	ctx := context.Background()
-	dsn, adminDSN, dbName := testDSN()
-	if dbName == "" {
-		t.Fatal("DDCORE_TEST_DSN inválida")
-	}
-	e0, err := engine.New(ctx, engine.Config{DSN: adminDSN})
-	if err != nil {
-		if os.Getenv("DDCORE_TEST_DSN") != "" {
-			t.Fatalf("postgres indisponível em DDCORE_TEST_DSN: %v", err)
-		}
-		t.Skipf("postgres indisponível: %v", err)
-	}
-	e0.DB.Pool.Exec(ctx, "DROP DATABASE IF EXISTS "+dbName)
-	if _, err := e0.DB.Pool.Exec(ctx, "CREATE DATABASE "+dbName); err != nil {
-		t.Fatal(err)
-	}
-	e0.DB.Close()
 	// pt-BR on purpose: a site language other than the "en" fallback is what
 	// lets the language-negotiation tests tell the two apart.
-	e, err := engine.New(ctx, engine.Config{DSN: dsn, Apps: []js.App{{Name: "demo", Dir: appDir}}, Test: true, DataDir: t.TempDir(), Dev: true,
-		Lang: "pt-BR", Currency: "BRL", Storage: testStorage(t)})
+	cfg := engine.Config{DSN: testDSN(), Apps: []js.App{{Name: "demo", Dir: appDir}}, Test: true, DataDir: t.TempDir(), Dev: true,
+		Lang: "pt-BR", Currency: "BRL", Storage: testStorage(t)}
+	// a copy of a database migrated once per app (see testdb), not a migrate per test
+	err := testdb.Fresh(ctx, cfg.DSN, testdb.Key([]string{appDir}, "pt-BR BRL dev test"), func(dsn string) error {
+		tc := cfg
+		tc.DSN = dsn
+		e, err := engine.New(ctx, tc)
+		if err != nil {
+			return err
+		}
+		defer e.DB.Close()
+		if _, err := e.Migrate(ctx, false); err != nil {
+			return err
+		}
+		if plan, _ := e.Plan(ctx, false); len(plan) != 0 {
+			return fmt.Errorf("migrate is not idempotent: %v", plan)
+		}
+		return nil
+	})
+	if errors.Is(err, testdb.ErrUnavailable) && os.Getenv("DDCORE_TEST_DSN") == "" {
+		t.Skip(err)
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.Migrate(ctx, false); err != nil {
+	e, err := engine.New(ctx, cfg)
+	if err != nil {
 		t.Fatal(err)
 	}
 	s := New(e, nil)

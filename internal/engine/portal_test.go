@@ -2,7 +2,6 @@ package engine
 
 import (
 	"context"
-	"os"
 	"strings"
 	"testing"
 
@@ -89,31 +88,9 @@ type portalFixtureIDs struct {
 func setupPortal(t *testing.T) (*Engine, portalFixtureIDs) {
 	t.Helper()
 	ctx := context.Background()
-	adminDSN, dbName := adminDSNFor(testDSN)
-	e0, err := New(ctx, Config{DSN: adminDSN})
-	if err != nil {
-		if os.Getenv("DDCORE_TEST_DSN") != "" {
-			t.Fatalf("postgres unavailable at DDCORE_TEST_DSN: %v", err)
-		}
-		t.Skipf("postgres unavailable: %v", err)
-	}
-	for _, q := range []string{"DROP DATABASE IF EXISTS " + dbName, "CREATE DATABASE " + dbName} {
-		if _, err := e0.DB.Pool.Exec(ctx, q); err != nil {
-			e0.DB.Close()
-			t.Fatal(err)
-		}
-	}
-	e0.DB.Close()
-	e, err := New(ctx, Config{DSN: testDSN, Apps: []js.App{{Name: "portal_test", Dir: portalApp(t, "")}}, Test: true})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := e.Migrate(ctx, false); err != nil {
-		e.DB.Close()
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { e.DB.Close() })
+	e := migratedEngine(t, Config{Apps: []js.App{{Name: "portal_test", Dir: portalApp(t, "")}}, Test: true})
 	var ids portalFixtureIDs
+	var err error
 	err = e.Run(ctx, "Admin", func(c *Ctx) error {
 		users := []struct {
 			email, typ string

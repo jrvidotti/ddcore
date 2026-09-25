@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net"
 	"net/http"
 	"net/http/cookiejar"
@@ -16,7 +17,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jrvidotti/ddcore/internal/engine"
+	"github.com/jrvidotti/ddcore/internal/testdb"
 )
 
 // guideFiles are the files docs/guide/first-app.md tells a reader to write, as
@@ -32,19 +33,13 @@ func TestQuickstartGuide(t *testing.T) {
 		t.Skip("builds the binary")
 	}
 	ctx := context.Background()
-	dsn, adminDSN, dbName := dsnFor("_quickstart")
-	admin, err := engine.New(ctx, engine.Config{DSN: adminDSN})
-	if err != nil {
-		if os.Getenv("DDCORE_TEST_DSN") != "" {
-			t.Fatalf("postgres unavailable at DDCORE_TEST_DSN: %v", err)
+	dsn, _, _ := dsnFor("_quickstart")
+	if err := testdb.Empty(ctx, dsn); err != nil {
+		if errors.Is(err, testdb.ErrUnavailable) && os.Getenv("DDCORE_TEST_DSN") == "" {
+			t.Skip(err)
 		}
-		t.Skipf("postgres unavailable: %v", err)
-	}
-	admin.DB.Pool.Exec(ctx, "DROP DATABASE IF EXISTS "+dbName)
-	if _, err := admin.DB.Pool.Exec(ctx, "CREATE DATABASE "+dbName); err != nil {
 		t.Fatal(err)
 	}
-	admin.DB.Close()
 
 	guide, err := os.ReadFile(filepath.Join("..", "..", "docs", "guide", "first-app.md"))
 	if err != nil {

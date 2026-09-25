@@ -11,6 +11,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -27,13 +29,16 @@ import (
 	"github.com/jrvidotti/ddcore/internal/engine"
 	"github.com/jrvidotti/ddcore/internal/js"
 	"github.com/jrvidotti/ddcore/internal/meta"
+	"github.com/jrvidotti/ddcore/internal/testdb"
 )
 
 // testDSN names a throwaway database: setup drops and recreates it. The
-// database actually used is this name plus "_acc<suffix>", so sharing
-// DDCORE_TEST_DSN with internal/engine (which drops the database it names) is
-// safe even when `go test ./internal/...` runs both packages in parallel.
-var testDSN = envOr("DDCORE_TEST_DSN", "postgres://ddcore:ddcore@localhost:5455/ddcore_test?sslmode=disable")
+// database actually used is this name plus the process id and
+// "_acc<suffix>" (see testdb), so sharing DDCORE_TEST_DSN with
+// internal/engine, or with another run, is safe.
+var testDSN = testdb.BaseDSN()
+
+func TestMain(m *testing.M) { os.Exit(testdb.Main(m)) }
 
 func envOr(k, d string) string {
 	if v := os.Getenv(k); v != "" {
@@ -72,40 +77,50 @@ func testApp(t *testing.T) js.App {
 }
 
 // setup recreates the database, boots an engine with the checked-in example
-// app (plus any extra app) and migrates it — the literal bootstrap flow.
+// app (plus any extra app) and migrates it — the literal bootstrap flow, run
+// once per set of apps on a template that each test then gets a copy of (see
+// testdb).
 func setup(t *testing.T, suffix string, extra ...js.App) *engine.Engine {
 	t.Helper()
 	ctx := context.Background()
-	dsn, adminDSN, dbName := dsnFor(suffix)
+	dsn, _, dbName := dsnFor(suffix)
 	if dbName == "" {
 		t.Fatalf("invalid DDCORE_TEST_DSN: %s", testDSN)
 	}
-	admin, err := engine.New(ctx, engine.Config{DSN: adminDSN})
-	if err != nil {
-		if os.Getenv("DDCORE_TEST_DSN") != "" {
-			t.Fatalf("postgres unavailable at DDCORE_TEST_DSN: %v", err)
-		}
-		t.Skipf("postgres unavailable: %v", err)
+	apps := append([]js.App{testApp(t)}, extra...)
+	cfg := engine.Config{DSN: dsn, Apps: apps, Lang: "pt-BR", Currency: "BRL"}
+	var dirs []string
+	for _, a := range apps {
+		dirs = append(dirs, a.Dir)
 	}
-	admin.DB.Pool.Exec(ctx, "DROP DATABASE IF EXISTS "+dbName)
-	if _, err := admin.DB.Pool.Exec(ctx, "CREATE DATABASE "+dbName); err != nil {
+	err := testdb.Fresh(ctx, dsn, testdb.Key(dirs, "pt-BR BRL"), func(tplDSN string) error {
+		tc := cfg
+		tc.DSN = tplDSN
+		e, err := engine.New(ctx, tc)
+		if err != nil {
+			return err
+		}
+		defer e.DB.Close()
+		if _, err := e.Migrate(ctx, false); err != nil {
+			return fmt.Errorf("migrate: %w", err)
+		}
+		// the bootstrap flow runs migrate more than once: it must be idempotent
+		if plan, _ := e.Plan(ctx, false); len(plan) != 0 {
+			return fmt.Errorf("migrate is not idempotent, remaining DDL: %v", plan)
+		}
+		return nil
+	})
+	if errors.Is(err, testdb.ErrUnavailable) && os.Getenv("DDCORE_TEST_DSN") == "" {
+		t.Skip(err)
+	}
+	if err != nil {
 		t.Fatal(err)
 	}
-	admin.DB.Close()
-
-	apps := append([]js.App{testApp(t)}, extra...)
-	e, err := engine.New(ctx, engine.Config{DSN: dsn, Apps: apps, Lang: "pt-BR", Currency: "BRL"})
+	e, err := engine.New(ctx, cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { e.DB.Close() })
-	if _, err := e.Migrate(ctx, false); err != nil {
-		t.Fatalf("migrate: %v", err)
-	}
-	// the bootstrap flow runs migrate more than once: it must be idempotent
-	if plan, _ := e.Plan(ctx, false); len(plan) != 0 {
-		t.Fatalf("migrate is not idempotent, remaining DDL: %v", plan)
-	}
 	return e
 }
 

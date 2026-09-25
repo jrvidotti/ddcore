@@ -122,7 +122,12 @@ func Fresh(ctx context.Context, dsn, key string, migrate func(templateDSN string
 	mu.Lock()
 	defer mu.Unlock()
 	name := Database(dsn)
+	// named after the run, not the database: tests that each use their own
+	// database but load the same app share one template
 	tpl := name + "_t" + key
+	if i := strings.Index(name, pidTag); i >= 0 {
+		tpl = name[:i+len(pidTag)] + "_t" + key
+	}
 	admin, err := pgx.Connect(ctx, AdminDSN(dsn))
 	if err != nil {
 		return fmt.Errorf("%w: %v", ErrUnavailable, err)
@@ -140,6 +145,19 @@ func Fresh(ctx context.Context, dsn, key string, migrate func(templateDSN string
 		templates[tpl] = true
 	}
 	return recreate(ctx, admin, name, tpl)
+}
+
+// Empty makes dsn's database a new, empty one, for a test that migrates it
+// itself (through the binary, say).
+func Empty(ctx context.Context, dsn string) error {
+	mu.Lock()
+	defer mu.Unlock()
+	admin, err := pgx.Connect(ctx, AdminDSN(dsn))
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrUnavailable, err)
+	}
+	defer admin.Close(ctx)
+	return recreate(ctx, admin, Database(dsn), "")
 }
 
 // recreate drops name and creates it again, empty or as a copy of template.

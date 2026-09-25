@@ -82,29 +82,7 @@ export default defineDoctype({ name: "Employee Bonus", isChild: true, fields: [
 func setupSEC02(t *testing.T, extra ...map[string]string) *Engine {
 	t.Helper()
 	ctx := context.Background()
-	adminDSN, dbName := adminDSNFor(testDSN)
-	e0, err := New(ctx, Config{DSN: adminDSN})
-	if err != nil {
-		if os.Getenv("DDCORE_TEST_DSN") != "" {
-			t.Fatalf("postgres unavailable at DDCORE_TEST_DSN: %v", err)
-		}
-		t.Skipf("postgres unavailable: %v", err)
-	}
-	e0.DB.Pool.Exec(ctx, "DROP DATABASE IF EXISTS "+dbName)
-	if _, err := e0.DB.Pool.Exec(ctx, "CREATE DATABASE "+dbName); err != nil {
-		e0.DB.Close()
-		t.Fatal(err)
-	}
-	e0.DB.Close()
-	e, err := New(ctx, Config{DSN: testDSN, Apps: []js.App{{Name: "fieldperm_test", Dir: sec02App(t, mergeFiles(extra))}}, Test: true})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := e.Migrate(ctx, false); err != nil {
-		e.DB.Close()
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { e.DB.Close() })
+	e := migratedEngine(t, Config{Apps: []js.App{{Name: "fieldperm_test", Dir: sec02App(t, mergeFiles(extra))}}, Test: true})
 	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		for user, role := range map[string]string{sec02Staff: "Staff", sec02HR: "HR", sec02Auditor: "Auditor"} {
 			u, _ := c.NewDoc("User", Doc{"email": user, "full_name": user, "roles": []any{map[string]any{"role": role}}})

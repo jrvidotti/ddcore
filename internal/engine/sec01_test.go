@@ -67,35 +67,7 @@ export default defineDoctype({ name: "Test Dynamic Record", idGeneration: { fiel
 
 func setupSEC01(t *testing.T) *Engine {
 	t.Helper()
-	ctx := context.Background()
-	adminDSN, dbName := adminDSNFor(testDSN)
-	e0, err := New(ctx, Config{DSN: adminDSN})
-	if err != nil {
-		if os.Getenv("DDCORE_TEST_DSN") != "" {
-			t.Fatalf("postgres unavailable at DDCORE_TEST_DSN: %v", err)
-		}
-		t.Skipf("postgres unavailable: %v", err)
-	}
-	if _, err := e0.DB.Pool.Exec(ctx, "DROP DATABASE IF EXISTS "+dbName); err != nil {
-		e0.DB.Close()
-		t.Fatal(err)
-	}
-	if _, err := e0.DB.Pool.Exec(ctx, "CREATE DATABASE "+dbName); err != nil {
-		e0.DB.Close()
-		t.Fatal(err)
-	}
-	e0.DB.Close()
-
-	e, err := New(ctx, Config{DSN: testDSN, Apps: []js.App{{Name: "scope_test", Dir: sec01App(t)}}, Test: true})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := e.Migrate(ctx, false); err != nil {
-		e.DB.Close()
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { e.DB.Close() })
-	return e
+	return migratedEngine(t, Config{Apps: []js.App{{Name: "scope_test", Dir: sec01App(t)}}, Test: true})
 }
 
 func TestSEC01_QueryFilters(t *testing.T) {

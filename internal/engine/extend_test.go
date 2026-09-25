@@ -65,29 +65,7 @@ defineForm("Produto", { refresh() {} });`)
 
 func setupExtend(t *testing.T) *Engine {
 	t.Helper()
-	ctx := context.Background()
-	adminDSN, dbName := adminDSNFor(testDSN)
-	e0, err := New(ctx, Config{DSN: adminDSN})
-	if err != nil {
-		if os.Getenv("DDCORE_TEST_DSN") != "" {
-			t.Fatalf("postgres unavailable on DDCORE_TEST_DSN: %v", err)
-		}
-		t.Skipf("postgres unavailable: %v", err)
-	}
-	e0.DB.Pool.Exec(ctx, "DROP DATABASE IF EXISTS "+dbName)
-	if _, err := e0.DB.Pool.Exec(ctx, "CREATE DATABASE "+dbName); err != nil {
-		t.Fatal(err)
-	}
-	e0.DB.Close()
-	e, err := New(ctx, Config{DSN: testDSN, Apps: extendApps(t), Test: true})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := e.Migrate(ctx, false); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { e.DB.Close() })
-	return e
+	return migratedEngine(t, Config{Apps: extendApps(t), Test: true})
 }
 
 // The field added by another app is a field like any other: becomes

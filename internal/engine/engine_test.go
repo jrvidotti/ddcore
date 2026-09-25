@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -11,11 +12,64 @@ import (
 
 	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/js"
+	"github.com/jrvidotti/ddcore/internal/testdb"
 )
 
-// testDSN comes from DDCORE_TEST_DSN; the database named in it is dropped and
-// recreated by setup, so point it at a throwaway database.
-var testDSN = envOr("DDCORE_TEST_DSN", "postgres://ddcore:ddcore@localhost:5455/ddcore_test?sslmode=disable")
+// testDSN comes from DDCORE_TEST_DSN, with this process's id added to the
+// database name (see testdb); that database is dropped and recreated by
+// setup, so point it at a throwaway cluster.
+var testDSN = testdb.BaseDSN()
+
+func TestMain(m *testing.M) { os.Exit(testdb.Main(m)) }
+
+// migratedEngine is an engine on a fresh database already migrated for cfg's
+// apps: a copy of a template migrated once per process (see testdb), so a
+// test pays for CREATE DATABASE, not for the whole migrate. cfg.DSN defaults
+// to testDSN. The template's migrate is also where idempotency is checked.
+func migratedEngine(t *testing.T, cfg Config) *Engine {
+	t.Helper()
+	ctx := context.Background()
+	if cfg.DSN == "" {
+		cfg.DSN = testDSN
+	}
+	var dirs []string
+	for _, a := range cfg.Apps {
+		dirs = append(dirs, a.Dir)
+	}
+	prec := -1
+	if cfg.CurrencyPrecision != nil {
+		prec = *cfg.CurrencyPrecision
+	}
+	key := testdb.Key(dirs, fmt.Sprint(cfg.Test, cfg.Dev, cfg.Lang, cfg.Currency, prec, cfg.Rounding, cfg.Timezone))
+	err := testdb.Fresh(ctx, cfg.DSN, key, func(dsn string) error {
+		tc := cfg
+		tc.DSN = dsn
+		e, err := New(ctx, tc)
+		if err != nil {
+			return err
+		}
+		defer e.DB.Close()
+		if _, err := e.Migrate(ctx, false); err != nil {
+			return err
+		}
+		if plan, _ := e.Plan(ctx, false); len(plan) != 0 {
+			return fmt.Errorf("migrate is not idempotent: %v", plan)
+		}
+		return nil
+	})
+	if errors.Is(err, testdb.ErrUnavailable) && os.Getenv("DDCORE_TEST_DSN") == "" {
+		t.Skip(err)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	e, err := New(ctx, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { e.DB.Close() })
+	return e
+}
 
 func envOr(k, d string) string {
 	if v := os.Getenv(k); v != "" {
@@ -116,39 +170,10 @@ func setup(t *testing.T) *Engine { return setupWith(t, nil) }
 // setupWith is setup with extra files planted in the test app — how the patch
 // tests get a patches/ directory without every other test paying for one.
 func setupWith(t *testing.T, extra map[string]string) *Engine {
-	ctx := context.Background()
-	adminDSN, dbName := adminDSNFor(testDSN)
-	if dbName == "" {
-		t.Fatalf("DDCORE_TEST_DSN inválida: %s", testDSN)
-	}
-	e0, err := New(ctx, Config{DSN: adminDSN})
-	if err != nil {
-		if os.Getenv("DDCORE_TEST_DSN") != "" {
-			t.Fatalf("postgres indisponível em DDCORE_TEST_DSN: %v", err)
-		}
-		t.Skipf("postgres indisponível: %v", err)
-	}
-	e0.DB.Pool.Exec(ctx, "DROP DATABASE IF EXISTS "+dbName)
-	if _, err := e0.DB.Pool.Exec(ctx, "CREATE DATABASE "+dbName); err != nil {
-		t.Fatal(err)
-	}
-	e0.DB.Close()
 	// The test site is Brazilian on purpose, so translation and currency
 	// formatting are exercised away from the English/USD default.
-	e, err := New(ctx, Config{DSN: testDSN, Apps: []js.App{{Name: "demo", Dir: testApp(t, extra)}}, Test: true,
+	return migratedEngine(t, Config{Apps: []js.App{{Name: "demo", Dir: testApp(t, extra)}}, Test: true,
 		Lang: "pt-BR", Currency: "BRL"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := e.Migrate(ctx, false); err != nil {
-		t.Fatal(err)
-	}
-	plan, _ := e.Plan(ctx, false)
-	if len(plan) != 0 {
-		t.Fatalf("migrate is not idempotent: %v", plan)
-	}
-	t.Cleanup(func() { e.DB.Close() })
-	return e
 }
 
 func TestLifecycle(t *testing.T) {

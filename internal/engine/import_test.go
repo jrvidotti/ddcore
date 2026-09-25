@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jrvidotti/ddcore/internal/js"
+	"github.com/jrvidotti/ddcore/internal/testdb"
 )
 
 // importApp is the fixture for the restricted load path: metadata that must
@@ -74,31 +75,8 @@ func setupImport(t *testing.T) *Engine {
 	ctx := context.Background()
 	// Its own database, so a load's tables never meet another test's: these
 	// tests drop and recreate between runs.
-	adminDSN, dbName := adminDSNFor(testDSN)
-	dbName += "_imp"
-	dsn := strings.Replace(testDSN, "/"+strings.TrimSuffix(dbName, "_imp")+"?", "/"+dbName+"?", 1)
-	e0, err := New(ctx, Config{DSN: adminDSN})
-	if err != nil {
-		if os.Getenv("DDCORE_TEST_DSN") != "" {
-			t.Fatalf("postgres unavailable at DDCORE_TEST_DSN: %v", err)
-		}
-		t.Skipf("postgres unavailable: %v", err)
-	}
-	// WITH (FORCE) so a connection the previous test has not finished closing
-	// does not leave the database behind.
-	e0.DB.Pool.Exec(ctx, "DROP DATABASE IF EXISTS "+dbName+" WITH (FORCE)")
-	if _, err := e0.DB.Pool.Exec(ctx, "CREATE DATABASE "+dbName); err != nil {
-		t.Fatal(err)
-	}
-	e0.DB.Close()
-	e, err := New(ctx, Config{DSN: dsn, Apps: []js.App{{Name: "imp", Dir: importApp(t)}}, Test: true, DataDir: t.TempDir()})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := e.Migrate(ctx, false); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { e.DB.Close() })
+	dsn := testdb.WithDatabase(testDSN, testdb.Database(testDSN)+"_imp")
+	e := migratedEngine(t, Config{DSN: dsn, Apps: []js.App{{Name: "imp", Dir: importApp(t)}}, Test: true, DataDir: t.TempDir()})
 	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		d, _ := c.NewDoc("User", Doc{"email": "op@x.com", "full_name": "Op"})
 		d["roles"] = []any{map[string]any{"role": "Operador"}}

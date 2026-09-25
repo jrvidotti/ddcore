@@ -126,30 +126,8 @@ export default defineDoctype({ name: "Fatura", fields: [
 }
 
 func setupMoney(t *testing.T, cfg Config) *Engine {
-	ctx := context.Background()
-	adminDSN, dbName := adminDSNFor(testDSN)
-	e0, err := New(ctx, Config{DSN: adminDSN})
-	if err != nil {
-		if os.Getenv("DDCORE_TEST_DSN") != "" {
-			t.Fatalf("postgres indisponível em DDCORE_TEST_DSN: %v", err)
-		}
-		t.Skipf("postgres indisponível: %v", err)
-	}
-	e0.DB.Pool.Exec(ctx, "DROP DATABASE IF EXISTS "+dbName)
-	if _, err := e0.DB.Pool.Exec(ctx, "CREATE DATABASE "+dbName); err != nil {
-		t.Fatal(err)
-	}
-	e0.DB.Close()
-	cfg.DSN, cfg.Apps, cfg.Test = testDSN, []js.App{{Name: "money", Dir: moneyApp(t)}}, true
-	e, err := New(ctx, cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := e.Migrate(ctx, false); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { e.DB.Close() })
-	return e
+	cfg.Apps, cfg.Test = []js.App{{Name: "money", Dir: moneyApp(t)}}, true
+	return migratedEngine(t, cfg)
 }
 
 // The end of the contract: what the column actually holds. numeric(21,9) will

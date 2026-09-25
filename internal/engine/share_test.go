@@ -73,31 +73,8 @@ const (
 func setupShare(t *testing.T) *Engine {
 	t.Helper()
 	ctx := context.Background()
-	adminDSN, dbName := adminDSNFor(testDSN)
-	e0, err := New(ctx, Config{DSN: adminDSN})
-	if err != nil {
-		if os.Getenv("DDCORE_TEST_DSN") != "" {
-			t.Fatalf("postgres unavailable at DDCORE_TEST_DSN: %v", err)
-		}
-		t.Skipf("postgres unavailable: %v", err)
-	}
-	for _, q := range []string{"DROP DATABASE IF EXISTS " + dbName, "CREATE DATABASE " + dbName} {
-		if _, err := e0.DB.Pool.Exec(ctx, q); err != nil {
-			e0.DB.Close()
-			t.Fatal(err)
-		}
-	}
-	e0.DB.Close()
-	e, err := New(ctx, Config{DSN: testDSN, Apps: []js.App{{Name: "share_test", Dir: shareApp(t)}}, Test: true})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := e.Migrate(ctx, false); err != nil {
-		e.DB.Close()
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { e.DB.Close() })
-	err = e.Run(ctx, "Admin", func(c *Ctx) error {
+	e := migratedEngine(t, Config{Apps: []js.App{{Name: "share_test", Dir: shareApp(t)}}, Test: true})
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		users := map[string][]string{
 			shareSM:      {"System Manager", "Note Editor"},
 			shareEditor:  {"Note Editor"},

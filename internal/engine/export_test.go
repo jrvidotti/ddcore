@@ -55,28 +55,8 @@ export default defineDoctype({ name: "Nota", idGeneration: { field: "titulo" },
 func setupExport(t *testing.T) *Engine {
 	t.Helper()
 	ctx := context.Background()
-	adminDSN, dbName := adminDSNFor(testDSN)
-	e0, err := New(ctx, Config{DSN: adminDSN})
-	if err != nil {
-		if os.Getenv("DDCORE_TEST_DSN") != "" {
-			t.Fatalf("postgres indisponível em DDCORE_TEST_DSN: %v", err)
-		}
-		t.Skipf("postgres indisponível: %v", err)
-	}
-	e0.DB.Pool.Exec(ctx, "DROP DATABASE IF EXISTS "+dbName)
-	if _, err := e0.DB.Pool.Exec(ctx, "CREATE DATABASE "+dbName); err != nil {
-		t.Fatal(err)
-	}
-	e0.DB.Close()
-	e, err := New(ctx, Config{DSN: testDSN, Apps: []js.App{{Name: "demo", Dir: exportApp(t)}}, Test: true, DataDir: t.TempDir()})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := e.Migrate(ctx, false); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { e.DB.Close() })
-	err = e.Run(ctx, "Admin", func(c *Ctx) error {
+	e := migratedEngine(t, Config{Apps: []js.App{{Name: "demo", Dir: exportApp(t)}}, Test: true, DataDir: t.TempDir()})
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
 		for _, u := range []struct{ email, role string }{
 			{"exp@x.com", "Exportador"}, {"leitor@x.com", "Leitor"},
 			{"ana@x.com", "Dono"}, {"ze@x.com", "Dono"},
