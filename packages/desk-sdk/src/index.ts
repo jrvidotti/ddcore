@@ -364,8 +364,10 @@ export interface ListViewOptions<T extends BaseDoc = BaseDoc> {
   /** `false` hides the trailing "Modified" column. Default `true`. */
   modifiedColumn?: boolean;
   /**
-   * `false` hides the leading document-id column. Default `true`. The row
-   * stays clickable, and the title field's cell links to the document.
+   * Shows (`true`) or hides (`false`) the leading document-id column. Left
+   * out, the column is hidden when the id is a hash (or the title field is
+   * the id and a column) and shown otherwise. Hidden, the row stays
+   * clickable, and the title field's cell links to the document.
    */
   idColumn?: boolean;
   /** Fields fetched beyond the columns, for `indicator`, `badges` and `formatters`. */

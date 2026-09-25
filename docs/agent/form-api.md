@@ -144,7 +144,7 @@ defineListView("Entry", {
   indicator: (row) => (row.balance > 0 ? { label: __("Open"), color: "red" } : { label: __("Settled"), color: "green" }),
   docstatusFilter: false,               // hides the "Document status" filter of a submittable DocType
   modifiedColumn: false,                // hides the trailing "Modified" column
-  idColumn: false,                      // hides the leading document-id column
+  idColumn: false,                      // hides (or `true` shows) the leading document-id column
 });
 ```
 
@@ -153,10 +153,12 @@ status column and may return `null` to show nothing on that row. `docstatusFilte
 submittable DocType whose `status` field already separates draft, submitted and cancelled — the
 docstatus filter would only repeat it.
 
-`idColumn: false` suits a DocType whose id means nothing to a reader: a `hash`, or a code
-already shown in another column. The list leaves the column out on its own when the title field
-is a column and is the id (`idGeneration: { field }` equal to `titleField`). With the column hidden,
-the row stays clickable and the title field's cell links to the document. To relabel the
+Left out, `idColumn` follows the id. The list hides the column on its own when the id is a hash
+(`idGeneration: { hash: true }`, or no rule at all), unless the list has no other column, and when
+the title field is a column and is the id (`idGeneration: { field }` equal to `titleField`).
+`idColumn: true` brings a hash back; `idColumn: false` hides an id that means nothing to a reader
+for another reason, such as a code already shown in another column. With the column hidden, the
+row stays clickable and the title field's cell links to the document. To relabel the
 column instead of hiding it, set `idLabel` on the DocType (see `fieldtypes`).
 
 Most lists need no `indicator` at all: declare `optionColors` on the status field and the desk

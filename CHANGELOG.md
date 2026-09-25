@@ -12,6 +12,13 @@ not every commit that went into it.
 
 ## Unreleased
 
+### Changed
+
+- **Lists hide a hash id by default.** A DocType whose id is a random hash
+  (`idGeneration: { hash: true }`, or no rule) no longer shows the leading ID column in its list
+  view (nor in the page CSV export); the title field's cell links to the document instead. A list
+  with no other column keeps it. `defineListView(..., { idColumn: true })` brings the column back.
+
 ## 0.20.0 — 2026-09-24
 
 ### Added
