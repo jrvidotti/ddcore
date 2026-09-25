@@ -524,6 +524,7 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 		return nil, cerr.Permission("Audit Event records are immutable and cannot be created directly")
 	}
 	c.normalizeMultiSelect(d, doc, nil)
+	c.dropComputed(d, doc)
 	permission := "create"
 	if d.IsSingle {
 		permission = "write"
@@ -703,6 +704,7 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 		return nil, err
 	}
 	c.normalizeMultiSelect(d, doc, before)
+	c.dropComputed(d, doc)
 	oldStatus, newStatus := before.Docstatus(), doc.Docstatus()
 	action := "save"
 	switch {
@@ -1131,7 +1133,7 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 	var sets []string
 	for k, v := range values {
 		f := d.Field(k)
-		if f == nil || meta.ColumnType(f.Fieldtype) == "" {
+		if !meta.HasColumnField(f) {
 			if !d.IsStdColumn(k) {
 				return modified, cerr.Validation("Field {0} does not exist on {1}", k, doctype)
 			}

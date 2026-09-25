@@ -27,7 +27,17 @@ export default defineDoctype({
     { fieldname: "budget", fieldtype: "Currency", label: "Budget", permlevel: 1 },
     { fieldname: "cover_image", fieldtype: "Attach Image", label: "Cover Image", description: "Project cover image" },
     { fieldname: "overview", fieldtype: "Text Editor", label: "Overview", description: "Rich text project overview" },
-    { fieldname: "milestones", fieldtype: "Table", label: "Milestones", options: "Project Milestone", gridEditMode: "inline" },
+    // a computed field, set by the controller's onLoad (asserted in internal/acceptance)
+    { fieldname: "open_tasks", fieldtype: "Int", label: "Open tasks", computed: true },
+    {
+      fieldname: "milestones", fieldtype: "Table", label: "Milestones", options: "Project Milestone", gridEditMode: "inline",
+      gridSort: { field: "due_date" }, gridSortable: true, gridExport: true, gridSelect: true,
+    },
+    // a report run for this project, shown as a grid in the form
+    {
+      fieldname: "tasks", fieldtype: "Report", label: "Tasks", options: "Project Tasks", reportFilters: { project: "id" },
+      gridSort: { field: "due_date" }, gridSortable: true, gridExport: true,
+    },
   ],
   permissions: [
     { role: "Project Manager", read: true, write: true, create: true, delete: true, report: true, export: true, import: true },

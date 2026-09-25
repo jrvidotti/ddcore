@@ -2,6 +2,14 @@ import { defineController, _ } from "@ddcore/sdk";
 import type { Project } from "../../.ddcore/types";
 
 export default defineController<Project>("Project", {
+  // the computed fields: how many tasks are still open, and which milestones
+  // are late; filled on every load, never stored
+  onLoad(doc) {
+    doc.open_tasks = doc.isNew() ? 0 : ddcore.db.count("Task", { project: doc.id, status: ["!=", "Completed"] });
+    const today = ddcore.utils.today();
+    for (const m of doc.milestones || []) m.overdue = !m.completed && !!m.due_date && m.due_date < today;
+  },
+
   validate(doc) {
     if (doc.end_date && doc.start_date && doc.end_date < doc.start_date) {
       ddcore.throw(_("The end date cannot be earlier than the start date."), { title: _("Invalid dates") });

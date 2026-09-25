@@ -251,7 +251,7 @@ func uniqueKeyIndex(d *meta.DocType, k meta.UniqueKey, col func(string) string) 
 	preds := make([]string, 0, len(k.Fields))
 	for _, fn := range k.Fields {
 		f := d.Field(fn)
-		if f == nil || meta.ColumnType(f.Fieldtype) == "" {
+		if !meta.HasColumnField(f) {
 			// Refused by Registry.Validate, so unreachable with a loaded meta.
 			// Skipping beats emitting DDL for a key that names no column.
 			return index{}, false

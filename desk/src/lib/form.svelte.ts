@@ -101,6 +101,8 @@ export class FormController {
   saving = $state(false);
   loading = $state(true);
   fieldErrors = $state<Record<string, string>>({});
+  /** Bumped by refreshField; a Report field re-runs its report when its counter moves. */
+  fieldRefresh = $state<Record<string, number>>({});
   handlers: FormHandlers[];
   private setupDone = false;
 
@@ -258,6 +260,8 @@ export class FormController {
   addIndicator(label: string, color = "blue") { this.indicators.push({ label, color }); }
   setDfProperty(fieldname: string, prop: string, value: any) { this.dfProps[fieldname] = { ...(this.dfProps[fieldname] || {}), [prop]: value }; }
   setQuery(fieldname: string, fn: () => { filters?: any }) { this.queries.set(fieldname, fn); }
+  /** Re-runs a Report field's report (it also re-runs by itself after a save or a reload). */
+  refreshField(fieldname: string) { this.fieldRefresh[fieldname] = (this.fieldRefresh[fieldname] || 0) + 1; }
   toggleDisplay(fieldname: string, show: boolean) { this.setDfProperty(fieldname, "hidden", !show); }
   toggleReqd(fieldname: string, reqd: boolean) { this.setDfProperty(fieldname, "reqd", reqd); }
   toggleEnable(fieldname: string, enable: boolean) { this.setDfProperty(fieldname, "readOnly", !enable); }

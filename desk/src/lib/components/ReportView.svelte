@@ -1,18 +1,15 @@
 <script lang="ts">
   import { api } from "$lib/api";
   import { boot, __ } from "$lib/boot.svelte";
-  import { formatValue, formatSummary, statusColor } from "$lib/format";
-  import { getLinkTitle } from "$lib/titles.svelte";
+  import { formatSummary } from "$lib/format";
   import Control from "$lib/controls/Control.svelte";
   import BarChart from "./BarChart.svelte";
-  import Icon from "./Icon.svelte";
+  import ReportGrid from "./ReportGrid.svelte";
   import { showError } from "$lib/ui.svelte";
   import { onMount } from "svelte";
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
   import { deskSDK } from "$lib/desk-sdk";
-  import { isNumericFieldtype } from "$lib/meta";
-  import { toCsv, downloadCsv } from "$lib/csv";
   import { reportFiltersFromSearchParams, reportFiltersToSearchParams } from "./report-state";
   import { getRememberedWorkspace } from "./sidebar-workspace";
 
@@ -76,27 +73,10 @@
       await run();
     } catch (e) { showError(e); }
   });
-  const num = (c: any) => isNumericFieldtype(c.fieldtype);
-  function exportCsv() {
-    if (!result) return;
-    const cols = result.columns;
-    const rows = result.rows.map((r: any) => cols.map((c: any) => r[c.fieldname]));
-    if (totals) rows.push(cols.map((c: any) => (num(c) ? totals![c.fieldname] : c === cols[0] ? __("Total") : "")));
-    downloadCsv(`${name}.csv`, toCsv(cols.map((c: any) => c.label), rows));
-  }
-  // footer with the sum of every numeric column (Percent is an average, not a sum)
-  const totals = $derived.by((): Record<string, number> | null => {
-    if (!result?.rows?.length) return null;
-    const cols = result.columns.filter((c: any) => num(c) && c.fieldtype !== "Percent");
-    if (!cols.length) return null;
-    const out: Record<string, number> = {};
-    for (const c of cols) out[c.fieldname] = result.rows.reduce((a: number, r: any) => a + (Number(r[c.fieldname]) || 0), 0);
-    return out;
-  });
 </script>
 
 <div class="page">
-  <div class="page-head"><h1>{label}</h1>{#if meta?.canExport !== false}<button class="btn" onclick={exportCsv}><Icon name="download" size={14} /> CSV</button>{/if}<button class="btn primary" onclick={run} disabled={loading}>{__("Update")}</button></div>
+  <div class="page-head"><h1>{label}</h1><button class="btn primary" onclick={run} disabled={loading}>{__("Update")}</button></div>
   {#if meta?.filters?.length}
     <div class="card" style="padding:12px 14px;margin-bottom:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
       {#each meta.filters as f (f.fieldname)}
@@ -113,39 +93,6 @@
     <div class="card" style="padding:16px 20px;margin-bottom:12px"><BarChart data={result.chart} /></div>
   {/if}
   {#if result}
-    <div class="card" style="overflow:auto">
-      <table class="grid">
-        <thead><tr>{#each result.columns as c}<th class:num={num(c)} style="min-width:{c.width || 100}px">{c.label}</th>{/each}</tr></thead>
-        <tbody>
-          {#each result.rows as r}
-            <tr class="row">
-              {#each result.columns as c}
-                <td class:num={num(c)}>
-                  {#if c.fieldtype === "Link" && r[c.fieldname]}
-                    {@const linkTitle = getLinkTitle(c.options, r[c.fieldname]) || r[c.fieldname]}
-                    <a href={`${wsPrefix}/${encodeURIComponent(c.options)}/${encodeURIComponent(r[c.fieldname])}`} title={r[c.fieldname]}>{linkTitle}</a>
-                  {:else if c.fieldname === "status" && r[c.fieldname]}<span class="indicator {statusColor(r[c.fieldname], c)}">{__(r[c.fieldname])}</span>
-                  {:else}<span style:color={c.fieldtype === "Currency" && r[c.fieldname] < 0 ? "var(--red)" : undefined}>{formatValue(r[c.fieldname], c)}</span>{/if}
-                </td>
-              {/each}
-            </tr>
-          {/each}
-          {#if !result.rows.length}<tr><td colspan="30" class="empty">{__("No records")}</td></tr>{/if}
-        </tbody>
-        {#if totals}
-          <tfoot>
-            <tr class="totals">
-              {#each result.columns as c, i}
-                <td class:num={num(c)}>{#if totals[c.fieldname] !== undefined}{formatValue(totals[c.fieldname], c)}{:else if i === 0}{__("Total")}{/if}</td>
-              {/each}
-            </tr>
-          </tfoot>
-        {/if}
-      </table>
-    </div>
+    <ReportGrid columns={result.columns} rows={result.rows} {wsPrefix} filename={name} sheetName={label} sortable exportable={meta?.canExport !== false} />
   {/if}
 </div>
-
-<style>
-  .totals td { font-weight: 600; border-top: 2px solid var(--border); background: var(--bg-subtle, transparent); }
-</style>

@@ -24,7 +24,8 @@ defineForm<Entry>("Entry", {
 ## `frm`
 
 `doc`, `doctype`, `meta`, `isNew`, `isDirty`, `docstatus`, `perm`, `getValue`, `setValue(field | {..}, value)`, `field(field)`,
-`setDfProperty(field, prop, value)` (`hidden`, `readOnly`, `reqd`, `label`, `options`, `width`, `cannotAddRows`, `cannotDeleteRows`),
+`setDfProperty(field, prop, value)` (`hidden`, `readOnly`, `reqd`, `label`, `options`, `width`, `cannotAddRows`, `cannotDeleteRows`,
+`gridSort`, `gridSortable`, `gridExport`, `gridSelect`, `reportFilters`), `refreshField(field)` (re-runs a Report field's report),
 `setQuery(field, () => ({ filters }))`, `toggleDisplay/toggleReqd/toggleEnable`, `addButton(label, fn, group)`, `removeButton`,
 `setPrimaryAction(label, fn)`, `setInnerGroupAsPrimary(group)`, `addIndicator(label, colour)`, `addChild(table, values)`, `removeChild(table, idx)`,
 `addFieldButton(field, { label, icon, onClick, key })`, `removeFieldButton(field, key?)`,
@@ -106,6 +107,7 @@ every `refresh` — declare in `refresh` whatever must survive a save or a reloa
 ## `ddcore` in the desk
 
 - `ddcore.call("app.services.file.fn", args)` — a whitelisted function
+- `ddcore.report(name, filters)` — runs a `defineReport`: `{ meta, result: { columns, rows } }`
 - `ddcore.db.getValue/getList/count/getDoc/setValue/insert` (asynchronous: `await` them)
 - `ddcore.ui.Dialog({ title, fields, values, primaryLabel, primaryAction(values, dlg), dangerLabel, dangerAction(values, dlg), dangerShortcut, onChange(field, values, dlg), size })` → `dlg.show()/hide()/setValue/getValue/setHtml(htmlField, html)/setDfProperty(field, property, value)`
 - `ddcore.ui.msgprint(msg, { title, indicator })`, `ddcore.ui.toast`, `ddcore.ui.confirm(msg, title?, { destructive? })` (with `destructive: true` the confirm button is red and "No" is the primary, so Enter keeps the data and `Delete` — ⌫ on a Mac — confirms), `ddcore.ui.prompt(title, fields)`, `ddcore.ui.showError(e)`

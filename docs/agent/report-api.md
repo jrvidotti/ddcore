@@ -21,6 +21,9 @@ A summary card's `datatype` is `Currency`, `Int`, `Float`, `Data`, `Date` or `Da
 card is formatted like a cell of that type; without one, a number is shown as a number and
 anything else as text.
 Route: `/app/report/<name>`; API: `GET /api/report/<name>?filters={...}`.
+The report page sorts by a click on a column header and exports CSV or XLSX.
+A `Report` field shows a report inside a form, its filters taken from the document
+(`reportFilters: { course: "id" }`); see `fieldtypes`, "Form grids".
 
 A report's `name`, its column labels and its chart labels are all human-facing: `label:` in the
 definition is a catalogue key the server translates (a report's `label` defaults to its `name`,

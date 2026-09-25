@@ -4,7 +4,7 @@ export type FieldType =
   | "Data" | "Email" | "Small Text" | "Text" | "Text Editor" | "Markdown Editor" | "Code"
   | "Int" | "Float" | "Currency" | "Percent" | "Rating" | "Duration" | "Color"
   | "Check" | "Date" | "Month" | "Datetime" | "Time" | "Select" | "Link" | "Dynamic Link" | "Table"
-  | "Table MultiSelect" | "Attach" | "Attach Image" | "JSON" | "Password" | "Vault" | "Section Break" | "Tab Break" | "HTML";
+  | "Table MultiSelect" | "Attach" | "Attach Image" | "JSON" | "Password" | "Vault" | "Section Break" | "Tab Break" | "HTML" | "Report";
 
 export type FieldWidth = "sm" | "md" | "lg" | "full";
 
@@ -20,6 +20,8 @@ export interface FieldDef {
    * A Select's options are its canonical values — English, and what the
    * database holds. Their display text comes from the catalogue, so a
    * translation never changes what is stored or compared.
+   *
+   * Report: the name of a `defineReport`, shown as a grid inside the form.
    *
    * The other types that read it: `Rating` takes the number of stars (1–10,
    * default 5), `Code` the language (`"sql"`, `"ts"`) and `Duration` the
@@ -75,6 +77,30 @@ export interface FieldDef {
   width?: FieldWidth;
   /** Table editing mode; defaults to inline */
   gridEditMode?: "inline" | "dialog";
+  /**
+   * Table or Report: the order the grid shows its rows in. `field` is a child
+   * field (or `idx`) on a Table, a report column on a Report. Display only: a
+   * child row's `idx` stays what the user saved.
+   */
+  gridSort?: { field: string; order?: "asc" | "desc" };
+  /** Table or Report: clicking a column header sorts the grid by it */
+  gridSortable?: boolean;
+  /** Table or Report: CSV/XLSX export of the grid, for users who may export the DocType */
+  gridExport?: boolean;
+  /** Table or Report: row checkboxes; a Table also gets "Delete selected" */
+  gridSelect?: boolean;
+  /**
+   * Report only: the report's filters, each taking the value of a field of
+   * this document (or `id`). `{ course: "id" }` runs the report for this course.
+   */
+  reportFilters?: Record<string, string>;
+  /**
+   * No column: never stored, always read-only. The controller's `onLoad`
+   * sets its value each time the form loads — on the parent or on a child
+   * row — from other documents, say. It cannot be filtered or sorted on in a
+   * list; in a Table grid it sorts and exports like any column.
+   */
+  computed?: boolean;
   /**
    * Attach / Attach Image: show the file's name next to its icon or thumbnail.
    * Off by default — uploads are stored under a random name, and the icon or
@@ -577,10 +603,15 @@ export interface PatchDef {
   execute(ctx: PatchContext): void;
 }
 
+/**
+ * `onLoad` runs when the form loads a document (and after a save or a
+ * method), to fill its `computed` fields; only those survive it, nothing is
+ * written.
+ */
 export type DocEvent =
   | "beforeValidate" | "validate" | "beforeSave" | "afterInsert" | "onUpdate"
   | "beforeSubmit" | "onSubmit" | "beforeCancel" | "onCancel" | "onUpdateAfterSubmit"
-  | "onTrash" | "afterDelete" | "beforeRename" | "afterRename" | "beforeInsert";
+  | "onTrash" | "afterDelete" | "beforeRename" | "afterRename" | "beforeInsert" | "onLoad";
 
 export type DocHook<T> = (doc: T & Document<T>, ctx: Context) => void;
 
@@ -622,8 +653,6 @@ export interface ControllerDef<T extends BaseDoc = BaseDoc> extends Partial<Reco
   methods?: Record<string, (doc: T & Document<T>, args: Record<string, any>, ctx: Context) => any>;
   hasPermission?: (doc: T, ptype: string, user: string) => boolean | undefined;
   permissionQuery?: (user: string) => Filters | undefined;
-  /** computed on list/form load, not stored */
-  onLoad?: DocHook<T>;
 }
 
 export interface AppDef {

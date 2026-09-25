@@ -12,6 +12,36 @@ not every commit that went into it.
 
 ## Unreleased
 
+### Added
+
+- **Sortable, exportable, selectable form grids** (#18). A `Table` field takes
+  `gridSort: { field, order }` (the default display order), `gridSortable` (click a column
+  header to sort), `gridExport` (CSV and XLSX buttons, for users with the `export` permission)
+  and `gridSelect` (row checkboxes, "select all" and "Delete selected"). Sorting is display
+  only: a row's `idx` stays what was saved. Export sends the selected rows, or all of them, in
+  the order on screen, with Link titles and Select labels. The properties can be set from
+  `extendDoctype` and from `frm.setDfProperty`.
+- **Computed fields** (#18). `computed: true` declares a field with no column, never stored and
+  always read-only, on a DocType or a child table. The controller's `onLoad(doc)` sets its value
+  whenever a document is loaded for a form, a print, or the response to a save or a method. Only
+  the computed fields survive the hook. A computed field cannot be filtered or sorted on in a list.
+- **`Report` fieldtype** (#18). `{ fieldtype: "Report", options: "<report name>",
+  reportFilters: { <filter>: "<field or id>" } }` shows a `defineReport` run for the document as a
+  read-only grid in the form. It honours `gridSort`, `gridSortable`, `gridExport` and
+  `gridSelect`, keeps the report's roles and permissions, and re-runs after a save, a reload or
+  `frm.refreshField(fieldname)`. A report name that does not exist fails the load.
+- **XLSX export and column sorting on the report page.** The report view exports XLSX as well
+  as CSV, and sorts by a click on a column header.
+- `ddcore.report(name, filters)` in desk scripts, and `frm.refreshField(fieldname)`.
+
+### Changed
+
+- **`onLoad` in a controller now runs.** It was declared in the SDK types but never called; it
+  now fills computed fields as described above. An app that declared it only for documentation
+  should check what it does, since any change to a field that is not `computed` is discarded.
+- The report page's CSV button moved from the page header to a toolbar above the table, next to
+  the new XLSX one.
+
 ## 0.20.0 — 2026-09-24
 
 ### Added

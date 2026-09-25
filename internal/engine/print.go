@@ -68,6 +68,10 @@ func (c *Ctx) PrintDoc(doctype, name, format, letterheadName, lang string, page 
 	if err != nil {
 		return "", err
 	}
+	// a print shows what the form shows, computed fields included
+	if err := c.LoadComputed(doctype, doc); err != nil {
+		return "", err
+	}
 
 	// 2. Resolve language
 	if lang == "" {
