@@ -65,6 +65,16 @@ describe("Grid", () => {
     t.done();
   });
 
+  it("shows the # column unless gridIndex is false", () => {
+    const shown = setup({});
+    expect(shown.target.querySelector("thead")?.textContent).toContain("#");
+    shown.done();
+    const t = setup({ gridSort: { field: "employee_name" }, gridIndex: false });
+    expect(t.target.querySelector("thead")?.textContent).not.toContain("#");
+    expect(t.target.querySelector("tbody tr td")?.textContent?.trim()).toBe("Ana");
+    t.done();
+  });
+
   it("removes the row clicked, not the one at its position on screen", () => {
     const t = setup({ gridSort: { field: "employee_name" } });
     // first on screen is Ana, which is second in the document

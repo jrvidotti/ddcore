@@ -14,6 +14,10 @@ not every commit that went into it.
 
 ### Added
 
+- **`gridIndex: false` hides a Table grid's `#` column** (#20), for a grid sorted by something
+  other than `idx`, where each row's stored position means little on screen. The column still
+  shows by default. It can be set from `extendDoctype` and from `frm.setDfProperty`; on any
+  field other than a Table it fails validation.
 - **Sortable, exportable, selectable form grids** (#18). A `Table` field takes
   `gridSort: { field, order }` (the default display order), `gridSortable` (click a column
   header to sort), `gridExport` (CSV and XLSX buttons, for users with the `export` permission)

@@ -89,6 +89,8 @@ export interface FieldDef {
   gridExport?: boolean;
   /** Table or Report: row checkboxes; a Table also gets "Delete selected" */
   gridSelect?: boolean;
+  /** Table only: `false` hides the `#` column (each row's stored `idx`) */
+  gridIndex?: boolean;
   /**
    * Report only: the report's filters, each taking the value of a field of
    * this document (or `id`). `{ course: "id" }` runs the report for this course.

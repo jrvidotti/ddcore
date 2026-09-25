@@ -13,6 +13,8 @@ export interface Field {
   showFileName?: boolean;
   /** Table or Report grid: default display order, header sorting, CSV/XLSX export, row checkboxes. */
   gridSort?: GridSort; gridSortable?: boolean; gridExport?: boolean; gridSelect?: boolean;
+  /** Table grid: `false` hides the `#` (idx) column. */
+  gridIndex?: boolean;
   /** Report field: report filter -> parent fieldname (or `id`). */
   reportFilters?: Record<string, string>;
   /** No column; set by the controller's onLoad, always read-only. */

@@ -34,6 +34,7 @@
   const viewRows = $derived(sortRows(rows, sort, childMeta.fields, getLinkTitle));
   const sortable = $derived(!!field.gridSortable);
   const selectable = $derived(!!field.gridSelect);
+  const showIndex = $derived(field.gridIndex !== false);
   const exportable = $derived(!!field.gridExport && !!frm.meta.permissions?.export);
   let selected = $state<Set<any>>(new Set());
   // only rows still in the table count: a removed row, or every row after a
@@ -123,7 +124,7 @@
       <thead>
         <tr>
           {#if selectable}<th style="width:28px"><input type="checkbox" aria-label={__("Select all")} checked={allSelected} onchange={(e) => toggleAll(e.currentTarget.checked)} /></th>{/if}
-          <th style="width:44px">#</th>
+          {#if showIndex}<th style="width:44px">#</th>{/if}
           {#each columns as c}
             {@const sorted = sort?.field === c.fieldname ? sort!.order : null}
             <th class:num={num(c)} style="width:{(100 * (c.columns || 2)) / totalCols}%" title={c.description || ""} aria-sort={sorted === "asc" ? "ascending" : sorted === "desc" ? "descending" : sortable ? "none" : undefined}>
@@ -141,7 +142,7 @@
         {#each viewRows as row, i (row.id || row)}
           <tr class="row">
             {#if selectable}<td><input type="checkbox" aria-label={__("Select row {0}", [row.idx ?? i + 1])} checked={selected.has(row)} onchange={() => toggle(row)} /></td>{/if}
-            <td class="muted">{row.idx ?? i + 1}</td>
+            {#if showIndex}<td class="muted">{row.idx ?? i + 1}</td>{/if}
             {#each columns as c}
               <td class:num={num(c)}>
                 {#if dialogOnly}
@@ -167,7 +168,7 @@
           </tr>
         {/each}
         {#if !rows.length}
-          <tr><td colspan={columns.length + (selectable ? 3 : 2)} class="muted" style="text-align:center;padding:14px">{__("No rows")}</td></tr>
+          <tr><td colspan={columns.length + 1 + (selectable ? 1 : 0) + (showIndex ? 1 : 0)} class="muted" style="text-align:center;padding:14px">{__("No rows")}</td></tr>
         {/if}
       </tbody>
     </table>

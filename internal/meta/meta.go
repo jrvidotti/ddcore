@@ -76,6 +76,9 @@ type Field struct {
 	// export the DocType; GridSelect adds row checkboxes and batch actions.
 	GridExport bool `json:"gridExport,omitempty"`
 	GridSelect bool `json:"gridSelect,omitempty"`
+	// GridIndex set to false hides a Table grid's `#` column (the row's idx);
+	// unset, the column shows.
+	GridIndex *bool `json:"gridIndex,omitempty"`
 	// ReportFilters maps a Report field's report filter to the parent field
 	// (or `id`) whose value it takes.
 	ReportFilters map[string]string `json:"reportFilters,omitempty"`
@@ -967,12 +970,16 @@ var asciiIdent = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 func ValidIdentAscii(s string) bool { return asciiIdent.MatchString(s) }
 
 // validateGrid checks the grid properties (gridSort, gridSortable,
-// gridExport, gridSelect), which only a Table or a Report field has, and a
+// gridExport, gridSelect), which only a Table or a Report field has,
+// gridIndex, which only a Table has, and a
 // Report field's own report and filters.
 func (r *Registry) validateGrid(d *DocType, f *Field, e func(string, ...any)) {
 	isGrid := f.Fieldtype == "Table" || f.Fieldtype == "Report"
 	if !isGrid && (f.GridSort != nil || f.GridSortable || f.GridExport || f.GridSelect) {
 		e("field %q: gridSort, gridSortable, gridExport and gridSelect are for a Table or a Report field, not a %s", f.Fieldname, f.Fieldtype)
+	}
+	if f.Fieldtype != "Table" && f.GridIndex != nil {
+		e("field %q: gridIndex is for a Table field, not a %s", f.Fieldname, f.Fieldtype)
 	}
 	if f.Fieldtype != "Report" && f.ReportFilters != nil {
 		e("field %q: reportFilters is for a Report field, not a %s", f.Fieldname, f.Fieldtype)

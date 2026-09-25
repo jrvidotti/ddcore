@@ -18,12 +18,12 @@ func gridRegistry(parent ...*Field) *Registry {
 }
 
 func TestFieldGridPropsRoundTripThroughJSON(t *testing.T) {
-	in := `{"fieldtype":"Table","gridSort":{"field":"employee_name","order":"desc"},"gridSortable":true,"gridExport":true,"gridSelect":true}`
+	in := `{"fieldtype":"Table","gridSort":{"field":"employee_name","order":"desc"},"gridSortable":true,"gridExport":true,"gridSelect":true,"gridIndex":false}`
 	var f Field
 	if err := json.Unmarshal([]byte(in), &f); err != nil {
 		t.Fatal(err)
 	}
-	if f.GridSort == nil || f.GridSort.Field != "employee_name" || f.GridSort.Order != "desc" || !f.GridSortable || !f.GridExport || !f.GridSelect {
+	if f.GridSort == nil || f.GridSort.Field != "employee_name" || f.GridSort.Order != "desc" || !f.GridSortable || !f.GridExport || !f.GridSelect || f.GridIndex == nil || *f.GridIndex {
 		t.Fatalf("parsed %+v", f)
 	}
 	b, _ := json.Marshal(f)
@@ -35,7 +35,7 @@ func TestFieldGridPropsRoundTripThroughJSON(t *testing.T) {
 func TestGridPropsValidation(t *testing.T) {
 	ok := []*Field{
 		{Fieldname: "students", Fieldtype: "Table", Options: "Course Student", GridSort: &GridSort{Field: "employee_name"}, GridSortable: true, GridExport: true, GridSelect: true},
-		{Fieldname: "by_idx", Fieldtype: "Table", Options: "Course Student", GridSort: &GridSort{Field: "idx", Order: "desc"}},
+		{Fieldname: "by_idx", Fieldtype: "Table", Options: "Course Student", GridSort: &GridSort{Field: "idx", Order: "desc"}, GridIndex: new(bool)},
 		{Fieldname: "by_grade", Fieldtype: "Table", Options: "Course Student", GridSort: &GridSort{Field: "grade"}},
 		{Fieldname: "attendance", Fieldtype: "Report", Options: "Course Attendance", ReportFilters: map[string]string{"course": "id", "unit": "unit"}, GridSort: &GridSort{Field: "whatever"}, GridExport: true},
 	}
@@ -51,6 +51,7 @@ func TestGridPropsValidation(t *testing.T) {
 		{&Field{Fieldname: "s", Fieldtype: "Table", Options: "Course Student", GridSort: &GridSort{Field: "employee_name", Order: "up"}}, "must be asc or desc"},
 		{&Field{Fieldname: "s", Fieldtype: "Table", Options: "Course Student", GridSort: &GridSort{}}, "gridSort needs a field"},
 		{&Field{Fieldname: "d", Fieldtype: "Data", GridExport: true}, "for a Table or a Report field, not a Data"},
+		{&Field{Fieldname: "r", Fieldtype: "Report", Options: "X", GridIndex: new(bool)}, "gridIndex is for a Table field, not a Report"},
 		{&Field{Fieldname: "d", Fieldtype: "Data", ReportFilters: map[string]string{"a": "id"}}, "reportFilters is for a Report field"},
 		{&Field{Fieldname: "r", Fieldtype: "Report"}, "needs options naming the report"},
 		{&Field{Fieldname: "Bad Name", Fieldtype: "Report", Options: "X"}, `invalid fieldname "Bad Name" on a Report field`},
