@@ -12,6 +12,8 @@ not every commit that went into it.
 
 ## Unreleased
 
+## 0.20.0 — 2026-09-24
+
 ### Added
 
 - **Virtual DocTypes** (DAT-07, #17). `defineDoctype({ virtual: { sources: [...] } })` declares a
