@@ -18,6 +18,7 @@ const childMeta: any = {
   fields: [
     { fieldname: "employee_name", fieldtype: "Data", label: "Name", inListView: true, readOnly: true },
     { fieldname: "grade", fieldtype: "Float", label: "Grade", inListView: true, readOnly: true },
+    { fieldname: "in_class", fieldtype: "Check", label: "In class", inListView: true, readOnly: true },
   ],
 };
 
@@ -25,9 +26,9 @@ function setup(field: any, perms: Record<string, boolean> = { export: true }) {
   const doc = $state<any>({
     id: "C-1",
     students: [
-      { id: "r1", idx: 1, employee_name: "Zoe", grade: 7 },
-      { id: "r2", idx: 2, employee_name: "Ana", grade: 9 },
-      { id: "r3", idx: 3, employee_name: "Bia", grade: 8 },
+      { id: "r1", idx: 1, employee_name: "Zoe", grade: 7, in_class: 1 },
+      { id: "r2", idx: 2, employee_name: "Ana", grade: 9, in_class: 0 },
+      { id: "r3", idx: 3, employee_name: "Bia", grade: 8, in_class: 1 },
     ],
   });
   const frm: any = {
@@ -94,7 +95,7 @@ describe("Grid", () => {
     t.click([...t.target.querySelectorAll(".grid-toolbar button")].find((b) => b.textContent?.includes("CSV"))!);
     expect(downloads[0][0]).toBe("csv");
     expect(downloads[0][1]).toBe("Course-C-1-students");
-    expect(downloads[0][3]).toEqual([["Ana", 9], ["Zoe", 7]]);
+    expect(downloads[0][3]).toEqual([["Ana", 9, false], ["Zoe", 7, true]]);
     t.click([...t.target.querySelectorAll(".grid-toolbar button")].find((b) => b.textContent?.includes("Delete selected"))!);
     await tick(); await tick();
     flushSync();
@@ -109,6 +110,33 @@ describe("Grid", () => {
     t.click(t.target.querySelector("thead input[type=checkbox]"));
     expect(t.target.querySelector(".grid-toolbar")?.textContent).toContain("3 selected");
     expect(t.target.textContent).not.toContain("XLSX");
+    t.done();
+  });
+
+  it("preset filters narrow the rows on screen, and select all and export follow them", () => {
+    downloads.length = 0;
+    const t = setup({
+      gridSelect: true, gridExport: true, gridSort: { field: "employee_name" },
+      gridFilters: [
+        { label: "In class", filters: [["in_class", "=", 1]], default: true },
+        { label: "Good grade", filters: { grade: 9 } },
+      ],
+    });
+    const toggles = () => [...t.target.querySelectorAll<HTMLButtonElement>("button.grid-filter")];
+    expect(toggles().map((b) => [b.textContent, b.getAttribute("aria-pressed")])).toEqual([["In class", "true"], ["Good grade", "false"]]);
+    expect(t.names()).toEqual(["Bia", "Zoe"]);
+    t.click(t.target.querySelector("thead input[type=checkbox]"));
+    expect(t.target.querySelector(".grid-toolbar")?.textContent).toContain("2 selected");
+    t.click([...t.target.querySelectorAll(".grid-toolbar button")].find((b) => b.textContent?.includes("CSV"))!);
+    expect(downloads[0][3].map((r: any[]) => r[0])).toEqual(["Bia", "Zoe"]);
+    t.click(toggles()[1]); // AND with "Good grade": nothing left
+    expect(t.names()).toEqual([undefined]);
+    expect(t.target.querySelector("tbody")?.textContent).toContain("No rows match the filters");
+    t.click(toggles()[0]); // only "Good grade"
+    expect(t.names()).toEqual(["Ana"]);
+    t.click(toggles()[1]);
+    expect(t.names()).toEqual(["Ana", "Bia", "Zoe"]);
+    expect(t.doc.students.map((r: any) => r.idx)).toEqual([1, 2, 3]);
     t.done();
   });
 });

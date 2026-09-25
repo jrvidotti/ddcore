@@ -76,6 +76,9 @@ type Field struct {
 	// export the DocType; GridSelect adds row checkboxes and batch actions.
 	GridExport bool `json:"gridExport,omitempty"`
 	GridSelect bool `json:"gridSelect,omitempty"`
+	// GridFilters are preset toggles above a Table (or Report) grid, each
+	// narrowing the rows on screen. Display only, like GridSort.
+	GridFilters []GridFilter `json:"gridFilters,omitempty"`
 	// GridIndex set to false hides a Table grid's `#` column (the row's idx);
 	// unset, the column shows.
 	GridIndex *bool `json:"gridIndex,omitempty"`
@@ -125,6 +128,66 @@ type Field struct {
 	App           string   `json:"app,omitempty"`
 	_             struct{} // keep JSON tags exhaustive
 	SelectOptions []string `json:"-"`
+}
+
+// GridFilter is one preset filter of a grid: a toggle labelled Label that,
+// when on, shows only the rows matching Filters (list-style tuples,
+// `[["in_class", "=", 1]]`, or an object, `{ in_class: 1 }`). Toggles that
+// are on combine with AND; Default turns one on when the form opens.
+type GridFilter struct {
+	Label   string          `json:"label"`
+	Filters json.RawMessage `json:"filters"`
+	Default bool            `json:"default,omitempty"`
+}
+
+// GridFilterOps are the operators a grid filter evaluates in the browser: the
+// list's, without the tree ones, which need the database.
+var GridFilterOps = map[string]bool{
+	"=": true, "!=": true, ">": true, ">=": true, "<": true, "<=": true,
+	"like": true, "not like": true, "in": true, "not in": true,
+	"between": true, "is": true, "set": true, "not set": true,
+}
+
+// GridFilterFields parses a grid filter's Filters and returns the fields it
+// names, or an error for a shape or an operator a grid cannot evaluate.
+func GridFilterFields(raw json.RawMessage) ([]string, error) {
+	var obj map[string]any
+	if json.Unmarshal(raw, &obj) == nil && obj != nil {
+		var out []string
+		for k := range obj {
+			out = append(out, k)
+		}
+		sort.Strings(out)
+		if len(out) == 0 {
+			return nil, fmt.Errorf("filters is empty")
+		}
+		return out, nil
+	}
+	var list [][]any
+	if err := json.Unmarshal(raw, &list); err != nil {
+		return nil, fmt.Errorf("filters must be a list of [field, operator, value] or an object")
+	}
+	if len(list) == 0 {
+		return nil, fmt.Errorf("filters is empty")
+	}
+	var out []string
+	for _, tp := range list {
+		if len(tp) < 2 || len(tp) > 3 {
+			return nil, fmt.Errorf("a filter is [field, operator, value] or [field, value], not %v", tp)
+		}
+		field, ok := tp[0].(string)
+		if !ok || field == "" {
+			return nil, fmt.Errorf("a filter's first element is a fieldname, not %v", tp[0])
+		}
+		if len(tp) == 3 {
+			op, _ := tp[1].(string)
+			if !GridFilterOps[strings.ToLower(op)] {
+				return nil, fmt.Errorf("operator %q cannot filter a grid", op)
+			}
+		}
+		out = append(out, field)
+	}
+	return out, nil
 }
 
 // GridSort is a grid's default order.
@@ -980,6 +1043,35 @@ func (r *Registry) validateGrid(d *DocType, f *Field, e func(string, ...any)) {
 	}
 	if f.Fieldtype != "Table" && f.GridIndex != nil {
 		e("field %q: gridIndex is for a Table field, not a %s", f.Fieldname, f.Fieldtype)
+	}
+	if !isGrid && f.GridFilters != nil {
+		e("field %q: gridFilters is for a Table or a Report field, not a %s", f.Fieldname, f.Fieldtype)
+	}
+	if isGrid {
+		var child *DocType
+		if f.Fieldtype == "Table" {
+			child = r.DocTypes[f.OptionsString()]
+		}
+		for i, gf := range f.GridFilters {
+			if strings.TrimSpace(gf.Label) == "" {
+				e("field %q: gridFilters[%d] needs a label", f.Fieldname, i)
+			}
+			fields, err := GridFilterFields(gf.Filters)
+			if err != nil {
+				e("field %q: gridFilters[%d]: %v", f.Fieldname, i, err)
+				continue
+			}
+			// a Report's columns come from its execute: only a Table's
+			// fields can be checked here
+			for _, fn := range fields {
+				if child == nil || fn == "idx" || child.IsStdColumn(fn) {
+					continue
+				}
+				if cf := child.Field(fn); cf == nil || LayoutTypes[cf.Fieldtype] || IsTableType(cf.Fieldtype) {
+					e("field %q: gridFilters[%d] filters on %q, which is not a field of %q", f.Fieldname, i, fn, child.Name)
+				}
+			}
+		}
 	}
 	if f.Fieldtype != "Report" && f.ReportFilters != nil {
 		e("field %q: reportFilters is for a Report field, not a %s", f.Fieldname, f.Fieldtype)

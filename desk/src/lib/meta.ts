@@ -12,7 +12,7 @@ export interface Field {
   columns?: number; width?: FieldWidth; gridEditMode?: "inline" | "dialog"; collapsible?: boolean; bold?: boolean;
   showFileName?: boolean;
   /** Table or Report grid: default display order, header sorting, CSV/XLSX export, row checkboxes. */
-  gridSort?: GridSort; gridSortable?: boolean; gridExport?: boolean; gridSelect?: boolean;
+  gridSort?: GridSort; gridSortable?: boolean; gridExport?: boolean; gridSelect?: boolean; gridFilters?: GridFilter[];
   /** Table grid: `false` hides the `#` (idx) column. */
   gridIndex?: boolean;
   /** Report field: report filter -> parent fieldname (or `id`). */
@@ -28,6 +28,8 @@ export interface Field {
 }
 
 export interface GridSort { field: string; order?: "asc" | "desc" }
+/** A preset filter of a form grid: list-style tuples or an object. */
+export interface GridFilter { label: string; filters: any[][] | Record<string, any>; default?: boolean }
 
 export interface DocTypeMeta {
   name: string; app: string; label: string; idLabel?: string; module?: string; idGeneration: any; submittable?: boolean; isChild?: boolean; isSingle?: boolean; trackChanges?: boolean;

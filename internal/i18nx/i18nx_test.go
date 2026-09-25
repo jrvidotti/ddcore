@@ -255,3 +255,17 @@ func TestCollectReportNameWithoutLabel(t *testing.T) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
 }
+
+// A grid filter's label is shown on a toggle above the grid: a key like the
+// field's own label.
+func TestCollectDocTypeGridFilterLabels(t *testing.T) {
+	s := NewSet()
+	d := &meta.DocType{Name: "Training Class", Fields: []*meta.Field{{Fieldname: "attendance", Fieldtype: "Table", Label: "Students",
+		GridFilters: []meta.GridFilter{{Label: "Only students in the class"}, {Label: "Students who still need the course"}}}}}
+	CollectDocType(s, d, d.TextAppOf(), "x.doctype.ts")
+	for _, k := range []string{"Students", "Only students in the class", "Students who still need the course"} {
+		if !s.Has(k) {
+			t.Errorf("%q not collected: %v", k, texts(s))
+		}
+	}
+}

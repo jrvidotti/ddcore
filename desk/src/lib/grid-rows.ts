@@ -100,3 +100,67 @@ export function downloadTable(format: "csv" | "xlsx", base: string, header: stri
   if (format === "xlsx") downloadXlsx(`${base}.xlsx`, header, cells, sheetName);
   else downloadCsv(`${base}.csv`, toCsv(header, cells, csvSep()));
 }
+
+/** A grid filter's conditions as [field, operator, value] tuples. */
+export function filterTuples(filters: any[][] | Record<string, any> | null | undefined): [string, string, any][] {
+  if (!filters) return [];
+  if (!Array.isArray(filters)) return Object.entries(filters).map(([k, v]) => [k, Array.isArray(v) ? "in" : "=", v]);
+  return filters.map((t) => (t.length >= 3 ? [String(t[0]), String(t[1]).toLowerCase(), t[2]] : [String(t[0]), Array.isArray(t[1]) ? "in" : "=", t[1]]));
+}
+
+const isEmpty = (v: any) => v === null || v === undefined || v === "";
+const asNumber = (v: any): number | null => (typeof v === "number" ? v : typeof v === "string" && v.trim() !== "" && Number.isFinite(Number(v)) ? Number(v) : null);
+
+/** Compares two cell values: numbers as numbers, anything else as text (ISO dates sort as text). */
+function compare(a: any, b: any): number {
+  const na = asNumber(a), nb = asNumber(b);
+  if (na !== null && nb !== null) return na - nb;
+  return String(a) < String(b) ? -1 : String(a) > String(b) ? 1 : 0;
+}
+
+const likeRe = (pattern: string) =>
+  new RegExp("^" + pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/%/g, ".*").replace(/_/g, ".") + "$", "is");
+
+const listOf = (v: any): any[] => (Array.isArray(v) ? v : typeof v === "string" ? v.split(",").map((s) => s.trim()) : [v]);
+
+/**
+ * Whether a row meets one condition, the way the list's filters would read it
+ * on the server: a Check compares as true/false (so `1`, `true` and a missing
+ * value `0` agree), `like` takes % and _, `in` a list or "a, b".
+ */
+export function matchCondition(row: any, [field, op, value]: [string, string, any], col?: Pick<Field, "fieldtype">): boolean {
+  let v = row?.[field];
+  let want = value;
+  if (col?.fieldtype === "Check") {
+    v = !!v && v !== "0";
+    if (op !== "in" && op !== "not in") want = !!want && want !== "0" && want !== "false";
+  }
+  switch (op) {
+    case "=": return typeof v === "boolean" ? v === want : isEmpty(want) ? isEmpty(v) : !isEmpty(v) && compare(v, want) === 0;
+    case "!=": return !matchCondition(row, [field, "=", value], col);
+    case ">": return !isEmpty(v) && compare(v, want) > 0;
+    case ">=": return !isEmpty(v) && compare(v, want) >= 0;
+    case "<": return !isEmpty(v) && compare(v, want) < 0;
+    case "<=": return !isEmpty(v) && compare(v, want) <= 0;
+    case "like": return !isEmpty(v) && likeRe(String(want)).test(String(v));
+    case "not like": return isEmpty(v) || !likeRe(String(want)).test(String(v));
+    case "in": return listOf(want).some((w) => matchCondition(row, [field, "=", w], col));
+    case "not in": return !listOf(want).some((w) => matchCondition(row, [field, "=", w], col));
+    case "between": {
+      const [lo, hi] = listOf(want);
+      return !isEmpty(v) && compare(v, lo) >= 0 && compare(v, hi) <= 0;
+    }
+    case "is": return String(want).toLowerCase() === "not set" ? isEmpty(v) : !isEmpty(v);
+    case "set": return !isEmpty(v);
+    case "not set": return isEmpty(v);
+  }
+  return true;
+}
+
+/** The rows meeting every condition of every active filter (AND); the same array when none is active. */
+export function filterRows<T>(rows: T[], active: (any[][] | Record<string, any>)[], columns: Pick<Field, "fieldname" | "fieldtype">[] = []): T[] {
+  const conds = active.flatMap((f) => filterTuples(f));
+  if (!conds.length) return rows;
+  const colOf = (f: string) => columns.find((c) => c.fieldname === f);
+  return rows.filter((r) => conds.every((c) => matchCondition(r, c, colOf(c[0]))));
+}

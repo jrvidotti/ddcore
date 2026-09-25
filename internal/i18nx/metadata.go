@@ -36,6 +36,9 @@ func CollectDocType(s *Set, d *meta.DocType, app, file string) {
 		}
 		s.Add(f.Label, file, 0)
 		s.Add(f.Description, file, 0)
+		for _, gf := range f.GridFilters {
+			s.Add(gf.Label, file, 0)
+		}
 		if f.Fieldtype != "Select" {
 			continue
 		}

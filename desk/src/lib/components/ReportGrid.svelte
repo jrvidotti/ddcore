@@ -5,50 +5,59 @@
   import { __ } from "$lib/boot.svelte";
   import { formatValue, statusColor } from "$lib/format";
   import { getLinkTitle } from "$lib/titles.svelte";
-  import { isNumericFieldtype } from "$lib/meta";
-  import { downloadTable, exportTable, nextSort, sortRows, type GridSortState } from "$lib/grid-rows";
+  import { isNumericFieldtype, type GridFilter } from "$lib/meta";
+  import { downloadTable, exportTable, filterRows, nextSort, sortRows, type GridSortState } from "$lib/grid-rows";
   import GridExport from "$lib/controls/GridExport.svelte";
+  import GridFilters from "$lib/controls/GridFilters.svelte";
 
   let {
     columns, rows, wsPrefix, filename, sheetName,
-    baseSort = null, sortable = false, selectable = false, exportable = false,
+    baseSort = null, sortable = false, selectable = false, exportable = false, filters = [],
   }: {
     columns: any[]; rows: any[]; wsPrefix: string; filename: string; sheetName?: string;
     baseSort?: GridSortState | null; sortable?: boolean; selectable?: boolean; exportable?: boolean;
+    filters?: GridFilter[];
   } = $props();
 
   const num = (c: any) => isNumericFieldtype(c.fieldtype);
   let userSort = $state<GridSortState | null>(null);
   const sort = $derived(userSort ?? baseSort);
-  const viewRows = $derived(sortRows(rows, sort, columns, getLinkTitle));
+  // the preset filters narrow the rows on screen; selection, totals and
+  // export follow what is shown
+  let activeFilters = $state<Set<number> | null>(null);
+  const active = $derived(activeFilters ?? new Set(filters.flatMap((f, i) => (f.default ? [i] : []))));
+  const visibleRows = $derived(filterRows(rows, [...active].map((i) => filters[i]?.filters).filter(Boolean), columns));
+  const viewRows = $derived(sortRows(visibleRows, sort, columns, getLinkTitle));
   let selected = $state<Set<any>>(new Set());
-  const chosen = $derived(rows.filter((r) => selected.has(r)));
-  const allSelected = $derived(rows.length > 0 && chosen.length === rows.length);
+  const chosen = $derived(visibleRows.filter((r) => selected.has(r)));
+  const allSelected = $derived(visibleRows.length > 0 && chosen.length === visibleRows.length);
+  function toggleFilter(i: number) { const s = new Set(active); if (s.has(i)) s.delete(i); else s.add(i); activeFilters = s; }
 
   // footer with the sum of every numeric column (Percent is an average, not a sum)
   const totals = $derived.by((): Record<string, number> | null => {
-    if (!rows.length) return null;
+    if (!visibleRows.length) return null;
     const cols = columns.filter((c: any) => num(c) && c.fieldtype !== "Percent");
     if (!cols.length) return null;
     const out: Record<string, number> = {};
-    for (const c of cols) out[c.fieldname] = rows.reduce((a: number, r: any) => a + (Number(r[c.fieldname]) || 0), 0);
+    for (const c of cols) out[c.fieldname] = visibleRows.reduce((a: number, r: any) => a + (Number(r[c.fieldname]) || 0), 0);
     return out;
   });
 
   function toggle(row: any) { const s = new Set(selected); if (s.has(row)) s.delete(row); else s.add(row); selected = s; }
-  function toggleAll(on: boolean) { selected = on ? new Set(rows) : new Set(); }
+  function toggleAll(on: boolean) { selected = on ? new Set(visibleRows) : new Set(); }
   function exportRows(format: "csv" | "xlsx") {
     const out = chosen.length ? viewRows.filter((r) => selected.has(r)) : viewRows;
     const { header, cells } = exportTable(out, columns, getLinkTitle);
-    // the totals are of every row, so they only go along with every row
+    // the totals are of every row on screen, so they only go along with all of them
     if (totals && !chosen.length) cells.push(columns.map((c: any, i: number) => (totals[c.fieldname] !== undefined ? totals[c.fieldname] : i === 0 ? __("Total") : "")));
     downloadTable(format, filename, header, cells, sheetName);
   }
 </script>
 
 <div class="card" style="overflow:auto">
-  {#if exportable || (selectable && chosen.length)}
+  {#if exportable || filters.length || (selectable && chosen.length)}
     <div class="grid-toolbar">
+      {#if filters.length}<GridFilters {filters} {active} ontoggle={toggleFilter} />{/if}
       {#if selectable && chosen.length}
         <span class="muted">{__("{0} selected", [chosen.length])}</span>
         <button class="btn sm" onclick={() => toggleAll(false)}>{__("Clear selection")}</button>
@@ -84,7 +93,7 @@
           {/each}
         </tr>
       {/each}
-      {#if !rows.length}<tr><td colspan={columns.length + (selectable ? 1 : 0) || 1} class="empty">{__("No records")}</td></tr>{/if}
+      {#if !viewRows.length}<tr><td colspan={columns.length + (selectable ? 1 : 0) || 1} class="empty">{rows.length ? __("No rows match the filters") : __("No records")}</td></tr>{/if}
     </tbody>
     {#if totals}
       <tfoot>

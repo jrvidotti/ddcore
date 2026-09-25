@@ -115,3 +115,4 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
 button.grid-sort { border: 0; padding: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
 button.grid-sort:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
 .grid-toolbar { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-bottom: 1px solid var(--border); flex-wrap: wrap; font-size: 12px; }
+.grid-filter.active { background: var(--primary); border-color: var(--primary); color: #fff; }

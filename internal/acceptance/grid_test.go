@@ -119,6 +119,11 @@ func TestGridComputedAndReportField(t *testing.T) {
 		if tasks["fieldtype"] != "Report" || tasks["options"] != "Project Tasks" || tasks["reportFilters"].(map[string]any)["project"] != "id" {
 			t.Fatalf("tasks = %v", tasks)
 		}
+		// the filter labels come translated, like the field's own label
+		gf, _ := ms["gridFilters"].([]any)
+		if len(gf) != 2 || gf[0].(map[string]any)["label"] != "Atrasada" || gf[1].(map[string]any)["label"] != "Aberta" {
+			t.Fatalf("gridFilters = %v", ms["gridFilters"])
+		}
 		if ms["gridSort"].(map[string]any)["field"] != "due_date" || ms["gridExport"] != true || ms["gridSelect"] != true || ms["gridSortable"] != true {
 			t.Fatalf("milestones = %v", ms)
 		}

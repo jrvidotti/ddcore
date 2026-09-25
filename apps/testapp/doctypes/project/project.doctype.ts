@@ -32,6 +32,7 @@ export default defineDoctype({
     {
       fieldname: "milestones", fieldtype: "Table", label: "Milestones", options: "Project Milestone", gridEditMode: "inline",
       gridSort: { field: "due_date" }, gridSortable: true, gridExport: true, gridSelect: true,
+      gridFilters: [{ label: "Overdue", filters: [["overdue", "=", 1]] }, { label: "Open", filters: { completed: 0 } }],
     },
     // a report run for this project, shown as a grid in the form
     {
