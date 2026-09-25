@@ -233,8 +233,12 @@ func (c *Ctx) filterSQL(d *meta.DocType, b *db.Builder, filters []db.Filter, col
 						targetConds = append(targetConds, fmt.Sprintf("%s ILIKE %s", db.AccentInsensitive(alias+"."+db.Ident(tc)), db.AccentInsensitive(arg)))
 					}
 					targetWhere := strings.Join(targetConds, " OR ")
+					rel, err := c.relationSQL(td, b)
+					if err != nil {
+						return "", err
+					}
 					existsClause := fmt.Sprintf("EXISTS (SELECT 1 FROM %s AS %s WHERE %s.%s = %s AND (%s))",
-						db.Ident(td.TableName()), alias, alias, db.Ident("id"), colExpr, targetWhere)
+						rel, alias, alias, db.Ident("id"), colExpr, targetWhere)
 					directCond := fmt.Sprintf("%s ILIKE %s", db.AccentInsensitive(colExpr), db.AccentInsensitive(arg))
 					if op == "like" {
 						parts = append(parts, fmt.Sprintf("(%s OR %s)", directCond, existsClause))
@@ -408,7 +412,7 @@ func (c *Ctx) GetList(doctype string, a ListArgs) ([]map[string]any, error) {
 			}
 		}
 	}
-	if !c.IgnorePermissions() {
+	if !c.IgnorePermissions() && !d.IsVirtual() {
 		var pf []db.Filter
 		if a.IgnorePermissions {
 			pf, err = c.scopeFilters(d)
@@ -464,7 +468,22 @@ func (c *Ctx) GetList(doctype string, a ListArgs) ([]map[string]any, error) {
 	if a.Distinct {
 		sql += "DISTINCT "
 	}
-	sql += strings.Join(sel, ", ") + " FROM " + db.Ident(d.TableName()) + ` AS "t"`
+	from := db.Ident(d.TableName())
+	if d.IsVirtual() {
+		// each source is authorised inside its own branch of the union; the
+		// virtual DocType's own rules only decided, above, who may list it
+		perms := "list"
+		if a.IgnorePermissions {
+			perms = "scope"
+		}
+		if from, err = c.virtualRelation(d, &b, perms); err != nil {
+			return nil, err
+		}
+		if len(joins) > 0 {
+			return nil, cerr.Validation("{0} is a virtual DocType and has no child tables", c.T(d.Label))
+		}
+	}
+	sql += strings.Join(sel, ", ") + " FROM " + from + ` AS "t"`
 	for ct, child := range joins {
 		alias := db.Ident("c_" + meta.Snake(ct))
 		sql += fmt.Sprintf(" JOIN %s AS %s ON %s.parent = \"t\".id AND %s.parenttype = %s", db.Ident(child.TableName()), alias, alias, alias, b.Arg(d.Name))
@@ -556,6 +575,9 @@ func (c *Ctx) idExists(doctype, name string) (bool, error) {
 	d, err := c.St.DocType(doctype)
 	if err != nil {
 		return false, err
+	}
+	if d.IsVirtual() {
+		return c.virtualIDExists(d, name)
 	}
 	var one int
 	err = c.Q().QueryRow(c.Ctx, fmt.Sprintf("SELECT 1 FROM %s WHERE id = $1", db.Ident(d.TableName())), name).Scan(&one)
@@ -886,6 +908,12 @@ func (c *Ctx) ResolveLinkTitles(doctype string, docs ...Doc) map[string]map[stri
 		if len(names) == 0 {
 			continue
 		}
+		if td.IsVirtual() {
+			if m, err := c.virtualTitles(td, names); err == nil && len(m) > 0 {
+				out[target] = m
+			}
+			continue
+		}
 		q := fmt.Sprintf("SELECT id, %s FROM %s WHERE id = ANY($1)", db.Ident(td.TitleField), db.Ident(td.TableName()))
 		rows, err := db.Select(c.Ctx, c.Q(), q, names)
 		if err != nil {
@@ -927,6 +955,18 @@ func (c *Ctx) LinkTitles(doctype string, names []string) (map[string]string, err
 		out := map[string]string{}
 		for _, n := range names {
 			out[n] = n
+		}
+		return out, nil
+	}
+	if d.IsVirtual() {
+		out, err := c.virtualTitles(d, names)
+		if err != nil {
+			return nil, err
+		}
+		for _, n := range names {
+			if _, ok := out[n]; !ok {
+				out[n] = n
+			}
 		}
 		return out, nil
 	}

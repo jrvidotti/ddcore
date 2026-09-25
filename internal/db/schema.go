@@ -710,7 +710,15 @@ func Plan(ctx context.Context, q Querier, reg *meta.Registry, prune bool) ([]Sta
 	if err != nil {
 		return nil, err
 	}
-	names := reg.Names()
+	// A virtual DocType has no table. Leaving it out of wantedTables is also
+	// what turns the table of a DocType that became virtual into an orphan,
+	// which prune drops when empty and refuses to drop when it holds rows.
+	var names []string
+	for _, n := range reg.Names() {
+		if !reg.DocTypes[n].IsVirtual() {
+			names = append(names, n)
+		}
+	}
 	renameTables, renameCols, renamedIdx, renamedCols, refusals := planRenames(cat, reg, names)
 
 	var add, alter, indexes, drops []Statement

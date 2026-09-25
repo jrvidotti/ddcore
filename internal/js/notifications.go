@@ -51,6 +51,9 @@ func (n Notification) ValidateTarget(reg *meta.Registry, hasTemplate func(string
 	if d.IsSingle {
 		return fmt.Errorf("notification %s: Single DocTypes are not supported", n.Name)
 	}
+	if d.IsVirtual() {
+		return fmt.Errorf("notification %s: a virtual DocType has no events of its own; notify on its sources", n.Name)
+	}
 	if n.Date != nil {
 		f := d.Field(n.Date.Field)
 		if f == nil || (f.Fieldtype != "Date" && f.Fieldtype != "Datetime") {

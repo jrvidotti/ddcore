@@ -299,8 +299,8 @@ func (e *Engine) importPlan(ctx context.Context, src *ImportSource, a ImportArgs
 			plan.excluded = append(plan.excluded, ImportExclusion{source, "this site has no " + target})
 			continue
 		}
-		if d.IsChild || d.IsSingle {
-			plan.excluded = append(plan.excluded, ImportExclusion{source, "a child table or a Single is not loaded on its own"})
+		if d.IsChild || d.IsSingle || d.IsVirtual() {
+			plan.excluded = append(plan.excluded, ImportExclusion{source, "a child table, a Single or a virtual DocType is not loaded on its own"})
 			continue
 		}
 		res := src.Result(source)
@@ -444,7 +444,7 @@ func (e *Engine) danglingLinks(ctx context.Context, q db.Querier, d *meta.DocTyp
 		query := fmt.Sprintf(`SELECT s.id, s.%[1]s AS ref FROM %[2]s s
 			LEFT JOIN %[3]s t ON t.id = s.%[1]s
 			WHERE s.%[1]s IS NOT NULL AND s.%[1]s <> '' AND t.id IS NULL%[4]s LIMIT 200`,
-			db.Ident(fieldname), db.Ident(d.TableName()), db.Ident(td.TableName()), where)
+			db.Ident(fieldname), db.Ident(d.TableName()), tableOrVirtualIDs(td), where)
 		rows, err := db.Select(ctx, q, query, args...)
 		if err != nil {
 			return nil, err

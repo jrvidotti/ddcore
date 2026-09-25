@@ -71,6 +71,9 @@ func (c *Ctx) docTypeRefColumns() [][2]string {
 		}
 	}
 	for _, d := range c.St.Meta.DocTypes {
+		if d.IsVirtual() {
+			continue
+		}
 		t := d.TableName()
 		if d.IsChild {
 			add(t, "parenttype")
@@ -123,6 +126,16 @@ func (c *Ctx) sweepDocTypeRename(old, name string) error {
 	for _, ref := range c.docTypeRefColumns() {
 		sql := fmt.Sprintf("UPDATE %s SET %s = $1 WHERE %s = $2", db.Ident(ref[0]), db.Ident(ref[1]), db.Ident(ref[1]))
 		if _, err := c.Tx.Exec(c.Ctx, sql, name, old); err != nil {
+			return fmt.Errorf("rename %s to %s: %s.%s: %w", old, name, ref[0], ref[1], err)
+		}
+	}
+	// A Link to a virtual DocType stores "<source>:<id>", so a renamed source
+	// leaves the prefix behind unless it moves too.
+	oldPrefix, newPrefix := old+meta.VirtualSep, name+meta.VirtualSep
+	for _, ref := range c.virtualLinkColumns(name) {
+		sql := fmt.Sprintf("UPDATE %[1]s SET %[2]s = $1 || substr(%[2]s, $3) WHERE left(%[2]s, $4) = $2",
+			db.Ident(ref[0]), db.Ident(ref[1]))
+		if _, err := c.Tx.Exec(c.Ctx, sql, newPrefix, oldPrefix, len(oldPrefix)+1, len(oldPrefix)); err != nil {
 			return fmt.Errorf("rename %s to %s: %s.%s: %w", old, name, ref[0], ref[1], err)
 		}
 	}

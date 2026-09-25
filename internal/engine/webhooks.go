@@ -570,7 +570,7 @@ func (c *Ctx) ValidateWebhook(doc Doc) error {
 		if err != nil || d == nil {
 			return cerr.Validation("DocType {0} does not exist", dt)
 		}
-		if d.IsChild || webhookUnwatchable[d.Name] {
+		if d.IsChild || d.IsVirtual() || webhookUnwatchable[d.Name] {
 			return cerr.Validation("{0} cannot be watched by a webhook", dt)
 		}
 		any := false

@@ -52,6 +52,9 @@ func renameLegacyAdmin(ctx context.Context, c *Ctx) error {
 	// owner and modified_by are standard columns, not fields, so the Link
 	// sweep in moveID never sees them.
 	for _, dt := range c.St.Meta.DocTypes {
+		if dt.IsVirtual() {
+			continue
+		}
 		t := db.Ident(dt.TableName())
 		for _, col := range []string{"owner", "modified_by"} {
 			if _, err := c.Tx.Exec(ctx, fmt.Sprintf("UPDATE %s SET %s = 'Admin' WHERE %s = $1", t, col, col), legacyAdmin); err != nil {

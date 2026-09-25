@@ -97,7 +97,7 @@ func New(e *engine.Engine) *mcp.Server {
 	})
 
 	// ---- meta
-	mcp.AddTool(srv, &mcp.Tool{Name: "list_doctypes", Description: "Lists all loaded DocTypes (name, app, label, isChild, isSingle, submittable, file)."},
+	mcp.AddTool(srv, &mcp.Tool{Name: "list_doctypes", Description: "Lists all loaded DocTypes (name, app, label, isChild, isSingle, isVirtual, submittable, file)."},
 		func(ctx context.Context, req *mcp.CallToolRequest, in struct {
 			App string `json:"app,omitempty" jsonschema:"filter by app"`
 		}) (*mcp.CallToolResult, any, error) {
@@ -107,7 +107,7 @@ func New(e *engine.Engine) *mcp.Server {
 				if in.App != "" && d.App != in.App {
 					continue
 				}
-				out = append(out, map[string]any{"name": n, "app": d.App, "label": d.Label, "isChild": d.IsChild, "isSingle": d.IsSingle, "submittable": d.Submittable, "fields": len(d.Fields), "file": d.SourceFile})
+				out = append(out, map[string]any{"name": n, "app": d.App, "label": d.Label, "isChild": d.IsChild, "isSingle": d.IsSingle, "isVirtual": d.IsVirtual(), "submittable": d.Submittable, "fields": len(d.Fields), "file": d.SourceFile})
 			}
 			return text(out), nil, nil
 		})
@@ -128,7 +128,11 @@ func New(e *engine.Engine) *mcp.Server {
 				// module path uses dots for dirs AND the ".doctype" suffix
 				path = strings.Replace(path, "/doctype.ts", ".doctype.ts", 1)
 			}
-			return text(map[string]any{"doctype": d, "file": path, "table": d.TableName()}), nil, nil
+			out := map[string]any{"doctype": d, "file": path, "table": d.TableName()}
+			if d.IsVirtual() {
+				delete(out, "table") // a union of its sources, with no table of its own
+			}
+			return text(out), nil, nil
 		})
 
 	mcp.AddTool(srv, &mcp.Tool{Name: "scaffold_doctype", Description: "Creates the files for a new DocType in an app (doctype.ts and optionally controller/form/test). Run migrate afterwards. Fieldtypes: Data, Email, Small Text, Text, Text Editor (rich text, sanitized HTML), Markdown Editor, Code (options: language), Int, Float, Currency, Percent, Rating (options: stars, default 5), Duration (seconds; options: hideDays, hideSeconds), Color, Check, Date, Month, Datetime, Time, Select (options: list), Link (options: DocType), Dynamic Link (options: field with DocType), Table (options: child DocType), Table MultiSelect (options: child DocType with exactly one Link field), Attach, Attach Image, JSON, Password, Vault, Section Break, Tab Break, HTML."},

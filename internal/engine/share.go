@@ -238,7 +238,7 @@ func (c *Ctx) shareTarget(doctype, name string) (*meta.DocType, Doc, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	if d.IsChild || d.IsSingle || unscopedOnlyDoctypes[d.Name] || d.Name == shareDoctype || d.Name == "Audit Event" {
+	if d.IsChild || d.IsSingle || d.IsVirtual() || unscopedOnlyDoctypes[d.Name] || d.Name == shareDoctype || d.Name == "Audit Event" {
 		return nil, nil, cerr.Validation("{0} documents cannot be shared", c.T(d.Label))
 	}
 	doc, err := c.GetDoc(d.Name, name)

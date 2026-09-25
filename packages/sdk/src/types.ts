@@ -310,6 +310,22 @@ export interface UniqueKeyDef {
   fields: string[];
 }
 
+/** The sources of a virtual DocType. */
+export interface VirtualDef {
+  sources: VirtualSourceDef[];
+}
+
+/** One DocType feeding a virtual DocType. */
+export interface VirtualSourceDef {
+  doctype: string;
+  /**
+   * Virtual fieldname → this source's fieldname. A virtual field left out
+   * reads as null on this source's rows. The column types must match, and a
+   * Link must map to a Link to the same DocType.
+   */
+  fields: Record<string, string>;
+}
+
 export interface DoctypeDef {
   name: string;
   module?: string;
@@ -334,6 +350,14 @@ export interface DoctypeDef {
   isTree?: boolean;
   /** The Link field holding the parent; `parent_<snake(name)>` by default. Needs `isTree`. */
   parentField?: string;
+  /**
+   * A virtual DocType (DAT-07): no table and no writes; its rows are the union
+   * of its sources' documents, each read through that source's own
+   * permissions. A row's id — and the value a Link to this DocType stores — is
+   * `"<Source DocType>:<source id>"`. A `source_doctype` field is added unless
+   * you declare it. See `virtual-doctypes`.
+   */
+  virtual?: VirtualDef;
   trackChanges?: boolean;
   allowRename?: boolean;
   titleField?: string;
