@@ -62,6 +62,7 @@ Rejected,Rejeitado,# testapp.workflows.pedido_approval.workflow
 Relevant code sample,Exemplo de código relevante,# testapp.doctypes.task.task.doctype
 Reopen,Reabrir,# apps/testapp/doctypes/task/task.form.ts:20
 Rich text project overview,Visão geral do projeto em rich text,# testapp.doctypes.project.project.doctype
+Source,Origem,# testapp.doctypes.work_item.work_item.doctype
 Start,Iniciar,# apps/testapp/doctypes/task/task.form.ts:18
 Start date,Data de início,# apps/testapp/print/project_summary.print.ts:29
 Status,Status,# apps/testapp/print/project_summary.print.ts:28
@@ -82,4 +83,5 @@ Title,Título,# apps/testapp/print/project_summary.print.ts:35
 Total,Total,# testapp.doctypes.pedido.pedido.doctype
 Tracking,Acompanhamento,# testapp workspace
 Whether this task blocks milestone release,Se esta tarefa bloqueia a conclusão do marco,# testapp.doctypes.task.task.doctype
+Work Item,Item de trabalho,# testapp.doctypes.work_item.work_item.doctype
 Workflow State,Estado do Workflow,# testapp.doctypes.pedido.pedido.doctype

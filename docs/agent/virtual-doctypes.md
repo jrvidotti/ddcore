@@ -113,6 +113,20 @@ A virtual DocType cannot be:
 - used by a portal page;
 - named as the `allow` of a User Permission. Restrict its sources instead.
 
+## The Desk
+
+- The list, Cards and the other list views show the union. The Source column and filter pick a
+  source DocType. New, Delete and Import are hidden, because nothing grants create, delete or
+  import.
+- Opening a row, a Link cell, a Link control's ↗ or a search hit sends you to the **source
+  document**: `/app/<ws>/Party/Person:123` redirects to the Person form, in the workspace that
+  owns Person. `…/Party/new` returns to the list. A virtual DocType has no form of its own.
+- A Link control pointing at a virtual DocType is a single picker across the sources. Each
+  option's subtitle starts with its source's label, then the source's own id.
+- The boot payload lists every virtual DocType with its sources (`virtuals`), whether or not the
+  reader can open it. That lets a Link to one open the source even for someone who only reads the
+  source.
+
 ## Search
 
 A virtual DocType stays out of global search unless it sets `globalSearch: true`. Its rows are

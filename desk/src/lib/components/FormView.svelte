@@ -24,6 +24,7 @@
   import { workspaceFor } from "./search-palette";
   import { getRememberedWorkspace, type WorkspaceItem } from "./sidebar-workspace";
   import { commitFocusedEdit, getModifierKey, openShortcutsHelp } from "$lib/shortcuts.svelte";
+  import { virtualRedirect } from "$lib/virtual";
 
   let { doctype, id, basePath: ownBase = "" }: {
     doctype: string; id: string;
@@ -77,6 +78,7 @@
     });
     (async () => {
       try {
+        if (await redirectVirtual()) return;
         const initial = (history.state as any)?.["sveltekit:states"]?.doc || (page.state as any)?.doc;
         const f = await createForm(doctype, id, initial, ownBase);
         if (!alive) return; // navigated away while loading
@@ -96,6 +98,24 @@
       stale = false;
     }
   });
+
+  /**
+   * A virtual DocType has no form of its own: its records are its sources'
+   * documents, so the record URL is sent on to the source (DAT-07). True when
+   * the page is leaving.
+   */
+  async function redirectVirtual(): Promise<boolean> {
+    const sources = boot.data?.virtuals?.[doctype];
+    if (ownBase || !sources) return false;
+    const to = virtualRedirect(doctype, id, sources, {
+      workspaces: (boot.data?.workspaces || []) as WorkspaceItem[],
+      doctypes: boot.data?.doctypes,
+      remembered: getRememberedWorkspace(),
+    });
+    if (!to) return false;
+    await goto(to, { replaceState: true });
+    return true;
+  }
 
   /** Puts back what the user had typed and not saved the last time they were here. */
   async function recoverDraft(f: FormController) {
