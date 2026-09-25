@@ -113,6 +113,7 @@ export const deskSDK = {
     _: __,
     __,
     call: (path: string, args?: any) => api.call(path, args),
+    report: (name: string, filters: Record<string, any> = {}) => api.report(name, filters),
     api,
     notifications: api.notifications,
     // a change to a task moves the sidebar's pending count, which only follows notifications

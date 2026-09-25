@@ -19,29 +19,30 @@ Cover Image,Imagem de Capa,# testapp.doctypes.project.project.doctype
 Description,Descrição,# testapp.doctypes.project.project.doctype
 Draft,Rascunho,# testapp.workflows.pedido_approval.workflow
 Due Date,Data de Vencimento,# apps/testapp/print/project_summary.print.ts:35
-Due date,Data limite,# testapp.doctypes.project_milestone.project_milestone.doctype
+Due date,Data limite,# apps/testapp/reports/project_tasks.ts:18
 End date,Data final,# apps/testapp/print/project_summary.print.ts:30
 Estimated duration,Duração estimada,# testapp.doctypes.task.task.doctype
 Estimated time in seconds,Tempo estimado em segundos,# testapp.doctypes.task.task.doctype
 High,Alta,# testapp.doctypes.task.task.doctype
 In progress,Em andamento,# testapp.doctypes.project.project.doctype
-Invalid dates,Datas inválidas,# apps/testapp/doctypes/project/project.controller.ts:7
+Invalid dates,Datas inválidas,# apps/testapp/doctypes/project/project.controller.ts:15
 Invalid due date,Prazo inválido,# apps/testapp/doctypes/task/task.controller.ts:24
-Invalid milestone,Marco inválido,# apps/testapp/doctypes/project/project.controller.ts:17
+Invalid milestone,Marco inválido,# apps/testapp/doctypes/project/project.controller.ts:25
 Is Group,É grupo,# testapp.doctypes.task_category.task_category.doctype
 Low,Baixa,# testapp.doctypes.task.task.doctype
 Markdown task notes and checklist,Notas da tarefa e checklist em Markdown,# testapp.doctypes.task.task.doctype
 Medium,Média,# testapp.doctypes.task.task.doctype
 Milestone blocker,Bloqueador de marco,# testapp.doctypes.task.task.doctype
-Milestone {0} cannot be completed before the project starts.,O marco {0} não pode ser concluído antes do início do projeto.,# apps/testapp/doctypes/project/project.controller.ts:16
+Milestone {0} cannot be completed before the project starts.,O marco {0} não pode ser concluído antes do início do projeto.,# apps/testapp/doctypes/project/project.controller.ts:24
 Milestones,Marcos,# apps/testapp/print/project_summary.print.ts:34
 My tasks,Minhas tarefas,# testapp.portal.assignee.portal
 No project description provided.,Nenhuma descrição do projeto informada.,# apps/testapp/print/project_summary.print.ts:18
 Notes,Notas,# testapp.doctypes.task.task.doctype
 Open,Aberta,# testapp.doctypes.task.task.doctype
 Open Tasks,Tarefas Abertas,# testapp workspace
+Open tasks,Tarefas abertas,# testapp.doctypes.project.project.doctype
 Order,Pedido,# testapp.doctypes.pedido.pedido.doctype
-Overdue,Atrasada,# testapp.doctypes.task.task.doctype
+Overdue,Atrasada,# testapp.doctypes.project_milestone.project_milestone.doctype
 Overview,Visão Geral,# apps/testapp/print/project_summary.print.ts:22
 Parent Task Category,Categoria de tarefa pai,# testapp.doctypes.task_category.task_category.doctype
 Pending Approval,Aguardando Aprovação,# testapp.workflows.pedido_approval.workflow
@@ -55,6 +56,7 @@ Project Contributor,Colaborador do Projeto,# testapp role
 Project Manager,Gerente de Projeto,# testapp role
 Project Milestone,Marco Projeto,# testapp.doctypes.project_milestone.project_milestone.doctype
 Project Summary,Resumo do Projeto,# testapp.print.project_summary.print
+Project Tasks,Tarefas do projeto,# testapp report
 Project cover image,Imagem de capa do projeto,# testapp.doctypes.project.project.doctype
 Projects,Projetos,# testapp workspace
 Reject,Rejeitar,# testapp.workflows.pedido_approval.workflow
@@ -68,7 +70,7 @@ Start date,Data de início,# apps/testapp/print/project_summary.print.ts:29
 Status,Status,# apps/testapp/print/project_summary.print.ts:28
 Submit for Approval,Enviar para Aprovação,# testapp.workflows.pedido_approval.workflow
 Tags,Etiquetas,# testapp.doctypes.task.task.doctype
-Task,Tarefa,# testapp.doctypes.task.task.doctype
+Task,Tarefa,# apps/testapp/reports/project_tasks.ts:15
 Task Categories,Categorias de Tarefa,# testapp workspace
 Task Category,Categoria de tarefa,# testapp.doctypes.task_category.task_category.doctype
 Task Portal,Portal de Tarefas,# testapp.portal.assignee.portal
@@ -78,7 +80,7 @@ Tasks,Tarefas,# apps/testapp/workspaces/projects.workspace.ts:34
 Tasks by Status,Tarefas por Status,# testapp workspace
 Test App: Projects,App de Teste: Projetos,# testapp app
 The due date cannot be earlier than the project start ({0}).,A data limite não pode ser anterior ao início do projeto ({0}).,# apps/testapp/doctypes/task/task.controller.ts:23
-The end date cannot be earlier than the start date.,A data final não pode ser anterior à data de início.,# apps/testapp/doctypes/project/project.controller.ts:7
+The end date cannot be earlier than the start date.,A data final não pode ser anterior à data de início.,# apps/testapp/doctypes/project/project.controller.ts:15
 Title,Título,# apps/testapp/print/project_summary.print.ts:35
 Total,Total,# testapp.doctypes.pedido.pedido.doctype
 Tracking,Acompanhamento,# testapp workspace

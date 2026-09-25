@@ -6,6 +6,7 @@
   import { treeParentQuery } from "./views/tree-state";
   import Control from "$lib/controls/Control.svelte";
   import Grid from "$lib/controls/Grid.svelte";
+  import ReportField from "$lib/controls/ReportField.svelte";
   import Icon from "./Icon.svelte";
   import Spinner from "./Spinner.svelte";
   import { __, boot } from "$lib/boot.svelte";
@@ -514,6 +515,8 @@
                           <!-- keeps the next control aligned to its half of the line -->
                         {:else if f.fieldtype === "Table"}
                           <Grid {frm} field={f} childMeta={frm.meta.children[f.options]} />
+                        {:else if f.fieldtype === "Report"}
+                          <ReportField {frm} field={f} />
                         {:else if f.fieldtype === "HTML"}
                           <div class="field">{@html f.options || ""}</div>
                         {:else}

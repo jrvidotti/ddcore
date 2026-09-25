@@ -11,6 +11,12 @@ export interface Field {
   allowOnSubmit?: boolean; inListView?: boolean; inStandardFilter?: boolean; length?: number; precision?: number; description?: string;
   columns?: number; width?: FieldWidth; gridEditMode?: "inline" | "dialog"; collapsible?: boolean; bold?: boolean;
   showFileName?: boolean;
+  /** Table or Report grid: default display order, header sorting, CSV/XLSX export, row checkboxes. */
+  gridSort?: GridSort; gridSortable?: boolean; gridExport?: boolean; gridSelect?: boolean;
+  /** Report field: report filter -> parent fieldname (or `id`). */
+  reportFilters?: Record<string, string>;
+  /** No column; set by the controller's onLoad, always read-only. */
+  computed?: boolean;
   /** Field permission level; see `applyFieldLevels`. */
   permlevel?: number;
   /** Display text for a Select, aligned with `options`; filled by the server. */
@@ -18,6 +24,8 @@ export interface Field {
   /** Indicator colour per canonical (English) Select value. */
   optionColors?: Record<string, string>;
 }
+
+export interface GridSort { field: string; order?: "asc" | "desc" }
 
 export interface DocTypeMeta {
   name: string; app: string; label: string; idLabel?: string; module?: string; idGeneration: any; submittable?: boolean; isChild?: boolean; isSingle?: boolean; trackChanges?: boolean;
@@ -67,6 +75,15 @@ export function applyFieldLevels(m: Meta): Meta {
   return { ...m, doctype: shape(m.doctype), children };
 }
 
+/** A computed field has no column, so nothing typed into it would be saved: it is read-only everywhere. */
+export function readOnlyComputed(m: Meta): Meta {
+  const shape = (d: DocTypeMeta): DocTypeMeta =>
+    d.fields.some((f) => f.computed) ? { ...d, fields: d.fields.map((f) => (f.computed ? { ...f, readOnly: true } : f)) } : d;
+  const children: Record<string, DocTypeMeta> = {};
+  for (const [name, child] of Object.entries(m.children || {})) children[name] = shape(child);
+  return { ...m, doctype: shape(m.doctype), children };
+}
+
 const cache = new Map<string, Promise<Meta>>();
 
 export function getMeta(doctype: string): Promise<Meta> {
@@ -75,7 +92,7 @@ export function getMeta(doctype: string): Promise<Meta> {
     p = api
       .meta(doctype)
       .then((raw) => {
-        const m = applyDocTypeSelectors(applyFieldLevels(raw), boot.data?.doctypes);
+        const m = applyDocTypeSelectors(readOnlyComputed(applyFieldLevels(raw)), boot.data?.doctypes);
         if (m.doctype.idGeneration?.prompt && !m.doctype.fields.some((f: Field) => f.fieldname === "id")) {
           const idField: Field = {
             fieldname: "id",
@@ -101,7 +118,7 @@ export function clearMetaCache() { cache.clear(); }
 /** A fieldtype stored as child rows: a Table, or a Table MultiSelect edited as a list of links. */
 export const isTableType = (fieldtype: string | undefined) => fieldtype === "Table" || fieldtype === "Table MultiSelect";
 
-export const isLayout = (f: Field) => ["Section Break", "Tab Break", "HTML"].includes(f.fieldtype);
+export const isLayout = (f: Field) => ["Section Break", "Tab Break", "HTML", "Report"].includes(f.fieldtype);
 export const selectOptions = (f: Field): string[] => (Array.isArray(f.options) ? f.options.map(String) : typeof f.options === "string" ? f.options.split("\n") : []);
 
 /**
@@ -155,6 +172,7 @@ export const DEFAULT_FIELD_WIDTH: Record<string, FieldWidth> = {
   Table: "full",
   "Table MultiSelect": "lg",
   HTML: "full",
+  Report: "full",
 };
 
 /**

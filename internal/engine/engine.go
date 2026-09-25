@@ -504,6 +504,10 @@ func (e *Engine) Load() error {
 	if err := reg.Validate(); err != nil {
 		return err
 	}
+	if err := checkReportFields(reg, snap.Reports); err != nil {
+		pool.Close()
+		return err
+	}
 	notifications := make([]js.Notification, 0, len(snap.Notifications))
 	for _, name := range sortedNotificationNames(snap.Notifications) {
 		rule := snap.Notifications[name]
@@ -1077,4 +1081,25 @@ func sortedNotificationNames(rules map[string]js.Notification) []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+// checkReportFields refuses a Report field whose report does not exist. The
+// Registry cannot tell: reports live in the JS registry, not the meta.
+func checkReportFields(reg *meta.Registry, reports map[string]map[string]any) error {
+	var errs []string
+	for _, d := range reg.DocTypes {
+		for _, f := range d.Fields {
+			if f.Fieldtype != "Report" || f.OptionsString() == "" {
+				continue
+			}
+			if _, ok := reports[f.OptionsString()]; !ok {
+				errs = append(errs, fmt.Sprintf("%s: field %q points at report %q, which does not exist", d.Name, f.Fieldname, f.OptionsString()))
+			}
+		}
+	}
+	if len(errs) == 0 {
+		return nil
+	}
+	sort.Strings(errs)
+	return fmt.Errorf("invalid meta:\n  %s", strings.Join(errs, "\n  "))
 }

@@ -281,7 +281,7 @@ func (c *Ctx) applyTableWrites(tf *meta.Field, a FieldAccess, base, doc Doc) err
 			return c.fieldWriteDenied(tf)
 		}
 		for _, cf := range cd.Fields {
-			if cf.Fieldname == "" || meta.ColumnType(cf.Fieldtype) == "" {
+			if cf.Fieldname == "" || !meta.HasColumnField(cf) {
 				continue
 			}
 			if !c.sameFieldValue(cf, row[cf.Fieldname], prev[cf.Fieldname]) {

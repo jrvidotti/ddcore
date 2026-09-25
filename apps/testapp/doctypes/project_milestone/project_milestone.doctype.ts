@@ -10,5 +10,6 @@ export default defineDoctype({
     { fieldname: "due_date", fieldtype: "Date", label: "Due date", reqd: true, inListView: true },
     { fieldname: "completed", fieldtype: "Check", label: "Completed", default: false, inListView: true },
     { fieldname: "completed_on", fieldtype: "Date", label: "Completed on", mandatoryDependsOn: "doc.completed" },
+    { fieldname: "overdue", fieldtype: "Check", label: "Overdue", computed: true, inListView: true },
   ],
 });

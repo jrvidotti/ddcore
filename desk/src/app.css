@@ -111,3 +111,7 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
 .shortcut-keys { display: flex; align-items: center; gap: 4px; }
 .shortcut-keys .kbd { font-weight: 500; box-shadow: 0 1px 1px rgba(0,0,0,0.05); }
 .kbd-plus { color: var(--muted); font-size: 11px; }
+/* a sortable grid header (Table and Report fields, report page) */
+button.grid-sort { border: 0; padding: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+button.grid-sort:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+.grid-toolbar { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-bottom: 1px solid var(--border); flex-wrap: wrap; font-size: 12px; }

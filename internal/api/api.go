@@ -798,6 +798,9 @@ func (s *Server) get(w http.ResponseWriter, r *http.Request) {
 		if err := s.enrichWorkflow(c, doctype, doc); err != nil {
 			return nil, err
 		}
+		if err := c.LoadComputed(doctype, doc); err != nil {
+			return nil, err
+		}
 		c.ResolveLinkTitles(doctype, doc)
 		return c.RedactDoc(doctype, doc), nil
 	})
@@ -928,6 +931,9 @@ func (s *Server) docMethod(w http.ResponseWriter, r *http.Request) {
 		// the method saw the whole document; the client sees what it may read
 		var out engine.Doc
 		if len(res.Doc) > 0 && json.Unmarshal(res.Doc, &out) == nil && out != nil {
+			if err := c.LoadComputed(dt, out); err != nil {
+				return nil, err
+			}
 			return map[string]any{"result": res.Result, "doc": c.RedactDoc(dt, out)}, nil
 		}
 		return map[string]any{"result": res.Result, "doc": res.Doc}, nil
@@ -1738,6 +1744,9 @@ func redacted(s *Server, c *engine.Ctx, doctype string) func(engine.Doc, error) 
 			return nil, err
 		}
 		if err := s.enrichWorkflow(c, doctype, doc); err != nil {
+			return nil, err
+		}
+		if err := c.LoadComputed(doctype, doc); err != nil {
 			return nil, err
 		}
 		return c.RedactDoc(doctype, doc), nil

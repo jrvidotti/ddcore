@@ -36,6 +36,8 @@ export interface Frm<T extends BaseDoc = BaseDoc> {
   field(fieldname: string): FieldDef | undefined;
   setDfProperty(fieldname: string, prop: string, value: any): void;
   setQuery(fieldname: string, fn: () => { filters?: Filters }): void;
+  /** re-runs a Report field's report; it also re-runs by itself after a save or a reload */
+  refreshField(fieldname: string): void;
   toggleDisplay(fieldname: string, show: boolean): void;
   toggleReqd(fieldname: string, reqd: boolean): void;
   toggleEnable(fieldname: string, enable: boolean): void;
@@ -208,6 +210,8 @@ export interface DeskAPI {
   _(s: string, args?: any[]): string;
   __(s: string, args?: any[]): string;
   call(path: string, args?: Record<string, any>): Promise<any>;
+  /** Runs a `defineReport` (GET /api/report/:name): its columns and rows, and whether the user may export them. */
+  report(name: string, filters?: Record<string, any>): Promise<{ meta: { canExport?: boolean; [k: string]: any }; result: { columns: any[]; rows: any[]; [k: string]: any } }>;
   db: {
     getValue(doctype: string, id: string | Record<string, any>, field: string): Promise<any>;
     getValue(doctype: string, id: string | Record<string, any>, fields: string[]): Promise<Record<string, any> | null>;

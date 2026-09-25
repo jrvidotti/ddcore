@@ -88,7 +88,7 @@ func (c *Ctx) docTypeRefColumns() [][2]string {
 				if opt == "" {
 					continue
 				}
-				if sib := d.Field(opt); sib != nil && meta.ColumnType(sib.Fieldtype) != "" {
+				if sib := d.Field(opt); meta.HasColumnField(sib) {
 					add(t, opt)
 				}
 			}

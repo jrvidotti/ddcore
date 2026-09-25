@@ -16,6 +16,7 @@ export default defineController<Order>("Order", {
   onUpdateAfterSubmit(doc) {},
   onTrash(doc) {}, afterDelete(doc) {},
   beforeRename(doc) {}, afterRename(doc) {},
+  onLoad(doc) { doc.balance = /* … */ 0; },  // fills `computed` fields when a form loads the doc; nothing is stored
   methods: {                            // POST /api/resource/Order/<id>/<method>; in the desk: frm.call("summary", { x: 1 })
     summary(doc, args, ctx) { return { items: doc.items.length }; },
     settle(doc, args) { doc.append("settlements", { /* … */ }); doc.save(); return { balance: doc.balance }; },

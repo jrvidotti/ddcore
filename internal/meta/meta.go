@@ -13,7 +13,7 @@ import (
 )
 
 // Layout fieldtypes have no column.
-var LayoutTypes = map[string]bool{"Section Break": true, "Tab Break": true, "HTML": true}
+var LayoutTypes = map[string]bool{"Section Break": true, "Tab Break": true, "HTML": true, "Report": true}
 
 // ColumnType maps a fieldtype to its Postgres column type ("" = no column).
 func ColumnType(ft string) string {
@@ -41,7 +41,7 @@ func ColumnType(ft string) string {
 	return ""
 }
 
-var ValidFieldTypes = []string{"Data", "Email", "Small Text", "Text", "Text Editor", "Markdown Editor", "Code", "Int", "Float", "Currency", "Percent", "Check", "Rating", "Duration", "Color", "Date", "Month", "Datetime", "Time", "Select", "Link", "Dynamic Link", "Table", "Table MultiSelect", "Attach", "Attach Image", "JSON", "Password", "Vault", "Section Break", "Tab Break", "HTML"}
+var ValidFieldTypes = []string{"Data", "Email", "Small Text", "Text", "Text Editor", "Markdown Editor", "Code", "Int", "Float", "Currency", "Percent", "Check", "Rating", "Duration", "Color", "Date", "Month", "Datetime", "Time", "Select", "Link", "Dynamic Link", "Table", "Table MultiSelect", "Attach", "Attach Image", "JSON", "Password", "Vault", "Section Break", "Tab Break", "HTML", "Report"}
 
 type Field struct {
 	Fieldname          string `json:"fieldname,omitempty"`
@@ -67,6 +67,21 @@ type Field struct {
 	Columns            int    `json:"columns,omitempty"`
 	Width              string `json:"width,omitempty"`
 	GridEditMode       string `json:"gridEditMode,omitempty"`
+	// GridSort is the order a Table (or Report) grid shows its rows in, and
+	// GridSortable lets the user change it by clicking a column. Both change
+	// the display only: a child row's idx stays what the user saved.
+	GridSort     *GridSort `json:"gridSort,omitempty"`
+	GridSortable bool      `json:"gridSortable,omitempty"`
+	// GridExport offers the grid's rows as CSV or XLSX, when the user may
+	// export the DocType; GridSelect adds row checkboxes and batch actions.
+	GridExport bool `json:"gridExport,omitempty"`
+	GridSelect bool `json:"gridSelect,omitempty"`
+	// ReportFilters maps a Report field's report filter to the parent field
+	// (or `id`) whose value it takes.
+	ReportFilters map[string]string `json:"reportFilters,omitempty"`
+	// Computed marks a field with no column: never stored, always read-only,
+	// its value set by the controller's onLoad each time the form loads.
+	Computed bool `json:"computed,omitempty"`
 	// ShowFileName shows an Attach's file name next to its icon or thumbnail;
 	// by default the desk shows only those, with the file's details on hover.
 	ShowFileName bool `json:"showFileName,omitempty"`
@@ -107,6 +122,12 @@ type Field struct {
 	App           string   `json:"app,omitempty"`
 	_             struct{} // keep JSON tags exhaustive
 	SelectOptions []string `json:"-"`
+}
+
+// GridSort is a grid's default order.
+type GridSort struct {
+	Field string `json:"field"`
+	Order string `json:"order,omitempty"` // "asc" (the default) or "desc"
 }
 
 // Convert names the fieldtype whose column type the database still has. Naming
@@ -409,11 +430,17 @@ func (d *DocType) UniqueKey(name string) *UniqueKey {
 	return nil
 }
 
+// HasColumnField reports whether the field is stored in a column: its
+// fieldtype has one and it is not computed.
+func HasColumnField(f *Field) bool {
+	return f != nil && !f.Computed && ColumnType(f.Fieldtype) != ""
+}
+
 // DataFields are the fields that map to a column.
 func (d *DocType) DataFields() []*Field {
 	var out []*Field
 	for _, f := range d.Fields {
-		if ColumnType(f.Fieldtype) != "" {
+		if HasColumnField(f) {
 			out = append(out, f)
 		}
 	}
@@ -472,8 +499,7 @@ func (d *DocType) HasColumn(name string) bool {
 	if d.IsStdColumn(name) {
 		return true
 	}
-	f := d.Field(name)
-	return f != nil && ColumnType(f.Fieldtype) != ""
+	return HasColumnField(d.Field(name))
 }
 
 var nonAlnum = regexp.MustCompile(`[^a-z0-9]+`)
@@ -572,6 +598,7 @@ func (r *Registry) Validate() error {
 			if !valid[f.Fieldtype] {
 				e("invalid fieldtype %q on field %q", f.Fieldtype, f.Fieldname)
 			}
+			r.validateGrid(d, f, e)
 			if LayoutTypes[f.Fieldtype] {
 				continue
 			}
@@ -677,6 +704,16 @@ func (r *Registry) Validate() error {
 				case ColumnType(cv.From) == ColumnType(f.Fieldtype):
 					e("convert on field %q: %s and %s are the same column type, there is nothing to convert",
 						f.Fieldname, cv.From, f.Fieldtype)
+				}
+			}
+			if f.Computed {
+				switch {
+				case d.IsVirtual():
+					e("field %q: a virtual DocType cannot have computed fields", f.Fieldname)
+				case ColumnType(f.Fieldtype) == "" || f.Fieldtype == "Password":
+					e("field %q: a %s cannot be computed", f.Fieldname, f.Fieldtype)
+				case f.FetchFrom != "" || f.Unique || f.Reqd:
+					e("field %q: a computed field cannot be fetchFrom, unique or reqd", f.Fieldname)
 				}
 			}
 			if f.FetchFrom != "" {
@@ -820,7 +857,7 @@ func validateUniqueKeys(d *DocType, e func(string, ...any)) {
 			case f == nil:
 				e("uniqueKeys %q: field %q does not exist", k.Name, fn)
 				ok = false
-			case ColumnType(f.Fieldtype) == "":
+			case !HasColumnField(f):
 				e("uniqueKeys %q: field %q is a %s, which has no column of its own", k.Name, fn, f.Fieldtype)
 				ok = false
 			}
@@ -928,3 +965,51 @@ var asciiIdent = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 
 // ValidIdentAscii checks app names and similar identifiers.
 func ValidIdentAscii(s string) bool { return asciiIdent.MatchString(s) }
+
+// validateGrid checks the grid properties (gridSort, gridSortable,
+// gridExport, gridSelect), which only a Table or a Report field has, and a
+// Report field's own report and filters.
+func (r *Registry) validateGrid(d *DocType, f *Field, e func(string, ...any)) {
+	isGrid := f.Fieldtype == "Table" || f.Fieldtype == "Report"
+	if !isGrid && (f.GridSort != nil || f.GridSortable || f.GridExport || f.GridSelect) {
+		e("field %q: gridSort, gridSortable, gridExport and gridSelect are for a Table or a Report field, not a %s", f.Fieldname, f.Fieldtype)
+	}
+	if f.Fieldtype != "Report" && f.ReportFilters != nil {
+		e("field %q: reportFilters is for a Report field, not a %s", f.Fieldname, f.Fieldtype)
+	}
+	if gs := f.GridSort; gs != nil && isGrid {
+		if gs.Order != "" && gs.Order != "asc" && gs.Order != "desc" {
+			e("field %q: gridSort.order %q must be asc or desc", f.Fieldname, gs.Order)
+		}
+		if gs.Field == "" {
+			e("field %q: gridSort needs a field", f.Fieldname)
+		} else if f.Fieldtype == "Table" && gs.Field != "idx" {
+			// a Report's columns come from its execute, so only a Table's
+			// sort field can be checked here
+			if t := r.DocTypes[f.OptionsString()]; t != nil {
+				if cf := t.Field(gs.Field); cf == nil || LayoutTypes[cf.Fieldtype] || IsTableType(cf.Fieldtype) {
+					e("field %q: gridSort.field %q is not a field of %q", f.Fieldname, gs.Field, t.Name)
+				}
+			}
+		}
+	}
+	if f.Fieldtype != "Report" {
+		return
+	}
+	if !fieldnameRe.MatchString(f.Fieldname) {
+		e("invalid fieldname %q on a Report field (use ascii snake_case)", f.Fieldname)
+	}
+	if f.OptionsString() == "" {
+		e("field %q (Report) needs options naming the report", f.Fieldname)
+	}
+	if d.IsChild {
+		e("field %q: a child DocType cannot have a Report field", f.Fieldname)
+	}
+	for filter, from := range f.ReportFilters {
+		if from != "id" && !d.IsStdColumn(from) {
+			if pf := d.Field(from); pf == nil || LayoutTypes[pf.Fieldtype] || IsTableType(pf.Fieldtype) {
+				e("field %q: reportFilters.%s takes %q, which is not a field of %q", f.Fieldname, filter, from, d.Name)
+			}
+		}
+	}
+}

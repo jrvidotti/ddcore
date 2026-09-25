@@ -146,3 +146,8 @@ puts it into another site with the ids, owners and timestamps intact, and
 A list's download button asks what to export: the page on screen (built in the
 browser, with Link titles resolved) or everything the filters match (streamed
 by the server). The filters sent are the ones the list is showing.
+
+A report and a form grid (a `Table` or `Report` field with `gridExport: true`)
+export in the browser, as CSV or XLSX: the rows already on screen, in their
+order, or only the selected ones. The same `export` permission gates the
+button. See `fieldtypes`, "Form grids".

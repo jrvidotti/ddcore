@@ -23,7 +23,7 @@
 | Select | text | `options: ["A", "B"]`, canonical English, validated on the server; `optionColors` gives each value an indicator colour |
 | Link | text | `options: "DocType"`; existence validated; index created automatically. A Link to a virtual DocType stores `"<Source>:<id>"` (see `virtual-doctypes`) |
 | Dynamic Link | text | `options: "<the field holding the DocType>"`; the DocType and the document are validated on save. When that field is a `Data`, the desk shows it as a list of the DocTypes the user can see, and changing it clears the link |
-| Table | (child table) | `options: "Child DocType"` with `isChild: true`; `gridEditMode: "dialog"` turns off inline editing |
+| Table | (child table) | `options: "Child DocType"` with `isChild: true`; `gridEditMode: "dialog"` turns off inline editing; `gridSort`, `gridSortable`, `gridExport`, `gridSelect` add a default order, header sorting, CSV/XLSX export and row selection. See "Form grids" below |
 | Table MultiSelect | (child table) | several links to one DocType, edited as pills: `options` is a child DocType with exactly one Link field. See below |
 | Attach | text | the file's URL (`/files/..` or `/private/files/..`); the desk shows an icon that opens the file and shows its original name, size and type on hover — `showFileName: true` also shows the name beside it |
 | Attach Image | text | an Attach restricted to png, jpg, gif or webp, refused at upload as well as on save; SVG is not one of them, because it carries script; the thumbnail stands in for the icon, and `showFileName` works the same |
@@ -32,6 +32,72 @@
 | Vault | — | virtual field backed by the encrypted vault (`ddcore_vault`); never a column in `tab_<doctype>`, never in Version or export; masked in Desk and API. See [vault.md](vault.md) |
 | Section Break / Tab Break | — | layout; `label`, `collapsible`, `dependsOn` on a Section |
 | HTML | — | `options` is the rendered HTML |
+| Report | — | `options` is a `defineReport` name, run for this document through `reportFilters` and shown as a read-only grid. See "Form grids" below |
+
+## Form grids
+
+A `Table` and a `Report` field are grids, and four properties shape both:
+
+```ts
+{ fieldname: "students", fieldtype: "Table", options: "Course Student", label: "Students",
+  gridSort: { field: "employee_name", order: "asc" }, gridSortable: true, gridExport: true, gridSelect: true },
+```
+
+- `gridSort: { field, order? }`: the order the grid shows its rows in. On a Table, `field` is a
+  child field (or `idx`) and is checked at load; on a Report it is a report column. `order` is
+  `"asc"` (the default) or `"desc"`.
+- `gridSortable: true`: clicking a column header sorts by it: ascending, descending, then back to
+  `gridSort`. A Link sorts by its title, a Select by its label, and empty cells go last.
+- `gridExport: true`: CSV and XLSX buttons, shown only to a user with the `export` permission
+  on the DocType (a Report checks its `refDoctype`). They export the selected rows if there are
+  any, otherwise every row, in the order on screen, with Link titles and Select labels.
+- `gridSelect: true`: a checkbox per row and a "select all". On a Table it adds "Delete
+  selected", unless the grid is read-only or `cannotDeleteRows` is set.
+
+**Sorting is display only.** A child row's `idx`, which is the order the document stores and
+`ddcore.db` reads, stays what the user saved, and the `#` column keeps showing it.
+
+### Computed columns
+
+`computed: true` declares a field with no column: never stored, always read-only. The
+controller's `onLoad` sets its value each time the document is loaded for a form, a print, a
+save response or a method response. It works on the parent and on child rows, which is how a
+grid shows values that live in other documents:
+
+```ts
+// course_student.doctype.ts
+{ fieldname: "grade", fieldtype: "Float", label: "Grade", computed: true, inListView: true },
+
+// course.controller.ts
+onLoad(doc) {
+  for (const s of doc.students || []) s.grade = ddcore.db.getValue("Exam Result", { course: doc.id, employee: s.employee }, "grade");
+},
+```
+
+Only the computed fields survive `onLoad`: anything else it changes is discarded, and nothing
+is written. A computed field cannot be `reqd`, `unique` or `fetchFrom`, cannot be a Table,
+Password or Vault, and cannot be filtered, sorted or grouped on in a list. `ddcore.db.getDoc`
+and `doc.reload()` in server code do not run `onLoad`.
+
+### Report fields
+
+A `Report` field runs a Script Report for the document it sits in, as a grid. Use it for rows
+the document does not hold: attendance and grades per student, say, from other DocTypes.
+
+```ts
+{ fieldname: "attendance", fieldtype: "Report", label: "Attendance", options: "Course Attendance",
+  reportFilters: { course: "id" }, gridSort: { field: "employee_name" }, gridSortable: true, gridExport: true },
+```
+
+- `options` is the report's `name`; a report that does not exist fails the load.
+- `reportFilters` maps each report filter to the field of this document (or `id`) whose value
+  it takes.
+- The report's own `roles` and its `refDoctype`'s `report` permission still decide who sees
+  the grid; a user without them sees the error in its place.
+- It runs when the form loads, after a save or a reload, and on `frm.refreshField(fieldname)`.
+  A new document shows "Save the document first".
+- Its rows are read-only; `gridSelect` only chooses what to export. The totals row goes along
+  with a full export, not with a selection.
 
 ## Rich text
 
@@ -174,13 +240,14 @@ use of `Percent` would reach.
 
 `fieldname, fieldtype, label, options, optionColors, reqd, unique, default, readOnly, hidden, fetchFrom, dependsOn,
 readOnlyDependsOn, mandatoryDependsOn, allowOnSubmit, inListView, inStandardFilter, searchIndex,
-length, precision, description, columns (grid width 1–12), width (`"sm"` | `"md"` | `"lg"` | `"full"`), gridEditMode (`"inline"` default or `"dialog"`), showFileName (Attach / Attach Image), collapsible, bold,
+length, precision, description, columns (grid width 1–12), width (`"sm"` | `"md"` | `"lg"` | `"full"`), gridEditMode (`"inline"` default or `"dialog"`),
+gridSort, gridSortable, gridExport, gridSelect (Table / Report), reportFilters (Report), computed, showFileName (Attach / Attach Image), collapsible, bold,
 permlevel, renamedFrom, convert`
 
 - `permlevel`: 0–9, default 0. A field above 0 is read and written only by roles granted that level by a permission row with the same `permlevel`; the server omits it from every response and refuses a change from anyone else. `hidden` and `readOnly` are screen hints and protect nothing. See `field-permissions`.
 
 - `label` and `description` are **catalogue keys**: write them in English. See `i18n`.
-- `width`: `"sm"` | `"md"` | `"lg"` | `"full"`. How much of a form line the control takes: `sm`/`md` a quarter, `lg` a half, `full` the whole line — a form has no columns, its shape comes from the widths. Defaults to `sm` for `Date`, `Month`, `Time`, `Int`, `Percent`, `Rating`, `Color`; `md` for `Datetime`, `Float`, `Currency`, `Duration`; `full` for `Text`, `Small Text`, `Text Editor`, `Markdown Editor`, `Code`, `JSON`, `Table`, `HTML`; `lg` for every other type, `Table MultiSelect` included. Fields pack a line greedily, aligned so a half-line field never starts in the middle of a quarter. See `form-api`.
+- `width`: `"sm"` | `"md"` | `"lg"` | `"full"`. How much of a form line the control takes: `sm`/`md` a quarter, `lg` a half, `full` the whole line — a form has no columns, its shape comes from the widths. Defaults to `sm` for `Date`, `Month`, `Time`, `Int`, `Percent`, `Rating`, `Color`; `md` for `Datetime`, `Float`, `Currency`, `Duration`; `full` for `Text`, `Small Text`, `Text Editor`, `Markdown Editor`, `Code`, `JSON`, `Table`, `HTML`, `Report`; `lg` for every other type, `Table MultiSelect` included. Fields pack a line greedily, aligned so a half-line field never starts in the middle of a quarter. See `form-api`.
 - `default`: a literal value, or `"Today"` for Date/Datetime, `"__user"` for the current user.
 - `fetchFrom: "project.assignee"`: copied from the linked document on save. When `readOnly` it always overwrites; otherwise it fills only when empty.
 - `dependsOn`, `readOnlyDependsOn`, `mandatoryDependsOn`: a JS expression over `doc` (`"doc.type == 'PJ'"`) or a field name (truthy). Evaluated in the desk **and** on the server.
