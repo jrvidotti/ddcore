@@ -12,6 +12,12 @@ not every commit that went into it.
 
 ## Unreleased
 
+### Changed
+
+- **The desk shows a spinner while it loads.** The boot screen, the workspace redirect, a form
+  still fetching its document and a portal page used to show a bare `…` in the corner; they now
+  show a centred loading spinner.
+
 ### Fixed
 
 - **A Table MultiSelect's list stays open after a pick.** Clicking an option used to take the focus

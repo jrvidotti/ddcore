@@ -8,6 +8,7 @@
   import { portalApi, portalHref, type PortalPageMeta, type PortalRows } from "$lib/portal";
   import PortalForm from "./PortalForm.svelte";
   import PortalList from "./PortalList.svelte";
+  import Spinner from "../Spinner.svelte";
 
   let { portal, page, id = undefined }: { portal: string; page: string; id?: string } = $props();
 
@@ -85,7 +86,7 @@
       <PortalForm {meta} {portal} {doc} isNew={id === "new"} onsaved={saved} />
     {/if}
   {:else}
-    <div class="muted">…</div>
+    <Spinner />
   {/if}
 </div>
 

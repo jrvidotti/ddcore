@@ -11,6 +11,7 @@
   import Toasts from "$lib/components/Toasts.svelte";
   import Dialogs from "$lib/components/Dialogs.svelte";
   import Icon from "$lib/components/Icon.svelte";
+  import Spinner from "$lib/components/Spinner.svelte";
   import ShortcutsModal from "$lib/components/ShortcutsModal.svelte";
   import SearchPalette from "$lib/components/SearchPalette.svelte";
   import { shouldOpenSearch } from "$lib/components/search-palette";
@@ -171,7 +172,7 @@
 
 {#if ui.busy > 0}<div class="busy-bar"></div>{/if}
 {#if !ready}
-  <div class="page muted">…</div>
+  <Spinner full />
 {:else if isLogin || !isLoggedIn() || isPortal}
   {@render children()}
 {:else}

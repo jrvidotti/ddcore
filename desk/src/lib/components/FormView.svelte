@@ -7,6 +7,7 @@
   import Control from "$lib/controls/Control.svelte";
   import Grid from "$lib/controls/Grid.svelte";
   import Icon from "./Icon.svelte";
+  import Spinner from "./Spinner.svelte";
   import { __, boot } from "$lib/boot.svelte";
   import { showError, confirm, dialog, prompt, toast, escapeHtml } from "$lib/ui.svelte";
   import { statusColor, timeAgo } from "$lib/format";
@@ -515,7 +516,7 @@
     </div>
   </div>
 {:else}
-  <div class="page muted">{__("Loading…")}</div>
+  <div class="page"><Spinner /></div>
 {/if}
 
 <style>
