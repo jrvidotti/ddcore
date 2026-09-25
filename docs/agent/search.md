@@ -14,7 +14,8 @@ closes the palette. Each result opens in the workspace that owns its DocType.
 ## Which DocTypes are searched
 
 A DocType is searched when it declares a `titleField` or `searchFields`. It is never searched
-when it is a child table (`isChild`) or a Single (`isSingle`). `globalSearch` overrides the default:
+when it is a child table (`isChild`) or a Single (`isSingle`), and a virtual DocType (`virtual`) is
+left out unless it opts in, because its sources already appear. `globalSearch` overrides the default:
 
 ```ts
 export default defineDoctype({

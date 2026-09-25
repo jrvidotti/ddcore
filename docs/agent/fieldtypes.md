@@ -21,7 +21,7 @@
 | Datetime | timestamptz | ISO value; an **instant**, shown in the site's timezone |
 | Time | time | "HH:MM:SS"; a civil time, never converted |
 | Select | text | `options: ["A", "B"]`, canonical English, validated on the server; `optionColors` gives each value an indicator colour |
-| Link | text | `options: "DocType"`; existence validated; index created automatically |
+| Link | text | `options: "DocType"`; existence validated; index created automatically. A Link to a virtual DocType stores `"<Source>:<id>"` (see `virtual-doctypes`) |
 | Dynamic Link | text | `options: "<the field holding the DocType>"`; the DocType and the document are validated on save. When that field is a `Data`, the desk shows it as a list of the DocTypes the user can see, and changing it clears the link |
 | Table | (child table) | `options: "Child DocType"` with `isChild: true`; `gridEditMode: "dialog"` turns off inline editing |
 | Table MultiSelect | (child table) | several links to one DocType, edited as pills: `options` is a child DocType with exactly one Link field. See below |
