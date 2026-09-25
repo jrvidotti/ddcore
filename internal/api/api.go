@@ -605,13 +605,22 @@ func (s *Server) boot(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		doctypes := map[string]any{}
+		// every virtual DocType's sources, readable or not: a Link to one holds
+		// "<Source>:<id>", and the desk sends it on to the source document even
+		// for a reader who cannot list the union itself (DAT-07)
+		virtuals := map[string][]string{}
 		for _, n := range s.E.Meta.Names() {
 			d := s.E.Meta.DocTypes[n]
 			if d.IsChild {
 				continue
 			}
+			if d.IsVirtual() {
+				for _, src := range d.Virtual.Sources {
+					virtuals[n] = append(virtuals[n], src.DocType)
+				}
+			}
 			if ok, _ := c.HasPermission(n, "read", nil); ok {
-				doctypes[n] = map[string]any{"label": c.T(d.Label), "app": d.App, "icon": d.Icon, "module": d.Module, "titleField": d.TitleField, "translateId": d.TranslateID, "linkSubtitle": d.LinkSubtitle, "isVirtual": d.IsVirtual()}
+				doctypes[n] = map[string]any{"label": c.T(d.Label), "app": d.App, "icon": d.Icon, "module": d.Module, "titleField": d.TitleField, "translateId": d.TranslateID, "linkSubtitle": d.LinkSubtitle}
 			}
 		}
 		reports := map[string]any{}
@@ -622,7 +631,7 @@ func (s *Server) boot(w http.ResponseWriter, r *http.Request) {
 		}
 		return map[string]any{
 			"user": c.User, "roles": roles, "userDoc": userDoc, "lang": c.Lang, "langs": langs, "apps": apps,
-			"workspaces": workspaces, "doctypes": doctypes, "reports": reports, "portals": portalsFor(c), "portalIncludes": s.portalIncludeApps(),
+			"workspaces": workspaces, "doctypes": doctypes, "virtuals": virtuals, "reports": reports, "portals": portalsFor(c), "portalIncludes": s.portalIncludeApps(),
 			"site": site, "loaded": s.E.Loaded.UnixMilli(),
 		}, nil
 	})

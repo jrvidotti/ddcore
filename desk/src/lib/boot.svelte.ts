@@ -25,6 +25,8 @@ export interface Boot {
   portalIncludes?: string[];
   workspaces: any[];
   doctypes: Record<string, { label: string; app: string; icon: string; module: string; titleField?: string; translateId?: boolean; linkSubtitle?: string[] }>;
+  /** Every virtual DocType (DAT-07) and its source DocTypes, whether or not the user reads it. */
+  virtuals?: Record<string, string[]>;
   reports: Record<string, { label: string; refDoctype?: string; app: string }>;
   site: {
     name: string; currency: string; timezone: string; dev: boolean; scheduler: boolean; version: string;

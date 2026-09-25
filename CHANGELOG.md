@@ -25,6 +25,8 @@ not every commit that went into it.
   DocType. A `source_doctype` field is added. All writes (insert, save, `dbSet`, delete, rename,
   import) are refused. A virtual DocType is kept out of global search unless it sets
   `globalSearch: true`, and it cannot be the `allow` of a User Permission.
+  In the Desk, opening a row, a Link cell, a Link control's ↗ or a search hit sends you to the
+  source document, and the Link picker labels each option with its source.
 
 ### Changed
 

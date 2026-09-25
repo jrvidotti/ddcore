@@ -10,6 +10,7 @@
   import { getMeta } from "$lib/meta";
   import { quickCreate } from "$lib/quick-create";
   import Icon from "$lib/components/Icon.svelte";
+  import { virtualSubtitle } from "$lib/virtual";
 
   let { field, value, onchange, doc = {}, readOnly = false, query = undefined, error = "", id = "", search: searchFn = undefined }:
     { field: Field; value: any; onchange: (v: any) => void; doc?: any; readOnly?: boolean; query?: () => { filters?: any }; error?: string; id?: string;
@@ -51,7 +52,15 @@
     return o.id;
   }
 
+  /** a union of DocTypes (DAT-07): each option says which one it comes from */
+  const virtualTarget = $derived(!!(target && boot.data?.virtuals?.[target]));
+
   function getOptionSubtitle(o: any): string {
+    if (!virtualTarget || searchFn) return ownSubtitle(o);
+    return virtualSubtitle(o.id, ownSubtitle(o), boot.data?.doctypes);
+  }
+
+  function ownSubtitle(o: any): string {
     if (searchFn) return o.title && o.title !== o.id ? String(o.id) : "";
     if (linkSubtitle?.length) return linkSubtitle.map((f) => o[f]).filter((v) => v !== null && v !== undefined && v !== "").join(" · ");
     if (o._title) return o._title !== o.id ? String(o.id) : "";

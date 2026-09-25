@@ -23,6 +23,8 @@ export interface DocTypeMeta {
   name: string; app: string; label: string; idLabel?: string; module?: string; idGeneration: any; submittable?: boolean; isChild?: boolean; isSingle?: boolean; trackChanges?: boolean;
   /** Hierarchical DocType (DAT-07); `parentField` holds the parent Link's fieldname. */
   isTree?: boolean; parentField?: string;
+  /** Virtual DocType (DAT-07): no table, rows are its sources' documents, ids are "<Source>:<id>". */
+  virtual?: { sources: { doctype: string; fields: Record<string, string> }[] };
   allowRename?: boolean; titleField?: string; translateId?: boolean; imageField?: string; sortField?: string; sortOrder?: string; searchFields?: string[]; linkSubtitle?: string[]; fields: Field[];
   permissions?: any[]; icon?: string; methods?: string[];
   /** Compound business keys; enforced on the server, shown here only for reference. */
