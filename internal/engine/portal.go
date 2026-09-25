@@ -147,8 +147,8 @@ func (p *Portal) ValidateTarget(reg *meta.Registry, whitelisted map[string]map[s
 	if !ok {
 		return fail("identity DocType %q does not exist", p.Identity.Doctype)
 	}
-	if id.IsChild || id.IsSingle {
-		return fail("identity DocType %q cannot be a child table or a Single", id.Name)
+	if id.IsChild || id.IsSingle || id.IsVirtual() {
+		return fail("identity DocType %q cannot be a child table, a Single or a virtual DocType", id.Name)
 	}
 	if id.Name == "User" {
 		if p.Identity.UserField != "id" {
@@ -195,8 +195,8 @@ func (p *Portal) ValidateTarget(reg *meta.Registry, whitelisted map[string]map[s
 		if !ok {
 			return pfail("DocType %q does not exist", pg.Doctype)
 		}
-		if d.IsChild || d.IsSingle {
-			return pfail("DocType %q cannot be a child table or a Single", d.Name)
+		if d.IsChild || d.IsSingle || d.IsVirtual() {
+			return pfail("DocType %q cannot be a child table, a Single or a virtual DocType", d.Name)
 		}
 		if len(pg.Match) == 0 {
 			return pfail("match is required: it is what makes a record the user's own")

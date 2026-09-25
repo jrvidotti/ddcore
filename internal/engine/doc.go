@@ -387,6 +387,12 @@ func (c *Ctx) getDoc(doctype, name string, forUpdate bool) (Doc, error) {
 	if name == "" {
 		return nil, cerr.NotFound("{0}: empty name", doctype)
 	}
+	if d.IsVirtual() {
+		if forUpdate {
+			return nil, refuseVirtual(d)
+		}
+		return c.getVirtualDoc(d, name, !c.IgnorePermissions())
+	}
 	sel := fmt.Sprintf("SELECT * FROM %s WHERE id = $1", db.Ident(d.TableName()))
 	if forUpdate && c.Tx != nil {
 		sel += " FOR UPDATE"
@@ -506,6 +512,9 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 		return nil, err
 	}
 	if err := c.checkWritable(d.Name); err != nil {
+		return nil, err
+	}
+	if err := refuseVirtual(d); err != nil {
 		return nil, err
 	}
 	if d.IsChild {
@@ -674,6 +683,9 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 		return nil, err
 	}
 	if err := c.checkWritable(d.Name); err != nil {
+		return nil, err
+	}
+	if err := refuseVirtual(d); err != nil {
 		return nil, err
 	}
 	if d.Name == "Audit Event" {
@@ -986,6 +998,9 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 	if err := c.checkWritable(d.Name); err != nil {
 		return modified, err
 	}
+	if err := refuseVirtual(d); err != nil {
+		return modified, err
+	}
 	if d.Name == "Audit Event" {
 		return modified, cerr.Permission("Audit Event records are immutable and cannot be modified")
 	}
@@ -1193,6 +1208,9 @@ func (c *Ctx) Delete(doctype, name string, ignorePerms, force bool) error {
 	if err := c.checkWritable(d.Name); err != nil {
 		return err
 	}
+	if err := refuseVirtual(d); err != nil {
+		return err
+	}
 	if doctype == "Audit Event" {
 		return cerr.Permission("Audit Event records are immutable and cannot be deleted")
 	}
@@ -1354,6 +1372,9 @@ func (c *Ctx) Rename(doctype, oldID, newID string) (string, error) {
 	if err := c.checkWritable(d.Name); err != nil {
 		return "", err
 	}
+	if err := refuseVirtual(d); err != nil {
+		return "", err
+	}
 	if d.IsSingle {
 		return "", cerr.Validation("Single DocTypes cannot be deleted or renamed")
 	}
@@ -1423,6 +1444,9 @@ func (c *Ctx) moveID(d *meta.DocType, oldID, newID string) error {
 		}
 	}
 	for _, other := range c.St.Meta.DocTypes {
+		if other.IsVirtual() {
+			continue
+		}
 		t := db.Ident(other.TableName())
 		if other.IsChild {
 			q.Exec(c.Ctx, fmt.Sprintf("UPDATE %s SET parent = $1 WHERE parent = $2 AND parenttype = $3", t), newID, oldID, doctype)
@@ -1432,6 +1456,11 @@ func (c *Ctx) moveID(d *meta.DocType, oldID, newID string) error {
 			case "Link":
 				if f.OptionsString() == doctype {
 					if _, err := q.Exec(c.Ctx, fmt.Sprintf("UPDATE %s SET %s = $1 WHERE %s = $2", t, db.Ident(f.Fieldname), db.Ident(f.Fieldname)), newID, oldID); err != nil {
+						return err
+					}
+				} else if c.isVirtualOver(f.OptionsString(), doctype) {
+					if _, err := q.Exec(c.Ctx, fmt.Sprintf("UPDATE %s SET %s = $1 WHERE %s = $2", t, db.Ident(f.Fieldname), db.Ident(f.Fieldname)),
+						meta.VirtualID(doctype, newID), meta.VirtualID(doctype, oldID)); err != nil {
 						return err
 					}
 				}
@@ -1559,6 +1588,13 @@ func (c *Ctx) validate(d *meta.DocType, doc Doc, before Doc, opts SaveOpts) erro
 	}
 	if err := c.runHook(d, "validate", doc, before); err != nil {
 		return err
+	}
+	if d.Name == "User Permission" {
+		// a virtual DocType's rows are its sources' documents, and the
+		// sources' own rules are what scope them
+		if td, ok := c.St.Meta.Get(doc.Str("allow")); ok && td != nil && td.IsVirtual() {
+			return cerr.Validation("{0} is a virtual DocType: restrict its sources instead", doc.Str("allow"))
+		}
 	}
 	return c.validateFields(d, doc, opts, fieldChecks{})
 }
@@ -2014,6 +2050,9 @@ func mustJSON(v any) []byte { b, _ := json.Marshal(v); return b }
 
 func (c *Ctx) checkLinksBeforeDelete(d *meta.DocType, name string) error {
 	for _, other := range c.St.Meta.DocTypes {
+		if other.IsVirtual() {
+			continue // no table, so nothing stored that could point here
+		}
 		for _, f := range other.Fields {
 			var sql string
 			var args []any
@@ -2021,6 +2060,10 @@ func (c *Ctx) checkLinksBeforeDelete(d *meta.DocType, name string) error {
 			case f.Fieldtype == "Link" && f.OptionsString() == d.Name:
 				sql = fmt.Sprintf("SELECT id, parent, parenttype FROM %s WHERE %s = $1 LIMIT 1", db.Ident(other.TableName()), db.Ident(f.Fieldname))
 				args = []any{name}
+			case f.Fieldtype == "Link" && c.isVirtualOver(f.OptionsString(), d.Name):
+				// a Link to a union this DocType feeds stores "<DocType>:<id>"
+				sql = fmt.Sprintf("SELECT id, parent, parenttype FROM %s WHERE %s = $1 LIMIT 1", db.Ident(other.TableName()), db.Ident(f.Fieldname))
+				args = []any{meta.VirtualID(d.Name, name)}
 			case f.Fieldtype == "Dynamic Link" && other.Field(f.OptionsString()) != nil:
 				// a ToDo's reference goes with the document (coreRefs below
 				// deletes it), so it is no reason to refuse the delete

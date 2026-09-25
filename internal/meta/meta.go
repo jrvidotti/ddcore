@@ -220,6 +220,11 @@ func (d *DocType) GloballySearchable() bool {
 	if d.GlobalSearch != nil {
 		return *d.GlobalSearch
 	}
+	// A virtual DocType's rows are its sources' documents, which global
+	// search already finds; it only joins in when it opts in.
+	if d.IsVirtual() {
+		return false
+	}
 	return d.TitleField != "" || len(d.SearchFields) > 0
 }
 
@@ -316,10 +321,13 @@ type DocType struct {
 	IsTree bool `json:"isTree,omitempty"`
 	// ParentField is the Link field holding the parent; TreeParentField falls
 	// back to `parent_<snake(name)>`.
-	ParentField  string `json:"parentField,omitempty"`
-	TrackChanges bool   `json:"trackChanges,omitempty"`
-	AllowRename  bool   `json:"allowRename,omitempty"`
-	TitleField   string `json:"titleField,omitempty"`
+	ParentField string `json:"parentField,omitempty"`
+	// Virtual makes the DocType a read-only union of other DocTypes (DAT-07):
+	// no table, no writes, and each row is a readable row of one source.
+	Virtual      *VirtualDef `json:"virtual,omitempty"`
+	TrackChanges bool        `json:"trackChanges,omitempty"`
+	AllowRename  bool        `json:"allowRename,omitempty"`
+	TitleField   string      `json:"titleField,omitempty"`
 	// TranslateID makes the id a catalogue key for display: the desk shows
 	// the translated id wherever it shows the document's title (a Link, a
 	// grid cell, the list, the form header) while the stored value stays the
@@ -716,6 +724,7 @@ func (r *Registry) Validate() error {
 		}
 		validateUniqueKeys(d, e)
 		validateTree(d, e)
+		validateVirtual(r, d, e)
 		validateFieldPermissions(r, d, e)
 		if d.IsChild && len(d.Permissions) > 0 {
 			e("a child DocType has no permissions")
@@ -767,6 +776,9 @@ func validateUniqueKeys(d *DocType, e func(string, ...any)) {
 		return
 	case d.IsSingle:
 		e("uniqueKeys: a single DocType holds one document, so there is nothing to keep unique")
+		return
+	case d.IsVirtual():
+		e("uniqueKeys: a virtual DocType has no table to hold an index")
 		return
 	}
 	names := map[string]bool{}

@@ -475,6 +475,8 @@ func (e *Engine) Load() error {
 	// looks at them: an extension may relabel them, and the schema planner,
 	// the typings and the extractor see them like any other.
 	reg.ApplyTrees()
+	// likewise `source_doctype` on a virtual DocType (DAT-07).
+	reg.ApplyVirtual()
 	// before Validate, so a field an extension adds is checked like any other:
 	// reserved names, duplicates, a Link that points nowhere.
 	graph := meta.Apps{Requires: map[string][]string{}}

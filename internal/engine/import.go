@@ -53,6 +53,9 @@ func (c *Ctx) ImportDoc(doc Doc, opts ImportOpts) (*ImportResult, error) {
 	if err := c.checkWritable(d.Name); err != nil {
 		return nil, err
 	}
+	if err := refuseVirtual(d); err != nil {
+		return nil, err
+	}
 	if err := c.canImport(); err != nil {
 		return nil, err
 	}

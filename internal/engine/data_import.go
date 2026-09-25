@@ -253,6 +253,9 @@ func (c *Ctx) CanDataImport(doctype, mode string) (*meta.DocType, error) {
 	if d.IsSingle {
 		return nil, cerr.Validation("{0} is a single record and has no rows to import", c.T(d.Label))
 	}
+	if err := refuseVirtual(d); err != nil {
+		return nil, err
+	}
 	if dataImportRefused(d.Name) {
 		return nil, cerr.Validation("{0} cannot be imported from a spreadsheet", c.T(d.Label))
 	}
@@ -286,6 +289,9 @@ func (c *Ctx) planDataImport(a DataImportArgs) (*dataImportPlan, error) {
 		return nil, err
 	}
 	if err := c.checkWritable(d.Name); err != nil {
+		return nil, err
+	}
+	if err := refuseVirtual(d); err != nil {
 		return nil, err
 	}
 	sheet, err := tabular.Read(a.File, tabular.Options{Sep: a.Sep, MaxRows: a.MaxRows})

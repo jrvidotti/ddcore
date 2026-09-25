@@ -12,6 +12,20 @@ not every commit that went into it.
 
 ## Unreleased
 
+### Added
+
+- **Virtual DocTypes** (DAT-07, #17). `defineDoctype({ virtual: { sources: [...] } })` declares a
+  DocType with no table whose rows are the union of other DocTypes, each source mapping its
+  fields onto the virtual ones. Each source is read through its own permissions (role rows,
+  `permissionQuery`, User Permission scopes, shares and field levels), so a user sees a row
+  exactly when they can read the source document. A field above the user's level on that source
+  reads as null. A row's id, and the value a Link to the virtual DocType stores, is
+  `"<Source>:<id>"`. Such a Link is checked against the source on save, blocks deleting a source
+  document that is still referenced, and follows renames of the document and of the source
+  DocType. A `source_doctype` field is added. All writes (insert, save, `dbSet`, delete, rename,
+  import) are refused. A virtual DocType is kept out of global search unless it sets
+  `globalSearch: true`, and it cannot be the `allow` of a User Permission.
+
 ### Changed
 
 - **The desk shows a spinner while it loads.** The boot screen, the workspace redirect, a form
