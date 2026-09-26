@@ -28,9 +28,10 @@ export interface FormHandlers {
   validate?: (frm: FormController) => void | boolean;
   beforeSave?: (frm: FormController) => void;
   afterSave?: (frm: FormController) => void;
-  onChange?: Record<string, (frm: FormController, cdt?: string, cdn?: string) => void>;
-  /** child table row handlers keyed by child doctype */
-  children?: Record<string, Record<string, (frm: FormController, row: any) => void>>;
+  /** keyed by fieldname; for a Table, cdt/cdn/row name the child row that changed */
+  onChange?: Record<string, (frm: FormController, cdt?: string, cdn?: string, row?: any) => void>;
+  /** per Table field: handlers for a click on a read-only cell, keyed by the child fieldname */
+  grids?: Record<string, { onCellClick?: Record<string, (frm: FormController, row: any) => void> }>;
 }
 
 const registry = new Map<string, FormHandlers[]>();
@@ -185,12 +186,16 @@ export class FormController {
   }
   set(f: string, v: any) { return this.setValue(f, v); }
 
-  /** Fires the onChange handler for a field (and fetchFrom updates). */
-  async trigger(fieldname: string, cdt?: string, cdn?: string) {
+  /**
+   * Fires the onChange handler for a field (and fetchFrom updates). For a
+   * Table, cdt is the child DocType, cdn the row's id (none before its first
+   * save) and row the row itself.
+   */
+  async trigger(fieldname: string, cdt?: string, cdn?: string, row?: any) {
     const f = this.field(fieldname);
     if (f && (f.fieldtype === "Link" || f.fieldtype === "Dynamic Link")) await this.applyFetchFrom(fieldname);
     for (const h of this.handlers) {
-      try { await h.onChange?.[fieldname]?.(this, cdt, cdn); } catch (e) { showError(e); }
+      try { await h.onChange?.[fieldname]?.(this, cdt, cdn, row); } catch (e) { showError(e); }
     }
   }
 
@@ -218,12 +223,43 @@ export class FormController {
     const rows = (this.doc[fieldname] ||= []);
     const row = { doctype: f?.options, parentfield: fieldname, parenttype: this.doctype, idx: rows.length + 1, __islocal: true, ...values };
     rows.push(row);
-    return row;
+    // the reactive copy: a change made through it reaches the grid
+    return rows[rows.length - 1];
   }
   removeChild(fieldname: string, idx: number) {
     const rows = this.doc[fieldname] || [];
     rows.splice(idx, 1);
     rows.forEach((r: any, i: number) => (r.idx = i + 1));
+  }
+  /**
+   * Sets fields of one row of a Table, found by the row object or its id, and
+   * fires the table's onChange once, as an edit in the grid does.
+   */
+  setRowValue(fieldname: string, row: any, f: string | Record<string, any>, v?: any) {
+    const rows: any[] = this.doc[fieldname] || [];
+    const id = typeof row === "object" && row ? row.id : row;
+    const target = rows.find((r) => r === row) ?? (id ? rows.find((r) => r.id === id) : undefined);
+    if (!target) throw new Error(`setRowValue: no row ${JSON.stringify(id ?? null)} in ${fieldname}`);
+    const values = typeof f === "string" ? { [f]: v } : f;
+    let changed = false;
+    for (const [k, val] of Object.entries(values)) {
+      if (target[k] === val) continue;
+      target[k] = val;
+      changed = true;
+    }
+    if (changed) this.trigger(fieldname, this.field(fieldname)?.options, target.id, target);
+    return this;
+  }
+
+  // ------------------------------------------------------------- grid cells
+  /** Every script's handler for a click on a cell of `fieldname`'s grid. */
+  cellClickHandlers(fieldname: string, column: string) {
+    return this.handlers.flatMap((h) => h.grids?.[fieldname]?.onCellClick?.[column] ?? []);
+  }
+  clickCell(fieldname: string, column: string, row: any) {
+    for (const fn of this.cellClickHandlers(fieldname, column)) {
+      try { fn(this, row); } catch (e) { showError(e); }
+    }
   }
 
   // ------------------------------------------------------------- ui api

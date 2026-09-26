@@ -28,6 +28,7 @@ defineForm<Entry>("Entry", {
 `gridSort`, `gridSortable`, `gridExport`, `gridSelect`, `gridFilters`, `gridIndex`, `reportFilters`), `refreshField(field)` (re-runs a Report field's report),
 `setQuery(field, () => ({ filters }))`, `toggleDisplay/toggleReqd/toggleEnable`, `addButton(label, fn, group)`, `removeButton`,
 `setPrimaryAction(label, fn)`, `setInnerGroupAsPrimary(group)`, `addIndicator(label, colour)`, `addChild(table, values)`, `removeChild(table, idx)`,
+`setRowValue(table, row | rowId, field | {..}, value)`,
 `addFieldButton(field, { label, icon, onClick, key })`, `removeFieldButton(field, key?)`,
 `trigger(field)`, `save()`, `submit()`, `cancel()`, `reload()`, `discardChanges()`,
 `call(method, args, { reload })` → calls the controller's `methods.<method>` and reloads the doc.
@@ -103,6 +104,53 @@ The button is rendered by the desk inside the field's control, after the input, 
 
 Field buttons are cleared by the same `clearButtons()` that empties the toolbar at the start of
 every `refresh` — declare in `refresh` whatever must survive a save or a reload.
+
+### Grids: row changes and cell clicks
+
+`onChange` on a **Table** is keyed by the table's fieldname, not the child field, and fires for a
+change in any of its rows — an edit in the grid, the row dialog, or `setRowValue`:
+
+```ts
+onChange: {
+  attendance(frm, cdt, cdn, row) {
+    // cdt: the child DocType ("Training Class Attendance")
+    // cdn: the row's id — undefined for a row not saved yet
+    // row: the row itself, the object in frm.doc.attendance
+    if (row) frm.setValue("present", frm.doc.attendance.filter((r) => r.in_class).length);
+  },
+},
+```
+
+Adding or removing a row fires it too, with no `cdt`, `cdn` or `row`.
+
+`frm.setRowValue(table, row, field, value)` — or `(table, row, { field: value, … })` — changes a
+row so that everything follows as if the reader had edited it: the grid shows the value, the form
+turns dirty and the table's `onChange` fires once. `row` is the row object or its `id`; a row
+that is not in the table throws. Assigning to `frm.doc.<table>[i].<field>` directly also updates
+the grid, but fires no `onChange`.
+
+`grids.<table>.onCellClick.<child field>` makes a cell act on a click. The cell renders as a
+button showing its usual value, and the handler receives the row clicked — the row itself, even
+when the grid is sorted or filtered:
+
+```ts
+defineForm<TrainingClass>("Training Class", {
+  grids: {
+    attendance: {
+      onCellClick: {
+        employee(frm, row) {
+          if (frm.docstatus === 0) frm.setRowValue("attendance", row, "in_class", row.in_class ? 0 : 1);
+        },
+      },
+    },
+  },
+});
+```
+
+Only cells shown as text take the click: a read-only column, or every cell of a
+`gridEditMode: "dialog"` grid. An editable cell keeps its control. The handler runs on a
+submitted or read-only form as well, so check before changing anything, as above. Handlers from
+several scripts for the same cell all run.
 
 ## `ddcore` in the desk
 

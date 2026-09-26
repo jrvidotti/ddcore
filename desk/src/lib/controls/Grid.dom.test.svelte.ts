@@ -9,7 +9,11 @@ vi.mock("$lib/boot.svelte", () => ({
 }));
 vi.mock("$lib/titles.svelte", () => ({ getLinkTitle: () => "", setLinkTitle: vi.fn() }));
 const confirmMock = vi.fn(async () => true);
-vi.mock("$lib/ui.svelte", () => ({ confirm: (...a: any[]) => (confirmMock as any)(...a), dialog: vi.fn() }));
+const dialogs: any[] = [];
+vi.mock("$lib/ui.svelte", () => ({
+  confirm: (...a: any[]) => (confirmMock as any)(...a),
+  dialog: (opts: any) => { dialogs.push(opts); return { show: vi.fn(), hide: vi.fn() }; },
+}));
 const downloads: any[] = [];
 vi.mock("$lib/grid-rows", async (orig) => ({ ...(await orig<any>()), downloadTable: (...a: any[]) => downloads.push(a) }));
 
@@ -22,7 +26,7 @@ const childMeta: any = {
   ],
 };
 
-function setup(field: any, perms: Record<string, boolean> = { export: true }) {
+function setup(field: any, perms: Record<string, boolean> = { export: true }, onCellClick: Record<string, (row: any) => void> = {}, editable = true) {
   const doc = $state<any>({
     id: "C-1",
     students: [
@@ -33,9 +37,11 @@ function setup(field: any, perms: Record<string, boolean> = { export: true }) {
   });
   const frm: any = {
     doc, doctype: "Course", meta: { permissions: perms },
-    isFieldEditable: () => true,
+    isFieldEditable: () => editable,
     isFieldMandatory: () => false,
     trigger: vi.fn(),
+    cellClickHandlers: (table: string, column: string) => (table === "students" && onCellClick[column] ? [onCellClick[column]] : []),
+    clickCell: (_table: string, column: string, row: any) => onCellClick[column](row),
     removeChild(fieldname: string, i: number) {
       doc[fieldname].splice(i, 1);
       doc[fieldname].forEach((r: any, n: number) => (r.idx = n + 1));
@@ -47,7 +53,7 @@ function setup(field: any, perms: Record<string, boolean> = { export: true }) {
   flushSync();
   const names = () => [...target.querySelectorAll("tbody tr")].map((tr) => tr.querySelectorAll("td")[field.gridSelect ? 2 : 1]?.textContent?.trim());
   const click = (el: Element | null) => { (el as HTMLElement).click(); flushSync(); };
-  return { doc, target, names, click, done: () => { unmount(view); target.remove(); } };
+  return { doc, frm, target, names, click, done: () => { unmount(view); target.remove(); } };
 }
 
 describe("Grid", () => {
@@ -137,6 +143,49 @@ describe("Grid", () => {
     t.click(toggles()[1]);
     expect(t.names()).toEqual(["Ana", "Bia", "Zoe"]);
     expect(t.doc.students.map((r: any) => r.idx)).toEqual([1, 2, 3]);
+    t.done();
+  });
+
+  it("a cell with an onCellClick handler is a button that hands over the row clicked, not the one at its position", () => {
+    const clicked: any[] = [];
+    const t = setup({ gridSort: { field: "employee_name" }, gridFilters: [{ label: "In class", filters: { in_class: 1 }, default: true }] }, {}, { employee_name: (row) => clicked.push(row) });
+    const buttons = [...t.target.querySelectorAll<HTMLButtonElement>("tbody button.cell-click")];
+    expect(buttons.map((b) => b.textContent?.trim())).toEqual(["Bia", "Zoe"]);
+    t.click(buttons[1]);
+    expect(clicked).toEqual([t.doc.students[0]]);
+    // the other columns have no handler and stay text
+    expect(t.target.querySelectorAll("tbody td button.cell-click")).toHaveLength(2);
+    t.done();
+  });
+
+  it("an editable cell keeps its control, even with a handler", () => {
+    childMeta.fields[0].readOnly = false;
+    try {
+      const t = setup({}, {}, { employee_name: () => {} });
+      expect(t.target.querySelectorAll("tbody button.cell-click")).toHaveLength(0);
+      expect(t.target.querySelectorAll("tbody input")).not.toHaveLength(0);
+      t.done();
+    } finally {
+      childMeta.fields[0].readOnly = true;
+    }
+  });
+
+  it("the row dialog tells onChange which row it changed", () => {
+    dialogs.length = 0;
+    const t = setup({ gridEditMode: "dialog" });
+    t.click(t.target.querySelector("tbody tr:nth-child(2) button.icon"));
+    const d = dialogs.at(-1);
+    d.primaryAction({ ...t.doc.students[1], grade: 10 }, { hide: vi.fn() });
+    expect(t.doc.students[1].grade).toBe(10);
+    expect(t.frm.trigger).toHaveBeenCalledWith("students", "Course Student", "r2", t.doc.students[1]);
+    t.done();
+  });
+
+  it("a dialog-mode cell with a handler is a button too", () => {
+    const clicked: any[] = [];
+    const t = setup({ gridEditMode: "dialog" }, {}, { grade: (row) => clicked.push(row.employee_name) }, false);
+    t.click(t.target.querySelector("tbody tr:nth-child(3) button.cell-click"));
+    expect(clicked).toEqual(["Bia"]);
     t.done();
   });
 });
