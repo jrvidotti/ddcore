@@ -12,6 +12,8 @@ not every commit that went into it.
 
 ## Unreleased
 
+## 0.20.1 — 2026-09-26
+
 ### Added
 
 - **Preset row filters on form grids** (#19). A `Table` or `Report` field takes
