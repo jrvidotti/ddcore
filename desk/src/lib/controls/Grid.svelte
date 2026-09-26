@@ -78,7 +78,7 @@
         if (editable) {
           const target = isNew ? frm.addChild(field.fieldname!, values) : row;
           if (!isNew) applyRowChanges(target, values);
-          frm.trigger(field.fieldname!, childMeta.name, target.name);
+          frm.trigger(field.fieldname!, childMeta.name, target.id, target);
         }
         dlg.hide();
       },
@@ -109,6 +109,8 @@
     frm.trigger(field.fieldname!);
   }
   const num = (f: Field) => isNumericFieldtype(f.fieldtype);
+  // columns a form script acts on when their (read-only) cell is clicked
+  const clickable = $derived(new Set(columns.filter((c) => frm.cellClickHandlers(field.fieldname!, c.fieldname!).length).map((c) => c.fieldname!)));
   function rowEditable(f: Field, row: any) {
     return editable && !f.readOnly && !(f.readOnlyDependsOn && evalExpr(f.readOnlyDependsOn, row, frm.doc));
   }
@@ -160,11 +162,15 @@
                     <a class="file-link" href={row[c.fieldname!]} target="_blank" rel="noopener" title={file.full} aria-label={__("Open file") + ": " + file.full}>
                       <Icon name="paperclip" size={14} /><span class="file-stem">{file.stem}</span><span class="file-extension">{file.extension}</span>
                     </a>
+                  {:else if clickable.has(c.fieldname!)}
+                    <button type="button" class="cell-click cell-value" title={formatValue(row[c.fieldname!], c)} onclick={() => frm.clickCell(field.fieldname!, c.fieldname!, row)}>{formatValue(row[c.fieldname!], c) || "—"}</button>
                   {:else}
                     <span class="cell-value" title={formatValue(row[c.fieldname!], c)}>{formatValue(row[c.fieldname!], c) || "—"}</span>
                   {/if}
                 {:else if rowEditable(c, row) && (!c.dependsOn || evalExpr(c.dependsOn, row, frm.doc))}
-                  <Control field={c} value={row[c.fieldname!]} onchange={(v) => { row[c.fieldname!] = v; frm.trigger(field.fieldname!, childMeta.name, row.id); }} doc={row} compact inGrid />
+                  <Control field={c} value={row[c.fieldname!]} onchange={(v) => { row[c.fieldname!] = v; frm.trigger(field.fieldname!, childMeta.name, row.id, row); }} doc={row} compact inGrid />
+                {:else if clickable.has(c.fieldname!)}
+                  <button type="button" class="cell-click" onclick={() => frm.clickCell(field.fieldname!, c.fieldname!, row)}>{formatValue(row[c.fieldname!], c)}</button>
                 {:else}
                   <span>{formatValue(row[c.fieldname!], c)}</span>
                 {/if}
@@ -190,6 +196,10 @@
 <style>
   table.dialog-grid { table-layout: fixed; min-width: 720px; }
   table.dialog-grid td { overflow: hidden; }
+  /* before .cell-value, which a dialog-mode cell button also carries */
+  .cell-click { all: unset; box-sizing: border-box; max-width: 100%; cursor: pointer; }
+  .cell-click:hover { text-decoration: underline; }
+  .cell-click:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 2px; }
   .cell-value { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .file-link { display: flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; white-space: nowrap; }
   .file-stem { min-width: 0; overflow: hidden; text-overflow: ellipsis; }

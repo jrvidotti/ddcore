@@ -12,6 +12,24 @@ not every commit that went into it.
 
 ## Unreleased
 
+### Added
+
+- **Cell clicks on form grids, and `frm.setRowValue`** (#21). A form script's
+  `grids.<table>.onCellClick.<child field>(frm, row)` turns that column's read-only cells (or
+  every cell of a `gridEditMode: "dialog"` grid) into buttons; the handler gets the row clicked,
+  whatever the grid's sort or filters. `frm.setRowValue(table, row | id, field | {..}, value)`
+  changes a row so the grid, the dirty state and the table's `onChange` follow, as an edit in
+  the grid does. A Table's `onChange` now receives the row itself as a fourth argument,
+  `(frm, cdt, cdn, row)`, which reaches a row not saved yet (it has no id). All of it is
+  documented in `docs/agent/form-api.md`.
+
+### Fixed
+
+- Editing a row in a grid's row dialog passed an undefined `cdn` to the table's `onChange`; it
+  now passes the row's id (and the row).
+- `frm.addChild` returns the row as the form holds it, so a change made through the returned
+  object reaches the grid.
+
 ## 0.20.1 — 2026-09-26
 
 ### Added

@@ -52,7 +52,12 @@ export interface Frm<T extends BaseDoc = BaseDoc> {
   addIndicator(label: string, color?: string): void;
   addChild(fieldname: string, values?: Record<string, any>): any;
   removeChild(fieldname: string, idx: number): void;
-  trigger(fieldname: string): Promise<void>;
+  /**
+   * sets fields of one row of a Table, found by the row object or its id: the
+   * grid, the dirty state and the table's onChange follow, as after an edit in the grid
+   */
+  setRowValue(table: string, row: any, field: string | Record<string, any>, value?: any): this;
+  trigger(fieldname: string, cdt?: string, cdn?: string, row?: any): Promise<void>;
   save(): Promise<boolean>;
   submit(): Promise<boolean>;
   cancel(): Promise<boolean>;
@@ -70,7 +75,14 @@ export interface FormHandlers<T extends BaseDoc = BaseDoc> {
   validate?: (frm: Frm<T>) => void | boolean;
   beforeSave?: (frm: Frm<T>) => void;
   afterSave?: (frm: Frm<T>) => void;
-  onChange?: { [K in keyof T & string]?: (frm: Frm<T>) => void } & Record<string, (frm: Frm<T>, cdt?: string, cdn?: string) => void>;
+  /**
+   * keyed by fieldname. On a Table it fires for a change in any of its rows:
+   * cdt is the child DocType, cdn the row's id (none before its first save) and
+   * row the row itself; adding or removing a row fires it with none of the three
+   */
+  onChange?: { [K in keyof T & string]?: (frm: Frm<T>) => void } & Record<string, (frm: Frm<T>, cdt?: string, cdn?: string, row?: any) => void>;
+  /** per Table field: `onCellClick` runs when a read-only cell of that child field is clicked */
+  grids?: Record<string, { onCellClick?: Record<string, (frm: Frm<T>, row: any) => void> }>;
 }
 
 export interface DialogHandle {
