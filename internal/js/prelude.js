@@ -460,6 +460,11 @@
     richText: (html, title) => ({ type: "richText", html: String(html ?? ""), title: String(title ?? "") }),
     markdown: (text, title) => ({ type: "markdown", text: String(text ?? ""), title: String(title ?? "") }),
     pre: (text, title) => ({ type: "pre", text: String(text ?? ""), title: String(title ?? "") }),
+    // barcode draws a value as vectors: Code128 (the default), EAN-13 or QR.
+    // A value the symbology refuses prints as text.
+    barcode: (value, symbology, title) => ({
+      type: "barcode", text: String(value ?? ""), symbology: String(symbology ?? ""), title: String(title ?? ""),
+    }),
     raw: (html) => ({ type: "raw", html: String(html ?? "") }),
     html: (html) => ({ type: "raw", html: String(html ?? "") }),
     columns: (cols) => ({

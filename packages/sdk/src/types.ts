@@ -3,7 +3,7 @@
 export type FieldType =
   | "Data" | "Email" | "Small Text" | "Text" | "Text Editor" | "Markdown Editor" | "Code"
   | "Int" | "Float" | "Currency" | "Percent" | "Rating" | "Duration" | "Color"
-  | "Check" | "Date" | "Month" | "Datetime" | "Time" | "Select" | "Autocomplete" | "Link" | "Dynamic Link" | "Table"
+  | "Check" | "Date" | "Month" | "Datetime" | "Time" | "Select" | "Autocomplete" | "Barcode" | "Link" | "Dynamic Link" | "Table"
   | "Table MultiSelect" | "Attach" | "Attach Image" | "JSON" | "Password" | "Vault" | "Section Break" | "Tab Break" | "HTML" | "Report";
 
 export type FieldWidth = "sm" | "md" | "lg" | "full";
@@ -36,6 +36,8 @@ export interface FieldDef {
    * display flags `["hideDays", "hideSeconds"]`. `Autocomplete` takes the
    * suggestions, a list or one per line — free text is still accepted, and
    * `frm.setDfProperty(field, "options", list)` replaces them at runtime.
+   * `Barcode` takes its symbology: `"Code128"` (the default), `"EAN-13"` or
+   * `"QR"`.
    * None of those are catalogue keys — they are never translated.
    */
   options?: string | string[] | number;
@@ -284,6 +286,12 @@ export interface PrintBlockBuilder {
   markdown(text: string, title?: string): PrintBlock;
   /** Preformatted text, escaped, keeping its whitespace (a Code field). */
   pre(text: string, title?: string): PrintBlock;
+  /**
+   * A barcode drawn as vectors: `symbology` is `"Code128"` (the default),
+   * `"EAN-13"` or `"QR"` — a Barcode field's is `field.options`. A value the
+   * symbology refuses prints as text.
+   */
+  barcode(value: string, symbology?: "Code128" | "EAN-13" | "QR", title?: string): PrintBlock;
   raw(html: string): PrintBlock;
   html(html: string): PrintBlock;
   columns(cols: PrintBlock[][]): PrintBlock;

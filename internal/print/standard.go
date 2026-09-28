@@ -151,7 +151,7 @@ func StandardTemplate(d *meta.DocType, doc map[string]any, opts StandardFormatOp
 		// rendered as the markup they are — escaping them here is what used to
 		// print literal tags — and code keeps its whitespace.
 		switch f.Fieldtype {
-		case "Text Editor", "Markdown Editor", "Code", "Attach Image":
+		case "Text Editor", "Markdown Editor", "Code", "Attach Image", "Barcode":
 			flushKeyValues()
 			b := Block{Title: tr(label)}
 			switch f.Fieldtype {
@@ -163,6 +163,8 @@ func StandardTemplate(d *meta.DocType, doc map[string]any, opts StandardFormatOp
 				b.Type, b.Text = "pre", str(val)
 			case "Attach Image":
 				b.Type, b.HTML = "richText", `<img src="`+html.EscapeString(str(val))+`" alt="`+html.EscapeString(tr(label))+`">`
+			case "Barcode":
+				b.Type, b.Text, b.Symbology = "barcode", str(val), f.BarcodeSymbology()
 			}
 			blocks = append(blocks, b)
 			continue

@@ -502,6 +502,8 @@ func TestParseCell(t *testing.T) {
 		{sel, txt("customer"), br, "Customer"},
 		{sel, txt("Other"), br, "Other"},
 		{f("Data"), txt(" 007 "), br, "007"},
+		// an EAN kept as text keeps its leading zeros; the save adds a missing check digit
+		{f("Barcode"), txt(" 001234567890 "), br, "001234567890"},
 		{f("Data"), txt(""), br, nil},
 	}
 	for _, c := range ok {

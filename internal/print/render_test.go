@@ -360,3 +360,40 @@ func TestStandardTemplatePrintsMultiSelectAsALine(t *testing.T) {
 		t.Fatalf("values missing: %s", out)
 	}
 }
+
+// A barcode prints as vectors under its label. A value its symbology refuses
+// — a template can build the block from anything — prints as escaped text
+// rather than disappearing or breaking the page.
+func TestBarcodeBlocks(t *testing.T) {
+	out := RenderBlocks([]Block{
+		{Type: "barcode", Title: "SKU", Text: "AB-12"},
+		{Type: "barcode", Title: "Link", Text: "https://ddcore.dev", Symbology: "QR"},
+		{Type: "barcode", Title: "GTIN", Text: "<b>123</b>", Symbology: "EAN-13"},
+		{Type: "barcode", Title: "Empty"},
+	})
+	for _, want := range []string{
+		`<div class="print-barcode"><svg`, `<div class="print-barcode qr"><svg`, ">SKU<", ">AB-12</text>",
+		`<div class="print-p">&lt;b&gt;123&lt;/b&gt;</div>`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("barcode blocks are missing %q: %s", want, out)
+		}
+	}
+	if strings.Contains(out, "<b>") || strings.Contains(out, "Empty") {
+		t.Fatalf("an invalid value was not escaped, or an empty one printed: %s", out)
+	}
+
+	d := &meta.DocType{Name: "Item", Label: "Item", Fields: []*meta.Field{
+		{Fieldname: "gtin", Fieldtype: "Barcode", Label: "GTIN", Options: "EAN-13"},
+	}}
+	blocks := StandardTemplate(d, map[string]any{"id": "I-1", "gtin": "4006381333931"}, StandardFormatOptions{})
+	var found *Block
+	for i := range blocks {
+		if blocks[i].Type == "barcode" {
+			found = &blocks[i]
+		}
+	}
+	if found == nil || found.Symbology != "EAN-13" || found.Text != "4006381333931" {
+		t.Fatalf("the standard layout did not print the Barcode as a barcode block: %+v", blocks)
+	}
+}

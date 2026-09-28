@@ -22,6 +22,14 @@ older series, and `whats_new` reads across every one of them.
   replaces the suggestions with `frm.setDfProperty(field, "options", list)`. Changing a `Data`
   field to `Autocomplete` needs no migration, and the first save's trim is not recorded as a
   Version.
+- **`Barcode` fieldtype**: text drawn as a barcode, stored in a text column. `options` is the
+  symbology — `Code128` (the default), `EAN-13` or `QR` — and the server validates the value for
+  it: printable ASCII up to 80 characters, 12 or 13 digits (a 12-digit EAN-13 gets its check
+  digit), or up to 1000 bytes. The desk previews the code under the text box and, where the
+  browser has `BarcodeDetector` on a secure origin, scans it with the camera. The standard print
+  layout draws it as SVG, and print templates get `b.barcode(value, symbology, title)`.
+  `GET /api/barcode?symbology=&value=` returns the SVG to any signed-in user, Website Users
+  included.
 
 ### Changed
 

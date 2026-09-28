@@ -242,6 +242,10 @@ func AssembleHTML(bodyHTML string, letterhead *LetterHead, title string, lang st
       white-space: pre-wrap;
       word-break: break-word;
     }
+    /* a scanner needs the bars at a readable size: 1D codes keep their
+       height and their aspect ratio, a QR code is a square */
+    .print-barcode svg { display: block; height: 18mm; width: auto; max-width: 100%%; }
+    .print-barcode.qr svg { height: 30mm; width: 30mm; }
 
     table.print-table {
       width: 100%%;

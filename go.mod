@@ -3,6 +3,7 @@ module github.com/jrvidotti/ddcore
 go 1.26.5
 
 require (
+	github.com/boombuler/barcode v1.1.0
 	github.com/coreos/go-oidc/v3 v3.21.0
 	github.com/dop251/goja v0.0.0-20260906210903-70ad66ec7ce4
 	github.com/evanw/esbuild v0.28.2

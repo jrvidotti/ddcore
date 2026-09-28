@@ -5,6 +5,7 @@ import (
 	"html"
 	"strings"
 
+	"github.com/jrvidotti/ddcore/internal/barcode"
 	"github.com/jrvidotti/ddcore/internal/richtext"
 )
 
@@ -26,6 +27,8 @@ type Block struct {
 	Blocks     []Block    `json:"blocks,omitempty"`
 	// Cells are the columns of a "columns" block, each a list of blocks.
 	Cells [][]Block `json:"cells,omitempty"`
+	// Symbology is a "barcode" block's: Code128 (the default), EAN-13 or QR.
+	Symbology string `json:"symbology,omitempty"`
 }
 
 // labelled puts a block's title above it, the way the key/value grid labels an
@@ -201,6 +204,23 @@ func (b Block) RenderHTML() string {
 			return ""
 		}
 		return b.labelled(`<pre class="print-pre">` + html.EscapeString(b.Text) + `</pre>`)
+
+	case "barcode":
+		// Drawn here, as vectors, so a PDF prints bars as sharp as the
+		// printer can make them. A value its symbology refuses — a template
+		// can build this block from anything — prints as the text it is.
+		if b.Text == "" {
+			return ""
+		}
+		svg, err := barcode.SVG(b.Symbology, b.Text)
+		if err != nil {
+			return b.labelled(`<div class="print-p">` + html.EscapeString(b.Text) + `</div>`)
+		}
+		class := "print-barcode"
+		if b.Symbology == barcode.QR {
+			class += " qr"
+		}
+		return b.labelled(`<div class="` + class + `">` + string(svg) + `</div>`)
 
 	case "raw":
 		// Raw HTML escape hatch — rendered unescaped by deliberate design for custom markup

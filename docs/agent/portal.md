@@ -118,7 +118,7 @@ answer only for portals the user's roles reach.
 
 Also open to a Website User: `/api/login`, `/api/logout`, `/api/auth/*`, `/api/boot`
 (portals, language and site only), `/api/translations`, `/api/upload`, `/api/file-info`,
-`/files/*`, `/private/files/*`, and `/api/method/<path>` for methods whitelisted with
+`/api/barcode` (a Barcode field's image), `/files/*`, `/private/files/*`, and `/api/method/<path>` for methods whitelisted with
 `portal: true`. The core's self-service methods (profile, password, sessions, language) are
 marked, so the portal's account screen works. API keys are not.
 

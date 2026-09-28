@@ -499,7 +499,7 @@
       <div class="select-filter" class:labelled={!!ff.label}>
         {#if ff.fieldtype === "Check"}<span class="label-spacer" aria-hidden="true">&nbsp;</span>{/if}
         <Control field={ff} value={filters[f.fieldname!]} onchange={(v) => updateFilter(f.fieldname!, v, ff.fieldtype === "Data" || ff.fieldtype === "Autocomplete")} compact extraOptions={settings.filterOptions?.[f.fieldname!] || []} />
-        {#if (ff.fieldtype === "Select" || ff.fieldtype === "Data" || ff.fieldtype === "Autocomplete") && filters[f.fieldname!] !== null && filters[f.fieldname!] !== undefined && filters[f.fieldname!] !== ""}
+        {#if (ff.fieldtype === "Select" || ff.fieldtype === "Data" || ff.fieldtype === "Autocomplete" || ff.fieldtype === "Barcode") && filters[f.fieldname!] !== null && filters[f.fieldname!] !== undefined && filters[f.fieldname!] !== ""}
           <button class="btn icon filter-clear" onclick={() => clearFilter(f.fieldname!)} title={__("Remove the {0} filter", [ff.label])} aria-label={__("Remove the {0} filter", [ff.label])}><Icon name="x" size={14} /></button>
         {/if}
       </div>

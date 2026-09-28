@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+
+	"github.com/jrvidotti/ddcore/internal/barcode"
 )
 
 // Layout fieldtypes have no column.
@@ -19,7 +21,7 @@ var LayoutTypes = map[string]bool{"Section Break": true, "Tab Break": true, "HTM
 func ColumnType(ft string) string {
 	switch ft {
 	case "Data", "Email", "Small Text", "Text", "Text Editor", "Markdown Editor", "Code", "Color",
-		"Select", "Autocomplete", "Link", "Dynamic Link", "Attach", "Attach Image", "Password":
+		"Select", "Autocomplete", "Barcode", "Link", "Dynamic Link", "Attach", "Attach Image", "Password":
 		return "text"
 	case "Int", "Duration", "Rating":
 		return "bigint"
@@ -41,7 +43,7 @@ func ColumnType(ft string) string {
 	return ""
 }
 
-var ValidFieldTypes = []string{"Data", "Email", "Small Text", "Text", "Text Editor", "Markdown Editor", "Code", "Int", "Float", "Currency", "Percent", "Check", "Rating", "Duration", "Color", "Date", "Month", "Datetime", "Time", "Select", "Autocomplete", "Link", "Dynamic Link", "Table", "Table MultiSelect", "Attach", "Attach Image", "JSON", "Password", "Vault", "Section Break", "Tab Break", "HTML", "Report"}
+var ValidFieldTypes = []string{"Data", "Email", "Small Text", "Text", "Text Editor", "Markdown Editor", "Code", "Int", "Float", "Currency", "Percent", "Check", "Rating", "Duration", "Color", "Date", "Month", "Datetime", "Time", "Select", "Autocomplete", "Barcode", "Link", "Dynamic Link", "Table", "Table MultiSelect", "Attach", "Attach Image", "JSON", "Password", "Vault", "Section Break", "Tab Break", "HTML", "Report"}
 
 type Field struct {
 	Fieldname          string `json:"fieldname,omitempty"`
@@ -271,6 +273,16 @@ func (f *Field) DurationHides(flag string) bool {
 		}
 	}
 	return false
+}
+
+// BarcodeSymbology is the symbology a Barcode field draws: `options`, or
+// Code128 when it declares none. Validate refuses anything barcode.Valid does
+// not know, so what this returns always draws.
+func (f *Field) BarcodeSymbology() string {
+	if s := strings.TrimSpace(f.OptionsString()); s != "" {
+		return s
+	}
+	return barcode.Default
 }
 
 var codeLanguageRe = regexp.MustCompile(`^[a-z0-9+#._-]*$`)
@@ -730,6 +742,14 @@ func (r *Registry) Validate() error {
 				case nil, string, []any, []string:
 				default:
 					e("field %q (Autocomplete): options is the list of suggestions, not %v", f.Fieldname, f.Options)
+				}
+			case "Barcode":
+				// the symbology decides what a value may be, so a typo here
+				// would refuse every save instead of failing at load
+				if _, ok := f.Options.(string); f.Options != nil && !ok {
+					e("field %q (Barcode): options is the symbology (Code128, EAN-13, QR), not %v", f.Fieldname, f.Options)
+				} else if !barcode.Valid(strings.TrimSpace(f.OptionsString())) {
+					e("field %q (Barcode): unknown symbology %q (Code128, EAN-13, QR)", f.Fieldname, f.OptionsString())
 				}
 			case "Rating":
 				// The number of stars decides what a stored value means, so a

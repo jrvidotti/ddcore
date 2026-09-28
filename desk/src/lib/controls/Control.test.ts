@@ -95,4 +95,11 @@ describe("Control", () => {
     expect(body).toContain('data-fieldtype="Autocomplete"');
     expect(body).not.toContain("<select");
   });
+
+  it("renders a Barcode as a text box with its own control", () => {
+    const field: Field = { fieldname: "gtin", fieldtype: "Barcode", label: "GTIN", options: "EAN-13" };
+    const { body } = render(Control, { props: { field, value: "4006381333931", onchange: vi.fn() } });
+    expect(body).toContain('data-fieldtype="Barcode"');
+    expect(body).toContain('class="barcode"');
+  });
 });

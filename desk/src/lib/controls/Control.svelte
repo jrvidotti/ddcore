@@ -8,6 +8,7 @@
   import { currencyPrecision } from "$lib/locale";
   import LinkControl from "./LinkControl.svelte";
   import AutocompleteControl from "./AutocompleteControl.svelte";
+  import BarcodeControl from "./BarcodeControl.svelte";
   import TableMultiSelectControl from "./TableMultiSelectControl.svelte";
   import AttachControl from "./AttachControl.svelte";
   import RichTextControl from "./RichTextControl.svelte";
@@ -123,6 +124,8 @@
           </select>
         {:else if ft === "Autocomplete"}
           <AutocompleteControl {field} {value} {onchange} readOnly={ro} error={shownError} {id} />
+        {:else if ft === "Barcode"}
+          <BarcodeControl {field} {value} {onchange} readOnly={ro} error={shownError} {id} preview={!compact && !inGrid} />
         {:else if ft === "Link" || ft === "Dynamic Link"}
           <LinkControl {field} {value} {onchange} {doc} readOnly={ro} {query} {error} {id} search={linkSearch} />
         {:else if ft === "Table MultiSelect"}

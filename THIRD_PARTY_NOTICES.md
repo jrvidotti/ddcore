@@ -19,7 +19,8 @@ DDCore uses [Go](https://github.com/golang/go), [goja](https://github.com/dop251
 [esbuild](https://github.com/evanw/esbuild), [chi](https://github.com/go-chi/chi),
 [pgx](https://github.com/jackc/pgx), [MCP Go SDK](https://github.com/modelcontextprotocol/go-sdk),
 [cron](https://github.com/robfig/cron), [bluemonday](https://github.com/microcosm-cc/bluemonday),
-[goldmark](https://github.com/yuin/goldmark), [Svelte](https://github.com/sveltejs/svelte),
+[goldmark](https://github.com/yuin/goldmark), [barcode](https://github.com/boombuler/barcode),
+[Svelte](https://github.com/sveltejs/svelte),
 [SvelteKit](https://github.com/sveltejs/kit), [Tiptap](https://github.com/ueberdosis/tiptap),
 [DOMPurify](https://github.com/cure53/DOMPurify), and their dependencies.
 

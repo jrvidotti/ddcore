@@ -31,7 +31,7 @@ import (
 // else answers 403, including a whitelisted method not marked portal: true.
 var websiteUserRoutes = []string{
 	"/api/login", "/api/logout", "/api/boot", "/api/translations",
-	"/api/upload", "/api/file-info", "/api/health", "/api/ready",
+	"/api/upload", "/api/file-info", "/api/health", "/api/ready", "/api/barcode",
 }
 
 var websiteUserPrefixes = []string{"/api/auth/", "/api/portal/", "/api/health/", "/api/ready/"}

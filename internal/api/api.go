@@ -118,6 +118,7 @@ func New(e *engine.Engine, desk fs.FS) *Server {
 			// The desk previews Markdown through the server so the preview and
 			// the printed page come from the same renderer.
 			r.Post("/richtext/markdown", s.renderMarkdown)
+			r.Get("/barcode", s.barcodeSVG)
 			r.Get("/print/formats/{doctype}", s.printFormats)
 			// Job administration. Every one of these checks the System Manager
 			// role inside the handler, exactly as the health report does; the

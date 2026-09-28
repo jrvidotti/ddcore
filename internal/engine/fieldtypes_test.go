@@ -104,6 +104,9 @@ export default defineDoctype({name: "Note", module: "Demo", trackChanges: true, 
  {fieldname: "accent", fieldtype: "Color", label: "Accent"},
  {fieldname: "photo", fieldtype: "Attach Image", label: "Photo"},
  {fieldname: "tag", fieldtype: "Autocomplete", label: "Tag", options: ["Red", "Blue"]},
+ {fieldname: "sku", fieldtype: "Barcode", label: "SKU"},
+ {fieldname: "gtin", fieldtype: "Barcode", label: "GTIN", options: "EAN-13"},
+ {fieldname: "link_qr", fieldtype: "Barcode", label: "Link QR", options: "QR"},
  {fieldname: "locked", fieldtype: "Text Editor", label: "Locked", readOnly: true}
 ], permissions: [{role: "All", read: true, write: true, create: true, delete: true}]});`
 
@@ -117,7 +120,7 @@ func TestRichTextRoundTripsThroughSave(t *testing.T) {
 		doc, err := c.NewDoc("Note", Doc{
 			"title": "One", "body": `<p>hello <strong>world</strong></p>`,
 			"snippet": "select 1", "spent": 5400, "score": 4, "accent": "#ABC", "locked": "fixed",
-			"tag": "  Violet ",
+			"tag": "  Violet ", "sku": " SKU-1 ", "gtin": "400638133393", "link_qr": "https://ddcore.dev/n/1",
 		})
 		if err != nil {
 			return err
@@ -138,6 +141,9 @@ func TestRichTextRoundTripsThroughSave(t *testing.T) {
 		}
 		if loaded.Str("tag") != "Violet" {
 			t.Fatalf("an Autocomplete is free text, trimmed: %q", loaded.Str("tag"))
+		}
+		if loaded.Str("sku") != "SKU-1" || loaded.Str("gtin") != "4006381333931" || loaded.Str("link_qr") != "https://ddcore.dev/n/1" {
+			t.Fatalf("barcodes came back as %q, %q, %q", loaded.Str("sku"), loaded.Str("gtin"), loaded.Str("link_qr"))
 		}
 		// saving it again, untouched, must change nothing and write no Version
 		if _, err := c.Save(loaded, SaveOpts{}); err != nil {
@@ -209,7 +215,7 @@ func TestLegacyPlainTextIsNotAChange(t *testing.T) {
 func TestTextTypesShareTheirColumn(t *testing.T) {
 	for _, pair := range [][2]string{
 		{"Text", "Text Editor"}, {"Small Text", "Markdown Editor"}, {"Data", "Code"},
-		{"Data", "Color"}, {"Data", "Autocomplete"}, {"Attach", "Attach Image"}, {"Int", "Duration"}, {"Int", "Rating"},
+		{"Data", "Color"}, {"Data", "Autocomplete"}, {"Data", "Barcode"}, {"Attach", "Attach Image"}, {"Int", "Duration"}, {"Int", "Rating"},
 	} {
 		if a, b := meta.ColumnType(pair[0]), meta.ColumnType(pair[1]); a != b {
 			t.Errorf("%s (%s) and %s (%s) do not share a column", pair[0], a, pair[1], b)
@@ -378,5 +384,73 @@ func TestOnlySelectOptionsGetLabels(t *testing.T) {
 	}
 	if got := out.Field("tag").OptionLabels; got != nil {
 		t.Fatalf("Autocomplete suggestions were translated: %v", got)
+	}
+}
+
+// A Barcode stores what its symbology can draw. An EAN-13 typed without its
+// check digit gets it, and one with the wrong digit is refused naming the
+// field, so a label printed later scans as the value that was saved.
+func TestCastBarcode(t *testing.T) {
+	sku := &meta.Field{Fieldname: "sku", Fieldtype: "Barcode", Label: "SKU"}
+	if got := castOne(t, sku, "  AB-12 "); got != "AB-12" {
+		t.Fatalf("Code128 stored %v", got)
+	}
+	if got := castOne(t, sku, "   "); got != nil {
+		t.Fatalf("a blank should be nil, got %v", got)
+	}
+	castFails(t, sku, "tab\there")
+	castFails(t, sku, strings.Repeat("x", 81))
+
+	gtin := &meta.Field{Fieldname: "gtin", Fieldtype: "Barcode", Label: "GTIN", Options: "EAN-13"}
+	if got := castOne(t, gtin, "400638133393"); got != "4006381333931" {
+		t.Fatalf("EAN-13 without its check digit stored %v", got)
+	}
+	if got := castOne(t, gtin, "4006381333931"); got != "4006381333931" {
+		t.Fatalf("a complete EAN-13 stored %v", got)
+	}
+	_, err := castValueWith(gtin, "4006381333932", utcOpts)
+	if err == nil || !strings.Contains(err.Error(), "GTIN") || !strings.Contains(err.Error(), "4006381333932") {
+		t.Fatalf("a wrong check digit should be refused naming the field: %v", err)
+	}
+	castFails(t, gtin, "ABC")
+
+	qr := &meta.Field{Fieldname: "q", Fieldtype: "Barcode", Label: "Q", Options: "QR"}
+	castFails(t, qr, strings.Repeat("x", 1001))
+}
+
+// A Data field turned EAN-13 Barcode holds numbers typed without their check
+// digit. The first save completes them, which is no edit anybody made.
+func TestDataToBarcodeIsNotAChange(t *testing.T) {
+	e := setupWith(t, map[string]string{"doctypes/note/note.doctype.ts": fieldtypesDoctype})
+	if err := e.Run(context.Background(), "Admin", func(c *Ctx) error {
+		saved, err := c.Insert(Doc{"doctype": "Note", "title": "Legacy EAN"}, SaveOpts{})
+		if err != nil {
+			return err
+		}
+		if _, err := c.Q().Exec(c.Ctx, `UPDATE tab_note SET gtin = $1 WHERE id = $2`, "400638133393", saved.ID()); err != nil {
+			return err
+		}
+		loaded, err := c.GetDoc("Note", saved.ID())
+		if err != nil {
+			return err
+		}
+		loaded["title"] = "Legacy EAN edited"
+		again, err := c.Save(loaded, SaveOpts{})
+		if err != nil {
+			return err
+		}
+		if again.Str("gtin") != "4006381333931" {
+			t.Fatalf("the save did not complete the EAN: %q", again.Str("gtin"))
+		}
+		var data string
+		if err := c.Q().QueryRow(c.Ctx, `SELECT data FROM tab_version WHERE ref_doctype = 'Note' ORDER BY creation DESC LIMIT 1`).Scan(&data); err != nil {
+			return err
+		}
+		if strings.Contains(data, "gtin") {
+			t.Fatalf("the check digit reached the timeline: %s", data)
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
 	}
 }

@@ -495,7 +495,7 @@ func TestValidateTheFormerKeyName(t *testing.T) {
 func TestNewFieldtypeColumns(t *testing.T) {
 	for ft, want := range map[string]string{
 		"Text Editor": "text", "Markdown Editor": "text", "Code": "text",
-		"Color": "text", "Attach Image": "text", "Autocomplete": "text",
+		"Color": "text", "Attach Image": "text", "Autocomplete": "text", "Barcode": "text",
 		"Duration": "bigint", "Rating": "bigint",
 	} {
 		if got := ColumnType(ft); got != want {
@@ -538,6 +538,12 @@ func TestRatingAndDurationAndCodeOptions(t *testing.T) {
 		{"autocomplete lines", &Field{Fieldname: "a", Fieldtype: "Autocomplete", Options: "Red\nBlue"}, false},
 		{"autocomplete number", &Field{Fieldname: "a", Fieldtype: "Autocomplete", Options: float64(3)}, true},
 		{"autocomplete object", &Field{Fieldname: "a", Fieldtype: "Autocomplete", Options: map[string]any{"a": 1}}, true},
+		{"barcode default", &Field{Fieldname: "b", Fieldtype: "Barcode"}, false},
+		{"barcode ean", &Field{Fieldname: "b", Fieldtype: "Barcode", Options: "EAN-13"}, false},
+		{"barcode qr", &Field{Fieldname: "b", Fieldtype: "Barcode", Options: "QR"}, false},
+		{"barcode unknown", &Field{Fieldname: "b", Fieldtype: "Barcode", Options: "UPC-A"}, true},
+		{"barcode lowercase", &Field{Fieldname: "b", Fieldtype: "Barcode", Options: "qr"}, true},
+		{"barcode list", &Field{Fieldname: "b", Fieldtype: "Barcode", Options: []any{"QR"}}, true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -551,6 +557,18 @@ func TestRatingAndDurationAndCodeOptions(t *testing.T) {
 				t.Fatalf("expected %v to be accepted: %v", tc.field.Options, err)
 			}
 		})
+	}
+}
+
+func TestBarcodeSymbology(t *testing.T) {
+	for _, tc := range []struct {
+		options any
+		want    string
+	}{{nil, "Code128"}, {"", "Code128"}, {"EAN-13", "EAN-13"}, {" QR ", "QR"}} {
+		f := &Field{Fieldtype: "Barcode", Options: tc.options}
+		if got := f.BarcodeSymbology(); got != tc.want {
+			t.Errorf("BarcodeSymbology(%v)=%q want %q", tc.options, got, tc.want)
+		}
 	}
 }
 

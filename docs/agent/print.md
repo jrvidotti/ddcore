@@ -97,6 +97,11 @@ escaped nor cleaned.
   cleaned the same way.
 - `b.pre(text, title?)` — preformatted text, escaped, keeping its whitespace: a
   `Code` field.
+- `b.barcode(value, symbology?, title?)` — a barcode drawn as vectors:
+  `symbology` is `"Code128"` (the default), `"EAN-13"` or `"QR"`, and a
+  `Barcode` field's is its `options`. 1D codes print 18 mm tall with the value
+  underneath; a QR code prints 30 mm square. A value the symbology refuses
+  prints as text. The standard layout draws every `Barcode` field this way.
 - `b.html(markup)` / `b.raw(markup)` — markup inserted as written, unescaped.
 
 A block type the renderer does not know renders as nothing.

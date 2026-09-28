@@ -462,3 +462,52 @@ func TestFormatPrintValueClampsARatingOutOfRange(t *testing.T) {
 		}
 	}
 }
+
+// A template's b.barcode reaches print.Block with its symbology, and the
+// standard layout prints a Barcode field as one: both as inline SVG.
+func TestPrintDoc_Barcode(t *testing.T) {
+	ctx := context.Background()
+	e := setupWith(t, map[string]string{
+		"doctypes/parcel/parcel.doctype.ts": `import { defineDoctype } from "@ddcore/sdk";
+export default defineDoctype({
+  name: "Parcel",
+  fields: [
+    { fieldname: "gtin", fieldtype: "Barcode", label: "GTIN", options: "EAN-13" },
+    { fieldname: "track", fieldtype: "Barcode", label: "Tracking" },
+  ],
+  permissions: [{ role: "System Manager", read: true, write: true, create: true }],
+});`,
+		"print/parcel_label.print.ts": `import { definePrintTemplate } from "@ddcore/sdk";
+export default definePrintTemplate({
+  name: "demo.parcel_label",
+  doctype: "Parcel",
+  label: "Parcel Label",
+  body: (doc, b) => [b.barcode("https://ddcore.dev/p/" + doc.id, "QR", "Scan me"), b.barcode(doc.track)],
+});`,
+	})
+	var id string
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
+		doc, err := c.Insert(Doc{"doctype": "Parcel", "gtin": "400638133393", "track": "TRK-77"}, SaveOpts{})
+		id = doc.ID()
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	c := e.NewCtx(ctx, "Admin")
+	custom, err := c.PrintDoc("Parcel", id, "demo.parcel_label", "none", "en", print.PDFOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`<div class="print-barcode qr"><svg`, ">Scan me<", ">TRK-77</text>"} {
+		if !strings.Contains(custom, want) {
+			t.Fatalf("custom template is missing %q: %s", want, custom)
+		}
+	}
+	standard, err := c.PrintDoc("Parcel", id, "", "none", "en", print.PDFOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(standard, ">4006381333931</text>") || strings.Count(standard, `class="print-barcode"`) != 2 {
+		t.Fatalf("the standard layout did not draw both barcodes: %s", standard)
+	}
+}

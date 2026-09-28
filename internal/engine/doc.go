@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jrvidotti/ddcore/internal/barcode"
 	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/db"
 	"github.com/jrvidotti/ddcore/internal/meta"
@@ -173,6 +174,18 @@ func castValueWith(f *meta.Field, v any, o castOpts) (any, error) {
 	case "Autocomplete":
 		// free text: the suggestions help the typing, they do not limit it
 		s := strings.TrimSpace(db.Str(v))
+		if s == "" {
+			return nil, nil
+		}
+		return s, nil
+	case "Barcode":
+		// A value that saves is a value that draws: the symbology's rules
+		// are checked here, and an EAN-13 typed without its check digit
+		// gets it, so the label printed later scans as what was stored.
+		s, err := barcode.Normalize(f.BarcodeSymbology(), db.Str(v))
+		if err != nil {
+			return nil, barcode.Invalid(f.Label, err)
+		}
 		if s == "" {
 			return nil, nil
 		}
@@ -2350,9 +2363,9 @@ func (c *Ctx) saveVersion(d *meta.DocType, before, after Doc) {
 		// and the first save turns it into the paragraphs it always meant. The
 		// stored bytes change, the content does not, so comparing what the
 		// column would hold keeps that conversion out of the timeline. A Data
-		// field turned Autocomplete is the same case: the first save trims
-		// whitespace nobody could see.
-		if (f.Fieldtype == "Text Editor" || f.Fieldtype == "Autocomplete") && c.sameFieldValue(f, a, b) {
+		// field turned Autocomplete or Barcode is the same case: the first
+		// save trims whitespace nobody could see, or completes an EAN-13.
+		if (f.Fieldtype == "Text Editor" || f.Fieldtype == "Autocomplete" || f.Fieldtype == "Barcode") && c.sameFieldValue(f, a, b) {
 			continue
 		}
 		if string(mustJSON(a)) != string(mustJSON(b)) {

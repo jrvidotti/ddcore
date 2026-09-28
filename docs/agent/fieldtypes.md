@@ -22,6 +22,7 @@
 | Time | time | "HH:MM:SS"; a civil time, never converted |
 | Select | text | `options: ["A", "B"]`, canonical English, validated on the server; `optionColors` gives each value an indicator colour |
 | Autocomplete | text | free text with suggestions: `options` lists them (a list, or one per line) and never limits what is stored; outer spaces are trimmed. See below |
+| Barcode | text | `options` is the symbology: `"Code128"` (the default), `"EAN-13"` or `"QR"`; the value is validated for it, and an EAN-13 typed with 12 digits gets its check digit. The form previews the code and can scan it with the camera. See below |
 | Link | text | `options: "DocType"`; existence validated; index created automatically. A Link to a virtual DocType stores `"<Source>:<id>"` (see `virtual-doctypes`) |
 | Dynamic Link | text | `options: "<the field holding the DocType>"`; the DocType and the document are validated on save. When that field is a `Data`, the desk shows it as a list of the DocTypes the user can see, and changing it clears the link |
 | Table | (child table) | `options: "Child DocType"` with `isChild: true`; `gridEditMode: "dialog"` turns off inline editing; `gridSort`, `gridSortable`, `gridExport`, `gridSelect`, `gridFilters` add a default order, header sorting, CSV/XLSX export, row selection and preset filters; `gridIndex: false` hides the `#` column. See "Form grids" below |
@@ -182,6 +183,36 @@ Enter pick, and whatever is in the box when it loses focus is the value.
 - **A standard filter** on an Autocomplete offers the same suggestions and, like a Data one,
   matches the exact value.
 
+## Barcode
+
+Text that is also a code a scanner reads: a product's GTIN, a stock label, a
+link printed as a QR code. The form shows the code under the text box as it is
+typed, and a USB scanner works as a keyboard — it types the code and presses
+Enter.
+
+```ts
+{ fieldname: "gtin", fieldtype: "Barcode", label: "GTIN", options: "EAN-13" }
+```
+
+- **Symbologies:** `Code128` (the default) takes printable ASCII — letters,
+  digits, spaces and symbols, no accents — up to 80 characters. `EAN-13` takes
+  12 or 13 digits: with 12 the server appends the check digit, with 13 it
+  verifies it. `QR` takes any text up to 1000 bytes (error correction M). The
+  server trims outer spaces, and a value its symbology refuses fails the save
+  naming the field. Any other `options` fails `migrate`.
+- **The image** comes from `GET /api/barcode?symbology=&value=`, an SVG any
+  signed-in user can ask for, Website Users included — a portal page shows the
+  same preview. It reads nothing from the database.
+- **The camera:** a Scan button appears where the browser has `BarcodeDetector`
+  (Chrome and Edge on desktop, Chrome on Android) and the site is served over
+  HTTPS or from `localhost`. Elsewhere the field is typed or filled by a USB
+  scanner.
+- **Print:** the standard layout draws the code with its label; a template uses
+  `b.barcode(value, symbology, title)`. See `print`.
+- `Data` → `Barcode` keeps the column. The first save of each document trims
+  and completes EAN-13 check digits without recording a Version; a stored value
+  the symbology refuses fails that save, so check the data first.
+
 ## Table MultiSelect
 
 A document that points at *several* documents of one DocType — tags, categories,
@@ -298,14 +329,15 @@ permlevel, renamedFrom, convert`
 - `optionColors` (Select): `{ Open: "blue", Overdue: "red" }`, keyed by the canonical value — never by its label.
 - `renamedFrom: "old_name"` (or a list, oldest first): the fieldname this field used to have, so `migrate` renames the column instead of adding an empty one beside it. See `migrations`.
 - `options` beyond Link, Table, Table MultiSelect and Select: `Rating` takes the number of stars,
-  `Code` the language, `Duration` its display flags and `Autocomplete` its
-  suggestions. None of them are catalogue keys — they are never translated,
+  `Code` the language, `Duration` its display flags, `Autocomplete` its
+  suggestions and `Barcode` its symbology. None of them are catalogue keys — they are never translated,
   unlike a Select's options.
 - Changing a field from `Text`, `Small Text` or `Data` to `Text Editor`,
   `Markdown Editor` or `Code`, or from `Int` to `Duration` or `Rating`, keeps
   the same column: there is no DDL and no `convert`. So does `Data` →
   `Autocomplete`, whose first save trims outer spaces without recording a
-  Version. `Data` → `Color` or
+  Version, and `Data` → `Barcode`, whose first save also completes an EAN-13's
+  check digit — but a value the symbology refuses fails that save. `Data` → `Color` or
   `Attach Image` keeps the column too, but a stored value that is not a colour
   or an image URL will fail on that document's next save — and so will every
   other change to that document, since a save casts every field. The same
