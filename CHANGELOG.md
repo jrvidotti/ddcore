@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.21.7 — 2026-09-28
+
 ### Fixed
 
 - Deleting a User ends their sessions and clears their cached roles immediately, as disabling
