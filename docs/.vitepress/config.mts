@@ -1,4 +1,16 @@
+import { readdirSync } from 'node:fs'
 import { defineConfig } from 'vitepress'
+
+// One page per archived minor series (docs/changelog/<minor>.md), newest first,
+// read from disk so archiving a series at release time needs no edit here.
+const changelogSeries = readdirSync(new URL('../changelog/', import.meta.url))
+  .filter((f) => /^\d+\.\d+\.md$/.test(f))
+  .map((f) => f.slice(0, -3))
+  .sort((a, b) => {
+    const [am, an] = a.split('.').map(Number)
+    const [bm, bn] = b.split('.').map(Number)
+    return bm - am || bn - an
+  })
 
 export default defineConfig({
   title: 'ddcore',
@@ -18,6 +30,7 @@ export default defineConfig({
       { text: 'Get Started', link: '/guide/first-app' },
       { text: 'Documentation', link: '/agent/' },
       { text: 'Architecture', link: '/guide/architecture' },
+      { text: 'Changelog', link: '/changelog/' },
       {
         text: 'Demo',
         items: [
@@ -90,6 +103,14 @@ export default defineConfig({
           { text: 'Backup, Restore & Maintenance', link: '/agent/backup' },
           { text: 'Internationalization (i18n)', link: '/agent/i18n' },
           { text: 'Upstream Feature Requests', link: '/agent/feature-requests' }
+        ]
+      },
+      {
+        text: 'Changelog',
+        collapsed: true,
+        items: [
+          { text: 'Current series', link: '/changelog/' },
+          ...changelogSeries.map((m) => ({ text: m, link: `/changelog/${m}` }))
         ]
       }
     ],

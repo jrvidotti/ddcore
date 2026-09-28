@@ -426,6 +426,13 @@ The framework adheres to [Semantic Versioning 2.0.0](https://semver.org/):
   3. **Promote the section.** Rename `## Unreleased` to `## <version> — <YYYY-MM-DD>` (e.g.
      `## 0.15.0 — 2026-09-20`) and add a fresh, empty `## Unreleased` above it. The heading is
      parsed, so keep the version first on the line; `## [0.15.0] - 2026-09-20` is read too.
+     **When the version opens a new minor series (`X.Y.0`), archive the previous one:** move its
+     `## X.(Y-1).*` sections into a new `docs/changelog/X.(Y-1).md` headed `# ddcore X.(Y-1)`,
+     rewrite its `](docs/agent/…)` links to `](../agent/…)`, and add the file to the list in the
+     root preamble. `CHANGELOG.md` keeps only `Unreleased` and the current series, between its
+     `<!-- #region releases -->` markers (the site's changelog page includes that region). The
+     binary and the site pick the new file up on their own; `go test ./internal/mcp/ -run
+     Changelog` fails if the split is left inconsistent.
   4. **Commit that**, then tag and push:
      ```bash
      git commit -am "chore(release): 0.15.0"
@@ -435,7 +442,7 @@ The framework adheres to [Semantic Versioning 2.0.0](https://semver.org/):
      and `ddcore doctor` on an older binary now reports the new release.
 
   Never tag before step 3. The changelog is embedded in the binary and served over MCP
-  (`ddcore://changelog`, the `whats_new` tool), and `ddcore doctor` warns when a newer release
+  (`ddcore://changelog`, `ddcore://changelog/<minor>`, the `whats_new` tool), and `ddcore doctor` warns when a newer release
   exists — all three point at a section that has to be there before the tag is.
 
 - **Developer CLI installation**:

@@ -89,7 +89,7 @@ func New(e *engine.Engine) *mcp.Server {
 	s := &server{e: e}
 	srv := mcp.NewServer(&mcp.Implementation{Name: "ddcore", Version: engine.Version}, &mcp.ServerOptions{
 		Instructions: "Development server for the ddcore framework. Start by reading the resource ddcore://docs/index. " +
-			"What changed recently is in ddcore://changelog; whats_new reports it against the running version. " +
+			"What changed recently is in ddcore://changelog (older minor series: ddcore://changelog/<minor>); whats_new reports it against the running version. " +
 			"Typical flow: get_doctype / scaffold_doctype → migrate → insert_doc / list_docs → run_tests. " +
 			"Moving data between sites is export then import (plan, run, reconcile). " +
 			"Every label is an English key: after adding one, i18n_extract → set_translations until nothing is missing. " +
@@ -711,7 +711,7 @@ func New(e *engine.Engine) *mcp.Server {
 			out := map[string]any{
 				"ddcore":    engine.Version,
 				"since":     since,
-				"changelog": release.Since(ddcore.Changelog, since),
+				"changelog": release.Since(release.Full(ddcore.Changelog, docs.ChangelogFS), since),
 			}
 			// A failed lookup is not an error: the changelog is the half of the
 			// answer that matters, and it is already in hand.
@@ -722,10 +722,17 @@ func New(e *engine.Engine) *mcp.Server {
 		})
 
 	// ---- resources
-	srv.AddResource(&mcp.Resource{URI: "ddcore://changelog", Name: "changelog", MIMEType: "text/markdown", Description: "what changed in each ddcore release"},
+	srv.AddResource(&mcp.Resource{URI: "ddcore://changelog", Name: "changelog", MIMEType: "text/markdown", Description: "what changed in the current ddcore minor series, plus Unreleased"},
 		func(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
 			return &mcp.ReadResourceResult{Contents: []*mcp.ResourceContents{{URI: req.Params.URI, MIMEType: "text/markdown", Text: ddcore.Changelog}}}, nil
 		})
+	for _, s := range release.Archive(docs.ChangelogFS) {
+		text := s.Text
+		srv.AddResource(&mcp.Resource{URI: "ddcore://changelog/" + s.Minor, Name: "changelog/" + s.Minor, MIMEType: "text/markdown", Description: "what changed in the ddcore " + s.Minor + " series"},
+			func(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
+				return &mcp.ReadResourceResult{Contents: []*mcp.ResourceContents{{URI: req.Params.URI, MIMEType: "text/markdown", Text: text}}}, nil
+			})
+	}
 	for _, n := range docNames() {
 		name := n
 		srv.AddResource(&mcp.Resource{URI: "ddcore://docs/" + name, Name: "docs/" + name, MIMEType: "text/markdown", Description: "ddcore reference: " + name},

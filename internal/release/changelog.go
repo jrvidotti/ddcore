@@ -5,6 +5,9 @@
 package release
 
 import (
+	"io/fs"
+	"path"
+	"sort"
 	"strings"
 
 	"github.com/jrvidotti/ddcore/internal/engine"
@@ -45,6 +48,11 @@ func Sections(md string) []Section {
 		if strings.HasPrefix(strings.TrimSpace(line), "```") {
 			fenced = !fenced
 		}
+		// The root file wraps its releases in a VitePress region so the site
+		// can include them without the preamble; the markers are not news.
+		if !fenced && isRegionMarker(line) {
+			continue
+		}
 		if !fenced && strings.HasPrefix(line, "## ") {
 			flush()
 			cur = &Section{Version: headingVersion(line)}
@@ -57,6 +65,11 @@ func Sections(md string) []Section {
 	}
 	flush()
 	return out
+}
+
+func isRegionMarker(line string) bool {
+	t := strings.TrimSpace(line)
+	return strings.HasPrefix(t, "<!-- #region ") || strings.HasPrefix(t, "<!-- #endregion ")
 }
 
 // headingVersion pulls the release out of a `## …` line, or returns "" when the
@@ -93,4 +106,48 @@ func Since(md, current string) string {
 		}
 	}
 	return strings.Join(keep, "\n\n")
+}
+
+// Series is the changelog of one archived minor series, `<minor>.md` in the
+// archive: Minor is "0.20", Text the whole file.
+type Series struct {
+	Minor string
+	Text  string
+}
+
+// Archive reads every `changelog/<minor>.md` in fsys, newest series first. The
+// current series is not there — it lives in the root CHANGELOG.md.
+func Archive(fsys fs.FS) []Series {
+	names, _ := fs.Glob(fsys, "changelog/*.md")
+	var out []Series
+	for _, n := range names {
+		minor := strings.TrimSuffix(path.Base(n), ".md")
+		if !engine.IsRelease(minor + ".0") {
+			continue
+		}
+		b, err := fs.ReadFile(fsys, n)
+		if err != nil {
+			continue
+		}
+		out = append(out, Series{Minor: minor, Text: string(b)})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		newer, _ := engine.Newer(out[j].Minor+".0", out[i].Minor+".0")
+		return newer
+	})
+	return out
+}
+
+// Full is the whole history as one document: the root changelog followed by
+// the sections of every archived series, newest first. Only the sections of an
+// archive are appended — its own heading and preamble would otherwise land in
+// the body of the release above it.
+func Full(root string, fsys fs.FS) string {
+	parts := []string{strings.TrimRight(root, "\n")}
+	for _, s := range Archive(fsys) {
+		for _, sec := range Sections(s.Text) {
+			parts = append(parts, sec.Body)
+		}
+	}
+	return strings.Join(parts, "\n\n")
 }

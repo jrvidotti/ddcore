@@ -3,6 +3,7 @@ package release
 import (
 	"strings"
 	"testing"
+	"testing/fstest"
 )
 
 const fixture = `# Changelog
@@ -153,5 +154,42 @@ func TestSectionsIgnoresHeadingsInsideAFence(t *testing.T) {
 	// And the fenced text must not reach a caller who is already up to date.
 	if out := Since(md, "v0.14.0"); strings.Contains(out, "0.14.0 — 2026-09-16") {
 		t.Errorf("an old release leaked into the news:\n%s", out)
+	}
+}
+
+// Archived series are ordered as versions, not as file names: "0.10" sorts
+// before "0.9" as a string and would put the older series first.
+func TestFullAppendsArchivedSeriesNewestFirst(t *testing.T) {
+	root := "# Changelog\n\n<!-- #region releases -->\n## Unreleased\n\n## 0.11.0 — 2026-09-15\n\n- eleven\n\n<!-- #endregion releases -->\n"
+	fsys := fstest.MapFS{
+		"changelog/0.9.md":  {Data: []byte("# ddcore 0.9\n\n## 0.9.0 — 2026-09-15\n\n- nine\n")},
+		"changelog/0.10.md": {Data: []byte("# ddcore 0.10\n\nIntro.\n\n## 0.10.1 — 2026-09-15\n\n- ten one\n\n## 0.10.0 — 2026-09-15\n\n- ten\n")},
+	}
+	if got := Archive(fsys); len(got) != 2 || got[0].Minor != "0.10" || got[1].Minor != "0.9" {
+		t.Fatalf("Archive order = %+v", got)
+	}
+
+	var versions []string
+	for _, s := range Sections(Full(root, fsys)) {
+		versions = append(versions, s.Version)
+		if strings.Contains(s.Body, "# ddcore") || strings.Contains(s.Body, "Intro.") {
+			t.Errorf("an archive's heading leaked into section %q:\n%s", s.Version, s.Body)
+		}
+		if strings.Contains(s.Body, "#endregion") {
+			t.Errorf("the region marker leaked into section %q", s.Version)
+		}
+	}
+	if want := []string{"", "0.11.0", "0.10.1", "0.10.0", "0.9.0"}; strings.Join(versions, ",") != strings.Join(want, ",") {
+		t.Fatalf("sections = %q, want %q", versions, want)
+	}
+
+	since := Since(Full(root, fsys), "0.9.0")
+	for _, want := range []string{"eleven", "ten one", "- ten"} {
+		if !strings.Contains(since, want) {
+			t.Errorf("Since 0.9.0 is missing %q:\n%s", want, since)
+		}
+	}
+	if strings.Contains(since, "nine") {
+		t.Errorf("Since 0.9.0 includes 0.9.0 itself:\n%s", since)
 	}
 }

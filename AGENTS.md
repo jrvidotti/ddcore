@@ -70,7 +70,8 @@ Always consult the documentation in [`docs/agent/index.md`](docs/agent/index.md)
    `## Unreleased` in [`CHANGELOG.md`](CHANGELOG.md) **in the same commit that makes it** —
    under `Added`, `Changed`, `Fixed`, or `Breaking` with its upgrade path.
    **Before tagging a version, move the `Unreleased` entries under a new
-   `## <version> — <YYYY-MM-DD>` heading and leave `Unreleased` empty; only then create and push
+   `## <version> — <YYYY-MM-DD>` heading and leave `Unreleased` empty** — and, when that opens a
+   new minor, move the previous series to `docs/changelog/<minor>.md`; **only then create and push
    the `v*` tag**, which is what triggers the release workflow. Never tag first: the tag is what
    publishes the binaries, and a release whose changelog section does not exist ships news
    nobody can read — the binary serves `CHANGELOG.md` over MCP and `ddcore doctor` points at it
