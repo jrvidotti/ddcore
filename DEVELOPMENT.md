@@ -88,7 +88,7 @@ directory of its own.
 | `Document` (insert/save/submit/cancel/delete), hooks, permissions, jobs and queues | `internal/engine` |
 | The REST API, `/api/method`, meta, reports, SSE, upload, login/CSRF | `internal/api` |
 | The MCP server (tools and resources) | `internal/mcp` |
-| Scaffolding (`ddcore init`, `new-app`, `scaffold_doctype`) | `internal/scaffold` |
+| Scaffolding (`ddcore init`, `new-app`, `scaffold_doctype`, `extend_doctype`) | `internal/scaffold` |
 | Type generation (`ddcore types`) | `internal/typegen` |
 | Extracting translatable strings (`ddcore i18n extract`) | `internal/i18nx` |
 | The embedded app: User, Role, Has Role, File, Comment, Version, Error Log, API Key | `core/` |

@@ -157,7 +157,7 @@ range belongs to the site: `ddcore.json` takes the same field, in the same gramm
   checked — by the same loose grammar, so `"1"` and `"1.4"` pass.
 - The check runs on every load of the apps: every command that opens the engine (startup, `migrate`,
   `doctor`, `test`, `export`, `mcp`), `dev`'s hot reload, and the MCP tools that reload — `reload`,
-  `validate_meta`, `migrate`, `scaffold_doctype`, `i18n_extract`, `set_translations`.
+  `validate_meta`, `migrate`, `scaffold_doctype`, `extend_doctype`, `i18n_extract`, `set_translations`.
 - A binary outside the range **refuses to load**: the command fails, and `dev` and `mcp` keep serving
   the last good state. Every problem is named in one error, `incompatible apps: ` followed by them
   joined with `; `:

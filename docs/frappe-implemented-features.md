@@ -114,7 +114,7 @@ and [operations](agent/ops.md).
 
 | Capability | Available Implementation |
 |---|---|
-| Scaffold | `init`, `new-app`, and `scaffold_doctype`. |
+| Scaffold | `init`, `new-app`, `scaffold_doctype` and `extend_doctype`. |
 | Development | `dev` with watcher/hot reload and `--auto-migrate`; `start` without watcher; configured via `ddcore.json`. |
 | Types and Tests | `ddcore types` generates `.ddcore/types.d.ts`; `ddcore test` executes TS tests in rolled-back transactions; Go test suite covers engine, API, runtime, i18n, and HTTP acceptance. |
 | Administration | `exec`, `eval` with default rollback, `user add`, `user passwd`, `apikey`, `demo`, and `doctor`. |

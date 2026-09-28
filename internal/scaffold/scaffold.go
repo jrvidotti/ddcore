@@ -201,3 +201,76 @@ describe(%q, () => {
 	}
 	return written, nil
 }
+
+// ExtensionSpec is what the MCP receives to scaffold an `extendDoctype` file.
+// Its keys mirror ExtensionDef in the SDK, so what an agent sends is what the
+// file will say.
+type ExtensionSpec struct {
+	Fields      []map[string]any          `json:"fields,omitempty"`
+	Set         map[string]map[string]any `json:"set,omitempty"`
+	Doctype     map[string]any            `json:"doctype,omitempty"`
+	Permissions []map[string]any          `json:"permissions,omitempty"`
+	WithForm    bool                      `json:"withForm,omitempty"`
+}
+
+// Extension writes extensions/<snake>.extend.ts (and the .form.ts beside it
+// when asked). It only creates: an existing file may carry hasPermission or
+// permissionQuery code that regenerating would lose. Whether the extension is
+// allowed at all is not checked here — loading it is the check.
+func Extension(appDir, doctype string, spec ExtensionSpec) ([]string, error) {
+	if doctype == "" {
+		return nil, fmt.Errorf("doctype is required")
+	}
+	if len(spec.Fields) == 0 && len(spec.Set) == 0 && len(spec.Doctype) == 0 && len(spec.Permissions) == 0 {
+		return nil, fmt.Errorf("nothing to extend: give fields, set, doctype or permissions")
+	}
+	snake := meta.Snake(doctype)
+	dir := filepath.Join(appDir, "extensions")
+	p := filepath.Join(dir, snake+".extend.ts")
+	if _, err := os.Stat(p); err == nil {
+		return nil, fmt.Errorf("%s already exists — edit it directly", p)
+	}
+	// a struct, not a map, so the sections come out in the order the docs use
+	def := struct {
+		Fields      []map[string]any          `json:"fields,omitempty"`
+		Set         map[string]map[string]any `json:"set,omitempty"`
+		Doctype     map[string]any            `json:"doctype,omitempty"`
+		Permissions []map[string]any          `json:"permissions,omitempty"`
+	}{spec.Fields, spec.Set, spec.Doctype, spec.Permissions}
+	b, err := json.MarshalIndent(def, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	body := keyRe.ReplaceAllString(string(b), "$1$2:")
+	body = strings.TrimRight(strings.TrimSuffix(strings.TrimPrefix(body, "{"), "}"), "\n")
+	src := fmt.Sprintf(`import { extendDoctype } from "@ddcore/sdk";
+
+export default extendDoctype(%q, {%s,
+  // hasPermission(doc, ptype, user) { return undefined; }, // any false denies
+  // permissionQuery(user) { return undefined; },           // AND-ed with the host's filters
+});
+`, doctype, body)
+	if err := write(p, src); err != nil {
+		return nil, err
+	}
+	written := []string{p}
+	if spec.WithForm {
+		fp := filepath.Join(dir, snake+".form.ts")
+		src := fmt.Sprintf(`import { defineForm } from "@ddcore/desk-sdk";
+
+// runs alongside the owner's form script for %s
+defineForm(%q, {
+  refresh(frm) {},
+  onChange: {
+    // fieldname(frm) {},
+  },
+});
+`, doctype, doctype)
+		if err := write(fp, src); err != nil {
+			os.Remove(p)
+			return nil, err
+		}
+		written = append(written, fp)
+	}
+	return written, nil
+}

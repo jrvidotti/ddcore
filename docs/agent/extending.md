@@ -49,6 +49,11 @@ the target), and `idGeneration`, `isChild`, `isSingle`, `isTree`, `parentField`,
 decide what the document *is*, and stay with the app that declares it. A Select's `options` are
 text and may be replaced.
 
+Over MCP, `extend_doctype` writes this file for you: give it the extending app, the DocType and
+the same `fields`/`set`/`doctype`/`permissions` keys. It refuses before writing when the host is
+not in `requires`, loads the result before returning, and deletes it again if any rule above
+refuses it. It only creates the file; to change one that exists, edit it.
+
 ## Scripts
 
 Behaviour needs no extension — it already crosses apps:

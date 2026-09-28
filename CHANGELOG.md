@@ -14,6 +14,14 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- MCP tool `extend_doctype` writes `extensions/<snake>.extend.ts` — fields, per-field and
+  DocType property overrides, extra roles, and optionally the `.form.ts` beside it — the way
+  `scaffold_doctype` writes a DocType. It checks the host is in `requires` before writing, loads
+  the file before returning, and removes it again when the meta refuses it, so a clash never
+  leaves the site unable to load. It only creates: an existing extend file is edited by hand.
+
 ## 0.21.8 — 2026-09-28
 
 ### Added

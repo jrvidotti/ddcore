@@ -154,6 +154,15 @@ func New(e *engine.Engine) *mcp.Server {
 			return text(map[string]any{"files": files, "next": "run migrate to create the table"}), nil, nil
 		})
 
+	mcp.AddTool(srv, &mcp.Tool{Name: "extend_doctype", Description: extendDescription()},
+		func(ctx context.Context, req *mcp.CallToolRequest, in extendInput) (*mcp.CallToolResult, any, error) {
+			out, err := extendDoctype(e, in)
+			if err != nil {
+				return fail(err)
+			}
+			return text(out), nil, nil
+		})
+
 	mcp.AddTool(srv, &mcp.Tool{Name: "validate_meta", Description: "Recompiles apps and validates metadata (without touching the database). Use after editing .ts files."},
 		func(ctx context.Context, req *mcp.CallToolRequest, in struct{}) (*mcp.CallToolResult, any, error) {
 			if err := e.Load(); err != nil {
