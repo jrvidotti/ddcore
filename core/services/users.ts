@@ -51,6 +51,18 @@ export const sendPasswordReset = whitelisted((args: { user: string }) => {
   return { user, expires: rec.expires, link: rec.link || undefined };
 }, ADMIN);
 
+/**
+ * What the User form needs to offer the right button: an account that never
+ * set a password is still waiting on its invitation, one that did gets a
+ * recovery link instead. The hash itself never leaves the server — the desk
+ * reads it redacted — so this says only whether there is one.
+ */
+export const accountStatus = whitelisted((args: { user: string }) => {
+  const user = requireUser(args.user);
+  const hash = ddcore.db.getValue("User", user, "password_hash") as string | null;
+  return { user, hasPassword: Boolean(hash) };
+}, ADMIN);
+
 /** Ends every session of another account — the "they lost the laptop" button. */
 export const revokeUserSessions = whitelisted((args: { user: string }) => {
   const user = requireUser(args.user);

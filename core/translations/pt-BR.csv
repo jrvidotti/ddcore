@@ -32,6 +32,7 @@ All rows matching the filters ({0}) as NDJSON with the child tables,Todas as lin
 Allowed,Permitido,# core.doctypes.audit_event.audit_event.doctype
 Amend,Emendar,# desk/src/lib/components/FormView.svelte:484
 An account was created for you on {0}. Choose a password to get in.,Uma conta foi criada para você em {0}. Escolha uma senha para entrar.,# core/mail/invite.mail.ts:22
+An invited person chooses their own password: clear the New password field,Quem é convidado escolhe a própria senha: limpe o campo Nova senha,# core/doctypes/user/user.form.ts:44
 Another column already fills this field,Outra coluna já preenche este campo,# internal/engine/data_import.go:439
 Applicable For,Aplicável Para,# core.doctypes.user_permission.user_permission.doctype
 Apply,Aplicar,# desk/src/lib/controls/Grid.svelte:76
@@ -104,7 +105,7 @@ Choose image,Escolher imagem,# desk/src/lib/controls/AttachControl.svelte:86
 Clear,Limpar,# desk/src/lib/controls/ColorControl.svelte:258
 Clear filters,Limpar filtros,# desk/src/lib/components/ListView.svelte:509
 Clear selection,Limpar seleção,# desk/src/lib/components/ReportGrid.svelte:63
-Close,Fechar,# desk/src/lib/components/AssignModal.svelte:75
+Close,Fechar,# core/doctypes/user/user.form.ts:83
 Close menu,Fechar menu,# desk/src/lib/components/Sidebar.svelte:94
 "Close modals, menus or dialogs","Fechar modais, menus ou diálogos",# desk/src/lib/shortcuts.ts:101
 Close the options list,Fechar lista de opções,# desk/src/lib/shortcuts.ts:110
@@ -166,7 +167,7 @@ Discard,Descartar,# desk/src/lib/components/FormView.svelte:442
 Discard changes,Descartar alterações,# desk/src/lib/components/FormView.svelte:194
 Discard your unsaved changes?,Descartar suas alterações não salvas?,# desk/src/lib/components/FormView.svelte:201
 DocType,DocType,# core.doctypes.comment.comment.doctype
-DocType {0} does not exist,DocType {0} não existe,# internal/engine/engine.go:707
+DocType {0} does not exist,DocType {0} não existe,# internal/engine/engine.go:708
 Document,Documento,# core.doctypes.comment.comment.doctype
 Document Events,Eventos do Documento,# core.doctypes.webhook.webhook.doctype
 Document Share,Compartilhamento de Documento,# core.doctypes.document_share.document_share.doctype
@@ -220,6 +221,7 @@ Field {0} does not exist on {1},Campo {0} não existe em {1},# internal/engine/d
 File,Arquivo,# desk/src/lib/components/DataImportModal.svelte:154
 File {0} does not exist,O arquivo {0} não existe,# internal/engine/mailqueue.go:194
 Files are attached on the form,Arquivos são anexados no formulário,# internal/engine/data_import.go:351
+Fill in the email and the full name first,Preencha primeiro o e-mail e o nome completo,# core/doctypes/user/user.form.ts:40
 Fill in the required fields: {0},Preencha os campos obrigatórios: {0},# desk/src/lib/form.svelte.ts:336
 Fill in {0},Preencha {0},# desk/src/lib/components/Dialogs.svelte:20
 Fill this in to set or change the password.,Preencha para definir ou trocar a senha.,# core.doctypes.user.user.doctype
@@ -285,6 +287,7 @@ Invalid number of days,Número de dias inválido,# core/services/api_keys.ts:37
 Invalid upload: {0},upload inválido: {0},# internal/api/api.go:1370
 Invalid username or password,Usuário ou senha inválidos,# internal/engine/auth.go:90
 Invalid {0}: {1},{0} inválido: {1},# internal/api/api.go:341
+Invitation sent,Convite enviado,# core/doctypes/user/user.form.ts:31
 Is Default,É Padrão,# core.doctypes.letter_head.letter_head.doctype
 Italic,Itálico,# desk/src/lib/controls/RichTextControl.svelte:112
 Job,Job,# core.doctypes.email_delivery.email_delivery.doctype
@@ -308,7 +311,7 @@ Letter Head Name,Nome do Timbre,# core.doctypes.letter_head.letter_head.doctype
 Letter Head {0} does not exist,Timbre {0} não existe,# internal/engine/print.go:195
 Letter Head {0} is disabled,Timbre {0} está desativado,# internal/engine/print.go:200
 Like,Curtida,# core.doctypes.comment.comment.doctype
-Link,Link,# desk/src/lib/controls/RichTextControl.svelte:123
+Link,Link,# core/doctypes/user/user.form.ts:81
 Link address,Endereço do link,# desk/src/lib/controls/RichTextControl.svelte:81
 List,Lista,# desk/src/lib/components/ListView.svelte:466
 Load more,Carregar mais,# desk/src/lib/components/portal/PortalList.svelte:53
@@ -317,6 +320,7 @@ Loading...,Carregando...,# desk/src/lib/components/DocSidebar.svelte:125
 Loading…,Carregando...,# desk/src/lib/components/Profile.svelte:134
 Logo Image,Imagem do Logo,# core.doctypes.letter_head.letter_head.doctype
 Low,Baixa,# desk/src/lib/components/AssignModal.svelte:98
+Mail is not being delivered,O e-mail não está sendo entregue,# core/doctypes/user/user.form.ts:79
 Mail template {0} does not exist,O modelo de mensagem {0} não existe,# internal/engine/mailqueue.go:86
 Maintenance mode,Modo de manutenção,# desk/src/routes/+layout.svelte:274
 Mark as completed,Marcar como concluída,# desk/src/routes/app/todo/+page.svelte:246
@@ -436,6 +440,7 @@ Page size,Itens por página,# desk/src/routes/app/todo/+page.svelte:224
 Page {0} does not exist,A página {0} não existe,# internal/api/portal.go:170
 Password,Senha,# desk/src/lib/components/Profile.svelte:173
 Password changed. Your other sessions were signed out.,Senha trocada. Suas outras sessões foram encerradas.,# desk/src/lib/components/Profile.svelte:84
+Password reset sent,Redefinição de senha enviada,# core/doctypes/user/user.form.ts:27
 Password set,Senha definida,# desk/src/routes/login/reset/+page.svelte:52
 Password sign-in is disabled. Use single sign-on.,O acesso com senha está desativado. Use o login único (SSO).,# internal/engine/auth.go:104
 Payload,Conteúdo,# core.doctypes.webhook_delivery.webhook_delivery.doctype
@@ -487,6 +492,7 @@ Request ID,ID da Requisição,# core.doctypes.audit_event.audit_event.doctype
 Request without a CSRF header,Requisição sem cabeçalho CSRF,# internal/api/api.go:371
 Required,Obrigatório,# desk/src/lib/form.svelte.ts:329
 Required fields,Campos obrigatórios,# desk/src/lib/components/Dialogs.svelte:20
+Resend invitation,Reenviar convite,# core/doctypes/user/user.form.ts:30
 Reset your password on {0},Redefina sua senha em {0},# core/mail/reset.mail.ts:14
 Response Status,Status da Resposta,# core.doctypes.webhook_delivery.webhook_delivery.doctype
 Restricted field,Campo restrito,# internal/engine/fieldperm.go:296
@@ -499,13 +505,14 @@ Rights,Direitos,# desk/src/lib/components/ShareModal.svelte:70
 Role,Papel,# core.doctypes.has_role.has_role.doctype
 Role {0} is repeated,Papel {0} repetido,# core/doctypes/user/user.controller.ts:14
 Roles,Papéis,# desk/src/lib/components/Profile.svelte:143
-Route {0} does not exist,rota {0} não existe,# internal/api/api.go:1689
+Route {0} does not exist,rota {0} não existe,# internal/api/api.go:1700
 Row,Linha,# desk/src/lib/components/DataImportModal.svelte:219
 Row #{0} changed,Linha #{0} alterada,# desk/src/lib/components/DocHistory.svelte:170
 Row added,Linha adicionada,# desk/src/lib/components/DocHistory.svelte:146
 Row removed,Linha removida,# desk/src/lib/components/DocHistory.svelte:207
 Saturation and brightness,Saturação e brilho,# desk/src/lib/controls/ColorControl.svelte:196
 Save,Salvar,# desk/src/lib/components/FormView.svelte:470
+Save and invite,Salvar e convidar,# core/doctypes/user/user.form.ts:14
 Save or update the record,Salvar ou atualizar registro,# desk/src/lib/shortcuts.ts:91
 Save the document first,Salve o documento antes,# core/doctypes/todo/to_do.form.ts:13
 Saved,Salvo,# desk/src/lib/components/portal/PortalForm.svelte:45
@@ -526,8 +533,11 @@ Select all,Selecionar todos,# desk/src/lib/components/ReportGrid.svelte:72
 Select row {0},Selecionar linha {0},# desk/src/lib/components/ReportGrid.svelte:84
 Select {0},Selecionar {0},# desk/src/lib/components/views/CardView.svelte:55
 Self-approval is not allowed for action '{0}' on {1} {2},Auto-aprovação não é permitida para a ação '{0}' em {1} {2},# internal/engine/workflow.go:130
+Send password reset,Enviar redefinição de senha,# core/doctypes/user/user.form.ts:26
 Send the link,Enviar o link,# desk/src/routes/login/forgot/+page.svelte:41
 "Send this event to the receiver again, with the same webhook-id?","Enviar este evento ao receptor novamente, com o mesmo webhook-id?",# core/doctypes/webhook_delivery/webhook_delivery.form.ts:9
+Send {0} a link to choose a new password?,Enviar a {0} um link para escolher uma nova senha?,# core/doctypes/user/user.form.ts:27
+Send {0} a new invitation?,Enviar a {0} um novo convite?,# core/doctypes/user/user.form.ts:31
 Sent,Enviado,# core.doctypes.email_delivery.email_delivery.doctype
 Sent at,Enviado em,# core.doctypes.email_delivery.email_delivery.doctype
 Session ended,Sessão encerrada,# desk/src/lib/components/Profile.svelte:93
@@ -628,6 +638,7 @@ This link is no longer valid. Ask for a new one.,Este link não vale mais. Peça
 This month,Este mês,# desk/src/lib/controls/MonthControl.svelte:253
 This record changed after your unsaved edits. Keep your edits?,Este registro mudou depois das suas alterações não salvas. Manter suas alterações?,# desk/src/lib/components/FormView.svelte:130
 This report requires the System Manager role,Este relatório exige o papel System Manager,# internal/api/health.go:64
+"This site sends no mail yet, so the message only went to the log. Pass this link on by hand.","Este site ainda não envia e-mails, então a mensagem foi só para o log. Repasse este link manualmente.",# core/doctypes/user/user.form.ts:80
 Timeout (seconds),Tempo Limite (segundos),# core.doctypes.webhook.webhook.doctype
 Timeout must be between {0} and {1} seconds,O tempo limite deve estar entre {0} e {1} segundos,# internal/engine/webhooks.go:592
 Title,Título,# desk/src/lib/components/FormView.svelte:294
@@ -669,7 +680,7 @@ User Permission,Permissão de Usuário,# core.doctypes.user_permission.user_perm
 User is disabled,Usuário desativado,# desk/src/routes/login/+page.svelte:32
 User menu,Menu do usuário,# desk/src/routes/+layout.svelte:226
 User {0} already exists,O usuário {0} já existe,# internal/engine/users.go:76
-User {0} does not exist,Usuário {0} não existe,# core/services/users.ts:83
+User {0} does not exist,Usuário {0} não existe,# core/services/users.ts:95
 User {0} does not exist or is disabled,Usuário {0} não existe ou está desativado,# internal/api/assignments.go:47
 Username,Usuário,# desk/src/routes/login/+page.svelte:61
 Vault secret key ({0}) is not configured on this site,Chave secreta do cofre ({0}) não está configurada neste site,# internal/engine/vault.go:27

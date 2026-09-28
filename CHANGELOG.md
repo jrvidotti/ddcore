@@ -14,6 +14,15 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **The User form sends invitations.** Saving a User only writes the row, so nobody was told an
+  account existed and the desk had no way to reach `users.invite`. A new User form now offers
+  **Save and invite**; a saved, enabled User offers **Resend invitation** while it has no
+  password and **Send password reset** once it does. On the `log` transport the link is shown to
+  be passed on by hand. `core.services.users.accountStatus({ user })` answers
+  `{ user, hasPassword }` for it.
+
 ### Changed
 
 - **`frm.setDfProperty` types its property.** `prop` is now `DfProperty` — a key of `FieldDef`

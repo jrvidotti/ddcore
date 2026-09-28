@@ -140,7 +140,7 @@ site still decides whether they may use it:
    is kept in `ddcore_user_identity`; deleting or renaming the User carries it
    along.
 
-Invite people first (`ddcore user invite`, or the desk). They can then sign in
+Invite people first (`ddcore user invite`, or **Save and invite** on the desk's User form). They can then sign in
 through the provider without ever accepting the invitation.
 
 **The flow.**
@@ -268,7 +268,17 @@ enumeration is the security of the function, since the write underneath skips
 the permission check.
 
 System Manager only: `users.invite`, `users.resendInvite`,
-`users.sendPasswordReset`, `users.revokeUserSessions`, `users.unlockUser`.
+`users.sendPasswordReset`, `users.accountStatus`, `users.revokeUserSessions`,
+`users.unlockUser`.
+
+Saving a User — the desk's form, `insert_doc`, `ddcore user add`, an import —
+only writes the row and mails nobody. The invitation goes out from **Save and
+invite** on a new User form, which calls `users.invite` with what was typed.
+A saved, enabled User offers **Resend invitation** while it has no password and
+**Send password reset** once it has one; `users.accountStatus` answers
+`{ user, hasPassword }` so the form can tell which, without the hash leaving the
+server. When mail is not delivered (the `log` transport), the link comes back and
+the form shows it to be passed on by hand.
 
 The first two are wrappers over `ddcore.users.invite` and `ddcore.users.resendInvite`, which
 app code calls directly to invite its own portal users. Without System Manager, that call can
