@@ -18,6 +18,12 @@ older series, and `whats_new` reads across every one of them.
 
 - Deleting a User ends their sessions and clears their cached roles immediately, as disabling
   one already did; the delete is recorded as an `account.delete` audit event.
+- Deleting or renaming a document no longer fails with `column "…" does not exist` when a
+  `computed: true` Link of another DocType points at its DocType: computed fields have no column,
+  so the link check and the rename skip them (#26).
+- A filter on a Check field accepts `1`, `0`, `"1"`, `"0"` and `"true"` as well as a boolean —
+  in a workspace number card's `filters`, `getList`, `count` and the REST API — instead of
+  failing to encode an integer into a `boolean` column (#27).
 
 ## 0.21.6 — 2026-09-28
 

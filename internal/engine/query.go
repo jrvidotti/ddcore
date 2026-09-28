@@ -129,6 +129,37 @@ func (c *Ctx) treeRef(d *meta.DocType, field string) *db.TreeRef {
 	return &db.TreeRef{Table: target.TableName(), ParentCol: target.TreeParentField()}
 }
 
+// checkFilter casts the value of a filter on a Check field to a boolean, the
+// way a saved value is cast: a boolean column refuses the 1, "1" or "true" a
+// workspace card, a route or app code naturally writes.
+func (c *Ctx) checkFilter(fld *meta.Field, f db.Filter) db.Filter {
+	if fld == nil || fld.Fieldtype != "Check" || f.Value == nil {
+		return f
+	}
+	cast := func(v any) any { b, _ := c.castValue(fld, v); return b }
+	switch strings.ToLower(strings.TrimSpace(f.Op)) {
+	case "", "=", "!=":
+		f.Value = cast(f.Value)
+	case "in", "not in":
+		vals, ok := f.Value.([]any)
+		if !ok {
+			if s, isStr := f.Value.(string); isStr {
+				for _, p := range strings.Split(s, ",") {
+					vals = append(vals, strings.TrimSpace(p))
+				}
+			} else {
+				vals = []any{f.Value}
+			}
+		}
+		out := make([]any, len(vals))
+		for i, v := range vals {
+			out[i] = cast(v)
+		}
+		f.Value = out
+	}
+	return f
+}
+
 // filterSQL renders filters into a WHERE fragment. Conditions over a child
 // doctype become `EXISTS (SELECT 1 FROM tab_child ...)` instead of a JOIN: a
 // parent with two matching child rows would appear twice in the list
@@ -158,7 +189,7 @@ func (c *Ctx) filterSQL(d *meta.DocType, b *db.Builder, filters []db.Filter, col
 		}
 		// a copy, not a literal: a filter carries more than field/op/value
 		// (Tree, IfField), and rebuilding it would drop the rest.
-		sub := f
+		sub := c.checkFilter(child.Field(cf), f)
 		sub.Field = cf
 		if db.TreeOps[strings.ToLower(strings.TrimSpace(sub.Op))] && sub.Tree == nil {
 			sub.Tree = c.treeRef(child, cf)
@@ -250,7 +281,7 @@ func (c *Ctx) filterSQL(d *meta.DocType, b *db.Builder, filters []db.Filter, col
 			}
 		}
 
-		w, err := b.Where([]db.Filter{f}, col)
+		w, err := b.Where([]db.Filter{c.checkFilter(fld, f)}, col)
 		if err != nil {
 			return "", err
 		}

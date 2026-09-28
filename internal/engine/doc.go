@@ -1454,6 +1454,9 @@ func (c *Ctx) moveID(d *meta.DocType, oldID, newID string) error {
 			q.Exec(c.Ctx, fmt.Sprintf("UPDATE %s SET parent = $1 WHERE parent = $2 AND parenttype = $3", t), newID, oldID, doctype)
 		}
 		for _, f := range other.Fields {
+			if f.Computed {
+				continue // no column: nothing stored to carry along
+			}
 			switch f.Fieldtype {
 			case "Link":
 				if f.OptionsString() == doctype {
@@ -2056,6 +2059,9 @@ func (c *Ctx) checkLinksBeforeDelete(d *meta.DocType, name string) error {
 			continue // no table, so nothing stored that could point here
 		}
 		for _, f := range other.Fields {
+			if f.Computed {
+				continue // no column, so nothing stored that could point here
+			}
 			var sql string
 			var args []any
 			switch {
