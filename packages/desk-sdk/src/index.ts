@@ -34,7 +34,8 @@ export interface Frm<T extends BaseDoc = BaseDoc> {
   setValue(field: string | Record<string, any>, value?: any): this;
   set(field: string, value: any): this;
   field(fieldname: string): FieldDef | undefined;
-  setDfProperty(fieldname: string, prop: string, value: any): void;
+  /** overrides a field's metadata for this form, e.g. `hidden`, `readOnly`, `reqd`, `label`, `description` */
+  setDfProperty(fieldname: string, prop: DfProperty, value: any): void;
   setQuery(fieldname: string, fn: () => { filters?: Filters }): void;
   /** re-runs a Report field's report; it also re-runs by itself after a save or a reload */
   refreshField(fieldname: string): void;
@@ -67,6 +68,9 @@ export interface Frm<T extends BaseDoc = BaseDoc> {
   /** calls a controller method (POST /api/resource/:doctype/:id/:method) and reloads the doc */
   call(method: string, args?: Record<string, any>, opts?: { freeze?: boolean; reload?: boolean }): Promise<any>;
 }
+
+/** what `frm.setDfProperty` changes: any field property, plus the grid's runtime-only row flags */
+export type DfProperty = keyof FieldDef | "cannotAddRows" | "cannotDeleteRows";
 
 export interface FormHandlers<T extends BaseDoc = BaseDoc> {
   setup?: (frm: Frm<T>) => void;

@@ -530,16 +530,13 @@ func (e *Engine) Load() error {
 		}
 		// a form script belongs to the DocType's own app or to one extending
 		// it; the desk loads every one of them, and their handlers accumulate
-		for _, f := range js.ListFiles(a, ".form.ts") {
-			for _, d := range reg.DocTypes {
-				if d.App != a.Name && !contains(d.ExtendedBy, a.Name) {
-					continue
-				}
-				if strings.HasSuffix(f, "/"+meta.Snake(d.Name)+".form.ts") || f == meta.Snake(d.Name)+".form.ts" {
-					if !contains(d.FormApps, a.Name) {
-						d.FormApps = append(d.FormApps, a.Name)
-					}
-				}
+		files := js.ListFiles(a, ".form.ts")
+		for _, d := range reg.DocTypes {
+			if d.App != a.Name && !contains(d.ExtendedBy, a.Name) {
+				continue
+			}
+			if FormScript(files, d) != "" && !contains(d.FormApps, a.Name) {
+				d.FormApps = append(d.FormApps, a.Name)
 			}
 		}
 	}

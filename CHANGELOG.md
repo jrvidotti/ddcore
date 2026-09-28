@@ -14,6 +14,21 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Changed
+
+- **`frm.setDfProperty` types its property.** `prop` is now `DfProperty` — a key of `FieldDef`
+  or `cannotAddRows`/`cannotDeleteRows` — so a misspelt property is a type error instead of a
+  silent no-op. `description` is documented among them: a form script may rewrite a field's help
+  text at runtime (#24).
+
+### Fixed
+
+- **A form script named after its `.doctype.ts` loads again.** The engine and the asset route
+  looked only for `<Snake(name)>.form.ts`, so "TagOne Settings" wanted `tag_one_settings.form.ts`
+  and a `tagone_settings.form.ts` beside `tagone_settings.doctype.ts` was never loaded —
+  `formApps` came back empty and no `defineForm` ran. A script is now also found by the stem of
+  its DocType's own file (#25).
+
 ## 0.21.5 — 2026-09-28
 
 ### Changed

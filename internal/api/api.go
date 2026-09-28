@@ -1629,10 +1629,21 @@ func (s *Server) appAsset(w http.ResponseWriter, r *http.Request) {
 		code, err = buildInclude(app, portalIncludes(s.E.Snap.Apps[app.Name]), "portal")
 	case strings.HasPrefix(rest, "forms/") && strings.HasSuffix(rest, ".js"):
 		snake := strings.TrimSuffix(strings.TrimPrefix(rest, "forms/"), ".js")
+		// the desk names the script after the DocType; the file may be named
+		// after the DocType's own .doctype.ts instead, so resolve through it
+		files := js.ListFiles(app, ".form.ts")
 		var entry string
-		for _, f := range js.ListFiles(app, ".form.ts") {
-			if strings.HasSuffix(f, "/"+snake+".form.ts") || f == snake+".form.ts" {
-				entry = f
+		for name, d := range s.E.Meta.DocTypes {
+			if meta.Snake(name) == snake {
+				entry = engine.FormScript(files, d)
+				break
+			}
+		}
+		if entry == "" {
+			for _, f := range files {
+				if strings.HasSuffix(f, "/"+snake+".form.ts") || f == snake+".form.ts" {
+					entry = f
+				}
 			}
 		}
 		if entry == "" {

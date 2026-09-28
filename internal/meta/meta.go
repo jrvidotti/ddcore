@@ -440,8 +440,9 @@ type DocType struct {
 	Permissions []Perm      `json:"permissions,omitempty"`
 	Description string      `json:"description,omitempty"`
 	Icon        string      `json:"icon,omitempty"`
-	// FormApps are the apps shipping a <snake>.form.ts for this DocType, the
-	// owner first and then each extension in load order. The desk loads them
+	// FormApps are the apps shipping a form script for this DocType — a
+	// <snake>.form.ts, or one named after the DocType's own .doctype.ts (see
+	// engine.FormScript) — the owner first and then each extension in load order. The desk loads them
 	// all: form handlers accumulate, they do not replace one another.
 	FormApps []string `json:"formApps,omitempty"`
 	// ExtendedBy names the apps that extendDoctype'd this one, in load order.
