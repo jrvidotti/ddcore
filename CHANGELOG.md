@@ -12,6 +12,8 @@ not every commit that went into it.
 
 ## Unreleased
 
+## 0.20.3 — 2026-09-28
+
 ### Added
 
 - **A site-wide `ddcore` range in `ddcore.json`.** A site whose apps live in one repository
