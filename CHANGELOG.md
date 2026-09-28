@@ -12,6 +12,8 @@ not every commit that went into it.
 
 ## Unreleased
 
+## 0.21.1 — 2026-09-28
+
 ### Changed
 
 - **`ddcore deploy railway` writes the Railway project as Infrastructure as Code**,
