@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.21.6 — 2026-09-28
+
 ### Added
 
 - **The User form sends invitations.** Saving a User only writes the row, so nobody was told an
