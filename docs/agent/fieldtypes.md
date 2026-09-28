@@ -21,6 +21,7 @@
 | Datetime | timestamptz | ISO value; an **instant**, shown in the site's timezone |
 | Time | time | "HH:MM:SS"; a civil time, never converted |
 | Select | text | `options: ["A", "B"]`, canonical English, validated on the server; `optionColors` gives each value an indicator colour |
+| Autocomplete | text | free text with suggestions: `options` lists them (a list, or one per line) and never limits what is stored; outer spaces are trimmed. See below |
 | Link | text | `options: "DocType"`; existence validated; index created automatically. A Link to a virtual DocType stores `"<Source>:<id>"` (see `virtual-doctypes`) |
 | Dynamic Link | text | `options: "<the field holding the DocType>"`; the DocType and the document are validated on save. When that field is a `Data`, the desk shows it as a list of the DocTypes the user can see, and changing it clears the link |
 | Table | (child table) | `options: "Child DocType"` with `isChild: true`; `gridEditMode: "dialog"` turns off inline editing; `gridSort`, `gridSortable`, `gridExport`, `gridSelect`, `gridFilters` add a default order, header sorting, CSV/XLSX export, row selection and preset filters; `gridIndex: false` hides the `#` column. See "Form grids" below |
@@ -159,6 +160,28 @@ rule. The desk sanitizes again before rendering, so a row written that way is
 still safe to display, and a custom print template's `b.richText` block is
 re-cleaned when it renders.
 
+## Autocomplete
+
+A text field that offers values as the user types and accepts any other: a
+city, a colour name, a tag an app wants to keep consistent without making a
+DocType for it. The list filters ignoring case and accents, the arrow keys and
+Enter pick, and whatever is in the box when it loses focus is the value.
+
+```ts
+{ fieldname: "city", fieldtype: "Autocomplete", label: "City", options: ["São Paulo", "Rio de Janeiro"] }
+```
+
+- **The suggestions are text, not labels.** What the list shows is what is
+  stored, so they are never translated and never validated on the server.
+- **Suggestions that depend on the document** come from a form script, which
+  replaces them with `frm.setDfProperty("city", "options", list)` — in
+  `refresh`, or in the `onChange` of the field they depend on. A dialog's field
+  takes `dlg.setDfProperty` the same way. `frm.setDfProperty` addresses the
+  form's own fields only, so the suggestions of a **child-table column** are
+  the static ones its DocType declares.
+- **A standard filter** on an Autocomplete offers the same suggestions and, like a Data one,
+  matches the exact value.
+
 ## Table MultiSelect
 
 A document that points at *several* documents of one DocType — tags, categories,
@@ -275,11 +298,14 @@ permlevel, renamedFrom, convert`
 - `optionColors` (Select): `{ Open: "blue", Overdue: "red" }`, keyed by the canonical value — never by its label.
 - `renamedFrom: "old_name"` (or a list, oldest first): the fieldname this field used to have, so `migrate` renames the column instead of adding an empty one beside it. See `migrations`.
 - `options` beyond Link, Table, Table MultiSelect and Select: `Rating` takes the number of stars,
-  `Code` the language, and `Duration` its display flags. None of them are
-  catalogue keys — they are never translated, unlike a Select's options.
+  `Code` the language, `Duration` its display flags and `Autocomplete` its
+  suggestions. None of them are catalogue keys — they are never translated,
+  unlike a Select's options.
 - Changing a field from `Text`, `Small Text` or `Data` to `Text Editor`,
   `Markdown Editor` or `Code`, or from `Int` to `Duration` or `Rating`, keeps
-  the same column: there is no DDL and no `convert`. `Data` → `Color` or
+  the same column: there is no DDL and no `convert`. So does `Data` →
+  `Autocomplete`, whose first save trims outer spaces without recording a
+  Version. `Data` → `Color` or
   `Attach Image` keeps the column too, but a stored value that is not a colour
   or an image URL will fail on that document's next save — and so will every
   other change to that document, since a save casts every field. The same

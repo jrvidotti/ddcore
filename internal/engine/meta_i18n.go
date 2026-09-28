@@ -82,15 +82,20 @@ func (st *State) TranslateDocType(d *meta.DocType, lang string) *meta.DocType {
 			// by a lookup that would find nothing. User.language is the one
 			// today — its labels are autonyms, the same in every language.
 			cp.OptionLabels = f.OptionLabels
-		} else if opts, ok := f.Options.([]string); ok {
-			cp.OptionLabels = translateEach(t, opts)
-		} else if opts, ok := f.Options.([]any); ok {
-			var ss []string
-			for _, o := range opts {
-				s, _ := o.(string)
-				ss = append(ss, s)
+		} else if f.Fieldtype == "Select" {
+			// only a Select's options are values with labels: Autocomplete
+			// suggestions are text the user types, a Duration's are flags
+			switch opts := f.Options.(type) {
+			case []string:
+				cp.OptionLabels = translateEach(t, opts)
+			case []any:
+				var ss []string
+				for _, o := range opts {
+					s, _ := o.(string)
+					ss = append(ss, s)
+				}
+				cp.OptionLabels = translateEach(t, ss)
 			}
-			cp.OptionLabels = translateEach(t, ss)
 		}
 		out.Fields[i] = &cp
 	}

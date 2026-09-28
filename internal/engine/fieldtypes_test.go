@@ -103,6 +103,7 @@ export default defineDoctype({name: "Note", module: "Demo", trackChanges: true, 
  {fieldname: "score", fieldtype: "Rating", label: "Score"},
  {fieldname: "accent", fieldtype: "Color", label: "Accent"},
  {fieldname: "photo", fieldtype: "Attach Image", label: "Photo"},
+ {fieldname: "tag", fieldtype: "Autocomplete", label: "Tag", options: ["Red", "Blue"]},
  {fieldname: "locked", fieldtype: "Text Editor", label: "Locked", readOnly: true}
 ], permissions: [{role: "All", read: true, write: true, create: true, delete: true}]});`
 
@@ -116,6 +117,7 @@ func TestRichTextRoundTripsThroughSave(t *testing.T) {
 		doc, err := c.NewDoc("Note", Doc{
 			"title": "One", "body": `<p>hello <strong>world</strong></p>`,
 			"snippet": "select 1", "spent": 5400, "score": 4, "accent": "#ABC", "locked": "fixed",
+			"tag": "  Violet ",
 		})
 		if err != nil {
 			return err
@@ -133,6 +135,9 @@ func TestRichTextRoundTripsThroughSave(t *testing.T) {
 		}
 		if loaded["spent"] != int64(5400) || loaded["score"] != int64(4) || loaded.Str("accent") != "#aabbcc" {
 			t.Fatalf("numbers and colour came back as %v, %v, %v", loaded["spent"], loaded["score"], loaded["accent"])
+		}
+		if loaded.Str("tag") != "Violet" {
+			t.Fatalf("an Autocomplete is free text, trimmed: %q", loaded.Str("tag"))
 		}
 		// saving it again, untouched, must change nothing and write no Version
 		if _, err := c.Save(loaded, SaveOpts{}); err != nil {
@@ -204,7 +209,7 @@ func TestLegacyPlainTextIsNotAChange(t *testing.T) {
 func TestTextTypesShareTheirColumn(t *testing.T) {
 	for _, pair := range [][2]string{
 		{"Text", "Text Editor"}, {"Small Text", "Markdown Editor"}, {"Data", "Code"},
-		{"Data", "Color"}, {"Attach", "Attach Image"}, {"Int", "Duration"}, {"Int", "Rating"},
+		{"Data", "Color"}, {"Data", "Autocomplete"}, {"Attach", "Attach Image"}, {"Int", "Duration"}, {"Int", "Rating"},
 	} {
 		if a, b := meta.ColumnType(pair[0]), meta.ColumnType(pair[1]); a != b {
 			t.Errorf("%s (%s) and %s (%s) do not share a column", pair[0], a, pair[1], b)
@@ -307,3 +312,71 @@ func TestRatingOutOfRangeIsClampedOnRead(t *testing.T) {
 	}
 }
 
+// Autocomplete suggests and never restricts: whatever is typed is kept,
+// trimmed, and a blank is no value at all.
+func TestCastAutocompleteKeepsFreeText(t *testing.T) {
+	f := &meta.Field{Fieldname: "tag", Fieldtype: "Autocomplete", Options: []any{"Red", "Blue"}}
+	if got := castOne(t, f, "  Green  "); got != "Green" {
+		t.Fatalf("free text came back as %v", got)
+	}
+	if got := castOne(t, f, "   "); got != nil {
+		t.Fatalf("a blank should be nil, got %v", got)
+	}
+}
+
+// A Data field turned Autocomplete keeps whatever whitespace Data kept. The
+// first save trims it, which is no edit anybody made, so the timeline stays
+// quiet about it.
+func TestDataToAutocompleteIsNotAChange(t *testing.T) {
+	e := setupWith(t, map[string]string{"doctypes/note/note.doctype.ts": fieldtypesDoctype})
+	if err := e.Run(context.Background(), "Admin", func(c *Ctx) error {
+		saved, err := c.Insert(Doc{"doctype": "Note", "title": "Padded"}, SaveOpts{})
+		if err != nil {
+			return err
+		}
+		// write the column the way a Data field did, untrimmed
+		if _, err := c.Q().Exec(c.Ctx, `UPDATE tab_note SET tag = $1 WHERE id = $2`, " Red ", saved.ID()); err != nil {
+			return err
+		}
+		loaded, err := c.GetDoc("Note", saved.ID())
+		if err != nil {
+			return err
+		}
+		loaded["title"] = "Padded edited"
+		again, err := c.Save(loaded, SaveOpts{})
+		if err != nil {
+			return err
+		}
+		if again.Str("tag") != "Red" {
+			t.Fatalf("the save did not trim: %q", again.Str("tag"))
+		}
+		var data string
+		if err := c.Q().QueryRow(c.Ctx, `SELECT data FROM tab_version WHERE ref_doctype = 'Note' ORDER BY creation DESC LIMIT 1`).Scan(&data); err != nil {
+			return err
+		}
+		if strings.Contains(data, "tag") {
+			t.Fatalf("the trim reached the timeline: %s", data)
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// Only a Select's options are values that carry labels. Autocomplete
+// suggestions are what gets typed and stored, so translating them would show
+// one word and save another.
+func TestOnlySelectOptionsGetLabels(t *testing.T) {
+	st := &State{I18n: &I18n{Lang: "en", dict: map[string]map[string]string{"pt-BR": {"Red": "Vermelho"}}}}
+	d := &meta.DocType{Name: "Paint", Fields: []*meta.Field{
+		{Fieldname: "shade", Fieldtype: "Select", Options: []any{"Red"}},
+		{Fieldname: "tag", Fieldtype: "Autocomplete", Options: []any{"Red"}},
+	}}
+	out := st.TranslateDocType(d, "pt-BR")
+	if got := out.Field("shade").OptionLabels; len(got) != 1 || got[0] != "Vermelho" {
+		t.Fatalf("the Select lost its labels: %v", got)
+	}
+	if got := out.Field("tag").OptionLabels; got != nil {
+		t.Fatalf("Autocomplete suggestions were translated: %v", got)
+	}
+}

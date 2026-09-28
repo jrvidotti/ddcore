@@ -19,7 +19,7 @@ var LayoutTypes = map[string]bool{"Section Break": true, "Tab Break": true, "HTM
 func ColumnType(ft string) string {
 	switch ft {
 	case "Data", "Email", "Small Text", "Text", "Text Editor", "Markdown Editor", "Code", "Color",
-		"Select", "Link", "Dynamic Link", "Attach", "Attach Image", "Password":
+		"Select", "Autocomplete", "Link", "Dynamic Link", "Attach", "Attach Image", "Password":
 		return "text"
 	case "Int", "Duration", "Rating":
 		return "bigint"
@@ -41,7 +41,7 @@ func ColumnType(ft string) string {
 	return ""
 }
 
-var ValidFieldTypes = []string{"Data", "Email", "Small Text", "Text", "Text Editor", "Markdown Editor", "Code", "Int", "Float", "Currency", "Percent", "Check", "Rating", "Duration", "Color", "Date", "Month", "Datetime", "Time", "Select", "Link", "Dynamic Link", "Table", "Table MultiSelect", "Attach", "Attach Image", "JSON", "Password", "Vault", "Section Break", "Tab Break", "HTML", "Report"}
+var ValidFieldTypes = []string{"Data", "Email", "Small Text", "Text", "Text Editor", "Markdown Editor", "Code", "Int", "Float", "Currency", "Percent", "Check", "Rating", "Duration", "Color", "Date", "Month", "Datetime", "Time", "Select", "Autocomplete", "Link", "Dynamic Link", "Table", "Table MultiSelect", "Attach", "Attach Image", "JSON", "Password", "Vault", "Section Break", "Tab Break", "HTML", "Report"}
 
 type Field struct {
 	Fieldname          string `json:"fieldname,omitempty"`
@@ -722,6 +722,14 @@ func (r *Registry) Validate() error {
 					if _, ok := f.Options.(string); !ok {
 						e("field %q (Select) needs options as a list", f.Fieldname)
 					}
+				}
+			case "Autocomplete":
+				// Suggestions are optional — an app may set them at runtime —
+				// but a number or an object here is a mistake, not a list.
+				switch f.Options.(type) {
+				case nil, string, []any, []string:
+				default:
+					e("field %q (Autocomplete): options is the list of suggestions, not %v", f.Fieldname, f.Options)
 				}
 			case "Rating":
 				// The number of stars decides what a stored value means, so a

@@ -495,7 +495,7 @@ func TestValidateTheFormerKeyName(t *testing.T) {
 func TestNewFieldtypeColumns(t *testing.T) {
 	for ft, want := range map[string]string{
 		"Text Editor": "text", "Markdown Editor": "text", "Code": "text",
-		"Color": "text", "Attach Image": "text",
+		"Color": "text", "Attach Image": "text", "Autocomplete": "text",
 		"Duration": "bigint", "Rating": "bigint",
 	} {
 		if got := ColumnType(ft); got != want {
@@ -533,6 +533,11 @@ func TestRatingAndDurationAndCodeOptions(t *testing.T) {
 		{"duration unknown flag", &Field{Fieldname: "d", Fieldtype: "Duration", Options: []any{"hideWeeks"}}, true},
 		{"code language", &Field{Fieldname: "c", Fieldtype: "Code", Options: "c++"}, false},
 		{"code uppercase", &Field{Fieldname: "c", Fieldtype: "Code", Options: "SQL"}, true},
+		{"autocomplete without options", &Field{Fieldname: "a", Fieldtype: "Autocomplete"}, false},
+		{"autocomplete list", &Field{Fieldname: "a", Fieldtype: "Autocomplete", Options: []any{"Red", "Blue"}}, false},
+		{"autocomplete lines", &Field{Fieldname: "a", Fieldtype: "Autocomplete", Options: "Red\nBlue"}, false},
+		{"autocomplete number", &Field{Fieldname: "a", Fieldtype: "Autocomplete", Options: float64(3)}, true},
+		{"autocomplete object", &Field{Fieldname: "a", Fieldtype: "Autocomplete", Options: map[string]any{"a": 1}}, true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

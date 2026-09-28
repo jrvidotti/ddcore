@@ -3,7 +3,7 @@
 export type FieldType =
   | "Data" | "Email" | "Small Text" | "Text" | "Text Editor" | "Markdown Editor" | "Code"
   | "Int" | "Float" | "Currency" | "Percent" | "Rating" | "Duration" | "Color"
-  | "Check" | "Date" | "Month" | "Datetime" | "Time" | "Select" | "Link" | "Dynamic Link" | "Table"
+  | "Check" | "Date" | "Month" | "Datetime" | "Time" | "Select" | "Autocomplete" | "Link" | "Dynamic Link" | "Table"
   | "Table MultiSelect" | "Attach" | "Attach Image" | "JSON" | "Password" | "Vault" | "Section Break" | "Tab Break" | "HTML" | "Report";
 
 export type FieldWidth = "sm" | "md" | "lg" | "full";
@@ -33,8 +33,10 @@ export interface FieldDef {
    *
    * The other types that read it: `Rating` takes the number of stars (1–10,
    * default 5), `Code` the language (`"sql"`, `"ts"`) and `Duration` the
-   * display flags `["hideDays", "hideSeconds"]`. None of those are catalogue
-   * keys — they are never translated.
+   * display flags `["hideDays", "hideSeconds"]`. `Autocomplete` takes the
+   * suggestions, a list or one per line — free text is still accepted, and
+   * `frm.setDfProperty(field, "options", list)` replaces them at runtime.
+   * None of those are catalogue keys — they are never translated.
    */
   options?: string | string[] | number;
   /**

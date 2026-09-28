@@ -14,6 +14,20 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **`Autocomplete` fieldtype**: free text with suggestions, stored in a text column. `options`
+  lists the suggestions (a list, or one per line) and never restricts the value; the server
+  trims outer spaces. The desk's combobox filters ignoring case and accents, and a form script
+  replaces the suggestions with `frm.setDfProperty(field, "options", list)`. Changing a `Data`
+  field to `Autocomplete` needs no migration, and the first save's trim is not recorded as a
+  Version.
+
+### Changed
+
+- Translated metadata carries `optionLabels` only for a `Select`. A `Duration`'s display flags
+  no longer get labels, and an `Autocomplete`'s suggestions are never translated.
+
 ## 0.21.9 — 2026-09-28
 
 ### Added

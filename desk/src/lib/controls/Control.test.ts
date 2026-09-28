@@ -87,4 +87,12 @@ describe("Control", () => {
     expect(body).toContain("Verify Now");
     expect(body).toContain('class="btn field-btn"');
   });
+
+  it("renders an Autocomplete as a combobox, not a select", () => {
+    const field: Field = { fieldname: "tag", fieldtype: "Autocomplete", label: "Tag", options: ["Red", "Blue"] };
+    const { body } = render(Control, { props: { field, value: "Green", onchange: vi.fn() } });
+    expect(body).toContain('role="combobox"');
+    expect(body).toContain('data-fieldtype="Autocomplete"');
+    expect(body).not.toContain("<select");
+  });
 });

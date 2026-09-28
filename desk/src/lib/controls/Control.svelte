@@ -7,6 +7,7 @@
   import { formatNumber, parseNumber, roundCurrency } from "$lib/format";
   import { currencyPrecision } from "$lib/locale";
   import LinkControl from "./LinkControl.svelte";
+  import AutocompleteControl from "./AutocompleteControl.svelte";
   import TableMultiSelectControl from "./TableMultiSelectControl.svelte";
   import AttachControl from "./AttachControl.svelte";
   import RichTextControl from "./RichTextControl.svelte";
@@ -120,6 +121,8 @@
               {#each extraOptions as o (o.value)}<option value={o.value}>{o.label}</option>{/each}
             {/if}
           </select>
+        {:else if ft === "Autocomplete"}
+          <AutocompleteControl {field} {value} {onchange} readOnly={ro} error={shownError} {id} />
         {:else if ft === "Link" || ft === "Dynamic Link"}
           <LinkControl {field} {value} {onchange} {doc} readOnly={ro} {query} {error} {id} search={linkSearch} />
         {:else if ft === "Table MultiSelect"}

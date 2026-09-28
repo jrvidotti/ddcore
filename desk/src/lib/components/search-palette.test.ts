@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildItems, fold, matchDoctypes, moveIndex, shouldOpenSearch, workspaceFor } from "./search-palette";
+import { fold } from "$lib/text";
+import { buildItems, matchDoctypes, moveIndex, shouldOpenSearch, workspaceFor } from "./search-palette";
 
 const doctypes = {
   Task: { label: "Task", app: "testapp" },

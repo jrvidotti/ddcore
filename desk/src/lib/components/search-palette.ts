@@ -1,6 +1,7 @@
 // Pure logic behind the global search palette: which DocTypes to offer as
 // "go to" entries, how they merge with the server's document hits, and where
 // each result leads.
+import { fold } from "$lib/text";
 import { resolveWorkspaceForDoctype, type WorkspaceItem } from "./sidebar-workspace";
 
 export interface SearchHit {
@@ -23,11 +24,6 @@ export interface PaletteItem {
 
 export const SEARCH_MIN_CHARS = 2;
 const MAX_DOCTYPES = 5;
-
-/** Lowercases and strips accents, as the server's search does. */
-export function fold(s: string): string {
-  return (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
-}
 
 /** The workspace a result opens in: the one owning the DocType, else the remembered one, else "core". */
 export function workspaceFor(

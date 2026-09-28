@@ -170,6 +170,13 @@ func castValueWith(f *meta.Field, v any, o castOpts) (any, error) {
 			return nil, nil
 		}
 		return value, nil
+	case "Autocomplete":
+		// free text: the suggestions help the typing, they do not limit it
+		s := strings.TrimSpace(db.Str(v))
+		if s == "" {
+			return nil, nil
+		}
+		return s, nil
 	case "Int":
 		n, err := finite(f, v)
 		if err != nil {
@@ -2342,8 +2349,10 @@ func (c *Ctx) saveVersion(d *meta.DocType, before, after Doc) {
 		// A Text Editor value written before rich text existed is plain text,
 		// and the first save turns it into the paragraphs it always meant. The
 		// stored bytes change, the content does not, so comparing what the
-		// column would hold keeps that conversion out of the timeline.
-		if f.Fieldtype == "Text Editor" && c.sameFieldValue(f, a, b) {
+		// column would hold keeps that conversion out of the timeline. A Data
+		// field turned Autocomplete is the same case: the first save trims
+		// whitespace nobody could see.
+		if (f.Fieldtype == "Text Editor" || f.Fieldtype == "Autocomplete") && c.sameFieldValue(f, a, b) {
 			continue
 		}
 		if string(mustJSON(a)) != string(mustJSON(b)) {
