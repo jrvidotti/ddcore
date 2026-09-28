@@ -12,6 +12,8 @@ not every commit that went into it.
 
 ## Unreleased
 
+## 0.20.2 — 2026-09-28
+
 ### Added
 
 - **Cell clicks on form grids, and `frm.setRowValue`** (#21). A form script's
