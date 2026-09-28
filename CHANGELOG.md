@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.21.5 — 2026-09-28
+
 ### Changed
 
 - **`ddcore init` and `ddcore deploy` write the Dockerfile on the minor series.** A new site
@@ -21,6 +23,8 @@ older series, and `whats_new` reads across every one of them.
   that tag to every patch, so each deploy takes the series' fixes without a commit, and it never
   leaves the `ddcore` range `ddcore init` writes. An existing Dockerfile is left alone — change
   `:0.21.0` to `:0.21` by hand to follow the series, or keep the exact tag to pin one release.
+
+## 0.21.4 — 2026-09-28
 
 ### Fixed
 
