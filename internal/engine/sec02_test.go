@@ -498,6 +498,34 @@ export default defineNotification({ name: "salary", doctype: "Employee", event: 
 		check(sec02HR, true)
 	})
 
+	// a deletion Version (#28) holds the whole document, not a diff: the same
+	// fields go from its snapshot, at both levels
+	t.Run("deletion snapshot", func(t *testing.T) {
+		check := func(user string, wantSalary bool) {
+			t.Helper()
+			if err := e.Run(ctx, user, func(c *Ctx) error {
+				data := map[string]any{"deleted": map[string]any{
+					"title": "Gone", "department": "Finance", "salary": 150,
+					"lines":   []any{map[string]any{"label": "base", "amount": 10}},
+					"bonuses": []any{map[string]any{"value": 5}},
+				}}
+				got := string(mustJSON(c.RedactVersionData("Employee", data)))
+				if strings.Contains(got, "salary") != wantSalary || strings.Contains(got, "amount") != wantSalary ||
+					strings.Contains(got, "bonuses") != wantSalary {
+					t.Fatalf("%s deletion snapshot: %s", user, got)
+				}
+				if !strings.Contains(got, "Finance") || !strings.Contains(got, "base") {
+					t.Fatalf("%s lost level-0 values: %s", user, got)
+				}
+				return nil
+			}); err != nil {
+				t.Fatal(err)
+			}
+		}
+		check(sec02Staff, false)
+		check(sec02HR, true)
+	})
+
 	t.Run("export", func(t *testing.T) {
 		if err := e.Run(ctx, sec02Staff, func(c *Ctx) error {
 			var buf bytes.Buffer

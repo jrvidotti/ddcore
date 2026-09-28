@@ -1295,6 +1295,9 @@ func (c *Ctx) Delete(doctype, name string, ignorePerms, force bool) error {
 	if _, err := c.Q().Exec(c.Ctx, fmt.Sprintf("DELETE FROM %s WHERE id = $1", db.Ident(d.TableName())), name); err != nil {
 		return err
 	}
+	if err := c.recordDeletion(d, doc); err != nil {
+		return err
+	}
 	if d.Name == "File" {
 		c.deleteFileBytesAfterCommit(db.Str(doc["file_url"]))
 	}
@@ -1320,8 +1323,8 @@ func (c *Ctx) Delete(doctype, name string, ignorePerms, force bool) error {
 	c.deleteFileBytesAfterCommit(attached...)
 	// The tables that name a document without linking to it. File was missing
 	// here: deleting a document left its attachments behind, pointing at a name
-	// nothing answers to. Email Delivery is deliberately exempt — see
-	// keepOnDelete in coreRefs.
+	// nothing answers to. Email Delivery and Version are deliberately exempt —
+	// see keepOnDelete in coreRefs.
 	for _, ref := range coreRefs {
 		if ref.keepOnDelete {
 			continue
@@ -2359,7 +2362,61 @@ func (c *Ctx) saveVersion(d *meta.DocType, before, after Doc) {
 	if len(changed) == 0 {
 		return
 	}
-	data := mustJSON(map[string]any{"changed": changed})
-	c.Q().Exec(c.Ctx, `INSERT INTO tab_version (id, owner, creation, modified, modified_by, docstatus, ref_doctype, doc_id, data)
-		VALUES ($1, $2, now(), now(), $2, 0, $3, $4, $5)`, randomID(), c.User, d.Name, after.ID(), string(data))
+	c.insertVersion(d, after.ID(), map[string]any{"changed": changed}, false)
+}
+
+// insertVersion writes one Version row and returns its id. clock_timestamp()
+// rather than now(): two versions written in one transaction — a save and then
+// a delete, say — must still sort in the order they happened.
+func (c *Ctx) insertVersion(d *meta.DocType, docID string, data map[string]any, deleted bool) (string, error) {
+	id := randomID()
+	_, err := c.Q().Exec(c.Ctx, `INSERT INTO tab_version (id, owner, creation, modified, modified_by, docstatus, ref_doctype, doc_id, data, deleted)
+		VALUES ($1, $2, clock_timestamp(), clock_timestamp(), $2, 0, $3, $4, $5, $6)`, id, c.User, d.Name, docID, string(mustJSON(data)), deleted)
+	return id, err
+}
+
+// deletionUnrecorded are the DocTypes whose deletion writes no Version: the
+// framework's own bookkeeping, where a copy of the row is noise — and, for
+// Version itself, a record of a record. Their deletion is still audited.
+var deletionUnrecorded = map[string]bool{
+	"Version": true, "Error Log": true, "Email Delivery": true, "Webhook Delivery": true,
+}
+
+// snapshotDoc is a document as a deletion Version keeps it: every column and
+// every child row, without the secrets a version never holds (B04).
+func (c *Ctx) snapshotDoc(d *meta.DocType, doc Doc) map[string]any {
+	out := map[string]any{}
+	for k, v := range doc {
+		if f := d.Field(k); f != nil {
+			if f.Fieldtype == "Password" || f.Fieldtype == "Vault" {
+				continue
+			}
+			if meta.IsTableType(f.Fieldtype) {
+				cd, _ := c.St.DocType(f.OptionsString())
+				out[k] = versionRows(cd, doc.Children(k))
+				continue
+			}
+		}
+		if isSecretField(k) {
+			continue
+		}
+		out[k] = v
+	}
+	return out
+}
+
+// recordDeletion leaves the trace a delete must not erase (#28): a Version
+// holding the document as it was, and an Audit Event saying who deleted it.
+// Both go on the caller's transaction, so a delete that rolls back leaves
+// neither behind.
+func (c *Ctx) recordDeletion(d *meta.DocType, doc Doc) error {
+	detail := map[string]any{}
+	if !deletionUnrecorded[d.Name] {
+		id, err := c.insertVersion(d, doc.ID(), map[string]any{"deleted": c.snapshotDoc(d, doc)}, true)
+		if err != nil {
+			return err
+		}
+		detail["version"] = id
+	}
+	return c.Audit("doc.delete", d.Name, doc.ID(), detail)
 }

@@ -104,6 +104,12 @@
               <span class="time" title={v.fullTime}>{v.relativeTime}</span>
             </div>
 
+            {#if v.deleted}
+              <div class="change-row deleted-row">
+                <Icon name="trash" size={12} />
+                <span>{__("Deleted this document")}</span>
+              </div>
+            {/if}
             <div class="changes-list">
               {#each v.changes as c}
                 {#if !c.isTable}
@@ -384,6 +390,14 @@
     border: 1px solid var(--border);
     border-radius: 6px;
     padding: 6px 8px;
+  }
+
+  .change-row.deleted-row {
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+    color: var(--danger);
   }
   .field-label {
     font-size: 11px;

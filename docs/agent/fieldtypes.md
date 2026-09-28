@@ -321,6 +321,10 @@ or renamed. It changes display only: filters, `orderBy`, the API and every query
 parent (`parent_<snake(name)>`, or the one `parentField` names) and an `is_group` Check, and
 the engine keeps the hierarchy from folding onto itself. See `trees`.
 
+`trackChanges` writes a Version, with the diff, each time a save changes the document. The
+history outlives the document: a delete keeps its Versions and adds a final one holding the
+document as it was. See "What a delete leaves behind" in `controller-api`.
+
 `allowRename` is about renaming a *document*; `renamedFrom` is about renaming the *DocType*,
 which moves the table and repoints every stored reference. See `migrations`.
 

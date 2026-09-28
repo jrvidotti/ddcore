@@ -14,6 +14,25 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- A delete leaves a trace (#28). Every deleted document gets a final Version whose new
+  `deleted` field is checked and whose `data` is `{"deleted": {…}}`: the document as it was,
+  child rows included, without its Password, Vault and secret fields. A `doc.delete` Audit Event
+  records who deleted it and points at that Version. This applies to every DocType except
+  Version, Error Log, Email Delivery and Webhook Delivery, which are only audited. List Version
+  with **Deleted** checked to see what was deleted. There is no undelete. See "What a delete
+  leaves behind" in `controller-api`.
+
+### Changed
+
+- Deleting a document no longer deletes its Versions: a `trackChanges` history now ends with the
+  deletion instead of disappearing. Only a System Manager reads the Versions of a deleted
+  document. A document later created under the same id shows other readers its own Versions
+  only. `migrate` adds the `deleted` column to `tab_version`.
+- Versions are stamped with `clock_timestamp()`, so two written in one transaction sort in the
+  order they happened.
+
 ## 0.21.7 — 2026-09-28
 
 ### Fixed

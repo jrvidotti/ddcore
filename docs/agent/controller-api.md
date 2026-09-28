@@ -45,6 +45,33 @@ Fields are properties; child tables are arrays. Methods: `insert()`, `save()`, `
 `getDocBeforeSave()`, `hasValueChanged(field)`, `runMethod(name, args)`, `applyWorkflow(action)` (applies a workflow transition and
 reloads the document with the new state and docstatus; see `workflows`), `doc.flags` (free-form, per request).
 
+### What a delete leaves behind
+
+A delete — from the desk, the REST API, `doc.delete()`, `ddcore.deleteDoc` or the MCP
+`delete_doc` — runs `onTrash`, removes the row with its child rows, attachments, comments,
+assignments and shares, then `afterDelete`. In the same transaction, so a refused or rolled-back
+delete leaves none of it, it records:
+
+- **A deletion Version**, for every DocType, whether `trackChanges` or not. It has `deleted`
+  checked, and its `data` is `{"deleted": { …the document as it was, child rows included… }}`
+  rather than a `{"changed": …}` diff. Password and Vault fields, and secret-named columns, are
+  left out, as they are from every Version.
+- **The Versions the document already had.** They stay behind, so the history of a
+  `trackChanges` document ends with its deletion instead of disappearing with it.
+- **A `doc.delete` Audit Event** naming who deleted what, with `{"version": "<deletion Version id>"}`
+  (see `audit`).
+
+Version, Error Log, Email Delivery and Webhook Delivery write no deletion Version: they are
+records already. Their deletion is still audited.
+
+Only a System Manager reads the Versions of a document that no longer exists. To find what was
+deleted, list Version with **Deleted** checked, or filter it on the DocType and id. A document
+later created under the same id is a different document: other readers of it see its own
+Versions only, while a System Manager sees the whole timeline, deletion included.
+
+There is no undelete. The snapshot is there to be read, and a document can be re-created from it
+by hand.
+
 ## `ddcore.*` (global on the server)
 
 - `ddcore.db.getValue(doctype, id | filters, field | [fields])` — a value or an object (or `null`)

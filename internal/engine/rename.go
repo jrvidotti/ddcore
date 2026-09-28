@@ -17,11 +17,13 @@ import (
 var coreRefs = []struct {
 	table, doctypeCol, idCol string
 	// keepOnDelete leaves the row where it is when the document it names is
-	// deleted. An attachment, a comment and a version belong to their document
-	// and go with it. A delivery record does not: it says that a message left
-	// this site for somebody's inbox, and deleting the order cannot un-send the
-	// invoice. The reference is left dangling on purpose — it is a record of
-	// what the message was about at the time, not a live link.
+	// deleted. An attachment and a comment belong to their document and go with
+	// it. A delivery record does not: it says that a message left this site for
+	// somebody's inbox, and deleting the order cannot un-send the invoice. A
+	// version is the same kind of record — the history of what was done to the
+	// document, which a delete adds to (the deletion Version holds the document
+	// as it was) rather than erases. The reference is left dangling on purpose:
+	// it is a record of the document at the time, not a live link.
 	keepOnDelete bool
 }{
 	{table: "ddcore_notification", doctypeCol: "reference_doctype", idCol: "reference_id", keepOnDelete: true},
@@ -33,7 +35,7 @@ var coreRefs = []struct {
 	{table: "tab_to_do", doctypeCol: "reference_type", idCol: "reference_id"},
 	// A share grants access to its document and goes with it.
 	{table: "tab_document_share", doctypeCol: "share_doctype", idCol: "share_id"},
-	{table: "tab_version", doctypeCol: "ref_doctype", idCol: "doc_id"},
+	{table: "tab_version", doctypeCol: "ref_doctype", idCol: "doc_id", keepOnDelete: true},
 	{table: "tab_email_delivery", doctypeCol: "reference_doctype", idCol: "reference_id", keepOnDelete: true},
 	// A webhook delivery is the same kind of record: the event reached somebody
 	// else's server, and deleting the document does not recall it.

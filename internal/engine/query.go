@@ -461,6 +461,17 @@ func (c *Ctx) GetList(doctype string, a ListArgs) ([]map[string]any, error) {
 	if err != nil {
 		return nil, cerr.Validation("Invalid filters: {0}", err)
 	}
+	// A delete keeps a document's Versions (#28), so a document later created
+	// under the same id would list the deleted one's history as its own. Only a
+	// System Manager, who reads every Version anyway, sees past the deletion.
+	if d.Name == "Version" && !a.IgnorePermissions && !c.IgnorePermissions() && c.User != "Admin" && !c.HasRole("System Manager") {
+		w := `NOT EXISTS (SELECT 1 FROM tab_version dv WHERE dv.ref_doctype = "t".ref_doctype AND dv.doc_id = "t".doc_id AND dv.deleted AND dv.creation >= "t".creation)`
+		if where == "" {
+			where = w
+		} else {
+			where += " AND " + w
+		}
+	}
 	if len(orFilters) > 0 {
 		var ors []string
 		for _, f := range orFilters {

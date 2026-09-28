@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { diffTable, formatMultiSelect } from "./history";
+import { diffTable, formatMultiSelect, parseVersion } from "./history";
 
 const childMeta = {
   name: "Item",
@@ -40,5 +40,19 @@ describe("Table MultiSelect in history", () => {
   it("shows the values, not a table of rows", () => {
     expect(formatMultiSelect([{ id: "a", tag: "red" }, { id: "b", tag: "blue" }], tagMeta)).toBe("red, blue");
     expect(formatMultiSelect([], tagMeta)).toBe("—");
+  });
+});
+
+describe("parseVersion", () => {
+  it("marks the Version a delete wrote, whose data is the document rather than a diff", () => {
+    const v = parseVersion({ id: "v1", owner: "Admin", creation: "2026-09-28 10:00:00", data: { deleted: { id: "m1", title: "m1" } } });
+    expect(v.deleted).toBe(true);
+    expect(v.changes).toEqual([]);
+  });
+
+  it("leaves an ordinary Version unmarked", () => {
+    const v = parseVersion({ id: "v2", owner: "Admin", creation: "2026-09-28 10:00:00", data: JSON.stringify({ changed: { title: ["a", "b"] } }) });
+    expect(v.deleted).toBe(false);
+    expect(v.changes.map((c) => c.field)).toEqual(["title"]);
   });
 });

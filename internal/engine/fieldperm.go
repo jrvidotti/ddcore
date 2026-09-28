@@ -351,8 +351,9 @@ func (c *Ctx) insertFieldBase(d *meta.DocType, doc Doc) (Doc, error) {
 	return c.fieldDefaults(d), nil
 }
 
-// RedactVersionData filters a Version's `data` diff for the current user: a
-// change to a field they cannot read is a copy of its value, so it goes too.
+// RedactVersionData filters a Version's `data` for the current user: a change
+// to a field they cannot read is a copy of its value, so it goes too, and so
+// does that field in the snapshot a deletion Version holds.
 // The diff is stored once for every reader, which is why this happens on the
 // way out rather than when the Version is written.
 func (c *Ctx) RedactVersionData(refDoctype string, data any) any {
@@ -402,6 +403,34 @@ func (c *Ctx) RedactVersionData(refDoctype string, data any) any {
 					if cf.Fieldname != "" && !a.CanRead(cf) {
 						delete(row, cf.Fieldname)
 					}
+				}
+			}
+		}
+	}
+	// a deletion Version holds the whole document: the same fields go
+	snap, _ := m["deleted"].(map[string]any)
+	for key, v := range snap {
+		f := d.Field(key)
+		if f == nil {
+			continue
+		}
+		if !a.CanRead(f) {
+			delete(snap, key)
+			continue
+		}
+		if !meta.IsTableType(f.Fieldtype) {
+			continue
+		}
+		cd, err := c.St.DocType(f.OptionsString())
+		if err != nil || !cd.HasRestrictedFields() {
+			continue
+		}
+		rows, _ := v.([]any)
+		for _, r := range rows {
+			row, _ := r.(map[string]any)
+			for _, cf := range cd.Fields {
+				if cf.Fieldname != "" && !a.CanRead(cf) {
+					delete(row, cf.Fieldname)
 				}
 			}
 		}

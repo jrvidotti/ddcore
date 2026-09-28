@@ -81,6 +81,8 @@ export interface ParsedVersion {
   fullTime: string;
   changes: ParsedChange[];
   totalChanges: number;
+  /** The Version a delete wrote: it holds the document, not a diff. */
+  deleted: boolean;
 }
 
 export function isAttachValue(val: any, fieldtype?: string): boolean {
@@ -360,5 +362,6 @@ export function parseVersion(v: any, frm?: FormController): ParsedVersion {
     fullTime: formatDatetime(v.creation),
     changes,
     totalChanges: changes.length,
+    deleted: !!rawData.deleted,
   };
 }

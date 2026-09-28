@@ -22,7 +22,7 @@ metadata; jobs, reports, workspaces, translations, tests, CLI, and MCP are in th
 | Children and Naming | DocTypes `isChild`, `parent`/`parenttype`/`parentfield`/`idx`; series, field, hash, prompt, and format naming rules. |
 | Server-Side Validation | Mandatory, uniqueness, Select, Email, Link/Dynamic Link, `fetchFrom`, dependencies, `mandatoryDependsOn`, and `allowOnSubmit`. |
 | Document | Insert, save, submit, cancel, amend, rename, delete, reload, `append`, `dbSet`, field changes, and concurrency via `modified`. |
-| History and Transactions | `docstatus`, `amended_from`, Version with diffs for `trackChanges`, Comment, and one transaction per request/job/test, with rollback on error. |
+| History and Transactions | `docstatus`, `amended_from`, Version with diffs for `trackChanges`, a deletion Version holding every deleted document (Frappe's *Deleted Document*, without restore), Comment, and one transaction per request/job/test, with rollback on error. |
 | Monetary Precision | Per-site precision (`currencyPrecision`, default = currency ISO minor unit) and rounding rule (`commercial`/`bankers`); `Currency` is rounded on write and the same rule applies in Go, app runtime, and desk. `Percent`, `Float`, and `Int` are excluded by contract. |
 | Cross-App Extension | `extendDoctype` adds fields and overrides properties of a DocType from another app, with additive permissions and chained `hasPermission`/`permissionQuery`; conflicts between two apps reject loading. Form scripts of the extending app are appended to the owner's. |
 
