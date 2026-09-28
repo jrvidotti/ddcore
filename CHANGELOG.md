@@ -25,6 +25,11 @@ not every commit that went into it.
   deployment guide's Railway section walks through it. The generated `.dockerignore` now leaves
   `.railway` out of the build context.
 
+### Fixed
+
+- A `make build` stamped itself after the rolling `edge` tag (`edge-1-g…`), which is not a
+  release, so it stopped enforcing `ddcore` ranges; it now describes itself from `v*` tags only.
+
 ## 0.21.0 — 2026-09-28
 
 ### Breaking

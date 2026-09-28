@@ -1,7 +1,8 @@
 .PHONY: build desk test check vet i18n test-go test-desk dev stop kill migrate help docker-up docker-down docker-logs docker-status docker-psql db-up db-down db-logs db-status db-psql docs-dev docs-build docs-preview
 
 PORT ?= 8090
-VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+# Only v* tags name a release: the rolling "edge" tag would make every build a non-release.
+VERSION ?= $(shell git describe --tags --match 'v*' --always --dirty 2>/dev/null || echo "dev")
 LDFLAGS := -s -w -X github.com/jrvidotti/ddcore/internal/engine.Version=$(VERSION)
 
 help: ## display this list of help commands
