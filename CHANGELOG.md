@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.21.8 — 2026-09-28
+
 ### Added
 
 - A delete leaves a trace (#28). Every deleted document gets a final Version whose new
