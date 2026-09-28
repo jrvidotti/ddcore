@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/robfig/cron/v3"
 
 	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/config"
@@ -223,7 +222,7 @@ type Engine struct {
 	Cache  *Cache
 
 	cur   atomic.Pointer[State]
-	sched atomic.Pointer[cron.Cron]
+	sched atomic.Pointer[scheduler]
 	// ready memoises the database probe; see Engine.Ready.
 	ready    atomic.Pointer[readyCache]
 	mu       sync.Mutex
@@ -616,6 +615,11 @@ func (e *Engine) Load() error {
 		old.Pool.Close()
 	}
 	e.Log.Info("apps loaded", "apps", len(apps), "doctypes", len(reg.DocTypes))
+	if s := e.sched.Load(); s != nil {
+		// its entries were built from the apps just replaced; without this a
+		// scheduler block added or changed by a reload never fires (#23)
+		e.StartScheduler(s.ctx)
+	}
 	return nil
 }
 

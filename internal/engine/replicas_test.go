@@ -2,6 +2,8 @@ package engine
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -55,5 +57,31 @@ func TestSchedulerTickIsClaimedOnce(t *testing.T) {
 	}
 	if !e.claimTick(ctx, "0 * * * * demo.services.tasks.hourly") {
 		t.Fatal("another entry's tick is its own")
+	}
+}
+
+// A scheduler block added while `ddcore dev` runs reaches the running
+// scheduler: Load rebuilds it (#23).
+func TestLoadRebuildsRunningScheduler(t *testing.T) {
+	e := setup(t)
+	ctx := context.Background()
+	boot := e.StartScheduler(ctx)
+	defer e.StopScheduler()
+	before := len(boot.Entries())
+	app := `import { defineApp } from "@ddcore/sdk";
+export default defineApp({ name: "demo", title: "Demo", roles: ["Gestor"],
+  scheduler: { all: ["demo.services.tasks.tick"], cron: { "15 3 * * *": ["demo.services.tasks.nightly"] } } });`
+	if err := os.WriteFile(filepath.Join(e.Cfg.Apps[0].Dir, "ddcore.app.ts"), []byte(app), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.Load(); err != nil {
+		t.Fatal(err)
+	}
+	cur := e.sched.Load().cr
+	if cur == boot {
+		t.Fatal("Load kept the scheduler built from the old apps")
+	}
+	if n := len(cur.Entries()); n != before+2 {
+		t.Fatalf("entries after reload = %d, want %d", n, before+2)
 	}
 }

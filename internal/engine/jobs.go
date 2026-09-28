@@ -573,7 +573,16 @@ func (e *Engine) LogError(ctx context.Context, method string, err error) {
 	})
 }
 
-// StartScheduler registers cron entries from every app's scheduler block.
+// scheduler is the running cron and the context it was started with, which a
+// reload needs to start its replacement.
+type scheduler struct {
+	cr  *cron.Cron
+	ctx context.Context
+}
+
+// StartScheduler registers cron entries from every app's scheduler block and
+// replaces the scheduler already running, if any. Once started, every
+// successful Load rebuilds it from the reloaded apps.
 func (e *Engine) StartScheduler(ctx context.Context) *cron.Cron {
 	// the site's midnight, not the process's: "daily" means the start of the
 	// day the business is having, and a server in another zone was firing it
@@ -619,8 +628,8 @@ func (e *Engine) StartScheduler(ctx context.Context) *cron.Cron {
 	}
 	add("*/5 * * * *", []any{notificationSweepMethod})
 	cr.Start()
-	if old := e.sched.Swap(cr); old != nil {
-		old.Stop()
+	if old := e.sched.Swap(&scheduler{cr: cr, ctx: ctx}); old != nil {
+		old.cr.Stop()
 	}
 	return cr
 }
@@ -652,9 +661,7 @@ func (e *Engine) claimTick(ctx context.Context, entry string) bool {
 }
 
 // RestartScheduler rebuilds the cron entries from the current state and stops
-// the previous scheduler. Must be called after each e.Load(): reloading
-// metadata was not reinstalling entries for a scheduler created once at
-// boot (B08).
+// the previous scheduler. Load already does this for a running scheduler.
 func (e *Engine) RestartScheduler(ctx context.Context) *cron.Cron {
 	return e.StartScheduler(ctx)
 }
@@ -662,7 +669,7 @@ func (e *Engine) RestartScheduler(ctx context.Context) *cron.Cron {
 // StopScheduler stops the scheduler currently registered, if any.
 func (e *Engine) StopScheduler() {
 	if old := e.sched.Swap(nil); old != nil {
-		old.Stop()
+		old.cr.Stop()
 	}
 }
 

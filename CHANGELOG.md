@@ -14,6 +14,15 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- **A reload reinstalls the scheduler's entries.** A `scheduler` block added or changed while
+  `ddcore dev` ran was loaded — `ddcore jobs scheduled` listed it — but the running scheduler
+  kept the entries it built at boot, so the new entry never fired until the server restarted
+  ([#23](https://github.com/jrvidotti/ddcore/issues/23)). Every successful reload now rebuilds a
+  running scheduler: the file watcher, and the MCP tools that reload (`reload`, scaffolding,
+  translations).
+
 ## 0.21.3 — 2026-09-28
 
 ### Fixed

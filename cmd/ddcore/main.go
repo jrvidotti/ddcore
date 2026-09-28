@@ -453,8 +453,9 @@ func cmdServe(args []string, dev bool) error {
 		go e.Worker(ctx, i)
 	}
 	if cfg.Scheduler {
-		cr := e.StartScheduler(ctx)
-		defer cr.Stop()
+		e.StartScheduler(ctx)
+		// the current one, not the boot one: every reload replaces it
+		defer e.StopScheduler()
 	} else {
 		e.Log.Warn("scheduler disabled (scheduler: false in ddcore.json)")
 	}
