@@ -25,6 +25,22 @@ func TestAppRange(t *testing.T) {
 	}
 }
 
+// The image tag is the minor series, which the release workflow publishes as
+// :X.Y and moves to each patch, so it always sits inside AppRange's range.
+func TestImageTag(t *testing.T) {
+	for core, want := range map[string]string{
+		"v0.21.0":              "0.21",
+		"v0.21.3-2-gabc-dirty": "0.21",
+		"1.2.3":                "1.2",
+		"0.1.0":                "",
+		"dev":                  "",
+	} {
+		if got, ok := ImageTag(core); got != want || ok != (want != "") {
+			t.Errorf("ImageTag(%q) = %q, %v; want %q", core, got, ok, want)
+		}
+	}
+}
+
 // An app whose range reaches below 0.17.0 was written when the document key
 // was `name`; a 0.17 binary says so at load, and an older build does not.
 func TestPredatesIDKey(t *testing.T) {

@@ -65,11 +65,12 @@ here: it is `ddcore dev`, or `DDCORE_DEV=1` for another command on a developer's
 
 ddcore publishes an official image for every release, `ghcr.io/jrvidotti/ddcore:<version>`
 (`linux/amd64` and `linux/arm64`): the binary on Alpine, with `pg_dump`/`pg_restore` 17 for
-backups and the timezone data. `ddcore init` writes a site's `Dockerfile` on it, pinned to the
-release that created the site; `ddcore deploy docker` writes it into an existing site:
+backups and the timezone data. `ddcore init` writes a site's `Dockerfile` on it, on the minor
+series of the release that created the site; `ddcore deploy docker` writes it into an existing
+site:
 
 ```dockerfile
-FROM ghcr.io/jrvidotti/ddcore:0.21.0
+FROM ghcr.io/jrvidotti/ddcore:0.21
 
 COPY ddcore.json ./
 COPY apps/ ./apps/
@@ -79,9 +80,13 @@ The image does the rest: `WORKDIR /app`, uploads in `/data`, `$PORT` honoured, a
 `CMD ["ddcore", "start"]`, which applies pending migrations and patches before it serves the
 desk, the API, the job workers and the scheduler from one process.
 
-**The tag is the pin.** It is the ddcore release the site runs: keep it inside the `ddcore`
-range of `ddcore.json` and change both in the same commit. `:0.21` follows the minor's patches
-and `:latest` the newest release — neither belongs in production.
+**The tag is the pin.** Each release publishes `:0.21.3`, moves `:0.21` to it, and moves
+`:latest`. The generated `:0.21` follows its minor series, so every deploy takes the newest
+patch — fixes and backwards-compatible additions — and never the next minor, which may break
+while ddcore is `0.x`. Keep the tag inside the `ddcore` range of `ddcore.json` and move both in
+the same commit when you take a new minor. Pin an exact release (`:0.21.3`) when a redeploy or
+rollback of an old commit must run the very binary it ran then. `:latest` does not belong in
+production.
 
 **Persistent data.** The container's filesystem does not survive a deploy: mount a volume at
 `/data`, or set `DDCORE_STORAGE=s3` so uploads live in a bucket.

@@ -121,18 +121,18 @@ func TestAppInSiteWithRangeDeclaresNone(t *testing.T) {
 // and a binary that is not a release says so instead of pinning nothing.
 func TestDockerPinsTheImageAndLeavesFilesAlone(t *testing.T) {
 	dir := t.TempDir()
-	files, err := Docker(dir, "0.21.0")
+	files, err := Docker(dir, "0.21")
 	if err != nil || len(files) != 2 {
 		t.Fatalf("files=%v err=%v", files, err)
 	}
 	b, _ := os.ReadFile(filepath.Join(dir, "Dockerfile"))
-	for _, want := range []string{"FROM " + Image + ":0.21.0", "COPY ddcore.json ./", "COPY apps/ ./apps/"} {
+	for _, want := range []string{"FROM " + Image + ":0.21\n", "COPY ddcore.json ./", "COPY apps/ ./apps/"} {
 		if !strings.Contains(string(b), want) {
 			t.Errorf("Dockerfile misses %q:\n%s", want, b)
 		}
 	}
 	os.WriteFile(filepath.Join(dir, "Dockerfile"), []byte("mine"), 0o644)
-	if files, _ := Docker(dir, "0.22.0"); len(files) != 0 {
+	if files, _ := Docker(dir, "0.22"); len(files) != 0 {
 		t.Fatalf("rewrote existing files: %v", files)
 	}
 	if b, _ := os.ReadFile(filepath.Join(dir, "Dockerfile")); string(b) != "mine" {
@@ -141,7 +141,7 @@ func TestDockerPinsTheImageAndLeavesFilesAlone(t *testing.T) {
 
 	unpinned := t.TempDir()
 	Docker(unpinned, "")
-	if b, _ := os.ReadFile(filepath.Join(unpinned, "Dockerfile")); !strings.Contains(string(b), ":latest") || !strings.Contains(string(b), "Pin a release") {
+	if b, _ := os.ReadFile(filepath.Join(unpinned, "Dockerfile")); !strings.Contains(string(b), ":latest") || !strings.Contains(string(b), "Pin a minor series") {
 		t.Fatalf("a non-release build should write latest with a note:\n%s", b)
 	}
 }

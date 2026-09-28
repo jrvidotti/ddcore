@@ -14,6 +14,14 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Changed
+
+- **`ddcore init` and `ddcore deploy` write the Dockerfile on the minor series.** A new site
+  starts `FROM ghcr.io/jrvidotti/ddcore:0.21` rather than `:0.21.0`: the release workflow moves
+  that tag to every patch, so each deploy takes the series' fixes without a commit, and it never
+  leaves the `ddcore` range `ddcore init` writes. An existing Dockerfile is left alone — change
+  `:0.21.0` to `:0.21` by hand to follow the series, or keep the exact tag to pin one release.
+
 ### Fixed
 
 - **A reload reinstalls the scheduler's entries.** A `scheduler` block added or changed while

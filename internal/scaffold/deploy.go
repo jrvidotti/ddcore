@@ -11,8 +11,8 @@ import (
 const Image = "ghcr.io/jrvidotti/ddcore"
 
 // Docker writes the files that build a site's production image: a Dockerfile
-// on the official image at tag, and a .dockerignore. tag is the release the
-// site pins (`0.21.0`); empty, for a binary that is not a release, writes
+// on the official image at tag, and a .dockerignore. tag is the minor series
+// the site follows (`0.21`); empty, for a binary that is not a release, writes
 // `latest` with a note to pin it. A file that already exists is left alone.
 // It returns the files it wrote.
 func Docker(dir, tag string) ([]string, error) {
@@ -59,12 +59,14 @@ func writeNew(dir string, files []struct{ name, content string }) ([]string, err
 }
 
 func dockerfile(tag string) string {
-	pin := "# The tag is the ddcore release this site runs: keep it inside the \"ddcore\"\n" +
-		"# range of ddcore.json, and change both in the same commit.\n"
+	pin := "# The tag is the ddcore minor series this site runs: each deploy takes its\n" +
+		"# newest patch. Keep it inside the \"ddcore\" range of ddcore.json and move\n" +
+		"# both in the same commit; `:" + tag + ".N` pins one exact release instead.\n"
 	if tag == "" {
 		tag = "latest"
-		pin = "# Pin a release here (`" + Image + ":0.21.0`) before going to production —\n" +
-			"# latest moves under you — and keep it inside the \"ddcore\" range of ddcore.json.\n"
+		pin = "# Pin a minor series here (`" + Image + ":0.21`) before going to production —\n" +
+			"# latest moves to the next minor, which may break — and keep it inside the\n" +
+			"# \"ddcore\" range of ddcore.json.\n"
 	}
 	return fmt.Sprintf(`# syntax=docker/dockerfile:1
 # This site's production image: the official ddcore image, which brings the

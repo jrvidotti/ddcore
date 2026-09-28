@@ -1,6 +1,7 @@
 # The official ddcore image: the release binary on Alpine, with what a site
 # needs at run time and nothing it builds with. A site's own Dockerfile starts
-# FROM this image at the release it pins and copies ddcore.json and apps/ in.
+# FROM this image at the minor series (or release) it pins and copies
+# ddcore.json and apps/ in.
 #
 # Built by .github/workflows/release.yml from the binaries it has just
 # compiled; the build context holds linux-<arch>/ddcore for each platform.

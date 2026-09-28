@@ -80,7 +80,7 @@ The framework follows **Semantic Versioning 2.0.0** (`vMAJOR.MINOR.PATCH`):
 - **Git tags**: Official releases use the `v*` format (e.g. `v0.1.0`, `v1.0.0`).
 - **Release artifacts**:
   - Pushing a version tag `v*` triggers the `Release` GitHub Action, creating a GitHub Release with cross-platform static archives (`ddcore-<os>-<arch>.tar.gz` and `SHA256SUMS`) for Darwin and Linux (amd64/arm64).
-  - A tagged release also publishes the image `ghcr.io/jrvidotti/ddcore:<X.Y.Z>` (and `:<X.Y>`, `:latest`) for linux amd64/arm64; a site's Dockerfile starts `FROM` it, and that tag is the site's pin.
+  - A tagged release also publishes the image `ghcr.io/jrvidotti/ddcore:<X.Y.Z>` (and `:<X.Y>`, `:latest`) for linux amd64/arm64; a site's Dockerfile starts `FROM` it, and that tag is the site's pin — `:<X.Y>` as `ddcore init` / `ddcore deploy` write it (the newest patch of the minor its `ddcore` range allows), `:<X.Y.Z>` for one exact release.
   - Pushing to `main` updates the rolling prerelease `edge` (`VERSION=edge` for `install.sh`); the installer's default and `ddcore doctor`'s update check follow the newest tagged release.
 - **Version bumps**:
   - Breaking changes to public server/desk SDKs or engine contracts increment MAJOR (while the
