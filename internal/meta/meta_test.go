@@ -496,7 +496,7 @@ func TestNewFieldtypeColumns(t *testing.T) {
 	for ft, want := range map[string]string{
 		"Text Editor": "text", "Markdown Editor": "text", "Code": "text",
 		"Color": "text", "Attach Image": "text", "Autocomplete": "text", "Barcode": "text", "Signature": "text",
-		"Duration": "bigint", "Rating": "bigint",
+		"Duration": "bigint", "Rating": "bigint", "Geolocation": "jsonb",
 	} {
 		if got := ColumnType(ft); got != want {
 			t.Errorf("ColumnType(%q)=%q want %q", ft, got, want)
@@ -611,8 +611,37 @@ func TestBulkyFieldsAreNotIndexedOrListed(t *testing.T) {
 	if err := r.Validate(); err == nil || !strings.Contains(err.Error(), "gridSort") {
 		t.Fatalf("gridSort on a Signature should be refused: %v", err)
 	}
-	if !BulkyFieldtype("Signature") || BulkyFieldtype("Text") || BulkyFieldtype("Attach Image") {
+	if !BulkyFieldtype("Signature") || !BulkyFieldtype("Geolocation") || BulkyFieldtype("Text") || BulkyFieldtype("Attach Image") || BulkyFieldtype("JSON") {
 		t.Fatal("BulkyFieldtype is wrong")
+	}
+
+	// A Geolocation is as large, and refused in the same places — except
+	// inListView, where the list shows a summary of it.
+	geo := func(mut func(*Field)) *DocType {
+		f := &Field{Fieldname: "area", Fieldtype: "Geolocation", Label: "Area"}
+		if mut != nil {
+			mut(f)
+		}
+		return &DocType{Name: "G", Fields: []*Field{f}}
+	}
+	for name, d := range map[string]*DocType{
+		"unique":           geo(func(f *Field) { f.Unique = true }),
+		"searchIndex":      geo(func(f *Field) { f.SearchIndex = true }),
+		"inStandardFilter": geo(func(f *Field) { f.InStandardFilter = true }),
+		"titleField":       func() *DocType { d := geo(nil); d.TitleField = "area"; return d }(),
+	} {
+		r := NewRegistry()
+		r.Add(d)
+		if err := r.Validate(); err == nil || !strings.Contains(err.Error(), name) || !strings.Contains(err.Error(), `"area"`) {
+			t.Errorf("a Geolocation %s should be refused naming the field: %v", name, err)
+		}
+	}
+	for _, d := range []*DocType{geo(nil), geo(func(f *Field) { f.InListView, f.Reqd = true, true })} {
+		r := NewRegistry()
+		r.Add(d)
+		if err := r.Validate(); err != nil {
+			t.Errorf("a Geolocation should load: %v", err)
+		}
 	}
 }
 

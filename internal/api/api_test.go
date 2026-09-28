@@ -887,3 +887,24 @@ func TestBootLoginPage(t *testing.T) {
 		t.Fatalf("a user without a password is not offered: %v", l)
 	}
 }
+
+// The desk's map draws its tiles from the site's configuration: OpenStreetMap
+// with its credit when nothing is set, another provider when one is.
+func TestBootMapTiles(t *testing.T) {
+	x := setup(t)
+	tiles := func() map[string]any {
+		r := x.call("GET", "/api/boot", nil, "")
+		if r.Status != 200 {
+			t.Fatalf("boot: %d %s", r.Status, r.Raw)
+		}
+		m, _ := r.Body["data"].(map[string]any)["site"].(map[string]any)["map"].(map[string]any)
+		return m
+	}
+	if m := tiles(); m["tileUrl"] != config.DefaultMapTileURL || m["attribution"] != config.DefaultMapAttribution {
+		t.Fatalf("default tiles: %v", m)
+	}
+	x.e.Cfg.Map = config.MapTiles{TileURL: "https://tiles.example.com/{z}/{x}/{y}.png", Attribution: "Example Maps"}
+	if m := tiles(); m["tileUrl"] != "https://tiles.example.com/{z}/{x}/{y}.png" || m["attribution"] != "Example Maps" {
+		t.Fatalf("configured tiles: %v", m)
+	}
+}

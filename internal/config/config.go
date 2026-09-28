@@ -96,6 +96,9 @@ type File struct {
 	// Backup comes from the environment only, like Storage, whose bucket it
 	// borrows when it is given none of its own.
 	Backup Backup `json:"-"`
+	// Map is where a Geolocation field draws its tiles from, from the
+	// environment only.
+	Map MapTiles `json:"-"`
 }
 
 // LoginPage is served by the public /api/boot to anyone who opens the site,
@@ -185,6 +188,9 @@ func Load(dir string) (*File, string, error) {
 		return nil, "", err
 	}
 	if f.Backup, err = backupFromEnv(f.Storage); err != nil {
+		return nil, "", err
+	}
+	if f.Map, err = mapTilesFromEnv(); err != nil {
 		return nil, "", err
 	}
 	base := filepath.Dir(path)

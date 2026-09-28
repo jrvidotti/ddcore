@@ -43,6 +43,12 @@ export interface Boot {
     };
     /** Present only while the site is paused (PRD-02). */
     maintenance?: { enabled: boolean; reason?: string } | null;
+    /**
+     * Where a Geolocation's map draws its tiles from (DDCORE_MAP_TILE_URL):
+     * a Leaflet URL template, and the provider's credit — markup the
+     * operator wrote, sanitized before it is shown.
+     */
+    map?: { tileUrl: string; attribution: string };
   };
   loaded: number;
   /** The portals the user reaches (OPS-10). */

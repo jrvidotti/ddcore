@@ -3,11 +3,13 @@ package engine
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/db"
+	"github.com/jrvidotti/ddcore/internal/geo"
 	"github.com/jrvidotti/ddcore/internal/meta"
 	"github.com/jrvidotti/ddcore/internal/print"
 	"github.com/jrvidotti/ddcore/internal/richtext"
@@ -298,6 +300,8 @@ func (c *Ctx) formatPrintValue(f *meta.Field, val any, lang string) string {
 			return ""
 		}
 		return c.St.I18n.T(lang, "Signed")
+	case "Geolocation":
+		return c.geoSummary(val, lang)
 	case "Duration":
 		return FormatDuration(int64(toFloat(val)), f.DurationHides("hideDays"), f.DurationHides("hideSeconds"))
 	case "Rating":
@@ -316,6 +320,35 @@ func (c *Ctx) formatPrintValue(f *meta.Field, val any, lang string) string {
 	default:
 		return fmt.Sprint(val)
 	}
+}
+
+// geoSummary is a Geolocation in words: a single point as "lat, lon", the
+// order people read, or else what it holds — "2 points, 1 polygon". Print draws
+// no map; see the standard layout.
+func (c *Ctx) geoSummary(val any, lang string) string {
+	s := geo.Summarize(val)
+	if s.Point != nil {
+		return fmt.Sprintf("%.5f, %.5f", s.Point[1], s.Point[0])
+	}
+	// each key written out, so the catalogue extractor finds it
+	tr := c.St.I18n
+	var parts []string
+	if s.Points == 1 {
+		parts = append(parts, tr.T(lang, "1 point"))
+	} else if s.Points > 1 {
+		parts = append(parts, tr.T(lang, "{0} points", strconv.Itoa(s.Points)))
+	}
+	if s.Lines == 1 {
+		parts = append(parts, tr.T(lang, "1 line"))
+	} else if s.Lines > 1 {
+		parts = append(parts, tr.T(lang, "{0} lines", strconv.Itoa(s.Lines)))
+	}
+	if s.Polygons == 1 {
+		parts = append(parts, tr.T(lang, "1 polygon"))
+	} else if s.Polygons > 1 {
+		parts = append(parts, tr.T(lang, "{0} polygons", strconv.Itoa(s.Polygons)))
+	}
+	return strings.Join(parts, ", ")
 }
 
 func formatNumber(n float64, decimals int, isPT bool) string {

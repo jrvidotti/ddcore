@@ -13,6 +13,7 @@ import (
 	"github.com/jrvidotti/ddcore/internal/barcode"
 	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/db"
+	"github.com/jrvidotti/ddcore/internal/geo"
 	"github.com/jrvidotti/ddcore/internal/meta"
 	"github.com/jrvidotti/ddcore/internal/num"
 	"github.com/jrvidotti/ddcore/internal/richtext"
@@ -331,6 +332,19 @@ func castValueWith(f *meta.Field, v any, o castOpts) (any, error) {
 			}
 		}
 		return nil, cerr.Validation("Invalid time in {0}: \"{1}\"", f.Label, db.Str(v))
+	case "Geolocation":
+		// The canonical collection, as a map: a hook reads doc.area.features
+		// as an object, and — decoded from its own JSON — it compares equal
+		// to what the driver reads back from jsonb, so an unchanged save
+		// records no Version. See internal/geo.
+		m, err := geo.Normalize(v)
+		if err != nil {
+			return nil, geo.Invalid(f.Label, err)
+		}
+		if m == nil {
+			return nil, nil
+		}
+		return m, nil
 	case "JSON":
 		// A save casts twice — once before the validate hook and once after, so
 		// that whatever the hook wrote is cast too — and marshalling a value

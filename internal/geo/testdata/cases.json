@@ -1,0 +1,111 @@
+{
+  "_comment": "Shared by internal/geo/geo_test.go and desk/src/lib/geo.test.ts, so the server and the desk agree on what a stored Geolocation is. `in` is the value given (a JSON string or a decoded value); `out` is the canonical collection, or null; `error` is the Kind of the refusal.",
+  "normalize": [
+    { "name": "null is empty", "in": null, "out": null },
+    { "name": "a blank string is empty", "in": "  ", "out": null },
+    { "name": "an empty collection is empty", "in": { "type": "FeatureCollection", "features": [] }, "out": null },
+    {
+      "name": "a bare point is wrapped",
+      "in": { "type": "Point", "coordinates": [-46.6333, -23.5505] },
+      "out": { "type": "FeatureCollection", "features": [
+        { "type": "Feature", "geometry": { "type": "Point", "coordinates": [-46.6333, -23.5505] }, "properties": {} }
+      ] }
+    },
+    {
+      "name": "a JSON string is parsed",
+      "in": "{\"type\":\"Point\",\"coordinates\":[10,20]}",
+      "out": { "type": "FeatureCollection", "features": [
+        { "type": "Feature", "geometry": { "type": "Point", "coordinates": [10, 20] }, "properties": {} }
+      ] }
+    },
+    {
+      "name": "a feature loses its properties, and a circle is its point",
+      "in": { "type": "Feature", "properties": { "point_type": "circle", "radius": 300 }, "geometry": { "type": "Point", "coordinates": [1, 2] } },
+      "out": { "type": "FeatureCollection", "features": [
+        { "type": "Feature", "geometry": { "type": "Point", "coordinates": [1, 2] }, "properties": {} }
+      ] }
+    },
+    {
+      "name": "coordinates are rounded to 7 decimals and altitude is dropped",
+      "in": { "type": "Point", "coordinates": [12.123456789, -45.000000049, 812.5] },
+      "out": { "type": "FeatureCollection", "features": [
+        { "type": "Feature", "geometry": { "type": "Point", "coordinates": [12.1234568, -45] }, "properties": {} }
+      ] }
+    },
+    {
+      "name": "a negative value that rounds to zero is zero",
+      "in": { "type": "Point", "coordinates": [-0.00000001, 0] },
+      "out": { "type": "FeatureCollection", "features": [
+        { "type": "Feature", "geometry": { "type": "Point", "coordinates": [0, 0] }, "properties": {} }
+      ] }
+    },
+    {
+      "name": "an open ring is closed",
+      "in": { "type": "Polygon", "coordinates": [[[0, 0], [1, 0], [1, 1]]] },
+      "out": { "type": "FeatureCollection", "features": [
+        { "type": "Feature", "geometry": { "type": "Polygon", "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 0]]] }, "properties": {} }
+      ] }
+    },
+    {
+      "name": "a collection keeps its order, and its extra members go",
+      "in": { "type": "FeatureCollection", "name": "route", "features": [
+        { "type": "Feature", "id": 7, "geometry": { "type": "LineString", "coordinates": [[0, 0], [2, 2]] }, "properties": null },
+        { "type": "Feature", "geometry": { "type": "MultiPoint", "coordinates": [[3, 3], [4, 4]] }, "properties": {} }
+      ] },
+      "out": { "type": "FeatureCollection", "features": [
+        { "type": "Feature", "geometry": { "type": "LineString", "coordinates": [[0, 0], [2, 2]] }, "properties": {} },
+        { "type": "Feature", "geometry": { "type": "MultiPoint", "coordinates": [[3, 3], [4, 4]] }, "properties": {} }
+      ] }
+    },
+    {
+      "name": "the edges of the range are allowed",
+      "in": { "type": "LineString", "coordinates": [[-180, -90], [180, 90]] },
+      "out": { "type": "FeatureCollection", "features": [
+        { "type": "Feature", "geometry": { "type": "LineString", "coordinates": [[-180, -90], [180, 90]] }, "properties": {} }
+      ] }
+    },
+    { "name": "text that is not JSON", "in": "somewhere", "error": "format" },
+    { "name": "a JSON array", "in": [1, 2], "error": "format" },
+    { "name": "an object without a type", "in": { "coordinates": [1, 2] }, "error": "format" },
+    { "name": "features that are not a list", "in": { "type": "FeatureCollection", "features": {} }, "error": "format" },
+    { "name": "a feature without a geometry", "in": { "type": "Feature", "geometry": null, "properties": {} }, "error": "geometry" },
+    { "name": "a multi polygon", "in": { "type": "MultiPolygon", "coordinates": [] }, "error": "geometry" },
+    { "name": "a geometry collection", "in": { "type": "GeometryCollection", "geometries": [] }, "error": "geometry" },
+    { "name": "a point with one number", "in": { "type": "Point", "coordinates": [1] }, "error": "coordinates" },
+    { "name": "a point given as text", "in": { "type": "Point", "coordinates": ["1", "2"] }, "error": "coordinates" },
+    { "name": "a longitude past 180", "in": { "type": "Point", "coordinates": [180.5, 0] }, "error": "range" },
+    { "name": "a latitude past 90", "in": { "type": "Point", "coordinates": [0, -91] }, "error": "range" },
+    { "name": "a line of one point", "in": { "type": "LineString", "coordinates": [[0, 0]] }, "error": "shape" },
+    { "name": "an empty multipoint", "in": { "type": "MultiPoint", "coordinates": [] }, "error": "shape" },
+    { "name": "a ring of two points", "in": { "type": "Polygon", "coordinates": [[[0, 0], [1, 1]]] }, "error": "shape" },
+    { "name": "a polygon without rings", "in": { "type": "Polygon", "coordinates": [] }, "error": "shape" }
+  ],
+  "latlon": [
+    { "name": "semicolon", "in": "-23.5505; -46.6333", "decimal": ".", "out": [-46.6333, -23.5505] },
+    { "name": "comma with a decimal point", "in": "-23.5505, -46.6333", "decimal": ".", "out": [-46.6333, -23.5505] },
+    { "name": "semicolon with a decimal comma", "in": "-23,5505;-46,6333", "decimal": ",", "out": [-46.6333, -23.5505] },
+    { "name": "blank", "in": " ", "decimal": ".", "out": null },
+    { "name": "comma with a decimal comma is ambiguous", "in": "-23,5505, -46,6333", "decimal": ",", "error": "format" },
+    { "name": "one number", "in": "-23.5", "decimal": ".", "error": "format" },
+    { "name": "three numbers", "in": "1; 2; 3", "decimal": ".", "error": "format" },
+    { "name": "words", "in": "north; south", "decimal": ".", "error": "format" },
+    { "name": "latitude out of range", "in": "95; 10", "decimal": ".", "error": "range" }
+  ],
+  "summary": [
+    { "name": "empty", "in": null, "points": 0, "lines": 0, "polygons": 0, "point": null },
+    { "name": "one point", "in": { "type": "Point", "coordinates": [-46.6333, -23.5505] }, "points": 1, "lines": 0, "polygons": 0, "point": [-46.6333, -23.5505] },
+    { "name": "a multipoint of one", "in": { "type": "MultiPoint", "coordinates": [[1, 2]] }, "points": 1, "lines": 0, "polygons": 0, "point": [1, 2] },
+    { "name": "points counted across a multipoint", "in": { "type": "MultiPoint", "coordinates": [[1, 2], [3, 4], [5, 6]] }, "points": 3, "lines": 0, "polygons": 0, "point": null },
+    {
+      "name": "a point beside a line has no single point",
+      "in": { "type": "FeatureCollection", "features": [
+        { "type": "Feature", "geometry": { "type": "Point", "coordinates": [1, 2] }, "properties": {} },
+        { "type": "Feature", "geometry": { "type": "LineString", "coordinates": [[0, 0], [1, 1]] }, "properties": {} },
+        { "type": "Feature", "geometry": { "type": "Polygon", "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 0]]] }, "properties": {} },
+        { "type": "Feature", "geometry": { "type": "Polygon", "coordinates": [[[0, 0], [2, 0], [2, 2], [0, 0]]] }, "properties": {} }
+      ] },
+      "points": 1, "lines": 1, "polygons": 2, "point": null
+    },
+    { "name": "an invalid value counts as empty", "in": "nowhere", "points": 0, "lines": 0, "polygons": 0, "point": null }
+  ]
+}

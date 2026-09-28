@@ -145,6 +145,16 @@ const EnvExample = `# ddcore — the environment this site runs in.
 # or wherever the lookup is unwelcome; nothing else is affected.
 # DDCORE_UPDATE_CHECK=on
 
+# --- maps --------------------------------------------------------------------
+# Where a Geolocation field's map draws its tiles from: a Leaflet URL template
+# with {z}, {x} and {y}. The browser fetches them, the server never does. The
+# default is OpenStreetMap's own server, which is fine for development but whose
+# usage policy (operations.osmfoundation.org/policies/tiles) rules out heavy use:
+# point a production site at a tile provider of its own, and give its credit.
+# The attribution defaults to the OSM credit only while the URL is the default.
+# DDCORE_MAP_TILE_URL=https://tile.openstreetmap.org/{z}/{x}/{y}.png
+# DDCORE_MAP_ATTRIBUTION=© OpenStreetMap contributors
+
 # --- outgoing webhooks -------------------------------------------------------
 # Subscriptions are Webhook documents, set up in the desk. This switch is for a
 # deployment that must have no outgoing business effects — a migration

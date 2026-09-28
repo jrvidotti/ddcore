@@ -528,6 +528,11 @@ func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 // loginPage is what the sign-in screen offers before anyone signs in. The
 // notice is the operator's own sentence and goes out as written, not as a
 // catalogue key. Empty fields are left out so the desk tests for presence.
+func mapBoot(m config.MapTiles) map[string]any {
+	m = m.WithDefaults()
+	return map[string]any{"tileUrl": m.TileURL, "attribution": m.Attribution}
+}
+
 func loginPage(l config.LoginPage, auth config.AuthPolicy, sso []config.OIDCProvider) map[string]any {
 	// id and label only: the issuer and the client id are not secrets, but
 	// nothing on the sign-in screen needs them either
@@ -581,6 +586,9 @@ func (s *Server) boot(w http.ResponseWriter, r *http.Request) {
 			"currencyPrecision": s.E.CurrencyPrecision(), "rounding": s.E.Cfg.Rounding.String(),
 			"timezone": s.E.Cfg.Timezone, "dev": s.E.Cfg.Dev, "scheduler": s.E.Cfg.Scheduler, "version": engine.Version,
 			"login": loginPage(s.E.Cfg.Login, s.E.Cfg.Auth, s.E.Cfg.OIDC), "maintenance": s.maintenanceBoot(r),
+			// where a Geolocation's map draws its tiles from: the browser
+			// fetches them, the server never does
+			"map": mapBoot(s.E.Cfg.Map),
 		}
 		if c.IsWebsiteUser() {
 			// a Website User sees the portals and nothing of the desk: not its

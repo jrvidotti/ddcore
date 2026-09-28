@@ -3,8 +3,25 @@
 export type FieldType =
   | "Data" | "Email" | "Small Text" | "Text" | "Text Editor" | "Markdown Editor" | "Code"
   | "Int" | "Float" | "Currency" | "Percent" | "Rating" | "Duration" | "Color"
-  | "Check" | "Date" | "Month" | "Datetime" | "Time" | "Select" | "Autocomplete" | "Barcode" | "Signature" | "Link" | "Dynamic Link" | "Table"
+  | "Check" | "Date" | "Month" | "Datetime" | "Time" | "Select" | "Autocomplete" | "Barcode" | "Signature" | "Geolocation" | "Link" | "Dynamic Link" | "Table"
   | "Table MultiSelect" | "Attach" | "Attach Image" | "JSON" | "Password" | "Vault" | "Section Break" | "Tab Break" | "HTML" | "Report";
+
+/** A GeoJSON position: `[longitude, latitude]`, longitude first. */
+export type GeoPosition = [number, number];
+export interface GeoPoint { type: "Point"; coordinates: GeoPosition }
+export interface GeoMultiPoint { type: "MultiPoint"; coordinates: GeoPosition[] }
+export interface GeoLineString { type: "LineString"; coordinates: GeoPosition[] }
+/** Rings of positions, each closed: its last position repeats the first. */
+export interface GeoPolygon { type: "Polygon"; coordinates: GeoPosition[][] }
+export type GeoGeometry = GeoPoint | GeoMultiPoint | GeoLineString | GeoPolygon;
+/** A stored feature keeps no properties: they are always `{}`. */
+export interface GeoFeature { type: "Feature"; geometry: GeoGeometry; properties: Record<string, never> }
+/**
+ * The value of a Geolocation field, as the server stores it: a GeoJSON
+ * FeatureCollection with at least one feature (an empty one is `null`),
+ * coordinates rounded to 7 decimals, no altitude.
+ */
+export interface GeoFeatureCollection { type: "FeatureCollection"; features: GeoFeature[] }
 
 export type FieldWidth = "sm" | "md" | "lg" | "full";
 
@@ -38,7 +55,8 @@ export interface FieldDef {
    * `frm.setDfProperty(field, "options", list)` replaces them at runtime.
    * `Barcode` takes its symbology: `"Code128"` (the default), `"EAN-13"` or
    * `"QR"`. `Signature` takes none: its value is a PNG data URL drawn on the
-   * form.
+   * form. `Geolocation` takes none either: its value is a
+   * `GeoFeatureCollection`.
    * None of those are catalogue keys — they are never translated.
    */
   options?: string | string[] | number;

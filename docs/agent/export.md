@@ -36,8 +36,9 @@ Asking for one by name is a validation error, not a silent omission.
 A `Text Editor` column carries its stored HTML, unchanged, which is what makes
 an export a faithful copy; a consumer that wants plain text strips it. A
 `Markdown Editor` carries its source, a `Duration` or `Rating` its integer,
-and a `Signature` its PNG data URL. (A grid's CSV/XLSX export in the desk says
-"Signed" instead.)
+a `Signature` its PNG data URL and a `Geolocation` its GeoJSON
+FeatureCollection. (A grid's CSV/XLSX export in the desk says "Signed" for a
+signature, and a place's summary — `lat, lon` or "2 points, 1 polygon".)
 
 A field above the exporting user's permission level (`permlevel`) is left out of the
 default columns, out of child tables and, for a file held by that field, out of the

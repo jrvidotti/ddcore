@@ -173,6 +173,7 @@ export const DEFAULT_FIELD_WIDTH: Record<string, FieldWidth> = {
   "Markdown Editor": "full",
   Code: "full",
   JSON: "full",
+  Geolocation: "full",
   Table: "full",
   "Table MultiSelect": "lg",
   HTML: "full",

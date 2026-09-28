@@ -4,6 +4,7 @@ import type { FormController } from "../form.svelte";
 import type { DocTypeMeta, Field } from "../meta";
 import { formatDate, formatDatetime, formatCurrency, formatNumber, formatValue, timeAgo } from "../format.ts";
 import { htmlToText } from "../richtext.ts";
+import { formatGeo } from "../geo.ts";
 import { multiSelectLinkField, multiSelectValues } from "../controls/multiselect-state.ts";
 
 export const IGNORED_CHILD_FIELDS = new Set([
@@ -184,6 +185,12 @@ export function formatDiffValue(val: any, field?: Partial<Field>, fieldname?: st
 
   if (field?.fieldtype === "Markdown Editor" || field?.fieldtype === "Code") {
     return { value: val, formatted: String(val), isAttach: false };
+  }
+
+  // GeoJSON is unreadable in a timeline: a point's coordinates, or what the
+  // value holds on each side
+  if (field?.fieldtype === "Geolocation") {
+    return { value: val, formatted: formatGeo(val) || "—", isAttach: false };
   }
 
   if (field?.fieldtype === "Duration" || field?.fieldtype === "Rating" || field?.fieldtype === "Color") {

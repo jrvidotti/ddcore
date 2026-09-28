@@ -55,6 +55,8 @@ which overrides the file:
 | `DDCORE_SECRET_<NAME>` | A secret an app reads with `ddcore.secret("<name>")` | |
 | `DDCORE_LOGIN_NOTICE` | Plain-text notice above the sign-in form (`\n` breaks the line) | `Public demo — data resets every 6 hours.` |
 | `DDCORE_LOGIN_DEMO_USER` / `DDCORE_LOGIN_DEMO_PASSWORD` | A demo account offered on the sign-in screen, with a button that fills the form. Public to every visitor: never a real password | `visitor@example.com` / `demo-visitor` |
+| `DDCORE_MAP_TILE_URL` | Where a Geolocation field's map draws its tiles from, a Leaflet URL template with `{z}`, `{x}`, `{y}`. The default is OpenStreetMap's own server, whose [tile usage policy](https://operations.osmfoundation.org/policies/tiles/) rules out heavy use: set a provider of your own in production | `https://tiles.example.com/{z}/{x}/{y}.png?key=…` |
+| `DDCORE_MAP_ATTRIBUTION` | The credit that provider requires, shown on the map (may hold a link; sanitized). Defaults to "© OpenStreetMap contributors" only while the URL is the default | `© Example Maps` |
 
 `.env.example`, written by `ddcore init`, lists every variable. Development mode is never set
 here: it is `ddcore dev`, or `DDCORE_DEV=1` for another command on a developer's machine.

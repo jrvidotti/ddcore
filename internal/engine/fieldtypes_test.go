@@ -117,6 +117,7 @@ export default defineDoctype({name: "Note", module: "Demo", trackChanges: true, 
  {fieldname: "gtin", fieldtype: "Barcode", label: "GTIN", options: "EAN-13"},
  {fieldname: "link_qr", fieldtype: "Barcode", label: "Link QR", options: "QR"},
  {fieldname: "signed", fieldtype: "Signature", label: "Signed by"},
+ {fieldname: "place", fieldtype: "Geolocation", label: "Place"},
  {fieldname: "locked", fieldtype: "Text Editor", label: "Locked", readOnly: true}
 ], permissions: [{role: "All", read: true, write: true, create: true, delete: true}]});`
 
@@ -132,6 +133,7 @@ func TestRichTextRoundTripsThroughSave(t *testing.T) {
 			"snippet": "select 1", "spent": 5400, "score": 4, "accent": "#ABC", "locked": "fixed",
 			"tag": "  Violet ", "sku": " SKU-1 ", "gtin": "400638133393", "link_qr": "https://ddcore.dev/n/1",
 			"signed": signaturePNG(t, 40, 20),
+			"place":  map[string]any{"type": "Point", "coordinates": []any{-46.63330001, -23.5505, 760}},
 		})
 		if err != nil {
 			return err
@@ -226,7 +228,7 @@ func TestLegacyPlainTextIsNotAChange(t *testing.T) {
 func TestTextTypesShareTheirColumn(t *testing.T) {
 	for _, pair := range [][2]string{
 		{"Text", "Text Editor"}, {"Small Text", "Markdown Editor"}, {"Data", "Code"},
-		{"Data", "Color"}, {"Data", "Autocomplete"}, {"Data", "Barcode"}, {"Text", "Signature"}, {"Attach", "Attach Image"}, {"Int", "Duration"}, {"Int", "Rating"},
+		{"Data", "Color"}, {"Data", "Autocomplete"}, {"Data", "Barcode"}, {"Text", "Signature"}, {"JSON", "Geolocation"}, {"Attach", "Attach Image"}, {"Int", "Duration"}, {"Int", "Rating"},
 	} {
 		if a, b := meta.ColumnType(pair[0]), meta.ColumnType(pair[1]); a != b {
 			t.Errorf("%s (%s) and %s (%s) do not share a column", pair[0], a, pair[1], b)

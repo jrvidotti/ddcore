@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/jrvidotti/ddcore/internal/cerr"
+	"github.com/jrvidotti/ddcore/internal/geo"
 	"github.com/jrvidotti/ddcore/internal/meta"
 	"github.com/jrvidotti/ddcore/internal/tabular"
 )
@@ -674,6 +675,21 @@ func parseCell(f *meta.Field, label string, cell tabular.Cell, conv cellConv, T 
 		return text, nil
 	case "Select":
 		return selectValue(f, text, T), nil
+	case "Geolocation":
+		// GeoJSON, as an export writes it, goes to the save to validate; a
+		// point typed by hand is "lat; lon" — or "lat, lon" where the comma
+		// is not the decimal separator — the order people write and maps show
+		if strings.HasPrefix(text, "{") {
+			return text, nil
+		}
+		fc, err := geo.FromLatLon(text, conv.decimal)
+		var ge *geo.Error
+		if errors.As(err, &ge) && ge.Kind == geo.KindFormat {
+			return nil, cerr.Validation("{0}: \"{1}\" is not a location (latitude; longitude, or GeoJSON)", label, text)
+		} else if err != nil {
+			return nil, geo.Invalid(label, err)
+		}
+		return fc, nil
 	}
 	if cell.Num != nil && text == "" {
 		return strconv.FormatFloat(*cell.Num, 'f', -1, 64), nil

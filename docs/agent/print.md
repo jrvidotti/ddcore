@@ -108,6 +108,13 @@ escaped nor cleaned.
   it anything, and no other URL reaches the `<img>`. The standard layout
   prints every `Signature` field this way, and a child-table cell as
   "Signed".
+
+A `Geolocation` field has no block: the standard layout prints it as a
+key/value, a single point as `lat, lon` and anything else as what it holds
+("2 points, 1 polygon"), and a child-table cell the same way. No map is drawn
+— its tiles would have to be fetched by the PDF renderer, from a third-party
+server, while it runs. A template that wants the coordinates reads
+`doc.<field>.features` itself.
 - `b.html(markup)` / `b.raw(markup)` — markup inserted as written, unescaped.
 
 A block type the renderer does not know renders as nothing.

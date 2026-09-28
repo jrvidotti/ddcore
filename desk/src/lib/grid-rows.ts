@@ -6,6 +6,7 @@ import { isNumericFieldtype, selectLabels, selectOptions, type Field } from "./m
 import { csvSep, downloadCsv, toCsv } from "./csv";
 import { downloadXlsx, type XlsxCell } from "./xlsx";
 import { __ } from "./boot.svelte";
+import { formatGeo } from "./geo";
 
 export interface GridSortState { field: string; order: "asc" | "desc" }
 
@@ -40,6 +41,7 @@ export function sortKey(row: any, c: Col | undefined, field: string, titleOf?: T
   if (c?.fieldtype === "Check") return v ? 1 : 0;
   if (c && (c.fieldtype === "Link" || c.fieldtype === "Dynamic Link")) return titleOf?.(linkTarget(c, row), String(v)) || String(v);
   if (c?.fieldtype === "Select") return selectLabel(c, v);
+  if (c?.fieldtype === "Geolocation") return formatGeo(v) || null;
   return typeof v === "object" ? JSON.stringify(v) : String(v);
 }
 
@@ -78,6 +80,8 @@ export function exportCell(row: any, c: Col, titleOf?: TitleOf): XlsxCell {
   if (c.fieldtype === "Check") return !!v;
   // a spreadsheet cell cannot hold the image, and its data URL is no use there
   if (c.fieldtype === "Signature") return v === "" ? "" : __("Signed");
+  // what the cell shows: a point's "lat, lon", or what the value holds
+  if (c.fieldtype === "Geolocation") return formatGeo(v);
   if (isNumericFieldtype(c.fieldtype)) {
     const n = Number(v);
     return Number.isFinite(n) ? n : String(v);

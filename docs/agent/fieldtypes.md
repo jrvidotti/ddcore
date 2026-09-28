@@ -24,6 +24,7 @@
 | Autocomplete | text | free text with suggestions: `options` lists them (a list, or one per line) and never limits what is stored; outer spaces are trimmed. See below |
 | Barcode | text | `options` is the symbology: `"Code128"` (the default), `"EAN-13"` or `"QR"`; the value is validated for it, and an EAN-13 typed with 12 digits gets its check digit. The form previews the code and can scan it with the camera. See below |
 | Signature | text | a signature drawn on the form, stored as a PNG data URL (`data:image/png;base64,…`, as Frappe stores it); at most 64 KiB and 2000×1000 pixels. Never unique, indexed, a standard filter, in the list, or a title, search, sort or key field. See below |
+| Geolocation | jsonb | points, lines and polygons drawn on a map, stored as a GeoJSON FeatureCollection, `[longitude, latitude]`; coordinates rounded to 7 decimals, no altitude or properties; at most 500 shapes and 64 KiB. Never unique, indexed, a standard filter, or a title, search, sort or key field. See below |
 | Link | text | `options: "DocType"`; existence validated; index created automatically. A Link to a virtual DocType stores `"<Source>:<id>"` (see `virtual-doctypes`) |
 | Dynamic Link | text | `options: "<the field holding the DocType>"`; the DocType and the document are validated on save. When that field is a `Data`, the desk shows it as a list of the DocTypes the user can see, and changing it clears the link |
 | Table | (child table) | `options: "Child DocType"` with `isChild: true`; `gridEditMode: "dialog"` turns off inline editing; `gridSort`, `gridSortable`, `gridExport`, `gridSelect`, `gridFilters` add a default order, header sorting, CSV/XLSX export, row selection and preset filters; `gridIndex: false` hides the `#` column. See "Form grids" below |
@@ -248,6 +249,74 @@ form acknowledged.
 - **Print:** the standard layout draws it as an image, at most 25 mm tall; a
   template uses `b.signature(dataUrl, title)`. See `print`.
 
+## Geolocation
+
+Places drawn on a map: a customer's address pinned, a delivery route, the area
+a team covers.
+
+```ts
+{ fieldname: "area", fieldtype: "Geolocation", label: "Delivery area" }
+```
+
+- **Storage:** a GeoJSON FeatureCollection in a `jsonb` column. The server
+  accepts a FeatureCollection, a single Feature, or a bare `Point`,
+  `MultiPoint`, `LineString` or `Polygon` (wrapped in a collection), as an
+  object or as JSON text, and stores one canonical shape:
+
+  ```json
+  { "type": "FeatureCollection", "features": [
+    { "type": "Feature", "geometry": { "type": "Point", "coordinates": [-46.6333, -23.5505] }, "properties": {} }
+  ] }
+  ```
+
+  Positions are **`[longitude, latitude]`** — GeoJSON's order, the reverse of
+  what people write. Coordinates must be finite numbers, the longitude within
+  ±180 and the latitude within ±90, and are rounded to 7 decimals (about
+  1 cm). An altitude and every `properties` member are dropped, so a Frappe
+  circle arrives as its centre point. A polygon's ring is closed if it is not;
+  a ring needs at least 3 corners and a line 2 points. `MultiLineString`,
+  `MultiPolygon`, `GeometryCollection` and a feature without a geometry fail
+  the save naming the field, as do more than 500 features or more than 64 KiB.
+  An empty collection is stored as null.
+- **Canonical, so stable:** what the server stores is what it reads back, so a
+  document opened and saved untouched records no Version, and a read-only or
+  submitted Geolocation compares equal to itself.
+- **In a hook** the value is an object: `doc.area?.features.length`. The
+  generated types give it `GeoFeatureCollection | null`, exported by
+  `@ddcore/sdk` with `GeoFeature`, `GeoGeometry`, `GeoPoint` and the rest.
+- **The form** shows a map with Point, Line, Polygon and Delete tools. A click
+  adds a point, or a vertex of the line or polygon being drawn; Finish or a
+  double-click ends it, and every finished shape is saved to the field at
+  once. Delete removes the shape clicked. "Use my location" appears where the
+  browser can ask for it (HTTPS or `localhost`). The map fits the value when
+  it opens; read-only, the tools are hidden. There is no vertex editing: to
+  change a shape, delete it and draw it again. The default width is `full`,
+  and a grid opens the row dialog for it instead of editing the cell.
+- **Elsewhere** it reads as a summary: a single point as `lat, lon` (five
+  decimals), anything else as what it holds — "2 points, 1 polygon". Lists,
+  grid exports, history and print all say it that way; `/api/export` carries
+  the GeoJSON.
+- **Print draws no map.** The standard layout prints the summary as a
+  key/value. A map would need its tiles fetched by the PDF renderer, from a
+  third-party server, while it runs — a server-side request to wherever the
+  tile URL points, which is not something print should make.
+- **Data Import** takes GeoJSON (a cell starting with `{`) or a point typed
+  latitude first: `-23.5505; -46.6333` always, `-23.5505, -46.6333` only when
+  the file's decimal separator is `.`. See `data-import`.
+- **Too large to index.** As for a Signature, `migrate` refuses `unique`,
+  `searchIndex` and `inStandardFilter`, and refuses it as `titleField`,
+  `sortField`, in `searchFields`, `linkSubtitle`, a `uniqueKeys` entry or a
+  Table's `gridSort.field`. `inListView` is allowed: the column shows the
+  summary.
+- **Tiles** come from `DDCORE_MAP_TILE_URL` (a Leaflet URL template with
+  `{z}`, `{x}`, `{y}`) with the credit in `DDCORE_MAP_ATTRIBUTION`, both in
+  `.env`. The browser fetches them; the server never does. The default is
+  OpenStreetMap's own tile server with "© OpenStreetMap contributors", which
+  is fine for development and a small internal site but **not for
+  production**: its [tile usage policy](https://operations.osmfoundation.org/policies/tiles/)
+  rules out heavy use. Point a production site at a provider of its own
+  (a paid service, or tiles you host) and give its attribution.
+
 ## Table MultiSelect
 
 A document that points at *several* documents of one DocType — tags, categories,
@@ -357,7 +426,7 @@ permlevel, renamedFrom, convert`
 - `permlevel`: 0–9, default 0. A field above 0 is read and written only by roles granted that level by a permission row with the same `permlevel`; the server omits it from every response and refuses a change from anyone else. `hidden` and `readOnly` are screen hints and protect nothing. See `field-permissions`.
 
 - `label` and `description` are **catalogue keys**: write them in English. See `i18n`.
-- `width`: `"sm"` | `"md"` | `"lg"` | `"full"`. How much of a form line the control takes: `sm`/`md` a quarter, `lg` a half, `full` the whole line — a form has no columns, its shape comes from the widths. Defaults to `sm` for `Date`, `Month`, `Time`, `Int`, `Percent`, `Rating`, `Color`; `md` for `Datetime`, `Float`, `Currency`, `Duration`; `full` for `Text`, `Small Text`, `Text Editor`, `Markdown Editor`, `Code`, `JSON`, `Table`, `HTML`, `Report`; `lg` for every other type, `Table MultiSelect` included. Fields pack a line greedily, aligned so a half-line field never starts in the middle of a quarter. See `form-api`.
+- `width`: `"sm"` | `"md"` | `"lg"` | `"full"`. How much of a form line the control takes: `sm`/`md` a quarter, `lg` a half, `full` the whole line — a form has no columns, its shape comes from the widths. Defaults to `sm` for `Date`, `Month`, `Time`, `Int`, `Percent`, `Rating`, `Color`; `md` for `Datetime`, `Float`, `Currency`, `Duration`; `full` for `Text`, `Small Text`, `Text Editor`, `Markdown Editor`, `Code`, `JSON`, `Geolocation`, `Table`, `HTML`, `Report`; `lg` for every other type, `Table MultiSelect` included. Fields pack a line greedily, aligned so a half-line field never starts in the middle of a quarter. See `form-api`.
 - `default`: a literal value, or `"Today"` for Date/Datetime, `"__user"` for the current user.
 - `fetchFrom: "project.assignee"`: copied from the linked document on save. When `readOnly` it always overwrites; otherwise it fills only when empty.
 - `dependsOn`, `readOnlyDependsOn`, `mandatoryDependsOn`: a JS expression over `doc` (`"doc.type == 'PJ'"`) or a field name (truthy). Evaluated in the desk **and** on the server.
@@ -365,7 +434,7 @@ permlevel, renamedFrom, convert`
 - `renamedFrom: "old_name"` (or a list, oldest first): the fieldname this field used to have, so `migrate` renames the column instead of adding an empty one beside it. See `migrations`.
 - `options` beyond Link, Table, Table MultiSelect and Select: `Rating` takes the number of stars,
   `Code` the language, `Duration` its display flags, `Autocomplete` its
-  suggestions and `Barcode` its symbology (`Signature` takes none). None of them are catalogue keys — they are never translated,
+  suggestions and `Barcode` its symbology (`Signature` and `Geolocation` take none). None of them are catalogue keys — they are never translated,
   unlike a Select's options.
 - Changing a field from `Text`, `Small Text` or `Data` to `Text Editor`,
   `Markdown Editor` or `Code`, or from `Int` to `Duration` or `Rating`, keeps

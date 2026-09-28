@@ -82,3 +82,16 @@ describe("Signature in history", () => {
     expect(JSON.stringify(v.changes.map((c) => [c.formattedOld, c.formattedNew]))).not.toContain("sha256");
   });
 });
+
+describe("Geolocation in history", () => {
+  const area = { fieldname: "area", label: "Area", fieldtype: "Geolocation" } as any;
+  const point = { type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "Point", coordinates: [-46.6333, -23.5505] }, properties: {} }] };
+  const line = { type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "LineString", coordinates: [[0, 0], [1, 1]] }, properties: {} }] };
+
+  it("says each side in words, never as GeoJSON", () => {
+    expect(formatDiffValue(point, area).formatted).toBe("-23.55050, -46.63330");
+    expect(formatDiffValue(line, area).formatted).toBe("1 line");
+    expect(formatDiffValue(null, area).formatted).toBe("—");
+    expect(formatDiffValue(point, area).formatted).not.toContain("FeatureCollection");
+  });
+});

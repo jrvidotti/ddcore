@@ -8,11 +8,11 @@ export function gridEditMode(field: Pick<Field, "gridEditMode">): GridEditMode {
 
 /**
  * Whether a column of this fieldtype is edited in its grid cell. A Signature
- * needs a drawing pad a cell has no room for: its cell shows the formatted
- * value, and a click opens the row dialog.
+ * needs a drawing pad, a Geolocation a map, and a cell has room for neither:
+ * the cell shows the formatted value, and a click opens the row dialog.
  */
 export function inlineEditable(fieldtype: string | undefined): boolean {
-  return fieldtype !== "Signature";
+  return fieldtype !== "Signature" && fieldtype !== "Geolocation";
 }
 
 export function createChildDraft(fieldname: string, childDoctype: string, parenttype: string, rowCount: number) {

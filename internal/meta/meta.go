@@ -37,7 +37,7 @@ func ColumnType(ft string) string {
 		return "timestamptz"
 	case "Time":
 		return "time"
-	case "JSON":
+	case "JSON", "Geolocation":
 		return "jsonb"
 	}
 	return ""
@@ -45,15 +45,15 @@ func ColumnType(ft string) string {
 
 // BulkyFieldtype reports whether a fieldtype's value is too large to index or
 // to read for many rows at once: a Signature holds a PNG data URL of up to
-// 64 KiB. Postgres refuses a btree entry past about 2.7 KB, so such a field
-// cannot be unique, indexed or part of a key, and every place that reads it
-// for a whole list — the title, the search fields, a sort — would pull every
-// image with it.
+// 64 KiB, a Geolocation up to 64 KiB of GeoJSON. Postgres refuses a btree
+// entry past about 2.7 KB, so such a field cannot be unique, indexed or part
+// of a key, and every place that reads it for a whole list — the title, the
+// search fields, a sort — would pull every value with it.
 func BulkyFieldtype(ft string) bool {
-	return ft == "Signature"
+	return ft == "Signature" || ft == "Geolocation"
 }
 
-var ValidFieldTypes = []string{"Data", "Email", "Small Text", "Text", "Text Editor", "Markdown Editor", "Code", "Int", "Float", "Currency", "Percent", "Check", "Rating", "Duration", "Color", "Date", "Month", "Datetime", "Time", "Select", "Autocomplete", "Barcode", "Signature", "Link", "Dynamic Link", "Table", "Table MultiSelect", "Attach", "Attach Image", "JSON", "Password", "Vault", "Section Break", "Tab Break", "HTML", "Report"}
+var ValidFieldTypes = []string{"Data", "Email", "Small Text", "Text", "Text Editor", "Markdown Editor", "Code", "Int", "Float", "Currency", "Percent", "Check", "Rating", "Duration", "Color", "Date", "Month", "Datetime", "Time", "Select", "Autocomplete", "Barcode", "Signature", "Geolocation", "Link", "Dynamic Link", "Table", "Table MultiSelect", "Attach", "Attach Image", "JSON", "Password", "Vault", "Section Break", "Tab Break", "HTML", "Report"}
 
 type Field struct {
 	Fieldname          string `json:"fieldname,omitempty"`

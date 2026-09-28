@@ -323,7 +323,7 @@ func (c *Ctx) sameFieldValue(f *meta.Field, a, b any) bool {
 	if f.Fieldtype == "Datetime" && nv != nil && ov != nil {
 		return sameTime(nv, ov, c.E.Location())
 	}
-	if f.Fieldtype == "JSON" {
+	if f.Fieldtype == "JSON" || f.Fieldtype == "Geolocation" {
 		return string(mustJSON(nv)) == string(mustJSON(ov))
 	}
 	return db.Str(nv) == db.Str(ov)

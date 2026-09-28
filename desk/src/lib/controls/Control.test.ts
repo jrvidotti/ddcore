@@ -114,4 +114,18 @@ describe("Control", () => {
     expect(empty).toContain("<canvas");
     expect(empty).not.toContain("<input");
   });
+
+  it("renders a Geolocation as a map with its tools and summary, and no tools when read-only", () => {
+    const field: Field = { fieldname: "place", fieldtype: "Geolocation", label: "Place" };
+    const value = { type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "Point", coordinates: [-46.6333, -23.5505] }, properties: {} }] };
+    const body = render(Control, { props: { field, value, onchange: vi.fn() } }).body;
+    expect(body).toContain('data-fieldtype="Geolocation"');
+    expect(body).toContain('class="geo-map');
+    for (const mode of ["point", "line", "polygon", "delete"]) expect(body).toContain(`data-mode="${mode}"`);
+    expect(body).toContain("-23.55050, -46.63330");
+    expect(body).not.toContain("<input");
+    const ro = render(Control, { props: { field: { ...field, readOnly: true }, value, onchange: vi.fn() } }).body;
+    expect(ro).toContain('class="geo-map');
+    expect(ro).not.toContain("data-mode=");
+  });
 });

@@ -171,6 +171,9 @@ func StandardTemplate(d *meta.DocType, doc map[string]any, opts StandardFormatOp
 			blocks = append(blocks, b)
 			continue
 		}
+		// A Geolocation is a key/value like any other: its summary, a point's
+		// coordinates or what the value holds. No map — drawing one would have
+		// the PDF renderer fetch tiles from a third-party server while it runs.
 		valStr := fmtVal(f, val)
 		if valStr != "" {
 			currentPairs = append(currentPairs, []string{tr(label), valStr})

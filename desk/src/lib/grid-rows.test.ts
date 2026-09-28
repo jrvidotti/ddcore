@@ -73,6 +73,14 @@ describe("export", () => {
     expect(exportCell({ signed: "data:image/png;base64,AAAA" }, sig)).toBe("Signed");
     expect(exportCell({ signed: null }, sig)).toBe("");
   });
+  it("exports and sorts a Geolocation as its summary", () => {
+    const geo = { fieldname: "place", fieldtype: "Geolocation", label: "Place" } as any;
+    const at = (lon: number, lat: number) => ({ type: "Point", coordinates: [lon, lat] });
+    expect(exportCell({ place: at(-46.6333, -23.5505) }, geo)).toBe("-23.55050, -46.63330");
+    expect(exportCell({ place: null }, geo)).toBe("");
+    const rows = [{ place: at(0, 30) }, { place: null }, { place: at(0, 10) }];
+    expect(sortRows(rows, { field: "place", order: "asc" }, [geo]).map((r) => r.place?.coordinates[1] ?? null)).toEqual([10, 30, null]);
+  });
   it("builds a header from the labels", () => {
     const t = exportTable([{ name: "a", qty: 1 }], cols.slice(0, 2));
     expect(t).toEqual({ header: ["Name", "Qty"], cells: [["a", 1]] });

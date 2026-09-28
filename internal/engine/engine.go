@@ -96,6 +96,9 @@ type Config struct {
 	OIDC []config.OIDCProvider
 	// Portal bounds what Website Users write through the portals (OPS-10).
 	Portal config.PortalPolicy
+	// Map is where a Geolocation field's map draws its tiles from, served to
+	// the desk by /api/boot. Empty is OpenStreetMap (MapTiles.WithDefaults).
+	Map config.MapTiles
 	// EnforceMaintenance makes this process honour maintenance mode: refuse
 	// writes, stop claiming jobs, skip scheduled runs. A server sets it; the
 	// CLI does not, and that is the bypass an operator works through.

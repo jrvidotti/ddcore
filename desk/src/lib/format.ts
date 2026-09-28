@@ -7,6 +7,7 @@ import { round } from "./round";
 import { htmlToLine } from "./richtext";
 import { formatDuration } from "./controls/duration-format";
 import { ratingMax } from "./controls/rating-state";
+import { formatGeo } from "./geo";
 
 export { formatMonth };
 
@@ -81,6 +82,8 @@ export function formatValue(v: any, f?: Partial<Field>): string {
     case "Code": return String(v).replace(/\s+/g, " ").trim();
     // the value is an image: a cell, a list or an export says it is there
     case "Signature": return v === "" ? "" : __("Signed");
+    // a map has no room in a cell: a point's coordinates, or what it holds
+    case "Geolocation": return formatGeo(v);
     case "Check": return v ? "✓" : "";
     case "Date": return (f as any)?.options === "month" || (f as any)?.format === "mm/yyyy" ? formatMonth(v) : formatDate(v);
     case "Month": return formatMonth(v);

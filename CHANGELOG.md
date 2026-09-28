@@ -40,6 +40,18 @@ older series, and `whats_new` reads across every one of them.
   large, it is refused as `unique`, `searchIndex`, `inStandardFilter`, `inListView` (outside a
   child DocType), `titleField`, `sortField`, `searchFields`, `linkSubtitle`, `uniqueKeys` or
   `gridSort`.
+- **`Geolocation` fieldtype**: points, lines and polygons drawn on a map, stored as a GeoJSON
+  FeatureCollection in a `jsonb` column. The server accepts a FeatureCollection, a Feature or a
+  bare Point, MultiPoint, LineString or Polygon, and stores one canonical shape: positions
+  `[lon, lat]` rounded to 7 decimals, no altitude, no properties, rings closed, at most 500 shapes
+  and 64 KiB — so a document saved untouched records no Version. Hooks read it as an object
+  (`doc.area.features`), typed `GeoFeatureCollection` (new `Geo*` types in `@ddcore/sdk`). The form
+  loads Leaflet on demand, with Point, Line, Polygon and Delete tools and "Use my location"; lists,
+  exports, history and print show a summary (`lat, lon`, or "2 points, 1 polygon") — print draws no
+  map. Data Import takes GeoJSON or `lat; lon`. Tiles come from the new `DDCORE_MAP_TILE_URL` and
+  `DDCORE_MAP_ATTRIBUTION` env vars, served to the desk in `/api/boot` as `site.map`; the default,
+  OpenStreetMap's own server, is not meant for production traffic. Refused in the same places as a
+  Signature, except `inListView`.
 
 ### Changed
 

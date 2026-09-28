@@ -192,6 +192,7 @@ describe("Grid", () => {
 
   it("a Signature column is never edited in its cell: it says Signed and opens the row dialog", () => {
     expect(inlineEditable("Signature")).toBe(false);
+    expect(inlineEditable("Geolocation")).toBe(false);
     expect(inlineEditable("Data")).toBe(true);
     expect(inlineEditable(undefined)).toBe(true);
     childMeta.fields.push({ fieldname: "signed", fieldtype: "Signature", label: "Signed", inListView: true });

@@ -22,7 +22,8 @@ DDCore uses [Go](https://github.com/golang/go), [goja](https://github.com/dop251
 [goldmark](https://github.com/yuin/goldmark), [barcode](https://github.com/boombuler/barcode),
 [Svelte](https://github.com/sveltejs/svelte),
 [SvelteKit](https://github.com/sveltejs/kit), [Tiptap](https://github.com/ueberdosis/tiptap),
-[DOMPurify](https://github.com/cure53/DOMPurify), and their dependencies.
+[DOMPurify](https://github.com/cure53/DOMPurify), [Leaflet](https://github.com/Leaflet/Leaflet)
+(BSD-2-Clause), and their dependencies.
 
 See [go.mod](go.mod) and [desk/package-lock.json](desk/package-lock.json) for the
 complete declared dependency lists and resolved versions. Consult each component's
