@@ -611,6 +611,28 @@ func (c *Ctx) GetValue(doctype, name, field string) (any, error) {
 	return m[field], nil
 }
 
+// GetSingleValue is db.getSingleValue: one field of a Single, read like
+// GetValue from its "singleton" row. Before the first save there is no row,
+// so it answers the field's default, as getDoc would.
+func (c *Ctx) GetSingleValue(doctype, field string) (any, error) {
+	d, err := c.St.DocType(doctype)
+	if err != nil {
+		return nil, err
+	}
+	if !d.IsSingle {
+		return nil, cerr.Validation("{0} is not a Single DocType", d.Name)
+	}
+	m, err := c.GetValues(doctype, "singleton", []string{field})
+	if err != nil || m != nil {
+		return m[field], err
+	}
+	doc, err := c.NewDoc(doctype, nil)
+	if err != nil {
+		return nil, err
+	}
+	return doc[field], nil
+}
+
 // GetValues reads several fields; name may be a name or filters.
 func (c *Ctx) GetValues(doctype string, name any, fields []string) (map[string]any, error) {
 	var filters any

@@ -48,6 +48,7 @@ reloads the document with the new state and docstatus; see `workflows`), `doc.fl
 ## `ddcore.*` (global on the server)
 
 - `ddcore.db.getValue(doctype, id | filters, field | [fields])` — a value or an object (or `null`)
+- `ddcore.db.getSingleValue(doctype, field)` — one field of a Single (see "Single DocTypes"); before the first save, the field's default
 - `ddcore.db.getList(doctype, { filters, fields, orderBy, limit, start, groupBy })` — respects permissions; `getAll` skips role permissions but still applies user access scopes (see `scopes`)
 - `ddcore.db.setValue(doctype, id, field, value)` / `setValue(doctype, id, { ... })` — no validate; updates `modified`; skips role permissions but applies user access scopes, the closed-DocType, workflow and Audit Event refusals (see `scopes`)
 - `ddcore.db.count(doctype, filters)`, `ddcore.db.exists(doctype, id | filters)` → the id or `null`; applies user access scopes (see `scopes`)
@@ -134,6 +135,10 @@ settings.planning_enabled = false;
 settings.save();
 settings.reload();
 ```
+
+To read one field without loading the document (and its child tables), use
+`ddcore.db.getSingleValue("Project Settings", "planning_enabled")`; like `db.getValue`, it
+skips role permissions.
 
 Omitting the id is supported only for Singles. Before the first save, `getDoc`
 returns an unsaved document with the usual defaults and empty child tables; reading

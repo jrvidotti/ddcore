@@ -216,7 +216,7 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 	case "db.lock":
 		return nil, c.Lock(a.Key)
 	case "db.getSingleValue":
-		return c.GetValue(a.Doctype, a.Doctype, a.Field)
+		return c.GetSingleValue(a.Doctype, a.Field)
 	case "hasPermission":
 		var doc Doc
 		if len(a.Fields) == 0 {

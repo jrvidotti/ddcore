@@ -14,6 +14,14 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- **`ddcore.db.getSingleValue(doctype, field)` returns the Single's value again.** Since 0.17
+  renamed a Single's id to `"singleton"` it looked up a row named after the DocType and answered
+  `null` for every field ([#22](https://github.com/jrvidotti/ddcore/issues/22)). It now reads the
+  `singleton` row, answers the field's default before the first save (as `getDoc` does), and
+  refuses a DocType that is not a Single. It is now described in the controller API.
+
 ## 0.21.2 — 2026-09-28
 
 ### Changed

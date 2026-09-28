@@ -247,3 +247,20 @@ func TestSingleDeclaredRenames(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestSingleGetSingleValue(t *testing.T) {
+	e := setupWith(t, map[string]string{"doctypes/settings/settings.doctype.ts": `import { defineDoctype } from "@ddcore/sdk"; export default defineDoctype({name: "Settings", isSingle: true, fields: [{fieldname:"value", fieldtype:"Data", label:"Value", default:"initial"}, {fieldname:"note", fieldtype:"Data", label:"Note"}]});`})
+	ctx := context.Background()
+	out, _, err := e.Eval(ctx, `const before = [ddcore.db.getSingleValue("Settings", "value"), ddcore.db.getSingleValue("Settings", "note")];
+const doc = ddcore.getDoc("Settings"); doc.value = "saved"; doc.save();
+[before, ddcore.db.getSingleValue("Settings", "value"), ddcore.db.getSingleValue("Settings", "note")];`, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(out) != `[["initial",null],"saved",null]` {
+		t.Fatalf("getSingleValue: %s", out)
+	}
+	if _, _, err := e.Eval(ctx, `ddcore.db.getSingleValue("User", "email")`, false); err == nil {
+		t.Fatal("getSingleValue accepted a non-Single DocType")
+	}
+}
