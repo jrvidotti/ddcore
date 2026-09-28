@@ -3,7 +3,9 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/jrvidotti/ddcore/internal/config"
 	"github.com/jrvidotti/ddcore/internal/engine"
@@ -14,7 +16,8 @@ const deployUsage = `usage: ddcore deploy <target>
 
   docker    Dockerfile (on the official image, pinned to this binary's release)
             and .dockerignore
-  railway   the same, plus railway.json, and the variables to set on the service
+  railway   the same, plus .railway/railway.ts — the Railway project as code (service,
+            PostgreSQL, health check), applied with railway config plan / apply
 
 An existing file is left alone. Run it next to ddcore.json.
 `
@@ -37,7 +40,7 @@ func cmdDeploy(args []string) error {
 	files, err := scaffold.Docker(dir, tag)
 	if err == nil && args[0] == "railway" {
 		var more []string
-		more, err = scaffold.Railway(dir)
+		more, err = scaffold.Railway(dir, railwaySite(dir))
 		files = append(files, more...)
 	}
 	for _, f := range files {
@@ -53,7 +56,45 @@ func cmdDeploy(args []string) error {
 		fmt.Printf("\nthis binary is not a release (%s): the Dockerfile uses %s:latest — pin a version before production\n", engine.Version, scaffold.Image)
 	}
 	if args[0] == "railway" {
-		fmt.Print("\n" + scaffold.RailwayVariables)
+		if _, err := os.Stat(filepath.Join(dir, "railway.json")); err == nil {
+			fmt.Println("\nrailway.json is Railway's legacy format, read only until 2026-12-01: run")
+			fmt.Println("`railway config migrate --apply --delete-files` to retire it, then merge what it")
+			fmt.Println("printed into .railway/railway.ts")
+		}
+		fmt.Print("\n" + scaffold.RailwayNext)
 	}
 	return nil
+}
+
+// railwaySite names the Railway project after the site's directory and finds
+// the GitHub repository and branch a push to which should deploy, from the
+// checkout's origin. Outside a GitHub checkout the source is left for the
+// operator to write.
+func railwaySite(dir string) scaffold.RailwaySite {
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		abs = dir
+	}
+	site := scaffold.RailwaySite{Name: filepath.Base(abs)}
+	if out, err := exec.Command("git", "-C", dir, "remote", "get-url", "origin").Output(); err == nil {
+		site.Repo = githubRepo(strings.TrimSpace(string(out)))
+	}
+	if out, err := exec.Command("git", "-C", dir, "symbolic-ref", "--short", "HEAD").Output(); err == nil {
+		site.Branch = strings.TrimSpace(string(out))
+	}
+	return site
+}
+
+// githubRepo reads owner/repo from a GitHub remote, SSH or HTTPS; anything
+// else is not a source Railway's github() takes, and gives "".
+func githubRepo(url string) string {
+	for _, p := range []string{"git@github.com:", "ssh://git@github.com/", "https://github.com/", "http://github.com/"} {
+		if strings.HasPrefix(url, p) {
+			repo := strings.TrimSuffix(strings.TrimSuffix(strings.TrimPrefix(url, p), "/"), ".git")
+			if strings.Count(repo, "/") == 1 {
+				return repo
+			}
+		}
+	}
+	return ""
 }

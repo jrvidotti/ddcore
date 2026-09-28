@@ -445,7 +445,7 @@ func TestInitWritesTheSiteRangeAndNewAppDefersToIt(t *testing.T) {
 }
 
 // A new site is deployable as created: init writes the Dockerfile, no longer
-// writes "dev", and `deploy railway` adds railway.json without touching it.
+// writes "dev", and `deploy railway` adds .railway/railway.ts without touching it.
 func TestInitWritesTheImageAndDeployRailwayAddsItsConfig(t *testing.T) {
 	if _, err := initIn(t, "x"); err != nil {
 		t.Fatal(err)
@@ -465,11 +465,26 @@ func TestInitWritesTheImageAndDeployRailwayAddsItsConfig(t *testing.T) {
 	if err := cmdDeploy([]string{"railway"}); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(readFile(t, "railway.json"), "/api/ready") || readFile(t, "Dockerfile") != "mine" {
-		t.Fatal("deploy railway should add railway.json and leave the Dockerfile alone")
+	if !strings.Contains(readFile(t, filepath.Join(".railway", "railway.ts")), "/api/ready") || readFile(t, "Dockerfile") != "mine" {
+		t.Fatal("deploy railway should add .railway/railway.ts and leave the Dockerfile alone")
 	}
 	if err := cmdDeploy([]string{"heroku"}); err == nil {
 		t.Fatal("an unknown target should be refused")
+	}
+}
+
+func TestGithubRepoFromRemote(t *testing.T) {
+	for url, want := range map[string]string{
+		"git@github.com:acme/gestao.git":       "acme/gestao",
+		"https://github.com/acme/gestao.git":   "acme/gestao",
+		"https://github.com/acme/gestao":       "acme/gestao",
+		"ssh://git@github.com/acme/gestao.git": "acme/gestao",
+		"https://gitlab.com/acme/gestao.git":   "",
+		"https://github.com/acme":              "",
+	} {
+		if got := githubRepo(url); got != want {
+			t.Errorf("githubRepo(%q) = %q, want %q", url, got, want)
+		}
 	}
 }
 

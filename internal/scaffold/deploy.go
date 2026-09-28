@@ -22,10 +22,25 @@ func Docker(dir, tag string) ([]string, error) {
 	})
 }
 
-// Railway writes railway.json: build the Dockerfile, gate a deploy on
-// /api/ready, restart on failure. The Dockerfile itself comes from Docker.
-func Railway(dir string) ([]string, error) {
-	return writeNew(dir, []struct{ name, content string }{{"railway.json", railwayJSON}})
+// RailwaySite is what `.railway/railway.ts` needs to know about the site.
+type RailwaySite struct {
+	Name   string // the Railway project and service name
+	Repo   string // owner/repo on GitHub, from the checkout's origin; empty when unknown
+	Branch string // the branch a push to which deploys
+}
+
+// Railway writes the site's Railway project as Infrastructure as Code —
+// `.railway/railway.ts`, applied with `railway config plan` / `apply` — and
+// the package.json that brings its SDK. The legacy railway.json is not
+// written: Railway stops reading it on 2026-12-01.
+func Railway(dir string, site RailwaySite) ([]string, error) {
+	if err := os.MkdirAll(filepath.Join(dir, ".railway"), 0o755); err != nil {
+		return nil, err
+	}
+	return writeNew(dir, []struct{ name, content string }{
+		{filepath.Join(".railway", "railway.ts"), railwayTS(site)},
+		{filepath.Join(".railway", "package.json"), railwayPackageJSON},
+	})
 }
 
 func writeNew(dir string, files []struct{ name, content string }) ([]string, error) {
@@ -69,6 +84,8 @@ const dockerignore = `.git
 .env
 .claude
 .worktrees
+# the Railway project as code, applied from a checkout, not built into the image
+.railway
 # uploaded files and local backups: the running site's, not the image's
 data/
 node_modules/
@@ -78,31 +95,70 @@ node_modules/
 docker-compose.yml
 `
 
-const railwayJSON = `{
-  "$schema": "https://railway.com/railway.schema.json",
-  "build": {
-    "builder": "DOCKERFILE",
-    "dockerfilePath": "Dockerfile"
-  },
-  "deploy": {
-    "healthcheckPath": "/api/ready",
-    "healthcheckTimeout": 300,
-    "restartPolicyType": "ON_FAILURE",
-    "restartPolicyMaxRetries": 5
+func railwayTS(site RailwaySite) string {
+	source := "    // source: github(\"owner/repo\", { branch: \"main\" }), // the repository a push to which deploys\n"
+	imports := "defineRailway, postgres, preserve, project, service"
+	if site.Repo != "" {
+		branch := site.Branch
+		if branch == "" {
+			branch = "main"
+		}
+		source = fmt.Sprintf("    // every push to %s deploys\n    source: github(%q, { branch: %q }),\n", branch, site.Repo, branch)
+		imports = "defineRailway, github, postgres, preserve, project, service"
+	}
+	return fmt.Sprintf(`import { %s } from "railway/iac";
+
+// The Railway project this ddcore site deploys to: the site, built from its
+// Dockerfile, and its PostgreSQL. `+"`railway config plan`"+` previews a change and
+// `+"`railway config apply`"+` makes it, once the SDK is installed
+// (`+"`npm install --prefix .railway`"+`). Secrets never live here: preserve() keeps
+// the value set in Railway, where each one is entered.
+export default defineRailway(() => {
+  const db = postgres("Postgres");
+
+  const site = service(%q, {
+%s    // the image migrates before it serves, so readiness gates a deploy on a
+    // schema that applied; a failed one leaves the previous deployment serving
+    healthcheck: "/api/ready",
+    healthcheckTimeout: 300,
+    env: {
+      DATABASE_URL: db.env.DATABASE_URL,
+      DDCORE_TRUST_PROXY: "true", // Railway's proxy sets X-Forwarded-For
+      DDCORE_URL: preserve(), // https://<the site's domain>: recovery and invitation links
+      DDCORE_ADMIN_PASSWORD: preserve(), // Admin's first password, never shown in the log
+      DDCORE_SECRET_KEY: preserve(), // openssl rand -hex 32: Vault fields, webhook signing
+      // and each DDCORE_SECRET_* the apps read, as preserve()
+    },
+    // Uploads: a volume at /data, which keeps the site at one replica —
+    //   volumeMounts: { "/data": volume(%q) },
+    // or a bucket (DDCORE_STORAGE: "s3" and the DDCORE_S3_* variables).
+    // domains: ["erp.example.com"],
+  });
+
+  return project(%q, {
+    resources: [db, site],
+  });
+});
+`, imports, site.Name, source, site.Name+"-data", site.Name)
+}
+
+// railwayPackageJSON brings the SDK railway.ts imports. It lives in .railway,
+// not at the site's root, so the site itself stays free of Node.
+const railwayPackageJSON = `{
+  "name": "railway-config",
+  "private": true,
+  "devDependencies": {
+    "railway": "^3.11.0"
   }
 }
 `
 
-// RailwayVariables is what `ddcore deploy railway` tells the operator to set
-// on the service: the platform cannot guess any of them, and the site will
-// not work — or not safely — without them.
-const RailwayVariables = `Set on the Railway service (Variables):
-  DATABASE_URL=${{Postgres.DATABASE_URL}}   after adding a PostgreSQL service
-  DDCORE_URL=https://<the service's domain>  recovery and invitation links
-  DDCORE_TRUST_PROXY=true                    Railway's proxy sets X-Forwarded-For
-  DDCORE_ADMIN_PASSWORD=<a strong password>  Admin's first password (never shown in the log)
-  DDCORE_SECRET_KEY=<openssl rand -hex 32>   encrypted Vault fields and webhook signing
-  DDCORE_SECRET_*                            each secret the apps read (see .env.example)
-Uploads: attach a volume at /data, or set DDCORE_STORAGE=s3 and DDCORE_S3_*.
-A volume ties the service to one replica; run several only with S3 storage.
+// RailwayNext is what `ddcore deploy railway` tells the operator to do next.
+const RailwayNext = `Next:
+  1. npm install --prefix .railway            the SDK railway.ts imports
+  2. railway link                              the project (railway init creates one)
+  3. set the secrets in Railway's Variables:   DDCORE_URL, DDCORE_ADMIN_PASSWORD,
+     DDCORE_SECRET_KEY and each DDCORE_SECRET_* the apps read (see .env.example)
+  4. railway config plan, then railway config apply
+Uploads: a volume at /data (one replica), or DDCORE_STORAGE=s3 and DDCORE_S3_* (any number).
 `

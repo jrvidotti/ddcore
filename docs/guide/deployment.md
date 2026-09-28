@@ -134,20 +134,49 @@ volumes:
 
 ## 4. Option B: Railway
 
-`ddcore deploy railway` writes the `Dockerfile` and `.dockerignore` (when missing) and a
-`railway.json` that builds the Dockerfile, gates each deploy on `/api/ready` and restarts on
-failure, then lists the variables to set. On Railway:
+The Railway project is described as code, in `.railway/railway.ts` — Railway's
+Infrastructure as Code, applied with `railway config plan` and `railway config apply`.
+(`railway.json`, the older Config as Code, is read only until 2026-12-01; `ddcore` no longer
+writes it.) `ddcore deploy railway` writes the `Dockerfile` and `.dockerignore` when missing,
+and `.railway/railway.ts` with its `package.json`:
 
-1. Create a project from the site's repository, and add a **PostgreSQL** service.
-2. On the site's service, set the variables:
-   - `DATABASE_URL=${{Postgres.DATABASE_URL}}`
-   - `DDCORE_URL=https://<the service's domain>` and `DDCORE_TRUST_PROXY=true`
-   - `DDCORE_ADMIN_PASSWORD` (Admin's first password) and `DDCORE_SECRET_KEY`
-   - each `DDCORE_SECRET_*` the apps read, and SMTP (`DDCORE_MAIL_*`, `DDCORE_SMTP_*`) if the
-     site sends mail
-3. Attach a **volume** at `/data`, or set `DDCORE_STORAGE=s3` and `DDCORE_S3_*`.
-4. Generate a domain. Every push deploys; a failed migration fails the health check and the
-   previous deployment keeps serving.
+```ts
+import { defineRailway, github, postgres, preserve, project, service } from "railway/iac";
+
+export default defineRailway(() => {
+  const db = postgres("Postgres");
+  const site = service("erp", {
+    source: github("acme/erp", { branch: "main" }), // from the checkout's origin
+    healthcheck: "/api/ready",
+    healthcheckTimeout: 300,
+    env: {
+      DATABASE_URL: db.env.DATABASE_URL,
+      DDCORE_TRUST_PROXY: "true",
+      DDCORE_URL: preserve(),
+      DDCORE_ADMIN_PASSWORD: preserve(),
+      DDCORE_SECRET_KEY: preserve(),
+    },
+  });
+  return project("erp", { resources: [db, site] });
+});
+```
+
+Secrets never enter the file: `preserve()` keeps the value set in Railway. Then:
+
+1. `npm install --prefix .railway` — the SDK the file imports.
+2. `railway link` to the project (`railway init` creates one).
+3. In Railway's Variables, set `DDCORE_URL`, `DDCORE_ADMIN_PASSWORD`, `DDCORE_SECRET_KEY`, each
+   `DDCORE_SECRET_*` the apps read (declare them in the file as `preserve()` too) and SMTP if the
+   site sends mail.
+4. Uploads: a volume at `/data` (`volumeMounts` in the file), which keeps the site at one
+   replica, or `DDCORE_STORAGE=s3` with `DDCORE_S3_*`, which lets it run several.
+5. `railway config plan`, review it, `railway config apply`. Every push to the branch deploys;
+   a failed migration fails the health check and the previous deployment keeps serving.
+
+Declare every property the service already has — its `source` above all: a plan against a
+file without one would disconnect the repository. `railway config pull --json` shows the
+project as Railway has it. A site still on `railway.json` runs
+`railway config migrate --apply --delete-files` first, then merges the output into the file.
 
 Railway's log viewer reads the JSON log the server writes when stdout is not a terminal. For
 backups, add a cron service on the same image running `ddcore backup --to s3 --keep 14`.

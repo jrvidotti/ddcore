@@ -146,20 +146,41 @@ func TestDockerPinsTheImageAndLeavesFilesAlone(t *testing.T) {
 	}
 }
 
-func TestRailwayGatesOnReadiness(t *testing.T) {
+// The Railway project is written as Infrastructure as Code — railway.json
+// stops being read on 2026-12-01 — with the site's repository as its source
+// when the checkout knows it, the database wired in, and no secret in source.
+func TestRailwayWritesTheProjectAsCode(t *testing.T) {
 	dir := t.TempDir()
-	if _, err := Railway(dir); err != nil {
-		t.Fatal(err)
+	files, err := Railway(dir, RailwaySite{Name: "gestao", Repo: "acme/gestao", Branch: "main"})
+	if err != nil || len(files) != 2 {
+		t.Fatalf("files=%v err=%v", files, err)
 	}
-	b, _ := os.ReadFile(filepath.Join(dir, "railway.json"))
-	var cfg struct{ Build, Deploy map[string]any }
-	if err := json.Unmarshal(b, &cfg); err != nil {
-		t.Fatalf("railway.json is not JSON: %v", err)
+	if _, err := os.Stat(filepath.Join(dir, "railway.json")); err == nil {
+		t.Fatal("the legacy railway.json was written")
 	}
-	if cfg.Deploy["healthcheckPath"] != "/api/ready" || cfg.Build["builder"] != "DOCKERFILE" {
-		t.Fatalf("railway.json = %s", b)
+	ts, _ := os.ReadFile(filepath.Join(dir, ".railway", "railway.ts"))
+	for _, want := range []string{
+		`from "railway/iac"`, `postgres("Postgres")`, `service("gestao"`,
+		`source: github("acme/gestao", { branch: "main" })`,
+		`healthcheck: "/api/ready"`, `DATABASE_URL: db.env.DATABASE_URL`,
+		`DDCORE_SECRET_KEY: preserve()`, `project("gestao"`,
+	} {
+		if !strings.Contains(string(ts), want) {
+			t.Errorf("railway.ts misses %s:\n%s", want, ts)
+		}
 	}
-	if _, ok := cfg.Deploy["startCommand"]; ok {
-		t.Fatal("the start command belongs to the image, not railway.json")
+	var pkg struct{ DevDependencies map[string]string }
+	b, _ := os.ReadFile(filepath.Join(dir, ".railway", "package.json"))
+	if err := json.Unmarshal(b, &pkg); err != nil || pkg.DevDependencies["railway"] == "" {
+		t.Fatalf("package.json should bring the SDK: %s (%v)", b, err)
+	}
+
+	// Without a GitHub origin, the source is left for the operator to write,
+	// and the unused import goes with it.
+	bare := t.TempDir()
+	Railway(bare, RailwaySite{Name: "gestao"})
+	ts, _ = os.ReadFile(filepath.Join(bare, ".railway", "railway.ts"))
+	if strings.Contains(string(ts), "    source: github(") || strings.Contains(string(ts), "github, ") {
+		t.Fatalf("a source was invented:\n%s", ts)
 	}
 }

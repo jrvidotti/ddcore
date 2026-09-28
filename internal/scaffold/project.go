@@ -163,7 +163,7 @@ func readme(p ProjectInfo) string {
 	b.WriteString("with `ddcore.json` and `apps/` on top. It migrates on boot, answers `/api/ready` for a health\n")
 	b.WriteString("check, and keeps uploads in `/data` (mount a volume, or use S3). Settings and secrets come from\n")
 	b.WriteString("the environment — see `.env.example`; `DDCORE_ADMIN_PASSWORD` gives Admin its first password.\n")
-	b.WriteString("`ddcore deploy railway` adds `railway.json` and lists the variables to set. More in the\n")
+	b.WriteString("`ddcore deploy railway` adds `.railway/railway.ts`, the Railway project as code. More in the\n")
 	b.WriteString("[deployment guide](https://ddcore.dev/guide/deployment).\n")
 	return b.String()
 }

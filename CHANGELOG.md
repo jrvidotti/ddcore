@@ -12,6 +12,19 @@ not every commit that went into it.
 
 ## Unreleased
 
+### Changed
+
+- **`ddcore deploy railway` writes the Railway project as Infrastructure as Code**,
+  `.railway/railway.ts` (with the `package.json` of its SDK), instead of `railway.json`, which
+  Railway reads only until 2026-12-01. The file declares the site's service — its GitHub source
+  taken from the checkout's `origin`, the `/api/ready` health check — and a PostgreSQL whose
+  `DATABASE_URL` it wires in, with every secret as `preserve()`; it is applied with
+  `railway config plan` / `apply`. **Upgrade:** a site with `railway.json` runs
+  `railway config migrate --apply --delete-files`, then declares the service's `source` (a
+  plan without it disconnects the repository) and its variables as `preserve()`; the
+  deployment guide's Railway section walks through it. The generated `.dockerignore` now leaves
+  `.railway` out of the build context.
+
 ## 0.21.0 — 2026-09-28
 
 ### Breaking
