@@ -66,4 +66,15 @@ export default defineController("User", {
       }
     }
   },
+  afterDelete(doc) {
+    // A deleted user is at least as gone as a disabled one: without this,
+    // their sessions live until they expire, and the roles cache (no TTL)
+    // keeps granting what they had — to them, or to a user recreated under
+    // the same email.
+    (ddcore as any).__dropSessions(doc.id);
+    ddcore.cache.del("roles:" + doc.id);
+    ddcore.cache.del("utype:" + doc.id);
+    ddcore.cache.del("lang:" + doc.id);
+    ddcore.audit("account.delete", "User", doc.id);
+  },
 });

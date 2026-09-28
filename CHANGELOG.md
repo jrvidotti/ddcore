@@ -14,6 +14,11 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- Deleting a User ends their sessions and clears their cached roles immediately, as disabling
+  one already did; the delete is recorded as an `account.delete` audit event.
+
 ## 0.21.6 — 2026-09-28
 
 ### Added

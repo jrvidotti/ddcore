@@ -83,6 +83,34 @@ func TestSEC04_DisabledUserSessionsAndKeysRevoked(t *testing.T) {
 	x.expect(x.call("GET", "/api/boot", nil, "token:"+key), 401, "AuthenticationError")
 }
 
+// Deleting a user revokes their sessions just as disabling does, and drops
+// their cached roles: that cache has no TTL, so a surviving session (or a user
+// recreated under the same email) would otherwise keep the old roles.
+func TestSEC04_DeletedUserSessionsRevoked(t *testing.T) {
+	x := setup(t)
+	sid := x.sid("ana@x.com")
+
+	// The request resolves the session and fills the roles cache
+	rBefore := x.call("GET", "/api/boot", nil, "sid:"+sid)
+	x.expect(rBefore, 200, "")
+	if u, _ := rBefore.Body["data"].(map[string]any); u == nil || u["user"] != "ana@x.com" {
+		t.Fatalf("session should resolve to ana@x.com before the delete, got %v", rBefore.Body["data"])
+	}
+
+	x.asAdmin(func(c *engine.Ctx) error {
+		return c.Delete("User", "ana@x.com", false, false)
+	})
+
+	rAfter := x.call("GET", "/api/boot", nil, "sid:"+sid)
+	x.expect(rAfter, 200, "")
+	if u, _ := rAfter.Body["data"].(map[string]any); u != nil && u["user"] != "Guest" {
+		t.Errorf("session should have been invalidated, got user=%v", u["user"])
+	}
+	if _, ok := x.e.Cache.Get("roles:ana@x.com"); ok {
+		t.Error("roles cache of the deleted user should have been dropped")
+	}
+}
+
 // Brute-force on API key secret:
 // Since secret validation runs Argon2 on each request, 20 wrong guesses
 // trigger process cache throttle (`apikeyfail:key`), preventing memory DoS.
