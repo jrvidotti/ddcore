@@ -39,8 +39,10 @@
   let shapes: Leaflet.FeatureGroup | null = null;
   let draftLayer: Leaflet.LayerGroup | null = null;
   // the value this control committed last, as JSON: a different one arriving
-  // (a reload, a form script) moves the map to it; our own edit does not
-  let sentKey: string | null = null;
+  // (a reload, a form script) moves the map to it; our own edit does not.
+  // undefined until the first draw, which always places the map: a Leaflet map
+  // with no view loads no tiles and ignores clicks, so an empty field needs it too
+  let sentKey: string | null | undefined = undefined;
 
   $effect(() => {
     if (!host) return;
@@ -76,6 +78,7 @@
       observer?.disconnect();
       map?.remove();
       map = shapes = draftLayer = L = null;
+      sentKey = undefined;
       ready = false;
     };
   });

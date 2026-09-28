@@ -44,7 +44,7 @@
     const w = canvas.clientWidth || 400;
     canvas.width = Math.round(w * dpr);
     canvas.height = Math.round(PAD_HEIGHT * dpr);
-    ctx = canvas.getContext("2d");
+    ctx = canvas.getContext("2d", { willReadFrequently: true });
     if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.lineWidth = 2.2;
