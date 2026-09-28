@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.21.9 — 2026-09-28
+
 ### Added
 
 - MCP tool `extend_doctype` writes `extensions/<snake>.extend.ts` — fields, per-field and
