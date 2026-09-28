@@ -113,6 +113,26 @@ from the running binary's minor release to the next (`>=0.15.0 <0.16.0` on 0.15.
 that is not a release it leaves the `ddcore` line commented out. An app without `ddcore` is never
 checked against the binary, so keep the range when you widen it by hand.
 
+### The site's range
+
+A site that ships several apps from one repository tests them against ddcore together, so the
+range belongs to the site: `ddcore.json` takes the same field, in the same grammar.
+
+```json
+{ "apps": ["apps/base", "apps/hr"], "ddcore": ">=0.20.0 <0.21.0" }
+```
+
+- `ddcore init` writes it for the running minor release (and leaves it out on a build that is not
+  a release). `ddcore new-app` in a site that declares it gives the new app no range of its own,
+  only a comment pointing at `ddcore.json`.
+- It is checked on every load, next to each app's range and by the same rules below; its refusal
+  is `site requires ddcore >=0.20.0 <0.21.0 (ddcore.json), but this binary is 0.21.0`, and an
+  invalid one is `ddcore.json declares an invalid ddcore range …`.
+- An app's own range still holds on top of it. Keep one in an app published on its own, which
+  other sites load; drop it from the apps that only this site ships, so an upgrade edits one line.
+- It comes from `ddcore.json` only — no environment variable overrides it. A binary older than
+  the field ignores it, so write the same range the apps had when moving it there.
+
 - `ddcore` is a list of space-separated constraints that must all hold: `>=`, `>`, `<=`, `<`,
   `=` (or a bare version), `^` and `~`:
 

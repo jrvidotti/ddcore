@@ -30,9 +30,12 @@ import (
 )
 
 type Config struct {
-	DSN       string
-	Apps      []js.App // in load order; core is prepended automatically
-	Workers   int      // job workers
+	DSN  string
+	Apps []js.App // in load order; core is prepended automatically
+	// DDCore is the site's range of ddcore releases (ddcore.json `ddcore`),
+	// checked on every load next to each app's own. Empty checks nothing.
+	DDCore    string
+	Workers   int // job workers
 	Scheduler bool
 	Dev       bool
 	Test      bool // include *.test.ts and mark runtime as test
@@ -184,14 +187,14 @@ type State struct {
 	Workflows         map[string]*js.Workflow
 	WorkflowByDocType map[string]*js.Workflow
 	// Portals are the declared self-service portals (OPS-10), by name.
-	Portals           map[string]Portal
-	Meta              *meta.Registry
-	Snap              *Snapshot
-	Apps              []js.App
-	Pool              *js.Pool
-	I18n              *I18n
-	Loaded            time.Time
-	whitelisted       map[string]map[string]any
+	Portals     map[string]Portal
+	Meta        *meta.Registry
+	Snap        *Snapshot
+	Apps        []js.App
+	Pool        *js.Pool
+	I18n        *I18n
+	Loaded      time.Time
+	whitelisted map[string]map[string]any
 	// metaCache holds the translated copies of DocTypes, per language. It
 	// needs no invalidation: a reload builds a new State and this dies with
 	// the old one.
@@ -433,7 +436,7 @@ func (e *Engine) Load() error {
 		pool.Close()
 		return err
 	}
-	if skipped, err := checkCoreCompat(snap, Version); err != nil {
+	if skipped, err := checkCoreCompat(snap, e.Cfg.DDCore, Version); err != nil {
 		pool.Close()
 		return err
 	} else if skipped {

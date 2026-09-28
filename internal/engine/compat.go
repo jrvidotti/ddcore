@@ -181,21 +181,31 @@ func parseRange(s string) (versionRange, error) {
 	return r, nil
 }
 
-// checkCoreCompat refuses a load where an app declares a ddcore range this
-// binary is outside of, or a range or version that does not parse. Every
-// offending app is named at once, so an upgrade shows the whole list.
+// checkCoreCompat refuses a load where the site (ddcore.json `ddcore`) or an
+// app declares a ddcore range this binary is outside of, or a range or version
+// that does not parse. Every problem is named at once, so an upgrade shows the
+// whole list.
 //
 // A binary that is not a release (`dev`, `latest`) cannot be compared: ranges
 // are still parsed, so a typo fails on a dev checkout too, but not enforced,
 // and skipped reports that.
-func checkCoreCompat(snap *Snapshot, core string) (skipped bool, err error) {
+func checkCoreCompat(snap *Snapshot, site, core string) (skipped bool, err error) {
 	cv, release := parseCoreVersion(core)
+	var problems []string
+	if site != "" {
+		if r, perr := parseRange(site); perr != nil {
+			problems = append(problems, fmt.Sprintf("ddcore.json declares an invalid ddcore range %q: %v", site, perr))
+		} else if !release {
+			skipped = true
+		} else if !r.allows(cv) {
+			problems = append(problems, fmt.Sprintf("site requires ddcore %s (ddcore.json), but this binary is %s", site, cv))
+		}
+	}
 	names := make([]string, 0, len(snap.Apps))
 	for n := range snap.Apps {
 		names = append(names, n)
 	}
 	sort.Strings(names)
-	var problems []string
 	for _, n := range names {
 		am := snap.Apps[n]
 		if am == nil {
@@ -273,8 +283,9 @@ func (r versionRange) lowerBound() semver {
 	return lo
 }
 
-// AppRange is the `ddcore` range `ddcore new-app` writes for an app started
-// on this binary: from its minor release up to, not including, the next one.
+// AppRange is the `ddcore` range `ddcore init` writes into a new site's
+// ddcore.json, and `ddcore new-app` into an app when the site has none, for
+// work started on this binary: from its minor release up to, not including, the next one.
 // ok is false for a binary that is not a release, including the unstamped
 // default 0.1.0, whose number says nothing about the API an app is written to.
 func AppRange(core string) (string, bool) {

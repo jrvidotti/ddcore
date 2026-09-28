@@ -1,6 +1,9 @@
 package engine
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestAppRange(t *testing.T) {
 	for core, want := range map[string]string{
@@ -41,5 +44,31 @@ func TestPredatesIDKey(t *testing.T) {
 		if got := predatesIDKey(snap, core); got != nil {
 			t.Errorf("on %s: %v, want nothing", core, got)
 		}
+	}
+}
+
+// The site's range in ddcore.json is checked like an app's: parsed on every
+// build, enforced on a release, and reported in the same joined error.
+func TestSiteCoreRange(t *testing.T) {
+	apps := &Snapshot{Apps: map[string]*AppMeta{"core": {Name: "core"}, "shop": {Name: "shop"}}}
+	if _, err := checkCoreCompat(apps, ">=0.20.0 <0.21.0", "v0.20.2"); err != nil {
+		t.Fatalf("in range: %v", err)
+	}
+	_, err := checkCoreCompat(apps, ">=0.20.0 <0.21.0", "v0.21.0")
+	if err == nil || !strings.Contains(err.Error(), "site requires ddcore >=0.20.0 <0.21.0 (ddcore.json), but this binary is 0.21.0") {
+		t.Fatalf("out of range: %v", err)
+	}
+	if skipped, err := checkCoreCompat(apps, ">=9.0.0", "dev"); err != nil || !skipped {
+		t.Fatalf("dev build: skipped=%v err=%v", skipped, err)
+	}
+	if _, err := checkCoreCompat(apps, ">= 0.20.0", "dev"); err == nil || !strings.Contains(err.Error(), "ddcore.json declares an invalid ddcore range") {
+		t.Fatalf("invalid range must be refused even on a dev build: %v", err)
+	}
+
+	// An app's own range still holds on top of the site's, in one error.
+	both := &Snapshot{Apps: map[string]*AppMeta{"shop": {Name: "shop", Ddcore: "<0.20.0"}}}
+	_, err = checkCoreCompat(both, ">=0.21.0", "v0.20.2")
+	if err == nil || !strings.Contains(err.Error(), "site requires ddcore") || !strings.Contains(err.Error(), "app shop requires ddcore") {
+		t.Fatalf("expected both problems in one error: %v", err)
 	}
 }

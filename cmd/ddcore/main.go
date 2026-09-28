@@ -203,7 +203,7 @@ func load(test bool, dev bool) (*engine.Engine, *config.File, error) {
 	isDev := dev || cfg.Dev || os.Getenv("DDCORE_DEV") == "1" || os.Getenv("DDCORE_DEV") == "true"
 	cfg.Mail.Dev = isDev
 	e, err := engine.New(context.Background(), engine.Config{
-		DSN: cfg.DSN, Apps: apps, Workers: cfg.Workers, Scheduler: cfg.Scheduler, Dev: isDev, Test: test,
+		DSN: cfg.DSN, Apps: apps, DDCore: cfg.DDCore, Workers: cfg.Workers, Scheduler: cfg.Scheduler, Dev: isDev, Test: test,
 		Port: cfg.Port, Lang: cfg.Lang, Currency: cfg.Currency, CurrencyPrecision: cfg.CurrencyPrecision, Rounding: cfg.RoundingMode(), Timezone: cfg.Timezone, DataDir: cfg.DataDir, Root: root, ExportMaxRows: cfg.ExportMaxRows, ImportMaxRows: cfg.ImportMaxRows, LogLevel: level,
 		Auth: cfg.Auth, Ops: cfg.Ops, LogJSON: logJSON(), LogOut: logOut, Mail: cfg.Mail, Webhooks: cfg.Webhooks, Storage: cfg.Storage, SiteURL: cfg.PublicURL(), TrustProxy: cfg.TrustProxy, Login: cfg.Login, OIDC: cfg.OIDC, Portal: cfg.Portal,
 		EnforceMaintenance: enforceMaintenance, AllowOlderBinary: allowOlderBinary(),
@@ -269,6 +269,9 @@ func cmdInit(args []string) error {
 	}
 	f := config.Default()
 	f.DSN, f.Port, f.Dev = *dsn, *port, true
+	// the site's one range for all its apps; a build that is not a release
+	// cannot say which one it is, and leaves it out
+	f.DDCore, _ = engine.AppRange(engine.Version)
 	if err := f.Save(config.Name); err != nil {
 		return err
 	}
@@ -353,7 +356,12 @@ func cmdNewApp(args []string) error {
 		*dir = filepath.Join("apps", name)
 	}
 	rng, _ := engine.AppRange(engine.Version)
-	if err := scaffold.App(*dir, name, *title, rng); err != nil {
+	// A site that declares its range in ddcore.json keeps it there for every app.
+	siteRange := false
+	if cfg, _, err := config.Load("."); err == nil {
+		siteRange = cfg.DDCore != ""
+	}
+	if err := scaffold.App(*dir, name, *title, rng, siteRange); err != nil {
 		return err
 	}
 	abs, err := filepath.Abs(*dir)

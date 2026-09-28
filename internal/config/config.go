@@ -19,6 +19,7 @@
 package config
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -30,13 +31,19 @@ import (
 )
 
 type File struct {
-	DSN       string   `json:"dsn"`
-	Apps      []string `json:"apps"`
-	Port      int      `json:"port"`
-	Workers   int      `json:"workers"`
-	Scheduler bool     `json:"scheduler"`
-	Lang      string   `json:"lang"`
-	Currency  string   `json:"currency"`
+	DSN  string   `json:"dsn"`
+	Apps []string `json:"apps"`
+	// DDCore is the range of ddcore releases the site is tested against, in
+	// the grammar of defineApp's `ddcore` (`>=0.20.0 <0.21.0`). It is the one
+	// range for every app the site ships, so an upgrade edits one line instead
+	// of one per app; an app that declares its own still has it checked too.
+	// It is a product decision, so it comes from this file only.
+	DDCore    string `json:"ddcore,omitempty"`
+	Port      int    `json:"port"`
+	Workers   int    `json:"workers"`
+	Scheduler bool   `json:"scheduler"`
+	Lang      string `json:"lang"`
+	Currency  string `json:"currency"`
 	// CurrencyPrecision overrides how many decimal places a Currency field is
 	// rounded to. Nil means "the currency's own minor unit" — 2 for USD, 0 for
 	// JPY — which is right far more often than any number written here.
@@ -270,8 +277,16 @@ func Edit(dir string, fn func(f *File, path string) bool) (string, error) {
 }
 
 func (f *File) Save(path string) error {
-	b, _ := json.MarshalIndent(f, "", "  ")
-	return os.WriteFile(path, append(b, '\n'), 0o644)
+	// No HTML escaping: the file is read by people, and the `ddcore` range
+	// would otherwise be committed as "\u003e=0.20.0 \u003c0.21.0".
+	var b bytes.Buffer
+	enc := json.NewEncoder(&b)
+	enc.SetEscapeHTML(false)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(f); err != nil {
+		return err
+	}
+	return os.WriteFile(path, b.Bytes(), 0o644)
 }
 
 // PublicURL is the base a link mailed to a person must use. An empty url falls
@@ -305,7 +320,9 @@ const (
 func (p PortalPolicy) Writes() int { return orDefaultInt(p.WritesPerHour, DefaultPortalWritesPerHour) }
 
 // Uploads is the number of portal uploads allowed per hour.
-func (p PortalPolicy) Uploads() int { return orDefaultInt(p.UploadsPerHour, DefaultPortalUploadsPerHour) }
+func (p PortalPolicy) Uploads() int {
+	return orDefaultInt(p.UploadsPerHour, DefaultPortalUploadsPerHour)
+}
 
 // MaxUploadBytes caps one upload by a Website User.
 func (p PortalPolicy) MaxUploadBytes() int64 {

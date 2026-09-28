@@ -23,8 +23,10 @@ func write(path, content string) error {
 
 // App creates the skeleton of an app. ddcoreRange is the `ddcore` range of
 // releases it is written against; empty leaves the line commented out, for a
-// binary that cannot say which release it is.
-func App(dir, name, title, ddcoreRange string) error {
+// binary that cannot say which release it is. siteRange means the site's
+// ddcore.json already declares the range for all its apps, so the app gets
+// none of its own — a second copy is one more line to forget on an upgrade.
+func App(dir, name, title, ddcoreRange string, siteRange bool) error {
 	if title == "" {
 		title = strings.ToUpper(name[:1]) + name[1:]
 	}
@@ -32,7 +34,10 @@ func App(dir, name, title, ddcoreRange string) error {
 		return fmt.Errorf("invalid app name %q: use lowercase letters, digits and _", name)
 	}
 	rangeLine := fmt.Sprintf("  ddcore: %q, // the ddcore releases this app is tested against", ddcoreRange)
-	if ddcoreRange == "" {
+	switch {
+	case siteRange:
+		rangeLine = `  // ddcore: the site's range in ddcore.json applies; declare one here only to narrow it`
+	case ddcoreRange == "":
 		rangeLine = `  // ddcore: ">=0.15.0 <0.16.0", // the ddcore releases this app is tested against`
 	}
 	files := map[string]string{

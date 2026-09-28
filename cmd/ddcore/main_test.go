@@ -2,11 +2,14 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/jrvidotti/ddcore/internal/engine"
 )
 
 // execFlags mirrors cmdExec's declarations.
@@ -416,6 +419,27 @@ func TestInitAgainUpdatesTheDSNFromName(t *testing.T) {
 	}
 	if cfg := readFile(t, "ddcore.json"); !strings.Contains(cfg, "postgres://two:two@localhost:5999/two") {
 		t.Fatalf("second init did not update the dsn:\n%s", cfg)
+	}
+}
+
+// A new site declares the one ddcore range its apps are tested against, and
+// an app started in it leaves the range to the site.
+func TestInitWritesTheSiteRangeAndNewAppDefersToIt(t *testing.T) {
+	want, ok := engine.AppRange(engine.Version)
+	if !ok {
+		t.Skip("not a release build: init writes no range")
+	}
+	if _, err := initIn(t, "x"); err != nil {
+		t.Fatal(err)
+	}
+	if cfg := readFile(t, "ddcore.json"); !strings.Contains(cfg, fmt.Sprintf(`"ddcore": %q`, want)) {
+		t.Fatalf("ddcore.json has no site range %q:\n%s", want, cfg)
+	}
+	if err := cmdNewApp([]string{"shop"}); err != nil {
+		t.Fatal(err)
+	}
+	if app := readFile(t, filepath.Join("apps", "shop", "ddcore.app.ts")); strings.Contains(app, `  ddcore: "`) {
+		t.Fatalf("the app repeats the site's range:\n%s", app)
 	}
 }
 

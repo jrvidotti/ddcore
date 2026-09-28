@@ -903,7 +903,7 @@ func TestCoreCompatRanges(t *testing.T) {
 	}
 	for _, c := range cases {
 		snap := &Snapshot{Apps: map[string]*AppMeta{"a": {Name: "a", Ddcore: c.rng}}}
-		_, err := checkCoreCompat(snap, c.core)
+		_, err := checkCoreCompat(snap, "", c.core)
 		if (err == nil) != c.ok {
 			t.Errorf("range %q on %s: err = %v, want ok=%v", c.rng, c.core, err, c.ok)
 		}
@@ -915,7 +915,7 @@ func TestCoreCompatRanges(t *testing.T) {
 		"crm":  {Name: "crm", Ddcore: "<0.14.0"},
 		"fine": {Name: "fine", Ddcore: "^0.14.0"},
 	}}
-	_, err := checkCoreCompat(snap, "v0.14.2")
+	_, err := checkCoreCompat(snap, "", "v0.14.2")
 	if err == nil {
 		t.Fatal("expected incompatible apps to refuse the load")
 	}
@@ -929,7 +929,7 @@ func TestCoreCompatRanges(t *testing.T) {
 	}
 
 	// A non-release binary still parses ranges but does not enforce them.
-	skipped, err := checkCoreCompat(snap, "dev")
+	skipped, err := checkCoreCompat(snap, "", "dev")
 	if err != nil || !skipped {
 		t.Fatalf("dev build: skipped=%v err=%v", skipped, err)
 	}
@@ -938,7 +938,7 @@ func TestCoreCompatRanges(t *testing.T) {
 		{Name: "x", Ddcore: "  "}, // present but blank is a typo, not "no range"
 		{Name: "x", Version: "one"},
 	} {
-		if _, err := checkCoreCompat(&Snapshot{Apps: map[string]*AppMeta{"x": bad}}, "dev"); err == nil {
+		if _, err := checkCoreCompat(&Snapshot{Apps: map[string]*AppMeta{"x": bad}}, "", "dev"); err == nil {
 			t.Errorf("expected %+v to be refused even on a dev build", bad)
 		}
 	}
@@ -946,12 +946,12 @@ func TestCoreCompatRanges(t *testing.T) {
 	// The refusal describes the grammar the loader actually accepts: `1`,
 	// `1.2` and `1.2.3` all pass, so promising MAJOR.MINOR.PATCH sends the
 	// reader looking for a rule that is not enforced.
-	_, err = checkCoreCompat(&Snapshot{Apps: map[string]*AppMeta{"x": {Name: "x", Version: "one"}}}, "dev")
+	_, err = checkCoreCompat(&Snapshot{Apps: map[string]*AppMeta{"x": {Name: "x", Version: "one"}}}, "", "dev")
 	if err == nil || strings.Contains(err.Error(), "MAJOR.MINOR.PATCH") {
 		t.Errorf("version refusal should describe the accepted grammar, got %v", err)
 	}
 	for _, ok := range []string{"1", "1.4", "v1.4.0"} {
-		if _, err := checkCoreCompat(&Snapshot{Apps: map[string]*AppMeta{"x": {Name: "x", Version: ok}}}, "dev"); err != nil {
+		if _, err := checkCoreCompat(&Snapshot{Apps: map[string]*AppMeta{"x": {Name: "x", Version: ok}}}, "", "dev"); err != nil {
 			t.Errorf("version %q should be accepted: %v", ok, err)
 		}
 	}

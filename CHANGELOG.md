@@ -12,6 +12,21 @@ not every commit that went into it.
 
 ## Unreleased
 
+### Added
+
+- **A site-wide `ddcore` range in `ddcore.json`.** A site whose apps live in one repository
+  declares the ddcore releases it is tested against once — `"ddcore": ">=0.20.0 <0.21.0"` —
+  instead of repeating it in every `defineApp`. It is checked on every load with the apps' own
+  ranges (`site requires ddcore … (ddcore.json), but this binary is …`), shown by `ddcore doctor`,
+  and written by `ddcore init`; `ddcore new-app` in such a site gives the app no range of its own.
+  To adopt it, move the range into `ddcore.json` and delete the `ddcore:` line from the apps that
+  only this site ships. See "The site's range" in `docs/agent/conventions.md`.
+
+### Fixed
+
+- `ddcore.json` is written without HTML escaping, so a range saved by `init` or `new-app` reads
+  `>=0.20.0`, not `\u003e=0.20.0`.
+
 ## 0.20.2 — 2026-09-28
 
 ### Added

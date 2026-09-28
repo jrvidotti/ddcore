@@ -312,7 +312,7 @@ func loadedAppVersions(ctx context.Context, cfg *config.File) (map[string]string
 	for _, dir := range cfg.Apps {
 		apps = append(apps, js.App{Name: js.AppName(dir), Dir: dir})
 	}
-	e, err := engine.New(ctx, engine.Config{Apps: apps, DataDir: cfg.DataDir, LogOut: io.Discard, Workers: 0})
+	e, err := engine.New(ctx, engine.Config{Apps: apps, DDCore: cfg.DDCore, DataDir: cfg.DataDir, LogOut: io.Discard, Workers: 0})
 	if err != nil {
 		return nil, fmt.Errorf("loading the apps: %w", err)
 	}

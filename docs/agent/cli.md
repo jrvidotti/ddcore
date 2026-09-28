@@ -1,6 +1,6 @@
 # CLI and the development loop
 
-`ddcore.json` in the site directory: `dsn`, `apps` (directories), `port`, `workers`, `scheduler`, `lang`, `currency`, `currencyPrecision`, `rounding`, `timezone`, `dev`, `exportMaxRows`, `importMaxRows`, `auth`, `ops`.
+`ddcore.json` in the site directory: `dsn`, `apps` (directories), `ddcore` (the range of ddcore releases the site is tested against — see `conventions`), `port`, `workers`, `scheduler`, `lang`, `currency`, `currencyPrecision`, `rounding`, `timezone`, `dev`, `exportMaxRows`, `importMaxRows`, `auth`, `ops`.
 `currencyPrecision` defaults to the currency's ISO minor unit and `rounding` to `"commercial"`;
 an unrecognised `rounding` stops the server at startup rather than quietly using another rule.
 `DDCORE_DSN` overrides the dsn, and `DDCORE_DATA_DIR` the `dataDir`.
@@ -15,8 +15,8 @@ flag is an error (it never becomes an argument silently).
 
 | Command | What it does |
 |---|---|
-| `ddcore init [--name n] [--db-port p] [--dsn ...] [--port ...]` | creates `ddcore.json`, `.env.example`, `README.md`, `AGENTS.md` (with `CLAUDE.md` linked to it), `.mcp.json`, `.gitignore` and a `docker-compose.yml` running the Postgres of a local dsn (never overwrites an existing file). `--name`/`--db-port` build `postgres://n:n@localhost:p/n?sslmode=disable` (name defaults to the directory, port to 5432); `--dsn` is the alternative for an existing database. If `ddcore.json` exists, updates the dsn/port given (idempotent) |
-| `ddcore new-app <name>` | scaffolds the app and registers it in ddcore.json; `ddcore.app.ts` gets `version: "0.1.0"` and a `ddcore` range for the running minor release (see `conventions`) |
+| `ddcore init [--name n] [--db-port p] [--dsn ...] [--port ...]` | creates `ddcore.json` (with a `ddcore` range for the running minor release), `.env.example`, `README.md`, `AGENTS.md` (with `CLAUDE.md` linked to it), `.mcp.json`, `.gitignore` and a `docker-compose.yml` running the Postgres of a local dsn (never overwrites an existing file). `--name`/`--db-port` build `postgres://n:n@localhost:p/n?sslmode=disable` (name defaults to the directory, port to 5432); `--dsn` is the alternative for an existing database. If `ddcore.json` exists, updates the dsn/port given (idempotent) |
+| `ddcore new-app <name>` | scaffolds the app and registers it in ddcore.json; `ddcore.app.ts` gets `version: "0.1.0"`, and a `ddcore` range for the running minor release only when `ddcore.json` declares none (see `conventions`) |
 | `ddcore dev` | server with hot reload (rebuilds when a .ts/.csv is saved) and `--auto-migrate`; serves `/mcp` |
 | `ddcore start` | production server (no watcher) |
 | `ddcore migrate [--dry-run] [--prune]` | beforeSchema patches → DDL → afterInstall + fixtures → afterSchema patches → the drops → afterMigrate, in one transaction; then generates types. `--dry-run` reports the plan; a rename or conversion it cannot make safely is refused and nothing is applied (`migrations`) |
@@ -43,7 +43,7 @@ flag is an error (it never becomes an argument silently).
 | `ddcore maintenance on [--reason x]\|off\|status [--json]` | pauses HTTP writes, workers and the scheduler across every process; the CLI and MCP keep writing (see `backup`). Audited as `cli:$DDCORE_ACTOR`, else `$USER` or `$USERNAME` |
 | `ddcore backup [--out f.tar] [--maintenance] [--no-files] [--to s3] [--keep N] [--json]` | one verifiable `.tar`: `pg_dump`, stored files, config, versions and checksums; secrets by name only; `--keep` prunes `DDCORE_BACKUP_DIR` and the bucket, never a custom `--out` (see `backup`) |
 | `ddcore restore <f.tar\|s3:name> [--verify-only] [--smoke] [--smoke-user u] [--force] [--online] [--no-files] [--no-migrate] [--keep-sessions] [--json]` | verifies, restores into the configured database and storage, migrates, leaves the site paused, and times fetch, verify, database, files, migrate and smoke |
-| `ddcore doctor [--json] [--strict] [--window N] [--no-update-check]` | probes the database, then reports meta, app versions and their `ddcore` ranges, pending DDL, undeclared columns and tables, pending patches, applied renames, queue, Error Log, scheduler, storage (the configured backend only — the bucket is never contacted) and single sign-on. Also asks GitHub for the newest published release and warns when this binary is behind it; `--no-update-check` or `DDCORE_UPDATE_CHECK=off` skips that one lookup. Works with the database down. Exits non-zero on a critical finding; `--strict` also on a warning (see `ops`) |
+| `ddcore doctor [--json] [--strict] [--window N] [--no-update-check]` | probes the database, then reports meta, app versions and their `ddcore` ranges (and the site's, from `ddcore.json`), pending DDL, undeclared columns and tables, pending patches, applied renames, queue, Error Log, scheduler, storage (the configured backend only — the bucket is never contacted) and single sign-on. Also asks GitHub for the newest published release and warns when this binary is behind it; `--no-update-check` or `DDCORE_UPDATE_CHECK=off` skips that one lookup. Works with the database down. Exits non-zero on a critical finding; `--strict` also on a warning (see `ops`) |
 
 `invite` and `reset` print the link instead of mailing it when no mail
 transport is configured, which is what makes them usable in development and for

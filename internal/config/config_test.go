@@ -304,6 +304,27 @@ func TestDefaultSurvivesASaveAndLoad(t *testing.T) {
 	}
 }
 
+// The site's ddcore range survives a save as written: an escaped
+// "\u003e=0.20.0" would be unreadable in the committed file.
+func TestSiteRangeSavesUnescaped(t *testing.T) {
+	clearMailEnv(t)
+	dir := t.TempDir()
+	f := Default()
+	f.DDCore = ">=0.20.0 <0.21.0"
+	path := filepath.Join(dir, Name)
+	if err := f.Save(path); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := os.ReadFile(path)
+	if !strings.Contains(string(b), `"ddcore": ">=0.20.0 <0.21.0"`) {
+		t.Fatalf("range not written as is:\n%s", b)
+	}
+	got, _, err := Load(dir)
+	if err != nil || got.DDCore != f.DDCore {
+		t.Fatalf("round trip: %q, %v", got.DDCore, err)
+	}
+}
+
 // Edit works on the file as written: what the environment overrides and what
 // Load resolves must not be committed.
 func TestEditKeepsTheEnvironmentOutOfTheFile(t *testing.T) {

@@ -80,7 +80,7 @@ const agentsMD = "# Guidelines for coding agents\n\n" +
 	"  `get_doctype` / `scaffold_doctype` → `migrate` → `insert_doc` / `list_docs` → `run_tests`.\n" +
 	"- The database must be running (`docker compose up -d`) for the CLI and MCP to work.\n\n" +
 	"## Layout of an app (`apps/<app>/`)\n\n" +
-	"- `ddcore.app.ts` — `defineApp`: name, title, version, `ddcore` range, roles, scheduler, docEvents.\n" +
+	"- `ddcore.app.ts` — `defineApp`: name, title, version, roles, scheduler, docEvents. The `ddcore`\n  range for every app is the site's, in `ddcore.json`.\n" +
 	"- `doctypes/<snake>/<snake>.doctype.ts` — meta (`defineDoctype`). Fieldnames in snake_case ASCII.\n" +
 	"  Every document's key is `id` (`doc.id`, `filters: { id: … }`); `idGeneration` decides how it is made.\n" +
 	"- `doctypes/<snake>/<snake>.controller.ts` — rules (`defineController`): validate, onSubmit, methods.\n" +

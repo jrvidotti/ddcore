@@ -47,28 +47,30 @@ type appInfo struct {
 // doctorReport is the whole report as data, so that the text and the JSON are
 // two renderings of one thing rather than two things that drift.
 type doctorReport struct {
-	DDCore    string              `json:"ddcore"`
-	Database  db.Health           `json:"database"`
-	DSN       string              `json:"dsn"`
-	Engine    string              `json:"engineError,omitempty"`
-	Apps      []string            `json:"apps,omitempty"`
-	AppInfo   []appInfo           `json:"appInfo,omitempty"`
-	DocTypes  int                 `json:"doctypes"`
-	Migrate   *migrateSection     `json:"migrate,omitempty"`
-	Orphans   *orphanSection      `json:"orphans,omitempty"`
-	Patches   []patchRef          `json:"patches,omitempty"`
-	Renames   []renameRef         `json:"renames,omitempty"`
-	Queue     *engine.QueueHealth `json:"queue,omitempty"`
-	Errors    *engine.ErrorHealth `json:"errors,omitempty"`
-	Scheduler engine.SchedHealth  `json:"scheduler"`
-	Workers   int                 `json:"workers"`
-	Mail      string              `json:"mail"`
-	Storage   string              `json:"storage"`
-	URL       string              `json:"url"`
-	URLSet    bool                `json:"urlConfigured"`
-	Sessions  sessionSection      `json:"sessions"`
-	SSO       ssoSection          `json:"sso"`
-	Ops       config.OpsPolicy    `json:"ops"`
+	DDCore   string    `json:"ddcore"`
+	Database db.Health `json:"database"`
+	DSN      string    `json:"dsn"`
+	Engine   string    `json:"engineError,omitempty"`
+	Apps     []string  `json:"apps,omitempty"`
+	AppInfo  []appInfo `json:"appInfo,omitempty"`
+	// SiteDdcore is ddcore.json's range, the one every app is checked against.
+	SiteDdcore string              `json:"siteDdcore,omitempty"`
+	DocTypes   int                 `json:"doctypes"`
+	Migrate    *migrateSection     `json:"migrate,omitempty"`
+	Orphans    *orphanSection      `json:"orphans,omitempty"`
+	Patches    []patchRef          `json:"patches,omitempty"`
+	Renames    []renameRef         `json:"renames,omitempty"`
+	Queue      *engine.QueueHealth `json:"queue,omitempty"`
+	Errors     *engine.ErrorHealth `json:"errors,omitempty"`
+	Scheduler  engine.SchedHealth  `json:"scheduler"`
+	Workers    int                 `json:"workers"`
+	Mail       string              `json:"mail"`
+	Storage    string              `json:"storage"`
+	URL        string              `json:"url"`
+	URLSet     bool                `json:"urlConfigured"`
+	Sessions   sessionSection      `json:"sessions"`
+	SSO        ssoSection          `json:"sso"`
+	Ops        config.OpsPolicy    `json:"ops"`
 	// Secrets are names. A doctor report is pasted into issues and chat
 	// windows, and a secret that reaches one of those has to be rotated.
 	Secrets []string      `json:"secrets"`
@@ -180,7 +182,7 @@ func cmdDoctor(args []string) error {
 // a failure from the database layer quotes the connection string back at you.
 func gatherDoctor(ctx context.Context, cfg *config.File, windowMin int, updateCheck bool) *doctorReport {
 	rep := &doctorReport{
-		DDCore: engine.Version, DSN: db.RedactDSN(cfg.DSN),
+		DDCore: engine.Version, SiteDdcore: cfg.DDCore, DSN: db.RedactDSN(cfg.DSN),
 		Workers: cfg.Workers, Mail: mailSummary(cfg), Storage: storageSummary(cfg),
 		URL: cfg.PublicURL(), URLSet: cfg.HasPublicURL(), Ops: cfg.Ops,
 		Sessions: sessionSection{cfg.Auth.SessionDays, cfg.Auth.MaxLoginAttempts, cfg.Auth.LockoutMinutes},
@@ -392,6 +394,9 @@ func (r *doctorReport) print(w io.Writer) {
 		return
 	}
 	p("apps", "%v", r.Apps)
+	if r.SiteDdcore != "" {
+		cont("site ddcore %s (ddcore.json)", r.SiteDdcore)
+	}
 	for _, a := range r.AppInfo {
 		if a.Version != "" || a.Ddcore != "" {
 			cont("%s %s, ddcore %s", a.Name, orDash(a.Version), orDash(a.Ddcore))

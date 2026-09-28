@@ -79,7 +79,7 @@ func TestProjectLeavesExistingFilesAlone(t *testing.T) {
 
 func TestAppWritesVersionAndRange(t *testing.T) {
 	dir := t.TempDir()
-	if err := App(dir, "base", "", ">=0.15.0 <0.16.0"); err != nil {
+	if err := App(dir, "base", "", ">=0.15.0 <0.16.0", false); err != nil {
 		t.Fatal(err)
 	}
 	b, _ := os.ReadFile(filepath.Join(dir, "ddcore.app.ts"))
@@ -95,11 +95,24 @@ func TestAppWritesVersionAndRange(t *testing.T) {
 
 func TestAppWithoutRangeCommentsItOut(t *testing.T) {
 	dir := t.TempDir()
-	if err := App(dir, "base", "", ""); err != nil {
+	if err := App(dir, "base", "", "", false); err != nil {
 		t.Fatal(err)
 	}
 	b, _ := os.ReadFile(filepath.Join(dir, "ddcore.app.ts"))
 	if !strings.Contains(string(b), "  // ddcore: ") {
 		t.Fatalf("expected a commented-out range:\n%s", b)
+	}
+}
+
+// In a site whose ddcore.json declares the range, a new app leaves it to the
+// site instead of starting a second copy that drifts.
+func TestAppInSiteWithRangeDeclaresNone(t *testing.T) {
+	dir := t.TempDir()
+	if err := App(dir, "base", "", ">=0.15.0 <0.16.0", true); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := os.ReadFile(filepath.Join(dir, "ddcore.app.ts"))
+	if strings.Contains(string(b), `  ddcore: "`) || !strings.Contains(string(b), "ddcore.json applies") {
+		t.Fatalf("expected no range of its own and a pointer to ddcore.json:\n%s", b)
 	}
 }
