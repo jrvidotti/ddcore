@@ -12,6 +12,8 @@ not every commit that went into it.
 
 ## Unreleased
 
+## 0.21.0 — 2026-09-28
+
 ### Breaking
 
 - **`"dev"` in `ddcore.json` is retired.** Committed, it put every environment — production
