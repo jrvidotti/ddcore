@@ -9,6 +9,7 @@
   import LinkControl from "./LinkControl.svelte";
   import AutocompleteControl from "./AutocompleteControl.svelte";
   import BarcodeControl from "./BarcodeControl.svelte";
+  import SignatureControl from "./SignatureControl.svelte";
   import TableMultiSelectControl from "./TableMultiSelectControl.svelte";
   import AttachControl from "./AttachControl.svelte";
   import RichTextControl from "./RichTextControl.svelte";
@@ -126,6 +127,8 @@
           <AutocompleteControl {field} {value} {onchange} readOnly={ro} error={shownError} {id} />
         {:else if ft === "Barcode"}
           <BarcodeControl {field} {value} {onchange} readOnly={ro} error={shownError} {id} preview={!compact && !inGrid} />
+        {:else if ft === "Signature"}
+          <SignatureControl {field} {value} {onchange} readOnly={ro} error={shownError} {id} />
         {:else if ft === "Link" || ft === "Dynamic Link"}
           <LinkControl {field} {value} {onchange} {doc} readOnly={ro} {query} {error} {id} search={linkSearch} />
         {:else if ft === "Table MultiSelect"}

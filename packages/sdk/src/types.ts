@@ -3,7 +3,7 @@
 export type FieldType =
   | "Data" | "Email" | "Small Text" | "Text" | "Text Editor" | "Markdown Editor" | "Code"
   | "Int" | "Float" | "Currency" | "Percent" | "Rating" | "Duration" | "Color"
-  | "Check" | "Date" | "Month" | "Datetime" | "Time" | "Select" | "Autocomplete" | "Barcode" | "Link" | "Dynamic Link" | "Table"
+  | "Check" | "Date" | "Month" | "Datetime" | "Time" | "Select" | "Autocomplete" | "Barcode" | "Signature" | "Link" | "Dynamic Link" | "Table"
   | "Table MultiSelect" | "Attach" | "Attach Image" | "JSON" | "Password" | "Vault" | "Section Break" | "Tab Break" | "HTML" | "Report";
 
 export type FieldWidth = "sm" | "md" | "lg" | "full";
@@ -37,7 +37,8 @@ export interface FieldDef {
    * suggestions, a list or one per line — free text is still accepted, and
    * `frm.setDfProperty(field, "options", list)` replaces them at runtime.
    * `Barcode` takes its symbology: `"Code128"` (the default), `"EAN-13"` or
-   * `"QR"`.
+   * `"QR"`. `Signature` takes none: its value is a PNG data URL drawn on the
+   * form.
    * None of those are catalogue keys — they are never translated.
    */
   options?: string | string[] | number;
@@ -292,6 +293,11 @@ export interface PrintBlockBuilder {
    * symbology refuses prints as text.
    */
   barcode(value: string, symbology?: "Code128" | "EAN-13" | "QR", title?: string): PrintBlock;
+  /**
+   * A Signature field's image, at most 25 mm tall. Anything but a PNG data URL
+   * within the field's limits prints as nothing.
+   */
+  signature(dataUrl: string, title?: string): PrintBlock;
   raw(html: string): PrintBlock;
   html(html: string): PrintBlock;
   columns(cols: PrintBlock[][]): PrintBlock;

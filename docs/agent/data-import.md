@@ -112,6 +112,7 @@ forgiving on purpose, for typed JSON from the API, and would read `abc` as `0`.
 | Select | The stored value, or the label the user sees in their language, in any case. |
 | Link | The target's id, or its `titleField` value when that names exactly one record the user can read. Two matches are an error: the file has to use the id. |
 | Barcode | The trimmed text; the save validates it for the symbology and completes a 12-digit EAN-13. Format an EAN column as **text** in the spreadsheet: as a number, `0012345678905` loses its leading zeros and no longer has 13 digits. |
+| Signature | Not imported: a signature is drawn on the form, and the column is shown as not importable. |
 | anything else | The trimmed text, as is. A code like `007` stays `007`. |
 
 The Desk dialog sends the user's locale for `decimal` and `date_order`. It

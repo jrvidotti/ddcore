@@ -397,3 +397,39 @@ func TestBarcodeBlocks(t *testing.T) {
 		t.Fatalf("the standard layout did not print the Barcode as a barcode block: %+v", blocks)
 	}
 }
+
+// testSignature is a 4×2 PNG, the smallest thing a Signature stores.
+const testSignature = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAACCAYAAAB/qH1jAAAAFUlEQVR4nGJiQAMwgf8wAUAAAAD//wl/AQRf1YR2AAAAAElFTkSuQmCC"
+
+// A signature prints as an image only when it is a PNG data URL the field
+// could have stored: a template builds the block from anything, and what
+// lands in src must never be a script URL, markup or another format.
+func TestSignatureBlocks(t *testing.T) {
+	out := RenderBlocks([]Block{{Type: "signature", Title: "Signed by", Text: testSignature}})
+	if !strings.Contains(out, `<img class="print-signature" src="`+testSignature+`"`) || !strings.Contains(out, ">Signed by<") {
+		t.Fatalf("the signature did not print as an image: %s", out)
+	}
+	for _, bad := range []string{
+		"", "javascript:alert(1)", `data:image/png;base64,"><script>alert(1)</script>`,
+		"data:image/svg+xml;base64,PHN2ZyBvbmxvYWQ9YWxlcnQoMSk+",
+		"data:image/png;base64,/9j/4AAQSkZJRgABAQ==", // JPEG bytes behind a PNG prefix
+	} {
+		if out := RenderBlocks([]Block{{Type: "signature", Title: "Signed by", Text: bad}}); out != "" {
+			t.Fatalf("%q printed %s", bad, out)
+		}
+	}
+
+	d := &meta.DocType{Name: "Delivery", Label: "Delivery", Fields: []*meta.Field{
+		{Fieldname: "signed", Fieldtype: "Signature", Label: "Received by"},
+	}}
+	blocks := StandardTemplate(d, map[string]any{"id": "D-1", "signed": testSignature}, StandardFormatOptions{})
+	var found *Block
+	for i := range blocks {
+		if blocks[i].Type == "signature" {
+			found = &blocks[i]
+		}
+	}
+	if found == nil || found.Text != testSignature || found.Title != "Received by" {
+		t.Fatalf("the standard layout did not print the Signature as a signature block: %+v", blocks)
+	}
+}

@@ -291,6 +291,13 @@ func (c *Ctx) formatPrintValue(f *meta.Field, val any, lang string) string {
 		return strings.ReplaceAll(richtext.ToText(db.Str(val)), "\n", " ")
 	case "Markdown Editor", "Code":
 		return strings.ReplaceAll(db.Str(val), "\n", " ")
+	case "Signature":
+		// a child-table cell has no room for the image; the standard layout
+		// prints a parent's Signature as a block of its own
+		if db.Str(val) == "" {
+			return ""
+		}
+		return c.St.I18n.T(lang, "Signed")
 	case "Duration":
 		return FormatDuration(int64(toFloat(val)), f.DurationHides("hideDays"), f.DurationHides("hideSeconds"))
 	case "Rating":

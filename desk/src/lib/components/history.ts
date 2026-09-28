@@ -109,9 +109,27 @@ export function humanize(str: string): string {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+/**
+ * A Signature's two sides in a Version. The server records a short hash
+ * (`sha256:…`) instead of each image, so the timeline can only say what
+ * happened: signed where there was nothing, removed, or signed again.
+ */
+export function signatureDiff(oldVal: any, newVal: any): [string, string] {
+  const had = oldVal !== null && oldVal !== undefined && oldVal !== "";
+  const has = newVal !== null && newVal !== undefined && newVal !== "";
+  if (!had) return ["—", has ? __("Signed") : "—"];
+  if (!has) return [__("Signed"), __("Removed")];
+  return [__("Signed"), oldVal === newVal ? __("Signed") : __("Changed")];
+}
+
 export function formatDiffValue(val: any, field?: Partial<Field>, fieldname?: string): FormattedValue {
   if (val === null || val === undefined || val === "") {
     return { value: val, formatted: "—", isAttach: false };
+  }
+
+  // a marker, or a data URL in a Version written before markers: never shown
+  if (field?.fieldtype === "Signature") {
+    return { value: val, formatted: __("Signed"), isAttach: false };
   }
 
   const isAttach = isAttachValue(val, field?.fieldtype);
@@ -248,14 +266,15 @@ export function diffTable(beforeRows: any[], afterRows: any[], childMeta?: DocTy
           const f = childMeta?.fields?.find((x) => x.fieldname === k);
           const fOld = formatDiffValue(a, f, k);
           const fNew = formatDiffValue(b, f, k);
+          const [sigOld, sigNew] = f?.fieldtype === "Signature" ? signatureDiff(a, b) : [fOld.formatted, fNew.formatted];
           changes.push({
             field: k,
             label: f?.label || humanize(k),
             fieldtype: f?.fieldtype || "Data",
             from: a,
             to: b,
-            formattedFrom: fOld.formatted,
-            formattedTo: fNew.formatted,
+            formattedFrom: sigOld,
+            formattedTo: sigNew,
             isAttach: fOld.isAttach || fNew.isAttach,
             fromUrl: fOld.url,
             toUrl: fNew.url,
@@ -338,6 +357,7 @@ export function parseVersion(v: any, frm?: FormController): ParsedVersion {
     } else {
       const fOld = formatDiffValue(oldVal, fieldDef, field);
       const fNew = formatDiffValue(newVal, fieldDef, field);
+      if (fieldDef?.fieldtype === "Signature") [fOld.formatted, fNew.formatted] = signatureDiff(oldVal, newVal);
       changes.push({
         field,
         label: fieldDef?.label || (field === "docstatus" ? __("Document status") : humanize(field)),

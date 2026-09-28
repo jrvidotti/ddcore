@@ -349,6 +349,8 @@ func (c *Ctx) importableReason(d *meta.DocType, f *meta.Field, access FieldAcces
 		return c.T("Secret fields are not imported")
 	case f.Fieldtype == "Attach" || f.Fieldtype == "Attach Image":
 		return c.T("Files are attached on the form")
+	case f.Fieldtype == "Signature":
+		return c.T("Signatures are signed on the form")
 	case !meta.HasColumnField(f):
 		return c.T("This field holds no value")
 	case f.ReadOnly || f.FetchFrom != "":

@@ -79,6 +79,8 @@ export function formatValue(v: any, f?: Partial<Field>): string {
     case "Text Editor": return htmlToLine(String(v));
     case "Markdown Editor":
     case "Code": return String(v).replace(/\s+/g, " ").trim();
+    // the value is an image: a cell, a list or an export says it is there
+    case "Signature": return v === "" ? "" : __("Signed");
     case "Check": return v ? "✓" : "";
     case "Date": return (f as any)?.options === "month" || (f as any)?.format === "mm/yyyy" ? formatMonth(v) : formatDate(v);
     case "Month": return formatMonth(v);

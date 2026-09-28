@@ -6,6 +6,15 @@ export function gridEditMode(field: Pick<Field, "gridEditMode">): GridEditMode {
   return field.gridEditMode === "dialog" ? "dialog" : "inline";
 }
 
+/**
+ * Whether a column of this fieldtype is edited in its grid cell. A Signature
+ * needs a drawing pad a cell has no room for: its cell shows the formatted
+ * value, and a click opens the row dialog.
+ */
+export function inlineEditable(fieldtype: string | undefined): boolean {
+  return fieldtype !== "Signature";
+}
+
 export function createChildDraft(fieldname: string, childDoctype: string, parenttype: string, rowCount: number) {
   return { doctype: childDoctype, parentfield: fieldname, parenttype, idx: rowCount + 1, __islocal: true };
 }

@@ -153,11 +153,11 @@ func Invalid(label string, err error) error {
 	case KindSymbology:
 		return cerr.Validation("Unknown barcode symbology in {0}: \"{1}\"", label, e.Symbology)
 	case KindTooLong:
-		limit := MaxCode128
 		if e.Symbology == QR {
-			limit = MaxQRBytes
+			// a QR code holds bytes: an accented letter takes two
+			return cerr.Validation("{0} is too long for a {1} barcode (at most {2} bytes)", label, e.Symbology, strconv.Itoa(MaxQRBytes))
 		}
-		return cerr.Validation("{0} is too long for a {1} barcode (at most {2} characters)", label, e.Symbology, strconv.Itoa(limit))
+		return cerr.Validation("{0} is too long for a {1} barcode (at most {2} characters)", label, e.Symbology, strconv.Itoa(MaxCode128))
 	case KindCharacters:
 		return cerr.Validation("{0} takes only letters, digits, spaces and symbols for a {1} barcode", label, e.Symbology)
 	case KindDigits:

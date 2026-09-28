@@ -495,7 +495,7 @@ func TestValidateTheFormerKeyName(t *testing.T) {
 func TestNewFieldtypeColumns(t *testing.T) {
 	for ft, want := range map[string]string{
 		"Text Editor": "text", "Markdown Editor": "text", "Code": "text",
-		"Color": "text", "Attach Image": "text", "Autocomplete": "text", "Barcode": "text",
+		"Color": "text", "Attach Image": "text", "Autocomplete": "text", "Barcode": "text", "Signature": "text",
 		"Duration": "bigint", "Rating": "bigint",
 	} {
 		if got := ColumnType(ft); got != want {
@@ -557,6 +557,62 @@ func TestRatingAndDurationAndCodeOptions(t *testing.T) {
 				t.Fatalf("expected %v to be accepted: %v", tc.field.Options, err)
 			}
 		})
+	}
+}
+
+// A Signature holds a data URL of up to 64 KiB: Postgres cannot index it, and
+// a list, a search or a sort would read every row's image. Each place that
+// would is refused at load, naming the field.
+func TestBulkyFieldsAreNotIndexedOrListed(t *testing.T) {
+	sig := func(mut func(*Field)) *Field {
+		f := &Field{Fieldname: "sig", Fieldtype: "Signature", Label: "Signature"}
+		if mut != nil {
+			mut(f)
+		}
+		return f
+	}
+	cases := []struct {
+		name string
+		d    *DocType
+		bad  string
+	}{
+		{"plain", &DocType{Name: "T", Fields: []*Field{sig(nil)}}, ""},
+		{"reqd and readOnly", &DocType{Name: "T", Fields: []*Field{sig(func(f *Field) { f.Reqd, f.ReadOnly = true, true })}}, ""},
+		{"unique", &DocType{Name: "T", Fields: []*Field{sig(func(f *Field) { f.Unique = true })}}, "unique"},
+		{"searchIndex", &DocType{Name: "T", Fields: []*Field{sig(func(f *Field) { f.SearchIndex = true })}}, "searchIndex"},
+		{"inStandardFilter", &DocType{Name: "T", Fields: []*Field{sig(func(f *Field) { f.InStandardFilter = true })}}, "inStandardFilter"},
+		{"inListView", &DocType{Name: "T", Fields: []*Field{sig(func(f *Field) { f.InListView = true })}}, "inListView"},
+		{"inListView in a child is a grid column", &DocType{Name: "T", IsChild: true, Fields: []*Field{sig(func(f *Field) { f.InListView = true })}}, ""},
+		{"titleField", &DocType{Name: "T", TitleField: "sig", Fields: []*Field{sig(nil)}}, "titleField"},
+		{"sortField", &DocType{Name: "T", SortField: "sig", Fields: []*Field{sig(nil)}}, "sortField"},
+		{"searchFields", &DocType{Name: "T", SearchFields: []string{"sig"}, Fields: []*Field{sig(nil)}}, "searchFields"},
+		{"linkSubtitle", &DocType{Name: "T", LinkSubtitle: []string{"sig"}, Fields: []*Field{sig(nil)}}, "linkSubtitle"},
+		{"uniqueKeys", &DocType{Name: "T", UniqueKeys: []UniqueKey{{Name: "k", Fields: []string{"sig", "code"}}},
+			Fields: []*Field{sig(nil), {Fieldname: "code", Fieldtype: "Data"}}}, "uniqueKeys"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			r := NewRegistry()
+			r.Add(tc.d)
+			err := r.Validate()
+			switch {
+			case tc.bad == "" && err != nil:
+				t.Fatalf("expected it to load: %v", err)
+			case tc.bad != "" && (err == nil || !strings.Contains(err.Error(), tc.bad) || !strings.Contains(err.Error(), `"sig"`)):
+				t.Fatalf("expected %s to be refused naming the field, got %v", tc.bad, err)
+			}
+		})
+	}
+
+	// a Table grid sorted by a child's Signature has no order to show
+	r := NewRegistry()
+	r.Add(&DocType{Name: "Row", IsChild: true, Fields: []*Field{sig(nil)}})
+	r.Add(&DocType{Name: "P", Fields: []*Field{{Fieldname: "rows", Fieldtype: "Table", Options: "Row", GridSort: &GridSort{Field: "sig"}}}})
+	if err := r.Validate(); err == nil || !strings.Contains(err.Error(), "gridSort") {
+		t.Fatalf("gridSort on a Signature should be refused: %v", err)
+	}
+	if !BulkyFieldtype("Signature") || BulkyFieldtype("Text") || BulkyFieldtype("Attach Image") {
+		t.Fatal("BulkyFieldtype is wrong")
 	}
 }
 

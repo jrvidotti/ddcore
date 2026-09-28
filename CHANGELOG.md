@@ -30,6 +30,16 @@ older series, and `whats_new` reads across every one of them.
   layout draws it as SVG, and print templates get `b.barcode(value, symbology, title)`.
   `GET /api/barcode?symbology=&value=` returns the SVG to any signed-in user, Website Users
   included.
+- **`Signature` fieldtype**: a signature drawn on a pad with a finger, a pen or the mouse, stored
+  as a PNG data URL in a text column — the value Frappe stores. The server accepts only a PNG
+  data URL of at most 64 KiB and 2000×1000 pixels. The form commits each stroke cropped to the
+  strokes, shows a stored signature as an image with "Sign again", and a grid opens the row
+  dialog for it instead of editing the cell. Versions record a `sha256:` marker instead of the
+  image; lists, grid exports and child-table print cells say "Signed"; Data Import does not take
+  it. The standard print layout draws it, and templates get `b.signature(dataUrl, title)`. Being
+  large, it is refused as `unique`, `searchIndex`, `inStandardFilter`, `inListView` (outside a
+  child DocType), `titleField`, `sortField`, `searchFields`, `linkSubtitle`, `uniqueKeys` or
+  `gridSort`.
 
 ### Changed
 

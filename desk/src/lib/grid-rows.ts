@@ -5,6 +5,7 @@
 import { isNumericFieldtype, selectLabels, selectOptions, type Field } from "./meta";
 import { csvSep, downloadCsv, toCsv } from "./csv";
 import { downloadXlsx, type XlsxCell } from "./xlsx";
+import { __ } from "./boot.svelte";
 
 export interface GridSortState { field: string; order: "asc" | "desc" }
 
@@ -75,6 +76,8 @@ export function exportCell(row: any, c: Col, titleOf?: TitleOf): XlsxCell {
   if ((c.fieldtype === "Link" || c.fieldtype === "Dynamic Link") && v) return titleOf?.(linkTarget(c, row), String(v)) || String(v);
   if (c.fieldtype === "Select") return selectLabel(c, v);
   if (c.fieldtype === "Check") return !!v;
+  // a spreadsheet cell cannot hold the image, and its data URL is no use there
+  if (c.fieldtype === "Signature") return v === "" ? "" : __("Signed");
   if (isNumericFieldtype(c.fieldtype)) {
     const n = Number(v);
     return Number.isFinite(n) ? n : String(v);

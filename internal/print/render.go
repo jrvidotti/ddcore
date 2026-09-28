@@ -246,6 +246,8 @@ func AssembleHTML(bodyHTML string, letterhead *LetterHead, title string, lang st
        height and their aspect ratio, a QR code is a square */
     .print-barcode svg { display: block; height: 18mm; width: auto; max-width: 100%%; }
     .print-barcode.qr svg { height: 30mm; width: 30mm; }
+    /* a signature keeps its aspect ratio at the height of a signed line */
+    .print-signature { display: block; max-height: 25mm; max-width: 100%%; width: auto; height: auto; }
 
     table.print-table {
       width: 100%%;

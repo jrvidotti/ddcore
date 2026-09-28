@@ -102,6 +102,12 @@ escaped nor cleaned.
   `Barcode` field's is its `options`. 1D codes print 18 mm tall with the value
   underneath; a QR code prints 30 mm square. A value the symbology refuses
   prints as text. The standard layout draws every `Barcode` field this way.
+- `b.signature(dataUrl, title?)` — a `Signature` field's image, at most
+  25 mm tall. The value is checked again as the field checks it on save, so
+  anything but a small PNG data URL prints as nothing — a template may pass
+  it anything, and no other URL reaches the `<img>`. The standard layout
+  prints every `Signature` field this way, and a child-table cell as
+  "Signed".
 - `b.html(markup)` / `b.raw(markup)` — markup inserted as written, unescaped.
 
 A block type the renderer does not know renders as nothing.

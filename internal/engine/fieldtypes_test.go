@@ -1,11 +1,20 @@
 package engine
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"image"
+	"image/color"
+	"image/png"
+	"regexp"
 	"strings"
 	"testing"
 
 	"github.com/jrvidotti/ddcore/internal/meta"
+	"github.com/jrvidotti/ddcore/internal/signature"
 )
 
 func castOne(t *testing.T, f *meta.Field, v any) any {
@@ -107,6 +116,7 @@ export default defineDoctype({name: "Note", module: "Demo", trackChanges: true, 
  {fieldname: "sku", fieldtype: "Barcode", label: "SKU"},
  {fieldname: "gtin", fieldtype: "Barcode", label: "GTIN", options: "EAN-13"},
  {fieldname: "link_qr", fieldtype: "Barcode", label: "Link QR", options: "QR"},
+ {fieldname: "signed", fieldtype: "Signature", label: "Signed by"},
  {fieldname: "locked", fieldtype: "Text Editor", label: "Locked", readOnly: true}
 ], permissions: [{role: "All", read: true, write: true, create: true, delete: true}]});`
 
@@ -121,6 +131,7 @@ func TestRichTextRoundTripsThroughSave(t *testing.T) {
 			"title": "One", "body": `<p>hello <strong>world</strong></p>`,
 			"snippet": "select 1", "spent": 5400, "score": 4, "accent": "#ABC", "locked": "fixed",
 			"tag": "  Violet ", "sku": " SKU-1 ", "gtin": "400638133393", "link_qr": "https://ddcore.dev/n/1",
+			"signed": signaturePNG(t, 40, 20),
 		})
 		if err != nil {
 			return err
@@ -215,7 +226,7 @@ func TestLegacyPlainTextIsNotAChange(t *testing.T) {
 func TestTextTypesShareTheirColumn(t *testing.T) {
 	for _, pair := range [][2]string{
 		{"Text", "Text Editor"}, {"Small Text", "Markdown Editor"}, {"Data", "Code"},
-		{"Data", "Color"}, {"Data", "Autocomplete"}, {"Data", "Barcode"}, {"Attach", "Attach Image"}, {"Int", "Duration"}, {"Int", "Rating"},
+		{"Data", "Color"}, {"Data", "Autocomplete"}, {"Data", "Barcode"}, {"Text", "Signature"}, {"Attach", "Attach Image"}, {"Int", "Duration"}, {"Int", "Rating"},
 	} {
 		if a, b := meta.ColumnType(pair[0]), meta.ColumnType(pair[1]); a != b {
 			t.Errorf("%s (%s) and %s (%s) do not share a column", pair[0], a, pair[1], b)
@@ -452,5 +463,116 @@ func TestDataToBarcodeIsNotAChange(t *testing.T) {
 		return nil
 	}); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// signaturePNG draws a w×h PNG with one dark pixel and returns its data URL;
+// the size tells two signatures apart.
+func signaturePNG(t *testing.T, w, h int) string {
+	t.Helper()
+	img := image.NewNRGBA(image.Rect(0, 0, w, h))
+	img.Set(0, 0, color.Black)
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		t.Fatal(err)
+	}
+	return signature.Prefix + base64.StdEncoding.EncodeToString(buf.Bytes())
+}
+
+// A Signature stores a PNG data URL and nothing else: the value lands in an
+// <img src> on the form and in print.
+func TestCastSignature(t *testing.T) {
+	f := &meta.Field{Fieldname: "signed", Fieldtype: "Signature", Label: "Signed by"}
+	sig := signaturePNG(t, 30, 10)
+	if got := castOne(t, f, "  "+sig+" "); got != sig {
+		t.Fatalf("a signature should be stored as sent, trimmed")
+	}
+	if got := castOne(t, f, "  "); got != nil {
+		t.Fatalf("a blank should be nil, got %v", got)
+	}
+	for _, bad := range []string{
+		"javascript:alert(1)", "data:image/svg+xml;base64,PHN2Zz4=", signature.Prefix + "%%%",
+		signature.Prefix + base64.StdEncoding.EncodeToString([]byte("\xff\xd8\xff\xe0 not a png")),
+		signaturePNG(t, signature.MaxWidth+1, 10),
+	} {
+		_, err := castValueWith(f, bad, utcOpts)
+		if err == nil || !strings.Contains(err.Error(), "Signed by") {
+			t.Fatalf("%.40q should be refused naming the field: %v", bad, err)
+		}
+	}
+}
+
+// The timeline records that a signature changed, not two copies of a 64 KiB
+// image: each side is a short hash, and nil stays nil.
+func TestSignatureVersionStoresMarker(t *testing.T) {
+	e := setupWith(t, map[string]string{"doctypes/note/note.doctype.ts": fieldtypesDoctype})
+	ctx := context.Background()
+	var id string
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
+		saved, err := c.Insert(Doc{"doctype": "Note", "title": "Signed"}, SaveOpts{})
+		id = saved.ID()
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	// each save in its own transaction, so each Version has its own creation
+	var versions []map[string][]any
+	for _, v := range []any{signaturePNG(t, 40, 20), signaturePNG(t, 50, 20), nil} {
+		if err := e.Run(ctx, "Admin", func(c *Ctx) error {
+			doc, err := c.GetDoc("Note", id)
+			if err != nil {
+				return err
+			}
+			doc["signed"] = v
+			if _, err := c.Save(doc, SaveOpts{}); err != nil {
+				return err
+			}
+			var data string
+			if err := c.Q().QueryRow(c.Ctx, `SELECT data FROM tab_version WHERE ref_doctype = 'Note' ORDER BY creation DESC LIMIT 1`).Scan(&data); err != nil {
+				return err
+			}
+			if strings.Contains(data, "data:image") {
+				t.Fatalf("the image reached the timeline: %.200s", data)
+			}
+			var parsed struct{ Changed map[string][]any }
+			if err := json.Unmarshal([]byte(data), &parsed); err != nil {
+				return err
+			}
+			versions = append(versions, parsed.Changed)
+			return nil
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	marker := regexp.MustCompile(`^sha256:[0-9a-f]{12}$`)
+	signed, resigned, cleared := versions[0]["signed"], versions[1]["signed"], versions[2]["signed"]
+	if signed[0] != nil || !marker.MatchString(fmt.Sprint(signed[1])) {
+		t.Fatalf("signing: %v", signed)
+	}
+	if resigned[0] != signed[1] || !marker.MatchString(fmt.Sprint(resigned[1])) || resigned[1] == resigned[0] {
+		t.Fatalf("signing again: %v after %v", resigned, signed)
+	}
+	if cleared[0] != resigned[1] || cleared[1] != nil {
+		t.Fatalf("clearing: %v", cleared)
+	}
+}
+
+// A spreadsheet cell cannot carry a drawn signature: the column is offered as
+// not importable, with the reason.
+func TestSignatureIsNotImported(t *testing.T) {
+	e := setupWith(t, map[string]string{"doctypes/note/note.doctype.ts": fieldtypesDoctype})
+	c := e.NewCtx(context.Background(), "Admin")
+	c.Lang = "en"
+	d, err := c.St.DocType("Note")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := c.importableReason(d, d.Field("signed"), c.FieldAccess(d)); got != "Signatures are signed on the form" {
+		t.Fatalf("a Signature should not be importable: %q", got)
+	}
+	for _, f := range c.importableFields(d) {
+		if f.Fieldname == "signed" {
+			t.Fatal("the Signature is among the importable fields")
+		}
 	}
 }

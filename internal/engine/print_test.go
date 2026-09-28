@@ -511,3 +511,64 @@ export default definePrintTemplate({
 		t.Fatalf("the standard layout did not draw both barcodes: %s", standard)
 	}
 }
+
+// A Signature prints as its image in the standard layout and through a
+// template's b.signature, and as "Signed" in a child-table cell, where the
+// image has no room.
+func TestPrintDoc_Signature(t *testing.T) {
+	ctx := context.Background()
+	e := setupWith(t, map[string]string{
+		"doctypes/delivery_stop/delivery_stop.doctype.ts": `import { defineDoctype } from "@ddcore/sdk";
+export default defineDoctype({
+  name: "Delivery Stop", isChild: true,
+  fields: [
+    { fieldname: "place", fieldtype: "Data", label: "Place", inListView: true },
+    { fieldname: "signed", fieldtype: "Signature", label: "Signed" },
+  ],
+});`,
+		"doctypes/delivery/delivery.doctype.ts": `import { defineDoctype } from "@ddcore/sdk";
+export default defineDoctype({
+  name: "Delivery",
+  fields: [
+    { fieldname: "received_by", fieldtype: "Signature", label: "Received by" },
+    { fieldname: "stops", fieldtype: "Table", label: "Stops", options: "Delivery Stop" },
+  ],
+  permissions: [{ role: "System Manager", read: true, write: true, create: true }],
+});`,
+		"print/delivery_note.print.ts": `import { definePrintTemplate } from "@ddcore/sdk";
+export default definePrintTemplate({
+  name: "demo.delivery_note",
+  doctype: "Delivery",
+  label: "Delivery Note",
+  body: (doc, b) => [b.signature(doc.received_by, "Customer"), b.signature("javascript:alert(1)", "Forged")],
+});`,
+	})
+	sig := signaturePNG(t, 60, 20)
+	var id string
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
+		doc, err := c.Insert(Doc{"doctype": "Delivery", "received_by": sig,
+			"stops": []any{map[string]any{"place": "Dock 1", "signed": sig}}}, SaveOpts{})
+		id = doc.ID()
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	c := e.NewCtx(ctx, "Admin")
+	custom, err := c.PrintDoc("Delivery", id, "demo.delivery_note", "none", "en", print.PDFOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(custom, `<img class="print-signature" src="`+sig+`"`) || !strings.Contains(custom, ">Customer<") {
+		t.Fatalf("custom template is missing the signature: %.2000s", custom)
+	}
+	if strings.Contains(custom, "javascript:") || strings.Contains(custom, "Forged") {
+		t.Fatalf("a value that is not a signature printed: %.2000s", custom)
+	}
+	standard, err := c.PrintDoc("Delivery", id, "", "none", "en", print.PDFOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Count(standard, `class="print-signature"`) != 1 || !strings.Contains(standard, ">Signed<") {
+		t.Fatalf("the standard layout should draw the parent's signature and say Signed in the row: %.3000s", standard)
+	}
+}

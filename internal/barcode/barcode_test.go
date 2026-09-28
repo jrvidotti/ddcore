@@ -76,6 +76,15 @@ func TestInvalidNamesTheField(t *testing.T) {
 	if !strings.Contains(ce.Message, "GTIN") || !strings.Contains(ce.Message, "4006381333932") {
 		t.Fatalf("the message names neither field nor value: %s", ce.Message)
 	}
+	// a QR code's limit is in bytes, Code 128's in characters
+	_, err = Normalize(QR, strings.Repeat("é", 501))
+	if msg := Invalid("Link", err).Error(); !strings.Contains(msg, "1000 bytes") {
+		t.Fatalf("the QR limit should be given in bytes: %s", msg)
+	}
+	_, err = Normalize(Code128, strings.Repeat("x", 81))
+	if msg := Invalid("SKU", err).Error(); !strings.Contains(msg, "80 characters") {
+		t.Fatalf("the Code 128 limit should be given in characters: %s", msg)
+	}
 	plain := errors.New("other")
 	if Invalid("GTIN", plain) != plain {
 		t.Fatal("an unrelated error was rewritten")

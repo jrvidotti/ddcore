@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { diffTable, formatMultiSelect, parseVersion } from "./history";
+import { diffTable, formatDiffValue, formatMultiSelect, parseVersion, signatureDiff } from "./history";
 
 const childMeta = {
   name: "Item",
@@ -54,5 +54,31 @@ describe("parseVersion", () => {
     const v = parseVersion({ id: "v2", owner: "Admin", creation: "2026-09-28 10:00:00", data: JSON.stringify({ changed: { title: ["a", "b"] } }) });
     expect(v.deleted).toBe(false);
     expect(v.changes.map((c) => c.field)).toEqual(["title"]);
+  });
+});
+
+describe("Signature in history", () => {
+  const a = "sha256:0123456789ab", b = "sha256:ba9876543210";
+  const sig = { fieldname: "signed", label: "Signed by", fieldtype: "Signature" } as any;
+
+  it("says what happened, never showing the marker", () => {
+    expect(signatureDiff(null, a)).toEqual(["—", "Signed"]);
+    expect(signatureDiff(a, null)).toEqual(["Signed", "Removed"]);
+    expect(signatureDiff(a, b)).toEqual(["Signed", "Changed"]);
+    expect(formatDiffValue(a, sig).formatted).toBe("Signed");
+    expect(formatDiffValue(null, sig).formatted).toBe("—");
+  });
+
+  it("reads a Version's markers on the document and in child rows", () => {
+    const frm: any = {
+      field: (f: string) => (f === "signed" ? sig : f === "stops" ? { fieldname: "stops", fieldtype: "Table", options: "Stop", label: "Stops" } : undefined),
+      meta: { children: { Stop: { name: "Stop", fields: [sig] } } },
+    };
+    const v = parseVersion({ id: "V-1", data: { changed: { signed: [a, b], stops: [[{ id: "r1", signed: null }], [{ id: "r1", signed: a }]] } } }, frm);
+    const doc = v.changes.find((c) => c.field === "signed")!;
+    expect([doc.formattedOld, doc.formattedNew]).toEqual(["Signed", "Changed"]);
+    const row = v.changes.find((c) => c.field === "stops")!.tableDiff!.modified[0].changes[0];
+    expect([row.formattedFrom, row.formattedTo]).toEqual(["—", "Signed"]);
+    expect(JSON.stringify(v.changes.map((c) => [c.formattedOld, c.formattedNew]))).not.toContain("sha256");
   });
 });

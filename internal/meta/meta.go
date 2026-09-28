@@ -21,7 +21,7 @@ var LayoutTypes = map[string]bool{"Section Break": true, "Tab Break": true, "HTM
 func ColumnType(ft string) string {
 	switch ft {
 	case "Data", "Email", "Small Text", "Text", "Text Editor", "Markdown Editor", "Code", "Color",
-		"Select", "Autocomplete", "Barcode", "Link", "Dynamic Link", "Attach", "Attach Image", "Password":
+		"Select", "Autocomplete", "Barcode", "Signature", "Link", "Dynamic Link", "Attach", "Attach Image", "Password":
 		return "text"
 	case "Int", "Duration", "Rating":
 		return "bigint"
@@ -43,7 +43,17 @@ func ColumnType(ft string) string {
 	return ""
 }
 
-var ValidFieldTypes = []string{"Data", "Email", "Small Text", "Text", "Text Editor", "Markdown Editor", "Code", "Int", "Float", "Currency", "Percent", "Check", "Rating", "Duration", "Color", "Date", "Month", "Datetime", "Time", "Select", "Autocomplete", "Barcode", "Link", "Dynamic Link", "Table", "Table MultiSelect", "Attach", "Attach Image", "JSON", "Password", "Vault", "Section Break", "Tab Break", "HTML", "Report"}
+// BulkyFieldtype reports whether a fieldtype's value is too large to index or
+// to read for many rows at once: a Signature holds a PNG data URL of up to
+// 64 KiB. Postgres refuses a btree entry past about 2.7 KB, so such a field
+// cannot be unique, indexed or part of a key, and every place that reads it
+// for a whole list — the title, the search fields, a sort — would pull every
+// image with it.
+func BulkyFieldtype(ft string) bool {
+	return ft == "Signature"
+}
+
+var ValidFieldTypes = []string{"Data", "Email", "Small Text", "Text", "Text Editor", "Markdown Editor", "Code", "Int", "Float", "Currency", "Percent", "Check", "Rating", "Duration", "Color", "Date", "Month", "Datetime", "Time", "Select", "Autocomplete", "Barcode", "Signature", "Link", "Dynamic Link", "Table", "Table MultiSelect", "Attach", "Attach Image", "JSON", "Password", "Vault", "Section Break", "Tab Break", "HTML", "Report"}
 
 type Field struct {
 	Fieldname          string `json:"fieldname,omitempty"`
@@ -770,6 +780,23 @@ func (r *Registry) Validate() error {
 					e("field %q (Code): options is the language, lowercase (%q)", f.Fieldname, lang)
 				}
 			}
+			if BulkyFieldtype(f.Fieldtype) {
+				// a btree entry is capped near 2.7 KB, and a list or a filter
+				// would read every row's value to show or match it
+				switch {
+				case f.Unique:
+					e("field %q: a %s cannot be unique — its value is too large to index", f.Fieldname, f.Fieldtype)
+				case f.SearchIndex:
+					e("field %q: a %s cannot have a searchIndex — its value is too large to index", f.Fieldname, f.Fieldtype)
+				case f.InStandardFilter:
+					e("field %q: a %s cannot be inStandardFilter", f.Fieldname, f.Fieldtype)
+				}
+				// a child's inListView is a grid column, whose rows the form
+				// has already loaded; the grid shows it as "Signed"
+				if f.Fieldtype == "Signature" && f.InListView && !d.IsChild {
+					e("field %q: a Signature cannot be inListView — the list would load every image", f.Fieldname)
+				}
+			}
 			for _, prev := range f.RenamedFrom {
 				switch {
 				case !fieldnameRe.MatchString(prev):
@@ -853,6 +880,21 @@ func (r *Registry) Validate() error {
 		}
 		for _, lf := range d.LinkSubtitle {
 			named("linkSubtitle", lf)
+		}
+		// These are read for every row of a list, a search or a Link's
+		// dropdown, so a value of up to 64 KiB cannot be one of them.
+		bulky := func(what, fieldname string) {
+			if f := d.Field(fieldname); f != nil && BulkyFieldtype(f.Fieldtype) {
+				e("%s %q is a %s, whose value is too large to list or sort by", what, fieldname, f.Fieldtype)
+			}
+		}
+		bulky("titleField", d.TitleField)
+		bulky("sortField", d.SortField)
+		for _, sf := range d.SearchFields {
+			bulky("searchFields", sf)
+		}
+		for _, lf := range d.LinkSubtitle {
+			bulky("linkSubtitle", lf)
 		}
 		validateUniqueKeys(d, e)
 		validateTree(d, e)
@@ -954,6 +996,9 @@ func validateUniqueKeys(d *DocType, e func(string, ...any)) {
 				ok = false
 			case !HasColumnField(f):
 				e("uniqueKeys %q: field %q is a %s, which has no column of its own", k.Name, fn, f.Fieldtype)
+				ok = false
+			case BulkyFieldtype(f.Fieldtype):
+				e("uniqueKeys %q: field %q is a %s, whose value is too large to index", k.Name, fn, f.Fieldtype)
 				ok = false
 			}
 			seen[fn] = true
@@ -1117,6 +1162,8 @@ func (r *Registry) validateGrid(d *DocType, f *Field, e func(string, ...any)) {
 			if t := r.DocTypes[f.OptionsString()]; t != nil {
 				if cf := t.Field(gs.Field); cf == nil || LayoutTypes[cf.Fieldtype] || IsTableType(cf.Fieldtype) {
 					e("field %q: gridSort.field %q is not a field of %q", f.Fieldname, gs.Field, t.Name)
+				} else if BulkyFieldtype(cf.Fieldtype) {
+					e("field %q: gridSort.field %q is a %s, which has no order to sort by", f.Fieldname, gs.Field, cf.Fieldtype)
 				}
 			}
 		}

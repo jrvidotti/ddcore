@@ -102,4 +102,16 @@ describe("Control", () => {
     expect(body).toContain('data-fieldtype="Barcode"');
     expect(body).toContain('class="barcode"');
   });
+
+  it("renders a Signature as its image, or as a pad when there is none", () => {
+    const field: Field = { fieldname: "signed", fieldtype: "Signature", label: "Signed by" };
+    const png = "data:image/png;base64,iVBORw0KGgo=";
+    const signed = render(Control, { props: { field, value: png, onchange: vi.fn() } }).body;
+    expect(signed).toContain('data-fieldtype="Signature"');
+    expect(signed).toContain(`src="${png}"`);
+    expect(signed).not.toContain("<canvas");
+    const empty = render(Control, { props: { field, value: null, onchange: vi.fn() } }).body;
+    expect(empty).toContain("<canvas");
+    expect(empty).not.toContain("<input");
+  });
 });

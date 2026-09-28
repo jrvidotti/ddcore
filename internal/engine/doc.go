@@ -1,6 +1,8 @@
 package engine
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -14,6 +16,7 @@ import (
 	"github.com/jrvidotti/ddcore/internal/meta"
 	"github.com/jrvidotti/ddcore/internal/num"
 	"github.com/jrvidotti/ddcore/internal/richtext"
+	"github.com/jrvidotti/ddcore/internal/signature"
 )
 
 // A Color is stored as `#rrggbb`, lowercase, so two spellings of the same
@@ -185,6 +188,17 @@ func castValueWith(f *meta.Field, v any, o castOpts) (any, error) {
 		s, err := barcode.Normalize(f.BarcodeSymbology(), db.Str(v))
 		if err != nil {
 			return nil, barcode.Invalid(f.Label, err)
+		}
+		if s == "" {
+			return nil, nil
+		}
+		return s, nil
+	case "Signature":
+		// A PNG data URL and nothing else: the value ends up in an <img src>
+		// on the form and in print, so a script URL or markup never saves.
+		s, err := signature.Normalize(db.Str(v))
+		if err != nil {
+			return nil, signature.Invalid(f.Label, err)
 		}
 		if s == "" {
 			return nil, nil
@@ -2323,7 +2337,8 @@ func isSecretField(name string) bool {
 
 // ------------------------------------------------------------ versions
 
-// versionRows copies child rows for a Version diff, without secret columns.
+// versionRows copies child rows for a Version diff, without secret columns and
+// with each Signature replaced by its marker.
 func versionRows(cd *meta.DocType, rows []Doc) []any {
 	out := make([]any, len(rows))
 	for i, r := range rows {
@@ -2331,6 +2346,9 @@ func versionRows(cd *meta.DocType, rows []Doc) []any {
 		for k, v := range r {
 			if cd != nil {
 				if f := cd.Field(k); f != nil && (f.Fieldtype == "Password" || f.Fieldtype == "Vault") {
+					continue
+				} else if f != nil && f.Fieldtype == "Signature" {
+					x[k] = signatureMarker(v)
 					continue
 				}
 			}
@@ -2368,6 +2386,11 @@ func (c *Ctx) saveVersion(d *meta.DocType, before, after Doc) {
 		if (f.Fieldtype == "Text Editor" || f.Fieldtype == "Autocomplete" || f.Fieldtype == "Barcode") && c.sameFieldValue(f, a, b) {
 			continue
 		}
+		// A signature is an image of up to 64 KiB: the timeline records that
+		// it changed, not two copies of it.
+		if f.Fieldtype == "Signature" {
+			a, b = signatureMarker(a), signatureMarker(b)
+		}
 		if string(mustJSON(a)) != string(mustJSON(b)) {
 			if meta.IsTableType(f.Fieldtype) {
 				// a child row's secrets stay out of history just as the parent's do
@@ -2375,7 +2398,7 @@ func (c *Ctx) saveVersion(d *meta.DocType, before, after Doc) {
 				changed[f.Fieldname] = []any{versionRows(cd, before.Children(f.Fieldname)), versionRows(cd, after.Children(f.Fieldname))}
 				continue
 			}
-			changed[f.Fieldname] = []any{before[f.Fieldname], after[f.Fieldname]}
+			changed[f.Fieldname] = []any{a, b}
 		}
 	}
 	if before.Docstatus() != after.Docstatus() {
@@ -2441,4 +2464,16 @@ func (c *Ctx) recordDeletion(d *meta.DocType, doc Doc) error {
 		detail["version"] = id
 	}
 	return c.Audit("doc.delete", d.Name, doc.ID(), detail)
+}
+
+// signatureMarker stands in for a Signature's value in the timeline:
+// `sha256:` and the first twelve hex digits of the data URL's hash, enough to
+// tell one signature from another without storing either. Empty stays nil.
+func signatureMarker(v any) any {
+	s := db.Str(v)
+	if v == nil || s == "" {
+		return nil
+	}
+	sum := sha256.Sum256([]byte(s))
+	return "sha256:" + hex.EncodeToString(sum[:])[:12]
 }

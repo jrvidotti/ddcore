@@ -23,6 +23,7 @@
 | Select | text | `options: ["A", "B"]`, canonical English, validated on the server; `optionColors` gives each value an indicator colour |
 | Autocomplete | text | free text with suggestions: `options` lists them (a list, or one per line) and never limits what is stored; outer spaces are trimmed. See below |
 | Barcode | text | `options` is the symbology: `"Code128"` (the default), `"EAN-13"` or `"QR"`; the value is validated for it, and an EAN-13 typed with 12 digits gets its check digit. The form previews the code and can scan it with the camera. See below |
+| Signature | text | a signature drawn on the form, stored as a PNG data URL (`data:image/png;base64,…`, as Frappe stores it); at most 64 KiB and 2000×1000 pixels. Never unique, indexed, a standard filter, in the list, or a title, search, sort or key field. See below |
 | Link | text | `options: "DocType"`; existence validated; index created automatically. A Link to a virtual DocType stores `"<Source>:<id>"` (see `virtual-doctypes`) |
 | Dynamic Link | text | `options: "<the field holding the DocType>"`; the DocType and the document are validated on save. When that field is a `Data`, the desk shows it as a list of the DocTypes the user can see, and changing it clears the link |
 | Table | (child table) | `options: "Child DocType"` with `isChild: true`; `gridEditMode: "dialog"` turns off inline editing; `gridSort`, `gridSortable`, `gridExport`, `gridSelect`, `gridFilters` add a default order, header sorting, CSV/XLSX export, row selection and preset filters; `gridIndex: false` hides the `#` column. See "Form grids" below |
@@ -213,6 +214,40 @@ Enter.
   and completes EAN-13 check digits without recording a Version; a stored value
   the symbology refuses fails that save, so check the data first.
 
+## Signature
+
+A signature drawn with a finger, a pen or the mouse: a delivery received, a
+form acknowledged.
+
+```ts
+{ fieldname: "received_by", fieldtype: "Signature", label: "Received by" }
+```
+
+- **Storage:** a PNG data URL in a text column, `data:image/png;base64,…`,
+  which is what Frappe stores — an imported Frappe value keeps working. The
+  server checks every value on save: that exact prefix, base64 that decodes,
+  a real PNG, at most 64 KiB decoded and 2000×1000 pixels. Anything else — a
+  JPEG, an SVG, a URL — fails the save naming the field. An empty value is
+  stored as null.
+- **The form** shows a pad; each stroke that ends commits the pad cropped to
+  its strokes, and Clear empties it. A stored signature shows as an image with
+  a "Sign again" button, which opens an empty pad — the stored image is kept
+  until a new stroke or Clear replaces it. Read-only, only the image shows.
+- **Too large to index or list.** A value is tens of KiB, so `migrate` refuses
+  `unique`, `searchIndex`, `inStandardFilter` and `inListView` on it, and
+  refuses it as the DocType's `titleField`, `sortField`, in `searchFields`,
+  `linkSubtitle` or a `uniqueKeys` entry, and as a Table's `gridSort.field`.
+  On a **child** DocType `inListView` is allowed: the grid column says
+  "Signed", and clicking it opens the row dialog, where the pad is — a grid
+  cell never edits a signature inline.
+- **History:** a Version records `sha256:` and 12 hex digits of each side
+  instead of the image, so the timeline says Signed, Removed or Changed.
+- **Elsewhere** it reads as "Signed": list cells, grid exports and child-table
+  cells in print. Data Import does not take it (it is signed on the form);
+  `/api/export` carries the data URL, as a faithful copy.
+- **Print:** the standard layout draws it as an image, at most 25 mm tall; a
+  template uses `b.signature(dataUrl, title)`. See `print`.
+
 ## Table MultiSelect
 
 A document that points at *several* documents of one DocType — tags, categories,
@@ -330,7 +365,7 @@ permlevel, renamedFrom, convert`
 - `renamedFrom: "old_name"` (or a list, oldest first): the fieldname this field used to have, so `migrate` renames the column instead of adding an empty one beside it. See `migrations`.
 - `options` beyond Link, Table, Table MultiSelect and Select: `Rating` takes the number of stars,
   `Code` the language, `Duration` its display flags, `Autocomplete` its
-  suggestions and `Barcode` its symbology. None of them are catalogue keys — they are never translated,
+  suggestions and `Barcode` its symbology (`Signature` takes none). None of them are catalogue keys — they are never translated,
   unlike a Select's options.
 - Changing a field from `Text`, `Small Text` or `Data` to `Text Editor`,
   `Markdown Editor` or `Code`, or from `Int` to `Duration` or `Rating`, keeps

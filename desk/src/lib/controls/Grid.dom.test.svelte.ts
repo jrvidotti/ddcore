@@ -1,6 +1,7 @@
 import { flushSync, mount, tick, unmount } from "svelte";
 import { describe, expect, it, vi } from "vitest";
 import Grid from "./Grid.svelte";
+import { inlineEditable } from "./grid-state";
 
 vi.mock("$lib/api", () => ({ api: {} }));
 vi.mock("$lib/boot.svelte", () => ({
@@ -187,5 +188,28 @@ describe("Grid", () => {
     t.click(t.target.querySelector("tbody tr:nth-child(3) button.cell-click"));
     expect(clicked).toEqual(["Bia"]);
     t.done();
+  });
+
+  it("a Signature column is never edited in its cell: it says Signed and opens the row dialog", () => {
+    expect(inlineEditable("Signature")).toBe(false);
+    expect(inlineEditable("Data")).toBe(true);
+    expect(inlineEditable(undefined)).toBe(true);
+    childMeta.fields.push({ fieldname: "signed", fieldtype: "Signature", label: "Signed", inListView: true });
+    try {
+      dialogs.length = 0;
+      const t = setup({});
+      t.doc.students[1].signed = "data:image/png;base64,AAAA";
+      flushSync();
+      const cell = t.target.querySelector("tbody tr:nth-child(2) td:last-of-type")!.previousElementSibling!;
+      expect(cell.querySelector("canvas, input")).toBe(null);
+      expect(cell.textContent?.trim()).toBe("Signed");
+      expect(t.target.querySelector("tbody tr:nth-child(1) td:last-of-type")!.previousElementSibling!.textContent?.trim()).toBe("—");
+      t.click(cell.querySelector("button.cell-click"));
+      expect(dialogs).toHaveLength(1);
+      expect(dialogs[0].values.id).toBe("r2");
+      t.done();
+    } finally {
+      childMeta.fields.pop();
+    }
   });
 });

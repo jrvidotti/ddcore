@@ -68,6 +68,11 @@ describe("export", () => {
     expect(cols.map((c) => exportCell(row, c, titleOf))).toEqual(["x", 3, "Zoe", "Fechado", true, "2026-01-02"]);
     expect(exportCell({ who: "E-9" }, cols[2], titleOf)).toBe("E-9");
   });
+  it("says a signature is there instead of exporting its data URL", () => {
+    const sig = { fieldname: "signed", fieldtype: "Signature", label: "Signed" } as any;
+    expect(exportCell({ signed: "data:image/png;base64,AAAA" }, sig)).toBe("Signed");
+    expect(exportCell({ signed: null }, sig)).toBe("");
+  });
   it("builds a header from the labels", () => {
     const t = exportTable([{ name: "a", qty: 1 }], cols.slice(0, 2));
     expect(t).toEqual({ header: ["Name", "Qty"], cells: [["a", 1]] });

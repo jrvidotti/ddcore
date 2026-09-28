@@ -9,7 +9,7 @@
   import { __ } from "$lib/boot.svelte";
   import { confirm, dialog } from "$lib/ui.svelte";
   import type { FormController } from "$lib/form.svelte";
-  import { applyRowChanges, confirmRowRemoval, createChildDraft, fileNameParts, gridEditMode } from "./grid-state";
+  import { applyRowChanges, confirmRowRemoval, createChildDraft, fileNameParts, gridEditMode, inlineEditable } from "./grid-state";
   import { getLinkTitle } from "$lib/titles.svelte";
   import { downloadTable, exportBaseName, exportTable, filterRows, nextSort, sortRows, type GridSortState } from "$lib/grid-rows";
   import GridExport from "./GridExport.svelte";
@@ -24,7 +24,9 @@
   const totalCols = $derived(columns.reduce((s, c) => s + (c.columns || 2), 0));
   const editMode = $derived(gridEditMode(field));
   const dialogOnly = $derived(editMode === "dialog");
-  const hasDialog = $derived(dialogOnly || childMeta.fields.some((f) => !f.inListView && !isLayout(f) && !f.hidden));
+  // a column no cell can edit (a Signature) is edited in the row dialog
+  const hasDialog = $derived(dialogOnly || childMeta.fields.some((f) => !f.inListView && !isLayout(f) && !f.hidden)
+    || columns.some((c) => !inlineEditable(c.fieldtype)));
 
   // Sorting is display only: `rows` keeps its order (and each row its idx),
   // `viewRows` is what the table shows. Anything acting on a row resolves its
@@ -167,6 +169,8 @@
                   {:else}
                     <span class="cell-value" title={formatValue(row[c.fieldname!], c)}>{formatValue(row[c.fieldname!], c) || "—"}</span>
                   {/if}
+                {:else if !inlineEditable(c.fieldtype)}
+                  <button type="button" class="cell-click cell-value" title={editable ? __("Edit row") : __("View row")} onclick={() => editRow(row)}>{formatValue(row[c.fieldname!], c) || "—"}</button>
                 {:else if rowEditable(c, row) && (!c.dependsOn || evalExpr(c.dependsOn, row, frm.doc))}
                   <Control field={c} value={row[c.fieldname!]} onchange={(v) => { row[c.fieldname!] = v; frm.trigger(field.fieldname!, childMeta.name, row.id, row); }} doc={row} compact inGrid />
                 {:else if clickable.has(c.fieldname!)}

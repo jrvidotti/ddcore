@@ -7,6 +7,7 @@ import (
 
 	"github.com/jrvidotti/ddcore/internal/barcode"
 	"github.com/jrvidotti/ddcore/internal/richtext"
+	"github.com/jrvidotti/ddcore/internal/signature"
 )
 
 // Block is one structural piece of a printed document.
@@ -221,6 +222,17 @@ func (b Block) RenderHTML() string {
 			class += " qr"
 		}
 		return b.labelled(`<div class="` + class + `">` + string(svg) + `</div>`)
+
+	case "signature":
+		// The rich-text sanitizer forbids data: URLs, so the image is built
+		// here — and only after the value is checked again, since a template
+		// can build this block from anything: what reaches src is a small
+		// PNG data URL or nothing at all.
+		v, err := signature.Normalize(b.Text)
+		if err != nil || v == "" {
+			return ""
+		}
+		return b.labelled(`<div class="print-signature-box"><img class="print-signature" src="` + html.EscapeString(v) + `" alt=""></div>`)
 
 	case "raw":
 		// Raw HTML escape hatch — rendered unescaped by deliberate design for custom markup

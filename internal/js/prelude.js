@@ -465,6 +465,9 @@
     barcode: (value, symbology, title) => ({
       type: "barcode", text: String(value ?? ""), symbology: String(symbology ?? ""), title: String(title ?? ""),
     }),
+    // signature prints a Signature field's PNG data URL as an image. Anything
+    // that is not one prints as nothing.
+    signature: (dataUrl, title) => ({ type: "signature", text: String(dataUrl ?? ""), title: String(title ?? "") }),
     raw: (html) => ({ type: "raw", html: String(html ?? "") }),
     html: (html) => ({ type: "raw", html: String(html ?? "") }),
     columns: (cols) => ({
