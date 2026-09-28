@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.21.3 — 2026-09-28
+
 ### Fixed
 
 - **`ddcore.db.getSingleValue(doctype, field)` returns the Single's value again.** Since 0.17
