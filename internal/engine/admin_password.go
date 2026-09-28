@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"crypto/rand"
+	"fmt"
 	"math/big"
 
 	"github.com/jrvidotti/ddcore/internal/db"
@@ -22,9 +23,12 @@ const (
 	pwSymbols = "@%-_+="
 )
 
-// ensureAdminPassword gives Admin a generated password when it has none, which
-// is what a first install leaves: a superuser nobody can sign in as. It returns
-// the password in clear, once, for the caller to show; only the hash is kept.
+// ensureAdminPassword gives Admin a password when it has none, which is what a
+// first install leaves: a superuser nobody can sign in as. The deployment's
+// DDCORE_ADMIN_PASSWORD is used when set — a container has no console to read
+// a generated one from — and is never shown; otherwise one is generated and
+// returned in clear, once, for the caller to show. Only the hash is kept, and
+// a password Admin already has is never replaced.
 //
 // A test engine is left alone — its tests sign in however they like, and an
 // Argon2 hash per setup is time they would pay for nothing.
@@ -39,22 +43,31 @@ func ensureAdminPassword(ctx context.Context, c *Ctx) (string, error) {
 	if err != nil || len(rows) == 0 {
 		return "", err
 	}
-	n := adminPasswordLength
-	if m := c.E.Cfg.Auth.MinPasswordLength; m > n {
-		n = m
-	}
-	pw, err := generatePassword(n)
-	if err != nil {
-		return "", err
+	pw, shown := c.E.Cfg.AdminPassword, ""
+	if pw == "" {
+		n := adminPasswordLength
+		if m := c.E.Cfg.Auth.MinPasswordLength; m > n {
+			n = m
+		}
+		if pw, err = generatePassword(n); err != nil {
+			return "", err
+		}
+		shown = pw
 	}
 	hash, err := c.E.HashNewPassword("Admin", pw)
 	if err != nil {
+		if shown == "" {
+			return "", fmt.Errorf("DDCORE_ADMIN_PASSWORD: %w", err)
+		}
 		return "", err
 	}
 	if _, err := c.Tx.Exec(ctx, `UPDATE tab_user SET password_hash = $1 WHERE id = 'Admin'`, hash); err != nil {
 		return "", err
 	}
-	return pw, nil
+	if shown == "" {
+		c.E.Log.Info("Admin password set from DDCORE_ADMIN_PASSWORD")
+	}
+	return shown, nil
 }
 
 // generatePassword returns n characters with at least one of each class.

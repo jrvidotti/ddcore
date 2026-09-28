@@ -408,9 +408,11 @@ The framework adheres to [Semantic Versioning 2.0.0](https://semver.org/):
     - Builds the Desk SPA (`desk/build`).
     - Cross-compiles standalone static binaries with `CGO_ENABLED=0` for Darwin and Linux (`darwin-amd64`, `darwin-arm64`, `linux-amd64`, `linux-arm64`).
     - Packages archives (`ddcore-<os>-<arch>.tar.gz`) with checksums (`SHA256SUMS`) and attaches them to the GitHub Release.
-  - Pushing to the `main` branch updates the rolling release `latest` for developers.
-  - The framework itself publishes no container image: an app builds its own image and fetches
-    the binary of the release it pins, so there is nothing for the framework to keep in a registry.
+    - Builds and pushes the image `ghcr.io/jrvidotti/ddcore:<X.Y.Z>`, `:<X.Y>` and `:latest`
+      (linux amd64/arm64, `docker/image/Dockerfile`) from those same binaries.
+  - Pushing to the `main` branch updates the rolling prerelease `edge` for developers
+    (`VERSION=edge` for `install.sh`). It is a prerelease so that GitHub's "latest release" —
+    what the installer and `ddcore doctor`'s update check read — is always a tagged version.
 
 - **Cutting a release** — in this order, because the tag is what publishes the binaries and
   nothing downstream re-reads the changelog afterwards:

@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/jrvidotti/ddcore/internal/engine"
+	"github.com/jrvidotti/ddcore/internal/scaffold"
 )
 
 // execFlags mirrors cmdExec's declarations.
@@ -440,6 +441,35 @@ func TestInitWritesTheSiteRangeAndNewAppDefersToIt(t *testing.T) {
 	}
 	if app := readFile(t, filepath.Join("apps", "shop", "ddcore.app.ts")); strings.Contains(app, `  ddcore: "`) {
 		t.Fatalf("the app repeats the site's range:\n%s", app)
+	}
+}
+
+// A new site is deployable as created: init writes the Dockerfile, no longer
+// writes "dev", and `deploy railway` adds railway.json without touching it.
+func TestInitWritesTheImageAndDeployRailwayAddsItsConfig(t *testing.T) {
+	if _, err := initIn(t, "x"); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(readFile(t, "ddcore.json"), `"dev"`) {
+		t.Fatal(`init still writes "dev"`)
+	}
+	want := scaffold.Image + ":latest"
+	if tag, ok := engine.ImageTag(engine.Version); ok {
+		want = scaffold.Image + ":" + tag
+	}
+	if df := readFile(t, "Dockerfile"); !strings.Contains(df, "FROM "+want) {
+		t.Fatalf("Dockerfile not on %s:\n%s", want, df)
+	}
+	readFile(t, ".dockerignore")
+	os.WriteFile("Dockerfile", []byte("mine"), 0o644)
+	if err := cmdDeploy([]string{"railway"}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(readFile(t, "railway.json"), "/api/ready") || readFile(t, "Dockerfile") != "mine" {
+		t.Fatal("deploy railway should add railway.json and leave the Dockerfile alone")
+	}
+	if err := cmdDeploy([]string{"heroku"}); err == nil {
+		t.Fatal("an unknown target should be refused")
 	}
 }
 

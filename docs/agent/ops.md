@@ -41,8 +41,9 @@ a second.
 
 ### Probing from a container
 
-The framework publishes no image of its own — an app builds one around the
-binary it pins. Leave the `HEALTHCHECK` out of that image and declare the probe
+A site's image starts `FROM ghcr.io/jrvidotti/ddcore:<version>`, the official
+image of the release it pins (`ddcore deploy docker` writes that Dockerfile).
+Leave the `HEALTHCHECK` out of it and declare the probe
 in the orchestrator instead: the entrypoint is the binary itself, and the same
 image runs `ddcore migrate` and `ddcore doctor` as one-shot containers that a
 baked healthcheck would mark unhealthy.

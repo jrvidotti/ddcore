@@ -15,6 +15,7 @@ on:
 
 permissions:
   contents: write
+  packages: write
 
 jobs:
   binaries:
@@ -51,8 +52,11 @@ jobs:
             echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
             echo "prerelease=false" >> $GITHUB_OUTPUT
           else
-            echo "tag=latest" >> $GITHUB_OUTPUT
-            echo "prerelease=false" >> $GITHUB_OUTPUT
+            # main's rolling build is a prerelease named edge, so that
+            # releases/latest — what install.sh and `ddcore doctor` read —
+            # is always the newest tagged version
+            echo "tag=edge" >> $GITHUB_OUTPUT
+            echo "prerelease=true" >> $GITHUB_OUTPUT
           fi
 
       - name: Build and Package Cross-Platform Binaries
@@ -72,6 +76,10 @@ jobs:
               -ldflags="-s -w -X github.com/jrvidotti/ddcore/internal/engine.Version=${TAG}" \
               -o "dist/build_${OS}_${ARCH}/${OUTPUT}" ./cmd/ddcore
             
+            if [ "$OS" = linux ]; then
+              mkdir -p "dist/image/linux-${ARCH}"
+              cp "dist/build_${OS}_${ARCH}/${OUTPUT}" "dist/image/linux-${ARCH}/"
+            fi
             cp LICENSE THIRD_PARTY_NOTICES.md "dist/build_${OS}_${ARCH}/"
             tar -czf "dist/${TAR_NAME}" -C "dist/build_${OS}_${ARCH}" "${OUTPUT}" LICENSE THIRD_PARTY_NOTICES.md
             rm -rf "dist/build_${OS}_${ARCH}"
@@ -98,3 +106,41 @@ jobs:
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # The image a site's Dockerfile starts FROM, for tagged releases only:
+      # ghcr.io/jrvidotti/ddcore:<X.Y.Z>, :<X.Y> and :latest.
+      - name: Image tags
+        id: image
+        if: steps.release_info.outputs.prerelease == 'false'
+        run: |
+          V="${{ steps.release_info.outputs.tag }}"
+          V="${V#v}"
+          MINOR="${V%.*}"
+          IMG="ghcr.io/${{ github.repository_owner }}/ddcore"
+          echo "tags=${IMG}:${V},${IMG}:${MINOR},${IMG}:latest" >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx
+        if: steps.image.outputs.tags != ''
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: steps.image.outputs.tags != ''
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push the image
+        if: steps.image.outputs.tags != ''
+        uses: docker/build-push-action@v6
+        with:
+          context: dist/image
+          file: docker/image/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.image.outputs.tags }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.release_info.outputs.tag }}
+            org.opencontainers.image.licenses=MIT

@@ -1,6 +1,6 @@
 # CLI and the development loop
 
-`ddcore.json` in the site directory: `dsn`, `apps` (directories), `ddcore` (the range of ddcore releases the site is tested against — see `conventions`), `port`, `workers`, `scheduler`, `lang`, `currency`, `currencyPrecision`, `rounding`, `timezone`, `dev`, `exportMaxRows`, `importMaxRows`, `auth`, `ops`.
+`ddcore.json` in the site directory: `dsn`, `apps` (directories), `ddcore` (the range of ddcore releases the site is tested against — see `conventions`), `port`, `workers`, `scheduler`, `lang`, `currency`, `currencyPrecision`, `rounding`, `timezone`, `exportMaxRows`, `importMaxRows`, `auth`, `ops`.
 `currencyPrecision` defaults to the currency's ISO minor unit and `rounding` to `"commercial"`;
 an unrecognised `rounding` stops the server at startup rather than quietly using another rule.
 `DDCORE_DSN` overrides the dsn, and `DDCORE_DATA_DIR` the `dataDir`.
@@ -15,10 +15,11 @@ flag is an error (it never becomes an argument silently).
 
 | Command | What it does |
 |---|---|
-| `ddcore init [--name n] [--db-port p] [--dsn ...] [--port ...]` | creates `ddcore.json` (with a `ddcore` range for the running minor release), `.env.example`, `README.md`, `AGENTS.md` (with `CLAUDE.md` linked to it), `.mcp.json`, `.gitignore` and a `docker-compose.yml` running the Postgres of a local dsn (never overwrites an existing file). `--name`/`--db-port` build `postgres://n:n@localhost:p/n?sslmode=disable` (name defaults to the directory, port to 5432); `--dsn` is the alternative for an existing database. If `ddcore.json` exists, updates the dsn/port given (idempotent) |
+| `ddcore init [--name n] [--db-port p] [--dsn ...] [--port ...]` | creates `ddcore.json` (with a `ddcore` range for the running minor release), `.env.example`, `README.md`, `AGENTS.md` (with `CLAUDE.md` linked to it), `.mcp.json`, `.gitignore`, a `Dockerfile` on the official image pinned to the running release with its `.dockerignore`, and a `docker-compose.yml` running the Postgres of a local dsn (never overwrites an existing file). `--name`/`--db-port` build `postgres://n:n@localhost:p/n?sslmode=disable` (name defaults to the directory, port to 5432); `--dsn` is the alternative for an existing database. If `ddcore.json` exists, updates the dsn/port given (idempotent) |
 | `ddcore new-app <name>` | scaffolds the app and registers it in ddcore.json; `ddcore.app.ts` gets `version: "0.1.0"`, and a `ddcore` range for the running minor release only when `ddcore.json` declares none (see `conventions`) |
-| `ddcore dev` | server with hot reload (rebuilds when a .ts/.csv is saved) and `--auto-migrate`; serves `/mcp` |
-| `ddcore start` | production server (no watcher) |
+| `ddcore dev` | server with hot reload (rebuilds when a .ts/.csv is saved) and `--auto-migrate`; serves `/mcp`; development mode (as `DDCORE_DEV=1` gives any other command) |
+| `ddcore start` | production server (no watcher). Migrates first, like `migrate` — replicas take turns on an advisory lock; `--auto-migrate=false` or `DDCORE_AUTO_MIGRATE=0` leaves it to a separate step. `DDCORE_ADMIN_PASSWORD` gives a new site's Admin its password instead of a generated one |
+| `ddcore deploy docker\|railway` | writes what a deployment builds from, leaving existing files alone: `Dockerfile` (official image, pinned to this release) and `.dockerignore`; `railway` adds `railway.json` (health check on `/api/ready`) and lists the variables to set (see the deployment guide) |
 | `ddcore migrate [--dry-run] [--prune]` | beforeSchema patches → DDL → afterInstall + fixtures → afterSchema patches → the drops → afterMigrate, in one transaction; then generates types. `--dry-run` reports the plan; a rename or conversion it cannot make safely is refused and nothing is applied (`migrations`) |
 | `ddcore types` | generates `.ddcore/types.d.ts` and materialises the embedded SDK typings per app |
 | `ddcore i18n extract [--app n\|--all] [--lang pt-BR] [--check] [--prune]` | rewrites `translations/<lang>.csv` from the code; `--check` reports and exits non-zero |

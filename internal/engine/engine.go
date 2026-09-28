@@ -48,7 +48,10 @@ type Config struct {
 	Rounding          num.Rounding
 	Timezone          string
 	SecretKey         string
-	DataDir           string // uploads
+	// AdminPassword is DDCORE_ADMIN_PASSWORD: what a migration gives an Admin
+	// that has no password yet, instead of generating one. Empty generates.
+	AdminPassword string
+	DataDir       string // uploads
 	// Root is the directory holding ddcore.json: the checkout the apps and
 	// their translation catalogues live in. Empty when the engine was built
 	// by hand (tests, embedders), in which case nothing that rewrites a

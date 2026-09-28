@@ -80,8 +80,8 @@ The framework follows **Semantic Versioning 2.0.0** (`vMAJOR.MINOR.PATCH`):
 - **Git tags**: Official releases use the `v*` format (e.g. `v0.1.0`, `v1.0.0`).
 - **Release artifacts**:
   - Pushing a version tag `v*` triggers the `Release` GitHub Action, creating a GitHub Release with cross-platform static archives (`ddcore-<os>-<arch>.tar.gz` and `SHA256SUMS`) for Darwin and Linux (amd64/arm64).
-  - Pushing to `main` updates the rolling release `latest` used by the installer script (`install.sh`).
-  - No container image is published: an app builds its own image and downloads the binary of the release it pins.
+  - A tagged release also publishes the image `ghcr.io/jrvidotti/ddcore:<X.Y.Z>` (and `:<X.Y>`, `:latest`) for linux amd64/arm64; a site's Dockerfile starts `FROM` it, and that tag is the site's pin.
+  - Pushing to `main` updates the rolling prerelease `edge` (`VERSION=edge` for `install.sh`); the installer's default and `ddcore doctor`'s update check follow the newest tagged release.
 - **Version bumps**:
   - Breaking changes to public server/desk SDKs or engine contracts increment MAJOR (while the
     framework is `0.x`, they increment MINOR).
@@ -130,6 +130,8 @@ range belongs to the site: `ddcore.json` takes the same field, in the same gramm
   invalid one is `ddcore.json declares an invalid ddcore range …`.
 - An app's own range still holds on top of it. Keep one in an app published on its own, which
   other sites load; drop it from the apps that only this site ships, so an upgrade edits one line.
+- The exact release a deployment runs is the tag of the image its `Dockerfile` starts `FROM`;
+  keep it inside this range and move both in the same commit.
 - It comes from `ddcore.json` only — no environment variable overrides it. A binary older than
   the field ignores it, so write the same range the apps had when moving it there.
 

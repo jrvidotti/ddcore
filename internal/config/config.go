@@ -58,8 +58,14 @@ type File struct {
 	ExportMaxRows int `json:"exportMaxRows"`
 	// ImportMaxRows caps the rows of one Data Import upload, which is written
 	// while the request waits. 0 = DefaultImportMaxRows.
-	ImportMaxRows int  `json:"importMaxRows"`
-	Dev           bool `json:"dev"`
+	ImportMaxRows int `json:"importMaxRows"`
+	// AdminPassword comes from DDCORE_ADMIN_PASSWORD only: the password a
+	// first migration gives Admin, for a deployment with no console to read a
+	// generated one from. It never replaces a password Admin already has.
+	AdminPassword string `json:"-"`
+	// Warnings are what Load noticed in the file and let pass — a key a
+	// release retired, say. The caller logs them once it has a logger.
+	Warnings []string `json:"-"`
 	// Auth is the access policy: session life, lockout, token expiry.
 	Auth AuthPolicy `json:"auth"`
 	// Ops is the operational policy: the thresholds a health report and
@@ -128,6 +134,7 @@ func Load(dir string) (*File, string, error) {
 		if err := json.Unmarshal(b, f); err != nil {
 			return nil, "", fmt.Errorf("%s: %w", path, err)
 		}
+		f.Warnings = retiredKeys(b)
 	} else {
 		path = filepath.Join(dir, Name)
 	}
@@ -163,7 +170,8 @@ func Load(dir string) (*File, string, error) {
 	if f.Mail, err = mailFromEnv(); err != nil {
 		return nil, "", err
 	}
-	f.Mail.Dev = f.Dev || envBool("DDCORE_DEV", false)
+	f.Mail.Dev = DevFromEnv()
+	f.AdminPassword = os.Getenv("DDCORE_ADMIN_PASSWORD")
 	if f.Webhooks, err = webhooksFromEnv(); err != nil {
 		return nil, "", err
 	}
@@ -274,6 +282,34 @@ func Edit(dir string, fn func(f *File, path string) bool) (string, error) {
 		return "", err
 	}
 	return path, nil
+}
+
+// DevFromEnv reports whether DDCORE_DEV asks for development mode. It is the
+// only switch besides `ddcore dev` itself: development mode is where a process
+// runs, not what the site decided, so it never lives in the committed file.
+func DevFromEnv() bool { return envBool("DDCORE_DEV", false) }
+
+// AutoMigrateFromEnv is the default of `--auto-migrate`: on unless
+// DDCORE_AUTO_MIGRATE turns it off, so a server always runs against the
+// schema its apps declare. A deployment that migrates in a release step of its
+// own sets DDCORE_AUTO_MIGRATE=0.
+func AutoMigrateFromEnv() bool { return envBool("DDCORE_AUTO_MIGRATE", true) }
+
+// retiredKeys names the keys a release removed from ddcore.json that the file
+// still carries. They are ignored — an old file keeps loading — but said out
+// loud, since the file's author believes they still do something.
+func retiredKeys(b []byte) []string {
+	var raw map[string]json.RawMessage
+	if json.Unmarshal(b, &raw) != nil {
+		return nil
+	}
+	var out []string
+	if _, ok := raw["dev"]; ok {
+		// Removed in 0.21.0: committed, it put every environment — production
+		// included — in development mode, and nothing could turn it off.
+		out = append(out, `ddcore.json "dev" is ignored since 0.21.0 and can be deleted: development mode comes from `+"`ddcore dev`"+` or DDCORE_DEV=1`)
+	}
+	return out
 }
 
 func (f *File) Save(path string) error {

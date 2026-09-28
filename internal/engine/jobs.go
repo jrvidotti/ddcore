@@ -587,6 +587,9 @@ func (e *Engine) StartScheduler(ctx context.Context) *cron.Cron {
 					e.Log.Info("scheduler: skipped, site in maintenance", "method", method)
 					return
 				}
+				if !e.claimTick(ctx, spec+" "+method) {
+					return
+				}
 				e.Log.Info("scheduler", "method", method)
 				e.Run(ctx, "Admin", func(c *Ctx) error {
 					_, err := c.Enqueue(method, nil, map[string]any{"queue": "scheduler"})
@@ -620,6 +623,32 @@ func (e *Engine) StartScheduler(ctx context.Context) *cron.Cron {
 		old.Stop()
 	}
 	return cr
+}
+
+// claimTick reports whether this process is the one to enqueue a cron entry's
+// run for the current minute. Every replica runs a scheduler and every one of
+// them fires; the first to record the (entry, minute) pair enqueues and the
+// rest see the row and stand down, so a job runs once however many replicas
+// there are. A database migrated by an older binary has no ledger yet: the
+// entry is enqueued then, as it always was.
+func (e *Engine) claimTick(ctx context.Context, entry string) bool {
+	tick := time.Now().Truncate(time.Minute)
+	claimed := true
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
+		tag, err := c.Tx.Exec(ctx, `INSERT INTO ddcore_scheduler_tick (entry, tick) VALUES ($1, $2) ON CONFLICT DO NOTHING`, entry, tick)
+		if err != nil {
+			return err
+		}
+		claimed = tag.RowsAffected() == 1
+		// the ledger only has to outlive the minute; a day is ample
+		_, err = c.Tx.Exec(ctx, `DELETE FROM ddcore_scheduler_tick WHERE entry = $1 AND tick < $2`, entry, tick.Add(-24*time.Hour))
+		return err
+	})
+	if err != nil {
+		e.Log.Warn("scheduler: could not record the run, enqueuing anyway", "entry", entry, "err", err)
+		return true
+	}
+	return claimed
 }
 
 // RestartScheduler rebuilds the cron entries from the current state and stops

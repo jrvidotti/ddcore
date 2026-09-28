@@ -3,6 +3,11 @@ set -e
 
 # Installation script for the ddcore CLI
 # Usage: curl -fsSL https://raw.githubusercontent.com/jrvidotti/ddcore/main/install.sh | sh
+#
+#   VERSION  the release to install: 0.21.0 or v0.21.0 (default: the newest
+#            tagged release; "edge" is the rolling build of main)
+#   BIN_DIR  where to put the binary (default: /usr/local/bin if writable,
+#            else ~/.local/bin)
 
 REPO="jrvidotti/ddcore"
 BIN_NAME="ddcore"
@@ -38,14 +43,20 @@ case "$ARCH" in
         ;;
 esac
 
-TAG="${VERSION:-latest}"
+TAG="$(printf '%s' "${VERSION:-latest}" | tr -d ' \t\r\n')"
+case "$TAG" in
+    latest|edge|v*) ;;
+    *) TAG="v$TAG" ;;
+esac
 if [ "$TAG" = "latest" ]; then
-    DOWNLOAD_URL="https://github.com/${REPO}/releases/latest/download/ddcore-${OS}-${ARCH}.tar.gz"
+    BASE_URL="https://github.com/${REPO}/releases/latest/download"
 else
-    DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${TAG}/ddcore-${OS}-${ARCH}.tar.gz"
+    BASE_URL="https://github.com/${REPO}/releases/download/${TAG}"
 fi
+ARCHIVE_NAME="ddcore-${OS}-${ARCH}.tar.gz"
+DOWNLOAD_URL="${BASE_URL}/${ARCHIVE_NAME}"
 
-echo "==> Installing ddcore (${OS}/${ARCH})..."
+echo "==> Installing ddcore ${TAG} (${OS}/${ARCH})..."
 mkdir -p "$BIN_DIR"
 
 TMP_DIR="$(mktemp -d)"
@@ -67,6 +78,32 @@ if [ ! -s "$ARCHIVE" ] || [ "$HTTP_CODE" = "404" ]; then
     echo "Error: Binary could not be found at $DOWNLOAD_URL." >&2
     echo "Please check if the release exists at https://github.com/${REPO}/releases." >&2
     exit 1
+fi
+
+# Verify the archive against the release's SHA256SUMS: a truncated download or
+# a tampered mirror fails here instead of installing.
+SUMS="${TMP_DIR}/SHA256SUMS"
+if command -v curl >/dev/null 2>&1; then
+    curl -fsSL -o "$SUMS" "${BASE_URL}/SHA256SUMS" || true
+else
+    wget -q -O "$SUMS" "${BASE_URL}/SHA256SUMS" || true
+fi
+if [ -s "$SUMS" ]; then
+    EXPECTED="$(grep " ${ARCHIVE_NAME}\$" "$SUMS" | cut -d' ' -f1)"
+    if command -v sha256sum >/dev/null 2>&1; then
+        ACTUAL="$(sha256sum "$ARCHIVE" | cut -d' ' -f1)"
+    elif command -v shasum >/dev/null 2>&1; then
+        ACTUAL="$(shasum -a 256 "$ARCHIVE" | cut -d' ' -f1)"
+    else
+        ACTUAL=""
+        echo "Warning: no sha256sum or shasum; the download was not verified." >&2
+    fi
+    if [ -n "$ACTUAL" ] && [ "$ACTUAL" != "$EXPECTED" ]; then
+        echo "Error: checksum mismatch for ${ARCHIVE_NAME} (expected ${EXPECTED:-none}, got ${ACTUAL})." >&2
+        exit 1
+    fi
+else
+    echo "Warning: ${BASE_URL}/SHA256SUMS not found; the download was not verified." >&2
 fi
 
 tar -xzf "$ARCHIVE" -C "$TMP_DIR"

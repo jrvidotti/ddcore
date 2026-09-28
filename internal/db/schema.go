@@ -127,6 +127,8 @@ CREATE TABLE IF NOT EXISTS ddcore_site_version (
 CREATE TABLE IF NOT EXISTS ddcore_maintenance (
   id int PRIMARY KEY DEFAULT 1 CHECK (id = 1), enabled boolean NOT NULL DEFAULT false,
   reason text NOT NULL DEFAULT '', since timestamptz, actor text NOT NULL DEFAULT '');
+CREATE TABLE IF NOT EXISTS ddcore_scheduler_tick (
+  entry text NOT NULL, tick timestamptz NOT NULL, PRIMARY KEY (entry, tick));
 CREATE TABLE IF NOT EXISTS ddcore_backup_log (
   id bigserial PRIMARY KEY, kind text NOT NULL DEFAULT 'backup', started timestamptz NOT NULL,
   finished timestamptz, location text NOT NULL DEFAULT '', bytes bigint NOT NULL DEFAULT 0,

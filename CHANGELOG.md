@@ -12,6 +12,58 @@ not every commit that went into it.
 
 ## Unreleased
 
+### Breaking
+
+- **`"dev"` in `ddcore.json` is retired.** Committed, it put every environment — production
+  included — in development mode, and nothing could turn it off: app assets rebuilt on every
+  request, webhooks allowed over plain `http://`, mail redirected to `DDCORE_MAIL_DEBUG`.
+  Development mode is now `ddcore dev`, or `DDCORE_DEV=1` for another command. A file that
+  still has the key loads, logs `ddcore.json "dev" is ignored since 0.21.0 …`, and loses it on
+  the next save; `ddcore init` no longer writes it. **Upgrade:** delete `"dev"` from
+  `ddcore.json`, and set `DDCORE_DEV=1` in `.env` where a command other than `dev` should run
+  in development mode.
+
+### Changed
+
+- **`ddcore start` migrates before it serves**, as `dev` always did, so a deploy never runs
+  against a schema its apps do not declare. **Upgrade:** a deployment that migrates in a step
+  of its own sets `DDCORE_AUTO_MIGRATE=0` (or passes `--auto-migrate=false`).
+- `main`'s rolling build is now the prerelease **`edge`**, not a release named `latest`, so
+  GitHub's latest release — what `install.sh` installs by default and `ddcore doctor`'s update
+  check reads — is always a tagged version. `VERSION=edge` installs the rolling build.
+
+### Added
+
+- **The official image `ghcr.io/jrvidotti/ddcore:<version>`** (also `:<X.Y>` and `:latest`),
+  linux amd64/arm64, published by every tagged release: the binary on Alpine with
+  `pg_dump`/`pg_restore` 17 and the timezone data, `WORKDIR /app`, uploads in `/data`, `$PORT`
+  honoured, `CMD ["ddcore", "start"]`. A site's Dockerfile is `FROM` it plus `ddcore.json` and
+  `apps/`, and its tag is the site's pin.
+- **`ddcore init` writes a `Dockerfile` and `.dockerignore`**, on the image of the release
+  that created the site, and **`ddcore deploy docker|railway`** writes them into an existing
+  site; `railway` adds `railway.json` (Dockerfile build, `/api/ready` health check, restart on
+  failure) and lists the variables to set. Existing files are left alone.
+- **`DDCORE_ADMIN_PASSWORD`**: the first migration gives Admin this password instead of
+  generating one and printing it to the log, which a container has no console to read. It never
+  replaces a password Admin already has, and a password the site's policy refuses fails the
+  migration by name.
+- **Replicas are safe against one database.** A migration takes an advisory lock, so replicas
+  that each migrate on boot take turns instead of racing; every scheduler still fires, but a
+  cron entry is enqueued once per minute however many processes run it (the ledger is the new
+  internal table `ddcore_scheduler_tick`).
+- `install.sh` verifies the archive against the release's `SHA256SUMS`, and takes `VERSION`
+  with or without the leading `v` (`0.21.0` or `v0.21.0`).
+- `docs/guide/deployment.md` covers the image, Docker Compose and Railway, and no longer
+  mentions a `ddcore run` command, `DDCORE_ENV`, `/api/v1/health` or port 8090, none of which
+  exist.
+
+### Fixed
+
+- `ddcore jobs work` stops gracefully on SIGTERM — how a container is stopped — putting the
+  jobs it was running back, instead of being killed mid-job.
+- `ddcore start -h` and `ddcore dev -h` name their own command, not a `serve` that does not
+  exist; the boot log reports the development mode in effect.
+
 ## 0.20.3 — 2026-09-28
 
 ### Added

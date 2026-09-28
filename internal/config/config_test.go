@@ -364,3 +364,48 @@ func TestEditDoesNotSaveWhatLoadRefuses(t *testing.T) {
 		t.Errorf("the refused edit was left on disk:\n%s", b)
 	}
 }
+
+// "dev" was retired in 0.21.0: an old file keeps loading, says the key is
+// ignored, and loses it on the next save.
+func TestRetiredDevKeyIsIgnoredAndNamed(t *testing.T) {
+	clearMailEnv(t)
+	t.Setenv("DDCORE_DEV", "")
+	dir := t.TempDir()
+	path := filepath.Join(dir, Name)
+	os.WriteFile(path, []byte(`{"apps": [], "dev": true}`), 0o644)
+	f, _, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(f.Warnings) != 1 || !strings.Contains(f.Warnings[0], `"dev" is ignored`) {
+		t.Fatalf("warnings = %q", f.Warnings)
+	}
+	if f.Mail.Dev {
+		t.Fatal(`"dev": true still turned development mode on`)
+	}
+	if _, err := Edit(dir, func(f *File, _ string) bool { f.Port = 9000; return true }); err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(path); strings.Contains(string(b), `"dev"`) {
+		t.Fatalf("a save kept the retired key:\n%s", b)
+	}
+}
+
+func TestDeploymentSwitchesFromEnvironment(t *testing.T) {
+	clearMailEnv(t)
+	t.Setenv("DDCORE_DEV", "")
+	t.Setenv("DDCORE_AUTO_MIGRATE", "")
+	if DevFromEnv() || !AutoMigrateFromEnv() {
+		t.Fatal("defaults: dev off, auto-migrate on")
+	}
+	t.Setenv("DDCORE_DEV", "1")
+	t.Setenv("DDCORE_AUTO_MIGRATE", "0")
+	if !DevFromEnv() || AutoMigrateFromEnv() {
+		t.Fatal("DDCORE_DEV=1 and DDCORE_AUTO_MIGRATE=0 were not honoured")
+	}
+	t.Setenv("DDCORE_ADMIN_PASSWORD", "Deploy-Secret-42")
+	f, _, err := Load(t.TempDir())
+	if err != nil || f.AdminPassword != "Deploy-Secret-42" || !f.Mail.Dev {
+		t.Fatalf("Load: admin=%q mailDev=%v err=%v", f.AdminPassword, f.Mail.Dev, err)
+	}
+}

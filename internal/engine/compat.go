@@ -295,3 +295,15 @@ func AppRange(core string) (string, bool) {
 	}
 	return fmt.Sprintf(">=%d.%d.0 <%d.%d.0", v[0], v[1], v[0], v[1]+1), true
 }
+
+// ImageTag is the tag of the official image that carries this binary's
+// release (`0.21.0` for `v0.21.0-3-gabc`), which `ddcore init` pins a new
+// site's Dockerfile to. ok is false for a binary that is not a release,
+// including the unstamped default 0.1.0.
+func ImageTag(core string) (string, bool) {
+	v, ok := parseCoreVersion(core)
+	if !ok || strings.TrimSpace(core) == "0.1.0" {
+		return "", false
+	}
+	return v.String(), true
+}

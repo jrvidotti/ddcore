@@ -237,6 +237,9 @@ func TestGatherDoctorChecksForUpdatesBeforeTheEngineLoads(t *testing.T) {
 	}))
 	defer srv.Close()
 	defer release.SetEndpointForTest(srv.URL)()
+	// away from the repository's ddcore.json, which loads whenever the
+	// development database happens to be up
+	t.Chdir(t.TempDir())
 
 	rep := gatherDoctor(context.Background(), doctorConfig(), 0, true)
 	if rep.Engine == "" {

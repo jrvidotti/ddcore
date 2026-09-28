@@ -116,3 +116,50 @@ func TestAppInSiteWithRangeDeclaresNone(t *testing.T) {
 		t.Fatalf("expected no range of its own and a pointer to ddcore.json:\n%s", b)
 	}
 }
+
+// The Dockerfile pins the official image at the release it was written by,
+// and a binary that is not a release says so instead of pinning nothing.
+func TestDockerPinsTheImageAndLeavesFilesAlone(t *testing.T) {
+	dir := t.TempDir()
+	files, err := Docker(dir, "0.21.0")
+	if err != nil || len(files) != 2 {
+		t.Fatalf("files=%v err=%v", files, err)
+	}
+	b, _ := os.ReadFile(filepath.Join(dir, "Dockerfile"))
+	for _, want := range []string{"FROM " + Image + ":0.21.0", "COPY ddcore.json ./", "COPY apps/ ./apps/"} {
+		if !strings.Contains(string(b), want) {
+			t.Errorf("Dockerfile misses %q:\n%s", want, b)
+		}
+	}
+	os.WriteFile(filepath.Join(dir, "Dockerfile"), []byte("mine"), 0o644)
+	if files, _ := Docker(dir, "0.22.0"); len(files) != 0 {
+		t.Fatalf("rewrote existing files: %v", files)
+	}
+	if b, _ := os.ReadFile(filepath.Join(dir, "Dockerfile")); string(b) != "mine" {
+		t.Fatal("Dockerfile changed")
+	}
+
+	unpinned := t.TempDir()
+	Docker(unpinned, "")
+	if b, _ := os.ReadFile(filepath.Join(unpinned, "Dockerfile")); !strings.Contains(string(b), ":latest") || !strings.Contains(string(b), "Pin a release") {
+		t.Fatalf("a non-release build should write latest with a note:\n%s", b)
+	}
+}
+
+func TestRailwayGatesOnReadiness(t *testing.T) {
+	dir := t.TempDir()
+	if _, err := Railway(dir); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := os.ReadFile(filepath.Join(dir, "railway.json"))
+	var cfg struct{ Build, Deploy map[string]any }
+	if err := json.Unmarshal(b, &cfg); err != nil {
+		t.Fatalf("railway.json is not JSON: %v", err)
+	}
+	if cfg.Deploy["healthcheckPath"] != "/api/ready" || cfg.Build["builder"] != "DOCKERFILE" {
+		t.Fatalf("railway.json = %s", b)
+	}
+	if _, ok := cfg.Deploy["startCommand"]; ok {
+		t.Fatal("the start command belongs to the image, not railway.json")
+	}
+}

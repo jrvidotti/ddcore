@@ -66,6 +66,9 @@ type MigrateResult struct {
 // anywhere leaves nothing behind — and that is what makes the "validate" step
 // of expand → backfill → validate → contract free: a beforeSchema patch that
 // throws rolls the contraction back with everything else.
+// migrateLockKey is the advisory lock every migration of a database takes.
+const migrateLockKey = "ddcore.migrate"
+
 func (e *Engine) Migrate(ctx context.Context, prune bool) (*MigrateResult, error) {
 	res := &MigrateResult{}
 	err := e.Run(ctx, "Admin", func(c *Ctx) error {
@@ -73,6 +76,12 @@ func (e *Engine) Migrate(ctx context.Context, prune bool) (*MigrateResult, error
 		// a migration is exactly the work a maintenance window is opened for,
 		// including the one `dev --auto-migrate` runs inside a server
 		c.Flags[bypassMaintenanceFlag] = true
+		// Replicas that each migrate on boot take turns: the second waits for
+		// the first to commit, then finds nothing left to do. The lock is the
+		// transaction's, so a crash releases it with the rollback.
+		if _, err := c.Tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtext($1))", migrateLockKey); err != nil {
+			return err
+		}
 		// First of all: from 0.17 on the document API emits `id`, so a
 		// beforeSchema patch calling ctx.getDoc against a database that still
 		// says `name` would fail on a column that is not there. Moving the key

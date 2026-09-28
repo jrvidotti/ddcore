@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
 	"text/tabwriter"
 	"time"
 
@@ -96,7 +97,9 @@ func jobsWork() error {
 		return err
 	}
 	defer e.DB.Close()
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	// SIGTERM is how a container is stopped: without it the process dies
+	// mid-job instead of letting its workers put the job back.
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 	for i := 0; i < cfg.Workers; i++ {
 		go e.Worker(ctx, i)

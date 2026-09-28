@@ -156,9 +156,14 @@ func readme(p ProjectInfo) string {
 		b.WriteString("docker-compose.yml   PostgreSQL for development\n")
 	}
 	b.WriteString("apps/<name>/         one directory per app: doctypes, services, reports, translations\n")
+	b.WriteString("Dockerfile           the production image: the official ddcore image plus this site\n")
 	b.WriteString("AGENTS.md            guidelines for coding agents\n```\n\n")
 	b.WriteString("## Deployment\n\n")
-	b.WriteString("See the [deployment guide](https://ddcore.dev/guide/deployment): the binary, the `apps/`\n")
-	b.WriteString("directory, `ddcore.json` and a PostgreSQL database, with secrets in the environment.\n")
+	b.WriteString("`Dockerfile` builds the image: the official `" + Image + "` at the release this site pins,\n")
+	b.WriteString("with `ddcore.json` and `apps/` on top. It migrates on boot, answers `/api/ready` for a health\n")
+	b.WriteString("check, and keeps uploads in `/data` (mount a volume, or use S3). Settings and secrets come from\n")
+	b.WriteString("the environment — see `.env.example`; `DDCORE_ADMIN_PASSWORD` gives Admin its first password.\n")
+	b.WriteString("`ddcore deploy railway` adds `railway.json` and lists the variables to set. More in the\n")
+	b.WriteString("[deployment guide](https://ddcore.dev/guide/deployment).\n")
 	return b.String()
 }

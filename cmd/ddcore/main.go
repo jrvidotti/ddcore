@@ -38,7 +38,8 @@ Usage: ddcore <command> [options]
   init        create ddcore.json in the current directory
   new-app     create an app: ddcore new-app <name> [--dir apps/<name>]
   dev         development server with hot reload (port from ddcore.json)
-  start       production server
+  start       production server (migrates first; DDCORE_AUTO_MIGRATE=0 turns that off)
+  deploy      write the files a deployment builds from: deploy docker | deploy railway
   migrate     apply DDL, install apps, run patches (--dry-run, --prune)
   types       generate .ddcore/types.d.ts in every app
   i18n        i18n extract — rewrite translations/<lang>.csv from the code
@@ -120,6 +121,8 @@ func main() {
 		fmt.Print(mcp.Docs(name))
 	case "doctor":
 		err = cmdDoctor(args)
+	case "deploy":
+		err = cmdDeploy(args)
 	case "maintenance":
 		err = cmdMaintenance(args)
 	case "backup":
@@ -200,14 +203,18 @@ func load(test bool, dev bool) (*engine.Engine, *config.File, error) {
 	if os.Getenv("DDCORE_DEBUG") != "" {
 		level = slog.LevelDebug
 	}
-	isDev := dev || cfg.Dev || os.Getenv("DDCORE_DEV") == "1" || os.Getenv("DDCORE_DEV") == "true"
-	cfg.Mail.Dev = isDev
+	isDev := dev || config.DevFromEnv()
 	e, err := engine.New(context.Background(), engine.Config{
 		DSN: cfg.DSN, Apps: apps, DDCore: cfg.DDCore, Workers: cfg.Workers, Scheduler: cfg.Scheduler, Dev: isDev, Test: test,
 		Port: cfg.Port, Lang: cfg.Lang, Currency: cfg.Currency, CurrencyPrecision: cfg.CurrencyPrecision, Rounding: cfg.RoundingMode(), Timezone: cfg.Timezone, DataDir: cfg.DataDir, Root: root, ExportMaxRows: cfg.ExportMaxRows, ImportMaxRows: cfg.ImportMaxRows, LogLevel: level,
 		Auth: cfg.Auth, Ops: cfg.Ops, LogJSON: logJSON(), LogOut: logOut, Mail: cfg.Mail, Webhooks: cfg.Webhooks, Storage: cfg.Storage, SiteURL: cfg.PublicURL(), TrustProxy: cfg.TrustProxy, Login: cfg.Login, OIDC: cfg.OIDC, Portal: cfg.Portal,
-		EnforceMaintenance: enforceMaintenance, AllowOlderBinary: allowOlderBinary(),
+		EnforceMaintenance: enforceMaintenance, AllowOlderBinary: allowOlderBinary(), AdminPassword: cfg.AdminPassword,
 	})
+	if err == nil {
+		for _, w := range cfg.Warnings {
+			e.Log.Warn(w)
+		}
+	}
 	if err == nil && !cfg.HasPublicURL() {
 		// Say it once, at boot, rather than letting someone discover it in a
 		// recovery e-mail that points at a machine the reader does not have.
@@ -268,7 +275,7 @@ func cmdInit(args []string) error {
 		return nil
 	}
 	f := config.Default()
-	f.DSN, f.Port, f.Dev = *dsn, *port, true
+	f.DSN, f.Port = *dsn, *port
 	// the site's one range for all its apps; a build that is not a release
 	// cannot say which one it is, and leaves it out
 	f.DDCore, _ = engine.AppRange(engine.Version)
@@ -283,6 +290,12 @@ func cmdInit(args []string) error {
 		return err
 	}
 	files, err := scaffold.Project(".", scaffold.ProjectInfo{Name: *name, DSN: *dsn, Port: *port, Compose: compose})
+	if err == nil {
+		tag, _ := engine.ImageTag(engine.Version)
+		var docker []string
+		docker, err = scaffold.Docker(".", tag)
+		files = append(files, docker...)
+	}
 	for _, f := range files {
 		fmt.Println("created", f)
 	}
@@ -392,8 +405,12 @@ func cmdServe(args []string, dev bool) error {
 	// The server's log is its output: stdout, where nothing else is written and
 	// where a platform reads it as a log instead of as a stream of errors.
 	logOut = os.Stdout
-	fs := newFlagSet("serve")
-	autoMigrate := fs.Bool("auto-migrate", dev, "apply pending DDL on (re)load")
+	name := "start"
+	if dev {
+		name = "dev"
+	}
+	fs := newFlagSet(name)
+	autoMigrate := fs.Bool("auto-migrate", config.AutoMigrateFromEnv(), "apply pending DDL and patches on (re)load (DDCORE_AUTO_MIGRATE=0 turns the default off)")
 	port := fs.Int("port", 0, "port")
 	if err := parseFlags(fs, args); err != nil {
 		return err
@@ -471,7 +488,7 @@ func cmdServe(args []string, dev bool) error {
 	}()
 	// listen is where this process answers; url is the public address links are
 	// built from, which behind a proxy is a different host altogether.
-	e.Log.Info("ddcore running", "listen", fmt.Sprintf("http://localhost:%d", cfg.Port), "url", cfg.PublicURL(), "dev", dev, "apps", e.AppOrder())
+	e.Log.Info("ddcore running", "listen", fmt.Sprintf("http://localhost:%d", cfg.Port), "url", cfg.PublicURL(), "dev", e.Cfg.Dev, "apps", e.AppOrder())
 	if err := h.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		return err
 	}

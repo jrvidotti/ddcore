@@ -17,7 +17,17 @@ const EnvExample = `# ddcore — the environment this site runs in.
 # --- database and server -----------------------------------------------------
 # DDCORE_DSN=postgres://ddcore:ddcore@localhost:5455/ddcore?sslmode=disable
 # DATABASE_URL is read too, and is what Railway injects on its own.
-# DDCORE_PORT=8090
+# DDCORE_PORT=8090                     # PORT, which platforms set, is read too
+
+# ` + "`ddcore start`" + ` migrates before it serves; 0 leaves that to a step of your own.
+# DDCORE_AUTO_MIGRATE=1
+# Admin's first password, instead of one generated and printed once to the log.
+# Only a new site's Admin that has no password gets it; it never replaces one.
+# DDCORE_ADMIN_PASSWORD=
+# Development mode for a command other than ` + "`ddcore dev`" + ` (which is always in it).
+# Never in production: app assets are rebuilt on every request, webhooks may
+# use plain http, and DDCORE_MAIL_DEBUG redirects all mail.
+# DDCORE_DEV=
 
 # --- public address ----------------------------------------------------------
 # The base a recovery or invitation link is built from. Leave it out and the
