@@ -14,6 +14,19 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- **API key requests no longer run Argon2 on every call** (#29). A key's secret is hashed once
+  while its key row is cached (60 s); after that a matching secret is recognised by a
+  per-process HMAC digest and skips the 64 MiB hash, and concurrent checks of the same secret
+  share one hash. Revoking or disabling the key or its user
+  drops the verification with the row, so revocation latency is unchanged, and a wrong secret
+  is still hashed and counted by the failure brake. `last_used` is stamped when the hash runs,
+  so at most once a minute per key.
+- **Concurrent Argon2 computations are bounded** to `max(2, GOMAXPROCS)` per process. A burst
+  of sign-ins or API-key checks queues for a slot instead of allocating 64 MiB each, which
+  could OOM-kill the process under load.
+
 ## 0.21.10 — 2026-09-28
 
 ### Added

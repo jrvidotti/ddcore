@@ -49,6 +49,15 @@ Three properties are load-bearing:
   addresses exist — and the lockout becomes the oracle it was meant to close.
 - The correct password is **not** a way out of a lockout.
 
+Argon2 runs at most `max(2, GOMAXPROCS)` computations at once per process; further
+sign-ins queue for a slot instead of allocating another 64 MiB. An API key's
+secret goes through Argon2 once while its key row is cached (60 s): after that a
+matching secret is recognised by a per-process HMAC digest and skips the hash, so
+a key costs a hash a minute, not one per request; concurrent checks of the same
+secret share one hash. Revoking or disabling the key or its user
+still drops that cache entry, and a wrong secret is always hashed and counted
+towards the key's failure brake.
+
 `ddcore user unlock <email>` lifts one early. An account can be locked under
 two spellings (its name and its e-mail), and the command clears both.
 

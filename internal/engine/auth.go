@@ -2,26 +2,47 @@ package engine
 
 import (
 	"context"
+	"crypto/hmac"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"runtime"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/crypto/argon2"
+	"golang.org/x/sync/singleflight"
 
 	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/db"
 )
 
+// argon2Slots bounds how many Argon2 computations run at once. Each one holds
+// 64 MiB for its duration, so an unbounded burst of logins or API-key checks
+// is a burst of allocations the process cannot survive; past the bound,
+// requests queue for a slot instead of allocating.
+var argon2Slots = make(chan struct{}, max(2, runtime.GOMAXPROCS(0)))
+
+// argon2Calls counts computations, so tests can tell a hash from a cache hit.
+var argon2Calls atomic.Int64
+
+func argon2Key(pw string, salt []byte) []byte {
+	argon2Slots <- struct{}{}
+	defer func() { <-argon2Slots }()
+	argon2Calls.Add(1)
+	return argon2.IDKey([]byte(pw), salt, 2, 64*1024, 2, 32)
+}
+
 // HashPassword returns an argon2id hash in PHC-like format.
 func HashPassword(pw string) string {
 	salt := make([]byte, 16)
 	rand.Read(salt)
-	h := argon2.IDKey([]byte(pw), salt, 2, 64*1024, 2, 32)
+	h := argon2Key(pw, salt)
 	return "argon2id$" + base64.RawStdEncoding.EncodeToString(salt) + "$" + base64.RawStdEncoding.EncodeToString(h)
 }
 
@@ -44,7 +65,7 @@ func CheckPassword(hash, pw string) bool {
 	if err != nil {
 		return false
 	}
-	got := argon2.IDKey([]byte(pw), salt, 2, 64*1024, 2, 32)
+	got := argon2Key(pw, salt)
 	return subtle.ConstantTimeCompare(got, want) == 1
 }
 
@@ -146,25 +167,61 @@ func (e *Engine) UserFromSession(ctx context.Context, sid string) (string, error
 	return u, nil
 }
 
-// UserFromAPIKey validates "key:secret". Only the key row is cached (60s,
-// cleared when the API Key doc changes); the secret is verified every call.
+// apiKeyEntry is what "apikey:<key>" caches: the key row, and the digest of
+// the secret that last passed Argon2 against it. Keeping the digest inside the
+// entry is what ties its lifetime to the row's: everything that drops the
+// entry — the API Key controller, disabling the user, a revocation — forgets
+// the verification with it, and remembering one never extends the TTL.
+type apiKeyEntry struct {
+	row      map[string]any
+	verified atomic.Pointer[[32]byte]
+}
+
+// secretMAC keys the digest of a verified secret. It is random per process,
+// so the digest is neither the stored hash nor anything that can be attacked
+// offline outside this process.
+var secretMAC = func() []byte {
+	b := make([]byte, 32)
+	rand.Read(b)
+	return b
+}()
+
+// apiKeyChecks collapses concurrent checks of the same key and secret into one
+// Argon2 run. Without it, every request that arrives while a cold entry is
+// being verified — fifty clients sharing a key, each minute — hashes too.
+var apiKeyChecks singleflight.Group
+
+func secretDigest(secret string) [32]byte {
+	m := hmac.New(sha256.New, secretMAC)
+	m.Write([]byte(secret))
+	var d [32]byte
+	copy(d[:], m.Sum(nil))
+	return d
+}
+
+// UserFromAPIKey validates "key:secret". The key row is cached for 60s and
+// dropped when the API Key doc or its user changes. The secret is checked
+// with Argon2 once per cached row: after that, a secret whose keyed digest
+// matches the one that verified is accepted without hashing, which is what
+// keeps a key from costing 64 MiB and tens of milliseconds per request.
 func (e *Engine) UserFromAPIKey(ctx context.Context, token string) (string, error) {
 	key, secret, ok := strings.Cut(token, ":")
 	if !ok {
 		return "", nil
 	}
-	var row map[string]any
+	var entry *apiKeyEntry
 	if v, ok := e.Cache.Get("apikey:" + key); ok {
-		row = v.(map[string]any)
+		entry = v.(*apiKeyEntry)
 	} else {
 		rows, err := db.Select(ctx, e.DB.Pool, `SELECT k."user", k.secret_hash, k.enabled, k.expires, u.enabled AS user_enabled
 			FROM tab_api_key k JOIN tab_user u ON u.id = k."user" WHERE k.id = $1`, key)
 		if err != nil || len(rows) == 0 {
 			return "", err
 		}
-		row = rows[0]
-		e.Cache.Set("apikey:"+key, row, time.Minute)
+		entry = &apiKeyEntry{row: rows[0]}
+		e.Cache.Set("apikey:"+key, entry, time.Minute)
 	}
+	row := entry.row
 	if en, ok := row["enabled"].(bool); ok && !en {
 		return "", nil
 	}
@@ -179,9 +236,17 @@ func (e *Engine) UserFromAPIKey(ctx context.Context, token string) (string, erro
 	if exp, ok := asTime(row["expires"]); ok && !exp.IsZero() && time.Now().After(exp) {
 		return "", nil
 	}
-	// An API key is Argon2-verified on every request by design, which makes a
-	// loop with a real key id and a junk secret the same 64 MiB amplifier the
-	// login endpoint was. Brake it before hashing.
+	// A secret that already verified against this cached row skips Argon2.
+	// It is checked before the failure brake on purpose: only the real secret
+	// matches, so the owner keeps working while someone else trips the brake
+	// with junk.
+	digest := secretDigest(secret)
+	if v := entry.verified.Load(); v != nil && hmac.Equal(digest[:], v[:]) {
+		return db.Str(row["user"]), nil
+	}
+	// Anything else is Argon2-verified, which makes a loop with a real key id
+	// and a junk secret the same 64 MiB amplifier the login endpoint was.
+	// Brake it before hashing.
 	//
 	// The counter lives in the process-local cache rather than in Postgres,
 	// and that is the right trade here: this is a cost brake, not a security
@@ -191,13 +256,19 @@ func (e *Engine) UserFromAPIKey(ctx context.Context, token string) (string, erro
 	if n, ok := e.Cache.Get(fails); ok && n.(int) >= 20 {
 		return "", nil
 	}
-	if !CheckPassword(db.Str(row["secret_hash"]), secret) {
+	valid, _, _ := apiKeyChecks.Do(key+"\x00"+string(digest[:]), func() (any, error) {
+		return CheckPassword(db.Str(row["secret_hash"]), secret), nil
+	})
+	if !valid.(bool) {
 		n, _ := e.Cache.Get(fails)
 		count, _ := n.(int)
 		e.Cache.Set(fails, count+1, time.Minute)
 		return "", nil
 	}
+	entry.verified.Store(&digest)
 	e.Cache.Del(fails)
+	// Stamped when Argon2 runs, so at most once a minute per key rather than
+	// once per request: minute precision is all "last used" needs.
 	go e.DB.Pool.Exec(context.Background(), `UPDATE tab_api_key SET last_used = now() WHERE id = $1`, key)
 	return db.Str(row["user"]), nil
 }
