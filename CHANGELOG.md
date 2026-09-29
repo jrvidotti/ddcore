@@ -14,6 +14,11 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Changed
+
+- The `ddcore running` startup log line now carries the core `version`, so a deploy's logs say
+  which release is serving.
+
 ## 0.21.10 — 2026-09-28
 
 ### Added
