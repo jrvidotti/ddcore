@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.21.12 — 2026-09-29
+
 ### Added
 
 - **`defineListView({ filtersCollapsed: false })`** (#32) opens a DocType's filter card for a user
