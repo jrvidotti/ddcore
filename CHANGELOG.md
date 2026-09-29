@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.21.11 — 2026-09-29
+
 ### Added
 
 - **A Table's `onChange` knows which child field changed** (#30): it receives a fifth argument,
