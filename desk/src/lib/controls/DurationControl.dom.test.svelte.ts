@@ -6,7 +6,7 @@ vi.mock("$lib/boot.svelte", () => ({ __: (s: string) => s }));
 
 // a .svelte.ts file, so the props can be $state and the control sees its own changes
 function setup(initial: number | null) {
-  const props = $state({ field: { fieldtype: "Duration" }, value: initial as any, onchange: (v: any) => (props.value = v) });
+  const props = $state({ field: { fieldtype: "Duration" }, value: initial as any, onchange: (v: any) => { props.value = v; } });
   const target = document.createElement("div");
   document.body.append(target);
   const view = mount(DurationControl, { target, props });

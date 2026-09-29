@@ -8,7 +8,7 @@ vi.mock("$lib/boot.svelte", () => ({ __: (s: string) => s }));
 globalThis.ResizeObserver ??= class { observe() {} disconnect() {} } as any;
 
 function setup(initial: string | null, readOnly = false) {
-  const props = $state({ value: initial as any, readOnly, onchange: (v: any) => (props.value = v) });
+  const props = $state({ value: initial as any, readOnly, onchange: (v: any) => { props.value = v; } });
   const target = document.createElement("div");
   document.body.append(target);
   const view = mount(ColorControl, { target, props });

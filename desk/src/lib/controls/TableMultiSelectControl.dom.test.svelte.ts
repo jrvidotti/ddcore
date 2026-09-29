@@ -21,7 +21,7 @@ const childMeta: any = { name: "Note Tag", fields: [{ fieldname: "tag", fieldtyp
 function setup(initial: any[], readOnly = false) {
   const props = $state({
     field: { fieldname: "tags", fieldtype: "Table MultiSelect", options: "Note Tag" } as any,
-    value: initial as any, readOnly, childMeta, onchange: (v: any) => (props.value = v),
+    value: initial as any, readOnly, childMeta, onchange: (v: any) => { props.value = v; },
   });
   const target = document.createElement("div");
   document.body.append(target);
