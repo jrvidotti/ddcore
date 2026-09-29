@@ -22,7 +22,7 @@ older series, and `whats_new` reads across every one of them.
   `changed`, the child fieldnames an edit in the grid, the row dialog or `frm.setRowValue`
   changed. `grids.<table>.onChange.<child field>(frm, row)` runs for a change of that one field,
   before the table's `onChange` — next to `grids.<table>.onCellClick`. See
-  [form-api.md](docs/agent/form-api.md#grids-row-changes-and-cell-clicks).
+  "Grids: row changes and cell clicks" in `docs/agent/form-api.md`.
 - **`hideLabel: true` keeps a field's label off the form** (#31). Screen readers still read it,
   and it still names the field in a grid's CSV/XLSX export, its row dialog and error messages.
   It can be set from `extendDoctype` and `frm.setDfProperty`. On a Section or Tab Break it fails
@@ -33,7 +33,7 @@ older series, and `whats_new` reads across every one of them.
 - **A section with no heading whose only visible field is a Table or a Report has no card**
   (#31). The grid's own card frames it, so a `Tab Break` followed by one Table no longer nests
   one frame in another. Add `hideLabel: true` to the grid and the tab shows just the grid. See
-  "Form grids" in [fieldtypes.md](docs/agent/fieldtypes.md#form-grids).
+  "Form grids" in `docs/agent/fieldtypes.md`.
 
 - The `ddcore running` startup log line now carries the core `version`, so a deploy's logs say
   which release is serving.
