@@ -433,15 +433,18 @@ The framework adheres to [Semantic Versioning 2.0.0](https://semver.org/):
      `<!-- #region releases -->` markers (the site's changelog page includes that region). The
      binary and the site pick the new file up on their own; `go test ./internal/mcp/ -run
      Changelog` fails if the split is left inconsistent.
-  4. **Commit that**, then tag and push:
+  4. **Bump `Version` in `internal/engine/engine.go`** to the same version. A release build sets
+     it from the tag through `-ldflags`; a plain `go build` or `go install` reports what is written
+     there.
+  5. **Commit that**, then tag and push:
      ```bash
      git commit -am "chore(release): 0.15.0"
      git tag v0.15.0 && git push origin main v0.15.0
      ```
-  5. **Check the release** once the workflow finishes: the archives and `SHA256SUMS` are attached,
+  6. **Check the release** once the workflow finishes: the archives and `SHA256SUMS` are attached,
      and `ddcore doctor` on an older binary now reports the new release.
 
-  Never tag before step 3. The changelog is embedded in the binary and served over MCP
+  Never tag before steps 3 and 4. The changelog is embedded in the binary and served over MCP
   (`ddcore://changelog`, `ddcore://changelog/<minor>`, the `whats_new` tool), and `ddcore doctor` warns when a newer release
   exists — all three point at a section that has to be there before the tag is.
 
