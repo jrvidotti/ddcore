@@ -8,20 +8,33 @@ import { defineForm, ddcore } from "@ddcore/desk-sdk";
 // When the site is not really delivering mail (the log transport, the
 // default), the method hands the link back and the dialog shows it, so the
 // operator can pass it on by hand.
+//
+// On a site that provisions an identity provider (PocketID), disabling,
+// enabling or deleting a User asks whether to do the same there: the account
+// at the provider may be used for other applications too, so it is the
+// operator's call and never automatic.
+type Seen = { provider?: { id: string; label: string }; enabled?: boolean };
+const seen = new WeakMap<object, Seen>();
+
 defineForm("User", {
   async refresh(frm) {
     if (frm.isNew) {
       frm.addButton(__("Save and invite"), () => invite(frm));
       return;
     }
-    if (!frm.doc.enabled || frm.doc.id === "Admin") return;
+    const state: Seen = { enabled: Boolean(frm.doc.enabled) };
+    seen.set(frm, state);
+    if (frm.doc.id === "Admin") return;
     let hasPassword = true;
     try {
-      ({ hasPassword } = await ddcore.call("core.services.users.accountStatus", { user: frm.doc.id }));
+      let provider;
+      ({ hasPassword, provider } = await ddcore.call("core.services.users.accountStatus", { user: frm.doc.id }));
+      state.provider = provider;
     } catch (e) {
       ddcore.ui.showError(e);
       return;
     }
+    if (!frm.doc.enabled) return;
     if (hasPassword) {
       frm.addButton(__("Send password reset"), () =>
         send(frm, "core.services.users.sendPasswordReset", __("Send {0} a link to choose a new password?", [frm.doc.email]), __("Password reset sent")),
@@ -32,7 +45,41 @@ defineForm("User", {
       );
     }
   },
+  async afterSave(frm) {
+    const state = seen.get(frm);
+    const enabled = Boolean(frm.doc.enabled);
+    if (!state?.provider || state.enabled === undefined || state.enabled === enabled) return;
+    state.enabled = enabled;
+    const label = state.provider.label;
+    const question = enabled
+      ? __("{0} was enabled here. Enable their account in {1} too?", [frm.doc.email, label])
+      : __("{0} was disabled here. Disable their account in {1} too? They will not be able to sign in there to anything else either.", [frm.doc.email, label]);
+    await followAtProvider(question, label, { user: frm.doc.id, email: frm.doc.email, disabled: !enabled }, !enabled);
+  },
+  async afterDelete(frm) {
+    const state = seen.get(frm);
+    if (!state?.provider) return;
+    const label = state.provider.label;
+    await followAtProvider(
+      __("{0} was deleted here. Disable their account in {1} too? They will not be able to sign in there to anything else either.", [frm.doc.email, label]),
+      label, { email: frm.doc.email, disabled: true }, true,
+    );
+  },
 });
+
+async function followAtProvider(question: string, label: string, args: { user?: string; email: string; disabled: boolean }, destructive: boolean) {
+  if (!(await ddcore.ui.confirm(question, label, { destructive }))) return;
+  try {
+    const res = await ddcore.call("core.services.users.setProviderDisabled", args);
+    if (!res.found) {
+      ddcore.ui.toast(__("{0} has no account in {1}", [args.email, label]), { indicator: "orange" });
+    } else {
+      ddcore.ui.toast(args.disabled ? __("Disabled in {0}", [label]) : __("Enabled in {0}", [label]));
+    }
+  } catch (e) {
+    ddcore.ui.showError(e);
+  }
+}
 
 async function invite(frm: any) {
   const d = frm.doc;

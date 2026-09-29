@@ -85,3 +85,83 @@ func TestLoadValidatesOIDC(t *testing.T) {
 		t.Fatalf("loaded: %+v %+v", f.Auth, f.OIDC)
 	}
 }
+
+func TestOIDCProvisioningFromEnv(t *testing.T) {
+	t.Setenv("DDCORE_OIDC_PROVIDERS", "pocketid,corp")
+	for _, id := range []string{"POCKETID", "CORP"} {
+		t.Setenv("DDCORE_OIDC_"+id+"_ISSUER", "https://id.example.com")
+		t.Setenv("DDCORE_OIDC_"+id+"_CLIENT_ID", "c")
+		t.Setenv("DDCORE_OIDC_"+id+"_CLIENT_SECRET", "s")
+	}
+	t.Setenv("DDCORE_OIDC_POCKETID_API_KEY", "pk")
+	ps, err := oidcFromEnv()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ps[0].Kind != OIDCKindPocketID || !ps[0].Provisions() || ps[1].Kind != OIDCKindGeneric || ps[1].Provisions() {
+		t.Fatalf("kinds: %+v", ps)
+	}
+
+	t.Run("api key on a generic provider", func(t *testing.T) {
+		t.Setenv("DDCORE_OIDC_CORP_API_KEY", "pk2")
+		if _, err := oidcFromEnv(); err == nil || !strings.Contains(err.Error(), "only understood") {
+			t.Errorf("accepted: %v", err)
+		}
+	})
+	t.Run("two provisioners", func(t *testing.T) {
+		t.Setenv("DDCORE_OIDC_CORP_KIND", "pocketid")
+		t.Setenv("DDCORE_OIDC_CORP_API_KEY", "pk2")
+		if _, err := oidcFromEnv(); err == nil || !strings.Contains(err.Error(), "only one provider") {
+			t.Errorf("accepted: %v", err)
+		}
+	})
+	t.Run("unknown kind", func(t *testing.T) {
+		t.Setenv("DDCORE_OIDC_CORP_KIND", "saml")
+		if _, err := oidcFromEnv(); err == nil {
+			t.Error("accepted")
+		}
+	})
+}
+
+func TestLoadValidatesSSOPolicy(t *testing.T) {
+	dir := t.TempDir()
+	write := func(s string) {
+		if err := os.WriteFile(filepath.Join(dir, Name), []byte(s), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("DDCORE_URL", "https://erp.example.com")
+	t.Setenv("DDCORE_OIDC_PROVIDERS", "pocketid")
+	t.Setenv("DDCORE_OIDC_POCKETID_ISSUER", "https://id.example.com")
+	t.Setenv("DDCORE_OIDC_POCKETID_CLIENT_ID", "c")
+	t.Setenv("DDCORE_OIDC_POCKETID_CLIENT_SECRET", "s")
+
+	for body, want := range map[string]string{
+		`{"auth": {"sso": {"google": {"groupRoles": {"a": ["Gestor"]}}}}}`:               "no provider",
+		`{"auth": {"sso": {"pocketid": {"groupRoles": {"a": ["Admin"]}}}}}`:              "cannot be granted",
+		`{"auth": {"sso": {"pocketid": {"groupRoles": {"a": []}}}}}`:                     "maps to no role",
+		`{"auth": {"sso": {"pocketid": {"groupRoles": {"a": ["System Manager", ""]}}}}}`: "role name is empty",
+	} {
+		write(body)
+		if _, _, err := Load(dir); err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("%s: %v", body, err)
+		}
+	}
+
+	write(`{"auth": {"sso": {"pocketid": {"groupRoles": {"erp-sm": ["System Manager"], "erp-vendas": ["Gestor", "Vendas"]}}}}}`)
+	f, _, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(f.OIDC[0].Scopes, " ") != "openid email profile groups" {
+		t.Errorf("the groups scope was not asked for: %v", f.OIDC[0].Scopes)
+	}
+	pol := f.Auth.SSO["pocketid"]
+	if r := pol.RolesFor([]string{"erp-vendas", "x"}); len(r) != 2 || !r["Gestor"] || !r["Vendas"] {
+		t.Errorf("RolesFor: %v", r)
+	}
+	// a group is due only when every one of its roles is held
+	if g := pol.GroupsFor(map[string]bool{"Gestor": true, "System Manager": true}); len(g) != 1 || !g["erp-sm"] {
+		t.Errorf("GroupsFor: %v", g)
+	}
+}

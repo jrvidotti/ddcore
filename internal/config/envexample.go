@@ -67,6 +67,11 @@ const EnvExample = `# ddcore — the environment this site runs in.
 # DDCORE_OIDC_POCKETID_CLIENT_SECRET=
 # DDCORE_OIDC_POCKETID_LABEL=PocketID               # the button's text
 # DDCORE_OIDC_POCKETID_SCOPES=openid email profile
+# An admin API key (PocketID: Settings → API Keys) turns on provisioning: an
+# invitation creates the account in PocketID and mails its passkey link, and
+# disabling a User disables it there. Group → role mapping is auth.sso in ddcore.json.
+# DDCORE_OIDC_POCKETID_API_KEY=
+# DDCORE_OIDC_POCKETID_KIND=pocketid                # default for the id "pocketid"; oidc|pocketid
 
 # --- logging -----------------------------------------------------------------
 # The log's shape is a property of where the process runs, not of the site: a

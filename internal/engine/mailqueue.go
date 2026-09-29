@@ -30,6 +30,9 @@ const (
 const (
 	MailTemplateInvite = "core.invite"
 	MailTemplateReset  = "core.reset"
+	// MailTemplateInviteSSO is the invitation of a site that provisions its
+	// identity provider: the link registers a passkey there, not a password here.
+	MailTemplateInviteSSO = "core.invite_sso"
 )
 
 // mailJobMethod is the job target. Not whitelisted, so nobody reaches it over

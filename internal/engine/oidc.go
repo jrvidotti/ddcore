@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"sort"
 	"strings"
 	"time"
 
@@ -180,6 +181,8 @@ func (e *Engine) OIDCCallback(ctx context.Context, id, code, state, cookieState 
 		}
 	}
 	var user, email string
+	var groups []string
+	var hasGroups bool
 	defer func() {
 		if from.IP != "" {
 			e.RecordAttempt(ctx, ipKey, from.IP, err == nil)
@@ -187,6 +190,9 @@ func (e *Engine) OIDCCallback(ctx context.Context, id, code, state, cookieState 
 		detail := map[string]any{"provider": id}
 		if email != "" {
 			detail["email"] = email
+		}
+		if hasGroups {
+			detail["groups"] = groups
 		}
 		outcome := "Allowed"
 		var oe *OIDCError
@@ -252,6 +258,14 @@ func (e *Engine) OIDCCallback(ctx context.Context, id, code, state, cookieState 
 	if err := idt.Claims(&claims); err != nil {
 		return "", redirect, oidcErr(OIDCErrProvider, err)
 	}
+	pol := e.Cfg.Auth.SSO[id]
+	if len(pol.GroupRoles) > 0 {
+		var all map[string]any
+		if err := idt.Claims(&all); err != nil {
+			return "", redirect, oidcErr(OIDCErrProvider, err)
+		}
+		groups, hasGroups = claimStrings(all[pol.Claim()])
+	}
 	email = strings.ToLower(strings.TrimSpace(claims.Email))
 	// Some providers send the flag as the string "true". Anything else —
 	// missing included — is unverified: an address the provider has not
@@ -285,6 +299,16 @@ func (e *Engine) OIDCCallback(ctx context.Context, id, code, state, cookieState 
 		} else if _, err := c.Tx.Exec(ctx, `UPDATE ddcore_user_identity SET last_login = now(), email = $3
 			WHERE provider = $1 AND subject = $2`, id, idt.Subject, email); err != nil {
 			return err
+		}
+		if len(pol.GroupRoles) > 0 {
+			if !hasGroups {
+				// A missing claim is not "in no group": the provider may just
+				// not have been asked. Taking every mapped role away on that
+				// guess would lock people out of their work.
+				e.Log.Warn("single sign-on: no groups claim, mapped roles left as they were", "provider", id, "claim", pol.Claim(), "user", user)
+			} else if err := e.applyGroupRoles(c, pol, user, groups); err != nil {
+				return err
+			}
 		}
 		sid, err = e.createSession(c, user, from)
 		return err
@@ -342,4 +366,106 @@ func containsString(list []string, s string) bool {
 		}
 	}
 	return false
+}
+
+// claimStrings reads a claim that should be a list of strings. ok is false
+// when the claim is absent; a single string counts as a list of one.
+func claimStrings(v any) (out []string, ok bool) {
+	switch t := v.(type) {
+	case nil:
+		return nil, false
+	case string:
+		return []string{t}, true
+	case []any:
+		for _, x := range t {
+			if s, isStr := x.(string); isStr && s != "" {
+				out = append(out, s)
+			}
+		}
+		return out, true
+	}
+	return nil, true
+}
+
+// applyGroupRoles sets the User's mapped roles from the provider's groups and
+// leaves every other role alone. It saves through the User document so the
+// controller audits each role.assign and role.revoke and drops the roles
+// cache, and it flags the save so it is not pushed back to the provider.
+// Admin is never touched: the account that fixes a bad mapping must not be
+// the one it breaks.
+func (e *Engine) applyGroupRoles(c *Ctx, pol config.SSOPolicy, user string, groups []string) error {
+	if user == "Admin" {
+		return nil
+	}
+	want := pol.RolesFor(groups)
+	if len(want) > 0 {
+		names := make([]string, 0, len(want))
+		for r := range want {
+			names = append(names, r)
+		}
+		rows, err := db.Select(c.Ctx, c.Q(), `SELECT id FROM tab_role WHERE id = ANY($1)`, names)
+		if err != nil {
+			return err
+		}
+		exists := map[string]bool{}
+		for _, r := range rows {
+			exists[db.Str(r["id"])] = true
+		}
+		for _, r := range names {
+			if !exists[r] {
+				e.Log.Warn("single sign-on: a group maps to a role that does not exist", "role", r, "user", user)
+				delete(want, r)
+			}
+		}
+	}
+	managed := pol.ManagedRoles()
+	doc, err := c.GetDocIgnoringPerms("User", user)
+	if err != nil {
+		return err
+	}
+	list, _ := doc["roles"].([]any)
+	var kept []any
+	have := map[string]bool{}
+	changed := false
+	for _, row := range list {
+		r := ""
+		switch m := row.(type) {
+		case map[string]any:
+			r = db.Str(m["role"])
+		case Doc:
+			r = db.Str(m["role"])
+		}
+		if managed[r] && !want[r] {
+			changed = true
+			continue
+		}
+		have[r] = true
+		kept = append(kept, row)
+	}
+	add := make([]string, 0)
+	for r := range want {
+		if !have[r] {
+			add = append(add, r)
+		}
+	}
+	sort.Strings(add)
+	for _, r := range add {
+		kept = append(kept, map[string]any{"role": r})
+		changed = true
+	}
+	if !changed {
+		return nil
+	}
+	if kept == nil {
+		kept = []any{}
+	}
+	doc["roles"] = kept
+	prev := c.Flags[idpSyncingFlag]
+	if c.Flags == nil {
+		c.Flags = map[string]any{}
+	}
+	c.Flags[idpSyncingFlag] = true
+	defer func() { c.Flags[idpSyncingFlag] = prev }()
+	_, err = c.Save(doc, SaveOpts{IgnorePermissions: true})
+	return err
 }

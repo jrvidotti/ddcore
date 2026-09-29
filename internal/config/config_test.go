@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -300,7 +301,7 @@ func TestDefaultSurvivesASaveAndLoad(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load of a saved Default: %v", err)
 	}
-	if f.Auth != DefaultAuth() {
+	if !reflect.DeepEqual(f.Auth, DefaultAuth()) {
 		t.Errorf("auth changed on the round trip: %+v", f.Auth)
 	}
 }

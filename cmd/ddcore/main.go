@@ -778,23 +778,16 @@ func cmdUser(args []string) error {
 			return fmt.Errorf("usage: ddcore user invite <email> <name> [--role R]")
 		}
 		email, name := fs.Arg(0), strings.Join(fs.Args()[1:], " ")
+		// the same path as the desk's Save and invite: on a site that
+		// provisions PocketID, the account is made there too
 		return e.Run(ctx, "Admin", func(c *engine.Ctx) error {
-			doc, err := c.NewDoc("User", engine.Doc{"email": email, "full_name": name, "enabled": true})
+			res, err := e.InviteUser(c, engine.Invitation{Email: email, FullName: name, Roles: roles})
 			if err != nil {
 				return err
 			}
-			var rs []any
-			for _, r := range roles {
-				rs = append(rs, map[string]any{"role": r})
-			}
-			doc["roles"] = rs
-			if _, err := c.Insert(doc, engine.SaveOpts{IgnorePermissions: true}); err != nil {
-				return err
-			}
-			rec, err := e.StartRecovery(c, email, engine.TokenInvite, "")
-			if err != nil {
-				return err
-			}
+			rec := &engine.Recovery{}
+			rec.Link, _ = res["link"].(string)
+			rec.Expires, _ = res["expires"].(time.Time)
 			reportRecovery(email, rec)
 			return nil
 		})

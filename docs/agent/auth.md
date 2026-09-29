@@ -198,6 +198,86 @@ configured is refused at load.
 `/api/boot` exposes `site.login.password` and `site.login.providers`
 (`{id, label}` only) to the sign-in screen.
 
+### Groups as roles
+
+A provider's groups can grant roles. The map is site policy, so it lives in
+`ddcore.json`, keyed by the provider id:
+
+```jsonc
+"auth": {
+  "sso": {
+    "pocketid": {
+      "groupsClaim": "groups",   // the default
+      "groupRoles": { "erp-admins": ["System Manager"], "erp-sales": ["Sales User"] }
+    }
+  }
+}
+```
+
+- **Managed roles.** A role named anywhere in `groupRoles` is managed. Each sign-in
+  sets the managed roles to exactly what the groups grant. Every other role is
+  left as it was, so roles given by hand still work.
+- **How the change is saved.** It goes through the User document, so it leaves
+  `role.assign`/`role.revoke` events and drops the roles cache like an edit in
+  the desk.
+- **The claim decides what counts as "no groups".** A missing claim changes
+  nothing and logs a warning, because the provider may simply not have been
+  asked. An empty list does take every managed role away.
+- **Other cases.** A group mapped to a role that does not exist is skipped with
+  a warning, and `Admin` is never touched.
+- **Scope.** With a map configured, the `groups` scope is added to the
+  provider's scopes.
+- **Refused at load:** a policy for a provider not in `DDCORE_OIDC_PROVIDERS`,
+  a group mapped to no role, and `Admin`, `Guest` or `All` as a mapped role.
+
+### PocketID provisioning
+
+Set a PocketID admin API key and ddcore becomes where accounts are made:
+
+```bash
+DDCORE_OIDC_POCKETID_API_KEY=...   # PocketID → Settings → API Keys, created by an admin
+DDCORE_OIDC_POCKETID_KIND=pocketid # the default for the id "pocketid"; set it for any other id
+```
+
+`_API_KEY` is accepted only on a provider of kind `pocketid`, and only one
+provider may carry it. The admin API is reached at the issuer URL with the
+`X-API-Key` header and a ten-second timeout.
+
+- **Invitation.** Inviting a **System User** (`users.invite`, *Save and invite*,
+  or `ddcore user invite`) does the following:
+  1. It finds the PocketID account with that address, or creates one with
+     `emailVerified` set. A disabled account is re-enabled.
+  2. It sets the account's mapped groups from the User's roles.
+  3. It mails `core.invite_sso`, which carries PocketID's one-time link
+     (`<issuer>/lc/<token>`, valid `inviteHours`, at most 31 days) to register
+     a passkey, and then the site's sign-in address.
+
+  No password token is issued. The provider is called inside the
+  transaction: a refusal fails the invitation with PocketID's reason. An
+  account left behind by a rolled-back invitation is found and reused by the
+  next one. **Resend invitation** issues a new link the same way. A **Website
+  User** is still invited with a password, because the portals sign in with one.
+- **Roles → groups.** With provisioning on, a save of a User that changes a
+  managed role queues `core.services.idp.sync` (queue `idp`, exponential
+  backoff, 5 attempts). The job sets the account's mapped groups and leaves its
+  other groups alone.
+  - A group is due when the User holds **every** role it maps to.
+  - A save made by a sign-in is not pushed back.
+  - A User with no PocketID account is nothing to do.
+
+  Together with the sign-in, this makes the last change win on either side.
+- **Disable, enable, delete.** Nothing is disabled at PocketID on its own: the
+  account may open other applications too. When a User is disabled, enabled or
+  deleted from its **form**, the desk asks whether to do the same in PocketID.
+  On a yes it calls `core.services.users.setProviderDisabled({user?, email?,
+  disabled})` (System Manager). That call finds the account by the linked
+  subject or by address, sends the whole user back with `disabled` changed
+  (PocketID's PUT replaces the user), and records `account.idp_disable` or
+  `account.idp_enable`. A deletion only disables at PocketID; it never deletes
+  there. Deleting from the list view, the API or the CLI does not ask.
+- **Doctor.** `ddcore doctor` probes the API key and reports mapped groups
+  missing in PocketID and mapped roles missing on the site.
+
 ## Sessions
 
 One TTL, read from the policy in both the SQL and the cookie. Sessions record
@@ -332,15 +412,15 @@ nothing would become valid again — the tables would only grow.
 
 ## Not here yet
 
-A real CSRF token (the check is header-presence only), MFA, LDAP and automatic
-provisioning or role mapping from a provider (SEC-05, in the demand-driven
-backlog), provider-initiated (single) logout, a screen to see or remove one's
+A real CSRF token (the check is header-presence only), MFA, LDAP and
+just-in-time provisioning of a User on first sign-in (SEC-05, in the
+demand-driven backlog), provisioning at providers other than PocketID, provider-initiated (single) logout, a screen to see or remove one's
 linked identities (unlinking is a `DELETE` in `ddcore_user_identity`), e-mail
 verification on a changed address, and an admin UI for unlocking or listing
 another user's sessions.
 
 Sharp edges of the single sign-on that is here: provider configuration is read
-at boot, so a change to `DDCORE_OIDC_*` needs a restart and not a reload; with
+at boot, so a change to `DDCORE_OIDC_*` or `auth.sso` needs a restart and not a reload; with
 password sign-in off, an invitation or an admin's reset link still sets
 a password nobody but Admin can use; and `email_verified` is taken at
 the provider's word, so a provider is trusted for every address it says it

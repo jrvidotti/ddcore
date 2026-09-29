@@ -990,6 +990,14 @@
       replay(delivery) { return call("webhook.replay", { delivery }); },
       sweep() { return call("webhook.sweep", {}); },
     },
+    // Provisioning of the identity provider (PocketID), reached from the
+    // User controller and core/services/idp.ts. Not on DDCoreAPI.
+    __idp: {
+      queueSync(user, before, after) { call("idp.queueSync", { user, before: before || [], roles: after || [] }); },
+      sync(user) { call("idp.sync", { user }); },
+      setDisabled(user, email, disabled) { return call("idp.setDisabled", { user: user || "", email: email || "", disabled: Boolean(disabled) }); },
+      status() { return call("idp.status", {}); },
+    },
     __authSweep() { return call("authSweep", {}); },
     __jobSweep() { return call("jobSweep", {}); },
     __auditSweep() { return call("auditSweep", {}); },

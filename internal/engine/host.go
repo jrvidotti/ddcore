@@ -81,6 +81,8 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		FullName      string            `json:"fullName"`
 		Roles         []string          `json:"roles"`
 		UserType      string            `json:"userType"`
+		Before        []string          `json:"before"`
+		Disabled      bool              `json:"disabled"`
 	}
 	if err := json.Unmarshal(raw, &a); err != nil {
 		return nil, cerr.Internal("invalid arguments in {0}: {1}", op, err)
@@ -372,6 +374,14 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		return e.InviteUser(c, Invitation{Email: a.Email, FullName: a.FullName, Roles: a.Roles, UserType: a.UserType})
 	case "users.resendInvite":
 		return e.ResendInvite(c, a.User)
+	case "idp.queueSync":
+		return nil, e.QueueIdPSync(c, a.User, a.Before, a.Roles)
+	case "idp.sync":
+		return nil, e.IdPSync(c, a.User)
+	case "idp.setDisabled":
+		return e.SetIdPDisabled(c, a.User, a.Email, a.Disabled)
+	case "idp.status":
+		return e.IdPStatus(), nil
 	case "auth.startRecovery":
 		rec, err := e.StartRecovery(c, a.User, orDefault(a.Kind, TokenReset), db.Str(c.Request["ip"]))
 		if err != nil {

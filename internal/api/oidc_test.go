@@ -30,6 +30,7 @@ type fakeIdP struct {
 	mu     sync.Mutex
 	codes  map[string]fakeGrant
 	issuer string // what the id_token claims; defaults to the server URL
+	mux    *http.ServeMux
 }
 
 type fakeGrant struct {
@@ -73,6 +74,7 @@ func newFakeIdP(t *testing.T) *fakeIdP {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{"access_token": "at", "token_type": "Bearer", "expires_in": 3600, "id_token": tok})
 	})
+	f.mux = mux
 	f.srv = httptest.NewServer(mux)
 	t.Cleanup(f.srv.Close)
 	return f

@@ -79,6 +79,8 @@ export interface FormHandlers<T extends BaseDoc = BaseDoc> {
   validate?: (frm: Frm<T>) => void | boolean;
   beforeSave?: (frm: Frm<T>) => void;
   afterSave?: (frm: Frm<T>) => void;
+  /** after the record is deleted from the form, while frm.doc still holds what it was */
+  afterDelete?: (frm: Frm<T>) => void;
   /**
    * keyed by fieldname. On a Table it fires for a change in any of its rows:
    * cdt is the child DocType, cdn the row's id (none before its first save) and

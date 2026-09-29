@@ -92,11 +92,11 @@ func (e *Engine) InviteUser(c *Ctx, inv Invitation) (map[string]any, error) {
 	if _, err := c.Insert(doc, SaveOpts{IgnorePermissions: true}); err != nil {
 		return nil, err
 	}
-	rec, err := e.StartRecovery(c, email, TokenInvite, db.Str(c.Request["ip"]))
+	rec, provider, err := e.sendInvitation(c, email, userType)
 	if err != nil {
 		return nil, err
 	}
-	if err := c.Audit("account.invite", "User", email, map[string]any{"fullName": fullName, "userType": userType}); err != nil {
+	if err := c.Audit("account.invite", "User", email, map[string]any{"fullName": fullName, "userType": userType, "provider": provider}); err != nil {
 		return nil, err
 	}
 	return recoveryResult(email, rec), nil
@@ -120,14 +120,32 @@ func (e *Engine) ResendInvite(c *Ctx, user string) (map[string]any, error) {
 	if !c.canAdministerUsers() && db.Str(rows[0]["user_type"]) != "Website User" {
 		return nil, cerr.Permission("Only a System Manager can invite a System User")
 	}
-	rec, err := e.StartRecovery(c, user, TokenInvite, db.Str(c.Request["ip"]))
+	rec, provider, err := e.sendInvitation(c, user, db.Str(rows[0]["user_type"]))
 	if err != nil {
 		return nil, err
 	}
-	if err := c.Audit("account.resend_invite", "User", user, nil); err != nil {
+	if err := c.Audit("account.resend_invite", "User", user, map[string]any{"provider": provider}); err != nil {
 		return nil, err
 	}
 	return recoveryResult(user, rec), nil
+}
+
+// sendInvitation mails the way in. A System User of a site that provisions
+// its identity provider gets an account there and its one-time link; anyone
+// else — and a Website User always, since the portals sign in with a
+// password — gets a link to choose a password. provider is the provider id,
+// or "" for the password.
+//
+// The provider is called inside the transaction on purpose: if it refuses,
+// the invitation fails and the admin reads why. If this transaction rolls back
+// after the account was made there, the next invitation finds and reuses it.
+func (e *Engine) sendInvitation(c *Ctx, user, userType string) (*Recovery, string, error) {
+	if p := e.idpAdmin(); p != nil && userType != "Website User" {
+		rec, err := e.inviteThroughPocketID(c, p, user)
+		return rec, p.provider.ID, err
+	}
+	rec, err := e.StartRecovery(c, user, TokenInvite, db.Str(c.Request["ip"]))
+	return rec, "", err
 }
 
 func recoveryResult(user string, rec *Recovery) map[string]any {

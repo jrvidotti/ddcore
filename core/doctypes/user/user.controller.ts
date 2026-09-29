@@ -36,6 +36,9 @@ export default defineController("User", {
           ddcore.audit("role.revoke", "User", doc.id, { role: r });
         }
       }
+      // Mapped roles follow to the identity provider's groups; Go decides
+      // whether any of them is mapped, and skips a save the provider caused.
+      (ddcore as any).__idp.queueSync(doc.id, [...oldRoles], [...newRoles]);
       if (Boolean(before.enabled) !== Boolean(doc.enabled)) {
         if (doc.enabled) {
           ddcore.audit("account.enable", "User", doc.id);
@@ -49,6 +52,9 @@ export default defineController("User", {
           ddcore.audit("role.assign", "User", doc.id, { role: String(r.role) });
         }
       }
+      // otherwise the next sign-in would take away mapped roles whose
+      // groups the provider never heard of
+      (ddcore as any).__idp.queueSync(doc.id, [], (doc.roles || []).map((r: any) => String(r.role || "")));
     }
     if (before && before.password_hash !== doc.password_hash) {
       (ddcore as any).__dropSessions(doc.id);

@@ -23,7 +23,23 @@ type OIDCProvider struct {
 	// Empty means any domain — which is still only the addresses that already
 	// belong to a User.
 	AllowedDomains []string
+	// Kind is "oidc" for any provider, or "pocketid" for one whose admin API
+	// ddcore may also drive. A provider with the id "pocketid" defaults to it.
+	Kind string
+	// APIKey is a PocketID admin API key. Setting it turns on provisioning:
+	// an invitation creates the account at the provider, and a User's
+	// enabled state and mapped roles are pushed back to it.
+	APIKey string
 }
+
+// Provider kinds.
+const (
+	OIDCKindGeneric  = "oidc"
+	OIDCKindPocketID = "pocketid"
+)
+
+// Provisions reports whether ddcore manages this provider's accounts.
+func (p OIDCProvider) Provisions() bool { return p.Kind == OIDCKindPocketID && p.APIKey != "" }
 
 // GoogleIssuer is the issuer a provider with the id "google" gets by default.
 const GoogleIssuer = "https://accounts.google.com"
@@ -59,6 +75,20 @@ func oidcFromEnv() ([]OIDCProvider, error) {
 			ClientID:     env(prefix+"CLIENT_ID", ""),
 			ClientSecret: env(prefix+"CLIENT_SECRET", ""),
 			Scopes:       strings.Fields(strings.ReplaceAll(env(prefix+"SCOPES", "openid email profile"), ",", " ")),
+			Kind:         strings.ToLower(strings.TrimSpace(env(prefix+"KIND", ""))),
+			APIKey:       strings.TrimSpace(env(prefix+"API_KEY", "")),
+		}
+		if p.Kind == "" {
+			p.Kind = OIDCKindGeneric
+			if id == "pocketid" {
+				p.Kind = OIDCKindPocketID
+			}
+		}
+		if p.Kind != OIDCKindGeneric && p.Kind != OIDCKindPocketID {
+			return nil, fmt.Errorf("%sKIND: %q is not a provider kind (oidc or pocketid)", prefix, p.Kind)
+		}
+		if p.APIKey != "" && p.Kind != OIDCKindPocketID {
+			return nil, fmt.Errorf("%sAPI_KEY is only understood for a provider of kind pocketid", prefix)
 		}
 		if p.Label == "" {
 			p.Label = id
@@ -87,6 +117,13 @@ func oidcFromEnv() ([]OIDCProvider, error) {
 		if !hasOpenID {
 			p.Scopes = append([]string{"openid"}, p.Scopes...)
 		}
+		if p.APIKey != "" {
+			for _, o := range out {
+				if o.APIKey != "" {
+					return nil, fmt.Errorf("%sAPI_KEY: provider %q already provisions accounts; only one provider may", prefix, o.ID)
+				}
+			}
+		}
 		out = append(out, p)
 	}
 	return out, nil
@@ -104,6 +141,27 @@ func (f *File) validateOIDC() error {
 	}
 	if !f.Auth.AllowPasswordLogin() && len(f.OIDC) == 0 {
 		return fmt.Errorf("auth.passwordLogin is false but no DDCORE_OIDC_PROVIDERS is configured: nobody but Admin could sign in")
+	}
+	for id, pol := range f.Auth.SSO {
+		i := -1
+		for j := range f.OIDC {
+			if f.OIDC[j].ID == id {
+				i = j
+			}
+		}
+		if i < 0 {
+			return fmt.Errorf("auth.sso.%s: no provider %q in DDCORE_OIDC_PROVIDERS", id, id)
+		}
+		// Mapped roles arrive in a claim the provider only sends when asked.
+		if len(pol.GroupRoles) > 0 && pol.Claim() == "groups" {
+			has := false
+			for _, s := range f.OIDC[i].Scopes {
+				has = has || s == "groups"
+			}
+			if !has {
+				f.OIDC[i].Scopes = append(f.OIDC[i].Scopes, "groups")
+			}
+		}
 	}
 	return nil
 }

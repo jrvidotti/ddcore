@@ -18,6 +18,7 @@ defineForm<Entry>("Entry", {
   onChange: { kind(frm) { frm.setValue("category", null); } },
   validate(frm) { /* return false to stop the save */ },
   afterSave(frm) {},
+  afterDelete(frm) { /* the form's Delete succeeded; frm.doc is what was deleted */ },
 });
 ```
 

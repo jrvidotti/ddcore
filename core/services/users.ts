@@ -60,7 +60,25 @@ export const sendPasswordReset = whitelisted((args: { user: string }) => {
 export const accountStatus = whitelisted((args: { user: string }) => {
   const user = requireUser(args.user);
   const hash = ddcore.db.getValue("User", user, "password_hash") as string | null;
-  return { user, hasPassword: Boolean(hash) };
+  // provider is set when the site provisions an identity provider: the
+  // form then invites through it, and asks whether to follow a disable or
+  // a delete there.
+  const provider = (ddcore as any).__idp.status() as { id: string; label: string } | null;
+  return { user, hasPassword: Boolean(hash), provider: provider || undefined };
+}, ADMIN);
+
+/** Whether the site provisions an identity provider, for a form with no User yet. */
+export const identityProvider = whitelisted(() => {
+  return (ddcore as any).__idp.status() || null;
+}, ADMIN);
+
+/**
+ * Disables (or re-enables) someone's account at the identity provider. The
+ * desk calls it after asking, when a User is disabled, enabled or deleted —
+ * never on its own. `email` finds the account of a User already deleted.
+ */
+export const setProviderDisabled = whitelisted((args: { user?: string; email?: string; disabled: boolean }) => {
+  return (ddcore as any).__idp.setDisabled(String(args.user ?? ""), String(args.email ?? ""), Boolean(args.disabled));
 }, ADMIN);
 
 /** Ends every session of another account — the "they lost the laptop" button. */

@@ -102,6 +102,12 @@ type ssoProvider struct {
 	Issuer   string `json:"issuer"`
 	Callback string `json:"callback"`
 	Error    string `json:"error,omitempty"`
+	// Provisioning is on when an admin API key is set (PocketID): ddcore
+	// creates the accounts there. Problems lists what the probe of that API
+	// and of the group → role map found.
+	Provisioning bool     `json:"provisioning,omitempty"`
+	MappedGroups int      `json:"mappedGroups,omitempty"`
+	Problems     []string `json:"problems,omitempty"`
 }
 
 type vaultSection struct {
@@ -295,6 +301,27 @@ func gatherDoctor(ctx context.Context, cfg *config.File, windowMin int, updateCh
 			rep.Warnings = append(rep.Warnings, fmt.Sprintf("sso: provider %s did not answer discovery: %s", p.ID, err))
 		}
 		cancel()
+		pol := cfg.Auth.SSO[p.ID]
+		sp.Provisioning, sp.MappedGroups = p.Provisions(), len(pol.GroupRoles)
+		if p.Provisions() {
+			dctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+			sp.Problems = append(sp.Problems, engine.ProbePocketID(dctx, p, pol)...)
+			cancel()
+		}
+		var roles []string
+		for r := range pol.ManagedRoles() {
+			roles = append(roles, r)
+		}
+		sort.Strings(roles)
+		for _, r := range roles {
+			rows, err := db.Select(ctx, e.DB.Pool, `SELECT 1 FROM tab_role WHERE id = $1`, r)
+			if err == nil && len(rows) == 0 {
+				sp.Problems = append(sp.Problems, fmt.Sprintf("auth.sso.%s.groupRoles maps to role %q, which does not exist", p.ID, r))
+			}
+		}
+		for _, pr := range sp.Problems {
+			rep.Warnings = append(rep.Warnings, fmt.Sprintf("sso: provider %s: %s", p.ID, pr))
+		}
 		rep.SSO.Providers = append(rep.SSO.Providers, sp)
 	}
 
@@ -492,7 +519,14 @@ func (r *doctorReport) printTail(w io.Writer, p func(string, string, ...any)) {
 	} else {
 		ids := make([]string, 0, len(r.SSO.Providers))
 		for _, x := range r.SSO.Providers {
-			ids = append(ids, x.ID)
+			id := x.ID
+			if x.Provisioning {
+				id += " (provisions accounts)"
+			}
+			if x.MappedGroups > 0 {
+				id += fmt.Sprintf(" (%d group(s) mapped to roles)", x.MappedGroups)
+			}
+			ids = append(ids, id)
 		}
 		pw := "password sign-in on"
 		if !r.SSO.PasswordLogin {

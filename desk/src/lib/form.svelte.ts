@@ -28,6 +28,8 @@ export interface FormHandlers {
   validate?: (frm: FormController) => void | boolean;
   beforeSave?: (frm: FormController) => void;
   afterSave?: (frm: FormController) => void;
+  /** after the record is deleted, while frm.doc still holds what it was */
+  afterDelete?: (frm: FormController) => void;
   /** keyed by fieldname; for a Table, cdt/cdn/row name the child row that changed and changed its fields */
   onChange?: Record<string, (frm: FormController, cdt?: string, cdn?: string, row?: any, changed?: string[]) => void>;
   /**
@@ -473,6 +475,7 @@ export class FormController {
   async delete() {
     await api.remove(this.doctype, this.doc.id);
     toast(__("Deleted"), { indicator: "green", timeout: 2000 });
+    for (const h of this.handlers) { try { await h.afterDelete?.(this); } catch (e) { showError(e); } }
     goto(recordBase(this));
   }
 

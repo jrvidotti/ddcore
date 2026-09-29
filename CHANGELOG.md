@@ -14,6 +14,35 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **PocketID provisioning.** Set `DDCORE_OIDC_<ID>_API_KEY` on a provider of kind `pocketid`
+  (`DDCORE_OIDC_<ID>_KIND`, the default for the id `pocketid`) and an invitation of a System User
+  creates the account in PocketID — or reuses the one with that address — and mails PocketID's
+  one-time link to register a passkey (`core.invite_sso`) instead of a link to choose a
+  password. A refusal from PocketID fails the invitation with its reason. A Website User is
+  still invited with a password.
+- **Group → role mapping for single sign-on**: `auth.sso.<provider>.groupRoles` in
+  `ddcore.json` (and `groupsClaim`, default `groups`). Each sign-in sets the mapped roles from the
+  provider's groups and leaves every other role alone; a missing claim changes nothing, and
+  Admin is never touched. With provisioning on, saving a User pushes its mapped roles back to
+  PocketID as groups, through a retried job (`core.services.idp.sync`, queue `idp`). The
+  `groups` scope is requested automatically. Refused at load: a policy for an unknown provider,
+  a group with no role, and `Admin`, `Guest` or `All` as a mapped role.
+- **The User form asks before following a disable, enable or delete to PocketID**, and calls
+  `core.services.users.setProviderDisabled` on a yes; nothing is disabled there on its own.
+  `accountStatus` now also returns the provisioning `provider`.
+- **`afterDelete(frm)`** in `defineForm`, run after the form's Delete succeeds while `frm.doc`
+  still holds what was deleted.
+- `ddcore doctor` probes the PocketID admin API and reports mapped groups missing in PocketID
+  and mapped roles missing on the site.
+
+### Changed
+
+- **`ddcore user invite` takes the same path as the desk's *Save and invite***: it now records
+  `account.invite`, refuses an address that already has a User with the usual message, and
+  provisions PocketID when that is on.
+
 ## 0.21.12 — 2026-09-29
 
 ### Added
