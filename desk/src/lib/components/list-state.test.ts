@@ -88,6 +88,15 @@ describe("list URL state", () => {
     expect(state).toEqual({ filters: { status: "Pendente" }, search: "", docstatusFilter: "", orderBy: "", page: 1, pageSize: 20 });
   });
 
+  it("keeps a picked calendar day in the URL, on any view", () => {
+    const defaults = { filters: {}, search: "", docstatusFilter: "", orderBy: "", page: 1, pageSize: 20 };
+    expect(listStateFromSearchParams(new URLSearchParams("calendar_day=2026-09-29"), fields, defaults).calendarDay).toBe("2026-09-29");
+    expect(listStateFromSearchParams(new URLSearchParams("calendar_day=29/09/2026"), fields, defaults).calendarDay).toBeUndefined();
+    expect(listStateToSearchParams({ ...defaults, calendarDay: "2026-09-29" }, fields).toString()).toBe("page_size=20&calendar_day=2026-09-29");
+    expect(countListFilters({ filters: {}, search: "", docstatusFilter: "", calendarDay: "2026-09-29" }, false)).toBe(1);
+    expect(clearListFilters({ ...defaults, calendarDay: "2026-09-29" }).calendarDay).toBeUndefined();
+  });
+
   it("clears filters and search without altering ordering or page size", () => {
     expect(clearListFilters({
       filters: { status: "Atrasado", categoria: "CAT-1" }, search: "aluguel", docstatusFilter: "2", orderBy: "modified desc", page: 4, pageSize: 100,

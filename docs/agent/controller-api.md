@@ -135,6 +135,12 @@ Filters: `{ field: value, other: [">", 10] }` or `[["field", "=", v], ["Child Ta
 Operators: `= != > >= < <= like not like in not in between is set not set`, plus the tree
 operators `descendants of`, `descendants of (inclusive)`, `not descendants of`, `ancestors of`
 and `not ancestors of` on a tree DocType's `id` or a Link to one (see `trees`).
+In the list shape, an item `{ any: [group, ...] }` ORs groups of filters, each written in either
+shape above. A row matches when every filter of at least one group does, and `{ any: [] }`
+matches nothing. `[["amount", ">", 0], { any: [[["status", "=", "Open"]], [["status", "=", "Overdue"], ["owner", "=", user]]] }]`
+is `amount > 0 AND (status = Open OR (status = Overdue AND owner = user))`. The REST list's
+`or_filters` holds a single OR group, and the Desk's search already uses it; an `any` item is how
+a list adds an OR of its own.
 `fields` accepts aggregates: `"count(id) as n"`, `"sum(amount) as total"`.
 
 ## Tests

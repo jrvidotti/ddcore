@@ -303,16 +303,13 @@ func (c *Ctx) Export(a ExportArgs, sink ExportSink) (*ExportSummary, error) {
 	return sum, nil
 }
 
-// keysetFilters rebuilds the caller's filters as tuples and adds the keyset
-// condition. It goes into Filters, which are ANDed — putting it in OrFilters
-// would widen the page instead of advancing it.
+// keysetFilters adds the keyset condition to the caller's filters, kept as
+// parsed so an `any` group survives. It goes into Filters, which are ANDed —
+// putting it in OrFilters would widen the page instead of advancing it.
 func keysetFilters(base []db.Filter, last string) any {
-	out := make([]any, 0, len(base)+1)
-	for _, f := range base {
-		out = append(out, []any{f.Field, f.Op, f.Value})
-	}
+	out := append(make([]db.Filter, 0, len(base)+1), base...)
 	if last != "" {
-		out = append(out, []any{"id", ">", last})
+		out = append(out, db.Filter{Field: "id", Op: ">", Value: last})
 	}
 	return out
 }

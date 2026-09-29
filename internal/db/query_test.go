@@ -126,3 +126,36 @@ func TestTreeOperatorOnLinkColumn(t *testing.T) {
 		t.Fatalf("got %s", got)
 	}
 }
+
+func TestParseFiltersAnyGroups(t *testing.T) {
+	fs, err := ParseFilters([]any{
+		[]any{"territory", "=", "BR"},
+		map[string]any{"any": []any{
+			[]any{[]any{"id", ">=", "a"}, []any{"id", "<=", "m"}},
+			map[string]any{"territory": "AR"},
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(fs) != 2 || len(fs[1].Any) != 2 || len(fs[1].Any[0]) != 2 || fs[1].Any[1][0].Field != "territory" {
+		t.Fatalf("parsed = %+v", fs)
+	}
+	if got := strings.Join(Fields(fs), ","); got != "territory,id,id,territory" {
+		t.Fatalf("Fields = %s", got)
+	}
+	empty, err := ParseFilters([]any{map[string]any{"any": []any{}}})
+	if err != nil || len(empty) != 1 || empty[0].Any == nil || len(empty[0].Any) != 0 {
+		t.Fatalf("an empty any must stay a group that matches nothing: %+v %v", empty, err)
+	}
+	for _, bad := range []any{
+		[]any{map[string]any{"any": "x"}},
+		[]any{map[string]any{"all": []any{}}},
+		[]any{map[string]any{"any": []any{}, "extra": 1}},
+		[]any{map[string]any{"any": []any{[]any{"not a filter"}}}},
+	} {
+		if _, err := ParseFilters(bad); err == nil {
+			t.Fatalf("expected an error for %v", bad)
+		}
+	}
+}

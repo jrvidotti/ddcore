@@ -541,7 +541,12 @@ export type FilterOp =
   | "descendants of" | "descendants of (inclusive)" | "not descendants of"
   | "ancestors of" | "not ancestors of";
 export type FilterTuple = [string, FilterOp, any] | [string, any] | [string, string, FilterOp, any];
-export type Filters = FilterTuple[] | Record<string, any>;
+/**
+ * ORs groups of filters inside a filter list: a row matches when every filter
+ * of at least one group does. `{ any: [[["status", "=", "Open"]], [["priority", "=", "High"]]] }`.
+ */
+export type FilterAny = { any: Filters[] };
+export type Filters = (FilterTuple | FilterAny)[] | Record<string, any>;
 
 export interface ListArgs {
   filters?: Filters;

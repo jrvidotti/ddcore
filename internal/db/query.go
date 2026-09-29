@@ -16,7 +16,8 @@ type Filter struct {
 	IfValue any
 	// Any holds groups of filters: a row matches when every filter of at least
 	// one group does. It is how the framework ORs its own permission branches
-	// (a role grant or a document share) and is never parsed from a request.
+	// (a role grant or a document share), and what a request's
+	// `{"any": [group, ...]}` item parses into.
 	Any [][]Filter
 	// Tree is the hierarchy a tree operator walks (DAT-07). The caller resolves
 	// it from the meta — the column being filtered is a tree's own id or a Link
@@ -264,6 +265,10 @@ func (b *Builder) treeSet(t *TreeRef, op string, roots []string) string {
 
 // ParseFilters accepts the JSON shapes `[[f,op,v],...]`, `[[f,v],...]`,
 // `{f: v, g: [op, v]}` and returns Filters. Field may be "DocType.field".
+// In the list shape an item may also be `{"any": [group, ...]}`: it matches
+// when every filter of at least one group does, each group being filters in
+// any of these shapes. That is the OR a list needs beside `or_filters`, which
+// a search already takes.
 func ParseFilters(v any) ([]Filter, error) {
 	var out []Filter
 	switch x := v.(type) {
@@ -284,6 +289,14 @@ func ParseFilters(v any) ([]Filter, error) {
 		}
 	case []any:
 		for _, item := range x {
+			if group, ok := item.(map[string]any); ok {
+				f, err := parseAny(group)
+				if err != nil {
+					return nil, err
+				}
+				out = append(out, f)
+				continue
+			}
 			arr, ok := item.([]any)
 			if !ok {
 				return nil, fmt.Errorf("invalid filter: %v", item)
@@ -303,6 +316,45 @@ func ParseFilters(v any) ([]Filter, error) {
 		return nil, fmt.Errorf("filters must be a list or object")
 	}
 	return out, nil
+}
+
+// parseAny reads a `{"any": [group, ...]}` filter item. No groups at all
+// matches nothing, the same rule an empty `in` follows.
+func parseAny(item map[string]any) (Filter, error) {
+	raw, ok := item["any"]
+	if !ok || len(item) != 1 {
+		return Filter{}, fmt.Errorf("invalid filter: %v", item)
+	}
+	groups, ok := raw.([]any)
+	if !ok {
+		return Filter{}, fmt.Errorf("any takes a list of filter groups: %v", raw)
+	}
+	f := Filter{Any: [][]Filter{}}
+	for _, g := range groups {
+		fs, err := ParseFilters(g)
+		if err != nil {
+			return Filter{}, err
+		}
+		f.Any = append(f.Any, fs)
+	}
+	return f, nil
+}
+
+// Fields lists every field the filters name, those inside `any` groups
+// included, so a check on which fields a query may touch sees them all.
+func Fields(filters []Filter) []string {
+	var out []string
+	for _, f := range filters {
+		for _, name := range []string{f.Field, f.IfField} {
+			if name != "" {
+				out = append(out, name)
+			}
+		}
+		for _, g := range f.Any {
+			out = append(out, Fields(g)...)
+		}
+	}
+	return out
 }
 
 // ParseOrderBy validates "field asc, other desc".

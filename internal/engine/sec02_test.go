@@ -214,6 +214,7 @@ func TestSEC02_ListQueries(t *testing.T) {
 		for what, args := range map[string]ListArgs{
 			"filter":       {Filters: []any{[]any{"salary", ">", 50}}},
 			"or filter":    {OrFilters: []any{[]any{"salary", ">", 50}}},
+			"any filter":   {Filters: []any{map[string]any{"any": []any{[]any{[]any{"department", "=", "Ops"}}, []any{[]any{"salary", ">", 50}}}}}},
 			"child filter": {Filters: []any{[]any{"Employee Line.amount", ">", 1}}},
 			"table filter": {Filters: []any{[]any{"Employee Bonus.value", ">", 1}}},
 			"order":        {OrderBy: "salary desc"},

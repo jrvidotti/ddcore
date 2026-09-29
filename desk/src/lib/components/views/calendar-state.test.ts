@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Field } from "../../meta";
-import { calendarLanes, calendarNewQuery, calendarRangeFilters, calendarSpanFilters, groupCalendarRows } from "./calendar-state";
+import { calendarDayFilters, calendarLanes, calendarNewQuery, calendarRangeFilters, calendarSpanFilters, groupCalendarRows } from "./calendar-state";
 
 const fields: Field[] = [
   { fieldname: "due_date", fieldtype: "Date" },
@@ -147,5 +147,46 @@ describe("a day's new record", () => {
   it("spans a Datetime pair over the site's day", () => {
     const params = new URLSearchParams(calendarNewQuery("starts_at", "ends_at", fields, "2026-11-20", "America/Cuiaba"));
     expect(Object.fromEntries(params)).toEqual({ starts_at: "2026-11-20T04:00:00.000Z", ends_at: "2026-11-21T03:59:00.000Z" });
+  });
+});
+
+/** Evaluates the day filters on a row the way the API would: ANDed, `any` ORing its groups, no value failing. */
+function matches(row: Record<string, any>, filters: any[]): boolean {
+  return filters.every((f) => {
+    if (!Array.isArray(f)) return f.any.some((group: any[]) => matches(row, group));
+    const [field, op, value] = f;
+    const v = row[field];
+    if (v === null || v === undefined || v === "") return false;
+    return op === ">=" ? v >= value : v <= value;
+  });
+}
+
+describe("a picked calendar day", () => {
+  const rows = [
+    { id: "one-day", due_date: "2026-11-03", end_date: null },
+    { id: "span", due_date: "2026-11-02", end_date: "2026-11-05" },
+    { id: "ends-first", due_date: "2026-11-04", end_date: "2026-11-01" },
+    { id: "same-day", due_date: "2026-11-06", end_date: "2026-11-06" },
+    { id: "into-next-week", due_date: "2026-11-06", end_date: "2026-11-09" },
+  ];
+
+  it("lists what the grid draws on it, day by day", () => {
+    const lanes = calendarLanes(rows, opts, fields, grid);
+    for (const { iso } of grid) {
+      const drawn = (lanes.get(iso) || []).filter(Boolean).map((s) => s!.row.id).sort();
+      const listed = rows.filter((r) => matches(r, calendarDayFilters("due_date", "end_date", fields, iso))).map((r) => r.id).sort();
+      expect(listed, iso).toEqual(drawn);
+    }
+  });
+
+  it("is the field's own day without an end field", () => {
+    expect(calendarDayFilters("due_date", undefined, fields, "2026-11-03")).toEqual([["due_date", ">=", "2026-11-03"], ["due_date", "<=", "2026-11-03"]]);
+  });
+
+  it("bounds Datetime fields by the whole site day", () => {
+    expect(calendarDayFilters("starts_at", "ends_at", fields, "2026-11-03", "America/Cuiaba")).toEqual([
+      ["starts_at", "<=", "2026-11-04T03:59:59.999999Z"],
+      { any: [[["starts_at", ">=", "2026-11-03T04:00:00.000Z"]], [["ends_at", ">=", "2026-11-03T04:00:00.000Z"]]] },
+    ]);
   });
 });

@@ -30,7 +30,7 @@
   import TreeView from "./views/TreeView.svelte";
   import { moveKanbanRow, kanbanValue } from "./views/kanban-state";
   import { ganttRangeFilters, ganttWindow, type GanttScale } from "./views/gantt-state";
-  import { calendarRangeFilters, calendarSpanFilters } from "./views/calendar-state";
+  import { calendarDayFilters, calendarRangeFilters, calendarSpanFilters } from "./views/calendar-state";
   import { resolveCardFields } from "./views/card-fields";
   import { showIDColumn } from "./views/id-column";
   import { docTypeChoices } from "$lib/doctype-selector";
@@ -51,6 +51,8 @@
   let start = $state(0);
   let selected = $state<Set<string>>(new Set());
   let docstatusFilter = $state("");
+  /** A day picked on the calendar: the list shows what the grid draws on it. */
+  let calendarDay = $state("");
   let timer: any;
   let ready = false;
   let lastUrlSearch = "";
@@ -111,7 +113,10 @@
   /** A Datetime filter holding a bare day (picked on the calendar) stands for that whole day. */
   const isDayFilter = (f: Field | undefined, v: any) => f?.fieldtype === "Datetime" && typeof v === "string" && ISO_DAY.test(v);
   /** The calendar's field when it is one of the doctype's, so a picked day can filter on it. */
-  const calendarDayField = $derived(meta?.doctype.fields.find((f) => f.fieldname === settings.calendar?.field && (f.fieldtype === "Date" || f.fieldtype === "Datetime")));
+  const isDateField = (f: Field, name?: string) => !!name && f.fieldname === name && (f.fieldtype === "Date" || f.fieldtype === "Datetime");
+  const calendarDayField = $derived(meta?.doctype.fields.find((f) => isDateField(f, settings.calendar?.field)));
+  /** The calendar's end field, when it is one: a picked day then lists the spans that cover it. */
+  const calendarEndField = $derived(meta?.doctype.fields.find((f) => isDateField(f, settings.calendar?.endField)));
   const isDocTypeRef = (f: Field) =>
     f.fieldname === "ref_doctype" || f.fieldname === "reference_doctype" || (!!f.fieldname && f.fieldname.endsWith("_doctype"));
 
@@ -134,7 +139,7 @@
   }
   const statusField = $derived(meta?.doctype.fields.find((f) => f.fieldname === "status"));
   const urlFields = $derived(meta?.doctype.fields.filter((f) => f.fieldname && !isLayout(f)) || []);
-  const activeFilters = $derived(countListFilters({ filters, search, docstatusFilter }, showDocstatusFilter));
+  const activeFilters = $derived(countListFilters({ filters, search, docstatusFilter, calendarDay }, showDocstatusFilter));
   const hasActiveFilters = $derived(activeFilters > 0);
   function toggleFilters() {
     showFilters = !showFilters;
@@ -148,12 +153,14 @@
   }
   function currentListState(): ListUrlState {
     return { filters: { ...filters }, search, docstatusFilter, orderBy, page: Math.floor(start / pageSize) + 1, pageSize, view: currentView,
-      month: currentView === "calendar" ? `${calendarYear}-${String(calendarMonth).padStart(2, "0")}` : undefined };
+      month: currentView === "calendar" ? `${calendarYear}-${String(calendarMonth).padStart(2, "0")}` : undefined, calendarDay: calendarDay || undefined };
   }
   function applyListState(state: ListUrlState) {
     filters = state.filters;
     search = state.search;
     docstatusFilter = state.docstatusFilter;
+    // a day only means something on a DocType whose calendar can filter by it
+    calendarDay = calendarDayField ? state.calendarDay || "" : "";
     orderBy = state.orderBy;
     pageSize = state.pageSize;
     start = (state.page - 1) * state.pageSize;
@@ -228,11 +235,10 @@
     }
   }
   function clearFilter(name: string) { updateFilter(name, null); }
-  /** A day picked on the calendar: the list of that day's records. */
+  /** A day picked on the calendar: the list of the records the grid draws on it. */
   function showDay(iso: string) {
-    const field = calendarDayField?.fieldname;
-    if (!field) return;
-    updateListState({ ...currentListState(), filters: { ...filters, [field]: iso }, page: 1, view: "list" });
+    if (!calendarDayField) return;
+    updateListState({ ...currentListState(), calendarDay: iso, page: 1, view: "list" });
   }
 
   function buildFilters() {
@@ -244,6 +250,9 @@
       delete plain[f.fieldname];
     }
     out.push(...buildListFilters(plain, settings.filterOptions));
+    if (calendarDay && calendarDayField) {
+      out.push(...calendarDayFilters(calendarDayField.fieldname!, calendarEndField?.fieldname, meta!.doctype.fields, calendarDay));
+    }
     if (showDocstatusFilter && docstatusFilter !== "") out.push(["docstatus", "=", Number(docstatusFilter)]);
     // a calendar with an end field loads through calendarQueries instead
     if (currentView === "calendar" && settings.calendar?.field && !settings.calendar.endField && meta?.doctype?.fields) {
@@ -505,6 +514,14 @@
           <option value="">{__("All")}</option><option value="0">{__("Draft")}</option><option value="1">{__("Submitted")}</option><option value="2">{__("Cancelled")}</option>
         </select>
         {#if docstatusFilter !== ""}<button class="btn icon filter-clear" onclick={() => updateListState({ ...currentListState(), docstatusFilter: "", page: 1 })} title={__("Remove the status filter")} aria-label={__("Remove the status filter")}><Icon name="x" size={14} /></button>{/if}
+      </div>
+    {/if}
+    {#if calendarDay}
+      <div class="select-filter labelled">
+        <Control field={{ fieldname: "calendar_day", fieldtype: "Date", label: __("Day") }} value={calendarDay} compact
+          onchange={(v) => updateListState({ ...currentListState(), calendarDay: v || undefined, page: 1 })} />
+        <button class="btn icon filter-clear" onclick={() => updateListState({ ...currentListState(), calendarDay: undefined, page: 1 })}
+          title={__("Remove the {0} filter", [__("Day")])} aria-label={__("Remove the {0} filter", [__("Day")])}><Icon name="x" size={14} /></button>
       </div>
     {/if}
     {#each stdFilters as f (f.fieldname)}

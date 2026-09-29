@@ -294,8 +294,10 @@ defineListView<Task>("Task", {
 });
 ```
 
-- **Calendar:** clicking a day lists that day's records, filtered on the calendar's `field` (a
-  `Datetime` field matches the whole day in the site's time zone); the **+** in a day's corner,
+- **Calendar:** clicking a day lists the records the grid draws on it (a `Datetime` field matches
+  the whole day in the site's time zone): those whose `field` falls on the day and, with
+  `endField`, those that started earlier and end on it or later. The day stays a filter of its
+  own, `?calendar_day=YYYY-MM-DD`, shown as a removable **Day** in the filter card. The **+** in a day's corner,
   shown on hover, opens a new record with the field set to that day. A calendar on `creation` or
   `modified` has the **+** only. With `endField` (a Date or Datetime), each record is drawn as a
   bar across every day from `field` to `endField`, and the bar wraps at the end of each week. A

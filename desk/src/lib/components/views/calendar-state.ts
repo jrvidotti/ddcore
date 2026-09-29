@@ -61,6 +61,19 @@ export function calendarSpanFilters(field: string, endField: string, fields: Fie
   ];
 }
 
+/**
+ * The records the grid draws on one day: those whose `field` falls on it, and,
+ * with `endField`, those that started earlier and end on it or later — the
+ * rule `calendarLanes` draws by. The OR goes in an `any` group, since the
+ * list's search already holds `or_filters`.
+ */
+export function calendarDayFilters(field: string, endField: string | undefined, fields: Field[], iso: string, tz?: string): any[] {
+  const [startsOnOrAfterDay, startsOnOrBeforeDay] = calendarRangeFilters(field, fields, iso, iso, tz);
+  if (!endField) return [startsOnOrAfterDay, startsOnOrBeforeDay];
+  const [endsOnOrAfterDay] = calendarRangeFilters(endField, fields, iso, iso, tz);
+  return [startsOnOrBeforeDay, { any: [[startsOnOrAfterDay], [endsOnOrAfterDay]] }];
+}
+
 export interface CalendarSegment<T> {
   row: T;
   /** The record's first and last day fall here (not a week clip): its rounded ends. */

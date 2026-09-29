@@ -13,7 +13,11 @@ export interface ListUrlState {
   view?: string;
   /** The calendar's month, YYYY-MM. */
   month?: string;
+  /** A day picked on the calendar (YYYY-MM-DD): the records the grid draws on it. */
+  calendarDay?: string;
 }
+
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
 type ListViewSettings = { views?: string[]; calendar?: { field?: string }; kanban?: { field?: string }; gantt?: { startField?: string; endField?: string } };
 
@@ -93,6 +97,7 @@ export function listStateFromSearchParams(params: URLSearchParams, fields: Field
     pageSize: listPageSizes.includes(requestedSize as (typeof listPageSizes)[number]) ? requestedSize : defaults.pageSize,
     view: params.get("view") ?? undefined,
     month: /^\d{4}-(0[1-9]|1[0-2])$/.test(params.get("month") || "") ? params.get("month")! : undefined,
+    calendarDay: ISO_DAY.test(params.get("calendar_day") || "") ? params.get("calendar_day")! : undefined,
   };
 }
 
@@ -110,17 +115,18 @@ export function listStateToSearchParams(state: ListUrlState, fields: Field[]): U
   params.set("page_size", String(state.pageSize));
   if (state.view && state.view !== "list") params.set("view", state.view);
   if (state.month && state.view === "calendar") params.set("month", state.month);
+  if (state.calendarDay) params.set("calendar_day", state.calendarDay);
   return params;
 }
 
 export function clearListFilters(state: ListUrlState): ListUrlState {
-  return { ...state, filters: {}, search: "", docstatusFilter: "", page: 1 };
+  return { ...state, filters: {}, search: "", docstatusFilter: "", calendarDay: undefined, page: 1 };
 }
 
-/** How many filters are in force: each field with a value, the search, and the docstatus when its filter is shown. */
-export function countListFilters(state: Pick<ListUrlState, "filters" | "search" | "docstatusFilter">, withDocstatus: boolean): number {
+/** How many filters are in force: each field with a value, the search, a picked calendar day, and the docstatus when its filter is shown. */
+export function countListFilters(state: Pick<ListUrlState, "filters" | "search" | "docstatusFilter" | "calendarDay">, withDocstatus: boolean): number {
   const fields = Object.values(state.filters).filter((v) => v !== null && v !== undefined && v !== "").length;
-  return fields + (state.search ? 1 : 0) + (withDocstatus && state.docstatusFilter !== "" ? 1 : 0);
+  return fields + (state.search ? 1 : 0) + (state.calendarDay ? 1 : 0) + (withDocstatus && state.docstatusFilter !== "" ? 1 : 0);
 }
 
 type Store = { getItem(k: string): string | null; setItem(k: string, v: string): void };

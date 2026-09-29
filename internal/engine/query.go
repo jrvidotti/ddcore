@@ -444,12 +444,10 @@ func (c *Ctx) GetList(doctype string, a ListArgs) ([]map[string]any, error) {
 	}
 	// checked before the permission filters join them: those are the
 	// framework's own conditions, and may well sit on a restricted Link
-	for _, f := range append(append([]db.Filter(nil), filters...), orFilters...) {
-		for _, name := range []string{f.Field, f.IfField} {
-			if name != "" && !c.canReadColumn(d, access, name) {
-				denied = strings.Trim(name, "`\"")
-				return nil, deniedErr()
-			}
+	for _, name := range db.Fields(append(append([]db.Filter(nil), filters...), orFilters...)) {
+		if !c.canReadColumn(d, access, name) {
+			denied = strings.Trim(name, "`\"")
+			return nil, deniedErr()
 		}
 	}
 	if !c.IgnorePermissions() && !d.IsVirtual() {

@@ -26,8 +26,22 @@ older series, and `whats_new` reads across every one of them.
   option links straight to its form, several open a menu, and each shows only when the user may
   create its DocType — so a read-only or virtual DocType that gathers others' records gets a
   **+** too. See "Views" in `docs/agent/form-api.md`.
+- **An `any` filter item ORs groups of filters** (#35) inside `filters`:
+  `[["status", "=", "Open"], { any: [[["priority", "=", "High"]], [["due_date", "<", today]]] }]`.
+  A row matches when every filter of one group does. It works in the list API, `ddcore.db.getList`
+  and `count`, and exports. `or_filters` still holds one OR group, and a list's search already
+  takes it. A filter inside a group is checked against field permissions like any other. See
+  "Filters" in `docs/agent/controller-api.md`.
 
 ### Changed
+
+- **Clicking a calendar day lists what the grid draws on it** (#35). With `endField`, the list
+  shows every record whose bar covers the day. That includes a record that started earlier and
+  ends on or after it, where the click used to list only the records starting that day. The day
+  is its own filter: `?calendar_day=2026-09-29` in the URL, a removable **Day** in the filter
+  card, counted by the **Filters** button. It replaces `?start_date=2026-09-29`, which was an
+  equality on the calendar's `field`. Without `endField` it still lists the records whose
+  `field` falls on the day.
 
 - **A list's filter card starts hidden behind a Filters button** (#32) in the list header. The
   button's badge counts the filters in force, so a hidden filter never goes unseen, and each
