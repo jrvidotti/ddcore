@@ -26,13 +26,17 @@ type fakePocketID struct {
 	ttls     []float64
 	puts     []map[string]any
 	failNext int // status to answer the next POST /api/users with
-	calls    int
+	// friendly holds the friendlyName of each group created through the API;
+	// failGroup is the status to answer the next POST /api/user-groups with.
+	friendly  map[string]string
+	failGroup int
+	calls     int
 }
 
 var fakeUsernameOK = regexp.MustCompile(`^[a-zA-Z0-9]([a-zA-Z0-9_.@-]*[a-zA-Z0-9])?$`)
 
 func newFakePocketID(t *testing.T, idp *fakeIdP) *fakePocketID {
-	f := &fakePocketID{users: map[string]map[string]any{}, member: map[string][]string{},
+	f := &fakePocketID{users: map[string]map[string]any{}, member: map[string][]string{}, friendly: map[string]string{},
 		groups: map[string]string{"g-gestores": "erp-gestores", "g-sm": "erp-sm", "g-outros": "outros"}}
 	auth := func(h http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
@@ -132,6 +136,23 @@ func newFakePocketID(t *testing.T, idp *fakeIdP) *fakePocketID {
 			}
 		}
 		json.NewEncoder(w).Encode(map[string]any{"data": out})
+	}))
+	m.HandleFunc("POST /api/user-groups", auth(func(w http.ResponseWriter, r *http.Request) {
+		if f.failGroup != 0 {
+			w.WriteHeader(f.failGroup)
+			f.failGroup = 0
+			json.NewEncoder(w).Encode(map[string]any{"error": "You don't have permission"})
+			return
+		}
+		var b struct {
+			Name         string `json:"name"`
+			FriendlyName string `json:"friendlyName"`
+		}
+		json.NewDecoder(r.Body).Decode(&b)
+		id := "g-" + b.Name
+		f.groups[id], f.friendly[b.Name] = b.Name, b.FriendlyName
+		w.WriteHeader(201)
+		json.NewEncoder(w).Encode(map[string]any{"id": id, "name": b.Name, "friendlyName": b.FriendlyName})
 	}))
 	return f
 }
@@ -274,6 +295,54 @@ func TestPocketID_ARefusalFailsTheInvitation(t *testing.T) {
 	}
 }
 
+func TestPocketID_InviteCreatesAMissingMappedGroup(t *testing.T) {
+	x, _, pid := pocketIDEnv(t)
+	x.e.Cfg.Auth.SSO["fake"].GroupRoles["erp-novo"] = []string{"Gestor", "System Manager"}
+	r := x.callAs("root@x.com", "core.services.users.invite",
+		map[string]any{"email": "nova@x.com", "fullName": "Nova", "roles": []string{"Gestor", "System Manager"}})
+	x.expect(r, 200, "")
+	if f := pid.friendly["erp-novo"]; f != "Gestor, System Manager" {
+		t.Fatalf("group not created, or its friendly name is %q: %s", f, r.Raw)
+	}
+	u := pid.byEmail("nova@x.com")
+	if g := pid.groupsOf(u["id"].(string)); strings.Join(g, ",") != "erp-gestores,erp-novo,erp-sm" {
+		t.Errorf("groups: %v", g)
+	}
+	if len(pid.friendly) != 1 {
+		t.Errorf("an existing group was created again: %v", pid.friendly)
+	}
+}
+
+func TestPocketID_AGroupThatCannotBeCreatedFailsTheInvitation(t *testing.T) {
+	x, _, pid := pocketIDEnv(t)
+	x.e.Cfg.Auth.SSO["fake"].GroupRoles["erp-novo"] = []string{"Gestor"}
+	pid.failGroup = 403
+	r := x.callAs("root@x.com", "core.services.users.invite",
+		map[string]any{"email": "nova@x.com", "fullName": "Nova", "roles": []string{"Gestor"}})
+	x.expect(r, 417, "ValidationError")
+	for _, want := range []string{"erp-novo", "You don't have permission", "Create the group in PocketID"} {
+		if !strings.Contains(r.Raw, want) {
+			t.Errorf("the message lacks %q: %s", want, r.Raw)
+		}
+	}
+	if n := x.countSQL(`SELECT count(*) FROM tab_user WHERE id = 'nova@x.com'`); n != 0 {
+		t.Errorf("the User survived a failed invitation")
+	}
+}
+
+func TestPocketID_ProbeListsMappedGroupsToCreate(t *testing.T) {
+	x, _, pid := pocketIDEnv(t)
+	pol := x.e.Cfg.Auth.SSO["fake"]
+	pol.GroupRoles["erp-novo"] = []string{"Gestor"}
+	probs, absent := engine.ProbePocketID(x.ctx, x.e.Cfg.OIDC[0], pol)
+	if len(probs) != 0 || strings.Join(absent, ",") != "erp-novo" {
+		t.Errorf("problems %v, absent %v", probs, absent)
+	}
+	if len(pid.friendly) != 0 {
+		t.Errorf("the probe created a group: %v", pid.friendly)
+	}
+}
+
 func TestPocketID_AWebsiteUserIsInvitedWithAPassword(t *testing.T) {
 	x, _, pid := pocketIDEnv(t)
 	r := x.callAs("root@x.com", "core.services.users.invite",
@@ -312,6 +381,14 @@ func TestPocketID_MappedRoleChangesArePushedAsGroups(t *testing.T) {
 	}
 	if g := pid.groupsOf("pid-ana"); strings.Join(g, ",") != "erp-sm,outros" {
 		t.Errorf("groups: %v", g)
+	}
+	// the sync creates a mapped group PocketID does not have yet
+	x.e.Cfg.Auth.SSO["fake"].GroupRoles["erp-novo"] = []string{"System Manager"}
+	if _, err := x.e.RunJob(x.ctx, "Admin", "core.services.idp.sync", map[string]any{"user": "ana@x.com"}); err != nil {
+		t.Fatal(err)
+	}
+	if g := pid.groupsOf("pid-ana"); strings.Join(g, ",") != "erp-novo,erp-sm,outros" {
+		t.Errorf("groups after a new mapping: %v", g)
 	}
 }
 

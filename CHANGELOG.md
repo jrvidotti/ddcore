@@ -20,8 +20,10 @@ older series, and `whats_new` reads across every one of them.
   (`DDCORE_OIDC_<ID>_KIND`, the default for the id `pocketid`) and an invitation of a System User
   creates the account in PocketID — or reuses the one with that address — and mails PocketID's
   one-time link to register a passkey (`core.invite_sso`) instead of a link to choose a
-  password. A refusal from PocketID fails the invitation with its reason. A Website User is
-  still invited with a password.
+  password. A mapped group PocketID does not have yet is created there on first use, by the
+  invitation or by the role push-back, so a fresh PocketID needs no groups made by hand; a group
+  that cannot be created fails with a message naming it. A refusal from PocketID fails the
+  invitation with its reason. A Website User is still invited with a password.
 - **Group → role mapping for single sign-on**: `auth.sso.<provider>.groupRoles` in
   `ddcore.json` (and `groupsClaim`, default `groups`). Each sign-in sets the mapped roles from the
   provider's groups and leaves every other role alone; a missing claim changes nothing, and
@@ -34,8 +36,9 @@ older series, and `whats_new` reads across every one of them.
   `accountStatus` now also returns the provisioning `provider`.
 - **`afterDelete(frm)`** in `defineForm`, run after the form's Delete succeeds while `frm.doc`
   still holds what was deleted.
-- `ddcore doctor` probes the PocketID admin API and reports mapped groups missing in PocketID
-  and mapped roles missing on the site.
+- `ddcore doctor` probes the PocketID admin API, warns about mapped roles missing on the site,
+  and lists the mapped groups PocketID does not have yet as created on first use
+  (`groupsToCreate` in `--json`).
 
 ### Changed
 

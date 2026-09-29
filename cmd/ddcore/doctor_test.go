@@ -308,3 +308,21 @@ func TestDoctorUpdateFlagIsParsed(t *testing.T) {
 		t.Fatal("--no-update-check did not parse")
 	}
 }
+
+// A mapped group PocketID does not have yet is created the first time a User
+// needs it: the report lists it, and it is no warning.
+func TestDoctorListsPocketIDGroupsToCreate(t *testing.T) {
+	r := &doctorReport{
+		Database: db.Health{OK: true},
+		Ops:      config.DefaultOps(),
+		SSO: ssoSection{Providers: []ssoProvider{{ID: "pocketid", Provisioning: true, MappedGroups: 3,
+			GroupsToCreate: []string{"erp-a", "erp-b"}}}},
+	}
+	out := renderDoctor(t, r)
+	if !strings.Contains(out, "(2 mapped group(s) not in PocketID yet, created on first use: erp-a, erp-b)") {
+		t.Fatalf("the groups to create are not listed:\n%s", out)
+	}
+	if code := r.exitCode(true); code != 0 {
+		t.Fatalf("groups to create must not fail --strict, got %d", code)
+	}
+}
