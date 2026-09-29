@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.21.10 — 2026-09-28
+
 ### Added
 
 - **`Autocomplete` fieldtype**: free text with suggestions, stored in a text column. `options`
