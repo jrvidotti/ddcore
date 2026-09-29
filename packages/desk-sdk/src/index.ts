@@ -389,6 +389,12 @@ export interface ListViewOptions<T extends BaseDoc = BaseDoc> {
   indicator?: (row: T) => { label: string; color: string } | null | undefined;
   /** `false` hides the docstatus filter of a submittable DocType. Default `true`. */
   docstatusFilter?: boolean;
+  /**
+   * `false` opens the filter card when a user has not chosen yet. Default `true`: the card
+   * stays behind the list's Filters button, whose badge counts the filters in force, and the
+   * button remembers each user's choice per DocType in the browser.
+   */
+  filtersCollapsed?: boolean;
   /** `false` hides the trailing "Modified" column. Default `true`. */
   modifiedColumn?: boolean;
   /**

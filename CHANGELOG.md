@@ -14,6 +14,18 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **`defineListView({ filtersCollapsed: false })`** (#32) opens a DocType's filter card for a user
+  who has not chosen yet.
+
+### Changed
+
+- **A list's filter card starts hidden behind a Filters button** (#32) in the list header. The
+  button's badge counts the filters in force, so a hidden filter never goes unseen, and each
+  user's show/hide choice is kept per DocType in the browser. See `defineListView` in
+  `docs/agent/form-api.md`.
+
 ## 0.21.11 — 2026-09-29
 
 ### Added

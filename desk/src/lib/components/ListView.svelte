@@ -18,7 +18,7 @@
   import { fromDatetimeLocal, today } from "$lib/datetime";
   import { getCalendarDays } from "$lib/controls/date-format";
   import { buildListFilters } from "./list-filters";
-  import { clearListFilters, listStateFromSearchParams, listStateToSearchParams, resolveAllowedViews, resolveActiveView, type ListUrlState } from "./list-state";
+  import { clearListFilters, countListFilters, filtersOpen, listStateFromSearchParams, rememberFiltersOpen, listStateToSearchParams, resolveAllowedViews, resolveActiveView, type ListUrlState } from "./list-state";
   import { exportChoice, exportChoices, exportUrl } from "./export-options";
   import DataImportModal from "./DataImportModal.svelte";
   import { canImport } from "./data-import";
@@ -57,6 +57,8 @@
   let isMobile = $state(false);
   let currentView = $state("list");
   let importOpen = $state(false);
+  /** The filter card, hidden behind the Filters button unless the user or `filtersCollapsed: false` opened it. */
+  let showFilters = $state(false);
   let loadVersion = 0;
   let loadedQueryKey = "";
 
@@ -132,7 +134,12 @@
   }
   const statusField = $derived(meta?.doctype.fields.find((f) => f.fieldname === "status"));
   const urlFields = $derived(meta?.doctype.fields.filter((f) => f.fieldname && !isLayout(f)) || []);
-  const hasActiveFilters = $derived(Object.values(filters).some((v) => v !== null && v !== undefined && v !== "") || !!search || (showDocstatusFilter && docstatusFilter !== ""));
+  const activeFilters = $derived(countListFilters({ filters, search, docstatusFilter }, showDocstatusFilter));
+  const hasActiveFilters = $derived(activeFilters > 0);
+  function toggleFilters() {
+    showFilters = !showFilters;
+    rememberFiltersOpen(doctype, showFilters);
+  }
 
   function defaultListState(): ListUrlState {
     return {
@@ -341,6 +348,7 @@
         const m = await getMeta(doctype);
         if (!alive) return; // navigated away while the meta was loading
         meta = m;
+        showFilters = filtersOpen(doctype, settings.filtersCollapsed);
         applyListState(listStateFromSearchParams(page.url.searchParams, urlFields, defaultListState()));
         lastUrlSearch = page.url.search;
         ready = true;
@@ -471,6 +479,11 @@
       </div>
     {/if}
     {#if selected.size && meta?.permissions.delete}<button class="btn danger" onclick={deleteSelected}><Icon name="trash" size={14} />{__("Delete")} ({selected.size})</button>{/if}
+    {#if !isTreeView}
+      <button class="btn" class:active={showFilters} aria-expanded={showFilters} aria-controls="list-filters" onclick={toggleFilters}>
+        <Icon name="filter" size={14} />{__("Filters")}{#if activeFilters}<span class="filter-count">{activeFilters}</span>{/if}
+      </button>
+    {/if}
     <button class="btn" onclick={load} title={__("Update")}><Icon name="refresh-cw" size={14} /></button>
     {#if canImport(meta?.permissions)}<button class="btn" onclick={() => (importOpen = true)} title={__("Import")} aria-label={__("Import")}><Icon name="upload" size={14} /></button>{/if}
     {#if meta?.permissions.export}<button class="btn" onclick={openExport} title={__("Export")}><Icon name="download" size={14} /></button>{/if}
@@ -479,8 +492,8 @@
 
   {#if isTreeView}
     <p class="muted small view-notice">{__("Filters and search apply to the list view")}</p>
-  {:else}
-  <div class="card list-filters">
+  {:else if showFilters}
+  <div class="card list-filters" id="list-filters">
     <div class="filter-search">
       <label for="list-search">{__("Search")}</label>
       <input id="list-search" class="input" placeholder={__("Search…")} bind:value={search} oninput={onSearch} />
@@ -554,6 +567,8 @@
   .view-switcher .btn:last-child { border-radius: 0 var(--radius) var(--radius) 0; }
   .view-switcher .btn + .btn { margin-left: -1px; }
   .view-switcher .active { color: var(--primary); background: var(--bg); position: relative; border-color: var(--primary); }
+  .page-head > .btn.active { color: var(--primary); border-color: var(--primary); }
+  .filter-count { margin-left: 2px; min-width: 18px; padding: 0 5px; border-radius: 999px; background: var(--primary); color: #fff; font-size: 11px; line-height: 18px; text-align: center; }
   .list-results { overflow: auto; }
   .view-notice { margin: 0 0 8px; }
   .pagination { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--border); }

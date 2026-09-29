@@ -224,6 +224,7 @@ defineListView("Entry", {
   formatters: { amount: (v, row) => ddcore.format.currency(v) }, // the cell's text
   indicator: (row) => (row.balance > 0 ? { label: __("Open"), color: "red" } : { label: __("Settled"), color: "green" }),
   docstatusFilter: false,               // hides the "Document status" filter of a submittable DocType
+  filtersCollapsed: false,              // opens the filter card by default (it starts hidden)
   modifiedColumn: false,                // hides the trailing "Modified" column
   idColumn: false,                      // hides (or `true` shows) the leading document-id column
 });
@@ -233,6 +234,13 @@ Every key is optional. `formatters` returns **text** (not HTML); `indicator` rep
 status column and may return `null` to show nothing on that row. `docstatusFilter: false` suits a
 submittable DocType whose `status` field already separates draft, submitted and cancelled — the
 docstatus filter would only repeat it.
+
+The filter card (search, document status, the `inStandardFilter` fields, "Clear filters") sits
+behind a **Filters** button in the list's header and starts hidden, so a Calendar, Kanban or Gantt
+view keeps the screen. The button counts the filters in force — `filters` defaults and a day
+picked on the calendar included — so a hidden filter still shows. Each user's choice is kept per
+DocType in the browser; `filtersCollapsed: false` only changes where a user who has not chosen
+yet starts.
 
 Left out, `idColumn` follows the id. The list hides the column on its own when the id is a hash
 (`idGeneration: { hash: true }`, or no rule at all), unless the list has no other column, and when

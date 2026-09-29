@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Field } from "$lib/meta";
-import { clearListFilters, listStateFromSearchParams, listStateToSearchParams, resolveActiveView, resolveAllowedViews } from "./list-state";
+import { clearListFilters, countListFilters, filtersOpen, listStateFromSearchParams, rememberFiltersOpen, listStateToSearchParams, resolveActiveView, resolveAllowedViews } from "./list-state";
 
 const fields: Field[] = [
   { fieldname: "status", fieldtype: "Select" },
@@ -167,5 +167,46 @@ describe("tree view", () => {
 
   it("still yields to an explicit choice in the URL", () => {
     expect(resolveActiveView(["tree", "list", "cards"], "list", null, true)).toBe("list");
+  });
+});
+
+describe("list filter card", () => {
+  const memory = () => {
+    const data = new Map<string, string>();
+    return { getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => void data.set(k, v) };
+  };
+
+  it("counts the filters in force", () => {
+    expect(countListFilters({ filters: {}, search: "", docstatusFilter: "" }, true)).toBe(0);
+    expect(countListFilters({ filters: { status: "Open", owner: "", kind: null, ativo: false }, search: "x", docstatusFilter: "1" }, true)).toBe(4);
+  });
+
+  it("counts the docstatus only while its filter is shown", () => {
+    expect(countListFilters({ filters: {}, search: "", docstatusFilter: "0" }, false)).toBe(0);
+    expect(countListFilters({ filters: {}, search: "", docstatusFilter: "0" }, true)).toBe(1);
+  });
+
+  it("starts hidden unless the app opted out", () => {
+    expect(filtersOpen("Campaign", undefined, memory())).toBe(false);
+    expect(filtersOpen("Campaign", true, memory())).toBe(false);
+    expect(filtersOpen("Campaign", false, memory())).toBe(true);
+  });
+
+  it("follows the user's last choice for that DocType", () => {
+    const store = memory();
+    rememberFiltersOpen("Campaign", true, store);
+    expect(filtersOpen("Campaign", true, store)).toBe(true);
+    expect(filtersOpen("Task", undefined, store)).toBe(false);
+    rememberFiltersOpen("Campaign", false, store);
+    expect(filtersOpen("Campaign", false, store)).toBe(false);
+  });
+
+  it("ignores a stray value and a storage that throws", () => {
+    const store = memory();
+    store.setItem("ddcore_filters_Campaign", "maybe");
+    expect(filtersOpen("Campaign", false, store)).toBe(true);
+    const broken = { getItem: () => { throw new Error("denied"); }, setItem: () => { throw new Error("denied"); } };
+    expect(() => rememberFiltersOpen("Campaign", true, broken)).not.toThrow();
+    expect(filtersOpen("Campaign", undefined, broken)).toBe(false);
   });
 });

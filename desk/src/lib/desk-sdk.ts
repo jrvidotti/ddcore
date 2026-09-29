@@ -95,6 +95,7 @@ export interface ListViewOptions<T extends BaseDoc = BaseDoc> {
   formatters?: Partial<Record<keyof T & string, (value: any, row: T) => string>>;
   indicator?: (row: T) => { label: string; color: string } | null | undefined;
   docstatusFilter?: boolean;
+  filtersCollapsed?: boolean;
   modifiedColumn?: boolean;
   idColumn?: boolean;
   fields?: (keyof T & string)[];

@@ -116,3 +116,44 @@ export function listStateToSearchParams(state: ListUrlState, fields: Field[]): U
 export function clearListFilters(state: ListUrlState): ListUrlState {
   return { ...state, filters: {}, search: "", docstatusFilter: "", page: 1 };
 }
+
+/** How many filters are in force: each field with a value, the search, and the docstatus when its filter is shown. */
+export function countListFilters(state: Pick<ListUrlState, "filters" | "search" | "docstatusFilter">, withDocstatus: boolean): number {
+  const fields = Object.values(state.filters).filter((v) => v !== null && v !== undefined && v !== "").length;
+  return fields + (state.search ? 1 : 0) + (withDocstatus && state.docstatusFilter !== "" ? 1 : 0);
+}
+
+type Store = { getItem(k: string): string | null; setItem(k: string, v: string): void };
+
+function defaultStore(): Store | null {
+  try {
+    return (globalThis as any).localStorage ?? null;
+  } catch {
+    return null;
+  }
+}
+
+const filtersKey = (doctype: string) => `ddcore_filters_${doctype}`;
+
+/** Keeps the Filters button's last choice for a DocType in the browser. */
+export function rememberFiltersOpen(doctype: string, open: boolean, store = defaultStore()): void {
+  try {
+    store?.setItem(filtersKey(doctype), open ? "open" : "closed");
+  } catch {
+    /* private mode / SSR */
+  }
+}
+
+/**
+ * Whether a DocType's filter card starts open: the user's last choice, else
+ * hidden unless the app opted out with `defineListView({ filtersCollapsed: false })`.
+ */
+export function filtersOpen(doctype: string, collapsed: boolean | undefined, store = defaultStore()): boolean {
+  try {
+    const v = store?.getItem(filtersKey(doctype));
+    if (v === "open" || v === "closed") return v === "open";
+  } catch {
+    /* fall back to the default */
+  }
+  return collapsed === false;
+}
