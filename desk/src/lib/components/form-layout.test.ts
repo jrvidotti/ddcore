@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cellWidthClass, fieldSlots, LINE_SLOTS, packLines, type LineCell } from "./form-layout";
+import { cellWidthClass, fieldSlots, isBareSection, LINE_SLOTS, packLines, type LineCell } from "./form-layout";
 import type { Field } from "../meta";
 
 /** A line as "fieldname" per cell, or "-" for an alignment spacer of one slot. */
@@ -148,5 +148,28 @@ describe("packLines on a form line", () => {
       { fieldname: "titulo", fieldtype: "Data" },
     ];
     expect(packLines(fields, undefined, ROW).map(cells)).toEqual([["d1", "d2", "d3"], ["titulo"]]);
+  });
+});
+
+describe("isBareSection", () => {
+  const table: Field = { fieldname: "attendance", fieldtype: "Table", label: "Students" };
+  const report: Field = { fieldname: "summary", fieldtype: "Report", label: "Summary" };
+  const data: Field = { fieldname: "note", fieldtype: "Data" };
+
+  it("is bare when an unlabelled section holds only a grid", () => {
+    expect(isBareSection({ fields: [table] })).toBe(true);
+    expect(isBareSection({ fields: [report] })).toBe(true);
+  });
+
+  it("keeps the card for a heading, another field, or no grid", () => {
+    expect(isBareSection({ label: "Students", fields: [table] })).toBe(false);
+    expect(isBareSection({ fields: [table, data] })).toBe(false);
+    expect(isBareSection({ fields: [table, report] })).toBe(false);
+    expect(isBareSection({ fields: [data] })).toBe(false);
+  });
+
+  it("counts only the fields on screen", () => {
+    expect(isBareSection({ fields: [table, { ...data, hidden: true }] })).toBe(true);
+    expect(isBareSection({ fields: [table, data] }, (f) => f.fieldname !== "note")).toBe(true);
   });
 });

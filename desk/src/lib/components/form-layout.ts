@@ -25,6 +25,26 @@ export interface LineCell {
   slots: number;
 }
 
+function visibleFields(fields: Field[], isVisible?: (f: Field) => boolean): Field[] {
+  return fields.filter((f) => {
+    if (!f) return false;
+    if (typeof f === "object" && "hidden" in f && f.hidden === true) return false;
+    if (isVisible && !isVisible(f)) return false;
+    return true;
+  });
+}
+
+/**
+ * A section with no heading whose only visible field is a grid (a Table or a
+ * Report) is drawn without its card: the grid's own card is the frame, and a
+ * second one around it only costs width (#31).
+ */
+export function isBareSection(section: { label?: string; fields: Field[] }, isVisible?: (f: Field) => boolean): boolean {
+  if (section.label) return false;
+  const visible = visibleFields(section.fields, isVisible);
+  return visible.length === 1 && (visible[0].fieldtype === "Table" || visible[0].fieldtype === "Report");
+}
+
 /**
  * Packs the fields of a section into visual lines of `capacity` slots.
  *
@@ -33,12 +53,7 @@ export interface LineCell {
  * a quarter — `[1/4][1/2]` is padded to `[1/4][spacer][1/2]`.
  */
 export function packLines(fields: Field[], isVisible?: (f: Field) => boolean, capacity = LINE_SLOTS): LineCell[][] {
-  const visible = fields.filter((f) => {
-    if (!f) return false;
-    if (typeof f === "object" && "hidden" in f && f.hidden === true) return false;
-    if (isVisible && !isVisible(f)) return false;
-    return true;
-  });
+  const visible = visibleFields(fields, isVisible);
 
   const lines: LineCell[][] = [];
   let line: LineCell[] = [];

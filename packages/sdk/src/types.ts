@@ -151,6 +151,12 @@ export interface FieldDef {
   collapsible?: boolean;
   bold?: boolean;
   /**
+   * Keeps the label off the form (screen readers still get it). It still
+   * names the field in exports, the row dialog and error messages. Not for
+   * a Section or Tab Break.
+   */
+  hideLabel?: boolean;
+  /**
    * The fieldname this field used to have. `migrate` renames the column
    * instead of adding an empty one next to it, so the data survives.
    *

@@ -19,7 +19,7 @@
   import { beforeNavigate, goto } from "$app/navigation";
   import { clearDraft, draftDecision, draftKey, localDrafts, pruneDrafts, readDraft, writeDraft } from "$lib/drafts";
   import DocSidebar from "./DocSidebar.svelte";
-  import { cellWidthClass, LINE_SLOTS, packLines } from "./form-layout";
+  import { cellWidthClass, isBareSection, LINE_SLOTS, packLines } from "./form-layout";
   import { isSectionCollapsed, toggleSection } from "./section-state";
   import { resolveActiveTab, tabToSearchParams } from "./form-tabs";
   import { workspaceFor } from "./search-palette";
@@ -497,7 +497,7 @@
         {/if}
         {#each tabs[activeTab]?.sections || [] as sec, si}
           {#if visibleSection(sec) && sec.fields.some((f) => frm!.isFieldVisible(f))}
-            <div class="form-section">
+            <div class="form-section" class:bare={isBareSection(sec, (f) => frm!.isFieldVisible(f))}>
               {#if sec.label}
                 {#if sec.collapsible}
                   <h3><button type="button" class="section-toggle" aria-expanded={!isSectionCollapsed(collapsed, si)} onclick={() => toggleSection(collapsed, si)}>{sec.label} <Icon name={isSectionCollapsed(collapsed, si) ? "chevron-right" : "chevron-down"} size={12} /></button></h3>

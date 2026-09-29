@@ -83,6 +83,19 @@ describe("Grid", () => {
     t.done();
   });
 
+  it("hideLabel keeps the label for screen readers only, and still names the row dialog", () => {
+    const shown = setup({});
+    expect(shown.target.querySelector(".grid-field > .label")?.classList.contains("sr-only")).toBe(false);
+    shown.done();
+    const t = setup({ hideLabel: true, gridEditMode: "dialog" });
+    const label = t.target.querySelector(".grid-field > .label")!;
+    expect(label.classList.contains("sr-only")).toBe(true);
+    expect(label.textContent).toBe("Students");
+    t.click(t.target.querySelector("tbody tr button.icon"));
+    expect(dialogs.at(-1).title).toContain("Students");
+    t.done();
+  });
+
   it("removes the row clicked, not the one at its position on screen", () => {
     const t = setup({ gridSort: { field: "employee_name" } });
     // first on screen is Ana, which is second in the document

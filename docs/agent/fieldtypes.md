@@ -34,7 +34,7 @@
 | JSON | jsonb | |
 | Password | text | not hashed automatically; never read back through the API, never in Version, never exported. **Not for an integration credential** — see below |
 | Vault | — | virtual field backed by the encrypted vault (`ddcore_vault`); never a column in `tab_<doctype>`, never in Version or export; masked in Desk and API. See [vault.md](vault.md) |
-| Section Break / Tab Break | — | layout; `label`, `collapsible`, `dependsOn` on a Section |
+| Section Break / Tab Break | — | layout; `label`, `collapsible`, `dependsOn` on a Section. A section with no `label` holding only a Table or Report has no card (see "Form grids") |
 | HTML | — | `options` is the rendered HTML |
 | Report | — | `options` is a `defineReport` name, run for this document through `reportFilters` and shown as a read-only grid. See "Form grids" below |
 
@@ -78,6 +78,16 @@ A `Table` and a `Report` field are grids, and four properties shape both:
 
 **Sorting and filtering are display only.** A child row's `idx`, which is the order the document stores and
 `ddcore.db` reads, stays what the user saved, and the `#` column keeps showing it (unless `gridIndex: false` hides it).
+
+**A grid alone in its section.** A section with no heading whose only visible field is a Table
+or a Report is drawn without the section card: the grid's own card is the frame. That covers
+the section a `Tab Break` opens. Add `hideLabel: true` to the grid and a tab shows just the grid,
+without repeating the tab's name above it:
+
+```ts
+{ fieldname: "students_tab", fieldtype: "Tab Break", label: "Students" },
+{ fieldname: "attendance", fieldtype: "Table", options: "Training Class Attendance", label: "Students", hideLabel: true },
+```
 
 A form script can make a Table's cells act on a click (`grids.<table>.onCellClick`), react to a
 change of one child field (`grids.<table>.onChange`) and change a row with `frm.setRowValue`; see [form-api.md](form-api.md#grids-row-changes-and-cell-clicks).
@@ -420,12 +430,13 @@ use of `Percent` would reach.
 `fieldname, fieldtype, label, options, optionColors, reqd, unique, default, readOnly, hidden, fetchFrom, dependsOn,
 readOnlyDependsOn, mandatoryDependsOn, allowOnSubmit, inListView, inStandardFilter, searchIndex,
 length, precision, description, columns (grid width 1–12), width (`"sm"` | `"md"` | `"lg"` | `"full"`), gridEditMode (`"inline"` default or `"dialog"`),
-gridSort, gridSortable, gridExport, gridSelect, gridFilters (Table / Report), gridIndex (Table), reportFilters (Report), computed, showFileName (Attach / Attach Image), collapsible, bold,
+gridSort, gridSortable, gridExport, gridSelect, gridFilters (Table / Report), gridIndex (Table), reportFilters (Report), computed, showFileName (Attach / Attach Image), collapsible, bold, hideLabel,
 permlevel, renamedFrom, convert`
 
 - `permlevel`: 0–9, default 0. A field above 0 is read and written only by roles granted that level by a permission row with the same `permlevel`; the server omits it from every response and refuses a change from anyone else. `hidden` and `readOnly` are screen hints and protect nothing. See `field-permissions`.
 
 - `label` and `description` are **catalogue keys**: write them in English. See `i18n`.
+- `hideLabel: true`: the form doesn't show the label (screen readers still read it). It still names the field in a grid's export, its row dialog and error messages, so keep a real `label`. Any field except a Section or Tab Break.
 - `width`: `"sm"` | `"md"` | `"lg"` | `"full"`. How much of a form line the control takes: `sm`/`md` a quarter, `lg` a half, `full` the whole line — a form has no columns, its shape comes from the widths. Defaults to `sm` for `Date`, `Month`, `Time`, `Int`, `Percent`, `Rating`, `Color`; `md` for `Datetime`, `Float`, `Currency`, `Duration`; `full` for `Text`, `Small Text`, `Text Editor`, `Markdown Editor`, `Code`, `JSON`, `Geolocation`, `Table`, `HTML`, `Report`; `lg` for every other type, `Table MultiSelect` included. Fields pack a line greedily, aligned so a half-line field never starts in the middle of a quarter. See `form-api`.
 - `default`: a literal value, or `"Today"` for Date/Datetime, `"__user"` for the current user.
 - `fetchFrom: "project.assignee"`: copied from the linked document on save. When `readOnly` it always overwrites; otherwise it fills only when empty.

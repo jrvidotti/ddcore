@@ -11,6 +11,8 @@ export interface Field {
   allowOnSubmit?: boolean; inListView?: boolean; inStandardFilter?: boolean; length?: number; precision?: number; description?: string;
   columns?: number; width?: FieldWidth; gridEditMode?: "inline" | "dialog"; collapsible?: boolean; bold?: boolean;
   showFileName?: boolean;
+  /** Label off the form (kept for screen readers, exports, dialogs, errors). */
+  hideLabel?: boolean;
   /** Table or Report grid: default display order, header sorting, CSV/XLSX export, row checkboxes. */
   gridSort?: GridSort; gridSortable?: boolean; gridExport?: boolean; gridSelect?: boolean; gridFilters?: GridFilter[];
   /** Table grid: `false` hides the `#` (idx) column. */

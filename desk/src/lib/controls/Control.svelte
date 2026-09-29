@@ -100,7 +100,7 @@
   <div class="field check" class:compact class:bold={field.bold}>
     <div class="check-control">
       <input {id} type="checkbox" checked={!!value} disabled={ro} onchange={(e) => onchange((e.target as HTMLInputElement).checked)} />
-      {#if !inGrid}<label for={id}>{field.label}{#if req && !ro}<span class="req">*</span>{/if}</label>{/if}
+      {#if !inGrid}<label for={id} class:sr-only={field.hideLabel}>{field.label}{#if req && !ro}<span class="req">*</span>{/if}</label>{/if}
       {@render fieldButtons()}
     </div>
     {#if shownError}<div class="err">{shownError}</div>{:else if field.description && !inGrid}<div class="desc">{field.description}</div>{/if}
@@ -108,7 +108,7 @@
 {:else}
   <div class="field" class:compact class:bold={field.bold}>
     {#if !inGrid && field.label}
-      <label for={id}>{field.label}{#if req && !ro}<span class="req">*</span>{/if}</label>
+      <label for={id} class:sr-only={field.hideLabel}>{field.label}{#if req && !ro}<span class="req">*</span>{/if}</label>
     {/if}
     <div class="control" class:with-buttons={buttons.length}>
       <!-- the cell already carries the width (see form-layout.ts); this only bounds the input -->

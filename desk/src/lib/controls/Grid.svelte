@@ -120,7 +120,7 @@
 </script>
 
 <div class="field grid-field">
-  <span class="label">{field.label}{#if frm.isFieldMandatory(field)}<span class="req">*</span>{/if}</span>
+  <span class="label" class:sr-only={field.hideLabel}>{field.label}{#if frm.isFieldMandatory(field)}<span class="req">*</span>{/if}</span>
   <div class="card" style="overflow:auto">
     {#if exportable || presets.length || (selectable && chosen.length)}
       <div class="grid-toolbar">

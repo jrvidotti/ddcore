@@ -79,6 +79,9 @@ type Field struct {
 	Columns            int    `json:"columns,omitempty"`
 	Width              string `json:"width,omitempty"`
 	GridEditMode       string `json:"gridEditMode,omitempty"`
+	// HideLabel keeps the label off the form; it still names the field in
+	// exports, dialogs and error messages.
+	HideLabel bool `json:"hideLabel,omitempty"`
 	// GridSort is the order a Table (or Report) grid shows its rows in, and
 	// GridSortable lets the user change it by clicking a column. Both change
 	// the display only: a child row's idx stays what the user saved.
@@ -689,6 +692,9 @@ func (r *Registry) Validate() error {
 			}
 			r.validateGrid(d, f, e)
 			if LayoutTypes[f.Fieldtype] {
+				if f.HideLabel {
+					e("field %q: hideLabel is for a data field, not a %s", f.Fieldname, f.Fieldtype)
+				}
 				continue
 			}
 			if !fieldnameRe.MatchString(f.Fieldname) {

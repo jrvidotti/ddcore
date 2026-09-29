@@ -45,7 +45,7 @@
 </script>
 
 <div class="field grid-field">
-  <span class="label">{field.label}</span>
+  <span class="label" class:sr-only={field.hideLabel}>{field.label}</span>
   {#if frm.isNew}
     <div class="card muted" style="padding:14px;text-align:center">{__("Save the document first")}</div>
   {:else if error}

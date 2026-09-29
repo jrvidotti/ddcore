@@ -39,11 +39,15 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
 .page-head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
 .page-head h1 { font-size: 20px; flex: 1; min-width: 200px; }
 .spacer { flex: 1; }
+/* off screen, still read by screen readers (a field's hideLabel) */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .dropdown { position: relative; }
 .dropdown .menu { position: absolute; right: 0; top: 100%; margin-top: 4px; min-width: 180px; background: #fff; border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,.12); z-index: 30; padding: 4px; }
 .dropdown .menu button { display: block; width: 100%; text-align: left; padding: 7px 10px; border: 0; background: none; border-radius: 4px; cursor: pointer; font-size: 13px; }
 .dropdown .menu button:hover { background: #f3f4f6; }
 .form-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; margin-bottom: 14px; }
+/* an unlabelled section holding a lone grid: the grid's own card is the frame */
+.form-section.bare { background: none; border: 0; padding: 0; }
 .form-section > h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-bottom: 12px; cursor: pointer; user-select: none; }
 .form-row { display: flex; flex-wrap: wrap; gap: 0 16px; align-content: flex-start; min-width: 0; }
 .form-cell { width: 100%; display: flex; flex-direction: column; min-width: 0; }
