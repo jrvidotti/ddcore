@@ -13,6 +13,8 @@ Node.js process in production. The model follows ideas from the
 - **Documentation:** [ddcore.dev](https://ddcore.dev)
 - **Live demo:** [demo.ddcore.dev](https://demo.ddcore.dev), source in
   [ddcore-demo](https://github.com/jrvidotti/ddcore-demo)
+- **Benchmark against Frappe:** [results](https://github.com/jrvidotti/ddcore-bench/blob/master/SUMMARY-RESULTS.md),
+  harness in [ddcore-bench](https://github.com/jrvidotti/ddcore-bench)
 - **License:** [MIT](LICENSE)
 
 This README has two paths. To write an application, you need only the published binary:
@@ -93,6 +95,24 @@ tests. The agent edits your TypeScript files with its own tools; the files stay 
 truth. `ddcore dev` also serves MCP over HTTP at `/mcp`, behind an Admin or System
 Manager API key. MCP tools run with Admin authority. They are development tooling:
 `ddcore start` (production) does not mount them.
+
+### Performance
+
+[ddcore-bench](https://github.com/jrvidotti/ddcore-bench) runs the same app (customers and
+submittable orders with a child table) on ddcore 0.21.10 and Frappe 16.35, each limited to
+2 CPU / 2 GB. From its [summary](https://github.com/jrvidotti/ddcore-bench/blob/master/SUMMARY-RESULTS.md):
+
+| | ddcore | Frappe |
+| --- | ---: | ---: |
+| App image | 77 MB | 4.1 GB |
+| Idle memory, whole stack | 155 MiB | 598 MiB |
+| Reads, 10 connections | 5 200–13 800 req/s | 440–480 req/s |
+| Inserts (5 child rows), 10–50 connections | ~745 req/s, 0% errors | 256–286 req/s |
+| Mixed ramp to 200 users, p95 | 97 ms, 0% errors | 485 ms, 11% errors |
+
+At low, fixed rates both answer in a few milliseconds; the difference is how much load each
+absorbs before latency and errors climb. The numbers come from one run per scenario on a single
+host, so read the ratios rather than the absolute values.
 
 ---
 
