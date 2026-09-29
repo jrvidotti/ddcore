@@ -39,7 +39,7 @@ export interface DocTypeMeta {
   isTree?: boolean; parentField?: string;
   /** Virtual DocType (DAT-07): no table, rows are its sources' documents, ids are "<Source>:<id>". */
   virtual?: { sources: { doctype: string; fields: Record<string, string> }[] };
-  allowRename?: boolean; titleField?: string; translateId?: boolean; imageField?: string; sortField?: string; sortOrder?: string; searchFields?: string[]; linkSubtitle?: string[]; fields: Field[];
+  allowRename?: boolean; titleField?: string; translateId?: boolean; imageField?: string; sortField?: string; sortOrder?: string; searchFields?: string[]; linkSubtitle?: string[]; linkOrderBy?: string; fields: Field[];
   permissions?: any[]; icon?: string; methods?: string[];
   /** Compound business keys; enforced on the server, shown here only for reference. */
   uniqueKeys?: { name: string; fields: string[] }[];

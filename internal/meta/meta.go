@@ -456,6 +456,10 @@ type DocType struct {
 	// LinkSubtitle lists the fields a Link dropdown shows under each title,
 	// in order; nil keeps the default (id and searchFields). "id" is allowed.
 	LinkSubtitle []string `json:"linkSubtitle,omitempty"`
+	// LinkOrderBy orders a Link dropdown with nothing typed, and breaks ties
+	// among the matches when something is: "field [asc|desc], ...". Empty
+	// orders by the title field, then by sortField. The list keeps sortField.
+	LinkOrderBy string `json:"linkOrderBy,omitempty"`
 	// GlobalSearch opts a DocType in (true) or out (false) of the Desk's
 	// global search; nil leaves it to GloballySearchable's default.
 	GlobalSearch *bool `json:"globalSearch,omitempty"`
@@ -887,6 +891,13 @@ func (r *Registry) Validate() error {
 		for _, lf := range d.LinkSubtitle {
 			named("linkSubtitle", lf)
 		}
+		linkOrder, err := d.LinkOrder()
+		if err != nil {
+			e("linkOrderBy: %v", err)
+		}
+		for _, o := range linkOrder {
+			named("linkOrderBy", o.Field)
+		}
 		// These are read for every row of a list, a search or a Link's
 		// dropdown, so a value of up to 64 KiB cannot be one of them.
 		bulky := func(what, fieldname string) {
@@ -901,6 +912,9 @@ func (r *Registry) Validate() error {
 		}
 		for _, lf := range d.LinkSubtitle {
 			bulky("linkSubtitle", lf)
+		}
+		for _, o := range linkOrder {
+			bulky("linkOrderBy", o.Field)
 		}
 		validateUniqueKeys(d, e)
 		validateTree(d, e)
@@ -1063,6 +1077,12 @@ func validateFieldPermissions(r *Registry, d *DocType, e func(string, ...any)) {
 	for _, lf := range d.LinkSubtitle {
 		level0("linkSubtitle", lf)
 	}
+	// the order a dropdown comes in would tell a reader the hidden value
+	if linkOrder, err := d.LinkOrder(); err == nil {
+		for _, o := range linkOrder {
+			level0("linkOrderBy", o.Field)
+		}
+	}
 	for _, name := range idFormatFields(d.IDGeneration.Format) {
 		level0("idGeneration.format", name)
 	}
@@ -1075,6 +1095,39 @@ func validateFieldPermissions(r *Registry, d *DocType, e func(string, ...any)) {
 			e("permission for %q at permlevel %d may only grant read and write", p.Role, p.Permlevel)
 		}
 	}
+}
+
+// OrderTerm is one column of an ordering.
+type OrderTerm struct {
+	Field string
+	Desc  bool
+}
+
+// LinkOrder parses LinkOrderBy: comma-separated "field", "field asc" or
+// "field desc" terms.
+func (d *DocType) LinkOrder() ([]OrderTerm, error) {
+	var out []OrderTerm
+	if strings.TrimSpace(d.LinkOrderBy) == "" {
+		return nil, nil
+	}
+	for _, p := range strings.Split(d.LinkOrderBy, ",") {
+		toks := strings.Fields(p)
+		if len(toks) == 0 || len(toks) > 2 {
+			return nil, fmt.Errorf("invalid term %q; write \"field\", \"field asc\" or \"field desc\"", strings.TrimSpace(p))
+		}
+		t := OrderTerm{Field: toks[0]}
+		if len(toks) == 2 {
+			switch strings.ToLower(toks[1]) {
+			case "asc":
+			case "desc":
+				t.Desc = true
+			default:
+				return nil, fmt.Errorf("invalid term %q; write \"field\", \"field asc\" or \"field desc\"", strings.TrimSpace(p))
+			}
+		}
+		out = append(out, t)
+	}
+	return out, nil
 }
 
 var idFormatRe = regexp.MustCompile(`\{([a-z][a-z0-9_]*)\}`)

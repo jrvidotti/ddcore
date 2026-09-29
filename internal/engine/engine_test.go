@@ -7,10 +7,12 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/jrvidotti/ddcore/internal/cerr"
+	"github.com/jrvidotti/ddcore/internal/db"
 	"github.com/jrvidotti/ddcore/internal/js"
 	"github.com/jrvidotti/ddcore/internal/testdb"
 )
@@ -409,6 +411,68 @@ func TestLinkSearchSubtitleColumns(t *testing.T) {
 	}
 }
 
+// A Link dropdown lists its options by title, not in the list's sortField;
+// typed text puts the exact and prefix matches first; linkOrderBy overrides
+// the title order without touching the list's.
+func TestLinkSearchOrder(t *testing.T) {
+	e := setup(t)
+	d := e.Meta.DocTypes["Pessoa"]
+	d.TitleField, d.SortField, d.SortOrder = "cpf", "email", "asc"
+	ids := func(rows []map[string]any) string {
+		var out []string
+		for _, r := range rows {
+			out = append(out, fmt.Sprint(r["id"]))
+		}
+		return strings.Join(out, ",")
+	}
+	err := e.Run(context.Background(), "Admin", func(c *Ctx) error {
+		for _, p := range []Doc{
+			{"nome": "A", "cpf": "zeta", "email": "a@x.com"},
+			{"nome": "B", "cpf": "Álfa", "email": "b@x.com"},
+			{"nome": "C", "cpf": "mid", "email": "c@x.com"},
+		} {
+			doc, _ := c.NewDoc("Pessoa", p)
+			if _, err := c.Insert(doc, SaveOpts{}); err != nil {
+				return err
+			}
+		}
+		rows, err := c.LinkSearch("Pessoa", "", nil, 20)
+		if err != nil {
+			return err
+		}
+		if got := ids(rows); got != "B,C,A" {
+			t.Errorf("empty search: want title order B,C,A, got %s", got)
+		}
+		// "a" is A's id, and the start of B's title once accents fold
+		rows, err = c.LinkSearch("Pessoa", "a", nil, 20)
+		if err != nil {
+			return err
+		}
+		if got := ids(rows); got != "A,B" {
+			t.Errorf("search: want the exact id, then the prefix match, got %s", got)
+		}
+		d.LinkOrderBy = "email desc"
+		rows, err = c.LinkSearch("Pessoa", "", nil, 20)
+		if err != nil {
+			return err
+		}
+		if got := ids(rows); got != "C,B,A" {
+			t.Errorf("linkOrderBy: want C,B,A, got %s", got)
+		}
+		list, err := c.GetList("Pessoa", ListArgs{Filters: map[string]any{"nome": []any{"in", []any{"A", "B", "C"}}}})
+		if err != nil {
+			return err
+		}
+		if got := ids(list); got != "A,B,C" {
+			t.Errorf("the list keeps sortField: want A,B,C, got %s", got)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 // Role is translateId: a Link shows the role name through the catalogue and a
 // search matches the translated text, while the id stays the English key.
 func TestLinkTitlesTranslateID(t *testing.T) {
@@ -435,6 +499,18 @@ func TestLinkTitlesTranslateID(t *testing.T) {
 		}
 		if len(rows) != 1 || rows[0]["id"] != "System Manager" {
 			t.Fatalf("the English id still matches, got %#v", rows)
+		}
+		// with nothing typed the roles come in the order of their translation
+		rows, err = c.LinkSearch("Role", "", nil, 50)
+		if err != nil {
+			return err
+		}
+		var shown []string
+		for _, r := range rows {
+			shown = append(shown, db.FoldAccents(fmt.Sprint(r["_title"])))
+		}
+		if len(shown) < 2 || !slices.IsSorted(shown) {
+			t.Fatalf("want the roles in translated-title order, got %v", shown)
 		}
 		return nil
 	})

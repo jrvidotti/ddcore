@@ -124,6 +124,20 @@ func TestExtensionSetsTheIDLabel(t *testing.T) {
 	}
 }
 
+// An app can pick how another app's DocType orders in its Link dropdowns.
+func TestExtensionSetsTheLinkOrder(t *testing.T) {
+	r := hostRegistry()
+	mustApply(t, r, ext("billing", "Role", `{"props":{"linkOrderBy":"role_name asc"}}`))
+
+	d, _ := r.Get("Role")
+	if d.LinkOrderBy != "role_name asc" {
+		t.Fatalf("linkOrderBy=%q", d.LinkOrderBy)
+	}
+	if err := r.Validate(); err != nil {
+		t.Fatalf("Validate: %v", err)
+	}
+}
+
 // An app that adds a photo to someone else's DocType can make it the picture.
 func TestExtensionSetsTheImageField(t *testing.T) {
 	r := hostRegistry()

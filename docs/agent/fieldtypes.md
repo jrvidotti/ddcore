@@ -247,7 +247,7 @@ form acknowledged.
 - **Too large to index or list.** A value is tens of KiB, so `migrate` refuses
   `unique`, `searchIndex`, `inStandardFilter` and `inListView` on it, and
   refuses it as the DocType's `titleField`, `sortField`, in `searchFields`,
-  `linkSubtitle` or a `uniqueKeys` entry, and as a Table's `gridSort.field`.
+  `linkSubtitle`, `linkOrderBy` or a `uniqueKeys` entry, and as a Table's `gridSort.field`.
   On a **child** DocType `inListView` is allowed: the grid column says
   "Signed", and clicking it opens the row dialog, where the pad is — a grid
   cell never edits a signature inline.
@@ -315,7 +315,7 @@ a team covers.
   the file's decimal separator is `.`. See `data-import`.
 - **Too large to index.** As for a Signature, `migrate` refuses `unique`,
   `searchIndex` and `inStandardFilter`, and refuses it as `titleField`,
-  `sortField`, in `searchFields`, `linkSubtitle`, a `uniqueKeys` entry or a
+  `sortField`, in `searchFields`, `linkSubtitle`, `linkOrderBy`, a `uniqueKeys` entry or a
   Table's `gridSort.field`. `inListView` is allowed: the column shows the
   summary.
 - **Tiles** come from `DDCORE_MAP_TILE_URL` (a Leaflet URL template with
@@ -514,6 +514,22 @@ alone, and `"id"` can be listed to keep the id. The fields are shown, not search
 row by typing its value, list the field in `searchFields` too. Like `searchFields`, they must be
 permlevel 0. An app can set it on another app's DocType with `extendDoctype`.
 
+A **Link** dropdown, and the picker of a **Table MultiSelect**, lists its options by **title**,
+A to Z, whatever the target's `sortField` — the list's order and a picker's are different things.
+When something is typed, the options whose id or title equals it come first, then those starting
+with it, then the rest of the matches in that same order. Text compares ignoring case and accents,
+so "Álamo" sits between "Abeto" and "Bosque". A DocType without a `titleField` falls back to its
+`sortField`, and a `translateId` DocType orders by the translated id. `linkOrderBy` sets the order
+instead, as `"field [asc|desc], ..."`:
+
+```ts
+defineDoctype({ name: "Unit", titleField: "unit_name", sortField: "code", sortOrder: "asc",
+  linkOrderBy: "code asc", ... });     // the list and the dropdown both by code
+```
+
+Its fields must exist, sit at permlevel 0 and be small enough to sort by, like `sortField`'s.
+An app can set it on another app's DocType — `User`, say — with `extendDoctype`.
+
 A Link field whose value is empty shows a **+** inside the input when the user may create the
 target DocType (not in a portal). It opens a dialog asking for the target's title field, its
 prompted id and every required field a person fills in (it leaves out hidden, read-only and
@@ -521,7 +537,7 @@ prompted id and every required field a person fills in (it leaves out hidden, re
 through the ordinary API, so the controller and validations run, and puts it in the field. When
 the target has a required child table, the **+** opens the full form in a new tab instead.
 
-`titleField`, `imageField`, `sortField`, `searchFields`, `linkSubtitle` and `uniqueKeys` name a field by string, so a
+`titleField`, `imageField`, `sortField`, `searchFields`, `linkSubtitle`, `linkOrderBy` and `uniqueKeys` name a field by string, so a
 renamed field has to be changed here too — the meta refuses to load while one of them points
 at a field that no longer exists.
 

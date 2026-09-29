@@ -472,6 +472,14 @@ export interface DoctypeDef {
    */
   linkSubtitle?: string[];
   /**
+   * The order a Link dropdown (and a Table MultiSelect's picker) lists the
+   * options in: `"field [asc|desc], ..."`, e.g. `"unit_name asc"`. Left out,
+   * it is the `titleField` A to Z, else `sortField`. Text compares ignoring
+   * case and accents. Typed text still puts the exact and prefix matches of
+   * the id or title first. The list view keeps `sortField`/`sortOrder`.
+   */
+  linkOrderBy?: string;
+  /**
    * Whether the Desk's global search looks into this DocType. By default it
    * does when the DocType declares `titleField` or `searchFields` (never for
    * a child table or a Single); `true` includes it anyway (matching `id`),

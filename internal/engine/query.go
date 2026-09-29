@@ -21,6 +21,15 @@ type ListArgs struct {
 	GroupBy           string   `json:"groupBy"`
 	IgnorePermissions bool     `json:"ignorePermissions"`
 	Distinct          bool     `json:"distinct"`
+	// rankText puts the rows whose rankFields equal it, then those starting
+	// with it, ahead of the rest, before OrderBy. It is how LinkSearch
+	// ranks by match quality; not settable from the API.
+	rankText   string
+	rankFields []string
+	// linkOrder stands in for OrderBy (when that is empty) with text columns
+	// compared as a reader would — case and accents folded — whatever the
+	// database's collation. Set by LinkSearch.
+	linkOrder []meta.OrderTerm
 }
 
 var aggRe = regexp.MustCompile(`(?i)^\s*(count|sum|avg|min|max)\s*\(\s*(\*|[a-z_][a-z0-9_]*)\s*\)\s*(?:as\s+([a-z_][a-z0-9_]*))?\s*$`)
@@ -495,6 +504,24 @@ func (c *Ctx) GetList(doctype string, a ListArgs) ([]map[string]any, error) {
 	if err != nil {
 		return nil, cerr.Validation("Invalid filters: {0}", err)
 	}
+	if orderBy == "" && len(a.linkOrder) > 0 && !hasAgg && a.GroupBy == "" {
+		var parts []string
+		for _, t := range a.linkOrder {
+			e := col(t.Field)
+			if e == "" {
+				continue
+			}
+			dir := " ASC"
+			if t.Desc {
+				dir = " DESC"
+			}
+			if f := d.Field(t.Field); t.Field == "id" || (f != nil && meta.ColumnType(f.Fieldtype) == "text") {
+				parts = append(parts, db.AccentInsensitive(e)+dir)
+			}
+			parts = append(parts, e+dir)
+		}
+		orderBy = strings.Join(parts, ", ")
+	}
 	if orderBy == "" && !hasAgg && a.GroupBy == "" {
 		sf, so := d.SortField, strings.ToUpper(d.SortOrder)
 		if sf == "" || !d.HasColumn(sf) {
@@ -504,6 +531,21 @@ func (c *Ctx) GetList(doctype string, a ListArgs) ([]map[string]any, error) {
 			so = "DESC"
 		}
 		orderBy = `"t".` + db.Ident(sf) + " " + so
+	}
+	if a.rankText != "" && !hasAgg && a.GroupBy == "" {
+		exact := db.AccentInsensitive(b.Arg(a.rankText))
+		prefix := db.AccentInsensitive(b.Arg(escapeLike(a.rankText) + "%"))
+		var eqs, starts []string
+		for _, f := range a.rankFields {
+			if e := col(f); e != "" {
+				eqs = append(eqs, db.AccentInsensitive(e)+" = "+exact)
+				starts = append(starts, db.AccentInsensitive(e)+" LIKE "+prefix)
+			}
+		}
+		if len(eqs) > 0 {
+			rank := "CASE WHEN " + strings.Join(eqs, " OR ") + " THEN 0 WHEN " + strings.Join(starts, " OR ") + " THEN 1 ELSE 2 END"
+			orderBy = rank + ", " + orderBy
+		}
 	}
 
 	sql := "SELECT "
@@ -787,7 +829,9 @@ func (c *Ctx) Lock(key string) error {
 // the typed text against translated ids; such DocTypes hold a few dozen keys.
 const linkSearchScan = 1000
 
-// LinkSearch backs the Link control: searches name + searchFields.
+// LinkSearch backs the Link control: searches name + searchFields. The
+// options come best match first — the id or title equal to txt, then starting
+// with it — and otherwise in linkOrder, not in the list's sortField.
 func (c *Ctx) LinkSearch(doctype, txt string, filters any, limit int) ([]map[string]any, error) {
 	d, err := c.St.DocType(doctype)
 	if err != nil {
@@ -809,14 +853,42 @@ func (c *Ctx) LinkSearch(doctype, txt string, filters any, limit int) ([]map[str
 	}
 	args.Filters = filters
 	args.Limit = limit
+	args.linkOrder = linkOrder(d)
+	if txt = strings.TrimSpace(txt); txt != "" {
+		args.rankText = txt
+		args.rankFields = []string{"id"}
+		if d.TitleField != "" && d.TitleField != "id" && d.HasColumn(d.TitleField) {
+			args.rankFields = append(args.rankFields, d.TitleField)
+		}
+	}
 	return c.GetList(doctype, args)
+}
+
+// linkOrder is the order a Link dropdown lists its options in: the DocType's
+// linkOrderBy, or else its title A to Z. Empty — no title field — leaves it
+// to sortField. The id comes last so equal titles keep a stable order.
+func linkOrder(d *meta.DocType) []meta.OrderTerm {
+	terms, _ := d.LinkOrder()
+	if len(terms) == 0 && d.TitleField != "" && d.HasColumn(d.TitleField) {
+		terms = []meta.OrderTerm{{Field: d.TitleField}}
+	}
+	if len(terms) == 0 {
+		return nil
+	}
+	if !slices.ContainsFunc(terms, func(t meta.OrderTerm) bool { return t.Field == "id" }) {
+		terms = append(terms, meta.OrderTerm{Field: "id"})
+	}
+	return terms
 }
 
 // linkSearchTranslated searches a TranslateID DocType: the typed text matches
 // the id or its translation, so "Gerente" finds "HR Manager" in pt-BR, and
 // each row carries the translation as `_title` for the Link control to show.
+// The rows rank as LinkSearch's do, and are otherwise in the order of their
+// translation — unless linkOrderBy says otherwise.
 func (c *Ctx) linkSearchTranslated(d *meta.DocType, txt string, filters any, limit int) ([]map[string]any, error) {
 	args := ListArgs{Fields: []string{"id"}, Filters: filters, Limit: linkSearchScan}
+	args.linkOrder, _ = d.LinkOrder()
 	for _, f := range d.LinkSubtitle {
 		if d.HasColumn(f) && !slices.Contains(args.Fields, f) {
 			args.Fields = append(args.Fields, f)
@@ -826,19 +898,45 @@ func (c *Ctx) linkSearchTranslated(d *meta.DocType, txt string, filters any, lim
 	if err != nil {
 		return nil, err
 	}
-	needle := strings.ToLower(strings.TrimSpace(txt))
-	out := []map[string]any{}
+	needle := db.FoldAccents(strings.TrimSpace(txt))
+	type match struct {
+		row   map[string]any
+		rank  int
+		title string
+	}
+	var found []match
 	for _, r := range rows {
 		id := fmt.Sprint(r["id"])
 		title := c.T(id)
-		if needle != "" && !strings.Contains(strings.ToLower(id), needle) && !strings.Contains(strings.ToLower(title), needle) {
+		fid, ftitle := db.FoldAccents(id), db.FoldAccents(title)
+		rank := 2
+		switch {
+		case needle == "":
+		case fid == needle || ftitle == needle:
+			rank = 0
+		case strings.HasPrefix(fid, needle) || strings.HasPrefix(ftitle, needle):
+			rank = 1
+		case !strings.Contains(fid, needle) && !strings.Contains(ftitle, needle):
 			continue
 		}
 		r["_title"] = title
-		out = append(out, r)
+		found = append(found, match{r, rank, ftitle})
+	}
+	slices.SortStableFunc(found, func(a, b match) int {
+		if a.rank != b.rank {
+			return a.rank - b.rank
+		}
+		if d.LinkOrderBy != "" {
+			return 0
+		}
+		return strings.Compare(a.title, b.title)
+	})
+	out := []map[string]any{}
+	for _, m := range found {
 		if len(out) == limit {
 			break
 		}
+		out = append(out, m.row)
 	}
 	return out, nil
 }

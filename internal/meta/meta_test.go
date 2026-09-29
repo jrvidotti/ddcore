@@ -260,6 +260,12 @@ func TestValidateRejectsDanglingFieldReferences(t *testing.T) {
 			Fields: []*Field{{Fieldname: "x", Fieldtype: "Data"}}}},
 		{"linkSubtitle", "linkSubtitle", &DocType{Name: "A", LinkSubtitle: []string{"gone"},
 			Fields: []*Field{{Fieldname: "x", Fieldtype: "Data"}}}},
+		{"linkOrderBy", "linkOrderBy", &DocType{Name: "A", LinkOrderBy: "x asc, gone desc",
+			Fields: []*Field{{Fieldname: "x", Fieldtype: "Data"}}}},
+		{"linkOrderBy direction", "linkOrderBy", &DocType{Name: "A", LinkOrderBy: "x upward",
+			Fields: []*Field{{Fieldname: "x", Fieldtype: "Data"}}}},
+		{"linkOrderBy empty term", "linkOrderBy", &DocType{Name: "A", LinkOrderBy: "x,,modified",
+			Fields: []*Field{{Fieldname: "x", Fieldtype: "Data"}}}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -274,7 +280,7 @@ func TestValidateRejectsDanglingFieldReferences(t *testing.T) {
 	// All three may name a standard column, which is not in Fields:
 	// `titleField: "id"` and `searchFields: ["id"]` are both documented.
 	r := NewRegistry()
-	r.Add(&DocType{Name: "A", SortField: "modified", TitleField: "id", SearchFields: []string{"id", "x"},
+	r.Add(&DocType{Name: "A", SortField: "modified", TitleField: "id", SearchFields: []string{"id", "x"}, LinkOrderBy: "x DESC, id",
 		Fields: []*Field{{Fieldname: "x", Fieldtype: "Data"}}})
 	if err := r.Validate(); err != nil {
 		t.Fatalf("a standard column is not a dangling reference: %v", err)
@@ -587,6 +593,7 @@ func TestBulkyFieldsAreNotIndexedOrListed(t *testing.T) {
 		{"sortField", &DocType{Name: "T", SortField: "sig", Fields: []*Field{sig(nil)}}, "sortField"},
 		{"searchFields", &DocType{Name: "T", SearchFields: []string{"sig"}, Fields: []*Field{sig(nil)}}, "searchFields"},
 		{"linkSubtitle", &DocType{Name: "T", LinkSubtitle: []string{"sig"}, Fields: []*Field{sig(nil)}}, "linkSubtitle"},
+		{"linkOrderBy", &DocType{Name: "T", LinkOrderBy: "sig asc", Fields: []*Field{sig(nil)}}, "linkOrderBy"},
 		{"uniqueKeys", &DocType{Name: "T", UniqueKeys: []UniqueKey{{Name: "k", Fields: []string{"sig", "code"}}},
 			Fields: []*Field{sig(nil), {Fieldname: "code", Fieldtype: "Data"}}}, "uniqueKeys"},
 	}

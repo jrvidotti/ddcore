@@ -18,6 +18,9 @@ older series, and `whats_new` reads across every one of them.
 
 - **`defineListView({ filtersCollapsed: false })`** (#32) opens a DocType's filter card for a user
   who has not chosen yet.
+- **`linkOrderBy`** (#33) on a DocType sets the order of its Link dropdowns and Table
+  MultiSelect pickers — `"field [asc|desc], ..."` — without touching the list's `sortField`.
+  `extendDoctype` can set it on another app's DocType, `User` included. See `fieldtypes`.
 
 ### Changed
 
@@ -25,6 +28,11 @@ older series, and `whats_new` reads across every one of them.
   button's badge counts the filters in force, so a hidden filter never goes unseen, and each
   user's show/hide choice is kept per DocType in the browser. See `defineListView` in
   `docs/agent/form-api.md`.
+- **A Link dropdown lists its options by title, A to Z** (#33), and the same holds for a
+  Table MultiSelect's picker. They used to follow the target's `sortField`, or `modified desc`.
+  Typed text puts the options whose id or title equals it, then starts with it, first. Text
+  compares ignoring case and accents. A DocType without a `titleField` keeps its `sortField`
+  order; set `linkOrderBy` to choose another.
 
 ## 0.21.11 — 2026-09-29
 
