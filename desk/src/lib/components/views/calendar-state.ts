@@ -6,6 +6,17 @@ export function isCalendarDatetime(fields: Field[], field: string): boolean {
   return fields.find((f) => f.fieldname === field)?.fieldtype === "Datetime";
 }
 
+/**
+ * The query of a new record's form with `field` set to the day, and `endField` too when given:
+ * a Datetime `field` at the day's first minute, a Datetime `endField` at its last, in the site's zone.
+ */
+export function calendarNewQuery(field: string, endField: string | undefined, fields: Field[], iso: string, tz?: string): string {
+  const at = (name: string, time: string) => (isCalendarDatetime(fields, name) ? fromDatetimeLocal(`${iso}T${time}`, tz) : null) || iso;
+  const params = new URLSearchParams({ [field]: at(field, "00:00") });
+  if (endField) params.set(endField, at(endField, "23:59"));
+  return params.toString();
+}
+
 /** The site day (YYYY-MM-DD) a row's Date or Datetime field falls on, or "" without a valid value. */
 export function calendarDay(row: Record<string, any>, field: string, fields: Field[], tz?: string): string {
   const value = row[field];

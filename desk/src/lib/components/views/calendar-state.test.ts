@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Field } from "../../meta";
-import { calendarLanes, calendarRangeFilters, calendarSpanFilters, groupCalendarRows } from "./calendar-state";
+import { calendarLanes, calendarNewQuery, calendarRangeFilters, calendarSpanFilters, groupCalendarRows } from "./calendar-state";
 
 const fields: Field[] = [
   { fieldname: "due_date", fieldtype: "Date" },
@@ -135,5 +135,17 @@ describe("calendar spans", () => {
       [["starts_at", "<=", "2026-12-06T03:59:59.999999Z"], ["ends_at", ">=", "2026-11-01T04:00:00.000Z"]],
       [["starts_at", ">=", "2026-11-01T04:00:00.000Z"], ["starts_at", "<=", "2026-12-06T03:59:59.999999Z"], ["ends_at", "is", "not set"]],
     ]);
+  });
+});
+
+describe("a day's new record", () => {
+  it("sets a Date field to the day, and an end field too", () => {
+    expect(calendarNewQuery("due_date", undefined, fields, "2026-11-20")).toBe("due_date=2026-11-20");
+    expect(calendarNewQuery("due_date", "end_date", fields, "2026-11-20")).toBe("due_date=2026-11-20&end_date=2026-11-20");
+  });
+
+  it("spans a Datetime pair over the site's day", () => {
+    const params = new URLSearchParams(calendarNewQuery("starts_at", "ends_at", fields, "2026-11-20", "America/Cuiaba"));
+    expect(Object.fromEntries(params)).toEqual({ starts_at: "2026-11-20T04:00:00.000Z", ends_at: "2026-11-21T03:59:00.000Z" });
   });
 });

@@ -20,6 +20,17 @@ function withPendingCount<T>(result: T): T {
 export type BaseDoc = Record<string, any>;
 export type DeskViewMode = "list" | "calendar" | "cards" | "kanban" | "gantt" | "tree";
 
+export interface CalendarNewOption {
+  /** DocType the day's **+** creates a record in */
+  doctype: string;
+  /** Its Date or Datetime field set to the day */
+  field: string;
+  /** Optional: a second field set to the same day (a Datetime one to its last minute), e.g. an end date */
+  endField?: string;
+  /** Menu entry, shown as given — wrap it in `__()` (defaults to the DocType's label) */
+  label?: string;
+}
+
 export interface CalendarViewOptions<T extends BaseDoc = BaseDoc> {
   /** Required: Date or Datetime field to plot records on the calendar */
   field: keyof T & string;
@@ -29,6 +40,12 @@ export interface CalendarViewOptions<T extends BaseDoc = BaseDoc> {
   titleField?: keyof T & string;
   /** Field determining chip color (e.g. "status", uses optionColors automatically) */
   colorField?: keyof T & string;
+  /**
+   * What the **+** in a day's corner creates, in place of a record of this DocType with `field`
+   * set to the day. One option links straight to it; several open a menu. An option shows only
+   * when the user may create its DocType, and the **+** hides when none remains.
+   */
+  newOptions?: CalendarNewOption[];
 }
 
 export interface CardViewOptions<T extends BaseDoc = BaseDoc> {

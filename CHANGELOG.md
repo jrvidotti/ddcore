@@ -21,6 +21,11 @@ older series, and `whats_new` reads across every one of them.
 - **`linkOrderBy`** (#33) on a DocType sets the order of its Link dropdowns and Table
   MultiSelect pickers — `"field [asc|desc], ..."` — without touching the list's `sortField`.
   `extendDoctype` can set it on another app's DocType, `User` included. See `fieldtypes`.
+- **`calendar.newOptions`** (#34) sets what the **+** in a calendar day's corner creates: records of
+  other DocTypes, each with its date `field` (and optionally an `endField`) set to the day. One
+  option links straight to its form, several open a menu, and each shows only when the user may
+  create its DocType — so a read-only or virtual DocType that gathers others' records gets a
+  **+** too. See "Views" in `docs/agent/form-api.md`.
 
 ### Changed
 

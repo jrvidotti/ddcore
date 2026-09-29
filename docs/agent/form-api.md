@@ -302,6 +302,24 @@ defineListView<Task>("Task", {
   record keeps its row within the week, and it shows on the calendar from the first day to the last
   of the span, including one that started before the month shown. A record with no end (or an
   end before its start) takes its start day alone.
+
+  `calendar.newOptions` points the day's **+** elsewhere — for a calendar that gathers other
+  DocTypes' records into a read-only or virtual DocType, whose own **+** would never show. Each
+  option names the `doctype` to create, its Date or Datetime `field` set to the day, an optional
+  `endField` set to the same day (a Datetime one to its last minute) and a `label` (shown as
+  given, so wrap it in `__()`; the DocType's label when omitted). An option shows only when the user may create its
+  DocType; one left links straight to its form, several open a menu, and with none the **+** is
+  hidden. The list's own DocType can be one of them.
+
+  ```ts
+  calendar: {
+    field: "start_date", endField: "end_date",
+    newOptions: [
+      { label: __("Campaign"), doctype: "Campaign", field: "start_date", endField: "end_date" },
+      { label: __("Diary"), doctype: "Marketing Log", field: "log_date" },
+    ],
+  },
+  ```
 - **Cards** is the default on a phone.
   - `title` defaults to the DocType's `titleField`, then `id`. `dateField` defaults to the first
     visible Date or Datetime field.
