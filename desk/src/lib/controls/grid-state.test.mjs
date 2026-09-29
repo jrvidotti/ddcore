@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   applyRowChanges,
+  changedKeys,
   confirmRowRemoval,
   createChildDraft,
   fileNameParts,
@@ -35,6 +36,13 @@ test("applying edits updates the existing row", () => {
   applyRowChanges(row, { descricao: "Depois" });
 
   assert.deepEqual(row, { name: "ROW-1", descricao: "Depois" });
+});
+
+test("changed keys are the values that differ from the row, missing and null alike", () => {
+  const row = { name: "ROW-1", descricao: "Antes", nota: 7 };
+
+  assert.deepEqual(changedKeys(row, { name: "ROW-1", descricao: "Depois", nota: 7, obs: null }), ["descricao"]);
+  assert.deepEqual(changedKeys(row, { obs: "x" }), ["obs"]);
 });
 
 test("row removal runs only after confirmation", async () => {

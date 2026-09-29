@@ -79,8 +79,8 @@ A `Table` and a `Report` field are grids, and four properties shape both:
 **Sorting and filtering are display only.** A child row's `idx`, which is the order the document stores and
 `ddcore.db` reads, stays what the user saved, and the `#` column keeps showing it (unless `gridIndex: false` hides it).
 
-A form script can make a Table's cells act on a click (`grids.<table>.onCellClick`) and change a
-row with `frm.setRowValue`; see [form-api.md](form-api.md#grids-row-changes-and-cell-clicks).
+A form script can make a Table's cells act on a click (`grids.<table>.onCellClick`), react to a
+change of one child field (`grids.<table>.onChange`) and change a row with `frm.setRowValue`; see [form-api.md](form-api.md#grids-row-changes-and-cell-clicks).
 
 ### Computed columns
 

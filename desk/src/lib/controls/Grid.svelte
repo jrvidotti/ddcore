@@ -9,7 +9,7 @@
   import { __ } from "$lib/boot.svelte";
   import { confirm, dialog } from "$lib/ui.svelte";
   import type { FormController } from "$lib/form.svelte";
-  import { applyRowChanges, confirmRowRemoval, createChildDraft, fileNameParts, gridEditMode, inlineEditable } from "./grid-state";
+  import { applyRowChanges, changedKeys, confirmRowRemoval, createChildDraft, fileNameParts, gridEditMode, inlineEditable } from "./grid-state";
   import { getLinkTitle } from "$lib/titles.svelte";
   import { downloadTable, exportBaseName, exportTable, filterRows, nextSort, sortRows, type GridSortState } from "$lib/grid-rows";
   import GridExport from "./GridExport.svelte";
@@ -78,9 +78,10 @@
       primaryLabel: editable ? __("Apply") : __("Close"),
       primaryAction: (values, dlg) => {
         if (editable) {
+          const changed = changedKeys(row, values);
           const target = isNew ? frm.addChild(field.fieldname!, values) : row;
           if (!isNew) applyRowChanges(target, values);
-          frm.trigger(field.fieldname!, childMeta.name, target.id, target);
+          frm.trigger(field.fieldname!, childMeta.name, target.id, target, changed);
         }
         dlg.hide();
       },
@@ -172,7 +173,7 @@
                 {:else if !inlineEditable(c.fieldtype)}
                   <button type="button" class="cell-click cell-value" title={editable ? __("Edit row") : __("View row")} onclick={() => editRow(row)}>{formatValue(row[c.fieldname!], c) || "—"}</button>
                 {:else if rowEditable(c, row) && (!c.dependsOn || evalExpr(c.dependsOn, row, frm.doc))}
-                  <Control field={c} value={row[c.fieldname!]} onchange={(v) => { row[c.fieldname!] = v; frm.trigger(field.fieldname!, childMeta.name, row.id, row); }} doc={row} compact inGrid />
+                  <Control field={c} value={row[c.fieldname!]} onchange={(v) => { row[c.fieldname!] = v; frm.trigger(field.fieldname!, childMeta.name, row.id, row, [c.fieldname!]); }} doc={row} compact inGrid />
                 {:else if clickable.has(c.fieldname!)}
                   <button type="button" class="cell-click" onclick={() => frm.clickCell(field.fieldname!, c.fieldname!, row)}>{formatValue(row[c.fieldname!], c)}</button>
                 {:else}

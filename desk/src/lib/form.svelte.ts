@@ -28,10 +28,16 @@ export interface FormHandlers {
   validate?: (frm: FormController) => void | boolean;
   beforeSave?: (frm: FormController) => void;
   afterSave?: (frm: FormController) => void;
-  /** keyed by fieldname; for a Table, cdt/cdn/row name the child row that changed */
-  onChange?: Record<string, (frm: FormController, cdt?: string, cdn?: string, row?: any) => void>;
-  /** per Table field: handlers for a click on a read-only cell, keyed by the child fieldname */
-  grids?: Record<string, { onCellClick?: Record<string, (frm: FormController, row: any) => void> }>;
+  /** keyed by fieldname; for a Table, cdt/cdn/row name the child row that changed and changed its fields */
+  onChange?: Record<string, (frm: FormController, cdt?: string, cdn?: string, row?: any, changed?: string[]) => void>;
+  /**
+   * per Table field, keyed by the child fieldname: onCellClick for a click on a
+   * read-only cell, onChange for a change of that field in a row
+   */
+  grids?: Record<string, {
+    onCellClick?: Record<string, (frm: FormController, row: any) => void>;
+    onChange?: Record<string, (frm: FormController, row: any) => void>;
+  }>;
 }
 
 const registry = new Map<string, FormHandlers[]>();
@@ -189,13 +195,25 @@ export class FormController {
   /**
    * Fires the onChange handler for a field (and fetchFrom updates). For a
    * Table, cdt is the child DocType, cdn the row's id (none before its first
-   * save) and row the row itself.
+   * save), row the row itself and changed the child fields that changed: each
+   * one's grids.<table>.onChange handler runs first, then the table's onChange.
    */
-  async trigger(fieldname: string, cdt?: string, cdn?: string, row?: any) {
+  async trigger(fieldname: string, cdt?: string, cdn?: string, row?: any, changed?: string[]) {
     const f = this.field(fieldname);
     if (f && (f.fieldtype === "Link" || f.fieldtype === "Dynamic Link")) await this.applyFetchFrom(fieldname);
+    // awaits only an asynchronous handler, so synchronous ones still run within setRowValue
+    for (const k of row ? changed ?? [] : []) {
+      for (const h of this.handlers) {
+        const fn = h.grids?.[fieldname]?.onChange?.[k];
+        if (!fn) continue;
+        try {
+          const r: any = fn(this, row);
+          if (r instanceof Promise) await r;
+        } catch (e) { showError(e); }
+      }
+    }
     for (const h of this.handlers) {
-      try { await h.onChange?.[fieldname]?.(this, cdt, cdn, row); } catch (e) { showError(e); }
+      try { await h.onChange?.[fieldname]?.(this, cdt, cdn, row, changed); } catch (e) { showError(e); }
     }
   }
 
@@ -233,7 +251,8 @@ export class FormController {
   }
   /**
    * Sets fields of one row of a Table, found by the row object or its id, and
-   * fires the table's onChange once, as an edit in the grid does.
+   * fires the table's onChange once with the fields that changed, as an edit
+   * in the grid does.
    */
   setRowValue(fieldname: string, row: any, f: string | Record<string, any>, v?: any) {
     const rows: any[] = this.doc[fieldname] || [];
@@ -241,13 +260,13 @@ export class FormController {
     const target = rows.find((r) => r === row) ?? (id ? rows.find((r) => r.id === id) : undefined);
     if (!target) throw new Error(`setRowValue: no row ${JSON.stringify(id ?? null)} in ${fieldname}`);
     const values = typeof f === "string" ? { [f]: v } : f;
-    let changed = false;
+    const changed: string[] = [];
     for (const [k, val] of Object.entries(values)) {
       if (target[k] === val) continue;
       target[k] = val;
-      changed = true;
+      changed.push(k);
     }
-    if (changed) this.trigger(fieldname, this.field(fieldname)?.options, target.id, target);
+    if (changed.length) this.trigger(fieldname, this.field(fieldname)?.options, target.id, target, changed);
     return this;
   }
 

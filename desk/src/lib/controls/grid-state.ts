@@ -23,6 +23,11 @@ export function applyRowChanges(row: Record<string, any>, values: Record<string,
   Object.assign(row, values);
 }
 
+/** The fields of `values` that differ from the row's; a missing value and null are the same. */
+export function changedKeys(row: Record<string, any>, values: Record<string, any>): string[] {
+  return Object.keys(values).filter((k) => (row[k] ?? null) !== (values[k] ?? null));
+}
+
 export async function confirmRowRemoval(confirmDelete: () => Promise<boolean>, remove: () => void): Promise<boolean> {
   if (!(await confirmDelete())) return false;
   remove();

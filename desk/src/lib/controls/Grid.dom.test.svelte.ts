@@ -171,14 +171,31 @@ describe("Grid", () => {
     }
   });
 
-  it("the row dialog tells onChange which row it changed", () => {
+  it("an edit in a cell tells onChange the row and the field it changed", () => {
+    childMeta.fields[0].readOnly = false;
+    try {
+      const t = setup({});
+      const input = t.target.querySelector<HTMLInputElement>("tbody tr:nth-child(2) input")!;
+      input.value = "Ana Maria";
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+      flushSync();
+      expect(t.doc.students[1].employee_name).toBe("Ana Maria");
+      expect(t.frm.trigger).toHaveBeenCalledWith("students", "Course Student", "r2", t.doc.students[1], ["employee_name"]);
+      t.done();
+    } finally {
+      childMeta.fields[0].readOnly = true;
+    }
+  });
+
+  it("the row dialog tells onChange which row and fields it changed", () => {
     dialogs.length = 0;
     const t = setup({ gridEditMode: "dialog" });
     t.click(t.target.querySelector("tbody tr:nth-child(2) button.icon"));
     const d = dialogs.at(-1);
     d.primaryAction({ ...t.doc.students[1], grade: 10 }, { hide: vi.fn() });
     expect(t.doc.students[1].grade).toBe(10);
-    expect(t.frm.trigger).toHaveBeenCalledWith("students", "Course Student", "r2", t.doc.students[1]);
+    expect(t.frm.trigger).toHaveBeenCalledWith("students", "Course Student", "r2", t.doc.students[1], ["grade"]);
     t.done();
   });
 

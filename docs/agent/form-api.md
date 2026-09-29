@@ -112,20 +112,51 @@ change in any of its rows — an edit in the grid, the row dialog, or `setRowVal
 
 ```ts
 onChange: {
-  attendance(frm, cdt, cdn, row) {
+  attendance(frm, cdt, cdn, row, changed) {
     // cdt: the child DocType ("Training Class Attendance")
     // cdn: the row's id — undefined for a row not saved yet
     // row: the row itself, the object in frm.doc.attendance
+    // changed: the child fields that changed — ["grade"] after an edit in its cell
     if (row) frm.setValue("present", frm.doc.attendance.filter((r) => r.in_class).length);
   },
 },
 ```
 
-Adding or removing a row fires it too, with no `cdt`, `cdn` or `row`.
+Adding or removing a row fires it too, with no `cdt`, `cdn`, `row` or `changed`. An edit in a
+cell changes one field; the row dialog and `setRowValue` pass every field whose value they
+changed (possibly none, for a dialog applied as it was).
+
+When what to do depends on *which* field of the row changed, give that field its own handler in
+`grids.<table>.onChange.<child field>(frm, row)`. It runs for each changed field, before the
+table's `onChange`, so a total computed there sees the row as the field handlers left it:
+
+```ts
+defineForm<TrainingClass>("Training Class", {
+  grids: {
+    attendance: {
+      onChange: {
+        in_class(frm, row) {
+          if (!row.in_class) frm.setRowValue("attendance", row, { attended: 0, grade: null });
+        },
+        attended(frm, row) {
+          if (row.attended && !row.in_class) frm.setRowValue("attendance", row, "in_class", 1);
+        },
+        grade(frm, row) {
+          if (row.grade != null && !row.in_class) frm.setRowValue("attendance", row, { in_class: 1, attended: 1 });
+        },
+      },
+    },
+  },
+});
+```
+
+A `setRowValue` inside a handler fires the handlers of the fields it sets, so set a field only
+when it must change — as above — or two handlers can undo each other forever. `setRowValue`
+leaves a field already holding the value alone and fires nothing for it.
 
 `frm.setRowValue(table, row, field, value)` — or `(table, row, { field: value, … })` — changes a
 row so that everything follows as if the reader had edited it: the grid shows the value, the form
-turns dirty and the table's `onChange` fires once. `row` is the row object or its `id`; a row
+turns dirty, the handlers of the fields it changed run and the table's `onChange` fires once. `row` is the row object or its `id`; a row
 that is not in the table throws. Assigning to `frm.doc.<table>[i].<field>` directly also updates
 the grid, but fires no `onChange`.
 

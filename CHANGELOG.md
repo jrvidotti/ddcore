@@ -14,6 +14,14 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **A Table's `onChange` knows which child field changed** (#30): it receives a fifth argument,
+  `changed`, the child fieldnames an edit in the grid, the row dialog or `frm.setRowValue`
+  changed. `grids.<table>.onChange.<child field>(frm, row)` runs for a change of that one field,
+  before the table's `onChange` — next to `grids.<table>.onCellClick`. See
+  [form-api.md](docs/agent/form-api.md#grids-row-changes-and-cell-clicks).
+
 ### Changed
 
 - The `ddcore running` startup log line now carries the core `version`, so a deploy's logs say
