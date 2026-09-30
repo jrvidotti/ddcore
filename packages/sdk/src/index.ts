@@ -125,8 +125,13 @@ export interface DDCoreAPI {
    * rolled back — on an error, a timeout, a cancellation, or a worker that died
    * — with `job.final` false while a retry is still coming. If it throws, the
    * error goes to the Error Log and the job stays failed.
+   *
+   * `uniqueKey` keeps a job from stacking: while a job with the same key is
+   * still `queued`, the call queues nothing and returns that job's id. A job
+   * that has been claimed no longer holds the key, so work arriving while it
+   * runs queues a new one. The key is global; prefix it with your app's name.
    */
-  enqueue(method: string, args?: Record<string, any>, opts?: { queue?: string; runAfter?: string; timeout?: number; maxAttempts?: number; backoff?: "fixed" | "exponential"; onStart?: string; onFailure?: string }): number;
+  enqueue(method: string, args?: Record<string, any>, opts?: { queue?: string; runAfter?: string; timeout?: number; maxAttempts?: number; backoff?: "fixed" | "exponential"; onStart?: string; onFailure?: string; uniqueKey?: string }): number;
   /**
    * Queues one message from a registered template and returns the id of its
    * `Email Delivery` record.

@@ -16,6 +16,10 @@ older series, and `whats_new` reads across every one of them.
 
 ### Added
 
+- **`uniqueKey` for `ddcore.enqueue`.** While a job with the same key is still `queued`, the call
+  queues nothing and returns that job's id, so "process session X" can be enqueued per event
+  without stacking jobs. A claimed job frees the key, so work arriving mid-run queues a new one.
+  Enforced by a partial unique index, safe under concurrent requests.
 - **PocketID provisioning.** Set `DDCORE_OIDC_<ID>_API_KEY` on a provider of kind `pocketid`
   (`DDCORE_OIDC_<ID>_KIND`, the default for the id `pocketid`) and an invitation of a System User
   creates the account in PocketID — or reuses the one with that address — and mails PocketID's
