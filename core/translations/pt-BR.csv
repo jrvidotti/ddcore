@@ -287,7 +287,7 @@ Invalid JSON: {0},JSON inválido: {0},# internal/api/api.go:384
 Invalid Single identity for {0},Identidade Single inválida para {0},# internal/engine/doc.go:433
 Invalid Single identity or status for {0},Identidade ou estado Single inválido para {0},# internal/engine/doc.go:1096
 Invalid URL,URL inválida,# internal/engine/webhooks.go:559
-Invalid arguments: {0},Argumentos inválidos: {0},# internal/engine/host.go:588
+Invalid arguments: {0},Argumentos inválidos: {0},# internal/engine/host.go:591
 Invalid barcode,Código de barras inválido,# desk/src/lib/controls/BarcodeControl.svelte:140
 "Invalid colour in {0}: ""{1}""","Cor inválida em {0}: ""{1}""",# internal/engine/doc.go:283
 Invalid column mapping: {0},Mapeamento de colunas inválido: {0},# internal/api/data_import.go:91
@@ -798,11 +798,13 @@ failed to read rendered PDF from {0}: {1},falha ao ler PDF renderizado de {0}: {
 failed to read rendered PDF: {0},falha ao ler PDF renderizado: {0},# internal/print/pdf.go:270
 failed to write Gotenberg HTML payload: {0},falha ao escrever payload HTML para o Gotenberg: {0},# internal/print/pdf.go:123
 failed to write temporary HTML file: {0},falha ao escrever arquivo HTML temporário: {0},# internal/print/pdf.go:200
-getValue: invalid fields,getValue: fields inválido,# internal/engine/host.go:171
+getValue: invalid fields,getValue: fields inválido,# internal/engine/host.go:174
 h,h,# desk/src/lib/controls/DurationControl.svelte:23
-http: {0},http: {0},# internal/engine/host.go:726
+"http: responseType must be ""text"" or ""base64"", not {0}","http: responseType deve ser ""text"" ou ""base64"", não {0}",# internal/engine/host.go:720
+http: the response from {0} is larger than {1} bytes (raise opts.maxBytes),http: a resposta de {0} é maior que {1} bytes (aumente opts.maxBytes),# internal/engine/host.go:758
+http: {0},http: {0},# internal/engine/host.go:739
 id is required,id é obrigatório,# internal/api/assignments.go:137
-invalid arguments in {0}: {1},argumentos inválidos em {0}: {1},# internal/engine/host.go:92
+invalid arguments in {0}: {1},argumentos inválidos em {0}: {1},# internal/engine/host.go:95
 job {0} timed out,job {0} excedeu o tempo limite,# internal/engine/jobs.go:200
 m,min,# desk/src/lib/controls/DurationControl.svelte:23
 manifest.json is not readable: {0},manifest.json não pôde ser lido: {0},# internal/engine/import_source.go:64
@@ -812,12 +814,12 @@ or,ou,# desk/src/routes/login/+page.svelte:72
 patch sql: {0},sql do patch: {0},# internal/engine/query.go:759
 records,registros,# desk/src/lib/components/ListView.svelte:564
 "run {0} loaded {1}, not {2}","a execução {0} carregou {1}, não {2}",# internal/engine/import_batch.go:27
-runtime without a context (op {0}),runtime sem contexto (op {0}),# internal/engine/host.go:30
+runtime without a context (op {0}),runtime sem contexto (op {0}),# internal/engine/host.go:31
 s,s,# desk/src/lib/controls/DurationControl.svelte:23
 since: {0} is not a duration,since: {0} não é uma duração,# internal/api/jobs.go:57
 title,título,# desk/src/lib/components/FormView.svelte:285
 to submit,para enviar,# desk/src/lib/components/DocSidebar.svelte:251
-unknown bridge operation: {0},operação desconhecida no bridge: {0},# internal/engine/host.go:626
+unknown bridge operation: {0},operação desconhecida no bridge: {0},# internal/engine/host.go:629
 user is required,user é obrigatório,# internal/engine/share.go:294
 webhook payload for {0} is not JSON: {1},o conteúdo do webhook para {0} não é JSON: {1},# internal/engine/webhooks.go:263
 "{0} ""{1}"" already exists","{0} ""{1}"" já existe",# internal/engine/doc.go:2059
