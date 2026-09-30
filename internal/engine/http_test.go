@@ -1,10 +1,12 @@
 package engine
 
 import (
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/jrvidotti/ddcore/internal/js"
@@ -62,5 +64,45 @@ if (response.status !== 202 || response.body !== '{"ok":true}' || response.json(
 				}
 			}
 		})
+	}
+}
+
+// A binary body survives as base64, and a body above the limit is an error
+// rather than a silent truncation.
+func TestHTTPBinaryAndLimit(t *testing.T) {
+	png := []byte{0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0xff, 0xfe, 0x80}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "image/png")
+		w.Write(png)
+	}))
+	defer server.Close()
+	pool, err := js.NewPool(&Engine{}, nil, 1, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rt, err := pool.Acquire()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rt.Release()
+	rt.Ctx = &Ctx{}
+	want := base64.StdEncoding.EncodeToString(png)
+	v, err := rt.Eval(fmt.Sprintf(`ddcore.http.get(%q, {responseType: "base64"}).body`, server.URL))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v.String() != `"`+want+`"` {
+		t.Fatalf("base64 body %q, want %q", v.String(), want)
+	}
+	if _, err := rt.Eval(fmt.Sprintf(`ddcore.http.get(%q, {maxBytes: %d})`, server.URL, len(png))); err != nil {
+		t.Fatalf("a body of exactly maxBytes is fine: %v", err)
+	}
+	_, err = rt.Eval(fmt.Sprintf(`ddcore.http.get(%q, {maxBytes: %d})`, server.URL, len(png)-1))
+	if err == nil || !strings.Contains(err.Error(), "larger than") {
+		t.Fatalf("want a size error, got %v", err)
+	}
+	_, err = rt.Eval(fmt.Sprintf(`ddcore.http.get(%q, {responseType: "blob"})`, server.URL))
+	if err == nil || !strings.Contains(err.Error(), "responseType") {
+		t.Fatalf("want a responseType error, got %v", err)
 	}
 }

@@ -32,10 +32,15 @@ export interface HttpOpts {
   headers?: Record<string, string>;
   /** Timeout in seconds; defaults to 15. */
   timeout?: number;
+  /** `"base64"` returns the body base64-encoded, for binary content; defaults to `"text"`. */
+  responseType?: "text" | "base64";
+  /** The largest response body accepted, in bytes; defaults to 10 MiB. A larger one throws. */
+  maxBytes?: number;
 }
 
 export interface HttpResponse {
   status: number;
+  /** The body as text, or base64 with `responseType: "base64"`. */
   body: string;
   /** Response headers with canonical HTTP names; repeated values are comma-separated. */
   headers: Record<string, string>;

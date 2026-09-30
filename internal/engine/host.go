@@ -5,6 +5,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"crypto/subtle"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -53,6 +54,8 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		Body          any               `json:"body"`
 		Headers       map[string]string `json:"headers"`
 		Timeout       float64           `json:"timeout"`
+		ResponseType  string            `json:"responseType"`
+		MaxBytes      float64           `json:"maxBytes"`
 		Level         string            `json:"level"`
 		LogArgs       []string          `json:"args2"`
 		Event         string            `json:"event"`
@@ -284,7 +287,7 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		e.Cache.Del(a.Key)
 		return nil, c.broadcastInvalidation([]string{a.Key}, nil)
 	case "http":
-		return httpCall(a.Method, a.URL, a.Body, a.Headers, a.Timeout)
+		return httpCall(a.Method, a.URL, a.Body, a.Headers, a.Timeout, a.ResponseType, int64(a.MaxBytes))
 	case "externalDb.sql":
 		return c.ExternalSQL(a.Key, a.Query, a.Params, a.Timeout)
 	case "enqueue":
@@ -702,9 +705,19 @@ func FormatCurrency(v float64, code, lang string, precision int) string {
 	return message.NewPrinter(tag).Sprint(currency.Symbol(u.Amount(v)))
 }
 
-func httpCall(method, url string, body any, headers map[string]string, timeout float64) (any, error) {
+// httpMaxBytes is the response size ddcore.http reads when the call names
+// no maxBytes.
+const httpMaxBytes = 10 << 20
+
+func httpCall(method, url string, body any, headers map[string]string, timeout float64, responseType string, maxBytes int64) (any, error) {
 	if timeout <= 0 {
 		timeout = 15
+	}
+	if maxBytes <= 0 {
+		maxBytes = httpMaxBytes
+	}
+	if responseType != "" && responseType != "text" && responseType != "base64" {
+		return nil, cerr.Validation("http: responseType must be \"text\" or \"base64\", not {0}", responseType)
 	}
 	var rd io.Reader
 	if body != nil {
@@ -735,8 +748,20 @@ func httpCall(method, url string, body any, headers map[string]string, timeout f
 		return nil, cerr.Validation("http: {0}", err)
 	}
 	defer res.Body.Close()
-	b, _ := io.ReadAll(io.LimitReader(res.Body, 10<<20))
-	return map[string]any{"status": res.StatusCode, "body": string(b), "headers": flatHeaders(res.Header)}, nil
+	// One byte past the limit tells a body of exactly maxBytes from a larger
+	// one, which is an error: a truncated body would pass for the whole.
+	b, err := io.ReadAll(io.LimitReader(res.Body, maxBytes+1))
+	if err != nil {
+		return nil, cerr.Validation("http: {0}", err)
+	}
+	if int64(len(b)) > maxBytes {
+		return nil, cerr.Validation("http: the response from {0} is larger than {1} bytes (raise opts.maxBytes)", url, maxBytes)
+	}
+	out := string(b)
+	if responseType == "base64" {
+		out = base64.StdEncoding.EncodeToString(b)
+	}
+	return map[string]any{"status": res.StatusCode, "body": out, "headers": flatHeaders(res.Header)}, nil
 }
 
 func flatHeaders(h http.Header) map[string]string {

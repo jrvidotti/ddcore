@@ -14,6 +14,17 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- `ddcore.http` takes `responseType: "base64"`, which returns a binary body (an image, an audio
+  file) base64-encoded instead of corrupted as text, and `maxBytes`, the largest body accepted
+  (default 10 MiB) (#51).
+
+### Changed
+
+- A `ddcore.http` response larger than its limit now throws instead of being silently cut at
+  10 MiB. Pass a larger `maxBytes` where a bigger body is expected (#51).
+
 ## 0.21.18 — 2026-09-30
 
 ### Added
