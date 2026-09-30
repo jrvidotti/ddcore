@@ -82,3 +82,11 @@ Always consult the documentation in [`docs/agent/index.md`](docs/agent/index.md)
    when a newer release exists. Which digit to bump is in
    [`docs/agent/conventions.md`](docs/agent/conventions.md); the full procedure is in
    [`DEVELOPMENT.md`](DEVELOPMENT.md).
+7. **Close issues from the commit that resolves them.** A commit that resolves a GitHub issue
+   says so in its body with a closing keyword on a line of its own — `Fixes #52` for a bug,
+   `Closes #50` for a feature or a task — so GitHub closes the issue when the commit reaches
+   `main`. A bare `(#52)` in the subject only links the issue and leaves it open. One keyword per
+   issue (`Fixes #49, fixes #50` or one line each); a commit that only advances an issue uses
+   `Refs #52`. The changelog entry keeps its `(#52)`. Before reporting a merged or released
+   issue as done, check that it is closed (`gh issue view 52`), and close it by hand with a
+   comment naming the commit and the release if it is not.
