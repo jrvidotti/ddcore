@@ -235,6 +235,7 @@ Field,Campo,# desk/src/lib/components/DataImportModal.svelte:190
 Field {0} does not exist on {1},Campo {0} não existe em {1},# internal/engine/doc.go:1213
 File,Arquivo,# desk/src/lib/components/DataImportModal.svelte:154
 File {0} does not exist,O arquivo {0} não existe,# internal/engine/mailqueue.go:197
+File {0} not found,Arquivo {0} não encontrado,# internal/engine/files_api.go:282
 Files are attached on the form,Arquivos são anexados no formulário,# internal/engine/data_import.go:352
 Fill in the email and the full name first,Preencha primeiro o e-mail e o nome completo,# core/doctypes/user/user.form.ts:87
 Fill in the required fields: {0},Preencha os campos obrigatórios: {0},# desk/src/lib/form.svelte.ts:375
@@ -286,7 +287,7 @@ Invalid JSON: {0},JSON inválido: {0},# internal/api/api.go:384
 Invalid Single identity for {0},Identidade Single inválida para {0},# internal/engine/doc.go:433
 Invalid Single identity or status for {0},Identidade ou estado Single inválido para {0},# internal/engine/doc.go:1096
 Invalid URL,URL inválida,# internal/engine/webhooks.go:559
-Invalid arguments: {0},Argumentos inválidos: {0},# internal/engine/host.go:591
+Invalid arguments: {0},Argumentos inválidos: {0},# internal/engine/host.go:599
 Invalid barcode,Código de barras inválido,# desk/src/lib/controls/BarcodeControl.svelte:140
 "Invalid colour in {0}: ""{1}""","Cor inválida em {0}: ""{1}""",# internal/engine/doc.go:283
 Invalid column mapping: {0},Mapeamento de colunas inválido: {0},# internal/api/data_import.go:91
@@ -392,11 +393,11 @@ No identity provider is set up for provisioning,Nenhum provedor de identidade es
 No keys yet.,Nenhuma chave ainda.,# desk/src/lib/components/Profile.svelte:261
 No location,Sem localização,# desk/src/lib/controls/GeolocationControl.svelte:255
 No notifications,Nenhuma notificação,# desk/src/routes/app/notifications/+page.svelte:34
-No permission ({0}) on {1} {2},Sem permissão ({0}) em {1} {2},# internal/api/api.go:1567
+No permission ({0}) on {1} {2},Sem permissão ({0}) em {1} {2},# internal/api/portal.go:509
 No permission ({0}) to import {1},Sem permissão ({0}) para importar {1},# internal/engine/data_import.go:277
 No permission for report {0},Sem permissão para o relatório {0},# internal/api/api.go:1274
 No permission for the file {0},Sem permissão para o arquivo {0},# internal/engine/mailqueue.go:200
-No permission for this file,Sem permissão para este arquivo,# internal/api/api.go:1641
+No permission for this file,Sem permissão para este arquivo,# internal/api/api.go:1532
 No permission for workspace {0},Sem permissão para o workspace {0},# internal/api/api.go:1388
 No permission for {0},Sem permissão para {0},# internal/api/api.go:735
 No permission to amend {0},Sem permissão para emendar {0},# internal/engine/doc.go:1012
@@ -424,9 +425,9 @@ No tasks found,Nenhuma tarefa encontrada,# desk/src/routes/app/todo/+page.svelte
 No workflow configured for {0},Nenhum workflow configurado para {0},# internal/engine/workflow.go:81
 No workspace declared. Create an app with ddcore new-app and declare a workspace.,Nenhum workspace declarado. Crie um app com ddcore new-app e declare um workspace.,# desk/src/routes/app/+page.svelte:21
 None,Nenhum,# desk/src/lib/components/PrintView.svelte:181
-Not permitted to change {0},Sem permissão para alterar {0},# internal/api/api.go:1491
-Not permitted to upload files to {0},Sem permissão para enviar arquivos para {0},# internal/api/api.go:1584
-Not permitted to upload here,Sem permissão para enviar arquivos aqui,# internal/api/api.go:1543
+Not permitted to change {0},Sem permissão para alterar {0},# internal/engine/fieldperm.go:296
+Not permitted to upload files to {0},Sem permissão para enviar arquivos para {0},# internal/engine/files_api.go:99
+Not permitted to upload here,Sem permissão para enviar arquivos aqui,# internal/engine/files_api.go:58
 Not saved,Não salvo,# desk/src/lib/components/FormView.svelte:403
 Not shared with anyone,Não compartilhado com ninguém,# desk/src/lib/components/DocSidebar.svelte:198
 Not signed,Não assinado,# desk/src/lib/controls/SignatureControl.svelte:162
@@ -543,7 +544,7 @@ Rights,Direitos,# desk/src/lib/components/ShareModal.svelte:70
 Role,Papel,# core.doctypes.has_role.has_role.doctype
 Role {0} is repeated,Papel {0} repetido,# core/doctypes/user/user.controller.ts:14
 Roles,Papéis,# desk/src/lib/components/Profile.svelte:142
-Route {0} does not exist,rota {0} não existe,# internal/api/api.go:1805
+Route {0} does not exist,rota {0} não existe,# internal/api/api.go:1696
 Row,Linha,# desk/src/lib/components/DataImportModal.svelte:219
 Row #{0} changed,Linha #{0} alterada,# desk/src/lib/components/DocHistory.svelte:176
 Row added,Linha adicionada,# desk/src/lib/components/DocHistory.svelte:152
@@ -642,6 +643,7 @@ That key is not yours,Essa chave não é sua,# core/services/api_keys.ts:43
 "The DocType that defines the restricted scope, e.g. Company or Branch.","O DocType que define o escopo restrito, ex.: Company ou Branch.",# core.doctypes.user_permission.user_permission.doctype
 The ID is empty: an update has to name the record it changes,O ID está vazio: uma atualização precisa indicar o registro que altera,# internal/engine/data_import.go:519
 The Kanban field {0} is not a field of {1},O campo {0} do Kanban não é um campo de {1},# desk/src/lib/components/views/KanbanView.svelte:73
+The bytes of {0} are not in the store,Os bytes de {0} não estão no armazenamento,# internal/engine/files_api.go:292
 The camera is not available,A câmera não está disponível,# desk/src/lib/controls/BarcodeControl.svelte:87
 The column has no header,A coluna não tem cabeçalho,# internal/engine/data_import.go:418
 The current password is not right,A senha atual não confere,# core/services/profile.ts:102
@@ -776,8 +778,8 @@ ddcore.db.lock: provide a key,ddcore.db.lock: informe uma chave,# internal/engin
 ddcore.db.sql only accepts SELECT,ddcore.db.sql aceita apenas SELECT,# internal/engine/query.go:776
 ddcore.externalDb().sql only accepts SELECT,ddcore.externalDb().sql aceita apenas SELECT,# internal/engine/externaldb.go:175
 ddcore.externalDb: provide a name,ddcore.externalDb: informe um nome,# internal/engine/externaldb.go:52
-ddcore.test is only available inside ddcore test,ddcore.test só está disponível dentro do ddcore test,# internal/engine/asuser.go:75
-ddcore.test.asUser needs a user,ddcore.test.asUser precisa de um usuário,# internal/engine/asuser.go:78
+ddcore.test is only available inside ddcore test,ddcore.test só está disponível dentro do ddcore test,# internal/engine/asuser.go:76
+ddcore.test.asUser needs a user,ddcore.test.asUser precisa de um usuário,# internal/engine/asuser.go:79
 doctype and id are required,doctype e id são obrigatórios,# internal/api/workflow.go:78
 "doctype, id and action are required","doctype, id e action são obrigatórios",# internal/api/workflow.go:56
 "doctype, id and allocated_to are required","doctype, id e allocated_to são obrigatórios",# internal/api/assignments.go:40
@@ -797,11 +799,20 @@ failed to read rendered PDF from {0}: {1},falha ao ler PDF renderizado de {0}: {
 failed to read rendered PDF: {0},falha ao ler PDF renderizado: {0},# internal/print/pdf.go:270
 failed to write Gotenberg HTML payload: {0},falha ao escrever payload HTML para o Gotenberg: {0},# internal/print/pdf.go:123
 failed to write temporary HTML file: {0},falha ao escrever arquivo HTML temporário: {0},# internal/print/pdf.go:200
+files.presign needs the s3 storage backend (DDCORE_STORAGE=s3); the {0} backend has no presigned URLs,files.presign precisa do armazenamento s3 (DDCORE_STORAGE=s3); o armazenamento {0} não tem URLs pré-assinadas,# internal/engine/files_api.go:290
+files.presign: ttl is at most {0} seconds,files.presign: ttl é de no máximo {0} segundos,# internal/engine/files_api.go:270
+files.presign: {0} is not a file url,files.presign: {0} não é uma url de arquivo,# internal/engine/files_api.go:261
+files.save needs a filename,files.save precisa de um filename,# internal/engine/files_api.go:224
+"files.save needs exactly one of content, contentBase64 and fromUrl","files.save precisa de exatamente um entre content, contentBase64 e fromUrl",# internal/engine/files_api.go:189
+files.save: contentBase64 is not base64: {0},files.save: contentBase64 não é base64: {0},# internal/engine/files_api.go:203
+files.save: the file is larger than {0} bytes (raise maxBytes),files.save: o arquivo é maior que {0} bytes (aumente maxBytes),# internal/engine/files_api.go:227
+files.save: {0},files.save: {0},# internal/engine/host.go:294
+files.save: {0} answered {1},files.save: {0} respondeu {1},# internal/engine/files_api.go:211
 getValue: invalid fields,getValue: fields inválido,# internal/engine/host.go:174
 h,h,# desk/src/lib/controls/DurationControl.svelte:23
-"http: responseType must be ""text"" or ""base64"", not {0}","http: responseType deve ser ""text"" ou ""base64"", não {0}",# internal/engine/host.go:720
-http: the response from {0} is larger than {1} bytes (raise opts.maxBytes),http: a resposta de {0} é maior que {1} bytes (aumente opts.maxBytes),# internal/engine/host.go:758
-http: {0},http: {0},# internal/engine/host.go:739
+"http: responseType must be ""text"" or ""base64"", not {0}","http: responseType deve ser ""text"" ou ""base64"", não {0}",# internal/engine/host.go:722
+http: the response from {0} is larger than {1} bytes (raise opts.maxBytes),http: a resposta de {0} é maior que {1} bytes (aumente opts.maxBytes),# internal/engine/host.go:780
+http: {0},http: {0},# internal/engine/host.go:761
 id is required,id é obrigatório,# internal/api/assignments.go:137
 invalid arguments in {0}: {1},argumentos inválidos em {0}: {1},# internal/engine/host.go:95
 job {0} timed out,job {0} excedeu o tempo limite,# internal/engine/jobs.go:200
@@ -818,7 +829,7 @@ s,s,# desk/src/lib/controls/DurationControl.svelte:23
 since: {0} is not a duration,since: {0} não é uma duração,# internal/api/jobs.go:57
 title,título,# desk/src/lib/components/FormView.svelte:285
 to submit,para enviar,# desk/src/lib/components/DocSidebar.svelte:251
-unknown bridge operation: {0},operação desconhecida no bridge: {0},# internal/engine/host.go:629
+unknown bridge operation: {0},operação desconhecida no bridge: {0},# internal/engine/host.go:637
 user is required,user é obrigatório,# internal/engine/share.go:294
 webhook payload for {0} is not JSON: {1},o conteúdo do webhook para {0} não é JSON: {1},# internal/engine/webhooks.go:263
 "{0} ""{1}"" already exists","{0} ""{1}"" já existe",# internal/engine/doc.go:2059
@@ -897,7 +908,7 @@ webhook payload for {0} is not JSON: {1},o conteúdo do webhook para {0} não é
 {0} shared {1} {2} with you,{0} compartilhou {1} {2} com você,# internal/engine/share.go:366
 "{0} takes 12 or 13 digits for an EAN-13 barcode: ""{1}""","{0} aceita 12 ou 13 dígitos para um código de barras EAN-13: ""{1}""",# internal/barcode/barcode.go:164
 {0} takes a rating from 0 to {1},{0} aceita uma avaliação de 0 a {1},# internal/engine/doc.go:277
-"{0} takes an image file (png, jpg, gif, webp)","{0} aceita um arquivo de imagem (png, jpg, gif, webp)",# internal/api/api.go:1496
+"{0} takes an image file (png, jpg, gif, webp)","{0} aceita um arquivo de imagem (png, jpg, gif, webp)",# internal/engine/doc.go:289
 "{0} takes only letters, digits, spaces and symbols for a {1} barcode","{0} aceita apenas letras, dígitos, espaços e símbolos para um código de barras {1}",# internal/barcode/barcode.go:162
 "{0} takes points, lines and areas only","{0} aceita apenas pontos, linhas e áreas",# internal/geo/geo.go:394
 {0} tasks,{0} tarefas,# desk/src/routes/app/todo/+page.svelte:222

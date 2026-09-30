@@ -288,6 +288,14 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		return nil, c.broadcastInvalidation([]string{a.Key}, nil)
 	case "http":
 		return httpCall(a.Method, a.URL, a.Body, a.Headers, a.Timeout, a.ResponseType, int64(a.MaxBytes))
+	case "files.save":
+		var f SaveFileArgs
+		if err := json.Unmarshal(raw, &f); err != nil {
+			return nil, cerr.Validation("files.save: {0}", err)
+		}
+		return c.SaveFile(f)
+	case "files.presign":
+		return c.PresignFile(a.URL, time.Duration(a.TTL*float64(time.Second)), a.Opts["ignorePermissions"] == true)
 	case "externalDb.sql":
 		return c.ExternalSQL(a.Key, a.Query, a.Params, a.Timeout)
 	case "enqueue":
@@ -710,14 +718,28 @@ func FormatCurrency(v float64, code, lang string, precision int) string {
 const httpMaxBytes = 10 << 20
 
 func httpCall(method, url string, body any, headers map[string]string, timeout float64, responseType string, maxBytes int64) (any, error) {
+	if responseType != "" && responseType != "text" && responseType != "base64" {
+		return nil, cerr.Validation("http: responseType must be \"text\" or \"base64\", not {0}", responseType)
+	}
+	res, b, err := httpFetch(method, url, body, headers, timeout, maxBytes)
+	if err != nil {
+		return nil, err
+	}
+	out := string(b)
+	if responseType == "base64" {
+		out = base64.StdEncoding.EncodeToString(b)
+	}
+	return map[string]any{"status": res.StatusCode, "body": out, "headers": flatHeaders(res.Header)}, nil
+}
+
+// httpFetch sends one request and reads the whole response body, at most
+// maxBytes of it (httpMaxBytes when zero). The response's body is closed.
+func httpFetch(method, url string, body any, headers map[string]string, timeout float64, maxBytes int64) (*http.Response, []byte, error) {
 	if timeout <= 0 {
 		timeout = 15
 	}
 	if maxBytes <= 0 {
 		maxBytes = httpMaxBytes
-	}
-	if responseType != "" && responseType != "text" && responseType != "base64" {
-		return nil, cerr.Validation("http: responseType must be \"text\" or \"base64\", not {0}", responseType)
 	}
 	var rd io.Reader
 	if body != nil {
@@ -736,7 +758,7 @@ func httpCall(method, url string, body any, headers map[string]string, timeout f
 	}
 	req, err := http.NewRequest(orDefault(method, "GET"), url, rd)
 	if err != nil {
-		return nil, cerr.Validation("http: {0}", err)
+		return nil, nil, cerr.Validation("http: {0}", err)
 	}
 	for k, v := range headers {
 		req.Header.Set(k, v)
@@ -745,23 +767,19 @@ func httpCall(method, url string, body any, headers map[string]string, timeout f
 	client := &http.Client{Timeout: time.Duration(timeout * float64(time.Second))}
 	res, err := client.Do(req)
 	if err != nil {
-		return nil, cerr.Validation("http: {0}", err)
+		return nil, nil, cerr.Validation("http: {0}", err)
 	}
 	defer res.Body.Close()
 	// One byte past the limit tells a body of exactly maxBytes from a larger
 	// one, which is an error: a truncated body would pass for the whole.
 	b, err := io.ReadAll(io.LimitReader(res.Body, maxBytes+1))
 	if err != nil {
-		return nil, cerr.Validation("http: {0}", err)
+		return nil, nil, cerr.Validation("http: {0}", err)
 	}
 	if int64(len(b)) > maxBytes {
-		return nil, cerr.Validation("http: the response from {0} is larger than {1} bytes (raise opts.maxBytes)", url, maxBytes)
+		return nil, nil, cerr.Validation("http: the response from {0} is larger than {1} bytes (raise opts.maxBytes)", url, maxBytes)
 	}
-	out := string(b)
-	if responseType == "base64" {
-		out = base64.StdEncoding.EncodeToString(b)
-	}
-	return map[string]any{"status": res.StatusCode, "body": out, "headers": flatHeaders(res.Header)}, nil
+	return res, b, nil
 }
 
 func flatHeaders(h http.Header) map[string]string {

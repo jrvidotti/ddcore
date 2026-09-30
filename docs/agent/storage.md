@@ -9,7 +9,9 @@ in a **store**, chosen per deployment:
 | `local` (default) | `<dataDir>/files/public` and `<dataDir>/files/private` | streamed by the server |
 | `s3` | an S3-compatible bucket: AWS S3, Cloudflare R2, MinIO, Backblaze B2 | the server checks permission, then redirects to a short-lived presigned URL |
 
-App code never touches the store. A file's `file_url` (`/files/<name>` or
+App code never touches the store directly: files enter through `POST /api/upload`
+or `ddcore.files.save`, and leave through `/files/…`, `/private/files/…` or
+`ddcore.files.presign`. A file's `file_url` (`/files/<name>` or
 `/private/files/<name>`) is its only name, on both backends, so moving a site
 between them does not change a row.
 
@@ -76,6 +78,43 @@ the Table field for a row. From then on the file follows the document. Before th
 picked on a new form stayed readable only by its uploader and System Manager. A Website User
 uploads only into an editable attachment field of a portal page, and always privately
 (see `portal`).
+
+### From server code
+
+`ddcore.files.save` stores bytes a controller or a job holds — text, base64, or a
+download — as a `File`:
+
+```ts
+// a job copying media a third party serves for a few minutes, behind a token
+const f = ddcore.files.save({
+  doctype: "WhatsApp Message", id, fieldname: "media",
+  fromUrl: url, headers: { Authorization: `Bearer ${token}` },
+  filename: "voice.ogg", maxBytes: 16 << 20, timeout: 20,
+});
+// or from bytes already in hand
+ddcore.files.save({ filename: "a.png", contentBase64: ddcore.http.get(u, { responseType: "base64" }).body });
+```
+
+- Exactly one of `content` (text, stored as UTF-8), `contentBase64` and `fromUrl`.
+  `fromUrl` is a GET with `headers` and `timeout` (seconds, default 15); a status
+  outside 2xx throws. `maxBytes` defaults to 50 MiB, and a larger file throws.
+- The rules are an upload's: attaching to `doctype`/`id` needs **write** on it (or on
+  the DocType, for an id not saved yet), a restricted field forces the file private,
+  an `Attach Image` field takes only an image, and the stored name is random with a
+  safe extension. `ignorePermissions: true` skips the write check, for server code
+  that attaches on the system's behalf (a webhook, a job).
+- A file is private unless `isPrivate: false`. `filename` defaults to the last
+  segment of `fromUrl`, `contentType` to the download's, then to the extension's.
+- The row is written on the current transaction. The bytes cannot be, so a
+  rollback — of the request, or of the savepoint the call ran in — deletes them.
+
+`ddcore.files.presign(fileUrl, { ttl })` returns a URL that serves the file to
+anyone holding it for `ttl` seconds (default `DDCORE_S3_PRESIGN_TTL`, at most 7
+days): how a file reaches a third party with no session, such as a messaging API
+that fetches media by link. It needs read on the File (the rule of
+`/private/files`; `ignorePermissions: true` skips it) and the **s3** backend: the
+URL is the bucket's own presigned GET. The local backend has no signing key every
+process shares, so it throws there.
 
 ## Deletion
 

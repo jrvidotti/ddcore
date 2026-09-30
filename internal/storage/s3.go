@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -88,23 +89,33 @@ func (s *S3) Delete(ctx context.Context, key string) error {
 // announce the same type and disposition the local backend would, whatever
 // content type the uploader claimed when the object was stored.
 func (s *S3) Serve(w http.ResponseWriter, r *http.Request, key string, sv Serving) error {
-	if _, err := s.client.StatObject(r.Context(), s.cfg.Bucket, s.object(key), minio.StatObjectOptions{}); err != nil {
-		if notFound(err) {
-			return ErrNotFound
-		}
-		return err
-	}
-	params := url.Values{}
-	params.Set("response-content-disposition", disposition(sv))
-	params.Set("response-content-type", servedType(sv))
-	u, err := s.client.PresignedGetObject(r.Context(), s.cfg.Bucket, s.object(key), s.cfg.PresignTTL, params)
+	u, err := s.Presign(r.Context(), key, s.cfg.PresignTTL, sv)
 	if err != nil {
 		return err
 	}
 	// the link expires, so neither the browser nor a proxy may keep the redirect
 	w.Header().Set("Cache-Control", "no-store")
-	http.Redirect(w, r, u.String(), http.StatusFound)
+	http.Redirect(w, r, u, http.StatusFound)
 	return nil
+}
+
+// Presign signs a GET for an object that exists, with the same response
+// overrides Serve uses.
+func (s *S3) Presign(ctx context.Context, key string, ttl time.Duration, sv Serving) (string, error) {
+	if _, err := s.client.StatObject(ctx, s.cfg.Bucket, s.object(key), minio.StatObjectOptions{}); err != nil {
+		if notFound(err) {
+			return "", ErrNotFound
+		}
+		return "", err
+	}
+	params := url.Values{}
+	params.Set("response-content-disposition", disposition(sv))
+	params.Set("response-content-type", servedType(sv))
+	u, err := s.client.PresignedGetObject(ctx, s.cfg.Bucket, s.object(key), ttl, params)
+	if err != nil {
+		return "", err
+	}
+	return u.String(), nil
 }
 
 // List pages through the bucket under the configured prefix, handing back keys

@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // Local keeps files under a directory on this machine, in the layout uploads
@@ -78,6 +79,12 @@ func (l *Local) Serve(w http.ResponseWriter, r *http.Request, key string, s Serv
 	w.Header().Set("Content-Type", servedType(s))
 	http.ServeContent(w, r, s.Name, info.ModTime, rc.(*os.File))
 	return nil
+}
+
+// Presign is not offered: a local URL that works without a session would need
+// a signing key every process shares, and the site has none.
+func (l *Local) Presign(context.Context, string, time.Duration, Serving) (string, error) {
+	return "", ErrPresignUnsupported
 }
 
 // List walks the directory. A prefix that names no directory yet — a site that

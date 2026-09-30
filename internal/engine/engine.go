@@ -797,8 +797,17 @@ type Ctx struct {
 	docCache     map[string]Doc
 	// scopeAncestors memoises a tree value's ancestors while a User Permission
 	// scope is being checked row by row (DAT-07).
-	scopeAncestors       map[string][]string
-	afterCommit          []func()
+	scopeAncestors map[string][]string
+	afterCommit    []func()
+	// afterRollback undoes what the transaction cannot: bytes written to
+	// the store for a File row that is never committed.
+	afterRollback []func()
+	// txOwner is the ctx that began the transaction a user ctx borrows; its
+	// afterRollback is the one runOnce drains.
+	txOwner *Ctx
+	// rollbackMarks is len(afterRollback) at each Begin, so RollbackTo undoes
+	// only what its savepoint saw.
+	rollbackMarks        []int
 	inWorkflowTransition bool
 	// portal puts the request in portal mode (OPS-10); a Website User is in it
 	// regardless. userType and portalIdent memoise what that mode reads.
@@ -848,6 +857,7 @@ func (c *Ctx) Run(fn func(c *Ctx) error) error {
 	c.docCache = map[string]Doc{}
 	c.scopeAncestors = nil
 	c.afterCommit = nil
+	c.afterRollback = nil
 	c.inWorkflowTransition = false
 	return c.runOnce(fn)
 }
@@ -864,6 +874,7 @@ func (c *Ctx) runOnce(fn func(c *Ctx) error) (err error) {
 		if !done {
 			tx.Rollback(c.Ctx)
 			c.release()
+			c.rolledBack()
 		}
 	}()
 	err = fn(c)
@@ -871,6 +882,7 @@ func (c *Ctx) runOnce(fn func(c *Ctx) error) (err error) {
 		tx.Rollback(c.Ctx)
 		c.release()
 		done = true
+		c.rolledBack()
 		return err
 	}
 	committed := false
@@ -888,9 +900,22 @@ func (c *Ctx) runOnce(fn func(c *Ctx) error) (err error) {
 		for _, f := range c.afterCommit {
 			f()
 		}
+		c.afterRollback = nil
+	} else {
+		c.rolledBack()
 	}
 	c.afterCommit = nil
 	return err
+}
+
+// rolledBack runs the afterRollback callbacks, newest first, and forgets them.
+func (c *Ctx) rolledBack() {
+	fns := c.afterRollback
+	c.afterRollback = nil
+	c.afterCommit = nil
+	for i := len(fns) - 1; i >= 0; i-- {
+		fns[i]()
+	}
 }
 
 func (c *Ctx) release() {
@@ -916,6 +941,23 @@ func (c *Ctx) RT() (*js.Runtime, error) {
 }
 
 func (c *Ctx) AfterCommit(f func()) { c.afterCommit = append(c.afterCommit, f) }
+
+// AfterRollback runs f if the transaction, or the savepoint f was registered
+// in, is rolled back. Without a transaction there is nothing to roll back and
+// f never runs.
+func (c *Ctx) AfterRollback(f func()) {
+	if c.Tx != nil {
+		o := c.owner()
+		o.afterRollback = append(o.afterRollback, f)
+	}
+}
+
+func (c *Ctx) owner() *Ctx {
+	if c.txOwner != nil {
+		return c.txOwner
+	}
+	return c
+}
 
 func (c *Ctx) Q() db.Querier {
 	if c.Tx != nil {
@@ -1015,6 +1057,7 @@ func (e *Engine) Location() *time.Location {
 
 // Savepoint helpers used by tests.
 func (c *Ctx) Begin() error {
+	c.rollbackMarks = append(c.rollbackMarks, len(c.owner().afterRollback))
 	c.savepoint++
 	_, err := c.Tx.Exec(c.Ctx, fmt.Sprintf("SAVEPOINT sp%d", c.savepoint))
 	return err
@@ -1027,6 +1070,15 @@ func (c *Ctx) RollbackTo() error {
 	_, err := c.Tx.Exec(c.Ctx, fmt.Sprintf("ROLLBACK TO SAVEPOINT sp%d", c.savepoint))
 	c.savepoint--
 	c.docCache = map[string]Doc{}
+	if n := len(c.rollbackMarks); n > 0 {
+		o, mark := c.owner(), c.rollbackMarks[n-1]
+		c.rollbackMarks = c.rollbackMarks[:n-1]
+		undo := o.afterRollback[mark:]
+		o.afterRollback = o.afterRollback[:mark]
+		for i := len(undo) - 1; i >= 0; i-- {
+			undo[i]()
+		}
+	}
 	return err
 }
 
@@ -1044,7 +1096,8 @@ func (c *Ctx) WithSavepoint(fn func() error) error {
 	if _, err := c.Tx.Exec(c.Ctx, "SAVEPOINT "+sp); err != nil {
 		return err
 	}
-	pending := len(c.afterCommit)
+	o := c.owner()
+	pending, pendingRollback := len(c.afterCommit), len(o.afterRollback)
 	if err := fn(); err != nil {
 		if _, rbErr := c.Tx.Exec(c.Ctx, "ROLLBACK TO SAVEPOINT "+sp); rbErr != nil {
 			c.E.Log.Warn("could not roll back to savepoint", "savepoint", sp, "err", rbErr)
@@ -1053,6 +1106,11 @@ func (c *Ctx) WithSavepoint(fn func() error) error {
 			c.E.Log.Warn("could not release savepoint", "savepoint", sp, "err", relErr)
 		}
 		c.afterCommit = c.afterCommit[:pending]
+		undo := o.afterRollback[pendingRollback:]
+		o.afterRollback = o.afterRollback[:pendingRollback]
+		for i := len(undo) - 1; i >= 0; i-- {
+			undo[i]()
+		}
 		c.docCache = map[string]Doc{}
 		return err
 	}

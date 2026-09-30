@@ -47,6 +47,50 @@ export interface HttpResponse {
   json(): any;
 }
 
+/**
+ * `ddcore.files.save`'s argument. Exactly one of `content`, `contentBase64`
+ * and `fromUrl` is the source of the bytes.
+ */
+export interface SaveFileOpts {
+  /** The document to attach the file to; attaching needs write on it. */
+  doctype?: string;
+  id?: string;
+  /** The Attach field the file is for, when it is one. */
+  fieldname?: string;
+  /** The name the file is known by; defaults to the last segment of `fromUrl`. */
+  filename?: string;
+  /** Defaults to true. A restricted field, or a Website User, forces it. */
+  isPrivate?: boolean;
+  /** Defaults to the download's Content-Type, then to the filename's extension. */
+  contentType?: string;
+  /** Text, stored as UTF-8. */
+  content?: string;
+  /** Bytes, base64-encoded: `ddcore.http.get(url, { responseType: "base64" }).body`. */
+  contentBase64?: string;
+  /** Downloaded by the server with GET. A non-2xx status throws. */
+  fromUrl?: string;
+  /** Request headers for `fromUrl`, such as `Authorization`. */
+  headers?: Record<string, string>;
+  /** The largest file accepted, in bytes; defaults to 50 MiB. */
+  maxBytes?: number;
+  /** Timeout of the `fromUrl` download in seconds; defaults to 15. */
+  timeout?: number;
+  /** Skip the write check on the document, for server code that must attach anyway. */
+  ignorePermissions?: boolean;
+}
+
+/** A File document, as `ddcore.files.save` returns it. */
+export interface FileDoc extends BaseDoc {
+  file_name: string;
+  file_url: string;
+  file_size: number;
+  content_type: string;
+  is_private: 0 | 1 | boolean;
+  attached_to_doctype?: string;
+  attached_to_id?: string;
+  attached_to_field?: string;
+}
+
 export interface ExternalDbOpts {
   /** Timeout in seconds; defaults to 30. */
   timeout?: number;
@@ -113,6 +157,20 @@ export interface DDCoreAPI {
     put(url: string, body?: any, opts?: HttpOpts): HttpResponse;
     patch(url: string, body?: any, opts?: HttpOpts): HttpResponse;
     del(url: string, opts?: HttpOpts): HttpResponse;
+  };
+  /** Files from server code; see `storage`. */
+  files: {
+    /**
+     * Stores bytes as a File on the current transaction, with the rules of an
+     * upload. If the transaction rolls back, the bytes are deleted too.
+     */
+    save(opts: SaveFileOpts): FileDoc;
+    /**
+     * A URL that serves the file to anyone holding it for `ttl` seconds
+     * (default: DDCORE_S3_PRESIGN_TTL, at most 7 days), for a third party with
+     * no session. Needs read on the File, and the s3 storage backend.
+     */
+    presign(fileUrl: string, opts?: { ttl?: number; ignorePermissions?: boolean }): string;
   };
   /**
    * Queues a job. It is written on the current transaction, so the job only

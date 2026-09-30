@@ -17,6 +17,7 @@ func (c *Ctx) userCtx(user string) (*Ctx, error) {
 	}
 	child := c.E.NewCtx(c.Ctx, user)
 	child.St, child.Tx, child.rt = c.St, c.Tx, rt
+	child.txOwner = c.owner()
 	child.Lang = c.Lang
 	child.savepoint, child.roSavepoint = c.savepoint, c.roSavepoint
 	switch child.User {
