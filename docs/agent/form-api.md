@@ -292,6 +292,36 @@ divider to that field's standard filter; choosing one sends its `filters` instea
 the URL carries its `value` (`?status=overdue`). Filters only reach columns, so a sub-state computed
 from other documents has to be stored on the document to be filterable.
 
+### Actions on the selected rows
+
+`actions` adds buttons over the rows a user ticks in the List or Cards view. They show next to
+"Delete (n)" while at least one selected row applies:
+
+```ts
+defineListView<MessageTemplate>("Message Template", {
+  fields: ["approval_status"],          // what `condition` reads, when it is not a column
+  actions: [{
+    label: __("Submit for approval"),
+    condition: (row) => row.approval_status !== "Submitted",
+    async onClick(ids, list) {
+      await ddcore.call("oblata.services.whatsapp_templates.submitTemplates", { ids });
+      ddcore.ui.toast(__("{0} submitted", [ids.length]), { indicator: "green" });
+    },
+  }],
+});
+```
+
+The button reads `label (n)`, where `n` counts the selected rows that pass `condition` (every
+selected row when there is none), and it hides while no row passes. Only those rows reach
+`onClick`: their `id`s first, then `list` with `rows` (the loaded values, in list order),
+`doctype` and `refresh()`. A `condition` that throws counts as `false`. `primary: true` draws the
+button as primary.
+
+While `onClick` runs, the list's action buttons are disabled; a rejection is shown to the user.
+Either way the selection is cleared and the list reloads, so `onClick` needs no `refresh()` of its
+own. The rows are the ones on screen, loaded with the list's columns and `fields` — fetch anything
+else by id. The button is only a shortcut: the method it calls must check permissions itself.
+
 ### Views: Tree, Calendar, Kanban, Gantt and Cards
 
 Besides the table, a list can offer other views of the same filtered rows. A segmented switcher in

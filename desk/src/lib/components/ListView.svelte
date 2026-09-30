@@ -14,7 +14,8 @@
   import { subscribe } from "$lib/events";
   import { coalesce } from "$lib/coalesce";
   import { toCsv, downloadCsv } from "$lib/csv";
-  import { deskSDK, type DeskViewMode, type ListViewOptions } from "$lib/desk-sdk";
+  import { deskSDK, type DeskViewMode, type ListAction, type ListViewOptions } from "$lib/desk-sdk";
+  import { visibleActions } from "./list-actions";
   import { fromDatetimeLocal, today } from "$lib/datetime";
   import { getCalendarDays } from "$lib/controls/date-format";
   import { buildListFilters } from "./list-filters";
@@ -83,6 +84,10 @@
   const settings = $derived<ListViewOptions>(deskSDK.listSettings(doctype) || {});
   const allowedViews = $derived(resolveAllowedViews(settings, meta?.doctype.isTree));
   const isTreeView = $derived(currentView === "tree" && !!meta?.doctype.isTree);
+  /** The app's `actions` some selected row applies to; only List and Cards select rows. */
+  const actionButtons = $derived(currentView === "list" || currentView === "cards" ? visibleActions(settings.actions || [], rows, selected) : []);
+  /** The action whose onClick is running: every action button waits for it. */
+  let runningAction = $state<ListAction | null>(null);
   /** Bumped on a list_update so the tree reloads the branches it has open. */
   let treeReload = $state(0);
 
@@ -396,6 +401,18 @@
     toast(__("{0} deleted", [ok]), { indicator: "green" });
     load();
   }
+  async function runAction(action: ListAction, actionRows: any[]) {
+    runningAction = action;
+    try {
+      await action.onClick(actionRows.map((r) => r.id), { doctype, rows: actionRows, refresh: load });
+    } catch (e) {
+      showError(e);
+    } finally {
+      runningAction = null;
+      selected = new Set();
+      load();
+    }
+  }
   /**
    * Asks what to export before exporting it. The page on screen is built here
    * (it already has the Link titles resolved); everything the filters match is
@@ -487,6 +504,9 @@
         {#if allowedViews.includes("cards")}<button class="btn icon" class:active={currentView === "cards"} aria-pressed={currentView === "cards"} onclick={() => setView("cards")} title={__("Cards")} aria-label={__("Cards")}><Icon name="layout-grid" size={14} /></button>{/if}
       </div>
     {/if}
+    {#each actionButtons as { action, rows: actionRows } (action)}
+      <button class="btn" class:primary={action.primary} disabled={!!runningAction} onclick={() => runAction(action, actionRows)}>{action.label} ({actionRows.length})</button>
+    {/each}
     {#if selected.size && meta?.permissions.delete}<button class="btn danger" onclick={deleteSelected}><Icon name="trash" size={14} />{__("Delete")} ({selected.size})</button>{/if}
     {#if !isTreeView}
       <button class="btn" class:active={showFilters} aria-expanded={showFilters} aria-controls="list-filters" onclick={toggleFilters}>
