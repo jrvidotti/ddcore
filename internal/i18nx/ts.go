@@ -176,8 +176,11 @@ func matchBrace(src string, i int) int {
 			if depth == 0 {
 				return j
 			}
-		case '"', '\'', '`':
+		case '"', '\'':
 			_, end := readString(src, j)
+			j = end - 1
+		case '`':
+			end, _ := scanTemplate(src, j)
 			j = end - 1
 		case '/':
 			if j+1 < len(src) && (src[j+1] == '/' || src[j+1] == '*') {
@@ -215,17 +218,29 @@ func lexJS(src string, firstLine int) []tsToken {
 			end := skipRegex(src, i)
 			line += strings.Count(src[i:end], "\n")
 			i = end
-		case c == '"' || c == '\'' || c == '`':
+		case c == '`':
+			end, holes := scanTemplate(src, i)
+			if len(holes) == 0 {
+				val, _ := readString(src, i)
+				toks = append(toks, tsToken{kind: tokString, val: val, line: line})
+			} else {
+				// A template literal with a `${…}` is never a plain key; the
+				// opening token makes `__(`+"`"+`…`+"`"+`)` read as a dynamic call.
+				// Each `${…}` is code, lexed as such, and the closing token is
+				// an empty string so a `/` after the template is division.
+				toks = append(toks, tsToken{kind: tokPunct, val: "`", line: line})
+				for _, h := range holes {
+					toks = append(toks, lexJS(src[h[0]:h[1]], line+strings.Count(src[i:h[0]], "\n"))...)
+				}
+				toks = append(toks, tsToken{kind: tokString, line: line + strings.Count(src[i:end], "\n")})
+			}
+			line += strings.Count(src[i:end], "\n")
+			i = end
+		case c == '"' || c == '\'':
 			val, end := readString(src, i)
 			startLine := line
 			line += strings.Count(src[i:end], "\n")
-			// A template literal with a `${…}` is never a plain key; keep it
-			// as a token so `__(`+"`"+`…`+"`"+`)` reads as a dynamic call.
 			toks = append(toks, tsToken{kind: tokString, val: val, line: startLine})
-			if c == '`' && strings.Contains(src[i:end], "${") {
-				toks[len(toks)-1].kind = tokPunct
-				toks[len(toks)-1].val = "`"
-			}
 			i = end
 		case isIdentStart(c):
 			j := i
@@ -306,6 +321,29 @@ func skipRegex(src string, i int) int {
 		}
 	}
 	return len(src)
+}
+
+// scanTemplate reads the template literal starting at i and returns the
+// offset just past its closing backtick and the byte ranges of the code
+// inside each `${…}`. A hole ends at its matching `}`, so a string, a brace
+// or another template inside it cannot end the outer literal.
+func scanTemplate(src string, i int) (int, [][2]int) {
+	var holes [][2]int
+	for j := i + 1; j < len(src); j++ {
+		switch src[j] {
+		case '\\':
+			j++
+		case '`':
+			return j + 1, holes
+		case '$':
+			if j+1 < len(src) && src[j+1] == '{' {
+				end := matchBrace(src, j+1)
+				holes = append(holes, [2]int{j + 2, end})
+				j = end
+			}
+		}
+	}
+	return len(src), holes
 }
 
 // readString reads the literal starting at i and returns its decoded value
