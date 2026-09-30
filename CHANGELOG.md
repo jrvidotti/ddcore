@@ -16,6 +16,10 @@ older series, and `whats_new` reads across every one of them.
 
 ### Added
 
+- **`raw: { contentType }` on a whitelisted method** (#37) writes the returned string as the whole
+  response body, with that content type and no `{data, messages}` envelope: what a provider that
+  verifies a callback URL by reading a challenge back (Meta's `hub.challenge`) expects.
+
 - **PocketID provisioning.** Set `DDCORE_OIDC_<ID>_API_KEY` on a provider of kind `pocketid`
   (`DDCORE_OIDC_<ID>_KIND`, the default for the id `pocketid`) and an invitation of a System User
   creates the account in PocketID — or reuses the one with that address — and mails PocketID's
@@ -42,6 +46,9 @@ older series, and `whats_new` reads across every one of them.
 - **`ddcore user invite` takes the same path as the desk's *Save and invite***: it now records
   `account.invite`, refuses an address that already has a User with the usual message, and
   provisions PocketID when that is on.
+- **`whitelisted(fn, { methods })` is now enforced.** It was declared but ignored; a verb outside the
+  list answers 405 with an `Allow` header. An app that listed `methods` and relied on the other verb
+  still working must add it to the list.
 
 ## 0.21.12 — 2026-09-29
 

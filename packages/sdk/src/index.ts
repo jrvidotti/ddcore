@@ -344,7 +344,15 @@ export function definePatch(def: PatchDef): PatchDef {
 
 export interface WhitelistOpts {
   allowGuest?: boolean;
+  /** Accepted HTTP verbs; any other answers 405. Omitted, any verb is accepted. */
   methods?: ("GET" | "POST")[];
+  /**
+   * Answer with the returned string as the whole body, in this content type
+   * and without the `{data, messages}` envelope. For a provider that checks a
+   * callback URL by reading back a challenge (Meta's `hub.challenge`). The
+   * method must return a string; a thrown error is still a JSON error.
+   */
+  raw?: { contentType: string };
   roles?: string[];
   /**
    * Callable by Website Users (OPS-10). Everything else under /api is closed

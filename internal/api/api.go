@@ -16,6 +16,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -254,9 +255,48 @@ func user(r *http.Request) string {
 
 // run executes fn in a transaction as the request's user and writes the result.
 func (s *Server) run(w http.ResponseWriter, r *http.Request, fn func(c *engine.Ctx) (any, error)) {
+	out, msgs, err := s.execute(r, nil, fn)
+	if err != nil {
+		s.writeErr(w, r, err)
+		return
+	}
+	writeJSON(w, 200, response{Data: out, Messages: msgs})
+}
+
+// runRaw is `run` for a whitelisted method that declared `raw`: the string fn
+// returns is the whole body, with the declared content type and no envelope.
+// An error still takes the JSON path, so a caller can tell a refusal from a
+// payload by its status.
+func (s *Server) runRaw(w http.ResponseWriter, r *http.Request, contentType string, extra map[string]any, fn func(c *engine.Ctx) (any, error)) {
+	out, _, err := s.execute(r, extra, fn)
+	if err != nil {
+		s.writeErr(w, r, err)
+		return
+	}
+	var body string
+	if b, ok := out.(json.RawMessage); !ok || json.Unmarshal(b, &body) != nil {
+		s.writeErr(w, r, cerr.Internal("A method declared raw must return a string"))
+		return
+	}
+	if contentType == "" {
+		contentType = "text/plain; charset=utf-8"
+	}
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.WriteHeader(200)
+	io.WriteString(w, body)
+}
+
+// execute runs fn in a transaction as the request's user. extra is merged into
+// ctx.request: it is how a whitelisted method receives the raw body and the
+// headers, which no other caller of run has any use for.
+func (s *Server) execute(r *http.Request, extra map[string]any, fn func(c *engine.Ctx) (any, error)) (any, []engine.Message, error) {
 	var out any
 	c := s.E.NewCtx(r.Context(), user(r))
 	c.Request = map[string]any{"method": r.Method, "path": r.URL.Path, "ip": r.RemoteAddr}
+	for k, v := range extra {
+		c.Request[k] = v
+	}
 	if ck, err := r.Cookie("sid"); err == nil {
 		c.Sid = ck.Value
 	}
@@ -266,11 +306,7 @@ func (s *Server) run(w http.ResponseWriter, r *http.Request, fn func(c *engine.C
 		out, e = fn(c)
 		return e
 	})
-	if err != nil {
-		s.writeErr(w, r, err)
-		return
-	}
-	writeJSON(w, 200, response{Data: out, Messages: c.Messages})
+	return out, c.Messages, err
 }
 
 // runCached is `run` with an ETag: the desk asks for the same meta on every
@@ -970,7 +1006,18 @@ func (s *Server) method(w http.ResponseWriter, r *http.Request) {
 		s.writeErr(w, r, cerr.Auth("Sign in to continue"))
 		return
 	}
-	s.run(w, r, func(c *engine.Ctx) (any, error) {
+	if ms, ok := opts["methods"].([]any); ok && len(ms) > 0 {
+		var allow []string
+		for _, m := range ms {
+			allow = append(allow, strings.ToUpper(fmt.Sprint(m)))
+		}
+		if !slices.Contains(allow, r.Method) {
+			w.Header().Set("Allow", strings.Join(allow, ", "))
+			s.writeErr(w, r, cerr.MethodNotAllowed("Method {0} accepts only {1}", path, strings.Join(allow, ", ")))
+			return
+		}
+	}
+	call := func(c *engine.Ctx) (any, error) {
 		args := map[string]any{}
 		if r.Method == "GET" {
 			for k, v := range r.URL.Query() {
@@ -1001,7 +1048,18 @@ func (s *Server) method(w http.ResponseWriter, r *http.Request) {
 			return nil, err
 		}
 		return res, nil
-	})
+	}
+	if raw, ok := opts["raw"].(map[string]any); ok {
+		ct, _ := raw["contentType"].(string)
+		s.runRaw(w, r, ct, nil, call)
+		return
+	}
+	out, msgs, err := s.execute(r, nil, call)
+	if err != nil {
+		s.writeErr(w, r, err)
+		return
+	}
+	writeJSON(w, 200, response{Data: out, Messages: msgs})
 }
 
 // treeChildren serves one level of a hierarchy (DAT-07): `?parent=` empty asks

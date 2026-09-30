@@ -72,6 +72,11 @@ func Auth(msg string, a ...any) *Error       { return New("AuthenticationError",
 func Internal(msg string, a ...any) *Error   { return New("InternalError", 500, msg, a...) }
 func Mandatory(msg string, a ...any) *Error  { return New("MandatoryError", 417, msg, a...) }
 
+// MethodNotAllowed answers a verb a whitelisted method did not declare.
+func MethodNotAllowed(msg string, a ...any) *Error {
+	return New("MethodNotAllowedError", 405, msg, a...)
+}
+
 // TooMany is the answer to a caller that has to slow down: a login being
 // guessed at, a recovery being requested in a loop. The seconds still to wait
 // belong in Extra through WithRetryAfter, because the number is data the

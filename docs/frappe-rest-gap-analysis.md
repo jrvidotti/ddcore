@@ -96,7 +96,7 @@ Effort uses the roadmap scale: **S** focused, **M** crosses a few layers, **L** 
 | `Authorization: Bearer <oauth token>` (OAuth2 provider) | Not supported | absent | L | Tied to SEC-05 (SSO/OIDC). |
 | Session cookie `sid` from `/api/method/login`; response `{"message": "Logged In", "home_page", "full_name"}` plus `system_user`, `user_id` cookies | Cookie `sid` from `/api/login`; response `{"data": {"ok": true}}` (`api.go:446`) | adaptable | S | Cookie name matches. Login throttling and password policy apply (SEC-04). |
 | CSRF: `X-Frappe-CSRF-Token` must match the session's token (browser sessions only) | Any non-empty `X-DDCore-CSRF` or `X-Requested-With` header on non-GET cookie requests (`api.go:344-349`); login and `/api/auth/*` exempt (`auth.go:161`) | adaptable | S | A cookie-based consumer sending `X-Frappe-CSRF-Token` is refused (403). Token-auth consumers are unaffected. |
-| `@frappe.whitelist(allow_guest=True)`; `methods=[...]` restricts verbs (`handler.is_valid_http_method`) | `allowGuest` option (`api.go:907`); `roles` option; GET and POST both reach every method | incompatible | S | ddcore does not restrict verbs per method. A GET-callable mutating method is a CSRF risk only for cookie auth, which the header check covers. |
+| `@frappe.whitelist(allow_guest=True)`; `methods=[...]` restricts verbs (`handler.is_valid_http_method`) | `allowGuest`, `roles` and `methods` options | adaptable | S | `methods` is enforced: another verb answers 405 with an `Allow` header. Without `methods`, GET and POST both reach the method; a GET-callable mutating method is a CSRF risk only for cookie auth, which the header check covers. |
 | IP allowlist per user (`restrict_ip`) | None | absent | M | |
 
 ## 6. Errors

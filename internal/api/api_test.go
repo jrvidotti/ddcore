@@ -98,7 +98,12 @@ export default defineController("Pessoa", {
   validate(doc) { if (doc.nome === "loop") ddcore.throw("Loop"); },
 });`)
 	w("services/diag.ts", `import { whitelisted } from "@ddcore/sdk";
-export const whoami = whitelisted(() => ddcore.session.requestId);`)
+export const whoami = whitelisted(() => ddcore.session.requestId);
+export const challenge = whitelisted((args) => args["hub.challenge"],
+  { allowGuest: true, methods: ["GET"], raw: { contentType: "text/plain" } });
+export const postOnly = whitelisted(() => "ok", { allowGuest: true, methods: ["POST"] });
+export const notString = whitelisted(() => ({ a: 1 }), { allowGuest: true, raw: { contentType: "text/plain" } });
+export const denied = whitelisted(() => ddcore.throw("Forbidden"), { allowGuest: true, raw: { contentType: "text/plain" } });`)
 	w("services/i18n.ts", `import { whitelisted, _ } from "@ddcore/sdk";
 export const echo = whitelisted(() => ({ save: _("Save"), n: _("Loop") }));`)
 	w("reports/livre.report.ts", `import { defineReport } from "@ddcore/sdk";
