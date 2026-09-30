@@ -50,6 +50,9 @@ ALTER TABLE ddcore_job ADD COLUMN IF NOT EXISTS backoff text NOT NULL DEFAULT 'f
 -- document can show that its job is running, or that it failed.
 ALTER TABLE ddcore_job ADD COLUMN IF NOT EXISTS on_start text;
 ALTER TABLE ddcore_job ADD COLUMN IF NOT EXISTS on_failure text;
+-- Dedup key of enqueue's uniqueKey option: while a job with the key is queued,
+-- another enqueue with the same key is a no-op.
+ALTER TABLE ddcore_job ADD COLUMN IF NOT EXISTS unique_key text;
 CREATE INDEX IF NOT EXISTS ddcore_job_status ON ddcore_job(status, run_after);
 CREATE INDEX IF NOT EXISTS ddcore_job_lease ON ddcore_job(status, lease_until);
 -- The retention sweep and the administrative list both read by status and age;
@@ -59,6 +62,11 @@ CREATE INDEX IF NOT EXISTS ddcore_job_retention ON ddcore_job(status, finished);
 -- Partial: jobs the scheduler enqueued have no request behind them and would
 -- otherwise dominate the index.
 CREATE INDEX IF NOT EXISTS ddcore_job_request ON ddcore_job(request_id) WHERE request_id IS NOT NULL;
+-- Partial on queued rows only: a claimed job frees its key, so work arriving
+-- while it runs queues a new job instead of being lost. The index is tiny and
+-- only touched when a keyed job enters or leaves the queue.
+CREATE UNIQUE INDEX IF NOT EXISTS ddcore_job_unique ON ddcore_job(unique_key)
+  WHERE unique_key IS NOT NULL AND status = 'queued';
 CREATE TABLE IF NOT EXISTS ddcore_patch (app text NOT NULL, name text NOT NULL, executed timestamptz NOT NULL DEFAULT now(), PRIMARY KEY(app, name));
 CREATE TABLE IF NOT EXISTS ddcore_migration (id bigserial PRIMARY KEY, executed timestamptz NOT NULL DEFAULT now(), ddl text NOT NULL);
 CREATE TABLE IF NOT EXISTS ddcore_installed_app (app text PRIMARY KEY, installed timestamptz NOT NULL DEFAULT now());

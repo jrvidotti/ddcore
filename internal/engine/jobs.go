@@ -108,17 +108,45 @@ func (c *Ctx) Enqueue(method string, args map[string]any, opts map[string]any) (
 		}
 		hooks[k] = str
 	}
+	uniqueKey := ""
+	if v, ok := opts["uniqueKey"]; ok && v != nil {
+		str, ok := v.(string)
+		if !ok || str == "" {
+			return 0, cerr.Validation("enqueue: uniqueKey must be a non-empty string")
+		}
+		uniqueKey = str
+	}
 	b, _ := json.Marshal(args)
-	var id int64
-	// The request id travels with the job, so the work a request queued can be
-	// found from the request, and the other way round.
-	err := c.Q().QueryRow(c.Ctx, `INSERT INTO ddcore_job
-		(method, args, queue, "user", run_after, timeout_seconds, max_attempts, request_id, backoff,
-		 on_start, on_failure)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, NULLIF($8, ''), $9, NULLIF($10, ''), NULLIF($11, '')) RETURNING id`,
-		method, string(b), queue, c.User, runAfter, timeout, maxAttempts, RequestIDFrom(c.Ctx), backoff,
-		hooks["onStart"], hooks["onFailure"]).Scan(&id)
-	return id, err
+	// A keyed enqueue whose key is already queued inserts nothing and returns the
+	// queued job's id. The job can be claimed between the conflict and the lookup,
+	// freeing the key, so the pair is retried instead of assuming either outcome.
+	for attempt := 0; ; attempt++ {
+		var id int64
+		// The request id travels with the job, so the work a request queued can be
+		// found from the request, and the other way round.
+		err := c.Q().QueryRow(c.Ctx, `INSERT INTO ddcore_job
+			(method, args, queue, "user", run_after, timeout_seconds, max_attempts, request_id, backoff,
+			 on_start, on_failure, unique_key)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, NULLIF($8, ''), $9, NULLIF($10, ''), NULLIF($11, ''), NULLIF($12, ''))
+			ON CONFLICT (unique_key) WHERE unique_key IS NOT NULL AND status = 'queued' DO NOTHING
+			RETURNING id`,
+			method, string(b), queue, c.User, runAfter, timeout, maxAttempts, RequestIDFrom(c.Ctx), backoff,
+			hooks["onStart"], hooks["onFailure"], uniqueKey).Scan(&id)
+		if err == nil {
+			return id, nil
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return 0, err
+		}
+		err = c.Q().QueryRow(c.Ctx, `SELECT id FROM ddcore_job WHERE unique_key = $1 AND status = 'queued'`,
+			uniqueKey).Scan(&id)
+		if err == nil {
+			return id, nil
+		}
+		if !errors.Is(err, pgx.ErrNoRows) || attempt >= 4 {
+			return 0, err
+		}
+	}
 }
 
 // RunJob executes one job payload: a dotted function path with args. The ctx is

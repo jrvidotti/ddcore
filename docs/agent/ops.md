@@ -332,6 +332,24 @@ more than an hour — which is what work talking to somebody else's server wants
 A retried job keeps its backoff. Outgoing [webhooks](webhooks.md) use it. The status values are also what
 `--status` accepts, so they stay in English on a translated site.
 
+### Deduplicating with `uniqueKey`
+
+`enqueue` takes `uniqueKey` to keep identical work from stacking — one job that
+drains a session's events, say, instead of one job per event:
+
+```ts
+ddcore.enqueue("myapp.services.bot.process", { session }, { uniqueKey: `myapp:session:${session}` });
+```
+
+While a job with that key is still `queued`, the call queues nothing and returns
+that job's id, so it is safe under concurrent requests (a partial unique index
+enforces it). A job that has been claimed — `running` or finished — no longer
+holds the key, so work arriving while it runs queues a new job and is not lost;
+a job going back to `queued` for a retry holds it again. The key is global, not
+per queue or method, so prefix it. Unlike `webhooks.emit`'s `key`, which throws on
+a duplicate, a duplicate `uniqueKey` is silent. The skipped call's `args` are
+dropped, so the job must read what it needs when it runs.
+
 ### Lifecycle callbacks
 
 A job is one transaction the framework owns, so everything it writes becomes
