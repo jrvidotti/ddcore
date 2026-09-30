@@ -116,7 +116,7 @@ by hand.
 - `ddcore.externalDb("sql_server").sql("SELECT ... WHERE x = @p1", [v], { timeout })` — read-only query on another database (SQL Server), configured from `DDCORE_SECRET_SQL_SERVER_*`. See `external-db`
 - `ddcore.getDoc(doctype, id)`, `ddcore.newDoc(doctype, values)`, `ddcore.deleteDoc(doctype, id, { force })`, `ddcore.rename(doctype, oldID, newID)`
 - `ddcore.throw(msg, { title, type })`, `ddcore.msgprint(msg, { title, indicator, alert })`, `ddcore._(text, args)` / `_()`
-- `ddcore.session` → `{ user, roles, lang, request }` (`request`: `{ method, path, ip, rawBody, headers }` on a whitelisted call — see *Inbound webhooks*); `ddcore.user()`; `ddcore.getRoles(user)`; `ddcore.hasPermission(doctype, ptype, doc)` (`doc` may be just `{ id, owner }`)
+- `ddcore.session` → `{ user, roles, lang, request }` (`request`: `{ method, path, ip, rawBody, headers }` on a whitelisted call — see *Inbound webhooks*); `ddcore.user()`; `ddcore.getRoles(user)`; `ddcore.hasPermission(doctype, ptype, doc, user?)` (`doc` may be just `{ id, owner }`, or a document id; `user` checks another user's roles, scopes and shares instead of the current one's)
 - `ddcore.share.add(doctype, id, user, { write, share, overrideScope })` / `remove(doctype, id, user)` / `list(doctype, id)` — per-user document shares, checked with the current user as sharer. See `sharing`
 - `ddcore.users.invite({ email, fullName, roles?, userType? })` / `resendInvite(user)` — create an account and mail its invitation; returns `{ user, expires, link? }`. Without System Manager, only a Website User with no privileged role. See `portal`
 - `ddcore.redact(doctype, doc)` → a copy of `doc` as an API read would show it to the current user: Password/Vault blanked and fields above their permission level removed. Server code sees whole documents; redact before a method or report hands one to a client. See `field-permissions`
@@ -188,6 +188,24 @@ describe("Order", () => {
 ```
 `expect`: toBe, toEqual, toBeTruthy/Falsy, toBeNull, toBeDefined, toContain, toBeGreaterThan(OrEqual), toBeLessThan(OrEqual),
 toBeCloseTo, toHaveLength, toMatch, toThrow(text|regex), `.not`.
+
+Tests run as `Admin`, which no role or User Permission restricts. To see a permission or a scope
+at work, run part of a test as another user with `ddcore.test.asUser(user, fn)`:
+
+```ts
+it("a parish manager sees only their parish", () => {
+  ddcore.newDoc("User", { email: "manager@x.test", full_name: "Manager", roles: [{ role: "Parish Manager" }] }).insert();
+  ddcore.newDoc("User Permission", { user: "manager@x.test", allow: "Parish", for_value: "PAR-0001" }).insert();
+  ddcore.test.asUser("manager@x.test", () => {
+    expect(ddcore.db.getList("Tither", { fields: ["parish"] }).every((t) => t.parish === "PAR-0001")).toBe(true);
+    expect(() => ddcore.getDoc("Tither", otherParishTither)).toThrow();
+  });
+});
+```
+`fn` runs with that user's roles, User Permission scopes, shares and user type, inside the test's
+transaction. Users and User Permissions the test inserted count, and roll back with it.
+`ddcore.session.user` names the user, `asUser` returns what `fn` returns, and the previous user is
+back afterwards, even when `fn` throws. `ddcore.test` exists only inside `ddcore test`.
 
 ## Single DocTypes (settings)
 

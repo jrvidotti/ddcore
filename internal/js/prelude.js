@@ -816,7 +816,10 @@
     },
     deleteDoc(doctype, id, opts) { call("doc.delete", { doctype, id, opts }); },
     getMeta(doctype) { return reg.doctypes[doctype] || call("getMeta", { doctype }); },
-    hasPermission(doctype, ptype, doc, user) { return call("hasPermission", { doctype, ptype: ptype || "read", doc, user }); },
+    hasPermission(doctype, ptype, doc, user) {
+      const byId = typeof doc === "string";
+      return call("hasPermission", { doctype, ptype: ptype || "read", doc: byId ? undefined : doc, id: byId ? doc : undefined, user });
+    },
     redact(doctype, doc) { return call("redact", { doctype, doc }); },
     throw(message, opts) {
       opts = opts || {};
@@ -1013,6 +1016,16 @@
   function wrapHttp(r) {
     r.json = function () { return JSON.parse(r.body); };
     return r;
+  }
+  if (globalThis.__ddcoreTest) {
+    api.test = {
+      // runs fn as user, inside the test's transaction; the host unwinds a
+      // switch left open when the test ends, whatever fn did
+      asUser(user, fn) {
+        call("test.asUser", { user });
+        try { return fn(); } finally { call("test.restoreUser"); }
+      },
+    };
   }
   globalThis.ddcore = api;
   globalThis.console = {

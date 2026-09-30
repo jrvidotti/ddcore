@@ -35,8 +35,20 @@ func (c *Ctx) UserPermissions() ([]UserPerm, error) {
 		return c.userPerms, nil
 	}
 	gen := c.E.Cache.Gen()
+	perms, err := c.loadUserPermissions(c.User)
+	if err != nil {
+		return nil, err
+	}
+	c.userPerms = perms
+	c.E.Cache.SetAt(key, perms, 0, gen)
+	return perms, nil
+}
+
+// loadUserPermissions reads user's scopes from this transaction, past every
+// cache. The result is never nil, so it can preload Ctx.userPerms.
+func (c *Ctx) loadUserPermissions(user string) ([]UserPerm, error) {
 	rows, err := db.Select(c.Ctx, c.Q(), `SELECT id, "user", allow, for_value, applicable_for, is_default
-		FROM tab_user_permission WHERE "user" = $1 ORDER BY allow, for_value`, c.User)
+		FROM tab_user_permission WHERE "user" = $1 ORDER BY allow, for_value`, user)
 	if err != nil {
 		return nil, err
 	}
@@ -52,8 +64,6 @@ func (c *Ctx) UserPermissions() ([]UserPerm, error) {
 			IsDefault:     isDefault,
 		})
 	}
-	c.userPerms = perms
-	c.E.Cache.SetAt(key, perms, 0, gen)
 	return perms, nil
 }
 

@@ -313,11 +313,21 @@ func (e *Engine) UserType(c *Ctx, user string) string {
 		}
 	}
 	gen := e.Cache.Gen()
-	rows, err := db.Select(c.Ctx, c.Q(), `SELECT user_type FROM tab_user WHERE id = $1`, user)
+	t, err := c.loadUserType(user)
 	if err != nil {
 		// a failed read is not evidence of desk access; not cached, so the
 		// next request asks again
 		return "Website User"
+	}
+	e.Cache.SetAt(key, t, 0, gen)
+	return t
+}
+
+// loadUserType reads User.user_type from this transaction, past the cache.
+func (c *Ctx) loadUserType(user string) (string, error) {
+	rows, err := db.Select(c.Ctx, c.Q(), `SELECT user_type FROM tab_user WHERE id = $1`, user)
+	if err != nil {
+		return "", err
 	}
 	t := ""
 	if len(rows) > 0 {
@@ -328,8 +338,7 @@ func (e *Engine) UserType(c *Ctx, user string) string {
 	if t == "" {
 		t = "System User"
 	}
-	e.Cache.SetAt(key, t, 0, gen)
-	return t
+	return t, nil
 }
 
 // ------------------------------------------------------------------ portal mode
