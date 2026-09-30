@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.21.14 — 2026-09-30
+
 ### Fixed
 
 - **`hideLabel` is accepted on a `Report` field** (#41), as on a `Table`: a tab holding only a
