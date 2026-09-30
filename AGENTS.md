@@ -53,8 +53,8 @@ Always consult the documentation in [`docs/agent/index.md`](docs/agent/index.md)
    initiative**; run it only when the user asks, or before a release or a merge that touches
    many packages. Pick the narrowest command that covers the change:
    ```bash
-   go test ./internal/meta/                              # one Go package
-   go test ./internal/engine/ -run 'TestComputed|TestGrid' # the tests you touched, by name
+   GOWORK=off go test ./internal/meta/                   # one Go package
+   GOWORK=off go test ./internal/engine/ -run 'TestComputed|TestGrid' # the tests you touched, by name
    cd desk && npx vitest run src/lib/grid-rows.test.ts   # one desk test file
    cd desk && npm run check                              # desk types, after a .svelte/.ts change
    ./bin/ddcore test --app testapp                       # the fixture app's TS tests
@@ -63,6 +63,10 @@ Always consult the documentation in [`docs/agent/index.md`](docs/agent/index.md)
    `internal/engine`, `internal/api` and `internal/acceptance` are the slow packages: always
    narrow them with `-run`. Add `-count=1` to skip Go's test cache. Never run two full suites at
    once, and say in your report which tests you ran and which you did not.
+   **Prefix every direct `go` command with `GOWORK=off`** (`go test`, `go vet`, `go build`,
+   `go run`): a `go.work` in a parent directory that does not list this module makes Go refuse
+   with "directory … is contained in a module that is not one of the workspace modules listed
+   in go.work". The `Makefile` already exports `GOWORK=off`, so `make` targets need nothing.
 5. **MCP:** `.mcp.json` points at `./bin/ddcore mcp`; use the ddcore MCP tools to inspect
    metadata, run methods and apply migrations rather than touching the database by hand.
    `ddcore://changelog` and the `whats_new` tool report what changed since the running version.
