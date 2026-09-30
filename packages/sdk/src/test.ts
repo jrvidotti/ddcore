@@ -1,4 +1,21 @@
 // Minimal test API available inside `ddcore test`.
+import type {} from "./index";
+
+declare module "./index" {
+  interface DDCoreAPI {
+    /** Helpers that exist only inside `ddcore test`. */
+    test: {
+      /**
+       * Runs `fn` as `user` — their roles, User Permission scopes, shares and
+       * user type — inside the test's transaction, then switches back. Every
+       * `ddcore.*` call in `fn` checks permissions as that user, and
+       * `ddcore.session.user` names them. Users and User Permissions the test
+       * inserted are seen, and roll back with it. Returns what `fn` returns.
+       */
+      asUser<T>(user: string, fn: () => T): T;
+    };
+  }
+}
 export interface Expect<T> {
   toBe(v: T): void;
   toEqual(v: any): void;

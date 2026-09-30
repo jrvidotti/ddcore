@@ -27,41 +27,9 @@ type NotificationPage struct {
 	Total int            `json:"total"`
 }
 
-// withNotificationUser shares the transaction and VM, but never its privileged
-// flags, roles or document cache. Rebinding avoids acquiring a second pool slot
-// while every concurrent writer already holds one.
+// withNotificationUser runs fn as the recipient, in the recipient's language.
 func (c *Ctx) withNotificationUser(user string, fn func(*Ctx) error) error {
-	rt, err := c.RT()
-	if err != nil {
-		return err
-	}
-	child := c.E.NewCtx(c.Ctx, user)
-	child.St, child.Tx, child.rt = c.St, c.Tx, rt
-	child.Lang = c.RecipientLang([]string{user})
-	// Shares are read from this transaction for the same reason as the roles
-	// below: a share written a moment ago is not in the process cache yet.
-	child.shares, err = child.loadShares(user)
-	if err != nil {
-		return err
-	}
-	child.sharesLoaded, child.sharesDirty = true, true
-	// Authorization must observe role revocation even within this transaction,
-	// before the ordinary role cache's after-commit invalidation.
-	if user != "Admin" {
-		rows, err := db.Select(c.Ctx, c.Q(), `SELECT role FROM tab_has_role WHERE parent=$1 AND parenttype='User'`, user)
-		if err != nil {
-			return err
-		}
-		child.roles = []string{"All"}
-		for _, row := range rows {
-			child.roles = append(child.roles, db.Str(row["role"]))
-		}
-	}
-	old := rt.Ctx
-	rt.Ctx = child
-	rt.SetLang(child.Lang)
-	defer func() { rt.Ctx = old; rt.SetLang(c.Lang) }()
-	return fn(child)
+	return c.withUserLang(user, c.RecipientLang([]string{user}), fn)
 }
 
 func (c *Ctx) notificationAccess(user, doctype, name string) (bool, error) {

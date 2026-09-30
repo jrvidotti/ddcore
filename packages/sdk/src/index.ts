@@ -82,7 +82,11 @@ export interface DDCoreAPI {
   /**
    * `doc` carries only what the permission rules read — the doctype is already
    * the first argument, so an `{ id, owner }` pair is a complete call. The host
-   * takes it as a plain map and never requires a whole document.
+   * takes it as a plain map and never requires a whole document. A string is
+   * a document id, and the stored document is checked.
+   *
+   * `user` checks another user's permission — their roles, scopes and shares
+   * — instead of the current one's.
    */
   hasPermission(doctype: string, ptype?: string, doc?: Partial<BaseDoc> | string, user?: string): boolean;
   /**

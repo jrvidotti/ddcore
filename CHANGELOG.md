@@ -14,6 +14,20 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **`ddcore.test.asUser(user, fn)`** (#44): inside `ddcore test`, runs `fn` as another user —
+  their roles, User Permission scopes, shares and user type — in the test's transaction, then
+  switches back, even when `fn` throws. Users and User Permissions the test inserted count and
+  roll back with it, so a leak test between tenants no longer needs a running server and curl.
+  Typed in `@ddcore/sdk/test`; see `controller-api`, *Tests*.
+
+### Fixed
+
+- **`ddcore.hasPermission(doctype, ptype, doc, user)` honours `user`** (#44): it checked the
+  current user whatever `user` said. It also accepts a document id as `doc`, as its typing
+  promised; that call used to fail with "invalid arguments".
+
 ## 0.21.17 — 2026-09-30
 
 ### Added

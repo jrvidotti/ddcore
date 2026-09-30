@@ -62,7 +62,8 @@ different DocType.
 
 ## Who is unrestricted
 
-- `Admin`.
+- `Admin`. `ddcore test` runs as Admin; a test sees scopes at work under
+  `ddcore.test.asUser(user, fn)` (see `controller-api`, *Tests*).
 - Any user without `User Permission` rows. This is the default: scopes are opt-in per user.
 - Background jobs, including jobs a scoped user enqueued (see "Background jobs" below).
 - Framework-internal operations that raise the whole context to ignore permissions, such
@@ -157,7 +158,6 @@ An update that changes `user`, `allow`, `for_value` or `applicable_for`, includi
 - Scope rules are per user. There are no scope groups or role-based scopes, and no Desk editor
   beyond the generic `User Permission` form.
 - Background jobs run with permissions ignored, so a job a scoped user enqueued is unscoped.
-- No automated test yet covers a report running under a scoped user.
 - Link validation (checking that a Link field's value names an existing document) looks
   the id up without a scope, so it does not report an out-of-scope id as missing. Combined
   with direct access and `dbSet` returning `PermissionError` for an out-of-scope id but

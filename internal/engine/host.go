@@ -224,14 +224,33 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 	case "db.getSingleValue":
 		return c.GetSingleValue(a.Doctype, a.Field)
 	case "hasPermission":
-		var doc Doc
-		if len(a.Fields) == 0 {
-			// doc may be passed under "doc"
+		doc := a.Doc
+		if doc == nil && len(a.ID) > 0 {
+			// a document id: the rules read the stored document, which the
+			// caller may not be allowed to load itself
+			var id string
+			if err := json.Unmarshal(a.ID, &id); err != nil {
+				return nil, cerr.Internal("invalid arguments in {0}: {1}", op, err)
+			}
+			if err := c.WithIgnorePermissions(func() error {
+				var err error
+				doc, err = c.GetDoc(a.Doctype, id)
+				return err
+			}); err != nil {
+				return nil, err
+			}
 		}
-		if a.Doc != nil {
-			doc = a.Doc
+		ptype := orDefault(a.Ptype, "read")
+		if a.User == "" || a.User == c.User {
+			return c.HasPermission(a.Doctype, ptype, doc)
 		}
-		return c.HasPermission(a.Doctype, orDefault(a.Ptype, "read"), doc)
+		var ok bool
+		err := c.withUser(a.User, func(u *Ctx) error {
+			var err error
+			ok, err = u.HasPermission(a.Doctype, ptype, doc)
+			return err
+		})
+		return ok, err
 	case "redact":
 		// the border an app's own endpoint or report crosses: what an API read
 		// of this document would show the current user (SEC-02)
@@ -589,9 +608,20 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		c.AuditDenied(a.Action, a.TargetDoctype, a.TargetID, d)
 		return nil, nil
 	case "test.begin":
+		if !c.E.Cfg.Test {
+			return nil, cerr.Permission("ddcore.test is only available inside ddcore test")
+		}
 		return nil, c.Begin()
 	case "test.rollback":
-		return nil, c.RollbackTo()
+		if !c.E.Cfg.Test {
+			return nil, cerr.Permission("ddcore.test is only available inside ddcore test")
+		}
+		return nil, c.testRootCtx().RollbackTo()
+	case "test.asUser":
+		return nil, c.testAsUser(a.User)
+	case "test.restoreUser":
+		c.testRestoreUser()
+		return nil, nil
 	}
 	return nil, cerr.Internal("unknown bridge operation: {0}", op)
 }

@@ -146,5 +146,26 @@ describe("Task", () => {
     expect(ids).toContain(t1.id);
     expect(ids).toContain(t2.id);
   });
+
+  it("a contributor scoped to one project sees only its tasks", () => {
+    const mine = makeProject();
+    const other = makeProject();
+    const t1 = makeTask(mine.id);
+    const t2 = makeTask(other.id);
+    const user = "contributor-" + u().randomString(6).toLowerCase() + "@testapp.test";
+    ddcore.newDoc("User", { email: user, full_name: "Contributor", roles: [{ role: "Project Contributor" }] }).insert();
+    ddcore.newDoc("User Permission", { user, allow: "Project", for_value: mine.id }).insert();
+
+    ddcore.test.asUser(user, () => {
+      const seen = ddcore.db.getList<Task>("Task", { fields: ["project"], filters: { project: ["in", [mine.id, other.id]] } });
+      expect(seen.length).toBe(1);
+      expect(seen[0].project).toBe(mine.id);
+      expect(ddcore.getDoc<Task>("Task", t1.id).project).toBe(mine.id);
+      expect(() => ddcore.getDoc("Task", t2.id)).toThrow();
+    });
+    expect(ddcore.hasPermission("Task", "read", t1.id, user)).toBe(true);
+    expect(ddcore.hasPermission("Task", "read", t2.id, user)).toBe(false);
+    expect(ddcore.hasPermission("Task", "read", t2.id)).toBe(true);
+  });
 });
 

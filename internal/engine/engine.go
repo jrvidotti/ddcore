@@ -805,6 +805,8 @@ type Ctx struct {
 	portal      bool
 	userType    string
 	portalIdent map[string][]Doc
+	// asUserParent is the ctx a test's ddcore.test.asUser switched away from.
+	asUserParent *Ctx
 }
 
 func (e *Engine) NewCtx(ctx context.Context, user string) *Ctx {
