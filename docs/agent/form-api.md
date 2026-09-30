@@ -228,6 +228,7 @@ defineListView("Entry", {
   filtersCollapsed: false,              // opens the filter card by default (it starts hidden)
   modifiedColumn: false,                // hides the trailing "Modified" column
   idColumn: false,                      // hides (or `true` shows) the leading document-id column
+  plainLinks: ["contract"],             // Link columns shown as the title in text, not as a link
 });
 ```
 
@@ -250,6 +251,11 @@ the title field is a column and is the id (`idGeneration: { field }` equal to `t
 for another reason, such as a code already shown in another column. With the column hidden, the
 row stays clickable and the title field's cell links to the document. To relabel the
 column instead of hiding it, set `idLabel` on the DocType (see `fieldtypes`).
+
+A Link column links to the document it names, so a click on it leaves the row. When the rows are
+easily mistaken for what they link to — the classes of a course, each showing its course —
+`plainLinks: ["course"]` shows that column as the course's title in plain text, and a click on it
+opens the class like the rest of the row. Only Link and Dynamic Link columns are affected.
 
 Most lists need no `indicator` at all: declare `optionColors` on the status field and the desk
 colours and translates it on its own. Reach for `indicator` only when the label is not a field

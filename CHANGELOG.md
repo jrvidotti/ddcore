@@ -14,6 +14,12 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- `defineListView` takes `plainLinks: ["field"]`: those Link (or Dynamic Link) columns show the
+  linked document's title as text instead of a link, so a click on the cell opens the row's own
+  document. For lists whose rows are easily mistaken for what they link to (#42).
+
 ## 0.21.14 — 2026-09-30
 
 ### Fixed

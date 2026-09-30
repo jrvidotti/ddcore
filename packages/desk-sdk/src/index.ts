@@ -423,6 +423,12 @@ export interface ListViewOptions<T extends BaseDoc = BaseDoc> {
    * clickable, and the title field's cell links to the document.
    */
   idColumn?: boolean;
+  /**
+   * Link columns shown as the linked document's title, as text rather than a link, so a click
+   * on the cell opens the row's own document. For a list whose rows are easily mistaken for the
+   * document they link to — the classes of a course, say.
+   */
+  plainLinks?: (keyof T & string)[];
   /** Fields fetched beyond the columns, for `indicator`, `badges` and `formatters`. */
   fields?: (keyof T & string)[];
   /** Extra indicators shown after the status, in the same cell. */

@@ -55,7 +55,11 @@
             {#if (c.fieldtype === "Link" || c.fieldtype === "Dynamic Link") && r[c.fieldname!]}
               {@const linkTarget = c.fieldtype === "Dynamic Link" ? r[c.options] : c.options}
               {@const linkVal = r[c.fieldname!]}
+              {#if settings.plainLinks?.includes(c.fieldname!)}
+                <span title={linkVal}>{getLinkTitle(linkTarget, linkVal) || linkVal}</span>
+              {:else}
               <a href={`${wsPrefix}/${encodeURIComponent(linkTarget)}/${encodeURIComponent(linkVal)}`} title={linkVal} onclick={(e) => e.stopPropagation()}>{getLinkTitle(linkTarget, linkVal) || linkVal}</a>
+              {/if}
             {:else if !showID && c.fieldname === meta.doctype.titleField}
               <a href={documentUrl(r.id)} onclick={(e) => e.stopPropagation()}>{cellText(r, c) || r.id}</a>
             {:else if c.fieldtype === "Color" && r[c.fieldname!]}

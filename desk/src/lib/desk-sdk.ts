@@ -115,6 +115,7 @@ export interface ListViewOptions<T extends BaseDoc = BaseDoc> {
   filtersCollapsed?: boolean;
   modifiedColumn?: boolean;
   idColumn?: boolean;
+  plainLinks?: (keyof T & string)[];
   fields?: (keyof T & string)[];
   badges?: (row: T) => { label: string; color: string }[] | null | undefined;
   filterOptions?: Partial<Record<keyof T & string, { value: string; label: string; filters: [string, string, any][] }[]>>;
