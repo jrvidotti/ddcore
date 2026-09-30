@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.21.18 — 2026-09-30
+
 ### Added
 
 - **`ddcore.test.asUser(user, fn)`** (#44): inside `ddcore test`, runs `fn` as another user —
