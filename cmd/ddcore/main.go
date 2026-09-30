@@ -149,6 +149,10 @@ func main() {
 // command leaves it false, which is what makes the CLI the maintenance bypass.
 var enforceMaintenance bool
 
+// deferDB is set by `mcp`, the one command that is still useful without the
+// database: see engine.Config.DeferDB.
+var deferDB bool
+
 // stripGlobalFlags removes the flags every command accepts, turning them into
 // the environment variables load reads, so no command's FlagSet has to know
 // about them.
@@ -208,7 +212,7 @@ func load(test bool, dev bool) (*engine.Engine, *config.File, error) {
 		DSN: cfg.DSN, Apps: apps, DDCore: cfg.DDCore, Workers: cfg.Workers, Scheduler: cfg.Scheduler, Dev: isDev, Test: test,
 		Port: cfg.Port, Lang: cfg.Lang, Currency: cfg.Currency, CurrencyPrecision: cfg.CurrencyPrecision, Rounding: cfg.RoundingMode(), Timezone: cfg.Timezone, DataDir: cfg.DataDir, Root: root, ExportMaxRows: cfg.ExportMaxRows, ImportMaxRows: cfg.ImportMaxRows, LogLevel: level,
 		Auth: cfg.Auth, Ops: cfg.Ops, LogJSON: logJSON(), LogOut: logOut, Mail: cfg.Mail, Webhooks: cfg.Webhooks, Storage: cfg.Storage, SiteURL: cfg.PublicURL(), TrustProxy: cfg.TrustProxy, Login: cfg.Login, OIDC: cfg.OIDC, Portal: cfg.Portal, Map: cfg.Map,
-		EnforceMaintenance: enforceMaintenance, AllowOlderBinary: allowOlderBinary(), AdminPassword: cfg.AdminPassword,
+		EnforceMaintenance: enforceMaintenance, AllowOlderBinary: allowOlderBinary(), AdminPassword: cfg.AdminPassword, DeferDB: deferDB,
 	})
 	if err == nil {
 		for _, w := range cfg.Warnings {
@@ -917,11 +921,16 @@ func cmdAPIKey(args []string) error {
 }
 
 func cmdMCP(args []string) error {
+	deferDB = true
 	e, _, err := load(false, true)
 	if err != nil {
 		return err
 	}
-	defer e.DB.Close()
+	defer func() {
+		if e.DB != nil {
+			e.DB.Close()
+		}
+	}()
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 	go watch.Apps(ctx, e, func() {

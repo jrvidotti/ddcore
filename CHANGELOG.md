@@ -58,6 +58,12 @@ older series, and `whats_new` reads across every one of them.
 - **`whitelisted(fn, { methods })` is now enforced.** It was declared but ignored; a verb outside the
   list answers 405 with an `Allow` header. An app that listed `methods` and relied on the other verb
   still working must add it to the list.
+- **`ddcore mcp` starts without the database.** An unreachable Postgres no longer kills the
+  process before the handshake, which an MCP client only reported as a closed connection. The
+  meta, scaffold, i18n and docs tools keep working; the tools that need the database answer
+  with an error that says so, and connect on their own once Postgres is up — no reconnecting
+  the client. `engine.Config.DeferDB` and `Engine.Connect` are what an embedder uses for the
+  same.
 
 ## 0.21.12 — 2026-09-29
 
