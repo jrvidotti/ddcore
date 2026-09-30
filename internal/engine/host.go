@@ -2,6 +2,10 @@ package engine
 
 import (
 	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
+	"crypto/subtle"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -508,6 +512,16 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 			return nil, nil
 		}
 		return v, nil
+	case "crypto.hmacSha256":
+		// Key and Text are the secret and the message; the answer is hex, the
+		// form a webhook provider puts in its signature header.
+		mac := hmac.New(sha256.New, []byte(a.Key))
+		mac.Write([]byte(a.Text))
+		return hex.EncodeToString(mac.Sum(nil)), nil
+	case "crypto.timingSafeEqual":
+		// Compared here, not in JS: `===` stops at the first differing byte,
+		// which is what a signature check must not do.
+		return subtle.ConstantTimeCompare([]byte(a.Key), []byte(a.Text)) == 1, nil
 	case "vault.set":
 		valStr := ""
 		if a.Value != nil {

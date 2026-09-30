@@ -19,7 +19,12 @@ older series, and `whats_new` reads across every one of them.
 - **`raw: { contentType }` on a whitelisted method** (#37) writes the returned string as the whole
   response body, with that content type and no `{data, messages}` envelope: what a provider that
   verifies a callback URL by reading a challenge back (Meta's `hub.challenge`) expects.
-
+- **Raw body and headers for whitelisted methods** (#38). `ctx.request` gains `rawBody` (the exact
+  bytes received) and `headers` (lower-cased names, without `cookie` and `authorization`), and
+  `ddcore.crypto.hmacSha256` and `ddcore.crypto.timingSafeEqual` verify a signature over that body,
+  so an inbound webhook can be authenticated inside the app. A body that is not JSON no longer fails
+  the call unless it is sent as `application/json`: `args` is empty and `rawBody` has the payload.
+  See *Inbound webhooks* in `controller-api`.
 - **PocketID provisioning.** Set `DDCORE_OIDC_<ID>_API_KEY` on a provider of kind `pocketid`
   (`DDCORE_OIDC_<ID>_KIND`, the default for the id `pocketid`) and an invitation of a System User
   creates the account in PocketID — or reuses the one with that address — and mails PocketID's

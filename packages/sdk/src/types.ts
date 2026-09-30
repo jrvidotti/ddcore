@@ -635,7 +635,18 @@ export interface Context {
   /** every language the site serves — one per translations/<lang>.csv, plus "en" */
   langs: string[];
   /** in a job / migrate / test — no HTTP request */
-  request?: { method: string; path: string; ip?: string };
+  request?: {
+    method: string;
+    path: string;
+    ip?: string;
+    /** the body exactly as received (UTF-8), which is what a signature covers */
+    rawBody?: string;
+    /**
+     * Request headers, names lower-cased. `cookie` and `authorization` are
+     * left out: the credential that authenticated the call is not app data.
+     */
+    headers?: Record<string, string>;
+  };
   /**
    * Correlates this unit of work with the access log line, the Error Log row
    * and the `X-Request-Id` the caller saw. Log it alongside anything you want

@@ -901,6 +901,10 @@
     // in the database is a secret in every backup, export and Version diff.
     // Returns null when the site was not given it.
     secret(name) { return call("secret", { text: name }); },
+    crypto: {
+      hmacSha256(key, data) { return call("crypto.hmacSha256", { key: String(key), text: String(data) }); },
+      timingSafeEqual(a, b) { return call("crypto.timingSafeEqual", { key: String(a), text: String(b) }); },
+    },
     externalDb(name) {
       const key = String(name);
       return {

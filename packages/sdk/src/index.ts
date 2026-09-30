@@ -242,6 +242,16 @@ export interface DDCoreAPI {
    */
   secret(name: string): string | null;
   /**
+   * Hashing for verifying an inbound webhook, where the provider signs the
+   * exact bytes it sent: read them from `ddcore.session.request.rawBody`.
+   */
+  crypto: {
+    /** HMAC-SHA256 of `data` under `key`, as lower-case hex. */
+    hmacSha256(key: string, data: string): string;
+    /** Constant-time string comparison: use it, never `===`, on a signature. */
+    timingSafeEqual(a: string, b: string): boolean;
+  };
+  /**
    * A read-only connection to a database that is not the site's own — only
    * SQL Server for now. See `external-db`.
    *

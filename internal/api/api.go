@@ -2,6 +2,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -307,6 +308,22 @@ func (s *Server) execute(r *http.Request, extra map[string]any, fn func(c *engin
 		return e
 	})
 	return out, c.Messages, err
+}
+
+// requestHeaders is what ctx.request.headers carries: every header, name
+// lower-cased, except the ones that authenticate the caller. The session id is
+// kept out of ctx.request on purpose (a bearer token must not cross into app
+// code), and a header is the same token by another name.
+func requestHeaders(r *http.Request) map[string]string {
+	h := make(map[string]string, len(r.Header))
+	for k, v := range r.Header {
+		switch k = strings.ToLower(k); k {
+		case "cookie", "authorization", "x-ddcore-csrf":
+			continue
+		}
+		h[k] = strings.Join(v, ", ")
+	}
+	return h
 }
 
 // runCached is `run` with an ETag: the desk asks for the same meta on every
@@ -1017,15 +1034,36 @@ func (s *Server) method(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	call := func(c *engine.Ctx) (any, error) {
-		args := map[string]any{}
-		if r.Method == "GET" {
-			for k, v := range r.URL.Query() {
-				args[k] = v[0]
-			}
-		} else if err := readJSON(r, &args); err != nil {
-			return nil, err
+	// The body is read once, before the transaction opens: the handler gets it
+	// as sent (a signature covers those bytes, not their re-serialization) and
+	// the parsed args are derived from the same copy.
+	var body []byte
+	if r.Method != "GET" && r.Body != nil {
+		var err error
+		if body, err = io.ReadAll(io.LimitReader(r.Body, 20<<20)); err != nil {
+			s.writeErr(w, r, err)
+			return
 		}
+	}
+	args := map[string]any{}
+	if r.Method == "GET" {
+		for k, v := range r.URL.Query() {
+			args[k] = v[0]
+		}
+	} else if len(bytes.TrimSpace(body)) > 0 {
+		if err := json.Unmarshal(body, &args); err != nil {
+			// A JSON caller that sends garbage gets told. Anything else (a
+			// form post, a signed webhook in another format) is legitimate:
+			// the handler reads rawBody and args stays empty.
+			if strings.Contains(r.Header.Get("Content-Type"), "json") {
+				s.writeErr(w, r, cerr.Validation("Invalid JSON: {0}", err))
+				return
+			}
+			args = map[string]any{}
+		}
+	}
+	req := map[string]any{"rawBody": string(body), "headers": requestHeaders(r)}
+	call := func(c *engine.Ctx) (any, error) {
 		if roles, ok := opts["roles"].([]any); ok && len(roles) > 0 {
 			has := false
 			for _, ro := range roles {
@@ -1051,10 +1089,10 @@ func (s *Server) method(w http.ResponseWriter, r *http.Request) {
 	}
 	if raw, ok := opts["raw"].(map[string]any); ok {
 		ct, _ := raw["contentType"].(string)
-		s.runRaw(w, r, ct, nil, call)
+		s.runRaw(w, r, ct, req, call)
 		return
 	}
-	out, msgs, err := s.execute(r, nil, call)
+	out, msgs, err := s.execute(r, req, call)
 	if err != nil {
 		s.writeErr(w, r, err)
 		return

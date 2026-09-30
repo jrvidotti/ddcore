@@ -102,6 +102,13 @@ export const whoami = whitelisted(() => ddcore.session.requestId);
 export const challenge = whitelisted((args) => args["hub.challenge"],
   { allowGuest: true, methods: ["GET"], raw: { contentType: "text/plain" } });
 export const postOnly = whitelisted(() => "ok", { allowGuest: true, methods: ["POST"] });
+export const inspect = whitelisted((args) => ({ args, body: ddcore.session.request.rawBody, headers: ddcore.session.request.headers }),
+  { allowGuest: true });
+export const verifySig = whitelisted(() => {
+  const r = ddcore.session.request;
+  const want = "sha256=" + ddcore.crypto.hmacSha256("shh", r.rawBody);
+  return ddcore.crypto.timingSafeEqual(want, r.headers["x-hub-signature-256"] || "");
+}, { allowGuest: true });
 export const notString = whitelisted(() => ({ a: 1 }), { allowGuest: true, raw: { contentType: "text/plain" } });
 export const denied = whitelisted(() => ddcore.throw("Forbidden"), { allowGuest: true, raw: { contentType: "text/plain" } });`)
 	w("services/i18n.ts", `import { whitelisted, _ } from "@ddcore/sdk";

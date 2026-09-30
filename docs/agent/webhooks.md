@@ -198,3 +198,6 @@ secret rotation with two keys valid at once, and no inbound webhooks. A receiver
 URL is not checked against private networks, so a webhook can point at a service
 inside the deployment's own network: creating one is the power of a System
 Manager without access scopes, and should be treated as such.
+
+> This page is about webhooks ddcore **sends**. To receive one (a verification handshake, a signed
+> event), see *Inbound webhooks* in `controller-api`.

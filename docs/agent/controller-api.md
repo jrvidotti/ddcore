@@ -29,7 +29,40 @@ export default defineController<Order>("Order", {
 export const lookup = whitelisted((args: { postcode: string }, ctx) => ({ /* … */ }), { allowGuest: false, roles: ["Manager"] });
 // callable by Website Users too (portals); their reads inside it see only what the portal grants
 export const myPayslips = whitelisted(() => ddcore.db.getList("Payslip", { fields: ["id", "period"] }), { portal: true });
+// `methods` is enforced: any other verb is a 405 with an `Allow` header
+export const ping = whitelisted(() => "pong", { allowGuest: true, methods: ["GET"] });
 ```
+
+### Inbound webhooks
+
+A provider that calls *you* needs two things a JSON method does not give: an answer that is not wrapped in
+`{data, messages}`, and the exact bytes it signed. Both are opt-ins on a whitelisted method:
+
+```ts
+// the verification handshake: the challenge is echoed back as the whole body
+export const verify = whitelisted(
+  (args) => args["hub.verify_token"] === ddcore.secret("META_VERIFY_TOKEN") ? args["hub.challenge"] : ddcore.throw("Forbidden"),
+  { allowGuest: true, methods: ["GET"], raw: { contentType: "text/plain" } },
+);
+
+// the event itself: check the signature over the raw body before trusting it
+export const receive = whitelisted((args, ctx) => {
+  const { rawBody, headers } = ctx.request!;
+  const want = "sha256=" + ddcore.crypto.hmacSha256(ddcore.secret("META_APP_SECRET")!, rawBody!);
+  if (!ddcore.crypto.timingSafeEqual(want, headers!["x-hub-signature-256"] ?? "")) ddcore.throw("Forbidden");
+  // …
+}, { allowGuest: true, methods: ["POST"] });
+```
+
+- `raw: { contentType }` — the returned **string** is the whole body, with that content type. Anything else
+  returned is a 500. A thrown error is still a JSON error with its status.
+- `ctx.request` (and `ddcore.session.request`) carries `rawBody`, the body exactly as received (UTF-8), and
+  `headers`, names lower-cased. `cookie`, `authorization` and `x-ddcore-csrf` are left out on purpose. `args` is
+  still parsed from a JSON body; a body that is not JSON (and is not sent as `application/json`) leaves `args`
+  empty instead of failing, so read `rawBody`.
+- `ddcore.crypto.hmacSha256(key, data)` → lower-case hex; `ddcore.crypto.timingSafeEqual(a, b)` compares in
+  constant time. Never compare a signature with `===`. For a timestamped scheme, also check the timestamp header
+  against `Date.now()` and refuse an event older than the window you accept.
 
 Hooks for another app's DocTypes: in `ddcore.app.ts`, `docEvents: { "User": { validate(doc) {} }, "*": { onUpdate(doc) {} } }`.
 A DocType has **one** controller, its owner's: `defineController` from a second app is refused. To add rules to
@@ -83,7 +116,7 @@ by hand.
 - `ddcore.externalDb("sql_server").sql("SELECT ... WHERE x = @p1", [v], { timeout })` — read-only query on another database (SQL Server), configured from `DDCORE_SECRET_SQL_SERVER_*`. See `external-db`
 - `ddcore.getDoc(doctype, id)`, `ddcore.newDoc(doctype, values)`, `ddcore.deleteDoc(doctype, id, { force })`, `ddcore.rename(doctype, oldID, newID)`
 - `ddcore.throw(msg, { title, type })`, `ddcore.msgprint(msg, { title, indicator, alert })`, `ddcore._(text, args)` / `_()`
-- `ddcore.session` → `{ user, roles, lang, request }`; `ddcore.user()`; `ddcore.getRoles(user)`; `ddcore.hasPermission(doctype, ptype, doc)` (`doc` may be just `{ id, owner }`)
+- `ddcore.session` → `{ user, roles, lang, request }` (`request`: `{ method, path, ip, rawBody, headers }` on a whitelisted call — see *Inbound webhooks*); `ddcore.user()`; `ddcore.getRoles(user)`; `ddcore.hasPermission(doctype, ptype, doc)` (`doc` may be just `{ id, owner }`)
 - `ddcore.share.add(doctype, id, user, { write, share, overrideScope })` / `remove(doctype, id, user)` / `list(doctype, id)` — per-user document shares, checked with the current user as sharer. See `sharing`
 - `ddcore.users.invite({ email, fullName, roles?, userType? })` / `resendInvite(user)` — create an account and mail its invitation; returns `{ user, expires, link? }`. Without System Manager, only a Website User with no privileged role. See `portal`
 - `ddcore.redact(doctype, doc)` → a copy of `doc` as an API read would show it to the current user: Password/Vault blanked and fields above their permission level removed. Server code sees whole documents; redact before a method or report hands one to a client. See `field-permissions`
