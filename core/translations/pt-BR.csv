@@ -25,7 +25,7 @@ Add child,Adicionar filho,# desk/src/lib/components/views/TreeView.svelte:131
 Add row,Adicionar linha,# desk/src/lib/controls/Grid.svelte:196
 Add {0},Adicionar {0},# desk/src/lib/controls/TableMultiSelectControl.svelte:124
 Address,Endereço,# desk/src/lib/components/Profile.svelte:200
-Admin has no account at the identity provider to change,Admin não tem conta no provedor de identidade para alterar,# internal/engine/pocketid.go:473
+Admin has no account at the identity provider to change,Admin não tem conta no provedor de identidade para alterar,# internal/engine/pocketid.go:515
 Admin sign-in,Entrar como Admin,# desk/src/routes/login/+page.svelte:82
 Administering jobs requires the System Manager role,Administrar jobs exige o papel System Manager,# internal/api/jobs.go:22
 Advanced,Avançado,# desk/src/lib/controls/ColorControl.svelte:172
@@ -388,7 +388,7 @@ No column of this file matches a field of {0},Nenhuma coluna deste arquivo corre
 No due date,Sem vencimento,# desk/src/routes/app/todo/+page.svelte:67
 No field matches this column,Nenhum campo corresponde a esta coluna,# internal/engine/data_import.go:415
 No history recorded,Nenhum histórico registrado,# desk/src/lib/components/DocHistory.svelte:87
-No identity provider is set up for provisioning,Nenhum provedor de identidade está configurado para provisionamento,# internal/engine/pocketid.go:470
+No identity provider is set up for provisioning,Nenhum provedor de identidade está configurado para provisionamento,# internal/engine/pocketid.go:512
 No keys yet.,Nenhuma chave ainda.,# desk/src/lib/components/Profile.svelte:262
 No location,Sem localização,# desk/src/lib/controls/GeolocationControl.svelte:255
 No notifications,Nenhuma notificação,# desk/src/routes/app/notifications/+page.svelte:34
@@ -440,7 +440,7 @@ On Delete,Ao Excluir,# core.doctypes.webhook.webhook.doctype
 On Insert,Ao Inserir,# core.doctypes.webhook.webhook.doctype
 On Submit,Ao Submeter,# core.doctypes.webhook.webhook.doctype
 On Update,Ao Atualizar,# core.doctypes.webhook.webhook.doctype
-Only a System Manager can change an account at the identity provider,Somente um System Manager pode alterar uma conta no provedor de identidade,# internal/engine/pocketid.go:466
+Only a System Manager can change an account at the identity provider,Somente um System Manager pode alterar uma conta no provedor de identidade,# internal/engine/pocketid.go:508
 Only a System Manager can give the role {0},Só um System Manager pode conceder o papel {0},# internal/engine/users.go:61
 Only a System Manager can invite a System User,Só um System Manager pode convidar um System User,# internal/engine/users.go:57
 Only a System Manager may replay a webhook delivery,Somente um System Manager pode reenviar uma entrega de webhook,# internal/engine/webhooks.go:512
@@ -475,9 +475,10 @@ Payload,Conteúdo,# core.doctypes.webhook_delivery.webhook_delivery.doctype
 Pick a colour from the screen,Capturar uma cor da tela,# desk/src/lib/controls/ColorControl.svelte:206
 Pick the highlighted option,Selecionar opção destacada,# desk/src/lib/shortcuts.ts:109
 PocketID answered {0} with something that is not JSON,O PocketID respondeu a {0} com algo que não é JSON,# internal/engine/pocketid.go:140
+PocketID created group {0} but answered without its id,O PocketID criou o grupo {0} mas respondeu sem o id dele,# internal/engine/pocketid.go:255
 PocketID did not answer ({0}): {1},O PocketID não respondeu ({0}): {1},# internal/engine/pocketid.go:128
-"PocketID has no group {0}, which auth.sso.{1}.groupRoles maps","O PocketID não tem o grupo {0}, que auth.sso.{1}.groupRoles mapeia",# internal/engine/pocketid.go:225
-PocketID issued an empty login code,O PocketID emitiu um código de acesso vazio,# internal/engine/pocketid.go:362
+"PocketID has no group {0}, which auth.sso.{1}.groupRoles maps, and creating it failed: {2}. Create the group in PocketID (Administration → User Groups) and try again","O PocketID não tem o grupo {0}, que auth.sso.{1}.groupRoles mapeia, e a criação falhou: {2}. Crie o grupo no PocketID (Administração → Grupos de usuários) e tente novamente",# internal/engine/pocketid.go:252
+PocketID issued an empty login code,O PocketID emitiu um código de acesso vazio,# internal/engine/pocketid.go:404
 PocketID refused to {0} ({1}): {2},O PocketID recusou {0} ({1}): {2},# internal/engine/pocketid.go:105
 Point,Ponto,# desk/src/lib/controls/GeolocationControl.svelte:211
 "Point (1,234.56)","Ponto (1,234.56)",# desk/src/lib/components/DataImportModal.svelte:170

@@ -225,6 +225,10 @@ A provider's groups can grant roles. The map is site policy, so it lives in
   asked. An empty list does take every managed role away.
 - **Other cases.** A group mapped to a role that does not exist is skipped with
   a warning, and `Admin` is never touched.
+- **Where the groups come from.** With [PocketID provisioning](#pocketid-provisioning)
+  on, ddcore creates a mapped group PocketID does not have yet the first time a
+  User needs it. Without provisioning, create the groups at the provider
+  yourself.
 - **Scope.** With a map configured, the `groups` scope is added to the
   provider's scopes.
 - **Refused at load:** a policy for a provider not in `DDCORE_OIDC_PROVIDERS`,
@@ -247,20 +251,24 @@ provider may carry it. The admin API is reached at the issuer URL with the
   or `ddcore user invite`) does the following:
   1. It finds the PocketID account with that address, or creates one with
      `emailVerified` set. A disabled account is re-enabled.
-  2. It sets the account's mapped groups from the User's roles.
+  2. It sets the account's mapped groups from the User's roles. A mapped group
+     PocketID does not have yet is created there, named as in `groupRoles`,
+     with its roles joined by commas as the display name.
   3. It mails `core.invite_sso`, which carries PocketID's one-time link
      (`<issuer>/lc/<token>`, valid `inviteHours`, at most 31 days) to register
      a passkey, and then the site's sign-in address.
 
   No password token is issued. The provider is called inside the
-  transaction: a refusal fails the invitation with PocketID's reason. An
+  transaction: a refusal fails the invitation with PocketID's reason. If a group
+  cannot be created, the message names the group so it can be created by hand
+  in PocketID (*Administration → User Groups*). An
   account left behind by a rolled-back invitation is found and reused by the
   next one. **Resend invitation** issues a new link the same way. A **Website
   User** is still invited with a password, because the portals sign in with one.
 - **Roles → groups.** With provisioning on, a save of a User that changes a
   managed role queues `core.services.idp.sync` (queue `idp`, exponential
-  backoff, 5 attempts). The job sets the account's mapped groups and leaves its
-  other groups alone.
+  backoff, 5 attempts). The job sets the account's mapped groups, creating any
+  that PocketID does not have yet, and leaves its other groups alone.
   - A group is due when the User holds **every** role it maps to.
   - A save made by a sign-in is not pushed back.
   - A User with no PocketID account is nothing to do.
@@ -275,8 +283,10 @@ provider may carry it. The admin API is reached at the issuer URL with the
   (PocketID's PUT replaces the user), and records `account.idp_disable` or
   `account.idp_enable`. A deletion only disables at PocketID; it never deletes
   there. Deleting from the list view, the API or the CLI does not ask.
-- **Doctor.** `ddcore doctor` probes the API key and reports mapped groups
-  missing in PocketID and mapped roles missing on the site.
+- **Doctor.** `ddcore doctor` probes the API key and warns about mapped roles
+  missing on the site. It lists the mapped groups PocketID does not have yet
+  (`groupsToCreate` in `--json`) as created on first use: that list is not a
+  warning, and the doctor never creates anything itself.
 
 ## Sessions
 

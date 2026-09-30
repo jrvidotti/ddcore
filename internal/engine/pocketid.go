@@ -201,31 +201,73 @@ func (p *pocketIDAdmin) updateUser(ctx context.Context, u pidUser, change func(m
 	return out, nil
 }
 
-// groupIDs resolves group names to ids. A group that does not exist is an
-// error: ddcore maps groups, it does not create them.
+// groupIDs resolves group names to ids. A mapped group that does not exist
+// yet is created: on a fresh setup nothing else would make it.
 func (p *pocketIDAdmin) groupIDs(ctx context.Context, names []string) (map[string]string, error) {
 	out := map[string]string{}
 	for _, n := range names {
-		q := url.Values{"search": {n}, "pagination[limit]": {"100"}}
-		var page struct {
-			Data []struct {
-				ID   string `json:"id"`
-				Name string `json:"name"`
-			} `json:"data"`
-		}
-		if _, err := p.call(ctx, "list groups", http.MethodGet, "/api/user-groups?"+q.Encode(), nil, &page); err != nil {
+		id, err := p.findGroup(ctx, n)
+		if err != nil {
 			return nil, err
 		}
-		for _, g := range page.Data {
-			if g.Name == n {
-				out[n] = g.ID
+		if id == "" {
+			if id, err = p.createGroup(ctx, n); err != nil {
+				return nil, err
 			}
 		}
-		if out[n] == "" {
-			return nil, cerr.Validation("PocketID has no group {0}, which auth.sso.{1}.groupRoles maps", n, p.provider.ID)
-		}
+		out[n] = id
 	}
 	return out, nil
+}
+
+// findGroup is the id of the group with exactly that name, or "" when there
+// is none.
+func (p *pocketIDAdmin) findGroup(ctx context.Context, name string) (string, error) {
+	q := url.Values{"search": {name}, "pagination[limit]": {"100"}}
+	var page struct {
+		Data []struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		} `json:"data"`
+	}
+	if _, err := p.call(ctx, "list groups", http.MethodGet, "/api/user-groups?"+q.Encode(), nil, &page); err != nil {
+		return "", err
+	}
+	for _, g := range page.Data {
+		if g.Name == name {
+			return g.ID, nil
+		}
+	}
+	return "", nil
+}
+
+// createGroup makes a mapped group PocketID does not have. A refusal names
+// the group and says how to make it by hand.
+func (p *pocketIDAdmin) createGroup(ctx context.Context, name string) (string, error) {
+	var g struct {
+		ID string `json:"id"`
+	}
+	body := map[string]any{"name": name, "friendlyName": p.friendlyName(name)}
+	if _, err := p.call(ctx, "create a group", http.MethodPost, "/api/user-groups", body, &g); err != nil {
+		return "", cerr.Validation("PocketID has no group {0}, which auth.sso.{1}.groupRoles maps, and creating it failed: {2}. Create the group in PocketID (Administration → User Groups) and try again", name, p.provider.ID, err)
+	}
+	if g.ID == "" {
+		return "", cerr.Internal("PocketID created group {0} but answered without its id", name)
+	}
+	return g.ID, nil
+}
+
+// friendlyName is the display name of a group ddcore creates: the roles it
+// maps to, within PocketID's 2 to 50 characters.
+func (p *pocketIDAdmin) friendlyName(name string) string {
+	f := strings.Join(p.policy.GroupRoles[name], ", ")
+	if r := []rune(f); len(r) > 50 {
+		f = strings.TrimSpace(string(r[:50]))
+	}
+	if len([]rune(f)) < 2 {
+		f = name
+	}
+	return f
 }
 
 // syncGroups sets the user's mapped groups from the User's roles and leaves
@@ -517,13 +559,13 @@ func (e *Engine) IdPStatus() map[string]any {
 	return map[string]any{"id": p.provider.ID, "label": p.provider.Label}
 }
 
-// ProbePocketID is the doctor's check: the key works, and every mapped group
-// exists. Each problem is one line.
-func ProbePocketID(ctx context.Context, p config.OIDCProvider, pol config.SSOPolicy) []string {
+// ProbePocketID is the doctor's check: the key works (problems), and which
+// mapped groups PocketID does not have yet (absent) — those are created the
+// first time a User needs one. It never changes anything at PocketID.
+func ProbePocketID(ctx context.Context, p config.OIDCProvider, pol config.SSOPolicy) (problems, absent []string) {
 	a := &pocketIDAdmin{provider: p, policy: pol}
-	var probs []string
 	if _, err := a.call(ctx, "list users", http.MethodGet, "/api/users?pagination[limit]=1", nil, nil); err != nil {
-		return []string{fmt.Sprint(err)}
+		return []string{fmt.Sprint(err)}, nil
 	}
 	names := make([]string, 0, len(pol.GroupRoles))
 	for g := range pol.GroupRoles {
@@ -531,9 +573,13 @@ func ProbePocketID(ctx context.Context, p config.OIDCProvider, pol config.SSOPol
 	}
 	sort.Strings(names)
 	for _, n := range names {
-		if _, err := a.groupIDs(ctx, []string{n}); err != nil {
-			probs = append(probs, fmt.Sprint(err))
+		id, err := a.findGroup(ctx, n)
+		switch {
+		case err != nil:
+			problems = append(problems, fmt.Sprint(err))
+		case id == "":
+			absent = append(absent, n)
 		}
 	}
-	return probs
+	return problems, absent
 }

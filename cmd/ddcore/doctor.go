@@ -104,10 +104,13 @@ type ssoProvider struct {
 	Error    string `json:"error,omitempty"`
 	// Provisioning is on when an admin API key is set (PocketID): ddcore
 	// creates the accounts there. Problems lists what the probe of that API
-	// and of the group → role map found.
-	Provisioning bool     `json:"provisioning,omitempty"`
-	MappedGroups int      `json:"mappedGroups,omitempty"`
-	Problems     []string `json:"problems,omitempty"`
+	// and of the group → role map found. GroupsToCreate are mapped groups
+	// PocketID does not have yet: not a problem, ddcore creates each one the
+	// first time a User needs it.
+	Provisioning   bool     `json:"provisioning,omitempty"`
+	MappedGroups   int      `json:"mappedGroups,omitempty"`
+	GroupsToCreate []string `json:"groupsToCreate,omitempty"`
+	Problems       []string `json:"problems,omitempty"`
 }
 
 type vaultSection struct {
@@ -305,7 +308,8 @@ func gatherDoctor(ctx context.Context, cfg *config.File, windowMin int, updateCh
 		sp.Provisioning, sp.MappedGroups = p.Provisions(), len(pol.GroupRoles)
 		if p.Provisions() {
 			dctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-			sp.Problems = append(sp.Problems, engine.ProbePocketID(dctx, p, pol)...)
+			probs, absent := engine.ProbePocketID(dctx, p, pol)
+			sp.Problems, sp.GroupsToCreate = append(sp.Problems, probs...), absent
 			cancel()
 		}
 		var roles []string
@@ -525,6 +529,10 @@ func (r *doctorReport) printTail(w io.Writer, p func(string, string, ...any)) {
 			}
 			if x.MappedGroups > 0 {
 				id += fmt.Sprintf(" (%d group(s) mapped to roles)", x.MappedGroups)
+			}
+			if len(x.GroupsToCreate) > 0 {
+				id += fmt.Sprintf(" (%d mapped group(s) not in PocketID yet, created on first use: %s)",
+					len(x.GroupsToCreate), strings.Join(x.GroupsToCreate, ", "))
 			}
 			ids = append(ids, id)
 		}
