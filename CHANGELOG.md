@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.21.16 — 2026-09-30
+
 ### Added
 
 - **`gridSearch: ["field", ...]`** on a `Table` or a `Report` field (#46): a search box above the
