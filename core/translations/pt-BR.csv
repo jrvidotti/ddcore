@@ -155,6 +155,7 @@ Dates,Datas,# desk/src/lib/components/DataImportModal.svelte:160
 Day,Dia,# desk/src/lib/components/ListView.svelte:521
 Day/month/year,Dia/mês/ano,# desk/src/lib/components/DataImportModal.svelte:162
 Decimal separator,Separador decimal,# desk/src/lib/components/DataImportModal.svelte:167
+Default,Padrão,# desk/src/lib/components/PrintView.svelte:183
 Delete,Excluir,# desk/src/lib/components/Dialogs.svelte:94
 Delete attachment,Excluir anexo,# desk/src/lib/controls/Grid.svelte:93
 Delete selected,Excluir selecionadas,# desk/src/lib/controls/Grid.svelte:65

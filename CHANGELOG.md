@@ -14,6 +14,13 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- `ddcore i18n extract` collects `_()` / `__()` inside a template literal's `${…}`, and a template
+  nested in an interpolation no longer ends the outer one and hides every key after it in the file.
+  Both used to pass `--check` silently. Run `ddcore i18n extract` again: keys that were missed now
+  show up as missing and need a translation (#52).
+
 ## 0.21.18 — 2026-09-30
 
 ### Added

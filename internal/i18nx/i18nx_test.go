@@ -59,6 +59,39 @@ func TestCollectTSTemplateLiteralIsDynamic(t *testing.T) {
 	}
 }
 
+// The code inside `${…}` is code: a call there is collected, and a template
+// nested in it must not end the outer one and hide the rest of the file.
+func TestCollectTSTemplateInterpolation(t *testing.T) {
+	src := "const a = `<p>${esc(__(\"In an interpolation\"))}</p>`;\n" +
+		"const b = `a ${ x ? `<t>${__(\"Nested\")}</t>` : \"\"}</div>`;\n" +
+		"const c = `${ {k: 1}.k } ${'}'} ${\"`\"}`;\n" +
+		"const d = `x` / 2; const e = y / 2;\n" +
+		"const f = __(\"After\");\n"
+	s := collect(t, src, "x.ts", false)
+	got := texts(s)
+	sort.Strings(got)
+	want := []string{"After", "In an interpolation", "Nested"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+	if len(s.Dynamic) != 0 {
+		t.Fatalf("no dynamic call expected, got %v", s.Dynamic)
+	}
+	for _, k := range s.Keys() {
+		if k.Text == "After" && k.Line != 5 {
+			t.Fatalf("After on line %d, want 5", k.Line)
+		}
+	}
+}
+
+// A Svelte expression holding a nested template must still end at its own `}`.
+func TestCollectSvelteNestedTemplate(t *testing.T) {
+	src := "<p>{`a ${b ? `c` : \"}\"}`}</p>\n<p>{__(\"Kept\")}</p>\n"
+	if got := texts(collect(t, src, "x.svelte", true)); !reflect.DeepEqual(got, []string{"Kept"}) {
+		t.Fatalf("got %q, want [Kept]", got)
+	}
+}
+
 func TestCollectTSSkipsDeclarations(t *testing.T) {
 	s := collect(t, "interface API {\n  __(s: string, args?: any[]): string;\n}\n", "x.ts", false)
 	if s.Len() != 0 || len(s.Dynamic) != 0 {
