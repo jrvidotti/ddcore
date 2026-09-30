@@ -395,6 +395,33 @@ export interface TreeViewOptions<T extends BaseDoc = BaseDoc> {
   orderBy?: string;
 }
 
+/** What a list action's `onClick` receives besides the ids. */
+export interface ListActionContext<T extends BaseDoc = BaseDoc> {
+  doctype: string;
+  /** The loaded values of the rows the action applies to, in list order. */
+  rows: T[];
+  /** Reloads the list; it also reloads, with the selection cleared, once `onClick` settles. */
+  refresh(): void;
+}
+
+/** A button over the rows selected in the List or Cards view. */
+export interface ListAction<T extends BaseDoc = BaseDoc> {
+  /** Button text, shown as given — wrap it in `__()`. The desk appends the count of rows it applies to. */
+  label: string;
+  /**
+   * Per-row filter: the button shows while at least one selected row passes, and only those rows
+   * reach `onClick`. A condition that throws counts as `false`.
+   */
+  condition?: (row: T) => boolean;
+  /** `true` draws the button as primary. */
+  primary?: boolean;
+  /**
+   * Runs on a click, with the button disabled until it settles. A rejection is shown to the user;
+   * either way the selection is cleared and the list reloads.
+   */
+  onClick(ids: string[], list: ListActionContext<T>): any | Promise<any>;
+}
+
 /** Adjustments for a DocType's list view (see docs/agent/form-api.md). */
 export interface ListViewOptions<T extends BaseDoc = BaseDoc> {
   /**
@@ -452,6 +479,8 @@ export interface ListViewOptions<T extends BaseDoc = BaseDoc> {
    * one applies its `filters` in place of `[field, "=", value]`.
    */
   filterOptions?: Partial<Record<keyof T & string, { value: string; label: string; filters: [string, string, any][] }[]>>;
+  /** Buttons shown next to "Delete (n)" while rows are selected in the List or Cards view. */
+  actions?: ListAction<T>[];
 }
 
 export declare function defineListView<T extends BaseDoc = BaseDoc>(doctype: string, opts: ListViewOptions<T>): void;

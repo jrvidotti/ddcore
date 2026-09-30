@@ -14,6 +14,13 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- `defineListView({ actions })`: app buttons over the rows selected in the List or Cards view,
+  shown next to "Delete (n)" as `label (n)`. An optional per-row `condition` picks the rows an
+  action applies to; `onClick(ids, list)` receives their ids and loaded values, and the list clears
+  the selection and reloads once it settles. See `form-api` (#53).
+
 ## 0.22.0 — 2026-09-30
 
 ### Added

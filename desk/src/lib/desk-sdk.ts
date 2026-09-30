@@ -98,6 +98,19 @@ export interface TreeViewOptions<T extends BaseDoc = BaseDoc> {
   orderBy?: string;
 }
 
+export interface ListActionContext<T extends BaseDoc = BaseDoc> {
+  doctype: string;
+  rows: T[];
+  refresh(): void;
+}
+
+export interface ListAction<T extends BaseDoc = BaseDoc> {
+  label: string;
+  condition?: (row: T) => boolean;
+  primary?: boolean;
+  onClick(ids: string[], list: ListActionContext<T>): any;
+}
+
 export interface ListViewOptions<T extends BaseDoc = BaseDoc> {
   /** Allowed views for this DocType; defaults to ["list", "cards"] plus "calendar", "kanban" and "gantt" for each one configured */
   views?: DeskViewMode[];
@@ -120,6 +133,7 @@ export interface ListViewOptions<T extends BaseDoc = BaseDoc> {
   fields?: (keyof T & string)[];
   badges?: (row: T) => { label: string; color: string }[] | null | undefined;
   filterOptions?: Partial<Record<keyof T & string, { value: string; label: string; filters: [string, string, any][] }[]>>;
+  actions?: ListAction<T>[];
 }
 
 const listRegistry = new Map<string, any>();

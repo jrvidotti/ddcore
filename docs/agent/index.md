@@ -15,7 +15,7 @@ Available documents (also as MCP resources `ddcore://docs/<name>`):
 - `portal` — self-service portals (`definePortal`): Website Users, identity and match, pages, uploads, limits and inviting portal users
 - `sharing` — document sharing (`Document Share`): per-user read/write/share grants on one document, scope override, audit
 - `controller-api` — `defineController`, hooks, methods, the server's `ddcore.*` API
-- `form-api` — `defineForm`, `frm.*`, dialogs, `defineListView` and its Calendar, Kanban, Gantt and Card views (desk)
+- `form-api` — `defineForm`, `frm.*`, dialogs, `defineListView`, its actions on the selected rows and its Calendar, Kanban, Gantt and Card views (desk)
 - `trees` — hierarchical DocTypes (`isTree`): the parent Link and `is_group`, write integrity, the `descendants of` family of filters, scopes down a branch and the Desk tree view
 - `virtual-doctypes` — virtual DocTypes (`virtual`): a read-only union of other DocTypes with a field mapping, `<Source>:<id>` ids, per-source permissions and Links to either source
 - `search` — global search: the Mod+K palette, which DocTypes are searched (`globalSearch`), ranking and authorization
