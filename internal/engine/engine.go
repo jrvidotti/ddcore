@@ -106,6 +106,11 @@ type Config struct {
 	// AllowOlderBinary lets this binary open a database a newer core or app
 	// version migrated — the deliberate rollback. See CheckSiteVersion.
 	AllowOlderBinary bool
+	// DeferDB makes an unreachable database not fatal: New returns an engine
+	// with a nil DB and Connect tries again later. The MCP server sets it, so
+	// an agent can still read the docs and edit metadata while Postgres is
+	// down, and the first tool that needs the database connects it.
+	DeferDB bool
 }
 
 // AppMeta is what defineApp produced, minus functions.
@@ -301,12 +306,17 @@ func New(ctx context.Context, cfg Config) (*Engine, error) {
 		return nil, err
 	}
 	e.store = store
+	var dbErr error
 	if cfg.DSN != "" {
 		d, err := db.Open(ctx, cfg.DSN)
-		if err != nil {
+		switch {
+		case err == nil:
+			e.DB = d
+		case !cfg.DeferDB:
 			return nil, err
+		default:
+			dbErr = err
 		}
-		e.DB = d
 	}
 	if err := e.Load(); err != nil {
 		// nobody gets the engine back to close it: an app that fails to load
@@ -322,7 +332,34 @@ func New(ctx context.Context, cfg Config) (*Engine, error) {
 			return nil, err
 		}
 	}
+	if dbErr != nil {
+		e.Log.Warn("database unreachable: running without it until it answers", "err", db.RedactError(dbErr))
+	}
 	return e, nil
+}
+
+// Connect opens the database an engine built with DeferDB could not reach at
+// boot, and runs the same site-version check New would have. It does nothing
+// when the engine already has one. The caller serializes it: DB is a plain
+// field, and nothing else may read it until Connect returns.
+func (e *Engine) Connect(ctx context.Context) error {
+	if e.DB != nil {
+		return nil
+	}
+	if e.Cfg.DSN == "" {
+		return fmt.Errorf("dsn not configured: run `ddcore init` or set DDCORE_DSN")
+	}
+	d, err := db.Open(ctx, e.Cfg.DSN)
+	if err != nil {
+		return err
+	}
+	e.DB = d
+	if err := e.CheckSiteVersion(ctx); err != nil {
+		e.DB = nil
+		d.Close()
+		return err
+	}
+	return nil
 }
 
 // buildPool compiles the apps in order and returns a fresh pool plus the

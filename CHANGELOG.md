@@ -42,6 +42,12 @@ older series, and `whats_new` reads across every one of them.
 - **`ddcore user invite` takes the same path as the desk's *Save and invite***: it now records
   `account.invite`, refuses an address that already has a User with the usual message, and
   provisions PocketID when that is on.
+- **`ddcore mcp` starts without the database.** An unreachable Postgres no longer kills the
+  process before the handshake, which an MCP client only reported as a closed connection. The
+  meta, scaffold, i18n and docs tools keep working; the tools that need the database answer
+  with an error that says so, and connect on their own once Postgres is up — no reconnecting
+  the client. `engine.Config.DeferDB` and `Engine.Connect` are what an embedder uses for the
+  same.
 
 ## 0.21.12 — 2026-09-29
 

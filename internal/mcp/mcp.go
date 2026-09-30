@@ -93,8 +93,9 @@ func New(e *engine.Engine) *mcp.Server {
 			"Typical flow: get_doctype / scaffold_doctype → migrate → insert_doc / list_docs → run_tests. " +
 			"Moving data between sites is export then import (plan, run, reconcile). " +
 			"Every label is an English key: after adding one, i18n_extract → set_translations until nothing is missing. " +
-			"The app's TS files are the source of truth: edit them and the server reloads.",
+			"The app's TS files are the source of truth: edit them and the server reloads." + offlineNote(e),
 	})
+	srv.AddReceivingMiddleware(requireDB(e))
 
 	// ---- meta
 	mcp.AddTool(srv, &mcp.Tool{Name: "list_doctypes", Description: "Lists all loaded DocTypes (name, app, label, isChild, isSingle, isVirtual, submittable, file)."},
@@ -782,6 +783,9 @@ func (s *server) writeTypes() []string {
 func testConfig(e *engine.Engine) engine.Config {
 	cfg := e.Cfg
 	cfg.Test = true
+	// run_tests dereferences the test engine's DB: an unreachable test
+	// database must fail New, not hand back an engine without one.
+	cfg.DeferDB = false
 	return cfg
 }
 
