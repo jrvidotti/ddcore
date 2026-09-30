@@ -2,6 +2,7 @@
 // reactive state, tracks dirtiness and exposes the API described in
 // @ddcore/desk-sdk (setValue, addButton, call, setQuery...).
 import { api } from "./api";
+import { subscribe } from "./events";
 import { getMeta, newDoc, type Meta, type Field, isLayout } from "./meta";
 import { evalExpr } from "./expr";
 import { toast, showError, ui } from "./ui.svelte";
@@ -116,6 +117,8 @@ export class FormController {
   fieldRefresh = $state<Record<string, number>>({});
   handlers: FormHandlers[];
   private setupDone = false;
+  /** what onRealtime subscribed, dropped by dispose when the form closes */
+  private realtimeOffs: (() => void)[] = [];
 
   constructor(meta: Meta, doc: any) {
     this.meta = meta;
@@ -126,6 +129,17 @@ export class FormController {
     this.saved = doc ? JSON.parse(this.original) : {};
     this.handlers = formHandlers(this.doctype);
     this.loading = false;
+  }
+
+  /** Runs handler on each `event` sent with ddcore.publish, for as long as this form is open. */
+  onRealtime(event: string, handler: (payload: any) => void) {
+    this.realtimeOffs.push(subscribe(event, handler));
+    return this;
+  }
+
+  /** The form is closing: drop what it subscribed to. */
+  dispose() {
+    for (const off of this.realtimeOffs.splice(0)) off();
   }
 
   // ------------------------------------------------------------- doc state

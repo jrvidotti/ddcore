@@ -222,6 +222,13 @@ export interface DDCoreAPI {
   };
   /** The site's title, as the desk and the framework's own mail display it. */
   siteName(): string;
+  /**
+   * Sends an event to the desk over SSE when the transaction commits. With
+   * `user`, only that user's sessions receive it; with `doctype` (and `id`),
+   * only sessions that may read that DocType (that document). A desk script
+   * listens with `frm.onRealtime` or `ddcore.realtime.on`. The name is
+   * letters, digits and `_ . : -`; prefix it with the app's name.
+   */
   publish(event: string, payload: any, opts?: { user?: string; doctype?: string; id?: string }): void;
   log: { info(...a: any[]): void; warn(...a: any[]): void; error(...a: any[]): void; debug(...a: any[]): void };
   /**

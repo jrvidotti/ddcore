@@ -67,6 +67,11 @@ export interface Frm<T extends BaseDoc = BaseDoc> {
   discardChanges(): Promise<void>;
   /** calls a controller method (POST /api/resource/:doctype/:id/:method) and reloads the doc */
   call(method: string, args?: Record<string, any>, opts?: { freeze?: boolean; reload?: boolean }): Promise<any>;
+  /**
+   * runs handler on each `event` the server sends with `ddcore.publish`, for as
+   * long as this form is open: the handler is dropped when the form closes
+   */
+  onRealtime(event: string, handler: (payload: any) => void): this;
 }
 
 /** what `frm.setDfProperty` changes: any field property, plus the grid's runtime-only row flags */
@@ -232,6 +237,15 @@ export interface DeskAPI {
   /** Global search (OPS-08): documents the user can read whose id, title or search fields contain txt. */
   search: {
     global(txt: string, limit?: number): Promise<GlobalSearchHit[]>;
+  };
+  /**
+   * Events the server sends with `ddcore.publish`. `on` returns the function
+   * that removes the handler; nothing removes it by itself, so a form script
+   * uses `frm.onRealtime`, which is dropped when the form closes.
+   */
+  realtime: {
+    on(event: string, handler: (payload: any) => void): () => void;
+    off(event: string, handler: (payload: any) => void): void;
   };
   _(s: string, args?: any[]): string;
   __(s: string, args?: any[]): string;

@@ -2,6 +2,7 @@
 // by the Go bundler to window.__ddcoreDesk). Keep it in sync with
 // packages/desk-sdk/src/index.ts, which holds the public types.
 import { api } from "./api";
+import { subscribe, unsubscribe } from "./events";
 import { registerForm, type FormHandlers, FormController } from "./form.svelte";
 import { dialog, toast, confirm, prompt, showError } from "./ui.svelte";
 import { __ } from "./boot.svelte";
@@ -145,6 +146,9 @@ export const deskSDK = {
     },
     shares: api.shares,
     search: { global: (txt: string, limit?: number) => api.globalSearch(txt, limit) },
+    // events an app sends with ddcore.publish; a form script uses frm.onRealtime,
+    // which drops the handler when the form closes
+    realtime: { on: subscribe, off: unsubscribe },
     db: {
       getValue: async (doctype: string, id: string | Record<string, any>, field: string | string[]) => {
         const fields = Array.isArray(field) ? field : [field];
