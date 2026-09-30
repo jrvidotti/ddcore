@@ -14,6 +14,18 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- **A scope, share, role or session changed in one process now reaches the others** (#45). The
+  caches behind them live in each process, so a `User Permission` revoked by `ddcore eval
+  --commit`, `ddcore exec`, an import or another replica kept its grant alive in the running
+  server until a restart — a leak between tenants isolated by scope. Invalidations are now
+  announced with Postgres `NOTIFY` when the transaction commits (never on a rollback), and the
+  server, `ddcore jobs work` and `ddcore mcp` listen and drop the same keys; a listener that
+  reconnects drops its whole cache, and `ddcore migrate` clears every process's cache.
+  `ddcore.cache.del` from app code is announced the same way. Nothing to change in an app; a
+  replica needs no restart after a revocation.
+
 ## 0.21.15 — 2026-09-30
 
 ### Added

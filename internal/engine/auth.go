@@ -147,6 +147,11 @@ func (e *Engine) createSession(c *Ctx, user string, from LoginFrom) (string, err
 
 func (e *Engine) Logout(ctx context.Context, sid string) {
 	e.DB.Pool.Exec(ctx, `DELETE FROM ddcore_session WHERE sid = $1`, sid)
+	e.Cache.Del("sid:" + sid)
+	// the other processes answer from their own one-minute cache
+	if err := broadcastInvalidation(ctx, e.DB.Pool, []string{"sid:" + sid}, nil); err != nil {
+		e.Log.Warn("could not broadcast the end of a session", "err", err)
+	}
 }
 
 // UserFromSession resolves a session id into a user name.
@@ -372,16 +377,21 @@ func truncate(s string, n int) string {
 // non-empty exceptSid is spared, which is what lets someone change their own
 // password without being thrown out of the tab they typed it in.
 //
-// The cached sid has to go with the row: UserFromSession answers from a
-// one-minute cache, so deleting the row alone would leave a revoked session
-// working for up to a minute.
+// The cached sid has to go with the row, in this process and the others:
+// UserFromSession answers from a one-minute cache, so deleting the row alone
+// would leave a revoked session working for up to a minute.
 func (e *Engine) DropSessions(ctx context.Context, q db.Querier, user, exceptSid string) (int, error) {
 	rows, err := db.Select(ctx, q, `SELECT sid FROM ddcore_session WHERE "user" = $1 AND sid <> $2`, user, exceptSid)
 	if err != nil {
 		return 0, err
 	}
+	keys := make([]string, 0, len(rows))
 	for _, r := range rows {
-		e.Cache.Del("sid:" + db.Str(r["sid"]))
+		keys = append(keys, "sid:"+db.Str(r["sid"]))
+		e.Cache.Del(keys[len(keys)-1])
+	}
+	if err := broadcastInvalidation(ctx, q, keys, nil); err != nil {
+		return 0, err
 	}
 	tag, err := q.Exec(ctx, `DELETE FROM ddcore_session WHERE "user" = $1 AND sid <> $2`, user, exceptSid)
 	if err != nil {

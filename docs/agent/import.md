@@ -158,9 +158,9 @@ ddcore import reconcile /srv/export --verify-bytes
 ```
 
 A load started from the CLI is not stopped by maintenance mode; `--maintenance`
-turns it on for the duration so nothing else writes while it runs. Other
-running servers keep their in-memory caches (roles, scopes, shares) until their
-TTL passes, so restart them after loading users or permissions.
+turns it on for the duration so nothing else writes while it runs. The users,
+roles, scopes and shares it loads clear the running servers' caches when the load
+commits, as a save would (see *Caching* in `scopes`), so no restart is needed.
 
 ## Not covered
 

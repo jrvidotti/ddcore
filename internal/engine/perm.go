@@ -34,6 +34,7 @@ func (c *Ctx) UserPermissions() ([]UserPerm, error) {
 		c.userPerms = v.([]UserPerm)
 		return c.userPerms, nil
 	}
+	gen := c.E.Cache.Gen()
 	rows, err := db.Select(c.Ctx, c.Q(), `SELECT id, "user", allow, for_value, applicable_for, is_default
 		FROM tab_user_permission WHERE "user" = $1 ORDER BY allow, for_value`, c.User)
 	if err != nil {
@@ -52,26 +53,30 @@ func (c *Ctx) UserPermissions() ([]UserPerm, error) {
 		})
 	}
 	c.userPerms = perms
-	c.E.Cache.Set(key, perms, 0)
+	c.E.Cache.SetAt(key, perms, 0, gen)
 	return perms, nil
 }
 
-func (c *Ctx) invalidateUserPermissionCache(docs ...Doc) {
-	users := map[string]struct{}{}
+// invalidateUserPermissionCache drops the scopes of the users docs name, and
+// their event authorization, in this process and every other one, once the
+// transaction commits.
+func (c *Ctx) invalidateUserPermissionCache(docs ...Doc) error {
+	var keys, prefixes []string
+	seen := map[string]bool{}
 	for _, doc := range docs {
-		if user := doc.Str("user"); user != "" {
-			users[user] = struct{}{}
+		if user := doc.Str("user"); user != "" && !seen[user] {
+			seen[user] = true
+			keys = append(keys, "user_perms:"+user)
+			prefixes = append(prefixes, "evperm:"+user+":")
 		}
 	}
-	if len(users) == 0 {
-		return
+	if len(keys) == 0 {
+		return nil
 	}
 	c.AfterCommit(func() {
-		for user := range users {
-			c.E.Cache.Del("user_perms:" + user)
-			c.E.Cache.DelPrefix("evperm:" + user + ":")
-		}
+		cacheInvalidation{Keys: keys, Prefixes: prefixes}.apply(c.E.Cache)
 	})
+	return c.broadcastInvalidation(keys, prefixes)
 }
 
 // Roles returns the roles of the current user (cached per ctx).
@@ -97,6 +102,7 @@ func (c *Ctx) RolesOf(user string) ([]string, error) {
 	if v, ok := c.E.Cache.Get("roles:" + user); ok {
 		return v.([]string), nil
 	}
+	gen := c.E.Cache.Gen()
 	rows, err := db.Select(c.Ctx, c.Q(), `SELECT role FROM tab_has_role WHERE parent = $1 AND parenttype = 'User'`, user)
 	if err != nil {
 		return nil, err
@@ -105,7 +111,7 @@ func (c *Ctx) RolesOf(user string) ([]string, error) {
 	for _, r := range rows {
 		roles = append(roles, db.Str(r["role"]))
 	}
-	c.E.Cache.Set("roles:"+user, roles, 0)
+	c.E.Cache.SetAt("roles:"+user, roles, 0, gen)
 	return roles, nil
 }
 

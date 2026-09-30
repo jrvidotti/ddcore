@@ -566,7 +566,6 @@ func clientIP(r *http.Request) string {
 func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 	if ck, err := r.Cookie("sid"); err == nil {
 		s.E.Logout(r.Context(), ck.Value)
-		s.E.Cache.Del("sid:" + ck.Value)
 	}
 	// The attributes have to match the cookie being replaced — a browser keys
 	// a cookie by name, domain and path, and treats a mismatch as a different

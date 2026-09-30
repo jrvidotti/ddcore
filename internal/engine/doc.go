@@ -712,7 +712,9 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 		if err := c.auditUserPermissionGrant(saved); err != nil {
 			return nil, err
 		}
-		c.invalidateUserPermissionCache(saved)
+		if err := c.invalidateUserPermissionCache(saved); err != nil {
+			return nil, err
+		}
 	}
 	if d.Name == shareDoctype {
 		if err := c.auditShareSaved(nil, saved); err != nil {
@@ -908,7 +910,9 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 				return nil, err
 			}
 		}
-		c.invalidateUserPermissionCache(before, saved)
+		if err := c.invalidateUserPermissionCache(before, saved); err != nil {
+			return nil, err
+		}
 	}
 	if d.Name == shareDoctype {
 		if err := c.auditShareSaved(before, saved); err != nil {
@@ -1222,7 +1226,9 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 				return modified, err
 			}
 		}
-		c.invalidateUserPermissionCache(beforePermission, afterPermission)
+		if err := c.invalidateUserPermissionCache(beforePermission, afterPermission); err != nil {
+			return modified, err
+		}
 	}
 	if beforeShare != nil {
 		afterShare := Doc{}
@@ -1380,7 +1386,9 @@ func (c *Ctx) Delete(doctype, name string, ignorePerms, force bool) error {
 		tag, err := c.Q().Exec(c.Ctx, fmt.Sprintf("DELETE FROM %s WHERE %s = $1 AND %s = $2",
 			db.Ident(ref.table), db.Ident(ref.doctypeCol), db.Ident(ref.idCol)), doctype, name)
 		if err == nil && ref.table == "tab_document_share" && tag.RowsAffected() > 0 {
-			c.allSharesChanged()
+			if err := c.allSharesChanged(); err != nil {
+				return err
+			}
 		}
 	}
 	delete(c.docCache, c.docKey(doctype, name))
@@ -1394,7 +1402,9 @@ func (c *Ctx) Delete(doctype, name string, ignorePerms, force bool) error {
 		if err := c.auditUserPermissionRevoke(doc); err != nil {
 			return err
 		}
-		c.invalidateUserPermissionCache(doc)
+		if err := c.invalidateUserPermissionCache(doc); err != nil {
+			return err
+		}
 	}
 	if d.Name == "User" {
 		// Not a DocType, so the meta cannot find it: a sign-in identity left
@@ -1404,6 +1414,9 @@ func (c *Ctx) Delete(doctype, name string, ignorePerms, force bool) error {
 			return err
 		}
 		c.E.Cache.Del("utype:" + name)
+		if err := c.broadcastInvalidation([]string{"utype:" + name}, nil); err != nil {
+			return err
+		}
 	}
 	if d.Name == shareDoctype {
 		if err := c.auditShareDeleted(doc); err != nil {
@@ -1541,15 +1554,24 @@ func (c *Ctx) moveID(d *meta.DocType, oldID, newID string) error {
 			return fmt.Errorf("coreRefs update %s: %w", ref.table, err)
 		}
 		if ref.table == "tab_document_share" && tag.RowsAffected() > 0 {
-			c.allSharesChanged()
+			if err := c.allSharesChanged(); err != nil {
+				return err
+			}
 		}
 	}
 	if d.Name == "User" {
 		if _, err := q.Exec(c.Ctx, `UPDATE ddcore_user_identity SET "user" = $1 WHERE "user" = $2`, newID, oldID); err != nil {
 			return fmt.Errorf("identity rename: %w", err)
 		}
-		c.E.Cache.Del("utype:" + oldID)
-		c.E.Cache.Del("utype:" + newID)
+		// the roles too: a user created later under the old name must not
+		// inherit what the renamed one was granted
+		keys := []string{"utype:" + oldID, "utype:" + newID, "roles:" + oldID, "roles:" + newID}
+		for _, k := range keys {
+			c.E.Cache.Del(k)
+		}
+		if err := c.broadcastInvalidation(keys, nil); err != nil {
+			return err
+		}
 	}
 	return nil
 }

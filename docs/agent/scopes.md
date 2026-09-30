@@ -131,8 +131,14 @@ for example by passing the in-scope ids as arguments after reading them with
 
 Each user's rules are cached in the request context and in the engine cache. Creating,
 updating or deleting a `User Permission` clears that user's cache, and their event
-authorization cache, after the transaction commits. Direct SQL writes to
-`tab_user_permission` bypass this, so manage scopes through the document API.
+authorization cache, after the transaction commits — in every process on the database, not
+only the one that wrote it: the change is announced with Postgres `NOTIFY` when it commits, and
+the server, `ddcore jobs work` and `ddcore mcp` listen for it. A change made by `ddcore eval
+--commit`, `ddcore exec` or another replica is therefore seen by the running server at once,
+and a revocation takes effect everywhere without a restart. A listener that loses its
+connection drops its whole cache when it reconnects. Direct SQL writes to
+`tab_user_permission` bypass this, so manage scopes through the document API (`ddcore
+migrate` clears every cache when it finishes).
 
 ## Audit
 

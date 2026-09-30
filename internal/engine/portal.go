@@ -312,6 +312,7 @@ func (e *Engine) UserType(c *Ctx, user string) string {
 			return s
 		}
 	}
+	gen := e.Cache.Gen()
 	rows, err := db.Select(c.Ctx, c.Q(), `SELECT user_type FROM tab_user WHERE id = $1`, user)
 	if err != nil {
 		// a failed read is not evidence of desk access; not cached, so the
@@ -327,7 +328,7 @@ func (e *Engine) UserType(c *Ctx, user string) string {
 	if t == "" {
 		t = "System User"
 	}
-	e.Cache.Set(key, t, 0)
+	e.Cache.SetAt(key, t, 0, gen)
 	return t
 }
 
