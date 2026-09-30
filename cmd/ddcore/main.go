@@ -450,6 +450,7 @@ func cmdServe(args []string, dev bool) error {
 		srv.Router.Handle("/mcp/*", srv.MCPHandler)
 	}
 	go e.WatchMaintenance(ctx)
+	go e.WatchCache(ctx)
 	if st := e.Maintenance(ctx); st.Enabled {
 		e.Log.Warn("site is in maintenance mode: writes and jobs are paused — `ddcore maintenance off` to resume", "reason", st.Reason, "since", st.Since)
 	}
@@ -938,6 +939,7 @@ func cmdMCP(args []string) error {
 			e.Log.Error("reload failed", "err", err)
 		}
 	})
+	go e.WatchCache(ctx)
 	return mcp.ServeStdio(ctx, e)
 }
 

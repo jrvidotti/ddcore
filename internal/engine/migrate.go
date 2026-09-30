@@ -157,7 +157,12 @@ func (e *Engine) Migrate(ctx context.Context, prune bool) (*MigrateResult, error
 				}
 			}
 		}
-		return c.recordSiteVersion()
+		if err := c.recordSiteVersion(); err != nil {
+			return err
+		}
+		// patches and afterMigrate write roles, scopes and users with SQL
+		// that invalidates nothing; the running servers start over too
+		return broadcastClear(c.Ctx, c.Q())
 	})
 	if err != nil {
 		return nil, err

@@ -260,8 +260,10 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		e.Cache.Set(a.Key, a.Value, time.Duration(a.TTL)*time.Second)
 		return nil, nil
 	case "cache.del":
+		// Dropped here now, and in the other processes when the transaction
+		// commits: the core controllers drop roles and user types this way.
 		e.Cache.Del(a.Key)
-		return nil, nil
+		return nil, c.broadcastInvalidation([]string{a.Key}, nil)
 	case "http":
 		return httpCall(a.Method, a.URL, a.Body, a.Headers, a.Timeout)
 	case "externalDb.sql":
@@ -355,6 +357,9 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 				if err != nil {
 					return nil, err
 				}
+				if err := broadcastInvalidation(c.Ctx, e.DB.Pool, []string{"sid:" + sid}, nil); err != nil {
+					return nil, err
+				}
 				return map[string]any{"revoked": int(tag.RowsAffected())}, nil
 			}
 			return map[string]any{"revoked": 0}, nil
@@ -431,6 +436,9 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 			return nil, cerr.NotFound("That key is not yours")
 		}
 		e.Cache.Del("apikey:" + idStr())
+		if err := c.broadcastInvalidation([]string{"apikey:" + idStr()}, nil); err != nil {
+			return nil, err
+		}
 		return map[string]any{"ok": true}, nil
 	case "mail.prepare":
 		// The language the message will be written in, decided before the

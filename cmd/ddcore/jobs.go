@@ -101,6 +101,7 @@ func jobsWork() error {
 	// mid-job instead of letting its workers put the job back.
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
+	go e.WatchCache(ctx)
 	for i := 0; i < cfg.Workers; i++ {
 		go e.Worker(ctx, i)
 	}

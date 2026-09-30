@@ -120,7 +120,7 @@ by hand.
 - `ddcore.share.add(doctype, id, user, { write, share, overrideScope })` / `remove(doctype, id, user)` / `list(doctype, id)` — per-user document shares, checked with the current user as sharer. See `sharing`
 - `ddcore.users.invite({ email, fullName, roles?, userType? })` / `resendInvite(user)` — create an account and mail its invitation; returns `{ user, expires, link? }`. Without System Manager, only a Website User with no privileged role. See `portal`
 - `ddcore.redact(doctype, doc)` → a copy of `doc` as an API read would show it to the current user: Password/Vault blanked and fields above their permission level removed. Server code sees whole documents; redact before a method or report hands one to a client. See `field-permissions`
-- `ddcore.cache.get/set(key, value, ttlSeconds)/del`
+- `ddcore.cache.get/set(key, value, ttlSeconds)/del` — an in-memory cache per process. `set` stays in the process that made it; `del` drops the key there at once and, when the transaction commits, in every other process on the database that listens (server, `jobs work`, `mcp`)
 - `ddcore.http.get(url, opts?)` / `del(url, opts?)` send GET / DELETE requests.
 - `ddcore.http.post(url, body?, opts?)` / `put(url, body?, opts?)` / `patch(url, body?, opts?)` send POST / PUT / PATCH requests. Object bodies are JSON-encoded; string bodies are sent unchanged.
 - All HTTP calls are synchronous and leave from the server. `HttpOpts` accepts `headers` (a string map) and `timeout` (seconds, default 15). The named method determines the verb; `opts.method` cannot override it. Replace older `post(url, body, { method: "PUT" })` or `get(url, { method: "DELETE" })` workarounds with `put` or `del`.

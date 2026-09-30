@@ -98,13 +98,14 @@ func (c *Ctx) Shares() ([]DocShare, error) {
 			return c.shares, nil
 		}
 	}
+	gen := c.E.Cache.Gen()
 	shares, err := c.loadShares(c.User)
 	if err != nil {
 		return nil, err
 	}
 	c.shares, c.sharesLoaded = shares, true
 	if !c.sharesDirty {
-		c.E.Cache.Set(key, shares, 0)
+		c.E.Cache.SetAt(key, shares, 0, gen)
 	}
 	return shares, nil
 }
@@ -186,32 +187,37 @@ func (c *Ctx) scopeAllows(d *meta.DocType, doc Doc, ptype string) (bool, error) 
 }
 
 // sharesChanged drops the cached shares of users, now for this ctx and after
-// commit for everyone else. The event authorizer caches reads too.
-func (c *Ctx) sharesChanged(users ...string) {
+// commit for everyone else, in this process and the others. The event
+// authorizer caches reads too.
+func (c *Ctx) sharesChanged(users ...string) error {
+	var keys, prefixes []string
 	for _, u := range users {
 		if u == c.User {
 			c.sharesLoaded, c.sharesDirty = false, true
 		}
+		if u != "" {
+			keys = append(keys, "shares:"+u)
+			prefixes = append(prefixes, "evperm:"+u+":")
+		}
+	}
+	if len(keys) == 0 {
+		return nil
 	}
 	c.AfterCommit(func() {
-		for _, u := range users {
-			if u == "" {
-				continue
-			}
-			c.E.Cache.Del("shares:" + u)
-			c.E.Cache.DelPrefix("evperm:" + u + ":")
-		}
+		cacheInvalidation{Keys: keys, Prefixes: prefixes}.apply(c.E.Cache)
 	})
+	return c.broadcastInvalidation(keys, prefixes)
 }
 
 // allSharesChanged is sharesChanged for a rename or a deletion, which moves or
 // removes the shares of whoever held one.
-func (c *Ctx) allSharesChanged() {
+func (c *Ctx) allSharesChanged() error {
 	c.sharesLoaded, c.sharesDirty = false, true
+	prefixes := []string{"shares:", "evperm:"}
 	c.AfterCommit(func() {
-		c.E.Cache.DelPrefix("shares:")
-		c.E.Cache.DelPrefix("evperm:")
+		cacheInvalidation{Prefixes: prefixes}.apply(c.E.Cache)
 	})
+	return c.broadcastInvalidation(nil, prefixes)
 }
 
 // CanOverrideScope reports whether the current user may give a share that
@@ -460,11 +466,12 @@ func (c *Ctx) auditShareSaved(before, after Doc) error {
 			return err
 		}
 	}
-	c.sharesChanged(after.Str("user"))
-	return nil
+	return c.sharesChanged(after.Str("user"))
 }
 
 func (c *Ctx) auditShareDeleted(doc Doc) error {
-	c.sharesChanged(doc.Str("user"))
+	if err := c.sharesChanged(doc.Str("user")); err != nil {
+		return err
+	}
 	return c.Audit("permission.share_revoke", doc.Str("share_doctype"), doc.Str("share_id"), map[string]any{"user": doc.Str("user")})
 }

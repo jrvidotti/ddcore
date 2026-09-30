@@ -252,6 +252,9 @@ type Engine struct {
 	extDBMu sync.Mutex
 	extDB   map[string]*extPool
 	maint   maintenanceCache
+	// cacheListening, when set, is called each time WatchCache starts
+	// listening: how a test knows a broadcast will reach it.
+	cacheListening func()
 }
 
 // Storage is where the bytes of File documents are kept.

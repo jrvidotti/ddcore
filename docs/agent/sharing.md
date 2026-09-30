@@ -176,8 +176,8 @@ rechecked like every other: once the share is revoked, it stops being listed and
 A user's shares are cached in the request context and in the engine cache. Every change
 through `Document Share` (insert, save, `dbSet`, delete, and the rename or delete of a shared
 document) clears the recipient's cache, and their realtime-event authorization cache, after
-commit. The writing transaction sees its own change immediately. Direct SQL writes to
-`tab_document_share` bypass this.
+commit, in every process on the database (see *Caching* in `scopes`). The writing transaction
+sees its own change immediately. Direct SQL writes to `tab_document_share` bypass this.
 
 ## Audit
 
