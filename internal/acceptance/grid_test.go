@@ -124,6 +124,9 @@ func TestGridComputedAndReportField(t *testing.T) {
 		if len(gf) != 2 || gf[0].(map[string]any)["label"] != "Atrasada" || gf[1].(map[string]any)["label"] != "Aberta" {
 			t.Fatalf("gridFilters = %v", ms["gridFilters"])
 		}
+		if gs, _ := ms["gridSearch"].([]any); len(gs) != 2 || gs[0] != "title" || gs[1] != "completed_on" {
+			t.Fatalf("gridSearch = %v", ms["gridSearch"])
+		}
 		if ms["gridSort"].(map[string]any)["field"] != "due_date" || ms["gridExport"] != true || ms["gridSelect"] != true || ms["gridSortable"] != true {
 			t.Fatalf("milestones = %v", ms)
 		}

@@ -128,6 +128,15 @@ export interface FieldDef {
    * Display only: rows and their `idx` are untouched. `label` is a catalogue key.
    */
   gridFilters?: GridFilter[];
+  /**
+   * Table or Report: a search box above the grid that shows only the rows
+   * where one of these columns contains the text typed (case- and
+   * accent-insensitive; each word must match some column). A Link matches by
+   * its id and its title, a Select by its value and its label. On a Table the
+   * fields may be hidden or off the grid. Combines with `gridFilters` (AND);
+   * display only, like them.
+   */
+  gridSearch?: string[];
   /** Table only: `false` hides the `#` column (each row's stored `idx`) */
   gridIndex?: boolean;
   /**

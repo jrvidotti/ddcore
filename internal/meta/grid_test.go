@@ -146,3 +146,31 @@ func TestGridFiltersRoundTripThroughJSON(t *testing.T) {
 		t.Fatalf("json=%s", b)
 	}
 }
+
+func TestGridSearchValidation(t *testing.T) {
+	table := func(cols ...string) *Field {
+		return &Field{Fieldname: "s", Fieldtype: "Table", Options: "Course Student", GridSearch: cols}
+	}
+	ok := []*Field{
+		table("employee_name", "grade", "idx", "id"),
+		{Fieldname: "r", Fieldtype: "Report", Options: "X", GridSearch: []string{"any_column"}},
+	}
+	if err := gridRegistry(ok...).Validate(); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct {
+		f    *Field
+		want string
+	}{
+		{table([]string{}...), "gridSearch names no column"},
+		{table(" "), "gridSearch[0] is empty"},
+		{table("employee_name", "nope"), `gridSearch[1] "nope" is not a field of "Course Student"`},
+		{table("sec"), `gridSearch[0] "sec" is not a field`},
+		{&Field{Fieldname: "d", Fieldtype: "Data", GridSearch: []string{"a"}}, "gridSearch is for a Table or a Report field"},
+	} {
+		err := gridRegistry(c.f).Validate()
+		if err == nil || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("%v: want %q, got %v", c.f.GridSearch, c.want, err)
+		}
+	}
+}

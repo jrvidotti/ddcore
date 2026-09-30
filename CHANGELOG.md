@@ -14,6 +14,15 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **`gridSearch: ["field", ...]`** on a `Table` or a `Report` field (#46): a search box above the
+  grid that shows only the rows where one of those columns contains the text typed — case- and
+  accent-insensitive, each word matched in any of the columns, a Link by its id and its title, a
+  Select by its value and its label. A Table's fields may be `hidden` (checked at load). It
+  combines with the active `gridFilters`, and selection and export follow the rows on screen;
+  like them, it is display only and leaves the rows and their `idx` as saved.
+
 ## 0.21.15 — 2026-09-30
 
 ### Added

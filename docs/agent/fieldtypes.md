@@ -27,7 +27,7 @@
 | Geolocation | jsonb | points, lines and polygons drawn on a map, stored as a GeoJSON FeatureCollection, `[longitude, latitude]`; coordinates rounded to 7 decimals, no altitude or properties; at most 500 shapes and 64 KiB. Never unique, indexed, a standard filter, or a title, search, sort or key field. See below |
 | Link | text | `options: "DocType"`; existence validated; index created automatically. A Link to a virtual DocType stores `"<Source>:<id>"` (see `virtual-doctypes`) |
 | Dynamic Link | text | `options: "<the field holding the DocType>"`; the DocType and the document are validated on save. When that field is a `Data`, the desk shows it as a list of the DocTypes the user can see, and changing it clears the link |
-| Table | (child table) | `options: "Child DocType"` with `isChild: true`; `gridEditMode: "dialog"` turns off inline editing; `gridSort`, `gridSortable`, `gridExport`, `gridSelect`, `gridFilters` add a default order, header sorting, CSV/XLSX export, row selection and preset filters; `gridIndex: false` hides the `#` column. See "Form grids" below |
+| Table | (child table) | `options: "Child DocType"` with `isChild: true`; `gridEditMode: "dialog"` turns off inline editing; `gridSort`, `gridSortable`, `gridExport`, `gridSelect`, `gridFilters`, `gridSearch` add a default order, header sorting, CSV/XLSX export, row selection, preset filters and a search box; `gridIndex: false` hides the `#` column. See "Form grids" below |
 | Table MultiSelect | (child table) | several links to one DocType, edited as pills: `options` is a child DocType with exactly one Link field. See below |
 | Attach | text | the file's URL (`/files/..` or `/private/files/..`); the desk shows an icon that opens the file and shows its original name, size and type on hover — `showFileName: true` also shows the name beside it |
 | Attach Image | text | an Attach restricted to png, jpg, gif or webp, refused at upload as well as on save; SVG is not one of them, because it carries script; the thumbnail stands in for the icon, and `showFileName` works the same |
@@ -75,8 +75,22 @@ A `Table` and a `Report` field are grids, and four properties shape both:
     { label: "Students who still need the course", filters: { needs_course: 1 } },
   ],
   ```
+- `gridSearch: ["field", ...]`: a search box above the grid, before the `gridFilters` toggles,
+  showing only the rows where the columns named contain the text typed. Case- and
+  accent-insensitive (`sao` finds `São`); with several words, each must be found in one of the
+  columns. A Link matches by its id and by its title, a Select by its value and by its label; a
+  Check or a Signature has no text to find. On a Table the fields may be `hidden` or off the grid
+  (they are checked at load); on a Report they are report columns. It combines with the active
+  `gridFilters` (AND), and selection, "select all", export (and a Report's totals) follow the rows
+  on screen.
 
-**Sorting and filtering are display only.** A child row's `idx`, which is the order the document stores and
+  ```ts
+  { fieldname: "attendance", fieldtype: "Table", options: "Training Class Attendance",
+    gridSearch: ["employee", "unit"],   // a Link each: typing a name or a unit finds the row
+    gridFilters: [{ label: "Only students in the class", filters: [["in_class", "=", 1]] }] }
+  ```
+
+**Sorting, filtering and searching are display only.** A child row's `idx`, which is the order the document stores and
 `ddcore.db` reads, stays what the user saved, and the `#` column keeps showing it (unless `gridIndex: false` hides it).
 
 **A grid alone in its section.** A section with no heading whose only visible field is a Table
@@ -430,7 +444,7 @@ use of `Percent` would reach.
 `fieldname, fieldtype, label, options, optionColors, reqd, unique, default, readOnly, hidden, fetchFrom, dependsOn,
 readOnlyDependsOn, mandatoryDependsOn, allowOnSubmit, inListView, inStandardFilter, searchIndex,
 length, precision, description, columns (grid width 1–12), width (`"sm"` | `"md"` | `"lg"` | `"full"`), gridEditMode (`"inline"` default or `"dialog"`),
-gridSort, gridSortable, gridExport, gridSelect, gridFilters (Table / Report), gridIndex (Table), reportFilters (Report), computed, showFileName (Attach / Attach Image), collapsible, bold, hideLabel,
+gridSort, gridSortable, gridExport, gridSelect, gridFilters, gridSearch (Table / Report), gridIndex (Table), reportFilters (Report), computed, showFileName (Attach / Attach Image), collapsible, bold, hideLabel,
 permlevel, renamedFrom, convert`
 
 - `permlevel`: 0–9, default 0. A field above 0 is read and written only by roles granted that level by a permission row with the same `permlevel`; the server omits it from every response and refuses a change from anyone else. `hidden` and `readOnly` are screen hints and protect nothing. See `field-permissions`.

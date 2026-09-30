@@ -6,17 +6,20 @@
   import { formatValue, statusColor } from "$lib/format";
   import { getLinkTitle } from "$lib/titles.svelte";
   import { isNumericFieldtype, type GridFilter } from "$lib/meta";
-  import { downloadTable, exportTable, filterRows, nextSort, sortRows, type GridSortState } from "$lib/grid-rows";
+  import { downloadTable, exportTable, filterRows, nextSort, searchRows, sortRows, type GridSortState } from "$lib/grid-rows";
   import GridExport from "$lib/controls/GridExport.svelte";
   import GridFilters from "$lib/controls/GridFilters.svelte";
+  import GridSearch from "$lib/controls/GridSearch.svelte";
 
   let {
     columns, rows, wsPrefix, filename, sheetName,
-    baseSort = null, sortable = false, selectable = false, exportable = false, filters = [],
+    baseSort = null, sortable = false, selectable = false, exportable = false, filters = [], search = [],
   }: {
     columns: any[]; rows: any[]; wsPrefix: string; filename: string; sheetName?: string;
     baseSort?: GridSortState | null; sortable?: boolean; selectable?: boolean; exportable?: boolean;
     filters?: GridFilter[];
+    /** the columns the search box looks in; none, no box */
+    search?: string[];
   } = $props();
 
   const num = (c: any) => isNumericFieldtype(c.fieldtype);
@@ -26,7 +29,8 @@
   // export follow what is shown
   let activeFilters = $state<Set<number> | null>(null);
   const active = $derived(activeFilters ?? new Set(filters.flatMap((f, i) => (f.default ? [i] : []))));
-  const visibleRows = $derived(filterRows(rows, [...active].map((i) => filters[i]?.filters).filter(Boolean), columns));
+  let query = $state("");
+  const visibleRows = $derived(searchRows(filterRows(rows, [...active].map((i) => filters[i]?.filters).filter(Boolean), columns), query, search, columns, getLinkTitle));
   const viewRows = $derived(sortRows(visibleRows, sort, columns, getLinkTitle));
   let selected = $state<Set<any>>(new Set());
   const chosen = $derived(visibleRows.filter((r) => selected.has(r)));
@@ -55,8 +59,9 @@
 </script>
 
 <div class="card" style="overflow:auto">
-  {#if exportable || filters.length || (selectable && chosen.length)}
+  {#if exportable || filters.length || search.length || (selectable && chosen.length)}
     <div class="grid-toolbar">
+      {#if search.length}<GridSearch bind:value={query} />{/if}
       {#if filters.length}<GridFilters {filters} {active} ontoggle={toggleFilter} />{/if}
       {#if selectable && chosen.length}
         <span class="muted">{__("{0} selected", [chosen.length])}</span>

@@ -26,7 +26,7 @@ defineForm<Entry>("Entry", {
 
 `doc`, `doctype`, `meta`, `isNew`, `isDirty`, `docstatus`, `perm`, `getValue`, `setValue(field | {..}, value)`, `field(field)`,
 `setDfProperty(field, prop, value)` (`hidden`, `readOnly`, `reqd`, `label`, `description`, `options`, `width`, `cannotAddRows`, `cannotDeleteRows`,
-`gridSort`, `gridSortable`, `gridExport`, `gridSelect`, `gridFilters`, `gridIndex`, `hideLabel`, `reportFilters`), `refreshField(field)` (re-runs a Report field's report),
+`gridSort`, `gridSortable`, `gridExport`, `gridSelect`, `gridFilters`, `gridSearch`, `gridIndex`, `hideLabel`, `reportFilters`), `refreshField(field)` (re-runs a Report field's report),
 `setQuery(field, () => ({ filters }))`, `toggleDisplay/toggleReqd/toggleEnable`, `addButton(label, fn, group)`, `removeButton`,
 `setPrimaryAction(label, fn)`, `setInnerGroupAsPrimary(group)`, `addIndicator(label, colour)`, `addChild(table, values)`, `removeChild(table, idx)`,
 `setRowValue(table, row | rowId, field | {..}, value)`,

@@ -11,9 +11,10 @@
   import type { FormController } from "$lib/form.svelte";
   import { applyRowChanges, changedKeys, confirmRowRemoval, createChildDraft, fileNameParts, gridEditMode, inlineEditable } from "./grid-state";
   import { getLinkTitle } from "$lib/titles.svelte";
-  import { downloadTable, exportBaseName, exportTable, filterRows, nextSort, sortRows, type GridSortState } from "$lib/grid-rows";
+  import { downloadTable, exportBaseName, exportTable, filterRows, nextSort, searchRows, sortRows, type GridSortState } from "$lib/grid-rows";
   import GridExport from "./GridExport.svelte";
   import GridFilters from "./GridFilters.svelte";
+  import GridSearch from "./GridSearch.svelte";
 
   let { frm, field, childMeta }: { frm: FormController; field: Field; childMeta: DocTypeMeta } = $props();
   const rows = $derived((frm.doc[field.fieldname!] ||= []) as any[]);
@@ -39,7 +40,10 @@
   const presets = $derived(field.gridFilters || []);
   let activeFilters = $state<Set<number> | null>(null);
   const active = $derived(activeFilters ?? new Set(presets.flatMap((f, i) => (f.default ? [i] : []))));
-  const visibleRows = $derived(filterRows(rows, [...active].map((i) => presets[i]?.filters).filter(Boolean), childMeta.fields));
+  // and so does the search box, over its columns (hidden ones included)
+  const searchFields = $derived(field.gridSearch || []);
+  let query = $state("");
+  const visibleRows = $derived(searchRows(filterRows(rows, [...active].map((i) => presets[i]?.filters).filter(Boolean), childMeta.fields), query, searchFields, childMeta.fields, getLinkTitle));
   const viewRows = $derived(sortRows(visibleRows, sort, childMeta.fields, getLinkTitle));
   const sortable = $derived(!!field.gridSortable);
   const selectable = $derived(!!field.gridSelect);
@@ -122,8 +126,9 @@
 <div class="field grid-field">
   <span class="label" class:sr-only={field.hideLabel}>{field.label}{#if frm.isFieldMandatory(field)}<span class="req">*</span>{/if}</span>
   <div class="card" style="overflow:auto">
-    {#if exportable || presets.length || (selectable && chosen.length)}
+    {#if exportable || presets.length || searchFields.length || (selectable && chosen.length)}
       <div class="grid-toolbar">
+        {#if searchFields.length}<GridSearch bind:value={query} />{/if}
         {#if presets.length}<GridFilters filters={presets} {active} ontoggle={toggleFilter} />{/if}
         {#if selectable && chosen.length}
           <span class="muted">{__("{0} selected", [chosen.length])}</span>

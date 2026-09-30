@@ -24,6 +24,7 @@ const childMeta: any = {
     { fieldname: "employee_name", fieldtype: "Data", label: "Name", inListView: true, readOnly: true },
     { fieldname: "grade", fieldtype: "Float", label: "Grade", inListView: true, readOnly: true },
     { fieldname: "in_class", fieldtype: "Check", label: "In class", inListView: true, readOnly: true },
+    { fieldname: "unit", fieldtype: "Data", label: "Unit", hidden: true },
   ],
 };
 
@@ -31,9 +32,9 @@ function setup(field: any, perms: Record<string, boolean> = { export: true }, on
   const doc = $state<any>({
     id: "C-1",
     students: [
-      { id: "r1", idx: 1, employee_name: "Zoe", grade: 7, in_class: 1 },
-      { id: "r2", idx: 2, employee_name: "Ana", grade: 9, in_class: 0 },
-      { id: "r3", idx: 3, employee_name: "Bia", grade: 8, in_class: 1 },
+      { id: "r1", idx: 1, employee_name: "Zoe", grade: 7, in_class: 1, unit: "São Paulo" },
+      { id: "r2", idx: 2, employee_name: "Ana", grade: 9, in_class: 0, unit: "Santos" },
+      { id: "r3", idx: 3, employee_name: "Bia", grade: 8, in_class: 1, unit: "Sao Carlos" },
     ],
   });
   const frm: any = {
@@ -157,6 +158,40 @@ describe("Grid", () => {
     t.click(toggles()[1]);
     expect(t.names()).toEqual(["Ana", "Bia", "Zoe"]);
     expect(t.doc.students.map((r: any) => r.idx)).toEqual([1, 2, 3]);
+    t.done();
+  });
+
+  it("the search box narrows the rows on screen, a hidden field included, AND with the preset filters", () => {
+    downloads.length = 0;
+    const t = setup({
+      gridSelect: true, gridExport: true, gridSort: { field: "employee_name" }, gridSearch: ["employee_name", "unit"],
+      gridFilters: [{ label: "In class", filters: { in_class: 1 } }],
+    });
+    const box = t.target.querySelector<HTMLInputElement>(".grid-toolbar input.grid-search")!;
+    const type = (q: string) => { box.value = q; box.dispatchEvent(new Event("input", { bubbles: true })); flushSync(); };
+    type("sao");
+    expect(t.names()).toEqual(["Bia", "Zoe"]);
+    type("SÃO zo");
+    expect(t.names()).toEqual(["Zoe"]);
+    type("s");
+    expect(t.names()).toEqual(["Ana", "Bia", "Zoe"]);
+    t.click(t.target.querySelector("button.grid-filter"));
+    type("santos");
+    expect(t.target.querySelector("tbody")?.textContent).toContain("No rows match the filters");
+    type("");
+    t.click(t.target.querySelector("thead input[type=checkbox]"));
+    expect(t.target.querySelector(".grid-toolbar")?.textContent).toContain("2 selected");
+    type("bia");
+    t.click([...t.target.querySelectorAll(".grid-toolbar button")].find((b) => b.textContent?.includes("CSV"))!);
+    // Zoe stays selected but off screen: select all and export follow what is shown
+    expect(downloads[0][3].map((r: any[]) => r[0])).toEqual(["Bia"]);
+    expect(t.doc.students.map((r: any) => r.idx)).toEqual([1, 2, 3]);
+    t.done();
+  });
+
+  it("no gridSearch, no search box", () => {
+    const t = setup({ gridExport: true });
+    expect(t.target.querySelector("input.grid-search")).toBeNull();
     t.done();
   });
 

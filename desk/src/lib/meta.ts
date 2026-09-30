@@ -15,6 +15,8 @@ export interface Field {
   hideLabel?: boolean;
   /** Table or Report grid: default display order, header sorting, CSV/XLSX export, row checkboxes. */
   gridSort?: GridSort; gridSortable?: boolean; gridExport?: boolean; gridSelect?: boolean; gridFilters?: GridFilter[];
+  /** Table or Report grid: the columns its search box looks in (hidden ones included). */
+  gridSearch?: string[];
   /** Table grid: `false` hides the `#` (idx) column. */
   gridIndex?: boolean;
   /** Report field: report filter -> parent fieldname (or `id`). */

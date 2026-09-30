@@ -120,3 +120,5 @@ button.grid-sort { border: 0; padding: 0; background: none; color: inherit; font
 button.grid-sort:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
 .grid-toolbar { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-bottom: 1px solid var(--border); flex-wrap: wrap; font-size: 12px; }
 .grid-filter.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+/* a grid's search box (gridSearch): narrow enough to share the toolbar with the toggles */
+.grid-toolbar input.grid-search { width: 220px; max-width: 100%; min-height: 28px; padding: 3px 8px; font-size: 12px; }

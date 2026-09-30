@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { exportBaseName, exportCell, exportTable, filterRows, filterTuples, nextSort, sortRows } from "./grid-rows";
+import { exportBaseName, exportCell, exportTable, filterRows, filterTuples, nextSort, searchRows, sortRows } from "./grid-rows";
 
 const cols: any[] = [
   { fieldname: "name", fieldtype: "Data", label: "Name" },
@@ -134,5 +134,39 @@ describe("grid filters", () => {
     expect(ids(filterRows(rows, [[["grade", "not in", [5, 9]]]], cols))).toEqual([3, 4]);
     expect(ids(filterRows(rows, [[["on", "is", "set"]]], cols))).toEqual([1, 2, 4]);
     expect(ids(filterRows(rows, [[["grade", "not set", null]]], cols))).toEqual([3]);
+  });
+});
+
+describe("grid search", () => {
+  const rows = [
+    { id: 1, name: "João Árvore", who: "E-1", status: "Open", done: 1, unit: "Matriz" },
+    { id: 2, name: "Maria", who: "E-2", status: "Closed", done: 0, unit: "Filial São Paulo" },
+    { id: 3, name: "Bia", who: null, status: "", done: 1, unit: "" },
+  ];
+  const ids = (rs: any[]) => rs.map((r) => r.id);
+  const search = (q: string, fields = ["name", "who", "status", "done", "unit"]) => ids(searchRows(rows, q, fields, cols, titleOf));
+
+  it("matches a part of the text, ignoring case and accents", () => {
+    expect(search("joao")).toEqual([1]);
+    expect(search("ARV")).toEqual([1]);
+    expect(search("sao paulo")).toEqual([2]);
+    expect(search("filial são")).toEqual([2]);
+  });
+  it("finds a Link by its id and its title, a Select by its value and its label", () => {
+    expect(search("zoe")).toEqual([1]);
+    expect(search("e-2")).toEqual([2]);
+    expect(search("fechado")).toEqual([2]);
+    expect(search("closed")).toEqual([2]);
+  });
+  it("needs every word, each in any of the columns, and only in the columns named", () => {
+    expect(search("maria filial")).toEqual([2]);
+    expect(search("maria matriz")).toEqual([]);
+    expect(search("matriz", ["name"])).toEqual([]);
+    // a Check has no text to find
+    expect(search("1", ["done"])).toEqual([]);
+  });
+  it("keeps every row for a blank query or no columns", () => {
+    expect(searchRows(rows, "  ", ["name"], cols)).toBe(rows);
+    expect(searchRows(rows, "bia", [], cols)).toBe(rows);
   });
 });

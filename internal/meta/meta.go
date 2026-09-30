@@ -94,6 +94,10 @@ type Field struct {
 	// GridFilters are preset toggles above a Table (or Report) grid, each
 	// narrowing the rows on screen. Display only, like GridSort.
 	GridFilters []GridFilter `json:"gridFilters,omitempty"`
+	// GridSearch names the columns a text box above a Table (or Report) grid
+	// searches: case- and accent-insensitive, a Link by its id and its title.
+	// Display only, like GridFilters, and combined with them.
+	GridSearch []string `json:"gridSearch,omitempty"`
 	// GridIndex set to false hides a Table grid's `#` column (the row's idx);
 	// unset, the column shows.
 	GridIndex *bool `json:"gridIndex,omitempty"`
@@ -1166,7 +1170,7 @@ var asciiIdent = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 func ValidIdentAscii(s string) bool { return asciiIdent.MatchString(s) }
 
 // validateGrid checks the grid properties (gridSort, gridSortable,
-// gridExport, gridSelect), which only a Table or a Report field has,
+// gridExport, gridSelect, gridFilters, gridSearch), which only a Table or a Report field has,
 // gridIndex, which only a Table has, and a
 // Report field's own report and filters.
 func (r *Registry) validateGrid(d *DocType, f *Field, e func(string, ...any)) {
@@ -1179,6 +1183,9 @@ func (r *Registry) validateGrid(d *DocType, f *Field, e func(string, ...any)) {
 	}
 	if !isGrid && f.GridFilters != nil {
 		e("field %q: gridFilters is for a Table or a Report field, not a %s", f.Fieldname, f.Fieldtype)
+	}
+	if !isGrid && f.GridSearch != nil {
+		e("field %q: gridSearch is for a Table or a Report field, not a %s", f.Fieldname, f.Fieldtype)
 	}
 	if isGrid {
 		var child *DocType
@@ -1203,6 +1210,23 @@ func (r *Registry) validateGrid(d *DocType, f *Field, e func(string, ...any)) {
 				if cf := child.Field(fn); cf == nil || LayoutTypes[cf.Fieldtype] || IsTableType(cf.Fieldtype) {
 					e("field %q: gridFilters[%d] filters on %q, which is not a field of %q", f.Fieldname, i, fn, child.Name)
 				}
+			}
+		}
+		if f.GridSearch != nil && len(f.GridSearch) == 0 {
+			e("field %q: gridSearch names no column", f.Fieldname)
+		}
+		// hidden fields may be searched: a name kept off the grid still
+		// finds its row
+		for i, fn := range f.GridSearch {
+			if strings.TrimSpace(fn) == "" {
+				e("field %q: gridSearch[%d] is empty", f.Fieldname, i)
+				continue
+			}
+			if child == nil || fn == "idx" || child.IsStdColumn(fn) {
+				continue
+			}
+			if cf := child.Field(fn); cf == nil || LayoutTypes[cf.Fieldtype] || IsTableType(cf.Fieldtype) {
+				e("field %q: gridSearch[%d] %q is not a field of %q", f.Fieldname, i, fn, child.Name)
 			}
 		}
 	}
