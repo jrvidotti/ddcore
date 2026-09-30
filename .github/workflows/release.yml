@@ -4,6 +4,18 @@ on:
   push:
     branches:
       - main
+    # main rebuilds edge only when something the binary carries changed;
+    # tag pushes ignore path filters and always release. Later patterns
+    # win, so the embedded docs are put back after the docs are excluded.
+    paths:
+      - '**'
+      - '!*.md'
+      - '!docs/**'
+      - '!.github/workflows/deploy-docs.yml'
+      - 'CHANGELOG.md'
+      - 'docs/embed.go'
+      - 'docs/agent/*.md'
+      - 'docs/changelog/0.*.md'
     tags:
       - 'v*'
   workflow_dispatch:

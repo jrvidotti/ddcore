@@ -411,7 +411,9 @@ The framework adheres to [Semantic Versioning 2.0.0](https://semver.org/):
     - Builds and pushes the image `ghcr.io/jrvidotti/ddcore:<X.Y.Z>`, `:<X.Y>` and `:latest`
       (linux amd64/arm64, `docker/image/Dockerfile`) from those same binaries.
   - Pushing to the `main` branch updates the rolling prerelease `edge` for developers
-    (`VERSION=edge` for `install.sh`). It is a prerelease so that GitHub's "latest release" —
+    (`VERSION=edge` for `install.sh`), unless the push only touches files the binary does not
+    carry (the site's docs, the root `*.md` other than `CHANGELOG.md`): the `paths` filter in
+    `release.yml` lists them. It is a prerelease so that GitHub's "latest release" —
     what the installer and `ddcore doctor`'s update check read — is always a tagged version.
 
 - **Cutting a release** — in this order, because the tag is what publishes the binaries and
