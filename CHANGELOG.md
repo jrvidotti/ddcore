@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.21.13 — 2026-09-30
+
 ### Added
 
 - **`raw: { contentType }` on a whitelisted method** (#37) writes the returned string as the whole
