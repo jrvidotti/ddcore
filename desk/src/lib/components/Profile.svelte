@@ -65,7 +65,6 @@
         // has to be fetched again before anything re-renders in it.
         await loadBoot();
         resetLocale();
-        document.documentElement.lang = boot.data?.lang || "en";
       }
       profile = await api.call("core.services.profile.getMyProfile");
       toast(__("Profile saved"), { indicator: "green" });

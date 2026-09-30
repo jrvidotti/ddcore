@@ -142,8 +142,6 @@
     onMessage((m) => toast(m.message, { title: m.title, indicator: m.indicator || "blue" }));
     try {
       const b = await loadBoot();
-      // app.html ships lang="en"; the boot is what knows the real one
-      document.documentElement.lang = b.lang;
       setMaintenance(b.site?.maintenance);
       // Awaited: rendering the page before the URL changes lets its own redirect (/app → a
       // workspace) replace this one, and a guest never reaches the sign-in form.

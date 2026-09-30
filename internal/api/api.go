@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"io"
 	"io/fs"
 	"net"
@@ -1809,7 +1810,11 @@ func (s *Server) deskHandler(w http.ResponseWriter, r *http.Request) {
 	if p == "" {
 		p = "index.html"
 	}
-	if f, err := s.Desk.Open(p); err == nil {
+	// index.html is the shell: it skips the static branch so the language is
+	// stamped below instead of going out as a file.
+	if p == "index.html" {
+		// fall through to the shell below
+	} else if f, err := s.Desk.Open(p); err == nil {
 		st, _ := f.Stat()
 		f.Close()
 		if st != nil && !st.IsDir() {
@@ -1827,7 +1832,15 @@ func (s *Server) deskHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache")
-	w.Write(data)
+	w.Header().Set("Vary", "Accept-Language, Cookie, X-Lang")
+	w.Write(withHTMLLang(data, s.langFor(r)))
+}
+
+// withHTMLLang stamps lang into the shell's <html lang="en">. Browsers decide
+// whether to offer a translation from that attribute on the first response,
+// before the desk has booted and could correct it itself.
+func withHTMLLang(page []byte, lang string) []byte {
+	return bytes.Replace(page, []byte(`<html lang="en"`), []byte(`<html lang="`+html.EscapeString(lang)+`"`), 1)
 }
 
 var _ = errors.New

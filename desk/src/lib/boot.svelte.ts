@@ -79,6 +79,8 @@ export async function loadBoot(): Promise<Boot> {
   if (data.user !== "Guest") rememberLang(lang);
   data.lang = lang;
   boot.data = data;
+  // the shell ships the server's best guess; the browser's translate offer follows this attribute
+  document.documentElement.lang = lang;
   setRequestLang(lang);
   // the memoised Intl formatters belong to the old language
   resetLocale();

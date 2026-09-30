@@ -5,7 +5,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strings"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"github.com/jrvidotti/ddcore/internal/engine"
@@ -400,5 +402,37 @@ func TestSetMyLanguage(t *testing.T) {
 	r = x.call("POST", path, map[string]any{"language": "xx"}, sid)
 	if r.Status == 200 {
 		t.Fatalf("an unknown language should be refused: %s", r.Raw)
+	}
+}
+
+// TestDeskHandlerStampsLang: the browser decides on a translation offer from
+// <html lang> in the first response, so the shell must already carry it.
+func TestDeskHandlerStampsLang(t *testing.T) {
+	x := setup(t)
+	shell := `<!doctype html><html lang="en"><head></head><body></body></html>`
+	x.s.Desk = fstest.MapFS{"index.html": {Data: []byte(shell)}}
+	get := func(r *http.Request) string {
+		r.URL.Path = "/"
+		w := httptest.NewRecorder()
+		x.s.deskHandler(w, r)
+		return w.Body.String()
+	}
+	if got := get(req("Guest", "Accept-Language", "pt-BR")); !strings.Contains(got, `<html lang="pt-BR">`) {
+		t.Fatalf("pt-BR visitor: %s", got)
+	}
+	if got := get(req("Guest", "Accept-Language", "en-US,en;q=0.9")); !strings.Contains(got, `<html lang="en">`) {
+		t.Fatalf("en visitor: %s", got)
+	}
+}
+
+func TestWithHTMLLang(t *testing.T) {
+	for _, tc := range []struct{ in, lang, want string }{
+		{`<html lang="en"><body>`, "pt-BR", `<html lang="pt-BR"><body>`},
+		{`<html lang="en">`, `x"><script>`, `<html lang="x&#34;&gt;&lt;script&gt;">`},
+		{`<html><body>`, "pt-BR", `<html><body>`},
+	} {
+		if got := string(withHTMLLang([]byte(tc.in), tc.lang)); got != tc.want {
+			t.Errorf("withHTMLLang(%q, %q) = %q, want %q", tc.in, tc.lang, got, tc.want)
+		}
 	}
 }

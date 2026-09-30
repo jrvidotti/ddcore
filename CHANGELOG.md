@@ -14,6 +14,13 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- **Chrome no longer offers to translate a Portuguese desk "from English".** The desk shell shipped
+  `<html lang="en">` and corrected it only after `/api/boot`; the server now stamps the resolved
+  language (user, `Accept-Language`, site default) into the first response, and `loadBoot()` keeps
+  the attribute in step on every boot, including the reload after an SSE event.
+
 ## 0.21.13 — 2026-09-30
 
 ### Added
