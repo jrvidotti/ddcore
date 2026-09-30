@@ -82,7 +82,7 @@
         if (await redirectVirtual()) return;
         const initial = (history.state as any)?.["sveltekit:states"]?.doc || (page.state as any)?.doc;
         const f = await createForm(doctype, id, initial, ownBase);
-        if (!alive) return; // navigated away while loading
+        if (!alive) { f.dispose(); return; } // navigated away while loading
         frm = f;
         if (f.isNew && !f.isSingle) {
           for (const [k, v] of page.url.searchParams) if (f.field(k)) f.doc[k] = v;
@@ -90,7 +90,7 @@
         await recoverDraft(f);
       } catch (e: any) { if (alive) error = e.message; }
     })();
-    return () => { alive = false; off(); flushDraft(); };
+    return () => { alive = false; off(); frm?.dispose(); flushDraft(); };
   });
 
   $effect(() => {

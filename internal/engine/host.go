@@ -307,9 +307,20 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		json.Unmarshal(raw, &q)
 		return c.Enqueue(q.Method, q.Args, q.Opts)
 	case "publish":
+		if !validEventName(a.Event) {
+			return nil, cerr.Validation("publish: {0} is not a valid event name (letters, digits, _ . : -)", a.Event)
+		}
 		ev := Event{Name: a.Event, Payload: a.Payload}
 		if u, ok := a.Opts["user"].(string); ok {
 			ev.User = u
+		}
+		// an event about a document reaches only the sessions that may read
+		// it, as doc_update does; a doctype alone asks read on the DocType
+		if dt, ok := a.Opts["doctype"].(string); ok && dt != "" {
+			ev.Doctype = dt
+			if id, ok := a.Opts["id"].(string); ok {
+				ev.DocID = id
+			}
 		}
 		c.AfterCommit(func() { e.Events.Publish(ev) })
 		return nil, nil
@@ -780,6 +791,20 @@ func httpFetch(method, url string, body any, headers map[string]string, timeout 
 		return nil, nil, cerr.Validation("http: the response from {0} is larger than {1} bytes (raise opts.maxBytes)", url, maxBytes)
 	}
 	return res, b, nil
+}
+
+// validEventName keeps an event name to one SSE token: it is written into the
+// stream as is, and a line break in it would forge the events after it.
+func validEventName(name string) bool {
+	if name == "" || len(name) > 100 {
+		return false
+	}
+	for _, r := range name {
+		if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || strings.ContainsRune("_.:-", r)) {
+			return false
+		}
+	}
+	return true
 }
 
 func flatHeaders(h http.Header) map[string]string {

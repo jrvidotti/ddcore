@@ -16,6 +16,10 @@ older series, and `whats_new` reads across every one of them.
 
 ### Added
 
+- Desk scripts receive `ddcore.publish` events: `frm.onRealtime(event, handler)` for as long as
+  the form is open, and `ddcore.realtime.on(event, handler)` / `off` anywhere else. `publish`
+  honours `{ doctype, id }`: the event reaches only sessions that may read that document (#49).
+
 - `ddcore.files.save` stores bytes server code holds or downloads (`content`,
   `contentBase64` or `fromUrl` with headers, a size limit and a timeout) as a `File`, with
   the rules of an upload. The row is on the current transaction, and a rollback deletes
@@ -30,6 +34,8 @@ older series, and `whats_new` reads across every one of them.
 
 ### Changed
 
+- `ddcore.publish` throws on an event name outside letters, digits and `_ . : -`: the name is
+  written into the SSE stream as is, and a line break in it could forge events (#49).
 - A `ddcore.http` response larger than its limit now throws instead of being silently cut at
   10 MiB. Pass a larger `maxBytes` where a bigger body is expected (#51).
 

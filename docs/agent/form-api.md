@@ -32,7 +32,18 @@ defineForm<Entry>("Entry", {
 `setRowValue(table, row | rowId, field | {..}, value)`,
 `addFieldButton(field, { label, icon, onClick, key })`, `removeFieldButton(field, key?)`,
 `trigger(field)`, `save()`, `submit()`, `cancel()`, `reload()`, `discardChanges()`,
-`call(method, args, { reload })` → calls the controller's `methods.<method>` and reloads the doc.
+`call(method, args, { reload })` → calls the controller's `methods.<method>` and reloads the doc,
+`onRealtime(event, handler)` → runs `handler(payload)` on each `ddcore.publish(event, …)` from the server while the form is open.
+
+```ts
+// a thread that shows new messages as they arrive; the server publishes
+// ddcore.publish("my_app.chat", { session: doc.id }, { doctype: "Chat Session", id: doc.id })
+defineForm("Chat Session", {
+  onload(frm) {
+    frm.onRealtime("my_app.chat", (p) => { if (p.session === frm.doc.id && !frm.isDirty) frm.reload(); });
+  },
+});
+```
 
 `isNew` is always `false` on a Single: before its first save the form already holds the declared
 defaults, which are the settings in effect.
@@ -193,6 +204,8 @@ several scripts for the same cell all run.
 - `ddcore.ui.msgprint(msg, { title, indicator })`, `ddcore.ui.toast`, `ddcore.ui.confirm(msg, title?, { destructive? })` (with `destructive: true` the confirm button is red and "No" is the primary, so Enter keeps the data and `Delete` — ⌫ on a Mac — confirms), `ddcore.ui.prompt(title, fields)`, `ddcore.ui.showError(e)`
 - `ddcore.format.currency/date/number/value/statusColor`, `ddcore.datetime.today/addMonths/addDays/monthStart/monthEnd`
 - `ddcore.search.global(txt, limit?)` — the documents the global search palette lists. See `search`
+- `ddcore.realtime.on(event, handler)` → an `off()` function; `ddcore.realtime.off(event, handler)`. Events sent with
+  `ddcore.publish` (see `controller-api`), outside a form — in a form, `frm.onRealtime` drops the handler when the form closes
 - `__("text", [args])` — translation; the key is its English text. See `i18n`.
 
 ### Dates and times
