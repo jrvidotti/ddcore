@@ -783,6 +783,7 @@ doctype and id are required,doctype e id são obrigatórios,# internal/api/workf
 e.g. the invoicing script,ex.: o script de faturamento,# desk/src/lib/components/Profile.svelte:235
 enqueue: backoff must be {0} or {1},enqueue: backoff deve ser {0} ou {1},# internal/engine/jobs.go:92
 enqueue: provide the method,enqueue: informe o método,# internal/engine/jobs.go:60
+enqueue: uniqueKey must be a non-empty string,enqueue: uniqueKey deve ser um texto não vazio,# internal/engine/jobs.go:115
 enqueue: {0} must be a method path,enqueue: {0} deve ser o caminho de um método,# internal/engine/jobs.go:107
 failed to build Gotenberg request: {0},falha ao construir requisição para o Gotenberg: {0},# internal/print/pdf.go:160
 failed to connect to Gotenberg service at {0}: {1},falha ao conectar ao serviço Gotenberg em {0}: {1},# internal/print/pdf.go:166
