@@ -1,5 +1,7 @@
 .PHONY: build desk test check vet i18n test-go test-desk dev stop kill migrate help docker-up docker-down docker-logs docker-status docker-psql db-up db-down db-logs db-status db-psql docs-dev docs-build docs-preview
 
+export GOWORK=off
+
 PORT ?= 8090
 # Only v* tags name a release: the rolling "edge" tag would make every build a non-release.
 VERSION ?= $(shell git describe --tags --match 'v*' --always --dirty 2>/dev/null || echo "dev")
