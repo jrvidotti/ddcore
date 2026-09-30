@@ -16,6 +16,9 @@ older series, and `whats_new` reads across every one of them.
 
 ### Fixed
 
+- **`hideLabel` is accepted on a `Report` field** (#41), as on a `Table`: a tab holding only a
+  Report shows just the grid, without repeating the tab's name. The meta was refused at load
+  with "hideLabel is for a data field, not a Report".
 - **Chrome no longer offers to translate a Portuguese desk "from English".** The desk shell shipped
   `<html lang="en">` and corrected it only after `/api/boot`; the server now stamps the resolved
   language (user, `Accept-Language`, site default) into the first response, and `loadBoot()` keeps

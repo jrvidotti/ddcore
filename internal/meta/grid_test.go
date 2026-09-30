@@ -37,7 +37,7 @@ func TestGridPropsValidation(t *testing.T) {
 		{Fieldname: "students", Fieldtype: "Table", Options: "Course Student", GridSort: &GridSort{Field: "employee_name"}, GridSortable: true, GridExport: true, GridSelect: true},
 		{Fieldname: "by_idx", Fieldtype: "Table", Options: "Course Student", GridSort: &GridSort{Field: "idx", Order: "desc"}, GridIndex: new(bool), HideLabel: true},
 		{Fieldname: "by_grade", Fieldtype: "Table", Options: "Course Student", GridSort: &GridSort{Field: "grade"}},
-		{Fieldname: "attendance", Fieldtype: "Report", Options: "Course Attendance", ReportFilters: map[string]string{"course": "id", "unit": "unit"}, GridSort: &GridSort{Field: "whatever"}, GridExport: true},
+		{Fieldname: "attendance", Fieldtype: "Report", Options: "Course Attendance", ReportFilters: map[string]string{"course": "id", "unit": "unit"}, GridSort: &GridSort{Field: "whatever"}, GridExport: true, HideLabel: true},
 	}
 	if err := gridRegistry(ok...).Validate(); err != nil {
 		t.Fatal(err)
@@ -53,6 +53,7 @@ func TestGridPropsValidation(t *testing.T) {
 		{&Field{Fieldname: "d", Fieldtype: "Data", GridExport: true}, "for a Table or a Report field, not a Data"},
 		{&Field{Fieldname: "r", Fieldtype: "Report", Options: "X", GridIndex: new(bool)}, "gridIndex is for a Table field, not a Report"},
 		{&Field{Fieldname: "tab", Fieldtype: "Tab Break", HideLabel: true}, `field "tab": hideLabel is for a data field, not a Tab Break`},
+		{&Field{Fieldname: "h", Fieldtype: "HTML", HideLabel: true}, `field "h": hideLabel is for a data field, not a HTML`},
 		{&Field{Fieldname: "d", Fieldtype: "Data", ReportFilters: map[string]string{"a": "id"}}, "reportFilters is for a Report field"},
 		{&Field{Fieldname: "r", Fieldtype: "Report"}, "needs options naming the report"},
 		{&Field{Fieldname: "Bad Name", Fieldtype: "Report", Options: "X"}, `invalid fieldname "Bad Name" on a Report field`},

@@ -696,7 +696,7 @@ func (r *Registry) Validate() error {
 			}
 			r.validateGrid(d, f, e)
 			if LayoutTypes[f.Fieldtype] {
-				if f.HideLabel {
+				if f.HideLabel && f.Fieldtype != "Report" { // a Report draws its label, like a Table
 					e("field %q: hideLabel is for a data field, not a %s", f.Fieldname, f.Fieldtype)
 				}
 				continue
