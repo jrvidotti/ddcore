@@ -8,7 +8,7 @@ export type FieldWidth = "sm" | "md" | "lg" | "full";
 export interface Field {
   fieldname?: string; fieldtype: string; label?: string; options?: any; reqd?: boolean; unique?: boolean; default?: any;
   readOnly?: boolean; hidden?: boolean; fetchFrom?: string; dependsOn?: string; readOnlyDependsOn?: string; mandatoryDependsOn?: string;
-  allowOnSubmit?: boolean; inListView?: boolean; inStandardFilter?: boolean; length?: number; precision?: number; description?: string;
+  allowOnSubmit?: boolean; setOnlyOnce?: boolean; inListView?: boolean; inStandardFilter?: boolean; length?: number; precision?: number; description?: string;
   columns?: number; width?: FieldWidth; gridEditMode?: "inline" | "dialog"; collapsible?: boolean; bold?: boolean;
   showFileName?: boolean;
   /** Label off the form (kept for screen readers, exports, dialogs, errors). */

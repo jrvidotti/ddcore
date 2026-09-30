@@ -76,7 +76,7 @@
 
   function editRow(row: any, isNew = false) {
     const i = isNew ? rows.length : rows.indexOf(row);
-    const fields = childMeta.fields.filter((f) => !f.hidden).map((f) => ({ ...f, readOnly: f.readOnly || !editable }));
+    const fields = childMeta.fields.filter((f) => !f.hidden).map((f) => ({ ...f, readOnly: f.readOnly || !editable || (!isNew && frm.isSetOnce(f, row, field.fieldname!)) }));
     const d = dialog({
       title: `${field.label} · ${isNew ? __("New") : `${__("Row")} ${i + 1}`}`, fields, values: { ...row }, size: "lg",
       primaryLabel: editable ? __("Apply") : __("Close"),
@@ -119,7 +119,7 @@
   // columns a form script acts on when their (read-only) cell is clicked
   const clickable = $derived(new Set(columns.filter((c) => frm.cellClickHandlers(field.fieldname!, c.fieldname!).length).map((c) => c.fieldname!)));
   function rowEditable(f: Field, row: any) {
-    return editable && !f.readOnly && !(f.readOnlyDependsOn && evalExpr(f.readOnlyDependsOn, row, frm.doc));
+    return editable && !f.readOnly && !frm.isSetOnce(f, row, field.fieldname!) && !(f.readOnlyDependsOn && evalExpr(f.readOnlyDependsOn, row, frm.doc));
   }
 </script>
 

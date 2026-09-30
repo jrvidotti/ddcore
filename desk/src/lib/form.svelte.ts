@@ -94,6 +94,8 @@ export interface FieldButton {
 export class FormController {
   doc = $state<any>({});
   original = "";
+  /** The document as last loaded from the server: what a setOnlyOnce field is held to. */
+  saved = $state.raw<any>({});
   meta: Meta;
   doctype: string;
   /**
@@ -121,6 +123,7 @@ export class FormController {
     if (doc?._linkTitles) registerTitles(doc._linkTitles);
     this.doc = doc;
     this.original = JSON.stringify(doc);
+    this.saved = doc ? JSON.parse(this.original) : {};
     this.handlers = formHandlers(this.doctype);
     this.loading = false;
   }
@@ -157,12 +160,27 @@ export class FormController {
     return { ...f, ...props };
   }
 
-  /** Whether a field can be edited right now (docstatus, readOnly, allowOnSubmit, readOnlyDependsOn). */
+  /**
+   * Whether a setOnlyOnce field already holds a saved value, which the server
+   * refuses to change. Given a row of the table `table`, the row's own saved
+   * value; a row not saved yet takes any value.
+   */
+  isSetOnce(f: Field, row?: any, table?: string): boolean {
+    if (!f.setOnlyOnce) return false;
+    const saved = row
+      ? (this.isNew ? [] : this.saved?.[table!] || []).find((r: any) => r.id && r.id === row.id)
+      : this.isNew ? undefined : this.saved;
+    const v = saved?.[f.fieldname!];
+    return v != null && v !== "";
+  }
+
+  /** Whether a field can be edited right now (docstatus, readOnly, allowOnSubmit, setOnlyOnce, readOnlyDependsOn). */
   isFieldEditable(f: Field): boolean {
     if (this.workflow && (this.workflow.allowEdit === false || !this.perm?.write)) return false;
     if (this.isSingle && (!this.perm.write || f.fieldname === "id")) return false;
     if (f.fieldname === "id" && !this.isNew) return false;
     if (f.readOnly) return false;
+    if (this.isSetOnce(f)) return false;
     if (this.docstatus === 2) return false;
     if (this.docstatus === 1 && !f.allowOnSubmit) return false;
     if (f.readOnlyDependsOn && evalExpr(f.readOnlyDependsOn, this.doc)) return false;
@@ -444,6 +462,7 @@ export class FormController {
     if (doc?._linkTitles) registerTitles(doc._linkTitles);
     this.doc = doc;
     this.original = JSON.stringify(doc);
+    this.saved = doc ? JSON.parse(this.original) : {};
     this.fieldErrors = {};
     this.loadedAt = Date.now();
   }

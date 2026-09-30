@@ -442,12 +442,14 @@ use of `Percent` would reach.
 ## Field properties
 
 `fieldname, fieldtype, label, options, optionColors, reqd, unique, default, readOnly, hidden, fetchFrom, dependsOn,
-readOnlyDependsOn, mandatoryDependsOn, allowOnSubmit, inListView, inStandardFilter, searchIndex,
+readOnlyDependsOn, mandatoryDependsOn, allowOnSubmit, setOnlyOnce, inListView, inStandardFilter, searchIndex,
 length, precision, description, columns (grid width 1–12), width (`"sm"` | `"md"` | `"lg"` | `"full"`), gridEditMode (`"inline"` default or `"dialog"`),
 gridSort, gridSortable, gridExport, gridSelect, gridFilters, gridSearch (Table / Report), gridIndex (Table), reportFilters (Report), computed, showFileName (Attach / Attach Image), collapsible, bold, hideLabel,
 permlevel, renamedFrom, convert`
 
 - `permlevel`: 0–9, default 0. A field above 0 is read and written only by roles granted that level by a permission row with the same `permlevel`; the server omits it from every response and refuses a change from anyone else. `hidden` and `readOnly` are screen hints and protect nothing. See `field-permissions`.
+
+- `setOnlyOnce`: the value cannot change once the document exists — a tenant key, say. The server refuses a different value (clearing it included) on every write path: `save()`, REST, `ddcore.db.setValue` / `doc.dbSet`, Data Import; nothing lifts it, not `ignorePermissions` nor a workflow's `updateFields`. An empty value may be filled once. On a child DocType it holds a saved row's value; a new row takes any. The desk shows the field read-only once it holds a saved value. Not for a layout, `Table` or `computed` field. To repair a value, use `ctx.sql` in a migration patch.
 
 - `label` and `description` are **catalogue keys**: write them in English. See `i18n`.
 - `hideLabel: true`: the form doesn't show the label (screen readers still read it). It still names the field in a grid's export, its row dialog and error messages, so keep a real `label`. Any field except a Section Break, Tab Break or HTML — a Report takes it, like a Table.

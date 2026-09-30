@@ -40,6 +40,7 @@ function setup(field: any, perms: Record<string, boolean> = { export: true }, on
   const frm: any = {
     doc, doctype: "Course", meta: { permissions: perms },
     isFieldEditable: () => editable,
+    isSetOnce: () => false,
     isFieldMandatory: () => false,
     trigger: vi.fn(),
     cellClickHandlers: (table: string, column: string) => (table === "students" && onCellClick[column] ? [onCellClick[column]] : []),

@@ -57,6 +57,7 @@ names the record each row changes.
   changed on the site after the file was exported is refused with
   `TimestampMismatchError` rather than overwriting that change.
 - A submitted document accepts only its `allowOnSubmit` fields.
+- A `setOnlyOnce` field that already holds a value refuses a different one (or a blank cell).
 
 There is no upsert: the mode is chosen, never guessed from the data.
 

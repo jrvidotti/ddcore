@@ -22,6 +22,12 @@ older series, and `whats_new` reads across every one of them.
   Select by its value and its label. A Table's fields may be `hidden` (checked at load). It
   combines with the active `gridFilters`, and selection and export follow the rows on screen;
   like them, it is display only and leaves the rows and their `idx` as saved.
+- **`setOnlyOnce: true`** on a field (#43): once the document exists, the value cannot change —
+  the server refuses it on every write path (`save()`, REST, `ddcore.db.setValue` / `doc.dbSet`,
+  Data Import), whatever the permissions, and the desk shows the field read-only. An empty value
+  may be filled once; on a child row it holds for rows already saved. An extension may impose it
+  on another app's field. Replaces a `hasValueChanged` check repeated in each `validate`, which
+  `dbSet` skipped.
 
 ## 0.21.15 — 2026-09-30
 
