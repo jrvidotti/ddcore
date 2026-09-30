@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.22.1 — 2026-09-30
+
 ### Added
 
 - `defineListView({ actions })`: app buttons over the rows selected in the List or Cards view,
