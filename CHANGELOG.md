@@ -16,6 +16,14 @@ older series, and `whats_new` reads across every one of them.
 
 ### Added
 
+- `ddcore.files.save` stores bytes server code holds or downloads (`content`,
+  `contentBase64` or `fromUrl` with headers, a size limit and a timeout) as a `File`, with
+  the rules of an upload. The row is on the current transaction, and a rollback deletes
+  the bytes too. `ddcore.files.presign(fileUrl, { ttl })` returns a presigned URL for a
+  third party with no session; it needs the s3 storage backend. See `storage` (#50).
+- An upload whose transaction rolls back after the `File` row was inserted no longer
+  leaves its bytes behind in the store (#50).
+
 - `ddcore.http` takes `responseType: "base64"`, which returns a binary body (an image, an audio
   file) base64-encoded instead of corrupted as text, and `maxBytes`, the largest body accepted
   (default 10 MiB) (#51).

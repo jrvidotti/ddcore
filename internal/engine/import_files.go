@@ -26,9 +26,9 @@ import (
 	"github.com/jrvidotti/ddcore/internal/storage"
 )
 
-// dangerousExt is the api package's list, kept here too: the two guard the
-// same thing from different doors, and an import does not go through the
-// upload handler.
+// dangerousExt lists the extensions a browser would execute on this origin.
+// RandomFileName rewrites them to .bin; an import, which keeps the url it is
+// given, refuses them instead (unsafePublicExt).
 var dangerousExt = map[string]bool{".html": true, ".htm": true, ".svg": true, ".xhtml": true,
 	".xml": true, ".js": true, ".mjs": true, ".wasm": true, ".shtml": true}
 

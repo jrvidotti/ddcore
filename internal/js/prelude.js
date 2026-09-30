@@ -850,6 +850,10 @@
       patch(url, body, opts) { return wrapHttp(call("http", Object.assign({}, opts || {}, { method: "PATCH", url, body }))); },
       del(url, opts) { return wrapHttp(call("http", Object.assign({}, opts || {}, { method: "DELETE", url }))); },
     },
+    files: {
+      save(opts) { return call("files.save", opts || {}); },
+      presign(fileUrl, opts) { opts = opts || {}; return call("files.presign", { url: fileUrl, ttl: opts.ttl || 0, opts }); },
+    },
     siteName() { return site().name || ""; },
     enqueue(method, args, opts) { return call("enqueue", { method, args: args || {}, opts: opts || {} }); },
     sendMail(args) {

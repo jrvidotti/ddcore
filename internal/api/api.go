@@ -1465,7 +1465,7 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 		}
 		max := s.MaxUpload
 		if max <= 0 {
-			max = 50 << 20
+			max = engine.DefaultMaxUpload
 		}
 		if website && s.E.Cfg.Portal.MaxUploadBytes() < max {
 			max = s.E.Cfg.Portal.MaxUploadBytes()
@@ -1479,123 +1479,14 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 			return nil, cerr.Validation("Missing file field")
 		}
 		defer f.Close()
-		docID, err := s.uploadTarget(c, r.FormValue("doctype"), r.FormValue("doc_id"), r.FormValue("fieldname"))
+		docID, err := c.UploadTarget(r.FormValue("doctype"), r.FormValue("doc_id"), r.FormValue("fieldname"))
 		if err != nil {
 			return nil, err
 		}
-		private := r.FormValue("is_private") != "0" || website
-		// a file uploaded into a restricted field is that field's value: only
-		// its writers may put one there, and it is never public (SEC-02)
-		if restricted, canWrite := c.AttachmentFieldRestricted(r.FormValue("doctype"), r.FormValue("fieldname")); restricted {
-			if !canWrite {
-				return nil, cerr.Permission("Not permitted to change {0}", r.FormValue("fieldname"))
-			}
-			private = true
-		}
-		if wantsImage, label := c.AttachmentFieldWantsImage(r.FormValue("doctype"), r.FormValue("fieldname")); wantsImage && !engine.IsImageFileName(hdr.Filename) {
-			return nil, cerr.Validation("{0} takes an image file (png, jpg, gif, webp)", label)
-		}
-		name := randomFileName(hdr.Filename)
-		url := "/files/" + name
-		if private {
-			url = "/private/files/" + name
-		}
-		key, _ := storage.KeyFromURL(url)
-		contentType := hdr.Header.Get("Content-Type")
-		if err := s.E.Storage().Put(c.Ctx, key, f, hdr.Size, contentType); err != nil {
-			return nil, err
-		}
-		doc, err := c.NewDoc("File", engine.Doc{"file_name": hdr.Filename, "file_url": url, "file_size": hdr.Size, "content_type": contentType, "is_private": private,
-			"attached_to_doctype": r.FormValue("doctype"), "attached_to_id": docID, "attached_to_field": r.FormValue("fieldname")})
-		if err == nil {
-			doc, err = c.Insert(doc, engine.SaveOpts{IgnorePermissions: true})
-		}
-		if err != nil {
-			// no row will ever name these bytes: take them back out
-			if derr := s.E.Storage().Delete(context.WithoutCancel(c.Ctx), key); derr != nil {
-				s.E.Log.Warn("uploaded bytes left behind after a failed insert", "file_url", url, "err", derr)
-			}
-			return nil, err
-		}
-		return doc, nil
+		return c.StoreFile(engine.NewFile{Doctype: r.FormValue("doctype"), ID: docID, Field: r.FormValue("fieldname"),
+			Name: hdr.Filename, ContentType: hdr.Header.Get("Content-Type"), Size: hdr.Size,
+			Private: r.FormValue("is_private") != "0" || website}, f)
 	})
-}
-
-// Extensions that a browser would execute on our origin are neutralised.
-var dangerousExt = map[string]bool{".html": true, ".htm": true, ".svg": true, ".xhtml": true, ".xml": true, ".js": true, ".mjs": true, ".wasm": true, ".shtml": true}
-
-// randomFileName never reuses the uploaded name: it is unguessable and only
-// a safe extension survives, so a public file cannot be located by name nor
-// served as active content.
-// uploadTarget checks that the user may put a file on the document an upload
-// names, and returns the id to attach it to.
-//
-// Attaching is writing: a file on a document is read by everyone who reads the
-// document, so an upload that names one needs write on it. An upload for a
-// document not saved yet — no id, or an id the user typed that does not exist
-// yet — needs the right to create one, and is stored detached; the save that
-// names it attaches it (engine.claimAttachments). A Website User must always
-// say where the file goes, and it can only go into an attachment field a
-// portal page lets them edit (OPS-10).
-func (s *Server) uploadTarget(c *engine.Ctx, doctype, id, field string) (string, error) {
-	if doctype == "" {
-		if c.PortalMode() {
-			return "", cerr.Permission("Not permitted to upload here")
-		}
-		return "", nil
-	}
-	d, err := c.St.DocType(doctype)
-	if err != nil {
-		return "", err
-	}
-	if c.PortalMode() && !c.PortalUploadAllowed(d.Name, field) {
-		return "", cerr.Permission("Not permitted to upload here")
-	}
-	if id != "" {
-		var doc engine.Doc
-		err := c.WithIgnorePermissions(func() error {
-			var e error
-			doc, e = c.GetDoc(d.Name, id)
-			return e
-		})
-		if err == nil {
-			ok, err := c.HasPermission(d.Name, "write", doc)
-			if err != nil {
-				return "", err
-			}
-			if !ok {
-				return "", cerr.Permission("No permission ({0}) on {1} {2}", "write", c.T(d.Label), id)
-			}
-			return id, nil
-		}
-		if ce := cerr.From(err); ce == nil || ce.Status != http.StatusNotFound {
-			return "", err
-		}
-	}
-	for _, ptype := range []string{"create", "write"} {
-		ok, err := c.HasPermission(d.Name, ptype, nil)
-		if err != nil {
-			return "", err
-		}
-		if ok {
-			return "", nil
-		}
-	}
-	return "", cerr.Permission("Not permitted to upload files to {0}", c.T(d.Label))
-}
-
-func randomFileName(orig string) string {
-	ext := strings.ToLower(filepath.Ext(orig))
-	for _, r := range ext {
-		if !(r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || r == '.') {
-			ext = ".bin"
-			break
-		}
-	}
-	if dangerousExt[ext] || len(ext) > 10 || ext == "." {
-		ext = ".bin"
-	}
-	return engine.RandomToken() + ext
 }
 
 // serveUpload hands out user files as downloads, never as active content.

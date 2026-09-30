@@ -21,6 +21,10 @@ import (
 // ErrNotFound is returned when no object exists under a key.
 var ErrNotFound = errors.New("storage: object not found")
 
+// ErrPresignUnsupported is returned by a backend that cannot hand out a URL
+// that works without a session.
+var ErrPresignUnsupported = errors.New("storage: this backend cannot presign a URL")
+
 // Info describes a stored object.
 type Info struct {
 	Size    int64
@@ -42,6 +46,10 @@ type Store interface {
 	// Serve answers a download request for an object whose permission check
 	// the caller has already made.
 	Serve(w http.ResponseWriter, r *http.Request, key string, s Serving) error
+	// Presign returns a URL that answers anyone holding it with the object
+	// until ttl passes: how a third party with no session fetches a private
+	// file. The caller has already made the permission check.
+	Presign(ctx context.Context, key string, ttl time.Duration, s Serving) (string, error)
 	// List calls fn for every object whose key starts with prefix, in no
 	// particular order. It is how a backup reaches bytes no File row names.
 	List(ctx context.Context, prefix string, fn func(key string, info Info) error) error
