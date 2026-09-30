@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.21.15 — 2026-09-30
+
 ### Added
 
 - `defineListView` takes `plainLinks: ["field"]`: those Link (or Dynamic Link) columns show the
