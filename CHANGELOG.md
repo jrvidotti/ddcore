@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.21.17 — 2026-09-30
+
 ### Added
 
 - **`setOnlyOnce: true`** on a field (#43): once the document exists, the value cannot change —
