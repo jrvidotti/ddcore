@@ -87,6 +87,12 @@ export interface FieldDef {
   readOnlyDependsOn?: string;
   mandatoryDependsOn?: string;
   allowOnSubmit?: boolean;
+  /**
+   * The value cannot change once the document exists — refused by the server
+   * on every write path (save, REST, `setValue`/`dbSet`, import). An empty
+   * value may be filled once. The desk shows the field read-only after insert.
+   */
+  setOnlyOnce?: boolean;
   inListView?: boolean;
   inStandardFilter?: boolean;
   searchIndex?: boolean;

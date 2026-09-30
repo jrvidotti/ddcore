@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -817,6 +818,9 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 			return nil, err
 		}
 	}
+	if err := c.checkSetOnlyOnce(d, before, doc); err != nil {
+		return nil, err
+	}
 	if err := c.validate(d, doc, before, opts); err != nil {
 		return nil, err
 	}
@@ -830,6 +834,10 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 		if err := c.checkAllowOnSubmit(d, before, doc); err != nil {
 			return nil, err
 		}
+	}
+	// and so might they have moved a setOnlyOnce value
+	if err := c.checkSetOnlyOnce(d, before, doc); err != nil {
+		return nil, err
 	}
 	switch action {
 	case "submit":
@@ -1108,6 +1116,21 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 			}
 			if err := c.checkTree(d, merged, stored, SaveOpts{}); err != nil {
 				return modified, err
+			}
+		}
+	}
+	// setOnlyOnce holds here too, whoever writes: dbSet skips validation,
+	// not the identity of the document
+	if slices.ContainsFunc(d.Fields, func(f *meta.Field) bool { _, ok := values[f.Fieldname]; return f.SetOnlyOnce && ok }) {
+		stored, err := c.GetDocIgnoringPerms(d.Name, name)
+		if err != nil {
+			return modified, err
+		}
+		for k, v := range values {
+			if f := d.Field(k); f != nil && f.SetOnlyOnce {
+				if err := c.checkSetOnce(f, stored[k], v); err != nil {
+					return modified, err
+				}
 			}
 		}
 	}
@@ -2086,6 +2109,54 @@ func (c *Ctx) checkAllowOnSubmit(d *meta.DocType, before, doc Doc) error {
 		if db.Str(nv) != db.Str(ov) && !(f.Fieldtype == "Datetime" && sameTime(nv, ov, c.E.Location())) {
 			return cerr.Validation("{0} cannot be changed after submission", c.T(f.Label)).WithTitleKey("Submitted document")
 		}
+	}
+	return nil
+}
+
+// checkSetOnlyOnce refuses a change to a setOnlyOnce field of a document that
+// already exists: a stored value holds, an empty one may be filled once. A
+// child row is held by its id, so a new row takes any value. Nothing lifts it
+// — not IgnorePermissions, not a workflow's updateFields; a migration patch's
+// ctx.sql is the way to repair one.
+func (c *Ctx) checkSetOnlyOnce(d *meta.DocType, before, doc Doc) error {
+	for _, f := range d.Fields {
+		if !f.SetOnlyOnce {
+			continue
+		}
+		// an absent key is not "unchanged": the update writes it as null
+		if err := c.checkSetOnce(f, before[f.Fieldname], doc[f.Fieldname]); err != nil {
+			return err
+		}
+	}
+	for _, tf := range d.TableFields() {
+		child, err := c.St.DocType(tf.OptionsString())
+		if err != nil || !slices.ContainsFunc(child.Fields, func(f *meta.Field) bool { return f.SetOnlyOnce }) {
+			continue
+		}
+		stored := map[string]Doc{}
+		for _, row := range before.Children(tf.Fieldname) {
+			stored[row.ID()] = row
+		}
+		for _, row := range doc.Children(tf.Fieldname) {
+			if prev, ok := stored[row.ID()]; ok && row.ID() != "" {
+				if err := c.checkSetOnlyOnce(child, prev, row); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// checkSetOnce compares one setOnlyOnce value with what is stored.
+func (c *Ctx) checkSetOnce(f *meta.Field, stored, v any) error {
+	ov, _ := c.castValue(f, stored)
+	if db.Str(ov) == "" {
+		return nil
+	}
+	nv, _ := c.castValue(f, v)
+	if db.Str(nv) != db.Str(ov) && !(f.Fieldtype == "Datetime" && sameTime(nv, ov, c.E.Location())) {
+		return cerr.Validation("{0} cannot be changed once set", c.T(f.Label))
 	}
 	return nil
 }

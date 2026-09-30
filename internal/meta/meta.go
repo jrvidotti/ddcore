@@ -79,6 +79,10 @@ type Field struct {
 	Columns            int    `json:"columns,omitempty"`
 	Width              string `json:"width,omitempty"`
 	GridEditMode       string `json:"gridEditMode,omitempty"`
+	// SetOnlyOnce refuses any change to a stored value once the document
+	// exists, on every write path (save, dbSet, import); an empty value may
+	// be filled once. Unlike readOnly, this is enforced on the server.
+	SetOnlyOnce bool `json:"setOnlyOnce,omitempty"`
 	// HideLabel keeps the label off the form; it still names the field in
 	// exports, dialogs and error messages.
 	HideLabel bool `json:"hideLabel,omitempty"`
@@ -703,6 +707,9 @@ func (r *Registry) Validate() error {
 				if f.HideLabel && f.Fieldtype != "Report" { // a Report draws its label, like a Table
 					e("field %q: hideLabel is for a data field, not a %s", f.Fieldname, f.Fieldtype)
 				}
+				if f.SetOnlyOnce {
+					e("field %q: setOnlyOnce is for a field with a stored value, not a %s", f.Fieldname, f.Fieldtype)
+				}
 				continue
 			}
 			if !fieldnameRe.MatchString(f.Fieldname) {
@@ -714,6 +721,13 @@ func (r *Registry) Validate() error {
 			seen[f.Fieldname] = true
 			if d.IsStdColumn(f.Fieldname) || f.Fieldname == "doctype" {
 				e("fieldname %q is reserved", f.Fieldname)
+			}
+			// a table's rows come and go as rows, and a computed field is
+			// never written, so neither has a stored value to hold
+			if f.SetOnlyOnce && IsTableType(f.Fieldtype) {
+				e("field %q: setOnlyOnce is for a field with a stored value, not a %s", f.Fieldname, f.Fieldtype)
+			} else if f.SetOnlyOnce && f.Computed {
+				e("field %q: setOnlyOnce is for a field with a stored value, not a computed one", f.Fieldname)
 			}
 			// a Currency or Percent column is numeric(21,9), so nine is the
 			// most it can hold. Caught here, at migrate, rather than as a
