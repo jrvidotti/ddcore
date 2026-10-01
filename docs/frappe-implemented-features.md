@@ -137,7 +137,7 @@ References: [CLI](agent/cli.md), [MCP](../internal/mcp/mcp.go),
   templates, a block vocabulary rendered to text and HTML, authorized `File` attachments and a
   per-message delivery record. It is still not a full email product: no inbound mail or IMAP,
   no CC/BCC or Reply-To, and no resend.
-  Declarative notifications and outgoing webhooks are available; notification preferences, push and a visual rule editor remain out of scope.
+  Declarative notifications and outgoing webhooks are available; preferences for app-defined rules, push and a visual rule editor remain out of scope.
 - Docstatus and controllers allow app-specific approvals; no declarative workflow engine is
   listed here.
 - Fixtures still insert or skip by name: they do not update existing documents.

@@ -6,7 +6,10 @@
   import { formatDatetime } from "$lib/format";
   import Icon from "./Icon.svelte";
   import Control from "$lib/controls/Control.svelte";
-  import { describeDevice, isExpired, languageField, passwordProblem, sortSessions, type SessionRow } from "./profile";
+  import {
+    changedEmailNotifications, describeDevice, isExpired, languageField, passwordProblem, sortSessions,
+    type EmailNotifications, type SessionRow,
+  } from "./profile";
   import { onMount } from "svelte";
 
   // A Website User has no API keys: the portal is their whole surface (OPS-10).
@@ -15,6 +18,7 @@
   type Profile = {
     id: string; email: string; fullName: string;
     language: string | null; userType: string; lastLogin: string | null; roles: string[];
+    emailNotifications: EmailNotifications;
   };
 
   let profile = $state<Profile | null>(null);
@@ -25,6 +29,9 @@
   let fullName = $state("");
   let language = $state<string | null>(null);
   let savingProfile = $state(false);
+
+  let emails = $state<EmailNotifications>({ assignment: true, share: true, due: true });
+  let savingEmails = $state(false);
 
   let current = $state(""), pwd = $state(""), confirmPwd = $state("");
   let pwdError = $state(""), savingPwd = $state(false);
@@ -41,6 +48,7 @@
       profile = await api.call("core.services.profile.getMyProfile");
       fullName = profile!.fullName;
       language = profile!.language;
+      emails = { ...profile!.emailNotifications };
       await Promise.all([loadSessions(), apiKeys ? loadKeys() : Promise.resolve()]);
     } catch (e) { showError(e); }
   }
@@ -69,6 +77,19 @@
       profile = await api.call("core.services.profile.getMyProfile");
       toast(__("Profile saved"), { indicator: "green" });
     } catch (e) { showError(e); } finally { savingProfile = false; }
+  }
+
+  async function saveEmails() {
+    if (!profile) return;
+    const changed = changedEmailNotifications(profile.emailNotifications, emails);
+    if (!Object.keys(changed).length) return;
+    savingEmails = true;
+    try {
+      const r = await api.call("core.services.profile.updateMyProfile", { emailNotifications: changed });
+      profile.emailNotifications = r.emailNotifications;
+      emails = { ...r.emailNotifications };
+      toast(__("Notification preferences saved"), { indicator: "green" });
+    } catch (e) { showError(e); } finally { savingEmails = false; }
   }
 
   async function changePassword(e: Event) {
@@ -166,6 +187,18 @@
         {/if}
       </div>
       <button class="btn primary" disabled={savingProfile} onclick={saveProfile}>{__("Save")}</button>
+    </div>
+
+    <div class="card sect">
+      <h2>{__("Email notifications")}</h2>
+      <p class="small muted" style="margin:0 0 10px">{__("Send me an email when:")}</p>
+      <div class="checks">
+        <label class="check"><input type="checkbox" bind:checked={emails.assignment} /> {__("A document is assigned to me")}</label>
+        <label class="check"><input type="checkbox" bind:checked={emails.share} /> {__("A document is shared with me")}</label>
+        <label class="check"><input type="checkbox" bind:checked={emails.due} /> {__("A task assigned to me is due")}</label>
+      </div>
+      <p class="small muted">{__("These choices only affect email. Notifications always appear in your inbox.")}</p>
+      <button class="btn primary" disabled={savingEmails} onclick={saveEmails}>{__("Save")}</button>
     </div>
 
     <form class="card sect" onsubmit={changePassword}>
@@ -281,6 +314,8 @@
      sit side by side in the same row */
   .fld > .lbl { font-size: 12px; text-transform: none; letter-spacing: normal; }
   .fld { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 200px; }
+  .checks { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+  .check { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
   .chip { display: inline-block; padding: 1px 7px; border-radius: 999px; background: #f3f4f6; font-size: 11px; margin-right: 4px; }
   .chip.green { background: #dcfce7; color: #166534; }
   .err { color: var(--red); margin-bottom: 8px; }

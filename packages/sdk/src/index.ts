@@ -222,6 +222,13 @@ export interface DDCoreAPI {
   };
   /** The site's title, as the desk and the framework's own mail display it. */
   siteName(): string;
+  /** The site's public address (`DDCORE_URL`), without a trailing slash. */
+  siteUrl(): string;
+  /**
+   * The absolute desk address of a document, for a link in a message that is
+   * read outside the desk — a mail template's `b.button`, a webhook payload.
+   */
+  docUrl(doctype: string, id: string): string;
   /**
    * Sends an event to the desk over SSE when the transaction commits. With
    * `user`, only that user's sessions receive it; with `doctype` (and `id`),

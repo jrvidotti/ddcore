@@ -107,3 +107,20 @@ export function languageField(langs: { code: string; label: string }[], t: (s: s
     optionLabels: langs.map((l) => l.label),
   };
 }
+
+/** Which of the framework's own notifications also arrive by email. */
+export type EmailNotifications = { assignment: boolean; share: boolean; due: boolean };
+
+/**
+ * The switches that moved, and only those: the profile service writes what it
+ * is sent, so a switch the person did not touch is not sent at all.
+ */
+export function changedEmailNotifications(
+  before: EmailNotifications, after: EmailNotifications,
+): Partial<EmailNotifications> {
+  const changed: Partial<EmailNotifications> = {};
+  for (const kind of ["assignment", "share", "due"] as const) {
+    if (after[kind] !== before[kind]) changed[kind] = after[kind];
+  }
+  return changed;
+}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { describeDevice, isExpired, languageField, passwordProblem, sortSessions } from "./profile";
+import { changedEmailNotifications, describeDevice, isExpired, languageField, passwordProblem, sortSessions } from "./profile";
 
 const t = (s: string, args?: any[]) =>
   args ? args.reduce<string>((acc, v, i) => acc.replaceAll(`{${i}}`, String(v)), s) : s;
@@ -108,5 +108,19 @@ describe("languageField", () => {
 
   it("survives a site that reported no languages", () => {
     expect(languageField([], t).options).toEqual([]);
+  });
+});
+
+describe("changedEmailNotifications", () => {
+  const all = { assignment: true, share: true, due: true };
+
+  it("sends nothing when no switch moved", () => {
+    expect(changedEmailNotifications(all, { ...all })).toEqual({});
+  });
+
+  it("sends only the switches that moved, in either direction", () => {
+    expect(changedEmailNotifications(all, { ...all, share: false })).toEqual({ share: false });
+    expect(changedEmailNotifications({ ...all, due: false, share: false }, { ...all, share: false }))
+      .toEqual({ due: true });
   });
 });

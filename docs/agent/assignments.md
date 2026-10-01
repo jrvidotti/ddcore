@@ -64,7 +64,7 @@ Request body:
 
 The caller needs read permission on the target document. `allocated_to` must be an existing, enabled user. Unknown JSON fields are rejected, and `priority` defaults to `Medium`.
 
-The assignee's notification is written in the assignee's language: the title is "Assigned: {doctype} {id}", and the message is the description, or "{user} assigned {doctype} {id} to you" when there is none. No notification is sent when users assign to themselves, or when the assignee cannot read the document. The timeline comment and the notification each run in a savepoint: when one fails, its writes are rolled back, the error is logged, and the assignment still commits. Completing and revoking treat their timeline comments the same way.
+The assignee's notification is written in the assignee's language: the title is "Assigned: {doctype} {id}", and the message is the description, or "{user} assigned {doctype} {id} to you" when there is none. No notification is sent when users assign to themselves, or when the assignee cannot read the document. The assignee also receives it by email unless they turned assignment emails off on their profile (see [notifications](notifications.md), "Email for the core's own notifications"). The timeline comment and the notification each run in a savepoint: when one fails, its writes are rolled back, the error is logged, and the assignment still commits. Completing and revoking treat their timeline comments the same way.
 
 Response: `{ "data": ToDoDoc }`
 
@@ -139,7 +139,7 @@ const pending = await ddcore.assignments.pending({
 The core app registers a date-driven persistent notification rule (`core.todo_due`) on `ToDo`:
 - Evaluated by the notification sweep, which the scheduler queues every five minutes while it is running.
 - Triggers for open `ToDo` items where `date` is today.
-- Generates a persistent Desk notification for the assignee (`allocated_to`).
+- Generates a persistent Desk notification for the assignee (`allocated_to`), and an email unless they turned due-date emails off on their profile.
 - Deduplicated via the notification log to ensure users receive at most one reminder per task due date.
 
 ## Desk Integration

@@ -863,6 +863,8 @@
       presign(fileUrl, opts) { opts = opts || {}; return call("files.presign", { url: fileUrl, ttl: opts.ttl || 0, opts }); },
     },
     siteName() { return site().name || ""; },
+    siteUrl() { return site().url || ""; },
+    docUrl(doctype, id) { return (site().url || "") + "/app/" + encodeURIComponent(doctype) + "/" + encodeURIComponent(id); },
     enqueue(method, args, opts) { return call("enqueue", { method, args: args || {}, opts: opts || {} }); },
     sendMail(args) {
       args = args || {};

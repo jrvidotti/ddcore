@@ -138,6 +138,7 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		return map[string]any{
 			"currency": e.Cfg.Currency, "currencyPrecision": e.CurrencyPrecision(),
 			"rounding": e.Cfg.Rounding.String(), "timezone": e.Cfg.Timezone, "name": c.St.SiteTitle(),
+			"url": strings.TrimSuffix(e.Cfg.SiteURL, "/"),
 		}, nil
 	case "getMeta":
 		d, err := c.St.DocType(a.Doctype)

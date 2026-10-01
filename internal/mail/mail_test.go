@@ -13,6 +13,22 @@ func testSender(from string) *smtpSender {
 	return &smtpSender{cfg: config.Mail{From: from, Host: "smtp.x.com", Port: 587, TLS: config.TLSStartTLS}}
 }
 
+func TestRender_SubjectCannotInjectHeaders(t *testing.T) {
+	s := testSender("ddcore <no-reply@x.com>")
+	for _, subject := range []string{"Due: call\r\nBcc: eve@x.com", "Vence: ligação\nBcc: eve@x.com"} {
+		b, err := s.render(Message{To: []string{"ana@x.com"}, Subject: subject, Text: "body"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		headers, _, _ := strings.Cut(string(b), "\r\n\r\n")
+		for _, line := range strings.Split(headers, "\r\n") {
+			if strings.HasPrefix(line, "Bcc:") {
+				t.Errorf("subject %q injected a header:\n%s", subject, headers)
+			}
+		}
+	}
+}
+
 func TestRenderPlainMessage(t *testing.T) {
 	s := testSender("ddcore <no-reply@x.com>")
 	b, err := s.render(Message{To: []string{"ana@x.com"}, Subject: "Hello", Text: "line 1\nline 2"})

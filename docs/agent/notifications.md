@@ -130,9 +130,38 @@ produced offline are recovered. Logging out clears the local connection and stat
 recipient. It carries no document content; clients fetch the authorized persisted
 state. Rollback emits no invalidation. SSE is a refresh hint, not the durable inbox.
 
-This version does not include a visual rule editor, user preferences, push delivery
-or custom event triggers. [Assignments](assignments.md) land in the same inbox
+This version does not include a visual rule editor, push delivery or custom event
+triggers. [Assignments](assignments.md) land in the same inbox
 through `NotifyUser` and the core `todo_due` date rule, not through app-defined
 notification rules. A new [document share](sharing.md) lands there the same way, under
 rule `share`; the recipient must be able to read the document, and they are never
 notified of their own action.
+
+## Email for the core's own notifications
+
+The three notifications the core writes itself also go out by email, through the mail
+template `core.notification`: the subject is the notification's title, the body its
+message and a button to the document (`ddcore.docUrl`, see [mail](mail.md)).
+
+| Kind | Inbox rule | Opt-out field on `User` | Profile key |
+|---|---|---|---|
+| A document is assigned | `assignment` | `mute_assignment_email` | `assignment` |
+| A document is shared | `share` | `mute_share_email` | `share` |
+| A task is due today | `core.todo_due` | `mute_due_email` | `due` |
+
+- Each person switches each kind off under "Email notifications" on their profile, which
+  calls `profile.updateMyProfile({emailNotifications: {assignment?, share?, due?}})` (see
+  [auth](auth.md)). A System Manager can tick the same fields on the User record.
+- The fields are opt-outs: unset means the email is sent, so existing users receive it
+  without a data migration.
+- The switch only affects the email. The inbox notification is always written.
+- The email is a copy: a recipient without a mailable address (the `Admin` account) gets
+  none, and a failure to queue it is logged and rolled back to a savepoint while the inbox
+  notification, the assignment or share, and the date sweep carry on.
+- The delivery is linked to the notification, so access is rechecked when it is sent, as
+  for a rule's email.
+- The link always points at the desk (`/app/<doctype>/<id>`); a Website User who follows it
+  lands on the portal.
+
+These preferences do not reach app-defined rules: a rule's `email` is always sent, whatever
+the rule is called. There are no per-user preferences for app rules.

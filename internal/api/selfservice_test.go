@@ -38,6 +38,53 @@ func TestSEC04_GetMyProfile(t *testing.T) {
 	}
 }
 
+// Each notification email is on until its owner turns it off, and turning one
+// off leaves the others alone.
+func TestSEC04_NotificationPreferences(t *testing.T) {
+	x := setup(t)
+	prefs := func(r resp) map[string]any {
+		t.Helper()
+		x.expect(r, 200, "")
+		p, _ := r.Body["data"].(map[string]any)["emailNotifications"].(map[string]any)
+		if p == nil {
+			t.Fatalf("no emailNotifications in %s", r.Raw)
+		}
+		return p
+	}
+	p := prefs(x.callAs("ze@x.com", "core.services.profile.getMyProfile", nil))
+	if p["assignment"] != true || p["share"] != true || p["due"] != true {
+		t.Fatalf("defaults = %v, want all on", p)
+	}
+
+	p = prefs(x.callAs("ze@x.com", "core.services.profile.updateMyProfile", map[string]any{
+		"emailNotifications": map[string]any{"assignment": false},
+	}))
+	if p["assignment"] != false || p["share"] != true || p["due"] != true {
+		t.Fatalf("after turning assignment off = %v", p)
+	}
+	p = prefs(x.callAs("ze@x.com", "core.services.profile.getMyProfile", nil))
+	if p["assignment"] != false {
+		t.Fatalf("the choice was not kept: %v", p)
+	}
+	// someone else's switches did not move
+	p = prefs(x.callAs("ana@x.com", "core.services.profile.getMyProfile", nil))
+	if p["assignment"] != true {
+		t.Fatalf("ana's preferences changed: %v", p)
+	}
+
+	r := x.callAs("ze@x.com", "core.services.profile.updateMyProfile", map[string]any{
+		"emailNotifications": map[string]any{"share": "no"},
+	})
+	x.expect(r, 417, "ValidationError")
+
+	p = prefs(x.callAs("ze@x.com", "core.services.profile.updateMyProfile", map[string]any{
+		"emailNotifications": map[string]any{"assignment": true, "due": false},
+	}))
+	if p["assignment"] != true || p["share"] != true || p["due"] != false {
+		t.Fatalf("after the second change = %v", p)
+	}
+}
+
 // The entire point of enumerating fields instead of spreading args: a caller cannot
 // escalate privileges by writing roles or enabled via self-service.
 func TestSEC04_SelfServiceCannotEscalate(t *testing.T) {
