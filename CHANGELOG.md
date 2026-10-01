@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.23.2 — 2026-10-01
+
 ### Added
 
 - The Desk's two side bars collapse to a rail of icons, each with a button of its own. The
