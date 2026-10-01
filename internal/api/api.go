@@ -1250,7 +1250,7 @@ func (s *Server) comments(w http.ResponseWriter, r *http.Request) {
 		if err := s.requireDocRead(c, urlParam(r, "doctype"), urlParam(r, "id")); err != nil {
 			return nil, err
 		}
-		return c.GetList("Comment", engine.ListArgs{Filters: map[string]any{"reference_doctype": urlParam(r, "doctype"), "reference_id": urlParam(r, "id")}, Fields: []string{"id", "owner", "creation", "content", "comment_type"}, OrderBy: "creation asc", Limit: 200})
+		return c.GetList("Comment", engine.ListArgs{Filters: map[string]any{"reference_doctype": urlParam(r, "doctype"), "reference_id": urlParam(r, "id")}, Fields: []string{"id", "owner", "creation", "modified", "content", "comment_type"}, OrderBy: "creation asc", Limit: 200})
 	})
 }
 

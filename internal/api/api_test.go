@@ -546,6 +546,53 @@ func TestB04_VersionAndCommentFollowReference(t *testing.T) {
 	if r := x.call("PUT", "/api/resource/Comment/"+comment, map[string]any{"content": "editado pela autora"}, ana); r.Status != 200 {
 		t.Fatalf("author should edit: %d %s", r.Status, r.Raw)
 	}
+	// the listing carries modified, which is what tells an edited comment apart
+	r = x.call("POST", "/api/resource/Comment", map[string]any{"reference_doctype": "Pessoa", "reference_id": "Reservada", "content": "intacto"}, ana)
+	if r.Status != 200 {
+		t.Fatalf("second comment: %d %s", r.Status, r.Raw)
+	}
+	untouched := fmt.Sprint(r.Body["data"].(map[string]any)["id"])
+	r = x.call("GET", "/api/comments/Pessoa/Reservada", nil, ana)
+	if r.Status != 200 {
+		t.Fatalf("list comments: %d %s", r.Status, r.Raw)
+	}
+	for _, row := range r.Body["data"].([]any) {
+		m := row.(map[string]any)
+		creation, modified := fmt.Sprint(m["creation"]), fmt.Sprint(m["modified"])
+		if m["modified"] == nil {
+			t.Fatalf("comment listing lacks modified: %v", m)
+		}
+		switch fmt.Sprint(m["id"]) {
+		case comment:
+			if modified <= creation {
+				t.Fatalf("edited comment: modified %s should follow creation %s", modified, creation)
+			}
+		case untouched:
+			if modified != creation {
+				t.Fatalf("untouched comment: modified %s should equal creation %s", modified, creation)
+			}
+		}
+	}
+	// a timeline entry is the system's record, written in the user's name: its
+	// owner may neither rewrite nor remove it
+	r = x.call("POST", "/api/resource/Comment", map[string]any{"reference_doctype": "Pessoa", "reference_id": "Reservada", "content": "trilha", "comment_type": "Workflow"}, ana)
+	if r.Status != 200 {
+		t.Fatalf("timeline comment: %d %s", r.Status, r.Raw)
+	}
+	trail := fmt.Sprint(r.Body["data"].(map[string]any)["id"])
+	x.expect(x.call("PUT", "/api/resource/Comment/"+trail, map[string]any{"content": "reescrita"}, ana), 403, "PermissionError")
+	x.expect(x.call("DELETE", "/api/resource/Comment/"+trail, nil, ana), 403, "PermissionError")
+	root := "sid:" + x.sid("root@x.com")
+	if r := x.call("DELETE", "/api/resource/Comment/"+trail, nil, root); r.Status != 200 {
+		t.Fatalf("System Manager should delete a timeline comment: %d %s", r.Status, r.Raw)
+	}
+	// the author removes their own comment, a System Manager anybody's
+	if r := x.call("DELETE", "/api/resource/Comment/"+untouched, nil, ana); r.Status != 200 {
+		t.Fatalf("author should delete: %d %s", r.Status, r.Raw)
+	}
+	if r := x.call("DELETE", "/api/resource/Comment/"+comment, nil, root); r.Status != 200 {
+		t.Fatalf("System Manager should delete another's comment: %d %s", r.Status, r.Raw)
+	}
 	// System Manager retains administrative access
 	if r := x.call("GET", "/api/resource/Version", nil, "sid:"+x.sid("root@x.com")); r.Status != 200 {
 		t.Fatalf("System Manager should list versions: %d %s", r.Status, r.Raw)

@@ -37,6 +37,10 @@ older series, and `whats_new` reads across every one of them.
   payload. See `mail`.
 - Mail template `core.notification` (`{title, message, doctype, id}`), the message behind the
   emails above.
+- A comment on a form can be edited and deleted from the form's right column. Its author edits it
+  in place and may delete it; a System Manager may delete anybody's. An edited comment says so
+  next to its date, and `GET /api/comments/{doctype}/{id}` now returns `modified` so a client can
+  tell.
 
 ### Changed
 
@@ -45,6 +49,10 @@ older series, and `whats_new` reads across every one of them.
   tasks due today from the first request after the upgrade; nothing was mailed for these before.
   Run `ddcore migrate` to add the three `User` columns. To keep a user silent, tick the three
   "No email when…" fields on their User record, or let them do it on their profile.
+- A timeline entry — the `Comment` an assignment or a workflow transition writes in the user's
+  name, any `comment_type` other than `Comment` — can no longer be edited or deleted by its owner
+  through `PUT`/`DELETE /api/resource/Comment/{id}`; a System Manager still can. Server code that
+  rewrote such an entry as an ordinary user now gets a `PermissionError`.
 
 ### Fixed
 
