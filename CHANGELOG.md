@@ -14,6 +14,13 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- `ddcore.json` takes an optional `title` that names the site — the sidebar's heading, the browser
+  tab, the e-mails, `/health` — ahead of every app's title. Left out, the site is named by its own
+  app as before. It changes the name only: `desk.home` and `desk.logo` stay with the apps. See
+  `i18n` → "The site's name is the app's title" (#54).
+
 ## 0.23.1 — 2026-10-01
 
 ### Fixed

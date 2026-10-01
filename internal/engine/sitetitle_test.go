@@ -26,6 +26,16 @@ func TestSiteTitle(t *testing.T) {
 		about string
 	}{
 		{
+			name: "the title in ddcore.json wins over the site's app",
+			st: func() *State {
+				st := state([2]string{"core", "DDCore"}, [2]string{"demo", "Projects"})
+				st.Title = "Acme Projects"
+				return st
+			}(),
+			want:  "Acme Projects",
+			about: "a site that configured a name is called by it, whatever its apps are titled",
+		},
+		{
 			name:  "the app names the site, not the core",
 			st:    state([2]string{"core", "DDCore"}, [2]string{"demo", "Projects"}),
 			want:  "Projects",

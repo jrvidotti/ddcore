@@ -243,9 +243,9 @@ func TestBootHome(t *testing.T) {
 		t.Fatalf("desk.logo = %q, expected the fixture's emoji", logo)
 	}
 
-	// the site's name is the fixture app's own title, translated: nothing in
-	// ddcore.json names the site any more, and the one string a reader sees is
-	// a catalogue key like every other label
+	// the site's name is the fixture app's own title, translated: this site's
+	// ddcore.json declares no `title` of its own, so the one string a reader
+	// sees is a catalogue key like every other label
 	site, _ := boot["site"].(map[string]any)
 	if site == nil {
 		t.Fatalf("/api/boot returned no site block: %#v", boot["site"])

@@ -47,7 +47,10 @@ type Config struct {
 	CurrencyPrecision *int
 	Rounding          num.Rounding
 	Timezone          string
-	SecretKey         string
+	// SiteTitle is ddcore.json's `title`: the site's name when it is not its
+	// app's title. Empty leaves the name to the apps.
+	SiteTitle string
+	SecretKey string
 	// AdminPassword is DDCORE_ADMIN_PASSWORD: what a migration gives an Admin
 	// that has no password yet, instead of generating one. Empty generates.
 	AdminPassword string
@@ -198,7 +201,10 @@ type State struct {
 	Workflows         map[string]*js.Workflow
 	WorkflowByDocType map[string]*js.Workflow
 	// Portals are the declared self-service portals (OPS-10), by name.
-	Portals     map[string]Portal
+	Portals map[string]Portal
+	// Title is the name ddcore.json gave the site, which wins over the apps'
+	// titles. Empty on a site that configured none.
+	Title       string
 	Meta        *meta.Registry
 	Snap        *Snapshot
 	Apps        []js.App
@@ -663,6 +669,7 @@ func (e *Engine) Load() error {
 		portals[name] = p
 	}
 	st := &State{
+		Title:             e.Cfg.SiteTitle,
 		Portals:           portals,
 		Notifications:     notifications,
 		Workflows:         workflows,
@@ -758,14 +765,19 @@ func (s *State) brandApps() []*AppMeta {
 
 // SiteTitle is what the site is called wherever a person is told: the sidebar's
 // heading, the browser tab, a recovery e-mail, the health report. It is the
-// title of the first app in brandApps order — the site's own app, not a library
-// it requires — and the core's own title when there is no other app.
+// `title` ddcore.json declares, for a site that wants a name of its own;
+// without one, the title of the first app in brandApps order — the site's own
+// app, not a library it requires — and the core's own title when there is no
+// other app.
 //
 // It is resolved here, once, rather than by each reader: the name has to be the
 // same word in the desk, in the mail and in /health, and two derivations that
 // "should" agree is the bug nobody finds. The value is a catalogue key, like any
 // label; the caller translates it into the language of whoever is reading.
 func (s *State) SiteTitle() string {
+	if s.Title != "" {
+		return s.Title
+	}
 	for _, m := range s.brandApps() {
 		if m.Title != "" {
 			return m.Title
