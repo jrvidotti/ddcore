@@ -17,6 +17,7 @@
   import { getModifierKey } from "$lib/shortcuts.svelte";
   import { DocAssignments } from "$lib/assignments.svelte";
   import { isAssignmentOverdue, assignmentInitial, priorityBadgeClass } from "./doc-sidebar-assignment";
+  import { panels, setDocSidebarCollapsed } from "$lib/panels.svelte";
 
   let { frm }: { frm: FormController } = $props();
   let comments = $state<any[]>([]);
@@ -30,6 +31,9 @@
 
   const assignState = new DocAssignments("", "");
   const shareState = new DocSharesState("", "");
+
+  const collapsed = $derived(panels.docSidebarCollapsed);
+  const showShares = $derived(!frm.isNew && !frm.meta.doctype.isSingle && (shareState.canShare || shareState.rows.length > 0));
 
   async function load() {
     try {
@@ -97,7 +101,38 @@
   }
 </script>
 
-<aside class="doc-sidebar">
+{#snippet railButton(icon: string, label: string, count: number)}
+  <button type="button" class="rail-btn" title={label} aria-label={label} onclick={() => setDocSidebarCollapsed(false)}>
+    <Icon name={icon} size={16} />
+    {#if count > 0}<span class="count-badge">{count}</span>{/if}
+  </button>
+{/snippet}
+
+<aside class="doc-sidebar" class:collapsed>
+  <div class="panel-head">
+    <button
+      type="button"
+      class="btn icon sm panel-toggle"
+      onclick={() => setDocSidebarCollapsed(!collapsed)}
+      title={collapsed ? __("Expand panel") : __("Collapse panel")}
+      aria-label={collapsed ? __("Expand panel") : __("Collapse panel")}
+      aria-expanded={!collapsed}
+    >
+      <Icon name="panel-right" size={14} />
+    </button>
+  </div>
+
+  {#if collapsed}
+    <div class="rail">
+      {#if !frm.isNew}{@render railButton("users", __("Assigned To"), assignState.rows.length)}{/if}
+      {#if showShares}{@render railButton("share-2", __("Shared With"), shareState.rows.length)}{/if}
+      {@render railButton("message-square", __("Comments"), comments.length)}
+      {#if frm.meta.doctype.trackChanges}{@render railButton("history", __("History"), versions.length)}{/if}
+    </div>
+  {/if}
+
+  <!-- hidden rather than unmounted when collapsed: a half-written comment stays -->
+  <div class="doc-sidebar-content">
   <!-- a Single never saved has nobody and no date to show -->
   {#if frm.doc.creation}
     <div class="small muted">
@@ -177,7 +212,7 @@
     </div>
   {/if}
 
-  {#if !frm.isNew && !frm.meta.doctype.isSingle && (shareState.canShare || shareState.rows.length > 0)}
+  {#if showShares}
     <div class="block">
       <div class="assignments-head">
         <h4>{__("Shared With")}</h4>
@@ -287,6 +322,7 @@
       {/if}
     </div>
   {/if}
+  </div>
 </aside>
 
 {#if showModal}
@@ -344,6 +380,15 @@
   .comment-body :global(ul), .comment-body :global(ol) { margin: 0 0 6px; padding-left: 18px; }
   .comment-body :global(img) { max-width: 100%; border-radius: 4px; }
   .doc-sidebar { width: 260px; flex-shrink: 0; }
+  .panel-head { display: flex; justify-content: flex-end; margin-bottom: 4px; }
+  .panel-toggle { color: var(--muted); }
+  /* Collapsed: a rail of icons with each section's count. */
+  .doc-sidebar.collapsed { width: 36px; }
+  .doc-sidebar.collapsed .panel-head { justify-content: center; }
+  .doc-sidebar.collapsed .doc-sidebar-content { display: none; }
+  .rail { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+  .rail-btn { display: flex; flex-direction: column; align-items: center; gap: 3px; width: 100%; padding: 7px 0; border: 0; background: none; border-radius: 6px; color: var(--muted); cursor: pointer; }
+  .rail-btn:hover { background: #f3f4f6; color: var(--text); }
   .block { margin-top: 18px; }
   h4 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 8px; }
   .comment { padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }

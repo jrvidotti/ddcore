@@ -9,6 +9,7 @@
   import { notifications, stopNotifications } from "$lib/notifications.svelte";
   import { pendingTasks } from "$lib/assignments.svelte";
   import { disconnectEvents } from "$lib/events";
+  import { panels, setSidebarCollapsed } from "$lib/panels.svelte";
   import { isActiveLink, systemDoctypes } from "./sidebar";
   import {
     resolveActiveWorkspace,
@@ -39,6 +40,10 @@
   });
 
   let wsMenuOpen = $state(false);
+
+  // Collapsed, the sidebar is a rail of icons: a link's label becomes its tooltip.
+  const collapsed = $derived(panels.sidebarCollapsed);
+  const tip = (label: string) => (collapsed ? label : undefined);
 
   function selectWorkspace(name: string) {
     wsMenuOpen = false;
@@ -88,16 +93,19 @@
 
 <svelte:window onpointerdown={onPointerDown} onkeydown={onKeydown} onclick={onWindowClick} />
 
-<aside class="sidebar" class:open>
+<aside class="sidebar" class:open class:collapsed>
   <div class="brand">
-    <a href="/app" style="display:flex;align-items:center;gap:8px;color:inherit;text-decoration:none"><span class="logo">{siteLogo()}</span><strong>{siteName()}</strong></a>
+    <a href="/app" title={tip(siteName())} style="display:flex;align-items:center;gap:8px;color:inherit;text-decoration:none"><span class="logo">{siteLogo()}</span><strong>{siteName()}</strong></a>
+    <button class="sidebar-collapse-btn" onclick={() => setSidebarCollapsed(!collapsed)} aria-label={collapsed ? __("Expand sidebar") : __("Collapse sidebar")} title={collapsed ? __("Expand sidebar") : __("Collapse sidebar")} aria-expanded={!collapsed} type="button">
+      <Icon name="panel-left" size={16} />
+    </button>
     <button class="btn icon sidebar-close-btn" onclick={() => (open = false)} aria-label={__("Close menu")} type="button">
       <Icon name="x" size={16} />
     </button>
   </div>
   {#if workspaces.length > 1}
     <div class="workspace-switcher dropdown">
-      <button class="workspace-btn" onclick={() => (wsMenuOpen = !wsMenuOpen)} aria-haspopup="menu" aria-expanded={wsMenuOpen}>
+      <button class="workspace-btn" onclick={() => (wsMenuOpen = !wsMenuOpen)} aria-haspopup="menu" aria-expanded={wsMenuOpen} title={tip(activeWorkspace?.label || activeWorkspace?.name || "")}>
         <span class="ws-icon"><Icon name={activeWorkspace?.icon || "layout-dashboard"} size={16} /></span>
         <span class="ws-label">{activeWorkspace?.label || activeWorkspace?.name}</span>
         <Icon name={wsMenuOpen ? "chevron-up" : "chevron-down"} size={13} />
@@ -121,27 +129,27 @@
       {/if}
     </div>
   {:else if workspaces.length === 1}
-    <div class="workspace-static-header">
+    <div class="workspace-static-header" title={tip(workspaces[0].label || workspaces[0].name)}>
       <Icon name={workspaces[0].icon || "layout-dashboard"} size={16} />
       <span>{workspaces[0].label || workspaces[0].name}</span>
     </div>
   {/if}
   <nav>
-    <button class="search-btn" type="button" onclick={() => { if (typeof window !== "undefined" && window.innerWidth <= 800) open = false; openSearch(); }}>
+    <button class="search-btn" type="button" title={tip(__("Search"))} onclick={() => { if (typeof window !== "undefined" && window.innerWidth <= 800) open = false; openSearch(); }}>
       <Icon name="search" /><span>{__("Search")}</span><kbd class="kbd">{getModifierKey()} K</kbd>
     </button>
-    <a href="/app/notifications" class:active={active("/app/notifications")}>
+    <a href="/app/notifications" class:active={active("/app/notifications")} title={tip(__("Notifications"))}>
       <Icon name="bell" /><span>{__("Notifications")}</span>
       {#if notifications.unread > 0}<span class="notification-count" aria-label={__("{0} unread notifications", [notifications.unread])}>{notifications.unread}</span>{/if}
     </a>
-    <a href="/app/todo" class:active={active("/app/todo")}>
+    <a href="/app/todo" class:active={active("/app/todo")} title={tip(__("To-Do"))}>
       <Icon name="check-square" /><span>{__("To-Do")}</span>
       {#if pendingTasks.count > 0}<span class="notification-count" aria-label={__("{0} pending tasks", [pendingTasks.count])}>{pendingTasks.count}</span>{/if}
     </a>
     {#if activeWorkspace}
       {#each activeWorkspace.sidebar || [] as it}
         {#if itemHref(it)}
-          <a href={itemHref(it)} class:active={active(itemHref(it))} class:child={!it.icon}><Icon name={it.icon || "circle"} size={it.icon ? 16 : 6} /><span>{it.label}</span></a>
+          <a href={itemHref(it)} class:active={active(itemHref(it))} class:child={!it.icon} title={tip(it.label)}><Icon name={it.icon || "circle"} size={it.icon ? 16 : 6} /><span>{it.label}</span></a>
         {:else}
           <div class="group">{it.label}</div>
         {/if}
@@ -154,14 +162,14 @@
       {#if showCore}
         {#each otherDoctypes as [name, d]}
           {@const coreHref = `/app/${encodeURIComponent(activeWorkspace?.name || "core")}/${encodeURIComponent(name)}`}
-          <a href={coreHref} class:active={active(coreHref)}><Icon name={d.icon || "circle"} size={d.icon ? 16 : 6} /><span>{d.label}</span></a>
+          <a href={coreHref} class:active={active(coreHref)} title={tip(d.label)}><Icon name={d.icon || "circle"} size={d.icon ? 16 : 6} /><span>{d.label}</span></a>
         {/each}
       {/if}
     {/if}
   </nav>
   <div class="foot">
     <div class="dropdown" style="width:100%">
-      <button class="user-btn" onclick={() => (menuOpen = !menuOpen)} aria-haspopup="menu" aria-expanded={menuOpen}>
+      <button class="user-btn" onclick={() => (menuOpen = !menuOpen)} aria-haspopup="menu" aria-expanded={menuOpen} title={tip(displayName)}>
         <span class="avatar">{avatarInitial(displayName)}</span>
         <span class="name small">{displayName}</span>
         <Icon name={menuOpen ? "chevron-down" : "chevron-right"} size={14} />
@@ -191,7 +199,9 @@
 
 <style>
   .sidebar { width: var(--sidebar-w); background: #fff; border-right: 1px solid var(--border); display: flex; flex-direction: column; height: 100vh; position: sticky; top: 0; flex-shrink: 0; }
-  .brand { padding: 14px 16px; border-bottom: 1px solid var(--border); font-size: 15px; }
+  .brand { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 14px 16px; border-bottom: 1px solid var(--border); font-size: 15px; }
+  .sidebar-collapse-btn { display: inline-flex; width: 28px; height: 28px; padding: 0; flex-shrink: 0; align-items: center; justify-content: center; border: 0; background: none; color: var(--muted); cursor: pointer; border-radius: 4px; }
+  .sidebar-collapse-btn:hover { background: #f3f4f6; color: var(--text); }
   .logo { display: inline-flex; width: 26px; height: 26px; border-radius: 7px; background: var(--primary); color: #fff; align-items: center; justify-content: center; font-weight: 700; overflow: hidden; }
   .sidebar-close-btn { display: none; }
   .workspace-switcher { padding: 8px 10px; border-bottom: 1px solid var(--border); }
@@ -223,8 +233,35 @@
   /* The footer sits at the bottom of the viewport, so the menu opens upward. */
   :global(.dropdown .menu.up) { top: auto; bottom: 100%; margin: 0 0 4px; left: 0; right: 0; }
   :global(.dropdown .menu.up button) { display: flex; align-items: center; gap: 8px; }
+  /* Collapsed: a rail of icons. Desktop only; below 800px the sidebar is a drawer. */
+  @media (min-width: 801px) {
+    .sidebar.collapsed { width: 56px; }
+    .sidebar.collapsed .brand { flex-direction: column; padding: 14px 0 8px; }
+    .sidebar.collapsed .brand strong,
+    .sidebar.collapsed .ws-label,
+    .sidebar.collapsed .workspace-btn > :global(svg),
+    .sidebar.collapsed .workspace-static-header span,
+    .sidebar.collapsed .search-btn span,
+    .sidebar.collapsed .search-btn .kbd,
+    .sidebar.collapsed nav a > span:not(.notification-count),
+    .sidebar.collapsed nav a.child,
+    .sidebar.collapsed .group,
+    .sidebar.collapsed .user-btn .name,
+    .sidebar.collapsed .user-btn > :global(svg) { display: none; }
+    .sidebar.collapsed .workspace-btn,
+    .sidebar.collapsed .workspace-static-header,
+    .sidebar.collapsed .search-btn,
+    .sidebar.collapsed nav a,
+    .sidebar.collapsed .user-btn { justify-content: center; padding-left: 0; padding-right: 0; }
+    .sidebar.collapsed nav a { position: relative; }
+    /* the pill becomes a badge on the icon's corner */
+    .sidebar.collapsed .notification-count { position: absolute; top: 1px; right: 3px; margin: 0; border-radius: 10px; padding: 0 4px; font-size: 10px; font-weight: 600; line-height: 14px; }
+    /* the menus are wider than the rail, so they open to its right */
+    .sidebar.collapsed .workspace-switcher .menu,
+    .sidebar.collapsed .foot :global(.menu.up) { right: auto; width: 200px; }
+  }
   @media (max-width: 800px) {
-    .brand { display: flex; align-items: center; justify-content: space-between; }
+    .sidebar-collapse-btn { display: none; }
     .sidebar-close-btn { display: inline-flex; width: 28px; height: 28px; padding: 0; align-items: center; justify-content: center; border: 0; background: none; color: var(--muted); cursor: pointer; border-radius: 4px; }
     .sidebar-close-btn:hover { background: #f3f4f6; color: var(--text); }
     .sidebar { position: fixed; z-index: 50; transform: translateX(-100%); transition: transform .2s ease; box-shadow: none; }

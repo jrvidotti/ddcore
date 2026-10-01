@@ -14,6 +14,13 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- The Desk's two side bars collapse to a rail of icons, each with a button of its own. The
+  navigation sidebar keeps the bell and To-Do icons with their counters as badges; the form's
+  right column keeps one icon per section (assignments, shares, comments, history) with its count,
+  and a click on any of them opens it again. The choice is kept per browser.
+
 ## 0.23.1 — 2026-10-01
 
 ### Fixed
