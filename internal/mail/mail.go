@@ -294,8 +294,11 @@ func dotStuff(s string) string {
 }
 
 // encodeHeader RFC 2047-encodes a header when it is not plain ASCII, so a
-// subject with an accent does not arrive as mojibake.
+// subject with an accent does not arrive as mojibake. A line break never
+// survives: a subject built from text somebody typed would otherwise end the
+// header and start one of the writer's choosing.
 func encodeHeader(s string) string {
+	s = strings.Join(strings.FieldsFunc(s, func(r rune) bool { return r == '\r' || r == '\n' }), " ")
 	for _, r := range s {
 		if r > 127 {
 			return mime.QEncoding.Encode("utf-8", s)

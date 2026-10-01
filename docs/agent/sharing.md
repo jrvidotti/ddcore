@@ -168,7 +168,9 @@ await ddcore.shares.remove("Sales Order", "SO-0001", "ana@example.com");
 ## Notifications
 
 A new share sends the recipient an inbox notification ("Shared with you: …") in their
-language. Changing an existing share's rights does not notify again. The notification is
+language, and the same message by email unless they turned share emails off on their
+profile (see [notifications](notifications.md), "Email for the core's own notifications").
+Changing an existing share's rights does not notify again. The notification is
 rechecked like every other: once the share is revoked, it stops being listed and counted.
 
 ## Caching

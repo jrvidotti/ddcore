@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/jrvidotti/ddcore/internal/db"
 	"github.com/jrvidotti/ddcore/internal/engine"
 )
 
@@ -302,6 +303,61 @@ func TestAssignments_NotificationInRecipientLanguage(t *testing.T) {
 	n := items[0].(map[string]any)
 	if n["title"] != "Atribuído: Pessoa Lang Doc" || n["message"] != "ana@x.com atribuiu Pessoa Lang Doc a você" {
 		t.Fatalf("notification not in recipient language: %v", n)
+	}
+}
+
+// The assignee also gets an email, written in their language, until they turn
+// it off on their profile; the inbox notification arrives either way.
+func TestAssignments_EmailToAssignee(t *testing.T) {
+	x := setup(t)
+	ana := "sid:" + x.sid("ana@x.com")
+	x.asAdmin(func(c *engine.Ctx) error {
+		_, err := c.Q().Exec(c.Ctx, `UPDATE tab_user SET language='pt-BR' WHERE id='bia@x.com'`)
+		return err
+	})
+	assign := func(id string) {
+		t.Helper()
+		r := x.call("POST", "/api/resource/Pessoa", map[string]any{"nome": id}, ana)
+		x.expect(r, 200, "")
+		r = x.call("POST", "/api/assignments/assign", map[string]any{
+			"doctype": "Pessoa", "id": id, "allocated_to": "bia@x.com", "description": "Please review",
+		}, ana)
+		x.expect(r, 200, "")
+	}
+	mails := func() []map[string]any {
+		t.Helper()
+		var rows []map[string]any
+		x.asAdmin(func(c *engine.Ctx) error {
+			var err error
+			rows, err = db.Select(c.Ctx, c.Q(),
+				`SELECT "to", subject, template, lang, reference_id FROM tab_email_delivery ORDER BY creation`)
+			return err
+		})
+		return rows
+	}
+
+	assign("Mail Doc")
+	rows := mails()
+	if len(rows) != 1 {
+		t.Fatalf("expected one delivery, got %v", rows)
+	}
+	if rows[0]["subject"] != "Atribuído: Pessoa Mail Doc" || rows[0]["template"] != "core.notification" ||
+		rows[0]["lang"] != "pt-BR" || rows[0]["reference_id"] != "Mail Doc" {
+		t.Fatalf("delivery = %v", rows[0])
+	}
+
+	r := x.callAs("bia@x.com", "core.services.profile.updateMyProfile", map[string]any{
+		"emailNotifications": map[string]any{"assignment": false},
+	})
+	x.expect(r, 200, "")
+	assign("Quiet Doc")
+	if rows = mails(); len(rows) != 1 {
+		t.Fatalf("a muted assignee was mailed: %v", rows)
+	}
+	r = x.call("GET", "/api/notifications", nil, "sid:"+x.sid("bia@x.com"))
+	x.expect(r, 200, "")
+	if items := r.Body["data"].(map[string]any)["data"].([]any); len(items) != 2 {
+		t.Fatalf("expected both inbox notifications, got %v", items)
 	}
 }
 

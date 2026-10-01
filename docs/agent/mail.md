@@ -123,6 +123,20 @@ Deleting the document a message refers to does **not** delete the record: an
 order can be deleted, an invoice that already reached a customer cannot be
 un-sent. Renaming the document does follow.
 
+## Linking to a document
+
+A message is read outside the desk, so a link in it has to be absolute.
+`ddcore.docUrl(doctype, id)` returns the desk address of a document and
+`ddcore.siteUrl()` the site's public address (`DDCORE_URL`, without a trailing slash):
+
+```ts
+body: (d, b) => [b.p(d.message), b.button(_("Open document"), ddcore.docUrl("Sales Order", d.id))],
+```
+
+Without `DDCORE_URL` both point at `http://localhost:<port>`, which is why startup warns
+when it is unset. The core's own `core.notification` template
+(`core/mail/notification.mail.ts`) is built this way.
+
 ## Messages that carry a credential
 
 A template whose arguments are a secret — a recovery link, a one-time token —

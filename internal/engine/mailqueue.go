@@ -33,6 +33,9 @@ const (
 	// MailTemplateInviteSSO is the invitation of a site that provisions its
 	// identity provider: the link registers a passkey there, not a password here.
 	MailTemplateInviteSSO = "core.invite_sso"
+	// MailTemplateNotification is the email copy of an inbox notification the
+	// framework writes itself (assignment, share, task due).
+	MailTemplateNotification = "core.notification"
 )
 
 // mailJobMethod is the job target. Not whitelisted, so nobody reaches it over

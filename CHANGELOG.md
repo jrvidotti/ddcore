@@ -24,6 +24,32 @@ older series, and `whats_new` reads across every one of them.
   tab, the e-mails, `/health` — ahead of every app's title. Left out, the site is named by its own
   app as before. It changes the name only: `desk.home` and `desk.logo` stay with the apps. See
   `i18n` → "The site's name is the app's title" (#54).
+- The three notifications the core writes itself — a document assigned, a document shared, a
+  task due today — now also go out by email, in the recipient's language, with a button that
+  opens the document. Each person turns each kind off on their profile ("Email notifications");
+  the inbox notification is written either way. The choices are three opt-out fields on `User`
+  (`mute_assignment_email`, `mute_share_email`, `mute_due_email`), reachable through
+  `profile.updateMyProfile({emailNotifications: {assignment?, share?, due?}})`. Emails of an
+  app's own notification rules are not affected by them. See `notifications` → "Email for the
+  core's own notifications".
+- `ddcore.siteUrl()` and `ddcore.docUrl(doctype, id)` in server code: the site's public address
+  and the absolute desk address of a document, for a link in a mail template or a webhook
+  payload. See `mail`.
+- Mail template `core.notification` (`{title, message, doctype, id}`), the message behind the
+  emails above.
+
+### Changed
+
+- **Users start receiving email on upgrade.** A site with a real mail transport
+  (`DDCORE_MAIL_TRANSPORT=smtp` or `method`) mails assignees, share recipients and the owners of
+  tasks due today from the first request after the upgrade; nothing was mailed for these before.
+  Run `ddcore migrate` to add the three `User` columns. To keep a user silent, tick the three
+  "No email when…" fields on their User record, or let them do it on their profile.
+
+### Fixed
+
+- A line break in a mail subject no longer reaches the `Subject` header: it is replaced by a
+  space, so a subject built from text somebody typed cannot add headers to the message.
 
 ## 0.23.1 — 2026-10-01
 

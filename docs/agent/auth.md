@@ -355,16 +355,19 @@ option: `roles` is a child table on User, so write would be self-promotion to
 System Manager. These services exist to offer the narrow thing instead, and
 each checks `ddcore.session.user` before touching anything:
 
-- `profile.getMyProfile` · `profile.updateMyProfile({fullName?, language?})` ·
+- `profile.getMyProfile` ·
+  `profile.updateMyProfile({fullName?, language?, emailNotifications?: {assignment?, share?, due?}})` ·
   `profile.changeMyPassword({current, password})`
 - `sessions.listMySessions` · `sessions.revokeMySession({id})` ·
   `sessions.revokeMyOtherSessions`
 - `api_keys.listMyAPIKeys` · `api_keys.createMyAPIKey({label, days?})` ·
   `api_keys.revokeMyAPIKey({id})`
 
-`updateMyProfile` enumerates its two fields and never spreads `args` — that
+`updateMyProfile` enumerates its fields and never spreads `args` — that
 enumeration is the security of the function, since the write underneath skips
-the permission check.
+the permission check. `emailNotifications` holds one boolean per kind of email the
+core sends for its own notifications (`true` = send); a key left out is not changed.
+See [notifications](notifications.md), "Email for the core's own notifications".
 
 System Manager only: `users.invite`, `users.resendInvite`,
 `users.sendPasswordReset`, `users.accountStatus`, `users.revokeUserSessions`,

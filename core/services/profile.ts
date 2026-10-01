@@ -25,10 +25,33 @@ function me(): string {
   return user;
 }
 
+/**
+ * Which of the framework's own notifications also arrive by email.
+ *
+ * The person sees switches that are on by default; the User columns behind
+ * them are opt-outs (`mute_*`), so a row that predates them — NULL — reads as
+ * "send". The inversion happens here and nowhere else.
+ */
+const EMAIL_KINDS = {
+  assignment: "mute_assignment_email",
+  share: "mute_share_email",
+  due: "mute_due_email",
+} as const;
+type EmailKind = keyof typeof EMAIL_KINDS;
+type EmailNotifications = Record<EmailKind, boolean>;
+
+function emailNotifications(d: any): EmailNotifications {
+  return {
+    assignment: d?.mute_assignment_email !== true,
+    share: d?.mute_share_email !== true,
+    due: d?.mute_due_email !== true,
+  };
+}
+
 export const getMyProfile = whitelisted(() => {
   const user = me();
   const d = ddcore.db.getValue("User", user, [
-    "id", "email", "full_name", "language", "user_type", "last_login",
+    "id", "email", "full_name", "language", "user_type", "last_login", ...Object.values(EMAIL_KINDS),
   ]) as any;
   return {
     id: d?.id ?? user,
@@ -38,20 +61,35 @@ export const getMyProfile = whitelisted(() => {
     userType: d?.user_type ?? "",
     lastLogin: d?.last_login ?? null,
     roles: ddcore.getRoles(user).filter((r) => r !== "All"),
+    emailNotifications: emailNotifications(d),
   };
 }, SELF);
 
 /**
- * The two fields a person may change about themselves.
+ * The fields a person may change about themselves: their name, their language
+ * and which notification emails they receive.
  *
  * They are enumerated one by one, and `args` is never spread into `setValue`.
  * That is the whole security of this function: spreading would let a caller
  * post `roles`, `enabled` or `user_type` and have them written with no
  * permission check at all.
  */
-export const updateMyProfile = whitelisted((args: { fullName?: string; language?: string | null }) => {
+export const updateMyProfile = whitelisted((args: {
+  fullName?: string;
+  language?: string | null;
+  emailNotifications?: Partial<EmailNotifications>;
+}) => {
   const user = me();
   const values: Record<string, any> = {};
+
+  const wanted = args.emailNotifications;
+  if (wanted !== undefined && wanted !== null) {
+    for (const kind of Object.keys(EMAIL_KINDS) as EmailKind[]) {
+      if (wanted[kind] === undefined) continue;
+      if (typeof wanted[kind] !== "boolean") ddcore.throw(_("Choose on or off for each email notification"));
+      values[EMAIL_KINDS[kind]] = !wanted[kind];
+    }
+  }
 
   if (args.fullName !== undefined) {
     const fullName = String(args.fullName ?? "").trim();
@@ -78,8 +116,8 @@ export const updateMyProfile = whitelisted((args: { fullName?: string; language?
 }, SELF);
 
 function getMyProfileValues(user: string) {
-  const d = ddcore.db.getValue("User", user, ["full_name", "language"]) as any;
-  return { fullName: d?.full_name ?? "", language: d?.language ?? null };
+  const d = ddcore.db.getValue("User", user, ["full_name", "language", ...Object.values(EMAIL_KINDS)]) as any;
+  return { fullName: d?.full_name ?? "", language: d?.language ?? null, emailNotifications: emailNotifications(d) };
 }
 
 /**

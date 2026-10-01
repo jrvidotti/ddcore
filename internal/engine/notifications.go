@@ -158,34 +158,17 @@ func (c *Ctx) queueNotification(rule js.Notification, doc, before Doc, identity 
 			return err
 		}
 		if rule.Email != nil {
-			// User identifiers are resolved to their account's email, never interpreted
-			// as arbitrary external addresses supplied by a rule.
-			users, err := db.Select(c.Ctx, c.Q(), `SELECT email FROM tab_user WHERE id=$1`, user)
-			if err != nil {
-				return err
+			var args map[string]any
+			if len(content.EmailArgs) > 0 {
+				if err = json.Unmarshal(content.EmailArgs, &args); err != nil {
+					return err
+				}
 			}
-			if len(users) > 0 && db.Str(users[0]["email"]) != "" {
-				var args map[string]any
-				if len(content.EmailArgs) > 0 {
-					if err = json.Unmarshal(content.EmailArgs, &args); err != nil {
-						return err
-					}
-				}
-				payload, _ := json.Marshal(map[string]any{"template": rule.Email.Template, "to": []string{db.Str(users[0]["email"])}, "args": args,
-					"lang": c.RecipientLang([]string{user}), "reference": MailReference{Doctype: rule.Doctype, ID: doc.ID()}, "key": "notification:" + name})
-				result, err := rt.CallFunction("core.services.mail.queue", payload)
-				if err != nil {
-					return err
-				}
-				var queued struct {
-					Delivery string `json:"delivery"`
-				}
-				if err = json.Unmarshal(result, &queued); err != nil {
-					return err
-				}
-				if _, err = c.Q().Exec(c.Ctx, `UPDATE ddcore_notification SET email_delivery=$2 WHERE id=$1`, name, queued.Delivery); err != nil {
-					return err
-				}
+			ref := MailReference{Doctype: rule.Doctype, ID: doc.ID()}
+			if mute := coreMailPreference(rule); mute != "" {
+				c.queueCoreNotificationMail(rt, name, user, rule.Email.Template, args, ref, mute)
+			} else if err = c.queueNotificationMail(rt, name, user, rule.Email.Template, args, ref, ""); err != nil {
+				return err
 			}
 		}
 		if rule.Desk {
@@ -193,6 +176,76 @@ func (c *Ctx) queueNotification(rule js.Notification, doc, before Doc, identity 
 		}
 	}
 	return nil
+}
+
+// coreMailPrefs maps each notification the framework writes itself to the User
+// column that turns its email off. The inbox row is never affected.
+var coreMailPrefs = map[string]string{
+	"assignment":    "mute_assignment_email",
+	"share":         "mute_share_email",
+	"core.todo_due": "mute_due_email",
+}
+
+// coreMailPreference is the opt-out column that governs a rule's email, or ""
+// for an app's rule: rule names carry no namespace, so an app may well call
+// its own rule "share", and its mail is not the recipient's to switch off.
+func coreMailPreference(rule js.Notification) string {
+	if rule.App != "core" {
+		return ""
+	}
+	return coreMailPrefs[rule.Name]
+}
+
+// queueNotificationMail queues the email of the notification row `notification`
+// and links the delivery to it, so the send-time access check applies.
+//
+// User identifiers are resolved to their account's email, never interpreted as
+// arbitrary external addresses supplied by a rule. A user without an address
+// gets no mail and no error. muteCol, one of coreMailPrefs' columns, names the
+// recipient's opt-out; with it, an address that could not be mailed (Admin's
+// is the literal "Admin") is skipped rather than refused.
+func (c *Ctx) queueNotificationMail(rt *js.Runtime, notification, user, template string, args map[string]any, ref MailReference, muteCol string) error {
+	cols := "email"
+	if muteCol != "" {
+		cols += ", " + muteCol
+	}
+	users, err := db.Select(c.Ctx, c.Q(), `SELECT `+cols+` FROM tab_user WHERE id=$1`, user)
+	if err != nil {
+		return err
+	}
+	if len(users) == 0 || db.Str(users[0]["email"]) == "" {
+		return nil
+	}
+	addr := db.Str(users[0]["email"])
+	if muteCol != "" && (users[0][muteCol] == true || !validEmail(normalizeEmail(addr))) {
+		return nil
+	}
+	payload, _ := json.Marshal(map[string]any{"template": template, "to": []string{addr}, "args": args,
+		"lang": c.RecipientLang([]string{user}), "reference": ref, "key": "notification:" + notification})
+	result, err := rt.CallFunction("core.services.mail.queue", payload)
+	if err != nil {
+		return err
+	}
+	var queued struct {
+		Delivery string `json:"delivery"`
+	}
+	if err = json.Unmarshal(result, &queued); err != nil {
+		return err
+	}
+	_, err = c.Q().Exec(c.Ctx, `UPDATE ddcore_notification SET email_delivery=$2 WHERE id=$1`, notification, queued.Delivery)
+	return err
+}
+
+// queueCoreNotificationMail is queueNotificationMail for the framework's own
+// notifications, where the email is a courtesy copy: a failure is rolled back
+// to a savepoint and logged, and the inbox row (and the date sweep behind it)
+// carries on.
+func (c *Ctx) queueCoreNotificationMail(rt *js.Runtime, notification, user, template string, args map[string]any, ref MailReference, muteCol string) {
+	if err := c.WithSavepoint(func() error {
+		return c.queueNotificationMail(rt, notification, user, template, args, ref, muteCol)
+	}); err != nil {
+		c.E.Log.Warn("notification email failed", "recipient", user, "doctype", ref.Doctype, "id", ref.ID, "err", err)
+	}
 }
 
 // NotifyUser records a persistent notification for user (e.g. on assignment).
@@ -221,6 +274,13 @@ func (c *Ctx) notifyUserAs(rule, user, refDoctype, refName, title, message strin
 	}
 	if tag.RowsAffected() > 0 {
 		c.notificationsChanged(user)
+		if rt, err := c.RT(); err != nil {
+			c.E.Log.Warn("notification email failed", "recipient", user, "doctype", refDoctype, "id", refName, "err", err)
+		} else {
+			c.queueCoreNotificationMail(rt, name, user, MailTemplateNotification,
+				map[string]any{"title": title, "message": message, "doctype": refDoctype, "id": refName},
+				MailReference{Doctype: refDoctype, ID: refName}, coreMailPrefs[rule])
+		}
 	}
 	return nil
 }
