@@ -12,12 +12,14 @@
   import { applyRowChanges, changedKeys, confirmRowRemoval, createChildDraft, fileNameParts, gridEditMode, inlineEditable } from "./grid-state";
   import { getLinkTitle } from "$lib/titles.svelte";
   import { downloadTable, exportBaseName, exportTable, filterRows, nextSort, searchRows, sortRows, type GridSortState } from "$lib/grid-rows";
+  import FieldButtons from "./FieldButtons.svelte";
   import GridExport from "./GridExport.svelte";
   import GridFilters from "./GridFilters.svelte";
   import GridSearch from "./GridSearch.svelte";
 
   let { frm, field, childMeta }: { frm: FormController; field: Field; childMeta: DocTypeMeta } = $props();
   const rows = $derived((frm.doc[field.fieldname!] ||= []) as any[]);
+  const buttons = $derived(frm.fieldButtons[field.fieldname!] || []);
   const editable = $derived(frm.isFieldEditable(field));
   const cannotAdd = $derived(!!(field as any).cannotAddRows);
   const cannotDelete = $derived(!!(field as any).cannotDeleteRows);
@@ -126,7 +128,7 @@
 <div class="field grid-field">
   <span class="label" class:sr-only={field.hideLabel}>{field.label}{#if frm.isFieldMandatory(field)}<span class="req">*</span>{/if}</span>
   <div class="card" style="overflow:auto">
-    {#if exportable || presets.length || searchFields.length || (selectable && chosen.length)}
+    {#if exportable || presets.length || searchFields.length || buttons.length || (selectable && chosen.length)}
       <div class="grid-toolbar">
         {#if searchFields.length}<GridSearch bind:value={query} />{/if}
         {#if presets.length}<GridFilters filters={presets} {active} ontoggle={toggleFilter} />{/if}
@@ -136,6 +138,7 @@
           <button class="btn sm" onclick={() => toggleAll(false)}>{__("Clear selection")}</button>
         {/if}
         <span class="spacer"></span>
+        <FieldButtons {buttons} small />
         {#if exportable}<GridExport onexport={exportRows} />{/if}
       </div>
     {/if}

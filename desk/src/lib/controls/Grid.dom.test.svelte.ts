@@ -28,7 +28,7 @@ const childMeta: any = {
   ],
 };
 
-function setup(field: any, perms: Record<string, boolean> = { export: true }, onCellClick: Record<string, (row: any) => void> = {}, editable = true) {
+function setup(field: any, perms: Record<string, boolean> = { export: true }, onCellClick: Record<string, (row: any) => void> = {}, editable = true, fieldButtons: Record<string, any[]> = {}) {
   const doc = $state<any>({
     id: "C-1",
     students: [
@@ -38,7 +38,7 @@ function setup(field: any, perms: Record<string, boolean> = { export: true }, on
     ],
   });
   const frm: any = {
-    doc, doctype: "Course", meta: { permissions: perms },
+    doc, doctype: "Course", meta: { permissions: perms }, fieldButtons,
     isFieldEditable: () => editable,
     isSetOnce: () => false,
     isFieldMandatory: () => false,
@@ -278,5 +278,23 @@ describe("Grid", () => {
     } finally {
       childMeta.fields.pop();
     }
+  });
+});
+
+describe("Grid field buttons", () => {
+  it("shows a button added to the Table field in the grid's toolbar, which it opens by itself", () => {
+    const onClick = vi.fn();
+    const g = setup({}, {}, {}, true, { students: [{ label: "New student", onClick }] });
+    const button = g.target.querySelector(".grid-toolbar .field-btn");
+    expect(button?.textContent?.trim()).toBe("New student");
+    g.click(button);
+    expect(onClick).toHaveBeenCalledOnce();
+    g.done();
+  });
+
+  it("has no toolbar when the field has neither a button nor a grid feature", () => {
+    const g = setup({}, {});
+    expect(g.target.querySelector(".grid-toolbar")).toBeNull();
+    g.done();
   });
 });
