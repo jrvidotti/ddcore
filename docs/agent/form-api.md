@@ -206,7 +206,37 @@ several scripts for the same cell all run.
 - `ddcore.search.global(txt, limit?)` — the documents the global search palette lists. See `search`
 - `ddcore.realtime.on(event, handler)` → an `off()` function; `ddcore.realtime.off(event, handler)`. Events sent with
   `ddcore.publish` (see `controller-api`), outside a form — in a form, `frm.onRealtime` drops the handler when the form closes
+- `ddcore.route(path)` — navigates the Desk to a path; `ddcore.setRoute(...parts)` — the same from
+  path segments, each one encoded, under the current workspace. See "Navigation" below
 - `__("text", [args])` — translation; the key is its English text. See `i18n`.
+
+### Navigation
+
+An app passes the **short** route and never needs to know which workspace a DocType lives in:
+
+| Route | Opens |
+| --- | --- |
+| `/app/<DocType>` | the list (the form, for a Single) |
+| `/app/<DocType>/<id>` | the document |
+| `/app/<DocType>/new` | a new document |
+
+The Desk redirects each of them to `/app/<Workspace>/<DocType>…`, the workspace that owns the
+DocType, and the query string and the hash travel with the redirect.
+
+- **Prefilling a new document** — `/app/<DocType>/new?field=value` sets every query key that names
+  a field of the DocType on the new document; any other key is ignored. A button on a Course that
+  opens a Training Class for it:
+
+  ```ts
+  frm.addButton(__("New Class"), () =>
+    ddcore.route(`/app/Training%20Class/new?course=${encodeURIComponent(frm.doc.id)}`));
+  ```
+
+- **Opening a filtered list** — `/app/<DocType>?field=value` opens the list with that filter
+  applied, the same query string the list writes as the user filters. It is what a workspace
+  card's `route:` takes (see `report-api`).
+
+Encode every value with `encodeURIComponent`, and a DocType name with a space in it too.
 
 ### Dates and times
 

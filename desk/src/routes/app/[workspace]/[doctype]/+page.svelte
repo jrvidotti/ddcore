@@ -2,7 +2,7 @@
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
   import { boot } from "$lib/boot.svelte";
-  import { resolveWorkspaceForDoctype } from "$lib/components/sidebar-workspace";
+  import { resolveWorkspaceForDoctype, workspaceRedirect } from "$lib/components/sidebar-workspace";
   import { getMeta } from "$lib/meta";
   import ListView from "$lib/components/ListView.svelte";
   import FormView from "$lib/components/FormView.svelte";
@@ -17,7 +17,7 @@
     if (boot.ready && !isWorkspace && isDocInFirstPos) {
       const realWs = resolveWorkspaceForDoctype(workspace, boot.data?.workspaces || [], boot.data?.doctypes);
       if (realWs) {
-        goto(`/app/${encodeURIComponent(realWs)}/${encodeURIComponent(workspace)}/${encodeURIComponent(doctype)}`, { replaceState: true });
+        goto(workspaceRedirect(realWs, [workspace, doctype], page.url), { replaceState: true });
       }
     }
   });

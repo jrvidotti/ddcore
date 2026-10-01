@@ -3,6 +3,7 @@ import {
   resolveActiveWorkspace,
   resolveWorkspaceForDoctype,
   workspaceItemHref,
+  workspaceRedirect,
   rememberWorkspace,
   getRememberedWorkspace,
   type WorkspaceItem,
@@ -126,6 +127,17 @@ describe("sidebar-workspace", () => {
     expect(workspaceItemHref("Alugueis", { report: "Contratos a Vencer" })).toBe("/app/Alugueis/report/Contratos%20a%20Vencer");
     expect(workspaceItemHref("Alugueis", { route: "/app/Alugueis" })).toBe("/app/Alugueis");
     expect(workspaceItemHref("Alugueis", { label: "Group header" })).toBe("");
+  });
+
+  it("keeps the query string and the hash of a short route through the workspace redirect", () => {
+    expect(workspaceRedirect("Training", ["Training Class", "new"], { search: "?course=C-001", hash: "" }))
+      .toBe("/app/Training/Training%20Class/new?course=C-001");
+    expect(workspaceRedirect("Training", ["Course"], { search: "?is_active=1", hash: "#top" }))
+      .toBe("/app/Training/Course?is_active=1#top");
+    expect(workspaceRedirect("Training", ["Course", "C-001"], { search: "", hash: "#notes" }))
+      .toBe("/app/Training/Course/C-001#notes");
+    expect(workspaceRedirect("Human Resources", ["Course"], { search: "", hash: "" }))
+      .toBe("/app/Human%20Resources/Course");
   });
 
   it("remembers and retrieves workspace in storage safely", () => {
