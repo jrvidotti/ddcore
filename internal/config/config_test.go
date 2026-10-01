@@ -41,6 +41,9 @@ func TestLoadDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
+	if f.Title != "" {
+		t.Errorf("without a title the apps name the site, got %q", f.Title)
+	}
 	if f.Auth.SessionDays != 30 || f.Auth.MinPasswordLength != 8 || f.Auth.MaxLoginAttempts != 5 {
 		t.Errorf("default policy not applied: %+v", f.Auth)
 	}
@@ -409,5 +412,23 @@ func TestDeploymentSwitchesFromEnvironment(t *testing.T) {
 	f, _, err := Load(t.TempDir())
 	if err != nil || f.AdminPassword != "Deploy-Secret-42" || !f.Mail.Dev {
 		t.Fatalf("Load: admin=%q mailDev=%v err=%v", f.AdminPassword, f.Mail.Dev, err)
+	}
+}
+
+// TestLoadTitle: `title` is the site's name when it should not be its app's
+// title, and a blank one is the same as none.
+func TestLoadTitle(t *testing.T) {
+	clearMailEnv(t)
+	for body, want := range map[string]string{
+		`{"title":"  My Site "}`: "My Site",
+		`{"title":"   "}`:        "",
+	} {
+		f, _, err := Load(site(t, body))
+		if err != nil {
+			t.Fatalf("Load(%s): %v", body, err)
+		}
+		if f.Title != want {
+			t.Errorf("Load(%s): Title = %q, expected %q", body, f.Title, want)
+		}
 	}
 }

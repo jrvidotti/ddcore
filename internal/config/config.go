@@ -43,7 +43,11 @@ type File struct {
 	Workers   int    `json:"workers"`
 	Scheduler bool   `json:"scheduler"`
 	Lang      string `json:"lang"`
-	Currency  string `json:"currency"`
+	// Title names the site when that should not be its app's title: two
+	// deployments of one app, or an install branded for whoever runs it. Empty
+	// leaves the name to the apps — see engine.State.SiteTitle.
+	Title    string `json:"title,omitempty"`
+	Currency string `json:"currency"`
 	// CurrencyPrecision overrides how many decimal places a Currency field is
 	// rounded to. Nil means "the currency's own minor unit" — 2 for USD, 0 for
 	// JPY — which is right far more often than any number written here.
@@ -160,6 +164,7 @@ func Load(dir string) (*File, string, error) {
 			f.Port = p
 		}
 	}
+	f.Title = strings.TrimSpace(f.Title)
 	f.URL = strings.TrimSuffix(env("DDCORE_URL", f.URL), "/")
 	f.TrustProxy = envBool("DDCORE_TRUST_PROXY", f.TrustProxy)
 	f.Login.Notice = strings.ReplaceAll(env("DDCORE_LOGIN_NOTICE", f.Login.Notice), `\n`, "\n")
