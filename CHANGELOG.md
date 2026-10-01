@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.23.5 — 2026-10-01
+
 ### Changed
 
 - Desk addresses carry a DocType, a workspace or a report without the spaces of its name:
