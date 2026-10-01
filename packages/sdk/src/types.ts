@@ -819,6 +819,11 @@ export interface Document<T = any> {
   getDocBeforeSave(): T | undefined;
   runMethod(name: string, args?: Record<string, any>): any;
   toJSON(): any;
+  /**
+   * Context for one write: what is set before insert/save/submit/cancel/delete
+   * is what the hooks of that write see, and what they set comes back. JSON
+   * values only; never stored, never sent to a client.
+   */
   flags: Record<string, any>;
 }
 

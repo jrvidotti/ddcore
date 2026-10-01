@@ -14,6 +14,15 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- `doc.flags` set before `insert()`, `save()`, `submit()`, `cancel()` or `delete()` reaches the hooks
+  of that write. Every hook used to get an empty `doc.flags` of its own, so server code could not
+  tell `validate` that a write was the system's, and a note `validate` left was gone by `onUpdate`.
+  The flags now travel with the write: the hooks share them, and what they set is back on the
+  caller's `doc.flags` when the call returns. They stay server-side and per document, and their
+  values must be JSON. See `controller-api` → "`doc.flags`: context for one write" (#55).
+
 ## 0.23.0 — 2026-10-01
 
 ### Breaking

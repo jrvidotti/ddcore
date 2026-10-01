@@ -222,10 +222,22 @@ func (rt *Runtime) HasHook(doctype, event string) bool {
 	return err == nil && v.ToBoolean()
 }
 
-// RunHook runs a lifecycle event and returns the mutated doc JSON.
-func (rt *Runtime) RunHook(doctype, event string, doc, before json.RawMessage) (json.RawMessage, error) {
-	s, err := rt.callReg("runHook", doctype, event, string(doc), string(before))
-	return json.RawMessage(s), err
+// RunHook runs a lifecycle event and returns the mutated doc JSON, and the
+// doc.flags the hooks left. flags is what the document's flags start as: the
+// engine passes the same ones to every event of one write.
+func (rt *Runtime) RunHook(doctype, event string, doc, before, flags json.RawMessage) (json.RawMessage, json.RawMessage, error) {
+	s, err := rt.callReg("runHook", doctype, event, string(doc), string(before), string(flags))
+	if err != nil {
+		return nil, nil, err
+	}
+	var out struct {
+		Doc   json.RawMessage `json:"doc"`
+		Flags json.RawMessage `json:"flags"`
+	}
+	if err := json.Unmarshal([]byte(s), &out); err != nil {
+		return nil, nil, err
+	}
+	return out.Doc, out.Flags, nil
 }
 
 type MethodResult struct {

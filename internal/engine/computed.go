@@ -39,7 +39,7 @@ func (c *Ctx) LoadComputed(doctype string, doc Doc) error {
 	if err := json.Unmarshal(doc.JSON(), &work); err != nil {
 		return err
 	}
-	if err := c.runHook(d, "onLoad", work, nil); err != nil {
+	if err := c.runHook(d, "onLoad", work, nil, nil); err != nil {
 		return err
 	}
 	copyComputed(d, work, doc)
