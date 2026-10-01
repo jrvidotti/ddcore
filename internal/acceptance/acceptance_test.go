@@ -254,6 +254,12 @@ func TestBootHome(t *testing.T) {
 		t.Fatalf("site.name = %v, expected the fixture title in pt-BR", site["name"])
 	}
 
+	// which app's home and logo stand for the site is the server's choice, made
+	// with the name: the desk reads these two, not the per-app blocks
+	if site["home"] != home || site["logo"] != logo {
+		t.Fatalf("site.home = %v, site.logo = %v, expected the fixture app's %q and %q", site["home"], site["logo"], home, logo)
+	}
+
 	// the workspace pointed to by desk.home must be returned in boot, with sidebar
 	var ws map[string]any
 	for _, w := range boot["workspaces"].([]any) {

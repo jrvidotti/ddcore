@@ -8,7 +8,7 @@
     if (boot.ready) {
       const rem = getRememberedWorkspace();
       const target = boot.data?.workspaces?.find((w: any) => w.name.toLowerCase() === rem.toLowerCase())?.name ||
-        boot.data?.apps?.map((a: any) => a.desk?.home).find(Boolean) ||
+        boot.data?.site?.home ||
         boot.data?.workspaces?.[0]?.name;
       if (target) {
         goto(`/app/${encodeURIComponent(target)}`, { replaceState: true });

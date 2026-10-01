@@ -633,6 +633,9 @@ func (s *Server) boot(w http.ResponseWriter, r *http.Request) {
 			// a catalogue key like any other label; a title with no
 			// translation comes back as itself, which is already English
 			"name": c.T(s.E.SiteTitle()), "currency": s.E.Cfg.Currency,
+			// which app's `desk.home` and `desk.logo` stand for the site is
+			// the same choice as whose title names it, so it is made beside it
+			"home": s.E.SiteDesk("home"), "logo": s.E.SiteDesk("logo"),
 			// the server resolves the precision and the rule and the desk
 			// reads them: two independent derivations that "should" agree
 			// is the bug nobody finds until a JPY invoice is off by a yen

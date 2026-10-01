@@ -144,6 +144,160 @@ describe("segundo", () => {
 	}
 }
 
+// A hook written outside any describe wraps the tests of its own file: not
+// those of another file of the same app, and not those of another app (#48).
+func TestTopLevelHooksStayInTheirFile(t *testing.T) {
+	root := t.TempDir()
+	build := func(name string, files map[string]string) *Bundle {
+		dir := filepath.Join(root, name)
+		files["ddcore.app.ts"] = `import { defineApp } from "@ddcore/sdk";
+export default defineApp({ name: "` + name + `", title: "` + name + `" });`
+		for f, src := range files {
+			if err := os.MkdirAll(filepath.Dir(filepath.Join(dir, f)), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(dir, f), []byte(src), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		bundle, err := BuildServer(App{Name: name, Dir: dir}, true)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return bundle
+	}
+	const unseen = `import "@ddcore/sdk/test";
+it("sees nothing of another file", () => {
+  expect((globalThis as any).flag).toBeUndefined();
+  expect((globalThis as any).once).toBe(1);
+});
+describe("nested", () => {
+  it("sees nothing either", () => expect((globalThis as any).flag).toBeUndefined());
+});`
+	one := build("one", map[string]string{
+		"a_hooks.test.ts": `import "@ddcore/sdk/test";
+beforeAll(() => { (globalThis as any).once = ((globalThis as any).once || 0) + 1; });
+beforeEach(() => { (globalThis as any).flag = true; });
+afterEach(() => { delete (globalThis as any).flag; });
+it("is wrapped by its file's hooks", () => expect((globalThis as any).flag).toBe(true));
+describe("nested", () => {
+  it("is wrapped too", () => expect((globalThis as any).flag).toBe(true));
+});`,
+		"b_sibling.test.ts": unseen,
+	})
+	two := build("two", map[string]string{"two.test.ts": unseen})
+
+	rt, err := newRuntime(&fakeHost{}, []*Bundle{one, two}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	results, err := rt.RunTests("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, r := range results {
+		if !r.OK {
+			t.Errorf("%s (%s): %s", r.Name, r.File, r.Error)
+		}
+		names = append(names, r.Name)
+	}
+	// the file's suite has no name: it scopes hooks without showing up in a test's path
+	want := []string{
+		"is wrapped by its file's hooks", "nested > is wrapped too",
+		"sees nothing of another file", "nested > sees nothing either",
+		"sees nothing of another file", "nested > sees nothing either",
+	}
+	if strings.Join(names, "|") != strings.Join(want, "|") {
+		t.Fatalf("tests ran as %q, expected %q", names, want)
+	}
+}
+
+// A module one app imports from another is the owner's own instance, not a
+// second copy bundled into the importer: state is shared, and what the file
+// does at its top level happens once (#47).
+func TestCrossAppImportSharesTheModule(t *testing.T) {
+	root := t.TempDir()
+	write := func(app, rel, src string) {
+		p := filepath.Join(root, app, rel)
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(src), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	manifest := func(name string) string {
+		return `import { defineApp } from "@ddcore/sdk";
+export default defineApp({ name: "` + name + `", title: "` + name + `" });`
+	}
+	write("a", "ddcore.app.ts", manifest("a"))
+	write("a", "services/thing.ts", `(globalThis as any).thingLoads = ((globalThis as any).thingLoads || 0) + 1;
+export const gateway = { call: (): string => "real" };
+export function createThing(): string { return gateway.call(); }
+export default "a's default";`)
+	// not a server file: nothing registers it, so it is still bundled into b
+	write("a", "client/shared.ts", `export const SHARED = "inlined";`)
+	write("b", "ddcore.app.ts", manifest("b"))
+	write("b", "b.test.ts", `import "@ddcore/sdk/test";
+import thing, { gateway, createThing } from "../a/services/thing";
+import { SHARED } from "../a/client/shared";
+it("replaces what a's own code calls", () => {
+  expect(createThing()).toBe("real");
+  const real = gateway.call;
+  gateway.call = () => "fake";
+  try {
+    expect(createThing()).toBe("fake");
+    expect(ddcore.callMethod("a.services.thing.createThing")).toBe("fake");
+  } finally { gateway.call = real; }
+  expect((globalThis as any).thingLoads).toBe(1);
+  expect(thing).toBe("a's default");
+  expect(SHARED).toBe("inlined");
+});`)
+	apps := []App{{Name: "a", Dir: filepath.Join(root, "a")}, {Name: "b", Dir: filepath.Join(root, "b")}}
+	build := func(app App) *Bundle {
+		bundle, err := BuildServer(app, true, apps...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return bundle
+	}
+	a, b := build(apps[0]), build(apps[1])
+	if len(a.Imports) != 0 || strings.Join(b.Imports, ",") != "a" {
+		t.Fatalf("imports: a=%v b=%v, expected none and [a]", a.Imports, b.Imports)
+	}
+
+	// the importer listed first still loads second
+	ordered, err := OrderByImports([]*Bundle{b, a})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ordered[0] != a || ordered[1] != b {
+		t.Fatalf("OrderByImports left the importer ahead of what it imports")
+	}
+	rt, err := newRuntime(&fakeHost{}, ordered, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	results, err := rt.RunTests("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 1 || !results[0].OK {
+		t.Fatalf("the importer's test: %#v", results)
+	}
+
+	// loaded ahead of its provider, the importer says which app is missing
+	if _, err := newRuntime(&fakeHost{}, []*Bundle{b, a}, true); err == nil || !strings.Contains(err.Error(), `add "a" to requires`) {
+		t.Fatalf("expected the load to name the missing app, got %v", err)
+	}
+
+	// two apps importing each other cannot be ordered
+	if _, err := OrderByImports([]*Bundle{{App: "x", Imports: []string{"y"}}, {App: "y", Imports: []string{"x"}}}); err == nil || !strings.Contains(err.Error(), "circle") {
+		t.Fatalf("expected an import cycle error, got %v", err)
+	}
+}
+
 // B08 — a runtime acquired before reload returns to the pool that created it, never
 // to the new pool, and the old pool discards whatever it receives after being closed.
 func TestB08_ReleaseReturnsToOriginPool(t *testing.T) {

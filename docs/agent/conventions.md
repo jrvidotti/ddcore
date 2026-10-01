@@ -39,8 +39,12 @@ desk: {
 }
 ```
 
-`home` and `logo` are resolved the same way: **the first app in load order that
-declares one wins**, and the core declares neither, so an app's always does.
+`home` and `logo` are resolved the same way, each on its own: **the first app that
+declares one wins**, and the core declares neither, so an app's always does. "First" is load
+order with the libraries last: an app that another installed app `requires` loads before it, but
+comes after every app nobody requires. So the site's own app decides, and a library's `home` or
+`logo` only shows where the site's app declares none. The site's name follows the same order — see
+`i18n`.
 
 `logo` is one letter or one emoji, not an image URL — the mark is a fixed
 square, rendered as text. Leave it out and the mark is the initial of the name
@@ -50,6 +54,51 @@ see `i18n`.
 
 `defineApp`'s `portal` block holds one key, `include`: scripts loaded on every portal page.
 They are bundled apart from the desk's. See `portal`.
+
+## Calling another app's server code
+
+An app that uses another app's code declares it — `requires: ["billing"]` in `defineApp` — and
+then has two ways in:
+
+```ts
+// apps/shop/services/checkout.ts — shop requires billing
+import { gateway, createCharge } from "../../billing/services/charge";   // typed, by relative path
+const charge = createCharge({ amount: 10 });
+ddcore.callMethod("billing.services.charge.createCharge", { amount: 10 }); // by dotted path: fn(args, ctx)
+```
+
+- **A module has one instance, its owner's.** Importing a server file of another loaded app does
+  not copy it into the importer: both apps see the same exports and the same module state, and the
+  file's top-level code (a `defineDoctype`, a cache, a counter) runs once, under its owner. So what
+  the import returns is what the owner's controllers call.
+- **The import needs `requires`.** Without it the site refuses to load: `app shop imports a module
+  of app billing: add "billing" to requires in its ddcore.app.ts`. `requires` is what loads the
+  owner first.
+- Only server files are shared this way — the ones in the app's layout above. A file under
+  `client/`, a `.d.ts` or anything outside an app's directory is bundled into the importer as
+  before. The core cannot be imported: reach it through `ddcore.*`.
+- `ddcore.callMethod(path, args)` calls any exported function of any loaded module in the current
+  transaction, with no role or `whitelisted` check — it is a function call, not a request.
+- State is per runtime, not per process: the server keeps a pool of runtimes, each with its own
+  copy of every module. Module state is a cache, never the record of anything — that is the
+  database's job, or `ddcore.cache`.
+
+**Faking another app in a test.** Since the instance is shared, a test replaces the export the
+owner's code calls and puts it back:
+
+```ts
+import { gateway } from "../../billing/services/charge";
+describe("checkout", () => {
+  let real: typeof gateway.send;
+  beforeEach(() => { real = gateway.send; gateway.send = () => ({ id: "fake" }); });
+  afterEach(() => { gateway.send = real; });
+  it("charges once", () => { /* billing's controllers now reach the fake */ });
+});
+```
+
+This works for what is called through an object (`gateway.send`); a function the owner calls
+directly by name cannot be replaced from outside. A provider that must never reach the network from
+a test guards itself with `ddcore.isTest()`.
 
 ## Naming
 

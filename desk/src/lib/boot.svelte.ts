@@ -30,6 +30,11 @@ export interface Boot {
   reports: Record<string, { label: string; refDoctype?: string; app: string }>;
   site: {
     name: string; currency: string; timezone: string; dev: boolean; scheduler: boolean; version: string;
+    /**
+     * The workspace /app opens on and the mark beside the name: the `desk.home`
+     * and `desk.logo` of the app that names the site, chosen by the server.
+     */
+    home?: string; logo?: string;
     // resolved by the server, not derived again here: two independent
     // derivations that "should" agree is the bug nobody finds until a JPY
     // invoice is off by a yen
@@ -109,14 +114,14 @@ export const siteName = () => boot.data?.site?.name || "ddcore";
 
 /**
  * The square mark shown beside the site's name, in the sidebar and on the
- * sign-in screens. An app declares it with `desk.logo` — the first app in load
- * order that does wins, the way `desk.home` is resolved; the core declares
- * none, so an app's always does. Without one the mark is the initial of the
- * name beside it, which is the app's title in the reader's language, so the
- * letter and the word cannot drift apart.
+ * sign-in screens. An app declares it with `desk.logo`, and the server picks
+ * whose stands for the site, the way it picks the name and `desk.home`.
+ * Without one the mark is the initial of the name beside it, which is the
+ * app's title in the reader's language, so the letter and the word cannot
+ * drift apart.
  */
 export function siteLogo(): string {
-  const declared = boot.data?.apps?.map((a) => a.desk?.logo).find(Boolean);
+  const declared = boot.data?.site?.logo;
   if (declared) return declared;
   // spread, not charAt: a name starting with an emoji is one grapheme made of
   // two code units, and half a surrogate pair renders as a replacement square

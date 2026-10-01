@@ -1236,21 +1236,32 @@
   };
 
   // ------------------------------------------------------------------- tests
-  const suites = [];
   let current = null;
   const root = { name: "", app: "", tests: [], beforeEach: [], afterEach: [], beforeAll: [], children: [] };
   current = root;
+  // What a file declares outside any describe belongs to that file: each one
+  // gets a nameless suite of its own under the root, so a top-level hook wraps
+  // the tests of its file and not those of every file of every app. The file is
+  // the entry module being loaded — a test file imported by another registers
+  // under its importer.
+  const files = {};
+  const fileSuite = () => files[reg.current] ||= (() => {
+    const s = { name: "", app: reg.app, tests: [], beforeEach: [], afterEach: [], beforeAll: [], children: [], file: reg.current };
+    root.children.push(s);
+    return s;
+  })();
+  const scope = () => current === root ? fileSuite() : current;
   globalThis.describe = (name, fn) => {
     const s = { name, app: reg.app, tests: [], beforeEach: [], afterEach: [], beforeAll: [], children: [], file: reg.current };
-    current.children.push(s);
+    scope().children.push(s);
     const prev = current;
     current = s;
     try { fn(); } finally { current = prev; }
   };
-  globalThis.it = globalThis.test = (name, fn) => current.tests.push({ name, fn, file: reg.current, app: reg.app });
-  globalThis.beforeEach = (fn) => current.beforeEach.push({ fn, app: reg.app });
-  globalThis.afterEach = (fn) => current.afterEach.push({ fn, app: reg.app });
-  globalThis.beforeAll = (fn) => current.beforeAll.push({ fn, app: reg.app });
+  globalThis.it = globalThis.test = (name, fn) => scope().tests.push({ name, fn, file: reg.current, app: reg.app });
+  globalThis.beforeEach = (fn) => scope().beforeEach.push({ fn, app: reg.app });
+  globalThis.afterEach = (fn) => scope().afterEach.push({ fn, app: reg.app });
+  globalThis.beforeAll = (fn) => scope().beforeAll.push({ fn, app: reg.app });
 
   function deepEqual(a, b) {
     if (a === b) return true;

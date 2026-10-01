@@ -133,6 +133,8 @@ by hand.
   `onStart` / `onFailure` are method paths called as `fn(args, job)`, each in a transaction of its
   own, so a document can show that its job is running or that it failed. See `ops` → "Lifecycle
   callbacks".
+- `ddcore.callMethod("app.services.mod.fn", args)` → what the function returns. Calls an exported function of any loaded module as `fn(args, ctx)`, now, in the current transaction; no role or `whitelisted` check. See `conventions` → "Calling another app's server code"
+- `ddcore.isTest()` → `true` inside `ddcore test`; `ddcore.isJob()` → `true` inside a background job
 - `ddcore.publish(event, payload, { user, doctype, id })` — SSE to the desk when the transaction commits. With `user`, only that user's sessions; with `doctype` and `id`, only sessions that may read that document (with `doctype` alone, the DocType) — the audience `doc_update` has. The name is letters, digits and `_ . : -`; prefix it with the app's name. The desk listens with `frm.onRealtime` / `ddcore.realtime.on` (see `form-api`)
 - `ddcore.log.info/warn/error`
 - `ddcore.utils`: `flt(v, precision)`, `cint`, `cstr`, `getdate`, `nowdate()`, `now()`, `formatDate(d, "dd/mm/yyyy")`, `addDays`, `addMonths`, `addYears`,
@@ -190,6 +192,10 @@ describe("Order", () => {
 ```
 `expect`: toBe, toEqual, toBeTruthy/Falsy, toBeNull, toBeDefined, toContain, toBeGreaterThan(OrEqual), toBeLessThan(OrEqual),
 toBeCloseTo, toHaveLength, toMatch, toThrow(text|regex), `.not`.
+
+`beforeEach`, `afterEach` and `beforeAll` belong to the `describe` they are written in. Written
+outside any `describe`, they belong to their file: they wrap that file's tests and no other file's,
+whatever app it is in.
 
 Tests run as `Admin`, which no role or User Permission restricts. To see a permission or a scope
 at work, run part of a test as another user with `ddcore.test.asUser(user, fn)`:
