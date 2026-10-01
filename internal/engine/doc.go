@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"math"
 	"regexp"
 	"slices"
@@ -552,10 +553,17 @@ type SaveOpts struct {
 	IgnoreVersion     bool
 	IgnoreLinks       bool
 	Action            string // "save" | "submit" | "cancel" | "update_after_submit"
+	// Flags is the doc.flags of this write: what every hook of it starts from
+	// and where each leaves its own. Never stored, never sent to a client.
+	// Insert and Save make one when the caller has none.
+	Flags map[string]any
 }
 
 // Insert validates and inserts a new document.
 func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
+	if opts.Flags == nil {
+		opts.Flags = map[string]any{}
+	}
 	d, err := c.St.DocType(doc.DocType())
 	if err != nil {
 		return nil, err
@@ -634,7 +642,7 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 	if doc.Docstatus() != 1 {
 		doc["docstatus"] = 0
 	}
-	if err := c.runHook(d, "beforeInsert", doc, nil); err != nil {
+	if err := c.runHook(d, "beforeInsert", doc, nil, opts.Flags); err != nil {
 		return nil, err
 	}
 	if err := c.setID(d, doc); err != nil {
@@ -643,7 +651,7 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 	if err := c.validate(d, doc, nil, opts); err != nil {
 		return nil, err
 	}
-	if err := c.runHook(d, "beforeSave", doc, nil); err != nil {
+	if err := c.runHook(d, "beforeSave", doc, nil, opts.Flags); err != nil {
 		return nil, err
 	}
 	// after the hooks: a parent a hook set is checked like one the caller sent
@@ -651,7 +659,7 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 		return nil, err
 	}
 	if doc.Docstatus() == 1 {
-		if err := c.runHook(d, "beforeSubmit", doc, nil); err != nil {
+		if err := c.runHook(d, "beforeSubmit", doc, nil, opts.Flags); err != nil {
 			return nil, err
 		}
 	}
@@ -679,14 +687,14 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 	}
 	delete(doc, "__islocal")
 	delete(doc, "__unsaved")
-	if err := c.runHook(d, "afterInsert", doc, nil); err != nil {
+	if err := c.runHook(d, "afterInsert", doc, nil, opts.Flags); err != nil {
 		return nil, err
 	}
-	if err := c.runHook(d, "onUpdate", doc, nil); err != nil {
+	if err := c.runHook(d, "onUpdate", doc, nil, opts.Flags); err != nil {
 		return nil, err
 	}
 	if doc.Docstatus() == 1 {
-		if err := c.runHook(d, "onSubmit", doc, nil); err != nil {
+		if err := c.runHook(d, "onSubmit", doc, nil, opts.Flags); err != nil {
 			return nil, err
 		}
 	}
@@ -729,6 +737,9 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 	if doc["__islocal"] == true || doc.ID() == "" {
 		return c.Insert(doc, opts)
+	}
+	if opts.Flags == nil {
+		opts.Flags = map[string]any{}
 	}
 	d, err := c.St.DocType(doc.DocType())
 	if err != nil {
@@ -826,7 +837,7 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 	if err := c.validate(d, doc, before, opts); err != nil {
 		return nil, err
 	}
-	if err := c.runHook(d, "beforeSave", doc, before); err != nil {
+	if err := c.runHook(d, "beforeSave", doc, before, opts.Flags); err != nil {
 		return nil, err
 	}
 	if action == "update_after_submit" {
@@ -843,11 +854,11 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 	}
 	switch action {
 	case "submit":
-		if err := c.runHook(d, "beforeSubmit", doc, before); err != nil {
+		if err := c.runHook(d, "beforeSubmit", doc, before, opts.Flags); err != nil {
 			return nil, err
 		}
 	case "cancel":
-		if err := c.runHook(d, "beforeCancel", doc, before); err != nil {
+		if err := c.runHook(d, "beforeCancel", doc, before, opts.Flags); err != nil {
 			return nil, err
 		}
 	}
@@ -879,22 +890,22 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 	}
 	switch action {
 	case "submit":
-		if err := c.runHook(d, "onUpdate", doc, before); err != nil {
+		if err := c.runHook(d, "onUpdate", doc, before, opts.Flags); err != nil {
 			return nil, err
 		}
-		if err := c.runHook(d, "onSubmit", doc, before); err != nil {
+		if err := c.runHook(d, "onSubmit", doc, before, opts.Flags); err != nil {
 			return nil, err
 		}
 	case "cancel":
-		if err := c.runHook(d, "onCancel", doc, before); err != nil {
+		if err := c.runHook(d, "onCancel", doc, before, opts.Flags); err != nil {
 			return nil, err
 		}
 	case "update_after_submit":
-		if err := c.runHook(d, "onUpdateAfterSubmit", doc, before); err != nil {
+		if err := c.runHook(d, "onUpdateAfterSubmit", doc, before, opts.Flags); err != nil {
 			return nil, err
 		}
 	default:
-		if err := c.runHook(d, "onUpdate", doc, before); err != nil {
+		if err := c.runHook(d, "onUpdate", doc, before, opts.Flags); err != nil {
 			return nil, err
 		}
 	}
@@ -973,11 +984,15 @@ func (c *Ctx) Submit(doc Doc) (Doc, error) {
 
 // Cancel sets docstatus=2 and saves.
 func (c *Ctx) Cancel(doc Doc) (Doc, error) {
+	return c.cancel(doc, SaveOpts{})
+}
+
+func (c *Ctx) cancel(doc Doc, opts SaveOpts) (Doc, error) {
 	if doc.Docstatus() != 1 {
 		return nil, cerr.Validation("Only submitted documents can be cancelled")
 	}
 	doc["docstatus"] = 2
-	return c.Save(doc, SaveOpts{})
+	return c.Save(doc, opts)
 }
 
 // SaveDoc is an alias for Save.
@@ -1280,6 +1295,15 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 
 // Delete removes a document after checking links.
 func (c *Ctx) Delete(doctype, name string, ignorePerms, force bool) error {
+	return c.deleteWithFlags(doctype, name, ignorePerms, force, nil)
+}
+
+// deleteWithFlags is Delete with the doc.flags of the document being deleted,
+// which onTrash and afterDelete share.
+func (c *Ctx) deleteWithFlags(doctype, name string, ignorePerms, force bool, flags map[string]any) error {
+	if flags == nil {
+		flags = map[string]any{}
+	}
 	d, err := c.St.DocType(doctype)
 	if err != nil {
 		return err
@@ -1334,7 +1358,7 @@ func (c *Ctx) Delete(doctype, name string, ignorePerms, force bool) error {
 	if doc.Docstatus() == 1 {
 		return cerr.Validation("Cancel {0} {1} before deleting", c.T(d.Label), name)
 	}
-	if err := c.runHook(d, "onTrash", doc, nil); err != nil {
+	if err := c.runHook(d, "onTrash", doc, nil, flags); err != nil {
 		return err
 	}
 	// after onTrash, so a controller may still move or delete the children
@@ -1415,7 +1439,7 @@ func (c *Ctx) Delete(doctype, name string, ignorePerms, force bool) error {
 		}
 	}
 	delete(c.docCache, c.docKey(doctype, name))
-	if err := c.runHook(d, "afterDelete", doc, nil); err != nil {
+	if err := c.runHook(d, "afterDelete", doc, nil, flags); err != nil {
 		return err
 	}
 	if err := c.queueDocWebhooks(d.Name, doc, "on_trash"); err != nil {
@@ -1487,7 +1511,8 @@ func (c *Ctx) Rename(doctype, oldID, newID string) (string, error) {
 	if err := c.lockTree(d); err != nil {
 		return "", err
 	}
-	if err := c.runHook(d, "beforeRename", doc, nil); err != nil {
+	flags := map[string]any{}
+	if err := c.runHook(d, "beforeRename", doc, nil, flags); err != nil {
 		return "", err
 	}
 	if err := c.moveID(d, oldID, newID); err != nil {
@@ -1495,7 +1520,7 @@ func (c *Ctx) Rename(doctype, oldID, newID string) (string, error) {
 	}
 	delete(c.docCache, c.docKey(doctype, oldID))
 	doc["id"] = newID
-	if err := c.runHook(d, "afterRename", doc, nil); err != nil {
+	if err := c.runHook(d, "afterRename", doc, nil, flags); err != nil {
 		return "", err
 	}
 	c.AfterCommit(func() {
@@ -1643,7 +1668,11 @@ func (c *Ctx) auditUserPermissionRevoke(doc Doc) error {
 
 // ------------------------------------------------------------ hooks
 
-func (c *Ctx) runHook(d *meta.DocType, event string, doc Doc, before Doc) error {
+// runHook runs one lifecycle event. flags is the doc.flags of the write the
+// event belongs to: the hooks start from it and what they leave is written
+// back into it, so every event of one write shares them. nil gives the hooks
+// an empty doc.flags that nothing keeps.
+func (c *Ctx) runHook(d *meta.DocType, event string, doc Doc, before Doc, flags map[string]any) error {
 	rt, err := c.RT()
 	if err != nil {
 		return err
@@ -1651,11 +1680,16 @@ func (c *Ctx) runHook(d *meta.DocType, event string, doc Doc, before Doc) error 
 	if !rt.HasHook(d.Name, event) {
 		return nil
 	}
-	var bj json.RawMessage
+	var bj, fj json.RawMessage
 	if before != nil {
 		bj = before.JSON()
 	}
-	out, err := rt.RunHook(d.Name, event, doc.JSON(), bj)
+	if len(flags) > 0 {
+		if fj, err = json.Marshal(flags); err != nil {
+			return fmt.Errorf("hook %s.%s: doc.flags is not JSON: %w", d.Name, event, err)
+		}
+	}
+	out, outFlags, err := rt.RunHook(d.Name, event, doc.JSON(), bj, fj)
 	if err != nil {
 		return err
 	}
@@ -1669,13 +1703,21 @@ func (c *Ctx) runHook(d *meta.DocType, event string, doc Doc, before Doc) error 
 	for k, v := range updated {
 		doc[k] = v
 	}
+	if flags != nil {
+		var left map[string]any
+		if err := json.Unmarshal(outFlags, &left); err != nil {
+			return fmt.Errorf("hook %s.%s left a doc.flags that is not an object: %w", d.Name, event, err)
+		}
+		clear(flags)
+		maps.Copy(flags, left)
+	}
 	return nil
 }
 
 // ------------------------------------------------------------ validation
 
 func (c *Ctx) validate(d *meta.DocType, doc Doc, before Doc, opts SaveOpts) error {
-	if err := c.runHook(d, "beforeValidate", doc, before); err != nil {
+	if err := c.runHook(d, "beforeValidate", doc, before, opts.Flags); err != nil {
 		return err
 	}
 	if err := c.castAll(d, doc); err != nil {
@@ -1687,7 +1729,7 @@ func (c *Ctx) validate(d *meta.DocType, doc Doc, before Doc, opts SaveOpts) erro
 	if err := c.checkReadOnlyDependsOn(d, doc, before); err != nil {
 		return err
 	}
-	if err := c.runHook(d, "validate", doc, before); err != nil {
+	if err := c.runHook(d, "validate", doc, before, opts.Flags); err != nil {
 		return err
 	}
 	if d.Name == "User Permission" {

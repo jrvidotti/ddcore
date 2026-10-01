@@ -561,12 +561,20 @@
       this._wrapChildren();
       return this;
     }
-    insert(opts) { return this._apply(call("doc.insert", { doc: this, opts })); }
-    save(opts) { return this._apply(call("doc.save", { doc: this, opts })); }
+    // A write carries doc.flags to its hooks and brings back what they left.
+    // The object is refilled, not replaced: a reference the caller kept stays
+    // the document's flags.
+    _written(res) {
+      for (const k of Object.keys(this.flags)) delete this.flags[k];
+      Object.assign(this.flags, res.flags);
+      return this._apply(res.doc);
+    }
+    insert(opts) { return this._written(call("doc.insert", { doc: this, flags: this.flags, opts })); }
+    save(opts) { return this._written(call("doc.save", { doc: this, flags: this.flags, opts })); }
     submit() { this.docstatus = 1; return this.save(); }
-    cancel() { return this._apply(call("doc.cancel", { doc: this })); }
+    cancel() { return this._written(call("doc.cancel", { doc: this, flags: this.flags })); }
     applyWorkflow(action) { return this._apply(call("doc.applyWorkflow", { doctype: this.doctype, id: this.id, action })); }
-    delete(opts) { call("doc.delete", { doctype: this.doctype, id: this.id, opts }); }
+    delete(opts) { call("doc.delete", { doctype: this.doctype, id: this.id, flags: this.flags, opts }); }
     reload() { return this._apply(call("getDoc", { doctype: this.doctype, id: this.id })); }
     dbSet(field, value) {
       const values = typeof field === "object" ? field : { [field]: value };
@@ -1058,15 +1066,16 @@
     return fns;
   }
 
-  // Runs one lifecycle event; returns the (possibly mutated) doc.
-  reg.runHook = function (doctype, event, docJSON, beforeJSON) {
-    const fns = hooksFor(doctype, event);
-    if (fns.length === 0) return docJSON;
+  // Runs one lifecycle event; returns { doc, flags }, both possibly mutated.
+  // flagsJSON is the doc.flags of the write this event belongs to: Go hands
+  // the same ones to every event of that write.
+  reg.runHook = function (doctype, event, docJSON, beforeJSON, flagsJSON) {
     const doc = new Document(JSON.parse(docJSON));
+    if (flagsJSON) doc.flags = JSON.parse(flagsJSON);
     if (beforeJSON) doc.__before = JSON.parse(beforeJSON);
     const ctx = makeContext();
-    for (const fn of fns) fn.call(doc, doc, ctx);
-    return JSON.stringify(doc);
+    for (const fn of hooksFor(doctype, event)) fn.call(doc, doc, ctx);
+    return JSON.stringify({ doc, flags: doc.flags });
   };
 
   reg.hasHook = function (doctype, event) { return hooksFor(doctype, event).length > 0; };

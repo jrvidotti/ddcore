@@ -79,11 +79,11 @@ export function addMonths(a) { return ddcore.utils.addMonths("2026-01-31", 1) }`
 	if meta.Doctypes["X"]["app"] != "demo" || len(meta.Whitelisted) != 1 || meta.Whitelisted[0].Path != "demo.doctypes.x.x.controller.hello" {
 		t.Fatalf("unexpected meta: %s", m)
 	}
-	out, err := rt.RunHook("X", "validate", json.RawMessage(`{"doctype":"X","name":"1","a":1}`), nil)
+	out, _, err := rt.RunHook("X", "validate", json.RawMessage(`{"doctype":"X","name":"1","a":1}`), nil, nil)
 	if err != nil || string(out) != `{"doctype":"X","name":"1","a":43}` {
 		t.Fatalf("hook: %v %s", err, out)
 	}
-	_, err = rt.RunHook("X", "validate", json.RawMessage(`{"doctype":"X","name":"1","a":100}`), nil)
+	_, _, err = rt.RunHook("X", "validate", json.RawMessage(`{"doctype":"X","name":"1","a":100}`), nil, nil)
 	if err == nil || err.Error() != "Limite: Muito grande" {
 		t.Fatalf("expected ValidationError, got %v", err)
 	}

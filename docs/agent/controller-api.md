@@ -76,7 +76,32 @@ Every message a person reads goes through `_()`, and the key is its English text
 Fields are properties; child tables are arrays. Methods: `insert()`, `save()`, `submit()`, `cancel()`, `delete()`, `reload()`,
 `dbSet(field, value)` / `dbSet({ ... })` (writes straight through, no validate — allowed after submission), `append(table, row)`, `isNew()`,
 `getDocBeforeSave()`, `hasValueChanged(field)`, `runMethod(name, args)`, `applyWorkflow(action)` (applies a workflow transition and
-reloads the document with the new state and docstatus; see `workflows`), `doc.flags` (free-form, per request).
+reloads the document with the new state and docstatus; see `workflows`), `doc.flags` (see below).
+
+### `doc.flags`: context for one write
+
+`doc.flags` is a free-form object that travels with **one write** of that document. What is set on it before
+`insert()`, `save()`, `submit()`, `cancel()` or `delete()` is what every hook of that write sees; what a hook sets is
+seen by the later hooks of the same write (`validate` can leave a note for `onUpdate`) and is back on the caller's
+`doc.flags` when the call returns. It is how server code tells a rule in `validate` that the write is the system's:
+
+```ts
+// thing.controller.ts
+validate(doc) {
+  if (doc.hasValueChanged("category") && !doc.flags.fromMeta) ddcore.throw(_("The category cannot be changed"));
+}
+
+// the integration
+const doc = ddcore.getDoc("Thing", id);
+doc.category = remote.category;
+doc.flags.fromMeta = true;
+doc.save();
+```
+
+The flags are never stored and never leave the server, so a client cannot set them: a write from the Desk, the REST
+API or MCP starts with `{}`. They belong to that document only — another document saved inside a hook has its own,
+and `getDoc` of the same document again starts empty. Values must be JSON: the flags cross to the engine and back
+with the document.
 
 ### What a delete leaves behind
 

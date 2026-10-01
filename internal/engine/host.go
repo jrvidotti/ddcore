@@ -41,6 +41,7 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		Values        Doc               `json:"values"`
 		Doc           Doc               `json:"doc"`
 		Opts          map[string]any    `json:"opts"`
+		Flags         map[string]any    `json:"flags"`
 		Query         string            `json:"query"`
 		Params        []any             `json:"params"`
 		Key           string            `json:"key"`
@@ -145,18 +146,31 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		return c.GetDoc(a.Doctype, idStr())
 	case "newDoc":
 		return c.NewDoc(a.Doctype, a.Values)
-	case "doc.insert":
-		return c.Insert(a.Doc, saveOpts(a.Opts))
-	case "doc.save":
-		return c.Save(a.Doc, saveOpts(a.Opts))
-	case "doc.cancel":
-		return c.Cancel(a.Doc)
+	case "doc.insert", "doc.save", "doc.cancel":
+		// the document's flags go with the write and come back with what the
+		// hooks left in them
+		opts := saveOpts(a.Opts)
+		if opts.Flags = a.Flags; opts.Flags == nil {
+			opts.Flags = map[string]any{}
+		}
+		write := c.Save
+		switch op {
+		case "doc.insert":
+			write = c.Insert
+		case "doc.cancel":
+			write = c.cancel
+		}
+		out, err := write(a.Doc, opts)
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"doc": out, "flags": opts.Flags}, nil
 	case "doc.applyWorkflow":
 		// the same transition POST /api/workflow/apply runs: role, self-approval,
 		// condition, row lock, audit and timeline comment
 		return c.ApplyWorkflowTransition(a.Doctype, idStr(), a.Action)
 	case "doc.delete":
-		return nil, c.Delete(a.Doctype, idStr(), a.Opts["ignorePermissions"] == true, a.Opts["force"] == true)
+		return nil, c.deleteWithFlags(a.Doctype, idStr(), a.Opts["ignorePermissions"] == true, a.Opts["force"] == true, a.Flags)
 	case "doc.dbSet":
 		// returns the new modified timestamp for the prelude to synchronize the document (B21)
 		modified, err := c.DBSet(a.Doctype, idStr(), a.Values, true)
