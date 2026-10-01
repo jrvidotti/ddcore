@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/evanw/esbuild/pkg/api"
 
@@ -32,6 +33,9 @@ type Bundle struct {
 	App   string
 	Code  string
 	Files []string // ts files included, relative to Dir
+	// Imports names the apps whose modules this one imports (see
+	// crossAppPlugin): they have to be loaded before it.
+	Imports []string
 }
 
 func sdkPlugin() api.Plugin {
@@ -89,6 +93,141 @@ func embeddedPlugin(app App) api.Plugin {
 			return api.OnLoadResult{Contents: &s, Loader: api.LoaderTS, ResolveDir: filepath.Dir(a.Path)}, nil
 		})
 	}}
+}
+
+// realDir is dir as esbuild will name it: absolute, with symlinks resolved.
+func realDir(dir string) string {
+	abs := absDir(dir)
+	if real, err := filepath.EvalSymlinks(abs); err == nil {
+		return real
+	}
+	return abs
+}
+
+// crossAppPlugin keeps one instance of a module across apps. Each app is a
+// bundle of its own, so a relative import that reaches into another app's
+// directory would inline a second copy of that file: its state apart from the
+// one the owner's controllers use, and its top-level define* calls run again
+// under the importer's name. An import that lands on a server file of another
+// loaded app resolves instead to the module that app registered — the registry
+// ddcore.callMethod reads — which is why the owner must be loaded first.
+//
+// Anything else an import reaches (a file under client/, a .d.ts, a directory
+// that is no app's) is bundled as before. imports collects the owners' names.
+func crossAppPlugin(app App, others []App, includeTests bool, imports map[string]bool) api.Plugin {
+	type owner struct {
+		app   App
+		dir   string
+		files map[string]bool
+	}
+	self := realDir(app.Dir)
+	var owners []*owner
+	for _, o := range others {
+		if o.Embedded != nil || o.Name == app.Name {
+			continue
+		}
+		owners = append(owners, &owner{app: o, dir: realDir(o.Dir)})
+	}
+	within := func(dir, file string) bool { return strings.HasPrefix(file, dir+string(filepath.Separator)) }
+	var mu sync.Mutex
+	return api.Plugin{Name: "ddcore-cross-app", Setup: func(b api.PluginBuild) {
+		b.OnResolve(api.OnResolveOptions{Filter: `^\.\.?/`, Namespace: "file"}, func(a api.OnResolveArgs) (api.OnResolveResult, error) {
+			if a.ResolveDir == "" || len(owners) == 0 {
+				return api.OnResolveResult{}, nil
+			}
+			base := absDir(filepath.Join(a.ResolveDir, a.Path))
+			file := ""
+			for _, c := range []string{base, base + ".ts", filepath.Join(base, "index.ts")} {
+				if st, err := os.Stat(c); err == nil && st.Mode().IsRegular() && strings.HasSuffix(c, ".ts") {
+					file = c
+					break
+				}
+			}
+			if file == "" {
+				return api.OnResolveResult{}, nil
+			}
+			if real, err := filepath.EvalSymlinks(file); err == nil {
+				file = real
+			}
+			// the innermost app directory holding the file owns it: an app
+			// nested in this one's directory is still another app
+			var own *owner
+			depth := 0
+			if within(self, file) {
+				depth = len(self)
+			}
+			for _, o := range owners {
+				if within(o.dir, file) && len(o.dir) > depth {
+					own, depth = o, len(o.dir)
+				}
+			}
+			if own == nil {
+				return api.OnResolveResult{}, nil
+			}
+			mu.Lock()
+			defer mu.Unlock()
+			if own.files == nil {
+				own.files = map[string]bool{}
+				list, err := ServerFiles(App{Name: own.app.Name, Dir: own.dir}, includeTests)
+				if err != nil {
+					return api.OnResolveResult{}, err
+				}
+				for _, f := range list {
+					own.files[f] = true
+				}
+			}
+			rel, err := filepath.Rel(own.dir, file)
+			if err != nil || !own.files[rel] {
+				return api.OnResolveResult{}, nil
+			}
+			imports[own.app.Name] = true
+			return api.OnResolveResult{Path: ModulePath(own.app.Name, rel), Namespace: "ddcore-app", PluginData: own.app.Name}, nil
+		})
+		b.OnLoad(api.OnLoadOptions{Filter: `.*`, Namespace: "ddcore-app"}, func(a api.OnLoadArgs) (api.OnLoadResult, error) {
+			from, _ := a.PluginData.(string)
+			msg := fmt.Sprintf("app %s imports %s, but app %s is not loaded before it: add %q to requires in ddcore.app.ts", app.Name, a.Path, from, from)
+			src := fmt.Sprintf("const m = __ddcore.modules[%q];\nif (!m) throw new Error(%q);\nmodule.exports = m.exports;\n", a.Path, msg)
+			return api.OnLoadResult{Contents: &src, Loader: api.LoaderJS}, nil
+		})
+	}}
+}
+
+// OrderByImports returns the bundles with every app after the apps it imports
+// from, otherwise in the order given. An app's bundle reads the modules of the
+// apps it imports while it loads, so they have to be in the runtime already.
+func OrderByImports(bundles []*Bundle) ([]*Bundle, error) {
+	byApp := map[string]*Bundle{}
+	for _, b := range bundles {
+		byApp[b.App] = b
+	}
+	var out []*Bundle
+	state := map[string]int{} // 0 unvisited, 1 visiting, 2 done
+	var visit func(b *Bundle, path []string) error
+	visit = func(b *Bundle, path []string) error {
+		switch state[b.App] {
+		case 2:
+			return nil
+		case 1:
+			return fmt.Errorf("apps import each other's modules in a circle: %s", strings.Join(append(path, b.App), " → "))
+		}
+		state[b.App] = 1
+		for _, name := range b.Imports {
+			if dep := byApp[name]; dep != nil {
+				if err := visit(dep, append(path, b.App)); err != nil {
+					return err
+				}
+			}
+		}
+		state[b.App] = 2
+		out = append(out, b)
+		return nil
+	}
+	for _, b := range bundles {
+		if err := visit(b, nil); err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
 }
 
 // ServerFiles lists the ts files that make up the server bundle of an app.
@@ -203,8 +342,10 @@ func TransformTS(code string) (string, error) {
 }
 
 // BuildServer bundles one app into a CommonJS script that registers every
-// module in the runtime registry.
-func BuildServer(app App, includeTests bool) (*Bundle, error) {
+// module in the runtime registry. others are the apps loaded beside it: an
+// import that reaches one of their server files is left out of the bundle and
+// bound to that app's own module (see crossAppPlugin).
+func BuildServer(app App, includeTests bool, others ...App) (*Bundle, error) {
 	files, err := ServerFiles(app, includeTests)
 	if err != nil {
 		return nil, err
@@ -216,8 +357,11 @@ func BuildServer(app App, includeTests bool) (*Bundle, error) {
 		fmt.Fprintf(&entry, "__ddcore.current = %q; __ddcore.register('module', { path: %q, file: %q, exports: require(%q) });\n", mp, mp, f, "./"+f)
 	}
 	plugins := []api.Plugin{sdkPlugin()}
+	imported := map[string]bool{}
 	if app.Embedded != nil {
 		plugins = append(plugins, embeddedPlugin(app))
+	} else {
+		plugins = append(plugins, crossAppPlugin(app, others, includeTests, imported))
 	}
 	res := api.Build(api.BuildOptions{
 		Stdin:         &api.StdinOptions{Contents: entry.String(), ResolveDir: app.Dir, Sourcefile: "__entry.ts", Loader: api.LoaderTS},
@@ -235,12 +379,17 @@ func BuildServer(app App, includeTests bool) (*Bundle, error) {
 	if len(res.Errors) > 0 {
 		return nil, fmt.Errorf("cannot compile app %s:\n%s", app.Name, formatMessages(res.Errors))
 	}
-	return &Bundle{App: app.Name, Code: string(res.OutputFiles[0].Contents), Files: files}, nil
+	var imports []string
+	for name := range imported {
+		imports = append(imports, name)
+	}
+	sort.Strings(imports)
+	return &Bundle{App: app.Name, Code: string(res.OutputFiles[0].Contents), Files: files, Imports: imports}, nil
 }
 
 // BuildServerBundle compiles an app's server-side bundle.
-func BuildServerBundle(app App, includeTests bool) (*Bundle, error) {
-	return BuildServer(app, includeTests)
+func BuildServerBundle(app App, includeTests bool, others ...App) (*Bundle, error) {
+	return BuildServer(app, includeTests, others...)
 }
 
 func absDir(d string) string {

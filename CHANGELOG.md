@@ -14,6 +14,16 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Breaking
+
+- An app that imports a server file of another app by relative path now gets that app's own module
+  instead of a private copy bundled into the importer: module state is shared, a test can replace
+  an export the owner's controllers call, and the file's top-level code runs once. The importer has
+  to declare the owner — a site where it does not refuses to load with `app b imports a module of
+  app a: add "a" to requires in its ddcore.app.ts`. **Upgrade:** add the app to `requires` in
+  `defineApp`; code that relied on its own copy of the other app's module state now shares it. See
+  `conventions` → "Calling another app's server code" (#47).
+
 ### Fixed
 
 - The site is named by its own app, not by a library that app `requires`: a required app loads

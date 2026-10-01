@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"maps"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -365,35 +366,59 @@ func (e *Engine) Connect(ctx context.Context) error {
 	return nil
 }
 
-// buildPool compiles the apps in order and returns a fresh pool plus the
-// registry snapshot the runtime produced.
-func (e *Engine) buildPool(apps []js.App) (*js.Pool, *Snapshot, error) {
+// buildPool compiles the apps and returns a fresh pool plus the registry
+// snapshot the runtime produced. The bundles load in the order given, except
+// that an app importing another app's module loads after it — which matters on
+// the first pass of Load, taken before `requires` has been read. The bundles
+// come back too, for what each one imports.
+func (e *Engine) buildPool(apps []js.App) (*js.Pool, *Snapshot, []*js.Bundle, error) {
 	var bundles []*js.Bundle
 	for _, a := range apps {
-		b, err := js.BuildServer(a, e.Cfg.Test)
+		b, err := js.BuildServer(a, e.Cfg.Test, apps...)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		bundles = append(bundles, b)
 	}
+	bundles, err := js.OrderByImports(bundles)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	pool, err := js.NewPool(e, bundles, e.Cfg.Workers+4, e.Cfg.Test)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	rt, err := pool.Acquire()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	raw, err := rt.Meta()
 	pool.Release(rt)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	var snap Snapshot
 	if err := json.Unmarshal(raw, &snap); err != nil {
-		return nil, nil, fmt.Errorf("meta: %w", err)
+		return nil, nil, nil, fmt.Errorf("meta: %w", err)
 	}
-	return pool, &snap, nil
+	return pool, &snap, bundles, nil
+}
+
+// checkImports refuses an app that imports another app's module without
+// declaring it in `requires`. The import already works — buildPool loads the
+// imported app first — but only `requires` makes that order a stated fact:
+// what installs, migrates and extends in dependency order, and what tells a
+// reader of ddcore.app.ts that the app does not stand alone.
+func checkImports(bundles []*js.Bundle, metas map[string]*AppMeta) error {
+	for _, b := range bundles {
+		for _, from := range b.Imports {
+			m := metas[b.App]
+			if m == nil || !slices.Contains(m.Requires, from) {
+				return fmt.Errorf("app %s imports a module of app %s: add %q to requires in its ddcore.app.ts", b.App, from, from)
+			}
+		}
+	}
+	return nil
 }
 
 // checkAppNames refuses a load where an app is registered under a namespace
@@ -473,7 +498,7 @@ func sameAppOrder(a, b []js.App) bool {
 // Load (re)compiles the apps and rebuilds the runtime pool and meta.
 func (e *Engine) Load() error {
 	apps := append([]js.App{CoreApp()}, e.Cfg.Apps...)
-	pool, snap, err := e.buildPool(apps)
+	pool, snap, bundles, err := e.buildPool(apps)
 	if err != nil {
 		return err
 	}
@@ -497,10 +522,14 @@ func (e *Engine) Load() error {
 		pool.Close()
 		return err
 	}
+	if err := checkImports(bundles, snap.Apps); err != nil {
+		pool.Close()
+		return err
+	}
 	if !sameAppOrder(apps, ordered) {
 		pool.Close()
 		apps = ordered
-		if pool, snap, err = e.buildPool(apps); err != nil {
+		if pool, snap, _, err = e.buildPool(apps); err != nil {
 			return err
 		}
 	}
