@@ -3,9 +3,9 @@
   // Right column of the form: metadata, assignments, shares, comments, versions.
   import type { FormController } from "$lib/form.svelte";
   import { api, type AssignArgs, type ShareArgs } from "$lib/api";
-  import { __, boot } from "$lib/boot.svelte";
+  import { __, boot, hasRole } from "$lib/boot.svelte";
   import { formatDatetime, timeAgo } from "$lib/format";
-  import { showError } from "$lib/ui.svelte";
+  import { confirm, showError } from "$lib/ui.svelte";
   import { onMount } from "svelte";
   import Icon from "./Icon.svelte";
   import DocHistory from "./DocHistory.svelte";
@@ -13,7 +13,8 @@
   import ShareModal from "./ShareModal.svelte";
   import { DocSharesState } from "$lib/shares.svelte";
   import { shareRightLabels, canRemoveShare } from "./doc-sidebar-share";
-  import { fromPlainText, normalizeRichText, sanitizeHtml } from "$lib/richtext";
+  import { fromPlainText, htmlToText, normalizeRichText, sanitizeHtml } from "$lib/richtext";
+  import { canDeleteComment, canEditComment, isCommentEdited } from "./doc-sidebar-comment";
   import { getModifierKey } from "$lib/shortcuts.svelte";
   import { DocAssignments } from "$lib/assignments.svelte";
   import { isAssignmentOverdue, assignmentInitial, priorityBadgeClass } from "./doc-sidebar-assignment";
@@ -23,6 +24,9 @@
   let comments = $state<any[]>([]);
   let versions = $state<any[]>([]);
   let text = $state("");
+  let editingId = $state("");
+  let editText = $state("");
+  let commentPending = $state("");
   let showVersions = $state(false);
   let showModal = $state(false);
   let showAssignModal = $state(false);
@@ -63,6 +67,39 @@
       text = "";
       await load();
     } catch (e) { showError(e); }
+  }
+
+  function startEdit(c: any) {
+    editingId = c.id;
+    // the box is plain text: a comment written with formatting loses it here
+    editText = htmlToText(String(c.content ?? ""));
+  }
+
+  async function saveEdit() {
+    if (!editText.trim() || commentPending) return;
+    commentPending = editingId;
+    try {
+      await api.update("Comment", editingId, { content: fromPlainText(editText) });
+      editingId = "";
+      await load();
+    } catch (e) { showError(e); }
+    commentPending = "";
+  }
+
+  function editKeydown(e: KeyboardEvent) {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") saveEdit();
+    else if (e.key === "Escape") { e.stopPropagation(); editingId = ""; }
+  }
+
+  async function deleteComment(id: string) {
+    if (!(await confirm(__("Delete this comment?"), __("Delete"), { destructive: true }))) return;
+    commentPending = id;
+    try {
+      await api.remove("Comment", id);
+      if (editingId === id) editingId = "";
+      await load();
+    } catch (e) { showError(e); }
+    commentPending = "";
   }
 
   async function handleAssign(args: AssignArgs) {
@@ -274,11 +311,43 @@
 
   <div class="block">
     <h4>{__("Comments")}</h4>
-    {#each comments as c}
-      <!-- a comment is rich text (DAT-08): the server cleans what it stores,
-           and this cleans again, because a row may predate that or come from
-           a direct SQL write -->
-      <div class="comment"><div class="small muted"><b>{c.owner}</b> · {timeAgo(c.creation)}</div><div class="comment-body">{@html sanitizeHtml(normalizeRichText(String(c.content ?? "")))}</div></div>
+    {#each comments as c (c.id)}
+      {@const me = boot.data?.user ?? ""}
+      <div class="comment">
+        <div class="comment-head">
+          <div class="small muted comment-meta">
+            <b>{c.owner}</b> · {timeAgo(c.creation)}{#if isCommentEdited(c)}
+              · <span title={formatDatetime(c.modified)}>{__("edited")}</span>{/if}
+          </div>
+          {#if editingId !== c.id}
+            <div class="assignment-actions">
+              {#if canEditComment(c, me)}
+                <button type="button" class="btn icon sm" title={__("Edit")} aria-label={__("Edit")} disabled={commentPending === c.id} onclick={() => startEdit(c)}>
+                  <Icon name="pencil" size={13} />
+                </button>
+              {/if}
+              {#if canDeleteComment(c, me, hasRole("System Manager"))}
+                <button type="button" class="btn icon sm" title={__("Delete")} aria-label={__("Delete")} disabled={commentPending === c.id} onclick={() => deleteComment(c.id)}>
+                  <Icon name="trash" size={13} />
+                </button>
+              {/if}
+            </div>
+          {/if}
+        </div>
+        {#if editingId === c.id}
+          <!-- svelte-ignore a11y_autofocus -->
+          <textarea class="input" rows="2" bind:value={editText} onkeydown={editKeydown} autofocus></textarea>
+          <div class="comment-edit-actions">
+            <button type="button" class="btn sm primary" disabled={!editText.trim() || commentPending === c.id} onclick={saveEdit} title="{__('Save')} ({modKey}+Enter)">{__("Save")}</button>
+            <button type="button" class="btn sm" onclick={() => (editingId = "")}>{__("Cancel")}</button>
+          </div>
+        {:else}
+          <!-- a comment is rich text (DAT-08): the server cleans what it stores,
+               and this cleans again, because a row may predate that or come from
+               a direct SQL write -->
+          <div class="comment-body">{@html sanitizeHtml(normalizeRichText(String(c.content ?? "")))}</div>
+        {/if}
+      </div>
     {/each}
     <textarea class="input" rows="2" placeholder={__("Write a comment")} bind:value={text} onkeydown={(e) => (e.ctrlKey || e.metaKey) && e.key === "Enter" && addComment()}></textarea>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px">
@@ -392,6 +461,9 @@
   .block { margin-top: 18px; }
   h4 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 8px; }
   .comment { padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .comment-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 6px; }
+  .comment-meta { min-width: 0; overflow-wrap: anywhere; }
+  .comment-edit-actions { display: flex; gap: 6px; margin: 6px 0 2px; }
 
   /* Assignments */
   .assignments-head {

@@ -13,8 +13,13 @@ export default defineController("Comment", {
     if (!doc) return undefined; // doctype verification: filter is applied per row
     if ((ddcore.getRoles(user) || []).indexOf("System Manager") >= 0) return true;
     if (!canReadReference(String(doc.reference_doctype || ""), String(doc.reference_id || ""))) return false;
-    // edit or delete, author only
-    if (ptype === "write" || ptype === "delete") return doc.owner === user;
+    if (ptype === "write" || ptype === "delete") {
+      // a timeline entry (assignment, workflow transition) is the system's
+      // record written in the user's name, not theirs to rewrite or remove
+      if (doc.comment_type && doc.comment_type !== "Comment") return false;
+      // edit or delete, author only
+      return doc.owner === user;
+    }
     return true;
   },
 });

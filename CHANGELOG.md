@@ -24,6 +24,17 @@ older series, and `whats_new` reads across every one of them.
   tab, the e-mails, `/health` — ahead of every app's title. Left out, the site is named by its own
   app as before. It changes the name only: `desk.home` and `desk.logo` stay with the apps. See
   `i18n` → "The site's name is the app's title" (#54).
+- A comment on a form can be edited and deleted from the form's right column. Its author edits it
+  in place and may delete it; a System Manager may delete anybody's. An edited comment says so
+  next to its date, and `GET /api/comments/{doctype}/{id}` now returns `modified` so a client can
+  tell.
+
+### Changed
+
+- A timeline entry — the `Comment` an assignment or a workflow transition writes in the user's
+  name, any `comment_type` other than `Comment` — can no longer be edited or deleted by its owner
+  through `PUT`/`DELETE /api/resource/Comment/{id}`; a System Manager still can. Server code that
+  rewrote such an entry as an ordinary user now gets a `PermissionError`.
 
 ## 0.23.1 — 2026-10-01
 
