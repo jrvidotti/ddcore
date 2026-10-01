@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.23.3 — 2026-10-01
+
 ### Fixed
 
 - Ctrl+S on a form saves the document with Caps Lock on. Windows reports the key in upper case
