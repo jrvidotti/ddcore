@@ -39,8 +39,12 @@ desk: {
 }
 ```
 
-`home` and `logo` are resolved the same way: **the first app in load order that
-declares one wins**, and the core declares neither, so an app's always does.
+`home` and `logo` are resolved the same way, each on its own: **the first app that
+declares one wins**, and the core declares neither, so an app's always does. "First" is load
+order with the libraries last: an app that another installed app `requires` loads before it, but
+comes after every app nobody requires. So the site's own app decides, and a library's `home` or
+`logo` only shows where the site's app declares none. The site's name follows the same order — see
+`i18n`.
 
 `logo` is one letter or one emoji, not an image URL — the mark is a fixed
 square, rendered as text. Leave it out and the mark is the initial of the name

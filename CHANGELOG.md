@@ -14,6 +14,13 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- The site is named by its own app, not by a library that app `requires`: a required app loads
+  first, so it used to take the Desk's title, `desk.home` and `desk.logo`. The apps nobody
+  requires now come first for all three, and `/api/boot` carries the result as `site.home` and
+  `site.logo` (#54).
+
 ## 0.22.1 — 2026-09-30
 
 ### Added

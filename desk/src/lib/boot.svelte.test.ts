@@ -1,8 +1,8 @@
 import { describe, expect, it, beforeEach } from "vitest";
 import { boot, siteLogo, siteName } from "./boot.svelte";
 
-const withBoot = (site: string, apps: { desk: any }[] = []) => {
-  boot.data = { site: { name: site }, apps } as any;
+const withBoot = (site: string, logo?: string) => {
+  boot.data = { site: { name: site, logo }, apps: [] } as any;
 };
 
 describe("the site's name and mark", () => {
@@ -29,14 +29,9 @@ describe("the site's name and mark", () => {
     expect(siteLogo()).toBe("🧪");
   });
 
-  it("prefers an app's desk.logo over the initial", () => {
-    withBoot("Projects", [{ desk: null }, { desk: { logo: "📁" } }]);
+  it("prefers the logo the server resolved over the initial", () => {
+    withBoot("Projects", "📁");
     expect(siteLogo()).toBe("📁");
-  });
-
-  it("lets the first app that declares one win, as desk.home does", () => {
-    withBoot("Projects", [{ desk: { logo: "A" } }, { desk: { logo: "B" } }]);
-    expect(siteLogo()).toBe("A");
   });
 
   it("ignores a name that is only whitespace", () => {

@@ -697,29 +697,68 @@ func (s *State) AppOrder() []string {
 	return out
 }
 
+// brandApps is the order in which the apps get to say what the site is: its
+// name, the workspace it opens on, its mark. The core never does. An app that
+// another installed app `requires` is a library, and it always loads before the
+// app that needs it — so load order alone would hand the site to the library.
+// The apps nobody requires come first, in load order, and the required ones
+// after them, so a site made only of libraries still gets a name.
+func (s *State) brandApps() []*AppMeta {
+	required := map[string]bool{}
+	for _, a := range s.Apps {
+		if m := s.Snap.Apps[a.Name]; m != nil {
+			for _, r := range m.Requires {
+				required[r] = true
+			}
+		}
+	}
+	var own, libs []*AppMeta
+	for _, a := range s.Apps {
+		m := s.Snap.Apps[a.Name]
+		if m == nil || a.Name == "core" {
+			continue
+		}
+		if required[a.Name] {
+			libs = append(libs, m)
+		} else {
+			own = append(own, m)
+		}
+	}
+	return append(own, libs...)
+}
+
 // SiteTitle is what the site is called wherever a person is told: the sidebar's
 // heading, the browser tab, a recovery e-mail, the health report. It is the
-// title of the first app that is not the core — the app whose screens the desk
-// is showing — and the core's own title when there is no other app.
+// title of the first app in brandApps order — the site's own app, not a library
+// it requires — and the core's own title when there is no other app.
 //
 // It is resolved here, once, rather than by each reader: the name has to be the
 // same word in the desk, in the mail and in /health, and two derivations that
 // "should" agree is the bug nobody finds. The value is a catalogue key, like any
 // label; the caller translates it into the language of whoever is reading.
 func (s *State) SiteTitle() string {
-	core := ""
-	for _, a := range s.Apps {
-		m := s.Snap.Apps[a.Name]
-		if m == nil || m.Title == "" {
-			continue
+	for _, m := range s.brandApps() {
+		if m.Title != "" {
+			return m.Title
 		}
-		if a.Name == "core" {
-			core = m.Title
-			continue
-		}
+	}
+	if m := s.Snap.Apps["core"]; m != nil {
 		return m.Title
 	}
-	return core
+	return ""
+}
+
+// SiteDesk is the site-wide value of a `desk` key that only one app can decide
+// — `home`, `logo` — picked the way SiteTitle picks the name, so the mark and
+// the landing workspace belong to the same app the heading names whenever that
+// app declares them.
+func (s *State) SiteDesk(key string) string {
+	for _, m := range s.brandApps() {
+		if v, _ := m.Desk[key].(string); v != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 func (s *State) App(name string) js.App {
