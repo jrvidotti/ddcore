@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.23.4 — 2026-10-01
+
 ### Fixed
 
 - The short route keeps its query string and its hash when the Desk redirects it to the
