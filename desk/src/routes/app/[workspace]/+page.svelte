@@ -7,16 +7,20 @@
   import ListView from "$lib/components/ListView.svelte";
   import FormView from "$lib/components/FormView.svelte";
   import { getMeta } from "$lib/meta";
+  import { resolveDoctype, resolveWorkspace, routeName } from "$lib/routes";
 
-  const segment = $derived(page.params.workspace ?? "");
-  const ws = $derived(boot.data?.workspaces?.find((w: any) => w.name.toLowerCase() === segment.toLowerCase()));
+  const param = $derived(page.params.workspace ?? "");
+  const wsName = $derived(resolveWorkspace(param, boot.data));
+  const ws = $derived(boot.data?.workspaces?.find((w: any) => w.name === wsName));
+  // the short route: the first segment is a DocType, under its route name or its real one
+  const segment = $derived(resolveDoctype(param, boot.data));
   const isDoctype = $derived(boot.data?.doctypes && segment in boot.data.doctypes);
 
   $effect(() => {
     if (boot.ready && !ws && isDoctype) {
       const realWs = resolveWorkspaceForDoctype(segment, boot.data?.workspaces || [], boot.data?.doctypes);
-      if (realWs) {
-        goto(workspaceRedirect(realWs, [segment], page.url), { replaceState: true });
+      if (realWs || param !== routeName(segment)) {
+        goto(workspaceRedirect(realWs, segment, [], page.url), { replaceState: true });
       }
     }
   });
@@ -39,5 +43,5 @@
     {/await}
   {/key}
 {:else if boot.ready}
-  <div class="page"><div class="card empty">{__("Workspace \"{0}\" not found.", [segment])}</div></div>
+  <div class="page"><div class="card empty">{__("Workspace \"{0}\" not found.", [param])}</div></div>
 {/if}

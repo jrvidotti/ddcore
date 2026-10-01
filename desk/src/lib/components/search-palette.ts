@@ -1,3 +1,4 @@
+import { seg } from "../routes";
 // Pure logic behind the global search palette: which DocTypes to offer as
 // "go to" entries, how they merge with the server's document hits, and where
 // each result leads.
@@ -53,14 +54,14 @@ export function buildItems(
   hits: SearchHit[],
   ctx: { doctypes: Record<string, { label?: string; app?: string }>; workspaces: WorkspaceItem[]; remembered: string },
 ): PaletteItem[] {
-  const ws = (dt: string) => encodeURIComponent(workspaceFor(dt, ctx.workspaces, ctx.doctypes, ctx.remembered));
+  const ws = (dt: string) => seg(workspaceFor(dt, ctx.workspaces, ctx.doctypes, ctx.remembered));
   const items: PaletteItem[] = matchDoctypes(txt, ctx.doctypes).map(([doctype, label]) => ({
     kind: "doctype",
     doctype,
     label,
     id: "",
     title: label,
-    href: `/app/${ws(doctype)}/${encodeURIComponent(doctype)}`,
+    href: `/app/${ws(doctype)}/${seg(doctype)}`,
   }));
   for (const h of hits) {
     items.push({
@@ -69,7 +70,7 @@ export function buildItems(
       label: h.label,
       id: h.id,
       title: h.title || h.id,
-      href: `/app/${ws(h.doctype)}/${encodeURIComponent(h.doctype)}/${encodeURIComponent(h.id)}`,
+      href: `/app/${ws(h.doctype)}/${seg(h.doctype)}/${encodeURIComponent(h.id)}`,
     });
   }
   return items;

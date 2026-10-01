@@ -14,6 +14,18 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Changed
+
+- Desk addresses carry a DocType, a workspace or a report without the spaces of its name:
+  `/app/Training%20Class` is now `/app/TrainingClass`, and `/app/<Workspace>/report/Open%20Tasks`
+  is `/app/<Workspace>/report/OpenTasks`. Nothing to change in an app: the name as it is still
+  opens and is redirected, so a `route:`, a `ddcore.route(...)` call and a link in a mail already
+  sent keep working. Record ids and `/api` paths are untouched. See "Navigation" in `form-api`.
+- `ddcore.docUrl(doctype, id)` returns the address in that form (`…/app/SalesOrder/SO-1`).
+- Two DocTypes, two workspaces or two reports whose names differ only by spaces are refused when
+  the site loads, naming both: they would share a Desk address. (Two such DocTypes already shared
+  a table.)
+
 ### Fixed
 
 - The short route keeps its query string and its hash when the Desk redirects it to the

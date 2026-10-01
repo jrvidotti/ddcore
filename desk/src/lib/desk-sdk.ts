@@ -1,6 +1,7 @@
 // The runtime that app client bundles import as "@ddcore/desk-sdk" (resolved
 // by the Go bundler to window.__ddcoreDesk). Keep it in sync with
 // packages/desk-sdk/src/index.ts, which holds the public types.
+import { seg } from "./routes";
 import { api } from "./api";
 import { subscribe, unsubscribe } from "./events";
 import { registerForm, type FormHandlers, FormController } from "./form.svelte";
@@ -189,7 +190,9 @@ export const deskSDK = {
     setRoute: (...parts: string[]) => {
       const rem = getRememberedWorkspace();
       const first = parts[0] || "";
-      const path = rem && first !== rem ? `/app/${encodeURIComponent(rem)}/` + parts.map(encodeURIComponent).join("/") : "/app/" + parts.map(encodeURIComponent).join("/");
+      // the first part is a name (a DocType, or the workspace itself); what follows is a record id
+      const tail = parts.map((part, i) => (i === 0 ? seg(part) : encodeURIComponent(part))).join("/");
+      const path = rem && first !== rem ? `/app/${seg(rem)}/${tail}` : `/app/${tail}`;
       return import("$app/navigation").then((n) => n.goto(path));
     },
   },

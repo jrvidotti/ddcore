@@ -37,7 +37,7 @@ describe("global search palette", () => {
     ], { doctypes, workspaces, remembered: "" });
     expect(items.map((i) => [i.kind, i.title, i.href])).toEqual([
       ["doctype", "Task", "/app/work/Task"],
-      ["doctype", "Task Type", "/app/work/Task%20Type"],
+      ["doctype", "Task Type", "/app/work/TaskType"],
       ["document", "Task two", "/app/work/Task/TASK-2"],
       ["document", "a@x.com", "/app/work/User/a%40x.com"],
     ]);

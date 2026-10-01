@@ -124,20 +124,37 @@ describe("sidebar-workspace", () => {
 
   it("generates correct workspace prefixed hrefs", () => {
     expect(workspaceItemHref("Alugueis", { doctype: "Contrato" })).toBe("/app/Alugueis/Contrato");
-    expect(workspaceItemHref("Alugueis", { report: "Contratos a Vencer" })).toBe("/app/Alugueis/report/Contratos%20a%20Vencer");
+    expect(workspaceItemHref("Alugueis", { report: "Contratos a Vencer" })).toBe("/app/Alugueis/report/ContratosaVencer");
     expect(workspaceItemHref("Alugueis", { route: "/app/Alugueis" })).toBe("/app/Alugueis");
     expect(workspaceItemHref("Alugueis", { label: "Group header" })).toBe("");
   });
 
   it("keeps the query string and the hash of a short route through the workspace redirect", () => {
-    expect(workspaceRedirect("Training", ["Training Class", "new"], { search: "?course=C-001", hash: "" }))
-      .toBe("/app/Training/Training%20Class/new?course=C-001");
-    expect(workspaceRedirect("Training", ["Course"], { search: "?is_active=1", hash: "#top" }))
+    expect(workspaceRedirect("Training", "Training Class", ["new"], { search: "?course=C-001", hash: "" }))
+      .toBe("/app/Training/TrainingClass/new?course=C-001");
+    expect(workspaceRedirect("Training", "Course", [], { search: "?is_active=1", hash: "#top" }))
       .toBe("/app/Training/Course?is_active=1#top");
-    expect(workspaceRedirect("Training", ["Course", "C-001"], { search: "", hash: "#notes" }))
-      .toBe("/app/Training/Course/C-001#notes");
-    expect(workspaceRedirect("Human Resources", ["Course"], { search: "", hash: "" }))
-      .toBe("/app/Human%20Resources/Course");
+    expect(workspaceRedirect("Training", "Course", ["C 001"], { search: "", hash: "#notes" }))
+      .toBe("/app/Training/Course/C%20001#notes");
+    expect(workspaceRedirect("Human Resources", "Course", [], { search: "", hash: "" }))
+      .toBe("/app/HumanResources/Course");
+    // no workspace owns the DocType: it stays on the short route, without its spaces
+    expect(workspaceRedirect(null, "Audit Event", ["AE 1"], { search: "?tab=Log", hash: "" }))
+      .toBe("/app/AuditEvent/AE%201?tab=Log");
+  });
+
+  it("finds the active workspace from a path under route names or under the names themselves", () => {
+    const workspaces: WorkspaceItem[] = [
+      { name: "Projects", label: "Projects", sidebar: [{ label: "Items", doctype: "Work Item" }] },
+      { name: "Human Resources", label: "HR", sidebar: [{ label: "Classes", doctype: "Training Class" }, { label: "Open", report: "Open Classes" }] },
+    ];
+    const at = (currentPath: string) => resolveActiveWorkspace({ currentPath, workspaces, doctypes: { "Work Item": {}, "Training Class": {} } })?.name;
+    expect(at("/app/HumanResources/TrainingClass")).toBe("Human Resources");
+    expect(at("/app/Human%20Resources")).toBe("Human Resources");
+    expect(at("/app/TrainingClass/new")).toBe("Human Resources");
+    expect(at("/app/Training%20Class")).toBe("Human Resources");
+    expect(at("/app/report/OpenClasses")).toBe("Human Resources");
+    expect(at("/app/workspace/HumanResources")).toBe("Human Resources");
   });
 
   it("remembers and retrieves workspace in storage safely", () => {

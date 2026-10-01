@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { seg } from "$lib/routes";
   import { __, doctypeLabel } from "$lib/boot.svelte";
   import type { ListViewOptions } from "$lib/desk-sdk";
   import type { Field, Meta } from "$lib/meta";
@@ -61,7 +62,7 @@
           {/if}
         {/if}
         <div class="heading">
-          <a class="title" href={`${wsPrefix}/${encodeURIComponent(doctype)}/${encodeURIComponent(row.id)}`}>{title}</a>
+          <a class="title" href={`${wsPrefix}/${seg(doctype)}/${encodeURIComponent(row.id)}`}>{title}</a>
           {#if cardInfo.hasImage && cardInfo.subtitle}<div class="subtitle muted">{text(row, cardInfo.subtitle)}</div>{/if}
         </div>
         {#if ind}<span class="indicator {ind.color}">{ind.label}</span>{/if}

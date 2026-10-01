@@ -19,6 +19,7 @@
   import { shouldToggleShortcuts, toggleShortcutsHelp, shortcutsState, closeShortcutsHelp, openShortcutsHelp, searchState, openSearch, closeSearch } from "$lib/shortcuts.svelte";
   import { api, onMessage } from "$lib/api";
   import { isPortalPath, portalRedirect } from "$lib/portal";
+  import { canonicalAppPath } from "$lib/routes";
   import { page } from "$app/state";
   import { goto, afterNavigate } from "$app/navigation";
   import { onMount, onDestroy, untrack } from "svelte";
@@ -126,6 +127,12 @@
   $effect(() => {
     const to = ready ? portalRedirect(boot.data?.website, page.url.pathname) : null;
     if (to) untrack(() => goto(to, { replaceState: true }));
+  });
+
+  // a path spelling a name the old way (`/app/Training%20Class`) moves to its route name
+  $effect(() => {
+    const to = ready && !isLogin && !isPortal ? canonicalAppPath(page.url.pathname, boot.data) : null;
+    if (to) untrack(() => goto(to + page.url.search + page.url.hash, { replaceState: true }));
   });
 
   const deskIncludeApps = (b: Boot) => b.apps.filter((a) => a.hasDeskInclude).map((a) => a.name);

@@ -227,6 +227,7 @@ export interface DDCoreAPI {
   /**
    * The absolute desk address of a document, for a link in a message that is
    * read outside the desk — a mail template's `b.button`, a webhook payload.
+   * The DocType goes in without its spaces: `…/app/SalesOrder/SO-1`.
    */
   docUrl(doctype: string, id: string): string;
   /**

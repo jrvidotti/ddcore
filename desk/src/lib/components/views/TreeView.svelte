@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { seg } from "$lib/routes";
   // Hierarchy view (DAT-07): one level at a time, from /api/tree.
   import { untrack } from "svelte";
   import { api } from "$lib/api";
@@ -80,7 +81,7 @@
 
   function childHref(parent: string) {
     const query = parentField ? `?${encodeURIComponent(parentField)}=${encodeURIComponent(parent)}` : "";
-    return `${wsPrefix}/${encodeURIComponent(doctype)}/new${query}`;
+    return `${wsPrefix}/${seg(doctype)}/new${query}`;
   }
 
   // A burst of list_updates (one per row of a Data Import) must not start a
@@ -124,7 +125,7 @@
               <span class="toggle gap" aria-hidden="true"></span>
             {/if}
             <Icon name={row.expandable ? "folder" : "file"} size={14} />
-            <a class="title" href={`${wsPrefix}/${encodeURIComponent(doctype)}/${encodeURIComponent(row.node.id)}`}>{treeLabel(row.node, settings)}</a>
+            <a class="title" href={`${wsPrefix}/${seg(doctype)}/${encodeURIComponent(row.node.id)}`}>{treeLabel(row.node, settings)}</a>
             {#if row.expandable && row.node.children > 0}<span class="muted small count">{row.node.children}</span>{/if}
             {#if row.loading}<span class="muted small">{__("Loading…")}</span>{/if}
             {#if row.expandable && meta.permissions.create}

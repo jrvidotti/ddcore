@@ -1,3 +1,4 @@
+import { seg } from "./routes";
 // Virtual DocTypes (DAT-07): a DocType with no table whose rows are the union
 // of other DocTypes. A row's id — and the value a Link to one stores — is
 // "<Source DocType>:<source id>". The desk never shows a form for the virtual
@@ -30,12 +31,12 @@ export interface RouteCtx {
  * source, so the form can report the missing document as usual.
  */
 export function virtualRedirect(doctype: string, id: string, sources: string[], ctx: RouteCtx): string | null {
-  const ws = (dt: string) => encodeURIComponent(workspaceFor(dt, ctx.workspaces, ctx.doctypes, ctx.remembered));
-  if (id === "new") return `/app/${ws(doctype)}/${encodeURIComponent(doctype)}`;
+  const ws = (dt: string) => seg(workspaceFor(dt, ctx.workspaces, ctx.doctypes, ctx.remembered));
+  if (id === "new") return `/app/${ws(doctype)}/${seg(doctype)}`;
   const s = splitVirtualId(id);
   if (!s) return null;
   if (!sources.includes(s.doctype)) return null;
-  return `/app/${ws(s.doctype)}/${encodeURIComponent(s.doctype)}/${encodeURIComponent(s.id)}`;
+  return `/app/${ws(s.doctype)}/${seg(s.doctype)}/${encodeURIComponent(s.id)}`;
 }
 
 /** The source DocType's label for a virtual id, for a picker's subtitle. */

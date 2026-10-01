@@ -4,20 +4,21 @@
   import { boot } from "$lib/boot.svelte";
   import { resolveWorkspaceForDoctype, workspaceRedirect } from "$lib/components/sidebar-workspace";
   import { getMeta } from "$lib/meta";
+  import { resolveDoctype, resolveWorkspace, routeName } from "$lib/routes";
   import ListView from "$lib/components/ListView.svelte";
   import FormView from "$lib/components/FormView.svelte";
 
-  const workspace = $derived(page.params.workspace ?? "");
-  const doctype = $derived(page.params.doctype ?? "");
-
-  const isWorkspace = $derived(boot.data?.workspaces?.some((w: any) => w.name.toLowerCase() === workspace.toLowerCase()));
+  const isWorkspace = $derived(resolveWorkspace(page.params.workspace ?? "", boot.data) !== null);
+  // the short route /app/<DocType>/<id>: the first segment is a DocType, the second its record
+  const workspace = $derived(resolveDoctype(page.params.workspace ?? "", boot.data));
   const isDocInFirstPos = $derived(boot.data?.doctypes && workspace in boot.data.doctypes);
+  const doctype = $derived(!isWorkspace && isDocInFirstPos ? page.params.doctype ?? "" : resolveDoctype(page.params.doctype ?? "", boot.data));
 
   $effect(() => {
     if (boot.ready && !isWorkspace && isDocInFirstPos) {
       const realWs = resolveWorkspaceForDoctype(workspace, boot.data?.workspaces || [], boot.data?.doctypes);
-      if (realWs) {
-        goto(workspaceRedirect(realWs, [workspace, doctype], page.url), { replaceState: true });
+      if (realWs || page.params.workspace !== routeName(workspace)) {
+        goto(workspaceRedirect(realWs, workspace, [page.params.doctype ?? ""], page.url), { replaceState: true });
       }
     }
   });

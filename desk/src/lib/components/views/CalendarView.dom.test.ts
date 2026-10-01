@@ -97,8 +97,8 @@ describe("CalendarView day +", () => {
     flushSync();
     const links = [...target.querySelectorAll<HTMLAnchorElement>(".day-new .menu a")];
     expect(links.map((a) => [a.textContent, a.getAttribute("href")])).toEqual([
-      ["Action", "/app/Marketing/Marketing%20Action/new?start_date=2026-11-06"],
-      ["External Event", expect.stringMatching(/^\/app\/Marketing\/External%20Event\/new\?starts_at=2026-11-0[56]T/)],
+      ["Action", "/app/Marketing/MarketingAction/new?start_date=2026-11-06"],
+      ["External Event", expect.stringMatching(/^\/app\/Marketing\/ExternalEvent\/new\?starts_at=2026-11-0[56]T/)],
     ]);
     document.body.click();
     flushSync();
@@ -112,7 +112,7 @@ describe("CalendarView day +", () => {
       { label: "Diary", doctype: "Marketing Log", field: "log_date" },
     ] } });
     await settle();
-    expect(lone.target.querySelectorAll("a.day-new")[5].getAttribute("href")).toBe("/app/Marketing/Marketing%20Action/new?start_date=2026-11-06");
+    expect(lone.target.querySelectorAll("a.day-new")[5].getAttribute("href")).toBe("/app/Marketing/MarketingAction/new?start_date=2026-11-06");
     lone.done();
 
     const none = mountCalendar({ meta: { ...meta, permissions: { create: true } }, calendar: { field: "start_date", newOptions: [

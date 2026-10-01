@@ -668,6 +668,16 @@ func (e *Engine) Load() error {
 		}
 		portals[name] = p
 	}
+	// two names the Desk would write as one path segment
+	for _, c := range []struct {
+		kind  string
+		names []string
+	}{{"doctype", reg.Names()}, {"workspace", mapNames(snap.Workspaces)}, {"report", mapNames(snap.Reports)}} {
+		if err := routeNameClash(c.kind, c.names); err != nil {
+			pool.Close()
+			return err
+		}
+	}
 	st := &State{
 		Title:             e.Cfg.SiteTitle,
 		Portals:           portals,

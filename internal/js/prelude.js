@@ -864,7 +864,8 @@
     },
     siteName() { return site().name || ""; },
     siteUrl() { return site().url || ""; },
-    docUrl(doctype, id) { return (site().url || "") + "/app/" + encodeURIComponent(doctype) + "/" + encodeURIComponent(id); },
+    // the DocType goes in as its route name, without whitespace: /app/SalesOrder/SO-1
+    docUrl(doctype, id) { return (site().url || "") + "/app/" + encodeURIComponent(String(doctype).replace(/\s+/g, "")) + "/" + encodeURIComponent(id); },
     enqueue(method, args, opts) { return call("enqueue", { method, args: args || {}, opts: opts || {} }); },
     sendMail(args) {
       args = args || {};

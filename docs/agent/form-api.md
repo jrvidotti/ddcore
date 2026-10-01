@@ -207,7 +207,8 @@ several scripts for the same cell all run.
 - `ddcore.realtime.on(event, handler)` → an `off()` function; `ddcore.realtime.off(event, handler)`. Events sent with
   `ddcore.publish` (see `controller-api`), outside a form — in a form, `frm.onRealtime` drops the handler when the form closes
 - `ddcore.route(path)` — navigates the Desk to a path; `ddcore.setRoute(...parts)` — the same from
-  path segments, each one encoded, under the current workspace. See "Navigation" below
+  path segments under the current workspace: the first is a name and goes in as its route name,
+  the rest are encoded as they are. See "Navigation" below
 - `__("text", [args])` — translation; the key is its English text. See `i18n`.
 
 ### Navigation
@@ -223,20 +224,26 @@ An app passes the **short** route and never needs to know which workspace a DocT
 The Desk redirects each of them to `/app/<Workspace>/<DocType>…`, the workspace that owns the
 DocType, and the query string and the hash travel with the redirect.
 
+A DocType, a workspace or a report goes into the path as its **route name**: the name without
+its spaces, case kept — `Training Class` is `/app/TrainingClass`, the report `Open Tasks` is
+`/app/<Workspace>/report/OpenTasks`. The name as it is (`/app/Training%20Class`) still opens and
+is redirected to the route name, so a link written before this rule keeps working. A record id is
+never changed: it goes in whole, percent-encoded. `/api` paths take the real name, spaces included.
+
 - **Prefilling a new document** — `/app/<DocType>/new?field=value` sets every query key that names
   a field of the DocType on the new document; any other key is ignored. A button on a Course that
   opens a Training Class for it:
 
   ```ts
   frm.addButton(__("New Class"), () =>
-    ddcore.route(`/app/Training%20Class/new?course=${encodeURIComponent(frm.doc.id)}`));
+    ddcore.route(`/app/TrainingClass/new?course=${encodeURIComponent(frm.doc.id)}`));
   ```
 
 - **Opening a filtered list** — `/app/<DocType>?field=value` opens the list with that filter
   applied, the same query string the list writes as the user filters. It is what a workspace
   card's `route:` takes (see `report-api`).
 
-Encode every value with `encodeURIComponent`, and a DocType name with a space in it too.
+Encode every value and every record id with `encodeURIComponent`.
 
 ### Dates and times
 

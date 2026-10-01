@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { seg } from "$lib/routes";
   import { goto } from "$app/navigation";
   import { __ } from "$lib/boot.svelte";
   import type { ListViewOptions } from "$lib/desk-sdk";
@@ -24,7 +25,7 @@
     (!columns.some((c) => c.fieldname === statusField?.fieldname) && (!!statusField || !!meta.doctype.submittable)));
   const showID = $derived(showIDColumn(meta.doctype, columns, settings));
   const num = (f: Field) => isNumericFieldtype(f.fieldtype);
-  const documentUrl = (id: string) => `${wsPrefix}/${encodeURIComponent(doctype)}/${encodeURIComponent(id)}`;
+  const documentUrl = (id: string) => `${wsPrefix}/${seg(doctype)}/${encodeURIComponent(id)}`;
 </script>
 
 <table class="grid">
@@ -58,7 +59,7 @@
               {#if settings.plainLinks?.includes(c.fieldname!)}
                 <span title={linkVal}>{getLinkTitle(linkTarget, linkVal) || linkVal}</span>
               {:else}
-              <a href={`${wsPrefix}/${encodeURIComponent(linkTarget)}/${encodeURIComponent(linkVal)}`} title={linkVal} onclick={(e) => e.stopPropagation()}>{getLinkTitle(linkTarget, linkVal) || linkVal}</a>
+              <a href={`${wsPrefix}/${seg(linkTarget)}/${encodeURIComponent(linkVal)}`} title={linkVal} onclick={(e) => e.stopPropagation()}>{getLinkTitle(linkTarget, linkVal) || linkVal}</a>
               {/if}
             {:else if !showID && c.fieldname === meta.doctype.titleField}
               <a href={documentUrl(r.id)} onclick={(e) => e.stopPropagation()}>{cellText(r, c) || r.id}</a>

@@ -116,7 +116,7 @@ Two paths are not audited:
 Writing the audit entry itself is best-effort: if it fails, the vault
 operation still succeeds and the failure is silently discarded.
 
-System Managers can review audit events in the Desk at `/app/Audit Event` or via `ddcore audit list`.
+System Managers can review audit events in the Desk at `/app/AuditEvent` or via `ddcore audit list`.
 
 ---
 

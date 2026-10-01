@@ -1,3 +1,4 @@
+import { seg, resolveWorkspace, resolveReport, resolveDoctype } from "../routes";
 export interface WorkspaceItem {
   name: string;
   label: string;
@@ -74,12 +75,15 @@ export function resolveWorkspaceForDoctype(
 }
 
 /**
- * The workspace route a short `/app/<DocType>[/<id>]` URL redirects to. The
- * query string and the hash travel with it: a new form is prefilled from the
- * query and a list reads its filters from it.
+ * The workspace route a short `/app/<DocType>[/<id>]` URL redirects to; `rest`
+ * is what follows the DocType (a record id, `new`). The query string and the
+ * hash travel with it: a new form is prefilled from the query and a list reads
+ * its filters from it.
  */
-export function workspaceRedirect(workspace: string, segments: string[], url: { search: string; hash: string }): string {
-  return `/app/${[workspace, ...segments].map(encodeURIComponent).join("/")}${url.search}${url.hash}`;
+export function workspaceRedirect(workspace: string | null, doctype: string, rest: string[], url: { search: string; hash: string }): string {
+  // a DocType no workspace owns stays on the short route, under its route name
+  const names = workspace ? [seg(workspace), seg(doctype)] : [seg(doctype)];
+  return `/app/${[...names, ...rest.map(encodeURIComponent)].join("/")}${url.search}${url.hash}`;
 }
 
 /**
@@ -107,12 +111,19 @@ export function workspaceItemHref(
 ): string {
   if (item.route) return item.route;
   if (item.doctype) {
-    return `/app/${encodeURIComponent(workspaceName)}/${encodeURIComponent(item.doctype)}`;
+    return `/app/${seg(workspaceName)}/${seg(item.doctype)}`;
   }
   if (item.report) {
-    return `/app/${encodeURIComponent(workspaceName)}/report/${encodeURIComponent(item.report)}`;
+    return `/app/${seg(workspaceName)}/report/${seg(item.report)}`;
   }
   return "";
+}
+
+/** The reports the workspaces' sidebars list, keyed by name. */
+function reportNames(workspaces: WorkspaceItem[]): Record<string, true> {
+  const out: Record<string, true> = {};
+  for (const ws of workspaces) for (const item of ws.sidebar || []) if (item.report) out[item.report] = true;
+  return out;
 }
 
 /**
@@ -134,19 +145,20 @@ export function resolveActiveWorkspace(params: {
     const part1 = decodeURIComponent(segments[1]);
 
     // 1. Does part1 match a known workspace name?
-    const directWs = workspaces.find((w) => w.name.toLowerCase() === part1.toLowerCase());
+    const directName = resolveWorkspace(part1, { workspaces });
+    const directWs = directName ? workspaces.find((w) => w.name === directName) : undefined;
     if (directWs) return directWs;
 
     // 2. Is it /app/workspace/:name (legacy workspace route)?
     if (part1 === "workspace" && segments[2]) {
-      const wsName = decodeURIComponent(segments[2]);
-      const legacyWs = workspaces.find((w) => w.name.toLowerCase() === wsName.toLowerCase());
+      const wsName = resolveWorkspace(decodeURIComponent(segments[2]), { workspaces });
+      const legacyWs = workspaces.find((w) => w.name === wsName);
       if (legacyWs) return legacyWs;
     }
 
     // 3. Is it /app/report/:reportName (legacy report route)?
     if (part1 === "report" && segments[2]) {
-      const repName = decodeURIComponent(segments[2]);
+      const repName = resolveReport(decodeURIComponent(segments[2]), { reports: reportNames(workspaces) });
       const repWs = resolveWorkspaceForReport(repName, workspaces);
       if (repWs) {
         const found = workspaces.find((w) => w.name === repWs);
@@ -155,7 +167,7 @@ export function resolveActiveWorkspace(params: {
     }
 
     // 4. Is part1 a legacy un-prefixed DocType (e.g. /app/Contrato)?
-    const dtWsName = resolveWorkspaceForDoctype(part1, workspaces, doctypes);
+    const dtWsName = resolveWorkspaceForDoctype(resolveDoctype(part1, { doctypes }), workspaces, doctypes);
     if (dtWsName) {
       const found = workspaces.find((w) => w.name === dtWsName);
       if (found) return found;

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { seg } from "$lib/routes";
   // List view generated from meta: standard filters, search, sort, paging, bulk delete.
   import { api } from "$lib/api";
   import { getMeta, selectLabels, selectOptions, type Meta, type Field, isLayout, isTableType } from "$lib/meta";
@@ -78,7 +79,7 @@
   const VIEW_LIMIT = 500;
 
   const workspace = $derived(page.params.workspace || "");
-  const wsPrefix = $derived(workspace ? `/app/${encodeURIComponent(workspace)}` : "/app");
+  const wsPrefix = $derived(workspace ? `/app/${seg(workspace)}` : "/app");
 
   // options registered by the app via defineListView(doctype, {...})
   const settings = $derived<ListViewOptions>(deskSDK.listSettings(doctype) || {});
@@ -184,7 +185,7 @@
     // An explicit List choice must also survive another browser's preference.
     if (state.view) params.set("view", state.view);
     lastUrlSearch = params.size ? `?${params}` : "";
-    goto(`${wsPrefix}/${encodeURIComponent(doctype)}${lastUrlSearch}`, { noScroll: true, keepFocus: true });
+    goto(`${wsPrefix}/${seg(doctype)}${lastUrlSearch}`, { noScroll: true, keepFocus: true });
     load();
   }
   function setView(mode: DeskViewMode) {
@@ -516,7 +517,7 @@
     <button class="btn" onclick={load} title={__("Update")}><Icon name="refresh-cw" size={14} /></button>
     {#if canImport(meta?.permissions)}<button class="btn" onclick={() => (importOpen = true)} title={__("Import")} aria-label={__("Import")}><Icon name="upload" size={14} /></button>{/if}
     {#if meta?.permissions.export}<button class="btn" onclick={openExport} title={__("Export")}><Icon name="download" size={14} /></button>{/if}
-    {#if meta?.permissions.create}<a class="btn primary" href={`${wsPrefix}/${encodeURIComponent(doctype)}/new`}><Icon name="plus" size={14} />{__("New")}</a>{/if}
+    {#if meta?.permissions.create}<a class="btn primary" href={`${wsPrefix}/${seg(doctype)}/new`}><Icon name="plus" size={14} />{__("New")}</a>{/if}
   </div>
 
   {#if isTreeView}

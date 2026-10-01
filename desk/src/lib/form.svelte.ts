@@ -1,3 +1,4 @@
+import { seg } from "./routes";
 // FormController — the `frm` object form scripts receive. Holds the doc as
 // reactive state, tracks dirtiness and exposes the API described in
 // @ddcore/desk-sdk (setValue, addButton, call, setQuery...).
@@ -14,12 +15,12 @@ import { dynamicLinksOf } from "./doctype-selector";
 import { getRememberedWorkspace } from "./components/sidebar-workspace";
 
 function recordBase(frm: { basePath: string; doctype: string }): string {
-  return frm.basePath || `${currentWsPrefix()}/${encodeURIComponent(frm.doctype)}`;
+  return frm.basePath || `${currentWsPrefix()}/${seg(frm.doctype)}`;
 }
 
 function currentWsPrefix(): string {
   const ws = getRememberedWorkspace();
-  return ws ? `/app/${encodeURIComponent(ws)}` : "/app";
+  return ws ? `/app/${seg(ws)}` : "/app";
 }
 
 export interface FormHandlers {
@@ -535,7 +536,7 @@ export async function createForm(doctype: string, id?: string, initial?: any, ba
   await loadFormScript(meta);
   let doc: any;
   if (meta.doctype.isSingle) {
-    if (id === "new") await goto(`${currentWsPrefix()}/${encodeURIComponent(doctype)}`, { replaceState: true });
+    if (id === "new") await goto(`${currentWsPrefix()}/${seg(doctype)}`, { replaceState: true });
     doc = await api.getSingle(doctype);
   }
   else if (id && id !== "new") doc = await api.getDoc(doctype, id);
