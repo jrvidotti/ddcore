@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.23.1 — 2026-10-01
+
 ### Fixed
 
 - `doc.flags` set before `insert()`, `save()`, `submit()`, `cancel()` or `delete()` reaches the hooks
