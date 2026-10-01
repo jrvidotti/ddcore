@@ -63,4 +63,11 @@ describe("isActiveLink", () => {
   it("matches encoded names", () => {
     expect(isActiveLink("/app/Alugueis/Configuracao%20Alugueis", "/app/Alugueis/Configuracao%20Alugueis", ws)).toBe(true);
   });
+
+  it("matches a workspace dashboard under its route name", () => {
+    const spaced = ["Human Resources"];
+    expect(isActiveLink("/app/HumanResources", "/app/HumanResources", spaced)).toBe(true);
+    expect(isActiveLink("/app/HumanResources/Course", "/app/HumanResources", spaced)).toBe(false);
+    expect(isActiveLink("/app/Human%20Resources", "/app/HumanResources", spaced)).toBe(true);
+  });
 });

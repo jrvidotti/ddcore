@@ -102,7 +102,8 @@ a test guards itself with `ddcore.isTest()`.
 
 ## Naming
 
-- DocType name: ASCII, spaces allowed, capitalised (`"Project Milestone"`). Becomes the table `tab_project_milestone` and the interface `ProjectMilestone`.
+- DocType name: ASCII, spaces allowed, capitalised (`"Project Milestone"`). Becomes the table `tab_project_milestone`, the interface `ProjectMilestone` and the Desk path `/app/ProjectMilestone`.
+- A workspace or a report name goes into the Desk path the same way, without its spaces. Two DocTypes, two workspaces or two reports whose names differ only by spaces would share an address, and the site refuses to load them.
 - `fieldname`: ASCII snake_case (`due_date`).
 - **Labels are English, because a label is a catalogue key.** An accent belongs in `translations/<lang>.csv`, never in the code. See `i18n`.
 - Reserved: `id, owner, creation, modified, modified_by, docstatus, doctype, parent, parenttype, parentfield, idx`.

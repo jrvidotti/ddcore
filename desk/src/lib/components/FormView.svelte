@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { seg } from "$lib/routes";
   // Form view generated from meta: sections/tabs, controls, grids,
   // toolbar (save/submit/cancel/amend/delete), form-script buttons, sidebar.
   import { createForm, FormController, type Button } from "$lib/form.svelte";
@@ -53,9 +54,9 @@
   let leaving = false;
 
   const workspace = $derived(page.params.workspace || "");
-  const wsPrefix = $derived(`/app/${encodeURIComponent(workspace || workspaceFor(doctype, (boot.data?.workspaces || []) as WorkspaceItem[], boot.data?.doctypes, getRememberedWorkspace()))}`);
+  const wsPrefix = $derived(`/app/${seg(workspace || workspaceFor(doctype, (boot.data?.workspaces || []) as WorkspaceItem[], boot.data?.doctypes, getRememberedWorkspace()))}`);
   /** the list, and the records under it */
-  const basePath = $derived(ownBase || `${wsPrefix}/${encodeURIComponent(doctype)}`);
+  const basePath = $derived(ownBase || `${wsPrefix}/${seg(doctype)}`);
   /** set once the record is deleted: it must never get a draft again */
   let gone = false;
   /** the draft is only kept in step after the one it may have recovered is in */
@@ -340,7 +341,7 @@
   }
   function openPrint() {
     if (!frm || frm.isNew) return;
-    goto(`${wsPrefix}/${encodeURIComponent(doctype)}/${encodeURIComponent(id)}/print`);
+    goto(`${wsPrefix}/${seg(doctype)}/${encodeURIComponent(id)}/print`);
   }
   // dropdowns close on any click outside them (mouseleave used to need two clicks)
   function onPointerDown(e: PointerEvent) {

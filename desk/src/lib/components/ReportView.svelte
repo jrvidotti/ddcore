@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { seg } from "$lib/routes";
   import { api } from "$lib/api";
   import { boot, __ } from "$lib/boot.svelte";
   import { formatSummary } from "$lib/format";
@@ -22,7 +23,7 @@
   let lastUrlSearch = "";
   const label = $derived(meta?.label || boot.data?.reports[name]?.label || name);
   const workspace = $derived(page.params.workspace || getRememberedWorkspace() || "");
-  const wsPrefix = $derived(workspace ? `/app/${encodeURIComponent(workspace)}` : "/app");
+  const wsPrefix = $derived(workspace ? `/app/${seg(workspace)}` : "/app");
 
   function defaultFor(f: any) {
     const d = f.default;
@@ -53,7 +54,7 @@
     filters = { ...filters, [fieldname]: value };
     const params = reportFiltersToSearchParams(filters, meta?.filters || []);
     lastUrlSearch = params.size ? `?${params}` : "";
-    goto(`${wsPrefix}/report/${encodeURIComponent(name)}${lastUrlSearch}`, { noScroll: true, keepFocus: true });
+    goto(`${wsPrefix}/report/${seg(name)}${lastUrlSearch}`, { noScroll: true, keepFocus: true });
     run();
   }
   $effect(() => {

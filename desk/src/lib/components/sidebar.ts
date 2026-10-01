@@ -1,3 +1,4 @@
+import { routeName } from "../routes";
 /**
  * What the sidebar decides, as opposed to what it draws — here for the reason
  * `profile.ts` is: a component cannot be unit-tested in this repo, and this is
@@ -35,8 +36,9 @@ export function systemDoctypes(data: Boot | null): SystemDoctype[] {
 export function isActiveLink(current: string, href: string, workspaces: string[]): boolean {
   const dec = (s: string) => { try { return decodeURIComponent(s); } catch { return s; } };
   const root = href.match(/^\/app\/(?:workspace\/)?([^/?#]+)\/?$/);
-  if (root && workspaces.some((w) => w.toLowerCase() === dec(root[1]).toLowerCase())) {
-    return dec(current).replace(/\/$/, "").toLowerCase() === `/app/${dec(root[1])}`.toLowerCase();
+  const same = (a: string, b: string) => routeName(a).toLowerCase() === routeName(b).toLowerCase();
+  if (root && workspaces.some((w) => same(w, dec(root[1])))) {
+    return same(dec(current).replace(/\/$/, ""), `/app/${dec(root[1])}`);
   }
   return current === href || current.startsWith(href + "/") || current.startsWith(href + "?");
 }

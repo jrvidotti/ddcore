@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { seg } from "$lib/routes";
   // The table of a report's result: Link and status cells, a totals footer,
   // and optional sorting, row selection and CSV/XLSX export. Used by the
   // report page and by a form's Report field.
@@ -96,7 +97,7 @@
             <td class:num={num(c)}>
               {#if c.fieldtype === "Link" && r[c.fieldname]}
                 {@const linkTitle = getLinkTitle(c.options, r[c.fieldname]) || r[c.fieldname]}
-                <a href={`${wsPrefix}/${encodeURIComponent(c.options)}/${encodeURIComponent(r[c.fieldname])}`} title={r[c.fieldname]}>{linkTitle}</a>
+                <a href={`${wsPrefix}/${seg(c.options)}/${encodeURIComponent(r[c.fieldname])}`} title={r[c.fieldname]}>{linkTitle}</a>
               {:else if c.fieldname === "status" && r[c.fieldname]}<span class="indicator {statusColor(r[c.fieldname], c)}">{__(r[c.fieldname])}</span>
               {:else}<span style:color={c.fieldtype === "Currency" && r[c.fieldname] < 0 ? "var(--red)" : undefined}>{formatValue(r[c.fieldname], c)}</span>{/if}
             </td>

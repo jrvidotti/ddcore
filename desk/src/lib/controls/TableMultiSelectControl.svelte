@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { seg } from "$lib/routes";
   // Table MultiSelect: the child rows shown as pills, one per chosen value, with
   // a typeahead over the child's Link target to add more.
   import { api } from "$lib/api";
@@ -102,7 +103,7 @@
 
   const label = $derived(target && boot.data?.doctypes[target]?.label);
   const workspace = $derived(page.params?.workspace || getRememberedWorkspace() || "");
-  const wsPrefix = $derived(workspace ? `/app/${encodeURIComponent(workspace)}` : "/app");
+  const wsPrefix = $derived(workspace ? `/app/${seg(workspace)}` : "/app");
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
@@ -111,7 +112,7 @@
   {#each values as v (v)}
     <span class="ms-pill">
       {#if readOnly && target}
-        <a href={`${wsPrefix}/${encodeURIComponent(target)}/${encodeURIComponent(v)}`} title={v}>{getLinkTitle(target, v)}</a>
+        <a href={`${wsPrefix}/${seg(target)}/${encodeURIComponent(v)}`} title={v}>{getLinkTitle(target, v)}</a>
       {:else}
         <span title={v}>{target ? getLinkTitle(target, v) : v}</span>
         <button type="button" class="ms-remove" aria-label={__("Remove {0}", [target ? getLinkTitle(target, v) : v])}

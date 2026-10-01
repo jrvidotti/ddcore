@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { seg } from "$lib/routes";
   import { __ } from "$lib/boot.svelte";
   import type { GanttViewOptions } from "$lib/desk-sdk";
   import type { Meta } from "$lib/meta";
@@ -57,7 +58,7 @@
         {/each}
       </div>
       {#each bars as { row, bar } (row.id)}
-        {@const href = `${wsPrefix}/${encodeURIComponent(doctype)}/${encodeURIComponent(row.id)}`}
+        {@const href = `${wsPrefix}/${seg(doctype)}/${encodeURIComponent(row.id)}`}
         <a class="label-col row-label" {href} title={String(row[titleField] || row.id)}>{row[titleField] || row.id}</a>
         <div class="timeline">
           {#each win.columns as col (col.start)}<div class="cell" class:weekend={isWeekend(col.start)} style:width={`${(col.days / win.days) * 100}%`}></div>{/each}

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { seg } from "$lib/routes";
   import { untrack } from "svelte";
   import { __ } from "$lib/boot.svelte";
   import type { CalendarViewOptions } from "$lib/desk-sdk";
@@ -21,7 +22,7 @@
     undatedOn?: string;
   } = $props();
 
-  const base = $derived(basePath || `${wsPrefix}/${encodeURIComponent(doctype)}`);
+  const base = $derived(basePath || `${wsPrefix}/${seg(doctype)}`);
 
   const days = $derived(getCalendarDays(viewYear, viewMonth));
   const titleField = $derived(calendar.titleField || meta.doctype.titleField || "id");
@@ -42,7 +43,7 @@
     // a DocType the user cannot read or create drops out of the menu
     Promise.all(options.map((o) => getMeta(o.doctype).then(
       (m) => m.permissions.create ? target(o.label || m.doctype.label || o.doctype,
-        o.doctype === doctype ? base : `${wsPrefix}/${encodeURIComponent(o.doctype)}`, m, o.field, o.endField) : null,
+        o.doctype === doctype ? base : `${wsPrefix}/${seg(o.doctype)}`, m, o.field, o.endField) : null,
       () => null,
     ))).then((targets) => { if (current) optionTargets = targets.filter((t): t is NewTarget => !!t); });
     return () => { current = false; };

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { seg } from "$lib/routes";
   // A Report field: a defineReport run for this document (its filters taken
   // from the document through `reportFilters`), shown as a read-only grid.
   import { untrack } from "svelte";
@@ -18,7 +19,7 @@
   let error = $state("");
   let loading = $state(false);
   const workspace = $derived(page.params.workspace || getRememberedWorkspace() || "");
-  const wsPrefix = $derived(workspace ? `/app/${encodeURIComponent(workspace)}` : "/app");
+  const wsPrefix = $derived(workspace ? `/app/${seg(workspace)}` : "/app");
   const baseSort = $derived<GridSortState | null>(field.gridSort?.field ? { field: field.gridSort.field, order: field.gridSort.order === "desc" ? "desc" : "asc" } : null);
 
   // runs on load, after a save or a reload (a new `modified`) and on refreshField

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { seg, resolveWorkspace } from "$lib/routes";
   import { boot, __ } from "$lib/boot.svelte";
   import { api } from "$lib/api";
   import { formatCurrency, formatNumber } from "$lib/format";
@@ -23,15 +24,18 @@
     if (String(card.aggregate || "").startsWith("sum:")) return formatCurrency(v.value);
     return formatNumber(v.value);
   };
-  const href = (s: any) => s.route || (s.doctype ? `/app/${encodeURIComponent(ws?.name || "")}/${encodeURIComponent(s.doctype)}` : s.report ? `/app/${encodeURIComponent(ws?.name || "")}/report/${encodeURIComponent(s.report)}` : "#");
+  const href = (s: any) => s.route || (s.doctype ? `/app/${seg(ws?.name || "")}/${seg(s.doctype)}` : s.report ? `/app/${seg(ws?.name || "")}/report/${seg(s.report)}` : "#");
   const cardHref = (c: any) => {
     if (c.route) {
-      if (c.route.startsWith("/app/") && ws?.name && !c.route.startsWith(`/app/${ws.name}/`)) {
-        return c.route.replace(/^\/app\//, `/app/${encodeURIComponent(ws.name)}/`);
+      const first = c.route.match(/^\/app\/([^/?#]+)/)?.[1] ?? "";
+      let decoded = first;
+      try { decoded = decodeURIComponent(first); } catch { /* keep the raw segment */ }
+      if (first && ws?.name && resolveWorkspace(decoded, boot.data) !== ws.name) {
+        return c.route.replace(/^\/app\//, `/app/${seg(ws.name)}/`);
       }
       return c.route;
     }
-    return c.doctype ? `/app/${encodeURIComponent(ws?.name || "")}/${encodeURIComponent(c.doctype)}` : "#";
+    return c.doctype ? `/app/${seg(ws?.name || "")}/${seg(c.doctype)}` : "#";
   };
 </script>
 

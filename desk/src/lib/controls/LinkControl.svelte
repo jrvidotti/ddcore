@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { seg } from "$lib/routes";
   // Link / Dynamic Link: typeahead over /api/search/link with a shortcut to open the target.
   import { api } from "$lib/api";
   import type { Field } from "$lib/meta";
@@ -171,7 +172,7 @@
 
   const label = $derived(target && boot.data?.doctypes[target]?.label);
   const workspace = $derived(page.params?.workspace || getRememberedWorkspace() || "");
-  const wsPrefix = $derived(workspace ? `/app/${encodeURIComponent(workspace)}` : "/app");
+  const wsPrefix = $derived(workspace ? `/app/${seg(workspace)}` : "/app");
 </script>
 
 <div class="link-wrap" class:has-open={!!value && !!target} class:has-clear={!!value && !!target && !readOnly} class:has-add={showAdd}>
@@ -185,7 +186,7 @@
     {#if !readOnly}
       <button type="button" class="clear" aria-label="Limpar {label || target} ({value})" title="Limpar {label || target} ({value})" onmousedown={(e) => e.preventDefault()} onclick={clear}>×</button>
     {/if}
-    {#if !searchFn}<a class="open" href={`${wsPrefix}/${encodeURIComponent(target)}/${encodeURIComponent(value)}`} title="Abrir {label || target}{value ? ` (${value})` : ""}">↗</a>{/if}
+    {#if !searchFn}<a class="open" href={`${wsPrefix}/${seg(target)}/${encodeURIComponent(value)}`} title="Abrir {label || target}{value ? ` (${value})` : ""}">↗</a>{/if}
   {/if}
   {#if open && !readOnly && options.length}
     <div bind:this={listEl} class="options" role="listbox" use:anchored={{ anchor: inputEl, matchWidth: true, gap: 2, content: options.length }}>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { seg } from "$lib/routes";
   // The To-Do list: the caller's assignments through /api/todo/pending, which
   // enforces who sees what (the assigner too, and never a task on a document
   // the caller can't read), drawn with the generic list's views.
@@ -69,9 +70,9 @@
   /** The workspace that owns a doctype, as a route prefix. */
   function wsPrefixFor(doctype: string) {
     const ws = workspaceFor(doctype, (boot.data?.workspaces || []) as WorkspaceItem[], boot.data?.doctypes, getRememberedWorkspace());
-    return `/app/${encodeURIComponent(ws)}`;
+    return `/app/${seg(ws)}`;
   }
-  const docHref = (doctype: string, id: string) => `${wsPrefixFor(doctype)}/${encodeURIComponent(doctype)}/${encodeURIComponent(id)}`;
+  const docHref = (doctype: string, id: string) => `${wsPrefixFor(doctype)}/${seg(doctype)}/${encodeURIComponent(id)}`;
   // tasks open under this page, not under whatever workspace ToDo belongs to
   const TODO_BASE = "/app/todo";
   const todoHref = (id: string) => `${TODO_BASE}/${encodeURIComponent(id)}`;

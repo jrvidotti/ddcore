@@ -1,3 +1,4 @@
+import { seg } from "./routes";
 import { goto } from "$app/navigation";
 import { api, type DeskNotification } from "./api";
 import { __ } from "./boot.svelte";
@@ -54,7 +55,7 @@ export class NotificationCenter {
       await this.toggle(row);
       if (this.error) return;
     }
-    if (!this.destroyed) await goto(`/app/${encodeURIComponent(row.reference_doctype)}/${encodeURIComponent(row.reference_id)}`);
+    if (!this.destroyed) await goto(`/app/${seg(row.reference_doctype)}/${encodeURIComponent(row.reference_id)}`);
   }
 
   destroy() { this.destroyed = true; this.request++; this.rows = []; }

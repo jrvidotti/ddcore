@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { seg } from "$lib/routes";
   import { __ } from "$lib/boot.svelte";
   import type { KanbanViewOptions } from "$lib/desk-sdk";
   import { selectLabels, selectOptions, type Meta } from "$lib/meta";
@@ -97,7 +98,7 @@
             class="kanban-card"
             class:dragging={dragging === row.id}
             class:locked={!draggable}
-            href={`${basePath || `${wsPrefix}/${encodeURIComponent(doctype)}`}/${encodeURIComponent(row.id)}`}
+            href={`${basePath || `${wsPrefix}/${seg(doctype)}`}/${encodeURIComponent(row.id)}`}
             draggable={draggable ? "true" : "false"}
             ondragstart={(e) => onDragStart(e, row)}
             ondragend={() => { dragging = ""; over = null; }}

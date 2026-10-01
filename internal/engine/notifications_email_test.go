@@ -76,7 +76,7 @@ func TestCoreMail_ShareQueuesMailInRecipientLanguage(t *testing.T) {
 	if got := deliveries(t, e)[0]["status"]; got != MailSent {
 		t.Fatalf("status = %v", got)
 	}
-	if !strings.Contains(log.String(), "https://erp.example.com/app/Shared%20Note/N1") {
+	if !strings.Contains(log.String(), "https://erp.example.com/app/SharedNote/N1") {
 		t.Fatalf("no document link in the message:\n%s", log.String())
 	}
 }

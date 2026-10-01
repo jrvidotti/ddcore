@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { seg } from "$lib/routes";
   import { onMount } from "svelte";
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
@@ -23,7 +24,7 @@
   let iframeEl = $state<HTMLIFrameElement | null>(null);
 
   const workspace = $derived(page.params.workspace || "");
-  const wsPrefix = $derived(workspace ? `/app/${encodeURIComponent(workspace)}` : "/app");
+  const wsPrefix = $derived(workspace ? `/app/${seg(workspace)}` : "/app");
 
   const languages = [
     { code: "pt-BR", label: "Português (Brasil)" },
@@ -146,7 +147,7 @@
   }
 
   function goBack() {
-    goto(`${wsPrefix}/${encodeURIComponent(doctype)}/${encodeURIComponent(id)}`);
+    goto(`${wsPrefix}/${seg(doctype)}/${encodeURIComponent(id)}`);
   }
 </script>
 

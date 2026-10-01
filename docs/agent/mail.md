@@ -100,7 +100,7 @@ default), summed from `File.file_size` before anything is queued.
 
 ## The record
 
-Every message becomes an `Email Delivery`, at `/app/email-delivery` for a System
+Every message becomes an `Email Delivery`, at `/app/EmailDelivery` for a System
 Manager. It holds the recipient, the subject, the template and its arguments,
 the language, the attachments, the reference, and the outcome:
 
@@ -132,6 +132,9 @@ A message is read outside the desk, so a link in it has to be absolute.
 ```ts
 body: (d, b) => [b.p(d.message), b.button(_("Open document"), ddcore.docUrl("Sales Order", d.id))],
 ```
+
+The DocType goes into the address without its spaces — `https://erp.example.com/app/SalesOrder/SO-1`
+— which is how the Desk writes every path (see "Navigation" in `form-api`).
 
 Without `DDCORE_URL` both point at `http://localhost:<port>`, which is why startup warns
 when it is unset. The core's own `core.notification` template

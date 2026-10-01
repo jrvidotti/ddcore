@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { seg } from "$lib/routes";
   import { boot, __ } from "$lib/boot.svelte";
   import { goto } from "$app/navigation";
   import Spinner from "$lib/components/Spinner.svelte";
@@ -11,7 +12,7 @@
         boot.data?.site?.home ||
         boot.data?.workspaces?.[0]?.name;
       if (target) {
-        goto(`/app/${encodeURIComponent(target)}`, { replaceState: true });
+        goto(`/app/${seg(target)}`, { replaceState: true });
       }
     }
   });

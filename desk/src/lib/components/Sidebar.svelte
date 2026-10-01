@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { seg } from "$lib/routes";
   import { boot, __, isLoggedIn, siteName, siteLogo } from "$lib/boot.svelte";
   import { openShortcutsHelp, openSearch } from "$lib/shortcuts.svelte";
   import { getModifierKey } from "$lib/shortcuts";
@@ -52,7 +53,7 @@
     if (typeof window !== "undefined" && window.innerWidth <= 800) {
       open = false;
     }
-    goto(`/app/${encodeURIComponent(name)}`);
+    goto(`/app/${seg(name)}`);
   }
 
   function onWindowClick(e: MouseEvent) {
@@ -161,7 +162,7 @@
       </div>
       {#if showCore}
         {#each otherDoctypes as [name, d]}
-          {@const coreHref = `/app/${encodeURIComponent(activeWorkspace?.name || "core")}/${encodeURIComponent(name)}`}
+          {@const coreHref = `/app/${seg(activeWorkspace?.name || "core")}/${seg(name)}`}
           <a href={coreHref} class:active={active(coreHref)} title={tip(d.label)}><Icon name={d.icon || "circle"} size={d.icon ? 16 : 6} /><span>{d.label}</span></a>
         {/each}
       {/if}
