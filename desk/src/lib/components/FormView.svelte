@@ -24,7 +24,7 @@
   import { resolveActiveTab, tabToSearchParams } from "./form-tabs";
   import { workspaceFor } from "./search-palette";
   import { getRememberedWorkspace, type WorkspaceItem } from "./sidebar-workspace";
-  import { commitFocusedEdit, getModifierKey, openShortcutsHelp } from "$lib/shortcuts.svelte";
+  import { commitFocusedEdit, getModifierKey, openShortcutsHelp, shouldSave } from "$lib/shortcuts.svelte";
   import { virtualRedirect } from "$lib/virtual";
 
   let { doctype, id, basePath: ownBase = "" }: {
@@ -351,7 +351,7 @@
   }
   function onKey(e: KeyboardEvent) {
     if (e.key === "Escape") { menuOpen = false; openGroup = ""; workflowMenuOpen = false; }
-    if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+    if (shouldSave(e)) {
       e.preventDefault();
       if (!frm || frm.readOnly) return;
       // the field being typed only commits when it loses focus, and the

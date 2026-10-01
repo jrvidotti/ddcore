@@ -14,6 +14,11 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- Ctrl+S on a form saves the document with Caps Lock on. Windows reports the key in upper case
+  then, the Desk missed it, and the browser opened its own "Save page as" dialog instead.
+
 ## 0.23.2 — 2026-10-01
 
 ### Added

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { commitFocusedEdit } from "./shortcuts";
+import { commitFocusedEdit, shouldSave } from "./shortcuts";
 
 /** The focused element, as much of it as `commitFocusedEdit` looks at. */
 const el = (fake: { tagName?: string; isContentEditable?: boolean; blur?: () => void }) =>
@@ -34,5 +34,24 @@ describe("commitFocusedEdit", () => {
     expect(commitFocusedEdit(el({ tagName: "BUTTON", blur }))).toBe(false);
     expect(commitFocusedEdit(null)).toBe(false);
     expect(blurred).toBe(false);
+  });
+});
+
+describe("shouldSave", () => {
+  it("accepts Ctrl+S and Cmd+S", () => {
+    expect(shouldSave({ key: "s", ctrlKey: true })).toBe(true);
+    expect(shouldSave({ key: "s", metaKey: true })).toBe(true);
+  });
+
+  // Windows reports the letter in upper case while Caps Lock is on; missing it
+  // lets the browser's own "Save page as" dialog through
+  it("accepts the shortcut with Caps Lock on", () => {
+    expect(shouldSave({ key: "S", ctrlKey: true })).toBe(true);
+  });
+
+  it("ignores a bare S and other modifier combinations", () => {
+    expect(shouldSave({ key: "s" })).toBe(false);
+    expect(shouldSave({ key: "S", ctrlKey: true, shiftKey: true })).toBe(false);
+    expect(shouldSave({ key: "s", ctrlKey: true, altKey: true })).toBe(false);
   });
 });

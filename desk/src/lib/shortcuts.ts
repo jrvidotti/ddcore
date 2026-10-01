@@ -65,6 +65,15 @@ export function commitFocusedEdit(active: EventTarget | null): boolean {
 }
 
 /**
+ * Determines whether a keydown event is the save shortcut (Cmd+S / Ctrl+S).
+ * The key is compared without case: Windows reports "S" while Caps Lock is on,
+ * and a miss lets the browser's own "Save page as" dialog through.
+ */
+export function shouldSave(e: { key: string; ctrlKey?: boolean; metaKey?: boolean; altKey?: boolean; shiftKey?: boolean }): boolean {
+  return Boolean((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "s");
+}
+
+/**
  * Determines whether a keydown event should trigger opening the shortcuts help.
  */
 export function shouldToggleShortcuts(e: { key: string; ctrlKey?: boolean; metaKey?: boolean; altKey?: boolean; target?: EventTarget | null }): boolean {
