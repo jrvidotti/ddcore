@@ -144,6 +144,75 @@ describe("segundo", () => {
 	}
 }
 
+// A hook written outside any describe wraps the tests of its own file: not
+// those of another file of the same app, and not those of another app (#48).
+func TestTopLevelHooksStayInTheirFile(t *testing.T) {
+	root := t.TempDir()
+	build := func(name string, files map[string]string) *Bundle {
+		dir := filepath.Join(root, name)
+		files["ddcore.app.ts"] = `import { defineApp } from "@ddcore/sdk";
+export default defineApp({ name: "` + name + `", title: "` + name + `" });`
+		for f, src := range files {
+			if err := os.MkdirAll(filepath.Dir(filepath.Join(dir, f)), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(dir, f), []byte(src), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		bundle, err := BuildServer(App{Name: name, Dir: dir}, true)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return bundle
+	}
+	const unseen = `import "@ddcore/sdk/test";
+it("sees nothing of another file", () => {
+  expect((globalThis as any).flag).toBeUndefined();
+  expect((globalThis as any).once).toBe(1);
+});
+describe("nested", () => {
+  it("sees nothing either", () => expect((globalThis as any).flag).toBeUndefined());
+});`
+	one := build("one", map[string]string{
+		"a_hooks.test.ts": `import "@ddcore/sdk/test";
+beforeAll(() => { (globalThis as any).once = ((globalThis as any).once || 0) + 1; });
+beforeEach(() => { (globalThis as any).flag = true; });
+afterEach(() => { delete (globalThis as any).flag; });
+it("is wrapped by its file's hooks", () => expect((globalThis as any).flag).toBe(true));
+describe("nested", () => {
+  it("is wrapped too", () => expect((globalThis as any).flag).toBe(true));
+});`,
+		"b_sibling.test.ts": unseen,
+	})
+	two := build("two", map[string]string{"two.test.ts": unseen})
+
+	rt, err := newRuntime(&fakeHost{}, []*Bundle{one, two}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	results, err := rt.RunTests("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, r := range results {
+		if !r.OK {
+			t.Errorf("%s (%s): %s", r.Name, r.File, r.Error)
+		}
+		names = append(names, r.Name)
+	}
+	// the file's suite has no name: it scopes hooks without showing up in a test's path
+	want := []string{
+		"is wrapped by its file's hooks", "nested > is wrapped too",
+		"sees nothing of another file", "nested > sees nothing either",
+		"sees nothing of another file", "nested > sees nothing either",
+	}
+	if strings.Join(names, "|") != strings.Join(want, "|") {
+		t.Fatalf("tests ran as %q, expected %q", names, want)
+	}
+}
+
 // B08 — a runtime acquired before reload returns to the pool that created it, never
 // to the new pool, and the old pool discards whatever it receives after being closed.
 func TestB08_ReleaseReturnsToOriginPool(t *testing.T) {

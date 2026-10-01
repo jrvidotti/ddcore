@@ -191,6 +191,10 @@ describe("Order", () => {
 `expect`: toBe, toEqual, toBeTruthy/Falsy, toBeNull, toBeDefined, toContain, toBeGreaterThan(OrEqual), toBeLessThan(OrEqual),
 toBeCloseTo, toHaveLength, toMatch, toThrow(text|regex), `.not`.
 
+`beforeEach`, `afterEach` and `beforeAll` belong to the `describe` they are written in. Written
+outside any `describe`, they belong to their file: they wrap that file's tests and no other file's,
+whatever app it is in.
+
 Tests run as `Admin`, which no role or User Permission restricts. To see a permission or a scope
 at work, run part of a test as another user with `ddcore.test.asUser(user, fn)`:
 

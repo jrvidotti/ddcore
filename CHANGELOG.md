@@ -20,6 +20,10 @@ older series, and `whats_new` reads across every one of them.
   first, so it used to take the Desk's title, `desk.home` and `desk.logo`. The apps nobody
   requires now come first for all three, and `/api/boot` carries the result as `site.home` and
   `site.logo` (#54).
+- A `beforeEach`, `afterEach` or `beforeAll` written outside any `describe` applies to the tests of
+  its own file. It used to run around every test of every file of the site, so a fake installed by
+  one app's test file was in place during another app's tests. Tests run file by file as a result:
+  a file's top-level tests, then its `describe` blocks (#48).
 
 ## 0.22.1 — 2026-09-30
 
