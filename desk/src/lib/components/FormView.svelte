@@ -5,6 +5,7 @@
   import { isLayout, isTableType, selectLabels, selectOptions, type Field } from "$lib/meta";
   import { treeParentQuery } from "./views/tree-state";
   import Control from "$lib/controls/Control.svelte";
+  import FieldButtons from "$lib/controls/FieldButtons.svelte";
   import Grid from "$lib/controls/Grid.svelte";
   import ReportField from "$lib/controls/ReportField.svelte";
   import Icon from "./Icon.svelte";
@@ -518,7 +519,7 @@
                         {:else if f.fieldtype === "Report"}
                           <ReportField {frm} field={f} />
                         {:else if f.fieldtype === "HTML"}
-                          <div class="field">{@html f.options || ""}</div>
+                          <div class="field">{@html f.options || ""}<FieldButtons buttons={frm.fieldButtons[f.fieldname!] || []} /></div>
                         {:else}
                           <Control field={f} value={frm.doc[f.fieldname!]} onchange={(v) => frm?.setValue(f.fieldname!, v)} doc={frm.doc}
                             readOnly={!frm.isFieldEditable(f)} mandatory={frm.isFieldMandatory(f)} error={frm.fieldErrors[f.fieldname!] || ""} query={frm.queries.get(f.fieldname!) || parentQuery(f)}

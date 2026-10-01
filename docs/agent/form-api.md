@@ -102,7 +102,21 @@ frm.addFieldButton("phone", { icon: "search", label: __("Look up"), onClick: () 
 frm.removeFieldButton("email");
 ```
 
-The button is rendered by the desk inside the field's control, after the input, so:
+Where the button goes depends on the field: beside the input on a field that has one; in the
+toolbar above the grid, to the right, on a `Table` or a `Report` field; under the content on an
+`HTML` field. That makes it the way to put an action next to a grid:
+
+```ts
+// a Report field listing the course's classes, and the button that creates one
+frm.addFieldButton("classes", {
+  label: __("New Class"),
+  onClick: () => ddcore.route("/app/Training%20Class/new?course=" + encodeURIComponent(frm.doc.id)),
+});
+```
+
+A `Report` field has no grid until its document is saved, so its buttons appear only then.
+
+The button is rendered by the desk, so:
 
 - the label is **text**, escaped by the desk — an app never writes HTML and never writes an `esc()`;
 - `icon` (a name from the desk's icon set) renders the button icon-only, with `label` as its tooltip

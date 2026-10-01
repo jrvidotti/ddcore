@@ -21,6 +21,10 @@ older series, and `whats_new` reads across every one of them.
   `/app/<DocType>?field=value` opened the list unfiltered, because the redirect was built from
   the path alone. `form-api` now documents `ddcore.route`, `ddcore.setRoute`, the short route and
   the prefill (#57).
+- `frm.addFieldButton` on a `Table`, `Report` or `HTML` field renders its button. The call was
+  accepted and nothing appeared, because only a field with an input was given its buttons. On a
+  `Table` or a `Report` field the button sits in the grid's toolbar, to the right; on an `HTML`
+  field, under the content. A `Report` field shows it once the document is saved (#56).
 
 ## 0.23.3 — 2026-10-01
 

@@ -78,7 +78,8 @@ export const snake = (s: string) =>
 export interface Button { label: string; group?: string; action: () => any; primary?: boolean }
 
 /**
- * A button rendered inside a field's control, beside the input. The desk owns
+ * A button rendered with a field: beside the input, in the toolbar of a Table
+ * or Report field's grid, or under an HTML field's content. The desk owns
  * the markup, so the label is escaped and the field's own `hidden`/`dependsOn`
  * decide whether the button shows at all.
  */

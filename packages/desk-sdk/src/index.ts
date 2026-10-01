@@ -5,7 +5,8 @@ import type { BaseDoc, FieldDef, FieldWidth, Filters } from "@ddcore/sdk";
 export type { FieldWidth };
 
 /**
- * A button rendered inside a field's control, beside its input — an action on
+ * A button rendered with a field — beside its input, in the toolbar of a Table
+ * or Report field's grid, or under an HTML field's content: an action on
  * *this field*, where `addButton` puts an action on the document. The desk owns
  * the markup, so the label is escaped for you and the field's own
  * `hidden`/`dependsOn` decide whether the button is on screen at all.

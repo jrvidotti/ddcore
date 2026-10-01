@@ -7,19 +7,23 @@
   import { getLinkTitle } from "$lib/titles.svelte";
   import { isNumericFieldtype, type GridFilter } from "$lib/meta";
   import { downloadTable, exportTable, filterRows, nextSort, searchRows, sortRows, type GridSortState } from "$lib/grid-rows";
+  import type { FieldButton } from "$lib/form.svelte";
+  import FieldButtons from "$lib/controls/FieldButtons.svelte";
   import GridExport from "$lib/controls/GridExport.svelte";
   import GridFilters from "$lib/controls/GridFilters.svelte";
   import GridSearch from "$lib/controls/GridSearch.svelte";
 
   let {
     columns, rows, wsPrefix, filename, sheetName,
-    baseSort = null, sortable = false, selectable = false, exportable = false, filters = [], search = [],
+    baseSort = null, sortable = false, selectable = false, exportable = false, filters = [], search = [], buttons = [],
   }: {
     columns: any[]; rows: any[]; wsPrefix: string; filename: string; sheetName?: string;
     baseSort?: GridSortState | null; sortable?: boolean; selectable?: boolean; exportable?: boolean;
     filters?: GridFilter[];
     /** the columns the search box looks in; none, no box */
     search?: string[];
+    /** a Report field's own actions (see frm.addFieldButton), shown in the toolbar */
+    buttons?: FieldButton[];
   } = $props();
 
   const num = (c: any) => isNumericFieldtype(c.fieldtype);
@@ -59,7 +63,7 @@
 </script>
 
 <div class="card" style="overflow:auto">
-  {#if exportable || filters.length || search.length || (selectable && chosen.length)}
+  {#if exportable || filters.length || search.length || buttons.length || (selectable && chosen.length)}
     <div class="grid-toolbar">
       {#if search.length}<GridSearch bind:value={query} />{/if}
       {#if filters.length}<GridFilters {filters} {active} ontoggle={toggleFilter} />{/if}
@@ -68,6 +72,7 @@
         <button class="btn sm" onclick={() => toggleAll(false)}>{__("Clear selection")}</button>
       {/if}
       <span class="spacer"></span>
+      <FieldButtons {buttons} small />
       {#if exportable}<GridExport onexport={exportRows} />{/if}
     </div>
   {/if}

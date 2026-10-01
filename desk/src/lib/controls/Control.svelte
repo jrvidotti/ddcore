@@ -25,7 +25,7 @@
   import { isSystemUserEmail, normalizeEmail, validEmail } from "$lib/email";
   import { toDatetimeLocal, fromDatetimeLocal } from "$lib/datetime";
   import type { FieldButton } from "$lib/form.svelte";
-  import Icon from "$lib/components/Icon.svelte";
+  import FieldButtons from "./FieldButtons.svelte";
   import { resolveVaultState } from "./vault-state";
 
   let {
@@ -84,24 +84,12 @@
   }
 </script>
 
-{#snippet fieldButtons()}
-  {#if buttons.length}
-    <span class="field-btns">
-      {#each buttons as b}
-        <button type="button" class="btn field-btn" class:icon={!!b.icon} title={b.label} aria-label={b.icon ? b.label : undefined} onclick={() => b.onClick()}>
-          {#if b.icon}<Icon name={b.icon} size={16} />{:else}{b.label}{/if}
-        </button>
-      {/each}
-    </span>
-  {/if}
-{/snippet}
-
 {#if ft === "Check"}
   <div class="field check" class:compact class:bold={field.bold}>
     <div class="check-control">
       <input {id} type="checkbox" checked={!!value} disabled={ro} onchange={(e) => onchange((e.target as HTMLInputElement).checked)} />
       {#if !inGrid}<label for={id} class:sr-only={field.hideLabel}>{field.label}{#if req && !ro}<span class="req">*</span>{/if}</label>{/if}
-      {@render fieldButtons()}
+      <FieldButtons {buttons} />
     </div>
     {#if shownError}<div class="err">{shownError}</div>{:else if field.description && !inGrid}<div class="desc">{field.description}</div>{/if}
   </div>
@@ -234,7 +222,7 @@
             oninput={(e) => onchange((e.target as HTMLInputElement).value || null)} />
         {/if}
       </div>
-      {@render fieldButtons()}
+      <FieldButtons {buttons} />
     </div>
     {#if shownError}<div class="err">{shownError}</div>{:else if field.description && !inGrid}<div class="desc">{field.description}</div>{/if}
   </div>
@@ -246,9 +234,7 @@
   .control { display: contents; }
   .control.with-buttons { display: flex; align-items: flex-start; gap: 6px; }
   .control.with-buttons > :first-child { flex: 1 1 auto; min-width: 0; }
-  .field-btns { display: inline-flex; align-items: flex-start; gap: 6px; }
-  .field-btns :global(.btn.field-btn) { min-height: 34px; font-size: 12px; }
-  .field.check .field-btns { margin-left: 4px; }
+  .field.check :global(.field-btns) { margin-left: 4px; }
 
   .control-wrap { width: 100%; min-width: 0; }
 
