@@ -74,6 +74,15 @@ export function resolveWorkspaceForDoctype(
 }
 
 /**
+ * The workspace route a short `/app/<DocType>[/<id>]` URL redirects to. The
+ * query string and the hash travel with it: a new form is prefilled from the
+ * query and a list reads its filters from it.
+ */
+export function workspaceRedirect(workspace: string, segments: string[], url: { search: string; hash: string }): string {
+  return `/app/${[workspace, ...segments].map(encodeURIComponent).join("/")}${url.search}${url.hash}`;
+}
+
+/**
  * Resolves which workspace owns a given report name.
  */
 export function resolveWorkspaceForReport(

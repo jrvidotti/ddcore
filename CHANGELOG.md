@@ -14,6 +14,14 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- The short route keeps its query string and its hash when the Desk redirects it to the
+  workspace route. `/app/<DocType>/new?field=value` opened the new form with the field empty and
+  `/app/<DocType>?field=value` opened the list unfiltered, because the redirect was built from
+  the path alone. `form-api` now documents `ddcore.route`, `ddcore.setRoute`, the short route and
+  the prefill (#57).
+
 ## 0.23.3 — 2026-10-01
 
 ### Fixed
