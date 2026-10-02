@@ -215,6 +215,21 @@ several scripts for the same cell all run.
 - `ddcore.report(name, filters)` — runs a `defineReport`: `{ meta, result: { columns, rows } }`
 - `ddcore.db.getValue/getList/count/getDoc/setValue/insert` (asynchronous: `await` them)
 - `ddcore.ui.Dialog({ title, fields, values, primaryLabel, primaryAction(values, dlg), dangerLabel, dangerAction(values, dlg), dangerShortcut, onChange(field, values, dlg), size })` → `dlg.show()/hide()/setValue/getValue/setHtml(htmlField, html)/setDfProperty(field, property, value)`
+- A dialog's `fields` are DocType fields plus one type that exists only there, **`File`**: a file picker whose value is the file itself, `{ name, size, type, base64 }` (or `null`), handed to the script. **Nothing is uploaded and no `File` document is created**, which is what a credential needs; a file to keep is an `Attach`. `options` is the accept list (`".pfx,.p12"`) and `maxBytes` the size cap, 5 MB when left out: a larger file is refused before it is read. A DocType cannot declare it.
+  ```ts
+  ddcore.ui.Dialog({
+    title: __("Replace Certificate"),
+    fields: [
+      { fieldname: "file", fieldtype: "File", label: "Certificate (.pfx)", options: ".pfx,.p12", reqd: true },
+      { fieldname: "password", fieldtype: "Password", label: "Password" },
+    ],
+    async primaryAction(values, dlg) {
+      await frm.call("replaceCertificate", { pfx: values.file.base64, password: values.password });
+      dlg.hide();
+    },
+  }).show();
+  ```
+  The server method checks it with `ddcore.crypto.pfxInfo` before storing it in the vault. See `controller-api`.
 - `ddcore.ui.msgprint(msg, { title, indicator })`, `ddcore.ui.toast`, `ddcore.ui.confirm(msg, title?, { destructive? })` (with `destructive: true` the confirm button is red and "No" is the primary, so Enter keeps the data and `Delete` — ⌫ on a Mac — confirms), `ddcore.ui.prompt(title, fields)`, `ddcore.ui.showError(e)`
 - `ddcore.format.currency/date/number/value/statusColor`, `ddcore.datetime.today/addMonths/addDays/dateDiff/monthDiff/monthStart/monthEnd`
 - `ddcore.search.global(txt, limit?)` — the documents the global search palette lists. See `search`

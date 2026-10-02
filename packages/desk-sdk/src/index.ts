@@ -116,9 +116,33 @@ export interface DialogHandle {
   busy: boolean;
 }
 
+/**
+ * What a dialog's `File` field puts in `values`: the file the user chose,
+ * base64-encoded. Nothing is uploaded and no `File` document is created.
+ */
+export interface DialogFile {
+  name: string;
+  /** Size in bytes. */
+  size: number;
+  /** MIME type as the browser reports it; may be empty. */
+  type: string;
+  base64: string;
+}
+
+/**
+ * A dialog field: any DocType field, or the dialog-only `File`, which hands
+ * the chosen file to the script as a `DialogFile` (or `null`) instead of
+ * storing it. On a `File`, `options` is the accept list (`".pfx,.p12"`) and
+ * `maxBytes` the size cap, 5 MB when left out.
+ */
+export type DialogField = Omit<FieldDef, "fieldtype"> & {
+  fieldtype: FieldDef["fieldtype"] | "File";
+  maxBytes?: number;
+};
+
 export interface DialogSpec {
   title: string;
-  fields?: FieldDef[];
+  fields?: DialogField[];
   values?: Record<string, any>;
   primaryLabel?: string;
   secondaryLabel?: string;
@@ -270,7 +294,7 @@ export interface DeskAPI {
     alert(message: string): void;
     /** `destructive`: the confirm button is a danger one and "No" is the primary, so Enter keeps the data and Delete confirms. */
     confirm(message: string, title?: string, opts?: { destructive?: boolean }): Promise<boolean>;
-    prompt(title: string, fields: FieldDef[], primaryLabel?: string): Promise<Record<string, any> | null>;
+    prompt(title: string, fields: DialogField[], primaryLabel?: string): Promise<Record<string, any> | null>;
     showError(e: any): void;
     toast(message: string, opts?: { title?: string; indicator?: string; timeout?: number }): void;
   };

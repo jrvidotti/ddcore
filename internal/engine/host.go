@@ -593,6 +593,16 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		mac := hmac.New(sha256.New, []byte(a.Key))
 		mac.Write([]byte(a.Text))
 		return hex.EncodeToString(mac.Sum(nil)), nil
+	case "crypto.pfxInfo":
+		if a.ClientCert == nil {
+			return nil, cerr.Validation("crypto: pfx is not valid base64")
+		}
+		return pfxInfo(a.ClientCert.Pfx, a.ClientCert.Password)
+	case "crypto.certInfo":
+		if a.ClientCert == nil {
+			return nil, cerr.Validation("crypto: cert is not a valid PEM certificate")
+		}
+		return pemCertInfo(a.ClientCert.Cert)
 	case "crypto.timingSafeEqual":
 		// Compared here, not in JS: `===` stops at the first differing byte,
 		// which is what a signature check must not do.

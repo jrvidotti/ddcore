@@ -929,6 +929,8 @@
     crypto: {
       hmacSha256(key, data) { return call("crypto.hmacSha256", { key: String(key), text: String(data) }); },
       timingSafeEqual(a, b) { return call("crypto.timingSafeEqual", { key: String(a), text: String(b) }); },
+      pfxInfo(pfx, password) { return call("crypto.pfxInfo", { clientCert: { pfx: String(pfx), password: password == null ? "" : String(password) } }); },
+      certInfo(pem) { return call("crypto.certInfo", { clientCert: { cert: String(pem) } }); },
     },
     externalDb(name) {
       const key = String(name);

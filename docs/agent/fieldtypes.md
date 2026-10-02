@@ -38,6 +38,9 @@
 | HTML | — | `options` is the rendered HTML |
 | Report | — | `options` is a `defineReport` name, run for this document through `reportFilters` and shown as a read-only grid. See "Form grids" below |
 
+`File` is not in this table: it is a field of `ddcore.ui.Dialog` only, which hands the chosen file
+to the script without storing it. See "`ddcore` in the desk" in [form-api](form-api.md).
+
 ## Form grids
 
 A `Table` and a `Report` field are grids, and four properties shape both:
