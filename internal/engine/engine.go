@@ -39,9 +39,11 @@ type Config struct {
 	Scheduler bool
 	Dev       bool
 	Test      bool // include *.test.ts and mark runtime as test
-	Port      int
-	Lang      string
-	Currency  string
+	// Tenancy is ddcore.json's `tenancy`: several tenants in one database.
+	Tenancy  bool
+	Port     int
+	Lang     string
+	Currency string
 	// CurrencyPrecision is how many decimal places a Currency field is rounded
 	// to. Zero means "not set": New resolves it from Currency.
 	CurrencyPrecision *int
@@ -584,6 +586,10 @@ func (e *Engine) Load() error {
 	for _, w := range reg.DropObsoleteFields() {
 		e.Log.Warn("obsolete fieldtype in a DocType", "detail", w)
 	}
+	// after the extensions, which may add the Table field that makes a child
+	// DocType some tenant-owned DocType's; before Validate, which reserves the
+	// `tenant` column name.
+	reg.ApplyTenancy(e.Cfg.Tenancy)
 	if err := reg.Validate(); err != nil {
 		return err
 	}

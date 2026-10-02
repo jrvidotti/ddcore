@@ -209,7 +209,7 @@ func load(test bool, dev bool) (*engine.Engine, *config.File, error) {
 	}
 	isDev := dev || config.DevFromEnv()
 	e, err := engine.New(context.Background(), engine.Config{
-		DSN: cfg.DSN, Apps: apps, DDCore: cfg.DDCore, Workers: cfg.Workers, Scheduler: cfg.Scheduler, Dev: isDev, Test: test,
+		DSN: cfg.DSN, Apps: apps, DDCore: cfg.DDCore, Workers: cfg.Workers, Scheduler: cfg.Scheduler, Tenancy: cfg.Tenancy, Dev: isDev, Test: test,
 		Port: cfg.Port, SiteTitle: cfg.Title, Lang: cfg.Lang, Currency: cfg.Currency, CurrencyPrecision: cfg.CurrencyPrecision, Rounding: cfg.RoundingMode(), Timezone: cfg.Timezone, DataDir: cfg.DataDir, Root: root, ExportMaxRows: cfg.ExportMaxRows, ImportMaxRows: cfg.ImportMaxRows, LogLevel: level,
 		Auth: cfg.Auth, Ops: cfg.Ops, LogJSON: logJSON(), LogOut: logOut, Mail: cfg.Mail, Webhooks: cfg.Webhooks, Storage: cfg.Storage, SiteURL: cfg.PublicURL(), TrustProxy: cfg.TrustProxy, Login: cfg.Login, OIDC: cfg.OIDC, Portal: cfg.Portal, Map: cfg.Map,
 		EnforceMaintenance: enforceMaintenance, AllowOlderBinary: allowOlderBinary(), AdminPassword: cfg.AdminPassword, DeferDB: deferDB,

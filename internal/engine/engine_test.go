@@ -42,7 +42,7 @@ func migratedEngine(t *testing.T, cfg Config) *Engine {
 	if cfg.CurrencyPrecision != nil {
 		prec = *cfg.CurrencyPrecision
 	}
-	key := testdb.Key(dirs, fmt.Sprint(cfg.Test, cfg.Dev, cfg.Lang, cfg.Currency, prec, cfg.Rounding, cfg.Timezone))
+	key := testdb.Key(dirs, fmt.Sprint(cfg.Tenancy, cfg.Test, cfg.Dev, cfg.Lang, cfg.Currency, prec, cfg.Rounding, cfg.Timezone))
 	err := testdb.Fresh(ctx, cfg.DSN, key, func(dsn string) error {
 		tc := cfg
 		tc.DSN = dsn

@@ -42,7 +42,12 @@ type File struct {
 	Port      int    `json:"port"`
 	Workers   int    `json:"workers"`
 	Scheduler bool   `json:"scheduler"`
-	Lang      string `json:"lang"`
+	// Tenancy keeps several tenants in the one database, each confined to its
+	// own rows (see docs/agent/tenancy.md). It changes the schema's keys, so
+	// it is a product decision that cannot be undone, and it comes from this
+	// file only.
+	Tenancy bool   `json:"tenancy,omitempty"`
+	Lang    string `json:"lang"`
 	// Title names the site when that should not be its app's title: two
 	// deployments of one app, or an install branded for whoever runs it. Empty
 	// leaves the name to the apps — see engine.State.SiteTitle.

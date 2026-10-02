@@ -444,10 +444,17 @@ type DocType struct {
 	ParentField string `json:"parentField,omitempty"`
 	// Virtual makes the DocType a read-only union of other DocTypes (DAT-07):
 	// no table, no writes, and each row is a readable row of one source.
-	Virtual      *VirtualDef `json:"virtual,omitempty"`
-	TrackChanges bool        `json:"trackChanges,omitempty"`
-	AllowRename  bool        `json:"allowRename,omitempty"`
-	TitleField   string      `json:"titleField,omitempty"`
+	Virtual *VirtualDef `json:"virtual,omitempty"`
+	// Shared keeps a DocType out of tenancy: one set of documents for the
+	// whole site, readable from every tenant and written only by the platform.
+	// It means nothing on a site without tenancy.
+	Shared bool `json:"shared,omitempty"`
+	// TenantOwned is computed by ApplyTenancy: the table carries the `tenant`
+	// column and its rows are confined to the space they were written in.
+	TenantOwned  bool   `json:"tenantOwned,omitempty"`
+	TrackChanges bool   `json:"trackChanges,omitempty"`
+	AllowRename  bool   `json:"allowRename,omitempty"`
+	TitleField   string `json:"titleField,omitempty"`
 	// TranslateID makes the id a catalogue key for display: the desk shows
 	// the translated id wherever it shows the document's title (a Link, a
 	// grid cell, the list, the form header) while the stored value stays the
@@ -595,7 +602,7 @@ func (d *DocType) IsStdColumn(name string) bool {
 			}
 		}
 	}
-	return false
+	return d.TenantOwned && name == TenantColumn
 }
 
 // HasColumn reports whether `name` is a queryable column.
@@ -623,6 +630,9 @@ func Snake(s string) string {
 // Registry holds all loaded DocTypes.
 type Registry struct {
 	DocTypes map[string]*DocType
+	// Tenancy is whether the site keeps several tenants in its database; see
+	// ApplyTenancy.
+	Tenancy bool
 }
 
 func NewRegistry() *Registry { return &Registry{DocTypes: map[string]*DocType{}} }
@@ -937,6 +947,7 @@ func (r *Registry) Validate() error {
 		validateUniqueKeys(d, e)
 		validateTree(d, e)
 		validateVirtual(r, d, e)
+		r.validateTenancy(d, e)
 		validateFieldPermissions(r, d, e)
 		if d.IsChild && len(d.Permissions) > 0 {
 			e("a child DocType has no permissions")
