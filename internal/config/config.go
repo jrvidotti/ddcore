@@ -90,6 +90,10 @@ type File struct {
 	// claim any address, and the throttle that keys on the address becomes a
 	// way to lock out a stranger.
 	TrustProxy bool `json:"trustProxy"`
+	// TenantRole is DDCORE_TENANT_ROLE: the database role document work runs
+	// as on a site with tenancy. It says where the site runs, not what it is
+	// — a managed Postgres may only allow a role somebody created by hand.
+	TenantRole string `json:"-"`
 	// Login is what the sign-in screen tells a visitor before they sign in.
 	Login LoginPage `json:"login"`
 	// Mail comes from the environment only — see the package comment.
@@ -172,6 +176,7 @@ func Load(dir string) (*File, string, error) {
 	f.Title = strings.TrimSpace(f.Title)
 	f.URL = strings.TrimSuffix(env("DDCORE_URL", f.URL), "/")
 	f.TrustProxy = envBool("DDCORE_TRUST_PROXY", f.TrustProxy)
+	f.TenantRole = env("DDCORE_TENANT_ROLE", "")
 	f.Login.Notice = strings.ReplaceAll(env("DDCORE_LOGIN_NOTICE", f.Login.Notice), `\n`, "\n")
 	f.Login.DemoUser = env("DDCORE_LOGIN_DEMO_USER", f.Login.DemoUser)
 	f.Login.DemoPassword = env("DDCORE_LOGIN_DEMO_PASSWORD", f.Login.DemoPassword)

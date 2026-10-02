@@ -161,6 +161,9 @@ func stdColumns(d *meta.DocType) []column {
 		cols = append(cols, column{name: "parent", typ: "text"}, column{name: "parenttype", typ: "text"},
 			column{name: "parentfield", typ: "text"}, column{name: "idx", typ: "integer", notNull: true})
 	}
+	if d.TenantOwned {
+		cols = append(cols, column{name: meta.TenantColumn, typ: "text", notNull: true})
+	}
 	return cols
 }
 
@@ -178,8 +181,25 @@ func colDefault(c column) string {
 		return " DEFAULT 0"
 	case "idx":
 		return " DEFAULT 0"
+	case meta.TenantColumn:
+		// only ever a standard column here: a field of that name is refused
+		// on a tenant-owned DocType, and takes no default anywhere else
+		if c.field == nil {
+			return " DEFAULT " + TenantExpr
+		}
 	}
 	return ""
+}
+
+// addDefault is what ADD COLUMN says after the type. The tenant column is the
+// one standard column a table can gain after it was created, and the one that
+// cannot be NULL: its default fills the rows already there with the platform
+// space, which is where they were.
+func addDefault(c column) string {
+	if c.name == meta.TenantColumn && c.field == nil {
+		return " NOT NULL" + colDefault(c)
+	}
+	return colDefault(c)
 }
 
 func createTable(d *meta.DocType) string {
@@ -190,10 +210,13 @@ func createTable(d *meta.DocType) string {
 			def += " NOT NULL"
 		}
 		def += colDefault(c)
-		if c.name == "id" {
+		if c.name == "id" && !d.TenantKeyed() {
 			def += " PRIMARY KEY"
 		}
 		defs = append(defs, def)
+	}
+	if d.TenantKeyed() {
+		defs = append(defs, "PRIMARY KEY (tenant, id)")
 	}
 	if d.IsSingle {
 		defs = append(defs, "CONSTRAINT ddcore_single_identity CHECK (id = 'singleton' AND docstatus = 0)")
@@ -280,6 +303,7 @@ func wantedIndexes(d *meta.DocType) map[string]index {
 	t := d.TableName()
 	idx := map[string]index{}
 	add := func(suffix string, i index) {
+		i = tenantIndex(d, i)
 		i.name, i.table = t+"_"+suffix, t
 		idx[i.name] = i
 	}
@@ -338,6 +362,8 @@ const (
 	KindAlterType
 	KindCreateIndex
 	KindDropIndex
+	KindPrimaryKey
+	KindRowSecurity
 	KindDropColumn
 	KindDropTable
 )
@@ -383,6 +409,10 @@ func (k Kind) Label() string {
 		return "index"
 	case KindDropIndex:
 		return "drop index"
+	case KindPrimaryKey:
+		return "rekey"
+	case KindRowSecurity:
+		return "secure"
 	case KindDropColumn, KindDropTable:
 		return "drop"
 	}
@@ -444,7 +474,14 @@ type catalog struct {
 	singles map[string]bool
 	cols    map[string]map[string]string // table -> column -> type
 	idx     map[string]idxRow            // index name -> the table it is on and its definition
+	// what tenancy adds to a table: its primary key as it stands, whether
+	// row-level security is on, and whether the tenant policy is there
+	pk      map[string]pkRow
+	secured map[string]bool
+	policy  map[string]bool
 }
+
+type pkRow struct{ name, def string }
 
 // idxRow keeps the owning table beside the definition. The table matters:
 // index names are "<table>_<suffix>", so "tab_pedido_" is a prefix of
@@ -453,7 +490,24 @@ type catalog struct {
 type idxRow struct{ table, def string }
 
 func loadCatalog(ctx context.Context, q Querier) (*catalog, error) {
-	c := &catalog{singles: map[string]bool{}, cols: map[string]map[string]string{}, idx: map[string]idxRow{}}
+	c := &catalog{singles: map[string]bool{}, cols: map[string]map[string]string{}, idx: map[string]idxRow{},
+		pk: map[string]pkRow{}, secured: map[string]bool{}, policy: map[string]bool{}}
+	sec, err := Select(ctx, q, `SELECT rel.relname AS tablename, rel.relrowsecurity AS secured,
+		coalesce(con.conname, '') AS pkname, coalesce(pg_get_constraintdef(con.oid), '') AS pkdef,
+		EXISTS (SELECT 1 FROM pg_policy p WHERE p.polrelid = rel.oid AND p.polname = '`+TenantPolicy+`') AS policy
+		FROM pg_class rel JOIN pg_namespace ns ON ns.oid = rel.relnamespace
+		LEFT JOIN pg_constraint con ON con.conrelid = rel.oid AND con.contype = 'p'
+		WHERE ns.nspname = current_schema() AND rel.relkind = 'r' AND rel.relname LIKE 'tab\_%'`)
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range sec {
+		t := Str(r["tablename"])
+		c.secured[t], c.policy[t] = r["secured"] == true, r["policy"] == true
+		if name := Str(r["pkname"]); name != "" {
+			c.pk[t] = pkRow{name: name, def: Str(r["pkdef"])}
+		}
+	}
 	rows, err := Select(ctx, q, `SELECT table_name, column_name, data_type, character_maximum_length, numeric_precision, numeric_scale
 		FROM information_schema.columns WHERE table_schema = current_schema() AND table_name LIKE 'tab\_%'`)
 	if err != nil {
@@ -751,7 +805,7 @@ func Plan(ctx context.Context, q Querier, reg *meta.Registry, prune bool) ([]Sta
 				switch {
 				case !ok:
 					add = append(add, Statement{
-						SQL:  fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s%s;", Ident(t), Ident(c.name), c.typ, colDefault(c)),
+						SQL:  fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s%s;", Ident(t), Ident(c.name), c.typ, addDefault(c)),
 						Kind: KindAddColumn, Doctype: d.Name, Table: t, Column: c.name,
 					})
 				case cur != c.typ:
@@ -789,6 +843,7 @@ func Plan(ctx context.Context, q Querier, reg *meta.Registry, prune bool) ([]Sta
 				}
 			}
 		}
+		alter = append(alter, planTenancy(cat, d, has)...)
 		idx := wantedIndexes(d)
 		keys := make([]string, 0, len(idx))
 		for k := range idx {
@@ -808,7 +863,7 @@ func Plan(ctx context.Context, q Querier, reg *meta.Registry, prune bool) ([]Sta
 			if old, renamed := renamedIdx[k]; renamed {
 				if f := d.Field(strings.TrimPrefix(k, t+"_")); f != nil {
 					if oldIdx, ok := fieldIndex(f, old); ok {
-						want = oldIdx
+						want = tenantIndex(d, oldIdx)
 					}
 				}
 			}
@@ -825,7 +880,7 @@ func Plan(ctx context.Context, q Querier, reg *meta.Registry, prune bool) ([]Sta
 						}
 						return fn
 					}); ok {
-						want = old
+						want = tenantIndex(d, old)
 					}
 				}
 			}

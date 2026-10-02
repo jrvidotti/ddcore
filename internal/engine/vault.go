@@ -103,10 +103,17 @@ func (e *Engine) VaultSet(c *Ctx, name, value string) error {
 		ctx = context.Background()
 	}
 
+	// a tenant's secrets are its own, and so is the name each one goes by
+	conflict := "name"
+	if on, err := e.tenancy(ctx); err != nil {
+		return err
+	} else if on {
+		conflict = "tenant, name"
+	}
 	query := `
 INSERT INTO ddcore_vault (name, ciphertext, nonce, updated)
 VALUES ($1, $2, $3, now())
-ON CONFLICT (name) DO UPDATE
+ON CONFLICT (` + conflict + `) DO UPDATE
 SET ciphertext = EXCLUDED.ciphertext, nonce = EXCLUDED.nonce, updated = now();`
 
 	if _, err := q.Exec(ctx, query, name, ciphertext, nonce); err != nil {

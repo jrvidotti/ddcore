@@ -40,10 +40,12 @@ type Config struct {
 	Dev       bool
 	Test      bool // include *.test.ts and mark runtime as test
 	// Tenancy is ddcore.json's `tenancy`: several tenants in one database.
-	Tenancy  bool
-	Port     int
-	Lang     string
-	Currency string
+	Tenancy bool
+	// TenantRole is DDCORE_TENANT_ROLE; empty means db.DefaultTenantRole.
+	TenantRole string
+	Port       int
+	Lang       string
+	Currency   string
 	// CurrencyPrecision is how many decimal places a Currency field is rounded
 	// to. Zero means "not set": New resolves it from Currency.
 	CurrencyPrecision *int
@@ -240,6 +242,9 @@ type Engine struct {
 
 	cur   atomic.Pointer[State]
 	sched atomic.Pointer[scheduler]
+	// tenancyReady is set once the database is known to have had tenancy
+	// applied; see Engine.tenancy.
+	tenancyReady atomic.Bool
 	// ready memoises the database probe; see Engine.Ready.
 	ready    atomic.Pointer[readyCache]
 	mu       sync.Mutex
@@ -320,7 +325,7 @@ func New(ctx context.Context, cfg Config) (*Engine, error) {
 	e.store = store
 	var dbErr error
 	if cfg.DSN != "" {
-		d, err := db.Open(ctx, cfg.DSN)
+		d, err := e.openDB(ctx)
 		switch {
 		case err == nil:
 			e.DB = d
@@ -361,7 +366,7 @@ func (e *Engine) Connect(ctx context.Context) error {
 	if e.Cfg.DSN == "" {
 		return fmt.Errorf("dsn not configured: run `ddcore init` or set DDCORE_DSN")
 	}
-	d, err := db.Open(ctx, e.Cfg.DSN)
+	d, err := e.openDB(ctx)
 	if err != nil {
 		return err
 	}
@@ -863,9 +868,14 @@ type Ctx struct {
 	E *Engine
 	// St is the engine state captured when the ctx was created: meta, pool, and
 	// translations do not change in the middle of a request, even with reload (B08).
-	St       *State
-	Ctx      context.Context
-	User     string
+	St   *State
+	Ctx  context.Context
+	User string
+	// Tenant is the space this ctx works in on a site with tenancy: a
+	// tenant's id, or empty for the platform space. runOnce resolves it from
+	// the user (and from WithTenant, for the platform's own users) and
+	// confines the transaction to it; see tenancy.go.
+	Tenant   string
 	Lang     string
 	Tx       pgx.Tx
 	Request  map[string]any
@@ -912,6 +922,12 @@ type Ctx struct {
 	portalIdent map[string][]Doc
 	// asUserParent is the ctx a test's ddcore.test.asUser switched away from.
 	asUserParent *Ctx
+	// system lifts the ctx out of row-level security for its whole
+	// transaction; only RunSystem and Migrate set it.
+	system bool
+	// spaced is whether Tenant was decided already, by a parent ctx that
+	// shares its transaction; runOnce resolves it otherwise.
+	spaced bool
 }
 
 func (e *Engine) NewCtx(ctx context.Context, user string) *Ctx {
@@ -964,6 +980,11 @@ func (c *Ctx) runOnce(fn func(c *Ctx) error) (err error) {
 		return err
 	}
 	c.Tx = tx
+	if err := c.enterSpace(); err != nil {
+		tx.Rollback(c.Ctx)
+		c.Tx = nil
+		return err
+	}
 	done := false
 	defer func() {
 		// Also covers panics and runtime.Goexit (t.Fatal inside fn).
@@ -1166,6 +1187,10 @@ func (c *Ctx) RollbackTo() error {
 	_, err := c.Tx.Exec(c.Ctx, fmt.Sprintf("ROLLBACK TO SAVEPOINT sp%d", c.savepoint))
 	c.savepoint--
 	c.docCache = map[string]Doc{}
+	// the rollback took back any change of space made since the savepoint
+	if err == nil {
+		err = c.applySpace()
+	}
 	if n := len(c.rollbackMarks); n > 0 {
 		o, mark := c.owner(), c.rollbackMarks[n-1]
 		c.rollbackMarks = c.rollbackMarks[:n-1]
@@ -1200,6 +1225,9 @@ func (c *Ctx) WithSavepoint(fn func() error) error {
 		}
 		if _, relErr := c.Tx.Exec(c.Ctx, "RELEASE SAVEPOINT "+sp); relErr != nil {
 			c.E.Log.Warn("could not release savepoint", "savepoint", sp, "err", relErr)
+		}
+		if spErr := c.applySpace(); spErr != nil {
+			c.E.Log.Warn("could not restore the tenant after a savepoint", "savepoint", sp, "err", spErr)
 		}
 		c.afterCommit = c.afterCommit[:pending]
 		undo := o.afterRollback[pendingRollback:]

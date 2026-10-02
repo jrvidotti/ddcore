@@ -91,3 +91,9 @@ func (r *Registry) validateTenancy(d *DocType, e func(string, ...any)) {
 		}
 	}
 }
+
+// TenantKeyed reports whether the table's rows are addressed by (tenant, id)
+// rather than by id alone. User is tenant-owned but keeps a site-wide id:
+// sign-in looks a user up by e-mail before it knows any tenant, and sessions,
+// API keys and tokens all name a user and nothing else.
+func (d *DocType) TenantKeyed() bool { return d.TenantOwned && d.Name != "User" }

@@ -2451,8 +2451,12 @@ func (c *Ctx) writeChildren(d *meta.DocType, doc Doc) error {
 					sets = append(sets, fmt.Sprintf("%s = EXCLUDED.%s", col, col))
 				}
 			}
-			sql := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s) ON CONFLICT (id) DO UPDATE SET %s",
-				db.Ident(child.TableName()), strings.Join(cols, ", "), strings.Join(ph, ", "), strings.Join(sets, ", "))
+			key := "id"
+			if child.TenantKeyed() {
+				key = "tenant, id"
+			}
+			sql := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s) ON CONFLICT (%s) DO UPDATE SET %s",
+				db.Ident(child.TableName()), strings.Join(cols, ", "), strings.Join(ph, ", "), key, strings.Join(sets, ", "))
 			if _, err := c.Q().Exec(c.Ctx, sql, vals...); err != nil {
 				return fmt.Errorf("%w\nSQL: %s", err, sql)
 			}

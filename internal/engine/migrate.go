@@ -17,6 +17,14 @@ func (e *Engine) Plan(ctx context.Context, prune bool) ([]db.Statement, error) {
 		return nil, err
 	}
 	defer tx.Rollback(ctx)
+	// the catalog and the DDL preview are the owner's business
+	if on, err := e.tenancy(ctx); err != nil {
+		return nil, err
+	} else if on {
+		if err := db.Elevate(ctx, tx); err != nil {
+			return nil, err
+		}
+	}
 	// On a pre-0.17 database this is what keeps the preview honest: without it
 	// the plan would show an ADD COLUMN for the key on every table, and prune
 	// would refuse on the `name` column that still holds data. It goes before
@@ -28,7 +36,13 @@ func (e *Engine) Plan(ctx context.Context, prune bool) ([]db.Statement, error) {
 	if err := db.EnsureInternal(ctx, tx); err != nil {
 		return nil, err
 	}
-	return db.Plan(ctx, tx, e.Current().Meta, prune)
+	plan, err := db.Plan(ctx, tx, e.Current().Meta, prune)
+	if err != nil || !e.Cfg.Tenancy {
+		return plan, err
+	}
+	// what EnsureTenancy would still do is part of the answer to "is there
+	// anything to migrate": run it and report whether it changed anything
+	return plan, nil
 }
 
 type MigrateResult struct {
@@ -71,7 +85,11 @@ const migrateLockKey = "ddcore.migrate"
 
 func (e *Engine) Migrate(ctx context.Context, prune bool) (*MigrateResult, error) {
 	res := &MigrateResult{}
-	err := e.Run(ctx, "Admin", func(c *Ctx) error {
+	// A migration is the owner's work: DDL, and patches that may run DDL of
+	// their own. On a site with tenancy it is therefore a system ctx, and the
+	// steps that run document code — roles, app installs, fixtures, the
+	// afterMigrate hooks — are confined to the platform space one by one.
+	err := e.RunSystem(ctx, "Admin", func(c *Ctx) error {
 		c.Flags["ignorePermissions"] = true
 		// a migration is exactly the work a maintenance window is opened for,
 		// including the one `dev --auto-migrate` runs inside a server
@@ -117,6 +135,11 @@ func (e *Engine) Migrate(ctx context.Context, prune bool) (*MigrateResult, error
 		if err := db.Apply(ctx, c.Tx, keep); err != nil {
 			return err
 		}
+		if e.Cfg.Tenancy {
+			if err := db.EnsureTenancy(ctx, c.Tx, e.tenantRole()); err != nil {
+				return err
+			}
+		}
 		if err := absorbVaultAuditLog(ctx, c.Tx); err != nil {
 			return err
 		}
@@ -132,13 +155,15 @@ func (e *Engine) Migrate(ctx context.Context, prune bool) (*MigrateResult, error
 				res.Renames = append(res.Renames, st)
 			}
 		}
-		if err := c.ensureAppRoles(); err != nil {
-			return err
-		}
-		if err := c.installApps(ctx, rt, fresh, res); err != nil {
-			return err
-		}
-		if err := c.applyFixtures(); err != nil {
+		if err := c.confined(func() error {
+			if err := c.ensureAppRoles(); err != nil {
+				return err
+			}
+			if err := c.installApps(ctx, rt, fresh, res); err != nil {
+				return err
+			}
+			return c.applyFixtures()
+		}); err != nil {
 			return err
 		}
 		if err := runPatches(ctx, c, rt, res, false); err != nil {
@@ -147,15 +172,20 @@ func (e *Engine) Migrate(ctx context.Context, prune bool) (*MigrateResult, error
 		if err := db.Apply(ctx, c.Tx, drop); err != nil {
 			return err
 		}
-		if res.AdminPassword, err = ensureAdminPassword(ctx, c); err != nil {
-			return err
-		}
-		for _, name := range c.St.AppOrder() {
-			if c.St.Snap.Apps[name].HasAfterMigrate {
-				if err := rt.AppHook(name, "afterMigrate"); err != nil {
-					return fmt.Errorf("%s.afterMigrate: %w", name, err)
+		if err := c.confined(func() error {
+			if res.AdminPassword, err = ensureAdminPassword(ctx, c); err != nil {
+				return err
+			}
+			for _, name := range c.St.AppOrder() {
+				if c.St.Snap.Apps[name].HasAfterMigrate {
+					if err := rt.AppHook(name, "afterMigrate"); err != nil {
+						return fmt.Errorf("%s.afterMigrate: %w", name, err)
+					}
 				}
 			}
+			return nil
+		}); err != nil {
+			return err
 		}
 		if err := c.recordSiteVersion(); err != nil {
 			return err
@@ -168,7 +198,9 @@ func (e *Engine) Migrate(ctx context.Context, prune bool) (*MigrateResult, error
 		return nil, err
 	}
 	e.Cache.Clear()
-	if len(res.DDL) > 0 {
+	if len(res.DDL) > 0 || (e.Cfg.Tenancy && !e.tenancyReady.Load()) {
+		// (and, the first time tenancy is applied, none of them has taken the
+		// confined role yet: a connection does that when it is opened)
 		// Every pooled connection holds statements planned against the old row
 		// types, and Postgres refuses to run one whose result type changed
 		// ("cached plan must not change result type"). Connections in use are
