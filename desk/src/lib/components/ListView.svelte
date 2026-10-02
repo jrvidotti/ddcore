@@ -521,7 +521,7 @@
   </div>
 
   {#if isTreeView}
-    <p class="muted small view-notice">{__("Filters and search apply to the list view")}</p>
+    <p class="muted small view-notice">{__("Filters apply to the list view")}</p>
   {:else if showFilters}
   <div class="card list-filters" id="list-filters">
     <div class="filter-search">
@@ -564,7 +564,7 @@
 
   {#if meta}
     {#if isTreeView}
-      <TreeView {meta} {doctype} {wsPrefix} reloadKey={treeReload} settings={settings.tree} />
+      <TreeView {meta} {doctype} {wsPrefix} reloadKey={treeReload} settings={settings.tree} bind:search onsearch={onSearch} />
     {:else if currentView === "calendar" && settings.calendar}
       <CalendarView {rows} {meta} {doctype} {wsPrefix} calendar={settings.calendar} viewYear={calendarYear} viewMonth={calendarMonth} onMonthChange={changeMonth}
         onDayClick={calendarDayField ? showDay : undefined} />

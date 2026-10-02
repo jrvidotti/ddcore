@@ -113,13 +113,27 @@ one out of the branch is refused.
 ## The tree view and `/api/tree`
 
 A tree DocType's list page gets a **Tree** view, and opens on it. It expands one branch at
-a time, links each node to its form, and offers *Add child* on a group. Filters and search
-belong to the list view; switch views to use them.
+a time, links each node to its form, and offers *Add child* on a group. Its **search box**
+looks over the whole tree: while there is text, the view shows only the nodes that match and
+the ancestors that lead to them, every branch open and the matches highlighted; clearing it
+brings back the level-at-a-time tree. The text is the list's own, kept in the URL as `?q=`, so
+it survives a switch between the two views. Filters belong to the list view; switch views to
+use them.
 
 ```
 GET /api/tree/{doctype}?parent=&limit=&fields=["acronym"]&order_by=title asc
 → { "nodes": [{ "id", "title", "parent", "is_group", "children", "values": { "acronym" } }], "hasMore": false }
+
+GET /api/tree/{doctype}?search=jeans&limit=&fields=&order_by=
+→ { "nodes": [ …matches and their ancestors, a match with "match": true… ], "hasMore": false }
 ```
+
+With `search`, `parent` is ignored and the answer is flat: place each node under its `parent`,
+or at the top when that parent is not in the answer. The match is a Link search's — `id`,
+`titleField` and `searchFields`, case- and accent-insensitive, `%` and `_` taken literally (see
+`search`) — so a tree with neither a title nor search fields is searched by `id`. `limit` caps
+the matches, not the ancestors, and `hasMore` says there were more. An ancestor the user may not
+read is left out, with everything above it.
 
 A level lists groups first, then by the title field. `order_by` replaces that order outright
 (`id` stays the tiebreak), and `fields` returns those fields under each node's `values`, which
@@ -151,7 +165,9 @@ one of its descendants. A `frm.setQuery` on the field replaces that.
 ## Limitations
 
 - No drag-and-drop: a document is moved by editing its parent on the form.
-- No filters or search inside the tree view, and a level is capped at 500 nodes.
+- No filters inside the tree view — its search ignores the `filters` of `defineListView` too —
+  and a level, like a search's matches, is capped at 500 nodes.
+- The tree search does not match the translation of a `translateId` DocType's ids.
 - No `lft`/`rgt` (nested set) columns, and no import path for Frappe tree data carrying
   them; map `parent_<x>` and `is_group` instead.
 - No depth-ordered ancestor helper or breadcrumb API: `ancestors of` returns a set.
