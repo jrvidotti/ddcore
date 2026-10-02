@@ -332,6 +332,9 @@ func (c *Ctx) GetList(doctype string, a ListArgs) ([]map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := c.spaceRefusal(d, false); err != nil {
+		return nil, err
+	}
 	if !a.IgnorePermissions && !c.IgnorePermissions() {
 		if ok, err := c.HasPermission(doctype, "read", nil); err != nil {
 			return nil, err

@@ -268,7 +268,7 @@ func (e *Engine) spaceOf(ctx context.Context, user string) (string, error) {
 	if space == "" {
 		return "", nil
 	}
-	if err := e.checkTenant(ctx, space); err != nil {
+	if err := e.checkTenant(ctx, nil, space); err != nil {
 		return "", err
 	}
 	return space, nil
@@ -311,17 +311,23 @@ func (e *Engine) TenantOfUser(ctx context.Context, user string) (string, error) 
 var errNoSuchUser = errors.New("no such user")
 
 // checkTenant refuses a tenant that does not exist or is disabled. Tenant is
-// a shared DocType, so the lookup needs no elevation.
-func (e *Engine) checkTenant(ctx context.Context, id string) error {
+// a shared DocType, so the lookup needs no elevation. q is the transaction
+// to look in when the tenant may have been created by it; nil asks the pool,
+// and only that answer is remembered.
+func (e *Engine) checkTenant(ctx context.Context, q db.Querier, id string) error {
 	if !db.ValidTenantID(id) {
 		return cerr.Validation("Invalid tenant id: {0}", id)
 	}
 	key := "tenant_state:" + id
 	state, ok := e.Cache.Get(key)
-	if !ok {
+	if !ok || q != nil {
 		gen := e.Cache.Gen()
+		cache := q == nil
+		if q == nil {
+			q = e.DB.Pool
+		}
 		var enabled bool
-		err := e.DB.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT enabled IS TRUE FROM %s WHERE id = $1`,
+		err := q.QueryRow(ctx, fmt.Sprintf(`SELECT enabled IS TRUE FROM %s WHERE id = $1`,
 			db.Ident("tab_"+meta.Snake(meta.TenantDocType))), id).Scan(&enabled)
 		switch {
 		case errors.Is(err, pgx.ErrNoRows):
@@ -333,7 +339,9 @@ func (e *Engine) checkTenant(ctx context.Context, id string) error {
 		default:
 			state = "disabled"
 		}
-		e.Cache.SetAt(key, state, tenantStateTTL, gen)
+		if cache {
+			e.Cache.SetAt(key, state, tenantStateTTL, gen)
+		}
 	}
 	switch state {
 	case "enabled":
@@ -357,11 +365,11 @@ func (c *Ctx) InTenant(id string, fn func(*Ctx) error) error {
 	if c.Tenant != "" {
 		return cerr.Permission("A tenant cannot enter another tenant")
 	}
-	if err := c.E.checkTenant(c.Ctx, id); err != nil {
-		return err
-	}
 	if c.Tx == nil {
 		return c.E.NewCtx(WithTenant(c.Ctx, id), c.User).Run(fn)
+	}
+	if err := c.E.checkTenant(c.Ctx, c.Tx, id); err != nil {
+		return err
 	}
 	rt, err := c.RT()
 	if err != nil {
@@ -393,4 +401,35 @@ func (c *Ctx) InTenant(id string, fn func(*Ctx) error) error {
 		return err
 	}
 	return ferr
+}
+
+// spaceRefusal is what tenancy forbids a tenant's ctx on a DocType that is
+// not its own. Tenant documents are the platform's alone. A shared DocType
+// is read by everyone and written from the platform space only: a tenant
+// changing a row every other tenant reads would be the leak in reverse.
+// Like the wall itself, it does not yield to ignorePermissions — a job runs
+// with permissions ignored and is still inside its tenant.
+func (c *Ctx) spaceRefusal(d *meta.DocType, write bool) error {
+	if c.Tenant == "" || d.TenantOwned || d.IsVirtual() {
+		return nil
+	}
+	if d.Name == meta.TenantDocType {
+		return cerr.Permission("Tenants are managed from the platform space")
+	}
+	if write {
+		return cerr.Permission("{0} is shared by every tenant and can only be changed from the platform space", c.T(d.Label))
+	}
+	return nil
+}
+
+// acrossSpaces runs fn for a document of d seeing the rows that can refer to
+// it. A tenant's document is referred to from its own space, and fn runs as
+// it is. A shared one is referred to from every tenant, so the check that
+// nothing links to it before a delete, and the rewrite of what does on a
+// rename, have to look at them all.
+func (c *Ctx) acrossSpaces(d *meta.DocType, fn func() error) error {
+	if d.TenantOwned {
+		return fn()
+	}
+	return c.elevated(fn)
 }

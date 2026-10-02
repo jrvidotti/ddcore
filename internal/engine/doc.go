@@ -443,6 +443,9 @@ func (c *Ctx) getDoc(doctype, name string, forUpdate bool) (Doc, error) {
 		}
 		return c.getVirtualDoc(d, name, !c.IgnorePermissions())
 	}
+	if err := c.spaceRefusal(d, false); err != nil {
+		return nil, err
+	}
 	sel := fmt.Sprintf("SELECT * FROM %s WHERE id = $1", db.Ident(d.TableName()))
 	if forUpdate && c.Tx != nil {
 		sel += " FOR UPDATE"
@@ -576,6 +579,9 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 	}
 	if d.IsChild {
 		return nil, cerr.Validation("{0} is a child table", d.Name)
+	}
+	if err := c.spaceRefusal(d, true); err != nil {
+		return nil, err
 	}
 	if d.Name == "Audit Event" {
 		return nil, cerr.Permission("Audit Event records are immutable and cannot be created directly")
@@ -749,6 +755,9 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 		return nil, err
 	}
 	if err := refuseVirtual(d); err != nil {
+		return nil, err
+	}
+	if err := c.spaceRefusal(d, true); err != nil {
 		return nil, err
 	}
 	if d.Name == "Audit Event" {
@@ -1078,6 +1087,9 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 	if err := refuseVirtual(d); err != nil {
 		return modified, err
 	}
+	if err := c.spaceRefusal(d, true); err != nil {
+		return modified, err
+	}
 	if d.Name == "Audit Event" {
 		return modified, cerr.Permission("Audit Event records are immutable and cannot be modified")
 	}
@@ -1314,6 +1326,9 @@ func (c *Ctx) deleteWithFlags(doctype, name string, ignorePerms, force bool, fla
 	if err := refuseVirtual(d); err != nil {
 		return err
 	}
+	if err := c.spaceRefusal(d, true); err != nil {
+		return err
+	}
 	if doctype == "Audit Event" {
 		return cerr.Permission("Audit Event records are immutable and cannot be deleted")
 	}
@@ -1367,7 +1382,7 @@ func (c *Ctx) deleteWithFlags(doctype, name string, ignorePerms, force bool, fla
 		return err
 	}
 	if !force {
-		if err := c.checkLinksBeforeDelete(d, name); err != nil {
+		if err := c.acrossSpaces(d, func() error { return c.checkLinksBeforeDelete(d, name) }); err != nil {
 			return err
 		}
 	}
@@ -1515,7 +1530,7 @@ func (c *Ctx) Rename(doctype, oldID, newID string) (string, error) {
 	if err := c.runHook(d, "beforeRename", doc, nil, flags); err != nil {
 		return "", err
 	}
-	if err := c.moveID(d, oldID, newID); err != nil {
+	if err := c.acrossSpaces(d, func() error { return c.moveID(d, oldID, newID) }); err != nil {
 		return "", err
 	}
 	delete(c.docCache, c.docKey(doctype, oldID))
