@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.24.1 — 2026-10-02
+
 ### Added
 
 - `ddcore.vault.get(name, { shared: true })` reads a secret of the platform space from any
