@@ -113,7 +113,20 @@ func (c *Ctx) RolesOf(user string) ([]string, error) {
 		return v.([]string), nil
 	}
 	gen := c.E.Cache.Gen()
-	rows, err := db.Select(c.Ctx, c.Q(), `SELECT role FROM tab_has_role WHERE parent = $1 AND parenttype = 'User'`, user)
+	// A user's roles are rows of the user's own space. For an operator who
+	// entered a tenant that is not the space the ctx works in — and reading
+	// them there would find none, and cache that.
+	q := c.Q()
+	if c.Tenancy() {
+		own, err := c.E.TenantOfUser(c.Ctx, user)
+		if err != nil {
+			return nil, err
+		}
+		if own != c.Tenant {
+			q = spaceStatements{e: c.E, tenant: own}
+		}
+	}
+	rows, err := db.Select(c.Ctx, q, `SELECT role FROM tab_has_role WHERE parent = $1 AND parenttype = 'User'`, user)
 	if err != nil {
 		return nil, err
 	}

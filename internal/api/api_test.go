@@ -132,15 +132,19 @@ func setup(t *testing.T) *env {
 	return setupApp(t, testApp(t))
 }
 
-func setupApp(t *testing.T, appDir string) *env {
+func setupApp(t *testing.T, appDir string) *env { return setupSite(t, appDir, false) }
+
+// setupSite is setupApp with the choice of tenancy, which changes the schema
+// and therefore the template database.
+func setupSite(t *testing.T, appDir string, tenancy bool) *env {
 	t.Helper()
 	ctx := context.Background()
 	// pt-BR on purpose: a site language other than the "en" fallback is what
 	// lets the language-negotiation tests tell the two apart.
 	cfg := engine.Config{DSN: testDSN(), Apps: []js.App{{Name: "demo", Dir: appDir}}, Test: true, DataDir: t.TempDir(), Dev: true,
-		Lang: "pt-BR", Currency: "BRL", Storage: testStorage(t)}
+		Lang: "pt-BR", Currency: "BRL", Storage: testStorage(t), Tenancy: tenancy}
 	// a copy of a database migrated once per app (see testdb), not a migrate per test
-	err := testdb.Fresh(ctx, cfg.DSN, testdb.Key([]string{appDir}, "pt-BR BRL dev test"), func(dsn string) error {
+	err := testdb.Fresh(ctx, cfg.DSN, testdb.Key([]string{appDir}, fmt.Sprint("pt-BR BRL dev test", tenancy)), func(dsn string) error {
 		tc := cfg
 		tc.DSN = dsn
 		e, err := engine.New(ctx, tc)

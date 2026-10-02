@@ -937,7 +937,10 @@ func (e *Engine) NewCtx(ctx context.Context, user string) *Ctx {
 	// ReqID is read from the context rather than passed in: every caller that
 	// has a request already carries it there, and deriving it here means no
 	// entry point can forget to correlate.
-	return &Ctx{E: e, St: e.Current(), Ctx: ctx, User: user, Lang: e.Cfg.Lang, ReqID: RequestIDFrom(ctx),
+	// Tenant is what ctx names until a transaction settles it: enough for the
+	// few reads a ctx makes before it has one.
+	tenant, _ := TenantFrom(ctx)
+	return &Ctx{E: e, St: e.Current(), Ctx: ctx, User: user, Tenant: tenant, Lang: e.Cfg.Lang, ReqID: RequestIDFrom(ctx),
 		Flags: map[string]any{}, docCache: map[string]Doc{}}
 }
 
@@ -1082,6 +1085,10 @@ func (c *Ctx) owner() *Ctx {
 func (c *Ctx) Q() db.Querier {
 	if c.Tx != nil {
 		return c.Tx
+	}
+	// without a transaction, single statements in the ctx's space
+	if c.Tenant != "" {
+		return c.space()
 	}
 	return c.E.DB.Pool
 }

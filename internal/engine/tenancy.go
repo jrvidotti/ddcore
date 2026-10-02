@@ -515,6 +515,50 @@ func (s spaceStatements) QueryRow(ctx context.Context, sql string, args ...any) 
 	return spaceRow{s: s, ctx: ctx, sql: sql, args: args}
 }
 
+// Query keeps its transaction open until the rows are closed, which is what
+// makes spaceStatements a db.Querier.
+func (s spaceStatements) Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {
+	on, err := s.e.tenancy(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !on {
+		return s.e.DB.Pool.Query(ctx, sql, args...)
+	}
+	tx, err := s.e.DB.Pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := db.Confine(ctx, tx, s.e.tenantRole()); err == nil {
+		err = db.SetTenant(ctx, tx, s.tenant)
+	}
+	if err != nil {
+		tx.Rollback(ctx)
+		return nil, err
+	}
+	rows, err := tx.Query(ctx, sql, args...)
+	if err != nil {
+		tx.Rollback(ctx)
+		return nil, err
+	}
+	return spaceRows{Rows: rows, ctx: ctx, tx: tx}, nil
+}
+
+type spaceRows struct {
+	pgx.Rows
+	ctx context.Context
+	tx  pgx.Tx
+}
+
+func (r spaceRows) Close() {
+	r.Rows.Close()
+	if r.Rows.Err() != nil {
+		r.tx.Rollback(r.ctx)
+		return
+	}
+	r.tx.Commit(r.ctx)
+}
+
 type spaceRow struct {
 	s    spaceStatements
 	ctx  context.Context
@@ -545,4 +589,151 @@ func (e *Engine) Spaces(ctx context.Context) ([]string, error) {
 		spaces = append(spaces, db.Str(r["id"]))
 	}
 	return spaces, nil
+}
+
+// RequestSpace is how a request finds where it works: the context it returns
+// names the space of user — the user's own tenant, or for a user of the
+// platform space the tenant named, which is the one the operator entered.
+// Everything the request does afterwards, in a transaction or outside one,
+// reads its space from that context. A disabled tenant is refused here.
+func (e *Engine) RequestSpace(ctx context.Context, user, named string) (context.Context, error) {
+	on, err := e.tenancy(ctx)
+	if err != nil || !on {
+		return ctx, err
+	}
+	own, err := e.TenantOfUser(ctx, user)
+	if err != nil {
+		return ctx, err
+	}
+	space := own
+	if own == "" && named != "" {
+		// a name that may not be honoured is ignored, not refused: a stale
+		// session value must not lock an account out of its own space
+		if ok, err := e.CanEnterTenants(ctx, user); err != nil {
+			return ctx, err
+		} else if ok {
+			space = named
+		}
+	}
+	if space != "" {
+		if err := e.checkTenant(ctx, nil, space); err != nil {
+			return ctx, err
+		}
+	}
+	return WithTenant(ctx, space), nil
+}
+
+// SessionTenant is the tenant a platform user's session has entered; empty
+// when it has entered none.
+func (e *Engine) SessionTenant(ctx context.Context, sid string) string {
+	if sid == "" {
+		return ""
+	}
+	key := "sidtenant:" + sid
+	if v, ok := e.Cache.Get(key); ok {
+		return v.(string)
+	}
+	var tenant string
+	if err := e.DB.Pool.QueryRow(ctx, `SELECT coalesce(data->>'tenant', '') FROM ddcore_session WHERE sid = $1`, sid).Scan(&tenant); err != nil {
+		return ""
+	}
+	e.Cache.Set(key, tenant, time.Minute)
+	return tenant
+}
+
+// EnterTenant makes a platform user's session work in a tenant from the next
+// request on; an empty tenant returns it to the platform space.
+func (c *Ctx) EnterTenant(tenant string) error {
+	if !c.Tenancy() {
+		return cerr.Validation("This site has no tenants: tenancy is off")
+	}
+	if ok, err := c.E.CanEnterTenants(c.Ctx, c.User); err != nil {
+		return err
+	} else if !ok {
+		c.AuditDenied("tenant.enter", "Tenant", tenant, nil)
+		return cerr.Permission("Only a System Manager of the platform space can enter a tenant")
+	}
+	if c.Sid == "" {
+		return cerr.Validation("Entering a tenant needs a session; with an API key, send the X-DDCore-Tenant header")
+	}
+	if tenant != "" {
+		if err := c.E.checkTenant(c.Ctx, nil, tenant); err != nil {
+			return err
+		}
+	}
+	if _, err := c.E.DB.Pool.Exec(c.Ctx, `UPDATE ddcore_session
+		SET data = coalesce(data, '{}'::jsonb) || jsonb_build_object('tenant', $2::text) WHERE sid = $1`, c.Sid, tenant); err != nil {
+		return err
+	}
+	key := "sidtenant:" + c.Sid
+	c.E.Cache.Del(key)
+	if err := broadcastInvalidation(c.Ctx, c.E.DB.Pool, []string{key}, nil); err != nil {
+		return err
+	}
+	return c.E.RecordAudit(WithTenant(c.Ctx, tenant), c.User, "tenant.enter", "Allowed", "Tenant", tenant, nil)
+}
+
+// TenantBoot is what the desk is told about tenancy: the space the request
+// works in, and for a user of the platform space the tenants there are to
+// enter. Nil on a site without tenancy. A tenant's own users learn the id and
+// title of their tenant and nothing about any other.
+func (c *Ctx) TenantBoot() (map[string]any, error) {
+	if !c.Tenancy() {
+		return nil, nil
+	}
+	out := map[string]any{"id": c.Tenant, "title": ""}
+	platform, err := c.E.CanEnterTenants(c.Ctx, c.User)
+	if err != nil {
+		return nil, err
+	}
+	out["platform"] = platform
+	if c.Tenant != "" {
+		rows, err := db.Select(c.Ctx, c.Q(), `SELECT title FROM tab_tenant WHERE id = $1`, c.Tenant)
+		if err != nil {
+			return nil, err
+		}
+		if len(rows) > 0 {
+			out["title"] = db.Str(rows[0]["title"])
+		}
+	}
+	if platform {
+		rows, err := db.Select(c.Ctx, c.Q(), `SELECT id, title, enabled FROM tab_tenant ORDER BY title, id`)
+		if err != nil {
+			return nil, err
+		}
+		tenants := make([]map[string]any, 0, len(rows))
+		for _, r := range rows {
+			tenants = append(tenants, map[string]any{"id": r["id"], "title": r["title"], "enabled": r["enabled"] == true})
+		}
+		out["tenants"] = tenants
+	}
+	return out, nil
+}
+
+// CanEnterTenants reports whether user is an operator: Admin, or a System
+// Manager whose account is in the platform space. Being in the platform space
+// is not enough — on a site that had users before it had tenants, everyone
+// who was there still is.
+func (e *Engine) CanEnterTenants(ctx context.Context, user string) (bool, error) {
+	if user == "Admin" {
+		return true, nil
+	}
+	if user == "" || user == "Guest" {
+		return false, nil
+	}
+	own, err := e.TenantOfUser(ctx, user)
+	if err != nil || own != "" {
+		return false, err
+	}
+	// the platform space's roles, whatever tenant ctx names
+	roles, err := e.NewCtx(WithTenant(ctx, ""), user).RolesOf(user)
+	if err != nil {
+		return false, err
+	}
+	for _, r := range roles {
+		if r == "System Manager" {
+			return true, nil
+		}
+	}
+	return false, nil
 }
