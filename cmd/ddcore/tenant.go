@@ -112,7 +112,7 @@ func tenantCreate(e *engine.Engine, ctx context.Context, args []string) error {
 	}
 	var rec *engine.Recovery
 	err := e.Run(ctx, "Admin", func(c *engine.Ctx) error {
-		doc, err := c.NewDoc("Tenant", engine.Doc{"slug": slug, "title": *title, "enabled": true})
+		doc, err := c.NewDoc("Site Tenant", engine.Doc{"slug": slug, "title": *title, "enabled": true})
 		if err != nil {
 			return err
 		}
@@ -150,7 +150,7 @@ func tenantCreate(e *engine.Engine, ctx context.Context, args []string) error {
 
 func tenantEnable(e *engine.Engine, ctx context.Context, slug string, enabled bool) error {
 	err := e.Run(ctx, "Admin", func(c *engine.Ctx) error {
-		doc, err := c.GetDoc("Tenant", slug)
+		doc, err := c.GetDoc("Site Tenant", slug)
 		if err != nil {
 			return err
 		}

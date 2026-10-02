@@ -1,6 +1,6 @@
 import { defineController, _ } from "@ddcore/sdk";
 
-export default defineController("Tenant", {
+export default defineController("Site Tenant", {
   validate(doc) {
     // the id is written into SQL that takes no parameters: the shape is the guard
     if (!/^[a-z0-9][a-z0-9_-]{0,62}$/.test(String(doc.slug ?? ""))) {

@@ -3,7 +3,7 @@ import { defineDoctype } from "@ddcore/sdk";
 // A customer organisation on a site with `tenancy` on. The documents are the
 // site's own, not any tenant's: only the platform space reaches them.
 export default defineDoctype({
-  name: "Tenant",
+  name: "Site Tenant",
   module: "Core",
   label: "Tenant",
   icon: "building-2",

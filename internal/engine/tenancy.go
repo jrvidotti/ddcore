@@ -315,7 +315,7 @@ func (e *Engine) checkTenant(ctx context.Context, q db.Querier, id string) error
 		}
 		var enabled bool
 		err := q.QueryRow(ctx, fmt.Sprintf(`SELECT enabled IS TRUE FROM %s WHERE id = $1`,
-			db.Ident("tab_"+meta.Snake(meta.TenantDocType))), id).Scan(&enabled)
+			meta.TenantTable), id).Scan(&enabled)
 		switch {
 		case errors.Is(err, pgx.ErrNoRows):
 			state = "missing"
@@ -424,7 +424,7 @@ func (c *Ctx) TenantList() ([]map[string]any, error) {
 	if c.Tenant != "" {
 		return nil, cerr.Permission("Tenants are managed from the platform space")
 	}
-	rows, err := db.Select(c.Ctx, c.Q(), `SELECT id, title, enabled IS TRUE AS enabled FROM tab_tenant ORDER BY id`)
+	rows, err := db.Select(c.Ctx, c.Q(), `SELECT id, title, enabled IS TRUE AS enabled FROM `+meta.TenantTable+` ORDER BY id`)
 	if err != nil {
 		return nil, err
 	}
@@ -651,7 +651,7 @@ func (e *Engine) Spaces(ctx context.Context) ([]string, error) {
 	if err != nil || !on {
 		return spaces, err
 	}
-	rows, err := db.Select(ctx, e.DB.Pool, `SELECT id FROM tab_tenant WHERE enabled ORDER BY id`)
+	rows, err := db.Select(ctx, e.DB.Pool, `SELECT id FROM `+meta.TenantTable+` WHERE enabled ORDER BY id`)
 	if err != nil {
 		return nil, err
 	}
@@ -720,7 +720,7 @@ func (c *Ctx) EnterTenant(tenant string) error {
 	if ok, err := c.E.CanEnterTenants(c.Ctx, c.User); err != nil {
 		return err
 	} else if !ok {
-		c.AuditDenied("tenant.enter", "Tenant", tenant, nil)
+		c.AuditDenied("tenant.enter", meta.TenantDocType, tenant, nil)
 		return cerr.Permission("Only a System Manager of the platform space can enter a tenant")
 	}
 	if c.Sid == "" {
@@ -740,7 +740,7 @@ func (c *Ctx) EnterTenant(tenant string) error {
 	if err := broadcastInvalidation(c.Ctx, c.E.DB.Pool, []string{key}, nil); err != nil {
 		return err
 	}
-	return c.E.RecordAudit(WithTenant(c.Ctx, tenant), c.User, "tenant.enter", "Allowed", "Tenant", tenant, nil)
+	return c.E.RecordAudit(WithTenant(c.Ctx, tenant), c.User, "tenant.enter", "Allowed", meta.TenantDocType, tenant, nil)
 }
 
 // TenantBoot is what the desk is told about tenancy: the space the request
@@ -758,7 +758,7 @@ func (c *Ctx) TenantBoot() (map[string]any, error) {
 	}
 	out["platform"] = platform
 	if c.Tenant != "" {
-		rows, err := db.Select(c.Ctx, c.Q(), `SELECT title FROM tab_tenant WHERE id = $1`, c.Tenant)
+		rows, err := db.Select(c.Ctx, c.Q(), `SELECT title FROM `+meta.TenantTable+` WHERE id = $1`, c.Tenant)
 		if err != nil {
 			return nil, err
 		}
@@ -767,7 +767,7 @@ func (c *Ctx) TenantBoot() (map[string]any, error) {
 		}
 	}
 	if platform {
-		rows, err := db.Select(c.Ctx, c.Q(), `SELECT id, title, enabled FROM tab_tenant ORDER BY title, id`)
+		rows, err := db.Select(c.Ctx, c.Q(), `SELECT id, title, enabled FROM `+meta.TenantTable+` ORDER BY title, id`)
 		if err != nil {
 			return nil, err
 		}
@@ -880,7 +880,7 @@ func (e *Engine) AdoptPlatformRows(ctx context.Context, tenant string) (map[stri
 		if err := move("ddcore_job", `status NOT IN ('queued', 'running') OR "user" IN `+adoptKeep); err != nil {
 			return err
 		}
-		if err := e.RecordAuditOn(ctx, c.Tx, "Admin", "tenant.adopt", "Allowed", "Tenant", tenant, "", "", nil); err != nil {
+		if err := e.RecordAuditOn(ctx, c.Tx, "Admin", "tenant.adopt", "Allowed", meta.TenantDocType, tenant, "", "", nil); err != nil {
 			return err
 		}
 		return broadcastClear(ctx, c.Tx)

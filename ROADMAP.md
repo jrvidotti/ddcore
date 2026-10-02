@@ -1,6 +1,6 @@
 # ddcore Feature Roadmap
 
-Updated: September 22, 2026.
+Updated: October 2, 2026.
 
 This roadmap prioritizes reusable framework capabilities by expected benefit relative
 to implementation effort and ongoing maintenance. It is derived from the
@@ -31,6 +31,7 @@ reports, jobs/scheduler, files, Version/Comment, and the existing CLI/MCP tools.
 
 | Inventory ID | Delivered foundation | Remaining work, separate from the delivered capability |
 | --- | --- | --- |
+| PRD-08 | Row-level tenancy: `"tenancy": true` keeps several tenants in one database, each confined to its own rows by a `tenant` column the database stamps, `(tenant, id)` keys and Postgres row-level security, so the document API, `ddcore.db.sql`, SQL reports and background jobs all stay inside the tenant; per-tenant ids, `unique` values, series, Singles, vault, cache, webhooks and realtime events; `shared: true` DocTypes; the `Site Tenant` DocType and `onTenantCreate`; `ddcore tenant create\|list\|enable\|disable\|adopt`, `--tenant`, `ddcore.tenant.*`; the operator enters a tenant from the Desk; a tenant's System Manager is not the operator. See [tenancy](docs/agent/tenancy.md). | One configuration (mail, branding, timezone) for every tenant; tenants are not chosen by hostname; anonymous pages are the platform's; no per-tenant backup, export scope or quota; single sign-on does not create accounts. |
 | SEC-04 | Password recovery, invitations, login throttling, password policy, and account self-service. See [authentication](docs/agent/auth.md). | Strengthen CSRF validation; evaluate `__Host-` cookies with deployment constraints; add email-change verification. Admin unlock and session revocation exist as System Manager services (`unlockUser`, `revokeUserSessions`) and `ddcore user unlock\|sessions`, but there is no Desk screen for them, no API lists another user's sessions, and the CLI paths record no audit event. MFA remains SEC-05; OIDC single sign-on is delivered. |
 | SEC-05 | Single sign-on through OpenID Connect: one generic client (discovery, authorization code with PKCE, `id_token` signature/issuer/audience/expiry/nonce checks) configured per provider in `.env` (`DDCORE_OIDC_*`), with Google and PocketID as documented providers; a state bound to the browser by cookie and spent once; sign-in only for an existing enabled User whose address the provider marks verified, optionally limited to allowed domains, and linked by the provider's `sub` afterwards (`ddcore_user_identity`, removed and renamed with the User); an open-redirect guard; per-IP throttling of the callback; `account.login_sso`/`account.identity_link` audit events; `auth.passwordLogin: false` for SSO-only sites with Admin keeping a password; desk buttons and translated failure messages; a doctor section that probes discovery; group → role mapping from a claim (`auth.sso`), and PocketID provisioning through its admin API — invitations create the account and mail its passkey link, mapped roles are pushed back as groups, and the desk asks before following a disable or delete there. See [authentication](docs/agent/auth.md). | No MFA and no LDAP. No just-in-time provisioning: a User must exist before its first sign-in. Provisioning speaks only PocketID's admin API; deleting or disabling from the list view, the API or the CLI never asks about the provider. No provider-initiated or single logout: a session outlives the provider's. No self-service or admin screen to list or unlink identities, so unlinking is a `ddcore.db.sql` job. The link trusts each provider's `email_verified`, so only configure providers that verify addresses. With password sign-in off, invitations and existing reset tokens still set passwords that cannot be used. Provider configuration is read at startup and is not hot-reloaded. Starting a sign-in is unauthenticated and writes a state row per request; only the hourly sweep bounds that table. |
 | SEC-06 | Environment-backed integration secrets, Password redaction from ordinary API responses, export, and history, and encrypted per-record `Vault` fields with `ddcore.vault.*`. See [vault](docs/agent/vault.md) and [field types](docs/agent/fieldtypes.md). | No key rotation: a changed `DDCORE_SECRET_KEY` fails every existing secret to decrypt. A custom vault key template, and removing a child row during an update, still orphan a secret. `vault.list` is not audited. User-entered Password fields remain plaintext at rest. |
@@ -113,7 +114,7 @@ them. Effort and benefit depend on that evidence and must be estimated at promot
 | OPS-10 | Anonymous Web Forms and self-registration (signed-in portals are delivered) | A public submission flow (applications, contact, supplier sign-up); define publication, captcha/throttling for Guest, anonymous attachments and a review queue on top of the portal pages. |
 | OPS-02 | Inbound email/IMAP inbox | A verified inbound communication workflow; define routing, identity, attachment access, and duplicate handling. |
 | PRD-05 | File quotas and retention (S3-compatible storage is delivered) | Storage scale or lifecycle requirements; verify limits per site/user, orphan sweeps, and recoverability. |
-| PRD-08 | Multisite and multiple replicas | Measured deployment/availability need; automate isolated instances first, then validate scheduler, cache, events, and job coordination before same-tenant replication. |
+| PRD-08 | Multisite, tenant by hostname, and per-tenant configuration (row-level tenancy and replicas of one site are delivered) | A deployment that needs each tenant on its own address, with its own branding, mail, or database; define how a request names its tenant before sign-in, and what of the site's configuration becomes the tenant's. |
 
 ## Delivery and production gates
 
@@ -134,5 +135,6 @@ is not a prerequisite, but missing a mandatory app requirement is a blocker.
 Preserve the architecture described in [CLAUDE.md](CLAUDE.md) and the
 [agent reference](docs/agent/index.md): synchronous server TypeScript, Postgres,
 file-based structural metadata, English canonical strings with translations, and
-one tenant per instance. Accounting, tax, inventory, rental, and other domain rules
+one database per instance — which holds one tenant unless the site turns
+[tenancy](docs/agent/tenancy.md) on. Accounting, tax, inventory, rental, and other domain rules
 belong to apps. New infrastructure must justify its deployment and maintenance cost.

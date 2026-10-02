@@ -15,6 +15,7 @@ import (
 	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/db"
 	"github.com/jrvidotti/ddcore/internal/js"
+	"github.com/jrvidotti/ddcore/internal/meta"
 )
 
 // Job execution limits. The lease is renewed by heartbeat while the worker
@@ -375,7 +376,7 @@ func (e *Engine) runOneJob(ctx context.Context) (bool, error) {
 	defer tx.Rollback(ctx)
 	enabled := ""
 	if on {
-		enabled = ` AND (tenant = '' OR tenant IN (SELECT id FROM tab_tenant WHERE enabled))`
+		enabled = ` AND (tenant = '' OR tenant IN (SELECT id FROM ` + meta.TenantTable + ` WHERE enabled))`
 	}
 	rows, err := db.Select(ctx, tx, `SELECT id, method, args, "user", attempts, max_attempts, timeout_seconds,
 		queue, on_start, on_failure`+jobTenantColumn(on)+` FROM ddcore_job

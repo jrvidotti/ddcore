@@ -43,7 +43,7 @@ contingent upon concrete demand.
 ## 2. Review of the v1 Plan
 
 Architecture decisions remain sound for the goal: Go as host, synchronous TypeScript
-in goja, file-based metadata, Postgres, single tenant per instance, and metadata-driven Desk.
+in goja, file-based metadata, Postgres, one database per instance (one tenant, or several with row-level tenancy), and metadata-driven Desk.
 Subsequent features must preserve these contracts.
 
 The plan explicitly deferred field-level permissions and User Permissions to v2.
@@ -169,7 +169,7 @@ in domain apps, not core.
 | PRD-05 | File lifecycle | Partial: File DocType, uploads, public/private paths, local or S3-compatible storage, byte deletion with the File. | P0: copy bytes, validate checksums, preserve links and access permissions. P2: quotas and retention policies on demand. |
 | PRD-06 | Auditing beyond Version | Partial: per-document diffs and comments. | P1; blocks those needing specific audit trails. Record permission changes, imports, approvals, and administrative actions, protecting sensitive data. |
 | PRD-07 | Core/app compatibility contract | Partial: `requires`, manifest versions, generated SDK, and tests. | P1: supported version ranges, changelog, update verification, and consumer tests; pin versions in pilot from P0. |
-| PRD-08 | Multisite and multiple replicas | Single tenant per instance is a v1 decision; local events/cache are part of architecture. | P2. First automate isolated instances. Before multiple replicas of same tenant, validate scheduler, cache, events, and job distribution. |
+| PRD-08 | Multisite and multiple replicas | **Partly implemented**: replicas of one site are safe against one database, and row-level tenancy (`"tenancy": true`) keeps several tenants in it behind Postgres row-level security. A database per tenant (multisite) is not. | P2 for what remains: tenant by hostname, per-tenant configuration, a database per tenant. |
 
 Local evidence: [CLI](../cmd/ddcore/main.go), [doctor](../cmd/ddcore/doctor.go),
 [configuration](../internal/config/config.go), [API](../internal/api/api.go),
@@ -300,7 +300,7 @@ indispensable feature merely because its general roadmap priority is P2.
 
 ## 8. What to Preserve as Product Decisions
 
-- Single tenant per instance; provisioning automation before multisite in core.
+- One database per instance. Several tenants share it through row-level tenancy; a database per tenant (multisite) stays out of core until a deployment needs it.
 - Postgres as a mandatory external service; queue, outbox, and notifications can leverage
   existing infrastructure. Email providers are configurable integrations.
 - Structural metadata in files. Configuration and operational state can be stored

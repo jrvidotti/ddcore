@@ -22,7 +22,7 @@ func setupTenants(t *testing.T) *env {
 	x := setupSite(t, testApp(t), true)
 	x.asAdmin(func(c *engine.Ctx) error {
 		for _, id := range []string{"alfa", "beta"} {
-			d, _ := c.NewDoc("Tenant", engine.Doc{"slug": id, "title": strings.ToUpper(id)})
+			d, _ := c.NewDoc("Site Tenant", engine.Doc{"slug": id, "title": strings.ToUpper(id)})
 			if _, err := c.Insert(d, engine.SaveOpts{}); err != nil {
 				return err
 			}
@@ -162,7 +162,7 @@ func TestTenantAPI_ATenantAdministratorIsNotTheOperator(t *testing.T) {
 	if r := x.mcpCall("token:" + x.apiKey(alfaAdmin)); r.Status != 403 {
 		t.Fatalf("a tenant's System Manager reached MCP: %d %s", r.Status, r.Raw)
 	}
-	x.expect(x.call("GET", "/api/resource/Tenant", nil, sid), 403, "PermissionError")
+	x.expect(x.call("GET", "/api/resource/Site%20Tenant", nil, sid), 403, "PermissionError")
 	// but administers its own tenant: users, and only its own
 	r := x.call("GET", "/api/resource/User", nil, sid)
 	x.expect(r, 200, "")

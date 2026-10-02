@@ -6,7 +6,7 @@
 1 version,1 versão,# desk/src/lib/components/DocHistory.svelte:79
 A CSV or Excel (.xlsx) file whose first row names the columns. Each following row creates one record.,Um arquivo CSV ou Excel (.xlsx) cuja primeira linha nomeia as colunas. Cada linha seguinte cria um registro.,# desk/src/lib/components/DataImportModal.svelte:176
 A CSV or Excel (.xlsx) file with an ID column naming the record each row changes. Export the list as CSV to get one; a blank cell clears the field.,Um arquivo CSV ou Excel (.xlsx) com uma coluna ID indicando o registro que cada linha altera. Exporte a lista em CSV para obter um; uma célula vazia limpa o campo.,# desk/src/lib/components/DataImportModal.svelte:178
-"A disabled tenant refuses sign-ins, requests and background jobs.","Um tenant desativado recusa logins, requisições e jobs em segundo plano.",# core.doctypes.tenant.tenant.doctype
+"A disabled tenant refuses sign-ins, requests and background jobs.","Um tenant desativado recusa logins, requisições e jobs em segundo plano.",# core.doctypes.site_tenant.site_tenant.doctype
 A document cannot be shared with {0},Um documento não pode ser compartilhado com {0},# internal/engine/share.go:298
 A document is assigned to me,Um documento é atribuído a mim,# desk/src/lib/components/Profile.svelte:196
 A document is shared with me,Um documento é compartilhado comigo,# desk/src/lib/components/Profile.svelte:197
@@ -14,7 +14,7 @@ A message needs a recipient,Uma mensagem precisa de um destinatário,# internal/
 A method declared raw must return a string,Um método declarado como raw deve retornar uma string,# internal/api/api.go:281
 A task assigned to me is due,Uma tarefa atribuída a mim vence,# desk/src/lib/components/Profile.svelte:198
 A tenant cannot enter another tenant,Um tenant não pode entrar em outro tenant,# internal/engine/host.go:675
-"A tenant's slug is lowercase letters, digits, hyphens and underscores, and starts with a letter or digit","O slug de um tenant usa letras minúsculas, dígitos, hifens e sublinhados, e começa com letra ou dígito",# core/doctypes/tenant/tenant.controller.ts:7
+"A tenant's slug is lowercase letters, digits, hyphens and underscores, and starts with a letter or digit","O slug de um tenant usa letras minúsculas, dígitos, hifens e sublinhados, e começa com letra ou dígito",# core/doctypes/site_tenant/site_tenant.controller.ts:7
 A user of one tenant cannot work in another,Um usuário de um tenant não pode trabalhar em outro,# internal/engine/asuser.go:151
 A user with access scopes cannot import,Um usuário com escopos de acesso não pode importar,# internal/engine/import.go:195
 A user with access scopes may not replay a webhook delivery,Um usuário com escopos de acesso não pode reenviar uma entrega de webhook,# internal/engine/webhooks.go:527
@@ -193,7 +193,7 @@ Discard,Descartar,# desk/src/lib/components/FormView.svelte:444
 Discard changes,Descartar alterações,# desk/src/lib/components/FormView.svelte:196
 Discard your unsaved changes?,Descartar suas alterações não salvas?,# desk/src/lib/components/FormView.svelte:203
 DocType,DocType,# core.doctypes.comment.comment.doctype
-DocType {0} does not exist,DocType {0} não existe,# internal/engine/engine.go:858
+DocType {0} does not exist,DocType {0} não existe,# internal/engine/engine.go:867
 Document,Documento,# core.doctypes.comment.comment.doctype
 Document Events,Eventos do Documento,# core.doctypes.webhook.webhook.doctype
 Document Share,Compartilhamento de Documento,# core.doctypes.document_share.document_share.doctype
@@ -321,7 +321,7 @@ Invalid location,Localização inválida,# desk/src/lib/controls/GeolocationCont
 "Invalid month in {0}: ""{1}""","Mês/ano inválido em {0}: ""{1}""",# internal/engine/doc.go:312
 Invalid number of days,Número de dias inválido,# core/services/api_keys.ts:37
 Invalid signature,Assinatura inválida,# desk/src/lib/controls/SignatureControl.svelte:162
-Invalid slug,Slug inválido,# core/doctypes/tenant/tenant.controller.ts:8
+Invalid slug,Slug inválido,# core/doctypes/site_tenant/site_tenant.controller.ts:8
 Invalid tenant id: {0},Id de tenant inválido: {0},# internal/engine/tenancy.go:306
 "Invalid time in {0}: ""{1}""","Hora inválida em {0}: ""{1}""",# internal/engine/doc.go:336
 Invalid upload: {0},upload inválido: {0},# internal/api/api.go:1540
@@ -361,7 +361,7 @@ Loading...,Carregando...,# desk/src/lib/components/DocSidebar.svelte:197
 Loading…,Carregando...,# desk/src/lib/components/Profile.svelte:154
 Logo Image,Imagem do Logo,# core.doctypes.letter_head.letter_head.doctype
 Low,Baixa,# desk/src/lib/components/AssignModal.svelte:98
-"Lowercase letters, digits, hyphens and underscores. It cannot change.","Letras minúsculas, dígitos, hifens e sublinhados. Não pode ser alterado.",# core.doctypes.tenant.tenant.doctype
+"Lowercase letters, digits, hyphens and underscores. It cannot change.","Letras minúsculas, dígitos, hifens e sublinhados. Não pode ser alterado.",# core.doctypes.site_tenant.site_tenant.doctype
 Mail is not being delivered,O e-mail não está sendo entregue,# core/doctypes/user/user.form.ts:126
 Mail template {0} does not exist,O modelo de mensagem {0} não existe,# internal/engine/mailqueue.go:92
 Maintenance mode,Modo de manutenção,# desk/src/routes/+layout.svelte:281
@@ -641,7 +641,7 @@ Signing Secret,Segredo de Assinatura,# core.doctypes.webhook.webhook.doctype
 Single DocTypes cannot be deleted or renamed,DocTypes Single não podem ser excluídos ou renomeados,# internal/engine/doc.go:1336
 Single sign-on failed. Try again.,O login único (SSO) falhou. Tente novamente.,# desk/src/routes/login/+page.svelte:36
 Size,Tamanho,# desk/src/lib/controls/AttachControl.svelte:71
-Slug,Slug,# core.doctypes.tenant.tenant.doctype
+Slug,Slug,# core.doctypes.site_tenant.site_tenant.doctype
 "Someone asked to reset the password for this account on {0}. If it was not you, ignore this message: nothing has changed.","Alguém pediu para redefinir a senha desta conta em {0}. Se não foi você, ignore esta mensagem: nada mudou.",# core/mail/reset.mail.ts:16
 Sort by {0},Ordenar por {0},# desk/src/lib/components/ReportGrid.svelte:87
 Source,Origem,# core.doctypes.error_log.error_log.doctype
@@ -822,10 +822,10 @@ doctype and id are required,doctype e id são obrigatórios,# internal/api/workf
 "doctype, id and user are required","doctype, id e user são obrigatórios",# internal/api/shares.go:65
 e.g. the invoicing script,ex.: o script de faturamento,# desk/src/lib/components/Profile.svelte:267
 edited,editado,# desk/src/lib/components/DocSidebar.svelte:320
-enqueue: backoff must be {0} or {1},enqueue: backoff deve ser {0} ou {1},# internal/engine/jobs.go:92
-enqueue: provide the method,enqueue: informe o método,# internal/engine/jobs.go:60
-enqueue: uniqueKey must be a non-empty string,enqueue: uniqueKey deve ser um texto não vazio,# internal/engine/jobs.go:115
-enqueue: {0} must be a method path,enqueue: {0} deve ser o caminho de um método,# internal/engine/jobs.go:107
+enqueue: backoff must be {0} or {1},enqueue: backoff deve ser {0} ou {1},# internal/engine/jobs.go:93
+enqueue: provide the method,enqueue: informe o método,# internal/engine/jobs.go:61
+enqueue: uniqueKey must be a non-empty string,enqueue: uniqueKey deve ser um texto não vazio,# internal/engine/jobs.go:116
+enqueue: {0} must be a method path,enqueue: {0} deve ser o caminho de um método,# internal/engine/jobs.go:108
 failed to build Gotenberg request: {0},falha ao construir requisição para o Gotenberg: {0},# internal/print/pdf.go:160
 failed to connect to Gotenberg service at {0}: {1},falha ao conectar ao serviço Gotenberg em {0}: {1},# internal/print/pdf.go:166
 failed to create temp directory for PDF render: {0},falha ao criar diretório temporário para renderização de PDF: {0},# internal/print/pdf.go:192
@@ -852,7 +852,7 @@ http: the response from {0} is larger than {1} bytes (raise opts.maxBytes),http:
 http: {0},http: {0},# internal/engine/host.go:821
 id is required,id é obrigatório,# internal/api/assignments.go:137
 invalid arguments in {0}: {1},argumentos inválidos em {0}: {1},# internal/engine/host.go:96
-job {0} timed out,job {0} excedeu o tempo limite,# internal/engine/jobs.go:205
+job {0} timed out,job {0} excedeu o tempo limite,# internal/engine/jobs.go:206
 m,min,# desk/src/lib/controls/DurationControl.svelte:23
 manifest.json is not readable: {0},manifest.json não pôde ser lido: {0},# internal/engine/import_source.go:64
 manifest.json lists no exports,manifest.json não lista nenhuma exportação,# internal/engine/import_source.go:70

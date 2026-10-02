@@ -42,7 +42,7 @@ func seedTenants(t *testing.T, e *Engine) {
 	t.Helper()
 	runAs(t, e, "Admin", func(c *Ctx) error {
 		for _, id := range []string{tenantA, tenantB} {
-			if err := insertDoc(c, "Tenant", Doc{"slug": id, "title": strings.ToUpper(id)}); err != nil {
+			if err := insertDoc(c, "Site Tenant", Doc{"slug": id, "title": strings.ToUpper(id)}); err != nil {
 				return err
 			}
 		}
@@ -304,15 +304,15 @@ func TestTenantIsolation(t *testing.T) {
 
 	t.Run("tenants are the platform's", func(t *testing.T) {
 		inTenant(t, e, tenantA, func(c *Ctx) error {
-			_, err := c.GetList("Tenant", ListArgs{})
+			_, err := c.GetList("Site Tenant", ListArgs{})
 			wantStatus(t, err, 403)
-			_, err = c.GetDoc("Tenant", tenantB)
+			_, err = c.GetDoc("Site Tenant", tenantB)
 			wantStatus(t, err, 403)
-			wantStatus(t, insertDoc(c, "Tenant", Doc{"slug": "gama", "title": "Gama"}), 403)
+			wantStatus(t, insertDoc(c, "Site Tenant", Doc{"slug": "gama", "title": "Gama"}), 403)
 			return nil
 		})
 		runAs(t, e, "Admin", func(c *Ctx) error {
-			if got := listNames(t, c, "Tenant", ListArgs{}); strings.Join(got, ",") != "alfa,beta" {
+			if got := listNames(t, c, "Site Tenant", ListArgs{}); strings.Join(got, ",") != "alfa,beta" {
 				t.Fatalf("the platform lists %v", got)
 			}
 			return nil
@@ -384,7 +384,7 @@ func TestTenantIsolation(t *testing.T) {
 func TestTenantDisabledAdmitsNobody(t *testing.T) {
 	e := setupTenancy(t)
 	runAs(t, e, "Admin", func(c *Ctx) error {
-		_, err := c.DBSet("Tenant", tenantB, Doc{"enabled": false}, true)
+		_, err := c.DBSet("Site Tenant", tenantB, Doc{"enabled": false}, true)
 		return err
 	})
 	e.Cache.Clear()
@@ -434,7 +434,7 @@ func TestTenantSignInAndKeys(t *testing.T) {
 	})
 	// a disabled tenant signs nobody in
 	runAs(t, e, "Admin", func(c *Ctx) error {
-		_, err := c.DBSet("Tenant", tenantA, Doc{"enabled": false}, true)
+		_, err := c.DBSet("Site Tenant", tenantA, Doc{"enabled": false}, true)
 		return err
 	})
 	e.Cache.Clear()
@@ -545,11 +545,11 @@ export function listar() { return ddcore.tenant.list(); }`,
 	})}}})
 	runAs(t, e, "Admin", func(c *Ctx) error {
 		for _, id := range []string{tenantA, tenantB} {
-			if err := insertDoc(c, "Tenant", Doc{"slug": id, "title": id}); err != nil {
+			if err := insertDoc(c, "Site Tenant", Doc{"slug": id, "title": id}); err != nil {
 				return err
 			}
 		}
-		wantStatus(t, insertDoc(c, "Tenant", Doc{"slug": "Não Vale", "title": "x"}), 417)
+		wantStatus(t, insertDoc(c, "Site Tenant", Doc{"slug": "Não Vale", "title": "x"}), 417)
 		return nil
 	})
 	inTenant(t, e, tenantA, func(c *Ctx) error {
@@ -590,7 +590,7 @@ func TestTenantAdoptMovesThePlatformRows(t *testing.T) {
 		if err := insertDoc(c, "Pedido", Doc{"cliente": "De Antes"}); err != nil {
 			return err
 		}
-		return insertDoc(c, "Tenant", Doc{"slug": tenantA, "title": "Alfa"})
+		return insertDoc(c, "Site Tenant", Doc{"slug": tenantA, "title": "Alfa"})
 	})
 	moved, err := e.AdoptPlatformRows(context.Background(), tenantA)
 	if err != nil {

@@ -3,9 +3,11 @@ package db
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -45,6 +47,15 @@ func OpenConfined(ctx context.Context, dsn, tenantRole string) (*DB, error) {
 					return err
 				}
 				_, err = c.Exec(ctx, "SET ROLE "+Ident(tenantRole))
+				// A database restored into a cluster that never had the role:
+				// the marker came with the dump, the role did not. The next
+				// migration creates it and resets the pool. Until then nothing
+				// is lost — a document transaction sets the role itself and
+				// fails on it, and a migration needs no role at all.
+				var pg *pgconn.PgError
+				if errors.As(err, &pg) && pg.Code == "42704" {
+					return nil
+				}
 				return err
 			}
 		} else if tenantRole != "" {

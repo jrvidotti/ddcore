@@ -128,7 +128,7 @@ func loadForExtract() (*engine.Engine, *config.File, string, error) {
 		level = slog.LevelDebug
 	}
 	e, err := engine.New(context.Background(), engine.Config{
-		Apps: apps, DDCore: cfg.DDCore, Tenancy: cfg.Tenancy, SiteTitle: cfg.Title, Lang: cfg.Lang, Currency: cfg.Currency,
+		Apps: apps, DDCore: cfg.DDCore, Tenancy: cfg.Tenancy, Catalogue: true, SiteTitle: cfg.Title, Lang: cfg.Lang, Currency: cfg.Currency,
 		Timezone: cfg.Timezone, DataDir: cfg.DataDir, LogLevel: level, LogOut: logOut,
 	})
 	return e, cfg, root, err

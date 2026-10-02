@@ -90,7 +90,9 @@ Consequence, kept as a rule: **no document statement runs elevated without `AND 
 
 `shared: true` keeps a DocType out of all this: no column, global ids, readable from every
 space, writable only from the platform space. It may not link to a tenant-owned DocType.
-`Role` is shared. `Tenant` is shared and refused to every context outside the platform space.
+`Role` is shared. `Site Tenant`, whose documents are the tenants, is shared and refused to every
+context outside the platform space. It is loaded only with tenancy on and is not named `Tenant`:
+that is what an app about leases calls its own DocType, and one of the test apps already did.
 
 ### 7. Jobs, events, caches
 

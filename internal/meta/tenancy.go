@@ -5,8 +5,13 @@ package meta
 // space of the transaction, and no UPDATE names it.
 const TenantColumn = "tenant"
 
-// TenantDocType is the core DocType whose documents are the tenants.
-const TenantDocType = "Tenant"
+// TenantDocType is the core DocType whose documents are the tenants. It is
+// not called "Tenant": that is the name an app about leases gives its own
+// DocType. It is loaded only on a site with tenancy.
+const TenantDocType = "Site Tenant"
+
+// TenantTable is its table.
+const TenantTable = "tab_site_tenant"
 
 // ApplyTenancy decides, for a site with tenancy on, which DocTypes belong to
 // a tenant: every one that does not declare `shared`, a virtual DocType aside

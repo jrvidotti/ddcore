@@ -522,7 +522,7 @@ func smokeCheckSite(ctx context.Context, e *engine.Engine, man *backupManifest, 
 	for _, t := range names {
 		var n int64
 		// identifiers from our own manifest, but quoted all the same
-		if err := e.DB.Pool.QueryRow(ctx, `SELECT count(*) FROM "`+strings.ReplaceAll(t, `"`, `""`)+`"`).Scan(&n); err != nil {
+		if err := e.DB.Sys.QueryRow(ctx, `SELECT count(*) FROM "`+strings.ReplaceAll(t, `"`, `""`)+`"`).Scan(&n); err != nil {
 			short = append(short, fmt.Sprintf("%s: %s", t, db.RedactError(err)))
 			continue
 		}
@@ -534,7 +534,7 @@ func smokeCheckSite(ctx context.Context, e *engine.Engine, man *backupManifest, 
 	}
 	out = append(out, smokeCheck{Name: "row counts", OK: len(short) == 0, Detail: strings.Join(short, "; ")})
 
-	rows, err := db.Select(ctx, e.DB.Pool, `SELECT file_url FROM tab_file WHERE coalesce(file_url, '') <> '' ORDER BY random() LIMIT 20`)
+	rows, err := db.Select(ctx, e.DB.Sys, `SELECT file_url FROM tab_file WHERE coalesce(file_url, '') <> '' ORDER BY random() LIMIT 20`)
 	if err != nil {
 		out = append(out, smokeCheck{Name: "files open", OK: false, Detail: db.RedactError(err)})
 	} else {
@@ -569,7 +569,7 @@ func smokeCheckSite(ctx context.Context, e *engine.Engine, man *backupManifest, 
 		}
 	} else {
 		var n int
-		err := e.DB.Pool.QueryRow(ctx, `SELECT count(*) FROM tab_user u WHERE u.enabled AND (u.id = 'Admin'
+		err := e.DB.Sys.QueryRow(ctx, `SELECT count(*) FROM tab_user u WHERE u.enabled AND (u.id = 'Admin'
 			OR EXISTS (SELECT 1 FROM tab_has_role r WHERE r.parent = u.id AND r.role = 'System Manager'))`).Scan(&n)
 		detail := fmt.Sprintf("%d enabled admin(s); pass --smoke-user to sign in for real", n)
 		switch {

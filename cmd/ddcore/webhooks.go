@@ -45,7 +45,8 @@ func webhooksList(args []string) error {
 		return err
 	}
 	return withEngine(func(e *engine.Engine, ctx context.Context) error {
-		rows, err := db.Select(ctx, e.DB.Pool, `SELECT id, creation, webhook, event, status, attempts, response_status,
+		// the operator's list: every tenant's deliveries
+		rows, err := db.Select(ctx, e.DB.Sys, `SELECT id, creation, webhook, event, status, attempts, response_status,
 			reference_doctype, reference_id, error
 			FROM tab_webhook_delivery
 			WHERE ($1 = '' OR status = $1) AND ($2 = '' OR webhook = $2)
