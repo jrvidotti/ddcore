@@ -25,6 +25,11 @@ older series, and `whats_new` reads across every one of them.
   to them, every branch open and the matches highlighted; the text is the list's `?q=`. Nothing
   to declare in an app. On the API, `GET /api/tree/{doctype}?search=` answers those nodes, a
   match flagged `"match": true`. See "The tree view and `/api/tree`" in `trees` (#59).
+- `ddcore.http` presents a client certificate with `opts.clientCert`, for an API that
+  authenticates by mutual TLS (PIX, Open Finance): `{ pfx, password? }` — a PKCS#12 file,
+  base64-encoded — or `{ cert, key }` in PEM. The chain goes with the certificate, and calls with
+  the same certificate share connections. A proxy kept only to hold the certificate can go. See
+  "`ddcore.*`" in `controller-api` (#60).
 - `ddcore.runAs(user, fn)` runs server code under a user's roles and access scopes, in the
   current transaction. A job, a scheduled method and a guest webhook had no such context: a job
   ignores permissions, a scheduled method runs as `Admin` and a webhook arrives as `Guest`, so a
