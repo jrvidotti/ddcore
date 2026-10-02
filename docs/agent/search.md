@@ -35,7 +35,7 @@ export default defineDoctype({
   (`doctype: { globalSearch: false }`), as it does any other DocType property.
 
 The matched columns are the same as a Link field's search: `id`, then `titleField`, then each
-of `searchFields`. Keep them short, indexed text, such as codes, titles and names. A long text
+of `searchFields` — which is also what the search box of a tree view matches (see `trees`). Keep them short, indexed text, such as codes, titles and names. A long text
 field in `searchFields` makes every search scan it. A matched column that is a **Link** also
 matches the linked document's title and search fields, through an `EXISTS` subquery over the
 target table — correct, but a query the target's own indexes have to carry.

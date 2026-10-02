@@ -216,7 +216,7 @@ several scripts for the same cell all run.
 - `ddcore.db.getValue/getList/count/getDoc/setValue/insert` (asynchronous: `await` them)
 - `ddcore.ui.Dialog({ title, fields, values, primaryLabel, primaryAction(values, dlg), dangerLabel, dangerAction(values, dlg), dangerShortcut, onChange(field, values, dlg), size })` → `dlg.show()/hide()/setValue/getValue/setHtml(htmlField, html)/setDfProperty(field, property, value)`
 - `ddcore.ui.msgprint(msg, { title, indicator })`, `ddcore.ui.toast`, `ddcore.ui.confirm(msg, title?, { destructive? })` (with `destructive: true` the confirm button is red and "No" is the primary, so Enter keeps the data and `Delete` — ⌫ on a Mac — confirms), `ddcore.ui.prompt(title, fields)`, `ddcore.ui.showError(e)`
-- `ddcore.format.currency/date/number/value/statusColor`, `ddcore.datetime.today/addMonths/addDays/monthStart/monthEnd`
+- `ddcore.format.currency/date/number/value/statusColor`, `ddcore.datetime.today/addMonths/addDays/dateDiff/monthDiff/monthStart/monthEnd`
 - `ddcore.search.global(txt, limit?)` — the documents the global search palette lists. See `search`
 - `ddcore.realtime.on(event, handler)` → an `off()` function; `ddcore.realtime.off(event, handler)`. Events sent with
   `ddcore.publish` (see `controller-api`), outside a form — in a form, `frm.onRealtime` drops the handler when the form closes
@@ -265,6 +265,16 @@ Encode every value and every record id with `encodeURIComponent`.
 `ddcore.utils` on the server: `today()` is the day in the **site's** timezone — the same day the
 server calls today, which is what makes `due_date < today()` agree on both sides — and
 `addMonths` clamps the day to the end of the target month: `addMonths("2026-01-31", 1) === "2026-02-28"`.
+
+`dateDiff(a, b)` is the whole days from `b` to `a` and `monthDiff(a, b)` the calendar months, the
+day ignored — `dateDiff("2026-05-10", "2026-05-01") === 9`, `monthDiff("2026-02-01", "2026-01-31") === 1`
+— so an `onChange` can show what the controller's `validate` is about to compute:
+
+```ts
+end_date(frm) {
+  frm.setValue("total_days", ddcore.datetime.dateDiff(frm.doc.end_date, frm.doc.start_date) + 1);
+}
+```
 
 `Datetime` fields, by contrast, are **instants**: they travel as ISO UTC and the control shows and
 accepts them in the site's timezone. Never slice the string (`v.slice(0, 16)`) to fill a

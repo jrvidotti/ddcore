@@ -102,6 +102,23 @@ func TestTrees(t *testing.T) {
 		}
 	})
 
+	t.Run("search answers the matches with their ancestors", func(t *testing.T) {
+		res := getJSON(t, srv, tok, "/api/tree/Task%20Category?search=SHIP")
+		data, _ := res["data"].(map[string]any)
+		nodes, _ := data["nodes"].([]any)
+		var got []string
+		for _, n := range nodes {
+			node := n.(map[string]any)
+			got = append(got, fmt.Sprintf("%v<%v:%v", node["id"], node["parent"], node["match"] == true))
+		}
+		if strings.Join(got, ",") != "All Categories<:false,Delivery<All Categories:false,Shipping<Delivery:true" {
+			t.Fatalf("nodes = %v", got)
+		}
+		if data["hasMore"] != false {
+			t.Fatalf("hasMore = %v", data["hasMore"])
+		}
+	})
+
 	t.Run("fields and order for a composed label", func(t *testing.T) {
 		res := getJSON(t, srv, tok, "/api/tree/Task%20Category?parent=All%20Categories&fields="+
 			url.QueryEscape(`["acronym","title"]`)+"&order_by="+url.QueryEscape("title desc"))

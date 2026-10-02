@@ -14,6 +14,18 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- `ddcore.datetime.dateDiff(a, b)` and `ddcore.datetime.monthDiff(a, b)` on the Desk, with the
+  semantics of `ddcore.utils.dateDiff` and `monthDiff` on the server, so a form script can show a
+  day count the controller computes: `dateDiff("2026-05-10", "2026-05-01") === 9`. See "Dates and
+  times" in `form-api` (#58).
+- The Tree view has a search box. While there is text, the tree shows only the nodes that match
+  — by `id`, `titleField` and `searchFields`, as a Link search does — and the ancestors that lead
+  to them, every branch open and the matches highlighted; the text is the list's `?q=`. Nothing
+  to declare in an app. On the API, `GET /api/tree/{doctype}?search=` answers those nodes, a
+  match flagged `"match": true`. See "The tree view and `/api/tree`" in `trees` (#59).
+
 ## 0.23.5 — 2026-10-01
 
 ### Changed

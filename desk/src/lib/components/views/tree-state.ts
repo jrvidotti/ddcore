@@ -15,6 +15,8 @@ export interface TreeNode {
   children: number;
   /** The fields a `tree` option asked for, when it asked for any. */
   values?: Record<string, any>;
+  /** Set on a node a search matched; its ancestors come without it. */
+  match?: boolean;
 }
 
 /** The `tree` option of `defineListView`: how a node is labelled and ordered. */
@@ -110,6 +112,28 @@ export function mergeChildren(state: TreeState, parent: string, res: TreeChildre
   const loading = new Set(state.loading);
   loading.delete(parent);
   return { ...state, nodes, children, hasMore, loading };
+}
+
+/**
+ * The tree a search answered: the matches and their ancestors, each placed
+ * under its parent and every branch open down to its matches. A node whose
+ * parent did not come — one the user may not read — sits at the top. A branch
+ * holds only what the search found; a matched group nobody opened yet still
+ * loads its real children the first time it opens.
+ */
+export function treeFromSearch(res: TreeChildrenResult): TreeState {
+  const state = emptyTree();
+  for (const node of res.nodes) state.nodes.set(node.id, node);
+  state.children.set(ROOT, []);
+  for (const node of res.nodes) {
+    const parent = state.nodes.has(node.parent) ? node.parent : ROOT;
+    const siblings = state.children.get(parent);
+    if (siblings) siblings.push(node.id);
+    else state.children.set(parent, [node.id]);
+    if (parent !== ROOT) state.expanded.add(parent);
+  }
+  state.hasMore.set(ROOT, res.hasMore);
+  return state;
 }
 
 /**
