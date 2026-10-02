@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.24.2 — 2026-10-02
+
 ### Added
 
 - `ddcore.crypto.pfxInfo(pfx, password?)` describes the certificate in a PKCS#12 file —
