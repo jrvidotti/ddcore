@@ -1493,6 +1493,13 @@ func (c *Ctx) deleteWithFlags(doctype, name string, ignorePerms, force bool, fla
 
 // Rename changes a document's name and every link pointing to it.
 func (c *Ctx) Rename(doctype, oldID, newID string) (string, error) {
+	// before anything else: a shared document's rename rewrites every
+	// tenant's references to it, and is the platform's alone
+	if sd, err := c.St.DocType(doctype); err == nil {
+		if err := c.spaceRefusal(sd, true); err != nil {
+			return "", err
+		}
+	}
 	d, err := c.St.DocType(doctype)
 	if err != nil {
 		return "", err
@@ -2467,6 +2474,8 @@ func (c *Ctx) writeChildren(d *meta.DocType, doc Doc) error {
 				}
 			}
 			key := "id"
+			// from the meta, like the table itself: inside the migration
+			// that turns tenancy on, the key is already the composite one
 			if child.TenantKeyed() {
 				key = "tenant, id"
 			}

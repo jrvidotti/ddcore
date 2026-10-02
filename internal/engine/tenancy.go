@@ -378,7 +378,9 @@ func (c *Ctx) enterTenantCtx(id string) (*Ctx, error) {
 	if err != nil {
 		return nil, err
 	}
-	child := c.E.NewCtx(c.Ctx, c.User)
+	// the context names the tenant too: whatever takes it — an audit row, an
+	// Error Log, a nested Run — then works where the ctx does
+	child := c.E.NewCtx(WithTenant(c.Ctx, id), c.User)
 	child.St, child.Tx, child.rt = c.St, c.Tx, rt
 	child.txOwner = c.owner()
 	child.Lang, child.ReqID, child.Sid = c.Lang, c.ReqID, c.Sid
@@ -696,7 +698,7 @@ func (e *Engine) RequestSpace(ctx context.Context, user, named string) (context.
 // SessionTenant is the tenant a platform user's session has entered; empty
 // when it has entered none.
 func (e *Engine) SessionTenant(ctx context.Context, sid string) string {
-	if sid == "" {
+	if on, err := e.tenancy(ctx); sid == "" || err != nil || !on {
 		return ""
 	}
 	key := "sidtenant:" + sid
@@ -890,4 +892,16 @@ func (e *Engine) AdoptPlatformRows(ctx context.Context, tenant string) (map[stri
 	}
 	e.Cache.Clear()
 	return moved, nil
+}
+
+// awayFromHome reports whether the ctx works in a space that is not its
+// user's own: an operator inside a tenant. What the process caches per user
+// — scopes, shares — describes the user at home, and is neither read nor
+// written from anywhere else.
+func (c *Ctx) awayFromHome() (bool, error) {
+	if c.Tenant == "" || !c.Tenancy() {
+		return false, nil
+	}
+	own, err := c.E.TenantOfUser(c.Ctx, c.User)
+	return own != c.Tenant, err
 }

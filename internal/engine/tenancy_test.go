@@ -632,3 +632,32 @@ func TestTenantAdoptMovesThePlatformRows(t *testing.T) {
 		return nil
 	})
 }
+
+// The retention sweep is the site's and visits every tenant; an
+// administrator's purge stays in theirs.
+func TestTenantJobRetentionCoversEveryTenant(t *testing.T) {
+	e := setupTenancy(t)
+	ctx := context.Background()
+	for _, u := range []string{userA, userB} {
+		runAs(t, e, u, func(c *Ctx) error {
+			_, err := c.Enqueue("demo.services.loop.ok", nil, nil)
+			return err
+		})
+	}
+	if _, err := e.DB.Sys.Exec(ctx, `UPDATE ddcore_job SET status = 'done', finished = now() - interval '400 days'`); err != nil {
+		t.Fatal(err)
+	}
+	n, err := e.PurgeJobs(WithTenant(ctx, tenantA), PurgeOpts{DoneDays: 1})
+	if err != nil || n.Done != 1 {
+		t.Fatalf("alfa's purge removed %d, %v", n.Done, err)
+	}
+	one := 1
+	e.Cfg.Ops.JobRetentionDays = &one
+	if _, err := e.SweepJobs(ctx); err != nil {
+		t.Fatal(err)
+	}
+	var left int
+	if err := e.DB.Sys.QueryRow(ctx, `SELECT count(*) FROM ddcore_job`).Scan(&left); err != nil || left != 0 {
+		t.Fatalf("%d jobs survived the sweep, %v", left, err)
+	}
+}

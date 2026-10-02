@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -195,5 +196,66 @@ func TestTenantAPI_EventsReachTheirTenantOnly(t *testing.T) {
 	x.expect(x.call("POST", "/api/resource/Pessoa", map[string]any{"nome": "Novo"}, "sid:"+x.sid(alfaUser)), 200, "")
 	if len(alfa) == 0 || len(beta) != 0 {
 		t.Fatalf("alfa heard %d events, beta %d", len(alfa), len(beta))
+	}
+}
+
+// Found by review: paths that reached a shared document, or a user-keyed
+// cache, around the checks the ordinary ones pass through.
+func TestTenantAPI_ReviewFindings(t *testing.T) {
+	x := setupTenants(t)
+	admin, user := "sid:"+x.sid(alfaAdmin), "sid:"+x.sid(alfaUser)
+
+	// a shared document is renamed for every tenant at once: the platform's alone
+	x.expect(x.call("POST", "/api/resource/Role/Gestor/rename", map[string]any{"id": "Gestor2"}, admin), 403, "PermissionError")
+	x.asAdmin(func(c *engine.Ctx) error {
+		if ok, _ := c.Exists("Role", "Gestor"); !ok {
+			t.Fatal("the role was renamed")
+		}
+		return nil
+	})
+
+	// another tenant's slug and title, through the title lookup
+	r := x.call("GET", "/api/search/link-titles?doctype=Site%20Tenant&ids=beta,nope", nil, user)
+	if r.Status == 200 || strings.Contains(r.Raw, "BETA") {
+		t.Fatalf("a tenant's user read another tenant's title: %d %s", r.Status, r.Raw)
+	}
+
+	// an operator's scopes are the platform's rows, and stay there
+	x.asAdmin(func(c *engine.Ctx) error {
+		d, _ := c.NewDoc("User Permission", engine.Doc{"user": "root@x.com", "allow": "Pessoa", "for_value": "Ninguem"})
+		_, err := c.Insert(d, engine.SaveOpts{})
+		return err
+	})
+	x.e.Cache.Clear()
+	scopes := func(ctx context.Context) int {
+		t.Helper()
+		n := -1
+		if err := x.e.Run(ctx, "root@x.com", func(c *engine.Ctx) error {
+			perms, err := c.UserPermissions()
+			n = len(perms)
+			return err
+		}); err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+	inAlfa := engine.WithTenant(x.ctx, "alfa")
+	if a, p, a2 := scopes(inAlfa), scopes(x.ctx), scopes(inAlfa); a != 0 || p != 1 || a2 != 0 {
+		t.Fatalf("scopes inside alfa, in the platform space, inside alfa again: %d %d %d", a, p, a2)
+	}
+
+	// a tenant's code learns nothing of an account elsewhere
+	if err := x.e.Run(x.ctx, alfaUser, func(c *engine.Ctx) error {
+		roles, err := c.RolesOf(betaAdmin)
+		if err != nil || strings.Join(roles, ",") != "All" {
+			t.Fatalf("alfa reads the roles of beta's administrator: %v %v", roles, err)
+		}
+		roles, err = c.RolesOf(alfaAdmin)
+		if err != nil || !strings.Contains(strings.Join(roles, ","), "System Manager") {
+			t.Fatalf("alfa cannot read the roles of its own administrator: %v %v", roles, err)
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
 	}
 }

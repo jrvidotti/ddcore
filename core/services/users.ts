@@ -78,7 +78,21 @@ export const identityProvider = whitelisted(() => {
  * never on its own. `email` finds the account of a User already deleted.
  */
 export const setProviderDisabled = whitelisted((args: { user?: string; email?: string; disabled: boolean }) => {
-  return (ddcore as any).__idp.setDisabled(String(args.user ?? ""), String(args.email ?? ""), Boolean(args.disabled));
+  const user = String(args.user ?? "").trim();
+  const email = String(args.email ?? "").trim();
+  // The provider's accounts are the site's, and an address names one whatever
+  // tenant it belongs to. Inside a tenant, only that tenant's accounts: one
+  // that exists here, or one this tenant's own audit trail saw deleted.
+  if (ddcore.tenant.current() !== "") {
+    for (const who of [user, email]) {
+      if (!who || ddcore.db.exists("User", who)) continue;
+      const deleted = ddcore.db.getAll("Audit Event", {
+        filters: { action: "account.delete", target_doctype: "User", target_id: who }, fields: ["id"], limit: 1,
+      });
+      if (!deleted.length) ddcore.throw(_("User {0} does not exist", [who]));
+    }
+  }
+  return (ddcore as any).__idp.setDisabled(user, email, Boolean(args.disabled));
 }, ADMIN);
 
 /** Ends every session of another account — the "they lost the laptop" button. */

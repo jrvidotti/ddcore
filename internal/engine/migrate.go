@@ -36,13 +36,7 @@ func (e *Engine) Plan(ctx context.Context, prune bool) ([]db.Statement, error) {
 	if err := db.EnsureInternal(ctx, tx); err != nil {
 		return nil, err
 	}
-	plan, err := db.Plan(ctx, tx, e.Current().Meta, prune)
-	if err != nil || !e.Cfg.Tenancy {
-		return plan, err
-	}
-	// what EnsureTenancy would still do is part of the answer to "is there
-	// anything to migrate": run it and report whether it changed anything
-	return plan, nil
+	return db.Plan(ctx, tx, e.Current().Meta, prune)
 }
 
 type MigrateResult struct {
@@ -89,6 +83,7 @@ func (e *Engine) Migrate(ctx context.Context, prune bool) (*MigrateResult, error
 	// their own. On a site with tenancy it is therefore a system ctx, and the
 	// steps that run document code — roles, app installs, fixtures, the
 	// afterMigrate hooks — are confined to the platform space one by one.
+	wasReady := e.tenancyReady.Load()
 	err := e.RunSystem(ctx, "Admin", func(c *Ctx) error {
 		c.Flags["ignorePermissions"] = true
 		// a migration is exactly the work a maintenance window is opened for,
@@ -139,6 +134,11 @@ func (e *Engine) Migrate(ctx context.Context, prune bool) (*MigrateResult, error
 			if err := db.EnsureTenancy(ctx, c.Tx, e.tenantRole()); err != nil {
 				return err
 			}
+			// From here on this transaction's tables are the tenancy ones:
+			// the series, the queue and the vault are keyed by tenant, and
+			// the fixtures and hooks below run confined. Nobody else can see
+			// that until the commit, so the engine is told now.
+			e.tenancyReady.Store(true)
 		}
 		if err := absorbVaultAuditLog(ctx, c.Tx); err != nil {
 			return err
@@ -195,10 +195,12 @@ func (e *Engine) Migrate(ctx context.Context, prune bool) (*MigrateResult, error
 		return broadcastClear(c.Ctx, c.Q())
 	})
 	if err != nil {
+		// a first application that rolled back applied nothing
+		e.tenancyReady.Store(wasReady)
 		return nil, err
 	}
 	e.Cache.Clear()
-	if len(res.DDL) > 0 || (e.Cfg.Tenancy && !e.tenancyReady.Load()) {
+	if len(res.DDL) > 0 || (e.Cfg.Tenancy && !wasReady) {
 		// (and, the first time tenancy is applied, none of them has taken the
 		// confined role yet: a connection does that when it is opened)
 		// Every pooled connection holds statements planned against the old row

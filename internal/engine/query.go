@@ -642,6 +642,9 @@ func (c *Ctx) Exists(doctype, name string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	if err := c.spaceRefusal(d, false); err != nil {
+		return false, err
+	}
 	if refused, err := c.refusedToScopedUser(d.Name); err != nil || refused {
 		return false, err
 	}
@@ -1105,6 +1108,9 @@ func (c *Ctx) ResolveLinkTitles(doctype string, docs ...Doc) map[string]map[stri
 func (c *Ctx) LinkTitles(doctype string, names []string) (map[string]string, error) {
 	d, err := c.St.DocType(doctype)
 	if err != nil {
+		return nil, err
+	}
+	if err := c.spaceRefusal(d, false); err != nil {
 		return nil, err
 	}
 	if d.TitleIsTranslatedID() {

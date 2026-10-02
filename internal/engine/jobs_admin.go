@@ -298,10 +298,25 @@ func (e *Engine) JobStats(ctx context.Context, window time.Duration) (*JobStats,
 // terminal whether or not its row is still here, and if this never ran the
 // table would only grow.
 func (e *Engine) SweepJobs(ctx context.Context) (PurgeCounts, error) {
-	return e.PurgeJobs(ctx, PurgeOpts{
-		DoneDays:   e.Cfg.Ops.DoneRetentionDays(),
-		FailedDays: e.Cfg.Ops.FailedRetentionDays(),
-	})
+	// Retention is the site's policy, so the sweep visits every space; an
+	// administrator's purge, which also lands in PurgeJobs, stays in theirs.
+	spaces, err := e.Spaces(ctx)
+	if err != nil {
+		return PurgeCounts{}, err
+	}
+	var total PurgeCounts
+	for _, tenant := range spaces {
+		n, err := e.PurgeJobs(WithTenant(ctx, tenant), PurgeOpts{
+			DoneDays:   e.Cfg.Ops.DoneRetentionDays(),
+			FailedDays: e.Cfg.Ops.FailedRetentionDays(),
+		})
+		if err != nil {
+			return total, err
+		}
+		total.Done += n.Done
+		total.Failed += n.Failed
+	}
+	return total, nil
 }
 
 func (e *Engine) purge(ctx context.Context, statuses []string, days int, dry bool) (int, error) {

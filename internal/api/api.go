@@ -677,7 +677,7 @@ func (s *Server) boot(w http.ResponseWriter, r *http.Request) {
 		} else if tb != nil {
 			site["tenant"] = tb
 		}
-		if userDoc == nil && c.User != "Guest" {
+		if userDoc == nil && c.User != "Guest" && c.Tenant != "" {
 			// a platform user inside a tenant: the account is not a document
 			// of that tenant, but the desk still needs a name to show
 			userDoc = map[string]any{"id": c.User, "full_name": c.User, "user_type": "System User"}

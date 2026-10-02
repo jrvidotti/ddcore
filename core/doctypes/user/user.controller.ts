@@ -81,6 +81,8 @@ export default defineController("User", {
     ddcore.cache.del("roles:" + doc.id);
     ddcore.cache.del("utype:" + doc.id);
     ddcore.cache.del("lang:" + doc.id);
+    // the tenant an id resolves to: the id may be created again, elsewhere
+    ddcore.cache.del("tenant:" + doc.id);
     ddcore.audit("account.delete", "User", doc.id);
   },
 });
