@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -65,10 +66,10 @@ func DecryptVault(key, ciphertext, nonce []byte) (string, error) {
 	return string(plaintext), nil
 }
 
-func (e *Engine) recordVaultAudit(c *Ctx, secretName, action string) {
+func (e *Engine) recordVaultAudit(c *Ctx, secretName, action string, detail map[string]any) {
 	auditAction := "vault." + action
 	if c != nil && c.E != nil {
-		_ = c.Audit(auditAction, "Vault Secret", secretName, nil)
+		_ = c.Audit(auditAction, "Vault Secret", secretName, detail)
 		return
 	}
 	ctx := context.Background()
@@ -120,7 +121,7 @@ SET ciphertext = EXCLUDED.ciphertext, nonce = EXCLUDED.nonce, updated = now();`
 		return err
 	}
 
-	e.recordVaultAudit(c, name, "write")
+	e.recordVaultAudit(c, name, "write", nil)
 	return nil
 }
 
@@ -149,8 +150,116 @@ func (e *Engine) VaultGet(c *Ctx, name string) (string, bool, error) {
 	if err != nil || !ok {
 		return "", ok, err
 	}
-	e.recordVaultAudit(c, name, "read")
+	e.recordVaultAudit(c, name, "read", nil)
 	return plaintext, true, nil
+}
+
+// platformOnly is what a statement on ddcore_vault adds to its WHERE to mean
+// the platform space's row and no other.
+const platformOnly = " AND tenant = ''"
+
+// platformVault runs fn on a querier that reaches the platform space's
+// secrets from whatever space the ctx works in: the secret of a shared
+// DocType's Vault field lives there, like the document it belongs to, and a
+// tenant reads it through here. where is what fn's statement appends to name
+// the platform's row; without tenancy there is no such column and it is empty.
+func (c *Ctx) platformVault(fn func(q db.Querier, where string) error) error {
+	if !c.Tenancy() {
+		return fn(c.Q(), "")
+	}
+	if c.Tenant == "" {
+		return fn(c.Q(), platformOnly)
+	}
+	if c.Tx == nil {
+		return c.E.InSpace(c.Ctx, "", func(q db.Querier) error { return fn(q, platformOnly) })
+	}
+	return c.elevated(func() error { return fn(c.Tx, platformOnly) })
+}
+
+// VaultGetShared is VaultGet for a secret of the platform space, read from any
+// space. The audit row lands in the space that read it and says the secret
+// was the shared one.
+func (e *Engine) VaultGetShared(c *Ctx, name string) (string, bool, error) {
+	if c == nil {
+		return e.VaultGet(nil, name)
+	}
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return "", false, nil
+	}
+	key, err := MasterKey()
+	if err != nil {
+		return "", false, err
+	}
+	var plaintext string
+	var ok bool
+	err = c.platformVault(func(q db.Querier, where string) error {
+		var err error
+		plaintext, ok, err = vaultReadWhere(c.Ctx, q, key, name, where)
+		return err
+	})
+	if err != nil || !ok {
+		return "", false, err
+	}
+	e.recordVaultAudit(c, name, "read", map[string]any{"shared": true})
+	return plaintext, true, nil
+}
+
+// sharedVaultWrite refuses a write that asks for the shared secret from
+// inside a tenant: like a shared document, it is the platform's to change.
+// In the platform space the shared secret is the space's own, and the write
+// goes on as any other.
+func (c *Ctx) sharedVaultWrite(opts map[string]any) error {
+	if opts["shared"] == true && c.Tenant != "" && c.Tenancy() {
+		return cerr.Permission("A shared vault secret can only be changed from the platform space")
+	}
+	return nil
+}
+
+// sharedVaultKeys are the names of the secrets the Vault fields of DocTypes
+// with no tenant hold: the ones that stay in the platform space whatever
+// else leaves it.
+func (c *Ctx) sharedVaultKeys() ([]string, error) {
+	keys := []string{}
+	for _, name := range c.St.Meta.Names() {
+		d := c.St.Meta.DocTypes[name]
+		if d.TenantOwned || d.IsVirtual() {
+			continue
+		}
+		var rows []map[string]any
+		for _, f := range d.Fields {
+			if f.Fieldtype != "Vault" {
+				continue
+			}
+			if rows == nil {
+				var err error
+				rows, err = db.Select(c.Ctx, c.Q(), fmt.Sprintf("SELECT * FROM %s", db.Ident(d.TableName())))
+				if err != nil {
+					return nil, err
+				}
+			}
+			for _, row := range rows {
+				keys = append(keys, c.DeriveVaultKey(d, f, Doc(row)))
+			}
+		}
+	}
+	return keys, nil
+}
+
+// vaultFieldHas reports whether a document's Vault field has a secret. A
+// DocType with no tenant keeps its secrets in the platform space, where every
+// space finds them.
+func (c *Ctx) vaultFieldHas(d *meta.DocType, key string) (bool, error) {
+	if d.TenantOwned || d.IsVirtual() {
+		return c.E.VaultHas(c.Ctx, c.Q(), key)
+	}
+	var has bool
+	err := c.platformVault(func(q db.Querier, where string) error {
+		var err error
+		has, err = vaultHasWhere(c.Ctx, q, key, where)
+		return err
+	})
+	return has, err
 }
 
 // vaultRead decrypts one secret and records nothing.
@@ -160,8 +269,12 @@ func (e *Engine) VaultGet(c *Ctx, name string) (string, bool, error) {
 // made under the ones a worker made, which is the opposite of what the log is
 // for. Anything an app or a person asks for goes through VaultGet.
 func vaultRead(ctx context.Context, q db.Querier, key []byte, name string) (string, bool, error) {
+	return vaultReadWhere(ctx, q, key, name, "")
+}
+
+func vaultReadWhere(ctx context.Context, q db.Querier, key []byte, name, where string) (string, bool, error) {
 	var ciphertext, nonce []byte
-	err := q.QueryRow(ctx, `SELECT ciphertext, nonce FROM ddcore_vault WHERE name = $1`, name).Scan(&ciphertext, &nonce)
+	err := q.QueryRow(ctx, `SELECT ciphertext, nonce FROM ddcore_vault WHERE name = $1`+where, name).Scan(&ciphertext, &nonce)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", false, nil
 	}
@@ -196,7 +309,7 @@ func (e *Engine) VaultDel(c *Ctx, name string) error {
 		return err
 	}
 
-	e.recordVaultAudit(c, name, "delete")
+	e.recordVaultAudit(c, name, "delete", nil)
 	return nil
 }
 
@@ -235,12 +348,16 @@ func (e *Engine) VaultList(c *Ctx, prefix string) ([]string, error) {
 
 // VaultHas checks whether a secret exists in ddcore_vault without decrypting or auditing read.
 func (e *Engine) VaultHas(ctx context.Context, q db.Querier, name string) (bool, error) {
+	return vaultHasWhere(ctx, q, name, "")
+}
+
+func vaultHasWhere(ctx context.Context, q db.Querier, name, where string) (bool, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return false, nil
 	}
 	var dummy int
-	err := q.QueryRow(ctx, `SELECT 1 FROM ddcore_vault WHERE name = $1`, name).Scan(&dummy)
+	err := q.QueryRow(ctx, `SELECT 1 FROM ddcore_vault WHERE name = $1`+where, name).Scan(&dummy)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, nil
 	}

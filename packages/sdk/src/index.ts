@@ -400,11 +400,16 @@ export interface DDCoreAPI {
    * Use this for machine credentials that belong to a row (e.g. one API token
    * per customer/tenant) where the set is dynamic and cannot be known at boot.
    * Values never appear in HTTP responses, MCP, Version diffs or exports.
+   *
+   * With tenancy, each space has its own secrets. `{ shared: true }` names the
+   * platform space's secret instead — where the `Vault` fields of a `shared`
+   * DocType are kept: every space reads it, only the platform space sets or
+   * deletes it.
    */
   vault: {
-    set(name: string, value: string): void;
-    get(name: string): string | null;
-    del(name: string): void;
+    set(name: string, value: string, opts?: { shared?: boolean }): void;
+    get(name: string, opts?: { shared?: boolean }): string | null;
+    del(name: string, opts?: { shared?: boolean }): void;
     list(prefix?: string): string[];
   };
   version: string;

@@ -14,6 +14,23 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- `ddcore.vault.get(name, { shared: true })` reads a secret of the platform space from any
+  space of a site with tenancy. `set` and `del` take the option too and are refused inside a
+  tenant: a shared secret is the platform's to change. The read is audited in the space it came
+  from, with `detail.shared`. See "With tenancy" in `vault` (#62).
+
+### Fixed
+
+- A `Vault` field on a `shared` DocType is readable from inside a tenant. Its secret is kept in
+  the platform space, where row-level security hid it from every tenant: the field read as not
+  configured and a required one as missing. Every space now sees it as configured, and reads the
+  value with `ddcore.vault.get(key, { shared: true })`. `ddcore tenant adopt` no longer moves
+  these secrets into the adopting tenant, and renaming a shared document no longer re-keys a
+  tenant's secret of the same name. `isSingle` with `shared` is one document for the whole
+  site, now documented. See "What belongs to a tenant" in `tenancy` (#62).
+
 ## 0.24.0 — 2026-10-02
 
 ### Added

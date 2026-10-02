@@ -126,7 +126,7 @@ func (c *Ctx) redactVault(d *meta.DocType, doc Doc) {
 	for _, f := range d.Fields {
 		if f.Fieldtype == "Vault" {
 			key := c.DeriveVaultKey(d, f, doc)
-			has, _ := c.E.VaultHas(c.Ctx, c.Q(), key)
+			has, _ := c.vaultFieldHas(d, key)
 			if has {
 				doc[f.Fieldname] = map[string]any{"configured": true}
 			} else {

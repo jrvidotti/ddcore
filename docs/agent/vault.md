@@ -45,6 +45,25 @@ ddcore.vault.del("asaas:token:ACC-00042");
 const keys = ddcore.vault.list("asaas:token:"); // ["asaas:token:ACC-00042", ...]
 ```
 
+### With tenancy
+
+On a site with [tenancy](tenancy.md) each space has its own secrets: the same name is a
+different secret in each tenant and in the platform space, and the calls above reach only the
+secrets of the space the code runs in.
+
+`{ shared: true }` names the platform space's secret instead, from whatever space the code
+runs in — a credential the operator keeps once for the whole site:
+
+```ts
+const pfx = ddcore.vault.get("Gateway Settings:pfx:singleton", { shared: true });
+```
+
+- `get(name, { shared: true })` works in every space. It does not fall back to the space's own
+  secret of that name, nor the other way around.
+- `set(name, value, { shared: true })` and `del(name, { shared: true })` are refused inside a
+  tenant (403); in the platform space they are the plain calls.
+- Without tenancy the option changes nothing.
+
 ---
 
 ## 3. Fieldtype `Vault`
@@ -81,6 +100,12 @@ export default defineDoctype({
    - Reading documents via REST API, Desk, or MCP never returns the plaintext secret. The field is redacted to `{ "configured": true }` if present, or `null` if not configured.
    - Excluded from `Version` diffs (audit history diffs will never leak secrets).
    - Excluded from data exports.
+5. **On a `shared` DocType (tenancy):** the secret is kept in the platform space, like the
+   document. Every space sees the field as `{ "configured": true }`, and reads the value with
+   `ddcore.vault.get(key, { shared: true })`; a plain `ddcore.vault.get(key)` inside a tenant
+   looks in the tenant's own secrets and returns `null`. Only the platform space saves the
+   document, so only it sets or clears the secret. Adopting the platform's rows into a tenant
+   (`ddcore tenant adopt`) leaves these secrets where they are.
 
 ---
 
@@ -103,6 +128,10 @@ The Desk provides a dedicated control for `Vault` fields:
 - `outcome`: `Allowed` (or `Denied`).
 - `ip`: Client IP address.
 - `request_id`: Request correlation ID.
+- `detail`: `{ "shared": true }` when a secret of the platform space was read with
+  `{ shared: true }`. With tenancy the event is recorded in the space the read came from: a
+  tenant's read of a shared secret is in that tenant's audit log
+  (`ddcore audit list --tenant <id>`), not in the platform's.
 
 Two paths are not audited:
 - `ddcore.vault.list` never touches the audit log — it never returns a value,

@@ -950,12 +950,12 @@
       __created(id) { return call("tenant.created", { key: String(id) }); },
     },
     vault: {
-      set(name, value) { return call("vault.set", { key: String(name), value: String(value) }); },
-      get(name) {
-        const res = call("vault.get", { key: String(name) });
+      set(name, value, opts) { return call("vault.set", { key: String(name), value: String(value), opts: opts || {} }); },
+      get(name, opts) {
+        const res = call("vault.get", { key: String(name), opts: opts || {} });
         return res ? res.value : null;
       },
-      del(name) { return call("vault.del", { key: String(name) }); },
+      del(name, opts) { return call("vault.del", { key: String(name), opts: opts || {} }); },
       list(prefix) { return call("vault.list", { prefix: prefix ? String(prefix) : "" }) || []; },
     },
     // Document sharing (SEC-03). Checked against the current user as sharer,
