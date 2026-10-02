@@ -36,6 +36,12 @@ export interface HttpOpts {
   responseType?: "text" | "base64";
   /** The largest response body accepted, in bytes; defaults to 10 MiB. A larger one throws. */
   maxBytes?: number;
+  /**
+   * A client certificate for mutual TLS: a PKCS#12 (`.pfx`) file, base64-encoded,
+   * with its password, or a PEM certificate and key. Calls with the same
+   * certificate share connections.
+   */
+  clientCert?: { pfx: string; password?: string } | { cert: string; key: string };
 }
 
 export interface HttpResponse {

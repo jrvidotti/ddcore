@@ -299,7 +299,7 @@ Invalid JSON: {0},JSON inválido: {0},# internal/api/api.go:384
 Invalid Single identity for {0},Identidade Single inválida para {0},# internal/engine/doc.go:434
 Invalid Single identity or status for {0},Identidade ou estado Single inválido para {0},# internal/engine/doc.go:1111
 Invalid URL,URL inválida,# internal/engine/webhooks.go:559
-Invalid arguments: {0},Argumentos inválidos: {0},# internal/engine/host.go:627
+Invalid arguments: {0},Argumentos inválidos: {0},# internal/engine/host.go:628
 Invalid barcode,Código de barras inválido,# desk/src/lib/controls/BarcodeControl.svelte:140
 "Invalid colour in {0}: ""{1}""","Cor inválida em {0}: ""{1}""",# internal/engine/doc.go:284
 Invalid column mapping: {0},Mapeamento de colunas inválido: {0},# internal/api/data_import.go:91
@@ -827,15 +827,19 @@ files.save needs a filename,files.save precisa de um filename,# internal/engine/
 "files.save needs exactly one of content, contentBase64 and fromUrl","files.save precisa de exatamente um entre content, contentBase64 e fromUrl",# internal/engine/files_api.go:189
 files.save: contentBase64 is not base64: {0},files.save: contentBase64 não é base64: {0},# internal/engine/files_api.go:203
 files.save: the file is larger than {0} bytes (raise maxBytes),files.save: o arquivo é maior que {0} bytes (aumente maxBytes),# internal/engine/files_api.go:227
-files.save: {0},files.save: {0},# internal/engine/host.go:309
+files.save: {0},files.save: {0},# internal/engine/host.go:310
 files.save: {0} answered {1},files.save: {0} respondeu {1},# internal/engine/files_api.go:211
-getValue: invalid fields,getValue: fields inválido,# internal/engine/host.go:189
+getValue: invalid fields,getValue: fields inválido,# internal/engine/host.go:190
 h,h,# desk/src/lib/controls/DurationControl.svelte:23
-"http: responseType must be ""text"" or ""base64"", not {0}","http: responseType deve ser ""text"" ou ""base64"", não {0}",# internal/engine/host.go:755
-http: the response from {0} is larger than {1} bytes (raise opts.maxBytes),http: a resposta de {0} é maior que {1} bytes (aumente opts.maxBytes),# internal/engine/host.go:813
-http: {0},http: {0},# internal/engine/host.go:794
+http: clientCert could not be read: wrong password or malformed file,http: não foi possível ler clientCert: senha incorreta ou arquivo malformado,# internal/engine/http_mtls.go:108
+http: clientCert takes either pfx or cert and key,http: clientCert recebe pfx ou cert e key,# internal/engine/http_mtls.go:53
+http: clientCert.cert and clientCert.key are not a valid PEM pair,http: clientCert.cert e clientCert.key não são um par PEM válido,# internal/engine/http_mtls.go:97
+http: clientCert.pfx is not valid base64,http: clientCert.pfx não é base64 válido,# internal/engine/http_mtls.go:104
+"http: responseType must be ""text"" or ""base64"", not {0}","http: responseType deve ser ""text"" ou ""base64"", não {0}",# internal/engine/host.go:756
+http: the response from {0} is larger than {1} bytes (raise opts.maxBytes),http: a resposta de {0} é maior que {1} bytes (aumente opts.maxBytes),# internal/engine/host.go:822
+http: {0},http: {0},# internal/engine/host.go:796
 id is required,id é obrigatório,# internal/api/assignments.go:137
-invalid arguments in {0}: {1},argumentos inválidos em {0}: {1},# internal/engine/host.go:96
+invalid arguments in {0}: {1},argumentos inválidos em {0}: {1},# internal/engine/host.go:97
 job {0} timed out,job {0} excedeu o tempo limite,# internal/engine/jobs.go:231
 m,min,# desk/src/lib/controls/DurationControl.svelte:23
 manifest.json is not readable: {0},manifest.json não pôde ser lido: {0},# internal/engine/import_source.go:64
@@ -843,7 +847,7 @@ manifest.json lists no exports,manifest.json não lista nenhuma exportação,# i
 never,nunca,# desk/src/lib/components/Profile.svelte:271
 or,ou,# desk/src/routes/login/+page.svelte:72
 patch sql: {0},sql do patch: {0},# internal/engine/query.go:759
-"publish: {0} is not a valid event name (letters, digits, _ . : -)","publish: {0} não é um nome de evento válido (letras, dígitos, _ . : -)",# internal/engine/host.go:326
+"publish: {0} is not a valid event name (letters, digits, _ . : -)","publish: {0} não é um nome de evento válido (letras, dígitos, _ . : -)",# internal/engine/host.go:327
 records,registros,# desk/src/lib/components/ListView.svelte:585
 "run {0} loaded {1}, not {2}","a execução {0} carregou {1}, não {2}",# internal/engine/import_batch.go:27
 runAs needs a user,runAs precisa de um usuário,# internal/engine/asuser.go:105
@@ -854,7 +858,7 @@ s,s,# desk/src/lib/controls/DurationControl.svelte:23
 since: {0} is not a duration,since: {0} não é uma duração,# internal/api/jobs.go:57
 title,título,# desk/src/lib/components/FormView.svelte:287
 to submit,para enviar,# desk/src/lib/components/DocSidebar.svelte:355
-unknown bridge operation: {0},operação desconhecida no bridge: {0},# internal/engine/host.go:670
+unknown bridge operation: {0},operação desconhecida no bridge: {0},# internal/engine/host.go:671
 user is required,user é obrigatório,# internal/engine/share.go:294
 webhook payload for {0} is not JSON: {1},o conteúdo do webhook para {0} não é JSON: {1},# internal/engine/webhooks.go:263
 "{0} ""{1}"" already exists","{0} ""{1}"" já existe",# internal/engine/doc.go:2101
