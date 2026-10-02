@@ -662,6 +662,32 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 			return nil, cerr.Permission("ddcore.test is only available inside ddcore test")
 		}
 		return nil, c.testRootCtx().RollbackTo()
+	// ---- tenancy ------------------------------------------------------------
+	case "tenant.current":
+		return c.Tenant, nil
+	case "tenant.list":
+		return c.TenantList()
+	case "tenant.enter":
+		if !c.Tenancy() {
+			return nil, cerr.Validation("This site has no tenants: tenancy is off")
+		}
+		if c.Tenant != "" && c.Tenant != a.Key {
+			return nil, cerr.Permission("A tenant cannot enter another tenant")
+		}
+		// entering the tenant the ctx is already in still nests, so that the
+		// leave that follows has something to undo
+		_, err := c.enterTenantCtx(a.Key)
+		return nil, err
+	case "tenant.leave":
+		if _, err := c.leaveTenantCtx(); err != nil {
+			c.E.Log.Warn("could not return from a tenant", "err", err)
+		}
+		return nil, nil
+	case "tenant.created":
+		if c.Tenant != "" {
+			return nil, cerr.Permission("Tenants are managed from the platform space")
+		}
+		return nil, c.TenantCreated(a.Key)
 	case "test.asUser":
 		return nil, c.testAsUser(a.User)
 	case "test.restoreUser":

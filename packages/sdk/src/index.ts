@@ -353,6 +353,24 @@ export interface DDCoreAPI {
    */
   externalDb(name: string): ExternalDb;
   /**
+   * Tenancy: several customers in one database, each confined to its own rows
+   * (`"tenancy": true` in ddcore.json). Code runs in one space — a tenant, or
+   * the platform space where Admin, scheduled methods and migrations work.
+   * See `tenancy`.
+   */
+  tenant: {
+    /** The tenant this code is working in; `""` in the platform space, and always without tenancy. */
+    current(): string;
+    /** Every tenant. Platform space only. */
+    list(): { id: string; title: string; enabled: boolean }[];
+    /**
+     * Runs `fn` inside a tenant, on the current transaction: what it reads and
+     * writes there are that tenant's rows. Only the platform space can enter a
+     * tenant — a scheduled method fanning out, a migration patch backfilling.
+     */
+    run<T>(id: string, fn: () => T): T;
+  };
+  /**
    * An encrypted credential vault, stored in the database but encrypted at
    * rest with `DDCORE_SECRET_KEY` and audited on every read, write and delete.
    *

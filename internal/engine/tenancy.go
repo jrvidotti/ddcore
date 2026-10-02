@@ -355,12 +355,28 @@ func (c *Ctx) InTenant(id string, fn func(*Ctx) error) error {
 	if c.Tx == nil {
 		return c.E.NewCtx(WithTenant(c.Ctx, id), c.User).Run(fn)
 	}
-	if err := c.E.checkTenant(c.Ctx, c.Tx, id); err != nil {
+	child, err := c.enterTenantCtx(id)
+	if err != nil {
 		return err
+	}
+	ferr := fn(child)
+	if _, err := child.leaveTenantCtx(); err != nil && ferr == nil {
+		return err
+	}
+	return ferr
+}
+
+// enterTenantCtx builds the ctx that works in tenant id on this ctx's
+// transaction and VM, and makes it the VM's current one; leaveTenantCtx
+// undoes it. InTenant brackets a Go callback with the pair, and
+// ddcore.tenant.run a TS one.
+func (c *Ctx) enterTenantCtx(id string) (*Ctx, error) {
+	if err := c.E.checkTenant(c.Ctx, c.Tx, id); err != nil {
+		return nil, err
 	}
 	rt, err := c.RT()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	child := c.E.NewCtx(c.Ctx, c.User)
 	child.St, child.Tx, child.rt = c.St, c.Tx, rt
@@ -368,26 +384,80 @@ func (c *Ctx) InTenant(id string, fn func(*Ctx) error) error {
 	child.Lang, child.ReqID, child.Sid = c.Lang, c.ReqID, c.Sid
 	child.savepoint, child.roSavepoint = c.savepoint, c.roSavepoint
 	child.Tenant, child.spaced = id, true
+	child.tenantParent = c
 	// the privileged flags travel: a job or a migration that enters a tenant
 	// is still a job or a migration. Roles and scopes are read again there.
-	for _, k := range []string{"ignorePermissions", bypassMaintenanceFlag} {
+	for _, k := range []string{"ignorePermissions", bypassMaintenanceFlag, "inPatch"} {
 		if v, ok := c.Flags[k]; ok {
 			child.Flags[k] = v
 		}
 	}
 	if err := child.applySpace(); err != nil {
-		return err
+		return nil, err
 	}
-	old := rt.Ctx
 	rt.Ctx = child
-	defer func() { rt.Ctx = old }()
-	ferr := fn(child)
-	c.afterCommit = append(c.afterCommit, child.afterCommit...)
-	c.docCache = map[string]Doc{}
-	if err := c.applySpace(); err != nil && ferr == nil {
-		return err
+	return child, nil
+}
+
+// leaveTenantCtx returns the VM and the transaction to the ctx that entered
+// the tenant, and returns that ctx.
+func (c *Ctx) leaveTenantCtx() (*Ctx, error) {
+	parent := c.tenantParent
+	if parent == nil {
+		return c, nil
 	}
-	return ferr
+	c.tenantParent = nil
+	parent.rt.Ctx = parent
+	parent.afterCommit = append(parent.afterCommit, c.afterCommit...)
+	parent.Messages = append(parent.Messages, c.Messages...)
+	parent.savepoint, parent.roSavepoint = c.savepoint, c.roSavepoint
+	parent.docCache = map[string]Doc{}
+	return parent, parent.applySpace()
+}
+
+// TenantList is the tenants of the site, for the platform space's own code:
+// a scheduled method that has work in each of them.
+func (c *Ctx) TenantList() ([]map[string]any, error) {
+	if !c.Tenancy() {
+		return []map[string]any{}, nil
+	}
+	if c.Tenant != "" {
+		return nil, cerr.Permission("Tenants are managed from the platform space")
+	}
+	rows, err := db.Select(c.Ctx, c.Q(), `SELECT id, title, enabled IS TRUE AS enabled FROM tab_tenant ORDER BY id`)
+	if err != nil {
+		return nil, err
+	}
+	if rows == nil {
+		rows = []map[string]any{}
+	}
+	return rows, nil
+}
+
+// TenantCreated runs every app's onTenantCreate inside a tenant that was just
+// created. Fixtures and afterInstall fill the platform space only, so this is
+// where an app gives a new tenant the records it cannot start without. The
+// Tenant controller calls it, so it happens however the tenant was made.
+func (c *Ctx) TenantCreated(id string) error {
+	if !c.Tenancy() {
+		return nil
+	}
+	return c.InTenant(id, func(t *Ctx) error {
+		rt, err := t.RT()
+		if err != nil {
+			return err
+		}
+		return t.WithIgnorePermissions(func() error {
+			for _, name := range t.St.AppOrder() {
+				if t.St.Snap.Apps[name].HasOnTenantCreate {
+					if err := rt.AppHook(name, "onTenantCreate"); err != nil {
+						return fmt.Errorf("%s.onTenantCreate: %w", name, err)
+					}
+				}
+			}
+			return nil
+		})
+	})
 }
 
 // spaceRefusal is what tenancy forbids a tenant's ctx on a DocType that is

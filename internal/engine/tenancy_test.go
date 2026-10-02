@@ -526,3 +526,50 @@ func TestTenantAppCacheIsPerTenant(t *testing.T) {
 		return nil
 	})
 }
+
+func TestTenantServerAPI(t *testing.T) {
+	e := migratedEngine(t, Config{Test: true, Tenancy: true, Apps: []js.App{{Name: "demo", Dir: testApp(t, tenancyFiles, map[string]string{
+		"ddcore.app.ts": `import { defineApp } from "@ddcore/sdk";
+export default defineApp({ name: "demo", title: "Demo", roles: ["Gestor"],
+  onTenantCreate() { ddcore.newDoc("Pessoa", { nome: "Semente de " + ddcore.tenant.current(), cpf: "1" }).insert(); } });`,
+		"services/plataforma.ts": `export function porTenant() {
+  const out: Record<string, string[]> = {};
+  for (const t of ddcore.tenant.list()) {
+    out[t.id] = ddcore.tenant.run(t.id, () => ddcore.db.getAll("Pessoa", { fields: ["id"], orderBy: "id asc" }).map((r: any) => r.id));
+  }
+  out[""] = ddcore.db.getAll("Pessoa", { fields: ["id"] }).map((r: any) => r.id);
+  return { out, onde: ddcore.tenant.current() };
+}
+export function invadir() { return ddcore.tenant.run("beta", () => 1); }
+export function listar() { return ddcore.tenant.list(); }`,
+	})}}})
+	runAs(t, e, "Admin", func(c *Ctx) error {
+		for _, id := range []string{tenantA, tenantB} {
+			if err := insertDoc(c, "Tenant", Doc{"slug": id, "title": id}); err != nil {
+				return err
+			}
+		}
+		wantStatus(t, insertDoc(c, "Tenant", Doc{"slug": "Não Vale", "title": "x"}), 417)
+		return nil
+	})
+	inTenant(t, e, tenantA, func(c *Ctx) error {
+		return insertDoc(c, "User", Doc{"email": userA, "full_name": userA, "roles": []any{map[string]any{"role": "Gestor"}}})
+	})
+
+	// each tenant was seeded by the app when it was created; the platform was not
+	out, err := e.RunJob(context.Background(), "Admin", "demo.services.plataforma.porTenant", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`"onde":""`, `"":[]`, `"alfa":["Semente de alfa"]`, `"beta":["Semente de beta"]`} {
+		if !strings.Contains(string(out), want) {
+			t.Fatalf("missing %s in %s", want, out)
+		}
+	}
+
+	// a tenant's code enters no other tenant and lists none
+	_, err = e.RunJob(context.Background(), userA, "demo.services.plataforma.invadir", nil)
+	wantStatus(t, err, 403)
+	_, err = e.RunJob(context.Background(), userA, "demo.services.plataforma.listar", nil)
+	wantStatus(t, err, 403)
+}

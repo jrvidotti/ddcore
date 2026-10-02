@@ -136,7 +136,9 @@ type AppMeta struct {
 	Fixtures        map[string][]map[string]any `json:"fixtures"`
 	HasAfterInstall bool                        `json:"hasAfterInstall"`
 	HasAfterMigrate bool                        `json:"hasAfterMigrate"`
-	Dir             string                      `json:"-"`
+	// HasOnTenantCreate: the app seeds each new tenant (tenancy).
+	HasOnTenantCreate bool   `json:"hasOnTenantCreate"`
+	Dir               string `json:"-"`
 }
 
 type Whitelisted struct {
@@ -922,6 +924,8 @@ type Ctx struct {
 	portalIdent map[string][]Doc
 	// asUserParent is the ctx a test's ddcore.test.asUser switched away from.
 	asUserParent *Ctx
+	// tenantParent is the ctx that entered the tenant this one works in.
+	tenantParent *Ctx
 	// system lifts the ctx out of row-level security for its whole
 	// transaction; only RunSystem and Migrate set it.
 	system bool

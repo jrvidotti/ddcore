@@ -781,6 +781,12 @@ export interface AppDef {
   };
   afterInstall?: (ctx: Context) => void;
   afterMigrate?: (ctx: Context) => void;
+  /**
+   * Runs inside each tenant when it is created (tenancy). Fixtures and
+   * `afterInstall` fill the platform space only, so this is where the app
+   * gives a new tenant the records it cannot start without.
+   */
+  onTenantCreate?: (ctx: Context) => void;
   desk?: {
     /** client scripts (relative to app dir) loaded in every desk page */
     include?: string[];
