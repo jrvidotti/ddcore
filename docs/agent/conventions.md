@@ -26,6 +26,8 @@
 
 A module's dotted path is `<app>.<folder>.<file>` (no `.ts`). For example: `my_app.services.tasks.run`.
 That is the form used by `whitelisted`, `scheduler`, `ddcore.enqueue`, `ddcore exec` and the `call_method` tool.
+A `scheduler` entry is that path, or `{ method, runAs }` to run it under a user's roles and access scopes
+instead of as `Admin` (see `scopes`).
 
 ## What the app puts on the desk
 

@@ -299,7 +299,7 @@ Invalid JSON: {0},JSON inválido: {0},# internal/api/api.go:384
 Invalid Single identity for {0},Identidade Single inválida para {0},# internal/engine/doc.go:434
 Invalid Single identity or status for {0},Identidade ou estado Single inválido para {0},# internal/engine/doc.go:1111
 Invalid URL,URL inválida,# internal/engine/webhooks.go:559
-Invalid arguments: {0},Argumentos inválidos: {0},# internal/engine/host.go:625
+Invalid arguments: {0},Argumentos inválidos: {0},# internal/engine/host.go:627
 Invalid barcode,Código de barras inválido,# desk/src/lib/controls/BarcodeControl.svelte:140
 "Invalid colour in {0}: ""{1}""","Cor inválida em {0}: ""{1}""",# internal/engine/doc.go:284
 Invalid column mapping: {0},Mapeamento de colunas inválido: {0},# internal/api/data_import.go:91
@@ -797,8 +797,8 @@ ddcore.db.lock: provide a key,ddcore.db.lock: informe uma chave,# internal/engin
 ddcore.db.sql only accepts SELECT,ddcore.db.sql aceita apenas SELECT,# internal/engine/query.go:776
 ddcore.externalDb().sql only accepts SELECT,ddcore.externalDb().sql aceita apenas SELECT,# internal/engine/externaldb.go:175
 ddcore.externalDb: provide a name,ddcore.externalDb: informe um nome,# internal/engine/externaldb.go:52
-ddcore.test is only available inside ddcore test,ddcore.test só está disponível dentro do ddcore test,# internal/engine/asuser.go:76
-ddcore.test.asUser needs a user,ddcore.test.asUser precisa de um usuário,# internal/engine/asuser.go:79
+ddcore.test is only available inside ddcore test,ddcore.test só está disponível dentro do ddcore test,# internal/engine/asuser.go:146
+ddcore.test.asUser needs a user,ddcore.test.asUser precisa de um usuário,# internal/engine/asuser.go:149
 doctype and id are required,doctype e id são obrigatórios,# internal/api/workflow.go:78
 "doctype, id and action are required","doctype, id e action são obrigatórios",# internal/api/workflow.go:56
 "doctype, id and allocated_to are required","doctype, id e allocated_to são obrigatórios",# internal/api/assignments.go:40
@@ -807,6 +807,7 @@ e.g. the invoicing script,ex.: o script de faturamento,# desk/src/lib/components
 edited,editado,# desk/src/lib/components/DocSidebar.svelte:320
 enqueue: backoff must be {0} or {1},enqueue: backoff deve ser {0} ou {1},# internal/engine/jobs.go:92
 enqueue: provide the method,enqueue: informe o método,# internal/engine/jobs.go:60
+enqueue: runAs must be a user,enqueue: runAs deve ser um usuário,# internal/engine/jobs.go:126
 enqueue: uniqueKey must be a non-empty string,enqueue: uniqueKey deve ser um texto não vazio,# internal/engine/jobs.go:115
 enqueue: {0} must be a method path,enqueue: {0} deve ser o caminho de um método,# internal/engine/jobs.go:107
 failed to build Gotenberg request: {0},falha ao construir requisição para o Gotenberg: {0},# internal/print/pdf.go:160
@@ -830,12 +831,12 @@ files.save: {0},files.save: {0},# internal/engine/host.go:309
 files.save: {0} answered {1},files.save: {0} respondeu {1},# internal/engine/files_api.go:211
 getValue: invalid fields,getValue: fields inválido,# internal/engine/host.go:189
 h,h,# desk/src/lib/controls/DurationControl.svelte:23
-"http: responseType must be ""text"" or ""base64"", not {0}","http: responseType deve ser ""text"" ou ""base64"", não {0}",# internal/engine/host.go:748
-http: the response from {0} is larger than {1} bytes (raise opts.maxBytes),http: a resposta de {0} é maior que {1} bytes (aumente opts.maxBytes),# internal/engine/host.go:806
-http: {0},http: {0},# internal/engine/host.go:787
+"http: responseType must be ""text"" or ""base64"", not {0}","http: responseType deve ser ""text"" ou ""base64"", não {0}",# internal/engine/host.go:755
+http: the response from {0} is larger than {1} bytes (raise opts.maxBytes),http: a resposta de {0} é maior que {1} bytes (aumente opts.maxBytes),# internal/engine/host.go:813
+http: {0},http: {0},# internal/engine/host.go:794
 id is required,id é obrigatório,# internal/api/assignments.go:137
 invalid arguments in {0}: {1},argumentos inválidos em {0}: {1},# internal/engine/host.go:96
-job {0} timed out,job {0} excedeu o tempo limite,# internal/engine/jobs.go:200
+job {0} timed out,job {0} excedeu o tempo limite,# internal/engine/jobs.go:231
 m,min,# desk/src/lib/controls/DurationControl.svelte:23
 manifest.json is not readable: {0},manifest.json não pôde ser lido: {0},# internal/engine/import_source.go:64
 manifest.json lists no exports,manifest.json não lista nenhuma exportação,# internal/engine/import_source.go:70
@@ -845,12 +846,15 @@ patch sql: {0},sql do patch: {0},# internal/engine/query.go:759
 "publish: {0} is not a valid event name (letters, digits, _ . : -)","publish: {0} não é um nome de evento válido (letras, dígitos, _ . : -)",# internal/engine/host.go:326
 records,registros,# desk/src/lib/components/ListView.svelte:585
 "run {0} loaded {1}, not {2}","a execução {0} carregou {1}, não {2}",# internal/engine/import_batch.go:27
+runAs needs a user,runAs precisa de um usuário,# internal/engine/asuser.go:105
+runAs: user {0} does not exist,runAs: o usuário {0} não existe,# internal/engine/asuser.go:114
+runAs: user {0} is disabled,runAs: o usuário {0} está desabilitado,# internal/engine/asuser.go:117
 runtime without a context (op {0}),runtime sem contexto (op {0}),# internal/engine/host.go:31
 s,s,# desk/src/lib/controls/DurationControl.svelte:23
 since: {0} is not a duration,since: {0} não é uma duração,# internal/api/jobs.go:57
 title,título,# desk/src/lib/components/FormView.svelte:287
 to submit,para enviar,# desk/src/lib/components/DocSidebar.svelte:355
-unknown bridge operation: {0},operação desconhecida no bridge: {0},# internal/engine/host.go:663
+unknown bridge operation: {0},operação desconhecida no bridge: {0},# internal/engine/host.go:670
 user is required,user é obrigatório,# internal/engine/share.go:294
 webhook payload for {0} is not JSON: {1},o conteúdo do webhook para {0} não é JSON: {1},# internal/engine/webhooks.go:263
 "{0} ""{1}"" already exists","{0} ""{1}"" já existe",# internal/engine/doc.go:2101

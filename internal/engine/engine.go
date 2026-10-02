@@ -904,7 +904,8 @@ type Ctx struct {
 	portal      bool
 	userType    string
 	portalIdent map[string][]Doc
-	// asUserParent is the ctx a test's ddcore.test.asUser switched away from.
+	// asUserParent is the ctx that ddcore.runAs, or a test's ddcore.test.asUser,
+	// switched away from.
 	asUserParent *Ctx
 }
 
@@ -1030,7 +1031,13 @@ func (c *Ctx) RT() (*js.Runtime, error) {
 	return c.rt, nil
 }
 
-func (c *Ctx) AfterCommit(f func()) { c.afterCommit = append(c.afterCommit, f) }
+// AfterCommit runs f once the transaction commits. Like AfterRollback, it
+// registers on the ctx that owns the transaction: a ctx acting as another user
+// shares it, and only the owner's list is run at commit.
+func (c *Ctx) AfterCommit(f func()) {
+	o := c.owner()
+	o.afterCommit = append(o.afterCommit, f)
+}
 
 // AfterRollback runs f if the transaction, or the savepoint f was registered
 // in, is rolled back. Without a transaction there is nothing to roll back and
@@ -1187,7 +1194,7 @@ func (c *Ctx) WithSavepoint(fn func() error) error {
 		return err
 	}
 	o := c.owner()
-	pending, pendingRollback := len(c.afterCommit), len(o.afterRollback)
+	pending, pendingRollback := len(o.afterCommit), len(o.afterRollback)
 	if err := fn(); err != nil {
 		if _, rbErr := c.Tx.Exec(c.Ctx, "ROLLBACK TO SAVEPOINT "+sp); rbErr != nil {
 			c.E.Log.Warn("could not roll back to savepoint", "savepoint", sp, "err", rbErr)
@@ -1195,7 +1202,7 @@ func (c *Ctx) WithSavepoint(fn func() error) error {
 		if _, relErr := c.Tx.Exec(c.Ctx, "RELEASE SAVEPOINT "+sp); relErr != nil {
 			c.E.Log.Warn("could not release savepoint", "savepoint", sp, "err", relErr)
 		}
-		c.afterCommit = c.afterCommit[:pending]
+		o.afterCommit = o.afterCommit[:pending]
 		undo := o.afterRollback[pendingRollback:]
 		o.afterRollback = o.afterRollback[:pendingRollback]
 		for i := len(undo) - 1; i >= 0; i-- {

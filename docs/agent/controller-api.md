@@ -50,7 +50,8 @@ export const receive = whitelisted((args, ctx) => {
   const { rawBody, headers } = ctx.request!;
   const want = "sha256=" + ddcore.crypto.hmacSha256(ddcore.secret("META_APP_SECRET")!, rawBody!);
   if (!ddcore.crypto.timingSafeEqual(want, headers!["x-hub-signature-256"] ?? "")) ddcore.throw("Forbidden");
-  // …
+  // the call arrived as Guest: do the work as the user this integration acts for
+  ddcore.runAs(integrationUser, () => { /* reads and writes honour that user's scopes */ });
 }, { allowGuest: true, methods: ["POST"] });
 ```
 
@@ -152,12 +153,17 @@ by hand.
 - `HttpResponse` exposes `{ status, body, headers, json() }`. `body` is text (base64 with `responseType: "base64"`) and `json()` parses it. Response header names use Go's canonical HTTP casing (for example, `response.headers["Ratelimit-Remaining"]`); repeated values are joined with `", "`. HTTP error statuses are returned as responses; transport errors throw.
 - `ddcore.files.save({ doctype?, id?, fieldname?, filename, isPrivate?, contentType?, content | contentBase64 | fromUrl, headers?, maxBytes?, timeout?, ignorePermissions? })` → the `File` document. Stores bytes the server holds or downloads, with the rules of an upload; see [storage](storage.md#from-server-code).
 - `ddcore.files.presign(fileUrl, { ttl?, ignorePermissions? })` → a URL anyone can GET the file at for `ttl` seconds. S3 backend only; see [storage](storage.md#from-server-code).
-- `ddcore.enqueue("app.services.mod.fn", args, { queue, runAfter, timeout, maxAttempts, backoff, onStart, onFailure, uniqueKey })` → the job id. With `uniqueKey`, a job still `queued` under the same key makes the call a no-op that returns that job's id (see [ops](ops.md)).
+- `ddcore.enqueue("app.services.mod.fn", args, { queue, runAfter, timeout, maxAttempts, backoff, onStart, onFailure, uniqueKey, runAs })` → the job id. With `uniqueKey`, a job still `queued` under the same key makes the call a no-op that returns that job's id (see [ops](ops.md)).
   Written on the current transaction, so the job exists only if the request commits. `maxAttempts`
   defaults to 3; use `1` for work whose effects outside the database must not be repeated.
   `onStart` / `onFailure` are method paths called as `fn(args, job)`, each in a transaction of its
   own, so a document can show that its job is running or that it failed. See `ops` → "Lifecycle
-  callbacks".
+  callbacks". `runAs` is the user the job acts as: without it a job runs with permissions ignored,
+  with it the body and both callbacks run under that user's roles and access scopes.
+- `ddcore.runAs(user, fn)` → what `fn` returns. Runs `fn` under `user`'s roles and access scopes, in
+  the current transaction, and restores the caller afterwards, even when `fn` throws. It is how a
+  job, a scheduled method or a guest webhook gets the isolation a request has; the user must exist
+  and be enabled. See `scopes` → "Running as a user: `runAs`"
 - `ddcore.callMethod("app.services.mod.fn", args)` → what the function returns. Calls an exported function of any loaded module as `fn(args, ctx)`, now, in the current transaction; no role or `whitelisted` check. See `conventions` → "Calling another app's server code"
 - `ddcore.isTest()` → `true` inside `ddcore test`; `ddcore.isJob()` → `true` inside a background job
 - `ddcore.publish(event, payload, { user, doctype, id })` — SSE to the desk when the transaction commits. With `user`, only that user's sessions; with `doctype` and `id`, only sessions that may read that document (with `doctype` alone, the DocType) — the audience `doc_update` has. The name is letters, digits and `_ . : -`; prefix it with the app's name. The desk listens with `frm.onRealtime` / `ddcore.realtime.on` (see `form-api`)

@@ -110,6 +110,8 @@ export interface JobInfo {
   /** 1 on the first attempt; 0 for a job cancelled before any attempt. */
   attempt: number;
   maxAttempts: number;
+  /** The user the job acts as, when it was queued with `runAs`. */
+  runAs?: string;
 }
 
 /** What a job's `onFailure` callback is told about the attempt that ended. */
@@ -197,8 +199,13 @@ export interface DDCoreAPI {
    * still `queued`, the call queues nothing and returns that job's id. A job
    * that has been claimed no longer holds the key, so work arriving while it
    * runs queues a new one. The key is global; prefix it with your app's name.
+   *
+   * `runAs` is the user the job acts as. Without it a job runs as whoever
+   * queued it with permissions ignored; with it the body and both callbacks run
+   * under that user's roles and access scopes, as `ddcore.runAs` would. The user
+   * must exist and be enabled, when the job is queued and when it runs.
    */
-  enqueue(method: string, args?: Record<string, any>, opts?: { queue?: string; runAfter?: string; timeout?: number; maxAttempts?: number; backoff?: "fixed" | "exponential"; onStart?: string; onFailure?: string; uniqueKey?: string }): number;
+  enqueue(method: string, args?: Record<string, any>, opts?: { queue?: string; runAfter?: string; timeout?: number; maxAttempts?: number; backoff?: "fixed" | "exponential"; onStart?: string; onFailure?: string; uniqueKey?: string; runAs?: string }): number;
   /**
    * Queues one message from a registered template and returns the id of its
    * `Email Delivery` record.
@@ -314,6 +321,16 @@ export interface DDCoreAPI {
   isTest(): boolean;
   /** true when running in a job/migrate rather than a request */
   isJob(): boolean;
+  /**
+   * Runs `fn` as `user` and returns what it returns. Inside it every read and
+   * write honours that user's roles and access scopes — including in a job, a
+   * scheduled method or a guest webhook, where nothing else applies them — and
+   * `owner`, `modified_by` and audit events record that user. It shares the
+   * caller's transaction, restores the caller when `fn` returns or throws, and
+   * nests. `ddcore.session` follows the switch; a `ctx` argument received
+   * earlier does not. Throws when the user does not exist or is disabled.
+   */
+  runAs<T>(user: string, fn: () => T): T;
   form: { addComment?(doctype: string, id: string, text: string): void };
   callMethod(method: string, args?: Record<string, any>): any;
   rename(doctype: string, oldID: string, newID: string): string;

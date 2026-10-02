@@ -50,7 +50,7 @@ export default defineApp({
 %s
   roles: [],
   // docEvents: { "User": { validate(doc) {} } },
-  // scheduler: { daily: ["%s.services.tasks.daily"] },
+  // scheduler: { daily: ["%s.services.tasks.daily"] },  // or { method, runAs: user }
   desk: { include: [] },
 });
 `, name, title, rangeLine, name),

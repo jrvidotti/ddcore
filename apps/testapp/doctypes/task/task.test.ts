@@ -167,5 +167,24 @@ describe("Task", () => {
     expect(ddcore.hasPermission("Task", "read", t2.id, user)).toBe(false);
     expect(ddcore.hasPermission("Task", "read", t2.id)).toBe(true);
   });
-});
 
+  it("runAs applies a user's scope to server code and records them as the author", () => {
+    const mine = makeProject();
+    const other = makeProject();
+    makeTask(mine.id);
+    makeTask(other.id);
+    const user = "contributor-" + u().randomString(6).toLowerCase() + "@testapp.test";
+    ddcore.newDoc("User", { email: user, full_name: "Contributor", roles: [{ role: "Project Contributor" }] }).insert();
+    ddcore.newDoc("User Permission", { user, allow: "Project", for_value: mine.id }).insert();
+
+    const created = ddcore.runAs(user, () => {
+      const seen = ddcore.db.getList<Task>("Task", { fields: ["project"], filters: { project: ["in", [mine.id, other.id]] } });
+      expect(seen.map((t) => t.project)).toEqual([mine.id]);
+      expect(() => makeTask(other.id)).toThrow();
+      return makeTask(mine.id);
+    });
+    expect(ddcore.session.user).toBe("Admin");
+    expect(ddcore.db.getValue("Task", created.id, "owner")).toBe(user);
+    expect(() => ddcore.runAs("nobody@testapp.test", () => 1)).toThrow();
+  });
+});
