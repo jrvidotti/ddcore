@@ -1897,9 +1897,12 @@ func (c *Ctx) checkMandatory(d *meta.DocType, doc Doc, checks fieldChecks) error
 }
 
 // checkReadOnlyDependsOn enforces readOnlyDependsOn on the server: hiding the
-// field on screen is not authorization. The expression is evaluated against the
-// saved document — the state the user saw — and applies only to external changes;
-// what controllers calculate afterwards remains permitted.
+// field on screen is not authorization. A field is locked when the expression
+// holds on the stored document and on the one being saved: a save that
+// unlocks the field may change it too, as two saves in a row would, and the
+// desk, which judges the document on screen, has already let the user edit.
+// It applies only to external changes; what controllers calculate afterwards
+// remains permitted.
 func (c *Ctx) checkReadOnlyDependsOn(d *meta.DocType, doc, before Doc) error {
 	if before == nil {
 		return nil
@@ -1925,6 +1928,11 @@ func (c *Ctx) checkReadOnlyDependsOn(d *meta.DocType, doc, before Doc) error {
 			if db.Str(nv) == db.Str(ov) {
 				continue
 			}
+		}
+		if ro, err = c.evalExpr(f.ReadOnlyDependsOn, doc); err != nil {
+			return err
+		} else if !ro {
+			continue
 		}
 		return cerr.Validation("{0} is read-only on this document", c.T(f.Label)).WithTitleKey("Read-only field")
 	}

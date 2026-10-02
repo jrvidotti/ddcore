@@ -664,6 +664,40 @@ func TestReadOnlyDependsOnServerSide(t *testing.T) {
 	}
 }
 
+// #61: a save that unlocks a field may change it too. The field is refused
+// only when the expression holds on the stored document and on the one
+// being saved — what two saves in a row would allow, one does.
+func TestReadOnlyDependsOnUnlockInTheSameSave(t *testing.T) {
+	e := setup(t)
+	err := e.Run(context.Background(), "Admin", func(c *Ctx) error {
+		p, err := c.Insert(mustDoc(t, c, "Pessoa", Doc{"nome": "Unlock", "cpf": "561", "tipo": "PJ", "codigo": "A"}), SaveOpts{})
+		if err != nil {
+			return err
+		}
+		p["tipo"], p["codigo"] = "PF", "B"
+		if p, err = c.Save(p, SaveOpts{}); err != nil {
+			t.Fatalf("unlocking and editing in one save was refused: %v", err)
+		}
+		if p.Str("codigo") != "B" {
+			t.Fatalf("codigo = %q, want B", p.Str("codigo"))
+		}
+		// locking and editing in one save was always fine
+		p["tipo"], p["codigo"] = "PJ", "C"
+		if p, err = c.Save(p, SaveOpts{}); err != nil {
+			return err
+		}
+		// locked before and after: refused
+		p["codigo"] = "D"
+		if _, err := c.Save(p, SaveOpts{}); err == nil || !strings.Contains(err.Error(), "is read-only") {
+			t.Fatalf("readOnlyDependsOn was not enforced: %v", err)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 // B04 — Version diff cannot record passwords or password hashes.
 func TestB04_VersionDoesNotStoreSecret(t *testing.T) {
 	e := setup(t)

@@ -50,6 +50,11 @@ older series, and `whats_new` reads across every one of them.
 - Events and cache invalidations registered while the server acted as another user are no longer
   dropped at commit. It affected the writes made on a recipient's behalf by notifications, and
   would have affected every write under `ddcore.runAs`.
+- A save that unlocks a `readOnlyDependsOn` field may edit it too. The server judged the
+  expression on the stored document alone, so setting `status` back to `"Open"` and editing in
+  the same save was refused with "… is read-only on this document", although the desk had
+  already unlocked the field. A change is now refused only when the expression holds on the
+  stored document and on the one being saved. See "Field properties" in `fieldtypes` (#61).
 
 ## 0.23.5 — 2026-10-01
 
