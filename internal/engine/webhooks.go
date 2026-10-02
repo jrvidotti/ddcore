@@ -106,13 +106,16 @@ type WebhookReference struct {
 // Read on the pool, so the cache only ever holds committed rows. A Webhook
 // saved in the same transaction as the document is therefore not yet in force
 // for it; the cache is dropped after that transaction commits.
-func (e *Engine) webhookSubs(ctx context.Context) ([]webhookSub, error) {
+//
+// The subscriptions are a tenant's own, and so is the cache: a tenant's
+// webhook hears that tenant's documents and nobody else's.
+func (e *Engine) webhookSubs(ctx context.Context, tenant string) ([]webhookSub, error) {
 	e.webhookMu.Lock()
 	defer e.webhookMu.Unlock()
-	if e.webhooks != nil {
-		return e.webhooks, nil
+	if subs, ok := e.webhooks[tenant]; ok {
+		return subs, nil
 	}
-	rows, err := db.Select(ctx, e.DB.Pool, `SELECT id, event_type, webhook_doctype, custom_event,
+	rows, err := spaceStatements{e: e, tenant: tenant}.Select(ctx, `SELECT id, event_type, webhook_doctype, custom_event,
 		on_insert, on_update, on_submit, on_cancel, on_trash, timeout, max_attempts
 		FROM tab_webhook WHERE enabled`)
 	if err != nil {
@@ -142,7 +145,10 @@ func (e *Engine) webhookSubs(ctx context.Context) ([]webhookSub, error) {
 		}
 		subs = append(subs, s)
 	}
-	e.webhooks = subs
+	if e.webhooks == nil {
+		e.webhooks = map[string][]webhookSub{}
+	}
+	e.webhooks[tenant] = subs
 	return subs, nil
 }
 
@@ -169,7 +175,7 @@ func (c *Ctx) queueDocWebhooks(doctype string, doc Doc, event string) error {
 	if c.E.Cfg.Webhooks.Off || webhookUnwatchable[doctype] || c.E.DB == nil {
 		return nil
 	}
-	subs, err := c.E.webhookSubs(c.Ctx)
+	subs, err := c.E.webhookSubs(c.Ctx, c.Tenant)
 	if err != nil {
 		return err
 	}
@@ -228,7 +234,7 @@ func (c *Ctx) EmitWebhook(event string, data any, ref *WebhookReference, key str
 	if c.E.Cfg.Webhooks.Off {
 		return []string{}, nil
 	}
-	subs, err := c.E.webhookSubs(c.Ctx)
+	subs, err := c.E.webhookSubs(c.Ctx, c.Tenant)
 	if err != nil {
 		return nil, err
 	}
@@ -329,7 +335,9 @@ func (e errWebhookRetry) Error() string { return e.msg }
 // the same webhook-id, so a receiver can drop what it has seen, and the
 // Standard Webhooks contract asks it to.
 func (e *Engine) DeliverWebhook(c *Ctx, delivery string) error {
-	rows, err := db.Select(c.Ctx, e.DB.Pool,
+	// outside the job's transaction, as it always was, and in the job's tenant
+	sp := c.space()
+	rows, err := sp.Select(c.Ctx,
 		`SELECT webhook, payload::text AS payload, status, job FROM tab_webhook_delivery WHERE id = $1`, delivery)
 	if err != nil {
 		return err
@@ -346,7 +354,7 @@ func (e *Engine) DeliverWebhook(c *Ctx, delivery string) error {
 	// The attempt is counted on the pool: it happened whether or not anything
 	// after it commits.
 	var attempts int
-	if err := e.DB.Pool.QueryRow(c.Ctx,
+	if err := sp.QueryRow(c.Ctx,
 		`UPDATE tab_webhook_delivery SET attempts = attempts + 1, modified = now() WHERE id = $1 RETURNING attempts`,
 		delivery).Scan(&attempts); err != nil {
 		return err
@@ -354,19 +362,19 @@ func (e *Engine) DeliverWebhook(c *Ctx, delivery string) error {
 	last := true
 	if job := int64(toFloat(row["job"])); job > 0 {
 		var jobAttempts, maxAttempts int
-		if err := e.DB.Pool.QueryRow(c.Ctx, `SELECT attempts, max_attempts FROM ddcore_job WHERE id = $1`, job).
+		if err := sp.QueryRow(c.Ctx, `SELECT attempts, max_attempts FROM ddcore_job WHERE id = $1`, job).
 			Scan(&jobAttempts, &maxAttempts); err == nil {
 			last = jobAttempts >= maxAttempts
 		}
 	}
 
-	hooks, err := db.Select(c.Ctx, e.DB.Pool,
+	hooks, err := sp.Select(c.Ctx,
 		`SELECT id, url, enabled, timeout FROM tab_webhook WHERE id = $1`, db.Str(row["webhook"]))
 	if err != nil {
 		return err
 	}
 	if len(hooks) == 0 || hooks[0]["enabled"] != true {
-		e.recordWebhook(c.Ctx, delivery, WebhookFailed, 0, "webhook "+db.Str(row["webhook"])+" is disabled or was deleted")
+		e.recordWebhook(c, delivery, WebhookFailed, 0, "webhook "+db.Str(row["webhook"])+" is disabled or was deleted")
 		return nil
 	}
 	hook := hooks[0]
@@ -374,7 +382,7 @@ func (e *Engine) DeliverWebhook(c *Ctx, delivery string) error {
 	secret, err := e.webhookSecret(c, db.Str(hook["id"]))
 	if err != nil {
 		// A key that cannot be read will not become readable by waiting.
-		e.recordWebhook(c.Ctx, delivery, WebhookFailed, 0, err.Error())
+		e.recordWebhook(c, delivery, WebhookFailed, 0, err.Error())
 		return nil
 	}
 
@@ -388,7 +396,7 @@ func (e *Engine) DeliverWebhook(c *Ctx, delivery string) error {
 	case sendErr != nil:
 		retry, errText = true, sendErr.Error()
 	case status >= 200 && status < 300:
-		e.recordWebhook(c.Ctx, delivery, WebhookSent, status, "")
+		e.recordWebhook(c, delivery, WebhookSent, status, "")
 		return nil
 	case status == http.StatusRequestTimeout || status == http.StatusTooManyRequests || status >= 500:
 		retry, errText = true, fmt.Sprintf("receiver answered %d: %s", status, snippet)
@@ -397,10 +405,10 @@ func (e *Engine) DeliverWebhook(c *Ctx, delivery string) error {
 	}
 
 	if retry && !last {
-		e.recordWebhook(c.Ctx, delivery, WebhookRetrying, status, errText)
+		e.recordWebhook(c, delivery, WebhookRetrying, status, errText)
 		return errWebhookRetry{msg: "webhook delivery " + delivery + ": " + errText}
 	}
-	e.recordWebhook(c.Ctx, delivery, WebhookFailed, status, errText)
+	e.recordWebhook(c, delivery, WebhookFailed, status, errText)
 	if retry {
 		// Out of attempts: fail the job too, so the failure is counted where
 		// PRD-04's thresholds look and an Error Log row points at it.
@@ -424,7 +432,7 @@ func (e *Engine) webhookSecret(c *Ctx, webhook string) (string, error) {
 	if f == nil {
 		return "", cerr.Internal("Webhook has no secret field")
 	}
-	secret, ok, err := vaultRead(c.Ctx, e.DB.Pool, key, c.DeriveVaultKey(d, f, Doc{"id": webhook}))
+	secret, ok, err := vaultRead(c.Ctx, c.Q(), key, c.DeriveVaultKey(d, f, Doc{"id": webhook}))
 	if err != nil {
 		return "", err
 	}
@@ -483,7 +491,8 @@ func SignWebhook(secret, id string, ts int64, body []byte) string {
 // recordWebhook writes on the pool, never on the job's transaction: a job
 // about to fail is about to roll back, and the record of why must not go with
 // it.
-func (e *Engine) recordWebhook(ctx context.Context, delivery, status string, code int, errText string) {
+func (e *Engine) recordWebhook(c *Ctx, delivery, status string, code int, errText string) {
+	ctx := c.Ctx
 	var sentAt any
 	if status == WebhookSent {
 		sentAt = time.Now()
@@ -491,7 +500,7 @@ func (e *Engine) recordWebhook(ctx context.Context, delivery, status string, cod
 	if len(errText) > 1000 {
 		errText = errText[:1000]
 	}
-	if _, err := e.DB.Pool.Exec(ctx, `UPDATE tab_webhook_delivery SET status = $2, response_status = NULLIF($3, 0),
+	if _, err := c.space().Exec(ctx, `UPDATE tab_webhook_delivery SET status = $2, response_status = NULLIF($3, 0),
 		error = NULLIF($4, ''), sent_at = COALESCE($5, sent_at), modified = now() WHERE id = $1`,
 		delivery, status, code, errText, sentAt); err != nil {
 		e.Log.Warn("could not record a webhook outcome", "delivery", delivery, "err", err)
@@ -612,7 +621,8 @@ func (e *Engine) SweepWebhookDeliveries(ctx context.Context) (int, error) {
 	if days <= 0 {
 		return 0, nil
 	}
-	tag, err := e.DB.Pool.Exec(ctx, `DELETE FROM tab_webhook_delivery
+	// retention is the site's policy: one sweep, every tenant
+	tag, err := e.DB.Sys.Exec(ctx, `DELETE FROM tab_webhook_delivery
 		WHERE status IN ('Sent', 'Failed') AND modified < now() - make_interval(days => $1)`, days)
 	if err != nil {
 		return 0, err
@@ -630,7 +640,8 @@ type WebhookStatus struct {
 
 func (e *Engine) WebhookStatus(ctx context.Context) (WebhookStatus, error) {
 	s := WebhookStatus{Off: e.Cfg.Webhooks.Off}
-	err := e.DB.Pool.QueryRow(ctx, `SELECT
+	// the whole site's, for the operator's report
+	err := e.DB.Sys.QueryRow(ctx, `SELECT
 		(SELECT count(*) FROM tab_webhook WHERE enabled),
 		(SELECT count(*) FROM tab_webhook_delivery WHERE status = 'Retrying'),
 		(SELECT count(*) FROM tab_webhook_delivery WHERE status = 'Failed' AND modified > now() - interval '24 hours')`).

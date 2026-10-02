@@ -65,14 +65,28 @@ func (c *Ctx) Audit(action, targetDoctype, targetID string, detail map[string]an
 // the refusal is about to roll back the caller's transaction and the attempt
 // is precisely what an investigation needs to find.
 func (c *Ctx) AuditDenied(action, targetDoctype, targetID string, detail map[string]any) {
-	if err := c.writeAudit(c.E.DB.Pool, action, "Denied", targetDoctype, targetID, detail); err != nil {
+	// in the ctx's own tenant, where its administrators will look for it
+	if err := c.E.InSpace(c.Ctx, c.Tenant, func(q db.Querier) error {
+		return c.writeAudit(q, action, "Denied", targetDoctype, targetID, detail)
+	}); err != nil {
 		c.E.Log.Warn("could not record a refused action", "action", action, "err", err)
 	}
 }
 
 // RecordAudit records an audit event directly on the engine's DB pool.
 func (e *Engine) RecordAudit(ctx context.Context, actor, action, outcome, targetDoctype, targetID string, detail map[string]any) error {
-	return e.RecordAuditOn(ctx, e.DB.Pool, actor, action, outcome, targetDoctype, targetID, "", "", detail)
+	// An event about an account belongs to the account's tenant, whoever
+	// caused it — a sign-in has no tenant until it succeeds. Anything else is
+	// recorded in the space ctx names.
+	tenant, _ := TenantFrom(ctx)
+	if targetDoctype == "User" {
+		if own, err := e.TenantOfUser(ctx, targetID); err == nil && own != "" {
+			tenant = own
+		}
+	}
+	return e.InSpace(ctx, tenant, func(q db.Querier) error {
+		return e.RecordAuditOn(ctx, q, actor, action, outcome, targetDoctype, targetID, "", "", detail)
+	})
 }
 
 // RecordAuditOn records an audit event on the provided querier (tx or pool).
@@ -167,14 +181,21 @@ func (e *Engine) ListAuditEvents(ctx context.Context, f AuditFilter) ([]map[stri
 	args = append(args, limit, f.Start)
 	q := fmt.Sprintf(`SELECT %s FROM tab_audit_event%s ORDER BY creation DESC, id DESC LIMIT $%d OFFSET $%d`,
 		auditColumns, where, len(args)-1, len(args))
-	return db.Select(ctx, e.DB.Pool, q, args...)
+	var rows []map[string]any
+	err := e.spaceQ(ctx, func(sq db.Querier) (err error) {
+		rows, err = db.Select(ctx, sq, q, args...)
+		return err
+	})
+	return rows, err
 }
 
 // CountAuditEvents counts audit events matching the filter.
 func (e *Engine) CountAuditEvents(ctx context.Context, f AuditFilter) (int64, error) {
 	where, args := f.where()
 	var n int64
-	err := e.DB.Pool.QueryRow(ctx, `SELECT count(*) FROM tab_audit_event`+where, args...).Scan(&n)
+	err := e.spaceQ(ctx, func(q db.Querier) error {
+		return q.QueryRow(ctx, `SELECT count(*) FROM tab_audit_event`+where, args...).Scan(&n)
+	})
 	return n, err
 }
 
@@ -186,10 +207,11 @@ func (e *Engine) PurgeAuditEvents(ctx context.Context, days int, dryRun bool) (i
 	const where = `creation < now() - make_interval(days => $1)`
 	if dryRun {
 		var n int
-		err := e.DB.Pool.QueryRow(ctx, `SELECT count(*) FROM tab_audit_event WHERE `+where, days).Scan(&n)
+		err := e.DB.Sys.QueryRow(ctx, `SELECT count(*) FROM tab_audit_event WHERE `+where, days).Scan(&n)
 		return n, err
 	}
-	tag, err := e.DB.Pool.Exec(ctx, `DELETE FROM tab_audit_event WHERE `+where, days)
+	// retention is the site's policy: one sweep, every tenant
+	tag, err := e.DB.Sys.Exec(ctx, `DELETE FROM tab_audit_event WHERE `+where, days)
 	if err != nil {
 		return 0, err
 	}

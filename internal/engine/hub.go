@@ -11,6 +11,14 @@ type Event struct {
 	User    string `json:"-"` // "" = broadcast
 	Doctype string `json:"-"`
 	DocID   string `json:"-"`
+	// Tenant is the space the event happened in. It reaches the subscribers
+	// of that space and no other: that a tenant's list changed is something
+	// only that tenant may notice. Empty is the platform space, which on a
+	// site without tenancy is everybody.
+	Tenant string `json:"-"`
+	// SiteWide is for what concerns everyone whatever their tenant: a reload,
+	// a maintenance window, a change to a shared DocType.
+	SiteWide bool `json:"-"`
 }
 
 // Authorizer answers whether a subscriber may see events about a document.
@@ -18,6 +26,7 @@ type Authorizer func(doctype, name string) bool
 
 type subscriber struct {
 	user      string
+	tenant    string
 	authorize Authorizer
 }
 
@@ -32,9 +41,15 @@ func NewHub() *Hub { return &Hub{subs: map[chan Event]subscriber{}} }
 // Subscribe registers a connection. A nil authorize means the subscriber
 // only receives events that name no document.
 func (h *Hub) Subscribe(user string, authorize Authorizer) chan Event {
+	return h.SubscribeIn(user, "", authorize)
+}
+
+// SubscribeIn is Subscribe for a connection working in a tenant: it receives
+// that tenant's events, and the ones that concern the whole site.
+func (h *Hub) SubscribeIn(user, tenant string, authorize Authorizer) chan Event {
 	ch := make(chan Event, 64)
 	h.mu.Lock()
-	h.subs[ch] = subscriber{user: user, authorize: authorize}
+	h.subs[ch] = subscriber{user: user, tenant: tenant, authorize: authorize}
 	h.mu.Unlock()
 	return ch
 }
@@ -50,6 +65,9 @@ func (h *Hub) Publish(ev Event) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	for ch, sub := range h.subs {
+		if !ev.SiteWide && ev.Tenant != sub.tenant {
+			continue
+		}
 		if ev.User != "" && ev.User != sub.user {
 			continue
 		}

@@ -76,7 +76,7 @@ func (c *Ctx) notificationAccess(user, doctype, name string) (bool, error) {
 
 func (c *Ctx) notificationsChanged(user string) {
 	c.AfterCommit(func() {
-		c.E.Events.Publish(Event{Name: "notifications_changed", User: user, Payload: map[string]any{}})
+		c.E.Events.Publish(Event{Name: "notifications_changed", User: user, Tenant: c.Tenant, Payload: map[string]any{}})
 	})
 }
 
@@ -428,7 +428,27 @@ func notificationCutoff(fieldtype string, days int, now time.Time, loc *time.Loc
 // hold yet is evaluated again. A changed due date is a new occurrence. A
 // separate transaction per batch bounds locks; a row lock makes evaluating a
 // changed due date coherent.
+//
+// On a site with tenancy the sweep runs once per space: the documents, the
+// ledger and the recipients are each tenant's own.
 func (e *Engine) SweepNotifications(ctx context.Context, now time.Time) error {
+	spaces, err := e.Spaces(ctx)
+	if err != nil {
+		return err
+	}
+	for _, tenant := range spaces {
+		sctx := ctx
+		if tenant != "" {
+			sctx = WithTenant(ctx, tenant)
+		}
+		if err := e.sweepNotifications(sctx, now); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (e *Engine) sweepNotifications(ctx context.Context, now time.Time) error {
 	st := e.Current()
 	loc := e.Location()
 	for _, rule := range st.Notifications {

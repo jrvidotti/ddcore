@@ -53,7 +53,7 @@ func (e *Engine) CancelJob(ctx context.Context, id int64, user string) (JobActio
 	var args map[string]any
 	var maxAttempts int
 	var now *string
-	if err := e.DB.Pool.QueryRow(ctx, q, id, user).Scan(&was, &method, &queue, &args, &owner,
+	if err := e.statements(ctx).QueryRow(ctx, q, id, user).Scan(&was, &method, &queue, &args, &owner,
 		&maxAttempts, &onFailure, &now); err != nil {
 		if err == pgx.ErrNoRows {
 			return JobAction{}, cerr.NotFound("Job {0} does not exist", id)
@@ -108,13 +108,13 @@ func (e *Engine) RetryJob(ctx context.Context, id int64, force bool, actor ...st
 	 RETURNING id, method, queue`
 	var newID int64
 	var method, queue string
-	if err := e.DB.Pool.QueryRow(ctx, q, id, force).Scan(&newID, &method, &queue); err != nil {
+	if err := e.statements(ctx).QueryRow(ctx, q, id, force).Scan(&newID, &method, &queue); err != nil {
 		if err == pgx.ErrNoRows {
 			return JobAction{}, e.explainRetryRefusal(ctx, id)
 		}
 		return JobAction{}, err
 	}
-	if _, err := e.DB.Pool.Exec(ctx,
+	if _, err := e.statements(ctx).Exec(ctx,
 		`UPDATE ddcore_job SET retried_as = $2 WHERE id = $1`, id, newID); err != nil {
 		return JobAction{}, err
 	}
@@ -135,7 +135,7 @@ func (e *Engine) RetryJob(ctx context.Context, id int64, force bool, actor ...st
 func (e *Engine) explainRetryRefusal(ctx context.Context, id int64) error {
 	var status string
 	var retried *int64
-	err := e.DB.Pool.QueryRow(ctx,
+	err := e.statements(ctx).QueryRow(ctx,
 		`SELECT status, retried_as FROM ddcore_job WHERE id = $1`, id).Scan(&status, &retried)
 	switch {
 	case err == pgx.ErrNoRows:
@@ -243,7 +243,7 @@ const statsMethodLimit = 20
 func (e *Engine) JobStats(ctx context.Context, window time.Duration) (*JobStats, error) {
 	out := &JobStats{WindowMinutes: int(window.Minutes())}
 
-	qRows, err := db.Select(ctx, e.DB.Pool, `SELECT queue,
+	qRows, err := e.statements(ctx).Select(ctx, `SELECT queue,
 		  count(*) FILTER (WHERE status = 'queued')    AS queued,
 		  count(*) FILTER (WHERE status = 'running')   AS running,
 		  count(*) FILTER (WHERE status = 'done')      AS done,
@@ -265,7 +265,7 @@ func (e *Engine) JobStats(ctx context.Context, window time.Duration) (*JobStats,
 		})
 	}
 
-	mRows, err := db.Select(ctx, e.DB.Pool, `SELECT method,
+	mRows, err := e.statements(ctx).Select(ctx, `SELECT method,
 		  count(*)                                        AS runs,
 		  count(*) FILTER (WHERE status = 'failed')       AS failures,
 		  COALESCE(AVG(EXTRACT(EPOCH FROM (finished - started))), 0) AS avg_seconds,
@@ -312,14 +312,14 @@ func (e *Engine) purge(ctx context.Context, statuses []string, days int, dry boo
 		AND finished < now() - make_interval(days => $2)`
 	if dry {
 		var n int
-		err := e.DB.Pool.QueryRow(ctx,
+		err := e.statements(ctx).QueryRow(ctx,
 			`SELECT count(*) FROM ddcore_job WHERE `+where, statuses, days).Scan(&n)
 		return n, err
 	}
 	total := 0
 	for {
 		// SKIP LOCKED so a purge never blocks a worker writing its own result.
-		tag, err := e.DB.Pool.Exec(ctx, `DELETE FROM ddcore_job WHERE id IN (
+		tag, err := e.statements(ctx).Exec(ctx, `DELETE FROM ddcore_job WHERE id IN (
 			SELECT id FROM ddcore_job WHERE `+where+`
 			 ORDER BY id LIMIT $3 FOR UPDATE SKIP LOCKED)`, statuses, days, purgeBatch)
 		if err != nil {
@@ -396,14 +396,14 @@ func (e *Engine) ListJobs(ctx context.Context, f JobFilter) ([]map[string]any, e
 	args = append(args, limit, f.Start)
 	q := fmt.Sprintf(`SELECT %s FROM ddcore_job%s ORDER BY id DESC LIMIT $%d OFFSET $%d`,
 		jobColumns, where, len(args)-1, len(args))
-	return db.Select(ctx, e.DB.Pool, q, args...)
+	return e.statements(ctx).Select(ctx, q, args...)
 }
 
 // CountJobs is the same predicate without the page, for `with_count`.
 func (e *Engine) CountJobs(ctx context.Context, f JobFilter) (int64, error) {
 	where, args := f.where()
 	var n int64
-	err := e.DB.Pool.QueryRow(ctx, `SELECT count(*) FROM ddcore_job`+where, args...).Scan(&n)
+	err := e.statements(ctx).QueryRow(ctx, `SELECT count(*) FROM ddcore_job`+where, args...).Scan(&n)
 	return n, err
 }
 
@@ -413,7 +413,7 @@ func (e *Engine) GetJob(ctx context.Context, id int64, withPayload bool) (map[st
 	if withPayload {
 		cols += ", args, result"
 	}
-	rows, err := db.Select(ctx, e.DB.Pool, `SELECT `+cols+` FROM ddcore_job WHERE id = $1`, id)
+	rows, err := e.statements(ctx).Select(ctx, `SELECT `+cols+` FROM ddcore_job WHERE id = $1`, id)
 	if err != nil {
 		return nil, err
 	}

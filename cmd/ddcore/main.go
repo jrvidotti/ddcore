@@ -468,7 +468,7 @@ func cmdServe(args []string, dev bool) error {
 		go watch.Apps(ctx, e, func() {
 			if err := e.Load(); err != nil {
 				e.Log.Error("reload failed", "err", err)
-				e.Events.Publish(engine.Event{Name: "reload_error", Payload: map[string]any{"error": err.Error()}})
+				e.Events.Publish(engine.Event{Name: "reload_error", SiteWide: true, Payload: map[string]any{"error": err.Error()}})
 				return
 			}
 			if *autoMigrate {
@@ -482,7 +482,7 @@ func cmdServe(args []string, dev bool) error {
 				}
 			}
 			e.Cache.Clear()
-			e.Events.Publish(engine.Event{Name: "reload", Payload: map[string]any{"loaded": e.Loaded.UnixMilli()}})
+			e.Events.Publish(engine.Event{Name: "reload", SiteWide: true, Payload: map[string]any{"loaded": e.Loaded.UnixMilli()}})
 		})
 	}
 	h := &http.Server{Addr: fmt.Sprintf(":%d", cfg.Port), Handler: srv.Router, ReadHeaderTimeout: 10 * time.Second}

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/db"
@@ -101,29 +102,12 @@ func (e *Engine) RunSystem(ctx context.Context, user string, fn func(c *Ctx) err
 	return c.Run(fn)
 }
 
-// System runs fn on a querier that is not held by row-level security. On a
-// site without tenancy that is the pool itself, as it always was; with it, a
-// transaction of its own, which commits when fn returns nil.
+// System runs fn on the pool that is not held by row-level security. On a
+// site without tenancy that is the one pool there is. A statement run here
+// on a tenant table addresses its row by something unique across the site —
+// a user's id, a job's number, a random key — or names its tenant.
 func (e *Engine) System(ctx context.Context, fn func(q db.Querier) error) error {
-	on, err := e.tenancy(ctx)
-	if err != nil {
-		return err
-	}
-	if !on {
-		return fn(e.DB.Pool)
-	}
-	tx, err := e.DB.Pool.Begin(ctx)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback(ctx)
-	if err := db.Elevate(ctx, tx); err != nil {
-		return err
-	}
-	if err := fn(tx); err != nil {
-		return err
-	}
-	return tx.Commit(ctx)
+	return fn(e.DB.Sys)
 }
 
 // InSpace runs fn on a querier confined to one space, for the framework's
@@ -241,6 +225,9 @@ func (c *Ctx) confined(fn func() error) error {
 
 // Tenancy reports whether this ctx is on a site with tenancy applied.
 func (c *Ctx) Tenancy() bool {
+	if c.E == nil {
+		return false
+	}
 	on, _ := c.E.tenancy(c.Ctx)
 	return on
 }
@@ -432,4 +419,130 @@ func (c *Ctx) acrossSpaces(d *meta.DocType, fn func() error) error {
 		return fn()
 	}
 	return c.elevated(fn)
+}
+
+// RunAdminFor is Run as Admin in the space of user: the framework acting on
+// somebody's account without that somebody being signed in — a recovery
+// link, an API key issued from the command line. The documents it writes
+// land in the user's tenant, where the user will look for them.
+func (e *Engine) RunAdminFor(ctx context.Context, user string, fn func(c *Ctx) error) error {
+	tenant, err := e.TenantOfUser(ctx, user)
+	if err != nil {
+		return err
+	}
+	if tenant != "" {
+		ctx = WithTenant(ctx, tenant)
+	}
+	return e.Run(ctx, "Admin", fn)
+}
+
+// publish sends a document event to the subscribers of the space it happened
+// in — or to everyone, when the DocType is one every tenant shares. It is
+// called from an after-commit callback, so the space is read from the ctx
+// and not from the transaction, which is gone by then.
+func (c *Ctx) publish(ev Event) {
+	ev.Tenant = c.Tenant
+	doctype := ev.Doctype
+	if doctype == "" {
+		if p, ok := ev.Payload.(map[string]any); ok {
+			doctype, _ = p["doctype"].(string)
+		}
+	}
+	if c.St != nil && c.Tenancy() {
+		if d, err := c.St.DocType(doctype); err == nil && !d.TenantOwned {
+			ev.SiteWide = true
+		}
+	}
+	c.E.Events.Publish(ev)
+}
+
+// appCacheKey is the key ddcore.cache stores an app's value under: the app's
+// own key, and inside a tenant the tenant in front of it. An app caches what
+// it computed from the rows it could see, so a value one tenant stored is not
+// an answer for another.
+func (c *Ctx) appCacheKey(key string) string {
+	if c.Tenant == "" {
+		return key
+	}
+	return "tenant:" + c.Tenant + "\x00" + key
+}
+
+// spaceQ is InSpace for the tenant ctx names: how a function that takes a
+// context rather than a Ctx reads and writes where its caller works. The API
+// puts every request's space in its context.
+func (e *Engine) spaceQ(ctx context.Context, fn func(q db.Querier) error) error {
+	tenant, _ := TenantFrom(ctx)
+	return e.InSpace(ctx, tenant, fn)
+}
+
+// spaceStatements runs single statements in one space, each in a transaction
+// of its own: what the framework's pool-direct code uses in place of the
+// pool, so that a job administrator sees the jobs of the tenant they work in
+// and a delivery's status lands on the delivery of the tenant it belongs to.
+// Without tenancy each call is the same statement on the pool.
+type spaceStatements struct {
+	e      *Engine
+	tenant string
+}
+
+// statements is the statements of the space ctx names (see spaceQ).
+func (e *Engine) statements(ctx context.Context) spaceStatements {
+	tenant, _ := TenantFrom(ctx)
+	return spaceStatements{e: e, tenant: tenant}
+}
+
+// space is the statements of this ctx's space, outside its transaction: for
+// what has to survive the transaction's rollback.
+func (c *Ctx) space() spaceStatements { return spaceStatements{e: c.E, tenant: c.Tenant} }
+
+func (s spaceStatements) Exec(ctx context.Context, sql string, args ...any) (tag pgconn.CommandTag, err error) {
+	err = s.e.InSpace(ctx, s.tenant, func(q db.Querier) (err error) {
+		tag, err = q.Exec(ctx, sql, args...)
+		return err
+	})
+	return tag, err
+}
+
+func (s spaceStatements) Select(ctx context.Context, sql string, args ...any) (rows []map[string]any, err error) {
+	err = s.e.InSpace(ctx, s.tenant, func(q db.Querier) (err error) {
+		rows, err = db.Select(ctx, q, sql, args...)
+		return err
+	})
+	return rows, err
+}
+
+func (s spaceStatements) QueryRow(ctx context.Context, sql string, args ...any) pgx.Row {
+	return spaceRow{s: s, ctx: ctx, sql: sql, args: args}
+}
+
+type spaceRow struct {
+	s    spaceStatements
+	ctx  context.Context
+	sql  string
+	args []any
+}
+
+func (r spaceRow) Scan(dest ...any) error {
+	return r.s.e.InSpace(r.ctx, r.s.tenant, func(q db.Querier) error {
+		return q.QueryRow(r.ctx, r.sql, r.args...).Scan(dest...)
+	})
+}
+
+// Spaces lists the spaces work that concerns every tenant has to visit: the
+// platform space first, then each enabled tenant. Without tenancy that is the
+// platform space alone.
+func (e *Engine) Spaces(ctx context.Context) ([]string, error) {
+	spaces := []string{""}
+	on, err := e.tenancy(ctx)
+	if err != nil || !on {
+		return spaces, err
+	}
+	rows, err := db.Select(ctx, e.DB.Pool, `SELECT id FROM tab_tenant WHERE enabled ORDER BY id`)
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range rows {
+		spaces = append(spaces, db.Str(r["id"]))
+	}
+	return spaces, nil
 }

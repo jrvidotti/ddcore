@@ -184,9 +184,11 @@ const queueSQL = `SELECT
      FILTER (WHERE status = 'running'))), 0)                                     AS longest_running_seconds
 FROM ddcore_job`
 
+// The health report is the operator's: its queries run on the system pool
+// and count the whole site, whatever tenant each job or error belongs to.
 func (e *Engine) QueueHealth(ctx context.Context, window time.Duration) (*QueueHealth, error) {
 	q := &QueueHealth{WindowMinutes: int(window.Minutes())}
-	err := e.DB.Pool.QueryRow(ctx, queueSQL, window.Seconds()).Scan(
+	err := e.DB.Sys.QueryRow(ctx, queueSQL, window.Seconds()).Scan(
 		&q.Queued, &q.Runnable, &q.Running, &q.Stalled,
 		&q.FailedInWindow, &q.DoneInWindow, &q.CancelledInWindow,
 		&q.OldestQueuedSeconds, &q.LongestRunningSeconds)
@@ -208,14 +210,14 @@ func (e *Engine) ErrorHealth(ctx context.Context, window time.Duration, limit in
 	}
 	table := dt.TableName()
 	out := &ErrorHealth{WindowMinutes: int(window.Minutes())}
-	if err := e.DB.Pool.QueryRow(ctx,
+	if err := e.DB.Sys.QueryRow(ctx,
 		`SELECT count(*) FROM `+table+` WHERE creation > now() - make_interval(secs => $1)`, window.Seconds()).Scan(&out.InWindow); err != nil {
 		return nil, err
 	}
 	// The sample is scoped to the same window as the count. Reporting the five
 	// newest rows regardless would print months-old failures underneath a line
 	// that says "in 15m", which reads as though they were.
-	rows, err := db.Select(ctx, e.DB.Pool,
+	rows, err := db.Select(ctx, e.DB.Sys,
 		`SELECT id, method, request_id, creation FROM `+table+`
 		 WHERE creation > now() - make_interval(secs => $1) ORDER BY creation DESC LIMIT $2`, window.Seconds(), limit)
 	if err != nil {

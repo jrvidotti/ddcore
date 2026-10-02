@@ -9,50 +9,86 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type DB struct{ Pool *pgxpool.Pool }
+// DB is the site's connections. On a site with tenancy there are two pools:
+// Pool, whose connections are confined to the role row-level security holds,
+// and Sys, the same login unconfined, for the framework's own work across
+// tenants. Everything reaches for Pool; Sys is asked for by name, so that
+// crossing spaces is always something somebody wrote down. Without tenancy
+// they are one pool.
+type DB struct {
+	Pool *pgxpool.Pool
+	Sys  *pgxpool.Pool
+}
 
 func Open(ctx context.Context, dsn string) (*DB, error) { return OpenConfined(ctx, dsn, "") }
 
-// OpenConfined is Open for a site with tenancy: every connection sets its
-// role to tenantRole as soon as the database has had tenancy applied, so a
-// statement that names no tenant sees the platform space and nothing else.
-// Confinement is the connection's resting state and crossing spaces is the
-// explicit act (Elevate) — a statement somebody forgot to think about then
-// finds no rows, instead of every tenant's.
+// OpenConfined is Open for a site with tenancy: every connection of Pool
+// sets its role to tenantRole as soon as the database has had tenancy
+// applied, so a statement that names no tenant sees the platform space and
+// nothing else. Confinement is a connection's resting state and crossing
+// spaces is the explicit act — a statement somebody forgot to think about
+// then finds no rows, instead of every tenant's.
 //
 // Before the first migration there is no role to take and no policy to be
 // held by, and the connection stays what the DSN made it; Migrate resets the
 // pool when it is done.
 func OpenConfined(ctx context.Context, dsn, tenantRole string) (*DB, error) {
-	cfg, err := pgxpool.ParseConfig(dsn)
-	if err != nil {
-		return nil, err
-	}
-	if tenantRole != "" {
-		if !identRe.MatchString(tenantRole) {
-			return nil, fmt.Errorf("invalid tenant role name %q", tenantRole)
+	open := func(confined bool) (*pgxpool.Pool, error) {
+		cfg, err := pgxpool.ParseConfig(dsn)
+		if err != nil {
+			return nil, err
 		}
-		cfg.AfterConnect = func(ctx context.Context, c *pgx.Conn) error {
-			applied, err := TenancyApplied(ctx, c)
-			if err != nil || !applied {
+		if confined {
+			cfg.AfterConnect = func(ctx context.Context, c *pgx.Conn) error {
+				applied, err := TenancyApplied(ctx, c)
+				if err != nil || !applied {
+					return err
+				}
+				_, err = c.Exec(ctx, "SET ROLE "+Ident(tenantRole))
 				return err
 			}
-			_, err = c.Exec(ctx, "SET ROLE "+Ident(tenantRole))
-			return err
+		} else if tenantRole != "" {
+			// the system pool carries single statements, never a request
+			cfg.MaxConns = 4
 		}
+		pool, err := pgxpool.NewWithConfig(ctx, cfg)
+		if err != nil {
+			return nil, err
+		}
+		if err := pool.Ping(ctx); err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("postgres: %w", err)
+		}
+		return pool, nil
 	}
-	pool, err := pgxpool.NewWithConfig(ctx, cfg)
+	if tenantRole == "" {
+		pool, err := open(false)
+		if err != nil {
+			return nil, err
+		}
+		return &DB{Pool: pool, Sys: pool}, nil
+	}
+	if !identRe.MatchString(tenantRole) {
+		return nil, fmt.Errorf("invalid tenant role name %q", tenantRole)
+	}
+	pool, err := open(true)
 	if err != nil {
 		return nil, err
 	}
-	if err := pool.Ping(ctx); err != nil {
+	sys, err := open(false)
+	if err != nil {
 		pool.Close()
-		return nil, fmt.Errorf("postgres: %w", err)
+		return nil, err
 	}
-	return &DB{Pool: pool}, nil
+	return &DB{Pool: pool, Sys: sys}, nil
 }
 
-func (d *DB) Close() { d.Pool.Close() }
+func (d *DB) Close() {
+	d.Pool.Close()
+	if d.Sys != d.Pool {
+		d.Sys.Close()
+	}
+}
 
 // Querier is satisfied by pgx.Tx and *pgxpool.Pool.
 type Querier interface {

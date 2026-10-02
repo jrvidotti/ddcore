@@ -206,6 +206,9 @@ func (e *Engine) Migrate(ctx context.Context, prune bool) (*MigrateResult, error
 		// ("cached plan must not change result type"). Connections in use are
 		// closed when they come back.
 		e.DB.Pool.Reset()
+		if e.DB.Sys != e.DB.Pool {
+			e.DB.Sys.Reset()
+		}
 	}
 	return res, nil
 }

@@ -392,3 +392,137 @@ func TestTenantDisabledAdmitsNobody(t *testing.T) {
 	wantStatus(t, e.Run(WithTenant(context.Background(), tenantB), "Admin", func(*Ctx) error { return nil }), 403)
 	runAs(t, e, userA, func(*Ctx) error { return nil })
 }
+
+func TestTenantSignInAndKeys(t *testing.T) {
+	e := setupTenancy(t)
+	ctx := context.Background()
+	if err := e.SetPassword(ctx, userA, "segredo-alfa-123"); err != nil {
+		t.Fatal(err)
+	}
+	sid, err := e.Login(ctx, userA, "segredo-alfa-123", LoginFrom{})
+	if err != nil || sid == "" {
+		t.Fatalf("a tenant's user cannot sign in: %v", err)
+	}
+	if u, err := e.UserFromSession(ctx, sid); err != nil || u != userA {
+		t.Fatalf("session resolves to %q, %v", u, err)
+	}
+	token, err := e.CreateAPIKey(ctx, userA, "ci")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u, err := e.UserFromAPIKey(ctx, token); err != nil || u != userA {
+		t.Fatalf("api key resolves to %q, %v", u, err)
+	}
+	// the key is a document of alfa: beta's administrator does not see it
+	inTenant(t, e, tenantB, func(c *Ctx) error {
+		if n, err := c.Count("API Key", nil); err != nil || n != 0 {
+			t.Fatalf("beta counts %d API keys, %v", n, err)
+		}
+		return nil
+	})
+	inTenant(t, e, tenantA, func(c *Ctx) error {
+		if n, err := c.Count("API Key", nil); err != nil || n != 1 {
+			t.Fatalf("alfa counts %d API keys, %v", n, err)
+		}
+		return nil
+	})
+	// an address is one account on the whole site
+	inTenant(t, e, tenantB, func(c *Ctx) error {
+		_, err := e.InviteUser(c, Invitation{Email: userA, FullName: "Again"})
+		mustErr(t, "inviting an address another tenant holds", err)
+		return nil
+	})
+	// a disabled tenant signs nobody in
+	runAs(t, e, "Admin", func(c *Ctx) error {
+		_, err := c.DBSet("Tenant", tenantA, Doc{"enabled": false}, true)
+		return err
+	})
+	e.Cache.Clear()
+	if _, err := e.Login(ctx, userA, "segredo-alfa-123", LoginFrom{}); err == nil {
+		t.Fatal("signed in to a disabled tenant")
+	}
+}
+
+func TestTenantJobsRunInTheirTenant(t *testing.T) {
+	e := migratedEngine(t, Config{Test: true, Tenancy: true, Apps: []js.App{{Name: "demo", Dir: testApp(t, tenancyFiles, map[string]string{
+		"services/job.ts": `export function cria(args: any) { ddcore.newDoc("Pessoa", { nome: args.nome, cpf: args.nome }).insert(); return { nomes: ddcore.db.getAll("Pessoa", { fields: ["id"], orderBy: "id asc" }).map((r: any) => r.id) }; }`,
+	})}}})
+	seedTenants(t, e)
+	var id int64
+	runAs(t, e, userA, func(c *Ctx) (err error) {
+		id, err = c.Enqueue("demo.services.job.cria", map[string]any{"nome": "Do Job"}, map[string]any{"uniqueKey": "k"})
+		return err
+	})
+	// the same key in another tenant is another job
+	var idB int64
+	runAs(t, e, userB, func(c *Ctx) (err error) {
+		idB, err = c.Enqueue("demo.services.job.cria", map[string]any{"nome": "Do Job B"}, map[string]any{"uniqueKey": "k"})
+		return err
+	})
+	if id == idB {
+		t.Fatal("two tenants share a keyed job")
+	}
+	// a tenant's administrator sees its own queue only
+	inTenant(t, e, tenantB, func(c *Ctx) error {
+		rows, err := c.SQL(`select id from ddcore_job`, nil)
+		if err != nil || len(rows) != 1 {
+			t.Fatalf("beta sees %d jobs, %v", len(rows), err)
+		}
+		return nil
+	})
+	for i := 0; i < 2; i++ {
+		ran, err := e.runOneJob(context.Background())
+		if err != nil || !ran {
+			t.Fatalf("worker: ran=%v err=%v", ran, err)
+		}
+	}
+	runAs(t, e, userA, func(c *Ctx) error {
+		if got := listNames(t, c, "Pessoa", ListArgs{}); strings.Join(got, ",") != "Comum,Do Job" {
+			t.Fatalf("alfa has %v", got)
+		}
+		return nil
+	})
+	runAs(t, e, userB, func(c *Ctx) error {
+		if got := listNames(t, c, "Pessoa", ListArgs{}); strings.Join(got, ",") != "Comum,Do Job B" {
+			t.Fatalf("beta has %v", got)
+		}
+		return nil
+	})
+	var status string
+	if err := e.DB.Sys.QueryRow(context.Background(), `SELECT status FROM ddcore_job WHERE id = $1`, id).Scan(&status); err != nil || status != "done" {
+		t.Fatalf("job status %q, %v", status, err)
+	}
+}
+
+func TestTenantEventsStayInTheirTenant(t *testing.T) {
+	e := setupTenancy(t)
+	alfa := e.Events.SubscribeIn(userA, tenantA, func(string, string) bool { return true })
+	beta := e.Events.SubscribeIn(userB, tenantB, func(string, string) bool { return true })
+	runAs(t, e, userA, func(c *Ctx) error { return insertDoc(c, "Pessoa", Doc{"nome": "Evento", "cpf": "555"}) })
+	if len(alfa) == 0 {
+		t.Fatal("alfa heard nothing of its own write")
+	}
+	if len(beta) != 0 {
+		t.Fatalf("beta heard %d events of alfa's write", len(beta))
+	}
+	runAs(t, e, "Admin", func(c *Ctx) error { return insertDoc(c, "Pais", Doc{"sigla": "PT"}) })
+	if len(beta) == 0 {
+		t.Fatal("a change to a shared DocType did not reach beta")
+	}
+}
+
+func TestTenantAppCacheIsPerTenant(t *testing.T) {
+	e := setupTenancy(t)
+	runAs(t, e, userA, func(c *Ctx) error {
+		if c.appCacheKey("k") == "k" {
+			t.Fatal("a tenant's cache key is the bare key")
+		}
+		return nil
+	})
+	runAs(t, e, "Admin", func(c *Ctx) error {
+		if c.appCacheKey("k") != "k" {
+			t.Fatal("the platform's cache key changed")
+		}
+		return nil
+	})
+}

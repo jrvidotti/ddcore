@@ -258,7 +258,7 @@ type Engine struct {
 	// webhooks caches the enabled subscriptions; nil means "read them again".
 	// See webhookSubs.
 	webhookMu sync.Mutex
-	webhooks  []webhookSub
+	webhooks  map[string][]webhookSub
 	// oidc caches discovered providers; see oidcClientFor.
 	oidcMu sync.Mutex
 	oidc   map[string]*oidcClient
@@ -961,6 +961,9 @@ func (c *Ctx) Run(fn func(c *Ctx) error) error {
 	// transaction, so what is retried is the whole of it, from a clean ctx.
 	c.E.Log.Warn("prepared statement outlived a schema change; retrying the transaction", "err", err)
 	c.E.DB.Pool.Reset()
+	if c.E.DB.Sys != c.E.DB.Pool {
+		c.E.DB.Sys.Reset()
+	}
 	c.Tx = nil
 	c.Messages = nil
 	c.Flags = flags

@@ -20,6 +20,7 @@ import (
 
 	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/db"
+	"github.com/jrvidotti/ddcore/internal/meta"
 )
 
 // argon2Slots bounds how many Argon2 computations run at once. Each one holds
@@ -98,8 +99,11 @@ func (e *Engine) Login(ctx context.Context, user, password string, from LoginFro
 
 func (e *Engine) login(ctx context.Context, user, password string, from LoginFrom) (string, error) {
 	var sid string
-	err := e.Run(ctx, "Admin", func(c *Ctx) error {
-		rows, err := db.Select(ctx, c.Tx, `SELECT id, password_hash, enabled FROM tab_user WHERE lower(id) = lower($1) OR lower(email) = lower($1) LIMIT 1`, strings.TrimSpace(user))
+	// A system ctx: nobody is signed in yet, so there is no tenant to look
+	// in. A user's id is unique across the site, which is what makes the
+	// statements below, and createSession's, name one row.
+	err := e.RunSystem(ctx, "Admin", func(c *Ctx) error {
+		rows, err := db.Select(ctx, c.Tx, `SELECT * FROM tab_user WHERE lower(id) = lower($1) OR lower(email) = lower($1) LIMIT 1`, strings.TrimSpace(user))
 		if err != nil {
 			return err
 		}
@@ -123,6 +127,13 @@ func (e *Engine) login(ctx context.Context, user, password string, from LoginFro
 		if !e.Cfg.Auth.AllowPasswordLogin() && name != "Admin" {
 			// After the password, for the same reason as "disabled" above.
 			return cerr.Auth("Password sign-in is disabled. Use single sign-on.")
+		}
+		// After the password, like "disabled": a tenant that is switched off
+		// is not something to tell a stranger about.
+		if tenant := db.Str(rows[0][meta.TenantColumn]); tenant != "" {
+			if err := e.checkTenant(ctx, c.Tx, tenant); err != nil {
+				return cerr.Auth("User is disabled")
+			}
 		}
 		sid, err = e.createSession(c, name, from)
 		return err
@@ -218,8 +229,14 @@ func (e *Engine) UserFromAPIKey(ctx context.Context, token string) (string, erro
 	if v, ok := e.Cache.Get("apikey:" + key); ok {
 		entry = v.(*apiKeyEntry)
 	} else {
-		rows, err := db.Select(ctx, e.DB.Pool, `SELECT k."user", k.secret_hash, k.enabled, k.expires, u.enabled AS user_enabled
-			FROM tab_api_key k JOIN tab_user u ON u.id = k."user" WHERE k.id = $1`, key)
+		// Across spaces: the key is all the caller has shown so far. Its id
+		// is random, so it names one row whichever tenant holds it.
+		var rows []map[string]any
+		err := e.System(ctx, func(q db.Querier) (err error) {
+			rows, err = db.Select(ctx, q, `SELECT k."user", k.secret_hash, k.enabled, k.expires, u.enabled AS user_enabled
+				FROM tab_api_key k JOIN tab_user u ON u.id = k."user" WHERE k.id = $1`, key)
+			return err
+		})
 		if err != nil || len(rows) == 0 {
 			return "", err
 		}
@@ -274,14 +291,17 @@ func (e *Engine) UserFromAPIKey(ctx context.Context, token string) (string, erro
 	e.Cache.Del(fails)
 	// Stamped when Argon2 runs, so at most once a minute per key rather than
 	// once per request: minute precision is all "last used" needs.
-	go e.DB.Pool.Exec(context.Background(), `UPDATE tab_api_key SET last_used = now() WHERE id = $1`, key)
+	go e.System(context.Background(), func(q db.Querier) error {
+		_, err := q.Exec(context.Background(), `UPDATE tab_api_key SET last_used = now() WHERE id = $1`, key)
+		return err
+	})
 	return db.Str(row["user"]), nil
 }
 
 // CreateAPIKey issues a key for a user and returns "key:secret".
 func (e *Engine) CreateAPIKey(ctx context.Context, user, label string) (string, error) {
 	var token string
-	err := e.Run(ctx, "Admin", func(c *Ctx) error {
+	err := e.RunAdminFor(ctx, user, func(c *Ctx) error {
 		out, err := e.CreateAPIKeyFor(c, user, label, 0)
 		if err != nil {
 			return err
@@ -342,7 +362,7 @@ func (e *Engine) SetPasswordExcept(ctx context.Context, user, password, exceptSi
 	if err != nil {
 		return err
 	}
-	return e.Run(ctx, "Admin", func(c *Ctx) error {
+	return e.RunSystem(ctx, "Admin", func(c *Ctx) error {
 		tag, err := c.Tx.Exec(ctx, `UPDATE tab_user SET password_hash = $2 WHERE id = $1`, user, hash)
 		if err != nil {
 			return err

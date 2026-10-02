@@ -1300,7 +1300,7 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 	// only after commit: a rolled back transaction must not announce
 	// changes that never took place (B20).
 	c.AfterCommit(func() {
-		c.E.Events.Publish(Event{Name: "doc_update", Doctype: doctype, DocID: name, Payload: map[string]any{"doctype": doctype, "id": name}})
+		c.publish(Event{Name: "doc_update", Doctype: doctype, DocID: name, Payload: map[string]any{"doctype": doctype, "id": name}})
 	})
 	return modified, nil
 }
@@ -1486,7 +1486,7 @@ func (c *Ctx) deleteWithFlags(doctype, name string, ignorePerms, force bool, fla
 		}
 	}
 	c.AfterCommit(func() {
-		c.E.Events.Publish(Event{Name: "list_update", Payload: map[string]any{"doctype": doctype}})
+		c.publish(Event{Name: "list_update", Payload: map[string]any{"doctype": doctype}})
 	})
 	return nil
 }
@@ -1539,7 +1539,7 @@ func (c *Ctx) Rename(doctype, oldID, newID string) (string, error) {
 		return "", err
 	}
 	c.AfterCommit(func() {
-		c.E.Events.Publish(Event{Name: "list_update", Payload: map[string]any{"doctype": doctype}})
+		c.publish(Event{Name: "list_update", Payload: map[string]any{"doctype": doctype}})
 	})
 	return newID, nil
 }
@@ -1652,8 +1652,8 @@ func (c *Ctx) GetDocIgnoringPerms(doctype, name string) (Doc, error) {
 
 func (c *Ctx) notify(d *meta.DocType, doc Doc, action string) {
 	c.AfterCommit(func() {
-		c.E.Events.Publish(Event{Name: "doc_update", Doctype: d.Name, DocID: doc.ID(), Payload: map[string]any{"doctype": d.Name, "id": doc.ID(), "action": action, "modified": doc["modified"], "user": c.User}})
-		c.E.Events.Publish(Event{Name: "list_update", Payload: map[string]any{"doctype": d.Name}})
+		c.publish(Event{Name: "doc_update", Doctype: d.Name, DocID: doc.ID(), Payload: map[string]any{"doctype": d.Name, "id": doc.ID(), "action": action, "modified": doc["modified"], "user": c.User}})
+		c.publish(Event{Name: "list_update", Payload: map[string]any{"doctype": d.Name}})
 	})
 }
 
