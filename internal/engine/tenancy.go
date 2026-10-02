@@ -246,7 +246,7 @@ func (e *Engine) spaceOf(ctx context.Context, user string) (string, error) {
 		return "", err
 	}
 	space := own
-	if named, ok := TenantFrom(ctx); ok && named != own {
+	if named, ok := e.namedTenant(ctx); ok && named != own {
 		if own != "" {
 			return "", cerr.Permission("A user of one tenant cannot work in another")
 		}
@@ -541,7 +541,7 @@ func (c *Ctx) appCacheKey(key string) string {
 // context rather than a Ctx reads and writes where its caller works. The API
 // puts every request's space in its context.
 func (e *Engine) spaceQ(ctx context.Context, fn func(q db.Querier) error) error {
-	tenant, _ := TenantFrom(ctx)
+	tenant, _ := e.namedTenant(ctx)
 	return e.InSpace(ctx, tenant, fn)
 }
 
@@ -557,7 +557,7 @@ type spaceStatements struct {
 
 // statements is the statements of the space ctx names (see spaceQ).
 func (e *Engine) statements(ctx context.Context) spaceStatements {
-	tenant, _ := TenantFrom(ctx)
+	tenant, _ := e.namedTenant(ctx)
 	return spaceStatements{e: e, tenant: tenant}
 }
 
@@ -806,4 +806,88 @@ func (e *Engine) CanEnterTenants(ctx context.Context, user string) (bool, error)
 		}
 	}
 	return false, nil
+}
+
+// namedTenant is the tenant work under ctx is to enter: the one ctx names,
+// or failing that the one the command line named for the whole process.
+func (e *Engine) namedTenant(ctx context.Context) (string, bool) {
+	if id, ok := TenantFrom(ctx); ok {
+		return id, true
+	}
+	if e.Cfg.EnterTenant != "" {
+		return e.Cfg.EnterTenant, true
+	}
+	return "", false
+}
+
+// adoptKeep are the rows that stay in the platform space when a tenant
+// adopts everything else: the two accounts the framework itself is.
+const adoptKeep = `('Admin', 'Guest')`
+
+// AdoptPlatformRows moves every row of the platform space into a tenant: the
+// way a site that had one customer before it had tenancy makes that customer
+// its first tenant. Admin and Guest stay. It is one transaction; a row whose
+// id the tenant already uses stops it with nothing moved.
+func (e *Engine) AdoptPlatformRows(ctx context.Context, tenant string) (map[string]int64, error) {
+	moved := map[string]int64{}
+	if on, err := e.tenancy(ctx); err != nil {
+		return nil, err
+	} else if !on {
+		return nil, cerr.Validation("This site has no tenants: tenancy is off")
+	}
+	err := e.RunSystem(ctx, "Admin", func(c *Ctx) error {
+		if err := e.checkTenant(ctx, c.Tx, tenant); err != nil {
+			return err
+		}
+		move := func(table, except string) error {
+			sql := fmt.Sprintf(`UPDATE %s SET tenant = $1 WHERE tenant = ''`, db.Ident(table))
+			if except != "" {
+				sql += " AND NOT (" + except + ")"
+			}
+			tag, err := c.Tx.Exec(ctx, sql, tenant)
+			if err != nil {
+				return fmt.Errorf("%s: %w", table, err)
+			}
+			if n := tag.RowsAffected(); n > 0 {
+				moved[table] = n
+			}
+			return nil
+		}
+		for _, name := range c.St.Meta.Names() {
+			d := c.St.Meta.DocTypes[name]
+			if !d.TenantOwned {
+				continue
+			}
+			except := ""
+			switch d.Name {
+			case "User":
+				except = `id IN ` + adoptKeep
+			case "Has Role":
+				except = `parenttype = 'User' AND parent IN ` + adoptKeep
+			case "API Key":
+				except = `"user" IN ` + adoptKeep
+			}
+			if err := move(d.TableName(), except); err != nil {
+				return err
+			}
+		}
+		for _, table := range []string{"ddcore_series", "ddcore_vault", "ddcore_notification", "ddcore_notification_due"} {
+			if err := move(table, ""); err != nil {
+				return err
+			}
+		}
+		// jobs still to run belong with the rows they will touch
+		if err := move("ddcore_job", `status NOT IN ('queued', 'running') OR "user" IN `+adoptKeep); err != nil {
+			return err
+		}
+		if err := e.RecordAuditOn(ctx, c.Tx, "Admin", "tenant.adopt", "Allowed", "Tenant", tenant, "", "", nil); err != nil {
+			return err
+		}
+		return broadcastClear(ctx, c.Tx)
+	})
+	if err != nil {
+		return nil, err
+	}
+	e.Cache.Clear()
+	return moved, nil
 }

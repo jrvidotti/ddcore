@@ -573,3 +573,62 @@ export function listar() { return ddcore.tenant.list(); }`,
 	_, err = e.RunJob(context.Background(), userA, "demo.services.plataforma.listar", nil)
 	wantStatus(t, err, 403)
 }
+
+// A site that had one customer before it had tenancy makes that customer its
+// first tenant: everything in the platform space moves, the framework's two
+// accounts stay.
+func TestTenantAdoptMovesThePlatformRows(t *testing.T) {
+	e := migratedEngine(t, Config{Apps: []js.App{{Name: "demo", Dir: testApp(t, tenancyFiles)}}, Test: true, Tenancy: true})
+	const old = "antigo@x.test"
+	runAs(t, e, "Admin", func(c *Ctx) error {
+		if err := insertDoc(c, "User", Doc{"email": old, "full_name": old, "roles": []any{map[string]any{"role": "Gestor"}}}); err != nil {
+			return err
+		}
+		if err := insertDoc(c, "Pessoa", Doc{"nome": "De Antes", "cpf": "1"}); err != nil {
+			return err
+		}
+		if err := insertDoc(c, "Pedido", Doc{"cliente": "De Antes"}); err != nil {
+			return err
+		}
+		return insertDoc(c, "Tenant", Doc{"slug": tenantA, "title": "Alfa"})
+	})
+	moved, err := e.AdoptPlatformRows(context.Background(), tenantA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, table := range []string{"tab_user", "tab_has_role", "tab_pessoa", "tab_pedido", "ddcore_series"} {
+		if moved[table] == 0 {
+			t.Errorf("%s: nothing moved (%v)", table, moved)
+		}
+	}
+	runAs(t, e, old, func(c *Ctx) error {
+		if c.Tenant != tenantA {
+			t.Fatalf("the old user is in %q", c.Tenant)
+		}
+		if got := listNames(t, c, "Pessoa", ListArgs{}); strings.Join(got, ",") != "De Antes" {
+			t.Fatalf("the adopted user lists %v", got)
+		}
+		// the series went with the documents: the next Pedido continues it
+		p, err := c.NewDoc("Pedido", Doc{"cliente": "De Antes"})
+		if err != nil {
+			return err
+		}
+		p, err = c.Insert(p, SaveOpts{})
+		if err != nil {
+			return err
+		}
+		if !strings.HasSuffix(p.Str("id"), "0002") {
+			t.Fatalf("the series started over: %s", p.Str("id"))
+		}
+		return nil
+	})
+	runAs(t, e, "Admin", func(c *Ctx) error {
+		if got := listNames(t, c, "User", ListArgs{}); strings.Join(got, ",") != "Admin,Guest" {
+			t.Fatalf("the platform space keeps users %v", got)
+		}
+		if n, _ := c.Count("Pessoa", nil); n != 0 {
+			t.Fatalf("the platform space still has %d Pessoa", n)
+		}
+		return nil
+	})
+}

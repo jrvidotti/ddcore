@@ -43,9 +43,13 @@ type Config struct {
 	Tenancy bool
 	// TenantRole is DDCORE_TENANT_ROLE; empty means db.DefaultTenantRole.
 	TenantRole string
-	Port       int
-	Lang       string
-	Currency   string
+	// EnterTenant is the tenant a one-shot command works in (`ddcore --tenant
+	// alfa eval …`): work that names no tenant itself enters this one, as an
+	// operator would. Never set by a process that serves requests.
+	EnterTenant string
+	Port        int
+	Lang        string
+	Currency    string
 	// CurrencyPrecision is how many decimal places a Currency field is rounded
 	// to. Zero means "not set": New resolves it from Currency.
 	CurrencyPrecision *int
