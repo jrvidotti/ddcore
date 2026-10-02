@@ -6,7 +6,7 @@ export default defineDoctype({
   name: "Tenant",
   module: "Core",
   label: "Tenant",
-  icon: "building",
+  icon: "building-2",
   shared: true,
   idGeneration: { field: "slug" },
   titleField: "title",

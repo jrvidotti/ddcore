@@ -4,6 +4,8 @@
   import { openShortcutsHelp, openSearch } from "$lib/shortcuts.svelte";
   import { getModifierKey } from "$lib/shortcuts";
   import Icon from "./Icon.svelte";
+  import TenantMenu from "./TenantMenu.svelte";
+  import { tenantLabel } from "$lib/tenant";
   import { page } from "$app/state";
   import { api } from "$lib/api";
   import { goto } from "$app/navigation";
@@ -77,6 +79,8 @@
 
   let menuOpen = $state(false);
   const displayName = $derived(boot.data?.userDoc?.full_name || boot.data?.user || "");
+  // on a site with tenancy: the tenant the person works in
+  const space = $derived(tenantLabel(boot.data?.site?.tenant, __("Platform")));
   const avatarInitial = (name: string) => (name || "U").trim().charAt(0).toUpperCase();
 
   function onPointerDown(e: PointerEvent) {
@@ -172,11 +176,12 @@
     <div class="dropdown" style="width:100%">
       <button class="user-btn" onclick={() => (menuOpen = !menuOpen)} aria-haspopup="menu" aria-expanded={menuOpen} title={tip(displayName)}>
         <span class="avatar">{avatarInitial(displayName)}</span>
-        <span class="name small">{displayName}</span>
+        <span class="name small">{displayName}{#if space}<span class="space">{space}</span>{/if}</span>
         <Icon name={menuOpen ? "chevron-down" : "chevron-right"} size={14} />
       </button>
       {#if menuOpen}
         <div class="menu up" role="menu">
+          <TenantMenu onpick={() => (menuOpen = false)} />
           <button role="menuitem" onclick={() => { menuOpen = false; if (typeof window !== "undefined" && window.innerWidth <= 800) open = false; goto("/app/profile"); }}>
             <Icon name="user" size={14} /> {__("My profile")}
           </button>
@@ -230,6 +235,7 @@
   .user-btn { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 8px; border: 0; background: none; border-radius: 6px; cursor: pointer; text-align: left; color: inherit; font: inherit; }
   .user-btn:hover { background: #f3f4f6; }
   .user-btn .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .user-btn .space { display: block; font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
   .avatar { display: inline-flex; width: 24px; height: 24px; flex-shrink: 0; border-radius: 50%; background: var(--primary); color: #fff; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; }
   /* The footer sits at the bottom of the viewport, so the menu opens upward. */
   :global(.dropdown .menu.up) { top: auto; bottom: 100%; margin: 0 0 4px; left: 0; right: 0; }
