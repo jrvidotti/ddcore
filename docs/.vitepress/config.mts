@@ -78,6 +78,7 @@ export default defineConfig({
           { text: 'Authentication & Passwords', link: '/agent/auth' },
           { text: 'Field Permissions', link: '/agent/field-permissions' },
           { text: 'User Access Scopes', link: '/agent/scopes' },
+          { text: 'Tenancy', link: '/agent/tenancy' },
           { text: 'Credential Vault', link: '/agent/vault' },
           { text: 'Administrative Audit Trail', link: '/agent/audit' }
         ]

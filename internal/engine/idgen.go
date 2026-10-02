@@ -115,8 +115,17 @@ func (c *Ctx) nextInSeries(series string, doc Doc) (string, error) {
 func (c *Ctx) nextCounter(key string) (int64, error) {
 	var n int64
 	err := c.Q().QueryRow(c.Ctx, `INSERT INTO ddcore_series (prefix, current) VALUES ($1, 1)
-		ON CONFLICT (prefix) DO UPDATE SET current = ddcore_series.current + 1 RETURNING current`, key).Scan(&n)
+		ON CONFLICT (`+c.seriesKey()+`) DO UPDATE SET current = ddcore_series.current + 1 RETURNING current`, key).Scan(&n)
 	return n, err
+}
+
+// seriesKey is what a counter is addressed by: its prefix, and on a site with
+// tenancy the tenant counting — each one numbers its own documents from 1.
+func (c *Ctx) seriesKey() string {
+	if c.Tenancy() {
+		return "tenant, prefix"
+	}
+	return "prefix"
 }
 
 var fmtField = regexp.MustCompile(`\{([a-zA-Z_#]+)\}`)

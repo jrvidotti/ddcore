@@ -68,7 +68,9 @@ func (e *Engine) StartRecovery(c *Ctx, user, kind, ip string) (*Recovery, error)
 // resetting a password may be that the account is not theirs any more.
 func (e *Engine) CompleteRecovery(ctx context.Context, token, kind, password, fullName string) (string, error) {
 	var user string
-	err := e.Run(ctx, "Admin", func(c *Ctx) error {
+	// a system ctx, like sign-in: the token is what names the user, and the
+	// user's id is what names the row
+	err := e.RunSystem(ctx, "Admin", func(c *Ctx) error {
 		at, err := e.ConsumeToken(ctx, c.Tx, token, kind)
 		if err != nil {
 			return err
@@ -123,9 +125,13 @@ func (e *Engine) CompleteRecovery(ctx context.Context, token, kind, password, fu
 // FindUserForRecovery resolves what someone typed into a user name, and
 // reports whether a link may be sent to it. It never reports *why* not.
 func (e *Engine) FindUserForRecovery(ctx context.Context, typed string) (string, bool) {
-	rows, err := db.Select(ctx, e.DB.Pool,
-		`SELECT id, enabled FROM tab_user
-		 WHERE lower(id) = lower($1) OR lower(email) = lower($1) LIMIT 1`, strings.TrimSpace(typed))
+	var rows []map[string]any
+	err := e.System(ctx, func(q db.Querier) (err error) {
+		rows, err = db.Select(ctx, q,
+			`SELECT id, enabled FROM tab_user
+			 WHERE lower(id) = lower($1) OR lower(email) = lower($1) LIMIT 1`, strings.TrimSpace(typed))
+		return err
+	})
 	if err != nil || len(rows) == 0 {
 		return "", false
 	}

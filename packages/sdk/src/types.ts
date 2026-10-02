@@ -450,6 +450,15 @@ export interface DoctypeDef {
   /** The Link field holding the parent; `parent_<snake(name)>` by default. Needs `isTree`. */
   parentField?: string;
   /**
+   * On a site with `tenancy` on, every DocType belongs to a tenant: each
+   * tenant has its own documents, ids, numbering and unique values. `shared`
+   * opts out — one set of documents for the whole site (countries, units),
+   * readable from every tenant and written only from the platform space. A
+   * shared DocType cannot Link to a tenant-owned one. A child table follows
+   * the DocTypes that use it. Ignored without tenancy. See `tenancy`.
+   */
+  shared?: boolean;
+  /**
    * A virtual DocType (DAT-07): no table and no writes; its rows are the union
    * of its sources' documents, each read through that source's own
    * permissions. A row's id — and the value a Link to this DocType stores — is
@@ -779,6 +788,12 @@ export interface AppDef {
   };
   afterInstall?: (ctx: Context) => void;
   afterMigrate?: (ctx: Context) => void;
+  /**
+   * Runs inside each tenant when it is created (tenancy). Fixtures and
+   * `afterInstall` fill the platform space only, so this is where the app
+   * gives a new tenant the records it cannot start without.
+   */
+  onTenantCreate?: (ctx: Context) => void;
   desk?: {
     /** client scripts (relative to app dir) loaded in every desk page */
     include?: string[];

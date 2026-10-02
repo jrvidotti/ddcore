@@ -38,6 +38,8 @@ flag is an error (it never becomes an argument silently).
 | `ddcore user unlock <email>` | lifts a lockout without waiting out the window |
 | `ddcore user sessions <email> [--revoke]` | lists, or ends, that user's sessions |
 | `ddcore apikey <user> [--label x] [--days N]` | produces `key:secret` for `Authorization: token key:secret`; `--days` expires it |
+| `ddcore tenant list\|create\|enable\|disable\|adopt` | the tenants of a site with `"tenancy": true`: `create <slug> [--title T] [--admin email]` invites its first System Manager, `disable` refuses its sign-ins and holds its jobs, `adopt <slug>` moves every row of the platform space into it (see `tenancy`) |
+| `ddcore --tenant <slug> <command>` | runs a one-shot command inside a tenant (`eval`, `exec`, `user add`, `export`, `audit list`, …); the flag goes before the command. A server, a worker, `mcp`, `import` and `tenant` refuse it |
 | `ddcore mcp` | MCP server (stdio) |
 | `ddcore docs [name]` | this documentation |
 | `ddcore version` | prints `ddcore <version> (<os>/<arch>)`, the version the compatibility contract enforces; a binary built without `-ldflags` reports the default `0.1.0` and ranges are enforced against that (see `conventions`) |

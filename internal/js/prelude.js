@@ -309,6 +309,7 @@
       const a = stripFns(reg.apps[n]);
       a.hasAfterInstall = typeof reg.apps[n].afterInstall === "function";
       a.hasAfterMigrate = typeof reg.apps[n].afterMigrate === "function";
+      a.hasOnTenantCreate = typeof reg.apps[n].onTenantCreate === "function";
       apps[n] = a;
     }
     const doctypes = {};
@@ -936,6 +937,17 @@
           return call("externalDb.sql", { key, query, params: params || [], timeout: (opts && opts.timeout) || 0 });
         },
       };
+    },
+    // Tenancy. The code of the platform space enters a tenant to work in it;
+    // the host puts the transaction back where it was when fn returns or throws.
+    tenant: {
+      current() { return call("tenant.current", {}) || ""; },
+      list() { return call("tenant.list", {}) || []; },
+      run(id, fn) {
+        call("tenant.enter", { key: String(id) });
+        try { return fn(); } finally { call("tenant.leave", {}); }
+      },
+      __created(id) { return call("tenant.created", { key: String(id) }); },
     },
     vault: {
       set(name, value) { return call("vault.set", { key: String(name), value: String(value) }); },

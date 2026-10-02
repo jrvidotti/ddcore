@@ -11,6 +11,7 @@ Available documents (also as MCP resources `ddcore://docs/<name>`):
 - `fieldtypes` — every fieldtype and field property
 - `auth` — sign-in, single sign-on (OpenID Connect providers), lockout, recovery, invitation, self-service and secrets
 - `field-permissions` — field levels (`permlevel`): confidential fields omitted from every read path and protected on write
+- `tenancy` — several customers in one database (`"tenancy": true`): spaces, `shared` DocTypes, the `Site Tenant` DocType and `onTenantCreate`, `ddcore tenant` and `--tenant`, `ddcore.tenant.*`, what a tenant's System Manager may do, how row-level security enforces it, limits
 - `scopes` — user access scopes (`User Permission`): restricting users to companies, units or customers across every read and write path
 - `portal` — self-service portals (`definePortal`): Website Users, identity and match, pages, uploads, limits and inviting portal users
 - `sharing` — document sharing (`Document Share`): per-user read/write/share grants on one document, scope override, audit

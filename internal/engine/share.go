@@ -92,6 +92,12 @@ func (c *Ctx) Shares() ([]DocShare, error) {
 		return c.shares, nil
 	}
 	key := "shares:" + c.User
+	// as with scopes: an operator inside a tenant reads past the cache
+	if away, err := c.awayFromHome(); err != nil {
+		return nil, err
+	} else if away {
+		c.sharesDirty = true
+	}
 	if !c.sharesDirty {
 		if v, ok := c.E.Cache.Get(key); ok {
 			c.shares, c.sharesLoaded = v.([]DocShare), true

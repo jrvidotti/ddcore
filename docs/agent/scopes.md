@@ -12,6 +12,10 @@ a share of the document (see `sharing`). A `User Permission` never grants access
 Scopes choose documents. To hide *fields* inside a document the user may read, see
 `field-permissions`.
 
+Scopes separate parts of one organisation, and are opt-in per user. To keep separate
+*customers* in one database — nobody sees the other, not even through raw SQL or a background
+job — see `tenancy`. The two combine: scopes work inside a tenant.
+
 ## The `User Permission` DocType
 
 `User Permission` is a Core DocType stored in `tab_user_permission`. Only `Admin`

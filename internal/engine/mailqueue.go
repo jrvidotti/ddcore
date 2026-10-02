@@ -260,7 +260,7 @@ func (e *Engine) LoadMail(c *Ctx, delivery string) (map[string]any, error) {
 	if r["status"] == MailSent || r["status"] == MailUncertain {
 		return map[string]any{"skip": true}, nil
 	}
-	if _, err := e.DB.Pool.Exec(c.Ctx, `UPDATE tab_email_delivery SET attempts = attempts + 1 WHERE id = $1`, delivery); err != nil {
+	if _, err := c.space().Exec(c.Ctx, `UPDATE tab_email_delivery SET attempts = attempts + 1 WHERE id = $1`, delivery); err != nil {
 		e.Log.Warn("could not count a delivery attempt", "delivery", delivery, "err", err)
 	}
 
@@ -380,7 +380,7 @@ func (e *Engine) recordMail(c *Ctx, delivery, status, errText string) {
 	if status == MailSent {
 		sentAt = time.Now().In(e.Location())
 	}
-	e.DB.Pool.Exec(c.Ctx,
+	c.space().Exec(c.Ctx,
 		`UPDATE tab_email_delivery SET status = $2, error = $3, sent_at = COALESCE($4, sent_at), modified = now() WHERE id = $1`,
 		delivery, status, errText, sentAt)
 }

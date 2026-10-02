@@ -53,7 +53,7 @@ not prebuilt products included with ddcore.
 
 The current model is less suitable when the central requirement is a completely
 bespoke public-facing interface, Node-specific server dependencies, heavy
-JavaScript computation, or already-established multi-tenant/multi-replica hosting.
+JavaScript computation, or already-established hosting with a database or an address per tenant.
 Corporate application features should not be presented as certification of
 enterprise operational readiness.
 
@@ -89,7 +89,9 @@ The following is a copy reference, not a substitute for the linked API contracts
   capabilities such as mail and server-side PDFs need additional configuration/services.
 - “Any npm package works.” The server runtime is not Node and has no useful async
   event loop for app code.
-- “Multi-tenant SaaS ready,” “horizontal scaling built in,” or “exactly-once jobs.”
+- “Multi-tenant SaaS ready,” “horizontal scaling built in,” or “exactly-once jobs.” Row-level
+  tenancy exists and is new: say what it does (one database, row-level security, one
+  configuration for every tenant) and not that it has been proven in production.
 
 ## 3. Technical assessment
 
@@ -163,7 +165,7 @@ audit records, and localization provide credible material for business demos.
 
 The [roadmap](../ROADMAP.md) also names material residual work: backup/restore and
 recovery automation, resumable import and reconciliation, core/app compatibility
-contracts, SSO/MFA, multisite, and same-tenant replicas. Access-control caveats
+contracts, SSO/MFA, multisite, and per-tenant configuration. Access-control caveats
 include trusted custom server outputs and specific scope/attachment paths.
 Prospective production adopters need a release-specific checklist tied to their
 critical flows. A feature inventory is not a completed production audit.

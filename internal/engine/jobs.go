@@ -15,6 +15,7 @@ import (
 	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/db"
 	"github.com/jrvidotti/ddcore/internal/js"
+	"github.com/jrvidotti/ddcore/internal/meta"
 )
 
 // Job execution limits. The lease is renewed by heartbeat while the worker
@@ -116,6 +117,11 @@ func (c *Ctx) Enqueue(method string, args map[string]any, opts map[string]any) (
 		}
 		uniqueKey = str
 	}
+	// the key is the tenant's: two tenants queue the same keyed job side by side
+	conflict := "unique_key"
+	if c.Tenancy() {
+		conflict = "tenant, unique_key"
+	}
 	// The user the job acts as. Checked here so a typo is refused where it was
 	// written, and again when the job runs, because a user can be disabled in
 	// between.
@@ -143,7 +149,7 @@ func (c *Ctx) Enqueue(method string, args map[string]any, opts map[string]any) (
 			 on_start, on_failure, unique_key, run_as)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, NULLIF($8, ''), $9, NULLIF($10, ''), NULLIF($11, ''), NULLIF($12, ''),
 			        NULLIF($13, ''))
-			ON CONFLICT (unique_key) WHERE unique_key IS NOT NULL AND status = 'queued' DO NOTHING
+			ON CONFLICT (`+conflict+`) WHERE unique_key IS NOT NULL AND status = 'queued' DO NOTHING
 			RETURNING id`,
 			method, string(b), queue, c.User, runAfter, timeout, maxAttempts, RequestIDFrom(c.Ctx), backoff,
 			hooks["onStart"], hooks["onFailure"], uniqueKey, runAs).Scan(&id)
@@ -317,7 +323,11 @@ func (e *Engine) requeueStale(ctx context.Context) error {
 		             ELSE 'worker interrupted: lease expired' END
 		WHERE status = 'running' AND lease_until IS NOT NULL AND lease_until < now()
 		RETURNING id, method, status, "user", args, queue, attempts, max_attempts, on_failure, run_as`
-	rows, err := db.Select(ctx, e.DB.Pool, q)
+	on, err := e.tenancy(ctx)
+	if err != nil {
+		return err
+	}
+	rows, err := db.Select(ctx, e.DB.Sys, q+jobTenantColumn(on))
 	if err != nil {
 		return err
 	}
@@ -332,7 +342,7 @@ func (e *Engine) requeueStale(ctx context.Context) error {
 		if status == "cancelled" {
 			reason = "cancelled"
 		}
-		e.runOnFailure(ctx, jobFailure{
+		e.runOnFailure(jobSpace(ctx, r), jobFailure{
 			id: int64(toFloat(r["id"])), method: db.Str(r["method"]), user: db.Str(r["user"]),
 			runAs: db.Str(r["run_as"]),
 			queue: db.Str(r["queue"]), hook: db.Str(r["on_failure"]), args: jobArgs(r["args"]),
@@ -346,7 +356,7 @@ func (e *Engine) requeueStale(ctx context.Context) error {
 			"id": int64(toFloat(r["id"])), "method": db.Str(r["method"]),
 			"ok": false, "cancelled": db.Str(r["status"]) == "cancelled",
 			"error": "worker interrupted: lease expired",
-		}, User: db.Str(r["user"])})
+		}, User: db.Str(r["user"]), Tenant: db.Str(r["tenant"])})
 	}
 	return nil
 }
@@ -387,14 +397,26 @@ func (e *Engine) Worker(ctx context.Context, id int) {
 }
 
 func (e *Engine) runOneJob(ctx context.Context) (bool, error) {
-	tx, err := e.DB.Pool.Begin(ctx)
+	on, err := e.tenancy(ctx)
+	if err != nil {
+		return false, err
+	}
+	// The queue is one for the whole site, so the claim is the system pool's.
+	// A job's number names it whichever tenant queued it; the tenant comes
+	// back with the row and is where the job then runs. A disabled tenant's
+	// jobs wait: nothing of it runs until it is enabled again.
+	tx, err := e.DB.Sys.Begin(ctx)
 	if err != nil {
 		return false, err
 	}
 	defer tx.Rollback(ctx)
+	enabled := ""
+	if on {
+		enabled = ` AND (tenant = '' OR tenant IN (SELECT id FROM ` + meta.TenantTable + ` WHERE enabled))`
+	}
 	rows, err := db.Select(ctx, tx, `SELECT id, method, args, "user", attempts, max_attempts, timeout_seconds,
-		queue, on_start, on_failure, run_as FROM ddcore_job
-		WHERE status = 'queued' AND run_after <= now() AND cancel_requested IS NULL
+		queue, on_start, on_failure, run_as`+jobTenantColumn(on)+` FROM ddcore_job
+		WHERE status = 'queued' AND run_after <= now() AND cancel_requested IS NULL`+enabled+`
 		ORDER BY id LIMIT 1 FOR UPDATE SKIP LOCKED`)
 	if err != nil || len(rows) == 0 {
 		return false, err
@@ -415,7 +437,9 @@ func (e *Engine) runOneJob(ctx context.Context) (bool, error) {
 	attempt := int(toFloat(j["attempts"])) + 1
 	user, runAs := db.Str(j["user"]), db.Str(j["run_as"])
 	timeout := time.Duration(orInt(toFloat(j["timeout_seconds"]), defaultJobTimeout)) * time.Second
-	jobCtx, cancel := context.WithTimeout(ctx, timeout)
+	tenant := db.Str(j["tenant"])
+	spaceCtx := jobSpace(ctx, j)
+	jobCtx, cancel := context.WithTimeout(spaceCtx, timeout)
 	// The flag, and not the error, is what identifies a cancellation. Both an
 	// administrative cancel and a worker shutting down interrupt the VM through
 	// a context and surface as context.Canceled, and RunJob rewrites the timeout
@@ -457,12 +481,12 @@ func (e *Engine) runOneJob(ctx context.Context) (bool, error) {
 	wctx, wcancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer wcancel()
 	write := func(sql string, a ...any) {
-		if _, err := e.DB.Pool.Exec(wctx, sql, a...); err != nil {
+		if _, err := e.DB.Sys.Exec(wctx, sql, a...); err != nil {
 			e.Log.Error("job finalize", "id", id, "err", err)
 		}
 	}
 	failed := func(reason string, final bool, msg string) {
-		e.runOnFailure(ctx, jobFailure{
+		e.runOnFailure(spaceCtx, jobFailure{
 			id: id, method: method, user: user, runAs: runAs, queue: db.Str(j["queue"]),
 			hook: db.Str(j["on_failure"]), args: args, attempt: attempt, maxAttempts: maxAttempts,
 			reason: reason, err: msg, final: final,
@@ -470,7 +494,7 @@ func (e *Engine) runOneJob(ctx context.Context) (bool, error) {
 	}
 	publish := func(payload map[string]any) {
 		payload["id"], payload["method"] = id, method
-		e.Events.Publish(Event{Name: "job_done", Payload: payload, User: user})
+		e.Events.Publish(Event{Name: "job_done", Payload: payload, User: user, Tenant: tenant})
 	}
 
 	switch {
@@ -491,7 +515,7 @@ func (e *Engine) runOneJob(ctx context.Context) (bool, error) {
 			WHERE id = $1 AND status = 'running' AND attempts = $2`, id, attempt)
 		// Before the event, so whoever refreshes on it reads what onFailure wrote.
 		msg := "cancelled"
-		e.DB.Pool.QueryRow(wctx, `SELECT COALESCE(error, 'cancelled') FROM ddcore_job WHERE id = $1`, id).Scan(&msg)
+		e.DB.Sys.QueryRow(wctx, `SELECT COALESCE(error, 'cancelled') FROM ddcore_job WHERE id = $1`, id).Scan(&msg)
 		failed("cancelled", true, msg)
 		publish(map[string]any{"ok": false, "cancelled": true})
 
@@ -527,7 +551,7 @@ func (e *Engine) runOneJob(ctx context.Context) (bool, error) {
 			id, status, runErr.Error(), attempt)
 		// A failed run gets a handle of its own, so an Error Log row points at
 		// one execution and not merely at a method name.
-		e.LogError(WithRequestID(ctx, fmt.Sprintf("job:%d", id)), "job:"+method, runErr)
+		e.LogError(WithRequestID(spaceCtx, fmt.Sprintf("job:%d", id)), "job:"+method, runErr)
 		reason := "error"
 		if errors.Is(jobErr, context.DeadlineExceeded) {
 			reason = "timeout"
@@ -568,7 +592,7 @@ func (e *Engine) heartbeat(ctx context.Context, id int64, attempt int, onCancel 
 				return
 			case <-renew.C:
 				var cancelReq *time.Time
-				err := e.DB.Pool.QueryRow(ctx, `UPDATE ddcore_job SET lease_until = now() + $2::interval
+				err := e.DB.Sys.QueryRow(ctx, `UPDATE ddcore_job SET lease_until = now() + $2::interval
 					WHERE id = $1 AND status = 'running' AND attempts = $3
 					RETURNING cancel_requested`, id, jobLease.String(), attempt).Scan(&cancelReq)
 				switch {
@@ -587,7 +611,7 @@ func (e *Engine) heartbeat(ctx context.Context, id int64, attempt int, onCancel 
 			case <-poll.C:
 				var cancelReq *time.Time
 				var status string
-				if err := e.DB.Pool.QueryRow(ctx,
+				if err := e.DB.Sys.QueryRow(ctx,
 					`SELECT status, cancel_requested FROM ddcore_job WHERE id = $1`, id).
 					Scan(&status, &cancelReq); err != nil {
 					continue
@@ -616,7 +640,27 @@ func orJSON(r json.RawMessage) json.RawMessage {
 	return r
 }
 
-// LogError writes an Error Log document outside the failed transaction.
+// jobTenantColumn is the tenant of a job row in a select list or a RETURNING.
+// The column is there only on a site with tenancy; without it every job is
+// the site's.
+func jobTenantColumn(tenancy bool) string {
+	if tenancy {
+		return `, tenant`
+	}
+	return `, ''::text AS tenant`
+}
+
+// jobSpace is ctx naming the tenant a job row belongs to, so that the job's
+// code, its callbacks and the Error Log of its failure all run there.
+func jobSpace(ctx context.Context, row map[string]any) context.Context {
+	if tenant := db.Str(row["tenant"]); tenant != "" {
+		return WithTenant(ctx, tenant)
+	}
+	return ctx
+}
+
+// LogError writes an Error Log document outside the failed transaction, in
+// the tenant ctx names, if it names one.
 func (e *Engine) LogError(ctx context.Context, method string, err error) {
 	id := RequestIDFrom(ctx)
 	// The id is omitted rather than logged empty when no request is behind the

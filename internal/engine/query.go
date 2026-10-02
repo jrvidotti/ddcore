@@ -332,6 +332,9 @@ func (c *Ctx) GetList(doctype string, a ListArgs) ([]map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := c.spaceRefusal(d, false); err != nil {
+		return nil, err
+	}
 	if !a.IgnorePermissions && !c.IgnorePermissions() {
 		if ok, err := c.HasPermission(doctype, "read", nil); err != nil {
 			return nil, err
@@ -637,6 +640,9 @@ func (c *Ctx) Count(doctype string, filters any, orFilters ...any) (int64, error
 func (c *Ctx) Exists(doctype, name string) (bool, error) {
 	d, err := c.St.DocType(doctype)
 	if err != nil {
+		return false, err
+	}
+	if err := c.spaceRefusal(d, false); err != nil {
 		return false, err
 	}
 	if refused, err := c.refusedToScopedUser(d.Name); err != nil || refused {
@@ -1102,6 +1108,9 @@ func (c *Ctx) ResolveLinkTitles(doctype string, docs ...Doc) map[string]map[stri
 func (c *Ctx) LinkTitles(doctype string, names []string) (map[string]string, error) {
 	d, err := c.St.DocType(doctype)
 	if err != nil {
+		return nil, err
+	}
+	if err := c.spaceRefusal(d, false); err != nil {
 		return nil, err
 	}
 	if d.TitleIsTranslatedID() {

@@ -68,7 +68,13 @@ func (e *Engine) InviteUser(c *Ctx, inv Invitation) (map[string]any, error) {
 	if userType != "System User" && userType != "Website User" {
 		return nil, cerr.Validation("{0} is not a user type", userType)
 	}
-	rows, err := db.Select(c.Ctx, c.Q(), `SELECT id FROM tab_user WHERE id = $1 OR lower(email) = lower($1)`, email)
+	// across spaces: an address signs in to one account on the whole site,
+	// so one registered in another tenant is taken here as well
+	var rows []map[string]any
+	err := c.elevated(func() (err error) {
+		rows, err = db.Select(c.Ctx, c.Q(), `SELECT id FROM tab_user WHERE id = $1 OR lower(email) = lower($1)`, email)
+		return err
+	})
 	if err != nil {
 		return nil, err
 	}

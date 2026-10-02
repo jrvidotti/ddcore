@@ -246,7 +246,9 @@ func runBackup(ctx context.Context, e *engine.Engine, cfg *config.File, o backup
 	// One snapshot for everything read from the database: the dump, the row
 	// counts and the migration state all describe the same instant, which is
 	// what lets a restore compare its counts with these.
-	tx, err := e.DB.Pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+	// the system pool: an archive is of the whole database, every tenant's
+	// rows included, and its row counts have to say so
+	tx, err := e.DB.Sys.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
 	if err != nil {
 		return man, out, err
 	}

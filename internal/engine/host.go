@@ -289,19 +289,27 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		c.Msgprint(m)
 		return nil, nil
 	case "cache.get":
-		v, ok := e.Cache.Get(a.Key)
+		v, ok := e.Cache.Get(c.appCacheKey(a.Key))
 		if !ok {
 			return nil, nil
 		}
 		return v, nil
 	case "cache.set":
-		e.Cache.Set(a.Key, a.Value, time.Duration(a.TTL)*time.Second)
+		e.Cache.Set(c.appCacheKey(a.Key), a.Value, time.Duration(a.TTL)*time.Second)
 		return nil, nil
 	case "cache.del":
 		// Dropped here now, and in the other processes when the transaction
 		// commits: the core controllers drop roles and user types this way.
-		e.Cache.Del(a.Key)
-		return nil, c.broadcastInvalidation([]string{a.Key}, nil)
+		// Those are the engine's own keys, which carry no tenant (a user is
+		// in one), so inside a tenant both spellings of the key go.
+		keys := []string{a.Key}
+		if k := c.appCacheKey(a.Key); k != a.Key {
+			keys = append(keys, k)
+		}
+		for _, k := range keys {
+			e.Cache.Del(k)
+		}
+		return nil, c.broadcastInvalidation(keys, nil)
 	case "http":
 		return httpCall(a.Method, a.URL, a.Body, a.Headers, a.Timeout, a.ResponseType, int64(a.MaxBytes), a.ClientCert)
 	case "files.save":
@@ -338,7 +346,7 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 				ev.DocID = id
 			}
 		}
-		c.AfterCommit(func() { e.Events.Publish(ev) })
+		c.AfterCommit(func() { c.publish(ev) })
 		return nil, nil
 	case "log":
 		var l struct {
@@ -657,6 +665,32 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 			return nil, cerr.Permission("ddcore.test is only available inside ddcore test")
 		}
 		return nil, c.testRootCtx().RollbackTo()
+	// ---- tenancy ------------------------------------------------------------
+	case "tenant.current":
+		return c.Tenant, nil
+	case "tenant.list":
+		return c.TenantList()
+	case "tenant.enter":
+		if !c.Tenancy() {
+			return nil, cerr.Validation("This site has no tenants: tenancy is off")
+		}
+		if c.Tenant != "" && c.Tenant != a.Key {
+			return nil, cerr.Permission("A tenant cannot enter another tenant")
+		}
+		// entering the tenant the ctx is already in still nests, so that the
+		// leave that follows has something to undo
+		_, err := c.enterTenantCtx(a.Key)
+		return nil, err
+	case "tenant.leave":
+		if _, err := c.leaveTenantCtx(); err != nil {
+			c.E.Log.Warn("could not return from a tenant", "err", err)
+		}
+		return nil, nil
+	case "tenant.created":
+		if c.Tenant != "" {
+			return nil, cerr.Permission("Tenants are managed from the platform space")
+		}
+		return nil, c.TenantCreated(a.Key)
 	case "test.asUser":
 		return nil, c.testAsUser(a.User)
 	case "test.restoreUser":

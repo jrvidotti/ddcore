@@ -73,6 +73,7 @@ func New(e *engine.Engine, desk fs.FS) *Server {
 		r.Use(s.confineWebsiteUsers)
 		r.Post("/login", s.login)
 		r.Post("/logout", s.logout)
+		r.Post("/tenant/enter", s.enterTenant)
 		// Recovery and invitation: public by necessity, throttled in auth.go.
 		r.Post("/auth/forgot-password", s.forgotPassword)
 		r.Post("/auth/token", s.authToken)
@@ -437,7 +438,21 @@ func (s *Server) auth(next http.Handler) http.Handler {
 		if info := infoOf(r); info != nil {
 			info.user = u
 		}
-		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), userKey, u)))
+		// On a site with tenancy the request works in one space: its user's
+		// tenant, or the one a platform user entered — with the session, or
+		// per request with a header when the caller holds an API key.
+		named := r.Header.Get("X-Tenant")
+		if named == "" {
+			if ck, err := r.Cookie("sid"); err == nil && u != "Guest" {
+				named = s.E.SessionTenant(r.Context(), ck.Value)
+			}
+		}
+		ctx, err := s.E.RequestSpace(r.Context(), u, named)
+		if err != nil {
+			s.writeErr(w, r, err)
+			return
+		}
+		next.ServeHTTP(w, r.WithContext(context.WithValue(ctx, userKey, u)))
 	})
 }
 
@@ -459,6 +474,15 @@ func (s *Server) RequireAdminAPIKey(next http.Handler) http.Handler {
 		}
 		if u == "" || u == "Guest" {
 			s.writeErr(w, r, cerr.Auth("Invalid API key"))
+			return
+		}
+		// A tenant's System Manager administers that tenant, not the site:
+		// what sits behind this guard runs code and SQL as the operator.
+		if own, err := s.E.TenantOfUser(r.Context(), u); err != nil {
+			s.writeErr(w, r, err)
+			return
+		} else if own != "" {
+			s.writeErr(w, r, cerr.Permission("This endpoint is for the platform's own users"))
 			return
 		}
 		roles, err := s.E.NewCtx(r.Context(), u).RolesOf(u)
@@ -645,6 +669,18 @@ func (s *Server) boot(w http.ResponseWriter, r *http.Request) {
 			// where a Geolocation's map draws its tiles from: the browser
 			// fetches them, the server never does
 			"map": mapBoot(s.E.Cfg.Map),
+		}
+		// the space the request works in, on a site with tenancy; absent
+		// without it, so the desk draws nothing about tenants there
+		if tb, err := c.TenantBoot(); err != nil {
+			return nil, err
+		} else if tb != nil {
+			site["tenant"] = tb
+		}
+		if userDoc == nil && c.User != "Guest" && c.Tenant != "" {
+			// a platform user inside a tenant: the account is not a document
+			// of that tenant, but the desk still needs a name to show
+			userDoc = map[string]any{"id": c.User, "full_name": c.User, "user_type": "System User"}
 		}
 		if c.IsWebsiteUser() {
 			// a Website User sees the portals and nothing of the desk: not its
@@ -1394,6 +1430,25 @@ func (s *Server) workspace(c *engine.Ctx, name string) (map[string]any, error) {
 	return ws, nil
 }
 
+// enterTenant puts the session of a platform user in a tenant, or back in the
+// platform space with an empty one. The desk reloads afterwards: everything
+// it holds was read in the space it just left.
+func (s *Server) enterTenant(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Tenant string `json:"tenant"`
+	}
+	if err := readJSON(r, &body); err != nil {
+		s.writeErr(w, r, err)
+		return
+	}
+	s.run(w, r, func(c *engine.Ctx) (any, error) {
+		if err := c.EnterTenant(body.Tenant); err != nil {
+			return nil, err
+		}
+		return map[string]any{"tenant": body.Tenant}, nil
+	})
+}
+
 // ------------------------------------------------------------------ events (SSE)
 
 func (s *Server) events(w http.ResponseWriter, r *http.Request) {
@@ -1405,7 +1460,8 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
-	ch := s.E.Events.Subscribe(user(r), s.eventAuthorizer(r.Context(), user(r)))
+	tenant, _ := engine.TenantFrom(r.Context())
+	ch := s.E.Events.SubscribeIn(user(r), tenant, s.eventAuthorizer(r.Context(), user(r)))
 	defer s.E.Events.Unsubscribe(ch)
 	fmt.Fprintf(w, "event: hello\ndata: {}\n\n")
 	fl.Flush()
@@ -1434,7 +1490,13 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 // document-level scopes can differ within a doctype.
 func (s *Server) eventAuthorizer(ctx context.Context, u string) engine.Authorizer {
 	return func(doctype, name string) bool {
+		// the tenant is part of the question only for a platform user, who
+		// may be in any; everyone else is in one, and the user names it. The
+		// user stays first: it is the prefix a change of roles or scopes drops.
 		key := fmt.Sprintf("evperm:%s:%s:%s", u, doctype, name)
+		if tenant, _ := engine.TenantFrom(ctx); tenant != "" {
+			key = fmt.Sprintf("evperm:%s:%s:%s:@%s", u, doctype, name, tenant)
+		}
 		if v, ok := s.E.Cache.Get(key); ok {
 			return v.(bool)
 		}

@@ -55,6 +55,12 @@ func cmdImport(args []string) error {
 	if len(args) < 1 {
 		return fmt.Errorf("%s", importUsage)
 	}
+	// A site-to-site load writes rows as they are and reconciles them outside
+	// any transaction, so it lands in the platform space; `ddcore tenant adopt`
+	// then gives the loaded site to a tenant.
+	if os.Getenv("DDCORE_TENANT") != "" {
+		return fmt.Errorf("import loads into the platform space: drop --tenant, then run `ddcore tenant adopt <slug>`")
+	}
 	sub, rest := args[0], args[1:]
 	switch sub {
 	case "plan", "run", "reconcile":

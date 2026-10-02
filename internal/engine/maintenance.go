@@ -172,7 +172,7 @@ func (e *Engine) WatchMaintenance(ctx context.Context) {
 		cur := e.Maintenance(ctx)
 		if cur.Enabled != last.Enabled || cur.Reason != last.Reason {
 			e.Log.Info("maintenance mode changed", "enabled", cur.Enabled, "reason", cur.Reason, "actor", cur.Actor)
-			e.Events.Publish(Event{Name: "maintenance", Payload: cur})
+			e.Events.Publish(Event{Name: "maintenance", SiteWide: true, Payload: cur})
 		}
 		last = cur
 	}

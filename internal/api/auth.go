@@ -72,7 +72,7 @@ func (s *Server) forgotPassword(w http.ResponseWriter, r *http.Request) {
 	if user, ok := s.E.FindUserForRecovery(r.Context(), body.Usr); ok &&
 		(s.E.Cfg.Auth.AllowPasswordLogin() || user == "Admin") {
 		var rec *engine.Recovery
-		err := s.E.Run(r.Context(), "Admin", func(c *engine.Ctx) error {
+		err := s.E.RunAdminFor(r.Context(), user, func(c *engine.Ctx) error {
 			var e error
 			rec, e = s.E.StartRecovery(c, user, engine.TokenReset, clientIP(r))
 			return e
@@ -110,7 +110,7 @@ func (s *Server) authToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	name := ""
-	s.E.Run(r.Context(), "Admin", func(c *engine.Ctx) error {
+	s.E.RunAdminFor(r.Context(), at.User, func(c *engine.Ctx) error {
 		if m, err := c.GetValues("User", at.User, []string{"full_name"}); err == nil && m != nil {
 			name, _ = m["full_name"].(string)
 		}

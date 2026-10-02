@@ -276,7 +276,7 @@ func (c *Ctx) advanceSeries(d *meta.DocType, doc Doc) error {
 		return nil
 	}
 	_, err := c.Q().Exec(c.Ctx, `INSERT INTO ddcore_series (prefix, current) VALUES ($1, $2)
-		ON CONFLICT (prefix) DO UPDATE SET current = GREATEST(ddcore_series.current, EXCLUDED.current)`, key, n)
+		ON CONFLICT (`+c.seriesKey()+`) DO UPDATE SET current = GREATEST(ddcore_series.current, EXCLUDED.current)`, key, n)
 	return err
 }
 

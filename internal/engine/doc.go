@@ -443,6 +443,9 @@ func (c *Ctx) getDoc(doctype, name string, forUpdate bool) (Doc, error) {
 		}
 		return c.getVirtualDoc(d, name, !c.IgnorePermissions())
 	}
+	if err := c.spaceRefusal(d, false); err != nil {
+		return nil, err
+	}
 	sel := fmt.Sprintf("SELECT * FROM %s WHERE id = $1", db.Ident(d.TableName()))
 	if forUpdate && c.Tx != nil {
 		sel += " FOR UPDATE"
@@ -576,6 +579,9 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 	}
 	if d.IsChild {
 		return nil, cerr.Validation("{0} is a child table", d.Name)
+	}
+	if err := c.spaceRefusal(d, true); err != nil {
+		return nil, err
 	}
 	if d.Name == "Audit Event" {
 		return nil, cerr.Permission("Audit Event records are immutable and cannot be created directly")
@@ -749,6 +755,9 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 		return nil, err
 	}
 	if err := refuseVirtual(d); err != nil {
+		return nil, err
+	}
+	if err := c.spaceRefusal(d, true); err != nil {
 		return nil, err
 	}
 	if d.Name == "Audit Event" {
@@ -1078,6 +1087,9 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 	if err := refuseVirtual(d); err != nil {
 		return modified, err
 	}
+	if err := c.spaceRefusal(d, true); err != nil {
+		return modified, err
+	}
 	if d.Name == "Audit Event" {
 		return modified, cerr.Permission("Audit Event records are immutable and cannot be modified")
 	}
@@ -1288,7 +1300,7 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 	// only after commit: a rolled back transaction must not announce
 	// changes that never took place (B20).
 	c.AfterCommit(func() {
-		c.E.Events.Publish(Event{Name: "doc_update", Doctype: doctype, DocID: name, Payload: map[string]any{"doctype": doctype, "id": name}})
+		c.publish(Event{Name: "doc_update", Doctype: doctype, DocID: name, Payload: map[string]any{"doctype": doctype, "id": name}})
 	})
 	return modified, nil
 }
@@ -1312,6 +1324,9 @@ func (c *Ctx) deleteWithFlags(doctype, name string, ignorePerms, force bool, fla
 		return err
 	}
 	if err := refuseVirtual(d); err != nil {
+		return err
+	}
+	if err := c.spaceRefusal(d, true); err != nil {
 		return err
 	}
 	if doctype == "Audit Event" {
@@ -1367,7 +1382,7 @@ func (c *Ctx) deleteWithFlags(doctype, name string, ignorePerms, force bool, fla
 		return err
 	}
 	if !force {
-		if err := c.checkLinksBeforeDelete(d, name); err != nil {
+		if err := c.acrossSpaces(d, func() error { return c.checkLinksBeforeDelete(d, name) }); err != nil {
 			return err
 		}
 	}
@@ -1471,13 +1486,20 @@ func (c *Ctx) deleteWithFlags(doctype, name string, ignorePerms, force bool, fla
 		}
 	}
 	c.AfterCommit(func() {
-		c.E.Events.Publish(Event{Name: "list_update", Payload: map[string]any{"doctype": doctype}})
+		c.publish(Event{Name: "list_update", Payload: map[string]any{"doctype": doctype}})
 	})
 	return nil
 }
 
 // Rename changes a document's name and every link pointing to it.
 func (c *Ctx) Rename(doctype, oldID, newID string) (string, error) {
+	// before anything else: a shared document's rename rewrites every
+	// tenant's references to it, and is the platform's alone
+	if sd, err := c.St.DocType(doctype); err == nil {
+		if err := c.spaceRefusal(sd, true); err != nil {
+			return "", err
+		}
+	}
 	d, err := c.St.DocType(doctype)
 	if err != nil {
 		return "", err
@@ -1515,7 +1537,7 @@ func (c *Ctx) Rename(doctype, oldID, newID string) (string, error) {
 	if err := c.runHook(d, "beforeRename", doc, nil, flags); err != nil {
 		return "", err
 	}
-	if err := c.moveID(d, oldID, newID); err != nil {
+	if err := c.acrossSpaces(d, func() error { return c.moveID(d, oldID, newID) }); err != nil {
 		return "", err
 	}
 	delete(c.docCache, c.docKey(doctype, oldID))
@@ -1524,7 +1546,7 @@ func (c *Ctx) Rename(doctype, oldID, newID string) (string, error) {
 		return "", err
 	}
 	c.AfterCommit(func() {
-		c.E.Events.Publish(Event{Name: "list_update", Payload: map[string]any{"doctype": doctype}})
+		c.publish(Event{Name: "list_update", Payload: map[string]any{"doctype": doctype}})
 	})
 	return newID, nil
 }
@@ -1637,8 +1659,8 @@ func (c *Ctx) GetDocIgnoringPerms(doctype, name string) (Doc, error) {
 
 func (c *Ctx) notify(d *meta.DocType, doc Doc, action string) {
 	c.AfterCommit(func() {
-		c.E.Events.Publish(Event{Name: "doc_update", Doctype: d.Name, DocID: doc.ID(), Payload: map[string]any{"doctype": d.Name, "id": doc.ID(), "action": action, "modified": doc["modified"], "user": c.User}})
-		c.E.Events.Publish(Event{Name: "list_update", Payload: map[string]any{"doctype": d.Name}})
+		c.publish(Event{Name: "doc_update", Doctype: d.Name, DocID: doc.ID(), Payload: map[string]any{"doctype": d.Name, "id": doc.ID(), "action": action, "modified": doc["modified"], "user": c.User}})
+		c.publish(Event{Name: "list_update", Payload: map[string]any{"doctype": d.Name}})
 	})
 }
 
@@ -2459,8 +2481,14 @@ func (c *Ctx) writeChildren(d *meta.DocType, doc Doc) error {
 					sets = append(sets, fmt.Sprintf("%s = EXCLUDED.%s", col, col))
 				}
 			}
-			sql := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s) ON CONFLICT (id) DO UPDATE SET %s",
-				db.Ident(child.TableName()), strings.Join(cols, ", "), strings.Join(ph, ", "), strings.Join(sets, ", "))
+			key := "id"
+			// from the meta, like the table itself: inside the migration
+			// that turns tenancy on, the key is already the composite one
+			if child.TenantKeyed() {
+				key = "tenant, id"
+			}
+			sql := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s) ON CONFLICT (%s) DO UPDATE SET %s",
+				db.Ident(child.TableName()), strings.Join(cols, ", "), strings.Join(ph, ", "), key, strings.Join(sets, ", "))
 			if _, err := c.Q().Exec(c.Ctx, sql, vals...); err != nil {
 				return fmt.Errorf("%w\nSQL: %s", err, sql)
 			}

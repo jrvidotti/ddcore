@@ -54,6 +54,7 @@ Usage: ddcore <command> [options]
   audit       inspect and purge administrative audit events (run: ddcore audit)
   user        user add|invite|passwd|reset|unlock|sessions (run: ddcore user)
   apikey      apikey <user> [--label x] [--days N]  → prints key:secret
+  tenant      tenant list|create|enable|disable|adopt — the tenants of a site with tenancy (run: ddcore tenant)
   mcp         MCP server (stdio) for agents
   docs        print the framework documentation
   doctor      database readiness, meta, queue and errors (--json, --strict)
@@ -63,6 +64,8 @@ Usage: ddcore <command> [options]
   version     print the framework version
 
 Variables: DDCORE_DSN overrides the dsn in ddcore.json.
+Global flag: --tenant <slug>, before the command, runs a one-shot command inside
+a tenant of a site with tenancy (ddcore --tenant acme user add …).
 Global flag: --allow-older-binary (DDCORE_ALLOW_OLDER_BINARY=1) opens a database
 a newer release migrated — a rollback; see ` + "`ddcore docs backup`" + `.
 `
@@ -104,6 +107,8 @@ func main() {
 		err = cmdUser(args)
 	case "apikey":
 		err = cmdAPIKey(args)
+	case "tenant":
+		err = cmdTenant(args)
 	case "mcp":
 		err = cmdMCP(args)
 	case "import":
@@ -158,7 +163,19 @@ var deferDB bool
 // about them.
 func stripGlobalFlags(args []string) []string {
 	out := args[:0:0]
-	for _, a := range args {
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		// `--tenant acme` before the command: the tenant it works in. Only
+		// before it — after the command the word belongs to the command.
+		if len(out) == 0 && (a == "--tenant" || a == "-tenant") && i+1 < len(args) {
+			os.Setenv("DDCORE_TENANT", args[i+1])
+			i++
+			continue
+		}
+		if v, ok := strings.CutPrefix(a, "--tenant="); ok && len(out) == 0 {
+			os.Setenv("DDCORE_TENANT", v)
+			continue
+		}
 		if a == "--allow-older-binary" || a == "-allow-older-binary" {
 			os.Setenv("DDCORE_ALLOW_OLDER_BINARY", "1")
 			continue
@@ -208,8 +225,18 @@ func load(test bool, dev bool) (*engine.Engine, *config.File, error) {
 		level = slog.LevelDebug
 	}
 	isDev := dev || config.DevFromEnv()
+	// --tenant is for a command that does one thing and exits. A process that
+	// serves requests or runs jobs works in every tenant, each from its own
+	// user or its own job; pinning it to one would be a quiet way to break it.
+	enter := os.Getenv("DDCORE_TENANT")
+	if enter != "" && (enforceMaintenance || deferDB) {
+		return nil, nil, fmt.Errorf("--tenant is for one-shot commands, not for a server, a worker or mcp")
+	}
+	if enter != "" && !cfg.Tenancy {
+		return nil, nil, fmt.Errorf(`--tenant needs "tenancy": true in ddcore.json`)
+	}
 	e, err := engine.New(context.Background(), engine.Config{
-		DSN: cfg.DSN, Apps: apps, DDCore: cfg.DDCore, Workers: cfg.Workers, Scheduler: cfg.Scheduler, Dev: isDev, Test: test,
+		DSN: cfg.DSN, Apps: apps, DDCore: cfg.DDCore, Workers: cfg.Workers, Scheduler: cfg.Scheduler, Tenancy: cfg.Tenancy, TenantRole: cfg.TenantRole, EnterTenant: enter, Dev: isDev, Test: test,
 		Port: cfg.Port, SiteTitle: cfg.Title, Lang: cfg.Lang, Currency: cfg.Currency, CurrencyPrecision: cfg.CurrencyPrecision, Rounding: cfg.RoundingMode(), Timezone: cfg.Timezone, DataDir: cfg.DataDir, Root: root, ExportMaxRows: cfg.ExportMaxRows, ImportMaxRows: cfg.ImportMaxRows, LogLevel: level,
 		Auth: cfg.Auth, Ops: cfg.Ops, LogJSON: logJSON(), LogOut: logOut, Mail: cfg.Mail, Webhooks: cfg.Webhooks, Storage: cfg.Storage, SiteURL: cfg.PublicURL(), TrustProxy: cfg.TrustProxy, Login: cfg.Login, OIDC: cfg.OIDC, Portal: cfg.Portal, Map: cfg.Map,
 		EnforceMaintenance: enforceMaintenance, AllowOlderBinary: allowOlderBinary(), AdminPassword: cfg.AdminPassword, DeferDB: deferDB,
@@ -468,7 +495,7 @@ func cmdServe(args []string, dev bool) error {
 		go watch.Apps(ctx, e, func() {
 			if err := e.Load(); err != nil {
 				e.Log.Error("reload failed", "err", err)
-				e.Events.Publish(engine.Event{Name: "reload_error", Payload: map[string]any{"error": err.Error()}})
+				e.Events.Publish(engine.Event{Name: "reload_error", SiteWide: true, Payload: map[string]any{"error": err.Error()}})
 				return
 			}
 			if *autoMigrate {
@@ -482,7 +509,7 @@ func cmdServe(args []string, dev bool) error {
 				}
 			}
 			e.Cache.Clear()
-			e.Events.Publish(engine.Event{Name: "reload", Payload: map[string]any{"loaded": e.Loaded.UnixMilli()}})
+			e.Events.Publish(engine.Event{Name: "reload", SiteWide: true, Payload: map[string]any{"loaded": e.Loaded.UnixMilli()}})
 		})
 	}
 	h := &http.Server{Addr: fmt.Sprintf(":%d", cfg.Port), Handler: srv.Router, ReadHeaderTimeout: 10 * time.Second}
@@ -801,7 +828,8 @@ func cmdUser(args []string) error {
 		if len(args) < 2 {
 			return fmt.Errorf("usage: ddcore user reset <email>")
 		}
-		return e.Run(ctx, "Admin", func(c *engine.Ctx) error {
+		// in the account's own tenant: the link is mailed from there
+		return e.RunAdminFor(ctx, args[1], func(c *engine.Ctx) error {
 			rec, err := e.StartRecovery(c, args[1], engine.TokenReset, "")
 			if err != nil {
 				return err
@@ -907,7 +935,8 @@ func cmdAPIKey(args []string) error {
 	defer e.DB.Close()
 	ctx := context.Background()
 	var out map[string]any
-	if err := e.Run(ctx, "Admin", func(c *engine.Ctx) error {
+	// the key is a document of its user's tenant
+	if err := e.RunAdminFor(ctx, fs.Arg(0), func(c *engine.Ctx) error {
 		var err error
 		out, err = e.CreateAPIKeyFor(c, fs.Arg(0), *label, *days)
 		return err

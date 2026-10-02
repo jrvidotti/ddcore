@@ -44,6 +44,33 @@ older series, and `whats_new` reads across every one of them.
 - A `scheduler` entry can be `{ method, runAs }` instead of a bare path, to run the method under
   a user's roles and access scopes rather than as `Admin`. A scheduled method that could not be
   queued is now logged; the error was dropped (#40).
+- **Tenancy: several customers in one database.** `"tenancy": true` in `ddcore.json`, then
+  `ddcore migrate`, gives every tenant its own documents, ids, numbering series, `unique`
+  values, Singles, users, files, vault secrets, cache keys, jobs, webhooks and realtime events.
+  The wall is the database's: tenant tables are keyed by `(tenant, id)` and held by Postgres
+  row-level security, so the document API, `ddcore.db.sql`, SQL reports and background jobs all
+  stay inside the tenant without any of them naming it. See `tenancy`. (PRD-08)
+  - Every DocType belongs to a tenant unless it declares `shared: true` — reference data the
+    whole site reads and only the operator writes.
+  - The `Site Tenant` DocType, `ddcore tenant create|list|enable|disable|adopt`, and `--tenant <slug>`
+    before any one-shot command (`ddcore --tenant acme eval …`).
+  - `ddcore.tenant.current()`, `.list()` and `.run(id, fn)` for the platform's own code — a
+    scheduled method runs once and fans out — and `onTenantCreate` in `defineApp`, which seeds
+    each new tenant.
+  - The operator (`Admin`, or a System Manager whose account is in no tenant) enters a tenant
+    from the Desk's user menu, or with `X-Tenant` and an API key. A tenant's own System
+    Manager administers that tenant and nothing of the site: no MCP, no health report.
+  - **It cannot be turned off** once migrated, and the servers and workers must be restarted
+    after the migration that turns it on. A site that already has data keeps it in the
+    platform space; `ddcore tenant adopt <slug>` moves it into its first tenant.
+  - The site's database role must be able to create a role, or be granted one created by hand
+    and named in `DDCORE_TENANT_ROLE`.
+
+### Changed
+
+- With tenancy **off** nothing changes: no column, no policy, no new DocType, the same schema.
+- `tenant` is a reserved fieldname on a site with tenancy. An app that has a field of that name
+  on a DocType that is not `shared` must rename it (with `renamedFrom`) before turning tenancy on.
 
 ### Fixed
 

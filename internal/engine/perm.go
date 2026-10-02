@@ -29,10 +29,20 @@ func (c *Ctx) UserPermissions() ([]UserPerm, error) {
 	if c.userPerms != nil {
 		return c.userPerms, nil
 	}
+	// The process cache holds a user's scopes as they are in the user's own
+	// space. An operator inside a tenant is read there and then, uncached:
+	// the rows are another space's, and must neither come from that cache
+	// nor go into it.
+	away, err := c.awayFromHome()
+	if err != nil {
+		return nil, err
+	}
 	key := "user_perms:" + c.User
-	if v, ok := c.E.Cache.Get(key); ok {
-		c.userPerms = v.([]UserPerm)
-		return c.userPerms, nil
+	if !away {
+		if v, ok := c.E.Cache.Get(key); ok {
+			c.userPerms = v.([]UserPerm)
+			return c.userPerms, nil
+		}
 	}
 	gen := c.E.Cache.Gen()
 	perms, err := c.loadUserPermissions(c.User)
@@ -40,7 +50,9 @@ func (c *Ctx) UserPermissions() ([]UserPerm, error) {
 		return nil, err
 	}
 	c.userPerms = perms
-	c.E.Cache.SetAt(key, perms, 0, gen)
+	if !away {
+		c.E.Cache.SetAt(key, perms, 0, gen)
+	}
 	return perms, nil
 }
 
@@ -112,8 +124,33 @@ func (c *Ctx) RolesOf(user string) ([]string, error) {
 	if v, ok := c.E.Cache.Get("roles:" + user); ok {
 		return v.([]string), nil
 	}
+	// Inside a tenant, only the roles of that tenant's users and of whoever
+	// is acting are anyone's business: a user id is site-wide, and app code
+	// could otherwise ask about an account of another tenant.
+	if c.Tenant != "" && user != c.User {
+		own, err := c.E.TenantOfUser(c.Ctx, user)
+		if err != nil {
+			return nil, err
+		}
+		if own != c.Tenant {
+			return []string{"All"}, nil
+		}
+	}
 	gen := c.E.Cache.Gen()
-	rows, err := db.Select(c.Ctx, c.Q(), `SELECT role FROM tab_has_role WHERE parent = $1 AND parenttype = 'User'`, user)
+	// A user's roles are rows of the user's own space. For an operator who
+	// entered a tenant that is not the space the ctx works in — and reading
+	// them there would find none, and cache that.
+	q := c.Q()
+	if c.Tenancy() {
+		own, err := c.E.TenantOfUser(c.Ctx, user)
+		if err != nil {
+			return nil, err
+		}
+		if own != c.Tenant {
+			q = spaceStatements{e: c.E, tenant: own}
+		}
+	}
+	rows, err := db.Select(c.Ctx, q, `SELECT role FROM tab_has_role WHERE parent = $1 AND parenttype = 'User'`, user)
 	if err != nil {
 		return nil, err
 	}

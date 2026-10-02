@@ -208,6 +208,8 @@ export const api = {
   /** `home` is where this user belongs: "/portal" for a Website User (OPS-10). */
   login: (usr: string, pwd: string) => request<{ ok: boolean; home?: string }>("POST", "/api/login", { usr, pwd }),
   logout: () => request("POST", "/api/logout"),
+  /** An operator enters a tenant; "" returns to the platform space. */
+  enterTenant: (tenant: string) => request("POST", "/api/tenant/enter", { tenant }),
 
   // Recovery and invitation. These answer for Guest, so they are the only
   // calls here that work before signing in.

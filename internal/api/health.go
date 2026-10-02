@@ -63,6 +63,10 @@ func (s *Server) healthReport(w http.ResponseWriter, r *http.Request) {
 		if !c.HasRole("System Manager") {
 			return nil, cerr.Permission("This report requires the System Manager role")
 		}
+		// the report counts the whole site's jobs and errors
+		if c.Tenant != "" {
+			return nil, cerr.Permission("This report is for the platform space")
+		}
 		h := s.E.Health(r.Context(), engine.HealthOpts{Queue: true, Errors: true})
 		if st := s.E.Maintenance(r.Context()); st.Enabled {
 			h.Maintenance = &st

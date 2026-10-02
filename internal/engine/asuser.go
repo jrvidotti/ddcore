@@ -20,6 +20,9 @@ func (c *Ctx) userCtx(user string) (*Ctx, error) {
 	child.txOwner = c.owner()
 	child.Lang = c.Lang
 	child.savepoint, child.roSavepoint = c.savepoint, c.roSavepoint
+	if err := c.enterUserSpace(child); err != nil {
+		return nil, err
+	}
 	switch child.User {
 	case "Admin", "Guest":
 		child.roles, _ = c.RolesOf(child.User)
@@ -66,7 +69,11 @@ func (c *Ctx) withUserLang(user, lang string, fn func(*Ctx) error) error {
 	rt.Ctx = child
 	rt.SetLang(child.Lang)
 	defer func() { rt.Ctx = old; rt.SetLang(c.Lang) }()
-	return fn(child)
+	ferr := fn(child)
+	if err := c.leaveUserSpace(child); err != nil && ferr == nil {
+		return err
+	}
+	return ferr
 }
 
 // enterUser switches the VM to user until restoreUser. The JS side brackets its
@@ -92,6 +99,9 @@ func (c *Ctx) restoreUser() *Ctx {
 	parent.rt.Ctx = parent
 	// the child wrote through its own document cache
 	parent.docCache = map[string]Doc{}
+	if err := parent.leaveUserSpace(c); err != nil {
+		parent.E.Log.Warn("could not return to the tenant of the calling user", "err", err)
+	}
 	parent.Messages = append(parent.Messages, c.Messages...)
 	return parent
 }
@@ -159,4 +169,49 @@ func (c *Ctx) testRootCtx() *Ctx {
 		c = c.restoreUser()
 	}
 	return c
+}
+
+// enterUserSpace puts a ctx that borrows this one's transaction in the space
+// of its user. From the platform space that is how the operator's code acts
+// as a tenant's user; from inside a tenant only that tenant's users, and
+// Admin, can be acted as. The roles, scopes and shares userCtx reads next are
+// then read where the user's rows are.
+func (c *Ctx) enterUserSpace(child *Ctx) error {
+	if !c.Tenancy() {
+		return nil
+	}
+	child.Tenant, child.spaced = c.Tenant, true
+	switch child.User {
+	case "Admin", "Guest":
+		return nil
+	}
+	own, found := "", false
+	if err := c.elevated(func() error {
+		rows, err := db.Select(c.Ctx, c.Q(), `SELECT tenant FROM tab_user WHERE id = $1`, child.User)
+		if err == nil && len(rows) > 0 {
+			own, found = db.Str(rows[0]["tenant"]), true
+		}
+		return err
+	}); err != nil {
+		return err
+	}
+	if !found || own == c.Tenant {
+		return nil
+	}
+	if c.Tenant != "" {
+		return cerr.Permission("A user of one tenant cannot work in another")
+	}
+	if err := c.E.checkTenant(c.Ctx, c.Tx, own); err != nil {
+		return err
+	}
+	child.Tenant = own
+	return child.applySpace()
+}
+
+// leaveUserSpace returns the transaction to this ctx's space after child.
+func (c *Ctx) leaveUserSpace(child *Ctx) error {
+	if child.Tenant == c.Tenant {
+		return nil
+	}
+	return c.applySpace()
 }

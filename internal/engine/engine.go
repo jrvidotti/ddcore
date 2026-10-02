@@ -39,9 +39,17 @@ type Config struct {
 	Scheduler bool
 	Dev       bool
 	Test      bool // include *.test.ts and mark runtime as test
-	Port      int
-	Lang      string
-	Currency  string
+	// Tenancy is ddcore.json's `tenancy`: several tenants in one database.
+	Tenancy bool
+	// TenantRole is DDCORE_TENANT_ROLE; empty means db.DefaultTenantRole.
+	TenantRole string
+	// EnterTenant is the tenant a one-shot command works in (`ddcore --tenant
+	// alfa eval …`): work that names no tenant itself enters this one, as an
+	// operator would. Never set by a process that serves requests.
+	EnterTenant string
+	Port        int
+	Lang        string
+	Currency    string
 	// CurrencyPrecision is how many decimal places a Currency field is rounded
 	// to. Zero means "not set": New resolves it from Currency.
 	CurrencyPrecision *int
@@ -132,7 +140,9 @@ type AppMeta struct {
 	Fixtures        map[string][]map[string]any `json:"fixtures"`
 	HasAfterInstall bool                        `json:"hasAfterInstall"`
 	HasAfterMigrate bool                        `json:"hasAfterMigrate"`
-	Dir             string                      `json:"-"`
+	// HasOnTenantCreate: the app seeds each new tenant (tenancy).
+	HasOnTenantCreate bool   `json:"hasOnTenantCreate"`
+	Dir               string `json:"-"`
 }
 
 type Whitelisted struct {
@@ -238,6 +248,9 @@ type Engine struct {
 
 	cur   atomic.Pointer[State]
 	sched atomic.Pointer[scheduler]
+	// tenancyReady is set once the database is known to have had tenancy
+	// applied; see Engine.tenancy.
+	tenancyReady atomic.Bool
 	// ready memoises the database probe; see Engine.Ready.
 	ready    atomic.Pointer[readyCache]
 	mu       sync.Mutex
@@ -251,7 +264,7 @@ type Engine struct {
 	// webhooks caches the enabled subscriptions; nil means "read them again".
 	// See webhookSubs.
 	webhookMu sync.Mutex
-	webhooks  []webhookSub
+	webhooks  map[string][]webhookSub
 	// oidc caches discovered providers; see oidcClientFor.
 	oidcMu sync.Mutex
 	oidc   map[string]*oidcClient
@@ -318,7 +331,7 @@ func New(ctx context.Context, cfg Config) (*Engine, error) {
 	e.store = store
 	var dbErr error
 	if cfg.DSN != "" {
-		d, err := db.Open(ctx, cfg.DSN)
+		d, err := e.openDB(ctx)
 		switch {
 		case err == nil:
 			e.DB = d
@@ -359,7 +372,7 @@ func (e *Engine) Connect(ctx context.Context) error {
 	if e.Cfg.DSN == "" {
 		return fmt.Errorf("dsn not configured: run `ddcore init` or set DDCORE_DSN")
 	}
-	d, err := db.Open(ctx, e.Cfg.DSN)
+	d, err := e.openDB(ctx)
 	if err != nil {
 		return err
 	}
@@ -542,6 +555,11 @@ func (e *Engine) Load() error {
 
 	reg := meta.NewRegistry()
 	for name, dj := range snap.Doctypes {
+		// the tenants' own DocType exists only where there are tenants: a site
+		// without tenancy gets no table, no form and no reserved name
+		if name == meta.TenantDocType && !e.Cfg.Tenancy {
+			continue
+		}
 		var d meta.DocType
 		if err := json.Unmarshal(dj, &d); err != nil {
 			return fmt.Errorf("DocType %s: %w", name, err)
@@ -584,6 +602,10 @@ func (e *Engine) Load() error {
 	for _, w := range reg.DropObsoleteFields() {
 		e.Log.Warn("obsolete fieldtype in a DocType", "detail", w)
 	}
+	// after the extensions, which may add the Table field that makes a child
+	// DocType some tenant-owned DocType's; before Validate, which reserves the
+	// `tenant` column name.
+	reg.ApplyTenancy(e.Cfg.Tenancy)
 	if err := reg.Validate(); err != nil {
 		return err
 	}
@@ -857,9 +879,14 @@ type Ctx struct {
 	E *Engine
 	// St is the engine state captured when the ctx was created: meta, pool, and
 	// translations do not change in the middle of a request, even with reload (B08).
-	St       *State
-	Ctx      context.Context
-	User     string
+	St   *State
+	Ctx  context.Context
+	User string
+	// Tenant is the space this ctx works in on a site with tenancy: a
+	// tenant's id, or empty for the platform space. runOnce resolves it from
+	// the user (and from WithTenant, for the platform's own users) and
+	// confines the transaction to it; see tenancy.go.
+	Tenant   string
 	Lang     string
 	Tx       pgx.Tx
 	Request  map[string]any
@@ -907,6 +934,14 @@ type Ctx struct {
 	// asUserParent is the ctx that ddcore.runAs, or a test's ddcore.test.asUser,
 	// switched away from.
 	asUserParent *Ctx
+	// tenantParent is the ctx that entered the tenant this one works in.
+	tenantParent *Ctx
+	// system lifts the ctx out of row-level security for its whole
+	// transaction; only RunSystem and Migrate set it.
+	system bool
+	// spaced is whether Tenant was decided already, by a parent ctx that
+	// shares its transaction; runOnce resolves it otherwise.
+	spaced bool
 }
 
 func (e *Engine) NewCtx(ctx context.Context, user string) *Ctx {
@@ -916,7 +951,10 @@ func (e *Engine) NewCtx(ctx context.Context, user string) *Ctx {
 	// ReqID is read from the context rather than passed in: every caller that
 	// has a request already carries it there, and deriving it here means no
 	// entry point can forget to correlate.
-	return &Ctx{E: e, St: e.Current(), Ctx: ctx, User: user, Lang: e.Cfg.Lang, ReqID: RequestIDFrom(ctx),
+	// Tenant is what ctx names until a transaction settles it: enough for the
+	// few reads a ctx makes before it has one.
+	tenant, _ := TenantFrom(ctx)
+	return &Ctx{E: e, St: e.Current(), Ctx: ctx, User: user, Tenant: tenant, Lang: e.Cfg.Lang, ReqID: RequestIDFrom(ctx),
 		Flags: map[string]any{}, docCache: map[string]Doc{}}
 }
 
@@ -940,6 +978,9 @@ func (c *Ctx) Run(fn func(c *Ctx) error) error {
 	// transaction, so what is retried is the whole of it, from a clean ctx.
 	c.E.Log.Warn("prepared statement outlived a schema change; retrying the transaction", "err", err)
 	c.E.DB.Pool.Reset()
+	if c.E.DB.Sys != c.E.DB.Pool {
+		c.E.DB.Sys.Reset()
+	}
 	c.Tx = nil
 	c.Messages = nil
 	c.Flags = flags
@@ -959,6 +1000,11 @@ func (c *Ctx) runOnce(fn func(c *Ctx) error) (err error) {
 		return err
 	}
 	c.Tx = tx
+	if err := c.enterSpace(); err != nil {
+		tx.Rollback(c.Ctx)
+		c.Tx = nil
+		return err
+	}
 	done := false
 	defer func() {
 		// Also covers panics and runtime.Goexit (t.Fatal inside fn).
@@ -1059,6 +1105,10 @@ func (c *Ctx) owner() *Ctx {
 func (c *Ctx) Q() db.Querier {
 	if c.Tx != nil {
 		return c.Tx
+	}
+	// without a transaction, single statements in the ctx's space
+	if c.Tenant != "" {
+		return c.space()
 	}
 	return c.E.DB.Pool
 }
@@ -1167,6 +1217,10 @@ func (c *Ctx) RollbackTo() error {
 	_, err := c.Tx.Exec(c.Ctx, fmt.Sprintf("ROLLBACK TO SAVEPOINT sp%d", c.savepoint))
 	c.savepoint--
 	c.docCache = map[string]Doc{}
+	// the rollback took back any change of space made since the savepoint
+	if err == nil {
+		err = c.applySpace()
+	}
 	if n := len(c.rollbackMarks); n > 0 {
 		o, mark := c.owner(), c.rollbackMarks[n-1]
 		c.rollbackMarks = c.rollbackMarks[:n-1]
@@ -1201,6 +1255,9 @@ func (c *Ctx) WithSavepoint(fn func() error) error {
 		}
 		if _, relErr := c.Tx.Exec(c.Ctx, "RELEASE SAVEPOINT "+sp); relErr != nil {
 			c.E.Log.Warn("could not release savepoint", "savepoint", sp, "err", relErr)
+		}
+		if spErr := c.applySpace(); spErr != nil {
+			c.E.Log.Warn("could not restore the tenant after a savepoint", "savepoint", sp, "err", spErr)
 		}
 		o.afterCommit = o.afterCommit[:pending]
 		undo := o.afterRollback[pendingRollback:]

@@ -210,7 +210,11 @@ func (e *Engine) OIDCCallback(ctx context.Context, id, code, state, cookieState 
 		if actor == "" {
 			actor = "Guest"
 		}
-		if aerr := e.RecordAuditOn(ctx, e.DB.Pool, actor, "account.login_sso", outcome, "User", user, from.IP, "", detail); aerr != nil {
+		// in the tenant of the account, where its administrators read it
+		tenant, _ := e.TenantOfUser(ctx, user)
+		if aerr := e.InSpace(ctx, tenant, func(q db.Querier) error {
+			return e.RecordAuditOn(ctx, q, actor, "account.login_sso", outcome, "User", user, from.IP, "", detail)
+		}); aerr != nil {
 			e.Log.Warn("could not record a sign-in", "err", aerr)
 		}
 		if err != nil {
@@ -281,7 +285,19 @@ func (e *Engine) OIDCCallback(ctx context.Context, id, code, state, cookieState 
 		}
 	}
 
-	err = e.Run(ctx, "Admin", func(c *Ctx) error {
+	// Nobody is signed in yet, so the account is looked for across the site
+	// first; the rest — linking the identity, mapping groups to roles, opening
+	// the session — is then done in the account's own tenant.
+	var account string
+	if err := e.System(ctx, func(q db.Querier) error {
+		return q.QueryRow(ctx, `SELECT coalesce(
+			(SELECT u.id FROM ddcore_user_identity i JOIN tab_user u ON u.id = i."user" WHERE i.provider = $1 AND i.subject = $2),
+			(SELECT id FROM tab_user WHERE lower(email) = $3 OR lower(id) = $3 ORDER BY (lower(email) = $3) DESC LIMIT 1),
+			'')`, id, idt.Subject, email).Scan(&account)
+	}); err != nil {
+		return "", redirect, err
+	}
+	err = e.RunAdminFor(ctx, account, func(c *Ctx) error {
 		var linked bool
 		user, linked, err = e.resolveIdentity(c, id, idt.Subject, email)
 		if err != nil {

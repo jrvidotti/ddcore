@@ -1,5 +1,6 @@
 // Session-wide state: who is logged in, what DocTypes/workspaces exist,
 // translations. Loaded once from /api/boot.
+import type { TenantBoot } from "./tenant";
 import { api, setRequestLang } from "./api";
 import { resetLocale } from "./locale";
 
@@ -54,6 +55,8 @@ export interface Boot {
      * operator wrote, sanitized before it is shown.
      */
     map?: { tileUrl: string; attribution: string };
+    /** Present only on a site with tenancy: the space this session works in. */
+    tenant?: TenantBoot;
   };
   loaded: number;
   /** The portals the user reaches (OPS-10). */

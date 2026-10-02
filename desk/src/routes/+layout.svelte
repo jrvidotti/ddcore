@@ -11,6 +11,7 @@
   import Toasts from "$lib/components/Toasts.svelte";
   import Dialogs from "$lib/components/Dialogs.svelte";
   import Icon from "$lib/components/Icon.svelte";
+  import TenantMenu from "$lib/components/TenantMenu.svelte";
   import Spinner from "$lib/components/Spinner.svelte";
   import ShortcutsModal from "$lib/components/ShortcutsModal.svelte";
   import SearchPalette from "$lib/components/SearchPalette.svelte";
@@ -244,6 +245,7 @@
                   {/if}
                 </div>
                 <div class="mobile-menu-divider"></div>
+                <TenantMenu onpick={() => (userMenuOpen = false)} />
                 <button
                   role="menuitem"
                   onclick={() => { userMenuOpen = false; goto("/app/profile"); }}

@@ -9,6 +9,8 @@ export default defineDoctype({
   // role names are keys declared in ddcore.app.ts: the desk shows them translated
   translateId: true,
   icon: "shield",
+  // one set of roles for the whole site: permissions in code name them
+  shared: true,
   fields: [
     { fieldname: "role_name", fieldtype: "Data", label: "Name", reqd: true, unique: true, inListView: true },
     { fieldname: "disabled", fieldtype: "Check", label: "Disabled" },
