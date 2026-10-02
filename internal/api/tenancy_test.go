@@ -78,7 +78,7 @@ func TestTenantAPI_RequestsStayInTheirTenant(t *testing.T) {
 	x.expect(x.call("DELETE", "/api/resource/Pessoa/Cliente%20de%20alfa", nil, b), 404, "")
 
 	// naming another tenant in the header changes nothing for a tenant's user
-	r = x.call("GET", "/api/resource/Pessoa", nil, b, "X-DDCore-Tenant", "alfa")
+	r = x.call("GET", "/api/resource/Pessoa", nil, b, "X-Tenant", "alfa")
 	x.expect(r, 200, "")
 	if got := ids(r); got != "Cliente de beta" {
 		t.Fatalf("beta, naming alfa, lists %q", got)
@@ -139,7 +139,7 @@ func TestTenantAPI_TheOperatorEntersATenant(t *testing.T) {
 
 	// with an API key, per request
 	key := "token:" + x.apiKey("Admin")
-	if got := ids(x.call("GET", "/api/resource/Pessoa", nil, key, "X-DDCore-Tenant", "beta")); got != "Cliente de beta" {
+	if got := ids(x.call("GET", "/api/resource/Pessoa", nil, key, "X-Tenant", "beta")); got != "Cliente de beta" {
 		t.Fatalf("the operator's key, naming beta, lists %q", got)
 	}
 

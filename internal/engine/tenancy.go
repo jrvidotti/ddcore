@@ -726,7 +726,7 @@ func (c *Ctx) EnterTenant(tenant string) error {
 		return cerr.Permission("Only a System Manager of the platform space can enter a tenant")
 	}
 	if c.Sid == "" {
-		return cerr.Validation("Entering a tenant needs a session; with an API key, send the X-DDCore-Tenant header")
+		return cerr.Validation("Entering a tenant needs a session; with an API key, send the X-Tenant header")
 	}
 	if tenant != "" {
 		if err := c.E.checkTenant(c.Ctx, nil, tenant); err != nil {

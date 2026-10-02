@@ -30,7 +30,7 @@ older series, and `whats_new` reads across every one of them.
     scheduled method runs once and fans out — and `onTenantCreate` in `defineApp`, which seeds
     each new tenant.
   - The operator (`Admin`, or a System Manager whose account is in no tenant) enters a tenant
-    from the Desk's user menu, or with `X-DDCore-Tenant` and an API key. A tenant's own System
+    from the Desk's user menu, or with `X-Tenant` and an API key. A tenant's own System
     Manager administers that tenant and nothing of the site: no MCP, no health report.
   - **It cannot be turned off** once migrated, and the servers and workers must be restarted
     after the migration that turns it on. A site that already has data keeps it in the

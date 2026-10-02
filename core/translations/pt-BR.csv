@@ -223,7 +223,7 @@ End,Encerrar,# desk/src/lib/components/Profile.svelte:245
 End this session?,Encerrar esta sessão?,# desk/src/lib/components/Profile.svelte:109
 Enter new secret,Digite o novo segredo,# desk/src/lib/controls/Control.svelte:204
 Enter secret,Digite o segredo,# desk/src/lib/controls/Control.svelte:204
-"Entering a tenant needs a session; with an API key, send the X-DDCore-Tenant header","Entrar em um tenant exige uma sessão; com uma chave de API, envie o cabeçalho X-DDCore-Tenant",# internal/engine/tenancy.go:727
+"Entering a tenant needs a session; with an API key, send the X-Tenant header","Entrar em um tenant exige uma sessão; com uma chave de API, envie o cabeçalho X-Tenant",# internal/engine/tenancy.go:727
 Error,Erro,# desk/src/lib/components/DataImportModal.svelte:125
 Error Log,Log de Erro,# core.doctypes.error_log.error_log.doctype
 Error generating print format,Erro ao gerar formato de impressão,# desk/src/lib/components/PrintView.svelte:224

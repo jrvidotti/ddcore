@@ -35,7 +35,7 @@ Code always runs in exactly one space:
 
 Nothing reads the documents of two spaces at once. The operator works in a tenant by entering
 it: the tenant menu in the Desk's user menu, `--tenant` on the command line, the
-`X-DDCore-Tenant` header with an API key, or `ddcore.tenant.run` in server code.
+`X-Tenant` header with an API key, or `ddcore.tenant.run` in server code.
 
 A site with tenancy on and no tenant created behaves like a site without it: everything is in
 the platform space.
@@ -196,7 +196,7 @@ policy — is the site's and applies to every tenant.
 
 A request works in the tenant of its user. For an operator it works in the platform space, or
 in the tenant the session entered (`POST /api/tenant/enter {"tenant": "acme"}`; an empty
-tenant leaves), or — with an API key — in the tenant named by `X-DDCore-Tenant`. The header is
+tenant leaves), or — with an API key — in the tenant named by `X-Tenant`. The header is
 ignored for anyone who is not an operator.
 
 `GET /api/boot` carries `site.tenant`: `{ id, title, platform }`, plus `tenants` for an

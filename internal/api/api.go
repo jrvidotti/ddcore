@@ -441,7 +441,7 @@ func (s *Server) auth(next http.Handler) http.Handler {
 		// On a site with tenancy the request works in one space: its user's
 		// tenant, or the one a platform user entered — with the session, or
 		// per request with a header when the caller holds an API key.
-		named := r.Header.Get("X-DDCore-Tenant")
+		named := r.Header.Get("X-Tenant")
 		if named == "" {
 			if ck, err := r.Cookie("sid"); err == nil && u != "Guest" {
 				named = s.E.SessionTenant(r.Context(), ck.Value)
