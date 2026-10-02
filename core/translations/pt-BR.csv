@@ -14,7 +14,7 @@ A message needs a recipient,Uma mensagem precisa de um destinatário,# internal/
 A method declared raw must return a string,Um método declarado como raw deve retornar uma string,# internal/api/api.go:281
 A shared vault secret can only be changed from the platform space,Um segredo compartilhado do cofre só pode ser alterado a partir do espaço da plataforma,# internal/engine/vault.go:214
 A task assigned to me is due,Uma tarefa atribuída a mim vence,# desk/src/lib/components/Profile.svelte:198
-A tenant cannot enter another tenant,Um tenant não pode entrar em outro tenant,# internal/engine/host.go:688
+A tenant cannot enter another tenant,Um tenant não pode entrar em outro tenant,# internal/engine/host.go:698
 "A tenant's slug is lowercase letters, digits, hyphens and underscores, and starts with a letter or digit","O slug de um tenant usa letras minúsculas, dígitos, hifens e sublinhados, e começa com letra ou dígito",# core/doctypes/site_tenant/site_tenant.controller.ts:7
 A user of one tenant cannot work in another,Um usuário de um tenant não pode trabalhar em outro,# internal/engine/asuser.go:202
 A user with access scopes cannot import,Um usuário com escopos de acesso não pode importar,# internal/engine/import.go:195
@@ -100,7 +100,7 @@ Cannot sort by {0},Não é possível ordenar por {0},# internal/api/portal.go:30
 Card {0} does not exist,Card {0} não existe,# internal/api/api.go:1398
 Cards,Cartões,# desk/src/lib/components/ListView.svelte:505
 Center,Centro,# core.doctypes.letter_head.letter_head.doctype
-Change,Alterar,# desk/src/lib/controls/Control.svelte:188
+Change,Alterar,# desk/src/lib/controls/Control.svelte:193
 Change history,Histórico de Alterações,# desk/src/lib/components/DocSidebar.svelte:410
 Change my password,Trocar minha senha,# desk/src/routes/login/reset/+page.svelte:74
 Change password,Trocar a senha,# desk/src/lib/components/Profile.svelte:222
@@ -116,6 +116,7 @@ Choose a new password,Escolher uma nova senha,# core/mail/reset.mail.ts:17
 Choose a new password for {0}.,Escolha uma nova senha para {0}.,# desk/src/routes/login/reset/+page.svelte:65
 Choose a password for {0}.,Escolha uma senha para {0}.,# desk/src/routes/login/reset/+page.svelte:64
 Choose at least one document event,Escolha pelo menos um evento de documento,# internal/engine/webhooks.go:592
+Choose file,Escolher arquivo,# desk/src/lib/controls/FileControl.svelte:39
 Choose image,Escolher imagem,# desk/src/lib/controls/AttachControl.svelte:86
 Choose on or off for each email notification,Escolha ligado ou desligado para cada notificação por e-mail,# core/services/profile.ts:89
 "Chromium PDF conversion failed: {0}, output: {1}","Falha na conversão de PDF via Chromium: {0}, saída: {1}",# internal/print/pdf.go:220
@@ -144,7 +145,7 @@ Comment,Comentário,# desk/src/lib/components/DocSidebar.svelte:354
 Comments,Comentários,# desk/src/lib/components/DocSidebar.svelte:166
 Complete,Concluir,# core/doctypes/todo/to_do.form.ts:25
 Condition for action '{0}' was not met,A condição para a ação '{0}' não foi atendida,# internal/engine/workflow.go:145
-Configured,Configurado,# desk/src/lib/controls/Control.svelte:183
+Configured,Configurado,# desk/src/lib/controls/Control.svelte:188
 Confirm,Confirmar,# desk/src/lib/ui.svelte.ts:113
 Confirm a dialog (its primary button),Confirmar um diálogo (seu botão principal),# desk/src/lib/shortcuts.ts:111
 Confirm the new password,Confirme a nova senha,# desk/src/lib/components/Profile.svelte:216
@@ -222,8 +223,8 @@ Enabled,Ativo,# core.doctypes.api_key.api_key.doctype
 Enabled in {0},Ativado no {0},# core/doctypes/user/user.form.ts:77
 End,Encerrar,# desk/src/lib/components/Profile.svelte:245
 End this session?,Encerrar esta sessão?,# desk/src/lib/components/Profile.svelte:109
-Enter new secret,Digite o novo segredo,# desk/src/lib/controls/Control.svelte:204
-Enter secret,Digite o segredo,# desk/src/lib/controls/Control.svelte:204
+Enter new secret,Digite o novo segredo,# desk/src/lib/controls/Control.svelte:209
+Enter secret,Digite o segredo,# desk/src/lib/controls/Control.svelte:209
 "Entering a tenant needs a session; with an API key, send the X-Tenant header","Entrar em um tenant exige uma sessão; com uma chave de API, envie o cabeçalho X-Tenant",# internal/engine/tenancy.go:728
 Error,Erro,# desk/src/lib/components/DataImportModal.svelte:125
 Error Log,Log de Erro,# core.doctypes.error_log.error_log.doctype
@@ -252,6 +253,7 @@ Failed to decrypt vault secret: authentication error,Falha ao descriptografar se
 Field,Campo,# desk/src/lib/components/DataImportModal.svelte:190
 Field {0} does not exist on {1},Campo {0} não existe em {1},# internal/engine/doc.go:1240
 File,Arquivo,# desk/src/lib/components/DataImportModal.svelte:154
+File is too large (limit {0}),O arquivo é grande demais (limite {0}),# desk/src/lib/controls/FileControl.svelte:21
 File {0} does not exist,O arquivo {0} não existe,# internal/engine/mailqueue.go:200
 File {0} not found,Arquivo {0} não encontrado,# internal/engine/files_api.go:282
 Files are attached on the form,Arquivos são anexados no formulário,# internal/engine/data_import.go:352
@@ -305,7 +307,7 @@ Invalid JSON: {0},JSON inválido: {0},# internal/api/api.go:385
 Invalid Single identity for {0},Identidade Single inválida para {0},# internal/engine/doc.go:434
 Invalid Single identity or status for {0},Identidade ou estado Single inválido para {0},# internal/engine/doc.go:1123
 Invalid URL,URL inválida,# internal/engine/webhooks.go:568
-Invalid arguments: {0},Argumentos inválidos: {0},# internal/engine/host.go:646
+Invalid arguments: {0},Argumentos inválidos: {0},# internal/engine/host.go:656
 Invalid barcode,Código de barras inválido,# desk/src/lib/controls/BarcodeControl.svelte:140
 "Invalid colour in {0}: ""{1}""","Cor inválida em {0}: ""{1}""",# internal/engine/doc.go:284
 Invalid column mapping: {0},Mapeamento de colunas inválido: {0},# internal/api/data_import.go:91
@@ -314,7 +316,7 @@ Invalid column mapping: {0},Mapeamento de colunas inválido: {0},# internal/api/
 Invalid docstatus for an insert,docstatus inválido para inserção,# internal/engine/doc.go:615
 Invalid docstatus transition ({0} → {1}),Transição de docstatus inválida ({0} → {1}),# internal/engine/doc.go:792
 "Invalid duration in {0}: ""{1}""","Duração inválida em {0}: ""{1}""",# internal/engine/doc.go:268
-Invalid email,E-mail inválido,# desk/src/lib/controls/Control.svelte:83
+Invalid email,E-mail inválido,# desk/src/lib/controls/Control.svelte:85
 Invalid event,Evento inválido,# internal/engine/webhooks.go:232
 Invalid filters: {0},Filtros inválidos: {0},# internal/api/api.go:1265
 Invalid link,Link inválido,# internal/engine/doc.go:2014
@@ -671,7 +673,7 @@ Tell us the address you sign in with and we will send a link to set a new passwo
 Template,Modelo,# core.doctypes.email_delivery.email_delivery.doctype
 Tenant,Tenant,# desk/src/lib/components/TenantMenu.svelte:29
 Tenant {0} not found,Tenant {0} não encontrado,# internal/engine/tenancy.go:339
-Tenants are managed from the platform space,Os tenants são administrados a partir do espaço da plataforma,# internal/engine/host.go:701
+Tenants are managed from the platform space,Os tenants são administrados a partir do espaço da plataforma,# internal/engine/host.go:711
 That key is not yours,Essa chave não é sua,# core/services/api_keys.ts:43
 "The DocType that defines the restricted scope, e.g. Company or Branch.","O DocType que define o escopo restrito, ex.: Company ou Branch.",# core.doctypes.user_permission.user_permission.doctype
 The ID is empty: an update has to name the record it changes,O ID está vazio: uma atualização precisa indicar o registro que altera,# internal/engine/data_import.go:519
@@ -727,7 +729,7 @@ This month,Este mês,# desk/src/lib/controls/MonthControl.svelte:253
 This record changed after your unsaved edits. Keep your edits?,Este registro mudou depois das suas alterações não salvas. Manter suas alterações?,# desk/src/lib/components/FormView.svelte:132
 This report is for the platform space,Este relatório é do espaço da plataforma,# internal/api/health.go:68
 This report requires the System Manager role,Este relatório exige o papel System Manager,# internal/api/health.go:64
-This site has no tenants: tenancy is off,Este site não tem tenants: a multilocação está desligada,# internal/engine/host.go:685
+This site has no tenants: tenancy is off,Este site não tem tenants: a multilocação está desligada,# internal/engine/host.go:695
 "This site sends no mail yet, so the message only went to the log. Pass this link on by hand.","Este site ainda não envia e-mails, então a mensagem foi só para o log. Repasse este link manualmente.",# core/doctypes/user/user.form.ts:127
 Timeout (seconds),Tempo Limite (segundos),# core.doctypes.webhook.webhook.doctype
 Timeout must be between {0} and {1} seconds,O tempo limite deve estar entre {0} e {1} segundos,# internal/engine/webhooks.go:601
@@ -747,7 +749,7 @@ Type,Tipo,# desk/src/lib/components/Profile.svelte:160
 Type at least {0} characters,Digite pelo menos {0} caracteres,# desk/src/lib/components/SearchPalette.svelte:107
 URL,URL,# core.doctypes.file.file.doctype
 Uncertain,Incerto,# core.doctypes.email_delivery.email_delivery.doctype
-Undo,Desfazer,# desk/src/lib/controls/Control.svelte:175
+Undo,Desfazer,# desk/src/lib/controls/Control.svelte:180
 Unexpected server error,Erro inesperado no servidor,# internal/api/observe.go:193
 "Unknown barcode symbology in {0}: ""{1}""","Simbologia de código de barras desconhecida em {0}: ""{1}""",# internal/barcode/barcode.go:154
 Unknown device,Dispositivo desconhecido,# desk/src/lib/components/Profile.svelte:238
@@ -792,7 +794,7 @@ What is it for?,Para que serve?,# desk/src/lib/components/Profile.svelte:266
 What needs to be done?,O que precisa ser feito?,# desk/src/routes/app/todo/+page.svelte:439
 What the file does,O que o arquivo faz,# desk/src/lib/components/DataImportModal.svelte:148
 Which session?,Qual sessão?,# core/services/sessions.ts:31
-Will be cleared on save,Será removido ao salvar,# desk/src/lib/controls/Control.svelte:172
+Will be cleared on save,Será removido ao salvar,# desk/src/lib/controls/Control.svelte:177
 Workflow,Fluxo,# core.doctypes.comment.comment.doctype
 "Workspace ""{0}"" not found.","Workspace ""{0}"" não encontrado.",# desk/src/routes/app/[workspace]/+page.svelte:46
 Workspace not found,Workspace não encontrado,# desk/src/lib/components/Workspace.svelte:79
@@ -809,6 +811,9 @@ You have been invited to {0},Você foi convidado para {0},# core/mail/invite.mai
 Your account has no portal yet. Ask the people who invited you.,Sua conta ainda não tem um portal. Fale com quem convidou você.,# desk/src/routes/portal/+page.svelte:11
 Your location is not available,Sua localização não está disponível,# desk/src/lib/controls/GeolocationControl.svelte:197
 changes are paused until the site reopens.,as alterações estão pausadas até o site reabrir.,# desk/src/routes/+layout.svelte:281
+crypto: cert is not a valid PEM certificate,crypto: cert não é um certificado PEM válido,# internal/engine/certinfo.go:72
+crypto: pfx could not be read: wrong password or malformed file,crypto: não foi possível ler pfx: senha incorreta ou arquivo malformado,# internal/engine/certinfo.go:46
+crypto: pfx is not valid base64,crypto: pfx não é base64 válido,# internal/engine/certinfo.go:43
 ctx.sql is only available inside a patch,ctx.sql só existe dentro de um patch,# internal/engine/query.go:761
 d,d,# desk/src/lib/controls/DurationControl.svelte:23
 ddcore.db.lock requires a transaction,ddcore.db.lock exige uma transação,# internal/engine/query.go:826
@@ -850,13 +855,13 @@ files.save: {0},files.save: {0},# internal/engine/host.go:318
 files.save: {0} answered {1},files.save: {0} respondeu {1},# internal/engine/files_api.go:211
 getValue: invalid fields,getValue: fields inválido,# internal/engine/host.go:190
 h,h,# desk/src/lib/controls/DurationControl.svelte:23
-http: clientCert could not be read: wrong password or malformed file,http: não foi possível ler clientCert: senha incorreta ou arquivo malformado,# internal/engine/http_mtls.go:108
-http: clientCert takes either pfx or cert and key,http: clientCert recebe pfx ou cert e key,# internal/engine/http_mtls.go:53
-http: clientCert.cert and clientCert.key are not a valid PEM pair,http: clientCert.cert e clientCert.key não são um par PEM válido,# internal/engine/http_mtls.go:97
-http: clientCert.pfx is not valid base64,http: clientCert.pfx não é base64 válido,# internal/engine/http_mtls.go:104
-"http: responseType must be ""text"" or ""base64"", not {0}","http: responseType deve ser ""text"" ou ""base64"", não {0}",# internal/engine/host.go:800
-http: the response from {0} is larger than {1} bytes (raise opts.maxBytes),http: a resposta de {0} é maior que {1} bytes (aumente opts.maxBytes),# internal/engine/host.go:866
-http: {0},http: {0},# internal/engine/host.go:840
+http: clientCert could not be read: wrong password or malformed file,http: não foi possível ler clientCert: senha incorreta ou arquivo malformado,# internal/engine/http_mtls.go:102
+http: clientCert takes either pfx or cert and key,http: clientCert recebe pfx ou cert e key,# internal/engine/http_mtls.go:49
+http: clientCert.cert and clientCert.key are not a valid PEM pair,http: clientCert.cert e clientCert.key não são um par PEM válido,# internal/engine/http_mtls.go:93
+http: clientCert.pfx is not valid base64,http: clientCert.pfx não é base64 válido,# internal/engine/http_mtls.go:99
+"http: responseType must be ""text"" or ""base64"", not {0}","http: responseType deve ser ""text"" ou ""base64"", não {0}",# internal/engine/host.go:810
+http: the response from {0} is larger than {1} bytes (raise opts.maxBytes),http: a resposta de {0} é maior que {1} bytes (aumente opts.maxBytes),# internal/engine/host.go:876
+http: {0},http: {0},# internal/engine/host.go:850
 id is required,id é obrigatório,# internal/api/assignments.go:137
 invalid arguments in {0}: {1},argumentos inválidos em {0}: {1},# internal/engine/host.go:97
 job {0} timed out,job {0} excedeu o tempo limite,# internal/engine/jobs.go:237
@@ -877,7 +882,7 @@ s,s,# desk/src/lib/controls/DurationControl.svelte:23
 since: {0} is not a duration,since: {0} não é uma duração,# internal/api/jobs.go:57
 title,título,# desk/src/lib/components/FormView.svelte:287
 to submit,para enviar,# desk/src/lib/components/DocSidebar.svelte:355
-unknown bridge operation: {0},operação desconhecida no bridge: {0},# internal/engine/host.go:715
+unknown bridge operation: {0},operação desconhecida no bridge: {0},# internal/engine/host.go:725
 user is required,user é obrigatório,# internal/engine/share.go:300
 webhook payload for {0} is not JSON: {1},o conteúdo do webhook para {0} não é JSON: {1},# internal/engine/webhooks.go:269
 "{0} ""{1}"" already exists","{0} ""{1}"" já existe",# internal/engine/doc.go:2139

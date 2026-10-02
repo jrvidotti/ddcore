@@ -53,6 +53,22 @@ export interface HttpResponse {
   json(): any;
 }
 
+/** What `ddcore.crypto.pfxInfo` and `certInfo` say of a certificate: never its key. */
+export interface CertInfo {
+  /** Start of validity, an RFC 3339 instant in UTC (`2026-01-31T12:00:00Z`). */
+  notBefore: string;
+  /** End of validity, an RFC 3339 instant in UTC. */
+  notAfter: string;
+  /** Who it was issued to, as a distinguished name (`CN=…,O=…`). */
+  subject: string;
+  /** Who issued it, as a distinguished name. */
+  issuer: string;
+  /** Serial number, as lower-case hex. */
+  serial: string;
+  /** How many certificates came along with it: its chain, 0 when it is alone. */
+  chain: number;
+}
+
 /**
  * `ddcore.files.save`'s argument. Exactly one of `content`, `contentBase64`
  * and `fromUrl` is the source of the bytes.
@@ -360,6 +376,15 @@ export interface DDCoreAPI {
     hmacSha256(key: string, data: string): string;
     /** Constant-time string comparison: use it, never `===`, on a signature. */
     timingSafeEqual(a: string, b: string): boolean;
+    /**
+     * Describes the leaf certificate of a PKCS#12 (`.pfx`) file, base64-encoded:
+     * the same input as `clientCert.pfx` of `ddcore.http`. A wrong password or
+     * an unreadable file throws a `ValidationError` that does not repeat the
+     * material, so it validates a certificate before storing it.
+     */
+    pfxInfo(pfx: string, password?: string): CertInfo;
+    /** The same for a PEM certificate; the certificates after the first are its chain. */
+    certInfo(pem: string): CertInfo;
   };
   /**
    * A read-only connection to a database that is not the site's own — only

@@ -14,6 +14,19 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- `ddcore.crypto.pfxInfo(pfx, password?)` describes the certificate in a PKCS#12 file —
+  `{ notBefore, notAfter, subject, issuer, serial, chain }`, never its key — and
+  `ddcore.crypto.certInfo(pem)` does the same for a PEM certificate. A wrong password or an
+  unreadable file throws a `ValidationError` that does not repeat the material, so a certificate
+  is checked, and its expiry read, when it is stored. See "ddcore.*" in `controller-api` (#63).
+- A dialog takes a file without uploading it: `fieldtype: "File"` in `ddcore.ui.Dialog` and
+  `ddcore.ui.prompt` puts `{ name, size, type, base64 }` in `values` and creates no `File`.
+  `options` is the accept list and `maxBytes` the size cap (5 MB by default). It is a dialog
+  field only; a DocType still stores a file with `Attach`. See "`ddcore` in the desk" in
+  `form-api` (#63).
+
 ## 0.24.1 — 2026-10-02
 
 ### Added

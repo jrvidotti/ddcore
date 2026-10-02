@@ -4,13 +4,9 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/binary"
 	"net/http"
-	"strings"
 	"sync"
-
-	pkcs12 "software.sslmate.com/src/go-pkcs12"
 
 	"github.com/jrvidotti/ddcore/internal/cerr"
 )
@@ -98,12 +94,10 @@ func parseClientCert(cc *httpClientCert, isPfx bool) (tls.Certificate, error) {
 		}
 		return cert, nil
 	}
-	// a base64 file pasted into a secret often comes wrapped in lines
-	der, err := base64.StdEncoding.DecodeString(strings.Join(strings.Fields(cc.Pfx), ""))
-	if err != nil {
+	priv, leaf, chain, err := decodePfx(cc.Pfx, cc.Password)
+	if err == errPfxBase64 {
 		return tls.Certificate{}, cerr.Validation("http: clientCert.pfx is not valid base64")
 	}
-	priv, leaf, chain, err := pkcs12.DecodeChain(der, cc.Password)
 	if err != nil {
 		return tls.Certificate{}, cerr.Validation("http: clientCert could not be read: wrong password or malformed file")
 	}

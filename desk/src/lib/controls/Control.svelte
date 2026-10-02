@@ -13,6 +13,7 @@
   import GeolocationControl from "./GeolocationControl.svelte";
   import TableMultiSelectControl from "./TableMultiSelectControl.svelte";
   import AttachControl from "./AttachControl.svelte";
+  import FileControl from "./FileControl.svelte";
   import RichTextControl from "./RichTextControl.svelte";
   import MarkdownControl from "./MarkdownControl.svelte";
   import CodeControl from "./CodeControl.svelte";
@@ -47,7 +48,8 @@
   const ro = $derived(readOnly || !!field.readOnly);
   const req = $derived(mandatory || !!field.reqd);
   let emailError = $state("");
-  const shownError = $derived(error || emailError);
+  let fileError = $state("");
+  const shownError = $derived(error || emailError || fileError);
 
   let isEditingVault = $state(false);
   let wasConfigured = $state(false);
@@ -161,6 +163,9 @@
           <ColorControl {value} {onchange} readOnly={ro} error={shownError} {id} />
         {:else if ft === "Attach" || ft === "Attach Image"}
           <AttachControl {value} {onchange} {onbusychange} readOnly={ro} mandatory={req} {doc} fieldname={field.fieldname || ""} image={ft === "Attach Image"} showFileName={!!field.showFileName} />
+        {:else if ft === "File"}
+          <!-- dialog-only: no DocType stores it, the script receives the file itself -->
+          <FileControl {value} {onchange} {onbusychange} onerror={(m) => (fileError = m)} readOnly={ro} accept={typeof field.options === "string" ? field.options : undefined} maxBytes={field.maxBytes} />
         {:else if ft === "JSON"}
           <textarea {id} class="input" readonly={ro} rows={4} value={typeof value === "string" ? value : JSON.stringify(value ?? null, null, 2)} onchange={(e) => { try { onchange(JSON.parse((e.target as HTMLTextAreaElement).value)); } catch { onchange((e.target as HTMLTextAreaElement).value); } }}></textarea>
         {:else if ft === "Password"}

@@ -35,6 +35,8 @@ type mtlsFixture struct {
 	pfx     string
 	certPEM string
 	keyPEM  string
+	// clientCert is the certificate pfx and certPEM carry
+	clientCert *x509.Certificate
 }
 
 func newMTLSFixture(t *testing.T) *mtlsFixture {
@@ -82,7 +84,7 @@ func newMTLSFixture(t *testing.T) *mtlsFixture {
 
 	roots := x509.NewCertPool()
 	roots.AddCert(ca)
-	f := &mtlsFixture{}
+	f := &mtlsFixture{clientCert: clientCert}
 	f.server = httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]any{
 			"cn":    r.TLS.PeerCertificates[0].Subject.CommonName,

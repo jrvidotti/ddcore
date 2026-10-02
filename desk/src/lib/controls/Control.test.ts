@@ -128,4 +128,13 @@ describe("Control", () => {
     expect(ro).toContain('class="geo-map');
     expect(ro).not.toContain("data-mode=");
   });
+
+  it("renders a file picker, not a text input, for a dialog's File field", () => {
+    const field: Field = { fieldname: "file", fieldtype: "File", label: "Certificate", options: ".pfx,.p12", reqd: true };
+    const { body } = render(Control, { props: { field, value: null, onchange: vi.fn() } });
+    expect(body).toContain('type="file"');
+    expect(body).toContain('accept=".pfx,.p12"');
+    expect(body).toContain("Choose file");
+    expect(body).not.toContain('type="text"');
+  });
 });
