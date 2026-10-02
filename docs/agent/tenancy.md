@@ -166,6 +166,20 @@ or enqueue from inside `run`: the job then runs in that tenant, in a transaction
 **Background jobs** run in the space they were enqueued in, and stay there: a job still runs
 with permissions ignored (see `scopes`), but not outside its tenant. `uniqueKey` is per tenant.
 
+**`runAs`** (`ddcore.runAs`, `enqueue`'s `runAs`, a `scheduler` entry's `runAs`; see `scopes`)
+names a user of the space the code is working in. Inside a tenant that is one of the tenant's
+own users. The platform space cannot run as a tenant's user directly — to it that user does not
+exist — so a scheduled method enters the tenant first, and a `{ method, runAs }` scheduler entry
+only takes a user of the platform space:
+
+```ts
+// refused from the platform space: ana belongs to acme
+ddcore.runAs("ana@acme.example", work);
+
+ddcore.tenant.run("acme", () => ddcore.runAs("ana@acme.example", work));                  // now
+ddcore.tenant.run("acme", () => ddcore.enqueue("app.services.x.work", {}, { runAs: "ana@acme.example" })); // or as a job
+```
+
 **Migration patches** are the exception. A patch runs as the database owner, because it may
 run DDL, and so it sees every space: `ctx.sql("UPDATE …")` touches every tenant's rows, which
 is usually what a backfill wants. To use the document API on a tenant's documents from a

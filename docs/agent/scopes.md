@@ -152,6 +152,9 @@ scheduler: { daily: [{ method: "my_app.services.sync.run", runAs: "sync@parish-a
 - An inbound webhook arrives as `Guest`. Verify its signature first, then do the work under
   `ddcore.runAs(tenantUser, ...)`.
 
+On a site with `tenancy`, `runAs` takes a user of the space the code works in; the platform
+space reaches a tenant's user through `ddcore.tenant.run`. See `tenancy` → "Server code".
+
 ## Enforced surfaces
 
 | Surface | Behaviour |

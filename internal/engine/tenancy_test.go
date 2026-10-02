@@ -661,3 +661,36 @@ func TestTenantJobRetentionCoversEveryTenant(t *testing.T) {
 		t.Fatalf("%d jobs survived the sweep, %v", left, err)
 	}
 }
+
+// runAs names a user of the space the code works in. The platform's code
+// reaches a tenant's user by entering the tenant first.
+func TestTenantRunAsStaysInItsSpace(t *testing.T) {
+	e := migratedEngine(t, Config{Test: true, Tenancy: true, Apps: []js.App{{Name: "demo", Dir: testApp(t, tenancyFiles, map[string]string{
+		"services/como.ts": `const nomes = () => ddcore.db.getAll("Pessoa", { fields: ["id"] }).map((r: any) => r.id);
+export function direto(args: any) { return ddcore.runAs(args.user, nomes); }
+export function entrando(args: any) { return ddcore.tenant.run(args.tenant, () => ddcore.runAs(args.user, nomes)); }
+export function enfileira(args: any) { return ddcore.enqueue("demo.services.como.direto", { user: args.user }, { runAs: args.user }); }`,
+	})}}})
+	seedTenants(t, e)
+	ctx := context.Background()
+	call := func(user, fn string, args map[string]any) (string, error) {
+		out, err := e.RunJob(ctx, user, "demo.services.como."+fn, args)
+		return string(out), err
+	}
+	if _, err := call("Admin", "direto", map[string]any{"user": userA}); err == nil {
+		t.Fatal("the platform space ran as a tenant's user without entering the tenant")
+	}
+	if _, err := call("Admin", "enfileira", map[string]any{"user": userA}); err == nil {
+		t.Fatal("the platform space queued a job to run as a tenant's user")
+	}
+	out, err := call("Admin", "entrando", map[string]any{"tenant": tenantA, "user": userA})
+	if err != nil || out != `["Comum"]` {
+		t.Fatalf("entering the tenant and then running as its user: %s %v", out, err)
+	}
+	if out, err := call(userA, "direto", map[string]any{"user": userA}); err != nil || out != `["Comum"]` {
+		t.Fatalf("a tenant running as its own user: %s %v", out, err)
+	}
+	if _, err := call(userA, "direto", map[string]any{"user": userB}); err == nil {
+		t.Fatal("a tenant ran as another tenant's user")
+	}
+}
