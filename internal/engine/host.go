@@ -602,9 +602,16 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		if a.Value != nil {
 			valStr = fmt.Sprint(a.Value)
 		}
+		if err := c.sharedVaultWrite(a.Opts); err != nil {
+			return nil, err
+		}
 		return nil, e.VaultSet(c, a.Key, valStr)
 	case "vault.get":
-		v, ok, err := e.VaultGet(c, a.Key)
+		get := e.VaultGet
+		if a.Opts["shared"] == true {
+			get = e.VaultGetShared
+		}
+		v, ok, err := get(c, a.Key)
 		if err != nil {
 			return nil, err
 		}
@@ -613,6 +620,9 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		}
 		return map[string]any{"value": v}, nil
 	case "vault.del":
+		if err := c.sharedVaultWrite(a.Opts); err != nil {
+			return nil, err
+		}
 		return nil, e.VaultDel(c, a.Key)
 	case "vault.list":
 		return e.VaultList(c, a.Prefix)

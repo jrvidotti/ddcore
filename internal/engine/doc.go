@@ -1569,13 +1569,21 @@ func (c *Ctx) moveID(d *meta.DocType, oldID, newID string) error {
 	// secret is orphaned under a name the document no longer answers to. A
 	// custom key template is not touched — see the vault docs for the
 	// limitation.
+	//
+	// A shared DocType is renamed out of row-level security (acrossSpaces), and
+	// its secrets are the platform's: the statement says so, or it would carry
+	// off the secret a tenant keeps under the same name.
+	where := ""
+	if !d.TenantOwned && c.Tenancy() {
+		where = platformOnly
+	}
 	for _, f := range d.Fields {
 		if f.Fieldtype != "Vault" || f.OptionsString() != "" {
 			continue
 		}
 		oldKey := c.DeriveVaultKey(d, f, Doc{"id": oldID})
 		newKey := c.DeriveVaultKey(d, f, Doc{"id": newID})
-		if _, err := q.Exec(c.Ctx, "UPDATE ddcore_vault SET name = $1 WHERE name = $2", newKey, oldKey); err != nil {
+		if _, err := q.Exec(c.Ctx, "UPDATE ddcore_vault SET name = $1 WHERE name = $2"+where, newKey, oldKey); err != nil {
 			return err
 		}
 	}
@@ -1899,7 +1907,7 @@ func (c *Ctx) checkMandatory(d *meta.DocType, doc Doc, checks fieldChecks) error
 			if req && isEmpty(doc[f.Fieldname]) {
 				if doc.ID() != "" {
 					key := c.DeriveVaultKey(d, f, doc)
-					has, _ := c.E.VaultHas(c.Ctx, c.Q(), key)
+					has, _ := c.vaultFieldHas(d, key)
 					if has {
 						continue
 					}

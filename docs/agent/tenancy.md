@@ -63,6 +63,19 @@ units, tax tables). Rules, checked when the site loads:
 - A field cannot be named `tenant` on a tenant-owned DocType. It is a standard column, like
   `owner`: `doc.tenant` is readable, never writable, and never changes.
 
+A shared DocType may be a Single (`isSingle: true, shared: true`): the site then has one such
+document, which every space reads and the platform space maintains — settings the operator
+keeps for everyone.
+
+The secret of a `Vault` field on a shared DocType lives in the platform space, with its
+document. Every space sees the field as configured, and server code in any space reads the
+secret by naming it as shared; only the platform space changes it, by saving the document:
+
+```ts
+// inside a tenant: the certificate the operator keeps in the shared "Gateway Settings" Single
+const pfx = ddcore.vault.get("Gateway Settings:pfx:singleton", { shared: true });
+```
+
 Of the Core DocTypes, `Role` and `Site Tenant` are shared; everything else (`User`, `File`,
 `Comment`, `Version`, `ToDo`, `API Key`, `User Permission`, `Document Share`, `Webhook`,
 `Webhook Delivery`, `Email Delivery`, `Audit Event`, `Error Log`, `Letter Head`) is the
@@ -73,8 +86,11 @@ Per tenant, as a consequence:
 - **Ids and `unique`.** Two tenants can both have the customer `Acme` and the order
   `ORD-2026-0001`. `unique` and `uniqueKeys` hold within the tenant.
 - **Naming series** count separately.
-- **Singles** hold one document per tenant (and one for the platform space).
-- **`ddcore.vault`** secrets and `Vault` fields.
+- **Singles** hold one document per tenant (and one for the platform space), unless the
+  Single is shared.
+- **`ddcore.vault`** secrets and `Vault` fields, unless the field is on a shared DocType.
+  `ddcore.vault.get(name, { shared: true })` reads the platform space's secret from any
+  space; see [vault](vault.md).
 - **`ddcore.cache`** keys: a value one tenant stored is not returned to another.
 - **Realtime events** reach the sessions of the tenant they happened in. A change to a shared
   DocType reaches everyone.
@@ -135,7 +151,8 @@ webhooks list`, `ddcore doctor`, `ddcore backup` and the retention sweeps cover 
 
 `tenant adopt` is the path for a site that had one customer before it had tenancy: turn
 tenancy on, migrate, create the tenant, adopt. Everything moves except the `Admin` and `Guest`
-accounts; it is one transaction, and a row whose id the tenant already uses stops it.
+accounts and the secrets of `Vault` fields on shared DocTypes, which stay with their documents;
+it is one transaction, and a row whose id the tenant already uses stops it.
 
 ## Server code
 

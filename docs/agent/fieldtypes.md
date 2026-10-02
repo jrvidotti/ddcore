@@ -406,6 +406,8 @@ When an app manages credentials per document (e.g. per-customer tokens, OAuth re
 const token = ddcore.vault.get("Integration Account:api_key:" + doc.id);
 ```
 
+On a site with tenancy, a `Vault` field of a `shared` DocType keeps its secret in the platform space; read it from any space with `ddcore.vault.get(key, { shared: true })`. See [tenancy.md](tenancy.md).
+
 Secrets in the vault are encrypted with AES-256-GCM using `DDCORE_SECRET_KEY`, stored in `ddcore_vault` outside the document table, never leak through REST API or MCP (redacted to `{ configured: true }`), never enter Version diffs, and a read or write through `ddcore.vault.*` is audited in `Audit Event`. See [vault.md](vault.md).
 
 3. **Person passwords (`Password`)**:

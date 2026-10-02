@@ -840,12 +840,12 @@ func (e *Engine) AdoptPlatformRows(ctx context.Context, tenant string) (map[stri
 		if err := e.checkTenant(ctx, c.Tx, tenant); err != nil {
 			return err
 		}
-		move := func(table, except string) error {
+		move := func(table, except string, args ...any) error {
 			sql := fmt.Sprintf(`UPDATE %s SET tenant = $1 WHERE tenant = ''`, db.Ident(table))
 			if except != "" {
 				sql += " AND NOT (" + except + ")"
 			}
-			tag, err := c.Tx.Exec(ctx, sql, tenant)
+			tag, err := c.Tx.Exec(ctx, sql, append([]any{tenant}, args...)...)
 			if err != nil {
 				return fmt.Errorf("%s: %w", table, err)
 			}
@@ -872,10 +872,19 @@ func (e *Engine) AdoptPlatformRows(ctx context.Context, tenant string) (map[stri
 				return err
 			}
 		}
-		for _, table := range []string{"ddcore_series", "ddcore_vault", "ddcore_notification", "ddcore_notification_due"} {
+		for _, table := range []string{"ddcore_series", "ddcore_notification", "ddcore_notification_due"} {
 			if err := move(table, ""); err != nil {
 				return err
 			}
+		}
+		// a shared DocType's documents stay, and so do the secrets of their
+		// Vault fields
+		shared, err := c.sharedVaultKeys()
+		if err != nil {
+			return err
+		}
+		if err := move("ddcore_vault", "name = ANY($2)", shared); err != nil {
+			return err
 		}
 		// jobs still to run belong with the rows they will touch
 		if err := move("ddcore_job", `status NOT IN ('queued', 'running') OR "user" IN `+adoptKeep); err != nil {
