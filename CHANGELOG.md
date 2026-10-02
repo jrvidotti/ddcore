@@ -14,6 +14,13 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- `ddcore.datetime.dateDiff(a, b)` and `ddcore.datetime.monthDiff(a, b)` on the Desk, with the
+  semantics of `ddcore.utils.dateDiff` and `monthDiff` on the server, so a form script can show a
+  day count the controller computes: `dateDiff("2026-05-10", "2026-05-01") === 9`. See "Dates and
+  times" in `form-api` (#58).
+
 ## 0.23.5 — 2026-10-01
 
 ### Changed

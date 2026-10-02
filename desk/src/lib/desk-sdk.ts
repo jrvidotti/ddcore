@@ -9,7 +9,7 @@ import { dialog, toast, confirm, prompt, showError } from "./ui.svelte";
 import { __ } from "./boot.svelte";
 import { formatCurrency, formatDate, formatNumber, formatValue, roundCurrency, statusColor } from "./format";
 import { getMeta } from "./meta";
-import { addDays, addMonths, monthEnd, monthStart, today } from "./datetime";
+import { addDays, addMonths, dateDiff, monthDiff, monthEnd, monthStart, today } from "./datetime";
 import { getRememberedWorkspace } from "./components/sidebar-workspace";
 import { refreshPendingCount } from "./assignments.svelte";
 
@@ -184,7 +184,7 @@ export const deskSDK = {
     // the server is about to store it, rather than the way toFixed happens to
     format: { currency: formatCurrency, date: formatDate, number: formatNumber, value: formatValue, roundCurrency, statusColor },
     // civil dates with the same semantics as `ddcore.utils` no servidor (ver $lib/datetime)
-    datetime: { today: () => today(), addMonths, addDays, monthStart, monthEnd },
+    datetime: { today: () => today(), addMonths, addDays, dateDiff, monthDiff, monthStart, monthEnd },
     meta: getMeta,
     route: (path: string) => import("$app/navigation").then((n) => n.goto(path)),
     setRoute: (...parts: string[]) => {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { addDays, addMonths, daysInMonth, fromDatetimeLocal, monthEnd, monthStart, parseDatetime, toDatetimeLocal, today } from "./datetime";
+import { addDays, addMonths, dateDiff, daysInMonth, fromDatetimeLocal, monthDiff, monthEnd, monthStart, parseDatetime, toDatetimeLocal, today } from "./datetime";
 
 describe("addMonths", () => {
   it("caps day to end of month, like the server", () => {
@@ -29,6 +29,29 @@ describe("addDays", () => {
     expect(addDays("2024-02-28", 1)).toBe("2024-02-29");
     expect(addDays("2026-12-31", 1)).toBe("2027-01-01");
     expect(addDays("2026-01-01", -1)).toBe("2025-12-31");
+  });
+});
+
+describe("dateDiff / monthDiff", () => {
+  // internal/js/js_test.go asserts these same numbers against ddcore.utils
+  it("counts whole days from the second date to the first", () => {
+    expect(dateDiff("2026-05-10", "2026-05-01")).toBe(9);
+    expect(dateDiff("2026-05-01", "2026-05-10")).toBe(-9);
+    expect(dateDiff("2024-03-01", "2024-02-28")).toBe(2); // leap day
+    expect(dateDiff("2027-01-01", "2026-12-31")).toBe(1);
+    expect(dateDiff("2026-05-10", "2026-05-10")).toBe(0);
+  });
+  it("reads a datetime as its civil date", () => {
+    expect(dateDiff("2026-05-10T23:30:00Z", "2026-05-01")).toBe(9);
+  });
+  it("counts calendar months, ignoring the day", () => {
+    expect(monthDiff("2026-02-01", "2026-01-31")).toBe(1);
+    expect(monthDiff("2027-01-15", "2025-11-20")).toBe(14);
+    expect(monthDiff("2025-11-20", "2027-01-15")).toBe(-14);
+  });
+  it("takes an empty date as today", () => {
+    expect(dateDiff("", today())).toBe(0);
+    expect(monthDiff(today(), "")).toBe(0);
   });
 });
 
