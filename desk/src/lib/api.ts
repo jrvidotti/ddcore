@@ -241,6 +241,10 @@ export const api = {
   treeChildren: (doctype: string, parent = "", limit = 500, opts: { fields?: string[]; orderBy?: string } = {}) =>
     request<{ nodes: { id: string; title: string; parent: string; is_group: boolean; children: number; values?: Record<string, any> }[]; hasMore: boolean }>(
       "GET", `/api/tree/${encodeURIComponent(doctype)}` + q({ parent, limit, fields: opts.fields?.length ? opts.fields : undefined, order_by: opts.orderBy })),
+  /** The nodes of a tree DocType matching `search` (flagged `match`), with their ancestors. */
+  treeSearch: (doctype: string, search: string, opts: { fields?: string[]; orderBy?: string; limit?: number } = {}) =>
+    request<{ nodes: { id: string; title: string; parent: string; is_group: boolean; children: number; values?: Record<string, any>; match?: boolean }[]; hasMore: boolean }>(
+      "GET", `/api/tree/${encodeURIComponent(doctype)}` + q({ search, limit: opts.limit ?? 200, fields: opts.fields?.length ? opts.fields : undefined, order_by: opts.orderBy })),
   linkSearch: (doctype: string, txt: string, filters?: any, limit = 20) => request<any[]>("GET", "/api/search/link" + q({ doctype, txt, filters, limit })),
   globalSearch: (txt: string, limit = 20) =>
     request<{ doctype: string; label: string; id: string; title: string }[]>("GET", "/api/search/global" + q({ txt, limit })),

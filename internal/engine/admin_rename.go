@@ -19,6 +19,7 @@ var userColumns = [][2]string{
 	{"ddcore_default", "user"},
 	{"ddcore_job", "user"},
 	{"ddcore_job", "cancelled_by"},
+	{"ddcore_job", "run_as"},
 	{"ddcore_maintenance", "actor"},
 	{"ddcore_notification", "recipient"},
 }

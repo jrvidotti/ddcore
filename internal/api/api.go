@@ -1140,7 +1140,8 @@ func (s *Server) method(w http.ResponseWriter, r *http.Request) {
 }
 
 // treeChildren serves one level of a hierarchy (DAT-07): `?parent=` empty asks
-// for the roots. The engine reads through the ordinary list path, so this adds
+// for the roots. `?search=` asks instead for the nodes matching a text, with
+// their ancestors. The engine reads through the ordinary list path, so this adds
 // no permission surface of its own.
 func (s *Server) treeChildren(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
@@ -1155,7 +1156,7 @@ func (s *Server) treeChildren(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		return c.TreeChildren(chi.URLParam(r, "doctype"), q.Get("parent"),
-			engine.TreeArgs{Limit: limit, Fields: fields, OrderBy: q.Get("order_by")})
+			engine.TreeArgs{Limit: limit, Fields: fields, OrderBy: q.Get("order_by"), Search: q.Get("search")})
 	})
 }
 

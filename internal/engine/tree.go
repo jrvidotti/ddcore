@@ -2,6 +2,7 @@ package engine
 
 import (
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 
@@ -174,10 +175,13 @@ const treeRootCandidates = 2000
 // TreeArgs shapes a TreeChildren read. Fields are returned under each node's
 // `values`, for a view that composes its own label; OrderBy replaces the
 // default order (groups first, then the title) and gets `id` as a tiebreak.
+// Search turns the read into a text search over the whole tree: the nodes that
+// match, capped by Limit, and the ancestors that lead to them.
 type TreeArgs struct {
 	Limit   int
 	Fields  []string
 	OrderBy string
+	Search  string
 }
 
 // TreeChildren lists one level of a hierarchy for the Desk's tree view: the
@@ -188,6 +192,8 @@ type TreeArgs struct {
 // counts, which are counted over what the user may read, never over what is
 // there. A user who can read a node but not its parent would otherwise see
 // nothing at all, so such a node is promoted to a root.
+//
+// With args.Search the parent is ignored: see treeSearch.
 func (c *Ctx) TreeChildren(doctype, parent string, args TreeArgs) (map[string]any, error) {
 	d, err := c.St.DocType(doctype)
 	if err != nil {
@@ -220,7 +226,13 @@ func (c *Ctx) TreeChildren(doctype, parent string, args TreeArgs) (map[string]an
 	}
 
 	var rows []map[string]any
-	if parent != "" {
+	var matched map[string]bool
+	hasMore := false
+	if txt := strings.TrimSpace(args.Search); txt != "" {
+		if rows, matched, hasMore, err = c.treeSearch(d, pf, txt, fields, order, limit); err != nil {
+			return nil, err
+		}
+	} else if parent != "" {
 		rows, err = c.GetList(doctype, ListArgs{
 			Filters: []any{[]any{pf, "=", parent}}, Fields: fields, OrderBy: order, Limit: limit + 1})
 		if err != nil {
@@ -238,8 +250,8 @@ func (c *Ctx) TreeChildren(doctype, parent string, args TreeArgs) (map[string]an
 		rows = append(rows, promoted...)
 	}
 
-	hasMore := len(rows) > limit
-	if hasMore {
+	if matched == nil && len(rows) > limit {
+		hasMore = true
 		rows = rows[:limit]
 	}
 	counts, err := c.treeChildCounts(d, pf, rows)
@@ -266,9 +278,68 @@ func (c *Ctx) TreeChildren(doctype, parent string, args TreeArgs) (map[string]an
 			}
 			node["values"] = values
 		}
+		if matched[id] {
+			node["match"] = true
+		}
 		nodes = append(nodes, node)
 	}
 	return map[string]any{"nodes": nodes, "hasMore": hasMore}, nil
+}
+
+// treeSearch finds the nodes whose id, title or search fields contain txt — the
+// columns and the accent- and case-insensitive match of a Link search — and
+// the ancestors that place them in the hierarchy. `limit` caps the matches,
+// not the ancestors; `matched` tells the two apart.
+//
+// The walk up asks GetList for one level of parents at a time, so an ancestor
+// the user may not read is simply absent and the walk stops there: what hangs
+// below it has no parent in the answer, and the view shows it at the top. The
+// last read fetches matches and ancestors together, so siblings from the two
+// sets come out in one order.
+func (c *Ctx) treeSearch(d *meta.DocType, pf, txt string, fields []string, order string, limit int) (rows []map[string]any, matched map[string]bool, hasMore bool, err error) {
+	matched = map[string]bool{}
+	hits, err := c.GetList(d.Name, ListArgs{
+		OrFilters: searchArgs(d, txt).OrFilters, Fields: fields, OrderBy: order, Limit: limit + 1})
+	if err != nil {
+		return nil, nil, false, err
+	}
+	if hasMore = len(hits) > limit; hasMore {
+		hits = hits[:limit]
+	}
+	if len(hits) == 0 {
+		return nil, matched, false, nil
+	}
+	all := make([]any, 0, len(hits))
+	for _, r := range hits {
+		id := db.Str(r["id"])
+		matched[id] = true
+		all = append(all, id)
+	}
+	// `asked` also ends the walk on rows made cyclic outside the engine
+	asked := maps.Clone(matched)
+	level := hits
+	for {
+		var parents []any
+		for _, r := range level {
+			if p := db.Str(r[pf]); p != "" && !asked[p] {
+				asked[p] = true
+				parents = append(parents, p)
+			}
+		}
+		if len(parents) == 0 {
+			break
+		}
+		if level, err = c.GetList(d.Name, ListArgs{
+			Filters: []any{[]any{"id", "in", parents}}, Fields: []string{"id", pf}, Limit: len(parents)}); err != nil {
+			return nil, nil, false, err
+		}
+		for _, r := range level {
+			all = append(all, db.Str(r["id"]))
+		}
+	}
+	rows, err = c.GetList(d.Name, ListArgs{
+		Filters: []any{[]any{"id", "in", all}}, Fields: fields, OrderBy: order, Limit: len(all)})
+	return rows, matched, hasMore, err
 }
 
 // treePromotedRoots finds readable nodes whose parent the user cannot read, so

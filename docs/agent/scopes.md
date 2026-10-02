@@ -69,7 +69,8 @@ different DocType.
 - `Admin`. `ddcore test` runs as Admin; a test sees scopes at work under
   `ddcore.test.asUser(user, fn)` (see `controller-api`, *Tests*).
 - Any user without `User Permission` rows. This is the default: scopes are opt-in per user.
-- Background jobs, including jobs a scoped user enqueued (see "Background jobs" below).
+- Background jobs, including jobs a scoped user enqueued, unless the job was queued with
+  `runAs` or its code calls `ddcore.runAs` (see "Background jobs" below).
 - Framework-internal operations that raise the whole context to ignore permissions, such
   as the mail queue, attachment export and renames. The framework's own duplicate-id,
   rename and link checks also look ids up without a scope, so saving a document that
@@ -113,6 +114,43 @@ code that enqueues work on behalf of a scoped user must filter by that user's sc
 for example by passing the in-scope ids as arguments after reading them with
 `ddcore.db.getList` in the request. Scheduled methods (`scheduler` in `defineApp`) run as
 `Admin` and are also unscoped.
+
+### Running as a user: `runAs`
+
+Jobs, scheduled methods and guest webhooks are where a forgotten filter leaks data between
+tenants, because nothing applies a scope there. `runAs` puts that code back under a user's
+roles and access scopes:
+
+```ts
+// a block of code, anywhere on the server
+ddcore.runAs("sync@parish-a.test", () => {
+  for (const t of ddcore.db.getList("Tither", { fields: ["id"] })) { /* only that parish */ }
+});
+
+// a whole job, its onStart and onFailure included
+ddcore.enqueue("my_app.services.sync.run", { since }, { runAs: "sync@parish-a.test" });
+
+// a scheduled method
+scheduler: { daily: [{ method: "my_app.services.sync.run", runAs: "sync@parish-a.test" }] }
+```
+
+- Inside `runAs`, reads and writes are checked exactly as in a request from that user: role
+  permissions, User Permission scopes, shares and user type. The caller's
+  `ignorePermissions` does not carry in. `ddcore.db.sql` and `ddcore.db.getAll` still ignore
+  permissions, as they do everywhere.
+- `owner`, `modified_by`, versions and audit events record that user; `ddcore.session.user`
+  names them. A `ctx` argument the function received earlier is a snapshot and does not
+  change.
+- `ddcore.runAs` shares the caller's transaction, returns what the callback returns, restores
+  the caller when it returns or throws, and nests.
+- The user must exist and be enabled. An unknown or disabled user is an error, never a
+  fallback to an unscoped context: `ddcore.runAs` and `ddcore.enqueue` throw, a job whose
+  user was disabled after it was queued fails, and a scheduler entry with such a user logs
+  an error and queues nothing. `Admin` is accepted, and is unscoped.
+- A job queued with `runAs` keeps the user who queued it in `user` and the user it acts as
+  in `run_as` (see `ops`). A retry keeps both.
+- An inbound webhook arrives as `Guest`. Verify its signature first, then do the work under
+  `ddcore.runAs(tenantUser, ...)`.
 
 ## Enforced surfaces
 
@@ -161,7 +199,8 @@ An update that changes `user`, `allow`, `for_value` or `applicable_for`, includi
 - `is_default` is not used to prefill forms.
 - Scope rules are per user. There are no scope groups or role-based scopes, and no Desk editor
   beyond the generic `User Permission` form.
-- Background jobs run with permissions ignored, so a job a scoped user enqueued is unscoped.
+- Background jobs run with permissions ignored, so a job a scoped user enqueued is unscoped,
+  unless it is queued with `runAs` (see "Running as a user: `runAs`").
 - Link validation (checking that a Link field's value names an existing document) looks
   the id up without a scope, so it does not report an out-of-scope id as missing. Combined
   with direct access and `dbSet` returning `PermissionError` for an out-of-scope id but

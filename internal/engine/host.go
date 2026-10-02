@@ -57,6 +57,7 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		Timeout       float64           `json:"timeout"`
 		ResponseType  string            `json:"responseType"`
 		MaxBytes      float64           `json:"maxBytes"`
+		ClientCert    *httpClientCert   `json:"clientCert"`
 		Level         string            `json:"level"`
 		LogArgs       []string          `json:"args2"`
 		Event         string            `json:"event"`
@@ -310,7 +311,7 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		}
 		return nil, c.broadcastInvalidation(keys, nil)
 	case "http":
-		return httpCall(a.Method, a.URL, a.Body, a.Headers, a.Timeout, a.ResponseType, int64(a.MaxBytes))
+		return httpCall(a.Method, a.URL, a.Body, a.Headers, a.Timeout, a.ResponseType, int64(a.MaxBytes), a.ClientCert)
 	case "files.save":
 		var f SaveFileArgs
 		if err := json.Unmarshal(raw, &f); err != nil {
@@ -364,8 +365,10 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		default:
 			e.Log.Info(msg, "user", c.User)
 		}
-		if c.Flags["captureLogs"] == true {
-			c.Flags["logs"] = append(c.Flags["logs"].([]string), l.Level+": "+msg)
+		// captured on the ctx that owns the transaction, where Eval reads them:
+		// a log line written under ddcore.runAs belongs to the same output
+		if o := c.owner(); o.Flags["captureLogs"] == true {
+			o.Flags["logs"] = append(o.Flags["logs"].([]string), l.Level+": "+msg)
 		}
 		return nil, nil
 	case "rename":
@@ -691,7 +694,12 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 	case "test.asUser":
 		return nil, c.testAsUser(a.User)
 	case "test.restoreUser":
-		c.testRestoreUser()
+		c.restoreUser()
+		return nil, nil
+	case "runAs.enter":
+		return nil, c.runAsEnter(a.User)
+	case "runAs.exit":
+		c.restoreUser()
 		return nil, nil
 	}
 	return nil, cerr.Internal("unknown bridge operation: {0}", op)
@@ -777,11 +785,11 @@ func FormatCurrency(v float64, code, lang string, precision int) string {
 // no maxBytes.
 const httpMaxBytes = 10 << 20
 
-func httpCall(method, url string, body any, headers map[string]string, timeout float64, responseType string, maxBytes int64) (any, error) {
+func httpCall(method, url string, body any, headers map[string]string, timeout float64, responseType string, maxBytes int64, cert *httpClientCert) (any, error) {
 	if responseType != "" && responseType != "text" && responseType != "base64" {
 		return nil, cerr.Validation("http: responseType must be \"text\" or \"base64\", not {0}", responseType)
 	}
-	res, b, err := httpFetch(method, url, body, headers, timeout, maxBytes)
+	res, b, err := httpFetch(method, url, body, headers, timeout, maxBytes, cert)
 	if err != nil {
 		return nil, err
 	}
@@ -794,7 +802,8 @@ func httpCall(method, url string, body any, headers map[string]string, timeout f
 
 // httpFetch sends one request and reads the whole response body, at most
 // maxBytes of it (httpMaxBytes when zero). The response's body is closed.
-func httpFetch(method, url string, body any, headers map[string]string, timeout float64, maxBytes int64) (*http.Response, []byte, error) {
+// A cert is presented to a server that asks for one (mutual TLS).
+func httpFetch(method, url string, body any, headers map[string]string, timeout float64, maxBytes int64, cert *httpClientCert) (*http.Response, []byte, error) {
 	if timeout <= 0 {
 		timeout = 15
 	}
@@ -825,6 +834,13 @@ func httpFetch(method, url string, body any, headers map[string]string, timeout 
 	}
 	req.Header.Set("User-Agent", "ddcore/0.1")
 	client := &http.Client{Timeout: time.Duration(timeout * float64(time.Second))}
+	if cert != nil {
+		t, err := clientCertTransport(cert)
+		if err != nil {
+			return nil, nil, err
+		}
+		client.Transport = t
+	}
 	res, err := client.Do(req)
 	if err != nil {
 		return nil, nil, cerr.Validation("http: {0}", err)

@@ -56,7 +56,13 @@ export default defineController("X", {
 });
 function ctx_user() { return ddcore.session.user }
 export const hello = whitelisted((args) => "olá " + args.nome);
-export function addMonths(a) { return ddcore.utils.addMonths("2026-01-31", 1) }`), 0o644)
+export function addMonths(a) { return ddcore.utils.addMonths("2026-01-31", 1) }
+export function diffs() {
+  const u = ddcore.utils;
+  return [u.dateDiff("2026-05-10", "2026-05-01"), u.dateDiff("2026-05-01", "2026-05-10"), u.dateDiff("2024-03-01", "2024-02-28"),
+    u.dateDiff("2026-05-10T23:30:00Z", "2026-05-01"), u.dateDiff("", "2026-09-09"),
+    u.monthDiff("2026-02-01", "2026-01-31"), u.monthDiff("2027-01-15", "2025-11-20"), u.monthDiff("2025-11-20", "2027-01-15")];
+}`), 0o644)
 
 	b, err := BuildServer(App{Name: "demo", Dir: dir}, false)
 	if err != nil {
@@ -98,6 +104,11 @@ export function addMonths(a) { return ddcore.utils.addMonths("2026-01-31", 1) }`
 	f, _ := rt.CallFunction("demo.doctypes.x.x.controller.addMonths", json.RawMessage(`{}`))
 	if string(f) != `"2026-02-28"` {
 		t.Fatalf("addMonths: %s", f)
+	}
+	// desk/src/lib/datetime.test.ts asserts these same numbers against ddcore.datetime
+	f, _ = rt.CallFunction("demo.doctypes.x.x.controller.diffs", json.RawMessage(`{}`))
+	if string(f) != `[9,-9,2,9,0,1,14,-14]` {
+		t.Fatalf("dateDiff / monthDiff: %s", f)
 	}
 }
 

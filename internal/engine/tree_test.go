@@ -632,14 +632,24 @@ func TestTreeChildrenEndpointData(t *testing.T) {
 	}
 }
 
-// A user who may read only a branch sees its top as a root, even though that
-// node has a parent they cannot read.
-func TestTreeChildrenPromotesScopedRoot(t *testing.T) {
-	e := setupTree(t)
-	seedTree(t, e)
-	ctx := context.Background()
+// treeIDs lists a TreeChildren answer as "id" or "id*" for a search match.
+func treeIDs(res map[string]any) string {
+	var got []string
+	for _, n := range res["nodes"].([]map[string]any) {
+		id := db.Str(n["id"])
+		if n["match"] == true {
+			id += "*"
+		}
+		got = append(got, id)
+	}
+	return strings.Join(got, ",")
+}
+
+// branchUser may read Brazil and what is below it, and nothing else.
+func branchUser(t *testing.T, e *Engine) string {
+	t.Helper()
 	const user = "branch@x.com"
-	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
+	if err := e.Run(context.Background(), "Admin", func(c *Ctx) error {
 		u, err := c.NewDoc("User", Doc{"email": user, "full_name": "Branch",
 			"roles": []any{map[string]any{"role": "Tree User"}}})
 		if err != nil {
@@ -657,6 +667,90 @@ func TestTreeChildrenPromotesScopedRoot(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
+	return user
+}
+
+func TestTreeSearch(t *testing.T) {
+	e := setupTree(t)
+	seedTree(t, e)
+	ctx := context.Background()
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
+		for _, n := range []struct{ title, parent string }{{"São Paulo", "Brazil"}, {"100% Ice", "South"}} {
+			if err := node(c, n.title, n.parent, false); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	search := func(c *Ctx, txt string, limit int) (map[string]any, string) {
+		t.Helper()
+		res, err := c.TreeChildren("Test Territory", "", TreeArgs{Search: txt, Limit: limit, OrderBy: "title asc"})
+		if err != nil {
+			t.Fatalf("search %q: %v", txt, err)
+		}
+		return res, treeIDs(res)
+	}
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
+		// the match with the chain that leads to it, and nothing beside it
+		if _, got := search(c, "pr", 0); got != "Brazil,PR*,South,World" {
+			t.Fatalf("pr = %s", got)
+		}
+		// an ancestor that matches too is flagged; the parent is ignored
+		res, err := c.TreeChildren("Test Territory", "Chile", TreeArgs{Search: "a", OrderBy: "title asc"})
+		if err != nil {
+			return err
+		}
+		if got := treeIDs(res); got != "Antarctica*,Brazil*,São Paulo*,World" {
+			t.Fatalf("a = %s", got)
+		}
+		// accents and case fold, as in a Link search
+		if _, got := search(c, "sao", 0); got != "Brazil,São Paulo*,World" {
+			t.Fatalf("sao = %s", got)
+		}
+		// a wildcard is the character itself
+		if _, got := search(c, "0%", 0); got != "100% Ice*,Brazil,South,World" {
+			t.Fatalf("0%% = %s", got)
+		}
+		if res, got := search(c, "zzz", 0); got != "" || res["hasMore"] != false {
+			t.Fatalf("zzz = %s, hasMore %v", got, res["hasMore"])
+		}
+		// the limit caps the matches, not the ancestors
+		res, got := search(c, "il", 1)
+		if got != "Brazil*,World" || res["hasMore"] != true {
+			t.Fatalf("il, limit 1 = %s, hasMore %v", got, res["hasMore"])
+		}
+		// a blank text is no search at all
+		if _, got := search(c, "  ", 0); got != "Antarctica,World" {
+			t.Fatalf("blank = %s", got)
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	// an ancestor the user may not read is left out: the chain ends at Brazil
+	if err := e.Run(ctx, branchUser(t, e), func(c *Ctx) error {
+		if _, got := search(c, "pr", 0); got != "Brazil,PR*,South" {
+			t.Fatalf("scoped pr = %s", got)
+		}
+		if _, got := search(c, "world", 0); got != "" {
+			t.Fatalf("scoped world = %s", got)
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// A user who may read only a branch sees its top as a root, even though that
+// node has a parent they cannot read.
+func TestTreeChildrenPromotesScopedRoot(t *testing.T) {
+	e := setupTree(t)
+	seedTree(t, e)
+	ctx := context.Background()
+	user := branchUser(t, e)
 	if err := e.Run(ctx, user, func(c *Ctx) error {
 		res, err := c.TreeChildren("Test Territory", "", TreeArgs{Limit: 50})
 		if err != nil {

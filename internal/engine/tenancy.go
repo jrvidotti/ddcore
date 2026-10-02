@@ -410,7 +410,6 @@ func (c *Ctx) leaveTenantCtx() (*Ctx, error) {
 	}
 	c.tenantParent = nil
 	parent.rt.Ctx = parent
-	parent.afterCommit = append(parent.afterCommit, c.afterCommit...)
 	parent.Messages = append(parent.Messages, c.Messages...)
 	parent.savepoint, parent.roSavepoint = c.savepoint, c.roSavepoint
 	parent.docCache = map[string]Doc{}

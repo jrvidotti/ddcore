@@ -761,6 +761,13 @@ export interface ControllerDef<T extends BaseDoc = BaseDoc> extends Partial<Reco
   permissionQuery?: (user: string) => Filters | undefined;
 }
 
+/**
+ * One scheduled method: its dotted path, or the path with the user it runs
+ * as. A bare path runs as `Admin` with permissions ignored; with `runAs` it
+ * runs under that user's roles and access scopes.
+ */
+export type ScheduledEntry = string | { method: string; runAs?: string };
+
 export interface AppDef {
   name: string;
   title: string;
@@ -776,8 +783,8 @@ export interface AppDef {
   ddcore?: string;
   docEvents?: Record<string, Partial<Record<DocEvent, (doc: BaseDoc & Document<any>, ctx: Context) => void>>>;
   scheduler?: {
-    cron?: Record<string, string[]>;
-    all?: string[]; hourly?: string[]; daily?: string[]; weekly?: string[]; monthly?: string[];
+    cron?: Record<string, ScheduledEntry[]>;
+    all?: ScheduledEntry[]; hourly?: ScheduledEntry[]; daily?: ScheduledEntry[]; weekly?: ScheduledEntry[]; monthly?: ScheduledEntry[];
   };
   afterInstall?: (ctx: Context) => void;
   afterMigrate?: (ctx: Context) => void;

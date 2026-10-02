@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { emptyTree, mergeChildren, toggle, visibleRows, loadedParents, treeParentQuery, expandAll, collapseAll, treeFields, treeLabel, rememberTreeExpand, getRememberedTreeExpand, ROOT, type TreeNode } from "./tree-state";
+import { emptyTree, mergeChildren, treeFromSearch, toggle, visibleRows, loadedParents, treeParentQuery, expandAll, collapseAll, treeFields, treeLabel, rememberTreeExpand, getRememberedTreeExpand, ROOT, type TreeNode } from "./tree-state";
 
 const node = (id: string, parent = "", is_group = false, children = 0): TreeNode =>
   ({ id, title: id, parent, is_group, children });
@@ -9,6 +9,36 @@ function seeded() {
   state = mergeChildren(state, ROOT, { nodes: [node("World", "", true, 2), node("Antarctica")], hasMore: false });
   return state;
 }
+
+describe("search result", () => {
+  const match = (id: string, parent: string, is_group = false): TreeNode => ({ ...node(id, parent, is_group, is_group ? 3 : 0), match: true });
+
+  it("opens every branch down to its matches", () => {
+    const state = treeFromSearch({
+      nodes: [node("Brazil", "World", true, 2), match("PR", "South"), node("South", "Brazil", true, 1), node("World", "", true, 2)],
+      hasMore: true,
+    });
+    expect(visibleRows(state).map((r) => [r.node.id, r.depth, r.expanded])).toEqual([
+      ["World", 0, true], ["Brazil", 1, true], ["South", 2, true], ["PR", 3, false],
+    ]);
+    expect(state.hasMore.get(ROOT)).toBe(true);
+  });
+
+  it("puts a node whose parent did not come at the top", () => {
+    const state = treeFromSearch({ nodes: [node("Brazil", "World", true, 1), match("PR", "Brazil")], hasMore: false });
+    expect(visibleRows(state).map((r) => [r.node.id, r.depth])).toEqual([["Brazil", 0], ["PR", 1]]);
+  });
+
+  it("loads the children of a matched group when it opens", () => {
+    const state = treeFromSearch({ nodes: [match("South", "", true)], hasMore: false });
+    expect(visibleRows(state).map((r) => r.expanded)).toEqual([false]);
+    expect(toggle(state, "South").needsLoad).toBe(true);
+  });
+
+  it("is an empty tree when nothing matched", () => {
+    expect(visibleRows(treeFromSearch({ nodes: [], hasMore: false }))).toEqual([]);
+  });
+});
 
 describe("tree state", () => {
   it("renders the roots it was given", () => {

@@ -290,6 +290,11 @@ The queue is administered from the CLI and from a small HTTP surface. Both read
 and write `ddcore_job`, which is a framework table and not a DocType, so it has
 no list view and no `/api/resource` route.
 
+A job's `user` is who queued it. `run_as` is set only on a job queued with
+`ddcore.enqueue(..., { runAs })` or by a scheduler entry with `runAs`: the user
+whose roles and access scopes the job runs under (see `scopes`). `jobs scheduled`
+shows such an entry as `method (as user)`.
+
 ```
 ddcore jobs list [--status s] [--queue q] [--method m] [--user u] [--since 1h] [--limit N] [--json]
 ddcore jobs show <id> [--json]
@@ -401,7 +406,9 @@ export function failed(args: { name: string }, job: JobFailure) {
 - `job` is `{ id, method, queue, attempt, maxAttempts }`, plus `error`, `reason`
   and `final` for `onFailure`.
 - Both run as the job's user with permissions ignored, like the body, and share
-  its Error Log handle, `job:<id>`. A retried job keeps its callbacks.
+  its Error Log handle, `job:<id>`. A job queued with `runAs` runs all three as
+  that user with permissions enforced, and `job.runAs` names them. A retried job
+  keeps its callbacks.
 
 There is no `onSuccess`: the body's own writes commit with it. Nothing here
 hands app code a commit — the callbacks are two more short transactions the
@@ -436,7 +443,8 @@ on work that has nothing wrong with it.
 
 ### Retrying
 
-Retry queues a **new** job that copies the method, arguments, queue and user;
+Retry queues a **new** job that copies the method, arguments, queue, user and
+`run_as`;
 the failed row is kept as the record, with `retried_as` pointing at the new one,
 and the new row carries `retry_of` back. That keeps `job:<id>` naming exactly one
 execution, which is what makes an Error Log row worth looking up. A second retry

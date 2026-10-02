@@ -77,6 +77,23 @@ export function addDays(d: string, n: number): string {
   return civil(y, m, day + n);
 }
 
+/**
+ * Whole days from b to a (`a - b`): `dateDiff("2026-05-10", "2026-05-01") === 9`.
+ * An empty argument is today, as in `utils.dateDiff` in the prelude.
+ */
+export function dateDiff(a: string, b: string): number {
+  const [ya, ma, da] = parts(a || today());
+  const [yb, mb, db] = parts(b || today());
+  return Math.round((Date.UTC(ya, ma, da) - Date.UTC(yb, mb, db)) / 86400000);
+}
+
+/** Calendar months from b to a (`a - b`); the day of the month is ignored. */
+export function monthDiff(a: string, b: string): number {
+  const [ya, ma] = parts(a || today());
+  const [yb, mb] = parts(b || today());
+  return (ya - yb) * 12 + ma - mb;
+}
+
 export function monthStart(d?: string): string {
   const [y, m] = parts(d || today());
   return civil(y, m, 1);

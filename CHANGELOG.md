@@ -16,6 +16,34 @@ older series, and `whats_new` reads across every one of them.
 
 ### Added
 
+- `ddcore.datetime.dateDiff(a, b)` and `ddcore.datetime.monthDiff(a, b)` on the Desk, with the
+  semantics of `ddcore.utils.dateDiff` and `monthDiff` on the server, so a form script can show a
+  day count the controller computes: `dateDiff("2026-05-10", "2026-05-01") === 9`. See "Dates and
+  times" in `form-api` (#58).
+- The Tree view has a search box. While there is text, the tree shows only the nodes that match
+  — by `id`, `titleField` and `searchFields`, as a Link search does — and the ancestors that lead
+  to them, every branch open and the matches highlighted; the text is the list's `?q=`. Nothing
+  to declare in an app. On the API, `GET /api/tree/{doctype}?search=` answers those nodes, a
+  match flagged `"match": true`. See "The tree view and `/api/tree`" in `trees` (#59).
+- `ddcore.http` presents a client certificate with `opts.clientCert`, for an API that
+  authenticates by mutual TLS (PIX, Open Finance): `{ pfx, password? }` — a PKCS#12 file,
+  base64-encoded — or `{ cert, key }` in PEM. The chain goes with the certificate, and calls with
+  the same certificate share connections. A proxy kept only to hold the certificate can go. See
+  "`ddcore.*`" in `controller-api` (#60).
+- `ddcore.runAs(user, fn)` runs server code under a user's roles and access scopes, in the
+  current transaction. A job, a scheduled method and a guest webhook had no such context: a job
+  ignores permissions, a scheduled method runs as `Admin` and a webhook arrives as `Guest`, so a
+  multi-tenant app had to filter every query in those paths by hand. Inside `runAs` reads and
+  writes are checked as in a request from that user, and `owner`, `modified_by` and audit events
+  record them. The user must exist and be enabled; otherwise the call throws (#40).
+- `ddcore.enqueue(method, args, { runAs: user })` queues a job whose body, `onStart` and
+  `onFailure` run as that user with permissions enforced. The job keeps who queued it in `user`
+  and the user it acts as in the new `run_as` column, shown by `ddcore jobs list|show`, the jobs
+  API and the `list_jobs` / `get_job` tools; a retry keeps it. A job whose user was disabled
+  after it was queued fails instead of running unscoped (#40).
+- A `scheduler` entry can be `{ method, runAs }` instead of a bare path, to run the method under
+  a user's roles and access scopes rather than as `Admin`. A scheduled method that could not be
+  queued is now logged; the error was dropped (#40).
 - **Tenancy: several customers in one database.** `"tenancy": true` in `ddcore.json`, then
   `ddcore migrate`, gives every tenant its own documents, ids, numbering series, `unique`
   values, Singles, users, files, vault secrets, cache keys, jobs, webhooks and realtime events.
@@ -43,6 +71,12 @@ older series, and `whats_new` reads across every one of them.
 - With tenancy **off** nothing changes: no column, no policy, no new DocType, the same schema.
 - `tenant` is a reserved fieldname on a site with tenancy. An app that has a field of that name
   on a DocType that is not `shared` must rename it (with `renamedFrom`) before turning tenancy on.
+
+### Fixed
+
+- Events and cache invalidations registered while the server acted as another user are no longer
+  dropped at commit. It affected the writes made on a recipient's behalf by notifications, and
+  would have affected every write under `ddcore.runAs`.
 
 ## 0.23.5 — 2026-10-01
 
