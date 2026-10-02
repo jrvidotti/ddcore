@@ -116,6 +116,20 @@ func (c *Ctx) Enqueue(method string, args map[string]any, opts map[string]any) (
 		}
 		uniqueKey = str
 	}
+	// The user the job acts as. Checked here so a typo is refused where it was
+	// written, and again when the job runs, because a user can be disabled in
+	// between.
+	runAs := ""
+	if v, ok := opts["runAs"]; ok && v != nil {
+		str, ok := v.(string)
+		if !ok || str == "" {
+			return 0, cerr.Validation("enqueue: runAs must be a user")
+		}
+		if err := c.checkActingUser(str); err != nil {
+			return 0, err
+		}
+		runAs = str
+	}
 	b, _ := json.Marshal(args)
 	// A keyed enqueue whose key is already queued inserts nothing and returns the
 	// queued job's id. The job can be claimed between the conflict and the lookup,
@@ -126,12 +140,13 @@ func (c *Ctx) Enqueue(method string, args map[string]any, opts map[string]any) (
 		// found from the request, and the other way round.
 		err := c.Q().QueryRow(c.Ctx, `INSERT INTO ddcore_job
 			(method, args, queue, "user", run_after, timeout_seconds, max_attempts, request_id, backoff,
-			 on_start, on_failure, unique_key)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, NULLIF($8, ''), $9, NULLIF($10, ''), NULLIF($11, ''), NULLIF($12, ''))
+			 on_start, on_failure, unique_key, run_as)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, NULLIF($8, ''), $9, NULLIF($10, ''), NULLIF($11, ''), NULLIF($12, ''),
+			        NULLIF($13, ''))
 			ON CONFLICT (unique_key) WHERE unique_key IS NOT NULL AND status = 'queued' DO NOTHING
 			RETURNING id`,
 			method, string(b), queue, c.User, runAfter, timeout, maxAttempts, RequestIDFrom(c.Ctx), backoff,
-			hooks["onStart"], hooks["onFailure"], uniqueKey).Scan(&id)
+			hooks["onStart"], hooks["onFailure"], uniqueKey, runAs).Scan(&id)
 		if err == nil {
 			return id, nil
 		}
@@ -153,12 +168,18 @@ func (c *Ctx) Enqueue(method string, args map[string]any, opts map[string]any) (
 // honored inside the VM: a script that does not return is interrupted when the
 // context expires (B15).
 func (e *Engine) RunJob(ctx context.Context, user, method string, args map[string]any) (json.RawMessage, error) {
+	return e.runJobAs(ctx, user, "", method, args)
+}
+
+// runJobAs is RunJob for a job queued with runAs: a non-empty runAs is the
+// user the job acts as, with permissions enforced.
+func (e *Engine) runJobAs(ctx context.Context, user, runAs, method string, args map[string]any) (json.RawMessage, error) {
 	if method == notificationSweepMethod {
 		return nil, e.SweepNotifications(ctx, time.Now())
 	}
 	var out json.RawMessage
 	b, _ := json.Marshal(args)
-	err := e.inJobTx(ctx, user, method, func(rt *js.Runtime) error {
+	err := e.inJobTx(ctx, user, runAs, method, func(rt *js.Runtime) error {
 		var callErr error
 		out, callErr = rt.CallFunction(method, b)
 		return callErr
@@ -172,24 +193,34 @@ func (e *Engine) RunJob(ctx context.Context, user, method string, args map[strin
 // runJobHook runs one of a job's lifecycle callbacks in a transaction of its
 // own, which is the whole point of them: what onStart writes commits before the
 // body runs, and what onFailure writes survives the body's rollback.
-func (e *Engine) runJobHook(ctx context.Context, user, path string, args, info map[string]any) error {
+func (e *Engine) runJobHook(ctx context.Context, user, runAs, path string, args, info map[string]any) error {
 	b, _ := json.Marshal(args)
 	if b == nil || string(b) == "null" {
 		b = []byte("{}")
 	}
 	jb, _ := json.Marshal(info)
-	return e.inJobTx(ctx, user, path, func(rt *js.Runtime) error {
+	return e.inJobTx(ctx, user, runAs, path, func(rt *js.Runtime) error {
 		return rt.CallJobHook(path, b, jb)
 	})
 }
 
 // inJobTx is the transaction a job's code runs in: the job's user, permissions
-// ignored, and a VM that ctx interrupts. The transaction itself uses a context
-// without the deadline: the timeout needs to interrupt the VM, without
-// interfering with the rollback.
-func (e *Engine) inJobTx(ctx context.Context, user, method string, call func(rt *js.Runtime) error) error {
-	err := e.Run(context.WithoutCancel(ctx), orDefault(user, "Admin"), func(c *Ctx) error {
-		c.Flags["ignorePermissions"] = true
+// ignored, and a VM that ctx interrupts. A job queued with runAs runs as that
+// user instead, with permissions enforced; a user that has since been removed
+// or disabled fails the job rather than letting it run unscoped. The
+// transaction itself uses a context without the deadline: the timeout needs to
+// interrupt the VM, without interfering with the rollback.
+func (e *Engine) inJobTx(ctx context.Context, user, runAs, method string, call func(rt *js.Runtime) error) error {
+	actor := orDefault(user, "Admin")
+	if runAs != "" {
+		actor = runAs
+	}
+	err := e.Run(context.WithoutCancel(ctx), actor, func(c *Ctx) error {
+		if runAs == "" {
+			c.Flags["ignorePermissions"] = true
+		} else if err := c.checkActingUser(runAs); err != nil {
+			return err
+		}
 		rt, err := c.RT()
 		if err != nil {
 			return err
@@ -211,6 +242,7 @@ var onFailureTimeout = 30 * time.Second
 type jobFailure struct {
 	id                   int64
 	method, user, queue  string
+	runAs                string
 	hook                 string
 	args                 map[string]any
 	attempt, maxAttempts int
@@ -233,7 +265,10 @@ func (e *Engine) runOnFailure(ctx context.Context, f jobFailure) {
 		"attempt": f.attempt, "maxAttempts": f.maxAttempts,
 		"error": f.err, "reason": f.reason, "final": f.final,
 	}
-	if err := e.runJobHook(hctx, f.user, f.hook, f.args, info); err != nil {
+	if f.runAs != "" {
+		info["runAs"] = f.runAs
+	}
+	if err := e.runJobHook(hctx, f.user, f.runAs, f.hook, f.args, info); err != nil {
 		e.LogError(rctx, "job:onFailure:"+f.method, err)
 	}
 }
@@ -281,7 +316,7 @@ func (e *Engine) requeueStale(ctx context.Context) error {
 		             WHEN attempts < max_attempts      THEN NULL
 		             ELSE 'worker interrupted: lease expired' END
 		WHERE status = 'running' AND lease_until IS NOT NULL AND lease_until < now()
-		RETURNING id, method, status, "user", args, queue, attempts, max_attempts, on_failure`
+		RETURNING id, method, status, "user", args, queue, attempts, max_attempts, on_failure, run_as`
 	rows, err := db.Select(ctx, e.DB.Pool, q)
 	if err != nil {
 		return err
@@ -299,6 +334,7 @@ func (e *Engine) requeueStale(ctx context.Context) error {
 		}
 		e.runOnFailure(ctx, jobFailure{
 			id: int64(toFloat(r["id"])), method: db.Str(r["method"]), user: db.Str(r["user"]),
+			runAs: db.Str(r["run_as"]),
 			queue: db.Str(r["queue"]), hook: db.Str(r["on_failure"]), args: jobArgs(r["args"]),
 			attempt: int(toFloat(r["attempts"])), maxAttempts: int(toFloat(r["max_attempts"])),
 			reason: reason, err: "worker interrupted: lease expired", final: status != "queued",
@@ -357,7 +393,7 @@ func (e *Engine) runOneJob(ctx context.Context) (bool, error) {
 	}
 	defer tx.Rollback(ctx)
 	rows, err := db.Select(ctx, tx, `SELECT id, method, args, "user", attempts, max_attempts, timeout_seconds,
-		queue, on_start, on_failure FROM ddcore_job
+		queue, on_start, on_failure, run_as FROM ddcore_job
 		WHERE status = 'queued' AND run_after <= now() AND cancel_requested IS NULL
 		ORDER BY id LIMIT 1 FOR UPDATE SKIP LOCKED`)
 	if err != nil || len(rows) == 0 {
@@ -377,7 +413,7 @@ func (e *Engine) runOneJob(ctx context.Context) (bool, error) {
 	e.Log.Info("job", "id", id, "method", method)
 
 	attempt := int(toFloat(j["attempts"])) + 1
-	user := db.Str(j["user"])
+	user, runAs := db.Str(j["user"]), db.Str(j["run_as"])
 	timeout := time.Duration(orInt(toFloat(j["timeout_seconds"]), defaultJobTimeout)) * time.Second
 	jobCtx, cancel := context.WithTimeout(ctx, timeout)
 	// The flag, and not the error, is what identifies a cancellation. Both an
@@ -400,12 +436,15 @@ func (e *Engine) runOneJob(ctx context.Context) (bool, error) {
 	var res json.RawMessage
 	var runErr error
 	if hook := db.Str(j["on_start"]); hook != "" {
-		runErr = e.runJobHook(WithRequestID(jobCtx, fmt.Sprintf("job:%d", id)), user, hook, args,
-			map[string]any{"id": id, "method": method, "queue": db.Str(j["queue"]),
-				"attempt": attempt, "maxAttempts": maxAttempts})
+		info := map[string]any{"id": id, "method": method, "queue": db.Str(j["queue"]),
+			"attempt": attempt, "maxAttempts": maxAttempts}
+		if runAs != "" {
+			info["runAs"] = runAs
+		}
+		runErr = e.runJobHook(WithRequestID(jobCtx, fmt.Sprintf("job:%d", id)), user, runAs, hook, args, info)
 	}
 	if runErr == nil {
-		res, runErr = e.RunJob(jobCtx, user, method, args)
+		res, runErr = e.runJobAs(jobCtx, user, runAs, method, args)
 	}
 	stopBeat() // joins the goroutine, so the flag is visible below
 	jobErr := jobCtx.Err()
@@ -424,7 +463,7 @@ func (e *Engine) runOneJob(ctx context.Context) (bool, error) {
 	}
 	failed := func(reason string, final bool, msg string) {
 		e.runOnFailure(ctx, jobFailure{
-			id: id, method: method, user: user, queue: db.Str(j["queue"]),
+			id: id, method: method, user: user, runAs: runAs, queue: db.Str(j["queue"]),
 			hook: db.Str(j["on_failure"]), args: args, attempt: attempt, maxAttempts: maxAttempts,
 			reason: reason, err: msg, final: final,
 		})
@@ -618,20 +657,33 @@ func (e *Engine) StartScheduler(ctx context.Context) *cron.Cron {
 	cr := cron.New(cron.WithLocation(e.Location()))
 	add := func(spec string, fns []any) {
 		for _, f := range fns {
-			method := fmt.Sprint(f)
+			method, runAs := scheduledEntry(f)
+			if method == "" {
+				e.Log.Error("scheduler: entry without a method", "spec", spec, "entry", fmt.Sprint(f))
+				continue
+			}
+			// the ledger key tells apart one method scheduled for several users
+			entry, opts := spec+" "+method, map[string]any{"queue": "scheduler"}
+			if runAs != "" {
+				entry += " as " + runAs
+				opts["runAs"] = runAs
+			}
 			cr.AddFunc(spec, func() {
 				if e.Paused(ctx) {
 					e.Log.Info("scheduler: skipped, site in maintenance", "method", method)
 					return
 				}
-				if !e.claimTick(ctx, spec+" "+method) {
+				if !e.claimTick(ctx, entry) {
 					return
 				}
-				e.Log.Info("scheduler", "method", method)
-				e.Run(ctx, "Admin", func(c *Ctx) error {
-					_, err := c.Enqueue(method, nil, map[string]any{"queue": "scheduler"})
+				e.Log.Info("scheduler", "method", method, "runAs", runAs)
+				// an entry whose runAs user is missing or disabled is refused here
+				if err := e.Run(ctx, "Admin", func(c *Ctx) error {
+					_, err := c.Enqueue(method, nil, opts)
 					return err
-				})
+				}); err != nil {
+					e.Log.Error("scheduler: could not enqueue", "method", method, "runAs", runAs, "err", err)
+				}
 			})
 		}
 	}
@@ -660,6 +712,36 @@ func (e *Engine) StartScheduler(ctx context.Context) *cron.Cron {
 		old.cr.Stop()
 	}
 	return cr
+}
+
+// scheduledEntry reads one scheduler entry: a method path, or an object with
+// the path and the user the method runs as.
+func scheduledEntry(f any) (method, runAs string) {
+	switch x := f.(type) {
+	case string:
+		return x, ""
+	case map[string]any:
+		method, _ = x["method"].(string)
+		runAs, _ = x["runAs"].(string)
+	}
+	return method, runAs
+}
+
+// scheduledEntries renders a list of entries for `ddcore jobs scheduled`.
+func scheduledEntries(v any) string {
+	list, ok := v.([]any)
+	if !ok {
+		return fmt.Sprint(v)
+	}
+	out := make([]string, 0, len(list))
+	for _, f := range list {
+		method, runAs := scheduledEntry(f)
+		if runAs != "" {
+			method += " (as " + runAs + ")"
+		}
+		out = append(out, method)
+	}
+	return "[" + strings.Join(out, " ") + "]"
 }
 
 // claimTick reports whether this process is the one to enqueue a cron entry's
@@ -709,10 +791,10 @@ func (e *Engine) ScheduledMethods() []string {
 			switch x := v.(type) {
 			case map[string]any:
 				for spec, fns := range x {
-					out = append(out, fmt.Sprintf("%s  %s  %v", spec, key, fns))
+					out = append(out, fmt.Sprintf("%s  %s  %s", spec, key, scheduledEntries(fns)))
 				}
 			case []any:
-				out = append(out, fmt.Sprintf("%s  %v", key, x))
+				out = append(out, fmt.Sprintf("%s  %s", key, scheduledEntries(x)))
 			}
 		}
 	}

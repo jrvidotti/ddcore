@@ -356,8 +356,10 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		default:
 			e.Log.Info(msg, "user", c.User)
 		}
-		if c.Flags["captureLogs"] == true {
-			c.Flags["logs"] = append(c.Flags["logs"].([]string), l.Level+": "+msg)
+		// captured on the ctx that owns the transaction, where Eval reads them:
+		// a log line written under ddcore.runAs belongs to the same output
+		if o := c.owner(); o.Flags["captureLogs"] == true {
+			o.Flags["logs"] = append(o.Flags["logs"].([]string), l.Level+": "+msg)
 		}
 		return nil, nil
 	case "rename":
@@ -657,7 +659,12 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 	case "test.asUser":
 		return nil, c.testAsUser(a.User)
 	case "test.restoreUser":
-		c.testRestoreUser()
+		c.restoreUser()
+		return nil, nil
+	case "runAs.enter":
+		return nil, c.runAsEnter(a.User)
+	case "runAs.exit":
+		c.restoreUser()
 		return nil, nil
 	}
 	return nil, cerr.Internal("unknown bridge operation: {0}", op)

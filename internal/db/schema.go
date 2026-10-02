@@ -53,6 +53,9 @@ ALTER TABLE ddcore_job ADD COLUMN IF NOT EXISTS on_failure text;
 -- Dedup key of enqueue's uniqueKey option: while a job with the key is queued,
 -- another enqueue with the same key is a no-op.
 ALTER TABLE ddcore_job ADD COLUMN IF NOT EXISTS unique_key text;
+-- The user a job acts as, from enqueue's runAs option. NULL is a job that runs
+-- as "user" with permissions ignored.
+ALTER TABLE ddcore_job ADD COLUMN IF NOT EXISTS run_as text;
 CREATE INDEX IF NOT EXISTS ddcore_job_status ON ddcore_job(status, run_after);
 CREATE INDEX IF NOT EXISTS ddcore_job_lease ON ddcore_job(status, lease_until);
 -- The retention sweep and the administrative list both read by status and age;

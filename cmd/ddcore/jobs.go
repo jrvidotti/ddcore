@@ -211,7 +211,7 @@ func jobsShow(args []string) error {
 			return printJSON(j)
 		}
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-		for _, k := range []string{"id", "method", "queue", "status", "user", "enqueued",
+		for _, k := range []string{"id", "method", "queue", "status", "user", "run_as", "enqueued",
 			"run_after", "started", "finished", "attempts", "max_attempts", "timeout_seconds",
 			"request_id", "cancel_requested", "cancelled_by", "retry_of", "retried_as",
 			"on_start", "on_failure", "error", "args", "result"} {

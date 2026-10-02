@@ -911,6 +911,12 @@
     },
     isTest() { return !!globalThis.__ddcoreTest; },
     isJob() { return !call("session").request; },
+    // runs fn under user's roles and access scopes, on the caller's
+    // transaction; the finally restores the caller even when fn throws
+    runAs(user, fn) {
+      call("runAs.enter", { user });
+      try { return fn(); } finally { call("runAs.exit"); }
+    },
     form: {},
     callMethod(method, args) { return reg.callModule(method, args || {}); },
     rename(doctype, oldID, newID) { return call("rename", { doctype, oldID, newID }); },

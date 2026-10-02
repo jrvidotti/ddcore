@@ -140,7 +140,8 @@ Inside a job (`ignorePermissions`), the checks on the sharer's rights are skippe
 the override one; the recipient is still validated. A job runs as the user who enqueued it,
 and a document cannot be shared with the sharer, so `ddcore.share.add` in a job can never
 share with that user — share with them from the request instead, or enqueue under another
-user.
+user. A job queued with `runAs`, and code under `ddcore.runAs`, is not such a context: the
+sharer's rights are checked as in a request.
 
 ## Desk
 
