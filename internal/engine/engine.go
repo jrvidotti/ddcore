@@ -43,10 +43,6 @@ type Config struct {
 	Tenancy bool
 	// TenantRole is DDCORE_TENANT_ROLE; empty means db.DefaultTenantRole.
 	TenantRole string
-	// Catalogue is set by the translation extractor, which has to see every
-	// string the framework can show whatever this checkout's site turns on:
-	// it loads the tenants' DocType even without tenancy.
-	Catalogue bool
 	// EnterTenant is the tenant a one-shot command works in (`ddcore --tenant
 	// alfa eval …`): work that names no tenant itself enters this one, as an
 	// operator would. Never set by a process that serves requests.
@@ -561,7 +557,7 @@ func (e *Engine) Load() error {
 	for name, dj := range snap.Doctypes {
 		// the tenants' own DocType exists only where there are tenants: a site
 		// without tenancy gets no table, no form and no reserved name
-		if name == meta.TenantDocType && !e.Cfg.Tenancy && !e.Cfg.Catalogue {
+		if name == meta.TenantDocType && !e.Cfg.Tenancy {
 			continue
 		}
 		var d meta.DocType

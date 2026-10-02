@@ -99,6 +99,19 @@ func collectMeta(s *Set, e *engine.Engine, t Target) {
 		}
 		CollectDocType(s, d, t.App, metaRef(t, d))
 	}
+	// A DocType the site did not load is still text the app can show: the
+	// tenants' own DocType exists only on a site with tenancy, and its labels
+	// are translated whichever kind of site the catalogue is written on.
+	for name, raw := range st.Snap.Doctypes {
+		if _, loaded := st.Meta.Get(name); loaded {
+			continue
+		}
+		var d meta.DocType
+		if json.Unmarshal(raw, &d) != nil || d.App != t.App {
+			continue
+		}
+		CollectDocType(s, &d, t.App, metaRef(t, &d))
+	}
 	for _, ws := range st.Snap.Workspaces {
 		if appOf(ws) == t.App {
 			CollectTree(s, map[string]any(ws), t.App+" workspace")
