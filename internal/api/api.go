@@ -169,7 +169,7 @@ func New(e *engine.Engine, desk fs.FS) *Server {
 	r.Get("/assets/apps/{app}/*", s.appAsset)
 	r.Get("/files/*", s.file)
 	r.Get("/private/files/*", s.privateFile)
-	r.NotFound(s.deskHandler)
+	r.NotFound(s.notFound)
 	s.Router = r
 	return s
 }

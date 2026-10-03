@@ -146,6 +146,9 @@ type AppMeta struct {
 	// HasOnTenantCreate: the app seeds each new tenant (tenancy).
 	HasOnTenantCreate bool   `json:"hasOnTenantCreate"`
 	Dir               string `json:"-"`
+	// WWW is the app's static sites by URL prefix, as declared; State.WWW
+	// holds them validated (#68).
+	WWW map[string]json.RawMessage `json:"www"`
 }
 
 type Whitelisted struct {
@@ -225,6 +228,8 @@ type State struct {
 	I18n        *I18n
 	Loaded      time.Time
 	whitelisted map[string]map[string]any
+	// www is the apps' static sites by first path segment; see State.WWW.
+	www map[string]WWWSite
 	// metaCache holds the translated copies of DocTypes, per language. It
 	// needs no invalidation: a reload builds a new State and this dies with
 	// the old one.
@@ -699,6 +704,11 @@ func (e *Engine) Load() error {
 			return err
 		}
 	}
+	www, err := buildWWW(apps, snap)
+	if err != nil {
+		pool.Close()
+		return err
+	}
 	st := &State{
 		Title:             e.Cfg.SiteTitle,
 		Portals:           portals,
@@ -712,6 +722,7 @@ func (e *Engine) Load() error {
 		I18n:              i18n,
 		Loaded:            time.Now(),
 		whitelisted:       wl,
+		www:               www,
 	}
 	e.mu.Lock()
 	old := e.cur.Swap(st)

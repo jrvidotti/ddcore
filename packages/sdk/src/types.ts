@@ -821,6 +821,22 @@ export interface AppDef {
      */
     include?: string[];
   };
+  /**
+   * Static sites the app serves to anyone, by URL prefix: `{ "/r": "checkout/build" }`
+   * serves the files of `<app>/checkout/build` under `/r/`. Meant for the build of
+   * a SPA that calls the app's guest methods. The prefix is one lowercase segment
+   * and not one ddcore uses (`/api`, `/app`, `/login`, `/portal`, `/_app`, …).
+   *
+   * - `dir`: relative to the app, inside it. It may not exist yet; until it does
+   *   the prefix answers 404.
+   * - `fallback`: the file served for a path that names no file (a client-side
+   *   route); default `"index.html"`, `null` for a plain 404.
+   * - `frame`: allow other pages to embed the site; default `false`
+   *   (`X-Frame-Options: DENY`).
+   *
+   * See `www`.
+   */
+  www?: Record<string, string | { dir: string; fallback?: string | null; frame?: boolean }>;
   /** extra roles created on install */
   roles?: string[];
   fixtures?: Record<string, Record<string, any>[]>;
