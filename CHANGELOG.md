@@ -22,6 +22,13 @@ older series, and `whats_new` reads across every one of them.
   system user. The user's access scopes and the tenancy wall still apply, and the document
   comes back unredacted: `ddcore.redact` it before returning it to a client.
   `doc.reload({ ignorePermissions: true })` reads it again the same way. See `scopes` (#69).
+- `ddcore.users.createApiKey(user, { label?, days? })` returns `{ key, secret, expires }`: server
+  code can issue an API key for another user, so provisioning a tenant with its users and its
+  integration's key can be a single whitelisted method or `onTenantCreate` instead of a method
+  followed by `ddcore apikey`. System Manager or Admin only; inside a tenant, only that tenant's
+  users; from the platform space, the key is made in the user's own tenant. Each key is
+  recorded as an `apikey.create` audit event on the User, without the secret, and so is every
+  key `ddcore apikey` issues, which recorded none before. See `controller-api` (#72).
 
 ## 0.24.4 — 2026-10-03
 

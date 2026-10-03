@@ -2,7 +2,7 @@
 import type {
   AppDef, BaseDoc, ControllerDef, Context, DoctypeDef, Document, ExtensionDef, Filters, ListArgs,
   MailTemplateDef, NotificationDef, PatchDef, PortalDef, PrintTemplateDef, ReportDef, SendMailArgs, WorkflowDef, WorkspaceDef,
-  DocShare, DocShares, InviteResult, ShareRights,
+  CreatedApiKey, DocShare, DocShares, InviteResult, ShareRights,
 } from "./types";
 export * from "./types";
 
@@ -295,6 +295,14 @@ export interface DDCoreAPI {
   users: {
     invite(args: { email: string; fullName: string; roles?: string[]; userType?: "System User" | "Website User" }): InviteResult;
     resendInvite(user: string): InviteResult;
+    /**
+     * Issues an API key for `user`, as `ddcore apikey` does, and records an
+     * `apikey.create` audit event without the secret. System Manager (outside
+     * portal mode) or Admin only. Inside a tenant, only that tenant's users;
+     * from the platform space, the key is made in the user's own tenant.
+     * `days` defaults to the site's `apiKeyDays`.
+     */
+    createApiKey(user: string, opts?: { label?: string; days?: number }): CreatedApiKey;
   };
   /**
    * Records that the current user did something sensitive to a target (PRD-06).

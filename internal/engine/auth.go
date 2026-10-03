@@ -8,6 +8,7 @@ import (
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"runtime"
 	"strconv"
@@ -300,16 +301,26 @@ func (e *Engine) UserFromAPIKey(ctx context.Context, token string) (string, erro
 
 // CreateAPIKey issues a key for a user and returns "key:secret".
 func (e *Engine) CreateAPIKey(ctx context.Context, user, label string) (string, error) {
-	var token string
-	err := e.RunAdminFor(ctx, user, func(c *Ctx) error {
-		out, err := e.CreateAPIKeyFor(c, user, label, 0)
-		if err != nil {
-			return err
-		}
-		token = out["token"].(string)
-		return nil
+	out, err := e.IssueAPIKey(ctx, user, label, 0)
+	if err != nil {
+		return "", err
+	}
+	return out["key"].(string) + ":" + out["secret"].(string), nil
+}
+
+// IssueAPIKey is CreateUserAPIKey outside a request, as Admin in the user's
+// own space: what `ddcore apikey` runs, so the operator's keys reach the
+// audit log by the same path as the ones app code issues.
+func (e *Engine) IssueAPIKey(ctx context.Context, user, label string, days int) (map[string]any, error) {
+	var out map[string]any
+	err := e.RunAdminFor(ctx, user, func(c *Ctx) (err error) {
+		out, err = e.CreateUserAPIKey(c, user, label, days)
+		return err
 	})
-	return token, err
+	if errors.Is(err, errNoSuchUser) {
+		return nil, cerr.Validation("User {0} does not exist", user)
+	}
+	return out, err
 }
 
 // CreateAPIKeyFor mints a key on an existing transaction, and is the shape the

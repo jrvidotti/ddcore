@@ -933,17 +933,13 @@ func cmdAPIKey(args []string) error {
 		return err
 	}
 	defer e.DB.Close()
-	ctx := context.Background()
-	var out map[string]any
-	// the key is a document of its user's tenant
-	if err := e.RunAdminFor(ctx, fs.Arg(0), func(c *engine.Ctx) error {
-		var err error
-		out, err = e.CreateAPIKeyFor(c, fs.Arg(0), *label, *days)
-		return err
-	}); err != nil {
+	// the key is a document of its user's tenant, and audited like one app
+	// code issues
+	out, err := e.IssueAPIKey(context.Background(), fs.Arg(0), *label, *days)
+	if err != nil {
 		return err
 	}
-	fmt.Println(out["token"])
+	fmt.Printf("%s:%s\n", out["key"], out["secret"])
 	if out["expires"] != nil {
 		fmt.Fprintf(os.Stderr, "expires: %v\n", out["expires"])
 	}

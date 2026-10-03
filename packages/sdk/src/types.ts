@@ -898,6 +898,15 @@ export interface InviteResult {
   link?: string;
 }
 
+/** A key issued by `ddcore.users.createApiKey`; it signs in as `Authorization: token key:secret`. */
+export interface CreatedApiKey {
+  key: string;
+  /** Shown this once: only its hash is stored. */
+  secret: string;
+  /** Null when the key never expires. */
+  expires: string | null;
+}
+
 /**
  * A self-service portal (OPS-10): the only thing a Website User can reach.
  * See `docs/agent/portal.md`.

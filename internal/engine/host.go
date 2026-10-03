@@ -450,6 +450,8 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		return e.InviteUser(c, Invitation{Email: a.Email, FullName: a.FullName, Roles: a.Roles, UserType: a.UserType})
 	case "users.resendInvite":
 		return e.ResendInvite(c, a.User)
+	case "users.createApiKey":
+		return e.CreateUserAPIKey(c, a.User, a.Label, int(a.Days))
 	case "idp.queueSync":
 		return nil, e.QueueIdPSync(c, a.User, a.Before, a.Roles)
 	case "idp.sync":

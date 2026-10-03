@@ -468,7 +468,9 @@ On Delete,Ao Excluir,# core.doctypes.webhook.webhook.doctype
 On Insert,Ao Inserir,# core.doctypes.webhook.webhook.doctype
 On Submit,Ao Submeter,# core.doctypes.webhook.webhook.doctype
 On Update,Ao Atualizar,# core.doctypes.webhook.webhook.doctype
+Only Admin can create an API key for Admin,Só o Admin pode criar uma chave de API para o Admin,# internal/engine/users.go:197
 Only a System Manager can change an account at the identity provider,Somente um System Manager pode alterar uma conta no provedor de identidade,# internal/engine/pocketid.go:508
+Only a System Manager can create an API key for another user,Só um System Manager pode criar uma chave de API para outro usuário,# internal/engine/users.go:186
 Only a System Manager can give the role {0},Só um System Manager pode conceder o papel {0},# internal/engine/users.go:61
 Only a System Manager can invite a System User,Só um System Manager pode convidar um System User,# internal/engine/users.go:57
 Only a System Manager may replay a webhook delivery,Somente um System Manager pode reenviar uma entrega de webhook,# internal/engine/webhooks.go:521

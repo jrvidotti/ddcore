@@ -142,7 +142,7 @@ ddcore --tenant acme export Customer
 
 `--tenant` goes **before** the command and is for commands that do one thing and exit; a
 server, a worker and `mcp` refuse it. `ddcore apikey` and `ddcore user passwd|reset` find the
-account's tenant themselves. `ddcore import` (site-to-site) loads into the platform space and
+account's tenant themselves, and so does `ddcore.users.createApiKey` called from the platform space. `ddcore import` (site-to-site) loads into the platform space and
 refuses `--tenant`.
 
 The operator's other commands follow the same rule: `ddcore jobs`, `ddcore audit list` and
