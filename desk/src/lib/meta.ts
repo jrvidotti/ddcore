@@ -8,7 +8,10 @@ export type FieldWidth = "sm" | "md" | "lg" | "full";
 export interface Field {
   fieldname?: string; fieldtype: string; label?: string; options?: any; reqd?: boolean; unique?: boolean; default?: any;
   readOnly?: boolean; hidden?: boolean; fetchFrom?: string; dependsOn?: string; readOnlyDependsOn?: string; mandatoryDependsOn?: string;
-  allowOnSubmit?: boolean; setOnlyOnce?: boolean; inListView?: boolean; inStandardFilter?: boolean; length?: number; precision?: number; description?: string;
+  allowOnSubmit?: boolean; setOnlyOnce?: boolean;
+  /** Duplicate leaves the value behind (as it does a unique field and a readOnly one without fetchFrom). */
+  noCopy?: boolean;
+  inListView?: boolean; inStandardFilter?: boolean; length?: number; precision?: number; description?: string;
   /** A dialog's File field only: the size cap, in bytes. */
   maxBytes?: number;
   columns?: number; width?: FieldWidth; gridEditMode?: "inline" | "dialog"; collapsible?: boolean; bold?: boolean;

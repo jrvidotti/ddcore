@@ -3,7 +3,7 @@
   // Form view generated from meta: sections/tabs, controls, grids,
   // toolbar (save/submit/cancel/amend/delete), form-script buttons, sidebar.
   import { createForm, FormController, type Button } from "$lib/form.svelte";
-  import { isLayout, isTableType, selectLabels, selectOptions, type Field } from "$lib/meta";
+  import { isLayout, selectLabels, selectOptions, type Field } from "$lib/meta";
   import { treeParentQuery } from "./views/tree-state";
   import Control from "$lib/controls/Control.svelte";
   import FieldButtons from "$lib/controls/FieldButtons.svelte";
@@ -28,6 +28,7 @@
   import { getRememberedWorkspace, type WorkspaceItem } from "./sidebar-workspace";
   import { commitFocusedEdit, getModifierKey, openShortcutsHelp, shouldSave } from "$lib/shortcuts.svelte";
   import { virtualRedirect } from "$lib/virtual";
+  import { duplicateDoc } from "$lib/duplicate";
 
   let { doctype, id, basePath: ownBase = "" }: {
     doctype: string; id: string;
@@ -331,9 +332,7 @@
   }
   async function duplicate() {
     if (!frm) return;
-    const copy = { ...frm.doc, id: undefined, __islocal: true, docstatus: 0, creation: undefined, modified: undefined, owner: undefined, amended_from: undefined };
-    for (const f of frm.meta.doctype.fields) if (isTableType(f.fieldtype)) copy[f.fieldname!] = (copy[f.fieldname!] || []).map((r: any) => ({ ...r, id: undefined, parent: undefined }));
-    frm.load(copy);
+    frm.load(duplicateDoc(frm.meta, frm.doc));
     duplicated = true; // the URL says /new now, and so must the draft
     history.replaceState(null, "", `${basePath}/new`);
     await frm.runRefresh();

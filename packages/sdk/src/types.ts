@@ -93,6 +93,12 @@ export interface FieldDef {
    * value may be filled once. The desk shows the field read-only after insert.
    */
   setOnlyOnce?: boolean;
+  /**
+   * The desk's Duplicate leaves the value behind: the copy takes the field's
+   * default. A `unique` field, and a `readOnly` one without `fetchFrom`, are
+   * never copied anyway. On a Table, the copy has no rows.
+   */
+  noCopy?: boolean;
   inListView?: boolean;
   inStandardFilter?: boolean;
   searchIndex?: boolean;
