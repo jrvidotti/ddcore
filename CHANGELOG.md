@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.26.1 — 2026-10-03
+
 ### Added
 
 - A field can stay out of the desk's **Duplicate** with `noCopy: true`; the copy takes the
