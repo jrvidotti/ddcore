@@ -14,6 +14,14 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- A `Webhook` subscription created, changed or disabled in another process — `ddcore eval
+  --commit`, `ddcore exec`, a worker, another replica — now takes effect on every running
+  process without a restart: the cached subscriptions are dropped through the same `NOTIFY`
+  that clears User Permission scopes, and `ddcore.db.set_value` on a Webhook clears them too
+  (#71).
+
 ## 0.24.3 — 2026-10-03
 
 ### Added

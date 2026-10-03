@@ -1280,6 +1280,11 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 			return modified, err
 		}
 	}
+	if d.Name == "Webhook" {
+		if err := c.webhooksChanged(); err != nil {
+			return modified, err
+		}
+	}
 	if beforeShare != nil {
 		afterShare := Doc{}
 		for k, v := range beforeShare {

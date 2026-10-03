@@ -100,21 +100,22 @@ type WebhookReference struct {
 }
 
 // webhookSubs returns the enabled subscriptions, reading them once and then
-// from memory: the lookup sits on every document write, and a query per write
+// from e.Cache: the lookup sits on every document write, and a query per write
 // for a table that is usually empty is a cost every site would pay.
 //
 // Read on the pool, so the cache only ever holds committed rows. A Webhook
 // saved in the same transaction as the document is therefore not yet in force
-// for it; the cache is dropped after that transaction commits.
+// for it; the cache is dropped after that transaction commits, in this process
+// and, by NOTIFY, in every other one (see webhooksChanged).
 //
 // The subscriptions are a tenant's own, and so is the cache: a tenant's
 // webhook hears that tenant's documents and nobody else's.
 func (e *Engine) webhookSubs(ctx context.Context, tenant string) ([]webhookSub, error) {
-	e.webhookMu.Lock()
-	defer e.webhookMu.Unlock()
-	if subs, ok := e.webhooks[tenant]; ok {
-		return subs, nil
+	key := webhookCachePrefix + tenant
+	if v, ok := e.Cache.Get(key); ok {
+		return v.([]webhookSub), nil
 	}
+	gen := e.Cache.Gen()
 	rows, err := spaceStatements{e: e, tenant: tenant}.Select(ctx, `SELECT id, event_type, webhook_doctype, custom_event,
 		on_insert, on_update, on_submit, on_cancel, on_trash, timeout, max_attempts
 		FROM tab_webhook WHERE enabled`)
@@ -145,18 +146,26 @@ func (e *Engine) webhookSubs(ctx context.Context, tenant string) ([]webhookSub, 
 		}
 		subs = append(subs, s)
 	}
-	if e.webhooks == nil {
-		e.webhooks = map[string][]webhookSub{}
-	}
-	e.webhooks[tenant] = subs
+	e.Cache.SetAt(key, subs, 0, gen)
 	return subs, nil
 }
 
-// InvalidateWebhooks drops the cached subscriptions.
+// webhookCachePrefix begins the cache key of every tenant's subscriptions.
+const webhookCachePrefix = "webhooks:"
+
+// InvalidateWebhooks drops this process's cached subscriptions, every tenant's.
 func (e *Engine) InvalidateWebhooks() {
-	e.webhookMu.Lock()
-	e.webhooks = nil
-	e.webhookMu.Unlock()
+	e.Cache.DelPrefix(webhookCachePrefix)
+}
+
+// webhooksChanged drops the cached subscriptions once the transaction
+// commits, so a concurrent write cannot re-read the old rows into the cache
+// afterwards, and tells every other process sharing the database to do the
+// same. Every tenant's, because a system ctx may write another tenant's
+// Webhook.
+func (c *Ctx) webhooksChanged() error {
+	c.AfterCommit(c.E.InvalidateWebhooks)
+	return c.broadcastInvalidation(nil, []string{webhookCachePrefix})
 }
 
 // queueDocWebhooks turns one lifecycle event into a delivery per matching
@@ -167,10 +176,8 @@ func (e *Engine) InvalidateWebhooks() {
 // is the one about to be committed, which is what the receiver is told about.
 func (c *Ctx) queueDocWebhooks(doctype string, doc Doc, event string) error {
 	if doctype == "Webhook" {
-		// A subscription changed. Drop the cache only once it is committed, so a
-		// concurrent write cannot re-read the old rows into it afterwards.
-		c.AfterCommit(c.E.InvalidateWebhooks)
-		return nil
+		// A subscription changed: drop it from every process's cache.
+		return c.webhooksChanged()
 	}
 	if c.E.Cfg.Webhooks.Off || webhookUnwatchable[doctype] || c.E.DB == nil {
 		return nil

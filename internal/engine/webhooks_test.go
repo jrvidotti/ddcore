@@ -805,3 +805,66 @@ func TestOPS06_ReplayErrorKeepsItsTypeThroughTheBridge(t *testing.T) {
 		t.Fatalf("error = %s %d: %v", ce.Type, ce.Status, err)
 	}
 }
+
+// A Webhook written by another process — `ddcore eval --commit`, a worker,
+// another replica — is in force on a running server without a restart, and so
+// is disabling it (#71).
+func TestOPS06_SubscriptionFromAnotherProcessTakesEffect(t *testing.T) {
+	server := setupWebhooks(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	listening := make(chan struct{}, 1)
+	server.cacheListening = func() { listening <- struct{}{} }
+	done := make(chan struct{})
+	go func() { server.WatchCache(ctx); close(done) }()
+	t.Cleanup(func() { cancel(); <-done })
+	select {
+	case <-listening:
+	case <-time.After(10 * time.Second):
+		t.Fatal("WatchCache never listened")
+	}
+
+	other, err := New(context.Background(), server.Cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { other.DB.Close() })
+
+	subs := func() int {
+		t.Helper()
+		got, err := server.webhookSubs(context.Background(), "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return len(got)
+	}
+	eventually := func(what string, ok func() bool) {
+		t.Helper()
+		deadline := time.Now().Add(5 * time.Second)
+		for !ok() {
+			if time.Now().After(deadline) {
+				t.Fatalf("the server never saw %s", what)
+			}
+			time.Sleep(20 * time.Millisecond)
+		}
+	}
+
+	if n := subs(); n != 0 {
+		t.Fatalf("the server starts with %d subscriptions", n)
+	}
+	rcv := newReceiver(t)
+	hook := addWebhook(t, other, rcv.URL, nil)
+	eventually("the new subscription", func() bool { return subs() == 1 })
+	insertHookPessoa(t, server, "Ivo")
+	if n := len(hookDeliveries(t, server)); n != 1 {
+		t.Fatalf("the server queued %d deliveries for the new subscription", n)
+	}
+
+	// Disabled past Save, as ddcore.db.set_value does: still announced.
+	if err := other.Run(context.Background(), "Admin", func(c *Ctx) error {
+		_, err := c.DBSet("Webhook", hook, Doc{"enabled": false}, true)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	eventually("the subscription disabled", func() bool { return subs() == 0 })
+}
