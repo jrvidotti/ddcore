@@ -139,3 +139,9 @@ export const pix = whitelisted((args: { code: string }) => {
 The cache lives in each process, so a site served by several processes allows each one the
 budget, and every `set` restarts the window. For a hard limit per client address, put it in
 the proxy in front of ddcore.
+
+## Calling from another origin
+
+A site served by ddcore calls on its own origin and needs no CORS. A page served from somewhere
+else calls methods that opt in with `cors: true`; see `controller-api` → "Calls from another
+origin".

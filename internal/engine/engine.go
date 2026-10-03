@@ -103,6 +103,8 @@ type Config struct {
 	SiteURL string
 	// TrustProxy makes the API believe X-Forwarded-For.
 	TrustProxy bool
+	// CORS is which other origins may call the methods that opt in.
+	CORS config.CORS
 	// Login is the sign-in screen's notice and demo account, served to
 	// visitors by /api/boot.
 	Login config.LoginPage
