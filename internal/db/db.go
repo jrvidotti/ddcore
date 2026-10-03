@@ -51,9 +51,11 @@ func OpenConfined(ctx context.Context, dsn, tenantRole string) (*DB, error) {
 				// the marker came with the dump, the role did not. The next
 				// migration creates it and resets the pool. Until then nothing
 				// is lost — a document transaction sets the role itself and
-				// fails on it, and a migration needs no role at all.
+				// fails on it, and a migration needs no role at all. SET ROLE
+				// reports a missing role as 22023 (invalid_parameter_value);
+				// 42704 (undefined_object) is kept in case a server says so.
 				var pg *pgconn.PgError
-				if errors.As(err, &pg) && pg.Code == "42704" {
+				if errors.As(err, &pg) && (pg.Code == "22023" || pg.Code == "42704") {
 					return nil
 				}
 				return err

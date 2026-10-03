@@ -190,3 +190,35 @@ func TestTenancySpike(t *testing.T) {
 		}
 	})
 }
+
+// A database restored into a cluster that never had the role carries the
+// marker but not the role. Opening the pool must not fail on it: SET ROLE to
+// a missing role is 22023, not the 42704 one might expect (#66).
+func TestOpenConfinedWithoutTheRole(t *testing.T) {
+	ctx := context.Background()
+	dsn := testdb.WithDatabase(testdb.BaseDSN(), testdb.Database(testdb.BaseDSN())+"_norole")
+	if err := testdb.Empty(ctx, dsn); err != nil {
+		if errors.Is(err, testdb.ErrUnavailable) {
+			t.Skip(err)
+		}
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { testdb.DropOwn(testdb.BaseDSN()) })
+	owner, err := pgx.Connect(ctx, dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = owner.Exec(ctx, `CREATE TABLE ddcore_tenancy (id boolean PRIMARY KEY DEFAULT true CHECK (id), role text NOT NULL)`)
+	owner.Close(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d, err := OpenConfined(ctx, dsn, "ddcore_never_created")
+	if err != nil {
+		t.Fatalf("a missing role must not stop the pool: %v", err)
+	}
+	defer d.Close()
+	if _, err := d.Pool.Exec(ctx, "SELECT 1"); err != nil {
+		t.Fatal(err)
+	}
+}

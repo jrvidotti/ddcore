@@ -88,20 +88,18 @@ func primaryKey(table, pkName, cols string) string {
 	return fmt.Sprintf("ALTER TABLE %s DROP CONSTRAINT %s, ADD PRIMARY KEY (%s);", Ident(table), Ident(pkName), cols)
 }
 
-// EnsureTenancy brings everything about tenancy that is not a DocType's table
-// up to date: the marker, the confined role and its grants, and the tenant
-// column, key and policy of the framework's own tables. Migrate calls it on
-// every run, after the DocType tables exist. Running it again changes
-// nothing, and it has to be run again: a restore drops the grants, and each
-// table a later migration creates needs its own.
-func EnsureTenancy(ctx context.Context, q Querier, role string) error {
+// EnsureTenantRole creates the confined role when the cluster lacks it and
+// makes the session's login role a member, so it can SET ROLE to it. Running
+// it again changes nothing. Migrate calls it on its own, committed, before
+// anything else: a role created inside the migration's transaction is
+// invisible to every other connection until the commit, and a confined one
+// that a migration opens on the side would fail to take it.
+func EnsureTenantRole(ctx context.Context, q Querier, role string) error {
 	if !identRe.MatchString(role) {
 		return fmt.Errorf("invalid tenant role name %q", role)
 	}
 	r := Ident(role)
 	stmts := []string{
-		`CREATE TABLE IF NOT EXISTS ddcore_tenancy (
-		   id boolean PRIMARY KEY DEFAULT true CHECK (id), role text NOT NULL, since timestamptz NOT NULL DEFAULT now())`,
 		// Roles belong to the cluster, not the database, so two databases
 		// migrating at once race to create it: either error means it exists.
 		`DO $$ BEGIN
@@ -121,6 +119,24 @@ func EnsureTenancy(ctx context.Context, q Querier, role string) error {
 		if _, err := q.Exec(ctx, s); err != nil {
 			return fmt.Errorf("tenancy: preparing the role %s: %w (create it yourself and grant it to the site's login role, or name another with DDCORE_TENANT_ROLE)", role, err)
 		}
+	}
+	return nil
+}
+
+// EnsureTenancy brings everything about tenancy that is not a DocType's table
+// up to date: the marker, the confined role and its grants, and the tenant
+// column, key and policy of the framework's own tables. Migrate calls it on
+// every run, after the DocType tables exist. Running it again changes
+// nothing, and it has to be run again: a restore drops the grants, and each
+// table a later migration creates needs its own.
+func EnsureTenancy(ctx context.Context, q Querier, role string) error {
+	if err := EnsureTenantRole(ctx, q, role); err != nil {
+		return err
+	}
+	r := Ident(role)
+	if _, err := q.Exec(ctx, `CREATE TABLE IF NOT EXISTS ddcore_tenancy (
+		   id boolean PRIMARY KEY DEFAULT true CHECK (id), role text NOT NULL, since timestamptz NOT NULL DEFAULT now())`); err != nil {
+		return err
 	}
 	if _, err := q.Exec(ctx, `INSERT INTO ddcore_tenancy (role) VALUES ($1) ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role`, role); err != nil {
 		return err
