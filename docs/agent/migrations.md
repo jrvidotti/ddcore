@@ -57,7 +57,8 @@ planned as a rename, Postgres carries the key's index across it, and nothing is 
 defineDoctype({ name: "Rental Contract", renamedFrom: "Contrato", … })
 ```
 
-The table is renamed with every index it owns, including the primary key, and then every
+The table is renamed with every index it owns, including the primary key — and, on a site
+with tenancy, its row-level security policy — and then every
 stored reference to the old **name** is repointed: child `parenttype`, every `Dynamic
 Link` discriminator, and the framework's own references — File, Comment, Version, ToDo,
 Document Share, Email Delivery, Webhook Delivery, Audit Event, notifications and the import

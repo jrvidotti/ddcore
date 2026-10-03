@@ -7,6 +7,7 @@ import (
 
 	"github.com/jrvidotti/ddcore/internal/db"
 	"github.com/jrvidotti/ddcore/internal/js"
+	"github.com/jrvidotti/ddcore/internal/meta"
 )
 
 const (
@@ -692,5 +693,39 @@ export function enfileira(args: any) { return ddcore.enqueue("demo.services.como
 	}
 	if _, err := call(userA, "direto", map[string]any{"user": userB}); err == nil {
 		t.Fatal("a tenant ran as another tenant's user")
+	}
+}
+
+// A renamed tenant table keeps the policy it carried: migrate must not plan it
+// again (#64), and the rows must stay confined to their tenant afterwards.
+func TestTenantRenameDocType(t *testing.T) {
+	e := setupTenancy(t)
+	p, _ := e.Meta.Get("Pessoa")
+	p.Name = "Cliente"
+	p.RenamedFrom = meta.Names{"Pessoa"}
+	delete(e.Meta.DocTypes, "Pessoa")
+	e.Meta.DocTypes["Cliente"] = p
+	for _, d := range e.Meta.DocTypes {
+		for _, f := range d.Fields {
+			if f.Fieldtype == "Link" && f.Options == "Pessoa" {
+				f.Options = "Cliente"
+			}
+		}
+	}
+
+	migrar(t, e, true, "rename a tenant doctype")
+
+	if rows := sqlRows(t, e, `SELECT 1 FROM pg_policy WHERE polrelid = 'tab_cliente'::regclass AND polname = $1`, db.TenantPolicy); len(rows) != 1 {
+		t.Fatal("tab_cliente lost its tenant policy")
+	}
+	err := e.Run(context.Background(), userA, func(c *Ctx) error {
+		rows, err := db.Select(c.Ctx, c.Tx, `SELECT tenant || '/' || id AS k FROM tab_cliente ORDER BY 1`)
+		if err == nil && (len(rows) != 1 || rows[0]["k"] != "alfa/Comum") {
+			t.Fatalf("alfa sees %v", rows)
+		}
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 }
