@@ -2,7 +2,7 @@
 import type {
   AppDef, BaseDoc, ControllerDef, Context, DoctypeDef, Document, ExtensionDef, Filters, ListArgs,
   MailTemplateDef, NotificationDef, PatchDef, PortalDef, PrintTemplateDef, ReportDef, SendMailArgs, WorkflowDef, WorkspaceDef,
-  DocShare, DocShares, InviteResult, ShareRights,
+  CreatedApiKey, DocShare, DocShares, InviteResult, ShareRights,
 } from "./types";
 export * from "./types";
 
@@ -147,8 +147,13 @@ export interface JobFailure extends JobInfo {
 export interface DDCoreAPI {
   db: DDCoreDB;
   session: Context;
-  /** For Single DocTypes, omit the id to load settings (defaults before the first save). */
-  getDoc<T extends BaseDoc = BaseDoc>(doctype: string, id?: string | Filters): T & Document<T>;
+  /**
+   * For Single DocTypes, omit the id to load settings (defaults before the first save).
+   * `ignorePermissions` skips the role permissions, as `insert`/`save` do; the user's
+   * access scopes and the tenancy wall still apply. The document comes back whole, with
+   * no field-level redaction: `ddcore.redact` it before handing it to a client.
+   */
+  getDoc<T extends BaseDoc = BaseDoc>(doctype: string, id?: string | Filters, opts?: { ignorePermissions?: boolean }): T & Document<T>;
   newDoc<T extends BaseDoc = BaseDoc>(doctype: string, values?: Partial<T>): T & Document<T>;
   deleteDoc(doctype: string, id: string, opts?: { ignorePermissions?: boolean; force?: boolean }): void;
   getMeta(doctype: string): DoctypeDef;
@@ -290,6 +295,14 @@ export interface DDCoreAPI {
   users: {
     invite(args: { email: string; fullName: string; roles?: string[]; userType?: "System User" | "Website User" }): InviteResult;
     resendInvite(user: string): InviteResult;
+    /**
+     * Issues an API key for `user`, as `ddcore apikey` does, and records an
+     * `apikey.create` audit event without the secret. System Manager (outside
+     * portal mode) or Admin only. Inside a tenant, only that tenant's users;
+     * from the platform space, the key is made in the user's own tenant.
+     * `days` defaults to the site's `apiKeyDays`.
+     */
+    createApiKey(user: string, opts?: { label?: string; days?: number }): CreatedApiKey;
   };
   /**
    * Records that the current user did something sensitive to a target (PRD-06).

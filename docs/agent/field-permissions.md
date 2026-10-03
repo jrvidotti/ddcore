@@ -58,7 +58,9 @@ The rules:
   the strictest level across every DocType that embeds it.
 - **Admin** and privileged contexts (jobs, migrations and patches,
   `ignorePermissions`, `getAll`, a workflow transition's own field updates) see and write
-  every level.
+  every level. Server code never gets a field-redacted document, whatever the option:
+  `ddcore.getDoc(doctype, id, { ignorePermissions: true })` returns every field, so pass a
+  document through `ddcore.redact` before a method hands it to a client.
 
 `extendDoctype` may set `permlevel` on another app's field through `set`, and may add a
 permission row at a level for a role the owner already grants at level 0. See `extending`.

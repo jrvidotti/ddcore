@@ -145,7 +145,7 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		d, err := c.St.DocType(a.Doctype)
 		return d, err
 	case "getDoc":
-		return c.GetDoc(a.Doctype, idStr())
+		return c.GetDocOpts(a.Doctype, idStr(), GetOpts{IgnorePermissions: a.Opts["ignorePermissions"] == true})
 	case "newDoc":
 		return c.NewDoc(a.Doctype, a.Values)
 	case "doc.insert", "doc.save", "doc.cancel":
@@ -450,6 +450,8 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		return e.InviteUser(c, Invitation{Email: a.Email, FullName: a.FullName, Roles: a.Roles, UserType: a.UserType})
 	case "users.resendInvite":
 		return e.ResendInvite(c, a.User)
+	case "users.createApiKey":
+		return e.CreateUserAPIKey(c, a.User, a.Label, int(a.Days))
 	case "idp.queueSync":
 		return nil, e.QueueIdPSync(c, a.User, a.Before, a.Roles)
 	case "idp.sync":

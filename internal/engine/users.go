@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"errors"
 	"strings"
 
 	"github.com/jrvidotti/ddcore/internal/cerr"
@@ -160,4 +161,81 @@ func recoveryResult(user string, rec *Recovery) map[string]any {
 		out["link"] = rec.Link
 	}
 	return out
+}
+
+// CreateUserAPIKey issues an API key for another user, so that provisioning a
+// tenant — its users and the key its integration signs in with — can be one
+// method instead of a method and a CLI step. It returns { key, secret,
+// expires }; the secret is shown this once, as CreateAPIKeyFor explains.
+//
+// Only someone who may administer users may call it: a key is that user's
+// identity, so issuing one is as strong as setting their password. Inside a
+// tenant the user must be of that tenant; one of another tenant is reported
+// as missing rather than refused, so the call does not tell a tenant who
+// exists elsewhere. The platform space issues the key in the user's own space,
+// as `ddcore apikey` always has, on the caller's transaction.
+//
+// The audit event records who issued which key, never the secret. Its detail
+// keys stay clear of the names SanitizeAuditDetail redacts ("key", "token"…),
+// or the key's id would be blanked with them.
+func (e *Engine) CreateUserAPIKey(c *Ctx, user, label string, days int) (map[string]any, error) {
+	if c.User == "Guest" || c.User == "" {
+		return nil, cerr.Auth("Sign in to continue")
+	}
+	if !c.canAdministerUsers() {
+		return nil, cerr.Permission("Only a System Manager can create an API key for another user")
+	}
+	user = strings.TrimSpace(user)
+	missing := cerr.Validation("User {0} does not exist", user)
+	switch user {
+	case "", "Guest":
+		return nil, missing
+	case "Admin":
+		// Admin's key would be every right on the site, more than a System
+		// Manager holds
+		if c.User != "Admin" {
+			return nil, cerr.Permission("Only Admin can create an API key for Admin")
+		}
+	}
+	space := c.Tenant
+	if c.Tenancy() && user != "Admin" {
+		own, err := c.E.TenantOfUser(c.Ctx, user)
+		if errors.Is(err, errNoSuchUser) {
+			return nil, missing
+		} else if err != nil {
+			return nil, err
+		}
+		if c.Tenant != "" && own != c.Tenant {
+			return nil, missing
+		}
+		space = own
+	}
+	var out map[string]any
+	issue := func(c *Ctx) error {
+		if user != "Admin" {
+			rows, err := db.Select(c.Ctx, c.Q(), `SELECT id FROM tab_user WHERE id = $1`, user)
+			if err != nil {
+				return err
+			}
+			if len(rows) == 0 {
+				return missing
+			}
+		}
+		minted, err := e.CreateAPIKeyFor(c, user, label, days)
+		if err != nil {
+			return err
+		}
+		id := minted["id"].(string)
+		out = map[string]any{
+			"key": id, "secret": strings.TrimPrefix(minted["token"].(string), id+":"), "expires": minted["expires"],
+		}
+		return c.Audit("apikey.create", "User", user, map[string]any{"id": id, "label": label, "expires": minted["expires"]})
+	}
+	var err error
+	if space != c.Tenant {
+		err = c.InTenant(space, issue)
+	} else {
+		err = issue(c)
+	}
+	return out, err
 }

@@ -829,7 +829,8 @@ export interface Document<T = any> {
   /** runs a workflow action on the saved document, as the Desk's action buttons do */
   applyWorkflow(action: string): this;
   delete(): void;
-  reload(): this;
+  /** reads the stored document again; `ignorePermissions` as in `ddcore.getDoc` */
+  reload(opts?: { ignorePermissions?: boolean }): this;
   /** write columns directly, bypassing validate (allowed after submit) */
   dbSet(field: string | Record<string, any>, value?: any): this;
   append(fieldname: string, row?: Record<string, any>): ChildDoc;
@@ -895,6 +896,15 @@ export interface InviteResult {
   expires: string;
   /** Only when the site does not really deliver mail. */
   link?: string;
+}
+
+/** A key issued by `ddcore.users.createApiKey`; it signs in as `Authorization: token key:secret`. */
+export interface CreatedApiKey {
+  key: string;
+  /** Shown this once: only its hash is stored. */
+  secret: string;
+  /** Null when the key never expires. */
+  expires: string | null;
 }
 
 /**

@@ -576,7 +576,7 @@
     cancel() { return this._written(call("doc.cancel", { doc: this, flags: this.flags })); }
     applyWorkflow(action) { return this._apply(call("doc.applyWorkflow", { doctype: this.doctype, id: this.id, action })); }
     delete(opts) { call("doc.delete", { doctype: this.doctype, id: this.id, flags: this.flags, opts }); }
-    reload() { return this._apply(call("getDoc", { doctype: this.doctype, id: this.id })); }
+    reload(opts) { return this._apply(call("getDoc", { doctype: this.doctype, id: this.id, opts })); }
     dbSet(field, value) {
       const values = typeof field === "object" ? field : { [field]: value };
       const res = call("doc.dbSet", { doctype: this.doctype, id: this.id, values });
@@ -816,9 +816,9 @@
     get session() { return makeContext(); },
     user() { return call("session").user; },
     getRoles(user) { return call("getRoles", { user }); },
-    getDoc(doctype, id) {
+    getDoc(doctype, id, opts) {
       if (typeof doctype === "object") return new Document(doctype);
-      return new Document(call("getDoc", { doctype, id }));
+      return new Document(call("getDoc", { doctype, id, opts }));
     },
     newDoc(doctype, values) {
       return new Document(call("newDoc", { doctype, values: values || {} }));
@@ -982,6 +982,10 @@
         });
       },
       resendInvite(user) { return call("users.resendInvite", { user: String(user || "") }); },
+      createApiKey(user, opts) {
+        opts = opts || {};
+        return call("users.createApiKey", { user: String(user || ""), label: String(opts.label || ""), days: Number(opts.days) || 0 });
+      },
     },
     audit(action, targetDoctype, targetID, detail) {
       return call("audit", {
