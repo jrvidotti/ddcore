@@ -3,14 +3,11 @@
   import { boot, __ } from "$lib/boot.svelte";
   import { goto } from "$app/navigation";
   import Spinner from "$lib/components/Spinner.svelte";
-  import { getRememberedWorkspace } from "$lib/components/sidebar-workspace";
+  import { getRememberedWorkspace, landingWorkspace } from "$lib/components/sidebar-workspace";
 
   $effect(() => {
     if (boot.ready) {
-      const rem = getRememberedWorkspace();
-      const target = boot.data?.workspaces?.find((w: any) => w.name.toLowerCase() === rem.toLowerCase())?.name ||
-        boot.data?.site?.home ||
-        boot.data?.workspaces?.[0]?.name;
+      const target = landingWorkspace(boot.data?.workspaces || [], getRememberedWorkspace(), boot.data?.site?.home);
       if (target) {
         goto(`/app/${seg(target)}`, { replaceState: true });
       }

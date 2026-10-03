@@ -40,6 +40,9 @@ it: the tenant menu in the Desk's user menu, `--tenant` on the command line, the
 A site with tenancy on and no tenant created behaves like a site without it: everything is in
 the platform space.
 
+A workspace, and each of its sidebar items, shortcuts and number cards, can name the space it
+shows in with `space: "platform" | "tenant"`. Without it, it shows in both. See `report-api`.
+
 ## What belongs to a tenant
 
 Every DocType, unless it says otherwise:

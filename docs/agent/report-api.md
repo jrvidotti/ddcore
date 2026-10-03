@@ -49,6 +49,24 @@ export default defineWorkspace({
 Icons: a subset of lucide (`building-2, users, user, notepad-text, receipt, list, bar-chart-3, layout-dashboard, shield, paperclip, message-square, house, tag, history, settings`).
 `desk.home` in `ddcore.app.ts` sets the initial workspace.
 
+On a site with tenancy, `space: "platform"` or `space: "tenant"` on the workspace itself, or on
+one of its `sidebar`, `shortcuts` or `numberCards` entries, shows it only in that space: the
+platform space (where the operator manages tenants and what they share) or inside a tenant.
+Without `space` it shows in both; without tenancy it is ignored. Boot leaves out what belongs to
+the other space, and its number cards answer 404 there. Any other value fails the load. See
+`tenancy`.
+
+```ts
+export default defineWorkspace({
+  name: "Back Office", label: "Back Office",
+  sidebar: [
+    { label: "Tenants", doctype: "Site Tenant", space: "platform" },
+    { label: "Charges", doctype: "Charge", space: "tenant" },
+    { label: "Banks", doctype: "Bank" }, // a shared reference table: both spaces read it
+  ],
+});
+```
+
 In a workspace, `label`, `title`, `description` and `category` are catalogue keys and are
 translated by the server; `name`, `route`, `doctype`, `report` and `icon` are identifiers and
 are left alone.

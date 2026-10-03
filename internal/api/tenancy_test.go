@@ -20,7 +20,13 @@ const (
 // root@x.com, …) are in the platform space.
 func setupTenants(t *testing.T) *env {
 	t.Helper()
-	x := setupSite(t, testApp(t), true)
+	return setupTenantsWith(t, testApp(t))
+}
+
+// setupTenantsWith is setupTenants on an app directory the test added to.
+func setupTenantsWith(t *testing.T, appDir string) *env {
+	t.Helper()
+	x := setupSite(t, appDir, true)
 	x.asAdmin(func(c *engine.Ctx) error {
 		for _, id := range []string{"alfa", "beta"} {
 			d, _ := c.NewDoc("Site Tenant", engine.Doc{"slug": id, "title": strings.ToUpper(id)})
