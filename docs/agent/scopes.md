@@ -89,13 +89,14 @@ Scopes are applied below the SDK, so app code cannot opt out:
 | `ddcore.db.getList`, `count` | enforced | enforced |
 | `ddcore.db.getAll`, `getList({ ignorePermissions: true })`, `getValue`, `exists` (by id and by filters) | skipped | **enforced** |
 | `ddcore.getDoc` | enforced | enforced (Link fields, Dynamic Link fields, child rows) |
+| `ddcore.getDoc(doctype, id, { ignorePermissions: true })` | skipped | **enforced** |
 | `insert` / `save` / `delete` / `submit` / `cancel`, with or without `ignorePermissions` | per option | **enforced** |
 | `ddcore.db.setValue`, `doc.dbSet` | skipped | **enforced**: refused if the stored document, or the stored document with the new values, is out of scope, unless a share overrides the scope for `write` (see `sharing`) |
 | `ddcore.db.sql` | not applied | **not applied** |
 
 `Webhook`, `Webhook Delivery`, `User Permission` and `Document Share` are closed to a user with access scopes
 on every one of these calls except `ddcore.db.sql`: lists and `getAll` return no rows,
-`getValue` returns nothing, `exists` returns `null`, and `insert`, `save`, `delete`,
+`getValue` returns nothing, `exists` returns `null`, `getDoc` is refused, and `insert`, `save`, `delete`,
 `setValue` and `dbSet` are refused, with or without `ignorePermissions`.
 
 A report that uses `ddcore.db.getList` inherits the scope. A report or service that uses

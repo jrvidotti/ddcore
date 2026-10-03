@@ -829,7 +829,8 @@ export interface Document<T = any> {
   /** runs a workflow action on the saved document, as the Desk's action buttons do */
   applyWorkflow(action: string): this;
   delete(): void;
-  reload(): this;
+  /** reads the stored document again; `ignorePermissions` as in `ddcore.getDoc` */
+  reload(opts?: { ignorePermissions?: boolean }): this;
   /** write columns directly, bypassing validate (allowed after submit) */
   dbSet(field: string | Record<string, any>, value?: any): this;
   append(fieldname: string, row?: Record<string, any>): ChildDoc;

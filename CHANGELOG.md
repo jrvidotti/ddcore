@@ -14,6 +14,15 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- `ddcore.getDoc(doctype, id, { ignorePermissions: true })` loads a document the user has no
+  role permission to read, as `insert` and `save` already allowed for writes, so a service can
+  load, change and save a document under the caller's identity instead of switching to a
+  system user. The user's access scopes and the tenancy wall still apply, and the document
+  comes back unredacted: `ddcore.redact` it before returning it to a client.
+  `doc.reload({ ignorePermissions: true })` reads it again the same way. See `scopes` (#69).
+
 ## 0.24.4 — 2026-10-03
 
 ### Added

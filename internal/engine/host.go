@@ -145,7 +145,7 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		d, err := c.St.DocType(a.Doctype)
 		return d, err
 	case "getDoc":
-		return c.GetDoc(a.Doctype, idStr())
+		return c.GetDocOpts(a.Doctype, idStr(), GetOpts{IgnorePermissions: a.Opts["ignorePermissions"] == true})
 	case "newDoc":
 		return c.NewDoc(a.Doctype, a.Values)
 	case "doc.insert", "doc.save", "doc.cancel":

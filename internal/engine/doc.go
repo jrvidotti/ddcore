@@ -405,7 +405,21 @@ func (c *Ctx) docKey(dt, name string) string { return dt + "\x00" + name }
 
 // GetDoc loads a document with its child tables.
 func (c *Ctx) GetDoc(doctype, name string) (Doc, error) {
-	return c.getDoc(doctype, name, false)
+	return c.getDoc(doctype, name, false, false)
+}
+
+// GetOpts are the options of GetDocOpts.
+type GetOpts struct {
+	// IgnorePermissions skips the role grant only, as getList and Save do: the
+	// user's scopes, the DocTypes closed to scoped users and the tenancy wall
+	// still apply, so a service can load a document under the caller's
+	// identity without reaching past what the caller is confined to.
+	IgnorePermissions bool
+}
+
+// GetDocOpts is GetDoc with options.
+func (c *Ctx) GetDocOpts(doctype, name string, opts GetOpts) (Doc, error) {
+	return c.getDoc(doctype, name, false, opts.IgnorePermissions)
 }
 
 // getDocForUpdate loads a document taking a row lock on the parent, so that
@@ -415,13 +429,13 @@ func (c *Ctx) getDocForUpdate(doctype, name string) (Doc, error) {
 	var doc Doc
 	err := c.WithIgnorePermissions(func() error {
 		var e error
-		doc, e = c.getDoc(doctype, name, true)
+		doc, e = c.getDoc(doctype, name, true, false)
 		return e
 	})
 	return doc, err
 }
 
-func (c *Ctx) getDoc(doctype, name string, forUpdate bool) (Doc, error) {
+func (c *Ctx) getDoc(doctype, name string, forUpdate, ignoreRoles bool) (Doc, error) {
 	d, err := c.St.DocType(doctype)
 	if err != nil {
 		return nil, err
@@ -441,7 +455,9 @@ func (c *Ctx) getDoc(doctype, name string, forUpdate bool) (Doc, error) {
 		if forUpdate {
 			return nil, refuseVirtual(d)
 		}
-		return c.getVirtualDoc(d, name, !c.IgnorePermissions())
+		// the list path keeps the scopes when it skips the roles, so a
+		// virtual read with ignoreRoles is already the rule below
+		return c.getVirtualDoc(d, name, !c.IgnorePermissions() && !ignoreRoles)
 	}
 	if err := c.spaceRefusal(d, false); err != nil {
 		return nil, err
@@ -460,14 +476,8 @@ func (c *Ctx) getDoc(doctype, name string, forUpdate bool) (Doc, error) {
 			if err != nil {
 				return nil, err
 			}
-			if !c.IgnorePermissions() {
-				ok, err := c.HasPermission(doctype, "read", doc)
-				if err != nil {
-					return nil, err
-				}
-				if !ok {
-					return nil, cerr.Permission("No permission to read {0} {1}", c.T(d.Label), name)
-				}
+			if err := c.checkRead(d, doc, name, ignoreRoles); err != nil {
+				return nil, err
 			}
 			return doc, nil
 		}
@@ -490,14 +500,38 @@ func (c *Ctx) getDoc(doctype, name string, forUpdate bool) (Doc, error) {
 		}
 		doc[tf.Fieldname] = list
 	}
-	if !c.IgnorePermissions() {
-		if ok, err := c.HasPermission(doctype, "read", doc); err != nil {
-			return nil, err
-		} else if !ok {
-			return nil, cerr.Permission("No permission to read {0} {1}", c.T(d.Label), name)
-		}
+	if err := c.checkRead(d, doc, name, ignoreRoles); err != nil {
+		return nil, err
 	}
 	return doc, nil
+}
+
+// checkRead is getDoc's permission check. With ignoreRoles only the scope part
+// of HasPermission is left: the DocTypes closed to scoped users and the user's
+// scopes (or a share overriding them), the same rule getList and Save follow
+// for their ignorePermissions.
+func (c *Ctx) checkRead(d *meta.DocType, doc Doc, name string, ignoreRoles bool) error {
+	if c.IgnorePermissions() {
+		return nil
+	}
+	var ok bool
+	var err error
+	if !ignoreRoles {
+		ok, err = c.HasPermission(d.Name, "read", doc)
+	} else if c.User == "Admin" {
+		ok = true
+	} else if refused, rerr := c.refusedToScopedUser(d.Name); rerr != nil || refused {
+		ok, err = false, rerr
+	} else {
+		ok, err = c.scopeAllows(d, doc, "read")
+	}
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return cerr.Permission("No permission to read {0} {1}", c.T(d.Label), name)
+	}
+	return nil
 }
 
 // NewDoc builds an unsaved document with defaults applied.

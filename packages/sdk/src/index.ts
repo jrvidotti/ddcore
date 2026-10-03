@@ -147,8 +147,13 @@ export interface JobFailure extends JobInfo {
 export interface DDCoreAPI {
   db: DDCoreDB;
   session: Context;
-  /** For Single DocTypes, omit the id to load settings (defaults before the first save). */
-  getDoc<T extends BaseDoc = BaseDoc>(doctype: string, id?: string | Filters): T & Document<T>;
+  /**
+   * For Single DocTypes, omit the id to load settings (defaults before the first save).
+   * `ignorePermissions` skips the role permissions, as `insert`/`save` do; the user's
+   * access scopes and the tenancy wall still apply. The document comes back whole, with
+   * no field-level redaction: `ddcore.redact` it before handing it to a client.
+   */
+  getDoc<T extends BaseDoc = BaseDoc>(doctype: string, id?: string | Filters, opts?: { ignorePermissions?: boolean }): T & Document<T>;
   newDoc<T extends BaseDoc = BaseDoc>(doctype: string, values?: Partial<T>): T & Document<T>;
   deleteDoc(doctype: string, id: string, opts?: { ignorePermissions?: boolean; force?: boolean }): void;
   getMeta(doctype: string): DoctypeDef;
