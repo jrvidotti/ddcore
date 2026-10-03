@@ -213,7 +213,7 @@ func TestOpenConfinedWithoutTheRole(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	d, err := OpenConfined(ctx, dsn, "ddcore_never_created")
+	d, err := OpenConfined(ctx, dsn, Options{TenantRole: "ddcore_never_created"})
 	if err != nil {
 		t.Fatalf("a missing role must not stop the pool: %v", err)
 	}
