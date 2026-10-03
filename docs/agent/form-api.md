@@ -209,6 +209,27 @@ Only cells shown as text take the click: a read-only column, or every cell of a
 submitted or read-only form as well, so check before changing anything, as above. Handlers from
 several scripts for the same cell all run.
 
+A `Report` field takes `onCellClick` too, keyed by the report's column `fieldname`. Every
+non-empty cell of that column becomes a button (a Link cell no longer navigates); an empty cell
+takes no click. The handler receives the row as the report returned it. A handler may be async,
+and an error it throws or rejects with is shown. `frm.call(..., { reload: true })` or
+`frm.refreshField(field)` re-runs the report:
+
+```ts
+defineForm<Charge>("Charge", {
+  grids: {
+    transactions: {                       // a Report field; its report returns an `action` column
+      onCellClick: {
+        async action(frm, row) {
+          if (!(await ddcore.ui.confirm(__("{0} {1}?", [row.action, row.id])))) return;
+          await frm.call("rowAction", { id: row.id }, { reload: true });
+        },
+      },
+    },
+  },
+});
+```
+
 ## `ddcore` in the desk
 
 - `ddcore.call("app.services.file.fn", args)` — a whitelisted function

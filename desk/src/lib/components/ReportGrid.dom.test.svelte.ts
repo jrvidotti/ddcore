@@ -38,3 +38,27 @@ describe("ReportGrid field buttons", () => {
     g.done();
   });
 });
+
+describe("ReportGrid cell clicks", () => {
+  const columns = [
+    { fieldname: "id", fieldtype: "Data", label: "ID" },
+    { fieldname: "action", fieldtype: "Data", label: "Action" },
+  ];
+  const rows = [{ id: "B", action: "Refund" }, { id: "A", action: "" }, { id: "C", action: "Send Back" }];
+
+  it("makes a clickable column's non-empty cells buttons that hand over the row clicked", () => {
+    const oncellclick = vi.fn();
+    const g = setup({ columns, rows, clickable: new Set(["action"]), oncellclick, baseSort: { field: "id", order: "asc" } });
+    const buttons = g.target.querySelectorAll<HTMLElement>("tbody button.cell-click");
+    expect([...buttons].map((b) => b.textContent?.trim())).toEqual(["Refund", "Send Back"]);
+    buttons[1].click();
+    expect(oncellclick).toHaveBeenCalledWith("action", rows[2]);
+    g.done();
+  });
+
+  it("has no cell buttons without clickable columns", () => {
+    const g = setup({ columns, rows });
+    expect(g.target.querySelector("tbody button")).toBeNull();
+    g.done();
+  });
+});

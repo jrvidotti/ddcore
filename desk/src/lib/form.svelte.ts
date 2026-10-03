@@ -36,10 +36,11 @@ export interface FormHandlers {
   onChange?: Record<string, (frm: FormController, cdt?: string, cdn?: string, row?: any, changed?: string[]) => void>;
   /**
    * per Table field, keyed by the child fieldname: onCellClick for a click on a
-   * read-only cell, onChange for a change of that field in a row
+   * read-only cell, onChange for a change of that field in a row. A Report
+   * field takes onCellClick too, keyed by the report's column
    */
   grids?: Record<string, {
-    onCellClick?: Record<string, (frm: FormController, row: any) => void>;
+    onCellClick?: Record<string, (frm: FormController, row: any) => void | Promise<void>>;
     onChange?: Record<string, (frm: FormController, row: any) => void>;
   }>;
 }
@@ -313,7 +314,10 @@ export class FormController {
   }
   clickCell(fieldname: string, column: string, row: any) {
     for (const fn of this.cellClickHandlers(fieldname, column)) {
-      try { fn(this, row); } catch (e) { showError(e); }
+      try {
+        const r: any = fn(this, row);
+        if (r && typeof r.then === "function") r.then(undefined, showError);
+      } catch (e) { showError(e); }
     }
   }
 

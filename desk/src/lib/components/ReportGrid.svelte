@@ -17,6 +17,7 @@
   let {
     columns, rows, wsPrefix, filename, sheetName,
     baseSort = null, sortable = false, selectable = false, exportable = false, filters = [], search = [], buttons = [],
+    clickable = new Set(), oncellclick,
   }: {
     columns: any[]; rows: any[]; wsPrefix: string; filename: string; sheetName?: string;
     baseSort?: GridSortState | null; sortable?: boolean; selectable?: boolean; exportable?: boolean;
@@ -25,6 +26,9 @@
     search?: string[];
     /** a Report field's own actions (see frm.addFieldButton), shown in the toolbar */
     buttons?: FieldButton[];
+    /** the columns whose non-empty cells are buttons calling oncellclick (a Report field's grids.<field>.onCellClick) */
+    clickable?: Set<string>;
+    oncellclick?: (column: string, row: any) => void;
   } = $props();
 
   const num = (c: any) => isNumericFieldtype(c.fieldtype);
@@ -63,6 +67,12 @@
   }
 </script>
 
+{#snippet cell(c: any, r: any)}
+  {#if c.fieldtype === "Link" && r[c.fieldname]}{getLinkTitle(c.options, r[c.fieldname]) || r[c.fieldname]}
+  {:else if c.fieldname === "status" && r[c.fieldname]}<span class="indicator {statusColor(r[c.fieldname], c)}">{__(r[c.fieldname])}</span>
+  {:else}<span style:color={c.fieldtype === "Currency" && r[c.fieldname] < 0 ? "var(--red)" : undefined}>{formatValue(r[c.fieldname], c)}</span>{/if}
+{/snippet}
+
 <div class="card" style="overflow:auto">
   {#if exportable || filters.length || search.length || buttons.length || (selectable && chosen.length)}
     <div class="grid-toolbar">
@@ -95,11 +105,11 @@
           {#if selectable}<td><input type="checkbox" aria-label={__("Select row {0}", [i + 1])} checked={selected.has(r)} onchange={() => toggle(r)} /></td>{/if}
           {#each columns as c}
             <td class:num={num(c)}>
-              {#if c.fieldtype === "Link" && r[c.fieldname]}
-                {@const linkTitle = getLinkTitle(c.options, r[c.fieldname]) || r[c.fieldname]}
-                <a href={`${wsPrefix}/${seg(c.options)}/${encodeURIComponent(r[c.fieldname])}`} title={r[c.fieldname]}>{linkTitle}</a>
-              {:else if c.fieldname === "status" && r[c.fieldname]}<span class="indicator {statusColor(r[c.fieldname], c)}">{__(r[c.fieldname])}</span>
-              {:else}<span style:color={c.fieldtype === "Currency" && r[c.fieldname] < 0 ? "var(--red)" : undefined}>{formatValue(r[c.fieldname], c)}</span>{/if}
+              {#if clickable.has(c.fieldname) && r[c.fieldname] != null && r[c.fieldname] !== ""}
+                <button type="button" class="cell-click" onclick={() => oncellclick?.(c.fieldname, r)}>{@render cell(c, r)}</button>
+              {:else if c.fieldtype === "Link" && r[c.fieldname]}
+                <a href={`${wsPrefix}/${seg(c.options)}/${encodeURIComponent(r[c.fieldname])}`} title={r[c.fieldname]}>{@render cell(c, r)}</a>
+              {:else}{@render cell(c, r)}{/if}
             </td>
           {/each}
         </tr>
@@ -120,5 +130,8 @@
 </div>
 
 <style>
+  .cell-click { all: unset; box-sizing: border-box; max-width: 100%; cursor: pointer; }
+  .cell-click:hover { text-decoration: underline; }
+  .cell-click:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 2px; }
   .totals td { font-weight: 600; border-top: 2px solid var(--border); background: var(--bg-subtle, transparent); }
 </style>
