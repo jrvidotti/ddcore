@@ -50,6 +50,10 @@ export interface DocTypeMeta {
   permissions?: any[]; icon?: string; methods?: string[];
   /** Compound business keys; enforced on the server, shown here only for reference. */
   uniqueKeys?: { name: string; fields: string[] }[];
+  /** On a site with tenancy: one set of rows for every tenant, written only from the platform space. */
+  shared?: boolean;
+  /** On a site with tenancy: each tenant has its own rows. */
+  tenantOwned?: boolean;
   /** apps shipping a form script for this DocType: the owner, then each extension */
   formApps?: string[];
 }

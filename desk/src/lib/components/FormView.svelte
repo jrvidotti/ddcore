@@ -29,6 +29,7 @@
   import { commitFocusedEdit, getModifierKey, openShortcutsHelp, shouldSave } from "$lib/shortcuts.svelte";
   import { virtualRedirect } from "$lib/virtual";
   import { duplicateDoc } from "$lib/duplicate";
+  import SharedNotice from "./SharedNotice.svelte";
 
   let { doctype, id, basePath: ownBase = "" }: {
     doctype: string; id: string;
@@ -490,6 +491,8 @@
         {/if}
       {/if}
     </div>
+
+    <SharedNotice shared={frm.meta.doctype.shared} />
 
     <div class="form-body">
       <div class="form-main">

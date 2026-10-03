@@ -14,6 +14,16 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- Inside a tenant, a shared DocType no longer looks editable only to fail at save: the
+  permissions the desk receives for it leave out write, create, delete, submit, cancel, amend
+  and import, so Save, New, Delete, Rename, Duplicate and Import disappear, and its form and
+  list say "Shared by every tenant: read only here" (an operator also gets **Go to the
+  platform**, back to the same page). See `tenancy` (#75).
+- A saved document's form is read only when the user may not write it, for any DocType, not
+  only a Single or one under a workflow; its fields were left editable before (#75).
+
 ## 0.26.1 — 2026-10-03
 
 ### Added

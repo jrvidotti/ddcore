@@ -163,7 +163,8 @@ export class FormController {
     if (this.workflow && (this.workflow.allowEdit === false || !this.perm?.write)) {
       return true;
     }
-    return (this.isSingle && !this.perm?.write) || this.docstatus === 2 || (this.docstatus === 1 && !this.meta.doctype.fields.some((f) => f.allowOnSubmit));
+    // a saved document (a Single is always saved) without write permission
+    return (!this.isNew && !this.perm?.write) || this.docstatus === 2 || (this.docstatus === 1 && !this.meta.doctype.fields.some((f) => f.allowOnSubmit));
   }
   get perm() { return this.meta.permissions; }
 
@@ -194,7 +195,8 @@ export class FormController {
   /** Whether a field can be edited right now (docstatus, readOnly, allowOnSubmit, setOnlyOnce, readOnlyDependsOn). */
   isFieldEditable(f: Field): boolean {
     if (this.workflow && (this.workflow.allowEdit === false || !this.perm?.write)) return false;
-    if (this.isSingle && (!this.perm.write || f.fieldname === "id")) return false;
+    if (!this.isNew && !this.perm?.write) return false;
+    if (this.isSingle && f.fieldname === "id") return false;
     if (f.fieldname === "id" && !this.isNew) return false;
     if (f.readOnly) return false;
     if (this.isSetOnce(f)) return false;

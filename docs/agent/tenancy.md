@@ -54,7 +54,9 @@ export default defineDoctype({
 
 A **shared** DocType has no tenant: every space reads the same documents, and only the
 platform space writes them. Use it for reference data the operator maintains (countries,
-units, tax tables). Rules, checked when the site loads:
+units, tax tables). Inside a tenant the desk shows it read only, with a notice (and, for an
+operator, a way back to the platform), because the permissions it receives already leave out
+write, create, delete, submit, cancel, amend and import there. Rules, checked when the site loads:
 
 - A shared DocType cannot have a `Link` to a tenant-owned one.
 - A child DocType follows the DocTypes that use it; one used by both a shared and a
