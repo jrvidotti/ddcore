@@ -14,6 +14,20 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- `poolMaxConns` in `ddcore.json`, or `DDCORE_POOL_MAX_CONNS`, sizes the database pool requests
+  run on; unset, the DSN's `pool_max_conns` or pgx's default applies. A site whose requests wait
+  on slow outbound calls holds a connection for each, and may need it larger. See `cli` (#67).
+
+### Fixed
+
+- `pool_max_conns` (or any other `pool_*` setting) in the DSN no longer breaks cross-process
+  cache invalidation: the listener sent it to Postgres, which refused the connection with
+  `unrecognized configuration parameter "pool_max_conns"`, and kept retrying while other
+  processes' changes never reached this one's cache. `ddcore backup` and `ddcore restore` drop
+  those settings too before handing the DSN to `pg_dump` / `pg_restore`, which refuse them (#67).
+
 ## 0.24.3 — 2026-10-03
 
 ### Added

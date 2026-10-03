@@ -43,6 +43,9 @@ type Config struct {
 	Tenancy bool
 	// TenantRole is DDCORE_TENANT_ROLE; empty means db.DefaultTenantRole.
 	TenantRole string
+	// PoolMaxConns is ddcore.json's poolMaxConns (or DDCORE_POOL_MAX_CONNS):
+	// the size of the pool requests run on. Zero leaves it to the DSN.
+	PoolMaxConns int
 	// EnterTenant is the tenant a one-shot command works in (`ddcore --tenant
 	// alfa eval …`): work that names no tenant itself enters this one, as an
 	// operator would. Never set by a process that serves requests.

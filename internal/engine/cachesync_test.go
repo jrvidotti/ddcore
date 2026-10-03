@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 )
@@ -141,4 +142,28 @@ func TestCacheInvalidationReachesOtherProcess(t *testing.T) {
 		t.Fatal(err)
 	}
 	eventually("the role revoked", func() bool { return !slices.Contains(roles(), "Gestor") })
+}
+
+// pool_max_conns in the DSN sizes the pool, and the listener's connection —
+// which is no pool's — must not send it to Postgres as a setting (#67).
+func TestCacheListenerAcceptsPoolSettingsInTheDSN(t *testing.T) {
+	base := migratedEngine(t, Config{Test: true})
+	dsn := base.Cfg.DSN
+	if strings.Contains(dsn, "?") {
+		dsn += "&pool_max_conns=8"
+	} else {
+		dsn += "?pool_max_conns=8"
+	}
+	e := &Engine{Cfg: Config{DSN: dsn}, Log: base.Log, Cache: NewCache()}
+	ctx, cancel := context.WithCancel(context.Background())
+	listening := make(chan struct{}, 1)
+	e.cacheListening = func() { listening <- struct{}{} }
+	done := make(chan struct{})
+	go func() { e.WatchCache(ctx); close(done) }()
+	t.Cleanup(func() { cancel(); <-done })
+	select {
+	case <-listening:
+	case <-time.After(5 * time.Second):
+		t.Fatal("WatchCache never listened with pool_max_conns in the DSN")
+	}
 }

@@ -16,7 +16,7 @@ func clearMailEnv(t *testing.T) {
 		"DDCORE_MAIL_TRANSPORT", "DDCORE_MAIL_FROM", "DDCORE_MAIL_METHOD", "DDCORE_MAIL_DEBUG",
 		"DDCORE_SMTP_HOST", "DDCORE_SMTP_PORT", "DDCORE_SMTP_USERNAME",
 		"DDCORE_SMTP_PASSWORD", "DDCORE_SMTP_TLS", "DDCORE_URL", "DDCORE_TRUST_PROXY",
-		"DDCORE_DSN", "DDCORE_PORT", "DATABASE_URL", "PORT",
+		"DDCORE_DSN", "DDCORE_PORT", "DATABASE_URL", "PORT", "DDCORE_POOL_MAX_CONNS",
 		"DDCORE_LOGIN_NOTICE", "DDCORE_LOGIN_DEMO_USER", "DDCORE_LOGIN_DEMO_PASSWORD",
 		"DDCORE_MAP_TILE_URL", "DDCORE_MAP_ATTRIBUTION",
 	} {
@@ -254,6 +254,34 @@ func TestPlatformPortOverridesJSONAndDDCOREPortWins(t *testing.T) {
 	}
 	if f.Port != 9999 {
 		t.Errorf("DDCORE_PORT should override PORT, got %d", f.Port)
+	}
+}
+
+// poolMaxConns sizes the database pool; DDCORE_POOL_MAX_CONNS wins over the
+// file, and a value that is not a positive number is ignored (#67).
+func TestPoolMaxConnsFromFileAndEnvironment(t *testing.T) {
+	clearMailEnv(t)
+	dir := site(t, `{"poolMaxConns":12}`)
+	f, _, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if f.PoolMaxConns != 12 {
+		t.Errorf("ddcore.json: got %d, want 12", f.PoolMaxConns)
+	}
+	t.Setenv("DDCORE_POOL_MAX_CONNS", "40")
+	if f, _, err = Load(dir); err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if f.PoolMaxConns != 40 {
+		t.Errorf("DDCORE_POOL_MAX_CONNS should override the file, got %d", f.PoolMaxConns)
+	}
+	t.Setenv("DDCORE_POOL_MAX_CONNS", "0")
+	if f, _, err = Load(dir); err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if f.PoolMaxConns != 12 {
+		t.Errorf("a zero DDCORE_POOL_MAX_CONNS should leave the file's value, got %d", f.PoolMaxConns)
 	}
 }
 

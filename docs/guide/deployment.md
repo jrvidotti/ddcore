@@ -44,6 +44,7 @@ which overrides the file:
 | Environment Variable | Description | Example |
 | :--- | :--- | :--- |
 | `DATABASE_URL` / `DDCORE_DSN` | PostgreSQL connection string. `DATABASE_URL` is what platforms such as Railway inject; `DDCORE_DSN` wins over it | `postgres://user:pass@db:5432/app?sslmode=require` |
+| `DDCORE_POOL_MAX_CONNS` | Size of the database pool requests run on (`poolMaxConns` in `ddcore.json`). Unset, the DSN's `pool_max_conns` or pgx's default (the larger of 4 and the number of CPUs) applies. A request holds its connection while it waits on a slow outbound call, so a site that makes them may need more | `20` |
 | `PORT` / `DDCORE_PORT` | HTTP port (default `8080`); `DDCORE_PORT` wins over `PORT` | `8080` |
 | `DDCORE_URL` | The public address recovery and invitation links are built from | `https://erp.example.com` |
 | `DDCORE_TRUST_PROXY` | Believe `X-Forwarded-For` — only behind a proxy you control | `true` |

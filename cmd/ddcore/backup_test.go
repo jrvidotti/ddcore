@@ -29,6 +29,20 @@ func TestSplitDSNPassword(t *testing.T) {
 	}
 }
 
+func TestStripPoolParams(t *testing.T) {
+	for in, want := range map[string]string{
+		"postgres://u:p@h/d?sslmode=disable&pool_max_conns=30": "postgres://u:p@h/d?sslmode=disable",
+		"postgres://u@h/d?pool_max_conns=30&pool_min_conns=2":  "postgres://u@h/d",
+		"postgres://u@h/d?sslmode=disable":                     "postgres://u@h/d?sslmode=disable",
+		"host=h pool_max_conns=30 dbname=d":                    "host=h  dbname=d",
+		"host=h dbname=d":                                      "host=h dbname=d",
+	} {
+		if got := stripPoolParams(in); got != want {
+			t.Errorf("stripPoolParams(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
 // An archive is untrusted input: only the layout backup writes is accepted.
 func TestSafeEntry(t *testing.T) {
 	for name, want := range map[string]bool{
