@@ -108,6 +108,31 @@ func TestPlanTenancyIsWhatTheTableStillLacks(t *testing.T) {
 	}
 }
 
+// A table keeps its row-level security, its policy and its key across ALTER
+// TABLE … RENAME, so planning them again for the new name fails the migration
+// on a policy that already exists (#64).
+func TestRenameCarriesTheTenantPolicy(t *testing.T) {
+	d := tenancyDoc("Pix Cob", true)
+	d.RenamedFrom = meta.Names{"Payment"}
+	reg := meta.NewRegistry()
+	reg.DocTypes[d.Name] = d
+	cat := &catalog{singles: map[string]bool{},
+		cols:    map[string]map[string]string{"tab_payment": {"id": "text", "tenant": "text"}},
+		idx:     map[string]idxRow{"tab_payment_pkey": {table: "tab_payment", def: "CREATE UNIQUE INDEX tab_payment_pkey ON tab_payment (tenant, id)"}},
+		pk:      map[string]pkRow{"tab_payment": {name: "tab_payment_pkey", def: "PRIMARY KEY (tenant, id)"}},
+		secured: map[string]bool{"tab_payment": true}, policy: map[string]bool{"tab_payment": true}}
+	tables, _, _, _, _ := planRenames(cat, reg, []string{d.Name})
+	if len(tables) != 2 {
+		t.Fatalf("expected the table and its key renamed, got:\n%s", strings.Join(SQL(tables), "\n"))
+	}
+	if st := planTenancy(cat, d, true); len(st) != 0 {
+		t.Fatalf("the renamed table plans its tenancy again:\n%s", strings.Join(SQL(st), "\n"))
+	}
+	if got := cat.pk["tab_pix_cob"].name; got != "tab_pix_cob_pkey" {
+		t.Fatalf("the key's constraint is %q", got)
+	}
+}
+
 func TestValidTenantID(t *testing.T) {
 	for _, ok := range []string{"a", "acme", "acme-2", "a_b", "0x"} {
 		if !ValidTenantID(ok) {

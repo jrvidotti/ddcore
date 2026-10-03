@@ -18,6 +18,13 @@ older series, and `whats_new` reads across every one of them.
 
 - pt-BR: a tenant is now translated as *Conta* (it was left as *Tenant*).
 
+### Fixed
+
+- `renamedFrom` on a tenant DocType no longer fails `migrate` with `policy "ddcore_tenant" …
+  already exists`: the renamed table keeps the row-level security policy and key it carried,
+  and the plan no longer creates them again. A `beforeSchema` patch that drops the old table's
+  policy as a workaround is no longer needed, and is harmless if kept (#64).
+
 ## 0.24.2 — 2026-10-02
 
 ### Added

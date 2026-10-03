@@ -631,6 +631,19 @@ func planRenames(c *catalog, reg *meta.Registry, names []string) (tables, column
 			// Postgres does not rename a table's indexes with it, and the
 			// primary key is one of them — an index wantedIndexes never names.
 			tables = append(tables, c.renameTableIndexes(ot, t)...)
+			// What tenancy put on the table travels with it: row-level
+			// security, the policy and the key. The key's constraint is
+			// renamed with its index, when that index was renamed.
+			c.secured[t], c.policy[t] = c.secured[ot], c.policy[ot]
+			delete(c.secured, ot)
+			delete(c.policy, ot)
+			if pk, ok := c.pk[ot]; ok {
+				if _, left := c.idx[pk.name]; !left && strings.HasPrefix(pk.name, ot+"_") {
+					pk.name = t + "_" + strings.TrimPrefix(pk.name, ot+"_")
+				}
+				c.pk[t] = pk
+				delete(c.pk, ot)
+			}
 			break
 		}
 	}
