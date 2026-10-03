@@ -7,12 +7,14 @@ upgrade path, and apps should keep their `ddcore:` range below that release unti
 taken it.
 
 This file holds `Unreleased` and the current minor series. Each older series has its own file
-under [`docs/changelog/`](docs/changelog/): [0.23](docs/changelog/0.23.md), [0.22](docs/changelog/0.22.md), [0.21](docs/changelog/0.21.md), [0.20](docs/changelog/0.20.md), [0.19](docs/changelog/0.19.md), [0.18](docs/changelog/0.18.md), [0.17](docs/changelog/0.17.md), [0.16](docs/changelog/0.16.md), [0.15](docs/changelog/0.15.md), [0.14](docs/changelog/0.14.md), [0.13](docs/changelog/0.13.md), [0.12](docs/changelog/0.12.md), [0.11](docs/changelog/0.11.md), [0.10](docs/changelog/0.10.md), [0.9](docs/changelog/0.9.md), [0.8](docs/changelog/0.8.md), [0.7](docs/changelog/0.7.md), [0.6](docs/changelog/0.6.md), [0.5](docs/changelog/0.5.md), [0.4](docs/changelog/0.4.md), [0.3](docs/changelog/0.3.md), [0.2](docs/changelog/0.2.md), [0.1](docs/changelog/0.1.md).
+under [`docs/changelog/`](docs/changelog/): [0.24](docs/changelog/0.24.md), [0.23](docs/changelog/0.23.md), [0.22](docs/changelog/0.22.md), [0.21](docs/changelog/0.21.md), [0.20](docs/changelog/0.20.md), [0.19](docs/changelog/0.19.md), [0.18](docs/changelog/0.18.md), [0.17](docs/changelog/0.17.md), [0.16](docs/changelog/0.16.md), [0.15](docs/changelog/0.15.md), [0.14](docs/changelog/0.14.md), [0.13](docs/changelog/0.13.md), [0.12](docs/changelog/0.12.md), [0.11](docs/changelog/0.11.md), [0.10](docs/changelog/0.10.md), [0.9](docs/changelog/0.9.md), [0.8](docs/changelog/0.8.md), [0.7](docs/changelog/0.7.md), [0.6](docs/changelog/0.6.md), [0.5](docs/changelog/0.5.md), [0.4](docs/changelog/0.4.md), [0.3](docs/changelog/0.3.md), [0.2](docs/changelog/0.2.md), [0.1](docs/changelog/0.1.md).
 The binary serves them all: `ddcore://changelog` is this file, `ddcore://changelog/<minor>` an
 older series, and `whats_new` reads across every one of them.
 
 <!-- #region releases -->
 ## Unreleased
+
+## 0.25.0 — 2026-10-03
 
 ### Added
 
@@ -49,156 +51,5 @@ older series, and `whats_new` reads across every one of them.
   other. The platform space, and a site without tenancy, lock as before. An app that needs one
   lock across the whole site takes it from the platform space; a tenant prefix an app already
   writes into its keys keeps working, and can go (#73).
-
-## 0.24.4 — 2026-10-03
-
-### Added
-
-- `poolMaxConns` in `ddcore.json`, or `DDCORE_POOL_MAX_CONNS`, sizes the database pool requests
-  run on; unset, the DSN's `pool_max_conns` or pgx's default applies. A site whose requests wait
-  on slow outbound calls holds a connection for each, and may need it larger. See `cli` (#67).
-
-### Fixed
-
-- `migrate` with `"tenancy": true` on a fresh Postgres cluster no longer fails with `role
-  "ddcore_tenant" does not exist (SQLSTATE 22023)`: the tenant role is created and committed
-  before anything in the migration uses it. Creating the role by hand first is no longer
-  needed, and is harmless if kept. A database restored into a cluster without the role no
-  longer fails every new connection either; the next `migrate` creates it (#66).
-- `pool_max_conns` (or any other `pool_*` setting) in the DSN no longer breaks cross-process
-  cache invalidation: the listener sent it to Postgres, which refused the connection with
-  `unrecognized configuration parameter "pool_max_conns"`, and kept retrying while other
-  processes' changes never reached this one's cache. `ddcore backup` and `ddcore restore` drop
-  those settings too before handing the DSN to `pg_dump` / `pg_restore`, which refuse them (#67).
-- A `Webhook` subscription created, changed or disabled in another process — `ddcore eval
-  --commit`, `ddcore exec`, a worker, another replica — now takes effect on every running
-  process without a restart: the cached subscriptions are dropped through the same `NOTIFY`
-  that clears User Permission scopes, and `ddcore.db.set_value` on a Webhook clears them too
-  (#71).
-
-## 0.24.3 — 2026-10-03
-
-### Added
-
-- A `Report` field's cells act on a click like a Table's: `grids.<field>.onCellClick.<column>`
-  in a form script turns that report column's non-empty cells into buttons, and the handler
-  receives the row as the report returned it. A cell click handler, on a Table or a Report, may
-  now be async; an error it rejects with is shown. See "grids" in `form-api` (#65).
-
-### Changed
-
-- pt-BR: a tenant is now translated as *Conta* (it was left as *Tenant*).
-
-### Fixed
-
-- `renamedFrom` on a tenant DocType no longer fails `migrate` with `policy "ddcore_tenant" …
-  already exists`: the renamed table keeps the row-level security policy and key it carried,
-  and the plan no longer creates them again. A `beforeSchema` patch that drops the old table's
-  policy as a workaround is no longer needed, and is harmless if kept (#64).
-
-## 0.24.2 — 2026-10-02
-
-### Added
-
-- `ddcore.crypto.pfxInfo(pfx, password?)` describes the certificate in a PKCS#12 file —
-  `{ notBefore, notAfter, subject, issuer, serial, chain }`, never its key — and
-  `ddcore.crypto.certInfo(pem)` does the same for a PEM certificate. A wrong password or an
-  unreadable file throws a `ValidationError` that does not repeat the material, so a certificate
-  is checked, and its expiry read, when it is stored. See "ddcore.*" in `controller-api` (#63).
-- A dialog takes a file without uploading it: `fieldtype: "File"` in `ddcore.ui.Dialog` and
-  `ddcore.ui.prompt` puts `{ name, size, type, base64 }` in `values` and creates no `File`.
-  `options` is the accept list and `maxBytes` the size cap (5 MB by default). It is a dialog
-  field only; a DocType still stores a file with `Attach`. See "`ddcore` in the desk" in
-  `form-api` (#63).
-
-## 0.24.1 — 2026-10-02
-
-### Added
-
-- `ddcore.vault.get(name, { shared: true })` reads a secret of the platform space from any
-  space of a site with tenancy. `set` and `del` take the option too and are refused inside a
-  tenant: a shared secret is the platform's to change. The read is audited in the space it came
-  from, with `detail.shared`. See "With tenancy" in `vault` (#62).
-
-### Fixed
-
-- A `Vault` field on a `shared` DocType is readable from inside a tenant. Its secret is kept in
-  the platform space, where row-level security hid it from every tenant: the field read as not
-  configured and a required one as missing. Every space now sees it as configured, and reads the
-  value with `ddcore.vault.get(key, { shared: true })`. `ddcore tenant adopt` no longer moves
-  these secrets into the adopting tenant, and renaming a shared document no longer re-keys a
-  tenant's secret of the same name. `isSingle` with `shared` is one document for the whole
-  site, now documented. See "What belongs to a tenant" in `tenancy` (#62).
-
-## 0.24.0 — 2026-10-02
-
-### Added
-
-- `ddcore.datetime.dateDiff(a, b)` and `ddcore.datetime.monthDiff(a, b)` on the Desk, with the
-  semantics of `ddcore.utils.dateDiff` and `monthDiff` on the server, so a form script can show a
-  day count the controller computes: `dateDiff("2026-05-10", "2026-05-01") === 9`. See "Dates and
-  times" in `form-api` (#58).
-- The Tree view has a search box. While there is text, the tree shows only the nodes that match
-  — by `id`, `titleField` and `searchFields`, as a Link search does — and the ancestors that lead
-  to them, every branch open and the matches highlighted; the text is the list's `?q=`. Nothing
-  to declare in an app. On the API, `GET /api/tree/{doctype}?search=` answers those nodes, a
-  match flagged `"match": true`. See "The tree view and `/api/tree`" in `trees` (#59).
-- `ddcore.http` presents a client certificate with `opts.clientCert`, for an API that
-  authenticates by mutual TLS (PIX, Open Finance): `{ pfx, password? }` — a PKCS#12 file,
-  base64-encoded — or `{ cert, key }` in PEM. The chain goes with the certificate, and calls with
-  the same certificate share connections. A proxy kept only to hold the certificate can go. See
-  "`ddcore.*`" in `controller-api` (#60).
-- `ddcore.runAs(user, fn)` runs server code under a user's roles and access scopes, in the
-  current transaction. A job, a scheduled method and a guest webhook had no such context: a job
-  ignores permissions, a scheduled method runs as `Admin` and a webhook arrives as `Guest`, so a
-  multi-tenant app had to filter every query in those paths by hand. Inside `runAs` reads and
-  writes are checked as in a request from that user, and `owner`, `modified_by` and audit events
-  record them. The user must exist and be enabled; otherwise the call throws (#40).
-- `ddcore.enqueue(method, args, { runAs: user })` queues a job whose body, `onStart` and
-  `onFailure` run as that user with permissions enforced. The job keeps who queued it in `user`
-  and the user it acts as in the new `run_as` column, shown by `ddcore jobs list|show`, the jobs
-  API and the `list_jobs` / `get_job` tools; a retry keeps it. A job whose user was disabled
-  after it was queued fails instead of running unscoped (#40).
-- A `scheduler` entry can be `{ method, runAs }` instead of a bare path, to run the method under
-  a user's roles and access scopes rather than as `Admin`. A scheduled method that could not be
-  queued is now logged; the error was dropped (#40).
-- **Tenancy: several customers in one database.** `"tenancy": true` in `ddcore.json`, then
-  `ddcore migrate`, gives every tenant its own documents, ids, numbering series, `unique`
-  values, Singles, users, files, vault secrets, cache keys, jobs, webhooks and realtime events.
-  The wall is the database's: tenant tables are keyed by `(tenant, id)` and held by Postgres
-  row-level security, so the document API, `ddcore.db.sql`, SQL reports and background jobs all
-  stay inside the tenant without any of them naming it. See `tenancy`. (PRD-08)
-  - Every DocType belongs to a tenant unless it declares `shared: true` — reference data the
-    whole site reads and only the operator writes.
-  - The `Site Tenant` DocType, `ddcore tenant create|list|enable|disable|adopt`, and `--tenant <slug>`
-    before any one-shot command (`ddcore --tenant acme eval …`).
-  - `ddcore.tenant.current()`, `.list()` and `.run(id, fn)` for the platform's own code — a
-    scheduled method runs once and fans out — and `onTenantCreate` in `defineApp`, which seeds
-    each new tenant.
-  - The operator (`Admin`, or a System Manager whose account is in no tenant) enters a tenant
-    from the Desk's user menu, or with `X-Tenant` and an API key. A tenant's own System
-    Manager administers that tenant and nothing of the site: no MCP, no health report.
-  - **It cannot be turned off** once migrated, and the servers and workers must be restarted
-    after the migration that turns it on. A site that already has data keeps it in the
-    platform space; `ddcore tenant adopt <slug>` moves it into its first tenant.
-  - The site's database role must be able to create a role, or be granted one created by hand
-    and named in `DDCORE_TENANT_ROLE`.
-
-### Changed
-
-- With tenancy **off** nothing changes: no column, no policy, no new DocType, the same schema.
-- `tenant` is a reserved fieldname on a site with tenancy. An app that has a field of that name
-  on a DocType that is not `shared` must rename it (with `renamedFrom`) before turning tenancy on.
-
-### Fixed
-
-- Events and cache invalidations registered while the server acted as another user are no longer
-  dropped at commit. It affected the writes made on a recipient's behalf by notifications, and
-  would have affected every write under `ddcore.runAs`.
-- A save that unlocks a `readOnlyDependsOn` field may edit it too. The server judged the
-  expression on the stored document alone, so setting `status` back to `"Open"` and editing in
-  the same save was refused with "… is read-only on this document", although the desk had
-  already unlocked the field. A change is now refused only when the expression holds on the
-  stored document and on the one being saved. See "Field properties" in `fieldtypes` (#61).
 
 <!-- #endregion releases -->
