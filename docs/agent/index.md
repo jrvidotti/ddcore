@@ -14,6 +14,7 @@ Available documents (also as MCP resources `ddcore://docs/<name>`):
 - `tenancy` — several customers in one database (`"tenancy": true`): spaces, `shared` DocTypes, the `Site Tenant` DocType and `onTenantCreate`, `ddcore tenant` and `--tenant`, `ddcore.tenant.*`, what a tenant's System Manager may do, how row-level security enforces it, limits
 - `scopes` — user access scopes (`User Permission`): restricting users to companies, units or customers across every read and write path
 - `portal` — self-service portals (`definePortal`): Website Users, identity and match, pages, uploads, limits and inviting portal users
+- `www` — an app's public static site under a URL prefix (`www` in `defineApp`): a SPA build served with a fallback, caching and security headers, the guest methods behind it, tenancy, images and rate limiting
 - `sharing` — document sharing (`Document Share`): per-user read/write/share grants on one document, scope override, audit
 - `controller-api` — `defineController`, hooks, methods, the server's `ddcore.*` API
 - `form-api` — `defineForm`, `frm.*`, dialogs, `defineListView`, its actions on the selected rows and its Calendar, Kanban, Gantt and Card views (desk)

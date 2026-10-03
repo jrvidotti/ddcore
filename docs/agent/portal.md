@@ -7,7 +7,9 @@ users in, keeps them out of the desk, and limits every read and write they make 
 own records.
 
 Signed-in portals only. There are no anonymous Web Forms and no self-registration: every
-portal user is invited (see [Inviting portal users](#inviting-portal-users)).
+portal user is invited (see [Inviting portal users](#inviting-portal-users)). A page for
+anonymous visitors is an app site instead: static files under a prefix, calling guest
+methods (see `www`).
 
 ## The model
 

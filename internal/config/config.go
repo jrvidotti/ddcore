@@ -96,6 +96,8 @@ type File struct {
 	// claim any address, and the throttle that keys on the address becomes a
 	// way to lock out a stranger.
 	TrustProxy bool `json:"trustProxy"`
+	// CORS lets the pages of other origins call the methods that opt in.
+	CORS CORS `json:"cors,omitzero"`
 	// TenantRole is DDCORE_TENANT_ROLE: the database role document work runs
 	// as on a site with tenancy. It says where the site runs, not what it is
 	// — a managed Postgres may only allow a role somebody created by hand.
@@ -187,6 +189,7 @@ func Load(dir string) (*File, string, error) {
 	f.Title = strings.TrimSpace(f.Title)
 	f.URL = strings.TrimSuffix(env("DDCORE_URL", f.URL), "/")
 	f.TrustProxy = envBool("DDCORE_TRUST_PROXY", f.TrustProxy)
+	f.CORS.fromEnv()
 	f.TenantRole = env("DDCORE_TENANT_ROLE", "")
 	f.Login.Notice = strings.ReplaceAll(env("DDCORE_LOGIN_NOTICE", f.Login.Notice), `\n`, "\n")
 	f.Login.DemoUser = env("DDCORE_LOGIN_DEMO_USER", f.Login.DemoUser)
@@ -236,6 +239,9 @@ func Load(dir string) (*File, string, error) {
 	if err := f.Auth.validate(); err != nil {
 		// access policy is not a place to guess either: a site that asks for a
 		// lockout nobody implements must not quietly run without one
+		return nil, "", fmt.Errorf("%s: %w", path, err)
+	}
+	if err := f.CORS.validate(); err != nil {
 		return nil, "", fmt.Errorf("%s: %w", path, err)
 	}
 	if err := f.validateOIDC(); err != nil {

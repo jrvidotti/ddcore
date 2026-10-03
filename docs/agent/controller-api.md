@@ -78,6 +78,37 @@ export const receive = whitelisted((args, ctx) => {
   constant time. Never compare a signature with `===`. For a timestamped scheme, also check the timestamp header
   against `Date.now()` and refuse an event older than the window you accept.
 
+### Calls from another origin
+
+A page served from another origin — a merchant's shop calling your payment methods — can call a method only
+when the method opts in with `cors: true` **and** the site lists that origin:
+
+```jsonc
+// ddcore.json (or DDCORE_CORS_ORIGINS="https://shop.example.com,https://*.partner.example")
+"cors": { "origins": ["https://shop.example.com", "https://*.partner.example"] }
+```
+
+```ts
+export const status = whitelisted((args) => ({ status: lookUp(args.code) }), { allowGuest: true, cors: true, methods: ["GET"] });
+```
+
+- An origin is `scheme://host[:port]`, compared exactly and without regard to case; `https://*.partner.example`
+  matches every subdomain over https but not `partner.example` itself; `*` matches any origin. An entry no
+  browser would send as an `Origin` (a path, no scheme, a wildcard elsewhere) stops the server at startup.
+- The browser's preflight (`OPTIONS /api/method/<path>`) gets `204` with the origin echoed in
+  `Access-Control-Allow-Origin`, `Access-Control-Allow-Methods` from the method's `methods` (`GET, POST`
+  without them), `Access-Control-Allow-Headers: Authorization, Content-Type, X-Tenant` and a ten-minute
+  `Access-Control-Max-Age`. A method without `cors`, or an origin outside the list, gets `403`.
+- The call itself gets the origin echoed and `Access-Control-Expose-Headers: X-Request-Id`, on an error as on a
+  result, so the page can read either.
+- **Never credentials.** No `Access-Control-Allow-Credentials` is ever sent, so the browser does not hand the
+  page a response to a call made with the visitor's session cookie. The caller sends
+  `Authorization: token <key>:<secret>` — only from a server or an app that can keep a key secret, never from
+  a public page — or comes as Guest (`allowGuest: true`).
+- Everything else is unchanged: `/api/resource`, every other route and every method without `cors` answer
+  without CORS headers, and a request from the site's own pages (or with no `Origin`) is not CORS at all. A
+  page the app serves itself (`www`) is on the site's origin and needs none of this.
+
 Hooks for another app's DocTypes: in `ddcore.app.ts`, `docEvents: { "User": { validate(doc) {} }, "*": { onUpdate(doc) {} } }`.
 A DocType has **one** controller, its owner's: `defineController` from a second app is refused. To add rules to
 someone else's DocType use `docEvents`, and `extendDoctype` for fields, properties and permissions — its

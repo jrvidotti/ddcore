@@ -14,6 +14,27 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- An app can serve a static site to anyone under a URL prefix of its own:
+  `defineApp({ www: { "/r": "client/checkout/build" } })` serves that folder at `/r/`, with
+  `index.html` for a directory and as the fallback of a client-side route (`fallback: null`
+  for a plain 404), so a public page — a SvelteKit `adapter-static` build with
+  `paths.base: "/r"` — no longer needs a server of its own. `GET`/`HEAD` only, `/r` redirects
+  to `/r/`, a path that climbs out of the folder is a 404, and every file goes out with
+  `nosniff`, a referrer policy and `X-Frame-Options: DENY` (`frame: true` lifts it). A prefix
+  is one lowercase segment, not one ddcore uses nor another app's; the load says which rule a
+  declaration broke. The site's data comes from guest methods on the same origin. See `www`
+  (#68).
+- A whitelisted method declared with `cors: true` can be called by pages on the origins listed
+  in `"cors": { "origins": [...] }` in `ddcore.json`, or `DDCORE_CORS_ORIGINS` (comma-separated):
+  `https://shop.example.com`, `https://*.partner.example` for its subdomains, or `*`. The
+  preflight answers `204` with the origin echoed and the method's own `methods`, and the call's
+  response (an error too) is readable by the page, `X-Request-Id` included. Credentials are
+  never allowed, so the caller sends an API key or comes as Guest. Every other route, and every
+  method without `cors`, answers as before. See `controller-api` → "Calls from another origin"
+  (#68).
+
 ## 0.25.0 — 2026-10-03
 
 ### Added

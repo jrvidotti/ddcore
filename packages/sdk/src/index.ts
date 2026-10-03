@@ -558,6 +558,14 @@ export interface WhitelistOpts {
    * sub-path is a 404, as for a method that does not exist.
    */
   pathTail?: boolean;
+  /**
+   * Callable by pages on the origins listed in `cors.origins` (ddcore.json, or
+   * DDCORE_CORS_ORIGINS): the preflight is answered and the response is readable
+   * by the calling page. Never with credentials — the caller sends an API key or
+   * comes as Guest. Without it a browser keeps the response from any other
+   * origin. See `controller-api` → "Calls from another origin".
+   */
+  cors?: boolean;
 }
 
 /** Marks a function as callable via POST /api/method/<app>.<path>.<name>. */

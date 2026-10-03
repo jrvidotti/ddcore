@@ -145,10 +145,14 @@ func New(e *engine.Engine, desk fs.FS) *Server {
 		r.Get("/print/{doctype}/{id}", s.printDoc)
 		r.Post("/workflow/apply", s.applyWorkflowTransition)
 		r.Get("/workflow/actions", s.workflowActions)
-		r.Post("/method/{path}", s.method)
-		r.Get("/method/{path}", s.method)
-		r.Post("/method/{path}/*", s.method)
-		r.Get("/method/{path}/*", s.method)
+		// CORS for the methods that opt in (#68). The OPTIONS routes are
+		// needed because without them a preflight falls through to the desk.
+		r.With(s.cors).Post("/method/{path}", s.method)
+		r.With(s.cors).Get("/method/{path}", s.method)
+		r.With(s.cors).Post("/method/{path}/*", s.method)
+		r.With(s.cors).Get("/method/{path}/*", s.method)
+		r.Options("/method/{path}", s.corsPreflight)
+		r.Options("/method/{path}/*", s.corsPreflight)
 		r.Get("/health", s.liveness)
 		r.Get("/health/", s.liveness)
 		r.Get("/ready", s.readiness)
@@ -169,7 +173,7 @@ func New(e *engine.Engine, desk fs.FS) *Server {
 	r.Get("/assets/apps/{app}/*", s.appAsset)
 	r.Get("/files/*", s.file)
 	r.Get("/private/files/*", s.privateFile)
-	r.NotFound(s.deskHandler)
+	r.NotFound(s.notFound)
 	s.Router = r
 	return s
 }

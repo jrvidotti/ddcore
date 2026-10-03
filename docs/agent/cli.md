@@ -1,6 +1,6 @@
 # CLI and the development loop
 
-`ddcore.json` in the site directory: `dsn`, `apps` (directories), `ddcore` (the range of ddcore releases the site is tested against — see `conventions`), `port`, `workers`, `scheduler`, `title` (the site's name, when it should not be its app's title — see `i18n`), `lang`, `currency`, `currencyPrecision`, `rounding`, `timezone`, `exportMaxRows`, `importMaxRows`, `poolMaxConns`, `auth`, `ops`.
+`ddcore.json` in the site directory: `dsn`, `apps` (directories), `ddcore` (the range of ddcore releases the site is tested against — see `conventions`), `port`, `workers`, `scheduler`, `title` (the site's name, when it should not be its app's title — see `i18n`), `lang`, `currency`, `currencyPrecision`, `rounding`, `timezone`, `exportMaxRows`, `importMaxRows`, `poolMaxConns`, `auth`, `ops`, `cors`.
 `currencyPrecision` defaults to the currency's ISO minor unit and `rounding` to `"commercial"`;
 an unrecognised `rounding` stops the server at startup rather than quietly using another rule.
 `DDCORE_DSN` overrides the dsn, and `DDCORE_DATA_DIR` the `dataDir`.
@@ -9,6 +9,10 @@ unset, the DSN's `pool_max_conns` or pgx's default (the larger of 4 and the numb
 applies. A request holds its connection while it waits on a slow outbound call, so a site that
 makes them may need it larger. The DSN may carry `pool_*` settings, which the cache invalidation
 listener accepts as the pool does.
+`cors.origins` lists the other origins whose pages may call the methods whitelisted with
+`cors: true` (`"*"`, `scheme://host[:port]` or `scheme://*.domain`); `DDCORE_CORS_ORIGINS`,
+comma-separated, replaces it. An entry no browser would send as an `Origin` stops the server at
+startup. See `controller-api` → "Calls from another origin".
 Every command accepts `--allow-older-binary`, the rollback override described in `backup`.
 It is a global flag, stripped from the arguments before the command sees them: write it bare,
 as `--allow-older-binary=true`, or set `DDCORE_ALLOW_OLDER_BINARY`. All three read the same
@@ -86,7 +90,8 @@ npm. `DDCORE_TEST_DSN` points at the disposable database the tests use.
 - `GET /api/resource/<DocType>?filters=[...]&fields=[...]&order_by=&limit=&start=&with_count=1`
 - `POST /api/resource/<DocType>` (insert), `GET/PUT/DELETE /api/resource/<DocType>/<id>`
 - `POST /api/resource/<DocType>/<id>/<submit|cancel|amend|rename|method>` (rename body: `{ "id": "<new id>" }`)
-- `POST /api/method/<app.folder.file.fn>` (whitelisted)
+- `POST /api/method/<app.folder.file.fn>` (whitelisted); `OPTIONS` answers a CORS preflight for a method with `cors: true` (see `controller-api`)
+- `GET /<prefix>/…` — an app's static site, when `www` in `defineApp` declares the prefix (see `www`)
 - `GET /api/meta/<DocType>`, `/api/boot`, `/api/search/link?doctype=&txt=`, `/api/search/global?txt=&limit=` (see `search`), `/api/report/<name>`, `/api/events` (SSE), `POST /api/upload`
 - `GET /api/export/<DocType>?format=csv|ndjson&filters=[...]&children=1&attachments=1` — the whole filtered set as a download, gated by the `export` permission (see `export`)
 - `POST /api/data-import/<DocType>` (multipart: `file`, `mode=insert|update`, `dry_run=1`, `decimal`, `date_order`, `sep`, `columns`) and `GET /api/data-import/<DocType>/template?sep=` — CSV/XLSX rows as ordinary saves, gated by the `import` permission (see `data-import`)
