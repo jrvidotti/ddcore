@@ -264,10 +264,6 @@ type Engine struct {
 	mailOnce sync.Once
 	mailer   mail.Sender
 	store    storage.Store
-	// webhooks caches the enabled subscriptions; nil means "read them again".
-	// See webhookSubs.
-	webhookMu sync.Mutex
-	webhooks  map[string][]webhookSub
 	// oidc caches discovered providers; see oidcClientFor.
 	oidcMu sync.Mutex
 	oidc   map[string]*oidcClient

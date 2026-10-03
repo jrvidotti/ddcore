@@ -41,12 +41,15 @@ The framework's own bookkeeping DocTypes cannot be watched — `Webhook`,
 `Webhook Delivery`, `Audit Event`, `Version`, `Error Log`, `Email Delivery` —
 and neither can a child table: a change to a row is an update of its parent.
 
-Enabled subscriptions are read once and cached in each process. A Webhook saved
-through the document API clears that process's cache after it commits, so the
-change applies to writes that start afterwards in the same process. A change
-made from another process — `ddcore eval --commit`, `ddcore exec`, SQL, or
-another server of the same site — is not seen by a running server until it
-restarts.
+Enabled subscriptions are read once and cached in each process. A Webhook
+inserted, saved, deleted or changed with `ddcore.db.set_value` clears that
+cache after the transaction commits — in every process on the database, not
+only the one that wrote it: the change is announced with Postgres `NOTIFY`, and
+the server, `ddcore jobs work` and `ddcore mcp` listen for it. A subscription
+created, changed or disabled by `ddcore eval --commit`, `ddcore exec` or another
+replica therefore applies to writes that start afterwards, without a restart.
+Direct SQL writes to `tab_webhook` bypass this and are not seen by a running
+process until it restarts.
 
 ## Document events
 

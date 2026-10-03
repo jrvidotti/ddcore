@@ -32,6 +32,11 @@ older series, and `whats_new` reads across every one of them.
   `unrecognized configuration parameter "pool_max_conns"`, and kept retrying while other
   processes' changes never reached this one's cache. `ddcore backup` and `ddcore restore` drop
   those settings too before handing the DSN to `pg_dump` / `pg_restore`, which refuse them (#67).
+- A `Webhook` subscription created, changed or disabled in another process — `ddcore eval
+  --commit`, `ddcore exec`, a worker, another replica — now takes effect on every running
+  process without a restart: the cached subscriptions are dropped through the same `NOTIFY`
+  that clears User Permission scopes, and `ddcore.db.set_value` on a Webhook clears them too
+  (#71).
 
 ## 0.24.3 — 2026-10-03
 
