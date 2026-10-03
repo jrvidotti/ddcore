@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -69,8 +70,14 @@ func (s *Server) confineWebsiteUsers(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		if strings.HasPrefix(r.URL.Path, "/api/method/") {
-			path := strings.TrimPrefix(r.URL.Path, "/api/method/")
+		if rest, ok := strings.CutPrefix(r.URL.EscapedPath(), "/api/method/"); ok {
+			// The method is the first segment, read as the router reads it
+			// (escaped, then decoded): what follows is a pathTail, which the
+			// handler accepts or refuses on the method's own options.
+			path, _, _ := strings.Cut(rest, "/")
+			if dec, err := url.PathUnescape(path); err == nil {
+				path = dec
+			}
 			if opts, ok := s.E.Whitelisted(path); ok && opts["portal"] == true {
 				next.ServeHTTP(w, r)
 				return

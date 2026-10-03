@@ -528,6 +528,14 @@ export interface WhitelistOpts {
    * `ddcore.getList`/`getDoc` see only what the portals grant.
    */
   portal?: boolean;
+  /**
+   * Also answer below the method's own path: `/api/method/<path>/pix/1`
+   * reaches this method with `ctx.request.pathTail` = `"pix/1"`
+   * (percent-decoded; `""` when the call names the method alone). For a
+   * provider that appends to the URL it was registered with. Without it, a
+   * sub-path is a 404, as for a method that does not exist.
+   */
+  pathTail?: boolean;
 }
 
 /** Marks a function as callable via POST /api/method/<app>.<path>.<name>. */

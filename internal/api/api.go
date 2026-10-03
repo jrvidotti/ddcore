@@ -147,6 +147,8 @@ func New(e *engine.Engine, desk fs.FS) *Server {
 		r.Get("/workflow/actions", s.workflowActions)
 		r.Post("/method/{path}", s.method)
 		r.Get("/method/{path}", s.method)
+		r.Post("/method/{path}/*", s.method)
+		r.Get("/method/{path}/*", s.method)
 		r.Get("/health", s.liveness)
 		r.Get("/health/", s.liveness)
 		r.Get("/ready", s.readiness)
@@ -1051,10 +1053,16 @@ func contains(list []string, s string) bool {
 }
 
 // method calls a whitelisted function: app.dir.file.fn
+//
+// Whatever follows the method's path ("/pix" on a URL a provider extends
+// before calling it) is the method's only when it opted in with pathTail: it
+// then reads it, percent-decoded, as ctx.request.pathTail. Any other method
+// does not exist at a sub-path, as before.
 func (s *Server) method(w http.ResponseWriter, r *http.Request) {
 	path := urlParam(r, "path")
+	tail := urlParam(r, "*")
 	opts, ok := s.E.Whitelisted(path)
-	if !ok {
+	if !ok || (tail != "" && opts["pathTail"] != true) {
 		s.writeErr(w, r, cerr.NotFound("Method {0} does not exist or is not whitelisted", path))
 		return
 	}
@@ -1102,6 +1110,9 @@ func (s *Server) method(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	req := map[string]any{"rawBody": string(body), "headers": requestHeaders(r)}
+	if opts["pathTail"] == true {
+		req["pathTail"] = tail
+	}
 	call := func(c *engine.Ctx) (any, error) {
 		if roles, ok := opts["roles"].([]any); ok && len(roles) > 0 {
 			has := false

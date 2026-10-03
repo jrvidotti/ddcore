@@ -14,6 +14,15 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- A whitelisted method declared with `pathTail: true` also answers below its own path:
+  `/api/method/<path>/pix/1` reaches it, and `ctx.request.pathTail` holds `"pix/1"`,
+  percent-decoded (`""` when the call names the method alone). A provider webhook that appends
+  to the URL it was registered with, such as a bank posting to `<url>/pix`, can now land on the
+  app directly. A method without the option still answers a sub-path with a 404. See *Inbound
+  webhooks* in `controller-api` (#68).
+
 ## 0.24.4 — 2026-10-03
 
 ### Added

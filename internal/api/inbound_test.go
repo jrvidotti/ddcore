@@ -136,3 +136,45 @@ func TestInboundSignatureCanBeVerified(t *testing.T) {
 		t.Fatalf("a missing signature was accepted: %s", r.Raw)
 	}
 }
+
+// A provider that appends to the URL it was registered with (a bank posting
+// to "<url>/pix") reaches a method that opts into pathTail, which reads what
+// came after its own path, percent-decoded.
+func TestPathTailReachesAnOptedInMethod(t *testing.T) {
+	x := setup(t)
+	for path, want := range map[string]string{
+		"hook":                     "",
+		"hook/":                    "",
+		"hook/pix":                 "pix",
+		"hook/pix/2024/10":         "pix/2024/10",
+		"hook/pix/a%20b%C3%A9%40x": "pix/a bé@x",
+	} {
+		r := x.rawCall("POST", diag+path, `{"k":1}`, "application/json")
+		x.expect(r, 200, "")
+		d := r.Body["data"].(map[string]any)
+		if d["tail"] != want {
+			t.Fatalf("%s: pathTail = %#v, want %q", path, d["tail"], want)
+		}
+		if d["args"].(map[string]any)["k"] != float64(1) {
+			t.Fatalf("%s: args lost: %v", path, d["args"])
+		}
+	}
+	r := x.call("GET", diag+"hook/pix?a=1", nil, "")
+	x.expect(r, 200, "")
+	if d := r.Body["data"].(map[string]any); d["tail"] != "pix" || d["args"].(map[string]any)["a"] != "1" {
+		t.Fatalf("GET with a tail: %s", r.Raw)
+	}
+}
+
+// A method that did not opt in answers a sub-path exactly as it did before:
+// the method does not exist there.
+func TestPathTailIsRefusedWithoutTheOptIn(t *testing.T) {
+	x := setup(t)
+	x.expect(x.rawCall("POST", diag+"inspect/pix", "", ""), 404, "DoesNotExistError")
+	x.expect(x.call("GET", diag+"inspect/pix", nil, ""), 404, "DoesNotExistError")
+	r := x.call("POST", diag+"inspect", nil, "")
+	x.expect(r, 200, "")
+	if strings.Contains(r.Raw, "pathTail") {
+		t.Fatalf("pathTail reached a method that did not ask for it: %s", r.Raw)
+	}
+}

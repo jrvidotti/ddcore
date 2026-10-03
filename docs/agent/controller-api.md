@@ -61,6 +61,19 @@ export const receive = whitelisted((args, ctx) => {
   `headers`, names lower-cased. `cookie`, `authorization` and `x-ddcore-csrf` are left out on purpose. `args` is
   still parsed from a JSON body; a body that is not JSON (and is not sent as `application/json`) leaves `args`
   empty instead of failing, so read `rawBody`.
+- `pathTail: true` — the method also answers below its own path, and reads what came after it, percent-decoded,
+  as `ctx.request.pathTail` (`""` when the call named the method alone). This is for a provider that appends to
+  the URL it was registered with: a bank that posts PIX events to `<url>/pix`, say. Register
+  `/api/method/<app>.services.<file>.<fn>` with the bank and dispatch on the tail:
+
+  ```ts
+  export const bank = whitelisted((args, ctx) => {
+    if (ctx.request!.pathTail === "pix") { /* the PIX event, in rawBody */ }
+  }, { allowGuest: true, methods: ["POST"], pathTail: true });
+  ```
+
+  A method without it does not exist at a sub-path: `/api/method/<path>/x` answers the same 404 as an unknown
+  method, and `ctx.request` carries no `pathTail`.
 - `ddcore.crypto.hmacSha256(key, data)` → lower-case hex; `ddcore.crypto.timingSafeEqual(a, b)` compares in
   constant time. Never compare a signature with `===`. For a timestamped scheme, also check the timestamp header
   against `Date.now()` and refuse an event older than the window you accept.
@@ -142,7 +155,7 @@ by hand.
 - `ddcore.externalDb("sql_server").sql("SELECT ... WHERE x = @p1", [v], { timeout })` — read-only query on another database (SQL Server), configured from `DDCORE_SECRET_SQL_SERVER_*`. See `external-db`
 - `ddcore.getDoc(doctype, id)`, `ddcore.newDoc(doctype, values)`, `ddcore.deleteDoc(doctype, id, { force })`, `ddcore.rename(doctype, oldID, newID)`
 - `ddcore.throw(msg, { title, type })`, `ddcore.msgprint(msg, { title, indicator, alert })`, `ddcore._(text, args)` / `_()`
-- `ddcore.session` → `{ user, roles, lang, request }` (`request`: `{ method, path, ip, rawBody, headers }` on a whitelisted call — see *Inbound webhooks*); `ddcore.user()`; `ddcore.getRoles(user)`; `ddcore.hasPermission(doctype, ptype, doc, user?)` (`doc` may be just `{ id, owner }`, or a document id; `user` checks another user's roles, scopes and shares instead of the current one's)
+- `ddcore.session` → `{ user, roles, lang, request }` (`request`: `{ method, path, ip, rawBody, headers }` on a whitelisted call, plus `pathTail` when the method opts in — see *Inbound webhooks*); `ddcore.user()`; `ddcore.getRoles(user)`; `ddcore.hasPermission(doctype, ptype, doc, user?)` (`doc` may be just `{ id, owner }`, or a document id; `user` checks another user's roles, scopes and shares instead of the current one's)
 - `ddcore.share.add(doctype, id, user, { write, share, overrideScope })` / `remove(doctype, id, user)` / `list(doctype, id)` — per-user document shares, checked with the current user as sharer. See `sharing`
 - `ddcore.users.invite({ email, fullName, roles?, userType? })` / `resendInvite(user)` — create an account and mail its invitation; returns `{ user, expires, link? }`. Without System Manager, only a Website User with no privileged role. See `portal`
 - `ddcore.redact(doctype, doc)` → a copy of `doc` as an API read would show it to the current user: Password/Vault blanked and fields above their permission level removed. Server code sees whole documents; redact before a method or report hands one to a client. See `field-permissions`
