@@ -83,6 +83,9 @@ type Field struct {
 	// exists, on every write path (save, dbSet, import); an empty value may
 	// be filled once. Unlike readOnly, this is enforced on the server.
 	SetOnlyOnce bool `json:"setOnlyOnce,omitempty"`
+	// NoCopy keeps the value out of the desk's Duplicate, which already
+	// leaves behind a unique field and a readOnly one without fetchFrom.
+	NoCopy bool `json:"noCopy,omitempty"`
 	// HideLabel keeps the label off the form; it still names the field in
 	// exports, dialogs and error messages.
 	HideLabel bool `json:"hideLabel,omitempty"`

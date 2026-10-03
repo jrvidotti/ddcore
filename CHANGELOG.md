@@ -14,6 +14,18 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- A field can stay out of the desk's **Duplicate** with `noCopy: true`; the copy takes the
+  field's default, and a `Table` with it starts empty. See `fieldtypes` (#74).
+
+### Changed
+
+- **Duplicate** no longer copies a `unique` field nor a `readOnly` one (a `fetchFrom` still
+  follows its Link), on the document and on its child rows: the copy takes their defaults,
+  so it no longer fails at save with a duplicate value or carries what the server wrote on
+  the original (#74).
+
 ## 0.26.0 — 2026-10-03
 
 ### Added
