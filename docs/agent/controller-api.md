@@ -140,6 +140,7 @@ by hand.
 - `ddcore.db.count(doctype, filters)`, `ddcore.db.exists(doctype, id | filters)` → the id or `null`; applies user access scopes (see `scopes`)
 - `ddcore.db.sql("SELECT ... WHERE x = $1", [v])` — read-only; tables are `tab_<snake>`
 - `ddcore.db.lock(key)` — an advisory lock held until the transaction ends: another request locking the same key waits. Use it to make an operation idempotent under concurrency (`ddcore.db.lock("billing:" + contract)`). Inside a tenant the key is the tenant's own (see `tenancy`)
+- `ddcore.db.savepoint(fn)` → what `fn` returns. When `fn` throws, its writes are rolled back and the error rethrown, and the transaction goes on. See "Savepoints" below
 - `ddcore.externalDb("sql_server").sql("SELECT ... WHERE x = @p1", [v], { timeout })` — read-only query on another database (SQL Server), configured from `DDCORE_SECRET_SQL_SERVER_*`. See `external-db`
 - `ddcore.getDoc(doctype, id)`, `ddcore.newDoc(doctype, values)`, `ddcore.deleteDoc(doctype, id, { force })`, `ddcore.rename(doctype, oldID, newID)`
 - `ddcore.throw(msg, { title, type })`, `ddcore.msgprint(msg, { title, indicator, alert })`, `ddcore._(text, args)` / `_()`
@@ -177,6 +178,37 @@ by hand.
 
 `nowdate()` and `now()` are the site's wall clock (`ddcore.json:timezone`), the same day and hour the desk sees.
 A `Datetime` written without an offset — which is what `now()` returns — is read on that same clock.
+
+### Savepoints
+
+A failed statement aborts the whole transaction in Postgres: a `try/catch` catches the error,
+and every later query fails with `current transaction is aborted`. `ddcore.db.savepoint(fn)`
+runs `fn` inside a savepoint. When `fn` throws, for a SQL error or for any other reason, only
+`fn`'s work is undone, the error is rethrown, and the code that catches it carries on in the
+same transaction. Undone with the writes are the `msgprint`s, `publish`es and other
+after-commit effects `fn` made. When `fn` returns, its work stays and its value is returned.
+Savepoints nest.
+
+A value a unique index refuses, from `insert`, `save` or `ddcore.db.setValue`, throws a
+`DuplicateEntryError`. Catching it turns an idempotent create into an ordinary outcome, with
+no lock around it:
+
+```ts
+export function createCharge(args: { reference: string; amount: number }) {
+  const doc = ddcore.newDoc("Charge", { external_reference: args.reference, amount: args.amount });
+  try {
+    ddcore.db.savepoint(() => doc.insert());
+  } catch (e: any) {
+    if (e.name !== "DuplicateEntryError") throw e;
+    // a retry: return the charge the first call made
+    return ddcore.getDoc("Charge", ddcore.db.exists("Charge", { external_reference: args.reference })!);
+  }
+  return doc;
+}
+```
+
+`fn` is synchronous, as all server code is. A savepoint needs the request's transaction, which
+every controller, method and job has.
 
 ### Money
 

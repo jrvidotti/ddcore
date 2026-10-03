@@ -27,6 +27,13 @@ export interface DDCoreDB {
    * do not wait for each other. A site-wide lock is taken from the platform.
    */
   lock(key: string): void;
+  /**
+   * Runs `fn` inside a savepoint. When it throws, only its writes (and its
+   * messages and events) are rolled back, the error is rethrown, and the
+   * transaction stays usable: catch a `DuplicateEntryError` from a unique
+   * index and carry on. Returns what `fn` returns. Savepoints nest.
+   */
+  savepoint<T>(fn: () => T): T;
   getSingleValue(doctype: string, field: string): any;
 }
 

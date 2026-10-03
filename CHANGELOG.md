@@ -14,6 +14,15 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- `ddcore.db.savepoint(fn)` runs `fn` inside a savepoint. When `fn` throws, only its writes,
+  messages and events are rolled back, the error is rethrown, and the transaction stays usable,
+  so an app can catch a collision and carry on instead of failing on `current transaction is
+  aborted`. `ddcore.db.setValue` and `doc.dbSet` now throw `DuplicateEntryError` for a value a
+  unique index refuses, as `insert` and `save` do, so `e.name === "DuplicateEntryError"` tells
+  an idempotent retry from a failure. See `controller-api` → "Savepoints" (#70).
+
 ### Changed
 
 - `ddcore.db.lock(key)` is scoped to the current tenant on a site with tenancy, as cache keys
