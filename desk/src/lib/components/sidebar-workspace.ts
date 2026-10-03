@@ -11,7 +11,10 @@ export interface WorkspaceItem {
     report?: string;
     route?: string;
     icon?: string;
+    space?: "platform" | "tenant";
   }>;
+  /** On a site with tenancy, the space it shows in; boot already left out the other space's. */
+  space?: "platform" | "tenant";
 }
 
 const WORKSPACE_KEY = "ddcore_workspace";
@@ -43,6 +46,16 @@ export function getRememberedWorkspace(store = defaultStore()): string {
     /* private mode / SSR */
   }
   return "";
+}
+
+/**
+ * The workspace `/app` opens: the one remembered, else the site's home, else
+ * the first — each only if boot brought it, since a workspace of the other
+ * space (or one the user lost) is not there to open.
+ */
+export function landingWorkspace(workspaces: { name: string }[], remembered: string, home?: string): string {
+  const find = (name?: string) => (name ? workspaces.find((w) => w.name.toLowerCase() === name.toLowerCase())?.name : undefined);
+  return find(remembered) || find(home) || workspaces[0]?.name || "";
 }
 
 /**

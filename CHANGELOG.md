@@ -14,6 +14,14 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- On a site with tenancy, a workspace can show something in one space only:
+  `space: "platform" | "tenant"` on the workspace, or on a `sidebar`, `shortcuts` or
+  `numberCards` entry. Boot leaves out the other space's, and its number cards answer 404
+  there. Without `space` it shows in both, as before; any other value fails the load. See
+  `report-api` (#76).
+
 ### Fixed
 
 - Inside a tenant, a shared DocType no longer looks editable only to fail at save: the

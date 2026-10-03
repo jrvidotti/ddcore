@@ -706,8 +706,13 @@ func (s *Server) boot(w http.ResponseWriter, r *http.Request) {
 			apps = append(apps, map[string]any{"name": a.Name, "title": c.T(a.Title), "desk": a.Desk, "hasDeskInclude": len(deskIncludes(a)) > 0})
 		}
 		st := c.St
+		space := c.Space()
 		for _, ws := range st.Snap.Workspaces {
-			if allowed(ws["roles"], roles) {
+			if !allowed(ws["roles"], roles) {
+				continue
+			}
+			// the platform's and the tenants' items, each in its own space
+			if ws = engine.WorkspaceForSpace(ws, space); ws != nil {
 				workspaces = append(workspaces, st.TranslateStringMap(ws, c.Lang))
 			}
 		}
@@ -1380,7 +1385,7 @@ func (s *Server) numberCard(w http.ResponseWriter, r *http.Request) {
 		cards, _ := ws["numberCards"].([]any)
 		for _, cAny := range cards {
 			card, _ := cAny.(map[string]any)
-			if card["name"] != cardName {
+			if card["name"] != cardName || !engine.InSpace(card, c.Space()) {
 				continue
 			}
 			if dt, ok := card["doctype"].(string); ok && dt != "" {
@@ -1432,7 +1437,7 @@ func (s *Server) chart(w http.ResponseWriter, r *http.Request) {
 // (B05): hiding the link in the boot payload is not authorisation.
 func (s *Server) workspace(c *engine.Ctx, name string) (map[string]any, error) {
 	ws, ok := s.E.Snap.Workspaces[name]
-	if !ok {
+	if !ok || !engine.InSpace(ws, c.Space()) {
 		return nil, cerr.NotFound("Workspace {0} does not exist", name)
 	}
 	roles, err := c.Roles()

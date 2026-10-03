@@ -706,6 +706,10 @@ func (e *Engine) Load() error {
 			return err
 		}
 	}
+	if err := workspaceSpaceError(snap.Workspaces); err != nil {
+		pool.Close()
+		return err
+	}
 	www, err := buildWWW(apps, snap)
 	if err != nil {
 		pool.Close()

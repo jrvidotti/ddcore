@@ -633,6 +633,8 @@ export interface NumberCardDef {
   method?: () => { value: number; formatted?: string; color?: string };
   color?: string;
   route?: string;
+  /** on a site with tenancy: show only in this space (default: both) */
+  space?: WorkspaceSpace;
 }
 
 export interface ChartDef {
@@ -642,19 +644,28 @@ export interface ChartDef {
   method: () => ChartData;
 }
 
+/**
+ * On a site with tenancy, the space a workspace or one of its items belongs
+ * to: "platform" (the operator's, outside any tenant) or "tenant" (inside
+ * one). Without it, it shows in both; without tenancy it is ignored.
+ */
+export type WorkspaceSpace = "platform" | "tenant";
+
 export interface WorkspaceDef {
   name: string;
   label?: string;
   icon?: string;
   /** shown in the sidebar for these roles ("*" = all) */
   roles?: string[];
-  shortcuts?: { label: string; doctype?: string; report?: string; route?: string; icon?: string; filters?: Filters }[];
+  /** on a site with tenancy: show the whole workspace only in this space (default: both) */
+  space?: WorkspaceSpace;
+  shortcuts?: { label: string; doctype?: string; report?: string; route?: string; icon?: string; filters?: Filters; space?: WorkspaceSpace }[];
   numberCards?: NumberCardDef[];
   charts?: ChartDef[];
   reports?: string[];
   /** grouped links for the workspace page */
   links?: { label: string; items: { label: string; doctype?: string; report?: string }[] }[];
-  sidebar?: { label: string; doctype?: string; report?: string; route?: string; icon?: string }[];
+  sidebar?: { label: string; doctype?: string; report?: string; route?: string; icon?: string; space?: WorkspaceSpace }[];
 }
 
 export interface Context {

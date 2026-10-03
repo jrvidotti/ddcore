@@ -6,6 +6,7 @@ import {
   workspaceRedirect,
   rememberWorkspace,
   getRememberedWorkspace,
+  landingWorkspace,
   type WorkspaceItem,
 } from "./sidebar-workspace";
 
@@ -165,5 +166,18 @@ describe("sidebar-workspace", () => {
     };
     rememberWorkspace("Manutencao", store);
     expect(getRememberedWorkspace(store)).toBe("Manutencao");
+  });
+});
+
+describe("landingWorkspace", () => {
+  const ws = [{ name: "Back Office" }, { name: "Sales" }];
+  it("opens the remembered workspace, then the home, then the first", () => {
+    expect(landingWorkspace(ws, "sales", "Back Office")).toBe("Sales");
+    expect(landingWorkspace(ws, "", "Sales")).toBe("Sales");
+    expect(landingWorkspace(ws, "", undefined)).toBe("Back Office");
+  });
+  it("skips a remembered workspace or a home boot did not bring (the other space's)", () => {
+    expect(landingWorkspace(ws, "Tenants", "Tenants")).toBe("Back Office");
+    expect(landingWorkspace([], "Sales", "Sales")).toBe("");
   });
 });
