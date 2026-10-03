@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.24.4 — 2026-10-03
+
 ### Added
 
 - `poolMaxConns` in `ddcore.json`, or `DDCORE_POOL_MAX_CONNS`, sizes the database pool requests
