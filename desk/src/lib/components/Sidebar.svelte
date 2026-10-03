@@ -1,11 +1,12 @@
 <script lang="ts">
   import { seg } from "$lib/routes";
-  import { boot, __, isLoggedIn, siteName, siteLogo } from "$lib/boot.svelte";
+  import { boot, __, isLoggedIn, siteName, siteLogo, spaceLabel } from "$lib/boot.svelte";
   import { openShortcutsHelp, openSearch } from "$lib/shortcuts.svelte";
   import { getModifierKey } from "$lib/shortcuts";
   import Icon from "./Icon.svelte";
   import TenantMenu from "./TenantMenu.svelte";
-  import { tenantLabel } from "$lib/tenant";
+  import SpaceBadge from "./SpaceBadge.svelte";
+  import { spaceKind, withSpace } from "$lib/tenant";
   import { page } from "$app/state";
   import { api } from "$lib/api";
   import { goto } from "$app/navigation";
@@ -80,7 +81,8 @@
   let menuOpen = $state(false);
   const displayName = $derived(boot.data?.userDoc?.full_name || boot.data?.user || "");
   // on a site with tenancy: the tenant the person works in
-  const space = $derived(tenantLabel(boot.data?.site?.tenant, __("Platform")));
+  const space = $derived(spaceLabel());
+  const kind = $derived(spaceKind(boot.data?.site?.tenant));
   const avatarInitial = (name: string) => (name || "U").trim().charAt(0).toUpperCase();
 
   function onPointerDown(e: PointerEvent) {
@@ -100,7 +102,10 @@
 
 <aside class="sidebar" class:open class:collapsed>
   <div class="brand">
-    <a href="/app" title={tip(siteName())} style="display:flex;align-items:center;gap:8px;color:inherit;text-decoration:none"><span class="logo">{siteLogo()}</span><strong>{siteName()}</strong></a>
+    <div class="brand-name">
+      <a href="/app" title={tip(withSpace(siteName(), space))} style="display:flex;align-items:center;gap:8px;color:inherit;text-decoration:none"><span class="logo {kind}">{siteLogo()}</span><strong>{siteName()}</strong></a>
+      <SpaceBadge />
+    </div>
     <button class="sidebar-collapse-btn" onclick={() => setSidebarCollapsed(!collapsed)} aria-label={collapsed ? __("Expand sidebar") : __("Collapse sidebar")} title={collapsed ? __("Expand sidebar") : __("Collapse sidebar")} aria-expanded={!collapsed} type="button">
       <Icon name="panel-left" size={16} />
     </button>
@@ -210,6 +215,9 @@
   .sidebar-collapse-btn:hover { background: #f3f4f6; color: var(--text); }
   .logo { display: inline-flex; width: 26px; height: 26px; border-radius: 7px; background: var(--primary); color: #fff; align-items: center; justify-content: center; font-weight: 700; overflow: hidden; }
   .sidebar-close-btn { display: none; }
+  .brand-name { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .brand-name strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .brand-name > :global(.space-badge) { margin-left: 34px; }
   .workspace-switcher { padding: 8px 10px; border-bottom: 1px solid var(--border); }
   .workspace-btn { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 8px; border: 1px solid var(--border); background: #fafafa; border-radius: 6px; cursor: pointer; text-align: left; font-size: 13px; font-weight: 500; color: var(--text); }
   .workspace-btn:hover { background: #f3f4f6; }
@@ -244,6 +252,10 @@
   @media (min-width: 801px) {
     .sidebar.collapsed { width: 56px; }
     .sidebar.collapsed .brand { flex-direction: column; padding: 14px 0 8px; }
+    .sidebar.collapsed .brand-name > :global(.space-badge) { display: none; }
+    /* the badge is hidden in the rail, so the logo carries the space's color */
+    .sidebar.collapsed .logo.platform { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--space-platform); }
+    .sidebar.collapsed .logo.tenant { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--space-tenant); }
     .sidebar.collapsed .brand strong,
     .sidebar.collapsed .ws-label,
     .sidebar.collapsed .workspace-btn > :global(svg),

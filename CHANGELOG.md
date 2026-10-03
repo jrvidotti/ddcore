@@ -21,6 +21,12 @@ older series, and `whats_new` reads across every one of them.
   `numberCards` entry. Boot leaves out the other space's, and its number cards answer 404
   there. Without `space` it shows in both, as before; any other value fails the load. See
   `report-api` (#76).
+- On a site with tenancy, the desk says which space it is in at the top: under the site's
+  name in the sidebar (and in the mobile header), the tenant's title, or **Platform** in its
+  own color, so the space that changes what every tenant shares never looks like a tenant. For
+  an operator it opens the tenant menu. With the sidebar collapsed, the logo keeps the space's
+  color. Page titles end with the space (`Projects · Demo Ltd`), so browser tabs of two
+  spaces can be told apart (#77).
 
 ### Fixed
 

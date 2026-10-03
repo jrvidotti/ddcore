@@ -1,6 +1,7 @@
 <script lang="ts">
   import "../app.css";
-  import { __, loadBoot, isLoggedIn, siteName, siteLogo, boot, type Boot } from "$lib/boot.svelte";
+  import { __, loadBoot, isLoggedIn, siteName, siteLogo, boot, pageTitle, spaceLabel, type Boot } from "$lib/boot.svelte";
+  import { spaceKind } from "$lib/tenant";
   import { installDeskSDK, loadAppIncludes } from "$lib/desk-sdk";
   import { connectEvents, disconnectEvents, subscribe } from "$lib/events";
   import { maintenance, setMaintenance } from "$lib/maintenance.svelte";
@@ -190,7 +191,7 @@
   });
 </script>
 
-<svelte:head><title>{siteName()}</title></svelte:head>
+<svelte:head><title>{pageTitle()}</title></svelte:head>
 <svelte:window onkeydown={onWindowKeydown} onpointerdown={onWindowPointerDown} />
 
 {#if ui.busy > 0}<div class="busy-bar"></div>{/if}
@@ -227,6 +228,9 @@
         <a href="/app" class="mobile-brand">
           <span class="logo">{siteLogo()}</span>
           <span class="mobile-brand-title">{siteName()}</span>
+          {#if spaceLabel()}
+            <span class="mobile-space-badge {spaceKind(boot.data?.site?.tenant)}">{spaceLabel()}</span>
+          {/if}
           {#if activeWorkspaceName}
             <span class="mobile-ws-badge">{activeWorkspaceName}</span>
           {/if}
@@ -377,6 +381,19 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+    .mobile-space-badge {
+      font-size: 11px;
+      font-weight: 500;
+      padding: 1px 6px;
+      border-radius: 4px;
+      max-width: 90px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .mobile-space-badge.platform { background: var(--space-platform-bg); color: var(--space-platform-fg); }
+    .mobile-space-badge.tenant { background: var(--space-tenant-bg); color: var(--space-tenant-fg); }
     .mobile-ws-badge {
       font-size: 11px;
       font-weight: 500;

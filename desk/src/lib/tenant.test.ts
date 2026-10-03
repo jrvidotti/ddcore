@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { platformHref, tenantChoices, tenantLabel, tenantLinkState, tenantParam, type TenantBoot } from "./tenant";
+import { platformHref, spaceKind, tenantChoices, tenantLabel, tenantLinkState, tenantParam, withSpace, type TenantBoot } from "./tenant";
 
 const operator: TenantBoot = {
   id: "", title: "", platform: true,
@@ -75,5 +75,22 @@ describe("platformHref", () => {
   it("keeps the page and drops only the tenant", () => {
     expect(platformHref(new URL("http://x/app/Gateway/GatewaySettings?tenant=demo"))).toBe("/app/Gateway/GatewaySettings");
     expect(platformHref(new URL("http://x/app/Bank?tenant=demo&status=Open#top"))).toBe("/app/Bank?status=Open#top");
+  });
+});
+
+describe("spaceKind", () => {
+  it("sets the platform apart from a tenant, and says nothing where there is no space to tell", () => {
+    expect(spaceKind({ id: "", title: "", platform: true })).toBe("platform");
+    expect(spaceKind({ id: "demo", title: "Demo", platform: true })).toBe("tenant");
+    expect(spaceKind({ id: "demo", title: "Demo", platform: false })).toBe("tenant");
+    expect(spaceKind({ id: "", title: "", platform: false })).toBe("");
+    expect(spaceKind(undefined)).toBe("");
+  });
+});
+
+describe("withSpace", () => {
+  it("names the space after the title, when there is one", () => {
+    expect(withSpace("Charges · Gateway", "demo")).toBe("Charges · Gateway · demo");
+    expect(withSpace("Gateway", "")).toBe("Gateway");
   });
 });

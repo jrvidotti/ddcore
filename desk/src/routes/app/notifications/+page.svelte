@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
   import { NotificationCenter } from "$lib/notification-center.svelte";
-  import { __, doctypeLabel, siteName } from "$lib/boot.svelte";
+  import { __, doctypeLabel, pageTitle } from "$lib/boot.svelte";
   import { formatDatetime } from "$lib/format";
   import { notifications, refreshNotifications } from "$lib/notifications.svelte";
   import Icon from "$lib/components/Icon.svelte";
@@ -11,7 +11,7 @@
   onDestroy(() => center.destroy());
 </script>
 
-<svelte:head><title>{__("Notifications")} · {siteName()}</title></svelte:head>
+<svelte:head><title>{pageTitle(__("Notifications"))}</title></svelte:head>
 <div class="page notifications">
   <div class="page-head">
     <h1>{__("Notifications")}</h1>
