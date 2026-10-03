@@ -20,6 +20,8 @@
   let loading = $state(false);
   const workspace = $derived(page.params.workspace || getRememberedWorkspace() || "");
   const wsPrefix = $derived(workspace ? `/app/${seg(workspace)}` : "/app");
+  // the report's columns that a script's grids.<field>.onCellClick turns into buttons
+  const clickable = $derived(new Set<string>((result?.columns || []).map((c: any) => c.fieldname).filter((f: string) => frm.cellClickHandlers(field.fieldname!, f).length)));
   const baseSort = $derived<GridSortState | null>(field.gridSort?.field ? { field: field.gridSort.field, order: field.gridSort.order === "desc" ? "desc" : "asc" } : null);
 
   // runs on load, after a save or a reload (a new `modified`) and on refreshField
@@ -55,7 +57,8 @@
     <ReportGrid columns={result.columns || []} rows={result.rows || []} {wsPrefix}
       filename={exportBaseName(frm.doctype, frm.doc.id, field.fieldname)} sheetName={field.label}
       {baseSort} filters={field.gridFilters || []} search={field.gridSearch || []} sortable={!!field.gridSortable} selectable={!!field.gridSelect} exportable={!!field.gridExport && canExport}
-      buttons={frm.fieldButtons[field.fieldname!] || []} />
+      buttons={frm.fieldButtons[field.fieldname!] || []}
+      {clickable} oncellclick={(column, row) => frm.clickCell(field.fieldname!, column, row)} />
   {:else if loading}
     <div class="card muted" style="padding:14px;text-align:center">{__("Loading...")}</div>
   {/if}

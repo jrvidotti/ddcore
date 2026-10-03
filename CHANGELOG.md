@@ -14,6 +14,13 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- A `Report` field's cells act on a click like a Table's: `grids.<field>.onCellClick.<column>`
+  in a form script turns that report column's non-empty cells into buttons, and the handler
+  receives the row as the report returned it. A cell click handler, on a Table or a Report, may
+  now be async; an error it rejects with is shown. See "grids" in `form-api` (#65).
+
 ### Changed
 
 - pt-BR: a tenant is now translated as *Conta* (it was left as *Tenant*).

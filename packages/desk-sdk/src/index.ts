@@ -97,10 +97,12 @@ export interface FormHandlers<T extends BaseDoc = BaseDoc> {
   /**
    * per Table field, keyed by the child fieldname: `onCellClick` runs when a
    * read-only cell of that field is clicked, `onChange` when that field of a row
-   * changes (before the table's own onChange)
+   * changes (before the table's own onChange). A Report field takes
+   * `onCellClick` too, keyed by the report's column, with the row as the
+   * report returned it. A handler may be async; its error is shown
    */
   grids?: Record<string, {
-    onCellClick?: Record<string, (frm: Frm<T>, row: any) => void>;
+    onCellClick?: Record<string, (frm: Frm<T>, row: any) => void | Promise<void>>;
     onChange?: Record<string, (frm: Frm<T>, row: any) => void>;
   }>;
 }

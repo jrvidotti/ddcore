@@ -106,7 +106,7 @@ without repeating the tab's name above it:
 { fieldname: "attendance", fieldtype: "Table", options: "Training Class Attendance", label: "Students", hideLabel: true },
 ```
 
-A form script can make a Table's cells act on a click (`grids.<table>.onCellClick`), react to a
+A form script can make a Table's or a Report's cells act on a click (`grids.<field>.onCellClick`), react to a
 change of one child field (`grids.<table>.onChange`) and change a row with `frm.setRowValue`; see [form-api.md](form-api.md#grids-row-changes-and-cell-clicks).
 
 ### Computed columns
@@ -150,6 +150,9 @@ the document does not hold: attendance and grades per student, say, from other D
   A new document shows "Save the document first".
 - Its rows are read-only; `gridSelect` only chooses what to export. The totals row goes along
   with a full export, not with a selection.
+- A form script acts on a row with `grids.<field>.onCellClick.<column>`: the column's non-empty
+  cells become buttons and the handler receives the row as the report returned it; see
+  [form-api.md](form-api.md#grids-row-changes-and-cell-clicks).
 
 ## Rich text
 

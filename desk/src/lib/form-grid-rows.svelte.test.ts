@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { FormController, registerForm } from "./form.svelte";
+import { showError } from "./ui.svelte";
 import type { Meta } from "./meta";
 
 vi.mock("./api", () => ({ api: {} }));
@@ -22,6 +23,7 @@ registerForm("Training Class", {
   grids: { attendance: { onCellClick: { employee: (frm, row) => { clicks.push(`a:${row.employee}`); frm.setRowValue("attendance", row, "in_class", row.in_class ? 0 : 1); } } } },
 });
 registerForm("Training Class", { grids: { attendance: { onCellClick: { employee: (_frm, row) => { clicks.push(`b:${row.employee}`); } } } } });
+registerForm("Training Class", { grids: { sessions: { onCellClick: { action: async () => { throw new Error("refused"); } } } } });
 
 const frm = () => new FormController(meta, {
   doctype: "Training Class", id: "TC-1",
@@ -80,6 +82,14 @@ describe("grid cell clicks", () => {
     f.clickCell("attendance", "employee", f.doc.attendance[0]);
     expect(clicks).toEqual(["a:E-1", "b:E-1"]);
     expect(f.doc.attendance[0].in_class).toBe(1);
+  });
+
+  it("shows the error of an async handler", async () => {
+    vi.mocked(showError).mockClear();
+    frm().clickCell("sessions", "action", { id: "S-1" });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(showError).toHaveBeenCalledWith(expect.objectContaining({ message: "refused" }));
   });
 });
 
