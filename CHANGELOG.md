@@ -14,6 +14,14 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- `migrate` with `"tenancy": true` on a fresh Postgres cluster no longer fails with `role
+  "ddcore_tenant" does not exist (SQLSTATE 22023)`: the tenant role is created and committed
+  before anything in the migration uses it. Creating the role by hand first is no longer
+  needed, and is harmless if kept. A database restored into a cluster without the role no
+  longer fails every new connection either; the next `migrate` creates it (#66).
+
 ## 0.24.3 — 2026-10-03
 
 ### Added

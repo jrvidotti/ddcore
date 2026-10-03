@@ -84,6 +84,18 @@ func (e *Engine) Migrate(ctx context.Context, prune bool) (*MigrateResult, error
 	// steps that run document code — roles, app installs, fixtures, the
 	// afterMigrate hooks — are confined to the platform space one by one.
 	wasReady := e.tenancyReady.Load()
+	// The role is the one thing the migration cannot create in its own
+	// transaction: once tenancy is ready, side lookups (webhook subscribers,
+	// audit, the vault) open confined connections of their own, and those
+	// cannot SET ROLE to a role nobody has committed yet (#66). So it is
+	// committed first, on its own. A role left behind by a migration that
+	// fails later is harmless — it belongs to the cluster, holds nothing, and
+	// the next run finds it.
+	if e.Cfg.Tenancy && e.DB != nil {
+		if err := db.EnsureTenantRole(ctx, e.DB.Sys, e.tenantRole()); err != nil {
+			return nil, err
+		}
+	}
 	err := e.RunSystem(ctx, "Admin", func(c *Ctx) error {
 		c.Flags["ignorePermissions"] = true
 		// a migration is exactly the work a maintenance window is opened for,
