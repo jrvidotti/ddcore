@@ -35,6 +35,12 @@ older series, and `whats_new` reads across every one of them.
   aborted`. `ddcore.db.setValue` and `doc.dbSet` now throw `DuplicateEntryError` for a value a
   unique index refuses, as `insert` and `save` do, so `e.name === "DuplicateEntryError"` tells
   an idempotent retry from a failure. See `controller-api` → "Savepoints" (#70).
+- A whitelisted method declared with `pathTail: true` also answers below its own path:
+  `/api/method/<path>/pix/1` reaches it, and `ctx.request.pathTail` holds `"pix/1"`,
+  percent-decoded (`""` when the call names the method alone). A provider webhook that appends
+  to the URL it was registered with, such as a bank posting to `<url>/pix`, can now land on the
+  app directly. A method without the option still answers a sub-path with a 404. See *Inbound
+  webhooks* in `controller-api` (#68).
 
 ### Changed
 

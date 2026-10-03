@@ -65,6 +65,7 @@ export default defineDoctype({ name: "Expense Kind", idGeneration: { field: "kin
 	write("services/portal.ts", `import { whitelisted } from "@ddcore/sdk";
 export const hello = whitelisted(() => ({ hello: ddcore.session.user }), { portal: true });
 export const deskOnly = whitelisted(() => ({ ok: true }));
+export const hook = whitelisted(() => ({ tail: ddcore.session.request.pathTail }), { portal: true, pathTail: true });
 export const claimDefaults = whitelisted(() => ({ subject: "Expense", internal_note: "dropped" }), { portal: true });`)
 	write("portal/members.portal.ts", `import { definePortal } from "@ddcore/sdk";
 export default definePortal({
@@ -184,6 +185,21 @@ func TestPortal_WebsiteUserIsConfined(t *testing.T) {
 	x.expect(x.call("GET", "/api/method/demo.services.portal.deskOnly", nil, desk), 200, "")
 	// Guest keeps its own rules
 	x.expect(x.call("GET", "/api/boot", nil, ""), 200, "")
+}
+
+// The gate reads the method a path names before its tail: a Website User
+// reaches a portal method that takes one, and a sub-path does not open a
+// desk-only method.
+func TestPortal_PathTailPassesTheGate(t *testing.T) {
+	x := setupPortalAPI(t)
+	ana := "sid:" + x.sid(portalAna)
+	r := x.call("POST", "/api/method/demo.services.portal.hook/pix/1", nil, ana)
+	x.expect(r, 200, "")
+	if data(r)["tail"] != "pix/1" {
+		t.Fatalf("pathTail = %v", data(r)["tail"])
+	}
+	x.expect(x.call("POST", "/api/method/demo.services.portal.h%6Fok/pix", nil, ana), 200, "")
+	x.expect(x.call("POST", "/api/method/demo.services.portal.deskOnly/pix", nil, ana), 403, "PermissionError")
 }
 
 // portal.include ships an app's client scripts to the portal as their own

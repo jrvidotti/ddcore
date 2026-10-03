@@ -110,7 +110,8 @@ export const verifySig = whitelisted(() => {
   return ddcore.crypto.timingSafeEqual(want, r.headers["x-hub-signature-256"] || "");
 }, { allowGuest: true });
 export const notString = whitelisted(() => ({ a: 1 }), { allowGuest: true, raw: { contentType: "text/plain" } });
-export const denied = whitelisted(() => ddcore.throw("Forbidden"), { allowGuest: true, raw: { contentType: "text/plain" } });`)
+export const denied = whitelisted(() => ddcore.throw("Forbidden"), { allowGuest: true, raw: { contentType: "text/plain" } });
+export const hook = whitelisted((args) => ({ tail: ddcore.session.request.pathTail, args }), { allowGuest: true, pathTail: true });`)
 	w("services/i18n.ts", `import { whitelisted, _ } from "@ddcore/sdk";
 export const echo = whitelisted(() => ({ save: _("Save"), n: _("Loop") }));`)
 	w("reports/livre.report.ts", `import { defineReport } from "@ddcore/sdk";

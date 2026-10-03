@@ -61,6 +61,19 @@ export const receive = whitelisted((args, ctx) => {
   `headers`, names lower-cased. `cookie`, `authorization` and `x-ddcore-csrf` are left out on purpose. `args` is
   still parsed from a JSON body; a body that is not JSON (and is not sent as `application/json`) leaves `args`
   empty instead of failing, so read `rawBody`.
+- `pathTail: true` — the method also answers below its own path, and reads what came after it, percent-decoded,
+  as `ctx.request.pathTail` (`""` when the call named the method alone). This is for a provider that appends to
+  the URL it was registered with: a bank that posts PIX events to `<url>/pix`, say. Register
+  `/api/method/<app>.services.<file>.<fn>` with the bank and dispatch on the tail:
+
+  ```ts
+  export const bank = whitelisted((args, ctx) => {
+    if (ctx.request!.pathTail === "pix") { /* the PIX event, in rawBody */ }
+  }, { allowGuest: true, methods: ["POST"], pathTail: true });
+  ```
+
+  A method without it does not exist at a sub-path: `/api/method/<path>/x` answers the same 404 as an unknown
+  method, and `ctx.request` carries no `pathTail`.
 - `ddcore.crypto.hmacSha256(key, data)` → lower-case hex; `ddcore.crypto.timingSafeEqual(a, b)` compares in
   constant time. Never compare a signature with `===`. For a timestamped scheme, also check the timestamp header
   against `Date.now()` and refuse an event older than the window you accept.
@@ -145,7 +158,7 @@ by hand.
 - `ddcore.getDoc(doctype, id, { ignorePermissions })`, `ddcore.newDoc(doctype, values)`, `ddcore.deleteDoc(doctype, id, { force })`, `ddcore.rename(doctype, oldID, newID)`
 - `ddcore.getDoc(doctype, id, { ignorePermissions: true })` loads a document the user has no role permission to read, so a service can load, change and `save({ ignorePermissions: true })` it under the caller's identity. The user's access scopes and the tenancy wall still apply (see `scopes`), and `doc.reload({ ignorePermissions: true })` reads it again the same way. The document comes back whole, with no field-level redaction: `ddcore.redact` it before a method returns it to a client (see `field-permissions`)
 - `ddcore.throw(msg, { title, type })`, `ddcore.msgprint(msg, { title, indicator, alert })`, `ddcore._(text, args)` / `_()`
-- `ddcore.session` → `{ user, roles, lang, request }` (`request`: `{ method, path, ip, rawBody, headers }` on a whitelisted call — see *Inbound webhooks*); `ddcore.user()`; `ddcore.getRoles(user)`; `ddcore.hasPermission(doctype, ptype, doc, user?)` (`doc` may be just `{ id, owner }`, or a document id; `user` checks another user's roles, scopes and shares instead of the current one's)
+- `ddcore.session` → `{ user, roles, lang, request }` (`request`: `{ method, path, ip, rawBody, headers }` on a whitelisted call, plus `pathTail` when the method opts in — see *Inbound webhooks*); `ddcore.user()`; `ddcore.getRoles(user)`; `ddcore.hasPermission(doctype, ptype, doc, user?)` (`doc` may be just `{ id, owner }`, or a document id; `user` checks another user's roles, scopes and shares instead of the current one's)
 - `ddcore.share.add(doctype, id, user, { write, share, overrideScope })` / `remove(doctype, id, user)` / `list(doctype, id)` — per-user document shares, checked with the current user as sharer. See `sharing`
 - `ddcore.users.invite({ email, fullName, roles?, userType? })` / `resendInvite(user)` — create an account and mail its invitation; returns `{ user, expires, link? }`. Without System Manager, only a Website User with no privileged role. See `portal`
 - `ddcore.users.createApiKey(user, { label?, days? })` → `{ key, secret, expires }` — issues an API key for another user, what `ddcore apikey` does, so provisioning a tenant (its users and its integration's key) can be one method or an `onTenantCreate`. The caller must be a System Manager outside portal mode, or Admin; anyone else gets a `PermissionError`. Inside a tenant only that tenant's users can get one (another tenant's user is reported as not existing); from the platform space the key is made in the user's own tenant. `days` defaults to the site's `apiKeyDays` (see `auth`), and `expires` is `null` for a key that never expires. The secret is returned this once, since only its hash is stored; an `apikey.create` audit event on the User records who issued which key, never the secret. The key signs in as `Authorization: token key:secret`

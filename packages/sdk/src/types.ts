@@ -670,6 +670,12 @@ export interface Context {
      * left out: the credential that authenticated the call is not app data.
      */
     headers?: Record<string, string>;
+    /**
+     * What followed the method's path in the URL, percent-decoded, without the
+     * leading "/" (`""` when there was nothing). Set only on a method
+     * whitelisted with `pathTail: true`.
+     */
+    pathTail?: string;
   };
   /**
    * Correlates this unit of work with the access log line, the Error Log row
