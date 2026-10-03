@@ -22,10 +22,20 @@ type DB struct {
 	Sys  *pgxpool.Pool
 }
 
-func Open(ctx context.Context, dsn string) (*DB, error) { return OpenConfined(ctx, dsn, "") }
+func Open(ctx context.Context, dsn string) (*DB, error) { return OpenConfined(ctx, dsn, Options{}) }
+
+// Options are what a site says about its connections beyond the DSN.
+type Options struct {
+	// TenantRole confines Pool on a site with tenancy; empty opens one pool.
+	TenantRole string
+	// MaxConns sizes Pool — ddcore.json's poolMaxConns. Zero leaves it to
+	// the DSN's pool_max_conns, or to pgx's default. Sys keeps its own size:
+	// it carries single statements, never a request.
+	MaxConns int
+}
 
 // OpenConfined is Open for a site with tenancy: every connection of Pool
-// sets its role to tenantRole as soon as the database has had tenancy
+// sets its role to o.TenantRole as soon as the database has had tenancy
 // applied, so a statement that names no tenant sees the platform space and
 // nothing else. Confinement is a connection's resting state and crossing
 // spaces is the explicit act — a statement somebody forgot to think about
@@ -34,11 +44,15 @@ func Open(ctx context.Context, dsn string) (*DB, error) { return OpenConfined(ct
 // Before the first migration there is no role to take and no policy to be
 // held by, and the connection stays what the DSN made it; Migrate resets the
 // pool when it is done.
-func OpenConfined(ctx context.Context, dsn, tenantRole string) (*DB, error) {
-	open := func(confined bool) (*pgxpool.Pool, error) {
+func OpenConfined(ctx context.Context, dsn string, o Options) (*DB, error) {
+	tenantRole := o.TenantRole
+	open := func(main, confined bool) (*pgxpool.Pool, error) {
 		cfg, err := pgxpool.ParseConfig(dsn)
 		if err != nil {
 			return nil, err
+		}
+		if main && o.MaxConns > 0 {
+			cfg.MaxConns = int32(o.MaxConns)
 		}
 		if confined {
 			cfg.AfterConnect = func(ctx context.Context, c *pgx.Conn) error {
@@ -75,7 +89,7 @@ func OpenConfined(ctx context.Context, dsn, tenantRole string) (*DB, error) {
 		return pool, nil
 	}
 	if tenantRole == "" {
-		pool, err := open(false)
+		pool, err := open(true, false)
 		if err != nil {
 			return nil, err
 		}
@@ -84,11 +98,11 @@ func OpenConfined(ctx context.Context, dsn, tenantRole string) (*DB, error) {
 	if !identRe.MatchString(tenantRole) {
 		return nil, fmt.Errorf("invalid tenant role name %q", tenantRole)
 	}
-	pool, err := open(true)
+	pool, err := open(true, true)
 	if err != nil {
 		return nil, err
 	}
-	sys, err := open(false)
+	sys, err := open(false, false)
 	if err != nil {
 		pool.Close()
 		return nil, err

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/jrvidotti/ddcore/internal/db"
 )
@@ -117,7 +118,14 @@ func (e *Engine) WatchCache(ctx context.Context) {
 // listenCache reports whether it got as far as listening, which is what
 // resets WatchCache's backoff.
 func (e *Engine) listenCache(ctx context.Context) (bool, error) {
-	conn, err := pgx.Connect(ctx, e.Cfg.DSN)
+	// Parsed as the pool parses it: pgx.Connect would send pool_max_conns
+	// and the other pool_* settings a site's DSN may carry to Postgres as
+	// runtime parameters, which it refuses (#67).
+	cfg, err := pgxpool.ParseConfig(e.Cfg.DSN)
+	if err != nil {
+		return false, err
+	}
+	conn, err := pgx.ConnectConfig(ctx, cfg.ConnConfig)
 	if err != nil {
 		return false, err
 	}

@@ -48,7 +48,7 @@ func (t *pgTool) Version(ctx context.Context) (int, string, error) {
 // Run executes the tool with args plus the connection. Its stderr is returned
 // in the error, redacted, because a failed dump is diagnosed from it.
 func (t *pgTool) Run(ctx context.Context, dsn string, args []string, stdout *os.File) error {
-	conn, password := splitDSNPassword(dsn)
+	conn, password := splitDSNPassword(stripPoolParams(dsn))
 	cmd := exec.CommandContext(ctx, t.path, append(args, "--dbname="+conn)...)
 	cmd.Env = os.Environ()
 	if password != "" {
@@ -67,6 +67,34 @@ func (t *pgTool) Run(ctx context.Context, dsn string, args []string, stdout *os.
 		return fmt.Errorf("%s failed: %v: %s", t.name, err, redactText(msg, password))
 	}
 	return nil
+}
+
+var kvPoolParam = regexp.MustCompile(`(?i)\bpool_\w+\s*=\s*\S+`)
+
+// stripPoolParams removes the pool_* settings pgxpool reads from a DSN
+// (pool_max_conns and friends). libpq does not know them, and pg_dump and
+// pg_restore refuse a connection string that carries one (#67).
+func stripPoolParams(dsn string) string {
+	if strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://") {
+		u, err := url.Parse(dsn)
+		if err != nil {
+			return dsn
+		}
+		q := u.Query()
+		found := false
+		for k := range q {
+			if strings.HasPrefix(strings.ToLower(k), "pool_") {
+				q.Del(k)
+				found = true
+			}
+		}
+		if !found {
+			return dsn
+		}
+		u.RawQuery = q.Encode()
+		return u.String()
+	}
+	return strings.TrimSpace(kvPoolParam.ReplaceAllString(dsn, ""))
 }
 
 var kvPassword = regexp.MustCompile(`(?i)\bpassword\s*=\s*('(?:[^'\\]|\\.|'')*'|\S+)`)

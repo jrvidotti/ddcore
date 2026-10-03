@@ -68,6 +68,12 @@ type File struct {
 	// ImportMaxRows caps the rows of one Data Import upload, which is written
 	// while the request waits. 0 = DefaultImportMaxRows.
 	ImportMaxRows int `json:"importMaxRows"`
+	// PoolMaxConns sizes the database pool requests run on, overridden by
+	// DDCORE_POOL_MAX_CONNS. Zero leaves it to the DSN's pool_max_conns, or
+	// to pgx's default (the larger of 4 and the number of CPUs). A site
+	// whose requests wait on slow outbound calls holds a connection for each
+	// of them, and may need more.
+	PoolMaxConns int `json:"poolMaxConns,omitempty"`
 	// AdminPassword comes from DDCORE_ADMIN_PASSWORD only: the password a
 	// first migration gives Admin, for a deployment with no console to read a
 	// generated one from. It never replaces a password Admin already has.
@@ -171,6 +177,11 @@ func Load(dir string) (*File, string, error) {
 	if v := env("DDCORE_PORT", os.Getenv("PORT")); v != "" {
 		if p, err := strconv.Atoi(v); err == nil && p > 0 {
 			f.Port = p
+		}
+	}
+	if v := os.Getenv("DDCORE_POOL_MAX_CONNS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			f.PoolMaxConns = n
 		}
 	}
 	f.Title = strings.TrimSpace(f.Title)

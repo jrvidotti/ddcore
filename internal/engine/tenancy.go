@@ -54,7 +54,7 @@ func (e *Engine) openDB(ctx context.Context) (*db.DB, error) {
 	if e.Cfg.Tenancy {
 		role = e.tenantRole()
 	}
-	d, err := db.OpenConfined(ctx, e.Cfg.DSN, role)
+	d, err := db.OpenConfined(ctx, e.Cfg.DSN, db.Options{TenantRole: role, MaxConns: e.Cfg.PoolMaxConns})
 	if err != nil {
 		return nil, err
 	}
