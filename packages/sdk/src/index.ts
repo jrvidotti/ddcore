@@ -23,6 +23,8 @@ export interface DDCoreDB {
    * Advisory lock per key, valid until the end of the transaction: another
    * request asking for the same key waits. Use to make an operation idempotent
    * under concurrency, e.g.: `ddcore.db.lock("billing:" + contract)`.
+   * Inside a tenant the key is scoped to it: two tenants locking the same key
+   * do not wait for each other. A site-wide lock is taken from the platform.
    */
   lock(key: string): void;
   getSingleValue(doctype: string, field: string): any;

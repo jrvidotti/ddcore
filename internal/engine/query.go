@@ -817,13 +817,19 @@ func (c *Ctx) SQL(query string, params []any) ([]map[string]any, error) {
 }
 
 // Lock takes a transaction-scoped advisory lock, serialising every ctx that
-// asks for the same key until the transaction ends.
+// asks for the same key until the transaction ends. Inside a tenant the key
+// is scoped to it, as cache keys are: two tenants locking the same key never
+// wait for each other, and a site-wide lock is taken from the platform space.
+// The separator is text, not appCacheKey's NUL, which Postgres text refuses.
 func (c *Ctx) Lock(key string) error {
 	if strings.TrimSpace(key) == "" {
 		return cerr.Validation("ddcore.db.lock: provide a key")
 	}
 	if c.Tx == nil {
 		return cerr.Validation("ddcore.db.lock requires a transaction")
+	}
+	if c.Tenant != "" {
+		key = "tenant:" + c.Tenant + ":" + key
 	}
 	_, err := c.Tx.Exec(c.Ctx, "SELECT pg_advisory_xact_lock(hashtext($1))", key)
 	return err

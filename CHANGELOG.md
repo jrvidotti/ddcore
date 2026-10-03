@@ -14,6 +14,14 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Changed
+
+- `ddcore.db.lock(key)` is scoped to the current tenant on a site with tenancy, as cache keys
+  and naming series already are: two tenants locking the same key no longer wait for each
+  other. The platform space, and a site without tenancy, lock as before. An app that needs one
+  lock across the whole site takes it from the platform space; a tenant prefix an app already
+  writes into its keys keeps working, and can go (#73).
+
 ## 0.24.4 — 2026-10-03
 
 ### Added
