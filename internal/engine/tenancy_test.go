@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/jrvidotti/ddcore/internal/db"
@@ -727,5 +728,50 @@ func TestTenantRenameDocType(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+// ddcore.db.lock is scoped to the tenant: the same key held in one tenant
+// does not block another tenant nor the platform, and still blocks the same
+// tenant.
+func TestTenantLockIsPerTenant(t *testing.T) {
+	e := setupTenancy(t)
+	held, done := make(chan struct{}), make(chan struct{})
+	var holder sync.WaitGroup
+	holder.Add(1)
+	go func() {
+		defer holder.Done()
+		e.Run(WithTenant(context.Background(), tenantA), "Admin", func(c *Ctx) error {
+			if err := c.Lock("charge:1"); err != nil {
+				t.Error(err)
+				close(held)
+				return err
+			}
+			close(held)
+			<-done
+			return nil
+		})
+	}()
+	<-held
+	defer func() { close(done); holder.Wait() }()
+
+	// lockWithin tries the key under a short lock_timeout, so a lock that
+	// serializes fails instead of hanging the test.
+	lockWithin := func(ctx context.Context) error {
+		return e.Run(ctx, "Admin", func(c *Ctx) error {
+			if _, err := c.Tx.Exec(c.Ctx, "SET LOCAL lock_timeout = '300ms'"); err != nil {
+				return err
+			}
+			return c.Lock("charge:1")
+		})
+	}
+	if err := lockWithin(WithTenant(context.Background(), tenantB)); err != nil {
+		t.Fatalf("another tenant waited for the lock: %v", err)
+	}
+	if err := lockWithin(context.Background()); err != nil {
+		t.Fatalf("the platform waited for a tenant's lock: %v", err)
+	}
+	if err := lockWithin(WithTenant(context.Background(), tenantA)); err == nil {
+		t.Fatal("the same tenant took a lock that is held")
 	}
 }

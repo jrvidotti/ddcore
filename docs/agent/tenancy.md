@@ -92,6 +92,8 @@ Per tenant, as a consequence:
   `ddcore.vault.get(name, { shared: true })` reads the platform space's secret from any
   space; see [vault](vault.md).
 - **`ddcore.cache`** keys: a value one tenant stored is not returned to another.
+- **`ddcore.db.lock`** keys: two tenants locking the same key do not wait for each other. A
+  lock that must hold across the whole site is taken from the platform space.
 - **Realtime events** reach the sessions of the tenant they happened in. A change to a shared
   DocType reaches everyone.
 

@@ -29,6 +29,20 @@ older series, and `whats_new` reads across every one of them.
   users; from the platform space, the key is made in the user's own tenant. Each key is
   recorded as an `apikey.create` audit event on the User, without the secret, and so is every
   key `ddcore apikey` issues, which recorded none before. See `controller-api` (#72).
+- `ddcore.db.savepoint(fn)` runs `fn` inside a savepoint. When `fn` throws, only its writes,
+  messages and events are rolled back, the error is rethrown, and the transaction stays usable,
+  so an app can catch a collision and carry on instead of failing on `current transaction is
+  aborted`. `ddcore.db.setValue` and `doc.dbSet` now throw `DuplicateEntryError` for a value a
+  unique index refuses, as `insert` and `save` do, so `e.name === "DuplicateEntryError"` tells
+  an idempotent retry from a failure. See `controller-api` → "Savepoints" (#70).
+
+### Changed
+
+- `ddcore.db.lock(key)` is scoped to the current tenant on a site with tenancy, as cache keys
+  and naming series already are: two tenants locking the same key no longer wait for each
+  other. The platform space, and a site without tenancy, lock as before. An app that needs one
+  lock across the whole site takes it from the platform space; a tenant prefix an app already
+  writes into its keys keeps working, and can go (#73).
 
 ## 0.24.4 — 2026-10-03
 

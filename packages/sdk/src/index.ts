@@ -23,8 +23,17 @@ export interface DDCoreDB {
    * Advisory lock per key, valid until the end of the transaction: another
    * request asking for the same key waits. Use to make an operation idempotent
    * under concurrency, e.g.: `ddcore.db.lock("billing:" + contract)`.
+   * Inside a tenant the key is scoped to it: two tenants locking the same key
+   * do not wait for each other. A site-wide lock is taken from the platform.
    */
   lock(key: string): void;
+  /**
+   * Runs `fn` inside a savepoint. When it throws, only its writes (and its
+   * messages and events) are rolled back, the error is rethrown, and the
+   * transaction stays usable: catch a `DuplicateEntryError` from a unique
+   * index and carry on. Returns what `fn` returns. Savepoints nest.
+   */
+  savepoint<T>(fn: () => T): T;
   getSingleValue(doctype: string, field: string): any;
 }
 

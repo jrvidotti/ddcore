@@ -923,7 +923,10 @@ type Ctx struct {
 	txOwner *Ctx
 	// rollbackMarks is len(afterRollback) at each Begin, so RollbackTo undoes
 	// only what its savepoint saw.
-	rollbackMarks        []int
+	rollbackMarks []int
+	// savepoints is the stack of open savepoints of the transaction, on the
+	// ctx that owns it, so a ctx borrowing the transaction nests under them.
+	savepoints           []savepointMark
 	inWorkflowTransition bool
 	// portal puts the request in portal mode (OPS-10); a Website User is in it
 	// regardless. userType and portalIdent memoise what that mode reads.
@@ -989,6 +992,7 @@ func (c *Ctx) Run(fn func(c *Ctx) error) error {
 	c.scopeAncestors = nil
 	c.afterCommit = nil
 	c.afterRollback = nil
+	c.savepoints = nil
 	c.inWorkflowTransition = false
 	return c.runOnce(fn)
 }
@@ -1233,41 +1237,116 @@ func (c *Ctx) RollbackTo() error {
 }
 
 // WithSavepoint runs fn inside a savepoint of the current transaction. When fn
-// fails, its writes, cached documents and after-commit callbacks are undone
-// and the transaction stays usable, so a best-effort side effect can fail
-// without taking the caller's work down with it.
+// fails, its writes, messages, cached documents and after-commit callbacks are
+// undone and the transaction stays usable, so a best-effort side effect can
+// fail without taking the caller's work down with it.
 func (c *Ctx) WithSavepoint(fn func() error) error {
 	if c.Tx == nil {
 		return fn()
 	}
-	c.roSavepoint++
-	sp := fmt.Sprintf("ddcore_sp%d", c.roSavepoint)
-	defer func() { c.roSavepoint-- }()
-	if _, err := c.Tx.Exec(c.Ctx, "SAVEPOINT "+sp); err != nil {
+	if err := c.SavepointBegin(); err != nil {
 		return err
 	}
-	o := c.owner()
-	pending, pendingRollback := len(o.afterCommit), len(o.afterRollback)
 	if err := fn(); err != nil {
-		if _, rbErr := c.Tx.Exec(c.Ctx, "ROLLBACK TO SAVEPOINT "+sp); rbErr != nil {
-			c.E.Log.Warn("could not roll back to savepoint", "savepoint", sp, "err", rbErr)
+		if rbErr := c.SavepointRollback(); rbErr != nil {
+			c.E.Log.Warn("could not roll back to savepoint", "err", rbErr)
 		}
-		if _, relErr := c.Tx.Exec(c.Ctx, "RELEASE SAVEPOINT "+sp); relErr != nil {
-			c.E.Log.Warn("could not release savepoint", "savepoint", sp, "err", relErr)
+		return err
+	}
+	return c.SavepointRelease()
+}
+
+// savepointMark is what the transaction held when a savepoint began, so that
+// rolling back to it undoes only what came after.
+type savepointMark struct {
+	name                                 string
+	ctx                                  *Ctx
+	afterCommit, afterRollback, messages int
+}
+
+// SavepointBegin opens a savepoint of the current transaction, the first half
+// of WithSavepoint and of ddcore.db.savepoint. The bridge between TS and Go
+// carries JSON only, so the TS side brackets its block with this and either
+// SavepointRelease or SavepointRollback, as runAs does with enter and exit.
+func (c *Ctx) SavepointBegin() error {
+	if c.Tx == nil {
+		return cerr.Validation("ddcore.db.savepoint requires a transaction")
+	}
+	o := c.owner()
+	// named by depth on the owner, which every ctx borrowing the transaction
+	// shares: unique while nested, and apart from the ddcore_ro savepoints of
+	// read-only SQL and the test helpers' sp savepoints
+	name := fmt.Sprintf("ddcore_sp%d", len(o.savepoints)+1)
+	if _, err := c.Tx.Exec(c.Ctx, "SAVEPOINT "+name); err != nil {
+		return err
+	}
+	o.savepoints = append(o.savepoints, savepointMark{name: name, ctx: c,
+		afterCommit: len(o.afterCommit), afterRollback: len(o.afterRollback), messages: len(c.Messages)})
+	return nil
+}
+
+// popSavepoint takes the innermost savepoint off the stack.
+func (c *Ctx) popSavepoint() (savepointMark, error) {
+	o := c.owner()
+	n := len(o.savepoints)
+	if n == 0 {
+		return savepointMark{}, cerr.Internal("no savepoint is open")
+	}
+	m := o.savepoints[n-1]
+	o.savepoints = o.savepoints[:n-1]
+	return m, nil
+}
+
+// SavepointRelease keeps what the innermost savepoint's block did, as part of
+// the enclosing transaction.
+func (c *Ctx) SavepointRelease() error {
+	m, err := c.popSavepoint()
+	if err != nil {
+		return err
+	}
+	_, err = c.Tx.Exec(c.Ctx, "RELEASE SAVEPOINT "+m.name)
+	return err
+}
+
+// SavepointRollback undoes the innermost savepoint's block and leaves the
+// transaction usable: the writes, and with them the change of space, go back
+// to the savepoint; the block's after-commit callbacks (events, cache
+// invalidations) and messages are dropped, its after-rollback undos run, and
+// what this ctx memoised from the database is read again.
+func (c *Ctx) SavepointRollback() error {
+	m, err := c.popSavepoint()
+	if err != nil {
+		return err
+	}
+	_, err = c.Tx.Exec(c.Ctx, "ROLLBACK TO SAVEPOINT "+m.name)
+	if err == nil {
+		if _, relErr := c.Tx.Exec(c.Ctx, "RELEASE SAVEPOINT "+m.name); relErr != nil {
+			c.E.Log.Warn("could not release savepoint", "savepoint", m.name, "err", relErr)
 		}
 		if spErr := c.applySpace(); spErr != nil {
-			c.E.Log.Warn("could not restore the tenant after a savepoint", "savepoint", sp, "err", spErr)
+			c.E.Log.Warn("could not restore the tenant after a savepoint", "savepoint", m.name, "err", spErr)
 		}
-		o.afterCommit = o.afterCommit[:pending]
-		undo := o.afterRollback[pendingRollback:]
-		o.afterRollback = o.afterRollback[:pendingRollback]
+	}
+	o := c.owner()
+	if m.afterCommit <= len(o.afterCommit) {
+		o.afterCommit = o.afterCommit[:m.afterCommit]
+	}
+	if m.afterRollback <= len(o.afterRollback) {
+		undo := o.afterRollback[m.afterRollback:]
+		o.afterRollback = o.afterRollback[:m.afterRollback]
 		for i := len(undo) - 1; i >= 0; i-- {
 			undo[i]()
 		}
-		c.docCache = map[string]Doc{}
-		return err
 	}
-	_, err := c.Tx.Exec(c.Ctx, "RELEASE SAVEPOINT "+sp)
+	if m.messages <= len(m.ctx.Messages) {
+		m.ctx.Messages = m.ctx.Messages[:m.messages]
+	}
+	for _, x := range []*Ctx{c, m.ctx} {
+		x.docCache = map[string]Doc{}
+		// a share written in the block may be in the memo; read past the
+		// process cache, which the dropped invalidation never reached
+		x.sharesLoaded, x.sharesDirty = false, true
+	}
 	return err
 }
 

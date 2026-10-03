@@ -1289,7 +1289,11 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 	sql := fmt.Sprintf("UPDATE %s SET %s WHERE id = %s", db.Ident(d.TableName()), strings.Join(sets, ", "), b.Arg(name))
 	tag, err := c.Q().Exec(c.Ctx, sql, b.Args...)
 	if err != nil {
-		return modified, err
+		// a unique index refused the value: the DuplicateEntryError insert
+		// and save raise, so code can tell a collision from a failure
+		written := Doc{"id": name}
+		maps.Copy(written, values)
+		return modified, c.duplicateErr(d, written, err)
 	}
 	if tag.RowsAffected() == 0 {
 		return modified, cerr.NotFound("{0} {1} not found", doctype, name)

@@ -820,6 +820,7 @@ ctx.sql is only available inside a patch,ctx.sql só existe dentro de um patch,#
 d,d,# desk/src/lib/controls/DurationControl.svelte:23
 ddcore.db.lock requires a transaction,ddcore.db.lock exige uma transação,# internal/engine/query.go:826
 ddcore.db.lock: provide a key,ddcore.db.lock: informe uma chave,# internal/engine/query.go:823
+ddcore.db.savepoint requires a transaction,ddcore.db.savepoint exige uma transação,# internal/engine/engine.go:1273
 ddcore.db.sql only accepts SELECT,ddcore.db.sql aceita apenas SELECT,# internal/engine/query.go:782
 ddcore.externalDb().sql only accepts SELECT,ddcore.externalDb().sql aceita apenas SELECT,# internal/engine/externaldb.go:175
 ddcore.externalDb: provide a name,ddcore.externalDb: informe um nome,# internal/engine/externaldb.go:52
@@ -871,6 +872,7 @@ m,min,# desk/src/lib/controls/DurationControl.svelte:23
 manifest.json is not readable: {0},manifest.json não pôde ser lido: {0},# internal/engine/import_source.go:64
 manifest.json lists no exports,manifest.json não lista nenhuma exportação,# internal/engine/import_source.go:70
 never,nunca,# desk/src/lib/components/Profile.svelte:271
+no savepoint is open,nenhum savepoint está aberto,# internal/engine/engine.go:1293
 or,ou,# desk/src/routes/login/+page.svelte:72
 patch sql: {0},sql do patch: {0},# internal/engine/query.go:765
 "publish: {0} is not a valid event name (letters, digits, _ . : -)","publish: {0} não é um nome de evento válido (letras, dígitos, _ . : -)",# internal/engine/host.go:335
