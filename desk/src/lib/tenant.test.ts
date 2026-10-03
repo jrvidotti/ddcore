@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { tenantChoices, tenantLabel, tenantLinkState, tenantParam, type TenantBoot } from "./tenant";
+import { platformHref, tenantChoices, tenantLabel, tenantLinkState, tenantParam, type TenantBoot } from "./tenant";
 
 const operator: TenantBoot = {
   id: "", title: "", platform: true,
@@ -68,5 +68,12 @@ describe("tenantLinkState", () => {
     expect(tenantLinkState(alfaUser, "beta")).toBe("foreign");
     expect(tenantLinkState(operator, "off")).toBe("foreign");
     expect(tenantLinkState(operator, "nope")).toBe("foreign");
+  });
+});
+
+describe("platformHref", () => {
+  it("keeps the page and drops only the tenant", () => {
+    expect(platformHref(new URL("http://x/app/Gateway/GatewaySettings?tenant=demo"))).toBe("/app/Gateway/GatewaySettings");
+    expect(platformHref(new URL("http://x/app/Bank?tenant=demo&status=Open#top"))).toBe("/app/Bank?status=Open#top");
   });
 });

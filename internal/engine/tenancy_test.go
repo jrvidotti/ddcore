@@ -304,6 +304,43 @@ func TestTenantIsolation(t *testing.T) {
 		})
 	})
 
+	t.Run("the desk's permissions follow the space", func(t *testing.T) {
+		perms := func(c *Ctx, doctype string) map[string]bool {
+			d, err := c.St.DocType(doctype)
+			if err != nil {
+				t.Fatal(err)
+			}
+			return c.Permissions(d)
+		}
+		inside := func(who string, c *Ctx) {
+			p := perms(c, "Pais")
+			if !p["read"] {
+				t.Fatalf("%s cannot read a shared DocType: %v", who, p)
+			}
+			for _, k := range []string{"write", "create", "delete", "import"} {
+				if p[k] {
+					t.Fatalf("%s may %s a shared DocType inside a tenant: %v", who, k, p)
+				}
+			}
+			if p := perms(c, "Pessoa"); !p["write"] || !p["create"] {
+				t.Fatalf("%s lost the tenant's own DocType: %v", who, p)
+			}
+			if p := perms(c, "Site Tenant"); p["read"] || p["write"] {
+				t.Fatalf("%s reaches the tenant registry: %v", who, p)
+			}
+		}
+		runAs(t, e, userA, func(c *Ctx) error { inside("a tenant user", c); return nil })
+		inTenant(t, e, tenantA, func(c *Ctx) error { inside("an operator", c); return nil })
+		runAs(t, e, "Admin", func(c *Ctx) error {
+			for _, doctype := range []string{"Pais", "Site Tenant"} {
+				if p := perms(c, doctype); !p["write"] || !p["create"] || !p["delete"] {
+					t.Fatalf("the platform cannot write %s: %v", doctype, p)
+				}
+			}
+			return nil
+		})
+	})
+
 	t.Run("tenants are the platform's", func(t *testing.T) {
 		inTenant(t, e, tenantA, func(c *Ctx) error {
 			_, err := c.GetList("Site Tenant", ListArgs{})

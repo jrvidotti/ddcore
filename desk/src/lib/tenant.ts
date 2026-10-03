@@ -57,3 +57,13 @@ export function tenantLinkState(t: TenantBoot | null | undefined, param: string 
   if (t.platform && t.tenants?.some((x) => x.id === param && x.enabled)) return "enter";
   return "foreign";
 }
+
+/**
+ * The same desk page in the platform space: the URL without its `?tenant=`,
+ * for an operator leaving a tenant to change what every tenant shares.
+ */
+export function platformHref(url: URL): string {
+  const u = new URL(url);
+  u.searchParams.delete("tenant");
+  return u.pathname + u.search + u.hash;
+}

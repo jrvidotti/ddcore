@@ -24,6 +24,7 @@
   import { exportChoice, exportChoices, exportUrl } from "./export-options";
   import DataImportModal from "./DataImportModal.svelte";
   import { canImport } from "./data-import";
+  import SharedNotice from "./SharedNotice.svelte";
   import TableView from "./views/TableView.svelte";
   import CardView from "./views/CardView.svelte";
   import CalendarView from "./views/CalendarView.svelte";
@@ -519,6 +520,8 @@
     {#if meta?.permissions.export}<button class="btn" onclick={openExport} title={__("Export")}><Icon name="download" size={14} /></button>{/if}
     {#if meta?.permissions.create}<a class="btn primary" href={`${wsPrefix}/${seg(doctype)}/new`}><Icon name="plus" size={14} />{__("New")}</a>{/if}
   </div>
+
+  <SharedNotice shared={meta?.doctype.shared} />
 
   {#if isTreeView}
     <p class="muted small view-notice">{__("Filters apply to the list view")}</p>

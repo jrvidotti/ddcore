@@ -752,14 +752,26 @@ func (c *Ctx) permissionQueryFilters(d *meta.DocType) ([]db.Filter, error) {
 }
 
 // Permissions summarises what the user can do with a doctype (for the desk).
+// It also answers for the space: inside a tenant a shared DocType is read
+// only, and the tenant registry is out of reach, as spaceRefusal enforces.
 func (c *Ctx) Permissions(d *meta.DocType) map[string]bool {
 	out := map[string]bool{}
+	readRefused := c.spaceRefusal(d, false) != nil
+	writeRefused := c.spaceRefusal(d, true) != nil
 	for _, p := range []string{"read", "write", "create", "delete", "submit", "cancel", "amend", "report", "export", "import", "share"} {
+		if readRefused || writeRefused && spaceWrites[p] {
+			out[p] = false
+			continue
+		}
 		ok, _ := c.HasPermission(d.Name, p, nil)
 		out[p] = ok
 	}
 	return out
 }
+
+// spaceWrites are the permissions spaceRefusal takes away from a shared
+// DocType inside a tenant.
+var spaceWrites = map[string]bool{"write": true, "create": true, "delete": true, "submit": true, "cancel": true, "amend": true, "import": true}
 
 func contains(list []string, s string) bool {
 	for _, x := range list {
