@@ -14,6 +14,10 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Changed
+
+- pt-BR: a tenant is now translated as *Conta* (it was left as *Tenant*).
+
 ## 0.24.2 — 2026-10-02
 
 ### Added

@@ -6,7 +6,7 @@
 1 version,1 versão,# desk/src/lib/components/DocHistory.svelte:79
 A CSV or Excel (.xlsx) file whose first row names the columns. Each following row creates one record.,Um arquivo CSV ou Excel (.xlsx) cuja primeira linha nomeia as colunas. Cada linha seguinte cria um registro.,# desk/src/lib/components/DataImportModal.svelte:176
 A CSV or Excel (.xlsx) file with an ID column naming the record each row changes. Export the list as CSV to get one; a blank cell clears the field.,Um arquivo CSV ou Excel (.xlsx) com uma coluna ID indicando o registro que cada linha altera. Exporte a lista em CSV para obter um; uma célula vazia limpa o campo.,# desk/src/lib/components/DataImportModal.svelte:178
-"A disabled tenant refuses sign-ins, requests and background jobs.","Um tenant desativado recusa logins, requisições e jobs em segundo plano.",# core.doctypes.site_tenant.site_tenant.doctype
+"A disabled tenant refuses sign-ins, requests and background jobs.","Uma conta desativada recusa logins, requisições e jobs em segundo plano.",# core.doctypes.site_tenant.site_tenant.doctype
 A document cannot be shared with {0},Um documento não pode ser compartilhado com {0},# internal/engine/share.go:304
 A document is assigned to me,Um documento é atribuído a mim,# desk/src/lib/components/Profile.svelte:196
 A document is shared with me,Um documento é compartilhado comigo,# desk/src/lib/components/Profile.svelte:197
@@ -14,9 +14,9 @@ A message needs a recipient,Uma mensagem precisa de um destinatário,# internal/
 A method declared raw must return a string,Um método declarado como raw deve retornar uma string,# internal/api/api.go:281
 A shared vault secret can only be changed from the platform space,Um segredo compartilhado do cofre só pode ser alterado a partir do espaço da plataforma,# internal/engine/vault.go:214
 A task assigned to me is due,Uma tarefa atribuída a mim vence,# desk/src/lib/components/Profile.svelte:198
-A tenant cannot enter another tenant,Um tenant não pode entrar em outro tenant,# internal/engine/host.go:698
-"A tenant's slug is lowercase letters, digits, hyphens and underscores, and starts with a letter or digit","O slug de um tenant usa letras minúsculas, dígitos, hifens e sublinhados, e começa com letra ou dígito",# core/doctypes/site_tenant/site_tenant.controller.ts:7
-A user of one tenant cannot work in another,Um usuário de um tenant não pode trabalhar em outro,# internal/engine/asuser.go:202
+A tenant cannot enter another tenant,Uma conta não pode entrar em outra conta,# internal/engine/host.go:698
+"A tenant's slug is lowercase letters, digits, hyphens and underscores, and starts with a letter or digit","O slug de uma conta usa letras minúsculas, dígitos, hifens e sublinhados, e começa com letra ou dígito",# core/doctypes/site_tenant/site_tenant.controller.ts:7
+A user of one tenant cannot work in another,Um usuário de uma conta não pode trabalhar em outra,# internal/engine/asuser.go:202
 A user with access scopes cannot import,Um usuário com escopos de acesso não pode importar,# internal/engine/import.go:195
 A user with access scopes may not replay a webhook delivery,Um usuário com escopos de acesso não pode reenviar uma entrega de webhook,# internal/engine/webhooks.go:527
 A webhook outside development must use https,Um webhook fora do ambiente de desenvolvimento precisa usar https,# internal/engine/webhooks.go:573
@@ -225,7 +225,7 @@ End,Encerrar,# desk/src/lib/components/Profile.svelte:245
 End this session?,Encerrar esta sessão?,# desk/src/lib/components/Profile.svelte:109
 Enter new secret,Digite o novo segredo,# desk/src/lib/controls/Control.svelte:209
 Enter secret,Digite o segredo,# desk/src/lib/controls/Control.svelte:209
-"Entering a tenant needs a session; with an API key, send the X-Tenant header","Entrar em um tenant exige uma sessão; com uma chave de API, envie o cabeçalho X-Tenant",# internal/engine/tenancy.go:728
+"Entering a tenant needs a session; with an API key, send the X-Tenant header","Entrar em uma conta exige uma sessão; com uma chave de API, envie o cabeçalho X-Tenant",# internal/engine/tenancy.go:728
 Error,Erro,# desk/src/lib/components/DataImportModal.svelte:125
 Error Log,Log de Erro,# core.doctypes.error_log.error_log.doctype
 Error generating print format,Erro ao gerar formato de impressão,# desk/src/lib/components/PrintView.svelte:224
@@ -325,7 +325,7 @@ Invalid location,Localização inválida,# desk/src/lib/controls/GeolocationCont
 Invalid number of days,Número de dias inválido,# core/services/api_keys.ts:37
 Invalid signature,Assinatura inválida,# desk/src/lib/controls/SignatureControl.svelte:162
 Invalid slug,Slug inválido,# core/doctypes/site_tenant/site_tenant.controller.ts:8
-Invalid tenant id: {0},Id de tenant inválido: {0},# internal/engine/tenancy.go:306
+Invalid tenant id: {0},Id de conta inválido: {0},# internal/engine/tenancy.go:306
 "Invalid time in {0}: ""{1}""","Hora inválida em {0}: ""{1}""",# internal/engine/doc.go:336
 Invalid upload: {0},upload inválido: {0},# internal/api/api.go:1541
 Invalid username or password,Usuário ou senha inválidos,# internal/engine/auth.go:115
@@ -472,7 +472,7 @@ Only a System Manager can change an account at the identity provider,Somente um 
 Only a System Manager can give the role {0},Só um System Manager pode conceder o papel {0},# internal/engine/users.go:61
 Only a System Manager can invite a System User,Só um System Manager pode convidar um System User,# internal/engine/users.go:57
 Only a System Manager may replay a webhook delivery,Somente um System Manager pode reenviar uma entrega de webhook,# internal/engine/webhooks.go:521
-Only a System Manager of the platform space can enter a tenant,Somente um System Manager do espaço da plataforma pode entrar em um tenant,# internal/engine/tenancy.go:725
+Only a System Manager of the platform space can enter a tenant,Somente um System Manager do espaço da plataforma pode entrar em uma conta,# internal/engine/tenancy.go:725
 Only a System Manager without access scopes can override a security scope,Só um System Manager sem escopos de acesso pode ignorar um escopo de segurança,# internal/engine/share.go:326
 Only an ndjson export can be imported; this one is {0},Só é possível importar uma exportação ndjson; esta é {0},# internal/engine/import_source.go:67
 Only cancelled documents can be amended,Só documentos cancelados podem ser emendados,# internal/engine/doc.go:1033
@@ -671,9 +671,9 @@ Task instructions / notes,Instruções / notas da tarefa,# desk/src/lib/componen
 Task reopened,Tarefa reaberta,# core/doctypes/todo/to_do.form.ts:31
 Tell us the address you sign in with and we will send a link to set a new password.,Diga o endereço com que você entra e enviaremos um link para definir uma nova senha.,# desk/src/routes/login/forgot/+page.svelte:38
 Template,Modelo,# core.doctypes.email_delivery.email_delivery.doctype
-Tenant,Tenant,# desk/src/lib/components/TenantMenu.svelte:29
-Tenant {0} not found,Tenant {0} não encontrado,# internal/engine/tenancy.go:339
-Tenants are managed from the platform space,Os tenants são administrados a partir do espaço da plataforma,# internal/engine/host.go:711
+Tenant,Conta,# desk/src/lib/components/TenantMenu.svelte:29
+Tenant {0} not found,Conta {0} não encontrada,# internal/engine/tenancy.go:339
+Tenants are managed from the platform space,As contas são administradas a partir do espaço da plataforma,# internal/engine/host.go:711
 That key is not yours,Essa chave não é sua,# core/services/api_keys.ts:43
 "The DocType that defines the restricted scope, e.g. Company or Branch.","O DocType que define o escopo restrito, ex.: Company ou Branch.",# core.doctypes.user_permission.user_permission.doctype
 The ID is empty: an update has to name the record it changes,O ID está vazio: uma atualização precisa indicar o registro que altera,# internal/engine/data_import.go:519
@@ -704,7 +704,7 @@ The sign-in expired or was started in another browser. Try again.,O acesso expir
 The signature in {0} is too large (at most {1} KiB),A assinatura em {0} é grande demais (no máximo {1} KiB),# internal/signature/signature.go:108
 The signature in {0} is too large (at most {1} by {2} pixels),A assinatura em {0} é grande demais (no máximo {1} por {2} pixels),# internal/signature/signature.go:110
 The site is in maintenance mode; changes are paused. Try again shortly.,O site está em modo de manutenção; as alterações estão pausadas. Tente novamente em instantes.,# internal/engine/maintenance.go:189
-The tenant {0} is disabled,O tenant {0} está desativado,# internal/engine/tenancy.go:337
+The tenant {0} is disabled,A conta {0} está desativada,# internal/engine/tenancy.go:337
 The text is too long to preview,O texto é longo demais para pré-visualizar,# internal/api/api.go:1193
 The webhook of delivery {0} was deleted,O webhook da entrega {0} foi excluído,# internal/engine/webhooks.go:546
 Then sign in at {0} with the {1} button.,"Depois, entre em {0} pelo botão {1}.",# core/mail/invite_sso.mail.ts:22
@@ -729,7 +729,7 @@ This month,Este mês,# desk/src/lib/controls/MonthControl.svelte:253
 This record changed after your unsaved edits. Keep your edits?,Este registro mudou depois das suas alterações não salvas. Manter suas alterações?,# desk/src/lib/components/FormView.svelte:132
 This report is for the platform space,Este relatório é do espaço da plataforma,# internal/api/health.go:68
 This report requires the System Manager role,Este relatório exige o papel System Manager,# internal/api/health.go:64
-This site has no tenants: tenancy is off,Este site não tem tenants: a multilocação está desligada,# internal/engine/host.go:695
+This site has no tenants: tenancy is off,Este site não tem contas: a multilocação está desligada,# internal/engine/host.go:695
 "This site sends no mail yet, so the message only went to the log. Pass this link on by hand.","Este site ainda não envia e-mails, então a mensagem foi só para o log. Repasse este link manualmente.",# core/doctypes/user/user.form.ts:127
 Timeout (seconds),Tempo Limite (segundos),# core.doctypes.webhook.webhook.doctype
 Timeout must be between {0} and {1} seconds,O tempo limite deve estar entre {0} e {1} segundos,# internal/engine/webhooks.go:601
@@ -937,7 +937,7 @@ webhook payload for {0} is not JSON: {1},o conteúdo do webhook para {0} não é
 {0} is public and {1} would be served as active content from this site,{0} é público e {1} seria servido como conteúdo ativo a partir deste site,# internal/engine/import_files.go:89
 {0} is read-only on this document,{0} é somente leitura neste documento,# internal/engine/doc.go:1967
 {0} is required to identify the document,{0} é obrigatório para identificar o documento,# internal/engine/idgen.go:51
-{0} is shared by every tenant and can only be changed from the platform space,{0} é compartilhado por todos os tenants e só pode ser alterado a partir do espaço da plataforma,# internal/engine/tenancy.go:478
+{0} is shared by every tenant and can only be changed from the platform space,{0} é compartilhado por todas as contas e só pode ser alterado a partir do espaço da plataforma,# internal/engine/tenancy.go:478
 {0} is too large (at most {1} KiB),{0} é grande demais (no máximo {1} KiB),# internal/geo/geo.go:404
 "{0} is too large to store: ""{1}""","{0} é grande demais para ser armazenado: ""{1}""",# internal/engine/doc.go:230
 {0} is too long for a {1} barcode (at most {2} bytes),{0} é longo demais para um código de barras {1} (no máximo {2} bytes),# internal/barcode/barcode.go:158
