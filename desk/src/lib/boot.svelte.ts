@@ -1,6 +1,6 @@
 // Session-wide state: who is logged in, what DocTypes/workspaces exist,
 // translations. Loaded once from /api/boot.
-import type { TenantBoot } from "./tenant";
+import { tenantLabel, withSpace, type TenantBoot } from "./tenant";
 import { api, setRequestLang } from "./api";
 import { resetLocale } from "./locale";
 
@@ -114,6 +114,10 @@ export const doctypeLabel = (dt: string) => boot.data?.doctypes[dt]?.label || dt
  * covers the moment before the boot arrives.
  */
 export const siteName = () => boot.data?.site?.name || "ddcore";
+/** On a site with tenancy, what to call the space the person works in; "" otherwise. */
+export const spaceLabel = () => tenantLabel(boot.data?.site?.tenant, __("Platform"));
+/** A page title: `parts`, then the site's name, then the space it was read in. */
+export const pageTitle = (...parts: string[]) => withSpace([...parts, siteName()].join(" · "), spaceLabel());
 
 /**
  * The square mark shown beside the site's name, in the sidebar and on the

@@ -25,6 +25,21 @@ export function tenantLabel(t: TenantBoot | null | undefined, platformLabel: str
 }
 
 /**
+ * Which kind of space the person is in, for the mark that sets the platform
+ * apart: "" where tenantLabel says nothing.
+ */
+export function spaceKind(t: TenantBoot | null | undefined): "platform" | "tenant" | "" {
+  if (!t) return "";
+  if (t.id) return "tenant";
+  return t.platform ? "platform" : "";
+}
+
+/** A title naming the space too (`Charges · demo`), so browser tabs of two spaces differ. */
+export function withSpace(title: string, space: string): string {
+  return space ? `${title} · ${space}` : title;
+}
+
+/**
  * The places an operator can go: the platform space, then every enabled
  * tenant. Nobody else has anywhere to go, and a disabled tenant admits no one.
  */

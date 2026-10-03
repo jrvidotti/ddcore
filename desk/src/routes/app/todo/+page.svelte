@@ -9,7 +9,7 @@
   import { goto } from "$app/navigation";
   import { PendingWork, refreshPendingCount, TODO_WINDOW_LIMIT } from "$lib/assignments.svelte";
   import { api, type ToDoDoc } from "$lib/api";
-  import { __, boot, doctypeLabel, siteName } from "$lib/boot.svelte";
+  import { __, boot, doctypeLabel, pageTitle } from "$lib/boot.svelte";
   import { showError } from "$lib/ui.svelte";
   import { getMeta, type Meta } from "$lib/meta";
   import { formatDate, statusColor } from "$lib/format";
@@ -253,7 +253,7 @@
   </a>
 {/snippet}
 
-<svelte:head><title>{__("To-Do")} · {siteName()}</title></svelte:head>
+<svelte:head><title>{pageTitle(__("To-Do"))}</title></svelte:head>
 
 <div class="page todo-page">
   <div class="page-head">
