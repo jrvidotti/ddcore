@@ -37,3 +37,23 @@ export function tenantChoices(t: TenantBoot | null | undefined, platformLabel: s
   }
   return out;
 }
+
+/**
+ * The tenant a desk URL names (`?tenant=`), so a link copied from the address
+ * bar opens in the space it was copied from. Null in the platform space and on
+ * a site without tenancy: a link there names no tenant.
+ */
+export function tenantParam(t: TenantBoot | null | undefined): string | null {
+  return t?.id ? t.id : null;
+}
+
+/**
+ * What a link's `?tenant=` asks of the person following it: nothing ("ok"),
+ * to enter that tenant first ("enter", an operator only), or nothing they can
+ * do ("foreign", the link is for a space they cannot work in).
+ */
+export function tenantLinkState(t: TenantBoot | null | undefined, param: string | null): "ok" | "enter" | "foreign" {
+  if (!t || !param || param === t.id) return "ok";
+  if (t.platform && t.tenants?.some((x) => x.id === param && x.enabled)) return "enter";
+  return "foreign";
+}

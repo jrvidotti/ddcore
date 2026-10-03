@@ -18,6 +18,10 @@ older series, and `whats_new` reads across every one of them.
 
 - A field can stay out of the desk's **Duplicate** with `noCopy: true`; the copy takes the
   field's default, and a `Table` with it starts empty. See `fieldtypes` (#74).
+- On a site with tenancy, desk URLs name their tenant (`?tenant=<id>`), so a link copied from
+  the address bar opens in the space it was copied from. A link naming another tenant no
+  longer loads the page: an operator is asked to enter that tenant (which moves the session,
+  every tab with it), and a tenant's own user is told the link is not theirs. See `tenancy`.
 
 ### Changed
 

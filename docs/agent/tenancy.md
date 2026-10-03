@@ -235,6 +235,13 @@ ignored for anyone who is not an operator.
 `GET /api/boot` carries `site.tenant`: `{ id, title, platform }`, plus `tenants` for an
 operator. It is absent on a site without tenancy.
 
+Desk URLs name their tenant: inside a tenant the desk keeps `?tenant=<id>` on every `/app`
+address, so a copied link says where its record lives (ids are only unique within a tenant).
+Opening a link whose `tenant` is not the space the session works in shows a notice instead of
+the page. An operator may **Enter** that tenant — the session moves, and every open tab with
+it — or **Stay** where they are; a tenant's own user is told the link belongs to another
+tenant. A link without `tenant`, or one from the platform space, opens as before.
+
 ## How it is enforced
 
 Tenant tables are keyed by `(tenant, id)` and carry a Postgres row-level-security policy:

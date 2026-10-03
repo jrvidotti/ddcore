@@ -225,6 +225,7 @@ End,Encerrar,# desk/src/lib/components/Profile.svelte:245
 End this session?,Encerrar esta sessão?,# desk/src/lib/components/Profile.svelte:109
 Enter new secret,Digite o novo segredo,# desk/src/lib/controls/Control.svelte:209
 Enter secret,Digite o segredo,# desk/src/lib/controls/Control.svelte:209
+Enter {0},Entrar em {0},# desk/src/lib/components/TenantMismatch.svelte:45
 "Entering a tenant needs a session; with an API key, send the X-Tenant header","Entrar em uma conta exige uma sessão; com uma chave de API, envie o cabeçalho X-Tenant",# internal/engine/tenancy.go:728
 Error,Erro,# desk/src/lib/components/DataImportModal.svelte:125
 Error Log,Log de Erro,# core.doctypes.error_log.error_log.doctype
@@ -277,6 +278,7 @@ Full name,Nome completo,# desk/src/lib/components/Profile.svelte:180
 Full name is required,O nome completo é obrigatório,# core/services/profile.ts:96
 Gantt,Gantt,# desk/src/lib/components/ListView.svelte:504
 Go to list,Ir para a lista,# desk/src/lib/components/SearchPalette.svelte:99
+Go to the desk,Ir para o desk,# desk/src/lib/components/TenantMismatch.svelte:50
 Gotenberg PDF generation failed (status {0}): {1},Falha na geração de PDF via Gotenberg (status {0}): {1},# internal/print/pdf.go:172
 Guest,Convidado,# core role
 HTTPS address that receives a signed POST for every matching event.,Endereço HTTPS que recebe um POST assinado a cada evento correspondente.,# core.doctypes.webhook.webhook.doctype
@@ -654,6 +656,7 @@ Source,Origem,# core.doctypes.error_log.error_log.doctype
 Standard,Padrão,# desk/src/lib/components/PrintView.svelte:47
 Standard Webhooks key. A whsec_ prefix marks a base64 key; anything else is used as is.,Chave Standard Webhooks. O prefixo whsec_ indica uma chave em base64; qualquer outro valor é usado como está.,# core.doctypes.webhook.webhook.doctype
 Status,Status,# desk/src/lib/components/portal/PortalList.svelte:29
+Stay in {0},Ficar em {0},# desk/src/lib/components/TenantMismatch.svelte:46
 Strikethrough,Tachado,# desk/src/lib/controls/RichTextControl.svelte:113
 Subheading,Subtítulo,# desk/src/lib/controls/RichTextControl.svelte:116
 Subject,Assunto,# core.doctypes.email_delivery.email_delivery.doctype
@@ -723,6 +726,8 @@ This endpoint requires the System Manager role,Este endpoint exige o papel Syste
 "This export has {0} rows and the limit here is {1}. Narrow the filters, or run `ddcore export` for the whole set.","Esta exportação tem {0} linhas e o limite aqui é {1}. Restrinja os filtros, ou rode `ddcore export` para o conjunto inteiro.",# internal/api/export.go:131
 This field holds no value,Este campo não guarda valor,# internal/engine/data_import.go:356
 This field is read-only,Este campo é somente leitura,# internal/engine/data_import.go:358
+This link belongs to another tenant ({0}) and cannot be opened here.,Este link pertence a outra conta ({0}) e não pode ser aberto aqui.,# desk/src/lib/components/TenantMismatch.svelte:49
+This link belongs to tenant {0}. You are working in {1}.,Este link pertence à conta {0}. Você está trabalhando em {1}.,# desk/src/lib/components/TenantMismatch.svelte:43
 This link can only be used once and expires in {0} hours.,Este link só pode ser usado uma vez e expira em {0} horas.,# core/mail/invite_sso.mail.ts:21
 This link can only be used once.,Este link só pode ser usado uma vez.,# core/mail/invite.mail.ts:24
 This link does not work,Este link não funciona,# desk/src/routes/login/reset/+page.svelte:45
