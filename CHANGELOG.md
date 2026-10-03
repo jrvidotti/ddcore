@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.24.3 — 2026-10-03
+
 ### Added
 
 - A `Report` field's cells act on a click like a Table's: `grids.<field>.onCellClick.<column>`
