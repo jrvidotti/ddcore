@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { tenantChoices, tenantLabel, type TenantBoot } from "./tenant";
+import { tenantChoices, tenantLabel, tenantLinkState, tenantParam, type TenantBoot } from "./tenant";
 
 const operator: TenantBoot = {
   id: "", title: "", platform: true,
@@ -38,5 +38,35 @@ describe("tenantChoices", () => {
     const got = tenantChoices(inside, "Platform");
     expect(got.find((c) => c.current)?.id).toBe("off");
     expect(got[0]).toEqual({ id: "", label: "Platform", current: false });
+  });
+});
+
+describe("tenantParam", () => {
+  it("names the tenant the desk works in", () => {
+    expect(tenantParam({ id: "alfa", title: "Alfa", platform: false })).toBe("alfa");
+    expect(tenantParam({ ...operator, id: "beta" })).toBe("beta");
+  });
+  it("names none in the platform space or without tenancy", () => {
+    expect(tenantParam(operator)).toBeNull();
+    expect(tenantParam(null)).toBeNull();
+  });
+});
+
+describe("tenantLinkState", () => {
+  const alfaUser: TenantBoot = { id: "alfa", title: "Alfa", platform: false };
+  it("asks nothing of a link without a tenant, or one naming where the desk already is", () => {
+    expect(tenantLinkState(alfaUser, null)).toBe("ok");
+    expect(tenantLinkState(alfaUser, "alfa")).toBe("ok");
+    expect(tenantLinkState({ ...operator, id: "beta" }, "beta")).toBe("ok");
+    expect(tenantLinkState(null, "alfa")).toBe("ok");
+  });
+  it("offers an operator to enter the tenant a link names", () => {
+    expect(tenantLinkState(operator, "alfa")).toBe("enter");
+    expect(tenantLinkState({ ...operator, id: "beta" }, "alfa")).toBe("enter");
+  });
+  it("turns away a tenant user, and an operator for a tenant that is disabled or unknown", () => {
+    expect(tenantLinkState(alfaUser, "beta")).toBe("foreign");
+    expect(tenantLinkState(operator, "off")).toBe("foreign");
+    expect(tenantLinkState(operator, "nope")).toBe("foreign");
   });
 });

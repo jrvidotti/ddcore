@@ -12,6 +12,8 @@
   import Dialogs from "$lib/components/Dialogs.svelte";
   import Icon from "$lib/components/Icon.svelte";
   import TenantMenu from "$lib/components/TenantMenu.svelte";
+  import TenantMismatch from "$lib/components/TenantMismatch.svelte";
+  import { tenantLinkState, tenantParam } from "$lib/tenant";
   import Spinner from "$lib/components/Spinner.svelte";
   import ShortcutsModal from "$lib/components/ShortcutsModal.svelte";
   import SearchPalette from "$lib/components/SearchPalette.svelte";
@@ -22,7 +24,7 @@
   import { isPortalPath, portalRedirect } from "$lib/portal";
   import { canonicalAppPath } from "$lib/routes";
   import { page } from "$app/state";
-  import { goto, afterNavigate } from "$app/navigation";
+  import { goto, afterNavigate, replaceState } from "$app/navigation";
   import { onMount, onDestroy, untrack } from "svelte";
   import {
     resolveActiveWorkspace,
@@ -37,6 +39,19 @@
   const isLogin = $derived(page.url.pathname.startsWith("/login"));
   // the portal draws its own chrome: none of the desk's shell (OPS-10)
   const isPortal = $derived(isPortalPath(page.url.pathname));
+
+  // a desk URL names its tenant, so a link copied from the address bar opens in
+  // the space it was copied from; one naming another tenant is stopped here
+  const isApp = $derived(page.url.pathname === "/app" || page.url.pathname.startsWith("/app/"));
+  const linkTenant = $derived(isApp ? page.url.searchParams.get("tenant") : null);
+  const linkState = $derived(ready ? tenantLinkState(boot.data?.site?.tenant, linkTenant) : "ok");
+  function ensureTenantParam() {
+    const id = tenantParam(boot.data?.site?.tenant);
+    if (!id || !isApp || linkTenant !== null) return;
+    const url = new URL(page.url);
+    url.searchParams.set("tenant", id);
+    replaceState(url, page.state);
+  }
 
   const displayName = $derived(boot.data?.userDoc?.full_name || boot.data?.user || "");
   const avatarInitial = (name: string) => (name || "U").trim().charAt(0).toUpperCase();
@@ -96,6 +111,7 @@
 
   // Automatically close sidebar and user menu on mobile when navigating to another route
   afterNavigate(() => {
+    if (ready) ensureTenantParam();
     userMenuOpen = false;
     if (typeof window !== "undefined" && window.innerWidth <= 800) {
       sidebarOpen = false;
@@ -168,6 +184,7 @@
         subscribe("maintenance", (p) => setMaintenance(p));
         connectEvents(async () => { clearMetaCache(); const nb = await loadBoot(); await loadAppIncludes(deskIncludeApps(nb), nb.loaded, "desk"); toast(__("Apps reloaded"), { indicator: "blue", timeout: 2000 }); });
       }
+      ensureTenantParam();
     } catch (e) { console.error(e); }
     ready = true;
   });
@@ -281,7 +298,11 @@
           <span><strong>{__("Maintenance mode")}</strong> — {__("changes are paused until the site reopens.")}{#if maintenance.reason} {maintenance.reason}{/if}</span>
         </div>
       {/if}
-      {@render children()}
+      {#if linkState === "ok"}
+        {@render children()}
+      {:else}
+        <TenantMismatch kind={linkState} tenant={linkTenant ?? ""} />
+      {/if}
     </main>
   </div>
 {/if}
