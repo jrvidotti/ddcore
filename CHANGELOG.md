@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.26.2 — 2026-10-04
+
 ### Added
 
 - On a site with tenancy, a workspace can show something in one space only:
