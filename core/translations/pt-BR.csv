@@ -952,6 +952,19 @@ or,ou,# desk/src/routes/login/+page.svelte:72
 "or drag them here, or paste a screenshot","ou arraste-os para cá, ou cole uma captura de tela",# desk/src/lib/components/FeedbackModal.svelte:287
 patch sql: {0},sql do patch: {0},# internal/engine/query.go:765
 "publish: {0} is not a valid event name (letters, digits, _ . : -)","publish: {0} não é um nome de evento válido (letras, dígitos, _ . : -)",# internal/engine/host.go:341
+push.send: {0},push.send: {0},# internal/engine/host.go:617
+push: opts.topic must be at most 32 characters of the base64url alphabet,push: opts.topic deve ter no máximo 32 caracteres do alfabeto base64url,# internal/engine/push.go:222
+"push: opts.ttl must be a whole number of seconds, 0 or more","push: opts.ttl deve ser um número inteiro de segundos, 0 ou mais",# internal/engine/push.go:214
+"push: opts.urgency must be very-low, low, normal or high, not {0}","push: opts.urgency deve ser very-low, low, normal ou high, não {0}",# internal/engine/push.go:219
+push: subscription.endpoint must be an http(s) URL,push: subscription.endpoint deve ser uma URL http(s),# internal/engine/push.go:226
+push: subscription.endpoint must use https outside development,push: subscription.endpoint deve usar https fora do desenvolvimento,# internal/engine/push.go:237
+push: subscription.keys.auth must be 16 bytes of base64url,push: subscription.keys.auth deve ter 16 bytes em base64url,# internal/engine/push.go:150
+push: subscription.keys.p256dh is not a P-256 public key,push: subscription.keys.p256dh não é uma chave pública P-256,# internal/engine/push.go:147
+push: the VAPID public and private keys are not a pair,push: as chaves VAPID pública e privada não formam um par,# internal/engine/push.go:113
+"push: the payload is {0} bytes, more than the {1} a push message carries","push: o payload tem {0} bytes, mais que os {1} que uma mensagem push comporta",# internal/engine/push.go:143
+push: {0},push: {0},# internal/engine/push.go:271
+push: {0} must be a mailto: or https: URL,push: {0} deve ser uma URL mailto: ou https:,# internal/engine/push.go:262
+"push: {0} is not a VAPID key (base64url, as ddcore push keys prints it)","push: {0} não é uma chave VAPID (base64url, como ddcore push keys imprime)",# internal/engine/push.go:101
 records,registros,# desk/src/lib/components/ListView.svelte:591
 "run {0} loaded {1}, not {2}","a execução {0} carregou {1}, não {2}",# internal/engine/import_batch.go:27
 runAs needs a user,runAs precisa de um usuário,# internal/engine/asuser.go:115

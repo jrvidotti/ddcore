@@ -26,12 +26,19 @@ older series, and `whats_new` reads across every one of them.
 - `ddcore.webhooks.verify(secret, headers, rawBody, { toleranceSeconds = 300 })` checks a
   Standard Webhooks request on an inbound method in one call: it decodes a `whsec_<base64>` secret,
   accepts several `v1,…` signatures, compares in constant time, enforces the timestamp window, reads
-  header names in any case and returns `false` rather than throwing when a header is missing.
+  header names in any case and returns `false` rather than throwing when a header or the secret is missing.
   `ddcore.crypto.hmacSha256` takes `{ keyEncoding: "utf8" | "base64" | "hex", output: "hex" | "base64" |
   "base64url" }`; without options it answers as before (#84).
 - `ddcore.crypto.randomToken(bytes = 32)` (base64url from `crypto/rand`), `randomInt(min, max)` (uniform
   in `[min, max)`) and `sha256(data, { output })` (hex by default), for session tokens, one-time codes and
   the hash to store instead of a token (#85).
+- `ddcore.push.send(subscription, payload, { ttl, urgency, topic })` delivers a Web Push
+  message from server code: the payload encrypted for the browser's subscription (RFC 8291,
+  `aes128gcm`, at most 3993 bytes) and the request signed with the site's VAPID key (RFC 8292),
+  read from `DDCORE_SECRET_VAPID_PUBLIC_KEY`, `_PRIVATE_KEY` and `_SUBJECT`. It returns
+  `{ status, body, headers }` whatever the status, so the app deletes a subscription that answered
+  404 or 410. `ddcore.push.publicKey()` gives the page the key it subscribes with, and
+  `ddcore push keys` prints a new pair. See `push` (#82).
 
 ### Fixed
 

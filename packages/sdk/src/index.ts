@@ -93,6 +93,32 @@ export interface CertInfo {
 }
 
 /**
+ * A browser's push subscription, as `PushSubscription.toJSON()` gives it:
+ * keys in base64url.
+ */
+export interface PushSubscription {
+  endpoint: string;
+  keys: { p256dh: string; auth: string };
+}
+
+export interface PushOpts {
+  /** How long, in seconds, the push service keeps the message for an offline browser; defaults to 86400 (a day). */
+  ttl?: number;
+  /** Sent as the `Urgency` header; left out, the push service treats the message as `normal`. */
+  urgency?: "very-low" | "low" | "normal" | "high";
+  /** A newer message with the same topic replaces one still waiting; up to 32 base64url characters. */
+  topic?: string;
+}
+
+/** The push service's answer. Any status is returned, not thrown. */
+export interface PushResult {
+  /** 201 is accepted; 404 or 410 means the subscription is gone, and the app should delete it. */
+  status: number;
+  body: string;
+  headers: Record<string, string>;
+}
+
+/**
  * `ddcore.files.save`'s argument. Exactly one of `content`, `contentBase64`
  * and `fromUrl` is the source of the bytes.
  */
@@ -445,6 +471,21 @@ export interface DDCoreAPI {
     pfxInfo(pfx: string, password?: string): CertInfo;
     /** The same for a PEM certificate; the certificates after the first are its chain. */
     certInfo(pem: string): CertInfo;
+  };
+  /**
+   * Web Push with the site's VAPID key, read from `DDCORE_SECRET_VAPID_PUBLIC_KEY`,
+   * `_PRIVATE_KEY` and `_SUBJECT` (`ddcore push keys` generates a pair). See `push`.
+   */
+  push: {
+    /**
+     * Encrypts `payload` for the subscription (RFC 8291) and posts it to its
+     * endpoint signed with VAPID (RFC 8292). A string goes as is, any other
+     * value as JSON; at most 3993 bytes. Only a failed request, a missing key or
+     * a bad argument throws a `ValidationError`.
+     */
+    send(subscription: PushSubscription, payload: any, opts?: PushOpts): PushResult;
+    /** The VAPID public key a page subscribes with, or null when the site has none. */
+    publicKey(): string | null;
   };
   /**
    * A read-only connection to a database that is not the site's own — only
