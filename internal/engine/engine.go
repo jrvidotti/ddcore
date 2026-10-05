@@ -108,6 +108,8 @@ type Config struct {
 	// Login is the sign-in screen's notice and demo account, served to
 	// visitors by /api/boot.
 	Login config.LoginPage
+	// Feedback is the desk's Feedback dialog: on or off, and who is mailed.
+	Feedback config.Feedback
 	// OIDC lists the single sign-on providers. Their callback addresses are
 	// built from SiteURL.
 	OIDC []config.OIDCProvider

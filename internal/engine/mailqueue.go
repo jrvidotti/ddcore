@@ -33,6 +33,9 @@ const (
 	// MailTemplateInviteSSO is the invitation of a site that provisions its
 	// identity provider: the link registers a passkey there, not a password here.
 	MailTemplateInviteSSO = "core.invite_sso"
+	// MailTemplateFeedback is the copy of a user's feedback mailed to the
+	// site's feedback addresses.
+	MailTemplateFeedback = "core.feedback"
 	// MailTemplateNotification is the email copy of an inbox notification the
 	// framework writes itself (assignment, share, task due).
 	MailTemplateNotification = "core.notification"

@@ -256,7 +256,17 @@ func (c *Ctx) NotifyUser(user, refDoctype, refName, title, message string) error
 // notifyUserAs records a direct notification under rule ("assignment",
 // "share"), for a recipient who can read the document.
 func (c *Ctx) notifyUserAs(rule, user, refDoctype, refName, title, message string) error {
-	if user == "" || user == "Guest" || user == c.User {
+	if user == c.User {
+		return nil
+	}
+	return c.notifyRecipient(rule, user, refDoctype, refName, title, message)
+}
+
+// notifyRecipient is notifyUserAs without leaving out the ctx's own user: for
+// the framework writing as Admin on somebody else's behalf, where Admin is one
+// of the readers to tell and the author is who has to be left out.
+func (c *Ctx) notifyRecipient(rule, user, refDoctype, refName, title, message string) error {
+	if user == "" || user == "Guest" {
 		return nil
 	}
 	ok, err := c.notificationAccess(user, refDoctype, refName)

@@ -2,6 +2,7 @@
   import { seg } from "$lib/routes";
   import { boot, __, isLoggedIn, siteName, siteLogo, spaceLabel } from "$lib/boot.svelte";
   import { openShortcutsHelp, openSearch } from "$lib/shortcuts.svelte";
+  import { openFeedback } from "$lib/feedback.svelte";
   import { getModifierKey } from "$lib/shortcuts";
   import Icon from "./Icon.svelte";
   import TenantMenu from "./TenantMenu.svelte";
@@ -202,6 +203,11 @@
           <button role="menuitem" onclick={() => { menuOpen = false; if (typeof window !== "undefined" && window.innerWidth <= 800) open = false; openShortcutsHelp(); }}>
             <Icon name="keyboard" size={14} /> {__("Keyboard shortcuts")}
           </button>
+          {#if boot.data?.site?.feedback}
+            <button role="menuitem" onclick={() => { menuOpen = false; if (typeof window !== "undefined" && window.innerWidth <= 800) open = false; openFeedback(); }}>
+              <Icon name="message-square" size={14} /> {__("Feedback")}
+            </button>
+          {/if}
           <button role="menuitem" onclick={logout}>
             <Icon name="log-out" size={14} /> {__("Sign out")}
           </button>

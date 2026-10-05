@@ -57,6 +57,8 @@ export interface Boot {
     map?: { tileUrl: string; attribution: string };
     /** Present only on a site with tenancy: the space this session works in. */
     tenant?: TenantBoot;
+    /** The user menu offers Feedback to the site's developers; absent is off. */
+    feedback?: boolean;
   };
   loaded: number;
   /** The portals the user reaches (OPS-10). */

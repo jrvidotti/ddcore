@@ -14,6 +14,22 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **Feedback.** Every desk user can report a bug, an improvement or a feature request from
+  **Feedback** in the user menu. The dialog asks for the fields of the chosen type, takes up to
+  10 files (picked, dropped or pasted screenshots) and an audio note recorded in the browser, and
+  sends the current page's address (checked by default) and context data (unchecked; previewed
+  before sending). It is written as a core `Feedback` document, in the platform space on a site
+  with tenancy, stamped with its `source_tenant`. The platform's System Managers get it in the
+  desk inbox, and the addresses in `"feedback": {"to": [...]}` (or `DDCORE_FEEDBACK_TO`) get a mail
+  with the files. The author follows status and response under "My feedback". It is on by
+  default; `"feedback": {"enabled": false}` or `DDCORE_FEEDBACK=0` turns it off. App scripts can
+  open it with `ddcore.ui.openFeedback({ type, title })`. Endpoints: `POST /api/feedback`,
+  `GET /api/feedback/mine`. See `feedback`.
+- Audio files (`.webm`, `.ogg`, `.m4a`, `.mp3`, `.wav`, …) are served in place with their audio
+  type, like images and PDFs, so an `<audio>` element plays them.
+
 ### Changed
 
 - The sidebar's Notifications and To-Do links moved from the top of the menu to its footer,

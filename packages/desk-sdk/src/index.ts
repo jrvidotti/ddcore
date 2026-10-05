@@ -299,6 +299,11 @@ export interface DeskAPI {
     prompt(title: string, fields: DialogField[], primaryLabel?: string): Promise<Record<string, any> | null>;
     showError(e: any): void;
     toast(message: string, opts?: { title?: string; indicator?: string; timeout?: number }): void;
+    /**
+     * Opens the Feedback modal of the user menu, with the type and title
+     * filled in when given. Does nothing on a site where feedback is off.
+     */
+    openFeedback(opts?: { type?: "Bug" | "Improvement" | "Feature Request"; title?: string }): void;
   };
   format: {
     currency(v: any, precision?: number): string;

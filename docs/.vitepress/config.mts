@@ -89,6 +89,7 @@ export default defineConfig({
           { text: 'Approval Workflows', link: '/agent/workflows' },
           { text: 'Assignments & ToDos', link: '/agent/assignments' },
           { text: 'Event Notifications', link: '/agent/notifications' },
+          { text: 'User Feedback', link: '/agent/feedback' },
           { text: 'Email Templates & Delivery', link: '/agent/mail' },
           { text: 'Outgoing Webhooks', link: '/agent/webhooks' },
           { text: 'External Databases', link: '/agent/external-db' },

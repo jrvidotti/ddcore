@@ -19,10 +19,13 @@
   import { DocAssignments } from "$lib/assignments.svelte";
   import { isAssignmentOverdue, assignmentInitial, priorityBadgeClass } from "./doc-sidebar-assignment";
   import { panels, setDocSidebarCollapsed } from "$lib/panels.svelte";
+  import { attachmentsQuery, hasLooseAttachments, isAudioFile, looseAttachments, type AttachedFile } from "./doc-sidebar-attachments";
+  import { formatFileSize } from "$lib/controls/attach-state";
 
   let { frm }: { frm: FormController } = $props();
   let comments = $state<any[]>([]);
   let versions = $state<any[]>([]);
+  let attachments = $state<AttachedFile[]>([]);
   let text = $state("");
   let editingId = $state("");
   let editText = $state("");
@@ -55,7 +58,17 @@
       }
     } catch {}
   }
+  // apart from load(): a user who may not read File still sees the rest.
+  // Only a Feedback lists its files: they reach it with no field to show
+  // them, and every other form is spared the request.
+  async function loadAttachments() {
+    if (!hasLooseAttachments(frm.doctype) || frm.isNew || frm.meta.doctype.isSingle || !frm.doc.id) { attachments = []; return; }
+    try {
+      attachments = looseAttachments(await api.list("File", attachmentsQuery(frm.doctype, frm.doc.id)));
+    } catch { attachments = []; }
+  }
   onMount(load);
+  $effect(() => { frm.doc.id; frm.isNew; loadAttachments(); });
   $effect(() => { frm.doc.modified; frm.doc.id; load(); });
 
   async function addComment() {
@@ -309,6 +322,26 @@
     </div>
   {/if}
 
+  {#if attachments.length}
+    <div class="block">
+      <h4>{__("Attachments")}</h4>
+      <ul class="attachments">
+        {#each attachments as a (a.id)}
+          <li>
+            <a href={a.file_url} target="_blank" rel="noopener" class="attachment-link" title={a.file_name || a.file_url}>
+              <Icon name="paperclip" size={12} />
+              <span class="attachment-name">{a.file_name || a.file_url.split("/").pop()}</span>
+              {#if formatFileSize(a.file_size)}<span class="muted">{formatFileSize(a.file_size)}</span>{/if}
+            </a>
+            {#if isAudioFile(a.file_name) || isAudioFile(a.file_url)}
+              <audio controls preload="none" src={a.file_url}></audio>
+            {/if}
+          </li>
+        {/each}
+      </ul>
+    </div>
+  {/if}
+
   <div class="block">
     <h4>{__("Comments")}</h4>
     {#each comments as c (c.id)}
@@ -459,6 +492,10 @@
   .rail-btn { display: flex; flex-direction: column; align-items: center; gap: 3px; width: 100%; padding: 7px 0; border: 0; background: none; border-radius: 6px; color: var(--muted); cursor: pointer; }
   .rail-btn:hover { background: #f3f4f6; color: var(--text); }
   .block { margin-top: 18px; }
+  .attachments { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 12px; }
+  .attachment-link { display: flex; align-items: center; gap: 6px; min-width: 0; color: inherit; }
+  .attachment-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .attachments audio { display: block; width: 100%; height: 32px; margin-top: 4px; }
   h4 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 8px; }
   .comment { padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
   .comment-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 6px; }
