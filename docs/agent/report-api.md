@@ -46,7 +46,11 @@ export default defineWorkspace({
   links: [{ label: "Records", items: [{ label: "People", doctype: "Person" }] }],
 });
 ```
-Icons: a subset of lucide (`building-2, users, user, notepad-text, receipt, list, bar-chart-3, layout-dashboard, shield, paperclip, message-square, house, tag, history, settings`).
+<!-- icons:begin — generated from desk/icons/icons.json by `go test ./desk/icons -update` -->
+Icons: a subset of lucide, the only names the desk draws: `alert-triangle`, `banknote`, `bar-chart-3`, `bell`, `bold`, `book-open`, `briefcase`, `building`, `building-2`, `calendar`, `chart-bar`, `chart-gantt`, `check`, `check-square`, `chevron-down`, `chevron-left`, `chevron-right`, `chevron-up`, `chevrons-down-up`, `chevrons-up-down`, `circle`, `code`, `credit-card`, `download`, `eraser`, `external-link`, `eye`, `file`, `file-text`, `filter`, `folder`, `folder-tree`, `heading-2`, `heading-3`, `history`, `home`, `house`, `image`, `inbox`, `italic`, `keyboard`, `landmark`, `layout-dashboard`, `layout-grid`, `link`, `list`, `list-ordered`, `list-tree`, `locate-fixed`, `lock`, `log-out`, `mail`, `map-pin`, `maximize-2`, `menu`, `message-square`, `minimize-2`, `more-horizontal`, `notepad-text`, `panel-left`, `panel-right`, `paperclip`, `pen`, `pencil`, `pentagon`, `percent`, `pipette`, `plus`, `printer`, `qr-code`, `quote`, `receipt`, `refresh-cw`, `rotate-ccw`, `scan-line`, `search`, `send`, `settings`, `share-2`, `shield`, `spline`, `square-kanban`, `strikethrough`, `tag`, `trash`, `undo-2`, `upload`, `user`, `user-plus`, `users`, `wallet`, `wrench`, `x`.
+Other lucide names for some of them work too: `chart-column` (`bar-chart-3`), `edit-2` (`pen`), `ellipsis` (`more-horizontal`), `square-check-big` (`check-square`), `triangle-alert` (`alert-triangle`).
+Any other name in a workspace, a sidebar item, a shortcut or a DocType's `icon` fails the load.
+<!-- icons:end -->
 `desk.home` in `ddcore.app.ts` sets the initial workspace.
 
 On a site with tenancy, `space: "platform"` or `space: "tenant"` on the workspace itself, or on
