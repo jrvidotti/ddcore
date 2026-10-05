@@ -32,7 +32,7 @@ production, like any other secret (see `auth`):
 |---|---|
 | `DDCORE_SECRET_VAPID_PUBLIC_KEY` | the 65-byte uncompressed P-256 public key, base64url |
 | `DDCORE_SECRET_VAPID_PRIVATE_KEY` | the 32-byte private key, base64url |
-| `DDCORE_SECRET_VAPID_SUBJECT` | a `mailto:` or `https:` URL a push service can reach the operator at |
+| `DDCORE_SECRET_VAPID_SUBJECT` | a `mailto:` or `https:` URL a push service can reach the operator at; anything else is refused |
 
 The format is the one the `web-push` tooling uses, so a pair made there works unchanged. `send`
 checks that the public key is the private key's half. A missing variable is a `ValidationError`
@@ -74,6 +74,12 @@ export const subscribe = whitelisted((args: { endpoint: string; keys: { p256dh: 
 `Push Subscription` is the app's DocType; the framework has none. An endpoint is a capability URL:
 whoever has it and the keys can send to that browser, so keep the DocType readable only by the
 roles that send.
+
+The endpoint is whatever the browser sent, so **store only `https:` endpoints** (every push
+service is https) and refuse anything else in `subscribe`:
+`if (!String(args.endpoint).startsWith("https://")) ddcore.throw("Invalid subscription")`.
+`send` itself refuses a plain `http:` endpoint outside development unless it is on this machine,
+and never follows a redirect: a `3xx` comes back as the answer.
 
 ## Subscribing in the browser
 
@@ -141,7 +147,7 @@ export function notifyUser(args: { user: string; title: string; body: string; ur
     if (res.status === 404 || res.status === 410) {
       ddcore.deleteDoc("Push Subscription", s.id, { ignorePermissions: true });
     } else if (res.status >= 400) {
-      ddcore.log.warn("push refused", String(res.status), res.body);
+      ddcore.log.warn("push refused", String(res.status));
     }
   }
 }

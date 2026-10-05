@@ -55,7 +55,12 @@ const (
 )
 
 // pushHTTP is the push client: its own timeout, apart from ddcore.http's.
-var pushHTTP = &http.Client{Timeout: 15 * time.Second}
+// An endpoint comes from a browser, so a redirect is answered, not followed:
+// following it would let whoever subscribed point the server elsewhere.
+var pushHTTP = &http.Client{
+	Timeout:       15 * time.Second,
+	CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+}
 
 // pushSendArgs is what ddcore.push.send hands the host. The prelude turns a
 // payload that is not a string into JSON before it gets here.
@@ -225,6 +230,12 @@ func (e *Engine) PushSend(a pushSendArgs) (map[string]any, error) {
 	if err != nil || (endpoint.Scheme != "https" && endpoint.Scheme != "http") || endpoint.Host == "" {
 		return nil, cerr.Validation("push: subscription.endpoint must be an http(s) URL")
 	}
+	// Every push service is https. Plain http is for a receiver on this
+	// machine or for development, the rule webhooks follow: the endpoint is
+	// whatever a browser sent, and must not reach the site's own network.
+	if endpoint.Scheme == "http" && !e.Cfg.Dev && !isLoopbackHost(endpoint.Hostname()) {
+		return nil, cerr.Validation("push: subscription.endpoint must use https outside development")
+	}
 	uaPublic, err := decodeB64URL(a.Subscription.Keys.P256dh)
 	if err != nil {
 		return nil, cerr.Validation("push: subscription.keys.p256dh is not a P-256 public key")
@@ -245,6 +256,10 @@ func (e *Engine) PushSend(a pushSendArgs) (map[string]any, error) {
 	subject, err := e.RequireSecret("vapid_subject")
 	if err != nil {
 		return nil, err
+	}
+	// RFC 8292 asks for a contact; a push service may refuse anything else
+	if !strings.HasPrefix(subject, "mailto:") && !strings.HasPrefix(subject, "https:") {
+		return nil, cerr.Validation("push: {0} must be a mailto: or https: URL", SecretEnvName("vapid_subject"))
 	}
 	key, err := vapidKey(public, private)
 	if err != nil {

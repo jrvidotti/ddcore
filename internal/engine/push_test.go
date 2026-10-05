@@ -296,6 +296,10 @@ func TestPushSendRoundTrip(t *testing.T) {
 
 // Without the keys, send names the variable to set, and publicKey is null.
 func TestPushMissingKeys(t *testing.T) {
+	// a developer's shell may export a real pair; empty is unset
+	for _, k := range []string{"DDCORE_SECRET_VAPID_PUBLIC_KEY", "DDCORE_SECRET_VAPID_PRIVATE_KEY", "DDCORE_SECRET_VAPID_SUBJECT"} {
+		t.Setenv(k, "")
+	}
 	rt := mtlsRuntime(t)
 	ua, _ := ecdh.P256().GenerateKey(rand.Reader)
 	sub := subscriptionJS("https://push.example.net/x", ua, bytes.Repeat([]byte{1}, 16))
@@ -350,6 +354,7 @@ func TestPushSendErrors(t *testing.T) {
 		{"auth", fmt.Sprintf(`({endpoint: "https://push.example.net/x", keys: {p256dh: %s.keys.p256dh, auth: "AAAA"}}, "x")`, good), "subscription.keys.auth"},
 		{"size", fmt.Sprintf(`(%s, "x".repeat(3994))`, good), "3993"},
 		{"network", fmt.Sprintf(`(%s, "x")`, subscriptionJS(closed.URL+"/x", ua, auth)), "push:"},
+		{"plain http", fmt.Sprintf(`(%s, "x")`, subscriptionJS("http://10.0.0.1/x", ua, auth)), "must use https outside development"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			typ, err := rt.Eval(`(() => { try { ddcore.push.send` + tc.call + `; return "no error" } catch (e) { return e.name + ": " + e.message } })()`)
@@ -360,5 +365,47 @@ func TestPushSendErrors(t *testing.T) {
 				t.Fatalf("want a ValidationError naming %q, got %v", tc.want, typ)
 			}
 		})
+	}
+}
+
+// The subject is a contact, mailto: or https:; anything else fails before a
+// push service sees it, naming the variable and not the value.
+func TestPushSubjectMustBeAContact(t *testing.T) {
+	setVAPID(t)
+	t.Setenv("DDCORE_SECRET_VAPID_SUBJECT", "ops-team-xyz")
+	rt := mtlsRuntime(t)
+	ua, _ := ecdh.P256().GenerateKey(rand.Reader)
+	_, err := rt.Eval(fmt.Sprintf(`ddcore.push.send(%s, "x")`, subscriptionJS("https://push.example.net/x", ua, bytes.Repeat([]byte{1}, 16))))
+	if err == nil || !strings.Contains(err.Error(), "DDCORE_SECRET_VAPID_SUBJECT") || strings.Contains(err.Error(), "ops-team-xyz") {
+		t.Fatalf("want an error naming the variable only, got %v", err)
+	}
+}
+
+// A redirect from the endpoint is the answer, not somewhere to go: the
+// endpoint came from a browser, and following it would let it aim elsewhere.
+func TestPushSendDoesNotFollowRedirects(t *testing.T) {
+	setVAPID(t)
+	followed := false
+	elsewhere := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { followed = true }))
+	defer elsewhere.Close()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, elsewhere.URL+"/internal", http.StatusFound)
+	}))
+	defer server.Close()
+	rt := mtlsRuntime(t)
+	ua, _ := ecdh.P256().GenerateKey(rand.Reader)
+	v, err := rt.Eval(fmt.Sprintf(`ddcore.push.send(%s, "x")`, subscriptionJS(server.URL+"/x", ua, bytes.Repeat([]byte{1}, 16))))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var res struct {
+		Status  int               `json:"status"`
+		Headers map[string]string `json:"headers"`
+	}
+	if err := json.Unmarshal(v, &res); err != nil {
+		t.Fatal(err)
+	}
+	if followed || res.Status != http.StatusFound || res.Headers["Location"] != elsewhere.URL+"/internal" {
+		t.Fatalf("followed %v, result %+v", followed, res)
 	}
 }
