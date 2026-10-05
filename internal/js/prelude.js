@@ -947,6 +947,14 @@
       pfxInfo(pfx, password) { return call("crypto.pfxInfo", { clientCert: { pfx: String(pfx), password: password == null ? "" : String(password) } }); },
       certInfo(pem) { return call("crypto.certInfo", { clientCert: { cert: String(pem) } }); },
     },
+    // Web Push with the site's VAPID key: a payload that is not a string goes as JSON.
+    push: {
+      send(subscription, payload, opts) {
+        const body = typeof payload === "string" ? payload : payload == null ? "" : JSON.stringify(payload);
+        return call("push.send", { subscription: subscription || {}, payload: body, opts: opts || {} });
+      },
+      publicKey() { return call("push.publicKey", {}); },
+    },
     externalDb(name) {
       const key = String(name);
       return {

@@ -14,6 +14,16 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- `ddcore.push.send(subscription, payload, { ttl, urgency, topic })` delivers a Web Push
+  message from server code: the payload encrypted for the browser's subscription (RFC 8291,
+  `aes128gcm`, at most 3993 bytes) and the request signed with the site's VAPID key (RFC 8292),
+  read from `DDCORE_SECRET_VAPID_PUBLIC_KEY`, `_PRIVATE_KEY` and `_SUBJECT`. It returns
+  `{ status, body, headers }` whatever the status, so the app deletes a subscription that answered
+  404 or 410. `ddcore.push.publicKey()` gives the page the key it subscribes with, and
+  `ddcore push keys` prints a new pair. See `push` (#82).
+
 ## 0.27.1 — 2026-10-05
 
 ### Added

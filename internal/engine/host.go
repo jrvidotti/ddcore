@@ -611,6 +611,19 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 			return nil, cerr.Validation("crypto: cert is not a valid PEM certificate")
 		}
 		return pemCertInfo(a.ClientCert.Cert)
+	case "push.send":
+		var p pushSendArgs
+		if err := json.Unmarshal(raw, &p); err != nil {
+			return nil, cerr.Validation("push.send: {0}", err)
+		}
+		return e.PushSend(p)
+	case "push.publicKey":
+		// what a page subscribes with, unpadded as applicationServerKey takes
+		// it; null until the site has a VAPID pair
+		if v, ok := e.Secret("vapid_public_key"); ok {
+			return strings.TrimRight(strings.TrimSpace(v), "="), nil
+		}
+		return nil, nil
 	case "crypto.timingSafeEqual":
 		// Compared here, not in JS: `===` stops at the first differing byte,
 		// which is what a signature check must not do.

@@ -130,8 +130,8 @@ produced offline are recovered. Logging out clears the local connection and stat
 recipient. It carries no document content; clients fetch the authorized persisted
 state. Rollback emits no invalidation. SSE is a refresh hint, not the durable inbox.
 
-This version does not include a visual rule editor, push delivery or custom event
-triggers. [Assignments](assignments.md) land in the same inbox
+This version does not include a visual rule editor or custom event triggers; server
+code sends a browser push itself with `ddcore.push.send` (see [push](push.md)). [Assignments](assignments.md) land in the same inbox
 through `NotifyUser` and the core `todo_due` date rule, not through app-defined
 notification rules. A new [document share](sharing.md) lands there the same way, under
 rule `share`; the recipient must be able to read the document, and they are never

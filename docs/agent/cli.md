@@ -40,6 +40,7 @@ flag is an error (it never becomes an argument silently).
 | `ddcore import plan\|run\|status\|reconcile <dir>` | loads an export directory into this site, resumable and idempotent (see `import`) |
 | `ddcore jobs list\|show\|stats\|retry\|cancel\|purge\|scheduled\|run <fn>\|work` | the queue and the scheduler (see `ops`); `show` is the only command that prints a job's arguments |
 | `ddcore webhooks list\|replay <delivery>...` | outgoing webhook deliveries (see `webhooks`); a replay is recorded as an Audit Event |
+| `ddcore push keys [--subject mailto:…]` | prints a new VAPID key pair for `ddcore.push` as `.env` lines (see `push`); stores nothing |
 | `ddcore audit list\|purge` | inspect and purge administrative audit events (see `audit`) |
 | `ddcore user add <email> <name> --password x --role R` / `user passwd <email> <password>` | users; `passwd` also ends that user's other sessions |
 | `ddcore user invite <email> <name> --role R` | creates the account with no password and sends the invitation link |

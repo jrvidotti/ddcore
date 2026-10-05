@@ -92,6 +92,7 @@ export default defineConfig({
           { text: 'User Feedback', link: '/agent/feedback' },
           { text: 'Email Templates & Delivery', link: '/agent/mail' },
           { text: 'Outgoing Webhooks', link: '/agent/webhooks' },
+          { text: 'Web Push', link: '/agent/push' },
           { text: 'External Databases', link: '/agent/external-db' },
           { text: 'Print Templates & PDF', link: '/agent/print' },
           { text: 'Data Export', link: '/agent/export' },

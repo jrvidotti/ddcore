@@ -51,6 +51,7 @@ Usage: ddcore <command> [options]
   import      load an export directory into this site (run: ddcore import)
   jobs        inspect, retry, cancel and purge the queue (run: ddcore jobs)
   webhooks    list and replay outgoing webhook deliveries (run: ddcore webhooks)
+  push        push keys — print a new VAPID key pair for Web Push (run: ddcore push)
   audit       inspect and purge administrative audit events (run: ddcore audit)
   user        user add|invite|passwd|reset|unlock|sessions (run: ddcore user)
   apikey      apikey <user> [--label x] [--days N]  → prints key:secret
@@ -101,6 +102,8 @@ func main() {
 		err = cmdJobs(args)
 	case "webhooks":
 		err = cmdWebhooks(args)
+	case "push":
+		err = cmdPush(args)
 	case "audit":
 		err = cmdAudit(args)
 	case "user":
