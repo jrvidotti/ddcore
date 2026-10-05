@@ -263,6 +263,9 @@ func (c *Ctx) CanDataImport(doctype, mode string) (*meta.DocType, error) {
 	ptype := "create"
 	switch mode {
 	case "", "insert":
+		if !d.Creatable() {
+			return nil, cerr.Validation("{0} is created by the application and cannot be imported from a spreadsheet", c.T(d.Label))
+		}
 	case "update":
 		ptype = "write"
 	default:

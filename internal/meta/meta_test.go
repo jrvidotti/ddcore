@@ -470,6 +470,29 @@ func TestGloballySearchable(t *testing.T) {
 	}
 }
 
+func TestAllowCreate(t *testing.T) {
+	var d DocType
+	if err := json.Unmarshal([]byte(`{"name":"Transfer"}`), &d); err != nil || !d.Creatable() {
+		t.Fatalf("a DocType without allowCreate is creatable: %v, %v", d.Creatable(), err)
+	}
+	if err := json.Unmarshal([]byte(`{"name":"Transfer","allowCreate":false}`), &d); err != nil || d.Creatable() {
+		t.Fatalf("allowCreate: false did not round-trip: %v, %v", d.Creatable(), err)
+	}
+
+	no := false
+	for _, d := range []*DocType{
+		{Name: "Row", IsChild: true, AllowCreate: &no},
+		{Name: "Settings", IsSingle: true, AllowCreate: &no},
+	} {
+		r := NewRegistry()
+		d.Fields = []*Field{{Fieldname: "x", Fieldtype: "Data"}}
+		r.Add(d)
+		if err := r.Validate(); err == nil || !strings.Contains(err.Error(), "allowCreate") {
+			t.Errorf("%s: wanted an error mentioning allowCreate, got %v", d.Name, err)
+		}
+	}
+}
+
 // `name` was the document key before 0.17: a field may now be called that, but
 // may not claim the old key through renamedFrom, and a Vault template may not
 // say {name} unless there is such a field to fill it.

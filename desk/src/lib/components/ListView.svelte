@@ -495,7 +495,10 @@
 {:else}
 <div class="page">
   <div class="page-head">
-    <h1>{meta?.doctype.label || doctypeLabel(doctype)}</h1>
+    <div class="page-title">
+      <h1>{meta?.doctype.label || doctypeLabel(doctype)}</h1>
+      {#if meta?.doctype.description}<p class="subtitle muted">{meta.doctype.description}</p>{/if}
+    </div>
     {#if allowedViews.length > 1}
       <div class="view-switcher">
         {#if allowedViews.includes("tree")}<button class="btn icon" class:active={currentView === "tree"} aria-pressed={currentView === "tree"} onclick={() => setView("tree")} title={__("Tree")} aria-label={__("Tree")}><Icon name="list-tree" size={14} /></button>{/if}
@@ -608,6 +611,8 @@
   .view-switcher .btn:last-child { border-radius: 0 var(--radius) var(--radius) 0; }
   .view-switcher .btn + .btn { margin-left: -1px; }
   .view-switcher .active { color: var(--primary); background: var(--bg); position: relative; border-color: var(--primary); }
+  .page-title { flex: 1; min-width: 200px; }
+  .subtitle { margin: 2px 0 0; font-size: 13px; }
   .page-head > .btn.active { color: var(--primary); border-color: var(--primary); }
   .filter-count { margin-left: 2px; min-width: 18px; padding: 0 5px; border-radius: 999px; background: var(--primary); color: #fff; font-size: 11px; line-height: 18px; text-align: center; }
   .list-results { overflow: auto; }

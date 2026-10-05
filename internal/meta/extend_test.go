@@ -124,6 +124,20 @@ func TestExtensionSetsTheIDLabel(t *testing.T) {
 	}
 }
 
+// An app can say another app's DocType is only created by server code.
+func TestExtensionSetsAllowCreate(t *testing.T) {
+	r := hostRegistry()
+	mustApply(t, r, ext("billing", "Lead", `{"props":{"allowCreate":false}}`))
+
+	d, _ := r.Get("Lead")
+	if d.Creatable() {
+		t.Fatal("allowCreate: false did not apply")
+	}
+	if err := apply(t, hostRegistry(), ext("billing", "Lead", `{"props":{"allowCreate":"no"}}`)); err == nil || !strings.Contains(err.Error(), "boolean") {
+		t.Fatalf("wanted a type error, got %v", err)
+	}
+}
+
 // An app can pick how another app's DocType orders in its Link dropdowns.
 func TestExtensionSetsTheLinkOrder(t *testing.T) {
 	r := hostRegistry()

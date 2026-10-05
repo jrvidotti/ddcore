@@ -950,6 +950,9 @@ func (s *Server) create(w http.ResponseWriter, r *http.Request) {
 		if err := s.childGuard(dt); err != nil {
 			return nil, err
 		}
+		if d, err := s.E.DocType(dt); err == nil && !d.Creatable() {
+			return nil, cerr.Permission("{0} is created by the application, not directly", c.T(d.Label))
+		}
 		doc, err := c.NewDoc(dt, body)
 		if err != nil {
 			return nil, err

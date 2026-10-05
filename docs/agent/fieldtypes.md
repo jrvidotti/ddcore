@@ -494,6 +494,7 @@ defineDoctype({
   idGeneration: { series: "CTR-.YYYY.-.####" } | { field: "code" } | { format: "{index}-{period}" } | { hash: true } | { prompt: true },
   submittable: true, isChild: false, isTree: false, trackChanges: true, allowRename: true, renamedFrom: "Old Name",
   titleField: "id", imageField: "logo", searchFields: ["id", "tax_id"], linkSubtitle: ["tax_id"], globalSearch: true, sortField: "modified", sortOrder: "desc", icon: "building-2",
+  description: "Signed with the customer; renewed from the form", allowCreate: true,
   uniqueKeys: [{ name: "customer_number", fields: ["customer", "number"] }],
   fields: [...],
   permissions: [
@@ -515,6 +516,18 @@ list's id column instead of "ID", and it labels the id when it is asked for (`id
 or renamed. It changes display only: filters, `orderBy`, the API and every query still say
 `id`. Left out, the column is headed "ID". To hide the column rather than relabel it, see
 `idColumn` in `form-api`.
+
+`description` is a line the desk shows under the list's title — where the documents come
+from, or where the action that makes them lives. It is a catalogue key, like `label`.
+
+`allowCreate: false` says only server code creates the DocType's documents: a controller
+method, a job, a service. The desk then offers no way to make one, to **Admin** too: no **New**
+in the list, no `+` on a Link, no Duplicate or Amend, no insert from a spreadsheet (update
+still works), and a typed `/new` shows a notice — with the `description` — instead of a form.
+`POST /api/resource/<doctype>` is refused. Server code inserts as before, so a method such as a
+**Transfer** button on another form still makes the document; give it `ignorePermissions` when
+the roles that press it hold no `create`. Left out, a DocType is creatable. A child table or a
+Single cannot declare it. An app may set it on another app's DocType through `extendDoctype`.
 
 `isTree` makes the documents a hierarchy: the DocType gets a self-referencing Link for the
 parent (`parent_<snake(name)>`, or the one `parentField` names) and an `is_group` Check, and

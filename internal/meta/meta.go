@@ -351,6 +351,12 @@ func (d *DocType) GloballySearchable() bool {
 	return d.TitleField != "" || len(d.SearchFields) > 0
 }
 
+// Creatable reports whether a document of this DocType may be created from
+// outside server code — the desk, the REST insert, a spreadsheet import.
+func (d *DocType) Creatable() bool {
+	return d.AllowCreate == nil || *d.AllowCreate
+}
+
 // TitleIsTranslatedID reports whether a document's display title is its id
 // run through the catalogue: TranslateID set and no TitleField to read instead.
 func (d *DocType) TitleIsTranslatedID() bool {
@@ -481,6 +487,10 @@ type DocType struct {
 	// GlobalSearch opts a DocType in (true) or out (false) of the Desk's
 	// global search; nil leaves it to GloballySearchable's default.
 	GlobalSearch *bool `json:"globalSearch,omitempty"`
+	// AllowCreate false says only server code creates this DocType's
+	// documents: the desk offers no way to make one, Admin included, and the
+	// REST insert is refused. nil is the default, creatable (see Creatable).
+	AllowCreate *bool `json:"allowCreate,omitempty"`
 	// UniqueKeys are the compound business keys, one partial unique index each.
 	UniqueKeys  []UniqueKey `json:"uniqueKeys,omitempty"`
 	Fields      []*Field    `json:"fields"`
@@ -708,6 +718,9 @@ func (r *Registry) Validate() error {
 		e := func(msg string, a ...any) { errs = append(errs, d.Name+": "+fmt.Sprintf(msg, a...)) }
 		if d.IsSingle && (d.IsChild || d.Submittable || d.AllowRename || d.IDGeneration != (IDGeneration{})) {
 			e("Single DocTypes cannot be child tables, submittable, renamable, or declare idGeneration")
+		}
+		if d.AllowCreate != nil && (d.IsChild || d.IsSingle) {
+			e("allowCreate is for a DocType whose documents are created on their own, not a child table or a Single")
 		}
 		seen := map[string]bool{}
 		renamedFrom := map[string]string{} // old fieldname -> the field claiming it

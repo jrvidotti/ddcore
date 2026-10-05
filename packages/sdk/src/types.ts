@@ -517,6 +517,16 @@ export interface DoctypeDef {
    */
   globalSearch?: boolean;
   /**
+   * `false` when only server code creates this DocType's documents — a
+   * controller method, a job, a service — and nobody types one in. The desk
+   * then offers no way to make one, to Admin either: no New in the list, no
+   * `+` on a Link, no Duplicate or Amend, no insert from a spreadsheet, and
+   * `/new` shows a notice. `POST /api/resource/<doctype>` is refused too.
+   * Server code inserts as before. Pair it with a `description` that says
+   * where the documents come from.
+   */
+  allowCreate?: boolean;
+  /**
    * Compound business keys, enforced by a partial unique index each.
    *
    * `unique` on a field covers one column; this covers the keys that span
@@ -530,6 +540,7 @@ export interface DoctypeDef {
   uniqueKeys?: UniqueKeyDef[];
   fields: FieldDef[];
   permissions?: PermDef[];
+  /** A line shown under the list's title, e.g. where the documents come from. A catalogue key, like `label`. */
   description?: string;
   icon?: string;
   /**
