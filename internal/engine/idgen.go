@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"crypto/rand"
 	"fmt"
 	"regexp"
 	"strings"
@@ -14,14 +13,7 @@ import (
 
 const alphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
 
-func randomID() string {
-	b := make([]byte, 10)
-	rand.Read(b)
-	for i := range b {
-		b[i] = alphabet[int(b[i])%len(alphabet)]
-	}
-	return string(b)
-}
+func randomID() string { return secureRandomString(10) }
 
 var hashRun = regexp.MustCompile(`#+`)
 

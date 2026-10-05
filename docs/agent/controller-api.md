@@ -77,6 +77,21 @@ export const receive = whitelisted((args, ctx) => {
 - `ddcore.crypto.hmacSha256(key, data)` → lower-case hex; `ddcore.crypto.timingSafeEqual(a, b)` compares in
   constant time. Never compare a signature with `===`. For a timestamped scheme, also check the timestamp header
   against `Date.now()` and refuse an event older than the window you accept.
+  `hmacSha256(key, data, { keyEncoding?, output? })` takes the key as `"utf8"` (default), `"base64"` or `"hex"`
+  and answers `"hex"` (default), `"base64"` or `"base64url"`.
+- A sender that follows [Standard Webhooks](https://www.standardwebhooks.com/) (the scheme ddcore itself signs
+  with, see `webhooks`) is checked in one call. `ddcore.webhooks.verify(secret, headers, rawBody, { toleranceSeconds = 300 })`
+  returns a boolean: it decodes a `whsec_<base64>` secret, accepts several space-separated `v1,…` signatures,
+  compares in constant time, enforces the timestamp window, reads header names in any case, and returns `false`
+  (never throws) when a header is missing. A missing secret (`ddcore.secret` returns `null` when the variable is
+  unset) or an empty one verifies nothing and gives `false`, so a site that forgot to configure it refuses every call:
+
+  ```ts
+  export const gateway = whitelisted((args, ctx) => {
+    const { headers, rawBody } = ctx.request!;
+    if (!ddcore.webhooks.verify(ddcore.secret("GATEWAY_SECRET")!, headers!, rawBody!)) ddcore.throw("Forbidden");
+  }, { allowGuest: true, methods: ["POST"] });
+  ```
 
 ### Calls from another origin
 
@@ -199,6 +214,7 @@ by hand.
 - `ddcore.http.post(url, body?, opts?)` / `put(url, body?, opts?)` / `patch(url, body?, opts?)` send POST / PUT / PATCH requests. Object bodies are JSON-encoded; string bodies are sent unchanged. `bodyEncoding: "base64"` sends a base64 string `body` as raw bytes (`Content-Type` defaults to `application/octet-stream`); `bodyEncoding: "multipart"` sends an array of parts, `{ name, value }` for a text field or `{ name, base64, filename?, contentType? }` for a file, as `multipart/form-data` (the framework sets `Content-Type` with the boundary; a file part's `filename` defaults to its `name`, its `contentType` to `application/octet-stream`). An unknown `bodyEncoding`, invalid base64, a part without `name`, or one with both `value` and `base64` throws.
 - All HTTP calls are synchronous and leave from the server. `HttpOpts` accepts `headers` (a string map), `timeout` (seconds, default 15), `responseType` (`"text"`, the default, or `"base64"` for a binary body such as an image or audio) and `maxBytes` (the largest body accepted, default 10 MiB; a larger response throws instead of being cut short). The named method determines the verb; `opts.method` cannot override it. Replace older `post(url, body, { method: "PUT" })` or `get(url, { method: "DELETE" })` workarounds with `put` or `del`.
 - `opts.clientCert` presents a client certificate to an API that authenticates by mutual TLS, as most banking APIs do. It is either `{ pfx, password? }` — a PKCS#12 (`.pfx`) file, base64-encoded — or `{ cert, key }` in PEM. The chain in the file is sent with the certificate; the server is still verified against the system roots. Calls with the same certificate share connections, so a token request and the operation after it pay for one handshake. Keep the file in `ddcore.vault` or `ddcore.secret`: `ddcore.http.post(url, body, { clientCert: { pfx: ddcore.vault.get("bank:pfx")!, password: ddcore.secret("bank_pfx_password") } })`. A wrong password or an unreadable file throws a `ValidationError` that does not repeat the material.
+- `ddcore.crypto` also makes secrets from `crypto/rand`: `randomToken(bytes = 32)` (base64url, no padding), `randomInt(min, max)` (uniform in `[min, max)`, safe integers, `max > min`) and `sha256(data, { output? })` (hex by default), so a session token or an OTP is `randomToken()` / `randomInt(0, 1e6)`, and what you store is `sha256(token)`, not the token. `ddcore.utils.randomString(n)` is cryptographically secure too (`a-z0-9`; it throws when `n` is not an integer from 0 to 65536), though a token of 32 bytes is longer for the same length of text.
 - `ddcore.crypto.pfxInfo(pfx, password?)` describes the certificate in a PKCS#12 file, the same base64 input as `clientCert.pfx`, without making a call with it: `{ notBefore, notAfter, subject, issuer, serial, chain }`. `notBefore` and `notAfter` are RFC 3339 instants in UTC (`"2027-01-31T12:00:00Z"`), `subject` and `issuer` distinguished names (`"CN=…"`), `serial` lower-case hex, and `chain` how many certificates came along with the leaf. It never returns key material. A wrong password or an unreadable file throws a `ValidationError` that does not repeat the material, so a method that stores a certificate calls it first: the password is checked on save rather than at the first call to the bank, and the expiry date comes from the file instead of being typed. `ddcore.crypto.certInfo(pem)` does the same for a PEM certificate, the `cert` of the `{ cert, key }` form; the certificates after the first are its chain.
 - `HttpResponse` exposes `{ status, body, headers, json() }`. `body` is text (base64 with `responseType: "base64"`) and `json()` parses it. Response header names use Go's canonical HTTP casing (for example, `response.headers["Ratelimit-Remaining"]`); repeated values are joined with `", "`. HTTP error statuses are returned as responses; transport errors throw.
 - `ddcore.files.save({ doctype?, id?, fieldname?, filename, isPrivate?, contentType?, content | contentBase64 | fromUrl, headers?, maxBytes?, timeout?, ignorePermissions? })` → the `File` document. Stores bytes the server holds or downloads, with the rules of an upload; see [storage](storage.md#from-server-code).
@@ -219,7 +235,7 @@ by hand.
 - `ddcore.publish(event, payload, { user, doctype, id })` — SSE to the desk when the transaction commits. With `user`, only that user's sessions; with `doctype` and `id`, only sessions that may read that document (with `doctype` alone, the DocType) — the audience `doc_update` has. The name is letters, digits and `_ . : -`; prefix it with the app's name. The desk listens with `frm.onRealtime` / `ddcore.realtime.on` (see `form-api`)
 - `ddcore.log.info/warn/error`
 - `ddcore.utils`: `flt(v, precision)`, `cint`, `cstr`, `getdate`, `nowdate()`, `now()`, `formatDate(d, "dd/mm/yyyy")`, `addDays`, `addMonths`, `addYears`,
-  `getFirstDay`, `getLastDay`, `dateDiff(a, b)`, `monthDiff(a, b)`, `formatCurrency(v)`, `roundTo`, `randomString`
+  `getFirstDay`, `getLastDay`, `dateDiff(a, b)`, `monthDiff(a, b)`, `formatCurrency(v)`, `roundTo`, `randomString` (cryptographically secure)
 - `ddcore.utils` for money: `currencyPrecision()`, `roundCurrency(v)`, `splitAmount(total, n)`
 
 `nowdate()` and `now()` are the site's wall clock (`ddcore.json:timezone`), the same day and hour the desk sees.

@@ -558,7 +558,7 @@ Priority,Prioridade,# desk/src/lib/components/AssignModal.svelte:96
 Private,Privado,# core.doctypes.file.file.doctype
 Problem to solve,Problema a resolver,# core/mail/feedback.mail.ts:47
 Profile saved,Perfil salvo,# desk/src/lib/components/Profile.svelte:78
-Provide the document ID,Informe o ID do documento,# internal/engine/idgen.go:62
+Provide the document ID,Informe o ID do documento,# internal/engine/idgen.go:54
 Provide the reference document,Informe o documento de referência,# internal/api/api.go:1266
 Queued,Na fila,# core.doctypes.email_delivery.email_delivery.doctype
 Quote,Citação,# desk/src/lib/controls/RichTextControl.svelte:120
@@ -870,7 +870,15 @@ Your account has no portal yet. Ask the people who invited you.,Sua conta ainda 
 Your location is not available,Sua localização não está disponível,# desk/src/lib/controls/GeolocationControl.svelte:197
 "Your user, roles and language, the site's version and apps, your browser and the last errors on this page.","Seu usuário, papéis e idioma, a versão e os apps do site, seu navegador e os últimos erros nesta página.",# desk/src/lib/components/FeedbackModal.svelte:324
 changes are paused until the site reopens.,as alterações estão pausadas até o site reabrir.,# desk/src/routes/+layout.svelte:314
+crypto: bytes must be an integer from 1 to {0},crypto: bytes deve ser um inteiro de 1 a {0},# internal/engine/cryptoops.go:113
 crypto: cert is not a valid PEM certificate,crypto: cert não é um certificado PEM válido,# internal/engine/certinfo.go:72
+crypto: key is not valid base64,crypto: a chave não é base64 válido,# internal/engine/cryptoops.go:79
+crypto: key is not valid hex,crypto: a chave não é hex válido,# internal/engine/cryptoops.go:85
+"crypto: keyEncoding must be ""utf8"", ""base64"" or ""hex""","crypto: keyEncoding deve ser ""utf8"", ""base64"" ou ""hex""",# internal/engine/cryptoops.go:89
+crypto: max must be greater than min,crypto: max deve ser maior que min,# internal/engine/cryptoops.go:127
+crypto: min and max must be safe integers,crypto: min e max devem ser inteiros seguros,# internal/engine/cryptoops.go:124
+crypto: n must be an integer from 0 to {0},crypto: n deve ser um inteiro de 0 a {0},# internal/engine/cryptoops.go:139
+"crypto: output must be ""hex"", ""base64"" or ""base64url""","crypto: output deve ser ""hex"", ""base64"" ou ""base64url""",# internal/engine/cryptoops.go:58
 crypto: pfx could not be read: wrong password or malformed file,crypto: não foi possível ler pfx: senha incorreta ou arquivo malformado,# internal/engine/certinfo.go:46
 crypto: pfx is not valid base64,crypto: pfx não é base64 válido,# internal/engine/certinfo.go:43
 ctx.sql is only available inside a patch,ctx.sql só existe dentro de um patch,# internal/engine/query.go:761
@@ -1011,7 +1019,7 @@ webhook payload for {0} is not JSON: {1},o conteúdo do webhook para {0} não é
 {0} is not submittable,{0} não é submetível,# internal/engine/doc.go:829
 {0} is public and {1} would be served as active content from this site,{0} é público e {1} seria servido como conteúdo ativo a partir deste site,# internal/engine/import_files.go:89
 {0} is read-only on this document,{0} é somente leitura neste documento,# internal/engine/doc.go:2010
-{0} is required to identify the document,{0} é obrigatório para identificar o documento,# internal/engine/idgen.go:51
+{0} is required to identify the document,{0} é obrigatório para identificar o documento,# internal/engine/idgen.go:43
 {0} is shared by every tenant and can only be changed from the platform space,{0} é compartilhado por todas as contas e só pode ser alterado a partir do espaço da plataforma,# internal/engine/tenancy.go:478
 {0} is too large (at most {1} KiB),{0} é grande demais (no máximo {1} KiB),# internal/geo/geo.go:404
 "{0} is too large to store: ""{1}""","{0} é grande demais para ser armazenado: ""{1}""",# internal/engine/doc.go:230
