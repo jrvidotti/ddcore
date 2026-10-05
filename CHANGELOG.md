@@ -14,6 +14,14 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- `ddcore.http` sends binary and multipart bodies with `bodyEncoding`: `"base64"` sends a base64
+  string `body` as raw bytes, and `"multipart"` sends an array of parts (`{ name, value }` or
+  `{ name, base64, filename?, contentType? }`) as `multipart/form-data`, boundary included. A
+  `Content-Type` header is now matched without regard to case. The type `HttpMultipartPart` is
+  exported (#83).
+
 ## 0.27.1 — 2026-10-05
 
 ### Added
