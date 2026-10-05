@@ -56,8 +56,13 @@ export const publicKey = whitelisted(() => ({ key: ddcore.push.publicKey() }), {
   methods: ["GET"],
 });
 
+// The push services browsers use; an endpoint anywhere else is refused.
+const PUSH_HOSTS = [/^fcm\.googleapis\.com$/, /\.push\.services\.mozilla\.com$/, /\.push\.apple\.com$/, /\.notify\.windows\.com$/];
+
 // Stores the browser's subscription for the signed-in user.
 export const subscribe = whitelisted((args: { endpoint: string; keys: { p256dh: string; auth: string } }) => {
+  const m = /^https:\/\/([^/:?#@]+)[/:]/.exec(String(args.endpoint));
+  if (!m || !PUSH_HOSTS.some((re) => re.test(m[1].toLowerCase()))) ddcore.throw("Invalid subscription");
   const existing = ddcore.db.exists("Push Subscription", { endpoint: args.endpoint });
   if (existing) return { id: existing };
   const doc = ddcore.newDoc("Push Subscription", {
@@ -75,11 +80,15 @@ export const subscribe = whitelisted((args: { endpoint: string; keys: { p256dh: 
 whoever has it and the keys can send to that browser, so keep the DocType readable only by the
 roles that send.
 
-The endpoint is whatever the browser sent, so **store only `https:` endpoints** (every push
-service is https) and refuse anything else in `subscribe`:
-`if (!String(args.endpoint).startsWith("https://")) ddcore.throw("Invalid subscription")`.
-`send` itself refuses a plain `http:` endpoint outside development unless it is on this machine,
-and never follows a redirect: a `3xx` comes back as the answer.
+The endpoint is whatever the browser sent, and `send` makes a request to it from the server. So
+`subscribe` above **stores only an `https:` endpoint on a known push service**:
+`fcm.googleapis.com` (Chrome), `*.push.services.mozilla.com` (Firefox),
+`*.push.apple.com` (Safari) and `*.notify.windows.com` (Edge on Windows). Add a host to the list
+only for a push service you know of. `send` itself refuses a plain `http:` endpoint outside
+development, this machine included, and never follows a redirect: a `3xx` comes back as the
+answer. It does **not** refuse an `https:` endpoint on a private address (`https://10.0.0.5/`,
+`https://localhost/`): only the host check in `subscribe` keeps a signed-in user from pointing
+the server at the site's own network.
 
 ## Subscribing in the browser
 
@@ -92,7 +101,8 @@ if (data.key && (await Notification.requestPermission()) === "granted") {
   const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: data.key });
   await fetch("/api/method/portal.services.push.subscribe", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    // a cookie-authenticated POST without it is refused with 403
+    headers: { "Content-Type": "application/json", "X-DDCore-CSRF": "1" },
     body: JSON.stringify(sub.toJSON()),   // { endpoint, keys: { p256dh, auth } }
   });
 }

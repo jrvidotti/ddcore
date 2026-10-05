@@ -49,3 +49,23 @@ func TestPushKeysPrintsAVAPIDPair(t *testing.T) {
 		t.Fatalf("without --subject the variable is printed empty, got %q (%v)", v, ok)
 	}
 }
+
+// The subject is checked when the pair is made, by the rule send applies,
+// rather than on the first send in production.
+func TestPushKeysRefusesABadSubject(t *testing.T) {
+	for _, bad := range []string{"ops@example.com", "http://example.com", "ops-team"} {
+		var out bytes.Buffer
+		err := pushKeys(&out, []string{"--subject", bad})
+		if err == nil || !strings.Contains(err.Error(), "mailto:") {
+			t.Errorf("--subject %q: want an error naming the rule, got %v", bad, err)
+		}
+		if out.Len() != 0 {
+			t.Errorf("--subject %q printed keys: %q", bad, out.String())
+		}
+	}
+	for _, good := range []string{"mailto:ops@example.com", "https://example.com/contact"} {
+		if env := pushKeysEnv(t, "--subject", good); env["DDCORE_SECRET_VAPID_SUBJECT"] != good {
+			t.Errorf("--subject %q printed %q", good, env["DDCORE_SECRET_VAPID_SUBJECT"])
+		}
+	}
+}

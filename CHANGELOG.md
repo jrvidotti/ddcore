@@ -25,8 +25,9 @@ older series, and `whats_new` reads across every one of them.
   exported (#83).
 - `ddcore.webhooks.verify(secret, headers, rawBody, { toleranceSeconds = 300 })` checks a
   Standard Webhooks request on an inbound method in one call: it decodes a `whsec_<base64>` secret,
-  accepts several `v1,…` signatures, compares in constant time, enforces the timestamp window, reads
-  header names in any case and returns `false` rather than throwing when a header or the secret is missing.
+  accepts several `v1,…` signatures, in one header or repeated ones, compares in constant time,
+  enforces the timestamp window (`toleranceSeconds: Infinity` switches it off), reads header names
+  in any case and returns `false` rather than throwing when a header or the secret is missing.
   `ddcore.crypto.hmacSha256` takes `{ keyEncoding: "utf8" | "base64" | "hex", output: "hex" | "base64" |
   "base64url" }`; without options it answers as before (#84).
 - `ddcore.crypto.randomToken(bytes = 32)` (base64url from `crypto/rand`), `randomInt(min, max)` (uniform
@@ -37,15 +38,16 @@ older series, and `whats_new` reads across every one of them.
   `aes128gcm`, at most 3993 bytes) and the request signed with the site's VAPID key (RFC 8292),
   read from `DDCORE_SECRET_VAPID_PUBLIC_KEY`, `_PRIVATE_KEY` and `_SUBJECT`. It returns
   `{ status, body, headers }` whatever the status, so the app deletes a subscription that answered
-  404 or 410. `ddcore.push.publicKey()` gives the page the key it subscribes with, and
-  `ddcore push keys` prints a new pair. See `push` (#82).
+  404 or 410. An endpoint must be `https:` outside development. `ddcore.push.publicKey()` gives
+  the page the key it subscribes with, or `null`, and `ddcore push keys` prints a new pair, refusing
+  a `--subject` that is not a `mailto:` or `https:` URL. See `push` (#82).
 
 ### Fixed
 
 - `ddcore.utils.randomString` used `Math.random`, which is not safe for a credential. It now draws
-  from `crypto/rand` without modulo bias, with the same `a-z0-9` alphabet. It now throws when `n`
-  is not an integer from 0 to 65536, where it used to return a string. The ids ddcore generates
-  for new documents share that bias fix (#85).
+  from `crypto/rand` without modulo bias, with the same `a-z0-9` alphabet and the same handling of
+  `n`: a fraction rounds up and anything not positive gives `""`. It now throws above 65536
+  characters. The ids ddcore generates for new documents share that bias fix (#85).
 
 ## 0.27.1 — 2026-10-05
 

@@ -206,6 +206,13 @@ func pushTopic(s string) bool {
 	return true
 }
 
+// ValidVAPIDSubject is the rule for DDCORE_SECRET_VAPID_SUBJECT: RFC 8292 asks
+// for a contact, a mailto: or https: URL, and a push service may refuse
+// anything else.
+func ValidVAPIDSubject(s string) bool {
+	return strings.HasPrefix(s, "mailto:") || strings.HasPrefix(s, "https:")
+}
+
 // PushSend is ddcore.push.send. Whatever the push service answers is
 // returned rather than thrown: a 404 or 410 means the subscription is gone,
 // and deleting it is the app's decision. Only a request that never got an
@@ -230,10 +237,10 @@ func (e *Engine) PushSend(a pushSendArgs) (map[string]any, error) {
 	if err != nil || (endpoint.Scheme != "https" && endpoint.Scheme != "http") || endpoint.Host == "" {
 		return nil, cerr.Validation("push: subscription.endpoint must be an http(s) URL")
 	}
-	// Every push service is https. Plain http is for a receiver on this
-	// machine or for development, the rule webhooks follow: the endpoint is
-	// whatever a browser sent, and must not reach the site's own network.
-	if endpoint.Scheme == "http" && !e.Cfg.Dev && !isLoopbackHost(endpoint.Hostname()) {
+	// Every push service is https, so plain http is for development only.
+	// Unlike a webhook URL, which an operator configures, the endpoint is
+	// whatever a browser sent: this machine is no exception.
+	if endpoint.Scheme == "http" && !e.Cfg.Dev {
 		return nil, cerr.Validation("push: subscription.endpoint must use https outside development")
 	}
 	uaPublic, err := decodeB64URL(a.Subscription.Keys.P256dh)
@@ -257,8 +264,7 @@ func (e *Engine) PushSend(a pushSendArgs) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	// RFC 8292 asks for a contact; a push service may refuse anything else
-	if !strings.HasPrefix(subject, "mailto:") && !strings.HasPrefix(subject, "https:") {
+	if !ValidVAPIDSubject(subject) {
 		return nil, cerr.Validation("push: {0} must be a mailto: or https: URL", SecretEnvName("vapid_subject"))
 	}
 	key, err := vapidKey(public, private)

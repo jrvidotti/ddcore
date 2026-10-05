@@ -21,6 +21,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/jrvidotti/ddcore/internal/js"
 )
 
 func b64url(t *testing.T, s string) []byte {
@@ -210,6 +212,23 @@ func setVAPID(t *testing.T) (pub string) {
 	return pub
 }
 
+// pushDevRuntime is a runtime on a development engine: httptest serves plain
+// http on 127.0.0.1, which send refuses everywhere else.
+func pushDevRuntime(t *testing.T) *js.Runtime {
+	t.Helper()
+	pool, err := js.NewPool(&Engine{Cfg: Config{Dev: true}}, nil, 1, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rt, err := pool.Acquire()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(rt.Release)
+	rt.Ctx = &Ctx{}
+	return rt
+}
+
 // subscriptionJS is a browser's PushSubscription.toJSON() for ua, at endpoint.
 func subscriptionJS(endpoint string, ua *ecdh.PrivateKey, auth []byte) string {
 	return fmt.Sprintf(`{endpoint: %q, keys: {p256dh: %q, auth: %q}}`, endpoint,
@@ -253,7 +272,7 @@ func TestPushSendRoundTrip(t *testing.T) {
 	}))
 	defer server.Close()
 	serverURL = server.URL
-	rt := mtlsRuntime(t)
+	rt := pushDevRuntime(t)
 	sub := subscriptionJS(server.URL+"/push/abc", ua, auth)
 
 	v, err := rt.Eval(fmt.Sprintf(`ddcore.push.send(%s, {title: "Due tomorrow", body: "R$ 137,24"}, {ttl: 60, urgency: "high", topic: "due-1"})`, sub))
@@ -303,9 +322,10 @@ func TestPushMissingKeys(t *testing.T) {
 	rt := mtlsRuntime(t)
 	ua, _ := ecdh.P256().GenerateKey(rand.Reader)
 	sub := subscriptionJS("https://push.example.net/x", ua, bytes.Repeat([]byte{1}, 16))
-	v, err := rt.Eval(`ddcore.push.publicKey()`)
-	if err != nil || string(v) != "null" {
-		t.Fatalf("publicKey() = %v (%v), want null", v, err)
+	// === null, not undefined: Eval would print both as null
+	v, err := rt.Eval(`ddcore.push.publicKey() === null`)
+	if err != nil || string(v) != "true" {
+		t.Fatalf("publicKey() === null is %v (%v), want true", v, err)
 	}
 	pub, priv, _ := vapidTestKeys(t)
 	for _, tc := range []struct {
@@ -353,8 +373,10 @@ func TestPushSendErrors(t *testing.T) {
 		{"p256dh", `({endpoint: "https://push.example.net/x", keys: {p256dh: "AAAA", auth: "AAAAAAAAAAAAAAAAAAAAAA"}}, "x")`, "subscription.keys.p256dh"},
 		{"auth", fmt.Sprintf(`({endpoint: "https://push.example.net/x", keys: {p256dh: %s.keys.p256dh, auth: "AAAA"}}, "x")`, good), "subscription.keys.auth"},
 		{"size", fmt.Sprintf(`(%s, "x".repeat(3994))`, good), "3993"},
-		{"network", fmt.Sprintf(`(%s, "x")`, subscriptionJS(closed.URL+"/x", ua, auth)), "push:"},
 		{"plain http", fmt.Sprintf(`(%s, "x")`, subscriptionJS("http://10.0.0.1/x", ua, auth)), "must use https outside development"},
+		// the endpoint is a browser's, so this machine is no exception
+		{"loopback http", fmt.Sprintf(`(%s, "x")`, subscriptionJS("http://127.0.0.1:9/x", ua, auth)), "must use https outside development"},
+		{"localhost http", fmt.Sprintf(`(%s, "x")`, subscriptionJS("http://localhost:9/x", ua, auth)), "must use https outside development"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			typ, err := rt.Eval(`(() => { try { ddcore.push.send` + tc.call + `; return "no error" } catch (e) { return e.name + ": " + e.message } })()`)
@@ -365,6 +387,13 @@ func TestPushSendErrors(t *testing.T) {
 				t.Fatalf("want a ValidationError naming %q, got %v", tc.want, typ)
 			}
 		})
+	}
+	// in development plain http goes out, and a push service that cannot be
+	// reached is still a ValidationError
+	dev := pushDevRuntime(t)
+	typ, err := dev.Eval(fmt.Sprintf(`(() => { try { ddcore.push.send(%s, "x"); return "no error" } catch (e) { return e.name + ": " + e.message } })()`, subscriptionJS(closed.URL+"/x", ua, auth)))
+	if err != nil || !strings.Contains(string(typ), "ValidationError") || !strings.Contains(string(typ), "push:") || strings.Contains(string(typ), "https") {
+		t.Fatalf("network: want a ValidationError from the request, got %v (%v)", typ, err)
 	}
 }
 
@@ -392,7 +421,7 @@ func TestPushSendDoesNotFollowRedirects(t *testing.T) {
 		http.Redirect(w, r, elsewhere.URL+"/internal", http.StatusFound)
 	}))
 	defer server.Close()
-	rt := mtlsRuntime(t)
+	rt := pushDevRuntime(t)
 	ua, _ := ecdh.P256().GenerateKey(rand.Reader)
 	v, err := rt.Eval(fmt.Sprintf(`ddcore.push.send(%s, "x")`, subscriptionJS(server.URL+"/x", ua, bytes.Repeat([]byte{1}, 16))))
 	if err != nil {
