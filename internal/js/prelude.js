@@ -963,7 +963,8 @@
         const body = typeof payload === "string" ? payload : payload == null ? "" : JSON.stringify(payload);
         return call("push.send", { subscription: subscription || {}, payload: body, opts: opts || {} });
       },
-      publicKey() { return call("push.publicKey", {}); },
+      // the host answers nothing when the site has no key: null, as documented
+      publicKey() { return call("push.publicKey", {}) ?? null; },
     },
     externalDb(name) {
       const key = String(name);

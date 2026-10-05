@@ -37,8 +37,9 @@ older series, and `whats_new` reads across every one of them.
   `aes128gcm`, at most 3993 bytes) and the request signed with the site's VAPID key (RFC 8292),
   read from `DDCORE_SECRET_VAPID_PUBLIC_KEY`, `_PRIVATE_KEY` and `_SUBJECT`. It returns
   `{ status, body, headers }` whatever the status, so the app deletes a subscription that answered
-  404 or 410. `ddcore.push.publicKey()` gives the page the key it subscribes with, and
-  `ddcore push keys` prints a new pair. See `push` (#82).
+  404 or 410. An endpoint must be `https:` outside development. `ddcore.push.publicKey()` gives
+  the page the key it subscribes with, or `null`, and `ddcore push keys` prints a new pair, refusing
+  a `--subject` that is not a `mailto:` or `https:` URL. See `push` (#82).
 
 ### Fixed
 

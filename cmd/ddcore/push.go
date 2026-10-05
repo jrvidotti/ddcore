@@ -33,6 +33,11 @@ func pushKeys(w io.Writer, args []string) error {
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
+	// empty prints the variable for the operator to fill; anything else must
+	// pass the check send makes, here rather than on the first send
+	if *subject != "" && !engine.ValidVAPIDSubject(*subject) {
+		return fmt.Errorf("--subject must be a mailto: or https: URL, such as mailto:ops@example.com")
+	}
 	public, private, err := engine.GenerateVAPIDKeys()
 	if err != nil {
 		return err
