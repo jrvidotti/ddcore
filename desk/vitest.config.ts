@@ -16,7 +16,7 @@ export default defineConfig({
       {
         // Components mounted in a DOM, so their effects run: Svelte's client build.
         extends: true,
-        resolve: { alias: { ...alias, "$app/state": path.resolve(__dirname, "./src/test/app-state.ts") }, conditions: ["browser"] },
+        resolve: { alias: { ...alias, "$app/state": path.resolve(__dirname, "./src/test/app-state.ts"), "$app/navigation": path.resolve(__dirname, "./src/test/app-navigation.ts") }, conditions: ["browser"] },
         test: { name: "dom", include: ["src/**/*.dom.test.ts", "src/**/*.dom.test.svelte.ts"], environment: "jsdom" },
       },
     ],

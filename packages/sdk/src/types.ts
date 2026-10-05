@@ -627,6 +627,8 @@ export interface ChartData {
 export interface ReportDef {
   name: string;
   label?: string;
+  /** A line shown under the report's title: what it shows and how to read it. A catalogue key, like `label`. */
+  description?: string;
   refDoctype?: string;
   roles?: string[];
   filters?: FieldDef[];

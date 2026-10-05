@@ -3,7 +3,7 @@
 ```ts
 import { defineReport, _ } from "@ddcore/sdk";
 export default defineReport({
-  name: "Contracts Due", refDoctype: "Contract", roles: ["Manager"],
+  name: "Contracts Due", description: "Contracts that end within the chosen number of days.", refDoctype: "Contract", roles: ["Manager"],
   filters: [{ fieldname: "days", label: "Days", fieldtype: "Int", default: 90, reqd: true }, { fieldname: "property", fieldtype: "Link", options: "Property", label: "Property" }],
   execute(filters, ctx) {
     const rows = ddcore.db.getList("Contract", { filters: {/* … */}, fields: [/* … */], limit: 10000 });
@@ -30,6 +30,9 @@ definition is a catalogue key the server translates (a report's `label` defaults
 which is then the key), and anything built inside `execute` goes
 through `_()`. A status is its own key — `_(row.status)` — because a Select value is canonical
 English. See `i18n`.
+
+`description:` is one more line of that kind: a catalogue key, translated like `label`, drawn under
+the report's title. Say what the report shows and how to read it.
 
 ```ts
 import { defineWorkspace } from "@ddcore/sdk";
