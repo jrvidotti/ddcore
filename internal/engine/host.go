@@ -2,11 +2,8 @@ package engine
 
 import (
 	"bytes"
-	"crypto/hmac"
-	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -596,11 +593,25 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		}
 		return v, nil
 	case "crypto.hmacSha256":
-		// Key and Text are the secret and the message; the answer is hex, the
-		// form a webhook provider puts in its signature header.
-		mac := hmac.New(sha256.New, []byte(a.Key))
-		mac.Write([]byte(a.Text))
-		return hex.EncodeToString(mac.Sum(nil)), nil
+		// Key and Text are the secret and the message; the answer is hex unless
+		// opts.output says otherwise, the form a webhook provider puts in its
+		// signature header.
+		return hmacSha256Op(a.Key, a.Text, a.Opts)
+	case "crypto.sha256":
+		return sha256Op(a.Text, a.Opts)
+	case "crypto.randomToken":
+		return randomTokenOp(a.Opts)
+	case "crypto.randomInt":
+		return randomIntOp(a.Opts)
+	case "crypto.randomString":
+		return randomStringOp(a.Opts)
+	case "webhooks.verify":
+		// Never throws on a bad request: a receiver wants a boolean to refuse on.
+		tol := time.Duration(300) * time.Second
+		if f, ok := a.Opts["toleranceSeconds"].(float64); ok {
+			tol = time.Duration(f * float64(time.Second))
+		}
+		return VerifyWebhook(a.Key, a.Headers, []byte(a.Text), tol, time.Now()), nil
 	case "crypto.pfxInfo":
 		if a.ClientCert == nil {
 			return nil, cerr.Validation("crypto: pfx is not valid base64")

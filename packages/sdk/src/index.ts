@@ -253,6 +253,14 @@ export interface DDCoreAPI {
   sendMail(args: SendMailArgs): { delivery: string };
   webhooks: {
     /**
+     * Verifies a Standard Webhooks request received on an inbound method: `headers` and
+     * `rawBody` are those of `ctx.request`. Returns `false`, never throws, when a header is
+     * missing, the timestamp is further than `toleranceSeconds` (default 300) from now, or
+     * no `v1,` signature matches. A `whsec_<base64>` secret is decoded as the spec says;
+     * several space-separated signatures are accepted; the comparison is constant-time.
+     */
+    verify(secret: string, headers: Record<string, string>, rawBody: string, opts?: { toleranceSeconds?: number }): boolean;
+    /**
      * Emits an app event to every enabled `Webhook` whose custom event is
      * `event`, and returns the ids of the `Webhook Delivery` records written.
      *
@@ -356,6 +364,7 @@ export interface DDCoreAPI {
      * on the earliest parts.
      */
     splitAmount(total: any, n: number): number[];
+    /** `n` characters of `a-z0-9` from a cryptographically secure source (default 10). */
     randomString(n?: number): string;
   };
   /** current authenticated user (Guest when anonymous) */
@@ -394,8 +403,22 @@ export interface DDCoreAPI {
    * exact bytes it sent: read them from `ddcore.session.request.rawBody`.
    */
   crypto: {
-    /** HMAC-SHA256 of `data` under `key`, as lower-case hex. */
-    hmacSha256(key: string, data: string): string;
+    /**
+     * HMAC-SHA256 of `data` under `key`. Without options: `key` is a UTF-8 string and the
+     * answer is lower-case hex. `keyEncoding` says the key is `"base64"` or `"hex"` text
+     * (a `whsec_` secret is base64 once its prefix is cut), `output` picks `"hex"`
+     * (default), `"base64"` or `"base64url"` (no padding).
+     */
+    hmacSha256(key: string, data: string, opts?: {
+      keyEncoding?: "utf8" | "base64" | "hex";
+      output?: "hex" | "base64" | "base64url";
+    }): string;
+    /** SHA-256 of the UTF-8 `data`: lower-case hex unless `output` says otherwise. Store this, not a token. */
+    sha256(data: string, opts?: { output?: "hex" | "base64" | "base64url" }): string;
+    /** `bytes` (default 32, 1 to 1024) from crypto/rand as base64url without padding. */
+    randomToken(bytes?: number): string;
+    /** A uniform integer in `[min, max)` from crypto/rand. Both must be safe integers and `max > min`. */
+    randomInt(min: number, max: number): number;
     /** Constant-time string comparison: use it, never `===`, on a signature. */
     timingSafeEqual(a: string, b: string): boolean;
     /**

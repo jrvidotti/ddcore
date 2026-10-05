@@ -788,12 +788,8 @@
     dateDiff(a, b) { return Math.round((utils.getdate(a) - utils.getdate(b)) / 86400000); },
     monthDiff(a, b) { const x = utils.getdate(a), y = utils.getdate(b); return (x.getUTCFullYear() - y.getUTCFullYear()) * 12 + x.getUTCMonth() - y.getUTCMonth(); },
     formatCurrency(v, currency) { return call("formatCurrency", { value: utils.flt(v), currency }); },
-    randomString(n = 10) {
-      const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-      let s = "";
-      for (let i = 0; i < n; i++) s += chars[Math.floor(Math.random() * chars.length)];
-      return s;
-    },
+    // crypto/rand on the Go side: safe for a token, unlike Math.random
+    randomString(n = 10) { return call("crypto.randomString", { opts: { n: Number(n) } }); },
   };
 
   const api = {
@@ -911,6 +907,15 @@
       });
     },
     webhooks: {
+      // The receiving half of the scheme webhooks.emit signs with: false, never
+      // a throw, when a header is missing or anything does not match.
+      verify(secret, headers, rawBody, opts) {
+        const h = {};
+        for (const k of Object.keys(headers || {})) if (headers[k] != null) h[k] = String(headers[k]);
+        const o = opts || {};
+        return call("webhooks.verify", { key: String(secret), headers: h, text: rawBody == null ? "" : String(rawBody),
+          opts: { toleranceSeconds: o.toleranceSeconds == null ? 300 : Number(o.toleranceSeconds) } });
+      },
       // Written on this transaction, like sendMail: a request that rolls back
       // has told no receiver anything.
       emit(event, data, opts) {
@@ -942,7 +947,10 @@
     // Returns null when the site was not given it.
     secret(name) { return call("secret", { text: name }); },
     crypto: {
-      hmacSha256(key, data) { return call("crypto.hmacSha256", { key: String(key), text: String(data) }); },
+      hmacSha256(key, data, opts) { return call("crypto.hmacSha256", { key: String(key), text: String(data), opts: opts || {} }); },
+      sha256(data, opts) { return call("crypto.sha256", { text: String(data), opts: opts || {} }); },
+      randomToken(bytes = 32) { return call("crypto.randomToken", { opts: { bytes: Number(bytes) } }); },
+      randomInt(min, max) { return call("crypto.randomInt", { opts: { min: Number(min), max: Number(max) } }); },
       timingSafeEqual(a, b) { return call("crypto.timingSafeEqual", { key: String(a), text: String(b) }); },
       pfxInfo(pfx, password) { return call("crypto.pfxInfo", { clientCert: { pfx: String(pfx), password: password == null ? "" : String(password) } }); },
       certInfo(pem) { return call("crypto.certInfo", { clientCert: { cert: String(pem) } }); },

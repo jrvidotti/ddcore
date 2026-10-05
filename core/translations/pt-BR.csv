@@ -14,7 +14,7 @@ A message needs a recipient,Uma mensagem precisa de um destinatário,# internal/
 A method declared raw must return a string,Um método declarado como raw deve retornar uma string,# internal/api/api.go:289
 A shared vault secret can only be changed from the platform space,Um segredo compartilhado do cofre só pode ser alterado a partir do espaço da plataforma,# internal/engine/vault.go:214
 A task assigned to me is due,Uma tarefa atribuída a mim vence,# desk/src/lib/components/Profile.svelte:198
-A tenant cannot enter another tenant,Uma conta não pode entrar em outra conta,# internal/engine/host.go:706
+A tenant cannot enter another tenant,Uma conta não pode entrar em outra conta,# internal/engine/host.go:717
 "A tenant's slug is lowercase letters, digits, hyphens and underscores, and starts with a letter or digit","O slug de uma conta usa letras minúsculas, dígitos, hifens e sublinhados, e começa com letra ou dígito",# core/doctypes/site_tenant/site_tenant.controller.ts:7
 A user of one tenant cannot work in another,Um usuário de uma conta não pode trabalhar em outra,# internal/engine/asuser.go:202
 A user with access scopes cannot import,Um usuário com escopos de acesso não pode importar,# internal/engine/import.go:195
@@ -329,7 +329,7 @@ Invalid JSON: {0},JSON inválido: {0},# internal/api/api.go:393
 Invalid Single identity for {0},Identidade Single inválida para {0},# internal/engine/doc.go:448
 Invalid Single identity or status for {0},Identidade ou estado Single inválido para {0},# internal/engine/doc.go:1157
 Invalid URL,URL inválida,# internal/engine/webhooks.go:575
-Invalid arguments: {0},Argumentos inválidos: {0},# internal/engine/host.go:664
+Invalid arguments: {0},Argumentos inválidos: {0},# internal/engine/host.go:675
 Invalid barcode,Código de barras inválido,# desk/src/lib/controls/BarcodeControl.svelte:140
 "Invalid colour in {0}: ""{1}""","Cor inválida em {0}: ""{1}""",# internal/engine/doc.go:284
 Invalid column mapping: {0},Mapeamento de colunas inválido: {0},# internal/api/data_import.go:91
@@ -558,7 +558,7 @@ Priority,Prioridade,# desk/src/lib/components/AssignModal.svelte:96
 Private,Privado,# core.doctypes.file.file.doctype
 Problem to solve,Problema a resolver,# core/mail/feedback.mail.ts:47
 Profile saved,Perfil salvo,# desk/src/lib/components/Profile.svelte:78
-Provide the document ID,Informe o ID do documento,# internal/engine/idgen.go:62
+Provide the document ID,Informe o ID do documento,# internal/engine/idgen.go:54
 Provide the reference document,Informe o documento de referência,# internal/api/api.go:1266
 Queued,Na fila,# core.doctypes.email_delivery.email_delivery.doctype
 Quote,Citação,# desk/src/lib/controls/RichTextControl.svelte:120
@@ -722,7 +722,7 @@ Tell us the address you sign in with and we will send a link to set a new passwo
 Template,Modelo,# core.doctypes.email_delivery.email_delivery.doctype
 Tenant,Conta,# core/mail/feedback.mail.ts:52
 Tenant {0} not found,Conta {0} não encontrada,# internal/engine/tenancy.go:339
-Tenants are managed from the platform space,As contas são administradas a partir do espaço da plataforma,# internal/engine/host.go:719
+Tenants are managed from the platform space,As contas são administradas a partir do espaço da plataforma,# internal/engine/host.go:730
 Thanks! Your feedback was sent.,Obrigado! Seu feedback foi enviado.,# desk/src/lib/components/FeedbackModal.svelte:157
 That key is not yours,Essa chave não é sua,# core/services/api_keys.ts:43
 "The DocType that defines the restricted scope, e.g. Company or Branch.","O DocType que define o escopo restrito, ex.: Company ou Branch.",# core.doctypes.user_permission.user_permission.doctype
@@ -781,7 +781,7 @@ This month,Este mês,# desk/src/lib/controls/MonthControl.svelte:253
 This record changed after your unsaved edits. Keep your edits?,Este registro mudou depois das suas alterações não salvas. Manter suas alterações?,# desk/src/lib/components/FormView.svelte:141
 This report is for the platform space,Este relatório é do espaço da plataforma,# internal/api/health.go:68
 This report requires the System Manager role,Este relatório exige o papel System Manager,# internal/api/health.go:64
-This site has no tenants: tenancy is off,Este site não tem contas: a multilocação está desligada,# internal/engine/host.go:703
+This site has no tenants: tenancy is off,Este site não tem contas: a multilocação está desligada,# internal/engine/host.go:714
 "This site sends no mail yet, so the message only went to the log. Pass this link on by hand.","Este site ainda não envia e-mails, então a mensagem foi só para o log. Repasse este link manualmente.",# core/doctypes/user/user.form.ts:127
 Timeout (seconds),Tempo Limite (segundos),# core.doctypes.webhook.webhook.doctype
 Timeout must be between {0} and {1} seconds,O tempo limite deve estar entre {0} e {1} segundos,# internal/engine/webhooks.go:608
@@ -870,7 +870,15 @@ Your account has no portal yet. Ask the people who invited you.,Sua conta ainda 
 Your location is not available,Sua localização não está disponível,# desk/src/lib/controls/GeolocationControl.svelte:197
 "Your user, roles and language, the site's version and apps, your browser and the last errors on this page.","Seu usuário, papéis e idioma, a versão e os apps do site, seu navegador e os últimos erros nesta página.",# desk/src/lib/components/FeedbackModal.svelte:324
 changes are paused until the site reopens.,as alterações estão pausadas até o site reabrir.,# desk/src/routes/+layout.svelte:314
+crypto: bytes must be an integer from 1 to {0},crypto: bytes deve ser um inteiro de 1 a {0},# internal/engine/cryptoops.go:113
 crypto: cert is not a valid PEM certificate,crypto: cert não é um certificado PEM válido,# internal/engine/certinfo.go:72
+crypto: key is not valid base64,crypto: a chave não é base64 válido,# internal/engine/cryptoops.go:79
+crypto: key is not valid hex,crypto: a chave não é hex válido,# internal/engine/cryptoops.go:85
+"crypto: keyEncoding must be ""utf8"", ""base64"" or ""hex""","crypto: keyEncoding deve ser ""utf8"", ""base64"" ou ""hex""",# internal/engine/cryptoops.go:89
+crypto: max must be greater than min,crypto: max deve ser maior que min,# internal/engine/cryptoops.go:127
+crypto: min and max must be safe integers,crypto: min e max devem ser inteiros seguros,# internal/engine/cryptoops.go:124
+crypto: n must be an integer from 0 to {0},crypto: n deve ser um inteiro de 0 a {0},# internal/engine/cryptoops.go:139
+"crypto: output must be ""hex"", ""base64"" or ""base64url""","crypto: output deve ser ""hex"", ""base64"" ou ""base64url""",# internal/engine/cryptoops.go:58
 crypto: pfx could not be read: wrong password or malformed file,crypto: não foi possível ler pfx: senha incorreta ou arquivo malformado,# internal/engine/certinfo.go:46
 crypto: pfx is not valid base64,crypto: pfx não é base64 válido,# internal/engine/certinfo.go:43
 ctx.sql is only available inside a patch,ctx.sql só existe dentro de um patch,# internal/engine/query.go:761
@@ -911,19 +919,19 @@ files.save needs a filename,files.save precisa de um filename,# internal/engine/
 "files.save needs exactly one of content, contentBase64 and fromUrl","files.save precisa de exatamente um entre content, contentBase64 e fromUrl",# internal/engine/files_api.go:189
 files.save: contentBase64 is not base64: {0},files.save: contentBase64 não é base64: {0},# internal/engine/files_api.go:203
 files.save: the file is larger than {0} bytes (raise maxBytes),files.save: o arquivo é maior que {0} bytes (aumente maxBytes),# internal/engine/files_api.go:227
-files.save: {0},files.save: {0},# internal/engine/host.go:324
+files.save: {0},files.save: {0},# internal/engine/host.go:321
 files.save: {0} answered {1},files.save: {0} respondeu {1},# internal/engine/files_api.go:211
-getValue: invalid fields,getValue: fields inválido,# internal/engine/host.go:190
+getValue: invalid fields,getValue: fields inválido,# internal/engine/host.go:187
 h,h,# desk/src/lib/controls/DurationControl.svelte:23
 http: clientCert could not be read: wrong password or malformed file,http: não foi possível ler clientCert: senha incorreta ou arquivo malformado,# internal/engine/http_mtls.go:102
 http: clientCert takes either pfx or cert and key,http: clientCert recebe pfx ou cert e key,# internal/engine/http_mtls.go:49
 http: clientCert.cert and clientCert.key are not a valid PEM pair,http: clientCert.cert e clientCert.key não são um par PEM válido,# internal/engine/http_mtls.go:93
 http: clientCert.pfx is not valid base64,http: clientCert.pfx não é base64 válido,# internal/engine/http_mtls.go:99
-"http: responseType must be ""text"" or ""base64"", not {0}","http: responseType deve ser ""text"" ou ""base64"", não {0}",# internal/engine/host.go:818
-http: the response from {0} is larger than {1} bytes (raise opts.maxBytes),http: a resposta de {0} é maior que {1} bytes (aumente opts.maxBytes),# internal/engine/host.go:884
-http: {0},http: {0},# internal/engine/host.go:858
+"http: responseType must be ""text"" or ""base64"", not {0}","http: responseType deve ser ""text"" ou ""base64"", não {0}",# internal/engine/host.go:829
+http: the response from {0} is larger than {1} bytes (raise opts.maxBytes),http: a resposta de {0} é maior que {1} bytes (aumente opts.maxBytes),# internal/engine/host.go:895
+http: {0},http: {0},# internal/engine/host.go:869
 id is required,id é obrigatório,# internal/api/assignments.go:137
-invalid arguments in {0}: {1},argumentos inválidos em {0}: {1},# internal/engine/host.go:97
+invalid arguments in {0}: {1},argumentos inválidos em {0}: {1},# internal/engine/cryptoops.go:131
 job {0} timed out,job {0} excedeu o tempo limite,# internal/engine/jobs.go:237
 m,min,# desk/src/lib/controls/DurationControl.svelte:23
 manifest.json is not readable: {0},manifest.json não pôde ser lido: {0},# internal/engine/import_source.go:64
@@ -933,18 +941,18 @@ no savepoint is open,nenhum savepoint está aberto,# internal/engine/engine.go:1
 or,ou,# desk/src/routes/login/+page.svelte:72
 "or drag them here, or paste a screenshot","ou arraste-os para cá, ou cole uma captura de tela",# desk/src/lib/components/FeedbackModal.svelte:287
 patch sql: {0},sql do patch: {0},# internal/engine/query.go:765
-"publish: {0} is not a valid event name (letters, digits, _ . : -)","publish: {0} não é um nome de evento válido (letras, dígitos, _ . : -)",# internal/engine/host.go:341
+"publish: {0} is not a valid event name (letters, digits, _ . : -)","publish: {0} não é um nome de evento válido (letras, dígitos, _ . : -)",# internal/engine/host.go:338
 records,registros,# desk/src/lib/components/ListView.svelte:591
 "run {0} loaded {1}, not {2}","a execução {0} carregou {1}, não {2}",# internal/engine/import_batch.go:27
 runAs needs a user,runAs precisa de um usuário,# internal/engine/asuser.go:115
 runAs: user {0} does not exist,runAs: o usuário {0} não existe,# internal/engine/asuser.go:124
 runAs: user {0} is disabled,runAs: o usuário {0} está desabilitado,# internal/engine/asuser.go:127
-runtime without a context (op {0}),runtime sem contexto (op {0}),# internal/engine/host.go:31
+runtime without a context (op {0}),runtime sem contexto (op {0}),# internal/engine/host.go:28
 s,s,# desk/src/lib/controls/DurationControl.svelte:23
 since: {0} is not a duration,since: {0} não é uma duração,# internal/api/jobs.go:57
 title,título,# desk/src/lib/components/FormView.svelte:296
 to submit,para enviar,# desk/src/lib/components/DocSidebar.svelte:388
-unknown bridge operation: {0},operação desconhecida no bridge: {0},# internal/engine/host.go:733
+unknown bridge operation: {0},operação desconhecida no bridge: {0},# internal/engine/host.go:744
 user is required,user é obrigatório,# internal/engine/share.go:300
 webhook payload for {0} is not JSON: {1},o conteúdo do webhook para {0} não é JSON: {1},# internal/engine/webhooks.go:276
 "{0} ""{1}"" already exists","{0} ""{1}"" já existe",# internal/engine/doc.go:2182
@@ -1001,7 +1009,7 @@ webhook payload for {0} is not JSON: {1},o conteúdo do webhook para {0} não é
 {0} is not submittable,{0} não é submetível,# internal/engine/doc.go:829
 {0} is public and {1} would be served as active content from this site,{0} é público e {1} seria servido como conteúdo ativo a partir deste site,# internal/engine/import_files.go:89
 {0} is read-only on this document,{0} é somente leitura neste documento,# internal/engine/doc.go:2010
-{0} is required to identify the document,{0} é obrigatório para identificar o documento,# internal/engine/idgen.go:51
+{0} is required to identify the document,{0} é obrigatório para identificar o documento,# internal/engine/idgen.go:43
 {0} is shared by every tenant and can only be changed from the platform space,{0} é compartilhado por todas as contas e só pode ser alterado a partir do espaço da plataforma,# internal/engine/tenancy.go:478
 {0} is too large (at most {1} KiB),{0} é grande demais (no máximo {1} KiB),# internal/geo/geo.go:404
 "{0} is too large to store: ""{1}""","{0} é grande demais para ser armazenado: ""{1}""",# internal/engine/doc.go:230

@@ -14,6 +14,24 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- `ddcore.webhooks.verify(secret, headers, rawBody, { toleranceSeconds = 300 })` checks a
+  Standard Webhooks request on an inbound method in one call: it decodes a `whsec_<base64>` secret,
+  accepts several `v1,…` signatures, compares in constant time, enforces the timestamp window, reads
+  header names in any case and returns `false` rather than throwing when a header is missing.
+  `ddcore.crypto.hmacSha256` takes `{ keyEncoding: "utf8" | "base64" | "hex", output: "hex" | "base64" |
+  "base64url" }`; without options it answers as before (#84).
+- `ddcore.crypto.randomToken(bytes = 32)` (base64url from `crypto/rand`), `randomInt(min, max)` (uniform
+  in `[min, max)`) and `sha256(data, { output })` (hex by default), for session tokens, one-time codes and
+  the hash to store instead of a token (#85).
+
+### Fixed
+
+- `ddcore.utils.randomString` used `Math.random`, which is not safe for a credential. It now draws
+  from `crypto/rand` without modulo bias, with the same `a-z0-9` alphabet. The ids ddcore generates
+  for new documents share that bias fix (#85).
+
 ## 0.27.1 — 2026-10-05
 
 ### Added

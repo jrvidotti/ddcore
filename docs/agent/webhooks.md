@@ -107,6 +107,10 @@ receiver can verify with any of its libraries:
 - `webhook-timestamp` is the attempt's time, so a receiver can refuse stale
   requests.
 
+Another ddcore site receiving these calls verifies them with
+`ddcore.webhooks.verify(secret, headers, rawBody, { toleranceSeconds })`: see
+*Inbound webhooks* in `controller-api`.
+
 For a document event, `data.doc` is the document with its children, as it was
 when the event happened — not as it is when a retry goes out an hour later.
 It is redacted the way an API read is, on the document and its child rows:
@@ -197,7 +201,8 @@ exist, and a delivery whose webhook was deleted.
 ## What this is not
 
 There is no per-webhook condition or field selection, no custom headers, no
-secret rotation with two keys valid at once, and no inbound webhooks. A receiver
+secret rotation with two keys valid at once. Receiving is a method of yours, not a
+subscription (`ddcore.webhooks.verify` checks the signature). A receiver
 URL is not checked against private networks, so a webhook can point at a service
 inside the deployment's own network: creating one is the power of a System
 Manager without access scopes, and should be treated as such.
