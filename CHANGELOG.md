@@ -14,11 +14,34 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Breaking
+
+- An `icon` the desk does not draw now fails the load, on a DocType, a workspace or anything a
+  workspace lists (`sidebar`, `shortcuts`, `links`), naming where it is:
+  `workspace "Payments", sidebar[3]: icon "piggy-bank" is not one the desk draws`. Before, the
+  desk drew a circle and nothing said so. **Upgrade:** run `validate_meta` (or start the
+  server) and replace each name it reports with one from the list under "Icons" in
+  `report-api` (#78).
+
+### Added
+
+- The desk draws `wallet`, `credit-card`, `banknote`, `landmark`, `percent`, `qr-code`,
+  `send`, `inbox`, `undo-2`, `book-open`, `briefcase`, `building`, `wrench`, `file-text`,
+  `folder-tree`, `chart-bar`, `pen` and `user-plus`, and accepts lucide's other names for icons
+  it has: `triangle-alert`, `chart-column`, `ellipsis`, `square-check-big`, `edit-2`. The list
+  in `report-api` is generated from the desk's own table, so it names every icon there is (#78).
+
 ### Changed
 
 - The sidebar's Notifications and To-Do links moved from the top of the menu to its footer,
   just above the user's avatar, so they no longer read as one of the workspace's modules.
   Their counters and the collapsed rail work as before.
+
+### Fixed
+
+- The desk's own icons that drew a circle — the open workspace menu's chevron, the assign
+  dialog's and the editable title's — draw what they name; in the browser, an unknown name
+  draws a circle with a console warning (#78).
 
 ## 0.26.3 — 2026-10-05
 

@@ -119,7 +119,7 @@ A `Report` field has no grid until its document is saved, so its buttons appear 
 The button is rendered by the desk, so:
 
 - the label is **text**, escaped by the desk — an app never writes HTML and never writes an `esc()`;
-- `icon` (a name from the desk's icon set) renders the button icon-only, with `label` as its tooltip
+- `icon` (a name from the desk's icon set, listed under "Icons" in `report-api`) renders the button icon-only, with `label` as its tooltip
   and accessible name; without `icon` the label is the button's text;
 - the field's own `hidden` and `dependsOn` decide whether the button is on screen, and a field the
   reader cannot see carries no button;
