@@ -514,7 +514,7 @@
                   <div class="form-row">
                     {#each line as cell}
                       {@const f = cell.field}
-                      <div class="form-cell {cellWidthClass(cell.slots, LINE_SLOTS)}">
+                      <div class="form-cell {cellWidthClass(cell.slots, LINE_SLOTS)}" class:form-spacer={!cell.field}>
                         {#if !f}
                           <!-- keeps the next control aligned to its half of the line -->
                         {:else if f.fieldtype === "Table"}

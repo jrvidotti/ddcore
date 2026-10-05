@@ -56,7 +56,7 @@
     <div class="form-row">
       {#each line as cell}
         {@const f = cell.field}
-        <div class="form-cell {cellWidthClass(cell.slots, LINE_SLOTS)}">
+        <div class="form-cell {cellWidthClass(cell.slots, LINE_SLOTS)}" class:form-spacer={!cell.field}>
           {#if f}
             <Control field={f} value={doc[f.fieldname || ""]} {doc}
               readOnly={readOnly(f.fieldname)}

@@ -14,6 +14,13 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- A form's field widths follow the width of the form itself, not the browser window, so an
+  open sidebar no longer squeezes a quarter-line field (a Datetime, say) until its value is
+  cut off. Below 800px of line a quarter takes half the line; below 480px every field takes
+  the whole line, as a phone already did.
+
 ## 0.26.2 — 2026-10-04
 
 ### Added

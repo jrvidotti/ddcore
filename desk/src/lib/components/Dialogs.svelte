@@ -76,7 +76,7 @@
             <div class="form-row">
               {#each line as cell, i (cell.field?.fieldname ?? i)}
                 {@const f = cell.field}
-                <div class="form-cell {cellWidthClass(cell.slots, DIALOG_SLOTS)}">
+                <div class="form-cell {cellWidthClass(cell.slots, DIALOG_SLOTS)}" class:form-spacer={!cell.field}>
                   {#if !f}
                     <!-- alignment spacer -->
                   {:else if f.fieldtype === "HTML"}

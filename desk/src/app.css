@@ -52,12 +52,20 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
 /* an unlabelled section holding a lone grid: the grid's own card is the frame */
 .form-section.bare { background: none; border: 0; padding: 0; }
 .form-section > h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-bottom: 12px; cursor: pointer; user-select: none; }
-.form-row { display: flex; flex-wrap: wrap; gap: 0 16px; align-content: flex-start; min-width: 0; }
+/* a container: the cells size against the line's own width, which the sidebar narrows
+   without the viewport noticing */
+.form-row { display: flex; flex-wrap: wrap; gap: 0 16px; align-content: flex-start; min-width: 0; container-type: inline-size; }
 .form-cell { width: 100%; display: flex; flex-direction: column; min-width: 0; }
 /* the 16px gap is shared out as gap x (1 - fraction), so mixed lines add up to 100% */
 .form-cell.w-50 { width: calc(50% - 8px); }
 .form-cell.w-25 { width: calc(25% - 12px); }
-@media (max-width: 800px) { .form-cell.w-50, .form-cell.w-25 { width: 100%; } }
+/* a quarter under ~190px clips a Datetime: quarters become halves, and the spacer that
+   aligned a half to its side of the line has nothing left to align */
+@container (max-width: 800px) {
+  .form-cell.w-25 { width: calc(50% - 8px); }
+  .form-cell.form-spacer { display: none; }
+}
+@container (max-width: 480px) { .form-cell.w-50, .form-cell.w-25 { width: 100%; } }
 .field { margin-bottom: 12px; }
 .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
 /* same look as a <label>, for grids/sections whose caption has no single control */
