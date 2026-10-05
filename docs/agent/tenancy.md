@@ -84,7 +84,8 @@ const pfx = ddcore.vault.get("Gateway Settings:pfx:singleton", { shared: true })
 Of the Core DocTypes, `Role` and `Site Tenant` are shared; everything else (`User`, `File`,
 `Comment`, `Version`, `ToDo`, `API Key`, `User Permission`, `Document Share`, `Webhook`,
 `Webhook Delivery`, `Email Delivery`, `Audit Event`, `Error Log`, `Letter Head`) is the
-tenant's own.
+tenant's own. `Feedback` is a tenant DocType too, but the framework writes every feedback in the
+platform space, stamped with its `source_tenant` (see `feedback`).
 
 Per tenant, as a consequence:
 

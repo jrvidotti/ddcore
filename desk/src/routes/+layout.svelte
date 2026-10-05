@@ -17,6 +17,9 @@
   import { tenantLinkState, tenantParam } from "$lib/tenant";
   import Spinner from "$lib/components/Spinner.svelte";
   import ShortcutsModal from "$lib/components/ShortcutsModal.svelte";
+  import FeedbackModal from "$lib/components/FeedbackModal.svelte";
+  import { openFeedback } from "$lib/feedback.svelte";
+  import { installClientErrorListeners } from "$lib/client-errors";
   import SearchPalette from "$lib/components/SearchPalette.svelte";
   import { shouldOpenSearch } from "$lib/components/search-palette";
   import { ui, toast } from "$lib/ui.svelte";
@@ -163,6 +166,7 @@
   });
 
   onMount(async () => {
+    installClientErrorListeners();
     installDeskSDK();
     onMessage((m) => toast(m.message, { title: m.title, indicator: m.indicator || "blue" }));
     try {
@@ -284,6 +288,14 @@
                 >
                   <Icon name="keyboard" size={14} /> <span>{__("Keyboard shortcuts")}</span>
                 </button>
+                {#if boot.data?.site?.feedback}
+                  <button
+                    role="menuitem"
+                    onclick={() => { userMenuOpen = false; openFeedback(); }}
+                  >
+                    <Icon name="message-square" size={14} /> <span>{__("Feedback")}</span>
+                  </button>
+                {/if}
                 <div class="mobile-menu-divider"></div>
                 <button
                   role="menuitem"
@@ -313,6 +325,7 @@
 <Toasts />
 <Dialogs />
 <ShortcutsModal />
+{#if ready && !isLogin && !isPortal && isLoggedIn() && boot.data?.site?.feedback}<FeedbackModal />{/if}
 {#if ready && !isLogin && !isPortal && isLoggedIn()}<SearchPalette />{/if}
 
 <style>

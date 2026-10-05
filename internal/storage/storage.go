@@ -102,11 +102,22 @@ func ReadAll(ctx context.Context, s Store, key string) ([]byte, error) {
 	return io.ReadAll(rc)
 }
 
+// AudioTypes are the recordings served in place, so an <audio> element plays
+// them — a feedback's voice note above all. Go's own table knows none of them,
+// and the system's may not exist in a container, so they are named here.
+var AudioTypes = map[string]string{
+	".webm": "audio/webm", ".ogg": "audio/ogg", ".oga": "audio/ogg", ".opus": "audio/ogg",
+	".m4a": "audio/mp4", ".mp3": "audio/mpeg", ".wav": "audio/wav",
+}
+
 // servedType is the content type a download is announced with: a displayable
 // type for inline files, and bytes for everything else, whatever the uploader
 // claimed.
 func servedType(s Serving) string {
 	if s.Inline {
+		if t, ok := AudioTypes[strings.ToLower(path.Ext(s.Name))]; ok {
+			return t
+		}
 		if t := mime.TypeByExtension(strings.ToLower(path.Ext(s.Name))); t != "" {
 			return t
 		}

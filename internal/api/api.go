@@ -114,6 +114,8 @@ func New(e *engine.Engine, desk fs.FS) *Server {
 			r.Post("/assignments/revoke", s.revokeAssignment)
 			r.Post("/assignments/reopen", s.reopenAssignment)
 			r.Get("/todo/pending", s.pendingWork)
+			r.Post("/feedback", s.submitFeedback)
+			r.Get("/feedback/mine", s.myFeedback)
 			r.Get("/shares/{doctype}/{id}", s.listDocShares)
 			r.Post("/shares/add", s.shareDoc)
 			r.Post("/shares/remove", s.unshareDoc)
@@ -675,6 +677,9 @@ func (s *Server) boot(w http.ResponseWriter, r *http.Request) {
 			// where a Geolocation's map draws its tiles from: the browser
 			// fetches them, the server never does
 			"map": mapBoot(s.E.Cfg.Map),
+			// the desk's Feedback item: a signed-in desk user only, which a
+			// Website User's boot below never is
+			"feedback": s.E.Cfg.Feedback.On() && c.User != "Guest" && !c.IsWebsiteUser(),
 		}
 		// the space the request works in, on a site with tenancy; absent
 		// without it, so the desk draws nothing about tenants there
@@ -1576,7 +1581,7 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 }
 
 // serveUpload hands out user files as downloads, never as active content.
-// Only images and PDFs are displayed in place.
+// Only images, PDFs and audio recordings are displayed in place.
 func (s *Server) serveUpload(w http.ResponseWriter, r *http.Request) {
 	key, ok := storage.KeyFromURL(r.URL.Path)
 	if !ok {
@@ -1587,7 +1592,8 @@ func (s *Server) serveUpload(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Security-Policy", "default-src 'none'; sandbox")
 	name := path.Base(key)
 	ext := strings.ToLower(path.Ext(name))
-	inline := ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".gif" || ext == ".webp" || ext == ".pdf"
+	_, audio := storage.AudioTypes[ext]
+	inline := ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".gif" || ext == ".webp" || ext == ".pdf" || audio
 	err := s.E.Storage().Serve(w, r, key, storage.Serving{Name: name, Inline: inline})
 	if errors.Is(err, storage.ErrNotFound) {
 		http.NotFound(w, r)

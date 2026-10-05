@@ -104,6 +104,8 @@ type File struct {
 	TenantRole string `json:"-"`
 	// Login is what the sign-in screen tells a visitor before they sign in.
 	Login LoginPage `json:"login"`
+	// Feedback is the desk's Feedback dialog: on or off, and who is mailed.
+	Feedback Feedback `json:"feedback,omitzero"`
 	// Mail comes from the environment only — see the package comment.
 	Mail Mail `json:"-"`
 	// Webhooks comes from the environment only, like Mail.
@@ -190,6 +192,7 @@ func Load(dir string) (*File, string, error) {
 	f.URL = strings.TrimSuffix(env("DDCORE_URL", f.URL), "/")
 	f.TrustProxy = envBool("DDCORE_TRUST_PROXY", f.TrustProxy)
 	f.CORS.fromEnv()
+	f.Feedback.fromEnv()
 	f.TenantRole = env("DDCORE_TENANT_ROLE", "")
 	f.Login.Notice = strings.ReplaceAll(env("DDCORE_LOGIN_NOTICE", f.Login.Notice), `\n`, "\n")
 	f.Login.DemoUser = env("DDCORE_LOGIN_DEMO_USER", f.Login.DemoUser)
@@ -242,6 +245,9 @@ func Load(dir string) (*File, string, error) {
 		return nil, "", fmt.Errorf("%s: %w", path, err)
 	}
 	if err := f.CORS.validate(); err != nil {
+		return nil, "", fmt.Errorf("%s: %w", path, err)
+	}
+	if err := f.Feedback.validate(); err != nil {
 		return nil, "", fmt.Errorf("%s: %w", path, err)
 	}
 	if err := f.validateOIDC(); err != nil {

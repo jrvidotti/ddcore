@@ -78,6 +78,7 @@ export interface PendingWorkPage {
   titles?: Record<string, Record<string, string>>;
 }
 import { setMaintenance } from "./maintenance.svelte";
+import { recordThrown, requestPath } from "./client-errors";
 
 // Thin client for the ddcore HTTP API. Every error becomes a DDCoreError with
 // type/title/message so the UI can show it the same way the server phrased it.
@@ -123,7 +124,14 @@ async function request<T = any>(method: string, url: string, body?: any, opts: {
   let payload: BodyInit | undefined;
   if (body instanceof FormData) payload = body;
   else if (body !== undefined) { headers["Content-Type"] = "application/json"; payload = JSON.stringify(body); }
-  const res = await fetch(url, { method, headers, body: payload, credentials: "same-origin" });
+  let res: Response;
+  try {
+    res = await fetch(url, { method, headers, body: payload, credentials: "same-origin" });
+  } catch (err: any) {
+    // offline, DNS, CORS: no response at all, which is worth knowing in a report
+    if (err && typeof err === "object") recordThrown(err, { kind: "request", message: String(err?.message || err), method, path: requestPath(url) });
+    throw err;
+  }
   const text = await res.text();
   let data: any = null;
   const contentType = res.headers.get("Content-Type") || "";
@@ -140,8 +148,10 @@ async function request<T = any>(method: string, url: string, body?: any, opts: {
     // a paused site refuses every write; the banner should appear on the first
     // refusal rather than wait for the event stream to catch up
     if (e.type === "MaintenanceError") setMaintenance({ enabled: true, reason: e.extra?.reason });
-    throw new DDCoreError(e.type, e.title || "", e.message, res.status, e.extra, e.key, e.args,
+    const err = new DDCoreError(e.type, e.title || "", e.message, res.status, e.extra, e.key, e.args,
       e.requestId || res.headers.get("X-Request-Id") || undefined);
+    recordThrown(err, { kind: "request", message: `${err.type}: ${err.message}`, method, path: requestPath(url), status: err.status, requestId: err.requestId });
+    throw err;
   }
   if (data?.messages) for (const m of data.messages) messages.push(m);
   if (typeof data === "string") return data as any;
@@ -264,6 +274,18 @@ export const api = {
     fd.append("is_private", opts.isPrivate === false ? "0" : "1");
     return request("POST", "/api/upload", fd);
   },
+  /**
+   * Sends a feedback (a bug, an improvement, a feature request) to the site's
+   * developers: `data` as JSON, and each file as one more `files` part.
+   */
+  submitFeedback: (data: FeedbackData, files: File[] = []) => {
+    const fd = new FormData();
+    fd.append("data", JSON.stringify(data));
+    for (const f of files) fd.append("files", f, f.name);
+    return request<{ id: string }>("POST", "/api/feedback", fd);
+  },
+  /** What this user sent before, newest first, with its status and the developers' response. */
+  myFeedback: () => request<FeedbackItem[]>("GET", "/api/feedback/mine"),
   /** An upload's original name, size and type, for whoever may read it. */
   fileInfo: (url: string) => request<FileInfo>("GET", "/api/file-info" + q({ url })),
   /** Data Import: checks (dryRun) or loads a CSV/XLSX file into `doctype`. */
@@ -279,6 +301,36 @@ export const api = {
     return request<DataImportResult>("POST", `/api/data-import/${encodeURIComponent(doctype)}`, fd);
   },
 };
+
+export type FeedbackType = "Bug" | "Improvement" | "Feature Request";
+export type FeedbackStatus = "New" | "In Review" | "Planned" | "Done" | "Won't Do";
+
+/** The `data` part of POST /api/feedback. */
+export interface FeedbackData {
+  feedback_type: FeedbackType;
+  title: string;
+  description: string;
+  steps_to_reproduce?: string;
+  expected_result?: string;
+  actual_result?: string;
+  severity?: "Low" | "Medium" | "High" | "Critical";
+  current_behavior?: string;
+  suggested_improvement?: string;
+  problem?: string;
+  expected_benefit?: string;
+  page_url?: string;
+  context?: Record<string, any>;
+}
+
+/** One row of GET /api/feedback/mine. */
+export interface FeedbackItem {
+  id: string;
+  title: string;
+  feedback_type: FeedbackType;
+  status: FeedbackStatus;
+  response?: string | null;
+  creation: string;
+}
 
 export interface FileInfo {
   file_name: string;
