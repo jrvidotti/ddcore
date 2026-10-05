@@ -349,6 +349,7 @@ In both cases, when 8090 is taken use `make stop` rather than starting a second 
 | `./bin/ddcore doctor` | database, meta, pending DDL, scheduler |
 | `./bin/ddcore docs` / MCP `ddcore://docs/*` | the API reference |
 | `make docker-psql` | psql on `ddcore_dev` |
+| `cd desk && npm run icons:add -- <lucide-name>…` | adds lucide icons to `desk/icons/icons.json`; then `GOWORK=off go test ./desk/icons -update` refreshes the list in `report-api` |
 
 `make test` is the definition of done — it includes `internal/acceptance`, which checks
 installation, boot, translation and `/app` against a real Postgres over real HTTP.
