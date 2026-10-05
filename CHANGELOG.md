@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.26.3 — 2026-10-05
+
 ### Fixed
 
 - A form's field widths follow the width of the form itself, not the browser window, so an
