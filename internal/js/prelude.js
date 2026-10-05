@@ -788,8 +788,14 @@
     dateDiff(a, b) { return Math.round((utils.getdate(a) - utils.getdate(b)) / 86400000); },
     monthDiff(a, b) { const x = utils.getdate(a), y = utils.getdate(b); return (x.getUTCFullYear() - y.getUTCFullYear()) * 12 + x.getUTCMonth() - y.getUTCMonth(); },
     formatCurrency(v, currency) { return call("formatCurrency", { value: utils.flt(v), currency }); },
-    // crypto/rand on the Go side: safe for a token, unlike Math.random
-    randomString(n = 10) { return call("crypto.randomString", { opts: { n: Number(n) } }); },
+    // crypto/rand on the Go side: safe for a token, unlike Math.random. As
+    // lenient as it always was: a fraction rounds up, anything not positive
+    // is "", and only more than 65536 throws.
+    randomString(n = 10) {
+      n = Number(n);
+      n = n > 0 ? Math.ceil(n) : 0;
+      return call("crypto.randomString", { opts: { n } });
+    },
   };
 
   const api = {
@@ -915,8 +921,12 @@
         const h = {};
         for (const k of Object.keys(headers || {})) if (headers[k] != null) h[k] = String(headers[k]);
         const o = opts || {};
+        let tol = o.toleranceSeconds == null ? 300 : Number(o.toleranceSeconds);
+        // JSON has no Infinity (it would arrive as null, the default): the
+        // largest number is as good as no window. NaN keeps the default.
+        if (tol === Infinity) tol = Number.MAX_VALUE;
         return call("webhooks.verify", { key: String(secret), headers: h, text: rawBody == null ? "" : String(rawBody),
-          opts: { toleranceSeconds: o.toleranceSeconds == null ? 300 : Number(o.toleranceSeconds) } });
+          opts: { toleranceSeconds: tol } });
       },
       // Written on this transaction, like sendMail: a request that rolls back
       // has told no receiver anything.

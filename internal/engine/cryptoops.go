@@ -143,9 +143,10 @@ func randomStringOp(opts map[string]any) (string, error) {
 
 // VerifyWebhook checks a Standard Webhooks request the way SignWebhook signed
 // it: headers (any case) carry webhook-id, webhook-timestamp and one or more
-// space-separated `v1,<base64>` signatures, any of which may match. A missing
-// header, an unreadable timestamp or one further than tolerance from now is
-// false, never an error.
+// space-separated `v1,<base64>` signatures, any of which may match (several
+// webhook-signature headers, joined by ", ", are one list). A missing header,
+// an unreadable timestamp or one further than tolerance from now is false,
+// never an error.
 //
 // An empty secret, or a whsec_ one that decodes to no bytes, verifies nothing:
 // the key would be known to everyone. tolerance is in seconds, compared as a
@@ -177,6 +178,9 @@ func VerifyWebhook(secret string, headers map[string]string, body []byte, tolera
 	want := []byte(SignWebhook(secret, id, ts, body))
 	ok := false
 	for _, s := range strings.Fields(sigs) {
+		// repeated headers arrive joined by ", "; base64 has no comma, so a
+		// trailing one is the join's, not the signature's
+		s = strings.TrimSuffix(s, ",")
 		// no early exit: every candidate costs the same
 		if subtle.ConstantTimeCompare([]byte(s), want) == 1 {
 			ok = true

@@ -126,6 +126,28 @@ func TestRandomStringAlphabet(t *testing.T) {
 	}
 }
 
+// randomString is as lenient as it was before it went to crypto/rand: a
+// fraction rounds up, anything not positive is "". Only too many throws.
+func TestRandomStringLength(t *testing.T) {
+	rt := cryptoRuntime(t)
+	if s := evalStr(t, rt, `ddcore.utils.randomString(10.5)`); len(s) != 11 || strings.Trim(s, alphabet) != "" {
+		t.Fatalf("10.5 = %q, want 11 characters", s)
+	}
+	if s := evalStr(t, rt, `ddcore.utils.randomString(65536)`); len(s) != 65536 {
+		t.Fatalf("65536 gave %d characters", len(s))
+	}
+	for _, n := range []string{"-1", "NaN", `"x"`, "null", "-Infinity"} {
+		if s := evalStr(t, rt, `ddcore.utils.randomString(`+n+`)`); s != "" {
+			t.Errorf("randomString(%s) = %q, want \"\"", n, s)
+		}
+	}
+	for _, n := range []string{"65537", "Infinity"} {
+		if _, err := rt.Eval(`ddcore.utils.randomString(` + n + `)`); err == nil {
+			t.Errorf("randomString(%s) should throw", n)
+		}
+	}
+}
+
 func TestWebhookVerify(t *testing.T) {
 	rt := cryptoRuntime(t)
 	const id, body = "msg_p5jXN8AQM9LWM0D4loKWxJek", `{"test": 2432232314}`
@@ -231,5 +253,52 @@ func TestWebhookVerifyHugeTolerance(t *testing.T) {
 	h := fmt.Sprintf(`{"webhook-id": "i", "webhook-timestamp": "%d", "webhook-signature": %q}`, ts, SignWebhook("k", "i", ts, []byte("b")))
 	if got := evalStr(t, rt, fmt.Sprintf(`ddcore.webhooks.verify("k", %s, "b", {toleranceSeconds: 1e10})`, h)); got != "true" {
 		t.Fatalf("a huge tolerance should switch the window off, got %s", got)
+	}
+}
+
+// Infinity is the obvious way to switch the window off, and JSON would turn
+// it into null, which reads as the default. NaN keeps the default.
+func TestWebhookVerifyInfiniteTolerance(t *testing.T) {
+	rt := cryptoRuntime(t)
+	ts := int64(1614265330)
+	h := fmt.Sprintf(`{"webhook-id": "i", "webhook-timestamp": "%d", "webhook-signature": %q}`, ts, SignWebhook("k", "i", ts, []byte("b")))
+	if got := evalStr(t, rt, fmt.Sprintf(`ddcore.webhooks.verify("k", %s, "b", {toleranceSeconds: Infinity})`, h)); got != "true" {
+		t.Fatalf("Infinity should switch the window off, got %s", got)
+	}
+	if got := evalStr(t, rt, fmt.Sprintf(`ddcore.webhooks.verify("k", %s, "b", {toleranceSeconds: NaN})`, h)); got != "false" {
+		t.Fatalf("NaN should keep the 300 s window, got %s", got)
+	}
+	now := time.Now().Unix()
+	fresh := fmt.Sprintf(`{"webhook-id": "i", "webhook-timestamp": "%d", "webhook-signature": %q}`, now, SignWebhook("k", "i", now, []byte("b")))
+	if got := evalStr(t, rt, fmt.Sprintf(`ddcore.webhooks.verify("k", %s, "b", {toleranceSeconds: NaN})`, fresh)); got != "true" {
+		t.Fatalf("NaN with a fresh timestamp, got %s", got)
+	}
+}
+
+// Two webhook-signature headers reach ctx.request joined by ", ", which
+// leaves a trailing comma on every token but the last.
+func TestWebhookVerifyRepeatedSignatureHeaders(t *testing.T) {
+	now := time.Now()
+	good := SignWebhook(hookSecret, "i", now.Unix(), []byte("b"))
+	for _, sigs := range []string{good + ", v1,AAAA", "v1,AAAA, " + good + ", v1,BBBB"} {
+		h := map[string]string{"webhook-id": "i", "webhook-timestamp": fmt.Sprint(now.Unix()), "webhook-signature": sigs}
+		if !VerifyWebhook(hookSecret, h, []byte("b"), 300, now) {
+			t.Errorf("signatures %q should verify", sigs)
+		}
+	}
+	h := map[string]string{"webhook-id": "i", "webhook-timestamp": fmt.Sprint(now.Unix()), "webhook-signature": "v1,AAAA, v1,BBBB"}
+	if VerifyWebhook(hookSecret, h, []byte("b"), 300, now) {
+		t.Error("no matching signature must fail")
+	}
+}
+
+// ctx.request.headers and rawBody are optional; passing them as they are
+// verifies false, never throws.
+func TestWebhookVerifyMissingRequestParts(t *testing.T) {
+	rt := cryptoRuntime(t)
+	for _, call := range []string{`ddcore.webhooks.verify("k", undefined, undefined)`, `ddcore.webhooks.verify("k", null, null)`, `ddcore.webhooks.verify("k", {}, undefined, {})`} {
+		if got := evalStr(t, rt, call); got != "false" {
+			t.Errorf("%s = %s, want false", call, got)
+		}
 	}
 }

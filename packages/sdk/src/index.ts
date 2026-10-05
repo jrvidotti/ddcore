@@ -295,12 +295,12 @@ export interface DDCoreAPI {
     /**
      * Verifies a Standard Webhooks request received on an inbound method: `headers` and
      * `rawBody` are those of `ctx.request`. Returns `false`, never throws, when a header is
-     * missing, the timestamp is further than `toleranceSeconds` (default 300) from now, or
-     * no `v1,` signature matches. A missing secret (`ddcore.secret` returns `null` for an
+     * missing, the timestamp is further than `toleranceSeconds` (default 300; `Infinity`
+     * switches the window off) from now, or no `v1,` signature matches. A missing secret (`ddcore.secret` returns `null` for an
      * unset one) or an empty one verifies nothing: the result is `false`. A `whsec_<base64>` secret is decoded as the spec says;
      * several space-separated signatures are accepted; the comparison is constant-time.
      */
-    verify(secret: string | null | undefined, headers: Record<string, string>, rawBody: string, opts?: { toleranceSeconds?: number }): boolean;
+    verify(secret: string | null | undefined, headers?: Record<string, string>, rawBody?: string, opts?: { toleranceSeconds?: number }): boolean;
     /**
      * Emits an app event to every enabled `Webhook` whose custom event is
      * `event`, and returns the ids of the `Webhook Delivery` records written.
@@ -405,7 +405,10 @@ export interface DDCoreAPI {
      * on the earliest parts.
      */
     splitAmount(total: any, n: number): number[];
-    /** `n` characters of `a-z0-9` from a cryptographically secure source (default 10). Throws when `n` is not an integer from 0 to 65536. */
+    /**
+     * `n` characters of `a-z0-9` from a cryptographically secure source (default 10). A
+     * fraction rounds up and anything not positive gives `""`; throws only above 65536.
+     */
     randomString(n?: number): string;
   };
   /** current authenticated user (Guest when anonymous) */
@@ -440,8 +443,9 @@ export interface DDCoreAPI {
    */
   secret(name: string): string | null;
   /**
-   * Hashing for verifying an inbound webhook, where the provider signs the
-   * exact bytes it sent: read them from `ddcore.session.request.rawBody`.
+   * Hashing (`sha256`), HMAC (`hmacSha256`, to check a webhook signature over the
+   * exact bytes the provider sent, `ctx.request.rawBody`), constant-time comparison,
+   * secure random values (`randomToken`, `randomInt`) and certificate inspection.
    */
   crypto: {
     /**
