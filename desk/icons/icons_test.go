@@ -1,6 +1,8 @@
 package icons
 
 import (
+	"bytes"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -34,6 +36,42 @@ func TestTable(t *testing.T) {
 	if !Known("wallet") || !Known("triangle-alert") || Known("no-such-icon") || Known("") {
 		t.Error("Known answers wrong")
 	}
+}
+
+// TestNoDuplicateKeys reads icons.json token by token: encoding/json keeps the
+// last of two equal keys without a word, so a name added twice would hide one.
+func TestNoDuplicateKeys(t *testing.T) {
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	var walk func(path string)
+	walk = func(path string) {
+		tok, err := dec.Token()
+		if err != nil {
+			t.Fatal(err)
+		}
+		switch tok {
+		case json.Delim('{'):
+			seen := map[string]bool{}
+			for dec.More() {
+				k, err := dec.Token()
+				if err != nil {
+					t.Fatal(err)
+				}
+				key := k.(string)
+				if seen[key] {
+					t.Errorf("icons.json: %q appears twice", path+key)
+				}
+				seen[key] = true
+				walk(path + key + ".")
+			}
+			dec.Token()
+		case json.Delim('['):
+			for dec.More() {
+				walk(path)
+			}
+			dec.Token()
+		}
+	}
+	walk("")
 }
 
 const docPath = "../../docs/agent/report-api.md"

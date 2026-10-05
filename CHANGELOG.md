@@ -17,6 +17,15 @@ older series, and `whats_new` reads across every one of them.
 ### Added
 
 - The desk draws `key` and `bug`.
+- The desk draws 201 more lucide icons, 300 in all: money and commerce (`coins`, `piggy-bank`,
+  `hand-coins`, `shopping-cart`, `store`, `package`, `warehouse`, `truck`, `barcode`, ...),
+  people (`user-pen`, `user-check`, `id-card`, `graduation-cap`, ...), messages (`phone`,
+  `message-circle`, `messages-square`, `video`, `megaphone`, ...), documents (`files`,
+  `clipboard-list`, `file-spreadsheet`, `signature`, ...), time, places (`map`, `globe`,
+  `church`, `hospital`, ...), status, actions, systems (`network`, `database`, `server`, ...)
+  and more. lucide's old names `check-circle`, `x-circle`, `alert-circle`, `help-circle`,
+  `circle-help`, `unlock`, `pie-chart`, `line-chart`, `smile` and `fingerprint` work too. The
+  full list is under "Icons" in `report-api` (#80).
 - `allowCreate: false` on a DocType says only server code creates its documents, such as a
   Transfer made by a button on another form. The desk then offers no way to make one, to
   **Admin** too: `/api/meta` reports `create` and `amend` as false, so the list has no **New**,
