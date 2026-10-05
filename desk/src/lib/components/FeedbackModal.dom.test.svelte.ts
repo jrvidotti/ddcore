@@ -80,10 +80,10 @@ describe("FeedbackModal", () => {
     expect(q(".modal")).not.toBe(null);
   });
 
-  it("sends the page address by default and the context only when asked", () => {
+  it("sends the page address and the context by default", () => {
     open();
     expect(q<HTMLInputElement>("#feedback-send-url").checked).toBe(true);
-    expect(q<HTMLInputElement>("#feedback-send-context").checked).toBe(false);
+    expect(q<HTMLInputElement>("#feedback-send-context").checked).toBe(true);
     expect(target.textContent).toContain(URL_HREF);
   });
 
@@ -109,9 +109,10 @@ describe("FeedbackModal", () => {
     expect(target.querySelectorAll(".err")).toHaveLength(2);
   });
 
-  it("sends the type's fields and the page address, without the context", async () => {
+  it("sends the type's fields and the page address, without the context once unchecked", async () => {
     open();
     fillRequired();
+    q<HTMLInputElement>("#feedback-send-context").click();
     type("#feedback-field-steps_to_reproduce", " open, save ");
     const sev = q<HTMLSelectElement>("#feedback-field-severity");
     sev.value = "High";
@@ -125,11 +126,10 @@ describe("FeedbackModal", () => {
     expect(files).toEqual([]);
   });
 
-  it("leaves the address out when unchecked and adds the context when checked", async () => {
+  it("leaves the address out when unchecked and sends the context as it is", async () => {
     open();
     fillRequired();
     q<HTMLInputElement>("#feedback-send-url").click();
-    q<HTMLInputElement>("#feedback-send-context").click();
     flushSync();
     const [data] = await send();
     expect("page_url" in data).toBe(false);

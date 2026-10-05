@@ -33,9 +33,9 @@ older series, and `whats_new` reads across every one of them.
 - **Feedback.** Every desk user can report a bug, an improvement or a feature request from
   **Feedback** in the user menu. The dialog asks for the fields of the chosen type, takes up to
   10 files (picked, dropped or pasted screenshots) and an audio note recorded in the browser, and
-  sends the current page's address (checked by default) and context data (unchecked; previewed
-  before sending). It is written as a core `Feedback` document, in the platform space on a site
-  with tenancy, stamped with its `source_tenant`. The platform's System Managers get it in the
+  sends the current page's address and context data (both checked by default; the context is
+  previewed before sending). It is written as a core `Feedback` document, in the platform space
+  on a site with tenancy, stamped with its `source_tenant`. The platform's System Managers get it in the
   desk inbox, and the addresses in `"feedback": {"to": [...]}` (or `DDCORE_FEEDBACK_TO`) get a mail
   with the files. The author follows status and response under "My feedback". It is on by
   default; `"feedback": {"enabled": false}` or `DDCORE_FEEDBACK=0` turns it off. App scripts can

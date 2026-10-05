@@ -26,7 +26,7 @@
   let files = $state<File[]>([]);
   let audio = $state<File | null>(null);
   let sendUrl = $state(true);
-  let sendContext = $state(false);
+  let sendContext = $state(true);
   let showContext = $state(false);
   let busy = $state(false);
   let dragging = $state(false);
@@ -135,7 +135,7 @@
     errors = {};
     files = [];
     audio = null;
-    sendContext = false;
+    sendContext = true;
     showContext = false;
     screenshots = 0;
   }

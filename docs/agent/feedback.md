@@ -26,7 +26,7 @@ Below them:
 - **An audio note**, recorded in the browser where it can (a secure context with a microphone)
   and listened to before it is sent. It is one more file, `voice-note.webm` (`.m4a` on Safari).
 - **Send the address of this page**, checked: the URL the user is on.
-- **Send context data**, unchecked: user, roles, language, site name and version, tenant, apps,
+- **Send context data**, checked: user, roles, language, site name and version, tenant, apps,
   the route's workspace, DocType and id, viewport, user agent, timezone, and the last client
   errors (failed requests with their request id, uncaught errors). "See what will be sent"
   shows the JSON before it goes.
