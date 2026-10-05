@@ -14,6 +14,12 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Changed
+
+- The sidebar's Notifications and To-Do links moved from the top of the menu to its footer,
+  just above the user's avatar, so they no longer read as one of the workspace's modules.
+  Their counters and the collapsed rail work as before.
+
 ## 0.26.3 — 2026-10-05
 
 ### Fixed

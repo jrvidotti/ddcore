@@ -148,14 +148,6 @@
     <button class="search-btn" type="button" title={tip(__("Search"))} onclick={() => { if (typeof window !== "undefined" && window.innerWidth <= 800) open = false; openSearch(); }}>
       <Icon name="search" /><span>{__("Search")}</span><kbd class="kbd">{getModifierKey()} K</kbd>
     </button>
-    <a href="/app/notifications" class:active={active("/app/notifications")} title={tip(__("Notifications"))}>
-      <Icon name="bell" /><span>{__("Notifications")}</span>
-      {#if notifications.unread > 0}<span class="notification-count" aria-label={__("{0} unread notifications", [notifications.unread])}>{notifications.unread}</span>{/if}
-    </a>
-    <a href="/app/todo" class:active={active("/app/todo")} title={tip(__("To-Do"))}>
-      <Icon name="check-square" /><span>{__("To-Do")}</span>
-      {#if pendingTasks.count > 0}<span class="notification-count" aria-label={__("{0} pending tasks", [pendingTasks.count])}>{pendingTasks.count}</span>{/if}
-    </a>
     {#if activeWorkspace}
       {#each activeWorkspace.sidebar || [] as it}
         {#if itemHref(it)}
@@ -178,6 +170,17 @@
     {/if}
   </nav>
   <div class="foot">
+    <!-- the person's own inbox, next to their avatar, apart from the workspace's modules -->
+    <div class="personal">
+      <a href="/app/notifications" class:active={active("/app/notifications")} title={tip(__("Notifications"))}>
+        <Icon name="bell" /><span>{__("Notifications")}</span>
+        {#if notifications.unread > 0}<span class="notification-count" aria-label={__("{0} unread notifications", [notifications.unread])}>{notifications.unread}</span>{/if}
+      </a>
+      <a href="/app/todo" class:active={active("/app/todo")} title={tip(__("To-Do"))}>
+        <Icon name="check-square" /><span>{__("To-Do")}</span>
+        {#if pendingTasks.count > 0}<span class="notification-count" aria-label={__("{0} pending tasks", [pendingTasks.count])}>{pendingTasks.count}</span>{/if}
+      </a>
+    </div>
     <div class="dropdown" style="width:100%">
       <button class="user-btn" onclick={() => (menuOpen = !menuOpen)} aria-haspopup="menu" aria-expanded={menuOpen} title={tip(displayName)}>
         <span class="avatar">{avatarInitial(displayName)}</span>
@@ -229,17 +232,20 @@
   .workspace-switcher .menu .ws-option-label { flex: 1; text-align: left; }
   .workspace-static-header { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 13px; font-weight: 600; color: var(--text); }
   nav { flex: 1; overflow: auto; padding: 8px; }
-  nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--text); font-size: 13px; }
+  nav a, .personal a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--text); font-size: 13px; }
   .search-btn { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 10px; margin-bottom: 4px; border: 1px solid var(--border); border-radius: 6px; background: #fafafa; color: var(--muted); font-size: 13px; cursor: pointer; text-align: left; }
   .search-btn span { flex: 1; }
   .search-btn:hover { background: #f3f4f6; }
   .search-btn .kbd { font-size: 11px; }
-  nav a:hover { background: #f3f4f6; text-decoration: none; }
-  nav a.active { background: #eff6ff; color: var(--primary); font-weight: 500; }
+  nav a:hover, .personal a:hover { background: #f3f4f6; text-decoration: none; }
+  nav a.active, .personal a.active { background: #eff6ff; color: var(--primary); font-weight: 500; }
   .notification-count { margin-left: auto; border-radius: 12px; padding: 1px 7px; background: var(--primary); color: white; font-size: 11px; }
   nav a.child { padding-left: 16px; }
   .group { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); padding: 12px 10px 4px; display: flex; align-items: center; gap: 4px; }
   .foot { padding: 8px 10px; border-top: 1px solid var(--border); }
+  .personal { display: flex; flex-direction: column; gap: 2px; padding-bottom: 6px; margin-bottom: 6px; border-bottom: 1px solid var(--border); }
+  /* the footer is 2px wider-padded than nav: the icons line up with the modules' and the avatar */
+  .personal a { padding-left: 8px; padding-right: 8px; }
   .user-btn { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 8px; border: 0; background: none; border-radius: 6px; cursor: pointer; text-align: left; color: inherit; font: inherit; }
   .user-btn:hover { background: #f3f4f6; }
   .user-btn .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -263,6 +269,7 @@
     .sidebar.collapsed .search-btn span,
     .sidebar.collapsed .search-btn .kbd,
     .sidebar.collapsed nav a > span:not(.notification-count),
+    .sidebar.collapsed .personal a > span:not(.notification-count),
     .sidebar.collapsed nav a.child,
     .sidebar.collapsed .group,
     .sidebar.collapsed .user-btn .name,
@@ -271,8 +278,9 @@
     .sidebar.collapsed .workspace-static-header,
     .sidebar.collapsed .search-btn,
     .sidebar.collapsed nav a,
+    .sidebar.collapsed .personal a,
     .sidebar.collapsed .user-btn { justify-content: center; padding-left: 0; padding-right: 0; }
-    .sidebar.collapsed nav a { position: relative; }
+    .sidebar.collapsed nav a, .sidebar.collapsed .personal a { position: relative; }
     /* the pill becomes a badge on the icon's corner */
     .sidebar.collapsed .notification-count { position: absolute; top: 1px; right: 3px; margin: 0; border-radius: 10px; padding: 0 4px; font-size: 10px; font-weight: 600; line-height: 14px; }
     /* the menus are wider than the rail, so they open to its right */
