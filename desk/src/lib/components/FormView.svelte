@@ -3,7 +3,7 @@
   // Form view generated from meta: sections/tabs, controls, grids,
   // toolbar (save/submit/cancel/amend/delete), form-script buttons, sidebar.
   import { createForm, FormController, type Button } from "$lib/form.svelte";
-  import { isLayout, selectLabels, selectOptions, type Field } from "$lib/meta";
+  import { getMeta, isLayout, selectLabels, selectOptions, type Field, type Meta } from "$lib/meta";
   import { treeParentQuery } from "./views/tree-state";
   import Control from "$lib/controls/Control.svelte";
   import FieldButtons from "$lib/controls/FieldButtons.svelte";
@@ -30,6 +30,7 @@
   import { virtualRedirect } from "$lib/virtual";
   import { duplicateDoc } from "$lib/duplicate";
   import SharedNotice from "./SharedNotice.svelte";
+  import NotCreatable from "./NotCreatable.svelte";
 
   let { doctype, id, basePath: ownBase = "" }: {
     doctype: string; id: string;
@@ -38,6 +39,8 @@
   } = $props();
   let frm = $state<FormController | null>(null);
   let error = $state("");
+  /** set on /new when the reader cannot create one: the notice replaces the form */
+  let notCreatable = $state<Meta | null>(null);
   let menuOpen = $state(false);
   let workflowMenuOpen = $state(false);
   let activeTab = $state(0);
@@ -84,6 +87,10 @@
     (async () => {
       try {
         if (await redirectVirtual()) return;
+        if (id === "new") {
+          const m = await getMeta(doctype);
+          if (!m.doctype.isSingle && !m.permissions.create) { if (alive) notCreatable = m; return; }
+        }
         const initial = (history.state as any)?.["sveltekit:states"]?.doc || (page.state as any)?.doc;
         const f = await createForm(doctype, id, initial, ownBase);
         if (!alive) { f.dispose(); return; } // navigated away while loading
@@ -383,6 +390,8 @@
 
 {#if error}
   <div class="page"><div class="card empty">{error}</div></div>
+{:else if notCreatable}
+  <NotCreatable label={notCreatable.doctype.label} description={notCreatable.doctype.description} href={basePath} />
 {:else if frm}
   <div class="page form-page">
     <div class="page-head">

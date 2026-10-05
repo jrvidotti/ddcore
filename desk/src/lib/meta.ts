@@ -48,6 +48,10 @@ export interface DocTypeMeta {
   virtual?: { sources: { doctype: string; fields: Record<string, string> }[] };
   allowRename?: boolean; titleField?: string; translateId?: boolean; imageField?: string; sortField?: string; sortOrder?: string; searchFields?: string[]; linkSubtitle?: string[]; linkOrderBy?: string; fields: Field[];
   permissions?: any[]; icon?: string; methods?: string[];
+  /** Shown under the list's title; translated by the server. */
+  description?: string;
+  /** false: only server code creates it, and `permissions.create` is false for everyone. */
+  allowCreate?: boolean;
   /** Compound business keys; enforced on the server, shown here only for reference. */
   uniqueKeys?: { name: string; fields: string[] }[];
   /** On a site with tenancy: one set of rows for every tenant, written only from the platform space. */

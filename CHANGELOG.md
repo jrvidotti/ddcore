@@ -14,6 +14,23 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- `allowCreate: false` on a DocType says only server code creates its documents, such as a
+  Transfer made by a button on another form. The desk then offers no way to make one, to
+  **Admin** too: `/api/meta` reports `create` and `amend` as false, so the list has no **New**,
+  a Link no `+`, the form no Duplicate or Amend, and Data Import no insert mode. A typed `/new`
+  shows a notice. `POST /api/resource/<doctype>` and a spreadsheet insert are refused. Server
+  code inserts as before. An extension may set it on another app's DocType. See "DocType
+  properties" in `fieldtypes` (#79).
+- The list shows the DocType's `description` under its title, translated like `label`: a place
+  to say where the documents come from (#79).
+
+### Fixed
+
+- `/new` for a DocType the reader cannot create shows a notice with a link back to the list.
+  Before, it opened a form that took the typing and whose save the server refused (#79).
+
 ## 0.27.0 — 2026-10-05
 
 ### Breaking

@@ -322,6 +322,10 @@ separators and the symbol from the reader's language and the site's currency.
 
 ## `defineListView`
 
+The list's title comes from the DocType's `label`, with its `description` under it when there
+is one; the **New** button follows the reader's `create` permission and the DocType's
+`allowCreate` (see "DocType properties" in `fieldtypes`).
+
 Adjusts a DocType's list from a global script (`client/*.ts`):
 
 ```ts

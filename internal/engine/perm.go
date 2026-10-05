@@ -766,6 +766,11 @@ func (c *Ctx) Permissions(d *meta.DocType) map[string]bool {
 		ok, _ := c.HasPermission(d.Name, p, nil)
 		out[p] = ok
 	}
+	// A DocType only server code creates offers no way to make one, to
+	// Admin either; an amendment is a new document too.
+	if !d.Creatable() {
+		out["create"], out["amend"] = false, false
+	}
 	return out
 }
 
