@@ -302,3 +302,12 @@ func TestCollectDocTypeGridFilterLabels(t *testing.T) {
 		}
 	}
 }
+
+// A report's description is shown under its title: a key like its label.
+func TestCollectReportDescription(t *testing.T) {
+	s := NewSet()
+	CollectReport(s, map[string]any{"name": "balances", "label": "Balances", "description": "What each account holds today"}, "pay report")
+	if got, want := texts(s), []string{"Balances", "What each account holds today"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+}

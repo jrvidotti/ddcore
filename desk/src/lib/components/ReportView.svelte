@@ -77,7 +77,13 @@
 </script>
 
 <div class="page">
-  <div class="page-head"><h1>{label}</h1><button class="btn primary" onclick={run} disabled={loading}>{__("Update")}</button></div>
+  <div class="page-head">
+    <div class="page-title">
+      <h1>{label}</h1>
+      {#if meta?.description}<p class="subtitle muted">{meta.description}</p>{/if}
+    </div>
+    <button class="btn primary" onclick={run} disabled={loading}>{__("Update")}</button>
+  </div>
   {#if meta?.filters?.length}
     <div class="card" style="padding:12px 14px;margin-bottom:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
       {#each meta.filters as f (f.fieldname)}
@@ -97,3 +103,8 @@
     <ReportGrid columns={result.columns} rows={result.rows} {wsPrefix} filename={name} sheetName={label} sortable exportable={meta?.canExport !== false} />
   {/if}
 </div>
+
+<style>
+  .page-title { flex: 1; min-width: 200px; }
+  .subtitle { margin: 2px 0 0; font-size: 13px; }
+</style>
