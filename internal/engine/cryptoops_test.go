@@ -168,7 +168,7 @@ func TestWebhookVerifyWindow(t *testing.T) {
 		return map[string]string{"webhook-id": "i", "webhook-timestamp": fmt.Sprint(ts),
 			"webhook-signature": SignWebhook(hookSecret, "i", ts, []byte("b"))}
 	}
-	tol := 300 * time.Second
+	tol := 300.0
 	for _, c := range []struct {
 		ts   int64
 		want bool
@@ -176,5 +176,60 @@ func TestWebhookVerifyWindow(t *testing.T) {
 		if got := VerifyWebhook(hookSecret, sign(c.ts), []byte("b"), tol, now); got != c.want {
 			t.Errorf("ts offset %d: got %v", c.ts-now.Unix(), got)
 		}
+	}
+}
+
+func TestWebhookVerifyFailsClosed(t *testing.T) {
+	rt := cryptoRuntime(t)
+	now := time.Now().Unix()
+	hdr := func(secret string, drop string, ts string) string {
+		if ts == "" {
+			ts = fmt.Sprint(now)
+		}
+		h := map[string]string{"webhook-id": "i", "webhook-timestamp": ts,
+			"webhook-signature": SignWebhook(secret, "i", now, []byte("b"))}
+		delete(h, drop)
+		parts := []string{}
+		for k, v := range h {
+			parts = append(parts, fmt.Sprintf("%q: %q", k, v))
+		}
+		return "{" + strings.Join(parts, ", ") + "}"
+	}
+	verify := func(secret, headers string) string {
+		return evalStr(t, rt, fmt.Sprintf(`ddcore.webhooks.verify(%s, %s, "b")`, secret, headers))
+	}
+	// the key "null" or "" would be known to the sender of the forgery
+	for _, s := range []string{"null", "undefined", `""`, `"whsec_"`} {
+		forged := hdr("null", "", "")
+		if s == `""` || s == `"whsec_"` {
+			forged = hdr("", "", "")
+		}
+		if got := verify(s, forged); got != "false" {
+			t.Errorf("secret %s verified a forged request: %s", s, got)
+		}
+	}
+	if verify(`"plain-secret"`, hdr("plain-secret", "", "")) != "true" {
+		t.Error("a non-whsec_ secret is the raw key")
+	}
+	if verify(`"plain-secret"`, hdr("plain-secret", "webhook-id", "")) != "false" {
+		t.Error("missing webhook-id")
+	}
+	if verify(`"plain-secret"`, hdr("plain-secret", "webhook-timestamp", "")) != "false" {
+		t.Error("missing webhook-timestamp")
+	}
+	if verify(`"plain-secret"`, hdr("plain-secret", "", "abc")) != "false" {
+		t.Error("non-numeric timestamp")
+	}
+	if VerifyWebhook("", map[string]string{}, nil, 300, time.Now()) || VerifyWebhook("whsec_", nil, nil, 300, time.Now()) {
+		t.Error("Go level: empty secret")
+	}
+}
+
+func TestWebhookVerifyHugeTolerance(t *testing.T) {
+	rt := cryptoRuntime(t)
+	ts := int64(1614265330)
+	h := fmt.Sprintf(`{"webhook-id": "i", "webhook-timestamp": "%d", "webhook-signature": %q}`, ts, SignWebhook("k", "i", ts, []byte("b")))
+	if got := evalStr(t, rt, fmt.Sprintf(`ddcore.webhooks.verify("k", %s, "b", {toleranceSeconds: 1e10})`, h)); got != "true" {
+		t.Fatalf("a huge tolerance should switch the window off, got %s", got)
 	}
 }

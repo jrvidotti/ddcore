@@ -29,7 +29,8 @@ older series, and `whats_new` reads across every one of them.
 ### Fixed
 
 - `ddcore.utils.randomString` used `Math.random`, which is not safe for a credential. It now draws
-  from `crypto/rand` without modulo bias, with the same `a-z0-9` alphabet. The ids ddcore generates
+  from `crypto/rand` without modulo bias, with the same `a-z0-9` alphabet. It now throws when `n`
+  is not an integer from 0 to 65536, where it used to return a string. The ids ddcore generates
   for new documents share that bias fix (#85).
 
 ## 0.27.1 — 2026-10-05

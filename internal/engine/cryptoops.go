@@ -146,7 +146,19 @@ func randomStringOp(opts map[string]any) (string, error) {
 // space-separated `v1,<base64>` signatures, any of which may match. A missing
 // header, an unreadable timestamp or one further than tolerance from now is
 // false, never an error.
-func VerifyWebhook(secret string, headers map[string]string, body []byte, tolerance time.Duration, now time.Time) bool {
+//
+// An empty secret, or a whsec_ one that decodes to no bytes, verifies nothing:
+// the key would be known to everyone. tolerance is in seconds, compared as a
+// float so that a huge value (to switch the window off) cannot overflow.
+func VerifyWebhook(secret string, headers map[string]string, body []byte, tolerance float64, now time.Time) bool {
+	if secret == "" {
+		return false
+	}
+	if rest, ok := strings.CutPrefix(secret, "whsec_"); ok {
+		if k, err := base64.StdEncoding.DecodeString(rest); err == nil && len(k) == 0 {
+			return false
+		}
+	}
 	h := map[string]string{}
 	for k, v := range headers {
 		h[strings.ToLower(k)] = v
@@ -159,7 +171,7 @@ func VerifyWebhook(secret string, headers map[string]string, body []byte, tolera
 	if err != nil {
 		return false
 	}
-	if d := now.Sub(time.Unix(ts, 0)); d > tolerance || d < -tolerance {
+	if math.Abs(float64(now.Unix())-float64(ts)) > tolerance {
 		return false
 	}
 	want := []byte(SignWebhook(secret, id, ts, body))

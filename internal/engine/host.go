@@ -607,9 +607,9 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		return randomStringOp(a.Opts)
 	case "webhooks.verify":
 		// Never throws on a bad request: a receiver wants a boolean to refuse on.
-		tol := time.Duration(300) * time.Second
+		tol := 300.0
 		if f, ok := a.Opts["toleranceSeconds"].(float64); ok {
-			tol = time.Duration(f * float64(time.Second))
+			tol = f
 		}
 		return VerifyWebhook(a.Key, a.Headers, []byte(a.Text), tol, time.Now()), nil
 	case "crypto.pfxInfo":

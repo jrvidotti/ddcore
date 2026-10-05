@@ -910,6 +910,8 @@
       // The receiving half of the scheme webhooks.emit signs with: false, never
       // a throw, when a header is missing or anything does not match.
       verify(secret, headers, rawBody, opts) {
+        // a missing secret (ddcore.secret returns null) must not become the key "null"
+        if (secret == null || secret === "") return false;
         const h = {};
         for (const k of Object.keys(headers || {})) if (headers[k] != null) h[k] = String(headers[k]);
         const o = opts || {};
