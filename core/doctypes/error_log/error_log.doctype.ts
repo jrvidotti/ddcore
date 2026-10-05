@@ -4,6 +4,7 @@ export default defineDoctype({
   name: "Error Log",
   module: "Core",
   label: "Error Log",
+  icon: "bug",
   sortField: "creation",
   sortOrder: "desc",
   fields: [

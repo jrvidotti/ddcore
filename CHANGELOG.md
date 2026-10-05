@@ -14,6 +14,15 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- The desk draws `key` and `bug`.
+
+### Fixed
+
+- API Key, Error Log and Version show an icon in the desk's System menu (`key`, `bug`,
+  `history`) instead of the dot an item without one gets.
+
 ## 0.27.0 — 2026-10-05
 
 ### Breaking

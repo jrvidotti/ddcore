@@ -4,6 +4,7 @@ export default defineDoctype({
   name: "API Key",
   module: "Core",
   label: "API Key",
+  icon: "key",
   idGeneration: { hash: true },
   fields: [
     { fieldname: "user", fieldtype: "Link", label: "User", options: "User", reqd: true, inListView: true },

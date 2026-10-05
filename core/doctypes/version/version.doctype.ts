@@ -3,6 +3,7 @@ import { defineDoctype } from "@ddcore/sdk";
 export default defineDoctype({
   name: "Version",
   module: "Core",
+  icon: "history",
   sortField: "creation",
   sortOrder: "desc",
   fields: [
