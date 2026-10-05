@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.27.1 — 2026-10-05
+
 ### Added
 
 - The desk draws `key` and `bug`.
