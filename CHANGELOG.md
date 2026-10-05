@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.27.2 — 2026-10-05
+
 ### Added
 
 - `defineReport({ description })` draws a line under the report's title, translated like `label`:
