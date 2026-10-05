@@ -93,6 +93,12 @@ const f = ddcore.files.save({
 });
 // or from bytes already in hand
 ddcore.files.save({ filename: "a.png", contentBase64: ddcore.http.get(u, { responseType: "base64" }).body });
+// download as base64 and send on as multipart (a transcription API)
+const audio = ddcore.http.get(url, { responseType: "base64" }).body;
+ddcore.http.post("https://api.openai.com/v1/audio/transcriptions", [
+  { name: "model", value: "gpt-4o-mini-transcribe" },
+  { name: "file", filename: "audio.ogg", contentType: "audio/ogg", base64: audio },
+], { bodyEncoding: "multipart", headers: { Authorization: "Bearer " + key } });
 ```
 
 - Exactly one of `content` (text, stored as UTF-8), `contentBase64` and `fromUrl`.

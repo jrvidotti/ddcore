@@ -106,3 +106,114 @@ func TestHTTPBinaryAndLimit(t *testing.T) {
 		t.Fatalf("want a responseType error, got %v", err)
 	}
 }
+
+func TestHTTPRequestBodies(t *testing.T) {
+	audio := []byte{0x4f, 0x67, 0x67, 0x53, 0x00, 0xff, 0xfe, 0x80, 0xc3, 0x28}
+	b64 := base64.StdEncoding.EncodeToString(audio)
+	var raw []byte
+	var ctype string
+	var form *http.Request
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ = io.ReadAll(r.Body)
+		ctype = r.Header.Get("Content-Type")
+		if strings.HasPrefix(ctype, "multipart/") {
+			r.Body = io.NopCloser(strings.NewReader(string(raw)))
+			if err := r.ParseMultipartForm(1 << 20); err != nil {
+				t.Error(err)
+			}
+			form = r
+		}
+	}))
+	defer server.Close()
+	pool, err := js.NewPool(&Engine{}, nil, 1, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rt, err := pool.Acquire()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rt.Release()
+	rt.Ctx = &Ctx{}
+	t.Run("base64", func(t *testing.T) {
+		raw, ctype = nil, ""
+		if _, err := rt.Eval(fmt.Sprintf(`ddcore.http.post(%q, %q, {bodyEncoding: "base64"})`, server.URL, b64)); err != nil {
+			t.Fatal(err)
+		}
+		if string(raw) != string(audio) || ctype != "application/octet-stream" {
+			t.Errorf("got %x as %q", raw, ctype)
+		}
+		if _, err := rt.Eval(fmt.Sprintf(`ddcore.http.post(%q, %q, {bodyEncoding: "base64", headers: {"content-type": "audio/ogg"}})`, server.URL, b64)); err != nil {
+			t.Fatal(err)
+		}
+		if string(raw) != string(audio) || ctype != "audio/ogg" {
+			t.Errorf("got %x as %q", raw, ctype)
+		}
+	})
+
+	t.Run("multipart", func(t *testing.T) {
+		form = nil
+		src := fmt.Sprintf(`ddcore.http.post(%q, [
+			{name: "model", value: "whisper"},
+			{name: "file", filename: "a.ogg", contentType: "audio/ogg", base64: %q},
+			{name: "raw", base64: %q},
+		], {bodyEncoding: "multipart", headers: {"Content-Type": "application/json"}})`, server.URL, b64, b64)
+		if _, err := rt.Eval(src); err != nil {
+			t.Fatal(err)
+		}
+		if !strings.HasPrefix(ctype, "multipart/form-data; boundary=") {
+			t.Fatalf("content type %q", ctype)
+		}
+		if form == nil {
+			t.Fatal("no multipart form")
+		}
+		if got := form.MultipartForm.Value["model"]; len(got) != 1 || got[0] != "whisper" {
+			t.Errorf("model: %v", got)
+		}
+		for name, wantType := range map[string]string{"file": "audio/ogg", "raw": "application/octet-stream"} {
+			fhs := form.MultipartForm.File[name]
+			if len(fhs) != 1 {
+				t.Fatalf("part %s: %v", name, fhs)
+			}
+			f, _ := fhs[0].Open()
+			data, _ := io.ReadAll(f)
+			f.Close()
+			if string(data) != string(audio) || fhs[0].Header.Get("Content-Type") != wantType {
+				t.Errorf("part %s: %x as %q", name, data, fhs[0].Header.Get("Content-Type"))
+			}
+		}
+		if got := form.MultipartForm.File["file"][0].Filename; got != "a.ogg" {
+			t.Errorf("filename %q", got)
+		}
+		if got := form.MultipartForm.File["raw"][0].Filename; got != "raw" {
+			t.Errorf("default filename %q", got)
+		}
+	})
+
+	t.Run("a JSON body with a multipart key stays JSON", func(t *testing.T) {
+		if _, err := rt.Eval(fmt.Sprintf(`ddcore.http.post(%q, {multipart: [1]})`, server.URL)); err != nil {
+			t.Fatal(err)
+		}
+		if string(raw) != `{"multipart":[1]}` || ctype != "application/json" {
+			t.Errorf("got %q as %q", raw, ctype)
+		}
+	})
+
+	for name, tc := range map[string]struct{ src, want string }{
+		"unknown encoding":  {`"x", {bodyEncoding: "gzip"}`, "bodyEncoding"},
+		"bad base64":        {`"@@@", {bodyEncoding: "base64"}`, "base64"},
+		"base64 non string": {`{a: 1}, {bodyEncoding: "base64"}`, "base64"},
+		"no name":           {`[{value: "x"}], {bodyEncoding: "multipart"}`, "no name"},
+		"value and base64":  {`[{name: "f", value: "x", base64: "AA=="}], {bodyEncoding: "multipart"}`, "both"},
+		"non string value":  {`[{name: "f", value: 3}], {bodyEncoding: "multipart"}`, "must be a string"},
+		"not an array":      {`{name: "f"}, {bodyEncoding: "multipart"}`, "array of parts"},
+		"part bad base64":   {`[{name: "f", base64: "@@"}], {bodyEncoding: "multipart"}`, "not valid base64"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := rt.Eval(fmt.Sprintf(`ddcore.http.post(%q, %s)`, server.URL, tc.src))
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("want %q, got %v", tc.want, err)
+			}
+		})
+	}
+}

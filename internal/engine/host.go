@@ -10,7 +10,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"strings"
 	"time"
 
@@ -53,6 +55,7 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		Method        string            `json:"method"`
 		URL           string            `json:"url"`
 		Body          any               `json:"body"`
+		BodyEncoding  string            `json:"bodyEncoding"`
 		Headers       map[string]string `json:"headers"`
 		Timeout       float64           `json:"timeout"`
 		ResponseType  string            `json:"responseType"`
@@ -317,7 +320,7 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		}
 		return nil, c.broadcastInvalidation(keys, nil)
 	case "http":
-		return httpCall(a.Method, a.URL, a.Body, a.Headers, a.Timeout, a.ResponseType, int64(a.MaxBytes), a.ClientCert)
+		return httpCall(a.Method, a.URL, a.Body, a.BodyEncoding, a.Headers, a.Timeout, a.ResponseType, int64(a.MaxBytes), a.ClientCert)
 	case "files.save":
 		var f SaveFileArgs
 		if err := json.Unmarshal(raw, &f); err != nil {
@@ -813,11 +816,11 @@ func FormatCurrency(v float64, code, lang string, precision int) string {
 // no maxBytes.
 const httpMaxBytes = 10 << 20
 
-func httpCall(method, url string, body any, headers map[string]string, timeout float64, responseType string, maxBytes int64, cert *httpClientCert) (any, error) {
+func httpCall(method, url string, body any, bodyEncoding string, headers map[string]string, timeout float64, responseType string, maxBytes int64, cert *httpClientCert) (any, error) {
 	if responseType != "" && responseType != "text" && responseType != "base64" {
 		return nil, cerr.Validation("http: responseType must be \"text\" or \"base64\", not {0}", responseType)
 	}
-	res, b, err := httpFetch(method, url, body, headers, timeout, maxBytes, cert)
+	res, b, err := httpFetch(method, url, body, bodyEncoding, headers, timeout, maxBytes, cert)
 	if err != nil {
 		return nil, err
 	}
@@ -828,30 +831,141 @@ func httpCall(method, url string, body any, headers map[string]string, timeout f
 	return map[string]any{"status": res.StatusCode, "body": out, "headers": flatHeaders(res.Header)}, nil
 }
 
+// httpBody encodes a request body: a string is sent as is, anything else as
+// JSON, a base64 string as the bytes it stands for (bodyEncoding "base64") and
+// an array of parts as multipart/form-data (bodyEncoding "multipart"). The
+// content type it returns, when not empty, is one the caller must send: the
+// multipart boundary always, the JSON and octet-stream types only when the
+// headers name no Content-Type of their own (the comparison ignores case).
+func httpBody(body any, bodyEncoding string, headers map[string]string) (io.Reader, string, error) {
+	hasType := false
+	for k := range headers {
+		if strings.EqualFold(k, "Content-Type") {
+			hasType = true
+		}
+	}
+	switch bodyEncoding {
+	case "":
+		if body == nil {
+			return nil, "", nil
+		}
+		if s, ok := body.(string); ok {
+			return strings.NewReader(s), "", nil
+		}
+		b, _ := json.Marshal(body)
+		if hasType {
+			return bytes.NewReader(b), "", nil
+		}
+		return bytes.NewReader(b), "application/json", nil
+	case "base64":
+		s, ok := body.(string)
+		if !ok {
+			return nil, "", cerr.Validation("http: a body with bodyEncoding \"base64\" must be a base64 string")
+		}
+		b, err := base64.StdEncoding.DecodeString(s)
+		if err != nil {
+			return nil, "", cerr.Validation("http: the body is not valid base64: {0}", err)
+		}
+		if hasType {
+			return bytes.NewReader(b), "", nil
+		}
+		return bytes.NewReader(b), "application/octet-stream", nil
+	case "multipart":
+		parts, ok := body.([]any)
+		if !ok {
+			return nil, "", cerr.Validation("http: a body with bodyEncoding \"multipart\" must be an array of parts")
+		}
+		var buf bytes.Buffer
+		w := multipart.NewWriter(&buf)
+		for i, p := range parts {
+			m, _ := p.(map[string]any)
+			name, _ := m["name"].(string)
+			if name == "" {
+				return nil, "", cerr.Validation("http: multipart part {0} has no name", i)
+			}
+			value, hasValue := m["value"]
+			b64, hasB64 := m["base64"]
+			if hasValue && hasB64 {
+				return nil, "", cerr.Validation("http: multipart part {0} has both value and base64", name)
+			}
+			if !hasValue && !hasB64 {
+				return nil, "", cerr.Validation("http: multipart part {0} needs a value or base64", name)
+			}
+			if hasValue {
+				s, ok := value.(string)
+				if !ok {
+					return nil, "", cerr.Validation("http: the value of multipart part {0} must be a string", name)
+				}
+				if err := w.WriteField(name, s); err != nil {
+					return nil, "", cerr.Validation("http: {0}", err)
+				}
+				continue
+			}
+			s, ok := b64.(string)
+			if !ok {
+				return nil, "", cerr.Validation("http: the base64 of multipart part {0} must be a string", name)
+			}
+			data, err := base64.StdEncoding.DecodeString(s)
+			if err != nil {
+				return nil, "", cerr.Validation("http: multipart part {0} is not valid base64: {1}", name, err)
+			}
+			filename, _ := m["filename"].(string)
+			if filename == "" {
+				// a part without a file name reads as a plain field to most servers
+				filename = name
+			}
+			ctype, _ := m["contentType"].(string)
+			if ctype == "" {
+				ctype = "application/octet-stream"
+			}
+			h := textproto.MIMEHeader{}
+			h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, multipartQuote(name), multipartQuote(filename)))
+			h.Set("Content-Type", ctype)
+			pw, err := w.CreatePart(h)
+			if err != nil {
+				return nil, "", cerr.Validation("http: {0}", err)
+			}
+			if _, err := pw.Write(data); err != nil {
+				return nil, "", cerr.Validation("http: {0}", err)
+			}
+		}
+		if err := w.Close(); err != nil {
+			return nil, "", cerr.Validation("http: {0}", err)
+		}
+		return &buf, w.FormDataContentType(), nil
+	}
+	return nil, "", cerr.Validation("http: bodyEncoding must be \"base64\" or \"multipart\", not {0}", bodyEncoding)
+}
+
+var multipartQuoter = strings.NewReplacer("\\", "\\\\", `"`, "\\\"", "\r", "%0D", "\n", "%0A")
+
+// multipartQuote escapes a name or file name for a Content-Disposition
+// parameter, the way mime/multipart does for CreateFormFile.
+func multipartQuote(s string) string { return multipartQuoter.Replace(s) }
+
 // httpFetch sends one request and reads the whole response body, at most
 // maxBytes of it (httpMaxBytes when zero). The response's body is closed.
 // A cert is presented to a server that asks for one (mutual TLS).
-func httpFetch(method, url string, body any, headers map[string]string, timeout float64, maxBytes int64, cert *httpClientCert) (*http.Response, []byte, error) {
+func httpFetch(method, url string, body any, bodyEncoding string, headers map[string]string, timeout float64, maxBytes int64, cert *httpClientCert) (*http.Response, []byte, error) {
 	if timeout <= 0 {
 		timeout = 15
 	}
 	if maxBytes <= 0 {
 		maxBytes = httpMaxBytes
 	}
-	var rd io.Reader
-	if body != nil {
-		if s, ok := body.(string); ok {
-			rd = strings.NewReader(s)
-		} else {
-			b, _ := json.Marshal(body)
-			rd = strings.NewReader(string(b))
-			if headers == nil {
-				headers = map[string]string{}
-			}
-			if _, ok := headers["Content-Type"]; !ok {
-				headers["Content-Type"] = "application/json"
+	rd, contentType, err := httpBody(body, bodyEncoding, headers)
+	if err != nil {
+		return nil, nil, err
+	}
+	if contentType != "" {
+		hs := make(map[string]string, len(headers)+1)
+		for k, v := range headers {
+			if !strings.EqualFold(k, "Content-Type") {
+				hs[k] = v
 			}
 		}
+		hs["Content-Type"] = contentType
+		headers = hs
 	}
 	req, err := http.NewRequest(orDefault(method, "GET"), url, rd)
 	if err != nil {

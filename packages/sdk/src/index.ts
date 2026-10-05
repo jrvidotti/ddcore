@@ -37,12 +37,26 @@ export interface DDCoreDB {
   getSingleValue(doctype: string, field: string): any;
 }
 
+/** One part of a `bodyEncoding: "multipart"` body: a text field, or a file given as base64. */
+export type HttpMultipartPart =
+  | { name: string; value: string }
+  | { name: string; base64: string; filename?: string; contentType?: string };
+
 export interface HttpOpts {
   headers?: Record<string, string>;
   /** Timeout in seconds; defaults to 15. */
   timeout?: number;
   /** `"base64"` returns the body base64-encoded, for binary content; defaults to `"text"`. */
   responseType?: "text" | "base64";
+  /**
+   * How `body` is turned into bytes. `"base64"`: `body` is a base64 string, sent as the raw
+   * bytes (`Content-Type` defaults to `application/octet-stream`). `"multipart"`: `body` is an
+   * array of `HttpMultipartPart`, sent as multipart/form-data with the boundary in
+   * `Content-Type`, which replaces any the call passes. A file part's `filename` defaults to
+   * its `name` and its `contentType` to `application/octet-stream`. Without it, a string body
+   * is sent as is and anything else as JSON.
+   */
+  bodyEncoding?: "base64" | "multipart";
   /** The largest response body accepted, in bytes; defaults to 10 MiB. A larger one throws. */
   maxBytes?: number;
   /**
