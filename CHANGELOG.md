@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.27.6 — 2026-10-06
+
 ### Changed
 
 - `limit=0` on `GET /api/resource/<DocType>` — and so `ddcore.db.getList(doctype, { limit: 0 })`
