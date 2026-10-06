@@ -20,7 +20,8 @@ truths — `1`, `true`, `yes` or `on` — so `--allow-older-binary=false` leaves
 
 Options may come **before or after** the positional arguments, as `--flag value` or
 `--flag=value`; `--` ends the options and everything after it is positional. An undeclared
-flag is an error (it never becomes an argument silently).
+flag is an error (it never becomes an argument silently). `ddcore <command> -h` (or `--help`)
+prints that command's options, or its subcommands for a command such as `import` or `jobs`.
 
 | Command | What it does |
 |---|---|

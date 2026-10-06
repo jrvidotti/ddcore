@@ -14,6 +14,12 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- `ddcore <command> -h` and `--help` print the command's options (`ddcore test -h` lists
+  `--filter`, `--app` and `-v`) or, for a command with subcommands such as `import`, `jobs` or
+  `user`, its usage. Both failed with "unknown flag" and pointed at themselves (#87).
+
 ## 0.27.2 — 2026-10-05
 
 ### Added

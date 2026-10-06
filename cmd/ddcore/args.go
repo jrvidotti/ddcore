@@ -1,8 +1,10 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
+	"os"
 	"strings"
 )
 
@@ -38,6 +40,9 @@ func reorder(fs *flag.FlagSet, args []string) ([]string, error) {
 			name, value, inline = name[:j], name[j+1:], true
 		}
 		f := fs.Lookup(name)
+		if f == nil && (name == "h" || name == "help") {
+			return nil, flag.ErrHelp
+		}
 		if f == nil {
 			return nil, fmt.Errorf("unknown flag: %s (run `ddcore %s -h` to see the options)", a, fs.Name())
 		}
@@ -62,9 +67,18 @@ func isBoolFlag(f *flag.Flag) bool {
 	return ok && b.IsBoolFlag()
 }
 
-// parseFlags is the reordering replacement for fs.Parse.
+// errHelpShown reports that -h or --help printed the command's options: main
+// exits 0 without printing an error.
+var errHelpShown = errors.New("help shown")
+
+// parseFlags is the reordering replacement for fs.Parse. -h and --help, unless
+// the command declares them, print the command's usage and return errHelpShown.
 func parseFlags(fs *flag.FlagSet, args []string) error {
 	ordered, err := reorder(fs, args)
+	if errors.Is(err, flag.ErrHelp) {
+		fs.Usage()
+		return errHelpShown
+	}
 	if err != nil {
 		return err
 	}
@@ -72,8 +86,18 @@ func parseFlags(fs *flag.FlagSet, args []string) error {
 }
 
 // newFlagSet returns a FlagSet that reports errors instead of exiting, so the
-// caller can print them the same way as any other CLI failure.
+// caller can print them the same way as any other CLI failure. Its usage lists
+// the declared flags on stdout; a command with its own usage text replaces it.
 func newFlagSet(name string) *flag.FlagSet {
 	fs := flag.NewFlagSet(name, flag.ContinueOnError)
+	fs.Usage = func() {
+		fmt.Fprintf(os.Stdout, "usage: ddcore %s [flags]\n\nflags:\n", name)
+		fs.SetOutput(os.Stdout)
+		fs.PrintDefaults()
+		fs.SetOutput(nil)
+	}
 	return fs
 }
+
+// isHelp reports whether a subcommand slot asks for help.
+func isHelp(a string) bool { return a == "-h" || a == "--help" || a == "-help" }

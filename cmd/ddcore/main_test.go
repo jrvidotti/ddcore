@@ -528,3 +528,37 @@ func TestSplitListTrimsAndDropsEmpties(t *testing.T) {
 		t.Fatal("an empty list is nil, not one empty name")
 	}
 }
+
+func TestHelpFlagPrintsTheOptions(t *testing.T) {
+	// `ddcore test -h` failed with "unknown flag: -h (run `ddcore test -h` ...)"
+	for _, h := range []string{"-h", "--help", "-help"} {
+		fs, _, _, _ := testFlags()
+		var out strings.Builder
+		fs.Usage = func() { fs.SetOutput(&out); fs.PrintDefaults() }
+		if err := parseFlags(fs, []string{"cobranca", h}); err != errHelpShown {
+			t.Fatalf("%s: err = %v, want errHelpShown", h, err)
+		}
+		if !strings.Contains(out.String(), "-filter") {
+			t.Fatalf("%s: usage does not list --filter:\n%s", h, out.String())
+		}
+	}
+}
+
+func TestDeclaredHelpFlagIsNotTakenOver(t *testing.T) {
+	fs := newFlagSet("x")
+	host := fs.String("h", "", "host")
+	if err := parseFlags(fs, []string{"-h", "db"}); err != nil {
+		t.Fatal(err)
+	}
+	if *host != "db" {
+		t.Fatalf("-h = %q", *host)
+	}
+}
+
+func TestEverySubcommandUsageIsSet(t *testing.T) {
+	for cmd, u := range subcommandUsage {
+		if strings.TrimSpace(u) == "" {
+			t.Fatalf("%s has no usage text", cmd)
+		}
+	}
+}
