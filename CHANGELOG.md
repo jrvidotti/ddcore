@@ -74,6 +74,8 @@ older series, and `whats_new` reads across every one of them.
   code — the `MaintenanceError` of a write made while the site is paused, say — keeps its status
   and its `Retry-After` instead of becoming a 500 with no header. An unknown type is still a 500
   (#89).
+- A missing mail template, print template or notification rule raises `DoesNotExistError` (404)
+  instead of the unknown `NotFoundError`, which answered 500 (#89).
 
 ## 0.27.3 — 2026-10-06
 

@@ -346,7 +346,7 @@
   };
   const notificationInput = (name, docJSON, beforeJSON) => {
     const rule = reg.notifications[name];
-    if (!rule) throw new DDCoreError("NotFoundError", "", "Notification rule does not exist: " + name);
+    if (!rule) throw new DDCoreError("DoesNotExistError", "", "Notification rule does not exist: " + name);
     return [rule, JSON.parse(docJSON), beforeJSON ? JSON.parse(beforeJSON) : null];
   };
   reg.evaluateNotification = function (name, docJSON, beforeJSON) {
@@ -411,7 +411,7 @@
   reg.renderMail = function (name, args, lang) {
     const t = reg.mailTemplates[name];
     if (!t) {
-      throw new DDCoreError("NotFoundError", "", "Mail template " + String(name) + " does not exist");
+      throw new DDCoreError("DoesNotExistError", "", "Mail template " + String(name) + " does not exist");
     }
     const previous = globalThis.__ddcoreLang;
     if (lang) globalThis.__ddcoreLang = lang;
@@ -523,7 +523,7 @@
   reg.renderPrint = function (name, docJSON, lang) {
     const t = reg.printTemplates[name];
     if (!t) {
-      throw new DDCoreError("NotFoundError", "", "Print template " + String(name) + " does not exist");
+      throw new DDCoreError("DoesNotExistError", "", "Print template " + String(name) + " does not exist");
     }
     const previous = globalThis.__ddcoreLang;
     if (lang) globalThis.__ddcoreLang = lang;
@@ -909,7 +909,7 @@
         // Deliberately here and not in the worker: a template nobody declared
         // is a mistake in the caller's own code, and it should fail in the
         // caller's own transaction.
-        throw new DDCoreError("NotFoundError", "", "Mail template " + String(args.template) + " does not exist");
+        throw new DDCoreError("DoesNotExistError", "", "Mail template " + String(args.template) + " does not exist");
       }
       const to = Array.isArray(args.to) ? args.to : [args.to];
       const lang = args.lang || call("mail.prepare", { to }).lang;

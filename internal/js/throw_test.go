@@ -3,6 +3,7 @@ package js
 import (
 	"errors"
 	"reflect"
+	"regexp"
 	"testing"
 
 	"github.com/jrvidotti/ddcore/internal/cerr"
@@ -109,6 +110,16 @@ func TestGoErrorCrossingJSKeepsItsStatus(t *testing.T) {
 			if n, ok := e.RetryAfter(); n != wantN || ok != wantOK {
 				t.Errorf("%s through %s: RetryAfter = %d, %v; want %d, %v", in.Type, code, n, ok, wantN, wantOK)
 			}
+		}
+	}
+}
+
+// The prelude's own errors use types the status table knows: a missing mail or
+// print template answers 404, not the 500 of a type nobody defined.
+func TestPreludeThrowsOnlyKnownTypes(t *testing.T) {
+	for _, m := range regexp.MustCompile(`new DDCoreError\("([A-Za-z]+)"`).FindAllStringSubmatch(prelude, -1) {
+		if _, ok := cerr.StatusOf(m[1]); !ok {
+			t.Errorf("prelude throws %s, which has no status", m[1])
 		}
 	}
 }
