@@ -14,6 +14,12 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- `ddcore.session` (`{ user, fullName, roles, lang }`) and `ddcore.hasRole(role)` in desk
+  scripts, read from the desk's boot, so a form or list script can show a button only to the
+  roles the server will accept. They hide UI and grant nothing: the method still checks (#93).
+
 ## 0.27.4 — 2026-10-06
 
 ### Added

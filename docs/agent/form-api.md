@@ -252,6 +252,17 @@ defineForm<Charge>("Charge", {
   ```
   The server method checks it with `ddcore.crypto.pfxInfo` before storing it in the vault. See `controller-api`.
 - `ddcore.ui.msgprint(msg, { title, indicator })`, `ddcore.ui.toast`, `ddcore.ui.confirm(msg, title?, { destructive? })` (with `destructive: true` the confirm button is red and "No" is the primary, so Enter keeps the data and `Delete` — ⌫ on a Mac — confirms), `ddcore.ui.prompt(title, fields)`, `ddcore.ui.showError(e)`
+- `ddcore.session` → `{ user, fullName, roles, lang }`, the signed-in user as the desk loaded it,
+  and `ddcore.hasRole(role)`. They mirror the server's `ddcore.session` and decide what the desk
+  *shows*: a button for the roles the server will accept. They grant nothing, so the method the
+  button calls still checks on the server.
+  ```ts
+  defineForm("Portal Payment", {
+    refresh(frm) {
+      if (ddcore.hasRole("Portal Manager")) frm.addButton(__("Resolve Manually"), () => frm.call("resolveManually"));
+    },
+  });
+  ```
 - `ddcore.format.currency/date/number/value/statusColor`, `ddcore.datetime.today/addMonths/addDays/dateDiff/monthDiff/monthStart/monthEnd`
 - `ddcore.search.global(txt, limit?)` — the documents the global search palette lists. See `search`
 - `ddcore.realtime.on(event, handler)` → an `off()` function; `ddcore.realtime.off(event, handler)`. Events sent with
