@@ -203,7 +203,7 @@ func New(e *engine.Engine) *mcp.Server {
 			return text(out), nil, nil
 		})
 
-	mcp.AddTool(srv, &mcp.Tool{Name: "import", Description: "Loads a `ddcore export` directory into this site (DAT-01), keeping ids, owners and timestamps and replaying no effects: no controller hook, webhook, notification or email. action is plan (what would be loaded, writing nothing), run (load it; dry_run rehearses in one rolled-back transaction), status (the runs this site has seen, or one of them with its errors) or reconcile (compare the site with the export: rows, child rows, statuses, files and money). Two runs over the same directory load it once; a run that stops leaves a cursor, and passing its id as resume continues it. max_batches stops after that many batches so a long load advances over several calls."},
+	mcp.AddTool(srv, &mcp.Tool{Name: "import", Description: "Loads a `ddcore export` directory into this site (DAT-01), keeping ids, owners and timestamps and replaying no effects: no controller hook, webhook, notification or email. action is plan (what would be loaded, writing nothing), run (load it; dry_run rehearses in one rolled-back transaction), status (the runs this site has seen, or one of them with its errors) or reconcile (compare the site with the export: rows, child rows, statuses, files and money). Two runs over the same directory load it once; a run that stops leaves a cursor, and passing its id as resume continues it. max_batches stops after that many batches so a long load advances over several calls. On a site with tenancy, tenant loads into that tenant instead of the platform space (leaving out shared DocTypes and the Admin and Guest accounts), and scopes status and reconcile to it."},
 		func(ctx context.Context, req *mcp.CallToolRequest, in struct {
 			Action      string   `json:"action" jsonschema:"one of plan, run, status, reconcile"`
 			Dir         string   `json:"dir,omitempty" jsonschema:"the export directory, as ddcore export wrote it"`
@@ -215,7 +215,15 @@ func New(e *engine.Engine) *mcp.Server {
 			Resume      string   `json:"resume,omitempty" jsonschema:"continue this run"`
 			RunID       string   `json:"run_id,omitempty" jsonschema:"status: the run to report on"`
 			VerifyBytes bool     `json:"verify_bytes,omitempty" jsonschema:"reconcile: read every stored attachment back"`
+			Tenant      string   `json:"tenant,omitempty" jsonschema:"on a site with tenancy: the tenant to load into, or whose runs to list; empty is the platform space"`
 		}) (*mcp.CallToolResult, any, error) {
+			if in.Tenant != "" {
+				if err := s.e.CheckTenant(ctx, in.Tenant); err != nil {
+					return fail(err)
+				}
+			}
+			// the space this call works in: the tenant named, or the platform
+			ctx = engine.WithTenant(ctx, in.Tenant)
 			if in.Action == "status" {
 				if in.RunID != "" {
 					run, err := s.e.ImportRunByID(ctx, in.RunID)
@@ -241,7 +249,7 @@ func New(e *engine.Engine) *mcp.Server {
 			a := engine.ImportArgs{
 				Dir: in.Dir, DryRun: in.DryRun || in.Action == "plan", Batch: in.Batch,
 				MaxBatches: in.MaxBatches, Only: in.Only, Resume: in.Resume,
-				VerifyBytes: in.VerifyBytes, Actor: "mcp", BypassMaintenance: true,
+				VerifyBytes: in.VerifyBytes, Actor: "mcp", BypassMaintenance: true, Tenant: in.Tenant,
 			}
 			if in.Map != "" {
 				b, err := os.ReadFile(in.Map)

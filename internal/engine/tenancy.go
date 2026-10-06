@@ -340,6 +340,17 @@ func (e *Engine) checkTenant(ctx context.Context, q db.Querier, id string) error
 	return cerr.NotFound("Tenant {0} not found", id)
 }
 
+// CheckTenant refuses a tenant that does not exist or is disabled: what a
+// command checks before it starts work that names one.
+func (e *Engine) CheckTenant(ctx context.Context, id string) error {
+	if on, err := e.tenancy(ctx); err != nil {
+		return err
+	} else if !on {
+		return cerr.Validation("This site has no tenants: tenancy is off")
+	}
+	return e.checkTenant(ctx, nil, id)
+}
+
 // InTenant runs fn as the same user inside a tenant, on this ctx's
 // transaction. Only the platform space may enter a tenant; a ctx already in
 // that tenant just runs fn.
@@ -826,6 +837,11 @@ func (e *Engine) namedTenant(ctx context.Context) (string, bool) {
 // adopts everything else: the two accounts the framework itself is.
 const adoptKeep = `('Admin', 'Guest')`
 
+// platformAccount reports whether a user id is one of adoptKeep's: an
+// account that stays in the platform space, whatever moves or is loaded
+// into a tenant.
+func platformAccount(id string) bool { return id == "Admin" || id == "Guest" }
+
 // adoptStep is one table an adopt moves rows of: every row of the platform
 // space but the ones except keeps there. except is SQL on the table's own
 // columns; $1 is the tenant and args are $2 onwards.
@@ -863,7 +879,7 @@ func (c *Ctx) adoptPlan() ([]adoptStep, error) {
 		}
 		steps = append(steps, adoptStep{table: d.TableName(), except: except})
 	}
-	for _, table := range []string{"ddcore_series", "ddcore_notification", "ddcore_notification_due"} {
+	for _, table := range []string{"ddcore_series", "ddcore_notification", "ddcore_notification_due", "ddcore_import_record"} {
 		steps = append(steps, adoptStep{table: table})
 	}
 	// a shared DocType's documents stay, and so do the secrets of their

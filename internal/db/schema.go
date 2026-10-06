@@ -114,6 +114,9 @@ CREATE TABLE IF NOT EXISTS ddcore_import_run (
   started timestamptz NOT NULL DEFAULT now(), finished timestamptz,
   cursor jsonb NOT NULL DEFAULT '{}'::jsonb, counts jsonb NOT NULL DEFAULT '{}'::jsonb,
   lease_until timestamptz, message text);
+-- The tenant a run loads into ('' is the platform space). The run rows are the
+-- operator's and are not confined; the record rows below are the tenant's.
+ALTER TABLE ddcore_import_run ADD COLUMN IF NOT EXISTS tenant text NOT NULL DEFAULT '';
 CREATE TABLE IF NOT EXISTS ddcore_import_record (
   run_id text NOT NULL, source_doctype text NOT NULL, source_id text NOT NULL,
   doctype text NOT NULL, id text NOT NULL, line_sha text NOT NULL DEFAULT '',

@@ -74,6 +74,19 @@ var tenantTables = []struct{ table, key string }{
 	{"ddcore_notification", ""},
 	{"ddcore_notification_due", "tenant, rule, reference_doctype, reference_id, due"},
 	{"ddcore_vault", "tenant, name"},
+	// the import ledger: the same export can be loaded into two tenants
+	{"ddcore_import_record", "tenant, source_doctype, source_id"},
+}
+
+// tenantIndexes are the unique indexes of those tables that hold within a
+// tenant. InternalSchema creates them site-wide, before tenancy is known;
+// EnsureTenancy rebuilds them with the tenant in front.
+var tenantIndexes = []index{
+	// a queued job frees its key for the tenant that holds it, not for all
+	{name: "ddcore_job_unique", table: "ddcore_job", unique: true, cols: "tenant, unique_key",
+		predicate: "unique_key IS NOT NULL AND status = 'queued'"},
+	// a document of one tenant was loaded from one line of the ledger
+	{name: "ddcore_import_record_target", table: "ddcore_import_record", unique: true, cols: "tenant, doctype, id"},
 }
 
 func rowSecurity(table string) []string {
@@ -146,16 +159,15 @@ func EnsureTenancy(ctx context.Context, q Querier, role string) error {
 			return err
 		}
 	}
-	// A queued job frees its key for the tenant that holds it, not for all.
-	var def string
-	if err := q.QueryRow(ctx, `SELECT coalesce((SELECT indexdef FROM pg_indexes WHERE schemaname = current_schema() AND indexname = 'ddcore_job_unique'), '')`).Scan(&def); err != nil {
-		return err
-	}
-	want := index{name: "ddcore_job_unique", table: "ddcore_job", unique: true, cols: "tenant, unique_key",
-		predicate: "unique_key IS NOT NULL AND status = 'queued'"}
-	if !sameIndex(def, want) {
-		if _, err := q.Exec(ctx, "DROP INDEX IF EXISTS ddcore_job_unique; "+want.ddl()); err != nil {
+	for _, want := range tenantIndexes {
+		var def string
+		if err := q.QueryRow(ctx, `SELECT coalesce((SELECT indexdef FROM pg_indexes WHERE schemaname = current_schema() AND indexname = $1), '')`, want.name).Scan(&def); err != nil {
 			return err
+		}
+		if !sameIndex(def, want) {
+			if _, err := q.Exec(ctx, "DROP INDEX IF EXISTS "+Ident(want.name)+"; "+want.ddl()); err != nil {
+				return err
+			}
 		}
 	}
 	grants := []string{

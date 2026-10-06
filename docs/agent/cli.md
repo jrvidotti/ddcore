@@ -38,7 +38,7 @@ prints that command's options, or its subcommands for a command such as `import`
 | `ddcore eval '<ts>' [--commit]` | runs loose TS with `ddcore.*` (rolls back by default) |
 | `ddcore demo [--app name]` | runs `<app>.services.demo.generate` for every app that has `services/demo.ts` |
 | `ddcore export <DocType>\|--all [--children] [--attachments] [--out DIR]` | exports the whole set to NDJSON/CSV with a manifest of checksums (see `export`) |
-| `ddcore import plan\|run\|status\|reconcile <dir>` | loads an export directory into this site, resumable and idempotent (see `import`) |
+| `ddcore import plan\|run\|status\|reconcile <dir> [--tenant <slug>]` | loads an export directory into this site, resumable and idempotent; `--tenant` loads into a tenant and scopes `status` and `reconcile` to it (see `import`) |
 | `ddcore jobs list\|show\|stats\|retry\|cancel\|purge\|scheduled\|run <fn>\|work` | the queue and the scheduler (see `ops`); `show` is the only command that prints a job's arguments |
 | `ddcore webhooks list\|replay <delivery>...` | outgoing webhook deliveries (see `webhooks`); a replay is recorded as an Audit Event |
 | `ddcore push keys [--subject mailto:…]` | prints a new VAPID key pair for `ddcore.push` as `.env` lines (see `push`); stores nothing |
@@ -50,7 +50,7 @@ prints that command's options, or its subcommands for a command such as `import`
 | `ddcore user sessions <email> [--revoke]` | lists, or ends, that user's sessions |
 | `ddcore apikey <user> [--label x] [--days N]` | produces `key:secret` for `Authorization: token key:secret`; `--days` expires it. Recorded as an `apikey.create` audit event, as `ddcore.users.createApiKey` is |
 | `ddcore tenant list\|create\|enable\|disable\|adopt` | the tenants of a site with `"tenancy": true`: `create <slug> [--title T] [--admin email]` invites its first System Manager, `disable` refuses its sign-ins and holds its jobs, `adopt <slug>` moves every row of the platform space into it, and `adopt <slug> --dry-run` lists what would move and every collision with the tenant, exiting non-zero on one (see `tenancy`) |
-| `ddcore --tenant <slug> <command>` | runs a one-shot command inside a tenant (`eval`, `exec`, `user add`, `export`, `audit list`, …); the flag goes before the command. A server, a worker, `mcp`, `import` and `tenant` refuse it |
+| `ddcore --tenant <slug> <command>` | runs a one-shot command inside a tenant (`eval`, `exec`, `user add`, `export`, `audit list`, …); the flag goes before the command. A server, a worker, `mcp` and `tenant` refuse it; `import` also takes it after the command |
 | `ddcore mcp` | MCP server (stdio) |
 | `ddcore docs [name]` | this documentation |
 | `ddcore version` | prints `ddcore <version> (<os>/<arch>)`, the version the compatibility contract enforces; a binary built without `-ldflags` reports the default `0.1.0` and ranges are enforced against that (see `conventions`) |

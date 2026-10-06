@@ -93,6 +93,9 @@ func (c *Ctx) importAttachments(a ImportArgs, src *ImportSource, stage importSta
 		if err != nil {
 			return n, notes, err
 		}
+		if err := c.refuseOtherSpaceFile(f.FileURL); err != nil {
+			return n, notes, err
+		}
 		if err := c.putAttachmentBytes(src, f, key); err != nil {
 			return n, notes, err
 		}
@@ -116,6 +119,28 @@ func (c *Ctx) importAttachments(a ImportArgs, src *ImportSource, stage importSta
 		n++
 	}
 	return n, notes, nil
+}
+
+// refuseOtherSpaceFile refuses a url that a File of another space already
+// holds. Storage keys carry no tenant: writing the bytes would overwrite that
+// space's file, and deleting this one later would delete them. The same
+// export loaded into two tenants meets this on its first attachment.
+func (c *Ctx) refuseOtherSpaceFile(url string) error {
+	if !c.Tenancy() {
+		return nil
+	}
+	var other bool
+	err := c.elevated(func() error {
+		return c.Q().QueryRow(c.Ctx, `SELECT EXISTS (SELECT 1 FROM tab_file WHERE file_url = $1 AND tenant <> $2)`,
+			url, c.Tenant).Scan(&other)
+	})
+	if err != nil {
+		return err
+	}
+	if other {
+		return cerr.Validation("{0} already belongs to a file of another tenant: storage keys are site-wide, so loading it here would overwrite that file", url)
+	}
+	return nil
 }
 
 // putAttachmentBytes verifies the bytes against the manifest before they are

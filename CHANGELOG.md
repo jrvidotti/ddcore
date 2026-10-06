@@ -20,6 +20,13 @@ older series, and `whats_new` reads across every one of them.
   into the tenant and every collision with rows the tenant already has, on the primary key and
   on each unique index (up to ten keys each), moves nothing, and exits non-zero on a collision.
   An app no longer has to re-derive the adopt's rule in SQL to fail before the cutover (#100).
+- `ddcore import run|status|reconcile <dir> --tenant <slug>` loads an export into a tenant: the
+  documents, the import ledger, the numbering series and the `import.run` audit events land in
+  the tenant, and nothing else on the site moves. `--tenant` before `import` means the same.
+  The load leaves out shared DocTypes and the `Admin` and `Guest` accounts, and refuses an
+  attachment whose url a file of another space holds. The same export can be loaded into two
+  tenants. A run records its tenant: `--resume` refuses another one, and `status` lists the runs
+  of one space. The MCP `import` tool takes `tenant` (#100).
 
 ### Changed
 
@@ -27,6 +34,10 @@ older series, and `whats_new` reads across every one of them.
   instead of stopping on the first raw primary-key violation. The docs now say what else an adopt
   moves: the platform space's Singles, vault secrets, Error Log, Audit Event, Version and
   Feedback rows (#100).
+- `ddcore import` no longer refuses `--tenant` before the command. The import ledger
+  (`ddcore_import_record`) is per tenant on a site with tenancy, and `ddcore tenant adopt` moves
+  the platform space's ledger with everything else, so an export loaded before the adopt is not
+  loaded again into the tenant after it. `migrate` re-keys the ledger; nothing to do (#100).
 
 ## 0.27.3 — 2026-10-06
 

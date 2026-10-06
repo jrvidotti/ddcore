@@ -969,6 +969,8 @@ push: {0},push: {0},# internal/engine/push.go:292
 push: {0} must be a mailto: or https: URL,push: {0} deve ser uma URL mailto: ou https:,# internal/engine/push.go:268
 records,registros,# desk/src/lib/components/ListView.svelte:591
 "run {0} loaded {1}, not {2}","a execução {0} carregou {1}, não {2}",# internal/engine/import_batch.go:27
+run {0} loads into the platform space: resume it without --tenant,a execução {0} carrega no espaço da plataforma: retome-a sem --tenant,# internal/engine/import_batch.go:31
+run {0} loads into the tenant {1}: resume it with --tenant {1},a execução {0} carrega na conta {1}: retome-a com --tenant {1},# internal/engine/import_batch.go:33
 runAs needs a user,runAs precisa de um usuário,# internal/engine/asuser.go:115
 runAs: user {0} does not exist,runAs: o usuário {0} não existe,# internal/engine/asuser.go:124
 runAs: user {0} is disabled,runAs: o usuário {0} está desabilitado,# internal/engine/asuser.go:127
@@ -983,6 +985,7 @@ webhook payload for {0} is not JSON: {1},o conteúdo do webhook para {0} não é
 "{0} ""{1}"" already exists","{0} ""{1}"" já existe",# internal/engine/doc.go:2182
 "{0} ""{1}"" already exists on {2} {3}","{0} ""{1}"" já existe em {2} {3}",# internal/engine/doc.go:2087
 "{0} ""{1}""?","{0} ""{1}""?",# desk/src/lib/components/FormView.svelte:376
+"{0} already belongs to a file of another tenant: storage keys are site-wide, so loading it here would overwrite that file","{0} já pertence a um arquivo de outra conta: as chaves de armazenamento valem para o site todo, então carregá-lo aqui sobrescreveria esse arquivo",# internal/engine/import_files.go:141
 {0} already exists,{0} já existe,# internal/engine/doc.go:2178
 {0} already exists on {1} {2},{0} já existe em {1} {2},# internal/engine/doc.go:2124
 {0} applied action '{1}' ({2} → {3}),{0} aplicou a ação '{1}' ({2} → {3}),# internal/engine/workflow.go:187

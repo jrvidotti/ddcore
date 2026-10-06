@@ -508,14 +508,46 @@ func TestAttachmentPathKeepsPublicAndPrivateApart(t *testing.T) {
 
 func TestImportFlagsAfterPositional(t *testing.T) {
 	fs, o := importFlags()
-	if err := parseFlags(fs, []string{"export/2026", "--dry-run", "--batch", "50", "--only", "Project,Task"}); err != nil {
+	if err := parseFlags(fs, []string{"export/2026", "--dry-run", "--batch", "50", "--only", "Project,Task", "--tenant", "acme"}); err != nil {
 		t.Fatal(err)
 	}
 	if fs.NArg() != 1 || fs.Arg(0) != "export/2026" {
 		t.Fatalf("args = %v", fs.Args())
 	}
-	if !o.dryRun || o.batch != 50 || o.only != "Project,Task" {
+	if !o.dryRun || o.batch != 50 || o.only != "Project,Task" || o.tenant != "acme" {
 		t.Fatalf("opts = %+v", o)
+	}
+}
+
+// --tenant before `import` and after it are the same thing; two different
+// tenants are a mistake, not a choice.
+func TestImportTenantBeforeOrAfterTheCommand(t *testing.T) {
+	t.Setenv("DDCORE_TENANT", "")
+	if got, err := importTenant("acme"); err != nil || got != "acme" {
+		t.Fatalf("after: %q %v", got, err)
+	}
+	if rest := stripGlobalFlags([]string{"--tenant", "acme", "import", "run", "dir"}); strings.Join(rest, " ") != "import run dir" {
+		t.Fatalf("rest = %v", rest)
+	}
+	if got, err := importTenant(""); err != nil || got != "acme" {
+		t.Fatalf("before: %q %v", got, err)
+	}
+	if got, err := importTenant("acme"); err != nil || got != "acme" {
+		t.Fatalf("both, the same: %q %v", got, err)
+	}
+	if _, err := importTenant("other"); err == nil {
+		t.Fatal("two different tenants were accepted")
+	}
+}
+
+func TestImportResumeHintNamesTheTenant(t *testing.T) {
+	run := &engine.ImportRun{ID: "r1", Dir: "export", Tenant: "acme"}
+	if got := resumeCommand(run); got != "ddcore import run export --resume r1 --tenant acme" {
+		t.Fatalf("hint = %q", got)
+	}
+	run.Tenant = ""
+	if got := resumeCommand(run); got != "ddcore import run export --resume r1" {
+		t.Fatalf("hint = %q", got)
 	}
 }
 
