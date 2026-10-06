@@ -642,8 +642,13 @@ export interface NumberCardDef {
   filters?: Filters;
   /** "count" (default) or "sum:fieldname" */
   aggregate?: string;
-  /** alternative: method returning { value, formatted?, color? } */
+  /**
+   * alternative: method returning { value, formatted?, color? }. It runs as the
+   * calling user with no DocType check: the workspace `roles` are its only gate.
+   */
   method?: () => { value: number; formatted?: string; color?: string };
+  /** The DocType a `method` reads: the card answers 403 to a user without read on it. */
+  refDoctype?: string;
   color?: string;
   route?: string;
   /** on a site with tenancy: show only in this space (default: both) */
@@ -654,7 +659,10 @@ export interface ChartDef {
   name: string;
   label: string;
   type: "bar" | "line" | "pie" | "donut";
+  /** Runs as the calling user with no DocType check: the workspace `roles` are its only gate. */
   method: () => ChartData;
+  /** The DocType `method` reads: the chart answers 403 to a user without read on it. */
+  refDoctype?: string;
 }
 
 /**

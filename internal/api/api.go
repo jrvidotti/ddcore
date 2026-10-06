@@ -1417,6 +1417,9 @@ func (s *Server) numberCard(w http.ResponseWriter, r *http.Request) {
 				}
 				return map[string]any{"value": v, "aggregate": agg}, nil
 			}
+			if err := requireRefRead(c, card); err != nil {
+				return nil, err
+			}
 			rt, err := c.RT()
 			if err != nil {
 				return nil, err
@@ -1429,16 +1432,45 @@ func (s *Server) numberCard(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) chart(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
-		wsName := urlParam(r, "name")
-		if _, err := s.workspace(c, wsName); err != nil {
+		wsName, chartName := urlParam(r, "name"), urlParam(r, "chart")
+		ws, err := s.workspace(c, wsName)
+		if err != nil {
 			return nil, err
+		}
+		charts, _ := ws["charts"].([]any)
+		for _, chAny := range charts {
+			if ch, _ := chAny.(map[string]any); ch["name"] == chartName {
+				if err := requireRefRead(c, ch); err != nil {
+					return nil, err
+				}
+				break
+			}
 		}
 		rt, err := c.RT()
 		if err != nil {
 			return nil, err
 		}
-		return rt.Chart(wsName, urlParam(r, "chart"))
+		return rt.Chart(wsName, chartName)
 	})
+}
+
+// requireRefRead checks read on the DocType a card or chart method() declares
+// it reads (`refDoctype`). The method runs as the caller with no DocType check
+// of its own, so a declared refDoctype is what keeps its numbers from users
+// the workspace roles let in but the DocType does not.
+func requireRefRead(c *engine.Ctx, item map[string]any) error {
+	ref, _ := item["refDoctype"].(string)
+	if ref == "" {
+		return nil
+	}
+	ok, err := c.HasPermission(ref, "read", nil)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return cerr.Permission("No permission for {0}", ref)
+	}
+	return nil
 }
 
 // workspace resolves a workspace and checks the user holds one of its roles

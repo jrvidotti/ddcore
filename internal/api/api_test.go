@@ -85,7 +85,12 @@ export default defineWorkspace({ name: "Demo", label: "Demo", roles: ["Gestor"],
   charts: [{ name: "grafico", label: "Gráfico", type: "bar", method() { return { type: "bar", labels: ["a"], datasets: [{ name: "x", values: [1] }] }; } }] });`)
 	w("workspaces/aberto.workspace.ts", `import { defineWorkspace } from "@ddcore/sdk";
 export default defineWorkspace({ name: "Aberto", label: "Aberto", sidebar: [],
-  numberCards: [{ name: "pedidos", label: "Pedidos", doctype: "Pedido" }] });`)
+  numberCards: [
+    { name: "pedidos", label: "Pedidos", doctype: "Pedido" },
+    { name: "total", label: "Total", refDoctype: "Pedido", method() { return { value: 7 }; } },
+    { name: "solto", label: "Solto", method() { return { value: 3 }; } },
+  ],
+  charts: [{ name: "por_mes", label: "Por mês", type: "bar", refDoctype: "Pedido", method() { return { type: "bar", labels: ["a"], datasets: [{ name: "x", values: [1] }] }; } }] });`)
 	w("reports/pessoas.report.ts", `import { defineReport } from "@ddcore/sdk";
 export default defineReport({ name: "Pessoas", refDoctype: "Pessoa", roles: ["Gestor"], filters: [],
   execute() { return { columns: [{ fieldname: "id", label: "Nome" }], rows: ddcore.db.getList("Pessoa", { fields: ["id"] }) }; } });`)
@@ -422,10 +427,17 @@ func TestB05_WorkspaceAndReportRequirePermission(t *testing.T) {
 	x.expect(x.call("GET", "/api/workspace/Demo/chart/grafico", nil, ze), 403, "PermissionError")
 	// open workspace, but the card aggregates a doctype without permission
 	x.expect(x.call("GET", "/api/workspace/Aberto/card/pedidos", nil, ze), 403, "PermissionError")
+	// open workspace, method card and chart that declare the DocType they read (#94)
+	x.expect(x.call("GET", "/api/workspace/Aberto/card/total", nil, ze), 403, "PermissionError")
+	x.expect(x.call("GET", "/api/workspace/Aberto/chart/por_mes", nil, ze), 403, "PermissionError")
+	// a method card that declares nothing has the workspace roles as its only gate
+	if r := x.call("GET", "/api/workspace/Aberto/card/solto", nil, ze); r.Status != 200 {
+		t.Fatalf("a method card without refDoctype answers anyone the workspace lets in: %d %s", r.Status, r.Raw)
+	}
 	// reports: by role and by report permission on refDoctype
 	x.expect(x.call("GET", "/api/report/Pessoas", nil, ze), 403, "PermissionError")
 	x.expect(x.call("GET", "/api/report/Livre", nil, ze), 403, "PermissionError")
-	for _, p := range []string{"/api/workspace/Demo/card/segredo", "/api/workspace/Demo/chart/grafico", "/api/report/Pessoas", "/api/report/Livre"} {
+	for _, p := range []string{"/api/workspace/Demo/card/segredo", "/api/workspace/Demo/chart/grafico", "/api/workspace/Aberto/card/total", "/api/workspace/Aberto/chart/por_mes", "/api/report/Pessoas", "/api/report/Livre"} {
 		if r := x.call("GET", p, nil, ana); r.Status != 200 {
 			t.Fatalf("Gestor should access %s: %d %s", p, r.Status, r.Raw)
 		}
