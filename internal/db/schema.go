@@ -792,6 +792,8 @@ func hasData(ctx context.Context, q Querier, table, col string) (bool, error) {
 // The order of the result is the order Migrate applies it: renames, the
 // additive DDL, the indexes, and last the drops, which run after the patches so
 // a backfill can still read the column the same migration is about to remove.
+// Migrate asks for the drops in a second Plan, after the afterSchema patches,
+// so the emptiness check and the list of orphans see what those patches left.
 func Plan(ctx context.Context, q Querier, reg *meta.Registry, prune bool) ([]Statement, error) {
 	cat, err := loadCatalog(ctx, q)
 	if err != nil {
@@ -856,7 +858,7 @@ func Plan(ctx context.Context, q Querier, reg *meta.Registry, prune bool) ([]Sta
 					if full {
 						refusals = append(refusals, Refusal{Table: t, Column: c,
 							Reason: "dropping a column that still holds data",
-							Remedy: "if the field was renamed, declare renamedFrom on the new field; if the data really is to be discarded, drop the column yourself in a beforeSchema patch"})
+							Remedy: "if the field was renamed, declare renamedFrom on the new field; if the data really is to be discarded, drop the column yourself in a patch"})
 						continue
 					}
 					drops = append(drops, Statement{
@@ -958,7 +960,7 @@ func Plan(ctx context.Context, q Querier, reg *meta.Registry, prune bool) ([]Sta
 			if full {
 				refusals = append(refusals, Refusal{Table: t,
 					Reason: "dropping a table that still holds rows",
-					Remedy: "if the DocType was renamed, declare renamedFrom on it; if the rows really are to be discarded, drop the table yourself in a beforeSchema patch"})
+					Remedy: "if the DocType was renamed, declare renamedFrom on it; if the rows really are to be discarded, drop the table yourself in a patch"})
 				continue
 			}
 			drops = append(drops, Statement{

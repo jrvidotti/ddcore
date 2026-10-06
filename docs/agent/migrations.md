@@ -15,18 +15,22 @@ transaction** — a failure anywhere leaves the database exactly as it was.
 | 5 | the reference sweep for each DocType renamed in step 4 |
 | 6 | installing new apps (roles, `afterInstall`), then fixtures |
 | 7 | `afterSchema` patches — where a backfill lives |
-| 8 | the drops, under `--prune`, **last** |
+| 8 | the drops, under `--prune`, planned and run **last**, against what the patches left |
 | 9 | `afterMigrate` |
 
 Two of those placements are load-bearing. A `beforeSchema` patch can make the data fit
 what the DDL is about to do, and the plan is computed after it so a patch that changes
 the schema by hand is never overruled by a stale plan — **the planner is never a dead
 end**. And the drops run after the patches, so a backfill can still read the column the
-same migration removes.
+same migration removes. They are also *planned* after the patches: an orphan a patch already
+dropped is not dropped twice, and one a patch wrote into is refused rather than emptied.
 
 `ddcore migrate --dry-run` prints the plan in that order, with the destructive statements
-under their own heading. `ddcore doctor` adds what the meta no longer declares, which
-patches are pending, and which rename declarations this database no longer needs.
+under their own heading. A dry run cannot run patches, so its drops are computed against the
+database as it stands: under `--prune`, an orphan a pending `afterSchema` patch drops or
+empties may show up as a drop, or as a refusal, that the real run will not make.
+`ddcore doctor` adds what the meta no longer declares, which patches are pending, and which
+rename declarations this database no longer needs.
 
 ## Renaming a field
 
@@ -185,6 +189,23 @@ contract step: `--prune` refuses to drop anything that still holds data, so disc
 data a backfill has already copied is a deliberate act, recorded in `ddcore_patch` with
 the author's name on it, not a side effect of a flag.
 
+### Contract in the same release
+
+When every site is deployed with one `ddcore migrate` per release and the backfill and the
+contraction have to ship together, make **both** patches `afterSchema` and let the filename
+order them:
+
+```
+patches/0003_backfill_amount.ts      afterSchema — copies amount_text into amount
+patches/0004_retire_amount_text.ts   afterSchema — validates, then drops amount_text
+```
+
+Not `beforeSchema` for the contraction: step 2 runs before step 7, so it would drop the
+column before the backfill had read it. The result is the same with or without `--prune` —
+prune plans its drops after both patches, finds `amount_text` gone, and has nothing to do.
+Two releases remain the safer route when a site may skip one, or when the backfill is large
+enough to enqueue.
+
 ## Patches
 
 `patches/NNNN_name.ts`, discovered by the path and run once, in filename order, recorded in
@@ -237,7 +258,9 @@ refuses to drop a column that still holds data and names it, rather than emptyin
 
 Drops the columns and tables the meta no longer declares — and only the empty ones. A
 non-empty one is refused, with the column named and two ways forward: declare the rename,
-or drop it yourself in a `beforeSchema` patch. `ddcore doctor` lists the orphans either way.
+or drop it yourself in a patch. Emptiness is checked after the `afterSchema` patches, so a
+patch that drops or empties the orphan in the same run is what the check sees. `ddcore
+doctor` lists the orphans either way.
 
 `ddcore dev --auto-migrate` never prunes.
 

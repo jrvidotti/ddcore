@@ -46,6 +46,7 @@ Usage: ddcore <command> [options]
   i18n        i18n extract — rewrite translations/<lang>.csv from the code
   test        run the *.test.ts (--filter regex, --app name)
   exec        run a function: ddcore exec app.services.mod.fn --args '{"a":1}'
+              (--args - reads the JSON from stdin, --args-file f.json from a file)
   eval        run loose TS: ddcore eval 'ddcore.db.count("User")' [--commit]
   demo        seed example data (<app>.services.demo.generate, idempotent)
   export      export a DocType (or --all) to NDJSON/CSV with a manifest
@@ -693,24 +694,65 @@ func cmdTest(args []string) error {
 	return nil
 }
 
-func cmdExec(args []string) error {
+func execFlags() (*flag.FlagSet, *string, *string) {
 	fs := newFlagSet("exec")
-	argsJSON := fs.String("args", "{}", "JSON arguments")
+	argsJSON := fs.String("args", "{}", "JSON arguments; - reads them from stdin")
+	argsFile := fs.String("args-file", "", "read the JSON arguments from a file (- for stdin)")
+	return fs, argsJSON, argsFile
+}
+
+// execArgs resolves the arguments of `ddcore exec`. Whatever is on the command
+// line is readable by every user of the host through ps and /proc/<pid>/cmdline
+// and is capped by ARG_MAX, so a payload carrying personal data, or a large
+// one, comes from stdin or a file instead (#103).
+func execArgs(argsJSON, argsFile string, argsSet bool, stdin io.Reader) (map[string]any, error) {
+	if argsSet && argsFile != "" {
+		return nil, fmt.Errorf("use --args or --args-file, not both")
+	}
+	src, raw := "--args", []byte(argsJSON)
+	switch {
+	case argsJSON == "-" || argsFile == "-":
+		src = "stdin"
+		b, err := io.ReadAll(stdin)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", src, err)
+		}
+		raw = b
+	case argsFile != "":
+		src = "--args-file " + argsFile
+		b, err := os.ReadFile(argsFile)
+		if err != nil {
+			return nil, fmt.Errorf("--args-file: %w", err)
+		}
+		raw = b
+	}
+	var a map[string]any
+	if err := json.Unmarshal(raw, &a); err != nil {
+		return nil, fmt.Errorf("%s: %w", src, err)
+	}
+	return a, nil
+}
+
+func cmdExec(args []string) error {
+	fs, argsJSON, argsFile := execFlags()
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
 	if fs.NArg() < 1 {
-		return fmt.Errorf("uso: ddcore exec app.mod.fn --args '{}'")
+		return fmt.Errorf("usage: ddcore exec app.mod.fn [--args '{}' | --args - | --args-file f.json]")
+	}
+	argsSet := false
+	fs.Visit(func(f *flag.Flag) { argsSet = argsSet || f.Name == "args" })
+	// before load: a malformed payload should not cost a database connection
+	a, err := execArgs(*argsJSON, *argsFile, argsSet, os.Stdin)
+	if err != nil {
+		return err
 	}
 	e, _, err := load(false, false)
 	if err != nil {
 		return err
 	}
 	defer e.DB.Close()
-	var a map[string]any
-	if err := json.Unmarshal([]byte(*argsJSON), &a); err != nil {
-		return fmt.Errorf("--args: %w", err)
-	}
 	res, err := e.RunJob(context.Background(), "Admin", fs.Arg(0), a)
 	if err != nil {
 		return err

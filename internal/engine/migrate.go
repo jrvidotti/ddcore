@@ -60,14 +60,18 @@ type MigrateResult struct {
 //  1. the move of a pre-0.17 document key from `name` to `id`, then the
 //     framework's own tables, so the ledgers exist
 //  2. beforeSchema patches, against the shape the database still has
-//  3. the plan, computed *after* those patches — one of them may have changed
-//     the schema by hand, and a plan from before would be stale
+//  3. the additive plan, computed *after* those patches — one of them may have
+//     changed the schema by hand, and a plan from before would be stale
 //  4. the additive DDL: renames, creates, adds, declared conversions, indexes,
 //     then the rename of a pre-0.16 Administrator to Admin
 //  5. the reference sweep for each DocType this run renamed
 //  6. installing new apps, then fixtures
 //  7. afterSchema patches — where a backfill lives
-//  8. the drops, last, so step 7 could still read what step 8 removes
+//  8. the drops, last, so step 7 could still read what step 8 removes — and
+//     planned here rather than at step 3, so they see what step 7 left: an
+//     orphan a contract patch already dropped is not dropped twice, one a
+//     backfill still held at step 3 is not refused for data the patch then
+//     discarded, and one a patch refilled is refused instead of emptied
 //  9. a generated password for an Admin that has none, then afterMigrate
 //
 // It stays one transaction. Postgres has transactional DDL, so a failure
@@ -134,11 +138,11 @@ func (e *Engine) Migrate(ctx context.Context, prune bool) (*MigrateResult, error
 		if err := runPatches(ctx, c, rt, res, true); err != nil {
 			return err
 		}
-		plan, err := db.Plan(ctx, c.Tx, c.St.Meta, prune)
+		// prune is decided at step 8, against the shape the patches leave
+		keep, err := db.Plan(ctx, c.Tx, c.St.Meta, false)
 		if err != nil {
 			return err
 		}
-		keep, drop := db.Destructive(plan)
 		if err := db.Apply(ctx, c.Tx, keep); err != nil {
 			return err
 		}
@@ -158,7 +162,7 @@ func (e *Engine) Migrate(ctx context.Context, prune bool) (*MigrateResult, error
 		if err := renameLegacyAdmin(ctx, c); err != nil {
 			return err
 		}
-		res.DDL = plan
+		res.DDL = keep
 		for _, st := range keep {
 			if st.Kind == db.KindRenameTable || st.Kind == db.KindRenameColumn {
 				if err := c.recordRename(st); err != nil {
@@ -181,8 +185,19 @@ func (e *Engine) Migrate(ctx context.Context, prune bool) (*MigrateResult, error
 		if err := runPatches(ctx, c, rt, res, false); err != nil {
 			return err
 		}
-		if err := db.Apply(ctx, c.Tx, drop); err != nil {
-			return err
+		if prune {
+			// Only the drops: anything additive left in this plan was put
+			// there by a patch changing the schema by hand, and the next
+			// plan shows it.
+			plan, err := db.Plan(ctx, c.Tx, c.St.Meta, true)
+			if err != nil {
+				return err
+			}
+			_, drop := db.Destructive(plan)
+			if err := db.Apply(ctx, c.Tx, drop); err != nil {
+				return err
+			}
+			res.DDL = append(res.DDL, drop...)
 		}
 		if err := c.confined(func() error {
 			if res.AdminPassword, err = ensureAdminPassword(ctx, c); err != nil {
