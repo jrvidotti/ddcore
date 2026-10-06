@@ -39,10 +39,13 @@ type File struct {
 	// range for every app the site ships, so an upgrade edits one line instead
 	// of one per app; an app that declares its own still has it checked too.
 	// It is a product decision, so it comes from this file only.
-	DDCore    string `json:"ddcore,omitempty"`
-	Port      int    `json:"port"`
-	Workers   int    `json:"workers"`
-	Scheduler bool   `json:"scheduler"`
+	DDCore string `json:"ddcore,omitempty"`
+	Port   int    `json:"port"`
+	// Workers is how many job workers a process runs: a number for every
+	// queue, or a pool per queue — see Workers. DDCORE_WORKERS overrides it
+	// with a number.
+	Workers   Workers `json:"workers"`
+	Scheduler bool    `json:"scheduler"`
 	// Tenancy keeps several tenants in the one database, each confined to its
 	// own rows (see docs/agent/tenancy.md). It changes the schema's keys, so
 	// it is a product decision that cannot be undone, and it comes from this
@@ -166,7 +169,7 @@ func (f *File) ShutdownGrace() time.Duration {
 // starts from it and `ddcore init` writes it, so a freshly created file loads
 // as written: a zero in a policy block is a refusal, not "use the default".
 func Default() *File {
-	return &File{Apps: []string{}, Port: 8080, Workers: 2, Lang: "en", Currency: "USD",
+	return &File{Apps: []string{}, Port: 8080, Workers: WorkerCount(2), Lang: "en", Currency: "USD",
 		Timezone: "UTC", Auth: DefaultAuth(), Ops: DefaultOps()}
 }
 
@@ -209,6 +212,13 @@ func Load(dir string) (*File, string, error) {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			f.PoolMaxConns = n
 		}
+	}
+	if v := os.Getenv("DDCORE_WORKERS"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 0 {
+			return nil, "", fmt.Errorf("DDCORE_WORKERS must be a number of workers, zero or more: %q", v)
+		}
+		f.Workers = WorkerCount(n)
 	}
 	if v := os.Getenv("DDCORE_SHUTDOWN_GRACE_SECONDS"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {

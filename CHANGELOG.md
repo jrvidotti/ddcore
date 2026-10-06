@@ -37,6 +37,17 @@ older series, and `whats_new` reads across every one of them.
   attachment whose url a file of another space holds. The same export can be loaded into two
   tenants. A run records its tenant: `--resume` refuses another one, and `status` lists the runs
   of one space. The MCP `import` tool takes `tenant` (#100).
+- `ddcore.db.tryLock(key)`: the lock of `ddcore.db.lock` without the wait. It returns `true` with
+  the key held to the end of the transaction, or `false` at once while another transaction holds
+  it, so a job can queue itself again and free its worker instead of parking it for as long as
+  the holder takes. Scoped to the tenant, as `lock` is (#98).
+- `ddcore.enqueue(..., { runAfterSeconds })`: the job's delay from now, in seconds (#98).
+- Worker pools per queue: `"workers": { "default": 2, "bot": 2 }` in `ddcore.json` gives a queue
+  workers of its own. A named pool serves its queue only; `default`, which the object must name,
+  serves the default queue and every queue not named, the scheduler's included. A number still
+  means that many workers for every queue. `ddcore jobs work --queue bot[,other] [--workers N]`
+  starts only those pools, so a queue can have a process of its own; `DDCORE_WORKERS` overrides
+  the setting with a number; `ddcore doctor` prints each pool (`workerPools` in `--json`) (#98).
 
 ### Changed
 
@@ -53,6 +64,10 @@ older series, and `whats_new` reads across every one of them.
   (`ddcore_import_record`) is per tenant on a site with tenancy, and `ddcore tenant adopt` moves
   the platform space's ledger with everything else, so an export loaded before the adopt is not
   loaded again into the tenant after it. `migrate` re-keys the ledger; nothing to do (#100).
+- `ddcore.enqueue` refuses a `runAfter` it cannot read with a `ValidationError`, and one given
+  together with `runAfterSeconds`. It used to run such a job at once, which turned a job meant to
+  wait into a hot loop. An ISO timestamp and `YYYY-MM-DD HH:MM:SS` are read as before, and a
+  date (`YYYY-MM-DD`) or a timestamp without a zone is now read in the site's timezone too (#98).
 
 ### Fixed
 

@@ -101,6 +101,11 @@ others' (an advisory lock), and every scheduler fires but a cron entry is enqueu
 minute however many replicas there are. Local storage on a volume ties the site to one replica;
 use S3 to run more.
 
+**Slow jobs.** A queue of long jobs can be given workers of its own, so it never holds up mail
+and everything else: `"workers": { "default": 2, "bot": 2 }` in `ddcore.json`, and
+`ddcore.enqueue(..., { queue: "bot" })`. A separate container running
+`ddcore jobs work --queue bot` serves only that queue. See `ops` → "Worker pools".
+
 **Stopping.** On SIGTERM the process stops claiming jobs, finishes the HTTP requests in flight,
 and gives the jobs it is running `shutdownGraceSeconds` (30 by default) to finish; the ones still
 running then go back to the queue with their attempt given back, and the process exits. Give the

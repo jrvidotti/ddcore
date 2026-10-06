@@ -13,6 +13,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/jrvidotti/ddcore/internal/config"
 	"github.com/jrvidotti/ddcore/internal/engine"
 )
 
@@ -27,7 +28,8 @@ const jobsUsage = `usage: ddcore jobs <subcommand>
   purge      delete old finished jobs (--done-days, --failed-days, --dry-run)
   scheduled  what the scheduler would run
   run        run a function inline, without queueing it: jobs run <fn>
-  work       start workers and the scheduler
+  work       start workers and the scheduler; --queue q[,q] starts only those queues' pools,
+             sized by ddcore.json or by --workers N
 
 Arguments and results are printed by ` + "`show`" + ` only, and never by the HTTP API:
 a queued password-reset mail carries its own recovery link in its arguments.`
@@ -73,7 +75,7 @@ func cmdJobs(args []string) error {
 			return nil
 		})
 	case "work":
-		return jobsWork()
+		return jobsWork(rest)
 	default:
 		return fmt.Errorf("unknown subcommand: %s\n\n%s", sub, jobsUsage)
 	}
@@ -90,7 +92,56 @@ func withEngine(fn func(*engine.Engine, context.Context) error) error {
 	return fn(e, context.Background())
 }
 
-func jobsWork() error {
+// workPools resolves `jobs work`'s flags against the site's pools: the pools
+// the workers are filtered by, and the ones this process starts (all of them
+// when it names none). A queue the site names no pool for needs --workers;
+// --workers sizes every pool --queue names, in place of ddcore.json; n is -1
+// without it.
+func workPools(site config.Workers, queues string, n int) (map[string]int, []string, error) {
+	pools := site.Pools()
+	if queues == "" {
+		if n >= 0 {
+			return nil, nil, fmt.Errorf("--workers sizes the pools --queue names; without --queue the sizes come from ddcore.json or DDCORE_WORKERS")
+		}
+		return pools, nil, nil
+	}
+	var start []string
+	for _, q := range strings.Split(queues, ",") {
+		if q = strings.TrimSpace(q); q == "" {
+			continue
+		}
+		if n >= 0 {
+			pools[q] = n
+		} else if _, ok := pools[q]; !ok {
+			return nil, nil, fmt.Errorf("queue %q has no pool in ddcore.json's workers: pass --workers N", q)
+		}
+		if pools[q] <= 0 {
+			return nil, nil, fmt.Errorf("queue %q would start no workers: pass --workers N, 1 or more", q)
+		}
+		start = append(start, q)
+	}
+	if len(start) == 0 {
+		return nil, nil, fmt.Errorf("--queue: name at least one queue")
+	}
+	return pools, start, nil
+}
+
+func jobsWork(args []string) error {
+	fs := newFlagSet("jobs work")
+	queues := fs.String("queue", "", "start only these queues' pools (comma-separated)")
+	n := fs.Int("workers", 0, "workers in each pool --queue names, in place of ddcore.json")
+	if err := parseFlags(fs, args); err != nil {
+		return err
+	}
+	size := -1 // ddcore.json's
+	fs.Visit(func(f *flag.Flag) {
+		if f.Name == "workers" {
+			size = *n
+		}
+	})
+	if fs.NArg() > 0 {
+		return fmt.Errorf("jobs work: unexpected argument %q", fs.Arg(0))
+	}
 	enforceMaintenance = true
 	e, cfg, err := load(false, false)
 	if err != nil {
@@ -98,12 +149,24 @@ func jobsWork() error {
 	}
 	// Deferred first, so it runs last: the workers' give-back writes need it.
 	defer e.DB.Close()
+	pools, start, err := workPools(cfg.Workers, *queues, size)
+	if err != nil {
+		return err
+	}
+	site := cfg.Workers.Pools()
+	for _, q := range start {
+		if _, named := site[q]; !named {
+			// every process serving the default pool still takes this queue
+			e.Log.Warn("queue has no pool in ddcore.json: processes that serve the default pool take its jobs too",
+				"queue", q)
+		}
+	}
 	// SIGTERM is how a container is stopped: without it the process dies
 	// mid-job instead of letting its workers finish the job or put it back.
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 	go e.WatchCache(ctx)
-	workers := e.StartWorkers(cfg.Workers)
+	workers := e.StartWorkerPools(pools, start...)
 	if cfg.Scheduler {
 		e.StartScheduler(ctx)
 	}

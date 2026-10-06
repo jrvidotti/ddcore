@@ -28,6 +28,15 @@ export interface DDCoreDB {
    */
   lock(key: string): void;
   /**
+   * `lock` without the wait: takes the key and returns `true`, or returns `false`
+   * at once when another transaction holds it. Held until the end of the
+   * transaction, scoped to the tenant like `lock`, and the two meet on the same
+   * key. A job that does not get the key can queue itself again and free its
+   * worker instead of parking it while the holder works:
+   * `if (!ddcore.db.tryLock(k)) { ddcore.enqueue(method, args, { runAfterSeconds: 10 }); return; }`
+   */
+  tryLock(key: string): boolean;
+  /**
    * Runs `fn` inside a savepoint. When it throws, only its writes (and its
    * messages and events) are rolled back, the error is rethrown, and the
    * transaction stays usable: catch a `DuplicateEntryError` from a unique
@@ -272,6 +281,16 @@ export interface DDCoreAPI {
    * Queues a job. It is written on the current transaction, so the job only
    * exists if the request commits.
    *
+   * `runAfter` is the moment the job may start, an ISO timestamp
+   * (`2026-05-01T09:00:00Z`) or `YYYY-MM-DD HH:MM:SS` in the site's timezone;
+   * `runAfterSeconds` is the same as a delay from now. Give one or neither: the
+   * default is now, and a `runAfter` that cannot be read is refused.
+   *
+   * `queue` names the worker pool that runs the job (default `"default"`). A
+   * queue given its own pool in `workers` of ddcore.json is served by that pool
+   * only, so slow work there cannot hold up the rest; any other queue is served
+   * by the `default` pool.
+   *
    * `maxAttempts` is how many times a failing job is retried before it is left
    * as failed; the default is 3. Set it to 1 for work whose failure is
    * permanent, or whose effects outside the database must not be repeated.
@@ -299,7 +318,7 @@ export interface DDCoreAPI {
    * under that user's roles and access scopes, as `ddcore.runAs` would. The user
    * must exist and be enabled, when the job is queued and when it runs.
    */
-  enqueue(method: string, args?: Record<string, any>, opts?: { queue?: string; runAfter?: string; timeout?: number; maxAttempts?: number; backoff?: "fixed" | "exponential"; onStart?: string; onFailure?: string; uniqueKey?: string; runAs?: string }): number;
+  enqueue(method: string, args?: Record<string, any>, opts?: { queue?: string; runAfter?: string; runAfterSeconds?: number; timeout?: number; maxAttempts?: number; backoff?: "fixed" | "exponential"; onStart?: string; onFailure?: string; uniqueKey?: string; runAs?: string }): number;
   job: {
     /**
      * The job this code runs in — its body or one of its callbacks — as the `JobInfo` `onStart` is
