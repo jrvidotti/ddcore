@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.27.3 — 2026-10-06
+
 ### Added
 
 - `ddcore.http` takes `maxRedirects` (default 10): `0` returns the 3xx with its `Location`, so an
