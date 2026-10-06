@@ -44,7 +44,10 @@ export type HttpMultipartPart =
 
 export interface HttpOpts {
   headers?: Record<string, string>;
-  /** Timeout in seconds; defaults to 15. */
+  /**
+   * Timeout in seconds; defaults to 15. In a job, the job's own `timeout`, a cancellation and
+   * the worker shutting down cut the call sooner.
+   */
   timeout?: number;
   /** `"base64"` returns the body base64-encoded, for binary content; defaults to `"text"`. */
   responseType?: "text" | "base64";
@@ -179,14 +182,23 @@ export interface ExternalDb {
   sql(query: string, params?: any[], opts?: ExternalDbOpts): Record<string, any>[];
 }
 
-/** The attempt a job's `onStart` callback is told about. */
+/** The attempt a job's `onStart` callback is told about, and what `ddcore.job.current()` returns. */
 export interface JobInfo {
   id: number;
   method: string;
   queue: string;
-  /** 1 on the first attempt; 0 for a job cancelled before any attempt. */
+  /**
+   * 1 on the first attempt; 0 for a job cancelled before any attempt. A run interrupted by a worker
+   * shutting down or by maintenance gives its attempt back, so the run after it has the same one.
+   */
   attempt: number;
   maxAttempts: number;
+  /**
+   * How many times a worker began this job, this run included: 1 on the first run; more than 1
+   * means an earlier run began and was given back, failed or timed out — it may already have made
+   * its calls to other systems before it rolled back. Never goes down.
+   */
+  starts: number;
   /** The user the job acts as, when it was queued with `runAs`. */
   runAs?: string;
 }
@@ -288,6 +300,14 @@ export interface DDCoreAPI {
    * must exist and be enabled, when the job is queued and when it runs.
    */
   enqueue(method: string, args?: Record<string, any>, opts?: { queue?: string; runAfter?: string; timeout?: number; maxAttempts?: number; backoff?: "fixed" | "exponential"; onStart?: string; onFailure?: string; uniqueKey?: string; runAs?: string }): number;
+  job: {
+    /**
+     * The job this code runs in — its body or one of its callbacks — as the `JobInfo` `onStart` is
+     * given, or `null` outside a job. `starts > 1` is how a body doing non-idempotent work learns
+     * that an earlier run may already have done it.
+     */
+    current(): JobInfo | null;
+  };
   /**
    * Queues one message from a registered template and returns the id of its
    * `Email Delivery` record.

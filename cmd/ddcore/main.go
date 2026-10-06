@@ -508,13 +508,9 @@ func cmdServe(args []string, dev bool) error {
 	if st := e.Maintenance(ctx); st.Enabled {
 		e.Log.Warn("site is in maintenance mode: writes and jobs are paused — `ddcore maintenance off` to resume", "reason", st.Reason, "since", st.Since)
 	}
-	for i := 0; i < cfg.Workers; i++ {
-		go e.Worker(ctx, i)
-	}
+	workers := e.StartWorkers(cfg.Workers)
 	if cfg.Scheduler {
 		e.StartScheduler(ctx)
-		// the current one, not the boot one: every reload replaces it
-		defer e.StopScheduler()
 	} else {
 		e.Log.Warn("scheduler disabled (scheduler: false in ddcore.json)")
 	}
@@ -540,19 +536,47 @@ func cmdServe(args []string, dev bool) error {
 		})
 	}
 	h := &http.Server{Addr: fmt.Sprintf(":%d", cfg.Port), Handler: srv.Router, ReadHeaderTimeout: 10 * time.Second}
+	// The process returns only once this has run: ListenAndServe returns the
+	// moment Shutdown is called, and a process that exits then takes its
+	// running jobs down with it, mid-call, before they could be given back.
+	stopped := make(chan struct{})
 	go func() {
+		defer close(stopped)
 		<-ctx.Done()
-		sctx, c := context.WithTimeout(context.Background(), 5*time.Second)
-		defer c()
-		h.Shutdown(sctx)
+		shutdown(e, cancel, workers, cfg.ShutdownGrace(), func() {
+			sctx, c := context.WithTimeout(context.Background(), 5*time.Second)
+			defer c()
+			h.Shutdown(sctx)
+		})
 	}()
 	// listen is where this process answers; url is the public address links are
 	// built from, which behind a proxy is a different host altogether.
 	e.Log.Info("ddcore running", "version", engine.Version, "listen", fmt.Sprintf("http://localhost:%d", cfg.Port), "url", cfg.PublicURL(), "dev", e.Cfg.Dev, "apps", e.AppOrder())
-	if err := h.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+	err = h.ListenAndServe()
+	cancel() // a server that could not listen stops the rest as well
+	<-stopped
+	if err != nil && err != http.ErrServerClosed {
 		return err
 	}
 	return nil
+}
+
+// shutdown is how a process that runs jobs stops, once it has been told to:
+// the scheduler first, so nothing new is enqueued; then the job workers, which
+// claim nothing more and give the jobs still running the grace to finish,
+// alongside whatever else the process serves (also, which may be nil). It
+// returns when all of it has stopped. stopSignals is called first so that a
+// second Ctrl-C ends the process at once instead of waiting out the grace.
+func shutdown(e *engine.Engine, stopSignals func(), workers *engine.Workers, grace time.Duration, also func()) {
+	stopSignals()
+	e.Log.Info("stopping: running jobs have the grace to finish", "grace", grace.String())
+	e.StopScheduler()
+	done := make(chan struct{})
+	go func() { defer close(done); workers.Stop(grace) }()
+	if also != nil {
+		also()
+	}
+	<-done
 }
 
 func cmdMigrate(args []string) error {

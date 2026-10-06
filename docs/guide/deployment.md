@@ -45,6 +45,7 @@ which overrides the file:
 | :--- | :--- | :--- |
 | `DATABASE_URL` / `DDCORE_DSN` | PostgreSQL connection string. `DATABASE_URL` is what platforms such as Railway inject; `DDCORE_DSN` wins over it | `postgres://user:pass@db:5432/app?sslmode=require` |
 | `DDCORE_POOL_MAX_CONNS` | Size of the database pool requests run on (`poolMaxConns` in `ddcore.json`). Unset, the DSN's `pool_max_conns` or pgx's default (the larger of 4 and the number of CPUs) applies. A request holds its connection while it waits on a slow outbound call, so a site that makes them may need more | `20` |
+| `DDCORE_SHUTDOWN_GRACE_SECONDS` | How long a process told to stop lets its running jobs finish before it interrupts them and puts them back in the queue (`shutdownGraceSeconds` in `ddcore.json`, default `30`). The platform's stop timeout must be longer — see "Stopping" below | `60` |
 | `PORT` / `DDCORE_PORT` | HTTP port (default `8080`); `DDCORE_PORT` wins over `PORT` | `8080` |
 | `DDCORE_URL` | The public address recovery and invitation links are built from | `https://erp.example.com` |
 | `DDCORE_TRUST_PROXY` | Believe `X-Forwarded-For` — only behind a proxy you control | `true` |
@@ -100,6 +101,14 @@ others' (an advisory lock), and every scheduler fires but a cron entry is enqueu
 minute however many replicas there are. Local storage on a volume ties the site to one replica;
 use S3 to run more.
 
+**Stopping.** On SIGTERM the process stops claiming jobs, finishes the HTTP requests in flight,
+and gives the jobs it is running `shutdownGraceSeconds` (30 by default) to finish; the ones still
+running then go back to the queue with their attempt given back, and the process exits. Give the
+container longer than that before it is killed — Docker's default is 10 seconds:
+`stop_grace_period: 45s` in Compose, `docker stop -t 45`, or `terminationGracePeriodSeconds: 45`
+on Kubernetes. A process killed first leaves its jobs `running` until their lease expires two
+minutes later, when they are failed like the jobs of a worker that crashed.
+
 ### Example `docker-compose.yml`
 
 The `docker-compose.yml` that `ddcore init` writes runs only a development database, with the
@@ -131,6 +140,8 @@ services:
       DDCORE_TRUST_PROXY: "true"
       DDCORE_ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       DDCORE_SECRET_KEY: ${SECRET_KEY}
+    # longer than shutdownGraceSeconds (30), so running jobs can finish or be put back
+    stop_grace_period: 45s
     volumes:
       - files:/data
 

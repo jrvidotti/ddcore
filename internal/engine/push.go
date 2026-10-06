@@ -2,6 +2,7 @@ package engine
 
 import (
 	"bytes"
+	"context"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/ecdh"
@@ -217,7 +218,7 @@ func ValidVAPIDSubject(s string) bool {
 // returned rather than thrown: a 404 or 410 means the subscription is gone,
 // and deleting it is the app's decision. Only a request that never got an
 // answer is an error.
-func (e *Engine) PushSend(a pushSendArgs) (map[string]any, error) {
+func (e *Engine) PushSend(ctx context.Context, a pushSendArgs) (map[string]any, error) {
 	ttl := float64(pushDefaultTTL)
 	if a.Opts.TTL != nil {
 		ttl = *a.Opts.TTL
@@ -287,7 +288,7 @@ func (e *Engine) PushSend(a pushSendArgs) (map[string]any, error) {
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, endpoint.String(), bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint.String(), bytes.NewReader(body))
 	if err != nil {
 		return nil, cerr.Validation("push: {0}", err)
 	}

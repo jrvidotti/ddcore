@@ -35,7 +35,7 @@ type JobAction struct {
 // COALESCE, rather than plain assignment, keeps the first requester: asking
 // twice is not an error, and the first person to ask is the one worth recording.
 func (e *Engine) CancelJob(ctx context.Context, id int64, user string) (JobAction, error) {
-	const q = `WITH t AS (SELECT id, status, method, queue, args, "user", max_attempts, on_failure, run_as
+	const q = `WITH t AS (SELECT id, status, method, queue, args, "user", max_attempts, starts, on_failure, run_as
 	   FROM ddcore_job WHERE id = $1 FOR UPDATE),
 	 u AS (
 	   UPDATE ddcore_job j SET
@@ -46,15 +46,15 @@ func (e *Engine) CancelJob(ctx context.Context, id int64, user string) (JobActio
 	     lease_until = CASE WHEN j.status = 'queued' THEN NULL        ELSE j.lease_until END
 	   FROM t WHERE j.id = t.id AND t.status IN ('queued', 'running')
 	   RETURNING j.status)
-	 SELECT t.status, t.method, t.queue, t.args, COALESCE(t."user", ''), t.max_attempts,
+	 SELECT t.status, t.method, t.queue, t.args, COALESCE(t."user", ''), t.max_attempts, t.starts,
 	        COALESCE(t.on_failure, ''), COALESCE(t.run_as, ''), (SELECT status FROM u) FROM t`
 
 	var was, method, queue, owner, onFailure, runAs string
 	var args map[string]any
-	var maxAttempts int
+	var maxAttempts, starts int
 	var now *string
 	if err := e.statements(ctx).QueryRow(ctx, q, id, user).Scan(&was, &method, &queue, &args, &owner,
-		&maxAttempts, &onFailure, &runAs, &now); err != nil {
+		&maxAttempts, &starts, &onFailure, &runAs, &now); err != nil {
 		if err == pgx.ErrNoRows {
 			return JobAction{}, cerr.NotFound("Job {0} does not exist", id)
 		}
@@ -76,7 +76,7 @@ func (e *Engine) CancelJob(ctx context.Context, id int64, user string) (JobActio
 		// document: its onFailure runs here, with no attempt behind it.
 		e.runOnFailure(ctx, jobFailure{
 			id: id, method: method, user: owner, runAs: runAs, queue: queue, hook: onFailure, args: args,
-			maxAttempts: maxAttempts, reason: "cancelled", err: "cancelled by " + user, final: true,
+			maxAttempts: maxAttempts, starts: starts, reason: "cancelled", err: "cancelled by " + user, final: true,
 		})
 		return JobAction{ID: id, Status: "cancelled"}, nil
 	}
@@ -352,7 +352,7 @@ func (e *Engine) purge(ctx context.Context, statuses []string, days int, dry boo
 // args.html, so the payload is readable on the CLI, where whoever is asking
 // already holds the database, and never over HTTP.
 const jobColumns = `id, method, queue, status, "user", run_as, enqueued, run_after, started, finished,
-	attempts, max_attempts, timeout_seconds, lease_until, request_id,
+	attempts, max_attempts, starts, timeout_seconds, lease_until, request_id,
 	cancel_requested, cancelled_by, retry_of, retried_as, on_start, on_failure, error`
 
 // JobFilter narrows a listing. Every field is optional and they combine with

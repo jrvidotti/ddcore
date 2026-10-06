@@ -26,6 +26,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jrvidotti/ddcore/internal/num"
 )
@@ -74,6 +75,12 @@ type File struct {
 	// whose requests wait on slow outbound calls holds a connection for each
 	// of them, and may need more.
 	PoolMaxConns int `json:"poolMaxConns,omitempty"`
+	// ShutdownGraceSeconds is how long a process asked to stop (SIGTERM) lets
+	// the jobs it is running finish before it interrupts them and gives them
+	// back to the queue, overridden by DDCORE_SHUTDOWN_GRACE_SECONDS. Zero
+	// means DefaultShutdownGraceSeconds. Whatever stops the process must wait
+	// longer than this before it kills it.
+	ShutdownGraceSeconds int `json:"shutdownGraceSeconds,omitempty"`
 	// AdminPassword comes from DDCORE_ADMIN_PASSWORD only: the password a
 	// first migration gives Admin, for a deployment with no console to read a
 	// generated one from. It never replaces a password Admin already has.
@@ -140,6 +147,21 @@ type LoginPage struct {
 
 const Name = "ddcore.json"
 
+// DefaultShutdownGraceSeconds is the grace a stopping process gives its
+// running jobs when ddcore.json and the environment name none: as long as
+// Docker's default for the whole container is not, which is the point —
+// raise the platform's stop timeout along with it.
+const DefaultShutdownGraceSeconds = 30
+
+// ShutdownGrace is how long a stopping process lets its running jobs finish.
+func (f *File) ShutdownGrace() time.Duration {
+	n := f.ShutdownGraceSeconds
+	if n <= 0 {
+		n = DefaultShutdownGraceSeconds
+	}
+	return time.Duration(n) * time.Second
+}
+
 // Default is the configuration a site gets when ddcore.json says nothing. Load
 // starts from it and `ddcore init` writes it, so a freshly created file loads
 // as written: a zero in a policy block is a refusal, not "use the default".
@@ -187,6 +209,14 @@ func Load(dir string) (*File, string, error) {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			f.PoolMaxConns = n
 		}
+	}
+	if v := os.Getenv("DDCORE_SHUTDOWN_GRACE_SECONDS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			f.ShutdownGraceSeconds = n
+		}
+	}
+	if f.ShutdownGraceSeconds < 0 {
+		return nil, "", fmt.Errorf("%s: shutdownGraceSeconds cannot be negative", path)
 	}
 	f.Title = strings.TrimSpace(f.Title)
 	f.URL = strings.TrimSuffix(env("DDCORE_URL", f.URL), "/")

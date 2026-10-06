@@ -313,7 +313,7 @@ func (e *Engine) DeliverMail(c *Ctx, delivery, subject string, blocks []mail.Blo
 		return map[string]any{"method": e.Cfg.Mail.Method, "message": methodPayload(msg)}, nil
 	}
 
-	if err := e.Mailer().Send(c.Ctx, msg); err != nil {
+	if err := e.Mailer().Send(c.callCtxOr(c.Ctx), msg); err != nil {
 		// An uncertain outcome is not retried: the relay may already have the
 		// message, and trying again is precisely how it arrives twice. Record
 		// the doubt and let a person resolve it.

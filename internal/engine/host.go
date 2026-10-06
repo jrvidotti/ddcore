@@ -320,7 +320,7 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		}
 		return nil, c.broadcastInvalidation(keys, nil)
 	case "http":
-		return httpCall(a.Method, a.URL, a.Body, a.BodyEncoding, a.Headers, a.Timeout, a.ResponseType, int64(a.MaxBytes), a.MaxRedirects, a.ClientCert)
+		return httpCall(c.callCtx(), a.Method, a.URL, a.Body, a.BodyEncoding, a.Headers, a.Timeout, a.ResponseType, int64(a.MaxBytes), a.MaxRedirects, a.ClientCert)
 	case "files.save":
 		var f SaveFileArgs
 		if err := json.Unmarshal(raw, &f); err != nil {
@@ -331,6 +331,8 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		return c.PresignFile(a.URL, time.Duration(a.TTL*float64(time.Second)), a.Opts["ignorePermissions"] == true)
 	case "externalDb.sql":
 		return c.ExternalSQL(a.Key, a.Query, a.Params, a.Timeout)
+	case "job.current":
+		return c.currentJob(), nil
 	case "enqueue":
 		var q struct {
 			Method string         `json:"method"`
@@ -641,7 +643,7 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		if err := json.Unmarshal(raw, &p); err != nil {
 			return nil, cerr.Validation("push.send: {0}", err)
 		}
-		return e.PushSend(p)
+		return e.PushSend(c.callCtx(), p)
 	case "push.publicKey":
 		// what a page subscribes with, unpadded as applicationServerKey takes
 		// it; null until the site has a VAPID pair
@@ -855,7 +857,7 @@ const httpMaxBytes = 10 << 20
 // names no maxRedirects: the limit net/http applies by default.
 const httpMaxRedirects = 10
 
-func httpCall(method, url string, body any, bodyEncoding string, headers map[string]string, timeout float64, responseType string, maxBytes int64, maxRedirects *float64, cert *httpClientCert) (any, error) {
+func httpCall(ctx context.Context, method, url string, body any, bodyEncoding string, headers map[string]string, timeout float64, responseType string, maxBytes int64, maxRedirects *float64, cert *httpClientCert) (any, error) {
 	if responseType != "" && responseType != "text" && responseType != "base64" {
 		return nil, cerr.Validation("http: responseType must be \"text\" or \"base64\", not {0}", responseType)
 	}
@@ -866,7 +868,7 @@ func httpCall(method, url string, body any, bodyEncoding string, headers map[str
 		}
 		hops = int(*maxRedirects)
 	}
-	res, b, err := httpFetch(method, url, body, bodyEncoding, headers, timeout, maxBytes, hops, cert)
+	res, b, err := httpFetch(ctx, method, url, body, bodyEncoding, headers, timeout, maxBytes, hops, cert)
 	if err != nil {
 		return nil, err
 	}
@@ -994,8 +996,9 @@ func multipartQuote(s string) string { return multipartQuoter.Replace(s) }
 // A cert is presented to a server that asks for one (mutual TLS).
 //
 // It follows at most maxRedirects redirects; past that, the 3xx itself is the
-// response. See redirectPolicy for the headers a redirect keeps.
-func httpFetch(method, url string, body any, bodyEncoding string, headers map[string]string, timeout float64, maxBytes int64, maxRedirects int, cert *httpClientCert) (*http.Response, []byte, error) {
+// response. See redirectPolicy for the headers a redirect keeps. ctx cancels
+// the request, the body's read included: in a job it is the job's own.
+func httpFetch(ctx context.Context, method, url string, body any, bodyEncoding string, headers map[string]string, timeout float64, maxBytes int64, maxRedirects int, cert *httpClientCert) (*http.Response, []byte, error) {
 	if timeout <= 0 {
 		timeout = 15
 	}
@@ -1016,7 +1019,7 @@ func httpFetch(method, url string, body any, bodyEncoding string, headers map[st
 		hs["Content-Type"] = contentType
 		headers = hs
 	}
-	req, err := http.NewRequest(orDefault(method, "GET"), url, rd)
+	req, err := http.NewRequestWithContext(ctx, orDefault(method, "GET"), url, rd)
 	if err != nil {
 		return nil, nil, cerr.Validation("http: {0}", err)
 	}

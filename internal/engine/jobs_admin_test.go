@@ -86,9 +86,9 @@ func waitForStatus(t *testing.T, e *Engine, id int64, want string) {
 // instead of seconds. Without it every cancellation case costs a real poll
 // interval, which is how a suite ends up with these tests skipped.
 func shortenJobPolling() func() {
-	poll, renew := jobCancelPoll, jobLeaseRenew
-	jobCancelPoll, jobLeaseRenew = 20*time.Millisecond, 50*time.Millisecond
-	return func() { jobCancelPoll, jobLeaseRenew = poll, renew }
+	poll, renew, idle := jobCancelPoll, jobLeaseRenew, jobIdlePoll
+	jobCancelPoll, jobLeaseRenew, jobIdlePoll = 20*time.Millisecond, 50*time.Millisecond, 20*time.Millisecond
+	return func() { jobCancelPoll, jobLeaseRenew, jobIdlePoll = poll, renew, idle }
 }
 
 func errorLogCount(t *testing.T, e *Engine) int {

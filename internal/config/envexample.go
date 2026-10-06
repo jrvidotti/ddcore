@@ -21,6 +21,10 @@ const EnvExample = `# ddcore — the environment this site runs in.
 # Size of the pool requests run on; overrides poolMaxConns in ddcore.json.
 # Unset, the DSN's pool_max_conns or the larger of 4 and the CPU count.
 # DDCORE_POOL_MAX_CONNS=
+# Seconds a process told to stop (SIGTERM) lets its running jobs finish before
+# it gives them back to the queue; overrides shutdownGraceSeconds in ddcore.json.
+# The platform's stop timeout must be longer. Unset, 30.
+# DDCORE_SHUTDOWN_GRACE_SECONDS=
 
 # ` + "`ddcore start`" + ` migrates before it serves; 0 leaves that to a step of your own.
 # DDCORE_AUTO_MIGRATE=1

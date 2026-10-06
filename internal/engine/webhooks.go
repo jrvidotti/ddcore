@@ -395,7 +395,7 @@ func (e *Engine) DeliverWebhook(c *Ctx, delivery string) error {
 
 	body := []byte(db.Str(row["payload"]))
 	timeout := clampInt(int(toFloat(hook["timeout"])), webhookMinTimeout, webhookMaxTimeout, webhookDefaultTimeout)
-	status, snippet, sendErr := postWebhook(c.Ctx, db.Str(hook["url"]), delivery, secret, body, time.Duration(timeout)*time.Second)
+	status, snippet, sendErr := postWebhook(c.callCtxOr(c.Ctx), db.Str(hook["url"]), delivery, secret, body, time.Duration(timeout)*time.Second)
 
 	retry := false
 	var errText string

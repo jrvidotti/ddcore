@@ -96,19 +96,19 @@ func jobsWork() error {
 	if err != nil {
 		return err
 	}
+	// Deferred first, so it runs last: the workers' give-back writes need it.
 	defer e.DB.Close()
 	// SIGTERM is how a container is stopped: without it the process dies
-	// mid-job instead of letting its workers put the job back.
+	// mid-job instead of letting its workers finish the job or put it back.
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 	go e.WatchCache(ctx)
-	for i := 0; i < cfg.Workers; i++ {
-		go e.Worker(ctx, i)
-	}
+	workers := e.StartWorkers(cfg.Workers)
 	if cfg.Scheduler {
 		e.StartScheduler(ctx)
 	}
 	<-ctx.Done()
+	shutdown(e, cancel, workers, cfg.ShutdownGrace(), nil)
 	return nil
 }
 
@@ -212,7 +212,7 @@ func jobsShow(args []string) error {
 		}
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 		for _, k := range []string{"id", "method", "queue", "status", "user", "run_as", "enqueued",
-			"run_after", "started", "finished", "attempts", "max_attempts", "timeout_seconds",
+			"run_after", "started", "finished", "attempts", "max_attempts", "starts", "timeout_seconds",
 			"request_id", "cancel_requested", "cancelled_by", "retry_of", "retried_as",
 			"on_start", "on_failure", "error", "args", "result"} {
 			if v, ok := j[k]; ok && v != nil {

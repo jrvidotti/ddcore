@@ -203,7 +203,7 @@ func (c *Ctx) SaveFile(a SaveFileArgs) (Doc, error) {
 			return nil, cerr.Validation("files.save: contentBase64 is not base64: {0}", err)
 		}
 	default:
-		res, body, err := httpFetch("GET", a.FromURL, nil, "", a.Headers, a.Timeout, max, httpMaxRedirects, nil)
+		res, body, err := httpFetch(c.callCtx(), "GET", a.FromURL, nil, "", a.Headers, a.Timeout, max, httpMaxRedirects, nil)
 		if err != nil {
 			return nil, err
 		}
