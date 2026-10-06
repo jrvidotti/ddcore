@@ -14,6 +14,16 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- `ddcore migrate --prune` plans its drops after the `afterSchema` patches instead of before
+  them. A release that backfills and contracts in one go — both patches `afterSchema`, the
+  contract dropping the old column itself — no longer fails, either on a refusal for data the
+  backfill was about to copy or on a `DROP COLUMN` for a column the patch had already dropped.
+  An orphan a patch writes into is now refused rather than dropped with what the patch wrote.
+  `migrations` documents the contract-in-the-same-release pattern and why the contraction
+  is not `beforeSchema` (#102).
+
 ## 0.27.6 — 2026-10-06
 
 ### Changed

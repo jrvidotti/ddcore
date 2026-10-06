@@ -659,6 +659,103 @@ export default definePatch({
 	}
 }
 
+// TestContractInOneReleaseUnderPrune is #102: backfill and contract in the
+// same release, both afterSchema and ordered by filename, deployed with
+// --prune. Planned at step 3, prune refused valor_texto for the data the
+// backfill was about to copy, and had it got past that, its DROP COLUMN would
+// have failed at step 8 on a column the contract patch had already dropped.
+func TestContractInOneReleaseUnderPrune(t *testing.T) {
+	e := setupWith(t, map[string]string{
+		"patches/0001_backfill.ts": `import { definePatch } from "@ddcore/sdk";
+export default definePatch({
+  execute(ctx) {
+    ctx.sql("UPDATE tab_pessoa SET valor_num = valor_texto::numeric WHERE valor_texto IS NOT NULL AND valor_num IS NULL");
+  },
+});`,
+		"patches/0002_contract.ts": `import { definePatch } from "@ddcore/sdk";
+export default definePatch({
+  execute(ctx) {
+    ctx.sql("ALTER TABLE tab_pessoa DROP COLUMN valor_texto");
+  },
+});`,
+	})
+	ctx := context.Background()
+	pessoa, _ := e.Meta.Get("Pessoa")
+	pessoa.Fields = append(pessoa.Fields, &meta.Field{Fieldname: "valor_texto", Fieldtype: "Data", Label: "Valor"})
+	pessoa.ResetFieldIndex()
+	migrar(t, e, false, "release 0: the old field")
+	insertPessoa(t, e, Doc{"nome": "Ivo", "valor_texto": "1250"})
+
+	// One release: valor_num arrives, valor_texto leaves the meta.
+	if _, err := e.DB.Pool.Exec(ctx, `DELETE FROM ddcore_patch`); err != nil {
+		t.Fatal(err)
+	}
+	var kept []*meta.Field
+	for _, f := range pessoa.Fields {
+		if f.Fieldname != "valor_texto" {
+			kept = append(kept, f)
+		}
+	}
+	pessoa.Fields = append(kept, &meta.Field{Fieldname: "valor_num", Fieldtype: "Currency", Label: "Valor"})
+	pessoa.ResetFieldIndex()
+
+	res := migrar(t, e, true, "release 1: expand, backfill and contract")
+	if len(res.Patches) != 2 {
+		t.Fatalf("both patches should have run, got %v", res.Patches)
+	}
+	if columnType(t, e, "tab_pessoa", "valor_texto") != "" {
+		t.Fatal("the contract patch should have dropped valor_texto")
+	}
+	for _, st := range res.DDL {
+		if st.Destructive {
+			t.Fatalf("prune planned a drop the patch had already made: %s", st.SQL)
+		}
+	}
+	rows := sqlRows(t, e, `SELECT valor_num FROM tab_pessoa WHERE nome = 'Ivo'`)
+	if len(rows) != 1 || !strings.HasPrefix(db.Str(rows[0]["valor_num"]), "1250") {
+		t.Fatalf("the backfill did not survive the contraction: %v", rows)
+	}
+}
+
+// TestPruneSeesWhatAfterSchemaPatchesWrote — the other side of planning the
+// drops last: an orphan that was empty at step 3 but that a patch filled is
+// refused, rather than dropped with the data the patch just wrote.
+func TestPruneSeesWhatAfterSchemaPatchesWrote(t *testing.T) {
+	e := setupWith(t, map[string]string{
+		"patches/0001_fill.ts": `import { definePatch } from "@ddcore/sdk";
+export default definePatch({
+  execute(ctx) {
+    ctx.sql("UPDATE tab_pessoa SET codigo = 'written by the patch'");
+  },
+});`,
+	})
+	ctx := context.Background()
+	insertPessoa(t, e, Doc{"nome": "Kai"})
+	if _, err := e.DB.Pool.Exec(ctx, `DELETE FROM ddcore_patch`); err != nil {
+		t.Fatal(err)
+	}
+	pessoa, _ := e.Meta.Get("Pessoa")
+	var kept []*meta.Field
+	for _, f := range pessoa.Fields {
+		if f.Fieldname != "codigo" {
+			kept = append(kept, f)
+		}
+	}
+	pessoa.Fields = kept
+	pessoa.ResetFieldIndex()
+
+	_, err := e.Migrate(ctx, true)
+	if err == nil || !strings.Contains(err.Error(), "codigo") {
+		t.Fatalf("prune should refuse the column the patch filled, got %v", err)
+	}
+	if columnType(t, e, "tab_pessoa", "codigo") == "" {
+		t.Fatal("the column was dropped anyway")
+	}
+	if len(sqlRows(t, e, `SELECT 1 FROM tab_pessoa WHERE codigo IS NOT NULL`)) != 0 {
+		t.Fatal("the refusal should have rolled the patch's write back")
+	}
+}
+
 // DAT-05 — a compound business key is a partial unique index the planner owns
 // end to end: it creates it, it leaves it alone when nothing changed, and it
 // takes it away when the declaration goes.
