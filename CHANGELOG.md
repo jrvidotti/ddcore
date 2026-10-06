@@ -16,6 +16,9 @@ older series, and `whats_new` reads across every one of them.
 
 ### Fixed
 
+- The access log, the panic log and the Error Log title no longer print what follows a method's
+  name in `/api/method/<path>/<tail>`: they show `/api/method/<path>/…`. A webhook that carries a
+  token in its `pathTail` wrote it to the logs on every delivery (#95).
 - `ddcore <command> -h` and `--help` print the command's options (`ddcore test -h` lists
   `--filter`, `--app` and `-v`) or, for a command with subcommands such as `import`, `jobs` or
   `user`, its usage. Both failed with "unknown flag" and pointed at themselves (#87).

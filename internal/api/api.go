@@ -247,7 +247,7 @@ func (s *Server) writeError(w http.ResponseWriter, r *http.Request, err error, r
 	// A maintenance refusal is a 503 by design, not a fault: every paused
 	// write would otherwise leave an Error Log row behind.
 	if record && status >= 500 && e.Type != "MaintenanceError" {
-		s.E.LogError(r.Context(), "api."+r.Method+" "+r.URL.Path, err)
+		s.E.LogError(r.Context(), "api."+r.Method+" "+loggedPath(r.URL.Path), err)
 	}
 	writeJSON(w, status, map[string]any{"error": e})
 }

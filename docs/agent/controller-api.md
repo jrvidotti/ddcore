@@ -74,6 +74,8 @@ export const receive = whitelisted((args, ctx) => {
 
   A method without it does not exist at a sub-path: `/api/method/<path>/x` answers the same 404 as an unknown
   method, and `ctx.request` carries no `pathTail`.
+  The access log and the Error Log stop at the method's name (`/api/method/<path>/…`), so a sender that can
+  only authenticate through its URL may carry a shared token in the tail; compare it with `timingSafeEqual`.
 - `ddcore.crypto.hmacSha256(key, data)` → lower-case hex; `ddcore.crypto.timingSafeEqual(a, b)` compares in
   constant time. Never compare a signature with `===`. For a timestamped scheme, also check the timestamp header
   against `Date.now()` and refuse an event older than the window you accept.
