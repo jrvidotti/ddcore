@@ -14,6 +14,20 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- `ddcore tenant adopt <slug> --dry-run` prints, table by table, the rows the adopt would move
+  into the tenant and every collision with rows the tenant already has, on the primary key and
+  on each unique index (up to ten keys each), moves nothing, and exits non-zero on a collision.
+  An app no longer has to re-derive the adopt's rule in SQL to fail before the cutover (#100).
+
+### Changed
+
+- `ddcore tenant adopt` refuses with the list of colliding keys — table, columns and values —
+  instead of stopping on the first raw primary-key violation. The docs now say what else an adopt
+  moves: the platform space's Singles, vault secrets, Error Log, Audit Event, Version and
+  Feedback rows (#100).
+
 ## 0.27.3 — 2026-10-06
 
 ### Added

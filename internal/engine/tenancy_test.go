@@ -672,6 +672,115 @@ func TestTenantAdoptMovesThePlatformRows(t *testing.T) {
 	})
 }
 
+// The dry run of an adopt counts what would move, table by table, and moves
+// nothing.
+func TestTenantAdoptPreviewCountsAndMovesNothing(t *testing.T) {
+	e := migratedEngine(t, Config{Apps: []js.App{{Name: "demo", Dir: testApp(t, tenancyFiles)}}, Test: true, Tenancy: true})
+	const old = "antigo@x.test"
+	runAs(t, e, "Admin", func(c *Ctx) error {
+		if err := insertDoc(c, "User", Doc{"email": old, "full_name": old, "roles": []any{map[string]any{"role": "Gestor"}}}); err != nil {
+			return err
+		}
+		for _, nome := range []string{"Um", "Dois"} {
+			if err := insertDoc(c, "Pessoa", Doc{"nome": nome, "cpf": nome}); err != nil {
+				return err
+			}
+		}
+		if err := insertDoc(c, "Pais", Doc{"sigla": "BR"}); err != nil {
+			return err
+		}
+		return insertDoc(c, "Site Tenant", Doc{"slug": tenantA, "title": "Alfa"})
+	})
+	p, err := e.AdoptPreview(context.Background(), tenantA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows := map[string]int64{}
+	for _, tb := range p.Tables {
+		rows[tb.Table] = tb.Rows
+		if len(tb.Collisions) > 0 {
+			t.Errorf("%s: unexpected collisions %+v", tb.Table, tb.Collisions)
+		}
+	}
+	// Admin and Guest stay; a shared DocType is not the tenant's to take
+	if rows["tab_user"] != 1 || rows["tab_pessoa"] != 2 || rows["tab_has_role"] == 0 {
+		t.Fatalf("preview = %v", rows)
+	}
+	if _, ok := rows["tab_pais"]; ok {
+		t.Fatalf("a shared DocType would move: %v", rows)
+	}
+	if p.Collides() {
+		t.Fatal("a preview without collisions says it collides")
+	}
+	runAs(t, e, "Admin", func(c *Ctx) error {
+		if n, _ := c.Count("Pessoa", nil); n != 2 {
+			t.Fatalf("the preview moved rows: the platform space has %d Pessoa", n)
+		}
+		return nil
+	})
+	// what the preview counted is what the adopt moves
+	moved, err := e.AdoptPlatformRows(context.Background(), tenantA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for table, n := range rows {
+		if moved[table] != n {
+			t.Errorf("%s: previewed %d, moved %d", table, n, moved[table])
+		}
+	}
+}
+
+// A row the tenant already has under the same key — a Single saved in both
+// spaces, a document id used in both — is listed by the preview, and the
+// adopt refuses with that list instead of a raw key violation.
+func TestTenantAdoptListsAndRefusesCollisions(t *testing.T) {
+	e := setupTenancy(t) // a Pessoa "Comum" in the platform space and in each tenant
+	for _, tenant := range []string{"", tenantA} {
+		inTenant(t, e, tenant, func(c *Ctx) error {
+			d, err := c.GetDoc("Ajustes", "")
+			if err != nil {
+				return err
+			}
+			d["lema"] = "de " + tenant
+			_, err = c.Save(d, SaveOpts{})
+			return err
+		})
+	}
+	p, err := e.AdoptPreview(context.Background(), tenantA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !p.Collides() {
+		t.Fatalf("no collision found: %+v", p)
+	}
+	found := map[string]string{}
+	for _, tb := range p.Tables {
+		for _, col := range tb.Collisions {
+			found[tb.Table+":"+strings.Join(col.Columns, ",")] = strings.Join(col.Samples, ",")
+			if col.Count != int64(len(col.Samples)) {
+				t.Errorf("%s: count %d, samples %v", tb.Table, col.Count, col.Samples)
+			}
+		}
+	}
+	// the key, and a unique field
+	if found["tab_pessoa:id"] != "Comum" || found["tab_pessoa:cpf"] != "000" || found["tab_ajustes:id"] != "singleton" {
+		t.Fatalf("collisions = %v", found)
+	}
+	_, err = e.AdoptPlatformRows(context.Background(), tenantA)
+	wantStatus(t, err, 409)
+	for _, want := range []string{"tab_pessoa", "Comum", "tab_ajustes", "singleton", "--dry-run"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("the refusal does not name %q: %v", want, err)
+		}
+	}
+	runAs(t, e, "Admin", func(c *Ctx) error {
+		if n, _ := c.Count("Pessoa", nil); n != 1 {
+			t.Fatalf("a refused adopt moved rows: the platform space has %d Pessoa", n)
+		}
+		return nil
+	})
+}
+
 // The retention sweep is the site's and visits every tenant; an
 // administrator's purge stays in theirs.
 func TestTenantJobRetentionCoversEveryTenant(t *testing.T) {

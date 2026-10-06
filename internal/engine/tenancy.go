@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -825,10 +826,263 @@ func (e *Engine) namedTenant(ctx context.Context) (string, bool) {
 // adopts everything else: the two accounts the framework itself is.
 const adoptKeep = `('Admin', 'Guest')`
 
+// adoptStep is one table an adopt moves rows of: every row of the platform
+// space but the ones except keeps there. except is SQL on the table's own
+// columns; $1 is the tenant and args are $2 onwards.
+type adoptStep struct {
+	table  string
+	except string
+	args   []any
+}
+
+func (s adoptStep) where() string {
+	w := "tenant = ''"
+	if s.except != "" {
+		w += " AND NOT (" + s.except + ")"
+	}
+	return w
+}
+
+// adoptPlan is the rule of an adopt, table by table: what the move and its
+// dry run both follow, so the preview counts exactly what the move moves.
+func (c *Ctx) adoptPlan() ([]adoptStep, error) {
+	var steps []adoptStep
+	for _, name := range c.St.Meta.Names() {
+		d := c.St.Meta.DocTypes[name]
+		if !d.TenantOwned {
+			continue
+		}
+		except := ""
+		switch d.Name {
+		case "User":
+			except = `id IN ` + adoptKeep
+		case "Has Role":
+			except = `parenttype = 'User' AND parent IN ` + adoptKeep
+		case "API Key":
+			except = `"user" IN ` + adoptKeep
+		}
+		steps = append(steps, adoptStep{table: d.TableName(), except: except})
+	}
+	for _, table := range []string{"ddcore_series", "ddcore_notification", "ddcore_notification_due"} {
+		steps = append(steps, adoptStep{table: table})
+	}
+	// a shared DocType's documents stay, and so do the secrets of their
+	// Vault fields
+	shared, err := c.sharedVaultKeys()
+	if err != nil {
+		return nil, err
+	}
+	steps = append(steps, adoptStep{table: "ddcore_vault", except: "name = ANY($2)", args: []any{shared}})
+	// jobs still to run belong with the rows they will touch
+	steps = append(steps, adoptStep{table: "ddcore_job", except: `status NOT IN ('queued', 'running') OR "user" IN ` + adoptKeep})
+	return steps, nil
+}
+
+// AdoptPreview is what an adopt would do, table by table: the rows it would
+// move, and those whose key the tenant already uses.
+type AdoptPreview struct {
+	Tenant string       `json:"tenant"`
+	Tables []AdoptTable `json:"tables"`
+}
+
+// AdoptTable is one table of an AdoptPreview. Only tables with something to
+// move are listed.
+type AdoptTable struct {
+	Table      string           `json:"table"`
+	Rows       int64            `json:"rows"`
+	Collisions []AdoptCollision `json:"collisions,omitempty"`
+}
+
+// AdoptCollision is one unique key of a table on which rows of the platform
+// space meet rows the tenant already has: how many, and a few of the values.
+type AdoptCollision struct {
+	Index   string   `json:"index"`
+	Columns []string `json:"columns"`
+	Count   int64    `json:"count"`
+	Samples []string `json:"samples"`
+}
+
+// adoptSamples is how many colliding keys a preview names per unique key.
+const adoptSamples = 10
+
+// Collides reports whether the adopt would stop on a key the tenant uses.
+func (p *AdoptPreview) Collides() bool {
+	for _, t := range p.Tables {
+		if len(t.Collisions) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// Moved is the rows per table, as AdoptPlatformRows reports them.
+func (p *AdoptPreview) Moved() map[string]int64 {
+	out := map[string]int64{}
+	for _, t := range p.Tables {
+		out[t.Table] = t.Rows
+	}
+	return out
+}
+
+// collisionSummary names each colliding key and a few of its values, for a
+// message: "tab_pessoa (id): Comum, Outro, and 3 more".
+func (p *AdoptPreview) collisionSummary() string {
+	var parts []string
+	for _, t := range p.Tables {
+		for _, col := range t.Collisions {
+			s := fmt.Sprintf("%s (%s): %s", t.Table, strings.Join(col.Columns, ", "), strings.Join(col.Samples, "; "))
+			if more := col.Count - int64(len(col.Samples)); more > 0 {
+				s += fmt.Sprintf(" and %d more", more)
+			}
+			parts = append(parts, s)
+		}
+	}
+	return strings.Join(parts, "; ")
+}
+
+// AdoptPreview is the dry run of AdoptPlatformRows: it counts what would move
+// into tenant and finds every row the tenant already has under the same key
+// — the primary key and each unique index that is not an expression — and
+// writes nothing.
+func (e *Engine) AdoptPreview(ctx context.Context, tenant string) (*AdoptPreview, error) {
+	if on, err := e.tenancy(ctx); err != nil {
+		return nil, err
+	} else if !on {
+		return nil, cerr.Validation("This site has no tenants: tenancy is off")
+	}
+	var p *AdoptPreview
+	err := e.RunSystem(ctx, "Admin", func(c *Ctx) error {
+		if err := e.checkTenant(ctx, c.Tx, tenant); err != nil {
+			return err
+		}
+		var err error
+		p, err = c.adoptPreview(tenant)
+		return err
+	})
+	return p, err
+}
+
+// adoptPreview runs on a system ctx, which sees every space.
+func (c *Ctx) adoptPreview(tenant string) (*AdoptPreview, error) {
+	steps, err := c.adoptPlan()
+	if err != nil {
+		return nil, err
+	}
+	p := &AdoptPreview{Tenant: tenant, Tables: []AdoptTable{}}
+	for _, s := range steps {
+		args := append([]any{tenant}, s.args...)
+		var n int64
+		// $1 is not used by the count, but the arguments are numbered from it
+		if err := c.Tx.QueryRow(c.Ctx, fmt.Sprintf(`SELECT count(*) FROM %s WHERE $1::text IS NOT NULL AND %s`,
+			db.Ident(s.table), s.where()), args...).Scan(&n); err != nil {
+			return nil, fmt.Errorf("%s: %w", s.table, err)
+		}
+		if n == 0 {
+			continue
+		}
+		t := AdoptTable{Table: s.table, Rows: n}
+		keys, err := tenantUniqueKeys(c.Ctx, c.Tx, s.table)
+		if err != nil {
+			return nil, err
+		}
+		for _, k := range keys {
+			col, err := adoptCollisions(c.Ctx, c.Tx, s, k, args)
+			if err != nil {
+				return nil, err
+			}
+			if col != nil {
+				t.Collisions = append(t.Collisions, *col)
+			}
+		}
+		p.Tables = append(p.Tables, t)
+	}
+	return p, nil
+}
+
+// uniqueKey is a unique index of a table that leads with its tenant: the
+// columns after it, and the index's predicate when it is partial.
+type uniqueKey struct {
+	index     string
+	cols      []string
+	predicate string
+}
+
+// tenantUniqueKeys reads the unique indexes of a table that include its
+// tenant column — the only ones moving a row to another tenant can break.
+// One on an expression is left out: there is no column to compare.
+func tenantUniqueKeys(ctx context.Context, q db.Querier, table string) ([]uniqueKey, error) {
+	rows, err := db.Select(ctx, q, `SELECT ic.relname AS name, i.indisprimary AS pk,
+		  array_to_string(array(SELECT a.attname FROM unnest(i.indkey::int2[]) WITH ORDINALITY k(attnum, ord)
+		    JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = k.attnum
+		    WHERE k.ord <= i.indnkeyatts ORDER BY k.ord), ',') AS cols,
+		  coalesce(pg_get_expr(i.indpred, i.indrelid), '') AS predicate
+		FROM pg_index i JOIN pg_class ic ON ic.oid = i.indexrelid
+		WHERE i.indrelid = to_regclass($1) AND i.indisunique AND i.indexprs IS NULL
+		ORDER BY i.indisprimary DESC, ic.relname`, table)
+	if err != nil {
+		return nil, err
+	}
+	var out []uniqueKey
+	for _, r := range rows {
+		var cols []string
+		hasTenant := false
+		for _, col := range strings.Split(db.Str(r["cols"]), ",") {
+			if col == meta.TenantColumn {
+				hasTenant = true
+				continue
+			}
+			if col != "" {
+				cols = append(cols, col)
+			}
+		}
+		if !hasTenant || len(cols) == 0 {
+			continue
+		}
+		out = append(out, uniqueKey{index: db.Str(r["name"]), cols: cols, predicate: db.Str(r["predicate"])})
+	}
+	return out, nil
+}
+
+// adoptCollisions finds the rows a step would move whose key, on one unique
+// index, the tenant already holds. The two sides are subqueries so that the
+// step's exceptions and a partial index's predicate, written on the table's
+// own columns, apply to each as they are.
+func adoptCollisions(ctx context.Context, q db.Querier, s adoptStep, k uniqueKey, args []any) (*AdoptCollision, error) {
+	pred := ""
+	if k.predicate != "" {
+		pred = " AND (" + k.predicate + ")"
+	}
+	t := db.Ident(s.table)
+	var on, key []string
+	for _, col := range k.cols {
+		c := db.Ident(col)
+		on = append(on, "src."+c+" = dst."+c)
+		key = append(key, "src."+c+"::text")
+	}
+	sql := fmt.Sprintf(`WITH src AS (SELECT * FROM %[1]s WHERE %[2]s%[3]s),
+		  dst AS (SELECT * FROM %[1]s WHERE tenant = $1%[3]s)
+		SELECT count(*) OVER () AS n, concat_ws(', ', %[4]s) AS k
+		FROM src JOIN dst ON %[5]s ORDER BY 2 LIMIT %[6]d`,
+		t, s.where(), pred, strings.Join(key, ", "), strings.Join(on, " AND "), adoptSamples)
+	rows, err := db.Select(ctx, q, sql, args...)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", s.table, err)
+	}
+	if len(rows) == 0 {
+		return nil, nil
+	}
+	col := &AdoptCollision{Index: k.index, Columns: k.cols, Count: int64(toFloat(rows[0]["n"]))}
+	for _, r := range rows {
+		col.Samples = append(col.Samples, db.Str(r["k"]))
+	}
+	return col, nil
+}
+
 // AdoptPlatformRows moves every row of the platform space into a tenant: the
 // way a site that had one customer before it had tenancy makes that customer
-// its first tenant. Admin and Guest stay. It is one transaction; a row whose
-// id the tenant already uses stops it with nothing moved.
+// its first tenant. Admin and Guest stay. It is one transaction, and it runs
+// the preview first: a row whose key the tenant already uses stops it with
+// nothing moved, and the refusal names every such key.
 func (e *Engine) AdoptPlatformRows(ctx context.Context, tenant string) (map[string]int64, error) {
 	moved := map[string]int64{}
 	if on, err := e.tenancy(ctx); err != nil {
@@ -840,55 +1094,27 @@ func (e *Engine) AdoptPlatformRows(ctx context.Context, tenant string) (map[stri
 		if err := e.checkTenant(ctx, c.Tx, tenant); err != nil {
 			return err
 		}
-		move := func(table, except string, args ...any) error {
-			sql := fmt.Sprintf(`UPDATE %s SET tenant = $1 WHERE tenant = ''`, db.Ident(table))
-			if except != "" {
-				sql += " AND NOT (" + except + ")"
-			}
-			tag, err := c.Tx.Exec(ctx, sql, append([]any{tenant}, args...)...)
-			if err != nil {
-				return fmt.Errorf("%s: %w", table, err)
-			}
-			if n := tag.RowsAffected(); n > 0 {
-				moved[table] = n
-			}
-			return nil
-		}
-		for _, name := range c.St.Meta.Names() {
-			d := c.St.Meta.DocTypes[name]
-			if !d.TenantOwned {
-				continue
-			}
-			except := ""
-			switch d.Name {
-			case "User":
-				except = `id IN ` + adoptKeep
-			case "Has Role":
-				except = `parenttype = 'User' AND parent IN ` + adoptKeep
-			case "API Key":
-				except = `"user" IN ` + adoptKeep
-			}
-			if err := move(d.TableName(), except); err != nil {
-				return err
-			}
-		}
-		for _, table := range []string{"ddcore_series", "ddcore_notification", "ddcore_notification_due"} {
-			if err := move(table, ""); err != nil {
-				return err
-			}
-		}
-		// a shared DocType's documents stay, and so do the secrets of their
-		// Vault fields
-		shared, err := c.sharedVaultKeys()
+		p, err := c.adoptPreview(tenant)
 		if err != nil {
 			return err
 		}
-		if err := move("ddcore_vault", "name = ANY($2)", shared); err != nil {
+		if p.Collides() {
+			return cerr.Duplicate("Adopting into {0} would collide with rows the tenant already has, so nothing was moved: {1}. Run ddcore tenant adopt {0} --dry-run for the full list",
+				tenant, p.collisionSummary())
+		}
+		steps, err := c.adoptPlan()
+		if err != nil {
 			return err
 		}
-		// jobs still to run belong with the rows they will touch
-		if err := move("ddcore_job", `status NOT IN ('queued', 'running') OR "user" IN `+adoptKeep); err != nil {
-			return err
+		for _, s := range steps {
+			sql := fmt.Sprintf(`UPDATE %s SET tenant = $1 WHERE %s`, db.Ident(s.table), s.where())
+			tag, err := c.Tx.Exec(ctx, sql, append([]any{tenant}, s.args...)...)
+			if err != nil {
+				return fmt.Errorf("%s: %w", s.table, err)
+			}
+			if n := tag.RowsAffected(); n > 0 {
+				moved[s.table] = n
+			}
 		}
 		if err := e.RecordAuditOn(ctx, c.Tx, "Admin", "tenant.adopt", "Allowed", meta.TenantDocType, tenant, "", "", nil); err != nil {
 			return err

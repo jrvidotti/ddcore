@@ -141,6 +141,7 @@ export default defineApp({
 ddcore tenant create acme --title "Acme Ltd" --admin boss@acme.example   # invites its first System Manager
 ddcore tenant list
 ddcore tenant disable acme        # and: enable
+ddcore tenant adopt acme --dry-run  # what would move, and what the tenant already has
 ddcore tenant adopt acme          # every row of the platform space moves into the tenant
 
 ddcore --tenant acme eval 'ddcore.db.count("Customer")'
@@ -158,9 +159,24 @@ The operator's other commands follow the same rule: `ddcore jobs`, `ddcore audit
 webhooks list`, `ddcore doctor`, `ddcore backup` and the retention sweeps cover the whole site.
 
 `tenant adopt` is the path for a site that had one customer before it had tenancy: turn
-tenancy on, migrate, create the tenant, adopt. Everything moves except the `Admin` and `Guest`
-accounts and the secrets of `Vault` fields on shared DocTypes, which stay with their documents;
-it is one transaction, and a row whose id the tenant already uses stops it.
+tenancy on, migrate, create the tenant, adopt. Everything in the platform space moves, not just
+documents: the Singles saved there, the `ddcore.vault` secrets, the numbering series, the
+queued and running jobs, and the `Error Log`, `Audit Event`, `Version` and `Feedback` rows —
+including the ones `maintenance on` and `backup` wrote during the cutover, which the tenant's
+System Managers can then read. What stays is the `Admin` and `Guest` accounts (with their
+roles and API keys), the documents of shared DocTypes and the secrets of their `Vault` fields,
+and finished jobs.
+
+It is one transaction. A row whose key the tenant already uses — an id, a `unique` value, a
+series prefix, a Single the tenant has saved too — stops it with nothing moved, and the refusal
+names each one. Run `--dry-run` first: it prints, table by table, how many rows would move and
+every collision with the tenant (up to ten keys per unique index), moves nothing, and exits
+non-zero when there is a collision.
+
+The usual collision is a Single, or a vault secret, written in the platform space by something
+that ran without `--tenant` — an `eval` that called an integration and cached its session, say —
+while the tenant has its own. Decide which one is right: delete the platform one (from
+`ddcore eval`, which works in the platform space) or the tenant's, then adopt.
 
 ## Server code
 

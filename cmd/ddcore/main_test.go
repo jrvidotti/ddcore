@@ -562,3 +562,25 @@ func TestEverySubcommandUsageIsSet(t *testing.T) {
 		}
 	}
 }
+
+func TestAdoptDryRunFailsOnACollision(t *testing.T) {
+	clean := &engine.AdoptPreview{Tenant: "acme", Tables: []engine.AdoptTable{{Table: "tab_customer", Rows: 3}}}
+	var out strings.Builder
+	if err := printAdoptPreview(&out, clean); err != nil {
+		t.Fatalf("a clean preview failed: %v", err)
+	}
+	if !strings.Contains(out.String(), "tab_customer") || !strings.Contains(out.String(), "would move 3 rows") {
+		t.Fatalf("output:\n%s", out.String())
+	}
+	clash := &engine.AdoptPreview{Tenant: "acme", Tables: []engine.AdoptTable{{Table: "tab_settings", Rows: 1,
+		Collisions: []engine.AdoptCollision{{Index: "tab_settings_pkey", Columns: []string{"id"}, Count: 12,
+			Samples: []string{"singleton"}}}}}}
+	out.Reset()
+	err := printAdoptPreview(&out, clash)
+	if err == nil || !strings.Contains(err.Error(), "12 rows") {
+		t.Fatalf("a collision did not fail the dry run: %v", err)
+	}
+	if !strings.Contains(out.String(), "12 on (id): singleton and 11 more") {
+		t.Fatalf("output:\n%s", out.String())
+	}
+}

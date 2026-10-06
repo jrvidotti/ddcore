@@ -37,6 +37,7 @@ Address,Endereço,# desk/src/lib/components/Profile.svelte:232
 Admin has no account at the identity provider to change,Admin não tem conta no provedor de identidade para alterar,# internal/engine/pocketid.go:515
 Admin sign-in,Entrar como Admin,# desk/src/routes/login/+page.svelte:82
 Administering jobs requires the System Manager role,Administrar jobs exige o papel System Manager,# internal/api/jobs.go:22
+"Adopting into {0} would collide with rows the tenant already has, so nothing was moved: {1}. Run ddcore tenant adopt {0} --dry-run for the full list","Adotar para {0} colidiria com registros que a conta já tem, então nada foi movido: {1}. Rode ddcore tenant adopt {0} --dry-run para a lista completa",# internal/engine/tenancy.go:1102
 Advanced,Avançado,# desk/src/lib/controls/ColorControl.svelte:172
 Align,Alinhamento,# core.doctypes.letter_head.letter_head.doctype
 All,Todos,# desk/src/lib/components/ListView.svelte:541
