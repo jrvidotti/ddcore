@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.27.4 — 2026-10-06
+
 ### Added
 
 - `ddcore.errorLog.record(error, { method?, context? })` writes an `Error Log` row on a
