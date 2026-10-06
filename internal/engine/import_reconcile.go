@@ -30,6 +30,7 @@ import (
 // ImportReconciliation is the report.
 type ImportReconciliation struct {
 	Dir        string                       `json:"dir"`
+	Tenant     string                       `json:"tenant,omitempty"`
 	OK         bool                         `json:"ok"`
 	Doctypes   map[string]*ReconcileDoctype `json:"doctypes"`
 	Mismatches []ReconcileMismatch          `json:"mismatches,omitempty"`
@@ -60,6 +61,10 @@ type ReconcileMismatch struct {
 // through the ledger so only what this import loaded is counted. It writes
 // nothing.
 func (e *Engine) ImportReconcile(ctx context.Context, a ImportArgs) (*ImportReconciliation, error) {
+	ctx, a, err := e.importSpace(ctx, a)
+	if err != nil {
+		return nil, err
+	}
 	src, err := OpenImportSource(a.Dir)
 	if err != nil {
 		return nil, err
@@ -68,7 +73,7 @@ func (e *Engine) ImportReconcile(ctx context.Context, a ImportArgs) (*ImportReco
 	if err != nil {
 		return nil, err
 	}
-	rep := &ImportReconciliation{Dir: a.Dir, OK: true, Doctypes: map[string]*ReconcileDoctype{}}
+	rep := &ImportReconciliation{Dir: a.Dir, Tenant: a.Tenant, OK: true, Doctypes: map[string]*ReconcileDoctype{}}
 	st := e.Current()
 	for _, stage := range plan.stages {
 		d, err := st.DocType(stage.target)
@@ -114,6 +119,10 @@ func (e *Engine) reconcileDoctype(ctx context.Context, a ImportArgs, src *Import
 			return nil, err
 		}
 		_, doc := a.Map.Apply(stage.source, rec.Doc)
+		if a.tenantImport() && d.Name == "User" && platformAccount(doc.ID()) {
+			// never loaded into a tenant, so not counted against one
+			continue
+		}
 		side.SourceRows++
 		ids = append(ids, doc.ID())
 		ds := fmt.Sprint(doc.Docstatus())
@@ -140,10 +149,12 @@ func (e *Engine) reconcileDoctype(ctx context.Context, a ImportArgs, src *Import
 		side.Totals[k] = ratString(v)
 	}
 
-	// The database side, restricted to the ids this import actually loaded.
+	// The database side, in the space the load wrote into, restricted to the
+	// ids this import actually loaded.
+	q := e.statements(ctx)
 	// Both loaded and skipped: a skipped line was skipped because the document
 	// is already there, which is exactly what reconciling should count.
-	loaded, err := db.Select(ctx, e.DB.Pool, `SELECT id FROM ddcore_import_record
+	loaded, err := db.Select(ctx, q, `SELECT id FROM ddcore_import_record
 		WHERE source_doctype = $1 AND status IN ('loaded', 'skipped')`, stage.source)
 	if err != nil {
 		return nil, err
@@ -160,7 +171,7 @@ func (e *Engine) reconcileDoctype(ctx context.Context, a ImportArgs, src *Import
 		}
 		return side, nil
 	}
-	row := e.DB.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT count(*) FROM %s WHERE id = ANY($1)`, db.Ident(d.TableName())), targetIDs)
+	row := q.QueryRow(ctx, fmt.Sprintf(`SELECT count(*) FROM %s WHERE id = ANY($1)`, db.Ident(d.TableName())), targetIDs)
 	if err := row.Scan(&side.TargetRows); err != nil {
 		return nil, err
 	}
@@ -175,8 +186,8 @@ func (e *Engine) reconcileDoctype(ctx context.Context, a ImportArgs, src *Import
 			return nil, err
 		}
 		var n int64
-		q := fmt.Sprintf(`SELECT count(*) FROM %s WHERE parenttype = $1 AND parentfield = $2 AND parent = ANY($3)`, db.Ident(child.TableName()))
-		if err := e.DB.Pool.QueryRow(ctx, q, d.Name, tf.Fieldname, targetIDs).Scan(&n); err != nil {
+		sql := fmt.Sprintf(`SELECT count(*) FROM %s WHERE parenttype = $1 AND parentfield = $2 AND parent = ANY($3)`, db.Ident(child.TableName()))
+		if err := q.QueryRow(ctx, sql, d.Name, tf.Fieldname, targetIDs).Scan(&n); err != nil {
 			return nil, err
 		}
 		if want := side.ChildRows[child.Name]; want != n {
@@ -184,7 +195,7 @@ func (e *Engine) reconcileDoctype(ctx context.Context, a ImportArgs, src *Import
 				Detail: child.Name, Source: fmt.Sprint(want), Target: fmt.Sprint(n)})
 		}
 	}
-	rows, err := db.Select(ctx, e.DB.Pool, fmt.Sprintf(`SELECT docstatus, count(*) AS n FROM %s WHERE id = ANY($1) GROUP BY docstatus`, db.Ident(d.TableName())), targetIDs)
+	rows, err := db.Select(ctx, q, fmt.Sprintf(`SELECT docstatus, count(*) AS n FROM %s WHERE id = ANY($1) GROUP BY docstatus`, db.Ident(d.TableName())), targetIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -199,7 +210,7 @@ func (e *Engine) reconcileDoctype(ctx context.Context, a ImportArgs, src *Import
 		}
 	}
 	for _, f := range money {
-		rows, err := db.Select(ctx, e.DB.Pool, fmt.Sprintf(`SELECT docstatus, sum(%s)::text AS total FROM %s WHERE id = ANY($1) GROUP BY docstatus`,
+		rows, err := db.Select(ctx, q, fmt.Sprintf(`SELECT docstatus, sum(%s)::text AS total FROM %s WHERE id = ANY($1) GROUP BY docstatus`,
 			db.Ident(f.Fieldname), db.Ident(d.TableName())), targetIDs)
 		if err != nil {
 			return nil, err
@@ -244,7 +255,7 @@ func (e *Engine) reconcileDoctype(ctx context.Context, a ImportArgs, src *Import
 // export's checksum. It is not the default: it reads every byte the site holds
 // for these documents.
 func (e *Engine) reconcileBytes(ctx context.Context, src *ImportSource, stage importStage, ids []string) ([]string, []ReconcileMismatch, error) {
-	rows, err := db.Select(ctx, e.DB.Pool, `SELECT id, file_url FROM tab_file WHERE attached_to_doctype = $1 AND attached_to_id = ANY($2)`, stage.target, ids)
+	rows, err := db.Select(ctx, e.statements(ctx), `SELECT id, file_url FROM tab_file WHERE attached_to_doctype = $1 AND attached_to_id = ANY($2)`, stage.target, ids)
 	if err != nil {
 		return nil, nil, err
 	}

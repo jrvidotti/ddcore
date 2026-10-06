@@ -44,22 +44,22 @@ Options:
   --max-batches N   stop after N batches, leaving the run resumable
   --maintenance     pause the site for the load, and let it back in afterwards
   --verify-bytes    reconcile: read every stored attachment back
+  --tenant <slug>   load into this tenant, on a site with tenancy (run, status
+                    and reconcile; the same as --tenant before the command)
   --json            print the report as JSON
   --report f.json   write the report to a file
 
 A load keeps ids, owners and timestamps, runs no controller hook, and queues no
 webhook, notification or email: the documents are history, and their effects
-already happened. Two runs over the same directory load it once.`
+already happened. Two runs over the same directory load it once.
+
+Without --tenant a load goes into the platform space. Into a tenant it leaves
+out the shared DocTypes and the Admin and Guest accounts, which are the
+platform space's.`
 
 func cmdImport(args []string) error {
 	if len(args) < 1 {
 		return fmt.Errorf("%s", importUsage)
-	}
-	// A site-to-site load writes rows as they are and reconciles them outside
-	// any transaction, so it lands in the platform space; `ddcore tenant adopt`
-	// then gives the loaded site to a tenant.
-	if os.Getenv("DDCORE_TENANT") != "" {
-		return fmt.Errorf("import loads into the platform space: drop --tenant, then run `ddcore tenant adopt <slug>`")
 	}
 	sub, rest := args[0], args[1:]
 	switch sub {
@@ -86,6 +86,7 @@ func importFlags() (*flag.FlagSet, *importOpts) {
 	fs.BoolVar(&o.verifyBytes, "verify-bytes", false, "read every stored attachment back")
 	fs.BoolVar(&o.asJSON, "json", false, "print the report as JSON")
 	fs.StringVar(&o.report, "report", "", "write the report to this file")
+	fs.StringVar(&o.tenant, "tenant", "", "load into this tenant")
 	return fs, o
 }
 
@@ -101,6 +102,40 @@ type importOpts struct {
 	verifyBytes bool
 	asJSON      bool
 	report      string
+	tenant      string
+}
+
+// importTenant is the tenant a load names: --tenant after the command, or the
+// global --tenant before it. Both are accepted; naming two is an error.
+func importTenant(flagged string) (string, error) {
+	global := os.Getenv("DDCORE_TENANT")
+	if flagged != "" && global != "" && flagged != global {
+		return "", fmt.Errorf("--tenant names %s before the command and %s after it: give one", global, flagged)
+	}
+	if flagged != "" {
+		return flagged, nil
+	}
+	return global, nil
+}
+
+// importEngine loads the engine for an import command and checks the tenant
+// it names, before anything — maintenance mode included — is touched.
+func importEngine(ctx context.Context, tenant string) (*engine.Engine, error) {
+	e, _, err := load(false, false)
+	if err != nil {
+		return nil, err
+	}
+	if tenant != "" {
+		if !e.Cfg.Tenancy {
+			e.DB.Close()
+			return nil, fmt.Errorf(`--tenant needs "tenancy": true in ddcore.json`)
+		}
+		if err := e.CheckTenant(ctx, tenant); err != nil {
+			e.DB.Close()
+			return nil, err
+		}
+	}
+	return e, nil
 }
 
 func importCommand(sub string, args []string) error {
@@ -112,9 +147,13 @@ func importCommand(sub string, args []string) error {
 		return fmt.Errorf("give one export directory\n\n%s", importUsage)
 	}
 	dir := fs.Arg(0)
+	tenant, err := importTenant(o.tenant)
+	if err != nil {
+		return err
+	}
 
 	a := engine.ImportArgs{
-		Dir: dir, DryRun: o.dryRun || sub == "plan", Batch: o.batch, Resume: o.resume,
+		Dir: dir, Tenant: tenant, DryRun: o.dryRun || sub == "plan", Batch: o.batch, Resume: o.resume,
 		MaxBatches: o.maxBatches, VerifyBytes: o.verifyBytes, Actor: cliActor(),
 		Only: splitList(o.only), Include: splitList(o.include),
 	}
@@ -131,13 +170,13 @@ func importCommand(sub string, args []string) error {
 		a.Map, a.MapSHA = m, hex.EncodeToString(sum[:])
 	}
 
-	e, _, err := load(false, false)
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer cancel()
+	e, err := importEngine(ctx, tenant)
 	if err != nil {
 		return err
 	}
 	defer e.DB.Close()
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
-	defer cancel()
 
 	if o.maintenance && !a.DryRun {
 		prev := e.Maintenance(ctx)
@@ -187,43 +226,63 @@ func importCommand(sub string, args []string) error {
 func importStatus(args []string) error {
 	fs := newFlagSet("import status")
 	asJSON := fs.Bool("json", false, "print as JSON")
+	flagged := fs.String("tenant", "", "the runs that loaded into this tenant")
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
-	return withEngine(func(e *engine.Engine, ctx context.Context) error {
-		if fs.NArg() == 1 {
-			run, err := e.ImportRunByID(ctx, fs.Arg(0))
-			if err != nil {
-				return err
-			}
-			errs, err := e.ImportRunErrors(ctx, run.ID, 50)
-			if err != nil {
-				return err
-			}
-			run.Errors = errs
-			if *asJSON {
-				return printJSON(run)
-			}
-			printRun("status", &importOpts{}, run)
-			return nil
-		}
-		runs, err := e.ImportRuns(ctx, 20)
+	tenant, err := importTenant(*flagged)
+	if err != nil {
+		return err
+	}
+	ctx := context.Background()
+	e, err := importEngine(ctx, tenant)
+	if err != nil {
+		return err
+	}
+	defer e.DB.Close()
+	if e.Cfg.Tenancy {
+		// the list is of one space: the platform's unless --tenant names one
+		ctx = engine.WithTenant(ctx, tenant)
+	}
+	if fs.NArg() == 1 {
+		run, err := e.ImportRunByID(ctx, fs.Arg(0))
 		if err != nil {
 			return err
 		}
+		errs, err := e.ImportRunErrors(ctx, run.ID, 50)
+		if err != nil {
+			return err
+		}
+		run.Errors = errs
 		if *asJSON {
-			return printJSON(runs)
+			return printJSON(run)
 		}
-		if len(runs) == 0 {
-			fmt.Println("no import has run on this site")
-			return nil
-		}
-		fmt.Printf("%-12s %-22s %-12s %s\n", "ID", "STARTED", "STATUS", "DIRECTORY")
-		for _, r := range runs {
-			fmt.Printf("%-12s %-22s %-12s %s\n", r.ID, r.Started.Format("2006-01-02 15:04:05"), r.Status, r.Dir)
-		}
+		printRun("status", &importOpts{}, run)
 		return nil
-	})
+	}
+	runs, err := e.ImportRuns(ctx, 20)
+	if err != nil {
+		return err
+	}
+	if *asJSON {
+		return printJSON(runs)
+	}
+	if len(runs) == 0 {
+		fmt.Println("no import has run here")
+		return nil
+	}
+	if e.Cfg.Tenancy {
+		space := "the platform space"
+		if tenant != "" {
+			space = "the tenant " + tenant
+		}
+		fmt.Printf("runs that loaded into %s\n\n", space)
+	}
+	fmt.Printf("%-12s %-22s %-12s %s\n", "ID", "STARTED", "STATUS", "DIRECTORY")
+	for _, r := range runs {
+		fmt.Printf("%-12s %-22s %-12s %s\n", r.ID, r.Started.Format("2006-01-02 15:04:05"), r.Status, r.Dir)
+	}
+	return nil
 }
 
 func splitList(s string) []string {
@@ -259,7 +318,11 @@ func printRun(sub string, o *importOpts, run *engine.ImportRun) {
 	if sub == "plan" {
 		fmt.Printf("would load, in this order: %s\n", strings.Join(run.Order, " → "))
 	}
-	fmt.Printf("run %s — %s\n\n", run.ID, run.Status)
+	if run.Tenant != "" {
+		fmt.Printf("run %s — %s, into the tenant %s\n\n", run.ID, run.Status, run.Tenant)
+	} else {
+		fmt.Printf("run %s — %s\n\n", run.ID, run.Status)
+	}
 	names := make([]string, 0, len(run.Counts))
 	for n := range run.Counts {
 		names = append(names, n)
@@ -286,8 +349,18 @@ func printRun(sub string, o *importOpts, run *engine.ImportRun) {
 		fmt.Printf("dangling: %s %s.%s → %s %s\n", d.Doctype, d.ID, d.Field, d.Target, d.TargetID)
 	}
 	if run.Status == engine.ImportPaused {
-		fmt.Printf("\npaused; continue with: ddcore import run %s --resume %s\n", run.Dir, run.ID)
+		fmt.Printf("\npaused; continue with: %s\n", resumeCommand(run))
 	}
+}
+
+// resumeCommand is the command that continues a paused run, in the space it
+// loads into.
+func resumeCommand(run *engine.ImportRun) string {
+	cmd := fmt.Sprintf("ddcore import run %s --resume %s", run.Dir, run.ID)
+	if run.Tenant != "" {
+		cmd += " --tenant " + run.Tenant
+	}
+	return cmd
 }
 
 func printReconciliation(o *importOpts, rep *engine.ImportReconciliation) {

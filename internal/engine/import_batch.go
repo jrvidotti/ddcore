@@ -26,11 +26,17 @@ func (e *Engine) openImportRun(ctx context.Context, src *ImportSource, a ImportA
 		if run.Dir != a.Dir {
 			return nil, cerr.Validation("run {0} loaded {1}, not {2}", a.Resume, run.Dir, a.Dir)
 		}
+		if run.Tenant != a.Tenant {
+			if run.Tenant == "" {
+				return nil, cerr.Validation("run {0} loads into the platform space: resume it without --tenant", a.Resume)
+			}
+			return nil, cerr.Validation("run {0} loads into the tenant {1}: resume it with --tenant {1}", a.Resume, run.Tenant)
+		}
 		run.Status = ImportRunning
 		return run, nil
 	}
 	run := &ImportRun{
-		ID: randomID(), Dir: a.Dir, Status: ImportRunning, Actor: a.Actor, DryRun: a.DryRun,
+		ID: randomID(), Dir: a.Dir, Tenant: a.Tenant, Status: ImportRunning, Actor: a.Actor, DryRun: a.DryRun,
 		Started: time.Now(), Counts: map[string]*ImportCounts{}, Cursor: map[string]int{},
 	}
 	if a.DryRun {
@@ -38,18 +44,19 @@ func (e *Engine) openImportRun(ctx context.Context, src *ImportSource, a ImportA
 		// row itself would be the one trace it left behind.
 		return run, nil
 	}
-	_, err := e.DB.Pool.Exec(ctx, `INSERT INTO ddcore_import_run (id, dir, manifest_sha, mapping_sha, status, actor, dry_run, started, cursor, counts)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'{}'::jsonb,'{}'::jsonb)`,
-		run.ID, a.Dir, manifestSHA(src), a.MapSHA, run.Status, a.Actor, a.DryRun, run.Started)
+	_, err := e.DB.Pool.Exec(ctx, `INSERT INTO ddcore_import_run (id, dir, tenant, manifest_sha, mapping_sha, status, actor, dry_run, started, cursor, counts)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'{}'::jsonb,'{}'::jsonb)`,
+		run.ID, a.Dir, a.Tenant, manifestSHA(src), a.MapSHA, run.Status, a.Actor, a.DryRun, run.Started)
 	if err != nil {
 		return nil, err
 	}
 	return run, nil
 }
 
-// ImportRunByID reads a run from the ledger.
+// ImportRunByID reads a run from the ledger, whatever space it loaded into:
+// run ids are site-wide, and the run says which space that was.
 func (e *Engine) ImportRunByID(ctx context.Context, id string) (*ImportRun, error) {
-	rows, err := db.Select(ctx, e.DB.Pool, `SELECT id, dir, status, actor, dry_run, started, finished, cursor, counts, message
+	rows, err := db.Select(ctx, e.DB.Pool, `SELECT id, dir, tenant, status, actor, dry_run, started, finished, cursor, counts, message
 		FROM ddcore_import_run WHERE id = $1`, id)
 	if err != nil {
 		return nil, err
@@ -60,13 +67,23 @@ func (e *Engine) ImportRunByID(ctx context.Context, id string) (*ImportRun, erro
 	return importRunFromRow(rows[0])
 }
 
-// ImportRuns lists the runs, newest first.
+// ImportRuns lists the runs that loaded into the space ctx names, newest
+// first. Without tenancy that is every run.
 func (e *Engine) ImportRuns(ctx context.Context, limit int) ([]*ImportRun, error) {
 	if limit <= 0 {
 		limit = 20
 	}
-	rows, err := db.Select(ctx, e.DB.Pool, `SELECT id, dir, status, actor, dry_run, started, finished, cursor, counts, message
-		FROM ddcore_import_run ORDER BY started DESC LIMIT $1`, limit)
+	on, err := e.tenancy(ctx)
+	if err != nil {
+		return nil, err
+	}
+	where, args := "", []any{limit}
+	if on {
+		tenant, _ := e.namedTenant(ctx)
+		where, args = "WHERE tenant = $2", append(args, tenant)
+	}
+	rows, err := db.Select(ctx, e.DB.Pool, `SELECT id, dir, tenant, status, actor, dry_run, started, finished, cursor, counts, message
+		FROM ddcore_import_run `+where+` ORDER BY started DESC LIMIT $1`, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +100,7 @@ func (e *Engine) ImportRuns(ctx context.Context, limit int) ([]*ImportRun, error
 
 func importRunFromRow(r map[string]any) (*ImportRun, error) {
 	run := &ImportRun{
-		ID: db.Str(r["id"]), Dir: db.Str(r["dir"]), Status: db.Str(r["status"]),
+		ID: db.Str(r["id"]), Dir: db.Str(r["dir"]), Tenant: db.Str(r["tenant"]), Status: db.Str(r["status"]),
 		Actor: db.Str(r["actor"]), Message: db.Str(r["message"]),
 		Counts: map[string]*ImportCounts{}, Cursor: map[string]int{},
 	}
@@ -267,6 +284,12 @@ func (e *Engine) importOne(c *Ctx, a ImportArgs, src *ImportSource, run *ImportR
 	id := doc.ID()
 	if id == "" {
 		return cerr.Validation("The record has no id")
+	}
+	if a.tenantImport() && stage.target == "User" && platformAccount(id) {
+		// the framework's own accounts are the platform space's, in every site
+		out.skipped++
+		out.notes = append(out.notes, fmt.Sprintf("%s %s: stays in the platform space", source, id))
+		return nil
 	}
 	known, err := e.ledgerHas(c, source, rec.Doc.ID())
 	if err != nil {

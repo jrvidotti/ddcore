@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/db"
 	"github.com/jrvidotti/ddcore/internal/meta"
 )
@@ -73,6 +74,10 @@ type ImportArgs struct {
 	// is off by default: it reads every byte the site holds for these
 	// documents, which on a real migration is the whole file store.
 	VerifyBytes bool
+	// Tenant is the tenant the load writes into, on a site with tenancy; empty
+	// is the space the context names, which for the CLI and MCP is the
+	// platform space. Its ledger, series and audit events are the tenant's.
+	Tenant string
 }
 
 // ImportCounts is one DocType's tally.
@@ -112,6 +117,7 @@ type ImportExclusion struct {
 type ImportRun struct {
 	ID       string                   `json:"id"`
 	Dir      string                   `json:"dir"`
+	Tenant   string                   `json:"tenant,omitempty"`
 	Status   string                   `json:"status"`
 	Actor    string                   `json:"actor"`
 	DryRun   bool                     `json:"dryRun"`
@@ -130,6 +136,10 @@ type ImportRun struct {
 // Import loads an export directory. It returns the run either finished or
 // paused; a paused run is resumed by passing its id back.
 func (e *Engine) Import(ctx context.Context, a ImportArgs) (*ImportRun, error) {
+	ctx, a, err := e.importSpace(ctx, a)
+	if err != nil {
+		return nil, err
+	}
 	src, err := OpenImportSource(a.Dir)
 	if err != nil {
 		return nil, err
@@ -194,7 +204,7 @@ func (e *Engine) Import(ctx context.Context, a ImportArgs) (*ImportRun, error) {
 			}
 			reader.Close()
 		}
-		return e.verifyDeferredLinks(ctx, queryOf(e, shared), run, plan)
+		return e.verifyDeferredLinks(ctx, queryOf(ctx, e, shared), run, plan)
 	}
 
 	if a.DryRun {
@@ -246,13 +256,45 @@ func (e *Engine) importCtx(ctx context.Context, a ImportArgs) *Ctx {
 }
 
 // queryOf is the querier a phase runs on: the dry run's own transaction, or
-// the pool when the batches committed on their own.
-func queryOf(e *Engine, shared *Ctx) db.Querier {
+// when the batches committed on their own, statements in the space the load
+// writes into.
+func queryOf(ctx context.Context, e *Engine, shared *Ctx) db.Querier {
 	if shared != nil {
 		return shared.Q()
 	}
-	return e.DB.Pool
+	return e.statements(ctx)
 }
+
+// importSpace settles where a load or a reconciliation works: the tenant
+// the arguments name, or else the space ctx names. A named tenant needs
+// tenancy, and has to exist and be enabled. The context it returns names the
+// space, so the load's transactions, its series and its audit events all
+// land there.
+func (e *Engine) importSpace(ctx context.Context, a ImportArgs) (context.Context, ImportArgs, error) {
+	on, err := e.tenancy(ctx)
+	if err != nil {
+		return ctx, a, err
+	}
+	if !on {
+		if a.Tenant != "" {
+			return ctx, a, cerr.Validation("This site has no tenants: tenancy is off")
+		}
+		return ctx, a, nil
+	}
+	if a.Tenant == "" {
+		a.Tenant, _ = e.namedTenant(ctx)
+	}
+	if a.Tenant != "" {
+		if err := e.checkTenant(ctx, nil, a.Tenant); err != nil {
+			return ctx, a, err
+		}
+	}
+	return WithTenant(ctx, a.Tenant), a, nil
+}
+
+// tenantImport reports whether a load writes into a tenant rather than the
+// platform space.
+func (a ImportArgs) tenantImport() bool { return a.Tenant != "" }
 
 // importStage is one DocType's place in the load.
 type importStage struct {
@@ -301,6 +343,11 @@ func (e *Engine) importPlan(ctx context.Context, src *ImportSource, a ImportArgs
 		}
 		if d.IsChild || d.IsSingle || d.IsVirtual() {
 			plan.excluded = append(plan.excluded, ImportExclusion{source, "a child table, a Single or a virtual DocType is not loaded on its own"})
+			continue
+		}
+		if a.tenantImport() && !d.TenantOwned {
+			// one set of documents for the whole site: a tenant cannot write it
+			plan.excluded = append(plan.excluded, ImportExclusion{source, "shared: site-wide, load it from the platform space"})
 			continue
 		}
 		res := src.Result(source)

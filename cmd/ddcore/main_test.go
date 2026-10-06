@@ -508,14 +508,46 @@ func TestAttachmentPathKeepsPublicAndPrivateApart(t *testing.T) {
 
 func TestImportFlagsAfterPositional(t *testing.T) {
 	fs, o := importFlags()
-	if err := parseFlags(fs, []string{"export/2026", "--dry-run", "--batch", "50", "--only", "Project,Task"}); err != nil {
+	if err := parseFlags(fs, []string{"export/2026", "--dry-run", "--batch", "50", "--only", "Project,Task", "--tenant", "acme"}); err != nil {
 		t.Fatal(err)
 	}
 	if fs.NArg() != 1 || fs.Arg(0) != "export/2026" {
 		t.Fatalf("args = %v", fs.Args())
 	}
-	if !o.dryRun || o.batch != 50 || o.only != "Project,Task" {
+	if !o.dryRun || o.batch != 50 || o.only != "Project,Task" || o.tenant != "acme" {
 		t.Fatalf("opts = %+v", o)
+	}
+}
+
+// --tenant before `import` and after it are the same thing; two different
+// tenants are a mistake, not a choice.
+func TestImportTenantBeforeOrAfterTheCommand(t *testing.T) {
+	t.Setenv("DDCORE_TENANT", "")
+	if got, err := importTenant("acme"); err != nil || got != "acme" {
+		t.Fatalf("after: %q %v", got, err)
+	}
+	if rest := stripGlobalFlags([]string{"--tenant", "acme", "import", "run", "dir"}); strings.Join(rest, " ") != "import run dir" {
+		t.Fatalf("rest = %v", rest)
+	}
+	if got, err := importTenant(""); err != nil || got != "acme" {
+		t.Fatalf("before: %q %v", got, err)
+	}
+	if got, err := importTenant("acme"); err != nil || got != "acme" {
+		t.Fatalf("both, the same: %q %v", got, err)
+	}
+	if _, err := importTenant("other"); err == nil {
+		t.Fatal("two different tenants were accepted")
+	}
+}
+
+func TestImportResumeHintNamesTheTenant(t *testing.T) {
+	run := &engine.ImportRun{ID: "r1", Dir: "export", Tenant: "acme"}
+	if got := resumeCommand(run); got != "ddcore import run export --resume r1 --tenant acme" {
+		t.Fatalf("hint = %q", got)
+	}
+	run.Tenant = ""
+	if got := resumeCommand(run); got != "ddcore import run export --resume r1" {
+		t.Fatalf("hint = %q", got)
 	}
 }
 
@@ -560,5 +592,27 @@ func TestEverySubcommandUsageIsSet(t *testing.T) {
 		if strings.TrimSpace(u) == "" {
 			t.Fatalf("%s has no usage text", cmd)
 		}
+	}
+}
+
+func TestAdoptDryRunFailsOnACollision(t *testing.T) {
+	clean := &engine.AdoptPreview{Tenant: "acme", Tables: []engine.AdoptTable{{Table: "tab_customer", Rows: 3}}}
+	var out strings.Builder
+	if err := printAdoptPreview(&out, clean); err != nil {
+		t.Fatalf("a clean preview failed: %v", err)
+	}
+	if !strings.Contains(out.String(), "tab_customer") || !strings.Contains(out.String(), "would move 3 rows") {
+		t.Fatalf("output:\n%s", out.String())
+	}
+	clash := &engine.AdoptPreview{Tenant: "acme", Tables: []engine.AdoptTable{{Table: "tab_settings", Rows: 1,
+		Collisions: []engine.AdoptCollision{{Index: "tab_settings_pkey", Columns: []string{"id"}, Count: 12,
+			Samples: []string{"singleton"}}}}}}
+	out.Reset()
+	err := printAdoptPreview(&out, clash)
+	if err == nil || !strings.Contains(err.Error(), "12 rows") {
+		t.Fatalf("a collision did not fail the dry run: %v", err)
+	}
+	if !strings.Contains(out.String(), "12 on (id): singleton and 11 more") {
+		t.Fatalf("output:\n%s", out.String())
 	}
 }

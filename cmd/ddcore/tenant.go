@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"sort"
 	"strings"
@@ -18,8 +19,10 @@ const tenantUsage = `usage: ddcore tenant <command>
   create <slug> [--title T] [--admin email [--name N]]
                                          create a tenant; --admin invites its first System Manager
   enable <slug> | disable <slug>         a disabled tenant refuses sign-ins, requests and jobs
-  adopt <slug>                           move every row of the platform space into the tenant
-                                         (a site that had one customer before it had tenancy)
+  adopt <slug> [--dry-run]               move every row of the platform space into the tenant
+                                         (a site that had one customer before it had tenancy);
+                                         --dry-run lists what would move and every key the
+                                         tenant already uses, and exits non-zero on one
 
 Needs "tenancy": true in ddcore.json. To run any other command inside a
 tenant, put --tenant <slug> before it: ddcore --tenant acme eval '…'
@@ -50,26 +53,79 @@ func cmdTenant(args []string) error {
 			}
 			return tenantEnable(e, ctx, args[1], args[0] == "enable")
 		case "adopt":
-			if len(args) < 2 {
-				return fmt.Errorf("usage: ddcore tenant adopt <slug>")
-			}
-			moved, err := e.AdoptPlatformRows(ctx, args[1])
-			if err != nil {
-				return err
-			}
-			tables := make([]string, 0, len(moved))
-			for t := range moved {
-				tables = append(tables, t)
-			}
-			sort.Strings(tables)
-			for _, t := range tables {
-				fmt.Printf("  %-32s %d\n", t, moved[t])
-			}
-			fmt.Printf("%s adopted the rows of the platform space (%d tables)\n", args[1], len(tables))
-			return nil
+			return tenantAdopt(e, ctx, args[1:])
 		}
 		return fmt.Errorf("unknown tenant command %q\n\n%s", args[0], tenantUsage)
 	})
+}
+
+func tenantAdopt(e *engine.Engine, ctx context.Context, args []string) error {
+	fs := newFlagSet("tenant adopt")
+	dry := fs.Bool("dry-run", false, "list what would move and every collision with the tenant, and move nothing")
+	if err := parseFlags(fs, args); err != nil {
+		return err
+	}
+	if fs.NArg() < 1 {
+		return fmt.Errorf("usage: ddcore tenant adopt <slug> [--dry-run]")
+	}
+	slug := fs.Arg(0)
+	if *dry {
+		p, err := e.AdoptPreview(ctx, slug)
+		if err != nil {
+			return err
+		}
+		return printAdoptPreview(os.Stdout, p)
+	}
+	moved, err := e.AdoptPlatformRows(ctx, slug)
+	if err != nil {
+		return err
+	}
+	tables := make([]string, 0, len(moved))
+	for t := range moved {
+		tables = append(tables, t)
+	}
+	sort.Strings(tables)
+	for _, t := range tables {
+		fmt.Printf("  %-32s %d\n", t, moved[t])
+	}
+	fmt.Printf("%s adopted the rows of the platform space (%d tables)\n", slug, len(tables))
+	return nil
+}
+
+// printAdoptPreview prints a dry run of an adopt, and fails when the adopt
+// would: a collision is what an operator runs the dry run to find.
+func printAdoptPreview(out io.Writer, p *engine.AdoptPreview) error {
+	w := tabwriter.NewWriter(out, 0, 4, 2, ' ', 0)
+	fmt.Fprintln(w, "TABLE\tROWS\tCOLLISIONS")
+	var rows, collisions int64
+	for _, t := range p.Tables {
+		rows += t.Rows
+		if len(t.Collisions) == 0 {
+			fmt.Fprintf(w, "%s\t%d\t\n", t.Table, t.Rows)
+			continue
+		}
+		for i, c := range t.Collisions {
+			collisions += c.Count
+			table, n := t.Table, fmt.Sprint(t.Rows)
+			if i > 0 {
+				table, n = "", ""
+			}
+			more := ""
+			if extra := c.Count - int64(len(c.Samples)); extra > 0 {
+				more = fmt.Sprintf(" and %d more", extra)
+			}
+			fmt.Fprintf(w, "%s\t%s\t%d on (%s): %s%s\n", table, n, c.Count,
+				strings.Join(c.Columns, ", "), strings.Join(c.Samples, "; "), more)
+		}
+	}
+	if err := w.Flush(); err != nil {
+		return err
+	}
+	if collisions > 0 {
+		return fmt.Errorf("%d rows of the platform space collide with rows %s already has: adopt would refuse; nothing was moved", collisions, p.Tenant)
+	}
+	fmt.Fprintf(out, "dry run: adopt would move %d rows of %d tables into %s; nothing was moved\n", rows, len(p.Tables), p.Tenant)
+	return nil
 }
 
 func tenantList(e *engine.Engine, ctx context.Context) error {

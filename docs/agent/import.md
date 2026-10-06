@@ -36,12 +36,13 @@ its per-record errors.
 --max-batches N   stop after N batches, leaving the run resumable
 --maintenance     pause the site for the load, and let it back in afterwards
 --verify-bytes    reconcile: read every stored attachment back
+--tenant <slug>   load into this tenant (run, status, reconcile; see below)
 --json, --report f.json
 ```
 
 The same thing is an MCP tool — `import` with `action: plan|run|status|
 reconcile` — where `max_batches` lets a long load advance over several calls
-instead of one that times out.
+instead of one that times out, and `tenant` names the tenant to load into.
 
 ## What it keeps, and what it checks
 
@@ -61,7 +62,8 @@ and `User.password_hash`. Imported users have no password and get in through
 field it could not bring.
 
 After each record the load also advances `ddcore_series` past the id it wrote —
-otherwise the next document created here takes an id the import just used —
+otherwise the next document created here takes an id the import just used, and
+in a tenant it is that tenant's series that moves —
 and marks a date notification whose day has already passed as done, so nobody
 is reminded about an invoice from two years ago.
 
@@ -161,6 +163,46 @@ A load started from the CLI is not stopped by maintenance mode; `--maintenance`
 turns it on for the duration so nothing else writes while it runs. The users,
 roles, scopes and shares it loads clear the running servers' caches when the load
 commits, as a save would (see *Caching* in `scopes`), so no restart is needed.
+
+## Into a tenant
+
+On a site with [tenancy](tenancy.md), a load goes into the platform space unless
+it names a tenant:
+
+```bash
+ddcore import run       /srv/export --tenant acme --dry-run
+ddcore import run       /srv/export --tenant acme
+ddcore import reconcile /srv/export --tenant acme
+ddcore import status --tenant acme
+```
+
+`--tenant` may also go before the command (`ddcore --tenant acme import run …`);
+naming two different tenants is an error. The tenant has to exist and be
+enabled. Everything the load writes is the tenant's: the documents, the ledger
+(so the same export loads into two tenants, once in each), the numbering series
+and the `import.run` audit events. A run remembers its tenant: `--resume`
+refuses a different one, the hint a paused run prints carries it, and `status`
+lists the runs of one space — the platform's without `--tenant`.
+
+What a tenant cannot hold is left out:
+
+- **Shared DocTypes** are site-wide; the plan lists them as left out, "shared:
+  site-wide, load it from the platform space". Load them once, without
+  `--tenant`.
+- **`Admin` and `Guest`** belong to the platform space. Their lines are skipped
+  with a note, and reconcile does not count them.
+- **An attachment whose url a file of another space already holds** fails its
+  record. Storage keys carry no tenant, so writing those bytes would overwrite
+  the other tenant's file. Uploads get random names, so in practice this is
+  one export loaded into two tenants: the second load's attachments fail.
+
+A user's e-mail is site-wide too: a user who already has an account in another
+space fails its record as a duplicate.
+
+This is the way to bring a customer's data into a tenant without touching the
+rest of the site. `ddcore tenant adopt` instead moves *everything* in the
+platform space into a tenant at once — the path for a whole site that had one
+customer before it had tenancy.
 
 ## Not covered
 
