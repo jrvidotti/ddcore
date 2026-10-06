@@ -125,6 +125,11 @@ export const sync = whitelisted(() => {
 no request behind that work, and the emptiness is information. A failed job run
 still gets a handle of its own (`job:<id>`) on the `Error Log` row it writes.
 
+App code can write a row of its own and go on: `ddcore.errorLog.record(e, { context })`
+files it on a transaction of its own, so a job that catches a failing step keeps the
+other steps' work and still leaves the failure where operators look. The row carries the
+request's id, or `job:<id>` in a job's body, and `ddcore doctor` counts it like any other.
+
 In the desk, a `DDCoreError` carries `requestId`, and the toast for a `500`
 shows it in brackets so a user can quote it.
 

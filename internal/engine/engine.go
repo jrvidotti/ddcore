@@ -967,6 +967,9 @@ type Ctx struct {
 	// spaced is whether Tenant was decided already, by a parent ctx that
 	// shares its transaction; runOnce resolves it otherwise.
 	spaced bool
+	// rtLent is whether rt belongs to a ctx further up the stack, lent for
+	// one write (an Error Log row): release leaves it to its owner.
+	rtLent bool
 }
 
 func (e *Engine) NewCtx(ctx context.Context, user string) *Ctx {
@@ -1082,7 +1085,7 @@ func (c *Ctx) rolledBack() {
 }
 
 func (c *Ctx) release() {
-	if c.rt != nil {
+	if c.rt != nil && !c.rtLent {
 		// returns to the pool that created the VM, not the current pool (B08)
 		c.rt.Release()
 		c.rt = nil

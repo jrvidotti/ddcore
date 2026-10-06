@@ -359,6 +359,12 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		}
 		c.AfterCommit(func() { c.publish(ev) })
 		return nil, nil
+	case "errorLog.record":
+		// the prelude builds these arguments, and record never throws: a
+		// part that does not decode is left empty, as ddcore.log does
+		var r AppError
+		json.Unmarshal(raw, &r)
+		return c.RecordAppError(rt, r), nil
 	case "log":
 		var l struct {
 			Level string         `json:"level"`

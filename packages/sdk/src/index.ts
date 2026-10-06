@@ -363,6 +363,24 @@ export interface DDCoreAPI {
    */
   log: { info(...a: any[]): void; warn(...a: any[]): void; error(...a: any[]): void; debug(...a: any[]): void };
   /**
+   * The Error Log, written by the app on purpose.
+   */
+  errorLog: {
+    /**
+     * Files an Error Log row about `error` on a transaction of its own and
+     * returns the row's id, so a caught failure reaches the Error Log and
+     * `ddcore doctor` while the work goes on: the row stays whether the
+     * caller's transaction commits or rolls back. `error` may be an `Error`,
+     * a `DDCoreError` or a string. The row carries the current request's id,
+     * or `job:<id>` in a job, and lands in the current tenant. `method` names
+     * the row's source (default `job:<method>` in a job, `app.record`
+     * elsewhere); `context` is appended to the text as JSON. Never throws:
+     * returns `""` when the row could not be written, which the process log
+     * still records.
+     */
+    record(error: unknown, opts?: { method?: string; context?: Record<string, any> }): string;
+  };
+  /**
    * Document sharing (SEC-03): per-user grants on one document, checked with
    * the current user as the sharer. See `docs/agent/sharing.md`.
    */
