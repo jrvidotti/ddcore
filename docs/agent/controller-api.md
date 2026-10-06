@@ -201,7 +201,7 @@ by hand.
 
 - `ddcore.db.getValue(doctype, id | filters, field | [fields])` — a value or an object (or `null`)
 - `ddcore.db.getSingleValue(doctype, field)` — one field of a Single (see "Single DocTypes"); before the first save, the field's default
-- `ddcore.db.getList(doctype, { filters, fields, orderBy, limit, start, groupBy })` — respects permissions; `getAll` skips role permissions but still applies user access scopes (see `scopes`)
+- `ddcore.db.getList(doctype, { filters, fields, orderBy, limit, start, groupBy })` — every matching row unless `limit` is set (`0` is no limit too); respects permissions; `getAll` skips role permissions but still applies user access scopes (see `scopes`)
 - `ddcore.db.setValue(doctype, id, field, value)` / `setValue(doctype, id, { ... })` — no validate; updates `modified`; skips role permissions but applies user access scopes, the closed-DocType, workflow and Audit Event refusals (see `scopes`)
 - `ddcore.db.count(doctype, filters)`, `ddcore.db.exists(doctype, id | filters)` → the id or `null`; applies user access scopes (see `scopes`)
 - `ddcore.db.sql("SELECT ... WHERE x = $1", [v])` — read-only; tables are `tab_<snake>`

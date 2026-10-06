@@ -14,6 +14,14 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Changed
+
+- `limit=0` on `GET /api/resource/<DocType>` — and so `ddcore.db.getList(doctype, { limit: 0 })`
+  in a desk script — returns every matching row, as `limit: 0` does on the server; it used to be
+  read as "left out" and return a page of 20, so a bulk action over "all" silently acted on the
+  first page. A negative or non-numeric `limit` is now a `ValidationError` instead of returning
+  everything or 20. `form-api` documents the desk `getList`'s default of 20 (#101).
+
 ## 0.27.5 — 2026-10-06
 
 ### Added
