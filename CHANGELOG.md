@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.27.7 — 2026-10-06
+
 ### Added
 
 - `ddcore exec --args -` reads the JSON arguments from stdin, and `--args-file <path>` from a
