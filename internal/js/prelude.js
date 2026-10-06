@@ -947,6 +947,18 @@
       error: (...a) => logLine("error", a),
       debug: (...a) => logLine("debug", a),
     },
+    errorLog: {
+      // Files an Error Log row on a transaction of its own and returns its id,
+      // so the caller can catch a failure, leave it where operators look, and
+      // go on: the row stays whether the caller's work commits or not.
+      record(error, opts) {
+        opts = opts || {};
+        const r = errorParts(toError(error));
+        r.method = opts.method == null ? "" : String(opts.method);
+        if (opts.context !== undefined) r.context = errorContext(opts.context);
+        return call("errorLog.record", r) || "";
+      },
+    },
     isTest() { return !!globalThis.__ddcoreTest; },
     isJob() { return !call("session").request; },
     // runs fn under user's roles and access scopes, on the caller's
@@ -1155,6 +1167,39 @@
   // and everything else is joined into the message: a string as is, an Error
   // as "Error: message", anything else as JSON. Logging never throws, so a
   // value JSON cannot hold (a cycle, a BigInt) is written with String.
+  // errorParts is what errorLog.record files about a caught value: a
+  // DDCoreError's type and title, any other Error's name, and the message
+  // and stack of both. A value that is not an Error is its message.
+  function errorParts(e) {
+    const r = { type: "", title: "", message: "", stack: "" };
+    if (e instanceof DDCoreError) {
+      r.type = e.ddcoreType || "";
+      r.title = e.title ? String(e.title) : "";
+    } else if (e instanceof Error) {
+      r.type = e.name ? String(e.name) : "Error";
+    }
+    if (e instanceof Error) {
+      r.message = e.message == null ? "" : String(e.message);
+      r.stack = typeof e.stack === "string" ? e.stack : "";
+    } else if (typeof e === "string") {
+      r.message = e;
+    } else if (e && typeof e === "object" && typeof e.message === "string") {
+      r.message = e.message;
+    } else {
+      r.message = logWord(e);
+    }
+    return r;
+  }
+  // errorContext is the context as JSON, made here so a value JSON cannot
+  // hold (a cycle, a BigInt) costs the row its context and not the caller a throw.
+  function errorContext(v) {
+    try {
+      const j = JSON.stringify(v);
+      return j === undefined ? String(v) : j;
+    } catch (_) {
+      try { return String(v); } catch (_) { return "[context could not be serialised]"; }
+    }
+  }
   function logLine(level, args) {
     const words = [];
     const attrs = {};

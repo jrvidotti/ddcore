@@ -918,26 +918,7 @@ func jobSpace(ctx context.Context, row map[string]any) context.Context {
 // LogError writes an Error Log document outside the failed transaction, in
 // the tenant ctx names, if it names one.
 func (e *Engine) LogError(ctx context.Context, method string, err error) {
-	id := RequestIDFrom(ctx)
-	// The id is omitted rather than logged empty when no request is behind the
-	// work: `id=""` on every migration and CLI error is noise that makes the
-	// lines that do correlate harder to spot.
-	if id != "" {
-		e.Log.Error(err.Error(), "method", method, "id", id)
-	} else {
-		e.Log.Error(err.Error(), "method", method)
-	}
-	// The context of a failed request is very often already cancelled — the
-	// client hung up, or a timeout is what failed it in the first place — and
-	// the row explaining why is then the one thing that gets lost. Detach, but
-	// keep a bound: this runs on an error path and must not hold a connection.
-	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
-	defer cancel()
-	e.Run(ctx, "Admin", func(c *Ctx) error {
-		doc, _ := c.NewDoc("Error Log", Doc{"method": method, "error": err.Error(), "request_id": id})
-		_, e := c.Insert(doc, SaveOpts{IgnorePermissions: true})
-		return e
-	})
+	e.recordError(ctx, method, err.Error(), nil, nil)
 }
 
 // scheduler is the running cron and the context it was started with, which a

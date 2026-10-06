@@ -256,6 +256,7 @@ by hand.
 - `ddcore.isTest()` → `true` inside `ddcore test`; `ddcore.isJob()` → `true` inside a background job
 - `ddcore.publish(event, payload, { user, doctype, id })` — SSE to the desk when the transaction commits. With `user`, only that user's sessions; with `doctype` and `id`, only sessions that may read that document (with `doctype` alone, the DocType) — the audience `doc_update` has. The name is letters, digits and `_ . : -`; prefix it with the app's name. The desk listens with `frm.onRealtime` / `ddcore.realtime.on` (see `form-api`)
 - `ddcore.log.info/warn/error/debug(...args)` write one structured record to the server log, with the current user. A plain object's keys become fields of the record, and the other arguments are joined into its message: a string as is, an `Error` as `"Error: message"`, anything else as JSON. So `ddcore.log.warn("gateway retry", { method, status, requestId })` logs `msg="gateway retry"` with `method`, `status` and `requestId` as fields a collector can index. A field named `time`, `level`, `msg` or `user` is written as `arg.<name>`. Logging never throws: a value JSON cannot hold (a cycle) is written with `String`. `console.log/info/warn/error/debug` do the same; `ddcore eval` and the MCP `eval` tool print each record as `level: message {fields}`.
+- `ddcore.errorLog.record(error, opts?)` → the id of a new `Error Log` row, written on a transaction of its own, so it stays whether the caller's work commits or rolls back, and `ddcore doctor` counts it. `error` is an `Error`, a `DDCoreError` or a string. The row's text is `Type: title — message`, leaving out the parts there are not, then the stack, then `opts.context` as JSON. Its `request_id` is the request's id, or `job:<id>` in a job; its source (`method`) is `opts.method`, or `job:<method>` in a job, or `app.record`. It lands in the current tenant, and is written in maintenance mode too. It never throws: when the row cannot be written it returns `""`, and the process log still has the line. A very long message, stack or context is cut. See "Savepoints" below for the pattern
 - `ddcore.utils`: `flt(v, precision)`, `cint`, `cstr`, `getdate`, `nowdate()`, `now()`, `formatDate(d, "dd/mm/yyyy")`, `addDays`, `addMonths`, `addYears`,
   `getFirstDay`, `getLastDay`, `dateDiff(a, b)`, `monthDiff(a, b)`, `formatCurrency(v)`, `roundTo`, `randomString` (cryptographically secure)
 - `ddcore.utils` for money: `currencyPrecision()`, `roundCurrency(v)`, `splitAmount(total, n)`
@@ -279,6 +280,23 @@ runs `fn` inside a savepoint. When `fn` throws, for a SQL error or for any other
 same transaction. Undone with the writes are the `msgprint`s, `publish`es and other
 after-commit effects `fn` made. When `fn` returns, its work stays and its value is returned.
 Savepoints nest.
+
+A job made of independent steps keeps the work of the steps that succeeded and still makes a
+failing one visible: each step runs in a savepoint, and the catch files the error with
+`ddcore.errorLog.record` instead of rethrowing it, which would roll back every step.
+
+```ts
+export function reconcile() {
+  for (const step of [reconcilePending, sweepSettlements]) {
+    try {
+      ddcore.db.savepoint(() => step());
+    } catch (e) {
+      // its own transaction: the row stays, under this job's handle, job:<id>
+      ddcore.errorLog.record(e, { context: { step: step.name } });
+    }
+  }
+}
+```
 
 A value a unique index refuses, from `insert`, `save` or `ddcore.db.setValue`, throws a
 `DuplicateEntryError`. Catching it turns an idempotent create into an ordinary outcome, with

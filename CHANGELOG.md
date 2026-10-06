@@ -16,6 +16,12 @@ older series, and `whats_new` reads across every one of them.
 
 ### Added
 
+- `ddcore.errorLog.record(error, { method?, context? })` writes an `Error Log` row on a
+  transaction of its own and returns its id, so code that catches a failure can leave it where
+  operators and `ddcore doctor` look and go on: the row stays whether the caller's work commits or
+  rolls back. It carries the request's id, or `job:<id>` in a job's body, lands in the current
+  tenant, and never throws. The pattern for a job of independent steps — each in a savepoint, a
+  failing one recorded rather than rethrown — is under "Savepoints" in `controller-api` (#92).
 - `ddcore.job.current()` returns the running job's `JobInfo` in its body and callbacks (`null`
   outside a job), and `JobInfo` has `starts`: how many times a worker began the job, a run given
   back by a shutdown included. `attempt` stays the same across a give-back, so `starts > 1` is how
