@@ -63,14 +63,17 @@ type doctorReport struct {
 	Queue      *engine.QueueHealth `json:"queue,omitempty"`
 	Errors     *engine.ErrorHealth `json:"errors,omitempty"`
 	Scheduler  engine.SchedHealth  `json:"scheduler"`
-	Workers    int                 `json:"workers"`
-	Mail       string              `json:"mail"`
-	Storage    string              `json:"storage"`
-	URL        string              `json:"url"`
-	URLSet     bool                `json:"urlConfigured"`
-	Sessions   sessionSection      `json:"sessions"`
-	SSO        ssoSection          `json:"sso"`
-	Ops        config.OpsPolicy    `json:"ops"`
+	// Workers is the total over every pool; WorkerPools sizes each one,
+	// when ddcore.json names pools.
+	Workers     int              `json:"workers"`
+	WorkerPools map[string]int   `json:"workerPools,omitempty"`
+	Mail        string           `json:"mail"`
+	Storage     string           `json:"storage"`
+	URL         string           `json:"url"`
+	URLSet      bool             `json:"urlConfigured"`
+	Sessions    sessionSection   `json:"sessions"`
+	SSO         ssoSection       `json:"sso"`
+	Ops         config.OpsPolicy `json:"ops"`
 	// Secrets are names. A doctor report is pasted into issues and chat
 	// windows, and a secret that reaches one of those has to be rotated.
 	Secrets []string      `json:"secrets"`
@@ -192,11 +195,14 @@ func cmdDoctor(args []string) error {
 func gatherDoctor(ctx context.Context, cfg *config.File, windowMin int, updateCheck bool) *doctorReport {
 	rep := &doctorReport{
 		DDCore: engine.Version, SiteDdcore: cfg.DDCore, DSN: db.RedactDSN(cfg.DSN),
-		Workers: cfg.Workers, Mail: mailSummary(cfg), Storage: storageSummary(cfg),
+		Workers: cfg.Workers.Total(), Mail: mailSummary(cfg), Storage: storageSummary(cfg),
 		URL: cfg.PublicURL(), URLSet: cfg.HasPublicURL(), Ops: cfg.Ops,
 		Sessions: sessionSection{cfg.Auth.SessionDays, cfg.Auth.MaxLoginAttempts, cfg.Auth.LockoutMinutes},
 		Secrets:  []string{},
 		SSO:      ssoSection{PasswordLogin: cfg.Auth.AllowPasswordLogin(), Providers: []ssoProvider{}},
+	}
+	if cfg.Workers.Named() {
+		rep.WorkerPools = cfg.Workers.Pools()
 	}
 	rep.Database = db.Probe(ctx, cfg.DSN, cfg.Ops.ReadyTimeout())
 	if !rep.Database.OK {
@@ -508,7 +514,11 @@ func (r *doctorReport) print(w io.Writer) {
 }
 
 func (r *doctorReport) printTail(w io.Writer, p func(string, string, ...any)) {
-	p("workers", "%d", r.Workers)
+	if w, err := config.WorkerPools(r.WorkerPools); err == nil {
+		p("workers", "%s", w)
+	} else {
+		p("workers", "%d", r.Workers)
+	}
 	p("mail", "%s", r.Mail)
 	p("storage", "%s", r.Storage)
 	url := r.URL

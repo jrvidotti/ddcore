@@ -820,7 +820,6 @@ func (c *Ctx) SQL(query string, params []any) ([]map[string]any, error) {
 // asks for the same key until the transaction ends. Inside a tenant the key
 // is scoped to it, as cache keys are: two tenants locking the same key never
 // wait for each other, and a site-wide lock is taken from the platform space.
-// The separator is text, not appCacheKey's NUL, which Postgres text refuses.
 func (c *Ctx) Lock(key string) error {
 	if strings.TrimSpace(key) == "" {
 		return cerr.Validation("ddcore.db.lock: provide a key")
@@ -828,11 +827,34 @@ func (c *Ctx) Lock(key string) error {
 	if c.Tx == nil {
 		return cerr.Validation("ddcore.db.lock requires a transaction")
 	}
-	if c.Tenant != "" {
-		key = "tenant:" + c.Tenant + ":" + key
-	}
-	_, err := c.Tx.Exec(c.Ctx, "SELECT pg_advisory_xact_lock(hashtext($1))", key)
+	_, err := c.Tx.Exec(c.Ctx, "SELECT pg_advisory_xact_lock(hashtext($1))", c.lockKey(key))
 	return err
+}
+
+// TryLock is Lock without the wait: it takes the key and returns true, or
+// returns false at once when another transaction holds it. A job that cannot
+// have the key can then queue itself again and free its worker, instead of
+// parking it for as long as the holder takes.
+func (c *Ctx) TryLock(key string) (bool, error) {
+	if strings.TrimSpace(key) == "" {
+		return false, cerr.Validation("ddcore.db.tryLock: provide a key")
+	}
+	if c.Tx == nil {
+		return false, cerr.Validation("ddcore.db.tryLock requires a transaction")
+	}
+	var got bool
+	err := c.Tx.QueryRow(c.Ctx, "SELECT pg_try_advisory_xact_lock(hashtext($1))", c.lockKey(key)).Scan(&got)
+	return got, err
+}
+
+// lockKey scopes a lock's key to the tenant, so Lock and TryLock on the same
+// key meet. The separator is text, not appCacheKey's NUL, which Postgres text
+// refuses.
+func (c *Ctx) lockKey(key string) string {
+	if c.Tenant != "" {
+		return "tenant:" + c.Tenant + ":" + key
+	}
+	return key
 }
 
 // linkSearchScan caps how many documents a TranslateID search reads to match

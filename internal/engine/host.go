@@ -243,6 +243,8 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		return c.PatchSQL(a.Query, a.Params)
 	case "db.lock":
 		return nil, c.Lock(a.Key)
+	case "db.tryLock":
+		return c.TryLock(a.Key)
 	case "db.savepoint.begin":
 		return nil, c.SavepointBegin()
 	case "db.savepoint.release":

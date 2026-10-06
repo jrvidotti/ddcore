@@ -813,6 +813,7 @@
       exists(doctype, id) { return call("db.exists", { doctype, id }); },
       sql(query, params) { return call("db.sql", { query, params: params || [] }); },
       lock(key) { call("db.lock", { key: String(key) }); },
+      tryLock(key) { return call("db.tryLock", { key: String(key) }) === true; },
       // Rolls back only fn's writes when it throws, and rethrows; the
       // transaction stays usable, so a caught DuplicateEntryError is an
       // ordinary outcome. Go keeps the savepoint stack; this brackets fn.

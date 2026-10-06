@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -63,6 +65,51 @@ const retryDelaySQL = `now() + CASE WHEN backoff = 'exponential'
 	THEN make_interval(secs => least(30 * power(2, greatest(attempts - 1, 0)), 3600))
 	ELSE interval '30 seconds' END`
 
+// jobRunAfter is when a job being queued may start: now, runAfter, or now plus
+// runAfterSeconds. A runAfter that cannot be read used to mean "now", which
+// turned a job meaning to wait — one that did not get its lock, say — into a
+// hot loop; it is refused instead.
+func (c *Ctx) jobRunAfter(opts map[string]any) (time.Time, error) {
+	ra, hasAt := opts["runAfter"]
+	hasAt = hasAt && ra != nil && ra != ""
+	secs, hasSecs := opts["runAfterSeconds"]
+	hasSecs = hasSecs && secs != nil
+	switch {
+	case hasAt && hasSecs:
+		return time.Time{}, cerr.Validation("enqueue: give runAfter or runAfterSeconds, not both")
+	case hasAt:
+		str, _ := ra.(string)
+		t := parseTime(str, c.E.Location())
+		for _, l := range []string{"2006-01-02T15:04:05", "2006-01-02"} {
+			if !t.IsZero() {
+				break
+			}
+			t, _ = time.ParseInLocation(l, str, c.E.Location())
+		}
+		if t.IsZero() {
+			return time.Time{}, cerr.Validation("enqueue: runAfter is not a date and time: {0}", fmt.Sprint(ra))
+		}
+		return t, nil
+	case hasSecs:
+		var n float64
+		switch x := secs.(type) {
+		case float64:
+			n = x
+		case int:
+			n = float64(x)
+		case int64:
+			n = float64(x)
+		default:
+			n = -1
+		}
+		if n < 0 || math.IsNaN(n) || math.IsInf(n, 0) {
+			return time.Time{}, cerr.Validation("enqueue: runAfterSeconds must be a number of seconds, zero or more")
+		}
+		return time.Now().Add(time.Duration(n * float64(time.Second))), nil
+	}
+	return time.Now(), nil
+}
+
 // Enqueue stores a job in ddcore_job; workers pick it with SKIP LOCKED.
 func (c *Ctx) Enqueue(method string, args map[string]any, opts map[string]any) (int64, error) {
 	if method == "" {
@@ -71,15 +118,13 @@ func (c *Ctx) Enqueue(method string, args map[string]any, opts map[string]any) (
 	if err := c.checkWritable(""); err != nil {
 		return 0, err
 	}
-	queue := "default"
+	queue := DefaultQueue
 	if q, ok := opts["queue"].(string); ok && q != "" {
 		queue = q
 	}
-	runAfter := time.Now()
-	if ra, ok := opts["runAfter"].(string); ok && ra != "" {
-		if t := parseTime(ra, c.E.Location()); !t.IsZero() {
-			runAfter = t
-		}
+	runAfter, err := c.jobRunAfter(opts)
+	if err != nil {
+		return 0, err
 	}
 	timeout := defaultJobTimeout
 	if t, ok := opts["timeout"]; ok {
@@ -423,13 +468,53 @@ func (e *Engine) requeueStale(ctx context.Context) error {
 // interrupts the job running at that moment, which gives its attempt back;
 // StartWorkers is the shutdown that lets the job finish first.
 func (e *Engine) Worker(ctx context.Context, id int) {
-	e.work(ctx, ctx, id)
+	e.work(ctx, ctx, id, queueFilter{})
+}
+
+// DefaultQueue is the queue a job goes to when enqueue names none, and the
+// pool that serves every queue no other pool is named for.
+const DefaultQueue = "default"
+
+// queueFilter is which queues a worker claims from. The zero value claims
+// from every queue.
+type queueFilter struct {
+	only   string   // this queue alone
+	except []string // every queue but these
+}
+
+// poolFilter is what the pool named queue claims from, among pools: a named
+// pool takes its own queue only, and the default pool everything the others
+// do not — which is every queue when it is the only pool.
+func poolFilter(pools map[string]int, queue string) queueFilter {
+	if queue != DefaultQueue {
+		return queueFilter{only: queue}
+	}
+	var f queueFilter
+	for q := range pools {
+		if q != DefaultQueue {
+			f.except = append(f.except, q)
+		}
+	}
+	sort.Strings(f.except)
+	return f
+}
+
+// where is the filter as a condition on ddcore_job, its parameter numbered n.
+func (f queueFilter) where(n int) (string, []any) {
+	switch {
+	case f.only != "":
+		return fmt.Sprintf(" AND queue = $%d", n), []any{f.only}
+	case len(f.except) > 0:
+		return fmt.Sprintf(" AND queue <> ALL($%d::text[])", n), []any{f.except}
+	}
+	return "", nil
 }
 
 // work is the worker loop. claim stops it from taking another job; run is what
 // the job it took runs under, and interrupts it. A worker shutting down
-// cancels claim first and run only when it has waited long enough.
-func (e *Engine) work(claim, run context.Context, id int) {
+// cancels claim first and run only when it has waited long enough. queues is
+// which queues it claims from.
+func (e *Engine) work(claim, run context.Context, id int, queues queueFilter) {
 	idle := func() bool {
 		select {
 		case <-claim.Done():
@@ -450,7 +535,7 @@ func (e *Engine) work(claim, run context.Context, id int) {
 		if err := e.requeueStale(claim); err != nil && claim.Err() == nil {
 			e.Log.Error("requeue", "id", id, "err", err)
 		}
-		ran, err := e.claimAndRun(claim, run)
+		ran, err := e.claimAndRun(claim, run, queues)
 		if err != nil && claim.Err() == nil {
 			e.Log.Error("worker", "id", id, "err", err)
 		}
@@ -469,20 +554,43 @@ type Workers struct {
 	stopOnce  sync.Once
 }
 
-// StartWorkers starts n job workers. They run until Stop, and nothing else
-// stops them: a process's signal context must not reach a running job, or the
-// job is interrupted the instant the process is asked to stop instead of being
-// given the grace to finish.
+// StartWorkers starts n job workers that serve every queue. They run until
+// Stop, and nothing else stops them: a process's signal context must not
+// reach a running job, or the job is interrupted the instant the process is
+// asked to stop instead of being given the grace to finish.
 func (e *Engine) StartWorkers(n int) *Workers {
+	return e.StartWorkerPools(map[string]int{DefaultQueue: n})
+}
+
+// StartWorkerPools starts a pool of workers per queue, sized by pools. A pool
+// named for a queue claims that queue's jobs only, and the default pool every
+// queue no other pool is named for — the scheduler's among them — so a queue
+// of slow jobs cannot keep the rest from running. pools is the site's whole
+// set even when only some of them start here: start names the ones this
+// process runs (all of them when it names none), and the default pool still
+// leaves the others' queues to whichever process runs them. Stop stops them
+// all, as StartWorkers' workers are.
+func (e *Engine) StartWorkerPools(pools map[string]int, start ...string) *Workers {
 	claim, stopClaim := context.WithCancel(context.Background())
 	run, interrupt := context.WithCancel(context.Background())
 	w := &Workers{e: e, stopClaim: stopClaim, interrupt: interrupt}
-	for i := 0; i < n; i++ {
-		w.wg.Add(1)
-		go func(id int) {
-			defer w.wg.Done()
-			e.work(claim, run, id)
-		}(i)
+	if len(start) == 0 {
+		for q := range pools {
+			start = append(start, q)
+		}
+		sort.Strings(start)
+	}
+	id := 0
+	for _, q := range start {
+		f := poolFilter(pools, q)
+		for i := 0; i < pools[q]; i++ {
+			w.wg.Add(1)
+			go func(id int) {
+				defer w.wg.Done()
+				e.work(claim, run, id, f)
+			}(id)
+			id++
+		}
 	}
 	return w
 }
@@ -525,13 +633,13 @@ func (w *Workers) Stop(grace time.Duration) {
 // runOneJob claims and runs one job, under a single context that both stops
 // the claim and interrupts the job.
 func (e *Engine) runOneJob(ctx context.Context) (bool, error) {
-	return e.claimAndRun(ctx, ctx)
+	return e.claimAndRun(ctx, ctx, queueFilter{})
 }
 
-// claimAndRun claims one job unless claim is done, and runs it under run. The
-// claim itself is written on run: a claim committed while its context is
-// being cancelled is a row left "running" with nobody running it.
-func (e *Engine) claimAndRun(claim, ctx context.Context) (bool, error) {
+// claimAndRun claims one job from queues unless claim is done, and runs it
+// under run. The claim itself is written on run: a claim committed while its
+// context is being cancelled is a row left "running" with nobody running it.
+func (e *Engine) claimAndRun(claim, ctx context.Context, queues queueFilter) (bool, error) {
 	if claim.Err() != nil {
 		return false, nil
 	}
@@ -539,7 +647,7 @@ func (e *Engine) claimAndRun(claim, ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	// The queue is one for the whole site, so the claim is the system pool's.
+	// The queues are the whole site's, so the claim is the system pool's.
 	// A job's number names it whichever tenant queued it; the tenant comes
 	// back with the row and is where the job then runs. A disabled tenant's
 	// jobs wait: nothing of it runs until it is enabled again.
@@ -552,10 +660,11 @@ func (e *Engine) claimAndRun(claim, ctx context.Context) (bool, error) {
 	if on {
 		enabled = ` AND (tenant = '' OR tenant IN (SELECT id FROM ` + meta.TenantTable + ` WHERE enabled))`
 	}
+	inQueue, params := queues.where(1)
 	rows, err := db.Select(ctx, tx, `SELECT id, method, args, "user", attempts, max_attempts, starts, timeout_seconds,
 		queue, on_start, on_failure, run_as`+jobTenantColumn(on)+` FROM ddcore_job
-		WHERE status = 'queued' AND run_after <= now() AND cancel_requested IS NULL`+enabled+`
-		ORDER BY id LIMIT 1 FOR UPDATE SKIP LOCKED`)
+		WHERE status = 'queued' AND run_after <= now() AND cancel_requested IS NULL`+enabled+inQueue+`
+		ORDER BY id LIMIT 1 FOR UPDATE SKIP LOCKED`, params...)
 	if err != nil || len(rows) == 0 {
 		return false, err
 	}

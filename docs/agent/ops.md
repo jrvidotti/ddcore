@@ -304,7 +304,7 @@ ddcore jobs cancel <id>...
 ddcore jobs purge [--done-days N] [--failed-days N] [--dry-run]
 ddcore jobs scheduled
 ddcore jobs run <fn>
-ddcore jobs work
+ddcore jobs work [--queue q[,q]] [--workers N]
 ```
 
 `jobs list` shows the queue. What it used to print — the cron declarations — is
@@ -326,6 +326,45 @@ that.
 A job carries the `request_id` of the request that queued it, so the work a
 request set off can be found from the request and the other way round. Jobs the
 scheduler queues have none — nothing asked for them.
+
+### Worker pools
+
+`workers` in `ddcore.json` is how many workers a process runs (`ddcore start`,
+`ddcore dev`, `ddcore jobs work`). A number — `"workers": 2`, the default — is
+that many workers serving every queue, oldest runnable job first. An object is
+a pool per queue:
+
+```json
+"workers": { "default": 2, "bot": 2 }
+```
+
+- a named pool (`bot`) claims the jobs of its own queue only;
+- `default`, which the object must name, claims the `default` queue and every
+  queue no other pool is named for — the scheduler's (`scheduler`) among them;
+- a job goes to a queue with `ddcore.enqueue(method, args, { queue: "bot" })`.
+
+So a queue of slow jobs, or of jobs waiting on `ddcore.db.lock`, fills its own
+pool and leaves the others free. A size may be `0` — the queue is named, so the
+default pool leaves it alone, and another process serves it — but not negative.
+`DDCORE_WORKERS` overrides the setting with a number. The VM pool, and so the
+database connections a process may use, grows with the total.
+
+`ddcore jobs work --queue bot` starts only the pools it names, at their size in
+`ddcore.json`; `--workers N` sizes each of them instead, and is required for a
+queue the file names no pool for. That is how a queue gets a process — or a
+container — of its own:
+
+```
+ddcore jobs work --queue bot --workers 4
+```
+
+Name such a queue in `ddcore.json` as well (`"bot": 0` will do): a queue it does
+not name is also served by the default pool of every other process. `ddcore
+doctor` prints the total and each pool (`workers` and `workerPools` in `--json`).
+
+A job that would wait on a lock can avoid holding a worker at all:
+`ddcore.db.tryLock(key)` returns `false` instead of waiting, and the job queues
+itself again with `runAfterSeconds` (see `controller-api`).
 
 ### Statuses
 
@@ -565,5 +604,6 @@ Nothing records when the scheduler last ran, so `scheduler.entries` is what this
 build would install and not proof that a cron is alive.
 
 There is no Desk screen for jobs: administration is the CLI and the API above.
-Jobs have no priority and workers have no per-queue affinity — every worker takes
-the oldest runnable job from any queue, so a long queue delays a short one.
+Jobs have no priority: within what a pool serves, the oldest runnable job goes
+first. Give a queue of long jobs a pool of its own (see "Worker pools") so it
+cannot delay the rest.

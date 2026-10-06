@@ -888,6 +888,8 @@ ddcore.db.lock requires a transaction,ddcore.db.lock exige uma transação,# int
 ddcore.db.lock: provide a key,ddcore.db.lock: informe uma chave,# internal/engine/query.go:826
 ddcore.db.savepoint requires a transaction,ddcore.db.savepoint exige uma transação,# internal/engine/engine.go:1296
 ddcore.db.sql only accepts SELECT,ddcore.db.sql aceita apenas SELECT,# internal/engine/query.go:782
+ddcore.db.tryLock requires a transaction,ddcore.db.tryLock exige uma transação,# internal/engine/query.go:843
+ddcore.db.tryLock: provide a key,ddcore.db.tryLock: informe uma chave,# internal/engine/query.go:840
 ddcore.externalDb().sql only accepts SELECT,ddcore.externalDb().sql aceita apenas SELECT,# internal/engine/externaldb.go:175
 ddcore.externalDb: provide a name,ddcore.externalDb: informe um nome,# internal/engine/externaldb.go:52
 ddcore.test is only available inside ddcore test,ddcore.test só está disponível dentro do ddcore test,# internal/engine/asuser.go:156
@@ -899,8 +901,11 @@ doctype and id are required,doctype e id são obrigatórios,# internal/api/workf
 e.g. the invoicing script,ex.: o script de faturamento,# desk/src/lib/components/Profile.svelte:267
 edited,editado,# desk/src/lib/components/DocSidebar.svelte:353
 enqueue: backoff must be {0} or {1},enqueue: backoff deve ser {0} ou {1},# internal/engine/jobs.go:93
+"enqueue: give runAfter or runAfterSeconds, not both","enqueue: informe runAfter ou runAfterSeconds, não os dois",# internal/engine/jobs.go:79
 enqueue: provide the method,enqueue: informe o método,# internal/engine/jobs.go:61
 enqueue: runAs must be a user,enqueue: runAs deve ser um usuário,# internal/engine/jobs.go:132
+enqueue: runAfter is not a date and time: {0},enqueue: runAfter não é uma data e hora: {0},# internal/engine/jobs.go:90
+"enqueue: runAfterSeconds must be a number of seconds, zero or more","enqueue: runAfterSeconds deve ser um número de segundos, zero ou mais",# internal/engine/jobs.go:106
 enqueue: uniqueKey must be a non-empty string,enqueue: uniqueKey deve ser um texto não vazio,# internal/engine/jobs.go:116
 enqueue: {0} must be a method path,enqueue: {0} deve ser o caminho de um método,# internal/engine/jobs.go:108
 failed to build Gotenberg request: {0},falha ao construir requisição para o Gotenberg: {0},# internal/print/pdf.go:160

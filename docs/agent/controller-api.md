@@ -202,6 +202,14 @@ by hand.
 - `ddcore.db.count(doctype, filters)`, `ddcore.db.exists(doctype, id | filters)` → the id or `null`; applies user access scopes (see `scopes`)
 - `ddcore.db.sql("SELECT ... WHERE x = $1", [v])` — read-only; tables are `tab_<snake>`
 - `ddcore.db.lock(key)` — an advisory lock held until the transaction ends: another request locking the same key waits. Use it to make an operation idempotent under concurrency (`ddcore.db.lock("billing:" + contract)`). Inside a tenant the key is the tenant's own (see `tenancy`)
+- `ddcore.db.tryLock(key)` → `true` when it took the key, `false` at once when another transaction holds it. The same lock as `lock` — held until the transaction ends, the tenant's own inside a tenant — without the wait. A job that waits on `lock` holds a worker for as long as the holder takes; a job that does not get the key can queue itself again and free its worker instead:
+  ```ts
+  if (!ddcore.db.tryLock("portal:reply:" + session)) {
+    ddcore.enqueue("portal.services.bot.reply", args, { runAfterSeconds: 10, uniqueKey: "portal:reply:" + session });
+    return;
+  }
+  ```
+  The running job no longer holds its `uniqueKey`, so the new one is queued; a second job deferring itself under the same key meanwhile joins it instead of stacking
 - `ddcore.db.savepoint(fn)` → what `fn` returns. When `fn` throws, its writes are rolled back and the error rethrown, and the transaction goes on. See "Savepoints" below
 - `ddcore.externalDb("sql_server").sql("SELECT ... WHERE x = @p1", [v], { timeout })` — read-only query on another database (SQL Server), configured from `DDCORE_SECRET_SQL_SERVER_*`. See `external-db`
 - `ddcore.getDoc(doctype, id, { ignorePermissions })`, `ddcore.newDoc(doctype, values)`, `ddcore.deleteDoc(doctype, id, { force })`, `ddcore.rename(doctype, oldID, newID)`
@@ -224,7 +232,13 @@ by hand.
 - `ddcore.push.send(subscription, payload, { ttl, urgency, topic })` → `{ status, body, headers }` — a Web Push message to one browser subscription, encrypted for it and signed with the site's VAPID key (`DDCORE_SECRET_VAPID_*`); any status is returned, so the app deletes a subscription that answered 404 or 410. `ddcore.push.publicKey()` → the key a page subscribes with, or `null`. See `push`
 - `ddcore.files.save({ doctype?, id?, fieldname?, filename, isPrivate?, contentType?, content | contentBase64 | fromUrl, headers?, maxBytes?, timeout?, ignorePermissions? })` → the `File` document. Stores bytes the server holds or downloads, with the rules of an upload; see [storage](storage.md#from-server-code).
 - `ddcore.files.presign(fileUrl, { ttl?, ignorePermissions? })` → a URL anyone can GET the file at for `ttl` seconds. S3 backend only; see [storage](storage.md#from-server-code).
-- `ddcore.enqueue("app.services.mod.fn", args, { queue, runAfter, timeout, maxAttempts, backoff, onStart, onFailure, uniqueKey, runAs })` → the job id. With `uniqueKey`, a job still `queued` under the same key makes the call a no-op that returns that job's id (see [ops](ops.md)).
+- `ddcore.enqueue("app.services.mod.fn", args, { queue, runAfter, runAfterSeconds, timeout, maxAttempts, backoff, onStart, onFailure, uniqueKey, runAs })` → the job id. With `uniqueKey`, a job still `queued` under the same key makes the call a no-op that returns that job's id (see [ops](ops.md)).
+  `runAfter` is when the job may start — an ISO timestamp, or `YYYY-MM-DD HH:MM:SS` in the site's
+  timezone — and `runAfterSeconds` (zero or more) the same as a delay from now; one or the other,
+  and a `runAfter` that cannot be read throws a `ValidationError` instead of running the job now.
+  `queue` (default `"default"`) picks the worker pool: a queue with a pool of its own in
+  `workers` of ddcore.json is served by it alone, so slow work there does not hold up the rest
+  (see `ops` → "Worker pools").
   Written on the current transaction, so the job exists only if the request commits. `maxAttempts`
   defaults to 3; `1` stops retries after a failure, but it is not "runs at most once": a run a
   worker shutdown gives back runs again. `ddcore.job.current()` → the running job's `JobInfo`, or

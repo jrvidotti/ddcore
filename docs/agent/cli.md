@@ -9,6 +9,9 @@ unset, the DSN's `pool_max_conns` or pgx's default (the larger of 4 and the numb
 applies. A request holds its connection while it waits on a slow outbound call, so a site that
 makes them may need it larger. The DSN may carry `pool_*` settings, which the cache invalidation
 listener accepts as the pool does.
+`workers` (default 2, `DDCORE_WORKERS` overrides it with a number) is how many job workers a
+process runs: a number serves every queue, and an object such as `{ "default": 2, "bot": 2 }`
+gives a queue a pool of its own — see `ops`, "Worker pools".
 `shutdownGraceSeconds` (default 30, `DDCORE_SHUTDOWN_GRACE_SECONDS` overrides it) is how long a
 process told to stop lets its running jobs finish before it interrupts them and gives them back to
 the queue — see `ops`, "Stopping the process".
@@ -42,7 +45,7 @@ prints that command's options, or its subcommands for a command such as `import`
 | `ddcore demo [--app name]` | runs `<app>.services.demo.generate` for every app that has `services/demo.ts` |
 | `ddcore export <DocType>\|--all [--children] [--attachments] [--out DIR]` | exports the whole set to NDJSON/CSV with a manifest of checksums (see `export`) |
 | `ddcore import plan\|run\|status\|reconcile <dir> [--tenant <slug>]` | loads an export directory into this site, resumable and idempotent; `--tenant` loads into a tenant and scopes `status` and `reconcile` to it (see `import`) |
-| `ddcore jobs list\|show\|stats\|retry\|cancel\|purge\|scheduled\|run <fn>\|work` | the queue and the scheduler (see `ops`); `show` is the only command that prints a job's arguments |
+| `ddcore jobs list\|show\|stats\|retry\|cancel\|purge\|scheduled\|run <fn>\|work` | the queue and the scheduler (see `ops`); `show` is the only command that prints a job's arguments; `work --queue q[,q] [--workers N]` starts only those queues' pools |
 | `ddcore webhooks list\|replay <delivery>...` | outgoing webhook deliveries (see `webhooks`); a replay is recorded as an Audit Event |
 | `ddcore push keys [--subject mailto:…]` | prints a new VAPID key pair for `ddcore.push` as `.env` lines (see `push`); stores nothing |
 | `ddcore audit list\|purge` | inspect and purge administrative audit events (see `audit`) |
