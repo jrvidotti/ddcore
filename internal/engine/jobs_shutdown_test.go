@@ -188,6 +188,9 @@ func TestJobTimeoutCutsABlockedHTTPCall(t *testing.T) {
 	if len(ts) == 0 || ts[len(ts)-1].hook != "failure" || ts[len(ts)-1].job["reason"] != "timeout" {
 		t.Errorf("onFailure was not told of the timeout: %v", ts)
 	}
+	if len(ts) > 0 && toFloat(ts[len(ts)-1].job["starts"]) != 1 {
+		t.Errorf("onFailure was told starts %v, want 1", ts[len(ts)-1].job["starts"])
+	}
 }
 
 func db2str(v any) string {

@@ -56,6 +56,10 @@ ALTER TABLE ddcore_job ADD COLUMN IF NOT EXISTS unique_key text;
 -- The user a job acts as, from enqueue's runAs option. NULL is a job that runs
 -- as "user" with permissions ignored.
 ALTER TABLE ddcore_job ADD COLUMN IF NOT EXISTS run_as text;
+-- How many times a worker began the job, a run that was given back included.
+-- attempts is what retries are counted in, and a give-back returns it; this
+-- never goes down, so a job can tell a second run from its first.
+ALTER TABLE ddcore_job ADD COLUMN IF NOT EXISTS starts int NOT NULL DEFAULT 0;
 CREATE INDEX IF NOT EXISTS ddcore_job_status ON ddcore_job(status, run_after);
 CREATE INDEX IF NOT EXISTS ddcore_job_lease ON ddcore_job(status, lease_until);
 -- The retention sweep and the administrative list both read by status and age;

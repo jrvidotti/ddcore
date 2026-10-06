@@ -16,6 +16,12 @@ older series, and `whats_new` reads across every one of them.
 
 ### Added
 
+- `ddcore.job.current()` returns the running job's `JobInfo` in its body and callbacks (`null`
+  outside a job), and `JobInfo` has `starts`: how many times a worker began the job, a run given
+  back by a shutdown included. `attempt` stays the same across a give-back, so `starts > 1` is how
+  a body doing non-idempotent work learns that an earlier run may already have done it. The admin
+  job listing, `GET /api/jobs` and `ddcore jobs show` show `starts` too. The ops docs now say that
+  `maxAttempts: 1` is not "runs at most once" (#91).
 - `shutdownGraceSeconds` in `ddcore.json`, or `DDCORE_SHUTDOWN_GRACE_SECONDS` (default 30): how
   long a process told to stop lets its running jobs finish before it gives them back to the
   queue. Set the platform's stop timeout above it (Compose `stop_grace_period`, Kubernetes

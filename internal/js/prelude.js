@@ -885,6 +885,10 @@
     // the DocType goes in as its route name, without whitespace: /app/SalesOrder/SO-1
     docUrl(doctype, id) { return (site().url || "") + "/app/" + encodeURIComponent(String(doctype).replace(/\s+/g, "")) + "/" + encodeURIComponent(id); },
     enqueue(method, args, opts) { return call("enqueue", { method, args: args || {}, opts: opts || {} }); },
+    job: {
+      // the JobInfo of the job this code runs in, or null outside one
+      current() { return call("job.current", {}) || null; },
+    },
     sendMail(args) {
       args = args || {};
       const template = reg.mailTemplates[args.template];

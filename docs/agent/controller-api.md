@@ -226,7 +226,10 @@ by hand.
 - `ddcore.files.presign(fileUrl, { ttl?, ignorePermissions? })` → a URL anyone can GET the file at for `ttl` seconds. S3 backend only; see [storage](storage.md#from-server-code).
 - `ddcore.enqueue("app.services.mod.fn", args, { queue, runAfter, timeout, maxAttempts, backoff, onStart, onFailure, uniqueKey, runAs })` → the job id. With `uniqueKey`, a job still `queued` under the same key makes the call a no-op that returns that job's id (see [ops](ops.md)).
   Written on the current transaction, so the job exists only if the request commits. `maxAttempts`
-  defaults to 3; use `1` for work whose effects outside the database must not be repeated.
+  defaults to 3; `1` stops retries after a failure, but it is not "runs at most once": a run a
+  worker shutdown gives back runs again. `ddcore.job.current()` → the running job's `JobInfo`, or
+  `null` outside a job; its `starts` is above 1 when an earlier run began, which is what a body
+  doing non-idempotent work checks (see `ops` → "Statuses").
   `onStart` / `onFailure` are method paths called as `fn(args, job)`, each in a transaction of its
   own, so a document can show that its job is running or that it failed. See `ops` → "Lifecycle
   callbacks". `runAs` is the user the job acts as: without it a job runs with permissions ignored,

@@ -337,6 +337,32 @@ more than an hour — which is what work talking to somebody else's server wants
 A retried job keeps its backoff. Outgoing [webhooks](webhooks.md) use it. The status values are also what
 `--status` accepts, so they stay in English on a translated site.
 
+**An attempt is not a run.** A run interrupted by a worker shutting down or by
+maintenance gives its attempt back (see "Stopping the process" below), so
+`maxAttempts: 1` stops retries after a failure but does not mean "runs at most
+once": the job runs again, with the same `attempt`, and whatever it did outside
+the database before it was interrupted — an HTTP call, a message — has already
+happened. The job's `starts` counts every run a worker began, given-back ones
+included, and never goes down. A body doing work that must not be repeated reads
+it from `ddcore.job.current()` and checks first:
+
+```ts
+export function settle(args: { payment: string }) {
+  const job = ddcore.job.current()!;
+  if (job.starts > 1) {
+    // an earlier run began: ask the other system whether it already settled
+    const done = ddcore.http.get(`https://erp.example.com/payments/${args.payment}`).json();
+    if (done.settled) return markSettled(args.payment);
+  }
+  ddcore.http.post("https://erp.example.com/settle", { payment: args.payment });
+  markSettled(args.payment);
+}
+```
+
+`ddcore.job.current()` returns the same `JobInfo` the callbacks get, in the body
+and in either callback, and `null` outside a job — a request, a migration, a
+function run by `ddcore jobs run`.
+
 ### Deduplicating with `uniqueKey`
 
 `enqueue` takes `uniqueKey` to keep identical work from stacking — one job that
@@ -404,8 +430,9 @@ export function failed(args: { name: string }, job: JobFailure) {
   nothing failed (see "Stopping the process" below).
   It has 30 seconds. If it throws, the error goes to the Error Log (method
   `job:onFailure:<method>`) and the job stays failed.
-- `job` is `{ id, method, queue, attempt, maxAttempts }`, plus `error`, `reason`
-  and `final` for `onFailure`.
+- `job` is `{ id, method, queue, attempt, maxAttempts, starts }`, plus `error`,
+  `reason` and `final` for `onFailure`. `starts` is how many times a worker began
+  the job, given-back runs included (see "Statuses").
 - Both run as the job's user with permissions ignored, like the body, and share
   its Error Log handle, `job:<id>`. A job queued with `runAs` runs all three as
   that user with permissions enforced, and `job.runAs` names them. A retried job

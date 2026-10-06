@@ -276,6 +276,25 @@ func (c *Ctx) callCtxOr(fallback context.Context) context.Context {
 	return fallback
 }
 
+type jobInfoKey struct{}
+
+// withJobInfo names the job the work under ctx belongs to, as the JobInfo its
+// callbacks are given. Like the call context it travels as a value, so it
+// survives a runAs or a tenant switch inside the job.
+func withJobInfo(ctx context.Context, info map[string]any) context.Context {
+	return context.WithValue(ctx, jobInfoKey{}, info)
+}
+
+// currentJob is ddcore.job.current(): the JobInfo of the job c runs in, or
+// nil outside one — a request, a migration, a function run by `jobs run`.
+func (c *Ctx) currentJob() map[string]any {
+	if c == nil || c.Ctx == nil {
+		return nil
+	}
+	info, _ := c.Ctx.Value(jobInfoKey{}).(map[string]any)
+	return info
+}
+
 // onFailureTimeout bounds a job's onFailure callback. It runs after the job's
 // own deadline, so it cannot share it, and it runs on paths — a worker
 // shutting down, an administrative cancel — that must not hang on app code.
@@ -289,6 +308,7 @@ type jobFailure struct {
 	hook                 string
 	args                 map[string]any
 	attempt, maxAttempts int
+	starts               int
 	reason, err          string
 	final                bool
 }
@@ -305,13 +325,13 @@ func (e *Engine) runOnFailure(ctx context.Context, f jobFailure) {
 	defer cancel()
 	info := map[string]any{
 		"id": f.id, "method": f.method, "queue": f.queue,
-		"attempt": f.attempt, "maxAttempts": f.maxAttempts,
+		"attempt": f.attempt, "maxAttempts": f.maxAttempts, "starts": f.starts,
 		"error": f.err, "reason": f.reason, "final": f.final,
 	}
 	if f.runAs != "" {
 		info["runAs"] = f.runAs
 	}
-	if err := e.runJobHook(hctx, f.user, f.runAs, f.hook, f.args, info); err != nil {
+	if err := e.runJobHook(withJobInfo(hctx, info), f.user, f.runAs, f.hook, f.args, info); err != nil {
 		e.LogError(rctx, "job:onFailure:"+f.method, err)
 	}
 }
@@ -359,7 +379,7 @@ func (e *Engine) requeueStale(ctx context.Context) error {
 		             WHEN attempts < max_attempts      THEN NULL
 		             ELSE 'worker interrupted: lease expired' END
 		WHERE status = 'running' AND lease_until IS NOT NULL AND lease_until < now()
-		RETURNING id, method, status, "user", args, queue, attempts, max_attempts, on_failure, run_as`
+		RETURNING id, method, status, "user", args, queue, attempts, max_attempts, starts, on_failure, run_as`
 	on, err := e.tenancy(ctx)
 	if err != nil {
 		return err
@@ -384,6 +404,7 @@ func (e *Engine) requeueStale(ctx context.Context) error {
 			runAs: db.Str(r["run_as"]),
 			queue: db.Str(r["queue"]), hook: db.Str(r["on_failure"]), args: jobArgs(r["args"]),
 			attempt: int(toFloat(r["attempts"])), maxAttempts: int(toFloat(r["max_attempts"])),
+			starts: int(toFloat(r["starts"])),
 			reason: reason, err: "worker interrupted: lease expired", final: status != "queued",
 		})
 		if status == "queued" {
@@ -531,7 +552,7 @@ func (e *Engine) claimAndRun(claim, ctx context.Context) (bool, error) {
 	if on {
 		enabled = ` AND (tenant = '' OR tenant IN (SELECT id FROM ` + meta.TenantTable + ` WHERE enabled))`
 	}
-	rows, err := db.Select(ctx, tx, `SELECT id, method, args, "user", attempts, max_attempts, timeout_seconds,
+	rows, err := db.Select(ctx, tx, `SELECT id, method, args, "user", attempts, max_attempts, starts, timeout_seconds,
 		queue, on_start, on_failure, run_as`+jobTenantColumn(on)+` FROM ddcore_job
 		WHERE status = 'queued' AND run_after <= now() AND cancel_requested IS NULL`+enabled+`
 		ORDER BY id LIMIT 1 FOR UPDATE SKIP LOCKED`)
@@ -544,7 +565,8 @@ func (e *Engine) claimAndRun(claim, ctx context.Context) (bool, error) {
 		// stopped while the row was being picked: leave it to the next process
 		return false, nil
 	}
-	if _, err := tx.Exec(ctx, `UPDATE ddcore_job SET status = 'running', started = now(), attempts = attempts + 1, lease_until = now() + $2::interval WHERE id = $1`,
+	if _, err := tx.Exec(ctx, `UPDATE ddcore_job SET status = 'running', started = now(), attempts = attempts + 1,
+		starts = starts + 1, lease_until = now() + $2::interval WHERE id = $1`,
 		id, jobLease.String()); err != nil {
 		return false, err
 	}
@@ -556,6 +578,7 @@ func (e *Engine) claimAndRun(claim, ctx context.Context) (bool, error) {
 	e.Log.Info("job", "id", id, "method", method)
 
 	attempt := int(toFloat(j["attempts"])) + 1
+	starts := int(toFloat(j["starts"])) + 1
 	user, runAs := db.Str(j["user"]), db.Str(j["run_as"])
 	timeout := time.Duration(orInt(toFloat(j["timeout_seconds"]), defaultJobTimeout)) * time.Second
 	tenant := db.Str(j["tenant"])
@@ -574,6 +597,14 @@ func (e *Engine) claimAndRun(claim, ctx context.Context) (bool, error) {
 		cancel()
 	})
 	maxAttempts := int(toFloat(j["max_attempts"]))
+	// What onStart is given, and what ddcore.job.current() returns to it and
+	// to the body.
+	info := map[string]any{"id": id, "method": method, "queue": db.Str(j["queue"]),
+		"attempt": attempt, "maxAttempts": maxAttempts, "starts": starts}
+	if runAs != "" {
+		info["runAs"] = runAs
+	}
+	jobCtx = withJobInfo(jobCtx, info)
 	// onStart commits on its own before the body runs, so the document can say
 	// the job is running while it is. If it throws, the attempt has failed and
 	// the body does not run: the switch below cannot tell the two apart, and
@@ -581,11 +612,6 @@ func (e *Engine) claimAndRun(claim, ctx context.Context) (bool, error) {
 	var res json.RawMessage
 	var runErr error
 	if hook := db.Str(j["on_start"]); hook != "" {
-		info := map[string]any{"id": id, "method": method, "queue": db.Str(j["queue"]),
-			"attempt": attempt, "maxAttempts": maxAttempts}
-		if runAs != "" {
-			info["runAs"] = runAs
-		}
 		runErr = e.runJobHook(WithRequestID(jobCtx, fmt.Sprintf("job:%d", id)), user, runAs, hook, args, info)
 	}
 	if runErr == nil {
@@ -610,7 +636,7 @@ func (e *Engine) claimAndRun(claim, ctx context.Context) (bool, error) {
 		e.runOnFailure(spaceCtx, jobFailure{
 			id: id, method: method, user: user, runAs: runAs, queue: db.Str(j["queue"]),
 			hook: db.Str(j["on_failure"]), args: args, attempt: attempt, maxAttempts: maxAttempts,
-			reason: reason, err: msg, final: final,
+			starts: starts, reason: reason, err: msg, final: final,
 		})
 	}
 	publish := func(payload map[string]any) {

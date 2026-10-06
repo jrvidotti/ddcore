@@ -331,6 +331,8 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		return c.PresignFile(a.URL, time.Duration(a.TTL*float64(time.Second)), a.Opts["ignorePermissions"] == true)
 	case "externalDb.sql":
 		return c.ExternalSQL(a.Key, a.Query, a.Params, a.Timeout)
+	case "job.current":
+		return c.currentJob(), nil
 	case "enqueue":
 		var q struct {
 			Method string         `json:"method"`
