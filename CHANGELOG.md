@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.27.5 — 2026-10-06
+
 ### Added
 
 - `ddcore.session` (`{ user, fullName, roles, lang }`) and `ddcore.hasRole(role)` in desk
