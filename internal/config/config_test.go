@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 // clearMailEnv isolates a test from variables that the host machine might
@@ -17,6 +18,7 @@ func clearMailEnv(t *testing.T) {
 		"DDCORE_SMTP_HOST", "DDCORE_SMTP_PORT", "DDCORE_SMTP_USERNAME",
 		"DDCORE_SMTP_PASSWORD", "DDCORE_SMTP_TLS", "DDCORE_URL", "DDCORE_TRUST_PROXY",
 		"DDCORE_DSN", "DDCORE_PORT", "DATABASE_URL", "PORT", "DDCORE_POOL_MAX_CONNS",
+		"DDCORE_SHUTDOWN_GRACE_SECONDS",
 		"DDCORE_LOGIN_NOTICE", "DDCORE_LOGIN_DEMO_USER", "DDCORE_LOGIN_DEMO_PASSWORD",
 		"DDCORE_MAP_TILE_URL", "DDCORE_MAP_ATTRIBUTION", "DDCORE_CORS_ORIGINS",
 	} {
@@ -282,6 +284,44 @@ func TestPoolMaxConnsFromFileAndEnvironment(t *testing.T) {
 	}
 	if f.PoolMaxConns != 12 {
 		t.Errorf("a zero DDCORE_POOL_MAX_CONNS should leave the file's value, got %d", f.PoolMaxConns)
+	}
+}
+
+// shutdownGraceSeconds is how long a stopping process lets its running jobs
+// finish; DDCORE_SHUTDOWN_GRACE_SECONDS wins over the file, and an unset or
+// non-positive value means the default thirty seconds (#99).
+func TestShutdownGraceFromFileAndEnvironment(t *testing.T) {
+	clearMailEnv(t)
+	f, _, err := Load(site(t, `{}`))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if g := f.ShutdownGrace(); g != 30*time.Second {
+		t.Errorf("default grace = %v, want 30s", g)
+	}
+	dir := site(t, `{"shutdownGraceSeconds":90}`)
+	if f, _, err = Load(dir); err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if g := f.ShutdownGrace(); g != 90*time.Second {
+		t.Errorf("ddcore.json: grace = %v, want 90s", g)
+	}
+	t.Setenv("DDCORE_SHUTDOWN_GRACE_SECONDS", "5")
+	if f, _, err = Load(dir); err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if g := f.ShutdownGrace(); g != 5*time.Second {
+		t.Errorf("DDCORE_SHUTDOWN_GRACE_SECONDS should override the file, got %v", g)
+	}
+	t.Setenv("DDCORE_SHUTDOWN_GRACE_SECONDS", "0")
+	if f, _, err = Load(dir); err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if g := f.ShutdownGrace(); g != 90*time.Second {
+		t.Errorf("a zero DDCORE_SHUTDOWN_GRACE_SECONDS should leave the file's value, got %v", g)
+	}
+	if _, _, err := Load(site(t, `{"shutdownGraceSeconds":-1}`)); err == nil {
+		t.Error("a negative shutdownGraceSeconds must be refused")
 	}
 }
 

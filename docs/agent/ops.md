@@ -399,8 +399,9 @@ export function failed(args: { name: string }, job: JobFailure) {
   is the message; `job.final` is false while another attempt is still coming. It
   is also called when a job is cancelled before any worker claimed it
   (`job.attempt` is 0) and when the worker running it died and its lease
-  expired. It is **not** called when a worker shuts down or the site enters
-  maintenance under a running job: the attempt is given back, nothing failed.
+  expired. It is **not** called when a worker shutting down interrupts a running
+  job, or the site enters maintenance under one: the attempt is given back,
+  nothing failed (see "Stopping the process" below).
   It has 30 seconds. If it throws, the error goes to the Error Log (method
   `job:onFailure:<method>`) and the job stays failed.
 - `job` is `{ id, method, queue, attempt, maxAttempts }`, plus `error`, `reason`
@@ -427,19 +428,44 @@ to the database survives. **Effects outside the database do not roll back.** A
 message already handed to an SMTP server has been sent, and an HTTP call already
 made has been made. For the same reason, a retry may repeat them. Nothing here
 is exactly-once, and a job whose external effects must not be repeated should
-say so with `maxAttempts: 1` and be written to tolerate being run twice.
+be written to tolerate being run twice.
 
-One limitation is worth knowing: the interrupt only reaches JavaScript. A job
-blocked inside a host call — a slow query, a mail transport, an HTTP request —
-is not interruptible, and neither is the timeout. Such a job is stopped when the
-call returns, and if the worker dies first the row is settled by the lease sweep.
+The interrupt reaches the job wherever it is waiting on somebody else's server:
+a cancellation, the job's `timeout` and a worker shutting down all cut the call
+in progress — `ddcore.http.*`, `ddcore.files.save({ fromUrl })`,
+`ddcore.push.send`, an external database query, the framework's own mail and
+webhook deliveries — and the job stops there. **The job's `timeout` is therefore
+a bound on its outbound calls too**, whatever `timeout` a single call names. A
+query on the site's own database is the exception: it runs to its end, so that
+the rollback can, and a job blocked in one stops when it returns. Requests are
+unaffected: an outbound call made while serving one is not cut when its client
+goes away.
 
 A cancelled job is not retried however many attempts remain, and it writes no
 Error Log row: it is an administrative act, not a fault.
 
-Stopping a worker is neither. A job interrupted by shutdown returns to the queue
-with its attempt given back, so a rolling restart does not spend `max_attempts`
-on work that has nothing wrong with it.
+### Stopping the process
+
+Stopping a worker is neither a cancellation nor a failure. When `ddcore start`,
+`ddcore dev` or `ddcore jobs work` is told to stop (SIGTERM, or Ctrl-C), it:
+
+1. stops the scheduler and claims no new job, while the HTTP server finishes the
+   requests in flight;
+2. lets the jobs already running finish and commit, for up to
+   `shutdownGraceSeconds` (`ddcore.json`, or `DDCORE_SHUTDOWN_GRACE_SECONDS`;
+   30 by default);
+3. interrupts the ones still running after that — their outbound calls
+   included — and gives them back: each returns to `queued` with its attempt
+   given back and no `onFailure`, so a rolling restart does not spend
+   `max_attempts` on work that has nothing wrong with it;
+4. exits once they have, waiting at most about ten seconds more for those
+   writes.
+
+Whatever stops the process must give it longer than the grace — Docker's
+`stop_grace_period` and Kubernetes' `terminationGracePeriodSeconds` — or it is
+killed before step 3, and a job it was running stays `running` until its lease
+expires two minutes later and is then failed like a job whose worker died.
+A second Ctrl-C ends the process at once, with the same consequence.
 
 ### Retrying
 

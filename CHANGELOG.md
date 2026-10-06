@@ -14,6 +14,30 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- `shutdownGraceSeconds` in `ddcore.json`, or `DDCORE_SHUTDOWN_GRACE_SECONDS` (default 30): how
+  long a process told to stop lets its running jobs finish before it gives them back to the
+  queue. Set the platform's stop timeout above it (Compose `stop_grace_period`, Kubernetes
+  `terminationGracePeriodSeconds`) (#99).
+
+### Changed
+
+- A job's `timeout`, an administrative cancel and a worker shutting down now also cut the outbound
+  call the job is waiting on — `ddcore.http.*`, `ddcore.files.save({ fromUrl })`,
+  `ddcore.push.send`, an external database query, mail and webhook delivery — instead of
+  waiting for it to return. A job's `timeout` is now a bound on its HTTP calls too. Calls made
+  while serving a request are unchanged (#99).
+
+### Fixed
+
+- SIGTERM (or Ctrl-C) no longer drops the jobs a process is running. `ddcore start`, `ddcore dev`
+  and `ddcore jobs work` stop claiming jobs, let the running ones finish within
+  `shutdownGraceSeconds`, give the rest back to the queue with their attempt returned and no
+  `onFailure`, and only then exit. They used to exit at once: a job blocked in `ddcore.http` stayed
+  `running` until its lease expired and was then failed, its attempt spent, as the docs said it
+  would not be (#99).
+
 ## 0.27.3 — 2026-10-06
 
 ### Added

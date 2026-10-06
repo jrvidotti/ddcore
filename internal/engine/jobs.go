@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -36,6 +37,13 @@ var (
 	// Keeping it separate from the renewal is the whole point: one interval per
 	// question, instead of paying the write cost at the read's frequency.
 	jobCancelPoll = 5 * time.Second
+	// How long an idle or paused worker waits before it looks at the queue again.
+	jobIdlePoll = 2 * time.Second
+	// How long Workers.Stop waits, once it has interrupted the jobs still running
+	// after the grace, for them to write their attempt back. The interrupt
+	// reaches the VM and every outbound call a job makes; what it does not reach
+	// — a slow query — is left to the lease sweep after this.
+	jobGiveBackWait = 10 * time.Second
 )
 
 // How long a failed job waits before it runs again. Fixed is the historical
@@ -215,13 +223,15 @@ func (e *Engine) runJobHook(ctx context.Context, user, runAs, path string, args,
 // user instead, with permissions enforced; a user that has since been removed
 // or disabled fails the job rather than letting it run unscoped. The
 // transaction itself uses a context without the deadline: the timeout needs to
-// interrupt the VM, without interfering with the rollback.
+// interrupt the VM, without interfering with the rollback. The outbound calls
+// the job makes do take ctx (see callCtx), or a job waiting on a server that
+// never answers could be neither timed out, cancelled nor stopped.
 func (e *Engine) inJobTx(ctx context.Context, user, runAs, method string, call func(rt *js.Runtime) error) error {
 	actor := orDefault(user, "Admin")
 	if runAs != "" {
 		actor = runAs
 	}
-	err := e.Run(context.WithoutCancel(ctx), actor, func(c *Ctx) error {
+	err := e.Run(withCallCtx(context.WithoutCancel(ctx), ctx), actor, func(c *Ctx) error {
 		if runAs == "" {
 			c.Flags["ignorePermissions"] = true
 		} else if err := c.checkActingUser(runAs); err != nil {
@@ -237,6 +247,33 @@ func (e *Engine) inJobTx(ctx context.Context, user, runAs, method string, call f
 		return cerr.Validation("job {0} timed out", method)
 	}
 	return err
+}
+
+type callCtxKey struct{}
+
+// withCallCtx makes call the context the outbound calls of the work under ctx
+// run on. It travels as a value, so a ctx that ddcore.runAs or a tenant switch
+// derives from the job's still carries it.
+func withCallCtx(ctx, call context.Context) context.Context {
+	return context.WithValue(ctx, callCtxKey{}, call)
+}
+
+// callCtx is the context an outbound call made from app code runs on — an
+// HTTP request, a push, a file fetched from a URL. In a job it is the job's,
+// which its timeout, a cancellation and a worker shutting down all cancel, so
+// they reach a job blocked in the call and not only one running JavaScript.
+// Anywhere else it is context.Background(): a request's own calls were never
+// tied to the client staying connected, and this does not start now.
+func (c *Ctx) callCtx() context.Context { return c.callCtxOr(context.Background()) }
+
+// callCtxOr is callCtx with another context outside a job.
+func (c *Ctx) callCtxOr(fallback context.Context) context.Context {
+	if c != nil && c.Ctx != nil {
+		if call, ok := c.Ctx.Value(callCtxKey{}).(context.Context); ok {
+			return call
+		}
+	}
+	return fallback
 }
 
 // onFailureTimeout bounds a job's onFailure callback. It runs after the job's
@@ -361,42 +398,122 @@ func (e *Engine) requeueStale(ctx context.Context) error {
 	return nil
 }
 
-// Worker loops over queued jobs until ctx is cancelled.
+// Worker loops over queued jobs until ctx is cancelled. Cancelling ctx also
+// interrupts the job running at that moment, which gives its attempt back;
+// StartWorkers is the shutdown that lets the job finish first.
 func (e *Engine) Worker(ctx context.Context, id int) {
-	for {
+	e.work(ctx, ctx, id)
+}
+
+// work is the worker loop. claim stops it from taking another job; run is what
+// the job it took runs under, and interrupts it. A worker shutting down
+// cancels claim first and run only when it has waited long enough.
+func (e *Engine) work(claim, run context.Context, id int) {
+	idle := func() bool {
 		select {
-		case <-ctx.Done():
-			return
-		default:
+		case <-claim.Done():
+			return false
+		case <-time.After(jobIdlePoll):
+			return true
 		}
+	}
+	for claim.Err() == nil {
 		// paused: claim nothing, and leave expired leases alone too — requeueing
 		// them is a write, and the job they belong to cannot run anyway
-		if e.Paused(ctx) {
-			select {
-			case <-ctx.Done():
+		if e.Paused(claim) {
+			if !idle() {
 				return
-			case <-time.After(2 * time.Second):
 			}
 			continue
 		}
-		if err := e.requeueStale(ctx); err != nil {
+		if err := e.requeueStale(claim); err != nil && claim.Err() == nil {
 			e.Log.Error("requeue", "id", id, "err", err)
 		}
-		ran, err := e.runOneJob(ctx)
-		if err != nil {
+		ran, err := e.claimAndRun(claim, run)
+		if err != nil && claim.Err() == nil {
 			e.Log.Error("worker", "id", id, "err", err)
 		}
-		if !ran {
-			select {
-			case <-ctx.Done():
-				return
-			case <-time.After(2 * time.Second):
-			}
+		if !ran && !idle() {
+			return
 		}
 	}
 }
 
+// Workers are the job workers of a process, started by StartWorkers.
+type Workers struct {
+	e         *Engine
+	stopClaim context.CancelFunc
+	interrupt context.CancelFunc
+	wg        sync.WaitGroup
+	stopOnce  sync.Once
+}
+
+// StartWorkers starts n job workers. They run until Stop, and nothing else
+// stops them: a process's signal context must not reach a running job, or the
+// job is interrupted the instant the process is asked to stop instead of being
+// given the grace to finish.
+func (e *Engine) StartWorkers(n int) *Workers {
+	claim, stopClaim := context.WithCancel(context.Background())
+	run, interrupt := context.WithCancel(context.Background())
+	w := &Workers{e: e, stopClaim: stopClaim, interrupt: interrupt}
+	for i := 0; i < n; i++ {
+		w.wg.Add(1)
+		go func(id int) {
+			defer w.wg.Done()
+			e.work(claim, run, id)
+		}(i)
+	}
+	return w
+}
+
+// Stop shuts the workers down: nothing new is claimed from the moment it is
+// called; the jobs already running get up to grace to finish and commit; those
+// still running then are interrupted — the VM and every outbound call they are
+// waiting on — and go back to the queue with their attempt given back. Stop
+// returns once every worker has, or once the give-back has had jobGiveBackWait
+// to happen, whichever is first. It is safe to call more than once.
+func (w *Workers) Stop(grace time.Duration) {
+	w.stopOnce.Do(func() {
+		done := make(chan struct{})
+		go func() { w.wg.Wait(); close(done) }()
+		w.stopClaim()
+		if grace > 0 {
+			select {
+			case <-done:
+				w.interrupt()
+				return
+			case <-time.After(grace):
+			}
+		}
+		select {
+		case <-done:
+		default:
+			w.e.Log.Warn("shutdown: interrupting the jobs still running; they go back to the queue",
+				"grace", grace.String())
+		}
+		w.interrupt()
+		select {
+		case <-done:
+		case <-time.After(jobGiveBackWait):
+			w.e.Log.Warn("shutdown: a job did not stop in time; its lease will return it to the queue",
+				"waited", jobGiveBackWait.String())
+		}
+	})
+}
+
+// runOneJob claims and runs one job, under a single context that both stops
+// the claim and interrupts the job.
 func (e *Engine) runOneJob(ctx context.Context) (bool, error) {
+	return e.claimAndRun(ctx, ctx)
+}
+
+// claimAndRun claims one job unless claim is done, and runs it under run. The
+// claim itself is written on run: a claim committed while its context is
+// being cancelled is a row left "running" with nobody running it.
+func (e *Engine) claimAndRun(claim, ctx context.Context) (bool, error) {
+	if claim.Err() != nil {
+		return false, nil
+	}
 	on, err := e.tenancy(ctx)
 	if err != nil {
 		return false, err
@@ -423,6 +540,10 @@ func (e *Engine) runOneJob(ctx context.Context) (bool, error) {
 	}
 	j := rows[0]
 	id := int64(toFloat(j["id"]))
+	if claim.Err() != nil {
+		// stopped while the row was being picked: leave it to the next process
+		return false, nil
+	}
 	if _, err := tx.Exec(ctx, `UPDATE ddcore_job SET status = 'running', started = now(), attempts = attempts + 1, lease_until = now() + $2::interval WHERE id = $1`,
 		id, jobLease.String()); err != nil {
 		return false, err
@@ -529,8 +650,8 @@ func (e *Engine) runOneJob(ctx context.Context) (bool, error) {
 			WHERE id = $1 AND status = 'running' AND attempts = $2`, id, attempt)
 
 	case ctx.Err() != nil && !errors.Is(jobErr, context.DeadlineExceeded):
-		// The worker is stopping, so the job did not fail — it was never allowed
-		// to finish. Give it back without consuming the attempt, or a rolling
+		// The worker is stopping and the grace ran out, so the job did not fail
+		// — it was never allowed to finish. Give it back without consuming the attempt, or a rolling
 		// restart would exhaust max_attempts on work nothing is wrong with.
 		write(`UPDATE ddcore_job SET status = 'queued', attempts = attempts - 1, started = NULL,
 			lease_until = NULL, error = NULL, run_after = now()
@@ -820,10 +941,15 @@ func (e *Engine) RestartScheduler(ctx context.Context) *cron.Cron {
 	return e.StartScheduler(ctx)
 }
 
-// StopScheduler stops the scheduler currently registered, if any.
+// StopScheduler stops the scheduler currently registered, if any, and waits
+// for the entries already firing to finish enqueuing — at most a few seconds,
+// so a process stopping does not exit under one.
 func (e *Engine) StopScheduler() {
 	if old := e.sched.Swap(nil); old != nil {
-		old.cr.Stop()
+		select {
+		case <-old.cr.Stop().Done():
+		case <-time.After(5 * time.Second):
+		}
 	}
 }
 

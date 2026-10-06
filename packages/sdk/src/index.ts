@@ -44,7 +44,10 @@ export type HttpMultipartPart =
 
 export interface HttpOpts {
   headers?: Record<string, string>;
-  /** Timeout in seconds; defaults to 15. */
+  /**
+   * Timeout in seconds; defaults to 15. In a job, the job's own `timeout`, a cancellation and
+   * the worker shutting down cut the call sooner.
+   */
   timeout?: number;
   /** `"base64"` returns the body base64-encoded, for binary content; defaults to `"text"`. */
   responseType?: "text" | "base64";

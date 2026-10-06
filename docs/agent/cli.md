@@ -1,6 +1,6 @@
 # CLI and the development loop
 
-`ddcore.json` in the site directory: `dsn`, `apps` (directories), `ddcore` (the range of ddcore releases the site is tested against — see `conventions`), `port`, `workers`, `scheduler`, `title` (the site's name, when it should not be its app's title — see `i18n`), `lang`, `currency`, `currencyPrecision`, `rounding`, `timezone`, `exportMaxRows`, `importMaxRows`, `poolMaxConns`, `auth`, `ops`, `cors`.
+`ddcore.json` in the site directory: `dsn`, `apps` (directories), `ddcore` (the range of ddcore releases the site is tested against — see `conventions`), `port`, `workers`, `scheduler`, `title` (the site's name, when it should not be its app's title — see `i18n`), `lang`, `currency`, `currencyPrecision`, `rounding`, `timezone`, `exportMaxRows`, `importMaxRows`, `poolMaxConns`, `shutdownGraceSeconds`, `auth`, `ops`, `cors`.
 `currencyPrecision` defaults to the currency's ISO minor unit and `rounding` to `"commercial"`;
 an unrecognised `rounding` stops the server at startup rather than quietly using another rule.
 `DDCORE_DSN` overrides the dsn, and `DDCORE_DATA_DIR` the `dataDir`.
@@ -9,6 +9,9 @@ unset, the DSN's `pool_max_conns` or pgx's default (the larger of 4 and the numb
 applies. A request holds its connection while it waits on a slow outbound call, so a site that
 makes them may need it larger. The DSN may carry `pool_*` settings, which the cache invalidation
 listener accepts as the pool does.
+`shutdownGraceSeconds` (default 30, `DDCORE_SHUTDOWN_GRACE_SECONDS` overrides it) is how long a
+process told to stop lets its running jobs finish before it interrupts them and gives them back to
+the queue — see `ops`, "Stopping the process".
 `cors.origins` lists the other origins whose pages may call the methods whitelisted with
 `cors: true` (`"*"`, `scheme://host[:port]` or `scheme://*.domain`); `DDCORE_CORS_ORIGINS`,
 comma-separated, replaces it. An entry no browser would send as an `Origin` stops the server at

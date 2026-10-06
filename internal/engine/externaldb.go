@@ -182,7 +182,7 @@ func (c *Ctx) ExternalSQL(name, query string, params []any, timeout float64) ([]
 	if timeout > 0 {
 		d = time.Duration(timeout * float64(time.Second))
 	}
-	parent := c.Ctx
+	parent := c.callCtxOr(c.Ctx)
 	if parent == nil {
 		parent = context.Background()
 	}
