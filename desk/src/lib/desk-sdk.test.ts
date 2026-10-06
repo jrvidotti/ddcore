@@ -9,7 +9,12 @@ vi.mock("./ui.svelte", () => ({
   showError: vi.fn(),
   ui: { busy: 0 },
 }));
-vi.mock("./boot.svelte", () => ({ __: (s: string) => s }));
+const bootState = vi.hoisted(() => ({ data: null as any }));
+vi.mock("./boot.svelte", () => ({
+  __: (s: string) => s,
+  boot: bootState,
+  hasRole: (r: string) => !!bootState.data?.roles.includes(r),
+}));
 
 import { deskSDK } from "./desk-sdk";
 
@@ -42,6 +47,28 @@ describe("deskSDK listRegistry", () => {
   it("allows registering list options without docstatusFilter", () => {
     deskSDK.defineListView("Task", { pageSize: 50 });
     expect(deskSDK.listSettings("Task")).toEqual({ pageSize: 50 });
+  });
+});
+
+describe("deskSDK session", () => {
+  it("reads the signed-in user from boot", () => {
+    bootState.data = { user: "ana@x.com", roles: ["Portal Manager"], userDoc: { id: "ana@x.com", full_name: "Ana" }, lang: "pt-BR" };
+    expect(deskSDK.ddcore.session).toEqual({ user: "ana@x.com", fullName: "Ana", roles: ["Portal Manager"], lang: "pt-BR" });
+    expect(deskSDK.ddcore.hasRole("Portal Manager")).toBe(true);
+    expect(deskSDK.ddcore.hasRole("Portal User")).toBe(false);
+  });
+
+  it("gives a copy of the roles, so a script cannot change the desk's", () => {
+    bootState.data = { user: "ana@x.com", roles: ["Portal Manager"], userDoc: null, lang: "en" };
+    deskSDK.ddcore.session.roles.push("System Manager");
+    expect(deskSDK.ddcore.hasRole("System Manager")).toBe(false);
+    expect(deskSDK.ddcore.session.fullName).toBe("ana@x.com");
+  });
+
+  it("is the guest before boot", () => {
+    bootState.data = null;
+    expect(deskSDK.ddcore.session).toEqual({ user: "Guest", fullName: "Guest", roles: [], lang: "" });
+    expect(deskSDK.ddcore.hasRole("Guest")).toBe(false);
   });
 });
 

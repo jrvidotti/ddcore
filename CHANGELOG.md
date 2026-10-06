@@ -14,6 +14,19 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- `ddcore.session` (`{ user, fullName, roles, lang }`) and `ddcore.hasRole(role)` in desk
+  scripts, read from the desk's boot, so a form or list script can show a button only to the
+  roles the server will accept. They hide UI and grant nothing: the method still checks (#93).
+- `refDoctype` on a workspace number card or chart with a `method()`: the endpoint answers 403
+  to a user without read on that DocType before running the method. A `method()` runs as the
+  caller with no DocType check of its own, and `report-api` now says so, along with what the
+  workspace `roles` and a `doctype` card enforce (#94).
+- `defineListView({ toolbarActions })`: buttons on the list toolbar that run with no rows
+  selected, in every view. `onClick(list)` gets `doctype`, the view's `filters` and `refresh()`;
+  an optional `condition()` decides whether the button shows (#96).
+
 ## 0.27.4 — 2026-10-06
 
 ### Added

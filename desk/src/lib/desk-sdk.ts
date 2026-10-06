@@ -6,7 +6,7 @@ import { api } from "./api";
 import { subscribe, unsubscribe } from "./events";
 import { registerForm, type FormHandlers, FormController } from "./form.svelte";
 import { dialog, toast, confirm, prompt, showError } from "./ui.svelte";
-import { __, boot } from "./boot.svelte";
+import { __, boot, hasRole } from "./boot.svelte";
 import { formatCurrency, formatDate, formatNumber, formatValue, roundCurrency, statusColor } from "./format";
 import { getMeta } from "./meta";
 import { addDays, addMonths, dateDiff, monthDiff, monthEnd, monthStart, today } from "./datetime";
@@ -113,6 +113,19 @@ export interface ListAction<T extends BaseDoc = BaseDoc> {
   onClick(ids: string[], list: ListActionContext<T>): any;
 }
 
+export interface ListToolbarContext {
+  doctype: string;
+  filters: [string, string, any][];
+  refresh(): void;
+}
+
+export interface ListToolbarAction {
+  label: string;
+  condition?: () => boolean;
+  primary?: boolean;
+  onClick(list: ListToolbarContext): any;
+}
+
 export interface ListViewOptions<T extends BaseDoc = BaseDoc> {
   /** Allowed views for this DocType; defaults to ["list", "cards"] plus "calendar", "kanban" and "gantt" for each one configured */
   views?: DeskViewMode[];
@@ -136,6 +149,7 @@ export interface ListViewOptions<T extends BaseDoc = BaseDoc> {
   badges?: (row: T) => { label: string; color: string }[] | null | undefined;
   filterOptions?: Partial<Record<keyof T & string, { value: string; label: string; filters: [string, string, any][] }[]>>;
   actions?: ListAction<T>[];
+  toolbarActions?: ListToolbarAction[];
 }
 
 const listRegistry = new Map<string, any>();
@@ -148,6 +162,13 @@ export const deskSDK = {
   ddcore: {
     _: __,
     __,
+    // read from boot on every access, so a script sees the session the desk is on
+    get session() {
+      const b = boot.data;
+      const user = b?.user || "Guest";
+      return { user, fullName: b?.userDoc?.full_name || user, roles: [...(b?.roles || [])], lang: b?.lang || "" };
+    },
+    hasRole,
     call: (path: string, args?: any) => api.call(path, args),
     report: (name: string, filters: Record<string, any> = {}) => api.report(name, filters),
     api,
