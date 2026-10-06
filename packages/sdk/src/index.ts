@@ -336,6 +336,11 @@ export interface DDCoreAPI {
    * letters, digits and `_ . : -`; prefix it with the app's name.
    */
   publish(event: string, payload: any, opts?: { user?: string; doctype?: string; id?: string }): void;
+  /**
+   * One structured record in the server log. A plain object's keys become fields of the record;
+   * the other arguments are joined into the message (an Error as "Error: message", anything else
+   * as JSON).
+   */
   log: { info(...a: any[]): void; warn(...a: any[]): void; error(...a: any[]): void; debug(...a: any[]): void };
   /**
    * Document sharing (SEC-03): per-user grants on one document, checked with

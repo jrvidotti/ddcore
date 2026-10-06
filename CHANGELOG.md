@@ -21,6 +21,10 @@ older series, and `whats_new` reads across every one of them.
 
 ### Fixed
 
+- `ddcore.log.*` and `console.*` no longer log an object as `"[object Object]"`: a plain object's
+  keys become fields of the structured record (`ddcore.log.warn("retry", { status })` logs
+  `msg="retry" status=…`), and other values join the message as JSON. A value with a cycle no
+  longer makes `console.log` throw. `ddcore eval` prints the fields after the message (#88).
 - `ddcore.http` and `ddcore.files.save({ fromUrl })` no longer send the caller's headers to
   another host on a redirect. A hop to another host, or from https to http, now drops every header
   the call passed except `Content-Type`; net/http only dropped `Authorization` and `Cookie`, so a

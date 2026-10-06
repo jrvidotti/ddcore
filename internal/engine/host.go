@@ -2,14 +2,17 @@ package engine
 
 import (
 	"bytes"
+	"context"
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
+	"sort"
 	"strings"
 	"time"
 
@@ -60,7 +63,6 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		MaxRedirects  *float64          `json:"maxRedirects"`
 		ClientCert    *httpClientCert   `json:"clientCert"`
 		Level         string            `json:"level"`
-		LogArgs       []string          `json:"args2"`
 		Event         string            `json:"event"`
 		Payload       any               `json:"payload"`
 		User          string            `json:"user"`
@@ -357,25 +359,33 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		return nil, nil
 	case "log":
 		var l struct {
-			Level string   `json:"level"`
-			Args  []string `json:"args"`
+			Level string         `json:"level"`
+			Msg   string         `json:"msg"`
+			Attrs map[string]any `json:"attrs"`
 		}
 		json.Unmarshal(raw, &l)
-		msg := strings.Join(l.Args, " ")
+		level := slog.LevelInfo
 		switch l.Level {
 		case "error":
-			e.Log.Error(msg, "user", c.User)
+			level = slog.LevelError
 		case "warn":
-			e.Log.Warn(msg, "user", c.User)
+			level = slog.LevelWarn
 		case "debug":
-			e.Log.Debug(msg, "user", c.User)
-		default:
-			e.Log.Info(msg, "user", c.User)
+			level = slog.LevelDebug
 		}
+		e.Log.Log(context.Background(), level, l.Msg, logAttrs(c.User, l.Attrs)...)
 		// captured on the ctx that owns the transaction, where Eval reads them:
 		// a log line written under ddcore.runAs belongs to the same output
 		if o := c.owner(); o.Flags["captureLogs"] == true {
-			o.Flags["logs"] = append(o.Flags["logs"].([]string), l.Level+": "+msg)
+			line := l.Level + ":"
+			if l.Msg != "" {
+				line += " " + l.Msg
+			}
+			if len(l.Attrs) > 0 {
+				b, _ := json.Marshal(l.Attrs)
+				line += " " + string(b)
+			}
+			o.Flags["logs"] = append(o.Flags["logs"].([]string), line)
 		}
 		return nil, nil
 	case "rename":
@@ -1040,6 +1050,28 @@ func httpFetch(method, url string, body any, bodyEncoding string, headers map[st
 		return nil, nil, cerr.Validation("http: the response from {0} is larger than {1} bytes (raise opts.maxBytes)", url, maxBytes)
 	}
 	return res, b, nil
+}
+
+// logAttrs is the fields of a ddcore.log record: the user, then the fields
+// the call passed in key order. A field named like one the record already has
+// (time, level, msg, user) is written as arg.<name> rather than shadowing it.
+func logAttrs(user string, attrs map[string]any) []any {
+	out := make([]any, 0, 2+2*len(attrs))
+	out = append(out, "user", user)
+	keys := make([]string, 0, len(attrs))
+	for k := range attrs {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		name := k
+		switch k {
+		case slog.TimeKey, slog.LevelKey, slog.MessageKey, "user":
+			name = "arg." + k
+		}
+		out = append(out, name, attrs[k])
+	}
+	return out
 }
 
 // redirectPolicy follows at most max redirects and, on a hop to another host
