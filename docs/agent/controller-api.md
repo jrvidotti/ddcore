@@ -74,6 +74,8 @@ export const receive = whitelisted((args, ctx) => {
 
   A method without it does not exist at a sub-path: `/api/method/<path>/x` answers the same 404 as an unknown
   method, and `ctx.request` carries no `pathTail`.
+  The access log and the Error Log stop at the method's name (`/api/method/<path>/…`), so a sender that can
+  only authenticate through its URL may carry a shared token in the tail; compare it with `timingSafeEqual`.
 - `ddcore.crypto.hmacSha256(key, data)` → lower-case hex; `ddcore.crypto.timingSafeEqual(a, b)` compares in
   constant time. Never compare a signature with `===`. For a timestamped scheme, also check the timestamp header
   against `Date.now()` and refuse an event older than the window you accept.
@@ -218,6 +220,7 @@ by hand.
 - `ddcore.crypto` also makes secrets from `crypto/rand`: `randomToken(bytes = 32)` (base64url, no padding), `randomInt(min, max)` (uniform in `[min, max)`, safe integers, `max > min`) and `sha256(data, { output? })` (hex by default), so a session token is `randomToken()`, a six-digit OTP is `String(ddcore.crypto.randomInt(0, 1e6)).padStart(6, "0")`, and what you store is `sha256(token)`, not the token. `ddcore.utils.randomString(n)` is cryptographically secure too (`a-z0-9`; a fraction rounds up, anything not positive gives `""`, and it throws only above 65536), but `randomToken` carries 6 bits per character against about 5.17 for `randomString`.
 - `ddcore.crypto.pfxInfo(pfx, password?)` describes the certificate in a PKCS#12 file, the same base64 input as `clientCert.pfx`, without making a call with it: `{ notBefore, notAfter, subject, issuer, serial, chain }`. `notBefore` and `notAfter` are RFC 3339 instants in UTC (`"2027-01-31T12:00:00Z"`), `subject` and `issuer` distinguished names (`"CN=…"`), `serial` lower-case hex, and `chain` how many certificates came along with the leaf. It never returns key material. A wrong password or an unreadable file throws a `ValidationError` that does not repeat the material, so a method that stores a certificate calls it first: the password is checked on save rather than at the first call to the bank, and the expiry date comes from the file instead of being typed. `ddcore.crypto.certInfo(pem)` does the same for a PEM certificate, the `cert` of the `{ cert, key }` form; the certificates after the first are its chain.
 - `HttpResponse` exposes `{ status, body, headers, json() }`. `body` is text (base64 with `responseType: "base64"`) and `json()` parses it. Response header names use Go's canonical HTTP casing (for example, `response.headers["Ratelimit-Remaining"]`); repeated values are joined with `", "`. HTTP error statuses are returned as responses; transport errors throw.
+- Redirects are followed, up to 10 hops; `opts.maxRedirects` changes the limit, and `maxRedirects: 0` returns the 3xx itself, with its target in `headers.Location`, so the app chooses whether to follow and with which headers. A hop to another host than the one called (a different port counts), or from `https` to anything else, drops every header the call passed except `Content-Type`: a token sent as `api_access_token` or `X-Api-Key` stays with the host it was meant for, not the object storage or CDN a download redirects to. A hop on the same host keeps them. As in every HTTP client, a 301, 302 or 303 turns the request into a GET without a body, and a 307 or 308 resends both. `ddcore.files.save({ fromUrl })` follows redirects under the same rule.
 - `ddcore.push.send(subscription, payload, { ttl, urgency, topic })` → `{ status, body, headers }` — a Web Push message to one browser subscription, encrypted for it and signed with the site's VAPID key (`DDCORE_SECRET_VAPID_*`); any status is returned, so the app deletes a subscription that answered 404 or 410. `ddcore.push.publicKey()` → the key a page subscribes with, or `null`. See `push`
 - `ddcore.files.save({ doctype?, id?, fieldname?, filename, isPrivate?, contentType?, content | contentBase64 | fromUrl, headers?, maxBytes?, timeout?, ignorePermissions? })` → the `File` document. Stores bytes the server holds or downloads, with the rules of an upload; see [storage](storage.md#from-server-code).
 - `ddcore.files.presign(fileUrl, { ttl?, ignorePermissions? })` → a URL anyone can GET the file at for `ttl` seconds. S3 backend only; see [storage](storage.md#from-server-code).
@@ -235,13 +238,20 @@ by hand.
 - `ddcore.callMethod("app.services.mod.fn", args)` → what the function returns. Calls an exported function of any loaded module as `fn(args, ctx)`, now, in the current transaction; no role or `whitelisted` check. See `conventions` → "Calling another app's server code"
 - `ddcore.isTest()` → `true` inside `ddcore test`; `ddcore.isJob()` → `true` inside a background job
 - `ddcore.publish(event, payload, { user, doctype, id })` — SSE to the desk when the transaction commits. With `user`, only that user's sessions; with `doctype` and `id`, only sessions that may read that document (with `doctype` alone, the DocType) — the audience `doc_update` has. The name is letters, digits and `_ . : -`; prefix it with the app's name. The desk listens with `frm.onRealtime` / `ddcore.realtime.on` (see `form-api`)
-- `ddcore.log.info/warn/error`
+- `ddcore.log.info/warn/error/debug(...args)` write one structured record to the server log, with the current user. A plain object's keys become fields of the record, and the other arguments are joined into its message: a string as is, an `Error` as `"Error: message"`, anything else as JSON. So `ddcore.log.warn("gateway retry", { method, status, requestId })` logs `msg="gateway retry"` with `method`, `status` and `requestId` as fields a collector can index. A field named `time`, `level`, `msg` or `user` is written as `arg.<name>`. Logging never throws: a value JSON cannot hold (a cycle) is written with `String`. `console.log/info/warn/error/debug` do the same; `ddcore eval` and the MCP `eval` tool print each record as `level: message {fields}`.
 - `ddcore.utils`: `flt(v, precision)`, `cint`, `cstr`, `getdate`, `nowdate()`, `now()`, `formatDate(d, "dd/mm/yyyy")`, `addDays`, `addMonths`, `addYears`,
   `getFirstDay`, `getLastDay`, `dateDiff(a, b)`, `monthDiff(a, b)`, `formatCurrency(v)`, `roundTo`, `randomString` (cryptographically secure)
 - `ddcore.utils` for money: `currencyPrecision()`, `roundCurrency(v)`, `splitAmount(total, n)`
 
 `nowdate()` and `now()` are the site's wall clock (`ddcore.json:timezone`), the same day and hour the desk sees.
 A `Datetime` written without an offset — which is what `now()` returns — is read on that same clock.
+
+`Date.parse(s)` and `new Date(s)` in server code read an instant with an offset in ISO form
+(`"2026-10-05T10:00:00-04:00"`) and in the form Postgres and many APIs write, with a space
+instead of the `T` and a short offset (`"2026-10-05 10:00:00-04:00"`,
+`"2026-10-05 22:31:52.767353+00"`), as Node does. Fractions beyond milliseconds are cut. A
+date-time without an offset is read on the server process's clock, not the site's timezone: pass
+an offset, or use `ddcore.utils` for wall-clock values.
 
 ### Savepoints
 

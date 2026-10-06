@@ -109,9 +109,10 @@ func (s *Server) observe(next http.Handler) http.Handler {
 
 // logRequest writes at most one line per request.
 //
-// Only r.URL.Path is logged, never the raw query: a list filter carries
+// Only the path is logged, never the raw query: a list filter carries
 // personal data and a recovery link carries a token, and neither belongs in a
-// file that gets shipped to a collector and kept.
+// file that gets shipped to a collector and kept. For the same reason the
+// path stops at a method's name (see loggedPath).
 func (s *Server) logRequest(info *reqInfo, r *http.Request, ww middleware.WrapResponseWriter) {
 	d := time.Since(info.start)
 	status := ww.Status()
@@ -123,8 +124,24 @@ func (s *Server) logRequest(info *reqInfo, r *http.Request, ww middleware.WrapRe
 		return
 	}
 	s.E.Log.Log(r.Context(), level, "request",
-		"id", info.id, "method", r.Method, "path", r.URL.Path,
+		"id", info.id, "method", r.Method, "path", loggedPath(r.URL.Path),
 		"status", status, "ms", d.Milliseconds(), "user", info.user, "ip", clientIP(r))
+}
+
+// loggedPath is the path as the logs show it. Below /api/method/<name>, a
+// method with pathTail reads the rest of the path, and a webhook sender that
+// can only authenticate through its URL puts a token there; so the tail is
+// replaced with "…", which still shows that there was one.
+func loggedPath(p string) string {
+	const prefix = "/api/method/"
+	if !strings.HasPrefix(p, prefix) {
+		return p
+	}
+	name, tail, ok := strings.Cut(p[len(prefix):], "/")
+	if !ok || tail == "" {
+		return p
+	}
+	return prefix + name + "/…"
 }
 
 // logLevelFor keeps the access log readable. One page of the desk is ~30
@@ -174,7 +191,7 @@ func (s *Server) recoverPanic(next http.Handler) http.Handler {
 				panic(rec)
 			}
 			id := RequestIDOf(r)
-			s.E.Log.Error("panic", "id", id, "method", r.Method, "path", r.URL.Path,
+			s.E.Log.Error("panic", "id", id, "method", r.Method, "path", loggedPath(r.URL.Path),
 				"panic", fmt.Sprint(rec), "stack", string(debug.Stack()))
 			// The Error Log row is a database write, and a database write can
 			// panic too. A panic inside the panic handler takes the whole

@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -78,6 +79,11 @@ func main() {
 		os.Exit(2)
 	}
 	cmd, args := argv[0], argv[1:]
+	// a command that dispatches on a subcommand prints its usage for -h
+	if u, ok := subcommandUsage[cmd]; ok && len(args) > 0 && isHelp(args[0]) {
+		fmt.Print(strings.TrimRight(u, "\n") + "\n")
+		return
+	}
 	var err error
 	switch cmd {
 	case "init":
@@ -146,10 +152,28 @@ func main() {
 		fmt.Fprintf(os.Stderr, "unknown command: %s\n\n%s", cmd, usage)
 		os.Exit(2)
 	}
+	if errors.Is(err, errHelpShown) {
+		return
+	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
+}
+
+// subcommandUsage is the usage text of each command whose first argument is a
+// subcommand: `ddcore <cmd> -h` prints it. Commands that take flags directly
+// print their flags from parseFlags instead.
+var subcommandUsage = map[string]string{
+	"import":      importUsage,
+	"jobs":        jobsUsage,
+	"audit":       auditUsage,
+	"webhooks":    webhooksUsage,
+	"push":        pushUsage,
+	"maintenance": maintenanceUsage,
+	"tenant":      tenantUsage,
+	"deploy":      deployUsage,
+	"user":        userUsage,
 }
 
 // enforceMaintenance is set by the commands that serve traffic or run jobs
@@ -747,14 +771,16 @@ func cmdDemo(args []string) error {
 	return nil
 }
 
+const userUsage = "usage: ddcore user add <email> <name> [--password x] [--role R]\n" +
+	"       ddcore user passwd <email> <password>\n" +
+	"       ddcore user invite <email> <name> [--role R]\n" +
+	"       ddcore user reset <email>\n" +
+	"       ddcore user unlock <email>\n" +
+	"       ddcore user sessions <email> [--revoke]"
+
 func cmdUser(args []string) error {
 	if len(args) < 1 {
-		return fmt.Errorf("usage: ddcore user add <email> <name> [--password x] [--role R]\n" +
-			"       ddcore user passwd <email> <password>\n" +
-			"       ddcore user invite <email> <name> [--role R]\n" +
-			"       ddcore user reset <email>\n" +
-			"       ddcore user unlock <email>\n" +
-			"       ddcore user sessions <email> [--revoke]")
+		return fmt.Errorf("%s", userUsage)
 	}
 	e, _, err := load(false, false)
 	if err != nil {

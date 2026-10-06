@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -202,4 +203,58 @@ func TestPRD03_AccessLogLevelKeepsTheNoiseDown(t *testing.T) {
 			t.Errorf("%s: got %v, want %v", name, got, tc.want)
 		}
 	}
+}
+
+// A webhook sender that can only authenticate through its URL puts the token
+// in a pathTail; the access log and the Error Log stop at the method's name.
+func TestLoggedPathLeavesOutTheMethodTail(t *testing.T) {
+	for in, want := range map[string]string{
+		"/api/method/portal.hook/acme/s3cr3t": "/api/method/portal.hook/…",
+		"/api/method/portal.hook/":            "/api/method/portal.hook/",
+		"/api/method/portal.hook":             "/api/method/portal.hook",
+		"/api/resource/Pessoa/P-1":            "/api/resource/Pessoa/P-1",
+		"/app/task":                           "/app/task",
+	} {
+		if got := loggedPath(in); got != want {
+			t.Errorf("loggedPath(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestAccessLogOmitsThePathTail(t *testing.T) {
+	x := setup(t)
+	var buf syncBuffer
+	orig := x.e.Log
+	x.e.Log = slog.New(slog.NewJSONHandler(&buf, nil))
+	t.Cleanup(func() { x.e.Log = orig })
+	x.expect(x.rawCall("POST", diag+"hook/acme/s3cr3t-token", `{}`, "application/json"), 200, "")
+	deadline := time.Now().Add(2 * time.Second)
+	for !strings.Contains(buf.String(), `"msg":"request"`) && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "demo.services.diag.hook/…") {
+		t.Fatalf("no request line for the method:\n%s", out)
+	}
+	if strings.Contains(out, "s3cr3t-token") {
+		t.Fatalf("the path tail reached the log:\n%s", out)
+	}
+}
+
+// syncBuffer is a bytes.Buffer the logging goroutine and the test can share.
+type syncBuffer struct {
+	mu sync.Mutex
+	b  strings.Builder
+}
+
+func (s *syncBuffer) Write(p []byte) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.b.Write(p)
+}
+
+func (s *syncBuffer) String() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.b.String()
 }

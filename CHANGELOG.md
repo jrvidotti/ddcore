@@ -14,6 +14,31 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- `ddcore.http` takes `maxRedirects` (default 10): `0` returns the 3xx with its `Location`, so an
+  app can follow a redirect itself and choose the headers it sends (#97).
+
+### Fixed
+
+- `Date.parse` and `new Date` in server code read a date-time written with a space instead of the
+  `T`, as Postgres writes it: `"2026-10-05 10:00:00-04:00"` lost its time of day and
+  `"2026-10-05 22:31:52.767353+00"` gave `NaN`. Both now give the instant Node gives (#90).
+- `ddcore.log.*` and `console.*` no longer log an object as `"[object Object]"`: a plain object's
+  keys become fields of the structured record (`ddcore.log.warn("retry", { status })` logs
+  `msg="retry" status=…`), and other values join the message as JSON. A value with a cycle no
+  longer makes `console.log` throw. `ddcore eval` prints the fields after the message (#88).
+- `ddcore.http` and `ddcore.files.save({ fromUrl })` no longer send the caller's headers to
+  another host on a redirect. A hop to another host, or from https to http, now drops every header
+  the call passed except `Content-Type`; net/http only dropped `Authorization` and `Cookie`, so a
+  token sent as `api_access_token` or `X-Api-Key` reached the redirect's target (#97).
+- The access log, the panic log and the Error Log title no longer print what follows a method's
+  name in `/api/method/<path>/<tail>`: they show `/api/method/<path>/…`. A webhook that carries a
+  token in its `pathTail` wrote it to the logs on every delivery (#95).
+- `ddcore <command> -h` and `--help` print the command's options (`ddcore test -h` lists
+  `--filter`, `--app` and `-v`) or, for a command with subcommands such as `import`, `jobs` or
+  `user`, its usage. Both failed with "unknown flag" and pointed at themselves (#87).
+
 ## 0.27.2 — 2026-10-05
 
 ### Added

@@ -934,6 +934,7 @@ http: multipart part {0} has both value and base64,http: a parte multipart {0} t
 http: multipart part {0} has no name,http: a parte multipart {0} não tem name,# internal/engine/host.go:908
 http: multipart part {0} is not valid base64: {1},http: a parte multipart {0} não é base64 válido: {1},# internal/engine/host.go:934
 http: multipart part {0} needs a value or base64,http: a parte multipart {0} precisa de value ou base64,# internal/engine/host.go:916
+"http: maxRedirects must be a whole number from 0, not {0}","http: maxRedirects deve ser um número inteiro a partir de 0, não {0}",# internal/engine/host.go:865
 "http: responseType must be ""text"" or ""base64"", not {0}","http: responseType deve ser ""text"" ou ""base64"", não {0}",# internal/engine/host.go:845
 http: the base64 of multipart part {0} must be a string,http: o base64 da parte multipart {0} deve ser uma string,# internal/engine/host.go:930
 http: the body is not valid base64: {0},http: o corpo não é base64 válido: {0},# internal/engine/host.go:891

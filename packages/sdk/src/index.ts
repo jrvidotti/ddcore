@@ -60,6 +60,12 @@ export interface HttpOpts {
   /** The largest response body accepted, in bytes; defaults to 10 MiB. A larger one throws. */
   maxBytes?: number;
   /**
+   * How many redirects to follow; defaults to 10. `0` returns the 3xx itself, with its
+   * `Location` in `headers`. A hop to another host, or from https to http, drops every
+   * header in `headers` except `Content-Type`.
+   */
+  maxRedirects?: number;
+  /**
    * A client certificate for mutual TLS: a PKCS#12 (`.pfx`) file, base64-encoded,
    * with its password, or a PEM certificate and key. Calls with the same
    * certificate share connections.
@@ -330,6 +336,11 @@ export interface DDCoreAPI {
    * letters, digits and `_ . : -`; prefix it with the app's name.
    */
   publish(event: string, payload: any, opts?: { user?: string; doctype?: string; id?: string }): void;
+  /**
+   * One structured record in the server log. A plain object's keys become fields of the record;
+   * the other arguments are joined into the message (an Error as "Error: message", anything else
+   * as JSON).
+   */
   log: { info(...a: any[]): void; warn(...a: any[]): void; error(...a: any[]): void; debug(...a: any[]): void };
   /**
    * Document sharing (SEC-03): per-user grants on one document, checked with

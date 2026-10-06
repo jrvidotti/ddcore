@@ -2,14 +2,17 @@ package engine
 
 import (
 	"bytes"
+	"context"
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
+	"sort"
 	"strings"
 	"time"
 
@@ -57,9 +60,9 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		Timeout       float64           `json:"timeout"`
 		ResponseType  string            `json:"responseType"`
 		MaxBytes      float64           `json:"maxBytes"`
+		MaxRedirects  *float64          `json:"maxRedirects"`
 		ClientCert    *httpClientCert   `json:"clientCert"`
 		Level         string            `json:"level"`
-		LogArgs       []string          `json:"args2"`
 		Event         string            `json:"event"`
 		Payload       any               `json:"payload"`
 		User          string            `json:"user"`
@@ -317,7 +320,7 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		}
 		return nil, c.broadcastInvalidation(keys, nil)
 	case "http":
-		return httpCall(a.Method, a.URL, a.Body, a.BodyEncoding, a.Headers, a.Timeout, a.ResponseType, int64(a.MaxBytes), a.ClientCert)
+		return httpCall(a.Method, a.URL, a.Body, a.BodyEncoding, a.Headers, a.Timeout, a.ResponseType, int64(a.MaxBytes), a.MaxRedirects, a.ClientCert)
 	case "files.save":
 		var f SaveFileArgs
 		if err := json.Unmarshal(raw, &f); err != nil {
@@ -356,25 +359,33 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		return nil, nil
 	case "log":
 		var l struct {
-			Level string   `json:"level"`
-			Args  []string `json:"args"`
+			Level string         `json:"level"`
+			Msg   string         `json:"msg"`
+			Attrs map[string]any `json:"attrs"`
 		}
 		json.Unmarshal(raw, &l)
-		msg := strings.Join(l.Args, " ")
+		level := slog.LevelInfo
 		switch l.Level {
 		case "error":
-			e.Log.Error(msg, "user", c.User)
+			level = slog.LevelError
 		case "warn":
-			e.Log.Warn(msg, "user", c.User)
+			level = slog.LevelWarn
 		case "debug":
-			e.Log.Debug(msg, "user", c.User)
-		default:
-			e.Log.Info(msg, "user", c.User)
+			level = slog.LevelDebug
 		}
+		e.Log.Log(context.Background(), level, l.Msg, logAttrs(c.User, l.Attrs)...)
 		// captured on the ctx that owns the transaction, where Eval reads them:
 		// a log line written under ddcore.runAs belongs to the same output
 		if o := c.owner(); o.Flags["captureLogs"] == true {
-			o.Flags["logs"] = append(o.Flags["logs"].([]string), l.Level+": "+msg)
+			line := l.Level + ":"
+			if l.Msg != "" {
+				line += " " + l.Msg
+			}
+			if len(l.Attrs) > 0 {
+				b, _ := json.Marshal(l.Attrs)
+				line += " " + string(b)
+			}
+			o.Flags["logs"] = append(o.Flags["logs"].([]string), line)
 		}
 		return nil, nil
 	case "rename":
@@ -840,11 +851,22 @@ func FormatCurrency(v float64, code, lang string, precision int) string {
 // no maxBytes.
 const httpMaxBytes = 10 << 20
 
-func httpCall(method, url string, body any, bodyEncoding string, headers map[string]string, timeout float64, responseType string, maxBytes int64, cert *httpClientCert) (any, error) {
+// httpMaxRedirects is how many redirects ddcore.http follows when the call
+// names no maxRedirects: the limit net/http applies by default.
+const httpMaxRedirects = 10
+
+func httpCall(method, url string, body any, bodyEncoding string, headers map[string]string, timeout float64, responseType string, maxBytes int64, maxRedirects *float64, cert *httpClientCert) (any, error) {
 	if responseType != "" && responseType != "text" && responseType != "base64" {
 		return nil, cerr.Validation("http: responseType must be \"text\" or \"base64\", not {0}", responseType)
 	}
-	res, b, err := httpFetch(method, url, body, bodyEncoding, headers, timeout, maxBytes, cert)
+	hops := httpMaxRedirects
+	if maxRedirects != nil {
+		if m := *maxRedirects; m < 0 || m != float64(int(m)) {
+			return nil, cerr.Validation("http: maxRedirects must be a whole number from 0, not {0}", m)
+		}
+		hops = int(*maxRedirects)
+	}
+	res, b, err := httpFetch(method, url, body, bodyEncoding, headers, timeout, maxBytes, hops, cert)
 	if err != nil {
 		return nil, err
 	}
@@ -970,7 +992,10 @@ func multipartQuote(s string) string { return multipartQuoter.Replace(s) }
 // httpFetch sends one request and reads the whole response body, at most
 // maxBytes of it (httpMaxBytes when zero). The response's body is closed.
 // A cert is presented to a server that asks for one (mutual TLS).
-func httpFetch(method, url string, body any, bodyEncoding string, headers map[string]string, timeout float64, maxBytes int64, cert *httpClientCert) (*http.Response, []byte, error) {
+//
+// It follows at most maxRedirects redirects; past that, the 3xx itself is the
+// response. See redirectPolicy for the headers a redirect keeps.
+func httpFetch(method, url string, body any, bodyEncoding string, headers map[string]string, timeout float64, maxBytes int64, maxRedirects int, cert *httpClientCert) (*http.Response, []byte, error) {
 	if timeout <= 0 {
 		timeout = 15
 	}
@@ -999,7 +1024,10 @@ func httpFetch(method, url string, body any, bodyEncoding string, headers map[st
 		req.Header.Set(k, v)
 	}
 	req.Header.Set("User-Agent", "ddcore/0.1")
-	client := &http.Client{Timeout: time.Duration(timeout * float64(time.Second))}
+	client := &http.Client{
+		Timeout:       time.Duration(timeout * float64(time.Second)),
+		CheckRedirect: redirectPolicy(maxRedirects, headers),
+	}
 	if cert != nil {
 		t, err := clientCertTransport(cert)
 		if err != nil {
@@ -1022,6 +1050,53 @@ func httpFetch(method, url string, body any, bodyEncoding string, headers map[st
 		return nil, nil, cerr.Validation("http: the response from {0} is larger than {1} bytes (raise opts.maxBytes)", url, maxBytes)
 	}
 	return res, b, nil
+}
+
+// logAttrs is the fields of a ddcore.log record: the user, then the fields
+// the call passed in key order. A field named like one the record already has
+// (time, level, msg, user) is written as arg.<name> rather than shadowing it.
+func logAttrs(user string, attrs map[string]any) []any {
+	out := make([]any, 0, 2+2*len(attrs))
+	out = append(out, "user", user)
+	keys := make([]string, 0, len(attrs))
+	for k := range attrs {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		name := k
+		switch k {
+		case slog.TimeKey, slog.LevelKey, slog.MessageKey, "user":
+			name = "arg." + k
+		}
+		out = append(out, name, attrs[k])
+	}
+	return out
+}
+
+// redirectPolicy follows at most max redirects and, on a hop to another host
+// than the first request's, or from https to anything else, drops every header
+// the caller passed. net/http only drops Authorization, Cookie and their kin,
+// and an API that takes its token as `api_access_token` or `X-Api-Key` would
+// hand it to whatever host the redirect names: object storage, a CDN, or a
+// plain-http mirror. Content-Type describes the body, which a 307 resends, and
+// is kept.
+func redirectPolicy(max int, headers map[string]string) func(*http.Request, []*http.Request) error {
+	return func(req *http.Request, via []*http.Request) error {
+		if len(via) >= max {
+			return http.ErrUseLastResponse
+		}
+		first := via[0].URL
+		if strings.EqualFold(req.URL.Host, first.Host) && (first.Scheme != "https" || req.URL.Scheme == "https") {
+			return nil
+		}
+		for k := range headers {
+			if !strings.EqualFold(k, "Content-Type") {
+				req.Header.Del(k)
+			}
+		}
+		return nil
+	}
 }
 
 // validEventName keeps an event name to one SSE token: it is written into the

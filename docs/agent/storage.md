@@ -104,6 +104,8 @@ ddcore.http.post("https://api.openai.com/v1/audio/transcriptions", [
 - Exactly one of `content` (text, stored as UTF-8), `contentBase64` and `fromUrl`.
   `fromUrl` is a GET with `headers` and `timeout` (seconds, default 15); a status
   outside 2xx throws. `maxBytes` defaults to 50 MiB, and a larger file throws.
+  Redirects are followed as `ddcore.http` follows them: a hop to another host drops
+  `headers`, so a signed object-storage URL behind the redirect gets no token.
 - The rules are an upload's: attaching to `doctype`/`id` needs **write** on it (or on
   the DocType, for an id not saved yet), a restricted field forces the file private,
   an `Attach Image` field takes only an image, and the stored name is random with a

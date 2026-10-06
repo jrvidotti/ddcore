@@ -937,10 +937,10 @@
     },
     publish(event, payload, opts) { call("publish", { event, payload, opts: opts || {} }); },
     log: {
-      info: (...a) => call("log", { level: "info", args: a.map(String) }),
-      warn: (...a) => call("log", { level: "warn", args: a.map(String) }),
-      error: (...a) => call("log", { level: "error", args: a.map(String) }),
-      debug: (...a) => call("log", { level: "debug", args: a.map(String) }),
+      info: (...a) => logLine("info", a),
+      warn: (...a) => logLine("warn", a),
+      error: (...a) => logLine("error", a),
+      debug: (...a) => logLine("debug", a),
     },
     isTest() { return !!globalThis.__ddcoreTest; },
     isJob() { return !call("session").request; },
@@ -1111,14 +1111,82 @@
     };
   }
   globalThis.ddcore = api;
+
+  // Date reads a date-time with a space instead of the "T" (the form Postgres
+  // and many APIs write, "2026-10-05 10:00:00-04:00") as V8 does. goja's own
+  // parser took the date and the offset and dropped the time between them, or
+  // gave NaN. Only that shape is rewritten, to ISO; every other string, and
+  // every other way of calling Date, reaches the native constructor untouched.
+  const NativeDate = Date;
+  const spacedInstant = /^(\d{4}-\d{2}-\d{2})[ tT](\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?)\s*([zZ]|[+-]\d{2}(?::?\d{2})?)?$/;
+  function isoInstant(s) {
+    const m = typeof s === "string" ? spacedInstant.exec(s.trim()) : null;
+    return m ? m[1] + "T" + m[2] + (m[3] ? m[3].toUpperCase() : "") : s;
+  }
+  function DDCoreDate(...a) {
+    if (!new.target) return NativeDate();
+    if (a.length === 1) a[0] = isoInstant(a[0]);
+    return Reflect.construct(NativeDate, a, new.target);
+  }
+  Object.defineProperty(DDCoreDate, "length", { value: 7 });
+  Object.defineProperty(DDCoreDate, "name", { value: "Date" });
+  DDCoreDate.prototype = NativeDate.prototype;
+  Object.defineProperty(NativeDate.prototype, "constructor", { value: DDCoreDate, writable: true, configurable: true });
+  DDCoreDate.now = NativeDate.now;
+  DDCoreDate.UTC = NativeDate.UTC;
+  DDCoreDate.parse = function parse(s) { return NativeDate.parse(isoInstant(String(s))); };
+  globalThis.Date = DDCoreDate;
+
   globalThis.console = {
-    log: (...a) => call("log", { level: "info", args: a.map(fmtArg) }),
-    error: (...a) => call("log", { level: "error", args: a.map(fmtArg) }),
-    warn: (...a) => call("log", { level: "warn", args: a.map(fmtArg) }),
-    info: (...a) => call("log", { level: "info", args: a.map(fmtArg) }),
-    debug: (...a) => call("log", { level: "debug", args: a.map(fmtArg) }),
+    log: (...a) => logLine("info", a),
+    error: (...a) => logLine("error", a),
+    warn: (...a) => logLine("warn", a),
+    info: (...a) => logLine("info", a),
+    debug: (...a) => logLine("debug", a),
   };
-  function fmtArg(a) { return typeof a === "string" ? a : JSON.stringify(a); }
+
+  // logLine writes one structured log record. A plain object's keys become
+  // fields of the record (ddcore.log.warn("retry", { status, requestId })),
+  // and everything else is joined into the message: a string as is, an Error
+  // as "Error: message", anything else as JSON. Logging never throws, so a
+  // value JSON cannot hold (a cycle, a BigInt) is written with String.
+  function logLine(level, args) {
+    const words = [];
+    const attrs = {};
+    for (const v of args) {
+      if (isPlainObject(v)) {
+        for (const k of Object.keys(v)) attrs[k] = logValue(v[k]);
+      } else {
+        words.push(logWord(v));
+      }
+    }
+    call("log", { level, msg: words.join(" "), attrs });
+  }
+  function isPlainObject(v) {
+    if (v === null || typeof v !== "object") return false;
+    const p = Object.getPrototypeOf(v);
+    return p === Object.prototype || p === null;
+  }
+  function logWord(v) {
+    if (typeof v === "string") return v;
+    if (v === null || v === undefined || typeof v !== "object" || v instanceof Error) return String(v);
+    try {
+      const j = JSON.stringify(v);
+      return j === undefined ? String(v) : j;
+    } catch (e) {
+      return String(v);
+    }
+  }
+  function logValue(v) {
+    if (v instanceof Error) return String(v);
+    if (typeof v === "bigint" || typeof v === "symbol" || typeof v === "function") return String(v);
+    try {
+      JSON.stringify(v);
+      return v;
+    } catch (e) {
+      return String(v);
+    }
+  }
 
   // ------------------------------------------------------------- entry points
   // Go calls these with JSON in and JSON out.
