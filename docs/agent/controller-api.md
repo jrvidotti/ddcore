@@ -246,6 +246,13 @@ by hand.
 `nowdate()` and `now()` are the site's wall clock (`ddcore.json:timezone`), the same day and hour the desk sees.
 A `Datetime` written without an offset — which is what `now()` returns — is read on that same clock.
 
+`Date.parse(s)` and `new Date(s)` in server code read an instant with an offset in ISO form
+(`"2026-10-05T10:00:00-04:00"`) and in the form Postgres and many APIs write, with a space
+instead of the `T` and a short offset (`"2026-10-05 10:00:00-04:00"`,
+`"2026-10-05 22:31:52.767353+00"`), as Node does. Fractions beyond milliseconds are cut. A
+date-time without an offset is read on the server process's clock, not the site's timezone: pass
+an offset, or use `ddcore.utils` for wall-clock values.
+
 ### Savepoints
 
 A failed statement aborts the whole transaction in Postgres: a `try/catch` catches the error,

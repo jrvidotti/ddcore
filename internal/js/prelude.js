@@ -1111,6 +1111,32 @@
     };
   }
   globalThis.ddcore = api;
+
+  // Date reads a date-time with a space instead of the "T" (the form Postgres
+  // and many APIs write, "2026-10-05 10:00:00-04:00") as V8 does. goja's own
+  // parser took the date and the offset and dropped the time between them, or
+  // gave NaN. Only that shape is rewritten, to ISO; every other string, and
+  // every other way of calling Date, reaches the native constructor untouched.
+  const NativeDate = Date;
+  const spacedInstant = /^(\d{4}-\d{2}-\d{2})[ tT](\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?)\s*([zZ]|[+-]\d{2}(?::?\d{2})?)?$/;
+  function isoInstant(s) {
+    const m = typeof s === "string" ? spacedInstant.exec(s.trim()) : null;
+    return m ? m[1] + "T" + m[2] + (m[3] ? m[3].toUpperCase() : "") : s;
+  }
+  function DDCoreDate(...a) {
+    if (!new.target) return NativeDate();
+    if (a.length === 1) a[0] = isoInstant(a[0]);
+    return Reflect.construct(NativeDate, a, new.target);
+  }
+  Object.defineProperty(DDCoreDate, "length", { value: 7 });
+  Object.defineProperty(DDCoreDate, "name", { value: "Date" });
+  DDCoreDate.prototype = NativeDate.prototype;
+  Object.defineProperty(NativeDate.prototype, "constructor", { value: DDCoreDate, writable: true, configurable: true });
+  DDCoreDate.now = NativeDate.now;
+  DDCoreDate.UTC = NativeDate.UTC;
+  DDCoreDate.parse = function parse(s) { return NativeDate.parse(isoInstant(String(s))); };
+  globalThis.Date = DDCoreDate;
+
   globalThis.console = {
     log: (...a) => logLine("info", a),
     error: (...a) => logLine("error", a),

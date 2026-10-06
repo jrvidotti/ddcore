@@ -2,6 +2,7 @@ package engine
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -218,8 +219,9 @@ func TestHTTPRequestBodies(t *testing.T) {
 	}
 }
 
-// evalHTTP runs code in a runtime with no database, as the other HTTP tests do.
-func evalHTTP(t *testing.T, code string) (any, error) {
+// evalNoDB runs code in a runtime with no engine behind it: enough for what
+// never reaches the database (HTTP, dates).
+func evalNoDB(t *testing.T, code string) (json.RawMessage, error) {
 	t.Helper()
 	pool, err := js.NewPool(&Engine{}, nil, 1, false)
 	if err != nil {
@@ -259,7 +261,7 @@ func TestHTTPRedirectDropsCallerHeadersAcrossHosts(t *testing.T) {
 	defer origin.Close()
 
 	opts := `{headers: {api_access_token: "s3cr3t", "X-Api-Key": "k", Accept: "audio/ogg"}}`
-	if _, err := evalHTTP(t, fmt.Sprintf(`if (ddcore.http.get(%q, %s).body !== "blob") throw new Error("not followed")`, origin.URL+"/away", opts)); err != nil {
+	if _, err := evalNoDB(t, fmt.Sprintf(`if (ddcore.http.get(%q, %s).body !== "blob") throw new Error("not followed")`, origin.URL+"/away", opts)); err != nil {
 		t.Fatal(err)
 	}
 	for _, h := range []string{"Api_access_token", "X-Api-Key", "Accept"} {
@@ -270,7 +272,7 @@ func TestHTTPRedirectDropsCallerHeadersAcrossHosts(t *testing.T) {
 	if got.Get("User-Agent") == "" {
 		t.Error("the other host lost the User-Agent")
 	}
-	if _, err := evalHTTP(t, fmt.Sprintf(`ddcore.http.get(%q, %s)`, origin.URL+"/here", opts)); err != nil {
+	if _, err := evalNoDB(t, fmt.Sprintf(`ddcore.http.get(%q, %s)`, origin.URL+"/here", opts)); err != nil {
 		t.Fatal(err)
 	}
 	if sameHost.Get("Api_access_token") != "s3cr3t" || sameHost.Get("X-Api-Key") != "k" {
@@ -294,11 +296,11 @@ func TestHTTPMaxRedirects(t *testing.T) {
 	code := fmt.Sprintf(`const r = ddcore.http.get(%q, {maxRedirects: 0});
 if (r.status !== 302 || r.headers.Location !== "/end") throw new Error("got " + r.status + " " + JSON.stringify(r.headers));
 if (ddcore.http.get(%[1]q).body !== "end") throw new Error("the default no longer follows");`, server.URL+"/start")
-	if _, err := evalHTTP(t, code); err != nil {
+	if _, err := evalNoDB(t, code); err != nil {
 		t.Fatal(err)
 	}
 	for _, bad := range []string{"-1", "1.5"} {
-		_, err := evalHTTP(t, fmt.Sprintf(`ddcore.http.get(%q, {maxRedirects: %s})`, server.URL, bad))
+		_, err := evalNoDB(t, fmt.Sprintf(`ddcore.http.get(%q, {maxRedirects: %s})`, server.URL, bad))
 		if err == nil || !strings.Contains(err.Error(), "maxRedirects") {
 			t.Errorf("maxRedirects %s: err = %v", bad, err)
 		}

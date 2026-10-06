@@ -21,6 +21,9 @@ older series, and `whats_new` reads across every one of them.
 
 ### Fixed
 
+- `Date.parse` and `new Date` in server code read a date-time written with a space instead of the
+  `T`, as Postgres writes it: `"2026-10-05 10:00:00-04:00"` lost its time of day and
+  `"2026-10-05 22:31:52.767353+00"` gave `NaN`. Both now give the instant Node gives (#90).
 - `ddcore.log.*` and `console.*` no longer log an object as `"[object Object]"`: a plain object's
   keys become fields of the structured record (`ddcore.log.warn("retry", { status })` logs
   `msg="retry" status=…`), and other values join the message as JSON. A value with a cycle no
