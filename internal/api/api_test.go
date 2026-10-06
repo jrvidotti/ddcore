@@ -111,6 +111,11 @@ export const verifySig = whitelisted(() => {
 }, { allowGuest: true });
 export const notString = whitelisted(() => ({ a: 1 }), { allowGuest: true, raw: { contentType: "text/plain" } });
 export const denied = whitelisted(() => ddcore.throw("Forbidden"), { allowGuest: true, raw: { contentType: "text/plain" } });
+export const notYet = whitelisted(() => ddcore.throw("Not configured yet", { type: "UnavailableError", retryAfter: 60, extra: { code: "NOT_CONFIGURED" } }),
+  { allowGuest: true, raw: { contentType: "text/plain" } });
+export const busy = whitelisted(() => ddcore.throw("Slow down", { status: 429 }), { allowGuest: true });
+export const forbidden = whitelisted(() => ddcore.throw("Forbidden", { type: "PermissionError" }), { allowGuest: true, raw: { contentType: "text/plain" } });
+export const unknownType = whitelisted(() => ddcore.throw("Declined", { type: "PaymentDeclinedError" }), { allowGuest: true });
 export const hook = whitelisted((args) => ({ tail: ddcore.session.request.pathTail, args }), { allowGuest: true, pathTail: true });`)
 	w("services/i18n.ts", `import { whitelisted, _ } from "@ddcore/sdk";
 export const echo = whitelisted(() => ({ save: _("Save"), n: _("Loop") }));`)

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"sync"
 
@@ -46,8 +47,11 @@ func newRuntime(host Host, bundles []*Bundle, test bool) (*Runtime, error) {
 	rt.vm.Set("__host", func(op string, args string) (string, error) {
 		res, err := host.HostCall(rt, op, json.RawMessage(args))
 		if err != nil {
+			// The status travels too: it is not part of the HTTP body, but a
+			// Go error that crosses the JS runtime must come out the other
+			// side answering what it answered before it went in.
 			e := cerr.From(err)
-			b, _ := json.Marshal(e)
+			b, _ := json.Marshal(bridgeError{e, e.Status})
 			return "", errors.New("ddcore:" + string(b))
 		}
 		if res == nil {
@@ -116,7 +120,7 @@ func toGoError(err error) error {
 	if obj, ok := v.(*goja.Object); ok {
 		if t := obj.Get("ddcoreType"); t != nil && !goja.IsUndefined(t) {
 			e := &cerr.Error{Type: t.String(), Message: str(obj.Get("message")), Title: str(obj.Get("title"))}
-			e.Status = statusFor(e.Type)
+			e.Status = statusOr(statusValue(obj.Get("status")), e.Type)
 			if x := obj.Get("extra"); x != nil && !goja.IsUndefined(x) {
 				e.Extra = x.Export()
 			}
@@ -131,11 +135,15 @@ func toGoError(err error) error {
 		// A Go error thrown through the bridge: message carries the JSON.
 		msg := str(obj.Get("message"))
 		if i := strings.Index(msg, "ddcore:{"); i >= 0 {
-			var e cerr.Error
+			var w struct {
+				cerr.Error
+				Status int `json:"status"`
+			}
 			// len("ddcore:"), not 6: the colon left in front made this parse
 			// fail every time.
-			if json.Unmarshal([]byte(msg[i+len("ddcore:"):]), &e) == nil {
-				e.Status = statusFor(e.Type)
+			if json.Unmarshal([]byte(msg[i+len("ddcore:"):]), &w) == nil {
+				e := w.Error
+				e.Status = statusOr(w.Status, e.Type)
 				return &e
 			}
 		}
@@ -154,20 +162,48 @@ func str(v goja.Value) string {
 	return v.String()
 }
 
+// bridgeError is the JSON a host error crosses into the JS runtime as: the
+// error's wire shape plus its status, which the wire shape leaves out.
+type bridgeError struct {
+	*cerr.Error
+	Status int `json:"status,omitempty"`
+}
+
+// statusFor is the status of an error type: cerr's table, and 500 for a type
+// it does not define — an app's own type is an error nobody anticipated.
 func statusFor(t string) int {
-	switch t {
-	case "ValidationError", "MandatoryError", "LinkExistsError":
-		return 417
-	case "PermissionError":
-		return 403
-	case "DoesNotExistError", "NotFound":
-		return 404
-	case "TimestampMismatchError", "DuplicateEntryError":
-		return 409
-	case "AuthenticationError":
-		return 401
+	if n, ok := cerr.StatusOf(t); ok {
+		return n
 	}
 	return 500
+}
+
+// statusOr is the explicit status when it is an HTTP error status (400–599),
+// and the type's status otherwise. An out-of-range status — a 200, a 302, a
+// typo — is ignored rather than refused: refusing would replace the error the
+// app meant to raise with one about how it was raised.
+func statusOr(status int, typ string) int {
+	if status >= 400 && status <= 599 {
+		return status
+	}
+	return statusFor(typ)
+}
+
+// statusValue reads an error's `status` property as an integer, and 0 when it
+// is missing or not a whole number.
+func statusValue(v goja.Value) int {
+	if v == nil || goja.IsUndefined(v) || goja.IsNull(v) {
+		return 0
+	}
+	switch n := v.Export().(type) {
+	case int64:
+		return int(n)
+	case float64:
+		if n == math.Trunc(n) && n >= 0 && n < 1000 {
+			return int(n)
+		}
+	}
+	return 0
 }
 
 // callReg invokes __ddcore.<name>(args...) and returns the result string.

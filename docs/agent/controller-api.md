@@ -41,7 +41,7 @@ A provider that calls *you* needs two things a JSON method does not give: an ans
 ```ts
 // the verification handshake: the challenge is echoed back as the whole body
 export const verify = whitelisted(
-  (args) => args["hub.verify_token"] === ddcore.secret("META_VERIFY_TOKEN") ? args["hub.challenge"] : ddcore.throw("Forbidden"),
+  (args) => args["hub.verify_token"] === ddcore.secret("META_VERIFY_TOKEN") ? args["hub.challenge"] : ddcore.throw("Forbidden", { type: "PermissionError" }),
   { allowGuest: true, methods: ["GET"], raw: { contentType: "text/plain" } },
 );
 
@@ -49,14 +49,15 @@ export const verify = whitelisted(
 export const receive = whitelisted((args, ctx) => {
   const { rawBody, headers } = ctx.request!;
   const want = "sha256=" + ddcore.crypto.hmacSha256(ddcore.secret("META_APP_SECRET")!, rawBody!);
-  if (!ddcore.crypto.timingSafeEqual(want, headers!["x-hub-signature-256"] ?? "")) ddcore.throw("Forbidden");
+  if (!ddcore.crypto.timingSafeEqual(want, headers!["x-hub-signature-256"] ?? "")) ddcore.throw("Forbidden", { type: "PermissionError" });
   // the call arrived as Guest: do the work as the user this integration acts for
   ddcore.runAs(integrationUser, () => { /* reads and writes honour that user's scopes */ });
 }, { allowGuest: true, methods: ["POST"] });
 ```
 
 - `raw: { contentType }` — the returned **string** is the whole body, with that content type. Anything else
-  returned is a 500. A thrown error is still a JSON error with its status.
+  returned is a 500. A thrown error is still a JSON error with its type's status (see *Errors* below): a refusal
+  is `{ type: "PermissionError" }` (403), since a bare `ddcore.throw` is a 417 `ValidationError`.
 - `ctx.request` (and `ddcore.session.request`) carries `rawBody`, the body exactly as received (UTF-8), and
   `headers`, names lower-cased. `cookie`, `authorization` and `x-ddcore-csrf` are left out on purpose. `args` is
   still parsed from a JSON body; a body that is not JSON (and is not sent as `application/json`) leaves `args`
@@ -87,12 +88,15 @@ export const receive = whitelisted((args, ctx) => {
   (repeated `webhook-signature` headers too), compares in constant time, enforces the timestamp window
   (`toleranceSeconds: Infinity` switches it off), reads header names in any case, and returns `false` (never
   throws) when a header, `headers` or `rawBody` is missing. A missing secret (`ddcore.secret` returns `null` when the variable is
-  unset) or an empty one verifies nothing and gives `false`, so a site that forgot to configure it refuses every call:
+  unset) or an empty one verifies nothing and gives `false`, so a site that forgot to configure it refuses every call.
+  To have the sender retry instead of giving up, check the secret first and answer 503 with a `Retry-After`:
 
   ```ts
   export const gateway = whitelisted((args, ctx) => {
     const { headers, rawBody } = ctx.request!;
-    if (!ddcore.webhooks.verify(ddcore.secret("GATEWAY_SECRET"), headers, rawBody)) ddcore.throw("Forbidden");
+    const secret = ddcore.secret("GATEWAY_SECRET");
+    if (!secret) ddcore.throw("Not configured yet", { type: "UnavailableError", retryAfter: 60 });
+    if (!ddcore.webhooks.verify(secret, headers, rawBody)) ddcore.throw("Forbidden", { type: "PermissionError" });
   }, { allowGuest: true, methods: ["POST"] });
   ```
 
@@ -206,7 +210,7 @@ by hand.
 - `ddcore.externalDb("sql_server").sql("SELECT ... WHERE x = @p1", [v], { timeout })` — read-only query on another database (SQL Server), configured from `DDCORE_SECRET_SQL_SERVER_*`. See `external-db`
 - `ddcore.getDoc(doctype, id, { ignorePermissions })`, `ddcore.newDoc(doctype, values)`, `ddcore.deleteDoc(doctype, id, { force })`, `ddcore.rename(doctype, oldID, newID)`
 - `ddcore.getDoc(doctype, id, { ignorePermissions: true })` loads a document the user has no role permission to read, so a service can load, change and `save({ ignorePermissions: true })` it under the caller's identity. The user's access scopes and the tenancy wall still apply (see `scopes`), and `doc.reload({ ignorePermissions: true })` reads it again the same way. The document comes back whole, with no field-level redaction: `ddcore.redact` it before a method returns it to a client (see `field-permissions`)
-- `ddcore.throw(msg, { title, type })`, `ddcore.msgprint(msg, { title, indicator, alert })`, `ddcore._(text, args)` / `_()`
+- `ddcore.throw(msg, { title, type, extra, status, retryAfter })` — see "Errors" below; `ddcore.msgprint(msg, { title, indicator, alert })`, `ddcore._(text, args)` / `_()`
 - `ddcore.session` → `{ user, roles, lang, request }` (`request`: `{ method, path, ip, rawBody, headers }` on a whitelisted call, plus `pathTail` when the method opts in — see *Inbound webhooks*); `ddcore.user()`; `ddcore.getRoles(user)`; `ddcore.hasPermission(doctype, ptype, doc, user?)` (`doc` may be just `{ id, owner }`, or a document id; `user` checks another user's roles, scopes and shares instead of the current one's)
 - `ddcore.share.add(doctype, id, user, { write, share, overrideScope })` / `remove(doctype, id, user)` / `list(doctype, id)` — per-user document shares, checked with the current user as sharer. See `sharing`
 - `ddcore.users.invite({ email, fullName, roles?, userType? })` / `resendInvite(user)` — create an account and mail its invitation; returns `{ user, expires, link? }`. Without System Manager, only a Website User with no privileged role. See `portal`
@@ -255,6 +259,52 @@ instead of the `T` and a short offset (`"2026-10-05 10:00:00-04:00"`,
 `"2026-10-05 22:31:52.767353+00"`), as Node does. Fractions beyond milliseconds are cut. A
 date-time without an offset is read on the server process's clock, not the site's timezone: pass
 an offset, or use `ddcore.utils` for wall-clock values.
+
+### Errors
+
+`ddcore.throw(msg, opts)` aborts the transaction with a typed error. Its `type` (default `ValidationError`) picks
+the HTTP status an API call answers with:
+
+| `type` | Status |
+|---|---|
+| `ValidationError`, `MandatoryError`, `LinkExistsError` | 417 |
+| `AuthenticationError` | 401 |
+| `PermissionError` | 403 |
+| `DoesNotExistError` (or `NotFound`) | 404 |
+| `MethodNotAllowedError` | 405 |
+| `TimestampMismatchError`, `DuplicateEntryError` | 409 |
+| `TooManyRequestsError` | 429 |
+| `InternalError` | 500 |
+| `UnavailableError`, `MaintenanceError` | 503 |
+| any other string | 500 |
+
+The same table applies to an error raised in Go that passes through app code — a `DuplicateEntryError` from
+`insert`, a `MaintenanceError` from a paused write — so it answers the same status whether or not a controller
+sat between it and the caller. The other options:
+
+- `title` — shown above the message in the desk.
+- `extra` — an object of data for the caller, not prose (a machine code, the fields at fault). It reaches the
+  API caller unchanged, in the JSON error body; the desk's `DDCoreError` carries it as `e.extra`.
+- `status` — an HTTP error status (400–599) that overrides the type's: `{ type: "ValidationError", status: 422 }`.
+  Any other value is ignored and the type's status stands.
+- `retryAfter` — seconds the caller should wait, rounded up. It is stored as `extra.retryAfter` and also sets the
+  `Retry-After` header, so a webhook sender or an HTTP client backs off. Writing `extra: { retryAfter: 60 }`
+  does the same.
+
+```ts
+ddcore.throw("Contract is suspended", { type: "PermissionError", extra: { code: "SUSPENDED" } });
+ddcore.throw("Not configured yet", { type: "UnavailableError", retryAfter: 60 });
+```
+
+answers 403, then 503 with `Retry-After: 60`, and a body of this shape (`title` and `extra` only when given):
+
+```json
+{"error": {"type": "UnavailableError", "message": "Not configured yet", "extra": {"retryAfter": 60}, "requestId": "…"}}
+```
+
+A 5xx other than `MaintenanceError` also writes an Error Log row, keyed by the same `requestId`; a 4xx does not.
+In server code a caught error keeps all of it: `e.name` is the type, `e.title` and `e.extra` are there, and
+so is `e.status` when one was given or the error came from Go; rethrowing it answers the same.
 
 ### Savepoints
 

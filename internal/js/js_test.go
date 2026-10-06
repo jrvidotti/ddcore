@@ -14,6 +14,9 @@ import (
 type fakeHost struct {
 	calls []string
 	mode  string
+	// fail, when set, is what db.getValue answers: a Go error for a test to
+	// see crossing the runtime.
+	fail error
 }
 
 func (h *fakeHost) rounding() string {
@@ -35,6 +38,9 @@ func (h *fakeHost) HostCall(rt *Runtime, op string, args json.RawMessage) (any, 
 	case "nowdate":
 		return "2026-09-09", nil
 	case "db.getValue":
+		if h.fail != nil {
+			return nil, h.fail
+		}
 		return 42, nil
 	case "site":
 		return map[string]any{"currency": "USD", "currencyPrecision": 2, "rounding": h.rounding(), "timezone": "UTC"}, nil

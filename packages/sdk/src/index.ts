@@ -211,6 +211,43 @@ export interface JobFailure extends JobInfo {
   final: boolean;
 }
 
+/**
+ * The error types the server knows, each with the HTTP status it answers:
+ * ValidationError, MandatoryError and LinkExistsError 417, PermissionError
+ * 403, DoesNotExistError (or NotFound) 404, TimestampMismatchError and
+ * DuplicateEntryError 409, AuthenticationError 401, MethodNotAllowedError 405,
+ * TooManyRequestsError 429, UnavailableError and MaintenanceError 503,
+ * InternalError 500. Any other string is allowed and answers 500.
+ */
+export type ErrorType =
+  | "ValidationError"
+  | "MandatoryError"
+  | "LinkExistsError"
+  | "PermissionError"
+  | "DoesNotExistError"
+  | "NotFound"
+  | "TimestampMismatchError"
+  | "DuplicateEntryError"
+  | "AuthenticationError"
+  | "MethodNotAllowedError"
+  | "TooManyRequestsError"
+  | "UnavailableError"
+  | "MaintenanceError"
+  | "InternalError";
+
+/** The options of `ddcore.throw`. */
+export interface ThrowOpts {
+  title?: string;
+  /** Picks the HTTP status (see `ErrorType`); `ValidationError` (417) when omitted, 500 for a type not listed. */
+  type?: ErrorType | (string & {});
+  /** Data for the caller, not prose: it reaches an API caller as `error.extra` in the JSON error body. */
+  extra?: Record<string, any>;
+  /** An HTTP error status (400-599) that overrides the type's; any other value is ignored. */
+  status?: number;
+  /** Seconds the caller should wait: sets `extra.retryAfter` and the `Retry-After` header (rounded up). */
+  retryAfter?: number;
+}
+
 export interface DDCoreAPI {
   db: DDCoreDB;
   session: Context;
@@ -242,7 +279,12 @@ export interface DDCoreAPI {
    * event hands one to a client. See `field-permissions`.
    */
   redact<T extends Partial<BaseDoc>>(doctype: string, doc: T): Partial<T>;
-  throw(message: string, opts?: { title?: string; type?: string }): never;
+  /**
+   * Aborts the transaction with a typed error. Over HTTP it answers the type's
+   * status with `{"error": {type, title, message, extra, requestId}}`; a 5xx
+   * also writes an Error Log row. See `ThrowOpts` and `controller-api`.
+   */
+  throw(message: string, opts?: ThrowOpts): never;
   msgprint(message: string, opts?: { title?: string; indicator?: string; alert?: boolean }): void;
   _(text: string, args?: any[]): string;
   bold(v: any): string;
