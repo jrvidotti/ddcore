@@ -57,6 +57,34 @@ func TestRawResponseErrorsStayJSON(t *testing.T) {
 	x.expect(r, 500, "InternalError")
 }
 
+// A guest webhook answers the status its error type names, with the wait in
+// Retry-After and extra in the body (#89).
+func TestThrowAnswersTheTypeStatus(t *testing.T) {
+	x := setup(t)
+	r := x.call("POST", diag+"notYet", nil, "")
+	x.expect(r, 503, "UnavailableError")
+	if got := r.Header.Get("Retry-After"); got != "60" {
+		t.Fatalf("Retry-After = %q, want 60", got)
+	}
+	e := errorBody(t, r)
+	extra, _ := e["extra"].(map[string]any)
+	if extra["code"] != "NOT_CONFIGURED" || extra["retryAfter"] != float64(60) || e["message"] != "Not configured yet" {
+		t.Fatalf("error body = %v", e)
+	}
+	if e["requestId"] == "" || e["requestId"] == nil {
+		t.Fatalf("no requestId in %v", e)
+	}
+
+	r = x.call("POST", diag+"busy", nil, "")
+	x.expect(r, 429, "ValidationError")
+	if got := r.Header.Get("Retry-After"); got != "" {
+		t.Fatalf("Retry-After = %q with no retryAfter", got)
+	}
+	x.expect(x.call("GET", diag+"forbidden", nil, ""), 403, "PermissionError")
+	// an app's own type is an error nobody anticipated
+	x.expect(x.call("POST", diag+"unknownType", nil, ""), 500, "PaymentDeclinedError")
+}
+
 func TestMethodsIsEnforced(t *testing.T) {
 	x := setup(t)
 	r := x.call("POST", diag+"challenge", nil, "")

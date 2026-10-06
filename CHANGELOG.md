@@ -54,6 +54,12 @@ older series, and `whats_new` reads across every one of them.
   means that many workers for every queue. `ddcore jobs work --queue bot[,other] [--workers N]`
   starts only those pools, so a queue can have a process of its own; `DDCORE_WORKERS` overrides
   the setting with a number; `ddcore doctor` prints each pool (`workerPools` in `--json`) (#98).
+- `ddcore.throw(msg, opts)` takes `status`, an HTTP error status (400-599) that overrides the
+  type's, and `retryAfter`, seconds stored as `extra.retryAfter` that also set the `Retry-After`
+  header. The SDK types `extra` (it reaches the JSON error body as `error.extra`) and exports
+  `ErrorType`, the known types, and `ThrowOpts`. `controller-api` has the table of types and
+  statuses, and the webhook examples refuse with `{ type: "PermissionError" }` (403) instead of
+  a bare `ddcore.throw`, which is a 417 (#89).
 
 ### Changed
 
@@ -83,6 +89,14 @@ older series, and `whats_new` reads across every one of them.
   `onFailure`, and only then exit. They used to exit at once: a job blocked in `ddcore.http` stayed
   `running` until its lease expired and was then failed, its attempt spent, as the docs said it
   would not be (#99).
+- An error thrown from app code answers its type's status for every type the server knows:
+  `TooManyRequestsError` (429), `UnavailableError` and `MaintenanceError` (503) and
+  `MethodNotAllowedError` (405) used to answer 500 from `ddcore.throw`. A Go error crossing app
+  code — the `MaintenanceError` of a write made while the site is paused, say — keeps its status
+  and its `Retry-After` instead of becoming a 500 with no header. An unknown type is still a 500
+  (#89).
+- A missing mail template, print template or notification rule raises `DoesNotExistError` (404)
+  instead of the unknown `NotFoundError`, which answered 500 (#89).
 
 ## 0.27.3 — 2026-10-06
 

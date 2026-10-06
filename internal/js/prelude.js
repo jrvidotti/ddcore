@@ -6,12 +6,15 @@
   const host = globalThis.__host;
 
   class DDCoreError extends Error {
-    constructor(type, title, message, extra) {
+    // status, when set, overrides the status the type answers with; the Go
+    // side honours it only as an HTTP error status (400-599).
+    constructor(type, title, message, extra, status) {
       super(message);
       this.name = type || "DDCoreError";
       this.ddcoreType = type || "ValidationError";
       this.title = title || "";
       this.extra = extra;
+      if (status !== undefined) this.status = status;
     }
   }
   globalThis.DDCoreError = DDCoreError;
@@ -26,7 +29,9 @@
         // front of the JSON, the parse always failed, and every typed error
         // raised in Go reached the border as a 500 ScriptError.
         const o = JSON.parse(msg.slice(i + "ddcore:".length));
-        const err = new DDCoreError(o.type, o.title, o.message, o.extra);
+        // o.status is the status the Go error answered with, so it answers
+        // the same after crossing this runtime.
+        const err = new DDCoreError(o.type, o.title, o.message, o.extra, o.status);
         // The English template and its arguments, so the HTTP border can still
         // translate the message into the reader's language.
         if (o.key) { err.key = o.key; err.args = o.args; }
@@ -341,7 +346,7 @@
   };
   const notificationInput = (name, docJSON, beforeJSON) => {
     const rule = reg.notifications[name];
-    if (!rule) throw new DDCoreError("NotFoundError", "", "Notification rule does not exist: " + name);
+    if (!rule) throw new DDCoreError("DoesNotExistError", "", "Notification rule does not exist: " + name);
     return [rule, JSON.parse(docJSON), beforeJSON ? JSON.parse(beforeJSON) : null];
   };
   reg.evaluateNotification = function (name, docJSON, beforeJSON) {
@@ -406,7 +411,7 @@
   reg.renderMail = function (name, args, lang) {
     const t = reg.mailTemplates[name];
     if (!t) {
-      throw new DDCoreError("NotFoundError", "", "Mail template " + String(name) + " does not exist");
+      throw new DDCoreError("DoesNotExistError", "", "Mail template " + String(name) + " does not exist");
     }
     const previous = globalThis.__ddcoreLang;
     if (lang) globalThis.__ddcoreLang = lang;
@@ -518,7 +523,7 @@
   reg.renderPrint = function (name, docJSON, lang) {
     const t = reg.printTemplates[name];
     if (!t) {
-      throw new DDCoreError("NotFoundError", "", "Print template " + String(name) + " does not exist");
+      throw new DDCoreError("DoesNotExistError", "", "Print template " + String(name) + " does not exist");
     }
     const previous = globalThis.__ddcoreLang;
     if (lang) globalThis.__ddcoreLang = lang;
@@ -850,7 +855,15 @@
     redact(doctype, doc) { return call("redact", { doctype, doc }); },
     throw(message, opts) {
       opts = opts || {};
-      throw new DDCoreError(opts.type || "ValidationError", opts.title, message, opts.extra);
+      let extra = opts.extra;
+      // retryAfter is extra.retryAfter, which the HTTP border also turns into
+      // the Retry-After header; whole seconds, rounded up.
+      const ra = opts.retryAfter;
+      if (typeof ra === "number" && isFinite(ra) && ra >= 0) {
+        const base = extra && typeof extra === "object" && !Array.isArray(extra) ? extra : {};
+        extra = Object.assign({}, base, { retryAfter: Math.ceil(ra) });
+      }
+      throw new DDCoreError(opts.type || "ValidationError", opts.title, message, extra, opts.status);
     },
     msgprint(message, opts) { call("msgprint", { message, opts: opts || {} }); },
     _(text, args) {
@@ -897,7 +910,7 @@
         // Deliberately here and not in the worker: a template nobody declared
         // is a mistake in the caller's own code, and it should fail in the
         // caller's own transaction.
-        throw new DDCoreError("NotFoundError", "", "Mail template " + String(args.template) + " does not exist");
+        throw new DDCoreError("DoesNotExistError", "", "Mail template " + String(args.template) + " does not exist");
       }
       const to = Array.isArray(args.to) ? args.to : [args.to];
       const lang = args.lang || call("mail.prepare", { to }).lang;

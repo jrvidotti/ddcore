@@ -126,3 +126,55 @@ func TestFrom(t *testing.T) {
 		t.Fatalf("From(plain) = %+v", got)
 	}
 }
+
+// StatusOf is the table the JS bridge answers by, so it has to agree with
+// every constructor: a type raised in Go and the same type thrown from an app
+// must answer the same status (#89).
+func TestStatusOfAgreesWithTheConstructors(t *testing.T) {
+	for _, e := range []*Error{
+		Validation("x"), Permission("x"), NotFound("x"), LinkExists("x"), Timestamp("x"),
+		Duplicate("x"), Auth("x"), Internal("x"), Mandatory("x"), MethodNotAllowed("x"),
+		TooMany("x"), Unavailable("x"), Maintenance("x"),
+	} {
+		n, ok := StatusOf(e.Type)
+		if !ok || n != e.Status {
+			t.Errorf("StatusOf(%q) = %d, %v; the constructor answers %d", e.Type, n, ok, e.Status)
+		}
+	}
+	if n, ok := StatusOf("NotFound"); !ok || n != 404 {
+		t.Errorf("StatusOf(NotFound) = %d, %v", n, ok)
+	}
+	if _, ok := StatusOf("PaymentDeclinedError"); ok {
+		t.Error("an app's own type is not in the table")
+	}
+}
+
+// An error thrown from the JS runtime carries its numbers as int64 (goja) or
+// float64 (JSON), and its wait must still reach the Retry-After header.
+func TestRetryAfterReadsEveryNumberType(t *testing.T) {
+	cases := []struct {
+		extra any
+		want  int
+		ok    bool
+	}{
+		{map[string]any{"retryAfter": 30}, 30, true},
+		{map[string]any{"retryAfter": int64(45)}, 45, true},
+		{map[string]any{"retryAfter": float64(60)}, 60, true},
+		{map[string]any{"retryAfter": 1.2}, 2, true}, // whole seconds, rounded up
+		{map[string]any{"retryAfter": -1.0}, 0, false},
+		{map[string]any{"retryAfter": int64(-5)}, 0, false},
+		{map[string]any{"retryAfter": "60"}, 0, false},
+		{map[string]any{"code": "X"}, 0, false},
+		{"not a map", 0, false},
+		{nil, 0, false},
+	}
+	for _, c := range cases {
+		n, ok := (&Error{Extra: c.extra}).RetryAfter()
+		if n != c.want || ok != c.ok {
+			t.Errorf("RetryAfter(%v) = %d, %v; want %d, %v", c.extra, n, ok, c.want, c.ok)
+		}
+	}
+	if n, ok := TooMany("x").WithRetryAfter(7).RetryAfter(); n != 7 || !ok {
+		t.Errorf("WithRetryAfter round trip = %d, %v", n, ok)
+	}
+}

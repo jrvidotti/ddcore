@@ -126,7 +126,7 @@ names:
 ```ts
 function limit(key: string, max: number, seconds: number) {
   const n = (ddcore.cache.get(key) ?? 0) + 1;
-  if (n > max) ddcore.throw("Too many requests, try again in a minute");
+  if (n > max) ddcore.throw("Too many requests, try again in a minute", { type: "TooManyRequestsError", retryAfter: seconds });
   ddcore.cache.set(key, n, seconds);
 }
 

@@ -3,6 +3,7 @@ package cerr
 
 import (
 	"fmt"
+	"math"
 	"strings"
 )
 
@@ -97,15 +98,34 @@ func (e *Error) WithRetryAfter(seconds int) *Error {
 	return e
 }
 
-// RetryAfter reads back what WithRetryAfter stored. The second result is
-// false when this error carries no wait at all.
+// RetryAfter reads back the seconds in Extra's "retryAfter". The second
+// result is false when this error carries no wait at all.
+//
+// WithRetryAfter stores an int, but an error raised in the JS runtime reaches
+// Go with its numbers as int64 (goja's export) or float64 (a JSON round
+// trip), so all three are read. A fraction rounds up, since Retry-After
+// counts whole seconds and an early retry would be refused again; a negative
+// or non-finite wait is no wait.
 func (e *Error) RetryAfter() (int, bool) {
 	m, ok := e.Extra.(map[string]any)
 	if !ok {
 		return 0, false
 	}
-	n, ok := m["retryAfter"].(int)
-	return n, ok
+	var f float64
+	switch n := m["retryAfter"].(type) {
+	case int:
+		f = float64(n)
+	case int64:
+		f = float64(n)
+	case float64:
+		f = n
+	default:
+		return 0, false
+	}
+	if math.IsNaN(f) || math.IsInf(f, 0) || f < 0 {
+		return 0, false
+	}
+	return int(math.Ceil(min(f, math.MaxInt32))), true
 }
 
 // WithTitle sets an already-translated title.
@@ -129,6 +149,33 @@ func (e *Error) Translate(tr func(key string, args ...any) string) *Error {
 		out.Title = tr(e.TitleKey)
 	}
 	return &out
+}
+
+// statusByType is the HTTP status of every error type this package defines —
+// the one table both the constructors above and the JS bridge answer by.
+var statusByType = map[string]int{
+	"ValidationError":        417,
+	"MandatoryError":         417,
+	"LinkExistsError":        417,
+	"PermissionError":        403,
+	"DoesNotExistError":      404,
+	"NotFound":               404, // the short spelling the JS runtime also accepts
+	"TimestampMismatchError": 409,
+	"DuplicateEntryError":    409,
+	"AuthenticationError":    401,
+	"MethodNotAllowedError":  405,
+	"TooManyRequestsError":   429,
+	"UnavailableError":       503,
+	"MaintenanceError":       503,
+	"InternalError":          500,
+}
+
+// StatusOf returns the HTTP status an error type answers with. The second
+// result is false for a type this package does not define; the caller then
+// answers 500, the status of an error nobody anticipated.
+func StatusOf(typ string) (int, bool) {
+	n, ok := statusByType[typ]
+	return n, ok
 }
 
 // From converts any error into *Error.
