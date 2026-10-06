@@ -940,6 +940,36 @@ func TestLinkFieldSearchAPI(t *testing.T) {
 	}
 }
 
+// A list's limit: left out, a page of 20; 0, every row, as ddcore.db.getList on
+// the server — the desk's getList goes through here (#101).
+func TestListLimit(t *testing.T) {
+	x := setup(t)
+	admin := "sid:" + x.sid("Admin")
+	for i := 0; i < 22; i++ {
+		if r := x.call("POST", "/api/resource/Pessoa", map[string]any{"nome": fmt.Sprintf("Pessoa %02d", i)}, admin); r.Status != 200 {
+			t.Fatalf("create pessoa: %d %s", r.Status, r.Raw)
+		}
+	}
+	rows := func(query string) int {
+		t.Helper()
+		r := x.call("GET", "/api/resource/Pessoa"+query, nil, admin)
+		if r.Status != 200 {
+			t.Fatalf("list %s: %d %s", query, r.Status, r.Raw)
+		}
+		var res struct{ Data []any }
+		json.Unmarshal([]byte(r.Raw), &res)
+		return len(res.Data)
+	}
+	for query, want := range map[string]int{"": 20, "?limit=0": 22, "?limit=5": 5, "?limit=0&start=20": 2} {
+		if got := rows(query); got != want {
+			t.Errorf("list%s: %d rows, want %d", query, got, want)
+		}
+	}
+	for _, query := range []string{"?limit=-1", "?limit=abc"} {
+		x.expect(x.call("GET", "/api/resource/Pessoa"+query, nil, admin), 417, "ValidationError")
+	}
+}
+
 // The sign-in screen's notice and demo account reach a visitor who has not
 // signed in, and a half-configured account is not offered.
 func TestBootLoginPage(t *testing.T) {

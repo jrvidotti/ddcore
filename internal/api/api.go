@@ -857,9 +857,9 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request) {
 		if err := s.referenceGuard(c, urlParam(r, "doctype"), filters); err != nil {
 			return nil, err
 		}
-		limit, _ := strconv.Atoi(q.Get("limit"))
-		if limit == 0 {
-			limit = 20
+		limit, err := listLimit(q.Get("limit"))
+		if err != nil {
+			return nil, err
 		}
 		start, _ := strconv.Atoi(q.Get("start"))
 		rows, err := c.GetList(urlParam(r, "doctype"), engine.ListArgs{Filters: filters, OrFilters: orFilters, Fields: fields, OrderBy: q.Get("order_by"), Limit: limit, Start: start, GroupBy: q.Get("group_by")})
@@ -886,6 +886,20 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request) {
 		}
 		return rows, nil
 	})
+}
+
+// listLimit reads a list's `limit`: left out, a page of 20; 0, every row that
+// matches, as on the server (#101) — a bulk action needs all of them, and a
+// page it took for the whole would act on part of the rows without a word.
+func listLimit(v string) (int, error) {
+	if v == "" {
+		return 20, nil
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n < 0 {
+		return 0, cerr.Validation("limit must be 0 (every row) or a positive number, not {0}", v)
+	}
+	return n, nil
 }
 
 func (s *Server) count(w http.ResponseWriter, r *http.Request) {

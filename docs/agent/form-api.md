@@ -234,7 +234,11 @@ defineForm<Charge>("Charge", {
 
 - `ddcore.call("app.services.file.fn", args)` — a whitelisted function
 - `ddcore.report(name, filters)` — runs a `defineReport`: `{ meta, result: { columns, rows } }`
-- `ddcore.db.getValue/getList/count/getDoc/setValue/insert` (asynchronous: `await` them)
+- `ddcore.db.getValue/getList/count/getDoc/setValue/insert` (asynchronous: `await` them).
+  `getList(doctype, { filters, fields, orderBy, limit, start })` returns the rows the user may
+  read. Without `limit` it returns a page of **20**, unlike the server's `getList`, which returns
+  every row; `limit: 0` returns every matching row, with no cap, and a negative limit is refused.
+  A bulk action that acts on "all of them" passes `limit: 0`.
 - `ddcore.ui.Dialog({ title, fields, values, primaryLabel, primaryAction(values, dlg), dangerLabel, dangerAction(values, dlg), dangerShortcut, onChange(field, values, dlg), size })` → `dlg.show()/hide()/setValue/getValue/setHtml(htmlField, html)/setDfProperty(field, property, value)`
 - A dialog's `fields` are DocType fields plus one type that exists only there, **`File`**: a file picker whose value is the file itself, `{ name, size, type, base64 }` (or `null`), handed to the script. **Nothing is uploaded and no `File` document is created**, which is what a credential needs; a file to keep is an `Attach`. `options` is the accept list (`".pfx,.p12"`) and `maxBytes` the size cap, 5 MB when left out: a larger file is refused before it is read. A DocType cannot declare it.
   ```ts
@@ -453,7 +457,10 @@ defineListView("Portal Store", {
 ```
 
 `onClick` gets `list` with `doctype`, `filters` (the `[field, op, value]` triples the current
-view loads with, the search box left out) and `refresh()`. `condition` takes no row: it decides
+view loads with, the search box left out) and `refresh()`. To act on every row those filters
+match, fetch them with `limit: 0` — `ddcore.db.getList(list.doctype, { filters: list.filters,
+fields: ["id"], limit: 0 })` — or pass `filters` to a server method that reads them itself; the
+default page of 20 would act on part of the rows. `condition` takes no row: it decides
 whether the button shows when the list renders, and one that throws hides it. `primary: true`
 draws the button as primary. While `onClick` runs the list's action buttons are disabled, a
 rejection is shown to the user, and the list reloads afterwards, keeping the selection. As with

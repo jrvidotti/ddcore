@@ -298,6 +298,10 @@ export interface DeskAPI {
   db: {
     getValue(doctype: string, id: string | Record<string, any>, field: string): Promise<any>;
     getValue(doctype: string, id: string | Record<string, any>, fields: string[]): Promise<Record<string, any> | null>;
+    /**
+     * The rows the user may read, through `GET /api/resource`. `limit` left out is a page of 20;
+     * `limit: 0` is every matching row, with no cap, as on the server. A negative limit is refused.
+     */
     getList(doctype: string, args?: { filters?: Filters; fields?: string[]; orderBy?: string; limit?: number; start?: number }): Promise<any[]>;
     count(doctype: string, filters?: Filters): Promise<number>;
     getSingle(doctype: string): Promise<any>;

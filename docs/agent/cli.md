@@ -95,7 +95,7 @@ npm. `DDCORE_TEST_DSN` points at the disposable database the tests use.
 - `GET /api/health/report` — the same picture with queue, Error Log and pool numbers; System Manager only.
 - Every response carries `X-Request-Id`, and every error body repeats it as `requestId`. See `ops`.
 - `POST /api/login {usr, pwd}` → `sid` cookie; a mutating request with a cookie needs the `X-DDCore-CSRF: 1` header.
-- `GET /api/resource/<DocType>?filters=[...]&fields=[...]&order_by=&limit=&start=&with_count=1`
+- `GET /api/resource/<DocType>?filters=[...]&fields=[...]&order_by=&limit=&start=&with_count=1` (`limit` left out is 20; `limit=0` is every row; a negative or non-numeric one is a `ValidationError`)
 - `POST /api/resource/<DocType>` (insert), `GET/PUT/DELETE /api/resource/<DocType>/<id>`
 - `POST /api/resource/<DocType>/<id>/<submit|cancel|amend|rename|method>` (rename body: `{ "id": "<new id>" }`)
 - `POST /api/method/<app.folder.file.fn>` (whitelisted); `OPTIONS` answers a CORS preflight for a method with `cors: true` (see `controller-api`)
