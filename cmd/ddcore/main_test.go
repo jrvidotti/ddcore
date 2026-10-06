@@ -13,12 +13,6 @@ import (
 	"github.com/jrvidotti/ddcore/internal/scaffold"
 )
 
-// execFlags mirrors cmdExec's declarations.
-func execFlags() (*flag.FlagSet, *string) {
-	fs := newFlagSet("exec")
-	return fs, fs.String("args", "{}", "JSON arguments")
-}
-
 // userAddFlags mirrors `ddcore user add`.
 func userAddFlags() (*flag.FlagSet, *string, *multi) {
 	fs := newFlagSet("user add")
@@ -36,7 +30,7 @@ func evalFlags() (*flag.FlagSet, *bool) {
 
 func TestExecFlagsAfterPositional(t *testing.T) {
 	// B22: `flag` stopped at first positional and --args was ignored
-	fs, argsJSON := execFlags()
+	fs, argsJSON, _ := execFlags()
 	if err := parseFlags(fs, []string{"alugueis.services.demo.generate", "--args", `{"a":1}`}); err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +46,7 @@ func TestExecFlagsAfterPositional(t *testing.T) {
 }
 
 func TestExecFlagEqualsForm(t *testing.T) {
-	fs, argsJSON := execFlags()
+	fs, argsJSON, _ := execFlags()
 	if err := parseFlags(fs, []string{"app.mod.fn", `--args={"b":2}`}); err != nil {
 		t.Fatal(err)
 	}
@@ -121,8 +115,74 @@ func TestSingleDashIsPositional(t *testing.T) {
 	}
 }
 
+// #103: a payload carrying personal data stays out of argv, where ps shows it.
+func TestExecArgsDashParses(t *testing.T) {
+	fs, argsJSON, _ := execFlags()
+	if err := parseFlags(fs, []string{"app.mod.fn", "--args", "-"}); err != nil {
+		t.Fatal(err)
+	}
+	if *argsJSON != "-" || fs.Arg(0) != "app.mod.fn" || fs.NArg() != 1 {
+		t.Fatalf("--args = %q, args = %v", *argsJSON, fs.Args())
+	}
+}
+
+func TestExecArgsFromStdin(t *testing.T) {
+	a, err := execArgs("-", "", true, strings.NewReader(`{"cnpj":"00.000.000/0001-00"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a["cnpj"] != "00.000.000/0001-00" {
+		t.Fatalf("args = %v", a)
+	}
+}
+
+func TestExecArgsFromFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "args.json")
+	if err := os.WriteFile(path, []byte(`{"n":2}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	a, err := execArgs("{}", path, false, strings.NewReader("not read"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a["n"] != float64(2) {
+		t.Fatalf("args = %v", a)
+	}
+	// --args-file - is stdin too
+	a, err = execArgs("{}", "-", false, strings.NewReader(`{"n":3}`))
+	if err != nil || a["n"] != float64(3) {
+		t.Fatalf("args = %v, err = %v", a, err)
+	}
+	if _, err := execArgs("{}", filepath.Join(t.TempDir(), "missing.json"), false, nil); err == nil || !strings.Contains(err.Error(), "--args-file") {
+		t.Fatalf("a missing file should name the flag, got %v", err)
+	}
+}
+
+func TestExecArgsAndArgsFileConflict(t *testing.T) {
+	_, err := execArgs(`{"a":1}`, "f.json", true, nil)
+	if err == nil || !strings.Contains(err.Error(), "not both") {
+		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestExecArgsBadJSONNamesTheSource(t *testing.T) {
+	for _, c := range []struct{ args, file, want string }{
+		{"{", "", "--args"},
+		{"-", "", "stdin"},
+	} {
+		_, err := execArgs(c.args, c.file, true, strings.NewReader("{"))
+		if err == nil || !strings.HasPrefix(err.Error(), c.want+":") {
+			t.Fatalf("%q: error = %v, want the %s prefix", c.args, err, c.want)
+		}
+	}
+	// the default stays an empty object
+	if a, err := execArgs("{}", "", false, nil); err != nil || len(a) != 0 {
+		t.Fatalf("default: %v, %v", a, err)
+	}
+}
+
 func TestDoubleDashEndsFlags(t *testing.T) {
-	fs, argsJSON := execFlags()
+	fs, argsJSON, _ := execFlags()
 	if err := parseFlags(fs, []string{"app.mod.fn", "--", "--args", "literal"}); err != nil {
 		t.Fatal(err)
 	}
@@ -136,7 +196,7 @@ func TestDoubleDashEndsFlags(t *testing.T) {
 
 func TestUnknownFlagIsRejected(t *testing.T) {
 	// silence was worse: the flag became a positional argument
-	fs, _ := execFlags()
+	fs, _, _ := execFlags()
 	err := parseFlags(fs, []string{"app.mod.fn", "--arg", "{}"})
 	if err == nil {
 		t.Fatal("expected error for unknown flag")
@@ -147,7 +207,7 @@ func TestUnknownFlagIsRejected(t *testing.T) {
 }
 
 func TestFlagMissingValueIsRejected(t *testing.T) {
-	fs, _ := execFlags()
+	fs, _, _ := execFlags()
 	err := parseFlags(fs, []string{"app.mod.fn", "--args"})
 	if err == nil || !strings.Contains(err.Error(), "needs a value") {
 		t.Fatalf("error = %v", err)

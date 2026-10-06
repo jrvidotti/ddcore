@@ -14,6 +14,14 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- `ddcore exec --args -` reads the JSON arguments from stdin, and `--args-file <path>` from a
+  file (`-` is stdin too). A payload carrying personal data no longer has to sit in argv, where
+  `ps` and `/proc/<pid>/cmdline` show it to every user of the host, and a large batch is no
+  longer capped by `ARG_MAX`. Malformed arguments are now reported before the database is
+  opened (#103).
+
 ### Fixed
 
 - `ddcore migrate --prune` plans its drops after the `afterSchema` patches instead of before

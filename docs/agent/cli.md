@@ -40,7 +40,7 @@ prints that command's options, or its subcommands for a command such as `import`
 | `ddcore types` | generates `.ddcore/types.d.ts` and materialises the embedded SDK typings per app |
 | `ddcore i18n extract [--app n\|--all] [--lang pt-BR] [--check] [--prune]` | rewrites `translations/<lang>.csv` from the code; `--check` reports and exits non-zero |
 | `ddcore test [--app name] [--filter re] [-v]` | runs `*.test.ts` (each `it` in a rolled-back transaction) |
-| `ddcore exec app.mod.fn --args '{}'` | runs a function as Admin |
+| `ddcore exec app.mod.fn [--args '{}' \| --args - \| --args-file f.json]` | runs a function as Admin. `--args -` reads the JSON from stdin and `--args-file` from a file (`-` is stdin too), which keeps a payload carrying personal data out of argv — where `ps` shows it to every user of the host — and past `ARG_MAX`: `ddcore --tenant acme exec app.services.legacy.apply --args - < stores.json` |
 | `ddcore eval '<ts>' [--commit]` | runs loose TS with `ddcore.*` (rolls back by default) |
 | `ddcore demo [--app name]` | runs `<app>.services.demo.generate` for every app that has `services/demo.ts` |
 | `ddcore export <DocType>\|--all [--children] [--attachments] [--out DIR]` | exports the whole set to NDJSON/CSV with a manifest of checksums (see `export`) |
