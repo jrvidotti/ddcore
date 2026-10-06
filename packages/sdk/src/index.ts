@@ -60,6 +60,12 @@ export interface HttpOpts {
   /** The largest response body accepted, in bytes; defaults to 10 MiB. A larger one throws. */
   maxBytes?: number;
   /**
+   * How many redirects to follow; defaults to 10. `0` returns the 3xx itself, with its
+   * `Location` in `headers`. A hop to another host, or from https to http, drops every
+   * header in `headers` except `Content-Type`.
+   */
+  maxRedirects?: number;
+  /**
    * A client certificate for mutual TLS: a PKCS#12 (`.pfx`) file, base64-encoded,
    * with its password, or a PEM certificate and key. Calls with the same
    * certificate share connections.

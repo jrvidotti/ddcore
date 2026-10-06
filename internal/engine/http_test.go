@@ -217,3 +217,90 @@ func TestHTTPRequestBodies(t *testing.T) {
 		})
 	}
 }
+
+// evalHTTP runs code in a runtime with no database, as the other HTTP tests do.
+func evalHTTP(t *testing.T, code string) (any, error) {
+	t.Helper()
+	pool, err := js.NewPool(&Engine{}, nil, 1, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rt, err := pool.Acquire()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rt.Release()
+	rt.Ctx = &Ctx{}
+	return rt.Eval(code)
+}
+
+// A redirect to another host must not carry the caller's credential headers:
+// net/http only drops Authorization and Cookie, so a token sent as a custom
+// header reached object storage behind Chatwoot's Active Storage redirect.
+func TestHTTPRedirectDropsCallerHeadersAcrossHosts(t *testing.T) {
+	var got http.Header
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = r.Header.Clone()
+		fmt.Fprint(w, "blob")
+	}))
+	defer target.Close()
+	var sameHost http.Header
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/away":
+			http.Redirect(w, r, target.URL+"/blob", http.StatusFound)
+		case "/here":
+			http.Redirect(w, r, "/final", http.StatusFound)
+		case "/final":
+			sameHost = r.Header.Clone()
+			fmt.Fprint(w, "ok")
+		}
+	}))
+	defer origin.Close()
+
+	opts := `{headers: {api_access_token: "s3cr3t", "X-Api-Key": "k", Accept: "audio/ogg"}}`
+	if _, err := evalHTTP(t, fmt.Sprintf(`if (ddcore.http.get(%q, %s).body !== "blob") throw new Error("not followed")`, origin.URL+"/away", opts)); err != nil {
+		t.Fatal(err)
+	}
+	for _, h := range []string{"Api_access_token", "X-Api-Key", "Accept"} {
+		if v := got.Get(h); v != "" {
+			t.Errorf("the other host received %s: %q", h, v)
+		}
+	}
+	if got.Get("User-Agent") == "" {
+		t.Error("the other host lost the User-Agent")
+	}
+	if _, err := evalHTTP(t, fmt.Sprintf(`ddcore.http.get(%q, %s)`, origin.URL+"/here", opts)); err != nil {
+		t.Fatal(err)
+	}
+	if sameHost.Get("Api_access_token") != "s3cr3t" || sameHost.Get("X-Api-Key") != "k" {
+		t.Errorf("a same-host redirect lost the headers: %v", sameHost)
+	}
+}
+
+// maxRedirects: 0 hands the 3xx back so the app decides where to go and with
+// which headers.
+func TestHTTPMaxRedirects(t *testing.T) {
+	hops := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/end" {
+			fmt.Fprint(w, "end")
+			return
+		}
+		hops++
+		http.Redirect(w, r, "/end", http.StatusFound)
+	}))
+	defer server.Close()
+	code := fmt.Sprintf(`const r = ddcore.http.get(%q, {maxRedirects: 0});
+if (r.status !== 302 || r.headers.Location !== "/end") throw new Error("got " + r.status + " " + JSON.stringify(r.headers));
+if (ddcore.http.get(%[1]q).body !== "end") throw new Error("the default no longer follows");`, server.URL+"/start")
+	if _, err := evalHTTP(t, code); err != nil {
+		t.Fatal(err)
+	}
+	for _, bad := range []string{"-1", "1.5"} {
+		_, err := evalHTTP(t, fmt.Sprintf(`ddcore.http.get(%q, {maxRedirects: %s})`, server.URL, bad))
+		if err == nil || !strings.Contains(err.Error(), "maxRedirects") {
+			t.Errorf("maxRedirects %s: err = %v", bad, err)
+		}
+	}
+}

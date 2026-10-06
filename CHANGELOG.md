@@ -14,8 +14,17 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- `ddcore.http` takes `maxRedirects` (default 10): `0` returns the 3xx with its `Location`, so an
+  app can follow a redirect itself and choose the headers it sends (#97).
+
 ### Fixed
 
+- `ddcore.http` and `ddcore.files.save({ fromUrl })` no longer send the caller's headers to
+  another host on a redirect. A hop to another host, or from https to http, now drops every header
+  the call passed except `Content-Type`; net/http only dropped `Authorization` and `Cookie`, so a
+  token sent as `api_access_token` or `X-Api-Key` reached the redirect's target (#97).
 - The access log, the panic log and the Error Log title no longer print what follows a method's
   name in `/api/method/<path>/<tail>`: they show `/api/method/<path>/…`. A webhook that carries a
   token in its `pathTail` wrote it to the logs on every delivery (#95).
