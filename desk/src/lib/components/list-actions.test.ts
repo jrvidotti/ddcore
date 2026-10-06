@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { actionRows, visibleActions } from "./list-actions";
+import { actionRows, visibleActions, visibleToolbarActions } from "./list-actions";
 
 const rows = [
   { id: "a", status: "Draft" },
@@ -37,5 +37,22 @@ describe("visibleActions", () => {
 
   it("shows nothing without a selection", () => {
     expect(visibleActions([{ label: "All", onClick() {} }], rows, new Set())).toEqual([]);
+  });
+});
+
+describe("visibleToolbarActions", () => {
+  it("keeps the actions without a condition or whose condition holds, in order", () => {
+    const all = { label: "All", onClick() {} };
+    const managers = { label: "Pay out", condition: () => true, onClick() {} };
+    const hidden = { label: "Hidden", condition: () => false, onClick() {} };
+    expect(visibleToolbarActions([all, hidden, managers]).map((a) => a.label)).toEqual(["All", "Pay out"]);
+  });
+
+  it("hides an action whose condition throws", () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const boom = { label: "Boom", condition: () => { throw new Error("boom"); }, onClick() {} };
+    expect(visibleToolbarActions([boom])).toEqual([]);
+    expect(err).toHaveBeenCalled();
+    err.mockRestore();
   });
 });

@@ -15,8 +15,8 @@
   import { subscribe } from "$lib/events";
   import { coalesce } from "$lib/coalesce";
   import { toCsv, downloadCsv } from "$lib/csv";
-  import { deskSDK, type DeskViewMode, type ListAction, type ListViewOptions } from "$lib/desk-sdk";
-  import { visibleActions } from "./list-actions";
+  import { deskSDK, type DeskViewMode, type ListAction, type ListToolbarAction, type ListViewOptions } from "$lib/desk-sdk";
+  import { visibleActions, visibleToolbarActions } from "./list-actions";
   import { fromDatetimeLocal, today } from "$lib/datetime";
   import { getCalendarDays } from "$lib/controls/date-format";
   import { buildListFilters } from "./list-filters";
@@ -88,8 +88,10 @@
   const isTreeView = $derived(currentView === "tree" && !!meta?.doctype.isTree);
   /** The app's `actions` some selected row applies to; only List and Cards select rows. */
   const actionButtons = $derived(currentView === "list" || currentView === "cards" ? visibleActions(settings.actions || [], rows, selected) : []);
+  /** The app's `toolbarActions` whose condition holds; they need no selection and show in every view. */
+  const toolbarButtons = $derived(visibleToolbarActions(settings.toolbarActions || []));
   /** The action whose onClick is running: every action button waits for it. */
-  let runningAction = $state<ListAction | null>(null);
+  let runningAction = $state<ListAction | ListToolbarAction | null>(null);
   /** Bumped on a list_update so the tree reloads the branches it has open. */
   let treeReload = $state(0);
 
@@ -415,6 +417,17 @@
       load();
     }
   }
+  async function runToolbarAction(action: ListToolbarAction) {
+    runningAction = action;
+    try {
+      await action.onClick({ doctype, filters: buildFilters(), refresh: load });
+    } catch (e) {
+      showError(e);
+    } finally {
+      runningAction = null;
+      load();
+    }
+  }
   /**
    * Asks what to export before exporting it. The page on screen is built here
    * (it already has the Link titles resolved); everything the filters match is
@@ -511,6 +524,9 @@
     {/if}
     {#each actionButtons as { action, rows: actionRows } (action)}
       <button class="btn" class:primary={action.primary} disabled={!!runningAction} onclick={() => runAction(action, actionRows)}>{action.label} ({actionRows.length})</button>
+    {/each}
+    {#each toolbarButtons as action (action)}
+      <button class="btn" class:primary={action.primary} disabled={!!runningAction} onclick={() => runToolbarAction(action)}>{action.label}</button>
     {/each}
     {#if selected.size && meta?.permissions.delete}<button class="btn danger" onclick={deleteSelected}><Icon name="trash" size={14} />{__("Delete")} ({selected.size})</button>{/if}
     {#if !isTreeView}

@@ -23,6 +23,9 @@ older series, and `whats_new` reads across every one of them.
   to a user without read on that DocType before running the method. A `method()` runs as the
   caller with no DocType check of its own, and `report-api` now says so, along with what the
   workspace `roles` and a `doctype` card enforce (#94).
+- `defineListView({ toolbarActions })`: buttons on the list toolbar that run with no rows
+  selected, in every view. `onClick(list)` gets `doctype`, the view's `filters` and `refresh()`;
+  an optional `condition()` decides whether the button shows (#96).
 
 ## 0.27.4 — 2026-10-06
 

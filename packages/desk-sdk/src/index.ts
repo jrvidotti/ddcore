@@ -470,6 +470,30 @@ export interface ListAction<T extends BaseDoc = BaseDoc> {
   onClick(ids: string[], list: ListActionContext<T>): any | Promise<any>;
 }
 
+/** What a toolbar action's `onClick` receives. */
+export interface ListToolbarContext {
+  doctype: string;
+  /** The filters the current view loads with, as `[field, op, value]` triples (a calendar or Gantt adds its window); the search box is left out. */
+  filters: [string, string, any][];
+  /** Reloads the list; it also reloads once `onClick` settles. */
+  refresh(): void;
+}
+
+/** A button on the list toolbar that needs no selection, e.g. "Pay out all". */
+export interface ListToolbarAction {
+  /** Button text, shown as given — wrap it in `__()`. */
+  label: string;
+  /** Whether to show the button, asked when the list renders (e.g. `() => ddcore.hasRole("Manager")`). A condition that throws counts as `false`. */
+  condition?: () => boolean;
+  /** `true` draws the button as primary. */
+  primary?: boolean;
+  /**
+   * Runs on a click, with the list's action buttons disabled until it settles. A rejection is
+   * shown to the user; either way the list reloads, keeping the selection.
+   */
+  onClick(list: ListToolbarContext): any | Promise<any>;
+}
+
 /** Adjustments for a DocType's list view (see docs/agent/form-api.md). */
 export interface ListViewOptions<T extends BaseDoc = BaseDoc> {
   /**
@@ -529,6 +553,8 @@ export interface ListViewOptions<T extends BaseDoc = BaseDoc> {
   filterOptions?: Partial<Record<keyof T & string, { value: string; label: string; filters: [string, string, any][] }[]>>;
   /** Buttons shown next to "Delete (n)" while rows are selected in the List or Cards view. */
   actions?: ListAction<T>[];
+  /** Buttons on the list toolbar, in every view, that run with or without a selection. */
+  toolbarActions?: ListToolbarAction[];
 }
 
 export declare function defineListView<T extends BaseDoc = BaseDoc>(doctype: string, opts: ListViewOptions<T>): void;

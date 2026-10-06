@@ -434,6 +434,31 @@ Either way the selection is cleared and the list reloads, so `onClick` needs no 
 own. The rows are the ones on screen, loaded with the list's columns and `fields` — fetch anything
 else by id. The button is only a shortcut: the method it calls must check permissions itself.
 
+### Actions on the whole list
+
+`toolbarActions` adds buttons to the list toolbar that need no selection — "Pay out all", "Sync
+now". They show in every view, before the "Delete (n)" and Filters buttons:
+
+```ts
+defineListView("Portal Store", {
+  toolbarActions: [{
+    label: __("Pay out all"),
+    condition: () => ddcore.hasRole("Portal Manager"),
+    async onClick(list) {
+      const n = await ddcore.call("portal.services.payouts.payOutAll", { filters: list.filters });
+      ddcore.ui.toast(__("{0} paid out", [n]), { indicator: "green" });
+    },
+  }],
+});
+```
+
+`onClick` gets `list` with `doctype`, `filters` (the `[field, op, value]` triples the current
+view loads with, the search box left out) and `refresh()`. `condition` takes no row: it decides
+whether the button shows when the list renders, and one that throws hides it. `primary: true`
+draws the button as primary. While `onClick` runs the list's action buttons are disabled, a
+rejection is shown to the user, and the list reloads afterwards, keeping the selection. As with
+`actions`, the method it calls must check permissions itself.
+
 ### Views: Tree, Calendar, Kanban, Gantt and Cards
 
 Besides the table, a list can offer other views of the same filtered rows. A segmented switcher in

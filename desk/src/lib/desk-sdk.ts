@@ -113,6 +113,19 @@ export interface ListAction<T extends BaseDoc = BaseDoc> {
   onClick(ids: string[], list: ListActionContext<T>): any;
 }
 
+export interface ListToolbarContext {
+  doctype: string;
+  filters: [string, string, any][];
+  refresh(): void;
+}
+
+export interface ListToolbarAction {
+  label: string;
+  condition?: () => boolean;
+  primary?: boolean;
+  onClick(list: ListToolbarContext): any;
+}
+
 export interface ListViewOptions<T extends BaseDoc = BaseDoc> {
   /** Allowed views for this DocType; defaults to ["list", "cards"] plus "calendar", "kanban" and "gantt" for each one configured */
   views?: DeskViewMode[];
@@ -136,6 +149,7 @@ export interface ListViewOptions<T extends BaseDoc = BaseDoc> {
   badges?: (row: T) => { label: string; color: string }[] | null | undefined;
   filterOptions?: Partial<Record<keyof T & string, { value: string; label: string; filters: [string, string, any][] }[]>>;
   actions?: ListAction<T>[];
+  toolbarActions?: ListToolbarAction[];
 }
 
 const listRegistry = new Map<string, any>();
