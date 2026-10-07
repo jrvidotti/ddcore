@@ -22,7 +22,7 @@ type i18nExtractIn struct {
 type setTranslationsIn struct {
 	App          string            `json:"app" jsonschema:"the app whose catalogue receives the translations"`
 	Lang         string            `json:"lang,omitempty" jsonschema:"catalogue language (default: the site's lang)"`
-	Translations map[string]string `json:"translations" jsonschema:"English key → translation; every key must exist in the code (run i18n_extract first for a new label)"`
+	Translations map[string]string `json:"translations" jsonschema:"English key → translation; every key must exist in the code (run i18n_extract first for a new label) or be translated by an app loaded earlier, the core included, which this catalogue then overrides"`
 }
 
 type i18nKey struct {
@@ -30,13 +30,21 @@ type i18nKey struct {
 	Ref string `json:"ref,omitempty"`
 }
 
+// i18nOverride is a catalogue entry for a key an earlier app translates: App
+// is that app, whose translation this catalogue replaces.
+type i18nOverride struct {
+	Key string `json:"key"`
+	App string `json:"app"`
+}
+
 type i18nTarget struct {
-	App     string    `json:"app"`
-	File    string    `json:"file"`
-	Keys    int       `json:"keys"`
-	Missing []i18nKey `json:"missing"`
-	Orphans []string  `json:"orphans"`
-	Dynamic []string  `json:"dynamic,omitempty"`
+	App       string         `json:"app"`
+	File      string         `json:"file"`
+	Keys      int            `json:"keys"`
+	Missing   []i18nKey      `json:"missing"`
+	Orphans   []string       `json:"orphans"`
+	Overrides []i18nOverride `json:"overrides"`
+	Dynamic   []string       `json:"dynamic,omitempty"`
 }
 
 type i18nReport struct {
@@ -82,11 +90,14 @@ func (s *server) i18nReportTarget(t i18nx.Target, lang string) (*i18nx.Set, *i18
 	if err != nil {
 		rel = path
 	}
-	out := i18nTarget{App: t.App, File: filepath.ToSlash(rel), Keys: set.Len(), Missing: []i18nKey{}, Orphans: []string{}}
+	out := i18nTarget{App: t.App, File: filepath.ToSlash(rel), Keys: set.Len(), Missing: []i18nKey{}, Orphans: []string{}, Overrides: []i18nOverride{}}
 	for _, k := range cat.Missing(set) {
 		out.Missing = append(out.Missing, i18nKey{Key: k.Text, Ref: k.Ref()})
 	}
 	out.Orphans = append(out.Orphans, cat.Orphans(set)...)
+	for _, k := range cat.Overrides(set) {
+		out.Overrides = append(out.Overrides, i18nOverride{Key: k, App: set.Inherited[k]})
+	}
 	for _, d := range set.Dynamic {
 		out.Dynamic = append(out.Dynamic, fmt.Sprintf("%s:%d", d.File, d.Line))
 	}

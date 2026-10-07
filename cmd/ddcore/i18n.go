@@ -22,7 +22,8 @@ const i18nUsage = `ddcore i18n extract — rewrites translations/<lang>.csv from
     --lang   which catalogue to write (default: the site's lang)
     --check  write nothing; list what is missing and what is stale, and exit
              non-zero if anything is missing
-    --prune  drop catalogue entries the code no longer has
+    --prune  drop catalogue entries the code no longer has; an override of a
+             key an earlier app (the core included) translates is kept
 `
 
 func cmdI18n(args []string) error {
@@ -78,18 +79,21 @@ func cmdI18n(args []string) error {
 		if err != nil {
 			return err
 		}
-		missing, orphans := cat.Missing(set), cat.Orphans(set)
+		missing, orphans, overrides := cat.Missing(set), cat.Orphans(set), cat.Overrides(set)
 		missingTotal += len(missing)
 		rel, _ := filepath.Rel(root, path)
 		if rel == "" {
 			rel = path
 		}
-		fmt.Printf("%s: %d keys, %d missing, %d orphan\n", rel, set.Len(), len(missing), len(orphans))
+		fmt.Printf("%s: %d keys, %d missing, %d orphan, %d override\n", rel, set.Len(), len(missing), len(orphans), len(overrides))
 		for _, k := range missing {
 			fmt.Printf("  missing  %-60q %s\n", k.Text, k.Ref())
 		}
 		for _, k := range orphans {
 			fmt.Printf("  orphan   %q\n", k)
+		}
+		for _, k := range overrides {
+			fmt.Printf("  override %q (%s)\n", k, set.Inherited[k])
 		}
 		for _, d := range set.Dynamic {
 			fmt.Printf("  dynamic  %s:%d (the value is its own key at run time)\n", d.File, d.Line)

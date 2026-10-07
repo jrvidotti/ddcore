@@ -79,7 +79,38 @@ func Extract(e *engine.Engine, t Target) (*Set, error) {
 		}
 	}
 	collectMeta(s, e, t)
+	s.Inherited = inheritedKeys(e.Current().Apps, t.App)
 	return s, nil
+}
+
+// inheritedKeys returns the keys the apps loaded before app translate, in any
+// language, each with the first app whose catalogue has it. The catalogues are
+// read, not the code: with a released binary the core's source is not on disk,
+// but its catalogues are embedded. A row an earlier catalogue itself marks as
+// an orphan is no key of that app's.
+func inheritedKeys(apps []js.App, app string) map[string]string {
+	out := map[string]string{}
+	for _, a := range apps {
+		if a.Name == app {
+			break
+		}
+		for _, f := range js.ListFiles(a, ".csv") {
+			if !strings.HasPrefix(filepath.ToSlash(f), "translations/") {
+				continue
+			}
+			b, err := js.ReadFile(a, f)
+			if err != nil {
+				continue
+			}
+			readRows(b, func(key, _, comment string) {
+				if _, seen := out[key]; seen || strings.HasPrefix(comment, "# orphan") {
+					return
+				}
+				out[key] = a.Name
+			})
+		}
+	}
+	return out
 }
 
 // skipTS drops what is not interface text. Tests are the whole of it: the

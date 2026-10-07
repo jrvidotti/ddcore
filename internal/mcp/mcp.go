@@ -281,7 +281,7 @@ func New(e *engine.Engine) *mcp.Server {
 			}
 		})
 
-	mcp.AddTool(srv, &mcp.Tool{Name: "i18n_extract", Description: "Rewrites translations/<lang>.csv from the code and the metadata (`ddcore i18n extract`), keeping every translation already there, and reports per app what is missing, orphan or dynamic. Run it after adding a label, then fill the missing keys with set_translations. With check it writes nothing."},
+	mcp.AddTool(srv, &mcp.Tool{Name: "i18n_extract", Description: "Rewrites translations/<lang>.csv from the code and the metadata (`ddcore i18n extract`), keeping every translation already there, and reports per app what is missing, orphan, an override of an earlier app's key (kept, even with prune) or dynamic. Run it after adding a label, then fill the missing keys with set_translations. With check it writes nothing."},
 		func(ctx context.Context, req *mcp.CallToolRequest, in i18nExtractIn) (*mcp.CallToolResult, any, error) {
 			r, err := s.i18nExtract(in)
 			if err != nil {

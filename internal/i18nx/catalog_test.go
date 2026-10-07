@@ -51,3 +51,56 @@ func TestCatalogSetWritesCanonicalCSV(t *testing.T) {
 		t.Errorf("nothing should be missing, got %v", missing)
 	}
 }
+
+// A key the app's code does not have but an earlier app's catalogue does is
+// the app overriding that app's translation: not an orphan, and --prune keeps
+// it (#106).
+func TestCatalogOverrideOfAnEarlierAppsKey(t *testing.T) {
+	s := NewSet()
+	s.Add("Save", "x.ts", 1)
+	s.Inherited["Tenant"] = "core"
+	c := &Catalog{Path: filepath.Join(t.TempDir(), "pt-BR.csv"), Lang: "pt-BR", Trans: map[string]string{
+		"Save": "Salvar", "Tenant": "Organização", "Gone": "Sumiu",
+	}}
+	if got := c.Orphans(s); len(got) != 1 || got[0] != "Gone" {
+		t.Errorf("Orphans = %v, want [Gone]", got)
+	}
+	if got := c.Overrides(s); len(got) != 1 || got[0] != "Tenant" {
+		t.Errorf("Overrides = %v, want [Tenant]", got)
+	}
+
+	if err := c.Write(s, false); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := os.ReadFile(c.Path)
+	want := "Save,Salvar,# x.ts:1\nTenant,Organização,# overrides core\nGone,Sumiu,# orphan: no longer in the code\n"
+	if string(b) != want {
+		t.Fatalf("wrote:\n%s\nwant:\n%s", b, want)
+	}
+
+	if err := c.Write(s, true); err != nil {
+		t.Fatal(err)
+	}
+	b, _ = os.ReadFile(c.Path)
+	want = "Save,Salvar,# x.ts:1\nTenant,Organização,# overrides core\n"
+	if string(b) != want {
+		t.Fatalf("with --prune wrote:\n%s\nwant:\n%s", b, want)
+	}
+}
+
+func TestCatalogSetAcceptsAnOverride(t *testing.T) {
+	s := NewSet()
+	s.Add("Save", "x.ts", 1)
+	s.Inherited["Tenant"] = "core"
+	c := &Catalog{Path: filepath.Join(t.TempDir(), "pt-BR.csv"), Lang: "pt-BR", Trans: map[string]string{}}
+	if err := c.Set(s, map[string]string{"Tenant": "Organização"}); err != nil {
+		t.Fatalf("an earlier app's key is the app's to override: %v", err)
+	}
+	if err := c.Set(s, map[string]string{"Nope": "Não"}); err == nil {
+		t.Fatal("a key neither the code nor an earlier app has must still be refused")
+	}
+	b, _ := os.ReadFile(c.Path)
+	if want := "Save,,# x.ts:1\nTenant,Organização,# overrides core\n"; string(b) != want {
+		t.Fatalf("wrote:\n%s\nwant:\n%s", b, want)
+	}
+}

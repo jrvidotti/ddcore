@@ -29,9 +29,14 @@ type Set struct {
 	// run time. Frappe does the same and phase 7 depends on it (a Select
 	// value is its own key), so it is a warning, never an error.
 	Dynamic []Key
+	// Inherited holds the keys an app loaded earlier already translates, each
+	// with the app whose catalogue has it first. The catalogues merge in load
+	// order, so such a key in this catalogue overrides that app's translation:
+	// it is not in this app's code, and it is still not an orphan.
+	Inherited map[string]string
 }
 
-func NewSet() *Set { return &Set{byText: map[string]*Key{}} }
+func NewSet() *Set { return &Set{byText: map[string]*Key{}, Inherited: map[string]string{}} }
 
 // Add records text seen at file:line. Empty and whitespace-only texts are
 // dropped: they are never worth translating and only add noise.

@@ -14,6 +14,16 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- `ddcore i18n extract` no longer reports an app's override of a core key as an orphan, and
+  `--prune` (or `i18n_extract {prune: true}`) no longer deletes it. A key the app's code does not
+  have but an app loaded earlier translates — the core included, in any language — is an
+  override: it is written with `# overrides core` (or that app's name), listed as `override` by
+  the CLI (the summary line gains an `N override` count) and under the new `overrides` list of
+  `i18n_extract`, and kept by `--prune`. `set_translations` now accepts such a key instead of
+  refusing it as not in the code (#106).
+
 ## 0.27.8 — 2026-10-07
 
 ### Fixed
