@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.27.16 — 2026-10-07
+
 ### Added
 
 - **An API key can carry a prefix in its id.** `ddcore.users.createApiKey(user, { prefix })` and
