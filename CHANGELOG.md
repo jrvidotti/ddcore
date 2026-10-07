@@ -14,6 +14,19 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- **Inside a tenant, `getRoles` sees a User the same transaction inserted.** The role lookup
+  placed a user it could not find on another connection in the platform space. So
+  `ddcore.getRoles(user)` answered `["All"]` for a User just created in a tenant, inside
+  `ddcore.test.asUser` too, and that answer could stay cached for the user. It now looks in the
+  transaction first. (#110)
+- **Inside a tenant, a `Link` to `User` accepts the operator who entered it.** `Admin` and the
+  platform's System Managers have no `User` row in a tenant, so recording
+  `ddcore.session.user` failed with "Invalid link", in the scratch tenant of `ddcore test` and
+  in the desk alike. A `Link` or `Dynamic Link` to `User` now accepts an operator there, and its
+  title is the operator's full name. See `tenancy`. (#110)
+
 ## 0.27.11 — 2026-10-07
 
 ### Added

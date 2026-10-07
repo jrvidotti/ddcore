@@ -124,28 +124,23 @@ func (c *Ctx) RolesOf(user string) ([]string, error) {
 	if v, ok := c.E.Cache.Get("roles:" + user); ok {
 		return v.([]string), nil
 	}
-	// Inside a tenant, only the roles of that tenant's users and of whoever
-	// is acting are anyone's business: a user id is site-wide, and app code
-	// could otherwise ask about an account of another tenant.
-	if c.Tenant != "" && user != c.User {
-		own, err := c.E.TenantOfUser(c.Ctx, user)
-		if err != nil {
-			return nil, err
-		}
-		if own != c.Tenant {
-			return []string{"All"}, nil
-		}
-	}
 	gen := c.E.Cache.Gen()
-	// A user's roles are rows of the user's own space. For an operator who
-	// entered a tenant that is not the space the ctx works in — and reading
-	// them there would find none, and cache that.
 	q := c.Q()
 	if c.Tenancy() {
-		own, err := c.E.TenantOfUser(c.Ctx, user)
+		// from the transaction first: a user it created is nowhere else yet
+		own, err := c.tenantOfUser(user)
 		if err != nil {
 			return nil, err
 		}
+		// Inside a tenant, only the roles of that tenant's users and of
+		// whoever is acting are anyone's business: a user id is site-wide,
+		// and app code could otherwise ask about an account of another tenant.
+		if c.Tenant != "" && user != c.User && own != c.Tenant {
+			return []string{"All"}, nil
+		}
+		// A user's roles are rows of the user's own space. For an operator
+		// who entered a tenant that is not the space the ctx works in — and
+		// reading them there would find none, and cache that.
 		if own != c.Tenant {
 			q = spaceStatements{e: c.E, tenant: own}
 		}

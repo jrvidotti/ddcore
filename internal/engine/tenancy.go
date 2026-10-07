@@ -1271,6 +1271,79 @@ func (c *Ctx) awayFromHome() (bool, error) {
 	if c.Tenant == "" || !c.Tenancy() {
 		return false, nil
 	}
-	own, err := c.E.TenantOfUser(c.Ctx, c.User)
+	own, err := c.tenantOfUser(c.User)
 	return own != c.Tenant, err
+}
+
+// tenantOfUser is TenantOfUser as this ctx sees it. A user this transaction
+// created is on no other connection and in no cache yet, and TenantOfUser
+// would place it in the platform space — where its roles are not (#110).
+// What the process cached is the answer, since a user never changes tenant;
+// then the transaction, whose answer may be uncommitted and so is not kept;
+// then TenantOfUser.
+func (c *Ctx) tenantOfUser(user string) (string, error) {
+	switch user {
+	case "", "Admin", "Guest":
+		return "", nil
+	}
+	if !c.Tenancy() {
+		return "", nil
+	}
+	if v, ok := c.E.Cache.Get("tenant:" + user); ok {
+		return v.(string), nil
+	}
+	if c.Tx != nil {
+		own, found := "", false
+		if err := c.elevated(func() error {
+			rows, err := db.Select(c.Ctx, c.Q(), `SELECT tenant FROM tab_user WHERE id = $1`, user)
+			if err == nil && len(rows) > 0 {
+				own, found = db.Str(rows[0]["tenant"]), true
+			}
+			return err
+		}); err != nil {
+			return "", err
+		}
+		if found {
+			return own, nil
+		}
+	}
+	return c.E.TenantOfUser(c.Ctx, user)
+}
+
+// operatorLink reports whether, inside a tenant, a Link to User may name id
+// although the tenant has no such User: id is an operator — Admin, or a
+// System Manager of the platform space — who entered the tenant and was
+// recorded doing something there (#110). Any operator, not only the one
+// acting: a tenant's user saving the document later must not be refused it.
+func (c *Ctx) operatorLink(doctype, id string) (bool, error) {
+	if doctype != "User" || c.Tenant == "" || !c.Tenancy() {
+		return false, nil
+	}
+	return c.E.CanEnterTenants(c.Ctx, id)
+}
+
+// operatorTitles are the names of the operators among names, read in the
+// platform space, where their accounts are. It is how a Link to User inside a
+// tenant shows the operator it recorded by name rather than by id.
+func (c *Ctx) operatorTitles(names []string) map[string]string {
+	var ops []string
+	for _, n := range names {
+		if ok, err := c.operatorLink("User", n); err == nil && ok {
+			ops = append(ops, n)
+		}
+	}
+	out := map[string]string{}
+	if len(ops) == 0 {
+		return out
+	}
+	rows, err := spaceStatements{e: c.E, tenant: ""}.Select(c.Ctx, `SELECT id, full_name FROM tab_user WHERE id = ANY($1)`, ops)
+	if err != nil {
+		return out
+	}
+	for _, r := range rows {
+		if title := db.Str(r["full_name"]); title != "" {
+			out[db.Str(r["id"])] = title
+		}
+	}
+	return out
 }

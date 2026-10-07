@@ -2076,7 +2076,7 @@ func (c *Ctx) checkLinks(d *meta.DocType, doc Doc, checks fieldChecks) error {
 		}
 		switch f.Fieldtype {
 		case "Link":
-			if ok, err := c.idExists(f.OptionsString(), v); err != nil {
+			if ok, err := c.linkExists(f.OptionsString(), v); err != nil {
 				return err
 			} else if !ok {
 				return cerr.LinkExists("{0}: {1} \"{2}\" does not exist", c.T(f.Label), f.OptionsString(), v).WithTitleKey("Invalid link")
@@ -2089,7 +2089,7 @@ func (c *Ctx) checkLinks(d *meta.DocType, doc Doc, checks fieldChecks) error {
 			if _, err := c.St.DocType(target); err != nil {
 				return cerr.Validation("{0}: DocType \"{1}\" does not exist", c.T(f.Label), target)
 			}
-			if ok, err := c.idExists(target, v); err != nil {
+			if ok, err := c.linkExists(target, v); err != nil {
 				return err
 			} else if !ok {
 				return cerr.LinkExists("{0}: {1} \"{2}\" does not exist", c.T(f.Label), target, v).WithTitleKey("Invalid link")
@@ -2097,6 +2097,15 @@ func (c *Ctx) checkLinks(d *meta.DocType, doc Doc, checks fieldChecks) error {
 		}
 	}
 	return nil
+}
+
+// linkExists is what a Link may point at: a document of the target, or
+// inside a tenant, for a Link to User, an operator who entered it.
+func (c *Ctx) linkExists(doctype, id string) (bool, error) {
+	if ok, err := c.idExists(doctype, id); err != nil || ok {
+		return ok, err
+	}
+	return c.operatorLink(doctype, id)
 }
 
 func (c *Ctx) checkUnique(d *meta.DocType, doc Doc) error {
