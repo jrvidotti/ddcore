@@ -14,6 +14,17 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- **Security:** a client can no longer set `doc.flags` by sending a `flags` key in its body. A
+  REST create or update, the desk's save, submit and cancel, and MCP `insert_doc` and
+  `update_doc` copied the key into the document, and the hooks took it as the write's flags, so
+  a user with write permission got past any `validate` rule keyed on a flag the app's server
+  code sets. The key is now dropped on every write, and a hook's `doc.flags` comes from the
+  write alone: `{}` for one a client started, as documented. A `__before` key, which could stand
+  in for `doc.getDocBeforeSave()` on an insert, is dropped the same way. Nothing changes for an
+  app that sets `doc.flags` in server code (#104).
+
 ## 0.27.7 — 2026-10-06
 
 ### Added

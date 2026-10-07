@@ -23,6 +23,8 @@ export default defineDoctype({ name: "Thing", idGeneration: { field: "title" },
 export default defineController("Thing", {
   validate(doc) {
     if (doc.note === "locked" && !doc.flags.system) ddcore.throw("refused");
+    const before = doc.getDocBeforeSave();
+    if (before && before.note === "forged") ddcore.throw("forged before");
     doc.flags.fromValidate = "v";
   },
   onUpdate(doc) {
@@ -118,5 +120,64 @@ func TestDocFlagsAreSharedByTheHooksOfAGoWrite(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+// #104: flags and __before come from the write, never from the document's
+// data. A client's body is data: a "flags" key in it must not pass a rule
+// keyed on doc.flags, nor a "__before" one stand in for the stored version.
+func TestDocFlagsAreNotTakenFromTheData(t *testing.T) {
+	e := setupWith(t, docFlagsApp())
+	err := e.Run(context.Background(), "Admin", func(c *Ctx) error {
+		forged := func(extra Doc) Doc {
+			d := mustDoc(t, c, "Thing", Doc{"title": "F", "note": "locked"})
+			for k, v := range extra {
+				d[k] = v
+			}
+			return d
+		}
+		if _, err := c.Insert(forged(Doc{"flags": map[string]any{"system": true}}), SaveOpts{}); err == nil || !strings.Contains(err.Error(), "refused") {
+			t.Fatalf("an insert whose data carried flags was not refused: %v", err)
+		}
+		d := forged(Doc{"note": "", "__before": map[string]any{"note": "forged"}})
+		if _, err := c.Insert(d, SaveOpts{}); err != nil {
+			t.Fatalf("an insert whose data carried __before saw it as the stored version: %v", err)
+		}
+		got, err := c.GetDoc("Thing", "F")
+		if err != nil {
+			return err
+		}
+		got["note"] = "locked"
+		got["flags"] = map[string]any{"system": true}
+		if _, err := c.Save(got, SaveOpts{}); err == nil || !strings.Contains(err.Error(), "refused") {
+			t.Fatalf("a save whose data carried flags was not refused: %v", err)
+		}
+		if nd, err := c.NewDoc("Thing", Doc{"title": "N", "flags": map[string]any{"system": true}, "__before": map[string]any{}}); err != nil {
+			return err
+		} else if _, ok := nd["flags"]; ok {
+			t.Fatalf("NewDoc kept a flags key: %v", nd)
+		} else if _, ok := nd["__before"]; ok {
+			t.Fatalf("NewDoc kept a __before key: %v", nd)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	out, _, err := e.Eval(context.Background(), `
+const refused = (fn: () => void) => { try { fn(); return false; } catch (e) { return true; } };
+const r: any = {};
+r.newDoc = refused(() => ddcore.newDoc("Thing", { title: "J", note: "locked", flags: { system: true } } as any).insert());
+r.wrapped = refused(() => ddcore.getDoc({ doctype: "Thing", title: "J", note: "locked", flags: { system: true } } as any).insert());
+const before = ddcore.newDoc("Thing", { title: "K", __before: { note: "forged" } } as any);
+r.before = refused(() => before.insert());
+JSON.stringify(r);`, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `"{\"newDoc\":true,\"wrapped\":true,\"before\":false}"`
+	if string(out) != want {
+		t.Fatalf("a document's data set its flags:\n got %s\nwant %s", out, want)
 	}
 }

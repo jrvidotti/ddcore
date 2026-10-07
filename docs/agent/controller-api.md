@@ -166,9 +166,10 @@ doc.save();
 ```
 
 The flags are never stored and never leave the server, so a client cannot set them: a write from the Desk, the REST
-API or MCP starts with `{}`. They belong to that document only — another document saved inside a hook has its own,
-and `getDoc` of the same document again starts empty. Values must be JSON: the flags cross to the engine and back
-with the document.
+API or MCP starts with `{}`. A `flags` key in a client's body, or in the values given to `ddcore.newDoc` or
+`ddcore.getDoc({ … })`, is dropped, and so is a `__before` one: `doc.getDocBeforeSave()` is the stored version, or nothing on an insert.
+They belong to that document only — another document saved inside a hook has its own, and `getDoc` of the same
+document again starts empty. Values must be JSON: the flags cross to the engine and back with the document.
 
 ### What a delete leaves behind
 

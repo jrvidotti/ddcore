@@ -540,12 +540,18 @@
 
   // ---------------------------------------------------------------- Document
   const DOC_INTERNAL = new Set(["flags", "__before"]);
+  // Copies a document's data, never its per-write state: flags and __before
+  // are set by the write, so a "flags" key in a client's body cannot hand the
+  // hooks the flags of a server write (#104).
+  const assignData = (doc, data) => {
+    for (const k of Object.keys(data || {})) if (!DOC_INTERNAL.has(k)) doc[k] = data[k];
+  };
 
   class Document {
     constructor(data) {
       Object.defineProperty(this, "flags", { value: {}, enumerable: false, writable: true });
       Object.defineProperty(this, "__before", { value: undefined, enumerable: false, writable: true });
-      Object.assign(this, data);
+      assignData(this, data);
       this._wrapChildren();
     }
     _wrapChildren() {
@@ -563,7 +569,7 @@
     }
     _apply(data) {
       for (const k of Object.keys(this)) delete this[k];
-      Object.assign(this, data);
+      assignData(this, data);
       this._wrapChildren();
       return this;
     }
@@ -1273,8 +1279,8 @@
   // the same ones to every event of that write.
   reg.runHook = function (doctype, event, docJSON, beforeJSON, flagsJSON) {
     const doc = new Document(JSON.parse(docJSON));
-    if (flagsJSON) doc.flags = JSON.parse(flagsJSON);
-    if (beforeJSON) doc.__before = JSON.parse(beforeJSON);
+    doc.flags = flagsJSON ? JSON.parse(flagsJSON) : {};
+    doc.__before = beforeJSON ? JSON.parse(beforeJSON) : undefined;
     const ctx = makeContext();
     for (const fn of hooksFor(doctype, event)) fn.call(doc, doc, ctx);
     return JSON.stringify({ doc, flags: doc.flags });

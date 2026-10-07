@@ -534,6 +534,19 @@ func (c *Ctx) checkRead(d *meta.DocType, doc Doc, name string, ignoreRoles bool)
 	return nil
 }
 
+// IsInternalKey reports whether k names a document's per-write state —
+// doc.flags and the version getDocBeforeSave returns — rather than its data.
+// The write sets them; a key of that name in a client's body or a document's
+// values is dropped, or a user could hand the hooks the flags that let a
+// server write through a rule (#104).
+func IsInternalKey(k string) bool { return k == "flags" || k == "__before" }
+
+// dropInternal removes the per-write keys from a document about to be written.
+func dropInternal(doc Doc) {
+	delete(doc, "flags")
+	delete(doc, "__before")
+}
+
 // NewDoc builds an unsaved document with defaults applied.
 func (c *Ctx) NewDoc(doctype string, values Doc) (Doc, error) {
 	d, err := c.St.DocType(doctype)
@@ -556,7 +569,9 @@ func (c *Ctx) NewDoc(doctype string, values Doc) (Doc, error) {
 		}
 	}
 	for k, v := range values {
-		doc[k] = v
+		if !IsInternalKey(k) {
+			doc[k] = v
+		}
 	}
 	if d.IsSingle {
 		if doc.ID() != "" && doc.ID() != "singleton" {
@@ -622,6 +637,7 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 	}
 	c.normalizeMultiSelect(d, doc, nil)
 	c.dropComputed(d, doc)
+	dropInternal(doc)
 	permission := "create"
 	if d.IsSingle {
 		permission = "write"
@@ -810,6 +826,7 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 	}
 	c.normalizeMultiSelect(d, doc, before)
 	c.dropComputed(d, doc)
+	dropInternal(doc)
 	oldStatus, newStatus := before.Docstatus(), doc.Docstatus()
 	action := "save"
 	switch {
