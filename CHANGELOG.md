@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.27.14 — 2026-10-07
+
 ### Fixed
 
 - **`ddcore maintenance on|off` works once tenancy is applied.** Switching the flag first ran
