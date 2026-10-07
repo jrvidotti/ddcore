@@ -14,6 +14,17 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **A scratch tenant for `ddcore test`.** On a site with tenancy, the tests of an app with
+  `defineApp({ tests: { space: "tenant" } })` run inside a tenant the run creates in its
+  rolled-back transaction. That is the default for an app with `space: "tenant"`, so an app
+  whose tests use another app's tenant-only DocTypes adds the line. The tenant has every app's
+  `onTenantCreate` applied, `Admin` entered and no real tenant's documents, and nothing of it
+  survives the run. `ddcore.test.inPlatform(fn)` runs part of such a test in the platform space,
+  for a shared DocType, a `Site Tenant` or a scheduled fan-out. Other apps' tests run in the
+  platform space as before. See `tenancy` (#107).
+
 ## 0.27.9 — 2026-10-07
 
 ### Added

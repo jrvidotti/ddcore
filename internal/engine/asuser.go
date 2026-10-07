@@ -162,13 +162,21 @@ func (c *Ctx) testAsUser(user string) error {
 	return err
 }
 
-// testRootCtx unwinds every asUser still open, so that a test that threw
-// inside one can never leave the next test running as someone else.
+// testRootCtx unwinds every asUser still open, and every tenant entered —
+// the scratch one, a tenant.run, an inPlatform — so that a test that threw
+// inside one can never leave the next test running as someone else, or
+// somewhere else.
 func (c *Ctx) testRootCtx() *Ctx {
-	for c.asUserParent != nil {
-		c = c.restoreUser()
+	for {
+		switch {
+		case c.asUserParent != nil:
+			c = c.restoreUser()
+		case c.tenantParent != nil:
+			c = c.testLeave()
+		default:
+			return c
+		}
 	}
-	return c
 }
 
 // enterUserSpace puts a ctx that borrows this one's transaction in the space

@@ -104,7 +104,8 @@ In the platform space, such a DocType:
 - is refused on every read and write (403): `/app/Employee`, `GET /api/meta/Employee`,
   `POST /api/resource/Employee`, MCP `insert_doc`, `ddcore eval` or `exec` without
   `--tenant`, a job enqueued there, a scheduled method that does not fan out, `afterInstall`,
-  `afterMigrate`, a test that has not entered a tenant. The message is "Employee lives
+  `afterMigrate`, a test that has not entered a tenant (see **Tests** below for the scratch
+  tenant). The message is "Employee lives
   inside a tenant: enter one (on the command line, pass --tenant)". Permissions ignored do not
   change it;
 - is left out of `ddcore import run` without `--tenant`, which lists it under the
@@ -296,8 +297,39 @@ is usually what a backfill wants. To use the document API on a tenant's document
 patch, wrap it in `ddcore.tenant.run`; outside `run`, an id names a row in every tenant that
 has one.
 
-**Tests** (`ddcore test`) run as `Admin` in the platform space. `ddcore.test.asUser(user, fn)`
-moves to the user's tenant for the duration of `fn`; `ddcore.tenant.run` enters one directly.
+**Tests** (`ddcore test`) run as `Admin`. Where they run depends on the app's
+`tests.space`:
+
+| `tests.space` | Where each test runs |
+| --- | --- |
+| `"platform"` | The platform space. This is the default |
+| `"tenant"` | Inside the run's scratch tenant. This is the default for an app with `space: "tenant"` |
+
+```ts
+export default defineApp({
+  name: "training",
+  title: "Training",
+  tests: { space: "tenant" }, // its tests create hr's tenant-only Employees
+});
+```
+
+The **scratch tenant** is a tenant the run creates (`ddcore-test-<random>`) in its
+rolled-back transaction, so it never reaches the site:
+
+- Every app's `onTenantCreate` is applied to it, as it is to a real tenant.
+- `Admin` is entered into it.
+- Each test starts from the same state, because the test's writes roll back.
+- No real tenant's documents are in sight, and `ddcore.tenant.current()` names it.
+- `ddcore.test.asUser(user, fn)` works for `Admin` and for the users a test creates there.
+
+From such a test, `ddcore.test.inPlatform(fn)` runs `fn` in the platform space and comes back
+afterwards, even when `fn` throws. It is how a tenant test writes a shared DocType, creates a
+`Site Tenant`, acts as a platform user or exercises a scheduled fan-out
+(`ddcore.tenant.list()` there includes the scratch tenant).
+
+The tests of every other app run in the platform space. There, `ddcore.test.asUser` moves to
+the user's tenant for the duration of `fn`, and `ddcore.tenant.run` enters a tenant directly.
+Without tenancy, `tests.space` is ignored and `inPlatform` just runs `fn`.
 
 ## Who administers what
 
