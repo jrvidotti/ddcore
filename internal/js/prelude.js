@@ -1144,6 +1144,12 @@
         call("test.asUser", { user });
         try { return fn(); } finally { call("test.restoreUser"); }
       },
+      // runs fn in the platform space, from a test that runs inside the
+      // scratch tenant (#107); the host returns to the tenant afterwards
+      inPlatform(fn) {
+        call("test.inPlatform");
+        try { return fn(); } finally { call("tenant.leave", {}); }
+      },
     };
   }
   globalThis.ddcore = api;
@@ -1535,7 +1541,11 @@
     function walk(suite, path, befores, afters) {
       if (app && suite.app && suite.app !== app) return;
       const selectedHooks = (hooks) => app ? hooks.filter((hook) => hook.app === app) : hooks;
-      for (const b of selectedHooks(suite.beforeAll)) b.fn();
+      // a beforeAll runs where its app's tests do: in the scratch tenant or not
+      for (const b of selectedHooks(suite.beforeAll)) {
+        call("test.enter", { app: b.app });
+        try { b.fn(); } finally { call("test.leave"); }
+      }
       const be = selectedHooks(befores).concat(selectedHooks(suite.beforeEach));
       const af = selectedHooks(suite.afterEach).concat(selectedHooks(afters));
       for (const t of suite.tests) {
@@ -1544,7 +1554,7 @@
         if (re && !re.test(full) && !re.test(t.file || "")) continue;
         const r = { name: full, file: t.file, app: t.app, ok: true };
         const t0 = Date.now();
-        call("test.begin");
+        call("test.begin", { app: t.app });
         try {
           for (const b of be) b.fn();
           t.fn();

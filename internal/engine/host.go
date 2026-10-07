@@ -66,6 +66,7 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		Event         string            `json:"event"`
 		Payload       any               `json:"payload"`
 		User          string            `json:"user"`
+		App           string            `json:"app"`
 		Ptype         string            `json:"ptype"`
 		OldID         string            `json:"oldID"`
 		NewID         string            `json:"newID"`
@@ -735,12 +736,30 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		if !c.E.Cfg.Test {
 			return nil, cerr.Permission("ddcore.test is only available inside ddcore test")
 		}
-		return nil, c.Begin()
+		// the savepoint first, so the rollback takes back what the test
+		// wrote in the scratch tenant too
+		if err := c.Begin(); err != nil {
+			return nil, err
+		}
+		return nil, c.testEnter(a.App)
 	case "test.rollback":
 		if !c.E.Cfg.Test {
 			return nil, cerr.Permission("ddcore.test is only available inside ddcore test")
 		}
 		return nil, c.testRootCtx().RollbackTo()
+	case "test.enter":
+		if !c.E.Cfg.Test {
+			return nil, cerr.Permission("ddcore.test is only available inside ddcore test")
+		}
+		return nil, c.testEnter(a.App)
+	case "test.leave":
+		if !c.E.Cfg.Test {
+			return nil, cerr.Permission("ddcore.test is only available inside ddcore test")
+		}
+		c.testRootCtx()
+		return nil, nil
+	case "test.inPlatform":
+		return nil, c.testInPlatform()
 	// ---- tenancy ------------------------------------------------------------
 	case "tenant.current":
 		return c.Tenant, nil

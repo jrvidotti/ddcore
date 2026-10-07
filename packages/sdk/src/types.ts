@@ -852,6 +852,17 @@ export interface AppDef {
    */
   space?: "tenant";
   /**
+   * Where `ddcore test` runs this app's tests on a site with tenancy.
+   * `"tenant"` runs each one inside the run's **scratch tenant**: one the run
+   * creates in its rolled-back transaction, with every app's `onTenantCreate`
+   * applied, entered as `Admin`. `ddcore.test.inPlatform(fn)` reaches the
+   * platform space from there. `"platform"` runs them in the platform space.
+   * The default is `"tenant"` for an app with `space: "tenant"`, otherwise
+   * `"platform"`, so an app whose tests touch another app's tenant-only
+   * DocTypes says `"tenant"` here. Ignored without tenancy. See `tenancy`.
+   */
+  tests?: { space?: "tenant" | "platform" };
+  /**
    * Runs inside each tenant when it is created (tenancy). Fixtures and
    * `afterInstall` fill the platform space only, so this is where the app
    * gives a new tenant the records it cannot start without.

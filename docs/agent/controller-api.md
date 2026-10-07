@@ -441,6 +441,11 @@ transaction. Users and User Permissions the test inserted count, and roll back w
 `ddcore.session.user` names the user, `asUser` returns what `fn` returns, and the previous user is
 back afterwards, even when `fn` throws. `ddcore.test` exists only inside `ddcore test`.
 
+On a site with tenancy, the tests of an app with `tests.space: "tenant"` run inside a scratch
+tenant the run creates. That is the default for an app with `space: "tenant"`.
+`ddcore.test.inPlatform(fn)` runs part of such a test in the platform space. See `tenancy`,
+*Tests*.
+
 ## Single DocTypes (settings)
 
 Declare `isSingle: true` for one configuration per DocType and instance. Singles use

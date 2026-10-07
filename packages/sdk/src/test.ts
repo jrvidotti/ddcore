@@ -13,6 +13,14 @@ declare module "./index" {
        * inserted are seen, and roll back with it. Returns what `fn` returns.
        */
       asUser<T>(user: string, fn: () => T): T;
+      /**
+       * Runs `fn` in the platform space, then returns to where the test was.
+       * On a site with tenancy, the tests of an app with `tests.space:
+       * "tenant"` run inside the run's scratch tenant; this is how one of them
+       * writes a shared DocType, creates a Site Tenant or tests a scheduled
+       * fan-out. Without tenancy it just runs `fn`. Returns what `fn` returns.
+       */
+      inPlatform<T>(fn: () => T): T;
     };
   }
 }

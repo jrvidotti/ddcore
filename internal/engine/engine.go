@@ -153,7 +153,13 @@ type AppMeta struct {
 	// every one of them out of the platform space unless it says otherwise
 	// (#105). Only "tenant" is accepted.
 	Space string `json:"space,omitempty"`
-	Dir   string `json:"-"`
+	// Tests.Space is where `ddcore test` runs the app's tests on a site with
+	// tenancy: "tenant" puts each one inside the run's scratch tenant (#107),
+	// "platform" in the platform space. Without it, it follows Space.
+	Tests struct {
+		Space string `json:"space,omitempty"`
+	} `json:"tests"`
+	Dir string `json:"-"`
 	// WWW is the app's static sites by URL prefix, as declared; State.WWW
 	// holds them validated (#68).
 	WWW map[string]json.RawMessage `json:"www"`
@@ -975,6 +981,11 @@ type Ctx struct {
 	asUserParent *Ctx
 	// tenantParent is the ctx that entered the tenant this one works in.
 	tenantParent *Ctx
+	// testTenant is the scratch tenant a `ddcore test` run created, and
+	// testTenantApps the apps whose tests run inside it (#107). Only the run's
+	// root ctx holds them; the rest reach it through owner().
+	testTenant     string
+	testTenantApps map[string]bool
 	// system lifts the ctx out of row-level security for its whole
 	// transaction; only RunSystem and Migrate set it.
 	system bool
@@ -1422,10 +1433,25 @@ func (e *Engine) RunTests(ctx context.Context, filter, app string) ([]js.TestRes
 		if err != nil {
 			return err
 		}
+		if err := c.createTestTenant(app); err != nil {
+			return err
+		}
 		out, err = rt.RunTests(filter, app)
 		return err
 	})
 	return out, err
+}
+
+// TestSpace is where the app's tests run on a site with tenancy: its
+// `tests.space`, or "tenant" for an app whose DocTypes live inside a tenant.
+func (a *AppMeta) TestSpace() string {
+	if a.Tests.Space != "" {
+		return a.Tests.Space
+	}
+	if a.Space == meta.SpaceTenant {
+		return SpaceTenant
+	}
+	return SpacePlatform
 }
 
 // Eval runs a TS snippet as Admin; returns its JSON result and logs.

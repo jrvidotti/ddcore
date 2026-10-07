@@ -387,6 +387,13 @@ func (c *Ctx) enterTenantCtx(id string) (*Ctx, error) {
 	if err := c.E.checkTenant(c.Ctx, c.Tx, id); err != nil {
 		return nil, err
 	}
+	return c.enterSpaceCtx(id)
+}
+
+// enterSpaceCtx is enterTenantCtx without the check on the tenant, so that it
+// also takes "" — the platform space, which only a test enters from inside a
+// tenant (ddcore.test.inPlatform).
+func (c *Ctx) enterSpaceCtx(id string) (*Ctx, error) {
 	rt, err := c.RT()
 	if err != nil {
 		return nil, err
@@ -526,7 +533,13 @@ func appSpaces(apps map[string]*AppMeta) (map[string]string, error) {
 	sort.Strings(names)
 	for _, name := range names {
 		a := apps[name]
-		if a == nil || a.Space == "" {
+		if a == nil {
+			continue
+		}
+		if ts := a.Tests.Space; ts != "" && ts != SpaceTenant && ts != SpacePlatform {
+			return nil, fmt.Errorf("app %q: tests.space %q is neither %q nor %q", name, ts, SpaceTenant, SpacePlatform)
+		}
+		if a.Space == "" {
 			continue
 		}
 		if a.Space != meta.SpaceTenant {
