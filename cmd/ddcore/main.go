@@ -56,7 +56,7 @@ Usage: ddcore <command> [options]
   push        push keys — print a new VAPID key pair for Web Push (run: ddcore push)
   audit       inspect and purge administrative audit events (run: ddcore audit)
   user        user add|invite|passwd|reset|unlock|sessions (run: ddcore user)
-  apikey      apikey <user> [--label x] [--days N]  → prints key:secret
+  apikey      apikey <user> [--label x] [--days N] [--prefix p]  → prints key:secret
   tenant      tenant list|create|enable|disable|adopt — the tenants of a site with tenancy (run: ddcore tenant)
   mcp         MCP server (stdio) for agents
   docs        print the framework documentation
@@ -1017,11 +1017,12 @@ func cmdAPIKey(args []string) error {
 	fs := newFlagSet("apikey")
 	label := fs.String("label", "cli", "description")
 	days := fs.Int("days", 0, "expire after N days (0 = never)")
+	prefix := fs.String("prefix", "", "start the key's id with <prefix>. (a tenant's slug, say)")
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
 	if fs.NArg() < 1 {
-		return fmt.Errorf("usage: ddcore apikey <user> [--label x] [--days N]")
+		return fmt.Errorf("usage: ddcore apikey <user> [--label x] [--days N] [--prefix p]")
 	}
 	e, _, err := load(false, false)
 	if err != nil {
@@ -1030,7 +1031,7 @@ func cmdAPIKey(args []string) error {
 	defer e.DB.Close()
 	// the key is a document of its user's tenant, and audited like one app
 	// code issues
-	out, err := e.IssueAPIKey(context.Background(), fs.Arg(0), *label, *days)
+	out, err := e.IssueAPIKey(context.Background(), fs.Arg(0), *label, *days, *prefix)
 	if err != nil {
 		return err
 	}

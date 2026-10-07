@@ -52,7 +52,7 @@ func TestUserAPIKeyIssuedBySystemManager(t *testing.T) {
 
 	var out map[string]any
 	runAs(t, e, manager, func(c *Ctx) (err error) {
-		out, err = e.CreateUserAPIKey(c, machine, "gateway", 30)
+		out, err = e.CreateUserAPIKey(c, machine, "gateway", 30, "")
 		return err
 	})
 	key, secret := db.Str(out["key"]), db.Str(out["secret"])
@@ -84,14 +84,14 @@ func TestUserAPIKeyIssuedBySystemManager(t *testing.T) {
 	// refusals: a user who cannot administer users, a missing user, Guest,
 	// and Admin from anyone but Admin
 	if err := e.Run(ctx, plain, func(c *Ctx) error {
-		_, err := e.CreateUserAPIKey(c, machine, "", 0)
+		_, err := e.CreateUserAPIKey(c, machine, "", 0, "")
 		return err
 	}); err == nil || cerr.From(err).Type != "PermissionError" {
 		t.Errorf("a plain user issued a key: %v", err)
 	}
 	for _, target := range []string{"nobody@x.com", "Guest", "Admin", ""} {
 		if err := e.Run(ctx, manager, func(c *Ctx) error {
-			_, err := e.CreateUserAPIKey(c, target, "", 0)
+			_, err := e.CreateUserAPIKey(c, target, "", 0, "")
 			return err
 		}); err == nil {
 			t.Errorf("a key was issued for %q", target)
@@ -114,13 +114,13 @@ func TestUserAPIKeyTenancy(t *testing.T) {
 	})
 
 	runAs(t, e, manager, func(c *Ctx) error {
-		if _, err := e.CreateUserAPIKey(c, userA, "", 0); err != nil {
+		if _, err := e.CreateUserAPIKey(c, userA, "", 0, ""); err != nil {
 			t.Errorf("own tenant: %v", err)
 		}
 		return nil
 	})
 	err := e.Run(ctx, manager, func(c *Ctx) error {
-		_, err := e.CreateUserAPIKey(c, userB, "", 0)
+		_, err := e.CreateUserAPIKey(c, userB, "", 0, "")
 		return err
 	})
 	if err == nil {
@@ -133,7 +133,7 @@ func TestUserAPIKeyTenancy(t *testing.T) {
 
 	var out map[string]any
 	runAs(t, e, "Admin", func(c *Ctx) (err error) {
-		out, err = e.CreateUserAPIKey(c, userB, "provision", 0)
+		out, err = e.CreateUserAPIKey(c, userB, "provision", 0, "")
 		return err
 	})
 	key := db.Str(out["key"])
@@ -170,6 +170,10 @@ describe("ddcore.users.createApiKey", () => {
     expect(ddcore.db.getValue("API Key", out.key, "label")).toBe("gateway");
     const bare = ddcore.users.createApiKey(machine);
     expect(bare.expires).toBeFalsy();
+    const named = ddcore.users.createApiKey(machine, { prefix: "acme" });
+    expect(named.key).toMatch(/^acme\.[a-z0-9]{10}$/);
+    expect(ddcore.db.getValue("API Key", named.key, "user")).toBe(machine);
+    expect(() => ddcore.users.createApiKey(machine, { prefix: "a:b" })).toThrow("Invalid API key prefix");
     ddcore.test.asUser(plain, () => {
       expect(() => ddcore.users.createApiKey(machine)).toThrow();
     });
@@ -201,7 +205,7 @@ func TestUserAPIKeyFromJS(t *testing.T) {
 func TestUserAPIKeyIssuedOutsideARequest(t *testing.T) {
 	e := setupTenancy(t)
 	ctx := context.Background()
-	out, err := e.IssueAPIKey(ctx, userA, "cli", 7)
+	out, err := e.IssueAPIKey(ctx, userA, "cli", 7, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -212,7 +216,35 @@ func TestUserAPIKeyIssuedOutsideARequest(t *testing.T) {
 	if len(ev) != 1 || db.Str(ev[0]["actor"]) != "Admin" || db.Str(ev[0]["tenant"]) != tenantA {
 		t.Fatalf("audit = %v", ev)
 	}
-	if _, err := e.IssueAPIKey(ctx, "nobody@alfa.test", "cli", 0); err == nil {
+	if _, err := e.IssueAPIKey(ctx, "nobody@alfa.test", "cli", 0, ""); err == nil {
 		t.Error("a key was issued for a missing user")
+	}
+}
+
+// A prefix names what the key belongs to: the id is "<prefix>.<random>", it
+// still authenticates, and a prefix that could break the token is refused.
+func TestUserAPIKeyPrefix(t *testing.T) {
+	e := setupTenancy(t)
+	ctx := context.Background()
+	out, err := e.IssueAPIKey(ctx, userA, "cli", 0, " "+tenantA+" ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	key := db.Str(out["key"])
+	rest, ok := strings.CutPrefix(key, tenantA+".")
+	if !ok || len(rest) != 10 {
+		t.Fatalf("key id = %q, want %s.<10 random characters>", key, tenantA)
+	}
+	if u, err := e.UserFromAPIKey(ctx, key+":"+db.Str(out["secret"])); err != nil || u != userA {
+		t.Fatalf("the prefixed key authenticates as %q (%v), want %s", u, err, userA)
+	}
+	for _, bad := range []string{"a:b", "Acme", "-acme", "acme.x", "a b", strings.Repeat("a", 64)} {
+		_, err := e.IssueAPIKey(ctx, userA, "cli", 0, bad)
+		if err == nil || cerr.From(err).Type != "ValidationError" {
+			t.Errorf("prefix %q: err = %v, want a ValidationError", bad, err)
+		}
+	}
+	if ev := auditOf(t, e, userA); len(ev) != 1 {
+		t.Errorf("a refused prefix recorded an apikey.create event: %v", ev)
 	}
 }

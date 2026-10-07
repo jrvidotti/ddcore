@@ -310,6 +310,7 @@ How it works today,Como funciona hoje,# core/mail/feedback.mail.ts:45
 Hue,Matiz,# desk/src/lib/controls/ColorControl.svelte:215
 I forgot my password,Esqueci minha senha,# desk/src/routes/login/+page.svelte:79
 ID,ID,# desk/src/lib/components/DataImportModal.svelte:130
+"Invalid API key prefix {0}: lowercase letters, digits, - and _, starting with a letter or digit, at most 63 characters","Prefixo de chave de API inválido {0}: letras minúsculas, dígitos, - e _, começando por letra ou dígito, até 63 caracteres",# internal/engine/auth.go:343
 IP Address,Endereço IP,# core.doctypes.audit_event.audit_event.doctype
 Idempotency Key,Chave de Idempotência,# core.doctypes.email_delivery.email_delivery.doctype
 "If that address belongs to an account, a link to choose a new password is on its way. The link can only be used once, and expires.","Se esse endereço pertence a uma conta, um link para escolher uma nova senha está a caminho. O link só pode ser usado uma vez e expira.",# desk/src/routes/login/forgot/+page.svelte:30

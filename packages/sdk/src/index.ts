@@ -468,9 +468,11 @@ export interface DDCoreAPI {
      * `apikey.create` audit event without the secret. System Manager (outside
      * portal mode) or Admin only. Inside a tenant, only that tenant's users;
      * from the platform space, the key is made in the user's own tenant.
-     * `days` defaults to the site's `apiKeyDays`.
+     * `days` defaults to the site's `apiKeyDays`. `prefix` makes the key's id
+     * `<prefix>.<random>` (a tenant's slug, say), so the key tells what it
+     * belongs to; it has a tenant id's shape (`[a-z0-9][a-z0-9_-]{0,62}`).
      */
-    createApiKey(user: string, opts?: { label?: string; days?: number }): CreatedApiKey;
+    createApiKey(user: string, opts?: { label?: string; days?: number; prefix?: string }): CreatedApiKey;
   };
   /**
    * Records that the current user did something sensitive to a target (PRD-06).

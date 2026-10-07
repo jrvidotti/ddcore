@@ -301,7 +301,7 @@ func (e *Engine) UserFromAPIKey(ctx context.Context, token string) (string, erro
 
 // CreateAPIKey issues a key for a user and returns "key:secret".
 func (e *Engine) CreateAPIKey(ctx context.Context, user, label string) (string, error) {
-	out, err := e.IssueAPIKey(ctx, user, label, 0)
+	out, err := e.IssueAPIKey(ctx, user, label, 0, "")
 	if err != nil {
 		return "", err
 	}
@@ -311,10 +311,10 @@ func (e *Engine) CreateAPIKey(ctx context.Context, user, label string) (string, 
 // IssueAPIKey is CreateUserAPIKey outside a request, as Admin in the user's
 // own space: what `ddcore apikey` runs, so the operator's keys reach the
 // audit log by the same path as the ones app code issues.
-func (e *Engine) IssueAPIKey(ctx context.Context, user, label string, days int) (map[string]any, error) {
+func (e *Engine) IssueAPIKey(ctx context.Context, user, label string, days int, prefix string) (map[string]any, error) {
 	var out map[string]any
 	err := e.RunAdminFor(ctx, user, func(c *Ctx) (err error) {
-		out, err = e.CreateUserAPIKey(c, user, label, days)
+		out, err = e.CreateUserAPIKey(c, user, label, days, prefix)
 		return err
 	})
 	if errors.Is(err, errNoSuchUser) {
@@ -329,9 +329,21 @@ func (e *Engine) IssueAPIKey(ctx context.Context, user, label string, days int) 
 //
 // The secret is returned once and never again: only its hash is stored, which
 // is the same reason a lost key has to be replaced rather than looked up.
-func (e *Engine) CreateAPIKeyFor(c *Ctx, user, label string, days int) (map[string]any, error) {
+//
+// A prefix makes the id "<prefix>.<random>", so whoever holds a key can tell
+// what it belongs to (a tenant, an integration) without asking the database.
+// It has a tenant id's shape: no ":" (the token splits on the first one) and
+// nothing that needs escaping. The random part stays, so the id still names
+// one row across spaces.
+func (e *Engine) CreateAPIKeyFor(c *Ctx, user, label string, days int, prefix string) (map[string]any, error) {
 	secret := RandomToken()
 	doc := Doc{"user": user, "label": label, "secret_hash": HashPassword(secret), "enabled": true}
+	if prefix = strings.TrimSpace(prefix); prefix != "" {
+		if !db.ValidTenantID(prefix) {
+			return nil, cerr.Validation("Invalid API key prefix {0}: lowercase letters, digits, - and _, starting with a letter or digit, at most 63 characters", prefix)
+		}
+		doc["id"] = prefix + "." + randomID()
+	}
 	if days <= 0 {
 		days = e.Cfg.Auth.APIKeyDays
 	}

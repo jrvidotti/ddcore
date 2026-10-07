@@ -54,7 +54,7 @@ prints that command's options, or its subcommands for a command such as `import`
 | `ddcore user reset <email>` | sends a password-recovery link |
 | `ddcore user unlock <email>` | lifts a lockout without waiting out the window |
 | `ddcore user sessions <email> [--revoke]` | lists, or ends, that user's sessions |
-| `ddcore apikey <user> [--label x] [--days N]` | produces `key:secret` for `Authorization: token key:secret`; `--days` expires it. Recorded as an `apikey.create` audit event, as `ddcore.users.createApiKey` is |
+| `ddcore apikey <user> [--label x] [--days N] [--prefix p]` | produces `key:secret` for `Authorization: token key:secret`; `--days` expires it, `--prefix` makes the key's id `<p>.<random>` (a tenant's slug, say). Recorded as an `apikey.create` audit event, as `ddcore.users.createApiKey` is |
 | `ddcore tenant list\|create\|enable\|disable\|adopt` | the tenants of a site with `"tenancy": true`: `create <slug> [--title T] [--admin email]` invites its first System Manager, `disable` refuses its sign-ins and holds its jobs, `adopt <slug>` moves every row of the platform space into it, and `adopt <slug> --dry-run` lists what would move and every collision with the tenant, exiting non-zero on one (see `tenancy`) |
 | `ddcore --tenant <slug> <command>` | runs a one-shot command inside a tenant (`eval`, `exec`, `user add`, `export`, `audit list`, …); the flag goes before the command. A server, a worker, `mcp` and `tenant` refuse it; `import` also takes it after the command |
 | `ddcore mcp` | MCP server (stdio) |

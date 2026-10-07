@@ -479,7 +479,7 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 	case "users.resendInvite":
 		return e.ResendInvite(c, a.User)
 	case "users.createApiKey":
-		return e.CreateUserAPIKey(c, a.User, a.Label, int(a.Days))
+		return e.CreateUserAPIKey(c, a.User, a.Label, int(a.Days), a.Prefix)
 	case "idp.queueSync":
 		return nil, e.QueueIdPSync(c, a.User, a.Before, a.Roles)
 	case "idp.sync":
@@ -514,7 +514,7 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		n, err := e.ClearAttempts(c.Ctx, a.Key)
 		return n, err
 	case "auth.createAPIKey":
-		return e.CreateAPIKeyFor(c, a.User, a.Label, int(a.Days))
+		return e.CreateAPIKeyFor(c, a.User, a.Label, int(a.Days), "")
 	case "auth.apiKeys":
 		// Not db.getList: that checks the doctype's permissions, and API Key
 		// is System Manager only — deliberately, since read there would be

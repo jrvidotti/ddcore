@@ -14,6 +14,15 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **An API key can carry a prefix in its id.** `ddcore.users.createApiKey(user, { prefix })` and
+  `ddcore apikey <user> --prefix p` issue a key whose id is `<prefix>.<random>`, e.g.
+  `acme.ji26rchc5g:<secret>`, so whoever holds it can tell which tenant or integration it
+  belongs to without asking the database. The prefix has a tenant id's shape; anything else is a
+  `ValidationError`. Keys issued without one keep their random id, and every existing key keeps
+  working. (#113)
+
 ## 0.27.15 — 2026-10-07
 
 ### Fixed

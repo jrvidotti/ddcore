@@ -178,7 +178,7 @@ func recoveryResult(user string, rec *Recovery) map[string]any {
 // The audit event records who issued which key, never the secret. Its detail
 // keys stay clear of the names SanitizeAuditDetail redacts ("key", "token"…),
 // or the key's id would be blanked with them.
-func (e *Engine) CreateUserAPIKey(c *Ctx, user, label string, days int) (map[string]any, error) {
+func (e *Engine) CreateUserAPIKey(c *Ctx, user, label string, days int, prefix string) (map[string]any, error) {
 	if c.User == "Guest" || c.User == "" {
 		return nil, cerr.Auth("Sign in to continue")
 	}
@@ -221,7 +221,7 @@ func (e *Engine) CreateUserAPIKey(c *Ctx, user, label string, days int) (map[str
 				return missing
 			}
 		}
-		minted, err := e.CreateAPIKeyFor(c, user, label, days)
+		minted, err := e.CreateAPIKeyFor(c, user, label, days, prefix)
 		if err != nil {
 			return err
 		}

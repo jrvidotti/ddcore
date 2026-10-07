@@ -1064,7 +1064,9 @@
       resendInvite(user) { return call("users.resendInvite", { user: String(user || "") }); },
       createApiKey(user, opts) {
         opts = opts || {};
-        return call("users.createApiKey", { user: String(user || ""), label: String(opts.label || ""), days: Number(opts.days) || 0 });
+        return call("users.createApiKey", {
+          user: String(user || ""), label: String(opts.label || ""), days: Number(opts.days) || 0, prefix: String(opts.prefix || ""),
+        });
       },
     },
     audit(action, targetDoctype, targetID, detail) {
