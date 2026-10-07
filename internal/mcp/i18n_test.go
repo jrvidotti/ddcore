@@ -122,3 +122,34 @@ func TestSetTranslationsWritesAndReloads(t *testing.T) {
 		t.Error("an empty translations map must be refused")
 	}
 }
+
+// An app's catalogue may override a core key (#106): set_translations accepts
+// it, the site shows the app's word, and extracting with prune keeps it,
+// reported as an override rather than an orphan.
+func TestI18nOverrideOfACoreKey(t *testing.T) {
+	e, csvPath := i18nEngine(t)
+	s := &server{e: e}
+
+	if _, err := s.setTranslations(setTranslationsIn{App: "loja", Translations: map[string]string{"Tenant": "Organização"}}); err != nil {
+		t.Fatalf("a core key is the app's to override: %v", err)
+	}
+	if got := e.Current().I18n.T("pt-BR", "Tenant"); got != "Organização" {
+		t.Errorf("the app's catalogue merges after the core's, T(Tenant) = %q", got)
+	}
+
+	r, err := s.i18nExtract(i18nExtractIn{App: "loja", Prune: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tr := r.Targets[0]
+	if len(tr.Orphans) != 0 {
+		t.Errorf("an override is not an orphan: %v", tr.Orphans)
+	}
+	if len(tr.Overrides) != 1 || tr.Overrides[0] != (i18nOverride{Key: "Tenant", App: "core"}) {
+		t.Errorf("overrides = %v, want [{Tenant core}]", tr.Overrides)
+	}
+	b, _ := os.ReadFile(csvPath)
+	if !strings.Contains(string(b), "Tenant,Organização,# overrides core\n") {
+		t.Errorf("prune must keep the override:\n%s", b)
+	}
+}
