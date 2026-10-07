@@ -14,6 +14,26 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **Tenant-only DocTypes.** On a site with tenancy, `space: "tenant"` on `defineDoctype`, or on
+  `defineApp` as the default of every DocType of the app (`space: "any"` opts one out), keeps a
+  DocType out of the platform space. Boot leaves it out, so the desk has no menu entry, search
+  row or Link for it. Every read and write there is refused with "… lives inside a tenant: enter
+  one (on the command line, pass --tenant)", whether it comes from the desk, REST, MCP, `ddcore
+  eval` or `exec` without `--tenant`, a job or a hook. `ddcore import run` without `--tenant`
+  leaves it out and says so. Code inside a tenant, `ddcore.tenant.run` and migration patches are
+  unaffected. Before, such a DocType opened and saved in the platform space, and the row landed
+  where no tenant sees it. Fixtures of a tenant-only DocType fail the load: use
+  `onTenantCreate`. See `tenancy` (#105).
+
+### Changed
+
+- Boot leaves out the DocTypes the session's space may not read, and the reports on them. Inside
+  a tenant that is `Site Tenant`, which was listed and then refused. A workspace entry with no
+  `space` that opens a tenant-only DocType, or a report on one, shows inside a tenant only, and
+  so does a grouped `links` item. An explicit `space` still wins (#105).
+
 ### Fixed
 
 - `ddcore i18n extract` no longer reports an app's override of a core key as an orphan, and

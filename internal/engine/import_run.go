@@ -350,6 +350,11 @@ func (e *Engine) importPlan(ctx context.Context, src *ImportSource, a ImportArgs
 			plan.excluded = append(plan.excluded, ImportExclusion{source, "shared: site-wide, load it from the platform space"})
 			continue
 		}
+		if !a.tenantImport() && d.TenantOnly {
+			// the platform space cannot hold it: its rows would reach no tenant (#105)
+			plan.excluded = append(plan.excluded, ImportExclusion{source, "lives inside a tenant: load it with --tenant"})
+			continue
+		}
 		res := src.Result(source)
 		if res != nil && res.Summary != nil && res.Summary.Truncated {
 			plan.notes = append(plan.notes, fmt.Sprintf("%s was exported with a limit: the file holds a sample, not the set", source))

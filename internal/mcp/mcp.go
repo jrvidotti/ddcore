@@ -74,7 +74,11 @@ func fail(err error) (*mcp.CallToolResult, any, error) {
 	case "DoesNotExistError":
 		msg += "\nHint: use list_doctypes / list_docs to see what exists."
 	case "PermissionError":
-		msg += "\nHint: the MCP server runs as Admin; check the DocType and the field."
+		if strings.Contains(e.Key, "lives inside a tenant") {
+			msg += "\nHint: the MCP server works in the platform space; reach a tenant's documents with eval and ddcore.tenant.run(\"<tenant>\", () => …)."
+		} else {
+			msg += "\nHint: the MCP server runs as Admin; check the DocType and the field."
+		}
 	case "ScriptError":
 		msg += "\nHint: an error in the app's TypeScript; read the stack above and fix the file."
 	}

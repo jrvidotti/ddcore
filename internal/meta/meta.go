@@ -460,7 +460,15 @@ type DocType struct {
 	Shared bool `json:"shared,omitempty"`
 	// TenantOwned is computed by ApplyTenancy: the table carries the `tenant`
 	// column and its rows are confined to the space they were written in.
-	TenantOwned  bool   `json:"tenantOwned,omitempty"`
+	TenantOwned bool `json:"tenantOwned,omitempty"`
+	// Space is where a tenant-owned DocType may be reached, as declared:
+	// "tenant" (inside a tenant only), "any" (in the platform space too,
+	// overriding the app's default) or "" (the app's default, see
+	// ApplySpaces). It means nothing on a site without tenancy.
+	Space string `json:"space,omitempty"`
+	// TenantOnly is computed by ApplySpaces: a tenant-owned DocType the
+	// platform space neither reads nor writes.
+	TenantOnly   bool   `json:"tenantOnly,omitempty"`
 	TrackChanges bool   `json:"trackChanges,omitempty"`
 	AllowRename  bool   `json:"allowRename,omitempty"`
 	TitleField   string `json:"titleField,omitempty"`
