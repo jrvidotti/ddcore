@@ -484,11 +484,13 @@ DDCORE_TENANT_ROLE=ddcore_tenant   # only needed for another name
 - **An e-mail registered in another tenant is refused**, which tells a tenant's administrator
   that the address has an account somewhere on the site.
 - **One configuration for all tenants**: mail, storage, branding, language, currency, timezone.
-- **Tenants are not chosen by hostname.** Everyone signs in at the same address.
+- **Tenants are not chosen by hostname.** Everyone signs in at the same address. The one
+  place a person picks a tenant is an app's credential provider (`auth`, "Sign-in through an
+  app"): its tab lists the tenants whose `enabled()` says so, and that list is public.
 - **`Guest` is in the platform space.** Anonymous pages see no tenant's documents; signed-in
   portals work, since a Website User belongs to a tenant.
-- **Single sign-on** signs in accounts that exist. It does not create them (there is no tenant
-  to put them in).
+- **Single sign-on** and **credential providers** sign in accounts that exist. They do not
+  create them (single sign-on has no tenant to put them in).
 - **Files** are checked through their `File` document, which is the tenant's. A *public* file's
   URL is unguessable but answers anyone who has it, as on any site. Storage keys carry no tenant.
 - **Backup and restore** are of the whole database. There is no per-tenant backup or quota.

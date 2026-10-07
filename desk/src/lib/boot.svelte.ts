@@ -46,6 +46,8 @@ export interface Boot {
       /** false when the site signs people in through single sign-on only */
       password?: boolean;
       providers?: { id: string; label: string }[];
+      /** sign-in through an app: username and password of its own system, in a tenant (#115) */
+      credentials?: { id: string; label: string }[];
     };
     /** Present only while the site is paused (PRD-02). */
     maintenance?: { enabled: boolean; reason?: string } | null;

@@ -217,6 +217,13 @@ export const api = {
 
   /** `home` is where this user belongs: "/portal" for a Website User (OPS-10). */
   login: (usr: string, pwd: string) => request<{ ok: boolean; home?: string }>("POST", "/api/login", { usr, pwd }),
+  /** Sign-in through an app's credential provider, in the tenant the person picked (#115). */
+  credentialLogin: (provider: string, tenant: string, usr: string, pwd: string) =>
+    request<{ ok: boolean; home?: string }>("POST", `/api/auth/credentials/${encodeURIComponent(provider)}/login`, { tenant, usr, pwd }),
+  /** The tenants that offer a provider, and whether the site has tenancy at all. */
+  credentialTenants: (provider: string) =>
+    request<{ data: { id: string; title: string }[]; tenancy: boolean }>("GET",
+      `/api/auth/credentials/${encodeURIComponent(provider)}/tenants`, undefined, { raw: true }),
   logout: () => request("POST", "/api/logout"),
   /** An operator enters a tenant; "" returns to the platform space. */
   enterTenant: (tenant: string) => request("POST", "/api/tenant/enter", { tenant }),

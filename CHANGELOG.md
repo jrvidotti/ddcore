@@ -14,6 +14,28 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **Sign-in through an app: credential providers.** An app declares `auth.providers` in
+  `defineApp`: a `label`, the `userField` of User (a Data field it adds with `extendDoctype`)
+  that links an account to a username of another system, an optional `enabled()` per tenant,
+  a synchronous `verify({ username, password })` and an optional `afterSignIn`. The sign-in
+  screen gets a tab per provider where the person picks a tenant (from a public list of the
+  tenants whose `enabled()` says so), types that system's username and password, and gets the
+  same session a password sign-in gives. ddcore throttles before calling `verify` (per username
+  in that tenant, and per address with the password sign-in), signs in only a User an
+  administrator linked beforehand, treats a `verify` that throws as "unavailable" without
+  counting it against the account, runs the network call outside the session's transaction,
+  and audits `account.login_credentials`. `POST /api/auth/credentials/<id>/login`,
+  `GET /api/auth/credentials/<id>/tenants`, and `site.login.credentials` in `/api/boot`.
+  Unlocking a user clears the provider's counter too. Before this, the only ways in were a
+  local password and OpenID Connect. See "Sign-in through an app" in `auth` (#115).
+- **Placeholder addresses for Users without a mailbox.** A recipient under `.invalid` is
+  dropped from `sendMail`; with nobody left, nothing is queued and the answer is
+  `{ delivery: "", skipped: true }` instead of an error. Forgot-password sends nothing to such
+  an address and inviting one is refused. Before this, mail to it was queued and failed in the
+  worker (#115).
+
 ## 0.27.17 — 2026-10-07
 
 ### Added

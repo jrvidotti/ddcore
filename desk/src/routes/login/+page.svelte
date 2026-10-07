@@ -3,6 +3,7 @@
   import { __, boot, siteLogo } from "$lib/boot.svelte";
   import { page } from "$app/state";
   import { landing } from "$lib/portal";
+  import { loginMethods, pickMethod, pickTenant, remember, METHOD_KEY, tenantKey } from "$lib/login-methods";
   let usr = $state(""), pwd = $state(""), error = $state(""), busy = $state(false);
   let usrInput: HTMLInputElement | undefined = $state();
   let submit: HTMLButtonElement | undefined = $state();
@@ -17,7 +18,31 @@
   // with password sign-in off the form stays reachable for Admin,
   // who keeps a password for the day the identity provider is down
   let showPassword = $state(false);
-  const passwordForm = $derived(offer?.password !== false || showPassword);
+  // the e-mail form and each app's credential provider are tabs (#115)
+  const methods = $derived(loginMethods(offer, __("E-mail")));
+  let chosen = $state(remember(METHOD_KEY));
+  const active = $derived(showPassword ? "password" : pickMethod(methods, chosen));
+  const credential = $derived(methods.find((m) => m.key === active && m.kind === "credential"));
+  const passwordForm = $derived(active === "password" && (offer?.password !== false || showPassword));
+  function choose(key: string) {
+    chosen = key; error = ""; pwd = "";
+    remember(METHOD_KEY, key);
+  }
+  // the tenants offering the active credential provider
+  let tenants: { id: string; title: string }[] = $state([]);
+  let tenancy = $state(true), tenant = $state(""), tenantsLoaded = $state(false);
+  $effect(() => {
+    const id = credential?.id;
+    if (!id) return;
+    tenantsLoaded = false;
+    api.credentialTenants(id).then((r) => {
+      if (credential?.id !== id) return;
+      tenants = r?.data ?? [];
+      tenancy = r?.tenancy !== false;
+      tenant = pickTenant(tenants, remember(tenantKey(id)));
+      tenantsLoaded = true;
+    }).catch((err: any) => { error = err.message; });
+  });
   const asked = $derived(page.url.searchParams.get("redirect"));
   const redirect = $derived(asked || "/app");
   function ssoHref(id: string) {
@@ -38,12 +63,18 @@
   }
   const ssoError = ssoMessage(page.url.searchParams.get("sso_error"));
   // `autofocus` fails Svelte's a11y check; focus the first field from the effect instead.
-  $effect(() => { usrInput?.focus(); });
+  $effect(() => { void active; usrInput?.focus(); });
   async function login(e: Event) {
     e.preventDefault();
     busy = true; error = "";
     try {
-      const r = await api.login(usr, pwd);
+      let r;
+      if (credential?.id) {
+        r = await api.credentialLogin(credential.id, tenant, usr, pwd);
+        remember(tenantKey(credential.id), tenant);
+      } else {
+        r = await api.login(usr, pwd);
+      }
       location.href = landing(r?.home, asked);
     } catch (err: any) { error = err.message; } finally { busy = false; }
   }
@@ -69,8 +100,29 @@
     {#each providers as p (p.id)}
       <a class="btn" href={ssoHref(p.id)} style="width:100%;justify-content:center">{__("Continue with {0}", [p.label])}</a>
     {/each}
-    {#if providers.length && passwordForm}<div class="sep small">{__("or")}</div>{/if}
-    {#if passwordForm}
+    {#if providers.length && (passwordForm || credential)}<div class="sep small">{__("or")}</div>{/if}
+    {#if methods.length > 1 && !showPassword}
+      <div class="tabs" role="tablist">
+        {#each methods as m (m.key)}
+          <button type="button" role="tab" aria-selected={active === m.key} class:on={active === m.key} onclick={() => choose(m.key)}>{m.label}</button>
+        {/each}
+      </div>
+    {/if}
+    {#if credential}
+      {#if tenancy}
+        <label>{__("Tenant")}
+          <select class="input" bind:value={tenant} required disabled={!tenantsLoaded}>
+            {#if tenants.length !== 1}<option value="" disabled>{tenantsLoaded ? __("Choose…") : __("Loading…")}</option>{/if}
+            {#each tenants as t (t.id)}<option value={t.id}>{t.title}</option>{/each}
+          </select>
+        </label>
+        {#if tenantsLoaded && !tenants.length}<div class="small muted">{__("Sign-in with {0} is not available yet.", [credential.label])}</div>{/if}
+      {/if}
+      <label>{__("Username")}<input class="input" bind:this={usrInput} bind:value={usr} autocomplete="username" autocapitalize="none" /></label>
+      <label>{__("Password")}<input class="input" type="password" bind:value={pwd} autocomplete="current-password" /></label>
+      {#if error}<div class="err">{error}</div>{/if}
+      <button class="btn primary" bind:this={submit} disabled={busy || (tenancy && !tenant)} style="width:100%;justify-content:center">{__("Sign in")}</button>
+    {:else if passwordForm}
       <label>{__("Username")}<input class="input" bind:this={usrInput} bind:value={usr} autocomplete="username" /></label>
       <label>{__("Password")}<input class="input" type="password" bind:value={pwd} autocomplete="current-password" /></label>
       {#if error}<div class="err">{error}</div>{/if}
@@ -78,8 +130,13 @@
       {#if offer?.password !== false}
         <a class="small" href="/login/forgot" style="text-align:center">{__("I forgot my password")}</a>
       {/if}
-    {:else}
-      <button type="button" class="small link" onclick={() => (showPassword = true)}>{__("Admin sign-in")}</button>
+    {/if}
+    {#if offer?.password === false}
+      {#if showPassword}
+        {#if methods.length}<button type="button" class="small link" onclick={() => (showPassword = false)}>{__("Back")}</button>{/if}
+      {:else}
+        <button type="button" class="small link" onclick={() => (showPassword = true)}>{__("Admin sign-in")}</button>
+      {/if}
     {/if}
   </form>
 </div>
@@ -91,6 +148,7 @@
   h1 { font-size: 18px; }
   label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
   .err { color: var(--red); font-size: 13px; }
+  .muted { color: var(--muted); }
   .notice { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; font-size: 13px; display: flex; flex-direction: column; gap: 8px; }
   .notice p { margin: 0; white-space: pre-line; }
   .notice dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; align-items: baseline; }
@@ -99,4 +157,7 @@
   .notice .btn { align-self: flex-start; }
   .sep { text-align: center; color: var(--muted); }
   .link { background: none; border: 0; color: var(--muted); cursor: pointer; text-align: center; }
+  .tabs { display: flex; gap: 2px; padding: 2px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); }
+  .tabs button { flex: 1; padding: 6px 8px; border: 0; border-radius: calc(var(--radius) - 2px); background: none; color: var(--muted); cursor: pointer; font-size: 13px; }
+  .tabs button.on { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
 </style>

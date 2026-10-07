@@ -125,6 +125,8 @@ Choose file,Escolher arquivo,# desk/src/lib/controls/FileControl.svelte:39
 Choose files,Escolher arquivos,# desk/src/lib/components/FeedbackModal.svelte:285
 Choose image,Escolher imagem,# desk/src/lib/controls/AttachControl.svelte:86
 Choose on or off for each email notification,Escolha ligado ou desligado para cada notificação por e-mail,# core/services/profile.ts:89
+Choose where to sign in,Escolha onde entrar,# internal/engine/credentials.go:280
+Choose…,Escolha…,# desk/src/routes/login/+page.svelte:115
 "Chromium PDF conversion failed: {0}, output: {1}","Falha na conversão de PDF via Chromium: {0}, saída: {1}",# internal/print/pdf.go:220
 Clear,Limpar,# desk/src/lib/controls/ColorControl.svelte:258
 Clear filters,Limpar filtros,# desk/src/lib/components/ListView.svelte:582
@@ -220,6 +222,7 @@ Duplicate,Duplicar,# desk/src/lib/components/FormView.svelte:442
 Duplicate ID,ID duplicado,# internal/engine/doc.go:2227
 Duplicate value,Valor duplicado,# internal/engine/doc.go:2139
 Duplicate value in {0},Valor duplicado em {0},# internal/engine/doc.go:2237
+E-mail,E-mail,# desk/src/routes/login/+page.svelte:22
 Edit,Editar,# desk/src/lib/components/DocSidebar.svelte:358
 Edit row,Editar linha,# desk/src/lib/controls/Grid.svelte:182
 Edit {0},Editar {0},# desk/src/lib/components/FormView.svelte:296
@@ -234,6 +237,7 @@ End,Encerrar,# desk/src/lib/components/Profile.svelte:245
 End this session?,Encerrar esta sessão?,# desk/src/lib/components/Profile.svelte:109
 Enter new secret,Digite o novo segredo,# desk/src/lib/controls/Control.svelte:209
 Enter secret,Digite o segredo,# desk/src/lib/controls/Control.svelte:209
+Enter your username and password,Informe seu usuário e senha,# internal/engine/credentials.go:273
 Enter {0},Entrar em {0},# desk/src/lib/components/TenantMismatch.svelte:45
 "Entering a tenant needs a session; with an API key, send the X-Tenant header","Entrar em uma conta exige uma sessão; com uma chave de API, envie o cabeçalho X-Tenant",# internal/engine/tenancy.go:859
 Error,Erro,# desk/src/lib/components/DataImportModal.svelte:125
@@ -683,6 +687,9 @@ Sign in with the password you just chose.,Entre com a senha que você acabou de 
 Sign out,Sair,# desk/src/lib/components/Sidebar.svelte:212
 Sign out everywhere else,Sair dos outros dispositivos,# desk/src/lib/components/Profile.svelte:228
 Sign out of every other device?,Sair de todos os outros dispositivos?,# desk/src/lib/components/Profile.svelte:118
+Sign-in with {0} is not available here,O login com {0} não está disponível aqui,# internal/engine/credentials.go:376
+Sign-in with {0} is not available yet.,O login com {0} ainda não está disponível.,# desk/src/routes/login/+page.svelte:119
+Sign-in with {0} is unavailable. Try again later.,O login com {0} está indisponível. Tente novamente mais tarde.,# internal/engine/credentials.go:401
 Signature,Assinatura,# desk/src/lib/controls/SignatureControl.svelte:154
 Signature pad,Área de assinatura,# desk/src/lib/controls/SignatureControl.svelte:144
 Signatures are signed on the form,Assinaturas são feitas no formulário,# internal/engine/data_import.go:357
@@ -761,6 +768,7 @@ The text is too long to preview,O texto é longo demais para pré-visualizar,# i
 The webhook of delivery {0} was deleted,O webhook da entrega {0} foi excluído,# internal/engine/webhooks.go:596
 Then sign in at {0} with the {1} button.,"Depois, entre em {0} pelo botão {1}.",# core/mail/invite_sso.mail.ts:22
 There is no account for this e-mail address. Ask an admin to invite you.,Não há conta para este endereço de e-mail. Peça a um administrador para convidar você.,# desk/src/routes/login/+page.svelte:30
+There is no account for this user here. Ask an administrator to add you.,Não há conta para este usuário aqui. Peça a um administrador para cadastrar você.,# internal/engine/credentials.go:424
 There is no import run {0},Não existe a execução de importação {0},# internal/engine/import_batch.go:65
 There is nothing here for you yet.,Ainda não há nada aqui para você.,# desk/src/lib/components/portal/PortalPage.svelte:63
 These choices only affect email. Notifications always appear in your inbox.,Estas escolhas só afetam o e-mail. As notificações sempre aparecem na sua caixa de entrada.,# desk/src/lib/components/Profile.svelte:200
@@ -785,6 +793,7 @@ This report is for the platform space,Este relatório é do espaço da plataform
 This report requires the System Manager role,Este relatório exige o papel System Manager,# internal/api/health.go:64
 This site has no tenants: tenancy is off,Este site não tem contas: a multilocação está desligada,# internal/engine/host.go:770
 "This site sends no mail yet, so the message only went to the log. Pass this link on by hand.","Este site ainda não envia e-mails, então a mensagem foi só para o log. Repasse este link manualmente.",# core/doctypes/user/user.form.ts:127
+This user is linked to more than one account. Ask an administrator.,Este usuário está vinculado a mais de uma conta. Fale com um administrador.,# internal/engine/credentials.go:427
 Timeout (seconds),Tempo Limite (segundos),# core.doctypes.webhook.webhook.doctype
 Timeout must be between {0} and {1} seconds,O tempo limite deve estar entre {0} e {1} segundos,# internal/engine/webhooks.go:655
 Title,Título,# desk/src/lib/components/FeedbackModal.svelte:243
@@ -1011,6 +1020,7 @@ webhook payload for {0} is not JSON: {1},o conteúdo do webhook para {0} não é
 "{0} has a position out of range (latitude from -90 to 90, longitude from -180 to 180)","{0} tem uma posição fora do intervalo (latitude de -90 a 90, longitude de -180 a 180)",# internal/geo/geo.go:398
 {0} has a position that is not a longitude and a latitude,{0} tem uma posição que não é uma longitude e uma latitude,# internal/geo/geo.go:396
 {0} has no account in {1},{0} não tem conta no {1},# core/doctypes/user/user.form.ts:75
+"{0} has no mailbox, so it cannot be invited: add the user without an invitation","{0} não tem caixa de e-mail, então não pode ser convidado: cadastre o usuário sem convite",# internal/engine/users.go:52
 {0} has no value to draw as a barcode,{0} não tem valor para desenhar como código de barras,# internal/barcode/barcode.go:168
 {0} has too many shapes (at most {1}),{0} tem formas demais (no máximo {1}),# internal/geo/geo.go:402
 {0} is a Single; an export never carries one,{0} é um Single; uma exportação nunca leva um,# internal/engine/import.go:70

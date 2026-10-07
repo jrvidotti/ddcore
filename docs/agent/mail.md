@@ -77,6 +77,10 @@ and the job are both written on **your** transaction:
 - A template nobody declared, an address that is not an address, and an
   attachment you may not read all fail **here**, in your own transaction, rather
   than alone in a worker half an hour later.
+- A recipient under the reserved `.invalid` domain — the placeholder address of a
+  User with no mailbox (see "Sign-in through an app" in `auth`) — is dropped. When
+  nobody else is left, nothing is queued and the answer is
+  `{ delivery: "", skipped: true }` rather than an error.
 
 `lang` overrides the language; by default it is the recipient's, if they are a
 user of this site, and the site's otherwise. The language of whoever pressed the
