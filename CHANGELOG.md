@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.27.12 — 2026-10-07
+
 ### Fixed
 
 - **Inside a tenant, `getRoles` sees a User the same transaction inserted.** The role lookup
