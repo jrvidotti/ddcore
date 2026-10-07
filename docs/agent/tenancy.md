@@ -73,6 +73,14 @@ A shared DocType may be a Single (`isSingle: true, shared: true`): the site then
 document, which every space reads and the platform space maintains — settings the operator
 keeps for everyone.
 
+`shared` can change after tenancy is applied, and `ddcore migrate` reshapes the table (and
+its child tables) either way. A DocType made shared loses the `tenant` column, the policy and
+the `(tenant, id)` key, and its indexes no longer lead with the tenant; its documents are the
+ones the platform space held. That is refused, with the tenants and their row counts, while any
+row belongs to a tenant: move those rows to the platform space or delete them in a
+`beforeSchema` patch ([migrations](migrations.md)), which runs before the plan is made. A
+DocType made tenant-owned again gets the column back, with its rows in the platform space.
+
 ### Tenant-only DocTypes
 
 A tenant-owned DocType is still reachable from the platform space. The operator works there

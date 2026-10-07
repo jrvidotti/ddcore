@@ -133,6 +133,39 @@ func TestRenameCarriesTheTenantPolicy(t *testing.T) {
 	}
 }
 
+// A DocType made shared after tenancy was applied sheds what tenancy gave its
+// table, in an order Postgres accepts: the policy names the column, so it goes
+// first, and the column goes last (#109).
+func TestPlanSharingIsTheReverse(t *testing.T) {
+	d := tenancyDoc("Thing", false)
+	cat := &catalog{cols: map[string]map[string]string{"tab_thing": {"id": "text", "tenant": "text"}},
+		pk:      map[string]pkRow{"tab_thing": {name: "tab_thing_pkey", def: "PRIMARY KEY (tenant, id)"}},
+		secured: map[string]bool{"tab_thing": true}, policy: map[string]bool{"tab_thing": true}}
+	alter, last := planSharing(cat, d)
+	want := []string{
+		`DROP POLICY ddcore_tenant ON "tab_thing";`,
+		`ALTER TABLE "tab_thing" DISABLE ROW LEVEL SECURITY;`,
+		`ALTER TABLE "tab_thing" DROP CONSTRAINT "tab_thing_pkey", ADD PRIMARY KEY (id);`,
+	}
+	if got := SQL(alter); strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("alter:\n%s", strings.Join(got, "\n"))
+	}
+	if len(last) != 1 || last[0].SQL != `ALTER TABLE "tab_thing" DROP COLUMN "tenant";` || last[0].Destructive {
+		t.Fatalf("last: %+v", last)
+	}
+	// a table born shared has nothing to shed
+	cat = &catalog{cols: map[string]map[string]string{"tab_thing": {"id": "text"}},
+		pk:      map[string]pkRow{"tab_thing": {name: "tab_thing_pkey", def: "PRIMARY KEY (id)"}},
+		secured: map[string]bool{}, policy: map[string]bool{}}
+	if alter, last := planSharing(cat, d); len(alter)+len(last) != 0 {
+		t.Fatalf("a shared table plans %v %v", SQL(alter), SQL(last))
+	}
+	// and a tenant-owned one is planTenancy's
+	if alter, last := planSharing(cat, tenancyDoc("Thing", true)); len(alter)+len(last) != 0 {
+		t.Fatalf("a tenant-owned table plans %v %v", SQL(alter), SQL(last))
+	}
+}
+
 func TestValidTenantID(t *testing.T) {
 	for _, ok := range []string{"a", "acme", "acme-2", "a_b", "0x"} {
 		if !ValidTenantID(ok) {

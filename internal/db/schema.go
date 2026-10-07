@@ -376,6 +376,9 @@ const (
 	KindRowSecurity
 	KindDropColumn
 	KindDropTable
+	// KindShare takes row-level security off the table of a DocType that is
+	// no longer tenant-owned.
+	KindShare
 )
 
 // Statement is one planned DDL statement and enough about it to report it, to
@@ -423,6 +426,8 @@ func (k Kind) Label() string {
 		return "rekey"
 	case KindRowSecurity:
 		return "secure"
+	case KindShare:
+		return "share"
 	case KindDropColumn, KindDropTable:
 		return "drop"
 	}
@@ -790,7 +795,8 @@ func hasData(ctx context.Context, q Querier, table, col string) (bool, error) {
 // wrong and the migration stops and says so, instead of emptying a column.
 //
 // The order of the result is the order Migrate applies it: renames, the
-// additive DDL, the indexes, and last the drops, which run after the patches so
+// additive DDL, the indexes, the tenant column of a table made shared (once the
+// indexes that led with it are rebuilt), and last the drops, which run after the patches so
 // a backfill can still read the column the same migration is about to remove.
 // Migrate asks for the drops in a second Plan, after the afterSchema patches,
 // so the emptiness check and the list of orphans see what those patches left.
@@ -810,7 +816,7 @@ func Plan(ctx context.Context, q Querier, reg *meta.Registry, prune bool) ([]Sta
 	}
 	renameTables, renameCols, renamedIdx, renamedCols, refusals := planRenames(cat, reg, names)
 
-	var add, alter, indexes, drops []Statement
+	var add, alter, indexes, unshare, drops []Statement
 	wantedTables := map[string]bool{}
 	for _, n := range names {
 		d := reg.DocTypes[n]
@@ -823,6 +829,34 @@ func Plan(ctx context.Context, q Querier, reg *meta.Registry, prune bool) ([]Sta
 		if !has {
 			add = append(add, Statement{SQL: createTable(d), Kind: KindCreateTable, Doctype: d.Name, Table: t})
 		} else {
+			// A DocType made shared after tenancy was applied: its table
+			// sheds what tenancy gave it, unless some of its rows are a
+			// tenant's (#109). The column leaves the catalog either way, so
+			// prune does not refuse it as a column that still holds data.
+			if reg.Tenancy && !d.TenantOwned {
+				if _, ok := cols[meta.TenantColumn]; ok {
+					switch where, n, err := tenantRows(ctx, q, t); {
+					case err != nil:
+						return nil, err
+					case d.Field(meta.TenantColumn) != nil:
+						refusals = append(refusals, Refusal{Table: t, Column: meta.TenantColumn,
+							Reason: "the DocType is shared now, and declares a field named like the column tenancy gave its table",
+							Remedy: "rename the field: the column is dropped once the DocType is shared"})
+					case n > 0:
+						refusals = append(refusals, Refusal{Table: t,
+							Reason: fmt.Sprintf("the DocType is shared now, but %d row(s) belong to a tenant (%s); a shared DocType's documents are the platform space's", n, where),
+							Remedy: "move those rows to the platform space or delete them in a beforeSchema patch (`ddcore docs migrations`), or take shared off the DocType"})
+					default:
+						a, l := planSharing(cat, d)
+						alter = append(alter, a...)
+						unshare = append(unshare, l...)
+					}
+					delete(cols, meta.TenantColumn)
+				} else {
+					a, _ := planSharing(cat, d)
+					alter = append(alter, a...)
+				}
+			}
 			wanted := map[string]bool{}
 			for _, c := range wantedColumns(d) {
 				wanted[c.name] = true
@@ -972,8 +1006,8 @@ func Plan(ctx context.Context, q Querier, reg *meta.Registry, prune bool) ([]Sta
 	if len(refusals) > 0 {
 		return nil, &RefusedError{Refusals: refusals}
 	}
-	plan := make([]Statement, 0, len(renameTables)+len(renameCols)+len(add)+len(alter)+len(indexes)+len(drops))
-	for _, group := range [][]Statement{renameTables, renameCols, add, alter, indexes, drops} {
+	plan := make([]Statement, 0, len(renameTables)+len(renameCols)+len(add)+len(alter)+len(indexes)+len(unshare)+len(drops))
+	for _, group := range [][]Statement{renameTables, renameCols, add, alter, indexes, unshare, drops} {
 		plan = append(plan, group...)
 	}
 	return plan, nil
