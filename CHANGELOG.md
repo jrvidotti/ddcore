@@ -14,6 +14,13 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- **The sidebar's workspace switcher lists workspaces in alphabetical order.** Boot sent them in
+  Go map order, so the list, and the workspace the desk opens when none is remembered, changed
+  from one load to the next. They are now sorted by the label the desk shows (the name when
+  there is none), collated for the session's language and ignoring case.
+
 ## 0.27.14 — 2026-10-07
 
 ### Fixed
