@@ -466,6 +466,10 @@ type DocType struct {
 	// overriding the app's default) or "" (the app's default, see
 	// ApplySpaces). It means nothing on a site without tenancy.
 	Space string `json:"space,omitempty"`
+	// TenantAccess "server", on a shared DocType, keeps it from every client
+	// inside a tenant: only server code that ignores permissions reads it, or
+	// inserts and saves it — in the platform space (#108).
+	TenantAccess string `json:"tenantAccess,omitempty"`
 	// TenantOnly is computed by ApplySpaces: a tenant-owned DocType the
 	// platform space neither reads nor writes.
 	TenantOnly   bool   `json:"tenantOnly,omitempty"`

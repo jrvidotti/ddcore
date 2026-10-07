@@ -54,7 +54,7 @@ func (c *Ctx) ImportDoc(doc Doc, opts ImportOpts) (*ImportResult, error) {
 		return nil, err
 	}
 	// a tenant does not write a DocType every tenant shares
-	if err := c.spaceRefusal(d, true); err != nil {
+	if err := c.spaceRefusal(d, true, false); err != nil {
 		return nil, err
 	}
 	if err := refuseVirtual(d); err != nil {

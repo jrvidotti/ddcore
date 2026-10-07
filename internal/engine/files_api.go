@@ -66,6 +66,11 @@ func (c *Ctx) UploadTarget(doctype, id, field string) (string, error) {
 	if c.PortalMode() && !c.PortalUploadAllowed(d.Name, field) {
 		return "", cerr.Permission("Not permitted to upload here")
 	}
+	// the read below ignores permissions; a DocType this space may not read
+	// at all is refused before it (#108)
+	if err := c.SpaceRefusal(d); err != nil {
+		return "", err
+	}
 	if id != "" {
 		var doc Doc
 		err := c.WithIgnorePermissions(func() error {

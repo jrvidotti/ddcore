@@ -391,8 +391,9 @@ func (c *Ctx) enterTenantCtx(id string) (*Ctx, error) {
 }
 
 // enterSpaceCtx is enterTenantCtx without the check on the tenant, so that it
-// also takes "" — the platform space, which only a test enters from inside a
-// tenant (ddcore.test.inPlatform).
+// also takes "" — the platform space, which a tenant's ctx enters only in a
+// test (ddcore.test.inPlatform) and for a server write of a DocType the
+// platform keeps (inPlatform).
 func (c *Ctx) enterSpaceCtx(id string) (*Ctx, error) {
 	rt, err := c.RT()
 	if err != nil {
@@ -492,12 +493,22 @@ func (c *Ctx) TenantCreated(id string) error {
 // to the platform space altogether, reads included: a row written there
 // would land where no tenant ever sees it (#105). A migration patch is the
 // exception — it sees every space, and is the one place a backfill runs.
-func (c *Ctx) spaceRefusal(d *meta.DocType, write bool) error {
+//
+// A shared DocType with `tenantAccess: "server"` is refused inside a tenant
+// to everything but server code — server, a call that ignores permissions —
+// whatever the roles say (#108). Server code reads it like any shared
+// DocType; of its writes, Insert and Save divert to the platform space
+// (serverWriteInPlatform) before they get here, and every other one is
+// refused below like any write of a shared DocType.
+func (c *Ctx) spaceRefusal(d *meta.DocType, write, server bool) error {
 	if c.Tenant == "" && d.TenantOnly && c.Flags["inPatch"] != true && c.Tenancy() {
 		return cerr.Permission("{0} lives inside a tenant: enter one (on the command line, pass --tenant)", c.T(d.Label))
 	}
 	if c.Tenant == "" || d.TenantOwned || d.IsVirtual() {
 		return nil
+	}
+	if d.ServerOnlyInTenant() && !server {
+		return cerr.Permission("{0} is kept by the platform: inside a tenant only server code reaches it", c.T(d.Label))
 	}
 	if d.Name == meta.TenantDocType {
 		return cerr.Permission("Tenants are managed from the platform space")
@@ -508,6 +519,33 @@ func (c *Ctx) spaceRefusal(d *meta.DocType, write bool) error {
 	return nil
 }
 
+// serverWriteInPlatform reports whether a write of d is a tenant's server
+// code adding to a DocType the platform keeps (#108), which inPlatform then
+// performs in the platform space.
+func (c *Ctx) serverWriteInPlatform(d *meta.DocType, server bool) bool {
+	return server && c.Tenant != "" && d.ServerOnlyInTenant() && c.Tenancy()
+}
+
+// inPlatform runs a tenant's write of a DocType the platform keeps in the
+// platform space, on the same transaction and VM: the row is the platform's,
+// and so is everything the write derives — its naming series, Version, audit
+// events, vault secrets, webhooks, notifications and realtime events, and
+// the hooks run there. The Version and the audit events carry the tenant as
+// source_tenant; the document's owner and modified_by are the tenant's user,
+// whose id is the site's.
+func (c *Ctx) inPlatform(fn func(p *Ctx) (Doc, error)) (Doc, error) {
+	p, err := c.enterSpaceCtx("")
+	if err != nil {
+		return nil, err
+	}
+	p.sourceTenant = c.Tenant
+	out, ferr := fn(p)
+	if _, err := p.leaveTenantCtx(); err != nil && ferr == nil {
+		return nil, err
+	}
+	return out, ferr
+}
+
 // SpaceRefuses reports whether this ctx's space may not even read d: a
 // tenant-only DocType in the platform space, `Site Tenant` inside a tenant.
 // Boot leaves such a DocType out, so the desk neither lists nor opens it.
@@ -516,7 +554,7 @@ func (c *Ctx) SpaceRefuses(d *meta.DocType) bool { return c.SpaceRefusal(d) != n
 // SpaceRefusal is the error SpaceRefuses stands for, for an endpoint that
 // answers with it: `/api/meta` says why the platform cannot open a tenant's
 // DocType instead of "No permission".
-func (c *Ctx) SpaceRefusal(d *meta.DocType) error { return c.spaceRefusal(d, false) }
+func (c *Ctx) SpaceRefusal(d *meta.DocType) error { return c.spaceRefusal(d, false, false) }
 
 // SpaceRefusesName is SpaceRefuses by name; an unknown DocType is not refused
 // here (whatever looks it up next says so).
@@ -612,7 +650,8 @@ func (c *Ctx) publish(ev Event) {
 		}
 	}
 	if c.St != nil && c.Tenancy() {
-		if d, err := c.St.DocType(doctype); err == nil && !d.TenantOwned {
+		// a DocType the platform keeps stays with the platform's sessions
+		if d, err := c.St.DocType(doctype); err == nil && !d.TenantOwned && !d.ServerOnlyInTenant() {
 			ev.SiteWide = true
 		}
 	}

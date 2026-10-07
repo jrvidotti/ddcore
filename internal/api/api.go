@@ -1369,6 +1369,13 @@ func (s *Server) report(w http.ResponseWriter, r *http.Request) {
 			return nil, cerr.Permission("No permission for report {0}", name)
 		}
 		if ref, _ := rep["refDoctype"].(string); ref != "" {
+			// the report's code runs as the caller and may read with
+			// permissions ignored: not on a DocType this space may not read
+			if d, err := c.St.DocType(ref); err == nil {
+				if err := c.SpaceRefusal(d); err != nil {
+					return nil, err
+				}
+			}
 			if ok, err := c.HasPermission(ref, "report", nil); err != nil {
 				return nil, err
 			} else if !ok {

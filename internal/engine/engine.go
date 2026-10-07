@@ -986,6 +986,10 @@ type Ctx struct {
 	// root ctx holds them; the rest reach it through owner().
 	testTenant     string
 	testTenantApps map[string]bool
+	// sourceTenant is the tenant whose server code this platform-space ctx
+	// writes for: a DocType tenants reach through server code only (#108).
+	// Its Version and audit rows say so.
+	sourceTenant string
 	// system lifts the ctx out of row-level security for its whole
 	// transaction; only RunSystem and Migrate set it.
 	system bool

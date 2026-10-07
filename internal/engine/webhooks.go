@@ -589,6 +589,10 @@ func (c *Ctx) ValidateWebhook(doc Doc) error {
 		if d.IsChild || d.IsVirtual() || webhookUnwatchable[d.Name] {
 			return cerr.Validation("{0} cannot be watched by a webhook", dt)
 		}
+		// a tenant's webhook would receive the platform's documents (#108)
+		if c.SpaceRefuses(d) {
+			return cerr.Validation("{0} cannot be watched by a webhook", dt)
+		}
 		any := false
 		for _, ev := range webhookDocEvents {
 			if doc[ev] == true || doc[ev] == float64(1) || doc[ev] == int64(1) {

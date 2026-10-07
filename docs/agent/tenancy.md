@@ -139,6 +139,71 @@ Rules, checked when the site loads, with tenancy on or off:
 
 `space` is the app's own: `extendDoctype` cannot change it.
 
+### Shared DocTypes only server code reaches
+
+A shared DocType is read by every tenant's users who hold a role on it, and a tenant's System
+Manager hands out roles. Some platform data needs a different rule: every tenant's code reads
+it and adds to it, and no tenant's user may browse it. A paid lookup cache is the typical case:
+one lookup serves every tenant, and it holds names, addresses and phones. Declare it like this:
+
+```ts
+export default defineDoctype({
+  name: "Lookup Cache",
+  shared: true,
+  tenantAccess: "server", // inside a tenant, only server code reaches it
+  idGeneration: { field: "document" },
+  fields: [/* … */],
+});
+```
+
+Inside a tenant, **every client path is refused, whatever the role**, with "Lookup Cache is
+kept by the platform: inside a tenant only server code reaches it". That covers:
+
+- `GET /api/boot` (no menu entry, search row or Link);
+- the desk, `/api/resource` and `/api/meta`;
+- global and link search, and link titles (a tenant document's Link to it shows the id only);
+- export, and reports on it;
+- uploads to it;
+- a tenant's Webhook on it.
+
+A workspace entry that opens it, with no `space` of its own, shows in the platform space only.
+
+**Server code** is a call that ignores permissions: `ddcore.db.getAll`, `db.getValue`,
+`db.getSingleValue`, `db.exists`, `ddcore.getDoc(…, { ignorePermissions: true })`,
+`db.getList({ ignorePermissions: true })`, jobs, and `onTenantCreate`. Such code reads the
+platform's rows, the same ones in every tenant. Its **`insert` and `save` with
+`ignorePermissions: true`** write them:
+
+```ts
+// services/api.ts, inside a tenant, as the tenant's system user
+const hit = ddcore.db.getValue("Lookup Cache", doc, "data");
+if (hit) return hit;
+const data = provider.lookup(doc); // paid
+ddcore.newDoc("Lookup Cache", { document: doc, data }).insert({ ignorePermissions: true });
+return data;
+```
+
+Such a write runs in the **platform space**, on the caller's transaction. Its controller and
+hooks run there, and so does everything it derives:
+
+- the naming series counter and the `Version`;
+- the `Audit Event`s;
+- the secrets of its `Vault` fields;
+- the platform's webhooks and notifications;
+- the realtime events, which reach the platform's sessions only.
+
+Its `Version` and audit events carry the tenant as `source_tenant`. The document's `owner` and
+`modified_by` are the tenant's user, whose id is the site's. A tenant's code can only add to the
+data and refresh it: `delete`, `db.setValue` and rename stay refused inside a tenant.
+
+A `fetchFrom` on a tenant DocType that reads from it is server code too. The app chose to copy
+that field, so its value lands in the tenant's document.
+
+The platform space is unchanged: the operator reads and writes as the permissions say.
+
+`tenantAccess` is only allowed on a shared DocType, its one value is `"server"`, and an
+extension cannot change it.
+
 The secret of a `Vault` field on a shared DocType lives in the platform space, with its
 document. Every space sees the field as configured, and server code in any space reads the
 secret by naming it as shared; only the platform space changes it, by saving the document:
@@ -348,6 +413,7 @@ shares, webhooks, API keys, audit events, its jobs, its Error Log. It is not the
 | --- | --- |
 | `Site Tenant` documents, other tenants' anything | refused |
 | Shared DocTypes (`Role` included) | read only |
+| Shared DocTypes with `tenantAccess: "server"` | refused (its app's server code reads and adds to them) |
 | MCP over HTTP (`/mcp`) | refused — it runs code and SQL as the operator |
 | `/api/health/report` | refused — it counts the whole site |
 | Job administration (`/api/jobs`) | its own tenant's jobs |

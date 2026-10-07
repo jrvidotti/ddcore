@@ -14,6 +14,21 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **Shared DocTypes only server code reaches.** On a site with tenancy, a shared DocType that
+  declares `tenantAccess: "server"` is refused to every client inside a tenant, whatever the
+  role. That covers boot, the desk, REST, `/api/meta`, search, link titles, export, reports,
+  uploads and a tenant's webhooks; workspace entries that open it show in the platform space
+  only. A tenant's server code, meaning a call that ignores permissions (`db.getAll`,
+  `db.getValue`, `db.exists`, `getDoc(…, { ignorePermissions: true })`, jobs), reads the
+  platform's rows. Its `insert` and `save` with `ignorePermissions: true` write them in the
+  platform space on the same transaction. Its series, Version, audit events, vault secrets,
+  webhooks, notifications and realtime events land there, and the Version and audit events are
+  stamped with `source_tenant`. `delete`, `setValue` and rename stay refused in a tenant. This
+  is for platform data every tenant's code contributes to, such as a paid lookup cache. See
+  `tenancy` (#108).
+
 ### Fixed
 
 - **A DocType made `shared` after tenancy was applied is shared in the database too.**

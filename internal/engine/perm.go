@@ -756,8 +756,8 @@ func (c *Ctx) permissionQueryFilters(d *meta.DocType) ([]db.Filter, error) {
 // only, and the tenant registry is out of reach, as spaceRefusal enforces.
 func (c *Ctx) Permissions(d *meta.DocType) map[string]bool {
 	out := map[string]bool{}
-	readRefused := c.spaceRefusal(d, false) != nil
-	writeRefused := c.spaceRefusal(d, true) != nil
+	readRefused := c.spaceRefusal(d, false, false) != nil
+	writeRefused := c.spaceRefusal(d, true, false) != nil
 	for _, p := range []string{"read", "write", "create", "delete", "submit", "cancel", "amend", "report", "export", "import", "share"} {
 		if readRefused || writeRefused && spaceWrites[p] {
 			out[p] = false
