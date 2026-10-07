@@ -14,6 +14,16 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- **`ddcore migrate` no longer hangs when one run alters `tab_webhook` and writes a document.**
+  The migration that turns tenancy on adds `tenant` to `tab_webhook`. If the same run created a
+  new app role, a fixture, or a document from a patch or hook, the write looked up the webhook
+  subscribers on another connection. That connection waited for the migration's lock, and the
+  migration waited for it, with no timeout. `ddcore start` never became ready. Inside a
+  migration the subscribers are now read on the migration's own transaction. A subscription
+  committed before the migration still receives the documents it writes. (#111)
+
 ## 0.27.12 — 2026-10-07
 
 ### Fixed

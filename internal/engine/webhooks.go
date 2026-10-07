@@ -108,17 +108,23 @@ type WebhookReference struct {
 // for it; the cache is dropped after that transaction commits, in this process
 // and, by NOTIFY, in every other one (see webhooksChanged).
 //
+// A migration is the exception: it reads on its own transaction, every time.
+// Its DDL may have altered tab_webhook, and a read on the pool would then wait
+// for a lock the migration holds until it commits — while the migration waits
+// for the read (#111).
+//
 // The subscriptions are a tenant's own, and so is the cache: a tenant's
 // webhook hears that tenant's documents and nobody else's.
-func (e *Engine) webhookSubs(ctx context.Context, tenant string) ([]webhookSub, error) {
-	key := webhookCachePrefix + tenant
-	if v, ok := e.Cache.Get(key); ok {
+func (c *Ctx) webhookSubs() ([]webhookSub, error) {
+	if c.owner().migrating && c.Tx != nil {
+		return c.migrationWebhookSubs()
+	}
+	key := webhookCachePrefix + c.Tenant
+	if v, ok := c.E.Cache.Get(key); ok {
 		return v.([]webhookSub), nil
 	}
-	gen := e.Cache.Gen()
-	rows, err := spaceStatements{e: e, tenant: tenant}.Select(ctx, `SELECT id, event_type, webhook_doctype, custom_event,
-		on_insert, on_update, on_submit, on_cancel, on_trash, timeout, max_attempts
-		FROM tab_webhook WHERE enabled`)
+	gen := c.E.Cache.Gen()
+	rows, err := c.space().Select(c.Ctx, webhookSubsSQL)
 	if err != nil {
 		// Before the first migrate there is no table and therefore no
 		// subscription. Anything else is a real failure: a write that could not
@@ -130,6 +136,44 @@ func (e *Engine) webhookSubs(ctx context.Context, tenant string) ([]webhookSub, 
 		}
 		return nil, err
 	}
+	subs := webhookSubsOf(rows)
+	c.E.Cache.SetAt(key, subs, 0, gen)
+	return subs, nil
+}
+
+const webhookSubsSQL = `SELECT id, event_type, webhook_doctype, custom_event,
+		on_insert, on_update, on_submit, on_cancel, on_trash, timeout, max_attempts
+		FROM tab_webhook WHERE enabled`
+
+// migrationWebhookSubs reads the subscriptions on the migration's transaction,
+// past the cache: what the transaction sees is not committed yet, and the
+// migration clears the cache when it is.
+//
+// The table is asked about first, because a failed statement would abort the
+// migration: a beforeSchema patch may write before the table exists. And the
+// tenant is named, because a patch runs the transaction elevated, where
+// row-level security does not keep the other tenants' subscriptions out.
+func (c *Ctx) migrationWebhookSubs() ([]webhookSub, error) {
+	var exists bool
+	if err := c.Tx.QueryRow(c.Ctx, `SELECT to_regclass('tab_webhook') IS NOT NULL`).Scan(&exists); err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, nil
+	}
+	q, args := webhookSubsSQL, []any(nil)
+	if c.Tenancy() {
+		q, args = q+` AND tenant = $1`, []any{c.Tenant}
+	}
+	rows, err := db.Select(c.Ctx, c.Tx, q, args...)
+	if err != nil {
+		return nil, err
+	}
+	return webhookSubsOf(rows), nil
+}
+
+// webhookSubsOf turns tab_webhook rows into subscriptions.
+func webhookSubsOf(rows []map[string]any) []webhookSub {
 	subs := make([]webhookSub, 0, len(rows))
 	for _, r := range rows {
 		s := webhookSub{
@@ -146,8 +190,7 @@ func (e *Engine) webhookSubs(ctx context.Context, tenant string) ([]webhookSub, 
 		}
 		subs = append(subs, s)
 	}
-	e.Cache.SetAt(key, subs, 0, gen)
-	return subs, nil
+	return subs
 }
 
 // webhookCachePrefix begins the cache key of every tenant's subscriptions.
@@ -182,7 +225,7 @@ func (c *Ctx) queueDocWebhooks(doctype string, doc Doc, event string) error {
 	if c.E.Cfg.Webhooks.Off || webhookUnwatchable[doctype] || c.E.DB == nil {
 		return nil
 	}
-	subs, err := c.E.webhookSubs(c.Ctx, c.Tenant)
+	subs, err := c.webhookSubs()
 	if err != nil {
 		return err
 	}
@@ -241,7 +284,7 @@ func (c *Ctx) EmitWebhook(event string, data any, ref *WebhookReference, key str
 	if c.E.Cfg.Webhooks.Off {
 		return []string{}, nil
 	}
-	subs, err := c.E.webhookSubs(c.Ctx, c.Tenant)
+	subs, err := c.webhookSubs()
 	if err != nil {
 		return nil, err
 	}

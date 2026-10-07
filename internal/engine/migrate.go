@@ -94,13 +94,16 @@ func (e *Engine) Migrate(ctx context.Context, prune bool) (*MigrateResult, error
 	// cannot SET ROLE to a role nobody has committed yet (#66). So it is
 	// committed first, on its own. A role left behind by a migration that
 	// fails later is harmless — it belongs to the cluster, holds nothing, and
-	// the next run finds it.
+	// the next run finds it. The webhook subscribers are read on the
+	// migration's own transaction instead: on another connection they would
+	// wait for the lock an ALTER of tab_webhook holds until the commit (#111).
 	if e.Cfg.Tenancy && e.DB != nil {
 		if err := db.EnsureTenantRole(ctx, e.DB.Sys, e.tenantRole()); err != nil {
 			return nil, err
 		}
 	}
 	err := e.RunSystem(ctx, "Admin", func(c *Ctx) error {
+		c.migrating = true
 		c.Flags["ignorePermissions"] = true
 		// a migration is exactly the work a maintenance window is opened for,
 		// including the one `dev --auto-migrate` runs inside a server
