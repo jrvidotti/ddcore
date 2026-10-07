@@ -531,7 +531,9 @@ func oldest(names []string, keep int) []string {
 // doctor reads to say how old the newest backup is. Failing to write it never
 // fails the backup.
 func startBackupLog(ctx context.Context, e *engine.Engine, kind string, started time.Time) int64 {
-	if err := db.EnsureOps(ctx, e.DB.Pool); err != nil {
+	// on the system pool, as SetMaintenance does: the confined role cannot
+	// create in public, not even a table that exists
+	if err := db.EnsureOps(ctx, e.DB.Sys); err != nil {
 		return 0
 	}
 	var id int64

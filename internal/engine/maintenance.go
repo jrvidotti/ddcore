@@ -125,7 +125,10 @@ func (e *Engine) SetMaintenance(ctx context.Context, on bool, reason, actor stri
 	if actor == "" {
 		actor = "cli"
 	}
-	if err := db.EnsureOps(ctx, e.DB.Pool); err != nil {
+	// CREATE runs as the owner: the confined role of a site with tenancy may
+	// write the flag but not create anything in public, and Postgres checks
+	// that before it notices the table is already there (#112)
+	if err := db.EnsureOps(ctx, e.DB.Sys); err != nil {
 		return MaintenanceState{}, err
 	}
 	if !on {

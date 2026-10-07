@@ -14,6 +14,16 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- **`ddcore maintenance on|off` works once tenancy is applied.** Switching the flag first ran
+  `CREATE TABLE IF NOT EXISTS ddcore_maintenance` on the confined pool. The tenant role may write
+  that table but not create anything in `public`, so the command failed with "permission denied
+  for schema public". The tenancy cutover could not leave maintenance with its last step, and
+  the `maintenance_set` MCP tool failed the same way. The ops tables are now created on the
+  system pool. The same fix lets `ddcore backup` record its run in `ddcore_backup_log` again, so
+  `doctor` sees backups taken after tenancy. (#112)
+
 ## 0.27.13 — 2026-10-07
 
 ### Fixed
