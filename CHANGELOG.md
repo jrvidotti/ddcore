@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.27.8 — 2026-10-07
+
 ### Fixed
 
 - **Security:** a client can no longer set `doc.flags` by sending a `flags` key in its body. A
