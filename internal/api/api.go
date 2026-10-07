@@ -1885,7 +1885,7 @@ var _ = db.Str
 func mergeBody(c *engine.Ctx, doctype string, doc engine.Doc, body map[string]any) {
 	d := c.St.Meta.DocTypes[doctype]
 	for k, v := range body {
-		if k == "id" || k == "doctype" || k == "owner" || k == "creation" {
+		if k == "id" || k == "doctype" || k == "owner" || k == "creation" || engine.IsInternalKey(k) {
 			continue
 		}
 		if v == nil && d != nil && engine.IsRedactedField(d, k) {

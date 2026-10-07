@@ -394,7 +394,9 @@ func New(e *engine.Engine) *mcp.Server {
 					return err
 				}
 				for k, v := range in.Values {
-					d[k] = v
+					if !engine.IsInternalKey(k) {
+						d[k] = v
+					}
 				}
 				doc, err = c.Save(d, engine.SaveOpts{})
 				if err == nil && doc != nil {
