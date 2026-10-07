@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.27.13 — 2026-10-07
+
 ### Fixed
 
 - **`ddcore migrate` no longer hangs when one run alters `tab_webhook` and writes a document.**
