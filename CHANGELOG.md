@@ -14,6 +14,17 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- **A DocType made `shared` after tenancy was applied is shared in the database too.**
+  `ddcore migrate` used to report nothing to do and leave the table with row-level security,
+  the tenant policy, the `tenant` column and the `(tenant, id)` key, so inside a tenant the
+  DocType read as empty and a `Link` to it failed. It now drops the policy, turns row-level
+  security off, keys the table by `id`, rebuilds the indexes without the tenant and drops the
+  column, for the DocType and its child tables. It refuses, naming the tenants and their row
+  counts, while any row belongs to a tenant; a `beforeSchema` patch is where those are moved
+  or deleted. (#109)
+
 ## 0.27.10 — 2026-10-07
 
 ### Added

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"strings"
 
 	"github.com/jrvidotti/ddcore/internal/meta"
 )
@@ -262,4 +263,64 @@ func planTenancy(cat *catalog, d *meta.DocType, exists bool) []Statement {
 		st(rs[1], KindRowSecurity)
 	}
 	return out
+}
+
+// planSharing is the reverse of planTenancy: what the table of a DocType that
+// is no longer tenant-owned — declared shared after tenancy was applied —
+// still carries from when it was. Left in place, the policy hides every row
+// from every tenant, and a shared DocType reads as empty inside one (#109).
+//
+// alter drops the policy, turns row-level security off and keys the table by
+// id again. last drops the column, and runs after the index diff, which has
+// rebuilt the indexes that led with it by then. Plan checks first that no row
+// belongs to a tenant: the column holds nothing but the platform space when
+// it goes.
+func planSharing(cat *catalog, d *meta.DocType) (alter, last []Statement) {
+	if d.TenantOwned {
+		return nil, nil
+	}
+	t := d.TableName()
+	st := func(out *[]Statement, sql string, k Kind) {
+		*out = append(*out, Statement{SQL: sql, Kind: k, Doctype: d.Name, Table: t})
+	}
+	if cat.policy[t] {
+		st(&alter, fmt.Sprintf("DROP POLICY %s ON %s;", TenantPolicy, Ident(t)), KindShare)
+	}
+	if cat.secured[t] {
+		st(&alter, fmt.Sprintf("ALTER TABLE %s DISABLE ROW LEVEL SECURITY;", Ident(t)), KindShare)
+	}
+	if pk, ok := cat.pk[t]; ok && pk.def != "PRIMARY KEY (id)" {
+		st(&alter, primaryKey(t, pk.name, "id"), KindPrimaryKey)
+	}
+	if _, ok := cat.cols[t][meta.TenantColumn]; ok {
+		last = append(last, Statement{SQL: fmt.Sprintf("ALTER TABLE %s DROP COLUMN %s;", Ident(t), Ident(meta.TenantColumn)),
+			Kind: KindDropColumn, Doctype: d.Name, Table: t, Column: meta.TenantColumn})
+	}
+	return alter, last
+}
+
+// tenantRows counts, by tenant, the rows of a table that belong to one. It is
+// what stands between a DocType made shared and planSharing: those rows would
+// collide with the platform's on the key, or be lost with the column.
+func tenantRows(ctx context.Context, q Querier, table string) (string, int, error) {
+	rows, err := q.Query(ctx, fmt.Sprintf(`SELECT tenant, count(*) FROM %s WHERE tenant <> '' GROUP BY tenant ORDER BY tenant`, Ident(table)))
+	if err != nil {
+		return "", 0, err
+	}
+	defer rows.Close()
+	var parts []string
+	total := 0
+	for rows.Next() {
+		var tenant string
+		var n int
+		if err := rows.Scan(&tenant, &n); err != nil {
+			return "", 0, err
+		}
+		total += n
+		parts = append(parts, fmt.Sprintf("%s: %d", tenant, n))
+	}
+	if err := rows.Err(); err != nil {
+		return "", 0, err
+	}
+	return strings.Join(parts, ", "), total, nil
 }
