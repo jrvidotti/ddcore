@@ -993,6 +993,12 @@ type Ctx struct {
 	// system lifts the ctx out of row-level security for its whole
 	// transaction; only RunSystem and Migrate set it.
 	system bool
+	// migrating is whether this ctx's transaction is a migration's. Only the
+	// root ctx holds it; the ctxs that borrow the transaction reach it through
+	// owner(). A side lookup on another connection would wait for the locks
+	// the migration's DDL holds until it commits, so inside one those lookups
+	// read on the transaction (#111).
+	migrating bool
 	// spaced is whether Tenant was decided already, by a parent ctx that
 	// shares its transaction; runOnce resolves it otherwise.
 	spaced bool

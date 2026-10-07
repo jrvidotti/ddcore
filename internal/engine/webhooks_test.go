@@ -831,7 +831,7 @@ func TestOPS06_SubscriptionFromAnotherProcessTakesEffect(t *testing.T) {
 
 	subs := func() int {
 		t.Helper()
-		got, err := server.webhookSubs(context.Background(), "")
+		got, err := server.NewCtx(context.Background(), "Admin").webhookSubs()
 		if err != nil {
 			t.Fatal(err)
 		}
