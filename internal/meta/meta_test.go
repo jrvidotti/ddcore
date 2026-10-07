@@ -493,6 +493,23 @@ func TestAllowCreate(t *testing.T) {
 	}
 }
 
+func TestTool(t *testing.T) {
+	var d DocType
+	if err := json.Unmarshal([]byte(`{"name":"Link Generator","isSingle":true,"tool":true}`), &d); err != nil || !d.Tool {
+		t.Fatalf("tool: true did not round-trip: %v, %v", d.Tool, err)
+	}
+	r := NewRegistry()
+	r.Add(&DocType{Name: "Link Generator", IsSingle: true, Tool: true, Fields: []*Field{{Fieldname: "x", Fieldtype: "Data"}}})
+	if err := r.Validate(); err != nil {
+		t.Fatalf("a tool Single: %v", err)
+	}
+	r = NewRegistry()
+	r.Add(&DocType{Name: "Transfer", Tool: true, Fields: []*Field{{Fieldname: "x", Fieldtype: "Data"}}})
+	if err := r.Validate(); err == nil || !strings.Contains(err.Error(), "tool is for a Single") {
+		t.Fatalf("tool without isSingle: wanted an error, got %v", err)
+	}
+}
+
 // `name` was the document key before 0.17: a field may now be called that, but
 // may not claim the old key through renamedFrom, and a Vault template may not
 // say {name} unless there is such a field to fill it.

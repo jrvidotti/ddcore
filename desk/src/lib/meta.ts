@@ -52,6 +52,8 @@ export interface DocTypeMeta {
   description?: string;
   /** false: only server code creates it, and `permissions.create` is false for everyone. */
   allowCreate?: boolean;
+  /** A Single used as a tool form: editable by its readers, never saved (see FormController.isTool). */
+  tool?: boolean;
   /** Compound business keys; enforced on the server, shown here only for reference. */
   uniqueKeys?: { name: string; fields: string[] }[];
   /** On a site with tenancy: one set of rows for every tenant, written only from the platform space. */

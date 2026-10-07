@@ -14,6 +14,18 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **Tool Singles: a form the user fills in and never saves.** `tool: true` on a Single makes it
+  a screen whose script hands what is on it to a service, such as "type a CPF, tick the
+  installments, get a link". Anyone who can read it edits its level-0 fields and grid rows; the
+  desk shows no Save, never marks it "Not saved", keeps no draft, does not ask before leaving and
+  hides the sidebar; the server refuses every write to it (`save`, `insert`, `dbSet`, REST, MCP),
+  to Admin too. `tool` on a DocType that is not a Single fails validation. Before this, a Single
+  was read-only to a user without `write`, and with `write` it carried Save and a stored row that
+  every user shared. See "DocType properties" in `fieldtypes` and "Tool Singles" in `form-api`
+  (#114).
+
 ## 0.27.16 — 2026-10-07
 
 ### Added

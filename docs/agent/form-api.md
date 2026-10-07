@@ -48,6 +48,29 @@ defineForm("Chat Session", {
 `isNew` is always `false` on a Single: before its first save the form already holds the declared
 defaults, which are the settings in effect.
 
+### Tool Singles
+
+A Single declared `tool: true` (see "DocType properties" in `fieldtypes`) is a screen, not a
+record. Its readers edit it, it is never dirty and it is never saved. The script fills its fields
+and rows and calls a service with what is on the form, and the primary button is the script's
+own:
+
+```ts
+defineForm("Link Generator", {
+  refresh(frm) {
+    frm.addFieldButton("cpf", { icon: "search", label: __("Find Customer"), onClick: () => find(frm) });
+    frm.setPrimaryAction(__("Generate Link"), async () => {
+      const ids = (frm.doc.installments || []).filter((r) => r.selected).map((r) => r.installment_id);
+      const res = await ddcore.call("portal.services.desk.createLink", { customer: frm.doc.customer_code, ids });
+      frm.setValue("link", res.url);
+    });
+  },
+});
+```
+
+Use `ddcore.call`, never `frm.call`: a controller method sees the stored document, which for a
+tool is only its defaults, and reloads the form from it.
+
 ### Field width and layout
 
 A form is laid out by sizing its fields, not by splitting it into columns: a line is four slots

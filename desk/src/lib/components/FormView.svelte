@@ -494,7 +494,7 @@
         {:else if frm.perm.amend}
           <button class="btn primary" onclick={() => frm?.amend()}>{__("Amend")}</button>
         {/if}
-      {:else if !frm.readOnly && (frm.perm.write || (!frm.isSingle && frm.isNew && frm.perm.create))}
+      {:else if !frm.readOnly && !frm.isTool && (frm.perm.write || (!frm.isSingle && frm.isNew && frm.perm.create))}
         {#if !frm.workflow || frm.isDirty || frm.isNew}
           <button class="btn primary" disabled={frm.saving || (!frm.isDirty && !frm.isNew)} onclick={() => frm?.save()} title="{__('Save')} ({modKey}+S)">{__("Save")}<kbd class="btn-kbd">{modKey}S</kbd></button>
         {/if}
@@ -546,7 +546,7 @@
           {/if}
         {/each}
       </div>
-      {#if !frm.isNew}
+      {#if !frm.isNew && !frm.isTool}
         <DocSidebar {frm} />
       {/if}
     </div>

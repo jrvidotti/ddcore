@@ -503,6 +503,10 @@ type DocType struct {
 	// documents: the desk offers no way to make one, Admin included, and the
 	// REST insert is refused. nil is the default, creatable (see Creatable).
 	AllowCreate *bool `json:"allowCreate,omitempty"`
+	// Tool makes a Single a tool form (#114): edited on screen by anyone who
+	// can read it, filled by its form script and never saved — the desk shows
+	// no Save and keeps no draft, and every write to it is refused.
+	Tool bool `json:"tool,omitempty"`
 	// UniqueKeys are the compound business keys, one partial unique index each.
 	UniqueKeys  []UniqueKey `json:"uniqueKeys,omitempty"`
 	Fields      []*Field    `json:"fields"`
@@ -733,6 +737,9 @@ func (r *Registry) Validate() error {
 		}
 		if d.AllowCreate != nil && (d.IsChild || d.IsSingle) {
 			e("allowCreate is for a DocType whose documents are created on their own, not a child table or a Single")
+		}
+		if d.Tool && !d.IsSingle {
+			e("tool is for a Single DocType")
 		}
 		seen := map[string]bool{}
 		renamedFrom := map[string]string{} // old fieldname -> the field claiming it

@@ -611,6 +611,15 @@ type SaveOpts struct {
 	Flags map[string]any
 }
 
+// refuseTool is the write guard of a tool Single (#114): its form is filled
+// on screen and handed to a service, and nothing of it is ever stored.
+func refuseTool(d *meta.DocType) error {
+	if d != nil && d.Tool {
+		return cerr.Validation("{0} is a tool: nothing is saved", d.Label)
+	}
+	return nil
+}
+
 // Insert validates and inserts a new document.
 func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 	if opts.Flags == nil {
@@ -624,6 +633,9 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 		return nil, err
 	}
 	if err := refuseVirtual(d); err != nil {
+		return nil, err
+	}
+	if err := refuseTool(d); err != nil {
 		return nil, err
 	}
 	if d.IsChild {
@@ -809,6 +821,9 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 		return nil, err
 	}
 	if err := refuseVirtual(d); err != nil {
+		return nil, err
+	}
+	if err := refuseTool(d); err != nil {
 		return nil, err
 	}
 	server := opts.IgnorePermissions || c.IgnorePermissions()
@@ -1144,6 +1159,9 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 		return modified, err
 	}
 	if err := refuseVirtual(d); err != nil {
+		return modified, err
+	}
+	if err := refuseTool(d); err != nil {
 		return modified, err
 	}
 	if err := c.spaceRefusal(d, true, c.IgnorePermissions()); err != nil {

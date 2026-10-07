@@ -155,11 +155,18 @@ export class FormController {
    */
   get isNew() { return !this.isSingle && (!!this.doc.__islocal || !this.doc.id); }
   isNewDoc() { return this.isNew; }
-  get isDirty() { return JSON.stringify(this.doc) !== this.original; }
+  /**
+   * A tool Single (#114) is a form filled on screen and handed to a service:
+   * its readers edit it, nothing of it is saved, so it is never dirty — no
+   * "Not saved", no Save, no draft and no prompt on leaving.
+   */
+  get isTool() { return this.isSingle && !!this.meta.doctype.tool; }
+  get isDirty() { return !this.isTool && JSON.stringify(this.doc) !== this.original; }
   get docstatus(): number { return Number(this.doc.docstatus || 0); }
   get isSubmittable() { return !!this.meta.doctype.submittable; }
   get workflow() { return this.doc?._workflow; }
   get readOnly() {
+    if (this.isTool) return false;
     if (this.workflow && (this.workflow.allowEdit === false || !this.perm?.write)) {
       return true;
     }
@@ -194,8 +201,10 @@ export class FormController {
 
   /** Whether a field can be edited right now (docstatus, readOnly, allowOnSubmit, setOnlyOnce, readOnlyDependsOn). */
   isFieldEditable(f: Field): boolean {
-    if (this.workflow && (this.workflow.allowEdit === false || !this.perm?.write)) return false;
-    if (!this.isNew && !this.perm?.write) return false;
+    if (!this.isTool) {
+      if (this.workflow && (this.workflow.allowEdit === false || !this.perm?.write)) return false;
+      if (!this.isNew && !this.perm?.write) return false;
+    }
     if (this.isSingle && f.fieldname === "id") return false;
     if (f.fieldname === "id" && !this.isNew) return false;
     if (f.readOnly) return false;
@@ -405,6 +414,7 @@ export class FormController {
   }
 
   async save(action: "save" | "submit" | "cancel" = "save"): Promise<boolean> {
+    if (this.isTool) return false;
     if (this.saving || (this.isSingle && (this.readOnly || action !== "save"))) return false;
     if (this.workflow && (action === "submit" || action === "cancel")) return false;
     if (this.readOnly && action === "save") return false;

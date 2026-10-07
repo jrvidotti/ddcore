@@ -550,6 +550,14 @@ export interface DoctypeDef {
    */
   allowCreate?: boolean;
   /**
+   * A Single used as a tool form: the user fills its fields on screen, the
+   * form script reads them and calls a whitelisted service, and nothing is
+   * ever saved. Anyone who can read it may edit its fields and grid rows; the
+   * desk shows no Save, never marks it "Not saved" and keeps no draft; the
+   * server refuses every write to it. Only on a Single.
+   */
+  tool?: boolean;
+  /**
    * Compound business keys, enforced by a partial unique index each.
    *
    * `unique` on a field covers one column; this covers the keys that span

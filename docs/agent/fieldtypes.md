@@ -529,6 +529,20 @@ still works), and a typed `/new` shows a notice — with the `description` — i
 the roles that press it hold no `create`. Left out, a DocType is creatable. A child table or a
 Single cannot declare it. An app may set it on another app's DocType through `extendDoctype`.
 
+`tool: true` makes a Single a **tool form**, a screen the user fills in and hands to a service,
+such as "type a CPF, tick the installments, get a payment link". Nothing about it is stored:
+- anyone who may read it edits its level-0 fields and its grid rows, and `readOnly` fields stay
+  read-only;
+- the desk shows no Save, Ctrl+S does nothing, and the form is never "Not saved", so it keeps no
+  draft and does not ask before the user leaves;
+- the comments and assignments sidebar is gone;
+- the server refuses every write to it (`save`, `insert`, `dbSet`, REST, MCP), to **Admin** too.
+
+The form script fills it (`frm.setValue`, `frm.addChild`) and calls a whitelisted service with
+`ddcore.call`, passing what it read from the form. `frm.call` won't do: a controller method
+sees the stored document and reloads the form from it. **Reload** in the menu clears the form.
+Only a Single may declare `tool`. See "Tool Singles" in `form-api`.
+
 `isTree` makes the documents a hierarchy: the DocType gets a self-referencing Link for the
 parent (`parent_<snake(name)>`, or the one `parentField` names) and an `is_group` Check, and
 the engine keeps the hierarchy from folding onto itself. See `trees`.
