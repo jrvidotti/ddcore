@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.27.17 — 2026-10-07
+
 ### Added
 
 - **Tool Singles: a form the user fills in and never saves.** `tool: true` on a Single makes it
