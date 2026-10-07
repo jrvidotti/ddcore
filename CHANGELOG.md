@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.27.15 — 2026-10-07
+
 ### Fixed
 
 - **The sidebar's workspace switcher lists workspaces in alphabetical order.** Boot sent them in
