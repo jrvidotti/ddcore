@@ -721,6 +721,7 @@ func (s *Server) boot(w http.ResponseWriter, r *http.Request) {
 				workspaces = append(workspaces, st.TranslateStringMap(ws, c.Lang))
 			}
 		}
+		sortWorkspaces(workspaces, c.Lang)
 		doctypes := map[string]any{}
 		// every virtual DocType's sources, readable or not: a Link to one holds
 		// "<Source>:<id>", and the desk sends it on to the source document even
