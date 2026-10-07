@@ -32,38 +32,50 @@ func (c *Ctx) Space() string {
 
 // InSpace reports whether a workspace or one of its items shows in space. An
 // item that names no space takes the one of what it opens: a DocType that
-// lives inside a tenant (#105), or a report on one, is a tenant's item. An
-// explicit `space` wins either way.
+// lives inside a tenant (#105), or a report on one, is a tenant's item; a
+// shared DocType only server code reaches inside a tenant (#108), or a
+// report on one, is the platform's. An explicit `space` wins either way.
 func (s *State) InSpace(item map[string]any, space string) bool {
 	if space == "" {
 		return true
 	}
 	want, _ := item["space"].(string)
-	if want == "" && s.opensTenantOnly(item) {
-		want = SpaceTenant
+	if want == "" {
+		want = s.metaSpace(item)
 	}
 	return want == "" || want == space
 }
 
-// opensTenantOnly reports whether an item opens a tenant-only DocType: its
+// metaSpace is the space an item belongs to by what it opens — its
 // `doctype`, a card's or chart's `refDoctype`, or the `refDoctype` of its
-// `report`.
-func (s *State) opensTenantOnly(item map[string]any) bool {
+// `report` — or "" when that says nothing.
+func (s *State) metaSpace(item map[string]any) string {
 	if s == nil || s.Meta == nil {
-		return false
+		return ""
 	}
-	tenantOnly := func(v any) bool {
+	of := func(v any) string {
 		name, _ := v.(string)
 		d, ok := s.Meta.Get(name)
-		return name != "" && ok && d.TenantOnly
+		switch {
+		case name == "" || !ok:
+			return ""
+		case d.TenantOnly:
+			return SpaceTenant
+		case d.ServerOnlyInTenant() && s.Meta.Tenancy:
+			return SpacePlatform
+		}
+		return ""
 	}
-	if tenantOnly(item["doctype"]) || tenantOnly(item["refDoctype"]) {
-		return true
+	if sp := of(item["doctype"]); sp != "" {
+		return sp
+	}
+	if sp := of(item["refDoctype"]); sp != "" {
+		return sp
 	}
 	if rep, _ := item["report"].(string); rep != "" && s.Snap != nil {
-		return tenantOnly(s.Snap.Reports[rep]["refDoctype"])
+		return of(s.Snap.Reports[rep]["refDoctype"])
 	}
-	return false
+	return ""
 }
 
 // WorkspaceForSpace is the workspace as space sees it: nil when the workspace

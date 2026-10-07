@@ -109,6 +109,8 @@ func TestTenancySpaceValues(t *testing.T) {
 		"a child DocType has no space":            {Name: "B", IsChild: true, Space: SpaceTenant},
 		"a virtual DocType has no space":          {Name: "C", Virtual: &VirtualDef{}, Space: SpaceAny},
 		"a shared DocType is read in every space": {Name: "D", Shared: true, Space: SpaceTenant},
+		"tenantAccess is for a shared DocType":    {Name: "F", TenantAccess: TenantAccessServer},
+		`tenantAccess "Server" is not "server"`:   {Name: "G", Shared: true, TenantAccess: "Server"},
 	} {
 		r := tenancyRegistry(t, d)
 		// a typo fails without tenancy too
@@ -121,5 +123,14 @@ func TestTenancySpaceValues(t *testing.T) {
 	r.ApplyTenancy(true)
 	if err := r.Validate(); err != nil {
 		t.Fatalf("shared with space any: %v", err)
+	}
+}
+
+func TestTenancyServerOnlyInTenant(t *testing.T) {
+	if !(&DocType{Shared: true, TenantAccess: TenantAccessServer}).ServerOnlyInTenant() {
+		t.Fatal("a shared DocType with tenantAccess server is not server-only")
+	}
+	if (&DocType{Shared: true}).ServerOnlyInTenant() || (&DocType{TenantAccess: TenantAccessServer}).ServerOnlyInTenant() {
+		t.Fatal("server-only without both")
 	}
 }

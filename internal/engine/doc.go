@@ -459,7 +459,7 @@ func (c *Ctx) getDoc(doctype, name string, forUpdate, ignoreRoles bool) (Doc, er
 		// virtual read with ignoreRoles is already the rule below
 		return c.getVirtualDoc(d, name, !c.IgnorePermissions() && !ignoreRoles)
 	}
-	if err := c.spaceRefusal(d, false); err != nil {
+	if err := c.spaceRefusal(d, false, ignoreRoles || c.IgnorePermissions()); err != nil {
 		return nil, err
 	}
 	sel := fmt.Sprintf("SELECT * FROM %s WHERE id = $1", db.Ident(d.TableName()))
@@ -629,7 +629,11 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 	if d.IsChild {
 		return nil, cerr.Validation("{0} is a child table", d.Name)
 	}
-	if err := c.spaceRefusal(d, true); err != nil {
+	server := opts.IgnorePermissions || c.IgnorePermissions()
+	if c.serverWriteInPlatform(d, server) {
+		return c.inPlatform(func(p *Ctx) (Doc, error) { return p.Insert(doc, opts) })
+	}
+	if err := c.spaceRefusal(d, true, server); err != nil {
 		return nil, err
 	}
 	if d.Name == "Audit Event" {
@@ -807,7 +811,11 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 	if err := refuseVirtual(d); err != nil {
 		return nil, err
 	}
-	if err := c.spaceRefusal(d, true); err != nil {
+	server := opts.IgnorePermissions || c.IgnorePermissions()
+	if c.serverWriteInPlatform(d, server) {
+		return c.inPlatform(func(p *Ctx) (Doc, error) { return p.Save(doc, opts) })
+	}
+	if err := c.spaceRefusal(d, true, server); err != nil {
 		return nil, err
 	}
 	if d.Name == "Audit Event" {
@@ -1138,7 +1146,7 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 	if err := refuseVirtual(d); err != nil {
 		return modified, err
 	}
-	if err := c.spaceRefusal(d, true); err != nil {
+	if err := c.spaceRefusal(d, true, c.IgnorePermissions()); err != nil {
 		return modified, err
 	}
 	if d.Name == "Audit Event" {
@@ -1386,7 +1394,7 @@ func (c *Ctx) deleteWithFlags(doctype, name string, ignorePerms, force bool, fla
 	if err := refuseVirtual(d); err != nil {
 		return err
 	}
-	if err := c.spaceRefusal(d, true); err != nil {
+	if err := c.spaceRefusal(d, true, ignorePerms || c.IgnorePermissions()); err != nil {
 		return err
 	}
 	if doctype == "Audit Event" {
@@ -1556,7 +1564,7 @@ func (c *Ctx) Rename(doctype, oldID, newID string) (string, error) {
 	// before anything else: a shared document's rename rewrites every
 	// tenant's references to it, and is the platform's alone
 	if sd, err := c.St.DocType(doctype); err == nil {
-		if err := c.spaceRefusal(sd, true); err != nil {
+		if err := c.spaceRefusal(sd, true, c.IgnorePermissions()); err != nil {
 			return "", err
 		}
 	}
@@ -2668,6 +2676,12 @@ func (c *Ctx) saveVersion(d *meta.DocType, before, after Doc) {
 // a delete, say — must still sort in the order they happened.
 func (c *Ctx) insertVersion(d *meta.DocType, docID string, data map[string]any, deleted bool) (string, error) {
 	id := randomID()
+	if c.sourceTenant != "" {
+		if data == nil {
+			data = map[string]any{}
+		}
+		data["source_tenant"] = c.sourceTenant
+	}
 	_, err := c.Q().Exec(c.Ctx, `INSERT INTO tab_version (id, owner, creation, modified, modified_by, docstatus, ref_doctype, doc_id, data, deleted)
 		VALUES ($1, $2, clock_timestamp(), clock_timestamp(), $2, 0, $3, $4, $5, $6)`, id, c.User, d.Name, docID, string(mustJSON(data)), deleted)
 	return id, err

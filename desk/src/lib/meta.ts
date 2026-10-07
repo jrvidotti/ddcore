@@ -62,6 +62,8 @@ export interface DocTypeMeta {
   space?: "tenant" | "any";
   /** On a site with tenancy: the platform space neither reads nor writes it. */
   tenantOnly?: boolean;
+  /** On a shared DocType, "server": inside a tenant only server code reaches it. */
+  tenantAccess?: "server";
   /** apps shipping a form script for this DocType: the owner, then each extension */
   formApps?: string[];
 }

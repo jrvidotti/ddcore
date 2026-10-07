@@ -54,6 +54,17 @@ const (
 	SpaceAny = "any"
 )
 
+// TenantAccessServer is the `tenantAccess` of a shared DocType that, inside a
+// tenant, only server code reaches.
+const TenantAccessServer = "server"
+
+// ServerOnlyInTenant reports whether, inside a tenant, only server code that
+// ignores permissions reaches the DocType: one platform table every tenant's
+// code reads and adds to, and no tenant's user may browse (#108).
+func (d *DocType) ServerOnlyInTenant() bool {
+	return d.Shared && d.TenantAccess == TenantAccessServer
+}
+
 // ApplySpaces decides, after ApplyTenancy, which tenant-owned DocTypes are
 // the tenants' alone: those that say `space: "tenant"`, and those that say
 // nothing in an app whose default (appSpace, by app name) is "tenant". A
@@ -72,6 +83,13 @@ func (r *Registry) ApplySpaces(appSpace map[string]string) {
 // validateSpace holds `space` to its values, with tenancy on or off, so a typo
 // fails the load instead of leaving a DocType reachable.
 func validateSpace(d *DocType, e func(string, ...any)) {
+	switch {
+	case d.TenantAccess == "":
+	case d.TenantAccess != TenantAccessServer:
+		e("tenantAccess %q is not %q", d.TenantAccess, TenantAccessServer)
+	case !d.Shared:
+		e("tenantAccess is for a shared DocType: a tenant's own DocType is already its own")
+	}
 	switch {
 	case d.Space == "":
 	case d.Space != SpaceTenant && d.Space != SpaceAny:

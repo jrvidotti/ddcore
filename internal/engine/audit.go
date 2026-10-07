@@ -119,6 +119,12 @@ func (c *Ctx) writeAudit(q db.Querier, action, outcome, targetDoctype, targetID 
 		ip = db.Str(c.Request["ip"])
 	}
 	actor := c.User
+	if c.sourceTenant != "" {
+		if detail == nil {
+			detail = map[string]any{}
+		}
+		detail["source_tenant"] = c.sourceTenant
+	}
 	return c.E.RecordAuditOn(c.Ctx, q, actor, action, outcome, targetDoctype, targetID, ip, c.ReqID, detail)
 }
 

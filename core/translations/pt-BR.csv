@@ -1024,6 +1024,7 @@ webhook payload for {0} is not JSON: {1},o conteúdo do webhook para {0} não é
 {0} is a virtual DocType: restrict its sources instead,{0} é um DocType virtual: restrinja as origens dele,# internal/engine/doc.go:1812
 {0} is created by the application and cannot be imported from a spreadsheet,{0} é criado pela aplicação e não pode ser importado de uma planilha,# internal/engine/data_import.go:267
 "{0} is created by the application, not directly","{0} é criado pela aplicação, não diretamente",# internal/api/api.go:954
+{0} is kept by the platform: inside a tenant only server code reaches it,{0} é mantido pela plataforma: dentro de uma conta só o código do servidor o alcança,# internal/engine/tenancy.go:516
 {0} is not a Single DocType,{0} não é um DocType Single,# internal/engine/query.go:711
 {0} is not a delivery status,{0} não é um status de entrega,# internal/engine/mailqueue.go:372
 {0} is not a file url this site can hold,{0} não é uma url de arquivo que este site possa guardar,# internal/engine/import_files.go:81

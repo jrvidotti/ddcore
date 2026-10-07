@@ -476,6 +476,18 @@ export interface DoctypeDef {
    */
   space?: "tenant" | "any";
   /**
+   * On a shared DocType, `"server"`: inside a tenant, only server code that
+   * ignores permissions reaches it — `db.getAll`, `db.getValue`, `db.exists`,
+   * `getDoc(…, { ignorePermissions: true })`, and `insert`/`save` with
+   * `ignorePermissions: true`, which write in the platform space (its Version
+   * and audit stamped with `source_tenant`). Every client path is refused
+   * there whatever the role: desk, REST, search, export, reports. For a
+   * platform table every tenant's code reads and adds to and no tenant's
+   * user may browse, such as a paid lookup cache. The platform space is
+   * unchanged. See `tenancy`.
+   */
+  tenantAccess?: "server";
+  /**
    * A virtual DocType (DAT-07): no table and no writes; its rows are the union
    * of its sources' documents, each read through that source's own
    * permissions. A row's id — and the value a Link to this DocType stores — is

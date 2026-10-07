@@ -332,7 +332,7 @@ func (c *Ctx) GetList(doctype string, a ListArgs) ([]map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := c.spaceRefusal(d, false); err != nil {
+	if err := c.spaceRefusal(d, false, a.IgnorePermissions || c.IgnorePermissions()); err != nil {
 		return nil, err
 	}
 	if !a.IgnorePermissions && !c.IgnorePermissions() {
@@ -637,12 +637,15 @@ func (c *Ctx) Count(doctype string, filters any, orFilters ...any) (int64, error
 // Exists is db.exists by name: no role permission check, but the user's access
 // scope applies, as for ExistsWhere. A DocType closed to users with access
 // scopes never exists for such a user.
+//
+// Only server code calls it (ddcore.db.exists), so a DocType tenants reach
+// through server code alone answers it there (#108).
 func (c *Ctx) Exists(doctype, name string) (bool, error) {
 	d, err := c.St.DocType(doctype)
 	if err != nil {
 		return false, err
 	}
-	if err := c.spaceRefusal(d, false); err != nil {
+	if err := c.spaceRefusal(d, false, true); err != nil {
 		return false, err
 	}
 	if refused, err := c.refusedToScopedUser(d.Name); err != nil || refused {
@@ -1028,7 +1031,19 @@ func (c *Ctx) ResolveLinkTitles(doctype string, docs ...Doc) map[string]map[stri
 		return map[string]map[string]string{}
 	}
 	byTarget := map[string]map[string]bool{}
+	refused := map[string]bool{}
 	collect := func(target string, val any) {
+		// no title from a DocType this space may not read: a shared one the
+		// platform keeps, inside a tenant (#108)
+		if r, seen := refused[target]; !seen {
+			r = c.SpaceRefusesName(target)
+			refused[target] = r
+			if r {
+				return
+			}
+		} else if r {
+			return
+		}
 		if s, ok := val.(string); ok && s != "" {
 			if byTarget[target] == nil {
 				byTarget[target] = map[string]bool{}
@@ -1138,7 +1153,7 @@ func (c *Ctx) LinkTitles(doctype string, names []string) (map[string]string, err
 	if err != nil {
 		return nil, err
 	}
-	if err := c.spaceRefusal(d, false); err != nil {
+	if err := c.spaceRefusal(d, false, false); err != nil {
 		return nil, err
 	}
 	if d.TitleIsTranslatedID() {
