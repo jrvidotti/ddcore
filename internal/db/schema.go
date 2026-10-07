@@ -1036,6 +1036,9 @@ func EnsureInternal(ctx context.Context, q Querier) error {
 
 // EnsureOps creates only the operational ledgers. Maintenance, backup and
 // restore call it so they work on a database migrated by an older binary.
+// On a site with tenancy q has to be the system pool: the confined role may
+// use these tables but not create in public, and CREATE TABLE IF NOT EXISTS
+// is refused on that before the table is found to exist.
 func EnsureOps(ctx context.Context, q Querier) error {
 	_, err := q.Exec(ctx, OpsSchema)
 	return err

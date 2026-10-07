@@ -9,6 +9,7 @@ import (
 
 	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/db"
+	"github.com/jrvidotti/ddcore/internal/js"
 )
 
 // A paused site refuses writes in a process that enforces maintenance, and
@@ -295,5 +296,30 @@ func TestMaintenanceRefreshDoesNotQueue(t *testing.T) {
 	}
 	if _, err := e.SetMaintenance(ctx, false, "", "t"); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// Once tenancy is applied the pool runs as the confined role, which may use the
+// ops tables but not create anything in public. The cutover that turns tenancy
+// on starts in maintenance and must be able to leave it (#112).
+func TestMaintenanceWithTenancyApplied(t *testing.T) {
+	e := migratedEngine(t, Config{Apps: []js.App{{Name: "demo", Dir: testApp(t, tenancyFiles)}}, Test: true, Tenancy: true})
+	ctx := context.Background()
+	if e.DB.Pool == e.DB.Sys {
+		t.Fatal("a site with tenancy should have a confined pool")
+	}
+	for _, on := range []bool{true, false} {
+		st, err := e.SetMaintenance(ctx, on, "cutover", "tester")
+		if err != nil {
+			t.Fatalf("maintenance %v with tenancy applied: %v", on, err)
+		}
+		if st.Enabled != on {
+			t.Fatalf("maintenance %v: the flag reads %v", on, st.Enabled)
+		}
+	}
+	var off int
+	e.DB.Sys.QueryRow(ctx, `SELECT count(*) FROM tab_audit_event WHERE action = 'ops.maintenance_off'`).Scan(&off)
+	if off != 1 {
+		t.Errorf("leaving maintenance should be audited once, got %d", off)
 	}
 }
