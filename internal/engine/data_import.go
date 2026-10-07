@@ -567,7 +567,7 @@ func (c *Ctx) importRow(p *dataImportPlan, row tabular.Row) (id, status string, 
 // query, so it only finds what the user may read.
 func (c *Ctx) resolveLink(f *meta.Field, label, v string) (any, error) {
 	target := f.OptionsString()
-	if ok, err := c.idExists(target, v); err != nil || ok {
+	if ok, err := c.linkExists(target, v); err != nil || ok {
 		return v, err
 	}
 	td, err := c.St.DocType(target)

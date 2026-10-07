@@ -393,7 +393,10 @@ rolled-back transaction, so it never reaches the site:
 - `Admin` is entered into it.
 - Each test starts from the same state, because the test's writes roll back.
 - No real tenant's documents are in sight, and `ddcore.tenant.current()` names it.
-- `ddcore.test.asUser(user, fn)` works for `Admin` and for the users a test creates there.
+- `ddcore.test.asUser(user, fn)` works for `Admin` and for the users a test creates there,
+  and `ddcore.getRoles(user)` sees the roles of a user the test just inserted.
+- A `Link` to `User` may record `ddcore.session.user`, which is `Admin` (see
+  [Who administers what](#who-administers-what)).
 
 From such a test, `ddcore.test.inPlatform(fn)` runs `fn` in the platform space and comes back
 afterwards, even when `fn` throws. It is how a tenant test writes a shared DocType, creates a
@@ -421,6 +424,13 @@ shares, webhooks, API keys, audit events, its jobs, its Error Log. It is not the
 
 Site configuration — mail transport, storage, branding, language, currency, timezone, sign-in
 policy — is the site's and applies to every tenant.
+
+An operator who entered a tenant has no `User` there, and is still who did what. Inside a
+tenant a `Link` (or `Dynamic Link`) to `User` therefore also accepts an operator: `Admin`, or a
+System Manager of the platform space. So code that records `ddcore.session.user` works for the
+operator too, and the desk shows the operator's full name. Any operator is accepted, not only
+the one acting, so a tenant's user can save the document later. A platform user who is not an
+operator is still refused.
 
 ## HTTP
 

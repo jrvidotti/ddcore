@@ -34,6 +34,9 @@ export default defineApp({ name: "rh", title: "RH", space: "tenant", roles: ["RH
 	"doctypes/ponto/ponto.doctype.ts": `import { defineDoctype } from "@ddcore/sdk";
 export default defineDoctype({ name: "Ponto", fields: [{ fieldname: "hora", fieldtype: "Data", label: "Hora" }],
   permissions: [{ role: "RH User", read: true, write: true, create: true }] });`,
+	"doctypes/registro/registro.doctype.ts": `import { defineDoctype } from "@ddcore/sdk";
+export default defineDoctype({ name: "Registro", fields: [{ fieldname: "por", fieldtype: "Link", label: "By", options: "User" }],
+  permissions: [{ role: "RH User", read: true, write: true, create: true }] });`,
 	"doctypes/cargo/cargo.doctype.ts": `import { defineDoctype } from "@ddcore/sdk";
 export default defineDoctype({ name: "Cargo", shared: true, fields: [{ fieldname: "titulo", fieldtype: "Data", label: "Titulo" }] });`,
 	"doctypes/ponto/ponto.test.ts": `import "@ddcore/sdk/test";
@@ -76,6 +79,17 @@ describe("rh, in the scratch tenant", () => {
       expect(ddcore.session.user).toBe("ana@rh.test");
     });
     expect(ddcore.db.count("Ponto", { hora: "09:00" })).toBe(1);
+  });
+
+  it("sees the roles of a user it just created", () => {
+    ddcore.newDoc("User", { email: "bia@rh.test", full_name: "Bia", roles: [{ role: "RH User" }] }).insert();
+    expect(ddcore.getRoles("bia@rh.test")).toContain("RH User");
+    expect(ddcore.test.asUser("bia@rh.test", () => ddcore.getRoles())).toContain("RH User");
+  });
+
+  it("records the operator it runs as in a Link to User", () => {
+    const r = ddcore.newDoc("Registro", { por: ddcore.session.user }).insert();
+    expect(r.por).toBe("Admin");
   });
 });`,
 }
@@ -140,7 +154,7 @@ func TestScratchTenantRunsTheTestsOfATenantApp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantAllPassed(t, results, 8)
+	wantAllPassed(t, results, 10)
 	// the run rolled back: the tenant, its seed and the tests' rows are gone
 	for _, table := range []string{"tab_site_tenant", "tab_ponto", "tab_curso", "tab_cargo", "tab_nota"} {
 		if got := sysScalar(t, e, "SELECT count(*) FROM "+table); got != 0 {

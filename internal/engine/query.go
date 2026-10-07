@@ -1129,11 +1129,24 @@ func (c *Ctx) ResolveLinkTitles(doctype string, docs ...Doc) map[string]map[stri
 			continue
 		}
 		targetMap := map[string]string{}
+		found := map[string]bool{}
 		for _, row := range rows {
 			name := fmt.Sprint(row["id"])
+			found[name] = true
 			title := fmt.Sprint(row[td.TitleField])
 			if title != "" && title != "<nil>" {
 				targetMap[name] = title
+			}
+		}
+		if target == "User" && c.Tenant != "" {
+			var missing []string
+			for _, n := range names {
+				if !found[n] {
+					missing = append(missing, n)
+				}
+			}
+			for n, title := range c.operatorTitles(missing) {
+				targetMap[n] = title
 			}
 		}
 		if len(targetMap) > 0 {
@@ -1195,6 +1208,17 @@ func (c *Ctx) LinkTitles(doctype string, names []string) (map[string]string, err
 			out[name] = title
 		} else {
 			out[name] = name
+		}
+	}
+	if d.Name == "User" && c.Tenant != "" {
+		var missing []string
+		for _, n := range names {
+			if _, ok := out[n]; !ok {
+				missing = append(missing, n)
+			}
+		}
+		for n, title := range c.operatorTitles(missing) {
+			out[n] = title
 		}
 	}
 	for _, n := range names {
