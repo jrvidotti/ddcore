@@ -948,6 +948,14 @@ func cmdUser(args []string) error {
 			m, _ := e.ClearAttempts(ctx, "login:"+strings.ToLower(email))
 			n += m
 		}
+		// the usernames an app's sign-in provider counts, in the user's tenant (#115)
+		if err := e.RunAdminFor(ctx, args[1], func(c *engine.Ctx) error {
+			m, err := e.ClearCredentialAttempts(c, args[1])
+			n += m
+			return err
+		}); err != nil {
+			return err
+		}
 		fmt.Printf("cleared %d failed attempt(s) for %s\n", n, args[1])
 
 	case "sessions":

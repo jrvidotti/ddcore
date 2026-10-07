@@ -288,6 +288,108 @@ provider may carry it. The admin API is reached at the issuer URL with the
   (`groupsToCreate` in `--json`) as created on first use: that list is not a
   warning, and the doctor never creates anything itself.
 
+## Sign-in through an app (credential providers)
+
+Some people sign in with the username and password of **another system** — an
+ERP, a directory — rather than with an e-mail and a password kept here. An app
+declares a credential provider, and the sign-in screen gets a tab for it where
+the person picks a tenant, types that username and that password, and lands in
+the desk with the same `sid` cookie a password sign-in sets (#115).
+
+```ts
+// shared/erp/ddcore.app.ts
+export default defineApp({
+  name: "erp",
+  auth: {
+    providers: {
+      erp: {
+        label: "ERP",                       // the tab; an English catalogue key
+        userField: "erp_username",          // a Data field the app adds to User
+        enabled() { return isConfigured(); },
+        verify({ username, password }) {    // synchronous, in the chosen tenant
+          const r = ddcore.http.post(url() + "/login", { username, password });
+          if (r.status >= 500) throw new Error("ERP unavailable");
+          if (r.status !== 200) return { ok: false, reason: "HTTP " + r.status };
+          return { ok: true, subject: r.json().login, data: { token: r.json().token } };
+        },
+        afterSignIn({ user, data }) {       // optional: keep what verify returned
+          ddcore.vault.set("erp:session:" + user, JSON.stringify(data));
+        },
+      },
+    },
+  },
+});
+```
+
+The division of labour is the point: the app only answers "is this the
+password of this username, there". ddcore does everything that makes that a
+sign-in:
+
+- **Who signs in.** The account is the User whose `userField` holds the
+  username — the `subject` verify returned, else what was typed, compared
+  without case — in the tenant the person picked. An administrator links
+  people by filling that field in on the User form; nobody gets an account by
+  signing in (no just-in-time provisioning). No such User: *There is no account
+  for this user here*. More than one: refused, never guessed. Disabled, Admin
+  or Guest: refused.
+- **`userField`** must be a stored `Data` field of User after extensions,
+  added with `extendDoctype("User", …)`. A `unique` field of User is unique
+  across the **site**, not per tenant (a User's id is), so leave it off when
+  the same username can exist in two tenants' systems and check within the
+  tenant in a `validate` hook if you need to.
+- **Where.** On a site with tenancy the person picks the tenant from a list
+  (`GET /api/auth/credentials/<id>/tenants` → `{data: [{id, title}], tenancy}`):
+  the enabled tenants where `enabled()` returns true, cached for a minute.
+  **That list is public** — it is the opt-in, so a tenant that does not want
+  its name on the sign-in screen returns false. Without tenancy there is no
+  list and no tenant to send.
+- **The hooks** run as `Admin` with permissions ignored, inside the tenant:
+  `enabled(ctx)` (omitted means every tenant) and `verify(args, ctx)`, which
+  is bounded to 20 seconds and should call the other system with
+  `ddcore.http`. It returns `{ ok: true, subject?, data? }` or
+  `{ ok: false, reason? }`; anything that is not exactly `ok: true` is a
+  refusal. `reason` goes to the audit record only. `data` is handed to
+  `afterSignIn` and nowhere else — never stored or logged by ddcore.
+  **Throwing means unavailable** (503, *Try again later*), not a wrong
+  password. `afterSignIn({ user, username, subject, data }, ctx)` runs in the
+  transaction that opens the session, before it does; throwing there refuses
+  the sign-in. Never log the password.
+- **Two transactions.** verify runs in one, the account lookup, `afterSignIn`
+  and the session in another, so no transaction stays open while the other
+  system answers. `enabled()` is asked again at sign-in: the list the browser
+  was given proves nothing.
+- **Throttle.** Before verify is called, the same policy as a password
+  sign-in: `maxLoginAttempts` failures per username *in that tenant through
+  that provider*, and `maxLoginAttempts × 5` per client address, the address
+  counter shared with password sign-in so switching method does not reset it.
+  A verify that throws counts against the address only, so an outage of the
+  other system locks nobody out. Unlocking a user (`users.unlockUser`,
+  `ddcore user unlock`) clears the provider's counter for the username in the
+  user's `userField`. Without the throttle, ddcore would be an open relay for
+  guessing passwords of the other system.
+- **Audit.** `account.login_credentials`, `Allowed` or `Denied`, in the
+  tenant (in the platform space when the tenant does not exist), with `provider`, `tenant`, `username`, `subject` (when it differs)
+  and, when denied, `reason`: `invalid` (with verify's reason), `no_account`,
+  `ambiguous`, `disabled`, `not_offered`, `tenant` or `unavailable`. A
+  throttled attempt writes nothing, as with single sign-on.
+- **`passwordLogin: false`** does not touch credential providers. The check
+  that refuses `false` with no OIDC provider configured still applies.
+- **The endpoint** is `POST /api/auth/credentials/<id>/login` with
+  `{tenant, usr, pwd}`, answered like `/api/login`. A tenant that does not
+  exist or is disabled is answered like a wrong password. `/api/boot` lists
+  the providers as `site.login.credentials` (`{id, label}`).
+- **Load checks.** An id outside `^[a-z][a-z0-9_]{0,31}$`, one taken by
+  another app or by an OIDC provider, an empty label, a missing `verify` or a
+  `userField` that is not a stored Data field of User fail the load.
+
+**People without a mailbox.** A User is still keyed by e-mail. Give someone
+who has none a placeholder under the reserved `.invalid` domain (RFC 2606),
+with the tenant in it so it stays unique across the site:
+`joao@modaverao.invalid`. Mail to such an address is skipped — `sendMail` to
+nobody else answers `{ delivery: "", skipped: true }` instead of failing —
+forgot-password sends nothing, and inviting one is refused: add the user
+without an invitation.
+
 ## Sessions
 
 One TTL, read from the policy in both the SQL and the cookie. Sessions record
@@ -427,7 +529,9 @@ nothing would become valid again — the tables would only grow.
 
 A real CSRF token (the check is header-presence only), MFA, LDAP and
 just-in-time provisioning of a User on first sign-in (SEC-05, in the
-demand-driven backlog), provisioning at providers other than PocketID, provider-initiated (single) logout, a screen to see or remove one's
+demand-driven backlog; an app's credential provider covers signing in against
+another system, not creating the account), a User without an e-mail (a
+placeholder `.invalid` address stands in), choosing the tenant by hostname, provisioning at providers other than PocketID, provider-initiated (single) logout, a screen to see or remove one's
 linked identities (unlinking is a `DELETE` in `ddcore_user_identity`), e-mail
 verification on a changed address, and an admin UI for unlocking or listing
 another user's sessions.

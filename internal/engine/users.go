@@ -46,6 +46,11 @@ func (e *Engine) InviteUser(c *Ctx, inv Invitation) (map[string]any, error) {
 	if email == "" {
 		return nil, cerr.Validation("Email is required")
 	}
+	if Undeliverable(email) {
+		// a placeholder for someone without a mailbox: the invitation would
+		// go nowhere, and the link in it is the whole point (#115)
+		return nil, cerr.Validation("{0} has no mailbox, so it cannot be invited: add the user without an invitation", email)
+	}
 	if fullName == "" {
 		return nil, cerr.Validation("Full name is required")
 	}
@@ -126,6 +131,9 @@ func (e *Engine) ResendInvite(c *Ctx, user string) (map[string]any, error) {
 	}
 	if !c.canAdministerUsers() && db.Str(rows[0]["user_type"]) != "Website User" {
 		return nil, cerr.Permission("Only a System Manager can invite a System User")
+	}
+	if Undeliverable(user) {
+		return nil, cerr.Validation("{0} has no mailbox, so it cannot be invited: add the user without an invitation", user)
 	}
 	rec, provider, err := e.sendInvitation(c, user, db.Str(rows[0]["user_type"]))
 	if err != nil {

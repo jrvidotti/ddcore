@@ -143,5 +143,9 @@ func (e *Engine) FindUserForRecovery(ctx context.Context, typed string) (string,
 	if strings.EqualFold(name, "Guest") {
 		return "", false
 	}
+	// a placeholder address has no mailbox to send the link to (#115)
+	if Undeliverable(name) {
+		return "", false
+	}
 	return name, true
 }

@@ -9,7 +9,7 @@ Available documents (also as MCP resources `ddcore://docs/<name>`):
 
 - `conventions` — an app's layout, naming, calling another app's server code, what never to do, and the core/app compatibility contract (`version`, the `ddcore` range)
 - `fieldtypes` — every fieldtype and field property
-- `auth` — sign-in, single sign-on (OpenID Connect providers), lockout, recovery, invitation, self-service and secrets
+- `auth` — sign-in, single sign-on (OpenID Connect providers), sign-in through an app (credential providers: another system's username and password, per tenant), lockout, recovery, invitation, self-service and secrets
 - `field-permissions` — field levels (`permlevel`): confidential fields omitted from every read path and protected on write
 - `tenancy` — several customers in one database (`"tenancy": true`): spaces, `shared` DocTypes, the `Site Tenant` DocType and `onTenantCreate`, `ddcore tenant` and `--tenant`, `ddcore.tenant.*`, what a tenant's System Manager may do, how row-level security enforces it, limits
 - `scopes` — user access scopes (`User Permission`): restricting users to companies, units or customers across every read and write path

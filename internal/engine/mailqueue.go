@@ -95,6 +95,7 @@ func (c *Ctx) QueueMail(r MailRequest) (map[string]any, error) {
 		return nil, cerr.NotFound("Mail template {0} does not exist", r.Template)
 	}
 	to := make([]string, 0, len(r.To))
+	skipped := 0
 	for _, addr := range r.To {
 		addr = normalizeEmail(addr)
 		if addr == "" {
@@ -103,7 +104,17 @@ func (c *Ctx) QueueMail(r MailRequest) (map[string]any, error) {
 		if !validEmail(addr) {
 			return nil, cerr.Validation("{0} is not a valid email address", addr).WithTitleKey("Invalid email")
 		}
+		if Undeliverable(addr) {
+			skipped++
+			continue
+		}
 		to = append(to, addr)
+	}
+	if len(to) == 0 && skipped > 0 {
+		// Every recipient is a placeholder address — a User with no mailbox,
+		// such as one who signs in through an app's provider (#115). There
+		// is nobody to write to, which is not the caller's mistake.
+		return map[string]any{"delivery": "", "skipped": true}, nil
 	}
 	if len(to) == 0 {
 		return nil, cerr.Validation("A message needs a recipient").WithTitleKey("No recipient")
@@ -447,4 +458,12 @@ func asStrings(v any) []string {
 		}
 	}
 	return out
+}
+
+// Undeliverable reports whether an address is a placeholder no message can
+// reach: one under the reserved top-level domain .invalid (RFC 2606), which a
+// site gives a User who has no mailbox. Mail to it is skipped, not queued.
+func Undeliverable(addr string) bool {
+	_, domain, ok := strings.Cut(strings.ToLower(strings.TrimSpace(addr)), "@")
+	return ok && (domain == "invalid" || strings.HasSuffix(domain, ".invalid"))
 }

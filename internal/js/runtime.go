@@ -337,6 +337,16 @@ func (rt *Runtime) AppHook(app, hook string) error {
 	return err
 }
 
+// AuthProvider runs a hook of an app's credential sign-in provider and
+// returns its result as JSON.
+func (rt *Runtime) AuthProvider(app, id, hook string, args json.RawMessage) (json.RawMessage, error) {
+	if args == nil {
+		args = json.RawMessage("null")
+	}
+	s, err := rt.callReg("authProvider", app, id, hook, string(args))
+	return json.RawMessage(s), err
+}
+
 func (rt *Runtime) RunPatch(path string) error {
 	_, err := rt.callReg("runPatch", path)
 	return err

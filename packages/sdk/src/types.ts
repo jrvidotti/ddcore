@@ -843,6 +843,52 @@ export interface ControllerDef<T extends BaseDoc = BaseDoc> extends Partial<Reco
  */
 export type ScheduledEntry = string | { method: string; runAs?: string };
 
+/**
+ * A credential sign-in provider (`auth.providers` in `defineApp`): ddcore
+ * throttles, finds the account, opens the session and audits; the app only
+ * says whether the password belongs to the username.
+ */
+export interface CredentialProviderDef {
+  /** The tab's text on the sign-in screen; an English catalogue key. */
+  label: string;
+  /**
+   * The stored Data field of User that holds the username in the app's
+   * system. The app adds it with `extendDoctype("User", …)`; an
+   * administrator fills it in, and only a User with it filled in can sign in.
+   */
+  userField: string;
+  /**
+   * Whether the provider is offered in this tenant (as `Admin`, permissions
+   * ignored). Omitted, it is offered in every enabled tenant. The tenants
+   * where it returns true are listed publicly on the sign-in screen.
+   */
+  enabled?: (ctx: Context) => boolean;
+  /**
+   * Checks the credentials, synchronously, inside the tenant the person
+   * picked (as `Admin`, permissions ignored, at most 20 s). Return
+   * `{ ok: true }`, optionally with `subject` — the username as the other
+   * system spells it, looked up in `userField` — and `data`, handed to
+   * `afterSignIn` and never stored or logged by ddcore. Return
+   * `{ ok: false, reason? }` for wrong credentials; `reason` goes to the
+   * audit record only. Throwing means "unavailable": the person is asked to
+   * try again later and the attempt does not count against the account.
+   * Never log the password.
+   */
+  verify: (
+    args: { username: string; password: string },
+    ctx: Context,
+  ) => { ok: true; subject?: string; data?: unknown } | { ok: false; reason?: string };
+  /**
+   * Runs once the account is found, in the same transaction as the new
+   * session and before it is created: keep what `verify` returned (a token
+   * of the other system, say) for this user. Throwing refuses the sign-in.
+   */
+  afterSignIn?: (
+    args: { user: string; username: string; subject: string; data?: unknown },
+    ctx: Context,
+  ) => void;
+}
+
 export interface AppDef {
   name: string;
   title: string;
@@ -888,6 +934,13 @@ export interface AppDef {
    * gives a new tenant the records it cannot start without.
    */
   onTenantCreate?: (ctx: Context) => void;
+  /**
+   * Sign-in through this app: credential providers by id (lowercase letters,
+   * digits and `_`). Each puts a tab on the sign-in screen where the person
+   * picks a tenant and types the username and password of the app's own
+   * system. See "Sign-in through an app" in `auth`.
+   */
+  auth?: { providers?: Record<string, CredentialProviderDef> };
   desk?: {
     /** client scripts (relative to app dir) loaded in every desk page */
     include?: string[];

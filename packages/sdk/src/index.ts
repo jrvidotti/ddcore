@@ -376,8 +376,12 @@ export interface DDCoreAPI {
    * Synchronous, like everything else here, but delivery is not: the message is
    * written onto *this* transaction and handed to a worker. A request that
    * rolls back sends nothing, which is the whole reason it works this way.
+   *
+   * Recipients under `.invalid` (placeholder addresses of Users without a
+   * mailbox) are dropped; when nobody is left, nothing is queued and the
+   * answer is `{ delivery: "", skipped: true }`.
    */
-  sendMail(args: SendMailArgs): { delivery: string };
+  sendMail(args: SendMailArgs): { delivery: string; skipped?: boolean };
   webhooks: {
     /**
      * Verifies a Standard Webhooks request received on an inbound method: `headers` and

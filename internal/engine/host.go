@@ -513,6 +513,8 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 	case "auth.clearAttempts":
 		n, err := e.ClearAttempts(c.Ctx, a.Key)
 		return n, err
+	case "auth.clearCredentialAttempts":
+		return e.ClearCredentialAttempts(c, a.User)
 	case "auth.createAPIKey":
 		return e.CreateAPIKeyFor(c, a.User, a.Label, int(a.Days), "")
 	case "auth.apiKeys":

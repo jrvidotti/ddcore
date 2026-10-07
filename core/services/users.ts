@@ -118,6 +118,8 @@ export const unlockUser = whitelisted((args: { user: string }) => {
   if (email && email.toLowerCase() !== String(user).toLowerCase()) {
     cleared += auth.clearAttempts("login:" + email.toLowerCase());
   }
+  // and the usernames an app's sign-in provider counts (#115)
+  cleared += auth.clearCredentialAttempts(user);
   ddcore.audit("account.unlock", "User", user, { cleared });
   return { user, cleared };
 }, ADMIN);

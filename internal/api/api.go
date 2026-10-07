@@ -82,6 +82,9 @@ func New(e *engine.Engine, desk fs.FS) *Server {
 		// Single sign-on: redirects, not JSON. See oidc.go.
 		r.Get("/auth/oidc/{provider}/start", s.oidcStart)
 		r.Get("/auth/oidc/{provider}/callback", s.oidcCallback)
+		// Sign-in through an app's credential provider. See credentials.go.
+		r.Post("/auth/credentials/{provider}/login", s.credentialLogin)
+		r.Get("/auth/credentials/{provider}/tenants", s.credentialTenants)
 		r.Get("/boot", s.boot)
 		r.Get("/meta/{doctype}", s.getMeta)
 		r.Get("/translations", s.translations)
@@ -618,14 +621,14 @@ func mapBoot(m config.MapTiles) map[string]any {
 	return map[string]any{"tileUrl": m.TileURL, "attribution": m.Attribution}
 }
 
-func loginPage(l config.LoginPage, auth config.AuthPolicy, sso []config.OIDCProvider) map[string]any {
+func loginPage(l config.LoginPage, auth config.AuthPolicy, sso []config.OIDCProvider, credentials []map[string]any) map[string]any {
 	// id and label only: the issuer and the client id are not secrets, but
 	// nothing on the sign-in screen needs them either
 	providers := []map[string]any{}
 	for _, p := range sso {
 		providers = append(providers, map[string]any{"id": p.ID, "label": p.Label})
 	}
-	out := map[string]any{"password": auth.AllowPasswordLogin(), "providers": providers}
+	out := map[string]any{"password": auth.AllowPasswordLogin(), "providers": providers, "credentials": credentials}
 	if l.Notice != "" {
 		out["notice"] = l.Notice
 	}
@@ -673,7 +676,7 @@ func (s *Server) boot(w http.ResponseWriter, r *http.Request) {
 			// is the bug nobody finds until a JPY invoice is off by a yen
 			"currencyPrecision": s.E.CurrencyPrecision(), "rounding": s.E.Cfg.Rounding.String(),
 			"timezone": s.E.Cfg.Timezone, "dev": s.E.Cfg.Dev, "scheduler": s.E.Cfg.Scheduler, "version": engine.Version,
-			"login": loginPage(s.E.Cfg.Login, s.E.Cfg.Auth, s.E.Cfg.OIDC), "maintenance": s.maintenanceBoot(r),
+			"login": loginPage(s.E.Cfg.Login, s.E.Cfg.Auth, s.E.Cfg.OIDC, credentialProvidersBoot(c)), "maintenance": s.maintenanceBoot(r),
 			// where a Geolocation's map draws its tiles from: the browser
 			// fetches them, the server never does
 			"map": mapBoot(s.E.Cfg.Map),

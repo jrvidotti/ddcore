@@ -21,6 +21,7 @@ Sensitive administrative actions across the framework are recorded in a unified 
 | `account.resend_invite` | `User` | User invitation resent | — |
 | `account.reset_password` | `User` | Password reset initiated | — |
 | `account.unlock` | `User` | User account unlocked after lockout | `{"cleared": N}` |
+| `account.login_credentials` | `User` | Sign-in through an app's credential provider, `Allowed` or `Denied` (not written when throttled) | `{"provider": "...", "tenant": "...", "username": "...", "subject": "...", "reason": "..."}` |
 | `account.revoke_sessions`| `User` | All sessions of user revoked | — |
 | `workflow.transition` | the document | A workflow action was applied or refused. `Allowed` on success; `Denied` for the wrong role, a self-approval attempt, or a failed condition. | `{"action": "...", "from_state": "...", "to_state": "..."}` |
 | `job.cancel` | `Job` | Background job cancelled | `{"method": "...", "queue": "...", "status": "..."}` |

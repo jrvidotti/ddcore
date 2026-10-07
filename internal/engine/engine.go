@@ -163,6 +163,11 @@ type AppMeta struct {
 	// WWW is the app's static sites by URL prefix, as declared; State.WWW
 	// holds them validated (#68).
 	WWW map[string]json.RawMessage `json:"www"`
+	// Auth.Providers is the app's credential sign-in providers by id, as
+	// declared; State.credentials holds them validated (#115).
+	Auth struct {
+		Providers map[string]credentialDecl `json:"providers"`
+	} `json:"auth"`
 }
 
 type Whitelisted struct {
@@ -244,6 +249,8 @@ type State struct {
 	whitelisted map[string]map[string]any
 	// www is the apps' static sites by first path segment; see State.WWW.
 	www map[string]WWWSite
+	// credentials is the apps' credential sign-in providers by id.
+	credentials map[string]CredentialProvider
 	// metaCache holds the translated copies of DocTypes, per language. It
 	// needs no invalidation: a reload builds a new State and this dies with
 	// the old one.
@@ -741,6 +748,11 @@ func (e *Engine) Load() error {
 		pool.Close()
 		return err
 	}
+	credentials, err := buildCredentialProviders(apps, snap, reg, e.Cfg.OIDC)
+	if err != nil {
+		pool.Close()
+		return err
+	}
 	st := &State{
 		Title:             e.Cfg.SiteTitle,
 		Portals:           portals,
@@ -755,6 +767,7 @@ func (e *Engine) Load() error {
 		Loaded:            time.Now(),
 		whitelisted:       wl,
 		www:               www,
+		credentials:       credentials,
 	}
 	e.mu.Lock()
 	old := e.cur.Swap(st)

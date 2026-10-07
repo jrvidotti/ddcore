@@ -315,6 +315,16 @@
       a.hasAfterInstall = typeof reg.apps[n].afterInstall === "function";
       a.hasAfterMigrate = typeof reg.apps[n].afterMigrate === "function";
       a.hasOnTenantCreate = typeof reg.apps[n].onTenantCreate === "function";
+      // credential sign-in providers: Go needs to know which hooks exist
+      const prov = (reg.apps[n].auth && reg.apps[n].auth.providers) || {};
+      for (const id in prov) {
+        const src = prov[id] || {};
+        const out = (a.auth && a.auth.providers && a.auth.providers[id]) || {};
+        out.hasEnabled = typeof src.enabled === "function";
+        out.hasVerify = typeof src.verify === "function";
+        out.hasAfterSignIn = typeof src.afterSignIn === "function";
+        if (a.auth && a.auth.providers) a.auth.providers[id] = out;
+      }
       apps[n] = a;
     }
     const doctypes = {};
@@ -1098,6 +1108,7 @@
       startRecovery(user, kind) { return call("auth.startRecovery", { user, kind: kind || "reset" }); },
       throttle(key, limit, minutes) { call("auth.throttle", { key, limit: limit || 0, minutes: minutes || 0 }); },
       clearAttempts(key) { return call("auth.clearAttempts", { key }); },
+      clearCredentialAttempts(user) { return call("auth.clearCredentialAttempts", { user }); },
       createAPIKey(user, label, days) { return call("auth.createAPIKey", { user, label: label || "", days: days || 0 }); },
       apiKeys(user) { return call("auth.apiKeys", { user }); },
       revokeAPIKey(user, id) { return call("auth.revokeAPIKey", { user, id }); },
@@ -1418,6 +1429,18 @@
   reg.appHook = function (app, hook) {
     const a = reg.apps[app];
     if (a && typeof a[hook] === "function") a[hook](makeContext());
+  };
+
+  // A credential sign-in provider's hook (auth.providers in defineApp):
+  // enabled(ctx), verify(args, ctx) or afterSignIn(args, ctx).
+  reg.authProvider = function (app, id, hook, argsJSON) {
+    const a = reg.apps[app];
+    const p = a && a.auth && a.auth.providers && a.auth.providers[id];
+    const fn = p && p[hook];
+    if (typeof fn !== "function") throw new DDCoreError("NotFound", "", "Sign-in provider " + id + " has no " + hook);
+    const r = hook === "enabled" ? fn(makeContext()) : fn(JSON.parse(argsJSON), makeContext());
+    if (r && typeof r.then === "function") throw new DDCoreError("ValidationError", "", "Sign-in provider hooks must be synchronous");
+    return JSON.stringify(r === undefined ? null : r);
   };
 
   // A patch is `export default definePatch({...})` or, still supported, a bare
