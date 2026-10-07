@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.27.10 — 2026-10-07
+
 ### Added
 
 - **A scratch tenant for `ddcore test`.** On a site with tenancy, the tests of an app with
