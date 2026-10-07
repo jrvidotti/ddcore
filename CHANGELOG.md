@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.27.9 — 2026-10-07
+
 ### Added
 
 - **Tenant-only DocTypes.** On a site with tenancy, `space: "tenant"` on `defineDoctype`, or on
