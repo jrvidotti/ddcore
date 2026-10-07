@@ -58,6 +58,10 @@ export interface DocTypeMeta {
   shared?: boolean;
   /** On a site with tenancy: each tenant has its own rows. */
   tenantOwned?: boolean;
+  /** As declared: "tenant" keeps it out of the platform space, "any" overrides the app's default. */
+  space?: "tenant" | "any";
+  /** On a site with tenancy: the platform space neither reads nor writes it. */
+  tenantOnly?: boolean;
   /** apps shipping a form script for this DocType: the owner, then each extension */
   formApps?: string[];
 }

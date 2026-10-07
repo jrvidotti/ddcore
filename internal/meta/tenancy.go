@@ -44,6 +44,47 @@ func (r *Registry) ApplyTenancy(enabled bool) {
 	}
 }
 
+// The values of `space` on a DocType, and on an app for its DocTypes.
+const (
+	// SpaceTenant: the DocType lives inside a tenant, and the platform space
+	// neither reads nor writes it.
+	SpaceTenant = "tenant"
+	// SpaceAny: the DocType is reached from every space, whatever the app's
+	// default says. Only a DocType declares it.
+	SpaceAny = "any"
+)
+
+// ApplySpaces decides, after ApplyTenancy, which tenant-owned DocTypes are
+// the tenants' alone: those that say `space: "tenant"`, and those that say
+// nothing in an app whose default (appSpace, by app name) is "tenant". A
+// shared or virtual DocType, and a child table, is never tenant-only — the
+// parent's own check covers its rows.
+func (r *Registry) ApplySpaces(appSpace map[string]string) {
+	for _, d := range r.DocTypes {
+		space := d.Space
+		if space == "" {
+			space = appSpace[d.App]
+		}
+		d.TenantOnly = d.TenantOwned && !d.IsChild && space == SpaceTenant
+	}
+}
+
+// validateSpace holds `space` to its values, with tenancy on or off, so a typo
+// fails the load instead of leaving a DocType reachable.
+func validateSpace(d *DocType, e func(string, ...any)) {
+	switch {
+	case d.Space == "":
+	case d.Space != SpaceTenant && d.Space != SpaceAny:
+		e("space %q is neither %q nor %q", d.Space, SpaceTenant, SpaceAny)
+	case d.IsChild:
+		e("a child DocType has no space of its own: it follows the DocTypes that use it")
+	case d.Virtual != nil:
+		e("a virtual DocType has no space of its own: each of its sources is confined on its own")
+	case d.Shared && d.Space == SpaceTenant:
+		e("a shared DocType is read in every space; it cannot also be space %q", SpaceTenant)
+	}
+}
+
 // parentsOf lists the non-child DocTypes holding a table of child rows.
 func (r *Registry) parentsOf(child string) []*DocType {
 	var out []*DocType
@@ -67,6 +108,7 @@ func (r *Registry) parentsOf(child string) []*DocType {
 // one tenant has, nor hold child rows that some other DocType stores per
 // tenant.
 func (r *Registry) validateTenancy(d *DocType, e func(string, ...any)) {
+	validateSpace(d, e)
 	if !r.Tenancy {
 		return
 	}

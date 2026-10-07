@@ -465,6 +465,17 @@ export interface DoctypeDef {
    */
   shared?: boolean;
   /**
+   * On a site with `tenancy` on: `"tenant"` keeps a tenant-owned DocType out of
+   * the platform space altogether. There it is left out of boot (no menu entry,
+   * search row or Link), and every read and write is refused with a message
+   * that says to enter a tenant (`--tenant` on the command line), so nothing
+   * lands where no tenant sees it. Inside a tenant, `ddcore.tenant.run`, a job
+   * enqueued from inside a tenant and a migration patch are unaffected.
+   * `"any"` opts out of the app's `space: "tenant"` default. Not for a shared,
+   * child or virtual DocType. Ignored without tenancy. See `tenancy`.
+   */
+  space?: "tenant" | "any";
+  /**
    * A virtual DocType (DAT-07): no table and no writes; its rows are the union
    * of its sources' documents, each read through that source's own
    * permissions. A row's id — and the value a Link to this DocType stores — is
@@ -832,6 +843,14 @@ export interface AppDef {
   };
   afterInstall?: (ctx: Context) => void;
   afterMigrate?: (ctx: Context) => void;
+  /**
+   * On a site with tenancy: `"tenant"` makes `space: "tenant"` the default of
+   * every DocType of this app, which the platform space then neither lists,
+   * reads nor writes. A DocType opts out with `space: "any"`; a shared one is
+   * never covered. The app's fixtures cannot include such a DocType: give each
+   * tenant its records in `onTenantCreate`. See `tenancy`.
+   */
+  space?: "tenant";
   /**
    * Runs inside each tenant when it is created (tenancy). Fixtures and
    * `afterInstall` fill the platform space only, so this is where the app

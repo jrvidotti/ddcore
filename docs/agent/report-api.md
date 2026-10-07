@@ -79,16 +79,21 @@ A lucide icon the list lacks is a one-line addition to ddcore: ask for it in an 
 On a site with tenancy, `space: "platform"` or `space: "tenant"` on the workspace itself, or on
 one of its `sidebar`, `shortcuts` or `numberCards` entries, shows it only in that space: the
 platform space (where the operator manages tenants and what they share) or inside a tenant.
-Without `space` it shows in both; without tenancy it is ignored. Boot leaves out what belongs to
-the other space, and its number cards answer 404 there. Any other value fails the load. See
-`tenancy`.
+Without `space` it shows in both, except for an entry that opens a tenant-only DocType
+(`space: "tenant"` on the DocType or its app). That covers an entry whose `doctype`, a card's
+`refDoctype`, or the `refDoctype` of its `report` is such a DocType. It shows inside a tenant
+only, and so does a grouped `links` item. An explicit `space` on the entry still wins. Without
+tenancy the field is ignored. Boot leaves out what belongs to the other space, and its number
+cards answer 404 there. Any other value fails the load. A workspace with no `space` of its own
+stays in both spaces even when all of its entries drop out of one, so give a business workspace
+`space: "tenant"` too. See `tenancy`.
 
 ```ts
 export default defineWorkspace({
   name: "Back Office", label: "Back Office",
   sidebar: [
     { label: "Tenants", doctype: "Site Tenant", space: "platform" },
-    { label: "Charges", doctype: "Charge", space: "tenant" },
+    { label: "Charges", doctype: "Charge", space: "tenant" }, // or space: "tenant" on Charge itself
     { label: "Banks", doctype: "Bank" }, // a shared reference table: both spaces read it
   ],
 });

@@ -1052,6 +1052,7 @@ webhook payload for {0} is not JSON: {1},o conteúdo do webhook para {0} não é
 "{0} is truncated: it ends without its _manifest line, so the export did not finish","{0} está truncado: termina sem a linha _manifest, ou seja, a exportação não concluiu",# internal/engine/import_source.go:167
 {0} line {1} is not a document: {2},{0} linha {1} não é um documento: {2},# internal/engine/import_source.go:179
 {0} lines,{0} linhas,# desk/src/lib/geo.ts:169
+"{0} lives inside a tenant: enter one (on the command line, pass --tenant)","{0} existe apenas dentro de uma conta: entre em uma (na linha de comando, use --tenant)",# internal/engine/tenancy.go:490
 "{0} must be a location: GeoJSON, or a latitude and a longitude","{0} deve ser uma localização: GeoJSON, ou uma latitude e uma longitude",# internal/geo/geo.go:392
 {0} must be a signature drawn on the form (a PNG image),{0} deve ser uma assinatura feita no formulário (uma imagem PNG),# internal/signature/signature.go:106
 {0} not found,{0} não encontrado,# internal/api/portal.go:349

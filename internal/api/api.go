@@ -717,7 +717,7 @@ func (s *Server) boot(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			// the platform's and the tenants' items, each in its own space
-			if ws = engine.WorkspaceForSpace(ws, space); ws != nil {
+			if ws = st.WorkspaceForSpace(ws, space); ws != nil {
 				workspaces = append(workspaces, st.TranslateStringMap(ws, c.Lang))
 			}
 		}
@@ -736,12 +736,20 @@ func (s *Server) boot(w http.ResponseWriter, r *http.Request) {
 					virtuals[n] = append(virtuals[n], src.DocType)
 				}
 			}
+			// a DocType this space may not even read (#105) is not shown at
+			// all: no menu entry, no search palette row, no Link to it
+			if c.SpaceRefuses(d) {
+				continue
+			}
 			if ok, _ := c.HasPermission(n, "read", nil); ok {
 				doctypes[n] = map[string]any{"label": c.T(d.Label), "app": d.App, "icon": d.Icon, "module": d.Module, "titleField": d.TitleField, "translateId": d.TranslateID, "linkSubtitle": d.LinkSubtitle}
 			}
 		}
 		reports := map[string]any{}
 		for n, rep := range s.E.Snap.Reports {
+			if ref, _ := rep["refDoctype"].(string); ref != "" && c.SpaceRefusesName(ref) {
+				continue
+			}
 			if allowed(rep["roles"], roles) {
 				reports[n] = map[string]any{"label": c.T(orStr(rep["label"], n)), "refDoctype": rep["refDoctype"], "app": rep["app"]}
 			}
@@ -785,6 +793,11 @@ func (s *Server) getMeta(w http.ResponseWriter, r *http.Request) {
 		d, err := s.E.DocType(urlParam(r, "doctype"))
 		if err != nil {
 			return nil, err
+		}
+		if !d.IsChild {
+			if err := c.SpaceRefusal(d); err != nil {
+				return nil, err
+			}
 		}
 		if ok, _ := c.HasPermission(d.Name, "read", nil); !ok && !d.IsChild {
 			return nil, cerr.Permission("No permission for {0}", d.Label)
@@ -1407,7 +1420,7 @@ func (s *Server) numberCard(w http.ResponseWriter, r *http.Request) {
 		cards, _ := ws["numberCards"].([]any)
 		for _, cAny := range cards {
 			card, _ := cAny.(map[string]any)
-			if card["name"] != cardName || !engine.InSpace(card, c.Space()) {
+			if card["name"] != cardName || !c.St.InSpace(card, c.Space()) {
 				continue
 			}
 			if dt, ok := card["doctype"].(string); ok && dt != "" {
@@ -1491,7 +1504,7 @@ func requireRefRead(c *engine.Ctx, item map[string]any) error {
 // (B05): hiding the link in the boot payload is not authorisation.
 func (s *Server) workspace(c *engine.Ctx, name string) (map[string]any, error) {
 	ws, ok := s.E.Snap.Workspaces[name]
-	if !ok || !engine.InSpace(ws, c.Space()) {
+	if !ok || !c.St.InSpace(ws, c.Space()) {
 		return nil, cerr.NotFound("Workspace {0} does not exist", name)
 	}
 	roles, err := c.Roles()

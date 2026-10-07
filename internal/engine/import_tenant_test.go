@@ -21,11 +21,18 @@ func setupTenantImport(t *testing.T) *Engine {
 export default defineDoctype({ name: "Moeda", shared: true, idGeneration: { field: "sigla" },
   fields: [{ fieldname: "sigla", fieldtype: "Data", label: "Code", reqd: true }],
   permissions: [{ role: "Operador", read: true, write: true, create: true }] });`
-	if err := os.MkdirAll(filepath.Join(dir, "doctypes/moeda"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(dir, "doctypes/moeda/moeda.doctype.ts"), []byte(src), 0o644); err != nil {
-		t.Fatal(err)
+	// and one that lives inside a tenant (#105)
+	contrato := `import { defineDoctype } from "@ddcore/sdk";
+export default defineDoctype({ name: "Contrato", space: "tenant", idGeneration: { field: "numero" },
+  fields: [{ fieldname: "numero", fieldtype: "Data", label: "Number", reqd: true }],
+  permissions: [{ role: "Operador", read: true, write: true, create: true }] });`
+	for rel, src := range map[string]string{"doctypes/moeda/moeda.doctype.ts": src, "doctypes/contrato/contrato.doctype.ts": contrato} {
+		if err := os.MkdirAll(filepath.Join(dir, filepath.Dir(rel)), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, rel), []byte(src), 0o644); err != nil {
+			t.Fatal(err)
+		}
 	}
 	dsn := testdb.WithDatabase(testDSN, testdb.Database(testDSN)+"_impt")
 	e := migratedEngine(t, Config{DSN: dsn, Apps: []js.App{{Name: "imp", Dir: dir}}, Test: true, Tenancy: true, DataDir: t.TempDir()})
@@ -180,6 +187,43 @@ func TestImportIntoATenantLeavesOutWhatIsNotItsOwn(t *testing.T) {
 	}
 	if !rep.OK {
 		t.Fatalf("mismatches: %+v", rep.Mismatches)
+	}
+}
+
+// A load into the platform space leaves out what lives inside a tenant, and
+// says so; the same export loads it into a tenant.
+func TestImportIntoThePlatformLeavesOutTenantOnlyDocTypes(t *testing.T) {
+	e := setupTenantImport(t)
+	dir := writeExport(t, map[string][]Doc{
+		"Cliente":  clientes(1),
+		"Moeda":    {{"doctype": "Moeda", "id": "BRL", "sigla": "BRL"}},
+		"Contrato": {{"doctype": "Contrato", "id": "CT-1", "numero": "CT-1"}},
+	})
+	run := runImport(t, e, dir, ImportArgs{})
+	if run.Status != ImportCompleted {
+		t.Fatalf("status = %s (%s) %+v", run.Status, run.Message, run.Errors)
+	}
+	excluded := false
+	for _, x := range run.Excluded {
+		if x.Doctype == "Contrato" && strings.Contains(x.Reason, "--tenant") {
+			excluded = true
+		}
+	}
+	if !excluded {
+		t.Fatalf("the tenant-only DocType was not left out: %+v", run.Excluded)
+	}
+	if got := sysScalar(t, e, `SELECT count(*) FROM tab_moeda`); got != 1 {
+		t.Fatalf("%d Moeda were loaded into the platform", got)
+	}
+	if got := sysScalar(t, e, `SELECT count(*) FROM tab_contrato`); got != 0 {
+		t.Fatalf("%d Contrato were loaded into the platform", got)
+	}
+	into := runImport(t, e, dir, ImportArgs{Tenant: tenantA})
+	if into.Status != ImportCompleted || into.Counts["Contrato"].Loaded != 1 {
+		t.Fatalf("into alfa: %s %+v %+v", into.Status, into.Counts["Contrato"], into.Errors)
+	}
+	if got := sysScalar(t, e, `SELECT count(*) FROM tab_contrato WHERE tenant = $1`, tenantA); got != 1 {
+		t.Fatalf("alfa has %d Contrato", got)
 	}
 }
 

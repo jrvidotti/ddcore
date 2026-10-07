@@ -148,8 +148,12 @@ type AppMeta struct {
 	HasAfterInstall bool                        `json:"hasAfterInstall"`
 	HasAfterMigrate bool                        `json:"hasAfterMigrate"`
 	// HasOnTenantCreate: the app seeds each new tenant (tenancy).
-	HasOnTenantCreate bool   `json:"hasOnTenantCreate"`
-	Dir               string `json:"-"`
+	HasOnTenantCreate bool `json:"hasOnTenantCreate"`
+	// Space is the default `space` of the app's DocTypes: "tenant" keeps
+	// every one of them out of the platform space unless it says otherwise
+	// (#105). Only "tenant" is accepted.
+	Space string `json:"space,omitempty"`
+	Dir   string `json:"-"`
 	// WWW is the app's static sites by URL prefix, as declared; State.WWW
 	// holds them validated (#68).
 	WWW map[string]json.RawMessage `json:"www"`
@@ -614,7 +618,17 @@ func (e *Engine) Load() error {
 	// DocType some tenant-owned DocType's; before Validate, which reserves the
 	// `tenant` column name.
 	reg.ApplyTenancy(e.Cfg.Tenancy)
+	appSpace, err := appSpaces(snap.Apps)
+	if err != nil {
+		pool.Close()
+		return err
+	}
+	reg.ApplySpaces(appSpace)
 	if err := reg.Validate(); err != nil {
+		return err
+	}
+	if err := tenantOnlyFixtures(reg, snap.Apps); err != nil {
+		pool.Close()
 		return err
 	}
 	if err := checkReportFields(reg, snap.Reports); err != nil {

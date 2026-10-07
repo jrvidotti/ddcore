@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -479,7 +480,15 @@ func (c *Ctx) TenantCreated(id string) error {
 // changing a row every other tenant reads would be the leak in reverse.
 // Like the wall itself, it does not yield to ignorePermissions — a job runs
 // with permissions ignored and is still inside its tenant.
+//
+// The other way round, a tenant-only DocType (`space: "tenant"`) is refused
+// to the platform space altogether, reads included: a row written there
+// would land where no tenant ever sees it (#105). A migration patch is the
+// exception — it sees every space, and is the one place a backfill runs.
 func (c *Ctx) spaceRefusal(d *meta.DocType, write bool) error {
+	if c.Tenant == "" && d.TenantOnly && c.Flags["inPatch"] != true && c.Tenancy() {
+		return cerr.Permission("{0} lives inside a tenant: enter one (on the command line, pass --tenant)", c.T(d.Label))
+	}
 	if c.Tenant == "" || d.TenantOwned || d.IsVirtual() {
 		return nil
 	}
@@ -488,6 +497,64 @@ func (c *Ctx) spaceRefusal(d *meta.DocType, write bool) error {
 	}
 	if write {
 		return cerr.Permission("{0} is shared by every tenant and can only be changed from the platform space", c.T(d.Label))
+	}
+	return nil
+}
+
+// SpaceRefuses reports whether this ctx's space may not even read d: a
+// tenant-only DocType in the platform space, `Site Tenant` inside a tenant.
+// Boot leaves such a DocType out, so the desk neither lists nor opens it.
+func (c *Ctx) SpaceRefuses(d *meta.DocType) bool { return c.SpaceRefusal(d) != nil }
+
+// SpaceRefusal is the error SpaceRefuses stands for, for an endpoint that
+// answers with it: `/api/meta` says why the platform cannot open a tenant's
+// DocType instead of "No permission".
+func (c *Ctx) SpaceRefusal(d *meta.DocType) error { return c.spaceRefusal(d, false) }
+
+// SpaceRefusesName is SpaceRefuses by name; an unknown DocType is not refused
+// here (whatever looks it up next says so).
+func (c *Ctx) SpaceRefusesName(doctype string) bool {
+	d, ok := c.St.Meta.Get(doctype)
+	return ok && c.SpaceRefuses(d)
+}
+
+// appSpaces is each app's default `space` for its DocTypes. "tenant" is the
+// only one an app may declare: "any" is what a DocType says to opt out of it.
+func appSpaces(apps map[string]*AppMeta) (map[string]string, error) {
+	out := map[string]string{}
+	names := mapNames(apps)
+	sort.Strings(names)
+	for _, name := range names {
+		a := apps[name]
+		if a == nil || a.Space == "" {
+			continue
+		}
+		if a.Space != meta.SpaceTenant {
+			return nil, fmt.Errorf("app %q: space %q is not %q", name, a.Space, meta.SpaceTenant)
+		}
+		out[name] = a.Space
+	}
+	return out, nil
+}
+
+// tenantOnlyFixtures refuses a fixture of a tenant-only DocType. Fixtures fill
+// the platform space, which cannot hold such a document; a new tenant's
+// starting records come from onTenantCreate.
+func tenantOnlyFixtures(reg *meta.Registry, apps map[string]*AppMeta) error {
+	names := mapNames(apps)
+	sort.Strings(names)
+	for _, name := range names {
+		a := apps[name]
+		if a == nil {
+			continue
+		}
+		doctypes := mapNames(a.Fixtures)
+		sort.Strings(doctypes)
+		for _, dt := range doctypes {
+			if d, ok := reg.Get(dt); ok && d.TenantOnly {
+				return fmt.Errorf("app %q: fixtures of %q, which lives inside a tenant: fixtures fill the platform space; give each tenant its records in onTenantCreate", name, dt)
+			}
+		}
 	}
 	return nil
 }

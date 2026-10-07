@@ -74,3 +74,52 @@ func TestTenancyRefusesASharedDocTypeThatReachesIntoATenant(t *testing.T) {
 		t.Fatalf("got %v", err)
 	}
 }
+
+func TestTenancySpacesKeepTenantOnlyDocTypesFromThePlatform(t *testing.T) {
+	r := tenancyRegistry(t,
+		&DocType{Name: "Folha", App: "demo", Space: SpaceTenant, Fields: []*Field{{Fieldname: "linhas", Fieldtype: "Table", Options: "Linha"}}},
+		&DocType{Name: "Linha", App: "demo", IsChild: true},
+		&DocType{Name: "Pessoa", App: "demo"},
+		&DocType{Name: "Ponto", App: "rh"},
+		&DocType{Name: "Aviso", App: "rh", Space: SpaceAny},
+		&DocType{Name: "Cargo", App: "rh", Shared: true},
+		&DocType{Name: "Tudo", App: "rh", Virtual: &VirtualDef{}},
+	)
+	apps := map[string]string{"rh": SpaceTenant}
+	r.ApplyTenancy(true)
+	r.ApplySpaces(apps)
+	want := map[string]bool{"Folha": true, "Linha": false, "Pessoa": false, "Ponto": true, "Aviso": false, "Cargo": false, "Tudo": false}
+	for name, only := range want {
+		if d, _ := r.Get(name); d.TenantOnly != only {
+			t.Errorf("%s: TenantOnly = %v, want %v", name, d.TenantOnly, only)
+		}
+	}
+	r.ApplyTenancy(false)
+	r.ApplySpaces(apps)
+	for name := range want {
+		if d, _ := r.Get(name); d.TenantOnly {
+			t.Errorf("%s: tenant-only with tenancy off", name)
+		}
+	}
+}
+
+func TestTenancySpaceValues(t *testing.T) {
+	for want, d := range map[string]*DocType{
+		`space "Tenant" is neither`:               {Name: "A", Space: "Tenant"},
+		"a child DocType has no space":            {Name: "B", IsChild: true, Space: SpaceTenant},
+		"a virtual DocType has no space":          {Name: "C", Virtual: &VirtualDef{}, Space: SpaceAny},
+		"a shared DocType is read in every space": {Name: "D", Shared: true, Space: SpaceTenant},
+	} {
+		r := tenancyRegistry(t, d)
+		// a typo fails without tenancy too
+		r.ApplyTenancy(false)
+		if err := r.Validate(); err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("%s: got %v, want %q", d.Name, err, want)
+		}
+	}
+	r := tenancyRegistry(t, &DocType{Name: "E", Shared: true, Space: SpaceAny})
+	r.ApplyTenancy(true)
+	if err := r.Validate(); err != nil {
+		t.Fatalf("shared with space any: %v", err)
+	}
+}

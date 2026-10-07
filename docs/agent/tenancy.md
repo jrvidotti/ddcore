@@ -41,7 +41,8 @@ A site with tenancy on and no tenant created behaves like a site without it: eve
 the platform space.
 
 A workspace, and each of its sidebar items, shortcuts and number cards, can name the space it
-shows in with `space: "platform" | "tenant"`. Without it, it shows in both. See `report-api`.
+shows in with `space: "platform" | "tenant"`. Without it, it shows in both, unless what it opens
+is a tenant-only DocType (below). See `report-api`.
 
 ## What belongs to a tenant
 
@@ -71,6 +72,63 @@ write, create, delete, submit, cancel, amend and import there. Rules, checked wh
 A shared DocType may be a Single (`isSingle: true, shared: true`): the site then has one such
 document, which every space reads and the platform space maintains — settings the operator
 keeps for everyone.
+
+### Tenant-only DocTypes
+
+A tenant-owned DocType is still reachable from the platform space. The operator works there
+on its rows with `tenant = ''`, which no tenant ever sees. For a business DocType (an
+employee, an invoice) that is never right. `space: "tenant"` says so:
+
+```ts
+export default defineDoctype({
+  name: "Employee",
+  space: "tenant", // lives inside a tenant: the platform space neither lists, reads nor writes it
+  fields: [/* … */],
+});
+
+export default defineApp({
+  name: "hr",
+  title: "HR",
+  space: "tenant", // the default of every DocType of the app
+});
+// …and a DocType of that app that the platform space needs too:
+export default defineDoctype({ name: "Holiday", space: "any", fields: [/* … */] });
+```
+
+In the platform space, such a DocType:
+
+- is left out of `GET /api/boot`, so the desk has no menu entry, search palette row or Link
+  for it. A workspace item, shortcut, number card or grouped link that opens it, or a report
+  on it, belongs to the tenants' space unless the item names a `space` of its own (see
+  `report-api`). Reports on it are left out of boot too;
+- is refused on every read and write (403): `/app/Employee`, `GET /api/meta/Employee`,
+  `POST /api/resource/Employee`, MCP `insert_doc`, `ddcore eval` or `exec` without
+  `--tenant`, a job enqueued there, a scheduled method that does not fan out, `afterInstall`,
+  `afterMigrate`, a test that has not entered a tenant. The message is "Employee lives
+  inside a tenant: enter one (on the command line, pass --tenant)". Permissions ignored do not
+  change it;
+- is left out of `ddcore import run` without `--tenant`, which lists it under the
+  exclusions ("lives inside a tenant: load it with --tenant").
+
+Some code still reaches it. Code inside a tenant does, and so does `ddcore.tenant.run`, which
+enters one. A job enqueued from inside a tenant runs there. A **migration patch** reaches it
+too: it sees every space. `ddcore.db.sql` in the platform space keeps seeing only the platform's
+rows, which is none of them.
+
+This holds from the moment tenancy is applied, before any tenant exists. A site with tenancy
+and no tenant cannot use such a DocType until a tenant is created.
+
+Rules, checked when the site loads, with tenancy on or off:
+
+- `space` is `"tenant"` or `"any"` on a DocType, and `"tenant"` on an app.
+- A shared DocType is in every space: `shared: true` with `space: "tenant"` is refused. An
+  app's `space: "tenant"` leaves its shared DocTypes alone.
+- A child DocType follows the DocTypes that use it, and a virtual DocType's sources are
+  confined on their own: neither declares `space`.
+- An app's `fixtures` cannot hold a tenant-only DocType: fixtures fill the platform space.
+  Give each tenant those records in `onTenantCreate`.
+
+`space` is the app's own: `extendDoctype` cannot change it.
 
 The secret of a `Vault` field on a shared DocType lives in the platform space, with its
 document. Every space sees the field as configured, and server code in any space reads the
@@ -319,5 +377,6 @@ DDCORE_TENANT_ROLE=ddcore_tenant   # only needed for another name
   URL is unguessable but answers anyone who has it, as on any site. Storage keys carry no tenant.
 - **Backup and restore** are of the whole database. There is no per-tenant backup or quota.
 - **MCP and `ddcore eval`** work in the platform space unless `--tenant` is given (`eval`) —
-  the MCP server always does.
+  the MCP server always does, so it reaches a tenant-only DocType only through `eval` and
+  `ddcore.tenant.run`.
 - A statement run by a migration patch outside `ddcore.tenant.run` sees every tenant.
