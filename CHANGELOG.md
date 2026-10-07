@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.27.11 — 2026-10-07
+
 ### Added
 
 - **Shared DocTypes only server code reaches.** On a site with tenancy, a shared DocType that
