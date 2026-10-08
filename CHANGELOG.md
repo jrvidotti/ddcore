@@ -14,6 +14,22 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **An app adds its own cards to the profile page.** `defineProfileSection` in
+  `@ddcore/desk-sdk`, called from a `desk.include` or `portal.include` script, puts a card after
+  the Password card on `/app/profile` and `/portal/profile`: a `title`, read-only `info` lines
+  from what `load` returns (`null` hides the card), `fields` rendered as in a form, and a
+  `submit` whose errors show on the card and whose success clears the fields and reloads it.
+  Several apps may each add theirs. See "`defineProfileSection`" in `form-api` (#121).
+
+### Changed
+
+- **The profile page shows the Password card only to someone with a local password.**
+  `profile.getMyProfile` answers `hasPassword`. Someone who signs in only through a credential
+  provider or SSO has no current password to give `changeMyPassword`, so the card was a dead end
+  for them (#121).
+
 ## 0.27.20 — 2026-10-08
 
 ### Added

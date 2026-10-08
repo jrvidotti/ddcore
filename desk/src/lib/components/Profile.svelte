@@ -6,6 +6,8 @@
   import { formatDatetime } from "$lib/format";
   import Icon from "./Icon.svelte";
   import Control from "$lib/controls/Control.svelte";
+  import ProfileSection from "./ProfileSection.svelte";
+  import { deskSDK } from "$lib/desk-sdk";
   import {
     changedEmailNotifications, describeDevice, isExpired, languageField, passwordProblem, sortSessions,
     type EmailNotifications, type SessionRow,
@@ -19,12 +21,16 @@
     id: string; email: string; fullName: string;
     language: string | null; userType: string; lastLogin: string | null; roles: string[];
     emailNotifications: EmailNotifications;
+    // false for someone who signs in only through a credential provider or SSO
+    hasPassword: boolean;
   };
 
   let profile = $state<Profile | null>(null);
   let sessions = $state<SessionRow[]>([]);
   let keys = $state<any[]>([]);
   const langField = $derived(languageField(boot.data?.langs || [], __));
+  // the cards apps add with defineProfileSection; includes load before the desk renders
+  const appSections = deskSDK.profileSections();
 
   let fullName = $state("");
   let language = $state<string | null>(null);
@@ -201,26 +207,31 @@
       <button class="btn primary" disabled={savingEmails} onclick={saveEmails}>{__("Save")}</button>
     </div>
 
-    <form class="card sect" onsubmit={changePassword}>
-      <h2>{__("Password")}</h2>
-      <div class="row">
-        <label class="fld">
-          <span class="lbl">{__("Current password")}</span>
-          <input class="input" type="password" autocomplete="current-password" bind:value={current} />
-        </label>
-        <label class="fld">
-          <span class="lbl">{__("New password")}</span>
-          <input class="input" type="password" autocomplete="new-password" bind:value={pwd} />
-        </label>
-        <label class="fld">
-          <span class="lbl">{__("Confirm the new password")}</span>
-          <input class="input" type="password" autocomplete="new-password" bind:value={confirmPwd} />
-        </label>
-      </div>
-      {#if pwdError}<div class="err small">{pwdError}</div>{/if}
-      <p class="small muted">{__("Changing the password signs out every other device.")}</p>
-      <button class="btn primary" disabled={savingPwd}>{__("Change password")}</button>
-    </form>
+    <!-- without a local password there is no current one to give -->
+    {#if profile.hasPassword}
+      <form class="card sect" onsubmit={changePassword}>
+        <h2>{__("Password")}</h2>
+        <div class="row">
+          <label class="fld">
+            <span class="lbl">{__("Current password")}</span>
+            <input class="input" type="password" autocomplete="current-password" bind:value={current} />
+          </label>
+          <label class="fld">
+            <span class="lbl">{__("New password")}</span>
+            <input class="input" type="password" autocomplete="new-password" bind:value={pwd} />
+          </label>
+          <label class="fld">
+            <span class="lbl">{__("Confirm the new password")}</span>
+            <input class="input" type="password" autocomplete="new-password" bind:value={confirmPwd} />
+          </label>
+        </div>
+        {#if pwdError}<div class="err small">{pwdError}</div>{/if}
+        <p class="small muted">{__("Changing the password signs out every other device.")}</p>
+        <button class="btn primary" disabled={savingPwd}>{__("Change password")}</button>
+      </form>
+    {/if}
+
+    {#each appSections as s (s.id)}<ProfileSection section={s} />{/each}
 
     <div class="card sect">
       <div class="head">
