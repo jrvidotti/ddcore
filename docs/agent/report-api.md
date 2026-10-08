@@ -56,7 +56,9 @@ export default defineWorkspace({
 What guards a card and a chart:
 
 - The workspace `roles` gate the workspace in boot and its `/api/workspace/{name}/card|chart`
-  endpoints; a workspace without `roles` is open to every signed-in user.
+  endpoints; a workspace without `roles` is open to every signed-in user. A desk user whose
+  roles open none of the space's workspaces lands on a page that says so, names the account
+  and offers Sign out (boot's `workspacesDenied`); give every desk role a workspace.
 - A `doctype` card also checks `read` on its DocType, and counts with the user's permissions.
 - A card or chart `method()` runs **as the calling user with no DocType check**: the workspace
   `roles` are its only gate. `ddcore.db.getList` inside it still applies the user's permissions,
