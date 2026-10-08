@@ -720,14 +720,19 @@ func (s *Server) boot(w http.ResponseWriter, r *http.Request) {
 		}
 		st := c.St
 		space := c.Space()
+		// a workspace of this space the reader's roles do not open: the desk
+		// tells "nobody declared one" from "none is yours" (#120)
+		denied := false
 		for _, ws := range st.Snap.Workspaces {
-			if !allowed(ws["roles"], roles) {
+			// the platform's and the tenants' items, each in its own space
+			if ws = st.WorkspaceForSpace(ws, space); ws == nil {
 				continue
 			}
-			// the platform's and the tenants' items, each in its own space
-			if ws = st.WorkspaceForSpace(ws, space); ws != nil {
-				workspaces = append(workspaces, st.TranslateStringMap(ws, c.Lang))
+			if !allowed(ws["roles"], roles) {
+				denied = true
+				continue
 			}
+			workspaces = append(workspaces, st.TranslateStringMap(ws, c.Lang))
 		}
 		sortWorkspaces(workspaces, c.Lang)
 		doctypes := map[string]any{}
@@ -763,11 +768,15 @@ func (s *Server) boot(w http.ResponseWriter, r *http.Request) {
 				reports[n] = map[string]any{"label": c.T(orStr(rep["label"], n)), "refDoctype": rep["refDoctype"], "app": rep["app"]}
 			}
 		}
-		return map[string]any{
+		out := map[string]any{
 			"user": c.User, "roles": roles, "userDoc": userDoc, "lang": c.Lang, "langs": langs, "apps": apps,
 			"workspaces": workspaces, "doctypes": doctypes, "virtuals": virtuals, "reports": reports, "portals": portalsFor(c), "portalIncludes": s.portalIncludeApps(),
 			"site": site, "loaded": s.E.Loaded.UnixMilli(),
-		}, nil
+		}
+		if len(workspaces) == 0 && denied {
+			out["workspacesDenied"] = true
+		}
+		return out, nil
 	})
 }
 

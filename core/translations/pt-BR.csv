@@ -54,6 +54,7 @@ Applicable For,Aplicável Para,# core.doctypes.user_permission.user_permission.d
 Apply,Aplicar,# desk/src/lib/controls/Grid.svelte:84
 Apps reloaded,Apps recarregadas,# desk/src/routes/+layout.svelte:190
 Arguments,Argumentos,# core.doctypes.email_delivery.email_delivery.doctype
+"Ask an administrator to give you a role, then sign in again.",Peça a um administrador que lhe atribua um papel e entre novamente.,# desk/src/routes/app/+page.svelte:35
 Ask for a new link,Pedir um novo link,# desk/src/routes/login/reset/+page.svelte:47
 Assign,Atribuir,# desk/src/lib/components/AssignModal.svelte:120
 Assign document,Atribuir documento,# desk/src/lib/components/AssignModal.svelte:73
@@ -873,9 +874,12 @@ Write a comment,Escreva um comentário,# desk/src/lib/components/DocSidebar.svel
 "Wrong check digit in {0}: ""{1}""","Dígito verificador incorreto em {0}: ""{1}""",# internal/barcode/barcode.go:166
 Year/month/day,Ano/mês/dia,# desk/src/lib/components/DataImportModal.svelte:164
 Yes,Sim,# desk/src/lib/components/FormView.svelte:203
+"You are signed in as {0} in {1}, but none of your roles opens a module.","Você entrou como {0} em {1}, mas nenhum dos seus papéis dá acesso a um módulo.",# desk/src/routes/app/+page.svelte:32
+"You are signed in as {0}, but none of your roles opens a module.","Você entrou como {0}, mas nenhum dos seus papéis dá acesso a um módulo.",# desk/src/routes/app/+page.svelte:33
 You cannot change this field,Você não pode alterar este campo,# internal/engine/data_import.go:363
 You cannot grant {0} on {1} {2} without holding it,Você não pode conceder {0} em {1} {2} sem tê-lo,# internal/engine/share.go:318
 You cannot share a document with yourself,Você não pode compartilhar um documento com você mesmo,# internal/engine/share.go:302
+You do not have access to any module yet,Você ainda não tem acesso a nenhum módulo,# desk/src/routes/app/+page.svelte:29
 You have been invited to {0},Você foi convidado para {0},# core/mail/invite.mail.ts:20
 You have not sent any feedback yet.,Você ainda não enviou nenhum feedback.,# desk/src/lib/components/FeedbackModal.svelte:341
 You sent {0} feedbacks in the last hour; try again later,Você enviou {0} feedbacks na última hora; tente novamente mais tarde,# internal/engine/feedback.go:198

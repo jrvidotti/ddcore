@@ -9,11 +9,10 @@
   import SpaceBadge from "./SpaceBadge.svelte";
   import { spaceKind, withSpace } from "$lib/tenant";
   import { page } from "$app/state";
-  import { api } from "$lib/api";
   import { goto } from "$app/navigation";
-  import { notifications, stopNotifications } from "$lib/notifications.svelte";
+  import { notifications } from "$lib/notifications.svelte";
   import { pendingTasks } from "$lib/assignments.svelte";
-  import { disconnectEvents } from "$lib/events";
+  import { signOut } from "$lib/sign-out";
   import { panels, setSidebarCollapsed } from "$lib/panels.svelte";
   import { isActiveLink, systemDoctypes } from "./sidebar";
   import {
@@ -71,10 +70,7 @@
   const itemHref = (it: any) => workspaceItemHref(activeWorkspace?.name || "", it);
   async function logout() {
     if (typeof window !== "undefined" && window.innerWidth <= 800) open = false;
-    await api.logout();
-    stopNotifications();
-    disconnectEvents();
-    location.href = "/login";
+    await signOut();
   }
   const otherDoctypes = $derived(systemDoctypes(boot.data));
   let showCore = $state(false);
