@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.27.19 — 2026-10-08
+
 ### Changed
 
 - **Credential sign-in asks for the organization instead of listing tenants.** The provider's
