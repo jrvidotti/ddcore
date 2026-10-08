@@ -8,7 +8,7 @@ import { registerForm, type FormHandlers, FormController } from "./form.svelte";
 import { dialog, toast, confirm, prompt, showError } from "./ui.svelte";
 import { __, boot, hasRole } from "./boot.svelte";
 import { formatCurrency, formatDate, formatNumber, formatValue, roundCurrency, statusColor } from "./format";
-import { getMeta } from "./meta";
+import { getMeta, type Field } from "./meta";
 import { addDays, addMonths, dateDiff, monthDiff, monthEnd, monthStart, today } from "./datetime";
 import { getRememberedWorkspace } from "./components/sidebar-workspace";
 import { refreshPendingCount } from "./assignments.svelte";
@@ -152,12 +152,34 @@ export interface ListViewOptions<T extends BaseDoc = BaseDoc> {
   toolbarActions?: ListToolbarAction[];
 }
 
+/** A card an app adds to the profile page; see `ProfileSection` in packages/desk-sdk. */
+export interface ProfileSection<D = any> {
+  id: string;
+  title: string;
+  load?: () => D | null | undefined | Promise<D | null | undefined>;
+  info?: (data: D) => { label: string; value: any }[];
+  description?: string;
+  fields?: Field[];
+  primaryLabel?: string;
+  submit?: (values: Record<string, any>, data: D) => any;
+  successMessage?: string;
+}
+
 const listRegistry = new Map<string, any>();
+// A list, as several apps may each add a card; includes finish loading before
+// the desk renders, so the profile page reads it once.
+const profileRegistry: ProfileSection[] = [];
 
 export const deskSDK = {
   defineForm(doctype: string, handlers: FormHandlers) { registerForm(doctype, handlers); },
   defineListView(doctype: string, opts: any) { listRegistry.set(doctype, opts); },
   listSettings(doctype: string) { return listRegistry.get(doctype); },
+  defineProfileSection(section: ProfileSection) {
+    const i = profileRegistry.findIndex((s) => s.id === section.id);
+    if (i >= 0) profileRegistry[i] = section;
+    else profileRegistry.push(section);
+  },
+  profileSections(): ProfileSection[] { return [...profileRegistry]; },
   FormController,
   ddcore: {
     _: __,

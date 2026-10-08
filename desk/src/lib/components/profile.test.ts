@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { changedEmailNotifications, describeDevice, isExpired, languageField, passwordProblem, sortSessions } from "./profile";
+import {
+  changedEmailNotifications, describeDevice, isExpired, languageField, missingRequired, passwordProblem, sectionValues,
+  sortSessions,
+} from "./profile";
 
 const t = (s: string, args?: any[]) =>
   args ? args.reduce<string>((acc, v, i) => acc.replaceAll(`{${i}}`, String(v)), s) : s;
@@ -122,5 +125,27 @@ describe("changedEmailNotifications", () => {
     expect(changedEmailNotifications(all, { ...all, share: false })).toEqual({ share: false });
     expect(changedEmailNotifications({ ...all, due: false, share: false }, { ...all, share: false }))
       .toEqual({ due: true });
+  });
+});
+
+describe("profile sections' fields", () => {
+  const fields = [
+    { fieldname: "password", fieldtype: "Password", label: "New password", reqd: true },
+    { fieldname: "note", fieldtype: "Data", label: "Note", default: "hi" },
+    { fieldtype: "Section Break" },
+  ];
+
+  it("start from each field's default", () => {
+    expect(sectionValues(fields)).toEqual({ password: null, note: "hi" });
+    expect(sectionValues()).toEqual({});
+  });
+
+  it("name the first required field left empty", () => {
+    expect(missingRequired(fields, { password: "", note: "" })).toBe("New password");
+    expect(missingRequired(fields, { password: "secret123" })).toBe("");
+  });
+
+  it("do not ask for a hidden field", () => {
+    expect(missingRequired([{ ...fields[0], hidden: true }], {})).toBe("");
   });
 });

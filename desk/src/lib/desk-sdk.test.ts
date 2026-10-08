@@ -18,6 +18,20 @@ vi.mock("./boot.svelte", () => ({
 
 import { deskSDK } from "./desk-sdk";
 
+describe("deskSDK profile sections", () => {
+  it("keeps the order apps register them in, and replaces one registered again by id", () => {
+    deskSDK.defineProfileSection({ id: "a", title: "A" });
+    deskSDK.defineProfileSection({ id: "b", title: "B" });
+    deskSDK.defineProfileSection({ id: "a", title: "A again" });
+    expect(deskSDK.profileSections().map((s) => [s.id, s.title])).toEqual([["a", "A again"], ["b", "B"]]);
+  });
+
+  it("hands out a copy, so the page cannot change the registry", () => {
+    deskSDK.profileSections().length = 0;
+    expect(deskSDK.profileSections().length).toBeGreaterThan(0);
+  });
+});
+
 describe("deskSDK listRegistry", () => {
   it("registers and retrieves listView options including docstatusFilter", () => {
     deskSDK.defineListView("Contrato", { docstatusFilter: false });

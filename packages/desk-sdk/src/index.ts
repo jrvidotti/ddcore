@@ -595,6 +595,47 @@ export interface ListViewOptions<T extends BaseDoc = BaseDoc> {
 }
 
 export declare function defineListView<T extends BaseDoc = BaseDoc>(doctype: string, opts: ListViewOptions<T>): void;
+
+/** A read-only line on a profile section, laid out like the Account card's. */
+export interface ProfileSectionInfo {
+  /** Shown as given — wrap it in `__()`. */
+  label: string;
+  value: any;
+}
+
+/**
+ * A card an app adds to the profile page (`/app/profile` and `/portal/profile`), after the
+ * Password card. Register it from a `desk.include` or `portal.include` script; every string is
+ * shown as given, so wrap each one in `__()`.
+ */
+export interface ProfileSection<D = any> {
+  /** Unique key; registering the same id again replaces the section. */
+  id: string;
+  title: string;
+  /**
+   * The card's data, handed to `info` and `submit`. `null` or `undefined` hides the card, for
+   * a person it does not apply to; a throw shows the message on the card. Left out, the card
+   * always shows.
+   */
+  load?: () => D | null | undefined | Promise<D | null | undefined>;
+  /** Read-only lines above the fields. */
+  info?: (data: D) => ProfileSectionInfo[];
+  /** A muted note above the button. */
+  description?: string;
+  /** Rendered as in a form; a `reqd` field left empty stops the submit. */
+  fields?: FieldDef[];
+  /** The button's text; `Save` when left out. */
+  primaryLabel?: string;
+  /**
+   * Runs on the button. A throw, or a rejected `ddcore.call`, shows its message on the card;
+   * a success clears the fields and runs `load` again.
+   */
+  submit?: (values: Record<string, any>, data: D) => any;
+  /** A green toast after a successful submit. */
+  successMessage?: string;
+}
+
+export declare function defineProfileSection<D = any>(section: ProfileSection<D>): void;
 export declare const ddcore: DeskAPI;
 export declare const _: DeskAPI["_"];
 

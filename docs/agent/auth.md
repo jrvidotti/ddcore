@@ -480,6 +480,11 @@ the permission check. `emailNotifications` holds one boolean per kind of email t
 core sends for its own notifications (`true` = send); a key left out is not changed.
 See [notifications](notifications.md), "Email for the core's own notifications".
 
+`getMyProfile` answers `hasPassword`, and never the hash. The profile page shows its Password card only
+when it is `true`: `changeMyPassword` asks for the current password, and someone who signs in only
+through a credential provider or SSO has none to give. An app that signs people in through its own
+provider adds its own card to the page with `defineProfileSection` (see `form-api`).
+
 System Manager only: `users.invite`, `users.resendInvite`,
 `users.sendPasswordReset`, `users.accountStatus`, `users.revokeUserSessions`,
 `users.unlockUser`.

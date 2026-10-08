@@ -642,3 +642,50 @@ A DocType may have **several** form scripts: its owner's `<snake>.form.ts`, plus
 
 Global scripts (`client/*.ts`, listed under `desk.include` in `ddcore.app.ts`) run across the whole desk: masks, shortcuts, `defineForm` for several DocTypes.
 Date field inputs carry `data-fieldname` and `data-fieldtype` for masks applied by event delegation.
+
+## `defineProfileSection`
+
+An app adds its own card to the profile page — `/app/profile` and `/portal/profile` — from a global
+script: `desk.include` for the desk, `portal.include` for the portal (see `portal`). A Website User
+loads only the portal's includes, so a card meant for them is registered there. Cards come after the
+Password card, in the order they were registered; several apps may each add theirs, and registering
+an `id` again replaces that card.
+
+```ts
+// client/profile.ts, listed under desk.include in ddcore.app.ts
+import { defineProfileSection, ddcore } from "@ddcore/desk-sdk";
+
+defineProfileSection<{ strength: string }>({
+  id: "tagone_password",
+  title: __("TagOne password"),
+  // null hides the card: this person does not sign in through TagOne
+  load: () => ddcore.call("tagone.services.profile.myTagonePassword"),
+  info: (d) => [{ label: __("Password strength at last sign-in"), value: d.strength }],
+  description: __("Changes your password in TagOne."),
+  fields: [
+    { fieldname: "password", fieldtype: "Password", label: __("New password"), reqd: true },
+    { fieldname: "confirm", fieldtype: "Password", label: __("Confirm the new password"), reqd: true },
+  ],
+  primaryLabel: __("Change TagOne password"),
+  successMessage: __("TagOne password changed."),
+  submit: (values) => {
+    if (values.password !== values.confirm) throw new Error(__("The two passwords do not match"));
+    return ddcore.call("tagone.services.profile.changeMyTagonePassword", { password: values.password });
+  },
+});
+```
+
+- Every string is shown as given, so wrap each one in `__()`.
+- `load` runs when the page opens. Its result goes to `info` and `submit`. `null` or `undefined`
+  hides the card; a throw shows its message on the card instead of the info and fields. With no
+  `load`, the card always shows.
+- `fields` are rendered as in a form. A `reqd` field left empty stops the submit with
+  "Fill in {0}".
+- A throw from `submit`, or a rejected `ddcore.call`, shows its message on the card, as the Password
+  card shows a wrong current password. A success clears the fields, shows `successMessage` as a toast
+  when there is one, and runs `load` again.
+- A card with no `fields` and no `submit` shows only its info and description.
+- The core's Password card shows only when the person has a local password. `getMyProfile` answers
+  `hasPassword`. Someone who signs in only through a credential provider or SSO has none, so a card
+  like the one above is the only password card they see.
+- Includes are loaded once per page load, so a change to the script shows after the browser reloads.

@@ -4,6 +4,7 @@ const d = globalThis.__ddcoreDesk;
 if (!d) throw new Error("@ddcore/desk-sdk: o desk ainda não carregou");
 export const defineForm = d.defineForm;
 export const defineListView = d.defineListView;
+export const defineProfileSection = d.defineProfileSection;
 export const ddcore = d.ddcore;
 export const _ = d.ddcore._;
 export default d;

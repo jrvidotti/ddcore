@@ -36,6 +36,27 @@ func TestSEC04_GetMyProfile(t *testing.T) {
 	if _, ok := d["password_hash"]; ok {
 		t.Error("password_hash must not appear in profile")
 	}
+	if d["hasPassword"] != true {
+		t.Errorf("a user with a local password should have hasPassword, got %v", d["hasPassword"])
+	}
+}
+
+// Someone who signs in only through a credential provider or SSO has no local
+// password, so the profile page has no Password card to offer them.
+func TestSEC04_GetMyProfileWithoutPassword(t *testing.T) {
+	x := setup(t)
+	// the session is opened with the password, which is then taken away
+	sid := x.sid("ze@x.com")
+	x.asAdmin(func(c *engine.Ctx) error {
+		_, err := c.Q().Exec(c.Ctx, "UPDATE tab_user SET password_hash = NULL WHERE id = $1", "ze@x.com")
+		return err
+	})
+	r := x.call("POST", "/api/method/core.services.profile.getMyProfile", nil, "sid:"+sid)
+	x.expect(r, 200, "")
+	d, _ := r.Body["data"].(map[string]any)
+	if d == nil || d["hasPassword"] != false {
+		t.Fatalf("a user without a local password should have hasPassword false: %s", r.Raw)
+	}
 }
 
 // Each notification email is on until its owner turns it off, and turning one

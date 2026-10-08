@@ -124,3 +124,23 @@ export function changedEmailNotifications(
   }
   return changed;
 }
+
+/** What an app's profile section starts its fields with: each field's default, or empty. */
+export function sectionValues(fields: Field[] = []): Record<string, any> {
+  const values: Record<string, any> = {};
+  for (const f of fields) if (f.fieldname) values[f.fieldname] = f.default ?? null;
+  return values;
+}
+
+/**
+ * The label of the first required field left empty, or "" when there is none —
+ * the same test a dialog makes before it runs its primary action.
+ */
+export function missingRequired(fields: Field[] = [], values: Record<string, any>): string {
+  for (const f of fields) {
+    if (!f.reqd || !f.fieldname || f.hidden) continue;
+    const v = values[f.fieldname];
+    if (v === null || v === undefined || v === "") return f.label || f.fieldname;
+  }
+  return "";
+}
