@@ -11,7 +11,9 @@ vi.mock("$lib/boot.svelte", () => ({
 vi.mock("$lib/titles.svelte", () => ({ getLinkTitle: () => "", setLinkTitle: vi.fn() }));
 const confirmMock = vi.fn(async () => true);
 const dialogs: any[] = [];
+const shown: any[] = [];
 vi.mock("$lib/ui.svelte", () => ({
+  showError: (e: any) => shown.push(e),
   confirm: (...a: any[]) => (confirmMock as any)(...a),
   dialog: (opts: any) => { dialogs.push(opts); return { show: vi.fn(), hide: vi.fn() }; },
 }));
@@ -28,7 +30,7 @@ const childMeta: any = {
   ],
 };
 
-function setup(field: any, perms: Record<string, boolean> = { export: true }, onCellClick: Record<string, (row: any) => void> = {}, editable = true, fieldButtons: Record<string, any[]> = {}) {
+function setup(field: any, perms: Record<string, boolean> = { export: true }, onCellClick: Record<string, (row: any) => void> = {}, editable = true, fieldButtons: Record<string, any[]> = {}, gridActions: Record<string, any[]> = {}) {
   const doc = $state<any>({
     id: "C-1",
     students: [
@@ -37,8 +39,12 @@ function setup(field: any, perms: Record<string, boolean> = { export: true }, on
       { id: "r3", idx: 3, employee_name: "Bia", grade: 8, in_class: 1, unit: "Sao Carlos" },
     ],
   });
+  const selections = new Map<string, { rows: () => any[]; clear: () => void }>();
   const frm: any = {
-    doc, doctype: "Course", meta: { permissions: perms }, fieldButtons,
+    doc, doctype: "Course", meta: { permissions: perms }, fieldButtons, gridActions,
+    registerGridSelection(fieldname: string, sel: any) { selections.set(fieldname, sel); return () => selections.delete(fieldname); },
+    getSelectedRows: (fieldname: string) => selections.get(fieldname)?.rows() ?? [],
+    clearSelection: (fieldname: string) => selections.get(fieldname)?.clear(),
     isFieldEditable: () => editable,
     isSetOnce: () => false,
     isFieldMandatory: () => false,
@@ -56,7 +62,7 @@ function setup(field: any, perms: Record<string, boolean> = { export: true }, on
   flushSync();
   const names = () => [...target.querySelectorAll("tbody tr")].map((tr) => tr.querySelectorAll("td")[field.gridSelect ? 2 : 1]?.textContent?.trim());
   const click = (el: Element | null) => { (el as HTMLElement).click(); flushSync(); };
-  return { doc, frm, target, names, click, done: () => { unmount(view); target.remove(); } };
+  return { doc, frm, target, names, click, done: () => { unmount(view); target.remove(); expect(selections.size).toBe(0); } };
 }
 
 describe("Grid", () => {
@@ -296,5 +302,78 @@ describe("Grid field buttons", () => {
     const g = setup({}, {});
     expect(g.target.querySelector(".grid-toolbar")).toBeNull();
     g.done();
+  });
+});
+
+describe("Grid actions on the selected rows", () => {
+  const boxes = (t: any) => [...t.target.querySelectorAll("tbody input[type=checkbox]")] as HTMLInputElement[];
+  const actionButtons = (t: any) => [...t.target.querySelectorAll(".grid-toolbar .grid-action")] as HTMLButtonElement[];
+  const search = (t: any, q: string) => {
+    const box = t.target.querySelector(".grid-toolbar input.grid-search") as HTMLInputElement;
+    box.value = q; box.dispatchEvent(new Event("input", { bubbles: true })); flushSync();
+  };
+
+  it("frm.getSelectedRows gives the selected rows still on screen, in screen order, and clearSelection empties them", () => {
+    const t = setup({ gridSelect: true, gridSort: { field: "grade", order: "desc" }, gridSearch: ["employee_name"] });
+    expect(t.frm.getSelectedRows("students")).toEqual([]);
+    t.click(t.target.querySelector("thead input[type=checkbox]"));
+    expect(t.frm.getSelectedRows("students").map((r: any) => r.employee_name)).toEqual(["Ana", "Bia", "Zoe"]);
+    search(t, "a"); // Zoe leaves the screen but stays ticked
+    expect(t.frm.getSelectedRows("students").map((r: any) => r.employee_name)).toEqual(["Ana", "Bia"]);
+    expect(t.frm.getSelectedRows("students")[0]).toBe(t.doc.students[1]);
+    t.frm.clearSelection("students");
+    flushSync();
+    expect(t.frm.getSelectedRows("students")).toEqual([]);
+    expect(boxes(t).some((b) => b.checked)).toBe(false);
+    t.done();
+  });
+
+  it("shows each action with the count of selected rows it applies to, only while some do", () => {
+    const enable = { label: "Enable", primary: true, condition: (r: any) => !r.in_class, onClick: vi.fn() };
+    const roles = { label: "Set Roles", onClick: vi.fn() };
+    const t = setup({ gridSelect: true }, {}, {}, false, {}, { students: [enable, roles] });
+    expect(actionButtons(t)).toEqual([]);
+    t.click(boxes(t)[0]); // Zoe, in class
+    expect(actionButtons(t).map((b) => b.textContent?.trim())).toEqual(["Set Roles (1)"]);
+    t.click(boxes(t)[1]); // Ana
+    expect(actionButtons(t).map((b) => [b.textContent?.trim(), b.classList.contains("primary")])).toEqual([["Enable (1)", true], ["Set Roles (2)", false]]);
+    t.done();
+  });
+
+  it("hands the action its rows, keeps the buttons disabled while it runs, then clears the selection", async () => {
+    let finish!: () => void;
+    const onClick = vi.fn(() => new Promise<void>((r) => (finish = r)));
+    const t = setup({ gridSelect: true, gridSort: { field: "employee_name" } }, {}, {}, true, {}, { students: [{ label: "Enable", onClick }, { label: "Disable", onClick: vi.fn() }] });
+    t.click(t.target.querySelector("thead input[type=checkbox]"));
+    t.click(actionButtons(t)[0]);
+    expect(onClick).toHaveBeenCalledWith([t.doc.students[1], t.doc.students[2], t.doc.students[0]]);
+    expect(actionButtons(t).every((b) => b.disabled)).toBe(true);
+    finish();
+    await tick(); await tick();
+    flushSync();
+    expect(actionButtons(t)).toEqual([]);
+    expect(t.frm.getSelectedRows("students")).toEqual([]);
+    expect(t.target.querySelector(".grid-toolbar")).toBeNull();
+    t.done();
+  });
+
+  it("shows a rejection and still clears the selection", async () => {
+    shown.length = 0;
+    const err = new Error("not allowed");
+    const t = setup({ gridSelect: true }, {}, {}, true, {}, { students: [{ label: "Enable", onClick: async () => { throw err; } }] });
+    t.click(boxes(t)[1]);
+    t.click(actionButtons(t)[0]);
+    await tick(); await tick();
+    flushSync();
+    expect(shown).toEqual([err]);
+    expect(t.frm.getSelectedRows("students")).toEqual([]);
+    t.done();
+  });
+
+  it("no gridSelect, no actions", () => {
+    const t = setup({}, {}, {}, true, {}, { students: [{ label: "Enable", onClick: vi.fn() }] });
+    expect(t.target.querySelector("input[type=checkbox]")).toBeNull();
+    expect(actionButtons(t)).toEqual([]);
+    t.done();
   });
 });

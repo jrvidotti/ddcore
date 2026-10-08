@@ -21,6 +21,28 @@ export interface FieldButton {
   key?: string;
 }
 
+/**
+ * An action on the rows ticked in a `gridSelect` grid (a Table or a Report
+ * field): a button in the grid's toolbar reading `label (n)`, shown while at
+ * least one selected row on screen passes `condition`.
+ */
+export interface GridAction<R = any> {
+  /** visible text; the desk appends the count of selected rows it applies to */
+  label: string;
+  /**
+   * gets the selected rows on screen that pass `condition`, in screen order —
+   * a Table's own row objects, so `frm.setRowValue` takes them as they are.
+   * The grid's actions are disabled until it settles, a rejection is shown,
+   * and either way the selection is cleared.
+   */
+  onClick: (rows: R[]) => any;
+  /** which selected rows the action applies to; one that throws counts as false */
+  condition?: (row: R) => boolean;
+  primary?: boolean;
+  /** identity within the field (the label when missing); a second call with the same key replaces the action */
+  key?: string;
+}
+
 export interface Frm<T extends BaseDoc = BaseDoc> {
   doc: T;
   doctype: string;
@@ -49,6 +71,17 @@ export interface Frm<T extends BaseDoc = BaseDoc> {
   addFieldButton(fieldname: string, button: FieldButton): this;
   /** removes one button by `key`, or every button on the field when no key is given */
   removeFieldButton(fieldname: string, key?: string): void;
+  /**
+   * the rows ticked in a `gridSelect` grid (Table or Report field) that are still
+   * on screen after its search and filters, in screen order; none while the grid is not shown
+   */
+  getSelectedRows<R = any>(fieldname: string): R[];
+  /** unticks every row of a `gridSelect` grid */
+  clearSelection(fieldname: string): void;
+  /** adds an action on a `gridSelect` grid's selected rows; adding twice with the same `key` (or label) replaces it */
+  addGridAction<R = any>(fieldname: string, action: GridAction<R>): this;
+  /** removes one action by `key` (or label), or every action on the field when none is given */
+  removeGridAction(fieldname: string, key?: string): void;
   setPrimaryAction(label: string, action: () => any): void;
   setInnerGroupAsPrimary(group: string): void;
   addIndicator(label: string, color?: string): void;

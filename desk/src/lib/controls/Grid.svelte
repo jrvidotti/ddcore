@@ -13,6 +13,7 @@
   import { getLinkTitle } from "$lib/titles.svelte";
   import { downloadTable, exportBaseName, exportTable, filterRows, nextSort, searchRows, sortRows, type GridSortState } from "$lib/grid-rows";
   import FieldButtons from "./FieldButtons.svelte";
+  import GridActions from "./GridActions.svelte";
   import GridExport from "./GridExport.svelte";
   import GridFilters from "./GridFilters.svelte";
   import GridSearch from "./GridSearch.svelte";
@@ -55,8 +56,13 @@
   // only rows still in the table count: a removed row, or every row after a
   // reload (which brings new row objects), drops out of the selection
   const chosen = $derived(visibleRows.filter((r) => selected.has(r)));
+  // the same rows in screen order: what export, the script's grid actions and
+  // frm.getSelectedRows get
+  const chosenOnScreen = $derived(viewRows.filter((r) => selected.has(r)));
   const allSelected = $derived(visibleRows.length > 0 && chosen.length === visibleRows.length);
   const canDelete = $derived(!dialogOnly && editable && !cannotDelete);
+
+  $effect(() => frm.registerGridSelection(field.fieldname!, { rows: () => chosenOnScreen, clear: () => (selected = new Set()) }));
 
   function toggleSort(c: Field) { userSort = nextSort(sort, c.fieldname!, baseSort); }
   function toggle(row: any) { const s = new Set(selected); if (s.has(row)) s.delete(row); else s.add(row); selected = s; }
@@ -71,7 +77,7 @@
     frm.trigger(field.fieldname!);
   }
   function exportRows(format: "csv" | "xlsx") {
-    const out = chosen.length ? viewRows.filter((r) => selected.has(r)) : viewRows;
+    const out = chosen.length ? chosenOnScreen : viewRows;
     const { header, cells } = exportTable(out, columns, getLinkTitle);
     downloadTable(format, exportBaseName(frm.doctype, frm.doc.id, field.fieldname), header, cells, field.label);
   }
@@ -134,6 +140,7 @@
         {#if presets.length}<GridFilters filters={presets} {active} ontoggle={toggleFilter} />{/if}
         {#if selectable && chosen.length}
           <span class="muted">{__("{0} selected", [chosen.length])}</span>
+          <GridActions actions={frm.gridActions[field.fieldname!] || []} rows={chosenOnScreen} ondone={() => (selected = new Set())} />
           {#if canDelete}<button class="btn sm danger" onclick={deleteSelected}><Icon name="trash" size={14} />{__("Delete selected")}</button>{/if}
           <button class="btn sm" onclick={() => toggleAll(false)}>{__("Clear selection")}</button>
         {/if}

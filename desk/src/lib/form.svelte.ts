@@ -95,6 +95,28 @@ export interface FieldButton {
   key?: string;
 }
 
+/**
+ * An action on the rows ticked in a Table's or a Report field's grid (see
+ * frm.addGridAction): a button in the grid's toolbar reading `label (n)`.
+ */
+export interface GridAction<R = any> {
+  /** visible text; the desk appends the count of selected rows it applies to */
+  label: string;
+  /** gets the selected rows on screen that pass `condition`, in screen order; the selection is cleared once it settles */
+  onClick: (rows: R[]) => any;
+  /** which selected rows the action applies to; one that throws counts as false */
+  condition?: (row: R) => boolean;
+  primary?: boolean;
+  /** identity within the field (the label when missing); a second call with the same key replaces the action */
+  key?: string;
+}
+
+/** What a grid on screen lends the form: its selected rows and a way to clear them. */
+export interface GridSelection {
+  rows: () => any[];
+  clear: () => void;
+}
+
 export class FormController {
   doc = $state<any>({});
   original = "";
@@ -109,6 +131,9 @@ export class FormController {
   basePath = "";
   buttons = $state<Button[]>([]);
   fieldButtons = $state<Record<string, FieldButton[]>>({});
+  gridActions = $state<Record<string, GridAction[]>>({});
+  /** the selection of each Table or Report field's grid on screen, registered by the grid */
+  private gridSelections = new Map<string, GridSelection>();
   primaryAction = $state<{ label: string; action: () => any } | null>(null);
   indicators = $state<{ label: string; color: string }[]>([]);
   dfProps = $state<Record<string, Partial<Field>>>({});
@@ -338,7 +363,7 @@ export class FormController {
     return this;
   }
   removeButton(label: string) { this.buttons = this.buttons.filter((b) => b.label !== label); }
-  clearButtons() { this.buttons = []; this.indicators = []; this.clearFieldButtons(); }
+  clearButtons() { this.buttons = []; this.indicators = []; this.clearFieldButtons(); this.gridActions = {}; }
 
   /**
    * Attaches a button to a field's control. Adding twice for the same field and
@@ -361,6 +386,37 @@ export class FormController {
     else delete this.fieldButtons[fieldname];
   }
   clearFieldButtons() { this.fieldButtons = {}; }
+
+  /**
+   * Adds an action on the rows ticked in a gridSelect grid. Adding twice for the
+   * same field and `key` (the label when there is none) replaces the action.
+   */
+  addGridAction(fieldname: string, action: GridAction) {
+    const key = action.key ?? action.label;
+    const list = [...(this.gridActions[fieldname] || [])];
+    const i = list.findIndex((a) => (a.key ?? a.label) === key);
+    if (i >= 0) list[i] = { ...action };
+    else list.push({ ...action });
+    this.gridActions[fieldname] = list;
+    return this;
+  }
+  /** Removes one action by `key` (or label), or every action on the field when none is given. */
+  removeGridAction(fieldname: string, key?: string) {
+    if (key === undefined) { delete this.gridActions[fieldname]; return; }
+    const list = (this.gridActions[fieldname] || []).filter((a) => (a.key ?? a.label) !== key);
+    if (list.length) this.gridActions[fieldname] = list;
+    else delete this.gridActions[fieldname];
+  }
+  /** A grid lends its selection while it is on screen; the function returned takes it back. */
+  registerGridSelection(fieldname: string, selection: GridSelection) {
+    this.gridSelections.set(fieldname, selection);
+    return () => { if (this.gridSelections.get(fieldname) === selection) this.gridSelections.delete(fieldname); };
+  }
+  /** The rows ticked in a field's grid that are still on screen, in screen order; none when the grid is not shown. */
+  getSelectedRows(fieldname: string): any[] {
+    return [...(this.gridSelections.get(fieldname)?.rows() ?? [])];
+  }
+  clearSelection(fieldname: string) { this.gridSelections.get(fieldname)?.clear(); }
   setPrimaryAction(label: string, action: () => any) { this.primaryAction = { label, action }; }
   setInnerGroupAsPrimary(group: string) { this.buttons = this.buttons.map((b) => (b.group === group ? { ...b, primary: true } : b)); }
   addIndicator(label: string, color = "blue") { this.indicators.push({ label, color }); }

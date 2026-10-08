@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { actionRows, visibleActions, visibleToolbarActions } from "./list-actions";
+import { actionRows, visibleActions, visibleGridActions, visibleToolbarActions } from "./list-actions";
 
 const rows = [
   { id: "a", status: "Draft" },
@@ -37,6 +37,26 @@ describe("visibleActions", () => {
 
   it("shows nothing without a selection", () => {
     expect(visibleActions([{ label: "All", onClick() {} }], rows, new Set())).toEqual([]);
+  });
+});
+
+describe("visibleGridActions", () => {
+  it("hands each action the selected rows, in the order given, that pass its condition", () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const drafts = { label: "Submit", condition: (r: any) => r.status === "Draft", onClick() {} };
+    const all = { label: "All", onClick() {} };
+    const boom = { label: "Boom", condition: (r: any) => { if (r.id === "a") throw new Error("boom"); return true; }, onClick() {} };
+    const picked = [rows[2], rows[1], rows[0]];
+    const visible = visibleGridActions([drafts, all, boom], picked);
+    expect(visible.map((v) => [v.action.label, v.rows.map((r) => r.id)])).toEqual([["Submit", ["c", "a"]], ["All", ["c", "b", "a"]], ["Boom", ["c", "b"]]]);
+    expect(err).toHaveBeenCalled();
+    err.mockRestore();
+  });
+
+  it("hides an action no selected row passes, and every action without a selection", () => {
+    const submit = { label: "Submit", condition: (r: any) => r.status === "Draft", onClick() {} };
+    expect(visibleGridActions([submit], [rows[1]])).toEqual([]);
+    expect(visibleGridActions([{ label: "All", onClick() {} }], [])).toEqual([]);
   });
 });
 

@@ -8,15 +8,16 @@
   import { getLinkTitle } from "$lib/titles.svelte";
   import { isNumericFieldtype, type GridFilter } from "$lib/meta";
   import { downloadTable, exportTable, filterRows, nextSort, searchRows, sortRows, type GridSortState } from "$lib/grid-rows";
-  import type { FieldButton } from "$lib/form.svelte";
+  import type { FieldButton, GridAction } from "$lib/form.svelte";
   import FieldButtons from "$lib/controls/FieldButtons.svelte";
+  import GridActions from "$lib/controls/GridActions.svelte";
   import GridExport from "$lib/controls/GridExport.svelte";
   import GridFilters from "$lib/controls/GridFilters.svelte";
   import GridSearch from "$lib/controls/GridSearch.svelte";
 
   let {
     columns, rows, wsPrefix, filename, sheetName,
-    baseSort = null, sortable = false, selectable = false, exportable = false, filters = [], search = [], buttons = [],
+    baseSort = null, sortable = false, selectable = false, exportable = false, filters = [], search = [], buttons = [], actions = [],
     clickable = new Set(), oncellclick,
   }: {
     columns: any[]; rows: any[]; wsPrefix: string; filename: string; sheetName?: string;
@@ -26,6 +27,8 @@
     search?: string[];
     /** a Report field's own actions (see frm.addFieldButton), shown in the toolbar */
     buttons?: FieldButton[];
+    /** a Report field's actions on the selected rows (see frm.addGridAction) */
+    actions?: GridAction[];
     /** the columns whose non-empty cells are buttons calling oncellclick (a Report field's grids.<field>.onCellClick) */
     clickable?: Set<string>;
     oncellclick?: (column: string, row: any) => void;
@@ -43,6 +46,8 @@
   const viewRows = $derived(sortRows(visibleRows, sort, columns, getLinkTitle));
   let selected = $state<Set<any>>(new Set());
   const chosen = $derived(visibleRows.filter((r) => selected.has(r)));
+  // the same rows in screen order: what export and the grid actions get
+  const chosenOnScreen = $derived(viewRows.filter((r) => selected.has(r)));
   const allSelected = $derived(visibleRows.length > 0 && chosen.length === visibleRows.length);
   function toggleFilter(i: number) { const s = new Set(active); if (s.has(i)) s.delete(i); else s.add(i); activeFilters = s; }
 
@@ -58,8 +63,11 @@
 
   function toggle(row: any) { const s = new Set(selected); if (s.has(row)) s.delete(row); else s.add(row); selected = s; }
   function toggleAll(on: boolean) { selected = on ? new Set(visibleRows) : new Set(); }
+  /** The selected rows on screen, in screen order (a Report field's frm.getSelectedRows). */
+  export function selectedRows() { return chosenOnScreen; }
+  export function clearSelection() { selected = new Set(); }
   function exportRows(format: "csv" | "xlsx") {
-    const out = chosen.length ? viewRows.filter((r) => selected.has(r)) : viewRows;
+    const out = chosen.length ? chosenOnScreen : viewRows;
     const { header, cells } = exportTable(out, columns, getLinkTitle);
     // the totals are of every row on screen, so they only go along with all of them
     if (totals && !chosen.length) cells.push(columns.map((c: any, i: number) => (totals[c.fieldname] !== undefined ? totals[c.fieldname] : i === 0 ? __("Total") : "")));
@@ -80,6 +88,7 @@
       {#if filters.length}<GridFilters {filters} {active} ontoggle={toggleFilter} />{/if}
       {#if selectable && chosen.length}
         <span class="muted">{__("{0} selected", [chosen.length])}</span>
+        <GridActions {actions} rows={chosenOnScreen} ondone={clearSelection} />
         <button class="btn sm" onclick={() => toggleAll(false)}>{__("Clear selection")}</button>
       {/if}
       <span class="spacer"></span>

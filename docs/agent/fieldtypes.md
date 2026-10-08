@@ -59,7 +59,9 @@ A `Table` and a `Report` field are grids, and four properties shape both:
   on the DocType (a Report checks its `refDoctype`). They export the selected rows if there are
   any, otherwise every row, in the order on screen, with Link titles and Select labels.
 - `gridSelect: true`: a checkbox per row and a "select all". On a Table it adds "Delete
-  selected", unless the grid is read-only or `cannotDeleteRows` is set.
+  selected", unless the grid is read-only or `cannotDeleteRows` is set. A form script reads the
+  selection with `frm.getSelectedRows` and acts on it with `frm.addGridAction` (Table and Report);
+  see [form-api.md](form-api.md#actions-on-a-grids-selected-rows).
 - `gridIndex: false` (Table only): hides the `#` column. Worth it on a grid sorted by something
   other than `idx`, where the stored position reads as noise.
 - `gridFilters: [{ label, filters, default? }]`: preset toggles above the grid. A toggle that is
@@ -108,6 +110,7 @@ without repeating the tab's name above it:
 
 A form script can make a Table's or a Report's cells act on a click (`grids.<field>.onCellClick`), react to a
 change of one child field (`grids.<table>.onChange`) and change a row with `frm.setRowValue`; see [form-api.md](form-api.md#grids-row-changes-and-cell-clicks).
+It acts on the rows ticked in a `gridSelect` grid with `frm.getSelectedRows` and `frm.addGridAction`.
 
 ### Computed columns
 
@@ -148,8 +151,8 @@ the document does not hold: attendance and grades per student, say, from other D
   the grid; a user without them sees the error in its place.
 - It runs when the form loads, after a save or a reload, and on `frm.refreshField(fieldname)`.
   A new document shows "Save the document first".
-- Its rows are read-only; `gridSelect` only chooses what to export. The totals row goes along
-  with a full export, not with a selection.
+- Its rows are read-only; `gridSelect` chooses what to export and what a script's
+  `frm.addGridAction` acts on. The totals row goes along with a full export, not with a selection.
 - A form script acts on a row with `grids.<field>.onCellClick.<column>`: the column's non-empty
   cells become buttons and the handler receives the row as the report returned it; see
   [form-api.md](form-api.md#grids-row-changes-and-cell-clicks).

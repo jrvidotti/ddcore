@@ -18,6 +18,8 @@
   let canExport = $state(false);
   let error = $state("");
   let loading = $state(false);
+  let grid = $state<ReturnType<typeof ReportGrid>>();
+  $effect(() => frm.registerGridSelection(field.fieldname!, { rows: () => grid?.selectedRows() ?? [], clear: () => grid?.clearSelection() }));
   const workspace = $derived(page.params.workspace || getRememberedWorkspace() || "");
   const wsPrefix = $derived(workspace ? `/app/${seg(workspace)}` : "/app");
   // the report's columns that a script's grids.<field>.onCellClick turns into buttons
@@ -54,10 +56,10 @@
   {:else if error}
     <div class="card muted" style="padding:14px;text-align:center">{error}</div>
   {:else if result}
-    <ReportGrid columns={result.columns || []} rows={result.rows || []} {wsPrefix}
+    <ReportGrid bind:this={grid} columns={result.columns || []} rows={result.rows || []} {wsPrefix}
       filename={exportBaseName(frm.doctype, frm.doc.id, field.fieldname)} sheetName={field.label}
       {baseSort} filters={field.gridFilters || []} search={field.gridSearch || []} sortable={!!field.gridSortable} selectable={!!field.gridSelect} exportable={!!field.gridExport && canExport}
-      buttons={frm.fieldButtons[field.fieldname!] || []}
+      buttons={frm.fieldButtons[field.fieldname!] || []} actions={frm.gridActions[field.fieldname!] || []}
       {clickable} oncellclick={(column, row) => frm.clickCell(field.fieldname!, column, row)} />
   {:else if loading}
     <div class="card muted" style="padding:14px;text-align:center">{__("Loading...")}</div>

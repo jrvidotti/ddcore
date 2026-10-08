@@ -14,6 +14,18 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **A form script reads a grid's selection and acts on it.** On a Table or Report field with
+  `gridSelect: true`, `frm.getSelectedRows(field)` returns the ticked rows still on screen
+  (after `gridSearch` and `gridFilters`), in screen order, and `frm.clearSelection(field)`
+  unticks them. `frm.addGridAction(field, { label, onClick, condition, primary, key })` puts a
+  `label (n)` button in the grid's toolbar, as a list's `actions` do: `onClick(rows)` gets the
+  selected rows that pass `condition`, and the selection is cleared once it settles.
+  `removeGridAction(field, key?)` takes actions away, and `clearButtons()` clears them at each
+  `refresh`. A tool Single no longer needs a `selected` Check column to act on chosen rows. See
+  "Actions on a grid's selected rows" in `form-api` (#118).
+
 ## 0.27.19 — 2026-10-08
 
 ### Changed

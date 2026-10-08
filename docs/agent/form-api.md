@@ -31,6 +31,7 @@ defineForm<Entry>("Entry", {
 `setPrimaryAction(label, fn)`, `setInnerGroupAsPrimary(group)`, `addIndicator(label, colour)`, `addChild(table, values)`, `removeChild(table, idx)`,
 `setRowValue(table, row | rowId, field | {..}, value)`,
 `addFieldButton(field, { label, icon, onClick, key })`, `removeFieldButton(field, key?)`,
+`getSelectedRows(field)`, `clearSelection(field)`, `addGridAction(field, { label, onClick, condition, primary, key })`, `removeGridAction(field, key?)`,
 `trigger(field)`, `save()`, `submit()`, `cancel()`, `reload()`, `discardChanges()`,
 `call(method, args, { reload })` → calls the controller's `methods.<method>` and reloads the doc,
 `onRealtime(event, handler)` → runs `handler(payload)` on each `ddcore.publish(event, …)` from the server while the form is open.
@@ -53,14 +54,15 @@ defaults, which are the settings in effect.
 A Single declared `tool: true` (see "DocType properties" in `fieldtypes`) is a screen, not a
 record. Its readers edit it, it is never dirty and it is never saved. The script fills its fields
 and rows and calls a service with what is on the form, and the primary button is the script's
-own:
+own. A Table declared `gridSelect: true` lets the reader tick the rows to act on, and the script
+reads them with `frm.getSelectedRows` (see "Actions on a grid's selected rows"):
 
 ```ts
 defineForm("Link Generator", {
   refresh(frm) {
     frm.addFieldButton("cpf", { icon: "search", label: __("Find Customer"), onClick: () => find(frm) });
     frm.setPrimaryAction(__("Generate Link"), async () => {
-      const ids = (frm.doc.installments || []).filter((r) => r.selected).map((r) => r.installment_id);
+      const ids = frm.getSelectedRows("installments").map((r) => r.installment_id);
       const res = await ddcore.call("portal.services.desk.createLink", { customer: frm.doc.customer_code, ids });
       frm.setValue("link", res.url);
     });
@@ -153,6 +155,50 @@ The button is rendered by the desk, so:
 
 Field buttons are cleared by the same `clearButtons()` that empties the toolbar at the start of
 every `refresh` — declare in `refresh` whatever must survive a save or a reload.
+
+### Actions on a grid's selected rows
+
+A Table or Report field declared `gridSelect: true` draws a checkbox per row and a "select all".
+The script reads what is ticked with `frm.getSelectedRows(field)`, or puts actions on it in the
+grid's toolbar with `frm.addGridAction`, the form's counterpart of a list's `actions`:
+
+```ts
+defineForm("TagOne Users", {
+  refresh(frm) {
+    frm.addGridAction("users", {
+      label: __("Enable"),
+      primary: true,
+      condition: (row) => !row.enabled,
+      onClick: async (rows) => {
+        await ddcore.call("tagone.services.users.enable", { ids: rows.map((r) => r.user_id) });
+        for (const r of rows) frm.setRowValue("users", r, "enabled", 1);
+      },
+    });
+    frm.addGridAction("users", { label: __("Disable"), onClick: (rows) => disable(frm, rows) });
+  },
+});
+```
+
+- Only the rows **on screen** count: a row ticked and then hidden by `gridSearch` or `gridFilters`
+  is neither returned nor acted on, as it is not exported. The rows come in screen order (after
+  `gridSort` or a click on a header), and they are the grid's own row objects: a Table's rows go
+  to `frm.setRowValue` as they are, a Report field's are its report's rows.
+- The button reads `label (n)`, where `n` counts the selected rows that pass `condition` (every
+  selected row when there is none), and it hides while no row passes. Only those rows reach
+  `onClick`. A `condition` that throws counts as `false`.
+- While `onClick` runs, the grid's action buttons are disabled; a rejection is shown to the user.
+  Either way the selection is cleared when it settles. Nothing is reloaded: a script that changed
+  the rows on the server updates them on screen itself (`setRowValue`, `refreshField` for a
+  Report field).
+- `key` is the action's identity within the field, the label when there is none: a second
+  `addGridAction` with the same key replaces it. `removeGridAction(field, key)` removes one,
+  `removeGridAction(field)` removes them all. Like field buttons they are cleared at the start of
+  every `refresh`, so declare them there.
+- Without `gridSelect` nothing can be ticked: `getSelectedRows` returns `[]` and no action shows.
+  It also returns `[]` while the grid is not on screen (a hidden field, a Report field still
+  loading). `frm.clearSelection(field)` unticks every row.
+- The actions show whether or not the grid is editable, and beside "Delete selected" on a Table
+  that has it. The button is only a shortcut: the method it calls must check permissions itself.
 
 ### Grids: row changes and cell clicks
 
