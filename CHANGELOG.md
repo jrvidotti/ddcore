@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.27.20 — 2026-10-08
+
 ### Added
 
 - **A form script reads a grid's selection and acts on it.** On a Table or Report field with
