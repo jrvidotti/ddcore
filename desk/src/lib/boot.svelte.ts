@@ -48,6 +48,8 @@ export interface Boot {
       providers?: { id: string; label: string }[];
       /** sign-in through an app: username and password of its own system, in a tenant (#115) */
       credentials?: { id: string; label: string }[];
+      /** with credentials: the site has tenants, so the organization is asked for first (#117) */
+      tenancy?: boolean;
     };
     /** Present only while the site is paused (PRD-02). */
     maintenance?: { enabled: boolean; reason?: string } | null;

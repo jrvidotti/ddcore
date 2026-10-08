@@ -126,7 +126,6 @@ Choose files,Escolher arquivos,# desk/src/lib/components/FeedbackModal.svelte:28
 Choose image,Escolher imagem,# desk/src/lib/controls/AttachControl.svelte:86
 Choose on or off for each email notification,Escolha ligado ou desligado para cada notificação por e-mail,# core/services/profile.ts:89
 Choose where to sign in,Escolha onde entrar,# internal/engine/credentials.go:280
-Choose…,Escolha…,# desk/src/routes/login/+page.svelte:115
 "Chromium PDF conversion failed: {0}, output: {1}","Falha na conversão de PDF via Chromium: {0}, saída: {1}",# internal/print/pdf.go:220
 Clear,Limpar,# desk/src/lib/controls/ColorControl.svelte:258
 Clear filters,Limpar filtros,# desk/src/lib/components/ListView.svelte:582
@@ -159,6 +158,7 @@ Confirm a dialog (its primary button),Confirmar um diálogo (seu botão principa
 Confirm the new password,Confirme a nova senha,# desk/src/lib/components/Profile.svelte:216
 Content,Conteúdo,# core.doctypes.comment.comment.doctype
 Context,Contexto,# core.doctypes.feedback.feedback.doctype
+Continue,Continuar,# desk/src/routes/login/+page.svelte:111
 Continue with {0},Continuar com {0},# desk/src/routes/login/+page.svelte:70
 Copy created — save it to keep it,Cópia criada — salve para gravar,# desk/src/lib/components/FormView.svelte:347
 Copy this key now — it is not shown again.,Copie esta chave agora — ela não é mostrada de novo.,# desk/src/lib/components/Profile.svelte:259
@@ -488,6 +488,7 @@ Not permitted to upload here,Sem permissão para enviar arquivos aqui,# internal
 Not saved,Não salvo,# desk/src/lib/components/FormView.svelte:414
 Not shared with anyone,Não compartilhado com ninguém,# desk/src/lib/components/DocSidebar.svelte:283
 Not signed,Não assinado,# desk/src/lib/controls/SignatureControl.svelte:162
+Not your organization?,Não é a sua organização?,# desk/src/routes/login/[provider]/[tenant]/+page.svelte:60
 Nothing here yet.,Nada por aqui ainda.,# desk/src/lib/components/portal/PortalList.svelte:22
 Notification not found,Notificação não encontrada,# internal/engine/notifications.go:372
 Notification preferences saved,Preferências de notificação salvas,# desk/src/lib/components/Profile.svelte:91
@@ -684,11 +685,11 @@ Sign in,Entrar,# desk/src/routes/login/+page.svelte:55
 Sign in to continue,Faça login para continuar,# core/services/api_keys.ts:14
 Sign in to upload files,Faça login para enviar arquivos,# internal/api/api.go:1625
 Sign in with the password you just chose.,Entre com a senha que você acabou de escolher.,# desk/src/routes/login/reset/+page.svelte:55
+Sign in with {0},Entrar com {0},# desk/src/routes/login/[provider]/[tenant]/+page.svelte:54
 Sign out,Sair,# desk/src/lib/components/Sidebar.svelte:212
 Sign out everywhere else,Sair dos outros dispositivos,# desk/src/lib/components/Profile.svelte:228
 Sign out of every other device?,Sair de todos os outros dispositivos?,# desk/src/lib/components/Profile.svelte:118
 Sign-in with {0} is not available here,O login com {0} não está disponível aqui,# internal/engine/credentials.go:376
-Sign-in with {0} is not available yet.,O login com {0} ainda não está disponível.,# desk/src/routes/login/+page.svelte:119
 Sign-in with {0} is unavailable. Try again later.,O login com {0} está indisponível. Tente novamente mais tarde.,# internal/engine/credentials.go:401
 Signature,Assinatura,# desk/src/lib/controls/SignatureControl.svelte:154
 Signature pad,Área de assinatura,# desk/src/lib/controls/SignatureControl.svelte:144
@@ -770,6 +771,7 @@ Then sign in at {0} with the {1} button.,"Depois, entre em {0} pelo botão {1}."
 There is no account for this e-mail address. Ask an admin to invite you.,Não há conta para este endereço de e-mail. Peça a um administrador para convidar você.,# desk/src/routes/login/+page.svelte:30
 There is no account for this user here. Ask an administrator to add you.,Não há conta para este usuário aqui. Peça a um administrador para cadastrar você.,# internal/engine/credentials.go:424
 There is no import run {0},Não existe a execução de importação {0},# internal/engine/import_batch.go:65
+There is no organization {0} here,Não há organização {0} aqui,# desk/src/routes/login/[provider]/[tenant]/+page.svelte:63
 There is nothing here for you yet.,Ainda não há nada aqui para você.,# desk/src/lib/components/portal/PortalPage.svelte:63
 These choices only affect email. Notifications always appear in your inbox.,Estas escolhas só afetam o e-mail. As notificações sempre aparecem na sua caixa de entrada.,# desk/src/lib/components/Profile.svelte:200
 This area is for system users,Esta área é para usuários do sistema,# internal/api/portal.go:86
@@ -879,6 +881,7 @@ You have not sent any feedback yet.,Você ainda não enviou nenhum feedback.,# d
 You sent {0} feedbacks in the last hour; try again later,Você enviou {0} feedbacks na última hora; tente novamente mais tarde,# internal/engine/feedback.go:198
 Your account has no portal yet. Ask the people who invited you.,Sua conta ainda não tem um portal. Fale com quem convidou você.,# desk/src/routes/portal/+page.svelte:11
 Your location is not available,Sua localização não está disponível,# desk/src/lib/controls/GeolocationControl.svelte:197
+Your organization,Sua organização,# desk/src/routes/login/+page.svelte:108
 "Your user, roles and language, the site's version and apps, your browser and the last errors on this page.","Seu usuário, papéis e idioma, a versão e os apps do site, seu navegador e os últimos erros nesta página.",# desk/src/lib/components/FeedbackModal.svelte:324
 changes are paused until the site reopens.,as alterações estão pausadas até o site reabrir.,# desk/src/routes/+layout.svelte:314
 crypto: bytes must be an integer from 1 to {0},crypto: bytes deve ser um inteiro de 1 a {0},# internal/engine/cryptoops.go:113

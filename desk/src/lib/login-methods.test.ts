@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loginMethods, pickMethod, pickTenant } from "./login-methods";
+import { credentialPath, loginMethods, normalizeTenant, pickMethod } from "./login-methods";
 
 describe("loginMethods", () => {
   it("offers the e-mail form and each credential provider", () => {
@@ -22,10 +22,10 @@ describe("pickMethod", () => {
   it("falls back to the first", () => expect(pickMethod(methods, null)).toBe("password"));
 });
 
-describe("pickTenant", () => {
-  it("keeps the remembered tenant while it is listed", () => {
-    expect(pickTenant([{ id: "a" }, { id: "b" }], "b")).toBe("b");
-    expect(pickTenant([{ id: "a" }, { id: "b" }], "c")).toBe("");
+describe("organization", () => {
+  it("is the tenant id as typed, trimmed and in lower case", () => expect(normalizeTenant("  ModaVerao ")).toBe("modaverao"));
+  it("leads to its own sign-in page", () => {
+    expect(credentialPath("tagone", " ModaVerao")).toBe("/login/tagone/modaverao");
+    expect(credentialPath("x", "a/b")).toBe("/login/x/a%2Fb");
   });
-  it("preselects the only tenant", () => expect(pickTenant([{ id: "a" }], null)).toBe("a"));
 });

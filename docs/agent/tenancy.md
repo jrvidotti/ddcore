@@ -485,8 +485,9 @@ DDCORE_TENANT_ROLE=ddcore_tenant   # only needed for another name
   that the address has an account somewhere on the site.
 - **One configuration for all tenants**: mail, storage, branding, language, currency, timezone.
 - **Tenants are not chosen by hostname.** Everyone signs in at the same address. The one
-  place a person picks a tenant is an app's credential provider (`auth`, "Sign-in through an
-  app"): its tab lists the tenants whose `enabled()` says so, and that list is public.
+  place a person names a tenant is an app's credential provider (`auth`, "Sign-in through an
+  app"): its tab asks for the organization's id and signs in at `/login/<provider>/<tenant>`.
+  No tenant is ever listed to a visitor.
 - **`Guest` is in the platform space.** Anonymous pages see no tenant's documents; signed-in
   portals work, since a Website User belongs to a tenant.
 - **Single sign-on** and **credential providers** sign in accounts that exist. They do not

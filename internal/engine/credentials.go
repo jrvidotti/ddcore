@@ -32,9 +32,8 @@ import (
 // another system over the network while a person waits on the sign-in screen.
 const credentialVerifyTimeout = 20 * time.Second
 
-// credentialTenantsTTL is how long the list of tenants offering a provider is
-// kept. The list is public, so without a cache every anonymous visit to the
-// sign-in screen would run enabled() once per tenant.
+// credentialTenantsTTL is how long a tenant found to offer a provider is
+// remembered, so every visit to its sign-in page does not run enabled().
 const credentialTenantsTTL = time.Minute
 
 // credentialDecl is a provider as defineApp declared it, functions replaced
@@ -177,50 +176,70 @@ func credentialEnabled(c *Ctx, p CredentialProvider) (bool, error) {
 	return strings.TrimSpace(string(out)) == "true", nil
 }
 
-// CredentialTenants is the enabled tenants where the provider is offered,
-// for the sign-in screen's list, and whether the site has tenancy at all. It
-// is public: a tenant is listed only when its app's enabled() says so.
-// Without tenancy the list is empty and no tenant is asked for.
-func (e *Engine) CredentialTenants(ctx context.Context, id string) (list []map[string]any, tenancy bool, err error) {
+// CredentialTenant is one tenant that offers the provider, for the page
+// that signs in to it (/login/<provider>/<tenant>): its id and title, and
+// whether the site has tenancy at all. There is no list on purpose — the
+// tenants of a site are its customers, not something to show a stranger
+// (#117). A tenant that does not exist, is disabled or whose enabled() says
+// no is the same 404, and each miss counts against the client address, so
+// guessing ids is throttled like guessing passwords. Without tenancy there is
+// no tenant to ask for: the answer is nil and tenancy false.
+func (e *Engine) CredentialTenant(ctx context.Context, id, tenant, ip string) (out map[string]any, tenancy bool, err error) {
 	st := e.Current()
 	p, ok := st.CredentialProvider(id)
 	if !ok {
 		return nil, false, cerr.NotFound("Unknown sign-in provider")
 	}
 	if on, err := e.tenancy(ctx); err != nil || !on {
-		return []map[string]any{}, false, err
+		return nil, false, err
 	}
-	key := "credtenants:" + id + ":" + strconv.FormatInt(st.Loaded.UnixNano(), 10)
+	tenant = strings.ToLower(strings.TrimSpace(tenant))
+	key := "credtenant:" + id + ":" + tenant + ":" + strconv.FormatInt(st.Loaded.UnixNano(), 10)
 	if v, ok := e.Cache.Get(key); ok {
-		return v.([]map[string]any), true, nil
+		return v.(map[string]any), true, nil
+	}
+	pol := e.Cfg.Auth
+	ipKey := throttleKey("credtenantip", ip)
+	if ip != "" {
+		if err := e.CheckThrottle(ctx, ipKey, pol.MaxLoginAttempts*5, pol.LockoutWindow()); err != nil {
+			return nil, true, err
+		}
+	}
+	notFound := cerr.NotFound("There is no organization {0} here", tenant)
+	miss := func() (map[string]any, bool, error) {
+		if ip != "" {
+			e.RecordAttempt(ctx, ipKey, ip, false)
+		}
+		return nil, true, notFound
+	}
+	if !db.ValidTenantID(tenant) {
+		return miss()
 	}
 	gen := e.Cache.Gen()
-	rows, err := db.Select(ctx, e.DB.Pool, `SELECT id, title FROM `+meta.TenantTable+`
-		WHERE enabled IS TRUE ORDER BY coalesce(nullif(title, ''), id), id`)
+	rows, err := db.Select(ctx, e.DB.Pool, `SELECT id, title FROM `+meta.TenantTable+` WHERE id = $1 AND enabled IS TRUE`, tenant)
 	if err != nil {
 		return nil, true, err
 	}
-	out := []map[string]any{}
-	for _, r := range rows {
-		tenant := db.Str(r["id"])
-		var offered bool
-		err := e.Run(WithTenant(ctx, tenant), "Admin", func(c *Ctx) (err error) {
-			offered, err = credentialEnabled(c, p)
-			return err
-		})
-		if err != nil {
-			// one tenant's broken settings must not empty everybody's list
-			e.Log.Warn("sign-in provider: enabled() failed", "provider", id, "tenant", tenant, "err", err)
-			continue
-		}
-		if offered {
-			title := db.Str(r["title"])
-			if title == "" {
-				title = tenant
-			}
-			out = append(out, map[string]any{"id": tenant, "title": title})
-		}
+	if len(rows) == 0 {
+		return miss()
 	}
+	var offered bool
+	if err := e.Run(WithTenant(ctx, tenant), "Admin", func(c *Ctx) (err error) {
+		offered, err = credentialEnabled(c, p)
+		return err
+	}); err != nil {
+		// a tenant whose settings are broken is not offered, and not counted
+		e.Log.Warn("sign-in provider: enabled() failed", "provider", id, "tenant", tenant, "err", err)
+		return nil, true, notFound
+	}
+	if !offered {
+		return miss()
+	}
+	title := db.Str(rows[0]["title"])
+	if title == "" {
+		title = tenant
+	}
+	out = map[string]any{"id": tenant, "title": title}
 	e.Cache.SetAt(key, out, credentialTenantsTTL, gen)
 	return out, true, nil
 }

@@ -3,7 +3,8 @@
   import { __, boot, siteLogo } from "$lib/boot.svelte";
   import { page } from "$app/state";
   import { landing } from "$lib/portal";
-  import { loginMethods, pickMethod, pickTenant, remember, METHOD_KEY, tenantKey } from "$lib/login-methods";
+  import { goto } from "$app/navigation";
+  import { credentialPath, loginMethods, normalizeTenant, pickMethod, remember, METHOD_KEY, tenantKey } from "$lib/login-methods";
   let usr = $state(""), pwd = $state(""), error = $state(""), busy = $state(false);
   let usrInput: HTMLInputElement | undefined = $state();
   let submit: HTMLButtonElement | undefined = $state();
@@ -28,21 +29,11 @@
     chosen = key; error = ""; pwd = "";
     remember(METHOD_KEY, key);
   }
-  // the tenants offering the active credential provider
-  let tenants: { id: string; title: string }[] = $state([]);
-  let tenancy = $state(true), tenant = $state(""), tenantsLoaded = $state(false);
-  $effect(() => {
-    const id = credential?.id;
-    if (!id) return;
-    tenantsLoaded = false;
-    api.credentialTenants(id).then((r) => {
-      if (credential?.id !== id) return;
-      tenants = r?.data ?? [];
-      tenancy = r?.tenancy !== false;
-      tenant = pickTenant(tenants, remember(tenantKey(id)));
-      tenantsLoaded = true;
-    }).catch((err: any) => { error = err.message; });
-  });
+  // with tenants, a credential provider asks for the organization and signs in on
+  // its own page; nothing lists the organizations (#117)
+  const askTenant = $derived(!!credential && offer?.tenancy !== false);
+  let org = $state("");
+  $effect(() => { if (credential?.id) org = remember(tenantKey(credential.id)); });
   const asked = $derived(page.url.searchParams.get("redirect"));
   const redirect = $derived(asked || "/app");
   function ssoHref(id: string) {
@@ -66,12 +57,17 @@
   $effect(() => { void active; usrInput?.focus(); });
   async function login(e: Event) {
     e.preventDefault();
+    if (askTenant && credential?.id) {
+      if (!normalizeTenant(org)) return;
+      const q = asked ? "?redirect=" + encodeURIComponent(asked) : "";
+      goto(credentialPath(credential.id, org) + q);
+      return;
+    }
     busy = true; error = "";
     try {
       let r;
       if (credential?.id) {
-        r = await api.credentialLogin(credential.id, tenant, usr, pwd);
-        remember(tenantKey(credential.id), tenant);
+        r = await api.credentialLogin(credential.id, "", usr, pwd);
       } else {
         r = await api.login(usr, pwd);
       }
@@ -108,20 +104,16 @@
         {/each}
       </div>
     {/if}
-    {#if credential}
-      {#if tenancy}
-        <label>{__("Tenant")}
-          <select class="input" bind:value={tenant} required disabled={!tenantsLoaded}>
-            {#if tenants.length !== 1}<option value="" disabled>{tenantsLoaded ? __("Choose…") : __("Loading…")}</option>{/if}
-            {#each tenants as t (t.id)}<option value={t.id}>{t.title}</option>{/each}
-          </select>
-        </label>
-        {#if tenantsLoaded && !tenants.length}<div class="small muted">{__("Sign-in with {0} is not available yet.", [credential.label])}</div>{/if}
-      {/if}
+    {#if askTenant}
+      <label>{__("Your organization")}
+        <input class="input" bind:this={usrInput} bind:value={org} autocomplete="organization" autocapitalize="none" spellcheck="false" />
+      </label>
+      <button class="btn primary" bind:this={submit} disabled={!normalizeTenant(org)} style="width:100%;justify-content:center">{__("Continue")}</button>
+    {:else if credential}
       <label>{__("Username")}<input class="input" bind:this={usrInput} bind:value={usr} autocomplete="username" autocapitalize="none" /></label>
       <label>{__("Password")}<input class="input" type="password" bind:value={pwd} autocomplete="current-password" /></label>
       {#if error}<div class="err">{error}</div>{/if}
-      <button class="btn primary" bind:this={submit} disabled={busy || (tenancy && !tenant)} style="width:100%;justify-content:center">{__("Sign in")}</button>
+      <button class="btn primary" bind:this={submit} disabled={busy} style="width:100%;justify-content:center">{__("Sign in")}</button>
     {:else if passwordForm}
       <label>{__("Username")}<input class="input" bind:this={usrInput} bind:value={usr} autocomplete="username" /></label>
       <label>{__("Password")}<input class="input" type="password" bind:value={pwd} autocomplete="current-password" /></label>
@@ -148,7 +140,6 @@
   h1 { font-size: 18px; }
   label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
   .err { color: var(--red); font-size: 13px; }
-  .muted { color: var(--muted); }
   .notice { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; font-size: 13px; display: flex; flex-direction: column; gap: 8px; }
   .notice p { margin: 0; white-space: pre-line; }
   .notice dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; align-items: baseline; }

@@ -3,6 +3,8 @@
 
 export interface LoginOffer {
   password?: boolean;
+  /** the site has tenants: a credential provider asks for the organization first */
+  tenancy?: boolean;
   credentials?: { id: string; label: string }[];
 }
 
@@ -38,10 +40,14 @@ export function pickMethod(methods: LoginMethod[], remembered?: string | null): 
   return methods[0]?.key ?? "password";
 }
 
-/** The tenant to preselect: the one used last time, else the only one there is. */
-export function pickTenant(tenants: { id: string }[], remembered?: string | null): string {
-  if (remembered && tenants.some((t) => t.id === remembered)) return remembered;
-  return tenants.length === 1 ? tenants[0].id : "";
+/** What someone typed as their organization, as a tenant id: trimmed, lower case. */
+export function normalizeTenant(typed: string): string {
+  return String(typed ?? "").trim().toLowerCase();
+}
+
+/** The page that signs in to one organization through a provider (#117). */
+export function credentialPath(provider: string, tenant: string): string {
+  return `/login/${encodeURIComponent(provider)}/${encodeURIComponent(normalizeTenant(tenant))}`;
 }
 
 /** localStorage, or nothing: private mode and tests have none. */

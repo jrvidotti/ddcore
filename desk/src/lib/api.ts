@@ -220,10 +220,10 @@ export const api = {
   /** Sign-in through an app's credential provider, in the tenant the person picked (#115). */
   credentialLogin: (provider: string, tenant: string, usr: string, pwd: string) =>
     request<{ ok: boolean; home?: string }>("POST", `/api/auth/credentials/${encodeURIComponent(provider)}/login`, { tenant, usr, pwd }),
-  /** The tenants that offer a provider, and whether the site has tenancy at all. */
-  credentialTenants: (provider: string) =>
-    request<{ data: { id: string; title: string }[]; tenancy: boolean }>("GET",
-      `/api/auth/credentials/${encodeURIComponent(provider)}/tenants`, undefined, { raw: true }),
+  /** One organization that offers a provider, by its id: 404 when it does not (#117). */
+  credentialTenant: (provider: string, tenant: string) =>
+    request<{ data: { id: string; title: string } | null; tenancy: boolean }>("GET",
+      `/api/auth/credentials/${encodeURIComponent(provider)}/tenants/${encodeURIComponent(tenant)}`, undefined, { raw: true }),
   logout: () => request("POST", "/api/logout"),
   /** An operator enters a tenant; "" returns to the platform space. */
   enterTenant: (tenant: string) => request("POST", "/api/tenant/enter", { tenant }),

@@ -337,12 +337,21 @@ sign-in:
   across the **site**, not per tenant (a User's id is), so leave it off when
   the same username can exist in two tenants' systems and check within the
   tenant in a `validate` hook if you need to.
-- **Where.** On a site with tenancy the person picks the tenant from a list
-  (`GET /api/auth/credentials/<id>/tenants` → `{data: [{id, title}], tenancy}`):
-  the enabled tenants where `enabled()` returns true, cached for a minute.
-  **That list is public** — it is the opt-in, so a tenant that does not want
-  its name on the sign-in screen returns false. Without tenancy there is no
-  list and no tenant to send.
+- **Where.** On a site with tenancy the provider's tab asks for the
+  **organization** — the tenant id, typed, never listed: the tenants of a site
+  are its customers (#117). It then goes to `/login/<provider>/<tenant>`, a page
+  that shows the organization's title and asks for the username and password;
+  that address can be bookmarked or handed to a store's staff. The page reads
+  `GET /api/auth/credentials/<id>/tenants/<tenant>` → `{data: {id, title},
+  tenancy}`, which answers only for an enabled tenant whose `enabled()` returns
+  true (cached for a minute) and a 404 for any other — missing, disabled or
+  opted out alike. Each miss counts against the client address
+  (`maxLoginAttempts × 5` in the lockout window, a counter of its own), so
+  guessing ids is throttled like guessing passwords.
+  `GET /api/auth/credentials/<id>/tenants` lists nothing any more; it answers
+  `{data: [], tenancy}`. `/api/boot` carries `site.login.tenancy` next to
+  the providers. Without tenancy there is no organization to ask for: the tab
+  asks for the username and password straight away.
 - **The hooks** run as `Admin` with permissions ignored, inside the tenant:
   `enabled(ctx)` (omitted means every tenant) and `verify(args, ctx)`, which
   is bounded to 20 seconds and should call the other system with

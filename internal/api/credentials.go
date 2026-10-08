@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 
+	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/engine"
 )
 
@@ -39,9 +40,20 @@ func (s *Server) credentialLogin(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]any{"data": map[string]any{"ok": true, "home": home}})
 }
 
-// credentialTenants lists the tenants that offer a provider.
+// credentialTenants never lists anything (#117): it only says whether the
+// site has tenancy, for a desk built when it did list the tenants.
 func (s *Server) credentialTenants(w http.ResponseWriter, r *http.Request) {
-	out, tenancy, err := s.E.CredentialTenants(r.Context(), urlParam(r, "provider"))
+	if _, ok := s.E.Current().CredentialProvider(urlParam(r, "provider")); !ok {
+		s.writeErr(w, r, cerr.NotFound("Unknown sign-in provider"))
+		return
+	}
+	writeJSON(w, 200, map[string]any{"data": []any{}, "tenancy": s.E.Cfg.Tenancy})
+}
+
+// credentialTenant is one organization's sign-in page data: its title, when
+// it exists and offers the provider.
+func (s *Server) credentialTenant(w http.ResponseWriter, r *http.Request) {
+	out, tenancy, err := s.E.CredentialTenant(r.Context(), urlParam(r, "provider"), urlParam(r, "tenant"), clientIP(r))
 	if err != nil {
 		s.writeErr(w, r, err)
 		return

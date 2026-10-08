@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -238,15 +239,36 @@ func TestCredentialLogin_ThrottleComesBeforeVerify(t *testing.T) {
 	x.expect(x.credLogin("alfa", "joao", "ok-joao"), 200, "")
 }
 
-func TestCredentialLogin_TenantsOptIn(t *testing.T) {
+// tenantTitle asks for one organization's sign-in page.
+func (x *env) tenantTitle(tenant string) resp {
+	x.t.Helper()
+	return x.call("GET", "/api/auth/credentials/ext/tenants/"+tenant, nil, "")
+}
+
+func TestCredentialLogin_TenantsAreAskedForNotListed(t *testing.T) {
 	x := setupTenantsWith(t, credentialApp(t))
 	x.addExtUser("beta", "joao@beta.invalid", "JOAO", true)
+	// the list endpoint lists nothing (#117), it only says there are tenants
 	r := x.call("GET", "/api/auth/credentials/ext/tenants", nil, "")
 	x.expect(r, 200, "")
-	if got := ids(r); got != "alfa,beta" || r.Body["tenancy"] != true {
-		t.Fatalf("tenants %q: %s", got, r.Raw)
+	if got := ids(r); got != "" || r.Body["tenancy"] != true {
+		t.Fatalf("the list endpoint answers %s", r.Raw)
 	}
-	// beta opts out; the list is cached, the sign-in is not
+	// boot tells the sign-in screen to ask for the organization
+	b := x.call("GET", "/api/boot", nil, "")
+	if login := b.Body["data"].(map[string]any)["site"].(map[string]any)["login"].(map[string]any); login["tenancy"] != true {
+		t.Fatalf("boot login %v", login)
+	}
+	// one organization, by its id, typed in any case
+	r = x.tenantTitle("ALFA")
+	x.expect(r, 200, "")
+	if d := r.Body["data"].(map[string]any); d["id"] != "alfa" || d["title"] != "ALFA" {
+		t.Fatalf("alfa answers %s", r.Raw)
+	}
+	x.expect(x.tenantTitle("gama"), 404, "")
+	x.expect(x.tenantTitle("not a tenant!"), 404, "")
+
+	// beta opts out: its page is a 404 like a missing tenant, and its sign-in refused
 	if err := x.e.Run(engine.WithTenant(x.ctx, "beta"), "Admin", func(c *engine.Ctx) error {
 		d, _ := c.NewDoc("Pessoa", engine.Doc{"nome": "no-ext"})
 		_, err := c.Insert(d, engine.SaveOpts{})
@@ -254,23 +276,31 @@ func TestCredentialLogin_TenantsOptIn(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
+	x.e.Cache.Clear()
+	x.expect(x.tenantTitle("beta"), 404, "")
 	x.expect(x.credLogin("beta", "joao", "ok-joao"), 401, "AuthenticationError")
 	if d := auditDetail(x.lastCredentialAudit("beta")); d["reason"] != "not_offered" {
 		t.Fatalf("an opted-out tenant is audited as %v", d)
 	}
-	x.e.Cache.Clear()
-	if got := ids(x.call("GET", "/api/auth/credentials/ext/tenants", nil, "")); got != "alfa" {
-		t.Fatalf("after beta opted out: %q", got)
-	}
-	// a disabled tenant is not listed
+	// a disabled tenant is not found either
 	x.asAdmin(func(c *engine.Ctx) error {
 		_, err := c.Q().Exec(c.Ctx, `UPDATE tab_site_tenant SET enabled = false WHERE id = 'alfa'`)
 		return err
 	})
 	x.e.Cache.Clear()
-	if got := ids(x.call("GET", "/api/auth/credentials/ext/tenants", nil, "")); got != "" {
-		t.Fatalf("with alfa disabled: %q", got)
+	x.expect(x.tenantTitle("alfa"), 404, "")
+}
+
+func TestCredentialLogin_GuessingTenantsIsThrottled(t *testing.T) {
+	x := setupTenantsWith(t, credentialApp(t))
+	for i := 0; i < x.e.Cfg.Auth.MaxLoginAttempts*5; i++ {
+		x.expect(x.tenantTitle(fmt.Sprintf("guess%d", i)), 404, "")
 	}
+	// even a real one, once the address has guessed too much
+	x.expect(x.tenantTitle("alfa"), 429, "")
+	// a sign-in with the password is not held by the guesses
+	x.addExtUser("alfa", "joao@alfa.invalid", "JOAO", true)
+	x.expect(x.credLogin("alfa", "joao", "ok-joao"), 200, "")
 }
 
 func TestCredentialLogin_PasswordLoginOffDoesNotBlockIt(t *testing.T) {
@@ -288,6 +318,11 @@ func TestCredentialLogin_WithoutTenancy(t *testing.T) {
 	x.expect(r, 200, "")
 	if got := ids(r); got != "" || r.Body["tenancy"] != false {
 		t.Fatalf("without tenancy the list is %q: %s", got, r.Raw)
+	}
+	r = x.tenantTitle("alfa")
+	x.expect(r, 200, "")
+	if r.Body["data"] != nil || r.Body["tenancy"] != false {
+		t.Fatalf("without tenancy a tenant answers %s", r.Raw)
 	}
 	x.expect(x.credLogin("", "joao", "ok-joao"), 200, "")
 	if ev := x.lastCredentialAudit(""); ev["outcome"] != "Allowed" {

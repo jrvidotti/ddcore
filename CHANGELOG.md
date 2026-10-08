@@ -14,6 +14,18 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Changed
+
+- **Credential sign-in asks for the organization instead of listing tenants.** The provider's
+  tab on `/login` has an organization input (the tenant id) and goes to
+  `/login/<provider>/<tenant>`, which shows that organization's name and asks for the username
+  and password. `GET /api/auth/credentials/<id>/tenants/<tenant>` answers one tenant
+  (`{data: {id, title}, tenancy}`) or a 404 for a missing, disabled or opted-out one, and each
+  miss counts against the client address. `GET /api/auth/credentials/<id>/tenants` no longer
+  lists anything: it answers `{data: [], tenancy}`. `/api/boot` adds `site.login.tenancy`.
+  Before this, the sign-in screen showed every tenant that offered the provider to anyone who
+  opened it. See "Sign-in through an app" in `auth` (#117).
+
 ## 0.27.18 — 2026-10-08
 
 ### Added
