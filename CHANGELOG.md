@@ -25,6 +25,20 @@ older series, and `whats_new` reads across every one of them.
   `removeGridAction(field, key?)` takes actions away, and `clearButtons()` clears them at each
   `refresh`. A tool Single no longer needs a `selected` Check column to act on chosen rows. See
   "Actions on a grid's selected rows" in `form-api` (#118).
+- **A Select draws its indicator, with an icon per value, in grids, lists and reports.** A
+  Select that declares `optionColors` or the new `optionIcons` (`{ Enabled: "check" }`, keyed by
+  the canonical value, names from the desk's icon set) shows each value as its coloured
+  indicator — the icon in place of the dot, then the translated label — in a form grid's
+  read-only cells, list columns, report columns and read-only fields, the row dialog included.
+  `optionIconOnly: true` draws the icon alone in table cells, with the label as the tooltip, for
+  a narrow column. An unknown `optionIcons` name fails the load. A report column takes the same
+  three properties. A Select without them still reads as text (#119).
+
+### Fixed
+
+- **The list's and a report's status cells show a Select's translated label.** They used the
+  catalogue (`__(value)`) and ignored `optionLabels`, so a self-describing Select showed its
+  canonical value there while the form showed its label (#119).
 
 ## 0.27.19 — 2026-10-08
 

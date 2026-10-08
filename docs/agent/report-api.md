@@ -22,6 +22,9 @@ card is formatted like a cell of that type; without one, a number is shown as a 
 anything else as text.
 Route: `/app/report/<name>`; API: `GET /api/report/<name>?filters={...}`.
 The report page sorts by a click on a column header and exports CSV or XLSX.
+A column draws its values as indicators when it carries a Select's `optionColors` or
+`optionIcons` (and `optionIconOnly`), as a field does (see `fieldtypes`); a column named
+`status` is an indicator either way.
 A `Report` field shows a report inside a form, its filters taken from the document
 (`reportFilters: { course: "id" }`); see `fieldtypes`, "Form grids".
 

@@ -4,7 +4,8 @@
   // and optional sorting, row selection and CSV/XLSX export. Used by the
   // report page and by a form's Report field.
   import { __ } from "$lib/boot.svelte";
-  import { formatValue, statusColor } from "$lib/format";
+  import { formatValue, isIndicatorSelect } from "$lib/format";
+  import SelectIndicator from "$lib/components/SelectIndicator.svelte";
   import { getLinkTitle } from "$lib/titles.svelte";
   import { isNumericFieldtype, type GridFilter } from "$lib/meta";
   import { downloadTable, exportTable, filterRows, nextSort, searchRows, sortRows, type GridSortState } from "$lib/grid-rows";
@@ -77,7 +78,7 @@
 
 {#snippet cell(c: any, r: any)}
   {#if c.fieldtype === "Link" && r[c.fieldname]}{getLinkTitle(c.options, r[c.fieldname]) || r[c.fieldname]}
-  {:else if c.fieldname === "status" && r[c.fieldname]}<span class="indicator {statusColor(r[c.fieldname], c)}">{__(r[c.fieldname])}</span>
+  {:else if (c.fieldname === "status" || isIndicatorSelect(c)) && r[c.fieldname]}<SelectIndicator value={r[c.fieldname]} field={c} iconOnly={c.optionIconOnly} />
   {:else}<span style:color={c.fieldtype === "Currency" && r[c.fieldname] < 0 ? "var(--red)" : undefined}>{formatValue(r[c.fieldname], c)}</span>{/if}
 {/snippet}
 

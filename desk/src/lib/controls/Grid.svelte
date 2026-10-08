@@ -5,7 +5,8 @@
   import Control from "./Control.svelte";
   import Icon from "$lib/components/Icon.svelte";
   import { evalExpr } from "$lib/expr";
-  import { formatValue } from "$lib/format";
+  import { formatValue, isIndicatorSelect } from "$lib/format";
+  import SelectIndicator from "$lib/components/SelectIndicator.svelte";
   import { __ } from "$lib/boot.svelte";
   import { confirm, dialog } from "$lib/ui.svelte";
   import type { FormController } from "$lib/form.svelte";
@@ -131,6 +132,11 @@
   }
 </script>
 
+<!-- a read-only cell's value: a Select that declares optionColors/optionIcons as its indicator, anything else as text -->
+{#snippet shown(c: Field, row: any, empty: string)}
+  {#if isIndicatorSelect(c) && row[c.fieldname!]}<SelectIndicator value={row[c.fieldname!]} field={c} iconOnly={c.optionIconOnly} />{:else}{formatValue(row[c.fieldname!], c) || empty}{/if}
+{/snippet}
+
 <div class="field grid-field">
   <span class="label" class:sr-only={field.hideLabel}>{field.label}{#if frm.isFieldMandatory(field)}<span class="req">*</span>{/if}</span>
   <div class="card" style="overflow:auto">
@@ -181,18 +187,18 @@
                       <Icon name="paperclip" size={14} /><span class="file-stem">{file.stem}</span><span class="file-extension">{file.extension}</span>
                     </a>
                   {:else if clickable.has(c.fieldname!)}
-                    <button type="button" class="cell-click cell-value" title={formatValue(row[c.fieldname!], c)} onclick={() => frm.clickCell(field.fieldname!, c.fieldname!, row)}>{formatValue(row[c.fieldname!], c) || "—"}</button>
+                    <button type="button" class="cell-click cell-value" title={formatValue(row[c.fieldname!], c)} onclick={() => frm.clickCell(field.fieldname!, c.fieldname!, row)}>{@render shown(c, row, "—")}</button>
                   {:else}
-                    <span class="cell-value" title={formatValue(row[c.fieldname!], c)}>{formatValue(row[c.fieldname!], c) || "—"}</span>
+                    <span class="cell-value" title={formatValue(row[c.fieldname!], c)}>{@render shown(c, row, "—")}</span>
                   {/if}
                 {:else if !inlineEditable(c.fieldtype)}
                   <button type="button" class="cell-click cell-value" title={editable ? __("Edit row") : __("View row")} onclick={() => editRow(row)}>{formatValue(row[c.fieldname!], c) || "—"}</button>
                 {:else if rowEditable(c, row) && (!c.dependsOn || evalExpr(c.dependsOn, row, frm.doc))}
                   <Control field={c} value={row[c.fieldname!]} onchange={(v) => { row[c.fieldname!] = v; frm.trigger(field.fieldname!, childMeta.name, row.id, row, [c.fieldname!]); }} doc={row} compact inGrid />
                 {:else if clickable.has(c.fieldname!)}
-                  <button type="button" class="cell-click" onclick={() => frm.clickCell(field.fieldname!, c.fieldname!, row)}>{formatValue(row[c.fieldname!], c)}</button>
+                  <button type="button" class="cell-click" onclick={() => frm.clickCell(field.fieldname!, c.fieldname!, row)}>{@render shown(c, row, "")}</button>
                 {:else}
-                  <span>{formatValue(row[c.fieldname!], c)}</span>
+                  <span>{@render shown(c, row, "")}</span>
                 {/if}
               </td>
             {/each}

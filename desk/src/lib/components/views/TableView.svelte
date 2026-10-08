@@ -5,7 +5,9 @@
   import type { ListViewOptions } from "$lib/desk-sdk";
   import type { Field, Meta } from "$lib/meta";
   import { isNumericFieldtype } from "$lib/meta";
-  import { statusColor, timeAgo } from "$lib/format";
+  import { isIndicatorSelect, statusColor, timeAgo } from "$lib/format";
+  import Icon from "../Icon.svelte";
+  import SelectIndicator from "../SelectIndicator.svelte";
   import { getLinkTitle } from "$lib/titles.svelte";
   import { showIDColumn } from "./id-column";
 
@@ -68,7 +70,8 @@
             {:else if c.fieldtype === "Attach Image" && r[c.fieldname!]}
               <img class="thumb" src={r[c.fieldname!]} alt="" loading="lazy" />
             {:else if c.fieldname === statusField?.fieldname}
-              <span class="badges"><span class="indicator {statusColor(r[c.fieldname!], c)}">{__(r[c.fieldname!])}</span>{#if !showIndicatorColumn}{@render badges(r)}{/if}</span>
+              <span class="badges"><SelectIndicator value={r[c.fieldname!]} field={c} iconOnly={c.optionIconOnly} />{#if !showIndicatorColumn}{@render badges(r)}{/if}</span>
+            {:else if isIndicatorSelect(c) && r[c.fieldname!] && !settings.formatters?.[c.fieldname!]}<SelectIndicator value={r[c.fieldname!]} field={c} iconOnly={c.optionIconOnly} />
             {:else}{cellText(r, c)}{/if}
           </td>
         {/each}
@@ -77,7 +80,10 @@
             {#if settings.indicator}
               {@const ind = settings.indicator(r)}
               {#if ind}<span class="indicator {ind.color}">{ind.label}</span>{/if}
-            {:else if statusOf(r)}<span class="indicator {statusColor(statusOf(r), statusField)}">{statusLabelOf(r)}</span>{/if}
+            {:else if statusOf(r)}
+              {@const icon = statusField?.optionIcons?.[statusOf(r)]}
+              <span class="indicator {statusColor(statusOf(r), statusField)}" class:has-icon={!!icon}>{#if icon}<Icon name={icon} size={12} />{/if}{statusLabelOf(r)}</span>
+            {/if}
             {@render badges(r)}
           </span></td>
         {/if}

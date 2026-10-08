@@ -67,6 +67,20 @@ export interface FieldDef {
    * reader happens to see is a colour that changes with the language.
    */
   optionColors?: Record<string, "blue" | "green" | "orange" | "red" | "purple" | "gray">;
+  /**
+   * Select only: an icon per option, keyed by the canonical value, drawn in
+   * the value's indicator before its label — names from the desk's set (the
+   * "Icons" list in the report-api reference); an unknown name fails the load.
+   * A Select with `optionColors` or `optionIcons` shows as an indicator in
+   * form grids, lists, reports and read-only fields.
+   */
+  optionIcons?: Record<string, string>;
+  /**
+   * Select only: in a table cell (a form grid, the list, a report) draw the
+   * indicator as its icon alone, with the label as the tooltip — for a narrow
+   * column. Forms and the row dialog keep the label.
+   */
+  optionIconOnly?: boolean;
   reqd?: boolean;
   unique?: boolean;
   default?: string | number | boolean;
@@ -637,6 +651,12 @@ export interface ReportColumn {
   fieldtype?: FieldType;
   options?: string;
   width?: number;
+  /** A Select-like column: indicator colour per value, as on a field (`FieldDef.optionColors`). */
+  optionColors?: Record<string, "blue" | "green" | "orange" | "red" | "purple" | "gray">;
+  /** An icon per value, drawn in its indicator (`FieldDef.optionIcons`). */
+  optionIcons?: Record<string, string>;
+  /** Draw the indicator as its icon alone, with the label as the tooltip. */
+  optionIconOnly?: boolean;
 }
 
 export interface ReportResult {

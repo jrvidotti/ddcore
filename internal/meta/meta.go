@@ -128,6 +128,14 @@ type Field struct {
 	// colour. Keyed by the value, never by its label, so it is
 	// language-independent by construction.
 	OptionColors map[string]string `json:"optionColors,omitempty"`
+	// OptionIcons maps a Select's canonical value to an icon from the desk's
+	// set, drawn in the value's indicator before its label. Keyed like
+	// OptionColors; an unknown icon name fails the load.
+	OptionIcons map[string]string `json:"optionIcons,omitempty"`
+	// OptionIconOnly draws a Select's indicator in a table cell (a form grid,
+	// the list, a report) as its icon alone, with the label as the tooltip.
+	// Forms and the row dialog keep the label.
+	OptionIconOnly bool `json:"optionIconOnly,omitempty"`
 	// OptionLabels is the display text of each entry in Options, in the same
 	// order. Options itself stays canonical English — it is what the database
 	// holds.

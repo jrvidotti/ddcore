@@ -8,8 +8,8 @@ import (
 	"github.com/jrvidotti/ddcore/internal/meta"
 )
 
-// iconError refuses an `icon` the desk does not draw — on a DocType, on a
-// workspace, or on anything a workspace lists (sidebar items, shortcuts, link
+// iconError refuses an `icon` the desk does not draw — on a DocType, in a
+// Select's optionIcons, on a workspace, or on anything a workspace lists (sidebar items, shortcuts, link
 // groups and their items) — because the desk would draw it as a circle and
 // nothing else would tell.
 func iconError(reg *meta.Registry, workspaces map[string]map[string]any) error {
@@ -26,6 +26,15 @@ func iconError(reg *meta.Registry, workspaces map[string]map[string]any) error {
 		d, _ := reg.Get(n)
 		if err := bad(fmt.Sprintf("DocType %q", n), d.Icon); err != nil {
 			return err
+		}
+		for _, f := range d.Fields {
+			values := mapNames(f.OptionIcons)
+			sort.Strings(values)
+			for _, v := range values {
+				if err := bad(fmt.Sprintf("DocType %q, field %q, optionIcons[%q]", n, f.Fieldname, v), f.OptionIcons[v]); err != nil {
+					return err
+				}
+			}
 		}
 	}
 	// walk finds every "icon" key in a workspace, however deep it sits

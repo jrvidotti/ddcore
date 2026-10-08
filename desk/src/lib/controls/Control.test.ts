@@ -137,4 +137,34 @@ describe("Control", () => {
     expect(body).toContain("Choose file");
     expect(body).not.toContain('type="text"');
   });
+
+  describe("a Select with optionColors/optionIcons", () => {
+    const field: Field = {
+      fieldname: "status", fieldtype: "Select", label: "Status",
+      options: ["Not registered", "Enabled"],
+      optionColors: { "Not registered": "gray", Enabled: "green" },
+      optionIcons: { "Not registered": "x", Enabled: "check" },
+      optionIconOnly: true,
+    };
+
+    it("draws its indicator, with the label, when read-only", () => {
+      const { body } = render(Control, { props: { field, value: "Enabled", onchange: vi.fn(), readOnly: true } });
+      expect(body).toContain("indicator select-indicator green");
+      expect(body).toContain("has-icon");
+      // iconOnly is for table cells: a field keeps its label
+      expect(body).not.toContain("icon-only");
+      expect(body).toContain('<span class="indicator-label">Enabled</span>');
+      expect(body).not.toContain("<select");
+    });
+
+    it("stays a select when editable or empty", () => {
+      expect(render(Control, { props: { field, value: "Enabled", onchange: vi.fn() } }).body).toContain("<select");
+      expect(render(Control, { props: { field, value: null, onchange: vi.fn(), readOnly: true } }).body).toContain("<select");
+    });
+
+    it("stays a select without optionColors or optionIcons", () => {
+      const plain: Field = { fieldname: "kind", fieldtype: "Select", label: "Kind", options: ["A", "B"] };
+      expect(render(Control, { props: { field: plain, value: "A", onchange: vi.fn(), readOnly: true } }).body).toContain("<select");
+    });
+  });
 });

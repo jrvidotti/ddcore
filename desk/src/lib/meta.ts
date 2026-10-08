@@ -34,6 +34,10 @@ export interface Field {
   optionLabels?: string[];
   /** Indicator colour per canonical (English) Select value. */
   optionColors?: Record<string, string>;
+  /** Icon per canonical Select value, drawn in its indicator. */
+  optionIcons?: Record<string, string>;
+  /** A table cell draws the indicator as its icon alone, the label as tooltip. */
+  optionIconOnly?: boolean;
 }
 
 export interface GridSort { field: string; order?: "asc" | "desc" }
