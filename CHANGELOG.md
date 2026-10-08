@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.27.18 — 2026-10-08
+
 ### Added
 
 - **Sign-in through an app: credential providers.** An app declares `auth.providers` in
