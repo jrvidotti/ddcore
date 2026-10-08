@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.27.21 — 2026-10-08
+
 ### Added
 
 - **An app adds its own cards to the profile page.** `defineProfileSection` in
@@ -29,6 +31,13 @@ older series, and `whats_new` reads across every one of them.
   `profile.getMyProfile` answers `hasPassword`. Someone who signs in only through a credential
   provider or SSO has no current password to give `changeMyPassword`, so the card was a dead end
   for them (#121).
+
+### Fixed
+
+- **A desk user whose roles open none of the space's workspaces is told so.** The desk home said
+  "No workspace declared" and suggested `ddcore new-app`, as on a site with no workspaces. Boot
+  now sends `workspacesDenied`, and the home names the account and the tenant, asks for a role
+  from an administrator and offers Sign out. See the workspace `roles` in `report-api` (#120).
 
 ## 0.27.20 — 2026-10-08
 
