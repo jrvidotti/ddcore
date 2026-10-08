@@ -213,3 +213,23 @@ export function hashColor(raw: string): string {
   for (let i = 0; i < raw.length; i++) h = (h * 31 + raw.charCodeAt(i)) >>> 0;
   return PALETTE[h % PALETTE.length];
 }
+
+/**
+ * Whether a Select declares how its values look — `optionColors` or
+ * `optionIcons` — and so shows as an indicator in a table cell or a read-only
+ * field, rather than as text.
+ */
+export function isIndicatorSelect(f?: Partial<Field>): boolean {
+  if (f?.fieldtype && f.fieldtype !== "Select") return false;
+  return !!(f?.optionColors && Object.keys(f.optionColors).length) || !!(f?.optionIcons && Object.keys(f.optionIcons).length);
+}
+
+/**
+ * What a Select value's indicator draws: its translated label, its colour
+ * (`statusColor`) and, from `optionIcons`, its icon. Null for an empty value.
+ */
+export function selectIndicator(v: unknown, f?: Partial<Field>): { label: string; color: string; icon?: string } | null {
+  if (v === null || v === undefined || v === "") return null;
+  const raw = String(v);
+  return { label: formatValue(raw, { ...f, fieldtype: "Select" }), color: statusColor(raw, f), icon: f?.optionIcons?.[raw] || undefined };
+}

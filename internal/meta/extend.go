@@ -50,7 +50,7 @@ var FieldProps = map[string]bool{
 	"columns": true, "width": true, "gridEditMode": true, "collapsible": true, "bold": true,
 	"gridSort": true, "gridSortable": true, "gridExport": true, "gridSelect": true, "gridFilters": true, "gridSearch": true, "gridIndex": true,
 	"showFileName": true, "hideLabel": true,
-	"optionColors": true, "options": true, "permlevel": true,
+	"optionColors": true, "optionIcons": true, "optionIconOnly": true, "options": true, "permlevel": true,
 }
 
 // DoctypeProps are the DocType properties an extension may override. `idGeneration`,

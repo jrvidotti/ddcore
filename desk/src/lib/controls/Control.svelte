@@ -4,7 +4,8 @@
   // dialogs, grids and filters alike.
   import type { Field } from "$lib/meta";
   import { selectLabels, selectOptions } from "$lib/meta";
-  import { formatNumber, parseNumber, roundCurrency } from "$lib/format";
+  import { formatNumber, isIndicatorSelect, parseNumber, roundCurrency } from "$lib/format";
+  import SelectIndicator from "$lib/components/SelectIndicator.svelte";
   import { currencyPrecision } from "$lib/locale";
   import LinkControl from "./LinkControl.svelte";
   import AutocompleteControl from "./AutocompleteControl.svelte";
@@ -103,7 +104,9 @@
     <div class="control" class:with-buttons={buttons.length}>
       <!-- the cell already carries the width (see form-layout.ts); this only bounds the input -->
       <div class="control-wrap">
-        {#if ft === "Select"}
+        {#if ft === "Select" && ro && value && isIndicatorSelect(field)}
+          <div {id} class="select-indicator-ro"><SelectIndicator {value} {field} /></div>
+        {:else if ft === "Select"}
           <select {id} class="input" class:error={!!shownError} disabled={ro} value={value ?? ""} onchange={(e) => onchange((e.target as HTMLSelectElement).value || null)}>
             {#if !selectOptions(field).includes("")}<option value=""></option>{/if}
             <!-- a stored value outside the options (a DocType the user cannot see, a retired choice) still shows -->
@@ -235,6 +238,8 @@
 
 <style>
   .compact { margin-bottom: 0; }
+  /* a read-only Select with optionColors/optionIcons: its indicator, at an input's height */
+  .select-indicator-ro { display: flex; align-items: center; min-height: 32px; min-width: 0; }
   /* no buttons: the control must lay out exactly as it did before */
   .control { display: contents; }
   .control.with-buttons { display: flex; align-items: flex-start; gap: 6px; }

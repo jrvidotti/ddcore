@@ -20,7 +20,7 @@
 | Month | date | value "YYYY-MM-01", shown and edited in the locale's month order |
 | Datetime | timestamptz | ISO value; an **instant**, shown in the site's timezone |
 | Time | time | "HH:MM:SS"; a civil time, never converted |
-| Select | text | `options: ["A", "B"]`, canonical English, validated on the server; `optionColors` gives each value an indicator colour |
+| Select | text | `options: ["A", "B"]`, canonical English, validated on the server; `optionColors` gives each value an indicator colour, `optionIcons` an icon |
 | Autocomplete | text | free text with suggestions: `options` lists them (a list, or one per line) and never limits what is stored; outer spaces are trimmed. See below |
 | Barcode | text | `options` is the symbology: `"Code128"` (the default), `"EAN-13"` or `"QR"`; the value is validated for it, and an EAN-13 typed with 12 digits gets its check digit. The form previews the code and can scan it with the camera. See below |
 | Signature | text | a signature drawn on the form, stored as a PNG data URL (`data:image/png;base64,…`, as Frappe stores it); at most 64 KiB and 2000×1000 pixels. Never unique, indexed, a standard filter, in the list, or a title, search, sort or key field. See below |
@@ -452,7 +452,7 @@ use of `Percent` would reach.
 
 ## Field properties
 
-`fieldname, fieldtype, label, options, optionColors, reqd, unique, default, readOnly, hidden, fetchFrom, dependsOn,
+`fieldname, fieldtype, label, options, optionColors, optionIcons, optionIconOnly, reqd, unique, default, readOnly, hidden, fetchFrom, dependsOn,
 readOnlyDependsOn, mandatoryDependsOn, allowOnSubmit, setOnlyOnce, noCopy, inListView, inStandardFilter, searchIndex,
 length, precision, description, columns (grid width 1–12), width (`"sm"` | `"md"` | `"lg"` | `"full"`), gridEditMode (`"inline"` default or `"dialog"`),
 gridSort, gridSortable, gridExport, gridSelect, gridFilters, gridSearch (Table / Report), gridIndex (Table), reportFilters (Report), computed, showFileName (Attach / Attach Image), collapsible, bold, hideLabel,
@@ -471,6 +471,8 @@ permlevel, renamedFrom, convert`
 - `fetchFrom: "project.assignee"`: copied from the linked document on save. When `readOnly` it always overwrites; otherwise it fills only when empty.
 - `dependsOn`, `readOnlyDependsOn`, `mandatoryDependsOn`: a JS expression over `doc` (`"doc.type == 'PJ'"`) or a field name (truthy). Evaluated in the desk **and** on the server. The desk judges the document on screen. For `readOnlyDependsOn` the server refuses a change only when the expression holds on the stored document **and** on the one being saved, so a save that unlocks a field (`status` back to `"Open"`) may edit it too, and one that locks it keeps the edits made before.
 - `optionColors` (Select): `{ Open: "blue", Overdue: "red" }`, keyed by the canonical value — never by its label.
+- `optionIcons` (Select): `{ "Not registered": "x", Enabled: "check", Disabled: "ban" }`, keyed the same way; the indicator draws the icon, in the value's colour, in place of its dot. Names come from the desk's set (the "Icons" list in `report-api`); an unknown name fails the load. A Select with `optionColors` or `optionIcons` shows as an indicator — not as text — in a form grid's read-only cells, the list, a report, and a read-only field (the row dialog's included). A value `optionIcons` leaves out keeps the dot.
+- `optionIconOnly: true` (Select): in a table cell — a form grid, the list, a report — the indicator is its icon alone, with the translated label as the tooltip, so a narrow column holds it. A form field and the row dialog keep the label, and so does a value without an icon.
 - `renamedFrom: "old_name"` (or a list, oldest first): the fieldname this field used to have, so `migrate` renames the column instead of adding an empty one beside it. See `migrations`.
 - `options` beyond Link, Table, Table MultiSelect and Select: `Rating` takes the number of stars,
   `Code` the language, `Duration` its display flags, `Autocomplete` its
