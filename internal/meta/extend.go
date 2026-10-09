@@ -46,7 +46,7 @@ var FieldProps = map[string]bool{
 	"label": true, "description": true, "reqd": true, "unique": true, "default": true,
 	"readOnly": true, "hidden": true, "dependsOn": true, "readOnlyDependsOn": true,
 	"mandatoryDependsOn": true, "allowOnSubmit": true, "setOnlyOnce": true, "noCopy": true, "inListView": true,
-	"inStandardFilter": true, "searchIndex": true, "length": true, "precision": true,
+	"inStandardFilter": true, "searchIndex": true, "length": true, "precision": true, "rows": true,
 	"columns": true, "width": true, "gridEditMode": true, "collapsible": true, "bold": true,
 	"gridSort": true, "gridSortable": true, "gridExport": true, "gridSelect": true, "gridFilters": true, "gridSearch": true, "gridIndex": true,
 	"showFileName": true, "hideLabel": true,

@@ -356,6 +356,41 @@ func TestPrecisionBeyondTheColumnIsRefused(t *testing.T) {
 	}
 }
 
+// rows sets how tall a text area is drawn; on any other fieldtype it would
+// do nothing, so it is refused at load rather than ignored.
+func TestRowsIsForATextArea(t *testing.T) {
+	ok := NewRegistry()
+	ok.Add(&DocType{Name: "Bot", Fields: []*Field{
+		{Fieldname: "instructions", Fieldtype: "Markdown Editor", Label: "Instructions", Rows: 20},
+		{Fieldname: "notes", Fieldtype: "Small Text", Label: "Notes", Rows: 4},
+		{Fieldname: "query", Fieldtype: "Code", Label: "Query", Options: "sql", Rows: 12},
+		{Fieldname: "body", Fieldtype: "Text", Label: "Body"},
+	}})
+	if err := ok.Validate(); err != nil {
+		t.Fatalf("rows on a text area was refused: %v", err)
+	}
+
+	for _, c := range []struct {
+		f    *Field
+		want string
+	}{
+		{&Field{Fieldname: "instructions", Fieldtype: "Text", Label: "Instructions", Rows: -1}, "rows -1 must be a positive number"},
+		{&Field{Fieldname: "title", Fieldtype: "Data", Label: "Title", Rows: 3}, "rows is for a Small Text, Text, Markdown Editor or Code field, not a Data"},
+		{&Field{Fieldname: "sec", Fieldtype: "Section Break", Rows: 3}, "not a Section Break"},
+	} {
+		r := NewRegistry()
+		r.Add(&DocType{Name: "Bot", Fields: []*Field{c.f}})
+		err := r.Validate()
+		if err == nil || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("%s with rows %d: want an error containing %q, got %v", c.f.Fieldtype, c.f.Rows, c.want, err)
+		}
+	}
+	// a display property, so another app may make a text area taller
+	if !FieldProps["rows"] {
+		t.Error("an extension cannot set rows")
+	}
+}
+
 // DAT-05 — a compound business key becomes a partial unique index, so every
 // way it could fail to become one is refused at load. A declaration that
 // silently enforces nothing is worse than no declaration at all.

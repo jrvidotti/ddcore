@@ -4,10 +4,10 @@
 |---|---|---|
 | Data | text | `length` limits the input |
 | Email | text | an email address; outer spaces are trimmed and the format is validated in the desk and on the server |
-| Small Text / Text | text | textarea (2 / 5 rows) |
+| Small Text / Text | text | textarea (2 / 5 rows; `rows` sets it) |
 | Text Editor | text | **rich text**: sanitized HTML, edited with a toolbar. See below |
-| Markdown Editor | text | the Markdown source as written, rendered (and sanitized) only for display and print |
-| Code | text | monospace, never trimmed; `options` is the language (`"sql"`, lowercase) |
+| Markdown Editor | text | the Markdown source as written, rendered (and sanitized) only for display and print; the editor is 8 rows tall, `rows` sets it |
+| Code | text | monospace, never trimmed; `options` is the language (`"sql"`, lowercase); 8 rows tall, `rows` sets it |
 | Int | bigint | |
 | Float | double precision | a measurement; `precision` affects display only and the value is never rounded on save |
 | Currency | numeric(21,9) | **rounded on save** to the site's precision; shown with the symbol of `ddcore.json:currency`, grouped as the reader's language does |
@@ -454,11 +454,13 @@ use of `Percent` would reach.
 
 `fieldname, fieldtype, label, options, optionColors, optionIcons, optionIconOnly, reqd, unique, default, readOnly, hidden, fetchFrom, dependsOn,
 readOnlyDependsOn, mandatoryDependsOn, allowOnSubmit, setOnlyOnce, noCopy, inListView, inStandardFilter, searchIndex,
-length, precision, description, columns (grid width 1–12), width (`"sm"` | `"md"` | `"lg"` | `"full"`), gridEditMode (`"inline"` default or `"dialog"`),
+length, precision, rows (Small Text / Text / Markdown Editor / Code), description, columns (grid width 1–12), width (`"sm"` | `"md"` | `"lg"` | `"full"`), gridEditMode (`"inline"` default or `"dialog"`),
 gridSort, gridSortable, gridExport, gridSelect, gridFilters, gridSearch (Table / Report), gridIndex (Table), reportFilters (Report), computed, showFileName (Attach / Attach Image), collapsible, bold, hideLabel,
 permlevel, renamedFrom, convert`
 
 - `permlevel`: 0–9, default 0. A field above 0 is read and written only by roles granted that level by a permission row with the same `permlevel`; the server omits it from every response and refuses a change from anyone else. `hidden` and `readOnly` are screen hints and protect nothing. See `field-permissions`.
+
+- `rows`: how many lines tall a `Small Text`, `Text`, `Markdown Editor` or `Code` field is on a form or in a dialog — a positive integer; unset keeps 2, 5, 8 and 8. A grid cell keeps its compact height. Refused at load on any other fieldtype.
 
 - `setOnlyOnce`: the value cannot change once the document exists — a tenant key, say. The server refuses a different value (clearing it included) on every write path: `save()`, REST, `ddcore.db.setValue` / `doc.dbSet`, Data Import; nothing lifts it, not `ignorePermissions` nor a workflow's `updateFields`. An empty value may be filled once. On a child DocType it holds a saved row's value; a new row takes any. The desk shows the field read-only once it holds a saved value. Not for a layout, `Table` or `computed` field. To repair a value, use `ctx.sql` in a migration patch.
 

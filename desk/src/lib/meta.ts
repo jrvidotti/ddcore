@@ -16,6 +16,8 @@ export interface Field {
   maxBytes?: number;
   columns?: number; width?: FieldWidth; gridEditMode?: "inline" | "dialog"; collapsible?: boolean; bold?: boolean;
   showFileName?: boolean;
+  /** Small Text, Text, Markdown Editor, Code: text area height outside a grid. */
+  rows?: number;
   /** Label off the form (kept for screen readers, exports, dialogs, errors). */
   hideLabel?: boolean;
   /** Table or Report grid: default display order, header sorting, CSV/XLSX export, row checkboxes. */

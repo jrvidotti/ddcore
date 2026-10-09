@@ -14,6 +14,13 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **Taller text areas.** `rows` on a `Small Text`, `Text`, `Markdown Editor` or `Code` field
+  sets how many lines tall it is on a form or in a dialog — a long prompt no longer means
+  scrolling an 8-row box. Unset keeps 2, 5, 8 and 8; a grid cell keeps its compact height;
+  a negative value, or `rows` on any other fieldtype, fails the load (#124).
+
 ### Fixed
 
 - **Field buttons wrap on a narrow screen.** A row of `frm.addFieldButton` buttons (under an

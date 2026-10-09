@@ -17,6 +17,10 @@ import (
 // Layout fieldtypes have no column.
 var LayoutTypes = map[string]bool{"Section Break": true, "Tab Break": true, "HTML": true, "Report": true}
 
+// TextAreaTypes are the fieldtypes the desk draws as a text area, the ones a
+// field's rows applies to.
+var TextAreaTypes = map[string]bool{"Small Text": true, "Text": true, "Markdown Editor": true, "Code": true}
+
 // ColumnType maps a fieldtype to its Postgres column type ("" = no column).
 func ColumnType(ft string) string {
 	switch ft {
@@ -79,6 +83,10 @@ type Field struct {
 	Columns            int    `json:"columns,omitempty"`
 	Width              string `json:"width,omitempty"`
 	GridEditMode       string `json:"gridEditMode,omitempty"`
+	// Rows is how many lines tall the desk draws a Small Text, Text,
+	// Markdown Editor or Code field; unset keeps the fieldtype's default.
+	// A grid cell keeps its compact height.
+	Rows int `json:"rows,omitempty"`
 	// SetOnlyOnce refuses any change to a stored value once the document
 	// exists, on every write path (save, dbSet, import); an empty value may
 	// be filled once. Unlike readOnly, this is enforced on the server.
@@ -756,6 +764,11 @@ func (r *Registry) Validate() error {
 				e("invalid fieldtype %q on field %q", f.Fieldtype, f.Fieldname)
 			}
 			r.validateGrid(d, f, e)
+			if f.Rows < 0 {
+				e("field %q: rows %d must be a positive number", f.Fieldname, f.Rows)
+			} else if f.Rows > 0 && !TextAreaTypes[f.Fieldtype] {
+				e("field %q: rows is for a Small Text, Text, Markdown Editor or Code field, not a %s", f.Fieldname, f.Fieldtype)
+			}
 			if LayoutTypes[f.Fieldtype] {
 				if f.HideLabel && f.Fieldtype != "Report" { // a Report draws its label, like a Table
 					e("field %q: hideLabel is for a data field, not a %s", f.Fieldname, f.Fieldtype)

@@ -167,4 +167,26 @@ describe("Control", () => {
       expect(render(Control, { props: { field: plain, value: "A", onchange: vi.fn(), readOnly: true } }).body).toContain("<select");
     });
   });
+
+  describe("rows", () => {
+    const rowsOf = (field: Field, inGrid = false) =>
+      render(Control, { props: { field, value: "", onchange: vi.fn(), inGrid } }).body.match(/<textarea[^>]*\brows="(\d+)"/)?.[1];
+
+    it("sets a Markdown Editor's height, 8 rows by default", () => {
+      expect(rowsOf({ fieldname: "bot", fieldtype: "Markdown Editor", label: "Bot", rows: 20 })).toBe("20");
+      expect(rowsOf({ fieldname: "bot", fieldtype: "Markdown Editor", label: "Bot" })).toBe("8");
+    });
+
+    it("sets a Code field's and a Text field's height", () => {
+      expect(rowsOf({ fieldname: "q", fieldtype: "Code", label: "Query", options: "sql", rows: 15 })).toBe("15");
+      expect(rowsOf({ fieldname: "body", fieldtype: "Text", label: "Body", rows: 12 })).toBe("12");
+      expect(rowsOf({ fieldname: "body", fieldtype: "Text", label: "Body" })).toBe("5");
+      expect(rowsOf({ fieldname: "note", fieldtype: "Small Text", label: "Note" })).toBe("2");
+    });
+
+    it("leaves a grid cell compact", () => {
+      expect(rowsOf({ fieldname: "bot", fieldtype: "Markdown Editor", label: "Bot", rows: 20 }, true)).toBe("4");
+      expect(rowsOf({ fieldname: "note", fieldtype: "Small Text", label: "Note", rows: 6 }, true)).toBe("2");
+    });
+  });
 });

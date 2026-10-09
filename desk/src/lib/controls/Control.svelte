@@ -151,13 +151,13 @@
             {#if ft === "Percent"}<span class="muted" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:12px">%</span>{/if}
           </div>
         {:else if ft === "Small Text" || ft === "Text"}
-          <textarea {id} class="input" class:error={!!shownError} readonly={ro} rows={ft === "Small Text" ? 2 : 5} value={value ?? ""} onchange={(e) => onchange((e.target as HTMLTextAreaElement).value || null)}></textarea>
+          <textarea {id} class="input" class:error={!!shownError} readonly={ro} rows={(!inGrid && field.rows) || (ft === "Small Text" ? 2 : 5)} value={value ?? ""} onchange={(e) => onchange((e.target as HTMLTextAreaElement).value || null)}></textarea>
         {:else if ft === "Text Editor"}
           <RichTextControl {value} {onchange} readOnly={ro} error={shownError} {id} {doc} fieldname={field.fieldname || ""} />
         {:else if ft === "Markdown Editor"}
-          <MarkdownControl {value} {onchange} readOnly={ro} error={shownError} {id} rows={inGrid ? 4 : 8} />
+          <MarkdownControl {value} {onchange} readOnly={ro} error={shownError} {id} rows={inGrid ? 4 : field.rows || 8} />
         {:else if ft === "Code"}
-          <CodeControl {value} {onchange} readOnly={ro} error={shownError} {id} language={typeof field.options === "string" ? field.options : ""} rows={inGrid ? 4 : 8} />
+          <CodeControl {value} {onchange} readOnly={ro} error={shownError} {id} language={typeof field.options === "string" ? field.options : ""} rows={inGrid ? 4 : field.rows || 8} />
         {:else if ft === "Duration"}
           <DurationControl {field} {value} {onchange} readOnly={ro} error={shownError} {id} {inGrid} />
         {:else if ft === "Rating"}

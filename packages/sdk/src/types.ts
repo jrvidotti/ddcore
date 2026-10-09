@@ -183,6 +183,12 @@ export interface FieldDef {
    * thumbnail already opens the file and shows its name, size and type on hover.
    */
   showFileName?: boolean;
+  /**
+   * Small Text / Text / Markdown Editor / Code: how many lines tall the text
+   * area is on a form or in a dialog (defaults 2 / 5 / 8 / 8). A grid cell
+   * keeps its compact height. Refused on any other fieldtype.
+   */
+  rows?: number;
   collapsible?: boolean;
   bold?: boolean;
   /**
