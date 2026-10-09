@@ -18,6 +18,7 @@
   import GridExport from "./GridExport.svelte";
   import GridFilters from "./GridFilters.svelte";
   import GridSearch from "./GridSearch.svelte";
+  import Spinner from "$lib/components/Spinner.svelte";
 
   let { frm, field, childMeta }: { frm: FormController; field: Field; childMeta: DocTypeMeta } = $props();
   const rows = $derived((frm.doc[field.fieldname!] ||= []) as any[]);
@@ -25,6 +26,8 @@
   const editable = $derived(frm.isFieldEditable(field));
   const cannotAdd = $derived(!!(field as any).cannotAddRows);
   const cannotDelete = $derived(!!(field as any).cannotDeleteRows);
+  // frm.setDfProperty(table, "loading", true) while a script fetches the rows
+  const loading = $derived(!!(field as any).loading);
   const columns = $derived(childMeta.fields.filter((f) => f.inListView && !isLayout(f) && !f.hidden));
   const totalCols = $derived(columns.reduce((s, c) => s + (c.columns || 2), 0));
   const editMode = $derived(gridEditMode(field));
@@ -146,16 +149,16 @@
         {#if presets.length}<GridFilters filters={presets} {active} ontoggle={toggleFilter} />{/if}
         {#if selectable && chosen.length}
           <span class="muted">{__("{0} selected", [chosen.length])}</span>
-          <GridActions actions={frm.gridActions[field.fieldname!] || []} rows={chosenOnScreen} ondone={() => (selected = new Set())} />
-          {#if canDelete}<button class="btn sm danger" onclick={deleteSelected}><Icon name="trash" size={14} />{__("Delete selected")}</button>{/if}
+          <GridActions actions={frm.gridActions[field.fieldname!] || []} rows={chosenOnScreen} ondone={() => (selected = new Set())} disabled={loading} />
+          {#if canDelete}<button class="btn sm danger" disabled={loading} onclick={deleteSelected}><Icon name="trash" size={14} />{__("Delete selected")}</button>{/if}
           <button class="btn sm" onclick={() => toggleAll(false)}>{__("Clear selection")}</button>
         {/if}
         <span class="spacer"></span>
-        <FieldButtons {buttons} small />
+        <FieldButtons {buttons} small disabled={loading} />
         {#if exportable}<GridExport onexport={exportRows} />{/if}
       </div>
     {/if}
-    <table class="grid" class:dialog-grid={dialogOnly}>
+    <table class="grid" class:dialog-grid={dialogOnly} class:loading={loading && viewRows.length} aria-busy={loading || undefined}>
       <thead>
         <tr>
           {#if selectable}<th style="width:28px"><input type="checkbox" aria-label={__("Select all")} checked={allSelected} onchange={(e) => toggleAll(e.currentTarget.checked)} /></th>{/if}
@@ -209,17 +212,24 @@
           </tr>
         {/each}
         {#if !viewRows.length}
-          <tr><td colspan={columns.length + 1 + (selectable ? 1 : 0) + (showIndex ? 1 : 0)} class="muted" style="text-align:center;padding:14px">{rows.length ? __("No rows match the filters") : __("No rows")}</td></tr>
+          <tr><td colspan={columns.length + 1 + (selectable ? 1 : 0) + (showIndex ? 1 : 0)} class="muted grid-empty">
+            {#if loading}<span class="grid-loading"><Spinner size={16} />{__("Loading...")}</span>{:else}{rows.length ? __("No rows match the filters") : __("No rows")}{/if}
+          </td></tr>
         {/if}
       </tbody>
     </table>
     {#if editable && !cannotAdd}
-      <div style="padding:8px"><button class="btn sm" onclick={add}><Icon name="plus" size={14} />{__("Add row")}</button></div>
+      <div style="padding:8px"><button class="btn sm" disabled={loading} onclick={add}><Icon name="plus" size={14} />{__("Add row")}</button></div>
     {/if}
   </div>
 </div>
 
 <style>
+  .grid-empty { text-align: center; padding: 14px; }
+  .grid-loading { display: inline-flex; align-items: center; gap: 8px; }
+  .grid-loading :global(.spinner-wrap) { padding: 0; }
+  /* a reload: the old rows stay, dimmed and out of reach, until the new ones arrive */
+  table.loading tbody { opacity: 0.45; pointer-events: none; transition: opacity 0.15s; }
   table.dialog-grid { table-layout: fixed; min-width: 720px; }
   table.dialog-grid td { overflow: hidden; }
   /* before .cell-value, which a dialog-mode cell button also carries */

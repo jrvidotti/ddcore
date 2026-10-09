@@ -90,6 +90,7 @@ export interface FieldButton {
   label: string;
   /** an Icon name: renders the button icon-only, with `label` as its tooltip */
   icon?: string;
+  /** a returned promise keeps the button disabled, with a spinner, until it settles; its error is shown */
   onClick: () => any;
   /** identity within the field; a second call with the same key replaces the button */
   key?: string;

@@ -26,7 +26,7 @@ defineForm<Entry>("Entry", {
 
 `doc`, `doctype`, `meta`, `isNew`, `isDirty`, `docstatus`, `perm`, `getValue`, `setValue(field | {..}, value)`, `field(field)`,
 `setDfProperty(field, prop, value)` (`hidden`, `readOnly`, `reqd`, `label`, `description`, `options`, `width`, `cannotAddRows`, `cannotDeleteRows`,
-`gridSort`, `gridSortable`, `gridExport`, `gridSelect`, `gridFilters`, `gridSearch`, `gridIndex`, `hideLabel`, `reportFilters`), `refreshField(field)` (re-runs a Report field's report),
+`gridSort`, `gridSortable`, `gridExport`, `gridSelect`, `gridFilters`, `gridSearch`, `gridIndex`, `hideLabel`, `reportFilters`, and a Table's `loading`, see "A grid a script fills"), `refreshField(field)` (re-runs a Report field's report),
 `setQuery(field, () => ({ filters }))`, `toggleDisplay/toggleReqd/toggleEnable`, `addButton(label, fn, group)`, `removeButton`,
 `setPrimaryAction(label, fn)`, `setInnerGroupAsPrimary(group)`, `addIndicator(label, colour)`, `addChild(table, values)`, `removeChild(table, idx)`,
 `setRowValue(table, row | rowId, field | {..}, value)`,
@@ -152,9 +152,46 @@ The button is rendered by the desk, so:
   **replaces** it, which is what lets a label carrying a count be refreshed after each lookup;
   omit it and the field holds one button. `removeFieldButton(field, key)` removes that one,
   `removeFieldButton(field)` removes every button on the field.
+- an `onClick` that returns a promise keeps its button disabled, with a spinner in it, until the
+  promise settles. A "Reload" button cannot be clicked twice, and its error is shown.
 
 Field buttons are cleared by the same `clearButtons()` that empties the toolbar at the start of
 every `refresh` — declare in `refresh` whatever must survive a save or a reload.
+
+### A grid a script fills
+
+A Tool Single often fills a Table from a whitelisted call that takes a while. While it runs,
+`frm.setDfProperty(table, "loading", true)` puts the grid in its loading state:
+- with no rows, a spinner and "Loading..." replace "No rows";
+- with rows (a reload), they stay on screen, dimmed and out of reach, until the new ones arrive;
+- either way, the grid's field buttons, its actions on the selected rows and "Add row" are off.
+
+`ddcore.call` also runs the bar at the top of the desk while it is out. Set the flag back in `finally`:
+
+```ts
+async function load(frm) {
+  frm.setDfProperty("users", "loading", true);
+  try {
+    const res = await ddcore.call("app.services.users.listUsers", {});
+    frm.doc.users = [];
+    for (const r of res.rows) frm.addChild("users", r);
+  } catch (e) {
+    ddcore.ui.showError(e);
+  } finally {
+    frm.setDfProperty("users", "loading", false);
+  }
+}
+
+defineForm("Users Tool", {
+  onload(frm) { load(frm); }, // not awaited: the page opens at once, with the grid loading
+  refresh(frm) {
+    frm.addFieldButton("users", { icon: "refresh-cw", label: __("Reload"), onClick: () => load(frm) });
+  },
+});
+```
+
+An `onload` that **awaits** the call keeps the whole form on the desk's full-page spinner instead,
+until it settles.
 
 ### Actions on a grid's selected rows
 
@@ -301,7 +338,7 @@ defineForm<Charge>("Charge", {
 
 ## `ddcore` in the desk
 
-- `ddcore.call("app.services.file.fn", args)` — a whitelisted function
+- `ddcore.call("app.services.file.fn", args)` — a whitelisted function; the bar at the top of the desk runs while it is out
 - `ddcore.report(name, filters)` — runs a `defineReport`: `{ meta, result: { columns, rows } }`
 - `ddcore.db.getValue/getList/count/getDoc/setValue/insert` (asynchronous: `await` them).
   `getList(doctype, { filters, fields, orderBy, limit, start })` returns the rows the user may

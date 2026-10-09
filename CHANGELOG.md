@@ -14,6 +14,21 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **A grid shows that a script is loading its rows.** `frm.setDfProperty(table, "loading", true)`
+  replaces "No rows" with a spinner and "Loading...", or dims the rows on screen during a reload.
+  While it is on, the grid's field buttons, its actions on the selected rows and "Add row" are
+  disabled. See "A grid a script fills" in `form-api` (#122).
+
+### Changed
+
+- **`ddcore.call` runs the progress bar at the top of the desk** while it is out, as `frm.call`
+  already did. A page filled by a slow whitelisted call no longer looks idle (#122).
+- **A field button waits for its `onClick`.** When `onClick` returns a promise, the button stays
+  disabled, with a spinner in place of its icon, until the promise settles. Its error is shown.
+  Clicking "Reload" again while it runs does nothing (#122).
+
 ## 0.27.21 — 2026-10-08
 
 ### Added

@@ -16,6 +16,7 @@ export interface FieldButton {
   label: string;
   /** an icon name: renders the button icon-only, with `label` as its tooltip */
   icon?: string;
+  /** a returned promise keeps the button disabled, with a spinner, until it settles; its error is shown */
   onClick: () => any;
   /** identity within the field; a second call with the same key replaces the button */
   key?: string;
@@ -108,8 +109,12 @@ export interface Frm<T extends BaseDoc = BaseDoc> {
   onRealtime(event: string, handler: (payload: any) => void): this;
 }
 
-/** what `frm.setDfProperty` changes: any field property, plus the grid's runtime-only row flags */
-export type DfProperty = keyof FieldDef | "cannotAddRows" | "cannotDeleteRows";
+/**
+ * what `frm.setDfProperty` changes: any field property, plus the grid's runtime-only flags.
+ * `loading` puts a Table's grid in its loading state while a script fetches its rows: a
+ * spinner in place of "No rows", or the rows on screen dimmed, with its actions disabled
+ */
+export type DfProperty = keyof FieldDef | "cannotAddRows" | "cannotDeleteRows" | "loading";
 
 export interface FormHandlers<T extends BaseDoc = BaseDoc> {
   setup?: (frm: Frm<T>) => void;
@@ -325,6 +330,7 @@ export interface DeskAPI {
   readonly session: DeskSession;
   /** Whether the signed-in user has the role (`ddcore.session.roles` includes it). */
   hasRole(role: string): boolean;
+  /** Calls a whitelisted method (POST /api/method/:path); the bar at the top of the desk runs while it is out. */
   call(path: string, args?: Record<string, any>): Promise<any>;
   /** Runs a `defineReport` (GET /api/report/:name): its columns and rows, and whether the user may export them. */
   report(name: string, filters?: Record<string, any>): Promise<{ meta: { canExport?: boolean; [k: string]: any }; result: { columns: any[]; rows: any[]; [k: string]: any } }>;

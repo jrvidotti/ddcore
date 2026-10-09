@@ -5,12 +5,14 @@
   import { showError } from "$lib/ui.svelte";
   import { visibleGridActions } from "$lib/components/list-actions";
 
-  let { actions = [], rows = [], ondone }: {
+  let { actions = [], rows = [], ondone, disabled = false }: {
     actions?: GridAction[];
     /** the selected rows on screen, in screen order */
     rows?: any[];
     /** called once an action settles, to clear the selection */
     ondone: () => void;
+    /** every action off, e.g. while the grid is loading */
+    disabled?: boolean;
   } = $props();
   const visible = $derived(visibleGridActions(actions, rows));
   let running = $state(false);
@@ -25,5 +27,5 @@
 </script>
 
 {#each visible as { action, rows: actionRows } (action)}
-  <button type="button" class="btn sm grid-action" class:primary={action.primary} disabled={running} onclick={() => run(action, actionRows)}>{action.label} ({actionRows.length})</button>
+  <button type="button" class="btn sm grid-action" class:primary={action.primary} disabled={running || disabled} onclick={() => run(action, actionRows)}>{action.label} ({actionRows.length})</button>
 {/each}

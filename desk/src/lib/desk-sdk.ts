@@ -5,7 +5,7 @@ import { seg } from "./routes";
 import { api } from "./api";
 import { subscribe, unsubscribe } from "./events";
 import { registerForm, type FormHandlers, FormController } from "./form.svelte";
-import { dialog, toast, confirm, prompt, showError } from "./ui.svelte";
+import { dialog, toast, confirm, prompt, showError, ui } from "./ui.svelte";
 import { __, boot, hasRole } from "./boot.svelte";
 import { formatCurrency, formatDate, formatNumber, formatValue, roundCurrency, statusColor } from "./format";
 import { getMeta, type Field } from "./meta";
@@ -191,7 +191,11 @@ export const deskSDK = {
       return { user, fullName: b?.userDoc?.full_name || user, roles: [...(b?.roles || [])], lang: b?.lang || "" };
     },
     hasRole,
-    call: (path: string, args?: any) => api.call(path, args),
+    // the bar at the top runs while it is out, as it does for frm.call
+    call: async (path: string, args?: any) => {
+      ui.busy++;
+      try { return await api.call(path, args); } finally { ui.busy--; }
+    },
     report: (name: string, filters: Record<string, any> = {}) => api.report(name, filters),
     api,
     notifications: api.notifications,

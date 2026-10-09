@@ -107,3 +107,23 @@ describe("docstatus filter visibility logic", () => {
     expect(shouldShowDocstatusFilter(undefined, false)).toBe(false);
   });
 });
+
+describe("ddcore.call", () => {
+  it("runs the bar at the top while the call is out, and stops it when it fails too", async () => {
+    const { api } = await import("./api");
+    const { ui } = await import("./ui.svelte");
+    let release!: (v: any) => void;
+    const spy = vi.spyOn(api, "call").mockImplementationOnce(() => new Promise((r) => (release = r)));
+    const pending = deskSDK.ddcore.call("app.services.x.list", { a: 1 });
+    expect(spy).toHaveBeenCalledWith("app.services.x.list", { a: 1 });
+    expect(ui.busy).toBe(1);
+    release({ rows: [] });
+    await expect(pending).resolves.toEqual({ rows: [] });
+    expect(ui.busy).toBe(0);
+
+    spy.mockImplementationOnce(() => Promise.reject(new Error("refused")));
+    await expect(deskSDK.ddcore.call("app.services.x.list")).rejects.toThrow("refused");
+    expect(ui.busy).toBe(0);
+    spy.mockRestore();
+  });
+});
