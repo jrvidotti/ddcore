@@ -20,6 +20,12 @@ older series, and `whats_new` reads across every one of them.
   replaces "No rows" with a spinner and "Loading...", or dims the rows on screen during a reload.
   While it is on, the grid's field buttons, its actions on the selected rows and "Add row" are
   disabled. See "A grid a script fills" in `form-api` (#122).
+- **Totals above a list.** `defineListView({ summary })` puts cards above the rows, styled like a
+  report's summary: a count or the sum of a field (`aggregate: "count" | "sum:<field>"`) over
+  every row the list's filters and search match, not only the page on screen, recomputed as the
+  list reloads. A card may narrow itself with its own `filters`, and takes a `datatype` and an
+  `indicator`. It runs as the reader, through the list API. See "Totals above the list" in
+  `form-api`.
 
 ### Changed
 

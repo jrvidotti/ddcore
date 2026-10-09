@@ -3,7 +3,7 @@
   // List view generated from meta: standard filters, search, sort, paging, bulk delete.
   import { api } from "$lib/api";
   import { getMeta, selectLabels, selectOptions, type Meta, type Field, isLayout, isTableType } from "$lib/meta";
-  import { formatValue } from "$lib/format";
+  import { formatSummary, formatValue } from "$lib/format";
   import { __, boot, doctypeLabel } from "$lib/boot.svelte";
   import { showError, toast, confirm, dialog } from "$lib/ui.svelte";
   import { getLinkTitle, registerTitles } from "$lib/titles.svelte";
@@ -20,6 +20,7 @@
   import { fromDatetimeLocal, today } from "$lib/datetime";
   import { getCalendarDays } from "$lib/controls/date-format";
   import { buildListFilters } from "./list-filters";
+  import { combineSummary, summaryDatatype, summaryExpression, summaryFilters } from "./list-summary";
   import { clearListFilters, countListFilters, filtersOpen, listStateFromSearchParams, rememberFiltersOpen, listStateToSearchParams, resolveAllowedViews, resolveActiveView, type ListUrlState } from "./list-state";
   import { exportChoice, exportChoices, exportUrl } from "./export-options";
   import DataImportModal from "./DataImportModal.svelte";
@@ -66,6 +67,8 @@
   let showFilters = $state(false);
   let loadVersion = 0;
   let loadedQueryKey = "";
+  /** The `summary` cards' values, computed by the server over every row the filters match. */
+  let summary = $state<{ label: string; value: any; datatype?: string; indicator?: string }[]>([]);
 
   const initialDate = today();
   let calendarYear = $state(Number(initialDate.slice(0, 4)));
@@ -327,6 +330,7 @@
       });
       const preserveSelection = queryKey === loadedQueryKey;
       if (!preserveSelection) selected = new Set();
+      loadSummary(version, filterSets, query.or_filters);
       const parts = await Promise.all(filterSets.map((filters) => api.list(doctype, { ...query, filters })));
       if (version !== loadVersion) return;
       rows = parts.flatMap((res) => res.rows);
@@ -336,6 +340,29 @@
       loadedQueryKey = queryKey;
       error = "";
     } catch (e: any) { if (version === loadVersion) { error = e.message; showError(e); } } finally { if (version === loadVersion) loading = false; }
+  }
+  /**
+   * One aggregate query per card, over the same filters (and search) as the rows. A card that
+   * fails — an aggregate the list does not know, a field the reader may not see — shows a dash
+   * and leaves the list and the other cards alone.
+   */
+  async function loadSummary(version: number, filterSets: any[][], orFilters: any) {
+    const cards = settings.summary || [];
+    if (!cards.length) { summary = []; return; }
+    const values = await Promise.all(cards.map(async (card) => {
+      const expression = summaryExpression(card.aggregate);
+      const base = { label: card.label, datatype: summaryDatatype(card, meta?.doctype.fields || []), indicator: card.indicator };
+      if (!expression) { console.error(`list summary "${card.label}": unknown aggregate ${card.aggregate}`); return { ...base, value: "—", datatype: undefined }; }
+      try {
+        const parts = await Promise.all(filterSets.map((filters) =>
+          api.list(doctype, { filters: summaryFilters(filters, card), or_filters: orFilters, fields: [expression], limit: 1 })));
+        return { ...base, value: combineSummary(parts as any[][]) };
+      } catch (e) {
+        console.error(`list summary "${card.label}"`, e);
+        return { ...base, value: "—", datatype: undefined };
+      }
+    }));
+    if (version === loadVersion) summary = values;
   }
   $effect(() => {
     const search = page.url.search;
@@ -582,6 +609,10 @@
       <button class="btn" disabled={!hasActiveFilters} onclick={() => updateListState(clearListFilters(currentListState()))}><Icon name="x" size={14} />{__("Clear filters")}</button>
     </div>
   </div>
+  {/if}
+
+  {#if meta && !isTreeView && summary.length}
+    <div class="summary">{#each summary as s}<div class="item {s.indicator || ''}"><div class="l">{s.label}</div><div class="v">{formatSummary(s)}</div></div>{/each}</div>
   {/if}
 
   {#if meta}

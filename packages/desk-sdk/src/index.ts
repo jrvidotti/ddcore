@@ -538,6 +538,26 @@ export interface ListToolbarAction {
 }
 
 /** Adjustments for a DocType's list view (see docs/agent/form-api.md). */
+/**
+ * A total shown above a list's rows, computed by the server over every row the list's filters
+ * match — not only the page on screen — and recomputed whenever the list reloads.
+ */
+export interface ListSummaryCard {
+  /** Shown as given — wrap it in `__()`. */
+  label: string;
+  /** `"count"` (the default) or `"sum:<fieldname>"`, as a workspace number card takes. */
+  aggregate?: "count" | `sum:${string}`;
+  /**
+   * Narrows this card to part of the rows, on top of the list's filters: `[field, op, value]`
+   * triples, or `{ field: value }` for equalities.
+   */
+  filters?: [string, string, any][] | Record<string, any>;
+  /** How the value is formatted; left out, `Int` for a count and the summed field's type for a sum. */
+  datatype?: "Currency" | "Int" | "Float" | "Data" | "Date" | "Datetime";
+  /** Colours the value, as a report's summary does. */
+  indicator?: "red" | "green" | "orange" | "blue";
+}
+
 export interface ListViewOptions<T extends BaseDoc = BaseDoc> {
   /**
    * Allowed views for this DocType; defaults to ["list", "cards"] plus
@@ -598,6 +618,8 @@ export interface ListViewOptions<T extends BaseDoc = BaseDoc> {
   actions?: ListAction<T>[];
   /** Buttons on the list toolbar, in every view, that run with or without a selection. */
   toolbarActions?: ListToolbarAction[];
+  /** Totals above the rows, over everything the filters match; see `ListSummaryCard`. */
+  summary?: ListSummaryCard[];
 }
 
 export declare function defineListView<T extends BaseDoc = BaseDoc>(doctype: string, opts: ListViewOptions<T>): void;
