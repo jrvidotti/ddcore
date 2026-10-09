@@ -37,7 +37,8 @@
 {/if}
 
 <style>
-  .field-btns { display: inline-flex; align-items: flex-start; gap: 6px; }
+  /* wraps on a narrow screen instead of running past the form's edge (#123) */
+  .field-btns { display: inline-flex; flex-wrap: wrap; align-items: flex-start; gap: 6px; max-width: 100%; }
   .field-btns :global(.btn.field-btn:not(.sm)) { min-height: 34px; font-size: 12px; }
   .btn-spin {
     display: inline-block; box-sizing: border-box; border-radius: 50%;

@@ -14,6 +14,12 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- **Field buttons wrap on a narrow screen.** A row of `frm.addFieldButton` buttons (under an
+  `HTML` field, beside an input or in a grid's toolbar) ran past the form's right edge on a
+  phone; it now breaks onto the next line (#123).
+
 ## 0.27.22 — 2026-10-09
 
 ### Added
