@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.27.22 — 2026-10-09
+
 ### Added
 
 - **A grid shows that a script is loading its rows.** `frm.setDfProperty(table, "loading", true)`
