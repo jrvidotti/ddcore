@@ -14,6 +14,15 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **Totals above a list.** `defineListView({ summary })` puts cards above the rows, styled like a
+  report's summary: a count or the sum of a field (`aggregate: "count" | "sum:<field>"`) over
+  every row the list's filters and search match, not only the page on screen, recomputed as the
+  list reloads. A card may narrow itself with its own `filters`, and takes a `datatype` and an
+  `indicator`. It runs as the reader, through the list API. See "Totals above the list" in
+  `form-api`.
+
 ## 0.27.21 — 2026-10-08
 
 ### Added

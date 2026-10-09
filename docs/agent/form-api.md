@@ -535,6 +535,36 @@ draws the button as primary. While `onClick` runs the list's action buttons are 
 rejection is shown to the user, and the list reloads afterwards, keeping the selection. As with
 `actions`, the method it calls must check permissions itself.
 
+### Totals above the list
+
+`summary` puts cards above the rows, like a report's summary — a count, or the sum of a field —
+over **every row the filters match**, not only the page on screen:
+
+```ts
+defineListView("Ledger Entry", {
+  summary: [
+    { label: __("Total"), aggregate: "sum:amount" },
+    { label: __("Receipts"), aggregate: "sum:amount", filters: { entry_type: "Receipt" }, indicator: "green" },
+    { label: __("Fees"), aggregate: "sum:amount", filters: [["entry_type", "in", ["Platform Fee", "Card Fee"]]] },
+    { label: __("Entries") },
+  ],
+});
+```
+
+- `aggregate` is `"count"` (the default) or `"sum:<fieldname>"`, as a workspace number card takes.
+- `filters` narrows one card on top of the list's filters and search: `[field, op, value]` triples,
+  or `{ field: value }` for equalities.
+- `datatype` formats the value (`Currency`, `Int`, `Float`, …); left out, a count is an `Int` and a
+  sum takes the summed field's type. `indicator` (`red`, `green`, `orange`, `blue`) colours it.
+- `label` is shown as given: wrap it in `__()`.
+
+Each card is one aggregate query to the list API, sent with the rows and again whenever the list
+reloads (a filter, the search, a `list_update`). It runs as the reader, so it sees the rows the
+list shows: permissions, scopes and the tenant apply, and summing a field the reader may not read
+is refused. A card that fails shows a dash, and the list and the other cards load as usual. The
+cards show in every view but the Tree, over what that view loads — the month on screen in the
+Calendar, say.
+
 ### Views: Tree, Calendar, Kanban, Gantt and Cards
 
 Besides the table, a list can offer other views of the same filtered rows. A segmented switcher in

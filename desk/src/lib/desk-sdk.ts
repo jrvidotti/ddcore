@@ -126,6 +126,14 @@ export interface ListToolbarAction {
   onClick(list: ListToolbarContext): any;
 }
 
+export interface ListSummaryCard {
+  label: string;
+  aggregate?: string;
+  filters?: [string, string, any][] | Record<string, any>;
+  datatype?: string;
+  indicator?: "red" | "green" | "orange" | "blue";
+}
+
 export interface ListViewOptions<T extends BaseDoc = BaseDoc> {
   /** Allowed views for this DocType; defaults to ["list", "cards"] plus "calendar", "kanban" and "gantt" for each one configured */
   views?: DeskViewMode[];
@@ -150,6 +158,7 @@ export interface ListViewOptions<T extends BaseDoc = BaseDoc> {
   filterOptions?: Partial<Record<keyof T & string, { value: string; label: string; filters: [string, string, any][] }[]>>;
   actions?: ListAction<T>[];
   toolbarActions?: ListToolbarAction[];
+  summary?: ListSummaryCard[];
 }
 
 /** A card an app adds to the profile page; see `ProfileSection` in packages/desk-sdk. */
