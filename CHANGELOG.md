@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.27.23 — 2026-10-09
+
 ### Added
 
 - **Taller text areas.** `rows` on a `Small Text`, `Text`, `Markdown Editor` or `Code` field
