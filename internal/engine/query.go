@@ -138,17 +138,36 @@ func (c *Ctx) treeRef(d *meta.DocType, field string) *db.TreeRef {
 	return &db.TreeRef{Table: target.TableName(), ParentCol: target.TreeParentField()}
 }
 
-// checkFilter casts the value of a filter on a Check field to a boolean, the
-// way a saved value is cast: a boolean column refuses the 1, "1" or "true" a
-// workspace card, a route or app code naturally writes.
+// checkFilter casts the value of a filter the way a saved value is cast.
+// A Check becomes a boolean: the column refuses the 1, "1" or "true" a
+// workspace card, a route or app code naturally writes. A Datetime without an
+// offset is read on the site's clock, as a write is (#125): sent as a string,
+// Postgres would read it on the connection's clock, which is UTC.
 func (c *Ctx) checkFilter(fld *meta.Field, f db.Filter) db.Filter {
-	if fld == nil || fld.Fieldtype != "Check" || f.Value == nil {
+	if fld == nil || f.Value == nil || (fld.Fieldtype != "Check" && fld.Fieldtype != "Datetime") {
 		return f
 	}
-	cast := func(v any) any { b, _ := c.castValue(fld, v); return b }
-	switch strings.ToLower(strings.TrimSpace(f.Op)) {
+	dt := fld.Fieldtype == "Datetime"
+	cast := func(v any) any {
+		b, err := c.castValue(fld, v)
+		if err != nil && dt {
+			// left as written: Postgres refuses it with the value in the message,
+			// where a nil would quietly turn the filter into IS NULL.
+			return v
+		}
+		return b
+	}
+	switch op := strings.ToLower(strings.TrimSpace(f.Op)); op {
 	case "", "=", "!=":
 		f.Value = cast(f.Value)
+	case "<", "<=", ">", ">=":
+		if dt {
+			f.Value = cast(f.Value)
+		}
+	case "between":
+		if r, ok := f.Value.([]any); ok && dt && len(r) == 2 {
+			f.Value = []any{cast(r[0]), cast(r[1])}
+		}
 	case "in", "not in":
 		vals, ok := f.Value.([]any)
 		if !ok {
@@ -167,6 +186,22 @@ func (c *Ctx) checkFilter(fld *meta.Field, f db.Filter) db.Filter {
 		f.Value = out
 	}
 	return f
+}
+
+// stdDatetime stands in for creation and modified, which are columns of every
+// table but not fields of any DocType, so their filters are cast as well.
+var stdDatetime = map[string]*meta.Field{
+	"creation": {Fieldname: "creation", Fieldtype: "Datetime"},
+	"modified": {Fieldname: "modified", Fieldtype: "Datetime"},
+}
+
+// filterField is the field a filter on name compares against, standard
+// Datetime columns included.
+func filterField(d *meta.DocType, name string) *meta.Field {
+	if f := d.Field(name); f != nil {
+		return f
+	}
+	return stdDatetime[name]
 }
 
 // filterSQL renders filters into a WHERE fragment. Conditions over a child
@@ -198,7 +233,7 @@ func (c *Ctx) filterSQL(d *meta.DocType, b *db.Builder, filters []db.Filter, col
 		}
 		// a copy, not a literal: a filter carries more than field/op/value
 		// (Tree, IfField), and rebuilding it would drop the rest.
-		sub := c.checkFilter(child.Field(cf), f)
+		sub := c.checkFilter(filterField(child, cf), f)
 		sub.Field = cf
 		if db.TreeOps[strings.ToLower(strings.TrimSpace(sub.Op))] && sub.Tree == nil {
 			sub.Tree = c.treeRef(child, cf)
@@ -244,7 +279,7 @@ func (c *Ctx) filterSQL(d *meta.DocType, b *db.Builder, filters []db.Filter, col
 		if db.TreeOps[op] && f.Tree == nil {
 			f.Tree = c.treeRef(d, f.Field)
 		}
-		fld := d.Field(f.Field)
+		fld := filterField(d, f.Field)
 		if (op == "like" || op == "not like") && fld != nil && fld.Fieldtype == "Link" {
 			targetDoc := fld.OptionsString()
 			if td, ok := c.St.Meta.Get(targetDoc); ok && td != nil {

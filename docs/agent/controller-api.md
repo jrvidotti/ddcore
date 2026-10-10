@@ -404,6 +404,9 @@ matches nothing. `[["amount", ">", 0], { any: [[["status", "=", "Open"]], [["sta
 is `amount > 0 AND (status = Open OR (status = Overdue AND owner = user))`. The REST list's
 `or_filters` holds a single OR group, and the Desk's search already uses it; an `any` item is how
 a list adds an OR of its own.
+A `Datetime` filter value without an offset — `ddcore.utils.now()`, a string you formatted — is
+read on the site's clock, as a write is, on `creation` and `modified` too; one with an offset keeps
+its instant, and a date alone (`["creation", "<", "2026-10-10"]`) means midnight on the site's clock.
 `fields` accepts aggregates: `"count(id) as n"`, `"sum(amount) as total"`.
 
 ## Tests

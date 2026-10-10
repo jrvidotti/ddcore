@@ -14,6 +14,16 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- **A Datetime filter reads a value without an offset on the site's clock.** Writes already did;
+  a filter sent the string to Postgres, which read it as UTC, so on a site in `America/Sao_Paulo`
+  `["creation", "<", ddcore.utils.now()]` missed the last three hours and a bare date meant 21:00
+  of the day before. `=`, `!=`, `<`, `<=`, `>`, `>=`, `between`, `in` and `not in` on a `Datetime`
+  field, `creation` or `modified` (a child table's included) now cast the value the way a write
+  does, in `getAll`/`getList`, REST, reports and every other list. A value with an offset keeps its
+  instant; raw `ddcore.db.sql` is unchanged (#125).
+
 ## 0.27.23 — 2026-10-09
 
 ### Added
