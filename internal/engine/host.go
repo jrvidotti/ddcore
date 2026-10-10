@@ -610,6 +610,12 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 			return nil, err
 		}
 		return map[string]any{"events": n}, nil
+	case "env":
+		v, ok := e.AppEnv(a.Text)
+		if !ok {
+			return nil, nil
+		}
+		return v, nil
 	case "secret":
 		// An integration credential is read from the environment, never from a
 		// column: that is what keeps it out of every backup, export and

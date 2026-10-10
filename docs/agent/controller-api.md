@@ -200,6 +200,7 @@ by hand.
 
 ## `ddcore.*` (global on the server)
 
+- `ddcore.secret(name)` — an integration credential from `DDCORE_SECRET_<NAME>`, or `null`; `ddcore.env(name)` — a deployment setting that is not a credential (a switch, a region) from `DDCORE_APP_<NAME>`, or `null`. `ddcore doctor` names the secrets and prints the settings with their values (see `auth`, "Secrets")
 - `ddcore.db.getValue(doctype, id | filters, field | [fields])` — a value or an object (or `null`)
 - `ddcore.db.getSingleValue(doctype, field)` — one field of a Single (see "Single DocTypes"); before the first save, the field's default
 - `ddcore.db.getList(doctype, { filters, fields, orderBy, limit, start, groupBy })` — every matching row unless `limit` is set (`0` is no limit too); respects permissions; `getAll` skips role permissions but still applies user access scopes (see `scopes`)

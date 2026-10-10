@@ -4,7 +4,7 @@
 
 ```
 <app>/                         # the repository root, or apps/<app>/ in a monorepo
-  ddcore.app.ts                  defineApp: title, version, ddcore, roles, scheduler, docEvents, desk, afterInstall, fixtures
+  ddcore.app.ts                  defineApp: title, version, ddcore, roles, scheduler, docEvents, desk, afterInstall, afterMigrate, onBoot, fixtures
   doctypes/<snake>/
     <snake>.doctype.ts          defineDoctype (meta)
     <snake>.controller.ts       defineController (rules, methods)
@@ -28,6 +28,14 @@ A module's dotted path is `<app>.<folder>.<file>` (no `.ts`). For example: `my_a
 That is the form used by `whitelisted`, `scheduler`, `ddcore.enqueue`, `ddcore exec` and the `call_method` tool.
 A `scheduler` entry is that path, or `{ method, runAs }` to run it under a user's roles and access scopes
 instead of as `Admin` (see `scopes`).
+
+`onBoot` runs once per process after it is up — once `ddcore start` or `ddcore dev` listens, or
+once `ddcore jobs work` starts its workers — whether or not that boot migrated, and never on a
+reload or a `ddcore migrate`. Each app's runs in a transaction of its own, as `Admin` in the
+platform space; an error is logged and the process keeps serving, and it is skipped while the
+site is in maintenance mode. It is where an app acts on its deployment, such as registering a
+webhook with a provider that calls the site back to verify it. Every replica and worker
+container runs it, so it should be idempotent: the usual body enqueues a job with a `uniqueKey`.
 
 ## What the app puts on the desk
 

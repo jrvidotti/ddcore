@@ -30,9 +30,13 @@ const secretPrefix = "DDCORE_SECRET_"
 // SecretEnvName is the variable that holds a given secret. It is exported so
 // `ddcore doctor` and an error message can name the variable someone has to
 // set, instead of making them guess the spelling.
-func SecretEnvName(name string) string {
+func SecretEnvName(name string) string { return envName(secretPrefix, name) }
+
+// envName spells a name the way an environment variable is spelled: upper
+// case, anything but a letter or a digit as an underscore.
+func envName(prefix, name string) string {
 	var b strings.Builder
-	b.WriteString(secretPrefix)
+	b.WriteString(prefix)
 	for _, r := range name {
 		switch {
 		case r >= 'a' && r <= 'z':
@@ -85,6 +89,36 @@ func (e *Engine) SecretNames() []string {
 		}
 		if strings.HasPrefix(k, secretPrefix) && v != "" {
 			out = append(out, strings.TrimPrefix(k, secretPrefix))
+		}
+	}
+	return out
+}
+
+// appEnvPrefix namespaces an app's settings that are not credentials — a
+// switch, a provider's region, an id that is public anyway — so they need not
+// pose as secrets to be read, and doctor can show them, values included (#126).
+const appEnvPrefix = "DDCORE_APP_"
+
+// AppEnvName is the variable that holds a given app setting.
+func AppEnvName(name string) string { return envName(appEnvPrefix, name) }
+
+// AppEnv returns the value of a named app setting, and whether it was set.
+func (e *Engine) AppEnv(name string) (string, bool) {
+	if strings.TrimSpace(name) == "" {
+		return "", false
+	}
+	v, ok := os.LookupEnv(AppEnvName(name))
+	return v, ok && v != ""
+}
+
+// AppEnvValues lists the app settings this process was given, by name without
+// the prefix. Unlike SecretNames it keeps the values: none of them is a secret.
+func (e *Engine) AppEnvValues() map[string]string {
+	out := map[string]string{}
+	for _, kv := range os.Environ() {
+		k, v, _ := strings.Cut(kv, "=")
+		if strings.HasPrefix(k, appEnvPrefix) && v != "" {
+			out[strings.TrimPrefix(k, appEnvPrefix)] = v
 		}
 	}
 	return out

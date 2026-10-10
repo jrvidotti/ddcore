@@ -208,6 +208,13 @@ const EnvExample = `# ddcore — the environment this site runs in.
 # DDCORE_SECRET_STRIPE_KEY=
 # DDCORE_SECRET_WHATSAPP_TOKEN=
 
+# --- app settings ------------------------------------------------------------
+# What varies per deployment and is not a credential: a switch, a provider's
+# region, an id that is public anyway. ` + "`" + `ddcore.env("register_webhook")` + "`" + ` reads
+# DDCORE_APP_REGISTER_WEBHOOK; ` + "`" + `ddcore doctor` + "`" + ` lists these with their values,
+# so a credential belongs under DDCORE_SECRET_ instead.
+# DDCORE_APP_REGISTER_WEBHOOK=1
+
 # The site's VAPID pair for Web Push (ddcore.push.send), as ` + "`" + `ddcore push keys` + "`" + `
 # prints it: base64url public and private keys, and a mailto: or https: URL a
 # push service can reach the operator at. Browsers subscribe with the public

@@ -961,6 +961,20 @@ export interface AppDef {
    */
   onTenantCreate?: (ctx: Context) => void;
   /**
+   * Runs once per process after it is up: once `ddcore start` or `ddcore dev`
+   * listens for HTTP, or once `ddcore jobs work` starts its workers — whether
+   * or not the boot migrated. A reload of `ddcore dev` and `ddcore migrate` do
+   * not run it. It runs in a transaction of its own, as `Admin` in the
+   * platform space; an error is logged and rolled back and the process keeps
+   * serving. Skipped while the site is in maintenance mode.
+   *
+   * This is where an app acts on its deployment, such as registering its
+   * webhook with a provider that calls the site back to verify it. Every
+   * replica and every worker container runs it, so keep it idempotent: the
+   * usual body enqueues a job with a `uniqueKey`.
+   */
+  onBoot?: (ctx: Context) => void;
+  /**
    * Sign-in through this app: credential providers by id (lowercase letters,
    * digits and `_`). Each puts a tab on the sign-in screen where the person
    * picks a tenant and types the username and password of the app's own

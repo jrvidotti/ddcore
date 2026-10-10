@@ -559,6 +559,15 @@ export interface DDCoreAPI {
    */
   secret(name: string): string | null;
   /**
+   * A deployment setting that is not a credential — a switch, a provider's
+   * region, an id that is public anyway — read from the environment.
+   *
+   * `ddcore.env("register_meta_webhook")` reads `DDCORE_APP_REGISTER_META_WEBHOOK`.
+   * Returns null when it is not set. `ddcore doctor` prints these with their
+   * values, so a credential goes in `ddcore.secret` instead.
+   */
+  env(name: string): string | null;
+  /**
    * Hashing (`sha256`), HMAC (`hmacSha256`, to check a webhook signature over the
    * exact bytes the provider sent, `ctx.request.rawBody`), constant-time comparison,
    * secure random values (`randomToken`, `randomInt`) and certificate inspection.

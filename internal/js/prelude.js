@@ -315,6 +315,7 @@
       a.hasAfterInstall = typeof reg.apps[n].afterInstall === "function";
       a.hasAfterMigrate = typeof reg.apps[n].afterMigrate === "function";
       a.hasOnTenantCreate = typeof reg.apps[n].onTenantCreate === "function";
+      a.hasOnBoot = typeof reg.apps[n].onBoot === "function";
       // credential sign-in providers: Go needs to know which hooks exist
       const prov = (reg.apps[n].auth && reg.apps[n].auth.providers) || {};
       for (const id in prov) {
@@ -1004,6 +1005,9 @@
     // in the database is a secret in every backup, export and Version diff.
     // Returns null when the site was not given it.
     secret(name) { return call("secret", { text: name }); },
+    // A deployment setting that is not a credential (DDCORE_APP_<NAME>), so it
+    // need not pose as a secret to be read. Returns null when it is not set.
+    env(name) { return call("env", { text: name }); },
     crypto: {
       hmacSha256(key, data, opts) { return call("crypto.hmacSha256", { key: String(key), text: String(data), opts: opts || {} }); },
       sha256(data, opts) { return call("crypto.sha256", { text: String(data), opts: opts || {} }); },

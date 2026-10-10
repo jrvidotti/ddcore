@@ -528,6 +528,11 @@ written down, and rotating it is a redeploy rather than a migration. The
 prefix is the boundary — an app reads its own secrets and nothing else the
 process was started with.
 
+A setting that varies per deployment but is not a credential — a switch such as
+"register our webhook at boot", a provider's region — is read with
+`ddcore.env("register_webhook")` from `DDCORE_APP_REGISTER_WEBHOOK`, so it does not
+have to pose as a secret. `ddcore doctor` prints those with their values.
+
 A `Password` field is for a secret a *person* types. It is still plain text at
 rest; what the framework guarantees is that it does not leave — blanked on
 every read through the API, absent from `Version`, absent from an export.

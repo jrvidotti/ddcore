@@ -113,3 +113,47 @@ func TestRedactPasswordBlanksSecretsOnTheWayOut(t *testing.T) {
 		t.Errorf("non-secret fields must survive: %v", doc)
 	}
 }
+
+// An app setting is not a secret, and neither door opens onto the other: a
+// switch need not pose as a credential, nor a credential pass for a switch.
+func TestAppEnvReadsOnlyItsOwnPrefix(t *testing.T) {
+	e := &Engine{}
+	t.Setenv("DDCORE_APP_REGISTER_WEBHOOK", "1")
+	t.Setenv("DDCORE_SECRET_STRIPE_KEY", "sk_live_x")
+
+	if got := AppEnvName("register-webhook"); got != "DDCORE_APP_REGISTER_WEBHOOK" {
+		t.Errorf("AppEnvName: %q", got)
+	}
+	if v, ok := e.AppEnv("register_webhook"); !ok || v != "1" {
+		t.Errorf("expected the setting, got %q (%v)", v, ok)
+	}
+	if _, ok := e.AppEnv("stripe_key"); ok {
+		t.Error("ddcore.env must not read a secret")
+	}
+	if _, ok := e.Secret("register_webhook"); ok {
+		t.Error("ddcore.secret must not read an app setting")
+	}
+	if _, ok := e.AppEnv(" "); ok {
+		t.Error("a blank name is never set")
+	}
+}
+
+func TestAppEnvValuesKeepsValues(t *testing.T) {
+	e := &Engine{}
+	t.Setenv("DDCORE_APP_REGION", "sa-east-1")
+	t.Setenv("DDCORE_APP_EMPTY", "")
+	t.Setenv("DDCORE_SECRET_STRIPE_KEY", "sk_live_x")
+
+	got := e.AppEnvValues()
+	if got["REGION"] != "sa-east-1" {
+		t.Errorf("REGION: %v", got)
+	}
+	if _, ok := got["EMPTY"]; ok {
+		t.Error("an empty variable is not set")
+	}
+	for k, v := range got {
+		if strings.Contains(k, "STRIPE") || v == "sk_live_x" {
+			t.Errorf("a secret reached the app settings: %s=%s", k, v)
+		}
+	}
+}
