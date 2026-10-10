@@ -140,16 +140,20 @@ function reportNames(workspaces: WorkspaceItem[]): Record<string, true> {
 }
 
 /**
- * Resolves the active workspace from the current pathname, matching doctypes,
- * remembered workspace, or default fallback.
+ * Resolves the active workspace from the current pathname, matching doctypes;
+ * a path that names none (bare `/app`, `/app/notifications`) falls back the way
+ * `landingWorkspace` does — remembered, else the site's home, else the first —
+ * so the sidebar never remembers a workspace `/app` would not open on.
  */
 export function resolveActiveWorkspace(params: {
   currentPath: string;
   workspaces: WorkspaceItem[];
   doctypes?: Record<string, { app?: string }>;
   remembered?: string;
+  /** The site's `desk.home`. */
+  home?: string;
 }): WorkspaceItem | null {
-  const { currentPath, workspaces, doctypes, remembered } = params;
+  const { currentPath, workspaces, doctypes, remembered, home } = params;
   if (!workspaces || workspaces.length === 0) return null;
 
   // Normalize path parts: /app/:part1/:part2...
@@ -187,12 +191,7 @@ export function resolveActiveWorkspace(params: {
     }
   }
 
-  // 5. Fall back to remembered workspace
-  if (remembered) {
-    const remWs = workspaces.find((w) => w.name.toLowerCase() === remembered.toLowerCase());
-    if (remWs) return remWs;
-  }
-
-  // 6. Default to first workspace
-  return workspaces[0];
+  // 5. Fall back to the remembered workspace, else the site's home, else the first
+  const landing = landingWorkspace(workspaces, remembered || "", home);
+  return workspaces.find((w) => w.name === landing) ?? workspaces[0];
 }

@@ -108,6 +108,15 @@ describe("sidebar-workspace", () => {
     expect(ws?.name).toBe("Alugueis");
   });
 
+  it("falls back to the site's home on bare /app when the remembered workspace is the other space's (#127)", () => {
+    const at = (remembered?: string, home?: string) =>
+      resolveActiveWorkspace({ currentPath: "/app", workspaces: mockWorkspaces, doctypes: mockDoctypes, remembered, home })?.name;
+    expect(at("Platform", "Manutencao")).toBe("Manutencao");
+    expect(at("", "manutencao")).toBe("Manutencao");
+    expect(at("Alugueis", "Manutencao")).toBe("Alugueis");
+    expect(at("Platform", "Platform")).toBe("Alugueis");
+  });
+
   it("returns null when workspaces list is empty", () => {
     const ws = resolveActiveWorkspace({
       currentPath: "/app/notifications",

@@ -14,6 +14,14 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- **Entering a tenant opens the desk on `desk.home`.** On a site with tenancy, going from the
+  platform into a tenant opened the first workspace boot lists, not the site's `desk.home`: the
+  remembered workspace was the platform's, so the sidebar fell back to the first workspace and
+  remembered it before `/app` chose where to land. The sidebar now falls back the way `/app` does —
+  the remembered workspace, else `desk.home`, else the first (#127).
+
 ## 0.27.24 — 2026-10-10
 
 ### Added

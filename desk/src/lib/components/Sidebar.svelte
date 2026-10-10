@@ -34,6 +34,7 @@
     workspaces,
     doctypes: boot.data?.doctypes,
     remembered,
+    home: boot.data?.site?.home,
   }));
 
   $effect(() => {
