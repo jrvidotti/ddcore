@@ -56,6 +56,7 @@ which overrides the file:
 | `DDCORE_SECRET_KEY` | Master key for encrypted Vault fields and webhook signing | `openssl rand -hex 32` |
 | `DDCORE_STORAGE` | Where uploaded file bytes live: `local` (`<dataDir>/files`, the default) or `s3`, with the `DDCORE_S3_*` variables. See [storage](../agent/storage.md) | `s3` |
 | `DDCORE_SECRET_<NAME>` | A secret an app reads with `ddcore.secret("<name>")` | |
+| `DDCORE_APP_<NAME>` | A setting an app reads with `ddcore.env("<name>")` that is not a secret — `ddcore doctor` prints its value | |
 | `DDCORE_LOGIN_NOTICE` | Plain-text notice above the sign-in form (`\n` breaks the line) | `Public demo — data resets every 6 hours.` |
 | `DDCORE_LOGIN_DEMO_USER` / `DDCORE_LOGIN_DEMO_PASSWORD` | A demo account offered on the sign-in screen, with a button that fills the form. Public to every visitor: never a real password | `visitor@example.com` / `demo-visitor` |
 | `DDCORE_MAP_TILE_URL` | Where a Geolocation field's map draws its tiles from, a Leaflet URL template with `{z}`, `{x}`, `{y}`. The default is OpenStreetMap's own server, whose [tile usage policy](https://operations.osmfoundation.org/policies/tiles/) rules out heavy use: set a provider of your own in production | `https://tiles.example.com/{z}/{x}/{y}.png?key=…` |

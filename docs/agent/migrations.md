@@ -18,6 +18,11 @@ transaction** — a failure anywhere leaves the database exactly as it was.
 | 8 | the drops, under `--prune`, planned and run **last**, against what the patches left |
 | 9 | `afterMigrate` |
 
+`afterMigrate` is not a boot hook: it runs inside the migration's transaction, before the
+server answers, on every `ddcore migrate`, and not at all when the boot does not migrate
+(`DDCORE_AUTO_MIGRATE=0`). Work that needs the server up, or has to run on every start, goes in
+`onBoot` (see `conventions`).
+
 Two of those placements are load-bearing. A `beforeSchema` patch can make the data fit
 what the DDL is about to do, and the plan is computed after it so a patch that changes
 the schema by hand is never overruled by a stale plan — **the planner is never a dead

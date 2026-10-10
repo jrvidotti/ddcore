@@ -224,7 +224,9 @@ patches, applied renames, the queue, the Error Log, the scheduler, the workers,
 mail, outgoing webhooks (on or off, how many are enabled, retrying, and failed in
 the last day), the public URL, the session policy, the thresholds in force, and the
 **names** of the configured secrets — never their values, because this report
-gets pasted into issues and chat windows.
+gets pasted into issues and chat windows. The app settings an app reads with
+`ddcore.env` (`DDCORE_APP_*`) are on an `app env` line with their values: none of
+them is a secret.
 
 It also reports where file bytes live (`local <dataDir>/files`, or the S3
 endpoint, bucket, prefix and presigned-link lifetime — never the credentials; see

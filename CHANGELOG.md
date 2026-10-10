@@ -14,6 +14,31 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **`ddcore.env(name)` reads a setting that is not a secret.** A switch, a region or a public
+  id comes from `DDCORE_APP_<NAME>` (`ddcore.env("register_meta_webhook")` reads
+  `DDCORE_APP_REGISTER_META_WEBHOOK`), or `null` when unset, instead of posing as a
+  `DDCORE_SECRET_…`. `ddcore doctor` prints these on an `app env` line with their values; the
+  secrets line still shows names only (#126).
+- **`onBoot` in `defineApp`.** Runs once per process after it is up: once `ddcore start` or
+  `ddcore dev` listens for HTTP, or once `ddcore jobs work` starts its workers, whether or not
+  that boot migrated, and not on a reload or a `ddcore migrate`. Each app's runs in its own
+  transaction, as `Admin` in the platform space; an error is logged and the process keeps
+  serving. For registering a webhook with a provider that calls the site back to verify it,
+  which `afterMigrate` (inside the migration, before the server answers) cannot do. Every replica
+  runs it, so keep it idempotent — enqueue a job with a `uniqueKey` (#126).
+
+### Fixed
+
+- **A Datetime filter reads a value without an offset on the site's clock.** Writes already did;
+  a filter sent the string to Postgres, which read it as UTC, so on a site in `America/Sao_Paulo`
+  `["creation", "<", ddcore.utils.now()]` missed the last three hours and a bare date meant 21:00
+  of the day before. `=`, `!=`, `<`, `<=`, `>`, `>=`, `between`, `in` and `not in` on a `Datetime`
+  field, `creation` or `modified` (a child table's included) now cast the value the way a write
+  does, in `getAll`/`getList`, REST, reports and every other list. A value with an offset keeps its
+  instant; raw `ddcore.db.sql` is unchanged (#125).
+
 ## 0.27.23 — 2026-10-09
 
 ### Added

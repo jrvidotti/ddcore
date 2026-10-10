@@ -141,6 +141,28 @@ func TestDoctorVaultReporting(t *testing.T) {
 	}
 }
 
+// App settings are not secrets: doctor shows them with their values, sorted,
+// on a line of their own, so a wrong switch is visible from the report.
+func TestDoctorAppEnvReporting(t *testing.T) {
+	r := &doctorReport{
+		Database: db.Health{OK: true},
+		Ops:      config.DefaultOps(),
+		Secrets:  []string{"STRIPE_KEY"},
+		AppEnv:   map[string]string{"REGISTER_WEBHOOK": "1", "REGION": "sa-east-1"},
+	}
+	out := renderDoctor(t, r)
+	if !strings.Contains(out, "app env:    2 set: REGION=sa-east-1, REGISTER_WEBHOOK=1") {
+		t.Fatalf("unexpected app env report:\n%s", out)
+	}
+	if !strings.Contains(out, "secrets:    1 configured: STRIPE_KEY") {
+		t.Fatalf("the secrets line changed:\n%s", out)
+	}
+	r.AppEnv = map[string]string{}
+	if out := renderDoctor(t, r); !strings.Contains(out, "app env:    none set") {
+		t.Fatalf("unexpected empty app env report:\n%s", out)
+	}
+}
+
 // The storage line is read by someone checking where bytes go; a bucket with
 // no prefix must not look like a truncated path.
 func TestDoctorStorageSummaryWithoutPrefix(t *testing.T) {

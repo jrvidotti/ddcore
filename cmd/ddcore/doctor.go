@@ -76,8 +76,11 @@ type doctorReport struct {
 	Ops         config.OpsPolicy `json:"ops"`
 	// Secrets are names. A doctor report is pasted into issues and chat
 	// windows, and a secret that reaches one of those has to be rotated.
-	Secrets []string      `json:"secrets"`
-	Vault   *vaultSection `json:"vault,omitempty"`
+	Secrets []string `json:"secrets"`
+	// AppEnv is the DDCORE_APP_* settings with their values: they are the
+	// ones an app reads with ddcore.env, which holds nothing secret.
+	AppEnv map[string]string `json:"appEnv"`
+	Vault  *vaultSection     `json:"vault,omitempty"`
 	// ExternalDBs name where each external database points, never its login.
 	ExternalDBs []engine.ExternalDBInfo `json:"externalDbs,omitempty"`
 	Webhooks    *engine.WebhookStatus   `json:"webhooks,omitempty"`
@@ -199,6 +202,7 @@ func gatherDoctor(ctx context.Context, cfg *config.File, windowMin int, updateCh
 		URL: cfg.PublicURL(), URLSet: cfg.HasPublicURL(), Ops: cfg.Ops,
 		Sessions: sessionSection{cfg.Auth.SessionDays, cfg.Auth.MaxLoginAttempts, cfg.Auth.LockoutMinutes},
 		Secrets:  []string{},
+		AppEnv:   map[string]string{},
 		SSO:      ssoSection{PasswordLogin: cfg.Auth.AllowPasswordLogin(), Providers: []ssoProvider{}},
 	}
 	if cfg.Workers.Named() {
@@ -247,6 +251,7 @@ func gatherDoctor(ctx context.Context, cfg *config.File, windowMin int, updateCh
 		sort.Strings(names)
 		rep.Secrets = names
 	}
+	rep.AppEnv = e.AppEnvValues()
 	if configured, count, names, err := e.VaultStatus(ctx); err == nil {
 		sort.Strings(names)
 		rep.Vault = &vaultSection{
@@ -559,6 +564,19 @@ func (r *doctorReport) printTail(w io.Writer, p func(string, string, ...any)) {
 		p("secrets", "%d configured: %s", len(r.Secrets), strings.Join(r.Secrets, ", "))
 	} else {
 		p("secrets", "none configured")
+	}
+	if len(r.AppEnv) > 0 {
+		names := make([]string, 0, len(r.AppEnv))
+		for k := range r.AppEnv {
+			names = append(names, k)
+		}
+		sort.Strings(names)
+		for i, k := range names {
+			names[i] = k + "=" + r.AppEnv[k]
+		}
+		p("app env", "%d set: %s", len(names), strings.Join(names, ", "))
+	} else {
+		p("app env", "none set")
 	}
 	for _, x := range r.ExternalDBs {
 		state := "ok"

@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -552,8 +553,15 @@ func cmdServe(args []string, dev bool) error {
 	}()
 	// listen is where this process answers; url is the public address links are
 	// built from, which behind a proxy is a different host altogether.
-	e.Log.Info("ddcore running", "version", engine.Version, "listen", fmt.Sprintf("http://localhost:%d", cfg.Port), "url", cfg.PublicURL(), "dev", e.Cfg.Dev, "apps", e.AppOrder())
-	err = h.ListenAndServe()
+	// Listening apart from serving is what lets onBoot run once the socket
+	// accepts: a provider it registers a webhook with may call the site back
+	// before the registration returns.
+	ln, err := net.Listen("tcp", h.Addr)
+	if err == nil {
+		e.Log.Info("ddcore running", "version", engine.Version, "listen", fmt.Sprintf("http://localhost:%d", cfg.Port), "url", cfg.PublicURL(), "dev", e.Cfg.Dev, "apps", e.AppOrder())
+		go e.Boot(ctx)
+		err = h.Serve(ln)
+	}
 	cancel() // a server that could not listen stops the rest as well
 	<-stopped
 	if err != nil && err != http.ErrServerClosed {

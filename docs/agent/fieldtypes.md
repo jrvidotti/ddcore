@@ -402,7 +402,7 @@ const key = ddcore.secret("stripe_key");   // DDCORE_SECRET_STRIPE_KEY
 if (!key) ddcore.throw(_("Stripe is not configured on this site"));
 ```
 
-`.env` supplies it in development and the platform supplies it in production. `ddcore doctor` lists the names it found and never the values.
+`.env` supplies it in development and the platform supplies it in production. `ddcore doctor` lists the names it found and never the values. A per-deployment setting that is not a credential (a switch, a region) is `ddcore.env("name")`, read from `DDCORE_APP_<NAME>`.
 
 2. **Per-record dynamic credentials (`ddcore.vault` and `Vault` fieldtype)**:
 When an app manages credentials per document (e.g. per-customer tokens, OAuth refresh tokens, integration accounts), use the `Vault` fieldtype or `ddcore.vault.*`:

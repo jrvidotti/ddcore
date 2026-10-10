@@ -170,6 +170,8 @@ func jobsWork(args []string) error {
 	if cfg.Scheduler {
 		e.StartScheduler(ctx)
 	}
+	// a worker-only process has no listener: its workers are what it serves
+	go e.Boot(ctx)
 	<-ctx.Done()
 	shutdown(e, cancel, workers, cfg.ShutdownGrace(), nil)
 	return nil

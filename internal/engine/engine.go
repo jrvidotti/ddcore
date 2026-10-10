@@ -149,6 +149,8 @@ type AppMeta struct {
 	HasAfterMigrate bool                        `json:"hasAfterMigrate"`
 	// HasOnTenantCreate: the app seeds each new tenant (tenancy).
 	HasOnTenantCreate bool `json:"hasOnTenantCreate"`
+	// HasOnBoot: the app acts on its deployment once the process is up.
+	HasOnBoot bool `json:"hasOnBoot"`
 	// Space is the default `space` of the app's DocTypes: "tenant" keeps
 	// every one of them out of the platform space unless it says otherwise
 	// (#105). Only "tenant" is accepted.
@@ -289,6 +291,8 @@ type Engine struct {
 	casts    castOpts
 	mailOnce sync.Once
 	mailer   mail.Sender
+	// bootOnce keeps Boot to once per process; see Boot.
+	bootOnce sync.Once
 	store    storage.Store
 	// oidc caches discovered providers; see oidcClientFor.
 	oidcMu sync.Mutex
