@@ -66,6 +66,7 @@
       workspaces: (boot.data?.workspaces || []) as WorkspaceItem[],
       doctypes: boot.data?.doctypes,
       remembered: getRememberedWorkspace(),
+      home: boot.data?.site?.home,
     });
     return ws?.label || ws?.name || "";
   });
