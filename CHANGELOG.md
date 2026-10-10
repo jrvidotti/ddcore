@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.27.24 — 2026-10-10
+
 ### Added
 
 - **`ddcore.env(name)` reads a setting that is not a secret.** A switch, a region or a public
