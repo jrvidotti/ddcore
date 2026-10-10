@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.27.25 — 2026-10-10
+
 ### Fixed
 
 - **Entering a tenant opens the desk on `desk.home`.** On a site with tenancy, going from the
