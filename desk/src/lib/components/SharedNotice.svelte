@@ -41,7 +41,7 @@
 <style>
   .shared-notice {
     display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 12px; padding: 8px 12px;
-    background: #ede9fe; color: #5b21b6; border: 1px solid #ddd6fe; border-radius: 6px; font-size: 13px;
+    background: var(--purple-soft); color: var(--purple-ink); border: 1px solid color-mix(in srgb, var(--purple) 25%, var(--surface)); border-radius: 6px; font-size: 13px;
   }
   .shared-notice span { flex: 1; min-width: 12em; }
 </style>

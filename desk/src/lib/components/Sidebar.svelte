@@ -1,6 +1,7 @@
 <script lang="ts">
+  import SiteMark from "$lib/components/SiteMark.svelte";
   import { seg } from "$lib/routes";
-  import { boot, __, isLoggedIn, siteName, siteLogo, spaceLabel } from "$lib/boot.svelte";
+  import { boot, __, isLoggedIn, siteName, spaceLabel } from "$lib/boot.svelte";
   import { openShortcutsHelp, openSearch } from "$lib/shortcuts.svelte";
   import { openFeedback } from "$lib/feedback.svelte";
   import { getModifierKey } from "$lib/shortcuts";
@@ -101,7 +102,7 @@
 <aside class="sidebar" class:open class:collapsed>
   <div class="brand">
     <div class="brand-name">
-      <a href="/app" title={tip(withSpace(siteName(), space))} style="display:flex;align-items:center;gap:8px;color:inherit;text-decoration:none"><span class="logo {kind}">{siteLogo()}</span><strong>{siteName()}</strong></a>
+      <a href="/app" title={tip(withSpace(siteName(), space))} style="display:flex;align-items:center;gap:8px;color:inherit;text-decoration:none"><SiteMark class={kind} /><strong class="site-name">{siteName()}</strong></a>
       <SpaceBadge />
     </div>
     <button class="sidebar-collapse-btn" onclick={() => setSidebarCollapsed(!collapsed)} aria-label={collapsed ? __("Expand sidebar") : __("Collapse sidebar")} title={collapsed ? __("Expand sidebar") : __("Collapse sidebar")} aria-expanded={!collapsed} type="button">
@@ -215,34 +216,33 @@
 </aside>
 
 <style>
-  .sidebar { width: var(--sidebar-w); background: #fff; border-right: 1px solid var(--border); display: flex; flex-direction: column; height: 100vh; position: sticky; top: 0; flex-shrink: 0; }
+  .sidebar { width: var(--sidebar-w); background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; height: 100vh; position: sticky; top: 0; flex-shrink: 0; }
   .brand { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 14px 16px; border-bottom: 1px solid var(--border); font-size: 15px; }
   .sidebar-collapse-btn { display: inline-flex; width: 28px; height: 28px; padding: 0; flex-shrink: 0; align-items: center; justify-content: center; border: 0; background: none; color: var(--muted); cursor: pointer; border-radius: 4px; }
-  .sidebar-collapse-btn:hover { background: #f3f4f6; color: var(--text); }
-  .logo { display: inline-flex; width: 26px; height: 26px; border-radius: 7px; background: var(--primary); color: #fff; align-items: center; justify-content: center; font-weight: 700; overflow: hidden; }
+  .sidebar-collapse-btn:hover { background: var(--hover); color: var(--text); }
   .sidebar-close-btn { display: none; }
   .brand-name { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
   .brand-name strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .brand-name > :global(.space-badge) { margin-left: 34px; }
   .workspace-switcher { padding: 8px 10px; border-bottom: 1px solid var(--border); }
-  .workspace-btn { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 8px; border: 1px solid var(--border); background: #fafafa; border-radius: 6px; cursor: pointer; text-align: left; font-size: 13px; font-weight: 500; color: var(--text); }
-  .workspace-btn:hover { background: #f3f4f6; }
+  .workspace-btn { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 8px; border: 1px solid var(--border); background: var(--surface-alt); border-radius: 6px; cursor: pointer; text-align: left; font-size: 13px; font-weight: 500; color: var(--text); }
+  .workspace-btn:hover { background: var(--hover); }
   .workspace-btn .ws-icon { display: flex; align-items: center; color: var(--primary); }
   .workspace-btn .ws-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .workspace-switcher .menu { width: calc(100% - 20px); left: 10px; right: 10px; }
   .workspace-switcher .menu button { display: flex; align-items: center; gap: 8px; }
-  .workspace-switcher .menu button.selected { background: #eff6ff; color: var(--primary); font-weight: 500; }
+  .workspace-switcher .menu button.selected { background: var(--active); color: var(--primary); font-weight: 500; }
   .workspace-switcher .menu .ws-option-label { flex: 1; text-align: left; }
   .workspace-static-header { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 13px; font-weight: 600; color: var(--text); }
   nav { flex: 1; overflow: auto; padding: 8px; }
   nav a, .personal a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--text); font-size: 13px; }
-  .search-btn { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 10px; margin-bottom: 4px; border: 1px solid var(--border); border-radius: 6px; background: #fafafa; color: var(--muted); font-size: 13px; cursor: pointer; text-align: left; }
+  .search-btn { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 10px; margin-bottom: 4px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-alt); color: var(--muted); font-size: 13px; cursor: pointer; text-align: left; }
   .search-btn span { flex: 1; }
-  .search-btn:hover { background: #f3f4f6; }
+  .search-btn:hover { background: var(--hover); }
   .search-btn .kbd { font-size: 11px; }
-  nav a:hover, .personal a:hover { background: #f3f4f6; text-decoration: none; }
-  nav a.active, .personal a.active { background: #eff6ff; color: var(--primary); font-weight: 500; }
-  .notification-count { margin-left: auto; border-radius: 12px; padding: 1px 7px; background: var(--primary); color: white; font-size: 11px; }
+  nav a:hover, .personal a:hover { background: var(--hover); text-decoration: none; }
+  nav a.active, .personal a.active { background: var(--active); color: var(--primary); font-weight: 500; }
+  .notification-count { margin-left: auto; border-radius: 12px; padding: 1px 7px; background: var(--primary); color: var(--on-primary); font-size: 11px; }
   nav a.child { padding-left: 16px; }
   .group { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); padding: 12px 10px 4px; display: flex; align-items: center; gap: 4px; }
   .foot { padding: 8px 10px; border-top: 1px solid var(--border); }
@@ -250,10 +250,10 @@
   /* the footer is 2px wider-padded than nav: the icons line up with the modules' and the avatar */
   .personal a { padding-left: 8px; padding-right: 8px; }
   .user-btn { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 8px; border: 0; background: none; border-radius: 6px; cursor: pointer; text-align: left; color: inherit; font: inherit; }
-  .user-btn:hover { background: #f3f4f6; }
+  .user-btn:hover { background: var(--hover); }
   .user-btn .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .user-btn .space { display: block; font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
-  .avatar { display: inline-flex; width: 24px; height: 24px; flex-shrink: 0; border-radius: 50%; background: var(--primary); color: #fff; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; }
+  .avatar { display: inline-flex; width: 24px; height: 24px; flex-shrink: 0; border-radius: 50%; background: var(--primary); color: var(--on-primary); align-items: center; justify-content: center; font-size: 11px; font-weight: 600; }
   /* The footer sits at the bottom of the viewport, so the menu opens upward. */
   :global(.dropdown .menu.up) { top: auto; bottom: 100%; margin: 0 0 4px; left: 0; right: 0; }
   :global(.dropdown .menu.up button) { display: flex; align-items: center; gap: 8px; }
@@ -263,8 +263,8 @@
     .sidebar.collapsed .brand { flex-direction: column; padding: 14px 0 8px; }
     .sidebar.collapsed .brand-name > :global(.space-badge) { display: none; }
     /* the badge is hidden in the rail, so the logo carries the space's color */
-    .sidebar.collapsed .logo.platform { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--space-platform); }
-    .sidebar.collapsed .logo.tenant { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--space-tenant); }
+    .sidebar.collapsed :global(.site-mark.platform) { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--space-platform); }
+    .sidebar.collapsed :global(.site-mark.tenant) { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--space-tenant); }
     .sidebar.collapsed .brand strong,
     .sidebar.collapsed .ws-label,
     .sidebar.collapsed .workspace-btn > :global(svg),
@@ -293,7 +293,7 @@
   @media (max-width: 800px) {
     .sidebar-collapse-btn { display: none; }
     .sidebar-close-btn { display: inline-flex; width: 28px; height: 28px; padding: 0; align-items: center; justify-content: center; border: 0; background: none; color: var(--muted); cursor: pointer; border-radius: 4px; }
-    .sidebar-close-btn:hover { background: #f3f4f6; color: var(--text); }
+    .sidebar-close-btn:hover { background: var(--hover); color: var(--text); }
     .sidebar { position: fixed; z-index: 50; transform: translateX(-100%); transition: transform .2s ease; box-shadow: none; }
     .sidebar.open { transform: none; box-shadow: 4px 0 24px rgba(0, 0, 0, 0.15); }
   }

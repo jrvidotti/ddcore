@@ -1,6 +1,7 @@
 <script lang="ts">
+  import SiteMark from "$lib/components/SiteMark.svelte";
   import { api } from "$lib/api";
-  import { __, boot, siteLogo } from "$lib/boot.svelte";
+  import { __, boot, siteName } from "$lib/boot.svelte";
   import { page } from "$app/state";
   import { landing } from "$lib/portal";
   import { goto } from "$app/navigation";
@@ -78,7 +79,7 @@
 
 <div class="wrap">
   <form class="card box" onsubmit={login}>
-    <div class="logo">{siteLogo()}</div>
+    <div class="logo"><SiteMark size={40} alt={siteName()} /></div>
     <h1>{__("Sign in")}</h1>
     {#if offer?.notice || offer?.demoUser}
       <div class="notice">
@@ -136,7 +137,7 @@
 <style>
   .wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px; }
   .box { width: 100%; max-width: 360px; padding: 28px; display: flex; flex-direction: column; gap: 12px; }
-  .logo { width: 40px; height: 40px; border-radius: 10px; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 20px; overflow: hidden; }
+  .logo { display: flex; }
   h1 { font-size: 18px; }
   label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
   .err { color: var(--red); font-size: 13px; }

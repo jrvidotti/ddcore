@@ -64,11 +64,11 @@
   h1 { margin: 0; }
   .toolbar { margin-bottom: 16px; }
   select { width: auto; min-width: 130px; }
-  section { border: 1px solid var(--border); border-radius: 8px; background: white; overflow: hidden; }
+  section { border: 1px solid var(--border); border-radius: 8px; background: var(--surface); overflow: hidden; }
   ul { list-style: none; margin: 0; padding: 0; }
   li { display: flex; align-items: center; gap: 20px; padding: 20px; border-bottom: 1px solid var(--border); }
   li:last-child { border-bottom: 0; }
-  li.unread { background: #f7faff; box-shadow: inset 3px 0 var(--primary); }
+  li.unread { background: var(--active); box-shadow: inset 3px 0 var(--primary); }
   .content { flex: 1; min-width: 0; overflow-wrap: anywhere; }
   h2 { margin: 0; font-size: 14px; font-weight: 600; }
   .status { font-size: 11px; color: var(--muted); flex-shrink: 0; }

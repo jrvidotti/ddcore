@@ -136,17 +136,17 @@
 
 <style>
   .ms-wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 3px 6px; height: auto; cursor: text; }
-  .ms-wrap.readonly { cursor: default; background: #f9fafb; }
-  .ms-wrap:focus-within { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(37,99,235,.15); }
-  .ms-pill { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 1px 4px 1px 8px; border-radius: 999px; background: #eef0f3; color: #374151; font-size: 12px; line-height: 20px; }
+  .ms-wrap.readonly { cursor: default; background: var(--surface-alt); }
+  .ms-wrap:focus-within { border-color: var(--primary); box-shadow: 0 0 0 2px var(--focus-ring); }
+  .ms-pill { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 1px 4px 1px 8px; border-radius: 999px; background: var(--hover-strong); color: var(--text); font-size: 12px; line-height: 20px; }
   .ms-wrap.readonly .ms-pill { padding-right: 8px; }
   .ms-pill > span, .ms-pill > a { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .ms-pill > a { color: inherit; }
   .ms-remove { width: 16px; height: 16px; padding: 0; border: 0; border-radius: 50%; display: grid; place-items: center; font: inherit; line-height: 1; color: var(--muted); background: transparent; cursor: pointer; }
-  .ms-remove:hover { color: var(--text); background: #d9dde3; }
+  .ms-remove:hover { color: var(--text); background: color-mix(in srgb, var(--text) 18%, var(--surface)); }
   .ms-remove:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
   .ms-input { flex: 1; min-width: 80px; border: 0; outline: none; background: transparent; padding: 2px; font: inherit; }
-  .ms-options { position: fixed; background: #fff; border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,.12); z-index: 80; max-height: 260px; overflow: auto; }
+  .ms-options { position: fixed; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; box-shadow: var(--shadow-pop); z-index: 80; max-height: 260px; overflow: auto; }
   .ms-options > div { padding: 6px 10px; cursor: pointer; font-size: 13px; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .ms-options > div.active, .ms-options > div:hover { background: #eff6ff; }
+  .ms-options > div.active, .ms-options > div:hover { background: var(--active); }
 </style>

@@ -1,9 +1,10 @@
 <script lang="ts">
+  import SiteMark from "$lib/components/SiteMark.svelte";
   // One organization's sign-in through an app's credential provider (#117):
   // /login/<provider>/<tenant>. The organization was typed, never listed, and
   // this page shows its name before asking for the username and password.
   import { api } from "$lib/api";
-  import { __, boot, siteLogo } from "$lib/boot.svelte";
+  import { __, boot, siteName } from "$lib/boot.svelte";
   import { page } from "$app/state";
   import { landing } from "$lib/portal";
   import { METHOD_KEY, normalizeTenant, remember, tenantKey } from "$lib/login-methods";
@@ -45,7 +46,7 @@
 
 <div class="wrap">
   <form class="card box" onsubmit={login}>
-    <div class="logo">{siteLogo()}</div>
+    <div class="logo"><SiteMark size={40} alt={siteName()} /></div>
     {#if phase === "loading"}
       <p class="muted">{__("Loading…")}</p>
     {:else if phase === "ready" && org}
@@ -69,7 +70,7 @@
 <style>
   .wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px; }
   .box { width: 100%; max-width: 360px; padding: 28px; display: flex; flex-direction: column; gap: 12px; }
-  .logo { width: 40px; height: 40px; border-radius: 10px; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 20px; overflow: hidden; }
+  .logo { display: flex; }
   h1 { font-size: 18px; overflow-wrap: anywhere; }
   .org { display: flex; flex-direction: column; gap: 2px; }
   label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }

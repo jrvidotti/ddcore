@@ -21,7 +21,7 @@ export interface Boot {
   lang: string;
   /** The languages the site serves, each labelled with its own autonym. */
   langs: { code: string; label: string }[];
-  apps: { name: string; title: string; desk: { include?: string[]; home?: string; logo?: string } | null; hasDeskInclude: boolean }[];
+  apps: { name: string; title: string; desk: { include?: string[]; home?: string; logo?: string | { image: string; favicon?: string }; theme?: unknown } | null; hasDeskInclude: boolean }[];
   /** apps that ship client code to the portal (`portal.include`), in load order */
   portalIncludes?: string[];
   workspaces: any[];
@@ -36,6 +36,8 @@ export interface Boot {
      * and `desk.logo` of the app that names the site, chosen by the server.
      */
     home?: string; logo?: string;
+    /** The site's look (#128), from the `desk.theme` and `desk.logo` the server picked. */
+    brand?: Brand;
     // resolved by the server, not derived again here: two independent
     // derivations that "should" agree is the bug nobody finds until a JPY
     // invoice is off by a yen
@@ -71,6 +73,20 @@ export interface Boot {
   website?: boolean;
 }
 
+/**
+ * What the shell already carries, resolved by the server from the app that
+ * names the site (#128): the CSS that redefines the palette and the fonts, the
+ * fonts' stylesheet, the browser's theme colour, and the URLs of the logo
+ * image and the favicon. Each field only when there is one.
+ */
+export interface Brand {
+  css?: string;
+  stylesheet?: string;
+  themeColor?: string;
+  favicon?: string;
+  logoImage?: string;
+}
+
 export interface PortalSummary {
   name: string;
   /** The portal's URL segment. */
@@ -93,6 +109,7 @@ export async function loadBoot(): Promise<Boot> {
   if (data.user !== "Guest") rememberLang(lang);
   data.lang = lang;
   boot.data = data;
+  applyBrand(data.site?.brand);
   // the shell ships the server's best guess; the browser's translate offer follows this attribute
   document.documentElement.lang = lang;
   setRequestLang(lang);
@@ -133,6 +150,34 @@ export const pageTitle = (...parts: string[]) => withSpace([...parts, siteName()
  * app's title in the reader's language, so the letter and the word cannot
  * drift apart.
  */
+/** The URL of the site's logo image, when its app declares one (#128); "" otherwise. */
+export const siteLogoImage = () => boot.data?.site?.brand?.logoImage || "";
+
+/**
+ * Brings the page's head in line with the site's brand. The server already
+ * wrote it into the shell, so on the first load this changes nothing; it is
+ * for a reload under `ddcore dev`, which boots again without a new page, and
+ * for an app that changed its theme.
+ */
+export function applyBrand(brand: Brand | undefined, doc: Document = document) {
+  const b = brand || {};
+  const head = doc.head;
+  const el = <T extends HTMLElement>(sel: string, make: () => T): T => {
+    let e = head.querySelector<T>(sel);
+    if (!e) { e = make(); head.appendChild(e); }
+    return e;
+  };
+  const drop = (sel: string) => head.querySelector(sel)?.remove();
+  // the theme's <style> goes last: it must come after the desk's own stylesheet
+  if (b.css) el("style#ddcore-brand", () => Object.assign(doc.createElement("style"), { id: "ddcore-brand" })).textContent = b.css;
+  else drop("style#ddcore-brand");
+  if (b.stylesheet) el<HTMLLinkElement>("link#ddcore-fonts", () => Object.assign(doc.createElement("link"), { id: "ddcore-fonts", rel: "stylesheet" })).href = b.stylesheet;
+  else drop("link#ddcore-fonts");
+  if (b.themeColor) el<HTMLMetaElement>('meta[name="theme-color"]', () => Object.assign(doc.createElement("meta"), { name: "theme-color" })).content = b.themeColor;
+  else drop('meta[name="theme-color"]');
+  if (b.favicon) el<HTMLLinkElement>('link[rel="icon"]', () => Object.assign(doc.createElement("link"), { rel: "icon" })).href = b.favicon;
+}
+
 export function siteLogo(): string {
   const declared = boot.data?.site?.logo;
   if (declared) return declared;

@@ -169,7 +169,7 @@
     display: block;
     width: 100%;
     background: #fff;
-    border: 1px dashed var(--border, #ccc);
+    border: 1px dashed var(--border);
     border-radius: 6px;
     touch-action: none;
     cursor: crosshair;
@@ -180,7 +180,7 @@
     max-width: 100%;
     padding: 6px;
     background: #fff;
-    border: 1px solid var(--border, #ccc);
+    border: 1px solid var(--border);
     border-radius: 6px;
   }
   .signature-image { display: block; max-width: 100%; max-height: 120px; }

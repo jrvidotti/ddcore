@@ -176,7 +176,7 @@
   .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; padding: 0 0.5rem 0.5rem; margin-bottom: 0.25rem; border-bottom: 1px solid var(--border); }
   .level { list-style: none; margin: 0; padding: 0; }
   .row { display: flex; align-items: center; gap: 0.4rem; padding: 0.3rem 0.5rem; padding-left: calc(0.5rem + var(--depth) * 1.25rem); border-radius: var(--radius); }
-  .row:hover { background: var(--bg-subtle, rgba(0, 0, 0, 0.04)); }
+  .row:hover { background: var(--hover); }
   .toggle { width: 1.5rem; flex: none; }
   .toggle.gap { display: inline-block; }
   .search { width: 220px; max-width: 100%; min-height: 28px; padding: 3px 8px; font-size: 12px; }

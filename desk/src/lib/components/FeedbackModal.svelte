@@ -377,18 +377,18 @@
   .types { display: flex; gap: 8px; }
   .type {
     flex: 1 1 0; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 8px;
-    padding: 10px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface, #fff);
+    padding: 10px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface);
     cursor: pointer; font-size: 13px; color: var(--text); text-align: center;
   }
-  .type:hover { background: #f3f4f6; }
-  .type.on { border-color: var(--primary); background: rgba(37, 99, 235, .08); color: var(--primary); font-weight: 500; }
+  .type:hover { background: var(--hover); }
+  .type.on { border-color: var(--primary); background: var(--active); color: var(--primary); font-weight: 500; }
   .type:disabled { cursor: default; opacity: .6; }
   .hint { margin: 6px 0 14px; }
   .dropzone {
     display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px;
-    border: 1px dashed var(--border); border-radius: 8px; background: #fafafa;
+    border: 1px dashed var(--border); border-radius: 8px; background: var(--surface-alt);
   }
-  .dropzone.dragging { border-color: var(--primary); background: rgba(37, 99, 235, .06); }
+  .dropzone.dragging { border-color: var(--primary); background: var(--primary-tint); }
   .files { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
   .files li { display: flex; align-items: center; gap: 8px; font-size: 13px; min-width: 0; }
   .fname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -400,13 +400,13 @@
   .link-btn { border: 0; background: none; padding: 0; color: var(--primary); cursor: pointer; margin-left: auto; }
   .context-preview {
     margin: 6px 0 0; padding: 8px; max-height: 240px; overflow: auto; font-size: 11px; line-height: 1.45;
-    background: #f8fafc; border: 1px solid var(--border); border-radius: 6px; white-space: pre-wrap; overflow-wrap: anywhere;
+    background: var(--surface-alt); border: 1px solid var(--border); border-radius: 6px; white-space: pre-wrap; overflow-wrap: anywhere;
   }
   .mine { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
   .mine li { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; }
   .mine-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
   .mine-title { flex: 1; min-width: 0; font-weight: 500; font-size: 13px; overflow-wrap: anywhere; }
-  .response { margin-top: 4px; padding: 8px 10px; background: #f8fafc; border-radius: 6px; font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .response { margin-top: 4px; padding: 8px 10px; background: var(--surface-alt); border-radius: 6px; font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }
   .err { color: var(--red); }
 
   @media (max-width: 600px) {

@@ -121,7 +121,7 @@
 <style>
   .kanban { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; align-items: flex-start; }
   .column { flex: 0 0 272px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); display: flex; flex-direction: column; max-height: calc(100vh - 260px); }
-  .column.over { border-color: var(--primary); background: #eff6ff; }
+  .column.over { border-color: var(--primary); background: var(--active); }
   header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; }
   .cards { display: grid; gap: 8px; padding: 0 8px 8px; overflow-y: auto; min-height: 48px; }
   .kanban-card { display: grid; gap: 4px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); text-decoration: none; cursor: grab; }

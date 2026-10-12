@@ -46,21 +46,62 @@ desk: {
   include: ["client/lists.ts"],   // scripts loaded on every desk page
   home: "Projects",               // the workspace /app opens on
   logo: "📁",                     // the square mark beside the site's name
+  // or files of the app: logo: { image: "assets/mark.svg", favicon: "assets/favicon.svg" },
+  theme: { colors: { primary: "#7c2d2d" } },  // the desk's look — see below
 }
 ```
 
-`home` and `logo` are resolved the same way, each on its own: **the first app that
+`home`, `logo` and `theme` are resolved the same way, each on its own: **the first app that
 declares one wins**, and the core declares neither, so an app's always does. "First" is load
 order with the libraries last: an app that another installed app `requires` loads before it, but
 comes after every app nobody requires. So the site's own app decides, and a library's `home` or
 `logo` only shows where the site's app declares none. The site's name follows the same order, unless
 `ddcore.json` declares a `title` — see `i18n`.
 
-`logo` is one letter or one emoji, not an image URL — the mark is a fixed
-square, rendered as text. Leave it out and the mark is the initial of the name
-printed beside it, which is this app's `title`. That title is a catalogue key
-like any label, so both the word and its initial follow the reader's language —
-see `i18n`.
+`logo` is one letter or one emoji — drawn as text in a square of the theme's primary colour — or
+`{ image, favicon? }`, image files of the app (`.svg`, `.png`, `.webp`, `.jpg`, `.gif`, `.ico`)
+by path relative to its directory. The image replaces the square in the sidebar, the mobile top
+bar, the portal and the sign-in pages; `favicon` is the browser tab's icon, the image when left
+out. The files must exist when the app loads, and the server serves only them, at
+`/assets/site/logo` and `/assets/site/favicon` — not the folder they are in. Leave `logo` out and
+the mark is the initial of the name printed beside it, which is this app's `title`. That title is
+a catalogue key like any label, so both the word and its initial follow the reader's language —
+see `i18n`. A site without an image still gets a favicon: its letter square.
+
+### The desk's look: `desk.theme`
+
+`theme` gives the desk the app's identity — on the sign-in, password-reset and portal pages too,
+which a `desk.include` never reaches. Every key is optional and keeps the desk's own value:
+
+```ts
+theme: {
+  colors: {
+    primary: "#7c2d2d", primaryHover: "#5f2121", onPrimary: "#fbf3ea",
+    bg: "#f4efe4", surface: "#fcf9f3", surfaceAlt: "#f6efe1", border: "#e7dfce",
+    text: "#2c2420", muted: "#6f6355", accent: "#a8814a", accentSoft: "#ece0c6",
+  },
+  fonts: {
+    body: "'Hanken Grotesk', system-ui, sans-serif",
+    heading: "'Cormorant Garamond', Georgia, serif",   // page titles, the site's name
+    stylesheet: "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Hanken+Grotesk:wght@400;500;600;700&display=swap",
+  },
+  themeColor: "#7c2d2d",   // <meta name="theme-color">; colors.primary when left out
+}
+```
+
+- `primary` colours buttons, links, the active sidebar item, the focus ring, the avatar and the
+  notification count; `surface` is cards, the sidebar, menus and dialogs; `bg` the page behind them.
+- What an app should not have to list is derived: hover, selection and focus tints from
+  `primary`, `surface` and `text` (`color-mix()`); `primaryHover` from `primary`; `onPrimary`
+  white or near-black, whichever reads on a hex `primary`; `surfaceAlt` between `surface` and
+  `bg`; `accent` is `primary`. A theme of three colours already holds together.
+- Colours are CSS colours (`#rgb`, `#rrggbb`, a name, `rgb()`, `hsl()`, `oklch()`,
+  `color-mix()`…); fonts are font-family lists; `stylesheet` is an `https://` URL. Anything else —
+  or a misspelt key — fails the load, naming the app.
+- Status colours (`green`, `red`, `orange`…, on indicators and chips) and the space mark stay the
+  core's: they carry meaning, not brand.
+- The server writes the theme into the page's shell, so the first paint already wears it; under
+  `ddcore dev` an edit to it applies on the next reload without a new page.
 
 `defineApp`'s `portal` block holds one key, `include`: scripts loaded on every portal page.
 They are bundled apart from the desk's. See `portal`.

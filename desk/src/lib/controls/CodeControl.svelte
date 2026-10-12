@@ -57,7 +57,7 @@
     font-size: 10px;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: var(--text-muted, #64748b);
+    color: var(--muted);
     pointer-events: none;
   }
   textarea.code {

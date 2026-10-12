@@ -137,10 +137,10 @@
   .outside { background: var(--bg); }
   .outside .day-number { color: var(--muted); }
   .day-number { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; font-size: 12px; color: var(--text); border-radius: 50%; }
-  .today .day-number { background: var(--primary); color: white; font-weight: 600; }
+  .today .day-number { background: var(--primary); color: var(--on-primary); font-weight: 600; }
   .pick { border: 0; padding: 0; background: none; font: inherit; cursor: pointer; }
   .pick::after { content: ""; position: absolute; inset: 0; }
-  .pick:hover::after { background: rgba(37, 99, 235, .04); }
+  .pick:hover::after { background: var(--primary-tint); }
   .pick:focus-visible { outline: none; }
   .pick:focus-visible::after { outline: 2px solid var(--primary); outline-offset: -2px; }
   /* above the day's click area; shown on hover, always where there is no hover */
@@ -152,7 +152,7 @@
   .day-new.up .menu { top: auto; bottom: 100%; margin: 0 0 4px; }
   .day-new.start .menu { right: auto; left: 0; }
   .day-new .menu a { display: block; padding: 7px 10px; border-radius: 4px; font-size: 13px; color: var(--text); text-decoration: none; white-space: nowrap; }
-  .day-new .menu a:hover, .day-new .menu a:focus-visible { background: #f3f4f6; }
+  .day-new .menu a:hover, .day-new .menu a:focus-visible { background: var(--hover); }
   .events { display: grid; gap: 4px; margin-top: 6px; }
   .event, .event-gap { height: 24px; }
   .event { position: relative; z-index: 1; display: block; padding: 0 6px; line-height: 24px; border-radius: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

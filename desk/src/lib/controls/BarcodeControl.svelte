@@ -164,6 +164,7 @@
   .barcode-row { display: flex; gap: 6px; align-items: flex-start; }
   .barcode-row .input { flex: 1 1 auto; min-width: 0; }
   .scan-btn { min-height: 34px; }
+  /* the bars are dark on any theme, so the image keeps a white quiet zone for scanners */
   .barcode-preview {
     display: block;
     margin-top: 6px;
@@ -190,7 +191,7 @@
     gap: 10px;
     padding: 12px;
     border-radius: 8px;
-    background: var(--surface, #fff);
+    background: var(--surface);
     box-shadow: var(--shadow);
     max-width: min(480px, 100%);
   }

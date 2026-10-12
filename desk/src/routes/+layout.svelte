@@ -1,6 +1,7 @@
 <script lang="ts">
+  import SiteMark from "$lib/components/SiteMark.svelte";
   import "../app.css";
-  import { __, loadBoot, isLoggedIn, siteName, siteLogo, boot, pageTitle, spaceLabel, type Boot } from "$lib/boot.svelte";
+  import { __, loadBoot, isLoggedIn, siteName, boot, pageTitle, spaceLabel, type Boot } from "$lib/boot.svelte";
   import { spaceKind } from "$lib/tenant";
   import { installDeskSDK, loadAppIncludes } from "$lib/desk-sdk";
   import { connectEvents, disconnectEvents, subscribe } from "$lib/events";
@@ -231,8 +232,8 @@
         </button>
 
         <a href="/app" class="mobile-brand">
-          <span class="logo">{siteLogo()}</span>
-          <span class="mobile-brand-title">{siteName()}</span>
+          <SiteMark size={24} />
+          <span class="mobile-brand-title site-name">{siteName()}</span>
           {#if spaceLabel()}
             <span class="mobile-space-badge {spaceKind(boot.data?.site?.tenant)}">{spaceLabel()}</span>
           {/if}
@@ -334,7 +335,7 @@
   main { flex: 1; min-width: 0; }
   .maintenance-banner {
     display: flex; align-items: center; gap: 8px; padding: 8px 16px;
-    background: #fef3c7; color: #92400e; border-bottom: 1px solid #fcd34d; font-size: 13px;
+    background: var(--yellow-soft); color: var(--yellow-ink); border-bottom: 1px solid color-mix(in srgb, var(--yellow) 45%, var(--surface)); font-size: 13px;
   }
   .mobile-topbar { display: none; }
   .sidebar-backdrop { display: none; }
@@ -350,7 +351,7 @@
       right: 0;
       height: 52px;
       padding: 0 12px;
-      background: #fff;
+      background: var(--surface);
       border-bottom: 1px solid var(--border);
       z-index: 45;
     }
@@ -377,19 +378,6 @@
       min-width: 0;
     }
     .mobile-brand:hover { text-decoration: none; }
-    .mobile-brand .logo {
-      display: inline-flex;
-      width: 24px;
-      height: 24px;
-      border-radius: 6px;
-      background: var(--primary);
-      color: #fff;
-      align-items: center;
-      justify-content: center;
-      font-size: 12px;
-      font-weight: 700;
-      flex-shrink: 0;
-    }
     .mobile-brand-title {
       overflow: hidden;
       text-overflow: ellipsis;
@@ -411,7 +399,7 @@
     .mobile-ws-badge {
       font-size: 11px;
       font-weight: 500;
-      background: #f3f4f6;
+      background: var(--hover);
       color: var(--muted);
       padding: 1px 6px;
       border-radius: 4px;
@@ -445,7 +433,7 @@
       border-radius: 10px;
       padding: 0 4px;
       background: var(--primary);
-      color: #fff;
+      color: var(--on-primary);
       font-size: 10px;
       font-weight: 600;
       line-height: 14px;
@@ -456,7 +444,7 @@
       height: 28px;
       border-radius: 50%;
       background: var(--primary);
-      color: #fff;
+      color: var(--on-primary);
       align-items: center;
       justify-content: center;
       font-size: 12px;
@@ -473,7 +461,7 @@
       right: 0;
       top: calc(100% + 8px);
       min-width: 200px;
-      background: #fff;
+      background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 8px;
       box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
@@ -495,7 +483,7 @@
       color: var(--text);
     }
     .mobile-user-dropdown .menu button:hover {
-      background: #f3f4f6;
+      background: var(--hover);
     }
     .mobile-user-info {
       padding: 8px 10px 6px;
@@ -525,7 +513,7 @@
       display: block;
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.45);
+      background: var(--overlay);
       z-index: 48;
       backdrop-filter: blur(1px);
       -webkit-backdrop-filter: blur(1px);

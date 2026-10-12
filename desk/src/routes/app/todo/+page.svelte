@@ -492,10 +492,10 @@
   .view-switcher .active { color: var(--primary); background: var(--bg); position: relative; border-color: var(--primary); }
   .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
   .toolbar > .btn.active { color: var(--primary); border-color: var(--primary); }
-  .filter-count { margin-left: 2px; min-width: 18px; padding: 0 5px; border-radius: 999px; background: var(--primary); color: #fff; font-size: 11px; line-height: 18px; text-align: center; }
+  .filter-count { margin-left: 2px; min-width: 18px; padding: 0 5px; border-radius: 999px; background: var(--primary); color: var(--on-primary); font-size: 11px; line-height: 18px; text-align: center; }
   .scope-tabs {
     display: inline-flex;
-    background: var(--border, #e2e8f0);
+    background: var(--border);
     padding: 2px;
     border-radius: 6px;
   }
@@ -506,13 +506,13 @@
     border-radius: 4px;
     font-size: 13px;
     font-weight: 500;
-    color: var(--muted, #64748b);
+    color: var(--muted);
     cursor: pointer;
     transition: background 0.15s, color 0.15s;
   }
   .tab-btn.active {
-    background: var(--surface, #fff);
-    color: var(--text, #1e293b);
+    background: var(--surface);
+    color: var(--text);
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
   }
   .list-filters { padding: 12px 14px; margin-bottom: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px 10px; align-items: start; }
@@ -533,7 +533,7 @@
   .ref { min-width: 160px; max-width: 300px; overflow-wrap: break-word; }
   .who { min-width: 120px; }
   .nowrap { white-space: nowrap; }
-  .overdue { color: var(--danger, #dc2626); font-weight: 600; }
+  .overdue { color: var(--red); font-weight: 600; }
   .todo-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; margin-bottom: 12px; }
   .task-card { min-width: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; }
   .task-card:hover, .task-card:focus-within { border-color: var(--primary); }
@@ -560,10 +560,10 @@
     text-transform: uppercase;
     white-space: nowrap;
   }
-  .priority-urgent { background: #fee2e2; color: #b91c1c; }
-  .priority-high { background: #ffedd5; color: #c2410c; }
-  .priority-medium { background: #fef3c7; color: #b45309; }
-  .priority-low { background: #f1f5f9; color: #475569; }
+  .priority-urgent { background: var(--red-soft); color: var(--red-ink); }
+  .priority-high { background: var(--orange-soft); color: var(--orange-ink); }
+  .priority-medium { background: var(--yellow-soft); color: var(--yellow-ink); }
+  .priority-low { background: var(--gray-soft); color: var(--gray-ink); }
   .task-actions { display: inline-flex; gap: 4px; white-space: nowrap; }
   .pagination { display: flex; align-items: center; gap: 8px; padding: 10px 14px; }
   .pagination .spacer { flex: 1; }
@@ -577,7 +577,7 @@
   }
   .label.reqd::after {
     content: " *";
-    color: var(--danger, #e53e3e);
+    color: var(--red);
   }
   .form-group {
     display: flex;

@@ -327,10 +327,10 @@
   .fld { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 200px; }
   .checks { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
   .check { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
-  .chip { display: inline-block; padding: 1px 7px; border-radius: 999px; background: #f3f4f6; font-size: 11px; margin-right: 4px; }
-  .chip.green { background: #dcfce7; color: #166534; }
+  .chip { display: inline-block; padding: 1px 7px; border-radius: 999px; background: var(--hover); font-size: 11px; margin-right: 4px; }
+  .chip.green { background: var(--green-soft); color: var(--green-ink); }
   .err { color: var(--red); margin-bottom: 8px; }
-  .minted { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; margin-bottom: 12px; border: 1px solid var(--border); border-radius: 6px; background: #fffbeb; }
+  .minted { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; margin-bottom: 12px; border: 1px solid var(--border); border-radius: 6px; background: color-mix(in srgb, var(--yellow) 8%, var(--surface)); }
   .minted code { word-break: break-all; font-size: 12px; }
   table.grid { display: table; width: 100%; }
   tr.expired td { opacity: .55; }

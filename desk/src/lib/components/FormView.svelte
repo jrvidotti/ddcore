@@ -578,7 +578,7 @@
     transition: background-color 0.15s ease;
   }
   .title-edit-btn:hover {
-    background: #f3f4f6;
+    background: var(--hover);
   }
   .title-edit-icon {
     display: inline-flex;

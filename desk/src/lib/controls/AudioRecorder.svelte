@@ -127,7 +127,7 @@
   .recorder { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-height: 32px; }
   .recorder audio { height: 32px; max-width: 100%; flex: 1 1 200px; min-width: 0; }
   .elapsed { font-variant-numeric: tabular-nums; font-size: 13px; }
-  .rec-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--red, #dc2626); animation: pulse 1s ease-in-out infinite; }
+  .rec-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--red); animation: pulse 1s ease-in-out infinite; }
   .err { font-size: 11px; color: var(--red); margin-top: 3px; }
   @keyframes pulse { 50% { opacity: .3; } }
 </style>
