@@ -177,6 +177,12 @@ func New(e *engine.Engine, desk fs.FS) *Server {
 	r.Get("/readyz", s.readiness)
 	r.Get("/readyz/", s.readiness)
 	r.Get("/assets/apps/{app}/*", s.appAsset)
+	r.Get("/assets/site/{name:logo|favicon}", s.siteAsset)
+	r.Head("/assets/site/{name:logo|favicon}", s.siteAsset)
+	// what a browser asks for on its own, without reading the shell
+	r.Get("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/assets/site/favicon", http.StatusFound)
+	})
 	r.Get("/files/*", s.file)
 	r.Get("/private/files/*", s.privateFile)
 	r.NotFound(s.notFound)
@@ -676,6 +682,9 @@ func (s *Server) boot(w http.ResponseWriter, r *http.Request) {
 			// which app's `desk.home` and `desk.logo` stand for the site is
 			// the same choice as whose title names it, so it is made beside it
 			"home": s.E.SiteDesk("home"), "logo": s.E.SiteDesk("logo"),
+			// and so is its look (#128): the shell already wears it; the desk
+			// applies it again when a reload boots without a new page
+			"brand": brandBoot(c.St, siteLetter(c.St, c.T(s.E.SiteTitle()))),
 			// the server resolves the precision and the rule and the desk
 			// reads them: two independent derivations that "should" agree
 			// is the bug nobody finds until a JPY invoice is off by a yen
@@ -1902,7 +1911,9 @@ func (s *Server) deskHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Vary", "Accept-Language, Cookie, X-Lang")
-	w.Write(withHTMLLang(data, s.langFor(r)))
+	lang := s.langFor(r)
+	st := s.E.Current()
+	w.Write(withBrand(withHTMLLang(data, lang), st, st.I18n.T(lang, st.SiteTitle())))
 }
 
 // withHTMLLang stamps lang into the shell's <html lang="en">. Browsers decide

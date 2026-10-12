@@ -258,15 +258,15 @@
     border-radius: 4px;
     font-size: 12px;
     font-weight: 500;
-    background: #f0fdf4;
-    color: var(--green, #16a34a);
-    border: 1px solid #bbf7d0;
+    background: color-mix(in srgb, var(--green) 6%, var(--surface));
+    color: var(--green);
+    border: 1px solid color-mix(in srgb, var(--green) 30%, var(--surface));
   }
   .vault-dot {
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background-color: var(--green, #16a34a);
+    background-color: var(--green);
   }
   .vault-actions { display: inline-flex; align-items: center; gap: 6px; }
   .vault-input-wrap { display: flex; align-items: center; gap: 6px; width: 100%; }

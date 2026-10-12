@@ -64,19 +64,19 @@
 </div>
 
 <style>
-  .markdown { border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: var(--bg-input, #fff); }
-  .markdown.error { border-color: var(--danger, #dc2626); }
-  .tabs { display: flex; gap: 2px; padding: 4px; border-bottom: 1px solid var(--border); background: var(--bg-subtle, #f8fafc); }
+  .markdown { border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: var(--surface); }
+  .markdown.error { border-color: var(--red); }
+  .tabs { display: flex; gap: 2px; padding: 4px; border-bottom: 1px solid var(--border); background: var(--surface-alt); }
   .tabs button {
     border: 0;
     border-radius: 4px;
     padding: 3px 10px;
     background: transparent;
     font-size: 12px;
-    color: var(--text-muted, #64748b);
+    color: var(--muted);
     cursor: pointer;
   }
-  .tabs button.on { background: var(--bg-hover, #e2e8f0); color: var(--text, #0f172a); }
+  .tabs button.on { background: var(--hover-strong); color: var(--text); }
   textarea.md {
     border: 0;
     border-radius: 0;
@@ -89,5 +89,5 @@
   .preview :global(:last-child) { margin-bottom: 0; }
   .preview :global(table) { border-collapse: collapse; }
   .preview :global(th), .preview :global(td) { border: 1px solid var(--border); padding: 3px 6px; }
-  .preview :global(pre) { background: var(--bg-subtle, #f1f5f9); padding: 8px; border-radius: 4px; overflow-x: auto; }
+  .preview :global(pre) { background: var(--surface-alt); padding: 8px; border-radius: 4px; overflow-x: auto; }
 </style>

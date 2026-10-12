@@ -331,7 +331,7 @@
     width: 22px;
     height: 22px;
     border-radius: 50%;
-    background: #e0e7ff;
+    background: var(--accent-soft);
     color: var(--primary);
     font-size: 11px;
     font-weight: 700;
@@ -386,7 +386,7 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
-    background: #fafbfc;
+    background: var(--surface-alt);
     border: 1px solid var(--border);
     border-radius: 6px;
     padding: 6px 8px;
@@ -397,7 +397,7 @@
     align-items: center;
     gap: 6px;
     margin-bottom: 6px;
-    color: var(--danger);
+    color: var(--red);
   }
   .field-label {
     font-size: 11px;
@@ -434,22 +434,22 @@
     text-underline-offset: 2px;
   }
   .val-old {
-    background: #fee2e2;
-    color: #991b1b;
+    background: var(--red-soft);
+    color: var(--red-ink);
     text-decoration: line-through;
   }
   .val-old.is-empty {
     text-decoration: none;
-    background: #f3f4f6;
+    background: var(--hover);
     color: var(--muted);
   }
   .val-new {
-    background: #dcfce7;
-    color: #166534;
+    background: var(--green-soft);
+    color: var(--green-ink);
     font-weight: 500;
   }
   .val-new.is-empty {
-    background: #f3f4f6;
+    background: var(--hover);
     color: var(--muted);
     font-weight: normal;
   }
@@ -466,7 +466,7 @@
     margin-bottom: 4px;
   }
   .table-row-card {
-    background: #fff;
+    background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 6px;
     padding: 7px 9px;
@@ -477,15 +477,15 @@
   }
   .table-row-card.added {
     border-left: 3px solid var(--green);
-    background: rgba(22, 163, 74, 0.03);
+    background: color-mix(in srgb, var(--green) 3%, transparent);
   }
   .table-row-card.modified {
     border-left: 3px solid var(--blue);
-    background: rgba(37, 99, 235, 0.03);
+    background: color-mix(in srgb, var(--blue) 3%, transparent);
   }
   .table-row-card.removed {
     border-left: 3px solid var(--red);
-    background: rgba(220, 38, 38, 0.03);
+    background: color-mix(in srgb, var(--red) 3%, transparent);
   }
 
   .card-status-bar {
@@ -501,16 +501,16 @@
     border-radius: 4px;
   }
   .badge.green {
-    background: #dcfce7;
-    color: #166534;
+    background: var(--green-soft);
+    color: var(--green-ink);
   }
   .badge.blue {
-    background: #dbeafe;
-    color: #1e40af;
+    background: var(--blue-soft);
+    color: var(--blue-ink);
   }
   .badge.red {
-    background: #fee2e2;
-    color: #991b1b;
+    background: var(--red-soft);
+    color: var(--red-ink);
   }
 
   .card-fields {

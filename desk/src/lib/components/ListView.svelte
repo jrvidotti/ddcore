@@ -661,7 +661,7 @@
   .page-title { flex: 1; min-width: 200px; }
   .subtitle { margin: 2px 0 0; font-size: 13px; }
   .page-head > .btn.active { color: var(--primary); border-color: var(--primary); }
-  .filter-count { margin-left: 2px; min-width: 18px; padding: 0 5px; border-radius: 999px; background: var(--primary); color: #fff; font-size: 11px; line-height: 18px; text-align: center; }
+  .filter-count { margin-left: 2px; min-width: 18px; padding: 0 5px; border-radius: 999px; background: var(--primary); color: var(--on-primary); font-size: 11px; line-height: 18px; text-align: center; }
   .list-results { overflow: auto; }
   .view-notice { margin: 0 0 8px; }
   .pagination { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--border); }

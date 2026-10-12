@@ -119,8 +119,8 @@
   .search-results { list-style: none; margin: 0; padding: 4px; max-height: 60vh; overflow: auto; }
   .search-results:empty { display: none; }
   .search-results a { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 6px; color: var(--text); font-size: 13px; text-decoration: none; }
-  .search-results a.active { background: #eff6ff; color: var(--primary); }
+  .search-results a.active { background: var(--active); color: var(--primary); }
   .search-results .title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .search-note { padding: 12px 16px; }
-  .error { color: var(--danger, #dc2626); }
+  .error { color: var(--red); }
 </style>

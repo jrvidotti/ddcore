@@ -103,7 +103,7 @@
   }
   .label.reqd::after {
     content: " *";
-    color: var(--danger, #e53e3e);
+    color: var(--red);
   }
   .form-group {
     display: flex;

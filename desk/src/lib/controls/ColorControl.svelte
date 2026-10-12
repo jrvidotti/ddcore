@@ -289,7 +289,7 @@
     position: fixed;
     z-index: 80;
     overflow: auto;
-    background: #fff;
+    background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 8px;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
@@ -303,10 +303,10 @@
     padding: 3px 10px;
     background: transparent;
     font-size: 12px;
-    color: var(--text-muted, #64748b);
+    color: var(--muted);
     cursor: pointer;
   }
-  .tabs button.on { background: var(--bg-hover, #e2e8f0); color: var(--text, #0f172a); }
+  .tabs button.on { background: var(--hover-strong); color: var(--text); }
 
   .grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; }
   .cell {
@@ -318,7 +318,7 @@
     cursor: pointer;
   }
   .cell:hover { transform: scale(1.12); }
-  .cell.selected { outline: 2px solid var(--primary, #2563eb); outline-offset: 1px; }
+  .cell.selected { outline: 2px solid var(--primary); outline-offset: 1px; }
 
   .advanced { display: flex; flex-direction: column; gap: 10px; }
   .sv {
@@ -358,7 +358,7 @@
     touch-action: none;
   }
   .hue .thumb { top: 50%; }
-  .sv:focus-visible, .hue:focus-visible { outline: 2px solid var(--primary, #2563eb); outline-offset: 2px; }
+  .sv:focus-visible, .hue:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
   .channels { display: grid; grid-template-columns: repeat(3, 1fr) 1.9fr; gap: 4px; }
   .channels label { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; color: var(--muted); }
   .channels .input { padding: 4px; text-align: center; min-height: 28px; font-variant-numeric: tabular-nums; }

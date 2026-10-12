@@ -257,8 +257,8 @@
   .formats select { width: auto; }
   h4 { margin: 16px 0 6px; font-size: 13px; }
   .grid select { width: 100%; }
-  .summary { margin: 14px 0 8px; padding: 8px 12px; border-radius: var(--radius); background: #fff7ed; font-size: 13px; }
-  .summary.ok { background: #f0fdf4; }
+  .summary { margin: 14px 0 8px; padding: 8px 12px; border-radius: var(--radius); background: color-mix(in srgb, var(--orange) 8%, var(--surface)); font-size: 13px; }
+  .summary.ok { background: color-mix(in srgb, var(--green) 6%, var(--surface)); }
   .errors { max-height: 320px; }
   .foot .spacer { flex: 1; }
 </style>

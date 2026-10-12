@@ -253,6 +253,9 @@ type State struct {
 	www map[string]WWWSite
 	// credentials is the apps' credential sign-in providers by id.
 	credentials map[string]CredentialProvider
+	// Branding is the site's theme and logo files, from the apps' desk
+	// blocks (#128); read it through Brand().
+	Branding *Brand
 	// metaCache holds the translated copies of DocTypes, per language. It
 	// needs no invalidation: a reload builds a new State and this dies with
 	// the old one.
@@ -757,6 +760,11 @@ func (e *Engine) Load() error {
 		pool.Close()
 		return err
 	}
+	brand, err := buildBrand(apps, snap)
+	if err != nil {
+		pool.Close()
+		return err
+	}
 	st := &State{
 		Title:             e.Cfg.SiteTitle,
 		Portals:           portals,
@@ -772,6 +780,7 @@ func (e *Engine) Load() error {
 		whitelisted:       wl,
 		www:               www,
 		credentials:       credentials,
+		Branding:          brand,
 	}
 	e.mu.Lock()
 	old := e.cur.Swap(st)
@@ -884,11 +893,18 @@ func (s *State) SiteTitle() string {
 // — `home`, `logo` — picked the way SiteTitle picks the name, so the mark and
 // the landing workspace belong to the same app the heading names whenever that
 // app declares them.
+//
+// The first app that declares the key decides, whatever form its value takes:
+// an app whose `logo` is an image (#128) has no letter, and a library's letter
+// must not stand in for it.
 func (s *State) SiteDesk(key string) string {
 	for _, m := range s.brandApps() {
-		if v, _ := m.Desk[key].(string); v != "" {
-			return v
+		v, ok := m.Desk[key]
+		if !ok || v == nil || v == "" {
+			continue
 		}
+		str, _ := v.(string)
+		return str
 	}
 	return ""
 }

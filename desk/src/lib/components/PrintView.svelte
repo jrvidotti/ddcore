@@ -244,7 +244,7 @@
     display: flex;
     flex-direction: column;
     height: 100vh;
-    background: var(--bg-subtle, #f3f4f6);
+    background: var(--bg);
     overflow: hidden;
   }
 
@@ -254,8 +254,8 @@
     justify-content: space-between;
     gap: 16px;
     padding: 8px 16px;
-    background: var(--bg, #ffffff);
-    border-bottom: 1px solid var(--border, #e5e7eb);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
     z-index: 10;
     flex-shrink: 0;
   }
@@ -274,7 +274,7 @@
   }
 
   .muted {
-    color: var(--text-muted, #6b7280);
+    color: var(--muted);
   }
 
   .header-controls {
@@ -293,16 +293,16 @@
 
   .control-group label {
     font-weight: 500;
-    color: var(--text-muted, #4b5563);
+    color: var(--muted);
   }
 
   .select-input {
     padding: 4px 8px;
     font-size: 13px;
-    border: 1px solid var(--border, #d1d5db);
+    border: 1px solid var(--border);
     border-radius: 4px;
-    background: var(--bg, #ffffff);
-    color: var(--text, #111827);
+    background: var(--surface);
+    color: var(--text);
   }
 
   .header-actions {
@@ -347,7 +347,7 @@
     align-items: center;
     gap: 12px;
     z-index: 5;
-    background: rgba(255, 255, 255, 0.9);
+    background: color-mix(in srgb, var(--surface) 90%, transparent);
     padding: 16px 24px;
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
@@ -356,8 +356,8 @@
   .spinner {
     width: 24px;
     height: 24px;
-    border: 3px solid rgba(0, 0, 0, 0.1);
-    border-top-color: var(--primary, #3b82f6);
+    border: 3px solid var(--border);
+    border-top-color: var(--primary);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
   }
@@ -369,8 +369,8 @@
   }
 
   .error-card {
-    background: var(--bg, #ffffff);
-    border: 1px solid var(--border, #e5e7eb);
+    background: var(--surface);
+    border: 1px solid var(--border);
     padding: 24px;
     border-radius: 8px;
     text-align: center;
@@ -379,12 +379,12 @@
   }
 
   .error-card h3 {
-    color: var(--red, #ef4444);
+    color: var(--red);
     margin-bottom: 8px;
   }
 
   .error-card p {
-    color: var(--text-muted, #6b7280);
+    color: var(--muted);
     margin-bottom: 16px;
   }
 

@@ -143,5 +143,5 @@
   .cell-click { all: unset; box-sizing: border-box; max-width: 100%; cursor: pointer; }
   .cell-click:hover { text-decoration: underline; }
   .cell-click:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 2px; }
-  .totals td { font-weight: 600; border-top: 2px solid var(--border); background: var(--bg-subtle, transparent); }
+  .totals td { font-weight: 600; border-top: 2px solid var(--border); }
 </style>

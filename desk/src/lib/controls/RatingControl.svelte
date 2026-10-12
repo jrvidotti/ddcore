@@ -51,24 +51,24 @@
 
 <style>
   .rating { display: inline-flex; align-items: center; gap: 1px; }
-  .rating:focus-visible { outline: 2px solid var(--accent, #2563eb); outline-offset: 2px; border-radius: 4px; }
+  .rating:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
   .star {
     border: 0;
     background: none;
     padding: 0 1px;
     font-size: 18px;
     line-height: 1;
-    color: var(--border, #cbd5e1);
+    color: var(--border);
     cursor: pointer;
   }
-  .star.filled { color: #f59e0b; }
+  .star.filled { color: var(--yellow); }
   .rating.readonly .star { cursor: default; }
   .clear {
     margin-left: 4px;
     border: 0;
     background: none;
     font-size: 14px;
-    color: var(--text-muted, #64748b);
+    color: var(--muted);
     cursor: pointer;
   }
 </style>

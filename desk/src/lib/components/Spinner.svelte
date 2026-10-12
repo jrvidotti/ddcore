@@ -15,7 +15,7 @@
   .spinner-wrap.full { min-height: 100vh; padding: 0; }
   .ring {
     box-sizing: border-box;
-    border: 3px solid var(--border, rgba(0, 0, 0, 0.1));
+    border: 3px solid var(--border);
     border-top-color: var(--primary);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;

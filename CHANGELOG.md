@@ -14,6 +14,20 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **`desk.theme` and an image `desk.logo`: the desk wears the app's identity.** `defineApp`'s
+  `desk.theme` declares the palette (`primary`, `primaryHover`, `onPrimary`, `bg`, `surface`,
+  `surfaceAlt`, `border`, `text`, `muted`, `accent`, `accentSoft`), the fonts (`body`, `heading`
+  and an `https://` `stylesheet`) and the browser's `themeColor`; `desk.logo` also accepts
+  `{ image, favicon? }`, image files of the app. Resolved like `home`: the site's own app decides.
+  The server writes the theme, the favicon and the site's name into the shell, so the sign-in,
+  password-reset and portal pages wear them from the first paint, and `boot` carries them as
+  `site.brand`. The desk's components now read tokens instead of ~230 colour literals, with
+  hover, selection and focus tints derived from `primary`, so a theme of three colours holds
+  together; status colours and the space mark stay the core's. Every site now has a favicon — its
+  letter square when no image is declared — at `/assets/site/favicon` (#128).
+
 ## 0.27.25 — 2026-10-10
 
 ### Fixed

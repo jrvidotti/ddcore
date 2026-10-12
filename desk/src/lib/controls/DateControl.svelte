@@ -332,14 +332,14 @@
 
   .cal-btn:hover {
     color: var(--text);
-    background: #f3f4f6;
+    background: var(--hover);
   }
 
   .date-popover {
     position: fixed;
     z-index: 80;
     overflow: auto;
-    background: #fff;
+    background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 8px;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
@@ -399,11 +399,11 @@
   }
 
   .day-cell:hover {
-    background: #f3f4f6;
+    background: var(--hover);
   }
 
   .day-cell.other-month {
-    color: #cbd5e1;
+    color: color-mix(in srgb, var(--muted) 50%, var(--surface));
   }
 
   .day-cell.is-today {
@@ -413,7 +413,7 @@
 
   .day-cell.selected {
     background: var(--primary);
-    color: #fff;
+    color: var(--on-primary);
     font-weight: 600;
   }
 

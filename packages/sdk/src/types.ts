@@ -915,6 +915,43 @@ export interface CredentialProviderDef {
   ) => void;
 }
 
+/**
+ * `desk.theme` in defineApp. Colours are CSS colours (`#7c2d2d`, `rgb(…)`,
+ * `oklch(…)`, `color-mix(…)`); fonts are font-family lists.
+ */
+export interface DeskTheme {
+  colors?: {
+    /** buttons, links, the active item, the focus ring, the letter mark */
+    primary?: string;
+    /** a primary button under the pointer; derived from `primary` when left out */
+    primaryHover?: string;
+    /** text on `primary`; white or near-black, whichever reads, when left out */
+    onPrimary?: string;
+    /** the page behind the cards */
+    bg?: string;
+    /** cards, the sidebar, menus, dialogs, inputs */
+    surface?: string;
+    /** grid headers, read-only inputs; between `surface` and `bg` when left out */
+    surfaceAlt?: string;
+    border?: string;
+    text?: string;
+    muted?: string;
+    /** a second brand colour; `primary` when left out */
+    accent?: string;
+    accentSoft?: string;
+  };
+  fonts?: {
+    /** e.g. "'Hanken Grotesk', system-ui, sans-serif" */
+    body?: string;
+    /** page titles and the site's name; `body` when left out */
+    heading?: string;
+    /** an https:// stylesheet that loads them, such as a Google Fonts URL */
+    stylesheet?: string;
+  };
+  /** the browser's `<meta name="theme-color">`; `colors.primary` when left out */
+  themeColor?: string;
+}
+
 export interface AppDef {
   name: string;
   title: string;
@@ -987,12 +1024,23 @@ export interface AppDef {
     /** the workspace `/app` opens on */
     home?: string;
     /**
-     * The square mark shown beside the site's name in the sidebar and on the
-     * sign-in screens: one letter or one emoji, not an image URL. The first
-     * app in load order that declares one wins, as with `home`. Left out, the
-     * mark is the initial of `title` above.
+     * The mark shown beside the site's name in the sidebar and on the sign-in
+     * and portal pages: one letter or one emoji, drawn in a square of the
+     * theme's primary colour, or `{ image, favicon? }` — image files of the
+     * app (.svg, .png, .webp, .jpg, .gif, .ico), by path relative to its
+     * directory. The favicon defaults to the image; with a letter, it is the
+     * letter's square. The first app in load order that declares a logo wins,
+     * as with `home`. Left out, the mark is the initial of `title` above.
      */
-    logo?: string;
+    logo?: string | { image: string; favicon?: string };
+    /**
+     * The desk's look, on the sign-in, password-reset and portal pages too
+     * (#128). Every key is optional and keeps the desk's own value; hover,
+     * selection and focus tints follow from `primary`, `surface` and `text`.
+     * Status colours and the space mark stay the core's. As with `logo`, the
+     * first app that declares a theme supplies all of it.
+     */
+    theme?: DeskTheme;
   };
   portal?: {
     /**

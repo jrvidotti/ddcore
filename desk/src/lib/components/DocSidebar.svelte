@@ -490,7 +490,7 @@
   .doc-sidebar.collapsed .doc-sidebar-content { display: none; }
   .rail { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
   .rail-btn { display: flex; flex-direction: column; align-items: center; gap: 3px; width: 100%; padding: 7px 0; border: 0; background: none; border-radius: 6px; color: var(--muted); cursor: pointer; }
-  .rail-btn:hover { background: #f3f4f6; color: var(--text); }
+  .rail-btn:hover { background: var(--hover); color: var(--text); }
   .block { margin-top: 18px; }
   .attachments { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 12px; }
   .attachment-link { display: flex; align-items: center; gap: 6px; min-width: 0; color: inherit; }
@@ -531,7 +531,7 @@
     justify-content: space-between;
     gap: 8px;
     padding: 8px;
-    background: var(--surface, #fff);
+    background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 6px;
     font-size: 12px;
@@ -558,8 +558,8 @@
     width: 20px;
     height: 20px;
     border-radius: 50%;
-    background: var(--primary, #2563eb);
-    color: #fff;
+    background: var(--primary);
+    color: var(--on-primary);
     font-size: 10px;
     font-weight: 600;
     flex-shrink: 0;
@@ -588,7 +588,7 @@
     font-size: 11px;
   }
   .due-date.overdue {
-    color: var(--danger, #dc2626);
+    color: var(--red);
     font-weight: 600;
   }
   .priority-badge {
@@ -600,20 +600,20 @@
     text-transform: uppercase;
   }
   .priority-urgent {
-    background: #fee2e2;
-    color: #b91c1c;
+    background: var(--red-soft);
+    color: var(--red-ink);
   }
   .priority-high {
-    background: #ffedd5;
-    color: #c2410c;
+    background: var(--orange-soft);
+    color: var(--orange-ink);
   }
   .priority-medium {
-    background: #fef3c7;
-    color: #b45309;
+    background: var(--yellow-soft);
+    color: var(--yellow-ink);
   }
   .priority-low {
-    background: #f1f5f9;
-    color: #475569;
+    background: var(--gray-soft);
+    color: var(--gray-ink);
   }
   .assignment-actions {
     display: flex;
@@ -648,7 +648,7 @@
     color: var(--text);
   }
   .count-badge {
-    background: #eef0f3;
+    background: var(--hover-strong);
     color: var(--text);
     padding: 1px 6px;
     border-radius: 999px;

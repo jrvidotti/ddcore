@@ -292,14 +292,14 @@
 
   .cal-btn:hover {
     color: var(--text);
-    background: #f3f4f6;
+    background: var(--hover);
   }
 
   .month-popover {
     position: fixed;
     z-index: 80;
     overflow: auto;
-    background: #fff;
+    background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 8px;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
@@ -341,7 +341,7 @@
   }
 
   .month-cell:hover {
-    background: #f3f4f6;
+    background: var(--hover);
   }
 
   .month-cell.is-today {
@@ -351,7 +351,7 @@
 
   .month-cell.selected {
     background: var(--primary);
-    color: #fff;
+    color: var(--on-primary);
     font-weight: 600;
   }
 

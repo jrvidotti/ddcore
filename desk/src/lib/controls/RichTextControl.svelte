@@ -134,10 +134,10 @@
   .richtext {
     border: 1px solid var(--border);
     border-radius: 6px;
-    background: var(--bg-input, #fff);
+    background: var(--surface);
     overflow: hidden;
   }
-  .richtext.error { border-color: var(--danger, #dc2626); }
+  .richtext.error { border-color: var(--red); }
   .toolbar {
     display: flex;
     flex-wrap: wrap;
@@ -145,7 +145,7 @@
     gap: 2px;
     padding: 4px;
     border-bottom: 1px solid var(--border);
-    background: var(--bg-subtle, #f8fafc);
+    background: var(--surface-alt);
   }
   .toolbar button,
   .toolbar .upload {
@@ -158,12 +158,12 @@
     border: 0;
     border-radius: 4px;
     background: transparent;
-    color: var(--text-muted, #64748b);
+    color: var(--muted);
     cursor: pointer;
   }
   .toolbar button:hover,
-  .toolbar .upload:hover { background: var(--bg-hover, #e2e8f0); }
-  .toolbar button.on { background: var(--bg-hover, #e2e8f0); color: var(--text, #0f172a); }
+  .toolbar .upload:hover { background: var(--hover); }
+  .toolbar button.on { background: var(--hover-strong); color: var(--text); }
   .toolbar .upload input { display: none; }
   .sep { width: 1px; height: 16px; margin: 0 4px; background: var(--border); }
   .surface :global(.tiptap) {
@@ -184,12 +184,12 @@
     margin: 0 0 8px;
     padding-left: 10px;
     border-left: 3px solid var(--border);
-    color: var(--text-muted, #64748b);
+    color: var(--muted);
   }
   .surface :global(.tiptap pre) {
     padding: 8px 10px;
     border-radius: 4px;
-    background: var(--bg-subtle, #f1f5f9);
+    background: var(--surface-alt);
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 12px;
     overflow-x: auto;
@@ -201,7 +201,7 @@
     padding: 8px 10px;
     font-size: 13px;
     line-height: 1.55;
-    background: var(--bg-subtle, #f8fafc);
+    background: var(--surface-alt);
   }
   .richtext-read :global(p) { margin: 0 0 8px; }
   .richtext-read :global(:last-child) { margin-bottom: 0; }

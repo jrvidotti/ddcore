@@ -259,12 +259,12 @@
 <style>
   .geo-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 6px; }
   .geo-tool { display: inline-flex; align-items: center; gap: 4px; }
-  .geo-tool.active { background: var(--accent-bg, #dbeafe); border-color: var(--accent, #2563eb); }
+  .geo-tool.active { background: var(--accent-soft); border-color: var(--accent); }
   .geo-locate { display: inline-flex; align-items: center; gap: 4px; }
   .geo-spacer { flex: 1; }
   .geo-map {
     height: 300px;
-    border: 1px solid var(--border, #ccc);
+    border: 1px solid var(--border);
     border-radius: 6px;
     overflow: hidden;
     /* Leaflet's panes stack up to z-index 1000: keep them under dialogs and menus */
