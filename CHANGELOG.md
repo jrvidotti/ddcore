@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.27.26 — 2026-10-12
+
 ### Added
 
 - **`desk.theme` and an image `desk.logo`: the desk wears the app's identity.** `defineApp`'s
