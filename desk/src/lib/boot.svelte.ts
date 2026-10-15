@@ -132,11 +132,19 @@ export const hasRole = (r: string) => !!boot.data?.roles.includes(r);
 export const doctypeLabel = (dt: string) => boot.data?.doctypes[dt]?.label || dt;
 
 /**
- * What the site is called, for a title or a heading: the title of the app the
- * desk is showing, resolved and translated by the server. The fallback only
- * covers the moment before the boot arrives.
+ * The name the server stamped into the shell's <title>, read before any
+ * component mounts: the root layout's own <title> replaces it at once, and
+ * reading it later would give back our own fallback.
  */
-export const siteName = () => boot.data?.site?.name || "ddcore";
+const shellName = typeof document === "undefined" ? "" : document.title;
+
+/**
+ * What the site is called, for a title or a heading: the title of the app the
+ * desk is showing, resolved and translated by the server. Before the boot
+ * arrives it is the name the server wrote into the shell, so the tab keeps the
+ * site's name while the desk starts instead of flashing "ddcore".
+ */
+export const siteName = () => boot.data?.site?.name || shellName || "ddcore";
 /** On a site with tenancy, what to call the space the person works in; "" otherwise. */
 export const spaceLabel = () => tenantLabel(boot.data?.site?.tenant, __("Platform"));
 /** A page title: `parts`, then the site's name, then the space it was read in. */

@@ -37,3 +37,14 @@ describe("applyBrand", () => {
     expect(document.querySelector("style#ddcore-brand")).toBeNull();
   });
 });
+
+describe("the title before the boot", () => {
+  it("is the site's name the server wrote into the shell, not ddcore", async () => {
+    document.title = "Projects";
+    vi.resetModules();
+    const m = await import("./boot.svelte");
+    m.boot.data = null;
+    expect(m.siteName()).toBe("Projects");
+    expect(m.pageTitle("To-Do")).toBe("To-Do · Projects");
+  });
+});
