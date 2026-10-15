@@ -83,13 +83,45 @@ export function toggleColumn(current: ResolvedColumns, column: string, on: boole
   return choice;
 }
 
-/** The fields a server export asks for: the visible columns, in screen order, those with a column of their own. */
+/** The choice after the user drags the visible column at `from` to the place `to` among the visible ones. */
+export function moveColumn(current: ResolvedColumns, from: number, to: number): ColumnChoice {
+  const choice: ColumnChoice = { fields: current.columns.map((c) => c.fieldname!), id: current.showID, modified: current.showModified };
+  const last = choice.fields.length - 1;
+  from = Math.max(0, Math.min(from, last));
+  to = Math.max(0, Math.min(to, last));
+  if (from !== to) choice.fields.splice(to, 0, ...choice.fields.splice(from, 1));
+  return choice;
+}
+
+/**
+ * The fields a server export asks for: the id, always and first — so the file
+ * loads back as an update even when the id column is hidden — then the visible
+ * columns in screen order, those with a column of their own.
+ */
 export function exportFields(r: ResolvedColumns): string[] {
   return [
-    ...(r.showID ? ["id"] : []),
+    "id",
     ...r.columns.filter((c) => !c.computed).map((c) => c.fieldname!),
     ...(r.showModified ? ["modified"] : []),
   ];
+}
+
+// The types a substring search makes sense on: what is shown is the text stored
+// (a Link also matches its target's title, on the server). Numbers, dates and
+// checks are left to the filters.
+const SEARCHABLE = new Set(["Data", "Email", "Small Text", "Text", "Text Editor", "Markdown Editor",
+  "Code", "Select", "Autocomplete", "Barcode", "Link", "Dynamic Link"]);
+
+/**
+ * The fields the list's search box matches: the id, the app's title and search
+ * fields, its listed or filterable Links, and every visible text-like column —
+ * so a column a user adds with the Columns menu is searchable too.
+ */
+export function searchFields(doctype: DocTypeMeta, columns: Field[]): string[] {
+  const links = doctype.fields.filter((f) => f.fieldtype === "Link" && (f.inListView || f.inStandardFilter)).map((f) => f.fieldname);
+  const visible = columns.filter((c) => SEARCHABLE.has(c.fieldtype) && !c.computed).map((c) => c.fieldname);
+  const fields = ["id", doctype.titleField, ...(doctype.searchFields || []), ...links, ...visible].filter(Boolean) as string[];
+  return [...new Set(fields)];
 }
 
 type Store = { getItem(k: string): string | null; setItem(k: string, v: string): void; removeItem(k: string): void };

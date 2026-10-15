@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DocTypeMeta, Field } from "$lib/meta";
-import { columnCandidates, columnsKey, defaultListColumns, exportFields, loadColumnChoice, resolveColumns, saveColumnChoice, toggleColumn } from "./list-columns";
+import { columnCandidates, columnsKey, defaultListColumns, exportFields, loadColumnChoice, moveColumn, resolveColumns, saveColumnChoice, searchFields, toggleColumn } from "./list-columns";
 
 const f = (fieldname: string, fieldtype = "Data", extra: Partial<Field> = {}): Field => ({ fieldname, fieldtype, label: fieldname, ...extra });
 
@@ -66,10 +66,38 @@ describe("list columns", () => {
     expect(names(r.columns)).toEqual(["phone"]);
   });
 
-  it("exports the visible columns in screen order", () => {
+  it("moves a visible column to another place", () => {
+    const r = resolveColumns(organization, { modifiedColumn: false });
+    expect(moveColumn(r, 0, 2)).toEqual({ fields: ["legal_name", "trade_name", "cnpj"], id: false, modified: false });
+    expect(moveColumn(r, 2, 0).fields).toEqual(["trade_name", "cnpj", "legal_name"]);
+    expect(moveColumn(r, 1, 1).fields).toEqual(["cnpj", "legal_name", "trade_name"]);
+    // out of range clamps to the ends
+    expect(moveColumn(r, 0, 99).fields).toEqual(["legal_name", "trade_name", "cnpj"]);
+    expect(moveColumn(r, 99, -1).fields).toEqual(["trade_name", "cnpj", "legal_name"]);
+    const moved = resolveColumns(organization, {}, moveColumn(r, 0, 2));
+    expect(names(moved.columns)).toEqual(["legal_name", "trade_name", "cnpj"]);
+    expect(moved).toMatchObject({ showID: false, showModified: false, customized: true });
+  });
+
+  it("exports the id first, always, then the visible columns in screen order", () => {
     const r = resolveColumns(organization, {}, { fields: ["phone", "cnpj"], id: true, modified: true });
     expect(exportFields(r)).toEqual(["id", "phone", "cnpj", "modified"]);
-    expect(exportFields(resolveColumns(organization, { modifiedColumn: false }))).toEqual(["cnpj", "legal_name", "trade_name"]);
+    // a hash id hides the column by default, and the user can hide it too: the file still carries it
+    expect(exportFields(resolveColumns(organization, { modifiedColumn: false }))).toEqual(["id", "cnpj", "legal_name", "trade_name"]);
+    expect(exportFields(resolveColumns(organization, {}, { fields: ["phone"], id: false, modified: false }))).toEqual(["id", "phone"]);
+  });
+
+  it("searches the app's search fields and the visible text-like columns", () => {
+    const dt: DocTypeMeta = {
+      ...organization, searchFields: ["cnpj"],
+      fields: [...organization.fields, f("region", "Link", { options: "Region", inStandardFilter: true }), f("employees", "Int"), f("kind", "Select")],
+    };
+    const by = (n: string) => dt.fields.find((x) => x.fieldname === n)!;
+    // legal_name (title) and cnpj stay searchable even when hidden
+    expect(searchFields(dt, [by("phone"), by("city"), by("total"), by("employees"), by("kind"), by("phone")]))
+      .toEqual(["id", "legal_name", "cnpj", "region", "phone", "city", "kind"]);
+    // a column the user hid leaves the search unless the app made it a search field
+    expect(searchFields(dt, [])).toEqual(["id", "legal_name", "cnpj", "region"]);
   });
 });
 

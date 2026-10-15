@@ -37,7 +37,7 @@
   import { calendarDayFilters, calendarRangeFilters, calendarSpanFilters } from "./views/calendar-state";
   import { resolveCardFields } from "./views/card-fields";
   import ColumnMenu from "./views/ColumnMenu.svelte";
-  import { columnCandidates, columnsKey, defaultListColumns, exportFields, loadColumnChoice, resolveColumns, saveColumnChoice, type ColumnChoice } from "./list-columns";
+  import { columnCandidates, columnsKey, defaultListColumns, exportFields, loadColumnChoice, resolveColumns, saveColumnChoice, searchFields, type ColumnChoice } from "./list-columns";
   import { docTypeChoices } from "$lib/doctype-selector";
 
   let { doctype }: { doctype: string } = $props();
@@ -285,12 +285,7 @@
   }
   function buildOr() {
     if (!search || !meta || !meta.doctype) return undefined;
-    const linkCols = columns.filter((c) => c.fieldtype === "Link" && c.fieldname).map((c) => c.fieldname!);
-    const linkFields = (meta.doctype.fields || [])
-      .filter((f) => f.fieldtype === "Link" && (f.inListView || f.inStandardFilter))
-      .map((f) => f.fieldname!);
-    const fields = ["id", ...(meta.doctype.searchFields || []), meta.doctype.titleField, ...linkCols, ...linkFields].filter(Boolean) as string[];
-    return [...new Set(fields)].map((f) => [f, "like", `%${search}%`]);
+    return searchFields(meta.doctype, columns).map((f) => [f, "like", `%${search}%`]);
   }
   async function load() {
     if (!meta) return;
@@ -499,22 +494,20 @@
           children: choice.children,
           filters: buildFilters(),
           orFilters: buildOr(),
-          // a CSV is a table: the columns on screen; NDJSON is a whole copy of each row, for an import
+          // a CSV is a table: the id and the columns on screen; NDJSON is a whole copy of each row, for an import
           fields: choice.format === "csv" && resolvedColumns ? exportFields(resolvedColumns) : undefined,
         });
       },
     }).show();
   }
 
-  /** Exports the *loaded page* (not the whole result set) as CSV: the columns on screen, in their order. */
+  /** Exports the *loaded page* (not the whole result set) as CSV: the id, always, then the columns on screen, in their order. */
   function exportLoadedPage() {
-    const withID = !!resolvedColumns?.showID;
     const withModified = !!resolvedColumns?.showModified;
-    const keys = [...(withID ? ["id"] : []), ...columns.map((c) => c.fieldname!), ...(withModified ? ["modified"] : [])];
-    const header = [...(withID ? [meta!.doctype.idLabel || __("ID")] : []), ...columns.map((c) => c.label), ...(withModified ? [__("Modified")] : [])];
-    const offset = withID ? 1 : 0;
+    const keys = ["id", ...columns.map((c) => c.fieldname!), ...(withModified ? ["modified"] : [])];
+    const header = [meta!.doctype.idLabel || __("ID"), ...columns.map((c) => c.label), ...(withModified ? [__("Modified")] : [])];
     const exportRows = rows.map((r) => keys.map((k, idx) => {
-      const col = idx < offset ? undefined : columns[idx - offset];
+      const col = idx === 0 ? undefined : columns[idx - 1];
       if (col && (col.fieldtype === "Link" || col.fieldtype === "Dynamic Link") && r[k]) {
         const target = col.fieldtype === "Dynamic Link" ? r[col.options] : col.options;
         return getLinkTitle(target, r[k]) || r[k];
