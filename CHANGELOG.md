@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.27.27 — 2026-10-15
+
 ### Fixed
 
 - **The browser tab keeps the site's name while the desk boots.** The desk's own `<title>`
