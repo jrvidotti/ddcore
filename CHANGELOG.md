@@ -14,6 +14,12 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- **The browser tab keeps the site's name while the desk boots.** The desk's own `<title>`
+  replaced the one the server wrote into the shell with "ddcore" until `/api/boot` answered;
+  before the boot it now falls back to the shell's name.
+
 ## 0.27.26 — 2026-10-12
 
 ### Added
