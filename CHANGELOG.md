@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.27.28 — 2026-10-15
+
 ### Added
 
 - **A list's Columns menu: each user hides and adds columns** (#130). Next to **Filters**, the
