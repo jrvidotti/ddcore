@@ -24,6 +24,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 	"time"
 
@@ -222,6 +223,13 @@ func (c *Ctx) Export(a ExportArgs, sink ExportSink) (*ExportSummary, error) {
 		return nil, err
 	}
 
+	// The walk pages on the id, so it always reads it; a caller that left it
+	// out of Fields (a list exporting only its visible columns) does not get it.
+	query, dropID := columns, !slices.Contains(columns, "id")
+	if dropID {
+		query = append([]string{"id"}, columns...)
+	}
+
 	batch := a.Batch
 	if batch <= 0 {
 		batch = DefaultExportBatch
@@ -254,7 +262,7 @@ func (c *Ctx) Export(a ExportArgs, sink ExportSink) (*ExportSummary, error) {
 		rows, err := c.GetList(d.Name, ListArgs{
 			Filters:   keysetFilters(base, last),
 			OrFilters: a.OrFilters,
-			Fields:    columns,
+			Fields:    query,
 			OrderBy:   "id asc",
 			Limit:     page,
 		})
@@ -282,6 +290,9 @@ func (c *Ctx) Export(a ExportArgs, sink ExportSink) (*ExportSummary, error) {
 		}
 		for i, r := range rows {
 			doc := Doc(r)
+			if dropID {
+				delete(doc, "id")
+			}
 			doc["doctype"] = d.Name
 			for field, list := range children[names[i]] {
 				doc[field] = list

@@ -30,6 +30,13 @@ describe("export URL", () => {
       .toContain("/api/export/Project%20Milestone?");
   });
 
+  it("asks for the columns given, in their order", () => {
+    expect(JSON.parse(params(exportUrl({ doctype: "Task", format: "csv", fields: ["subject", "id", "modified"] })).get("fields")!))
+      .toEqual(["subject", "id", "modified"]);
+    expect(params(exportUrl({ doctype: "Task", format: "csv", fields: [] })).get("fields")).toBeNull();
+    expect(params(exportUrl({ doctype: "Task", format: "ndjson" })).get("fields")).toBeNull();
+  });
+
   it("asks for the child tables only where they fit", () => {
     expect(params(exportUrl({ doctype: "Task", format: "ndjson", children: true })).get("children")).toBe("1");
     // a CSV cannot nest children; asking anyway would only make the server refuse

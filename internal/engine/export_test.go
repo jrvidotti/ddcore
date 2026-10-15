@@ -172,6 +172,33 @@ func TestExportWalksEveryPage(t *testing.T) {
 	}
 }
 
+// A list exports only its visible columns, which may leave the id out. The
+// walk still pages on it — without it every page would be the first — and the
+// file carries only the columns asked for, in their order.
+func TestExportFieldsWithoutID(t *testing.T) {
+	e := setupExport(t)
+	makeNotas(t, e, "Admin", "N", 5)
+
+	col, err := exportAs(t, e, "exp@x.com", ExportArgs{Doctype: "Nota", Fields: []string{"valor", "titulo"}, Batch: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(col.columns, ",") != "valor,titulo" {
+		t.Fatalf("columns: %v", col.columns)
+	}
+	if len(col.docs) != 5 || col.sum.Rows != 5 {
+		t.Fatalf("expected 5 rows, got %d", len(col.docs))
+	}
+	for i, d := range col.docs {
+		if _, ok := d["id"]; ok {
+			t.Fatalf("row %d carries the id it was not asked for: %v", i, d)
+		}
+		if want := fmt.Sprintf("N-%04d", i); d["titulo"] != want {
+			t.Fatalf("row %d: titulo %v, want %s", i, d["titulo"], want)
+		}
+	}
+}
+
 // A page boundary that falls exactly on the last row must not produce a
 // phantom extra page, nor stop one row early.
 func TestExportHandlesExactPageBoundary(t *testing.T) {

@@ -14,6 +14,27 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **A list's Columns menu: each user hides and adds columns** (#130). Next to **Filters**, the
+  List view has a **Columns** button that hides any column (the id and **Modified** included) and
+  adds any other field the user may read. The choice is kept in the browser per user, tenant and
+  DocType until **Reset to default**; the app's `columns`, `idColumn` and `modifiedColumn` are
+  where a user starts. `defineListView({ columnChooser: false })` takes the menu away. See
+  `defineListView` in `docs/agent/form-api.md`.
+
+### Changed
+
+- **A list's CSV export holds the columns on screen** (#130). Both the page on screen and "All
+  rows matching the filters as CSV" follow the visible columns in their order, **Modified**
+  included when shown; the server CSV used to carry every column. NDJSON still carries every
+  column, for an import. See "The desk" in `docs/agent/export.md`.
+
+### Fixed
+
+- **`/api/export` with `fields` that leave out `id`** repeated the first page forever: the walk
+  pages on the id it no longer read. It now reads it and leaves it out of the file (#130).
+
 ## 0.27.27 — 2026-10-15
 
 ### Fixed

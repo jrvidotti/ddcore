@@ -152,6 +152,7 @@ export interface ListViewOptions<T extends BaseDoc = BaseDoc> {
   filtersCollapsed?: boolean;
   modifiedColumn?: boolean;
   idColumn?: boolean;
+  columnChooser?: boolean;
   plainLinks?: (keyof T & string)[];
   fields?: (keyof T & string)[];
   badges?: (row: T) => { label: string; color: string }[] | null | undefined;

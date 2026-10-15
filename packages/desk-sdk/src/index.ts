@@ -600,6 +600,12 @@ export interface ListViewOptions<T extends BaseDoc = BaseDoc> {
    */
   idColumn?: boolean;
   /**
+   * `false` hides the list's Columns menu, where each user hides and adds columns (kept in their
+   * browser, per tenant and DocType, until "Reset to default"). Default `true`: the app's
+   * `columns`, `idColumn` and `modifiedColumn` are then only where a user starts.
+   */
+  columnChooser?: boolean;
+  /**
    * Link columns shown as the linked document's title, as text rather than a link, so a click
    * on the cell opens the row's own document. For a list whose rows are easily mistaken for the
    * document they link to — the classes of a course, say.

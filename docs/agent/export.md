@@ -73,6 +73,9 @@ page of the walk sees the same instant.
 - A CSV export loads back through [Data Import](data-import.md) in update mode
   unchanged: it carries `id` and `modified`, and the derived columns are
   ignored on the way in.
+- `fields` picks the columns and their order. It may leave out `id` (a list
+  exporting the columns on screen): the walk still pages on it, and the file
+  does not carry it — nor can it then be imported back as an update.
 
 ## CLI
 
@@ -148,7 +151,10 @@ puts it into another site with the ids, owners and timestamps intact, and
 
 A list's download button asks what to export: the page on screen (built in the
 browser, with Link titles resolved) or everything the filters match (streamed
-by the server). The filters sent are the ones the list is showing.
+by the server). The filters sent are the ones the list is showing. A CSV holds
+the columns on screen, in their order — the id and **Modified** when they are
+shown, and whatever the user changed with the Columns menu; an NDJSON export
+is a whole copy of each row, every column, for an import.
 
 A report and a form grid (a `Table` or `Report` field with `gridExport: true`)
 export in the browser, as CSV or XLSX: the rows already on screen, in their

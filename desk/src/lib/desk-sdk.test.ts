@@ -48,6 +48,11 @@ describe("deskSDK listRegistry", () => {
     expect(deskSDK.listSettings("Turma")).toEqual({ plainLinks: ["course"] });
   });
 
+  it("registers and retrieves the columnChooser option", () => {
+    deskSDK.defineListView("Organization", { columnChooser: false });
+    expect(deskSDK.listSettings("Organization")).toEqual({ columnChooser: false });
+  });
+
   it("registers and retrieves the modifiedColumn option", () => {
     deskSDK.defineListView("Contrato", { modifiedColumn: false });
     expect(deskSDK.listSettings("Contrato")).toEqual({ modifiedColumn: false });

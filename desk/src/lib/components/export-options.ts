@@ -18,6 +18,8 @@ export interface ExportOptions {
   children?: boolean;
   filters?: unknown[];
   orFilters?: unknown[];
+  /** The columns, in order (the list's visible ones); left out, every exportable column. */
+  fields?: string[];
   /** The CSV column separator; defaults to the one the locale implies. */
   sep?: string;
 }
@@ -35,6 +37,7 @@ export function exportUrl(o: ExportOptions): string {
   if (o.children && o.format === "ndjson") q.set("children", "1");
   if (o.filters?.length) q.set("filters", JSON.stringify(o.filters));
   if (o.orFilters?.length) q.set("or_filters", JSON.stringify(o.orFilters));
+  if (o.fields?.length) q.set("fields", JSON.stringify(o.fields));
   if (o.format === "csv") q.set("sep", o.sep ?? csvSep());
   return `/api/export/${encodeURIComponent(o.doctype)}?${q}`;
 }

@@ -2,7 +2,7 @@
   import { seg } from "$lib/routes";
   // List view generated from meta: standard filters, search, sort, paging, bulk delete.
   import { api } from "$lib/api";
-  import { getMeta, selectLabels, selectOptions, type Meta, type Field, isLayout, isTableType } from "$lib/meta";
+  import { getMeta, selectLabels, selectOptions, type Meta, type Field, isLayout } from "$lib/meta";
   import { formatSummary, formatValue } from "$lib/format";
   import { __, boot, doctypeLabel } from "$lib/boot.svelte";
   import { showError, toast, confirm, dialog } from "$lib/ui.svelte";
@@ -36,7 +36,8 @@
   import { ganttRangeFilters, ganttWindow, type GanttScale } from "./views/gantt-state";
   import { calendarDayFilters, calendarRangeFilters, calendarSpanFilters } from "./views/calendar-state";
   import { resolveCardFields } from "./views/card-fields";
-  import { showIDColumn } from "./views/id-column";
+  import ColumnMenu from "./views/ColumnMenu.svelte";
+  import { columnCandidates, columnsKey, defaultListColumns, exportFields, loadColumnChoice, resolveColumns, saveColumnChoice, type ColumnChoice } from "./list-columns";
   import { docTypeChoices } from "$lib/doctype-selector";
 
   let { doctype }: { doctype: string } = $props();
@@ -104,18 +105,12 @@
     return resolveActiveView(allowedViews, urlView, storedView, isMobile);
   }
 
-  const columns = $derived.by(() => {
-    if (!meta) return [] as Field[];
-    // an explicit `columns` from defineListView wins over the meta's inListView
-    const cols = settings.columns?.length
-      ? (settings.columns.map((n) => meta!.doctype.fields.find((f) => f.fieldname === n)).filter(Boolean) as Field[])
-      : meta.doctype.fields.filter((f) => f.inListView && !isLayout(f) && !isTableType(f.fieldtype));
-    if (!settings.columns?.length && meta.doctype.titleField && !cols.some((c) => c.fieldname === meta!.doctype.titleField)) {
-      const tf = meta.doctype.fields.find((f) => f.fieldname === meta!.doctype.titleField);
-      if (tf) cols.unshift(tf);
-    }
-    return settings.columns?.length ? cols : cols.slice(0, 7);
-  });
+  /** What this user changed with the Columns menu, kept per user, tenant and DocType; null is the app's default. */
+  let columnChoice = $state<ColumnChoice | null>(null);
+  const columnKey = $derived(columnsKey(boot.data?.user, boot.data?.site?.tenant?.id, doctype));
+  const resolvedColumns = $derived(meta ? resolveColumns(meta.doctype, settings, columnChoice) : null);
+  const columns = $derived(resolvedColumns?.columns || ([] as Field[]));
+  const columnChoices = $derived(meta ? columnCandidates(meta.doctype, defaultListColumns(meta.doctype, settings)) : []);
   /** `defineListView({ docstatusFilter: false })` drops it where a `status` field already tells drafts apart. */
   const showDocstatusFilter = $derived(!!meta?.doctype.submittable && settings.docstatusFilter !== false);
   // a field filtered from elsewhere (a day picked on the calendar, a link) shows too, so it can be seen and cleared
@@ -153,6 +148,13 @@
   const urlFields = $derived(meta?.doctype.fields.filter((f) => f.fieldname && !isLayout(f)) || []);
   const activeFilters = $derived(countListFilters({ filters, search, docstatusFilter, calendarDay }, showDocstatusFilter));
   const hasActiveFilters = $derived(activeFilters > 0);
+  function changeColumns(choice: ColumnChoice | null) {
+    const before = new Set(columns.map((c) => c.fieldname));
+    columnChoice = choice;
+    saveColumnChoice(columnKey, choice);
+    // a column just added has no value in the rows on screen yet
+    if (columns.some((c) => !before.has(c.fieldname))) load();
+  }
   function toggleFilters() {
     showFilters = !showFilters;
     rememberFiltersOpen(doctype, showFilters);
@@ -394,6 +396,7 @@
         if (!alive) return; // navigated away while the meta was loading
         meta = m;
         showFilters = filtersOpen(doctype, settings.filtersCollapsed);
+        columnChoice = settings.columnChooser === false ? null : loadColumnChoice(columnKey);
         applyListState(listStateFromSearchParams(page.url.searchParams, urlFields, defaultListState()));
         lastUrlSearch = page.url.search;
         ready = true;
@@ -496,20 +499,22 @@
           children: choice.children,
           filters: buildFilters(),
           orFilters: buildOr(),
+          // a CSV is a table: the columns on screen; NDJSON is a whole copy of each row, for an import
+          fields: choice.format === "csv" && resolvedColumns ? exportFields(resolvedColumns) : undefined,
         });
       },
     }).show();
   }
 
-  /** Exports the *loaded page* (not the whole result set) as CSV. */
+  /** Exports the *loaded page* (not the whole result set) as CSV: the columns on screen, in their order. */
   function exportLoadedPage() {
-    const withID = showIDColumn(meta!.doctype, columns, settings);
-    const keys = [...(withID ? ["id"] : []), ...columns.map((c) => c.fieldname!)];
-    const header = [...(withID ? [meta!.doctype.idLabel || __("ID")] : []), ...columns.map((c) => c.label)];
+    const withID = !!resolvedColumns?.showID;
+    const withModified = !!resolvedColumns?.showModified;
+    const keys = [...(withID ? ["id"] : []), ...columns.map((c) => c.fieldname!), ...(withModified ? ["modified"] : [])];
+    const header = [...(withID ? [meta!.doctype.idLabel || __("ID")] : []), ...columns.map((c) => c.label), ...(withModified ? [__("Modified")] : [])];
     const offset = withID ? 1 : 0;
     const exportRows = rows.map((r) => keys.map((k, idx) => {
-      if (idx < offset) return r[k];
-      const col = columns[idx - offset];
+      const col = idx < offset ? undefined : columns[idx - offset];
       if (col && (col.fieldtype === "Link" || col.fieldtype === "Dynamic Link") && r[k]) {
         const target = col.fieldtype === "Dynamic Link" ? r[col.options] : col.options;
         return getLinkTitle(target, r[k]) || r[k];
@@ -560,6 +565,9 @@
       <button class="btn" class:active={showFilters} aria-expanded={showFilters} aria-controls="list-filters" onclick={toggleFilters}>
         <Icon name="filter" size={14} />{__("Filters")}{#if activeFilters}<span class="filter-count">{activeFilters}</span>{/if}
       </button>
+    {/if}
+    {#if currentView === "list" && !isTreeView && resolvedColumns && settings.columnChooser !== false}
+      <ColumnMenu resolved={resolvedColumns} candidates={columnChoices} idLabel={meta?.doctype.idLabel || __("ID")} onchange={changeColumns} />
     {/if}
     <button class="btn" onclick={load} title={__("Update")}><Icon name="refresh-cw" size={14} /></button>
     {#if canImport(meta?.permissions)}<button class="btn" onclick={() => (importOpen = true)} title={__("Import")} aria-label={__("Import")}><Icon name="upload" size={14} /></button>{/if}
@@ -632,7 +640,7 @@
         {#if currentView === "cards"}
           <CardView {rows} {meta} {doctype} {wsPrefix} {selected} {settings} {cellText} {loading} onToggle={toggle} />
         {:else}
-          <TableView {rows} {meta} {doctype} {wsPrefix} {columns} {selected} {orderBy} {loading} {settings} {cellText} {statusOf} {statusLabelOf} onSort={sort} onToggle={toggle} onSelectAll={(checked) => selected = checked ? new Set(rows.map((r) => r.id)) : new Set()} />
+          <TableView {rows} {meta} {doctype} {wsPrefix} {columns} showID={!!resolvedColumns?.showID} showModified={!!resolvedColumns?.showModified} {selected} {orderBy} {loading} {settings} {cellText} {statusOf} {statusLabelOf} onSort={sort} onToggle={toggle} onSelectAll={(checked) => selected = checked ? new Set(rows.map((r) => r.id)) : new Set()} />
         {/if}
         <div class="pagination" class:card={currentView === "cards"}>
           <span class="muted small">{total} {__("records")}</span>

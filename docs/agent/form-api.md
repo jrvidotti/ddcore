@@ -463,6 +463,7 @@ defineListView("Entry", {
   filtersCollapsed: false,              // opens the filter card by default (it starts hidden)
   modifiedColumn: false,                // hides the trailing "Modified" column
   idColumn: false,                      // hides (or `true` shows) the leading document-id column
+  columnChooser: false,                 // hides the Columns menu, where each user hides and adds columns
   plainLinks: ["contract"],             // Link columns shown as the title in text, not as a link
 });
 ```
@@ -478,6 +479,16 @@ view keeps the screen. The button counts the filters in force — `filters` defa
 picked on the calendar included — so a hidden filter still shows. Each user's choice is kept per
 DocType in the browser; `filtersCollapsed: false` only changes where a user who has not chosen
 yet starts.
+
+Next to it, a **Columns** button (in the List view) lets each user hide a column — the id and
+**Modified** ones included — and add any other field they may read: not a layout field, a table,
+a `hidden` or computed field, a `Password`, `Vault`, `Signature` or `Geolocation`. The columns
+shown come first, in screen order, and a field checked joins them at the end. The choice is kept
+in the browser per user, tenant and DocType (tenants share one origin), a field the DocType no
+longer offers drops out of it, and **Reset to default** forgets it. So `columns`, `idColumn` and
+`modifiedColumn` are where a user starts, not what every user sees; `columnChooser: false` takes
+the menu away and the app's columns are all there is. The list's CSV export follows the columns
+on screen (see `export`).
 
 Left out, `idColumn` follows the id. The list hides the column on its own when the id is a hash
 (`idGeneration: { hash: true }`, or no rule at all), unless the list has no other column, and when

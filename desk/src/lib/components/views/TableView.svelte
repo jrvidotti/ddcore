@@ -9,13 +9,14 @@
   import Icon from "../Icon.svelte";
   import SelectIndicator from "../SelectIndicator.svelte";
   import { getLinkTitle } from "$lib/titles.svelte";
-  import { showIDColumn } from "./id-column";
 
   let {
-    rows, meta, doctype, wsPrefix, columns, selected, orderBy, loading = false,
+    rows, meta, doctype, wsPrefix, columns, showID, showModified, selected, orderBy, loading = false,
     settings = {}, onSort, onToggle, onSelectAll, cellText, statusOf, statusLabelOf,
   }: {
     rows: any[]; meta: Meta; doctype: string; wsPrefix: string; columns: Field[];
+    /** The leading id column and the trailing Modified one, as the app and the user's Columns choice resolve them. */
+    showID: boolean; showModified: boolean;
     selected: Set<string>; orderBy: string; loading?: boolean; settings?: ListViewOptions;
     onSort: (field: Field) => void; onToggle: (id: string) => void;
     onSelectAll: (checked: boolean) => void; cellText: (row: any, field: Field) => string;
@@ -25,7 +26,6 @@
   const statusField = $derived(meta.doctype.fields.find((f) => f.fieldname === "status"));
   const showIndicatorColumn = $derived(!!settings.indicator ||
     (!columns.some((c) => c.fieldname === statusField?.fieldname) && (!!statusField || !!meta.doctype.submittable)));
-  const showID = $derived(showIDColumn(meta.doctype, columns, settings));
   const num = (f: Field) => isNumericFieldtype(f.fieldtype);
   const documentUrl = (id: string) => `${wsPrefix}/${seg(doctype)}/${encodeURIComponent(id)}`;
 </script>
@@ -45,7 +45,7 @@
         </th>
       {/each}
       {#if showIndicatorColumn}<th>{__("Status")}</th>{/if}
-      {#if settings.modifiedColumn !== false}<th class="num">{__("Modified")}</th>{/if}
+      {#if showModified}<th class="num">{__("Modified")}</th>{/if}
     </tr>
   </thead>
   <tbody>
@@ -87,7 +87,7 @@
             {@render badges(r)}
           </span></td>
         {/if}
-        {#if settings.modifiedColumn !== false}<td class="num muted small">{timeAgo(r.modified)}</td>{/if}
+        {#if showModified}<td class="num muted small">{timeAgo(r.modified)}</td>{/if}
       </tr>
     {/each}
     {#if !loading && !rows.length}<tr><td colspan="20" class="empty">{__("No records")}</td></tr>{/if}
