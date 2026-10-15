@@ -152,9 +152,10 @@ puts it into another site with the ids, owners and timestamps intact, and
 A list's download button asks what to export: the page on screen (built in the
 browser, with Link titles resolved) or everything the filters match (streamed
 by the server). The filters sent are the ones the list is showing. A CSV holds
-the columns on screen, in their order — the id and **Modified** when they are
-shown, and whatever the user changed with the Columns menu; an NDJSON export
-is a whole copy of each row, every column, for an import.
+the id, always and first — hidden or not, so the file loads back through Data
+Import in update mode — then the columns on screen, in their order: **Modified**
+when it is shown, and whatever the user changed with the Columns menu. An NDJSON
+export is a whole copy of each row, every column, for an import.
 
 A report and a form grid (a `Table` or `Report` field with `gridExport: true`)
 export in the browser, as CSV or XLSX: the rows already on screen, in their

@@ -480,15 +480,23 @@ picked on the calendar included — so a hidden filter still shows. Each user's 
 DocType in the browser; `filtersCollapsed: false` only changes where a user who has not chosen
 yet starts.
 
+The search box matches, as a substring, the id, the `titleField`, the `searchFields`, the Links
+that are `inListView` or `inStandardFilter`, and every column on screen of a text type (`Data`,
+`Email`, the text and editor types, `Select`, `Autocomplete`, `Barcode`, `Link`, `Dynamic Link`) —
+so a column a user adds with the Columns menu is searchable too. A `Link` also matches its target's
+title; a `Select` matches its stored (English) value, not the translated label. Numbers, dates and
+checks are left to the filters.
+
 Next to it, a **Columns** button (in the List view) lets each user hide a column — the id and
 **Modified** ones included — and add any other field they may read: not a layout field, a table,
 a `hidden` or computed field, a `Password`, `Vault`, `Signature` or `Geolocation`. The columns
-shown come first, in screen order, and a field checked joins them at the end. The choice is kept
+shown come first, in screen order, and a field checked joins them at the end; they are dragged
+into another order (or moved with Alt+Up/Down), the id staying first and **Modified** last. The choice is kept
 in the browser per user, tenant and DocType (tenants share one origin), a field the DocType no
 longer offers drops out of it, and **Reset to default** forgets it. So `columns`, `idColumn` and
 `modifiedColumn` are where a user starts, not what every user sees; `columnChooser: false` takes
-the menu away and the app's columns are all there is. The list's CSV export follows the columns
-on screen (see `export`).
+the menu away and the app's columns are all there is. The list's CSV export carries the id, always
+and first, then the columns on screen (see `export`).
 
 Left out, `idColumn` follows the id. The list hides the column on its own when the id is a hash
 (`idGeneration: { hash: true }`, or no rule at all), unless the list has no other column, and when

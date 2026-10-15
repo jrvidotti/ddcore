@@ -14,6 +14,22 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **The Columns menu reorders the list's columns** (#130). The visible columns are dragged into
+  another order (or moved with Alt+Up/Down); the id stays first and **Modified** last. The order is
+  kept with the rest of the user's choice, and the icon set gains `grip-vertical` for its handle.
+  See `defineListView` in `docs/agent/form-api.md`.
+
+### Changed
+
+- **A list's CSV export always carries the id, first** (#130), even when the id column is hidden,
+  so the file loads back through Data Import in update mode. Both the page on screen and "All rows
+  matching the filters" do. See "The desk" in `docs/agent/export.md`.
+- **A list's search matches the columns on screen** (#130): besides the id, `titleField`,
+  `searchFields` and the listed Links, every visible text, `Select` or `Link` column — a column a
+  user adds with the Columns menu included. See `defineListView` in `docs/agent/form-api.md`.
+
 ## 0.27.28 — 2026-10-15
 
 ### Added
