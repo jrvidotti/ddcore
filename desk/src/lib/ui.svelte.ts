@@ -4,11 +4,20 @@ import type { Field } from "./meta";
 import { __ } from "./boot.svelte";
 
 export interface Toast { id: number; message: string; title?: string; indicator?: string; timeout?: number }
+/** A dialog's extra, non-destructive button (see DialogSpec.actions). */
+export interface DialogAction {
+  label: string;
+  /** an Icon name shown before the label */
+  icon?: string;
+  /** a returned promise keeps the dialog's buttons disabled until it settles; its error is shown */
+  action: (values: Record<string, any>, dialog: DialogHandle) => any;
+}
 export interface DialogSpec {
   title: string;
   fields?: Field[];
   values?: Record<string, any>;
   primaryLabel?: string;
+  /** the label of the button that closes the dialog without acting ("Cancel" when left out) */
   secondaryLabel?: string;
   /** leave out the secondary (Cancel) button, for a dialog whose primary action already cancels */
   hideSecondary?: boolean;
@@ -17,6 +26,8 @@ export interface DialogSpec {
   dangerAction?: (values: Record<string, any>, dialog: DialogHandle) => any;
   /** the Delete key runs the danger action too, and its button shows the key */
   dangerShortcut?: boolean;
+  /** extra non-destructive buttons, between Cancel and the primary one, in this order */
+  actions?: DialogAction[];
   onChange?: (fieldname: string, values: Record<string, any>, dialog: DialogHandle) => void;
   /** free-form message shown above the fields */
   message?: string;

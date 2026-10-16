@@ -1,6 +1,6 @@
 <script lang="ts">
   import { focusTrap } from "$lib/focus-trap";
-  import { ui, type DialogHandle } from "$lib/ui.svelte";
+  import { ui, type DialogAction, type DialogHandle } from "$lib/ui.svelte";
   import Control from "$lib/controls/Control.svelte";
   import Icon from "./Icon.svelte";
   import { __ } from "$lib/boot.svelte";
@@ -26,6 +26,10 @@
   async function danger(d: DialogHandle) {
     if (!d.spec.dangerAction) return;
     try { await runDialogAction(d.spec.dangerAction, d.values, d); } catch (e) { showError(e); }
+  }
+  // an extra action checks no required field: it may not need them (a send, a copy)
+  async function extra(d: DialogHandle, a: DialogAction) {
+    try { await runDialogAction(a.action, d.values, d); } catch (e) { showError(e); }
   }
   // Keys go to the dialog on top only: Escape cancels it, Enter runs its primary action.
   function onWindowKeydown(e: KeyboardEvent) {
@@ -93,6 +97,9 @@
       <div class="foot">
         {#if d.spec.dangerAction}<button class="btn danger" disabled={d.busy} onclick={() => danger(d)}>{d.spec.dangerLabel || __("Delete")}{#if d.spec.dangerShortcut}<kbd class="btn-kbd">{deleteKey}</kbd>{/if}</button><span class="spacer"></span>{/if}
         {#if !d.spec.hideSecondary}<button class="btn" onclick={() => cancel(d)}>{d.spec.secondaryLabel || __("Cancel")}</button>{/if}
+        {#each d.spec.actions || [] as a}
+          <button class="btn" disabled={d.busy} onclick={() => extra(d, a)}>{#if a.icon}<Icon name={a.icon} size={14} />{/if}{a.label}</button>
+        {/each}
         {#if d.spec.primaryAction || d.spec.primaryLabel}
           <button class="btn primary" disabled={d.busy} onclick={() => primary(d)}>{d.spec.primaryLabel || "OK"}</button>
         {/if}

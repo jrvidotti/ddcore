@@ -14,6 +14,15 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **A dialog takes extra, non-destructive buttons** (#133): `ddcore.ui.Dialog({ actions: [{ label,
+  icon?, action(values, dlg) }] })` renders them between the close button and the primary one.
+  They keep the dialog's buttons disabled while an async action runs and show its error, like
+  `primaryAction`, but check no `reqd` field and leave closing to `dlg.hide()`. The desk SDK's
+  `DialogSpec` also gains `hideSecondary`, and `secondaryLabel` is documented: it names the
+  close button. See `ddcore.ui.Dialog` in `docs/agent/form-api.md`.
+
 ## 0.27.31 — 2026-10-16
 
 ### Added
