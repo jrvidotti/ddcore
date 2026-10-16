@@ -14,6 +14,18 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **`grids.<field>.onRowClick(frm, row)`: a click anywhere on a grid row** (#132). A form script
+  acts on a click on a Table's or a Report field's row outside its editable controls, links and
+  buttons, and the row shows a pointer. It receives the row clicked, as `onCellClick` does. See
+  "Grids: row changes and cell clicks" in `docs/agent/form-api.md`.
+
+### Changed
+
+- **An `onCellClick` cell takes the click anywhere in it** (#132), its padding and an empty
+  value included, not only on the text it shows. A Report field's empty cell still takes none.
+
 ### Fixed
 
 - **A workspace shows each reader only the entries they may open** (#131). Boot used to send a

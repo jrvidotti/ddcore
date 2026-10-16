@@ -15,11 +15,12 @@
   import GridExport from "$lib/controls/GridExport.svelte";
   import GridFilters from "$lib/controls/GridFilters.svelte";
   import GridSearch from "$lib/controls/GridSearch.svelte";
+  import { forwardCellClick, isRowClick } from "$lib/grid-click";
 
   let {
     columns, rows, wsPrefix, filename, sheetName,
     baseSort = null, sortable = false, selectable = false, exportable = false, filters = [], search = [], buttons = [], actions = [],
-    clickable = new Set(), oncellclick,
+    clickable = new Set(), oncellclick, onrowclick,
   }: {
     columns: any[]; rows: any[]; wsPrefix: string; filename: string; sheetName?: string;
     baseSort?: GridSortState | null; sortable?: boolean; selectable?: boolean; exportable?: boolean;
@@ -33,6 +34,8 @@
     /** the columns whose non-empty cells are buttons calling oncellclick (a Report field's grids.<field>.onCellClick) */
     clickable?: Set<string>;
     oncellclick?: (column: string, row: any) => void;
+    /** a click on a row outside its links and cell buttons (a Report field's grids.<field>.onRowClick) */
+    onrowclick?: (row: any) => void;
   } = $props();
 
   const num = (c: any) => isNumericFieldtype(c.fieldtype);
@@ -111,10 +114,12 @@
     </thead>
     <tbody>
       {#each viewRows as r, i}
-        <tr class="row">
+        <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
+        <tr class="row" class:row-click={!!onrowclick} onclick={onrowclick ? (e) => { if (isRowClick(e)) onrowclick(r); } : undefined}>
           {#if selectable}<td><input type="checkbox" aria-label={__("Select row {0}", [i + 1])} checked={selected.has(r)} onchange={() => toggle(r)} /></td>{/if}
           {#each columns as c}
-            <td class:num={num(c)}>
+            <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
+            <td class:num={num(c)} onclick={forwardCellClick}>
               {#if clickable.has(c.fieldname) && r[c.fieldname] != null && r[c.fieldname] !== ""}
                 <button type="button" class="cell-click" onclick={() => oncellclick?.(c.fieldname, r)}>{@render cell(c, r)}</button>
               {:else if c.fieldtype === "Link" && r[c.fieldname]}
@@ -143,5 +148,7 @@
   .cell-click { all: unset; box-sizing: border-box; max-width: 100%; cursor: pointer; }
   .cell-click:hover { text-decoration: underline; }
   .cell-click:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 2px; }
+  /* the click reaches the cell's button from anywhere in the cell (forwardCellClick) */
+  td:has(> .cell-click) { cursor: pointer; }
   .totals td { font-weight: 600; border-top: 2px solid var(--border); }
 </style>

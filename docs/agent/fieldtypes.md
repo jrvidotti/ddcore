@@ -108,7 +108,8 @@ without repeating the tab's name above it:
 { fieldname: "attendance", fieldtype: "Table", options: "Training Class Attendance", label: "Students", hideLabel: true },
 ```
 
-A form script can make a Table's or a Report's cells act on a click (`grids.<field>.onCellClick`), react to a
+A form script can make a Table's or a Report's cells or rows act on a click (`grids.<field>.onCellClick`,
+`grids.<field>.onRowClick`), react to a
 change of one child field (`grids.<table>.onChange`) and change a row with `frm.setRowValue`; see [form-api.md](form-api.md#grids-row-changes-and-cell-clicks).
 It acts on the rows ticked in a `gridSelect` grid with `frm.getSelectedRows` and `frm.addGridAction`.
 
@@ -154,7 +155,8 @@ the document does not hold: attendance and grades per student, say, from other D
 - Its rows are read-only; `gridSelect` chooses what to export and what a script's
   `frm.addGridAction` acts on. The totals row goes along with a full export, not with a selection.
 - A form script acts on a row with `grids.<field>.onCellClick.<column>`: the column's non-empty
-  cells become buttons and the handler receives the row as the report returned it; see
+  cells become buttons and the handler receives the row as the report returned it. A click
+  anywhere else on the row runs `grids.<field>.onRowClick`; see
   [form-api.md](form-api.md#grids-row-changes-and-cell-clicks).
 
 ## Rich text

@@ -60,7 +60,8 @@
       filename={exportBaseName(frm.doctype, frm.doc.id, field.fieldname)} sheetName={field.label}
       {baseSort} filters={field.gridFilters || []} search={field.gridSearch || []} sortable={!!field.gridSortable} selectable={!!field.gridSelect} exportable={!!field.gridExport && canExport}
       buttons={frm.fieldButtons[field.fieldname!] || []} actions={frm.gridActions[field.fieldname!] || []}
-      {clickable} oncellclick={(column, row) => frm.clickCell(field.fieldname!, column, row)} />
+      {clickable} oncellclick={(column, row) => frm.clickCell(field.fieldname!, column, row)}
+      onrowclick={frm.rowClickHandlers(field.fieldname!).length ? (row) => frm.clickRow(field.fieldname!, row) : undefined} />
   {:else if loading}
     <div class="card muted" style="padding:14px;text-align:center">{__("Loading...")}</div>
   {/if}
