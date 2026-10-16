@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.27.32 — 2026-10-16
+
 ### Added
 
 - **A dialog takes extra, non-destructive buttons** (#133): `ddcore.ui.Dialog({ actions: [{ label,
