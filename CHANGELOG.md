@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.27.30 — 2026-10-16
+
 ### Added
 
 - **`grids.<field>.onRowClick(frm, row)`: a click anywhere on a grid row** (#132). A form script
