@@ -370,7 +370,28 @@ defineForm<Charge>("Charge", {
   read. Without `limit` it returns a page of **20**, unlike the server's `getList`, which returns
   every row; `limit: 0` returns every matching row, with no cap, and a negative limit is refused.
   A bulk action that acts on "all of them" passes `limit: 0`.
-- `ddcore.ui.Dialog({ title, fields, values, primaryLabel, primaryAction(values, dlg), dangerLabel, dangerAction(values, dlg), dangerShortcut, onChange(field, values, dlg), size })` → `dlg.show()/hide()/setValue/getValue/setHtml(htmlField, html)/setDfProperty(field, property, value)`
+- `ddcore.ui.Dialog({ title, fields, values, primaryLabel, primaryAction(values, dlg), secondaryLabel, hideSecondary, dangerLabel, dangerAction(values, dlg), dangerShortcut, actions, onChange(field, values, dlg), size })` → `dlg.show()/hide()/setValue/getValue/setHtml(htmlField, html)/setDfProperty(field, property, value)`.
+  `secondaryLabel` names the button that closes the dialog without acting (**Cancel** when left
+  out); `hideSecondary: true` leaves it out. `dangerAction` is for what loses something: its
+  button is red, on the left.
+- `actions: [{ label, icon?, action(values, dlg) }]` adds non-destructive buttons between the
+  close button and the primary one, in order. An action receives the dialog's values and the
+  dialog; while one that returns a promise runs, every action button of the dialog is disabled,
+  and its error is shown. Unlike `primaryAction`, an action checks no `reqd` field and has no
+  key: Enter stays the primary's. None closes the dialog by itself, so call `dlg.hide()` when it
+  is done:
+  ```ts
+  ddcore.ui.Dialog({
+    title: __("Payment Link"),
+    fields: [{ fieldname: "link", fieldtype: "Data", label: "Payment Link", readOnly: true }],
+    values: { link: url },
+    primaryLabel: __("Copy Link"),
+    async primaryAction(_v, dlg) { await navigator.clipboard.writeText(url); dlg.hide(); },
+    actions: [
+      { label: __("Send by WhatsApp"), icon: "message-circle", action(_v, dlg) { dlg.hide(); sendDialog(url); } },
+    ],
+  }).show();
+  ```
 - A dialog's `fields` are DocType fields plus one type that exists only there, **`File`**: a file picker whose value is the file itself, `{ name, size, type, base64 }` (or `null`), handed to the script. **Nothing is uploaded and no `File` document is created**, which is what a credential needs; a file to keep is an `Attach`. `options` is the accept list (`".pfx,.p12"`) and `maxBytes` the size cap, 5 MB when left out: a larger file is refused before it is read. A DocType cannot declare it.
   ```ts
   ddcore.ui.Dialog({

@@ -183,17 +183,35 @@ export type DialogField = Omit<FieldDef, "fieldtype"> & {
   maxBytes?: number;
 };
 
+/** A dialog's extra, non-destructive button (see `DialogSpec.actions`). */
+export interface DialogAction {
+  label: string;
+  /** an Icon name shown before the label */
+  icon?: string;
+  /** a returned promise keeps the dialog's buttons disabled until it settles; its error is shown */
+  action: (values: Record<string, any>, dialog: DialogHandle) => any;
+}
+
 export interface DialogSpec {
   title: string;
   fields?: DialogField[];
   values?: Record<string, any>;
   primaryLabel?: string;
+  /** the label of the button that closes the dialog without acting ("Cancel" when left out) */
   secondaryLabel?: string;
+  /** leave out that button, for a dialog whose primary action already closes it */
+  hideSecondary?: boolean;
   primaryAction?: (values: Record<string, any>, dialog: DialogHandle) => any;
   dangerLabel?: string;
   dangerAction?: (values: Record<string, any>, dialog: DialogHandle) => any;
   /** the Delete key runs the danger action too, and its button shows the key */
   dangerShortcut?: boolean;
+  /**
+   * extra non-destructive buttons, between the close button and the primary
+   * one, in this order. Unlike the primary action they check no required
+   * field, and none closes the dialog by itself: call `dialog.hide()`
+   */
+  actions?: DialogAction[];
   onChange?: (fieldname: string, values: Record<string, any>, dialog: DialogHandle) => void;
   message?: string;
   size?: "sm" | "md" | "lg";
