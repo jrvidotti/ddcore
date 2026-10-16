@@ -546,7 +546,12 @@ export interface DDCoreAPI {
   runAs<T>(user: string, fn: () => T): T;
   form: { addComment?(doctype: string, id: string, text: string): void };
   callMethod(method: string, args?: Record<string, any>): any;
-  rename(doctype: string, oldID: string, newID: string): string;
+  /**
+   * Renames a document and every reference to it. With `{ merge: true }`,
+   * `newID` already exists: every reference to `oldID` moves to it and `oldID`
+   * is deleted (see "Merging duplicates" in `controller-api`).
+   */
+  rename(doctype: string, oldID: string, newID: string, opts?: { merge?: boolean }): string;
   /**
    * An integration credential, read from the environment — `.env` in
    * development, the platform in production — and never from a column.

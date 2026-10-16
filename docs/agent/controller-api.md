@@ -16,6 +16,7 @@ export default defineController<Order>("Order", {
   onUpdateAfterSubmit(doc) {},
   onTrash(doc) {}, afterDelete(doc) {},
   beforeRename(doc) {}, afterRename(doc) {},
+  beforeMerge(doc) {}, afterMerge(doc) {},   // doc is the one merged away; doc.flags.mergeInto the one that stays
   onLoad(doc) { doc.balance = /* … */ 0; },  // fills `computed` fields when a form loads the doc; nothing is stored
   methods: {                            // POST /api/resource/Order/<id>/<method>; in the desk: frm.call("summary", { x: 1 })
     summary(doc, args, ctx) { return { items: doc.items.length }; },
@@ -198,6 +199,67 @@ Versions only, while a System Manager sees the whole timeline, deletion included
 There is no undelete. The snapshot is there to be read, and a document can be re-created from it
 by hand.
 
+### Merging duplicates
+
+Two documents that turn out to be the same thing (two Units imported from two systems for one
+store) are merged by renaming one into the other with `merge`:
+
+```ts
+ddcore.rename("Unit", "A", "B", { merge: true }); // A's references move to B, then A is deleted
+```
+
+The desk's form menu has **Merge into…**, and REST has `POST /api/resource/Unit/A/rename` with
+`{ "id": "B", "merge": true }`. A plain rename into an id that exists is still a `DuplicateEntryError`.
+
+What moves to B, in one transaction:
+
+- every Link and Dynamic Link to A, in every DocType, child tables included, and children of
+  submitted documents too (the sweep writes the column; no hook or validation runs on those rows);
+- A's comments, attachments, ToDos, shares, Versions, notifications, Email and Webhook Deliveries,
+  Audit Events and import-ledger records, and the `User Permission`s whose `for_value` is A.
+  Where B already holds the same record — a share with the same user, a notification of the same
+  rule to the same recipient, an import record — B's is kept and A's goes with A (or stays under
+  A's id, for the kinds a delete keeps).
+
+Then A is **deleted** the ordinary way: its `onTrash` and `afterDelete` run, its child rows go, a
+deletion Version holds A as it was, and a `doc.delete` Audit Event is written, followed by a
+`doc.merge` one on B (`{"from": "A"}`).
+
+Rules:
+
+- The DocType has `allowRename`. The caller needs write on A and on B, and delete on A.
+- Refused: merging into itself; a `User`; a submitted A (cancel it first); a tree node merged into
+  one of its own descendants, or one with children merged into a node that is not a group; and a
+  merge that would break a `unique` Link field or a `uniqueKeys` entry holding one (two Stores with
+  `unit` unique, one on each Unit) — fix those rows first.
+- A tenant-owned DocType merges inside the tenant, which moves only that tenant's references. A
+  shared one is merged from the platform space, like a rename.
+- Values copied *from* A by `fetchFrom` (an Employee's `unit_name`) keep A's text until the row is
+  saved again; only the Link itself is repointed.
+
+Hooks, on A's document, with `doc.flags.mergeInto` naming B (and the same flags in A's `onTrash`
+and `afterDelete`):
+
+```ts
+beforeMerge(doc) {                          // throw to refuse
+  const into = ddcore.getDoc("Unit", doc.flags.mergeInto);
+  if (doc.tagone_code && into.tagone_code && doc.tagone_code !== into.tagone_code)
+    ddcore.throw(_("Both Units have a TagOne code"));
+},
+afterMerge(doc) {                           // A is gone: copy what B lacks
+  const into = ddcore.getDoc("Unit", doc.flags.mergeInto);
+  if (!into.tagone_code) { into.tagone_code = doc.tagone_code; into.save(); }
+},
+```
+
+Copy unique values in `afterMerge`, not `beforeMerge`: until A is deleted it still holds them.
+`beforeRename` and `afterRename` do not run on a merge.
+
+`POST /api/resource/<DocType>/A/merge_preview` with `{ "id": "B" }` answers what the merge would do,
+writing nothing and checking the same permissions: `{ from, into, links: [{ doctype, label,
+fieldname, fieldLabel, count }], records: [{ doctype, label, count }], blockers: ["…"] }`. A
+non-empty `blockers` is the list of reasons the merge would be refused.
+
 ## `ddcore.*` (global on the server)
 
 - `ddcore.secret(name)` — an integration credential from `DDCORE_SECRET_<NAME>`, or `null`; `ddcore.env(name)` — a deployment setting that is not a credential (a switch, a region) from `DDCORE_APP_<NAME>`, or `null`. `ddcore doctor` names the secrets and prints the settings with their values (see `auth`, "Secrets")
@@ -218,7 +280,7 @@ by hand.
   The running job no longer holds its `uniqueKey`, so the new one is queued; a second job deferring itself under the same key meanwhile joins it instead of stacking
 - `ddcore.db.savepoint(fn)` → what `fn` returns. When `fn` throws, its writes are rolled back and the error rethrown, and the transaction goes on. See "Savepoints" below
 - `ddcore.externalDb("sql_server").sql("SELECT ... WHERE x = @p1", [v], { timeout })` — read-only query on another database (SQL Server), configured from `DDCORE_SECRET_SQL_SERVER_*`. See `external-db`
-- `ddcore.getDoc(doctype, id, { ignorePermissions })`, `ddcore.newDoc(doctype, values)`, `ddcore.deleteDoc(doctype, id, { force })`, `ddcore.rename(doctype, oldID, newID)`
+- `ddcore.getDoc(doctype, id, { ignorePermissions })`, `ddcore.newDoc(doctype, values)`, `ddcore.deleteDoc(doctype, id, { force })`, `ddcore.rename(doctype, oldID, newID, { merge })` (`merge: true` folds `oldID` into an existing `newID`; see "Merging duplicates")
 - `ddcore.getDoc(doctype, id, { ignorePermissions: true })` loads a document the user has no role permission to read, so a service can load, change and `save({ ignorePermissions: true })` it under the caller's identity. The user's access scopes and the tenancy wall still apply (see `scopes`), and `doc.reload({ ignorePermissions: true })` reads it again the same way. The document comes back whole, with no field-level redaction: `ddcore.redact` it before a method returns it to a client (see `field-permissions`)
 - `ddcore.throw(msg, { title, type, extra, status, retryAfter })` — see "Errors" below; `ddcore.msgprint(msg, { title, indicator, alert })`, `ddcore._(text, args)` / `_()`
 - `ddcore.session` → `{ user, roles, lang, request }` (`request`: `{ method, path, ip, rawBody, headers }` on a whitelisted call, plus `pathTail` when the method opts in — see *Inbound webhooks*); `ddcore.user()`; `ddcore.getRoles(user)`; `ddcore.hasPermission(doctype, ptype, doc, user?)` (`doc` may be just `{ id, owner }`, or a document id; `user` checks another user's roles, scopes and shares instead of the current one's)

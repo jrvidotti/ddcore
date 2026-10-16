@@ -999,7 +999,7 @@
     },
     form: {},
     callMethod(method, args) { return reg.callModule(method, args || {}); },
-    rename(doctype, oldID, newID) { return call("rename", { doctype, oldID, newID }); },
+    rename(doctype, oldID, newID, opts) { return call("rename", { doctype, oldID, newID, opts: opts || {} }); },
     // An integration credential comes from the environment (.env in
     // development, the platform in production), never from a column: a secret
     // in the database is a secret in every backup, export and Version diff.

@@ -400,6 +400,9 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		}
 		return nil, nil
 	case "rename":
+		if a.Opts["merge"] == true {
+			return strings.TrimSpace(a.NewID), c.Merge(a.Doctype, a.OldID, a.NewID)
+		}
 		return c.Rename(a.Doctype, a.OldID, a.NewID)
 	case "hashPassword":
 		// Routed through the policy so that the User form, `ddcore user add`

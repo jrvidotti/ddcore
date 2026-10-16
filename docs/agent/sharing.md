@@ -99,7 +99,9 @@ access scopes is refused the DocType entirely.
 > and the cache invalidation below still fire, so such a grant is recorded, but nothing
 > validates it. Share through `ddcore.share.*` unless you mean to bypass the checks.
 
-A rename moves a document's shares, and deleting a document deletes them.
+A rename moves a document's shares, and deleting a document deletes them. A merge moves them
+to the document that stays, except where that document is already shared with the same user:
+its own share is kept and the merged document's goes with it.
 
 ## HTTP API
 

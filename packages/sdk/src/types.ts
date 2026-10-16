@@ -814,11 +814,17 @@ export interface PatchDef {
  * `onLoad` runs when the form loads a document (and after a save or a
  * method), to fill its `computed` fields; only those survive it, nothing is
  * written.
+ *
+ * `beforeMerge` and `afterMerge` run on the document a merge deletes
+ * (`ddcore.rename(dt, a, b, { merge: true })`), with `doc.flags.mergeInto`
+ * naming the one it is merged into: `beforeMerge` may throw to refuse,
+ * `afterMerge` runs once it is gone.
  */
 export type DocEvent =
   | "beforeValidate" | "validate" | "beforeSave" | "afterInsert" | "onUpdate"
   | "beforeSubmit" | "onSubmit" | "beforeCancel" | "onCancel" | "onUpdateAfterSubmit"
-  | "onTrash" | "afterDelete" | "beforeRename" | "afterRename" | "beforeInsert" | "onLoad";
+  | "onTrash" | "afterDelete" | "beforeRename" | "afterRename" | "beforeMerge" | "afterMerge"
+  | "beforeInsert" | "onLoad";
 
 export type DocHook<T> = (doc: T & Document<T>, ctx: Context) => void;
 

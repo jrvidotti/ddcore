@@ -38,6 +38,7 @@ Sensitive administrative actions across the framework are recorded in a unified 
 | `backup.restore` | none | `ddcore restore` restored an archive into this database | `{"archive": "...", "ddcore": "...", "started": "...", "files": N}` |
 | `data.import` | the DocType | A Data Import run (not a dry run) finished; the rows it wrote carry their own Version entries | `{"file": "...", "sha256": "...", "format": "csv\|xlsx", "mode": "insert\|update", "rows": N, "inserted": N, "updated": N, "errors": N}` |
 | `doc.delete` | the document | A document was deleted, by any path that goes through the document API. Written for every DocType; see "What a delete leaves behind" in `controller-api` | `{"version": "..."}` — the deletion Version holding the document, absent for Version, Error Log, Email Delivery and Webhook Delivery |
+| `doc.merge` | the document that stays | Another document of its DocType was merged into it (see "Merging duplicates" in `controller-api`). The merged one also gets its own `doc.delete` | `{"from": "<id of the merged document>"}` |
 | `method.<path>` | none | A whitelisted method's `roles` option refused the caller | Outcome: `Denied` |
 
 `permission.scope_grant` and `permission.scope_revoke` also fire from `DBSet`

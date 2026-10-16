@@ -32,6 +32,8 @@ administration" under "Enforced surfaces").
 
 `allow`, `for_value` and `applicable_for` are plain `Data` fields. Nothing validates that
 the DocType or the document exists, so a typo gives a scope that matches no document.
+A rename of the allowed document carries `for_value` along, and a merge moves it to the
+document that stays (see "Merging duplicates" in `controller-api`).
 
 ```ts
 // Restrict ana@example.com to the companies "Alfa" and "Gama".

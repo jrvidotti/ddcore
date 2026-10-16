@@ -1673,55 +1673,16 @@ func (c *Ctx) moveID(d *meta.DocType, oldID, newID string) error {
 			return err
 		}
 	}
+	// the document's own child rows follow it; a merge deletes them instead
 	for _, other := range c.St.Meta.DocTypes {
-		if other.IsVirtual() {
-			continue
-		}
-		t := db.Ident(other.TableName())
-		if other.IsChild {
-			q.Exec(c.Ctx, fmt.Sprintf("UPDATE %s SET parent = $1 WHERE parent = $2 AND parenttype = $3", t), newID, oldID, doctype)
-		}
-		for _, f := range other.Fields {
-			if f.Computed {
-				continue // no column: nothing stored to carry along
-			}
-			switch f.Fieldtype {
-			case "Link":
-				if f.OptionsString() == doctype {
-					if _, err := q.Exec(c.Ctx, fmt.Sprintf("UPDATE %s SET %s = $1 WHERE %s = $2", t, db.Ident(f.Fieldname), db.Ident(f.Fieldname)), newID, oldID); err != nil {
-						return err
-					}
-				} else if c.isVirtualOver(f.OptionsString(), doctype) {
-					if _, err := q.Exec(c.Ctx, fmt.Sprintf("UPDATE %s SET %s = $1 WHERE %s = $2", t, db.Ident(f.Fieldname), db.Ident(f.Fieldname)),
-						meta.VirtualID(doctype, newID), meta.VirtualID(doctype, oldID)); err != nil {
-						return err
-					}
-				}
-			case "Dynamic Link":
-				tf := f.OptionsString()
-				if other.Field(tf) != nil {
-					q.Exec(c.Ctx, fmt.Sprintf("UPDATE %s SET %s = $1 WHERE %s = $2 AND %s = $3", t, db.Ident(f.Fieldname), db.Ident(f.Fieldname), db.Ident(tf)), newID, oldID, doctype)
-				}
-			}
-		}
-	}
-	// Same tables, same omission: a renamed document used to lose its
-	// attachments, and with them the permission check on a private file, which
-	// reads File.attached_to_id to decide who may download it. Rename sweeps
-	// every one of them, keepOnDelete or not: a record that survives its
-	// document must still point at the name that document answers to now.
-	for _, ref := range coreRefs {
-		tag, err := q.Exec(c.Ctx, fmt.Sprintf("UPDATE %s SET %s = $1 WHERE %s = $2 AND %s = $3",
-			db.Ident(ref.table), db.Ident(ref.idCol), db.Ident(ref.doctypeCol), db.Ident(ref.idCol)),
-			newID, doctype, oldID)
-		if err != nil {
-			return fmt.Errorf("coreRefs update %s: %w", ref.table, err)
-		}
-		if ref.table == "tab_document_share" && tag.RowsAffected() > 0 {
-			if err := c.allSharesChanged(); err != nil {
+		if other.IsChild && !other.IsVirtual() {
+			if _, err := q.Exec(c.Ctx, fmt.Sprintf("UPDATE %s SET parent = $1 WHERE parent = $2 AND parenttype = $3", db.Ident(other.TableName())), newID, oldID, doctype); err != nil {
 				return err
 			}
 		}
+	}
+	if err := c.repointRefs(d, oldID, newID, false); err != nil {
+		return err
 	}
 	if d.Name == "User" {
 		if _, err := q.Exec(c.Ctx, `UPDATE ddcore_user_identity SET "user" = $1 WHERE "user" = $2`, newID, oldID); err != nil {
