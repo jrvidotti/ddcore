@@ -727,23 +727,6 @@ func (s *Server) boot(w http.ResponseWriter, r *http.Request) {
 			a := s.E.Snap.Apps[name]
 			apps = append(apps, map[string]any{"name": a.Name, "title": c.T(a.Title), "desk": a.Desk, "hasDeskInclude": len(deskIncludes(a)) > 0})
 		}
-		st := c.St
-		space := c.Space()
-		// a workspace of this space the reader's roles do not open: the desk
-		// tells "nobody declared one" from "none is yours" (#120)
-		denied := false
-		for _, ws := range st.Snap.Workspaces {
-			// the platform's and the tenants' items, each in its own space
-			if ws = st.WorkspaceForSpace(ws, space); ws == nil {
-				continue
-			}
-			if !allowed(ws["roles"], roles) {
-				denied = true
-				continue
-			}
-			workspaces = append(workspaces, st.TranslateStringMap(ws, c.Lang))
-		}
-		sortWorkspaces(workspaces, c.Lang)
 		doctypes := map[string]any{}
 		// every virtual DocType's sources, readable or not: a Link to one holds
 		// "<Source>:<id>", and the desk sends it on to the source document even
@@ -777,6 +760,27 @@ func (s *Server) boot(w http.ResponseWriter, r *http.Request) {
 				reports[n] = map[string]any{"label": c.T(orStr(rep["label"], n)), "refDoctype": rep["refDoctype"], "app": rep["app"]}
 			}
 		}
+		st := c.St
+		space := c.Space()
+		// a workspace of this space the reader's roles do not open: the desk
+		// tells "nobody declared one" from "none is yours" (#120)
+		denied := false
+		for _, ws := range st.Snap.Workspaces {
+			// the platform's and the tenants' items, each in its own space
+			if ws = st.WorkspaceForSpace(ws, space); ws == nil {
+				continue
+			}
+			if !allowed(ws["roles"], roles) {
+				denied = true
+				continue
+			}
+			// and of it only what the reader may open: the doctypes and
+			// reports above, so an entry never leads to a DocType the desk
+			// was not told of (#131)
+			ws = engine.WorkspaceForReader(ws, doctypes, reports)
+			workspaces = append(workspaces, st.TranslateStringMap(ws, c.Lang))
+		}
+		sortWorkspaces(workspaces, c.Lang)
 		out := map[string]any{
 			"user": c.User, "roles": roles, "userDoc": userDoc, "lang": c.Lang, "langs": langs, "apps": apps,
 			"workspaces": workspaces, "doctypes": doctypes, "virtuals": virtuals, "reports": reports, "portals": portalsFor(c), "portalIncludes": s.portalIncludeApps(),

@@ -89,22 +89,60 @@ func (s *State) WorkspaceForSpace(ws map[string]any, space string) map[string]an
 	if space == "" {
 		return ws
 	}
+	return filterWorkspace(ws, workspaceSpaceLists, func(m map[string]any) bool { return s.InSpace(m, space) })
+}
+
+// workspaceReaderLists are the lists of a workspace whose items open a
+// DocType or a report: what WorkspaceForReader filters.
+var workspaceReaderLists = []string{"sidebar", "shortcuts", "numberCards", "charts"}
+
+// WorkspaceForReader is the workspace as a reader sees it: a copy without the
+// items that open what the reader may not — a `doctype` or `refDoctype` that
+// is not in doctypes, a `report` that is not in reports, the same maps boot
+// sends (#131). An item that opens a route only, and a heading, stay.
+func WorkspaceForReader(ws map[string]any, doctypes, reports map[string]any) map[string]any {
+	return filterWorkspace(ws, workspaceReaderLists, func(m map[string]any) bool {
+		for _, key := range []string{"doctype", "refDoctype"} {
+			if name, _ := m[key].(string); name != "" {
+				if _, ok := doctypes[name]; !ok {
+					return false
+				}
+			}
+		}
+		if name, _ := m["report"].(string); name != "" {
+			if _, ok := reports[name]; !ok {
+				return false
+			}
+		}
+		return true
+	})
+}
+
+// filterWorkspace copies ws keeping, in lists and in each `links` group, the
+// items keep accepts. A `links` group, or a sidebar heading, that had items
+// and lost them all goes too: a heading over nothing. The snapshot's own map
+// is never changed.
+func filterWorkspace(ws map[string]any, lists []string, keep func(map[string]any) bool) map[string]any {
 	out := make(map[string]any, len(ws))
 	for k, v := range ws {
 		out[k] = v
 	}
-	keep := func(list []any) []any {
+	filter := func(list []any) []any {
 		kept := make([]any, 0, len(list))
 		for _, it := range list {
-			if m, ok := it.(map[string]any); !ok || s.InSpace(m, space) {
+			if m, ok := it.(map[string]any); !ok || keep(m) {
 				kept = append(kept, it)
 			}
 		}
 		return kept
 	}
-	for _, key := range workspaceSpaceLists {
+	for _, key := range lists {
 		if list, ok := ws[key].([]any); ok {
-			out[key] = keep(list)
+			if key == "sidebar" {
+				out[key] = filterSidebar(list, filter)
+			} else {
+				out[key] = filter(list)
+			}
 		}
 	}
 	if groups, ok := ws["links"].([]any); ok {
@@ -116,7 +154,7 @@ func (s *State) WorkspaceForSpace(ws map[string]any, space string) map[string]an
 				kept = append(kept, g)
 				continue
 			}
-			left := keep(items)
+			left := filter(items)
 			if len(left) == 0 && len(items) > 0 {
 				continue // a heading over nothing
 			}
@@ -130,6 +168,44 @@ func (s *State) WorkspaceForSpace(ws map[string]any, space string) map[string]an
 		out["links"] = kept
 	}
 	return out
+}
+
+// filterSidebar filters a sidebar section by section: a heading — an item
+// with no route, doctype or report, which the desk draws as a group label —
+// heads the links up to the next one, and goes when it had some and filter
+// left none. A heading the author left empty stays.
+func filterSidebar(list []any, filter func([]any) []any) []any {
+	out := make([]any, 0, len(list))
+	var head any
+	var section []any
+	flush := func() {
+		left := filter(section)
+		if head != nil && (len(section) == 0 || len(left) > 0) {
+			out = append(out, head)
+		}
+		out = append(out, left...)
+		head, section = nil, nil
+	}
+	for _, it := range list {
+		if m, ok := it.(map[string]any); ok && isSidebarHeading(m) {
+			flush()
+			head = it
+			continue
+		}
+		section = append(section, it)
+	}
+	flush()
+	return out
+}
+
+// isSidebarHeading is the desk's test (workspaceItemHref): nothing to open.
+func isSidebarHeading(m map[string]any) bool {
+	for _, key := range []string{"route", "doctype", "report"} {
+		if v, _ := m[key].(string); v != "" {
+			return false
+		}
+	}
+	return true
 }
 
 // workspaceSpaceError refuses a space other than "platform" or "tenant", on a

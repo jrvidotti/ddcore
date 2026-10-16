@@ -14,6 +14,15 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- **A workspace shows each reader only the entries they may open** (#131). Boot used to send a
+  workspace's `sidebar`, `shortcuts` and `links` whole, so a user who passed its `roles` but could
+  not read one of its DocTypes (or whose roles did not open one of its reports) saw the entry and
+  landed on "DocType X does not exist". Boot now leaves out every entry whose `doctype`/`refDoctype`
+  is not among the reader's DocTypes or whose `report` is not among their reports, number cards
+  and charts included, and a sidebar heading left with nothing under it. See `report-api`.
+
 ## 0.27.29 — 2026-10-15
 
 ### Added
