@@ -110,6 +110,107 @@ export interface CertInfo {
   chain: number;
 }
 
+/** A content part of a user message: text, or an image (`ddcore.ai.image`). */
+export type AiContentPart =
+  | { type: "input_text"; text: string }
+  | { type: "input_image"; image_url: string; detail?: "low" | "high" | "auto" }
+  | Record<string, any>;
+
+/**
+ * An item of `ddcore.ai.respond`'s `input`: a message, the output of a tool
+ * call, or an item of an earlier answer's `output` replayed untouched.
+ */
+export type AiInputItem =
+  | { role: "user" | "assistant" | "system" | "developer"; content: string | AiContentPart[] }
+  | { type: "function_call_output"; call_id: string; output: string }
+  | Record<string, any>;
+
+/** A function the model may call (the Responses API's tool definition). */
+export interface AiTool {
+  type: "function";
+  name: string;
+  description?: string;
+  /** JSON Schema of the arguments. */
+  parameters: Record<string, any>;
+  strict?: boolean;
+}
+
+/** Asks for an answer that is JSON matching `schema`; it comes back parsed in `json`. */
+export interface AiSchema {
+  /** Default "answer". */
+  name?: string;
+  /** JSON Schema. In strict mode every property is required and `additionalProperties` is false. */
+  schema: Record<string, any>;
+  /** Default true. */
+  strict?: boolean;
+  description?: string;
+}
+
+export interface AiRequest {
+  /** Default: the site's `ai.model`. */
+  model?: string;
+  instructions?: string;
+  input: string | AiInputItem[];
+  tools?: AiTool[];
+  /** The Responses API's `tool_choice`. */
+  toolChoice?: "auto" | "none" | "required" | Record<string, any>;
+  schema?: AiSchema;
+  /** Default: the site's `ai.reasoningEffort`; neither, none is sent. */
+  reasoningEffort?: string;
+  maxOutputTokens?: number;
+  /**
+   * Default true: asks for the encrypted reasoning, which a tool loop replays
+   * with the `output` items. A provider that refuses `include` needs false.
+   */
+  includeReasoning?: boolean;
+  /** Seconds for the whole call, retries included. Default: `ai.timeoutSeconds`, else 45. */
+  timeout?: number;
+}
+
+/** A tool the model asked to run: answer it with a `function_call_output` of the same `call_id`. */
+export interface AiFunctionCall {
+  callId: string;
+  name: string;
+  /** JSON text of the arguments. */
+  arguments: string;
+}
+
+export interface AiResponse {
+  id: string;
+  model: string;
+  /** "completed" or "incomplete". */
+  status: string;
+  /** Why an "incomplete" answer stopped, such as "max_output_tokens". */
+  incompleteReason: string;
+  /** The answer's items, as the provider sent them: replay them untouched in a tool loop. */
+  output: any[];
+  /** The text of the answer's messages. */
+  text: string;
+  calls: AiFunctionCall[];
+  /** The parsed answer when `schema` was given, else null. */
+  json: any;
+  usage: { inputTokens: number; outputTokens: number };
+}
+
+export interface AiTranscribeOptions {
+  /** Required: the provider reads the format from the extension (`audio.ogg`, `.mp3`, `.m4a`, `.wav`, `.webm`). */
+  filename: string;
+  contentType?: string;
+  /** Default: the site's `ai.transcriptionModel`. */
+  model?: string;
+  /** ISO-639-1 hint, such as "pt". */
+  language?: string;
+  /** Text that steers spelling: names, jargon. */
+  prompt?: string;
+  /** Seconds for the whole call, retries included. Default 120. */
+  timeout?: number;
+}
+
+export interface AiTranscription {
+  text: string;
+  model: string;
+}
+
 /**
  * A browser's push subscription, as `PushSubscription.toJSON()` gives it:
  * keys in base64url.
@@ -620,6 +721,28 @@ export interface DDCoreAPI {
     send(subscription: PushSubscription, payload: any, opts?: PushOpts): PushResult;
     /** The VAPID public key a page subscribes with, or null when the site has none. */
     publicKey(): string | null;
+  };
+  /**
+   * The site's language model: an OpenAI-compatible Responses API configured
+   * in `ai` of ddcore.json (models, address) with the key in
+   * `DDCORE_AI_API_KEY`. Every call is synchronous and blocks for as long as
+   * the model takes, holding the request's transaction: run a tool loop in a
+   * job. Up to 3 attempts on a 429, a 5xx or a transport error, within the
+   * call's `timeout`. Errors are typed (`ValidationError` for the caller's
+   * mistake, `UnavailableError` for the provider's) and never quote the
+   * prompt; nothing logs it either. Inside `ddcore test` every call goes to
+   * `ddcore.test.fakeAi`. See `ai`.
+   */
+  ai: {
+    /** Whether a key is set and the AI is not turned off. */
+    enabled(): boolean;
+    /** Whether `transcribe` can run. */
+    canTranscribe(): boolean;
+    respond(req: AiRequest): AiResponse;
+    /** Turns an audio, base64-encoded, into text (at most 25 MB). */
+    transcribe(audioBase64: string, opts: AiTranscribeOptions): AiTranscription;
+    /** An `input_image` content part from a base64 image. */
+    image(base64: string, contentType: string, detail?: "low" | "high" | "auto"): AiContentPart;
   };
   /**
    * A read-only connection to a database that is not the site's own — only

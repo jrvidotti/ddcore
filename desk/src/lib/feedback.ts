@@ -3,7 +3,7 @@
 // POST /api/feedback, and the context a report may carry. Pure, so it is
 // tested without a browser; every label is an English key the modal
 // translates with __().
-import type { FeedbackData, FeedbackStatus, FeedbackType } from "./api";
+import type { FeedbackAssistData, FeedbackAssistResult, FeedbackData, FeedbackStatus, FeedbackType } from "./api";
 import type { ClientError } from "./client-errors";
 
 export type FeedbackFieldName =
@@ -88,7 +88,7 @@ export function emptyFeedback(type: FeedbackType = "Bug", title = ""): FeedbackV
   return { feedback_type: type, title, description: "" };
 }
 
-/** The most files one feedback carries, the audio note included. */
+/** The most files one feedback carries, the audio notes included. */
 export const MAX_FEEDBACK_FILES = 10;
 /** The longest page address sent; the server refuses a longer one. */
 export const MAX_URL = 2048;
@@ -110,6 +110,8 @@ export interface PayloadOptions {
   url?: string;
   sendContext: boolean;
   context?: Record<string, any>;
+  /** The audio notes' text (transcriptText), sent with the feedback. */
+  transcript?: string;
 }
 
 /**
@@ -130,7 +132,73 @@ export function feedbackPayload(values: FeedbackValues, opts: PayloadOptions): F
   }
   if (opts.sendUrl && opts.url) data.page_url = opts.url.slice(0, MAX_URL);
   if (opts.sendContext && opts.context) data.context = opts.context;
+  const transcript = String(opts.transcript ?? "").trim();
+  if (transcript) data.transcript = transcript;
   return data;
+}
+
+/** Every field a type adds, across the types: what "Fill in with AI" may fill. */
+const ALL_TYPE_FIELDS: FeedbackFieldName[] = [...new Set(FEEDBACK_TYPES.flatMap((t) => t.fields.map((f) => f.name)))];
+
+/** How many more files fit: the picked ones and the recordings share the limit. */
+export function feedbackRoom(files: File[], recordings: File[]): number {
+  return Math.max(0, MAX_FEEDBACK_FILES - files.length - recordings.length);
+}
+
+/** Whether "Fill in with AI" has anything to read: a recording, a screenshot, or typed text. */
+export function canAssist(values: Partial<FeedbackValues>, files: File[], recordings: File[]): boolean {
+  if (recordings.length || files.some((f) => f.type.startsWith("image/"))) return true;
+  if (String(values.title ?? "").trim() || String(values.description ?? "").trim()) return true;
+  return ALL_TYPE_FIELDS.some((k) => String(values[k] ?? "").trim());
+}
+
+/**
+ * The `data` part of POST /api/feedback/assist: the type, every field typed
+ * so far (of any type: the AI may move the report), the page address and
+ * context only when the person agreed to send them, and the transcripts the
+ * dialog already holds.
+ */
+export function assistPayload(values: FeedbackValues, opts: PayloadOptions & { transcripts?: Record<string, string> }): FeedbackAssistData {
+  const data: FeedbackAssistData = { feedback_type: feedbackTypeDef(values.feedback_type).value };
+  for (const k of ["title", "description", ...ALL_TYPE_FIELDS] as const) {
+    const v = String(values[k] ?? "").trim();
+    if (v) (data as any)[k] = v;
+  }
+  if (opts.sendUrl && opts.url) data.page_url = opts.url.slice(0, MAX_URL);
+  if (opts.sendContext && opts.context) data.context = opts.context;
+  if (opts.transcripts && Object.keys(opts.transcripts).length) data.transcripts = { ...opts.transcripts };
+  return data;
+}
+
+/**
+ * Puts the AI's answer into the form. The AI saw what was typed and was told
+ * to keep and refine it, so the fields it returns replace the form's; the
+ * others are left alone. `changed` names the fields it filled in.
+ */
+export function applyAssist(values: FeedbackValues, result: FeedbackAssistResult): { values: FeedbackValues; changed: string[]; typeChanged: boolean } {
+  const next: FeedbackValues = { ...values };
+  const typeChanged = isFeedbackType(result.feedback_type) && result.feedback_type !== values.feedback_type;
+  if (isFeedbackType(result.feedback_type)) next.feedback_type = result.feedback_type;
+  const allowed = new Set<string>(["title", "description", ...feedbackTypeDef(next.feedback_type).fields.map((f) => f.name)]);
+  const changed: string[] = [];
+  for (const [k, raw] of Object.entries(result.fields ?? {})) {
+    if (!allowed.has(k)) continue;
+    let v = String(raw ?? "").trim();
+    if (!v) continue;
+    if (k === "title") v = v.slice(0, MAX_TITLE);
+    if (k === "severity" && !(SEVERITIES as readonly string[]).includes(v)) continue;
+    (next as any)[k] = v;
+    changed.push(k);
+  }
+  return { values: next, changed, typeChanged };
+}
+
+/** The text of the recordings still attached, each under its file name, for the Feedback's transcript. */
+export function transcriptText(recordings: File[], transcripts: Record<string, string>): string {
+  return recordings
+    .filter((r) => String(transcripts[r.name] ?? "").trim())
+    .map((r) => `${r.name}:\n${transcripts[r.name].trim()}`)
+    .join("\n\n");
 }
 
 export interface ContextInputs {

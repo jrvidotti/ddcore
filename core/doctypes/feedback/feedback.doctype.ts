@@ -20,6 +20,7 @@ export default defineDoctype({
     { fieldname: "status", fieldtype: "Select", label: "Status", options: ["New", "In Review", "Planned", "Done", "Won't Do"], optionColors: { New: "blue", "In Review": "orange", Planned: "purple", Done: "green", "Won't Do": "gray" }, default: "New", inListView: true, inStandardFilter: true },
     { fieldname: "title", fieldtype: "Data", label: "Title", reqd: true, inListView: true, searchIndex: true },
     { fieldname: "description", fieldtype: "Text", label: "Description", reqd: true },
+    { fieldname: "transcript", fieldtype: "Text", label: "Audio transcript", readOnly: true, description: "What the audio notes say, as transcribed when the author used Fill in with AI" },
 
     { fieldname: "bug_section", fieldtype: "Section Break", label: "Bug", dependsOn: "doc.feedback_type == 'Bug'" },
     { fieldname: "severity", fieldtype: "Select", label: "Severity", options: ["Low", "Medium", "High", "Critical"], optionColors: { Low: "gray", Medium: "blue", High: "orange", Critical: "red" }, inStandardFilter: true },

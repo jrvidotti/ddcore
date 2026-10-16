@@ -62,6 +62,21 @@ const EnvExample = `# ddcore — the environment this site runs in.
 # attachments; comma-separated.
 # DDCORE_FEEDBACK=1
 # DDCORE_FEEDBACK_TO=dev@example.com
+# 0 hides the dialog's "Fill in with AI" button (on whenever the AI is on).
+# DDCORE_FEEDBACK_ASSIST=1
+
+# --- AI ----------------------------------------------------------------------
+# The language-model provider ddcore.ai calls: an OpenAI-compatible Responses
+# API. The key is a credential and lives here only; the models are the site's
+# decision ("ai" in ddcore.json), which these override. With no key, ddcore.ai
+# is off; DDCORE_AI=0 turns it off with one.
+# DDCORE_AI_API_KEY=sk-...
+# DDCORE_AI_BASE_URL=https://api.openai.com/v1
+# DDCORE_AI_MODEL=gpt-6-luna
+# DDCORE_AI_TRANSCRIPTION_MODEL=gpt-transcribe
+# DDCORE_AI_REASONING_EFFORT=           # sent only when set: low, medium, high...
+# DDCORE_AI_TIMEOUT_SECONDS=45          # one call, retries included
+# DDCORE_AI=1
 
 # --- sign-in screen ----------------------------------------------------------
 # A notice above the sign-in form, and optionally a demo account with a button

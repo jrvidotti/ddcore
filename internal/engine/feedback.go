@@ -47,7 +47,7 @@ type FeedbackAuthor struct {
 }
 
 // FeedbackFile is one attachment of a submission: a file the user picked, a
-// pasted screenshot, the recorded audio note.
+// pasted screenshot, a recorded audio note.
 type FeedbackFile struct {
 	Name, ContentType string
 	Size              int64
@@ -84,24 +84,44 @@ func (c *Ctx) FeedbackAuthorOf() (FeedbackAuthor, error) {
 	return a, nil
 }
 
+// feedbackString reads one text field of a submission, trimmed; absent is "".
+func feedbackString(data map[string]any, k string, max int) (string, error) {
+	v, ok := data[k]
+	if !ok || v == nil {
+		return "", nil
+	}
+	s, ok := v.(string)
+	if !ok {
+		return "", cerr.Validation("Invalid {0}: {1}", k, "expected text")
+	}
+	s = strings.TrimSpace(s)
+	if utf8.RuneCountInString(s) > max {
+		return "", cerr.Validation("Invalid {0}: {1}", k, fmt.Sprintf("longer than %d characters", max))
+	}
+	return s, nil
+}
+
+// feedbackContext checks the context a submission carries and returns it as
+// JSON text, or "" when there is none.
+func feedbackContext(data map[string]any) (string, error) {
+	ctx, ok := data["context"]
+	if !ok || ctx == nil {
+		return "", nil
+	}
+	if _, isObj := ctx.(map[string]any); !isObj {
+		return "", cerr.Validation("Invalid {0}: {1}", "context", "expected an object")
+	}
+	b, _ := json.Marshal(ctx)
+	if len(b) > feedbackMaxContext {
+		return "", cerr.Validation("Invalid {0}: {1}", "context", "too large")
+	}
+	return string(b), nil
+}
+
 // feedbackDoc checks a submission and turns it into the Feedback document,
 // before any file is read or anything written.
 func feedbackDoc(data map[string]any) (Doc, error) {
-	str := func(k string, max int) (string, error) {
-		v, ok := data[k]
-		if !ok || v == nil {
-			return "", nil
-		}
-		s, ok := v.(string)
-		if !ok {
-			return "", cerr.Validation("Invalid {0}: {1}", k, "expected text")
-		}
-		s = strings.TrimSpace(s)
-		if utf8.RuneCountInString(s) > max {
-			return "", cerr.Validation("Invalid {0}: {1}", k, fmt.Sprintf("longer than %d characters", max))
-		}
-		return s, nil
-	}
+	str := func(k string, max int) (string, error) { return feedbackString(data, k, max) }
 	kind, err := str("feedback_type", 40)
 	if err != nil {
 		return nil, err
@@ -110,7 +130,7 @@ func feedbackDoc(data map[string]any) (Doc, error) {
 	if !ok {
 		return nil, cerr.Validation("Invalid {0}: {1}", "feedback_type", "expected Bug, Improvement or Feature Request")
 	}
-	allowed := map[string]bool{"feedback_type": true, "title": true, "description": true, "page_url": true, "context": true}
+	allowed := map[string]bool{"feedback_type": true, "title": true, "description": true, "page_url": true, "context": true, "transcript": true}
 	for _, f := range own {
 		allowed[f] = true
 	}
@@ -120,7 +140,7 @@ func feedbackDoc(data map[string]any) (Doc, error) {
 		}
 	}
 	doc := Doc{"doctype": FeedbackDocType, "feedback_type": kind, "status": "New"}
-	for _, k := range append([]string{"title", "description", "page_url"}, own...) {
+	for _, k := range append([]string{"title", "description", "page_url", "transcript"}, own...) {
 		max := feedbackMaxText
 		switch k {
 		case "title":
@@ -144,15 +164,12 @@ func feedbackDoc(data map[string]any) (Doc, error) {
 	if sev, ok := doc["severity"].(string); ok && !slices.Contains(feedbackSeverities, sev) {
 		return nil, cerr.Validation("Invalid {0}: {1}", "severity", "expected Low, Medium, High or Critical")
 	}
-	if ctx, ok := data["context"]; ok && ctx != nil {
-		if _, isObj := ctx.(map[string]any); !isObj {
-			return nil, cerr.Validation("Invalid {0}: {1}", "context", "expected an object")
-		}
-		b, _ := json.Marshal(ctx)
-		if len(b) > feedbackMaxContext {
-			return nil, cerr.Validation("Invalid {0}: {1}", "context", "too large")
-		}
-		doc["context"] = string(b)
+	ctx, err := feedbackContext(data)
+	if err != nil {
+		return nil, err
+	}
+	if ctx != "" {
+		doc["context"] = ctx
 	}
 	return doc, nil
 }
@@ -263,7 +280,7 @@ func (c *Ctx) mailFeedback(doc Doc, files []FeedbackFile, fileIDs []string) {
 	}
 	args := map[string]any{"doctype": FeedbackDocType, "id": doc["id"], "files": len(files), "attached": len(attach)}
 	for _, k := range []string{"feedback_type", "title", "description", "severity", "steps_to_reproduce", "expected_result",
-		"actual_result", "current_behavior", "suggested_improvement", "problem", "expected_benefit",
+		"actual_result", "current_behavior", "suggested_improvement", "problem", "expected_benefit", "transcript",
 		"reporter_name", "reporter_email", "source_tenant", "page_url"} {
 		if v, ok := doc[k]; ok && v != nil && v != "" {
 			args[k] = v

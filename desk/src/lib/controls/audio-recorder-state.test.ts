@@ -46,8 +46,8 @@ describe("file names", () => {
     expect(audioExtension("audio/mp4")).toBe("m4a");
     expect(audioExtension("audio/ogg; codecs=opus")).toBe("ogg");
     expect(audioExtension("")).toBe("webm");
-    expect(voiceNoteName("audio/mp4")).toBe("voice-note.m4a");
-    expect(voiceNoteName("audio/webm")).toBe("voice-note.webm");
+    expect(voiceNoteName("audio/mp4", 1)).toBe("voice-note-1.m4a");
+    expect(voiceNoteName("audio/webm", 2)).toBe("voice-note-2.webm");
   });
 });
 

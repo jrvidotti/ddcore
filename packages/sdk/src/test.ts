@@ -21,6 +21,22 @@ declare module "./index" {
        * fan-out. Without tenancy it just runs `fn`. Returns what `fn` returns.
        */
       inPlatform<T>(fn: () => T): T;
+      /**
+       * Answers `ddcore.ai` for the rest of the test; without it, a call
+       * throws. The request is built and the answer read by the same code as
+       * a real call, so `respond` receives the exact body the provider would
+       * (`model` defaulted, `store: false`, `text.format`…) and returns the
+       * provider's JSON, or `{ status, body }` for a raw HTTP answer (an
+       * error, say). `transcribe` returns the text, or `{ status, body }`.
+       * Handlers left out keep an earlier fakeAi's; `restore()` puts them back.
+       */
+      fakeAi(handlers: {
+        respond?(call: { url: string; body: Record<string, any>; timeout: number }): Record<string, any> | { status: number; body: string };
+        transcribe?(call: {
+          url: string; model: string; filename: string; contentType: string; base64: string;
+          language: string; prompt: string; timeout: number;
+        }): string | { status: number; body: string };
+      }): { respondCalls: any[]; transcribeCalls: any[]; restore(): void };
     };
   }
 }

@@ -119,6 +119,7 @@ func New(e *engine.Engine, desk fs.FS) *Server {
 			r.Post("/assignments/reopen", s.reopenAssignment)
 			r.Get("/todo/pending", s.pendingWork)
 			r.Post("/feedback", s.submitFeedback)
+			r.Post("/feedback/assist", s.assistFeedback)
 			r.Get("/feedback/mine", s.myFeedback)
 			r.Get("/shares/{doctype}/{id}", s.listDocShares)
 			r.Post("/shares/add", s.shareDoc)
@@ -697,6 +698,8 @@ func (s *Server) boot(w http.ResponseWriter, r *http.Request) {
 			// the desk's Feedback item: a signed-in desk user only, which a
 			// Website User's boot below never is
 			"feedback": s.E.Cfg.Feedback.On() && c.User != "Guest" && !c.IsWebsiteUser(),
+			// its "Fill in with AI" button: the same users, on a site whose AI is on
+			"feedbackAssist": s.E.Cfg.Feedback.AssistOn(s.E.Cfg.AI) && c.User != "Guest" && !c.IsWebsiteUser(),
 		}
 		// the space the request works in, on a site with tenancy; absent
 		// without it, so the desk draws nothing about tenants there

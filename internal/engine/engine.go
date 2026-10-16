@@ -110,6 +110,9 @@ type Config struct {
 	Login config.LoginPage
 	// Feedback is the desk's Feedback dialog: on or off, and who is mailed.
 	Feedback config.Feedback
+	// AI is the language-model provider behind ddcore.ai and the Feedback
+	// assistant.
+	AI config.AI
 	// OIDC lists the single sign-on providers. Their callback addresses are
 	// built from SiteURL.
 	OIDC []config.OIDCProvider
