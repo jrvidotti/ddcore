@@ -14,7 +14,28 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **Merge duplicate documents** (#129). `ddcore.rename(doctype, a, b, { merge: true })`, REST
+  `POST /api/resource/<DocType>/<a>/rename` with `{ "id": "<b>", "merge": true }`, and the form
+  menu's **Merge into…** fold a document into another of its DocType that already exists: every
+  Link and Dynamic Link to it (child tables and submitted documents included), its comments,
+  attachments, ToDos, shares, Versions, deliveries, audit events and User Permissions move to the
+  one that stays, and it is then deleted the ordinary way, with a `doc.merge` Audit Event on the
+  survivor. The DocType needs `allowRename`; the caller needs write on both and delete on the one
+  merged away. New `beforeMerge`/`afterMerge` hooks run on that document with `doc.flags.mergeInto`
+  naming the survivor, so an app can refuse a merge or copy fields across. A merge that would
+  break a `unique` Link is refused, and so are tree merges that would break the hierarchy.
+  `merge_preview` on the same route reports what would move, and the desk shows that preview
+  before the merge. See "Merging duplicates" in `docs/agent/controller-api.md`.
+
 ### Fixed
+
+- **A rename carries the User Permissions that name the document.** `for_value` is a Data field,
+  so the reference sweep never saw it: renaming a Company left every user scoped to it pointing at
+  the old name, which then matched nothing. It now follows the rename (and a merge). See `scopes`.
+- **Renaming a Role refreshes its holders' cached roles.** The sweep rewrote their `Has Role` rows
+  but left each user's cached role list naming the old role until the process restarted.
 
 - **A workspace shows each reader only the entries they may open** (#131). Boot used to send a
   workspace's `sidebar`, `shortcuts` and `links` whole, so a user who passed its `roles` but could

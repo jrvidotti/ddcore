@@ -25,27 +25,39 @@ var coreRefs = []struct {
 	// as it was) rather than erases. The reference is left dangling on purpose:
 	// it is a record of the document at the time, not a live link.
 	keepOnDelete bool
+	// label is what a person calls the record (a catalogue key), for a merge preview;
+	// empty for the framework's own bookkeeping, which a preview leaves out.
+	label string
+	// mergeKey is the rest of the table's unique key besides the reference:
+	// a merge moves a row to the surviving document only when that document
+	// holds none with the same values there (nil: the reference is not part of
+	// a unique key; empty: the reference alone is, one row per document).
+	mergeKey []string
 }{
-	{table: "ddcore_notification", doctypeCol: "reference_doctype", idCol: "reference_id", keepOnDelete: true},
+	{table: "ddcore_notification", doctypeCol: "reference_doctype", idCol: "reference_id", keepOnDelete: true,
+		label: "Notifications", mergeKey: []string{"rule", "recipient", "identity"}},
 	// The sweep's record of a date already notified: it follows a rename so the
 	// date is not notified again, and goes with a deleted document.
-	{table: "ddcore_notification_due", doctypeCol: "reference_doctype", idCol: "reference_id"},
-	{table: "tab_file", doctypeCol: "attached_to_doctype", idCol: "attached_to_id"},
-	{table: "tab_comment", doctypeCol: "reference_doctype", idCol: "reference_id"},
-	{table: "tab_to_do", doctypeCol: "reference_type", idCol: "reference_id"},
+	{table: "ddcore_notification_due", doctypeCol: "reference_doctype", idCol: "reference_id",
+		mergeKey: []string{"rule", "due"}},
+	{table: "tab_file", doctypeCol: "attached_to_doctype", idCol: "attached_to_id", label: "File"},
+	{table: "tab_comment", doctypeCol: "reference_doctype", idCol: "reference_id", label: "Comment"},
+	{table: "tab_to_do", doctypeCol: "reference_type", idCol: "reference_id", label: "ToDo"},
 	// A share grants access to its document and goes with it.
-	{table: "tab_document_share", doctypeCol: "share_doctype", idCol: "share_id"},
-	{table: "tab_version", doctypeCol: "ref_doctype", idCol: "doc_id", keepOnDelete: true},
-	{table: "tab_email_delivery", doctypeCol: "reference_doctype", idCol: "reference_id", keepOnDelete: true},
+	{table: "tab_document_share", doctypeCol: "share_doctype", idCol: "share_id",
+		label: "Document Share", mergeKey: []string{"user"}},
+	{table: "tab_version", doctypeCol: "ref_doctype", idCol: "doc_id", keepOnDelete: true, label: "Version"},
+	{table: "tab_email_delivery", doctypeCol: "reference_doctype", idCol: "reference_id", keepOnDelete: true, label: "Email Delivery"},
 	// A webhook delivery is the same kind of record: the event reached somebody
 	// else's server, and deleting the document does not recall it.
-	{table: "tab_webhook_delivery", doctypeCol: "reference_doctype", idCol: "reference_id", keepOnDelete: true},
-	{table: "tab_audit_event", doctypeCol: "target_doctype", idCol: "target_id", keepOnDelete: true},
+	{table: "tab_webhook_delivery", doctypeCol: "reference_doctype", idCol: "reference_id", keepOnDelete: true, label: "Webhook Delivery"},
+	{table: "tab_audit_event", doctypeCol: "target_doctype", idCol: "target_id", keepOnDelete: true, label: "Audit Event"},
 	// The import ledger (DAT-01) follows a rename, so a second run over the
 	// same export still recognises what it loaded. It stays behind a deletion
 	// on purpose: the line was loaded once, and a rerun must not bring the
 	// document back because somebody deleted it here.
-	{table: "ddcore_import_record", doctypeCol: "doctype", idCol: "id", keepOnDelete: true},
+	{table: "ddcore_import_record", doctypeCol: "doctype", idCol: "id", keepOnDelete: true,
+		label: "Import", mergeKey: []string{}},
 }
 
 // deletedWithReference reports whether a (table, DocType column, id column)
@@ -54,6 +66,17 @@ func deletedWithReference(table, doctypeCol, idCol string) bool {
 	for _, r := range coreRefs {
 		if r.table == table && r.doctypeCol == doctypeCol && r.idCol == idCol {
 			return !r.keepOnDelete
+		}
+	}
+	return false
+}
+
+// isCoreRef reports whether a (table, DocType column, id column) is one of
+// coreRefs, which the reference walks leave to the coreRefs loop.
+func isCoreRef(table, doctypeCol, idCol string) bool {
+	for _, r := range coreRefs {
+		if r.table == table && r.doctypeCol == doctypeCol && r.idCol == idCol {
+			return true
 		}
 	}
 	return false

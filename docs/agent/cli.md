@@ -97,7 +97,7 @@ npm. `DDCORE_TEST_DSN` points at the disposable database the tests use.
 - `POST /api/login {usr, pwd}` → `sid` cookie; a mutating request with a cookie needs the `X-DDCore-CSRF: 1` header.
 - `GET /api/resource/<DocType>?filters=[...]&fields=[...]&order_by=&limit=&start=&with_count=1` (`limit` left out is 20; `limit=0` is every row; a negative or non-numeric one is a `ValidationError`)
 - `POST /api/resource/<DocType>` (insert), `GET/PUT/DELETE /api/resource/<DocType>/<id>`
-- `POST /api/resource/<DocType>/<id>/<submit|cancel|amend|rename|method>` (rename body: `{ "id": "<new id>" }`)
+- `POST /api/resource/<DocType>/<id>/<submit|cancel|amend|rename|method>` (rename body: `{ "id": "<new id>" }`; `{ "id": "<existing id>", "merge": true }` merges into that document instead, and `merge_preview` with `{ "id": "<existing id>" }` reports what a merge would move without doing it — see "Merging duplicates" in `controller-api`)
 - `POST /api/method/<app.folder.file.fn>` (whitelisted); `OPTIONS` answers a CORS preflight for a method with `cors: true` (see `controller-api`)
 - `GET /<prefix>/…` — an app's static site, when `www` in `defineApp` declares the prefix (see `www`)
 - `GET /api/meta/<DocType>`, `/api/boot`, `/api/search/link?doctype=&txt=`, `/api/search/global?txt=&limit=` (see `search`), `/api/report/<name>`, `/api/events` (SSE), `POST /api/upload`

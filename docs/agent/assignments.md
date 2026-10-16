@@ -27,7 +27,7 @@ Standalone personal tasks have `reference_type` and `reference_id` unset. Docume
 
 When a user loses read permission on a referenced document, `GET /api/todo/pending` and `GET /api/assignments/{doctype}/{id}` stop showing its tasks to that user, and a direct read of the document through `/api/resource/{doctype}/{id}` returns `403 Forbidden`.
 
-Renaming a document updates `reference_type` and `reference_id` on its ToDos through `coreRefs` in `internal/engine/rename.go`. Deleting a document deletes its ToDos with a direct `DELETE`; no ToDo hooks run.
+Renaming a document updates `reference_type` and `reference_id` on its ToDos through `coreRefs` in `internal/engine/rename.go`; a merge moves them to the document that stays. Deleting a document deletes its ToDos with a direct `DELETE`; no ToDo hooks run.
 
 ### Generic ToDo CRUD
 

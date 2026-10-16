@@ -1047,7 +1047,7 @@ func (s *Server) remove(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// docMethod: submit, cancel, amend, rename or a controller method.
+// docMethod: submit, cancel, amend, rename, merge_preview or a controller method.
 func (s *Server) docMethod(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
 		dt, name, m := urlParam(r, "doctype"), urlParam(r, "id"), urlParam(r, "method")
@@ -1081,7 +1081,13 @@ func (s *Server) docMethod(w http.ResponseWriter, r *http.Request) {
 			return redacted(s, c, dt)(c.Amend(dt, name))
 		case "rename":
 			nn, _ := args["id"].(string)
+			if args["merge"] == true {
+				return strings.TrimSpace(nn), c.Merge(dt, name, nn)
+			}
 			return c.Rename(dt, name, nn)
+		case "merge_preview":
+			into, _ := args["id"].(string)
+			return c.PreviewMerge(dt, name, into)
 		case "run_method":
 			m, _ = args["method"].(string)
 			delete(args, "method")

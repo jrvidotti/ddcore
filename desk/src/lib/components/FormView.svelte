@@ -29,6 +29,7 @@
   import { commitFocusedEdit, getModifierKey, openShortcutsHelp, shouldSave } from "$lib/shortcuts.svelte";
   import { virtualRedirect } from "$lib/virtual";
   import { duplicateDoc } from "$lib/duplicate";
+  import { canMerge, mergePreviewHtml, type MergePreview } from "$lib/merge";
   import SharedNotice from "./SharedNotice.svelte";
   import NotCreatable from "./NotCreatable.svelte";
 
@@ -338,6 +339,50 @@
       location.href = `${basePath}/${encodeURIComponent(nn)}`;
     } catch (e) { showError(e); }
   }
+  // #129: fold this document into another of its DocType, which stays. The
+  // preview is the server's, so it counts what the merge would really move.
+  function mergeInto() {
+    if (!frm) return;
+    const from = frm.doc.id;
+    const label = frm.meta.doctype.label || frm.meta.doctype.name;
+    let preview: MergePreview | null = null;
+    let seq = 0;
+    const d = dialog({
+      title: __("Merge {0} into…", [label]),
+      message: __("Every link to {0} moves to the {1} chosen below, and {0} is deleted.", [`<b>${escapeHtml(from)}</b>`, escapeHtml(label)]),
+      fields: [
+        { fieldname: "into", fieldtype: "Link", options: doctype, label: __("Merge into"), reqd: true },
+        { fieldname: "preview", fieldtype: "HTML" },
+      ],
+      onChange: async (f, values, h) => {
+        if (f !== "into") return;
+        preview = null;
+        const into = String(values.into || "").trim();
+        h.setHtml("preview", "");
+        if (!into) return;
+        const mine = ++seq; // a slower answer for an earlier pick must not win
+        try {
+          const p: MergePreview = await api.docMethod(doctype, from, "merge_preview", { id: into });
+          if (mine !== seq) return;
+          preview = p;
+          h.setHtml("preview", mergePreviewHtml(p, __));
+        } catch (e: any) {
+          if (mine === seq) h.setHtml("preview", `<p style="color:var(--red);margin:0">${escapeHtml(e?.message || e)}</p>`);
+        }
+      },
+      dangerLabel: __("Merge"),
+      dangerAction: async (values, h) => {
+        const into = String(values.into || "").trim();
+        // the preview on screen is what the reader agreed to; its blockers are shown there
+        if (!into || !preview || preview.into !== into || preview.blockers.length) return;
+        const nn = await api.docMethod(doctype, from, "rename", { id: into, merge: true });
+        h.hide();
+        leaving = true; // a full page load: the document on screen is gone
+        location.href = `${basePath}/${encodeURIComponent(nn)}`;
+      },
+    });
+    d.show();
+  }
   async function duplicate() {
     if (!frm) return;
     frm.load(duplicateDoc(frm.meta, frm.doc));
@@ -441,6 +486,7 @@
               <button onclick={() => { menuOpen = false; frm?.reload(); }}>{__("Reload")}</button>
               {#if !frm.isSingle && frm.perm.create}<button onclick={() => { menuOpen = false; duplicate(); }}>{__("Duplicate")}</button>{/if}
               {#if frm.meta.doctype.allowRename && frm.perm.write && frm.docstatus === 0}<button onclick={() => { menuOpen = false; rename(); }}>{__("Rename")}</button>{/if}
+              {#if canMerge({ isNew: frm.isNew, allowRename: frm.meta.doctype.allowRename, perm: frm.perm, docstatus: frm.docstatus })}<button onclick={() => { menuOpen = false; mergeInto(); }}>{__("Merge into…")}</button>{/if}
               {#if !frm.isSingle && frm.perm.delete && frm.docstatus !== 1}<button class="danger" style="color:var(--red)" onclick={() => { menuOpen = false; remove(); }}>{__("Delete")}</button>{/if}
               <button onclick={() => { menuOpen = false; openShortcutsHelp(); }} style="display:flex;align-items:center;justify-content:space-between">
                 <span>{__("Keyboard shortcuts")}</span>
