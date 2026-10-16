@@ -79,7 +79,10 @@ Always consult the documentation in [`docs/agent/index.md`](docs/agent/index.md)
    the `v*` tag**, which is what triggers the release workflow. Never tag first: the tag is what
    publishes the binaries, and a release whose changelog section does not exist ships news
    nobody can read — the binary serves `CHANGELOG.md` over MCP and `ddcore doctor` points at it
-   when a newer release exists. Which digit to bump is in
+   when a newer release exists. **After pushing the tag, run `make build` locally** so that
+   `./bin/ddcore` (which `.mcp.json` and `./bin/ddcore dev` run) reports the new version and
+   carries the promoted changelog; otherwise `whats_new`, `ddcore version` and `ddcore doctor`
+   keep answering for the previous build. Which digit to bump is in
    [`docs/agent/conventions.md`](docs/agent/conventions.md); the full procedure is in
    [`DEVELOPMENT.md`](DEVELOPMENT.md).
 7. **Close issues from the commit that resolves them.** A commit that resolves a GitHub issue
