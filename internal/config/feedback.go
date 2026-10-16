@@ -18,17 +18,31 @@ type Feedback struct {
 	// included. Empty, nobody is mailed; the platform's System Managers still
 	// get it in their desk inbox.
 	To []string `json:"to,omitempty"`
+	// Assist is nil when ddcore.json says nothing, which means the dialog
+	// offers to fill itself in with AI whenever the site's AI is on.
+	Assist *bool `json:"assist,omitempty"`
 }
 
 // On is whether the feature is offered: the dialog, its endpoints, the boot flag.
 func (f Feedback) On() bool { return f.Enabled == nil || *f.Enabled }
 
-// fromEnv applies DDCORE_FEEDBACK (on/off) and DDCORE_FEEDBACK_TO
-// (comma-separated, replacing the file's list) over the file.
+// AssistOn is whether the dialog offers "Fill in with AI": the feature, the
+// assistant, and a model to answer it.
+func (f Feedback) AssistOn(ai AI) bool {
+	return f.On() && (f.Assist == nil || *f.Assist) && ai.On()
+}
+
+// fromEnv applies DDCORE_FEEDBACK (on/off), DDCORE_FEEDBACK_ASSIST (on/off)
+// and DDCORE_FEEDBACK_TO (comma-separated, replacing the file's list) over
+// the file.
 func (f *Feedback) fromEnv() {
 	if strings.TrimSpace(os.Getenv("DDCORE_FEEDBACK")) != "" {
 		on := envBool("DDCORE_FEEDBACK", f.On())
 		f.Enabled = &on
+	}
+	if strings.TrimSpace(os.Getenv("DDCORE_FEEDBACK_ASSIST")) != "" {
+		on := envBool("DDCORE_FEEDBACK_ASSIST", f.Assist == nil || *f.Assist)
+		f.Assist = &on
 	}
 	v := strings.TrimSpace(os.Getenv("DDCORE_FEEDBACK_TO"))
 	if v == "" {

@@ -1,5 +1,5 @@
 /**
- * The audio note on a feedback: what the browser can record, in which
+ * The audio notes on a feedback: what the browser can record, in which
  * format, and how long. The recorder needs the microphone (getUserMedia,
  * which only a secure context has) and MediaRecorder; without them the
  * recorder is not shown at all.
@@ -33,8 +33,9 @@ export function audioExtension(mime: string): string {
   return "webm";
 }
 
-export function voiceNoteName(mime: string): string {
-  return `voice-note.${audioExtension(mime)}`;
+/** A recording's file name: `voice-note-<n>.<ext>`, n counting the recordings of one feedback. */
+export function voiceNoteName(mime: string, n: number): string {
+  return `voice-note-${n}.${audioExtension(mime)}`;
 }
 
 /** Seconds as mm:ss. */

@@ -65,6 +65,8 @@ export interface Boot {
     tenant?: TenantBoot;
     /** The user menu offers Feedback to the site's developers; absent is off. */
     feedback?: boolean;
+    /** The Feedback dialog offers "Fill in with AI": the site's AI is on. */
+    feedbackAssist?: boolean;
   };
   loaded: number;
   /** The portals the user reaches (OPS-10). */

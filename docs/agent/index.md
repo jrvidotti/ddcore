@@ -26,7 +26,7 @@ Available documents (also as MCP resources `ddcore://docs/<name>`):
 - `mail` — mail templates, blocks, attachments and the delivery record
 - `notifications` — persistent event/date rules, authorized recipients, Desk inbox and optional email
 - `assignments` — ToDo DocType, assignment workflow, pending work, sidebar widget and due date reminders
-- `feedback` — the desk's Feedback dialog: bugs, improvements and feature requests from users, with files and an audio note, landing in the platform space
+- `feedback` — the desk's Feedback dialog: bugs, improvements and feature requests from users, with files and audio notes, filled in with AI when the site has one, landing in the platform space
 - `workflows` — declarative approval workflows: states, actions, docstatus binding, atomic transitions, server enforcement and Desk action buttons
 - `webhooks` — outgoing webhooks: subscriptions, signed delivery after commit, retries, replay and the audit record
 - `i18n` — English as the source language, catalogues, Select values, dates and the site timezone
@@ -38,6 +38,7 @@ Available documents (also as MCP resources `ddcore://docs/<name>`):
 - `import` — loading an export into a site: identities and metadata kept, effects not replayed, resumable, reconciled
 - `data-import` — loading a CSV/XLSX file from the Desk or HTTP: each row a normal insert or update as the user, with a dry run and per-row errors
 - `print` — print templates, print block builders, Letter Head branding, and server-side PDF generation
+- `ai` — `ddcore.ai`: the site's language model from server code (answers, tool loops, structured JSON, images, transcription) and `ddcore.test.fakeAi`
 - `push` — Web Push from server code with the site's VAPID key: `ddcore.push.send`, `publicKey()` and `ddcore push keys`
 - `external-db` — `ddcore.externalDb(name)`: read-only SQL Server queries from server code, configured from `DDCORE_SECRET_<NAME>_*`
 - `vault` — encrypted credential vault (`ddcore.vault.*`), `Vault` fieldtype, and audit logging

@@ -1,22 +1,22 @@
 <script lang="ts">
-  // Records a short audio note from the microphone and hands it over as a
-  // File (`value`, through `onchange`). Hidden where the browser cannot record
-  // (no secure context, no getUserMedia or no MediaRecorder).
+  // A button that records an audio note from the microphone and hands each
+  // recording over (`onrecorded`), then is ready for the next one. Hidden
+  // where the browser cannot record (no secure context, no getUserMedia or no
+  // MediaRecorder).
   import { onDestroy } from "svelte";
   import { __ } from "$lib/boot.svelte";
   import Icon from "$lib/components/Icon.svelte";
   import {
     MAX_RECORDING_SECONDS, formatElapsed, isPermissionDenied, pickAudioMime,
-    recordingAvailable, stopStream, voiceNoteName,
+    recordingAvailable, stopStream,
   } from "./audio-recorder-state";
 
-  let { value = null, onchange, disabled = false }: { value?: File | null; onchange: (file: File | null) => void; disabled?: boolean } = $props();
+  let { onrecorded, disabled = false }: { onrecorded: (blob: Blob, mime: string) => void; disabled?: boolean } = $props();
 
   const available = recordingAvailable();
   let phase = $state<"idle" | "starting" | "recording">("idle");
   let elapsed = $state(0);
   let error = $state("");
-  let previewUrl = $state("");
 
   let stream: MediaStream | null = null;
   let recorder: MediaRecorder | null = null;
@@ -24,15 +24,6 @@
   let timer: ReturnType<typeof setInterval> | null = null;
   let startedAt = 0;
   let destroyed = false;
-
-  // the preview plays the note the parent holds, so it survives a remount
-  $effect(() => {
-    const f = value;
-    if (!f || typeof URL.createObjectURL !== "function") { previewUrl = ""; return; }
-    const u = URL.createObjectURL(f);
-    previewUrl = u;
-    return () => URL.revokeObjectURL(u);
-  });
 
   /** Ends the timer and turns the microphone off. */
   function release() {
@@ -77,7 +68,7 @@
       const type = rec.mimeType || mime || "audio/webm";
       const blob = new Blob(chunks, { type });
       chunks = [];
-      if (blob.size) onchange(new File([blob], voiceNoteName(type), { type: type.split(";")[0] }));
+      if (blob.size) onrecorded(blob, type.split(";")[0]);
     };
     rec.start();
     startedAt = Date.now();
@@ -103,12 +94,7 @@
 
 {#if available}
   <div class="recorder">
-    {#if value}
-      {#if previewUrl}<audio controls src={previewUrl}></audio>{:else}<span class="small">{value.name}</span>{/if}
-      <button type="button" class="btn sm" onclick={() => onchange(null)} {disabled}>
-        <Icon name="trash" size={13} /> {__("Discard")}
-      </button>
-    {:else if phase === "recording"}
+    {#if phase === "recording"}
       <span class="rec-dot" aria-hidden="true"></span>
       <span class="elapsed">{formatElapsed(elapsed)} / {formatElapsed(MAX_RECORDING_SECONDS)}</span>
       <button type="button" class="btn sm" onclick={stop}>
@@ -116,7 +102,7 @@
       </button>
     {:else}
       <button type="button" class="btn sm" onclick={start} disabled={disabled || phase === "starting"}>
-        <Icon name="mic" size={13} /> {__("Record an audio note")}
+        <Icon name="mic" size={13} /> {__("Record audio")}
       </button>
     {/if}
   </div>
@@ -124,8 +110,7 @@
 {/if}
 
 <style>
-  .recorder { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-height: 32px; }
-  .recorder audio { height: 32px; max-width: 100%; flex: 1 1 200px; min-width: 0; }
+  .recorder { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .elapsed { font-variant-numeric: tabular-nums; font-size: 13px; }
   .rec-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--red); animation: pulse 1s ease-in-out infinite; }
   .err { font-size: 11px; color: var(--red); margin-top: 3px; }

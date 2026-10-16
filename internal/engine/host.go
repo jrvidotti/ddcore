@@ -658,6 +658,9 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 			return nil, cerr.Validation("crypto: cert is not a valid PEM certificate")
 		}
 		return pemCertInfo(a.ClientCert.Cert)
+	case "ai.enabled", "ai.canTranscribe", "ai.respond", "ai.transcribe",
+		"ai.prepare", "ai.prepareTranscription", "ai.parse", "ai.parseTranscription":
+		return e.aiHostCall(c, op, raw)
 	case "push.send":
 		var p pushSendArgs
 		if err := json.Unmarshal(raw, &p); err != nil {

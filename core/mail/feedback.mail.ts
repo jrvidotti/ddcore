@@ -20,6 +20,7 @@ type FeedbackMail = {
   suggested_improvement?: string;
   problem?: string;
   expected_benefit?: string;
+  transcript?: string;
   reporter_name?: string;
   reporter_email?: string;
   source_tenant?: string;
@@ -46,6 +47,7 @@ export default defineMailTemplate<FeedbackMail>({
       [_("Suggested improvement"), d.suggested_improvement],
       [_("Problem to solve"), d.problem],
       [_("Expected benefit"), d.expected_benefit],
+      [_("Audio transcript"), d.transcript],
     ];
     const from = [d.reporter_name, d.reporter_email && `<${d.reporter_email}>`].filter(Boolean).join(" ");
     const origin: string[][] = [[_("From"), from]];

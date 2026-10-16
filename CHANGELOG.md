@@ -14,6 +14,40 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **`ddcore.ai`: the site's language model from server code.** The provider is an
+  OpenAI-compatible Responses API. The key comes from `DDCORE_AI_API_KEY`. The models and the
+  address come from `ai` in ddcore.json (`model`, `transcriptionModel`, `baseUrl`,
+  `reasoningEffort`, `timeoutSeconds`), or from `DDCORE_AI_*`; the defaults are `gpt-6-luna` and
+  `gpt-transcribe`.
+  - `ddcore.ai.respond({ instructions, input, tools?, schema?, … })` returns `text`, `calls`,
+    `json` and `usage`, plus `output` for a tool loop to replay untouched, encrypted reasoning
+    included.
+  - `ddcore.ai.transcribe(base64, { filename, language? })` turns an audio into text.
+  - `ddcore.ai.image(base64, type)` makes an image part for the input.
+  - Calls retry a 429, a 5xx or a dropped connection within their timeout. Errors are typed, and
+    the prompt is never logged.
+  - Inside `ddcore test`, every call goes to the new `ddcore.test.fakeAi({ respond, transcribe })`,
+    which receives the exact body a real call would send. A test without it throws instead of
+    spending tokens.
+
+  See `docs/agent/ai.md`.
+- **Feedback: Fill in with AI, and several audio notes.**
+  - The dialog now shows the attachments right after the type. **Record audio** sits inside that
+    card, and records as many notes as fit in the 10 files (`voice-note-1.webm`, `-2`…).
+  - On a site whose AI is on, **Fill in with AI** transcribes the notes and gives the model the
+    transcripts, the screenshots, what was typed, the page, the context the user agreed to send,
+    and the site's apps and current DocType. It fills in the title, the description and the
+    type's fields, which the user reviews (and can undo) before sending.
+  - The new `POST /api/feedback/assist` writes nothing and allows 10 requests per user per hour.
+    The boot flag is `site.feedbackAssist`, and `feedback.assist` (`DDCORE_FEEDBACK_ASSIST`)
+    turns it off.
+  - The transcripts are saved on the new read-only field `Feedback.transcript`, and they go in
+    the mail too.
+
+  See `docs/agent/feedback.md`.
+
 ## 0.27.32 — 2026-10-16
 
 ### Added

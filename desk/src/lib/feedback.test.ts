@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  FEEDBACK_TYPES, MAX_FEEDBACK_FILES, addFiles, buildContext, emptyFeedback, feedbackPayload,
-  feedbackStatusColor, feedbackTypeDef, isFeedbackType, screenshotName, validateFeedback,
+  FEEDBACK_TYPES, MAX_FEEDBACK_FILES, addFiles, applyAssist, assistPayload, buildContext, canAssist, emptyFeedback,
+  feedbackPayload, feedbackRoom, feedbackStatusColor, feedbackTypeDef, isFeedbackType, screenshotName,
+  transcriptText, validateFeedback,
 } from "./feedback";
 
 describe("FEEDBACK_TYPES", () => {
@@ -145,5 +146,63 @@ describe("files", () => {
 describe("feedbackStatusColor", () => {
   it("paints each status", () => {
     expect(["New", "In Review", "Planned", "Done", "Won't Do", "?"].map(feedbackStatusColor)).toEqual(["blue", "orange", "purple", "green", "gray", "gray"]);
+  });
+});
+
+const file = (name: string, type = "") => new File(["x"], name, { type });
+
+describe("Fill in with AI", () => {
+  it("shares the file limit between picked files and recordings", () => {
+    expect(feedbackRoom([file("a.txt")], [file("voice-note-1.webm", "audio/webm")])).toBe(MAX_FEEDBACK_FILES - 2);
+    expect(feedbackRoom(Array.from({ length: 12 }, (_, i) => file(i + ".txt")), [])).toBe(0);
+  });
+
+  it("is offered once there is something to read", () => {
+    expect(canAssist(emptyFeedback(), [file("log.txt", "text/plain")], [])).toBe(false);
+    expect(canAssist(emptyFeedback(), [file("s.png", "image/png")], [])).toBe(true);
+    expect(canAssist(emptyFeedback(), [], [file("voice-note-1.webm", "audio/webm")])).toBe(true);
+    expect(canAssist({ ...emptyFeedback(), problem: "x" }, [], [])).toBe(true);
+  });
+
+  it("sends every typed field, the transcripts, and the page and context only when agreed", () => {
+    const values = { ...emptyFeedback("Bug"), title: " t ", problem: " p ", severity: "" };
+    const ctx = { user: "a" };
+    expect(assistPayload(values, { sendUrl: false, url: "u", sendContext: false, context: ctx, transcripts: { "voice-note-1.webm": "oi" } })).toEqual({
+      feedback_type: "Bug", title: "t", problem: "p", transcripts: { "voice-note-1.webm": "oi" },
+    });
+    const both = assistPayload(values, { sendUrl: true, url: "u", sendContext: true, context: ctx, transcripts: {} });
+    expect(both.page_url).toBe("u");
+    expect(both.context).toEqual(ctx);
+    expect("transcripts" in both).toBe(false);
+  });
+
+  it("fills in the fields the AI returned and switches the type", () => {
+    const before = { ...emptyFeedback("Improvement"), title: "old", current_behavior: "kept?" };
+    const r = applyAssist(before, {
+      feedback_type: "Bug",
+      fields: { title: "x".repeat(200), description: "d", severity: "Urgent", actual_result: "500", problem: "other type" },
+      transcripts: [],
+    });
+    expect(r.typeChanged).toBe(true);
+    expect(r.values.feedback_type).toBe("Bug");
+    expect(r.values.title).toHaveLength(140);
+    expect(r.values.actual_result).toBe("500");
+    expect(r.values.severity).toBeUndefined();
+    expect(r.values.problem).toBeUndefined();
+    // a field the answer leaves out stays, so switching back finds it
+    expect(r.values.current_behavior).toBe("kept?");
+    expect(r.changed.sort()).toEqual(["actual_result", "description", "title"]);
+  });
+
+  it("keeps the transcripts of the recordings still attached", () => {
+    const recs = [file("voice-note-1.webm"), file("voice-note-3.webm")];
+    expect(transcriptText(recs, { "voice-note-1.webm": " one ", "voice-note-2.webm": "removed", "voice-note-3.webm": "three" }))
+      .toBe("voice-note-1.webm:\none\n\nvoice-note-3.webm:\nthree");
+    expect(transcriptText(recs, {})).toBe("");
+  });
+
+  it("sends the transcript with the feedback", () => {
+    const p = feedbackPayload({ ...emptyFeedback(), title: "a", description: "b" }, { sendUrl: false, sendContext: false, transcript: " t " });
+    expect(p.transcript).toBe("t");
   });
 });

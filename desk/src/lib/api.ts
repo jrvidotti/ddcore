@@ -291,6 +291,17 @@ export const api = {
     for (const f of files) fd.append("files", f, f.name);
     return request<{ id: string }>("POST", "/api/feedback", fd);
   },
+  /**
+   * "Fill in with AI": the type and what was typed so far, with the audio
+   * notes and screenshots, in; the fields the site's AI read from them out.
+   * Recordings already transcribed go as `data.transcripts`, not as files.
+   */
+  assistFeedback: (data: FeedbackAssistData, files: File[] = []) => {
+    const fd = new FormData();
+    fd.append("data", JSON.stringify(data));
+    for (const f of files) fd.append("files", f, f.name);
+    return request<FeedbackAssistResult>("POST", "/api/feedback/assist", fd);
+  },
   /** What this user sent before, newest first, with its status and the developers' response. */
   myFeedback: () => request<FeedbackItem[]>("GET", "/api/feedback/mine"),
   /** An upload's original name, size and type, for whoever may read it. */
@@ -327,6 +338,24 @@ export interface FeedbackData {
   expected_benefit?: string;
   page_url?: string;
   context?: Record<string, any>;
+  /** The audio notes' text, as "Fill in with AI" transcribed them. */
+  transcript?: string;
+}
+
+/** The `data` part of POST /api/feedback/assist: every field optional but the type. */
+export type FeedbackAssistData = Partial<Omit<FeedbackData, "transcript">> & {
+  feedback_type: FeedbackType;
+  /** Recording name → its text, for the recordings already transcribed. */
+  transcripts?: Record<string, string>;
+};
+
+/** What POST /api/feedback/assist answers. */
+export interface FeedbackAssistResult {
+  feedback_type: FeedbackType;
+  /** The fields of that type the AI filled in, title and description included. */
+  fields: Record<string, string>;
+  /** The text of every audio note, in the order they were sent. */
+  transcripts: { name: string; text: string }[];
 }
 
 /** One row of GET /api/feedback/mine. */

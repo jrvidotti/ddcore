@@ -1026,6 +1026,35 @@
       // the host answers nothing when the site has no key: null, as documented
       publicKey() { return call("push.publicKey", {}) ?? null; },
     },
+    // The site's language model (ai in ddcore.json, DDCORE_AI_API_KEY). Under
+    // ddcore test every call goes to ddcore.test.fakeAi: a test never spends
+    // tokens or waits on the network, whatever key the site's .env holds.
+    ai: {
+      enabled() {
+        if (globalThis.__ddcoreTest) return !!(reg.__aiFake && reg.__aiFake.respond);
+        return !!call("ai.enabled", {});
+      },
+      canTranscribe() {
+        if (globalThis.__ddcoreTest) return !!(reg.__aiFake && reg.__aiFake.transcribe);
+        return !!call("ai.canTranscribe", {});
+      },
+      respond(req) {
+        req = req || {};
+        if (globalThis.__ddcoreTest) return aiFakeRespond(req);
+        return call("ai.respond", { req });
+      },
+      transcribe(audioBase64, opts) {
+        const req = Object.assign({}, opts || {}, { base64: String(audioBase64 || "") });
+        if (globalThis.__ddcoreTest) return aiFakeTranscribe(req);
+        return call("ai.transcribe", { req });
+      },
+      // an input_image content part from a base64 image, for a user message's content
+      image(base64, contentType, detail) {
+        const part = { type: "input_image", image_url: "data:" + (contentType || "image/png") + ";base64," + base64 };
+        if (detail) part.detail = detail;
+        return part;
+      },
+    },
     externalDb(name) {
       const key = String(name);
       return {
@@ -1149,6 +1178,40 @@
     __hashPassword(password, user) { return call("hashPassword", { text: password, user: user || "" }); },
     __dropSessions(user) { call("dropSessions", { user }); },
   };
+  // ddcore.test.fakeAi: the request is built and the answer read by the same
+  // Go code as a real call, so a test sees the body the provider would get.
+  function aiFake(kind) {
+    const f = reg.__aiFake;
+    if (!f || !f[kind]) {
+      throw new DDCoreError("ValidationError", "AI", "ddcore.ai." + kind + " in a test needs ddcore.test.fakeAi({ " + kind + " })");
+    }
+    return f;
+  }
+  function aiAnswer(ans) {
+    if (ans && typeof ans.status === "number" && typeof ans.body === "string") return ans;
+    return { status: 200, body: JSON.stringify(ans == null ? {} : ans) };
+  }
+  function aiFakeRespond(req) {
+    const f = aiFake("respond");
+    const p = call("ai.prepare", { req });
+    const c = { url: p.url, body: p.body, timeout: p.timeout };
+    f.respondCalls.push(c);
+    const a = aiAnswer(f.respond(c));
+    return call("ai.parse", { httpStatus: a.status, body: a.body, json: !!req.schema });
+  }
+  function aiFakeTranscribe(req) {
+    const f = aiFake("transcribe");
+    const p = call("ai.prepareTranscription", { req });
+    const c = {
+      url: p.url, model: p.model, filename: req.filename, contentType: req.contentType || "",
+      base64: req.base64, language: req.language || "", prompt: req.prompt || "", timeout: p.timeout,
+    };
+    f.transcribeCalls.push(c);
+    let ans = f.transcribe(c);
+    if (typeof ans === "string") ans = { text: ans };
+    const a = aiAnswer(ans);
+    return call("ai.parseTranscription", { httpStatus: a.status, body: a.body, model: p.model });
+  }
   function wrapHttp(r) {
     r.json = function () { return JSON.parse(r.body); };
     return r;
@@ -1166,6 +1229,17 @@
       inPlatform(fn) {
         call("test.inPlatform");
         try { return fn(); } finally { call("tenant.leave", {}); }
+      },
+      // answers ddcore.ai in this test: respond(call) gets {url, body,
+      // timeout} and returns the provider's JSON (or {status, body} for a
+      // raw HTTP answer); transcribe(call) returns the text. Handlers left
+      // out keep the ones of an earlier fakeAi; restore() puts those back.
+      // The fake ends with the test.
+      fakeAi(handlers) {
+        const prev = reg.__aiFake;
+        const f = Object.assign({}, prev || {}, handlers || {}, { respondCalls: [], transcribeCalls: [] });
+        reg.__aiFake = f;
+        return { respondCalls: f.respondCalls, transcribeCalls: f.transcribeCalls, restore() { reg.__aiFake = prev; } };
       },
     };
   }
@@ -1594,6 +1668,7 @@
           if (e && e.stack) r.stack = String(e.stack).split("\n").slice(0, 6).join("\n");
         }
         call("test.rollback");
+        reg.__aiFake = null;
         r.ms = Date.now() - t0;
         results.push(r);
       }

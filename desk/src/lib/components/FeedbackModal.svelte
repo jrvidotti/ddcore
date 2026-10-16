@@ -1,7 +1,8 @@
 <script lang="ts">
   // The Feedback modal: a bug, an improvement or a feature request for the
-  // site's developers, with screenshots, files and an audio note, and the
-  // list of what this user sent before with the developers' answers.
+  // site's developers, with screenshots, files and audio notes, an AI that
+  // fills the form in from them when the site has one, and the list of what
+  // this user sent before with the developers' answers.
   import { untrack } from "svelte";
   import { page } from "$app/state";
   import { focusTrap } from "$lib/focus-trap";
@@ -10,21 +11,31 @@
   import { showError, toast } from "$lib/ui.svelte";
   import { feedbackState, closeFeedback } from "$lib/feedback.svelte";
   import {
-    FEEDBACK_TYPES, MAX_FEEDBACK_FILES, MAX_TITLE, addFiles, buildContext, emptyFeedback,
-    feedbackPayload, feedbackStatusColor, feedbackTypeDef, isFeedbackType, screenshotName,
-    validateFeedback, type FeedbackValues,
+    FEEDBACK_TYPES, MAX_FEEDBACK_FILES, MAX_TITLE, addFiles, applyAssist, assistPayload, buildContext, canAssist,
+    emptyFeedback, feedbackPayload, feedbackRoom, feedbackStatusColor, feedbackTypeDef, isFeedbackType,
+    screenshotName, transcriptText, validateFeedback, type FeedbackValues,
   } from "$lib/feedback";
   import { recentClientErrors } from "$lib/client-errors";
   import { formatFileSize } from "$lib/controls/attach-state";
   import { formatDatetime } from "$lib/format";
   import AudioRecorder from "$lib/controls/AudioRecorder.svelte";
+  import AudioPreview from "$lib/controls/AudioPreview.svelte";
+  import { voiceNoteName } from "$lib/controls/audio-recorder-state";
   import Icon from "./Icon.svelte";
 
   let tab = $state<"send" | "mine">("send");
   let values = $state<FeedbackValues>(emptyFeedback());
   let errors = $state<Record<string, string>>({});
   let files = $state<File[]>([]);
-  let audio = $state<File | null>(null);
+  let recordings = $state<File[]>([]);
+  /** Recording name → its text, as the AI transcribed it; sent back instead of the audio. */
+  let transcripts = $state<Record<string, string>>({});
+  let assisting = $state(false);
+  /** The fields the AI filled in, marked until the person edits them. */
+  let aiFilled = $state<string[]>([]);
+  /** The form before the AI filled it in, for Undo. */
+  let beforeAssist = $state<FeedbackValues | null>(null);
+  let recordingSeq = 0;
   let sendUrl = $state(true);
   let sendContext = $state(true);
   let showContext = $state(false);
@@ -39,8 +50,10 @@
   let mineError = $state("");
 
   const def = $derived(feedbackTypeDef(values.feedback_type));
-  /** The note counts toward the limit: it is one more file on the request. */
-  const fileRoom = $derived(MAX_FEEDBACK_FILES - (audio ? 1 : 0));
+  /** Recordings count toward the limit: each is one more file on the request. */
+  const room = $derived(feedbackRoom(files, recordings));
+  const locked = $derived(busy || assisting);
+  const assistOn = $derived(!!boot.data?.site?.feedbackAssist);
 
   // each opening applies its preset (ddcore.ui.openFeedback); a draft left
   // by closing the modal is kept
@@ -83,7 +96,7 @@
 
   function take(incoming: File[]) {
     if (!incoming.length) return;
-    const r = addFiles(files, incoming, fileRoom);
+    const r = addFiles(files, incoming, MAX_FEEDBACK_FILES - recordings.length);
     files = r.files;
     if (r.dropped) toast(__("Up to {0} files per feedback", [MAX_FEEDBACK_FILES]), { indicator: "orange" });
   }
@@ -97,7 +110,7 @@
   function onDrop(e: DragEvent) {
     e.preventDefault();
     dragging = false;
-    if (busy) return;
+    if (locked) return;
     take(Array.from(e.dataTransfer?.files ?? []));
   }
 
@@ -109,7 +122,7 @@
 
   // a screenshot pasted anywhere in the modal becomes an attachment
   function onPaste(e: ClipboardEvent) {
-    if (tab !== "send" || busy) return;
+    if (tab !== "send" || locked) return;
     const items = Array.from(e.clipboardData?.items ?? []);
     const pasted: File[] = [];
     for (const it of items) {
@@ -130,18 +143,74 @@
     files = files.filter((_, j) => j !== i);
   }
 
+  function onRecorded(blob: Blob, mime: string) {
+    if (room <= 0) {
+      toast(__("Up to {0} files per feedback", [MAX_FEEDBACK_FILES]), { indicator: "orange" });
+      return;
+    }
+    recordingSeq++;
+    recordings = [...recordings, new File([blob], voiceNoteName(mime, recordingSeq), { type: mime })];
+  }
+
+  function removeRecording(i: number) {
+    recordings = recordings.filter((_, j) => j !== i);
+  }
+
+  /** An edit by the person takes the AI's mark off the field. */
+  function edited(name: string) {
+    if (aiFilled.includes(name)) aiFilled = aiFilled.filter((n) => n !== name);
+  }
+
+  async function assist() {
+    if (locked) return;
+    assisting = true;
+    try {
+      const known: Record<string, string> = {};
+      for (const r of recordings) if (r.name in transcripts) known[r.name] = transcripts[r.name];
+      const data = assistPayload(values, {
+        sendUrl, url: pageUrl, sendContext, context: sendContext ? currentContext() : undefined, transcripts: known,
+      });
+      const res = await api.assistFeedback(data, [...files, ...recordings.filter((r) => !(r.name in known))]);
+      for (const t of res.transcripts ?? []) transcripts[t.name] = t.text;
+      const before = $state.snapshot(values) as FeedbackValues;
+      const applied = applyAssist(values, res);
+      values = applied.values;
+      aiFilled = applied.changed;
+      beforeAssist = before;
+      errors = {};
+      toast(applied.typeChanged
+        ? __("Review the fields filled in by the AI. It changed the type to {0}.", [__(applied.values.feedback_type)])
+        : __("Review the fields filled in by the AI."), { indicator: "green" });
+    } catch (e) {
+      showError(e);
+    } finally {
+      assisting = false;
+    }
+  }
+
+  function undoAssist() {
+    if (!beforeAssist) return;
+    values = beforeAssist;
+    beforeAssist = null;
+    aiFilled = [];
+  }
+
   function reset() {
     values = emptyFeedback(values.feedback_type);
     errors = {};
     files = [];
-    audio = null;
+    recordings = [];
+    transcripts = {};
+    aiFilled = [];
+    beforeAssist = null;
+    recordingSeq = 0;
     sendContext = true;
     showContext = false;
     screenshots = 0;
   }
 
   async function submit() {
-    if (busy) return;
+    if (locked) return;
     errors = validateFeedback(values);
     if (Object.keys(errors).length) {
       const first = Object.keys(errors)[0];
@@ -152,8 +221,9 @@
     try {
       const data = feedbackPayload(values, {
         sendUrl, url: pageUrl, sendContext, context: sendContext ? currentContext() : undefined,
+        transcript: transcriptText(recordings, transcripts),
       });
-      await api.submitFeedback(data, audio ? [...files, audio] : [...files]);
+      await api.submitFeedback(data, [...files, ...recordings]);
       toast(__("Thanks! Your feedback was sent."), { indicator: "green" });
       reset();
       tab = "mine";
@@ -219,7 +289,7 @@
 
       {#if tab === "send"}
         <div class="body">
-          <p class="intro muted">{__("Tell the developers about a problem or an idea. Be specific: what you did, what you expected and what happened. Screenshots and an audio note help.")}</p>
+          <p class="intro muted">{__("Tell the developers about a problem or an idea. Be specific: what you did, what you expected and what happened. Screenshots and audio notes help.")}</p>
 
           <div class="types" role="radiogroup" aria-label={__("Type")}>
             {#each FEEDBACK_TYPES as t (t.value)}
@@ -229,7 +299,7 @@
                 class="type"
                 class:on={values.feedback_type === t.value}
                 aria-checked={values.feedback_type === t.value}
-                disabled={busy}
+                disabled={locked}
                 onclick={() => setType(t.value)}
               >
                 <Icon name={t.icon} size={18} />
@@ -239,38 +309,7 @@
           </div>
           <div class="hint small muted">{__(def.hint)}</div>
 
-          <div class="field">
-            <label for="feedback-field-title">{__("Title")}<span class="req">*</span></label>
-            <input id="feedback-field-title" class="input" class:error={!!errors.title} maxlength={MAX_TITLE} bind:value={values.title} disabled={busy} />
-            {#if errors.title}<div class="err">{__(errors.title)}</div>{/if}
-          </div>
-          <div class="field">
-            <label for="feedback-field-description">{__("Description")}<span class="req">*</span></label>
-            <textarea id="feedback-field-description" class="input" class:error={!!errors.description} rows="4" bind:value={values.description} disabled={busy}></textarea>
-            {#if errors.description}<div class="err">{__(errors.description)}</div>{/if}
-          </div>
-
-          <div class="form-row">
-            {#each def.fields as f (f.name)}
-              <div class="form-cell" class:w-50={f.half}>
-                <div class="field">
-                  <label for="feedback-field-{f.name}">{__(f.label)}</label>
-                  {#if f.kind === "select"}
-                    <select id="feedback-field-{f.name}" class="input" bind:value={values[f.name]} disabled={busy}>
-                      <option value=""></option>
-                      {#each f.options ?? [] as o}<option value={o}>{__(o)}</option>{/each}
-                    </select>
-                  {:else if f.kind === "textarea"}
-                    <textarea id="feedback-field-{f.name}" class="input" rows="3" bind:value={values[f.name]} disabled={busy}></textarea>
-                  {:else}
-                    <input id="feedback-field-{f.name}" class="input" bind:value={values[f.name]} disabled={busy} />
-                  {/if}
-                </div>
-              </div>
-            {/each}
-          </div>
-
-          <div class="field">
+          <div class="field attach-card">
             <span class="label">{__("Attachments")}</span>
             <div
               class="dropzone"
@@ -281,12 +320,25 @@
               ondragleave={() => (dragging = false)}
               ondrop={onDrop}
             >
-              <button type="button" class="btn sm" onclick={() => fileInput?.click()} disabled={busy || files.length >= fileRoom}>
+              <button type="button" class="btn sm" onclick={() => fileInput?.click()} disabled={locked || room <= 0}>
                 <Icon name="paperclip" size={13} /> {__("Choose files")}
               </button>
+              <AudioRecorder onrecorded={onRecorded} disabled={locked || room <= 0} />
               <span class="small muted">{__("or drag them here, or paste a screenshot")}</span>
               <input bind:this={fileInput} type="file" multiple hidden onchange={onPick} />
             </div>
+            {#if recordings.length}
+              <ul class="files recordings">
+                {#each recordings as r, i (r.name)}
+                  <li>
+                    <Icon name="mic" size={14} />
+                    <AudioPreview file={r} />
+                    <span class="small muted" title={transcripts[r.name] ?? ""}>{r.name}</span>
+                    <button type="button" class="btn icon sm" onclick={() => removeRecording(i)} disabled={locked} aria-label={__("Remove {0}", [r.name])}><Icon name="x" size={12} /></button>
+                  </li>
+                {/each}
+              </ul>
+            {/if}
             {#if files.length}
               <ul class="files">
                 {#each files as f, i (i + ":" + f.name)}
@@ -294,28 +346,70 @@
                     <Icon name={f.type.startsWith("image/") ? "image" : "file"} size={14} />
                     <span class="fname" title={f.name}>{f.name}</span>
                     <span class="small muted">{formatFileSize(f.size)}</span>
-                    <button type="button" class="btn icon sm" onclick={() => removeFile(i)} disabled={busy} aria-label={__("Remove {0}", [f.name])}><Icon name="x" size={12} /></button>
+                    <button type="button" class="btn icon sm" onclick={() => removeFile(i)} disabled={locked} aria-label={__("Remove {0}", [f.name])}><Icon name="x" size={12} /></button>
                   </li>
                 {/each}
               </ul>
             {/if}
-            <div class="desc">{__("{0} of {1} files", [files.length + (audio ? 1 : 0), MAX_FEEDBACK_FILES])}</div>
+            <div class="desc">{__("{0} of {1} files", [files.length + recordings.length, MAX_FEEDBACK_FILES])}</div>
           </div>
 
-          <div class="field audio">
-            <AudioRecorder value={audio} onchange={(f) => (audio = f)} disabled={busy || files.length >= MAX_FEEDBACK_FILES} />
+          {#if assistOn}
+            <div class="assist">
+              <div class="assist-actions">
+                <button type="button" class="btn sm assist-btn" onclick={assist} disabled={locked || !canAssist(values, files, recordings)}>
+                  <Icon name="wand-sparkles" size={14} /> {assisting ? __("Filling in…") : __("Fill in with AI")}
+                </button>
+                {#if beforeAssist && !assisting}
+                  <button type="button" class="link-btn small" onclick={undoAssist}>{__("Undo")}</button>
+                {/if}
+              </div>
+              <div class="small muted">{__("Be detailed: record audio and attach screenshots telling what you did, what you expected and what happened, and try to cover every field below. The AI fills in the form for you to review before sending.")}</div>
+              <div class="small muted">{__("Your audio notes and screenshots, and the page address and context data if checked below, are sent to an AI service.")}</div>
+            </div>
+          {/if}
+
+          <div class="field">
+            <label for="feedback-field-title">{__("Title")}<span class="req">*</span></label>
+            <input id="feedback-field-title" class="input" class:error={!!errors.title} class:ai-filled={aiFilled.includes("title")} maxlength={MAX_TITLE} bind:value={values.title} oninput={() => edited("title")} disabled={locked} />
+            {#if errors.title}<div class="err">{__(errors.title)}</div>{/if}
+          </div>
+          <div class="field">
+            <label for="feedback-field-description">{__("Description")}<span class="req">*</span></label>
+            <textarea id="feedback-field-description" class="input" class:error={!!errors.description} class:ai-filled={aiFilled.includes("description")} rows="4" bind:value={values.description} oninput={() => edited("description")} disabled={locked}></textarea>
+            {#if errors.description}<div class="err">{__(errors.description)}</div>{/if}
+          </div>
+
+          <div class="form-row">
+            {#each def.fields as f (f.name)}
+              <div class="form-cell" class:w-50={f.half}>
+                <div class="field">
+                  <label for="feedback-field-{f.name}">{__(f.label)}</label>
+                  {#if f.kind === "select"}
+                    <select id="feedback-field-{f.name}" class="input" class:ai-filled={aiFilled.includes(f.name)} bind:value={values[f.name]} onchange={() => edited(f.name)} disabled={locked}>
+                      <option value=""></option>
+                      {#each f.options ?? [] as o}<option value={o}>{__(o)}</option>{/each}
+                    </select>
+                  {:else if f.kind === "textarea"}
+                    <textarea id="feedback-field-{f.name}" class="input" class:ai-filled={aiFilled.includes(f.name)} rows="3" bind:value={values[f.name]} oninput={() => edited(f.name)} disabled={locked}></textarea>
+                  {:else}
+                    <input id="feedback-field-{f.name}" class="input" class:ai-filled={aiFilled.includes(f.name)} bind:value={values[f.name]} oninput={() => edited(f.name)} disabled={locked} />
+                  {/if}
+                </div>
+              </div>
+            {/each}
           </div>
 
           <div class="field check">
             <div class="check-control">
-              <input id="feedback-send-url" type="checkbox" bind:checked={sendUrl} disabled={busy} />
+              <input id="feedback-send-url" type="checkbox" bind:checked={sendUrl} disabled={locked} />
               <label for="feedback-send-url">{__("Send the address of this page")}</label>
             </div>
             {#if pageUrl}<div class="desc url" class:off={!sendUrl}>{pageUrl}</div>{/if}
           </div>
           <div class="field check">
             <div class="check-control">
-              <input id="feedback-send-context" type="checkbox" bind:checked={sendContext} disabled={busy} />
+              <input id="feedback-send-context" type="checkbox" bind:checked={sendContext} disabled={locked} />
               <label for="feedback-send-context">{__("Send context data")}</label>
               <button type="button" class="link-btn small" aria-expanded={showContext} onclick={() => (showContext = !showContext)}>
                 {showContext ? __("Hide") : __("See what will be sent")}
@@ -327,7 +421,7 @@
         </div>
         <div class="foot">
           <button type="button" class="btn" onclick={close} disabled={busy}>{__("Cancel")}</button>
-          <button type="button" class="btn primary" onclick={submit} disabled={busy}>
+          <button type="button" class="btn primary" onclick={submit} disabled={locked}>
             <Icon name="send" size={14} /> {busy ? __("Sending…") : __("Send")}
           </button>
         </div>
@@ -392,7 +486,15 @@
   .files { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
   .files li { display: flex; align-items: center; gap: 8px; font-size: 13px; min-width: 0; }
   .fname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .audio { margin-bottom: 16px; }
+  .recordings li { flex-wrap: wrap; }
+  .assist {
+    display: flex; flex-direction: column; gap: 4px; margin: 0 0 16px; padding: 10px 12px;
+    border: 1px solid var(--border); border-radius: 8px; background: var(--primary-tint);
+  }
+  .assist-actions { display: flex; align-items: center; gap: 12px; }
+  .assist-actions .link-btn { margin-left: 0; }
+  .assist-btn { color: var(--primary); border-color: var(--primary); }
+  .input.ai-filled { border-color: var(--primary); background: var(--primary-tint); }
   .field.check { margin-top: 0; }
   .check-control { flex-wrap: wrap; }
   .url { overflow-wrap: anywhere; }
