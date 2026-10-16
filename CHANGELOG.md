@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.27.31 — 2026-10-16
+
 ### Added
 
 - **Merge duplicate documents** (#129). `ddcore.rename(doctype, a, b, { merge: true })`, REST
