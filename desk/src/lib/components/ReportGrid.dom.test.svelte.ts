@@ -59,6 +59,42 @@ describe("ReportGrid cell clicks", () => {
     g.done();
   });
 
+  it("takes a click anywhere in a clickable cell, and none in an empty one", () => {
+    const oncellclick = vi.fn();
+    const onrowclick = vi.fn();
+    const g = setup({ columns, rows, clickable: new Set(["action"]), oncellclick, onrowclick });
+    const cells = [...g.target.querySelectorAll<HTMLElement>("tbody tr")].map((tr) => tr.querySelectorAll("td")[1]);
+    cells[0].click();
+    expect(oncellclick).toHaveBeenCalledWith("action", rows[0]);
+    expect(onrowclick).not.toHaveBeenCalled();
+    cells[1].click(); // "A" has no action: its empty cell is the row's
+    expect(oncellclick).toHaveBeenCalledTimes(1);
+    expect(onrowclick).toHaveBeenCalledWith(rows[1]);
+    g.done();
+  });
+
+  it("hands a row click the row, but not a click on a link or a cell button", () => {
+    const linkColumns = [{ fieldname: "customer", fieldtype: "Link", options: "Customer", label: "Customer" }, ...columns];
+    const linkRows = [{ customer: "CUST-1", id: "B", action: "Refund" }];
+    const onrowclick = vi.fn();
+    const g = setup({ columns: linkColumns, rows: linkRows, clickable: new Set(["action"]), oncellclick: vi.fn(), onrowclick });
+    const tr = g.target.querySelector<HTMLElement>("tbody tr")!;
+    expect(tr.classList.contains("row-click")).toBe(true);
+    tr.querySelector("a")!.addEventListener("click", (e) => e.preventDefault());
+    tr.querySelector<HTMLElement>("a")!.click();
+    tr.querySelector<HTMLElement>("button.cell-click")!.click();
+    expect(onrowclick).not.toHaveBeenCalled();
+    tr.querySelectorAll<HTMLElement>("td")[1].click();
+    expect(onrowclick).toHaveBeenCalledWith(linkRows[0]);
+    g.done();
+  });
+
+  it("has no clickable rows without onrowclick", () => {
+    const g = setup({ columns, rows });
+    expect(g.target.querySelector("tr.row-click")).toBeNull();
+    g.done();
+  });
+
   it("has no cell buttons without clickable columns", () => {
     const g = setup({ columns, rows });
     expect(g.target.querySelector("tbody button")).toBeNull();

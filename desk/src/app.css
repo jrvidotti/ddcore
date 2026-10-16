@@ -64,6 +64,8 @@ table.grid { width: 100%; border-collapse: collapse; font-size: 13px; }
 table.grid th, table.grid td { padding: 7px 10px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: middle; }
 table.grid th { font-weight: 500; color: var(--muted); font-size: 12px; background: var(--surface-alt); white-space: nowrap; }
 table.grid tr.row:hover td { background: var(--hover); }
+/* a form script acts on a click on the row (grids.<field>.onRowClick) */
+table.grid tr.row-click { cursor: pointer; }
 table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .page { padding: 20px 28px; max-width: 1400px; }
 .page-head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }

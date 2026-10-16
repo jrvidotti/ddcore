@@ -135,12 +135,15 @@ export interface FormHandlers<T extends BaseDoc = BaseDoc> {
   /**
    * per Table field, keyed by the child fieldname: `onCellClick` runs when a
    * read-only cell of that field is clicked, `onChange` when that field of a row
-   * changes (before the table's own onChange). A Report field takes
-   * `onCellClick` too, keyed by the report's column, with the row as the
-   * report returned it. A handler may be async; its error is shown
+   * changes (before the table's own onChange). `onRowClick` runs when a row is
+   * clicked outside an editable control, a link, a button or a cell with its
+   * own `onCellClick`. A Report field takes `onCellClick` (keyed by the
+   * report's column) and `onRowClick` too, with the row as the report returned
+   * it. A handler may be async; its error is shown
    */
   grids?: Record<string, {
     onCellClick?: Record<string, (frm: Frm<T>, row: any) => void | Promise<void>>;
+    onRowClick?: (frm: Frm<T>, row: any) => void | Promise<void>;
     onChange?: Record<string, (frm: Frm<T>, row: any) => void>;
   }>;
 }

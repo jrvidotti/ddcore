@@ -22,8 +22,8 @@ registerForm("Training Class", {
   onChange: { attendance: onChange },
   grids: { attendance: { onCellClick: { employee: (frm, row) => { clicks.push(`a:${row.employee}`); frm.setRowValue("attendance", row, "in_class", row.in_class ? 0 : 1); } } } },
 });
-registerForm("Training Class", { grids: { attendance: { onCellClick: { employee: (_frm, row) => { clicks.push(`b:${row.employee}`); } } } } });
-registerForm("Training Class", { grids: { sessions: { onCellClick: { action: async () => { throw new Error("refused"); } } } } });
+registerForm("Training Class", { grids: { attendance: { onCellClick: { employee: (_frm, row) => { clicks.push(`b:${row.employee}`); } }, onRowClick: (_frm, row) => { clicks.push(`row:${row.employee}`); } } } });
+registerForm("Training Class", { grids: { sessions: { onCellClick: { action: async () => { throw new Error("refused"); } }, onRowClick: async () => { throw new Error("row refused"); } } } });
 
 const frm = () => new FormController(meta, {
   doctype: "Training Class", id: "TC-1",
@@ -90,6 +90,20 @@ describe("grid cell clicks", () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(showError).toHaveBeenCalledWith(expect.objectContaining({ message: "refused" }));
+  });
+
+  it("runs every script's onRowClick for a row, and shows an async one's error", async () => {
+    clicks.length = 0;
+    vi.mocked(showError).mockClear();
+    const f = frm();
+    expect(f.rowClickHandlers("attendance")).toHaveLength(1);
+    expect(f.rowClickHandlers("other")).toHaveLength(0);
+    f.clickRow("attendance", f.doc.attendance[1]);
+    expect(clicks).toEqual(["row:E-2"]);
+    f.clickRow("sessions", { id: "S-1" });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(showError).toHaveBeenCalledWith(expect.objectContaining({ message: "row refused" }));
   });
 });
 

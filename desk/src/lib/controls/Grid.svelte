@@ -19,6 +19,7 @@
   import GridFilters from "./GridFilters.svelte";
   import GridSearch from "./GridSearch.svelte";
   import Spinner from "$lib/components/Spinner.svelte";
+  import { forwardCellClick, isRowClick } from "$lib/grid-click";
 
   let { frm, field, childMeta }: { frm: FormController; field: Field; childMeta: DocTypeMeta } = $props();
   const rows = $derived((frm.doc[field.fieldname!] ||= []) as any[]);
@@ -130,6 +131,9 @@
   const num = (f: Field) => isNumericFieldtype(f.fieldtype);
   // columns a form script acts on when their (read-only) cell is clicked
   const clickable = $derived(new Set(columns.filter((c) => frm.cellClickHandlers(field.fieldname!, c.fieldname!).length).map((c) => c.fieldname!)));
+  // a script acting on a click anywhere else on a row
+  const rowClickable = $derived(frm.rowClickHandlers(field.fieldname!).length > 0);
+  function clickRow(e: MouseEvent, row: any) { if (isRowClick(e)) frm.clickRow(field.fieldname!, row); }
   function rowEditable(f: Field, row: any) {
     return editable && !f.readOnly && !frm.isSetOnce(f, row, field.fieldname!) && !(f.readOnlyDependsOn && evalExpr(f.readOnlyDependsOn, row, frm.doc));
   }
@@ -178,11 +182,13 @@
       </thead>
       <tbody>
         {#each viewRows as row, i (row.id || row)}
-          <tr class="row">
+          <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
+          <tr class="row" class:row-click={rowClickable} onclick={rowClickable ? (e) => clickRow(e, row) : undefined}>
             {#if selectable}<td><input type="checkbox" aria-label={__("Select row {0}", [row.idx ?? i + 1])} checked={selected.has(row)} onchange={() => toggle(row)} /></td>{/if}
             {#if showIndex}<td class="muted">{row.idx ?? i + 1}</td>{/if}
             {#each columns as c}
-              <td class:num={num(c)}>
+              <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
+              <td class:num={num(c)} onclick={forwardCellClick}>
                 {#if dialogOnly}
                   {#if c.fieldtype === "Attach" && row[c.fieldname!]}
                     {@const file = fileNameParts(row[c.fieldname!])}
@@ -197,7 +203,7 @@
                 {:else if !inlineEditable(c.fieldtype)}
                   <button type="button" class="cell-click cell-value" title={editable ? __("Edit row") : __("View row")} onclick={() => editRow(row)}>{formatValue(row[c.fieldname!], c) || "—"}</button>
                 {:else if rowEditable(c, row) && (!c.dependsOn || evalExpr(c.dependsOn, row, frm.doc))}
-                  <Control field={c} value={row[c.fieldname!]} onchange={(v) => { row[c.fieldname!] = v; frm.trigger(field.fieldname!, childMeta.name, row.id, row, [c.fieldname!]); }} doc={row} compact inGrid />
+                  <div data-own-click style="display:contents"><Control field={c} value={row[c.fieldname!]} onchange={(v) => { row[c.fieldname!] = v; frm.trigger(field.fieldname!, childMeta.name, row.id, row, [c.fieldname!]); }} doc={row} compact inGrid /></div>
                 {:else if clickable.has(c.fieldname!)}
                   <button type="button" class="cell-click" onclick={() => frm.clickCell(field.fieldname!, c.fieldname!, row)}>{@render shown(c, row, "")}</button>
                 {:else}
@@ -205,7 +211,7 @@
                 {/if}
               </td>
             {/each}
-            <td style="white-space:nowrap;text-align:right">
+            <td style="white-space:nowrap;text-align:right" data-own-click>
               {#if hasDialog}<button class="btn sm icon" title={editable ? __("Edit row") : __("View row")} aria-label={editable ? __("Edit row") : __("View row")} onclick={() => editRow(row)}><Icon name={dialogOnly ? "pencil" : "chevron-right"} size={14} /></button>{/if}
               {#if canDelete}<button class="btn sm icon danger" title={__("Remove")} aria-label={__("Remove")} onclick={() => remove(row)}><Icon name="trash" size={14} /></button>{/if}
             </td>
@@ -236,6 +242,8 @@
   .cell-click { all: unset; box-sizing: border-box; max-width: 100%; cursor: pointer; }
   .cell-click:hover { text-decoration: underline; }
   .cell-click:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 2px; }
+  /* the click reaches the cell's button from anywhere in the cell (forwardCellClick) */
+  td:has(> .cell-click) { cursor: pointer; }
   .cell-value { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .file-link { display: flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; white-space: nowrap; }
   .file-stem { min-width: 0; overflow: hidden; text-overflow: ellipsis; }

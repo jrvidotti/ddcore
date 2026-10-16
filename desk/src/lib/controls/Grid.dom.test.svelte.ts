@@ -30,7 +30,7 @@ const childMeta: any = {
   ],
 };
 
-function setup(field: any, perms: Record<string, boolean> = { export: true }, onCellClick: Record<string, (row: any) => void> = {}, editable = true, fieldButtons: Record<string, any[]> = {}, gridActions: Record<string, any[]> = {}) {
+function setup(field: any, perms: Record<string, boolean> = { export: true }, onCellClick: Record<string, (row: any) => void> = {}, editable = true, fieldButtons: Record<string, any[]> = {}, gridActions: Record<string, any[]> = {}, onRowClick?: (row: any) => void) {
   const doc = $state<any>({
     id: "C-1",
     students: [
@@ -51,6 +51,8 @@ function setup(field: any, perms: Record<string, boolean> = { export: true }, on
     trigger: vi.fn(),
     cellClickHandlers: (table: string, column: string) => (table === "students" && onCellClick[column] ? [onCellClick[column]] : []),
     clickCell: (_table: string, column: string, row: any) => onCellClick[column](row),
+    rowClickHandlers: (table: string) => (table === "students" && onRowClick ? [onRowClick] : []),
+    clickRow: (_table: string, row: any) => onRowClick!(row),
     removeChild(fieldname: string, i: number) {
       doc[fieldname].splice(i, 1);
       doc[fieldname].forEach((r: any, n: number) => (r.idx = n + 1));
@@ -251,6 +253,50 @@ describe("Grid", () => {
     d.primaryAction({ ...t.doc.students[1], grade: 10 }, { hide: vi.fn() });
     expect(t.doc.students[1].grade).toBe(10);
     expect(t.frm.trigger).toHaveBeenCalledWith("students", "Course Student", "r2", t.doc.students[1], ["grade"]);
+    t.done();
+  });
+
+  it("a click anywhere in a clickable cell, an empty one included, is the cell's and not the row's", () => {
+    const cells: any[] = [];
+    const rowClicks: any[] = [];
+    const t = setup({}, {}, { grade: (row) => cells.push(row.employee_name) }, true, {}, {}, (row) => rowClicks.push(row));
+    t.doc.students[1].grade = null;
+    flushSync();
+    const cell = (n: number) => t.target.querySelector(`tbody tr:nth-child(${n}) button.cell-click`)!.parentElement!;
+    t.click(cell(2)); // the td itself: its padding, or an empty value with nothing to aim at
+    t.click(cell(1).querySelector("button"));
+    expect(cells).toEqual(["Ana", "Zoe"]);
+    expect(rowClicks).toEqual([]);
+    expect(cell(2).querySelector("button")!.textContent).toBe("");
+    t.done();
+  });
+
+  it("onRowClick runs for a click on the row outside its buttons and controls, with the row clicked", () => {
+    const rowClicks: any[] = [];
+    childMeta.fields[2].readOnly = false;
+    try {
+      const t = setup({ gridSort: { field: "employee_name" }, gridEditMode: undefined }, {}, {}, true, {}, {}, (row) => rowClicks.push(row));
+      const tr = t.target.querySelector<HTMLElement>("tbody tr:nth-child(1)")!;
+      expect(tr.classList.contains("row-click")).toBe(true);
+      t.click(tr.querySelectorAll("td")[1]); // the name, read-only text
+      t.click(tr.querySelector("td span"));
+      expect(rowClicks).toEqual([t.doc.students[1], t.doc.students[1]]);
+      // the Check's own control, the row's buttons and the cell holding them keep their clicks
+      t.click(tr.querySelector("input[type=checkbox]"));
+      t.click(tr.querySelector("button.icon"));
+      t.click(tr.querySelector("td:last-of-type"));
+      expect(rowClicks).toHaveLength(2);
+      expect(t.doc.students[1].in_class).toBe(1);
+      t.done();
+    } finally {
+      childMeta.fields[2].readOnly = true;
+    }
+  });
+
+  it("without onRowClick a row is not clickable", () => {
+    const t = setup({});
+    expect(t.target.querySelector("tbody tr.row-click")).toBeNull();
+    t.click(t.target.querySelector("tbody td:nth-child(2)"));
     t.done();
   });
 

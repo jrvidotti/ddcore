@@ -311,13 +311,38 @@ defineForm<TrainingClass>("Training Class", {
 ```
 
 Only cells shown as text take the click: a read-only column, or every cell of a
-`gridEditMode: "dialog"` grid. An editable cell keeps its control. The handler runs on a
-submitted or read-only form as well, so check before changing anything, as above. Handlers from
-several scripts for the same cell all run.
+`gridEditMode: "dialog"` grid. An editable cell keeps its control. The whole cell takes the click,
+its padding and an empty value included, not only the text. The handler runs on a submitted or
+read-only form as well, so check before changing anything, as above. Handlers from several
+scripts for the same cell all run.
+
+`grids.<table>.onRowClick(frm, row)` acts on a click anywhere on a row: the row shows a pointer,
+and a click on it runs the handler with the row clicked. A click that lands on something with a
+click of its own does not reach it: an editable cell's control, a link, a button, a cell with an
+`onCellClick`, the row's edit and remove buttons, a `gridSelect` checkbox. Neither does the end of
+a drag that selected text. Like `onCellClick`, it runs on a submitted or read-only form too. To
+tick a row from anywhere on it:
+
+```ts
+defineForm<PortalLinkGenerator>("Portal Link Generator", {
+  grids: {
+    installments: {                       // every column read-only but the Check `selected`
+      onRowClick(frm, row) {
+        frm.setRowValue("installments", row, "selected", row.selected ? 0 : 1);
+      },
+    },
+  },
+});
+```
+
+A click on the `selected` checkbox itself ticks it through its control, and the handler does not
+run, so the two never undo each other. The row takes no keyboard focus: what `onRowClick` does
+should also be reachable from a control in the row (the Check above, a cell with `onCellClick`).
 
 A `Report` field takes `onCellClick` too, keyed by the report's column `fieldname`. Every
 non-empty cell of that column becomes a button (a Link cell no longer navigates); an empty cell
-takes no click. The handler receives the row as the report returned it. A handler may be async,
+takes no click. `onRowClick` works on a Report field as well, with the row as the report returned
+it; a Link cell still navigates. The handler receives the row as the report returned it. A handler may be async,
 and an error it throws or rejects with is shown. `frm.call(..., { reload: true })` or
 `frm.refreshField(field)` re-runs the report:
 

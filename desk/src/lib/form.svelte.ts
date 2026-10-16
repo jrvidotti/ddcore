@@ -36,11 +36,13 @@ export interface FormHandlers {
   onChange?: Record<string, (frm: FormController, cdt?: string, cdn?: string, row?: any, changed?: string[]) => void>;
   /**
    * per Table field, keyed by the child fieldname: onCellClick for a click on a
-   * read-only cell, onChange for a change of that field in a row. A Report
-   * field takes onCellClick too, keyed by the report's column
+   * read-only cell, onChange for a change of that field in a row. onRowClick
+   * runs for a click anywhere else on a row. A Report field takes onCellClick
+   * (keyed by the report's column) and onRowClick too
    */
   grids?: Record<string, {
     onCellClick?: Record<string, (frm: FormController, row: any) => void | Promise<void>>;
+    onRowClick?: (frm: FormController, row: any) => void | Promise<void>;
     onChange?: Record<string, (frm: FormController, row: any) => void>;
   }>;
 }
@@ -349,8 +351,14 @@ export class FormController {
   cellClickHandlers(fieldname: string, column: string) {
     return this.handlers.flatMap((h) => h.grids?.[fieldname]?.onCellClick?.[column] ?? []);
   }
-  clickCell(fieldname: string, column: string, row: any) {
-    for (const fn of this.cellClickHandlers(fieldname, column)) {
+  clickCell(fieldname: string, column: string, row: any) { this.runClickHandlers(this.cellClickHandlers(fieldname, column), row); }
+  /** Every script's handler for a click on a row of `fieldname`'s grid. */
+  rowClickHandlers(fieldname: string) {
+    return this.handlers.flatMap((h) => h.grids?.[fieldname]?.onRowClick ?? []);
+  }
+  clickRow(fieldname: string, row: any) { this.runClickHandlers(this.rowClickHandlers(fieldname), row); }
+  private runClickHandlers(fns: ((frm: FormController, row: any) => void | Promise<void>)[], row: any) {
+    for (const fn of fns) {
       try {
         const r: any = fn(this, row);
         if (r && typeof r.then === "function") r.then(undefined, showError);
