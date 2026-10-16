@@ -99,3 +99,84 @@ func TestWorkspaceItemsTakeTheirDocTypesSpace(t *testing.T) {
 		t.Fatal("without tenancy an item is hidden")
 	}
 }
+
+// A heading over items of the other space goes with them (#131).
+func TestWorkspaceForSpaceDropsAHeadingOverNothing(t *testing.T) {
+	ws := map[string]any{"sidebar": []any{
+		map[string]any{"label": "Both", "doctype": "Both"},
+		map[string]any{"label": "Tenants"},
+		map[string]any{"label": "Site Tenant", "doctype": "Site Tenant", "space": "platform"},
+	}}
+	got := (&State{Meta: meta.NewRegistry()}).WorkspaceForSpace(ws, SpaceTenant)
+	if l := got["sidebar"].([]any); len(l) != 1 || l[0].(map[string]any)["label"] != "Both" {
+		t.Fatalf("a tenant's sidebar = %v", l)
+	}
+}
+
+// Boot leaves out what the reader may not open: a DocType that is not in its
+// doctypes, a report that is not in its reports, and a heading or a links
+// group over nothing left (#131).
+func TestWorkspaceForReader(t *testing.T) {
+	doctypes := map[string]any{"Invoice": map[string]any{}}
+	reports := map[string]any{"Sales Report": map[string]any{}}
+	ws := map[string]any{
+		"name": "Sales",
+		"sidebar": []any{
+			map[string]any{"label": "Overview", "route": "/app/workspace/Sales"},
+			map[string]any{"label": "Invoices", "doctype": "Invoice"},
+			map[string]any{"label": "Admin"},
+			map[string]any{"label": "Payouts", "doctype": "Payout"},
+			map[string]any{"label": "Payout Forecast", "report": "Payout Forecast"},
+			map[string]any{"label": "Reports"},
+			map[string]any{"label": "Sales Report", "report": "Sales Report"},
+			map[string]any{"label": "Payout Forecast", "report": "Payout Forecast"},
+			map[string]any{"label": "Empty"},
+		},
+		"shortcuts": []any{
+			map[string]any{"label": "Payouts", "doctype": "Payout"},
+			map[string]any{"label": "Invoices", "doctype": "Invoice"},
+		},
+		"numberCards": []any{
+			map[string]any{"name": "a", "doctype": "Payout"},
+			map[string]any{"name": "b", "refDoctype": "Payout"},
+			map[string]any{"name": "c", "doctype": "Invoice"},
+			map[string]any{"name": "d"},
+		},
+		"charts": []any{
+			map[string]any{"name": "a", "refDoctype": "Payout"},
+			map[string]any{"name": "b"},
+		},
+		"links": []any{
+			map[string]any{"label": "Admin", "items": []any{map[string]any{"label": "Payouts", "doctype": "Payout"}}},
+			map[string]any{"label": "Mixed", "items": []any{
+				map[string]any{"label": "Payouts", "doctype": "Payout"},
+				map[string]any{"label": "Invoices", "doctype": "Invoice"},
+			}},
+		},
+	}
+	labels := func(list any, key string) string {
+		var out []string
+		for _, it := range list.([]any) {
+			out = append(out, it.(map[string]any)[key].(string))
+		}
+		return strings.Join(out, ",")
+	}
+	got := WorkspaceForReader(ws, doctypes, reports)
+	for _, c := range []struct{ list, key, want string }{
+		{"sidebar", "label", "Overview,Invoices,Reports,Sales Report,Empty"},
+		{"shortcuts", "label", "Invoices"},
+		{"numberCards", "name", "c,d"},
+		{"charts", "name", "b"},
+		{"links", "label", "Mixed"},
+	} {
+		if s := labels(got[c.list], c.key); s != c.want {
+			t.Errorf("%s = %s, want %s", c.list, s, c.want)
+		}
+	}
+	if s := labels(got["links"].([]any)[0].(map[string]any)["items"], "label"); s != "Invoices" {
+		t.Errorf("the mixed group keeps %s", s)
+	}
+	if len(ws["sidebar"].([]any)) != 9 || len(ws["links"].([]any)[1].(map[string]any)["items"].([]any)) != 2 {
+		t.Fatalf("the snapshot was changed: %v", ws)
+	}
+}

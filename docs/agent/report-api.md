@@ -60,6 +60,11 @@ What guards a card and a chart:
   roles open none of the space's workspaces lands on a page that says so, names the account
   and offers Sign out (boot's `workspacesDenied`); give every desk role a workspace.
 - A `doctype` card also checks `read` on its DocType, and counts with the user's permissions.
+- Boot sends each reader only the entries they may open: a `sidebar`, `shortcuts`, `links`,
+  `numberCards` or `charts` entry whose `doctype` or `refDoctype` the reader cannot read, or whose
+  `report` their roles do not open, is left out, and so is a sidebar heading or a `links` group
+  that had entries and is left with none. An entry has no `roles` of its own: its DocType's
+  permissions and its report's `roles` decide.
 - A card or chart `method()` runs **as the calling user with no DocType check**: the workspace
   `roles` are its only gate. `ddcore.db.getList` inside it still applies the user's permissions,
   but `ddcore.db.sql` and `getAll` do not, so a role the workspace lets in sees numbers its
