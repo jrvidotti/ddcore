@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.28.2 — 2026-10-17
+
 ### Fixed
 
 - **Chart X-axis labels no longer overlap.** In a workspace or report chart with many points,
