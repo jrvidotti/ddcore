@@ -47,7 +47,7 @@
         {#each ws.numberCards as c}
           <a class="card ncard" href={cardHref(c)} style="--c: var(--{c.color || 'blue'})">
             <div class="l">{c.label}</div>
-            <div class="v">{fmt(c, cards[c.name])}</div>
+            <div class="v" class:long={fmt(c, cards[c.name]).length > 16}>{fmt(c, cards[c.name])}</div>
           </a>
         {/each}
       </div>
@@ -83,6 +83,8 @@
   .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px; }
   .ncard { padding: 14px 16px; border-left: 4px solid var(--c); color: inherit; text-decoration: none; }
   .ncard .l { font-size: 12px; color: var(--muted); } .ncard .v { font-size: 22px; font-weight: 600; margin-top: 4px; }
+  /* a sentence (a `formatted` such as "226 granted · 885 denied") would wrap into a tall card at 22px */
+  .ncard .v.long { font-size: 15px; line-height: 1.4; }
   .sub { font-size: 13px; text-transform: uppercase; color: var(--muted); letter-spacing: .04em; margin: 8px 0 10px; }
   .shortcuts { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-bottom: 20px; }
   .sc { padding: 12px 14px; display: flex; align-items: center; gap: 10px; color: inherit; font-weight: 500; }

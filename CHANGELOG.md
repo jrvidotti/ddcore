@@ -14,6 +14,12 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- **A number card whose value is a sentence no longer grows into a tall card.** A `formatted`
+  value longer than 16 characters, such as `226 granted · 885 denied · 3170 pending`, is now shown
+  at 15px instead of 22px. Plain numbers and amounts keep the large size.
+
 ## 0.28.2 — 2026-10-17
 
 ### Fixed
