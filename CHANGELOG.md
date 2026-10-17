@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.28.3 — 2026-10-17
+
 ### Fixed
 
 - **A number card whose value is a sentence no longer grows into a tall card.** A `formatted`
