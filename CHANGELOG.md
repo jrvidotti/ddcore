@@ -14,6 +14,14 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- **Chart X-axis labels no longer overlap.** In a workspace or report chart with many points,
+  such as 30 daily `dd/mm` labels, every label used to be drawn and they ran into each other. The
+  chart now shows one label every few points, depending on how much room the longest label needs,
+  and always keeps the last point's label. Every bar or point still shows its full label in the
+  tooltip.
+
 ## 0.28.1 — 2026-10-16
 
 Opens the 0.28 series. Nothing breaks: a site pinned to `<0.28.0` only widens its `ddcore` range

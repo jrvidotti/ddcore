@@ -18,6 +18,12 @@
   const barW = $derived(Math.max(4, (groupW * 0.7) / Math.max(data.datasets.length, 1)));
   const y = (v: number) => padT + (height - padB - padT) * (1 - (v - min) / (max - min || 1));
   const cx = (i: number) => padL + groupW * i + groupW / 2;
+  // one label every `labelStep` groups, so they do not overlap; the width is estimated from the
+  // longest label (≈0.6em per char at 11px, plus a gap) because SVG text is not measured before it
+  // is drawn. Counted from the end, so the latest point of a time series keeps its label.
+  const labelW = $derived(Math.max(0, ...data.labels.map((l) => String(l).length)) * 6.6 + 6);
+  const labelStep = $derived(Math.max(1, Math.ceil(labelW / groupW)));
+  const showLabel = (i: number) => (n - 1 - i) % labelStep === 0;
   const ticks = $derived([0, 0.25, 0.5, 0.75, 1].map((t) => min + (max - min) * t));
   let hover = $state<{ x: number; y: number; text: string } | null>(null);
   const show = (i: number, ds: { name: string; values: number[] }) =>
@@ -31,7 +37,7 @@
       <text x={padL - 6} y={y(t) + 4} text-anchor="end" style:fill="var(--muted)">{formatNumber(t, 0)}</text>
     {/each}
     {#each data.labels as label, i}
-      <text x={cx(i)} y={height - 8} text-anchor="middle" style:fill="var(--muted)">{label}</text>
+      {#if showLabel(i)}<text x={cx(i)} y={height - 8} text-anchor="middle" style:fill="var(--muted)">{label}</text>{/if}
     {/each}
     {#if isLine}
       {#each data.datasets as ds, j}
