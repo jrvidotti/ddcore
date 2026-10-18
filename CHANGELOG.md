@@ -20,6 +20,7 @@ older series, and `whats_new` reads across every one of them.
 - **A workflow transition's response now carries the computed fields.** `POST /api/workflow/apply` returned the document without running `onLoad`, so a computed field was missing from it while `GET` showed it.
 - **Insert and tree-children routes decode the DocType name in the URL.** They read the raw route parameter, so a percent-encoded name did not match its DocType and the insert response skipped redaction.
 - **A Select whose options are a newline-separated string is now extracted for translation.** `ddcore i18n extract` skipped that form (which `Validate` accepts), so its options never reached the catalogue and rendered in English on a translated screen.
+- **`ddcore restore` writes the maintenance flag the way the engine does.** It carried its own copy of the SQL, which reset `since` when the flag was set again while already on and created the ops tables on the confined pool of a site with tenancy (#112). Both now go through one `db.SetMaintenanceFlag`.
 
 ## 0.28.3 — 2026-10-17
 

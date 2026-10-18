@@ -125,21 +125,7 @@ func (e *Engine) SetMaintenance(ctx context.Context, on bool, reason, actor stri
 	if actor == "" {
 		actor = "cli"
 	}
-	// CREATE runs as the owner: the confined role of a site with tenancy may
-	// write the flag but not create anything in public, and Postgres checks
-	// that before it notices the table is already there (#112)
-	if err := db.EnsureOps(ctx, e.DB.Sys); err != nil {
-		return MaintenanceState{}, err
-	}
-	if !on {
-		reason = ""
-	}
-	_, err := e.DB.Pool.Exec(ctx, `INSERT INTO ddcore_maintenance (id, enabled, reason, since, actor)
-		VALUES (1, $1, $2, CASE WHEN $1 THEN now() END, $3)
-		ON CONFLICT (id) DO UPDATE SET enabled = EXCLUDED.enabled, reason = EXCLUDED.reason,
-		since = CASE WHEN EXCLUDED.enabled AND ddcore_maintenance.enabled THEN ddcore_maintenance.since ELSE EXCLUDED.since END,
-		actor = EXCLUDED.actor`, on, reason, actor)
-	if err != nil {
+	if err := db.SetMaintenanceFlag(ctx, e.DB, on, reason, actor); err != nil {
 		return MaintenanceState{}, err
 	}
 	st, err := e.readMaintenance(ctx)

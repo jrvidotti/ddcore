@@ -1043,3 +1043,23 @@ func EnsureOps(ctx context.Context, q Querier) error {
 	_, err := q.Exec(ctx, OpsSchema)
 	return err
 }
+
+// SetMaintenanceFlag writes the maintenance flag: the engine's SetMaintenance
+// and a restore, which has no engine to ask, share it. The table is created on
+// the system pool (see EnsureOps, #112), the row is written on the request pool, and
+// `since` keeps the moment the pause began when it is switched on again. The
+// reason is blank when the flag is off.
+func SetMaintenanceFlag(ctx context.Context, d *DB, on bool, reason, actor string) error {
+	if err := EnsureOps(ctx, d.Sys); err != nil {
+		return err
+	}
+	if !on {
+		reason = ""
+	}
+	_, err := d.Pool.Exec(ctx, `INSERT INTO ddcore_maintenance (id, enabled, reason, since, actor)
+		VALUES (1, $1, $2, CASE WHEN $1 THEN now() END, $3)
+		ON CONFLICT (id) DO UPDATE SET enabled = EXCLUDED.enabled, reason = EXCLUDED.reason,
+		since = CASE WHEN EXCLUDED.enabled AND ddcore_maintenance.enabled THEN ddcore_maintenance.since ELSE EXCLUDED.since END,
+		actor = EXCLUDED.actor`, on, reason, actor)
+	return err
+}
