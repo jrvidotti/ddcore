@@ -16,7 +16,7 @@ older series, and `whats_new` reads across every one of them.
 
 ### Fixed
 
-- **A reload that is refused no longer leaks the runtime pool.** When `Engine.Load` refused an app set (an invalid DocType, a failed extension, an i18n error), some of those paths left the freshly built JS runtime pool open; the pool is now closed on every refusal.
+- **A reload that is refused no longer leaks the runtime pool.** When `Engine.Load` refused an app set (an invalid DocType, a failed extension, an i18n error), some of those paths left the freshly built JS runtime pool open; the pool is now closed on every refusal, and so is one whose first runtime fails to start or to report its metadata.
 - **A workflow transition's response now carries the computed fields.** `POST /api/workflow/apply` returned the document without running `onLoad`, so a computed field was missing from it while `GET` showed it.
 - **Insert and tree-children routes decode the DocType name in the URL.** They read the raw route parameter, so a percent-encoded name did not match its DocType and the insert response skipped redaction.
 

@@ -444,15 +444,18 @@ func (e *Engine) buildPool(apps []js.App) (*js.Pool, *Snapshot, []*js.Bundle, er
 	}
 	rt, err := pool.Acquire()
 	if err != nil {
+		pool.Close()
 		return nil, nil, nil, err
 	}
 	raw, err := rt.Meta()
 	pool.Release(rt)
 	if err != nil {
+		pool.Close()
 		return nil, nil, nil, err
 	}
 	var snap Snapshot
 	if err := json.Unmarshal(raw, &snap); err != nil {
+		pool.Close()
 		return nil, nil, nil, fmt.Errorf("meta: %w", err)
 	}
 	return pool, &snap, bundles, nil
@@ -556,8 +559,8 @@ func (e *Engine) Load() (err error) {
 	if err != nil {
 		return err
 	}
-	// every refusal below closes the pool it built; once the state swap
-	// installs it, nothing returns an error
+	// every error return below closes the pool it built. The constraint: no
+	// error return may follow the state swap below, which installs the pool
 	defer func() {
 		if err != nil && pool != nil {
 			pool.Close()
