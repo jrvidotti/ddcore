@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 
-import { runDialogAction } from "./dialog-actions.ts";
+import { runDialogAction } from "./dialog-actions";
 
 test("a dialog action owns the busy state for its full async lifetime", async () => {
   const dialog = { busy: false };

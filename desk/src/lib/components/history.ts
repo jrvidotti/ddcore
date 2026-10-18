@@ -145,7 +145,7 @@ export function formatDiffValue(val: any, field?: Partial<Field>, fieldname?: st
 
   if (fieldname === "docstatus" || field?.fieldname === "docstatus") {
     const s = Number(val);
-    const label = s === 1 ? "Enviado" : s === 2 ? "Cancelado" : "Rascunho";
+    const label = s === 1 ? __("Submitted") : s === 2 ? __("Cancelled") : __("Draft");
     return { value: val, formatted: label, isAttach: false };
   }
 

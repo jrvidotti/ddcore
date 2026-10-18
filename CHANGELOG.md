@@ -26,6 +26,7 @@ older series, and `whats_new` reads across every one of them.
 - **`ddcore jobs --since` accepts days.** `audit` took `7d` and `jobs` refused it; both now parse `--since` the same way (a Go duration or a number of days).
 - **`ddcore webhooks list` handles `-h` and flags after arguments like the other commands.** It used a bare `flag.FlagSet`; it now goes through the shared flag helpers, and its timestamp and error columns are formatted as `ddcore jobs list` does.
 - **Three CLI and loader messages that were in Portuguese are in English.** `ddcore user add` usage, the location line of a validation finding (`in <file>`) and the "DocType defined twice" error.
+- **A record's history shows its status in the user's language.** The `docstatus` row of a Version was hard-coded in Portuguese ("Rascunho", "Enviado", "Cancelado") whatever the language; it now goes through the catalogue (`Draft`, `Submitted`, `Cancelled`).
 
 ## 0.28.3 — 2026-10-17
 

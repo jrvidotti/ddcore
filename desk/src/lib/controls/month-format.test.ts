@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 
 import {
   formatMonth,
   maskMonthInput,
   parseMonth,
-} from "./month-format.ts";
+} from "./month-format";
 
 test("formatMonth formats ISO date strings to MM/YYYY", () => {
   assert.equal(formatMonth("2026-09-01"), "09/2026");

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 
-import { attachAction, fileLabel, formatFileSize, runAttachOperation, storedName } from "./attach-state.ts";
+import { attachAction, fileLabel, formatFileSize, runAttachOperation, storedName } from "./attach-state";
 
 test("a required existing attachment can be replaced but not cleared", () => {
   assert.equal(attachAction("/files/documento.pdf", true), "replace");
@@ -16,17 +16,17 @@ test("an empty attachment can be selected", () => {
 });
 
 test("an attachment operation reports busy for its full async lifetime", async () => {
-  const states = [];
+  const states: boolean[] = [];
   let busyDuringUpload = false;
 
-  await runAttachOperation((busy) => states.push(busy), async () => { busyDuringUpload = states.at(-1); });
+  await runAttachOperation((busy) => states.push(busy), async () => { busyDuringUpload = states.at(-1) === true; });
 
   assert.equal(busyDuringUpload, true);
   assert.deepEqual(states, [true, false]);
 });
 
 test("an attachment operation clears busy after an upload error", async () => {
-  const states = [];
+  const states: boolean[] = [];
 
   await assert.rejects(() => runAttachOperation((busy) => states.push(busy), async () => { throw new Error("upload falhou"); }), /upload falhou/);
 

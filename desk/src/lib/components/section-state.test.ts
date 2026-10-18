@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 
-import { isSectionCollapsed, toggleSection } from "./section-state.ts";
+import { isSectionCollapsed, toggleSection } from "./section-state";
 
 test("a collapsible section starts open and closes on the first toggle", () => {
   const collapsed = {};
