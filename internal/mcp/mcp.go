@@ -100,8 +100,8 @@ func New(e *engine.Engine) *mcp.Server {
 }
 
 // addTool registers a tool whose handler returns a value or an error: the
-// value is rendered by text, an error by fail, so no handler builds a
-// CallToolResult itself.
+// value is rendered by text, an error by fail (the value is ignored then), so
+// no handler builds a CallToolResult itself.
 func addTool[In any](srv *mcp.Server, name, desc string, fn func(ctx context.Context, in In) (any, error)) {
 	mcp.AddTool(srv, &mcp.Tool{Name: name, Description: desc},
 		func(ctx context.Context, req *mcp.CallToolRequest, in In) (*mcp.CallToolResult, any, error) {

@@ -48,10 +48,7 @@ func (s *server) dataTools(srv *mcp.Server) {
 				}
 				return e
 			})
-			if err != nil {
-				return nil, err
-			}
-			return rows, nil
+			return rows, err
 		})
 
 	addTool(srv, "insert_doc", "Creates a document (running validate and the other hooks). Child tables go in their field as arrays.",
@@ -99,10 +96,7 @@ func (s *server) dataTools(srv *mcp.Server) {
 			Force   bool   `json:"force,omitempty"`
 		}) (any, error) {
 			err := s.run(ctx, func(c *engine.Ctx) error { return c.Delete(in.Doctype, in.ID, true, in.Force) })
-			if err != nil {
-				return nil, err
-			}
-			return "deleted", nil
+			return "deleted", err
 		})
 
 	addTool(srv, "submit_doc", "Submits (docstatus 1) a submittable document.",
@@ -171,10 +165,7 @@ func (s *server) dataTools(srv *mcp.Server) {
 				out = res
 				return err
 			})
-			if err != nil {
-				return nil, err
-			}
-			return out, nil
+			return out, err
 		})
 
 	addTool(srv, "sql_query", "Read-only SELECT on Postgres (tables tab_<snake_case>; child tables have parent/parenttype/parentfield/idx). Params via $1, $2.",
@@ -188,10 +179,7 @@ func (s *server) dataTools(srv *mcp.Server) {
 				rows, e = c.SQL(in.Query, in.Params)
 				return e
 			})
-			if err != nil {
-				return nil, err
-			}
-			return rows, nil
+			return rows, err
 		})
 
 	// eval alone builds its CallToolResult: a failure also carries the logs.
@@ -249,9 +237,6 @@ func (s *server) dataTools(srv *mcp.Server) {
 				rows, e = c.GetList("Error Log", engine.ListArgs{Fields: []string{"id", "creation", "method", "error", "request_id"}, OrderBy: "creation desc", Limit: in.Limit})
 				return e
 			})
-			if err != nil {
-				return nil, err
-			}
-			return rows, nil
+			return rows, err
 		})
 }
