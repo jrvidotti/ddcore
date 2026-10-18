@@ -17,18 +17,10 @@ const auditUsage = `usage: ddcore audit <subcommand>
 `
 
 func cmdAudit(args []string) error {
-	if len(args) < 1 {
-		return fmt.Errorf("%s", auditUsage)
-	}
-	sub, rest := args[0], args[1:]
-	switch sub {
-	case "list":
-		return auditList(rest)
-	case "purge":
-		return auditPurge(rest)
-	default:
-		return fmt.Errorf("unknown subcommand: %s\n\n%s", sub, auditUsage)
-	}
+	return dispatch(auditUsage, []subcommand{
+		{"list", auditList},
+		{"purge", auditPurge},
+	}, args)
 }
 
 type auditFilterFlags struct {

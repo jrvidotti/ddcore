@@ -20,17 +20,10 @@ are not printed: they are copies of documents, and live in the desk for a
 System Manager to read.`
 
 func cmdWebhooks(args []string) error {
-	if len(args) < 1 {
-		return fmt.Errorf("%s", webhooksUsage)
-	}
-	switch args[0] {
-	case "list":
-		return webhooksList(args[1:])
-	case "replay":
-		return webhooksReplay(args[1:])
-	default:
-		return fmt.Errorf("unknown subcommand: %s\n\n%s", args[0], webhooksUsage)
-	}
+	return dispatch(webhooksUsage, []subcommand{
+		{"list", webhooksList},
+		{"replay", webhooksReplay},
+	}, args)
 }
 
 func webhooksList(args []string) error {

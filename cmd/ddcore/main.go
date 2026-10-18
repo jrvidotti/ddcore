@@ -4,7 +4,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -13,7 +12,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strings"
 	"time"
@@ -31,149 +29,12 @@ import (
 	"github.com/jrvidotti/ddcore/internal/watch"
 )
 
-const usage = `ddcore — an application framework (DocTypes in TypeScript, core in Go, PostgreSQL)
-
-Usage: ddcore <command> [options]
-
-  init        create ddcore.json in the current directory
-  new-app     create an app: ddcore new-app <name> [--dir apps/<name>]
-  dev         development server with hot reload (port from ddcore.json)
-  start       production server (migrates first; DDCORE_AUTO_MIGRATE=0 turns that off)
-  deploy      write the files a deployment builds from: deploy docker | deploy railway
-  migrate     apply DDL, install apps, run patches (--dry-run, --prune)
-  types       generate .ddcore/types.d.ts in every app
-  i18n        i18n extract — rewrite translations/<lang>.csv from the code
-  test        run the *.test.ts (--filter regex, --app name)
-  exec        run a function: ddcore exec app.services.mod.fn --args '{"a":1}'
-              (--args - reads the JSON from stdin, --args-file f.json from a file)
-  eval        run loose TS: ddcore eval 'ddcore.db.count("User")' [--commit]
-  demo        seed example data (<app>.services.demo.generate, idempotent)
-  export      export a DocType (or --all) to NDJSON/CSV with a manifest
-  import      load an export directory into this site (run: ddcore import)
-  jobs        inspect, retry, cancel and purge the queue (run: ddcore jobs)
-  webhooks    list and replay outgoing webhook deliveries (run: ddcore webhooks)
-  push        push keys — print a new VAPID key pair for Web Push (run: ddcore push)
-  audit       inspect and purge administrative audit events (run: ddcore audit)
-  user        user add|invite|passwd|reset|unlock|sessions (run: ddcore user)
-  apikey      apikey <user> [--label x] [--days N] [--prefix p]  → prints key:secret
-  tenant      tenant list|create|enable|disable|adopt — the tenants of a site with tenancy (run: ddcore tenant)
-  mcp         MCP server (stdio) for agents
-  docs        print the framework documentation
-  doctor      database readiness, meta, queue and errors (--json, --strict)
-  maintenance maintenance on [--reason x] | off | status — pause writes and jobs
-  backup      write a .tar of the database, files, config and versions (--to s3)
-  restore     restore <archive> into this site's database and storage (--smoke)
-  version     print the framework version
-
-Variables: DDCORE_DSN overrides the dsn in ddcore.json.
-Global flag: --tenant <slug>, before the command, runs a one-shot command inside
-a tenant of a site with tenancy (ddcore --tenant acme user add …).
-Global flag: --allow-older-binary (DDCORE_ALLOW_OLDER_BINARY=1) opens a database
-a newer release migrated — a rollback; see ` + "`ddcore docs backup`" + `.
-`
-
 func main() {
-	argv := stripGlobalFlags(os.Args[1:])
-	if len(argv) < 1 {
-		fmt.Print(usage)
-		os.Exit(2)
+	status, msg := exitStatus(run(stripGlobalFlags(os.Args[1:])))
+	if msg != "" {
+		fmt.Fprintln(os.Stderr, msg)
 	}
-	cmd, args := argv[0], argv[1:]
-	// a command that dispatches on a subcommand prints its usage for -h
-	if u, ok := subcommandUsage[cmd]; ok && len(args) > 0 && isHelp(args[0]) {
-		fmt.Print(strings.TrimRight(u, "\n") + "\n")
-		return
-	}
-	var err error
-	switch cmd {
-	case "init":
-		err = cmdInit(args)
-	case "new-app":
-		err = cmdNewApp(args)
-	case "dev", "start":
-		err = cmdServe(args, cmd == "dev")
-	case "migrate":
-		err = cmdMigrate(args)
-	case "types":
-		err = cmdTypes(args)
-	case "i18n":
-		err = cmdI18n(args)
-	case "test":
-		err = cmdTest(args)
-	case "exec":
-		err = cmdExec(args)
-	case "eval":
-		err = cmdEval(args)
-	case "jobs":
-		err = cmdJobs(args)
-	case "webhooks":
-		err = cmdWebhooks(args)
-	case "push":
-		err = cmdPush(args)
-	case "audit":
-		err = cmdAudit(args)
-	case "user":
-		err = cmdUser(args)
-	case "apikey":
-		err = cmdAPIKey(args)
-	case "tenant":
-		err = cmdTenant(args)
-	case "mcp":
-		err = cmdMCP(args)
-	case "import":
-		err = cmdImport(args)
-	case "export":
-		err = cmdExport(args)
-	case "demo":
-		err = cmdDemo(args)
-	case "docs":
-		// `ddcore docs [name]` — the argument was documented but never read.
-		name := "index"
-		if len(args) > 0 {
-			name = args[0]
-		}
-		fmt.Print(mcp.Docs(name))
-	case "doctor":
-		err = cmdDoctor(args)
-	case "deploy":
-		err = cmdDeploy(args)
-	case "maintenance":
-		err = cmdMaintenance(args)
-	case "backup":
-		err = cmdBackup(args)
-	case "restore":
-		err = cmdRestore(args)
-	case "version", "-v", "--version":
-		fmt.Printf("ddcore %s (%s/%s)\n", engine.Version, runtime.GOOS, runtime.GOARCH)
-		return
-	case "help", "-h", "--help":
-		fmt.Print(usage)
-	default:
-		fmt.Fprintf(os.Stderr, "unknown command: %s\n\n%s", cmd, usage)
-		os.Exit(2)
-	}
-	if errors.Is(err, errHelpShown) {
-		return
-	}
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "error:", err)
-		os.Exit(1)
-	}
-}
-
-// subcommandUsage is the usage text of each command whose first argument is a
-// subcommand: `ddcore <cmd> -h` prints it. Commands that take flags directly
-// print their flags from parseFlags instead.
-var subcommandUsage = map[string]string{
-	"import":      importUsage,
-	"jobs":        jobsUsage,
-	"audit":       auditUsage,
-	"webhooks":    webhooksUsage,
-	"push":        pushUsage,
-	"maintenance": maintenanceUsage,
-	"tenant":      tenantUsage,
-	"deploy":      deployUsage,
-	"user":        userUsage,
+	os.Exit(status)
 }
 
 // stripGlobalFlags removes the flags every command accepts, turning them into
@@ -774,7 +635,7 @@ func cmdTest(args []string) error {
 		}
 		fmt.Printf("%d tests, %d failures\n", len(results), failed)
 		if failed > 0 {
-			os.Exit(1)
+			return exitCode(1)
 		}
 		return nil
 	})
@@ -918,132 +779,135 @@ func cmdUser(args []string) error {
 		return fmt.Errorf("%s", userUsage)
 	}
 	return withEngine(loadOpts{}, func(e *engine.Engine, ctx context.Context) error {
-		switch args[0] {
-		case "add":
-			fs := newFlagSet("user add")
-			pw := fs.String("password", "", "password")
-			var roles multi
-			fs.Var(&roles, "role", "role (repeatable)")
-			if err := parseFlags(fs, args[1:]); err != nil {
-				return err
-			}
-			if fs.NArg() < 2 {
-				return fmt.Errorf("usage: ddcore user add <email> <name>")
-			}
-			return e.Run(ctx, "Admin", func(c *engine.Ctx) error {
-				doc, err := c.NewDoc("User", engine.Doc{"email": fs.Arg(0), "full_name": strings.Join(fs.Args()[1:], " "), "new_password": *pw, "enabled": true})
+		return dispatchWith([]subcommand{
+			{"add", func(args []string) error {
+				fs := newFlagSet("user add")
+				pw := fs.String("password", "", "password")
+				var roles multi
+				fs.Var(&roles, "role", "role (repeatable)")
+				if err := parseFlags(fs, args); err != nil {
+					return err
+				}
+				if fs.NArg() < 2 {
+					return fmt.Errorf("usage: ddcore user add <email> <name>")
+				}
+				return e.Run(ctx, "Admin", func(c *engine.Ctx) error {
+					doc, err := c.NewDoc("User", engine.Doc{"email": fs.Arg(0), "full_name": strings.Join(fs.Args()[1:], " "), "new_password": *pw, "enabled": true})
+					if err != nil {
+						return err
+					}
+					var rs []any
+					for _, r := range roles {
+						rs = append(rs, map[string]any{"role": r})
+					}
+					doc["roles"] = rs
+					_, err = c.Insert(doc, engine.SaveOpts{IgnorePermissions: true})
+					if err == nil {
+						fmt.Println("user created:", fs.Arg(0))
+					}
+					return err
+				})
+			}},
+			{"passwd", func(args []string) error {
+				if len(args) < 2 {
+					return fmt.Errorf("usage: ddcore user passwd <email> <password>")
+				}
+				if err := e.SetPassword(ctx, args[0], args[1]); err != nil {
+					return err
+				}
+				fmt.Println("password changed; other sessions signed out")
+				return nil
+			}},
+			{"invite", func(args []string) error {
+				// Creates the account with no password and sends the link. No password
+				// needs no flag for "pending": CheckPassword already refuses an empty
+				// hash, so an invited person simply cannot sign in until they set one.
+				fs := newFlagSet("user invite")
+				var roles multi
+				fs.Var(&roles, "role", "role (repeatable)")
+				if err := parseFlags(fs, args); err != nil {
+					return err
+				}
+				if fs.NArg() < 2 {
+					return fmt.Errorf("usage: ddcore user invite <email> <name> [--role R]")
+				}
+				email, name := fs.Arg(0), strings.Join(fs.Args()[1:], " ")
+				// the same path as the desk's Save and invite: on a site that
+				// provisions PocketID, the account is made there too
+				return e.Run(ctx, "Admin", func(c *engine.Ctx) error {
+					res, err := e.InviteUser(c, engine.Invitation{Email: email, FullName: name, Roles: roles})
+					if err != nil {
+						return err
+					}
+					rec := &engine.Recovery{}
+					rec.Link, _ = res["link"].(string)
+					rec.Expires, _ = res["expires"].(time.Time)
+					reportRecovery(email, rec)
+					return nil
+				})
+			}},
+			{"reset", func(args []string) error {
+				if len(args) < 1 {
+					return fmt.Errorf("usage: ddcore user reset <email>")
+				}
+				// in the account's own tenant: the link is mailed from there
+				return e.RunAdminFor(ctx, args[0], func(c *engine.Ctx) error {
+					rec, err := e.StartRecovery(c, args[0], engine.TokenReset, "")
+					if err != nil {
+						return err
+					}
+					reportRecovery(args[0], rec)
+					return nil
+				})
+			}},
+			{"unlock", func(args []string) error {
+				if len(args) < 1 {
+					return fmt.Errorf("usage: ddcore user unlock <email>")
+				}
+				n, err := e.UnlockAccount(ctx, args[0], cliActor())
 				if err != nil {
 					return err
 				}
-				var rs []any
-				for _, r := range roles {
-					rs = append(rs, map[string]any{"role": r})
+				fmt.Printf("cleared %d failed attempt(s) for %s\n", n, args[0])
+				return nil
+			}},
+			{"sessions", func(args []string) error {
+				fs := newFlagSet("user sessions")
+				revoke := fs.Bool("revoke", false, "end every session of this user")
+				if err := parseFlags(fs, args); err != nil {
+					return err
 				}
-				doc["roles"] = rs
-				_, err = c.Insert(doc, engine.SaveOpts{IgnorePermissions: true})
-				if err == nil {
-					fmt.Println("user created:", fs.Arg(0))
+				if fs.NArg() < 1 {
+					return fmt.Errorf("usage: ddcore user sessions <email> [--revoke]")
 				}
-				return err
-			})
-		case "passwd":
-			if len(args) < 3 {
-				return fmt.Errorf("usage: ddcore user passwd <email> <password>")
-			}
-			if err := e.SetPassword(ctx, args[1], args[2]); err != nil {
-				return err
-			}
-			fmt.Println("password changed; other sessions signed out")
-
-		case "invite":
-			// Creates the account with no password and sends the link. No password
-			// needs no flag for "pending": CheckPassword already refuses an empty
-			// hash, so an invited person simply cannot sign in until they set one.
-			fs := newFlagSet("user invite")
-			var roles multi
-			fs.Var(&roles, "role", "role (repeatable)")
-			if err := parseFlags(fs, args[1:]); err != nil {
-				return err
-			}
-			if fs.NArg() < 2 {
-				return fmt.Errorf("usage: ddcore user invite <email> <name> [--role R]")
-			}
-			email, name := fs.Arg(0), strings.Join(fs.Args()[1:], " ")
-			// the same path as the desk's Save and invite: on a site that
-			// provisions PocketID, the account is made there too
-			return e.Run(ctx, "Admin", func(c *engine.Ctx) error {
-				res, err := e.InviteUser(c, engine.Invitation{Email: email, FullName: name, Roles: roles})
+				user := fs.Arg(0)
+				if *revoke {
+					n, err := e.DropSessions(ctx, e.DB.Pool, user, "")
+					if err != nil {
+						return err
+					}
+					fmt.Printf("ended %d session(s) for %s\n", n, user)
+					return nil
+				}
+				rows, err := db.Select(ctx, e.DB.Pool,
+					`SELECT ip, user_agent, created, last_seen FROM ddcore_session
+					 WHERE "user" = $1 AND expires > now() ORDER BY last_seen DESC`, user)
 				if err != nil {
 					return err
 				}
-				rec := &engine.Recovery{}
-				rec.Link, _ = res["link"].(string)
-				rec.Expires, _ = res["expires"].(time.Time)
-				reportRecovery(email, rec)
-				return nil
-			})
-
-		case "reset":
-			if len(args) < 2 {
-				return fmt.Errorf("usage: ddcore user reset <email>")
-			}
-			// in the account's own tenant: the link is mailed from there
-			return e.RunAdminFor(ctx, args[1], func(c *engine.Ctx) error {
-				rec, err := e.StartRecovery(c, args[1], engine.TokenReset, "")
-				if err != nil {
-					return err
+				if len(rows) == 0 {
+					fmt.Println("no active sessions")
+					return nil
 				}
-				reportRecovery(args[1], rec)
-				return nil
-			})
-
-		case "unlock":
-			if len(args) < 2 {
-				return fmt.Errorf("usage: ddcore user unlock <email>")
-			}
-			n, err := e.UnlockAccount(ctx, args[1], cliActor())
-			if err != nil {
-				return err
-			}
-			fmt.Printf("cleared %d failed attempt(s) for %s\n", n, args[1])
-
-		case "sessions":
-			fs := newFlagSet("user sessions")
-			revoke := fs.Bool("revoke", false, "end every session of this user")
-			if err := parseFlags(fs, args[1:]); err != nil {
-				return err
-			}
-			if fs.NArg() < 1 {
-				return fmt.Errorf("usage: ddcore user sessions <email> [--revoke]")
-			}
-			user := fs.Arg(0)
-			if *revoke {
-				n, err := e.DropSessions(ctx, e.DB.Pool, user, "")
-				if err != nil {
-					return err
+				for _, r := range rows {
+					fmt.Printf("  %-20s %-28s last seen %s\n",
+						db.Str(r["ip"]), truncateStr(db.Str(r["user_agent"]), 28), db.Str(r["last_seen"]))
 				}
-				fmt.Printf("ended %d session(s) for %s\n", n, user)
 				return nil
-			}
-			rows, err := db.Select(ctx, e.DB.Pool,
-				`SELECT ip, user_agent, created, last_seen FROM ddcore_session
-				 WHERE "user" = $1 AND expires > now() ORDER BY last_seen DESC`, user)
-			if err != nil {
-				return err
-			}
-			if len(rows) == 0 {
-				fmt.Println("no active sessions")
-				return nil
-			}
-			for _, r := range rows {
-				fmt.Printf("  %-20s %-28s last seen %s\n",
-					db.Str(r["ip"]), truncateStr(db.Str(r["user_agent"]), 28), db.Str(r["last_seen"]))
-			}
-
-		default:
-			return fmt.Errorf("unknown subcommand: %s", args[0])
-		}
-		return nil
+			}},
+		}, args, func(sub string) error {
+			return fmt.Errorf("unknown subcommand: %s", sub)
+		})
 	})
 }
 

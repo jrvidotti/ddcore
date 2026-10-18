@@ -186,10 +186,10 @@ func cmdDoctor(args []string) error {
 	} else {
 		rep.print(os.Stdout)
 	}
-	// os.Exit rather than returning an error: main prints "error: …", which
-	// would land on top of the report the reader is here for.
+	// an exitCode rather than an error: main prints "error: …", which would
+	// land on top of the report the reader is here for.
 	if code := rep.exitCode(*strict); code != 0 {
-		os.Exit(code)
+		return exitCode(code)
 	}
 	return nil
 }

@@ -42,20 +42,23 @@ func cmdTenant(args []string) error {
 		if !e.Cfg.Tenancy {
 			return fmt.Errorf(`this site has no tenants: set "tenancy": true in ddcore.json and run ddcore migrate`)
 		}
-		switch args[0] {
-		case "list":
-			return tenantList(e, ctx)
-		case "create":
-			return tenantCreate(e, ctx, args[1:])
-		case "enable", "disable":
-			if len(args) < 2 {
-				return fmt.Errorf("usage: ddcore tenant %s <slug>", args[0])
-			}
-			return tenantEnable(e, ctx, args[1], args[0] == "enable")
-		case "adopt":
-			return tenantAdopt(e, ctx, args[1:])
+		// enable and disable are one command with the state to set
+		toggle := func(name string) subcommand {
+			return subcommand{name, func(args []string) error {
+				if len(args) < 1 {
+					return fmt.Errorf("usage: ddcore tenant %s <slug>", name)
+				}
+				return tenantEnable(e, ctx, args[0], name == "enable")
+			}}
 		}
-		return fmt.Errorf("unknown tenant command %q\n\n%s", args[0], tenantUsage)
+		return dispatchWith([]subcommand{
+			{"list", func([]string) error { return tenantList(e, ctx) }},
+			{"create", func(args []string) error { return tenantCreate(e, ctx, args) }},
+			toggle("enable"), toggle("disable"),
+			{"adopt", func(args []string) error { return tenantAdopt(e, ctx, args) }},
+		}, args, func(sub string) error {
+			return fmt.Errorf("unknown tenant command %q\n\n%s", sub, tenantUsage)
+		})
 	})
 }
 

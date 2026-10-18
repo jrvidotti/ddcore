@@ -59,18 +59,13 @@ out the shared DocTypes and the Admin and Guest accounts, which are the
 platform space's.`
 
 func cmdImport(args []string) error {
-	if len(args) < 1 {
-		return fmt.Errorf("%s", importUsage)
+	via := func(sub string) subcommand {
+		return subcommand{sub, func(args []string) error { return importCommand(sub, args) }}
 	}
-	sub, rest := args[0], args[1:]
-	switch sub {
-	case "plan", "run", "reconcile":
-		return importCommand(sub, rest)
-	case "status":
-		return importStatus(rest)
-	default:
-		return fmt.Errorf("unknown subcommand: %s\n\n%s", sub, importUsage)
-	}
+	return dispatch(importUsage, []subcommand{
+		via("plan"), via("run"), via("reconcile"),
+		{"status", importStatus},
+	}, args)
 }
 
 func importFlags() (*flag.FlagSet, *importOpts) {

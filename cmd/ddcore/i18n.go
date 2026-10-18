@@ -22,21 +22,24 @@ const i18nUsage = `ddcore i18n extract — rewrites translations/<lang>.csv from
 `
 
 func cmdI18n(args []string) error {
-	if len(args) == 0 || args[0] == "-h" || args[0] == "--help" {
+	// -h is main's: it prints i18nUsage like any command with subcommands
+	if len(args) == 0 {
 		fmt.Print(i18nUsage)
 		return nil
 	}
-	sub, rest := args[0], args[1:]
-	if sub != "extract" {
+	return dispatchWith([]subcommand{{"extract", i18nExtract}}, args, func(sub string) error {
 		return fmt.Errorf("unknown i18n subcommand: %s\n\n%s", sub, i18nUsage)
-	}
+	})
+}
+
+func i18nExtract(args []string) error {
 	fs := newFlagSet("i18n extract")
 	app := fs.String("app", "", "only this app")
 	all := fs.Bool("all", false, "every app plus the core (the default)")
 	lang := fs.String("lang", "", "catalogue language (default: the site's lang)")
 	check := fs.Bool("check", false, "write nothing; report and exit non-zero if anything is missing")
 	prune := fs.Bool("prune", false, "drop entries the code no longer has")
-	if err := parseFlags(fs, rest); err != nil {
+	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
 	if *all {

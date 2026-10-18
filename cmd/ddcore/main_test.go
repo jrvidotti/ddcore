@@ -702,14 +702,6 @@ func TestDeclaredHelpFlagIsNotTakenOver(t *testing.T) {
 	}
 }
 
-func TestEverySubcommandUsageIsSet(t *testing.T) {
-	for cmd, u := range subcommandUsage {
-		if strings.TrimSpace(u) == "" {
-			t.Fatalf("%s has no usage text", cmd)
-		}
-	}
-}
-
 func TestAdoptDryRunFailsOnACollision(t *testing.T) {
 	clean := &engine.AdoptPreview{Tenant: "acme", Tables: []engine.AdoptTable{{Table: "tab_customer", Rows: 3}}}
 	var out strings.Builder
