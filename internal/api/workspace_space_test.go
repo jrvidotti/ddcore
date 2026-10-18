@@ -88,7 +88,9 @@ func TestWorkspaceSpace_BootShowsEachSpaceItsOwn(t *testing.T) {
 		t.Fatalf("the platform misses its own workspace: %s", names(platform))
 	}
 
-	tenant := bootWorkspaces(x, "sid:"+x.sid(alfaAdmin))
+	// a Gestor, who may open Pedido too: boot drops what its reader cannot
+	// open (#131), and this is about spaces, not permissions
+	tenant := bootWorkspaces(x, "sid:"+x.sid(alfaUser))
 	if got := tenant["Espacos"]; got != "Pessoas,Pedidos | Nova pessoa | Pessoas" {
 		t.Fatalf("a tenant sees %q", got)
 	}
@@ -121,7 +123,10 @@ func TestWorkspaceSpace_CardsAnswerOnlyInTheirSpace(t *testing.T) {
 func TestWorkspaceSpace_IgnoredWithoutTenancy(t *testing.T) {
 	x := setupSite(t, spacesApp(t), false)
 	all := bootWorkspaces(x, "sid:"+x.sid("Admin"))
-	if got := all["Espacos"]; got != "Contas,Pessoas,Pedidos | Nova conta,Nova pessoa | Contas,Pessoas" {
+	// the tenant items show: `space` is ignored. The platform ones point at
+	// Site Tenant, which a site without tenancy does not have, so the reader
+	// filter drops them (#131)
+	if got := all["Espacos"]; got != "Pessoas,Pedidos | Nova pessoa | Pessoas" {
 		t.Fatalf("without tenancy the workspace shows %q", got)
 	}
 	if _, ok := all["Plataforma"]; !ok {
