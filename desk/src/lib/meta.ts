@@ -1,4 +1,5 @@
 import { __, boot } from "./boot.svelte";
+import { monthStart, today } from "./datetime";
 import { applyDocTypeSelectors } from "./doctype-selector";
 // DocType meta as served by /api/meta, cached per session (invalidated on reload events).
 import { api } from "./api";
@@ -169,21 +170,40 @@ export const selectLabels = (f: Field): string[] => {
   return opts.map((o, i) => labels?.[i] || __(o));
 };
 
+/**
+ * A field's default, mirroring `defaultValue` in internal/engine/doc.go: Today,
+ * today and now are the site's today (the current instant for a Datetime), and
+ * __user is the signed-in user. "This Month" is the desk's own; a Month field
+ * takes the first of the month for any of them.
+ */
+function defaultValue(f: Field): any {
+  switch (f.default) {
+    case "Today":
+    case "today":
+    case "now":
+      if (f.fieldtype === "Datetime") return new Date().toISOString();
+      return f.fieldtype === "Month" ? monthStart() : today();
+    case "This Month":
+      return monthStart();
+    case "__user":
+      return boot.data?.user ?? null;
+    default:
+      return f.default;
+  }
+}
+
 /** Default value for a new doc, mirroring the server. */
 export function newDoc(meta: Meta): any {
   const d: any = { doctype: meta.doctype.name, docstatus: 0, __islocal: true };
   for (const f of meta.doctype.fields) {
     if (!f.fieldname || isLayout(f)) continue;
     if (isTableType(f.fieldtype)) d[f.fieldname] = [];
-    else if (f.default !== undefined && f.default !== null) d[f.fieldname] = f.default === "Today" ? (f.fieldtype === "Month" ? thisMonth() : today()) : f.default === "This Month" ? thisMonth() : f.default;
+    else if (f.default !== undefined && f.default !== null) d[f.fieldname] = defaultValue(f);
     else if (f.fieldtype === "Check") d[f.fieldname] = false;
     else d[f.fieldname] = null;
   }
   return d;
 }
-
-export const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
-export const thisMonth = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`; };
 
 export const DEFAULT_FIELD_WIDTH: Record<string, FieldWidth> = {
   Date: "sm",
