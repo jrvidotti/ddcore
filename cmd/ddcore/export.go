@@ -63,14 +63,7 @@ func cmdExport(args []string) error {
 			return fmt.Errorf("--filters is not valid JSON: %w", err)
 		}
 	}
-	var fields []string
-	if *fieldList != "" {
-		for _, f := range strings.Split(*fieldList, ",") {
-			if f = strings.TrimSpace(f); f != "" {
-				fields = append(fields, f)
-			}
-		}
-	}
+	fields := splitList(*fieldList)
 
 	e, _, err := load(false, false)
 	if err != nil {

@@ -13,12 +13,10 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"runtime"
 	"slices"
 	"strings"
-	"syscall"
 	"time"
 
 	ddcore "github.com/jrvidotti/ddcore"
@@ -484,7 +482,7 @@ func cmdServe(args []string, dev bool) error {
 	if *port != 0 {
 		cfg.Port = *port
 	}
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, cancel := signalContext()
 	defer cancel()
 	if *autoMigrate {
 		res, err := e.Migrate(ctx, false)
@@ -1055,7 +1053,7 @@ func cmdMCP(args []string) error {
 			e.DB.Close()
 		}
 	}()
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, cancel := signalContext()
 	defer cancel()
 	go watch.Apps(ctx, e, func() {
 		if err := e.Load(); err != nil {

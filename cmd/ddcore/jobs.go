@@ -6,10 +6,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"os/signal"
 	"strconv"
 	"strings"
-	"syscall"
 	"text/tabwriter"
 	"time"
 
@@ -106,10 +104,7 @@ func workPools(site config.Workers, queues string, n int) (map[string]int, []str
 		return pools, nil, nil
 	}
 	var start []string
-	for _, q := range strings.Split(queues, ",") {
-		if q = strings.TrimSpace(q); q == "" {
-			continue
-		}
+	for _, q := range splitList(queues) {
 		if n >= 0 {
 			pools[q] = n
 		} else if _, ok := pools[q]; !ok {
@@ -163,7 +158,7 @@ func jobsWork(args []string) error {
 	}
 	// SIGTERM is how a container is stopped: without it the process dies
 	// mid-job instead of letting its workers finish the job or put it back.
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, cancel := signalContext()
 	defer cancel()
 	go e.WatchCache(ctx)
 	workers := e.StartWorkerPools(pools, start...)
@@ -200,13 +195,7 @@ func (f jobFilterFlags) filter() (engine.JobFilter, error) {
 	out := engine.JobFilter{
 		Queue: *f.queue, Method: *f.method, User: *f.user, Limit: *f.limit,
 	}
-	if *f.status != "" {
-		for _, s := range strings.Split(*f.status, ",") {
-			if s = strings.TrimSpace(s); s != "" {
-				out.Status = append(out.Status, s)
-			}
-		}
-	}
+	out.Status = splitList(*f.status)
 	if *f.since != "" {
 		t, err := parseSince(*f.since)
 		if err != nil {
