@@ -1018,7 +1018,7 @@ func (s *Server) create(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, err
 		}
-		return redacted(s, c, urlParam(r, "doctype"))(c.Insert(doc, engine.SaveOpts{}))
+		return redacted(s, c, dt)(c.Insert(doc, engine.SaveOpts{}))
 	})
 }
 
