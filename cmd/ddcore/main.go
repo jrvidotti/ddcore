@@ -945,23 +945,8 @@ func cmdUser(args []string) error {
 		if len(args) < 2 {
 			return fmt.Errorf("usage: ddcore user unlock <email>")
 		}
-		// The counter is keyed on what was typed, not on the account it
-		// resolved to — that is what stops the lockout from answering "does
-		// this address exist" — so clear both spellings anyone would have used.
-		n, err := e.ClearAttempts(ctx, "login:"+strings.ToLower(args[1]))
+		n, err := e.UnlockAccount(ctx, args[1], cliActor())
 		if err != nil {
-			return err
-		}
-		if email, _ := e.FindUserForRecovery(ctx, args[1]); email != "" && !strings.EqualFold(email, args[1]) {
-			m, _ := e.ClearAttempts(ctx, "login:"+strings.ToLower(email))
-			n += m
-		}
-		// the usernames an app's sign-in provider counts, in the user's tenant (#115)
-		if err := e.RunAdminFor(ctx, args[1], func(c *engine.Ctx) error {
-			m, err := e.ClearCredentialAttempts(c, args[1])
-			n += m
-			return err
-		}); err != nil {
 			return err
 		}
 		fmt.Printf("cleared %d failed attempt(s) for %s\n", n, args[1])
