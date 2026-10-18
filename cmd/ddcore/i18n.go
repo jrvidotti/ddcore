@@ -27,9 +27,10 @@ func cmdI18n(args []string) error {
 		fmt.Print(i18nUsage)
 		return nil
 	}
-	return dispatchWith([]subcommand{{"extract", i18nExtract}}, args, func(sub string) error {
-		return fmt.Errorf("unknown i18n subcommand: %s\n\n%s", sub, i18nUsage)
-	})
+	if args[0] != "extract" {
+		return fmt.Errorf("unknown i18n subcommand: %s\n\n%s", args[0], i18nUsage)
+	}
+	return i18nExtract(args[1:])
 }
 
 func i18nExtract(args []string) error {

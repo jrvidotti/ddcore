@@ -178,18 +178,10 @@ func dispatch(usage string, subs []subcommand, args []string) error {
 	if len(args) < 1 {
 		return fmt.Errorf("%s", usage)
 	}
-	return dispatchWith(subs, args, func(sub string) error {
-		return fmt.Errorf("unknown subcommand: %s\n\n%s", sub, usage)
-	})
-}
-
-// dispatchWith is dispatch for a command that words its unknown-subcommand
-// error itself, or has already dealt with args being empty.
-func dispatchWith(subs []subcommand, args []string, unknown func(sub string) error) error {
 	for _, s := range subs {
 		if s.name == args[0] {
 			return s.run(args[1:])
 		}
 	}
-	return unknown(args[0])
+	return fmt.Errorf("unknown subcommand: %s\n\n%s", args[0], usage)
 }

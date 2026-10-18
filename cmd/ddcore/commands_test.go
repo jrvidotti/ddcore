@@ -80,13 +80,6 @@ func TestDispatchNamesAnUnknownSubcommandAndShowsTheUsage(t *testing.T) {
 	}
 }
 
-func TestDispatchWithLetsTheCommandWordTheUnknownError(t *testing.T) {
-	err := dispatchWith(nil, []string{"zzz"}, func(sub string) error { return fmt.Errorf("no %s", sub) })
-	if err == nil || err.Error() != "no zzz" {
-		t.Fatalf("err = %v", err)
-	}
-}
-
 func TestExitStatus(t *testing.T) {
 	for _, c := range []struct {
 		err    error

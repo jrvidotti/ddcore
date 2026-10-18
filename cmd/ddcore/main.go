@@ -774,135 +774,130 @@ func cmdUser(args []string) error {
 		return fmt.Errorf("%s", userUsage)
 	}
 	return withEngine(loadOpts{}, func(e *engine.Engine, ctx context.Context) error {
-		return dispatchWith([]subcommand{
-			{"add", func(args []string) error {
-				fs := newFlagSet("user add")
-				pw := fs.String("password", "", "password")
-				var roles multi
-				fs.Var(&roles, "role", "role (repeatable)")
-				if err := parseFlags(fs, args); err != nil {
-					return err
-				}
-				if fs.NArg() < 2 {
-					return fmt.Errorf("usage: ddcore user add <email> <name>")
-				}
-				return e.Run(ctx, "Admin", func(c *engine.Ctx) error {
-					doc, err := c.NewDoc("User", engine.Doc{"email": fs.Arg(0), "full_name": strings.Join(fs.Args()[1:], " "), "new_password": *pw, "enabled": true})
-					if err != nil {
-						return err
-					}
-					var rs []any
-					for _, r := range roles {
-						rs = append(rs, map[string]any{"role": r})
-					}
-					doc["roles"] = rs
-					_, err = c.Insert(doc, engine.SaveOpts{IgnorePermissions: true})
-					if err == nil {
-						fmt.Println("user created:", fs.Arg(0))
-					}
-					return err
-				})
-			}},
-			{"passwd", func(args []string) error {
-				if len(args) < 2 {
-					return fmt.Errorf("usage: ddcore user passwd <email> <password>")
-				}
-				if err := e.SetPassword(ctx, args[0], args[1]); err != nil {
-					return err
-				}
-				fmt.Println("password changed; other sessions signed out")
-				return nil
-			}},
-			{"invite", func(args []string) error {
-				// Creates the account with no password and sends the link. No password
-				// needs no flag for "pending": CheckPassword already refuses an empty
-				// hash, so an invited person simply cannot sign in until they set one.
-				fs := newFlagSet("user invite")
-				var roles multi
-				fs.Var(&roles, "role", "role (repeatable)")
-				if err := parseFlags(fs, args); err != nil {
-					return err
-				}
-				if fs.NArg() < 2 {
-					return fmt.Errorf("usage: ddcore user invite <email> <name> [--role R]")
-				}
-				email, name := fs.Arg(0), strings.Join(fs.Args()[1:], " ")
-				// the same path as the desk's Save and invite: on a site that
-				// provisions PocketID, the account is made there too
-				return e.Run(ctx, "Admin", func(c *engine.Ctx) error {
-					res, err := e.InviteUser(c, engine.Invitation{Email: email, FullName: name, Roles: roles})
-					if err != nil {
-						return err
-					}
-					rec := &engine.Recovery{}
-					rec.Link, _ = res["link"].(string)
-					rec.Expires, _ = res["expires"].(time.Time)
-					reportRecovery(email, rec)
-					return nil
-				})
-			}},
-			{"reset", func(args []string) error {
-				if len(args) < 1 {
-					return fmt.Errorf("usage: ddcore user reset <email>")
-				}
-				// in the account's own tenant: the link is mailed from there
-				return e.RunAdminFor(ctx, args[0], func(c *engine.Ctx) error {
-					rec, err := e.StartRecovery(c, args[0], engine.TokenReset, "")
-					if err != nil {
-						return err
-					}
-					reportRecovery(args[0], rec)
-					return nil
-				})
-			}},
-			{"unlock", func(args []string) error {
-				if len(args) < 1 {
-					return fmt.Errorf("usage: ddcore user unlock <email>")
-				}
-				n, err := e.UnlockAccount(ctx, args[0], cliActor())
+		sub, rest := args[0], args[1:]
+		switch sub {
+		case "add":
+			fs := newFlagSet("user add")
+			pw := fs.String("password", "", "password")
+			var roles multi
+			fs.Var(&roles, "role", "role (repeatable)")
+			if err := parseFlags(fs, rest); err != nil {
+				return err
+			}
+			if fs.NArg() < 2 {
+				return fmt.Errorf("usage: ddcore user add <email> <name>")
+			}
+			return e.Run(ctx, "Admin", func(c *engine.Ctx) error {
+				doc, err := c.NewDoc("User", engine.Doc{"email": fs.Arg(0), "full_name": strings.Join(fs.Args()[1:], " "), "new_password": *pw, "enabled": true})
 				if err != nil {
 					return err
 				}
-				fmt.Printf("cleared %d failed attempt(s) for %s\n", n, args[0])
-				return nil
-			}},
-			{"sessions", func(args []string) error {
-				fs := newFlagSet("user sessions")
-				revoke := fs.Bool("revoke", false, "end every session of this user")
-				if err := parseFlags(fs, args); err != nil {
-					return err
+				var rs []any
+				for _, r := range roles {
+					rs = append(rs, map[string]any{"role": r})
 				}
-				if fs.NArg() < 1 {
-					return fmt.Errorf("usage: ddcore user sessions <email> [--revoke]")
+				doc["roles"] = rs
+				_, err = c.Insert(doc, engine.SaveOpts{IgnorePermissions: true})
+				if err == nil {
+					fmt.Println("user created:", fs.Arg(0))
 				}
-				user := fs.Arg(0)
-				if *revoke {
-					n, err := e.DropSessions(ctx, e.DB.Pool, user, "")
-					if err != nil {
-						return err
-					}
-					fmt.Printf("ended %d session(s) for %s\n", n, user)
-					return nil
-				}
-				rows, err := db.Select(ctx, e.DB.Pool,
-					`SELECT ip, user_agent, created, last_seen FROM ddcore_session
-					 WHERE "user" = $1 AND expires > now() ORDER BY last_seen DESC`, user)
+				return err
+			})
+		case "passwd":
+			if len(rest) < 2 {
+				return fmt.Errorf("usage: ddcore user passwd <email> <password>")
+			}
+			if err := e.SetPassword(ctx, rest[0], rest[1]); err != nil {
+				return err
+			}
+			fmt.Println("password changed; other sessions signed out")
+			return nil
+		case "invite":
+			// Creates the account with no password and sends the link. No password
+			// needs no flag for "pending": CheckPassword already refuses an empty
+			// hash, so an invited person simply cannot sign in until they set one.
+			fs := newFlagSet("user invite")
+			var roles multi
+			fs.Var(&roles, "role", "role (repeatable)")
+			if err := parseFlags(fs, rest); err != nil {
+				return err
+			}
+			if fs.NArg() < 2 {
+				return fmt.Errorf("usage: ddcore user invite <email> <name> [--role R]")
+			}
+			email, name := fs.Arg(0), strings.Join(fs.Args()[1:], " ")
+			// the same path as the desk's Save and invite: on a site that
+			// provisions PocketID, the account is made there too
+			return e.Run(ctx, "Admin", func(c *engine.Ctx) error {
+				res, err := e.InviteUser(c, engine.Invitation{Email: email, FullName: name, Roles: roles})
 				if err != nil {
 					return err
 				}
-				if len(rows) == 0 {
-					fmt.Println("no active sessions")
-					return nil
-				}
-				for _, r := range rows {
-					fmt.Printf("  %-20s %-28s last seen %s\n",
-						db.Str(r["ip"]), truncateStr(db.Str(r["user_agent"]), 28), db.Str(r["last_seen"]))
-				}
+				rec := &engine.Recovery{}
+				rec.Link, _ = res["link"].(string)
+				rec.Expires, _ = res["expires"].(time.Time)
+				reportRecovery(email, rec)
 				return nil
-			}},
-		}, args, func(sub string) error {
+			})
+		case "reset":
+			if len(rest) < 1 {
+				return fmt.Errorf("usage: ddcore user reset <email>")
+			}
+			// in the account's own tenant: the link is mailed from there
+			return e.RunAdminFor(ctx, rest[0], func(c *engine.Ctx) error {
+				rec, err := e.StartRecovery(c, rest[0], engine.TokenReset, "")
+				if err != nil {
+					return err
+				}
+				reportRecovery(rest[0], rec)
+				return nil
+			})
+		case "unlock":
+			if len(rest) < 1 {
+				return fmt.Errorf("usage: ddcore user unlock <email>")
+			}
+			n, err := e.UnlockAccount(ctx, rest[0], cliActor())
+			if err != nil {
+				return err
+			}
+			fmt.Printf("cleared %d failed attempt(s) for %s\n", n, rest[0])
+			return nil
+		case "sessions":
+			fs := newFlagSet("user sessions")
+			revoke := fs.Bool("revoke", false, "end every session of this user")
+			if err := parseFlags(fs, rest); err != nil {
+				return err
+			}
+			if fs.NArg() < 1 {
+				return fmt.Errorf("usage: ddcore user sessions <email> [--revoke]")
+			}
+			user := fs.Arg(0)
+			if *revoke {
+				n, err := e.DropSessions(ctx, e.DB.Pool, user, "")
+				if err != nil {
+					return err
+				}
+				fmt.Printf("ended %d session(s) for %s\n", n, user)
+				return nil
+			}
+			rows, err := db.Select(ctx, e.DB.Pool,
+				`SELECT ip, user_agent, created, last_seen FROM ddcore_session
+				 WHERE "user" = $1 AND expires > now() ORDER BY last_seen DESC`, user)
+			if err != nil {
+				return err
+			}
+			if len(rows) == 0 {
+				fmt.Println("no active sessions")
+				return nil
+			}
+			for _, r := range rows {
+				fmt.Printf("  %-20s %-28s last seen %s\n",
+					db.Str(r["ip"]), truncateStr(db.Str(r["user_agent"]), 28), db.Str(r["last_seen"]))
+			}
+			return nil
+		default:
 			return fmt.Errorf("unknown subcommand: %s", sub)
-		})
+		}
 	})
 }
 
