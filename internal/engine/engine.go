@@ -550,18 +550,23 @@ func sameAppOrder(a, b []js.App) bool {
 }
 
 // Load (re)compiles the apps and rebuilds the runtime pool and meta.
-func (e *Engine) Load() error {
+func (e *Engine) Load() (err error) {
 	apps := append([]js.App{CoreApp()}, e.Cfg.Apps...)
 	pool, snap, bundles, err := e.buildPool(apps)
 	if err != nil {
 		return err
 	}
+	// every refusal below closes the pool it built; once the state swap
+	// installs it, nothing returns an error
+	defer func() {
+		if err != nil && pool != nil {
+			pool.Close()
+		}
+	}()
 	if err := checkAppNames(apps, snap); err != nil {
-		pool.Close()
 		return err
 	}
 	if skipped, err := checkCoreCompat(snap, e.Cfg.DDCore, Version); err != nil {
-		pool.Close()
 		return err
 	} else if skipped {
 		e.Log.Warn("core version is not a release; ddcore ranges are not enforced", "version", Version)
@@ -573,11 +578,9 @@ func (e *Engine) Load() error {
 	// declared order violates dependencies, recompile in correct order.
 	ordered, err := orderApps(apps, snap.Apps)
 	if err != nil {
-		pool.Close()
 		return err
 	}
 	if err := checkImports(bundles, snap.Apps); err != nil {
-		pool.Close()
 		return err
 	}
 	if !sameAppOrder(apps, ordered) {
@@ -643,7 +646,6 @@ func (e *Engine) Load() error {
 	reg.ApplyTenancy(e.Cfg.Tenancy)
 	appSpace, err := appSpaces(snap.Apps)
 	if err != nil {
-		pool.Close()
 		return err
 	}
 	reg.ApplySpaces(appSpace)
@@ -651,18 +653,15 @@ func (e *Engine) Load() error {
 		return err
 	}
 	if err := tenantOnlyFixtures(reg, snap.Apps); err != nil {
-		pool.Close()
 		return err
 	}
 	if err := checkReportFields(reg, snap.Reports); err != nil {
-		pool.Close()
 		return err
 	}
 	notifications := make([]js.Notification, 0, len(snap.Notifications))
 	for _, name := range sortedNotificationNames(snap.Notifications) {
 		rule := snap.Notifications[name]
 		if err := rule.ValidateTarget(reg, func(name string) bool { _, ok := snap.MailTemplates[name]; return ok }); err != nil {
-			pool.Close()
 			return err
 		}
 		notifications = append(notifications, rule)
@@ -700,7 +699,6 @@ func (e *Engine) Load() error {
 	}
 	for _, name := range sortedWorkflowNames(snap.Workflows) {
 		if err := snap.Workflows[name].ValidateTarget(reg); err != nil {
-			pool.Close()
 			return err
 		}
 	}
@@ -711,7 +709,6 @@ func (e *Engine) Load() error {
 		// the state is shown to, and moved by, everyone the workflow serves
 		if d, ok := reg.Get(wf.Doctype); ok {
 			if f := d.Field(wf.StateField); f != nil && f.Permlevel > 0 {
-				pool.Close()
 				return fmt.Errorf("workflow %q: state field %q has permlevel %d; it must be permlevel 0", wf.Name, wf.StateField, f.Permlevel)
 			}
 		}
@@ -724,12 +721,10 @@ func (e *Engine) Load() error {
 	for _, name := range sortedPortalNames(snap.Portals) {
 		p := snap.Portals[name]
 		if err := p.ValidateTarget(reg, wl); err != nil {
-			pool.Close()
 			return err
 		}
 		for _, other := range portals {
 			if other.Slug() == p.Slug() {
-				pool.Close()
 				return fmt.Errorf("portal %q: its URL name %q is taken by portal %q", p.Name, p.Slug(), other.Name)
 			}
 		}
@@ -741,31 +736,25 @@ func (e *Engine) Load() error {
 		names []string
 	}{{"doctype", reg.Names()}, {"workspace", mapNames(snap.Workspaces)}, {"report", mapNames(snap.Reports)}} {
 		if err := routeNameClash(c.kind, c.names); err != nil {
-			pool.Close()
 			return err
 		}
 	}
 	if err := workspaceSpaceError(snap.Workspaces); err != nil {
-		pool.Close()
 		return err
 	}
 	if err := iconError(reg, snap.Workspaces); err != nil {
-		pool.Close()
 		return err
 	}
 	www, err := buildWWW(apps, snap)
 	if err != nil {
-		pool.Close()
 		return err
 	}
 	credentials, err := buildCredentialProviders(apps, snap, reg, e.Cfg.OIDC)
 	if err != nil {
-		pool.Close()
 		return err
 	}
 	brand, err := buildBrand(apps, snap)
 	if err != nil {
-		pool.Close()
 		return err
 	}
 	st := &State{
