@@ -7,6 +7,7 @@ import { csvSep, downloadCsv, toCsv } from "./csv";
 import { downloadXlsx, type XlsxCell } from "./xlsx";
 import { __ } from "./boot.svelte";
 import { formatGeo } from "./geo";
+import { fold } from "./text";
 
 export interface GridSortState { field: string; order: "asc" | "desc" }
 
@@ -172,9 +173,6 @@ export function filterRows<T>(rows: T[], active: (any[][] | Record<string, any>)
   return rows.filter((r) => conds.every((c) => matchCondition(r, c, colOf(c[0]))));
 }
 
-/** Text folded for a search: lower case, without accents. */
-export const foldText = (s: string): string => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
-
 /**
  * What a cell offers a search: its value, plus a Link's title and a Select's
  * label, so either finds the row. A Check or a Signature offers nothing.
@@ -194,11 +192,11 @@ export function searchText(row: any, c: Col | undefined, field: string, titleOf?
  * accent-insensitive); the same array when the query is blank.
  */
 export function searchRows<T>(rows: T[], query: string, fields: string[], columns: Col[] = [], titleOf?: TitleOf): T[] {
-  const words = foldText(query).split(/\s+/).filter(Boolean);
+  const words = fold(query).split(/\s+/).filter(Boolean);
   if (!words.length || !fields.length) return rows;
   const cols = fields.map((f) => [f, columns.find((c) => c.fieldname === f)] as const);
   return rows.filter((r) => {
-    const text = cols.map(([f, c]) => foldText(searchText(r, c, f, titleOf))).join("\n");
+    const text = cols.map(([f, c]) => fold(searchText(r, c, f, titleOf))).join("\n");
     return words.every((w) => text.includes(w));
   });
 }
