@@ -12,3 +12,4 @@ desk/build/
 .worktrees/
 docs/.vitepress/dist
 docs/.vitepress/cache
+/ddcore
