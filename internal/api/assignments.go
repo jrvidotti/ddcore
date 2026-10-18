@@ -1,9 +1,7 @@
 package api
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"slices"
 	"sort"
@@ -32,10 +30,8 @@ type completeOrRevokeRequest struct {
 func (s *Server) assignDoc(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
 		var body assignRequest
-		dec := json.NewDecoder(io.LimitReader(r.Body, 16384))
-		dec.DisallowUnknownFields()
-		if err := dec.Decode(&body); err != nil {
-			return nil, cerr.Validation("Invalid JSON: {0}", err)
+		if err := decodeStrict(r, &body, 16384); err != nil {
+			return nil, err
 		}
 		if body.Doctype == "" || body.ID == "" || body.AllocatedTo == "" {
 			return nil, cerr.Validation("doctype, id and allocated_to are required")
@@ -126,115 +122,86 @@ func addTimelineComment(c *engine.Ctx, doctype, name, content string) {
 	}
 }
 
+// assignmentChange is one status transition of a ToDo: who may make it, the
+// error for who may not, and what the referenced document's timeline records.
+type assignmentChange struct {
+	status     string
+	denied     string
+	timeline   func(c *engine.Ctx, todo engine.Doc) string
+	returnsDoc bool // false answers {"success": true} instead of the saved ToDo
+}
+
+// changeAssignment returns the handler of an assignment status transition.
+func (s *Server) changeAssignment(ch assignmentChange) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		s.run(w, r, func(c *engine.Ctx) (any, error) {
+			var body completeOrRevokeRequest
+			if err := decodeStrict(r, &body, 4096); err != nil {
+				return nil, err
+			}
+			if body.ID == "" {
+				return nil, cerr.Validation("id is required")
+			}
+
+			doc, err := c.GetDoc("ToDo", body.ID)
+			if err != nil {
+				return nil, err
+			}
+
+			roles, _ := c.Roles()
+			isMgr := c.User == "Admin" || slices.Contains(roles, "System Manager")
+			if !isMgr && c.User != doc.Str("allocated_to") && c.User != doc.Str("assigned_by") {
+				return nil, cerr.Permission(ch.denied)
+			}
+
+			doc["status"] = ch.status
+			saved, err := c.Save(doc, engine.SaveOpts{})
+			if err != nil {
+				return nil, err
+			}
+
+			if refType, refName := doc.Str("reference_type"), doc.Str("reference_id"); refType != "" && refName != "" {
+				addTimelineComment(c, refType, refName, ch.timeline(c, doc))
+			}
+
+			if !ch.returnsDoc {
+				return map[string]any{"success": true}, nil
+			}
+			return saved, nil
+		})
+	}
+}
+
 func (s *Server) completeAssignment(w http.ResponseWriter, r *http.Request) {
-	s.run(w, r, func(c *engine.Ctx) (any, error) {
-		var body completeOrRevokeRequest
-		dec := json.NewDecoder(io.LimitReader(r.Body, 4096))
-		dec.DisallowUnknownFields()
-		if err := dec.Decode(&body); err != nil {
-			return nil, cerr.Validation("Invalid JSON: {0}", err)
-		}
-		if body.ID == "" {
-			return nil, cerr.Validation("id is required")
-		}
-
-		doc, err := c.GetDoc("ToDo", body.ID)
-		if err != nil {
-			return nil, err
-		}
-
-		roles, _ := c.Roles()
-		isMgr := c.User == "Admin" || slices.Contains(roles, "System Manager")
-		if !isMgr && c.User != doc.Str("allocated_to") && c.User != doc.Str("assigned_by") {
-			return nil, cerr.Permission("No permission to complete this task")
-		}
-
-		doc["status"] = "Closed"
-		saved, err := c.Save(doc, engine.SaveOpts{})
-		if err != nil {
-			return nil, err
-		}
-
-		if refType, refName := doc.Str("reference_type"), doc.Str("reference_id"); refType != "" && refName != "" {
-			addTimelineComment(c, refType, refName, fmt.Sprintf("%s completed assignment", c.User))
-		}
-
-		return saved, nil
-	})
+	s.changeAssignment(assignmentChange{
+		status: "Closed",
+		denied: "No permission to complete this task",
+		timeline: func(c *engine.Ctx, _ engine.Doc) string {
+			return fmt.Sprintf("%s completed assignment", c.User)
+		},
+		returnsDoc: true,
+	})(w, r)
 }
 
 func (s *Server) revokeAssignment(w http.ResponseWriter, r *http.Request) {
-	s.run(w, r, func(c *engine.Ctx) (any, error) {
-		var body completeOrRevokeRequest
-		dec := json.NewDecoder(io.LimitReader(r.Body, 4096))
-		dec.DisallowUnknownFields()
-		if err := dec.Decode(&body); err != nil {
-			return nil, cerr.Validation("Invalid JSON: {0}", err)
-		}
-		if body.ID == "" {
-			return nil, cerr.Validation("id is required")
-		}
-
-		doc, err := c.GetDoc("ToDo", body.ID)
-		if err != nil {
-			return nil, err
-		}
-
-		roles, _ := c.Roles()
-		isMgr := c.User == "Admin" || slices.Contains(roles, "System Manager")
-		if !isMgr && c.User != doc.Str("assigned_by") && c.User != doc.Str("allocated_to") {
-			return nil, cerr.Permission("No permission to revoke this task")
-		}
-
-		doc["status"] = "Cancelled"
-		_, err = c.Save(doc, engine.SaveOpts{})
-		if err != nil {
-			return nil, err
-		}
-
-		if refType, refName := doc.Str("reference_type"), doc.Str("reference_id"); refType != "" && refName != "" {
-			addTimelineComment(c, refType, refName, fmt.Sprintf("%s revoked assignment for %s", c.User, doc.Str("allocated_to")))
-		}
-
-		return map[string]any{"success": true}, nil
-	})
+	s.changeAssignment(assignmentChange{
+		status: "Cancelled",
+		denied: "No permission to revoke this task",
+		timeline: func(c *engine.Ctx, todo engine.Doc) string {
+			return fmt.Sprintf("%s revoked assignment for %s", c.User, todo.Str("allocated_to"))
+		},
+	})(w, r)
 }
 
 func (s *Server) reopenAssignment(w http.ResponseWriter, r *http.Request) {
-	s.run(w, r, func(c *engine.Ctx) (any, error) {
-		var body completeOrRevokeRequest
-		dec := json.NewDecoder(io.LimitReader(r.Body, 4096))
-		dec.DisallowUnknownFields()
-		if err := dec.Decode(&body); err != nil {
-			return nil, cerr.Validation("Invalid JSON: {0}", err)
-		}
-		if body.ID == "" {
-			return nil, cerr.Validation("id is required")
-		}
-
-		doc, err := c.GetDoc("ToDo", body.ID)
-		if err != nil {
-			return nil, err
-		}
-
-		roles, _ := c.Roles()
-		isMgr := c.User == "Admin" || slices.Contains(roles, "System Manager")
-		if !isMgr && c.User != doc.Str("allocated_to") && c.User != doc.Str("assigned_by") {
-			return nil, cerr.Permission("No permission to reopen this task")
-		}
-
-		doc["status"] = "Open"
-		saved, err := c.Save(doc, engine.SaveOpts{})
-		if err != nil {
-			return nil, err
-		}
-
-		if refType, refName := doc.Str("reference_type"), doc.Str("reference_id"); refType != "" && refName != "" {
-			addTimelineComment(c, refType, refName, fmt.Sprintf("%s reopened assignment", c.User))
-		}
-
-		return saved, nil
-	})
+	s.changeAssignment(assignmentChange{
+		status: "Open",
+		denied: "No permission to reopen this task",
+		timeline: func(c *engine.Ctx, _ engine.Doc) string {
+			return fmt.Sprintf("%s reopened assignment", c.User)
+		},
+		returnsDoc: true,
+	})(w, r)
 }
 
 func (s *Server) listDocAssignments(w http.ResponseWriter, r *http.Request) {
