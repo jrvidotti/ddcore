@@ -112,15 +112,6 @@ func mcpOpts() loadOpts {
 	return loadOpts{Dev: true, DeferDB: true}
 }
 
-// siteApps lists the apps ddcore.json names, as the runtime compiles them.
-func siteApps(cfg *config.File) []js.App {
-	var apps []js.App
-	for _, dir := range cfg.Apps {
-		apps = append(apps, js.App{Name: js.AppName(dir), Dir: dir})
-	}
-	return apps
-}
-
 // engineConfig maps the site's configuration to the engine's.
 func engineConfig(cfg *config.File, o loadOpts) (engine.Config, error) {
 	root, err := filepath.Abs(filepath.Dir(cfg.Path))
@@ -154,8 +145,12 @@ func engineConfig(cfg *config.File, o loadOpts) (engine.Config, error) {
 	if enter != "" && !cfg.Tenancy {
 		return engine.Config{}, fmt.Errorf(`--tenant needs "tenancy": true in ddcore.json`)
 	}
+	var apps []js.App
+	for _, dir := range cfg.Apps {
+		apps = append(apps, js.App{Name: js.AppName(dir), Dir: dir})
+	}
 	ec := engine.Config{
-		DSN: cfg.DSN, Apps: siteApps(cfg), DDCore: cfg.DDCore, Workers: cfg.Workers.Total(), Scheduler: cfg.Scheduler, Tenancy: cfg.Tenancy, TenantRole: cfg.TenantRole, PoolMaxConns: cfg.PoolMaxConns, EnterTenant: enter, Dev: o.Dev || config.DevFromEnv(), Test: o.Test,
+		DSN: cfg.DSN, Apps: apps, DDCore: cfg.DDCore, Workers: cfg.Workers.Total(), Scheduler: cfg.Scheduler, Tenancy: cfg.Tenancy, TenantRole: cfg.TenantRole, PoolMaxConns: cfg.PoolMaxConns, EnterTenant: enter, Dev: o.Dev || config.DevFromEnv(), Test: o.Test,
 		Port: cfg.Port, SiteTitle: cfg.Title, Lang: cfg.Lang, Currency: cfg.Currency, CurrencyPrecision: cfg.CurrencyPrecision, Rounding: cfg.RoundingMode(), Timezone: cfg.Timezone, DataDir: cfg.DataDir, Root: root, ExportMaxRows: cfg.ExportMaxRows, ImportMaxRows: cfg.ImportMaxRows, LogLevel: level,
 		Auth: cfg.Auth, Ops: cfg.Ops, LogJSON: logJSON(out), LogOut: out, Mail: cfg.Mail, Webhooks: cfg.Webhooks, Storage: cfg.Storage, SiteURL: cfg.PublicURL(), TrustProxy: cfg.TrustProxy, CORS: cfg.CORS, Login: cfg.Login, Feedback: cfg.Feedback, AI: cfg.AI, OIDC: cfg.OIDC, Portal: cfg.Portal, Map: cfg.Map,
 		EnforceMaintenance: o.EnforceMaintenance, AllowOlderBinary: config.AllowOlderBinaryFromEnv(), AdminPassword: cfg.AdminPassword, DeferDB: o.DeferDB,
@@ -166,20 +161,14 @@ func engineConfig(cfg *config.File, o loadOpts) (engine.Config, error) {
 	return ec, nil
 }
 
-// newEngine creates the engine cfg describes, saying nothing about the
-// configuration itself.
-func newEngine(cfg *config.File, o loadOpts) (*engine.Engine, error) {
+// loadSite creates the engine cfg describes and tells the log what is off
+// about the configuration.
+func loadSite(cfg *config.File, o loadOpts) (*engine.Engine, error) {
 	ec, err := engineConfig(cfg, o)
 	if err != nil {
 		return nil, err
 	}
-	return engine.New(context.Background(), ec)
-}
-
-// loadSite is newEngine, and then tells the log what is off about the
-// configuration.
-func loadSite(cfg *config.File, o loadOpts) (*engine.Engine, error) {
-	e, err := newEngine(cfg, o)
+	e, err := engine.New(context.Background(), ec)
 	if err == nil {
 		warnConfig(e, cfg)
 	}

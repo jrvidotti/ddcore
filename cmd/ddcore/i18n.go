@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 
 	"github.com/jrvidotti/ddcore/internal/config"
+	"github.com/jrvidotti/ddcore/internal/engine"
 	"github.com/jrvidotti/ddcore/internal/i18nx"
 )
 
@@ -53,7 +55,11 @@ func i18nExtract(args []string) error {
 	if err != nil {
 		return err
 	}
-	e, err := newEngine(cfg, loadOpts{NoDB: true, Quiet: true})
+	ec, err := engineConfig(cfg, loadOpts{NoDB: true, Quiet: true})
+	if err != nil {
+		return err
+	}
+	e, err := engine.New(context.Background(), ec)
 	if err != nil {
 		return err
 	}
