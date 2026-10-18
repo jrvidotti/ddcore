@@ -3,6 +3,8 @@
 // the work away. Storage is passed in rather than reached for, which keeps this
 // module testable where there is no `localStorage`.
 
+import { defaultStore } from "./storage";
+
 export interface Draft {
   doctype: string;
   /** the record's id, or "new" while it has none */
@@ -30,9 +32,7 @@ export const DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 /** The browser's storage, or null where there is none (SSR, private mode). */
 export function localDrafts(): DraftStore | null {
-  try {
-    return (globalThis as any).localStorage ?? null;
-  } catch { /* private mode */ return null; }
+  return defaultStore();
 }
 
 /** A draft belongs to one user on this machine, and to one record. */

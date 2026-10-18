@@ -1,5 +1,6 @@
 import type { Field } from "$lib/meta";
 import { isNumericFieldtype } from "../meta";
+import { defaultStore } from "../storage";
 
 export const listPageSizes = [20, 50, 100, 500] as const;
 
@@ -131,18 +132,10 @@ export function countListFilters(state: Pick<ListUrlState, "filters" | "search" 
 
 type Store = { getItem(k: string): string | null; setItem(k: string, v: string): void };
 
-function defaultStore(): Store | null {
-  try {
-    return (globalThis as any).localStorage ?? null;
-  } catch {
-    return null;
-  }
-}
-
 const filtersKey = (doctype: string) => `ddcore_filters_${doctype}`;
 
 /** Keeps the Filters button's last choice for a DocType in the browser. */
-export function rememberFiltersOpen(doctype: string, open: boolean, store = defaultStore()): void {
+export function rememberFiltersOpen(doctype: string, open: boolean, store: Store | null = defaultStore()): void {
   try {
     store?.setItem(filtersKey(doctype), open ? "open" : "closed");
   } catch {
@@ -154,7 +147,7 @@ export function rememberFiltersOpen(doctype: string, open: boolean, store = defa
  * Whether a DocType's filter card starts open: the user's last choice, else
  * hidden unless the app opted out with `defineListView({ filtersCollapsed: false })`.
  */
-export function filtersOpen(doctype: string, collapsed: boolean | undefined, store = defaultStore()): boolean {
+export function filtersOpen(doctype: string, collapsed: boolean | undefined, store: Store | null = defaultStore()): boolean {
   try {
     const v = store?.getItem(filtersKey(doctype));
     if (v === "open" || v === "closed") return v === "open";

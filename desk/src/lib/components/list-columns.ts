@@ -9,6 +9,7 @@
 import type { ListViewOptions } from "../desk-sdk";
 import { isLayout, isTableType, type DocTypeMeta, type Field } from "../meta";
 import { showIDColumn } from "./views/id-column";
+import { defaultStore } from "../storage";
 
 /** What a user changed: the visible fields in order, and the id and Modified columns. */
 export interface ColumnChoice {
@@ -126,20 +127,12 @@ export function searchFields(doctype: DocTypeMeta, columns: Field[]): string[] {
 
 type Store = { getItem(k: string): string | null; setItem(k: string, v: string): void; removeItem(k: string): void };
 
-function defaultStore(): Store | null {
-  try {
-    return (globalThis as any).localStorage ?? null;
-  } catch {
-    return null;
-  }
-}
-
 /** Where a user's choice for a DocType is kept: per user and tenant ("" is the platform space). */
 export const columnsKey = (user: string | null | undefined, tenant: string | null | undefined, doctype: string) =>
   `ddcore_columns:${user || "guest"}:${tenant || ""}:${doctype}`;
 
 /** The stored choice, or `null` when there is none (or it is not one). */
-export function loadColumnChoice(key: string, store = defaultStore()): ColumnChoice | null {
+export function loadColumnChoice(key: string, store: Store | null = defaultStore()): ColumnChoice | null {
   try {
     const raw = store?.getItem(key);
     if (!raw) return null;
@@ -156,7 +149,7 @@ export function loadColumnChoice(key: string, store = defaultStore()): ColumnCho
 }
 
 /** Keeps a choice, or deletes it with `null` (back to the app's default). */
-export function saveColumnChoice(key: string, choice: ColumnChoice | null, store = defaultStore()): void {
+export function saveColumnChoice(key: string, choice: ColumnChoice | null, store: Store | null = defaultStore()): void {
   try {
     if (choice) store?.setItem(key, JSON.stringify(choice));
     else store?.removeItem(key);

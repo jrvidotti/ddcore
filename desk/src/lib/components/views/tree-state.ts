@@ -6,6 +6,8 @@
  * The empty string is the key of the roots, which is also what the API calls
  * the parent of a root.
  */
+import { defaultStore } from "../../storage";
+
 export interface TreeNode {
   id: string;
   title: string;
@@ -183,17 +185,9 @@ export type TreeExpandMode = "expanded" | "collapsed";
 
 type Store = { getItem(k: string): string | null; setItem(k: string, v: string): void };
 
-function defaultStore(): Store | null {
-  try {
-    return (globalThis as any).localStorage ?? null;
-  } catch {
-    return null;
-  }
-}
-
 const expandKey = (doctype: string) => `ddcore_tree_expand_${doctype}`;
 
-export function rememberTreeExpand(doctype: string, mode: TreeExpandMode, store = defaultStore()): void {
+export function rememberTreeExpand(doctype: string, mode: TreeExpandMode, store: Store | null = defaultStore()): void {
   try {
     store?.setItem(expandKey(doctype), mode);
   } catch {
@@ -201,7 +195,7 @@ export function rememberTreeExpand(doctype: string, mode: TreeExpandMode, store 
   }
 }
 
-export function getRememberedTreeExpand(doctype: string, store = defaultStore()): TreeExpandMode | "" {
+export function getRememberedTreeExpand(doctype: string, store: Store | null = defaultStore()): TreeExpandMode | "" {
   try {
     const v = store?.getItem(expandKey(doctype));
     return v === "expanded" || v === "collapsed" ? v : "";

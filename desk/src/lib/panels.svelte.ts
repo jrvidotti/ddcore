@@ -2,21 +2,15 @@
 // sidebar and the form's right column. A per-browser choice, like the other
 // `ddcore_*` view preferences.
 
-type Store = { getItem(k: string): string | null; setItem(k: string, v: string): void };
+import { defaultStore } from "./storage";
 
-function defaultStore(): Store | null {
-  try {
-    return (globalThis as any).localStorage ?? null;
-  } catch {
-    return null;
-  }
-}
+type Store = { getItem(k: string): string | null; setItem(k: string, v: string): void };
 
 export const SIDEBAR_KEY = "ddcore_sidebar";
 export const DOC_SIDEBAR_KEY = "ddcore_doc_sidebar";
 
 /** The remembered choice for a bar; expanded when nothing valid is stored. */
-export function panelCollapsed(key: string, store = defaultStore()): boolean {
+export function panelCollapsed(key: string, store: Store | null = defaultStore()): boolean {
   try {
     return store?.getItem(key) === "collapsed";
   } catch {
@@ -24,7 +18,7 @@ export function panelCollapsed(key: string, store = defaultStore()): boolean {
   }
 }
 
-export function rememberPanelCollapsed(key: string, collapsed: boolean, store = defaultStore()): void {
+export function rememberPanelCollapsed(key: string, collapsed: boolean, store: Store | null = defaultStore()): void {
   try {
     store?.setItem(key, collapsed ? "collapsed" : "expanded");
   } catch {
@@ -37,12 +31,12 @@ export const panels = $state({
   docSidebarCollapsed: panelCollapsed(DOC_SIDEBAR_KEY),
 });
 
-export function setSidebarCollapsed(collapsed: boolean, store = defaultStore()): void {
+export function setSidebarCollapsed(collapsed: boolean, store: Store | null = defaultStore()): void {
   panels.sidebarCollapsed = collapsed;
   rememberPanelCollapsed(SIDEBAR_KEY, collapsed, store);
 }
 
-export function setDocSidebarCollapsed(collapsed: boolean, store = defaultStore()): void {
+export function setDocSidebarCollapsed(collapsed: boolean, store: Store | null = defaultStore()): void {
   panels.docSidebarCollapsed = collapsed;
   rememberPanelCollapsed(DOC_SIDEBAR_KEY, collapsed, store);
 }
