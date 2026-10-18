@@ -70,7 +70,7 @@
           bind:value={search}
         />
         {#if search}
-          <button class="btn icon sm clear-btn" onclick={() => (search = "")} aria-label="Limpar">
+          <button class="btn icon sm clear-btn" onclick={() => (search = "")} aria-label={__("Clear")}>
             <Icon name="x" size={12} />
           </button>
         {/if}

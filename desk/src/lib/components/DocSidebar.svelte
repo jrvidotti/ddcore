@@ -442,7 +442,7 @@
           <Icon name="history" size={18} />
           <h3>{__("Change history")} · {frm.doc.id}</h3>
         </div>
-        <button class="btn icon" onclick={() => (showModal = false)} aria-label="Fechar">
+        <button class="btn icon" onclick={() => (showModal = false)} aria-label={__("Close")}>
           <Icon name="x" size={16} />
         </button>
       </div>

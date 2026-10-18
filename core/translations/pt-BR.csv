@@ -138,12 +138,14 @@ Choose files,Escolher arquivos,# desk/src/lib/components/FeedbackModal.svelte:32
 Choose image,Escolher imagem,# desk/src/lib/controls/AttachControl.svelte:86
 Choose on or off for each email notification,Escolha ligado ou desligado para cada notificação por e-mail,# core/services/profile.ts:92
 Choose the columns,Escolher as colunas,# desk/src/lib/components/views/ColumnMenu.svelte:79
+Choose the type first,Escolha o tipo antes,# desk/src/lib/controls/LinkControl.svelte:179
 Choose the {0} to merge into,Escolha o {0} em que mesclar,# internal/engine/merge.go:372
 Choose where to sign in,Escolha onde entrar,# internal/engine/credentials.go:299
 "Chromium PDF conversion failed: {0}, output: {1}","Falha na conversão de PDF via Chromium: {0}, saída: {1}",# internal/print/pdf.go:220
-Clear,Limpar,# desk/src/lib/controls/ColorControl.svelte:258
+Clear,Limpar,# desk/src/lib/components/DocHistory.svelte:73
 Clear filters,Limpar filtros,# desk/src/lib/components/ListView.svelte:610
 Clear selection,Limpar seleção,# desk/src/lib/components/ReportGrid.svelte:96
+Clear {0} ({1}),Limpar {0} ({1}),# desk/src/lib/controls/LinkControl.svelte:187
 Click a shape to delete it,Clique em uma forma para apagá-la,# desk/src/lib/controls/GeolocationControl.svelte:220
 Click the map to add a point,Clique no mapa para adicionar um ponto,# desk/src/lib/controls/GeolocationControl.svelte:217
 Click to add each corner; double-click or Finish to close the polygon,Clique para adicionar cada vértice; clique duas vezes ou em Concluir para fechar o polígono,# desk/src/lib/controls/GeolocationControl.svelte:219
@@ -220,7 +222,7 @@ Discard,Descartar,# desk/src/lib/components/FormView.svelte:499
 Discard changes,Descartar alterações,# desk/src/lib/components/FormView.svelte:206
 Discard your unsaved changes?,Descartar suas alterações não salvas?,# desk/src/lib/components/FormView.svelte:213
 DocType,DocType,# core.doctypes.comment.comment.doctype
-DocType {0} does not exist,DocType {0} não existe,# internal/engine/engine.go:941
+DocType {0} does not exist,DocType {0} não existe,# internal/engine/engine.go:933
 Document,Documento,# core.doctypes.comment.comment.doctype
 Document Events,Eventos do Documento,# core.doctypes.webhook.webhook.doctype
 Document Share,Compartilhamento de Documento,# core.doctypes.document_share.document_share.doctype
@@ -548,6 +550,7 @@ Open the date picker,Abrir seletor de data,# desk/src/lib/controls/DateControl.s
 Open the full form,Abrir o formulário completo,# desk/src/lib/quick-create.ts:56
 Open the full history,Abrir histórico completo,# desk/src/lib/components/DocSidebar.svelte:411
 Open the month picker,Abrir seletor de mês,# desk/src/lib/controls/MonthControl.svelte:202
+Open {0} ({1}),Abrir {0} ({1}),# desk/src/lib/controls/LinkControl.svelte:189
 "Optional DocType to restrict this rule to. If empty, applies globally.","DocType opcional para restringir esta regra. Se vazio, aplica globalmente.",# core.doctypes.user_permission.user_permission.doctype
 Origin,Origem,# core/mail/feedback.mail.ts:61
 Outcome,Resultado,# core.doctypes.audit_event.audit_event.doctype
@@ -797,7 +800,7 @@ The record has no id,O registro não tem id,# internal/engine/import_batch.go:28
 The sign-in expired or was started in another browser. Try again.,O acesso expirou ou foi iniciado em outro navegador. Tente novamente.,# desk/src/routes/login/+page.svelte:52
 The signature in {0} is too large (at most {1} KiB),A assinatura em {0} é grande demais (no máximo {1} KiB),# internal/signature/signature.go:108
 The signature in {0} is too large (at most {1} by {2} pixels),A assinatura em {0} é grande demais (no máximo {1} por {2} pixels),# internal/signature/signature.go:110
-The site is in maintenance mode; changes are paused. Try again shortly.,O site está em modo de manutenção; as alterações estão pausadas. Tente novamente em instantes.,# internal/engine/maintenance.go:192
+The site is in maintenance mode; changes are paused. Try again shortly.,O site está em modo de manutenção; as alterações estão pausadas. Tente novamente em instantes.,# internal/engine/maintenance.go:178
 The tenant {0} is disabled,A conta {0} está desativada,# internal/engine/tenancy.go:339
 The text is too long to preview,O texto é longo demais para pré-visualizar,# internal/api/api.go:1288
 The webhook of delivery {0} was deleted,O webhook da entrega {0} foi excluído,# internal/engine/webhooks.go:596
@@ -946,7 +949,7 @@ ddcore.ai.transcribe: the audio is not valid base64,ddcore.ai.transcribe: o áud
 ddcore.ai.transcribe: {0},ddcore.ai.transcribe: {0},# internal/engine/ai.go:56
 ddcore.db.lock requires a transaction,ddcore.db.lock exige uma transação,# internal/engine/query.go:866
 ddcore.db.lock: provide a key,ddcore.db.lock: informe uma chave,# internal/engine/query.go:863
-ddcore.db.savepoint requires a transaction,ddcore.db.savepoint exige uma transação,# internal/engine/engine.go:1370
+ddcore.db.savepoint requires a transaction,ddcore.db.savepoint exige uma transação,# internal/engine/engine.go:1362
 ddcore.db.sql only accepts SELECT,ddcore.db.sql aceita apenas SELECT,# internal/engine/query.go:820
 ddcore.db.tryLock requires a transaction,ddcore.db.tryLock exige uma transação,# internal/engine/query.go:881
 ddcore.db.tryLock: provide a key,ddcore.db.tryLock: informe uma chave,# internal/engine/query.go:878
@@ -954,7 +957,7 @@ ddcore.externalDb().sql only accepts SELECT,ddcore.externalDb().sql aceita apena
 ddcore.externalDb: provide a name,ddcore.externalDb: informe um nome,# internal/engine/externaldb.go:52
 ddcore.test is only available inside ddcore test,ddcore.test só está disponível dentro do ddcore test,# internal/engine/ai.go:45
 ddcore.test.asUser needs a user,ddcore.test.asUser precisa de um usuário,# internal/engine/asuser.go:159
-doctype and id are required,doctype e id são obrigatórios,# internal/api/workflow.go:78
+doctype and id are required,doctype e id são obrigatórios,# internal/api/workflow.go:81
 "doctype, id and action are required","doctype, id e action são obrigatórios",# internal/api/workflow.go:56
 "doctype, id and allocated_to are required","doctype, id e allocated_to são obrigatórios",# internal/api/assignments.go:40
 "doctype, id and user are required","doctype, id e user são obrigatórios",# internal/api/shares.go:65
@@ -1015,7 +1018,7 @@ m,min,# desk/src/lib/controls/DurationControl.svelte:23
 manifest.json is not readable: {0},manifest.json não pôde ser lido: {0},# internal/engine/import_source.go:64
 manifest.json lists no exports,manifest.json não lista nenhuma exportação,# internal/engine/import_source.go:70
 never,nunca,# desk/src/lib/components/Profile.svelte:282
-no savepoint is open,nenhum savepoint está aberto,# internal/engine/engine.go:1390
+no savepoint is open,nenhum savepoint está aberto,# internal/engine/engine.go:1382
 or,ou,# desk/src/routes/login/+page.svelte:100
 "or drag them here, or paste a screenshot","ou arraste-os para cá, ou cole uma captura de tela",# desk/src/lib/components/FeedbackModal.svelte:327
 patch sql: {0},sql do patch: {0},# internal/engine/query.go:803
@@ -1054,7 +1057,7 @@ webhook payload for {0} is not JSON: {1},o conteúdo do webhook para {0} não é
 "{0} already belongs to a file of another tenant: storage keys are site-wide, so loading it here would overwrite that file","{0} já pertence a um arquivo de outra conta: as chaves de armazenamento valem para o site todo, então carregá-lo aqui sobrescreveria esse arquivo",# internal/engine/import_files.go:141
 {0} already exists,{0} já existe,# internal/engine/doc.go:2191
 {0} already exists on {1} {2},{0} já existe em {1} {2},# internal/engine/doc.go:2137
-{0} applied action '{1}' ({2} → {3}),{0} aplicou a ação '{1}' ({2} → {3}),# internal/engine/workflow.go:187
+{0} applied action '{1}' ({2} → {3}),{0} aplicou a ação '{1}' ({2} → {3}),# internal/engine/workflow.go:186
 {0} assigned {1} {2} to you,{0} atribuiu {1} {2} a você,# internal/api/assignments.go:89
 {0} cannot be changed after submission,Não é permitido alterar {0} depois do envio,# internal/engine/doc.go:2261
 {0} cannot be changed here,{0} não pode ser alterado aqui,# internal/api/portal.go:411
