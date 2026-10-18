@@ -405,8 +405,6 @@ func cmdServe(args []string, dev bool) error {
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
-	// The server's log is its output: stdout, where nothing else is written and
-	// where a platform reads it as a log instead of as a stream of errors.
 	e, cfg, err := load(serveOpts(dev))
 	if err != nil {
 		return err
@@ -553,7 +551,7 @@ func cmdMigrate(args []string) error {
 	})
 }
 
-// cmdTypes needs the apps' registry and no database: it never reads a row.
+// cmdTypes writes the typings; see loadOpts.NoDB.
 func cmdTypes(args []string) error {
 	return withSite(loadOpts{NoDB: true}, writeTypes)
 }

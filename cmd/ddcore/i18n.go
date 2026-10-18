@@ -49,8 +49,7 @@ func i18nExtract(args []string) error {
 		*app = ""
 	}
 
-	// Without a database: extraction reads the app sources and the registry
-	// they produce, exactly as `ddcore types` does, and never a row.
+	// no database, like `ddcore types`
 	cfg, _, err := config.Load(".")
 	if err != nil {
 		return err
