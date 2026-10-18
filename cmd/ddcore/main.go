@@ -21,6 +21,7 @@ import (
 	"syscall"
 	"time"
 
+	ddcore "github.com/jrvidotti/ddcore"
 	"github.com/jrvidotti/ddcore/desk"
 	"github.com/jrvidotti/ddcore/internal/api"
 	"github.com/jrvidotti/ddcore/internal/config"
@@ -407,7 +408,7 @@ func writeEnvExample() error {
 	if _, err := os.Stat(name); err == nil {
 		return nil
 	}
-	if err := os.WriteFile(name, []byte(config.EnvExample), 0o644); err != nil {
+	if err := os.WriteFile(name, []byte(ddcore.EnvExample), 0o644); err != nil {
 		return err
 	}
 	fmt.Println("created", name, "— copy to .env for this machine's database, URL and mail")
