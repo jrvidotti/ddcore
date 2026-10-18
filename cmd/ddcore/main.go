@@ -209,9 +209,7 @@ func warnConfig(e *engine.Engine, cfg *config.File) {
 	}
 }
 
-// withSite opens the engine, runs fn and closes the pool. Most commands need
-// exactly that: it is what `withEngine` is when fn has no use for the site's
-// configuration.
+// withSite opens the engine, runs fn with the site's configuration and closes the pool.
 func withSite(o loadOpts, fn func(*engine.Engine, *config.File) error) error {
 	e, cfg, err := load(o)
 	if err != nil {
@@ -223,8 +221,7 @@ func withSite(o loadOpts, fn func(*engine.Engine, *config.File) error) error {
 	return fn(e, cfg)
 }
 
-// withEngine is withSite for a command that runs as Admin in a context of its
-// own.
+// withEngine is withSite for a command that needs no configuration, only a context.
 func withEngine(o loadOpts, fn func(*engine.Engine, context.Context) error) error {
 	return withSite(o, func(e *engine.Engine, _ *config.File) error {
 		return fn(e, context.Background())

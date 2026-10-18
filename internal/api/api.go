@@ -469,9 +469,9 @@ func queryFields(r *http.Request) ([]string, error) {
 }
 
 // pageLimit reads a page size: def when it is left out, not a number or not
-// within 1..max (a limit of 0 or less is never "everything" here).
-func pageLimit(q url.Values, def, max int) int {
-	if n, err := strconv.Atoi(q.Get("limit")); err == nil && n > 0 && n <= max {
+// within 1..most (a limit of 0 or less is never "everything" here).
+func pageLimit(q url.Values, def, most int) int {
+	if n, err := strconv.Atoi(q.Get("limit")); err == nil && n > 0 && n <= most {
 		return n
 	}
 	return def

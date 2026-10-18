@@ -185,7 +185,7 @@ func cmdRestore(args []string) error {
 		if err != nil {
 			return err
 		}
-		ec.DSN = ""
+		ec.DSN = "" // not NoDB: the engine keeps --tenant (EnterTenant) for after the restore
 		if e, err = engine.New(ctx, ec); err != nil {
 			return fmt.Errorf("loading the apps: %w", err)
 		}

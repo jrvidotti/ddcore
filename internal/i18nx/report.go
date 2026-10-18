@@ -7,10 +7,6 @@ import (
 	"github.com/jrvidotti/ddcore/internal/engine"
 )
 
-// Report is what one extraction run found, per catalogue. `ddcore i18n
-// extract` prints it and the i18n_extract tool returns it as JSON, so both
-// say the same thing about the same run.
-
 // ReportKey is a missing key: the English text and where the code has it.
 type ReportKey struct {
 	Key string `json:"key"`
@@ -38,7 +34,8 @@ type TargetReport struct {
 }
 
 // Report is the run over every target of one language; Missing totals the
-// targets'.
+// targets'. `ddcore i18n extract` prints it and the i18n_extract tool returns
+// it as JSON.
 type Report struct {
 	Lang    string         `json:"lang"`
 	Missing int            `json:"missing"`
