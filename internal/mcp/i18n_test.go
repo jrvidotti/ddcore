@@ -154,3 +154,22 @@ func TestI18nOverrideOfACoreKey(t *testing.T) {
 		t.Errorf("prune must keep the override:\n%s", b)
 	}
 }
+
+// generate_types writes into the apps on disk and leaves the embedded core
+// alone.
+func TestWriteTypesSkipsTheEmbeddedCore(t *testing.T) {
+	e, csvPath := i18nEngine(t)
+	s := &server{e: e}
+	got, err := s.writeTypes()
+	if err != nil {
+		t.Fatal(err)
+	}
+	appDir := filepath.Dir(filepath.Dir(csvPath))
+	if want := filepath.Join(appDir, ".ddcore/types.d.ts"); len(got) != 1 || got[0] != want {
+		t.Fatalf("written = %v, want [%s]", got, want)
+	}
+	b, err := os.ReadFile(got[0])
+	if err != nil || !strings.Contains(string(b), "Produto") {
+		t.Errorf("types.d.ts = %q, %v", b, err)
+	}
+}

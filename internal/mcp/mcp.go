@@ -194,7 +194,7 @@ func New(e *engine.Engine) *mcp.Server {
 			if err != nil {
 				return fail(err)
 			}
-			s.writeTypes()
+			_, typesErr := s.writeTypes()
 			out := map[string]any{
 				"report": db.Report(res.DDL), "ddl": db.SQL(res.DDL), "patches": res.Patches,
 				"installed": res.Installed, "renames": res.Renames, "recorded": res.Recorded,
@@ -202,6 +202,10 @@ func New(e *engine.Engine) *mcp.Server {
 			if res.AdminPassword != "" {
 				// Shown once, like the CLI does: the database keeps only the hash.
 				out["adminPassword"] = res.AdminPassword
+			}
+			if typesErr != nil {
+				// The schema is migrated whatever happens to the typings.
+				out["typesError"] = typesErr.Error()
 			}
 			return text(out), nil, nil
 		})
@@ -292,7 +296,11 @@ func New(e *engine.Engine) *mcp.Server {
 
 	mcp.AddTool(srv, &mcp.Tool{Name: "generate_types", Description: "Generates .ddcore/types.d.ts (TS interfaces per DocType) in each app."},
 		func(ctx context.Context, req *mcp.CallToolRequest, in struct{}) (*mcp.CallToolResult, any, error) {
-			return text(s.writeTypes()), nil, nil
+			written, err := s.writeTypes()
+			if err != nil {
+				return fail(err)
+			}
+			return text(written), nil, nil
 		})
 
 	// ---- data
@@ -761,17 +769,16 @@ func (s *server) run(ctx context.Context, fn func(c *engine.Ctx) error) error {
 	return s.e.Run(ctx, "Admin", fn)
 }
 
-func (s *server) writeTypes() []string {
-	var out []string
+// writeTypes writes .ddcore/types.d.ts into every app on disk, the core
+// (embedded) excepted, and returns the paths it wrote.
+func (s *server) writeTypes() ([]string, error) {
+	var dirs []string
 	for _, a := range s.e.Apps {
-		if a.Embedded != nil {
-			continue
-		}
-		if err := typegen.Write(a.Dir, s.e.Meta); err == nil {
-			out = append(out, filepath.Join(a.Dir, ".ddcore/types.d.ts"))
+		if a.Embedded == nil {
+			dirs = append(dirs, a.Dir)
 		}
 	}
-	return out
+	return typegen.WriteAll(dirs, s.e.Meta)
 }
 
 func testConfig(e *engine.Engine) engine.Config {

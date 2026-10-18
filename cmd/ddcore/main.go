@@ -574,13 +574,11 @@ func cmdTypes(args []string) error {
 
 // writeTypes writes each app's .ddcore/types.d.ts from the registry e holds.
 func writeTypes(e *engine.Engine, cfg *config.File) error {
-	for _, dir := range cfg.Apps {
-		if err := typegen.Write(dir, e.Meta); err != nil {
-			return err
-		}
-		fmt.Println("types:", filepath.Join(dir, ".ddcore/types.d.ts"))
+	written, err := typegen.WriteAll(cfg.Apps, e.Meta)
+	for _, path := range written {
+		fmt.Println("types:", path)
 	}
-	return nil
+	return err
 }
 
 func testFlags() (*flag.FlagSet, *string, *bool, *string) {

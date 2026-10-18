@@ -126,6 +126,20 @@ func materialize(embedded fs.FS, appDir, target string) error {
 	})
 }
 
+// WriteAll runs Write over each app directory in turn and returns the
+// types.d.ts paths it wrote. It stops at the first error; the paths written
+// before it are still returned.
+func WriteAll(appDirs []string, reg *meta.Registry) ([]string, error) {
+	var written []string
+	for _, dir := range appDirs {
+		if err := Write(dir, reg); err != nil {
+			return written, err
+		}
+		written = append(written, filepath.Join(dir, ".ddcore/types.d.ts"))
+	}
+	return written, nil
+}
+
 // Write puts generated DocType declarations and the embedded SDK sources under
 // <appDir>/.ddcore, so typechecking never depends on a framework checkout.
 func Write(appDir string, reg *meta.Registry) error {
