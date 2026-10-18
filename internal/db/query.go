@@ -84,8 +84,6 @@ func Ident(s string) string {
 	return `"` + s + `"`
 }
 
-func ValidIdent(s string) bool { return identRe.MatchString(s) }
-
 // Builder accumulates SQL fragments with numbered placeholders.
 type Builder struct {
 	Args []any

@@ -9,7 +9,6 @@ import (
 	"io"
 	"log/slog"
 	"maps"
-	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
@@ -61,7 +60,6 @@ type Config struct {
 	// SiteTitle is ddcore.json's `title`: the site's name when it is not its
 	// app's title. Empty leaves the name to the apps.
 	SiteTitle string
-	SecretKey string
 	// AdminPassword is DDCORE_ADMIN_PASSWORD: what a migration gives an Admin
 	// that has no password yet, instead of generating one. Empty generates.
 	AdminPassword string
@@ -1223,18 +1221,6 @@ func (c *Ctx) WorkflowFor(doctype string) *js.Workflow {
 	return c.St.WorkflowFor(doctype)
 }
 
-// InWorkflowTransition reports whether execution is currently inside a workflow transition.
-func (c *Ctx) InWorkflowTransition() bool {
-	return c != nil && c.inWorkflowTransition
-}
-
-// SetInWorkflowTransition sets the workflow transition guard bypass flag.
-func (c *Ctx) SetInWorkflowTransition(v bool) {
-	if c != nil {
-		c.inWorkflowTransition = v
-	}
-}
-
 // WithWorkflowTransition runs fn with inWorkflowTransition set to true.
 func (c *Ctx) WithWorkflowTransition(fn func() error) error {
 	old := c.inWorkflowTransition
@@ -1444,14 +1430,6 @@ func (c *Ctx) SavepointRollback() error {
 // AppDir returns the directory of an app (for reading form scripts etc.).
 func (e *Engine) AppDir(name string) string {
 	return e.App(name).Dir
-}
-
-func abs(p string) string {
-	a, err := filepath.Abs(p)
-	if err != nil {
-		return p
-	}
-	return a
 }
 
 // RunTests executes the app tests inside one rolled-back transaction.

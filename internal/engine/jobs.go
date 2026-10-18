@@ -1051,12 +1051,6 @@ func (e *Engine) claimTick(ctx context.Context, entry string) bool {
 	return claimed
 }
 
-// RestartScheduler rebuilds the cron entries from the current state and stops
-// the previous scheduler. Load already does this for a running scheduler.
-func (e *Engine) RestartScheduler(ctx context.Context) *cron.Cron {
-	return e.StartScheduler(ctx)
-}
-
 // StopScheduler stops the scheduler currently registered, if any, and waits
 // for the entries already firing to finish enqueuing — at most a few seconds,
 // so a process stopping does not exit under one.

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/jrvidotti/ddcore/internal/cerr"
-	"github.com/jrvidotti/ddcore/internal/db"
 	"github.com/jrvidotti/ddcore/internal/meta"
 )
 
@@ -164,5 +163,3 @@ func SeriesOptions(d *meta.DocType) []string {
 	}
 	return nil
 }
-
-var _ = db.Str

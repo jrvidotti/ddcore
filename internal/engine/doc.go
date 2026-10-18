@@ -1078,21 +1078,6 @@ func (c *Ctx) cancel(doc Doc, opts SaveOpts) (Doc, error) {
 	return c.Save(doc, opts)
 }
 
-// SaveDoc is an alias for Save.
-func (c *Ctx) SaveDoc(doc Doc, opts SaveOpts) (Doc, error) {
-	return c.Save(doc, opts)
-}
-
-// SubmitDoc is an alias for Submit.
-func (c *Ctx) SubmitDoc(doc Doc) (Doc, error) {
-	return c.Submit(doc)
-}
-
-// CancelDoc is an alias for Cancel.
-func (c *Ctx) CancelDoc(doc Doc) (Doc, error) {
-	return c.Cancel(doc)
-}
-
 // Amend creates a draft copy of a cancelled document.
 func (c *Ctx) Amend(doctype, name string) (Doc, error) {
 	d, err := c.St.DocType(doctype)

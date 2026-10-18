@@ -1050,15 +1050,6 @@ func (p *AdoptPreview) Collides() bool {
 	return false
 }
 
-// Moved is the rows per table, as AdoptPlatformRows reports them.
-func (p *AdoptPreview) Moved() map[string]int64 {
-	out := map[string]int64{}
-	for _, t := range p.Tables {
-		out[t.Table] = t.Rows
-	}
-	return out
-}
-
 // collisionSummary names each colliding key and a few of its values, for a
 // message: "tab_pessoa (id): Comum, Outro, and 3 more".
 func (p *AdoptPreview) collisionSummary() string {

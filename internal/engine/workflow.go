@@ -165,7 +165,7 @@ func (c *Ctx) ApplyWorkflowTransition(doctype, name, action string) (Doc, error)
 	var saved Doc
 	err = c.WithWorkflowTransition(func() error {
 		var saveErr error
-		saved, saveErr = c.SaveDoc(doc, SaveOpts{})
+		saved, saveErr = c.Save(doc, SaveOpts{})
 		return saveErr
 	})
 	if err != nil {

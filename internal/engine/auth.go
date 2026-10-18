@@ -9,7 +9,6 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"runtime"
 	"strconv"
 	"strings"
@@ -450,5 +449,3 @@ func RandomToken() string {
 	rand.Read(b)
 	return hex.EncodeToString(b)
 }
-
-var _ = fmt.Sprintf

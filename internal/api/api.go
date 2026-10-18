@@ -184,7 +184,7 @@ func New(e *engine.Engine, desk fs.FS) *Server {
 	r.Get("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/assets/site/favicon", http.StatusFound)
 	})
-	r.Get("/files/*", s.file)
+	r.Get("/files/*", s.serveUpload)
 	r.Get("/private/files/*", s.privateFile)
 	r.NotFound(s.notFound)
 	s.Router = r
@@ -1711,10 +1711,6 @@ func (s *Server) serveUpload(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) file(w http.ResponseWriter, r *http.Request) {
-	s.serveUpload(w, r)
-}
-
 // fileInfo describes one upload — its original name, size and type — to
 // whoever may read it. File itself is owner-only, so a colleague reading the
 // document could not ask /api/resource/File; the rule here is the one
@@ -1935,9 +1931,6 @@ func (s *Server) deskHandler(w http.ResponseWriter, r *http.Request) {
 func withHTMLLang(page []byte, lang string) []byte {
 	return bytes.Replace(page, []byte(`<html lang="en"`), []byte(`<html lang="`+html.EscapeString(lang)+`"`), 1)
 }
-
-var _ = errors.New
-var _ = db.Str
 
 // mergeBody applies a client's copy of a document over the stored one. A
 // secret field comes back null because redacted blanked it on the way out:

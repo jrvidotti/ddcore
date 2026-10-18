@@ -37,9 +37,9 @@ export default defineWorkflow({
 });`
 	os.WriteFile(filepath.Join(appDir, "workflows/order.workflow.ts"), []byte(wfDef), 0644)
 
-	bundle, err := js.BuildServerBundle(js.App{Name: "testapp", Dir: appDir}, false)
+	bundle, err := js.BuildServer(js.App{Name: "testapp", Dir: appDir}, false)
 	if err != nil {
-		t.Fatalf("BuildServerBundle failed: %v", err)
+		t.Fatalf("BuildServer failed: %v", err)
 	}
 
 	rt, err := js.New(bundle, nil)
@@ -108,7 +108,7 @@ func workflowRuntime(t *testing.T, wfCode string) (*js.Runtime, error) {
 	os.WriteFile(filepath.Join(appDir, "ddcore.app.ts"), []byte(appDef), 0644)
 	os.WriteFile(filepath.Join(appDir, "workflows/test.workflow.ts"), []byte(wfCode), 0644)
 
-	bundle, err := js.BuildServerBundle(js.App{Name: "testapp", Dir: appDir}, false)
+	bundle, err := js.BuildServer(js.App{Name: "testapp", Dir: appDir}, false)
 	if err != nil {
 		return nil, err
 	}
@@ -220,7 +220,7 @@ defineWorkflow({ name: "W1", doctype: "Order1", initialState: "Draft", states: [
 defineWorkflow({ name: "W1", doctype: "Order2", initialState: "Draft", states: [{state: "Draft"}], transitions: [{state: "Draft", action: "A", nextState: "Draft", allowed: "Role"}] });
 `
 		os.WriteFile(filepath.Join(appDir, "workflows/dup.workflow.ts"), []byte(wfDef), 0644)
-		bundle, err := js.BuildServerBundle(js.App{Name: "testapp", Dir: appDir}, false)
+		bundle, err := js.BuildServer(js.App{Name: "testapp", Dir: appDir}, false)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -241,7 +241,7 @@ defineWorkflow({ name: "W1", doctype: "Order", initialState: "Draft", states: [{
 defineWorkflow({ name: "W2", doctype: "Order", initialState: "Draft", states: [{state: "Draft"}], transitions: [{state: "Draft", action: "A", nextState: "Draft", allowed: "Role"}] });
 `
 		os.WriteFile(filepath.Join(appDir, "workflows/dup2.workflow.ts"), []byte(wfDef), 0644)
-		bundle, err := js.BuildServerBundle(js.App{Name: "testapp", Dir: appDir}, false)
+		bundle, err := js.BuildServer(js.App{Name: "testapp", Dir: appDir}, false)
 		if err != nil {
 			t.Fatal(err)
 		}
