@@ -604,12 +604,7 @@ func New(e *engine.Engine) *mcp.Server {
 			User   string `json:"user,omitempty"`
 			Limit  int    `json:"limit,omitempty"`
 		}) (*mcp.CallToolResult, any, error) {
-			f := engine.JobFilter{Queue: in.Queue, Method: in.Method, User: in.User, Limit: in.Limit}
-			for _, v := range strings.Split(in.Status, ",") {
-				if v = strings.TrimSpace(v); v != "" {
-					f.Status = append(f.Status, v)
-				}
-			}
+			f := engine.JobFilter{Status: engine.JobStatuses(in.Status), Queue: in.Queue, Method: in.Method, User: in.User, Limit: in.Limit}
 			rows, err := e.ListJobs(ctx, f)
 			if err != nil {
 				return fail(err)
@@ -674,11 +669,7 @@ func New(e *engine.Engine) *mcp.Server {
 			FailedDays *int `json:"failed_days,omitempty" jsonschema:"days to keep failed and cancelled jobs; 0 keeps them forever"`
 			DryRun     bool `json:"dry_run,omitempty"`
 		}) (*mcp.CallToolResult, any, error) {
-			o := engine.PurgeOpts{
-				DoneDays:   e.Cfg.Ops.DoneRetentionDays(),
-				FailedDays: e.Cfg.Ops.FailedRetentionDays(),
-				DryRun:     in.DryRun,
-			}
+			o := e.SitePurgeOpts(in.DryRun)
 			if in.DoneDays != nil {
 				o.DoneDays = *in.DoneDays
 			}

@@ -171,7 +171,7 @@ func (f jobFilterFlags) filter() (engine.JobFilter, error) {
 	out := engine.JobFilter{
 		Queue: *f.queue, Method: *f.method, User: *f.user, Limit: *f.limit,
 	}
-	out.Status = splitList(*f.status)
+	out.Status = engine.JobStatuses(*f.status)
 	if *f.since != "" {
 		t, err := parseSince(*f.since)
 		if err != nil {
@@ -383,11 +383,7 @@ func jobsPurge(args []string) error {
 		// Unset on the command line means "use what the site configured", which
 		// is also what the nightly sweep uses. -1 and not 0 because 0 is a real
 		// answer here: keep forever.
-		o := engine.PurgeOpts{
-			DoneDays:   e.Cfg.Ops.DoneRetentionDays(),
-			FailedDays: e.Cfg.Ops.FailedRetentionDays(),
-			DryRun:     *dry,
-		}
+		o := e.SitePurgeOpts(*dry)
 		if *done >= 0 {
 			o.DoneDays = *done
 		}

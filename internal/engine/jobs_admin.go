@@ -158,6 +158,17 @@ type PurgeOpts struct {
 	DryRun     bool
 }
 
+// SitePurgeOpts is the pass the site's own retention windows describe: what
+// the nightly sweep runs, and what an administrator's purge starts from before
+// overriding either window.
+func (e *Engine) SitePurgeOpts(dryRun bool) PurgeOpts {
+	return PurgeOpts{
+		DoneDays:   e.Cfg.Ops.DoneRetentionDays(),
+		FailedDays: e.Cfg.Ops.FailedRetentionDays(),
+		DryRun:     dryRun,
+	}
+}
+
 // PurgeCounts is what one pass removed, or would have removed on a dry run.
 type PurgeCounts struct {
 	Done   int `json:"done"`
@@ -306,10 +317,7 @@ func (e *Engine) SweepJobs(ctx context.Context) (PurgeCounts, error) {
 	}
 	var total PurgeCounts
 	for _, tenant := range spaces {
-		n, err := e.PurgeJobs(WithTenant(ctx, tenant), PurgeOpts{
-			DoneDays:   e.Cfg.Ops.DoneRetentionDays(),
-			FailedDays: e.Cfg.Ops.FailedRetentionDays(),
-		})
+		n, err := e.PurgeJobs(WithTenant(ctx, tenant), e.SitePurgeOpts(false))
 		if err != nil {
 			return total, err
 		}
@@ -354,6 +362,19 @@ func (e *Engine) purge(ctx context.Context, statuses []string, days int, dry boo
 const jobColumns = `id, method, queue, status, "user", run_as, enqueued, run_after, started, finished,
 	attempts, max_attempts, starts, timeout_seconds, lease_until, request_id,
 	cancel_requested, cancelled_by, retry_of, retried_as, on_start, on_failure, error`
+
+// JobStatuses reads a comma-separated status list, as `jobs list --status`, the
+// list_jobs tool and the jobs API take it: blanks are dropped, and an empty
+// list means every status.
+func JobStatuses(s string) []string {
+	var out []string
+	for _, v := range strings.Split(s, ",") {
+		if v = strings.TrimSpace(v); v != "" {
+			out = append(out, v)
+		}
+	}
+	return out
+}
 
 // JobFilter narrows a listing. Every field is optional and they combine with
 // AND, which is what an operator reading a queue expects.
