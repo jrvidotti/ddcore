@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { api, DDCoreError } from "./api";
+import { api, DDCoreError, messages, onMessage } from "./api";
 
 // The id is the one string a user can read off a red toast and an operator can
 // grep for. It has to survive the trip into the exception the desk throws, from
@@ -51,5 +51,43 @@ describe("own-user notification API", () => {
     respondWith({ data: { id: "a/b", read: true } }, { status: 200 });
     expect(await api.notifications.setRead("a/b", true)).toEqual({ id: "a/b", read: true });
     expect(fetch).toHaveBeenLastCalledWith("/api/notifications/a%2Fb", expect.objectContaining({ method: "PATCH", body: '{"read":true}' }));
+  });
+});
+
+describe("onMessage", () => {
+  const msg = { message: "Saved" };
+
+  it("delivers a pushed message to every listener until it unsubscribes", () => {
+    const a = vi.fn();
+    const b = vi.fn();
+    const offA = onMessage(a);
+    const offB = onMessage(b);
+
+    messages.push(msg);
+    offA();
+    messages.push(msg);
+    offB();
+    messages.push(msg);
+
+    expect(a).toHaveBeenCalledTimes(1);
+    expect(b).toHaveBeenCalledTimes(2);
+  });
+
+  it("unsubscribing twice leaves the other listeners alone", () => {
+    const a = vi.fn();
+    const b = vi.fn();
+    const offA = onMessage(a);
+    const offB = onMessage(b);
+
+    offA();
+    offA();
+    messages.push(msg);
+    expect(b).toHaveBeenCalledTimes(1);
+    offB();
+  });
+
+  it("does not keep the messages it has pushed", () => {
+    messages.push(msg);
+    expect("list" in messages).toBe(false);
   });
 });
