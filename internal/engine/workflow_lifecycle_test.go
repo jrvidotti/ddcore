@@ -140,7 +140,7 @@ export default defineWorkflow({
 		t.Fatalf("2. Insert invalid state tests failed: %v", err)
 	}
 
-	// 3. SaveDoc: direct modification of stateField: rejected
+	// 3. Save: direct modification of stateField: rejected
 	err = e.Run(ctx, "autor@x.com", func(c *Ctx) error {
 		doc, err := c.GetDoc("Artigo", articleDoc.ID())
 		if err != nil {
@@ -157,10 +157,10 @@ export default defineWorkflow({
 		return nil
 	})
 	if err != nil {
-		t.Fatalf("3. SaveDoc direct stateField mutation tests failed: %v", err)
+		t.Fatalf("3. Save direct stateField mutation tests failed: %v", err)
 	}
 
-	// 4. SaveDoc: direct submit (docstatus 1): rejected
+	// 4. Save: direct submit (docstatus 1): rejected
 	err = e.Run(ctx, "autor@x.com", func(c *Ctx) error {
 		doc, err := c.GetDoc("Artigo", articleDoc.ID())
 		if err != nil {
@@ -175,7 +175,7 @@ export default defineWorkflow({
 			t.Fatalf("unexpected error message: %v", err)
 		}
 
-		// SubmitDoc / Submit should also fail with same error
+		// Submit should also fail with same error
 		doc, err = c.GetDoc("Artigo", articleDoc.ID())
 		if err != nil {
 			return err
@@ -190,7 +190,7 @@ export default defineWorkflow({
 		return nil
 	})
 	if err != nil {
-		t.Fatalf("4. SaveDoc direct submit tests failed: %v", err)
+		t.Fatalf("4. Save direct submit tests failed: %v", err)
 	}
 
 	// 5. allowEdit: user without allowEdit role cannot edit fields

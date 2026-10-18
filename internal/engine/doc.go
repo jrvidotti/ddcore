@@ -684,7 +684,7 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 		if doc[wf.StateField] == nil || doc[wf.StateField] == "" {
 			doc[wf.StateField] = wf.InitialState
 		} else if doc.Str(wf.StateField) != wf.InitialState && !c.inWorkflowTransition {
-			// like SaveDoc's guard, this yields only to a workflow transition, never
+			// like Save's guard, this yields only to a workflow transition, never
 			// to opts.IgnorePermissions or c.IgnorePermissions() — a bulk import or a
 			// background job cannot insert a document past the initial state; data
 			// repair belongs in a migration patch's ctx.sql.
