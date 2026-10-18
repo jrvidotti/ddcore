@@ -85,7 +85,9 @@ func TestTenantOnly_ThePlatformNeitherListsNorOpensIt(t *testing.T) {
 	if _, ok := dts["Site Tenant"]; ok {
 		t.Fatal("a tenant's boot lists Site Tenant")
 	}
-	if got := bootWorkspaces(x, chefe)["RH"]; got != "Folhas,Pedidos | Relatorio | Folhas" {
+	// Pedidos is gone: chefe is no Gestor, and boot drops what its reader
+	// cannot open (#131)
+	if got := bootWorkspaces(x, chefe)["RH"]; got != "Folhas | Relatorio | Folhas" {
 		t.Fatalf("a tenant's RH workspace = %q", got)
 	}
 	x.expect(x.call("GET", "/api/meta/Folha", nil, chefe), 200, "")
