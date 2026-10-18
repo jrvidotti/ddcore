@@ -70,44 +70,34 @@ func i18nExtract(args []string) error {
 	if len(targets) == 0 {
 		return fmt.Errorf("no target to extract (--app %q?)", *app)
 	}
-	missingTotal := 0
-	for _, t := range targets {
-		set, err := i18nx.Extract(e, t)
-		if err != nil {
-			return err
-		}
-		path := t.CatalogPath(*lang)
-		cat, err := i18nx.ReadCatalog(path, *lang)
-		if err != nil {
-			return err
-		}
-		missing, orphans, overrides := cat.Missing(set), cat.Orphans(set), cat.Overrides(set)
-		missingTotal += len(missing)
-		rel, _ := filepath.Rel(root, path)
-		if rel == "" {
-			rel = path
-		}
-		fmt.Printf("%s: %d keys, %d missing, %d orphan, %d override\n", rel, set.Len(), len(missing), len(orphans), len(overrides))
-		for _, k := range missing {
-			fmt.Printf("  missing  %-60q %s\n", k.Text, k.Ref())
-		}
-		for _, k := range orphans {
-			fmt.Printf("  orphan   %q\n", k)
-		}
-		for _, k := range overrides {
-			fmt.Printf("  override %q (%s)\n", k, set.Inherited[k])
-		}
-		for _, d := range set.Dynamic {
-			fmt.Printf("  dynamic  %s:%d (the value is its own key at run time)\n", d.File, d.Line)
-		}
-		if !*check {
-			if err := cat.Write(set, *prune); err != nil {
-				return err
-			}
-		}
+	// What the run found is printed even when it stopped part-way on an error.
+	r, err := i18nx.BuildReport(e, targets, *lang, i18nx.ReportOpts{Write: !*check, Prune: *prune})
+	for _, t := range r.Targets {
+		printI18nTarget(t)
 	}
-	if *check && missingTotal > 0 {
-		return fmt.Errorf("%d untranslated key(s) in %s", missingTotal, *lang)
+	if err != nil {
+		return err
+	}
+	if *check && r.Missing > 0 {
+		return fmt.Errorf("%d untranslated key(s) in %s", r.Missing, *lang)
 	}
 	return nil
+}
+
+// printI18nTarget prints one catalogue's report: the summary line, then what
+// needs a look.
+func printI18nTarget(t i18nx.TargetReport) {
+	fmt.Printf("%s: %d keys, %d missing, %d orphan, %d override\n", filepath.FromSlash(t.File), t.Keys, len(t.Missing), len(t.Orphans), len(t.Overrides))
+	for _, k := range t.Missing {
+		fmt.Printf("  missing  %-60q %s\n", k.Key, k.Ref)
+	}
+	for _, k := range t.Orphans {
+		fmt.Printf("  orphan   %q\n", k)
+	}
+	for _, o := range t.Overrides {
+		fmt.Printf("  override %q (%s)\n", o.Key, o.App)
+	}
+	for _, d := range t.Dynamic {
+		fmt.Printf("  dynamic  %s (the value is its own key at run time)\n", d)
+	}
 }

@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/jrvidotti/ddcore/internal/engine"
+	"github.com/jrvidotti/ddcore/internal/i18nx"
 	"github.com/jrvidotti/ddcore/internal/js"
 )
 
@@ -42,7 +43,7 @@ export default defineDoctype({ name: "Produto", label: "Product",
 	return e, filepath.Join(app, "translations", "pt-BR.csv")
 }
 
-func missingKeys(r i18nReport, app string) []string {
+func missingKeys(r i18nx.Report, app string) []string {
 	var out []string
 	for _, t := range r.Targets {
 		if t.App != app {
@@ -145,7 +146,7 @@ func TestI18nOverrideOfACoreKey(t *testing.T) {
 	if len(tr.Orphans) != 0 {
 		t.Errorf("an override is not an orphan: %v", tr.Orphans)
 	}
-	if len(tr.Overrides) != 1 || tr.Overrides[0] != (i18nOverride{Key: "Tenant", App: "core"}) {
+	if len(tr.Overrides) != 1 || tr.Overrides[0] != (i18nx.ReportOverride{Key: "Tenant", App: "core"}) {
 		t.Errorf("overrides = %v, want [{Tenant core}]", tr.Overrides)
 	}
 	b, _ := os.ReadFile(csvPath)
