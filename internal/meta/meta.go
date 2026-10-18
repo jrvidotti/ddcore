@@ -608,6 +608,15 @@ func (d *DocType) DataFields() []*Field {
 // links.
 func IsTableType(ft string) bool { return ft == "Table" || ft == "Table MultiSelect" }
 
+// IsNumericType says whether a fieldtype holds a number.
+func IsNumericType(ft string) bool {
+	switch ft {
+	case "Int", "Float", "Currency", "Percent", "Duration", "Rating":
+		return true
+	}
+	return false
+}
+
 // MultiSelectLinkField is the one Link field of a Table MultiSelect's child
 // DocType, the field that holds each chosen value. Nil when the DocType has
 // none or more than one, which Validate refuses.

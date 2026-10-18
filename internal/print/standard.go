@@ -261,10 +261,10 @@ func renderChildTable(f *meta.Field, val any, opts StandardFormatOptions) []Bloc
 				colLabel = cf.Fieldname
 			}
 			headers = append(headers, tr(colLabel))
-			switch cf.Fieldtype {
-			case "Int", "Float", "Currency", "Percent", "Duration", "Rating":
+			switch {
+			case meta.IsNumericType(cf.Fieldtype):
 				aligns = append(aligns, "right")
-			case "Check":
+			case cf.Fieldtype == "Check":
 				aligns = append(aligns, "center")
 			default:
 				aligns = append(aligns, "left")
