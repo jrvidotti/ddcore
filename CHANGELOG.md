@@ -16,7 +16,7 @@ older series, and `whats_new` reads across every one of them.
 
 ### Breaking
 
-- **A `Column Break` field is no longer dropped with a warning.** The fieldtype was removed in 0.4.0 and the loader quietly discarded such fields from older apps; it now refuses it like any unknown fieldtype, and a refused DocType stops the whole site from loading: `ddcore dev`, `ddcore serve` and `ddcore migrate` fail with `<DocType>: invalid fieldtype "Column Break" on field …`. **Upgrade:** delete the `Column Break` fields from your DocTypes; a field's width comes from its `width`.
+- **A `Column Break` field is no longer dropped with a warning.** The fieldtype was removed in 0.4.0 and the loader quietly discarded such fields from older apps; it now refuses it like any unknown fieldtype, and a refused DocType stops the whole site from loading: `ddcore dev`, `ddcore start` and `ddcore migrate` fail with `<DocType>: invalid fieldtype "Column Break" on field …`. **Upgrade:** delete the `Column Break` fields from your DocTypes; a field's width comes from its `width`.
 
 ### Fixed
 
