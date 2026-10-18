@@ -17,6 +17,7 @@ older series, and `whats_new` reads across every one of them.
 ### Fixed
 
 - **A reload that is refused no longer leaks the runtime pool.** When `Engine.Load` refused an app set (an invalid DocType, a failed extension, an i18n error), some of those paths left the freshly built JS runtime pool open; the pool is now closed on every refusal.
+- **A workflow transition's response now carries the computed fields.** `POST /api/workflow/apply` returned the document without running `onLoad`, so a computed field was missing from it while `GET` showed it.
 
 ## 0.28.3 — 2026-10-17
 

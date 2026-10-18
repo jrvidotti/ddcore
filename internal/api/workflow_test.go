@@ -38,12 +38,20 @@ export default defineDoctype({
     { fieldname: "conteudo", fieldtype: "Small Text", label: "Conteúdo" },
     { fieldname: "workflow_state", fieldtype: "Data", label: "Workflow State" },
     { fieldname: "status", fieldtype: "Data", label: "Status" },
+    { fieldname: "rotulo", fieldtype: "Data", label: "Label", computed: true },
   ],
   permissions: [
     { role: "Autor", read: true, write: true, create: true, delete: true },
     { role: "Editor", read: true, write: true, create: true, submit: true, cancel: true },
     { role: "Auditor", read: true },
   ],
+});`)
+
+	w("doctypes/artigo/artigo.controller.ts", `import { defineController } from "@ddcore/sdk";
+export default defineController("Artigo", {
+  onLoad(doc) {
+    doc.rotulo = "loaded:" + doc.workflow_state;
+  },
 });`)
 
 	w("doctypes/pessoa/pessoa.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
@@ -494,4 +502,26 @@ func TestWorkflowAPI_PermissionAndLifecycleGuards(t *testing.T) {
 		"action":  "Approve",
 	}, autor)
 	x.expect(r, 404, "DoesNotExistError") // requireDocRead fails first if not found
+}
+
+// The transition response carries the computed fields, like a plain GET does.
+func TestWorkflowAPI_ApplyLoadsComputedFields(t *testing.T) {
+	wf := setupWorkflowEnv(t)
+	x := wf.x
+
+	r := x.call("POST", "/api/resource/Artigo", map[string]any{
+		"titulo":   "Artigo Computado",
+		"conteudo": "Conteudo com mais de cinco caracteres",
+	}, wf.autor)
+	x.expect(r, 200, "")
+	name := fmt.Sprint(r.Body["data"].(map[string]any)["id"])
+
+	r = x.call("POST", "/api/workflow/apply", map[string]any{
+		"doctype": "Artigo", "id": name, "action": "Submit for Approval",
+	}, wf.autor)
+	x.expect(r, 200, "")
+	doc := r.Body["data"].(map[string]any)
+	if doc["rotulo"] != "loaded:Pending Approval" {
+		t.Fatalf("the transition response must carry the computed field, got rotulo=%v", doc["rotulo"])
+	}
 }
