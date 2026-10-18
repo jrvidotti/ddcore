@@ -5,7 +5,9 @@ package meta
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -741,7 +743,7 @@ func (r *Registry) DropObsoleteFields() []string {
 			continue
 		}
 		d.Fields = kept
-		for _, ft := range sortedKeys(dropped) {
+		for _, ft := range slices.Sorted(maps.Keys(dropped)) {
 			warnings = append(warnings, fmt.Sprintf("%s: dropped %d %q field(s) — %s", d.Name, dropped[ft], ft, ObsoleteFieldtypes[ft]))
 		}
 	}

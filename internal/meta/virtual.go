@@ -1,6 +1,8 @@
 package meta
 
 import (
+	"maps"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -167,7 +169,7 @@ func validateVirtual(r *Registry, d *DocType, e func(string, ...any)) {
 			continue
 		}
 		seen[s.DocType] = true
-		for _, vf := range sortedKeys(s.Fields) {
+		for _, vf := range slices.Sorted(maps.Keys(s.Fields)) {
 			sf := s.Fields[vf]
 			target := d.Field(vf)
 			switch {

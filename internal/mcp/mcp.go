@@ -8,9 +8,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
+	"maps"
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -712,15 +714,8 @@ func New(e *engine.Engine) *mcp.Server {
 				a := e.Snap.Apps[n]
 				apps = append(apps, map[string]any{"name": n, "title": a.Title, "dir": a.Dir, "scheduler": a.Scheduler, "desk": a.Desk})
 			}
-			var reports, ws []string
-			for n := range e.Snap.Reports {
-				reports = append(reports, n)
-			}
-			for n := range e.Snap.Workspaces {
-				ws = append(ws, n)
-			}
-			sort.Strings(reports)
-			sort.Strings(ws)
+			reports := slices.Sorted(maps.Keys(e.Snap.Reports))
+			ws := slices.Sorted(maps.Keys(e.Snap.Workspaces))
 			return text(map[string]any{"apps": apps, "whitelisted": e.WhitelistedPaths(), "reports": reports, "workspaces": ws}), nil, nil
 		})
 

@@ -9,11 +9,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"os/signal"
 	"path"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -504,11 +505,7 @@ func smokeCheckSite(ctx context.Context, e *engine.Engine, man *backupManifest, 
 	out = append(out, smokeCheck{Name: "database ready", OK: h.OK, Detail: h.Error})
 
 	var short []string
-	names := make([]string, 0, len(man.Tables))
-	for t := range man.Tables {
-		names = append(names, t)
-	}
-	sort.Strings(names)
+	names := slices.Sorted(maps.Keys(man.Tables))
 	for _, t := range names {
 		var n int64
 		// identifiers from our own manifest, but quoted all the same

@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -566,11 +568,7 @@ func (r *doctorReport) printTail(w io.Writer, p func(string, string, ...any)) {
 		p("secrets", "none configured")
 	}
 	if len(r.AppEnv) > 0 {
-		names := make([]string, 0, len(r.AppEnv))
-		for k := range r.AppEnv {
-			names = append(names, k)
-		}
-		sort.Strings(names)
+		names := slices.Sorted(maps.Keys(r.AppEnv))
 		for i, k := range names {
 			names[i] = k + "=" + r.AppEnv[k]
 		}

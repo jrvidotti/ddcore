@@ -3,6 +3,7 @@ package meta
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"slices"
 	"sort"
 	"strings"
@@ -127,7 +128,7 @@ func (r *Registry) ApplyExtensions(exts []*Extension, apps Apps) error {
 			}
 		}
 
-		for _, name := range sortedKeys(e.Set) {
+		for _, name := range slices.Sorted(maps.Keys(e.Set)) {
 			f := d.Field(name)
 			if f == nil {
 				fail("sets a property on field %q, which does not exist", name)
@@ -135,7 +136,7 @@ func (r *Registry) ApplyExtensions(exts []*Extension, apps Apps) error {
 			}
 			props := e.Set[name]
 			allowed := map[string]any{}
-			for _, prop := range sortedKeys(props) {
+			for _, prop := range slices.Sorted(maps.Keys(props)) {
 				if !FieldProps[prop] {
 					fail("may not override %q on field %q", prop, name)
 					continue
@@ -159,7 +160,7 @@ func (r *Registry) ApplyExtensions(exts []*Extension, apps Apps) error {
 			}
 		}
 
-		for _, prop := range sortedKeys(e.Doc) {
+		for _, prop := range slices.Sorted(maps.Keys(e.Doc)) {
 			if !DoctypeProps[prop] {
 				fail("may not override %q on the DocType", prop)
 				continue
@@ -356,13 +357,4 @@ func hasRole(perms []Perm, role string, permlevel int) bool {
 		}
 	}
 	return false
-}
-
-func sortedKeys[V any](m map[string]V) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
-	}
-	sort.Strings(out)
-	return out
 }
