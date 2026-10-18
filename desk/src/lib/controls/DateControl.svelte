@@ -24,7 +24,6 @@
     readOnly = false,
     error = "",
     id = "",
-    inGrid = false,
   }: {
     field: Field;
     value: any;
@@ -32,7 +31,6 @@
     readOnly?: boolean;
     error?: string;
     id?: string;
-    inGrid?: boolean;
   } = $props();
 
   let text = $state("");
