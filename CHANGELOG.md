@@ -14,6 +14,11 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.29.1 — 2026-10-18
+
+No change an app would notice. Three API tests that still expected workspace entries a reader
+cannot open now follow the reader filter (#131), so the full suite passes again.
+
 ## 0.29.0 — 2026-10-18
 
 ### Breaking
