@@ -28,6 +28,7 @@ older series, and `whats_new` reads across every one of them.
 - **Three CLI and loader messages that were in Portuguese are in English.** `ddcore user add` usage, the location line of a validation finding (`in <file>`) and the "DocType defined twice" error.
 - **A record's history shows its status in the user's language.** The `docstatus` row of a Version was hard-coded in Portuguese ("Rascunho", "Enviado", "Cancelado") whatever the language; it now goes through the catalogue (`Draft`, `Submitted`, `Cancelled`).
 - **Five desk labels that were hard-coded in Portuguese now follow the language.** A Link field's placeholder, clear and open-record labels ("Escolha o tipo antes", "Limpar …", "Abrir …"), and the Close and Clear buttons' accessible names in dialogs, the form's side panel and the history search.
+- **The print view's language picker lists the site's languages.** It offered a fixed Portuguese, English and Spanish list whatever the site had installed; it now uses the languages the server reports at boot, as the profile does.
 
 ## 0.28.3 — 2026-10-17
 

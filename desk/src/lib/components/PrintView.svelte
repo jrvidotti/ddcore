@@ -14,7 +14,7 @@
   let selectedFormat = $state("standard");
   let letterheads = $state<{ id: string; is_default?: boolean; disabled?: boolean }[]>([]);
   let selectedLetterhead = $state("");
-  let selectedLang = $state("pt-BR");
+  let selectedLang = $state(boot.data?.lang ?? "");
 
   let loading = $state(true);
   let rendering = $state(false);
@@ -26,16 +26,9 @@
   const workspace = $derived(page.params.workspace || "");
   const wsPrefix = $derived(workspace ? `/app/${seg(workspace)}` : "/app");
 
-  const languages = [
-    { code: "pt-BR", label: "Português (Brasil)" },
-    { code: "en", label: "English" },
-    { code: "es", label: "Español" },
-  ];
+  const languages = $derived(boot.data?.langs ?? []);
 
   onMount(() => {
-    if (boot.data?.lang) {
-      selectedLang = boot.data.lang;
-    }
     loadMetadata();
   });
 
