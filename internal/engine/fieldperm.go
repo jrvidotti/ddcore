@@ -110,7 +110,7 @@ func (c *Ctx) FieldAccess(d *meta.DocType) FieldAccess {
 	}
 	var a FieldAccess
 	for _, p := range d.Permissions {
-		if p.Permlevel <= 0 || !contains(roles, p.Role) {
+		if p.Permlevel <= 0 || !containsFold(roles, p.Role) {
 			continue
 		}
 		if p.Read || p.Write {

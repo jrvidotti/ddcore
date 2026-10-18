@@ -1099,7 +1099,7 @@ func (s *Server) docMethod(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, err
 		}
-		if !contains(d.Methods, m) {
+		if !slices.Contains(d.Methods, m) {
 			return nil, cerr.NotFound("Method {0} does not exist on {1}", m, dt)
 		}
 		doc, err := c.GetDoc(dt, name)
@@ -1125,15 +1125,6 @@ func (s *Server) docMethod(w http.ResponseWriter, r *http.Request) {
 		}
 		return map[string]any{"result": res.Result, "doc": res.Doc}, nil
 	})
-}
-
-func contains(list []string, s string) bool {
-	for _, x := range list {
-		if x == s {
-			return true
-		}
-	}
-	return false
 }
 
 // method calls a whitelisted function: app.dir.file.fn

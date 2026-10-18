@@ -677,10 +677,10 @@ func (e *Engine) Load() (err error) {
 		// it; the desk loads every one of them, and their handlers accumulate
 		files := js.ListFiles(a, ".form.ts")
 		for _, d := range reg.DocTypes {
-			if d.App != a.Name && !contains(d.ExtendedBy, a.Name) {
+			if d.App != a.Name && !containsFold(d.ExtendedBy, a.Name) {
 				continue
 			}
-			if FormScript(files, d) != "" && !contains(d.FormApps, a.Name) {
+			if FormScript(files, d) != "" && !containsFold(d.FormApps, a.Name) {
 				d.FormApps = append(d.FormApps, a.Name)
 			}
 		}

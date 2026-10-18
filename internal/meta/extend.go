@@ -3,6 +3,7 @@ package meta
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -106,7 +107,7 @@ func (r *Registry) ApplyExtensions(exts []*Extension, apps Apps) error {
 		}
 		// core is always loaded first, so requiring it says nothing; any other
 		// host has to be declared, or the extension could load before it.
-		if d.App != "core" && !contains(apps.Requires[e.App], d.App) {
+		if d.App != "core" && !slices.Contains(apps.Requires[e.App], d.App) {
 			fail("must declare requires: [%q] in defineApp before extending %s", d.App, d.Name)
 			continue
 		}
@@ -199,7 +200,7 @@ func (r *Registry) ApplyExtensions(exts []*Extension, apps Apps) error {
 			d.Permissions = append(d.Permissions, p)
 		}
 
-		if !contains(d.ExtendedBy, e.App) {
+		if !slices.Contains(d.ExtendedBy, e.App) {
 			d.ExtendedBy = append(d.ExtendedBy, e.App)
 		}
 	}
@@ -351,15 +352,6 @@ func key(doctype, field, prop string) string { return doctype + "\x00" + field +
 func hasRole(perms []Perm, role string, permlevel int) bool {
 	for _, p := range perms {
 		if p.Role == role && p.Permlevel == permlevel {
-			return true
-		}
-	}
-	return false
-}
-
-func contains(list []string, s string) bool {
-	for _, x := range list {
-		if x == s {
 			return true
 		}
 	}

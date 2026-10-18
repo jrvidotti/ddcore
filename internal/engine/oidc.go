@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -280,7 +281,7 @@ func (e *Engine) OIDCCallback(ctx context.Context, id, code, state, cookieState 
 	}
 	if len(cl.cfg.AllowedDomains) > 0 {
 		_, domain, _ := strings.Cut(email, "@")
-		if !containsString(cl.cfg.AllowedDomains, domain) {
+		if !slices.Contains(cl.cfg.AllowedDomains, domain) {
 			return "", redirect, oidcErr(OIDCErrDomain, nil)
 		}
 	}
@@ -373,15 +374,6 @@ func (e *Engine) resolveIdentity(c *Ctx, provider, subject, email string) (user 
 		return name, linked, oidcErr(OIDCErrDisabled, nil)
 	}
 	return name, linked, nil
-}
-
-func containsString(list []string, s string) bool {
-	for _, x := range list {
-		if x == s {
-			return true
-		}
-	}
-	return false
 }
 
 // claimStrings reads a claim that should be a list of strings. ok is false

@@ -3,6 +3,7 @@ package engine
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 
@@ -366,7 +367,7 @@ func (c *Ctx) Portals() []*Portal {
 	for _, name := range sortedPortalNames(c.St.Portals) {
 		p := c.St.Portals[name]
 		for _, r := range p.Roles {
-			if contains(roles, r) {
+			if containsFold(roles, r) {
 				out = append(out, &p)
 				break
 			}
@@ -398,7 +399,7 @@ func (c *Ctx) PortalIdentity(p *Portal) ([]Doc, error) {
 	fields := []string{"id"}
 	for _, pg := range p.Pages {
 		for _, v := range pg.Match {
-			if !containsExact(fields, v) {
+			if !slices.Contains(fields, v) {
 				fields = append(fields, v)
 			}
 		}
@@ -418,15 +419,6 @@ func (c *Ctx) PortalIdentity(p *Portal) ([]Doc, error) {
 	}
 	c.portalIdent[p.Name] = rows
 	return rows, nil
-}
-
-func containsExact(list []string, s string) bool {
-	for _, x := range list {
-		if x == s {
-			return true
-		}
-	}
-	return false
 }
 
 // PortalMatches reports whether doc is the user's own under page pg: every

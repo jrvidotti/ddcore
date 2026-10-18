@@ -270,7 +270,7 @@ func (c *Ctx) grantedBy(d *meta.DocType, ptype string, doc Doc) (bool, error) {
 	allowed, ownerOnly := false, true
 	for _, p := range d.Permissions {
 		// a row above level 0 grants fields, never the document (SEC-02)
-		if p.Permlevel > 0 || !contains(roles, p.Role) || !p.Has(ptype) {
+		if p.Permlevel > 0 || !containsFold(roles, p.Role) || !p.Has(ptype) {
 			continue
 		}
 		allowed = true
@@ -465,7 +465,7 @@ func (c *Ctx) readIsOwnerOnly(d *meta.DocType) bool {
 		return true
 	}
 	for _, p := range d.Permissions {
-		if p.Permlevel == 0 && contains(roles, p.Role) && (p.Read || p.Report) && !p.IfOwner {
+		if p.Permlevel == 0 && containsFold(roles, p.Role) && (p.Read || p.Report) && !p.IfOwner {
 			return false
 		}
 	}
@@ -487,7 +487,7 @@ func (c *Ctx) ReadableParentsOf(child string) ([]string, error) {
 		if err != nil {
 			return nil, err
 		}
-		if ok && !contains(out, cp.Parent.Name) {
+		if ok && !containsFold(out, cp.Parent.Name) {
 			out = append(out, cp.Parent.Name)
 		}
 	}
@@ -684,7 +684,7 @@ func (c *Ctx) permissionFilters(d *meta.DocType) ([]db.Filter, error) {
 	}
 	roleRead, ownerOnly := false, true
 	for _, p := range d.Permissions {
-		if p.Permlevel == 0 && contains(roles, p.Role) && (p.Read || p.Report) {
+		if p.Permlevel == 0 && containsFold(roles, p.Role) && (p.Read || p.Report) {
 			roleRead = true
 			if !p.IfOwner {
 				ownerOnly = false
@@ -773,7 +773,8 @@ func (c *Ctx) Permissions(d *meta.DocType) map[string]bool {
 // DocType inside a tenant.
 var spaceWrites = map[string]bool{"write": true, "create": true, "delete": true, "submit": true, "cancel": true, "amend": true, "import": true}
 
-func contains(list []string, s string) bool {
+// containsFold reports whether list holds s, ignoring case.
+func containsFold(list []string, s string) bool {
 	for _, x := range list {
 		if strings.EqualFold(x, s) {
 			return true

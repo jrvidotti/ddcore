@@ -428,7 +428,7 @@ func TestExportOmitsCredentialColumns(t *testing.T) {
 			t.Fatalf("credential column in User export: %s", c)
 		}
 	}
-	if !contains(cols, "email") {
+	if !containsFold(cols, "email") {
 		t.Fatal("User export should include email")
 	}
 }
@@ -752,7 +752,7 @@ func TestCSVSinkSplitsChildTables(t *testing.T) {
 	if len(recs) != 3 {
 		t.Fatalf("expected header + 2 children, got %d", len(recs))
 	}
-	if !contains(recs[0], "parent") || !contains(recs[0], "idx") {
+	if !containsFold(recs[0], "parent") || !containsFold(recs[0], "idx") {
 		t.Errorf("child CSV needs parent/idx to relink to parent: %v", recs[0])
 	}
 }
