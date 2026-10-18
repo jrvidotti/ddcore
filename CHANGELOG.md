@@ -16,11 +16,12 @@ older series, and `whats_new` reads across every one of them.
 
 ### Fixed
 
-- **The `generate_types` MCP tool reports a failed write.** It dropped the error and listed only the files it had written; it now fails with the error, and `migrate` adds a `typesError` field when the typings could not be written (the migration itself is unaffected).
+- **The `generate_types` MCP tool reports a failed write.** It dropped the error and listed only the files it had written; it now fails with the error, and `migrate` adds a `typesError` field when the typings could not be written (the migration itself is unaffected). Writing stops at the first app it cannot write, so the apps after it (in `migrate` as well) are not written either.
 
 ### Changed
 
-- **`ddcore types` no longer opens the database.** It compiles the apps and writes `.ddcore/types.d.ts` without connecting, so it works with Postgres down or no dsn configured (`ddcore migrate` still ends by writing the types, from the engine it already has open instead of loading the apps a second time).
+- **`ddcore types` no longer opens the database.** It compiles the apps and writes `.ddcore/types.d.ts` without connecting, so it works with Postgres down or no dsn configured (`ddcore migrate` still ends by writing the types, from the engine it already has open instead of loading the apps a second time). It also ignores `--tenant` and skips the site-version check now.
+- **`ddcore i18n -help` prints the usage and exits 0** like the other commands; it used to fail with `unknown i18n subcommand`.
 
 ## 0.29.1 — 2026-10-18
 
