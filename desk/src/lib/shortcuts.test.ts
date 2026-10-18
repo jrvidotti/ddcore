@@ -3,7 +3,6 @@ import { describe, expect, it, test } from "vitest";
 import {
   commitFocusedEdit,
   getModifierKey,
-  getModifierName,
   getShortcutsList,
   isEditableElement,
   isMac,
@@ -79,11 +78,6 @@ test("isMac accurately detects Apple platforms", () => {
 test("getModifierKey returns ⌘ for Mac and Ctrl for other platforms", () => {
   assert.equal(getModifierKey(true), "⌘");
   assert.equal(getModifierKey(false), "Ctrl");
-});
-
-test("getModifierName returns Command for Mac and Ctrl for other platforms", () => {
-  assert.equal(getModifierName(true), "Command");
-  assert.equal(getModifierName(false), "Ctrl");
 });
 
 test("isEditableElement identifies inputs, textareas, selects and contenteditable elements", () => {

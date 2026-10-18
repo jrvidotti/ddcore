@@ -9,8 +9,6 @@ import { formatDuration } from "./controls/duration-format";
 import { ratingMax } from "./controls/rating-state";
 import { formatGeo } from "./geo";
 
-export { formatMonth };
-
 export const formatCurrency = (v: any, precision?: number) =>
   currencyFmt(precision !== undefined
     ? { minimumFractionDigits: precision, maximumFractionDigits: precision }
