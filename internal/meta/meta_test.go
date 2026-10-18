@@ -100,17 +100,24 @@ func TestFieldWidthValidation(t *testing.T) {
 
 func TestColumnBreakIsNoLongerAValidFieldtype(t *testing.T) {
 	r := NewRegistry()
+	// a legacy Column Break carried no fieldname; two of them must not also
+	// read as an invalid or duplicate fieldname
 	r.Add(&DocType{Name: "Contract", Fields: []*Field{
 		{Fieldname: "title", Fieldtype: "Data"},
-		{Fieldname: "split", Fieldtype: "Column Break"},
+		{Fieldtype: "Column Break"},
+		{Fieldtype: "Column Break"},
 	}})
 	err := r.Validate()
 	if err == nil {
 		t.Fatal("expected an invalid fieldtype error, got nil")
 	}
-	for _, want := range []string{"Contract", "invalid fieldtype", `"Column Break"`, `"split"`} {
-		if !strings.Contains(err.Error(), want) {
-			t.Fatalf("error %q does not mention %s", err, want)
+	lines := strings.Split(strings.TrimPrefix(err.Error(), "invalid meta:\n"), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("want one error per Column Break, got %d: %q", len(lines), err)
+	}
+	for _, line := range lines {
+		if got, want := strings.TrimSpace(line), `Contract: invalid fieldtype "Column Break" on field ""`; got != want {
+			t.Fatalf("error %q, want %q", got, want)
 		}
 	}
 }

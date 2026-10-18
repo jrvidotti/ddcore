@@ -738,6 +738,7 @@ func (r *Registry) Validate() error {
 		for _, f := range d.Fields {
 			if !valid[f.Fieldtype] {
 				e("invalid fieldtype %q on field %q", f.Fieldtype, f.Fieldname)
+				continue // the rest of the checks assume a known fieldtype
 			}
 			r.validateGrid(d, f, e)
 			if f.Rows < 0 {
