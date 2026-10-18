@@ -1018,7 +1018,7 @@ func (s *Server) create(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, err
 		}
-		return redacted(s, c, chi.URLParam(r, "doctype"))(c.Insert(doc, engine.SaveOpts{}))
+		return redacted(s, c, urlParam(r, "doctype"))(c.Insert(doc, engine.SaveOpts{}))
 	})
 }
 
@@ -1250,7 +1250,7 @@ func (s *Server) treeChildren(w http.ResponseWriter, r *http.Request) {
 				fields = append(fields, fmt.Sprint(f))
 			}
 		}
-		return c.TreeChildren(chi.URLParam(r, "doctype"), q.Get("parent"),
+		return c.TreeChildren(urlParam(r, "doctype"), q.Get("parent"),
 			engine.TreeArgs{Limit: limit, Fields: fields, OrderBy: q.Get("order_by"), Search: q.Get("search")})
 	})
 }
