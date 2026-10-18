@@ -298,10 +298,7 @@ func pageFilters(c *engine.Ctx, p *engine.Portal, pg *engine.PortalPage) ([]db.F
 func (s *Server) portalRows(w http.ResponseWriter, r *http.Request) {
 	s.runPortal(w, r, func(c *engine.Ctx, p *engine.Portal, pg *engine.PortalPage) (any, error) {
 		q := r.URL.Query()
-		limit, _ := strconv.Atoi(q.Get("limit"))
-		if limit <= 0 || limit > 100 {
-			limit = 20
-		}
+		limit := pageLimit(q, 20, 100)
 		start, _ := strconv.Atoi(q.Get("start"))
 		order := "creation desc"
 		if ob := strings.TrimSpace(q.Get("order_by")); ob != "" {

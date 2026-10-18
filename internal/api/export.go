@@ -46,7 +46,7 @@ func (s *Server) export(w http.ResponseWriter, r *http.Request) {
 		s.writeErr(w, r, cerr.Validation("Unknown export format: {0}", format))
 		return
 	}
-	children := q.Get("children") != "" && q.Get("children") != "0"
+	children := switchedOn(q.Get("children"))
 	if children && format == "csv" {
 		// One CSV cannot hold a parent and its child tables without either
 		// flattening them away or repeating the parent per row. Refusing is
@@ -63,24 +63,15 @@ func (s *Server) export(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	filters, err := queryJSON(r, "filters")
+	filters, orFilters, err := queryFilters(r)
 	if err != nil {
 		s.writeErr(w, r, err)
 		return
 	}
-	orFilters, err := queryJSON(r, "or_filters")
+	fields, err := queryFields(r)
 	if err != nil {
 		s.writeErr(w, r, err)
 		return
-	}
-	var fields []string
-	if fv, err := queryJSON(r, "fields"); err != nil {
-		s.writeErr(w, r, err)
-		return
-	} else if list, ok := fv.([]any); ok {
-		for _, f := range list {
-			fields = append(fields, fmt.Sprint(f))
-		}
 	}
 	limit, _ := strconv.Atoi(q.Get("limit"))
 
@@ -90,13 +81,12 @@ func (s *Server) export(w http.ResponseWriter, r *http.Request) {
 		OrFilters:   orFilters,
 		Fields:      fields,
 		Children:    children,
-		Attachments: q.Get("attachments") != "" && q.Get("attachments") != "0",
+		Attachments: switchedOn(q.Get("attachments")),
 		Limit:       limit,
 	}
 
-	c := s.E.NewCtx(r.Context(), user(r))
-	c.Request = map[string]any{"method": r.Method, "path": r.URL.Path, "ip": r.RemoteAddr}
-	c.Lang = s.langFor(r)
+	// no ctxSid: an export reads, and nothing in it acts on the session
+	c := s.newCtx(r, s.langFor(r), ctxRequest)
 
 	// started flips once the response has begun; after that an error can only
 	// be logged and the stream cut, never turned into a status code.
