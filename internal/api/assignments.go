@@ -126,7 +126,7 @@ func addTimelineComment(c *engine.Ctx, doctype, name, content string) {
 // error for who may not, and what the referenced document's timeline records.
 type assignmentChange struct {
 	status     string
-	denied     string
+	denied     func() *cerr.Error // built at a literal site so the i18n extractor sees its message
 	timeline   func(c *engine.Ctx, todo engine.Doc) string
 	returnsDoc bool // false answers {"success": true} instead of the saved ToDo
 }
@@ -151,7 +151,7 @@ func (s *Server) changeAssignment(ch assignmentChange) http.HandlerFunc {
 			roles, _ := c.Roles()
 			isMgr := c.User == "Admin" || slices.Contains(roles, "System Manager")
 			if !isMgr && c.User != doc.Str("allocated_to") && c.User != doc.Str("assigned_by") {
-				return nil, cerr.Permission(ch.denied)
+				return nil, ch.denied()
 			}
 
 			doc["status"] = ch.status
@@ -175,7 +175,7 @@ func (s *Server) changeAssignment(ch assignmentChange) http.HandlerFunc {
 func (s *Server) completeAssignment(w http.ResponseWriter, r *http.Request) {
 	s.changeAssignment(assignmentChange{
 		status: "Closed",
-		denied: "No permission to complete this task",
+		denied: func() *cerr.Error { return cerr.Permission("No permission to complete this task") },
 		timeline: func(c *engine.Ctx, _ engine.Doc) string {
 			return fmt.Sprintf("%s completed assignment", c.User)
 		},
@@ -186,7 +186,7 @@ func (s *Server) completeAssignment(w http.ResponseWriter, r *http.Request) {
 func (s *Server) revokeAssignment(w http.ResponseWriter, r *http.Request) {
 	s.changeAssignment(assignmentChange{
 		status: "Cancelled",
-		denied: "No permission to revoke this task",
+		denied: func() *cerr.Error { return cerr.Permission("No permission to revoke this task") },
 		timeline: func(c *engine.Ctx, todo engine.Doc) string {
 			return fmt.Sprintf("%s revoked assignment for %s", c.User, todo.Str("allocated_to"))
 		},
@@ -196,7 +196,7 @@ func (s *Server) revokeAssignment(w http.ResponseWriter, r *http.Request) {
 func (s *Server) reopenAssignment(w http.ResponseWriter, r *http.Request) {
 	s.changeAssignment(assignmentChange{
 		status: "Open",
-		denied: "No permission to reopen this task",
+		denied: func() *cerr.Error { return cerr.Permission("No permission to reopen this task") },
 		timeline: func(c *engine.Ctx, _ engine.Doc) string {
 			return fmt.Sprintf("%s reopened assignment", c.User)
 		},
