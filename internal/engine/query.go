@@ -1,10 +1,13 @@
 package engine
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"slices"
 	"strings"
+
+	"github.com/jackc/pgx/v5"
 
 	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/db"
@@ -708,7 +711,7 @@ func (c *Ctx) idExists(doctype, name string) (bool, error) {
 	var one int
 	err = c.Q().QueryRow(c.Ctx, fmt.Sprintf("SELECT 1 FROM %s WHERE id = $1", db.Ident(d.TableName())), name).Scan(&one)
 	if err != nil {
-		if strings.Contains(err.Error(), "no rows") {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return false, nil
 		}
 		return false, err
