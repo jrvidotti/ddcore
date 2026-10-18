@@ -17,6 +17,7 @@
   import { canDeleteComment, canEditComment, isCommentEdited } from "./doc-sidebar-comment";
   import { getModifierKey } from "$lib/shortcuts.svelte";
   import { DocAssignments } from "$lib/assignments.svelte";
+  import { today } from "$lib/datetime";
   import { isAssignmentOverdue, assignmentInitial, priorityBadgeClass } from "./doc-sidebar-assignment";
   import { panels, setDocSidebarCollapsed } from "$lib/panels.svelte";
   import { attachmentsQuery, hasLooseAttachments, isAudioFile, looseAttachments, type AttachedFile } from "./doc-sidebar-attachments";
@@ -224,7 +225,7 @@
                 {/if}
                 <div class="assignment-meta small muted">
                   {#if todo.date}
-                    <span class="due-date" class:overdue={isAssignmentOverdue(todo.date, todo.status)}>
+                    <span class="due-date" class:overdue={isAssignmentOverdue(todo.date, todo.status, today())}>
                       <Icon name="calendar" size={11} /> {todo.date}
                     </span>
                   {/if}
@@ -442,7 +443,7 @@
           <Icon name="history" size={18} />
           <h3>{__("Change history")} · {frm.doc.id}</h3>
         </div>
-        <button class="btn icon" onclick={() => (showModal = false)} aria-label="Fechar">
+        <button class="btn icon" onclick={() => (showModal = false)} aria-label={__("Close")}>
           <Icon name="x" size={16} />
         </button>
       </div>

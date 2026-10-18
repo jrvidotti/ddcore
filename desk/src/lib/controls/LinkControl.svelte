@@ -176,7 +176,7 @@
 </script>
 
 <div class="link-wrap" class:has-open={!!value && !!target} class:has-clear={!!value && !!target && !readOnly} class:has-add={showAdd}>
-  <input bind:this={inputEl} {id} class="input" class:error={!!error} readonly={readOnly || !target} value={text} placeholder={target ? "" : "Escolha o tipo antes"} autocomplete="off"
+  <input bind:this={inputEl} {id} class="input" class:error={!!error} readonly={readOnly || !target} value={text} placeholder={target ? "" : __("Choose the type first")} autocomplete="off"
     title={value ? `${text}${text !== value ? ` (${value})` : ""}` : ""}
     onfocus={() => { focused = true; if (!readOnly) search(text); }} {oninput} {onblur} {onkeydown} data-fieldtype="Link" />
   {#if showAdd}
@@ -184,9 +184,9 @@
   {/if}
   {#if value && target}
     {#if !readOnly}
-      <button type="button" class="clear" aria-label="Limpar {label || target} ({value})" title="Limpar {label || target} ({value})" onmousedown={(e) => e.preventDefault()} onclick={clear}>×</button>
+      <button type="button" class="clear" aria-label={__("Clear {0} ({1})", [label || target, value])} title={__("Clear {0} ({1})", [label || target, value])} onmousedown={(e) => e.preventDefault()} onclick={clear}>×</button>
     {/if}
-    {#if !searchFn}<a class="open" href={`${wsPrefix}/${seg(target)}/${encodeURIComponent(value)}`} title="Abrir {label || target}{value ? ` (${value})` : ""}">↗</a>{/if}
+    {#if !searchFn}<a class="open" href={`${wsPrefix}/${seg(target)}/${encodeURIComponent(value)}`} title={__("Open {0} ({1})", [label || target, value])}>↗</a>{/if}
   {/if}
   {#if open && !readOnly && options.length}
     <div bind:this={listEl} class="options" role="listbox" use:anchored={{ anchor: inputEl, matchWidth: true, gap: 2, content: options.length }}>

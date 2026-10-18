@@ -1,10 +1,5 @@
 package config
 
-import (
-	"fmt"
-	"strings"
-)
-
 // Webhooks is whether this deployment sends outgoing webhooks at all.
 //
 // Environment and not ddcore.json, because the answer differs by machine and
@@ -22,12 +17,6 @@ type Webhooks struct {
 }
 
 func webhooksFromEnv() (Webhooks, error) {
-	switch v := strings.ToLower(strings.TrimSpace(env("DDCORE_WEBHOOKS", "on"))); v {
-	case "on", "":
-		return Webhooks{}, nil
-	case "off":
-		return Webhooks{Off: true}, nil
-	default:
-		return Webhooks{}, fmt.Errorf("DDCORE_WEBHOOKS: %q is neither on nor off", v)
-	}
+	off, err := envOnOff("DDCORE_WEBHOOKS")
+	return Webhooks{Off: off}, err
 }

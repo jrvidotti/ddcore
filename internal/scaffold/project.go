@@ -22,21 +22,14 @@ type ProjectInfo struct {
 // configuration, a .gitignore and a README. A file that already exists is left
 // alone. It returns the files it wrote.
 func Project(dir string, p ProjectInfo) ([]string, error) {
-	var written []string
-	for _, f := range []struct{ name, content string }{
+	written, err := writeNew(dir, []struct{ name, content string }{
 		{"AGENTS.md", agentsMD},
 		{".mcp.json", mcpJSON},
 		{".gitignore", gitignore},
 		{"README.md", readme(p)},
-	} {
-		path := filepath.Join(dir, f.name)
-		if _, err := os.Stat(path); err == nil {
-			continue
-		}
-		if err := os.WriteFile(path, []byte(f.content), 0o644); err != nil {
-			return written, err
-		}
-		written = append(written, f.name)
+	})
+	if err != nil {
+		return written, err
 	}
 	claude := filepath.Join(dir, "CLAUDE.md")
 	if _, err := os.Lstat(claude); errors.Is(err, os.ErrNotExist) {

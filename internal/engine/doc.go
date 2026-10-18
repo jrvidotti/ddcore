@@ -684,7 +684,7 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 		if doc[wf.StateField] == nil || doc[wf.StateField] == "" {
 			doc[wf.StateField] = wf.InitialState
 		} else if doc.Str(wf.StateField) != wf.InitialState && !c.inWorkflowTransition {
-			// like SaveDoc's guard, this yields only to a workflow transition, never
+			// like Save's guard, this yields only to a workflow transition, never
 			// to opts.IgnorePermissions or c.IgnorePermissions() — a bulk import or a
 			// background job cannot insert a document past the initial state; data
 			// repair belongs in a migration patch's ctx.sql.
@@ -1076,21 +1076,6 @@ func (c *Ctx) cancel(doc Doc, opts SaveOpts) (Doc, error) {
 	}
 	doc["docstatus"] = 2
 	return c.Save(doc, opts)
-}
-
-// SaveDoc is an alias for Save.
-func (c *Ctx) SaveDoc(doc Doc, opts SaveOpts) (Doc, error) {
-	return c.Save(doc, opts)
-}
-
-// SubmitDoc is an alias for Submit.
-func (c *Ctx) SubmitDoc(doc Doc) (Doc, error) {
-	return c.Submit(doc)
-}
-
-// CancelDoc is an alias for Cancel.
-func (c *Ctx) CancelDoc(doc Doc) (Doc, error) {
-	return c.Cancel(doc)
 }
 
 // Amend creates a draft copy of a cancelled document.

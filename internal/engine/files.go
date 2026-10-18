@@ -120,12 +120,12 @@ func (c *Ctx) claimAttachments(d *meta.DocType, doc Doc) error {
 	type claim struct{ url, field string }
 	var claims []claim
 	for _, f := range d.Fields {
-		switch f.Fieldtype {
-		case "Attach", "Attach Image":
+		switch {
+		case f.Fieldtype == "Attach" || f.Fieldtype == "Attach Image":
 			if u := doc.Str(f.Fieldname); u != "" {
 				claims = append(claims, claim{u, f.Fieldname})
 			}
-		case "Table", "Table MultiSelect":
+		case meta.IsTableType(f.Fieldtype):
 			child, err := c.St.DocType(f.OptionsString())
 			if err != nil {
 				continue

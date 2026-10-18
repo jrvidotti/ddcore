@@ -1,10 +1,5 @@
 package config
 
-import (
-	"fmt"
-	"strings"
-)
-
 // UpdateCheck is whether this deployment asks GitHub for the newest published
 // release when `ddcore doctor` runs.
 //
@@ -19,12 +14,6 @@ type UpdateCheck struct {
 }
 
 func updateCheckFromEnv() (UpdateCheck, error) {
-	switch v := strings.ToLower(strings.TrimSpace(env("DDCORE_UPDATE_CHECK", "on"))); v {
-	case "on", "":
-		return UpdateCheck{}, nil
-	case "off":
-		return UpdateCheck{Off: true}, nil
-	default:
-		return UpdateCheck{}, fmt.Errorf("DDCORE_UPDATE_CHECK: %q is neither on nor off", v)
-	}
+	off, err := envOnOff("DDCORE_UPDATE_CHECK")
+	return UpdateCheck{Off: off}, err
 }

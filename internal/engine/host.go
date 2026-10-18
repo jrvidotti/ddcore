@@ -1168,5 +1168,3 @@ func flatHeaders(h http.Header) map[string]string {
 func (e *Engine) String() string {
 	return fmt.Sprintf("ddcore engine (%d doctypes)", len(e.Current().Meta.DocTypes))
 }
-
-var _ = db.Str

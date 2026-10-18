@@ -2,7 +2,6 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
@@ -13,14 +12,13 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"runtime"
 	"slices"
 	"strings"
-	"syscall"
 	"time"
 
+	ddcore "github.com/jrvidotti/ddcore"
 	"github.com/jrvidotti/ddcore/desk"
 	"github.com/jrvidotti/ddcore/internal/api"
 	"github.com/jrvidotti/ddcore/internal/config"
@@ -224,14 +222,6 @@ func stripGlobalFlags(args []string) []string {
 	return out
 }
 
-func allowOlderBinary() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("DDCORE_ALLOW_OLDER_BINARY"))) {
-	case "1", "true", "yes", "on":
-		return true
-	}
-	return false
-}
-
 // load builds the engine from ddcore.json.
 func load(test bool, dev bool) (*engine.Engine, *config.File, error) {
 	cfg, cfgPath, err := config.Load(".")
@@ -268,7 +258,7 @@ func load(test bool, dev bool) (*engine.Engine, *config.File, error) {
 		DSN: cfg.DSN, Apps: apps, DDCore: cfg.DDCore, Workers: cfg.Workers.Total(), Scheduler: cfg.Scheduler, Tenancy: cfg.Tenancy, TenantRole: cfg.TenantRole, PoolMaxConns: cfg.PoolMaxConns, EnterTenant: enter, Dev: isDev, Test: test,
 		Port: cfg.Port, SiteTitle: cfg.Title, Lang: cfg.Lang, Currency: cfg.Currency, CurrencyPrecision: cfg.CurrencyPrecision, Rounding: cfg.RoundingMode(), Timezone: cfg.Timezone, DataDir: cfg.DataDir, Root: root, ExportMaxRows: cfg.ExportMaxRows, ImportMaxRows: cfg.ImportMaxRows, LogLevel: level,
 		Auth: cfg.Auth, Ops: cfg.Ops, LogJSON: logJSON(), LogOut: logOut, Mail: cfg.Mail, Webhooks: cfg.Webhooks, Storage: cfg.Storage, SiteURL: cfg.PublicURL(), TrustProxy: cfg.TrustProxy, CORS: cfg.CORS, Login: cfg.Login, Feedback: cfg.Feedback, AI: cfg.AI, OIDC: cfg.OIDC, Portal: cfg.Portal, Map: cfg.Map,
-		EnforceMaintenance: enforceMaintenance, AllowOlderBinary: allowOlderBinary(), AdminPassword: cfg.AdminPassword, DeferDB: deferDB,
+		EnforceMaintenance: enforceMaintenance, AllowOlderBinary: config.AllowOlderBinaryFromEnv(), AdminPassword: cfg.AdminPassword, DeferDB: deferDB,
 	})
 	if err == nil {
 		for _, w := range cfg.Warnings {
@@ -407,7 +397,7 @@ func writeEnvExample() error {
 	if _, err := os.Stat(name); err == nil {
 		return nil
 	}
-	if err := os.WriteFile(name, []byte(config.EnvExample), 0o644); err != nil {
+	if err := os.WriteFile(name, []byte(ddcore.EnvExample), 0o644); err != nil {
 		return err
 	}
 	fmt.Println("created", name, "— copy to .env for this machine's database, URL and mail")
@@ -483,7 +473,7 @@ func cmdServe(args []string, dev bool) error {
 	if *port != 0 {
 		cfg.Port = *port
 	}
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, cancel := signalContext()
 	defer cancel()
 	if *autoMigrate {
 		res, err := e.Migrate(ctx, false)
@@ -692,7 +682,7 @@ func cmdTest(args []string) error {
 		failed++
 		fmt.Printf("  FAIL %s\n       %s\n", r.Name, strings.ReplaceAll(r.Error, "\n", "\n       "))
 		if r.File != "" {
-			fmt.Printf("       em %s\n", r.File)
+			fmt.Printf("       in %s\n", r.File)
 		}
 	}
 	fmt.Printf("%d tests, %d failures\n", len(results), failed)
@@ -777,8 +767,11 @@ func cmdEval(args []string) error {
 	}
 	code := strings.Join(fs.Args(), " ")
 	if code == "" || code == "-" {
-		b, _ := readAll(os.Stdin)
-		code = b
+		b, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			return err
+		}
+		code = string(b)
 	}
 	e, _, err := load(false, false)
 	if err != nil {
@@ -794,17 +787,6 @@ func cmdEval(args []string) error {
 	}
 	fmt.Println(string(res))
 	return nil
-}
-
-func readAll(f *os.File) (string, error) {
-	var b strings.Builder
-	sc := bufio.NewScanner(f)
-	sc.Buffer(make([]byte, 1<<20), 1<<24)
-	for sc.Scan() {
-		b.WriteString(sc.Text())
-		b.WriteString("\n")
-	}
-	return b.String(), sc.Err()
 }
 
 // cmdDemo runs `<app>.services.demo.generate` for every app that whitelists it.
@@ -872,7 +854,7 @@ func cmdUser(args []string) error {
 			return err
 		}
 		if fs.NArg() < 2 {
-			return fmt.Errorf("uso: ddcore user add <email> <nome>")
+			return fmt.Errorf("usage: ddcore user add <email> <name>")
 		}
 		return e.Run(ctx, "Admin", func(c *engine.Ctx) error {
 			doc, err := c.NewDoc("User", engine.Doc{"email": fs.Arg(0), "full_name": strings.Join(fs.Args()[1:], " "), "new_password": *pw, "enabled": true})
@@ -945,23 +927,8 @@ func cmdUser(args []string) error {
 		if len(args) < 2 {
 			return fmt.Errorf("usage: ddcore user unlock <email>")
 		}
-		// The counter is keyed on what was typed, not on the account it
-		// resolved to — that is what stops the lockout from answering "does
-		// this address exist" — so clear both spellings anyone would have used.
-		n, err := e.ClearAttempts(ctx, "login:"+strings.ToLower(args[1]))
+		n, err := e.UnlockAccount(ctx, args[1], cliActor())
 		if err != nil {
-			return err
-		}
-		if email, _ := e.FindUserForRecovery(ctx, args[1]); email != "" && !strings.EqualFold(email, args[1]) {
-			m, _ := e.ClearAttempts(ctx, "login:"+strings.ToLower(email))
-			n += m
-		}
-		// the usernames an app's sign-in provider counts, in the user's tenant (#115)
-		if err := e.RunAdminFor(ctx, args[1], func(c *engine.Ctx) error {
-			m, err := e.ClearCredentialAttempts(c, args[1])
-			n += m
-			return err
-		}); err != nil {
 			return err
 		}
 		fmt.Printf("cleared %d failed attempt(s) for %s\n", n, args[1])
@@ -1069,7 +1036,7 @@ func cmdMCP(args []string) error {
 			e.DB.Close()
 		}
 	}()
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, cancel := signalContext()
 	defer cancel()
 	go watch.Apps(ctx, e, func() {
 		if err := e.Load(); err != nil {

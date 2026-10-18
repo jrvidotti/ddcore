@@ -1,9 +1,9 @@
 /** Pure helper functions for the document sidebar assignment widget. */
 
-export function isAssignmentOverdue(dateStr?: string, status?: string, todayStr?: string): boolean {
+/** `todayStr` is the site's today (`datetime.today()`), the day the server counts a due date against. */
+export function isAssignmentOverdue(dateStr: string | undefined, status: string | undefined, todayStr: string): boolean {
   if (!dateStr || status !== "Open") return false;
-  const now = todayStr || new Date().toISOString().slice(0, 10);
-  return dateStr < now;
+  return dateStr < todayStr;
 }
 
 export function assignmentInitial(user: string): string {

@@ -386,6 +386,10 @@ func DevFromEnv() bool { return envBool("DDCORE_DEV", false) }
 // own sets DDCORE_AUTO_MIGRATE=0.
 func AutoMigrateFromEnv() bool { return envBool("DDCORE_AUTO_MIGRATE", true) }
 
+// AllowOlderBinaryFromEnv reports whether DDCORE_ALLOW_OLDER_BINARY lets a
+// binary older than the database's schema run against it anyway.
+func AllowOlderBinaryFromEnv() bool { return envBool("DDCORE_ALLOW_OLDER_BINARY", false) }
+
 // retiredKeys names the keys a release removed from ddcore.json that the file
 // still carries. They are ignored — an old file keeps loading — but said out
 // loud, since the file's author believes they still do something.

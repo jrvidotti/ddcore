@@ -45,10 +45,6 @@ export function getLinkTitle(doctype: string, id: string): string {
   return id;
 }
 
-export function hasLinkTitle(doctype: string, id: string): boolean {
-  return cache[doctype]?.[id] !== undefined;
-}
-
 export function clearTitleCache() {
   for (const k of Object.keys(cache)) {
     delete cache[k];

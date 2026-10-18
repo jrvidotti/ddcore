@@ -56,12 +56,11 @@ func (s *Server) export(w http.ResponseWriter, r *http.Request) {
 	}
 	sep := ','
 	if v := q.Get("sep"); v != "" {
-		rs := []rune(v)
-		if len(rs) != 1 || rs[0] == '"' || rs[0] == '\n' || rs[0] == '\r' {
-			s.writeErr(w, r, cerr.Validation("Invalid CSV separator: {0}", v))
+		var err error
+		if sep, err = csvSep(v); err != nil {
+			s.writeErr(w, r, err)
 			return
 		}
-		sep = rs[0]
 	}
 
 	filters, err := queryJSON(r, "filters")

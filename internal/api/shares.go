@@ -28,8 +28,10 @@ type unshareRequest struct {
 	User    string `json:"user"`
 }
 
-func decodeStrict(r *http.Request, v any) error {
-	dec := json.NewDecoder(io.LimitReader(r.Body, 4096))
+// decodeStrict decodes a JSON body of at most limit bytes into v, rejecting
+// unknown fields.
+func decodeStrict(r *http.Request, v any, limit int64) error {
+	dec := json.NewDecoder(io.LimitReader(r.Body, limit))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(v); err != nil {
 		return cerr.Validation("Invalid JSON: {0}", err)
@@ -46,7 +48,7 @@ func (s *Server) listDocShares(w http.ResponseWriter, r *http.Request) {
 func (s *Server) shareDoc(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
 		var body shareRequest
-		if err := decodeStrict(r, &body); err != nil {
+		if err := decodeStrict(r, &body, 4096); err != nil {
 			return nil, err
 		}
 		return c.ShareDoc(body.Doctype, body.ID, body.User, engine.ShareRights{
@@ -58,7 +60,7 @@ func (s *Server) shareDoc(w http.ResponseWriter, r *http.Request) {
 func (s *Server) unshareDoc(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
 		var body unshareRequest
-		if err := decodeStrict(r, &body); err != nil {
+		if err := decodeStrict(r, &body, 4096); err != nil {
 			return nil, err
 		}
 		if body.Doctype == "" || body.ID == "" || body.User == "" {

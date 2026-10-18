@@ -31,12 +31,6 @@ export function getModifierKey(mac?: boolean): string {
   return isApple ? "⌘" : "Ctrl";
 }
 
-/** Returns full modifier name ('Command' on macOS and 'Ctrl' on Windows/Linux) */
-export function getModifierName(mac?: boolean): string {
-  const isApple = mac !== undefined ? mac : isMac();
-  return isApple ? "Command" : "Ctrl";
-}
-
 /**
  * Checks whether an event target is an interactive text input
  * where typing '?' should type the character rather than opening shortcuts.

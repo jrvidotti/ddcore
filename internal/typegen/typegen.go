@@ -16,9 +16,13 @@ import (
 )
 
 func tsType(f *meta.Field) string {
-	switch f.Fieldtype {
-	case "Int", "Float", "Currency", "Percent", "Duration", "Rating":
+	if meta.IsTableType(f.Fieldtype) {
+		return ifaceName(f.OptionsString()) + "[]"
+	}
+	if meta.IsNumericType(f.Fieldtype) {
 		return "number | null"
+	}
+	switch f.Fieldtype {
 	case "Check":
 		return "boolean"
 	case "Select":
@@ -34,8 +38,6 @@ func tsType(f *meta.Field) string {
 			q = append(q, fmt.Sprintf("%q", o))
 		}
 		return strings.Join(q, " | ") + " | null"
-	case "Table", "Table MultiSelect":
-		return ifaceName(f.OptionsString()) + "[]"
 	case "JSON":
 		return "any"
 	case "Geolocation":

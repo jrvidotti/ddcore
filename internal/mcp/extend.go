@@ -2,10 +2,10 @@ package mcp
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
-	"sort"
 	"strings"
 
 	"github.com/jrvidotti/ddcore/internal/cerr"
@@ -24,12 +24,7 @@ type extendInput struct {
 // ApplyExtensions checks, so the tool cannot promise more than the load allows.
 func extendDescription() string {
 	keys := func(m map[string]bool) string {
-		out := make([]string, 0, len(m))
-		for k := range m {
-			out = append(out, k)
-		}
-		sort.Strings(out)
-		return strings.Join(out, ", ")
+		return strings.Join(slices.Sorted(maps.Keys(m)), ", ")
 	}
 	return "Creates extensions/<snake>.extend.ts in an app: an extendDoctype that adds fields to, and overrides properties of, " +
 		"a DocType another app (or core) owns — Frappe's Custom Field and Property Setter, as a versioned file. " +

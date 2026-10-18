@@ -1,6 +1,7 @@
 package db
 
 import (
+	"fmt"
 	"math/big"
 	"strconv"
 	"time"
@@ -96,7 +97,5 @@ func Str(v any) string {
 		}
 		return "0"
 	}
-	return fmtAny(v)
+	return fmt.Sprint(v)
 }
-
-func fmtAny(v any) string { return stringify(v) }

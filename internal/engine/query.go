@@ -1,10 +1,13 @@
 package engine
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"slices"
 	"strings"
+
+	"github.com/jackc/pgx/v5"
 
 	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/db"
@@ -708,7 +711,7 @@ func (c *Ctx) idExists(doctype, name string) (bool, error) {
 	var one int
 	err = c.Q().QueryRow(c.Ctx, fmt.Sprintf("SELECT 1 FROM %s WHERE id = $1", db.Ident(d.TableName())), name).Scan(&one)
 	if err != nil {
-		if strings.Contains(err.Error(), "no rows") {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return false, nil
 		}
 		return false, err
@@ -1089,18 +1092,18 @@ func (c *Ctx) ResolveLinkTitles(doctype string, docs ...Doc) map[string]map[stri
 
 	for _, doc := range docs {
 		for _, f := range d.Fields {
-			switch f.Fieldtype {
-			case "Link":
+			switch {
+			case f.Fieldtype == "Link":
 				if opt := f.OptionsString(); opt != "" {
 					collect(opt, doc[f.Fieldname])
 				}
-			case "Dynamic Link":
+			case f.Fieldtype == "Dynamic Link":
 				if opt := f.OptionsString(); opt != "" {
 					if target, ok := doc[opt].(string); ok && target != "" {
 						collect(target, doc[f.Fieldname])
 					}
 				}
-			case "Table", "Table MultiSelect":
+			case meta.IsTableType(f.Fieldtype):
 				if opt := f.OptionsString(); opt != "" {
 					if rows, ok := doc[f.Fieldname].([]any); ok {
 						childDt, _ := c.St.DocType(opt)

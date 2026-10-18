@@ -8,7 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/jrvidotti/ddcore/internal/config"
 	"github.com/jrvidotti/ddcore/internal/engine"
 	"github.com/jrvidotti/ddcore/internal/scaffold"
 )
@@ -383,7 +385,7 @@ func TestAllowOlderBinaryFlagForms(t *testing.T) {
 	}
 	t.Setenv("DDCORE_ALLOW_OLDER_BINARY", "")
 	stripGlobalFlags([]string{"--allow-older-binary=false", "doctor"})
-	if allowOlderBinary() {
+	if config.AllowOlderBinaryFromEnv() {
 		t.Error("--allow-older-binary=false should not turn the override on")
 	}
 }
@@ -674,5 +676,36 @@ func TestAdoptDryRunFailsOnACollision(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "12 on (id): singleton and 11 more") {
 		t.Fatalf("output:\n%s", out.String())
+	}
+}
+
+// --since means the same on `jobs` and `audit`: a Go duration or a number of
+// days.
+func TestParseSince(t *testing.T) {
+	for in, want := range map[string]time.Duration{
+		"90m": 90 * time.Minute, "24h": 24 * time.Hour, "7d": 7 * 24 * time.Hour,
+	} {
+		before := time.Now()
+		got, err := parseSince(in)
+		if err != nil {
+			t.Fatalf("parseSince(%q): %v", in, err)
+		}
+		if d := before.Add(-want).Sub(got); d < -time.Second || d > time.Second {
+			t.Errorf("parseSince(%q) = %v, want about %v ago", in, got, want)
+		}
+	}
+	for _, in := range []string{"soon", "xd", "1.5d", "d"} {
+		if _, err := parseSince(in); err == nil {
+			t.Errorf("parseSince(%q) must fail", in)
+		}
+	}
+	// the jobs flag takes the day form too
+	fs := newFlagSet("jobs list")
+	f := addFilterFlags(fs)
+	if err := parseFlags(fs, []string{"--since", "7d"}); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := f.filter(); err != nil || got.Since == nil {
+		t.Fatalf("jobs --since 7d: since=%v err=%v", got.Since, err)
 	}
 }

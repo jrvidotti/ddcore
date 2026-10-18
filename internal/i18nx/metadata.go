@@ -48,7 +48,7 @@ func CollectDocType(s *Set, d *meta.DocType, app, file string) {
 			// engine.applyLanguageOptions.
 			continue
 		}
-		for _, o := range selectOptions(f) {
+		for _, o := range f.SelectValues() {
 			s.Add(o, file, 0)
 		}
 	}
@@ -90,22 +90,6 @@ func CollectPrintTemplate(s *Set, pt engine.PrintTemplate, file string) {
 	if pt.Label != "" {
 		s.Add(pt.Label, file, 0)
 	}
-}
-
-func selectOptions(f *meta.Field) []string {
-	switch v := f.Options.(type) {
-	case []string:
-		return v
-	case []any:
-		out := make([]string, 0, len(v))
-		for _, o := range v {
-			if str, ok := o.(string); ok {
-				out = append(out, str)
-			}
-		}
-		return out
-	}
-	return nil
 }
 
 // CollectTree collects from the JSON trees of workspaces, reports and apps,

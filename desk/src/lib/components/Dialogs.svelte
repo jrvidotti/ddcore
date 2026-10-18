@@ -72,7 +72,7 @@
 {#each ui.dialogs as d (d.id)}
   <div class="modal-bg" role="dialog" aria-modal="true" tabindex="-1" use:focusTrap>
     <div class="modal {d.spec.size || 'md'}">
-      <div class="head"><h3>{d.spec.title}</h3><button class="btn icon" onclick={() => cancel(d)} aria-label="Fechar"><Icon name="x" /></button></div>
+      <div class="head"><h3>{d.spec.title}</h3><button class="btn icon" onclick={() => cancel(d)} aria-label={__("Close")}><Icon name="x" /></button></div>
       <div class="body">
         {#if d.spec.message}<p style="margin:0 0 12px">{@html d.spec.message}</p>{/if}
         {#each layout(d.spec.fields || []) as fields}

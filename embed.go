@@ -10,3 +10,10 @@ import _ "embed"
 //
 //go:embed CHANGELOG.md
 var Changelog string
+
+// EnvExample is .env.example, the record of which environment variables this
+// framework reads. `ddcore init` writes it into a new project; the repository
+// keeps the file at its root so that people reading it there see the same list.
+//
+//go:embed .env.example
+var EnvExample string

@@ -9,11 +9,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"os/signal"
 	"path"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -173,7 +174,7 @@ func cmdRestore(args []string) error {
 	// The same comparison the engine makes after the restore, made before it:
 	// finding out that this binary refuses the database once the target's own
 	// data is already gone would be the worst time to find out.
-	if !allowOlderBinary() {
+	if !config.AllowOlderBinaryFromEnv() {
 		archived := man.SiteVersion
 		if archived == nil {
 			archived = &engine.SiteVersion{Core: man.DDCore}
@@ -491,17 +492,7 @@ func restoreFiles(ctx context.Context, store storage.Store, dir string, man *bac
 // setMaintenanceSQL writes the flag without an engine: during a restore there
 // is no schema an engine could load yet, or the one there is about to go.
 func setMaintenanceSQL(ctx context.Context, d *db.DB, on bool, reason string) error {
-	if err := db.EnsureOps(ctx, d.Pool); err != nil {
-		return err
-	}
-	if !on {
-		reason = ""
-	}
-	_, err := d.Pool.Exec(ctx, `INSERT INTO ddcore_maintenance (id, enabled, reason, since, actor)
-		VALUES (1, $1, $2, CASE WHEN $1 THEN now() END, $3)
-		ON CONFLICT (id) DO UPDATE SET enabled = EXCLUDED.enabled, reason = EXCLUDED.reason, since = EXCLUDED.since, actor = EXCLUDED.actor`,
-		on, reason, cliActor())
-	return err
+	return db.SetMaintenanceFlag(ctx, d, on, reason, cliActor())
 }
 
 // smokeCheckSite is the minimum a restored site has to pass before anyone
@@ -514,11 +505,7 @@ func smokeCheckSite(ctx context.Context, e *engine.Engine, man *backupManifest, 
 	out = append(out, smokeCheck{Name: "database ready", OK: h.OK, Detail: h.Error})
 
 	var short []string
-	names := make([]string, 0, len(man.Tables))
-	for t := range man.Tables {
-		names = append(names, t)
-	}
-	sort.Strings(names)
+	names := slices.Sorted(maps.Keys(man.Tables))
 	for _, t := range names {
 		var n int64
 		// identifiers from our own manifest, but quoted all the same

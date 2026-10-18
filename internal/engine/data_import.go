@@ -619,8 +619,7 @@ func parseCell(f *meta.Field, label string, cell tabular.Cell, conv cellConv, T 
 	if text == "" && cell.Num == nil && cell.Bool == nil {
 		return nil, nil // a Check saves nil as false
 	}
-	switch f.Fieldtype {
-	case "Int", "Float", "Currency", "Percent", "Duration", "Rating":
+	if meta.IsNumericType(f.Fieldtype) {
 		n, ok := cellNumber(cell, text, conv.decimal, f.Fieldtype == "Percent")
 		if !ok {
 			return nil, cerr.Validation("{0}: \"{1}\" is not a number", label, text)
@@ -632,6 +631,8 @@ func parseCell(f *meta.Field, label string, cell tabular.Cell, conv cellConv, T 
 			return int64(n), nil
 		}
 		return n, nil
+	}
+	switch f.Fieldtype {
 	case "Check":
 		if cell.Bool != nil {
 			return *cell.Bool, nil

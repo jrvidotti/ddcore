@@ -96,6 +96,39 @@ func (e *Engine) ClearAttempts(ctx context.Context, key string) (int, error) {
 	return int(tag.RowsAffected()), nil
 }
 
+// UnlockAccount lifts a lockout from the command line, the counterpart of the
+// desk's unlockUser: it clears the counters for what was typed and for the
+// account it resolves to (the two spellings anyone would have used), then the
+// usernames an app's sign-in provider counts in the user's tenant (#115), and
+// records an account.unlock audit event as actor. It returns how many failed
+// attempts were cleared.
+func (e *Engine) UnlockAccount(ctx context.Context, typed, actor string) (int, error) {
+	typed = strings.TrimSpace(typed)
+	n, err := e.ClearAttempts(ctx, throttleKey("login", typed))
+	if err != nil {
+		return n, err
+	}
+	target := typed
+	if name, _ := e.FindUserForRecovery(ctx, typed); name != "" {
+		target = name
+		if !strings.EqualFold(name, typed) {
+			m, _ := e.ClearAttempts(ctx, throttleKey("login", name))
+			n += m
+		}
+	}
+	if err := e.RunAdminFor(ctx, target, func(c *Ctx) error {
+		m, err := e.ClearCredentialAttempts(c, target)
+		n += m
+		return err
+	}); err != nil {
+		return n, err
+	}
+	if err := e.RecordAudit(ctx, actor, "account.unlock", "Allowed", "User", target, map[string]any{"cleared": n}); err != nil {
+		return n, err
+	}
+	return n, nil
+}
+
 // guardLogin is the pair of checks a sign-in passes before any hashing
 // happens: this account, and this address.
 //

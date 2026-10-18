@@ -184,7 +184,7 @@ func New(e *engine.Engine, desk fs.FS) *Server {
 	r.Get("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/assets/site/favicon", http.StatusFound)
 	})
-	r.Get("/files/*", s.file)
+	r.Get("/files/*", s.serveUpload)
 	r.Get("/private/files/*", s.privateFile)
 	r.NotFound(s.notFound)
 	s.Router = r
@@ -1018,7 +1018,7 @@ func (s *Server) create(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, err
 		}
-		return redacted(s, c, chi.URLParam(r, "doctype"))(c.Insert(doc, engine.SaveOpts{}))
+		return redacted(s, c, dt)(c.Insert(doc, engine.SaveOpts{}))
 	})
 }
 
@@ -1099,7 +1099,7 @@ func (s *Server) docMethod(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, err
 		}
-		if !contains(d.Methods, m) {
+		if !slices.Contains(d.Methods, m) {
 			return nil, cerr.NotFound("Method {0} does not exist on {1}", m, dt)
 		}
 		doc, err := c.GetDoc(dt, name)
@@ -1125,15 +1125,6 @@ func (s *Server) docMethod(w http.ResponseWriter, r *http.Request) {
 		}
 		return map[string]any{"result": res.Result, "doc": res.Doc}, nil
 	})
-}
-
-func contains(list []string, s string) bool {
-	for _, x := range list {
-		if x == s {
-			return true
-		}
-	}
-	return false
 }
 
 // method calls a whitelisted function: app.dir.file.fn
@@ -1250,7 +1241,7 @@ func (s *Server) treeChildren(w http.ResponseWriter, r *http.Request) {
 				fields = append(fields, fmt.Sprint(f))
 			}
 		}
-		return c.TreeChildren(chi.URLParam(r, "doctype"), q.Get("parent"),
+		return c.TreeChildren(urlParam(r, "doctype"), q.Get("parent"),
 			engine.TreeArgs{Limit: limit, Fields: fields, OrderBy: q.Get("order_by"), Search: q.Get("search")})
 	})
 }
@@ -1711,10 +1702,6 @@ func (s *Server) serveUpload(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) file(w http.ResponseWriter, r *http.Request) {
-	s.serveUpload(w, r)
-}
-
 // fileInfo describes one upload — its original name, size and type — to
 // whoever may read it. File itself is owner-only, so a colleague reading the
 // document could not ask /api/resource/File; the rule here is the one
@@ -1935,9 +1922,6 @@ func (s *Server) deskHandler(w http.ResponseWriter, r *http.Request) {
 func withHTMLLang(page []byte, lang string) []byte {
 	return bytes.Replace(page, []byte(`<html lang="en"`), []byte(`<html lang="`+html.EscapeString(lang)+`"`), 1)
 }
-
-var _ = errors.New
-var _ = db.Str
 
 // mergeBody applies a client's copy of a document over the stored one. A
 // secret field comes back null because redacted blanked it on the way out:

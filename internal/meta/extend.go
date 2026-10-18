@@ -3,6 +3,8 @@ package meta
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -106,7 +108,7 @@ func (r *Registry) ApplyExtensions(exts []*Extension, apps Apps) error {
 		}
 		// core is always loaded first, so requiring it says nothing; any other
 		// host has to be declared, or the extension could load before it.
-		if d.App != "core" && !contains(apps.Requires[e.App], d.App) {
+		if d.App != "core" && !slices.Contains(apps.Requires[e.App], d.App) {
 			fail("must declare requires: [%q] in defineApp before extending %s", d.App, d.Name)
 			continue
 		}
@@ -126,7 +128,7 @@ func (r *Registry) ApplyExtensions(exts []*Extension, apps Apps) error {
 			}
 		}
 
-		for _, name := range sortedKeys(e.Set) {
+		for _, name := range slices.Sorted(maps.Keys(e.Set)) {
 			f := d.Field(name)
 			if f == nil {
 				fail("sets a property on field %q, which does not exist", name)
@@ -134,7 +136,7 @@ func (r *Registry) ApplyExtensions(exts []*Extension, apps Apps) error {
 			}
 			props := e.Set[name]
 			allowed := map[string]any{}
-			for _, prop := range sortedKeys(props) {
+			for _, prop := range slices.Sorted(maps.Keys(props)) {
 				if !FieldProps[prop] {
 					fail("may not override %q on field %q", prop, name)
 					continue
@@ -158,7 +160,7 @@ func (r *Registry) ApplyExtensions(exts []*Extension, apps Apps) error {
 			}
 		}
 
-		for _, prop := range sortedKeys(e.Doc) {
+		for _, prop := range slices.Sorted(maps.Keys(e.Doc)) {
 			if !DoctypeProps[prop] {
 				fail("may not override %q on the DocType", prop)
 				continue
@@ -199,7 +201,7 @@ func (r *Registry) ApplyExtensions(exts []*Extension, apps Apps) error {
 			d.Permissions = append(d.Permissions, p)
 		}
 
-		if !contains(d.ExtendedBy, e.App) {
+		if !slices.Contains(d.ExtendedBy, e.App) {
 			d.ExtendedBy = append(d.ExtendedBy, e.App)
 		}
 	}
@@ -355,22 +357,4 @@ func hasRole(perms []Perm, role string, permlevel int) bool {
 		}
 	}
 	return false
-}
-
-func contains(list []string, s string) bool {
-	for _, x := range list {
-		if x == s {
-			return true
-		}
-	}
-	return false
-}
-
-func sortedKeys[V any](m map[string]V) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
-	}
-	sort.Strings(out)
-	return out
 }

@@ -3,5 +3,5 @@
 
 /** Lowercases and strips accents, as the server's search does. */
 export function fold(s: string): string {
-  return (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  return (s || "").normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
 }

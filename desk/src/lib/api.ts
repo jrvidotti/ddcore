@@ -103,12 +103,12 @@ export class DDCoreError extends Error {
 
 export interface Message { message: string; title?: string; indicator?: string; alert?: boolean }
 
-export const messages: { list: Message[]; push(m: Message): void } = {
-  list: [],
-  push(m) { this.list.push(m); listeners.forEach((l) => l(m)); },
+const listeners = new Set<(m: Message) => void>();
+export const messages = {
+  push(m: Message) { listeners.forEach((l) => l(m)); },
 };
-const listeners: ((m: Message) => void)[] = [];
-export function onMessage(fn: (m: Message) => void) { listeners.push(fn); return () => listeners.splice(listeners.indexOf(fn), 1); }
+/** Subscribes to the messages the server attaches to a response; the returned function unsubscribes. */
+export function onMessage(fn: (m: Message) => void) { listeners.add(fn); return () => { listeners.delete(fn); }; }
 
 /**
  * Language sent as X-Lang on every request. Empty until /api/boot answers —

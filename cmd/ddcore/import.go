@@ -14,9 +14,9 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"maps"
 	"os"
-	"os/signal"
-	"sort"
+	"slices"
 	"strings"
 	"time"
 
@@ -170,7 +170,7 @@ func importCommand(sub string, args []string) error {
 		a.Map, a.MapSHA = m, hex.EncodeToString(sum[:])
 	}
 
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	ctx, cancel := signalContext()
 	defer cancel()
 	e, err := importEngine(ctx, tenant)
 	if err != nil {
@@ -323,11 +323,7 @@ func printRun(sub string, o *importOpts, run *engine.ImportRun) {
 	} else {
 		fmt.Printf("run %s — %s\n\n", run.ID, run.Status)
 	}
-	names := make([]string, 0, len(run.Counts))
-	for n := range run.Counts {
-		names = append(names, n)
-	}
-	sort.Strings(names)
+	names := slices.Sorted(maps.Keys(run.Counts))
 	if len(names) > 0 {
 		fmt.Printf("%-28s %7s %8s %7s %6s\n", "DOCTYPE", "ROWS", "LOADED", "SKIPPED", "ERRORS")
 		for _, n := range names {
@@ -368,11 +364,7 @@ func printReconciliation(o *importOpts, rep *engine.ImportReconciliation) {
 		printJSON(rep)
 		return
 	}
-	names := make([]string, 0, len(rep.Doctypes))
-	for n := range rep.Doctypes {
-		names = append(names, n)
-	}
-	sort.Strings(names)
+	names := slices.Sorted(maps.Keys(rep.Doctypes))
 	fmt.Printf("%-28s %10s %10s %8s\n", "DOCTYPE", "IN EXPORT", "ON SITE", "FILES")
 	for _, n := range names {
 		d := rep.Doctypes[n]

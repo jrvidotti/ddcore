@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 
 import {
   applyRowChanges,
@@ -8,11 +8,11 @@ import {
   createChildDraft,
   fileNameParts,
   gridEditMode,
-} from "./grid-state.ts";
+} from "./grid-state";
 
 test("grid editing stays inline unless dialog mode is explicit", () => {
-  assert.equal(gridEditMode({ fieldtype: "Table" }), "inline");
-  assert.equal(gridEditMode({ fieldtype: "Table", gridEditMode: "dialog" }), "dialog");
+  assert.equal(gridEditMode({}), "inline");
+  assert.equal(gridEditMode({ gridEditMode: "dialog" }), "dialog");
 });
 
 test("a child draft does not mutate the current rows before apply", () => {

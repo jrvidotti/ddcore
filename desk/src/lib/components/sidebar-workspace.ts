@@ -1,4 +1,5 @@
 import { seg, resolveWorkspace, resolveReport, resolveDoctype } from "../routes";
+import { defaultStore } from "../storage";
 export interface WorkspaceItem {
   name: string;
   label: string;
@@ -19,15 +20,9 @@ export interface WorkspaceItem {
 
 const WORKSPACE_KEY = "ddcore_workspace";
 
-function defaultStore(): { getItem(k: string): string | null; setItem(k: string, v: string): void } | null {
-  try {
-    return (globalThis as any).localStorage ?? null;
-  } catch {
-    return null;
-  }
-}
+type Store = { getItem(k: string): string | null; setItem(k: string, v: string): void };
 
-export function rememberWorkspace(name: string, store = defaultStore()): void {
+export function rememberWorkspace(name: string, store: Store | null = defaultStore()): void {
   try {
     if (store && name) {
       store.setItem(WORKSPACE_KEY, name);
@@ -37,7 +32,7 @@ export function rememberWorkspace(name: string, store = defaultStore()): void {
   }
 }
 
-export function getRememberedWorkspace(store = defaultStore()): string {
+export function getRememberedWorkspace(store: Store | null = defaultStore()): string {
   try {
     if (store) {
       return store.getItem(WORKSPACE_KEY) || "";

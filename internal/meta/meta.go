@@ -608,6 +608,15 @@ func (d *DocType) DataFields() []*Field {
 // links.
 func IsTableType(ft string) bool { return ft == "Table" || ft == "Table MultiSelect" }
 
+// IsNumericType says whether a fieldtype holds a number.
+func IsNumericType(ft string) bool {
+	switch ft {
+	case "Int", "Float", "Currency", "Percent", "Duration", "Rating":
+		return true
+	}
+	return false
+}
+
 // MultiSelectLinkField is the one Link field of a Table MultiSelect's child
 // DocType, the field that holds each chosen value. Nil when the DocType has
 // none or more than one, which Validate refuses.
@@ -684,7 +693,7 @@ func NewRegistry() *Registry { return &Registry{DocTypes: map[string]*DocType{}}
 
 func (r *Registry) Add(d *DocType) error {
 	if _, dup := r.DocTypes[d.Name]; dup {
-		return fmt.Errorf("DocType %q definido duas vezes", d.Name)
+		return fmt.Errorf("DocType %q defined twice", d.Name)
 	}
 	r.DocTypes[d.Name] = d
 	return nil
@@ -705,39 +714,6 @@ func (r *Registry) Names() []string {
 }
 
 var fieldnameRe = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
-
-// ObsoleteFieldtypes are fieldtypes ddcore no longer has, mapped to what
-// replaced them. They are dropped when an app loads instead of failing its
-// validation, so a DocType written against an older version still runs.
-var ObsoleteFieldtypes = map[string]string{
-	"Column Break": "remove it; a form field now sizes itself with `width`",
-}
-
-// DropObsoleteFields removes every field of an obsolete fieldtype, returning
-// one message per DocType that had any, for the caller to log.
-func (r *Registry) DropObsoleteFields() []string {
-	var warnings []string
-	for _, name := range r.Names() {
-		d := r.DocTypes[name]
-		kept := make([]*Field, 0, len(d.Fields))
-		dropped := map[string]int{}
-		for _, f := range d.Fields {
-			if _, obsolete := ObsoleteFieldtypes[f.Fieldtype]; obsolete {
-				dropped[f.Fieldtype]++
-				continue
-			}
-			kept = append(kept, f)
-		}
-		if len(dropped) == 0 {
-			continue
-		}
-		d.Fields = kept
-		for _, ft := range sortedKeys(dropped) {
-			warnings = append(warnings, fmt.Sprintf("%s: dropped %d %q field(s) — %s", d.Name, dropped[ft], ft, ObsoleteFieldtypes[ft]))
-		}
-	}
-	return warnings
-}
 
 // Validate checks every DocType for internal consistency and cross-references.
 func (r *Registry) Validate() error {
@@ -762,6 +738,7 @@ func (r *Registry) Validate() error {
 		for _, f := range d.Fields {
 			if !valid[f.Fieldtype] {
 				e("invalid fieldtype %q on field %q", f.Fieldtype, f.Fieldname)
+				continue // the rest of the checks assume a known fieldtype
 			}
 			r.validateGrid(d, f, e)
 			if f.Rows < 0 {

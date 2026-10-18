@@ -9,7 +9,6 @@ import (
 	"io"
 	"log/slog"
 	"maps"
-	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
@@ -61,7 +60,6 @@ type Config struct {
 	// SiteTitle is ddcore.json's `title`: the site's name when it is not its
 	// app's title. Empty leaves the name to the apps.
 	SiteTitle string
-	SecretKey string
 	// AdminPassword is DDCORE_ADMIN_PASSWORD: what a migration gives an Admin
 	// that has no password yet, instead of generating one. Empty generates.
 	AdminPassword string
@@ -444,15 +442,18 @@ func (e *Engine) buildPool(apps []js.App) (*js.Pool, *Snapshot, []*js.Bundle, er
 	}
 	rt, err := pool.Acquire()
 	if err != nil {
+		pool.Close()
 		return nil, nil, nil, err
 	}
 	raw, err := rt.Meta()
 	pool.Release(rt)
 	if err != nil {
+		pool.Close()
 		return nil, nil, nil, err
 	}
 	var snap Snapshot
 	if err := json.Unmarshal(raw, &snap); err != nil {
+		pool.Close()
 		return nil, nil, nil, fmt.Errorf("meta: %w", err)
 	}
 	return pool, &snap, bundles, nil
@@ -550,18 +551,23 @@ func sameAppOrder(a, b []js.App) bool {
 }
 
 // Load (re)compiles the apps and rebuilds the runtime pool and meta.
-func (e *Engine) Load() error {
+func (e *Engine) Load() (err error) {
 	apps := append([]js.App{CoreApp()}, e.Cfg.Apps...)
 	pool, snap, bundles, err := e.buildPool(apps)
 	if err != nil {
 		return err
 	}
+	// every error return below closes the pool it built. The constraint: no
+	// error return may follow the state swap below, which installs the pool
+	defer func() {
+		if err != nil && pool != nil {
+			pool.Close()
+		}
+	}()
 	if err := checkAppNames(apps, snap); err != nil {
-		pool.Close()
 		return err
 	}
 	if skipped, err := checkCoreCompat(snap, e.Cfg.DDCore, Version); err != nil {
-		pool.Close()
 		return err
 	} else if skipped {
 		e.Log.Warn("core version is not a release; ddcore ranges are not enforced", "version", Version)
@@ -573,11 +579,9 @@ func (e *Engine) Load() error {
 	// declared order violates dependencies, recompile in correct order.
 	ordered, err := orderApps(apps, snap.Apps)
 	if err != nil {
-		pool.Close()
 		return err
 	}
 	if err := checkImports(bundles, snap.Apps); err != nil {
-		pool.Close()
 		return err
 	}
 	if !sameAppOrder(apps, ordered) {
@@ -632,18 +636,12 @@ func (e *Engine) Load() error {
 		return err
 	}
 	applyLanguageOptions(reg, i18n)
-	// after the extensions, so a fieldtype ddcore dropped is forgiven wherever
-	// it came from — an app written against an older version still loads
-	for _, w := range reg.DropObsoleteFields() {
-		e.Log.Warn("obsolete fieldtype in a DocType", "detail", w)
-	}
 	// after the extensions, which may add the Table field that makes a child
 	// DocType some tenant-owned DocType's; before Validate, which reserves the
 	// `tenant` column name.
 	reg.ApplyTenancy(e.Cfg.Tenancy)
 	appSpace, err := appSpaces(snap.Apps)
 	if err != nil {
-		pool.Close()
 		return err
 	}
 	reg.ApplySpaces(appSpace)
@@ -651,18 +649,15 @@ func (e *Engine) Load() error {
 		return err
 	}
 	if err := tenantOnlyFixtures(reg, snap.Apps); err != nil {
-		pool.Close()
 		return err
 	}
 	if err := checkReportFields(reg, snap.Reports); err != nil {
-		pool.Close()
 		return err
 	}
 	notifications := make([]js.Notification, 0, len(snap.Notifications))
 	for _, name := range sortedNotificationNames(snap.Notifications) {
 		rule := snap.Notifications[name]
 		if err := rule.ValidateTarget(reg, func(name string) bool { _, ok := snap.MailTemplates[name]; return ok }); err != nil {
-			pool.Close()
 			return err
 		}
 		notifications = append(notifications, rule)
@@ -677,10 +672,10 @@ func (e *Engine) Load() error {
 		// it; the desk loads every one of them, and their handlers accumulate
 		files := js.ListFiles(a, ".form.ts")
 		for _, d := range reg.DocTypes {
-			if d.App != a.Name && !contains(d.ExtendedBy, a.Name) {
+			if d.App != a.Name && !containsFold(d.ExtendedBy, a.Name) {
 				continue
 			}
-			if FormScript(files, d) != "" && !contains(d.FormApps, a.Name) {
+			if FormScript(files, d) != "" && !containsFold(d.FormApps, a.Name) {
 				d.FormApps = append(d.FormApps, a.Name)
 			}
 		}
@@ -700,7 +695,6 @@ func (e *Engine) Load() error {
 	}
 	for _, name := range sortedWorkflowNames(snap.Workflows) {
 		if err := snap.Workflows[name].ValidateTarget(reg); err != nil {
-			pool.Close()
 			return err
 		}
 	}
@@ -711,7 +705,6 @@ func (e *Engine) Load() error {
 		// the state is shown to, and moved by, everyone the workflow serves
 		if d, ok := reg.Get(wf.Doctype); ok {
 			if f := d.Field(wf.StateField); f != nil && f.Permlevel > 0 {
-				pool.Close()
 				return fmt.Errorf("workflow %q: state field %q has permlevel %d; it must be permlevel 0", wf.Name, wf.StateField, f.Permlevel)
 			}
 		}
@@ -724,12 +717,10 @@ func (e *Engine) Load() error {
 	for _, name := range sortedPortalNames(snap.Portals) {
 		p := snap.Portals[name]
 		if err := p.ValidateTarget(reg, wl); err != nil {
-			pool.Close()
 			return err
 		}
 		for _, other := range portals {
 			if other.Slug() == p.Slug() {
-				pool.Close()
 				return fmt.Errorf("portal %q: its URL name %q is taken by portal %q", p.Name, p.Slug(), other.Name)
 			}
 		}
@@ -741,31 +732,25 @@ func (e *Engine) Load() error {
 		names []string
 	}{{"doctype", reg.Names()}, {"workspace", mapNames(snap.Workspaces)}, {"report", mapNames(snap.Reports)}} {
 		if err := routeNameClash(c.kind, c.names); err != nil {
-			pool.Close()
 			return err
 		}
 	}
 	if err := workspaceSpaceError(snap.Workspaces); err != nil {
-		pool.Close()
 		return err
 	}
 	if err := iconError(reg, snap.Workspaces); err != nil {
-		pool.Close()
 		return err
 	}
 	www, err := buildWWW(apps, snap)
 	if err != nil {
-		pool.Close()
 		return err
 	}
 	credentials, err := buildCredentialProviders(apps, snap, reg, e.Cfg.OIDC)
 	if err != nil {
-		pool.Close()
 		return err
 	}
 	brand, err := buildBrand(apps, snap)
 	if err != nil {
-		pool.Close()
 		return err
 	}
 	st := &State{
@@ -1231,18 +1216,6 @@ func (c *Ctx) WorkflowFor(doctype string) *js.Workflow {
 	return c.St.WorkflowFor(doctype)
 }
 
-// InWorkflowTransition reports whether execution is currently inside a workflow transition.
-func (c *Ctx) InWorkflowTransition() bool {
-	return c != nil && c.inWorkflowTransition
-}
-
-// SetInWorkflowTransition sets the workflow transition guard bypass flag.
-func (c *Ctx) SetInWorkflowTransition(v bool) {
-	if c != nil {
-		c.inWorkflowTransition = v
-	}
-}
-
 // WithWorkflowTransition runs fn with inWorkflowTransition set to true.
 func (c *Ctx) WithWorkflowTransition(fn func() error) error {
 	old := c.inWorkflowTransition
@@ -1452,14 +1425,6 @@ func (c *Ctx) SavepointRollback() error {
 // AppDir returns the directory of an app (for reading form scripts etc.).
 func (e *Engine) AppDir(name string) string {
 	return e.App(name).Dir
-}
-
-func abs(p string) string {
-	a, err := filepath.Abs(p)
-	if err != nil {
-		return p
-	}
-	return a
 }
 
 // RunTests executes the app tests inside one rolled-back transaction.

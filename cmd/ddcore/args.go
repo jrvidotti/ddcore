@@ -5,7 +5,9 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 )
 
 // flag.FlagSet.Parse stops reading flags at the first positional argument, so
@@ -101,3 +103,22 @@ func newFlagSet(name string) *flag.FlagSet {
 
 // isHelp reports whether a subcommand slot asks for help.
 func isHelp(a string) bool { return a == "-h" || a == "--help" || a == "-help" }
+
+// parseSince turns a --since value into the moment it counts back to: a Go
+// duration ("90m", "24h") or a whole number of days ("7d").
+func parseSince(s string) (time.Time, error) {
+	var d time.Duration
+	if days, ok := strings.CutSuffix(s, "d"); ok {
+		n, err := strconv.Atoi(days)
+		if err != nil {
+			return time.Time{}, fmt.Errorf("--since: invalid duration %q", s)
+		}
+		d = time.Duration(n) * 24 * time.Hour
+	} else {
+		var err error
+		if d, err = time.ParseDuration(s); err != nil {
+			return time.Time{}, fmt.Errorf("--since: %w", err)
+		}
+	}
+	return time.Now().Add(-d), nil
+}

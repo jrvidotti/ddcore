@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 
-import { normalizeEmail, validateEmailFields, validEmail } from "./email.ts";
+import { normalizeEmail, validateEmailFields, validEmail } from "./email";
 
 test("email normalization removes surrounding whitespace", () => {
   assert.equal(normalizeEmail("  pessoa@example.com  "), "pessoa@example.com");
@@ -31,7 +31,7 @@ test("field validation normalizes values, reports invalid emails and preserves s
   ];
   const doc = { email: "  pessoa@example.com ", secondary: "invalid" };
 
-  assert.deepEqual(validateEmailFields(fields, doc, "Pessoa"), { secondary: "E-mail inválido" });
+  assert.deepEqual(validateEmailFields(fields, doc, "Pessoa"), { secondary: "Invalid email" });
   assert.equal(doc.email, "pessoa@example.com");
 
   const admin = { email: "Admin" };

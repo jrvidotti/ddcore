@@ -2,12 +2,9 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"os"
-	"strings"
 	"text/tabwriter"
-	"time"
 
 	"github.com/jrvidotti/ddcore/internal/db"
 	"github.com/jrvidotti/ddcore/internal/engine"
@@ -37,11 +34,11 @@ func cmdWebhooks(args []string) error {
 }
 
 func webhooksList(args []string) error {
-	fs := flag.NewFlagSet("webhooks list", flag.ContinueOnError)
+	fs := newFlagSet("webhooks list")
 	status := fs.String("status", "", "Queued, Retrying, Sent or Failed")
 	webhook := fs.String("webhook", "", "only this Webhook")
 	limit := fs.Int("limit", 20, "how many deliveries")
-	if err := fs.Parse(args); err != nil {
+	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
 	return withEngine(func(e *engine.Engine, ctx context.Context) error {
@@ -57,22 +54,12 @@ func webhooksList(args []string) error {
 		tw := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
 		fmt.Fprintln(tw, "DELIVERY\tCREATED\tEVENT\tSTATUS\tTRIES\tHTTP\tREFERENCE\tERROR")
 		for _, r := range rows {
-			created := db.Str(r["creation"])
-			if t, ok := r["creation"].(time.Time); ok {
-				created = t.Local().Format("2006-01-02 15:04:05")
-			} else if len(created) > 19 {
-				created = strings.Replace(created[:19], "T", " ", 1)
-			}
 			ref := db.Str(r["reference_doctype"])
 			if ref != "" {
 				ref += " " + db.Str(r["reference_id"])
 			}
-			errText := db.Str(r["error"])
-			if len(errText) > 60 {
-				errText = errText[:60] + "…"
-			}
-			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%v\t%v\t%s\t%s\n", db.Str(r["id"]), created, db.Str(r["event"]),
-				db.Str(r["status"]), r["attempts"], nilDash(r["response_status"]), ref, errText)
+			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%v\t%v\t%s\t%s\n", db.Str(r["id"]), shortTime(r["creation"]), db.Str(r["event"]),
+				db.Str(r["status"]), r["attempts"], nilDash(r["response_status"]), ref, firstLine(r["error"]))
 		}
 		return tw.Flush()
 	})

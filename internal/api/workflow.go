@@ -65,6 +65,9 @@ func (s *Server) applyWorkflowTransition(w http.ResponseWriter, r *http.Request)
 		if err := s.enrichWorkflow(c, body.Doctype, saved); err != nil {
 			return nil, err
 		}
+		if err := c.LoadComputed(body.Doctype, saved); err != nil {
+			return nil, err
+		}
 		c.ResolveLinkTitles(body.Doctype, saved)
 		return c.RedactDoc(body.Doctype, saved), nil
 	})

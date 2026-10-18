@@ -165,7 +165,7 @@ func (c *Ctx) ApplyWorkflowTransition(doctype, name, action string) (Doc, error)
 	var saved Doc
 	err = c.WithWorkflowTransition(func() error {
 		var saveErr error
-		saved, saveErr = c.SaveDoc(doc, SaveOpts{})
+		saved, saveErr = c.Save(doc, SaveOpts{})
 		return saveErr
 	})
 	if err != nil {
@@ -182,7 +182,6 @@ func (c *Ctx) ApplyWorkflowTransition(doctype, name, action string) (Doc, error)
 		comment, err := c.NewDoc("Comment", Doc{
 			"comment_type":      "Workflow",
 			"reference_doctype": doctype,
-			"reference_type":    doctype,
 			"reference_id":      name,
 			"content":           richtext.FromPlainText(c.T("{0} applied action '{1}' ({2} → {3})", c.User, c.T(action), c.T(currentState), c.T(matched.NextState))),
 		})

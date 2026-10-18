@@ -130,9 +130,9 @@
         {:else if ft === "Table MultiSelect"}
           <TableMultiSelectControl {field} {value} {onchange} {doc} readOnly={ro} {query} {error} {id} />
         {:else if ft === "Month" || (ft === "Date" && (field.options === "month" || (field as any).format === "mm/yyyy"))}
-          <MonthControl {field} {value} {onchange} {id} readOnly={ro} error={shownError} {inGrid} />
+          <MonthControl {field} {value} {onchange} {id} readOnly={ro} error={shownError} />
         {:else if ft === "Date"}
-          <DateControl {field} {value} {onchange} {id} readOnly={ro} error={shownError} {inGrid} />
+          <DateControl {field} {value} {onchange} {id} readOnly={ro} error={shownError} />
         {:else if ft === "Datetime"}
           <input {id} type="datetime-local" class="input" class:error={!!shownError} readonly={ro} value={toDatetimeLocal(value)}
             onclick={(e) => { if (!ro) { try { (e.target as HTMLInputElement).showPicker?.(); } catch {} } }}

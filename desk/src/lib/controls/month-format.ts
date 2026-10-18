@@ -7,9 +7,6 @@ import { partAt, type DateStep } from "./date-format";
 /** Abbreviated month names for the month picker's grid. */
 export const monthLabelsShort = (): string[] => monthNames("short");
 
-/** Full month names, for a title. */
-export const monthLabelsFull = (): string[] => monthNames("long");
-
 /** The hint for the input, e.g. "mm/yyyy" or "yyyy-mm". */
 export const monthPlaceholder = (): string => monthShape().placeholder;
 

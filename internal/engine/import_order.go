@@ -139,10 +139,10 @@ func fewestDeps(names []string, placed map[string]bool, deps map[string]map[stri
 func linkFields(d *meta.DocType, lookup DoctypeLookup) []*meta.Field {
 	var out []*meta.Field
 	for _, f := range d.Fields {
-		switch f.Fieldtype {
-		case "Link", "Dynamic Link":
+		switch {
+		case f.Fieldtype == "Link" || f.Fieldtype == "Dynamic Link":
 			out = append(out, f)
-		case "Table", "Table MultiSelect":
+		case meta.IsTableType(f.Fieldtype):
 			child, err := lookup(f.OptionsString())
 			if err != nil || child == nil {
 				continue
