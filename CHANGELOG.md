@@ -14,6 +14,10 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Changed
+
+- **`ddcore types` no longer opens the database.** It compiles the apps and writes `.ddcore/types.d.ts` without connecting, so it works with Postgres down or no dsn configured (`ddcore migrate` still ends by writing the types, from the engine it already has open instead of loading the apps a second time).
+
 ## 0.29.1 — 2026-10-18
 
 No change an app would notice. Three API tests that still expected workspace entries a reader

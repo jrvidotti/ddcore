@@ -38,7 +38,7 @@ func cmdTenant(args []string) error {
 	if os.Getenv("DDCORE_TENANT") != "" {
 		return fmt.Errorf("tenant commands run in the platform space: drop --tenant")
 	}
-	return withEngine(func(e *engine.Engine, ctx context.Context) error {
+	return withEngine(loadOpts{}, func(e *engine.Engine, ctx context.Context) error {
 		if !e.Cfg.Tenancy {
 			return fmt.Errorf(`this site has no tenants: set "tenancy": true in ddcore.json and run ddcore migrate`)
 		}

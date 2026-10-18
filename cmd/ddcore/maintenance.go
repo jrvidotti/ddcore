@@ -32,7 +32,7 @@ func cmdMaintenance(args []string) error {
 	if err := parseFlags(fs, rest); err != nil {
 		return err
 	}
-	return withEngine(func(e *engine.Engine, ctx context.Context) error {
+	return withEngine(loadOpts{}, func(e *engine.Engine, ctx context.Context) error {
 		var st engine.MaintenanceState
 		var err error
 		switch sub {

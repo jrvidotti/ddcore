@@ -233,7 +233,7 @@ func gatherDoctor(ctx context.Context, cfg *config.File, windowMin int, updateCh
 		window = time.Duration(windowMin) * time.Minute
 	}
 
-	e, _, err := load(false, false)
+	e, err := loadSite(cfg, loadOpts{})
 	if err != nil {
 		rep.Engine = db.RedactError(err)
 		rep.Critical = append(rep.Critical, engineCritical(err))

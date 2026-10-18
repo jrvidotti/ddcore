@@ -122,7 +122,7 @@ func TestBackupRestoreRoundTrip(t *testing.T) {
 	// the source site
 	t.Setenv("DDCORE_DSN", src)
 	t.Setenv("DDCORE_DATA_DIR", filepath.Join(work, "src"))
-	e, _, err := load(false, false)
+	e, _, err := load(loadOpts{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -162,7 +162,7 @@ func TestBackupRestoreRoundTrip(t *testing.T) {
 	if b, err := storage.ReadAll(ctx, store, "private/b.pdf"); err != nil || string(b) != "%PDF" {
 		t.Fatalf("restored file: %q %v", b, err)
 	}
-	e, _, err = load(false, false)
+	e, _, err = load(loadOpts{})
 	if err != nil {
 		t.Fatal(err)
 	}

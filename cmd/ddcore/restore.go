@@ -23,7 +23,6 @@ import (
 	"github.com/jrvidotti/ddcore/internal/config"
 	"github.com/jrvidotti/ddcore/internal/db"
 	"github.com/jrvidotti/ddcore/internal/engine"
-	"github.com/jrvidotti/ddcore/internal/js"
 	"github.com/jrvidotti/ddcore/internal/storage"
 )
 
@@ -174,14 +173,27 @@ func cmdRestore(args []string) error {
 	// The same comparison the engine makes after the restore, made before it:
 	// finding out that this binary refuses the database once the target's own
 	// data is already gone would be the worst time to find out.
+	var e *engine.Engine
 	if !config.AllowOlderBinaryFromEnv() {
 		archived := man.SiteVersion
 		if archived == nil {
 			archived = &engine.SiteVersion{Core: man.DDCore}
 		}
-		apps, err := loadedAppVersions(ctx, cfg)
+		// The apps compile once, here, without a database: the target's own is
+		// about to be replaced. The engine connects to it after the restore.
+		ec, err := engineConfig(cfg, loadOpts{})
 		if err != nil {
 			return err
+		}
+		ec.DSN = ""
+		if e, err = engine.New(ctx, ec); err != nil {
+			return fmt.Errorf("loading the apps: %w", err)
+		}
+		apps := map[string]string{}
+		for name, am := range e.Snap.Apps {
+			if am != nil && am.Version != "" {
+				apps[name] = am.Version
+			}
 		}
 		if older := engine.OlderThanSite(archived, engine.Version, apps); len(older) > 0 {
 			return fmt.Errorf("this binary is older than the archived site: %s. Restore with that release or newer, or pass --allow-older-binary", strings.Join(older, "; "))
@@ -273,9 +285,16 @@ func cmdRestore(args []string) error {
 
 	// 6. the engine: the version ledger check runs here, then migrate
 	p = res.phase("migrate")
-	e, _, err := load(false, false)
-	if err != nil {
-		return report(err)
+	if e == nil {
+		if e, _, err = load(loadOpts{}); err != nil {
+			return report(err)
+		}
+	} else {
+		e.Cfg.DSN = cfg.DSN
+		if err = e.Connect(ctx); err != nil {
+			return report(err)
+		}
+		warnConfig(e, cfg)
 	}
 	defer e.DB.Close()
 	if *noMigrate {
@@ -304,26 +323,6 @@ func cmdRestore(args []string) error {
 		p.done("")
 	}
 	return report(nil)
-}
-
-// loadedAppVersions compiles the configured apps without a database, for the
-// versions they declare.
-func loadedAppVersions(ctx context.Context, cfg *config.File) (map[string]string, error) {
-	var apps []js.App
-	for _, dir := range cfg.Apps {
-		apps = append(apps, js.App{Name: js.AppName(dir), Dir: dir})
-	}
-	e, err := engine.New(ctx, engine.Config{Apps: apps, DDCore: cfg.DDCore, DataDir: cfg.DataDir, LogOut: io.Discard, Workers: 0})
-	if err != nil {
-		return nil, fmt.Errorf("loading the apps: %w", err)
-	}
-	out := map[string]string{}
-	for name, am := range e.Snap.Apps {
-		if am != nil && am.Version != "" {
-			out[name] = am.Version
-		}
-	}
-	return out, nil
 }
 
 // fetchArchive returns a local path for the source: the file itself, or a

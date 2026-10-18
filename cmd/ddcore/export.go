@@ -65,78 +65,73 @@ func cmdExport(args []string) error {
 	}
 	fields := splitList(*fieldList)
 
-	e, _, err := load(false, false)
-	if err != nil {
-		return err
-	}
-	defer e.DB.Close()
+	return withEngine(loadOpts{}, func(e *engine.Engine, ctx context.Context) error {
+		dir := *out
+		if dir == "" {
+			dir = filepath.Join("export", time.Now().Format("20060102-150405"))
+		}
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return err
+		}
 
-	dir := *out
-	if dir == "" {
-		dir = filepath.Join("export", time.Now().Format("20060102-150405"))
-	}
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return err
-	}
-
-	doctypes := rest
-	if *all {
-		// Child tables travel inside their parent; a Single has no table.
-		for _, n := range e.Meta.Names() {
-			if d := e.Meta.DocTypes[n]; !d.IsChild && !d.IsSingle {
-				doctypes = append(doctypes, n)
+		doctypes := rest
+		if *all {
+			// Child tables travel inside their parent; a Single has no table.
+			for _, n := range e.Meta.Names() {
+				if d := e.Meta.DocTypes[n]; !d.IsChild && !d.IsSingle {
+					doctypes = append(doctypes, n)
+				}
 			}
 		}
-	}
 
-	run := &engine.ExportManifest{
-		DDCore: engine.Version, Layout: engine.ExportLayout, Site: e.SiteTitle(), User: *user, Started: time.Now(), Dir: dir,
-		Format: *format, Filters: parsedFilters, Apps: map[string]string{},
-	}
-	for _, n := range e.AppOrder() {
-		if am := e.Snap.Apps[n]; am != nil && am.Version != "" {
-			run.Apps[n] = am.Version
+		run := &engine.ExportManifest{
+			DDCore: engine.Version, Layout: engine.ExportLayout, Site: e.SiteTitle(), User: *user, Started: time.Now(), Dir: dir,
+			Format: *format, Filters: parsedFilters, Apps: map[string]string{},
 		}
-	}
-	ctx := context.Background()
-	for _, dt := range doctypes {
-		res, err := exportOne(ctx, e, *user, dir, dt, *format, sepRunes[0], engine.ExportArgs{
-			Doctype: dt, Filters: parsedFilters, Fields: fields,
-			Children: *children, Attachments: *attachments, Batch: *batch,
-		})
+		for _, n := range e.AppOrder() {
+			if am := e.Snap.Apps[n]; am != nil && am.Version != "" {
+				run.Apps[n] = am.Version
+			}
+		}
+		for _, dt := range doctypes {
+			res, err := exportOne(ctx, e, *user, dir, dt, *format, sepRunes[0], engine.ExportArgs{
+				Doctype: dt, Filters: parsedFilters, Fields: fields,
+				Children: *children, Attachments: *attachments, Batch: *batch,
+			})
+			if err != nil {
+				// With --all over a whole site, one DocType the user may not
+				// export is a line in the report, not the end of the run. Asked
+				// for by name, it is an error.
+				if *all && cerr.From(err).Type == "PermissionError" {
+					fmt.Fprintf(os.Stderr, "skipping %s: %v\n", dt, err)
+					run.Skipped = append(run.Skipped, dt)
+					continue
+				}
+				return fmt.Errorf("%s: %w", dt, err)
+			}
+			run.Exports = append(run.Exports, res)
+			fmt.Printf("%-28s %7d rows", dt, res.Summary.Rows)
+			if n := totalChildRows(res.Summary); n > 0 {
+				fmt.Printf("  %5d child rows", n)
+			}
+			if res.Summary.Files > 0 {
+				fmt.Printf("  %4d files", res.Summary.Files)
+			}
+			fmt.Println()
+		}
+		run.Finished = time.Now()
+
+		manifest := filepath.Join(dir, "manifest.json")
+		b, err := json.MarshalIndent(run, "", "  ")
 		if err != nil {
-			// With --all over a whole site, one DocType the user may not
-			// export is a line in the report, not the end of the run. Asked
-			// for by name, it is an error.
-			if *all && cerr.From(err).Type == "PermissionError" {
-				fmt.Fprintf(os.Stderr, "skipping %s: %v\n", dt, err)
-				run.Skipped = append(run.Skipped, dt)
-				continue
-			}
-			return fmt.Errorf("%s: %w", dt, err)
+			return err
 		}
-		run.Exports = append(run.Exports, res)
-		fmt.Printf("%-28s %7d rows", dt, res.Summary.Rows)
-		if n := totalChildRows(res.Summary); n > 0 {
-			fmt.Printf("  %5d child rows", n)
+		if err := os.WriteFile(manifest, append(b, '\n'), 0o644); err != nil {
+			return err
 		}
-		if res.Summary.Files > 0 {
-			fmt.Printf("  %4d files", res.Summary.Files)
-		}
-		fmt.Println()
-	}
-	run.Finished = time.Now()
-
-	manifest := filepath.Join(dir, "manifest.json")
-	b, err := json.MarshalIndent(run, "", "  ")
-	if err != nil {
-		return err
-	}
-	if err := os.WriteFile(manifest, append(b, '\n'), 0o644); err != nil {
-		return err
-	}
-	fmt.Printf("\n%s\n", manifest)
-	return nil
+		fmt.Printf("\n%s\n", manifest)
+		return nil
+	})
 }
 
 func totalChildRows(s *engine.ExportSummary) int64 {

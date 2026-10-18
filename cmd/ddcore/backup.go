@@ -111,60 +111,58 @@ func cmdBackup(args []string) error {
 	if *to != "" && *to != "s3" {
 		return fmt.Errorf("--to: %q is not a destination (s3)", *to)
 	}
-	e, cfg, err := load(false, false)
-	if err != nil {
-		return err
-	}
-	defer e.DB.Close()
-	ctx, cancel := signalContext()
-	defer cancel()
-	if *keep < 0 {
-		*keep = cfg.Backup.Keep
-	}
-	var up storage.Store
-	if *to == "s3" {
-		if !cfg.Backup.S3Configured {
-			return fmt.Errorf("--to s3 needs a bucket: set DDCORE_BACKUP_S3_BUCKET and its credentials, or DDCORE_S3_*")
+	return withSite(loadOpts{}, func(e *engine.Engine, cfg *config.File) error {
+		ctx, cancel := signalContext()
+		defer cancel()
+		if *keep < 0 {
+			*keep = cfg.Backup.Keep
 		}
-		if up, err = storage.NewS3(ctx, cfg.Backup.S3); err != nil {
+		var up storage.Store
+		if *to == "s3" {
+			if !cfg.Backup.S3Configured {
+				return fmt.Errorf("--to s3 needs a bucket: set DDCORE_BACKUP_S3_BUCKET and its credentials, or DDCORE_S3_*")
+			}
+			var err error
+			if up, err = storage.NewS3(ctx, cfg.Backup.S3); err != nil {
+				return err
+			}
+		}
+
+		started := time.Now()
+		logID := startBackupLog(ctx, e, "backup", started)
+		man, file, err := runBackup(ctx, e, cfg, backupOpts{Out: *out, NoFiles: *noFiles, Maintenance: *maint})
+		if err == nil && up != nil {
+			err = uploadBackup(ctx, up, file)
+		}
+		if err == nil && *keep > 0 {
+			pruneBackups(ctx, cfg.Backup.Dir, up, *keep)
+		}
+		var size int64
+		if st, serr := os.Stat(file); serr == nil {
+			size = st.Size()
+		}
+		finishBackupLog(e, logID, file, size, err)
+		detail := map[string]any{"archive": filepath.Base(file), "bytes": size, "files": man.Files, "uploaded": up != nil}
+		if err != nil {
+			detail["error"] = db.RedactError(err)
+			e.RecordAudit(ctx, cliActor(), "backup.create", "Denied", "", "", detail)
 			return err
 		}
-	}
-
-	started := time.Now()
-	logID := startBackupLog(ctx, e, "backup", started)
-	man, file, err := runBackup(ctx, e, cfg, backupOpts{Out: *out, NoFiles: *noFiles, Maintenance: *maint})
-	if err == nil && up != nil {
-		err = uploadBackup(ctx, up, file)
-	}
-	if err == nil && *keep > 0 {
-		pruneBackups(ctx, cfg.Backup.Dir, up, *keep)
-	}
-	var size int64
-	if st, serr := os.Stat(file); serr == nil {
-		size = st.Size()
-	}
-	finishBackupLog(e, logID, file, size, err)
-	detail := map[string]any{"archive": filepath.Base(file), "bytes": size, "files": man.Files, "uploaded": up != nil}
-	if err != nil {
-		detail["error"] = db.RedactError(err)
-		e.RecordAudit(ctx, cliActor(), "backup.create", "Denied", "", "", detail)
-		return err
-	}
-	e.RecordAudit(ctx, cliActor(), "backup.create", "Allowed", "", "", detail)
-	if *asJSON {
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		return enc.Encode(man)
-	}
-	fmt.Printf("backup written: %s (%s, %d tables, %d files) in %s\n", file, humanBytes(size), len(man.Tables), man.Files, time.Since(started).Round(time.Millisecond))
-	if up != nil {
-		fmt.Printf("uploaded to s3://%s/%s\n", cfg.Backup.S3.Bucket, path.Join(cfg.Backup.S3.Prefix, filepath.Base(file)))
-	}
-	if len(man.Secrets) > 0 {
-		fmt.Printf("not in the archive — provision on the target: %s\n", strings.Join(man.Secrets, ", "))
-	}
-	return nil
+		e.RecordAudit(ctx, cliActor(), "backup.create", "Allowed", "", "", detail)
+		if *asJSON {
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+			return enc.Encode(man)
+		}
+		fmt.Printf("backup written: %s (%s, %d tables, %d files) in %s\n", file, humanBytes(size), len(man.Tables), man.Files, time.Since(started).Round(time.Millisecond))
+		if up != nil {
+			fmt.Printf("uploaded to s3://%s/%s\n", cfg.Backup.S3.Bucket, path.Join(cfg.Backup.S3.Prefix, filepath.Base(file)))
+		}
+		if len(man.Secrets) > 0 {
+			fmt.Printf("not in the archive — provision on the target: %s\n", strings.Join(man.Secrets, ", "))
+		}
+		return nil
+	})
 }
 
 type backupOpts struct {
@@ -310,11 +308,9 @@ func runBackup(ctx context.Context, e *engine.Engine, cfg *config.File, o backup
 		}
 	}
 
-	if cfgPath, err := configPath(); err == nil {
-		if b, err := os.ReadFile(cfgPath); err == nil {
-			if err := addBytes(tw, man, "config/ddcore.json", b); err != nil {
-				return man, out, err
-			}
+	if b, err := os.ReadFile(cfg.Path); err == nil {
+		if err := addBytes(tw, man, "config/ddcore.json", b); err != nil {
+			return man, out, err
 		}
 	}
 	envSnap := captureEnv()
@@ -429,11 +425,6 @@ func writeTarFile(tw *tar.Writer, name string, size int64, r io.Reader, mod *tim
 		return fmt.Errorf("%s: shorter than its %d bytes", name, size)
 	}
 	return err
-}
-
-func configPath() (string, error) {
-	_, p, err := config.Load(".")
-	return p, err
 }
 
 // secretEnv is what never leaves the process: anything that authenticates.

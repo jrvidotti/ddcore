@@ -1,16 +1,11 @@
 package main
 
 import (
-	"context"
 	"fmt"
-	"log/slog"
-	"os"
 	"path/filepath"
 
 	"github.com/jrvidotti/ddcore/internal/config"
-	"github.com/jrvidotti/ddcore/internal/engine"
 	"github.com/jrvidotti/ddcore/internal/i18nx"
-	"github.com/jrvidotti/ddcore/internal/js"
 )
 
 const i18nUsage = `ddcore i18n extract — rewrites translations/<lang>.csv from the code
@@ -48,13 +43,17 @@ func cmdI18n(args []string) error {
 		*app = ""
 	}
 
-	e, cfg, root, err := loadForExtract()
+	// Without a database: extraction reads the app sources and the registry
+	// they produce, exactly as `ddcore types` does, and never a row.
+	cfg, _, err := config.Load(".")
 	if err != nil {
 		return err
 	}
-	if e.DB != nil {
-		defer e.DB.Close()
+	e, err := newEngine(cfg, loadOpts{NoDB: true, Quiet: true})
+	if err != nil {
+		return err
 	}
+	root := e.Cfg.Root // the directory holding ddcore.json
 	if *lang == "" {
 		*lang = cfg.Lang
 	}
@@ -108,32 +107,4 @@ func cmdI18n(args []string) error {
 		return fmt.Errorf("%d untranslated key(s) in %s", missingTotal, *lang)
 	}
 	return nil
-}
-
-// loadForExtract builds the engine without a database: extraction reads the
-// app sources and the registry they produce, exactly as `ddcore types` does,
-// and never a row. It also returns the repo root, which is the directory
-// holding ddcore.json.
-func loadForExtract() (*engine.Engine, *config.File, string, error) {
-	cfg, path, err := config.Load(".")
-	if err != nil {
-		return nil, nil, "", err
-	}
-	var apps []js.App
-	for _, dir := range cfg.Apps {
-		apps = append(apps, js.App{Name: js.AppName(dir), Dir: dir})
-	}
-	root, err := filepath.Abs(filepath.Dir(path))
-	if err != nil {
-		return nil, nil, "", err
-	}
-	level := slog.LevelWarn
-	if os.Getenv("DDCORE_DEBUG") != "" {
-		level = slog.LevelDebug
-	}
-	e, err := engine.New(context.Background(), engine.Config{
-		Apps: apps, DDCore: cfg.DDCore, Tenancy: cfg.Tenancy, SiteTitle: cfg.Title, Lang: cfg.Lang, Currency: cfg.Currency,
-		Timezone: cfg.Timezone, DataDir: cfg.DataDir, LogLevel: level, LogOut: logOut,
-	})
-	return e, cfg, root, err
 }
