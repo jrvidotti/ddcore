@@ -85,8 +85,9 @@ func (s *Server) export(w http.ResponseWriter, r *http.Request) {
 		Limit:       limit,
 	}
 
-	// no ctxSid: an export reads, and nothing in it acts on the session
-	c := s.newCtx(r, s.langFor(r), ctxRequest)
+	// no session id: an export reads, and nothing in it acts on the session
+	c := s.newCtx(r, s.langFor(r))
+	c.Request = map[string]any{"method": r.Method, "path": r.URL.Path, "ip": r.RemoteAddr}
 
 	// started flips once the response has begun; after that an error can only
 	// be logged and the stream cut, never turned into a status code.

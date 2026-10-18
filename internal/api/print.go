@@ -71,7 +71,7 @@ func (s *Server) printParams(r *http.Request) (printParams, error) {
 // renderPrint runs PrintDoc for the request's document and parameters.
 func (s *Server) renderPrint(r *http.Request, p printParams) (string, error) {
 	var htmlOut string
-	c := s.newCtx(r, p.lang, 0)
+	c := s.newCtx(r, p.lang)
 	err := c.Run(func(c *engine.Ctx) error {
 		var err error
 		htmlOut, err = c.PrintDoc(urlParam(r, "doctype"), urlParam(r, "id"), p.format, p.letterhead, p.lang, p.page)

@@ -82,7 +82,7 @@ func (s *Server) dataImport(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	res, err := s.newCtx(r, s.langFor(r), ctxRequest|ctxSid).DataImport(args)
+	res, err := s.requestCtx(r).DataImport(args)
 	if err != nil {
 		s.writeErr(w, r, err)
 		return
@@ -101,7 +101,7 @@ func (s *Server) dataImportTemplate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	var header []string
-	err := s.newCtx(r, s.langFor(r), ctxRequest|ctxSid).Run(func(c *engine.Ctx) error {
+	err := s.requestCtx(r).Run(func(c *engine.Ctx) error {
 		var err error
 		header, err = c.DataImportTemplate(doctype)
 		return err

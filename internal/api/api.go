@@ -309,32 +309,21 @@ func (s *Server) runRaw(w http.ResponseWriter, r *http.Request, contentType stri
 	io.WriteString(w, body)
 }
 
-// ctxParts selects what newCtx copies from the request into the context.
-type ctxParts uint8
-
-const (
-	// ctxRequest fills ctx.request with the method, path and caller's address.
-	ctxRequest ctxParts = 1 << iota
-	// ctxSid carries the session id, so the context can tell which of the
-	// caller's sessions it is acting for.
-	ctxSid
-)
-
-// newCtx is the one place a request's context is built: the user, the
-// language and, as parts asks, what ctx.request and the session id carry. A
-// handler that only translates a message or reads a document asks for no
-// parts; only the ones that run app code or act on the session need them.
-func (s *Server) newCtx(r *http.Request, lang string, parts ctxParts) *engine.Ctx {
+// newCtx is the context of the request's user in lang, with no ctx.request.
+func (s *Server) newCtx(r *http.Request, lang string) *engine.Ctx {
 	c := s.E.NewCtx(r.Context(), user(r))
-	if parts&ctxRequest != 0 {
-		c.Request = map[string]any{"method": r.Method, "path": r.URL.Path, "ip": r.RemoteAddr}
-	}
-	if parts&ctxSid != 0 {
-		if ck, err := r.Cookie("sid"); err == nil {
-			c.Sid = ck.Value
-		}
-	}
 	c.Lang = lang
+	return c
+}
+
+// requestCtx is newCtx in the request's language, with ctx.request and the
+// session id: what a handler that runs app code or acts on the session needs.
+func (s *Server) requestCtx(r *http.Request) *engine.Ctx {
+	c := s.newCtx(r, s.langFor(r))
+	c.Request = map[string]any{"method": r.Method, "path": r.URL.Path, "ip": r.RemoteAddr}
+	if ck, err := r.Cookie("sid"); err == nil {
+		c.Sid = ck.Value
+	}
 	return c
 }
 
@@ -343,7 +332,7 @@ func (s *Server) newCtx(r *http.Request, lang string, parts ctxParts) *engine.Ct
 // headers, which no other caller of run has any use for.
 func (s *Server) execute(r *http.Request, extra map[string]any, fn func(c *engine.Ctx) (any, error)) (any, []engine.Message, error) {
 	var out any
-	c := s.newCtx(r, s.langFor(r), ctxRequest|ctxSid)
+	c := s.requestCtx(r)
 	for k, v := range extra {
 		c.Request[k] = v
 	}
@@ -375,7 +364,7 @@ func requestHeaders(r *http.Request) map[string]string {
 // navigation, so an unchanged payload answers 304.
 func (s *Server) runCached(w http.ResponseWriter, r *http.Request, fn func(c *engine.Ctx) (any, error)) {
 	var out any
-	c := s.newCtx(r, s.langFor(r), 0)
+	c := s.newCtx(r, s.langFor(r))
 	err := c.Run(func(c *engine.Ctx) error {
 		var e error
 		out, e = fn(c)

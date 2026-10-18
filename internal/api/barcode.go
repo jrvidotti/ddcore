@@ -21,7 +21,7 @@ func (s *Server) barcodeSVG(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	svg, err := barcode.SVG(q.Get("symbology"), q.Get("value"))
 	if err != nil {
-		c := s.newCtx(r, s.langFor(r), 0)
+		c := s.newCtx(r, s.langFor(r))
 		err = barcode.Invalid(c.T("Barcode"), err)
 		var ce *cerr.Error
 		if errors.As(err, &ce) {
