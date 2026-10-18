@@ -5,9 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strings"
 	"text/tabwriter"
-	"time"
 
 	"github.com/jrvidotti/ddcore/internal/engine"
 )
@@ -51,29 +49,17 @@ func addAuditFilterFlags(fs *flag.FlagSet) auditFilterFlags {
 
 func (f auditFilterFlags) filter() (engine.AuditFilter, error) {
 	out := engine.AuditFilter{
-		Action:     *f.action,
-		Actor:      *f.actor,
+		Action:   *f.action,
+		Actor:    *f.actor,
 		TargetID: *f.target,
-		Outcome:    *f.outcome,
-		Limit:      *f.limit,
+		Outcome:  *f.outcome,
+		Limit:    *f.limit,
 	}
 	if *f.since != "" {
-		s := *f.since
-		var d time.Duration
-		var err error
-		if strings.HasSuffix(s, "d") {
-			daysStr := strings.TrimSuffix(s, "d")
-			var days int
-			if _, err = fmt.Sscanf(daysStr, "%d", &days); err == nil {
-				d = time.Duration(days) * 24 * time.Hour
-			}
-		} else {
-			d, err = time.ParseDuration(s)
-		}
+		t, err := parseSince(*f.since)
 		if err != nil {
-			return out, fmt.Errorf("--since: %w", err)
+			return out, err
 		}
-		t := time.Now().Add(-d)
 		out.Since = &t
 	}
 	return out, nil

@@ -191,7 +191,7 @@ func addFilterFlags(fs *flag.FlagSet) jobFilterFlags {
 		queue:  fs.String("queue", "", "queue name"),
 		method: fs.String("method", "", "exact dotted method path"),
 		user:   fs.String("user", "", "the user the job runs as"),
-		since:  fs.String("since", "", "only jobs enqueued in the last duration, e.g. 90m or 24h"),
+		since:  fs.String("since", "", "only jobs enqueued in the last duration, e.g. 90m, 24h or 7d"),
 		limit:  fs.Int("limit", 20, "how many jobs"),
 	}
 }
@@ -208,11 +208,10 @@ func (f jobFilterFlags) filter() (engine.JobFilter, error) {
 		}
 	}
 	if *f.since != "" {
-		d, err := time.ParseDuration(*f.since)
+		t, err := parseSince(*f.since)
 		if err != nil {
-			return out, fmt.Errorf("--since: %w", err)
+			return out, err
 		}
-		t := time.Now().Add(-d)
 		out.Since = &t
 	}
 	return out, nil
