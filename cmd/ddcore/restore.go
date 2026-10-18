@@ -174,7 +174,7 @@ func cmdRestore(args []string) error {
 	// The same comparison the engine makes after the restore, made before it:
 	// finding out that this binary refuses the database once the target's own
 	// data is already gone would be the worst time to find out.
-	if !allowOlderBinary() {
+	if !config.AllowOlderBinaryFromEnv() {
 		archived := man.SiteVersion
 		if archived == nil {
 			archived = &engine.SiteVersion{Core: man.DDCore}

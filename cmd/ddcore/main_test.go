@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jrvidotti/ddcore/internal/config"
 	"github.com/jrvidotti/ddcore/internal/engine"
 	"github.com/jrvidotti/ddcore/internal/scaffold"
 )
@@ -384,7 +385,7 @@ func TestAllowOlderBinaryFlagForms(t *testing.T) {
 	}
 	t.Setenv("DDCORE_ALLOW_OLDER_BINARY", "")
 	stripGlobalFlags([]string{"--allow-older-binary=false", "doctor"})
-	if allowOlderBinary() {
+	if config.AllowOlderBinaryFromEnv() {
 		t.Error("--allow-older-binary=false should not turn the override on")
 	}
 }

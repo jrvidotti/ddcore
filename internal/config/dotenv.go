@@ -2,6 +2,7 @@ package config
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -108,4 +109,17 @@ func envBool(key string, def bool) bool {
 		return def
 	}
 	return v == "1" || v == "true" || v == "yes" || v == "on"
+}
+
+// envOnOff reads a variable that is either "on" (also when unset) or "off" and
+// reports whether it says off. Any other value is an error.
+func envOnOff(key string) (off bool, err error) {
+	switch v := strings.ToLower(strings.TrimSpace(env(key, "on"))); v {
+	case "on", "":
+		return false, nil
+	case "off":
+		return true, nil
+	default:
+		return false, fmt.Errorf("%s: %q is neither on nor off", key, v)
+	}
 }

@@ -2,7 +2,6 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
@@ -223,14 +222,6 @@ func stripGlobalFlags(args []string) []string {
 	return out
 }
 
-func allowOlderBinary() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("DDCORE_ALLOW_OLDER_BINARY"))) {
-	case "1", "true", "yes", "on":
-		return true
-	}
-	return false
-}
-
 // load builds the engine from ddcore.json.
 func load(test bool, dev bool) (*engine.Engine, *config.File, error) {
 	cfg, cfgPath, err := config.Load(".")
@@ -267,7 +258,7 @@ func load(test bool, dev bool) (*engine.Engine, *config.File, error) {
 		DSN: cfg.DSN, Apps: apps, DDCore: cfg.DDCore, Workers: cfg.Workers.Total(), Scheduler: cfg.Scheduler, Tenancy: cfg.Tenancy, TenantRole: cfg.TenantRole, PoolMaxConns: cfg.PoolMaxConns, EnterTenant: enter, Dev: isDev, Test: test,
 		Port: cfg.Port, SiteTitle: cfg.Title, Lang: cfg.Lang, Currency: cfg.Currency, CurrencyPrecision: cfg.CurrencyPrecision, Rounding: cfg.RoundingMode(), Timezone: cfg.Timezone, DataDir: cfg.DataDir, Root: root, ExportMaxRows: cfg.ExportMaxRows, ImportMaxRows: cfg.ImportMaxRows, LogLevel: level,
 		Auth: cfg.Auth, Ops: cfg.Ops, LogJSON: logJSON(), LogOut: logOut, Mail: cfg.Mail, Webhooks: cfg.Webhooks, Storage: cfg.Storage, SiteURL: cfg.PublicURL(), TrustProxy: cfg.TrustProxy, CORS: cfg.CORS, Login: cfg.Login, Feedback: cfg.Feedback, AI: cfg.AI, OIDC: cfg.OIDC, Portal: cfg.Portal, Map: cfg.Map,
-		EnforceMaintenance: enforceMaintenance, AllowOlderBinary: allowOlderBinary(), AdminPassword: cfg.AdminPassword, DeferDB: deferDB,
+		EnforceMaintenance: enforceMaintenance, AllowOlderBinary: config.AllowOlderBinaryFromEnv(), AdminPassword: cfg.AdminPassword, DeferDB: deferDB,
 	})
 	if err == nil {
 		for _, w := range cfg.Warnings {
@@ -776,8 +767,11 @@ func cmdEval(args []string) error {
 	}
 	code := strings.Join(fs.Args(), " ")
 	if code == "" || code == "-" {
-		b, _ := readAll(os.Stdin)
-		code = b
+		b, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			return err
+		}
+		code = string(b)
 	}
 	e, _, err := load(false, false)
 	if err != nil {
@@ -793,17 +787,6 @@ func cmdEval(args []string) error {
 	}
 	fmt.Println(string(res))
 	return nil
-}
-
-func readAll(f *os.File) (string, error) {
-	var b strings.Builder
-	sc := bufio.NewScanner(f)
-	sc.Buffer(make([]byte, 1<<20), 1<<24)
-	for sc.Scan() {
-		b.WriteString(sc.Text())
-		b.WriteString("\n")
-	}
-	return b.String(), sc.Err()
 }
 
 // cmdDemo runs `<app>.services.demo.generate` for every app that whitelists it.
