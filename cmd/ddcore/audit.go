@@ -68,7 +68,7 @@ func auditList(args []string) error {
 	if err != nil {
 		return err
 	}
-	return withEngine(loadOpts{}, func(e *engine.Engine, ctx context.Context) error {
+	return withEngine(func(e *engine.Engine, ctx context.Context) error {
 		rows, err := e.ListAuditEvents(ctx, filter)
 		if err != nil {
 			return err
@@ -110,7 +110,7 @@ func auditPurge(args []string) error {
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
-	return withEngine(loadOpts{}, func(e *engine.Engine, ctx context.Context) error {
+	return withEngine(func(e *engine.Engine, ctx context.Context) error {
 		d := *days
 		if d < 0 {
 			d = e.Cfg.Ops.AuditRetentionDays()

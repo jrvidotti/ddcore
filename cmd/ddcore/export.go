@@ -65,7 +65,7 @@ func cmdExport(args []string) error {
 	}
 	fields := splitList(*fieldList)
 
-	return withEngine(loadOpts{}, func(e *engine.Engine, ctx context.Context) error {
+	return withEngine(func(e *engine.Engine, ctx context.Context) error {
 		dir := *out
 		if dir == "" {
 			dir = filepath.Join("export", time.Now().Format("20060102-150405"))

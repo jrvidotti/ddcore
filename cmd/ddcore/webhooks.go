@@ -34,7 +34,7 @@ func webhooksList(args []string) error {
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
-	return withEngine(loadOpts{}, func(e *engine.Engine, ctx context.Context) error {
+	return withEngine(func(e *engine.Engine, ctx context.Context) error {
 		// the operator's list: every tenant's deliveries
 		rows, err := db.Select(ctx, e.DB.Sys, `SELECT id, creation, webhook, event, status, attempts, response_status,
 			reference_doctype, reference_id, error
@@ -62,7 +62,7 @@ func webhooksReplay(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("usage: ddcore webhooks replay <delivery>...")
 	}
-	return withEngine(loadOpts{}, func(e *engine.Engine, ctx context.Context) error {
+	return withEngine(func(e *engine.Engine, ctx context.Context) error {
 		failed := 0
 		for _, name := range args {
 			// Admin, as every administrative CLI command acts: whoever

@@ -211,8 +211,8 @@ func withSite(o loadOpts, fn func(*engine.Engine, *config.File) error) error {
 }
 
 // withEngine is withSite for a command that needs no configuration, only a context.
-func withEngine(o loadOpts, fn func(*engine.Engine, context.Context) error) error {
-	return withSite(o, func(e *engine.Engine, _ *config.File) error {
+func withEngine(fn func(*engine.Engine, context.Context) error) error {
+	return withSite(loadOpts{}, func(e *engine.Engine, _ *config.File) error {
 		return fn(e, context.Background())
 	})
 }
@@ -583,7 +583,8 @@ func cmdTest(args []string) error {
 	if fs.NArg() > 0 && *filter == "" {
 		*filter = fs.Arg(0)
 	}
-	return withEngine(loadOpts{Test: true}, func(e *engine.Engine, ctx context.Context) error {
+	return withSite(loadOpts{Test: true}, func(e *engine.Engine, _ *config.File) error {
+		ctx := context.Background()
 		if *app != "" {
 			found := false
 			for _, loaded := range e.Apps {
@@ -679,7 +680,7 @@ func cmdExec(args []string) error {
 	if err != nil {
 		return err
 	}
-	return withEngine(loadOpts{}, func(e *engine.Engine, ctx context.Context) error {
+	return withEngine(func(e *engine.Engine, ctx context.Context) error {
 		res, err := e.RunJob(ctx, "Admin", fs.Arg(0), a)
 		if err != nil {
 			return err
@@ -703,7 +704,7 @@ func cmdEval(args []string) error {
 		}
 		code = string(b)
 	}
-	return withEngine(loadOpts{}, func(e *engine.Engine, ctx context.Context) error {
+	return withEngine(func(e *engine.Engine, ctx context.Context) error {
 		res, logs, err := e.Eval(ctx, code, *commit)
 		for _, l := range logs {
 			fmt.Fprintln(os.Stderr, l)
@@ -723,7 +724,7 @@ func cmdDemo(args []string) error {
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
-	return withEngine(loadOpts{}, func(e *engine.Engine, ctx context.Context) error {
+	return withEngine(func(e *engine.Engine, ctx context.Context) error {
 		ran := 0
 		for _, name := range e.AppOrder() {
 			if *app != "" && name != *app {
@@ -762,7 +763,7 @@ func cmdUser(args []string) error {
 	if len(args) < 1 {
 		return fmt.Errorf("%s", userUsage)
 	}
-	return withEngine(loadOpts{}, func(e *engine.Engine, ctx context.Context) error {
+	return withEngine(func(e *engine.Engine, ctx context.Context) error {
 		sub, rest := args[0], args[1:]
 		switch sub {
 		case "add":
@@ -925,7 +926,7 @@ func cmdAPIKey(args []string) error {
 	if fs.NArg() < 1 {
 		return fmt.Errorf("usage: ddcore apikey <user> [--label x] [--days N] [--prefix p]")
 	}
-	return withEngine(loadOpts{}, func(e *engine.Engine, ctx context.Context) error {
+	return withEngine(func(e *engine.Engine, ctx context.Context) error {
 		// the key is a document of its user's tenant, and audited like one app
 		// code issues
 		out, err := e.IssueAPIKey(ctx, fs.Arg(0), *label, *days, *prefix)
