@@ -274,6 +274,23 @@ func TestCollectDocTypeLeavesNonSelectOptionsAlone(t *testing.T) {
 	}
 }
 
+// Validate accepts a Select's options as one newline-separated string, so the
+// extractor must read that form too.
+func TestCollectDocTypeSelectOptionsAsNewlineString(t *testing.T) {
+	d := &meta.DocType{Name: "Note", App: "crm", Label: "Note", Fields: []*meta.Field{
+		{Fieldname: "state", Fieldtype: "Select", Label: "State", Options: "Open\nClosed\n"},
+	}}
+	s := NewSet()
+	CollectDocType(s, d, "crm", "crm doctype")
+	want := []string{"Note", "State", "Open", "Closed"}
+	got := texts(s)
+	sort.Strings(got)
+	sort.Strings(want)
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+}
+
 // A report with no label is shown under its name, which the server translates;
 // with a label, the name is only an identifier.
 func TestCollectReportNameWithoutLabel(t *testing.T) {
