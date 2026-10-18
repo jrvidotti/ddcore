@@ -64,7 +64,7 @@ func (st *State) TranslateDocType(d *meta.DocType, lang string) *meta.DocType {
 	out.Description = t(d.Description)
 	out.Fields = make([]*meta.Field, len(d.Fields))
 	for i, f := range d.Fields {
-		// Section, Column and Tab Breaks are copied too: a break's label is a
+		// Section and Tab Breaks are copied too: a break's label is a
 		// heading on the form.
 		cp := *f
 		cp.Label = t(f.Label)

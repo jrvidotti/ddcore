@@ -98,35 +98,20 @@ func TestFieldWidthValidation(t *testing.T) {
 	}
 }
 
-func TestColumnBreakIsDroppedWithAWarning(t *testing.T) {
+func TestColumnBreakIsNoLongerAValidFieldtype(t *testing.T) {
 	r := NewRegistry()
 	r.Add(&DocType{Name: "Contract", Fields: []*Field{
 		{Fieldname: "title", Fieldtype: "Data"},
-		{Fieldtype: "Column Break"},
-		{Fieldname: "start", Fieldtype: "Date"},
-		{Fieldtype: "Column Break"},
+		{Fieldname: "split", Fieldtype: "Column Break"},
 	}})
-
-	warnings := r.DropObsoleteFields()
-	if len(warnings) != 1 || !strings.Contains(warnings[0], "Contract") || !strings.Contains(warnings[0], "dropped 2") {
-		t.Fatalf("warnings=%v", warnings)
+	err := r.Validate()
+	if err == nil {
+		t.Fatal("expected an invalid fieldtype error, got nil")
 	}
-
-	d, _ := r.Get("Contract")
-	if len(d.Fields) != 2 || d.Fields[0].Fieldname != "title" || d.Fields[1].Fieldname != "start" {
-		t.Fatalf("fields=%+v", d.Fields)
-	}
-	// dropping is what lets an app written against an older ddcore still load
-	if err := r.Validate(); err != nil {
-		t.Fatalf("validate after dropping: %v", err)
-	}
-}
-
-func TestColumnBreakIsNoLongerAValidFieldtype(t *testing.T) {
-	r := NewRegistry()
-	r.Add(&DocType{Name: "Doc", Fields: []*Field{{Fieldtype: "Column Break"}}})
-	if err := r.Validate(); err == nil || !strings.Contains(err.Error(), "invalid fieldtype") {
-		t.Fatalf("expected invalid fieldtype error, got %v", err)
+	for _, want := range []string{"Contract", "invalid fieldtype", `"Column Break"`, `"split"`} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("error %q does not mention %s", err, want)
+		}
 	}
 }
 

@@ -14,6 +14,10 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Breaking
+
+- **A `Column Break` field is no longer dropped with a warning.** The fieldtype was removed in 0.4.0 and the loader quietly discarded such fields from older apps; it now refuses the DocType (`<DocType>: invalid fieldtype "Column Break" on field "<name>"`) like any unknown fieldtype. **Upgrade:** delete the `Column Break` fields from your DocTypes; a field's width comes from its `width`.
+
 ### Fixed
 
 - **A reload that is refused no longer leaks the runtime pool.** When `Engine.Load` refused an app set (an invalid DocType, a failed extension, an i18n error), some of those paths left the freshly built JS runtime pool open; the pool is now closed on every refusal, and so is one whose first runtime fails to start or to report its metadata.

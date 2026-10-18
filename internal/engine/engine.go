@@ -636,11 +636,6 @@ func (e *Engine) Load() (err error) {
 		return err
 	}
 	applyLanguageOptions(reg, i18n)
-	// after the extensions, so a fieldtype ddcore dropped is forgiven wherever
-	// it came from — an app written against an older version still loads
-	for _, w := range reg.DropObsoleteFields() {
-		e.Log.Warn("obsolete fieldtype in a DocType", "detail", w)
-	}
 	// after the extensions, which may add the Table field that makes a child
 	// DocType some tenant-owned DocType's; before Validate, which reserves the
 	// `tenant` column name.

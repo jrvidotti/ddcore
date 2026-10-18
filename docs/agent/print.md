@@ -13,8 +13,8 @@ Every DocType has a `standard` format, with no code.
   submittable DocType gets a badge: Draft, Submitted or Cancelled. Other
   DocTypes get none.
 - Fields go into a fixed two-column grid, in declaration order. A Section Break
-  with a label starts a heading. Column Breaks and Tab Breaks are skipped, so the
-  form's columns and tabs do not carry over. Empty values, `Hidden` fields, and
+  with a label starts a heading. Tab Breaks are skipped, so the
+  form's tabs do not carry over. Empty values, `Hidden` fields, and
   Password and Vault fields are left out.
 - A Table field prints as a heading and a table. Its columns are the child
   DocType's visible fields: the first six, plus any later field marked
