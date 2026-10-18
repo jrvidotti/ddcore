@@ -22,6 +22,7 @@ older series, and `whats_new` reads across every one of them.
 - **A Select whose options are a newline-separated string is now extracted for translation.** `ddcore i18n extract` skipped that form (which `Validate` accepts), so its options never reached the catalogue and rendered in English on a translated screen.
 - **`ddcore restore` writes the maintenance flag the way the engine does.** It carried its own copy of the SQL, which reset `since` when the flag was set again while already on and created the ops tables on the confined pool of a site with tenancy (#112). Both now go through one `db.SetMaintenanceFlag`.
 - **`ddcore user unlock` now records an `account.unlock` audit event and trims what was typed.** The command line cleared the counters without leaving the trace the desk's unlock leaves, and it did not trim the address the way sign-in does, so a stray space cleared nothing. Both now go through `Engine.UnlockAccount`.
+- **`ddcore import` stops cleanly on SIGTERM.** It listened for Ctrl-C only, so a `kill` or a container stop left a half-finished batch instead of cancelling the run; it now shares the signal handling `ddcore restore` uses.
 
 ## 0.28.3 — 2026-10-17
 

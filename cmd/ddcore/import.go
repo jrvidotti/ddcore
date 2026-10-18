@@ -15,7 +15,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"os/signal"
 	"sort"
 	"strings"
 	"time"
@@ -170,7 +169,7 @@ func importCommand(sub string, args []string) error {
 		a.Map, a.MapSHA = m, hex.EncodeToString(sum[:])
 	}
 
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	ctx, cancel := signalContext()
 	defer cancel()
 	e, err := importEngine(ctx, tenant)
 	if err != nil {
