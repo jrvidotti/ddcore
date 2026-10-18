@@ -684,7 +684,7 @@ func NewRegistry() *Registry { return &Registry{DocTypes: map[string]*DocType{}}
 
 func (r *Registry) Add(d *DocType) error {
 	if _, dup := r.DocTypes[d.Name]; dup {
-		return fmt.Errorf("DocType %q definido duas vezes", d.Name)
+		return fmt.Errorf("DocType %q defined twice", d.Name)
 	}
 	r.DocTypes[d.Name] = d
 	return nil

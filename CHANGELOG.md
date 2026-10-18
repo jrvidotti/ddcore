@@ -25,6 +25,7 @@ older series, and `whats_new` reads across every one of them.
 - **`ddcore import` stops cleanly on SIGTERM.** It listened for Ctrl-C only, so a `kill` or a container stop left a half-finished batch instead of cancelling the run; it now shares the signal handling `ddcore restore` uses.
 - **`ddcore jobs --since` accepts days.** `audit` took `7d` and `jobs` refused it; both now parse `--since` the same way (a Go duration or a number of days).
 - **`ddcore webhooks list` handles `-h` and flags after arguments like the other commands.** It used a bare `flag.FlagSet`; it now goes through the shared flag helpers, and its timestamp and error columns are formatted as `ddcore jobs list` does.
+- **Three CLI and loader messages that were in Portuguese are in English.** `ddcore user add` usage, the location line of a validation finding (`in <file>`) and the "DocType defined twice" error.
 
 ## 0.28.3 — 2026-10-17
 

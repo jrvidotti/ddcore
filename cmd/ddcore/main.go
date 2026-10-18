@@ -692,7 +692,7 @@ func cmdTest(args []string) error {
 		failed++
 		fmt.Printf("  FAIL %s\n       %s\n", r.Name, strings.ReplaceAll(r.Error, "\n", "\n       "))
 		if r.File != "" {
-			fmt.Printf("       em %s\n", r.File)
+			fmt.Printf("       in %s\n", r.File)
 		}
 	}
 	fmt.Printf("%d tests, %d failures\n", len(results), failed)
@@ -872,7 +872,7 @@ func cmdUser(args []string) error {
 			return err
 		}
 		if fs.NArg() < 2 {
-			return fmt.Errorf("uso: ddcore user add <email> <nome>")
+			return fmt.Errorf("usage: ddcore user add <email> <name>")
 		}
 		return e.Run(ctx, "Admin", func(c *engine.Ctx) error {
 			doc, err := c.NewDoc("User", engine.Doc{"email": fs.Arg(0), "full_name": strings.Join(fs.Args()[1:], " "), "new_password": *pw, "enabled": true})
