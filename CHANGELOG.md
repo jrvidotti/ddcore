@@ -24,6 +24,7 @@ older series, and `whats_new` reads across every one of them.
 - **`ddcore user unlock` now records an `account.unlock` audit event and trims what was typed.** The command line cleared the counters without leaving the trace the desk's unlock leaves, and it did not trim the address the way sign-in does, so a stray space cleared nothing. Both now go through `Engine.UnlockAccount`.
 - **`ddcore import` stops cleanly on SIGTERM.** It listened for Ctrl-C only, so a `kill` or a container stop left a half-finished batch instead of cancelling the run; it now shares the signal handling `ddcore restore` uses.
 - **`ddcore jobs --since` accepts days.** `audit` took `7d` and `jobs` refused it; both now parse `--since` the same way (a Go duration or a number of days).
+- **`ddcore webhooks list` handles `-h` and flags after arguments like the other commands.** It used a bare `flag.FlagSet`; it now goes through the shared flag helpers, and its timestamp and error columns are formatted as `ddcore jobs list` does.
 
 ## 0.28.3 — 2026-10-17
 
