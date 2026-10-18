@@ -20,9 +20,6 @@ import (
 	"strings"
 	"time"
 
-	"crypto/sha256"
-	"encoding/hex"
-
 	"github.com/jrvidotti/ddcore/internal/config"
 	"github.com/jrvidotti/ddcore/internal/db"
 	"github.com/jrvidotti/ddcore/internal/engine"
@@ -150,16 +147,9 @@ func importCommand(sub string, args []string) error {
 		Only: splitList(o.only), Include: splitList(o.include),
 	}
 	if o.mapFile != "" {
-		b, err := os.ReadFile(o.mapFile)
-		if err != nil {
+		if err := a.UseMapFile(o.mapFile); err != nil {
 			return err
 		}
-		m, err := engine.ParseImportMap(b)
-		if err != nil {
-			return err
-		}
-		sum := sha256.Sum256(b)
-		a.Map, a.MapSHA = m, hex.EncodeToString(sum[:])
 	}
 
 	ctx, cancel := signalContext()
@@ -229,15 +219,10 @@ func importStatus(args []string) error {
 			ctx = engine.WithTenant(ctx, tenant)
 		}
 		if fs.NArg() == 1 {
-			run, err := e.ImportRunByID(ctx, fs.Arg(0))
+			run, err := e.ImportRunStatus(ctx, fs.Arg(0))
 			if err != nil {
 				return err
 			}
-			errs, err := e.ImportRunErrors(ctx, run.ID, 50)
-			if err != nil {
-				return err
-			}
-			run.Errors = errs
 			if *asJSON {
 				return printJSON(run)
 			}

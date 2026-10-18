@@ -3,14 +3,11 @@ package mcp
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/fs"
 	"maps"
 	"net/http"
-	"os"
 	"path/filepath"
 	"slices"
 	"sort"
@@ -232,15 +229,10 @@ func New(e *engine.Engine) *mcp.Server {
 			ctx = engine.WithTenant(ctx, in.Tenant)
 			if in.Action == "status" {
 				if in.RunID != "" {
-					run, err := s.e.ImportRunByID(ctx, in.RunID)
+					run, err := s.e.ImportRunStatus(ctx, in.RunID)
 					if err != nil {
 						return fail(err)
 					}
-					errs, err := s.e.ImportRunErrors(ctx, in.RunID, 50)
-					if err != nil {
-						return fail(err)
-					}
-					run.Errors = errs
 					return text(run), nil, nil
 				}
 				runs, err := s.e.ImportRuns(ctx, 20)
@@ -258,16 +250,9 @@ func New(e *engine.Engine) *mcp.Server {
 				VerifyBytes: in.VerifyBytes, Actor: "mcp", BypassMaintenance: true, Tenant: in.Tenant,
 			}
 			if in.Map != "" {
-				b, err := os.ReadFile(in.Map)
-				if err != nil {
+				if err := a.UseMapFile(in.Map); err != nil {
 					return fail(err)
 				}
-				m, err := engine.ParseImportMap(b)
-				if err != nil {
-					return fail(err)
-				}
-				sum := sha256.Sum256(b)
-				a.Map, a.MapSHA = m, hex.EncodeToString(sum[:])
 			}
 			switch in.Action {
 			case "reconcile":

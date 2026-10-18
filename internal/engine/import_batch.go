@@ -67,6 +67,19 @@ func (e *Engine) ImportRunByID(ctx context.Context, id string) (*ImportRun, erro
 	return importRunFromRow(rows[0])
 }
 
+// ImportRunStatus is one run with the first lines it could not load, as
+// `import status` shows it.
+func (e *Engine) ImportRunStatus(ctx context.Context, id string) (*ImportRun, error) {
+	run, err := e.ImportRunByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if run.Errors, err = e.ImportRunErrors(ctx, run.ID, 50); err != nil {
+		return nil, err
+	}
+	return run, nil
+}
+
 // ImportRuns lists the runs that loaded into the space ctx names, newest
 // first. Without tenancy that is every run.
 func (e *Engine) ImportRuns(ctx context.Context, limit int) ([]*ImportRun, error) {

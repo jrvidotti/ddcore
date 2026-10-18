@@ -137,6 +137,28 @@ func TestImportRecordsPerRecordErrors(t *testing.T) {
 	}
 }
 
+// `import status <id>` and the import tool's status action read one run with
+// the lines it could not load.
+func TestImportRunStatusCarriesTheRunsErrors(t *testing.T) {
+	e := setupImport(t)
+	docs := clientes(2)
+	docs[1] = Doc{"doctype": "Cliente", "id": "C-BAD", "nome": "no code"}
+	run := runImport(t, e, writeExport(t, map[string][]Doc{"Cliente": docs}), ImportArgs{})
+	got, err := e.ImportRunStatus(context.Background(), run.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.ID != run.ID || got.Status != ImportCompletedWithErrors {
+		t.Fatalf("run = %+v", got)
+	}
+	if len(got.Errors) != 1 || got.Errors[0].ID != "C-BAD" {
+		t.Fatalf("errors = %+v", got.Errors)
+	}
+	if _, err := e.ImportRunStatus(context.Background(), "no-such-run"); err == nil {
+		t.Fatal("an unknown run id must be an error")
+	}
+}
+
 // A dry run answers the same questions and leaves nothing behind.
 func TestImportDryRunWritesNothing(t *testing.T) {
 	e := setupImport(t)

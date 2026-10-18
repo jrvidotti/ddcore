@@ -10,7 +10,10 @@ package engine
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"os"
 
 	"github.com/jrvidotti/ddcore/internal/db"
 
@@ -69,6 +72,22 @@ func ParseImportMap(b []byte) (*ImportMap, error) {
 		}
 	}
 	return &m, nil
+}
+
+// UseMapFile reads the mapping file at path into the arguments, with its
+// SHA-256 so the ledger can tell two runs over different mappings apart.
+func (a *ImportArgs) UseMapFile(path string) error {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	m, err := ParseImportMap(b)
+	if err != nil {
+		return err
+	}
+	sum := sha256.Sum256(b)
+	a.Map, a.MapSHA = m, hex.EncodeToString(sum[:])
+	return nil
 }
 
 func checkOnExisting(name string, dm *ImportDocMap) error {
