@@ -73,15 +73,23 @@
   $effect(() => { frm.doc.id; frm.isNew; loadAttachments(); });
   $effect(() => { frm.doc.modified; frm.doc.id; load(); });
 
+  async function guarded(fn: () => Promise<unknown>) {
+    try {
+      await fn();
+    } catch (e) {
+      showError(e);
+    }
+  }
+
   async function addComment() {
     if (!text.trim()) return;
-    try {
+    await guarded(async () => {
       // the box is plain text, and saying so is what keeps "a<b and b>c" from
       // being read as a tag by the server's markup detection
       await api.insert("Comment", { reference_doctype: frm.doctype, reference_id: frm.doc.id, content: fromPlainText(text), comment_type: "Comment" });
       text = "";
       await load();
-    } catch (e) { showError(e); }
+    });
   }
 
   function startEdit(c: any) {
@@ -93,11 +101,11 @@
   async function saveEdit() {
     if (!editText.trim() || commentPending) return;
     commentPending = editingId;
-    try {
+    await guarded(async () => {
       await api.update("Comment", editingId, { content: fromPlainText(editText) });
       editingId = "";
       await load();
-    } catch (e) { showError(e); }
+    });
     commentPending = "";
   }
 
@@ -109,49 +117,51 @@
   async function deleteComment(id: string) {
     if (!(await confirm(__("Delete this comment?"), __("Delete"), { destructive: true }))) return;
     commentPending = id;
-    try {
+    await guarded(async () => {
       await api.remove("Comment", id);
       if (editingId === id) editingId = "";
       await load();
-    } catch (e) { showError(e); }
+    });
     commentPending = "";
   }
 
   async function handleAssign(args: AssignArgs) {
     await assignState.assign(args);
-    comments = await api.comments(frm.doctype, frm.doc.id);
+    await refreshComments();
   }
 
   async function handleShare(args: ShareArgs) {
     await shareState.add(args);
   }
 
-  async function removeShare(user: string) {
-    try {
-      await shareState.remove(user);
-    } catch (e) {
-      showError(e);
-    }
+  const removeShare = (user: string) => guarded(() => shareState.remove(user));
+
+  async function refreshComments() {
+    comments = await api.comments(frm.doctype, frm.doc.id);
   }
 
-  async function completeTask(id: string) {
-    try {
-      await assignState.complete(id);
-      comments = await api.comments(frm.doctype, frm.doc.id);
-    } catch (e) {
-      showError(e);
-    }
-  }
-
-  async function revokeTask(id: string) {
-    try {
-      await assignState.revoke(id);
-      comments = await api.comments(frm.doctype, frm.doc.id);
-    } catch (e) {
-      showError(e);
-    }
-  }
+  const completeTask = (id: string) => guarded(async () => {
+    await assignState.complete(id);
+    await refreshComments();
+  });
+  const revokeTask = (id: string) => guarded(async () => {
+    await assignState.revoke(id);
+    await refreshComments();
+  });
 </script>
+
+{#snippet iconAction(icon: string, label: string, disabled: boolean, onclick: () => void)}
+  <button type="button" class="btn icon sm" title={label} aria-label={label} {disabled} {onclick}>
+    <Icon name={icon} size={13} />
+  </button>
+{/snippet}
+
+{#snippet userChip(user: string)}
+  <div class="assignment-user">
+    <span class="avatar-sm">{avatarInitial(user)}</span>
+    <span class="small user-name" title={user}>{user}</span>
+  </div>
+{/snippet}
 
 {#snippet railButton(icon: string, label: string, count: number)}
   <button type="button" class="rail-btn" title={label} aria-label={label} onclick={() => setDocSidebarCollapsed(false)}>
@@ -217,10 +227,7 @@
           {#each assignState.rows as todo}
             <div class="assignment-item" class:closed={todo.status !== "Open"}>
               <div class="assignment-main">
-                <div class="assignment-user">
-                  <span class="avatar-sm">{avatarInitial(todo.allocated_to)}</span>
-                  <span class="small user-name" title={todo.allocated_to}>{todo.allocated_to}</span>
-                </div>
+                {@render userChip(todo.allocated_to)}
                 {#if todo.description}
                   <div class="small muted assignment-desc">{todo.description}</div>
                 {/if}
@@ -235,26 +242,8 @@
               </div>
               {#if todo.status === "Open"}
                 <div class="assignment-actions">
-                  <button
-                    type="button"
-                    class="btn icon sm"
-                    title={__("Complete")}
-                    aria-label={__("Complete")}
-                    disabled={assignState.pending === todo.id}
-                    onclick={() => completeTask(todo.id)}
-                  >
-                    <Icon name="check" size={13} />
-                  </button>
-                  <button
-                    type="button"
-                    class="btn icon sm"
-                    title={__("Revoke")}
-                    aria-label={__("Revoke")}
-                    disabled={assignState.pending === todo.id}
-                    onclick={() => revokeTask(todo.id)}
-                  >
-                    <Icon name="x" size={13} />
-                  </button>
+                  {@render iconAction("check", __("Complete"), assignState.pending === todo.id, () => completeTask(todo.id))}
+                  {@render iconAction("x", __("Revoke"), assignState.pending === todo.id, () => revokeTask(todo.id))}
                 </div>
               {/if}
             </div>
@@ -288,10 +277,7 @@
           {#each shareState.rows as share (share.user)}
             <div class="assignment-item">
               <div class="assignment-main">
-                <div class="assignment-user">
-                  <span class="avatar-sm">{avatarInitial(share.user)}</span>
-                  <span class="small user-name" title={share.user}>{share.user}</span>
-                </div>
+                {@render userChip(share.user)}
                 <div class="assignment-meta small muted">
                   {#each shareRightLabels(share) as right}
                     <span class="priority-badge priority-low">{__(right)}</span>
@@ -305,16 +291,7 @@
               </div>
               {#if canRemoveShare(share, shareState.canShare, boot.data?.user ?? "")}
                 <div class="assignment-actions">
-                  <button
-                    type="button"
-                    class="btn icon sm"
-                    title={__("Remove share")}
-                    aria-label={__("Remove share")}
-                    disabled={shareState.pending === share.user}
-                    onclick={() => removeShare(share.user)}
-                  >
-                    <Icon name="x" size={13} />
-                  </button>
+                  {@render iconAction("x", __("Remove share"), shareState.pending === share.user, () => removeShare(share.user))}
                 </div>
               {/if}
             </div>
@@ -357,14 +334,10 @@
           {#if editingId !== c.id}
             <div class="assignment-actions">
               {#if canEditComment(c, me)}
-                <button type="button" class="btn icon sm" title={__("Edit")} aria-label={__("Edit")} disabled={commentPending === c.id} onclick={() => startEdit(c)}>
-                  <Icon name="pencil" size={13} />
-                </button>
+                {@render iconAction("pencil", __("Edit"), commentPending === c.id, () => startEdit(c))}
               {/if}
               {#if canDeleteComment(c, me, hasRole("System Manager"))}
-                <button type="button" class="btn icon sm" title={__("Delete")} aria-label={__("Delete")} disabled={commentPending === c.id} onclick={() => deleteComment(c.id)}>
-                  <Icon name="trash" size={13} />
-                </button>
+                {@render iconAction("trash", __("Delete"), commentPending === c.id, () => deleteComment(c.id))}
               {/if}
             </div>
           {/if}

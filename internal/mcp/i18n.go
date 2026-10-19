@@ -38,7 +38,7 @@ func (s *server) i18nSetup(app, lang string) (string, []i18nx.Target, error) {
 	}
 	targets := i18nx.Targets(s.e, root, app)
 	if len(targets) == 0 {
-		return "", nil, cerr.NotFound("app {0} does not exist (apps: {1})", app, s.e.AppOrder())
+		return "", nil, cerr.NotFound("app {0} does not exist (apps: {1})", app, s.e.Current().AppOrder())
 	}
 	return lang, targets, nil
 }

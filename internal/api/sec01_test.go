@@ -49,6 +49,18 @@ export default defineDoctype({ name: "Test Record", idGeneration: { field: "titl
     { fieldname: "company", fieldtype: "Link", label: "Company", options: "Test Company" },
   ],
   permissions: [{ role: "Scope User", read: true, create: true, write: true, delete: true, export: true }] });`)
+	// a child table with no Link to the scoped DocType
+	write("doctypes/test_order/test_order.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
+export default defineDoctype({ name: "Test Order", idGeneration: { field: "title" },
+  fields: [
+    { fieldname: "title", fieldtype: "Data", label: "Title", reqd: true },
+    { fieldname: "company", fieldtype: "Link", label: "Company", options: "Test Company" },
+    { fieldname: "lines", fieldtype: "Table", label: "Lines", options: "Test Order Line" },
+  ],
+  permissions: [{ role: "Scope User", read: true }] });`)
+	write("doctypes/test_order_line/test_order_line.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
+export default defineDoctype({ name: "Test Order Line", isChild: true,
+  fields: [{ fieldname: "text", fieldtype: "Data", label: "Text" }] });`)
 	return dir
 }
 
@@ -398,5 +410,51 @@ func TestSEC01_UserPermissionScopeMutationsAreAudited(t *testing.T) {
 	}
 	if !hasForValue("permission.scope_revoke", "Alfa") {
 		t.Error("DBSet did not record the revoked Alfa scope")
+	}
+}
+
+// A scoped user lists, counts and reads through /api/resource only the child
+// rows of the parents in scope, though the child table has no Link to the
+// scoped DocType (B02).
+func TestB02_ChildResourceListingFollowsParentScopes(t *testing.T) {
+	x, _, _ := setupSEC01API(t)
+	ids := map[string]string{}
+	x.asAdmin(func(c *engine.Ctx) error {
+		for _, o := range []struct{ title, company string }{{"Alfa Order", "Alfa"}, {"Beta Order", "Beta"}} {
+			doc, err := c.NewDoc("Test Order", engine.Doc{"title": o.title, "company": o.company,
+				"lines": []any{map[string]any{"text": o.company + " line"}}})
+			if err != nil {
+				return err
+			}
+			saved, err := c.Insert(doc, engine.SaveOpts{})
+			if err != nil {
+				return err
+			}
+			ids[o.company] = saved.Children("lines")[0].ID()
+		}
+		return nil
+	})
+	alfa := "sid:" + x.sid(sec01AlfaUser)
+	r := x.call("GET", "/api/resource/Test%20Order%20Line?fields=%5B%22text%22%5D&order_by=text%20asc", nil, alfa)
+	if r.Status != 200 {
+		t.Fatalf("list: %d %s", r.Status, r.Raw)
+	}
+	rows, _ := r.Body["data"].([]any)
+	if len(rows) != 1 || rows[0].(map[string]any)["text"] != "Alfa line" {
+		t.Fatalf("scoped child listing = %s, want the Alfa line only", r.Raw)
+	}
+	r = x.call("GET", "/api/resource/Test%20Order%20Line?filters="+url.QueryEscape(`[["parent","=","Beta Order"]]`), nil, alfa)
+	if rows, _ := r.Body["data"].([]any); r.Status != 200 || len(rows) != 0 {
+		t.Fatalf("listing filtered by an out-of-scope parent: %d %s", r.Status, r.Raw)
+	}
+	if r := x.call("GET", "/api/count/Test%20Order%20Line", nil, alfa); r.Status != 200 || fmt.Sprint(r.Body["data"]) != "1" {
+		t.Fatalf("count: %d %s", r.Status, r.Raw)
+	}
+	if r := x.call("GET", "/api/resource/Test%20Order%20Line/"+ids["Alfa"], nil, alfa); r.Status != 200 {
+		t.Fatalf("read the Alfa line: %d %s", r.Status, r.Raw)
+	}
+	x.expect(x.call("GET", "/api/resource/Test%20Order%20Line/"+ids["Beta"], nil, alfa), 403, "PermissionError")
+	if r := x.call("GET", "/api/count/Test%20Order%20Line", nil, "sid:"+x.sid("Admin")); r.Status != 200 || fmt.Sprint(r.Body["data"]) != "2" {
+		t.Fatalf("Admin count: %d %s", r.Status, r.Raw)
 	}
 }

@@ -15,7 +15,7 @@ import (
 // tenancy on does when it adds the tenant column.
 func alterWebhookTable(t *testing.T, e *Engine) {
 	t.Helper()
-	wh, ok := e.Meta.Get("Webhook")
+	wh, ok := e.Current().Meta.Get("Webhook")
 	if !ok {
 		t.Fatal("no Webhook DocType")
 	}
@@ -45,7 +45,8 @@ func TestMigrateAlteringWebhookWritesADocument(t *testing.T) {
 	hook := addWebhook(t, e, "http://127.0.0.1:1/hook", Doc{"webhook_doctype": "Role", "on_update": false})
 
 	alterWebhookTable(t, e)
-	e.Snap.Apps["demo"].Roles = append(e.Snap.Apps["demo"].Roles, "Auditor 111")
+	demo := e.Current().Snap.Apps["demo"]
+	demo.Roles = append(demo.Roles, "Auditor 111")
 	migrateWithin(t, e)
 
 	if len(sqlRows(t, e, `SELECT 1 FROM tab_role WHERE id = 'Auditor 111'`)) != 1 {

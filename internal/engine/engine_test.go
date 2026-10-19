@@ -384,7 +384,7 @@ func anyList(rows []Doc) []any {
 // does not match on them.
 func TestLinkSearchSubtitleColumns(t *testing.T) {
 	e := setup(t)
-	e.Meta.DocTypes["Pessoa"].LinkSubtitle = []string{"email"}
+	e.Current().Meta.DocTypes["Pessoa"].LinkSubtitle = []string{"email"}
 	err := e.Run(context.Background(), "Admin", func(c *Ctx) error {
 		p, _ := c.NewDoc("Pessoa", Doc{"nome": "Bia", "cpf": "111.222.333-44", "email": "bia@x.com"})
 		if _, err := c.Insert(p, SaveOpts{}); err != nil {
@@ -416,7 +416,7 @@ func TestLinkSearchSubtitleColumns(t *testing.T) {
 // the title order without touching the list's.
 func TestLinkSearchOrder(t *testing.T) {
 	e := setup(t)
-	d := e.Meta.DocTypes["Pessoa"]
+	d := e.Current().Meta.DocTypes["Pessoa"]
 	d.TitleField, d.SortField, d.SortOrder = "cpf", "email", "asc"
 	ids := func(rows []map[string]any) string {
 		var out []string

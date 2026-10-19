@@ -62,6 +62,11 @@ different DocType.
 - **A DocType with no link to the `allow` DocType** is not restricted by that rule.
 - **Child tables**: writes and direct reads also check the `Link` fields of every child
   row, under the parent's `applicable_for`.
+- **Listing a child DocType** (`getList` or `GET /api/resource/<child>`) holds a row only
+  when its parent document is one a list of the parent would hold for the user — roles,
+  `ifOwner`, shares, scopes and the parent controller's `permissionQuery` — and the row's
+  own `Link` fields pass the rules for the parent's `applicable_for`, as on a direct read
+  of the row. Filtering on `parent` reaches no further.
 - **Dynamic Link**: a list query, a direct read or write, and a child row all restrict a
   `Dynamic Link` field only when its selector field holds the `allow` DocType. Rows pointing
   at other DocTypes pass.

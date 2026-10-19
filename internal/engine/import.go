@@ -165,16 +165,8 @@ func (c *Ctx) auditImportedPrivileges(d *meta.DocType, doc Doc) error {
 			}
 		}
 		return c.invalidate([]string{"roles:" + doc.ID(), "utype:" + doc.ID()}, nil)
-	case "User Permission":
-		if err := c.auditUserPermissionGrant(doc); err != nil {
-			return err
-		}
-		return c.invalidateUserPermissionCache(doc)
-	case shareDoctype:
-		if err := c.auditShareSaved(nil, doc); err != nil {
-			return err
-		}
-		return c.sharesChanged(doc.Str("user"))
+	case "User Permission", shareDoctype:
+		return c.auditAccessSaved(d, nil, doc)
 	}
 	return nil
 }

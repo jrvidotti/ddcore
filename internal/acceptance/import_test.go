@@ -22,8 +22,9 @@ func exportAll(t *testing.T, e *engine.Engine, dir string) {
 	t.Helper()
 	ctx := context.Background()
 	man := &engine.ExportManifest{DDCore: engine.Version, Layout: engine.ExportLayout, Format: "ndjson", User: "Admin"}
-	for _, name := range e.Meta.Names() {
-		d := e.Meta.DocTypes[name]
+	reg := e.Current().Meta
+	for _, name := range reg.Names() {
+		d := reg.DocTypes[name]
 		if d.IsChild || d.IsSingle {
 			continue
 		}

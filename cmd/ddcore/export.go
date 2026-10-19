@@ -74,22 +74,23 @@ func cmdExport(args []string) error {
 			return err
 		}
 
+		st := e.Current()
 		doctypes := rest
 		if *all {
 			// Child tables travel inside their parent; a Single has no table.
-			for _, n := range e.Meta.Names() {
-				if d := e.Meta.DocTypes[n]; !d.IsChild && !d.IsSingle {
+			for _, n := range st.Meta.Names() {
+				if d := st.Meta.DocTypes[n]; !d.IsChild && !d.IsSingle {
 					doctypes = append(doctypes, n)
 				}
 			}
 		}
 
 		run := &engine.ExportManifest{
-			DDCore: engine.Version, Layout: engine.ExportLayout, Site: e.SiteTitle(), User: *user, Started: time.Now(), Dir: dir,
+			DDCore: engine.Version, Layout: engine.ExportLayout, Site: st.SiteTitle(), User: *user, Started: time.Now(), Dir: dir,
 			Format: *format, Filters: parsedFilters, Apps: map[string]string{},
 		}
-		for _, n := range e.AppOrder() {
-			if am := e.Snap.Apps[n]; am != nil && am.Version != "" {
+		for _, n := range st.AppOrder() {
+			if am := st.Snap.Apps[n]; am != nil && am.Version != "" {
 				run.Apps[n] = am.Version
 			}
 		}

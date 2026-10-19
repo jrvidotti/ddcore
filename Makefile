@@ -1,4 +1,4 @@
-.PHONY: build desk test check vet i18n test-go test-desk dev stop kill migrate help docker-up docker-down docker-logs docker-status docker-psql db-up db-down db-logs db-status db-psql docs-dev docs-build docs-preview
+.PHONY: build desk test check vet i18n test-go test-desk test-race dev stop kill migrate help docker-up docker-down docker-logs docker-status docker-psql db-up db-down db-logs db-status db-psql docs-dev docs-build docs-preview
 
 export GOWORK=off
 
@@ -49,6 +49,10 @@ i18n: ## rewrite translations/<lang>.csv from code
 
 vet: ## Go static analysis
 	go vet ./...
+
+test-race: ## race detector over the reload tests (engine TestB08, *Reload*; api boot and meta during a reload)
+	go test -race ./internal/engine/ -run 'TestB08|Reload'
+	go test -race ./internal/api/ -run 'TestBootAndMetaDuringReload'
 
 test-desk: ## svelte-check + desk unit tests
 	cd desk && npm run check && npm run test

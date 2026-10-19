@@ -28,9 +28,10 @@ func (s *server) metaTools(srv *mcp.Server) {
 		func(ctx context.Context, in struct {
 			App string `json:"app,omitempty" jsonschema:"filter by app"`
 		}) (any, error) {
+			reg := e.Current().Meta
 			var out []map[string]any
-			for _, n := range e.Meta.Names() {
-				d := e.Meta.DocTypes[n]
+			for _, n := range reg.Names() {
+				d := reg.DocTypes[n]
 				if in.App != "" && d.App != in.App {
 					continue
 				}
@@ -43,11 +44,12 @@ func (s *server) metaTools(srv *mcp.Server) {
 		func(ctx context.Context, in struct {
 			Name string `json:"name" jsonschema:"DocType name"`
 		}) (any, error) {
-			d, err := e.DocType(in.Name)
+			st := e.Current()
+			d, err := st.DocType(in.Name)
 			if err != nil {
 				return nil, err
 			}
-			app := e.App(d.App)
+			app := st.App(d.App)
 			path := d.SourceFile
 			if app.Embedded == nil && path != "" {
 				rel := strings.TrimPrefix(path, d.App+".")
@@ -67,9 +69,10 @@ func (s *server) metaTools(srv *mcp.Server) {
 			App  string               `json:"app" jsonschema:"app name (directory)"`
 			Spec scaffold.DoctypeSpec `json:"spec" jsonschema:"DocType definition"`
 		}) (any, error) {
-			app := e.App(in.App)
+			st := e.Current()
+			app := st.App(in.App)
 			if app.Name == "" || app.Embedded != nil {
-				return nil, cerr.NotFound("app {0} does not exist (apps: {1})", in.App, e.AppOrder())
+				return nil, cerr.NotFound("app {0} does not exist (apps: {1})", in.App, st.AppOrder())
 			}
 			files, err := scaffold.Doctype(app.Dir, app.Name, in.Spec)
 			if err != nil {
@@ -91,7 +94,8 @@ func (s *server) metaTools(srv *mcp.Server) {
 			if err := e.Load(); err != nil {
 				return nil, err
 			}
-			return map[string]any{"ok": true, "doctypes": len(e.Meta.DocTypes), "whitelisted": e.WhitelistedPaths()}, nil
+			st := e.Current()
+			return map[string]any{"ok": true, "doctypes": len(st.Meta.DocTypes), "whitelisted": st.WhitelistedPaths()}, nil
 		})
 
 	addTool(srv, "migrate", "Applies the pending DDL, installs new apps and runs patches, in one transaction: beforeSchema patches, DDL, fixtures, afterSchema patches, then the drops. Refuses a rename or conversion it cannot make safely rather than guessing. With dry_run it only reports the plan.",
@@ -204,14 +208,15 @@ func (s *server) metaTools(srv *mcp.Server) {
 
 	addTool(srv, "list_apps", "Loaded apps, directories, whitelisted functions, reports, workspaces and scheduler.",
 		func(ctx context.Context, in struct{}) (any, error) {
+			st := e.Current()
 			var apps []map[string]any
-			for _, n := range e.AppOrder() {
-				a := e.Snap.Apps[n]
+			for _, n := range st.AppOrder() {
+				a := st.Snap.Apps[n]
 				apps = append(apps, map[string]any{"name": n, "title": a.Title, "dir": a.Dir, "scheduler": a.Scheduler, "desk": a.Desk})
 			}
-			reports := slices.Sorted(maps.Keys(e.Snap.Reports))
-			ws := slices.Sorted(maps.Keys(e.Snap.Workspaces))
-			return map[string]any{"apps": apps, "whitelisted": e.WhitelistedPaths(), "reports": reports, "workspaces": ws}, nil
+			reports := slices.Sorted(maps.Keys(st.Snap.Reports))
+			ws := slices.Sorted(maps.Keys(st.Snap.Workspaces))
+			return map[string]any{"apps": apps, "whitelisted": st.WhitelistedPaths(), "reports": reports, "workspaces": ws}, nil
 		})
 
 	addTool(srv, "whats_new", "What changed in ddcore since the running version: the changelog entries above it, the newest published release, and whether an upgrade is available.",

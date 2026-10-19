@@ -175,15 +175,16 @@ type backupOpts struct {
 // leaves no archive behind: the file is written under a temporary name and
 // renamed only once the manifest is in it.
 func runBackup(ctx context.Context, e *engine.Engine, cfg *config.File, o backupOpts) (*backupManifest, string, error) {
-	man := &backupManifest{Format: backupFormat, DDCore: engine.Version, Site: e.SiteTitle(), Apps: map[string]backupApp{},
+	cur := e.Current()
+	man := &backupManifest{Format: backupFormat, DDCore: engine.Version, Site: cur.SiteTitle(), Apps: map[string]backupApp{},
 		Storage: e.Storage().Backend(), Started: time.Now().UTC(), Tables: map[string]int64{}, Patches: []string{}}
 	out := o.Out
 	if out == "" {
 		out = filepath.Join(cfg.Backup.Dir, "ddcore-"+man.Started.Format("20060102-150405")+".tar")
 	}
-	for _, n := range e.AppOrder() {
+	for _, n := range cur.AppOrder() {
 		man.AppOrder = append(man.AppOrder, n)
-		if am := e.Snap.Apps[n]; am != nil {
+		if am := cur.Snap.Apps[n]; am != nil {
 			man.Apps[n] = backupApp{Version: am.Version, Ddcore: am.Ddcore}
 		}
 	}

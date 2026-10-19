@@ -649,6 +649,11 @@ func (c *Ctx) renameRefusal(d *meta.DocType) error {
 	return nil
 }
 
+// noPermission refuses ptype on one document of d.
+func (c *Ctx) noPermission(ptype string, d *meta.DocType, id string) error {
+	return cerr.Permission("No permission ({0}) on {1} {2}", ptype, c.T(d.Label), id)
+}
+
 // Insert validates and inserts a new document.
 func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 	if opts.Flags == nil {
@@ -689,14 +694,16 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 			return nil, err
 		} else if !ok {
 			if d.IsSingle {
-				return nil, cerr.Permission("No permission ({0}) on {1} {2}", "write", c.T(d.Label), "singleton")
+				return nil, c.noPermission("write", d, "singleton")
 			}
 			return nil, cerr.Permission("No permission to create {0}", c.T(d.Label))
 		}
 	}
 	if doc.Docstatus() == 1 && d.Submittable {
 		if !opts.IgnorePermissions && !c.IgnorePermissions() {
-			if ok, _ := c.HasPermission(d.Name, "submit", doc); !ok {
+			if ok, err := c.HasPermission(d.Name, "submit", doc); err != nil {
+				return nil, err
+			} else if !ok {
 				return nil, cerr.Permission("No permission to submit {0}", c.T(d.Label))
 			}
 		}
@@ -763,21 +770,12 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 			return nil, err
 		} else if !ok {
 			if d.IsSingle {
-				return nil, cerr.Permission("No permission ({0}) on {1} {2}", "write", c.T(d.Label), "singleton")
+				return nil, c.noPermission("write", d, "singleton")
 			}
 			return nil, cerr.Permission("No permission to create {0}", c.T(d.Label))
 		}
 	}
-	if err := c.writeInsert(d, doc); err != nil {
-		return nil, err
-	}
-	if err := c.writeChildren(d, doc); err != nil {
-		return nil, err
-	}
-	if err := c.claimAttachments(d, doc); err != nil {
-		return nil, err
-	}
-	if err := c.processVaultFields(d, doc); err != nil {
+	if err := c.writeRow(d, doc, nil); err != nil {
 		return nil, err
 	}
 	delete(doc, "__islocal")
@@ -793,39 +791,7 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 			return nil, err
 		}
 	}
-	saved, err := c.GetDocIgnoringPerms(d.Name, doc.ID())
-	if err != nil {
-		return nil, err
-	}
-	if err := c.queueDocWebhooks(d.Name, saved, "on_insert"); err != nil {
-		return nil, err
-	}
-	if err := c.queueDocNotifications(d.Name, saved, nil, "on_insert"); err != nil {
-		return nil, err
-	}
-	if saved.Docstatus() == 1 {
-		if err := c.queueDocWebhooks(d.Name, saved, "on_submit"); err != nil {
-			return nil, err
-		}
-		if err := c.queueDocNotifications(d.Name, saved, nil, "on_submit"); err != nil {
-			return nil, err
-		}
-	}
-	c.notify(d, saved, "insert")
-	if d.Name == "User Permission" {
-		if err := c.auditUserPermissionGrant(saved); err != nil {
-			return nil, err
-		}
-		if err := c.invalidateUserPermissionCache(saved); err != nil {
-			return nil, err
-		}
-	}
-	if d.Name == shareDoctype {
-		if err := c.auditShareSaved(nil, saved); err != nil {
-			return nil, err
-		}
-	}
-	return saved, nil
+	return c.afterWrite(d, doc.ID(), nil, "insert")
 }
 
 // Save updates an existing document (or inserts when __islocal).
@@ -903,14 +869,14 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 		if ok, err := c.HasPermission(d.Name, ptype, before); err != nil {
 			return nil, err
 		} else if !ok {
-			return nil, cerr.Permission("No permission ({0}) on {1} {2}", ptype, c.T(d.Label), doc.ID())
+			return nil, c.noPermission(ptype, d, doc.ID())
 		}
 	}
 	if !c.IgnorePermissions() {
 		if ok, err := c.scopeAllows(d, before, ptype); err != nil {
 			return nil, err
 		} else if !ok {
-			return nil, cerr.Permission("No permission ({0}) on {1} {2}", ptype, c.T(d.Label), doc.ID())
+			return nil, c.noPermission(ptype, d, doc.ID())
 		}
 	}
 	// optimistic concurrency
@@ -969,19 +935,10 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 		if ok, err := c.scopeAllows(d, doc, ptype); err != nil {
 			return nil, err
 		} else if !ok {
-			return nil, cerr.Permission("No permission ({0}) on {1} {2}", ptype, c.T(d.Label), doc.ID())
+			return nil, c.noPermission(ptype, d, doc.ID())
 		}
 	}
-	if err := c.writeUpdate(d, doc, before["modified"]); err != nil {
-		return nil, err
-	}
-	if err := c.writeChildren(d, doc); err != nil {
-		return nil, err
-	}
-	if err := c.claimAttachments(d, doc); err != nil {
-		return nil, err
-	}
-	if err := c.processVaultFields(d, doc); err != nil {
+	if err := c.writeRow(d, doc, before); err != nil {
 		return nil, err
 	}
 	delete(doc, "__unsaved")
@@ -1009,36 +966,80 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 			return nil, err
 		}
 	}
-	saved, err := c.GetDocIgnoringPerms(d.Name, doc.ID())
+	return c.afterWrite(d, doc.ID(), before, action)
+}
+
+// writeRow writes the document's row — inserted when before is nil — with its
+// child rows, attachments and vault fields.
+func (c *Ctx) writeRow(d *meta.DocType, doc, before Doc) error {
+	var err error
+	if before == nil {
+		err = c.writeInsert(d, doc)
+	} else {
+		err = c.writeUpdate(d, doc, before["modified"])
+	}
+	if err != nil {
+		return err
+	}
+	if err := c.writeChildren(d, doc); err != nil {
+		return err
+	}
+	if err := c.claimAttachments(d, doc); err != nil {
+		return err
+	}
+	return c.processVaultFields(d, doc)
+}
+
+// afterWrite reloads what Insert (before nil) or Save wrote and announces it:
+// each event's webhooks, then its notifications; the realtime update; and, for
+// a User Permission or a Document Share, the audit of the access it changed.
+func (c *Ctx) afterWrite(d *meta.DocType, id string, before Doc, action string) (Doc, error) {
+	saved, err := c.GetDocIgnoringPerms(d.Name, id)
 	if err != nil {
 		return nil, err
 	}
-	if err := c.queueDocWebhooks(d.Name, saved, webhookSaveEvent[action]); err != nil {
-		return nil, err
+	events := []string{webhookSaveEvent[action]}
+	if before == nil {
+		events = []string{"on_insert"}
+		if saved.Docstatus() == 1 {
+			events = append(events, "on_submit")
+		}
 	}
-	if err := c.queueDocNotifications(d.Name, saved, before, webhookSaveEvent[action]); err != nil {
-		return nil, err
+	for _, event := range events {
+		if err := c.queueDocWebhooks(d.Name, saved, event); err != nil {
+			return nil, err
+		}
+		if err := c.queueDocNotifications(d.Name, saved, before, event); err != nil {
+			return nil, err
+		}
 	}
 	c.notify(d, saved, action)
-	if d.Name == "User Permission" {
-		if userPermissionScopeChanged(before, saved) {
-			if err := c.auditUserPermissionRevoke(before); err != nil {
-				return nil, err
-			}
-			if err := c.auditUserPermissionGrant(saved); err != nil {
-				return nil, err
-			}
-		}
-		if err := c.invalidateUserPermissionCache(before, saved); err != nil {
-			return nil, err
-		}
-	}
-	if d.Name == shareDoctype {
-		if err := c.auditShareSaved(before, saved); err != nil {
-			return nil, err
-		}
+	if err := c.auditAccessSaved(d, before, saved); err != nil {
+		return nil, err
 	}
 	return saved, nil
+}
+
+// auditAccessSaved records what a write did to a User Permission or a Document
+// Share — before is nil for a new one — and drops the cached access it touched.
+func (c *Ctx) auditAccessSaved(d *meta.DocType, before, after Doc) error {
+	switch d.Name {
+	case "User Permission":
+		if before == nil || userPermissionScopeChanged(before, after) {
+			if before != nil {
+				if err := c.auditUserPermissionRevoke(before); err != nil {
+					return err
+				}
+			}
+			if err := c.auditUserPermissionGrant(after); err != nil {
+				return err
+			}
+		}
+		return c.invalidateUserPermissionCache(before, after)
+	case shareDoctype:
+		return c.auditShareSaved(before, after)
+	}
+	return nil
 }
 
 // sameTime compares two timestamps at millisecond precision. A value that
@@ -1108,7 +1109,9 @@ func (c *Ctx) Amend(doctype, name string) (Doc, error) {
 	if src.Docstatus() != 2 {
 		return nil, cerr.Validation("Only cancelled documents can be amended")
 	}
-	if ok, _ := c.HasPermission(doctype, "amend", src); !ok && !c.IgnorePermissions() {
+	if ok, err := c.HasPermission(doctype, "amend", src); err != nil {
+		return nil, err
+	} else if !ok {
 		return nil, cerr.Permission("No permission to amend {0}", c.T(d.Label))
 	}
 	doc := src.Clone()
@@ -1170,7 +1173,7 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 		if refused, err := c.refusedToScopedUser(d.Name); err != nil {
 			return modified, err
 		} else if refused {
-			return modified, cerr.Permission("No permission ({0}) on {1} {2}", "write", c.T(d.Label), name)
+			return modified, c.noPermission("write", d, name)
 		}
 	}
 	// the state field and docstatus move only through a workflow transition;
@@ -1275,7 +1278,7 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 					if lifted, err := c.scopeOverridden(sharedDoctype, sharedName, "write"); err != nil {
 						return modified, err
 					} else if !lifted {
-						return modified, cerr.Permission("No permission ({0}) on {1} {2}", "write", c.T(d.Label), name)
+						return modified, c.noPermission("write", d, name)
 					}
 				}
 			}
@@ -1342,15 +1345,7 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 				afterPermission[field] = value
 			}
 		}
-		if userPermissionScopeChanged(beforePermission, afterPermission) {
-			if err := c.auditUserPermissionRevoke(beforePermission); err != nil {
-				return modified, err
-			}
-			if err := c.auditUserPermissionGrant(afterPermission); err != nil {
-				return modified, err
-			}
-		}
-		if err := c.invalidateUserPermissionCache(beforePermission, afterPermission); err != nil {
+		if err := c.auditAccessSaved(d, beforePermission, afterPermission); err != nil {
 			return modified, err
 		}
 	}
@@ -1372,7 +1367,7 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 				afterShare[k] = value
 			}
 		}
-		if err := c.auditShareSaved(beforeShare, afterShare); err != nil {
+		if err := c.auditAccessSaved(d, beforeShare, afterShare); err != nil {
 			return modified, err
 		}
 	}
@@ -1422,7 +1417,9 @@ func (c *Ctx) deleteWithFlags(doctype, name string, ignorePerms, force bool, fla
 		return err
 	}
 	if !ignorePerms && !c.IgnorePermissions() {
-		if ok, _ := c.HasPermission(doctype, "delete", doc); !ok {
+		if ok, err := c.HasPermission(doctype, "delete", doc); err != nil {
+			return err
+		} else if !ok {
 			return cerr.Permission("No permission to delete {0} {1}", c.T(d.Label), name)
 		}
 	}
@@ -1466,14 +1463,15 @@ func (c *Ctx) deleteWithFlags(doctype, name string, ignorePerms, force bool, fla
 		}
 	}
 	for _, tf := range d.TableFields() {
-		child, _ := c.St.DocType(tf.OptionsString())
-		if child != nil {
-			for _, row := range doc.Children(tf.Fieldname) {
-				for _, cf := range child.Fields {
-					if cf.Fieldtype == "Vault" {
-						key := c.DeriveVaultKey(child, cf, row)
-						_ = c.E.VaultDel(c, key)
-					}
+		child, err := c.St.DocType(tf.OptionsString())
+		if err != nil {
+			return err
+		}
+		for _, row := range doc.Children(tf.Fieldname) {
+			for _, cf := range child.Fields {
+				if cf.Fieldtype == "Vault" {
+					key := c.DeriveVaultKey(child, cf, row)
+					_ = c.E.VaultDel(c, key)
 				}
 			}
 		}
@@ -1588,7 +1586,9 @@ func (c *Ctx) Rename(doctype, oldID, newID string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if ok, _ := c.HasPermission(doctype, "write", doc); !ok && !c.IgnorePermissions() {
+	if ok, err := c.HasPermission(doctype, "write", doc); err != nil {
+		return "", err
+	} else if !ok {
 		return "", cerr.Permission("No permission to rename {0}", c.T(d.Label))
 	}
 	if ok, _ := c.idExists(doctype, newID); ok {

@@ -264,6 +264,14 @@ func (c *Ctx) filterSQL(d *meta.DocType, b *db.Builder, filters []db.Filter, col
 			}
 			continue
 		}
+		if f.Parent != nil {
+			w, err := c.parentSQL(b, f.Parent, col)
+			if err != nil {
+				return "", err
+			}
+			parts = append(parts, w)
+			continue
+		}
 		if f.IfField != "" {
 			ifCol := col(f.IfField)
 			if ifCol == "" {
@@ -362,6 +370,33 @@ func (c *Ctx) filterSQL(d *meta.DocType, b *db.Builder, filters []db.Filter, col
 		return parts[0], nil
 	}
 	return "(" + strings.Join(parts, " AND ") + ")", nil
+}
+
+// parentSQL renders a condition on a child row's parent document: the row's
+// parenttype is p's DocType, and its parent row passes p's filters, rendered
+// as the parent's own list renders them. Without filters the parenttype alone
+// is the condition.
+//
+// Only childListFilters builds p, from a DocType that embeds the child being
+// listed, so p's DocType exists and col resolves the child's columns.
+func (c *Ctx) parentSQL(b *db.Builder, p *db.ParentFilter, col func(string) string) (string, error) {
+	pd, _ := c.St.Meta.Get(p.DocType)
+	parentType, parentKey := col("parenttype"), col("parent")
+	alias := db.Ident("pt_" + meta.Snake(pd.Name))
+	where, err := c.filterSQL(pd, b, p.Filters, func(field string) string {
+		if field = strings.Trim(field, "`\""); !pd.HasColumn(field) {
+			return ""
+		}
+		return alias + "." + db.Ident(field)
+	})
+	if err != nil {
+		return "", err
+	}
+	if where == "" {
+		return parentType + " = " + b.Arg(pd.Name), nil
+	}
+	return fmt.Sprintf("(%s = %s AND EXISTS (SELECT 1 FROM %s AS %s WHERE %s.%s = %s AND %s))",
+		parentType, b.Arg(pd.Name), db.Ident(pd.TableName()), alias, alias, db.Ident("id"), parentKey, where), nil
 }
 
 // GetList runs a filtered query over a doctype.

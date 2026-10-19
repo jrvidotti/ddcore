@@ -351,7 +351,7 @@ func TestTraducoes(t *testing.T) {
 	}
 
 	// the same catalog feeds the server's _()
-	if got := e.I18n.T("pt-BR", "Save"); got != "Gravar" {
+	if got := e.Current().I18n.T("pt-BR", "Save"); got != "Gravar" {
 		t.Errorf("I18n.T(Save) = %q, expected \"Gravar\"", got)
 	}
 
@@ -379,16 +379,16 @@ func TestTraducoes(t *testing.T) {
 		{"No such key {0}", []any{"x"}, "No such key x"},
 	}
 	for _, c := range cases {
-		if got := e.I18n.T("pt-BR", c.key, c.args...); got != c.want {
+		if got := e.Current().I18n.T("pt-BR", c.key, c.args...); got != c.want {
 			t.Errorf("T(%q, %v) = %q, expected %q", c.key, c.args, got, c.want)
 		}
 	}
 
 	// Catalogue returns the live map: the caller must not mutate it by
 	// accident and change what everyone reads
-	cat := e.I18n.Catalogue("pt-BR")
+	cat := e.Current().I18n.Catalogue("pt-BR")
 	cat["Save"] = "ADULTERADO"
-	if got := e.I18n.T("pt-BR", "Save"); got != "Gravar" {
+	if got := e.Current().I18n.T("pt-BR", "Save"); got != "Gravar" {
 		t.Errorf("catalog was mutated by caller: T(Save) = %q", got)
 	}
 }
@@ -760,7 +760,7 @@ func TestSchemaEvolution(t *testing.T) {
 	if _, err := e.DB.Pool.Exec(ctx, `DELETE FROM ddcore_patch WHERE app = 'migracao'`); err != nil {
 		t.Fatal(err)
 	}
-	nota, ok := e.Meta.Get("Nota")
+	nota, ok := e.Current().Meta.Get("Nota")
 	if !ok {
 		t.Fatal("Nota is not in meta")
 	}

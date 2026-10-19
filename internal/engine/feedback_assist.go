@@ -83,9 +83,9 @@ type FeedbackAssistResult struct {
 // may read it. routeDoctype is the route form of the page's DocType
 // ("SalesOrder"), or "" to read it from pageURL.
 func (c *Ctx) FeedbackSiteInfo(routeDoctype, pageURL string) FeedbackSiteInfo {
-	info := FeedbackSiteInfo{Name: c.T(c.E.SiteTitle()), Version: Version}
-	for _, name := range c.E.AppOrder() {
-		a := c.E.Snap.Apps[name]
+	info := FeedbackSiteInfo{Name: c.T(c.St.SiteTitle()), Version: Version}
+	for _, name := range c.St.AppOrder() {
+		a := c.St.Snap.Apps[name]
 		if a == nil || name == "core" {
 			continue
 		}

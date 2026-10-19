@@ -358,3 +358,24 @@ export function parseVersion(v: any, frm?: FormController): ParsedVersion {
     deleted: !!rawData.deleted,
   };
 }
+
+/** Whether a version matches a lowercased search: by user, time, field, value, or any row it added, removed or modified. */
+export function matchesHistory(v: ParsedVersion, q: string): boolean {
+  const has = (s: unknown) => String(s).toLowerCase().includes(q);
+  const inRow = (r: TableRowSummary) => Object.values(r.fields).some((f) => has(f.label) || has(f.formatted));
+  return (
+    has(v.owner) ||
+    has(v.relativeTime) ||
+    v.changes.some(
+      (c) =>
+        has(c.label) ||
+        has(c.field) ||
+        has(c.formattedOld) ||
+        has(c.formattedNew) ||
+        (c.tableDiff &&
+          (c.tableDiff.added.some(inRow) ||
+            c.tableDiff.removed.some(inRow) ||
+            c.tableDiff.modified.some((m) => m.changes.some((ch) => has(ch.label) || has(ch.formattedFrom) || has(ch.formattedTo))))),
+    )
+  );
+}

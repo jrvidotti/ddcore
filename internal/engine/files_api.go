@@ -84,7 +84,7 @@ func (c *Ctx) UploadTarget(doctype, id, field string) (string, error) {
 				return "", err
 			}
 			if !ok {
-				return "", cerr.Permission("No permission ({0}) on {1} {2}", "write", c.T(d.Label), id)
+				return "", c.noPermission("write", d, id)
 			}
 			return id, nil
 		}

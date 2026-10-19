@@ -190,7 +190,7 @@ func cmdRestore(args []string) error {
 			return fmt.Errorf("loading the apps: %w", err)
 		}
 		apps := map[string]string{}
-		for name, am := range e.Snap.Apps {
+		for name, am := range e.Current().Snap.Apps {
 			if am != nil && am.Version != "" {
 				apps[name] = am.Version
 			}

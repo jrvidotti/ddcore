@@ -38,7 +38,7 @@ func snapshot(dirs []string) map[string]int64 {
 // Apps calls onChange whenever a .ts/.csv file in any app changes.
 func Apps(ctx context.Context, e *engine.Engine, onChange func()) {
 	var dirs []string
-	for _, a := range e.Apps {
+	for _, a := range e.Current().Apps {
 		if a.Embedded == nil {
 			dirs = append(dirs, a.Dir)
 		}

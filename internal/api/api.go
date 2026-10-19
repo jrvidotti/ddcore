@@ -705,150 +705,184 @@ func loginPage(l config.LoginPage, auth config.AuthPolicy, sso []config.OIDCProv
 	return out
 }
 
+// boot is the desk's and the portal's first call. Every builder reads c.St,
+// the one state this request captured, so a reload in the middle cannot hand
+// back the site of one load and the DocTypes of the next.
 func (s *Server) boot(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
 		roles, _ := c.Roles()
-		var userDoc map[string]any
-		if c.User != "Guest" {
-			userDoc, _ = c.GetValues("User", c.User, []string{"id", "full_name", "language", "user_type"})
-			// the only place that reads User.language: cache it here so
-			// langFor never has to touch the database, and honour it now —
-			// the payload below is built after this point, so the boot
-			// itself already comes back in the user's language.
-			if l, _ := userDoc["language"].(string); l != "" && s.E.Current().I18n.HasLang(l) {
-				if r.Header.Get("X-Lang") == "" {
-					c.Lang = l
-				}
-				s.E.Cache.Set("lang:"+c.User, l, langCacheTTL)
-			}
-		}
-		// the languages the site serves, with the same autonyms the User.language
-		// picker carries (applyLanguageOptions) — the desk's profile screen needs
-		// them and User is a System Manager doctype, so borrowing its meta is not
-		// an option for the person whose language it is
-		var langs []map[string]any
-		for _, l := range c.St.I18n.Langs() {
-			langs = append(langs, map[string]any{"code": l, "label": engine.LanguageName(l)})
-		}
-		site := map[string]any{
-			// the one string in this block a reader actually sees, so it is
-			// a catalogue key like any other label; a title with no
-			// translation comes back as itself, which is already English
-			"name": c.T(s.E.SiteTitle()), "currency": s.E.Cfg.Currency,
-			// which app's `desk.home` and `desk.logo` stand for the site is
-			// the same choice as whose title names it, so it is made beside it
-			"home": s.E.SiteDesk("home"), "logo": s.E.SiteDesk("logo"),
-			// and so is its look (#128): the shell already wears it; the desk
-			// applies it again when a reload boots without a new page
-			"brand": brandBoot(c.St, siteLetter(c.St, c.T(s.E.SiteTitle()))),
-			// the server resolves the precision and the rule and the desk
-			// reads them: two independent derivations that "should" agree
-			// is the bug nobody finds until a JPY invoice is off by a yen
-			"currencyPrecision": s.E.CurrencyPrecision(), "rounding": s.E.Cfg.Rounding.String(),
-			"timezone": s.E.Cfg.Timezone, "dev": s.E.Cfg.Dev, "scheduler": s.E.Cfg.Scheduler, "version": engine.Version,
-			"login": loginPage(s.E.Cfg.Login, s.E.Cfg.Auth, s.E.Cfg.OIDC, credentialProvidersBoot(c), s.E.Cfg.Tenancy), "maintenance": s.maintenanceBoot(r),
-			// where a Geolocation's map draws its tiles from: the browser
-			// fetches them, the server never does
-			"map": mapBoot(s.E.Cfg.Map),
-			// the desk's Feedback item: a signed-in desk user only, which a
-			// Website User's boot below never is
-			"feedback": s.E.Cfg.Feedback.On() && c.User != "Guest" && !c.IsWebsiteUser(),
-			// its "Fill in with AI" button: the same users, on a site whose AI is on
-			"feedbackAssist": s.E.Cfg.Feedback.AssistOn(s.E.Cfg.AI) && c.User != "Guest" && !c.IsWebsiteUser(),
-		}
-		// the space the request works in, on a site with tenancy; absent
-		// without it, so the desk draws nothing about tenants there
-		if tb, err := c.TenantBoot(); err != nil {
+		// before the site block: a user's own language changes c.Lang, and
+		// the payload below already comes back in it
+		userDoc := s.userBoot(c, r)
+		site, err := s.siteBoot(c, r)
+		if err != nil {
 			return nil, err
-		} else if tb != nil {
-			site["tenant"] = tb
 		}
 		if userDoc == nil && c.User != "Guest" && c.Tenant != "" {
 			// a platform user inside a tenant: the account is not a document
 			// of that tenant, but the desk still needs a name to show
 			userDoc = map[string]any{"id": c.User, "full_name": c.User, "user_type": "System User"}
 		}
+		// the languages the site serves, with the same autonyms the
+		// User.language picker carries (applyLanguageOptions) — the desk's
+		// profile screen needs them and User is a System Manager doctype, so
+		// borrowing its meta is not an option for the person whose language it is
+		var langs []map[string]any
+		for _, l := range c.St.I18n.Langs() {
+			langs = append(langs, map[string]any{"code": l, "label": engine.LanguageName(l)})
+		}
+		out := map[string]any{
+			"user": c.User, "roles": roles, "userDoc": userDoc, "lang": c.Lang, "langs": langs,
+			"portals": portalsFor(c), "portalIncludes": portalIncludeApps(c.St), "site": site, "loaded": c.St.Loaded.UnixMilli(),
+		}
 		if c.IsWebsiteUser() {
 			// a Website User sees the portals and nothing of the desk: not its
 			// apps, workspaces, DocTypes or reports (OPS-10)
 			// the collections stay, empty, so code shared with the desk reads
 			// them without a guard
-			return map[string]any{
-				"user": c.User, "roles": roles, "userDoc": userDoc, "lang": c.Lang, "langs": langs,
-				"apps": []any{}, "workspaces": []any{}, "doctypes": map[string]any{}, "reports": map[string]any{},
-				"website": true, "portals": portalsFor(c), "portalIncludes": s.portalIncludeApps(), "site": site, "loaded": s.E.Loaded.UnixMilli(),
-			}, nil
+			out["apps"], out["workspaces"], out["doctypes"], out["reports"] = []any{}, []any{}, map[string]any{}, map[string]any{}
+			out["website"] = true
+			return out, nil
 		}
+		doctypes, virtuals := doctypesBoot(c)
+		reports := reportsBoot(c, roles)
+		workspaces, denied := workspacesBoot(c, roles, doctypes, reports)
 		var apps []map[string]any
-		var workspaces []map[string]any
-		for _, name := range s.E.AppOrder() {
-			a := s.E.Snap.Apps[name]
+		for _, name := range c.St.AppOrder() {
+			a := c.St.Snap.Apps[name]
 			apps = append(apps, map[string]any{"name": a.Name, "title": c.T(a.Title), "desk": a.Desk, "hasDeskInclude": len(deskIncludes(a)) > 0})
 		}
-		doctypes := map[string]any{}
-		// every virtual DocType's sources, readable or not: a Link to one holds
-		// "<Source>:<id>", and the desk sends it on to the source document even
-		// for a reader who cannot list the union itself (DAT-07)
-		virtuals := map[string][]string{}
-		for _, n := range s.E.Meta.Names() {
-			d := s.E.Meta.DocTypes[n]
-			if d.IsChild {
-				continue
-			}
-			if d.IsVirtual() {
-				for _, src := range d.Virtual.Sources {
-					virtuals[n] = append(virtuals[n], src.DocType)
-				}
-			}
-			// a DocType this space may not even read (#105) is not shown at
-			// all: no menu entry, no search palette row, no Link to it
-			if c.SpaceRefuses(d) {
-				continue
-			}
-			if ok, _ := c.HasPermission(n, "read", nil); ok {
-				doctypes[n] = map[string]any{"label": c.T(d.Label), "app": d.App, "icon": d.Icon, "module": d.Module, "titleField": d.TitleField, "translateId": d.TranslateID, "linkSubtitle": d.LinkSubtitle}
-			}
-		}
-		reports := map[string]any{}
-		for n, rep := range s.E.Snap.Reports {
-			if ref, _ := rep["refDoctype"].(string); ref != "" && c.SpaceRefusesName(ref) {
-				continue
-			}
-			if allowed(rep["roles"], roles) {
-				reports[n] = map[string]any{"label": c.T(orStr(rep["label"], n)), "refDoctype": rep["refDoctype"], "app": rep["app"]}
-			}
-		}
-		st := c.St
-		space := c.Space()
-		// a workspace of this space the reader's roles do not open: the desk
-		// tells "nobody declared one" from "none is yours" (#120)
-		denied := false
-		for _, ws := range st.Snap.Workspaces {
-			// the platform's and the tenants' items, each in its own space
-			if ws = st.WorkspaceForSpace(ws, space); ws == nil {
-				continue
-			}
-			if !allowed(ws["roles"], roles) {
-				denied = true
-				continue
-			}
-			// and of it only what the reader may open: the doctypes and
-			// reports above, so an entry never leads to a DocType the desk
-			// was not told of (#131)
-			ws = engine.WorkspaceForReader(ws, doctypes, reports)
-			workspaces = append(workspaces, st.TranslateStringMap(ws, c.Lang))
-		}
-		sortWorkspaces(workspaces, c.Lang)
-		out := map[string]any{
-			"user": c.User, "roles": roles, "userDoc": userDoc, "lang": c.Lang, "langs": langs, "apps": apps,
-			"workspaces": workspaces, "doctypes": doctypes, "virtuals": virtuals, "reports": reports, "portals": portalsFor(c), "portalIncludes": s.portalIncludeApps(),
-			"site": site, "loaded": s.E.Loaded.UnixMilli(),
-		}
+		out["apps"], out["workspaces"], out["doctypes"], out["virtuals"], out["reports"] = apps, workspaces, doctypes, virtuals, reports
 		if len(workspaces) == 0 && denied {
 			out["workspacesDenied"] = true
 		}
 		return out, nil
 	})
+}
+
+func (s *Server) userBoot(c *engine.Ctx, r *http.Request) map[string]any {
+	if c.User == "Guest" {
+		return nil
+	}
+	userDoc, _ := c.GetValues("User", c.User, []string{"id", "full_name", "language", "user_type"})
+	// the only place that reads User.language: cache it here so langFor
+	// never has to touch the database, and honour it now
+	if l, _ := userDoc["language"].(string); l != "" && c.St.I18n.HasLang(l) {
+		if r.Header.Get("X-Lang") == "" {
+			c.Lang = l
+		}
+		s.E.Cache.Set("lang:"+c.User, l, langCacheTTL)
+	}
+	return userDoc
+}
+
+func (s *Server) siteBoot(c *engine.Ctx, r *http.Request) (map[string]any, error) {
+	st, cfg := c.St, s.E.Cfg
+	// the one string in this block a reader actually sees, so it is a
+	// catalogue key like any other label; a title with no translation comes
+	// back as itself, which is already English
+	name := c.T(st.SiteTitle())
+	site := map[string]any{
+		"name": name, "currency": cfg.Currency,
+		// which app's `desk.home` and `desk.logo` stand for the site is
+		// the same choice as whose title names it, so it is made beside it
+		"home": st.SiteDesk("home"), "logo": st.SiteDesk("logo"),
+		// and so is its look (#128): the shell already wears it; the desk
+		// applies it again when a reload boots without a new page
+		"brand": brandBoot(st, siteLetter(st, name)),
+		// the server resolves the precision and the rule and the desk
+		// reads them: two independent derivations that "should" agree
+		// is the bug nobody finds until a JPY invoice is off by a yen
+		"currencyPrecision": s.E.CurrencyPrecision(), "rounding": cfg.Rounding.String(),
+		"timezone": cfg.Timezone, "dev": cfg.Dev, "scheduler": cfg.Scheduler, "version": engine.Version,
+		"login": loginPage(cfg.Login, cfg.Auth, cfg.OIDC, credentialProvidersBoot(c), cfg.Tenancy), "maintenance": s.maintenanceBoot(r),
+		// where a Geolocation's map draws its tiles from: the browser
+		// fetches them, the server never does
+		"map": mapBoot(cfg.Map),
+		// the desk's Feedback item: a signed-in desk user only, which a
+		// Website User's boot never is
+		"feedback": cfg.Feedback.On() && c.User != "Guest" && !c.IsWebsiteUser(),
+		// its "Fill in with AI" button: the same users, on a site whose AI is on
+		"feedbackAssist": cfg.Feedback.AssistOn(cfg.AI) && c.User != "Guest" && !c.IsWebsiteUser(),
+	}
+	// the space the request works in, on a site with tenancy; absent
+	// without it, so the desk draws nothing about tenants there
+	tb, err := c.TenantBoot()
+	if err != nil {
+		return nil, err
+	}
+	if tb != nil {
+		site["tenant"] = tb
+	}
+	return site, nil
+}
+
+// doctypesBoot is the DocTypes the reader may read, and every virtual
+// DocType's sources, readable or not: a Link to one holds "<Source>:<id>",
+// and the desk sends it on to the source document even for a reader who
+// cannot list the union itself (DAT-07).
+func doctypesBoot(c *engine.Ctx) (doctypes map[string]any, virtuals map[string][]string) {
+	doctypes, virtuals = map[string]any{}, map[string][]string{}
+	reg := c.St.Meta
+	for _, n := range reg.Names() {
+		d := reg.DocTypes[n]
+		if d.IsChild {
+			continue
+		}
+		if d.IsVirtual() {
+			for _, src := range d.Virtual.Sources {
+				virtuals[n] = append(virtuals[n], src.DocType)
+			}
+		}
+		// a DocType this space may not even read (#105) is not shown at
+		// all: no menu entry, no search palette row, no Link to it
+		if c.SpaceRefuses(d) {
+			continue
+		}
+		if ok, _ := c.HasPermission(n, "read", nil); ok {
+			doctypes[n] = map[string]any{"label": c.T(d.Label), "app": d.App, "icon": d.Icon, "module": d.Module, "titleField": d.TitleField, "translateId": d.TranslateID, "linkSubtitle": d.LinkSubtitle}
+		}
+	}
+	return doctypes, virtuals
+}
+
+// reportsBoot is the reports the reader's roles open, in this space.
+func reportsBoot(c *engine.Ctx, roles []string) map[string]any {
+	reports := map[string]any{}
+	for n, rep := range c.St.Snap.Reports {
+		if ref, _ := rep["refDoctype"].(string); ref != "" && c.SpaceRefusesName(ref) {
+			continue
+		}
+		if allowed(rep["roles"], roles) {
+			reports[n] = map[string]any{"label": c.T(orStr(rep["label"], n)), "refDoctype": rep["refDoctype"], "app": rep["app"]}
+		}
+	}
+	return reports
+}
+
+// workspacesBoot is this space's workspaces the reader's roles open, sorted;
+// denied is whether one of them was refused, so the desk tells "nobody
+// declared one" from "none is yours" (#120).
+func workspacesBoot(c *engine.Ctx, roles []string, doctypes, reports map[string]any) (workspaces []map[string]any, denied bool) {
+	st := c.St
+	space := c.Space()
+	for _, ws := range st.Snap.Workspaces {
+		// the platform's and the tenants' items, each in its own space
+		if ws = st.WorkspaceForSpace(ws, space); ws == nil {
+			continue
+		}
+		if !allowed(ws["roles"], roles) {
+			denied = true
+			continue
+		}
+		// and of it only what the reader may open: the doctypes and
+		// reports above, so an entry never leads to a DocType the desk
+		// was not told of (#131)
+		ws = engine.WorkspaceForReader(ws, doctypes, reports)
+		workspaces = append(workspaces, st.TranslateStringMap(ws, c.Lang))
+	}
+	sortWorkspaces(workspaces, c.Lang)
+	return workspaces, denied
 }
 
 func allowed(rolesAny any, userRoles []string) bool {
@@ -879,7 +913,8 @@ func orStr(v any, d string) string {
 
 func (s *Server) getMeta(w http.ResponseWriter, r *http.Request) {
 	s.runCached(w, r, func(c *engine.Ctx) (any, error) {
-		d, err := s.E.DocType(urlParam(r, "doctype"))
+		st := c.St
+		d, err := st.DocType(urlParam(r, "doctype"))
 		if err != nil {
 			return nil, err
 		}
@@ -891,25 +926,24 @@ func (s *Server) getMeta(w http.ResponseWriter, r *http.Request) {
 		if ok, _ := c.HasPermission(d.Name, "read", nil); !ok && !d.IsChild {
 			return nil, cerr.Permission("No permission for {0}", d.Label)
 		}
-		st := c.St
 		childMeta := map[string]*meta.DocType{}
 		for _, tf := range d.TableFields() {
-			cd, _ := s.E.DocType(tf.OptionsString())
+			cd, _ := st.DocType(tf.OptionsString())
 			childMeta[tf.OptionsString()] = st.TranslateDocType(cd, c.Lang)
 		}
 		linkTitles := map[string]string{}
 		for _, f := range d.Fields {
 			if f.Fieldtype == "Link" {
-				if t, ok := s.E.Meta.Get(f.OptionsString()); ok && t.TitleField != "" {
+				if t, ok := st.Meta.Get(f.OptionsString()); ok && t.TitleField != "" {
 					linkTitles[f.OptionsString()] = t.TitleField
 				}
 			}
 		}
 		for _, tf := range d.TableFields() {
-			if child, ok := s.E.Meta.Get(tf.OptionsString()); ok {
+			if child, ok := st.Meta.Get(tf.OptionsString()); ok {
 				for _, cf := range child.Fields {
 					if cf.Fieldtype == "Link" {
-						if t, ok := s.E.Meta.Get(cf.OptionsString()); ok && t.TitleField != "" {
+						if t, ok := st.Meta.Get(cf.OptionsString()); ok && t.TitleField != "" {
 							linkTitles[cf.OptionsString()] = t.TitleField
 						}
 					}
@@ -961,7 +995,7 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request) {
 			return nil, err
 		}
 		var docs []engine.Doc
-		ld, _ := s.E.DocType(urlParam(r, "doctype"))
+		ld, _ := c.St.DocType(urlParam(r, "doctype"))
 		for _, r := range rows {
 			// a Password column never leaves through a list either
 			engine.RedactPassword(ld, engine.Doc(r))
@@ -1023,8 +1057,8 @@ func (s *Server) get(w http.ResponseWriter, r *http.Request) {
 // childGuard refuses direct mutation of a child doctype through the generic
 // resource API (B02): a row only exists inside its parent document and must
 // go through the parent's lifecycle, hooks and permissions.
-func (s *Server) childGuard(doctype string) error {
-	d, err := s.E.DocType(doctype)
+func childGuard(c *engine.Ctx, doctype string) error {
+	d, err := c.St.DocType(doctype)
 	if err != nil {
 		return err
 	}
@@ -1044,10 +1078,10 @@ func (s *Server) create(w http.ResponseWriter, r *http.Request) {
 			return nil, err
 		}
 		dt := urlParam(r, "doctype")
-		if err := s.childGuard(dt); err != nil {
+		if err := childGuard(c, dt); err != nil {
 			return nil, err
 		}
-		if d, err := s.E.DocType(dt); err == nil && !d.Creatable() {
+		if d, err := c.St.DocType(dt); err == nil && !d.Creatable() {
 			return nil, cerr.Permission("{0} is created by the application, not directly", c.T(d.Label))
 		}
 		doc, err := c.NewDoc(dt, body)
@@ -1065,7 +1099,7 @@ func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 			return nil, err
 		}
 		dt, name := urlParam(r, "doctype"), urlParam(r, "id")
-		if err := s.childGuard(dt); err != nil {
+		if err := childGuard(c, dt); err != nil {
 			return nil, err
 		}
 		doc, err := c.GetDoc(dt, name)
@@ -1079,7 +1113,7 @@ func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) remove(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
-		if err := s.childGuard(urlParam(r, "doctype")); err != nil {
+		if err := childGuard(c, urlParam(r, "doctype")); err != nil {
 			return nil, err
 		}
 		return map[string]any{"ok": true}, c.Delete(urlParam(r, "doctype"), urlParam(r, "id"), false, false)
@@ -1090,7 +1124,7 @@ func (s *Server) remove(w http.ResponseWriter, r *http.Request) {
 func (s *Server) docMethod(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
 		dt, name, m := urlParam(r, "doctype"), urlParam(r, "id"), urlParam(r, "method")
-		if err := s.childGuard(dt); err != nil {
+		if err := childGuard(c, dt); err != nil {
 			return nil, err
 		}
 		var args map[string]any
@@ -1120,10 +1154,7 @@ func (s *Server) docMethod(w http.ResponseWriter, r *http.Request) {
 			return redacted(s, c, dt)(c.Amend(dt, name))
 		case "rename":
 			nn, _ := args["id"].(string)
-			if args["merge"] == true {
-				return strings.TrimSpace(nn), c.Merge(dt, name, nn)
-			}
-			return c.Rename(dt, name, nn)
+			return c.RenameOrMerge(dt, name, nn, args["merge"] == true)
 		case "merge_preview":
 			into, _ := args["id"].(string)
 			return c.PreviewMerge(dt, name, into)
@@ -1131,7 +1162,7 @@ func (s *Server) docMethod(w http.ResponseWriter, r *http.Request) {
 			m, _ = args["method"].(string)
 			delete(args, "method")
 		}
-		d, err := s.E.DocType(dt)
+		d, err := c.St.DocType(dt)
 		if err != nil {
 			return nil, err
 		}
@@ -1173,7 +1204,7 @@ func (s *Server) docMethod(w http.ResponseWriter, r *http.Request) {
 func (s *Server) method(w http.ResponseWriter, r *http.Request) {
 	path := urlParam(r, "path")
 	tail := urlParam(r, "*")
-	opts, ok := s.E.Whitelisted(path)
+	opts, ok := s.E.Current().Whitelisted(path)
 	if !ok || (tail != "" && opts["pathTail"] != true) {
 		s.writeErr(w, r, cerr.NotFound("Method {0} does not exist or is not whitelisted", path))
 		return
@@ -1424,7 +1455,7 @@ func (s *Server) versions(w http.ResponseWriter, r *http.Request) {
 func (s *Server) report(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
 		name := urlParam(r, "name")
-		rep, ok := s.E.Snap.Reports[name]
+		rep, ok := c.St.Snap.Reports[name]
 		if !ok {
 			return nil, cerr.NotFound("Report {0} does not exist", name)
 		}
@@ -1574,7 +1605,7 @@ func requireRefRead(c *engine.Ctx, item map[string]any) error {
 // workspace resolves a workspace and checks the user holds one of its roles
 // (B05): hiding the link in the boot payload is not authorisation.
 func (s *Server) workspace(c *engine.Ctx, name string) (map[string]any, error) {
-	ws, ok := s.E.Snap.Workspaces[name]
+	ws, ok := c.St.Snap.Workspaces[name]
 	if !ok || !c.St.InSpace(ws, c.Space()) {
 		return nil, cerr.NotFound("Workspace {0} does not exist", name)
 	}
@@ -1801,10 +1832,10 @@ func includes(block map[string]any) []string {
 }
 
 // portalIncludeApps names, in load order, the apps that ship client code to the portal.
-func (s *Server) portalIncludeApps() []string {
+func portalIncludeApps(st *engine.State) []string {
 	out := []string{}
-	for _, name := range s.E.AppOrder() {
-		if a := s.E.Snap.Apps[name]; a != nil && len(portalIncludes(a)) > 0 {
+	for _, name := range st.AppOrder() {
+		if a := st.Snap.Apps[name]; a != nil && len(portalIncludes(a)) > 0 {
 			out = append(out, name)
 		}
 	}
@@ -1820,7 +1851,8 @@ func (s *Server) portalIncludeApps() []string {
 func (s *Server) appAsset(w http.ResponseWriter, r *http.Request) {
 	appName := urlParam(r, "app")
 	rest := chi.URLParam(r, "*")
-	app := s.E.App(appName)
+	st := s.E.Current()
+	app := st.App(appName)
 	if app.Name == "" {
 		http.NotFound(w, r)
 		return
@@ -1841,16 +1873,16 @@ func (s *Server) appAsset(w http.ResponseWriter, r *http.Request) {
 	var err error
 	switch {
 	case rest == "desk.js":
-		code, err = buildInclude(app, deskIncludes(s.E.Snap.Apps[app.Name]), "desk")
+		code, err = buildInclude(app, deskIncludes(st.Snap.Apps[app.Name]), "desk")
 	case rest == "portal.js":
-		code, err = buildInclude(app, portalIncludes(s.E.Snap.Apps[app.Name]), "portal")
+		code, err = buildInclude(app, portalIncludes(st.Snap.Apps[app.Name]), "portal")
 	case strings.HasPrefix(rest, "forms/") && strings.HasSuffix(rest, ".js"):
 		snake := strings.TrimSuffix(strings.TrimPrefix(rest, "forms/"), ".js")
 		// the desk names the script after the DocType; the file may be named
 		// after the DocType's own .doctype.ts instead, so resolve through it
 		files := js.ListFiles(app, ".form.ts")
 		var entry string
-		for name, d := range s.E.Meta.DocTypes {
+		for name, d := range st.Meta.DocTypes {
 			if meta.Snake(name) == snake {
 				entry = engine.FormScript(files, d)
 				break

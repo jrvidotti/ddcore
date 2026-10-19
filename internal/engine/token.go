@@ -144,7 +144,11 @@ func (e *Engine) RevokeTokens(ctx context.Context, q db.Querier, user, kind stri
 }
 
 // SweepCounts is what one sweep removed.
-type SweepCounts struct{ Sessions, Tokens, Attempts int }
+type SweepCounts struct {
+	Sessions int `json:"sessions"`
+	Tokens   int `json:"tokens"`
+	Attempts int `json:"attempts"`
+}
 
 // SweepAuth deletes what has expired. It is hygiene and never correctness:
 // the scheduler only runs when the site enables it, so every read path filters

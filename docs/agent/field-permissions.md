@@ -54,8 +54,10 @@ The rules:
   always level 0.
 - **Child tables follow the parent.** A child DocType has no permissions of its own, so its
   fields' levels are judged by the parent's rows. A `Table` field with a level restricts the
-  whole table: its rows, and adding or removing them. Listing a child DocType directly uses
-  the strictest level across every DocType that embeds it.
+  whole table: its rows, and adding or removing them. Listing a child DocType directly leaves
+  out, and reading one of its rows by id refuses, the rows held by a `Table` field the user
+  cannot read at its level; the child's own fields use the strictest level across every DocType
+  that embeds it.
 - **Admin** and privileged contexts (jobs, migrations and patches,
   `ignorePermissions`, `getAll`, a workflow transition's own field updates) see and write
   every level. Server code never gets a field-redacted document, whatever the option:

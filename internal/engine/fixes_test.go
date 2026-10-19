@@ -288,7 +288,7 @@ func TestB14_UniqueIndexes(t *testing.T) {
 	}
 
 	// Currency unique: the predicate cannot compare numeric with ''
-	pessoa, _ := e.Meta.Get("Pessoa")
+	pessoa, _ := e.Current().Meta.Get("Pessoa")
 	pessoa.Field("limite").Unique = true
 	migrateStep("currency unique")
 	if def := indexdef("tab_pessoa_limite"); !strings.Contains(def, "UNIQUE") || strings.Contains(def, "''") {
@@ -296,7 +296,7 @@ func TestB14_UniqueIndexes(t *testing.T) {
 	}
 
 	// Link with search index becomes unique and then reverts
-	pedido, _ := e.Meta.Get("Pedido")
+	pedido, _ := e.Current().Meta.Get("Pedido")
 	before := indexdef("tab_pedido_cliente")
 	if before == "" || strings.Contains(before, "UNIQUE") {
 		t.Fatalf("expected non-unique index on cliente: %q", before)
@@ -517,9 +517,6 @@ func TestB08_ReloadKeepsPoolConsistent(t *testing.T) {
 	c := e.NewCtx(ctx, "Admin")
 	if c.St != st {
 		t.Fatalf("NewCtx did not capture the current state")
-	}
-	if e.Meta != st.Meta || e.Pool != st.Pool {
-		t.Fatalf("legacy fields diverged from current state")
 	}
 }
 

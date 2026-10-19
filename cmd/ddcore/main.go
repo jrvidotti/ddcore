@@ -463,7 +463,7 @@ func cmdServe(args []string, dev bool) error {
 				}
 			}
 			e.Cache.Clear()
-			e.Events.Publish(engine.Event{Name: "reload", SiteWide: true, Payload: map[string]any{"loaded": e.Loaded.UnixMilli()}})
+			e.Events.Publish(engine.Event{Name: "reload", SiteWide: true, Payload: map[string]any{"loaded": e.Current().Loaded.UnixMilli()}})
 		})
 	}
 	h := &http.Server{Addr: fmt.Sprintf(":%d", cfg.Port), Handler: srv.Router, ReadHeaderTimeout: 10 * time.Second}
@@ -487,7 +487,7 @@ func cmdServe(args []string, dev bool) error {
 	// before the registration returns.
 	ln, err := net.Listen("tcp", h.Addr)
 	if err == nil {
-		e.Log.Info("ddcore running", "version", engine.Version, "listen", fmt.Sprintf("http://localhost:%d", cfg.Port), "url", cfg.PublicURL(), "dev", e.Cfg.Dev, "apps", e.AppOrder())
+		e.Log.Info("ddcore running", "version", engine.Version, "listen", fmt.Sprintf("http://localhost:%d", cfg.Port), "url", cfg.PublicURL(), "dev", e.Cfg.Dev, "apps", e.Current().AppOrder())
 		go e.Boot(ctx)
 		err = h.Serve(ln)
 	}
@@ -558,7 +558,7 @@ func cmdTypes(args []string) error {
 
 // writeTypes writes each app's .ddcore/types.d.ts from the registry e holds.
 func writeTypes(e *engine.Engine, cfg *config.File) error {
-	written, err := typegen.WriteAll(cfg.Apps, e.Meta)
+	written, err := typegen.WriteAll(cfg.Apps, e.Current().Meta)
 	for _, path := range written {
 		fmt.Println("types:", path)
 	}
@@ -585,7 +585,7 @@ func cmdTest(args []string) error {
 		ctx := context.Background()
 		if *app != "" {
 			found := false
-			for _, loaded := range e.Apps {
+			for _, loaded := range e.Current().Apps {
 				if loaded.Name == *app {
 					found = true
 					break
@@ -724,7 +724,7 @@ func cmdDemo(args []string) error {
 	}
 	return withEngine(func(e *engine.Engine, ctx context.Context) error {
 		ran := 0
-		for _, name := range e.AppOrder() {
+		for _, name := range e.Current().AppOrder() {
 			if *app != "" && name != *app {
 				continue
 			}

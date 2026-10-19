@@ -138,13 +138,14 @@ func (s *server) run(ctx context.Context, fn func(c *engine.Ctx) error) error {
 // writeTypes writes .ddcore/types.d.ts into every app on disk, the core
 // (embedded) excepted, and returns the paths it wrote.
 func (s *server) writeTypes() ([]string, error) {
+	st := s.e.Current()
 	var dirs []string
-	for _, a := range s.e.Apps {
+	for _, a := range st.Apps {
 		if a.Embedded == nil {
 			dirs = append(dirs, a.Dir)
 		}
 	}
-	return typegen.WriteAll(dirs, s.e.Meta)
+	return typegen.WriteAll(dirs, st.Meta)
 }
 
 func testConfig(e *engine.Engine) engine.Config {

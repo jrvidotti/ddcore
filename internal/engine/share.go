@@ -286,7 +286,7 @@ func (c *Ctx) ShareDoc(doctype, name, user string, r ShareRights) (DocShare, err
 		return out, err
 	} else if !ok {
 		c.AuditDenied("permission.share_grant", d.Name, name, detail)
-		return out, cerr.Permission("No permission ({0}) on {1} {2}", "share", c.T(d.Label), name)
+		return out, c.noPermission("share", d, name)
 	}
 	switch {
 	case user == "":
@@ -394,7 +394,7 @@ func (c *Ctx) UnshareDoc(doctype, name, user string) error {
 			return err
 		} else if !ok {
 			c.AuditDenied("permission.share_revoke", d.Name, name, map[string]any{"user": user})
-			return cerr.Permission("No permission ({0}) on {1} {2}", "share", c.T(d.Label), name)
+			return c.noPermission("share", d, name)
 		}
 	}
 	return c.WithIgnorePermissions(func() error {

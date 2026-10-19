@@ -44,7 +44,7 @@ func extendDoctype(e *engine.Engine, in extendInput) (map[string]any, error) {
 	st := e.Current()
 	app := st.App(in.App)
 	if app.Name == "" || app.Embedded != nil {
-		return nil, cerr.NotFound("app {0} does not exist (apps: {1})", in.App, e.AppOrder())
+		return nil, cerr.NotFound("app {0} does not exist (apps: {1})", in.App, st.AppOrder())
 	}
 	d, ok := st.Meta.Get(in.Doctype)
 	if !ok {

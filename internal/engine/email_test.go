@@ -102,5 +102,5 @@ func TestCheckEmailsAllowsEmptyAndSystemUsers(t *testing.T) {
 // testCtxWithI18n builds a Ctx with an empty catalogue: checkEmails only needs T().
 func testCtxWithI18n() *Ctx {
 	st := &State{I18n: &I18n{dict: map[string]map[string]string{}}}
-	return &Ctx{E: &Engine{State: st}, St: st}
+	return &Ctx{E: &Engine{}, St: st}
 }

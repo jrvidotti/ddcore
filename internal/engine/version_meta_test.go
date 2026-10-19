@@ -6,7 +6,7 @@ import (
 
 func TestVersionDocType_ListViewAndFilterFields(t *testing.T) {
 	e := setup(t)
-	d, err := e.DocType("Version")
+	d, err := e.Current().DocType("Version")
 	if err != nil {
 		t.Fatalf("load Version DocType: %v", err)
 	}

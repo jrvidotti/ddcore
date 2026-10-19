@@ -26,84 +26,114 @@ import (
 	"github.com/jrvidotti/ddcore/internal/mail"
 )
 
+// hostArgs is the argument object of every ddcore.* call, decoded once for all
+// ops; an op reads the fields it names and ignores the rest.
+type hostArgs struct {
+	Doctype       string            `json:"doctype"`
+	ID            json.RawMessage   `json:"id"`
+	Fields        json.RawMessage   `json:"fields"`
+	Field         string            `json:"field"`
+	Args          json.RawMessage   `json:"args"`
+	Filters       any               `json:"filters"`
+	OrFilters     any               `json:"orFilters"`
+	Values        Doc               `json:"values"`
+	Doc           Doc               `json:"doc"`
+	Opts          map[string]any    `json:"opts"`
+	Flags         map[string]any    `json:"flags"`
+	Query         string            `json:"query"`
+	Params        []any             `json:"params"`
+	Key           string            `json:"key"`
+	Value         any               `json:"value"`
+	TTL           float64           `json:"ttl"`
+	Text          string            `json:"text"`
+	Lang          string            `json:"lang"`
+	Message       string            `json:"message"`
+	Method        string            `json:"method"`
+	URL           string            `json:"url"`
+	Body          any               `json:"body"`
+	BodyEncoding  string            `json:"bodyEncoding"`
+	Headers       map[string]string `json:"headers"`
+	Timeout       float64           `json:"timeout"`
+	ResponseType  string            `json:"responseType"`
+	MaxBytes      float64           `json:"maxBytes"`
+	MaxRedirects  *float64          `json:"maxRedirects"`
+	ClientCert    *httpClientCert   `json:"clientCert"`
+	Level         string            `json:"level"`
+	Event         string            `json:"event"`
+	Payload       any               `json:"payload"`
+	User          string            `json:"user"`
+	App           string            `json:"app"`
+	Ptype         string            `json:"ptype"`
+	OldID         string            `json:"oldID"`
+	NewID         string            `json:"newID"`
+	Currency      string            `json:"currency"`
+	To            []string          `json:"to"`
+	Subject       string            `json:"subject"`
+	HTML          string            `json:"html"`
+	ExceptSid     string            `json:"exceptSid"`
+	Kind          string            `json:"kind"`
+	Token         string            `json:"token"`
+	Password      string            `json:"password"`
+	Label         string            `json:"label"`
+	Days          float64           `json:"days"`
+	Limit         float64           `json:"limit"`
+	Minutes       float64           `json:"minutes"`
+	Delivery      string            `json:"delivery"`
+	Status        string            `json:"status"`
+	Error         string            `json:"error"`
+	Prefix        string            `json:"prefix"`
+	Action        string            `json:"action"`
+	TargetDoctype string            `json:"targetDoctype"`
+	TargetID      string            `json:"targetID"`
+	Detail        any               `json:"detail"`
+	Email         string            `json:"email"`
+	FullName      string            `json:"fullName"`
+	Roles         []string          `json:"roles"`
+	UserType      string            `json:"userType"`
+	Before        []string          `json:"before"`
+	Disabled      bool              `json:"disabled"`
+}
+
+// id is the document id as a string; any other JSON shape reads as empty.
+func (a *hostArgs) id() string {
+	var s string
+	json.Unmarshal(a.ID, &s)
+	return s
+}
+
+func (a *hostArgs) ignorePermissions() bool { return a.Opts["ignorePermissions"] == true }
+
+// detail is the audit detail when it is an object.
+func (a *hostArgs) detail() map[string]any {
+	m, _ := a.Detail.(map[string]any)
+	return m
+}
+
+// orErr drops a result that came with an error.
+func orErr(v any, err error) (any, error) {
+	if err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+// found is nil for a miss: the TS side tells absent from empty.
+func found[T any](v T, ok bool) any {
+	if !ok {
+		return nil
+	}
+	return v
+}
+
 // HostCall is the single entry point for every ddcore.* call made from TS.
 func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, error) {
 	c, _ := rt.Ctx.(*Ctx)
 	if c == nil {
 		return nil, cerr.Internal("runtime without a context (op {0})", op)
 	}
-	var a struct {
-		Doctype       string            `json:"doctype"`
-		ID            json.RawMessage   `json:"id"`
-		Fields        json.RawMessage   `json:"fields"`
-		Field         string            `json:"field"`
-		Args          json.RawMessage   `json:"args"`
-		Filters       any               `json:"filters"`
-		OrFilters     any               `json:"orFilters"`
-		Values        Doc               `json:"values"`
-		Doc           Doc               `json:"doc"`
-		Opts          map[string]any    `json:"opts"`
-		Flags         map[string]any    `json:"flags"`
-		Query         string            `json:"query"`
-		Params        []any             `json:"params"`
-		Key           string            `json:"key"`
-		Value         any               `json:"value"`
-		TTL           float64           `json:"ttl"`
-		Text          string            `json:"text"`
-		Lang          string            `json:"lang"`
-		Message       string            `json:"message"`
-		Method        string            `json:"method"`
-		URL           string            `json:"url"`
-		Body          any               `json:"body"`
-		BodyEncoding  string            `json:"bodyEncoding"`
-		Headers       map[string]string `json:"headers"`
-		Timeout       float64           `json:"timeout"`
-		ResponseType  string            `json:"responseType"`
-		MaxBytes      float64           `json:"maxBytes"`
-		MaxRedirects  *float64          `json:"maxRedirects"`
-		ClientCert    *httpClientCert   `json:"clientCert"`
-		Level         string            `json:"level"`
-		Event         string            `json:"event"`
-		Payload       any               `json:"payload"`
-		User          string            `json:"user"`
-		App           string            `json:"app"`
-		Ptype         string            `json:"ptype"`
-		OldID         string            `json:"oldID"`
-		NewID         string            `json:"newID"`
-		Currency      string            `json:"currency"`
-		To            []string          `json:"to"`
-		Subject       string            `json:"subject"`
-		HTML          string            `json:"html"`
-		ExceptSid     string            `json:"exceptSid"`
-		Kind          string            `json:"kind"`
-		Token         string            `json:"token"`
-		Password      string            `json:"password"`
-		Label         string            `json:"label"`
-		Days          float64           `json:"days"`
-		Limit         float64           `json:"limit"`
-		Minutes       float64           `json:"minutes"`
-		Delivery      string            `json:"delivery"`
-		Status        string            `json:"status"`
-		Error         string            `json:"error"`
-		Prefix        string            `json:"prefix"`
-		Action        string            `json:"action"`
-		TargetDoctype string            `json:"targetDoctype"`
-		TargetID      string            `json:"targetID"`
-		Detail        any               `json:"detail"`
-		Email         string            `json:"email"`
-		FullName      string            `json:"fullName"`
-		Roles         []string          `json:"roles"`
-		UserType      string            `json:"userType"`
-		Before        []string          `json:"before"`
-		Disabled      bool              `json:"disabled"`
-	}
+	var a hostArgs
 	if err := json.Unmarshal(raw, &a); err != nil {
 		return nil, cerr.Internal("invalid arguments in {0}: {1}", op, err)
-	}
-	idStr := func() string {
-		var s string
-		json.Unmarshal(a.ID, &s)
-		return s
 	}
 	switch op {
 	case "session":
@@ -114,18 +144,12 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		return map[string]any{"user": c.User, "roles": roles, "lang": c.Lang, "langs": c.St.I18n.Langs(),
 			"request": c.Request, "requestId": c.ReqID}, nil
 	case "getRoles":
-		u := a.User
-		if u == "" {
-			u = c.User
-		}
-		return c.RolesOf(u)
+		return c.RolesOf(orDefault(a.User, c.User))
 	case "nowdate":
 		return c.Today(), nil
 	case "now":
 		// the site's wall clock, for the same reason nowdate is
 		return time.Now().In(e.Location()).Format("2006-01-02 15:04:05"), nil
-	case "translate":
-		return c.T(a.Text), nil
 	case "catalogue":
 		// the whole catalogue for a language, so the prelude can interpolate
 		// in JS instead of crossing the bridge for every string
@@ -146,10 +170,9 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 			"url": strings.TrimSuffix(e.Cfg.SiteURL, "/"),
 		}, nil
 	case "getMeta":
-		d, err := c.St.DocType(a.Doctype)
-		return d, err
+		return orErr(c.St.DocType(a.Doctype))
 	case "getDoc":
-		return c.GetDocOpts(a.Doctype, idStr(), GetOpts{IgnorePermissions: a.Opts["ignorePermissions"] == true})
+		return c.GetDocOpts(a.Doctype, a.id(), GetOpts{IgnorePermissions: a.ignorePermissions()})
 	case "newDoc":
 		return c.NewDoc(a.Doctype, a.Values)
 	case "doc.insert", "doc.save", "doc.cancel":
@@ -174,12 +197,12 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 	case "doc.applyWorkflow":
 		// the same transition POST /api/workflow/apply runs: role, self-approval,
 		// condition, row lock, audit and timeline comment
-		return c.ApplyWorkflowTransition(a.Doctype, idStr(), a.Action)
+		return c.ApplyWorkflowTransition(a.Doctype, a.id(), a.Action)
 	case "doc.delete":
-		return nil, c.deleteWithFlags(a.Doctype, idStr(), a.Opts["ignorePermissions"] == true, a.Opts["force"] == true, a.Flags)
+		return nil, c.deleteWithFlags(a.Doctype, a.id(), a.ignorePermissions(), a.Opts["force"] == true, a.Flags)
 	case "doc.dbSet":
 		// returns the new modified timestamp for the prelude to synchronize the document (B21)
-		modified, err := c.DBSet(a.Doctype, idStr(), a.Values, true)
+		modified, err := c.DBSet(a.Doctype, a.id(), a.Values, true)
 		if err != nil {
 			return nil, err
 		}
@@ -219,7 +242,7 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		json.Unmarshal(a.Args, &la)
 		return c.GetList(a.Doctype, la)
 	case "db.setValue":
-		return nil, c.SetValue(a.Doctype, idStr(), a.Values)
+		return nil, c.SetValue(a.Doctype, a.id(), a.Values)
 	case "db.count":
 		return c.Count(a.Doctype, a.Filters, a.OrFilters)
 	case "db.exists":
@@ -301,11 +324,7 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		c.Msgprint(m)
 		return nil, nil
 	case "cache.get":
-		v, ok := e.Cache.Get(c.appCacheKey(a.Key))
-		if !ok {
-			return nil, nil
-		}
-		return v, nil
+		return found(e.Cache.Get(c.appCacheKey(a.Key))), nil
 	case "cache.set":
 		e.Cache.Set(c.appCacheKey(a.Key), a.Value, time.Duration(a.TTL)*time.Second)
 		return nil, nil
@@ -328,7 +347,7 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		}
 		return c.SaveFile(f)
 	case "files.presign":
-		return c.PresignFile(a.URL, time.Duration(a.TTL*float64(time.Second)), a.Opts["ignorePermissions"] == true)
+		return c.PresignFile(a.URL, time.Duration(a.TTL*float64(time.Second)), a.ignorePermissions())
 	case "externalDb.sql":
 		return c.ExternalSQL(a.Key, a.Query, a.Params, a.Timeout)
 	case "job.current":
@@ -397,10 +416,7 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		}
 		return nil, nil
 	case "rename":
-		if a.Opts["merge"] == true {
-			return strings.TrimSpace(a.NewID), c.Merge(a.Doctype, a.OldID, a.NewID)
-		}
-		return c.Rename(a.Doctype, a.OldID, a.NewID)
+		return c.RenameOrMerge(a.Doctype, a.OldID, a.NewID, a.Opts["merge"] == true)
 	case "hashPassword":
 		// Routed through the policy so that the User form, `ddcore user add`
 		// and any app that writes new_password all meet the same minimum. The
@@ -434,7 +450,7 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		}
 		return out, nil
 	case "auth.revokeSessions":
-		if handle := idStr(); handle != "" {
+		if handle := a.id(); handle != "" {
 			// Revoking one, addressed by handle. Scoped to the user, so a
 			// handle guessed from someone else's list reaches nothing.
 			rows, err := db.Select(c.Ctx, e.DB.Pool,
@@ -523,14 +539,14 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 	case "auth.revokeAPIKey":
 		// The owner is part of the WHERE, so a name from someone else's list
 		// deletes nothing rather than deleting theirs.
-		tag, err := c.Q().Exec(c.Ctx, `DELETE FROM tab_api_key WHERE id = $1 AND "user" = $2`, idStr(), a.User)
+		tag, err := c.Q().Exec(c.Ctx, `DELETE FROM tab_api_key WHERE id = $1 AND "user" = $2`, a.id(), a.User)
 		if err != nil {
 			return nil, err
 		}
 		if tag.RowsAffected() == 0 {
 			return nil, cerr.NotFound("That key is not yours")
 		}
-		if err := c.invalidateNow([]string{"apikey:" + idStr()}, nil); err != nil {
+		if err := c.invalidateNow([]string{"apikey:" + a.id()}, nil); err != nil {
 			return nil, err
 		}
 		return map[string]any{"ok": true}, nil
@@ -588,17 +604,9 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		}
 		return map[string]any{"deliveries": n}, nil
 	case "jobSweep":
-		n, err := e.SweepJobs(c.Ctx)
-		if err != nil {
-			return nil, err
-		}
-		return map[string]any{"done": n.Done, "failed": n.Failed}, nil
+		return orErr(e.SweepJobs(c.Ctx))
 	case "authSweep":
-		n, err := e.SweepAuth(c.Ctx)
-		if err != nil {
-			return nil, err
-		}
-		return map[string]any{"sessions": n.Sessions, "tokens": n.Tokens, "attempts": n.Attempts}, nil
+		return orErr(e.SweepAuth(c.Ctx))
 	case "auditSweep":
 		n, err := e.SweepAuditEvents(c.Ctx)
 		if err != nil {
@@ -606,20 +614,12 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		}
 		return map[string]any{"events": n}, nil
 	case "env":
-		v, ok := e.AppEnv(a.Text)
-		if !ok {
-			return nil, nil
-		}
-		return v, nil
+		return found(e.AppEnv(a.Text)), nil
 	case "secret":
 		// An integration credential is read from the environment, never from a
 		// column: that is what keeps it out of every backup, export and
 		// Version diff by construction rather than by remembering to.
-		v, ok := e.Secret(a.Text)
-		if !ok {
-			return nil, nil
-		}
-		return v, nil
+		return found(e.Secret(a.Text)), nil
 	case "crypto.hmacSha256":
 		// Key and Text are the secret and the message; the answer is hex unless
 		// opts.output says otherwise, the form a webhook provider puts in its
@@ -662,10 +662,8 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 	case "push.publicKey":
 		// what a page subscribes with, unpadded as applicationServerKey takes
 		// it; null until the site has a VAPID pair
-		if v, ok := e.Secret("vapid_public_key"); ok {
-			return strings.TrimRight(strings.TrimSpace(v), "="), nil
-		}
-		return nil, nil
+		v, ok := e.Secret("vapid_public_key")
+		return found(strings.TrimRight(strings.TrimSpace(v), "="), ok), nil
 	case "crypto.timingSafeEqual":
 		// Compared here, not in JS: `===` stops at the first differing byte,
 		// which is what a signature check must not do.
@@ -726,44 +724,25 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		}
 		return c.ListDocShares(sa.Doctype, sa.ID)
 	case "audit":
-		var d map[string]any
-		if m, ok := a.Detail.(map[string]any); ok {
-			d = m
-		}
-		return nil, c.Audit(a.Action, a.TargetDoctype, a.TargetID, d)
+		return nil, c.Audit(a.Action, a.TargetDoctype, a.TargetID, a.detail())
 	case "auditDenied":
-		var d map[string]any
-		if m, ok := a.Detail.(map[string]any); ok {
-			d = m
-		}
-		c.AuditDenied(a.Action, a.TargetDoctype, a.TargetID, d)
+		c.AuditDenied(a.Action, a.TargetDoctype, a.TargetID, a.detail())
 		return nil, nil
 	case "test.begin":
-		if err := c.E.requireTestMode(); err != nil {
-			return nil, err
-		}
 		// the savepoint first, so the rollback takes back what the test
 		// wrote in the scratch tenant too
-		if err := c.Begin(); err != nil {
-			return nil, err
-		}
-		return nil, c.testEnter(a.App)
+		return testOnly(e, func() error {
+			if err := c.Begin(); err != nil {
+				return err
+			}
+			return c.testEnter(a.App)
+		})
 	case "test.rollback":
-		if err := c.E.requireTestMode(); err != nil {
-			return nil, err
-		}
-		return nil, c.testRootCtx().RollbackTo()
+		return testOnly(e, func() error { return c.testRootCtx().RollbackTo() })
 	case "test.enter":
-		if err := c.E.requireTestMode(); err != nil {
-			return nil, err
-		}
-		return nil, c.testEnter(a.App)
+		return testOnly(e, func() error { return c.testEnter(a.App) })
 	case "test.leave":
-		if err := c.E.requireTestMode(); err != nil {
-			return nil, err
-		}
-		c.testRootCtx()
-		return nil, nil
+		return testOnly(e, func() error { c.testRootCtx(); return nil })
 	case "test.inPlatform":
 		return nil, c.testInPlatform()
 	// ---- tenancy ------------------------------------------------------------
@@ -804,6 +783,14 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		return nil, nil
 	}
 	return nil, cerr.Internal("unknown bridge operation: {0}", op)
+}
+
+// testOnly runs an op that only exists under ddcore test.
+func testOnly(e *Engine, fn func() error) (any, error) {
+	if err := e.requireTestMode(); err != nil {
+		return nil, err
+	}
+	return nil, fn()
 }
 
 func orDefault(s, d string) string {

@@ -102,7 +102,7 @@ func ids(rows []map[string]any) []string {
 
 func TestTreeMetaInjectsFields(t *testing.T) {
 	e := setupTree(t)
-	d, ok := e.Meta.Get("Test Territory")
+	d, ok := e.Current().Meta.Get("Test Territory")
 	if !ok {
 		t.Fatal("Test Territory did not load")
 	}

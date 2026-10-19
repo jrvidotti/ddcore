@@ -31,10 +31,6 @@ func (h *fakeHost) HostCall(rt *Runtime, op string, args json.RawMessage) (any, 
 	switch op {
 	case "session":
 		return map[string]any{"user": "Admin", "roles": []string{"System Manager"}, "lang": "pt-BR"}, nil
-	case "translate":
-		var a struct{ Text string }
-		json.Unmarshal(args, &a)
-		return a.Text, nil
 	case "nowdate":
 		return "2026-09-09", nil
 	case "db.getValue":

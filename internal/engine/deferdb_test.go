@@ -90,10 +90,10 @@ export function use() { return gateway.call(); }`)
 	if err != nil {
 		t.Fatalf("with requires declared: %v", err)
 	}
-	if got := strings.Join(e.AppOrder(), ","); got != "core,lib,site" {
+	if got := strings.Join(e.Current().AppOrder(), ","); got != "core,lib,site" {
 		t.Fatalf("load order = %s, expected core,lib,site", got)
 	}
-	if got := e.SiteTitle(); got != "site" {
+	if got := e.Current().SiteTitle(); got != "site" {
 		t.Fatalf("SiteTitle() = %q: the app that imports the library names the site", got)
 	}
 }
