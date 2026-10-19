@@ -399,8 +399,8 @@ func (f JobFilter) clauses() *clauses {
 	c.eq("queue", f.Queue)
 	c.eq("method", f.Method)
 	c.eq(`"user"`, f.User)
-	c.ge("enqueued", f.Since)
-	c.le("enqueued", f.Until)
+	c.cmp("enqueued", ">=", f.Since)
+	c.cmp("enqueued", "<=", f.Until)
 	return c
 }
 

@@ -431,16 +431,13 @@ func (e *Engine) DropSessions(ctx context.Context, q db.Querier, user, exceptSid
 	return len(sids), e.forgetSessions(ctx, q, sids)
 }
 
-// endSessions deletes sessions by id and forgets them.
-func (e *Engine) endSessions(ctx context.Context, q db.Querier, sids ...string) (int, error) {
-	if len(sids) == 0 {
-		return 0, nil
-	}
-	tag, err := q.Exec(ctx, `DELETE FROM ddcore_session WHERE sid = ANY($1)`, sids)
+// endSessions deletes a session and forgets it.
+func (e *Engine) endSessions(ctx context.Context, q db.Querier, sid string) (int, error) {
+	tag, err := q.Exec(ctx, `DELETE FROM ddcore_session WHERE sid = $1`, sid)
 	if err != nil {
 		return 0, err
 	}
-	return int(tag.RowsAffected()), e.forgetSessions(ctx, q, sids)
+	return int(tag.RowsAffected()), e.forgetSessions(ctx, q, []string{sid})
 }
 
 // forgetSessions drops cached sids here and in the other processes, which

@@ -158,15 +158,10 @@ func (c *clauses) eq(col, v string) {
 	}
 }
 
-func (c *clauses) ge(col string, t *time.Time) {
+// cmp adds col op t unless t is nil.
+func (c *clauses) cmp(col, op string, t *time.Time) {
 	if t != nil {
-		c.add(col+" >= %s", *t)
-	}
-}
-
-func (c *clauses) le(col string, t *time.Time) {
-	if t != nil {
-		c.add(col+" <= %s", *t)
+		c.add(col+" "+op+" %s", *t)
 	}
 }
 
@@ -192,8 +187,8 @@ func (f AuditFilter) clauses() *clauses {
 	c.eq("target_doctype", f.TargetDocType)
 	c.eq("target_id", f.TargetID)
 	c.eq("outcome", f.Outcome)
-	c.ge("creation", f.Since)
-	c.le("creation", f.Until)
+	c.cmp("creation", ">=", f.Since)
+	c.cmp("creation", "<=", f.Until)
 	return c
 }
 
