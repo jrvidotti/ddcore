@@ -877,29 +877,11 @@ func Plan(ctx context.Context, q Querier, reg *meta.Registry, prune bool) ([]Sta
 				}
 			}
 			if prune {
-				var extra []string
-				for c := range cols {
-					if !wanted[c] {
-						extra = append(extra, c)
-					}
+				dr, rf, err := pruneOrphans(ctx, q, t, d.Name, cols, wanted)
+				if err != nil {
+					return nil, err
 				}
-				sort.Strings(extra)
-				for _, c := range extra {
-					full, err := hasData(ctx, q, t, c)
-					if err != nil {
-						return nil, err
-					}
-					if full {
-						refusals = append(refusals, Refusal{Table: t, Column: c,
-							Reason: "dropping a column that still holds data",
-							Remedy: "if the field was renamed, declare renamedFrom on the new field; if the data really is to be discarded, drop the column yourself in a patch"})
-						continue
-					}
-					drops = append(drops, Statement{
-						SQL:  fmt.Sprintf("ALTER TABLE %s DROP COLUMN %s;", Ident(t), Ident(c)),
-						Kind: KindDropColumn, Doctype: d.Name, Table: t, Column: c, Destructive: true,
-					})
-				}
+				drops, refusals = append(drops, dr...), append(refusals, rf...)
 			}
 		}
 		alter = append(alter, planTenancy(cat, d, has)...)
@@ -979,29 +961,11 @@ func Plan(ctx context.Context, q Querier, reg *meta.Registry, prune bool) ([]Sta
 		}
 	}
 	if prune {
-		var extra []string
-		for t := range cat.cols {
-			if !wantedTables[t] {
-				extra = append(extra, t)
-			}
+		dr, rf, err := pruneOrphans(ctx, q, "", "", cat.cols, wantedTables)
+		if err != nil {
+			return nil, err
 		}
-		sort.Strings(extra)
-		for _, t := range extra {
-			full, err := hasData(ctx, q, t, "")
-			if err != nil {
-				return nil, err
-			}
-			if full {
-				refusals = append(refusals, Refusal{Table: t,
-					Reason: "dropping a table that still holds rows",
-					Remedy: "if the DocType was renamed, declare renamedFrom on it; if the rows really are to be discarded, drop the table yourself in a patch"})
-				continue
-			}
-			drops = append(drops, Statement{
-				SQL:  fmt.Sprintf("DROP TABLE %s;", Ident(t)),
-				Kind: KindDropTable, Table: t, Destructive: true,
-			})
-		}
+		drops, refusals = append(drops, dr...), append(refusals, rf...)
 	}
 	if len(refusals) > 0 {
 		return nil, &RefusedError{Refusals: refusals}
@@ -1011,6 +975,39 @@ func Plan(ctx context.Context, q Querier, reg *meta.Registry, prune bool) ([]Sta
 		plan = append(plan, group...)
 	}
 	return plan, nil
+}
+
+// pruneOrphans plans the drop of what is in have and not wanted: the columns
+// of table, or the tables themselves when table is empty. An orphan that still
+// holds data is refused instead.
+func pruneOrphans[V any](ctx context.Context, q Querier, table, doctype string, have map[string]V, wanted map[string]bool) (drops []Statement, refusals []Refusal, err error) {
+	var extra []string
+	for n := range have {
+		if !wanted[n] {
+			extra = append(extra, n)
+		}
+	}
+	sort.Strings(extra)
+	for _, n := range extra {
+		t, c := table, n
+		if table == "" {
+			t, c = n, ""
+		}
+		full, err := hasData(ctx, q, t, c)
+		if err != nil {
+			return nil, nil, err
+		}
+		reason, remedy, sql, kind := "dropping a table that still holds rows", "if the DocType was renamed, declare renamedFrom on it; if the rows really are to be discarded, drop the table yourself in a patch", "DROP TABLE "+Ident(t)+";", KindDropTable
+		if c != "" {
+			reason, remedy, sql, kind = "dropping a column that still holds data", "if the field was renamed, declare renamedFrom on the new field; if the data really is to be discarded, drop the column yourself in a patch", fmt.Sprintf("ALTER TABLE %s DROP COLUMN %s;", Ident(t), Ident(c)), KindDropColumn
+		}
+		if full {
+			refusals = append(refusals, Refusal{Table: t, Column: c, Reason: reason, Remedy: remedy})
+			continue
+		}
+		drops = append(drops, Statement{SQL: sql, Kind: kind, Doctype: doctype, Table: t, Column: c, Destructive: true})
+	}
+	return drops, refusals, nil
 }
 
 // Apply runs the given statements, recording each one in ddcore_migration.
