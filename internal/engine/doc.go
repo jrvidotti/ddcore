@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jrvidotti/ddcore/internal/barcode"
@@ -1198,6 +1199,14 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 	if len(values) == 0 {
 		return modified, nil
 	}
+	stored := sync.OnceValues(func() (Doc, error) { return c.GetDocIgnoringPerms(d.Name, name) })
+	merged := func(stored Doc) Doc {
+		m := maps.Clone(stored)
+		for k, v := range values {
+			m[k] = v
+		}
+		return m
+	}
 	// dbSet writes columns without hooks or validation, which is the point of
 	// it — except for the two columns that hold a hierarchy together. Left
 	// unchecked here, one call could put a subtree under itself and every
@@ -1209,15 +1218,11 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 			if err := c.lockTree(d); err != nil {
 				return modified, err
 			}
-			stored, err := c.GetDocIgnoringPerms(d.Name, name)
+			st, err := stored()
 			if err != nil {
 				return modified, err
 			}
-			merged := stored.Clone()
-			for k, v := range values {
-				merged[k] = v
-			}
-			if err := c.checkTree(d, merged, stored, SaveOpts{}); err != nil {
+			if err := c.checkTree(d, merged(st), st, SaveOpts{}); err != nil {
 				return modified, err
 			}
 		}
@@ -1225,13 +1230,13 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 	// setOnlyOnce holds here too, whoever writes: dbSet skips validation,
 	// not the identity of the document
 	if slices.ContainsFunc(d.Fields, func(f *meta.Field) bool { _, ok := values[f.Fieldname]; return f.SetOnlyOnce && ok }) {
-		stored, err := c.GetDocIgnoringPerms(d.Name, name)
+		st, err := stored()
 		if err != nil {
 			return modified, err
 		}
 		for k, v := range values {
 			if f := d.Field(k); f != nil && f.SetOnlyOnce {
-				if err := c.checkSetOnce(f, stored[k], v); err != nil {
+				if err := c.checkSetOnce(f, st[k], v); err != nil {
 					return modified, err
 				}
 			}
@@ -1243,16 +1248,9 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 		if perms, err := c.UserPermissions(); err != nil {
 			return modified, err
 		} else if len(perms) > 0 {
-			stored, err := c.GetDocIgnoringPerms(d.Name, name)
+			st, err := stored()
 			if err != nil {
 				return modified, err
-			}
-			merged := Doc{}
-			for k, v := range stored {
-				merged[k] = v
-			}
-			for k, v := range values {
-				merged[k] = v
 			}
 			// A child row's scope applies under its parent's applicable_for,
 			// the same rule Save enforces (perm.go's recursion into table
@@ -1260,7 +1258,7 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 			// rule scoped to the parent DocType.
 			applicableFor := d.Name
 			if d.IsChild {
-				if pt := stored.Str("parenttype"); pt != "" {
+				if pt := st.Str("parenttype"); pt != "" {
 					applicableFor = pt
 				}
 			}
@@ -1268,9 +1266,9 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 			// a child row is shared through its parent
 			sharedDoctype, sharedName := d.Name, name
 			if d.IsChild {
-				sharedDoctype, sharedName = stored.Str("parenttype"), stored.Str("parent")
+				sharedDoctype, sharedName = st.Str("parenttype"), st.Str("parent")
 			}
-			for _, doc := range []Doc{stored, merged} {
+			for _, doc := range []Doc{st, merged(st)} {
 				if ok, err := c.checkUserPermissionsFor(d, doc, applicableFor); err != nil {
 					return modified, err
 				} else if !ok {
