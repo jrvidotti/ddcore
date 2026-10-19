@@ -14,38 +14,97 @@ import (
 	"github.com/jrvidotti/ddcore/internal/barcode"
 )
 
+// fieldtype is one row of the fieldtypes table, the single place a fieldtype's
+// properties live. tsType is empty for the default "string | null".
+type fieldtype struct {
+	col                                     string // Postgres column type; "" = no column
+	layout, textArea, bulky, numeric, table bool
+	tsType                                  string
+}
+
+var fieldtypeRows = []struct {
+	name string
+	fieldtype
+}{
+	{"Data", fieldtype{col: "text"}},
+	{"Email", fieldtype{col: "text"}},
+	{"Small Text", fieldtype{col: "text", textArea: true}},
+	{"Text", fieldtype{col: "text", textArea: true}},
+	{"Text Editor", fieldtype{col: "text"}},
+	{"Markdown Editor", fieldtype{col: "text", textArea: true}},
+	{"Code", fieldtype{col: "text", textArea: true}},
+	{"Int", fieldtype{col: "bigint", numeric: true}},
+	{"Float", fieldtype{col: "double precision", numeric: true}},
+	{"Currency", fieldtype{col: "numeric(21,9)", numeric: true}},
+	{"Percent", fieldtype{col: "numeric(21,9)", numeric: true}},
+	{"Check", fieldtype{col: "boolean", tsType: "boolean"}},
+	{"Rating", fieldtype{col: "bigint", numeric: true}},
+	{"Duration", fieldtype{col: "bigint", numeric: true}},
+	{"Color", fieldtype{col: "text"}},
+	{"Date", fieldtype{col: "date"}},
+	{"Month", fieldtype{col: "date"}},
+	{"Datetime", fieldtype{col: "timestamptz"}},
+	{"Time", fieldtype{col: "time"}},
+	{"Select", fieldtype{col: "text"}},
+	{"Autocomplete", fieldtype{col: "text"}},
+	{"Barcode", fieldtype{col: "text"}},
+	{"Signature", fieldtype{col: "text", bulky: true}},
+	{"Geolocation", fieldtype{col: "jsonb", bulky: true, tsType: "GeoFeatureCollection | null"}},
+	{"Link", fieldtype{col: "text"}},
+	{"Dynamic Link", fieldtype{col: "text"}},
+	{"Table", fieldtype{table: true}},
+	{"Table MultiSelect", fieldtype{table: true}},
+	{"Attach", fieldtype{col: "text"}},
+	{"Attach Image", fieldtype{col: "text"}},
+	{"JSON", fieldtype{col: "jsonb", tsType: "any"}},
+	{"Password", fieldtype{col: "text"}},
+	{"Vault", fieldtype{tsType: "{ configured?: boolean } | string | null"}},
+	{"Section Break", fieldtype{layout: true}},
+	{"Tab Break", fieldtype{layout: true}},
+	{"HTML", fieldtype{layout: true}},
+	{"Report", fieldtype{layout: true}},
+}
+
 // Layout fieldtypes have no column.
-var LayoutTypes = map[string]bool{"Section Break": true, "Tab Break": true, "HTML": true, "Report": true}
+var LayoutTypes = fieldtypeSet(func(t fieldtype) bool { return t.layout })
 
 // TextAreaTypes are the fieldtypes the desk draws as a text area, the ones a
 // field's rows applies to.
-var TextAreaTypes = map[string]bool{"Small Text": true, "Text": true, "Markdown Editor": true, "Code": true}
+var TextAreaTypes = fieldtypeSet(func(t fieldtype) bool { return t.textArea })
+
+var fieldtypes = func() map[string]fieldtype {
+	m := map[string]fieldtype{}
+	for _, r := range fieldtypeRows {
+		m[r.name] = r.fieldtype
+	}
+	return m
+}()
+
+// ValidFieldTypes lists every fieldtype, in the table's order.
+var ValidFieldTypes = func() []string {
+	var out []string
+	for _, r := range fieldtypeRows {
+		out = append(out, r.name)
+	}
+	return out
+}()
+
+func fieldtypeSet(pick func(fieldtype) bool) map[string]bool {
+	out := map[string]bool{}
+	for name, t := range fieldtypes {
+		if pick(t) {
+			out[name] = true
+		}
+	}
+	return out
+}
 
 // ColumnType maps a fieldtype to its Postgres column type ("" = no column).
-func ColumnType(ft string) string {
-	switch ft {
-	case "Data", "Email", "Small Text", "Text", "Text Editor", "Markdown Editor", "Code", "Color",
-		"Select", "Autocomplete", "Barcode", "Signature", "Link", "Dynamic Link", "Attach", "Attach Image", "Password":
-		return "text"
-	case "Int", "Duration", "Rating":
-		return "bigint"
-	case "Float":
-		return "double precision"
-	case "Currency", "Percent":
-		return "numeric(21,9)"
-	case "Check":
-		return "boolean"
-	case "Date", "Month":
-		return "date"
-	case "Datetime":
-		return "timestamptz"
-	case "Time":
-		return "time"
-	case "JSON", "Geolocation":
-		return "jsonb"
-	}
-	return ""
-}
+func ColumnType(ft string) string { return fieldtypes[ft].col }
+
+// TSType is the TypeScript type of a fieldtype's value ("" for the default
+// string | null).
+func TSType(ft string) string { return fieldtypes[ft].tsType }
 
 // BulkyFieldtype reports whether a fieldtype's value is too large to index or
 // to read for many rows at once: a Signature holds a PNG data URL of up to
@@ -53,11 +112,7 @@ func ColumnType(ft string) string {
 // entry past about 2.7 KB, so such a field cannot be unique, indexed or part
 // of a key, and every place that reads it for a whole list — the title, the
 // search fields, a sort — would pull every value with it.
-func BulkyFieldtype(ft string) bool {
-	return ft == "Signature" || ft == "Geolocation"
-}
-
-var ValidFieldTypes = []string{"Data", "Email", "Small Text", "Text", "Text Editor", "Markdown Editor", "Code", "Int", "Float", "Currency", "Percent", "Check", "Rating", "Duration", "Color", "Date", "Month", "Datetime", "Time", "Select", "Autocomplete", "Barcode", "Signature", "Geolocation", "Link", "Dynamic Link", "Table", "Table MultiSelect", "Attach", "Attach Image", "JSON", "Password", "Vault", "Section Break", "Tab Break", "HTML", "Report"}
+func BulkyFieldtype(ft string) bool { return fieldtypes[ft].bulky }
 
 type Field struct {
 	Fieldname          string `json:"fieldname,omitempty"`
@@ -606,16 +661,10 @@ func (d *DocType) DataFields() []*Field {
 // IsTableType says whether a fieldtype stores its value as child rows: a
 // Table, or a Table MultiSelect, which is the same rows edited as a list of
 // links.
-func IsTableType(ft string) bool { return ft == "Table" || ft == "Table MultiSelect" }
+func IsTableType(ft string) bool { return fieldtypes[ft].table }
 
 // IsNumericType says whether a fieldtype holds a number.
-func IsNumericType(ft string) bool {
-	switch ft {
-	case "Int", "Float", "Currency", "Percent", "Duration", "Rating":
-		return true
-	}
-	return false
-}
+func IsNumericType(ft string) bool { return fieldtypes[ft].numeric }
 
 // MultiSelectLinkField is the one Link field of a Table MultiSelect's child
 // DocType, the field that holds each chosen value. Nil when the DocType has
