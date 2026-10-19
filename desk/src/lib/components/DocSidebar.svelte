@@ -450,10 +450,12 @@
 
 {#if showAssignModal}
   <AssignModal
-    open={showAssignModal}
-    doctype={frm.doctype}
-    docId={frm.doc.id}
-    onassign={handleAssign}
+    title={__("Assign document")}
+    icon="user-plus"
+    required="assignee"
+    submitLabel={__("Assign")}
+    busyLabel={__("Assigning...")}
+    onsubmit={handleAssign}
     onclose={() => (showAssignModal = false)}
   />
 {/if}

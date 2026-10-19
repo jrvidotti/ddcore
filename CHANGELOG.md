@@ -16,6 +16,7 @@ older series, and `whats_new` reads across every one of them.
 
 ### Fixed
 
+- **The due date of an assignment and of a new To-Do task follows the site's date format.** Both forms used the browser's native date input, in the browser's locale; they now use the desk's date control like every other date field. The New Task form also lists the assignee first, like the Assign form.
 - **The `generate_types` MCP tool reports a failed write.** It dropped the error and listed only the files it had written; it now fails with the error, and `migrate` adds a `typesError` field when the typings could not be written (the migration itself is unaffected). Writing stops at the first app it cannot write, so the apps after it (in `migrate` as well) are not written either.
 
 ### Changed

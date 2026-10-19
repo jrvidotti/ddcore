@@ -7,7 +7,7 @@
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
   import { PendingWork, refreshPendingCount, TODO_WINDOW_LIMIT } from "$lib/assignments.svelte";
-  import { api, type ToDoDoc } from "$lib/api";
+  import { api, type AssignArgs, type ToDoDoc } from "$lib/api";
   import { __, boot, doctypeLabel, pageTitle } from "$lib/boot.svelte";
   import { showError } from "$lib/ui.svelte";
   import { getMeta, type Meta } from "$lib/meta";
@@ -16,7 +16,7 @@
   import { getLinkTitle } from "$lib/titles.svelte";
   import { getCalendarDays } from "$lib/controls/date-format";
   import Icon from "$lib/components/Icon.svelte";
-  import Modal from "$lib/components/Modal.svelte";
+  import AssignModal from "$lib/components/AssignModal.svelte";
   import LinkControl from "$lib/controls/LinkControl.svelte";
   import CalendarView from "$lib/components/views/CalendarView.svelte";
   import KanbanView from "$lib/components/views/KanbanView.svelte";
@@ -41,19 +41,7 @@
   let showFilters = $state(false);
   const activeFilters = $derived(countTodoFilters(pw.filters));
 
-  // New ToDo form fields
-  let newDescription = $state("");
-  let newDate = $state("");
-  let newPriority = $state<"Low" | "Medium" | "High" | "Urgent">("Medium");
-  let newAllocatedTo = $state("");
-  let savingNew = $state(false);
-
-  const userField = {
-    fieldname: "allocated_to",
-    fieldtype: "Link",
-    options: "User",
-    label: "User",
-  };
+  const userField = { fieldname: "allocated_to", fieldtype: "Link", options: "User", label: "User" };
 
   const initialDate = today();
   let calendarYear = $state(Number(initialDate.slice(0, 4)));
@@ -174,7 +162,6 @@
   });
 
   onMount(() => {
-    newAllocatedTo = boot.data?.user || "";
     const params = page.url.searchParams;
     const st = todoStateFromSearchParams(params);
     if (!params.has("view")) {
@@ -193,28 +180,10 @@
 
   onDestroy(() => { clearTimeout(searchTimer); pw.destroy(); });
 
-  async function createStandaloneTask() {
-    if (!newDescription.trim()) return;
-    savingNew = true;
-    try {
-      await api.insert("ToDo", {
-        description: newDescription.trim(),
-        date: newDate || undefined,
-        priority: newPriority,
-        allocated_to: newAllocatedTo || boot.data?.user,
-        status: "Open",
-      });
-      showNewModal = false;
-      newDescription = "";
-      newDate = "";
-      newPriority = "Medium";
-      await pw.load(pw.offset);
-      await refreshPendingCount();
-    } catch (e) {
-      showError(e);
-    } finally {
-      savingNew = false;
-    }
+  async function createStandaloneTask(args: AssignArgs) {
+    await api.insert("ToDo", { ...args, allocated_to: args.allocated_to || boot.data?.user, status: "Open" });
+    await pw.load(pw.offset);
+    await refreshPendingCount();
   }
 </script>
 
@@ -410,56 +379,16 @@
 </div>
 
 {#if showNewModal}
-  <Modal title={__("New Task")} icon="check-square" size="sm" onclose={() => (showNewModal = false)}>
-    <div class="body">
-      <div class="form-group">
-        <label for="new-task-desc" class="label reqd">{__("Description")}</label>
-        <textarea
-          id="new-task-desc"
-          class="input"
-          rows="3"
-          placeholder={__("What needs to be done?")}
-          bind:value={newDescription}
-        ></textarea>
-      </div>
-
-      <div class="form-row" style="display:flex;gap:12px;margin-top:12px">
-        <div class="form-group" style="flex:1">
-          <label for="new-task-date" class="label">{__("Due Date")}</label>
-          <input id="new-task-date" type="date" class="input" bind:value={newDate} />
-        </div>
-        <div class="form-group" style="flex:1">
-          <label for="new-task-priority" class="label">{__("Priority")}</label>
-          <select id="new-task-priority" class="input" bind:value={newPriority}>
-            <option value="Low">{__("Low")}</option>
-            <option value="Medium">{__("Medium")}</option>
-            <option value="High">{__("High")}</option>
-            <option value="Urgent">{__("Urgent")}</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="form-group" style="margin-top:12px">
-        <label for="new-task-assignee" class="label">{__("Assign to")}</label>
-        <LinkControl
-          id="new-task-assignee"
-          field={userField}
-          value={newAllocatedTo}
-          onchange={(v) => (newAllocatedTo = v || "")}
-        />
-      </div>
-    </div>
-    <div class="foot">
-      <button class="btn" onclick={() => (showNewModal = false)}>{__("Cancel")}</button>
-      <button
-        class="btn primary"
-        disabled={!newDescription.trim() || savingNew}
-        onclick={createStandaloneTask}
-      >
-        {savingNew ? __("Saving...") : __("Save")}
-      </button>
-    </div>
-  </Modal>
+  <AssignModal
+    title={__("New Task")}
+    icon="check-square"
+    required="description"
+    assignee={boot.data?.user}
+    submitLabel={__("Save")}
+    busyLabel={__("Saving...")}
+    onsubmit={createStandaloneTask}
+    onclose={() => (showNewModal = false)}
+  />
 {/if}
 
 <style>
