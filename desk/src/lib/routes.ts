@@ -19,6 +19,11 @@ export function routeName(name: string): string {
   return String(name ?? "").replace(/\s+/g, "");
 }
 
+/** `/app/<workspace>`, or `/app` when there is none: where a DocType's list and records live. */
+export function appPrefix(workspace?: string | null): string {
+  return workspace ? `/app/${seg(workspace)}` : "/app";
+}
+
 /** A name as a path segment. Idempotent, so a segment read back from the URL can pass through it. */
 export function seg(name: string): string {
   return encodeURIComponent(routeName(name));

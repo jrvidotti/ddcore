@@ -1,9 +1,10 @@
-import { seg } from "../routes";
+import { seg, appPrefix } from "../routes";
 // Pure logic behind the global search palette: which DocTypes to offer as
 // "go to" entries, how they merge with the server's document hits, and where
 // each result leads.
 import { fold } from "$lib/text";
-import { resolveWorkspaceForDoctype, type WorkspaceItem } from "./sidebar-workspace";
+import { boot } from "$lib/boot.svelte";
+import { getRememberedWorkspace, resolveWorkspaceForDoctype, type WorkspaceItem } from "./sidebar-workspace";
 
 export interface SearchHit {
   doctype: string;
@@ -34,6 +35,11 @@ export function workspaceFor(
   remembered: string,
 ): string {
   return resolveWorkspaceForDoctype(doctype, workspaces, doctypes) || remembered || workspaces[0]?.name || "core";
+}
+
+/** `/app/<workspace>` for a DocType of the running desk: the workspace given, else the one `workspaceFor` picks. */
+export function doctypeWsPrefix(doctype: string, workspace = ""): string {
+  return appPrefix(workspace || workspaceFor(doctype, (boot.data?.workspaces || []) as WorkspaceItem[], boot.data?.doctypes, getRememberedWorkspace()));
 }
 
 /** DocTypes whose label or name contain txt, prefix matches first. */

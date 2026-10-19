@@ -1,4 +1,4 @@
-import { seg } from "./routes";
+import { seg, appPrefix } from "./routes";
 // Quick create from a Link field: a dialog with the target's required fields,
 // which inserts the document and hands its id back to the field.
 import { api } from "./api";
@@ -33,9 +33,8 @@ export function prefillField(d: DocTypeMeta, fields: Field[]): string | undefine
 }
 
 function newFormUrl(doctype: string, prefill?: Record<string, string>): string {
-  const ws = getRememberedWorkspace();
   const qs = prefill && Object.keys(prefill).length ? "?" + new URLSearchParams(prefill).toString() : "";
-  return `${ws ? `/app/${seg(ws)}` : "/app"}/${seg(doctype)}/new${qs}`;
+  return `${appPrefix(getRememberedWorkspace())}/${seg(doctype)}/new${qs}`;
 }
 
 /**

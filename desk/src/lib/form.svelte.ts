@@ -1,4 +1,4 @@
-import { seg } from "./routes";
+import { seg, appPrefix } from "./routes";
 // FormController — the `frm` object form scripts receive. Holds the doc as
 // reactive state, tracks dirtiness and exposes the API described in
 // @ddcore/desk-sdk (setValue, addButton, call, setQuery...).
@@ -19,8 +19,7 @@ function recordBase(frm: { basePath: string; doctype: string }): string {
 }
 
 function currentWsPrefix(): string {
-  const ws = getRememberedWorkspace();
-  return ws ? `/app/${seg(ws)}` : "/app";
+  return appPrefix(getRememberedWorkspace());
 }
 
 export interface FormHandlers {

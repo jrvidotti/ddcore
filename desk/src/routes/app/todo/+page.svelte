@@ -20,8 +20,7 @@
   import LinkControl from "$lib/controls/LinkControl.svelte";
   import CalendarView from "$lib/components/views/CalendarView.svelte";
   import KanbanView from "$lib/components/views/KanbanView.svelte";
-  import { workspaceFor } from "$lib/components/search-palette";
-  import { getRememberedWorkspace, type WorkspaceItem } from "$lib/components/sidebar-workspace";
+  import { doctypeWsPrefix } from "$lib/components/search-palette";
   import { isAssignmentOverdue, priorityBadgeClass } from "$lib/components/doc-sidebar-assignment";
   import {
     TODO_PAGE_SIZES, TODO_PRIORITIES, TODO_STATUSES, countTodoFilters, emptyTodoFilters, hasTodoFilters, nextTodoOrder,
@@ -55,16 +54,11 @@
   const kanban = { field: "status", titleField: "description", subtitleField: "reference_id", colorField: "priority" };
   const dues = $derived<[TodoDue, string][]>([["overdue", __("Overdue")], ["today", __("Today")], ["week", __("Next 7 days")], ["none", __("No due date")]]);
 
-  /** The workspace that owns a doctype, as a route prefix. */
-  function wsPrefixFor(doctype: string) {
-    const ws = workspaceFor(doctype, (boot.data?.workspaces || []) as WorkspaceItem[], boot.data?.doctypes, getRememberedWorkspace());
-    return `/app/${seg(ws)}`;
-  }
-  const docHref = (doctype: string, id: string) => `${wsPrefixFor(doctype)}/${seg(doctype)}/${encodeURIComponent(id)}`;
+  const docHref = (doctype: string, id: string) => `${doctypeWsPrefix(doctype)}/${seg(doctype)}/${encodeURIComponent(id)}`;
   // tasks open under this page, not under whatever workspace ToDo belongs to
   const TODO_BASE = "/app/todo";
   const todoHref = (id: string) => `${TODO_BASE}/${encodeURIComponent(id)}`;
-  const todoPrefix = $derived(wsPrefixFor("ToDo"));
+  const todoPrefix = $derived(doctypeWsPrefix("ToDo"));
   const counterpartLabel = $derived(pw.scope === "assigned_by_me" ? __("Assigned To") : __("Assigned By"));
   const pageCount = $derived(Math.max(1, Math.ceil(pw.total / pw.limit)));
   const pageNumber = $derived(Math.floor(pw.offset / pw.limit) + 1);

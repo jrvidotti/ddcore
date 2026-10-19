@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { seg } from "$lib/routes";
+  import { seg, appPrefix } from "$lib/routes";
   // A Report field: a defineReport run for this document (its filters taken
   // from the document through `reportFilters`), shown as a read-only grid.
   import { untrack } from "svelte";
@@ -20,8 +20,7 @@
   let loading = $state(false);
   let grid = $state<ReturnType<typeof ReportGrid>>();
   $effect(() => frm.registerGridSelection(field.fieldname!, { rows: () => grid?.selectedRows() ?? [], clear: () => grid?.clearSelection() }));
-  const workspace = $derived(page.params.workspace || getRememberedWorkspace() || "");
-  const wsPrefix = $derived(workspace ? `/app/${seg(workspace)}` : "/app");
+  const wsPrefix = $derived(appPrefix(page.params.workspace || getRememberedWorkspace()));
   // the report's columns that a script's grids.<field>.onCellClick turns into buttons
   const clickable = $derived(new Set<string>((result?.columns || []).map((c: any) => c.fieldname).filter((f: string) => frm.cellClickHandlers(field.fieldname!, f).length)));
 

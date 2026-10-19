@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { seg } from "$lib/routes";
+  import { seg, appPrefix } from "$lib/routes";
   // Link / Dynamic Link: typeahead over /api/search/link with a shortcut to open the target.
   import { api } from "$lib/api";
   import type { Field } from "$lib/meta";
@@ -129,8 +129,7 @@
   }
 
   const label = $derived(target && boot.data?.doctypes[target]?.label);
-  const workspace = $derived(page.params?.workspace || getRememberedWorkspace() || "");
-  const wsPrefix = $derived(workspace ? `/app/${seg(workspace)}` : "/app");
+  const wsPrefix = $derived(appPrefix(page.params?.workspace || getRememberedWorkspace()));
 </script>
 
 <div class="link-wrap" class:has-open={!!value && !!target} class:has-clear={!!value && !!target && !readOnly} class:has-add={showAdd}>

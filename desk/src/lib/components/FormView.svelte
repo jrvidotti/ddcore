@@ -24,7 +24,7 @@
   import { cellWidthClass, isBareSection, LINE_SLOTS, packLines } from "./form-layout";
   import { isSectionCollapsed, toggleSection } from "./section-state";
   import { resolveActiveTab, tabToSearchParams } from "./form-tabs";
-  import { workspaceFor } from "./search-palette";
+  import { doctypeWsPrefix } from "./search-palette";
   import { getRememberedWorkspace, type WorkspaceItem } from "./sidebar-workspace";
   import { commitFocusedEdit, getModifierKey, openShortcutsHelp, shouldSave } from "$lib/shortcuts.svelte";
   import { virtualRedirect } from "$lib/virtual";
@@ -59,8 +59,7 @@
   /** set when the user has agreed to leave, so the guard lets the navigation through */
   let leaving = false;
 
-  const workspace = $derived(page.params.workspace || "");
-  const wsPrefix = $derived(`/app/${seg(workspace || workspaceFor(doctype, (boot.data?.workspaces || []) as WorkspaceItem[], boot.data?.doctypes, getRememberedWorkspace()))}`);
+  const wsPrefix = $derived(doctypeWsPrefix(doctype, page.params.workspace));
   /** the list, and the records under it */
   const basePath = $derived(ownBase || `${wsPrefix}/${seg(doctype)}`);
   /** set once the record is deleted: it must never get a draft again */

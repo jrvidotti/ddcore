@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { seg } from "$lib/routes";
+  import { seg, appPrefix } from "$lib/routes";
   // Table MultiSelect: the child rows shown as pills, one per chosen value, with
   // a typeahead over the child's Link target to add more.
   import { api } from "$lib/api";
@@ -67,8 +67,7 @@
   }
 
   const label = $derived(target && boot.data?.doctypes[target]?.label);
-  const workspace = $derived(page.params?.workspace || getRememberedWorkspace() || "");
-  const wsPrefix = $derived(workspace ? `/app/${seg(workspace)}` : "/app");
+  const wsPrefix = $derived(appPrefix(page.params?.workspace || getRememberedWorkspace()));
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->

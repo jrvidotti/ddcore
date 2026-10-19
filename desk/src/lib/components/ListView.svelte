@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { seg } from "$lib/routes";
+  import { seg, appPrefix } from "$lib/routes";
   // List view generated from meta: standard filters, search, sort, paging, bulk delete.
   import { api } from "$lib/api";
   import { getMeta, selectLabels, selectOptions, type Meta, type Field, isLayout } from "$lib/meta";
@@ -83,8 +83,7 @@
   /** Kanban and Gantt load one unpaginated window of rows, capped like the calendar. */
   const VIEW_LIMIT = 500;
 
-  const workspace = $derived(page.params.workspace || "");
-  const wsPrefix = $derived(workspace ? `/app/${seg(workspace)}` : "/app");
+  const wsPrefix = $derived(appPrefix(page.params.workspace));
 
   // options registered by the app via defineListView(doctype, {...})
   const settings = $derived<ListViewOptions>(deskSDK.listSettings(doctype) || {});
