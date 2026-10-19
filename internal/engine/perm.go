@@ -266,8 +266,7 @@ func (c *Ctx) grantedBy(d *meta.DocType, ptype string, doc Doc) (bool, error) {
 	}
 	allowed, ownerOnly := false, true
 	for _, p := range d.Permissions {
-		// a row above level 0 grants fields, never the document (SEC-02)
-		if p.Permlevel > 0 || !containsFold(roles, p.Role) || !p.Has(ptype) {
+		if !rowGrants(p, roles, ptype) {
 			continue
 		}
 		allowed = true
@@ -292,6 +291,14 @@ func (c *Ctx) grantedBy(d *meta.DocType, ptype string, doc Doc) (bool, error) {
 		}
 	}
 	return allowed, nil
+}
+
+// rowGrants reports whether permission row p gives one of roles ptype on the
+// document. A row above level 0 grants fields, never the document (SEC-02).
+// The list paths ask it for "read" as grantedBy does, so a listing holds what
+// HasPermission(read) allows and no more: report alone is not read.
+func rowGrants(p meta.Perm, roles []string, ptype string) bool {
+	return p.Permlevel == 0 && containsFold(roles, p.Role) && p.Has(ptype)
 }
 
 // checkUserPermissions validates whether doc satisfies active scope restrictions.
@@ -462,7 +469,7 @@ func (c *Ctx) readIsOwnerOnly(d *meta.DocType) bool {
 		return true
 	}
 	for _, p := range d.Permissions {
-		if p.Permlevel == 0 && containsFold(roles, p.Role) && (p.Read || p.Report) && !p.IfOwner {
+		if rowGrants(p, roles, "read") && !p.IfOwner {
 			return false
 		}
 	}
@@ -681,7 +688,7 @@ func (c *Ctx) permissionFilters(d *meta.DocType) ([]db.Filter, error) {
 	}
 	roleRead, ownerOnly := false, true
 	for _, p := range d.Permissions {
-		if p.Permlevel == 0 && containsFold(roles, p.Role) && (p.Read || p.Report) {
+		if rowGrants(p, roles, "read") {
 			roleRead = true
 			if !p.IfOwner {
 				ownerOnly = false

@@ -696,7 +696,9 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 	}
 	if doc.Docstatus() == 1 && d.Submittable {
 		if !opts.IgnorePermissions && !c.IgnorePermissions() {
-			if ok, _ := c.HasPermission(d.Name, "submit", doc); !ok {
+			if ok, err := c.HasPermission(d.Name, "submit", doc); err != nil {
+				return nil, err
+			} else if !ok {
 				return nil, cerr.Permission("No permission to submit {0}", c.T(d.Label))
 			}
 		}
@@ -1108,7 +1110,9 @@ func (c *Ctx) Amend(doctype, name string) (Doc, error) {
 	if src.Docstatus() != 2 {
 		return nil, cerr.Validation("Only cancelled documents can be amended")
 	}
-	if ok, _ := c.HasPermission(doctype, "amend", src); !ok && !c.IgnorePermissions() {
+	if ok, err := c.HasPermission(doctype, "amend", src); err != nil {
+		return nil, err
+	} else if !ok {
 		return nil, cerr.Permission("No permission to amend {0}", c.T(d.Label))
 	}
 	doc := src.Clone()
@@ -1422,7 +1426,9 @@ func (c *Ctx) deleteWithFlags(doctype, name string, ignorePerms, force bool, fla
 		return err
 	}
 	if !ignorePerms && !c.IgnorePermissions() {
-		if ok, _ := c.HasPermission(doctype, "delete", doc); !ok {
+		if ok, err := c.HasPermission(doctype, "delete", doc); err != nil {
+			return err
+		} else if !ok {
 			return cerr.Permission("No permission to delete {0} {1}", c.T(d.Label), name)
 		}
 	}
@@ -1466,14 +1472,15 @@ func (c *Ctx) deleteWithFlags(doctype, name string, ignorePerms, force bool, fla
 		}
 	}
 	for _, tf := range d.TableFields() {
-		child, _ := c.St.DocType(tf.OptionsString())
-		if child != nil {
-			for _, row := range doc.Children(tf.Fieldname) {
-				for _, cf := range child.Fields {
-					if cf.Fieldtype == "Vault" {
-						key := c.DeriveVaultKey(child, cf, row)
-						_ = c.E.VaultDel(c, key)
-					}
+		child, err := c.St.DocType(tf.OptionsString())
+		if err != nil {
+			return err
+		}
+		for _, row := range doc.Children(tf.Fieldname) {
+			for _, cf := range child.Fields {
+				if cf.Fieldtype == "Vault" {
+					key := c.DeriveVaultKey(child, cf, row)
+					_ = c.E.VaultDel(c, key)
 				}
 			}
 		}
@@ -1588,7 +1595,9 @@ func (c *Ctx) Rename(doctype, oldID, newID string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if ok, _ := c.HasPermission(doctype, "write", doc); !ok && !c.IgnorePermissions() {
+	if ok, err := c.HasPermission(doctype, "write", doc); err != nil {
+		return "", err
+	} else if !ok {
 		return "", cerr.Permission("No permission to rename {0}", c.T(d.Label))
 	}
 	if ok, _ := c.idExists(doctype, newID); ok {

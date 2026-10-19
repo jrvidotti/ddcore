@@ -372,7 +372,9 @@ func (c *Ctx) mergeDocs(doctype, fromID, intoID string) (*meta.DocType, Doc, Doc
 			doc   Doc
 			ptype string
 		}{{from, "write"}, {from, "delete"}, {into, "write"}} {
-			if ok, _ := c.HasPermission(doctype, need.ptype, need.doc); !ok {
+			if ok, err := c.HasPermission(doctype, need.ptype, need.doc); err != nil {
+				return nil, nil, nil, err
+			} else if !ok {
 				return nil, nil, nil, cerr.Permission("No permission to merge {0} {1} into {2}", c.T(d.Label), fromID, intoID)
 			}
 		}
