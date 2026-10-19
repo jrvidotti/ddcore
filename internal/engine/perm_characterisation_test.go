@@ -377,7 +377,7 @@ func TestPermChar_ParentScopedRuleOnChildListing(t *testing.T) {
 			texts = append(texts, db.Str(r["text"]))
 		}
 		if !reflect.DeepEqual(texts, []string{"a1", "c1"}) {
-			t.Fatalf("child listing = %v; pinned current behaviour: [a1 c1]", texts)
+			t.Fatalf("child listing = %v, want [a1 c1]", texts)
 		}
 		return nil
 	})
@@ -475,7 +475,8 @@ func TestPermChar_ReportOnlyRoleWithShareListsOnlyShared(t *testing.T) {
 	runAs(t, e, charMixed, func(c *Ctx) error {
 		wantAllowed(t, c, "Char Report Doc", "read", Doc{"id": "R1", "owner": "Admin"}, false)
 		sameNames(t, listNames(t, c, "Char Report Doc", ListArgs{}), "RM")
-		// an owner-only read cannot be expressed on child rows: their listing is refused
+		// a parent read only as owner lists no child rows: a policy choice (a
+		// ParentFilter could express it), so their listing is refused
 		_, err := c.GetList("Char Report Line", ListArgs{Fields: []string{"text"}})
 		wantPermissionError(t, "GetList Char Report Line (ifOwner read + report)", err)
 		return nil

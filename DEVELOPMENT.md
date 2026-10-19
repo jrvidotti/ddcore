@@ -342,7 +342,7 @@ In both cases, when 8090 is taken use `make stop` rather than starting a second 
 | `make check` | the desk's `svelte-check`, `ddcore types`, `tsc` for `apps/testapp`, and the translation catalogue |
 | `make i18n` | rewrites `translations/<lang>.csv` from the code |
 | `make test` | build + `go vet` + the Go tests + `ddcore test --app testapp` + the desk tests |
-| `make test-race` | the race detector over the engine's reload tests (`TestB08`, `*Reload*`) |
+| `make test-race` | the race detector over the engine's reload tests (`TestB08`, `*Reload*`) and the api's `TestBootAndMetaDuringReload` |
 | `./bin/ddcore test --filter <regex> -v` | iterating on one app test |
 | `./bin/ddcore demo` | seeds demonstration data (idempotent) |
 | `./bin/ddcore exec testapp.services.tasks.markOverdue` | runs a service outside a request |
