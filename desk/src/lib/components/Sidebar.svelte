@@ -1,6 +1,7 @@
 <script lang="ts">
   import SiteMark from "$lib/components/SiteMark.svelte";
   import { seg } from "$lib/routes";
+  import { dismiss } from "$lib/controls/floating";
   import { boot, __, isLoggedIn, siteName, spaceLabel } from "$lib/boot.svelte";
   import { openShortcutsHelp, openSearch } from "$lib/shortcuts.svelte";
   import { openFeedback } from "$lib/feedback.svelte";
@@ -83,21 +84,9 @@
   const space = $derived(spaceLabel());
   const kind = $derived(spaceKind(boot.data?.site?.tenant));
   const avatarInitial = (name: string) => (name || "U").trim().charAt(0).toUpperCase();
-
-  function onPointerDown(e: PointerEvent) {
-    const target = e.target as HTMLElement | null;
-    if (menuOpen && !target?.closest(".foot .dropdown")) menuOpen = false;
-    if (wsMenuOpen && !target?.closest(".workspace-switcher")) wsMenuOpen = false;
-  }
-  function onKeydown(e: KeyboardEvent) {
-    if (e.key === "Escape") {
-      menuOpen = false;
-      wsMenuOpen = false;
-    }
-  }
 </script>
 
-<svelte:window onpointerdown={onPointerDown} onkeydown={onKeydown} onclick={onWindowClick} />
+<svelte:window onclick={onWindowClick} />
 
 <aside class="sidebar" class:open class:collapsed>
   <div class="brand">
@@ -113,7 +102,7 @@
     </button>
   </div>
   {#if workspaces.length > 1}
-    <div class="workspace-switcher dropdown">
+    <div class="workspace-switcher dropdown" use:dismiss={wsMenuOpen ? () => (wsMenuOpen = false) : null}>
       <button class="workspace-btn" onclick={() => (wsMenuOpen = !wsMenuOpen)} aria-haspopup="menu" aria-expanded={wsMenuOpen} title={tip(activeWorkspace?.label || activeWorkspace?.name || "")}>
         <span class="ws-icon"><Icon name={activeWorkspace?.icon || "layout-dashboard"} size={16} /></span>
         <span class="ws-label">{activeWorkspace?.label || activeWorkspace?.name}</span>
@@ -180,7 +169,7 @@
         {#if pendingTasks.count > 0}<span class="notification-count" aria-label={__("{0} pending tasks", [pendingTasks.count])}>{pendingTasks.count}</span>{/if}
       </a>
     </div>
-    <div class="dropdown" style="width:100%">
+    <div class="dropdown" style="width:100%" use:dismiss={menuOpen ? () => (menuOpen = false) : null}>
       <button class="user-btn" onclick={() => (menuOpen = !menuOpen)} aria-haspopup="menu" aria-expanded={menuOpen} title={tip(displayName)}>
         <span class="avatar">{avatarInitial(displayName)}</span>
         <span class="name small">{displayName}{#if space}<span class="space">{space}</span>{/if}</span>

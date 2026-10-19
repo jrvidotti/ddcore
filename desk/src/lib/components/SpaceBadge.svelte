@@ -5,6 +5,7 @@
   // without tenancy, nor for a platform user who is not an operator.
   import { boot, spaceLabel, __ } from "$lib/boot.svelte";
   import { spaceKind } from "$lib/tenant";
+  import { dismiss } from "$lib/controls/floating";
   import Icon from "./Icon.svelte";
   import TenantMenu from "./TenantMenu.svelte";
 
@@ -13,19 +14,10 @@
   const kind = $derived(spaceKind(tenant));
   const icon = $derived(kind === "platform" ? "shield" : "building-2");
   let open = $state(false);
-
-  function onPointerDown(e: PointerEvent) {
-    if (open && !(e.target as HTMLElement | null)?.closest(".space-badge")) open = false;
-  }
-  function onKeydown(e: KeyboardEvent) {
-    if (e.key === "Escape") open = false;
-  }
 </script>
 
-<svelte:window onpointerdown={onPointerDown} onkeydown={onKeydown} />
-
 {#if label}
-  <div class="space-badge dropdown">
+  <div class="space-badge dropdown" use:dismiss={open ? () => (open = false) : null}>
     {#if tenant?.platform}
       <button type="button" class="space {kind}" aria-haspopup="menu" aria-expanded={open} title={__("Tenant")} onclick={() => (open = !open)}>
         <Icon name={icon} size={12} /><span>{label}</span><Icon name="chevron-down" size={12} />

@@ -22,6 +22,7 @@ older series, and `whats_new` reads across every one of them.
 ### Changed
 
 - **One modal shell for the desk's dialogs.** Share, Assign, Shortcuts, New Task, Data Import, Feedback and the change-history dialog share one `Modal` component. The change-history dialog now also closes on a click on its backdrop, like the others, and Escape in any of them no longer reaches the page behind.
+- **One dismiss action for the desk's popovers.** The date, month and colour pickers, the Columns menu, the sidebar menus and the space badge share one "close on a click outside or Escape" action. In the portal, Escape now closes the account menu, and in the sidebar an Escape from inside an open menu closes only that menu.
 - **`ddcore types` no longer opens the database.** It compiles the apps and writes `.ddcore/types.d.ts` without connecting, so it works with Postgres down or no dsn configured (`ddcore migrate` still ends by writing the types, from the engine it already has open instead of loading the apps a second time). It also ignores `--tenant` and skips the site-version check now.
 - **`ddcore i18n -help` prints the usage and exits 0** like the other commands; it used to fail with `unknown i18n subcommand`.
 

@@ -7,6 +7,7 @@
   import { page } from "$app/state";
   import Icon from "$lib/components/Icon.svelte";
   import { portalHref } from "$lib/portal";
+  import { dismiss } from "$lib/controls/floating";
 
   let { children } = $props();
   let menuOpen = $state(false);
@@ -24,8 +25,6 @@
   }
 </script>
 
-<svelte:window onpointerdown={(e) => { if (menuOpen && !(e.target as HTMLElement)?.closest(".account")) menuOpen = false; }} />
-
 <div class="portal">
   <header>
     <a class="brand" href="/portal"><SiteMark /><span class="site-name">{siteName()}</span></a>
@@ -36,7 +35,7 @@
         {/each}
       {/each}
     </nav>
-    <div class="account">
+    <div class="account" use:dismiss={menuOpen ? () => (menuOpen = false) : null}>
       <button class="btn" type="button" onclick={() => (menuOpen = !menuOpen)} aria-haspopup="menu" aria-expanded={menuOpen}>
         <Icon name="user" size={14} /> <span class="who">{name}</span>
       </button>

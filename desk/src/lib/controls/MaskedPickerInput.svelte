@@ -15,7 +15,7 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
   import { __ } from "$lib/boot.svelte";
-  import { anchored } from "./floating";
+  import { anchored, dismiss } from "./floating";
   import type { Field } from "$lib/meta";
   import Icon from "$lib/components/Icon.svelte";
   import { dateShape } from "$lib/locale";
@@ -115,11 +115,6 @@
       commit();
       (e.target as HTMLInputElement).blur();
       open = false;
-    } else if (e.key === "Escape") {
-      if (open) {
-        open = false;
-        e.stopPropagation();
-      }
     } else if ((e.key === "ArrowDown" || e.key === "Down") && e.altKey) {
       e.preventDefault();
       togglePicker();
@@ -173,20 +168,9 @@
     open = false;
     inputEl?.focus();
   }
-
-  $effect(() => {
-    if (!open) return;
-    function onDocClick(e: MouseEvent) {
-      if (wrapEl && !wrapEl.contains(e.target as Node)) {
-        open = false;
-      }
-    }
-    window.addEventListener("mousedown", onDocClick);
-    return () => window.removeEventListener("mousedown", onDocClick);
-  });
 </script>
 
-<div class="picker-wrap" bind:this={wrapEl}>
+<div class="picker-wrap" bind:this={wrapEl} use:dismiss={open ? () => (open = false) : null}>
   <input
     bind:this={inputEl}
     {id}

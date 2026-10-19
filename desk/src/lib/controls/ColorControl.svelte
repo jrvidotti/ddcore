@@ -7,7 +7,7 @@
   import { untrack } from "svelte";
   import { __ } from "$lib/boot.svelte";
   import Icon from "$lib/components/Icon.svelte";
-  import { anchored } from "./floating";
+  import { anchored, dismiss } from "./floating";
   import { BASIC_COLORS, hexToRgb, hsvToRgb, normalizeColor, rgbToHex, rgbToHsv, type Hsv, type Rgb } from "./color-state";
 
   let { value, onchange, readOnly = false, error = "", id = "" }:
@@ -129,18 +129,9 @@
     onchange(null);
     close();
   }
-
-  $effect(() => {
-    if (!open) return;
-    function onDocClick(e: MouseEvent) {
-      if (wrapEl && !wrapEl.contains(e.target as Node)) open = false;
-    }
-    window.addEventListener("mousedown", onDocClick);
-    return () => window.removeEventListener("mousedown", onDocClick);
-  });
 </script>
 
-<div class="color-wrap" bind:this={wrapEl}>
+<div class="color-wrap" bind:this={wrapEl} use:dismiss={open ? (e) => (e.type === "keydown" ? close() : (open = false)) : null}>
   <button
     bind:this={triggerEl}
     {id}
@@ -153,7 +144,6 @@
     aria-expanded={open}
     title={hex}
     onclick={toggle}
-    onkeydown={(e) => { if (e.key === "Escape" && open) { e.stopPropagation(); open = false; } }}
   >
     <span class="swatch" class:no-colour={!hex} style:background-color={hex || null}></span>
   </button>
@@ -165,7 +155,6 @@
       role="dialog"
       aria-label={__("Colour")}
       tabindex="-1"
-      onkeydown={(e) => { if (e.key === "Escape") { e.stopPropagation(); close(); } }}
     >
       <div class="tabs" role="tablist">
         <button type="button" role="tab" aria-selected={tab === "basic"} class:on={tab === "basic"} onclick={() => (tab = "basic")}>{__("Basic")}</button>
