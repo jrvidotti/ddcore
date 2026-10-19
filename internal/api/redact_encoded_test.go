@@ -9,7 +9,7 @@ import (
 
 // A DocType name with an over-encoded letter ("Cr%65dential") reaches chi as
 // the raw path segment, so the name the insert ran under was decoded while the
-// name the response was redacted under was not; RedactDoc fails open on a
+// name the response was redacted under was not; RedactDoc used to fail open on a
 // lookup miss and the secret came back in the clear.
 func TestInsertRedactsAPasswordUnderAnOverEncodedDocTypeName(t *testing.T) {
 	dir := t.TempDir()

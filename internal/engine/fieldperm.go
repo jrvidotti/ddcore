@@ -173,13 +173,13 @@ func (c *Ctx) redactFields(d *meta.DocType, a FieldAccess, doc Doc) {
 
 // RedactFieldsFor is RedactDoc's field step with an explicit access, for a
 // payload whose reader is not the current user.
-func (c *Ctx) RedactFieldsFor(doctype string, doc Doc, a FieldAccess) Doc {
+func (c *Ctx) RedactFieldsFor(doctype string, doc Doc, a FieldAccess) (Doc, error) {
 	d, err := c.St.DocType(doctype)
 	if err != nil {
-		return doc
+		return nil, err
 	}
 	c.redactFields(d, a, doc)
-	return doc
+	return doc, nil
 }
 
 // fieldPermissionsApply reports whether a write by the current user is subject

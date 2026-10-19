@@ -75,7 +75,10 @@ export default defineDoctype({
 	}
 
 	// 4. RedactDoc redacts Vault fields to { configured: true }
-	redacted := c.RedactDoc("Integration Account", saved)
+	redacted, err := c.RedactDoc("Integration Account", saved)
+	if err != nil {
+		t.Fatal(err)
+	}
 	cfg1, ok1 := redacted["api_key"].(map[string]any)
 	if !ok1 || cfg1["configured"] != true {
 		t.Fatalf("expected api_key redacted to {configured: true}, got %#v", redacted["api_key"])

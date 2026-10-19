@@ -288,7 +288,7 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		if a.Doc == nil {
 			return nil, nil
 		}
-		return c.RedactDoc(a.Doctype, a.Doc.Clone()), nil
+		return c.RedactDoc(a.Doctype, a.Doc.Clone())
 	case "msgprint":
 		m := Message{Message: a.Message}
 		if t, ok := a.Opts["title"].(string); ok {

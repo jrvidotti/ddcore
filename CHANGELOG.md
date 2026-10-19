@@ -16,6 +16,7 @@ older series, and `whats_new` reads across every one of them.
 
 ### Fixed
 
+- **`ddcore.redact` refuses an unknown doctype instead of returning the document unredacted.** The same holds for the MCP `list_docs` and `call_method` tools, notifications, webhooks and the portal: a doctype that cannot be looked up is now an error, not a pass-through.
 - **The change history shows values the way the lists do.** A Select now reads as its label, a Link as its title, and a Currency at its field's precision instead of the site default; Dates, Months and the other types it shared with the lists follow the same rules.
 - **Escape in an open options list inside a dialog closes only the list.** A Link field's list or a Table MultiSelect's list, opened in a dialog such as Assign or New Task, used to take the whole dialog with it on Escape.
 - **The due date of an assignment and of a new To-Do task follows the site's date format.** Both forms used the browser's native date input, in the browser's locale; they now use the desk's date control like every other date field. The New Task form also lists the assignee first, like the Assign form.

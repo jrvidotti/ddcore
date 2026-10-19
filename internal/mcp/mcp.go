@@ -121,7 +121,7 @@ func (s *server) docOp(ctx context.Context, doctype string, fn func(c *engine.Ct
 		var err error
 		doc, err = fn(c)
 		if err == nil && doc != nil {
-			doc = c.RedactDoc(doctype, doc)
+			doc, err = c.RedactDoc(doctype, doc)
 		}
 		return err
 	})

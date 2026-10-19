@@ -146,9 +146,15 @@ func (c *Ctx) queueNotification(rule js.Notification, doc, before Doc, identity 
 		err = c.withNotificationUser(user, func(reader *Ctx) error {
 			// the rule decided on the whole document; what it writes to a
 			// recipient is only what that recipient may read (SEC-02)
-			var err error
-			content, err = rt.RenderNotification(rule.Name,
-				reader.RedactDoc(rule.Doctype, doc.Clone()).JSON(), reader.RedactDoc(rule.Doctype, before.Clone()).JSON())
+			now, err := reader.RedactDoc(rule.Doctype, doc.Clone())
+			if err != nil {
+				return err
+			}
+			was, err := reader.RedactDoc(rule.Doctype, before.Clone())
+			if err != nil {
+				return err
+			}
+			content, err = rt.RenderNotification(rule.Name, now.JSON(), was.JSON())
 			return err
 		})
 		if err != nil {

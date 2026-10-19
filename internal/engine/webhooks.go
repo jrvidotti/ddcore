@@ -238,7 +238,11 @@ func (c *Ctx) queueDocWebhooks(doctype string, doc Doc, event string) error {
 	if len(matched) == 0 {
 		return nil
 	}
-	data := map[string]any{"doctype": doctype, "id": doc.ID(), "doc": c.webhookDoc(doctype, doc)}
+	out, err := c.webhookDoc(doctype, doc)
+	if err != nil {
+		return err
+	}
+	data := map[string]any{"doctype": doctype, "id": doc.ID(), "doc": out}
 	ref := &WebhookReference{Doctype: doctype, ID: doc.ID()}
 	for _, s := range matched {
 		if _, err := c.queueWebhook(s, "doc."+event, data, ref, ""); err != nil {
@@ -252,14 +256,14 @@ func (c *Ctx) queueDocWebhooks(doctype string, doc Doc, event string) error {
 // never touches what the caller still holds, with every Password and Vault
 // field removed the same way an API read removes them, and every field above
 // permission level 0 removed whoever made the change.
-func (c *Ctx) webhookDoc(doctype string, doc Doc) Doc {
+func (c *Ctx) webhookDoc(doctype string, doc Doc) (Doc, error) {
 	b, err := json.Marshal(doc)
 	if err != nil {
-		return Doc{}
+		return Doc{}, nil
 	}
 	cp := Doc{}
 	if err := json.Unmarshal(b, &cp); err != nil {
-		return Doc{}
+		return Doc{}, nil
 	}
 	for k := range cp {
 		if strings.HasPrefix(k, "__") {
@@ -267,7 +271,11 @@ func (c *Ctx) webhookDoc(doctype string, doc Doc) Doc {
 		}
 	}
 	// a webhook has no reading user, so it carries only unrestricted fields
-	return c.RedactFieldsFor(doctype, c.RedactDoc(doctype, cp), Level0FieldAccess())
+	cp, err = c.RedactDoc(doctype, cp)
+	if err != nil {
+		return nil, err
+	}
+	return c.RedactFieldsFor(doctype, cp, Level0FieldAccess())
 }
 
 // EmitWebhook is ddcore.webhooks.emit: an app's own event, delivered to every
