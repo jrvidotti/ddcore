@@ -3,7 +3,7 @@
   import { __ } from "$lib/boot.svelte";
   import Icon from "./Icon.svelte";
   import { avatarInitial } from "./views/card-avatar";
-  import { parseVersion, type ParsedVersion, type ParsedChange } from "./history";
+  import { matchesHistory, parseVersion, type ParsedVersion, type TableRowSummary } from "./history";
 
   let {
     frm,
@@ -26,35 +26,48 @@
   const filtered = $derived.by((): ParsedVersion[] => {
     const q = search.trim().toLowerCase();
     if (!q) return parsedList;
-    return parsedList.filter((v) => {
-      if (v.owner.toLowerCase().includes(q)) return true;
-      if (v.relativeTime.toLowerCase().includes(q)) return true;
-      return v.changes.some((c) => {
-        if (c.label.toLowerCase().includes(q)) return true;
-        if (c.field.toLowerCase().includes(q)) return true;
-        if (String(c.formattedOld).toLowerCase().includes(q)) return true;
-        if (String(c.formattedNew).toLowerCase().includes(q)) return true;
-        if (c.tableDiff) {
-          const inAdded = c.tableDiff.added.some((r) =>
-            Object.values(r.fields).some((f) => f.label.toLowerCase().includes(q) || f.formatted.toLowerCase().includes(q))
-          );
-          if (inAdded) return true;
-          const inMod = c.tableDiff.modified.some((m) =>
-            m.changes.some(
-              (ch) =>
-                ch.label.toLowerCase().includes(q) ||
-                ch.formattedFrom.toLowerCase().includes(q) ||
-                ch.formattedTo.toLowerCase().includes(q)
-            )
-          );
-          if (inMod) return true;
-        }
-        return false;
-      });
-    });
+    return parsedList.filter((v) => matchesHistory(v, q));
   });
-
 </script>
+
+{#snippet diffValue(kind: "old" | "new", text: string, url?: string, attach?: boolean)}
+  {#if attach && url}
+    <span class="val val-{kind}">
+      <Icon name="paperclip" size={11} />
+      <a href={url} target="_blank" rel="noopener">{text}</a>
+    </span>
+  {:else}
+    <span class="val val-{kind}" class:is-empty={text === "—"}>{text}</span>
+  {/if}
+{/snippet}
+
+{#snippet rowCard(row: TableRowSummary, kind: "added" | "removed")}
+  <div class="table-row-card {kind}">
+    <div class="card-status-bar">
+      {#if kind === "added"}
+        <span class="badge green">+{__("Row added")}</span>
+      {:else}
+        <span class="badge red">-{__("Row removed")}</span>
+      {/if}
+    </div>
+    <div class="card-fields">
+      {#each Object.values(row.fields) as fdata}
+        <div class="card-field-item">
+          <span class="cf-label">{fdata.label}:</span>
+          {#if fdata.isAttach && fdata.url}
+            <a href={fdata.url} target="_blank" rel="noopener" class="cf-attach">
+              <Icon name="paperclip" size={11} />
+              <span>{fdata.formatted}</span>
+            </a>
+          {:else}
+            <span class="cf-val">{fdata.formatted}</span>
+          {/if}
+        </div>
+      {/each}
+    </div>
+  </div>
+{/snippet}
+
 
 <div class="doc-history" class:full={mode === "full"}>
   {#if mode === "full"}
@@ -115,25 +128,9 @@
                   <div class="change-row">
                     <span class="field-label">{c.label}</span>
                     <div class="diff-values">
-                      {#if c.isAttach && c.oldUrl}
-                        <span class="val val-old">
-                          <Icon name="paperclip" size={11} />
-                          <a href={c.oldUrl} target="_blank" rel="noopener">{c.formattedOld}</a>
-                        </span>
-                      {:else}
-                        <span class="val val-old" class:is-empty={c.formattedOld === "—"}>{c.formattedOld}</span>
-                      {/if}
-
+                      {@render diffValue("old", c.formattedOld, c.oldUrl, c.isAttach)}
                       <span class="arrow">→</span>
-
-                      {#if c.isAttach && c.newUrl}
-                        <span class="val val-new">
-                          <Icon name="paperclip" size={11} />
-                          <a href={c.newUrl} target="_blank" rel="noopener">{c.formattedNew}</a>
-                        </span>
-                      {:else}
-                        <span class="val val-new" class:is-empty={c.formattedNew === "—"}>{c.formattedNew}</span>
-                      {/if}
+                      {@render diffValue("new", c.formattedNew, c.newUrl, c.isAttach)}
                     </div>
                   </div>
                 {:else if c.tableDiff}
@@ -145,26 +142,7 @@
 
                     <!-- Added Rows -->
                     {#each c.tableDiff.added as row}
-                      <div class="table-row-card added">
-                        <div class="card-status-bar">
-                          <span class="badge green">+{__("Row added")}</span>
-                        </div>
-                        <div class="card-fields">
-                          {#each Object.entries(row.fields) as [fname, fdata]}
-                            <div class="card-field-item">
-                              <span class="cf-label">{fdata.label}:</span>
-                              {#if fdata.isAttach && fdata.url}
-                                <a href={fdata.url} target="_blank" rel="noopener" class="cf-attach">
-                                  <Icon name="paperclip" size={11} />
-                                  <span>{fdata.formatted}</span>
-                                </a>
-                              {:else}
-                                <span class="cf-val">{fdata.formatted}</span>
-                              {/if}
-                            </div>
-                          {/each}
-                        </div>
-                      </div>
+                      {@render rowCard(row, "added")}
                     {/each}
 
                     <!-- Modified Rows -->
@@ -178,25 +156,9 @@
                             <div class="card-field-diff">
                               <span class="cf-label">{ch.label}:</span>
                               <div class="diff-values">
-                                {#if ch.isAttach && ch.fromUrl}
-                                  <span class="val val-old">
-                                    <Icon name="paperclip" size={11} />
-                                    <a href={ch.fromUrl} target="_blank" rel="noopener">{ch.formattedFrom}</a>
-                                  </span>
-                                {:else}
-                                  <span class="val val-old" class:is-empty={ch.formattedFrom === "—"}>{ch.formattedFrom}</span>
-                                {/if}
-
+                                {@render diffValue("old", ch.formattedFrom, ch.fromUrl, ch.isAttach)}
                                 <span class="arrow">→</span>
-
-                                {#if ch.isAttach && ch.toUrl}
-                                  <span class="val val-new">
-                                    <Icon name="paperclip" size={11} />
-                                    <a href={ch.toUrl} target="_blank" rel="noopener">{ch.formattedTo}</a>
-                                  </span>
-                                {:else}
-                                  <span class="val val-new" class:is-empty={ch.formattedTo === "—"}>{ch.formattedTo}</span>
-                                {/if}
+                                {@render diffValue("new", ch.formattedTo, ch.toUrl, ch.isAttach)}
                               </div>
                             </div>
                           {/each}
@@ -206,26 +168,7 @@
 
                     <!-- Removed Rows -->
                     {#each c.tableDiff.removed as row}
-                      <div class="table-row-card removed">
-                        <div class="card-status-bar">
-                          <span class="badge red">-{__("Row removed")}</span>
-                        </div>
-                        <div class="card-fields">
-                          {#each Object.entries(row.fields) as [fname, fdata]}
-                            <div class="card-field-item">
-                              <span class="cf-label">{fdata.label}:</span>
-                              {#if fdata.isAttach && fdata.url}
-                                <a href={fdata.url} target="_blank" rel="noopener" class="cf-attach">
-                                  <Icon name="paperclip" size={11} />
-                                  <span>{fdata.formatted}</span>
-                                </a>
-                              {:else}
-                                <span class="cf-val">{fdata.formatted}</span>
-                              {/if}
-                            </div>
-                          {/each}
-                        </div>
-                      </div>
+                      {@render rowCard(row, "removed")}
                     {/each}
                   </div>
                 {/if}

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, expect, it, test } from "vitest";
-import { diffTable, extractFileName, formatDiffValue, formatMultiSelect, parseVersion, signatureDiff } from "./history";
+import { diffTable, extractFileName, formatDiffValue, formatMultiSelect, matchesHistory, parseVersion, signatureDiff } from "./history";
 
 const childMeta = {
   name: "Item",
@@ -341,5 +341,32 @@ describe("formatDiffValue shows a value as a list does", () => {
     const select = { fieldtype: "Select", options: ["Open", "Closed"], optionLabels: ["Aberto", "Fechado"] } as any;
     expect(formatDiffValue("Closed", select).formatted).toBe("Fechado");
     expect(formatDiffValue("1.2345", { fieldtype: "Currency", precision: 4 } as any).formatted).toContain("2345");
+  });
+});
+
+describe("matchesHistory", () => {
+  const version = (data: any) => parseVersion({ id: "v1", owner: "Ana", creation: "2026-01-01 10:00:00", data }, undefined);
+  const rows = version({
+    changed: {
+      items: [
+        [{ id: "r1", idx: 1, qty: 77 }, { id: "r2", idx: 2, qty: 5 }],
+        [{ id: "r2", idx: 1, qty: 6 }, { id: "r3", idx: 2, note: "fresh" }],
+      ],
+      title: ["Old", "New"],
+    },
+  });
+
+  it("matches owner, field and value", () => {
+    expect(matchesHistory(rows, "ana")).toBe(true);
+    expect(matchesHistory(rows, "title")).toBe(true);
+    expect(matchesHistory(rows, "new")).toBe(true);
+    expect(matchesHistory(rows, "zzz")).toBe(false);
+  });
+
+  it("matches added, modified and removed rows", () => {
+    expect(matchesHistory(rows, "fresh")).toBe(true);
+    expect(matchesHistory(rows, "6")).toBe(true);
+    // 77 only appears in the removed row r1
+    expect(matchesHistory(rows, "77")).toBe(true);
   });
 });
