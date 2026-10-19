@@ -685,12 +685,12 @@ func (c *Ctx) permissionFilters(d *meta.DocType) ([]db.Filter, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(scoped) == 0 && len(override) == 0 {
+	if roleRead && len(scoped) == 0 && len(override) == 0 {
 		return byRole, nil
 	}
 	// a share answers to the controller's permissionQuery as a role grant does,
-	// and to the scopes unless it overrides them
-	var groups [][]db.Filter
+	// and to the scopes unless it overrides them; no group at all matches nothing
+	groups := [][]db.Filter{}
 	if roleRead {
 		groups = append(groups, byRole)
 	}

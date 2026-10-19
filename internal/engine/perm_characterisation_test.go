@@ -482,6 +482,26 @@ func TestPermChar_ReportOnlyRoleWithShareListsOnlyShared(t *testing.T) {
 	})
 }
 
+// A user with no read row and no share gets a list filter matching nothing:
+// permissionFilters fails closed whatever its caller checked before it.
+func TestPermChar_NoReadNoShareFiltersMatchNothing(t *testing.T) {
+	e := setupChar(t)
+	runAs(t, e, charReporter, func(c *Ctx) error {
+		d, err := c.St.DocType("Char Report Doc")
+		if err != nil {
+			return err
+		}
+		pf, err := c.permissionFilters(d)
+		if err != nil {
+			return err
+		}
+		if want := []db.Filter{{Any: [][]db.Filter{}}}; !reflect.DeepEqual(pf, want) {
+			t.Fatalf("permissionFilters = %#v, want %#v", pf, want)
+		}
+		return nil
+	})
+}
+
 // An error from HasPermission — here a controller's hasPermission throwing —
 // surfaces as that error, never as a refusal.
 func TestPermError_HasPermissionErrorPropagates(t *testing.T) {
