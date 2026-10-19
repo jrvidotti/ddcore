@@ -557,3 +557,42 @@ func TestOPS02_SensitiveMessageStillDelivers(t *testing.T) {
 		t.Errorf("the link never reached the message:\n%s", log.String())
 	}
 }
+
+// A successful delivery stores a NULL error, and a long multibyte error is cut
+// at 1000 characters without failing the UPDATE.
+func TestOPS02_RecordedErrorIsNullOnSuccessAndCutInCharacters(t *testing.T) {
+	e := setupMail(t)
+	ctx := context.Background()
+
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
+		return c.SendTemplate("demo.aviso", "ana@x.com", map[string]any{
+			"pedido": "PED-1", "nome": "Ana", "url": "https://example.com/1",
+		})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	drainMail(t, e)
+	rows := deliveries(t, e)
+	if len(rows) != 1 || db.Str(rows[0]["status"]) != MailSent {
+		t.Fatalf("deliveries = %v", rows)
+	}
+	if rows[0]["error"] != nil {
+		t.Fatalf("error after a success = %v, want NULL", rows[0]["error"])
+	}
+
+	id := db.Str(rows[0]["id"])
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
+		e.recordDelivery(c, "Email Delivery", id, MailFailed, strings.Repeat("é", 1500), "")
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	rows = deliveries(t, e)
+	if got := db.Str(rows[0]["status"]); got != MailFailed {
+		t.Fatalf("status = %q, want %q", got, MailFailed)
+	}
+	if n := len([]rune(db.Str(rows[0]["error"]))); n != 1000 {
+		t.Fatalf("error holds %d characters, want 1000", n)
+	}
+}

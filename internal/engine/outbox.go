@@ -12,15 +12,8 @@ func (c *Ctx) queueDelivery(doctype string, values Doc, method string, args, opt
 	if err != nil {
 		return "", err
 	}
-	// Raised, not just SaveOpts.IgnorePermissions: the user whose write caused
-	// the event may have access scopes, and those close the delivery doctypes
-	// (and the check that a Link target exists) to them.
-	var saved Doc
-	if err := c.WithIgnorePermissions(func() error {
-		var err error
-		saved, err = c.Insert(doc, SaveOpts{IgnorePermissions: true})
-		return err
-	}); err != nil {
+	saved, err := c.Insert(doc, SaveOpts{IgnorePermissions: true})
+	if err != nil {
 		return "", err
 	}
 	name := saved.ID()
@@ -42,11 +35,12 @@ func (c *Ctx) enqueueDelivery(doctype, id, method string, args, opts map[string]
 
 // recordDelivery writes an outcome on the pool and logs a failure to write it.
 // "Sent" is the success status of both mail and webhook deliveries and stamps sent_at.
-// extraSet is appended to the SET list and its args bind from $5.
-func (e *Engine) recordDelivery(c *Ctx, table, id, status, errText, extraSet string, extraArgs ...any) {
+// extraSet is appended to the SET list and its args bind from $4.
+func (e *Engine) recordDelivery(c *Ctx, doctype, id, status, errText, extraSet string, extraArgs ...any) {
+	table := "tab_" + meta.Snake(doctype)
 	if _, err := c.space().Exec(c.Ctx, `UPDATE `+table+` SET status = $2, error = NULLIF(left($3, 1000), ''),
-		sent_at = CASE WHEN $2 = $4 THEN now() ELSE sent_at END, modified = now()`+extraSet+` WHERE id = $1`,
-		append([]any{id, status, errText, MailSent}, extraArgs...)...); err != nil {
+		sent_at = CASE WHEN $2 = 'Sent' THEN now() ELSE sent_at END, modified = now()`+extraSet+` WHERE id = $1`,
+		append([]any{id, status, errText}, extraArgs...)...); err != nil {
 		e.Log.Warn("could not record a delivery outcome", "table", table, "delivery", id, "err", err)
 	}
 }

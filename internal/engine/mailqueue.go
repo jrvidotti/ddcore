@@ -375,7 +375,7 @@ func (e *Engine) RecordMail(c *Ctx, delivery, status, errText string) error {
 // that failed is about to roll back, and the record of why it failed must not
 // roll back with it.
 func (e *Engine) recordMail(c *Ctx, delivery, status, errText string) {
-	e.recordDelivery(c, "tab_email_delivery", delivery, status, errText, "")
+	e.recordDelivery(c, "Email Delivery", delivery, status, errText, "")
 }
 
 // methodPayload is what an app's own transport function receives. Bytes are

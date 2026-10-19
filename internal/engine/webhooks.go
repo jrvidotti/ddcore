@@ -337,7 +337,16 @@ func (c *Ctx) queueWebhook(s webhookSub, event string, data any, ref *WebhookRef
 		values["reference_doctype"] = ref.Doctype
 		values["reference_id"] = ref.ID
 	}
-	return c.queueDelivery("Webhook Delivery", values, webhookJobMethod, map[string]any{"delivery": nil}, webhookJobOpts(s.Timeout, s.MaxAttempts))
+	// Raised, not just SaveOpts.IgnorePermissions: the user whose write caused
+	// the event may have access scopes, and those close the delivery doctypes
+	// (and the check that a Link target exists) to them.
+	var name string
+	err = c.WithIgnorePermissions(func() error {
+		var err error
+		name, err = c.queueDelivery("Webhook Delivery", values, webhookJobMethod, map[string]any{"delivery": nil}, webhookJobOpts(s.Timeout, s.MaxAttempts))
+		return err
+	})
+	return name, err
 }
 
 func webhookJobOpts(timeout, maxAttempts int) map[string]any {
@@ -525,7 +534,7 @@ func SignWebhook(secret, id string, ts int64, body []byte) string {
 // about to fail is about to roll back, and the record of why must not go with
 // it.
 func (e *Engine) recordWebhook(c *Ctx, delivery, status string, code int, errText string) {
-	e.recordDelivery(c, "tab_webhook_delivery", delivery, status, errText, ", response_status = NULLIF($5, 0)", code)
+	e.recordDelivery(c, "Webhook Delivery", delivery, status, errText, ", response_status = NULLIF($4, 0)", code)
 }
 
 // ReplayWebhook sends a finished delivery again: the same webhook-id and the
