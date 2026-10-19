@@ -344,19 +344,8 @@ func (c *Ctx) mergeDocs(doctype, fromID, intoID string) (*meta.DocType, Doc, Doc
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	// a shared document's merge rewrites every tenant's references to it,
-	// and is the platform's alone
-	if err := c.spaceRefusal(d, true, c.IgnorePermissions()); err != nil {
+	if err := c.renameRefusal(d); err != nil {
 		return nil, nil, nil, err
-	}
-	if err := c.checkWritable(d.Name); err != nil {
-		return nil, nil, nil, err
-	}
-	if err := refuseVirtual(d); err != nil {
-		return nil, nil, nil, err
-	}
-	if d.IsSingle {
-		return nil, nil, nil, cerr.Validation("Single DocTypes cannot be deleted or renamed")
 	}
 	if !d.AllowRename {
 		return nil, nil, nil, cerr.Validation("{0} cannot be renamed", c.T(d.Label))

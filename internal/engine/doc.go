@@ -620,6 +620,52 @@ func refuseTool(d *meta.DocType) error {
 	return nil
 }
 
+// writeGuard is the start of every write: maintenance, virtual, tool.
+func (c *Ctx) writeGuard(d *meta.DocType) error {
+	if err := c.checkWritable(d.Name); err != nil {
+		return err
+	}
+	if err := refuseVirtual(d); err != nil {
+		return err
+	}
+	return refuseTool(d)
+}
+
+// auditRefusal refuses a write of the given kind on the append-only Audit Event.
+func auditRefusal(doctype, verb string) error {
+	if doctype != "Audit Event" {
+		return nil
+	}
+	switch verb {
+	case "created directly":
+		return cerr.Permission("Audit Event records are immutable and cannot be created directly")
+	case "modified":
+		return cerr.Permission("Audit Event records are immutable and cannot be modified")
+	case "deleted":
+		return cerr.Permission("Audit Event records are immutable and cannot be deleted")
+	}
+	return cerr.Permission("Audit Event records are immutable and cannot be imported")
+}
+
+// renameRefusal is what a rename and a merge refuse alike. Space comes first:
+// a shared document's rename rewrites every tenant's references to it, and is
+// the platform's alone.
+func (c *Ctx) renameRefusal(d *meta.DocType) error {
+	if err := c.spaceRefusal(d, true, c.IgnorePermissions()); err != nil {
+		return err
+	}
+	if err := c.checkWritable(d.Name); err != nil {
+		return err
+	}
+	if err := refuseVirtual(d); err != nil {
+		return err
+	}
+	if d.IsSingle {
+		return cerr.Validation("Single DocTypes cannot be deleted or renamed")
+	}
+	return nil
+}
+
 // Insert validates and inserts a new document.
 func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 	if opts.Flags == nil {
@@ -629,13 +675,7 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := c.checkWritable(d.Name); err != nil {
-		return nil, err
-	}
-	if err := refuseVirtual(d); err != nil {
-		return nil, err
-	}
-	if err := refuseTool(d); err != nil {
+	if err := c.writeGuard(d); err != nil {
 		return nil, err
 	}
 	if d.IsChild {
@@ -648,8 +688,8 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 	if err := c.spaceRefusal(d, true, server); err != nil {
 		return nil, err
 	}
-	if d.Name == "Audit Event" {
-		return nil, cerr.Permission("Audit Event records are immutable and cannot be created directly")
+	if err := auditRefusal(d.Name, "created directly"); err != nil {
+		return nil, err
 	}
 	c.normalizeMultiSelect(d, doc, nil)
 	c.dropComputed(d, doc)
@@ -817,13 +857,7 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := c.checkWritable(d.Name); err != nil {
-		return nil, err
-	}
-	if err := refuseVirtual(d); err != nil {
-		return nil, err
-	}
-	if err := refuseTool(d); err != nil {
+	if err := c.writeGuard(d); err != nil {
 		return nil, err
 	}
 	server := opts.IgnorePermissions || c.IgnorePermissions()
@@ -833,8 +867,8 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 	if err := c.spaceRefusal(d, true, server); err != nil {
 		return nil, err
 	}
-	if d.Name == "Audit Event" {
-		return nil, cerr.Permission("Audit Event records are immutable and cannot be modified")
+	if err := auditRefusal(d.Name, "modified"); err != nil {
+		return nil, err
 	}
 	// the hierarchy first, then the row: a tree's structural writes take the
 	// same two locks in the same order, so they queue instead of deadlocking.
@@ -1140,20 +1174,14 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 	if err != nil {
 		return modified, err
 	}
-	if err := c.checkWritable(d.Name); err != nil {
-		return modified, err
-	}
-	if err := refuseVirtual(d); err != nil {
-		return modified, err
-	}
-	if err := refuseTool(d); err != nil {
+	if err := c.writeGuard(d); err != nil {
 		return modified, err
 	}
 	if err := c.spaceRefusal(d, true, c.IgnorePermissions()); err != nil {
 		return modified, err
 	}
-	if d.Name == "Audit Event" {
-		return modified, cerr.Permission("Audit Event records are immutable and cannot be modified")
+	if err := auditRefusal(d.Name, "modified"); err != nil {
+		return modified, err
 	}
 	if !c.IgnorePermissions() {
 		if refused, err := c.refusedToScopedUser(d.Name); err != nil {
@@ -1391,17 +1419,14 @@ func (c *Ctx) deleteWithFlags(doctype, name string, ignorePerms, force bool, fla
 	if err != nil {
 		return err
 	}
-	if err := c.checkWritable(d.Name); err != nil {
-		return err
-	}
-	if err := refuseVirtual(d); err != nil {
+	if err := c.writeGuard(d); err != nil {
 		return err
 	}
 	if err := c.spaceRefusal(d, true, ignorePerms || c.IgnorePermissions()); err != nil {
 		return err
 	}
-	if doctype == "Audit Event" {
-		return cerr.Permission("Audit Event records are immutable and cannot be deleted")
+	if err := auditRefusal(doctype, "deleted"); err != nil {
+		return err
 	}
 	if d.IsSingle {
 		return cerr.Validation("Single DocTypes cannot be deleted or renamed")
@@ -1563,25 +1588,12 @@ func (c *Ctx) deleteWithFlags(doctype, name string, ignorePerms, force bool, fla
 
 // Rename changes a document's name and every link pointing to it.
 func (c *Ctx) Rename(doctype, oldID, newID string) (string, error) {
-	// before anything else: a shared document's rename rewrites every
-	// tenant's references to it, and is the platform's alone
-	if sd, err := c.St.DocType(doctype); err == nil {
-		if err := c.spaceRefusal(sd, true, c.IgnorePermissions()); err != nil {
-			return "", err
-		}
-	}
 	d, err := c.St.DocType(doctype)
 	if err != nil {
 		return "", err
 	}
-	if err := c.checkWritable(d.Name); err != nil {
+	if err := c.renameRefusal(d); err != nil {
 		return "", err
-	}
-	if err := refuseVirtual(d); err != nil {
-		return "", err
-	}
-	if d.IsSingle {
-		return "", cerr.Validation("Single DocTypes cannot be deleted or renamed")
 	}
 	newID = strings.TrimSpace(newID)
 	if newID == "" || newID == oldID {
