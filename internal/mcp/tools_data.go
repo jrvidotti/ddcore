@@ -41,6 +41,9 @@ func (s *server) dataTools(srv *mcp.Server) {
 			err := s.run(ctx, func(c *engine.Ctx) error {
 				var e error
 				rows, e = c.GetList(in.Doctype, engine.ListArgs{Filters: in.Filters, Fields: in.Fields, OrderBy: in.OrderBy, Limit: in.Limit, Start: in.Start})
+				if e != nil {
+					return e
+				}
 				d, err := c.St.DocType(in.Doctype)
 				if err != nil {
 					return err
@@ -48,7 +51,7 @@ func (s *server) dataTools(srv *mcp.Server) {
 				for _, r := range rows {
 					engine.RedactPassword(d, engine.Doc(r))
 				}
-				return e
+				return nil
 			})
 			return rows, err
 		})

@@ -368,7 +368,7 @@ func (c *Ctx) RedactVersionData(refDoctype string, data any) any {
 		return nil
 	}
 	if m == nil {
-		return data
+		return nil
 	}
 	changed, _ := m["changed"].(map[string]any)
 	for key, pair := range changed {
