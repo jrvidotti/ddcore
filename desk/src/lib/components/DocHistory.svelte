@@ -2,6 +2,7 @@
   import type { FormController } from "$lib/form.svelte";
   import { __ } from "$lib/boot.svelte";
   import Icon from "./Icon.svelte";
+  import { avatarInitial } from "./views/card-avatar";
   import { parseVersion, type ParsedVersion, type ParsedChange } from "./history";
 
   let {
@@ -53,9 +54,6 @@
     });
   });
 
-  function avatarInitial(name: string): string {
-    return (name || "U").trim().charAt(0).toUpperCase();
-  }
 </script>
 
 <div class="doc-history" class:full={mode === "full"}>

@@ -6,10 +6,6 @@ export function isAssignmentOverdue(dateStr: string | undefined, status: string 
   return dateStr < todayStr;
 }
 
-export function assignmentInitial(user: string): string {
-  return (user || "U").trim().charAt(0).toUpperCase();
-}
-
 export function priorityBadgeClass(priority: string): string {
   switch ((priority || "").toLowerCase()) {
     case "urgent":

@@ -3,18 +3,17 @@
   import { seg } from "$lib/routes";
   import { dismiss } from "$lib/controls/floating";
   import { boot, __, isLoggedIn, siteName, spaceLabel } from "$lib/boot.svelte";
-  import { openShortcutsHelp, openSearch } from "$lib/shortcuts.svelte";
-  import { openFeedback } from "$lib/feedback.svelte";
+  import { openSearch } from "$lib/shortcuts.svelte";
   import { getModifierKey } from "$lib/shortcuts";
   import Icon from "./Icon.svelte";
-  import TenantMenu from "./TenantMenu.svelte";
+  import UserMenuItems from "./UserMenuItems.svelte";
+  import { avatarInitial } from "./views/card-avatar";
   import SpaceBadge from "./SpaceBadge.svelte";
   import { spaceKind, withSpace } from "$lib/tenant";
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
   import { notifications } from "$lib/notifications.svelte";
   import { pendingTasks } from "$lib/assignments.svelte";
-  import { signOut } from "$lib/sign-out";
   import { panels, setSidebarCollapsed } from "$lib/panels.svelte";
   import { isActiveLink, systemDoctypes } from "./sidebar";
   import {
@@ -71,10 +70,6 @@
   }
 
   const itemHref = (it: any) => workspaceItemHref(activeWorkspace?.name || "", it);
-  async function logout() {
-    if (typeof window !== "undefined" && window.innerWidth <= 800) open = false;
-    await signOut();
-  }
   const otherDoctypes = $derived(systemDoctypes(boot.data));
   let showCore = $state(false);
 
@@ -83,7 +78,6 @@
   // on a site with tenancy: the tenant the person works in
   const space = $derived(spaceLabel());
   const kind = $derived(spaceKind(boot.data?.site?.tenant));
-  const avatarInitial = (name: string) => (name || "U").trim().charAt(0).toUpperCase();
 </script>
 
 <svelte:window onclick={onWindowClick} />
@@ -177,27 +171,7 @@
       </button>
       {#if menuOpen}
         <div class="menu up" role="menu">
-          <TenantMenu onpick={() => (menuOpen = false)} />
-          <button role="menuitem" onclick={() => { menuOpen = false; if (typeof window !== "undefined" && window.innerWidth <= 800) open = false; goto("/app/profile"); }}>
-            <Icon name="user" size={14} /> {__("My profile")}
-          </button>
-          {#if boot.data?.portals?.length}
-            <!-- a desk user who is also, say, an employee reaches their own portal (OPS-10) -->
-            <button role="menuitem" onclick={() => { menuOpen = false; goto("/portal"); }}>
-              <Icon name="external-link" size={14} /> {__("My portal")}
-            </button>
-          {/if}
-          <button role="menuitem" onclick={() => { menuOpen = false; if (typeof window !== "undefined" && window.innerWidth <= 800) open = false; openShortcutsHelp(); }}>
-            <Icon name="keyboard" size={14} /> {__("Keyboard shortcuts")}
-          </button>
-          {#if boot.data?.site?.feedback}
-            <button role="menuitem" onclick={() => { menuOpen = false; if (typeof window !== "undefined" && window.innerWidth <= 800) open = false; openFeedback(); }}>
-              <Icon name="message-square" size={14} /> {__("Feedback")}
-            </button>
-          {/if}
-          <button role="menuitem" onclick={logout}>
-            <Icon name="log-out" size={14} /> {__("Sign out")}
-          </button>
+          <UserMenuItems onpick={() => { menuOpen = false; if (typeof window !== "undefined" && window.innerWidth <= 800) open = false; }} />
         </div>
       {/if}
     </div>

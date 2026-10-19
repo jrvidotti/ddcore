@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isAssignmentOverdue, assignmentInitial, priorityBadgeClass } from "./doc-sidebar-assignment";
+import { isAssignmentOverdue, priorityBadgeClass } from "./doc-sidebar-assignment";
 
 describe("doc-sidebar-assignment helpers", () => {
   it("determines if an open assignment is overdue", () => {
@@ -12,12 +12,6 @@ describe("doc-sidebar-assignment helpers", () => {
     expect(isAssignmentOverdue("2026-09-13", "Cancelled", today)).toBe(false);
     // Empty dates are never overdue
     expect(isAssignmentOverdue("", "Open", today)).toBe(false);
-  });
-
-  it("extracts user initial correctly", () => {
-    expect(assignmentInitial("ana@x.com")).toBe("A");
-    expect(assignmentInitial(" Carlos ")).toBe("C");
-    expect(assignmentInitial("")).toBe("U");
   });
 
   it("returns priority badge classes", () => {

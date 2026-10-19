@@ -18,7 +18,8 @@
   import { getModifierKey } from "$lib/shortcuts.svelte";
   import { DocAssignments } from "$lib/assignments.svelte";
   import { today } from "$lib/datetime";
-  import { isAssignmentOverdue, assignmentInitial, priorityBadgeClass } from "./doc-sidebar-assignment";
+  import { isAssignmentOverdue, priorityBadgeClass } from "./doc-sidebar-assignment";
+  import { avatarInitial } from "./views/card-avatar";
   import { panels, setDocSidebarCollapsed } from "$lib/panels.svelte";
   import { attachmentsQuery, hasLooseAttachments, isAudioFile, looseAttachments, type AttachedFile } from "./doc-sidebar-attachments";
   import { formatFileSize } from "$lib/controls/attach-state";
@@ -217,7 +218,7 @@
             <div class="assignment-item" class:closed={todo.status !== "Open"}>
               <div class="assignment-main">
                 <div class="assignment-user">
-                  <span class="avatar-sm">{assignmentInitial(todo.allocated_to)}</span>
+                  <span class="avatar-sm">{avatarInitial(todo.allocated_to)}</span>
                   <span class="small user-name" title={todo.allocated_to}>{todo.allocated_to}</span>
                 </div>
                 {#if todo.description}
@@ -288,7 +289,7 @@
             <div class="assignment-item">
               <div class="assignment-main">
                 <div class="assignment-user">
-                  <span class="avatar-sm">{assignmentInitial(share.user)}</span>
+                  <span class="avatar-sm">{avatarInitial(share.user)}</span>
                   <span class="small user-name" title={share.user}>{share.user}</span>
                 </div>
                 <div class="assignment-meta small muted">

@@ -3,7 +3,7 @@
   // The portal's own chrome (OPS-10): the site's name, the pages of the
   // portals the user reaches, and their account. Nothing of the desk.
   import { __, boot, siteName } from "$lib/boot.svelte";
-  import { api } from "$lib/api";
+  import { signOut } from "$lib/sign-out";
   import { page } from "$app/state";
   import Icon from "$lib/components/Icon.svelte";
   import { portalHref } from "$lib/portal";
@@ -19,10 +19,6 @@
     return page.url.pathname === portalHref(slug, pageName) || page.url.pathname.startsWith(portalHref(slug, pageName) + "/");
   }
 
-  async function signOut() {
-    await api.logout();
-    location.href = "/login";
-  }
 </script>
 
 <div class="portal">
