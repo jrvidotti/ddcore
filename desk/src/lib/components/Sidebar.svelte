@@ -156,7 +156,7 @@
     <div class="personal">
       <a href="/app/notifications" class:active={active("/app/notifications")} title={tip(__("Notifications"))}>
         <Icon name="bell" /><span>{__("Notifications")}</span>
-        {#if notifications.unread > 0}<span class="notification-count" aria-label={__("{0} unread notifications", [notifications.unread])}>{notifications.unread}</span>{/if}
+        {#if notifications.count > 0}<span class="notification-count" aria-label={__("{0} unread notifications", [notifications.count])}>{notifications.count}</span>{/if}
       </a>
       <a href="/app/todo" class:active={active("/app/todo")} title={tip(__("To-Do"))}>
         <Icon name="check-square" /><span>{__("To-Do")}</span>

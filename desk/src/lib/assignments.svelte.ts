@@ -1,46 +1,14 @@
 import { api, type AssignArgs, type ToDoDoc } from "./api";
-import { subscribe } from "./events";
+import { liveCount } from "./live-count.svelte";
 import { today } from "./datetime";
 import { registerTitles } from "./titles.svelte";
 import { emptyTodoFilters, todoQuery, withTodoStatus, type TodoFilters } from "./todo-list";
 
-export const pendingTasks = $state({ count: 0, revision: 0 });
-let stopPending: (() => void) | null = null;
-
-export async function refreshPendingCount() {
-  try {
-    const res = await api.assignments.pending({ limit: 1, status: "Open", scope: "assigned_to_me" });
-    pendingTasks.count = res.total;
-    pendingTasks.revision++;
-  } catch {
-    pendingTasks.count = 0;
-  }
-}
-
-export function startPendingTasks() {
-  if (stopPending) return;
-  const refresh = () => { void refreshPendingCount(); };
-  const visible = () => { if (typeof document !== "undefined" && document.visibilityState === "visible") refresh(); };
-  const changed = subscribe("notifications_changed", refresh);
-  const reconnected = subscribe("hello", refresh);
-  if (typeof document !== "undefined") {
-    document.addEventListener("visibilitychange", visible);
-  }
-  stopPending = () => {
-    changed(); reconnected();
-    if (typeof document !== "undefined") {
-      document.removeEventListener("visibilitychange", visible);
-    }
-  };
-  refresh();
-}
-
-export function stopPendingTasks() {
-  stopPending?.();
-  stopPending = null;
-  pendingTasks.count = 0;
-  pendingTasks.revision++;
-}
+const pending = liveCount(async () => (await api.assignments.pending({ limit: 1, status: "Open", scope: "assigned_to_me" })).total);
+export const pendingTasks = pending.state;
+export const refreshPendingCount = pending.refresh;
+export const startPendingTasks = pending.start;
+export const stopPendingTasks = pending.stop;
 
 export class DocAssignments {
   rows = $state<ToDoDoc[]>([]);

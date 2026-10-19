@@ -235,8 +235,8 @@
           </button>
           <a href="/app/notifications" class="btn icon mobile-action-btn" aria-label={__("Notifications")}>
             <Icon name="bell" size={18} />
-            {#if notifications.unread > 0}
-              <span class="notification-count" aria-label={__("{0} unread notifications", [notifications.unread])}>{notifications.unread}</span>
+            {#if notifications.count > 0}
+              <span class="notification-count" aria-label={__("{0} unread notifications", [notifications.count])}>{notifications.count}</span>
             {/if}
           </a>
           <div class="dropdown mobile-user-dropdown">

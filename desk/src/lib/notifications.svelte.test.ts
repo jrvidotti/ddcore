@@ -29,7 +29,7 @@ describe("notification session recovery", () => {
   it("reloads unread counts on opening a session, SSE reconnect, change and returning to the tab", async () => {
     const count = vi.spyOn(api.notifications, "count").mockResolvedValue(3);
     const document = session();
-    await Promise.resolve(); expect(notifications.unread).toBe(3);
+    await Promise.resolve(); expect(notifications.count).toBe(3);
     const source = FakeSource.instances[0];
     source.emit("hello"); source.emit("notifications_changed");
     document.addEventListener.mock.calls[0][1]();
@@ -48,14 +48,14 @@ describe("notification session recovery", () => {
     vi.spyOn(api.notifications, "count").mockReturnValue(new Promise<number>(r => { resolve = r; }));
     const pending = refreshNotifications();
     stopNotifications(); resolve(9); await pending;
-    expect(notifications.unread).toBe(0);
+    expect(notifications.count).toBe(0);
   });
 
   it("keeps newer counts when responses arrive out of order", async () => {
     let resolve!: (count: number) => void;
     vi.spyOn(api.notifications, "count").mockReturnValueOnce(new Promise<number>(r => { resolve = r; })).mockResolvedValueOnce(1);
     const old = refreshNotifications(); await refreshNotifications(); resolve(9); await old;
-    expect(notifications.unread).toBe(1);
+    expect(notifications.count).toBe(1);
   });
 
   it("cancels scheduled SSE reconnect when the session ends", () => {

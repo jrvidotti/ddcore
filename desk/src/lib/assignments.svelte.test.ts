@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api, type ToDoDoc, type PendingWorkPage } from "./api";
-import { DocAssignments, PendingWork, TODO_WINDOW_LIMIT, pendingTasks, refreshPendingCount } from "./assignments.svelte";
+import { DocAssignments, PendingWork, TODO_WINDOW_LIMIT, pendingTasks, refreshPendingCount, stopPendingTasks } from "./assignments.svelte";
 
 const sampleTodo: ToDoDoc = {
   id: "TODO-0001",
@@ -125,6 +125,26 @@ describe("PendingWork", () => {
     await refreshPendingCount();
 
     expect(pendingTasks.count).toBe(5);
+  });
+
+  it("drops a pending count that arrives after a newer one or after sign-out", async () => {
+    let late!: (r: PendingWorkPage) => void;
+    vi.spyOn(api.assignments, "pending")
+      .mockReturnValueOnce(new Promise<PendingWorkPage>((r) => { late = r; }))
+      .mockResolvedValueOnce({ data: [], total: 1 });
+    const old = refreshPendingCount();
+    await refreshPendingCount();
+    late({ data: [], total: 9 });
+    await old;
+    expect(pendingTasks.count).toBe(1);
+
+    let after!: (r: PendingWorkPage) => void;
+    vi.spyOn(api.assignments, "pending").mockReturnValueOnce(new Promise<PendingWorkPage>((r) => { after = r; }));
+    const pending = refreshPendingCount();
+    stopPendingTasks();
+    after({ data: [], total: 7 });
+    await pending;
+    expect(pendingTasks.count).toBe(0);
   });
 
   it("sends the filters, the order and the page size", async () => {
