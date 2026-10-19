@@ -10,7 +10,7 @@
   import type { FormController } from "$lib/form.svelte";
   import ReportGrid from "$lib/components/ReportGrid.svelte";
   import { getRememberedWorkspace } from "$lib/components/sidebar-workspace";
-  import { exportBaseName, type GridSortState } from "$lib/grid-rows";
+  import { declaredSort, exportBaseName } from "$lib/grid-rows";
   import { reportFiltersFor } from "./report-field";
 
   let { frm, field }: { frm: FormController; field: Field } = $props();
@@ -24,7 +24,6 @@
   const wsPrefix = $derived(workspace ? `/app/${seg(workspace)}` : "/app");
   // the report's columns that a script's grids.<field>.onCellClick turns into buttons
   const clickable = $derived(new Set<string>((result?.columns || []).map((c: any) => c.fieldname).filter((f: string) => frm.cellClickHandlers(field.fieldname!, f).length)));
-  const baseSort = $derived<GridSortState | null>(field.gridSort?.field ? { field: field.gridSort.field, order: field.gridSort.order === "desc" ? "desc" : "asc" } : null);
 
   // runs on load, after a save or a reload (a new `modified`) and on refreshField
   $effect(() => {
@@ -58,7 +57,7 @@
   {:else if result}
     <ReportGrid bind:this={grid} columns={result.columns || []} rows={result.rows || []} {wsPrefix}
       filename={exportBaseName(frm.doctype, frm.doc.id, field.fieldname)} sheetName={field.label}
-      {baseSort} filters={field.gridFilters || []} search={field.gridSearch || []} sortable={!!field.gridSortable} selectable={!!field.gridSelect} exportable={!!field.gridExport && canExport}
+      baseSort={declaredSort(field.gridSort)} filters={field.gridFilters || []} search={field.gridSearch || []} sortable={!!field.gridSortable} selectable={!!field.gridSelect} exportable={!!field.gridExport && canExport}
       buttons={frm.fieldButtons[field.fieldname!] || []} actions={frm.gridActions[field.fieldname!] || []}
       {clickable} oncellclick={(column, row) => frm.clickCell(field.fieldname!, column, row)}
       onrowclick={frm.rowClickHandlers(field.fieldname!).length ? (row) => frm.clickRow(field.fieldname!, row) : undefined} />

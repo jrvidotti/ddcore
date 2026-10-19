@@ -8,7 +8,8 @@
   import SelectIndicator from "$lib/components/SelectIndicator.svelte";
   import { getLinkTitle } from "$lib/titles.svelte";
   import { isNumericFieldtype, type GridFilter } from "$lib/meta";
-  import { downloadTable, exportTable, filterRows, nextSort, searchRows, sortRows, type GridSortState } from "$lib/grid-rows";
+  import { downloadTable, exportTable, type GridSortState } from "$lib/grid-rows";
+  import { GridRowsState } from "$lib/grid-rows-state.svelte";
   import type { FieldButton, GridAction } from "$lib/form.svelte";
   import FieldButtons from "$lib/controls/FieldButtons.svelte";
   import GridActions from "$lib/controls/GridActions.svelte";
@@ -39,42 +40,26 @@
   } = $props();
 
   const num = (c: any) => isNumericFieldtype(c.fieldtype);
-  let userSort = $state<GridSortState | null>(null);
-  const sort = $derived(userSort ?? baseSort);
-  // the preset filters narrow the rows on screen; selection, totals and
-  // export follow what is shown
-  let activeFilters = $state<Set<number> | null>(null);
-  const active = $derived(activeFilters ?? new Set(filters.flatMap((f, i) => (f.default ? [i] : []))));
-  let query = $state("");
-  const visibleRows = $derived(searchRows(filterRows(rows, [...active].map((i) => filters[i]?.filters).filter(Boolean), columns), query, search, columns, getLinkTitle));
-  const viewRows = $derived(sortRows(visibleRows, sort, columns, getLinkTitle));
-  let selected = $state<Set<any>>(new Set());
-  const chosen = $derived(visibleRows.filter((r) => selected.has(r)));
-  // the same rows in screen order: what export and the grid actions get
-  const chosenOnScreen = $derived(viewRows.filter((r) => selected.has(r)));
-  const allSelected = $derived(visibleRows.length > 0 && chosen.length === visibleRows.length);
-  function toggleFilter(i: number) { const s = new Set(active); if (s.has(i)) s.delete(i); else s.add(i); activeFilters = s; }
+  const grid = new GridRowsState({ rows: () => rows, columns: () => columns, presets: () => filters, search: () => search, baseSort: () => baseSort });
+  // the totals and export follow what is shown
 
   // footer with the sum of every numeric column (Percent is an average, not a sum)
   const totals = $derived.by((): Record<string, number> | null => {
-    if (!visibleRows.length) return null;
+    if (!grid.visibleRows.length) return null;
     const cols = columns.filter((c: any) => num(c) && c.fieldtype !== "Percent");
     if (!cols.length) return null;
     const out: Record<string, number> = {};
-    for (const c of cols) out[c.fieldname] = visibleRows.reduce((a: number, r: any) => a + (Number(r[c.fieldname]) || 0), 0);
+    for (const c of cols) out[c.fieldname] = grid.visibleRows.reduce((a: number, r: any) => a + (Number(r[c.fieldname]) || 0), 0);
     return out;
   });
 
-  function toggle(row: any) { const s = new Set(selected); if (s.has(row)) s.delete(row); else s.add(row); selected = s; }
-  function toggleAll(on: boolean) { selected = on ? new Set(visibleRows) : new Set(); }
   /** The selected rows on screen, in screen order (a Report field's frm.getSelectedRows). */
-  export function selectedRows() { return chosenOnScreen; }
-  export function clearSelection() { selected = new Set(); }
+  export function selectedRows() { return grid.chosenOnScreen; }
+  export function clearSelection() { grid.clearSelection(); }
   function exportRows(format: "csv" | "xlsx") {
-    const out = chosen.length ? chosenOnScreen : viewRows;
-    const { header, cells } = exportTable(out, columns, getLinkTitle);
+    const { header, cells } = exportTable(grid.forExport, columns, getLinkTitle);
     // the totals are of every row on screen, so they only go along with all of them
-    if (totals && !chosen.length) cells.push(columns.map((c: any, i: number) => (totals[c.fieldname] !== undefined ? totals[c.fieldname] : i === 0 ? __("Total") : "")));
+    if (totals && !grid.chosen.length) cells.push(columns.map((c: any, i: number) => (totals[c.fieldname] !== undefined ? totals[c.fieldname] : i === 0 ? __("Total") : "")));
     downloadTable(format, filename, header, cells, sheetName);
   }
 </script>
@@ -86,14 +71,14 @@
 {/snippet}
 
 <div class="card" style="overflow:auto">
-  {#if exportable || filters.length || search.length || buttons.length || (selectable && chosen.length)}
+  {#if exportable || filters.length || search.length || buttons.length || (selectable && grid.chosen.length)}
     <div class="grid-toolbar">
-      {#if search.length}<GridSearch bind:value={query} />{/if}
-      {#if filters.length}<GridFilters {filters} {active} ontoggle={toggleFilter} />{/if}
-      {#if selectable && chosen.length}
-        <span class="muted">{__("{0} selected", [chosen.length])}</span>
-        <GridActions {actions} rows={chosenOnScreen} ondone={clearSelection} />
-        <button class="btn sm" onclick={() => toggleAll(false)}>{__("Clear selection")}</button>
+      {#if search.length}<GridSearch bind:value={grid.query} />{/if}
+      {#if filters.length}<GridFilters {filters} active={grid.active} ontoggle={(i) => grid.toggleFilter(i)} />{/if}
+      {#if selectable && grid.chosen.length}
+        <span class="muted">{__("{0} selected", [grid.chosen.length])}</span>
+        <GridActions {actions} rows={grid.chosenOnScreen} ondone={clearSelection} />
+        <button class="btn sm" onclick={() => grid.toggleAll(false)}>{__("Clear selection")}</button>
       {/if}
       <span class="spacer"></span>
       <FieldButtons {buttons} small />
@@ -103,20 +88,20 @@
   <table class="grid">
     <thead>
       <tr>
-        {#if selectable}<th style="width:28px"><input type="checkbox" aria-label={__("Select all")} checked={allSelected} onchange={(e) => toggleAll(e.currentTarget.checked)} /></th>{/if}
+        {#if selectable}<th style="width:28px"><input type="checkbox" aria-label={__("Select all")} checked={grid.allSelected} onchange={(e) => grid.toggleAll(e.currentTarget.checked)} /></th>{/if}
         {#each columns as c}
-          {@const sorted = sort?.field === c.fieldname ? sort!.order : null}
+          {@const sorted = grid.sort?.field === c.fieldname ? grid.sort!.order : null}
           <th class:num={num(c)} style="min-width:{c.width || 100}px" aria-sort={sorted === "asc" ? "ascending" : sorted === "desc" ? "descending" : sortable ? "none" : undefined}>
-            {#if sortable}<button class="grid-sort" title={__("Sort by {0}", [c.label])} onclick={() => (userSort = nextSort(sort, c.fieldname, baseSort))}>{c.label}{#if sorted} {sorted === "asc" ? "↑" : "↓"}{/if}</button>{:else}{c.label}{/if}
+            {#if sortable}<button class="grid-sort" title={__("Sort by {0}", [c.label])} onclick={() => grid.toggleSort(c.fieldname)}>{c.label}{#if sorted} {sorted === "asc" ? "↑" : "↓"}{/if}</button>{:else}{c.label}{/if}
           </th>
         {/each}
       </tr>
     </thead>
     <tbody>
-      {#each viewRows as r, i}
+      {#each grid.viewRows as r, i}
         <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
         <tr class="row" class:row-click={!!onrowclick} onclick={onrowclick ? (e) => { if (isRowClick(e)) onrowclick(r); } : undefined}>
-          {#if selectable}<td><input type="checkbox" aria-label={__("Select row {0}", [i + 1])} checked={selected.has(r)} onchange={() => toggle(r)} /></td>{/if}
+          {#if selectable}<td><input type="checkbox" aria-label={__("Select row {0}", [i + 1])} checked={grid.selected.has(r)} onchange={() => grid.toggle(r)} /></td>{/if}
           {#each columns as c}
             <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
             <td class:num={num(c)} onclick={forwardCellClick}>
@@ -129,7 +114,7 @@
           {/each}
         </tr>
       {/each}
-      {#if !viewRows.length}<tr><td colspan={columns.length + (selectable ? 1 : 0) || 1} class="empty">{rows.length ? __("No rows match the filters") : __("No records")}</td></tr>{/if}
+      {#if !grid.viewRows.length}<tr><td colspan={columns.length + (selectable ? 1 : 0) || 1} class="empty">{rows.length ? __("No rows match the filters") : __("No records")}</td></tr>{/if}
     </tbody>
     {#if totals}
       <tfoot>
