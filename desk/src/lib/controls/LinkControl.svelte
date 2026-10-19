@@ -6,6 +6,7 @@
   import { boot, __ } from "$lib/boot.svelte";
   import { getLinkTitle, setLinkTitle } from "$lib/titles.svelte";
   import { anchored } from "./floating";
+  import { LinkSearch } from "./link-search.svelte";
   import { page } from "$app/state";
   import { getRememberedWorkspace } from "$lib/components/sidebar-workspace";
   import { getMeta } from "$lib/meta";
@@ -20,38 +21,29 @@
 
   const target = $derived(field.fieldtype === "Dynamic Link" ? doc?.[field.options] : field.options);
   const currentTitle = $derived(target && value ? getLinkTitle(target, value) : "");
-  let text = $state("");
-  let open = $state(false);
-  let options = $state<any[]>([]);
-  let active = $state(0);
-  let timer: any;
-  let searchVersion = 0;
+  const ls = new LinkSearch({
+    target: () => target,
+    fetch: (txt) => (searchFn ? searchFn(txt) : api.linkSearch(target, txt, query?.()?.filters, 20)),
+    ownTitle: (o) => (searchFn ? String(o.title || o.id) : undefined),
+  });
   let focused = $state(false);
   let inputEl: HTMLInputElement | null = $state(null);
   let listEl: HTMLDivElement | null = $state(null);
 
   // Keep the option the arrow keys reach inside the list's scroll.
   $effect(() => {
-    const el = listEl?.children[active] as HTMLElement | undefined;
+    const el = listEl?.children[ls.active] as HTMLElement | undefined;
     el?.scrollIntoView({ block: "nearest" });
   });
 
   $effect(() => {
     if (!focused) {
-      text = currentTitle || value || "";
+      ls.text = currentTitle || value || "";
     }
   });
 
   const titleField = $derived(target ? boot.data?.doctypes[target]?.titleField : undefined);
   const linkSubtitle = $derived(target ? boot.data?.doctypes[target]?.linkSubtitle : undefined);
-
-  function getOptionTitle(o: any): string {
-    if (searchFn) return String(o.title || o.id);
-    // a translateId target: the server sends the translated id
-    if (o._title) return String(o._title);
-    if (titleField && o[titleField]) return String(o[titleField]);
-    return o.id;
-  }
 
   /** a union of DocTypes (DAT-07): each option says which one it comes from */
   const virtualTarget = $derived(!!(target && boot.data?.virtuals?.[target]));
@@ -72,80 +64,47 @@
     return Object.entries(o).filter(([k, v]) => k !== "id" && v).map(([, v]) => v).join(" · ");
   }
 
-  async function search(txt: string) {
-    if (!target) { options = []; return; }
-    const version = ++searchVersion;
-    try {
-      const filters = query?.()?.filters;
-      const results = searchFn ? await searchFn(txt) : await api.linkSearch(target, txt, filters, 20);
-      if (version !== searchVersion) return;
-      options = results;
-      for (const o of results) {
-        setLinkTitle(target, o.id, getOptionTitle(o));
-      }
-      active = 0;
-      open = true;
-    } catch { options = []; }
-  }
-
   function oninput(e: Event) {
-    text = (e.target as HTMLInputElement).value;
-    clearTimeout(timer);
-    if (text === "") {
-      onchange(null);
-      void search("");
-      return;
-    }
-    timer = setTimeout(() => search(text), 150);
+    const txt = (e.target as HTMLInputElement).value;
+    if (txt === "") onchange(null);
+    ls.typed(txt, txt === "");
   }
 
   function pick(o: any) {
-    const optTitle = getOptionTitle(o);
+    const optTitle = ls.title(o);
     setLinkTitle(target, o.id, optTitle);
     onchange(o.id);
-    text = optTitle;
-    open = false;
+    ls.text = optTitle;
+    ls.open = false;
   }
 
   function clear() {
-    clearTimeout(timer);
-    searchVersion++;
-    text = "";
-    options = [];
-    open = false;
+    ls.cancel();
+    ls.text = "";
+    ls.options = [];
+    ls.open = false;
     onchange(null);
-    void search("");
+    void ls.search("");
     inputEl?.focus();
   }
 
   function onblur() {
     focused = false;
-    clearTimeout(timer);
-    searchVersion++;
-    setTimeout(() => {
-      open = false;
+    ls.blur(() => {
       const curTitle = currentTitle || value || "";
-      if (text === "" && value) {
+      if (ls.text === "" && value) {
         onchange(null);
-      } else if (text !== curTitle && text !== value && text !== "") {
-        const exact = options.find((o) => o.id === text || getOptionTitle(o) === text || Object.values(o).includes(text));
+      } else if (ls.text !== curTitle && ls.text !== value && ls.text !== "") {
+        const exact = ls.options.find((o) => o.id === ls.text || ls.title(o) === ls.text || Object.values(o).includes(ls.text));
         if (exact) {
           pick(exact);
         } else {
-          text = curTitle;
+          ls.text = curTitle;
         }
       } else {
-        text = curTitle;
+        ls.text = curTitle;
       }
-    }, 150);
-  }
-
-  function onkeydown(e: KeyboardEvent) {
-    if (!open) return;
-    if (e.key === "ArrowDown") { active = Math.min(active + 1, options.length - 1); e.preventDefault(); }
-    else if (e.key === "ArrowUp") { active = Math.max(active - 1, 0); e.preventDefault(); }
-    else if (e.key === "Enter") { if (options[active]) pick(options[active]); e.preventDefault(); }
-    else if (e.key === "Escape") { open = false; e.preventDefault(); }
+    });
   }
 
   // "+" creates the target in a dialog, for a user who may create it; the desk only, not a portal
@@ -159,15 +118,14 @@
   const showAdd = $derived(canCreate && !value && !!target && !readOnly && !searchFn);
 
   async function add() {
-    clearTimeout(timer);
-    searchVersion++;
-    open = false;
-    const typed = text;
+    ls.cancel();
+    ls.open = false;
+    const typed = ls.text;
     const created = await quickCreate(target, typed);
     if (!created) return;
     setLinkTitle(target, created.id, created.title);
     onchange(created.id);
-    text = created.title;
+    ls.text = created.title;
   }
 
   const label = $derived(target && boot.data?.doctypes[target]?.label);
@@ -176,9 +134,9 @@
 </script>
 
 <div class="link-wrap" class:has-open={!!value && !!target} class:has-clear={!!value && !!target && !readOnly} class:has-add={showAdd}>
-  <input bind:this={inputEl} {id} class="input" class:error={!!error} readonly={readOnly || !target} value={text} placeholder={target ? "" : __("Choose the type first")} autocomplete="off"
-    title={value ? `${text}${text !== value ? ` (${value})` : ""}` : ""}
-    onfocus={() => { focused = true; if (!readOnly) search(text); }} {oninput} {onblur} {onkeydown} data-fieldtype="Link" />
+  <input bind:this={inputEl} {id} class="input" class:error={!!error} readonly={readOnly || !target} value={ls.text} placeholder={target ? "" : __("Choose the type first")} autocomplete="off"
+    title={value ? `${ls.text}${ls.text !== value ? ` (${value})` : ""}` : ""}
+    onfocus={() => { focused = true; if (!readOnly) ls.search(ls.text); }} {oninput} {onblur} onkeydown={(e) => ls.keydown(e, ls.options, pick)} data-fieldtype="Link" />
   {#if showAdd}
     <button type="button" class="add" aria-label={__("New {0}", [label || target])} title={__("New {0}", [label || target])} onmousedown={(e) => e.preventDefault()} onclick={add}><Icon name="plus" size={14} /></button>
   {/if}
@@ -188,11 +146,11 @@
     {/if}
     {#if !searchFn}<a class="open" href={`${wsPrefix}/${seg(target)}/${encodeURIComponent(value)}`} title={__("Open {0} ({1})", [label || target, value])}>↗</a>{/if}
   {/if}
-  {#if open && !readOnly && options.length}
-    <div bind:this={listEl} class="options" role="listbox" use:anchored={{ anchor: inputEl, matchWidth: true, gap: 2, content: options.length }}>
-      {#each options as o, i}
-        <div role="option" tabindex="-1" aria-selected={i === active} class:active={i === active} onmousedown={() => pick(o)}>
-          <div class="ttl">{getOptionTitle(o)}</div>
+  {#if ls.open && !readOnly && ls.options.length}
+    <div bind:this={listEl} class="options" role="listbox" use:anchored={{ anchor: inputEl, matchWidth: true, gap: 2, content: ls.options.length }}>
+      {#each ls.options as o, i}
+        <div role="option" tabindex="-1" aria-selected={i === ls.active} class:active={i === ls.active} onmousedown={() => pick(o)}>
+          <div class="ttl">{ls.title(o)}</div>
           {#if getOptionSubtitle(o)}<div class="sub">{getOptionSubtitle(o)}</div>{/if}
         </div>
       {/each}

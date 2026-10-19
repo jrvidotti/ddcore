@@ -10,6 +10,7 @@
   import { page } from "$app/state";
   import { getRememberedWorkspace } from "$lib/components/sidebar-workspace";
   import { anchored } from "./floating";
+  import { LinkSearch } from "./link-search.svelte";
   import { multiSelectLinkField, multiSelectValues, withValue, withoutValue } from "./multiselect-state";
 
   let { field, value, onchange, doc = {}, readOnly = false, query = undefined, error = "", id = "", childMeta = undefined }:
@@ -29,51 +30,23 @@
   const target = $derived(link?.options as string | undefined);
   const values = $derived(link ? multiSelectValues(value, link.fieldname!) : []);
 
-  let text = $state("");
-  let open = $state(false);
-  let options = $state<any[]>([]);
-  let active = $state(0);
-  let timer: any;
-  let searchVersion = 0;
+  // one more than a page, so a page of choices already made still leaves some
+  const ls = new LinkSearch({ target: () => target, fetch: (txt) => api.linkSearch(target!, txt, query?.()?.filters, 20 + values.length) });
   let inputEl: HTMLInputElement | null = $state(null);
   let wrapEl: HTMLDivElement | null = $state(null);
 
-  const titleField = $derived(target ? boot.data?.doctypes[target]?.titleField : undefined);
-  function optionTitle(o: any): string {
-    if (o._title) return String(o._title);
-    if (titleField && o[titleField]) return String(o[titleField]);
-    return o.id;
-  }
-  const shown = $derived(options.filter((o) => !values.includes(o.id)));
+  const shown = $derived(ls.options.filter((o) => !values.includes(o.id)));
 
-  async function search(txt: string) {
-    if (!target) return;
-    const version = ++searchVersion;
-    try {
-      // one more than a page, so a page of choices already made still leaves some
-      const results = await api.linkSearch(target, txt, query?.()?.filters, 20 + values.length);
-      if (version !== searchVersion) return;
-      for (const o of results) setLinkTitle(target, o.id, optionTitle(o));
-      options = results;
-      active = 0;
-      open = true;
-    } catch { options = []; }
-  }
-
-  function oninput(e: Event) {
-    text = (e.target as HTMLInputElement).value;
-    clearTimeout(timer);
-    timer = setTimeout(() => search(text), 150);
-  }
+  function oninput(e: Event) { ls.typed((e.target as HTMLInputElement).value); }
 
   // the list stays open after a pick, so several values can be chosen in a row;
   // the option's mousedown keeps the focus in the input for that
   function pick(o: any) {
     if (!link || !target || !child) return;
-    setLinkTitle(target, o.id, optionTitle(o));
+    setLinkTitle(target, o.id, ls.title(o));
     onchange(withValue(value, link.fieldname!, o.id, child.name));
-    text = "";
-    void search("");
+    ls.text = "";
+    void ls.search("");
     inputEl?.focus();
   }
 
@@ -82,23 +55,15 @@
     onchange(withoutValue(value, link.fieldname!, v));
   }
 
-  function onblur() {
-    clearTimeout(timer);
-    searchVersion++;
-    setTimeout(() => { open = false; text = ""; }, 150);
-  }
+  function onblur() { ls.blur(() => (ls.text = "")); }
 
   function onkeydown(e: KeyboardEvent) {
-    if (e.key === "Backspace" && text === "" && values.length) {
+    if (e.key === "Backspace" && ls.text === "" && values.length) {
       remove(values[values.length - 1]);
       e.preventDefault();
       return;
     }
-    if (!open) return;
-    if (e.key === "ArrowDown") { active = Math.min(active + 1, shown.length - 1); e.preventDefault(); }
-    else if (e.key === "ArrowUp") { active = Math.max(active - 1, 0); e.preventDefault(); }
-    else if (e.key === "Enter") { if (shown[active]) pick(shown[active]); e.preventDefault(); }
-    else if (e.key === "Escape") { open = false; e.preventDefault(); }
+    ls.keydown(e, shown, pick);
   }
 
   const label = $derived(target && boot.data?.doctypes[target]?.label);
@@ -121,14 +86,14 @@
     </span>
   {/each}
   {#if !readOnly}
-    <input bind:this={inputEl} {id} class="ms-input" value={text} autocomplete="off" disabled={!target}
+    <input bind:this={inputEl} {id} class="ms-input" value={ls.text} autocomplete="off" disabled={!target}
       placeholder={values.length ? "" : label ? __("Add {0}", [label]) : ""}
-      onfocus={() => search(text)} {oninput} {onblur} {onkeydown} />
+      onfocus={() => ls.search(ls.text)} {oninput} {onblur} {onkeydown} />
   {/if}
-  {#if open && !readOnly && shown.length}
+  {#if ls.open && !readOnly && shown.length}
     <div class="ms-options" role="listbox" use:anchored={{ anchor: wrapEl, matchWidth: true, gap: 2, content: shown.length }}>
       {#each shown as o, i (o.id)}
-        <div role="option" tabindex="-1" aria-selected={i === active} class:active={i === active} onmousedown={(e) => { e.preventDefault(); pick(o); }}>{optionTitle(o)}</div>
+        <div role="option" tabindex="-1" aria-selected={i === ls.active} class:active={i === ls.active} onmousedown={(e) => { e.preventDefault(); pick(o); }}>{ls.title(o)}</div>
       {/each}
     </div>
   {/if}
