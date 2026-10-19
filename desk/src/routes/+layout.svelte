@@ -13,19 +13,19 @@
   import Toasts from "$lib/components/Toasts.svelte";
   import Dialogs from "$lib/components/Dialogs.svelte";
   import Icon from "$lib/components/Icon.svelte";
-  import TenantMenu from "$lib/components/TenantMenu.svelte";
+  import UserMenuItems from "$lib/components/UserMenuItems.svelte";
+  import { avatarInitial } from "$lib/components/views/card-avatar";
   import TenantMismatch from "$lib/components/TenantMismatch.svelte";
   import { tenantLinkState, tenantParam } from "$lib/tenant";
   import Spinner from "$lib/components/Spinner.svelte";
   import ShortcutsModal from "$lib/components/ShortcutsModal.svelte";
   import FeedbackModal from "$lib/components/FeedbackModal.svelte";
-  import { openFeedback } from "$lib/feedback.svelte";
   import { installClientErrorListeners } from "$lib/client-errors";
   import SearchPalette from "$lib/components/SearchPalette.svelte";
   import { shouldOpenSearch } from "$lib/components/search-palette";
   import { ui, toast } from "$lib/ui.svelte";
-  import { shouldToggleShortcuts, toggleShortcutsHelp, shortcutsState, closeShortcutsHelp, openShortcutsHelp, searchState, openSearch, closeSearch } from "$lib/shortcuts.svelte";
-  import { api, onMessage } from "$lib/api";
+  import { shouldToggleShortcuts, toggleShortcutsHelp, closeShortcutsHelp, searchState, openSearch, closeSearch } from "$lib/shortcuts.svelte";
+  import { onMessage } from "$lib/api";
   import { isPortalPath, portalRedirect } from "$lib/portal";
   import { canonicalAppPath } from "$lib/routes";
   import { page } from "$app/state";
@@ -59,7 +59,6 @@
   }
 
   const displayName = $derived(boot.data?.userDoc?.full_name || boot.data?.user || "");
-  const avatarInitial = (name: string) => (name || "U").trim().charAt(0).toUpperCase();
 
   const activeWorkspaceName = $derived.by(() => {
     const ws = resolveActiveWorkspace({
@@ -76,10 +75,6 @@
     if (isLoggedIn() && !isLogin && !isPortal && shouldOpenSearch(e)) {
       e.preventDefault();
       if (searchState.open) closeSearch(); else { closeShortcutsHelp(); openSearch(); }
-      return;
-    }
-    if (shortcutsState.open && e.key === "Escape") {
-      closeShortcutsHelp();
       return;
     }
     if (userMenuOpen && e.key === "Escape") {
@@ -101,18 +96,6 @@
     if (userMenuOpen && !target?.closest(".mobile-user-dropdown")) {
       userMenuOpen = false;
     }
-  }
-
-  async function handleLogout() {
-    userMenuOpen = false;
-    if (typeof window !== "undefined" && window.innerWidth <= 800) {
-      sidebarOpen = false;
-    }
-    await api.logout();
-    stopNotifications();
-    stopPendingTasks();
-    disconnectEvents();
-    location.href = "/login";
   }
 
   // Automatically close sidebar and user menu on mobile when navigating to another route
@@ -248,8 +231,8 @@
           </button>
           <a href="/app/notifications" class="btn icon mobile-action-btn" aria-label={__("Notifications")}>
             <Icon name="bell" size={18} />
-            {#if notifications.unread > 0}
-              <span class="notification-count" aria-label={__("{0} unread notifications", [notifications.unread])}>{notifications.unread}</span>
+            {#if notifications.count > 0}
+              <span class="notification-count" aria-label={__("{0} unread notifications", [notifications.count])}>{notifications.count}</span>
             {/if}
           </a>
           <div class="dropdown mobile-user-dropdown">
@@ -272,39 +255,7 @@
                   {/if}
                 </div>
                 <div class="mobile-menu-divider"></div>
-                <TenantMenu onpick={() => (userMenuOpen = false)} />
-                <button
-                  role="menuitem"
-                  onclick={() => { userMenuOpen = false; goto("/app/profile"); }}
-                >
-                  <Icon name="user" size={14} /> <span>{__("My profile")}</span>
-                </button>
-                {#if boot.data?.portals?.length}
-                  <button role="menuitem" onclick={() => { userMenuOpen = false; goto("/portal"); }}>
-                    <Icon name="external-link" size={14} /> <span>{__("My portal")}</span>
-                  </button>
-                {/if}
-                <button
-                  role="menuitem"
-                  onclick={() => { userMenuOpen = false; openShortcutsHelp(); }}
-                >
-                  <Icon name="keyboard" size={14} /> <span>{__("Keyboard shortcuts")}</span>
-                </button>
-                {#if boot.data?.site?.feedback}
-                  <button
-                    role="menuitem"
-                    onclick={() => { userMenuOpen = false; openFeedback(); }}
-                  >
-                    <Icon name="message-square" size={14} /> <span>{__("Feedback")}</span>
-                  </button>
-                {/if}
-                <div class="mobile-menu-divider"></div>
-                <button
-                  role="menuitem"
-                  onclick={handleLogout}
-                >
-                  <Icon name="log-out" size={14} /> <span>{__("Sign out")}</span>
-                </button>
+                <UserMenuItems onpick={() => (userMenuOpen = false)} />
               </div>
             {/if}
           </div>
@@ -468,7 +419,7 @@
       z-index: 60;
       padding: 4px;
     }
-    .mobile-user-dropdown .menu button {
+    .mobile-user-dropdown .menu > :global(button) {
       display: flex;
       align-items: center;
       gap: 8px;
@@ -482,8 +433,13 @@
       font-size: 13px;
       color: var(--text);
     }
-    .mobile-user-dropdown .menu button:hover {
+    .mobile-user-dropdown .menu > :global(button:hover) {
       background: var(--hover);
+    }
+    .mobile-user-dropdown .menu > :global(button:last-child) {
+      margin-top: 4px;
+      border-top: 1px solid var(--border);
+      border-radius: 0 0 5px 5px;
     }
     .mobile-user-info {
       padding: 8px 10px 6px;

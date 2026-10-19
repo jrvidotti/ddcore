@@ -3,7 +3,7 @@
   import { __, doctypeLabel } from "$lib/boot.svelte";
   import type { ListViewOptions } from "$lib/desk-sdk";
   import type { Field, Meta } from "$lib/meta";
-  import { formatValue, statusColor } from "$lib/format";
+  import { docStatus, formatValue, statusColor } from "$lib/format";
   import { getLinkTitle } from "$lib/titles.svelte";
   import { SvelteSet } from "svelte/reactivity";
   import { resolveCardFields } from "./card-fields";
@@ -36,12 +36,8 @@
   function indicator(row: any) {
     const custom = card.indicator || settings.indicator;
     if (custom) return custom(row);
-    if (statusField && row[statusField.fieldname!]) return { label: formatValue(row[statusField.fieldname!], statusField), color: statusColor(row[statusField.fieldname!], statusField) };
-    if (meta.doctype.submittable) {
-      const status = Number(row.docstatus) === 2 ? "Cancelled" : Number(row.docstatus) === 1 ? "Submitted" : "Draft";
-      return { label: __(status), color: statusColor(status) };
-    }
-    return null;
+    const st = docStatus(row, statusField, !!meta.doctype.submittable);
+    return st.value ? { label: st.label, color: statusColor(st.value, statusField) } : null;
   }
 </script>
 

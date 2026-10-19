@@ -16,10 +16,15 @@ older series, and `whats_new` reads across every one of them.
 
 ### Fixed
 
+- **The change history shows values the way the lists do.** A Select now reads as its label, a Link as its title, and a Currency at its field's precision instead of the site default; Dates, Months and the other types it shared with the lists follow the same rules.
+- **Escape in an open options list inside a dialog closes only the list.** A Link field's list or a Table MultiSelect's list, opened in a dialog such as Assign or New Task, used to take the whole dialog with it on Escape.
+- **The due date of an assignment and of a new To-Do task follows the site's date format.** Both forms used the browser's native date input, in the browser's locale; they now use the desk's date control like every other date field. The New Task form also lists the assignee first, like the Assign form.
 - **The `generate_types` MCP tool reports a failed write.** It dropped the error and listed only the files it had written; it now fails with the error, and `migrate` adds a `typesError` field when the typings could not be written (the migration itself is unaffected). Writing stops at the first app it cannot write, so the apps after it (in `migrate` as well) are not written either.
 
 ### Changed
 
+- **The desk's dialogs close the same way.** Share, Assign, Shortcuts, New Task, Data Import, Feedback and the change-history dialog all close on Escape, on a click on the backdrop and from the close button, and Escape in any of them no longer reaches the page behind. The change-history dialog gains the backdrop click it lacked. They share one `Modal` component.
+- **One dismiss action for the desk's popovers.** The date, month and colour pickers, the Columns menu, the sidebar menus and the space badge share one "close on a press outside or Escape" action. In the portal, Escape now closes the account menu; in the sidebar an Escape from inside an open menu closes only that menu; and an Escape pressed outside an open colour picker closes it and returns the focus to its swatch. The date, month and colour pickers now also close when a touch starts outside them, even a scroll.
 - **`ddcore types` no longer opens the database.** It compiles the apps and writes `.ddcore/types.d.ts` without connecting, so it works with Postgres down or no dsn configured (`ddcore migrate` still ends by writing the types, from the engine it already has open instead of loading the apps a second time). It also ignores `--tenant` and skips the site-version check now.
 - **`ddcore i18n -help` prints the usage and exits 0** like the other commands; it used to fail with `unknown i18n subcommand`.
 

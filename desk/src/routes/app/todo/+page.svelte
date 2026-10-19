@@ -3,12 +3,11 @@
   // The To-Do list: the caller's assignments through /api/todo/pending, which
   // enforces who sees what (the assigner too, and never a task on a document
   // the caller can't read), drawn with the generic list's views.
-  import { focusTrap } from "$lib/focus-trap";
   import { onDestroy, onMount, untrack } from "svelte";
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
   import { PendingWork, refreshPendingCount, TODO_WINDOW_LIMIT } from "$lib/assignments.svelte";
-  import { api, type ToDoDoc } from "$lib/api";
+  import { api, type AssignArgs, type ToDoDoc } from "$lib/api";
   import { __, boot, doctypeLabel, pageTitle } from "$lib/boot.svelte";
   import { showError } from "$lib/ui.svelte";
   import { getMeta, type Meta } from "$lib/meta";
@@ -17,11 +16,11 @@
   import { getLinkTitle } from "$lib/titles.svelte";
   import { getCalendarDays } from "$lib/controls/date-format";
   import Icon from "$lib/components/Icon.svelte";
+  import AssignModal from "$lib/components/AssignModal.svelte";
   import LinkControl from "$lib/controls/LinkControl.svelte";
   import CalendarView from "$lib/components/views/CalendarView.svelte";
   import KanbanView from "$lib/components/views/KanbanView.svelte";
-  import { workspaceFor } from "$lib/components/search-palette";
-  import { getRememberedWorkspace, type WorkspaceItem } from "$lib/components/sidebar-workspace";
+  import { doctypeWsPrefix } from "$lib/components/sidebar-workspace";
   import { isAssignmentOverdue, priorityBadgeClass } from "$lib/components/doc-sidebar-assignment";
   import {
     TODO_PAGE_SIZES, TODO_PRIORITIES, TODO_STATUSES, countTodoFilters, emptyTodoFilters, hasTodoFilters, nextTodoOrder,
@@ -41,19 +40,7 @@
   let showFilters = $state(false);
   const activeFilters = $derived(countTodoFilters(pw.filters));
 
-  // New ToDo form fields
-  let newDescription = $state("");
-  let newDate = $state("");
-  let newPriority = $state<"Low" | "Medium" | "High" | "Urgent">("Medium");
-  let newAllocatedTo = $state("");
-  let savingNew = $state(false);
-
-  const userField = {
-    fieldname: "allocated_to",
-    fieldtype: "Link",
-    options: "User",
-    label: "User",
-  };
+  const userField = { fieldname: "allocated_to", fieldtype: "Link", options: "User", label: "User" };
 
   const initialDate = today();
   let calendarYear = $state(Number(initialDate.slice(0, 4)));
@@ -67,16 +54,11 @@
   const kanban = { field: "status", titleField: "description", subtitleField: "reference_id", colorField: "priority" };
   const dues = $derived<[TodoDue, string][]>([["overdue", __("Overdue")], ["today", __("Today")], ["week", __("Next 7 days")], ["none", __("No due date")]]);
 
-  /** The workspace that owns a doctype, as a route prefix. */
-  function wsPrefixFor(doctype: string) {
-    const ws = workspaceFor(doctype, (boot.data?.workspaces || []) as WorkspaceItem[], boot.data?.doctypes, getRememberedWorkspace());
-    return `/app/${seg(ws)}`;
-  }
-  const docHref = (doctype: string, id: string) => `${wsPrefixFor(doctype)}/${seg(doctype)}/${encodeURIComponent(id)}`;
+  const docHref = (doctype: string, id: string) => `${doctypeWsPrefix(doctype)}/${seg(doctype)}/${encodeURIComponent(id)}`;
   // tasks open under this page, not under whatever workspace ToDo belongs to
   const TODO_BASE = "/app/todo";
   const todoHref = (id: string) => `${TODO_BASE}/${encodeURIComponent(id)}`;
-  const todoPrefix = $derived(wsPrefixFor("ToDo"));
+  const todoPrefix = $derived(doctypeWsPrefix("ToDo"));
   const counterpartLabel = $derived(pw.scope === "assigned_by_me" ? __("Assigned To") : __("Assigned By"));
   const pageCount = $derived(Math.max(1, Math.ceil(pw.total / pw.limit)));
   const pageNumber = $derived(Math.floor(pw.offset / pw.limit) + 1);
@@ -174,7 +156,6 @@
   });
 
   onMount(() => {
-    newAllocatedTo = boot.data?.user || "";
     const params = page.url.searchParams;
     const st = todoStateFromSearchParams(params);
     if (!params.has("view")) {
@@ -193,28 +174,10 @@
 
   onDestroy(() => { clearTimeout(searchTimer); pw.destroy(); });
 
-  async function createStandaloneTask() {
-    if (!newDescription.trim()) return;
-    savingNew = true;
-    try {
-      await api.insert("ToDo", {
-        description: newDescription.trim(),
-        date: newDate || undefined,
-        priority: newPriority,
-        allocated_to: newAllocatedTo || boot.data?.user,
-        status: "Open",
-      });
-      showNewModal = false;
-      newDescription = "";
-      newDate = "";
-      newPriority = "Medium";
-      await pw.load(pw.offset);
-      await refreshPendingCount();
-    } catch (e) {
-      showError(e);
-    } finally {
-      savingNew = false;
-    }
+  async function createStandaloneTask(args: AssignArgs) {
+    await api.insert("ToDo", { ...args, allocated_to: args.allocated_to || boot.data?.user, status: "Open" });
+    await pw.load(pw.offset);
+    await refreshPendingCount();
   }
 </script>
 
@@ -410,75 +373,16 @@
 </div>
 
 {#if showNewModal}
-  <div
-    class="modal-bg"
-    use:focusTrap
-    role="dialog"
-    aria-modal="true"
-    tabindex="-1"
-    onclick={(e) => e.target === e.currentTarget && (showNewModal = false)}
-    onkeydown={(e) => e.key === "Escape" && (showNewModal = false)}
-  >
-    <div class="modal sm">
-      <div class="head">
-        <h3 style="display:flex;align-items:center;gap:8px">
-          <Icon name="check-square" size={18} />
-          {__("New Task")}
-        </h3>
-        <button class="btn icon" onclick={() => (showNewModal = false)} aria-label={__("Close")}>
-          <Icon name="x" size={16} />
-        </button>
-      </div>
-      <div class="body">
-        <div class="form-group">
-          <label for="new-task-desc" class="label reqd">{__("Description")}</label>
-          <textarea
-            id="new-task-desc"
-            class="input"
-            rows="3"
-            placeholder={__("What needs to be done?")}
-            bind:value={newDescription}
-          ></textarea>
-        </div>
-
-        <div class="form-row" style="display:flex;gap:12px;margin-top:12px">
-          <div class="form-group" style="flex:1">
-            <label for="new-task-date" class="label">{__("Due Date")}</label>
-            <input id="new-task-date" type="date" class="input" bind:value={newDate} />
-          </div>
-          <div class="form-group" style="flex:1">
-            <label for="new-task-priority" class="label">{__("Priority")}</label>
-            <select id="new-task-priority" class="input" bind:value={newPriority}>
-              <option value="Low">{__("Low")}</option>
-              <option value="Medium">{__("Medium")}</option>
-              <option value="High">{__("High")}</option>
-              <option value="Urgent">{__("Urgent")}</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="form-group" style="margin-top:12px">
-          <label for="new-task-assignee" class="label">{__("Assign to")}</label>
-          <LinkControl
-            id="new-task-assignee"
-            field={userField}
-            value={newAllocatedTo}
-            onchange={(v) => (newAllocatedTo = v || "")}
-          />
-        </div>
-      </div>
-      <div class="foot">
-        <button class="btn" onclick={() => (showNewModal = false)}>{__("Cancel")}</button>
-        <button
-          class="btn primary"
-          disabled={!newDescription.trim() || savingNew}
-          onclick={createStandaloneTask}
-        >
-          {savingNew ? __("Saving...") : __("Save")}
-        </button>
-      </div>
-    </div>
-  </div>
+  <AssignModal
+    title={__("New Task")}
+    icon="check-square"
+    required="description"
+    assignee={boot.data?.user}
+    submitLabel={__("Save")}
+    busyLabel={__("Saving...")}
+    onsubmit={createStandaloneTask}
+    onclose={() => (showNewModal = false)}
+  />
 {/if}
 
 <style>
@@ -551,38 +455,10 @@
   .empty { text-align: center; padding: 36px 12px; color: var(--muted); }
   .empty p { margin: 6px 0 0; }
   .state { padding: 44px 20px; text-align: center; }
-  .priority-badge {
-    display: inline-block;
-    padding: 1px 6px;
-    border-radius: 999px;
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    white-space: nowrap;
-  }
-  .priority-urgent { background: var(--red-soft); color: var(--red-ink); }
-  .priority-high { background: var(--orange-soft); color: var(--orange-ink); }
-  .priority-medium { background: var(--yellow-soft); color: var(--yellow-ink); }
-  .priority-low { background: var(--gray-soft); color: var(--gray-ink); }
   .task-actions { display: inline-flex; gap: 4px; white-space: nowrap; }
   .pagination { display: flex; align-items: center; gap: 8px; padding: 10px 14px; }
   .pagination .spacer { flex: 1; }
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  .label {
-    display: block;
-    font-size: 12px;
-    font-weight: 500;
-    margin-bottom: 4px;
-    color: var(--muted);
-  }
-  .label.reqd::after {
-    content: " *";
-    color: var(--red);
-  }
-  .form-group {
-    display: flex;
-    flex-direction: column;
-  }
   @media (max-width: 800px) {
     .list-filters { grid-template-columns: 1fr; }
     .filter-search { grid-column: auto; }

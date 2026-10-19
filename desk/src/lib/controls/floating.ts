@@ -139,3 +139,42 @@ export function anchored(node: HTMLElement, params: AnchoredParams) {
     },
   };
 }
+
+/**
+ * Svelte action: runs `onclose` when a pointer goes down outside `node`, and on
+ * Escape. Pass null while closed. An Escape from inside `node` goes no further,
+ * so a dialog around the control stays open.
+ */
+export function dismiss(node: HTMLElement, onclose: ((e: Event) => void) | null | undefined) {
+  let current = onclose;
+  let attached = false;
+
+  function onPress(e: PointerEvent) {
+    if (current && !node.contains(e.target as Node)) current(e);
+  }
+  // `capture`, so the stop beats a dialog's own Escape handler.
+  function onKey(e: KeyboardEvent) {
+    if (e.key !== "Escape" || !current) return;
+    if (node.contains(e.target as Node)) e.stopPropagation();
+    current(e);
+  }
+  function sync() {
+    if (!!current === attached) return;
+    attached = !!current;
+    const listen = attached ? window.addEventListener : window.removeEventListener;
+    listen.call(window, "pointerdown", onPress as EventListener);
+    listen.call(window, "keydown", onKey as EventListener, true);
+  }
+
+  sync();
+  return {
+    update(next: ((e: Event) => void) | null | undefined) {
+      current = next;
+      sync();
+    },
+    destroy() {
+      current = null;
+      sync();
+    },
+  };
+}

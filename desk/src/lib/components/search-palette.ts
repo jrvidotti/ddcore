@@ -3,7 +3,7 @@ import { seg } from "../routes";
 // "go to" entries, how they merge with the server's document hits, and where
 // each result leads.
 import { fold } from "$lib/text";
-import { resolveWorkspaceForDoctype, type WorkspaceItem } from "./sidebar-workspace";
+import { workspaceFor, type WorkspaceItem } from "./sidebar-workspace";
 
 export interface SearchHit {
   doctype: string;
@@ -25,16 +25,6 @@ export interface PaletteItem {
 
 export const SEARCH_MIN_CHARS = 2;
 const MAX_DOCTYPES = 5;
-
-/** The workspace a result opens in: the one owning the DocType, else the remembered one, else "core". */
-export function workspaceFor(
-  doctype: string,
-  workspaces: WorkspaceItem[],
-  doctypes: Record<string, { app?: string }> | undefined,
-  remembered: string,
-): string {
-  return resolveWorkspaceForDoctype(doctype, workspaces, doctypes) || remembered || workspaces[0]?.name || "core";
-}
 
 /** DocTypes whose label or name contain txt, prefix matches first. */
 export function matchDoctypes(txt: string, doctypes: Record<string, { label?: string }>): [string, string][] {

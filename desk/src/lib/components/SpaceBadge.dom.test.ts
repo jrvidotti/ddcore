@@ -34,6 +34,22 @@ describe("SpaceBadge", () => {
     expect(target.querySelector(".tenant-menu")?.textContent).toContain("Demo");
     done();
   });
+  it("closes the tenant menu on a pointer press outside it and on Escape", () => {
+    const { target, done } = render({ id: "", title: "", platform: true, tenants });
+    const open = () => { target.querySelector<HTMLButtonElement>("button.space")!.click(); flushSync(); };
+    open();
+    target.querySelector(".tenant-menu")!.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+    flushSync();
+    expect(target.querySelector(".tenant-menu")).not.toBeNull();
+    document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+    flushSync();
+    expect(target.querySelector(".tenant-menu")).toBeNull();
+    open();
+    document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    flushSync();
+    expect(target.querySelector(".tenant-menu")).toBeNull();
+    done();
+  });
   it("shows an operator inside a tenant the tenant's title", () => {
     const { target, done } = render({ id: "demo", title: "Demo", platform: true, tenants });
     expect(target.querySelector("button.space.tenant")?.textContent).toContain("Demo");

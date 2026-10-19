@@ -12,7 +12,8 @@
   import type { FormController } from "$lib/form.svelte";
   import { applyRowChanges, changedKeys, confirmRowRemoval, createChildDraft, fileNameParts, gridEditMode, inlineEditable } from "./grid-state";
   import { getLinkTitle } from "$lib/titles.svelte";
-  import { downloadTable, exportBaseName, exportTable, filterRows, nextSort, searchRows, sortRows, type GridSortState } from "$lib/grid-rows";
+  import { declaredSort, downloadTable, exportBaseName, exportTable } from "$lib/grid-rows";
+  import { GridRowsState } from "$lib/grid-rows-state.svelte";
   import FieldButtons from "./FieldButtons.svelte";
   import GridActions from "./GridActions.svelte";
   import GridExport from "./GridExport.svelte";
@@ -40,50 +41,28 @@
   // Sorting is display only: `rows` keeps its order (and each row its idx),
   // `viewRows` is what the table shows. Anything acting on a row resolves its
   // real position with indexOf, never with the position on screen.
-  const baseSort = $derived<GridSortState | null>(field.gridSort?.field ? { field: field.gridSort.field, order: field.gridSort.order === "desc" ? "desc" : "asc" } : null);
-  let userSort = $state<GridSortState | null>(null);
-  const sort = $derived(userSort ?? baseSort);
-  // preset filters narrow what is shown the same way: selection, "select all"
-  // and export follow the rows on screen
   const presets = $derived(field.gridFilters || []);
-  let activeFilters = $state<Set<number> | null>(null);
-  const active = $derived(activeFilters ?? new Set(presets.flatMap((f, i) => (f.default ? [i] : []))));
-  // and so does the search box, over its columns (hidden ones included)
   const searchFields = $derived(field.gridSearch || []);
-  let query = $state("");
-  const visibleRows = $derived(searchRows(filterRows(rows, [...active].map((i) => presets[i]?.filters).filter(Boolean), childMeta.fields), query, searchFields, childMeta.fields, getLinkTitle));
-  const viewRows = $derived(sortRows(visibleRows, sort, childMeta.fields, getLinkTitle));
+  // preset filters and the search box (over its columns, hidden ones included) narrow what is shown
+  const grid = new GridRowsState({ rows: () => rows, columns: () => childMeta.fields, presets: () => presets, search: () => searchFields, baseSort: () => declaredSort(field.gridSort) });
   const sortable = $derived(!!field.gridSortable);
   const selectable = $derived(!!field.gridSelect);
   const showIndex = $derived(field.gridIndex !== false);
   const exportable = $derived(!!field.gridExport && !!frm.meta.permissions?.export);
-  let selected = $state<Set<any>>(new Set());
-  // only rows still in the table count: a removed row, or every row after a
-  // reload (which brings new row objects), drops out of the selection
-  const chosen = $derived(visibleRows.filter((r) => selected.has(r)));
-  // the same rows in screen order: what export, the script's grid actions and
-  // frm.getSelectedRows get
-  const chosenOnScreen = $derived(viewRows.filter((r) => selected.has(r)));
-  const allSelected = $derived(visibleRows.length > 0 && chosen.length === visibleRows.length);
   const canDelete = $derived(!dialogOnly && editable && !cannotDelete);
 
-  $effect(() => frm.registerGridSelection(field.fieldname!, { rows: () => chosenOnScreen, clear: () => (selected = new Set()) }));
+  $effect(() => frm.registerGridSelection(field.fieldname!, { rows: () => grid.chosenOnScreen, clear: () => grid.clearSelection() }));
 
-  function toggleSort(c: Field) { userSort = nextSort(sort, c.fieldname!, baseSort); }
-  function toggle(row: any) { const s = new Set(selected); if (s.has(row)) s.delete(row); else s.add(row); selected = s; }
-  function toggleAll(on: boolean) { selected = on ? new Set(visibleRows) : new Set(); }
-  function toggleFilter(i: number) { const s = new Set(active); if (s.has(i)) s.delete(i); else s.add(i); activeFilters = s; }
   async function deleteSelected() {
-    const n = chosen.length;
+    const n = grid.chosen.length;
     if (!n || !(await confirm(__("Delete {0} rows?", [n]), __("Delete selected"), { destructive: true }))) return;
-    const idx = chosen.map((r) => rows.indexOf(r)).filter((i) => i >= 0).sort((a, b) => b - a);
+    const idx = grid.chosen.map((r) => rows.indexOf(r)).filter((i) => i >= 0).sort((a, b) => b - a);
     for (const i of idx) frm.removeChild(field.fieldname!, i);
-    selected = new Set();
+    grid.clearSelection();
     frm.trigger(field.fieldname!);
   }
   function exportRows(format: "csv" | "xlsx") {
-    const out = chosen.length ? chosenOnScreen : viewRows;
-    const { header, cells } = exportTable(out, columns, getLinkTitle);
+    const { header, cells } = exportTable(grid.forExport, columns, getLinkTitle);
     downloadTable(format, exportBaseName(frm.doctype, frm.doc.id, field.fieldname), header, cells, field.label);
   }
 
@@ -147,30 +126,30 @@
 <div class="field grid-field">
   <span class="label" class:sr-only={field.hideLabel}>{field.label}{#if frm.isFieldMandatory(field)}<span class="req">*</span>{/if}</span>
   <div class="card" style="overflow:auto">
-    {#if exportable || presets.length || searchFields.length || buttons.length || (selectable && chosen.length)}
+    {#if exportable || presets.length || searchFields.length || buttons.length || (selectable && grid.chosen.length)}
       <div class="grid-toolbar">
-        {#if searchFields.length}<GridSearch bind:value={query} />{/if}
-        {#if presets.length}<GridFilters filters={presets} {active} ontoggle={toggleFilter} />{/if}
-        {#if selectable && chosen.length}
-          <span class="muted">{__("{0} selected", [chosen.length])}</span>
-          <GridActions actions={frm.gridActions[field.fieldname!] || []} rows={chosenOnScreen} ondone={() => (selected = new Set())} disabled={loading} />
+        {#if searchFields.length}<GridSearch bind:value={grid.query} />{/if}
+        {#if presets.length}<GridFilters filters={presets} active={grid.active} ontoggle={(i) => grid.toggleFilter(i)} />{/if}
+        {#if selectable && grid.chosen.length}
+          <span class="muted">{__("{0} selected", [grid.chosen.length])}</span>
+          <GridActions actions={frm.gridActions[field.fieldname!] || []} rows={grid.chosenOnScreen} ondone={() => grid.clearSelection()} disabled={loading} />
           {#if canDelete}<button class="btn sm danger" disabled={loading} onclick={deleteSelected}><Icon name="trash" size={14} />{__("Delete selected")}</button>{/if}
-          <button class="btn sm" onclick={() => toggleAll(false)}>{__("Clear selection")}</button>
+          <button class="btn sm" onclick={() => grid.toggleAll(false)}>{__("Clear selection")}</button>
         {/if}
         <span class="spacer"></span>
         <FieldButtons {buttons} small disabled={loading} />
         {#if exportable}<GridExport onexport={exportRows} />{/if}
       </div>
     {/if}
-    <table class="grid" class:dialog-grid={dialogOnly} class:loading={loading && viewRows.length} aria-busy={loading || undefined}>
+    <table class="grid" class:dialog-grid={dialogOnly} class:loading={loading && grid.viewRows.length} aria-busy={loading || undefined}>
       <thead>
         <tr>
-          {#if selectable}<th style="width:28px"><input type="checkbox" aria-label={__("Select all")} checked={allSelected} onchange={(e) => toggleAll(e.currentTarget.checked)} /></th>{/if}
+          {#if selectable}<th style="width:28px"><input type="checkbox" aria-label={__("Select all")} checked={grid.allSelected} onchange={(e) => grid.toggleAll(e.currentTarget.checked)} /></th>{/if}
           {#if showIndex}<th style="width:44px">#</th>{/if}
           {#each columns as c}
-            {@const sorted = sort?.field === c.fieldname ? sort!.order : null}
+            {@const sorted = grid.sort?.field === c.fieldname ? grid.sort!.order : null}
             <th class:num={num(c)} style="width:{(100 * (c.columns || 2)) / totalCols}%" title={c.description || ""} aria-sort={sorted === "asc" ? "ascending" : sorted === "desc" ? "descending" : sortable ? "none" : undefined}>
-              {#if sortable}<button class="grid-sort" title={__("Sort by {0}", [c.label])} onclick={() => toggleSort(c)}>{c.label}{#if sorted} {sorted === "asc" ? "↑" : "↓"}{/if}</button>{:else}{c.label}{/if}
+              {#if sortable}<button class="grid-sort" title={__("Sort by {0}", [c.label])} onclick={() => grid.toggleSort(c.fieldname!)}>{c.label}{#if sorted} {sorted === "asc" ? "↑" : "↓"}{/if}</button>{:else}{c.label}{/if}
               {#if c.reqd}<span class="req" style="color:var(--red)">*</span>{/if}
               {#if c.description}
                 <span class="help-tip" title={c.description} style="margin-left:4px;cursor:help;font-weight:normal;opacity:0.7">ⓘ</span>
@@ -181,10 +160,10 @@
         </tr>
       </thead>
       <tbody>
-        {#each viewRows as row, i (row.id || row)}
+        {#each grid.viewRows as row, i (row.id || row)}
           <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
           <tr class="row" class:row-click={rowClickable} onclick={rowClickable ? (e) => clickRow(e, row) : undefined}>
-            {#if selectable}<td><input type="checkbox" aria-label={__("Select row {0}", [row.idx ?? i + 1])} checked={selected.has(row)} onchange={() => toggle(row)} /></td>{/if}
+            {#if selectable}<td><input type="checkbox" aria-label={__("Select row {0}", [row.idx ?? i + 1])} checked={grid.selected.has(row)} onchange={() => grid.toggle(row)} /></td>{/if}
             {#if showIndex}<td class="muted">{row.idx ?? i + 1}</td>{/if}
             {#each columns as c}
               <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
@@ -217,7 +196,7 @@
             </td>
           </tr>
         {/each}
-        {#if !viewRows.length}
+        {#if !grid.viewRows.length}
           <tr><td colspan={columns.length + 1 + (selectable ? 1 : 0) + (showIndex ? 1 : 0)} class="muted grid-empty">
             {#if loading}<span class="grid-loading"><Spinner size={16} />{__("Loading...")}</span>{:else}{rows.length ? __("No rows match the filters") : __("No rows")}{/if}
           </td></tr>

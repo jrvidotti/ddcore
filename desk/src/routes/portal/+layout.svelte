@@ -3,10 +3,11 @@
   // The portal's own chrome (OPS-10): the site's name, the pages of the
   // portals the user reaches, and their account. Nothing of the desk.
   import { __, boot, siteName } from "$lib/boot.svelte";
-  import { api } from "$lib/api";
+  import { signOut } from "$lib/sign-out";
   import { page } from "$app/state";
   import Icon from "$lib/components/Icon.svelte";
   import { portalHref } from "$lib/portal";
+  import { dismiss } from "$lib/controls/floating";
 
   let { children } = $props();
   let menuOpen = $state(false);
@@ -18,13 +19,7 @@
     return page.url.pathname === portalHref(slug, pageName) || page.url.pathname.startsWith(portalHref(slug, pageName) + "/");
   }
 
-  async function signOut() {
-    await api.logout();
-    location.href = "/login";
-  }
 </script>
-
-<svelte:window onpointerdown={(e) => { if (menuOpen && !(e.target as HTMLElement)?.closest(".account")) menuOpen = false; }} />
 
 <div class="portal">
   <header>
@@ -36,7 +31,7 @@
         {/each}
       {/each}
     </nav>
-    <div class="account">
+    <div class="account" use:dismiss={menuOpen ? () => (menuOpen = false) : null}>
       <button class="btn" type="button" onclick={() => (menuOpen = !menuOpen)} aria-haspopup="menu" aria-expanded={menuOpen}>
         <Icon name="user" size={14} /> <span class="who">{name}</span>
       </button>

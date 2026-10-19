@@ -1,82 +1,11 @@
-// Keep these response types aligned with the public Desk SDK.
-export interface DeskNotification {
-  id: string; title: string; message: string; creation: string; read: boolean;
-  reference_doctype: string; reference_id: string;
-}
-export interface NotificationListOptions { limit?: number; offset?: number; read?: boolean }
-export interface NotificationPage { data: DeskNotification[]; total: number }
-
-export interface ToDoDoc {
-  id: string;
-  status: "Open" | "Closed" | "Cancelled";
-  priority: "Low" | "Medium" | "High" | "Urgent";
-  date?: string;
-  allocated_to: string;
-  assigned_by: string;
-  description?: string;
-  reference_type?: string;
-  reference_id?: string;
-  creation?: string;
-  modified?: string;
-}
-
-/** One user's share on one document (SEC-03). */
-export interface DocShare {
-  id: string;
-  user: string;
-  share_doctype: string;
-  share_id: string;
-  read: boolean;
-  write: boolean;
-  share: boolean;
-  override_scope: boolean;
-  owner: string;
-}
-export interface DocSharesInfo {
-  shares: DocShare[];
-  canShare: boolean;
-  canOverrideScope: boolean;
-}
-export interface ShareArgs {
-  user: string;
-  write?: boolean;
-  share?: boolean;
-  overrideScope?: boolean;
-}
-
-export interface AssignArgs {
-  allocated_to: string;
-  date?: string;
-  priority?: "Low" | "Medium" | "High" | "Urgent";
-  description?: string;
-}
-
-export interface PendingWorkOptions {
-  limit?: number;
-  offset?: number;
-  status?: string;
-  scope?: "assigned_to_me" | "assigned_by_me";
-  priority?: string;
-  /** Inclusive bounds on the due date. */
-  date_from?: string;
-  date_to?: string;
-  /** 1 keeps only the tasks without a due date. */
-  no_date?: number;
-  /** 1 keeps the tasks without a due date too, alongside date_from/date_to. */
-  undated?: number;
-  /** The counterpart: the assigner in assigned_to_me, the assignee in assigned_by_me. */
-  user?: string;
-  q?: string;
-  /** "field asc|desc" on date, priority, status, description, creation, modified, allocated_to or assigned_by. */
-  order_by?: string;
-}
-
-export interface PendingWorkPage {
-  data: ToDoDoc[];
-  total: number;
-  /** Link titles of the page's rows (the users), by doctype then id. */
-  titles?: Record<string, Record<string, string>>;
-}
+import type {
+  AssignArgs, DeskNotification, DocShare, DocSharesInfo, NotificationListOptions, NotificationPage,
+  PendingWorkOptions, PendingWorkPage, ShareArgs, ToDoDoc,
+} from "@ddcore/desk-sdk";
+export type {
+  AssignArgs, DeskNotification, DocShare, DocSharesInfo, NotificationListOptions, NotificationPage,
+  PendingWorkOptions, PendingWorkPage, ShareArgs, ToDoDoc,
+};
 import { setMaintenance } from "./maintenance.svelte";
 import { recordThrown, requestPath } from "./client-errors";
 

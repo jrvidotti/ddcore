@@ -6,6 +6,8 @@
  * The empty string is the key of the roots, which is also what the API calls
  * the parent of a root.
  */
+import type { BaseDoc } from "@ddcore/sdk";
+import type { TreeViewOptions } from "@ddcore/desk-sdk";
 import { defaultStore } from "../../storage";
 
 export interface TreeNode {
@@ -21,16 +23,6 @@ export interface TreeNode {
   match?: boolean;
 }
 
-/** The `tree` option of `defineListView`: how a node is labelled and ordered. */
-export interface TreeViewSettings {
-  /** A template such as "{acronym} - {title}", or a function of the node's values. */
-  title?: string | ((row: Record<string, any>) => string);
-  /** Fields to fetch for a `title` function; a template's placeholders are fetched anyway. */
-  fields?: string[];
-  /** Replaces the default order (groups first, then the title), e.g. "title asc". */
-  orderBy?: string;
-}
-
 const PLACEHOLDER = /\{(\w+)\}/g;
 
 /**
@@ -38,7 +30,7 @@ const PLACEHOLDER = /\{(\w+)\}/g;
  * `fields`, and the DocType's title field whenever a label is composed, so a
  * function can read it without listing it. `id` is on every node already.
  */
-export function treeFields(settings?: TreeViewSettings, titleField = ""): string[] {
+export function treeFields(settings?: TreeViewOptions, titleField = ""): string[] {
   const out = new Set(settings?.fields ?? []);
   if (typeof settings?.title === "string") {
     for (const m of settings.title.matchAll(PLACEHOLDER)) out.add(m[1]);
@@ -57,13 +49,13 @@ const DANGLING = /^[\s\-–—:|/·,]+|[\s\-–—:|/·,]+$/g;
  * so "{acronym} - {title}" reads "Delivery" without an acronym; a label that
  * ends up blank falls back to the node's title.
  */
-export function treeLabel(node: TreeNode, settings?: TreeViewSettings): string {
+export function treeLabel(node: TreeNode, settings?: TreeViewOptions): string {
   const title = settings?.title;
   if (!title) return node.title;
   const values: Record<string, any> = { id: node.id, ...node.values };
   let label: string;
   if (typeof title === "function") {
-    label = String(title(values) ?? "");
+    label = String(title(values as BaseDoc) ?? "");
   } else {
     let empty = false;
     label = title.replace(PLACEHOLDER, (_, f: string) => {

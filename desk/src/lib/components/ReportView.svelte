@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { seg } from "$lib/routes";
+  import { seg, appPrefix } from "$lib/routes";
   import { api } from "$lib/api";
   import { boot, __ } from "$lib/boot.svelte";
   import { formatSummary } from "$lib/format";
@@ -22,8 +22,7 @@
   let ready = false;
   let lastUrlSearch = "";
   const label = $derived(meta?.label || boot.data?.reports[name]?.label || name);
-  const workspace = $derived(page.params.workspace || getRememberedWorkspace() || "");
-  const wsPrefix = $derived(workspace ? `/app/${seg(workspace)}` : "/app");
+  const wsPrefix = $derived(appPrefix(page.params.workspace || getRememberedWorkspace()));
 
   function defaultFor(f: any) {
     const d = f.default;

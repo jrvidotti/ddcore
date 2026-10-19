@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { routeName, seg, resolveName, resolveDoctype, resolveReport, resolveWorkspace, canonicalAppPath } from "./routes";
+import { routeName, seg, resolveName, resolveDoctype, resolveReport, resolveWorkspace, canonicalAppPath, appPrefix } from "./routes";
 
 const names = {
   workspaces: [{ name: "Human Resources" }, { name: "Projects" }],
@@ -73,5 +73,13 @@ describe("canonicalAppPath", () => {
     expect(canonicalAppPath("/app/Training%20Class/new", names)).toBeNull();
     expect(canonicalAppPath("/app/Projects/Task%20Tag", names)).toBeNull();
     expect(canonicalAppPath("/app/Projects/Work%20Item", null)).toBeNull();
+  });
+});
+
+describe("appPrefix", () => {
+  it("puts the workspace's route name under /app, and is /app without one", () => {
+    expect(appPrefix("Human Resources")).toBe("/app/HumanResources");
+    expect(appPrefix("")).toBe("/app");
+    expect(appPrefix(undefined)).toBe("/app");
   });
 });

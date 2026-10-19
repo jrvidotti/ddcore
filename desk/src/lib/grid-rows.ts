@@ -2,7 +2,7 @@
 // Table and a Report field (and the report page). Pure, so the Svelte grids
 // only keep the state.
 
-import { isNumericFieldtype, selectLabels, selectOptions, type Field } from "./meta";
+import { isNumericFieldtype, selectLabels, selectOptions, type Field, type GridSort } from "./meta";
 import { csvSep, downloadCsv, toCsv } from "./csv";
 import { downloadXlsx, type XlsxCell } from "./xlsx";
 import { __ } from "./boot.svelte";
@@ -10,6 +10,9 @@ import { formatGeo } from "./geo";
 import { fold } from "./text";
 
 export interface GridSortState { field: string; order: "asc" | "desc" }
+
+/** The order a field declares for its rows (`gridSort`). */
+export const declaredSort = (gs?: GridSort): GridSortState | null => (gs?.field ? { field: gs.field, order: gs.order === "desc" ? "desc" : "asc" } : null);
 
 /** Resolves a Link's display title, when the grid knows it. */
 export type TitleOf = (doctype: string, id: string) => string | undefined;

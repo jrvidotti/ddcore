@@ -2,7 +2,9 @@ import path from "node:path";
 import { defineConfig } from "vitest/config";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 
-const alias = { $lib: path.resolve(__dirname, "./src/lib") };
+const alias = {
+  $lib: path.resolve(__dirname, "./src/lib"),
+};
 
 export default defineConfig({
   plugins: [svelte()],

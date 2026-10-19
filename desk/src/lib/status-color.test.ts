@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { colorStyle, statusColor } from "./format";
+import { colorStyle, docStatus, docstatusName, statusColor } from "./format";
 
 // What this replaced was a regex over Portuguese word stems: "concluído" was
 // green and "completed" was grey. Colour must never be decided by the text a
@@ -68,5 +68,32 @@ describe("colorStyle", () => {
     expect(colorStyle("", color)).toBeUndefined();
     expect(colorStyle("orange", color)).toBeUndefined();
     expect(colorStyle("#f97316; position: fixed", color)).toBeUndefined();
+  });
+});
+
+describe("docStatus", () => {
+  const select = { fieldname: "status", fieldtype: "Select", options: ["Open", "Closed"], optionLabels: ["Aberto", "Fechado"] } as any;
+
+  it("shows the status field's value and its label", () => {
+    expect(docStatus({ status: "Closed" }, select, true)).toEqual({ value: "Closed", label: "Fechado" });
+    expect(docStatus({ status: "Other" }, select, false)).toEqual({ value: "Other", label: "Other" });
+  });
+
+  it("falls back to the docstatus of a submittable DocType", () => {
+    expect(docStatus({ docstatus: 1 }, select, true)).toEqual({ value: "Submitted", label: "Submitted" });
+    expect(docStatus({ docstatus: 2 }, undefined, true).value).toBe("Cancelled");
+    expect(docStatus({ docstatus: 0 }, undefined, true).value).toBe("Draft");
+    expect(docStatus({ docstatus: 1 }, undefined, false)).toEqual({ value: "", label: "" });
+  });
+
+  it("calls an unsaved document New, whatever its DocType", () => {
+    expect(docStatus({}, undefined, true, true).value).toBe("New");
+    expect(docStatus({ status: "Open" }, select, true, true).value).toBe("Open");
+  });
+});
+
+describe("docstatusName", () => {
+  it("names 0, 1 and 2", () => {
+    expect([0, 1, 2, "1", undefined].map(docstatusName)).toEqual(["Draft", "Submitted", "Cancelled", "Submitted", "Draft"]);
   });
 });

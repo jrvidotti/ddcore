@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { seg } from "$lib/routes";
+  import { seg, appPrefix } from "$lib/routes";
   // List view generated from meta: standard filters, search, sort, paging, bulk delete.
   import { api } from "$lib/api";
-  import { getMeta, selectLabels, selectOptions, type Meta, type Field, isLayout } from "$lib/meta";
+  import { getMeta, type Meta, type Field, isLayout } from "$lib/meta";
   import { formatSummary, formatValue } from "$lib/format";
   import { __, boot, doctypeLabel } from "$lib/boot.svelte";
   import { showError, toast, confirm, dialog } from "$lib/ui.svelte";
@@ -83,8 +83,7 @@
   /** Kanban and Gantt load one unpaginated window of rows, capped like the calendar. */
   const VIEW_LIMIT = 500;
 
-  const workspace = $derived(page.params.workspace || "");
-  const wsPrefix = $derived(workspace ? `/app/${seg(workspace)}` : "/app");
+  const wsPrefix = $derived(appPrefix(page.params.workspace));
 
   // options registered by the app via defineListView(doctype, {...})
   const settings = $derived<ListViewOptions>(deskSDK.listSettings(doctype) || {});
@@ -405,23 +404,6 @@
     const cur = orderBy.split(" ");
     updateListState({ ...currentListState(), orderBy: cur[0] === f.fieldname && cur[1] === "asc" ? `${f.fieldname} desc` : `${f.fieldname} asc` });
   }
-  function docstatusLabel(r: any) { return Number(r.docstatus) === 2 ? __("Cancelled") : Number(r.docstatus) === 1 ? __("Submitted") : __("Draft"); }
-  /** The canonical status value — what colours and comparisons key on. */
-  function statusOf(r: any) {
-    if (statusField && r[statusField.fieldname!]) return r[statusField.fieldname!];
-    if (meta?.doctype.submittable) return Number(r.docstatus) === 2 ? "Cancelled" : Number(r.docstatus) === 1 ? "Submitted" : "Draft";
-    return "";
-  }
-  /** The same status as the reader sees it. */
-  function statusLabelOf(r: any) {
-    if (statusField && r[statusField.fieldname!]) {
-      const opts = selectOptions(statusField);
-      const i = opts.indexOf(r[statusField.fieldname!]);
-      return i >= 0 ? selectLabels(statusField)[i] : __(r[statusField.fieldname!]);
-    }
-    if (meta?.doctype.submittable) return docstatusLabel(r);
-    return "";
-  }
   function toggle(id: string) { const s = new Set(selected); s.has(id) ? s.delete(id) : s.add(id); selected = s; }
   async function deleteSelected() {
     if (!(await confirm(__("Delete {0} record(s)?", [selected.size]), undefined, { destructive: true }))) return;
@@ -633,7 +615,7 @@
         {#if currentView === "cards"}
           <CardView {rows} {meta} {doctype} {wsPrefix} {selected} {settings} {cellText} {loading} onToggle={toggle} />
         {:else}
-          <TableView {rows} {meta} {doctype} {wsPrefix} {columns} showID={!!resolvedColumns?.showID} showModified={!!resolvedColumns?.showModified} {selected} {orderBy} {loading} {settings} {cellText} {statusOf} {statusLabelOf} onSort={sort} onToggle={toggle} onSelectAll={(checked) => selected = checked ? new Set(rows.map((r) => r.id)) : new Set()} />
+          <TableView {rows} {meta} {doctype} {wsPrefix} {columns} showID={!!resolvedColumns?.showID} showModified={!!resolvedColumns?.showModified} {selected} {orderBy} {loading} {settings} {cellText} onSort={sort} onToggle={toggle} onSelectAll={(checked) => selected = checked ? new Set(rows.map((r) => r.id)) : new Set()} />
         {/if}
         <div class="pagination" class:card={currentView === "cards"}>
           <span class="muted small">{total} {__("records")}</span>

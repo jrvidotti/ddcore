@@ -1,4 +1,5 @@
-import { seg, resolveWorkspace, resolveReport, resolveDoctype } from "../routes";
+import { seg, appPrefix, resolveWorkspace, resolveReport, resolveDoctype } from "../routes";
+import { boot } from "$lib/boot.svelte";
 import { defaultStore } from "../storage";
 export interface WorkspaceItem {
   name: string;
@@ -80,6 +81,21 @@ export function resolveWorkspaceForDoctype(
   }
 
   return null;
+}
+
+/** The workspace a result opens in: the one owning the DocType, else the remembered one, else "core". */
+export function workspaceFor(
+  doctype: string,
+  workspaces: WorkspaceItem[],
+  doctypes: Record<string, { app?: string }> | undefined,
+  remembered: string,
+): string {
+  return resolveWorkspaceForDoctype(doctype, workspaces, doctypes) || remembered || workspaces[0]?.name || "core";
+}
+
+/** `/app/<workspace>` for a DocType of the running desk: the workspace given, else the one `workspaceFor` picks. */
+export function doctypeWsPrefix(doctype: string, workspace = ""): string {
+  return appPrefix(workspace || workspaceFor(doctype, (boot.data?.workspaces || []) as WorkspaceItem[], boot.data?.doctypes, getRememberedWorkspace()));
 }
 
 /**

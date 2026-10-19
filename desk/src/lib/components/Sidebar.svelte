@@ -1,19 +1,19 @@
 <script lang="ts">
   import SiteMark from "$lib/components/SiteMark.svelte";
   import { seg } from "$lib/routes";
+  import { dismiss } from "$lib/controls/floating";
   import { boot, __, isLoggedIn, siteName, spaceLabel } from "$lib/boot.svelte";
-  import { openShortcutsHelp, openSearch } from "$lib/shortcuts.svelte";
-  import { openFeedback } from "$lib/feedback.svelte";
+  import { openSearch } from "$lib/shortcuts.svelte";
   import { getModifierKey } from "$lib/shortcuts";
   import Icon from "./Icon.svelte";
-  import TenantMenu from "./TenantMenu.svelte";
+  import UserMenuItems from "./UserMenuItems.svelte";
+  import { avatarInitial } from "./views/card-avatar";
   import SpaceBadge from "./SpaceBadge.svelte";
   import { spaceKind, withSpace } from "$lib/tenant";
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
   import { notifications } from "$lib/notifications.svelte";
   import { pendingTasks } from "$lib/assignments.svelte";
-  import { signOut } from "$lib/sign-out";
   import { panels, setSidebarCollapsed } from "$lib/panels.svelte";
   import { isActiveLink, systemDoctypes } from "./sidebar";
   import {
@@ -70,10 +70,6 @@
   }
 
   const itemHref = (it: any) => workspaceItemHref(activeWorkspace?.name || "", it);
-  async function logout() {
-    if (typeof window !== "undefined" && window.innerWidth <= 800) open = false;
-    await signOut();
-  }
   const otherDoctypes = $derived(systemDoctypes(boot.data));
   let showCore = $state(false);
 
@@ -82,22 +78,9 @@
   // on a site with tenancy: the tenant the person works in
   const space = $derived(spaceLabel());
   const kind = $derived(spaceKind(boot.data?.site?.tenant));
-  const avatarInitial = (name: string) => (name || "U").trim().charAt(0).toUpperCase();
-
-  function onPointerDown(e: PointerEvent) {
-    const target = e.target as HTMLElement | null;
-    if (menuOpen && !target?.closest(".foot .dropdown")) menuOpen = false;
-    if (wsMenuOpen && !target?.closest(".workspace-switcher")) wsMenuOpen = false;
-  }
-  function onKeydown(e: KeyboardEvent) {
-    if (e.key === "Escape") {
-      menuOpen = false;
-      wsMenuOpen = false;
-    }
-  }
 </script>
 
-<svelte:window onpointerdown={onPointerDown} onkeydown={onKeydown} onclick={onWindowClick} />
+<svelte:window onclick={onWindowClick} />
 
 <aside class="sidebar" class:open class:collapsed>
   <div class="brand">
@@ -113,7 +96,7 @@
     </button>
   </div>
   {#if workspaces.length > 1}
-    <div class="workspace-switcher dropdown">
+    <div class="workspace-switcher dropdown" use:dismiss={wsMenuOpen ? () => (wsMenuOpen = false) : null}>
       <button class="workspace-btn" onclick={() => (wsMenuOpen = !wsMenuOpen)} aria-haspopup="menu" aria-expanded={wsMenuOpen} title={tip(activeWorkspace?.label || activeWorkspace?.name || "")}>
         <span class="ws-icon"><Icon name={activeWorkspace?.icon || "layout-dashboard"} size={16} /></span>
         <span class="ws-label">{activeWorkspace?.label || activeWorkspace?.name}</span>
@@ -173,14 +156,14 @@
     <div class="personal">
       <a href="/app/notifications" class:active={active("/app/notifications")} title={tip(__("Notifications"))}>
         <Icon name="bell" /><span>{__("Notifications")}</span>
-        {#if notifications.unread > 0}<span class="notification-count" aria-label={__("{0} unread notifications", [notifications.unread])}>{notifications.unread}</span>{/if}
+        {#if notifications.count > 0}<span class="notification-count" aria-label={__("{0} unread notifications", [notifications.count])}>{notifications.count}</span>{/if}
       </a>
       <a href="/app/todo" class:active={active("/app/todo")} title={tip(__("To-Do"))}>
         <Icon name="check-square" /><span>{__("To-Do")}</span>
         {#if pendingTasks.count > 0}<span class="notification-count" aria-label={__("{0} pending tasks", [pendingTasks.count])}>{pendingTasks.count}</span>{/if}
       </a>
     </div>
-    <div class="dropdown" style="width:100%">
+    <div class="dropdown" style="width:100%" use:dismiss={menuOpen ? () => (menuOpen = false) : null}>
       <button class="user-btn" onclick={() => (menuOpen = !menuOpen)} aria-haspopup="menu" aria-expanded={menuOpen} title={tip(displayName)}>
         <span class="avatar">{avatarInitial(displayName)}</span>
         <span class="name small">{displayName}{#if space}<span class="space">{space}</span>{/if}</span>
@@ -188,27 +171,7 @@
       </button>
       {#if menuOpen}
         <div class="menu up" role="menu">
-          <TenantMenu onpick={() => (menuOpen = false)} />
-          <button role="menuitem" onclick={() => { menuOpen = false; if (typeof window !== "undefined" && window.innerWidth <= 800) open = false; goto("/app/profile"); }}>
-            <Icon name="user" size={14} /> {__("My profile")}
-          </button>
-          {#if boot.data?.portals?.length}
-            <!-- a desk user who is also, say, an employee reaches their own portal (OPS-10) -->
-            <button role="menuitem" onclick={() => { menuOpen = false; goto("/portal"); }}>
-              <Icon name="external-link" size={14} /> {__("My portal")}
-            </button>
-          {/if}
-          <button role="menuitem" onclick={() => { menuOpen = false; if (typeof window !== "undefined" && window.innerWidth <= 800) open = false; openShortcutsHelp(); }}>
-            <Icon name="keyboard" size={14} /> {__("Keyboard shortcuts")}
-          </button>
-          {#if boot.data?.site?.feedback}
-            <button role="menuitem" onclick={() => { menuOpen = false; if (typeof window !== "undefined" && window.innerWidth <= 800) open = false; openFeedback(); }}>
-              <Icon name="message-square" size={14} /> {__("Feedback")}
-            </button>
-          {/if}
-          <button role="menuitem" onclick={logout}>
-            <Icon name="log-out" size={14} /> {__("Sign out")}
-          </button>
+          <UserMenuItems onpick={() => { menuOpen = false; if (typeof window !== "undefined" && window.innerWidth <= 800) open = false; }} />
         </div>
       {/if}
     </div>

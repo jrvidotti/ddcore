@@ -7,6 +7,7 @@
   import { __ } from "$lib/boot.svelte";
   import type { Field } from "$lib/meta";
   import Icon from "../Icon.svelte";
+  import { dismiss } from "$lib/controls/floating";
   import { moveColumn, toggleColumn, type ColumnChoice, type ResolvedColumns } from "../list-columns";
 
   let { resolved, candidates, idLabel, onchange }: {
@@ -65,17 +66,9 @@
     await tick();
     root?.querySelector<HTMLElement>(`[data-column="${CSS.escape(column)}"]`)?.focus();
   }
-  function onPointerDown(e: PointerEvent) {
-    if (open && !root?.contains(e.target as Node)) open = false;
-  }
-  function onKey(e: KeyboardEvent) {
-    if (open && e.key === "Escape") open = false;
-  }
 </script>
 
-<svelte:window onpointerdown={onPointerDown} onkeydown={onKey} />
-
-<div class="dropdown" bind:this={root}>
+<div class="dropdown" bind:this={root} use:dismiss={open ? () => (open = false) : null}>
   <button class="btn" class:active={resolved.customized} aria-haspopup="menu" aria-expanded={open} onclick={() => (open = !open)} title={__("Choose the columns")}>
     <Icon name="table" size={14} />{__("Columns")}
   </button>

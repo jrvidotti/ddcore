@@ -1,4 +1,4 @@
-import type { Field } from "./meta";
+import { selectLabels, selectOptions, type Field } from "./meta";
 import { formatMonth } from "./controls/month-format.ts";
 import { getLinkTitle } from "./titles.svelte";
 import { __ } from "./boot.svelte";
@@ -178,6 +178,25 @@ const CANONICAL_COLORS: Record<string, string> = {
   overdue: "red", cancelled: "red", canceled: "red", rejected: "red", failed: "red",
   error: "red", expired: "red", inactive: "red", terminated: "red",
 };
+
+/** The canonical name of a document's `docstatus`. */
+export const docstatusName = (docstatus: unknown): "Draft" | "Submitted" | "Cancelled" =>
+  Number(docstatus) === 2 ? "Cancelled" : Number(docstatus) === 1 ? "Submitted" : "Draft";
+
+/**
+ * A document's status: its `status` field, else "New" for an unsaved one, else
+ * its docstatus when the DocType is submittable. `value` is canonical, what a
+ * colour or a comparison keys on; `label` is what the reader sees.
+ */
+export function docStatus(doc: any, statusField: Field | undefined, submittable: boolean, isNew = false): { value: string; label: string } {
+  const raw = statusField && doc[statusField.fieldname!];
+  if (raw) {
+    const i = selectOptions(statusField).indexOf(raw);
+    return { value: raw, label: i >= 0 ? selectLabels(statusField)[i] : __(raw) };
+  }
+  const value = isNew ? "New" : submittable ? docstatusName(doc.docstatus) : "";
+  return { value, label: value && __(value) };
+}
 
 const PALETTE = ["blue", "green", "orange", "red", "purple", "gray"];
 

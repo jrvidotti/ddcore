@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { focusTrap } from "$lib/focus-trap";
   // Right column of the form: metadata, assignments, shares, comments, versions.
   import type { FormController } from "$lib/form.svelte";
   import { api, type AssignArgs, type ShareArgs } from "$lib/api";
@@ -10,6 +9,7 @@
   import Icon from "./Icon.svelte";
   import DocHistory from "./DocHistory.svelte";
   import AssignModal from "./AssignModal.svelte";
+  import Modal from "./Modal.svelte";
   import ShareModal from "./ShareModal.svelte";
   import { DocSharesState } from "$lib/shares.svelte";
   import { shareRightLabels, canRemoveShare } from "./doc-sidebar-share";
@@ -18,7 +18,8 @@
   import { getModifierKey } from "$lib/shortcuts.svelte";
   import { DocAssignments } from "$lib/assignments.svelte";
   import { today } from "$lib/datetime";
-  import { isAssignmentOverdue, assignmentInitial, priorityBadgeClass } from "./doc-sidebar-assignment";
+  import { isAssignmentOverdue, priorityBadgeClass } from "./doc-sidebar-assignment";
+  import { avatarInitial } from "./views/card-avatar";
   import { panels, setDocSidebarCollapsed } from "$lib/panels.svelte";
   import { attachmentsQuery, hasLooseAttachments, isAudioFile, looseAttachments, type AttachedFile } from "./doc-sidebar-attachments";
   import { formatFileSize } from "$lib/controls/attach-state";
@@ -217,7 +218,7 @@
             <div class="assignment-item" class:closed={todo.status !== "Open"}>
               <div class="assignment-main">
                 <div class="assignment-user">
-                  <span class="avatar-sm">{assignmentInitial(todo.allocated_to)}</span>
+                  <span class="avatar-sm">{avatarInitial(todo.allocated_to)}</span>
                   <span class="small user-name" title={todo.allocated_to}>{todo.allocated_to}</span>
                 </div>
                 {#if todo.description}
@@ -288,7 +289,7 @@
             <div class="assignment-item">
               <div class="assignment-main">
                 <div class="assignment-user">
-                  <span class="avatar-sm">{assignmentInitial(share.user)}</span>
+                  <span class="avatar-sm">{avatarInitial(share.user)}</span>
                   <span class="small user-name" title={share.user}>{share.user}</span>
                 </div>
                 <div class="assignment-meta small muted">
@@ -429,37 +430,18 @@
 </aside>
 
 {#if showModal}
-  <div
-    class="modal-bg"
-    use:focusTrap
-    role="dialog"
-    aria-modal="true"
-    tabindex="-1"
-    onkeydown={(e) => e.key === "Escape" && (showModal = false)}
-  >
-    <div class="modal lg">
-      <div class="head">
-        <div class="modal-title-wrap">
-          <Icon name="history" size={18} />
-          <h3>{__("Change history")} · {frm.doc.id}</h3>
-        </div>
-        <button class="btn icon" onclick={() => (showModal = false)} aria-label={__("Close")}>
-          <Icon name="x" size={16} />
-        </button>
-      </div>
-      <div class="body modal-scroll-body">
-        <DocHistory {frm} {versions} mode="full" />
-      </div>
-      <div class="foot">
-        <button class="btn" onclick={() => (showModal = false)}>{__("Close")}</button>
-      </div>
+  <Modal title="{__("Change history")} · {frm.doc.id}" icon="history" size="lg" onclose={() => (showModal = false)}>
+    <div class="body modal-scroll-body">
+      <DocHistory {frm} {versions} mode="full" />
     </div>
-  </div>
+    <div class="foot">
+      <button class="btn" onclick={() => (showModal = false)}>{__("Close")}</button>
+    </div>
+  </Modal>
 {/if}
 
 {#if showShareModal}
   <ShareModal
-    open={showShareModal}
     canOverrideScope={shareState.canOverrideScope}
     onshare={handleShare}
     onclose={() => (showShareModal = false)}
@@ -468,10 +450,12 @@
 
 {#if showAssignModal}
   <AssignModal
-    open={showAssignModal}
-    doctype={frm.doctype}
-    docId={frm.doc.id}
-    onassign={handleAssign}
+    title={__("Assign document")}
+    icon="user-plus"
+    required="assignee"
+    submitLabel={__("Assign")}
+    busyLabel={__("Assigning...")}
+    onsubmit={handleAssign}
     onclose={() => (showAssignModal = false)}
   />
 {/if}
@@ -592,30 +576,6 @@
     color: var(--red);
     font-weight: 600;
   }
-  .priority-badge {
-    display: inline-block;
-    padding: 1px 6px;
-    border-radius: 999px;
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-  }
-  .priority-urgent {
-    background: var(--red-soft);
-    color: var(--red-ink);
-  }
-  .priority-high {
-    background: var(--orange-soft);
-    color: var(--orange-ink);
-  }
-  .priority-medium {
-    background: var(--yellow-soft);
-    color: var(--yellow-ink);
-  }
-  .priority-low {
-    background: var(--gray-soft);
-    color: var(--gray-ink);
-  }
   .assignment-actions {
     display: flex;
     gap: 2px;
@@ -667,17 +627,6 @@
     margin-top: 6px;
   }
 
-  /* Modal Title */
-  .modal-title-wrap {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex: 1;
-  }
-  .modal-title-wrap h3 {
-    font-size: 15px;
-    margin: 0;
-  }
   .modal-scroll-body {
     max-height: 72vh;
     overflow-y: auto;

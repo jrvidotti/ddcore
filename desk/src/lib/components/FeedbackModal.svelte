@@ -5,7 +5,6 @@
   // this user sent before with the developers' answers.
   import { untrack } from "svelte";
   import { page } from "$app/state";
-  import { focusTrap } from "$lib/focus-trap";
   import { api, type FeedbackItem } from "$lib/api";
   import { __, boot } from "$lib/boot.svelte";
   import { showError, toast } from "$lib/ui.svelte";
@@ -22,6 +21,7 @@
   import AudioPreview from "$lib/controls/AudioPreview.svelte";
   import { voiceNoteName } from "$lib/controls/audio-recorder-state";
   import Icon from "./Icon.svelte";
+  import Modal from "./Modal.svelte";
 
   let tab = $state<"send" | "mine">("send");
   let values = $state<FeedbackValues>(emptyFeedback());
@@ -252,215 +252,188 @@
     if (t === "mine" && !mineLoading) void loadMine();
   }
 
-  function onKeydown(e: KeyboardEvent) {
-    if (e.key !== "Escape") return;
-    e.stopPropagation();
-    close();
-  }
-
   const typeIcon = (t: string) => feedbackTypeDef(t).icon;
 </script>
 
 {#if feedbackState.open}
-  <div
-    class="modal-bg feedback-bg"
-    use:focusTrap
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="feedback-title"
-    tabindex="-1"
-    onclick={(e) => e.target === e.currentTarget && close()}
-    onkeydown={onKeydown}
-    onpaste={onPaste}
-  >
-    <div class="modal md feedback">
-      <div class="head">
-        <h3 id="feedback-title" class="title">
-          <Icon name="message-square" size={18} />
-          {__("Feedback")}
-        </h3>
-        <button type="button" class="btn icon" onclick={close} aria-label={__("Close")}><Icon name="x" /></button>
-      </div>
+  <Modal title={__("Feedback")} icon="message-square" class="feedback-bg" onclose={close} onpaste={onPaste}>
+    <div class="tabs" role="tablist">
+      <button type="button" role="tab" aria-selected={tab === "send"} class:on={tab === "send"} onclick={() => showTab("send")}>{__("Send")}</button>
+      <button type="button" role="tab" aria-selected={tab === "mine"} class:on={tab === "mine"} onclick={() => showTab("mine")}>{__("My feedback")}</button>
+    </div>
 
-      <div class="tabs" role="tablist">
-        <button type="button" role="tab" aria-selected={tab === "send"} class:on={tab === "send"} onclick={() => showTab("send")}>{__("Send")}</button>
-        <button type="button" role="tab" aria-selected={tab === "mine"} class:on={tab === "mine"} onclick={() => showTab("mine")}>{__("My feedback")}</button>
-      </div>
+    {#if tab === "send"}
+      <div class="body">
+        <p class="intro muted">{__("Tell the developers about a problem or an idea. Be specific: what you did, what you expected and what happened. Screenshots and audio notes help.")}</p>
 
-      {#if tab === "send"}
-        <div class="body">
-          <p class="intro muted">{__("Tell the developers about a problem or an idea. Be specific: what you did, what you expected and what happened. Screenshots and audio notes help.")}</p>
-
-          <div class="types" role="radiogroup" aria-label={__("Type")}>
-            {#each FEEDBACK_TYPES as t (t.value)}
-              <button
-                type="button"
-                role="radio"
-                class="type"
-                class:on={values.feedback_type === t.value}
-                aria-checked={values.feedback_type === t.value}
-                disabled={locked}
-                onclick={() => setType(t.value)}
-              >
-                <Icon name={t.icon} size={18} />
-                <span>{__(t.label)}</span>
-              </button>
-            {/each}
-          </div>
-          <div class="hint small muted">{__(def.hint)}</div>
-
-          <div class="field attach-card">
-            <span class="label">{__("Attachments")}</span>
-            <div
-              class="dropzone"
-              class:dragging
-              role="group"
-              aria-label={__("Attachments")}
-              ondragover={onDragOver}
-              ondragleave={() => (dragging = false)}
-              ondrop={onDrop}
+        <div class="types" role="radiogroup" aria-label={__("Type")}>
+          {#each FEEDBACK_TYPES as t (t.value)}
+            <button
+              type="button"
+              role="radio"
+              class="type"
+              class:on={values.feedback_type === t.value}
+              aria-checked={values.feedback_type === t.value}
+              disabled={locked}
+              onclick={() => setType(t.value)}
             >
-              <button type="button" class="btn sm" onclick={() => fileInput?.click()} disabled={locked || room <= 0}>
-                <Icon name="paperclip" size={13} /> {__("Choose files")}
-              </button>
-              <AudioRecorder onrecorded={onRecorded} disabled={locked || room <= 0} />
-              <span class="small muted">{__("or drag them here, or paste a screenshot")}</span>
-              <input bind:this={fileInput} type="file" multiple hidden onchange={onPick} />
-            </div>
-            {#if recordings.length}
-              <ul class="files recordings">
-                {#each recordings as r, i (r.name)}
-                  <li>
-                    <Icon name="mic" size={14} />
-                    <AudioPreview file={r} />
-                    <span class="small muted" title={transcripts[r.name] ?? ""}>{r.name}</span>
-                    <button type="button" class="btn icon sm" onclick={() => removeRecording(i)} disabled={locked} aria-label={__("Remove {0}", [r.name])}><Icon name="x" size={12} /></button>
-                  </li>
-                {/each}
-              </ul>
-            {/if}
-            {#if files.length}
-              <ul class="files">
-                {#each files as f, i (i + ":" + f.name)}
-                  <li>
-                    <Icon name={f.type.startsWith("image/") ? "image" : "file"} size={14} />
-                    <span class="fname" title={f.name}>{f.name}</span>
-                    <span class="small muted">{formatFileSize(f.size)}</span>
-                    <button type="button" class="btn icon sm" onclick={() => removeFile(i)} disabled={locked} aria-label={__("Remove {0}", [f.name])}><Icon name="x" size={12} /></button>
-                  </li>
-                {/each}
-              </ul>
-            {/if}
-            <div class="desc">{__("{0} of {1} files", [files.length + recordings.length, MAX_FEEDBACK_FILES])}</div>
-          </div>
-
-          {#if assistOn}
-            <div class="assist">
-              <div class="assist-actions">
-                <button type="button" class="btn sm assist-btn" onclick={assist} disabled={locked || !canAssist(values, files, recordings)}>
-                  <Icon name="wand-sparkles" size={14} /> {assisting ? __("Filling in…") : __("Fill in with AI")}
-                </button>
-                {#if beforeAssist && !assisting}
-                  <button type="button" class="link-btn small" onclick={undoAssist}>{__("Undo")}</button>
-                {/if}
-              </div>
-              <div class="small muted">{__("Be detailed: record audio and attach screenshots telling what you did, what you expected and what happened, and try to cover every field below. The AI fills in the form for you to review before sending.")}</div>
-              <div class="small muted">{__("Your audio notes and screenshots, and the page address and context data if checked below, are sent to an AI service.")}</div>
-            </div>
-          {/if}
-
-          <div class="field">
-            <label for="feedback-field-title">{__("Title")}<span class="req">*</span></label>
-            <input id="feedback-field-title" class="input" class:error={!!errors.title} class:ai-filled={aiFilled.includes("title")} maxlength={MAX_TITLE} bind:value={values.title} oninput={() => edited("title")} disabled={locked} />
-            {#if errors.title}<div class="err">{__(errors.title)}</div>{/if}
-          </div>
-          <div class="field">
-            <label for="feedback-field-description">{__("Description")}<span class="req">*</span></label>
-            <textarea id="feedback-field-description" class="input" class:error={!!errors.description} class:ai-filled={aiFilled.includes("description")} rows="4" bind:value={values.description} oninput={() => edited("description")} disabled={locked}></textarea>
-            {#if errors.description}<div class="err">{__(errors.description)}</div>{/if}
-          </div>
-
-          <div class="form-row">
-            {#each def.fields as f (f.name)}
-              <div class="form-cell" class:w-50={f.half}>
-                <div class="field">
-                  <label for="feedback-field-{f.name}">{__(f.label)}</label>
-                  {#if f.kind === "select"}
-                    <select id="feedback-field-{f.name}" class="input" class:ai-filled={aiFilled.includes(f.name)} bind:value={values[f.name]} onchange={() => edited(f.name)} disabled={locked}>
-                      <option value=""></option>
-                      {#each f.options ?? [] as o}<option value={o}>{__(o)}</option>{/each}
-                    </select>
-                  {:else if f.kind === "textarea"}
-                    <textarea id="feedback-field-{f.name}" class="input" class:ai-filled={aiFilled.includes(f.name)} rows="3" bind:value={values[f.name]} oninput={() => edited(f.name)} disabled={locked}></textarea>
-                  {:else}
-                    <input id="feedback-field-{f.name}" class="input" class:ai-filled={aiFilled.includes(f.name)} bind:value={values[f.name]} oninput={() => edited(f.name)} disabled={locked} />
-                  {/if}
-                </div>
-              </div>
-            {/each}
-          </div>
-
-          <div class="field check">
-            <div class="check-control">
-              <input id="feedback-send-url" type="checkbox" bind:checked={sendUrl} disabled={locked} />
-              <label for="feedback-send-url">{__("Send the address of this page")}</label>
-            </div>
-            {#if pageUrl}<div class="desc url" class:off={!sendUrl}>{pageUrl}</div>{/if}
-          </div>
-          <div class="field check">
-            <div class="check-control">
-              <input id="feedback-send-context" type="checkbox" bind:checked={sendContext} disabled={locked} />
-              <label for="feedback-send-context">{__("Send context data")}</label>
-              <button type="button" class="link-btn small" aria-expanded={showContext} onclick={() => (showContext = !showContext)}>
-                {showContext ? __("Hide") : __("See what will be sent")}
-              </button>
-            </div>
-            <div class="desc">{__("Your user, roles and language, the site's version and apps, your browser and the last errors on this page.")}</div>
-            {#if showContext}<pre class="context-preview">{contextPreview}</pre>{/if}
-          </div>
+              <Icon name={t.icon} size={18} />
+              <span>{__(t.label)}</span>
+            </button>
+          {/each}
         </div>
-        <div class="foot">
-          <button type="button" class="btn" onclick={close} disabled={busy}>{__("Cancel")}</button>
-          <button type="button" class="btn primary" onclick={submit} disabled={locked}>
-            <Icon name="send" size={14} /> {busy ? __("Sending…") : __("Send")}
-          </button>
-        </div>
-      {:else}
-        <div class="body">
-          {#if mineLoading && !mine}
-            <div class="small muted">{__("Loading...")}</div>
-          {:else if mineError}
-            <div class="err small" role="alert">{mineError}</div>
-          {:else if !mine?.length}
-            <div class="small muted">{__("You have not sent any feedback yet.")}</div>
-          {:else}
-            <ul class="mine">
-              {#each mine as item (item.id)}
+        <div class="hint small muted">{__(def.hint)}</div>
+
+        <div class="field attach-card">
+          <span class="label">{__("Attachments")}</span>
+          <div
+            class="dropzone"
+            class:dragging
+            role="group"
+            aria-label={__("Attachments")}
+            ondragover={onDragOver}
+            ondragleave={() => (dragging = false)}
+            ondrop={onDrop}
+          >
+            <button type="button" class="btn sm" onclick={() => fileInput?.click()} disabled={locked || room <= 0}>
+              <Icon name="paperclip" size={13} /> {__("Choose files")}
+            </button>
+            <AudioRecorder onrecorded={onRecorded} disabled={locked || room <= 0} />
+            <span class="small muted">{__("or drag them here, or paste a screenshot")}</span>
+            <input bind:this={fileInput} type="file" multiple hidden onchange={onPick} />
+          </div>
+          {#if recordings.length}
+            <ul class="files recordings">
+              {#each recordings as r, i (r.name)}
                 <li>
-                  <div class="mine-head">
-                    <Icon name={typeIcon(item.feedback_type)} size={14} />
-                    <span class="mine-title">{item.title}</span>
-                    <span class="indicator {feedbackStatusColor(item.status)}">{__(item.status)}</span>
-                  </div>
-                  <div class="small muted">{__(item.feedback_type)} · {formatDatetime(item.creation)}</div>
-                  {#if item.response}
-                    <div class="response"><span class="small muted">{__("Response")}</span><div>{item.response}</div></div>
-                  {/if}
+                  <Icon name="mic" size={14} />
+                  <AudioPreview file={r} />
+                  <span class="small muted" title={transcripts[r.name] ?? ""}>{r.name}</span>
+                  <button type="button" class="btn icon sm" onclick={() => removeRecording(i)} disabled={locked} aria-label={__("Remove {0}", [r.name])}><Icon name="x" size={12} /></button>
                 </li>
               {/each}
             </ul>
           {/if}
+          {#if files.length}
+            <ul class="files">
+              {#each files as f, i (i + ":" + f.name)}
+                <li>
+                  <Icon name={f.type.startsWith("image/") ? "image" : "file"} size={14} />
+                  <span class="fname" title={f.name}>{f.name}</span>
+                  <span class="small muted">{formatFileSize(f.size)}</span>
+                  <button type="button" class="btn icon sm" onclick={() => removeFile(i)} disabled={locked} aria-label={__("Remove {0}", [f.name])}><Icon name="x" size={12} /></button>
+                </li>
+              {/each}
+            </ul>
+          {/if}
+          <div class="desc">{__("{0} of {1} files", [files.length + recordings.length, MAX_FEEDBACK_FILES])}</div>
         </div>
-        <div class="foot">
-          <button type="button" class="btn" onclick={close}>{__("Close")}</button>
+
+        {#if assistOn}
+          <div class="assist">
+            <div class="assist-actions">
+              <button type="button" class="btn sm assist-btn" onclick={assist} disabled={locked || !canAssist(values, files, recordings)}>
+                <Icon name="wand-sparkles" size={14} /> {assisting ? __("Filling in…") : __("Fill in with AI")}
+              </button>
+              {#if beforeAssist && !assisting}
+                <button type="button" class="link-btn small" onclick={undoAssist}>{__("Undo")}</button>
+              {/if}
+            </div>
+            <div class="small muted">{__("Be detailed: record audio and attach screenshots telling what you did, what you expected and what happened, and try to cover every field below. The AI fills in the form for you to review before sending.")}</div>
+            <div class="small muted">{__("Your audio notes and screenshots, and the page address and context data if checked below, are sent to an AI service.")}</div>
+          </div>
+        {/if}
+
+        <div class="field">
+          <label for="feedback-field-title">{__("Title")}<span class="req">*</span></label>
+          <input id="feedback-field-title" class="input" class:error={!!errors.title} class:ai-filled={aiFilled.includes("title")} maxlength={MAX_TITLE} bind:value={values.title} oninput={() => edited("title")} disabled={locked} />
+          {#if errors.title}<div class="err">{__(errors.title)}</div>{/if}
         </div>
-      {/if}
-    </div>
-  </div>
+        <div class="field">
+          <label for="feedback-field-description">{__("Description")}<span class="req">*</span></label>
+          <textarea id="feedback-field-description" class="input" class:error={!!errors.description} class:ai-filled={aiFilled.includes("description")} rows="4" bind:value={values.description} oninput={() => edited("description")} disabled={locked}></textarea>
+          {#if errors.description}<div class="err">{__(errors.description)}</div>{/if}
+        </div>
+
+        <div class="form-row">
+          {#each def.fields as f (f.name)}
+            <div class="form-cell" class:w-50={f.half}>
+              <div class="field">
+                <label for="feedback-field-{f.name}">{__(f.label)}</label>
+                {#if f.kind === "select"}
+                  <select id="feedback-field-{f.name}" class="input" class:ai-filled={aiFilled.includes(f.name)} bind:value={values[f.name]} onchange={() => edited(f.name)} disabled={locked}>
+                    <option value=""></option>
+                    {#each f.options ?? [] as o}<option value={o}>{__(o)}</option>{/each}
+                  </select>
+                {:else if f.kind === "textarea"}
+                  <textarea id="feedback-field-{f.name}" class="input" class:ai-filled={aiFilled.includes(f.name)} rows="3" bind:value={values[f.name]} oninput={() => edited(f.name)} disabled={locked}></textarea>
+                {:else}
+                  <input id="feedback-field-{f.name}" class="input" class:ai-filled={aiFilled.includes(f.name)} bind:value={values[f.name]} oninput={() => edited(f.name)} disabled={locked} />
+                {/if}
+              </div>
+            </div>
+          {/each}
+        </div>
+
+        <div class="field check">
+          <div class="check-control">
+            <input id="feedback-send-url" type="checkbox" bind:checked={sendUrl} disabled={locked} />
+            <label for="feedback-send-url">{__("Send the address of this page")}</label>
+          </div>
+          {#if pageUrl}<div class="desc url" class:off={!sendUrl}>{pageUrl}</div>{/if}
+        </div>
+        <div class="field check">
+          <div class="check-control">
+            <input id="feedback-send-context" type="checkbox" bind:checked={sendContext} disabled={locked} />
+            <label for="feedback-send-context">{__("Send context data")}</label>
+            <button type="button" class="link-btn small" aria-expanded={showContext} onclick={() => (showContext = !showContext)}>
+              {showContext ? __("Hide") : __("See what will be sent")}
+            </button>
+          </div>
+          <div class="desc">{__("Your user, roles and language, the site's version and apps, your browser and the last errors on this page.")}</div>
+          {#if showContext}<pre class="context-preview">{contextPreview}</pre>{/if}
+        </div>
+      </div>
+      <div class="foot">
+        <button type="button" class="btn" onclick={close} disabled={busy}>{__("Cancel")}</button>
+        <button type="button" class="btn primary" onclick={submit} disabled={locked}>
+          <Icon name="send" size={14} /> {busy ? __("Sending…") : __("Send")}
+        </button>
+      </div>
+    {:else}
+      <div class="body">
+        {#if mineLoading && !mine}
+          <div class="small muted">{__("Loading...")}</div>
+        {:else if mineError}
+          <div class="err small" role="alert">{mineError}</div>
+        {:else if !mine?.length}
+          <div class="small muted">{__("You have not sent any feedback yet.")}</div>
+        {:else}
+          <ul class="mine">
+            {#each mine as item (item.id)}
+              <li>
+                <div class="mine-head">
+                  <Icon name={typeIcon(item.feedback_type)} size={14} />
+                  <span class="mine-title">{item.title}</span>
+                  <span class="indicator {feedbackStatusColor(item.status)}">{__(item.status)}</span>
+                </div>
+                <div class="small muted">{__(item.feedback_type)} · {formatDatetime(item.creation)}</div>
+                {#if item.response}
+                  <div class="response"><span class="small muted">{__("Response")}</span><div>{item.response}</div></div>
+                {/if}
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </div>
+      <div class="foot">
+        <button type="button" class="btn" onclick={close}>{__("Close")}</button>
+      </div>
+    {/if}
+  </Modal>
 {/if}
 
 <style>
-  .title { display: flex; align-items: center; gap: 8px; }
   .tabs { display: flex; gap: 2px; padding: 6px 20px 0; border-bottom: 1px solid var(--border); }
   .tabs button {
     border: 0; background: none; padding: 8px 12px; font-size: 13px; cursor: pointer;
@@ -478,6 +451,7 @@
   .type.on { border-color: var(--primary); background: var(--active); color: var(--primary); font-weight: 500; }
   .type:disabled { cursor: default; opacity: .6; }
   .hint { margin: 6px 0 14px; }
+  .attach-card > .label { font-weight: 400; }
   .dropzone {
     display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px;
     border: 1px dashed var(--border); border-radius: 8px; background: var(--surface-alt);
@@ -512,8 +486,8 @@
   .err { color: var(--red); }
 
   @media (max-width: 600px) {
-    .feedback-bg { padding: 8px; }
-    .modal .body, .modal .head, .modal .foot { padding-left: 14px; padding-right: 14px; }
+    :global(.modal-bg.feedback-bg) { padding: 8px; }
+    :global(.feedback-bg .modal :is(.head, .body, .foot)) { padding-left: 14px; padding-right: 14px; }
     .tabs { padding: 4px 14px 0; }
     .type { flex-direction: column; gap: 4px; padding: 8px 4px; font-size: 12px; }
     .link-btn { margin-left: 0; }

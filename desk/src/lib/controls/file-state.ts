@@ -1,10 +1,5 @@
-/** What a dialog's File field hands to the script: the chosen file, never uploaded. */
-export interface DialogFile {
-  name: string;
-  size: number;
-  type: string;
-  base64: string;
-}
+import type { DialogFile } from "@ddcore/desk-sdk";
+export type { DialogFile };
 
 /** The cap on a File field that declares no `maxBytes`. */
 export const DEFAULT_FILE_MAX_BYTES = 5 * 1024 * 1024;

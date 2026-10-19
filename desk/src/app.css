@@ -56,6 +56,11 @@ h1, .site-name { font-family: var(--font-heading); }
 .indicator::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 /* a Select's indicator (SelectIndicator): its icon replaces the dot, and the label clips in a narrow cell */
 .indicator.has-icon { gap: 4px; } .indicator.has-icon::before { display: none; } .indicator.icon-only { padding: 3px; }
+.priority-badge { display: inline-block; padding: 1px 6px; border-radius: 999px; font-size: 10px; font-weight: 600; text-transform: uppercase; white-space: nowrap; }
+.priority-urgent { background: var(--red-soft); color: var(--red-ink); }
+.priority-high { background: var(--orange-soft); color: var(--orange-ink); }
+.priority-medium { background: var(--yellow-soft); color: var(--yellow-ink); }
+.priority-low { background: var(--gray-soft); color: var(--gray-ink); }
 .select-indicator { max-width: 100%; } .indicator-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .indicator.green, .card-avatar.green { background: var(--green-soft); color: var(--green-ink); } .indicator.red, .card-avatar.red { background: var(--red-soft); color: var(--red-ink); }
 .indicator.orange, .card-avatar.orange { background: var(--orange-soft); color: var(--orange-ink); } .indicator.blue, .card-avatar.blue { background: var(--blue-soft); color: var(--blue-ink); }
@@ -134,8 +139,11 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
 .modal { background: var(--surface); border-radius: 10px; width: 100%; max-width: 640px; box-shadow: 0 20px 60px rgba(0,0,0,.3); }
 .modal.sm { max-width: 420px; } .modal.lg { max-width: 900px; }
 .modal .head { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; }
-.modal .head h3 { flex: 1; font-size: 15px; }
+.modal .head h3 { flex: 1; font-size: 15px; display: flex; align-items: center; gap: 8px; }
 .modal .body { padding: 16px 20px; }
+.modal :is(.form-group > .label, legend.label) { display: block; font-size: 12px; font-weight: 500; margin-bottom: 4px; color: var(--muted); }
+.modal :is(.form-group > .label, legend.label).reqd::after { content: " *"; color: var(--red); }
+.modal .form-group { display: flex; flex-direction: column; }
 .modal .foot { padding: 12px 20px; border-top: 1px solid var(--border); display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .busy-bar { position: fixed; top: 0; left: 0; right: 0; height: 3px; background: var(--primary); z-index: 200; animation: busy 1s infinite linear; background: linear-gradient(90deg, transparent, var(--primary), transparent); background-size: 50% 100%; }
 @keyframes busy { from { background-position: -50% 0; } to { background-position: 150% 0; } }
