@@ -285,20 +285,15 @@ func (c *Ctx) grantedBy(d *meta.DocType, ptype string, doc Doc) (bool, error) {
 	return allowed, nil
 }
 
-// rowGrants reports whether permission row p gives one of roles ptype on the
-// document. A row above level 0 grants fields, never the document (SEC-02).
-// The list paths ask it for "read" as grantedBy does, so a listing holds what
-// HasPermission(read) allows and no more: report alone is not read.
-func rowGrants(p meta.Perm, roles []string, ptype string) bool {
-	return p.Permlevel == 0 && containsFold(roles, p.Role) && p.Has(ptype)
-}
-
 // roleGrant reports whether a permission row of d gives one of roles ptype,
-// and whether every such row holds the user to the documents he owns.
+// and whether every such row holds the user to the documents he owns. A row
+// above level 0 grants fields, never the document (SEC-02). The list paths ask
+// it for "read" as grantedBy does, so a listing holds what HasPermission(read)
+// allows and no more: report alone is not read.
 func roleGrant(d *meta.DocType, roles []string, ptype string) (allowed, ownerOnly bool) {
 	ownerOnly = true
 	for _, p := range d.Permissions {
-		if rowGrants(p, roles, ptype) {
+		if p.Permlevel == 0 && containsFold(roles, p.Role) && p.Has(ptype) {
 			allowed = true
 			ownerOnly = ownerOnly && p.IfOwner
 		}
@@ -433,19 +428,11 @@ func (c *Ctx) readIsOwnerOnly(d *meta.DocType) bool {
 	return ownerOnly
 }
 
-// ReadableParentsOf returns the names of the doctypes embedding `child` that
-// the user may read in full — the parents a child listing goes through (B02),
-// each narrowed there to the documents a list of it holds. A doctype the user
-// only reads as owner is left out, so its rows are never listed on their own.
-func (c *Ctx) ReadableParentsOf(child string) ([]string, error) {
-	return c.parentsAllowing(child, "read", false)
-}
-
-// parentsAllowing returns the names of the doctypes embedding child that the
-// user holds ptype on, leaving out those he reads only as owner; firstOnly
-// stops at the first.
-func (c *Ctx) parentsAllowing(child, ptype string, firstOnly bool) ([]string, error) {
-	var out []string
+// parentsAllowing returns the doctypes embedding child that the user holds
+// ptype on, leaving out those he reads only as owner, so their rows are never
+// listed on their own; firstOnly stops at the first.
+func (c *Ctx) parentsAllowing(child, ptype string, firstOnly bool) ([]*meta.DocType, error) {
+	var out []*meta.DocType
 	for _, cp := range c.ParentsOf(child) {
 		if c.readIsOwnerOnly(cp.Parent) {
 			continue
@@ -454,8 +441,8 @@ func (c *Ctx) parentsAllowing(child, ptype string, firstOnly bool) ([]string, er
 		if err != nil {
 			return nil, err
 		}
-		if ok && !containsFold(out, cp.Parent.Name) {
-			out = append(out, cp.Parent.Name)
+		if ok && !slices.Contains(out, cp.Parent) {
+			out = append(out, cp.Parent)
 			if firstOnly {
 				break
 			}
@@ -711,17 +698,13 @@ func (c *Ctx) permissionFilters(d *meta.DocType) ([]db.Filter, error) {
 // apply within the parent, as when the parent is read; the child's own scopes
 // apply as well. No such parent lists no row.
 func (c *Ctx) childListFilters(d *meta.DocType) ([]db.Filter, error) {
-	parents, err := c.ReadableParentsOf(d.Name)
+	parents, err := c.parentsAllowing(d.Name, "read", false)
 	if err != nil {
 		return nil, err
 	}
 	embeds := c.ParentsOf(d.Name)
 	groups := [][]db.Filter{}
-	for _, name := range parents {
-		pd, err := c.St.DocType(name)
-		if err != nil {
-			return nil, err
-		}
+	for _, pd := range parents {
 		if c.spaceRefusal(pd, false, false) != nil {
 			continue
 		}
