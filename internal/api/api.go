@@ -1162,10 +1162,7 @@ func (s *Server) docMethod(w http.ResponseWriter, r *http.Request) {
 			return redacted(s, c, dt)(c.Amend(dt, name))
 		case "rename":
 			nn, _ := args["id"].(string)
-			if args["merge"] == true {
-				return strings.TrimSpace(nn), c.Merge(dt, name, nn)
-			}
-			return c.Rename(dt, name, nn)
+			return c.RenameOrMerge(dt, name, nn, args["merge"] == true)
 		case "merge_preview":
 			into, _ := args["id"].(string)
 			return c.PreviewMerge(dt, name, into)

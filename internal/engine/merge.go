@@ -219,6 +219,16 @@ type MergePreview struct {
 	Blockers []string `json:"blockers"`
 }
 
+// RenameOrMerge is the one door the API and the bridge use to rename a
+// document or, when merge is set, to fold it into an existing one. It answers
+// the id the document now has.
+func (c *Ctx) RenameOrMerge(doctype, oldID, newID string, merge bool) (string, error) {
+	if merge {
+		return strings.TrimSpace(newID), c.Merge(doctype, oldID, newID)
+	}
+	return c.Rename(doctype, oldID, newID)
+}
+
 // Merge folds document fromID of doctype into intoID, which already exists:
 // every reference to fromID is repointed to intoID, and fromID is deleted.
 // It is Frappe's "merge with existing", for duplicates that turned up in the

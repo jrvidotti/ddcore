@@ -57,9 +57,6 @@ func newRuntime(host Host, bundles []*Bundle, test bool) (*Runtime, error) {
 		if res == nil {
 			return "", nil
 		}
-		if s, ok := res.(string); ok && op == "__raw" {
-			return s, nil
-		}
 		b, err := json.Marshal(res)
 		if err != nil {
 			return "", err
