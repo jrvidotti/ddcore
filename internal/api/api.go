@@ -723,8 +723,16 @@ func (s *Server) boot(w http.ResponseWriter, r *http.Request) {
 			// of that tenant, but the desk still needs a name to show
 			userDoc = map[string]any{"id": c.User, "full_name": c.User, "user_type": "System User"}
 		}
+		// the languages the site serves, with the same autonyms the
+		// User.language picker carries (applyLanguageOptions) — the desk's
+		// profile screen needs them and User is a System Manager doctype, so
+		// borrowing its meta is not an option for the person whose language it is
+		var langs []map[string]any
+		for _, l := range c.St.I18n.Langs() {
+			langs = append(langs, map[string]any{"code": l, "label": engine.LanguageName(l)})
+		}
 		out := map[string]any{
-			"user": c.User, "roles": roles, "userDoc": userDoc, "lang": c.Lang, "langs": langsBoot(c.St),
+			"user": c.User, "roles": roles, "userDoc": userDoc, "lang": c.Lang, "langs": langs,
 			"portals": portalsFor(c), "portalIncludes": portalIncludeApps(c.St), "site": site, "loaded": c.St.Loaded.UnixMilli(),
 		}
 		if c.IsWebsiteUser() {
@@ -739,7 +747,12 @@ func (s *Server) boot(w http.ResponseWriter, r *http.Request) {
 		doctypes, virtuals := doctypesBoot(c)
 		reports := reportsBoot(c, roles)
 		workspaces, denied := workspacesBoot(c, roles, doctypes, reports)
-		out["apps"], out["workspaces"], out["doctypes"], out["virtuals"], out["reports"] = appsBoot(c), workspaces, doctypes, virtuals, reports
+		var apps []map[string]any
+		for _, name := range c.St.AppOrder() {
+			a := c.St.Snap.Apps[name]
+			apps = append(apps, map[string]any{"name": a.Name, "title": c.T(a.Title), "desk": a.Desk, "hasDeskInclude": len(deskIncludes(a)) > 0})
+		}
+		out["apps"], out["workspaces"], out["doctypes"], out["virtuals"], out["reports"] = apps, workspaces, doctypes, virtuals, reports
 		if len(workspaces) == 0 && denied {
 			out["workspacesDenied"] = true
 		}
@@ -761,18 +774,6 @@ func (s *Server) userBoot(c *engine.Ctx, r *http.Request) map[string]any {
 		s.E.Cache.Set("lang:"+c.User, l, langCacheTTL)
 	}
 	return userDoc
-}
-
-// langsBoot is the languages the site serves, with the same autonyms the
-// User.language picker carries (applyLanguageOptions) — the desk's profile
-// screen needs them and User is a System Manager doctype, so borrowing its
-// meta is not an option for the person whose language it is.
-func langsBoot(st *engine.State) []map[string]any {
-	var langs []map[string]any
-	for _, l := range st.I18n.Langs() {
-		langs = append(langs, map[string]any{"code": l, "label": engine.LanguageName(l)})
-	}
-	return langs
 }
 
 func (s *Server) siteBoot(c *engine.Ctx, r *http.Request) (map[string]any, error) {
@@ -814,15 +815,6 @@ func (s *Server) siteBoot(c *engine.Ctx, r *http.Request) (map[string]any, error
 		site["tenant"] = tb
 	}
 	return site, nil
-}
-
-func appsBoot(c *engine.Ctx) []map[string]any {
-	var apps []map[string]any
-	for _, name := range c.St.AppOrder() {
-		a := c.St.Snap.Apps[name]
-		apps = append(apps, map[string]any{"name": a.Name, "title": c.T(a.Title), "desk": a.Desk, "hasDeskInclude": len(deskIncludes(a)) > 0})
-	}
-	return apps
 }
 
 // doctypesBoot is the DocTypes the reader may read, and every virtual
