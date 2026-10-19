@@ -1,10 +1,8 @@
 <script lang="ts">
   import { __ } from "$lib/boot.svelte";
   import { today } from "$lib/datetime";
-  import { anchored } from "./floating";
   import type { Field } from "$lib/meta";
-  import Icon from "$lib/components/Icon.svelte";
-  import { dateShape } from "$lib/locale";
+  import MaskedPickerInput from "./MaskedPickerInput.svelte";
   import {
     dayNames,
     monthTitles,
@@ -14,7 +12,6 @@
     maskDateInput,
     parseDateLocal,
     stepDate,
-    type CalendarDay,
   } from "./date-format.ts";
 
   let {
@@ -33,44 +30,21 @@
     id?: string;
   } = $props();
 
-  let text = $state("");
-  let focused = $state(false);
-  let open = $state(false);
-  let wrapEl: HTMLDivElement | null = $state(null);
-  let inputEl: HTMLInputElement | null = $state(null);
-
+  const fmt = { format: formatDateLocal, parse: parseDateLocal, mask: maskDateInput, step: stepDate, digits: 8 };
   const currentParsed = $derived(parseDateLocal(value));
 
   // the site's day, not the browser's: the calendar highlighted a "today" the
   // server would not have agreed with for any reader in another timezone
   const todayIso = today();
-  const [todayYear, todayMonth] = [Number(todayIso.slice(0, 4)), Number(todayIso.slice(5, 7))];
 
-  let viewYear = $state(todayYear);
-  let viewMonth = $state(todayMonth);
+  let viewYear = $state(Number(todayIso.slice(0, 4)));
+  let viewMonth = $state(Number(todayIso.slice(5, 7)));
 
   const calendarDays = $derived(getCalendarDays(viewYear, viewMonth));
 
-  $effect(() => {
-    if (!focused) {
-      text = formatDateLocal(value);
-    }
-  });
-
-  function togglePicker() {
-    if (readOnly) return;
-    if (!open) {
-      if (currentParsed) {
-        viewYear = currentParsed.year;
-        viewMonth = currentParsed.month;
-      } else {
-        viewYear = todayYear;
-        viewMonth = todayMonth;
-      }
-      open = true;
-    } else {
-      open = false;
-    }
+  function showMonth(iso: string) {
+    viewYear = Number(iso.slice(0, 4));
+    viewMonth = Number(iso.slice(5, 7));
   }
 
   function prevMonth() {
@@ -90,275 +64,58 @@
       viewMonth += 1;
     }
   }
-
-  function onInput(e: Event) {
-    const target = e.target as HTMLInputElement;
-    text = maskDateInput(target.value);
-    // written back by hand: when the mask drops a keystroke, `text` does not
-    // change, so the render would leave the extra character in the input
-    target.value = text;
-    // complete once every digit is in, whatever the separator's width
-    if (text.replace(/\D/g, "").length === 8) {
-      const p = parseDateLocal(text);
-      if (p) {
-        viewYear = p.year;
-        viewMonth = p.month;
-        onchange(p.iso);
-      }
-    }
-  }
-
-  function onKeyDown(e: KeyboardEvent) {
-    if (e.key === "Backspace") {
-      const target = e.target as HTMLInputElement;
-      const { sep } = dateShape();
-      if (
-        text.endsWith(sep) &&
-        target.selectionStart === target.selectionEnd &&
-        target.selectionStart === text.length
-      ) {
-        // the separator was typed by the mask, so it goes with the digit before it
-        e.preventDefault();
-        text = text.slice(0, -(sep.length + 1));
-      }
-    } else if (e.key === "Enter") {
-      commit();
-      (e.target as HTMLInputElement).blur();
-      open = false;
-    } else if (e.key === "Escape") {
-      if (open) {
-        open = false;
-        e.stopPropagation();
-      }
-    } else if ((e.key === "ArrowDown" || e.key === "Down") && e.altKey) {
-      e.preventDefault();
-      togglePicker();
-    } else if ((e.key === "ArrowUp" || e.key === "ArrowDown") && !e.altKey && !e.ctrlKey && !e.metaKey) {
-      // the part under the caret steps, as in a native date input
-      if (readOnly) return;
-      e.preventDefault();
-      const target = e.target as HTMLInputElement;
-      const s = stepDate(text, target.selectionStart ?? 0, e.key === "ArrowUp" ? 1 : -1, todayIso);
-      if (s) {
-        text = s.text;
-        viewYear = Number(s.iso.slice(0, 4));
-        viewMonth = Number(s.iso.slice(5, 7));
-        onchange(s.iso);
-        // written now, not on the next render, so the selection has text to land on
-        target.value = s.text;
-        target.setSelectionRange(s.start, s.end);
-      }
-    }
-  }
-
-  function commit() {
-    if (!text) {
-      if (value) onchange(null);
-      return;
-    }
-    const p = parseDateLocal(text);
-    if (p) {
-      onchange(p.iso);
-      text = formatDateLocal(p.iso);
-    } else {
-      text = formatDateLocal(value);
-    }
-  }
-
-  function onBlur() {
-    focused = false;
-    commit();
-  }
-
-  function pickDay(d: CalendarDay) {
-    text = formatDateLocal(d.iso);
-    viewYear = d.year;
-    viewMonth = d.month;
-    onchange(d.iso);
-    open = false;
-    inputEl?.focus();
-  }
-
-  function pickToday() {
-    text = formatDateLocal(todayIso);
-    viewYear = todayYear;
-    viewMonth = todayMonth;
-    onchange(todayIso);
-    open = false;
-    inputEl?.focus();
-  }
-
-  function clearDate() {
-    text = "";
-    onchange(null);
-    open = false;
-    inputEl?.focus();
-  }
-
-  $effect(() => {
-    if (!open) return;
-    function onDocClick(e: MouseEvent) {
-      if (wrapEl && !wrapEl.contains(e.target as Node)) {
-        open = false;
-      }
-    }
-    window.addEventListener("mousedown", onDocClick);
-    return () => window.removeEventListener("mousedown", onDocClick);
-  });
 </script>
 
-<div class="date-wrap" bind:this={wrapEl}>
-  <input
-    bind:this={inputEl}
-    {id}
-    type="text"
-    class="input date-input"
-    class:error={!!error}
-    readonly={readOnly}
-    placeholder={datePlaceholder()}
-    value={text}
-    inputmode="numeric"
-    autocomplete="off"
-    spellcheck={false}
-    data-fieldname={field.fieldname}
-    data-fieldtype="Date"
-    onfocus={() => (focused = true)}
-    onclick={() => { if (!readOnly && !open) togglePicker(); }}
-    oninput={onInput}
-    onblur={onBlur}
-    onkeydown={onKeyDown}
-  />
-  {#if !readOnly}
-    <button
-      type="button"
-      class="cal-btn"
-      tabindex="-1"
-      aria-label={__("Open the date picker")}
-      onmousedown={(e) => e.preventDefault()}
-      onclick={togglePicker}
-    >
-      <Icon name="calendar" size={15} />
-    </button>
-  {/if}
-
-  {#if open && !readOnly}
-    <div class="date-popover" use:anchored={{ anchor: wrapEl, align: "end" }} role="dialog" aria-modal="true" tabindex="-1" onmousedown={(e) => e.preventDefault()}>
-      <div class="popover-head">
-        <button
-          type="button"
-          class="btn icon sm"
-          onclick={prevMonth}
-          aria-label={__("Previous month")}
-        >
-          <Icon name="chevron-left" size={13} />
-        </button>
-        <span class="view-title">{monthTitles()[viewMonth - 1]} {viewYear}</span>
-        <button
-          type="button"
-          class="btn icon sm"
-          onclick={nextMonth}
-          aria-label={__("Next month")}
-        >
-          <Icon name="chevron-right" size={13} />
-        </button>
-      </div>
-
-      <div class="week-row">
-        {#each dayNames() as dayName}
-          <div class="week-day">{dayName}</div>
-        {/each}
-      </div>
-
-      <div class="days-grid">
-        {#each calendarDays as d}
-          {@const isSelected = currentParsed?.iso === d.iso}
-          {@const isToday = todayIso === d.iso}
-          <button
-            type="button"
-            class="day-cell"
-            class:other-month={!d.isCurrentMonth}
-            class:selected={isSelected}
-            class:is-today={isToday && !isSelected}
-            onclick={() => pickDay(d)}
-          >
-            {d.day}
-          </button>
-        {/each}
-      </div>
-
-      <div class="popover-foot">
-        <button type="button" class="btn-link" onclick={pickToday}>
-          {__("Today")}
-        </button>
-        {#if value}
-          <button type="button" class="btn-link muted" onclick={clearDate}>
-            {__("Clear")}
-          </button>
-        {/if}
-      </div>
+<MaskedPickerInput
+  {field}
+  fieldtype="Date"
+  {value}
+  {onchange}
+  {readOnly}
+  {error}
+  {id}
+  {fmt}
+  placeholder={datePlaceholder()}
+  {todayIso}
+  todayValue={todayIso}
+  todayLabel={__("Today")}
+  openLabel={__("Open the date picker")}
+  nav={{
+    title: `${monthTitles()[viewMonth - 1]} ${viewYear}`,
+    prevLabel: __("Previous month"),
+    nextLabel: __("Next month"),
+    onprev: prevMonth,
+    onnext: nextMonth,
+  }}
+  onview={showMonth}
+>
+  {#snippet grid(choose)}
+    <div class="week-row">
+      {#each dayNames() as dayName}
+        <div class="week-day">{dayName}</div>
+      {/each}
     </div>
-  {/if}
-</div>
+
+    <div class="days-grid">
+      {#each calendarDays as d}
+        {@const isSelected = currentParsed?.iso === d.iso}
+        {@const isToday = todayIso === d.iso}
+        <button
+          type="button"
+          class="day-cell"
+          class:other-month={!d.isCurrentMonth}
+          class:selected={isSelected}
+          class:is-today={isToday && !isSelected}
+          onclick={() => choose(d.iso)}
+        >
+          {d.day}
+        </button>
+      {/each}
+    </div>
+  {/snippet}
+</MaskedPickerInput>
 
 <style>
-  .date-wrap {
-    position: relative;
-    width: 100%;
-  }
-
-  .date-input {
-    padding-right: 32px;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .cal-btn {
-    position: absolute;
-    right: 7px;
-    top: 50%;
-    transform: translateY(-50%);
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    padding: 3px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--muted);
-    border-radius: 4px;
-    transition: color 0.15s ease, background-color 0.15s ease;
-  }
-
-  .cal-btn:hover {
-    color: var(--text);
-    background: var(--hover);
-  }
-
-  .date-popover {
-    position: fixed;
-    z-index: 80;
-    overflow: auto;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
-    padding: 12px;
-    width: 250px;
-    user-select: none;
-  }
-
-  .popover-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 8px;
-  }
-
-  .view-title {
-    font-weight: 600;
-    font-size: 13px;
-    color: var(--text);
-  }
-
   .week-row {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
@@ -413,31 +170,5 @@
     background: var(--primary);
     color: var(--on-primary);
     font-weight: 600;
-  }
-
-  .popover-foot {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-top: 1px solid var(--border);
-    padding-top: 6px;
-  }
-
-  .btn-link {
-    background: none;
-    border: none;
-    font-size: 11px;
-    color: var(--primary);
-    cursor: pointer;
-    padding: 2px 4px;
-    border-radius: 4px;
-  }
-
-  .btn-link:hover {
-    text-decoration: underline;
-  }
-
-  .btn-link.muted {
-    color: var(--muted);
   }
 </style>

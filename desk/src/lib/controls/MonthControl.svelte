@@ -1,10 +1,8 @@
 <script lang="ts">
   import { __ } from "$lib/boot.svelte";
   import { today } from "$lib/datetime";
-  import { anchored } from "./floating";
   import type { Field } from "$lib/meta";
-  import Icon from "$lib/components/Icon.svelte";
-  import { monthShape } from "$lib/locale";
+  import MaskedPickerInput from "./MaskedPickerInput.svelte";
   import {
     monthLabelsShort,
     monthPlaceholder,
@@ -30,12 +28,7 @@
     id?: string;
   } = $props();
 
-  let text = $state("");
-  let focused = $state(false);
-  let open = $state(false);
-  let wrapEl: HTMLDivElement | null = $state(null);
-  let inputEl: HTMLInputElement | null = $state(null);
-
+  const fmt = { format: formatMonth, parse: parseMonth, mask: maskMonthInput, step: stepMonth, digits: 6 };
   const currentParsed = $derived(parseMonth(value));
 
   // the site's day, not the browser's — see DateControl
@@ -43,282 +36,53 @@
   const todayYear = Number(todayIso.slice(0, 4));
   const todayMonth = Number(todayIso.slice(5, 7));
   let viewYear = $state(todayYear);
-
-  $effect(() => {
-    if (!focused) {
-      text = formatMonth(value);
-    }
-  });
-
-  function togglePicker() {
-    if (readOnly) return;
-    if (!open) {
-      viewYear = currentParsed ? currentParsed.year : todayYear;
-      open = true;
-    } else {
-      open = false;
-    }
-  }
-
-  function onInput(e: Event) {
-    const target = e.target as HTMLInputElement;
-    text = maskMonthInput(target.value);
-    // written back by hand: when the mask drops a keystroke, `text` does not
-    // change, so the render would leave the extra character in the input
-    target.value = text;
-    if (text.replace(/\D/g, "").length === 6) {
-      const p = parseMonth(text);
-      if (p) onchange(p.iso);
-    }
-  }
-
-  function onKeyDown(e: KeyboardEvent) {
-    if (e.key === "Backspace") {
-      const target = e.target as HTMLInputElement;
-      const { sep } = monthShape();
-      if (
-        text.endsWith(sep) &&
-        target.selectionStart === target.selectionEnd &&
-        target.selectionStart === text.length
-      ) {
-        // the separator was typed by the mask, so it goes with the digit before it
-        e.preventDefault();
-        text = text.slice(0, -(sep.length + 1));
-      }
-    } else if (e.key === "Enter") {
-      commit();
-      (e.target as HTMLInputElement).blur();
-      open = false;
-    } else if (e.key === "Escape") {
-      if (open) {
-        open = false;
-        e.stopPropagation();
-      }
-    } else if ((e.key === "ArrowDown" || e.key === "Down") && e.altKey) {
-      e.preventDefault();
-      togglePicker();
-    } else if ((e.key === "ArrowUp" || e.key === "ArrowDown") && !e.altKey && !e.ctrlKey && !e.metaKey) {
-      // the part under the caret steps, as in a native date input
-      if (readOnly) return;
-      e.preventDefault();
-      const target = e.target as HTMLInputElement;
-      const s = stepMonth(text, target.selectionStart ?? 0, e.key === "ArrowUp" ? 1 : -1, todayIso);
-      if (s) {
-        text = s.text;
-        viewYear = Number(s.iso.slice(0, 4));
-        onchange(s.iso);
-        // written now, not on the next render, so the selection has text to land on
-        target.value = s.text;
-        target.setSelectionRange(s.start, s.end);
-      }
-    }
-  }
-
-  function commit() {
-    if (!text) {
-      if (value) onchange(null);
-      return;
-    }
-    const p = parseMonth(text);
-    if (p) {
-      onchange(p.iso);
-      text = formatMonth(p.iso);
-    } else {
-      text = formatMonth(value);
-    }
-  }
-
-  function onBlur() {
-    focused = false;
-    commit();
-  }
-
-  function pickMonth(m: number) {
-    const padM = String(m).padStart(2, "0");
-    const iso = `${viewYear}-${padM}-01`;
-    text = formatMonth(iso);
-    onchange(iso);
-    open = false;
-    inputEl?.focus();
-  }
-
-  function pickThisMonth() {
-    const padM = String(todayMonth).padStart(2, "0");
-    const iso = `${todayYear}-${padM}-01`;
-    viewYear = todayYear;
-    text = formatMonth(iso);
-    onchange(iso);
-    open = false;
-    inputEl?.focus();
-  }
-
-  function clearMonth() {
-    text = "";
-    onchange(null);
-    open = false;
-    inputEl?.focus();
-  }
-
-  $effect(() => {
-    if (!open) return;
-    function onDocClick(e: MouseEvent) {
-      if (wrapEl && !wrapEl.contains(e.target as Node)) {
-        open = false;
-      }
-    }
-    window.addEventListener("mousedown", onDocClick);
-    return () => window.removeEventListener("mousedown", onDocClick);
-  });
 </script>
 
-<div class="month-wrap" bind:this={wrapEl}>
-  <input
-    bind:this={inputEl}
-    {id}
-    type="text"
-    class="input month-input"
-    class:error={!!error}
-    readonly={readOnly}
-    placeholder={monthPlaceholder()}
-    value={text}
-    inputmode="numeric"
-    autocomplete="off"
-    spellcheck={false}
-    data-fieldname={field.fieldname}
-    data-fieldtype="Month"
-    onfocus={() => (focused = true)}
-    onclick={() => { if (!readOnly && !open) togglePicker(); }}
-    oninput={onInput}
-    onblur={onBlur}
-    onkeydown={onKeyDown}
-  />
-  {#if !readOnly}
-    <button
-      type="button"
-      class="cal-btn"
-      tabindex="-1"
-      aria-label={__("Open the month picker")}
-      onmousedown={(e) => e.preventDefault()}
-      onclick={togglePicker}
-    >
-      <Icon name="calendar" size={15} />
-    </button>
-  {/if}
-
-  {#if open && !readOnly}
-    <div class="month-popover" use:anchored={{ anchor: wrapEl, align: "end" }} role="dialog" aria-modal="true" tabindex="-1" onmousedown={(e) => e.preventDefault()}>
-      <div class="popover-head">
+<MaskedPickerInput
+  {field}
+  fieldtype="Month"
+  {value}
+  {onchange}
+  {readOnly}
+  {error}
+  {id}
+  {fmt}
+  placeholder={monthPlaceholder()}
+  {todayIso}
+  todayValue={`${todayIso.slice(0, 7)}-01`}
+  todayLabel={__("This month")}
+  openLabel={__("Open the month picker")}
+  compact
+  nav={{
+    title: String(viewYear),
+    prevLabel: __("Previous year"),
+    nextLabel: __("Next year"),
+    onprev: () => (viewYear -= 1),
+    onnext: () => (viewYear += 1),
+  }}
+  onview={(iso) => (viewYear = Number(iso.slice(0, 4)))}
+>
+  {#snippet grid(choose)}
+    <div class="popover-grid">
+      {#each monthLabelsShort() as name, idx}
+        {@const mNum = idx + 1}
+        {@const isSelected = currentParsed?.year === viewYear && currentParsed?.month === mNum}
+        {@const isToday = todayYear === viewYear && todayMonth === mNum}
         <button
           type="button"
-          class="btn icon sm"
-          onclick={() => (viewYear -= 1)}
-          aria-label={__("Previous year")}
+          class="month-cell"
+          class:selected={isSelected}
+          class:is-today={isToday && !isSelected}
+          onclick={() => choose(`${viewYear}-${String(mNum).padStart(2, "0")}-01`)}
         >
-          <Icon name="chevron-left" size={13} />
+          {name}
         </button>
-        <span class="view-year">{viewYear}</span>
-        <button
-          type="button"
-          class="btn icon sm"
-          onclick={() => (viewYear += 1)}
-          aria-label={__("Next year")}
-        >
-          <Icon name="chevron-right" size={13} />
-        </button>
-      </div>
-
-      <div class="popover-grid">
-        {#each monthLabelsShort() as name, idx}
-          {@const mNum = idx + 1}
-          {@const isSelected =
-            currentParsed?.year === viewYear && currentParsed?.month === mNum}
-          {@const isToday =
-            todayYear === viewYear && todayMonth === mNum}
-          <button
-            type="button"
-            class="month-cell"
-            class:selected={isSelected}
-            class:is-today={isToday && !isSelected}
-            onclick={() => pickMonth(mNum)}
-          >
-            {name}
-          </button>
-        {/each}
-      </div>
-
-      <div class="popover-foot">
-        <button type="button" class="btn-link" onclick={pickThisMonth}>
-          {__("This month")}
-        </button>
-        {#if value}
-          <button type="button" class="btn-link muted" onclick={clearMonth}>
-            {__("Clear")}
-          </button>
-        {/if}
-      </div>
+      {/each}
     </div>
-  {/if}
-</div>
+  {/snippet}
+</MaskedPickerInput>
 
 <style>
-  .month-wrap {
-    position: relative;
-    width: 100%;
-  }
-
-  .month-input {
-    padding-right: 32px;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .cal-btn {
-    position: absolute;
-    right: 7px;
-    top: 50%;
-    transform: translateY(-50%);
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    padding: 3px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--muted);
-    border-radius: 4px;
-    transition: color 0.15s ease, background-color 0.15s ease;
-  }
-
-  .cal-btn:hover {
-    color: var(--text);
-    background: var(--hover);
-  }
-
-  .month-popover {
-    position: fixed;
-    z-index: 80;
-    overflow: auto;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
-    padding: 10px;
-    width: 210px;
-    user-select: none;
-  }
-
-  .popover-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 8px;
-  }
-
-  .view-year {
-    font-weight: 600;
-    font-size: 14px;
-    color: var(--text);
-  }
-
   .popover-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -351,31 +115,5 @@
     background: var(--primary);
     color: var(--on-primary);
     font-weight: 600;
-  }
-
-  .popover-foot {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-top: 1px solid var(--border);
-    padding-top: 6px;
-  }
-
-  .btn-link {
-    background: none;
-    border: none;
-    font-size: 11px;
-    color: var(--primary);
-    cursor: pointer;
-    padding: 2px 4px;
-    border-radius: 4px;
-  }
-
-  .btn-link:hover {
-    text-decoration: underline;
-  }
-
-  .btn-link.muted {
-    color: var(--muted);
   }
 </style>
