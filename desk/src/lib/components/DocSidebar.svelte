@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { focusTrap } from "$lib/focus-trap";
   // Right column of the form: metadata, assignments, shares, comments, versions.
   import type { FormController } from "$lib/form.svelte";
   import { api, type AssignArgs, type ShareArgs } from "$lib/api";
@@ -10,6 +9,7 @@
   import Icon from "./Icon.svelte";
   import DocHistory from "./DocHistory.svelte";
   import AssignModal from "./AssignModal.svelte";
+  import Modal from "./Modal.svelte";
   import ShareModal from "./ShareModal.svelte";
   import { DocSharesState } from "$lib/shares.svelte";
   import { shareRightLabels, canRemoveShare } from "./doc-sidebar-share";
@@ -429,32 +429,14 @@
 </aside>
 
 {#if showModal}
-  <div
-    class="modal-bg"
-    use:focusTrap
-    role="dialog"
-    aria-modal="true"
-    tabindex="-1"
-    onkeydown={(e) => e.key === "Escape" && (showModal = false)}
-  >
-    <div class="modal lg">
-      <div class="head">
-        <div class="modal-title-wrap">
-          <Icon name="history" size={18} />
-          <h3>{__("Change history")} · {frm.doc.id}</h3>
-        </div>
-        <button class="btn icon" onclick={() => (showModal = false)} aria-label={__("Close")}>
-          <Icon name="x" size={16} />
-        </button>
-      </div>
-      <div class="body modal-scroll-body">
-        <DocHistory {frm} {versions} mode="full" />
-      </div>
-      <div class="foot">
-        <button class="btn" onclick={() => (showModal = false)}>{__("Close")}</button>
-      </div>
+  <Modal title="{__("Change history")} · {frm.doc.id}" icon="history" size="lg" onclose={() => (showModal = false)}>
+    <div class="body modal-scroll-body">
+      <DocHistory {frm} {versions} mode="full" />
     </div>
-  </div>
+    <div class="foot">
+      <button class="btn" onclick={() => (showModal = false)}>{__("Close")}</button>
+    </div>
+  </Modal>
 {/if}
 
 {#if showShareModal}
@@ -592,30 +574,6 @@
     color: var(--red);
     font-weight: 600;
   }
-  .priority-badge {
-    display: inline-block;
-    padding: 1px 6px;
-    border-radius: 999px;
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-  }
-  .priority-urgent {
-    background: var(--red-soft);
-    color: var(--red-ink);
-  }
-  .priority-high {
-    background: var(--orange-soft);
-    color: var(--orange-ink);
-  }
-  .priority-medium {
-    background: var(--yellow-soft);
-    color: var(--yellow-ink);
-  }
-  .priority-low {
-    background: var(--gray-soft);
-    color: var(--gray-ink);
-  }
   .assignment-actions {
     display: flex;
     gap: 2px;
@@ -667,17 +625,6 @@
     margin-top: 6px;
   }
 
-  /* Modal Title */
-  .modal-title-wrap {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex: 1;
-  }
-  .modal-title-wrap h3 {
-    font-size: 15px;
-    margin: 0;
-  }
   .modal-scroll-body {
     max-height: 72vh;
     overflow-y: auto;

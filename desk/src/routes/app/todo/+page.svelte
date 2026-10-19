@@ -3,7 +3,6 @@
   // The To-Do list: the caller's assignments through /api/todo/pending, which
   // enforces who sees what (the assigner too, and never a task on a document
   // the caller can't read), drawn with the generic list's views.
-  import { focusTrap } from "$lib/focus-trap";
   import { onDestroy, onMount, untrack } from "svelte";
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
@@ -17,6 +16,7 @@
   import { getLinkTitle } from "$lib/titles.svelte";
   import { getCalendarDays } from "$lib/controls/date-format";
   import Icon from "$lib/components/Icon.svelte";
+  import Modal from "$lib/components/Modal.svelte";
   import LinkControl from "$lib/controls/LinkControl.svelte";
   import CalendarView from "$lib/components/views/CalendarView.svelte";
   import KanbanView from "$lib/components/views/KanbanView.svelte";
@@ -410,75 +410,56 @@
 </div>
 
 {#if showNewModal}
-  <div
-    class="modal-bg"
-    use:focusTrap
-    role="dialog"
-    aria-modal="true"
-    tabindex="-1"
-    onclick={(e) => e.target === e.currentTarget && (showNewModal = false)}
-    onkeydown={(e) => e.key === "Escape" && (showNewModal = false)}
-  >
-    <div class="modal sm">
-      <div class="head">
-        <h3 style="display:flex;align-items:center;gap:8px">
-          <Icon name="check-square" size={18} />
-          {__("New Task")}
-        </h3>
-        <button class="btn icon" onclick={() => (showNewModal = false)} aria-label={__("Close")}>
-          <Icon name="x" size={16} />
-        </button>
+  <Modal title={__("New Task")} icon="check-square" size="sm" onclose={() => (showNewModal = false)}>
+    <div class="body">
+      <div class="form-group">
+        <label for="new-task-desc" class="label reqd">{__("Description")}</label>
+        <textarea
+          id="new-task-desc"
+          class="input"
+          rows="3"
+          placeholder={__("What needs to be done?")}
+          bind:value={newDescription}
+        ></textarea>
       </div>
-      <div class="body">
-        <div class="form-group">
-          <label for="new-task-desc" class="label reqd">{__("Description")}</label>
-          <textarea
-            id="new-task-desc"
-            class="input"
-            rows="3"
-            placeholder={__("What needs to be done?")}
-            bind:value={newDescription}
-          ></textarea>
-        </div>
 
-        <div class="form-row" style="display:flex;gap:12px;margin-top:12px">
-          <div class="form-group" style="flex:1">
-            <label for="new-task-date" class="label">{__("Due Date")}</label>
-            <input id="new-task-date" type="date" class="input" bind:value={newDate} />
-          </div>
-          <div class="form-group" style="flex:1">
-            <label for="new-task-priority" class="label">{__("Priority")}</label>
-            <select id="new-task-priority" class="input" bind:value={newPriority}>
-              <option value="Low">{__("Low")}</option>
-              <option value="Medium">{__("Medium")}</option>
-              <option value="High">{__("High")}</option>
-              <option value="Urgent">{__("Urgent")}</option>
-            </select>
-          </div>
+      <div class="form-row" style="display:flex;gap:12px;margin-top:12px">
+        <div class="form-group" style="flex:1">
+          <label for="new-task-date" class="label">{__("Due Date")}</label>
+          <input id="new-task-date" type="date" class="input" bind:value={newDate} />
         </div>
-
-        <div class="form-group" style="margin-top:12px">
-          <label for="new-task-assignee" class="label">{__("Assign to")}</label>
-          <LinkControl
-            id="new-task-assignee"
-            field={userField}
-            value={newAllocatedTo}
-            onchange={(v) => (newAllocatedTo = v || "")}
-          />
+        <div class="form-group" style="flex:1">
+          <label for="new-task-priority" class="label">{__("Priority")}</label>
+          <select id="new-task-priority" class="input" bind:value={newPriority}>
+            <option value="Low">{__("Low")}</option>
+            <option value="Medium">{__("Medium")}</option>
+            <option value="High">{__("High")}</option>
+            <option value="Urgent">{__("Urgent")}</option>
+          </select>
         </div>
       </div>
-      <div class="foot">
-        <button class="btn" onclick={() => (showNewModal = false)}>{__("Cancel")}</button>
-        <button
-          class="btn primary"
-          disabled={!newDescription.trim() || savingNew}
-          onclick={createStandaloneTask}
-        >
-          {savingNew ? __("Saving...") : __("Save")}
-        </button>
+
+      <div class="form-group" style="margin-top:12px">
+        <label for="new-task-assignee" class="label">{__("Assign to")}</label>
+        <LinkControl
+          id="new-task-assignee"
+          field={userField}
+          value={newAllocatedTo}
+          onchange={(v) => (newAllocatedTo = v || "")}
+        />
       </div>
     </div>
-  </div>
+    <div class="foot">
+      <button class="btn" onclick={() => (showNewModal = false)}>{__("Cancel")}</button>
+      <button
+        class="btn primary"
+        disabled={!newDescription.trim() || savingNew}
+        onclick={createStandaloneTask}
+      >
+        {savingNew ? __("Saving...") : __("Save")}
+      </button>
+    </div>
+  </Modal>
 {/if}
 
 <style>
@@ -551,38 +532,10 @@
   .empty { text-align: center; padding: 36px 12px; color: var(--muted); }
   .empty p { margin: 6px 0 0; }
   .state { padding: 44px 20px; text-align: center; }
-  .priority-badge {
-    display: inline-block;
-    padding: 1px 6px;
-    border-radius: 999px;
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    white-space: nowrap;
-  }
-  .priority-urgent { background: var(--red-soft); color: var(--red-ink); }
-  .priority-high { background: var(--orange-soft); color: var(--orange-ink); }
-  .priority-medium { background: var(--yellow-soft); color: var(--yellow-ink); }
-  .priority-low { background: var(--gray-soft); color: var(--gray-ink); }
   .task-actions { display: inline-flex; gap: 4px; white-space: nowrap; }
   .pagination { display: flex; align-items: center; gap: 8px; padding: 10px 14px; }
   .pagination .spacer { flex: 1; }
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  .label {
-    display: block;
-    font-size: 12px;
-    font-weight: 500;
-    margin-bottom: 4px;
-    color: var(--muted);
-  }
-  .label.reqd::after {
-    content: " *";
-    color: var(--red);
-  }
-  .form-group {
-    display: flex;
-    flex-direction: column;
-  }
   @media (max-width: 800px) {
     .list-filters { grid-template-columns: 1fr; }
     .filter-search { grid-column: auto; }
