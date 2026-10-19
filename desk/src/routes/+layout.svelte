@@ -24,7 +24,7 @@
   import SearchPalette from "$lib/components/SearchPalette.svelte";
   import { shouldOpenSearch } from "$lib/components/search-palette";
   import { ui, toast } from "$lib/ui.svelte";
-  import { shouldToggleShortcuts, toggleShortcutsHelp, shortcutsState, closeShortcutsHelp, searchState, openSearch, closeSearch } from "$lib/shortcuts.svelte";
+  import { shouldToggleShortcuts, toggleShortcutsHelp, closeShortcutsHelp, searchState, openSearch, closeSearch } from "$lib/shortcuts.svelte";
   import { onMessage } from "$lib/api";
   import { isPortalPath, portalRedirect } from "$lib/portal";
   import { canonicalAppPath } from "$lib/routes";
@@ -75,10 +75,6 @@
     if (isLoggedIn() && !isLogin && !isPortal && shouldOpenSearch(e)) {
       e.preventDefault();
       if (searchState.open) closeSearch(); else { closeShortcutsHelp(); openSearch(); }
-      return;
-    }
-    if (shortcutsState.open && e.key === "Escape") {
-      closeShortcutsHelp();
       return;
     }
     if (userMenuOpen && e.key === "Escape") {
@@ -423,7 +419,7 @@
       z-index: 60;
       padding: 4px;
     }
-    .mobile-user-dropdown :global(.menu button) {
+    .mobile-user-dropdown .menu > :global(button) {
       display: flex;
       align-items: center;
       gap: 8px;
@@ -437,8 +433,13 @@
       font-size: 13px;
       color: var(--text);
     }
-    .mobile-user-dropdown :global(.menu button:hover) {
+    .mobile-user-dropdown .menu > :global(button:hover) {
       background: var(--hover);
+    }
+    .mobile-user-dropdown .menu > :global(button:last-child) {
+      margin-top: 4px;
+      border-top: 1px solid var(--border);
+      border-radius: 0 0 5px 5px;
     }
     .mobile-user-info {
       padding: 8px 10px 6px;
