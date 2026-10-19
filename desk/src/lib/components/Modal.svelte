@@ -1,6 +1,5 @@
 <script lang="ts">
-  // The shell every dialog shares: backdrop, focus trap, Escape and backdrop close, head with title and close button.
-  // children render below the head: a `.body` and, optionally, a `.foot`.
+  // The shell of every dialog: backdrop, focus trap, Escape and backdrop close, head; children are a `.body` and an optional `.foot`.
   import type { Snippet } from "svelte";
   import { focusTrap } from "$lib/focus-trap";
   import { __ } from "$lib/boot.svelte";
@@ -44,7 +43,7 @@
   {onpaste}
   onclick={(e) => e.target === e.currentTarget && dismiss()}
   onkeydown={(e) => {
-    if (e.key !== "Escape") return;
+    if (e.key !== "Escape" || e.defaultPrevented) return;
     e.stopPropagation();
     dismiss();
   }}

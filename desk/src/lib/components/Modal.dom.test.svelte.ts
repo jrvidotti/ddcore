@@ -51,6 +51,14 @@ describe("Modal", () => {
     expect(behind).not.toHaveBeenCalled();
   });
 
+  it("leaves an Escape that a control inside already used, such as one closing its list", () => {
+    const { bg, onclose } = open();
+    const esc = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+    bg.querySelector<HTMLElement>("#in")!.addEventListener("keydown", (e) => e.preventDefault(), { once: true });
+    bg.querySelector<HTMLElement>("#in")!.dispatchEvent(esc);
+    expect(onclose).not.toHaveBeenCalled();
+  });
+
   it("ignores Escape and the backdrop and disables the close button while not closable", () => {
     const { bg, onclose } = open({ closable: false });
     bg.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
