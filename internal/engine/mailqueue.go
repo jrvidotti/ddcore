@@ -423,20 +423,24 @@ func splitRecipients(s string) []string {
 	return out
 }
 
-// asMap reads back a JSON column, which arrives as text or as an already
-// decoded map depending on the driver's mood about jsonb.
-func asMap(v any) map[string]any {
+// jsonMap reads back a JSON column, which db.Select hands over as text or as an
+// already decoded map depending on the driver's mood about jsonb; any other
+// value yields a nil map.
+func jsonMap(v any) (map[string]any, error) {
 	switch t := v.(type) {
 	case map[string]any:
-		return t
+		return t, nil
 	case string:
-		out := map[string]any{}
-		json.Unmarshal([]byte(t), &out)
-		return out
-	case []byte:
-		out := map[string]any{}
-		json.Unmarshal(t, &out)
-		return out
+		var m map[string]any
+		err := json.Unmarshal([]byte(t), &m)
+		return m, err
+	}
+	return nil, nil
+}
+
+func asMap(v any) map[string]any {
+	if m, _ := jsonMap(v); m != nil {
+		return m
 	}
 	return map[string]any{}
 }

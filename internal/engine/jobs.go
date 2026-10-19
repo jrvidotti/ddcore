@@ -381,16 +381,9 @@ func (e *Engine) runOnFailure(ctx context.Context, f jobFailure) {
 	}
 }
 
-// jobArgs decodes the args column, which arrives as text or as a decoded map
-// depending on how the row was read.
 func jobArgs(v any) map[string]any {
-	var args map[string]any
-	if s, ok := v.(string); ok {
-		json.Unmarshal([]byte(s), &args)
-	} else if m, ok := v.(map[string]any); ok {
-		args = m
-	}
-	return args
+	m, _ := jsonMap(v)
+	return m
 }
 
 // requeueStale puts back jobs whose worker died: running status with expired

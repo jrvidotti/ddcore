@@ -1,8 +1,6 @@
 package engine
 
 import (
-	"encoding/json"
-
 	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/db"
 	"github.com/jrvidotti/ddcore/internal/meta"
@@ -365,19 +363,11 @@ func (c *Ctx) RedactVersionData(refDoctype string, data any) any {
 	if a.all {
 		return data
 	}
-	var m map[string]any
-	switch v := data.(type) {
-	case map[string]any:
-		m = v
-	case string:
-		if json.Unmarshal([]byte(v), &m) != nil {
-			return nil
-		}
-	case []byte:
-		if json.Unmarshal(v, &m) != nil {
-			return nil
-		}
-	default:
+	m, err := jsonMap(data)
+	if err != nil {
+		return nil
+	}
+	if m == nil {
 		return data
 	}
 	changed, _ := m["changed"].(map[string]any)
