@@ -68,9 +68,8 @@ func (c *Ctx) ImportDoc(doc Doc, opts ImportOpts) (*ImportResult, error) {
 		return nil, cerr.Validation("{0} is a child table; its rows travel inside their parent", d.Name)
 	case d.IsSingle:
 		return nil, cerr.Validation("{0} is a Single; an export never carries one", d.Name)
-	}
-	if err := auditRefusal(d.Name, "imported"); err != nil {
-		return nil, err
+	case d.Name == "Audit Event":
+		return nil, cerr.Permission("Audit Event records are immutable and cannot be imported")
 	}
 	if doc.ID() == "" {
 		return nil, cerr.Validation("{0}: the record has no id; an import keeps the identity it is given", d.Name)
