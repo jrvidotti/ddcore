@@ -60,7 +60,7 @@ func TestMigrateResetsPreparedStatements(t *testing.T) {
 		}
 	}
 
-	pessoa, _ := e.Meta.Get("Pessoa")
+	pessoa, _ := e.Current().Meta.Get("Pessoa")
 	pessoa.Fields = append(pessoa.Fields, &meta.Field{Fieldname: "photo", Fieldtype: "Attach Image", Label: "Photo"})
 	pessoa.ResetFieldIndex()
 	migrar(t, e, false, "add photo")

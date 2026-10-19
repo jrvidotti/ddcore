@@ -145,7 +145,7 @@ func TestSingleDatabaseInvariantAndMigration(t *testing.T) {
 	if _, err := e.DB.Pool.Exec(ctx, `INSERT INTO tab_settings (id,docstatus) VALUES ('singleton',1)`); err == nil {
 		t.Fatal("database accepted submitted Single")
 	}
-	d, _ := e.DocType("Settings")
+	d, _ := e.Current().DocType("Settings")
 	d.IsSingle = false
 	if _, err := e.Plan(ctx, false); err == nil {
 		t.Fatal("conversion accepted")
@@ -221,7 +221,7 @@ func TestSingleDeclaredRenames(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	source := filepath.Join(e.App("demo").Dir, "doctypes/settings/settings.doctype.ts")
+	source := filepath.Join(e.Current().App("demo").Dir, "doctypes/settings/settings.doctype.ts")
 	if err := os.WriteFile(source, []byte(`import { defineDoctype } from "@ddcore/sdk"; export default defineDoctype({name: "Renamed Settings", renamedFrom:["Settings"], isSingle: true, fields: [{fieldname:"renamed_value",renamedFrom:["value"],fieldtype:"Data",label:"Value"},{fieldname:"enabled",fieldtype:"Check",label:"Enabled"}]});`), 0600); err != nil {
 		t.Fatal(err)
 	}

@@ -70,7 +70,7 @@ func TestTenantOnlyDocTypeIsRefusedInThePlatformSpace(t *testing.T) {
 	ctx := context.Background()
 
 	for name, want := range map[string]bool{"Folha": true, "Ponto": true, "Aviso": false, "Cargo": false, "Pessoa": false} {
-		if d, _ := e.Meta.Get(name); d.TenantOnly != want {
+		if d, _ := e.Current().Meta.Get(name); d.TenantOnly != want {
 			t.Errorf("%s: TenantOnly = %v, want %v", name, d.TenantOnly, want)
 		}
 	}

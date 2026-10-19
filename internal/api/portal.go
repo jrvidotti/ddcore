@@ -78,7 +78,7 @@ func (s *Server) confineWebsiteUsers(next http.Handler) http.Handler {
 			if dec, err := url.PathUnescape(path); err == nil {
 				path = dec
 			}
-			if opts, ok := s.E.Whitelisted(path); ok && opts["portal"] == true {
+			if opts, ok := s.E.Current().Whitelisted(path); ok && opts["portal"] == true {
 				next.ServeHTTP(w, r)
 				return
 			}

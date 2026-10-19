@@ -221,7 +221,7 @@ func TestMetaTranslatedAndETag(t *testing.T) {
 // idLabel is a catalogue key like label, translated with the rest of the meta.
 func TestMetaTranslatesTheIDLabel(t *testing.T) {
 	x := setup(t)
-	d, err := x.e.DocType("User")
+	d, err := x.e.Current().DocType("User")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -241,7 +241,7 @@ func TestMetaTranslatesTheIDLabel(t *testing.T) {
 // not leave the next one reading Portuguese.
 func TestTranslationDoesNotMutateTheRegistry(t *testing.T) {
 	x := setup(t)
-	d, err := x.e.DocType("User")
+	d, err := x.e.Current().DocType("User")
 	if err != nil {
 		t.Fatal(err)
 	}

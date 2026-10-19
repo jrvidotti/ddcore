@@ -56,7 +56,7 @@ export default defineWorkflow({
 	ctx := context.Background()
 
 	// Verify workflow loaded in State
-	if wf := e.WorkflowFor("Artigo"); wf == nil {
+	if wf := e.Current().WorkflowFor("Artigo"); wf == nil {
 		t.Fatalf("expected workflow for Artigo in State, got nil")
 	}
 

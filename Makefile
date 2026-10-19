@@ -50,8 +50,9 @@ i18n: ## rewrite translations/<lang>.csv from code
 vet: ## Go static analysis
 	go vet ./...
 
-test-race: ## race detector over the engine's reload tests (TestB08, *Reload*)
+test-race: ## race detector over the reload tests (engine TestB08, *Reload*; api boot and meta during a reload)
 	go test -race ./internal/engine/ -run 'TestB08|Reload'
+	go test -race ./internal/api/ -run 'TestBootAndMetaDuringReload'
 
 test-desk: ## svelte-check + desk unit tests
 	cd desk && npm run check && npm run test

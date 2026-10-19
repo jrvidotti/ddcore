@@ -37,7 +37,7 @@ func (s *server) resources(srv *mcp.Server) {
 	srv.AddResourceTemplate(&mcp.ResourceTemplate{URITemplate: "ddcore://meta/{doctype}", Name: "meta", MIMEType: "application/json", Description: "A DocType's meta"},
 		func(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
 			name := strings.TrimPrefix(req.Params.URI, "ddcore://meta/")
-			d, err := e.DocType(name)
+			d, err := e.Current().DocType(name)
 			if err != nil {
 				return nil, err
 			}

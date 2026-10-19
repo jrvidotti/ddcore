@@ -12,7 +12,7 @@ import (
 
 func TestUserPermissionDocTypeLoaded(t *testing.T) {
 	e := setupPerm(t)
-	dt, ok := e.Meta.Get("User Permission")
+	dt, ok := e.Current().Meta.Get("User Permission")
 	if !ok {
 		t.Fatalf("expected User Permission DocType to be loaded")
 	}

@@ -26,7 +26,7 @@ const (
 // request can reach it. The name is the route's {path}, decoded as the method
 // handler decodes it; a sub-path counts only for a method that takes one.
 func (s *Server) corsMethod(r *http.Request) (map[string]any, bool) {
-	opts, ok := s.E.Whitelisted(urlParam(r, "path"))
+	opts, ok := s.E.Current().Whitelisted(urlParam(r, "path"))
 	if !ok || opts["cors"] != true {
 		return nil, false
 	}

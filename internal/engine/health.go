@@ -106,7 +106,7 @@ func (e *Engine) Ready(ctx context.Context) db.Health {
 func (e *Engine) Health(ctx context.Context, o HealthOpts) Health {
 	ops := e.Cfg.Ops
 	h := Health{
-		Version: Version, Site: e.SiteTitle(), Time: time.Now(),
+		Version: Version, Site: e.Current().SiteTitle(), Time: time.Now(),
 		Database: e.Ready(ctx), Scheduler: e.SchedulerHealth(),
 	}
 	if !h.Database.OK {
@@ -204,7 +204,7 @@ func (e *Engine) QueueHealth(ctx context.Context, window time.Duration) (*QueueH
 // report has no transaction and no document cache to spend, and whoever is
 // asking was already authorised at the border.
 func (e *Engine) ErrorHealth(ctx context.Context, window time.Duration, limit int) (*ErrorHealth, error) {
-	dt, ok := e.Meta.DocTypes["Error Log"]
+	dt, ok := e.Current().Meta.DocTypes["Error Log"]
 	if !ok {
 		return nil, fmt.Errorf("Error Log doctype is not loaded")
 	}

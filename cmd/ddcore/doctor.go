@@ -241,13 +241,14 @@ func gatherDoctor(ctx context.Context, cfg *config.File, windowMin int, updateCh
 	}
 	defer e.DB.Close()
 
-	rep.Apps = e.AppOrder()
+	st := e.Current()
+	rep.Apps = st.AppOrder()
 	for _, n := range rep.Apps {
-		if am := e.Snap.Apps[n]; am != nil {
+		if am := st.Snap.Apps[n]; am != nil {
 			rep.AppInfo = append(rep.AppInfo, appInfo{Name: n, Version: am.Version, Ddcore: am.Ddcore})
 		}
 	}
-	rep.DocTypes = len(e.Meta.DocTypes)
+	rep.DocTypes = len(st.Meta.DocTypes)
 	rep.Scheduler = e.SchedulerHealth()
 	if names := e.SecretNames(); len(names) > 0 {
 		sort.Strings(names)

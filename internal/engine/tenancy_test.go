@@ -847,12 +847,13 @@ export function enfileira(args: any) { return ddcore.enqueue("demo.services.como
 // again (#64), and the rows must stay confined to their tenant afterwards.
 func TestTenantRenameDocType(t *testing.T) {
 	e := setupTenancy(t)
-	p, _ := e.Meta.Get("Pessoa")
+	reg := e.Current().Meta
+	p, _ := reg.Get("Pessoa")
 	p.Name = "Cliente"
 	p.RenamedFrom = meta.Names{"Pessoa"}
-	delete(e.Meta.DocTypes, "Pessoa")
-	e.Meta.DocTypes["Cliente"] = p
-	for _, d := range e.Meta.DocTypes {
+	delete(reg.DocTypes, "Pessoa")
+	reg.DocTypes["Cliente"] = p
+	for _, d := range reg.DocTypes {
 		for _, f := range d.Fields {
 			if f.Fieldtype == "Link" && f.Options == "Pessoa" {
 				f.Options = "Cliente"

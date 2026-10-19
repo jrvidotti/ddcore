@@ -37,15 +37,15 @@ func TestNotificationReloadKeepsLastValidState(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { e.Current().Pool.Close() }()
-	if notifyRules := appRules(e.Notifications, "notify"); len(notifyRules) != 1 || notifyRules[0].Name != "First" {
-		t.Fatalf("%+v", e.Notifications)
+	if notifyRules := appRules(e.Current().Notifications, "notify"); len(notifyRules) != 1 || notifyRules[0].Name != "First" {
+		t.Fatalf("%+v", e.Current().Notifications)
 	}
 	write("Second", "User")
 	if err := e.Load(); err != nil {
 		t.Fatal(err)
 	}
-	if notifyRules := appRules(e.Notifications, "notify"); len(notifyRules) != 1 || notifyRules[0].Name != "Second" {
-		t.Fatalf("%+v", e.Notifications)
+	if notifyRules := appRules(e.Current().Notifications, "notify"); len(notifyRules) != 1 || notifyRules[0].Name != "Second" {
+		t.Fatalf("%+v", e.Current().Notifications)
 	}
 	for _, target := range []string{"Missing", "Has Role", "Email Delivery", "Webhook Delivery", "Audit Event", "Version", "Error Log"} {
 		write("Invalid", target)
@@ -56,11 +56,12 @@ func TestNotificationReloadKeepsLastValidState(t *testing.T) {
 			t.Fatal("failed reload replaced active rules")
 		}
 	}
-	rt, err := e.Pool.Acquire()
+	pool := e.Current().Pool
+	rt, err := pool.Acquire()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer e.Pool.Release(rt)
+	defer pool.Release(rt)
 	content, err := rt.RenderNotification("Second", json.RawMessage(`{}`), nil)
 	if err != nil || content.Title != "Second" {
 		t.Fatalf("%+v %v", content, err)
@@ -71,7 +72,7 @@ func TestNotificationReloadKeepsLastValidState(t *testing.T) {
 	if err := e.Load(); err != nil {
 		t.Fatal(err)
 	}
-	if notifyRules := appRules(e.Notifications, "notify"); len(notifyRules) != 0 {
+	if notifyRules := appRules(e.Current().Notifications, "notify"); len(notifyRules) != 0 {
 		t.Fatal("removed rule remained active")
 	}
 }

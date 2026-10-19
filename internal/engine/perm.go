@@ -448,7 +448,7 @@ type childParent struct {
 // ParentsOf lists the (doctype, Table field) pairs that embed `child`.
 func (c *Ctx) ParentsOf(child string) []childParent {
 	var out []childParent
-	for _, d := range c.E.Meta.DocTypes {
+	for _, d := range c.St.Meta.DocTypes {
 		if d.IsChild {
 			continue
 		}
@@ -628,7 +628,7 @@ func (c *Ctx) childPermission(d *meta.DocType, ptype string, doc Doc) (bool, err
 			return false, nil
 		}
 	}
-	parent, ok := c.E.Meta.Get(pt)
+	parent, ok := c.St.Meta.Get(pt)
 	if !ok || parent.IsChild {
 		return false, nil
 	}

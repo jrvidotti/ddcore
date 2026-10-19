@@ -422,7 +422,7 @@ func TestExportCarriesRichTextUnchanged(t *testing.T) {
 // The core's own credential columns are not exportable either.
 func TestExportOmitsCredentialColumns(t *testing.T) {
 	e := setupExport(t)
-	cols := ExportColumns(e.Meta.DocTypes["User"])
+	cols := ExportColumns(e.Current().Meta.DocTypes["User"])
 	for _, c := range cols {
 		if c == "password_hash" || c == "new_password" {
 			t.Fatalf("credential column in User export: %s", c)

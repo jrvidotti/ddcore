@@ -11,7 +11,7 @@ import (
 
 func TestAssignment_ToDoDocTypeLoaded(t *testing.T) {
 	e := setupWith(t, nil)
-	dt, err := e.DocType("ToDo")
+	dt, err := e.Current().DocType("ToDo")
 	if err != nil {
 		t.Fatalf("expected ToDo doctype to be loaded: %v", err)
 	}

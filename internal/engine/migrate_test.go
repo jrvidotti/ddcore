@@ -87,7 +87,7 @@ func TestRenameFieldKeepsTheData(t *testing.T) {
 	e := setup(t)
 	insertPessoa(t, e, Doc{"nome": "Ana", "cpf": "12345678901"})
 
-	pessoa, _ := e.Meta.Get("Pessoa")
+	pessoa, _ := e.Current().Meta.Get("Pessoa")
 	cpf := pessoa.Field("cpf")
 	cpf.Fieldname = "documento"
 	cpf.RenamedFrom = meta.Names{"cpf"}
@@ -129,7 +129,7 @@ func TestRenameFieldRenamesItsIndex(t *testing.T) {
 		t.Fatalf("expected a unique index to start from, got %q", before)
 	}
 
-	pessoa, _ := e.Meta.Get("Pessoa")
+	pessoa, _ := e.Current().Meta.Get("Pessoa")
 	cpf := pessoa.Field("cpf")
 	cpf.Fieldname = "documento"
 	cpf.RenamedFrom = meta.Names{"cpf"}
@@ -157,7 +157,7 @@ func TestRenameFieldChain(t *testing.T) {
 	e := setup(t)
 	insertPessoa(t, e, Doc{"nome": "Bia", "codigo": "X1"})
 
-	pessoa, _ := e.Meta.Get("Pessoa")
+	pessoa, _ := e.Current().Meta.Get("Pessoa")
 	f := pessoa.Field("codigo")
 	f.Fieldname = "referencia"
 	f.RenamedFrom = meta.Names{"codigo", "cod_interno"}
@@ -177,7 +177,7 @@ func TestRenameFieldAndReuseTheOldName(t *testing.T) {
 	e := setup(t)
 	insertPessoa(t, e, Doc{"nome": "Caio", "codigo": "antigo"})
 
-	pessoa, _ := e.Meta.Get("Pessoa")
+	pessoa, _ := e.Current().Meta.Get("Pessoa")
 	f := pessoa.Field("codigo")
 	f.Fieldname = "codigo_legado"
 	f.RenamedFrom = meta.Names{"codigo"}
@@ -207,7 +207,7 @@ func TestRefusesUndeclaredConversion(t *testing.T) {
 	e := setup(t)
 	insertPessoa(t, e, Doc{"nome": "Dora", "codigo": "not a number"})
 
-	pessoa, _ := e.Meta.Get("Pessoa")
+	pessoa, _ := e.Current().Meta.Get("Pessoa")
 	pessoa.Field("codigo").Fieldtype = "Currency"
 
 	_, err := e.Migrate(context.Background(), false)
@@ -228,7 +228,7 @@ func TestDeclaredConversionRuns(t *testing.T) {
 	e := setup(t)
 	insertPessoa(t, e, Doc{"nome": "Eva", "codigo": "42"})
 
-	pessoa, _ := e.Meta.Get("Pessoa")
+	pessoa, _ := e.Current().Meta.Get("Pessoa")
 	f := pessoa.Field("codigo")
 	f.Fieldtype = "Int"
 	f.Convert = &meta.Convert{From: "Data"}
@@ -248,9 +248,9 @@ func TestDeclaredConversionRuns(t *testing.T) {
 // every value they had, so they are not the author's problem.
 func TestSafeWideningNeedsNoDeclaration(t *testing.T) {
 	e := setup(t)
-	item, _ := e.Meta.Get("Item Pedido")
+	item, _ := e.Current().Meta.Get("Item Pedido")
 	item.Field("qtd").Fieldtype = "Float"
-	pessoa, _ := e.Meta.Get("Pessoa")
+	pessoa, _ := e.Current().Meta.Get("Pessoa")
 	pessoa.Field("limite").Fieldtype = "Data" // Currency → text
 
 	migrar(t, e, false, "widening")
@@ -270,7 +270,7 @@ func TestRefusesDroppingDataUnderPrune(t *testing.T) {
 	e := setup(t)
 	insertPessoa(t, e, Doc{"nome": "File", "codigo": "keep me"})
 
-	pessoa, _ := e.Meta.Get("Pessoa")
+	pessoa, _ := e.Current().Meta.Get("Pessoa")
 	var kept []*meta.Field
 	for _, f := range pessoa.Fields {
 		if f.Fieldname != "codigo" {
@@ -308,8 +308,9 @@ func TestRefusesDroppingATableWithRows(t *testing.T) {
 	insertPessoa(t, e, Doc{"nome": "Kai", "tipo": "PF"})
 
 	// Pedido links to Pessoa, so it has to go first or the meta will not load.
-	delete(e.Meta.DocTypes, "Pedido")
-	delete(e.Meta.DocTypes, "Pessoa")
+	reg := e.Current().Meta
+	delete(reg.DocTypes, "Pedido")
+	delete(reg.DocTypes, "Pessoa")
 
 	_, err := e.Migrate(context.Background(), true)
 	if err == nil {
@@ -364,12 +365,13 @@ func TestRenameDocType(t *testing.T) {
 
 	// Rename Pedido → Ordem. amended_from points at its own DocType, so it has
 	// to follow or Registry.Validate refuses to load.
-	ped, _ := e.Meta.Get("Pedido")
+	reg := e.Current().Meta
+	ped, _ := reg.Get("Pedido")
 	ped.Name = "Ordem"
 	ped.RenamedFrom = meta.Names{"Pedido"}
 	ped.Field("amended_from").Options = "Ordem"
-	delete(e.Meta.DocTypes, "Pedido")
-	e.Meta.DocTypes["Ordem"] = ped
+	delete(reg.DocTypes, "Pedido")
+	reg.DocTypes["Ordem"] = ped
 
 	migrar(t, e, true, "rename doctype")
 
@@ -481,7 +483,7 @@ export default definePatch({
 	if _, err := e.DB.Pool.Exec(context.Background(), `DELETE FROM ddcore_patch WHERE app = 'demo'`); err != nil {
 		t.Fatal(err)
 	}
-	pessoa, _ := e.Meta.Get("Pessoa")
+	pessoa, _ := e.Current().Meta.Get("Pessoa")
 	pessoa.Fields = append(pessoa.Fields, &meta.Field{Fieldname: "apelido", Fieldtype: "Data", Label: "Apelido"})
 	pessoa.ResetFieldIndex()
 
@@ -583,7 +585,7 @@ export default definePatch({
 });`,
 	})
 	ctx := context.Background()
-	pessoa, _ := e.Meta.Get("Pessoa")
+	pessoa, _ := e.Current().Meta.Get("Pessoa")
 	pessoa.Fields = append(pessoa.Fields, &meta.Field{Fieldname: "valor_texto", Fieldtype: "Data", Label: "Valor"})
 	pessoa.ResetFieldIndex()
 	migrar(t, e, false, "release 0: the old field")
@@ -680,7 +682,7 @@ export default definePatch({
 });`,
 	})
 	ctx := context.Background()
-	pessoa, _ := e.Meta.Get("Pessoa")
+	pessoa, _ := e.Current().Meta.Get("Pessoa")
 	pessoa.Fields = append(pessoa.Fields, &meta.Field{Fieldname: "valor_texto", Fieldtype: "Data", Label: "Valor"})
 	pessoa.ResetFieldIndex()
 	migrar(t, e, false, "release 0: the old field")
@@ -734,7 +736,7 @@ export default definePatch({
 	if _, err := e.DB.Pool.Exec(ctx, `DELETE FROM ddcore_patch`); err != nil {
 		t.Fatal(err)
 	}
-	pessoa, _ := e.Meta.Get("Pessoa")
+	pessoa, _ := e.Current().Meta.Get("Pessoa")
 	var kept []*meta.Field
 	for _, f := range pessoa.Fields {
 		if f.Fieldname != "codigo" {
@@ -762,7 +764,7 @@ export default definePatch({
 
 func uniqueKeyOn(t *testing.T, e *Engine, doctype string, keys ...meta.UniqueKey) {
 	t.Helper()
-	d, ok := e.Meta.Get(doctype)
+	d, ok := e.Current().Meta.Get(doctype)
 	if !ok {
 		t.Fatalf("meta has no %s", doctype)
 	}
@@ -830,7 +832,7 @@ func TestRenamingAFieldInsideAUniqueKeyDoesNotRebuildTheIndex(t *testing.T) {
 	uniqueKeyOn(t, e, "Pessoa", meta.UniqueKey{Name: "tipo_codigo", Fields: []string{"tipo", "codigo"}})
 	migrar(t, e, false, "create key")
 
-	pessoa, _ := e.Meta.Get("Pessoa")
+	pessoa, _ := e.Current().Meta.Get("Pessoa")
 	codigo := pessoa.Field("codigo")
 	codigo.Fieldname = "codigo_interno"
 	codigo.RenamedFrom = meta.Names{"codigo"}
