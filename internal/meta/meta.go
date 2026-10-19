@@ -14,96 +14,40 @@ import (
 	"github.com/jrvidotti/ddcore/internal/barcode"
 )
 
-// fieldtype is one row of the fieldtypes table, the single place a fieldtype's
-// properties live. tsType is empty for the default "string | null".
+// fieldtype holds what a fieldtype adds to the schema: its Postgres column
+// type ("" = no column), whether it holds a number and its TypeScript type
+// ("" = string | null).
 type fieldtype struct {
-	col                                     string // Postgres column type; "" = no column
-	layout, textArea, bulky, numeric, table bool
-	tsType                                  string
+	col, tsType string
+	numeric     bool
 }
 
-var fieldtypeRows = []struct {
-	name string
-	fieldtype
-}{
-	{"Data", fieldtype{col: "text"}},
-	{"Email", fieldtype{col: "text"}},
-	{"Small Text", fieldtype{col: "text", textArea: true}},
-	{"Text", fieldtype{col: "text", textArea: true}},
-	{"Text Editor", fieldtype{col: "text"}},
-	{"Markdown Editor", fieldtype{col: "text", textArea: true}},
-	{"Code", fieldtype{col: "text", textArea: true}},
-	{"Int", fieldtype{col: "bigint", numeric: true}},
-	{"Float", fieldtype{col: "double precision", numeric: true}},
-	{"Currency", fieldtype{col: "numeric(21,9)", numeric: true}},
-	{"Percent", fieldtype{col: "numeric(21,9)", numeric: true}},
-	{"Check", fieldtype{col: "boolean", tsType: "boolean"}},
-	{"Rating", fieldtype{col: "bigint", numeric: true}},
-	{"Duration", fieldtype{col: "bigint", numeric: true}},
-	{"Color", fieldtype{col: "text"}},
-	{"Date", fieldtype{col: "date"}},
-	{"Month", fieldtype{col: "date"}},
-	{"Datetime", fieldtype{col: "timestamptz"}},
-	{"Time", fieldtype{col: "time"}},
-	{"Select", fieldtype{col: "text"}},
-	{"Autocomplete", fieldtype{col: "text"}},
-	{"Barcode", fieldtype{col: "text"}},
-	{"Signature", fieldtype{col: "text", bulky: true}},
-	{"Geolocation", fieldtype{col: "jsonb", bulky: true, tsType: "GeoFeatureCollection | null"}},
-	{"Link", fieldtype{col: "text"}},
-	{"Dynamic Link", fieldtype{col: "text"}},
-	{"Table", fieldtype{table: true}},
-	{"Table MultiSelect", fieldtype{table: true}},
-	{"Attach", fieldtype{col: "text"}},
-	{"Attach Image", fieldtype{col: "text"}},
-	{"JSON", fieldtype{col: "jsonb", tsType: "any"}},
-	{"Password", fieldtype{col: "text"}},
-	{"Vault", fieldtype{tsType: "{ configured?: boolean } | string | null"}},
-	{"Section Break", fieldtype{layout: true}},
-	{"Tab Break", fieldtype{layout: true}},
-	{"HTML", fieldtype{layout: true}},
-	{"Report", fieldtype{layout: true}},
+var fieldtypes = map[string]fieldtype{
+	"Data": {col: "text"}, "Email": {col: "text"}, "Small Text": {col: "text"}, "Text": {col: "text"},
+	"Text Editor": {col: "text"}, "Markdown Editor": {col: "text"}, "Code": {col: "text"}, "Color": {col: "text"},
+	"Select": {col: "text"}, "Autocomplete": {col: "text"}, "Barcode": {col: "text"}, "Signature": {col: "text"},
+	"Link": {col: "text"}, "Dynamic Link": {col: "text"}, "Attach": {col: "text"}, "Attach Image": {col: "text"},
+	"Password": {col: "text"},
+	"Int":      {"bigint", "", true}, "Duration": {"bigint", "", true}, "Rating": {"bigint", "", true},
+	"Float": {"double precision", "", true}, "Currency": {"numeric(21,9)", "", true}, "Percent": {"numeric(21,9)", "", true},
+	"Check": {col: "boolean", tsType: "boolean"}, "Date": {col: "date"}, "Month": {col: "date"},
+	"Datetime": {col: "timestamptz"}, "Time": {col: "time"}, "JSON": {col: "jsonb", tsType: "any"},
+	"Geolocation": {col: "jsonb", tsType: "GeoFeatureCollection | null"},
+	"Vault":       {tsType: "{ configured?: boolean } | string | null"},
+	"Table":       {}, "Table MultiSelect": {}, "Section Break": {}, "Tab Break": {}, "HTML": {}, "Report": {},
 }
 
 // Layout fieldtypes have no column.
-var LayoutTypes = fieldtypeSet(func(t fieldtype) bool { return t.layout })
+var LayoutTypes = map[string]bool{"Section Break": true, "Tab Break": true, "HTML": true, "Report": true}
 
 // TextAreaTypes are the fieldtypes the desk draws as a text area, the ones a
 // field's rows applies to.
-var TextAreaTypes = fieldtypeSet(func(t fieldtype) bool { return t.textArea })
-
-var fieldtypes = func() map[string]fieldtype {
-	m := map[string]fieldtype{}
-	for _, r := range fieldtypeRows {
-		m[r.name] = r.fieldtype
-	}
-	return m
-}()
-
-// ValidFieldTypes lists every fieldtype, in the table's order.
-var ValidFieldTypes = func() []string {
-	var out []string
-	for _, r := range fieldtypeRows {
-		out = append(out, r.name)
-	}
-	return out
-}()
-
-func fieldtypeSet(pick func(fieldtype) bool) map[string]bool {
-	out := map[string]bool{}
-	for name, t := range fieldtypes {
-		if pick(t) {
-			out[name] = true
-		}
-	}
-	return out
-}
+var TextAreaTypes = map[string]bool{"Small Text": true, "Text": true, "Markdown Editor": true, "Code": true}
 
 // ColumnType maps a fieldtype to its Postgres column type ("" = no column).
 func ColumnType(ft string) string { return fieldtypes[ft].col }
 
-// TSType is the TypeScript type of a fieldtype's value ("" for the default
-// string | null).
+// TSType is the TypeScript type of a fieldtype's value ("" = string | null).
 func TSType(ft string) string { return fieldtypes[ft].tsType }
 
 // BulkyFieldtype reports whether a fieldtype's value is too large to index or
@@ -112,7 +56,11 @@ func TSType(ft string) string { return fieldtypes[ft].tsType }
 // entry past about 2.7 KB, so such a field cannot be unique, indexed or part
 // of a key, and every place that reads it for a whole list — the title, the
 // search fields, a sort — would pull every value with it.
-func BulkyFieldtype(ft string) bool { return fieldtypes[ft].bulky }
+func BulkyFieldtype(ft string) bool {
+	return ft == "Signature" || ft == "Geolocation"
+}
+
+var ValidFieldTypes = []string{"Data", "Email", "Small Text", "Text", "Text Editor", "Markdown Editor", "Code", "Int", "Float", "Currency", "Percent", "Check", "Rating", "Duration", "Color", "Date", "Month", "Datetime", "Time", "Select", "Autocomplete", "Barcode", "Signature", "Geolocation", "Link", "Dynamic Link", "Table", "Table MultiSelect", "Attach", "Attach Image", "JSON", "Password", "Vault", "Section Break", "Tab Break", "HTML", "Report"}
 
 type Field struct {
 	Fieldname          string `json:"fieldname,omitempty"`
@@ -661,7 +609,7 @@ func (d *DocType) DataFields() []*Field {
 // IsTableType says whether a fieldtype stores its value as child rows: a
 // Table, or a Table MultiSelect, which is the same rows edited as a list of
 // links.
-func IsTableType(ft string) bool { return fieldtypes[ft].table }
+func IsTableType(ft string) bool { return ft == "Table" || ft == "Table MultiSelect" }
 
 // IsNumericType says whether a fieldtype holds a number.
 func IsNumericType(ft string) bool { return fieldtypes[ft].numeric }
@@ -797,7 +745,6 @@ func (r *Registry) Validate() error {
 	return nil
 }
 
-// validateFieldOptions checks each field on its own: its type, name, options and limits.
 func (r *Registry) validateFieldOptions(d *DocType, e func(string, ...any)) {
 	seen := map[string]bool{}
 	for _, f := range d.Fields {
@@ -954,7 +901,6 @@ func (r *Registry) validateFieldOptions(d *DocType, e func(string, ...any)) {
 	}
 }
 
-// validateFieldRenames checks every renamedFrom and convert, field and DocType.
 func (r *Registry) validateFieldRenames(d *DocType, e func(string, ...any)) {
 	renamedFrom := map[string]string{} // old fieldname -> the field claiming it
 	for _, f := range d.Fields {
@@ -1021,7 +967,6 @@ func (r *Registry) validateFieldRenames(d *DocType, e func(string, ...any)) {
 	}
 }
 
-// validateReferences checks the DocType-level names that point at fields.
 func validateReferences(d *DocType, e func(string, ...any)) {
 	if d.IDLabel != "" && strings.TrimSpace(d.IDLabel) == "" {
 		e("idLabel is blank")
@@ -1084,7 +1029,6 @@ func validateReferences(d *DocType, e func(string, ...any)) {
 	}
 }
 
-// validFieldtype says whether ft is a fieldtype the framework knows.
 func validFieldtype(ft string) bool { _, ok := fieldtypes[ft]; return ok }
 
 // validateUniqueKeys checks the compound business keys. Everything here is
