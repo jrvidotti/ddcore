@@ -1,6 +1,5 @@
 <script lang="ts">
-  import { seg } from "$lib/routes";
-  import { doctypeWsPrefix } from "./search-palette";
+  import { seg, appPrefix } from "$lib/routes";
   import { onMount } from "svelte";
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
@@ -24,7 +23,7 @@
   let htmlContent = $state("");
   let iframeEl = $state<HTMLIFrameElement | null>(null);
 
-  const wsPrefix = $derived(doctypeWsPrefix(doctype, page.params.workspace));
+  const wsPrefix = $derived(appPrefix(page.params.workspace));
 
   const languages = $derived(boot.data?.langs ?? []);
 

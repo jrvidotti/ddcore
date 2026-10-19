@@ -5,8 +5,7 @@ import { seg } from "./routes";
 // DocType itself: a record URL for it is sent on to the source document, which
 // is what makes every list view, Link cell and search hit open the right form
 // without knowing anything about unions.
-import { workspaceFor } from "./components/search-palette";
-import type { WorkspaceItem } from "./components/sidebar-workspace";
+import { workspaceFor, type WorkspaceItem } from "./components/sidebar-workspace";
 
 export const VIRTUAL_SEP = ":";
 

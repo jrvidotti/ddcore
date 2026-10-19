@@ -20,7 +20,7 @@
   import LinkControl from "$lib/controls/LinkControl.svelte";
   import CalendarView from "$lib/components/views/CalendarView.svelte";
   import KanbanView from "$lib/components/views/KanbanView.svelte";
-  import { doctypeWsPrefix } from "$lib/components/search-palette";
+  import { doctypeWsPrefix } from "$lib/components/sidebar-workspace";
   import { isAssignmentOverdue, priorityBadgeClass } from "$lib/components/doc-sidebar-assignment";
   import {
     TODO_PAGE_SIZES, TODO_PRIORITIES, TODO_STATUSES, countTodoFilters, emptyTodoFilters, hasTodoFilters, nextTodoOrder,

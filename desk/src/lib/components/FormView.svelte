@@ -24,8 +24,7 @@
   import { cellWidthClass, isBareSection, LINE_SLOTS, packLines } from "./form-layout";
   import { isSectionCollapsed, toggleSection } from "./section-state";
   import { resolveActiveTab, tabToSearchParams } from "./form-tabs";
-  import { doctypeWsPrefix } from "./search-palette";
-  import { getRememberedWorkspace, type WorkspaceItem } from "./sidebar-workspace";
+  import { doctypeWsPrefix, getRememberedWorkspace, type WorkspaceItem } from "./sidebar-workspace";
   import { commitFocusedEdit, getModifierKey, openShortcutsHelp, shouldSave } from "$lib/shortcuts.svelte";
   import { virtualRedirect } from "$lib/virtual";
   import { duplicateDoc } from "$lib/duplicate";
