@@ -23,6 +23,17 @@ type Filter struct {
 	// it from the meta — the column being filtered is a tree's own id or a Link
 	// pointing at one — so a request never names a table itself.
 	Tree *TreeRef
+	// Parent is a condition on a child row's parent document, which only the
+	// framework builds: the row matches when its parent is a document of
+	// Parent.DocType passing every filter of Parent.Filters (B02).
+	Parent *ParentFilter
+}
+
+// ParentFilter names a child row's parent DocType and the filters its parent
+// document must pass, written against the parent's own fields.
+type ParentFilter struct {
+	DocType string
+	Filters []Filter
 }
 
 // TreeRef is the table a tree operator recurses over: rows are joined from

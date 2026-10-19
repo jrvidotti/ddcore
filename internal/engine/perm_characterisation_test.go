@@ -14,8 +14,8 @@ import (
 // The permission characterisation tests pin how the permission code answers
 // today, so that a refactor of perm.go can be checked against it. Where two
 // paths disagree (the role name's case, a Dynamic Link selector's case, a
-// parent-scoped rule on a child listing) the test pins the disagreement
-// itself: a change to either side has to be a deliberate one.
+// parent listed though one of its rows is out of scope) the test pins the
+// disagreement itself: a change to either side has to be a deliberate one.
 
 // charApp is the fixture: one DocType per behaviour pinned.
 func charApp(t *testing.T) string {
@@ -84,8 +84,28 @@ export default defineDoctype({ name: "Char Order", idGeneration: { field: "title
     { fieldname: "title", fieldtype: "Data", label: "Title", reqd: true },
     { fieldname: "company", fieldtype: "Link", label: "Company", options: "Char Company" },
     { fieldname: "lines", fieldtype: "Table", label: "Lines", options: "Char Order Line" },
+    { fieldname: "notes", fieldtype: "Table", label: "Notes", options: "Char Order Note" },
   ],
   permissions: [{ role: "Char Scoped", read: true }] });`)
+	// a child table with no Link to the scoped DocType
+	w("doctypes/char_order_note/char_order_note.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
+export default defineDoctype({ name: "Char Order Note", isChild: true,
+  fields: [{ fieldname: "text", fieldtype: "Data", label: "Text" }] });`)
+	// a controller whose permissionQuery hides the "Hidden" documents from lists
+	w("doctypes/char_query_doc/char_query_doc.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
+export default defineDoctype({ name: "Char Query Doc", idGeneration: { field: "title" },
+  fields: [
+    { fieldname: "title", fieldtype: "Data", label: "Title", reqd: true },
+    { fieldname: "lines", fieldtype: "Table", label: "Lines", options: "Char Query Line" },
+  ],
+  permissions: [{ role: "Char Staff", read: true }] });`)
+	w("doctypes/char_query_doc/char_query_doc.controller.ts", `import { defineController } from "@ddcore/sdk";
+export default defineController("Char Query Doc", {
+  permissionQuery(user) { return [["title", "!=", "Hidden"]]; },
+});`)
+	w("doctypes/char_query_line/char_query_line.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
+export default defineDoctype({ name: "Char Query Line", isChild: true,
+  fields: [{ fieldname: "text", fieldtype: "Data", label: "Text" }] });`)
 	w("doctypes/char_order_line/char_order_line.doctype.ts", `import { defineDoctype } from "@ddcore/sdk";
 export default defineDoctype({ name: "Char Order Line", isChild: true,
   fields: [
@@ -121,6 +141,7 @@ const (
 	charParty       = "party@x.com"
 	charOrderScoped = "orderscoped@x.com"
 	charEditor      = "editor@x.com"
+	charPlain       = "plain@x.com"
 )
 
 func setupChar(t *testing.T) *Engine {
@@ -141,6 +162,7 @@ func setupChar(t *testing.T) *Engine {
 			charParty:       {"Char Scoped"},
 			charOrderScoped: {"Char Scoped"},
 			charEditor:      {"Char Editor"},
+			charPlain:       {"Char Scoped"},
 		}
 		for email, roles := range users {
 			var rows []any
@@ -297,14 +319,12 @@ func TestPermChar_DynamicLinkSelectorCase(t *testing.T) {
 	})
 }
 
-// KNOWN GAP (pinned, not desired): a rule applicable for a parent DocType is
-// checked on the parent's child rows when the parent is read, but a listing of
-// the child DocType applies only the rules applicable to the child itself: the
-// parent-scoped rule filters nothing there, and the rows of parents out of
-// scope (b1, of OB) are listed. The secure answer is the rows of in-scope
-// parents only ([a1 a2 c1], or [a1 c1] filtering the rows too) or a refusal.
-// A parent whose own rows break the rule is also listed but not readable (OA).
-// Tracked separately; fix deliberately.
+// A rule applicable for a parent DocType is checked on the parent's child rows
+// when the parent is read, and a listing of the child DocType follows it: a row
+// is listed only when its parent passes the parent's list filter (b1, of OB,
+// does not) and the row itself passes the rules for the parent (a2 names
+// Beta). KNOWN GAP (pinned, not desired): a parent whose own rows break the
+// rule is listed but not readable (OA). Tracked separately; fix deliberately.
 func TestPermChar_ParentScopedRuleOnChildListing(t *testing.T) {
 	e := setupChar(t)
 	runAs(t, e, "Admin", func(c *Ctx) error {
@@ -341,9 +361,8 @@ func TestPermChar_ParentScopedRuleOnChildListing(t *testing.T) {
 		for _, r := range rows {
 			texts = append(texts, db.Str(r["text"]))
 		}
-		// KNOWN GAP: b1 belongs to OB, which is out of scope
-		if !reflect.DeepEqual(texts, []string{"a1", "a2", "b1", "c1"}) {
-			t.Fatalf("child listing = %v; pinned current behaviour: every row [a1 a2 b1 c1]", texts)
+		if !reflect.DeepEqual(texts, []string{"a1", "c1"}) {
+			t.Fatalf("child listing = %v, want [a1 c1]", texts)
 		}
 		return nil
 	})

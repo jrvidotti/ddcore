@@ -477,10 +477,9 @@ func (c *Ctx) readIsOwnerOnly(d *meta.DocType) bool {
 }
 
 // ReadableParentsOf returns the names of the doctypes embedding `child` that
-// the user may read in full — the whitelist used to scope a child listing
-// (B02). A doctype the user only reads as owner is left out: a row filter on
-// the child table cannot express the parent's ownership, so listing rows of
-// such a doctype is refused instead of leaked.
+// the user may read in full — the parents a child listing goes through (B02),
+// each narrowed there to the documents a list of it holds. A doctype the user
+// only reads as owner is left out, so its rows are never listed on their own.
 func (c *Ctx) ReadableParentsOf(child string) ([]string, error) {
 	var out []string
 	for _, cp := range c.ParentsOf(child) {
@@ -501,19 +500,30 @@ func (c *Ctx) ReadableParentsOf(child string) ([]string, error) {
 // scopeFilters builds filters enforcing User Permission rules for doctype d,
 // lifted for the documents a share overrides them on.
 func (c *Ctx) scopeFilters(d *meta.DocType) ([]db.Filter, error) {
-	strict, err := c.strictScopeFilters(d)
-	if err != nil || len(strict) == 0 || d.IsChild {
+	strict, err := c.strictScopeFilters(d, d.Name)
+	if err != nil || d.IsChild {
 		return strict, err
 	}
-	_, override, err := c.sharedNames(d.Name)
+	return c.liftedByShares(strict, d.Name, "id")
+}
+
+// liftedByShares lifts the scope filters strict for the documents of doctype
+// a share overrides the scopes on; key is the column holding their id.
+func (c *Ctx) liftedByShares(strict []db.Filter, doctype, key string) ([]db.Filter, error) {
+	if len(strict) == 0 {
+		return nil, nil
+	}
+	_, override, err := c.sharedNames(doctype)
 	if err != nil || len(override) == 0 {
 		return strict, err
 	}
-	return []db.Filter{{Any: [][]db.Filter{strict, {{Field: "id", Op: "in", Value: override}}}}}, nil
+	return []db.Filter{{Any: [][]db.Filter{strict, {{Field: key, Op: "in", Value: override}}}}}, nil
 }
 
-// strictScopeFilters builds filters enforcing User Permission rules for doctype d.
-func (c *Ctx) strictScopeFilters(d *meta.DocType) ([]db.Filter, error) {
+// strictScopeFilters builds filters enforcing on doctype d the User Permission
+// rules that apply within applicableFor: d's own, or the parent DocType whose
+// rows d holds.
+func (c *Ctx) strictScopeFilters(d *meta.DocType, applicableFor string) ([]db.Filter, error) {
 	if c.User == "Admin" || c.IgnorePermissions() {
 		return nil, nil
 	}
@@ -528,7 +538,7 @@ func (c *Ctx) strictScopeFilters(d *meta.DocType) ([]db.Filter, error) {
 
 	grouped := make(map[string][]any)
 	for _, p := range perms {
-		if p.ApplicableFor != "" && !strings.EqualFold(p.ApplicableFor, d.Name) {
+		if p.ApplicableFor != "" && !strings.EqualFold(p.ApplicableFor, applicableFor) {
 			continue
 		}
 		grouped[p.Allow] = append(grouped[p.Allow], p.ForValue)
@@ -607,11 +617,13 @@ func (c *Ctx) childPermission(d *meta.DocType, ptype string, doc Doc) (bool, err
 			}
 			return false, nil
 		}
-		rows, err := db.Select(c.Ctx, c.Q(), fmt.Sprintf(`SELECT parenttype, parent, parentfield FROM %s WHERE id = $1`, db.Ident(d.TableName())), doc.ID())
+		// the whole row: a read checks its fields against the scopes below
+		rows, err := db.Select(c.Ctx, c.Q(), fmt.Sprintf(`SELECT * FROM %s WHERE id = $1`, db.Ident(d.TableName())), doc.ID())
 		if err != nil || len(rows) == 0 {
 			return false, err
 		}
-		pt, pn, pf = db.Str(rows[0]["parenttype"]), db.Str(rows[0]["parent"]), db.Str(rows[0]["parentfield"])
+		doc = Doc(rows[0])
+		pt, pn, pf = doc.Str("parenttype"), doc.Str("parent"), doc.Str("parentfield")
 		if pt == "" || pn == "" || pf == "" {
 			return false, nil
 		}
@@ -640,7 +652,20 @@ func (c *Ctx) childPermission(d *meta.DocType, ptype string, doc Doc) (bool, err
 			return false, nil
 		}
 	}
-	return c.HasPermission(parent.Name, parentPtype, pdoc)
+	ok, err = c.HasPermission(parent.Name, parentPtype, pdoc)
+	if err != nil || !ok || parentPtype != "read" {
+		return ok, err
+	}
+	// the row read on its own passes the scopes childListFilters lists it by:
+	// the child's own, and those within its parent unless a share on the
+	// parent overrides them
+	if ok, err = c.checkUserPermissions(d, doc); err != nil || !ok {
+		return false, err
+	}
+	if ok, err = c.checkUserPermissionsFor(d, doc, parent.Name); err != nil || ok {
+		return ok, err
+	}
+	return c.scopeOverridden(parent.Name, pn, "read")
 }
 
 // permissionFilters adds child, ifOwner, controller permissionQuery, and
@@ -651,20 +676,7 @@ func (c *Ctx) permissionFilters(d *meta.DocType) ([]db.Filter, error) {
 		return nil, nil
 	}
 	if d.IsChild {
-		// child rows are only visible through the doctypes that embed them
-		parents, err := c.ReadableParentsOf(d.Name)
-		if err != nil {
-			return nil, err
-		}
-		vals := make([]any, 0, len(parents))
-		for _, p := range parents {
-			vals = append(vals, p)
-		}
-		sf, err := c.strictScopeFilters(d)
-		if err != nil {
-			return nil, err
-		}
-		return append([]db.Filter{{Field: "parenttype", Op: "in", Value: vals}}, sf...), nil
+		return c.childListFilters(d)
 	}
 	if c.PortalMode() {
 		// a portal page is the only grant: no role rows, no shares (OPS-10)
@@ -676,7 +688,7 @@ func (c *Ctx) permissionFilters(d *meta.DocType) ([]db.Filter, error) {
 		if err != nil {
 			return nil, err
 		}
-		strict, err := c.strictScopeFilters(d)
+		strict, err := c.strictScopeFilters(d, d.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -699,7 +711,7 @@ func (c *Ctx) permissionFilters(d *meta.DocType) ([]db.Filter, error) {
 	if err != nil {
 		return nil, err
 	}
-	strict, err := c.strictScopeFilters(d)
+	strict, err := c.strictScopeFilters(d, d.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -730,6 +742,45 @@ func (c *Ctx) permissionFilters(d *meta.DocType) ([]db.Filter, error) {
 		groups = append(groups, append([]db.Filter{{Field: "id", Op: "in", Value: override}}, query...))
 	}
 	return []db.Filter{{Any: groups}}, nil
+}
+
+// childListFilters are permissionFilters for a child DocType (B02). A row is
+// listed only through a parent the user reads in full, when its parent
+// document passes the filters a list of that parent applies and the row
+// passes the scopes that apply within the parent, as when the parent is read;
+// the child's own scopes apply as well. No such parent lists no row.
+func (c *Ctx) childListFilters(d *meta.DocType) ([]db.Filter, error) {
+	parents, err := c.ReadableParentsOf(d.Name)
+	if err != nil {
+		return nil, err
+	}
+	groups := [][]db.Filter{}
+	for _, name := range parents {
+		pd, err := c.St.DocType(name)
+		if err != nil {
+			return nil, err
+		}
+		if c.spaceRefusal(pd, false, false) != nil {
+			continue
+		}
+		pf, err := c.permissionFilters(pd)
+		if err != nil {
+			return nil, err
+		}
+		rows, err := c.strictScopeFilters(d, pd.Name)
+		if err != nil {
+			return nil, err
+		}
+		if rows, err = c.liftedByShares(rows, pd.Name, "parent"); err != nil {
+			return nil, err
+		}
+		groups = append(groups, append([]db.Filter{{Parent: &db.ParentFilter{DocType: pd.Name, Filters: pf}}}, rows...))
+	}
+	own, err := c.strictScopeFilters(d, d.Name)
+	if err != nil {
+		return nil, err
+	}
+	return append([]db.Filter{{Any: groups}}, own...), nil
 }
 
 // permissionQueryFilters are the controller's permissionQuery for the user.
