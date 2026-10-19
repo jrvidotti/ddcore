@@ -1,6 +1,5 @@
 <script lang="ts">
-  // The assignment form: assign a document to a user (the assignee is required) or
-  // create a standalone task (the description is required).
+  // Assign a document to a user (assignee required) or create a standalone task (description required).
   import { untrack } from "svelte";
   import type { AssignArgs } from "$lib/api";
   import { __ } from "$lib/boot.svelte";
@@ -92,6 +91,7 @@
         id="assign-description"
         class="input"
         rows="3"
+        data-autofocus={required === "description" ? "" : undefined}
         placeholder={required === "description" ? __("What needs to be done?") : __("Task instructions / notes")}
         bind:value={description}
       ></textarea>

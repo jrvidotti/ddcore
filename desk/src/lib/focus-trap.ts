@@ -23,9 +23,12 @@ function tabbables(node: HTMLElement) {
  * starts right away and Enter submits; otherwise the modal itself, so Escape
  * reaches it without Enter pressing whichever button happens to come first.
  * A Link field opens its options list on focus, so when it comes first the
- * modal keeps the focus rather than pop the list open unasked.
+ * modal keeps the focus rather than pop the list open unasked. A control marked
+ * `data-autofocus` takes the focus ahead of all that.
  */
 export function initialFocus(node: HTMLElement): HTMLElement {
+  const marked = node.querySelector<HTMLElement>("[data-autofocus]");
+  if (marked && visible(marked)) return marked;
   const field = [...node.querySelectorAll<HTMLElement>(FIELD)].find((el) => visible(el) && !(el as HTMLInputElement).readOnly);
   return field && !field.matches("[data-fieldtype=Link]") ? field : node;
 }

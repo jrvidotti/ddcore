@@ -73,6 +73,15 @@ describe("AssignModal", () => {
     expect(q('label[for="assign-description"]').classList.contains("reqd")).toBe(true);
   });
 
+  it("puts the focus in the description of a standalone task, and leaves it on the dialog when assigning", () => {
+    setup("description");
+    expect(document.activeElement).toBe(q("#assign-description"));
+    unmount(view);
+    target.remove();
+    setup("assignee");
+    expect(document.activeElement).toBe(q("[role=dialog]"));
+  });
+
   it("offers the priorities from TODO_PRIORITIES, Medium selected", () => {
     setup("assignee");
     const select = q<HTMLSelectElement>("#assign-priority");

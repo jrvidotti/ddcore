@@ -41,6 +41,11 @@ describe("focus trap", () => {
     expect(initialFocus(node)).toBe(node);
   });
 
+  it("lets a control marked data-autofocus take the focus ahead of a Link field", () => {
+    const { node } = modal(`<input id="l" data-fieldtype="Link"><textarea id="d" data-autofocus></textarea>`);
+    expect(initialFocus(node).id).toBe("d");
+  });
+
   it("keeps Tab and Shift+Tab inside the modal", () => {
     const { node } = modal(`<input id="a"><button id="ok">OK</button>`);
     focusTrap(node);
