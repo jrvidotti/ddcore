@@ -318,7 +318,10 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		if k := c.appCacheKey(a.Key); k != a.Key {
 			keys = append(keys, k)
 		}
-		return nil, c.invalidateNow(keys, nil)
+		for _, k := range keys {
+			e.Cache.Del(k)
+		}
+		return nil, c.broadcastInvalidation(keys, nil)
 	case "http":
 		return httpCall(c.callCtx(), a.Method, a.URL, a.Body, a.BodyEncoding, a.Headers, a.Timeout, a.ResponseType, int64(a.MaxBytes), a.MaxRedirects, a.ClientCert)
 	case "files.save":
@@ -447,11 +450,15 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 				if TokenHandle(sid) != handle {
 					continue
 				}
-				n, err := e.endSessions(c.Ctx, e.DB.Pool, sid)
+				e.Cache.Del("sid:" + sid)
+				tag, err := e.DB.Pool.Exec(c.Ctx, `DELETE FROM ddcore_session WHERE sid = $1`, sid)
 				if err != nil {
 					return nil, err
 				}
-				return map[string]any{"revoked": n}, nil
+				if err := broadcastInvalidation(c.Ctx, e.DB.Pool, []string{"sid:" + sid}, nil); err != nil {
+					return nil, err
+				}
+				return map[string]any{"revoked": int(tag.RowsAffected())}, nil
 			}
 			return map[string]any{"revoked": 0}, nil
 		}
@@ -530,7 +537,8 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		if tag.RowsAffected() == 0 {
 			return nil, cerr.NotFound("That key is not yours")
 		}
-		if err := c.invalidateNow([]string{"apikey:" + idStr()}, nil); err != nil {
+		e.Cache.Del("apikey:" + idStr())
+		if err := c.broadcastInvalidation([]string{"apikey:" + idStr()}, nil); err != nil {
 			return nil, err
 		}
 		return map[string]any{"ok": true}, nil

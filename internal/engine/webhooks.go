@@ -207,7 +207,8 @@ func (e *Engine) InvalidateWebhooks() {
 // same. Every tenant's, because a system ctx may write another tenant's
 // Webhook.
 func (c *Ctx) webhooksChanged() error {
-	return c.invalidate(nil, []string{webhookCachePrefix})
+	c.AfterCommit(c.E.InvalidateWebhooks)
+	return c.broadcastInvalidation(nil, []string{webhookCachePrefix})
 }
 
 // queueDocWebhooks turns one lifecycle event into a delivery per matching

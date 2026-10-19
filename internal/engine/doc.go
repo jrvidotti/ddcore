@@ -1546,7 +1546,8 @@ func (c *Ctx) deleteWithFlags(doctype, name string, ignorePerms, force bool, fla
 		if _, err := c.Q().Exec(c.Ctx, `DELETE FROM ddcore_user_identity WHERE "user" = $1`, name); err != nil {
 			return err
 		}
-		if err := c.invalidateNow([]string{"utype:" + name}, nil); err != nil {
+		c.E.Cache.Del("utype:" + name)
+		if err := c.broadcastInvalidation([]string{"utype:" + name}, nil); err != nil {
 			return err
 		}
 	}
@@ -1674,7 +1675,11 @@ func (c *Ctx) moveID(d *meta.DocType, oldID, newID string) error {
 		}
 		// the roles too: a user created later under the old name must not
 		// inherit what the renamed one was granted
-		if err := c.invalidateNow([]string{"utype:" + oldID, "utype:" + newID, "roles:" + oldID, "roles:" + newID}, nil); err != nil {
+		keys := []string{"utype:" + oldID, "utype:" + newID, "roles:" + oldID, "roles:" + newID}
+		for _, k := range keys {
+			c.E.Cache.Del(k)
+		}
+		if err := c.broadcastInvalidation(keys, nil); err != nil {
 			return err
 		}
 	}

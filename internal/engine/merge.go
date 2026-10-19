@@ -145,9 +145,10 @@ func (c *Ctx) repointRefs(d *meta.DocType, oldID, newID string, merge bool) erro
 	if d.Name == "Role" {
 		// The sweep rewrote Has Role rows under every user's cached roles, which
 		// would otherwise go on naming a role that no longer exists.
-		prefixes := []string{"roles:", "evperm:"}
-		cacheInvalidation{Prefixes: prefixes}.apply(c.E.Cache)
-		return c.invalidate(nil, prefixes)
+		drop := func() { c.E.Cache.DelPrefix("roles:"); c.E.Cache.DelPrefix("evperm:") }
+		drop()
+		c.AfterCommit(drop)
+		return c.broadcastInvalidation(nil, []string{"roles:", "evperm:"})
 	}
 	return nil
 }
