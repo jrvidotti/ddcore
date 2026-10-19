@@ -420,30 +420,38 @@ func truncate(s string, n int) string {
 // UserFromSession answers from a one-minute cache, so deleting the row alone
 // would leave a revoked session working for up to a minute.
 func (e *Engine) DropSessions(ctx context.Context, q db.Querier, user, exceptSid string) (int, error) {
-	rows, err := db.Select(ctx, q, `SELECT sid FROM ddcore_session WHERE "user" = $1 AND sid <> $2`, user, exceptSid)
+	rows, err := db.Select(ctx, q, `DELETE FROM ddcore_session WHERE "user" = $1 AND sid <> $2 RETURNING sid`, user, exceptSid)
 	if err != nil {
 		return 0, err
 	}
-	sids := make([]string, 0, len(rows))
-	for _, r := range rows {
-		sids = append(sids, db.Str(r["sid"]))
+	sids := make([]string, len(rows))
+	for i, r := range rows {
+		sids[i] = db.Str(r["sid"])
 	}
-	return e.endSessions(ctx, q, sids...)
+	return len(sids), e.forgetSessions(ctx, q, sids)
 }
 
-// endSessions deletes sessions and drops their cached sids here and in the
-// other processes, which answer from their own one-minute cache.
+// endSessions deletes sessions by id and forgets them.
 func (e *Engine) endSessions(ctx context.Context, q db.Querier, sids ...string) (int, error) {
+	if len(sids) == 0 {
+		return 0, nil
+	}
 	tag, err := q.Exec(ctx, `DELETE FROM ddcore_session WHERE sid = ANY($1)`, sids)
 	if err != nil {
 		return 0, err
 	}
+	return int(tag.RowsAffected()), e.forgetSessions(ctx, q, sids)
+}
+
+// forgetSessions drops cached sids here and in the other processes, which
+// answer from their own one-minute cache.
+func (e *Engine) forgetSessions(ctx context.Context, q db.Querier, sids []string) error {
 	keys := make([]string, len(sids))
 	for i, sid := range sids {
 		keys[i] = "sid:" + sid
 		e.Cache.Del(keys[i])
 	}
-	return int(tag.RowsAffected()), broadcastInvalidation(ctx, q, keys, nil)
+	return broadcastInvalidation(ctx, q, keys, nil)
 }
 
 // RandomToken returns a 48-char hex token (session ids, API secrets, file

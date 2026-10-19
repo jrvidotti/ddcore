@@ -201,3 +201,27 @@ func TestDropSessions(t *testing.T) {
 		t.Error("sid1 should have been deleted from database")
 	}
 }
+
+// A session committed after the caller last looked (a login racing a password
+// change) is deleted too: DropSessions deletes by user, never by a prior list.
+func TestDropSessionsEndsASessionItNeverListed(t *testing.T) {
+	e := setupPerm(t)
+	ctx := context.Background()
+	sid := RandomToken()
+	if _, err := e.DB.Pool.Exec(ctx,
+		`INSERT INTO ddcore_session (sid, "user", expires, ip, user_agent)
+		 VALUES ($1, 'ana@x.com', now() + interval '1 day', '127.0.0.1', 'test')`, sid); err != nil {
+		t.Fatal(err)
+	}
+	e.Cache.Set("sid:"+sid, "ana@x.com", time.Minute)
+	n, err := e.DropSessions(ctx, e.DB.Pool, "ana@x.com", "")
+	if err != nil || n != 1 {
+		t.Fatalf("DropSessions = %d, %v", n, err)
+	}
+	if _, ok := e.Cache.Get("sid:" + sid); ok {
+		t.Fatal("the cached sid survived")
+	}
+	if u, err := e.UserFromSession(ctx, sid); err == nil && u != "" {
+		t.Fatalf("the session still resolves to %q", u)
+	}
+}
