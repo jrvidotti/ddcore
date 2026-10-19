@@ -192,8 +192,10 @@ func wantAllowed(t *testing.T, c *Ctx, doctype, ptype string, doc Doc, want bool
 	}
 }
 
-// DocType rights match a role name ignoring case (containsFold); the workflow
-// and the System Manager checks go through HasRole, which matches it exactly.
+// KNOWN GAP (pinned, not desired): DocType rights match a role name ignoring
+// case (containsFold), while the workflow (allowEdit, transitions) and every
+// System Manager check go through HasRole, which matches it exactly. One rule
+// for both is the desired answer; tracked separately, fix deliberately.
 func TestPermChar_MixedCaseRoleNames(t *testing.T) {
 	e := setupChar(t)
 	runAs(t, e, "Admin", func(c *Ctx) error {
@@ -206,7 +208,7 @@ func TestPermChar_MixedCaseRoleNames(t *testing.T) {
 		}
 		wantAllowed(t, c, "Char Flow Doc", "read", doc, true)
 		wantAllowed(t, c, "Char Flow Doc", "write", nil, true)
-		// Draft's allowEdit is "char staff": HasRole does not match it
+		// KNOWN GAP: Draft's allowEdit is "char staff", which HasRole does not match
 		wantAllowed(t, c, "Char Flow Doc", "write", doc, false)
 		actions, err := c.AvailableWorkflowActions("Char Flow Doc", doc)
 		if err != nil {
@@ -217,10 +219,10 @@ func TestPermChar_MixedCaseRoleNames(t *testing.T) {
 			names = append(names, a.Action)
 		}
 		if !reflect.DeepEqual(names, []string{"Send"}) {
-			t.Fatalf("workflow actions = %v, want only the exact-case transition [Send]", names)
+			t.Fatalf("workflow actions = %v; pinned current behaviour: only the exact-case transition [Send]", names)
 		}
 		if _, err := c.ApplyWorkflowTransition("Char Flow Doc", "F1", "Finish"); err == nil {
-			t.Fatalf("Finish (allowed: \"char staff\") should be refused")
+			t.Fatalf("Finish (allowed: \"char staff\") succeeded; pinned current behaviour: refused")
 		}
 		return nil
 	})
@@ -241,24 +243,26 @@ func TestPermChar_MixedCaseRoleNames(t *testing.T) {
 		// the Role DocType's "System Manager" row is matched ignoring case...
 		wantAllowed(t, c, "Role", "write", nil, true)
 		wantAllowed(t, c, "Role", "create", nil, true)
-		// ...the System Manager checks are not
+		// ...KNOWN GAP: the System Manager checks are not
 		if c.HasRole("System Manager") {
-			t.Fatalf("HasRole(System Manager) matched a role named %q", "system manager")
+			t.Fatalf("HasRole(System Manager) matched a role named %q; pinned current behaviour: no match", "system manager")
 		}
 		ok, err := c.CanOverrideScope()
 		if err != nil {
 			return err
 		}
 		if ok {
-			t.Fatalf("CanOverrideScope for a %q role should be false", "system manager")
+			t.Fatalf("CanOverrideScope for a %q role = true; pinned current behaviour: false", "system manager")
 		}
 		return nil
 	})
 }
 
-// A Dynamic Link is restricted when its selector names the allowed DocType:
-// the memory check compares the selector ignoring case, the SQL filter
-// exactly. A selector in another case is therefore listed but not readable.
+// KNOWN GAP (pinned, not desired): a Dynamic Link is restricted when its
+// selector names the allowed DocType, but the memory check compares the
+// selector ignoring case and the SQL filter exactly. A selector in another case
+// is therefore listed but not readable. The desired answer is one comparison
+// for both, so the list holds [P1] alone; tracked separately, fix deliberately.
 func TestPermChar_DynamicLinkSelectorCase(t *testing.T) {
 	e := setupChar(t)
 	runAs(t, e, "Admin", func(c *Ctx) error {
@@ -278,7 +282,10 @@ func TestPermChar_DynamicLinkSelectorCase(t *testing.T) {
 		return err
 	})
 	runAs(t, e, charParty, func(c *Ctx) error {
-		sameNames(t, listNames(t, c, "Char Party Doc", ListArgs{}), "P1", "P3")
+		// KNOWN GAP: P3 is listed though GetDoc refuses it below
+		if got := listNames(t, c, "Char Party Doc", ListArgs{}); !reflect.DeepEqual(got, []string{"P1", "P3"}) {
+			t.Fatalf("list = %v; pinned current behaviour: [P1 P3]", got)
+		}
 		if _, err := c.GetDoc("Char Party Doc", "P1"); err != nil {
 			t.Fatalf("GetDoc P1: %v", err)
 		}
@@ -290,10 +297,14 @@ func TestPermChar_DynamicLinkSelectorCase(t *testing.T) {
 	})
 }
 
-// A rule applicable for a parent DocType is checked on the parent's child rows
-// when the parent is read, but a listing of the child DocType applies only the
-// rules applicable to the child itself: the parent-scoped rule filters nothing
-// there, and the rows of parents out of scope are listed.
+// KNOWN GAP (pinned, not desired): a rule applicable for a parent DocType is
+// checked on the parent's child rows when the parent is read, but a listing of
+// the child DocType applies only the rules applicable to the child itself: the
+// parent-scoped rule filters nothing there, and the rows of parents out of
+// scope (b1, of OB) are listed. The secure answer is the rows of in-scope
+// parents only ([a1 a2 c1], or [a1 c1] filtering the rows too) or a refusal.
+// A parent whose own rows break the rule is also listed but not readable (OA).
+// Tracked separately; fix deliberately.
 func TestPermChar_ParentScopedRuleOnChildListing(t *testing.T) {
 	e := setupChar(t)
 	runAs(t, e, "Admin", func(c *Ctx) error {
@@ -310,11 +321,13 @@ func TestPermChar_ParentScopedRuleOnChildListing(t *testing.T) {
 		return nil
 	})
 	runAs(t, e, charOrderScoped, func(c *Ctx) error {
-		sameNames(t, listNames(t, c, "Char Order", ListArgs{}), "OA", "OC")
+		if got := listNames(t, c, "Char Order", ListArgs{}); !reflect.DeepEqual(got, []string{"OA", "OC"}) {
+			t.Fatalf("list = %v; pinned current behaviour: [OA OC]", got)
+		}
 		if _, err := c.GetDoc("Char Order", "OC"); err != nil {
 			t.Fatalf("GetDoc OC: %v", err)
 		}
-		// listed, yet refused: its row a2 names Beta, and the rule applies to it
+		// KNOWN GAP: listed, yet refused: its row a2 names Beta, and the rule applies to it
 		_, err := c.GetDoc("Char Order", "OA")
 		wantPermissionError(t, "GetDoc OA (a child row out of scope)", err)
 		_, err = c.GetDoc("Char Order", "OB")
@@ -328,8 +341,9 @@ func TestPermChar_ParentScopedRuleOnChildListing(t *testing.T) {
 		for _, r := range rows {
 			texts = append(texts, db.Str(r["text"]))
 		}
+		// KNOWN GAP: b1 belongs to OB, which is out of scope
 		if !reflect.DeepEqual(texts, []string{"a1", "a2", "b1", "c1"}) {
-			t.Fatalf("child listing = %v, want every row [a1 a2 b1 c1]", texts)
+			t.Fatalf("child listing = %v; pinned current behaviour: every row [a1 a2 b1 c1]", texts)
 		}
 		return nil
 	})
@@ -344,7 +358,7 @@ func TestPermChar_ParentScopedRuleOnChildListing(t *testing.T) {
 			texts = append(texts, db.Str(r["text"]))
 		}
 		if !reflect.DeepEqual(texts, []string{"a1", "c1"}) {
-			t.Fatalf("child listing = %v, want [a1 c1]", texts)
+			t.Fatalf("child listing = %v; pinned current behaviour: [a1 c1]", texts)
 		}
 		return nil
 	})
@@ -354,10 +368,14 @@ func TestPermChar_ParentScopedRuleOnChildListing(t *testing.T) {
 // ownership, and the listing filters on the owner.
 func TestPermChar_IfOwnerRows(t *testing.T) {
 	e := setupChar(t)
-	// create is checked before the new document's owner is set, so an
-	// ifOwner create row does not let its holder create
+	// KNOWN GAP (pinned, not desired): Insert checks create (doc.go, Insert's
+	// HasPermission(create)) before it stamps the new document's owner, so an
+	// ifOwner create row never lets its holder create; Insert's submit check on
+	// a document inserted submitted runs before the stamp too, the same gap for
+	// an ifOwner submit row. The desired answer is that the creator counts as
+	// the owner. Tracked separately; fix deliberately.
 	runAs(t, e, charOwner1, func(c *Ctx) error {
-		wantPermissionError(t, "create through an ifOwner row", insertDoc(c, "Char Owned Doc", Doc{"title": "O0"}))
+		wantPermissionError(t, "create through an ifOwner row (pinned current behaviour: refused)", insertDoc(c, "Char Owned Doc", Doc{"title": "O0"}))
 		return nil
 	})
 	insertOwned(t, e, "Char Owned Doc", "O1", charOwner1)
@@ -438,6 +456,9 @@ func TestPermChar_ReportOnlyRoleWithShareListsOnlyShared(t *testing.T) {
 	runAs(t, e, charMixed, func(c *Ctx) error {
 		wantAllowed(t, c, "Char Report Doc", "read", Doc{"id": "R1", "owner": "Admin"}, false)
 		sameNames(t, listNames(t, c, "Char Report Doc", ListArgs{}), "RM")
+		// an owner-only read cannot be expressed on child rows: their listing is refused
+		_, err := c.GetList("Char Report Line", ListArgs{Fields: []string{"text"}})
+		wantPermissionError(t, "GetList Char Report Line (ifOwner read + report)", err)
 		return nil
 	})
 }
