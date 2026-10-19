@@ -247,11 +247,9 @@ func (c *Ctx) queueNotificationMail(rt *js.Runtime, notification, user, template
 // to a savepoint and logged, and the inbox row (and the date sweep behind it)
 // carries on.
 func (c *Ctx) queueCoreNotificationMail(rt *js.Runtime, notification, user, template string, args map[string]any, ref MailReference, muteCol string) {
-	if err := c.WithSavepoint(func() error {
+	c.BestEffort("notification email", []any{"recipient", user, "doctype", ref.Doctype, "id", ref.ID}, func() error {
 		return c.queueNotificationMail(rt, notification, user, template, args, ref, muteCol)
-	}); err != nil {
-		c.E.Log.Warn("notification email failed", "recipient", user, "doctype", ref.Doctype, "id", ref.ID, "err", err)
-	}
+	})
 }
 
 // NotifyUser records a persistent notification for user (e.g. on assignment).

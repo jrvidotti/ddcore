@@ -363,11 +363,9 @@ func (c *Ctx) notifyShare(d *meta.DocType, name, user string) {
 	label := c.St.I18n.T(lang, d.Label)
 	title := c.St.I18n.T(lang, "Shared with you: {0} {1}", label, name)
 	msg := c.St.I18n.T(lang, "{0} shared {1} {2} with you", c.User, label, name)
-	if err := c.WithSavepoint(func() error {
+	c.BestEffort("share notification", []any{"doctype", d.Name, "id", name, "user", user}, func() error {
 		return c.notifyUserAs("share", user, d.Name, name, title, msg)
-	}); err != nil {
-		c.E.Log.Warn("share notification failed", "doctype", d.Name, "id", name, "user", user, "err", err)
-	}
+	})
 }
 
 // UnshareDoc removes user's share on one document. The recipient may drop their

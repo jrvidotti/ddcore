@@ -16,6 +16,7 @@ older series, and `whats_new` reads across every one of them.
 
 ### Fixed
 
+- **Assignment timeline comments appear in the user's language.** "assigned this document to", "completed assignment", "revoked assignment for" and "reopened assignment" were written in English whatever the language; they are translated keys now (pt-BR included).
 - **Moving a node of a tree DocType reaches the other processes.** The read cache of the subtree was dropped only in the process that saved the move; replicas and workers kept answering from it until it expired.
 - **The `scaffold_doctype` MCP description lists the `Report` fieldtype.** It named every other fieldtype but that one; a test now keeps the description and the `Fieldtype` union in the SDK in step with the fieldtypes the framework accepts.
 - **`ddcore.redact` refuses an unknown doctype instead of returning the document unredacted.** The same holds for the MCP `list_docs` and `call_method` tools, notifications, webhooks and the portal: a doctype that cannot be looked up is now an error, not a pass-through.

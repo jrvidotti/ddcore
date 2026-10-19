@@ -25,6 +25,7 @@ import (
 	"github.com/jrvidotti/ddcore/internal/mail"
 	"github.com/jrvidotti/ddcore/internal/meta"
 	"github.com/jrvidotti/ddcore/internal/num"
+	"github.com/jrvidotti/ddcore/internal/richtext"
 	"github.com/jrvidotti/ddcore/internal/storage"
 )
 
@@ -1324,6 +1325,29 @@ func (c *Ctx) WithSavepoint(fn func() error) error {
 		return err
 	}
 	return c.SavepointRelease()
+}
+
+// BestEffort runs a side effect in a savepoint: a failure is rolled back and
+// logged as "<what> failed" with kv, and the caller's work still commits.
+func (c *Ctx) BestEffort(what string, kv []any, fn func() error) {
+	if err := c.WithSavepoint(fn); err != nil {
+		c.E.Log.Warn(what+" failed", append(kv, "err", err)...)
+	}
+}
+
+// AddTimelineComment records a Workflow comment, written as plain text, on a document.
+func (c *Ctx) AddTimelineComment(doctype, id, text string, opts SaveOpts) error {
+	comment, err := c.NewDoc("Comment", Doc{
+		"comment_type":      "Workflow",
+		"reference_doctype": doctype,
+		"reference_id":      id,
+		"content":           richtext.FromPlainText(text),
+	})
+	if err != nil {
+		return err
+	}
+	_, err = c.Insert(comment, opts)
+	return err
 }
 
 // savepointMark is what the transaction held when a savepoint began, so that
