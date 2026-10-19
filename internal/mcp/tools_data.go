@@ -41,12 +41,17 @@ func (s *server) dataTools(srv *mcp.Server) {
 			err := s.run(ctx, func(c *engine.Ctx) error {
 				var e error
 				rows, e = c.GetList(in.Doctype, engine.ListArgs{Filters: in.Filters, Fields: in.Fields, OrderBy: in.OrderBy, Limit: in.Limit, Start: in.Start})
-				if d, err := c.St.DocType(in.Doctype); err == nil {
-					for _, r := range rows {
-						engine.RedactPassword(d, engine.Doc(r))
-					}
+				if e != nil {
+					return e
 				}
-				return e
+				d, err := c.St.DocType(in.Doctype)
+				if err != nil {
+					return err
+				}
+				for _, r := range rows {
+					engine.RedactPassword(d, engine.Doc(r))
+				}
+				return nil
 			})
 			return rows, err
 		})
@@ -155,7 +160,10 @@ func (s *server) dataTools(srv *mcp.Server) {
 					}
 					var rdoc engine.Doc
 					if json.Unmarshal(res.Doc, &rdoc) == nil && rdoc != nil {
-						out = map[string]any{"result": res.Result, "doc": c.RedactDoc(in.Doctype, rdoc)}
+						if rdoc, err = c.RedactDoc(in.Doctype, rdoc); err != nil {
+							return err
+						}
+						out = map[string]any{"result": res.Result, "doc": rdoc}
 						return nil
 					}
 					out = map[string]any{"result": res.Result, "doc": res.Doc}

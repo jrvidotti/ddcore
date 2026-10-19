@@ -799,3 +799,14 @@ func TestTableMultiSelectShape(t *testing.T) {
 		t.Fatal("a Table MultiSelect is child rows, with no column of its own")
 	}
 }
+
+func TestFieldtypesTableCoversValidFieldTypes(t *testing.T) {
+	if len(fieldtypes) != len(ValidFieldTypes) {
+		t.Errorf("table has %d fieldtypes, ValidFieldTypes %d", len(fieldtypes), len(ValidFieldTypes))
+	}
+	for _, ft := range ValidFieldTypes {
+		if _, ok := fieldtypes[ft]; !ok {
+			t.Errorf("%q is in ValidFieldTypes but not in the fieldtypes table", ft)
+		}
+	}
+}

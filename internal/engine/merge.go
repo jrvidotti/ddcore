@@ -145,10 +145,9 @@ func (c *Ctx) repointRefs(d *meta.DocType, oldID, newID string, merge bool) erro
 	if d.Name == "Role" {
 		// The sweep rewrote Has Role rows under every user's cached roles, which
 		// would otherwise go on naming a role that no longer exists.
-		drop := func() { c.E.Cache.DelPrefix("roles:"); c.E.Cache.DelPrefix("evperm:") }
-		drop()
-		c.AfterCommit(drop)
-		return c.broadcastInvalidation(nil, []string{"roles:", "evperm:"})
+		prefixes := []string{"roles:", "evperm:"}
+		cacheInvalidation{Prefixes: prefixes}.apply(c.E.Cache)
+		return c.invalidate(nil, prefixes)
 	}
 	return nil
 }
@@ -249,9 +248,6 @@ func (c *Ctx) Merge(doctype, fromID, intoID string) error {
 	if err := c.acrossSpaces(d, func() error { return c.repointRefs(d, fromID, intoID, true) }); err != nil {
 		return err
 	}
-	// the cached copies may hold a self-reference the sweep just rewrote
-	delete(c.docCache, c.docKey(doctype, fromID))
-	delete(c.docCache, c.docKey(doctype, intoID))
 	// The link check stays on: after the sweep nothing should point at fromID,
 	// and a column it missed must stop the merge rather than dangle.
 	if err := c.deleteWithFlags(doctype, fromID, false, false, flags); err != nil {
@@ -345,19 +341,8 @@ func (c *Ctx) mergeDocs(doctype, fromID, intoID string) (*meta.DocType, Doc, Doc
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	// a shared document's merge rewrites every tenant's references to it,
-	// and is the platform's alone
-	if err := c.spaceRefusal(d, true, c.IgnorePermissions()); err != nil {
+	if err := c.renameRefusal(d); err != nil {
 		return nil, nil, nil, err
-	}
-	if err := c.checkWritable(d.Name); err != nil {
-		return nil, nil, nil, err
-	}
-	if err := refuseVirtual(d); err != nil {
-		return nil, nil, nil, err
-	}
-	if d.IsSingle {
-		return nil, nil, nil, cerr.Validation("Single DocTypes cannot be deleted or renamed")
 	}
 	if !d.AllowRename {
 		return nil, nil, nil, cerr.Validation("{0} cannot be renamed", c.T(d.Label))

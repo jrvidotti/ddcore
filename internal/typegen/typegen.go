@@ -22,10 +22,7 @@ func tsType(f *meta.Field) string {
 	if meta.IsNumericType(f.Fieldtype) {
 		return "number | null"
 	}
-	switch f.Fieldtype {
-	case "Check":
-		return "boolean"
-	case "Select":
+	if f.Fieldtype == "Select" {
 		opts := f.SelectValues()
 		if len(opts) == 0 {
 			return "string | null"
@@ -38,12 +35,9 @@ func tsType(f *meta.Field) string {
 			q = append(q, fmt.Sprintf("%q", o))
 		}
 		return strings.Join(q, " | ") + " | null"
-	case "JSON":
-		return "any"
-	case "Geolocation":
-		return "GeoFeatureCollection | null"
-	case "Vault":
-		return "{ configured?: boolean } | string | null"
+	}
+	if t := meta.TSType(f.Fieldtype); t != "" {
+		return t
 	}
 	return "string | null"
 }

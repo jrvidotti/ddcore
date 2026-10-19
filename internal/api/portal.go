@@ -373,10 +373,14 @@ func (s *Server) portalRecord(c *engine.Ctx, p *engine.Portal, pg *engine.Portal
 }
 
 // portalResponse is a document as a page shows it.
-func (s *Server) portalResponse(c *engine.Ctx, pg *engine.PortalPage, doc engine.Doc) engine.Doc {
-	out := portalProject(c, pg, c.RedactDoc(pg.Doctype, doc))
+func (s *Server) portalResponse(c *engine.Ctx, pg *engine.PortalPage, doc engine.Doc) (engine.Doc, error) {
+	redacted, err := c.RedactDoc(pg.Doctype, doc)
+	if err != nil {
+		return nil, err
+	}
+	out := portalProject(c, pg, redacted)
 	c.ResolveLinkTitles(pg.Doctype, out)
-	return out
+	return out, nil
 }
 
 func (s *Server) portalGet(w http.ResponseWriter, r *http.Request) {
@@ -385,7 +389,7 @@ func (s *Server) portalGet(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, err
 		}
-		return s.portalResponse(c, pg, doc), nil
+		return s.portalResponse(c, pg, doc)
 	})
 }
 
@@ -500,7 +504,7 @@ func (s *Server) portalCreate(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, err
 		}
-		return s.portalResponse(c, pg, doc), nil
+		return s.portalResponse(c, pg, doc)
 	})
 }
 
@@ -535,7 +539,7 @@ func (s *Server) portalUpdate(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, err
 		}
-		return s.portalResponse(c, pg, doc), nil
+		return s.portalResponse(c, pg, doc)
 	})
 }
 

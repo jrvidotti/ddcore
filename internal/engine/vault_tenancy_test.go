@@ -78,9 +78,13 @@ func TestTenantSharedVaultFieldIsReadEverywhere(t *testing.T) {
 				if d.Str("client_id") != "abc" {
 					t.Fatalf("%s reads client_id %q: not the one document of the site", user, d.Str("client_id"))
 				}
-				got, _ := c.RedactDoc("Gateway", d)["pfx"].(map[string]any)
+				redacted, err := c.RedactDoc("Gateway", d)
+				if err != nil {
+					return err
+				}
+				got, _ := redacted["pfx"].(map[string]any)
 				if got["configured"] != true {
-					t.Fatalf("%s sees pfx as %v", user, c.RedactDoc("Gateway", d)["pfx"])
+					t.Fatalf("%s sees pfx as %v", user, redacted["pfx"])
 				}
 				return nil
 			})
@@ -205,9 +209,13 @@ func TestTenantSharedVaultFieldIsReadEverywhere(t *testing.T) {
 			if err != nil {
 				return err
 			}
-			got, _ := c.RedactDoc("Banco", d)["senha"].(map[string]any)
+			redacted, err := c.RedactDoc("Banco", d)
+			if err != nil {
+				return err
+			}
+			got, _ := redacted["senha"].(map[string]any)
 			if got["configured"] != true {
-				t.Fatalf("alfa sees senha as %v", c.RedactDoc("Banco", d)["senha"])
+				t.Fatalf("alfa sees senha as %v", redacted["senha"])
 			}
 			return nil
 		})

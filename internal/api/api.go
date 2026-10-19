@@ -2012,5 +2012,5 @@ func (s *Server) docOut(c *engine.Ctx, doctype string, doc engine.Doc, parts doc
 	if parts&outTitles != 0 {
 		c.ResolveLinkTitles(doctype, doc)
 	}
-	return c.RedactDoc(doctype, doc), nil
+	return c.RedactDoc(doctype, doc)
 }

@@ -207,8 +207,7 @@ func (e *Engine) InvalidateWebhooks() {
 // same. Every tenant's, because a system ctx may write another tenant's
 // Webhook.
 func (c *Ctx) webhooksChanged() error {
-	c.AfterCommit(c.E.InvalidateWebhooks)
-	return c.broadcastInvalidation(nil, []string{webhookCachePrefix})
+	return c.invalidate(nil, []string{webhookCachePrefix})
 }
 
 // queueDocWebhooks turns one lifecycle event into a delivery per matching
@@ -238,7 +237,11 @@ func (c *Ctx) queueDocWebhooks(doctype string, doc Doc, event string) error {
 	if len(matched) == 0 {
 		return nil
 	}
-	data := map[string]any{"doctype": doctype, "id": doc.ID(), "doc": c.webhookDoc(doctype, doc)}
+	out, err := c.webhookDoc(doctype, doc)
+	if err != nil {
+		return err
+	}
+	data := map[string]any{"doctype": doctype, "id": doc.ID(), "doc": out}
 	ref := &WebhookReference{Doctype: doctype, ID: doc.ID()}
 	for _, s := range matched {
 		if _, err := c.queueWebhook(s, "doc."+event, data, ref, ""); err != nil {
@@ -252,14 +255,14 @@ func (c *Ctx) queueDocWebhooks(doctype string, doc Doc, event string) error {
 // never touches what the caller still holds, with every Password and Vault
 // field removed the same way an API read removes them, and every field above
 // permission level 0 removed whoever made the change.
-func (c *Ctx) webhookDoc(doctype string, doc Doc) Doc {
+func (c *Ctx) webhookDoc(doctype string, doc Doc) (Doc, error) {
 	b, err := json.Marshal(doc)
 	if err != nil {
-		return Doc{}
+		return Doc{}, nil
 	}
 	cp := Doc{}
 	if err := json.Unmarshal(b, &cp); err != nil {
-		return Doc{}
+		return Doc{}, nil
 	}
 	for k := range cp {
 		if strings.HasPrefix(k, "__") {
@@ -267,7 +270,11 @@ func (c *Ctx) webhookDoc(doctype string, doc Doc) Doc {
 		}
 	}
 	// a webhook has no reading user, so it carries only unrestricted fields
-	return c.RedactFieldsFor(doctype, c.RedactDoc(doctype, cp), Level0FieldAccess())
+	cp, err = c.RedactDoc(doctype, cp)
+	if err != nil {
+		return nil, err
+	}
+	return c.RedactFieldsFor(doctype, cp, Level0FieldAccess())
 }
 
 // EmitWebhook is ddcore.webhooks.emit: an app's own event, delivered to every
@@ -330,40 +337,25 @@ func (c *Ctx) queueWebhook(s webhookSub, event string, data any, ref *WebhookRef
 		values["reference_doctype"] = ref.Doctype
 		values["reference_id"] = ref.ID
 	}
-	doc, err := c.NewDoc("Webhook Delivery", values)
-	if err != nil {
-		return "", err
-	}
 	// Raised, not just SaveOpts.IgnorePermissions: the user whose write caused
-	// the event may have access scopes, and those close Webhook and Webhook
-	// Delivery to them, including the check that the webhook Link exists.
-	var saved Doc
-	if err := c.WithIgnorePermissions(func() error {
+	// the event may have access scopes, and those close the delivery doctypes
+	// (and the check that a Link target exists) to them.
+	var name string
+	err = c.WithIgnorePermissions(func() error {
 		var err error
-		saved, err = c.Insert(doc, SaveOpts{IgnorePermissions: true})
+		name, err = c.queueDelivery("Webhook Delivery", values, webhookJobMethod, map[string]any{"delivery": nil}, webhookJobOpts(s.Timeout, s.MaxAttempts))
 		return err
-	}); err != nil {
-		return "", err
-	}
-	name := saved.ID()
-	if err := c.enqueueWebhookJob(name, s.Timeout, s.MaxAttempts); err != nil {
-		return "", err
-	}
-	return name, nil
+	})
+	return name, err
 }
 
-func (c *Ctx) enqueueWebhookJob(delivery string, timeout, maxAttempts int) error {
-	id, err := c.Enqueue(webhookJobMethod, map[string]any{"delivery": delivery}, map[string]any{
+func webhookJobOpts(timeout, maxAttempts int) map[string]any {
+	return map[string]any{
 		"queue": webhookQueue, "maxAttempts": maxAttempts, "backoff": BackoffExponential,
 		// The HTTP timeout bounds the request; the job's own timeout only has to
 		// outlast it, with room for reading the delivery and recording the result.
 		"timeout": timeout + 15,
-	})
-	if err != nil {
-		return err
 	}
-	_, err = c.Q().Exec(c.Ctx, `UPDATE tab_webhook_delivery SET job = $2 WHERE id = $1`, delivery, id)
-	return err
 }
 
 // errWebhookRetry is what a delivery returns when the job should run again:
@@ -542,19 +534,7 @@ func SignWebhook(secret, id string, ts int64, body []byte) string {
 // about to fail is about to roll back, and the record of why must not go with
 // it.
 func (e *Engine) recordWebhook(c *Ctx, delivery, status string, code int, errText string) {
-	ctx := c.Ctx
-	var sentAt any
-	if status == WebhookSent {
-		sentAt = time.Now()
-	}
-	if len(errText) > 1000 {
-		errText = errText[:1000]
-	}
-	if _, err := c.space().Exec(ctx, `UPDATE tab_webhook_delivery SET status = $2, response_status = NULLIF($3, 0),
-		error = NULLIF($4, ''), sent_at = COALESCE($5, sent_at), modified = now() WHERE id = $1`,
-		delivery, status, code, errText, sentAt); err != nil {
-		e.Log.Warn("could not record a webhook outcome", "delivery", delivery, "err", err)
-	}
+	e.recordDelivery(c, "Webhook Delivery", delivery, status, errText, ", response_status = NULLIF($4, 0)", code)
 }
 
 // ReplayWebhook sends a finished delivery again: the same webhook-id and the
@@ -599,9 +579,9 @@ func (c *Ctx) ReplayWebhook(delivery string) error {
 		response_status = NULL, modified = now() WHERE id = $1`, delivery, WebhookQueued); err != nil {
 		return err
 	}
-	if err := c.enqueueWebhookJob(delivery,
+	if err := c.enqueueDelivery("Webhook Delivery", delivery, webhookJobMethod, map[string]any{"delivery": delivery}, webhookJobOpts(
 		clampInt(int(toFloat(r["timeout"])), webhookMinTimeout, webhookMaxTimeout, webhookDefaultTimeout),
-		clampInt(int(toFloat(r["max_attempts"])), 1, webhookMaxAttempts, webhookDefaultAttempts)); err != nil {
+		clampInt(int(toFloat(r["max_attempts"])), 1, webhookMaxAttempts, webhookDefaultAttempts))); err != nil {
 		return err
 	}
 	return c.Audit("webhook.replay", "Webhook Delivery", delivery, map[string]any{

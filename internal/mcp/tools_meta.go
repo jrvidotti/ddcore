@@ -62,7 +62,7 @@ func (s *server) metaTools(srv *mcp.Server) {
 			return out, nil
 		})
 
-	addTool(srv, "scaffold_doctype", "Creates the files for a new DocType in an app (doctype.ts and optionally controller/form/test). Run migrate afterwards. Fieldtypes: Data, Email, Small Text, Text, Text Editor (rich text, sanitized HTML), Markdown Editor, Code (options: language), Int, Float, Currency, Percent, Rating (options: stars, default 5), Duration (seconds; options: hideDays, hideSeconds), Color, Check, Date, Month, Datetime, Time, Select (options: list), Autocomplete (free text; options: suggestions), Barcode (options: Code128 (default), EAN-13 or QR), Signature (PNG data URL drawn on the form; not unique, indexed, listed or a title/search/sort field), Geolocation (GeoJSON FeatureCollection drawn on a map, [lon, lat]; not unique, indexed or a title/search/sort field), Link (options: DocType), Dynamic Link (options: field with DocType), Table (options: child DocType), Table MultiSelect (options: child DocType with exactly one Link field), Attach, Attach Image, JSON, Password, Vault, Section Break, Tab Break, HTML.",
+	addTool(srv, "scaffold_doctype", scaffoldDescription,
 		func(ctx context.Context, in struct {
 			App  string               `json:"app" jsonschema:"app name (directory)"`
 			Spec scaffold.DoctypeSpec `json:"spec" jsonschema:"DocType definition"`
@@ -235,3 +235,5 @@ func (s *server) metaTools(srv *mcp.Server) {
 			return out, nil
 		})
 }
+
+const scaffoldDescription = "Creates the files for a new DocType in an app (doctype.ts and optionally controller/form/test). Run migrate afterwards. Fieldtypes: Data, Email, Small Text, Text, Text Editor (rich text, sanitized HTML), Markdown Editor, Code (options: language), Int, Float, Currency, Percent, Rating (options: stars, default 5), Duration (seconds; options: hideDays, hideSeconds), Color, Check, Date, Month, Datetime, Time, Select (options: list), Autocomplete (free text; options: suggestions), Barcode (options: Code128 (default), EAN-13 or QR), Signature (PNG data URL drawn on the form; not unique, indexed, listed or a title/search/sort field), Geolocation (GeoJSON FeatureCollection drawn on a map, [lon, lat]; not unique, indexed or a title/search/sort field), Link (options: DocType), Dynamic Link (options: field with DocType), Table (options: child DocType), Table MultiSelect (options: child DocType with exactly one Link field), Attach, Attach Image, JSON, Password, Vault, Section Break, Tab Break, HTML, Report (options: the name of a defineReport, drawn as a grid inside the form)."

@@ -47,6 +47,19 @@ func (c *Ctx) broadcastInvalidation(keys, prefixes []string) error {
 	return broadcastInvalidation(c.Ctx, c.Q(), keys, prefixes)
 }
 
+// invalidate drops keys and prefixes from this process's cache once the
+// transaction commits and tells the other processes.
+func (c *Ctx) invalidate(keys, prefixes []string) error {
+	c.AfterCommit(func() { cacheInvalidation{Keys: keys, Prefixes: prefixes}.apply(c.E.Cache) })
+	return c.broadcastInvalidation(keys, prefixes)
+}
+
+// invalidateNow is invalidate for what must stop being served at once.
+func (c *Ctx) invalidateNow(keys, prefixes []string) error {
+	cacheInvalidation{Keys: keys, Prefixes: prefixes}.apply(c.E.Cache)
+	return c.broadcastInvalidation(keys, prefixes)
+}
+
 // broadcastInvalidation is Ctx.broadcastInvalidation for the paths that hold
 // a querier and no Ctx: q is a transaction or the pool.
 func broadcastInvalidation(ctx context.Context, q db.Querier, keys, prefixes []string) error {

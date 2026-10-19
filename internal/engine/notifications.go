@@ -146,9 +146,15 @@ func (c *Ctx) queueNotification(rule js.Notification, doc, before Doc, identity 
 		err = c.withNotificationUser(user, func(reader *Ctx) error {
 			// the rule decided on the whole document; what it writes to a
 			// recipient is only what that recipient may read (SEC-02)
-			var err error
-			content, err = rt.RenderNotification(rule.Name,
-				reader.RedactDoc(rule.Doctype, doc.Clone()).JSON(), reader.RedactDoc(rule.Doctype, before.Clone()).JSON())
+			now, err := reader.RedactDoc(rule.Doctype, doc.Clone())
+			if err != nil {
+				return err
+			}
+			was, err := reader.RedactDoc(rule.Doctype, before.Clone())
+			if err != nil {
+				return err
+			}
+			content, err = rt.RenderNotification(rule.Name, now.JSON(), was.JSON())
 			return err
 		})
 		if err != nil {
@@ -241,11 +247,9 @@ func (c *Ctx) queueNotificationMail(rt *js.Runtime, notification, user, template
 // to a savepoint and logged, and the inbox row (and the date sweep behind it)
 // carries on.
 func (c *Ctx) queueCoreNotificationMail(rt *js.Runtime, notification, user, template string, args map[string]any, ref MailReference, muteCol string) {
-	if err := c.WithSavepoint(func() error {
+	c.BestEffort("notification email", []any{"recipient", user, "doctype", ref.Doctype, "id", ref.ID}, func() error {
 		return c.queueNotificationMail(rt, notification, user, template, args, ref, muteCol)
-	}); err != nil {
-		c.E.Log.Warn("notification email failed", "recipient", user, "doctype", ref.Doctype, "id", ref.ID, "err", err)
-	}
+	})
 }
 
 // NotifyUser records a persistent notification for user (e.g. on assignment).

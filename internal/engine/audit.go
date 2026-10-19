@@ -141,55 +141,66 @@ type AuditFilter struct {
 	Start         int
 }
 
-func (f AuditFilter) where() (string, []any) {
-	var clauses []string
-	var args []any
-	add := func(sql string, v any) {
-		args = append(args, v)
-		clauses = append(clauses, fmt.Sprintf(sql, len(args)))
+// clauses accumulates the conditions of a filtered, paged listing.
+type clauses struct {
+	b     db.Builder
+	parts []string
+}
+
+func (c *clauses) add(format string, v any) {
+	c.parts = append(c.parts, fmt.Sprintf(format, c.b.Arg(v)))
+}
+
+// eq adds col = v unless v is empty.
+func (c *clauses) eq(col, v string) {
+	if v != "" {
+		c.add(col+" = %s", v)
 	}
-	if f.Action != "" {
-		add("action = $%d", f.Action)
+}
+
+// cmp adds col op t unless t is nil.
+func (c *clauses) cmp(col, op string, t *time.Time) {
+	if t != nil {
+		c.add(col+" "+op+" %s", *t)
 	}
-	if f.Actor != "" {
-		add("actor = $%d", f.Actor)
+}
+
+func (c *clauses) where() string {
+	if len(c.parts) == 0 {
+		return ""
 	}
-	if f.TargetDocType != "" {
-		add("target_doctype = $%d", f.TargetDocType)
+	return " WHERE " + strings.Join(c.parts, " AND ")
+}
+
+// page renders LIMIT and OFFSET; a limit of zero or less means 20.
+func (c *clauses) page(limit, start int) string {
+	if limit <= 0 {
+		limit = 20
 	}
-	if f.TargetID != "" {
-		add("target_id = $%d", f.TargetID)
-	}
-	if f.Outcome != "" {
-		add("outcome = $%d", f.Outcome)
-	}
-	if f.Since != nil {
-		add("creation >= $%d", *f.Since)
-	}
-	if f.Until != nil {
-		add("creation <= $%d", *f.Until)
-	}
-	if len(clauses) == 0 {
-		return "", nil
-	}
-	return " WHERE " + strings.Join(clauses, " AND "), args
+	return " LIMIT " + c.b.Arg(limit) + " OFFSET " + c.b.Arg(start)
+}
+
+func (f AuditFilter) clauses() *clauses {
+	c := &clauses{}
+	c.eq("action", f.Action)
+	c.eq("actor", f.Actor)
+	c.eq("target_doctype", f.TargetDocType)
+	c.eq("target_id", f.TargetID)
+	c.eq("outcome", f.Outcome)
+	c.cmp("creation", ">=", f.Since)
+	c.cmp("creation", "<=", f.Until)
+	return c
 }
 
 const auditColumns = `id, owner, creation, modified, modified_by, docstatus, action, outcome, actor, target_doctype, target_id, ip, request_id, detail`
 
 // ListAuditEvents reads audit events, newest first.
 func (e *Engine) ListAuditEvents(ctx context.Context, f AuditFilter) ([]map[string]any, error) {
-	where, args := f.where()
-	limit := f.Limit
-	if limit <= 0 {
-		limit = 20
-	}
-	args = append(args, limit, f.Start)
-	q := fmt.Sprintf(`SELECT %s FROM tab_audit_event%s ORDER BY creation DESC, id DESC LIMIT $%d OFFSET $%d`,
-		auditColumns, where, len(args)-1, len(args))
+	c := f.clauses()
+	q := "SELECT " + auditColumns + " FROM tab_audit_event" + c.where() + " ORDER BY creation DESC, id DESC" + c.page(f.Limit, f.Start)
 	var rows []map[string]any
 	err := e.spaceQ(ctx, func(sq db.Querier) (err error) {
-		rows, err = db.Select(ctx, sq, q, args...)
+		rows, err = db.Select(ctx, sq, q, c.b.Args...)
 		return err
 	})
 	return rows, err
@@ -197,10 +208,10 @@ func (e *Engine) ListAuditEvents(ctx context.Context, f AuditFilter) ([]map[stri
 
 // CountAuditEvents counts audit events matching the filter.
 func (e *Engine) CountAuditEvents(ctx context.Context, f AuditFilter) (int64, error) {
-	where, args := f.where()
+	c := f.clauses()
 	var n int64
 	err := e.spaceQ(ctx, func(q db.Querier) error {
-		return q.QueryRow(ctx, `SELECT count(*) FROM tab_audit_event`+where, args...).Scan(&n)
+		return q.QueryRow(ctx, `SELECT count(*) FROM tab_audit_event`+c.where(), c.b.Args...).Scan(&n)
 	})
 	return n, err
 }

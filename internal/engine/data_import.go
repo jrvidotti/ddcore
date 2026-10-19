@@ -295,9 +295,6 @@ func (c *Ctx) planDataImport(a DataImportArgs) (*dataImportPlan, error) {
 	if err := c.checkWritable(d.Name); err != nil {
 		return nil, err
 	}
-	if err := refuseVirtual(d); err != nil {
-		return nil, err
-	}
 	sheet, err := tabular.Read(a.File, tabular.Options{Sep: a.Sep, MaxRows: a.MaxRows})
 	if err != nil {
 		var tm *tabular.TooManyRowsError

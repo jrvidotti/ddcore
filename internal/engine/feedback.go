@@ -286,7 +286,7 @@ func (c *Ctx) mailFeedback(doc Doc, files []FeedbackFile, fileIDs []string) {
 			args[k] = v
 		}
 	}
-	err := c.WithSavepoint(func() error {
+	c.BestEffort("feedback email", []any{"id", doc["id"]}, func() error {
 		rt, err := c.RT()
 		if err != nil {
 			return err
@@ -297,9 +297,6 @@ func (c *Ctx) mailFeedback(doc Doc, files []FeedbackFile, fileIDs []string) {
 		_, err = rt.CallFunction("core.services.mail.queue", payload)
 		return err
 	})
-	if err != nil {
-		c.E.Log.Warn("feedback email failed", "id", doc["id"], "err", err)
-	}
 }
 
 // ListMyFeedback is the author's own feedback, newest first, read in the

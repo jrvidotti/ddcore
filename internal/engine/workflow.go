@@ -3,7 +3,6 @@ package engine
 import (
 	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/js"
-	"github.com/jrvidotti/ddcore/internal/richtext"
 )
 
 // WorkflowAvailableAction describes an action available for a document in its current state.
@@ -176,23 +175,9 @@ func (c *Ctx) ApplyWorkflowTransition(doctype, name, action string) (Doc, error)
 	if err := c.Audit("workflow.transition", doctype, name, detail); err != nil {
 		return nil, err
 	}
-	// The timeline comment is a side effect: a failure is rolled back to its
-	// savepoint and logged, and the transition still commits.
-	if err := c.WithSavepoint(func() error {
-		comment, err := c.NewDoc("Comment", Doc{
-			"comment_type":      "Workflow",
-			"reference_doctype": doctype,
-			"reference_id":      name,
-			"content":           richtext.FromPlainText(c.T("{0} applied action '{1}' ({2} → {3})", c.User, c.T(action), c.T(currentState), c.T(matched.NextState))),
-		})
-		if err != nil {
-			return err
-		}
-		_, err = c.Insert(comment, SaveOpts{IgnorePermissions: true})
-		return err
-	}); err != nil {
-		c.E.Log.Warn("workflow timeline comment failed", "doctype", doctype, "id", name, "action", action, "err", err)
-	}
+	c.BestEffort("workflow timeline comment", []any{"doctype", doctype, "id", name, "action", action}, func() error {
+		return c.AddTimelineComment(doctype, name, c.T("{0} applied action '{1}' ({2} → {3})", c.User, c.T(action), c.T(currentState), c.T(matched.NextState)), SaveOpts{IgnorePermissions: true})
+	})
 
 	return saved, nil
 }

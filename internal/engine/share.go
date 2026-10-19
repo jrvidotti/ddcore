@@ -209,21 +209,14 @@ func (c *Ctx) sharesChanged(users ...string) error {
 	if len(keys) == 0 {
 		return nil
 	}
-	c.AfterCommit(func() {
-		cacheInvalidation{Keys: keys, Prefixes: prefixes}.apply(c.E.Cache)
-	})
-	return c.broadcastInvalidation(keys, prefixes)
+	return c.invalidate(keys, prefixes)
 }
 
 // allSharesChanged is sharesChanged for a rename or a deletion, which moves or
 // removes the shares of whoever held one.
 func (c *Ctx) allSharesChanged() error {
 	c.sharesLoaded, c.sharesDirty = false, true
-	prefixes := []string{"shares:", "evperm:"}
-	c.AfterCommit(func() {
-		cacheInvalidation{Prefixes: prefixes}.apply(c.E.Cache)
-	})
-	return c.broadcastInvalidation(nil, prefixes)
+	return c.invalidate(nil, []string{"shares:", "evperm:"})
 }
 
 // CanOverrideScope reports whether the current user may give a share that
@@ -370,11 +363,9 @@ func (c *Ctx) notifyShare(d *meta.DocType, name, user string) {
 	label := c.St.I18n.T(lang, d.Label)
 	title := c.St.I18n.T(lang, "Shared with you: {0} {1}", label, name)
 	msg := c.St.I18n.T(lang, "{0} shared {1} {2} with you", c.User, label, name)
-	if err := c.WithSavepoint(func() error {
+	c.BestEffort("share notification", []any{"doctype", d.Name, "id", name, "user", user}, func() error {
 		return c.notifyUserAs("share", user, d.Name, name, title, msg)
-	}); err != nil {
-		c.E.Log.Warn("share notification failed", "doctype", d.Name, "id", name, "user", user, "err", err)
-	}
+	})
 }
 
 // UnshareDoc removes user's share on one document. The recipient may drop their

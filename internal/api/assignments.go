@@ -1,7 +1,6 @@
 package api
 
 import (
-	"fmt"
 	"net/http"
 	"slices"
 	"sort"
@@ -11,7 +10,6 @@ import (
 	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/db"
 	"github.com/jrvidotti/ddcore/internal/engine"
-	"github.com/jrvidotti/ddcore/internal/richtext"
 )
 
 type assignRequest struct {
@@ -68,11 +66,13 @@ func (s *Server) assignDoc(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// 2. Insert timeline Comment
-		commentContent := fmt.Sprintf("%s assigned this document to %s", c.User, body.AllocatedTo)
+		commentContent := c.T("{0} assigned this document to {1}", c.User, body.AllocatedTo)
 		if body.Description != "" {
-			commentContent += fmt.Sprintf(": %s", body.Description)
+			commentContent = c.T("{0} assigned this document to {1}: {2}", c.User, body.AllocatedTo, body.Description)
 		}
-		addTimelineComment(c, body.Doctype, body.ID, commentContent)
+		c.BestEffort("assignment timeline comment", []any{"doctype", body.Doctype, "id", body.ID}, func() error {
+			return c.AddTimelineComment(body.Doctype, body.ID, commentContent, engine.SaveOpts{})
+		})
 
 		// 3. Dispatch persistent notification, written in the assignee's language
 		lang := c.RecipientLang([]string{body.AllocatedTo})
@@ -85,41 +85,12 @@ func (s *Server) assignDoc(w http.ResponseWriter, r *http.Request) {
 		if msg == "" {
 			msg = c.St.I18n.T(lang, "{0} assigned {1} {2} to you", c.User, label, body.ID)
 		}
-		// Best effort, like the comment: a failure is rolled back to its
-		// savepoint and logged, and the assignment still commits.
-		if err := c.WithSavepoint(func() error {
+		c.BestEffort("assignment notification", []any{"doctype", body.Doctype, "id", body.ID, "user", body.AllocatedTo}, func() error {
 			return c.NotifyUser(body.AllocatedTo, body.Doctype, body.ID, title, msg)
-		}); err != nil {
-			c.E.Log.Warn("assignment notification failed", "doctype", body.Doctype, "id", body.ID, "user", body.AllocatedTo, "err", err)
-		}
+		})
 
 		return inserted, nil
 	})
-}
-
-// addTimelineComment records a Workflow comment on the referenced document. It
-// is a side effect of the assignment action: a failure is rolled back to a
-// savepoint and logged instead of aborting the request transaction.
-func addTimelineComment(c *engine.Ctx, doctype, name, content string) {
-	err := c.WithSavepoint(func() error {
-		comment, err := c.NewDoc("Comment", engine.Doc{
-			"comment_type":      "Workflow",
-			"reference_doctype": doctype,
-			"reference_id":      name,
-			// server text, and the assignment's own description, are plain
-			// text: marking them as such is what keeps a `<` a `<` instead of
-			// the start of markup
-			"content": richtext.FromPlainText(content),
-		})
-		if err != nil {
-			return err
-		}
-		_, err = c.Insert(comment, engine.SaveOpts{})
-		return err
-	})
-	if err != nil {
-		c.E.Log.Warn("assignment timeline comment failed", "doctype", doctype, "id", name, "err", err)
-	}
 }
 
 // assignmentChange is one status transition of a ToDo: who may make it, the
@@ -161,7 +132,9 @@ func (s *Server) changeAssignment(ch assignmentChange) http.HandlerFunc {
 			}
 
 			if refType, refName := doc.Str("reference_type"), doc.Str("reference_id"); refType != "" && refName != "" {
-				addTimelineComment(c, refType, refName, ch.timeline(c, doc))
+				c.BestEffort("assignment timeline comment", []any{"doctype", refType, "id", refName}, func() error {
+					return c.AddTimelineComment(refType, refName, ch.timeline(c, doc), engine.SaveOpts{})
+				})
 			}
 
 			if !ch.returnsDoc {
@@ -177,7 +150,7 @@ func (s *Server) completeAssignment(w http.ResponseWriter, r *http.Request) {
 		status: "Closed",
 		denied: func() *cerr.Error { return cerr.Permission("No permission to complete this task") },
 		timeline: func(c *engine.Ctx, _ engine.Doc) string {
-			return fmt.Sprintf("%s completed assignment", c.User)
+			return c.T("{0} completed assignment", c.User)
 		},
 		returnsDoc: true,
 	})(w, r)
@@ -188,7 +161,7 @@ func (s *Server) revokeAssignment(w http.ResponseWriter, r *http.Request) {
 		status: "Cancelled",
 		denied: func() *cerr.Error { return cerr.Permission("No permission to revoke this task") },
 		timeline: func(c *engine.Ctx, todo engine.Doc) string {
-			return fmt.Sprintf("%s revoked assignment for %s", c.User, todo.Str("allocated_to"))
+			return c.T("{0} revoked assignment for {1}", c.User, todo.Str("allocated_to"))
 		},
 	})(w, r)
 }
@@ -198,7 +171,7 @@ func (s *Server) reopenAssignment(w http.ResponseWriter, r *http.Request) {
 		status: "Open",
 		denied: func() *cerr.Error { return cerr.Permission("No permission to reopen this task") },
 		timeline: func(c *engine.Ctx, _ engine.Doc) string {
-			return fmt.Sprintf("%s reopened assignment", c.User)
+			return c.T("{0} reopened assignment", c.User)
 		},
 		returnsDoc: true,
 	})(w, r)

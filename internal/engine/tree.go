@@ -144,7 +144,7 @@ func (c *Ctx) checkTree(d *meta.DocType, doc, before Doc, opts SaveOpts) error {
 		// Moving a node changes who may read its whole subtree, and only this
 		// document's own event fires. The per-document read cache would go on
 		// answering for the rest of the subtree until it expired.
-		c.AfterCommit(func() { c.E.Cache.DelPrefix("evperm:") })
+		return c.invalidate(nil, []string{"evperm:"})
 	}
 	return nil
 }

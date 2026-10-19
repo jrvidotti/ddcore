@@ -36,8 +36,8 @@ func versionsOf(t *testing.T, e *Engine, doctype, id string) []map[string]any {
 	return sqlRows(t, e, `SELECT id, deleted, data FROM tab_version WHERE ref_doctype = $1 AND doc_id = $2 ORDER BY creation`, doctype, id)
 }
 
-// jsonMap reads a JSON column whichever way the driver handed it over.
-func jsonMap(t *testing.T, v any) map[string]any {
+// columnMap reads a JSON column whichever way the driver handed it over.
+func columnMap(t *testing.T, v any) map[string]any {
 	t.Helper()
 	if m, ok := v.(map[string]any); ok {
 		return m
@@ -86,7 +86,7 @@ func TestDeleteKeepsHistoryAndRecordsTheDocument(t *testing.T) {
 	if vs[0]["deleted"] != false || vs[1]["deleted"] != false || vs[2]["deleted"] != true {
 		t.Fatalf("only the last Version is the deletion: %v", vs)
 	}
-	snap, _ := jsonMap(t, vs[2]["data"])["deleted"].(map[string]any)
+	snap, _ := columnMap(t, vs[2]["data"])["deleted"].(map[string]any)
 	if snap["body"] != "c" || snap["title"] != "m1" {
 		t.Fatalf("the snapshot is not the document as it was: %v", snap)
 	}
@@ -109,7 +109,7 @@ func TestDeleteKeepsHistoryAndRecordsTheDocument(t *testing.T) {
 	if len(audits) != 1 || audits[0]["actor"] != "Admin" {
 		t.Fatalf("want one doc.delete by Admin, got %v", audits)
 	}
-	detail := jsonMap(t, audits[0]["detail"])
+	detail := columnMap(t, audits[0]["detail"])
 	if detail["version"] != vs[2]["id"] {
 		t.Fatalf("the audit does not point at the deletion Version: %v", detail)
 	}

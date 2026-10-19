@@ -172,13 +172,14 @@ func (c *Ctx) redactVault(d *meta.DocType, doc Doc) {
 
 // RedactDoc looks the doctype up and redacts, children included: secrets for
 // everyone, and the fields the current user's permission levels cannot read.
-func (c *Ctx) RedactDoc(doctype string, doc Doc) Doc {
+// An unknown doctype is an error, never the document unredacted.
+func (c *Ctx) RedactDoc(doctype string, doc Doc) (Doc, error) {
 	if doc == nil {
-		return doc
+		return doc, nil
 	}
 	d, err := c.St.DocType(doctype)
 	if err != nil {
-		return doc
+		return nil, err
 	}
 	RedactPassword(d, doc)
 	c.redactVault(d, doc)
@@ -201,5 +202,5 @@ func (c *Ctx) RedactDoc(doctype string, doc Doc) Doc {
 	if d.Name == "Version" && doc["data"] != nil {
 		doc["data"] = c.RedactVersionData(doc.Str("ref_doctype"), doc["data"])
 	}
-	return doc
+	return doc, nil
 }

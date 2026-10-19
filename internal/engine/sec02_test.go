@@ -131,8 +131,8 @@ func TestSEC02_ReadRedaction(t *testing.T) {
 			if err != nil {
 				return err
 			}
-			out = c.RedactDoc("Employee", doc)
-			return nil
+			out, err = c.RedactDoc("Employee", doc)
+			return err
 		}); err != nil {
 			t.Fatal(err)
 		}
@@ -273,7 +273,9 @@ func TestSEC02_Writes(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		doc = c.RedactDoc("Employee", doc)
+		if doc, err = c.RedactDoc("Employee", doc); err != nil {
+			return err
+		}
 		doc["department"] = "Sales"
 		doc.Children("lines")[0]["label"] = "renamed"
 		doc["salary"] = nil // an API client echoing a blank value
@@ -297,7 +299,9 @@ func TestSEC02_Writes(t *testing.T) {
 			if err != nil {
 				return err
 			}
-			doc = c.RedactDoc("Employee", doc)
+			if doc, err = c.RedactDoc("Employee", doc); err != nil {
+				return err
+			}
 			mutate(doc)
 			_, saveErr = c.Save(doc, SaveOpts{})
 			return nil
@@ -376,7 +380,9 @@ func TestSEC02_AmendCarriesRestrictedValues(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		doc = c.RedactDoc("Employee", doc)
+		if doc, err = c.RedactDoc("Employee", doc); err != nil {
+			return err
+		}
 		saved, err := c.Insert(doc, SaveOpts{})
 		if err != nil {
 			return err
@@ -481,7 +487,11 @@ export default defineNotification({ name: "salary", doctype: "Employee", event: 
 				if err != nil {
 					return err
 				}
-				got := string(mustJSON(c.RedactDoc("Version", doc)["data"]))
+				redacted, err := c.RedactDoc("Version", doc)
+				if err != nil {
+					return err
+				}
+				got := string(mustJSON(redacted["data"]))
 				for _, data := range []string{listed, got} {
 					if strings.Contains(data, "salary") != wantSalary || strings.Contains(data, "amount") != wantSalary {
 						t.Fatalf("%s version data: %s", user, data)
@@ -627,6 +637,23 @@ export default defineNotification({ name: "salary", doctype: "Employee", event: 
 			}
 			if toFloat(doc["salary"]) != 150 {
 				t.Fatal("redact must not change the caller's document")
+			}
+			return nil
+		}); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("ddcore.redact refuses an unknown doctype", func(t *testing.T) {
+		if err := e.Run(ctx, sec02Staff, func(c *Ctx) error {
+			args, _ := json.Marshal(map[string]any{"doctype": "No Such Doctype", "doc": map[string]any{"name": "x", "salary": 150}})
+			rt, err := c.RT()
+			if err != nil {
+				return err
+			}
+			res, err := c.E.HostCall(rt, "redact", args)
+			if err == nil {
+				t.Fatalf("redact of an unknown doctype returned %s", mustJSON(res))
 			}
 			return nil
 		}); err != nil {

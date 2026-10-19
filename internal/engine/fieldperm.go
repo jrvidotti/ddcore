@@ -1,8 +1,6 @@
 package engine
 
 import (
-	"encoding/json"
-
 	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/db"
 	"github.com/jrvidotti/ddcore/internal/meta"
@@ -173,13 +171,13 @@ func (c *Ctx) redactFields(d *meta.DocType, a FieldAccess, doc Doc) {
 
 // RedactFieldsFor is RedactDoc's field step with an explicit access, for a
 // payload whose reader is not the current user.
-func (c *Ctx) RedactFieldsFor(doctype string, doc Doc, a FieldAccess) Doc {
+func (c *Ctx) RedactFieldsFor(doctype string, doc Doc, a FieldAccess) (Doc, error) {
 	d, err := c.St.DocType(doctype)
 	if err != nil {
-		return doc
+		return nil, err
 	}
 	c.redactFields(d, a, doc)
-	return doc
+	return doc, nil
 }
 
 // fieldPermissionsApply reports whether a write by the current user is subject
@@ -365,20 +363,12 @@ func (c *Ctx) RedactVersionData(refDoctype string, data any) any {
 	if a.all {
 		return data
 	}
-	var m map[string]any
-	switch v := data.(type) {
-	case map[string]any:
-		m = v
-	case string:
-		if json.Unmarshal([]byte(v), &m) != nil {
-			return nil
-		}
-	case []byte:
-		if json.Unmarshal(v, &m) != nil {
-			return nil
-		}
-	default:
-		return data
+	m, err := jsonMap(data)
+	if err != nil {
+		return nil
+	}
+	if m == nil {
+		return nil
 	}
 	changed, _ := m["changed"].(map[string]any)
 	for key, pair := range changed {
