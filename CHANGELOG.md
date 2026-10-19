@@ -24,6 +24,7 @@ older series, and `whats_new` reads across every one of them.
 - **Escape in an open options list inside a dialog closes only the list.** A Link field's list or a Table MultiSelect's list, opened in a dialog such as Assign or New Task, used to take the whole dialog with it on Escape.
 - **The due date of an assignment and of a new To-Do task follows the site's date format.** Both forms used the browser's native date input, in the browser's locale; they now use the desk's date control like every other date field. The New Task form also lists the assignee first, like the Assign form.
 - **The `generate_types` MCP tool reports a failed write.** It dropped the error and listed only the files it had written; it now fails with the error, and `migrate` adds a `typesError` field when the typings could not be written (the migration itself is unaffected). Writing stops at the first app it cannot write, so the apps after it (in `migrate` as well) are not written either.
+- **A mail delivery whose outcome could not be recorded is logged, and its error column is empty (NULL) on success.** The failed `UPDATE` was dropped without a trace, and a successful delivery stored an empty string; the error is also cut at 1000 characters, as a webhook delivery's was, and `sent_at` is stamped by the database.
 
 ### Changed
 

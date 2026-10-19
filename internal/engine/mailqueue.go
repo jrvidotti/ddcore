@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/config"
@@ -145,26 +144,12 @@ func (c *Ctx) QueueMail(r MailRequest) (map[string]any, error) {
 		values["reference_id"] = r.Reference.ID
 	}
 
-	doc, err := c.NewDoc("Email Delivery", values)
-	if err != nil {
-		return nil, err
-	}
-	// The framework writes this record; no role has create on it.
-	saved, err := c.Insert(doc, SaveOpts{IgnorePermissions: true})
-	if err != nil {
-		return nil, err
-	}
-	name := saved.ID()
-
-	jobArgs := map[string]any{"delivery": name}
+	jobArgs := map[string]any{"delivery": nil}
 	if len(r.JobArgs) > 0 {
 		jobArgs["args"] = r.JobArgs
 	}
-	id, err := c.Enqueue(mailJobMethod, jobArgs, nil)
+	name, err := c.queueDelivery("Email Delivery", values, mailJobMethod, jobArgs, nil)
 	if err != nil {
-		return nil, err
-	}
-	if _, err := c.Q().Exec(c.Ctx, `UPDATE tab_email_delivery SET job = $2 WHERE id = $1`, name, id); err != nil {
 		return nil, err
 	}
 	return map[string]any{"delivery": name}, nil
@@ -390,13 +375,7 @@ func (e *Engine) RecordMail(c *Ctx, delivery, status, errText string) error {
 // that failed is about to roll back, and the record of why it failed must not
 // roll back with it.
 func (e *Engine) recordMail(c *Ctx, delivery, status, errText string) {
-	var sentAt any
-	if status == MailSent {
-		sentAt = time.Now().In(e.Location())
-	}
-	c.space().Exec(c.Ctx,
-		`UPDATE tab_email_delivery SET status = $2, error = $3, sent_at = COALESCE($4, sent_at), modified = now() WHERE id = $1`,
-		delivery, status, errText, sentAt)
+	e.recordDelivery(c, "tab_email_delivery", delivery, status, errText, "")
 }
 
 // methodPayload is what an app's own transport function receives. Bytes are
