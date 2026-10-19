@@ -350,7 +350,7 @@ describe("matchesHistory", () => {
     changed: {
       items: [
         [{ id: "r1", idx: 1, qty: 77 }, { id: "r2", idx: 2, qty: 5 }],
-        [{ id: "r2", idx: 1, qty: 6 }, { id: "r3", idx: 2, note: "fresh" }],
+        [{ id: "r2", idx: 1, qty: 643 }, { id: "r3", idx: 2, note: "fresh" }],
       ],
       title: ["Old", "New"],
     },
@@ -365,7 +365,8 @@ describe("matchesHistory", () => {
 
   it("matches added, modified and removed rows", () => {
     expect(matchesHistory(rows, "fresh")).toBe(true);
-    expect(matchesHistory(rows, "6")).toBe(true);
+    // 643 is only the new value of the modified row r2
+    expect(matchesHistory(rows, "643")).toBe(true);
     // 77 only appears in the removed row r1
     expect(matchesHistory(rows, "77")).toBe(true);
   });

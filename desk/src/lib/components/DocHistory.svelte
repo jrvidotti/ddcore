@@ -68,7 +68,6 @@
   </div>
 {/snippet}
 
-
 <div class="doc-history" class:full={mode === "full"}>
   {#if mode === "full"}
     <div class="history-toolbar">
