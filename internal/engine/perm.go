@@ -95,10 +95,7 @@ func (c *Ctx) invalidateUserPermissionCache(docs ...Doc) error {
 	if len(keys) == 0 {
 		return nil
 	}
-	c.AfterCommit(func() {
-		cacheInvalidation{Keys: keys, Prefixes: prefixes}.apply(c.E.Cache)
-	})
-	return c.broadcastInvalidation(keys, prefixes)
+	return c.invalidate(keys, prefixes)
 }
 
 // Roles returns the roles of the current user (cached per ctx).

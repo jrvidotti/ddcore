@@ -16,6 +16,7 @@ older series, and `whats_new` reads across every one of them.
 
 ### Fixed
 
+- **Moving a node of a tree DocType reaches the other processes.** The read cache of the subtree was dropped only in the process that saved the move; replicas and workers kept answering from it until it expired.
 - **The `scaffold_doctype` MCP description lists the `Report` fieldtype.** It named every other fieldtype but that one; a test now keeps the description and the `Fieldtype` union in the SDK in step with the fieldtypes the framework accepts.
 - **`ddcore.redact` refuses an unknown doctype instead of returning the document unredacted.** The same holds for the MCP `list_docs` and `call_method` tools, notifications, webhooks and the portal: a doctype that cannot be looked up is now an error, not a pass-through.
 - **The change history shows values the way the lists do.** A Select now reads as its label, a Link as its title, and a Currency at its field's precision instead of the site default; Dates, Months and the other types it shared with the lists follow the same rules.

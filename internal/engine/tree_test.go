@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/db"
@@ -766,5 +767,51 @@ func TestTreeChildrenPromotesScopedRoot(t *testing.T) {
 		return nil
 	}); err != nil {
 		t.Fatalf("scoped roots: %v", err)
+	}
+}
+
+// Moving a node changes who may read its subtree, so the other processes drop
+// their per-document read cache too.
+func TestTreeMoveReachesOtherProcess(t *testing.T) {
+	server := setupTree(t)
+	seedTree(t, server)
+	ctx, cancel := context.WithCancel(context.Background())
+	listening := make(chan struct{}, 1)
+	server.cacheListening = func() { listening <- struct{}{} }
+	done := make(chan struct{})
+	go func() { server.WatchCache(ctx); close(done) }()
+	t.Cleanup(func() { cancel(); <-done })
+	select {
+	case <-listening:
+	case <-time.After(10 * time.Second):
+		t.Fatal("WatchCache never listened")
+	}
+	other, err := New(context.Background(), server.Cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { other.DB.Close() })
+
+	server.Cache.Set("evperm:ana@x.com:Test Territory:PR", true, 0)
+	if err := other.Run(ctx, "Admin", func(c *Ctx) error {
+		doc, err := c.GetDoc("Test Territory", "South")
+		if err != nil {
+			return err
+		}
+		doc["parent_test_territory"] = "World"
+		_, err = c.Save(doc, SaveOpts{})
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		if _, ok := server.Cache.Get("evperm:ana@x.com:Test Territory:PR"); !ok {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("the server kept answering from the read cache after a node moved")
+		}
+		time.Sleep(20 * time.Millisecond)
 	}
 }
