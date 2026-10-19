@@ -975,7 +975,6 @@ type Ctx struct {
 	rt           *js.Runtime
 	savepoint    int
 	roSavepoint  int
-	docCache     map[string]Doc
 	// scopeAncestors memoises a tree value's ancestors while a User Permission
 	// scope is being checked row by row (DAT-07).
 	scopeAncestors map[string][]string
@@ -1040,7 +1039,7 @@ func (e *Engine) NewCtx(ctx context.Context, user string) *Ctx {
 	// few reads a ctx makes before it has one.
 	tenant, _ := TenantFrom(ctx)
 	return &Ctx{E: e, St: e.Current(), Ctx: ctx, User: user, Tenant: tenant, Lang: e.Cfg.Lang, ReqID: RequestIDFrom(ctx),
-		Flags: map[string]any{}, docCache: map[string]Doc{}}
+		Flags: map[string]any{}}
 }
 
 // Run executes fn inside a transaction with a fresh Ctx; commits on success.
@@ -1071,7 +1070,6 @@ func (c *Ctx) Run(fn func(c *Ctx) error) error {
 	c.Flags = flags
 	c.shares, c.sharesLoaded, c.sharesDirty = nil, false, false
 	c.savepoint, c.roSavepoint = 0, 0
-	c.docCache = map[string]Doc{}
 	c.scopeAncestors = nil
 	c.afterCommit = nil
 	c.afterRollback = nil
@@ -1290,7 +1288,6 @@ func (c *Ctx) RollbackTo() error {
 	}
 	_, err := c.Tx.Exec(c.Ctx, fmt.Sprintf("ROLLBACK TO SAVEPOINT sp%d", c.savepoint))
 	c.savepoint--
-	c.docCache = map[string]Doc{}
 	// the rollback took back any change of space made since the savepoint
 	if err == nil {
 		err = c.applySpace()
@@ -1436,7 +1433,6 @@ func (c *Ctx) SavepointRollback() error {
 		m.ctx.Messages = m.ctx.Messages[:m.messages]
 	}
 	for _, x := range []*Ctx{c, m.ctx} {
-		x.docCache = map[string]Doc{}
 		// a share written in the block may be in the memo; read past the
 		// process cache, which the dropped invalidation never reached
 		x.sharesLoaded, x.sharesDirty = false, true

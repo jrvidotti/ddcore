@@ -433,7 +433,6 @@ func (c *Ctx) leaveTenantCtx() (*Ctx, error) {
 	parent.rt.Ctx = parent
 	parent.Messages = append(parent.Messages, c.Messages...)
 	parent.savepoint, parent.roSavepoint = c.savepoint, c.roSavepoint
-	parent.docCache = map[string]Doc{}
 	return parent, parent.applySpace()
 }
 

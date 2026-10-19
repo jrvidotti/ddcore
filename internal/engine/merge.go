@@ -248,9 +248,6 @@ func (c *Ctx) Merge(doctype, fromID, intoID string) error {
 	if err := c.acrossSpaces(d, func() error { return c.repointRefs(d, fromID, intoID, true) }); err != nil {
 		return err
 	}
-	// the cached copies may hold a self-reference the sweep just rewrote
-	delete(c.docCache, c.docKey(doctype, fromID))
-	delete(c.docCache, c.docKey(doctype, intoID))
 	// The link check stays on: after the sweep nothing should point at fromID,
 	// and a column it missed must stop the merge rather than dangle.
 	if err := c.deleteWithFlags(doctype, fromID, false, false, flags); err != nil {

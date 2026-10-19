@@ -97,8 +97,6 @@ func (c *Ctx) restoreUser() *Ctx {
 	}
 	c.asUserParent = nil
 	parent.rt.Ctx = parent
-	// the child wrote through its own document cache
-	parent.docCache = map[string]Doc{}
 	if err := parent.leaveUserSpace(c); err != nil {
 		parent.E.Log.Warn("could not return to the tenant of the calling user", "err", err)
 	}

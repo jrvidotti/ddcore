@@ -401,8 +401,6 @@ func (c *Ctx) clampRatings(d *meta.DocType, doc Doc) {
 
 // ------------------------------------------------------------ load & new
 
-func (c *Ctx) docKey(dt, name string) string { return dt + "\x00" + name }
-
 // GetDoc loads a document with its child tables.
 func (c *Ctx) GetDoc(doctype, name string) (Doc, error) {
 	return c.getDoc(doctype, name, false, false)
@@ -1536,7 +1534,6 @@ func (c *Ctx) deleteWithFlags(doctype, name string, ignorePerms, force bool, fla
 			}
 		}
 	}
-	delete(c.docCache, c.docKey(doctype, name))
 	if err := c.runHook(d, "afterDelete", doc, nil, flags); err != nil {
 		return err
 	}
@@ -1609,7 +1606,6 @@ func (c *Ctx) Rename(doctype, oldID, newID string) (string, error) {
 	if err := c.acrossSpaces(d, func() error { return c.moveID(d, oldID, newID) }); err != nil {
 		return "", err
 	}
-	delete(c.docCache, c.docKey(doctype, oldID))
 	doc["id"] = newID
 	if err := c.runHook(d, "afterRename", doc, nil, flags); err != nil {
 		return "", err
