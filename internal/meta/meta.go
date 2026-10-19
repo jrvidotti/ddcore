@@ -767,10 +767,6 @@ var fieldnameRe = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 // Validate checks every DocType for internal consistency and cross-references.
 func (r *Registry) Validate() error {
 	var errs []string
-	valid := map[string]bool{}
-	for _, t := range ValidFieldTypes {
-		valid[t] = true
-	}
 	for _, d := range r.DocTypes {
 		e := func(msg string, a ...any) { errs = append(errs, d.Name+": "+fmt.Sprintf(msg, a...)) }
 		if d.IsSingle && (d.IsChild || d.Submittable || d.AllowRename || d.IDGeneration != (IDGeneration{})) {
@@ -782,250 +778,8 @@ func (r *Registry) Validate() error {
 		if d.Tool && !d.IsSingle {
 			e("tool is for a Single DocType")
 		}
-		seen := map[string]bool{}
-		renamedFrom := map[string]string{} // old fieldname -> the field claiming it
-		for _, f := range d.Fields {
-			if !valid[f.Fieldtype] {
-				e("invalid fieldtype %q on field %q", f.Fieldtype, f.Fieldname)
-				continue // the rest of the checks assume a known fieldtype
-			}
-			r.validateGrid(d, f, e)
-			if f.Rows < 0 {
-				e("field %q: rows %d must be a positive number", f.Fieldname, f.Rows)
-			} else if f.Rows > 0 && !TextAreaTypes[f.Fieldtype] {
-				e("field %q: rows is for a Small Text, Text, Markdown Editor or Code field, not a %s", f.Fieldname, f.Fieldtype)
-			}
-			if LayoutTypes[f.Fieldtype] {
-				if f.HideLabel && f.Fieldtype != "Report" { // a Report draws its label, like a Table
-					e("field %q: hideLabel is for a data field, not a %s", f.Fieldname, f.Fieldtype)
-				}
-				if f.SetOnlyOnce {
-					e("field %q: setOnlyOnce is for a field with a stored value, not a %s", f.Fieldname, f.Fieldtype)
-				}
-				continue
-			}
-			if !fieldnameRe.MatchString(f.Fieldname) {
-				e("invalid fieldname %q (use ascii snake_case)", f.Fieldname)
-			}
-			if seen[f.Fieldname] {
-				e("duplicate fieldname %q", f.Fieldname)
-			}
-			seen[f.Fieldname] = true
-			if d.IsStdColumn(f.Fieldname) || f.Fieldname == "doctype" {
-				e("fieldname %q is reserved", f.Fieldname)
-			}
-			// a table's rows come and go as rows, and a computed field is
-			// never written, so neither has a stored value to hold
-			if f.SetOnlyOnce && IsTableType(f.Fieldtype) {
-				e("field %q: setOnlyOnce is for a field with a stored value, not a %s", f.Fieldname, f.Fieldtype)
-			} else if f.SetOnlyOnce && f.Computed {
-				e("field %q: setOnlyOnce is for a field with a stored value, not a computed one", f.Fieldname)
-			}
-			// a Currency or Percent column is numeric(21,9), so nine is the
-			// most it can hold. Caught here, at migrate, rather than as a
-			// silent truncation on the first save that reaches it.
-			if f.Precision < 0 || f.Precision > 9 {
-				e("field %q: precision %d is out of range (0 to 9)", f.Fieldname, f.Precision)
-			}
-			if f.Width != "" && f.Width != "sm" && f.Width != "md" && f.Width != "lg" && f.Width != "full" {
-				e("field %q: invalid width %q (must be sm, md, lg, or full)", f.Fieldname, f.Width)
-			}
-			switch f.Fieldtype {
-			case "Link", "Table", "Table MultiSelect":
-				target := f.OptionsString()
-				if target == "" {
-					e("field %q (%s) needs options naming the target DocType", f.Fieldname, f.Fieldtype)
-				} else if t, ok := r.DocTypes[target]; !ok {
-					e("field %q points at DocType %q, which does not exist", f.Fieldname, target)
-				} else if IsTableType(f.Fieldtype) && !t.IsChild {
-					e("field %q: %q is not isChild", f.Fieldname, target)
-				} else if f.Fieldtype == "Table MultiSelect" {
-					// The control edits one value per row, so the row has to be
-					// that value and nothing a person would otherwise fill in.
-					if t.MultiSelectLinkField() == nil {
-						e("field %q (Table MultiSelect): %q needs exactly one Link field", f.Fieldname, target)
-					}
-					for _, cf := range t.Fields {
-						if cf.Fieldtype != "Link" && cf.Reqd && cf.Default == nil && !LayoutTypes[cf.Fieldtype] {
-							e("field %q (Table MultiSelect): %q.%s is required and has no default, which the control cannot fill", f.Fieldname, target, cf.Fieldname)
-						}
-					}
-				}
-			case "Vault":
-				// `{name}` stood for the document key before 0.17. Now it would
-				// only match a field called `name`, and without one the key
-				// would carry the literal text — every document sharing one
-				// secret. Caught here rather than on the first save.
-				if strings.Contains(f.OptionsString(), "{name}") && d.Field("name") == nil {
-					e("field %q (Vault): the key template says {name}, which is {id} since 0.17", f.Fieldname)
-				}
-			case "Select":
-				if _, ok := f.Options.([]any); !ok {
-					if _, ok := f.Options.(string); !ok {
-						e("field %q (Select) needs options as a list", f.Fieldname)
-					}
-				}
-			case "Autocomplete":
-				// Suggestions are optional — an app may set them at runtime —
-				// but a number or an object here is a mistake, not a list.
-				switch f.Options.(type) {
-				case nil, string, []any, []string:
-				default:
-					e("field %q (Autocomplete): options is the list of suggestions, not %v", f.Fieldname, f.Options)
-				}
-			case "Barcode":
-				// the symbology decides what a value may be, so a typo here
-				// would refuse every save instead of failing at load
-				if _, ok := f.Options.(string); f.Options != nil && !ok {
-					e("field %q (Barcode): options is the symbology (Code128, EAN-13, QR), not %v", f.Fieldname, f.Options)
-				} else if !barcode.Valid(strings.TrimSpace(f.OptionsString())) {
-					e("field %q (Barcode): unknown symbology %q (Code128, EAN-13, QR)", f.Fieldname, f.OptionsString())
-				}
-			case "Rating":
-				// The number of stars decides what a stored value means, so a
-				// typo here would silently rescale the whole column.
-				if f.Options != nil {
-					if n := f.RatingMax(); n < 1 || n > MaxRatingMax {
-						e("field %q (Rating): options is the number of stars, 1 to %d, not %v", f.Fieldname, MaxRatingMax, f.Options)
-					}
-				}
-			case "Duration":
-				for _, flag := range f.SelectValues() {
-					if !DurationFlags[flag] {
-						e("field %q (Duration): unknown option %q (hideDays, hideSeconds)", f.Fieldname, flag)
-					}
-				}
-			case "Code":
-				if lang := f.OptionsString(); !codeLanguageRe.MatchString(lang) {
-					e("field %q (Code): options is the language, lowercase (%q)", f.Fieldname, lang)
-				}
-			}
-			if BulkyFieldtype(f.Fieldtype) {
-				// a btree entry is capped near 2.7 KB, and a list or a filter
-				// would read every row's value to show or match it
-				switch {
-				case f.Unique:
-					e("field %q: a %s cannot be unique — its value is too large to index", f.Fieldname, f.Fieldtype)
-				case f.SearchIndex:
-					e("field %q: a %s cannot have a searchIndex — its value is too large to index", f.Fieldname, f.Fieldtype)
-				case f.InStandardFilter:
-					e("field %q: a %s cannot be inStandardFilter", f.Fieldname, f.Fieldtype)
-				}
-				// a child's inListView is a grid column, whose rows the form
-				// has already loaded; the grid shows it as "Signed"
-				if f.Fieldtype == "Signature" && f.InListView && !d.IsChild {
-					e("field %q: a Signature cannot be inListView — the list would load every image", f.Fieldname)
-				}
-			}
-			for _, prev := range f.RenamedFrom {
-				switch {
-				case !fieldnameRe.MatchString(prev):
-					e("renamedFrom %q on field %q: not a fieldname", prev, f.Fieldname)
-				case prev == f.Fieldname:
-					e("renamedFrom on field %q names the field itself", f.Fieldname)
-				case d.IsStdColumn(prev) || prev == "doctype":
-					e("renamedFrom %q on field %q is a reserved column", prev, f.Fieldname)
-				case prev == "name":
-					// `name` was the document key before 0.17 and migrate has
-					// already moved it to `id` by the time a rename is planned,
-					// so this would find no column to move. A field may be
-					// called `name` now; it just cannot claim the old key.
-					e("renamedFrom %q on field %q: `name` was the document key before 0.17, and migrate moves it to `id` on its own", prev, f.Fieldname)
-				case renamedFrom[prev] != "":
-					// Two fields claiming the same old column would race for it.
-					e("field %q and field %q both declare renamedFrom %q", renamedFrom[prev], f.Fieldname, prev)
-				}
-				renamedFrom[prev] = f.Fieldname
-			}
-			if cv := f.Convert; cv != nil {
-				switch {
-				case !valid[cv.From]:
-					e("convert.from %q on field %q is not a fieldtype", cv.From, f.Fieldname)
-				case ColumnType(cv.From) == "":
-					e("convert.from %q on field %q has no column", cv.From, f.Fieldname)
-				case ColumnType(cv.From) == ColumnType(f.Fieldtype):
-					e("convert on field %q: %s and %s are the same column type, there is nothing to convert",
-						f.Fieldname, cv.From, f.Fieldtype)
-				}
-			}
-			if f.Computed {
-				switch {
-				case d.IsVirtual():
-					e("field %q: a virtual DocType cannot have computed fields", f.Fieldname)
-				case ColumnType(f.Fieldtype) == "" || f.Fieldtype == "Password":
-					e("field %q: a %s cannot be computed", f.Fieldname, f.Fieldtype)
-				case f.FetchFrom != "" || f.Unique || f.Reqd:
-					e("field %q: a computed field cannot be fetchFrom, unique or reqd", f.Fieldname)
-				}
-			}
-			if f.FetchFrom != "" {
-				parts := strings.SplitN(f.FetchFrom, ".", 2)
-				if len(parts) != 2 {
-					e("fetchFrom %q on field %q must be link.field", f.FetchFrom, f.Fieldname)
-				} else if lf := d.Field(parts[0]); lf == nil || (lf.Fieldtype != "Link" && lf.Fieldtype != "Dynamic Link") {
-					e("fetchFrom %q on field %q: %q is not a Link", f.FetchFrom, f.Fieldname, parts[0])
-				}
-			}
-		}
-		if d.IDLabel != "" && strings.TrimSpace(d.IDLabel) == "" {
-			e("idLabel is blank")
-		}
-		if d.IDGeneration.Field != "" && d.Field(d.IDGeneration.Field) == nil {
-			e("idGeneration.field %q does not exist", d.IDGeneration.Field)
-		}
-		// A field can be renamed and leave these behind pointing at a name
-		// nothing answers to. They are the half of a rename the declaration
-		// cannot do for you, so the meta refuses to load until they follow.
-		//
-		// All three may also name a standard column — `titleField: "name"` and
-		// `searchFields: ["name"]` are both documented — so those are not a
-		// dangling reference.
-		named := func(what, fieldname string) {
-			if fieldname != "" && !d.IsStdColumn(fieldname) && d.Field(fieldname) == nil {
-				e("%s %q does not exist", what, fieldname)
-			}
-		}
-		named("titleField", d.TitleField)
-		named("sortField", d.SortField)
-		// No permlevel check: a restricted photo only shows as the avatar.
-		if d.ImageField != "" {
-			if f := d.Field(d.ImageField); f == nil {
-				e("imageField %q does not exist", d.ImageField)
-			} else if f.Fieldtype != "Attach Image" && f.Fieldtype != "Attach" {
-				e("imageField %q is a %s, not an Attach Image or Attach field", d.ImageField, f.Fieldtype)
-			}
-		}
-		for _, sf := range d.SearchFields {
-			named("searchFields", sf)
-		}
-		for _, lf := range d.LinkSubtitle {
-			named("linkSubtitle", lf)
-		}
-		linkOrder, err := d.LinkOrder()
-		if err != nil {
-			e("linkOrderBy: %v", err)
-		}
-		for _, o := range linkOrder {
-			named("linkOrderBy", o.Field)
-		}
-		// These are read for every row of a list, a search or a Link's
-		// dropdown, so a value of up to 64 KiB cannot be one of them.
-		bulky := func(what, fieldname string) {
-			if f := d.Field(fieldname); f != nil && BulkyFieldtype(f.Fieldtype) {
-				e("%s %q is a %s, whose value is too large to list or sort by", what, fieldname, f.Fieldtype)
-			}
-		}
-		bulky("titleField", d.TitleField)
-		bulky("sortField", d.SortField)
-		for _, sf := range d.SearchFields {
-			bulky("searchFields", sf)
-		}
-		for _, lf := range d.LinkSubtitle {
-			bulky("linkSubtitle", lf)
-		}
-		for _, o := range linkOrder {
-			bulky("linkOrderBy", o.Field)
-		}
+		r.validateFieldOptions(d, e)
+		validateReferences(d, e)
 		validateUniqueKeys(d, e)
 		validateTree(d, e)
 		validateVirtual(r, d, e)
@@ -1034,32 +788,7 @@ func (r *Registry) Validate() error {
 		if d.IsChild && len(d.Permissions) > 0 {
 			e("a child DocType has no permissions")
 		}
-		// a → b while a is also a live field is fine: the rename runs first and
-		// the new a is added after. a ↔ b is a swap, which no single migration
-		// can do — one of the two names is always occupied.
-		for prev, claimant := range renamedFrom {
-			other := d.Field(prev)
-			if other == nil {
-				continue
-			}
-			for _, back := range other.RenamedFrom {
-				if back == claimant {
-					e("fields %q and %q swap names; a swap needs a third name and a release in between", prev, claimant)
-				}
-			}
-		}
-		for _, prev := range d.RenamedFrom {
-			switch {
-			case strings.TrimSpace(prev) == "":
-				e("renamedFrom is empty")
-			case prev == d.Name:
-				e("renamedFrom names the DocType itself")
-			case r.DocTypes[prev] != nil:
-				e("renamedFrom %q is a DocType that still exists", prev)
-			case Snake(prev) == Snake(d.Name):
-				e("renamedFrom %q and %q are the same table, there is nothing to rename", prev, d.Name)
-			}
-		}
+		r.validateFieldRenames(d, e)
 	}
 	if len(errs) > 0 {
 		sort.Strings(errs)
@@ -1067,6 +796,296 @@ func (r *Registry) Validate() error {
 	}
 	return nil
 }
+
+// validateFieldOptions checks each field on its own: its type, name, options and limits.
+func (r *Registry) validateFieldOptions(d *DocType, e func(string, ...any)) {
+	seen := map[string]bool{}
+	for _, f := range d.Fields {
+		if !validFieldtype(f.Fieldtype) {
+			e("invalid fieldtype %q on field %q", f.Fieldtype, f.Fieldname)
+			continue // the rest of the checks assume a known fieldtype
+		}
+		r.validateGrid(d, f, e)
+		if f.Rows < 0 {
+			e("field %q: rows %d must be a positive number", f.Fieldname, f.Rows)
+		} else if f.Rows > 0 && !TextAreaTypes[f.Fieldtype] {
+			e("field %q: rows is for a Small Text, Text, Markdown Editor or Code field, not a %s", f.Fieldname, f.Fieldtype)
+		}
+		if LayoutTypes[f.Fieldtype] {
+			if f.HideLabel && f.Fieldtype != "Report" { // a Report draws its label, like a Table
+				e("field %q: hideLabel is for a data field, not a %s", f.Fieldname, f.Fieldtype)
+			}
+			if f.SetOnlyOnce {
+				e("field %q: setOnlyOnce is for a field with a stored value, not a %s", f.Fieldname, f.Fieldtype)
+			}
+			continue
+		}
+		if !fieldnameRe.MatchString(f.Fieldname) {
+			e("invalid fieldname %q (use ascii snake_case)", f.Fieldname)
+		}
+		if seen[f.Fieldname] {
+			e("duplicate fieldname %q", f.Fieldname)
+		}
+		seen[f.Fieldname] = true
+		if d.IsStdColumn(f.Fieldname) || f.Fieldname == "doctype" {
+			e("fieldname %q is reserved", f.Fieldname)
+		}
+		// a table's rows come and go as rows, and a computed field is
+		// never written, so neither has a stored value to hold
+		if f.SetOnlyOnce && IsTableType(f.Fieldtype) {
+			e("field %q: setOnlyOnce is for a field with a stored value, not a %s", f.Fieldname, f.Fieldtype)
+		} else if f.SetOnlyOnce && f.Computed {
+			e("field %q: setOnlyOnce is for a field with a stored value, not a computed one", f.Fieldname)
+		}
+		// a Currency or Percent column is numeric(21,9), so nine is the
+		// most it can hold. Caught here, at migrate, rather than as a
+		// silent truncation on the first save that reaches it.
+		if f.Precision < 0 || f.Precision > 9 {
+			e("field %q: precision %d is out of range (0 to 9)", f.Fieldname, f.Precision)
+		}
+		if f.Width != "" && f.Width != "sm" && f.Width != "md" && f.Width != "lg" && f.Width != "full" {
+			e("field %q: invalid width %q (must be sm, md, lg, or full)", f.Fieldname, f.Width)
+		}
+		switch f.Fieldtype {
+		case "Link", "Table", "Table MultiSelect":
+			target := f.OptionsString()
+			if target == "" {
+				e("field %q (%s) needs options naming the target DocType", f.Fieldname, f.Fieldtype)
+			} else if t, ok := r.DocTypes[target]; !ok {
+				e("field %q points at DocType %q, which does not exist", f.Fieldname, target)
+			} else if IsTableType(f.Fieldtype) && !t.IsChild {
+				e("field %q: %q is not isChild", f.Fieldname, target)
+			} else if f.Fieldtype == "Table MultiSelect" {
+				// The control edits one value per row, so the row has to be
+				// that value and nothing a person would otherwise fill in.
+				if t.MultiSelectLinkField() == nil {
+					e("field %q (Table MultiSelect): %q needs exactly one Link field", f.Fieldname, target)
+				}
+				for _, cf := range t.Fields {
+					if cf.Fieldtype != "Link" && cf.Reqd && cf.Default == nil && !LayoutTypes[cf.Fieldtype] {
+						e("field %q (Table MultiSelect): %q.%s is required and has no default, which the control cannot fill", f.Fieldname, target, cf.Fieldname)
+					}
+				}
+			}
+		case "Vault":
+			// `{name}` stood for the document key before 0.17. Now it would
+			// only match a field called `name`, and without one the key
+			// would carry the literal text — every document sharing one
+			// secret. Caught here rather than on the first save.
+			if strings.Contains(f.OptionsString(), "{name}") && d.Field("name") == nil {
+				e("field %q (Vault): the key template says {name}, which is {id} since 0.17", f.Fieldname)
+			}
+		case "Select":
+			if _, ok := f.Options.([]any); !ok {
+				if _, ok := f.Options.(string); !ok {
+					e("field %q (Select) needs options as a list", f.Fieldname)
+				}
+			}
+		case "Autocomplete":
+			// Suggestions are optional — an app may set them at runtime —
+			// but a number or an object here is a mistake, not a list.
+			switch f.Options.(type) {
+			case nil, string, []any, []string:
+			default:
+				e("field %q (Autocomplete): options is the list of suggestions, not %v", f.Fieldname, f.Options)
+			}
+		case "Barcode":
+			// the symbology decides what a value may be, so a typo here
+			// would refuse every save instead of failing at load
+			if _, ok := f.Options.(string); f.Options != nil && !ok {
+				e("field %q (Barcode): options is the symbology (Code128, EAN-13, QR), not %v", f.Fieldname, f.Options)
+			} else if !barcode.Valid(strings.TrimSpace(f.OptionsString())) {
+				e("field %q (Barcode): unknown symbology %q (Code128, EAN-13, QR)", f.Fieldname, f.OptionsString())
+			}
+		case "Rating":
+			// The number of stars decides what a stored value means, so a
+			// typo here would silently rescale the whole column.
+			if f.Options != nil {
+				if n := f.RatingMax(); n < 1 || n > MaxRatingMax {
+					e("field %q (Rating): options is the number of stars, 1 to %d, not %v", f.Fieldname, MaxRatingMax, f.Options)
+				}
+			}
+		case "Duration":
+			for _, flag := range f.SelectValues() {
+				if !DurationFlags[flag] {
+					e("field %q (Duration): unknown option %q (hideDays, hideSeconds)", f.Fieldname, flag)
+				}
+			}
+		case "Code":
+			if lang := f.OptionsString(); !codeLanguageRe.MatchString(lang) {
+				e("field %q (Code): options is the language, lowercase (%q)", f.Fieldname, lang)
+			}
+		}
+		if BulkyFieldtype(f.Fieldtype) {
+			// a btree entry is capped near 2.7 KB, and a list or a filter
+			// would read every row's value to show or match it
+			switch {
+			case f.Unique:
+				e("field %q: a %s cannot be unique — its value is too large to index", f.Fieldname, f.Fieldtype)
+			case f.SearchIndex:
+				e("field %q: a %s cannot have a searchIndex — its value is too large to index", f.Fieldname, f.Fieldtype)
+			case f.InStandardFilter:
+				e("field %q: a %s cannot be inStandardFilter", f.Fieldname, f.Fieldtype)
+			}
+			// a child's inListView is a grid column, whose rows the form
+			// has already loaded; the grid shows it as "Signed"
+			if f.Fieldtype == "Signature" && f.InListView && !d.IsChild {
+				e("field %q: a Signature cannot be inListView — the list would load every image", f.Fieldname)
+			}
+		}
+		if f.Computed {
+			switch {
+			case d.IsVirtual():
+				e("field %q: a virtual DocType cannot have computed fields", f.Fieldname)
+			case ColumnType(f.Fieldtype) == "" || f.Fieldtype == "Password":
+				e("field %q: a %s cannot be computed", f.Fieldname, f.Fieldtype)
+			case f.FetchFrom != "" || f.Unique || f.Reqd:
+				e("field %q: a computed field cannot be fetchFrom, unique or reqd", f.Fieldname)
+			}
+		}
+		if f.FetchFrom != "" {
+			parts := strings.SplitN(f.FetchFrom, ".", 2)
+			if len(parts) != 2 {
+				e("fetchFrom %q on field %q must be link.field", f.FetchFrom, f.Fieldname)
+			} else if lf := d.Field(parts[0]); lf == nil || (lf.Fieldtype != "Link" && lf.Fieldtype != "Dynamic Link") {
+				e("fetchFrom %q on field %q: %q is not a Link", f.FetchFrom, f.Fieldname, parts[0])
+			}
+		}
+	}
+}
+
+// validateFieldRenames checks every renamedFrom and convert, field and DocType.
+func (r *Registry) validateFieldRenames(d *DocType, e func(string, ...any)) {
+	renamedFrom := map[string]string{} // old fieldname -> the field claiming it
+	for _, f := range d.Fields {
+		if !validFieldtype(f.Fieldtype) || LayoutTypes[f.Fieldtype] {
+			continue
+		}
+		for _, prev := range f.RenamedFrom {
+			switch {
+			case !fieldnameRe.MatchString(prev):
+				e("renamedFrom %q on field %q: not a fieldname", prev, f.Fieldname)
+			case prev == f.Fieldname:
+				e("renamedFrom on field %q names the field itself", f.Fieldname)
+			case d.IsStdColumn(prev) || prev == "doctype":
+				e("renamedFrom %q on field %q is a reserved column", prev, f.Fieldname)
+			case prev == "name":
+				// `name` was the document key before 0.17 and migrate has
+				// already moved it to `id` by the time a rename is planned,
+				// so this would find no column to move. A field may be
+				// called `name` now; it just cannot claim the old key.
+				e("renamedFrom %q on field %q: `name` was the document key before 0.17, and migrate moves it to `id` on its own", prev, f.Fieldname)
+			case renamedFrom[prev] != "":
+				// Two fields claiming the same old column would race for it.
+				e("field %q and field %q both declare renamedFrom %q", renamedFrom[prev], f.Fieldname, prev)
+			}
+			renamedFrom[prev] = f.Fieldname
+		}
+		if cv := f.Convert; cv != nil {
+			switch {
+			case !validFieldtype(cv.From):
+				e("convert.from %q on field %q is not a fieldtype", cv.From, f.Fieldname)
+			case ColumnType(cv.From) == "":
+				e("convert.from %q on field %q has no column", cv.From, f.Fieldname)
+			case ColumnType(cv.From) == ColumnType(f.Fieldtype):
+				e("convert on field %q: %s and %s are the same column type, there is nothing to convert",
+					f.Fieldname, cv.From, f.Fieldtype)
+			}
+		}
+	}
+	// a → b while a is also a live field is fine: the rename runs first and
+	// the new a is added after. a ↔ b is a swap, which no single migration
+	// can do — one of the two names is always occupied.
+	for prev, claimant := range renamedFrom {
+		other := d.Field(prev)
+		if other == nil {
+			continue
+		}
+		for _, back := range other.RenamedFrom {
+			if back == claimant {
+				e("fields %q and %q swap names; a swap needs a third name and a release in between", prev, claimant)
+			}
+		}
+	}
+	for _, prev := range d.RenamedFrom {
+		switch {
+		case strings.TrimSpace(prev) == "":
+			e("renamedFrom is empty")
+		case prev == d.Name:
+			e("renamedFrom names the DocType itself")
+		case r.DocTypes[prev] != nil:
+			e("renamedFrom %q is a DocType that still exists", prev)
+		case Snake(prev) == Snake(d.Name):
+			e("renamedFrom %q and %q are the same table, there is nothing to rename", prev, d.Name)
+		}
+	}
+}
+
+// validateReferences checks the DocType-level names that point at fields.
+func validateReferences(d *DocType, e func(string, ...any)) {
+	if d.IDLabel != "" && strings.TrimSpace(d.IDLabel) == "" {
+		e("idLabel is blank")
+	}
+	if d.IDGeneration.Field != "" && d.Field(d.IDGeneration.Field) == nil {
+		e("idGeneration.field %q does not exist", d.IDGeneration.Field)
+	}
+	// A field can be renamed and leave these behind pointing at a name
+	// nothing answers to. They are the half of a rename the declaration
+	// cannot do for you, so the meta refuses to load until they follow.
+	//
+	// All three may also name a standard column — `titleField: "name"` and
+	// `searchFields: ["name"]` are both documented — so those are not a
+	// dangling reference.
+	named := func(what, fieldname string) {
+		if fieldname != "" && !d.IsStdColumn(fieldname) && d.Field(fieldname) == nil {
+			e("%s %q does not exist", what, fieldname)
+		}
+	}
+	named("titleField", d.TitleField)
+	named("sortField", d.SortField)
+	// No permlevel check: a restricted photo only shows as the avatar.
+	if d.ImageField != "" {
+		if f := d.Field(d.ImageField); f == nil {
+			e("imageField %q does not exist", d.ImageField)
+		} else if f.Fieldtype != "Attach Image" && f.Fieldtype != "Attach" {
+			e("imageField %q is a %s, not an Attach Image or Attach field", d.ImageField, f.Fieldtype)
+		}
+	}
+	for _, sf := range d.SearchFields {
+		named("searchFields", sf)
+	}
+	for _, lf := range d.LinkSubtitle {
+		named("linkSubtitle", lf)
+	}
+	linkOrder, err := d.LinkOrder()
+	if err != nil {
+		e("linkOrderBy: %v", err)
+	}
+	for _, o := range linkOrder {
+		named("linkOrderBy", o.Field)
+	}
+	// These are read for every row of a list, a search or a Link's
+	// dropdown, so a value of up to 64 KiB cannot be one of them.
+	bulky := func(what, fieldname string) {
+		if f := d.Field(fieldname); f != nil && BulkyFieldtype(f.Fieldtype) {
+			e("%s %q is a %s, whose value is too large to list or sort by", what, fieldname, f.Fieldtype)
+		}
+	}
+	bulky("titleField", d.TitleField)
+	bulky("sortField", d.SortField)
+	for _, sf := range d.SearchFields {
+		bulky("searchFields", sf)
+	}
+	for _, lf := range d.LinkSubtitle {
+		bulky("linkSubtitle", lf)
+	}
+	for _, o := range linkOrder {
+		bulky("linkOrderBy", o.Field)
+	}
+}
+
+// validFieldtype says whether ft is a fieldtype the framework knows.
+func validFieldtype(ft string) bool { _, ok := fieldtypes[ft]; return ok }
 
 // validateUniqueKeys checks the compound business keys. Everything here is
 // refused at load rather than at migrate: a key that cannot become an index is
