@@ -14,15 +14,9 @@ const pushUsage = `usage: ddcore push <subcommand>
            (--subject mailto:you@example.com fills DDCORE_SECRET_VAPID_SUBJECT)`
 
 func cmdPush(args []string) error {
-	if len(args) < 1 {
-		return fmt.Errorf("%s", pushUsage)
-	}
-	switch args[0] {
-	case "keys":
-		return pushKeys(os.Stdout, args[1:])
-	default:
-		return fmt.Errorf("unknown subcommand: %s\n\n%s", args[0], pushUsage)
-	}
+	return dispatch(pushUsage, []subcommand{
+		{"keys", func(args []string) error { return pushKeys(os.Stdout, args) }},
+	}, args)
 }
 
 // pushKeys prints a fresh pair. It touches no database and stores nothing:

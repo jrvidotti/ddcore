@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/jrvidotti/ddcore/internal/cerr"
@@ -44,13 +43,7 @@ func jobFilter(r *http.Request) (engine.JobFilter, error) {
 		Limit:  atoiOr(q.Get("limit"), 20),
 		Start:  atoiOr(q.Get("start"), 0),
 	}
-	if s := q.Get("status"); s != "" {
-		for _, v := range strings.Split(s, ",") {
-			if v = strings.TrimSpace(v); v != "" {
-				f.Status = append(f.Status, v)
-			}
-		}
-	}
+	f.Status = engine.JobStatuses(q.Get("status"))
 	if s := q.Get("since"); s != "" {
 		d, err := time.ParseDuration(s)
 		if err != nil {
@@ -169,11 +162,7 @@ func (s *Server) purgeJobs(w http.ResponseWriter, r *http.Request) {
 			DryRun     bool `json:"dryRun"`
 		}
 		decodeBody(r, &body)
-		o := engine.PurgeOpts{
-			DoneDays:   s.E.Cfg.Ops.DoneRetentionDays(),
-			FailedDays: s.E.Cfg.Ops.FailedRetentionDays(),
-			DryRun:     body.DryRun,
-		}
+		o := s.E.SitePurgeOpts(body.DryRun)
 		if body.DoneDays != nil {
 			o.DoneDays = *body.DoneDays
 		}

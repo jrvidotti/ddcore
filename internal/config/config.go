@@ -91,6 +91,9 @@ type File struct {
 	// Warnings are what Load noticed in the file and let pass — a key a
 	// release retired, say. The caller logs them once it has a logger.
 	Warnings []string `json:"-"`
+	// Path is the file Load read, or would have: where the site's ddcore.json
+	// is, so a command that needs its bytes does not look it up a second time.
+	Path string `json:"-"`
 	// Auth is the access policy: session life, lockout, token expiry.
 	Auth AuthPolicy `json:"auth"`
 	// Ops is the operational policy: the thresholds a health report and
@@ -320,6 +323,7 @@ func Load(dir string) (*File, string, error) {
 	} else if !filepath.IsAbs(f.Backup.Dir) {
 		f.Backup.Dir = filepath.Join(base, f.Backup.Dir)
 	}
+	f.Path = path
 	return f, path, nil
 }
 

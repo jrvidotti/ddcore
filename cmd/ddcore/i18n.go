@@ -3,14 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
-	"log/slog"
-	"os"
 	"path/filepath"
 
 	"github.com/jrvidotti/ddcore/internal/config"
 	"github.com/jrvidotti/ddcore/internal/engine"
 	"github.com/jrvidotti/ddcore/internal/i18nx"
-	"github.com/jrvidotti/ddcore/internal/js"
 )
 
 const i18nUsage = `ddcore i18n extract — rewrites translations/<lang>.csv from the code
@@ -27,34 +24,45 @@ const i18nUsage = `ddcore i18n extract — rewrites translations/<lang>.csv from
 `
 
 func cmdI18n(args []string) error {
-	if len(args) == 0 || args[0] == "-h" || args[0] == "--help" {
+	// -h is main's: it prints i18nUsage like any command with subcommands
+	if len(args) == 0 {
 		fmt.Print(i18nUsage)
 		return nil
 	}
-	sub, rest := args[0], args[1:]
-	if sub != "extract" {
-		return fmt.Errorf("unknown i18n subcommand: %s\n\n%s", sub, i18nUsage)
+	if args[0] != "extract" {
+		return fmt.Errorf("unknown i18n subcommand: %s\n\n%s", args[0], i18nUsage)
 	}
+	return i18nExtract(args[1:])
+}
+
+func i18nExtract(args []string) error {
 	fs := newFlagSet("i18n extract")
 	app := fs.String("app", "", "only this app")
 	all := fs.Bool("all", false, "every app plus the core (the default)")
 	lang := fs.String("lang", "", "catalogue language (default: the site's lang)")
 	check := fs.Bool("check", false, "write nothing; report and exit non-zero if anything is missing")
 	prune := fs.Bool("prune", false, "drop entries the code no longer has")
-	if err := parseFlags(fs, rest); err != nil {
+	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
 	if *all {
 		*app = ""
 	}
 
-	e, cfg, root, err := loadForExtract()
+	// no database, like `ddcore types`
+	cfg, _, err := config.Load(".")
 	if err != nil {
 		return err
 	}
-	if e.DB != nil {
-		defer e.DB.Close()
+	ec, err := engineConfig(cfg, loadOpts{NoDB: true, Quiet: true})
+	if err != nil {
+		return err
 	}
+	e, err := engine.New(context.Background(), ec)
+	if err != nil {
+		return err
+	}
+	root := e.Cfg.Root // the directory holding ddcore.json
 	if *lang == "" {
 		*lang = cfg.Lang
 	}
@@ -68,72 +76,34 @@ func cmdI18n(args []string) error {
 	if len(targets) == 0 {
 		return fmt.Errorf("no target to extract (--app %q?)", *app)
 	}
-	missingTotal := 0
-	for _, t := range targets {
-		set, err := i18nx.Extract(e, t)
-		if err != nil {
-			return err
-		}
-		path := t.CatalogPath(*lang)
-		cat, err := i18nx.ReadCatalog(path, *lang)
-		if err != nil {
-			return err
-		}
-		missing, orphans, overrides := cat.Missing(set), cat.Orphans(set), cat.Overrides(set)
-		missingTotal += len(missing)
-		rel, _ := filepath.Rel(root, path)
-		if rel == "" {
-			rel = path
-		}
-		fmt.Printf("%s: %d keys, %d missing, %d orphan, %d override\n", rel, set.Len(), len(missing), len(orphans), len(overrides))
-		for _, k := range missing {
-			fmt.Printf("  missing  %-60q %s\n", k.Text, k.Ref())
-		}
-		for _, k := range orphans {
-			fmt.Printf("  orphan   %q\n", k)
-		}
-		for _, k := range overrides {
-			fmt.Printf("  override %q (%s)\n", k, set.Inherited[k])
-		}
-		for _, d := range set.Dynamic {
-			fmt.Printf("  dynamic  %s:%d (the value is its own key at run time)\n", d.File, d.Line)
-		}
-		if !*check {
-			if err := cat.Write(set, *prune); err != nil {
-				return err
-			}
-		}
+	// What the run found is printed even when it stopped part-way on an error.
+	r, err := i18nx.BuildReport(e, targets, *lang, i18nx.ReportOpts{Write: !*check, Prune: *prune})
+	for _, t := range r.Targets {
+		printI18nTarget(t)
 	}
-	if *check && missingTotal > 0 {
-		return fmt.Errorf("%d untranslated key(s) in %s", missingTotal, *lang)
+	if err != nil {
+		return err
+	}
+	if *check && r.Missing > 0 {
+		return fmt.Errorf("%d untranslated key(s) in %s", r.Missing, *lang)
 	}
 	return nil
 }
 
-// loadForExtract builds the engine without a database: extraction reads the
-// app sources and the registry they produce, exactly as `ddcore types` does,
-// and never a row. It also returns the repo root, which is the directory
-// holding ddcore.json.
-func loadForExtract() (*engine.Engine, *config.File, string, error) {
-	cfg, path, err := config.Load(".")
-	if err != nil {
-		return nil, nil, "", err
+// printI18nTarget prints one catalogue's report: the summary line, then what
+// needs a look.
+func printI18nTarget(t i18nx.TargetReport) {
+	fmt.Printf("%s: %d keys, %d missing, %d orphan, %d override\n", filepath.FromSlash(t.File), t.Keys, len(t.Missing), len(t.Orphans), len(t.Overrides))
+	for _, k := range t.Missing {
+		fmt.Printf("  missing  %-60q %s\n", k.Key, k.Ref)
 	}
-	var apps []js.App
-	for _, dir := range cfg.Apps {
-		apps = append(apps, js.App{Name: js.AppName(dir), Dir: dir})
+	for _, k := range t.Orphans {
+		fmt.Printf("  orphan   %q\n", k)
 	}
-	root, err := filepath.Abs(filepath.Dir(path))
-	if err != nil {
-		return nil, nil, "", err
+	for _, o := range t.Overrides {
+		fmt.Printf("  override %q (%s)\n", o.Key, o.App)
 	}
-	level := slog.LevelWarn
-	if os.Getenv("DDCORE_DEBUG") != "" {
-		level = slog.LevelDebug
+	for _, d := range t.Dynamic {
+		fmt.Printf("  dynamic  %s (the value is its own key at run time)\n", d)
 	}
-	e, err := engine.New(context.Background(), engine.Config{
-		Apps: apps, DDCore: cfg.DDCore, Tenancy: cfg.Tenancy, SiteTitle: cfg.Title, Lang: cfg.Lang, Currency: cfg.Currency,
-		Timezone: cfg.Timezone, DataDir: cfg.DataDir, LogLevel: level, LogOut: logOut,
-	})
-	return e, cfg, root, err
 }

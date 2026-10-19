@@ -20,9 +20,7 @@ import (
 	"strings"
 	"time"
 
-	"crypto/sha256"
-	"encoding/hex"
-
+	"github.com/jrvidotti/ddcore/internal/config"
 	"github.com/jrvidotti/ddcore/internal/db"
 	"github.com/jrvidotti/ddcore/internal/engine"
 )
@@ -58,18 +56,13 @@ out the shared DocTypes and the Admin and Guest accounts, which are the
 platform space's.`
 
 func cmdImport(args []string) error {
-	if len(args) < 1 {
-		return fmt.Errorf("%s", importUsage)
+	via := func(sub string) subcommand {
+		return subcommand{sub, func(args []string) error { return importCommand(sub, args) }}
 	}
-	sub, rest := args[0], args[1:]
-	switch sub {
-	case "plan", "run", "reconcile":
-		return importCommand(sub, rest)
-	case "status":
-		return importStatus(rest)
-	default:
-		return fmt.Errorf("unknown subcommand: %s\n\n%s", sub, importUsage)
-	}
+	return dispatch(importUsage, []subcommand{
+		via("plan"), via("run"), via("reconcile"),
+		{"status", importStatus},
+	}, args)
 }
 
 func importFlags() (*flag.FlagSet, *importOpts) {
@@ -118,24 +111,20 @@ func importTenant(flagged string) (string, error) {
 	return global, nil
 }
 
-// importEngine loads the engine for an import command and checks the tenant
-// it names, before anything — maintenance mode included — is touched.
-func importEngine(ctx context.Context, tenant string) (*engine.Engine, error) {
-	e, _, err := load(false, false)
-	if err != nil {
-		return nil, err
-	}
-	if tenant != "" {
-		if !e.Cfg.Tenancy {
-			e.DB.Close()
-			return nil, fmt.Errorf(`--tenant needs "tenancy": true in ddcore.json`)
+// withImportEngine loads the engine for an import command and checks the
+// tenant it names, before anything — maintenance mode included — is touched.
+func withImportEngine(ctx context.Context, tenant string, fn func(*engine.Engine) error) error {
+	return withSite(loadOpts{}, func(e *engine.Engine, _ *config.File) error {
+		if tenant != "" {
+			if !e.Cfg.Tenancy {
+				return fmt.Errorf(`--tenant needs "tenancy": true in ddcore.json`)
+			}
+			if err := e.CheckTenant(ctx, tenant); err != nil {
+				return err
+			}
 		}
-		if err := e.CheckTenant(ctx, tenant); err != nil {
-			e.DB.Close()
-			return nil, err
-		}
-	}
-	return e, nil
+		return fn(e)
+	})
 }
 
 func importCommand(sub string, args []string) error {
@@ -158,69 +147,58 @@ func importCommand(sub string, args []string) error {
 		Only: splitList(o.only), Include: splitList(o.include),
 	}
 	if o.mapFile != "" {
-		b, err := os.ReadFile(o.mapFile)
-		if err != nil {
+		if err := a.UseMapFile(o.mapFile); err != nil {
 			return err
 		}
-		m, err := engine.ParseImportMap(b)
-		if err != nil {
-			return err
-		}
-		sum := sha256.Sum256(b)
-		a.Map, a.MapSHA = m, hex.EncodeToString(sum[:])
 	}
 
 	ctx, cancel := signalContext()
 	defer cancel()
-	e, err := importEngine(ctx, tenant)
-	if err != nil {
-		return err
-	}
-	defer e.DB.Close()
+	return withImportEngine(ctx, tenant, func(e *engine.Engine) error {
+		if o.maintenance && !a.DryRun {
+			prev := e.Maintenance(ctx)
+			if !prev.Enabled {
+				if _, err := e.SetMaintenance(ctx, true, "Import in progress", cliActor()); err != nil {
+					return err
+				}
+				defer func() {
+					if _, err := e.SetMaintenance(context.Background(), false, "", cliActor()); err != nil {
+						fmt.Fprintln(os.Stderr, "warning: could not leave maintenance mode:", db.RedactError(err))
+					}
+				}()
+				fmt.Println("maintenance on; waiting for servers to pause…")
+				sleepCtx(ctx, 3*time.Second)
+			}
+		}
 
-	if o.maintenance && !a.DryRun {
-		prev := e.Maintenance(ctx)
-		if !prev.Enabled {
-			if _, err := e.SetMaintenance(ctx, true, "Import in progress", cliActor()); err != nil {
+		if sub == "reconcile" {
+			rep, err := e.ImportReconcile(ctx, a)
+			if err != nil {
 				return err
 			}
-			defer func() {
-				if _, err := e.SetMaintenance(context.Background(), false, "", cliActor()); err != nil {
-					fmt.Fprintln(os.Stderr, "warning: could not leave maintenance mode:", db.RedactError(err))
-				}
-			}()
-			fmt.Println("maintenance on; waiting for servers to pause…")
-			sleepCtx(ctx, 3*time.Second)
+			if err := importReport(o, rep); err != nil {
+				return err
+			}
+			printReconciliation(o, rep)
+			if !rep.OK {
+				return fmt.Errorf("the site and the export do not agree: %d mismatches", len(rep.Mismatches))
+			}
+			return nil
 		}
-	}
 
-	if sub == "reconcile" {
-		rep, err := e.ImportReconcile(ctx, a)
+		run, err := e.Import(ctx, a)
 		if err != nil {
 			return err
 		}
-		if err := importReport(o, rep); err != nil {
+		if err := importReport(o, run); err != nil {
 			return err
 		}
-		printReconciliation(o, rep)
-		if !rep.OK {
-			return fmt.Errorf("the site and the export do not agree: %d mismatches", len(rep.Mismatches))
+		printRun(sub, o, run)
+		if run.Status == engine.ImportCompletedWithErrors {
+			return fmt.Errorf("the load finished with findings; see `ddcore import status %s`", run.ID)
 		}
 		return nil
-	}
-
-	run, err := e.Import(ctx, a)
-	if err != nil {
-		return err
-	}
-	if err := importReport(o, run); err != nil {
-		return err
-	}
-	printRun(sub, o, run)
-	if run.Status == engine.ImportCompletedWithErrors {
-		return fmt.Errorf("the load finished with findings; see `ddcore import status %s`", run.ID)
-	}
-	return nil
+	})
 }
 
 func importStatus(args []string) error {
@@ -235,54 +213,46 @@ func importStatus(args []string) error {
 		return err
 	}
 	ctx := context.Background()
-	e, err := importEngine(ctx, tenant)
-	if err != nil {
-		return err
-	}
-	defer e.DB.Close()
-	if e.Cfg.Tenancy {
-		// the list is of one space: the platform's unless --tenant names one
-		ctx = engine.WithTenant(ctx, tenant)
-	}
-	if fs.NArg() == 1 {
-		run, err := e.ImportRunByID(ctx, fs.Arg(0))
+	return withImportEngine(ctx, tenant, func(e *engine.Engine) error {
+		if e.Cfg.Tenancy {
+			// the list is of one space: the platform's unless --tenant names one
+			ctx = engine.WithTenant(ctx, tenant)
+		}
+		if fs.NArg() == 1 {
+			run, err := e.ImportRunStatus(ctx, fs.Arg(0))
+			if err != nil {
+				return err
+			}
+			if *asJSON {
+				return printJSON(run)
+			}
+			printRun("status", &importOpts{}, run)
+			return nil
+		}
+		runs, err := e.ImportRuns(ctx, 20)
 		if err != nil {
 			return err
 		}
-		errs, err := e.ImportRunErrors(ctx, run.ID, 50)
-		if err != nil {
-			return err
-		}
-		run.Errors = errs
 		if *asJSON {
-			return printJSON(run)
+			return printJSON(runs)
 		}
-		printRun("status", &importOpts{}, run)
-		return nil
-	}
-	runs, err := e.ImportRuns(ctx, 20)
-	if err != nil {
-		return err
-	}
-	if *asJSON {
-		return printJSON(runs)
-	}
-	if len(runs) == 0 {
-		fmt.Println("no import has run here")
-		return nil
-	}
-	if e.Cfg.Tenancy {
-		space := "the platform space"
-		if tenant != "" {
-			space = "the tenant " + tenant
+		if len(runs) == 0 {
+			fmt.Println("no import has run here")
+			return nil
 		}
-		fmt.Printf("runs that loaded into %s\n\n", space)
-	}
-	fmt.Printf("%-12s %-22s %-12s %s\n", "ID", "STARTED", "STATUS", "DIRECTORY")
-	for _, r := range runs {
-		fmt.Printf("%-12s %-22s %-12s %s\n", r.ID, r.Started.Format("2006-01-02 15:04:05"), r.Status, r.Dir)
-	}
-	return nil
+		if e.Cfg.Tenancy {
+			space := "the platform space"
+			if tenant != "" {
+				space = "the tenant " + tenant
+			}
+			fmt.Printf("runs that loaded into %s\n\n", space)
+		}
+		fmt.Printf("%-12s %-22s %-12s %s\n", "ID", "STARTED", "STATUS", "DIRECTORY")
+		for _, r := range runs {
+			fmt.Printf("%-12s %-22s %-12s %s\n", r.ID, r.Started.Format("2006-01-02 15:04:05"), r.Status, r.Dir)
+		}
+		return nil
+	})
 }
 
 func splitList(s string) []string {

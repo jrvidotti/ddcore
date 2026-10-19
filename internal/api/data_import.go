@@ -37,16 +37,6 @@ func (s *Server) importMaxRows() int {
 	return DefaultImportMaxRows
 }
 
-func (s *Server) requestCtx(r *http.Request) *engine.Ctx {
-	c := s.E.NewCtx(r.Context(), user(r))
-	c.Request = map[string]any{"method": r.Method, "path": r.URL.Path, "ip": r.RemoteAddr}
-	if ck, err := r.Cookie("sid"); err == nil {
-		c.Sid = ck.Value
-	}
-	c.Lang = s.langFor(r)
-	return c
-}
-
 func (s *Server) dataImport(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxImportBytes+1<<20)
 	if err := r.ParseMultipartForm(maxImportBytes); err != nil {
@@ -73,7 +63,7 @@ func (s *Server) dataImport(w http.ResponseWriter, r *http.Request) {
 		Mode:      r.FormValue("mode"),
 		FileName:  hdr.Filename,
 		File:      body,
-		DryRun:    r.FormValue("dry_run") == "1" || r.FormValue("dry_run") == "true",
+		DryRun:    truthy(r.FormValue("dry_run")),
 		Decimal:   r.FormValue("decimal"),
 		DateOrder: r.FormValue("date_order"),
 		MaxRows:   s.importMaxRows(),

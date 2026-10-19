@@ -4,7 +4,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -13,7 +12,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strings"
 	"time"
@@ -31,159 +29,13 @@ import (
 	"github.com/jrvidotti/ddcore/internal/watch"
 )
 
-const usage = `ddcore — an application framework (DocTypes in TypeScript, core in Go, PostgreSQL)
-
-Usage: ddcore <command> [options]
-
-  init        create ddcore.json in the current directory
-  new-app     create an app: ddcore new-app <name> [--dir apps/<name>]
-  dev         development server with hot reload (port from ddcore.json)
-  start       production server (migrates first; DDCORE_AUTO_MIGRATE=0 turns that off)
-  deploy      write the files a deployment builds from: deploy docker | deploy railway
-  migrate     apply DDL, install apps, run patches (--dry-run, --prune)
-  types       generate .ddcore/types.d.ts in every app
-  i18n        i18n extract — rewrite translations/<lang>.csv from the code
-  test        run the *.test.ts (--filter regex, --app name)
-  exec        run a function: ddcore exec app.services.mod.fn --args '{"a":1}'
-              (--args - reads the JSON from stdin, --args-file f.json from a file)
-  eval        run loose TS: ddcore eval 'ddcore.db.count("User")' [--commit]
-  demo        seed example data (<app>.services.demo.generate, idempotent)
-  export      export a DocType (or --all) to NDJSON/CSV with a manifest
-  import      load an export directory into this site (run: ddcore import)
-  jobs        inspect, retry, cancel and purge the queue (run: ddcore jobs)
-  webhooks    list and replay outgoing webhook deliveries (run: ddcore webhooks)
-  push        push keys — print a new VAPID key pair for Web Push (run: ddcore push)
-  audit       inspect and purge administrative audit events (run: ddcore audit)
-  user        user add|invite|passwd|reset|unlock|sessions (run: ddcore user)
-  apikey      apikey <user> [--label x] [--days N] [--prefix p]  → prints key:secret
-  tenant      tenant list|create|enable|disable|adopt — the tenants of a site with tenancy (run: ddcore tenant)
-  mcp         MCP server (stdio) for agents
-  docs        print the framework documentation
-  doctor      database readiness, meta, queue and errors (--json, --strict)
-  maintenance maintenance on [--reason x] | off | status — pause writes and jobs
-  backup      write a .tar of the database, files, config and versions (--to s3)
-  restore     restore <archive> into this site's database and storage (--smoke)
-  version     print the framework version
-
-Variables: DDCORE_DSN overrides the dsn in ddcore.json.
-Global flag: --tenant <slug>, before the command, runs a one-shot command inside
-a tenant of a site with tenancy (ddcore --tenant acme user add …).
-Global flag: --allow-older-binary (DDCORE_ALLOW_OLDER_BINARY=1) opens a database
-a newer release migrated — a rollback; see ` + "`ddcore docs backup`" + `.
-`
-
 func main() {
-	argv := stripGlobalFlags(os.Args[1:])
-	if len(argv) < 1 {
-		fmt.Print(usage)
-		os.Exit(2)
+	status, msg := exitStatus(run(stripGlobalFlags(os.Args[1:])))
+	if msg != "" {
+		fmt.Fprintln(os.Stderr, msg)
 	}
-	cmd, args := argv[0], argv[1:]
-	// a command that dispatches on a subcommand prints its usage for -h
-	if u, ok := subcommandUsage[cmd]; ok && len(args) > 0 && isHelp(args[0]) {
-		fmt.Print(strings.TrimRight(u, "\n") + "\n")
-		return
-	}
-	var err error
-	switch cmd {
-	case "init":
-		err = cmdInit(args)
-	case "new-app":
-		err = cmdNewApp(args)
-	case "dev", "start":
-		err = cmdServe(args, cmd == "dev")
-	case "migrate":
-		err = cmdMigrate(args)
-	case "types":
-		err = cmdTypes(args)
-	case "i18n":
-		err = cmdI18n(args)
-	case "test":
-		err = cmdTest(args)
-	case "exec":
-		err = cmdExec(args)
-	case "eval":
-		err = cmdEval(args)
-	case "jobs":
-		err = cmdJobs(args)
-	case "webhooks":
-		err = cmdWebhooks(args)
-	case "push":
-		err = cmdPush(args)
-	case "audit":
-		err = cmdAudit(args)
-	case "user":
-		err = cmdUser(args)
-	case "apikey":
-		err = cmdAPIKey(args)
-	case "tenant":
-		err = cmdTenant(args)
-	case "mcp":
-		err = cmdMCP(args)
-	case "import":
-		err = cmdImport(args)
-	case "export":
-		err = cmdExport(args)
-	case "demo":
-		err = cmdDemo(args)
-	case "docs":
-		// `ddcore docs [name]` — the argument was documented but never read.
-		name := "index"
-		if len(args) > 0 {
-			name = args[0]
-		}
-		fmt.Print(mcp.Docs(name))
-	case "doctor":
-		err = cmdDoctor(args)
-	case "deploy":
-		err = cmdDeploy(args)
-	case "maintenance":
-		err = cmdMaintenance(args)
-	case "backup":
-		err = cmdBackup(args)
-	case "restore":
-		err = cmdRestore(args)
-	case "version", "-v", "--version":
-		fmt.Printf("ddcore %s (%s/%s)\n", engine.Version, runtime.GOOS, runtime.GOARCH)
-		return
-	case "help", "-h", "--help":
-		fmt.Print(usage)
-	default:
-		fmt.Fprintf(os.Stderr, "unknown command: %s\n\n%s", cmd, usage)
-		os.Exit(2)
-	}
-	if errors.Is(err, errHelpShown) {
-		return
-	}
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "error:", err)
-		os.Exit(1)
-	}
+	os.Exit(status)
 }
-
-// subcommandUsage is the usage text of each command whose first argument is a
-// subcommand: `ddcore <cmd> -h` prints it. Commands that take flags directly
-// print their flags from parseFlags instead.
-var subcommandUsage = map[string]string{
-	"import":      importUsage,
-	"jobs":        jobsUsage,
-	"audit":       auditUsage,
-	"webhooks":    webhooksUsage,
-	"push":        pushUsage,
-	"maintenance": maintenanceUsage,
-	"tenant":      tenantUsage,
-	"deploy":      deployUsage,
-	"user":        userUsage,
-}
-
-// enforceMaintenance is set by the commands that serve traffic or run jobs
-// (`dev`, `start`, `jobs work`) before they load the engine. Every other
-// command leaves it false, which is what makes the CLI the maintenance bypass.
-var enforceMaintenance bool
-
-// deferDB is set by `mcp`, the one command that is still useful without the
-// database: see engine.Config.DeferDB.
-var deferDB bool
 
 // stripGlobalFlags removes the flags every command accepts, turning them into
 // the environment variables load reads, so no command's FlagSet has to know
@@ -222,56 +74,147 @@ func stripGlobalFlags(args []string) []string {
 	return out
 }
 
-// load builds the engine from ddcore.json.
-func load(test bool, dev bool) (*engine.Engine, *config.File, error) {
-	cfg, cfgPath, err := config.Load(".")
+// loadOpts says how load builds the engine. The zero value is a one-shot
+// command: it bypasses maintenance mode, needs the database and logs to stderr.
+type loadOpts struct {
+	Test bool
+	Dev  bool
+	// LogOut is where the log goes; nil is stderr. A one-shot command keeps it
+	// there, because its stdout is its output — a log line in the middle of an
+	// exported NDJSON, a printed key, a doctor report or the MCP JSON-RPC
+	// stream is corruption, not a log. The server flips it to stdout, because
+	// there the log *is* the output and a platform that captures both streams
+	// reads everything on stderr as an error: on stderr an INFO access line
+	// arrives painted red and the level policy stops meaning anything.
+	LogOut io.Writer
+	// EnforceMaintenance is set by the commands that serve traffic or run jobs
+	// (`dev`, `start`, `jobs work`). Every other command leaves it false,
+	// which is what makes the CLI the maintenance bypass.
+	EnforceMaintenance bool
+	// DeferDB is set by `mcp`, the one command that is still useful without
+	// the database: see engine.Config.DeferDB.
+	DeferDB bool
+	// NoDB builds the engine without a database, for a command that reads the
+	// app sources and the registry they produce and never a row (`types`,
+	// `i18n extract`): it needs no dsn and has no tenant to enter.
+	NoDB bool
+	// Quiet logs warnings and errors only.
+	Quiet bool
+}
+
+// serveOpts is how `start` and `dev` load the engine.
+func serveOpts(dev bool) loadOpts {
+	return loadOpts{Dev: dev, LogOut: os.Stdout, EnforceMaintenance: true}
+}
+
+// mcpOpts is how `mcp` loads the engine.
+func mcpOpts() loadOpts {
+	return loadOpts{Dev: true, DeferDB: true}
+}
+
+// engineConfig maps the site's configuration to the engine's.
+func engineConfig(cfg *config.File, o loadOpts) (engine.Config, error) {
+	root, err := filepath.Abs(filepath.Dir(cfg.Path))
 	if err != nil {
-		return nil, nil, err
+		return engine.Config{}, err
 	}
-	root, err := filepath.Abs(filepath.Dir(cfgPath))
-	if err != nil {
-		return nil, nil, err
+	if cfg.DSN == "" && !o.NoDB {
+		return engine.Config{}, fmt.Errorf("dsn not configured: run `ddcore init` or set DDCORE_DSN")
 	}
-	if cfg.DSN == "" {
-		return nil, nil, fmt.Errorf("dsn not configured: run `ddcore init` or set DDCORE_DSN")
+	level := slog.LevelInfo
+	if o.Quiet {
+		level = slog.LevelWarn
+	}
+	if os.Getenv("DDCORE_DEBUG") != "" {
+		level = slog.LevelDebug
+	}
+	out := o.LogOut
+	if out == nil {
+		out = os.Stderr
+	}
+	// --tenant is for a command that does one thing and exits. A process that
+	// serves requests or runs jobs works in every tenant, each from its own
+	// user or its own job; pinning it to one would be a quiet way to break it.
+	enter := os.Getenv("DDCORE_TENANT")
+	if o.NoDB {
+		enter = ""
+	}
+	if enter != "" && (o.EnforceMaintenance || o.DeferDB) {
+		return engine.Config{}, fmt.Errorf("--tenant is for one-shot commands, not for a server, a worker or mcp")
+	}
+	if enter != "" && !cfg.Tenancy {
+		return engine.Config{}, fmt.Errorf(`--tenant needs "tenancy": true in ddcore.json`)
 	}
 	var apps []js.App
 	for _, dir := range cfg.Apps {
 		apps = append(apps, js.App{Name: js.AppName(dir), Dir: dir})
 	}
-	level := slog.LevelInfo
-	if os.Getenv("DDCORE_DEBUG") != "" {
-		level = slog.LevelDebug
-	}
-	isDev := dev || config.DevFromEnv()
-	// --tenant is for a command that does one thing and exits. A process that
-	// serves requests or runs jobs works in every tenant, each from its own
-	// user or its own job; pinning it to one would be a quiet way to break it.
-	enter := os.Getenv("DDCORE_TENANT")
-	if enter != "" && (enforceMaintenance || deferDB) {
-		return nil, nil, fmt.Errorf("--tenant is for one-shot commands, not for a server, a worker or mcp")
-	}
-	if enter != "" && !cfg.Tenancy {
-		return nil, nil, fmt.Errorf(`--tenant needs "tenancy": true in ddcore.json`)
-	}
-	e, err := engine.New(context.Background(), engine.Config{
-		DSN: cfg.DSN, Apps: apps, DDCore: cfg.DDCore, Workers: cfg.Workers.Total(), Scheduler: cfg.Scheduler, Tenancy: cfg.Tenancy, TenantRole: cfg.TenantRole, PoolMaxConns: cfg.PoolMaxConns, EnterTenant: enter, Dev: isDev, Test: test,
+	ec := engine.Config{
+		DSN: cfg.DSN, Apps: apps, DDCore: cfg.DDCore, Workers: cfg.Workers.Total(), Scheduler: cfg.Scheduler, Tenancy: cfg.Tenancy, TenantRole: cfg.TenantRole, PoolMaxConns: cfg.PoolMaxConns, EnterTenant: enter, Dev: o.Dev || config.DevFromEnv(), Test: o.Test,
 		Port: cfg.Port, SiteTitle: cfg.Title, Lang: cfg.Lang, Currency: cfg.Currency, CurrencyPrecision: cfg.CurrencyPrecision, Rounding: cfg.RoundingMode(), Timezone: cfg.Timezone, DataDir: cfg.DataDir, Root: root, ExportMaxRows: cfg.ExportMaxRows, ImportMaxRows: cfg.ImportMaxRows, LogLevel: level,
-		Auth: cfg.Auth, Ops: cfg.Ops, LogJSON: logJSON(), LogOut: logOut, Mail: cfg.Mail, Webhooks: cfg.Webhooks, Storage: cfg.Storage, SiteURL: cfg.PublicURL(), TrustProxy: cfg.TrustProxy, CORS: cfg.CORS, Login: cfg.Login, Feedback: cfg.Feedback, AI: cfg.AI, OIDC: cfg.OIDC, Portal: cfg.Portal, Map: cfg.Map,
-		EnforceMaintenance: enforceMaintenance, AllowOlderBinary: config.AllowOlderBinaryFromEnv(), AdminPassword: cfg.AdminPassword, DeferDB: deferDB,
-	})
-	if err == nil {
-		for _, w := range cfg.Warnings {
-			e.Log.Warn(w)
-		}
+		Auth: cfg.Auth, Ops: cfg.Ops, LogJSON: logJSON(out), LogOut: out, Mail: cfg.Mail, Webhooks: cfg.Webhooks, Storage: cfg.Storage, SiteURL: cfg.PublicURL(), TrustProxy: cfg.TrustProxy, CORS: cfg.CORS, Login: cfg.Login, Feedback: cfg.Feedback, AI: cfg.AI, OIDC: cfg.OIDC, Portal: cfg.Portal, Map: cfg.Map,
+		EnforceMaintenance: o.EnforceMaintenance, AllowOlderBinary: config.AllowOlderBinaryFromEnv(), AdminPassword: cfg.AdminPassword, DeferDB: o.DeferDB,
 	}
-	if err == nil && !cfg.HasPublicURL() {
+	if o.NoDB {
+		ec.DSN = ""
+	}
+	return ec, nil
+}
+
+// loadSite creates the engine cfg describes and tells the log what is off
+// about the configuration.
+func loadSite(cfg *config.File, o loadOpts) (*engine.Engine, error) {
+	ec, err := engineConfig(cfg, o)
+	if err != nil {
+		return nil, err
+	}
+	e, err := engine.New(context.Background(), ec)
+	if err == nil {
+		warnConfig(e, cfg)
+	}
+	return e, err
+}
+
+// load builds the engine from ddcore.json.
+func load(o loadOpts) (*engine.Engine, *config.File, error) {
+	cfg, _, err := config.Load(".")
+	if err != nil {
+		return nil, nil, err
+	}
+	e, err := loadSite(cfg, o)
+	return e, cfg, err
+}
+
+// warnConfig logs what Load let pass in ddcore.json, once the engine has a logger.
+func warnConfig(e *engine.Engine, cfg *config.File) {
+	for _, w := range cfg.Warnings {
+		e.Log.Warn(w)
+	}
+	if !cfg.HasPublicURL() {
 		// Say it once, at boot, rather than letting someone discover it in a
 		// recovery e-mail that points at a machine the reader does not have.
 		e.Log.Warn("no public URL configured: recovery and invitation links will point at "+cfg.PublicURL(),
 			"fix", "set DDCORE_URL in .env")
 	}
-	return e, cfg, err
+}
+
+// withSite opens the engine, runs fn with the site's configuration and closes the pool.
+func withSite(o loadOpts, fn func(*engine.Engine, *config.File) error) error {
+	e, cfg, err := load(o)
+	if err != nil {
+		return err
+	}
+	if e.DB != nil {
+		defer e.DB.Close()
+	}
+	return fn(e, cfg)
+}
+
+// withEngine is withSite for a command that needs no configuration, only a context.
+func withEngine(fn func(*engine.Engine, context.Context) error) error {
+	return withSite(loadOpts{}, func(e *engine.Engine, _ *config.File) error {
+		return fn(e, context.Background())
+	})
 }
 
 func cmdInit(args []string) error {
@@ -452,9 +395,6 @@ func cmdNewApp(args []string) error {
 }
 
 func cmdServe(args []string, dev bool) error {
-	// The server's log is its output: stdout, where nothing else is written and
-	// where a platform reads it as a log instead of as a stream of errors.
-	logOut = os.Stdout
 	name := "start"
 	if dev {
 		name = "dev"
@@ -465,8 +405,7 @@ func cmdServe(args []string, dev bool) error {
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
-	enforceMaintenance = true
-	e, cfg, err := load(false, dev)
+	e, cfg, err := load(serveOpts(dev))
 	if err != nil {
 		return err
 	}
@@ -585,49 +524,45 @@ func cmdMigrate(args []string) error {
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
-	e, _, err := load(false, false)
-	if err != nil {
-		return err
-	}
-	defer e.DB.Close()
-	ctx := context.Background()
-	if *dry {
-		plan, err := e.Plan(ctx, *prune)
+	return withSite(loadOpts{}, func(e *engine.Engine, cfg *config.File) error {
+		ctx := context.Background()
+		if *dry {
+			plan, err := e.Plan(ctx, *prune)
+			if err != nil {
+				return err
+			}
+			fmt.Print(db.Report(plan))
+			if pending := e.PendingPatches(); len(pending) > 0 {
+				fmt.Println("patches")
+				for _, p := range pending {
+					fmt.Printf("  %-12s %s\n", p.Phase, p.Path)
+				}
+			}
+			return nil
+		}
+		res, err := e.Migrate(ctx, *prune)
 		if err != nil {
 			return err
 		}
-		fmt.Print(db.Report(plan))
-		if pending := e.PendingPatches(); len(pending) > 0 {
-			fmt.Println("patches")
-			for _, p := range pending {
-				fmt.Printf("  %-12s %s\n", p.Phase, p.Path)
-			}
-		}
-		return nil
-	}
-	res, err := e.Migrate(ctx, *prune)
-	if err != nil {
-		return err
-	}
-	fmt.Print(db.Report(res.DDL))
-	fmt.Println("ok:", res.String())
-	showAdminPassword(res)
-	return cmdTypes(nil)
+		fmt.Print(db.Report(res.DDL))
+		fmt.Println("ok:", res.String())
+		showAdminPassword(res)
+		return writeTypes(e, cfg)
+	})
 }
 
+// cmdTypes writes the typings; see loadOpts.NoDB.
 func cmdTypes(args []string) error {
-	e, cfg, err := load(false, false)
-	if err != nil {
-		return err
+	return withSite(loadOpts{NoDB: true}, writeTypes)
+}
+
+// writeTypes writes each app's .ddcore/types.d.ts from the registry e holds.
+func writeTypes(e *engine.Engine, cfg *config.File) error {
+	written, err := typegen.WriteAll(cfg.Apps, e.Meta)
+	for _, path := range written {
+		fmt.Println("types:", path)
 	}
-	defer e.DB.Close()
-	for _, dir := range cfg.Apps {
-		if err := typegen.Write(dir, e.Meta); err != nil {
-			return err
-		}
-		fmt.Println("types:", filepath.Join(dir, ".ddcore/types.d.ts"))
-	}
-	return nil
+	return err
 }
 
 func testFlags() (*flag.FlagSet, *string, *bool, *string) {
@@ -646,50 +581,47 @@ func cmdTest(args []string) error {
 	if fs.NArg() > 0 && *filter == "" {
 		*filter = fs.Arg(0)
 	}
-	e, _, err := load(true, false)
-	if err != nil {
-		return err
-	}
-	defer e.DB.Close()
-	if *app != "" {
-		found := false
-		for _, loaded := range e.Apps {
-			if loaded.Name == *app {
-				found = true
-				break
+	return withSite(loadOpts{Test: true}, func(e *engine.Engine, _ *config.File) error {
+		ctx := context.Background()
+		if *app != "" {
+			found := false
+			for _, loaded := range e.Apps {
+				if loaded.Name == *app {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return fmt.Errorf("app not loaded: %s", *app)
 			}
 		}
-		if !found {
-			return fmt.Errorf("app not loaded: %s", *app)
+		if _, err := e.Migrate(ctx, false); err != nil {
+			return err
 		}
-	}
-	ctx := context.Background()
-	if _, err := e.Migrate(ctx, false); err != nil {
-		return err
-	}
-	results, err := e.RunTests(ctx, *filter, *app)
-	if err != nil {
-		return err
-	}
-	failed := 0
-	for _, r := range results {
-		if r.OK {
-			if *verbose {
-				fmt.Printf("  ok   %s (%dms)\n", r.Name, r.Ms)
+		results, err := e.RunTests(ctx, *filter, *app)
+		if err != nil {
+			return err
+		}
+		failed := 0
+		for _, r := range results {
+			if r.OK {
+				if *verbose {
+					fmt.Printf("  ok   %s (%dms)\n", r.Name, r.Ms)
+				}
+				continue
 			}
-			continue
+			failed++
+			fmt.Printf("  FAIL %s\n       %s\n", r.Name, strings.ReplaceAll(r.Error, "\n", "\n       "))
+			if r.File != "" {
+				fmt.Printf("       in %s\n", r.File)
+			}
 		}
-		failed++
-		fmt.Printf("  FAIL %s\n       %s\n", r.Name, strings.ReplaceAll(r.Error, "\n", "\n       "))
-		if r.File != "" {
-			fmt.Printf("       in %s\n", r.File)
+		fmt.Printf("%d tests, %d failures\n", len(results), failed)
+		if failed > 0 {
+			return exitCode(1)
 		}
-	}
-	fmt.Printf("%d tests, %d failures\n", len(results), failed)
-	if failed > 0 {
-		os.Exit(1)
-	}
-	return nil
+		return nil
+	})
 }
 
 func execFlags() (*flag.FlagSet, *string, *string) {
@@ -746,17 +678,14 @@ func cmdExec(args []string) error {
 	if err != nil {
 		return err
 	}
-	e, _, err := load(false, false)
-	if err != nil {
-		return err
-	}
-	defer e.DB.Close()
-	res, err := e.RunJob(context.Background(), "Admin", fs.Arg(0), a)
-	if err != nil {
-		return err
-	}
-	fmt.Println(string(res))
-	return nil
+	return withEngine(func(e *engine.Engine, ctx context.Context) error {
+		res, err := e.RunJob(ctx, "Admin", fs.Arg(0), a)
+		if err != nil {
+			return err
+		}
+		fmt.Println(string(res))
+		return nil
+	})
 }
 
 func cmdEval(args []string) error {
@@ -773,20 +702,17 @@ func cmdEval(args []string) error {
 		}
 		code = string(b)
 	}
-	e, _, err := load(false, false)
-	if err != nil {
-		return err
-	}
-	defer e.DB.Close()
-	res, logs, err := e.Eval(context.Background(), code, *commit)
-	for _, l := range logs {
-		fmt.Fprintln(os.Stderr, l)
-	}
-	if err != nil {
-		return err
-	}
-	fmt.Println(string(res))
-	return nil
+	return withEngine(func(e *engine.Engine, ctx context.Context) error {
+		res, logs, err := e.Eval(ctx, code, *commit)
+		for _, l := range logs {
+			fmt.Fprintln(os.Stderr, l)
+		}
+		if err != nil {
+			return err
+		}
+		fmt.Println(string(res))
+		return nil
+	})
 }
 
 // cmdDemo runs `<app>.services.demo.generate` for every app that whitelists it.
@@ -796,35 +722,32 @@ func cmdDemo(args []string) error {
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
-	e, _, err := load(false, false)
-	if err != nil {
-		return err
-	}
-	defer e.DB.Close()
-	ran := 0
-	for _, name := range e.AppOrder() {
-		if *app != "" && name != *app {
-			continue
+	return withEngine(func(e *engine.Engine, ctx context.Context) error {
+		ran := 0
+		for _, name := range e.AppOrder() {
+			if *app != "" && name != *app {
+				continue
+			}
+			// `generate` does not need to be whitelisted (runs as Admin), so
+			// app existence is checked by file
+			if dir := e.AppDir(name); dir == "" {
+				continue
+			} else if _, err := os.Stat(filepath.Join(dir, "services", "demo.ts")); err != nil {
+				continue
+			}
+			method := name + ".services.demo.generate"
+			res, err := e.RunJob(ctx, "Admin", method, nil)
+			if err != nil {
+				return fmt.Errorf("%s: %w", method, err)
+			}
+			fmt.Printf("%s: %s\n", method, strings.TrimSpace(string(res)))
+			ran++
 		}
-		// `generate` does not need to be whitelisted (runs as Admin), so
-		// app existence is checked by file
-		if dir := e.AppDir(name); dir == "" {
-			continue
-		} else if _, err := os.Stat(filepath.Join(dir, "services", "demo.ts")); err != nil {
-			continue
+		if ran == 0 {
+			return fmt.Errorf("no app has `services/demo.ts`")
 		}
-		method := name + ".services.demo.generate"
-		res, err := e.RunJob(context.Background(), "Admin", method, nil)
-		if err != nil {
-			return fmt.Errorf("%s: %w", method, err)
-		}
-		fmt.Printf("%s: %s\n", method, strings.TrimSpace(string(res)))
-		ran++
-	}
-	if ran == 0 {
-		return fmt.Errorf("no app has `services/demo.ts`")
-	}
-	return nil
+		return nil
+	})
 }
 
 const userUsage = "usage: ddcore user add <email> <name> [--password x] [--role R]\n" +
@@ -838,138 +761,132 @@ func cmdUser(args []string) error {
 	if len(args) < 1 {
 		return fmt.Errorf("%s", userUsage)
 	}
-	e, _, err := load(false, false)
-	if err != nil {
-		return err
-	}
-	defer e.DB.Close()
-	ctx := context.Background()
-	switch args[0] {
-	case "add":
-		fs := newFlagSet("user add")
-		pw := fs.String("password", "", "password")
-		var roles multi
-		fs.Var(&roles, "role", "role (repeatable)")
-		if err := parseFlags(fs, args[1:]); err != nil {
-			return err
-		}
-		if fs.NArg() < 2 {
-			return fmt.Errorf("usage: ddcore user add <email> <name>")
-		}
-		return e.Run(ctx, "Admin", func(c *engine.Ctx) error {
-			doc, err := c.NewDoc("User", engine.Doc{"email": fs.Arg(0), "full_name": strings.Join(fs.Args()[1:], " "), "new_password": *pw, "enabled": true})
+	return withEngine(func(e *engine.Engine, ctx context.Context) error {
+		sub, rest := args[0], args[1:]
+		switch sub {
+		case "add":
+			fs := newFlagSet("user add")
+			pw := fs.String("password", "", "password")
+			var roles multi
+			fs.Var(&roles, "role", "role (repeatable)")
+			if err := parseFlags(fs, rest); err != nil {
+				return err
+			}
+			if fs.NArg() < 2 {
+				return fmt.Errorf("usage: ddcore user add <email> <name>")
+			}
+			return e.Run(ctx, "Admin", func(c *engine.Ctx) error {
+				doc, err := c.NewDoc("User", engine.Doc{"email": fs.Arg(0), "full_name": strings.Join(fs.Args()[1:], " "), "new_password": *pw, "enabled": true})
+				if err != nil {
+					return err
+				}
+				var rs []any
+				for _, r := range roles {
+					rs = append(rs, map[string]any{"role": r})
+				}
+				doc["roles"] = rs
+				_, err = c.Insert(doc, engine.SaveOpts{IgnorePermissions: true})
+				if err == nil {
+					fmt.Println("user created:", fs.Arg(0))
+				}
+				return err
+			})
+		case "passwd":
+			if len(rest) < 2 {
+				return fmt.Errorf("usage: ddcore user passwd <email> <password>")
+			}
+			if err := e.SetPassword(ctx, rest[0], rest[1]); err != nil {
+				return err
+			}
+			fmt.Println("password changed; other sessions signed out")
+			return nil
+		case "invite":
+			// Creates the account with no password and sends the link. No password
+			// needs no flag for "pending": CheckPassword already refuses an empty
+			// hash, so an invited person simply cannot sign in until they set one.
+			fs := newFlagSet("user invite")
+			var roles multi
+			fs.Var(&roles, "role", "role (repeatable)")
+			if err := parseFlags(fs, rest); err != nil {
+				return err
+			}
+			if fs.NArg() < 2 {
+				return fmt.Errorf("usage: ddcore user invite <email> <name> [--role R]")
+			}
+			email, name := fs.Arg(0), strings.Join(fs.Args()[1:], " ")
+			// the same path as the desk's Save and invite: on a site that
+			// provisions PocketID, the account is made there too
+			return e.Run(ctx, "Admin", func(c *engine.Ctx) error {
+				res, err := e.InviteUser(c, engine.Invitation{Email: email, FullName: name, Roles: roles})
+				if err != nil {
+					return err
+				}
+				rec := &engine.Recovery{}
+				rec.Link, _ = res["link"].(string)
+				rec.Expires, _ = res["expires"].(time.Time)
+				reportRecovery(email, rec)
+				return nil
+			})
+		case "reset":
+			if len(rest) < 1 {
+				return fmt.Errorf("usage: ddcore user reset <email>")
+			}
+			// in the account's own tenant: the link is mailed from there
+			return e.RunAdminFor(ctx, rest[0], func(c *engine.Ctx) error {
+				rec, err := e.StartRecovery(c, rest[0], engine.TokenReset, "")
+				if err != nil {
+					return err
+				}
+				reportRecovery(rest[0], rec)
+				return nil
+			})
+		case "unlock":
+			if len(rest) < 1 {
+				return fmt.Errorf("usage: ddcore user unlock <email>")
+			}
+			n, err := e.UnlockAccount(ctx, rest[0], cliActor())
 			if err != nil {
 				return err
 			}
-			var rs []any
-			for _, r := range roles {
-				rs = append(rs, map[string]any{"role": r})
+			fmt.Printf("cleared %d failed attempt(s) for %s\n", n, rest[0])
+			return nil
+		case "sessions":
+			fs := newFlagSet("user sessions")
+			revoke := fs.Bool("revoke", false, "end every session of this user")
+			if err := parseFlags(fs, rest); err != nil {
+				return err
 			}
-			doc["roles"] = rs
-			_, err = c.Insert(doc, engine.SaveOpts{IgnorePermissions: true})
-			if err == nil {
-				fmt.Println("user created:", fs.Arg(0))
+			if fs.NArg() < 1 {
+				return fmt.Errorf("usage: ddcore user sessions <email> [--revoke]")
 			}
-			return err
-		})
-	case "passwd":
-		if len(args) < 3 {
-			return fmt.Errorf("usage: ddcore user passwd <email> <password>")
-		}
-		if err := e.SetPassword(ctx, args[1], args[2]); err != nil {
-			return err
-		}
-		fmt.Println("password changed; other sessions signed out")
-
-	case "invite":
-		// Creates the account with no password and sends the link. No password
-		// needs no flag for "pending": CheckPassword already refuses an empty
-		// hash, so an invited person simply cannot sign in until they set one.
-		fs := newFlagSet("user invite")
-		var roles multi
-		fs.Var(&roles, "role", "role (repeatable)")
-		if err := parseFlags(fs, args[1:]); err != nil {
-			return err
-		}
-		if fs.NArg() < 2 {
-			return fmt.Errorf("usage: ddcore user invite <email> <name> [--role R]")
-		}
-		email, name := fs.Arg(0), strings.Join(fs.Args()[1:], " ")
-		// the same path as the desk's Save and invite: on a site that
-		// provisions PocketID, the account is made there too
-		return e.Run(ctx, "Admin", func(c *engine.Ctx) error {
-			res, err := e.InviteUser(c, engine.Invitation{Email: email, FullName: name, Roles: roles})
+			user := fs.Arg(0)
+			if *revoke {
+				n, err := e.DropSessions(ctx, e.DB.Pool, user, "")
+				if err != nil {
+					return err
+				}
+				fmt.Printf("ended %d session(s) for %s\n", n, user)
+				return nil
+			}
+			rows, err := db.Select(ctx, e.DB.Pool,
+				`SELECT ip, user_agent, created, last_seen FROM ddcore_session
+				 WHERE "user" = $1 AND expires > now() ORDER BY last_seen DESC`, user)
 			if err != nil {
 				return err
 			}
-			rec := &engine.Recovery{}
-			rec.Link, _ = res["link"].(string)
-			rec.Expires, _ = res["expires"].(time.Time)
-			reportRecovery(email, rec)
-			return nil
-		})
-
-	case "reset":
-		if len(args) < 2 {
-			return fmt.Errorf("usage: ddcore user reset <email>")
-		}
-		// in the account's own tenant: the link is mailed from there
-		return e.RunAdminFor(ctx, args[1], func(c *engine.Ctx) error {
-			rec, err := e.StartRecovery(c, args[1], engine.TokenReset, "")
-			if err != nil {
-				return err
+			if len(rows) == 0 {
+				fmt.Println("no active sessions")
+				return nil
 			}
-			reportRecovery(args[1], rec)
-			return nil
-		})
-
-	case "unlock":
-		if len(args) < 2 {
-			return fmt.Errorf("usage: ddcore user unlock <email>")
-		}
-		n, err := e.UnlockAccount(ctx, args[1], cliActor())
-		if err != nil {
-			return err
-		}
-		fmt.Printf("cleared %d failed attempt(s) for %s\n", n, args[1])
-
-	case "sessions":
-		fs := newFlagSet("user sessions")
-		revoke := fs.Bool("revoke", false, "end every session of this user")
-		if err := parseFlags(fs, args[1:]); err != nil {
-			return err
-		}
-		if fs.NArg() < 1 {
-			return fmt.Errorf("usage: ddcore user sessions <email> [--revoke]")
-		}
-		user := fs.Arg(0)
-		if *revoke {
-			n, err := e.DropSessions(ctx, e.DB.Pool, user, "")
-			if err != nil {
-				return err
+			for _, r := range rows {
+				fmt.Printf("  %-20s %-28s last seen %s\n",
+					db.Str(r["ip"]), truncateStr(db.Str(r["user_agent"]), 28), db.Str(r["last_seen"]))
 			}
-			fmt.Printf("ended %d session(s) for %s\n", n, user)
 			return nil
+		default:
+			return fmt.Errorf("unknown subcommand: %s", sub)
 		}
-		rows, err := db.Select(ctx, e.DB.Pool,
-			`SELECT ip, user_agent, created, last_seen FROM ddcore_session
-			 WHERE "user" = $1 AND expires > now() ORDER BY last_seen DESC`, user)
-		if err != nil {
-			return err
-		}
-		if len(rows) == 0 {
-			fmt.Println("no active sessions")
-			return nil
-		}
-		for _, r := range rows {
-			fmt.Printf("  %-20s %-28s last seen %s\n",
-				db.Str(r["ip"]), truncateStr(db.Str(r["user_agent"]), 28), db.Str(r["last_seen"]))
-		}
-
-	default:
-		return fmt.Errorf("unknown subcommand: %s", args[0])
-	}
-	return nil
+	})
 }
 
 // reportRecovery prints the link when the site is not really delivering mail,
@@ -1007,27 +924,23 @@ func cmdAPIKey(args []string) error {
 	if fs.NArg() < 1 {
 		return fmt.Errorf("usage: ddcore apikey <user> [--label x] [--days N] [--prefix p]")
 	}
-	e, _, err := load(false, false)
-	if err != nil {
-		return err
-	}
-	defer e.DB.Close()
-	// the key is a document of its user's tenant, and audited like one app
-	// code issues
-	out, err := e.IssueAPIKey(context.Background(), fs.Arg(0), *label, *days, *prefix)
-	if err != nil {
-		return err
-	}
-	fmt.Printf("%s:%s\n", out["key"], out["secret"])
-	if out["expires"] != nil {
-		fmt.Fprintf(os.Stderr, "expires: %v\n", out["expires"])
-	}
-	return nil
+	return withEngine(func(e *engine.Engine, ctx context.Context) error {
+		// the key is a document of its user's tenant, and audited like one app
+		// code issues
+		out, err := e.IssueAPIKey(ctx, fs.Arg(0), *label, *days, *prefix)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("%s:%s\n", out["key"], out["secret"])
+		if out["expires"] != nil {
+			fmt.Fprintf(os.Stderr, "expires: %v\n", out["expires"])
+		}
+		return nil
+	})
 }
 
 func cmdMCP(args []string) error {
-	deferDB = true
-	e, _, err := load(false, true)
+	e, _, err := load(mcpOpts())
 	if err != nil {
 		return err
 	}
@@ -1047,15 +960,6 @@ func cmdMCP(args []string) error {
 	return mcp.ServeStdio(ctx, e)
 }
 
-// logOut is where the log goes. A one-shot command keeps it on stderr, because
-// its stdout is its output — a log line in the middle of an exported NDJSON, a
-// printed key, a doctor report or the MCP JSON-RPC stream is corruption, not a
-// log. The server flips it to stdout, because there the log *is* the output and
-// a platform that captures both streams reads everything on stderr as an
-// error: on stderr an INFO access line arrives painted red and the level
-// policy stops meaning anything.
-var logOut io.Writer = os.Stderr
-
 // logJSON reads the log shape from the environment and not from ddcore.json:
 // it is a property of where the process runs — a terminal wants text, a
 // platform that ships the log to a collector wants objects it can index.
@@ -1064,14 +968,14 @@ var logOut io.Writer = os.Stderr
 // watching and anything else — a pipe, a file, a container's log stream — is a
 // collector that reads the level out of the object instead of guessing it from
 // the stream.
-func logJSON() bool {
+func logJSON(out io.Writer) bool {
 	switch {
 	case strings.EqualFold(os.Getenv("DDCORE_LOG_FORMAT"), "json"):
 		return true
 	case strings.EqualFold(os.Getenv("DDCORE_LOG_FORMAT"), "text"):
 		return false
 	}
-	f, ok := logOut.(*os.File)
+	f, ok := out.(*os.File)
 	if !ok {
 		return true
 	}

@@ -63,7 +63,7 @@ func (s *Server) printParams(r *http.Request) (printParams, error) {
 	}
 	p.page = print.PDFOptions{
 		Format:    pageFormat,
-		Landscape: q.Get("landscape") == "1" || q.Get("landscape") == "true",
+		Landscape: truthy(q.Get("landscape")),
 	}
 	return p, nil
 }
@@ -71,8 +71,7 @@ func (s *Server) printParams(r *http.Request) (printParams, error) {
 // renderPrint runs PrintDoc for the request's document and parameters.
 func (s *Server) renderPrint(r *http.Request, p printParams) (string, error) {
 	var htmlOut string
-	c := s.E.NewCtx(r.Context(), user(r))
-	c.Lang = p.lang
+	c := s.newCtx(r, p.lang)
 	err := c.Run(func(c *engine.Ctx) error {
 		var err error
 		htmlOut, err = c.PrintDoc(urlParam(r, "doctype"), urlParam(r, "id"), p.format, p.letterhead, p.lang, p.page)
@@ -124,7 +123,7 @@ func (s *Server) printDocPDF(w http.ResponseWriter, r *http.Request) {
 	}
 
 	disposition := "inline"
-	if q := r.URL.Query(); q.Get("download") == "1" || q.Get("download") == "true" {
+	if q := r.URL.Query(); truthy(q.Get("download")) {
 		disposition = "attachment"
 	}
 	filename := fmt.Sprintf("%s-%s.pdf", doctype, name)

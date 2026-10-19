@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/jrvidotti/ddcore/internal/config"
 )
 
 // plantJob writes one ddcore_job row with whatever columns the case needs and
@@ -769,5 +771,27 @@ func TestAudit_JobAdmin(t *testing.T) {
 	}
 	if purgeEvents[0]["actor"] != "admin@example.com" {
 		t.Errorf("expected actor admin@example.com, got %v", purgeEvents[0]["actor"])
+	}
+}
+
+func TestJobStatusesDropsBlanks(t *testing.T) {
+	if got := JobStatuses(""); got != nil {
+		t.Errorf("empty = %v, want nil", got)
+	}
+	if got := JobStatuses(" done, ,failed,"); strings.Join(got, "|") != "done|failed" {
+		t.Errorf("got %v", got)
+	}
+}
+
+// The windows come from the site's policy; an administrator's flags override
+// them afterwards, so zero must stay "keep forever" here.
+func TestSitePurgeOptsUsesTheSitePolicy(t *testing.T) {
+	done, failed := 7, 0
+	e := &Engine{Cfg: Config{Ops: config.OpsPolicy{JobRetentionDays: &done, JobRetentionFailedDays: &failed}}}
+	if got, want := e.SitePurgeOpts(true), (PurgeOpts{DoneDays: 7, FailedDays: 0, DryRun: true}); got != want {
+		t.Errorf("got %+v, want %+v", got, want)
+	}
+	if got := (&Engine{}).SitePurgeOpts(false); got != (PurgeOpts{}) {
+		t.Errorf("no policy: %+v", got)
 	}
 }

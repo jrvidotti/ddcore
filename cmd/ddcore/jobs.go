@@ -33,61 +33,38 @@ Arguments and results are printed by ` + "`show`" + ` only, and never by the HTT
 a queued password-reset mail carries its own recovery link in its arguments.`
 
 func cmdJobs(args []string) error {
-	if len(args) < 1 {
-		return fmt.Errorf("%s", jobsUsage)
-	}
-	sub, rest := args[0], args[1:]
-
 	// `scheduled` and `run` and `work` keep their old shape; everything else is
 	// a query or a write against ddcore_job.
-	switch sub {
-	case "list":
-		return jobsList(rest)
-	case "show":
-		return jobsShow(rest)
-	case "stats":
-		return jobsStats(rest)
-	case "retry":
-		return jobsRetry(rest)
-	case "cancel":
-		return jobsCancel(rest)
-	case "purge":
-		return jobsPurge(rest)
-	case "scheduled":
-		return withEngine(func(e *engine.Engine, _ context.Context) error {
-			for _, s := range e.ScheduledMethods() {
-				fmt.Println(s)
+	return dispatch(jobsUsage, []subcommand{
+		{"list", jobsList},
+		{"show", jobsShow},
+		{"stats", jobsStats},
+		{"retry", jobsRetry},
+		{"cancel", jobsCancel},
+		{"purge", jobsPurge},
+		{"scheduled", func([]string) error {
+			return withEngine(func(e *engine.Engine, _ context.Context) error {
+				for _, s := range e.ScheduledMethods() {
+					fmt.Println(s)
+				}
+				return nil
+			})
+		}},
+		{"run", func(args []string) error {
+			if len(args) < 1 {
+				return fmt.Errorf("usage: ddcore jobs run <fn>")
 			}
-			return nil
-		})
-	case "run":
-		if len(rest) < 1 {
-			return fmt.Errorf("usage: ddcore jobs run <fn>")
-		}
-		return withEngine(func(e *engine.Engine, ctx context.Context) error {
-			res, err := e.RunJob(ctx, "Admin", rest[0], nil)
-			if err != nil {
-				return err
-			}
-			fmt.Println(string(res))
-			return nil
-		})
-	case "work":
-		return jobsWork(rest)
-	default:
-		return fmt.Errorf("unknown subcommand: %s\n\n%s", sub, jobsUsage)
-	}
-}
-
-// withEngine opens the engine, runs fn and closes the pool. Every jobs
-// subcommand needs the same three lines and none of them needs the dev server.
-func withEngine(fn func(*engine.Engine, context.Context) error) error {
-	e, _, err := load(false, false)
-	if err != nil {
-		return err
-	}
-	defer e.DB.Close()
-	return fn(e, context.Background())
+			return withEngine(func(e *engine.Engine, ctx context.Context) error {
+				res, err := e.RunJob(ctx, "Admin", args[0], nil)
+				if err != nil {
+					return err
+				}
+				fmt.Println(string(res))
+				return nil
+			})
+		}},
+		{"work", jobsWork},
+	}, args)
 }
 
 // workPools resolves `jobs work`'s flags against the site's pools: the pools
@@ -137,8 +114,7 @@ func jobsWork(args []string) error {
 	if fs.NArg() > 0 {
 		return fmt.Errorf("jobs work: unexpected argument %q", fs.Arg(0))
 	}
-	enforceMaintenance = true
-	e, cfg, err := load(false, false)
+	e, cfg, err := load(loadOpts{EnforceMaintenance: true})
 	if err != nil {
 		return err
 	}
@@ -195,7 +171,7 @@ func (f jobFilterFlags) filter() (engine.JobFilter, error) {
 	out := engine.JobFilter{
 		Queue: *f.queue, Method: *f.method, User: *f.user, Limit: *f.limit,
 	}
-	out.Status = splitList(*f.status)
+	out.Status = engine.JobStatuses(*f.status)
 	if *f.since != "" {
 		t, err := parseSince(*f.since)
 		if err != nil {
@@ -407,11 +383,7 @@ func jobsPurge(args []string) error {
 		// Unset on the command line means "use what the site configured", which
 		// is also what the nightly sweep uses. -1 and not 0 because 0 is a real
 		// answer here: keep forever.
-		o := engine.PurgeOpts{
-			DoneDays:   e.Cfg.Ops.DoneRetentionDays(),
-			FailedDays: e.Cfg.Ops.FailedRetentionDays(),
-			DryRun:     *dry,
-		}
+		o := e.SitePurgeOpts(*dry)
 		if *done >= 0 {
 			o.DoneDays = *done
 		}

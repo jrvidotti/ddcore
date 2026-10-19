@@ -281,13 +281,8 @@ func (s *Server) pendingWork(w http.ResponseWriter, r *http.Request) {
 		if scope == "" {
 			scope = "mine"
 		}
-		limit := 20
+		limit := pageLimit(q, 20, 500)
 		offset := 0
-		if q.Has("limit") {
-			if n, err := strconv.Atoi(q.Get("limit")); err == nil && n > 0 && n <= 500 {
-				limit = n
-			}
-		}
 		if q.Has("offset") {
 			if n, err := strconv.Atoi(q.Get("offset")); err == nil && n >= 0 {
 				offset = n

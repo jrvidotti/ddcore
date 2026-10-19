@@ -62,14 +62,7 @@ func (s *Server) applyWorkflowTransition(w http.ResponseWriter, r *http.Request)
 		if err != nil {
 			return nil, err
 		}
-		if err := s.enrichWorkflow(c, body.Doctype, saved); err != nil {
-			return nil, err
-		}
-		if err := c.LoadComputed(body.Doctype, saved); err != nil {
-			return nil, err
-		}
-		c.ResolveLinkTitles(body.Doctype, saved)
-		return c.RedactDoc(body.Doctype, saved), nil
+		return s.docOut(c, body.Doctype, saved, outWorkflow|outTitles)
 	})
 }
 
@@ -79,9 +72,6 @@ func (s *Server) workflowActions(w http.ResponseWriter, r *http.Request) {
 		name := r.URL.Query().Get("id")
 		if doctype == "" || name == "" {
 			return nil, cerr.Validation("doctype and id are required")
-		}
-		if err := s.requireDocRead(c, doctype, name); err != nil {
-			return nil, err
 		}
 		doc, err := c.GetDoc(doctype, name)
 		if err != nil {

@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/jrvidotti/ddcore/internal/config"
 	"github.com/jrvidotti/ddcore/internal/engine"
+	"github.com/jrvidotti/ddcore/internal/js"
 	"github.com/jrvidotti/ddcore/internal/scaffold"
 )
 
@@ -290,18 +292,70 @@ func TestExportAllTakesNoDoctype(t *testing.T) {
 
 // The service's log is read by whatever captures the process's streams, and a
 // platform that captures both reads stderr as an error: an INFO access line on
-// stderr arrives red, which is what this pins.
+// stderr arrives red, which is what this pins. cmdServe cannot run here (it
+// needs a database and then blocks), so the test asks the engine configuration
+// each command's options produce.
 func TestServeLogsGoToStdoutAndNothingElseDoes(t *testing.T) {
-	t.Cleanup(func() { logOut = os.Stderr })
-	if logOut != io.Writer(os.Stderr) {
-		t.Fatalf("a one-shot command's stdout is its output: log destination = %v, expected stderr", logOut)
+	cfg := &config.File{DSN: "postgres://unused/unused", Path: "ddcore.json"}
+	for name, tc := range map[string]struct {
+		opts loadOpts
+		want io.Writer
+	}{
+		"a one-shot command's stdout is its output": {loadOpts{}, os.Stderr},
+		"the server's log must leave by stdout":     {serveOpts(false), os.Stdout},
+		"so must the dev server's":                  {serveOpts(true), os.Stdout},
+		"mcp keeps stdout for JSON-RPC":             {mcpOpts(), os.Stderr},
+	} {
+		ec, err := engineConfig(cfg, tc.opts)
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if ec.LogOut != tc.want {
+			t.Errorf("%s: log destination = %v, expected %v", name, ec.LogOut, tc.want)
+		}
 	}
-	// cmdServe cannot run here (it needs a database and then blocks), so this
-	// is the line it runs first, kept next to the assertion that it is the
-	// only command that runs it.
-	logOut = os.Stdout
-	if logOut != io.Writer(os.Stdout) {
-		t.Fatal("the server's log must leave by stdout")
+}
+
+// Only the commands that serve traffic or run jobs honour maintenance mode;
+// every other command is the bypass an operator works through.
+func TestOnlyServingCommandsEnforceMaintenance(t *testing.T) {
+	cfg := &config.File{DSN: "postgres://unused/unused", Path: "ddcore.json"}
+	for name, tc := range map[string]struct {
+		opts loadOpts
+		want bool
+	}{
+		"a one-shot command": {loadOpts{}, false},
+		"start":              {serveOpts(false), true},
+		"dev":                {serveOpts(true), true},
+		"mcp":                {mcpOpts(), false},
+	} {
+		ec, err := engineConfig(cfg, tc.opts)
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if ec.EnforceMaintenance != tc.want {
+			t.Errorf("%s: EnforceMaintenance = %v, expected %v", name, ec.EnforceMaintenance, tc.want)
+		}
+	}
+}
+
+// A command that never reads a row builds its engine from the same mapping as
+// every other, minus the database.
+func TestNoDBDropsTheDSNAndNothingElse(t *testing.T) {
+	t.Setenv("DDCORE_TENANT", "acme")
+	cfg := &config.File{Apps: []string{"apps/shop"}, DDCore: ">=0.1.0", Lang: "pt-BR", Path: "ddcore.json"}
+	if _, err := engineConfig(cfg, loadOpts{}); err == nil || !strings.Contains(err.Error(), "dsn not configured") {
+		t.Fatalf("a command that needs the database must refuse a site without one, got %v", err)
+	}
+	ec, err := engineConfig(cfg, loadOpts{NoDB: true, Quiet: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ec.DSN != "" || ec.EnterTenant != "" || ec.LogLevel != slog.LevelWarn {
+		t.Errorf("DSN = %q, EnterTenant = %q, level = %v", ec.DSN, ec.EnterTenant, ec.LogLevel)
+	}
+	if len(ec.Apps) != 1 || ec.Apps[0].Name != js.AppName("apps/shop") || ec.DDCore != cfg.DDCore || ec.Lang != "pt-BR" {
+		t.Errorf("the site's apps and settings must survive: %+v", ec)
 	}
 }
 
@@ -310,7 +364,7 @@ func TestLogFormatFollowsTheEnvironmentThenTheDestination(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { pipe.Close(); logOut = os.Stderr })
+	t.Cleanup(func() { pipe.Close() })
 	for name, tc := range map[string]struct {
 		env  string
 		out  io.Writer
@@ -323,8 +377,7 @@ func TestLogFormatFollowsTheEnvironmentThenTheDestination(t *testing.T) {
 		"a writer that is not a file":  {"", io.Discard, true},
 	} {
 		t.Setenv("DDCORE_LOG_FORMAT", tc.env)
-		logOut = tc.out
-		if got := logJSON(); got != tc.want {
+		if got := logJSON(tc.out); got != tc.want {
 			t.Errorf("%s: logJSON() = %v, expected %v", name, got, tc.want)
 		}
 	}
@@ -646,14 +699,6 @@ func TestDeclaredHelpFlagIsNotTakenOver(t *testing.T) {
 	}
 	if *host != "db" {
 		t.Fatalf("-h = %q", *host)
-	}
-}
-
-func TestEverySubcommandUsageIsSet(t *testing.T) {
-	for cmd, u := range subcommandUsage {
-		if strings.TrimSpace(u) == "" {
-			t.Fatalf("%s has no usage text", cmd)
-		}
 	}
 }
 

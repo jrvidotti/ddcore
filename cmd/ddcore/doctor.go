@@ -186,10 +186,10 @@ func cmdDoctor(args []string) error {
 	} else {
 		rep.print(os.Stdout)
 	}
-	// os.Exit rather than returning an error: main prints "error: …", which
-	// would land on top of the report the reader is here for.
+	// an exitCode rather than an error: main prints "error: …", which would
+	// land on top of the report the reader is here for.
 	if code := rep.exitCode(*strict); code != 0 {
-		os.Exit(code)
+		return exitCode(code)
 	}
 	return nil
 }
@@ -233,7 +233,7 @@ func gatherDoctor(ctx context.Context, cfg *config.File, windowMin int, updateCh
 		window = time.Duration(windowMin) * time.Minute
 	}
 
-	e, _, err := load(false, false)
+	e, err := loadSite(cfg, loadOpts{})
 	if err != nil {
 		rep.Engine = db.RedactError(err)
 		rep.Critical = append(rep.Critical, engineCritical(err))

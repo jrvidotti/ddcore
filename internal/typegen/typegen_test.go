@@ -132,3 +132,35 @@ func TestGeolocationImportsItsTypeOnlyWhenUsed(t *testing.T) {
 		t.Fatalf("the Geolocation is not typed:\n%s", out)
 	}
 }
+
+func TestWriteAllReturnsThePathsItWroteAndStopsAtTheFirstError(t *testing.T) {
+	a, b := t.TempDir(), t.TempDir()
+	got, err := WriteAll([]string{a, b}, meta.NewRegistry())
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{filepath.Join(a, ".ddcore/types.d.ts"), filepath.Join(b, ".ddcore/types.d.ts")}
+	if len(got) != 2 || got[0] != want[0] || got[1] != want[1] {
+		t.Fatalf("written = %v, want %v", got, want)
+	}
+	for _, p := range got {
+		if _, err := os.Stat(p); err != nil {
+			t.Errorf("%s: %v", p, err)
+		}
+	}
+
+	// a directory that cannot hold .ddcore ends the run, the earlier ones stay
+	blocker := filepath.Join(t.TempDir(), "file")
+	os.WriteFile(blocker, nil, 0o644)
+	got, err = WriteAll([]string{a, blocker, b}, meta.NewRegistry())
+	if err == nil {
+		t.Fatal("an app directory that is a file must be an error")
+	}
+	if len(got) != 1 || got[0] != want[0] {
+		t.Errorf("written before the error = %v, want %v", got, want[:1])
+	}
+
+	if got, err := WriteAll(nil, meta.NewRegistry()); err != nil || got != nil {
+		t.Errorf("no apps: got %v, %v", got, err)
+	}
+}

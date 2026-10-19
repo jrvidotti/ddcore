@@ -309,20 +309,33 @@ func (s *Server) runRaw(w http.ResponseWriter, r *http.Request, contentType stri
 	io.WriteString(w, body)
 }
 
+// newCtx is the context of the request's user in lang, with no ctx.request.
+func (s *Server) newCtx(r *http.Request, lang string) *engine.Ctx {
+	c := s.E.NewCtx(r.Context(), user(r))
+	c.Lang = lang
+	return c
+}
+
+// requestCtx is newCtx in the request's language, with ctx.request and the
+// session id: what a handler that runs app code or acts on the session needs.
+func (s *Server) requestCtx(r *http.Request) *engine.Ctx {
+	c := s.newCtx(r, s.langFor(r))
+	c.Request = map[string]any{"method": r.Method, "path": r.URL.Path, "ip": r.RemoteAddr}
+	if ck, err := r.Cookie("sid"); err == nil {
+		c.Sid = ck.Value
+	}
+	return c
+}
+
 // execute runs fn in a transaction as the request's user. extra is merged into
 // ctx.request: it is how a whitelisted method receives the raw body and the
 // headers, which no other caller of run has any use for.
 func (s *Server) execute(r *http.Request, extra map[string]any, fn func(c *engine.Ctx) (any, error)) (any, []engine.Message, error) {
 	var out any
-	c := s.E.NewCtx(r.Context(), user(r))
-	c.Request = map[string]any{"method": r.Method, "path": r.URL.Path, "ip": r.RemoteAddr}
+	c := s.requestCtx(r)
 	for k, v := range extra {
 		c.Request[k] = v
 	}
-	if ck, err := r.Cookie("sid"); err == nil {
-		c.Sid = ck.Value
-	}
-	c.Lang = s.langFor(r)
 	err := c.Run(func(c *engine.Ctx) error {
 		var e error
 		out, e = fn(c)
@@ -351,8 +364,7 @@ func requestHeaders(r *http.Request) map[string]string {
 // navigation, so an unchanged payload answers 304.
 func (s *Server) runCached(w http.ResponseWriter, r *http.Request, fn func(c *engine.Ctx) (any, error)) {
 	var out any
-	c := s.E.NewCtx(r.Context(), user(r))
-	c.Lang = s.langFor(r)
+	c := s.newCtx(r, s.langFor(r))
 	err := c.Run(func(c *engine.Ctx) error {
 		var e error
 		out, e = fn(c)
@@ -417,6 +429,49 @@ func queryJSON(r *http.Request, key string) (any, error) {
 	}
 	return v, nil
 }
+
+// queryFilters reads the filters and or_filters every listing-shaped endpoint
+// takes, in that order, so a malformed one is reported the same way everywhere.
+func queryFilters(r *http.Request) (filters, orFilters any, err error) {
+	if filters, err = queryJSON(r, "filters"); err != nil {
+		return nil, nil, err
+	}
+	if orFilters, err = queryJSON(r, "or_filters"); err != nil {
+		return nil, nil, err
+	}
+	return filters, orFilters, nil
+}
+
+// queryFields reads the `fields` list; left out, it is nil (every column).
+func queryFields(r *http.Request) ([]string, error) {
+	fv, err := queryJSON(r, "fields")
+	if err != nil {
+		return nil, err
+	}
+	var fields []string
+	if list, ok := fv.([]any); ok {
+		for _, f := range list {
+			fields = append(fields, fmt.Sprint(f))
+		}
+	}
+	return fields, nil
+}
+
+// pageLimit reads a page size: def when it is left out, not a number or not
+// within 1..most (a limit of 0 or less is never "everything" here).
+func pageLimit(q url.Values, def, most int) int {
+	if n, err := strconv.Atoi(q.Get("limit")); err == nil && n > 0 && n <= most {
+		return n
+	}
+	return def
+}
+
+// switchedOn reads a flag the way export does: anything but empty or "0" turns
+// it on, so "?children=yes" and "?children=false" both do.
+func switchedOn(v string) bool { return v != "" && v != "0" }
+
+// truthy reads a flag the way print and import do: only "1" or "true" turn it on.
+func truthy(v string) bool { return v == "1" || v == "true" }
 
 // ------------------------------------------------------------------ auth
 
@@ -885,21 +940,13 @@ func (s *Server) translations(w http.ResponseWriter, r *http.Request) {
 func (s *Server) list(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
 		q := r.URL.Query()
-		filters, err := queryJSON(r, "filters")
+		filters, orFilters, err := queryFilters(r)
 		if err != nil {
 			return nil, err
 		}
-		orFilters, err := queryJSON(r, "or_filters")
+		fields, err := queryFields(r)
 		if err != nil {
 			return nil, err
-		}
-		var fields []string
-		if fv, err := queryJSON(r, "fields"); err != nil {
-			return nil, err
-		} else if list, ok := fv.([]any); ok {
-			for _, f := range list {
-				fields = append(fields, fmt.Sprint(f))
-			}
 		}
 		if err := s.referenceGuard(c, urlParam(r, "doctype"), filters); err != nil {
 			return nil, err
@@ -951,11 +998,7 @@ func listLimit(v string) (int, error) {
 
 func (s *Server) count(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
-		filters, err := queryJSON(r, "filters")
-		if err != nil {
-			return nil, err
-		}
-		orFilters, err := queryJSON(r, "or_filters")
+		filters, orFilters, err := queryFilters(r)
 		if err != nil {
 			return nil, err
 		}
@@ -973,14 +1016,7 @@ func (s *Server) get(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, err
 		}
-		if err := s.enrichWorkflow(c, doctype, doc); err != nil {
-			return nil, err
-		}
-		if err := c.LoadComputed(doctype, doc); err != nil {
-			return nil, err
-		}
-		c.ResolveLinkTitles(doctype, doc)
-		return c.RedactDoc(doctype, doc), nil
+		return s.docOut(c, doctype, doc, outWorkflow|outTitles)
 	})
 }
 
@@ -1118,10 +1154,11 @@ func (s *Server) docMethod(w http.ResponseWriter, r *http.Request) {
 		// the method saw the whole document; the client sees what it may read
 		var out engine.Doc
 		if len(res.Doc) > 0 && json.Unmarshal(res.Doc, &out) == nil && out != nil {
-			if err := c.LoadComputed(dt, out); err != nil {
+			shown, err := s.docOut(c, dt, out, 0)
+			if err != nil {
 				return nil, err
 			}
-			return map[string]any{"result": res.Result, "doc": c.RedactDoc(dt, out)}, nil
+			return map[string]any{"result": res.Result, "doc": shown}, nil
 		}
 		return map[string]any{"result": res.Result, "doc": res.Doc}, nil
 	})
@@ -1233,13 +1270,9 @@ func (s *Server) treeChildren(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
 		q := r.URL.Query()
 		limit, _ := strconv.Atoi(q.Get("limit"))
-		var fields []string
-		if fv, err := queryJSON(r, "fields"); err != nil {
+		fields, err := queryFields(r)
+		if err != nil {
 			return nil, err
-		} else if list, ok := fv.([]any); ok {
-			for _, f := range list {
-				fields = append(fields, fmt.Sprint(f))
-			}
 		}
 		return c.TreeChildren(urlParam(r, "doctype"), q.Get("parent"),
 			engine.TreeArgs{Limit: limit, Fields: fields, OrderBy: q.Get("order_by"), Search: q.Get("search")})
@@ -1949,12 +1982,35 @@ func redacted(s *Server, c *engine.Ctx, doctype string) func(engine.Doc, error) 
 		if err != nil {
 			return nil, err
 		}
+		return s.docOut(c, doctype, doc, outWorkflow)
+	}
+}
+
+// docOutParts selects the optional steps of docOut.
+type docOutParts uint8
+
+const (
+	// outWorkflow attaches "_workflow" (state and available actions).
+	outWorkflow docOutParts = 1 << iota
+	// outTitles resolves the titles of the document's links.
+	outTitles
+)
+
+// docOut readies a document for the client: it adds the computed fields, then
+// redacts what the user may not read. parts adds the steps an endpoint offers
+// beyond that. The single-document endpoints all end here, so a new one gets
+// redaction by construction.
+func (s *Server) docOut(c *engine.Ctx, doctype string, doc engine.Doc, parts docOutParts) (any, error) {
+	if parts&outWorkflow != 0 {
 		if err := s.enrichWorkflow(c, doctype, doc); err != nil {
 			return nil, err
 		}
-		if err := c.LoadComputed(doctype, doc); err != nil {
-			return nil, err
-		}
-		return c.RedactDoc(doctype, doc), nil
 	}
+	if err := c.LoadComputed(doctype, doc); err != nil {
+		return nil, err
+	}
+	if parts&outTitles != 0 {
+		c.ResolveLinkTitles(doctype, doc)
+	}
+	return c.RedactDoc(doctype, doc), nil
 }

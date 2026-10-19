@@ -1,6 +1,12 @@
 package engine
 
-import "testing"
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"os"
+	"path/filepath"
+	"testing"
+)
 
 const sampleMap = `{
   "ignoreUnknown": true,
@@ -123,5 +129,28 @@ func TestNilImportMapIsIdentity(t *testing.T) {
 	}
 	if m.Excluded("Task") || m.OnExisting("Task") != OnExistingIdentical {
 		t.Fatal("nil map should answer the defaults")
+	}
+}
+
+func TestImportArgsUseMapFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "map.json")
+	if err := os.WriteFile(path, []byte(sampleMap), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var a ImportArgs
+	if err := a.UseMapFile(path); err != nil {
+		t.Fatal(err)
+	}
+	sum := sha256.Sum256([]byte(sampleMap))
+	if a.Map == nil || a.Map.Doctypes["Nota Fiscal"] == nil || a.MapSHA != hex.EncodeToString(sum[:]) {
+		t.Fatalf("map = %+v sha = %q", a.Map, a.MapSHA)
+	}
+	if err := a.UseMapFile(filepath.Join(t.TempDir(), "absent.json")); err == nil {
+		t.Fatal("a missing mapping file must be an error")
+	}
+	bad := filepath.Join(t.TempDir(), "bad.json")
+	os.WriteFile(bad, []byte(`{"nope":1}`), 0o644)
+	if err := a.UseMapFile(bad); err == nil {
+		t.Fatal("an unreadable mapping must be an error")
 	}
 }

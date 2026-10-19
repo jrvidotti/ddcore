@@ -503,3 +503,26 @@ func TestLoadTitle(t *testing.T) {
 		}
 	}
 }
+
+// The file remembers where it came from, so a command that needs its bytes
+// does not look for it a second time — and a site with no file says where one
+// would be.
+func TestLoadRecordsThePathItRead(t *testing.T) {
+	clearMailEnv(t)
+	dir := t.TempDir()
+	f, path, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := filepath.Join(dir, Name); f.Path != want || path != want {
+		t.Fatalf("no file: Path = %q, returned %q, expected %q", f.Path, path, want)
+	}
+	os.WriteFile(filepath.Join(dir, Name), []byte(`{"apps": []}`), 0o644)
+	f, path, err = Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Path != path || f.Path == "" {
+		t.Fatalf("Path = %q, returned %q", f.Path, path)
+	}
+}

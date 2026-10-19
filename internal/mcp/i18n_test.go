@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/jrvidotti/ddcore/internal/engine"
+	"github.com/jrvidotti/ddcore/internal/i18nx"
 	"github.com/jrvidotti/ddcore/internal/js"
 )
 
@@ -42,7 +43,7 @@ export default defineDoctype({ name: "Produto", label: "Product",
 	return e, filepath.Join(app, "translations", "pt-BR.csv")
 }
 
-func missingKeys(r i18nReport, app string) []string {
+func missingKeys(r i18nx.Report, app string) []string {
 	var out []string
 	for _, t := range r.Targets {
 		if t.App != app {
@@ -145,11 +146,30 @@ func TestI18nOverrideOfACoreKey(t *testing.T) {
 	if len(tr.Orphans) != 0 {
 		t.Errorf("an override is not an orphan: %v", tr.Orphans)
 	}
-	if len(tr.Overrides) != 1 || tr.Overrides[0] != (i18nOverride{Key: "Tenant", App: "core"}) {
+	if len(tr.Overrides) != 1 || tr.Overrides[0] != (i18nx.ReportOverride{Key: "Tenant", App: "core"}) {
 		t.Errorf("overrides = %v, want [{Tenant core}]", tr.Overrides)
 	}
 	b, _ := os.ReadFile(csvPath)
 	if !strings.Contains(string(b), "Tenant,Organização,# overrides core\n") {
 		t.Errorf("prune must keep the override:\n%s", b)
+	}
+}
+
+// generate_types writes into the apps on disk and leaves the embedded core
+// alone.
+func TestWriteTypesSkipsTheEmbeddedCore(t *testing.T) {
+	e, csvPath := i18nEngine(t)
+	s := &server{e: e}
+	got, err := s.writeTypes()
+	if err != nil {
+		t.Fatal(err)
+	}
+	appDir := filepath.Dir(filepath.Dir(csvPath))
+	if want := filepath.Join(appDir, ".ddcore/types.d.ts"); len(got) != 1 || got[0] != want {
+		t.Fatalf("written = %v, want [%s]", got, want)
+	}
+	b, err := os.ReadFile(got[0])
+	if err != nil || !strings.Contains(string(b), "Produto") {
+		t.Errorf("types.d.ts = %q, %v", b, err)
 	}
 }
