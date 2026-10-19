@@ -26,7 +26,7 @@ type JobAction struct {
 //
 // It is one statement and not two on purpose. Reading the status in Go and then
 // branching on it loses the cancellation whenever it races the claim: the
-// "cancel a queued job" update blocks on the row lock runOneJob holds, re-reads
+// "cancel a queued job" update blocks on the row lock claimAndRun holds, re-reads
 // after that transaction commits, finds "running", and changes nothing — while
 // the operator is told the job was already over and the job runs on, unmarked,
 // until its timeout. Deciding inside one statement means the CASE sees the row
@@ -89,7 +89,7 @@ func (e *Engine) CancelJob(ctx context.Context, id int64, user string) (JobActio
 // RetryJob queues the work of a failed job again, as a new job.
 //
 // It copies rather than rewinds. The failed row is the record of what happened
-// — its error, its attempt count, when it ran — and runOneJob mints the Error
+// — its error, its attempt count, when it ran — and claimAndRun mints the Error
 // Log handle as "job:<id>" precisely so that a handle names one execution;
 // re-running the same row would leave two executions behind one handle and
 // overwrite the evidence of the first. The copy also needs no concurrency guard

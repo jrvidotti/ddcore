@@ -11,6 +11,12 @@ import (
 	"time"
 )
 
+// runOneJob claims and runs one job, under a single context that both stops
+// the claim and interrupts the job.
+func (e *Engine) runOneJob(ctx context.Context) (bool, error) {
+	return e.claimAndRun(ctx, ctx, queueFilter{})
+}
+
 // shutdownFiles adds to jobHookFiles a job that waits on an outbound HTTP
 // call, which is where a job that talks to somebody else's server spends its
 // time — and where the interrupt used to be unable to reach it.
