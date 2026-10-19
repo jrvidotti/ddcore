@@ -4,8 +4,6 @@ import { svelte } from "@sveltejs/vite-plugin-svelte";
 
 const alias = {
   $lib: path.resolve(__dirname, "./src/lib"),
-  "@ddcore/sdk": path.resolve(__dirname, "../packages/sdk/src/index.ts"),
-  "@ddcore/desk-sdk": path.resolve(__dirname, "../packages/desk-sdk/src/index.ts"),
 };
 
 export default defineConfig({

@@ -6,12 +6,10 @@
   import LinkControl from "$lib/controls/LinkControl.svelte";
 
   let {
-    open = false,
     canOverrideScope = false,
     onshare,
     onclose,
   }: {
-    open: boolean;
     canOverrideScope: boolean;
     onshare: (args: ShareArgs) => Promise<void>;
     onclose: () => void;
@@ -39,39 +37,37 @@
   }
 </script>
 
-{#if open}
-  <Modal title={__("Share document")} icon="share-2" size="sm" {onclose}>
-    <div class="body">
-      <div class="form-group">
-        <label for="share-user-input" class="label reqd">{__("Share with")}</label>
-        <LinkControl id="share-user-input" field={userField} value={user} onchange={(v) => (user = v || "")} />
-      </div>
-
-      <fieldset class="rights">
-        <legend class="label">{__("Rights")}</legend>
-        <label class="check"><input type="checkbox" checked disabled /> {__("Can Read")}</label>
-        <label class="check"><input type="checkbox" bind:checked={write} /> {__("Can Write")}</label>
-        <label class="check"><input type="checkbox" bind:checked={share} /> {__("Can Share")}</label>
-      </fieldset>
-
-      {#if canOverrideScope}
-        <label class="check override">
-          <input type="checkbox" bind:checked={overrideScope} />
-          <span>
-            {__("Override Security Scope")}
-            <span class="small muted hint">{__("Reach the user even when the document is outside their User Permission scope.")}</span>
-          </span>
-        </label>
-      {/if}
+<Modal title={__("Share document")} icon="share-2" size="sm" {onclose}>
+  <div class="body">
+    <div class="form-group">
+      <label for="share-user-input" class="label reqd">{__("Share with")}</label>
+      <LinkControl id="share-user-input" field={userField} value={user} onchange={(v) => (user = v || "")} />
     </div>
-    <div class="foot">
-      <button class="btn" onclick={onclose}>{__("Cancel")}</button>
-      <button class="btn primary" disabled={!user || saving} onclick={submit}>
-        {saving ? __("Sharing...") : __("Share")}
-      </button>
-    </div>
-  </Modal>
-{/if}
+
+    <fieldset class="rights">
+      <legend class="label">{__("Rights")}</legend>
+      <label class="check"><input type="checkbox" checked disabled /> {__("Can Read")}</label>
+      <label class="check"><input type="checkbox" bind:checked={write} /> {__("Can Write")}</label>
+      <label class="check"><input type="checkbox" bind:checked={share} /> {__("Can Share")}</label>
+    </fieldset>
+
+    {#if canOverrideScope}
+      <label class="check override">
+        <input type="checkbox" bind:checked={overrideScope} />
+        <span>
+          {__("Override Security Scope")}
+          <span class="small muted hint">{__("Reach the user even when the document is outside their User Permission scope.")}</span>
+        </span>
+      </label>
+    {/if}
+  </div>
+  <div class="foot">
+    <button class="btn" onclick={onclose}>{__("Cancel")}</button>
+    <button class="btn primary" disabled={!user || saving} onclick={submit}>
+      {saving ? __("Sharing...") : __("Share")}
+    </button>
+  </div>
+</Modal>
 
 <style>
   .rights {

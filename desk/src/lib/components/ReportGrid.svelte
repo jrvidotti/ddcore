@@ -41,7 +41,6 @@
 
   const num = (c: any) => isNumericFieldtype(c.fieldtype);
   const grid = new GridRowsState({ rows: () => rows, columns: () => columns, presets: () => filters, search: () => search, baseSort: () => baseSort });
-  // the totals and export follow what is shown
 
   // footer with the sum of every numeric column (Percent is an average, not a sum)
   const totals = $derived.by((): Record<string, number> | null => {

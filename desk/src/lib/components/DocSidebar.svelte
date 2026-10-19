@@ -442,7 +442,6 @@
 
 {#if showShareModal}
   <ShareModal
-    open={showShareModal}
     canOverrideScope={shareState.canOverrideScope}
     onshare={handleShare}
     onclose={() => (showShareModal = false)}

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { seg, appPrefix } from "$lib/routes";
+  import { appPrefix } from "$lib/routes";
   // A Report field: a defineReport run for this document (its filters taken
   // from the document through `reportFilters`), shown as a read-only grid.
   import { untrack } from "svelte";
