@@ -3,7 +3,7 @@
   // Form view generated from meta: sections/tabs, controls, grids,
   // toolbar (save/submit/cancel/amend/delete), form-script buttons, sidebar.
   import { createForm, FormController, type Button } from "$lib/form.svelte";
-  import { getMeta, isLayout, selectLabels, selectOptions, type Field, type Meta } from "$lib/meta";
+  import { getMeta, isLayout, type Field, type Meta } from "$lib/meta";
   import { treeParentQuery } from "./views/tree-state";
   import Control from "$lib/controls/Control.svelte";
   import FieldButtons from "$lib/controls/FieldButtons.svelte";
@@ -13,7 +13,7 @@
   import Spinner from "./Spinner.svelte";
   import { __, boot } from "$lib/boot.svelte";
   import { showError, confirm, dialog, prompt, toast, escapeHtml } from "$lib/ui.svelte";
-  import { statusColor, timeAgo } from "$lib/format";
+  import { docStatus, statusColor, timeAgo } from "$lib/format";
   import { onMount } from "svelte";
   import { subscribe } from "$lib/events";
   import { api } from "$lib/api";
@@ -263,23 +263,7 @@
   }
 
   const statusField = $derived(frm?.meta.doctype.fields.find((f) => f.fieldname === "status"));
-  /** The canonical status value — what the colour is keyed on. */
-  const status = $derived.by(() => {
-    if (!frm) return "";
-    if (statusField && frm.doc[statusField.fieldname!]) return frm.doc[statusField.fieldname!];
-    if (frm.isNew) return "New";
-    if (frm.isSubmittable) return frm.docstatus === 2 ? "Cancelled" : frm.docstatus === 1 ? "Submitted" : "Draft";
-    return "";
-  });
-  /** The same status as the reader sees it. */
-  const statusLabel = $derived.by(() => {
-    if (!status) return "";
-    if (statusField && frm?.doc[statusField.fieldname!]) {
-      const i = selectOptions(statusField).indexOf(status);
-      if (i >= 0) return selectLabels(statusField)[i];
-    }
-    return __(status);
-  });
+  const status = $derived(frm ? docStatus(frm.doc, statusField, frm.isSubmittable, frm.isNew) : { value: "", label: "" });
   const title = $derived(
     frm
       ? frm.isSingle ? frm.meta.doctype.label : frm.isNew
@@ -452,8 +436,8 @@
           {/if}
           {#if frm.workflow?.state}
             <span class="indicator workflow-state {statusColor(frm.workflow.state, statusField)}">{__(frm.workflow.state)}</span>
-          {:else if status}
-            <span class="indicator {statusColor(status, statusField)}">{statusLabel}</span>
+          {:else if status.value}
+            <span class="indicator {statusColor(status.value, statusField)}">{status.label}</span>
           {/if}
           {#if frm.isDirty && !frm.isNew}<span class="indicator orange">{__("Not saved")}</span>{/if}
         </h1>

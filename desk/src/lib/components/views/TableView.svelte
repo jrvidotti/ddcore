@@ -5,14 +5,14 @@
   import type { ListViewOptions } from "$lib/desk-sdk";
   import type { Field, Meta } from "$lib/meta";
   import { isNumericFieldtype } from "$lib/meta";
-  import { isIndicatorSelect, statusColor, timeAgo } from "$lib/format";
+  import { docStatus, isIndicatorSelect, statusColor, timeAgo } from "$lib/format";
   import Icon from "../Icon.svelte";
   import SelectIndicator from "../SelectIndicator.svelte";
   import { getLinkTitle } from "$lib/titles.svelte";
 
   let {
     rows, meta, doctype, wsPrefix, columns, showID, showModified, selected, orderBy, loading = false,
-    settings = {}, onSort, onToggle, onSelectAll, cellText, statusOf, statusLabelOf,
+    settings = {}, onSort, onToggle, onSelectAll, cellText,
   }: {
     rows: any[]; meta: Meta; doctype: string; wsPrefix: string; columns: Field[];
     /** The leading id column and the trailing Modified one, as the app and the user's Columns choice resolve them. */
@@ -20,10 +20,10 @@
     selected: Set<string>; orderBy: string; loading?: boolean; settings?: ListViewOptions;
     onSort: (field: Field) => void; onToggle: (id: string) => void;
     onSelectAll: (checked: boolean) => void; cellText: (row: any, field: Field) => string;
-    statusOf: (row: any) => string; statusLabelOf: (row: any) => string;
   } = $props();
 
   const statusField = $derived(meta.doctype.fields.find((f) => f.fieldname === "status"));
+  const status = (row: any) => docStatus(row, statusField, !!meta.doctype.submittable);
   const showIndicatorColumn = $derived(!!settings.indicator ||
     (!columns.some((c) => c.fieldname === statusField?.fieldname) && (!!statusField || !!meta.doctype.submittable)));
   const num = (f: Field) => isNumericFieldtype(f.fieldtype);
@@ -80,9 +80,10 @@
             {#if settings.indicator}
               {@const ind = settings.indicator(r)}
               {#if ind}<span class="indicator {ind.color}">{ind.label}</span>{/if}
-            {:else if statusOf(r)}
-              {@const icon = statusField?.optionIcons?.[statusOf(r)]}
-              <span class="indicator {statusColor(statusOf(r), statusField)}" class:has-icon={!!icon}>{#if icon}<Icon name={icon} size={12} />{/if}{statusLabelOf(r)}</span>
+            {:else if status(r).value}
+              {@const st = status(r)}
+              {@const icon = statusField?.optionIcons?.[st.value]}
+              <span class="indicator {statusColor(st.value, statusField)}" class:has-icon={!!icon}>{#if icon}<Icon name={icon} size={12} />{/if}{st.label}</span>
             {/if}
             {@render badges(r)}
           </span></td>

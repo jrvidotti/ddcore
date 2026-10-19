@@ -2,7 +2,7 @@ import { __ } from "../boot.svelte";
 // Version history processing and diff utilities for ddcore desk forms.
 import type { FormController } from "../form.svelte";
 import type { DocTypeMeta, Field } from "../meta";
-import { formatDate, formatDatetime, formatCurrency, formatNumber, formatValue, timeAgo } from "../format.ts";
+import { formatDate, formatDatetime, formatCurrency, formatNumber, formatValue, timeAgo, docstatusName } from "../format.ts";
 import { htmlToText } from "../richtext.ts";
 import { formatGeo } from "../geo.ts";
 import { multiSelectLinkField, multiSelectValues } from "../controls/multiselect-state.ts";
@@ -144,9 +144,7 @@ export function formatDiffValue(val: any, field?: Partial<Field>, fieldname?: st
   }
 
   if (fieldname === "docstatus" || field?.fieldname === "docstatus") {
-    const s = Number(val);
-    const label = s === 1 ? __("Submitted") : s === 2 ? __("Cancelled") : __("Draft");
-    return { value: val, formatted: label, isAttach: false };
+    return { value: val, formatted: __(docstatusName(val)), isAttach: false };
   }
 
   if (field?.fieldtype === "Check" || typeof val === "boolean") {
