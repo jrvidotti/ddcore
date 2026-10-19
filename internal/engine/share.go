@@ -209,21 +209,14 @@ func (c *Ctx) sharesChanged(users ...string) error {
 	if len(keys) == 0 {
 		return nil
 	}
-	c.AfterCommit(func() {
-		cacheInvalidation{Keys: keys, Prefixes: prefixes}.apply(c.E.Cache)
-	})
-	return c.broadcastInvalidation(keys, prefixes)
+	return c.invalidate(keys, prefixes)
 }
 
 // allSharesChanged is sharesChanged for a rename or a deletion, which moves or
 // removes the shares of whoever held one.
 func (c *Ctx) allSharesChanged() error {
 	c.sharesLoaded, c.sharesDirty = false, true
-	prefixes := []string{"shares:", "evperm:"}
-	c.AfterCommit(func() {
-		cacheInvalidation{Prefixes: prefixes}.apply(c.E.Cache)
-	})
-	return c.broadcastInvalidation(nil, prefixes)
+	return c.invalidate(nil, []string{"shares:", "evperm:"})
 }
 
 // CanOverrideScope reports whether the current user may give a share that

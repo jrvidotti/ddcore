@@ -164,9 +164,7 @@ func (c *Ctx) auditImportedPrivileges(d *meta.DocType, doc Doc) error {
 				}
 			}
 		}
-		keys := []string{"roles:" + doc.ID(), "utype:" + doc.ID()}
-		c.AfterCommit(func() { cacheInvalidation{Keys: keys}.apply(c.E.Cache) })
-		return c.broadcastInvalidation(keys, nil)
+		return c.invalidate([]string{"roles:" + doc.ID(), "utype:" + doc.ID()}, nil)
 	case "User Permission":
 		if err := c.auditUserPermissionGrant(doc); err != nil {
 			return err
