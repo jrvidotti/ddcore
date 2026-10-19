@@ -877,131 +877,22 @@ func Plan(ctx context.Context, q Querier, reg *meta.Registry, prune bool) ([]Sta
 				}
 			}
 			if prune {
-				var extra []string
-				for c := range cols {
-					if !wanted[c] {
-						extra = append(extra, c)
-					}
+				dr, rf, err := pruneOrphans(ctx, q, t, d.Name, cols, wanted, true)
+				if err != nil {
+					return nil, err
 				}
-				sort.Strings(extra)
-				for _, c := range extra {
-					full, err := hasData(ctx, q, t, c)
-					if err != nil {
-						return nil, err
-					}
-					if full {
-						refusals = append(refusals, Refusal{Table: t, Column: c,
-							Reason: "dropping a column that still holds data",
-							Remedy: "if the field was renamed, declare renamedFrom on the new field; if the data really is to be discarded, drop the column yourself in a patch"})
-						continue
-					}
-					drops = append(drops, Statement{
-						SQL:  fmt.Sprintf("ALTER TABLE %s DROP COLUMN %s;", Ident(t), Ident(c)),
-						Kind: KindDropColumn, Doctype: d.Name, Table: t, Column: c, Destructive: true,
-					})
-				}
+				drops, refusals = append(drops, dr...), append(refusals, rf...)
 			}
 		}
 		alter = append(alter, planTenancy(cat, d, has)...)
-		idx := wantedIndexes(d)
-		keys := make([]string, 0, len(idx))
-		for k := range idx {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
-		for _, k := range keys {
-			row, exists := cat.idx[k]
-			if !exists {
-				indexes = append(indexes, Statement{SQL: idx[k].ddl(), Kind: KindCreateIndex, Doctype: d.Name, Table: t})
-				continue
-			}
-			want := idx[k]
-			// An index that was only renamed still reports its old column, so
-			// compare it against its own old definition rather than rebuilding
-			// it — which on a large table is the expensive way to change nothing.
-			if old, renamed := renamedIdx[k]; renamed {
-				if f := d.Field(strings.TrimPrefix(k, t+"_")); f != nil {
-					if oldIdx, ok := fieldIndex(f, old); ok {
-						want = tenantIndex(d, oldIdx)
-					}
-				}
-			}
-			// A compound key's index belongs to no single field, so renamedIdx
-			// cannot speak for it. Render it against the column names the
-			// catalog still holds — the ones Postgres carried the index across
-			// the RENAME COLUMN from — so a renamed component does not cost a
-			// rebuild, and with nothing renamed this is the identity.
-			if suffix := strings.TrimPrefix(k, t+"_"); strings.HasPrefix(suffix, "uk_") {
-				if uk := d.UniqueKey(strings.TrimPrefix(suffix, "uk_")); uk != nil {
-					if old, ok := uniqueKeyIndex(d, *uk, func(fn string) string {
-						if was, renamed := renamedCols[t][fn]; renamed {
-							return was
-						}
-						return fn
-					}); ok {
-						want = tenantIndex(d, old)
-					}
-				}
-			}
-			// Same name does not imply same definition: searchIndex ↔ unique
-			// changes the nature of the index without changing its name (B14).
-			if !sameIndex(row.def, want) {
-				indexes = append(indexes,
-					Statement{SQL: fmt.Sprintf("DROP INDEX %s;", Ident(k)), Kind: KindDropIndex, Doctype: d.Name, Table: t},
-					Statement{SQL: idx[k].ddl(), Kind: KindCreateIndex, Doctype: d.Name, Table: t})
-			}
-		}
-		// A key the meta no longer declares leaves an index the loop above
-		// never names — it walks the wanted names only — and prune covers
-		// columns and tables, not indexes. Left alone it would go on enforcing
-		// a constraint nothing declares. The `uk_` infix is this feature's own
-		// namespace and idxRow carries the owning table, so "tab_pedido_" can
-		// never reach into "tab_pedido_item_". Dropping an index loses no row,
-		// so this needs neither prune nor a destructive flag.
-		var stale []string
-		for name, row := range cat.idx {
-			if _, wanted := idx[name]; wanted || row.table != t {
-				continue
-			}
-			// identRe as well as the prefix: Ident panics on anything else,
-			// and migrate refusing to run is a worse answer than leaving a
-			// hand-made index alone.
-			if strings.HasPrefix(name, t+"_uk_") && identRe.MatchString(name) {
-				stale = append(stale, name)
-			}
-		}
-		sort.Strings(stale)
-		for _, name := range stale {
-			indexes = append(indexes, Statement{
-				SQL:  fmt.Sprintf("DROP INDEX %s;", Ident(name)),
-				Kind: KindDropIndex, Doctype: d.Name, Table: t,
-			})
-		}
+		indexes = append(indexes, planIndexes(cat, d, renamedIdx, renamedCols)...)
 	}
 	if prune {
-		var extra []string
-		for t := range cat.cols {
-			if !wantedTables[t] {
-				extra = append(extra, t)
-			}
+		dr, rf, err := pruneOrphans(ctx, q, "", "", cat.cols, wantedTables, false)
+		if err != nil {
+			return nil, err
 		}
-		sort.Strings(extra)
-		for _, t := range extra {
-			full, err := hasData(ctx, q, t, "")
-			if err != nil {
-				return nil, err
-			}
-			if full {
-				refusals = append(refusals, Refusal{Table: t,
-					Reason: "dropping a table that still holds rows",
-					Remedy: "if the DocType was renamed, declare renamedFrom on it; if the rows really are to be discarded, drop the table yourself in a patch"})
-				continue
-			}
-			drops = append(drops, Statement{
-				SQL:  fmt.Sprintf("DROP TABLE %s;", Ident(t)),
-				Kind: KindDropTable, Table: t, Destructive: true,
-			})
-		}
+		drops, refusals = append(drops, dr...), append(refusals, rf...)
 	}
 	if len(refusals) > 0 {
 		return nil, &RefusedError{Refusals: refusals}
@@ -1011,6 +902,132 @@ func Plan(ctx context.Context, q Querier, reg *meta.Registry, prune bool) ([]Sta
 		plan = append(plan, group...)
 	}
 	return plan, nil
+}
+
+// pruneOrphans plans the drop of every name in have that is not wanted: the
+// columns of table when columns is set, otherwise the tables themselves. One
+// that still holds data is refused instead.
+func pruneOrphans[V any](ctx context.Context, q Querier, table, doctype string, have map[string]V, wanted map[string]bool, columns bool) (drops []Statement, refusals []Refusal, err error) {
+	var extra []string
+	for n := range have {
+		if !wanted[n] {
+			extra = append(extra, n)
+		}
+	}
+	sort.Strings(extra)
+	for _, n := range extra {
+		t, c := table, n
+		if !columns {
+			t, c = n, ""
+		}
+		full, err := hasData(ctx, q, t, c)
+		if err != nil {
+			return nil, nil, err
+		}
+		switch {
+		case full && columns:
+			refusals = append(refusals, Refusal{Table: t, Column: c,
+				Reason: "dropping a column that still holds data",
+				Remedy: "if the field was renamed, declare renamedFrom on the new field; if the data really is to be discarded, drop the column yourself in a patch"})
+		case full:
+			refusals = append(refusals, Refusal{Table: t,
+				Reason: "dropping a table that still holds rows",
+				Remedy: "if the DocType was renamed, declare renamedFrom on it; if the rows really are to be discarded, drop the table yourself in a patch"})
+		case columns:
+			drops = append(drops, Statement{
+				SQL:  fmt.Sprintf("ALTER TABLE %s DROP COLUMN %s;", Ident(t), Ident(c)),
+				Kind: KindDropColumn, Doctype: doctype, Table: t, Column: c, Destructive: true,
+			})
+		default:
+			drops = append(drops, Statement{
+				SQL:  fmt.Sprintf("DROP TABLE %s;", Ident(t)),
+				Kind: KindDropTable, Table: t, Destructive: true,
+			})
+		}
+	}
+	return drops, refusals, nil
+}
+
+// planIndexes plans the index changes of one DocType's table: the missing and
+// the redefined indexes, and the unique-key indexes the meta no longer declares.
+func planIndexes(cat *catalog, d *meta.DocType, renamedIdx map[string]string, renamedCols map[string]map[string]string) []Statement {
+	t := d.TableName()
+	idx := wantedIndexes(d)
+	var indexes []Statement
+	keys := make([]string, 0, len(idx))
+	for k := range idx {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		row, exists := cat.idx[k]
+		if !exists {
+			indexes = append(indexes, Statement{SQL: idx[k].ddl(), Kind: KindCreateIndex, Doctype: d.Name, Table: t})
+			continue
+		}
+		want := idx[k]
+		// An index that was only renamed still reports its old column, so
+		// compare it against its own old definition rather than rebuilding
+		// it — which on a large table is the expensive way to change nothing.
+		if old, renamed := renamedIdx[k]; renamed {
+			if f := d.Field(strings.TrimPrefix(k, t+"_")); f != nil {
+				if oldIdx, ok := fieldIndex(f, old); ok {
+					want = tenantIndex(d, oldIdx)
+				}
+			}
+		}
+		// A compound key's index belongs to no single field, so renamedIdx
+		// cannot speak for it. Render it against the column names the
+		// catalog still holds — the ones Postgres carried the index across
+		// the RENAME COLUMN from — so a renamed component does not cost a
+		// rebuild, and with nothing renamed this is the identity.
+		if suffix := strings.TrimPrefix(k, t+"_"); strings.HasPrefix(suffix, "uk_") {
+			if uk := d.UniqueKey(strings.TrimPrefix(suffix, "uk_")); uk != nil {
+				if old, ok := uniqueKeyIndex(d, *uk, func(fn string) string {
+					if was, renamed := renamedCols[t][fn]; renamed {
+						return was
+					}
+					return fn
+				}); ok {
+					want = tenantIndex(d, old)
+				}
+			}
+		}
+		// Same name does not imply same definition: searchIndex ↔ unique
+		// changes the nature of the index without changing its name (B14).
+		if !sameIndex(row.def, want) {
+			indexes = append(indexes,
+				Statement{SQL: fmt.Sprintf("DROP INDEX %s;", Ident(k)), Kind: KindDropIndex, Doctype: d.Name, Table: t},
+				Statement{SQL: idx[k].ddl(), Kind: KindCreateIndex, Doctype: d.Name, Table: t})
+		}
+	}
+	// A key the meta no longer declares leaves an index the loop above
+	// never names — it walks the wanted names only — and prune covers
+	// columns and tables, not indexes. Left alone it would go on enforcing
+	// a constraint nothing declares. The `uk_` infix is this feature's own
+	// namespace and idxRow carries the owning table, so "tab_pedido_" can
+	// never reach into "tab_pedido_item_". Dropping an index loses no row,
+	// so this needs neither prune nor a destructive flag.
+	var stale []string
+	for name, row := range cat.idx {
+		if _, wanted := idx[name]; wanted || row.table != t {
+			continue
+		}
+		// identRe as well as the prefix: Ident panics on anything else,
+		// and migrate refusing to run is a worse answer than leaving a
+		// hand-made index alone.
+		if strings.HasPrefix(name, t+"_uk_") && identRe.MatchString(name) {
+			stale = append(stale, name)
+		}
+	}
+	sort.Strings(stale)
+	for _, name := range stale {
+		indexes = append(indexes, Statement{
+			SQL:  fmt.Sprintf("DROP INDEX %s;", Ident(name)),
+			Kind: KindDropIndex, Doctype: d.Name, Table: t,
+		})
+	}
+	return indexes
 }
 
 // Apply runs the given statements, recording each one in ddcore_migration.
