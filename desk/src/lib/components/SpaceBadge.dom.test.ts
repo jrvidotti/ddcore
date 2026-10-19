@@ -34,14 +34,14 @@ describe("SpaceBadge", () => {
     expect(target.querySelector(".tenant-menu")?.textContent).toContain("Demo");
     done();
   });
-  it("closes the tenant menu on a mousedown outside it and on Escape", () => {
+  it("closes the tenant menu on a pointer press outside it and on Escape", () => {
     const { target, done } = render({ id: "", title: "", platform: true, tenants });
     const open = () => { target.querySelector<HTMLButtonElement>("button.space")!.click(); flushSync(); };
     open();
-    target.querySelector(".tenant-menu")!.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    target.querySelector(".tenant-menu")!.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
     flushSync();
     expect(target.querySelector(".tenant-menu")).not.toBeNull();
-    document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
     flushSync();
     expect(target.querySelector(".tenant-menu")).toBeNull();
     open();

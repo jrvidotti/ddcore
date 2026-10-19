@@ -15,11 +15,11 @@ function setup(onclose: ((e: Event) => void) | null) {
   return { node, inside, outside, action };
 }
 
-const press = (el: Element) => el.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+const press = (el: Element) => el.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
 const escape = (el: Element) => el.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
 
 describe("dismiss", () => {
-  it("closes on a mousedown outside the node, not on one inside it", () => {
+  it("closes on a pointer press outside the node, not on one inside it", () => {
     const onclose = vi.fn();
     const t = setup(onclose);
     press(t.inside);
@@ -58,6 +58,19 @@ describe("dismiss", () => {
     press(t.outside);
     escape(t.inside);
     expect(seen).toHaveBeenCalledTimes(1);
+  });
+
+  it("listens only while there is a handler", () => {
+    const add = vi.spyOn(window, "addEventListener");
+    const remove = vi.spyOn(window, "removeEventListener");
+    const t = setup(null);
+    expect(add).not.toHaveBeenCalled();
+    t.action.update(vi.fn());
+    expect(add).toHaveBeenCalledTimes(2);
+    t.action.update(null);
+    expect(remove).toHaveBeenCalledTimes(2);
+    add.mockRestore();
+    remove.mockRestore();
   });
 
   it("follows a new handler, and stops listening once destroyed", () => {

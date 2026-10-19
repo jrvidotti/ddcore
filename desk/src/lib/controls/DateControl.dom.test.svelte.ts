@@ -206,13 +206,13 @@ describe("DateControl", () => {
     t.done();
   });
 
-  it("closes on a mousedown outside, not on one inside the picker", () => {
+  it("closes on a pointer press outside, not on one inside the picker", () => {
     const t = setup(null);
     t.click(t.calBtn());
-    t.popover()!.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    t.popover()!.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
     flushSync();
     expect(t.popover()).not.toBeNull();
-    document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
     flushSync();
     expect(t.popover()).toBeNull();
     t.done();

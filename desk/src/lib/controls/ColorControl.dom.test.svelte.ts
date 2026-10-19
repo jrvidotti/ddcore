@@ -39,16 +39,16 @@ describe("ColorControl", () => {
     t.done();
   });
 
-  it("closes on a mousedown outside and on Escape, which stops there and returns the focus", () => {
+  it("closes on a pointer press outside and on Escape, which stops there and returns the focus", () => {
     const t = setup(null);
     const seen = vi.fn();
     window.addEventListener("keydown", seen);
     t.click(t.trigger);
-    document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
     flushSync();
     expect(t.popover()).toBe(null);
     t.click(t.trigger);
-    t.popover()!.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    t.popover()!.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
     flushSync();
     expect(t.popover()).not.toBe(null);
     t.button("#2563eb").dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
