@@ -16,7 +16,7 @@ older series, and `whats_new` reads across every one of them.
 
 ### Fixed
 
-- **Assignment timeline comments appear in the user's language.** "assigned this document to", "completed assignment", "revoked assignment for" and "reopened assignment" were written in English whatever the language; they are translated keys now (pt-BR included).
+- **Assignment timeline comments are translated.** "assigned this document to", "completed assignment", "revoked assignment for" and "reopened assignment" were always written in English; they are now written in the language of the user who makes the change (pt-BR included).
 - **Moving a node of a tree DocType reaches the other processes.** The read cache of the subtree was dropped only in the process that saved the move; replicas and workers kept answering from it until it expired.
 - **The `scaffold_doctype` MCP description lists the `Report` fieldtype.** It named every other fieldtype but that one; a test now keeps the description and the `Fieldtype` union in the SDK in step with the fieldtypes the framework accepts.
 - **`ddcore.redact` refuses an unknown doctype instead of returning the document unredacted.** The same holds for the MCP `list_docs` and `call_method` tools, notifications, webhooks and the portal: a doctype that cannot be looked up is now an error, not a pass-through.
@@ -24,7 +24,8 @@ older series, and `whats_new` reads across every one of them.
 - **Escape in an open options list inside a dialog closes only the list.** A Link field's list or a Table MultiSelect's list, opened in a dialog such as Assign or New Task, used to take the whole dialog with it on Escape.
 - **The due date of an assignment and of a new To-Do task follows the site's date format.** Both forms used the browser's native date input, in the browser's locale; they now use the desk's date control like every other date field. The New Task form also lists the assignee first, like the Assign form.
 - **The `generate_types` MCP tool reports a failed write.** It dropped the error and listed only the files it had written; it now fails with the error, and `migrate` adds a `typesError` field when the typings could not be written (the migration itself is unaffected). Writing stops at the first app it cannot write, so the apps after it (in `migrate` as well) are not written either.
-- **A mail delivery whose outcome could not be recorded is logged, and its error column is empty (NULL) on success.** The failed `UPDATE` was dropped without a trace, and a successful delivery stored an empty string; the error is also cut at 1000 characters, as a webhook delivery's was, and `sent_at` is stamped by the database.
+- **A mail delivery whose outcome could not be recorded is logged, and its error column is empty (NULL) on success.** The failed `UPDATE` was dropped without a trace, and a successful delivery stored an empty string; mail and webhook errors are now both cut at 1000 characters (a webhook's was cut at 1000 bytes, which could split a character and lose the outcome), a failed status update of a mail is no longer dropped silently, and `sent_at` is stamped by the database.
+- **A database failure in the tenancy check surfaces as an error.** `tenant.enter`, `InTenant` and `EnterTenant` treated it as "tenancy is off"; they now return the error.
 
 ### Changed
 

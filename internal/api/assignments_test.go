@@ -519,3 +519,28 @@ func TestAssignments_Reopen(t *testing.T) {
 		t.Fatalf("reopened task missing from pending: %v", got)
 	}
 }
+
+// The timeline comment is written in the language of the user who assigns.
+func TestAssignments_TimelineCommentInActingUserLanguage(t *testing.T) {
+	x := setup(t)
+	ana := "sid:" + x.sid("ana@x.com")
+	x.asAdmin(func(c *engine.Ctx) error {
+		_, err := c.Q().Exec(c.Ctx, `UPDATE tab_user SET language='pt-BR' WHERE id='ana@x.com'`)
+		return err
+	})
+	x.expect(x.call("POST", "/api/resource/Pessoa", map[string]any{"nome": "Lang Timeline"}, ana), 200, "")
+	x.expect(x.call("POST", "/api/assignments/assign", map[string]any{
+		"doctype": "Pessoa", "id": "Lang Timeline", "allocated_to": "bia@x.com",
+	}, ana), 200, "")
+
+	r := x.call("GET", "/api/comments/Pessoa/Lang Timeline", nil, ana)
+	x.expect(r, 200, "")
+	comments := r.Body["data"].([]any)
+	if len(comments) != 1 {
+		t.Fatalf("expected one timeline comment, got %v", comments)
+	}
+	got := comments[0].(map[string]any)["content"]
+	if want := "<p>ana@x.com atribuiu este documento a bia@x.com</p>"; got != want {
+		t.Fatalf("comment = %v, want %q", got, want)
+	}
+}

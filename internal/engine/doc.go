@@ -619,7 +619,7 @@ func refuseTool(d *meta.DocType) error {
 	return nil
 }
 
-// writeGuard is the start of every write: maintenance, virtual, tool.
+// writeGuard is the start of Insert, Save and DBSet: maintenance, virtual, tool.
 func (c *Ctx) writeGuard(d *meta.DocType) error {
 	if err := c.checkWritable(d.Name); err != nil {
 		return err

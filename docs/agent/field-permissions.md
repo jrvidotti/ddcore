@@ -143,7 +143,7 @@ export const employeeCard = whitelisted((args: { id: string }) => {
 ```
 
 `ddcore.redact(doctype, doc)` returns a copy. The caller's document is untouched. It applies
-Password/Vault redaction and the current user's field levels, child rows included.
+Password/Vault redaction and the current user's field levels, child rows included. An unknown doctype throws (NotFound).
 `doc.dbSet` and `ddcore.db.setValue` write columns directly and check nothing.
 
 ## Desk
