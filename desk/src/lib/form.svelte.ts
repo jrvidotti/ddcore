@@ -2,6 +2,7 @@ import { seg, appPrefix } from "./routes";
 // FormController — the `frm` object form scripts receive. Holds the doc as
 // reactive state, tracks dirtiness and exposes the API described in
 // @ddcore/desk-sdk (setValue, addButton, call, setQuery...).
+import type { FieldButton, GridAction } from "@ddcore/desk-sdk";
 import { api } from "./api";
 import { subscribe } from "./events";
 import { getMeta, newDoc, type Meta, type Field, isLayout } from "./meta";
@@ -80,38 +81,7 @@ export const snake = (s: string) =>
 
 export interface Button { label: string; group?: string; action: () => any; primary?: boolean }
 
-/**
- * A button rendered with a field: beside the input, in the toolbar of a Table
- * or Report field's grid, or under an HTML field's content. The desk owns
- * the markup, so the label is escaped and the field's own `hidden`/`dependsOn`
- * decide whether the button shows at all.
- */
-export interface FieldButton {
-  /** visible text, or the accessible name and tooltip when `icon` is set */
-  label: string;
-  /** an Icon name: renders the button icon-only, with `label` as its tooltip */
-  icon?: string;
-  /** a returned promise keeps the button disabled, with a spinner, until it settles; its error is shown */
-  onClick: () => any;
-  /** identity within the field; a second call with the same key replaces the button */
-  key?: string;
-}
-
-/**
- * An action on the rows ticked in a Table's or a Report field's grid (see
- * frm.addGridAction): a button in the grid's toolbar reading `label (n)`.
- */
-export interface GridAction<R = any> {
-  /** visible text; the desk appends the count of selected rows it applies to */
-  label: string;
-  /** gets the selected rows on screen that pass `condition`, in screen order; the selection is cleared once it settles */
-  onClick: (rows: R[]) => any;
-  /** which selected rows the action applies to; one that throws counts as false */
-  condition?: (row: R) => boolean;
-  primary?: boolean;
-  /** identity within the field (the label when missing); a second call with the same key replaces the action */
-  key?: string;
-}
+export type { FieldButton, GridAction };
 
 /** What a grid on screen lends the form: its selected rows and a way to clear them. */
 export interface GridSelection {

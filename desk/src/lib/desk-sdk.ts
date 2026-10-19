@@ -1,6 +1,11 @@
 // The runtime that app client bundles import as "@ddcore/desk-sdk" (resolved
-// by the Go bundler to window.__ddcoreDesk). Keep it in sync with
-// packages/desk-sdk/src/index.ts, which holds the public types.
+// by the Go bundler to window.__ddcoreDesk). The public types come from
+// packages/desk-sdk/src/index.ts.
+import type {
+  CalendarNewOption, CalendarViewOptions, CardViewOptions, DeskViewMode, GanttViewOptions, KanbanViewOptions,
+  ListAction, ListActionContext, ListSummaryCard, ListToolbarAction, ListToolbarContext, ListViewOptions, ProfileSection,
+  TreeViewOptions,
+} from "@ddcore/desk-sdk";
 import { seg } from "./routes";
 import { api } from "./api";
 import { subscribe, unsubscribe } from "./events";
@@ -8,7 +13,7 @@ import { registerForm, type FormHandlers, FormController } from "./form.svelte";
 import { dialog, toast, confirm, prompt, showError, ui } from "./ui.svelte";
 import { __, boot, hasRole } from "./boot.svelte";
 import { formatCurrency, formatDate, formatNumber, formatValue, roundCurrency, statusColor } from "./format";
-import { getMeta, type Field } from "./meta";
+import { getMeta } from "./meta";
 import { addDays, addMonths, dateDiff, monthDiff, monthEnd, monthStart, today } from "./datetime";
 import { getRememberedWorkspace } from "./components/sidebar-workspace";
 import { refreshPendingCount } from "./assignments.svelte";
@@ -20,160 +25,11 @@ function withPendingCount<T>(result: T): T {
   return result;
 }
 
-export type BaseDoc = Record<string, any>;
-export type DeskViewMode = "list" | "calendar" | "cards" | "kanban" | "gantt" | "tree";
-
-export interface CalendarNewOption {
-  /** DocType the day's **+** creates a record in */
-  doctype: string;
-  /** Its Date or Datetime field set to the day */
-  field: string;
-  /** Optional: a second field set to the same day (a Datetime one to its last minute), e.g. an end date */
-  endField?: string;
-  /** Menu entry, shown as given — wrap it in `__()` (defaults to the DocType's label) */
-  label?: string;
-}
-
-export interface CalendarViewOptions<T extends BaseDoc = BaseDoc> {
-  /** Required: Date or Datetime field to plot records on the calendar */
-  field: keyof T & string;
-  /** Optional: Datetime or Date field for range spans */
-  endField?: keyof T & string;
-  /** Field shown as label inside the calendar chip (defaults to titleField or id) */
-  titleField?: keyof T & string;
-  /** Field determining chip color (e.g. "status", uses optionColors automatically) */
-  colorField?: keyof T & string;
-  /**
-   * What the **+** in a day's corner creates, in place of a record of this DocType with `field`
-   * set to the day. One option links straight to it; several open a menu. An option shows only
-   * when the user may create its DocType, and the **+** hides when none remains.
-   */
-  newOptions?: CalendarNewOption[];
-}
-
-export interface CardViewOptions<T extends BaseDoc = BaseDoc> {
-  title?: keyof T & string;
-  subtitle?: keyof T & string;
-  dateField?: keyof T & string;
-  image?: keyof T & string;
-  indicator?: (row: T) => { label: string; color: string } | null | undefined;
-  badges?: (row: T) => { label: string; color: string }[] | null | undefined;
-}
-
-export interface KanbanViewOptions<T extends BaseDoc = BaseDoc> {
-  /** Required: the Select field whose values are the columns; dragging a card writes it. */
-  field: keyof T & string;
-  /** Columns in order; defaults to the field's options. */
-  columns?: string[];
-  /** Field shown as the card title (defaults to titleField or id) */
-  titleField?: keyof T & string;
-  /** Field shown under the title */
-  subtitleField?: keyof T & string;
-  /** Field determining the card's indicator color (defaults to the column field) */
-  colorField?: keyof T & string;
-}
-
-export interface GanttViewOptions<T extends BaseDoc = BaseDoc> {
-  /** Required: Date or Datetime field where a bar starts */
-  startField: keyof T & string;
-  /** Required: Date or Datetime field where a bar ends; rows without one are not drawn */
-  endField: keyof T & string;
-  /** Field shown as the row label (defaults to titleField or id) */
-  titleField?: keyof T & string;
-  /** Field determining bar color (e.g. "status", uses optionColors automatically) */
-  colorField?: keyof T & string;
-  /** Numeric field from 0 to 100 drawn as progress inside the bar */
-  progressField?: keyof T & string;
-}
-
-export interface TreeViewOptions<T extends BaseDoc = BaseDoc> {
-  /**
-   * The node label: a template such as "{acronym} - {title}" (its placeholders
-   * are fetched; an empty one renders as nothing, with the empty brackets and
-   * end separators it leaves) or a function of the row, which sees `id`, the
-   * title field and `fields`. Defaults to the title field.
-   */
-  title?: string | ((row: T) => string);
-  /** Extra fields a `title` function reads. */
-  fields?: (keyof T & string)[];
-  /** Order within each level, e.g. "title asc"; replaces the default groups-first order. */
-  orderBy?: string;
-}
-
-export interface ListActionContext<T extends BaseDoc = BaseDoc> {
-  doctype: string;
-  rows: T[];
-  refresh(): void;
-}
-
-export interface ListAction<T extends BaseDoc = BaseDoc> {
-  label: string;
-  condition?: (row: T) => boolean;
-  primary?: boolean;
-  onClick(ids: string[], list: ListActionContext<T>): any;
-}
-
-export interface ListToolbarContext {
-  doctype: string;
-  filters: [string, string, any][];
-  refresh(): void;
-}
-
-export interface ListToolbarAction {
-  label: string;
-  condition?: () => boolean;
-  primary?: boolean;
-  onClick(list: ListToolbarContext): any;
-}
-
-export interface ListSummaryCard {
-  label: string;
-  aggregate?: string;
-  filters?: [string, string, any][] | Record<string, any>;
-  datatype?: string;
-  indicator?: "red" | "green" | "orange" | "blue";
-}
-
-export interface ListViewOptions<T extends BaseDoc = BaseDoc> {
-  /** Allowed views for this DocType; defaults to ["list", "cards"] plus "calendar", "kanban" and "gantt" for each one configured */
-  views?: DeskViewMode[];
-  calendar?: CalendarViewOptions<T>;
-  card?: CardViewOptions<T>;
-  kanban?: KanbanViewOptions<T>;
-  gantt?: GanttViewOptions<T>;
-  tree?: TreeViewOptions<T>;
-  columns?: (keyof T & string)[];
-  filters?: Partial<Record<keyof T & string, any>>;
-  orderBy?: string;
-  pageSize?: number;
-  formatters?: Partial<Record<keyof T & string, (value: any, row: T) => string>>;
-  indicator?: (row: T) => { label: string; color: string } | null | undefined;
-  docstatusFilter?: boolean;
-  filtersCollapsed?: boolean;
-  modifiedColumn?: boolean;
-  idColumn?: boolean;
-  columnChooser?: boolean;
-  plainLinks?: (keyof T & string)[];
-  fields?: (keyof T & string)[];
-  badges?: (row: T) => { label: string; color: string }[] | null | undefined;
-  filterOptions?: Partial<Record<keyof T & string, { value: string; label: string; filters: [string, string, any][] }[]>>;
-  actions?: ListAction<T>[];
-  toolbarActions?: ListToolbarAction[];
-  summary?: ListSummaryCard[];
-}
-
-/** A card an app adds to the profile page; see `ProfileSection` in packages/desk-sdk. */
-export interface ProfileSection<D = any> {
-  id: string;
-  title: string;
-  load?: () => D | null | undefined | Promise<D | null | undefined>;
-  info?: (data: D) => { label: string; value: any }[];
-  description?: string;
-  fields?: Field[];
-  primaryLabel?: string;
-  submit?: (values: Record<string, any>, data: D) => any;
-  successMessage?: string;
-}
+export type {
+  CalendarNewOption, CalendarViewOptions, CardViewOptions, DeskViewMode, GanttViewOptions, KanbanViewOptions,
+  ListAction, ListActionContext, ListSummaryCard, ListToolbarAction, ListToolbarContext, ListViewOptions, ProfileSection,
+  TreeViewOptions,
+};
 
 const listRegistry = new Map<string, any>();
 // A list, as several apps may each add a card; includes finish loading before

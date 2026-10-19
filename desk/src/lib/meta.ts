@@ -1,10 +1,11 @@
+import type { FieldDef, FieldWidth, GridFilter } from "@ddcore/sdk";
 import { __, boot } from "./boot.svelte";
 import { monthStart, today } from "./datetime";
 import { applyDocTypeSelectors } from "./doctype-selector";
 // DocType meta as served by /api/meta, cached per session (invalidated on reload events).
 import { api } from "./api";
 
-export type FieldWidth = "sm" | "md" | "lg" | "full";
+export type { FieldWidth, GridFilter };
 
 export interface Field {
   fieldname?: string; fieldtype: string; label?: string; options?: any; reqd?: boolean; unique?: boolean; default?: any;
@@ -43,9 +44,7 @@ export interface Field {
   optionIconOnly?: boolean;
 }
 
-export interface GridSort { field: string; order?: "asc" | "desc" }
-/** A preset filter of a form grid: list-style tuples or an object. */
-export interface GridFilter { label: string; filters: any[][] | Record<string, any>; default?: boolean }
+export type GridSort = NonNullable<FieldDef["gridSort"]>;
 
 export interface DocTypeMeta {
   name: string; app: string; label: string; idLabel?: string; module?: string; idGeneration: any; submittable?: boolean; isChild?: boolean; isSingle?: boolean; trackChanges?: boolean;

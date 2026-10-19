@@ -8,15 +8,16 @@
   import { showError } from "$lib/ui.svelte";
   import { coalesce } from "$lib/coalesce";
   import type { Meta } from "$lib/meta";
+  import type { TreeViewOptions } from "@ddcore/desk-sdk";
   import Icon from "../Icon.svelte";
-  import { emptyTree, mergeChildren, treeFromSearch, markLoading, toggle, visibleRows, loadedParents, expandAll, collapseAll, treeFields, treeLabel, rememberTreeExpand, getRememberedTreeExpand, ROOT, type TreeState, type TreeViewSettings } from "./tree-state";
+  import { emptyTree, mergeChildren, treeFromSearch, markLoading, toggle, visibleRows, loadedParents, expandAll, collapseAll, treeFields, treeLabel, rememberTreeExpand, getRememberedTreeExpand, ROOT, type TreeState } from "./tree-state";
 
   let { meta, doctype, wsPrefix, reloadKey = 0, settings, search = $bindable(""), onsearch }: {
     meta: Meta; doctype: string; wsPrefix: string;
     /** Bumped by the list when a document changed, to reload the open branches. */
     reloadKey?: number;
     /** The `tree` option of the DocType's `defineListView`. */
-    settings?: TreeViewSettings;
+    settings?: TreeViewOptions;
     /** The list's search text; the owner reloads the view (reloadKey) once it settles. */
     search?: string;
     /** Called as the user types in the search box. */

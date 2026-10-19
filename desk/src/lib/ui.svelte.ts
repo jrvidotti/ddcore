@@ -1,50 +1,17 @@
 // Global UI state: toasts and modal dialogs, driven from anywhere (controls,
 // form scripts, API errors).
+import type { DialogAction, DialogHandle as PublicDialogHandle, DialogSpec as PublicDialogSpec } from "@ddcore/desk-sdk";
 import type { Field } from "./meta";
 import { __ } from "./boot.svelte";
 
 export interface Toast { id: number; message: string; title?: string; indicator?: string; timeout?: number }
-/** A dialog's extra, non-destructive button (see DialogSpec.actions). */
-export interface DialogAction {
-  label: string;
-  /** an Icon name shown before the label */
-  icon?: string;
-  /** a returned promise keeps the dialog's buttons disabled until it settles; its error is shown */
-  action: (values: Record<string, any>, dialog: DialogHandle) => any;
-}
-export interface DialogSpec {
-  title: string;
-  fields?: Field[];
-  values?: Record<string, any>;
-  primaryLabel?: string;
-  /** the label of the button that closes the dialog without acting ("Cancel" when left out) */
-  secondaryLabel?: string;
-  /** leave out the secondary (Cancel) button, for a dialog whose primary action already cancels */
-  hideSecondary?: boolean;
-  primaryAction?: (values: Record<string, any>, dialog: DialogHandle) => any;
-  dangerLabel?: string;
-  dangerAction?: (values: Record<string, any>, dialog: DialogHandle) => any;
-  /** the Delete key runs the danger action too, and its button shows the key */
-  dangerShortcut?: boolean;
-  /** extra non-destructive buttons, between Cancel and the primary one, in this order */
-  actions?: DialogAction[];
-  onChange?: (fieldname: string, values: Record<string, any>, dialog: DialogHandle) => void;
-  /** free-form message shown above the fields */
-  message?: string;
-  size?: "sm" | "md" | "lg";
-}
-export interface DialogHandle {
+export type { DialogAction };
+/** The desk's dialogs also take the DocType's own (looser) fields. */
+export type DialogSpec = Omit<PublicDialogSpec, "fields"> & { fields?: Field[] };
+export interface DialogHandle extends PublicDialogHandle {
   id: number;
   spec: DialogSpec;
-  values: Record<string, any>;
   html: Record<string, string>;
-  setValue(f: string, v: any): void;
-  getValue(f: string): any;
-  setHtml(f: string, html: string): void;
-  setDfProperty(fieldname: string, prop: string, value: any): void;
-  hide(): void;
-  show(): void;
-  busy: boolean;
 }
 
 export const ui = $state<{ toasts: Toast[]; dialogs: DialogHandle[]; busy: number }>({ toasts: [], dialogs: [], busy: 0 });
