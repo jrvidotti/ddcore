@@ -376,15 +376,12 @@ func (c *Ctx) filterSQL(d *meta.DocType, b *db.Builder, filters []db.Filter, col
 // parenttype is p's DocType, and its parent row passes p's filters, rendered
 // as the parent's own list renders them. Without filters the parenttype alone
 // is the condition.
+//
+// Only childListFilters builds p, from a DocType that embeds the child being
+// listed, so p's DocType exists and col resolves the child's columns.
 func (c *Ctx) parentSQL(b *db.Builder, p *db.ParentFilter, col func(string) string) (string, error) {
-	pd, ok := c.St.Meta.Get(p.DocType)
-	if !ok || pd.IsChild || pd.IsVirtual() {
-		return "", fmt.Errorf("%s is not a parent DocType", p.DocType)
-	}
+	pd, _ := c.St.Meta.Get(p.DocType)
 	parentType, parentKey := col("parenttype"), col("parent")
-	if parentType == "" || parentKey == "" {
-		return "", fmt.Errorf("a parent filter needs a child table")
-	}
 	alias := db.Ident("pt_" + meta.Snake(pd.Name))
 	where, err := c.filterSQL(pd, b, p.Filters, func(field string) string {
 		if field = strings.Trim(field, "`\""); !pd.HasColumn(field) {

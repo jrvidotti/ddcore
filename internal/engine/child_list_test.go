@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"reflect"
 	"testing"
 
@@ -116,6 +117,17 @@ func TestB02_ChildListingFollowsParentScopes(t *testing.T) {
 		wantPermissionError(t, "GetDoc b1 (its parent is out of scope)", err)
 		return nil
 	})
+	// a share bound by the scopes opens nothing out of scope
+	runAs(t, e, "Admin", func(c *Ctx) error {
+		_, err := c.ShareDoc("Char Order", "OB", charOrderScoped, ShareRights{Read: true})
+		return err
+	})
+	runAs(t, e, charOrderScoped, func(c *Ctx) error {
+		wantTexts(t, "lines (OB shared within the scopes)", childTexts(t, c, "Char Order Line", ListArgs{}), "a1", "c1")
+		_, err := c.GetDoc("Char Order Line", ids["b1"])
+		wantPermissionError(t, "GetDoc b1 (OB shared within the scopes)", err)
+		return nil
+	})
 	// a share that overrides the scope opens the parent, and its rows with it
 	runAs(t, e, "Admin", func(c *Ctx) error {
 		_, err := c.ShareDoc("Char Order", "OB", charOrderScoped, ShareRights{Read: true, OverrideScope: true})
@@ -157,6 +169,73 @@ func TestB02_ChildListingUnscopedUnchanged(t *testing.T) {
 	})
 	runAs(t, e, charStaff, func(c *Ctx) error {
 		wantTexts(t, "query lines (ignorePermissions)", childTexts(t, c, "Char Query Line", ListArgs{IgnorePermissions: true}), "q1", "qh")
+		return nil
+	})
+}
+
+// A scope over a tree, applicable for the parent, narrows the child listing to
+// the rows of parents within the branch.
+func TestTreeScopeChildListingFollowsParent(t *testing.T) {
+	e := setupTree(t)
+	seedTree(t, e)
+	const user = "scoped@x.com"
+	runAs(t, e, "Admin", func(c *Ctx) error {
+		if err := insertDoc(c, "User", Doc{"email": user, "full_name": "Scoped",
+			"roles": []any{map[string]any{"role": "Tree User"}}}); err != nil {
+			return err
+		}
+		for _, cl := range []struct{ title, territory string }{{"Inside", "PR"}, {"Outside", "Antarctica"}} {
+			if err := insertDoc(c, "Test Client", Doc{"title": cl.title, "territory": cl.territory,
+				"visits": []any{map[string]any{"territory": "PR"}}}); err != nil {
+				return err
+			}
+		}
+		return insertDoc(c, "User Permission", Doc{"user": user, "allow": "Test Territory", "for_value": "Brazil", "applicable_for": "Test Client"})
+	})
+	if err := e.Run(context.Background(), user, func(c *Ctx) error {
+		rows, err := c.GetList("Test Visit", ListArgs{Fields: []string{"parent"}})
+		if err != nil {
+			return err
+		}
+		if len(rows) != 1 || rows[0]["parent"] != "Inside" {
+			t.Fatalf("visits = %v, want Inside's only", rows)
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// A Table field above level 0 hides its rows from a child listing and from a
+// direct read, as it hides the field from the parent document (SEC-02); a user
+// who reads that level sees them.
+func TestSEC02_ChildRowsFollowTableFieldLevel(t *testing.T) {
+	e := setupSEC02(t)
+	var bonus string
+	runAs(t, e, "Admin", func(c *Ctx) error {
+		rows, err := c.GetList("Employee Bonus", ListArgs{})
+		if err != nil || len(rows) != 1 {
+			t.Fatalf("Admin bonuses = %v, %v", rows, err)
+		}
+		bonus = Doc(rows[0]).ID()
+		return nil
+	})
+	runAs(t, e, sec02Staff, func(c *Ctx) error {
+		if names := listNames(t, c, "Employee Bonus", ListArgs{}); len(names) != 0 {
+			t.Fatalf("level-0 user lists bonuses %v", names)
+		}
+		_, err := c.GetDoc("Employee Bonus", bonus)
+		wantPermissionError(t, "GetDoc bonus at level 0", err)
+		if names := listNames(t, c, "Employee Line", ListArgs{}); len(names) != 1 {
+			t.Fatalf("level-0 user lists lines %v, want the one", names)
+		}
+		return nil
+	})
+	runAs(t, e, sec02HR, func(c *Ctx) error {
+		sameNames(t, listNames(t, c, "Employee Bonus", ListArgs{}), bonus)
+		if _, err := c.GetDoc("Employee Bonus", bonus); err != nil {
+			t.Fatalf("GetDoc bonus at level 1: %v", err)
+		}
 		return nil
 	})
 }

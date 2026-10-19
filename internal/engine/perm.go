@@ -636,6 +636,9 @@ func (c *Ctx) childPermission(d *meta.DocType, ptype string, doc Doc) (bool, err
 	if f == nil || !meta.IsTableType(f.Fieldtype) || !strings.EqualFold(f.OptionsString(), d.Name) {
 		return false, nil
 	}
+	if parentPtype == "read" && !c.FieldAccess(parent).CanRead(f) {
+		return false, nil
+	}
 	rows, err := db.Select(c.Ctx, c.Q(), fmt.Sprintf(`SELECT * FROM %s WHERE id = $1`, db.Ident(parent.TableName())), pn)
 	if err != nil || len(rows) == 0 {
 		return false, err
@@ -745,15 +748,17 @@ func (c *Ctx) permissionFilters(d *meta.DocType) ([]db.Filter, error) {
 }
 
 // childListFilters are permissionFilters for a child DocType (B02). A row is
-// listed only through a parent the user reads in full, when its parent
-// document passes the filters a list of that parent applies and the row
-// passes the scopes that apply within the parent, as when the parent is read;
-// the child's own scopes apply as well. No such parent lists no row.
+// listed only through a parent the user reads in full, when it sits in a Table
+// field the user reads at its level (SEC-02), its parent document passes the
+// filters a list of that parent applies and the row passes the scopes that
+// apply within the parent, as when the parent is read; the child's own scopes
+// apply as well. No such parent lists no row.
 func (c *Ctx) childListFilters(d *meta.DocType) ([]db.Filter, error) {
 	parents, err := c.ReadableParentsOf(d.Name)
 	if err != nil {
 		return nil, err
 	}
+	embeds := c.ParentsOf(d.Name)
 	groups := [][]db.Filter{}
 	for _, name := range parents {
 		pd, err := c.St.DocType(name)
@@ -761,6 +766,16 @@ func (c *Ctx) childListFilters(d *meta.DocType) ([]db.Filter, error) {
 			return nil, err
 		}
 		if c.spaceRefusal(pd, false, false) != nil {
+			continue
+		}
+		access := c.FieldAccess(pd)
+		var fields []any
+		for _, cp := range embeds {
+			if cp.Parent.Name == pd.Name && access.CanRead(cp.Field) {
+				fields = append(fields, cp.Field.Fieldname)
+			}
+		}
+		if len(fields) == 0 {
 			continue
 		}
 		pf, err := c.permissionFilters(pd)
@@ -774,7 +789,10 @@ func (c *Ctx) childListFilters(d *meta.DocType) ([]db.Filter, error) {
 		if rows, err = c.liftedByShares(rows, pd.Name, "parent"); err != nil {
 			return nil, err
 		}
-		groups = append(groups, append([]db.Filter{{Parent: &db.ParentFilter{DocType: pd.Name, Filters: pf}}}, rows...))
+		groups = append(groups, append([]db.Filter{
+			{Parent: &db.ParentFilter{DocType: pd.Name, Filters: pf}},
+			{Field: "parentfield", Op: "in", Value: fields},
+		}, rows...))
 	}
 	own, err := c.strictScopeFilters(d, d.Name)
 	if err != nil {
