@@ -2,9 +2,8 @@ import { __ } from "../boot.svelte";
 // Version history processing and diff utilities for ddcore desk forms.
 import type { FormController } from "../form.svelte";
 import type { DocTypeMeta, Field } from "../meta";
-import { formatDate, formatDatetime, formatCurrency, formatNumber, formatValue, timeAgo, docstatusName } from "../format.ts";
+import { formatDatetime, formatValue, timeAgo, docstatusName } from "../format.ts";
 import { htmlToText } from "../richtext.ts";
-import { formatGeo } from "../geo.ts";
 import { multiSelectLinkField, multiSelectValues } from "../controls/multiselect-state.ts";
 
 export const IGNORED_CHILD_FIELDS = new Set([
@@ -123,14 +122,13 @@ export function signatureDiff(oldVal: any, newVal: any): [string, string] {
   return [__("Signed"), oldVal === newVal ? __("Signed") : __("Changed")];
 }
 
+// Shown as a list shows them. Signature (a marker, or a data URL in a Version written before
+// markers) and Geolocation (GeoJSON) are never shown raw.
+const SHOWN_AS_IN_LISTS = new Set(["Date", "Datetime", "Currency", "Percent", "Float", "Int", "Select", "Link", "Signature", "Geolocation", "Duration", "Rating", "Color"]);
+
 export function formatDiffValue(val: any, field?: Partial<Field>, fieldname?: string): FormattedValue {
   if (val === null || val === undefined || val === "") {
     return { value: val, formatted: "—", isAttach: false };
-  }
-
-  // a marker, or a data URL in a Version written before markers: never shown
-  if (field?.fieldtype === "Signature") {
-    return { value: val, formatted: __("Signed"), isAttach: false };
   }
 
   const isAttach = isAttachValue(val, field?.fieldtype);
@@ -151,30 +149,6 @@ export function formatDiffValue(val: any, field?: Partial<Field>, fieldname?: st
     return { value: val, formatted: val ? __("Yes") : __("No"), isAttach: false };
   }
 
-  if (field?.fieldtype === "Date") {
-    return { value: val, formatted: formatDate(val), isAttach: false };
-  }
-
-  if (field?.fieldtype === "Datetime") {
-    return { value: val, formatted: formatDatetime(val), isAttach: false };
-  }
-
-  if (field?.fieldtype === "Currency") {
-    return { value: val, formatted: formatCurrency(val), isAttach: false };
-  }
-
-  if (field?.fieldtype === "Percent") {
-    return { value: val, formatted: formatNumber(val, field.precision ?? 2) + "%", isAttach: false };
-  }
-
-  if (field?.fieldtype === "Float") {
-    return { value: val, formatted: formatNumber(val, field.precision), isAttach: false };
-  }
-
-  if (field?.fieldtype === "Int") {
-    return { value: val, formatted: String(Math.round(Number(val))), isAttach: false };
-  }
-
   // Rich text and Markdown diff as what they read as: a diff of raw markup
   // shows tags nobody wrote and hides the sentence that changed.
   if (field?.fieldtype === "Text Editor") {
@@ -185,14 +159,8 @@ export function formatDiffValue(val: any, field?: Partial<Field>, fieldname?: st
     return { value: val, formatted: String(val), isAttach: false };
   }
 
-  // GeoJSON is unreadable in a timeline: a point's coordinates, or what the
-  // value holds on each side
-  if (field?.fieldtype === "Geolocation") {
-    return { value: val, formatted: formatGeo(val) || "—", isAttach: false };
-  }
-
-  if (field?.fieldtype === "Duration" || field?.fieldtype === "Rating" || field?.fieldtype === "Color") {
-    return { value: val, formatted: formatValue(val, field), isAttach: false };
+  if (field?.fieldtype && SHOWN_AS_IN_LISTS.has(field.fieldtype)) {
+    return { value: val, formatted: formatValue(val, field) || "—", isAttach: false };
   }
 
   if (typeof val === "object") {

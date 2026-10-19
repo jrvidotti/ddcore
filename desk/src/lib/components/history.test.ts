@@ -335,3 +335,11 @@ test("parseVersion accurately reflects PES-00002 real versions from database", (
   assert.equal(arq!.formattedFrom, "WhatsApp_Image_2026-09-09_at_14_27_59_340731000.jpeg");
   assert.equal(arq!.formattedTo, "WhatsApp_Image_2026-09-09_at_14_40_39_737162000.jpeg");
 });
+
+describe("formatDiffValue shows a value as a list does", () => {
+  it("shows a Select by its label and a Currency at its precision", () => {
+    const select = { fieldtype: "Select", options: ["Open", "Closed"], optionLabels: ["Aberto", "Fechado"] } as any;
+    expect(formatDiffValue("Closed", select).formatted).toBe("Fechado");
+    expect(formatDiffValue("1.2345", { fieldtype: "Currency", precision: 4 } as any).formatted).toContain("2345");
+  });
+});
