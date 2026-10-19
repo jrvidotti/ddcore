@@ -234,6 +234,18 @@ func (c *Ctx) Tenancy() bool {
 	return on
 }
 
+// requireTenancy refuses the calls that only make sense when the site has tenants.
+func (e *Engine) requireTenancy(ctx context.Context) error {
+	if e != nil {
+		if on, err := e.tenancy(ctx); on || err != nil {
+			return err
+		}
+	}
+	return cerr.Validation("This site has no tenants: tenancy is off")
+}
+
+func (c *Ctx) requireTenancy() error { return c.E.requireTenancy(c.Ctx) }
+
 const (
 	userTenantTTL  = 5 * time.Minute
 	tenantStateTTL = 10 * time.Second
@@ -344,10 +356,8 @@ func (e *Engine) checkTenant(ctx context.Context, q db.Querier, id string) error
 // CheckTenant refuses a tenant that does not exist or is disabled: what a
 // command checks before it starts work that names one.
 func (e *Engine) CheckTenant(ctx context.Context, id string) error {
-	if on, err := e.tenancy(ctx); err != nil {
+	if err := e.requireTenancy(ctx); err != nil {
 		return err
-	} else if !on {
-		return cerr.Validation("This site has no tenants: tenancy is off")
 	}
 	return e.checkTenant(ctx, nil, id)
 }
@@ -356,8 +366,8 @@ func (e *Engine) CheckTenant(ctx context.Context, id string) error {
 // transaction. Only the platform space may enter a tenant; a ctx already in
 // that tenant just runs fn.
 func (c *Ctx) InTenant(id string, fn func(*Ctx) error) error {
-	if !c.Tenancy() {
-		return cerr.Validation("This site has no tenants: tenancy is off")
+	if err := c.requireTenancy(); err != nil {
+		return err
 	}
 	if c.Tenant == id {
 		return fn(c)
@@ -845,8 +855,8 @@ func (e *Engine) SessionTenant(ctx context.Context, sid string) string {
 // EnterTenant makes a platform user's session work in a tenant from the next
 // request on; an empty tenant returns it to the platform space.
 func (c *Ctx) EnterTenant(tenant string) error {
-	if !c.Tenancy() {
-		return cerr.Validation("This site has no tenants: tenancy is off")
+	if err := c.requireTenancy(); err != nil {
+		return err
 	}
 	if ok, err := c.E.CanEnterTenants(c.Ctx, c.User); err != nil {
 		return err
@@ -1070,10 +1080,8 @@ func (p *AdoptPreview) collisionSummary() string {
 // — the primary key and each unique index that is not an expression — and
 // writes nothing.
 func (e *Engine) AdoptPreview(ctx context.Context, tenant string) (*AdoptPreview, error) {
-	if on, err := e.tenancy(ctx); err != nil {
+	if err := e.requireTenancy(ctx); err != nil {
 		return nil, err
-	} else if !on {
-		return nil, cerr.Validation("This site has no tenants: tenancy is off")
 	}
 	var p *AdoptPreview
 	err := e.RunSystem(ctx, "Admin", func(c *Ctx) error {
@@ -1210,10 +1218,8 @@ func adoptCollisions(ctx context.Context, q db.Querier, s adoptStep, k uniqueKey
 // nothing moved, and the refusal names every such key.
 func (e *Engine) AdoptPlatformRows(ctx context.Context, tenant string) (map[string]int64, error) {
 	moved := map[string]int64{}
-	if on, err := e.tenancy(ctx); err != nil {
+	if err := e.requireTenancy(ctx); err != nil {
 		return nil, err
-	} else if !on {
-		return nil, cerr.Validation("This site has no tenants: tenancy is off")
 	}
 	err := e.RunSystem(ctx, "Admin", func(c *Ctx) error {
 		if err := e.checkTenant(ctx, c.Tx, tenant); err != nil {
