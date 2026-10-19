@@ -41,8 +41,8 @@ func (e *Engine) aiHostCall(c *Ctx, op string, raw json.RawMessage) (any, error)
 		if op == "ai.respond" {
 			return cl.Respond(c.callCtx(), req)
 		}
-		if !e.Cfg.Test {
-			return nil, cerr.Permission("ddcore.test is only available inside ddcore test")
+		if err := e.requireTestMode(); err != nil {
+			return nil, err
 		}
 		// a test runs with no key; the fake still sees the model default applied
 		url, body, total, err := cl.Prepare(req)
@@ -58,8 +58,8 @@ func (e *Engine) aiHostCall(c *Ctx, op string, raw json.RawMessage) (any, error)
 		if op == "ai.transcribe" {
 			return cl.Transcribe(c.callCtx(), req)
 		}
-		if !e.Cfg.Test {
-			return nil, cerr.Permission("ddcore.test is only available inside ddcore test")
+		if err := e.requireTestMode(); err != nil {
+			return nil, err
 		}
 		url, model, err := cl.PrepareTranscription(&req)
 		if err != nil {
@@ -71,8 +71,8 @@ func (e *Engine) aiHostCall(c *Ctx, op string, raw json.RawMessage) (any, error)
 		}
 		return map[string]any{"url": url, "model": model, "timeout": timeout}, nil
 	case "ai.parse", "ai.parseTranscription":
-		if !e.Cfg.Test {
-			return nil, cerr.Permission("ddcore.test is only available inside ddcore test")
+		if err := e.requireTestMode(); err != nil {
+			return nil, err
 		}
 		if op == "ai.parse" {
 			return ai.Parse(q.Status, []byte(q.Body), q.JSON)

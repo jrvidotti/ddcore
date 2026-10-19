@@ -739,8 +739,8 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		c.AuditDenied(a.Action, a.TargetDoctype, a.TargetID, d)
 		return nil, nil
 	case "test.begin":
-		if !c.E.Cfg.Test {
-			return nil, cerr.Permission("ddcore.test is only available inside ddcore test")
+		if err := c.E.requireTestMode(); err != nil {
+			return nil, err
 		}
 		// the savepoint first, so the rollback takes back what the test
 		// wrote in the scratch tenant too
@@ -749,18 +749,18 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		}
 		return nil, c.testEnter(a.App)
 	case "test.rollback":
-		if !c.E.Cfg.Test {
-			return nil, cerr.Permission("ddcore.test is only available inside ddcore test")
+		if err := c.E.requireTestMode(); err != nil {
+			return nil, err
 		}
 		return nil, c.testRootCtx().RollbackTo()
 	case "test.enter":
-		if !c.E.Cfg.Test {
-			return nil, cerr.Permission("ddcore.test is only available inside ddcore test")
+		if err := c.E.requireTestMode(); err != nil {
+			return nil, err
 		}
 		return nil, c.testEnter(a.App)
 	case "test.leave":
-		if !c.E.Cfg.Test {
-			return nil, cerr.Permission("ddcore.test is only available inside ddcore test")
+		if err := c.E.requireTestMode(); err != nil {
+			return nil, err
 		}
 		c.testRootCtx()
 		return nil, nil
@@ -772,8 +772,8 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 	case "tenant.list":
 		return c.TenantList()
 	case "tenant.enter":
-		if !c.Tenancy() {
-			return nil, cerr.Validation("This site has no tenants: tenancy is off")
+		if err := c.requireTenancy(); err != nil {
+			return nil, err
 		}
 		if c.Tenant != "" && c.Tenant != a.Key {
 			return nil, cerr.Permission("A tenant cannot enter another tenant")

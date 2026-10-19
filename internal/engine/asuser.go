@@ -147,11 +147,18 @@ func (c *Ctx) runAsEnter(user string) error {
 	return nil
 }
 
+func (e *Engine) requireTestMode() error {
+	if !e.Cfg.Test {
+		return cerr.Permission("ddcore.test is only available inside ddcore test")
+	}
+	return nil
+}
+
 // testAsUser is ddcore.test.asUser: enterUser without the checks on the user,
 // so a test can act as a user it never created. Test mode only.
 func (c *Ctx) testAsUser(user string) error {
-	if !c.E.Cfg.Test {
-		return cerr.Permission("ddcore.test is only available inside ddcore test")
+	if err := c.E.requireTestMode(); err != nil {
+		return err
 	}
 	if user == "" {
 		return cerr.Validation("ddcore.test.asUser needs a user")
