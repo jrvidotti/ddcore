@@ -451,6 +451,7 @@
   .type.on { border-color: var(--primary); background: var(--active); color: var(--primary); font-weight: 500; }
   .type:disabled { cursor: default; opacity: .6; }
   .hint { margin: 6px 0 14px; }
+  .attach-card > .label { font-weight: 400; }
   .dropzone {
     display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px;
     border: 1px dashed var(--border); border-radius: 8px; background: var(--surface-alt);
@@ -485,7 +486,7 @@
   .err { color: var(--red); }
 
   @media (max-width: 600px) {
-    :global(.feedback-bg) { padding: 8px; }
+    :global(.modal-bg.feedback-bg) { padding: 8px; }
     :global(.feedback-bg .modal :is(.head, .body, .foot)) { padding-left: 14px; padding-right: 14px; }
     .tabs { padding: 4px 14px 0; }
     .type { flex-direction: column; gap: 4px; padding: 8px 4px; font-size: 12px; }
