@@ -389,57 +389,33 @@ type JobFilter struct {
 	Start  int
 }
 
-// where builds the shared predicate for ListJobs and CountJobs, so the two can
+// clauses builds the shared predicate for ListJobs and CountJobs, so the two can
 // never drift into disagreeing about what matches.
-func (f JobFilter) where() (string, []any) {
-	var clauses []string
-	var args []any
-	add := func(sql string, v any) {
-		args = append(args, v)
-		clauses = append(clauses, fmt.Sprintf(sql, len(args)))
-	}
+func (f JobFilter) clauses() *clauses {
+	c := &clauses{}
 	if len(f.Status) > 0 {
-		add("status = ANY($%d)", f.Status)
+		c.add("status = ANY(%s)", f.Status)
 	}
-	if f.Queue != "" {
-		add("queue = $%d", f.Queue)
-	}
-	if f.Method != "" {
-		add("method = $%d", f.Method)
-	}
-	if f.User != "" {
-		add(`"user" = $%d`, f.User)
-	}
-	if f.Since != nil {
-		add("enqueued >= $%d", *f.Since)
-	}
-	if f.Until != nil {
-		add("enqueued <= $%d", *f.Until)
-	}
-	if len(clauses) == 0 {
-		return "", nil
-	}
-	return " WHERE " + strings.Join(clauses, " AND "), args
+	c.eq("queue", f.Queue)
+	c.eq("method", f.Method)
+	c.eq(`"user"`, f.User)
+	c.ge("enqueued", f.Since)
+	c.le("enqueued", f.Until)
+	return c
 }
 
 // ListJobs reads the queue, newest first.
 func (e *Engine) ListJobs(ctx context.Context, f JobFilter) ([]map[string]any, error) {
-	where, args := f.where()
-	limit := f.Limit
-	if limit <= 0 {
-		limit = 20
-	}
-	args = append(args, limit, f.Start)
-	q := fmt.Sprintf(`SELECT %s FROM ddcore_job%s ORDER BY id DESC LIMIT $%d OFFSET $%d`,
-		jobColumns, where, len(args)-1, len(args))
-	return e.statements(ctx).Select(ctx, q, args...)
+	c := f.clauses()
+	q := "SELECT " + jobColumns + " FROM ddcore_job" + c.where() + " ORDER BY id DESC" + c.page(f.Limit, f.Start)
+	return e.statements(ctx).Select(ctx, q, c.b.Args...)
 }
 
 // CountJobs is the same predicate without the page, for `with_count`.
 func (e *Engine) CountJobs(ctx context.Context, f JobFilter) (int64, error) {
-	where, args := f.where()
+	c := f.clauses()
 	var n int64
-	err := e.statements(ctx).QueryRow(ctx, `SELECT count(*) FROM ddcore_job`+where, args...).Scan(&n)
+	err := e.statements(ctx).QueryRow(ctx, `SELECT count(*) FROM ddcore_job`+c.where(), c.b.Args...).Scan(&n)
 	return n, err
 }
 
