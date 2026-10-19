@@ -141,8 +141,8 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
 .modal .head { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; }
 .modal .head h3 { flex: 1; font-size: 15px; display: flex; align-items: center; gap: 8px; }
 .modal .body { padding: 16px 20px; }
-.modal .label { display: block; font-size: 12px; font-weight: 500; margin-bottom: 4px; color: var(--muted); }
-.modal .label.reqd::after { content: " *"; color: var(--red); }
+.modal :is(.form-group > .label, legend.label) { display: block; font-size: 12px; font-weight: 500; margin-bottom: 4px; color: var(--muted); }
+.modal :is(.form-group > .label, legend.label).reqd::after { content: " *"; color: var(--red); }
 .modal .form-group { display: flex; flex-direction: column; }
 .modal .foot { padding: 12px 20px; border-top: 1px solid var(--border); display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .busy-bar { position: fixed; top: 0; left: 0; right: 0; height: 3px; background: var(--primary); z-index: 200; animation: busy 1s infinite linear; background: linear-gradient(90deg, transparent, var(--primary), transparent); background-size: 50% 100%; }
