@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.31.1 — 2026-10-22
+
 ### Added
 
 - **The vault's master key can be rotated** (#134). `DDCORE_SECRET_KEY_PREVIOUS` holds the old key while a new one is deployed in `DDCORE_SECRET_KEY`: a secret that does not open under the current key is read with the previous one, and every write uses the current one. `ddcore vault rekey` (MCP: `vault_rekey`) then re-encrypts every secret still under the previous key, in every tenant, in batches of one transaction each; `--dry-run` counts the secrets under each key, a secret that opens under neither stops it by name (never by value), and a run is one `vault.rekey` Audit Event with counts only. `ddcore doctor` warns while secrets remain under the previous key, says when it can be removed, and names secrets no key opens. Each `ddcore_vault` row now records a fingerprint of the key that encrypted it (`key_id`, added by `migrate`); rows written before are stamped by the first `rekey`. `ddcore.secret("key_previous")` is refused, as `ddcore.secret("key")` is. See `vault` for the procedure and `backup` for archives taken before a rotation.
