@@ -248,6 +248,10 @@ func AssembleHTML(bodyHTML string, letterhead *LetterHead, title string, lang st
     .print-barcode.qr svg { height: 30mm; width: 30mm; }
     /* a signature keeps its aspect ratio at the height of a signed line */
     .print-signature { display: block; max-height: 25mm; max-width: 100%%; width: auto; height: auto; }
+    /* an image keeps its aspect ratio, within the bounds a template may set
+       on the img itself, and is not split across pages */
+    .print-image-box { break-inside: avoid; page-break-inside: avoid; }
+    .print-image { display: block; max-height: 80mm; max-width: 100%%; width: auto; height: auto; }
 
     table.print-table {
       width: 100%%;

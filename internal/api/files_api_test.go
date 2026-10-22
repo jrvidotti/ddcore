@@ -1,6 +1,9 @@
 package api
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -195,6 +198,72 @@ func TestFilesPresign(t *testing.T) {
 	b, _ := io.ReadAll(res.Body)
 	if res.StatusCode != 200 || string(b) != "for a third party" {
 		t.Fatalf("presigned GET: %d %q", res.StatusCode, b)
+	}
+}
+
+// files.read hands back the bytes of a stored File, named by its url or its
+// id, on whichever backend the test runs on, under the rule of /private/files.
+func TestFilesRead(t *testing.T) {
+	x := setup(t)
+	bin := []byte{0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0xff}
+	v, err := x.evalAs("Admin", fmt.Sprintf(`ddcore.files.save({filename: "photo.png", contentBase64: %q})`, base64.StdEncoding.EncodeToString(bin)), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := v.(map[string]any)
+	url, id := fmt.Sprint(f["file_url"]), fmt.Sprint(f["id"])
+	for _, ref := range []string{url, id} {
+		got, err := x.evalAs("Admin", fmt.Sprintf(`ddcore.files.read(%q)`, ref), false)
+		if err != nil {
+			t.Fatalf("%s: %v", ref, err)
+		}
+		m := got.(map[string]any)
+		if m["base64"] != base64.StdEncoding.EncodeToString(bin) || m["contentType"] != "image/png" ||
+			m["size"] != float64(len(bin)) || m["fileName"] != "photo.png" {
+			t.Fatalf("%s: %v", ref, m)
+		}
+	}
+	if _, err := x.evalAs("Admin", fmt.Sprintf(`ddcore.files.read(%q, {maxBytes: 4})`, url), false); err == nil || !strings.Contains(err.Error(), "larger than") {
+		t.Fatalf("a file over maxBytes is an error: %v", err)
+	}
+	// the file is detached and Admin's: ze may not read it, unless the code
+	// reads on the system's behalf
+	if _, err := x.evalAs("ze@x.com", fmt.Sprintf(`ddcore.files.read(%q)`, url), false); err == nil || !strings.Contains(strings.ToLower(err.Error()), "permission") {
+		t.Fatalf("ze: %v", err)
+	}
+	if _, err := x.evalAs("ze@x.com", fmt.Sprintf(`ddcore.files.read(%q, {ignorePermissions: true})`, url), false); err != nil {
+		t.Fatalf("ze with ignorePermissions: %v", err)
+	}
+	if _, err := x.evalAs("Admin", `ddcore.files.read("/private/files/nothing.png")`, false); err == nil || !strings.Contains(err.Error(), "not found") {
+		t.Fatalf("an unknown file: %v", err)
+	}
+}
+
+// files.sha256 is what sha256sum prints for the stored bytes, and what
+// crypto.sha256 gives for them held as base64.
+func TestFilesSha256(t *testing.T) {
+	x := setup(t)
+	bin := []byte("\x00\x01binary\xff photo")
+	b64 := base64.StdEncoding.EncodeToString(bin)
+	v, err := x.evalAs("Admin", fmt.Sprintf(`ddcore.files.save({filename: "p.jpg", contentBase64: %q})`, b64), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	url := fmt.Sprint(v.(map[string]any)["file_url"])
+	sum := sha256.Sum256(bin)
+	got, err := x.evalAs("Admin", fmt.Sprintf(`[ddcore.files.sha256(%q), ddcore.files.sha256(%q, {output: "base64"}), ddcore.crypto.sha256(%q, {inputEncoding: "base64"})]`, url, url, b64), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []any{hex.EncodeToString(sum[:]), base64.StdEncoding.EncodeToString(sum[:]), hex.EncodeToString(sum[:])}
+	if fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+	if _, err := x.evalAs("ze@x.com", fmt.Sprintf(`ddcore.files.sha256(%q)`, url), false); err == nil || !strings.Contains(strings.ToLower(err.Error()), "permission") {
+		t.Fatalf("ze: %v", err)
+	}
+	if _, err := x.evalAs("Admin", fmt.Sprintf(`ddcore.files.sha256(%q, {output: "bin"})`, url), false); err == nil {
+		t.Fatal("an unknown output should throw")
 	}
 }
 

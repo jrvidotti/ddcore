@@ -3,6 +3,7 @@ package engine
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
 	"errors"
 	"io"
@@ -15,6 +16,7 @@ import (
 	"time"
 
 	"github.com/jrvidotti/ddcore/internal/cerr"
+	"github.com/jrvidotti/ddcore/internal/db"
 	"github.com/jrvidotti/ddcore/internal/storage"
 )
 
@@ -297,4 +299,104 @@ func (c *Ctx) PresignFile(fileURL string, ttl time.Duration, ignorePermissions b
 		return "", cerr.NotFound("The bytes of {0} are not in the store", fileURL)
 	}
 	return u, err
+}
+
+// openFile finds the File ref names — its id, or the file_url an Attach field
+// holds — checks that the user may read it (the rules of /files and
+// /private/files) and opens its bytes. The caller closes them.
+func (c *Ctx) openFile(ref string, ignorePermissions bool) (map[string]any, io.ReadCloser, error) {
+	if ref == "" {
+		return nil, nil, cerr.Validation("files: name a File by its id or its file url")
+	}
+	f, err := c.findFile(ref)
+	if err != nil {
+		return nil, nil, err
+	}
+	if f == nil {
+		return nil, nil, cerr.NotFound("File {0} not found", ref)
+	}
+	fileURL := db.Str(f["file_url"])
+	// a public file is served to anyone who asks for it under /files/
+	if !ignorePermissions && !strings.HasPrefix(fileURL, "/files/") && !c.CanReadFile(f) {
+		return nil, nil, cerr.Permission("No permission for this file")
+	}
+	r, err := c.OpenAttachment(fileURL)
+	if errors.Is(err, storage.ErrNotFound) {
+		return nil, nil, cerr.NotFound("The bytes of {0} are not in the store", fileURL)
+	}
+	if err != nil {
+		return nil, nil, err
+	}
+	return f, r, nil
+}
+
+// readFileBytes reads a File's bytes, refusing one larger than max: by the size
+// its row records first, then by what the store actually holds.
+func (c *Ctx) readFileBytes(ref string, max int64, ignorePermissions bool) (map[string]any, []byte, error) {
+	f, r, err := c.openFile(ref, ignorePermissions)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer r.Close()
+	tooLarge := cerr.Validation("files.read: the file is larger than {0} bytes (raise maxBytes)", max)
+	if int64(toFloat(f["file_size"])) > max {
+		return nil, nil, tooLarge
+	}
+	b, err := io.ReadAll(io.LimitReader(r, max+1))
+	if err != nil {
+		return nil, nil, err
+	}
+	if int64(len(b)) > max {
+		return nil, nil, tooLarge
+	}
+	return f, b, nil
+}
+
+// ReadFileArgs is ddcore.files.read's options.
+type ReadFileArgs struct {
+	MaxBytes          float64 `json:"maxBytes"`
+	IgnorePermissions bool    `json:"ignorePermissions"`
+}
+
+// ReadFile hands server code the bytes of a File, as base64, on either
+// backend: what a print embeds or a hash covers. The user must be able to read
+// the File, as for a download, unless IgnorePermissions.
+func (c *Ctx) ReadFile(ref string, a ReadFileArgs) (map[string]any, error) {
+	max := int64(a.MaxBytes)
+	if max <= 0 {
+		max = DefaultMaxUpload
+	}
+	f, b, err := c.readFileBytes(ref, max, a.IgnorePermissions)
+	if err != nil {
+		return nil, err
+	}
+	contentType := db.Str(f["content_type"])
+	if contentType == "" {
+		contentType = mime.TypeByExtension(strings.ToLower(filepath.Ext(db.Str(f["file_name"]))))
+	}
+	return map[string]any{
+		"base64":      base64.StdEncoding.EncodeToString(b),
+		"contentType": contentType,
+		"size":        len(b),
+		"fileName":    db.Str(f["file_name"]),
+	}, nil
+}
+
+// FileSHA256 is the SHA-256 of a File's bytes — what `sha256sum` prints for
+// the file — streamed from the store, so no size limit applies. output is
+// crypto.sha256's: hex (the default), base64 or base64url.
+func (c *Ctx) FileSHA256(ref, output string, ignorePermissions bool) (string, error) {
+	if _, err := encodeDigest(nil, output); err != nil {
+		return "", err
+	}
+	_, r, err := c.openFile(ref, ignorePermissions)
+	if err != nil {
+		return "", err
+	}
+	defer r.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, r); err != nil {
+		return "", err
+	}
+	return encodeDigest(h.Sum(nil), output)
 }

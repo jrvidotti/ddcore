@@ -442,6 +442,24 @@ export interface DDCoreAPI {
      * no session. Needs read on the File, and the s3 storage backend.
      */
     presign(fileUrl: string, opts?: { ttl?: number; ignorePermissions?: boolean }): string;
+    /**
+     * The bytes of a File, named by its id or its `file_url`, as base64, on
+     * either storage backend. Needs read on the File (a public file is
+     * anyone's), unless `ignorePermissions`. A file over `maxBytes` (default
+     * 50 MiB) throws.
+     */
+    read(file: string, opts?: { maxBytes?: number; ignorePermissions?: boolean }): {
+      base64: string;
+      contentType: string;
+      size: number;
+      fileName: string;
+    };
+    /**
+     * SHA-256 of a File's bytes — what `sha256sum` prints for the file —
+     * streamed from the store, with no size limit. Lower-case hex unless
+     * `output` says otherwise. Read rules as `read`.
+     */
+    sha256(file: string, opts?: { output?: "hex" | "base64" | "base64url"; ignorePermissions?: boolean }): string;
   };
   /** Printing from server code; see `print`. */
   print: {
@@ -722,8 +740,15 @@ export interface DDCoreAPI {
       keyEncoding?: "utf8" | "base64" | "hex";
       output?: "hex" | "base64" | "base64url";
     }): string;
-    /** SHA-256 of the UTF-8 `data`: lower-case hex unless `output` says otherwise. Store this, not a token. */
-    sha256(data: string, opts?: { output?: "hex" | "base64" | "base64url" }): string;
+    /**
+     * SHA-256 of `data`: lower-case hex unless `output` says otherwise. Store this, not a token.
+     * `data` is UTF-8 text unless `inputEncoding` says it is `"base64"` or `"hex"` bytes, so
+     * the hash of a file held as base64 is the one `sha256sum` prints.
+     */
+    sha256(data: string, opts?: {
+      output?: "hex" | "base64" | "base64url";
+      inputEncoding?: "utf8" | "base64" | "hex";
+    }): string;
     /** `bytes` (default 32, 1 to 1024) from crypto/rand as base64url without padding. */
     randomToken(bytes?: number): string;
     /** A uniform integer in `[min, max)` from crypto/rand. Both must be safe integers and `max > min`. */

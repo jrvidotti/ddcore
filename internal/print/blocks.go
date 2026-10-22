@@ -3,6 +3,7 @@ package print
 import (
 	"fmt"
 	"html"
+	"regexp"
 	"strings"
 
 	"github.com/jrvidotti/ddcore/internal/barcode"
@@ -30,6 +31,36 @@ type Block struct {
 	Cells [][]Block `json:"cells,omitempty"`
 	// Symbology is a "barcode" block's: Code128 (the default), EAN-13 or QR.
 	Symbology string `json:"symbology,omitempty"`
+	// MaxHeight and MaxWidth bound an "image" block, as CSS lengths.
+	MaxHeight string `json:"maxHeight,omitempty"`
+	MaxWidth  string `json:"maxWidth,omitempty"`
+	// Src is an "image" block's picture, a data URL. Only the engine sets it,
+	// after reading the File named in Text as the user printing: it is never
+	// read from a template's output, so no other URL reaches the <img>.
+	Src string `json:"-"`
+}
+
+// imageDataURLRe is what an "image" block prints: one of the Attach Image
+// types, inlined, since the PDF renderer has no session to fetch a private
+// file with. SVG is not among them — it can carry script.
+var imageDataURLRe = regexp.MustCompile(`^data:image/(png|jpeg|gif|webp);base64,[A-Za-z0-9+/]+=*$`)
+
+// cssLengthRe is a length an image may be bounded by; anything else is
+// dropped, so a template cannot write its own CSS through it.
+var cssLengthRe = regexp.MustCompile(`^\d+(\.\d+)?(mm|cm|in|pt|px|%)$`)
+
+// ImageTypes are the content types an "image" block inlines.
+var ImageTypes = map[string]bool{"image/png": true, "image/jpeg": true, "image/gif": true, "image/webp": true}
+
+// Walk calls fn for every block, those nested in sections and columns too.
+func Walk(blocks []Block, fn func(*Block)) {
+	for i := range blocks {
+		fn(&blocks[i])
+		Walk(blocks[i].Blocks, fn)
+		for _, cell := range blocks[i].Cells {
+			Walk(cell, fn)
+		}
+	}
 }
 
 // labelled puts a block's title above it, the way the key/value grid labels an
@@ -233,6 +264,23 @@ func (b Block) RenderHTML() string {
 			return ""
 		}
 		return b.labelled(`<div class="print-signature-box"><img class="print-signature" src="` + html.EscapeString(v) + `" alt=""></div>`)
+
+	case "image":
+		if !imageDataURLRe.MatchString(b.Src) {
+			return ""
+		}
+		var style []string
+		if cssLengthRe.MatchString(b.MaxHeight) {
+			style = append(style, "max-height: "+b.MaxHeight)
+		}
+		if cssLengthRe.MatchString(b.MaxWidth) {
+			style = append(style, "max-width: "+b.MaxWidth)
+		}
+		attr := ""
+		if len(style) > 0 {
+			attr = ` style="` + strings.Join(style, "; ") + `"`
+		}
+		return b.labelled(`<div class="print-image-box"><img class="print-image" src="` + b.Src + `"` + attr + ` alt=""></div>`)
 
 	case "raw":
 		// Raw HTML escape hatch — rendered unescaped by deliberate design for custom markup

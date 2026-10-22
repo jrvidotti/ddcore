@@ -1,6 +1,9 @@
 package engine
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"regexp"
 	"strings"
@@ -48,6 +51,36 @@ func TestCryptoSha256(t *testing.T) {
 	}
 	if _, err := rt.Eval(`ddcore.crypto.sha256("abc", {output: "bin"})`); err == nil {
 		t.Fatal("an unknown output should throw")
+	}
+}
+
+// Bytes held as base64 or hex hash as the bytes, the way sha256sum hashes a
+// file, not as the text that encodes them.
+func TestCryptoSha256InputEncoding(t *testing.T) {
+	rt := cryptoRuntime(t)
+	bin := []byte{0x89, 'P', 'N', 'G', 0x00, 0xff, 0x10}
+	sum := sha256.Sum256(bin)
+	want := hex.EncodeToString(sum[:])
+	for _, expr := range []string{
+		`ddcore.crypto.sha256("` + base64.StdEncoding.EncodeToString(bin) + `", {inputEncoding: "base64"})`,
+		`ddcore.crypto.sha256("` + base64.RawStdEncoding.EncodeToString(bin) + `", {inputEncoding: "base64"})`,
+		`ddcore.crypto.sha256("` + hex.EncodeToString(bin) + `", {inputEncoding: "hex"})`,
+	} {
+		if got := evalStr(t, rt, expr); got != want {
+			t.Fatalf("%s = %s, want %s", expr, got, want)
+		}
+	}
+	if a, b := evalStr(t, rt, `ddcore.crypto.sha256("abc", {inputEncoding: "utf8"})`), evalStr(t, rt, `ddcore.crypto.sha256("abc")`); a != b {
+		t.Fatalf("utf8 %s vs default %s", a, b)
+	}
+	for _, bad := range []string{
+		`ddcore.crypto.sha256("%%%", {inputEncoding: "base64"})`,
+		`ddcore.crypto.sha256("zz", {inputEncoding: "hex"})`,
+		`ddcore.crypto.sha256("abc", {inputEncoding: "latin1"})`,
+	} {
+		if _, err := rt.Eval(bad); err == nil {
+			t.Fatalf("%s should throw", bad)
+		}
 	}
 }
 

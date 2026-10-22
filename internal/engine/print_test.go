@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/jrvidotti/ddcore/internal/cerr"
+	"github.com/jrvidotti/ddcore/internal/db"
+	"github.com/jrvidotti/ddcore/internal/js"
 	"github.com/jrvidotti/ddcore/internal/meta"
 	"github.com/jrvidotti/ddcore/internal/print"
 )
@@ -570,5 +572,114 @@ export default definePrintTemplate({
 	}
 	if strings.Count(standard, `class="print-signature"`) != 1 || !strings.Contains(standard, ">Signed<") {
 		t.Fatalf("the standard layout should draw the parent's signature and say Signed in the row: %.3000s", standard)
+	}
+}
+
+// #137: an image block prints the File it names inlined as a data URL, read
+// as the user printing — so a private photo reaches a PDF the renderer makes
+// without a session — and prints nothing for a file that user may not read,
+// a file that is not an image, or one that is not there. The standard layout
+// prints an Attach Image field the same way.
+func TestPrintDoc_Image(t *testing.T) {
+	fakePDF(t)
+	ctx := context.Background()
+	e := migratedEngine(t, Config{Apps: []js.App{{Name: "demo", Dir: testApp(t, map[string]string{
+		"doctypes/badge/badge.doctype.ts": `import { defineDoctype } from "@ddcore/sdk";
+export default defineDoctype({
+  name: "Badge",
+  fields: [
+    { fieldname: "photo", fieldtype: "Attach Image", label: "Photo" },
+    { fieldname: "stray", fieldtype: "Data", label: "Stray" },
+    { fieldname: "fake", fieldtype: "Data", label: "Fake" },
+  ],
+  permissions: [{ role: "System Manager", read: true, write: true, create: true }, { role: "Gestor", read: true }],
+});`,
+		"print/badge_card.print.ts": `import { definePrintTemplate } from "@ddcore/sdk";
+export default definePrintTemplate({
+  name: "demo.badge_card",
+  doctype: "Badge",
+  body: (doc, b) => [
+    b.section("Card", [b.image(doc.photo, { title: "Validation photo", maxHeight: "40mm", maxWidth: "bad;color:red" })]),
+    b.image(doc.stray, { title: "Stray" }),
+    b.image(doc.fake, { title: "Fake" }),
+    b.image("/private/files/nothing.png", { title: "Missing" }),
+  ],
+});`,
+	})}}, Test: true, Lang: "en", DataDir: t.TempDir()})
+	photo := signaturePNG(t, 8, 4)
+	photoB64 := strings.TrimPrefix(photo, "data:image/png;base64,")
+	var id string
+	err := e.Run(ctx, "Admin", func(c *Ctx) error {
+		u, _ := c.NewDoc("User", Doc{"email": "ana@x.com", "full_name": "Ana"})
+		u["roles"] = []any{map[string]any{"role": "Gestor"}}
+		if _, err := c.Insert(u, SaveOpts{}); err != nil {
+			return err
+		}
+		doc, err := c.Insert(Doc{"doctype": "Badge"}, SaveOpts{})
+		if err != nil {
+			return err
+		}
+		id = doc.ID()
+		save := func(a SaveFileArgs) string {
+			f, err := c.SaveFile(a)
+			if err != nil {
+				t.Fatal(err)
+			}
+			return f.Str("file_url")
+		}
+		attached := save(SaveFileArgs{Doctype: "Badge", ID: id, Fieldname: "photo", Filename: "photo.png", ContentBase64: &photoB64})
+		// detached and Admin's: Ana reads the Badge but not this file
+		stray := save(SaveFileArgs{Filename: "stray.png", ContentBase64: &photoB64})
+		text := "not an image at all"
+		fake := save(SaveFileArgs{Doctype: "Badge", ID: id, Filename: "fake.png", Content: &text})
+		doc["photo"], doc["stray"], doc["fake"] = attached, stray, fake
+		_, err = c.Save(doc, SaveOpts{})
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	img := `<img class="print-image" src="` + photo + `"`
+	admin, err := e.NewCtx(ctx, "Admin").PrintDoc("Badge", id, "demo.badge_card", "none", "en", print.PDFOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Count(admin, img) != 2 || !strings.Contains(admin, img+` style="max-height: 40mm" alt="">`) ||
+		!strings.Contains(admin, ">Validation photo<") || !strings.Contains(admin, ">Stray<") {
+		t.Fatalf("Admin should see the photo and the stray file inlined: %.4000s", admin)
+	}
+	if strings.Contains(admin, ">Fake<") || strings.Contains(admin, ">Missing<") || strings.Contains(admin, "/private/files/") {
+		t.Fatalf("a file that is not an image, or not there, printed: %.4000s", admin)
+	}
+	ana, err := e.NewCtx(ctx, "ana@x.com").PrintDoc("Badge", id, "demo.badge_card", "none", "en", print.PDFOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Count(ana, img) != 1 || strings.Contains(ana, ">Stray<") {
+		t.Fatalf("Ana should see the Badge's photo and not the stray file: %.4000s", ana)
+	}
+	standard, err := e.NewCtx(ctx, "ana@x.com").PrintDoc("Badge", id, "", "none", "en", print.PDFOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Count(standard, img) != 1 || strings.Contains(standard, `src="/private/files/`) {
+		t.Fatalf("the standard layout should inline the Attach Image: %.4000s", standard)
+	}
+
+	// a job printing on the system's behalf reads every file the template names
+	f, err := evalJS(e, "ana@x.com", `ddcore.print.pdf({ doctype: "Badge", id: "`+id+`", format: "demo.badge_card", letterHead: "none", ignorePermissions: true })`, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var pdf []byte
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
+		pdf, err = c.ReadAttachment(db.Str(f["file_url"]))
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Count(string(pdf), img) != 2 {
+		t.Fatalf("print.pdf with ignorePermissions should inline both images: %.4000s", pdf)
 	}
 }

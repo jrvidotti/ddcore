@@ -108,6 +108,18 @@ escaped nor cleaned.
   it anything, and no other URL reaches the `<img>`. The standard layout
   prints every `Signature` field this way, and a child-table cell as
   "Signed".
+- `b.image(file, { title?, maxHeight?, maxWidth? })` — the image a `File`
+  holds, `file` being an `Attach Image` value (its `file_url`) or a File id.
+  The server reads the File as the user printing — with `ignorePermissions`
+  when `ddcore.print.pdf` was called with it — and inlines it as a data URL,
+  so a private file prints in the PDF too, where the renderer has no session
+  to fetch it with. It prints at most 80 mm tall and the page wide;
+  `maxHeight` and `maxWidth` are CSS lengths (`"40mm"`, `"3cm"`, `"50%"`,
+  in `mm`, `cm`, `in`, `pt`, `px` or `%`), and anything else is ignored.
+  A file the user may not read, one that does not exist, one over 10 MiB, and
+  one whose bytes are not a PNG, JPEG, GIF or WebP image (SVG is not taken)
+  print as nothing. The standard layout prints every `Attach Image` field this
+  way.
 
 A `Geolocation` field has no block: the standard layout prints it as a
 key/value, a single point as `lat, lon` and anything else as what it holds

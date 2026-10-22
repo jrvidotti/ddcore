@@ -485,6 +485,13 @@
     // signature prints a Signature field's PNG data URL as an image. Anything
     // that is not one prints as nothing.
     signature: (dataUrl, title) => ({ type: "signature", text: String(dataUrl ?? ""), title: String(title ?? "") }),
+    // image prints the image a File holds — an Attach Image value, or a File
+    // id — inlined by the server as the user printing reads it, so a private
+    // file reaches the PDF. Anything else prints as nothing.
+    image: (file, opts) => ({
+      type: "image", text: String(file ?? ""), title: String(opts?.title ?? ""),
+      maxHeight: String(opts?.maxHeight ?? ""), maxWidth: String(opts?.maxWidth ?? ""),
+    }),
     raw: (html) => ({ type: "raw", html: String(html ?? "") }),
     html: (html) => ({ type: "raw", html: String(html ?? "") }),
     columns: (cols) => ({
@@ -910,6 +917,8 @@
     files: {
       save(opts) { return call("files.save", opts || {}); },
       presign(fileUrl, opts) { opts = opts || {}; return call("files.presign", { url: fileUrl, ttl: opts.ttl || 0, opts }); },
+      read(ref, opts) { return call("files.read", { url: String(ref ?? ""), opts: opts || {} }); },
+      sha256(ref, opts) { return call("files.sha256", { url: String(ref ?? ""), opts: opts || {} }); },
     },
     print: {
       pdf(opts) { return call("print.pdf", opts || {}); },

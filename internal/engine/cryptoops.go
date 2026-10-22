@@ -63,38 +63,52 @@ func optString(o map[string]any, k string) string {
 	return s
 }
 
+// decodeInput reads s as the bytes it encodes: UTF-8 (the default), base64
+// (padded or not) or hex. what names the argument and option in errors.
+func decodeInput(s, enc, what, option string) ([]byte, error) {
+	switch enc {
+	case "", "utf8":
+		return []byte(s), nil
+	case "base64":
+		b, err := base64.StdEncoding.DecodeString(s)
+		if err != nil {
+			b, err = base64.RawStdEncoding.DecodeString(s)
+		}
+		if err != nil {
+			return nil, cerr.Validation("crypto: {0} is not valid base64", what)
+		}
+		return b, nil
+	case "hex":
+		b, err := hex.DecodeString(s)
+		if err != nil {
+			return nil, cerr.Validation("crypto: {0} is not valid hex", what)
+		}
+		return b, nil
+	}
+	return nil, cerr.Validation("crypto: {0} must be \"utf8\", \"base64\" or \"hex\"", option)
+}
+
 // hmacSha256Op is `ddcore.crypto.hmacSha256`: the key is read as UTF-8 unless
 // keyEncoding says it is base64 or hex.
 func hmacSha256Op(key, text string, opts map[string]any) (string, error) {
-	var k []byte
-	switch enc := optString(opts, "keyEncoding"); enc {
-	case "", "utf8":
-		k = []byte(key)
-	case "base64":
-		b, err := base64.StdEncoding.DecodeString(key)
-		if err != nil {
-			b, err = base64.RawStdEncoding.DecodeString(key)
-		}
-		if err != nil {
-			return "", cerr.Validation("crypto: key is not valid base64")
-		}
-		k = b
-	case "hex":
-		b, err := hex.DecodeString(key)
-		if err != nil {
-			return "", cerr.Validation("crypto: key is not valid hex")
-		}
-		k = b
-	default:
-		return "", cerr.Validation("crypto: keyEncoding must be \"utf8\", \"base64\" or \"hex\"")
+	k, err := decodeInput(key, optString(opts, "keyEncoding"), "key", "keyEncoding")
+	if err != nil {
+		return "", err
 	}
 	mac := hmac.New(sha256.New, k)
 	mac.Write([]byte(text))
 	return encodeDigest(mac.Sum(nil), optString(opts, "output"))
 }
 
+// sha256Op is `ddcore.crypto.sha256`: the data is hashed as UTF-8 unless
+// inputEncoding says it is base64 or hex, so the hash of bytes held as base64
+// is the one `sha256sum` gives for the file.
 func sha256Op(text string, opts map[string]any) (string, error) {
-	sum := sha256.Sum256([]byte(text))
+	b, err := decodeInput(text, optString(opts, "inputEncoding"), "data", "inputEncoding")
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256(b)
 	return encodeDigest(sum[:], optString(opts, "output"))
 }
 

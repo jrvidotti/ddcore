@@ -363,6 +363,14 @@ export interface PrintBlockBuilder {
    * within the field's limits prints as nothing.
    */
   signature(dataUrl: string, title?: string): PrintBlock;
+  /**
+   * The image a File holds — an Attach Image value or a File id — inlined by
+   * the server as the user printing reads it, so a private file reaches the
+   * PDF. At most 80 mm tall unless `maxHeight` says otherwise; `maxHeight` and
+   * `maxWidth` are CSS lengths (`"40mm"`, `"50%"`). A file the user may not
+   * read, over 10 MiB, or not a png, jpeg, gif or webp prints as nothing.
+   */
+  image(file: string, opts?: { title?: string; maxHeight?: string; maxWidth?: string }): PrintBlock;
   raw(html: string): PrintBlock;
   html(html: string): PrintBlock;
   columns(cols: PrintBlock[][]): PrintBlock;

@@ -2,8 +2,10 @@ package engine
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -126,6 +128,9 @@ func (c *Ctx) printDoc(rt *js.Runtime, doctype, name, format, letterheadName, la
 			CanRead: access.CanRead,
 		}
 		blocks := print.StandardTemplate(d, sanitized, opts)
+		if err := c.inlinePrintImages(blocks); err != nil {
+			return "", err
+		}
 		bodyHTML = print.RenderBlocks(blocks)
 	} else {
 		if c.St.Snap.PrintTemplates == nil {
@@ -173,6 +178,9 @@ func (c *Ctx) printDoc(rt *js.Runtime, doctype, name, format, letterheadName, la
 		if err := json.Unmarshal([]byte(resJSON), &parsed); err != nil {
 			return "", fmt.Errorf("invalid print template output: %w", err)
 		}
+		if err := c.inlinePrintImages(parsed.Blocks); err != nil {
+			return "", err
+		}
 		bodyHTML = print.RenderBlocks(parsed.Blocks)
 	}
 
@@ -187,6 +195,40 @@ func (c *Ctx) printDoc(rt *js.Runtime, doctype, name, format, letterheadName, la
 	title := fmt.Sprintf("%s - %s", c.St.I18n.T(lang, d.Label), docTitle)
 	page.SiteURL = c.E.Cfg.SiteURL
 	return print.AssembleHTML(bodyHTML, lh, title, lang, page), nil
+}
+
+// printImageMaxBytes bounds one image a print inlines.
+const printImageMaxBytes = 10 << 20
+
+// inlinePrintImages reads the File each image block names, as the user
+// printing, and puts its bytes in the block as a data URL: the PDF renderer
+// has no session, so a private file is out of its reach. A file the user may
+// not read, that does not exist, is larger than printImageMaxBytes or is not
+// a png, jpeg, gif or webp image (by its bytes, not its name) prints nothing,
+// as a bad signature does; a failure to reach the database or the store fails
+// the print.
+func (c *Ctx) inlinePrintImages(blocks []print.Block) error {
+	var failed error
+	print.Walk(blocks, func(b *print.Block) {
+		if b.Type != "image" || failed != nil {
+			return
+		}
+		b.Src = ""
+		if b.Text == "" {
+			return
+		}
+		_, data, err := c.readFileBytes(b.Text, printImageMaxBytes, false)
+		if err != nil {
+			if cerr.From(err).Status >= 500 {
+				failed = err
+			}
+			return
+		}
+		if ct := http.DetectContentType(data); print.ImageTypes[ct] {
+			b.Src = "data:" + ct + ";base64," + base64.StdEncoding.EncodeToString(data)
+		}
+	})
+	return failed
 }
 
 // PrintPDFArgs is ddcore.print.pdf's argument.
