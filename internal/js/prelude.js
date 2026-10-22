@@ -911,6 +911,9 @@
       save(opts) { return call("files.save", opts || {}); },
       presign(fileUrl, opts) { opts = opts || {}; return call("files.presign", { url: fileUrl, ttl: opts.ttl || 0, opts }); },
     },
+    print: {
+      pdf(opts) { return call("print.pdf", opts || {}); },
+    },
     siteName() { return site().name || ""; },
     siteUrl() { return site().url || ""; },
     // the DocType goes in as its route name, without whitespace: /app/SalesOrder/SO-1

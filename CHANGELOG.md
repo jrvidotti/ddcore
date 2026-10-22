@@ -14,6 +14,10 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **Server code can render a print template to a PDF `File`** (#136). `ddcore.print.pdf({ doctype, id, format?, letterHead?, language?, pageFormat?, landscape?, filename?, ignorePermissions? })` prints the document as `GET /api/print/{doctype}/{id}/pdf` does, and stores the PDF as a private `File` attached to the document, on the current transaction, so `ddcore.sendMail({ attach: [pdf.id] })` can mail it from a job. Printing needs `read` and attaching needs `write` on the document, unless `ignorePermissions`; the File is named `<format>-<id>.pdf` by default. Without a PDF renderer it throws `UnavailableError`. See `print`.
+
 ### Fixed
 
 - **A binary newer than the database's last migration says so** (#135). `ddcore migrate --dry-run` lists the framework's own schema changes — such as the `ddcore_vault.key_id` column 0.31.1 adds — under `framework (before the patches)` instead of answering `nothing to do`; `migrate` counts them in its `ok:` line and records them in `ddcore_migration`, and `ddcore doctor` and `ddcore dev` without `--auto-migrate` report them as pending DDL. `ddcore vault rekey` (MCP: `vault_rekey`), the doctor's vault census and the vault reads and writes stop with `The vault has not been migrated to this version: run ddcore migrate` instead of Postgres's `column "key_id" does not exist`, and a re-key that cannot start records no Audit Event.
