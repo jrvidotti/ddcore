@@ -10,8 +10,8 @@ in a **store**, chosen per deployment:
 | `s3` | an S3-compatible bucket: AWS S3, Cloudflare R2, MinIO, Backblaze B2 | the server checks permission, then redirects to a short-lived presigned URL |
 
 App code never touches the store directly: files enter through `POST /api/upload`
-or `ddcore.files.save`, and leave through `/files/…`, `/private/files/…` or
-`ddcore.files.presign`. A file's `file_url` (`/files/<name>` or
+or `ddcore.files.save`, and leave through `/files/…`, `/private/files/…`,
+`ddcore.files.read`/`sha256` or `ddcore.files.presign`. A file's `file_url` (`/files/<name>` or
 `/private/files/<name>`) is its only name, on both backends, so moving a site
 between them does not change a row.
 
@@ -123,6 +123,29 @@ that fetches media by link. It needs read on the File (the rule of
 `/private/files`; `ignorePermissions: true` skips it) and the **s3** backend: the
 URL is the bucket's own presigned GET. The local backend has no signing key every
 process shares, so it throws there.
+
+`ddcore.files.read(file, { maxBytes, ignorePermissions })` reads a File's bytes
+back, on either backend: `{ base64, contentType, size, fileName }`. `file` is
+the File's id or its `file_url` — an `Attach` value as it is. `sha256(file, {
+output, ignorePermissions })` hashes the bytes as they are stored, which is what
+`sha256sum` prints for the file, in hex unless `output` is `"base64"` or
+`"base64url"`:
+
+```ts
+// a contract that commits to the photo the customer took while signing
+const photoHash = ddcore.files.sha256(doc.agreement_photo);
+const { base64, contentType } = ddcore.files.read(doc.agreement_photo, { maxBytes: 5 << 20 });
+```
+
+- Both need read on the File, as a download does: a private file follows
+  `/private/files` (the document it is attached to, and its field), a public one
+  is anyone's. `ignorePermissions: true` skips the check.
+- `read` throws above `maxBytes` (default 50 MiB), since the bytes land in a
+  string in memory; `sha256` streams them and has no limit.
+- A File with no row is `NotFoundError`, and so is a row whose bytes are not in
+  the store. `contentType` is the one the File recorded, else the extension's.
+- To show a private image in a print, use `b.image` (see `print`): the server
+  inlines it itself.
 
 ## Deletion
 

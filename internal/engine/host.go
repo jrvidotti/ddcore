@@ -354,6 +354,10 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		return c.PrintPDF(rt, p)
 	case "files.presign":
 		return c.PresignFile(a.URL, time.Duration(a.TTL*float64(time.Second)), a.ignorePermissions())
+	case "files.read":
+		return c.ReadFile(a.URL, ReadFileArgs{MaxBytes: toFloat(a.Opts["maxBytes"]), IgnorePermissions: a.ignorePermissions()})
+	case "files.sha256":
+		return c.FileSHA256(a.URL, optString(a.Opts, "output"), a.ignorePermissions())
 	case "externalDb.sql":
 		return c.ExternalSQL(a.Key, a.Query, a.Params, a.Timeout)
 	case "job.current":

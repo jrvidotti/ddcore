@@ -2,7 +2,6 @@ package print
 
 import (
 	"fmt"
-	"html"
 	"strings"
 
 	"github.com/jrvidotti/ddcore/internal/meta"
@@ -162,7 +161,8 @@ func StandardTemplate(d *meta.DocType, doc map[string]any, opts StandardFormatOp
 			case "Code":
 				b.Type, b.Text = "pre", str(val)
 			case "Attach Image":
-				b.Type, b.HTML = "richText", `<img src="`+html.EscapeString(str(val))+`" alt="`+html.EscapeString(tr(label))+`">`
+				// the engine inlines the File before rendering (see Block.Src)
+				b.Type, b.Text = "image", str(val)
 			case "Barcode":
 				b.Type, b.Text, b.Symbology = "barcode", str(val), f.BarcodeSymbology()
 			case "Signature":

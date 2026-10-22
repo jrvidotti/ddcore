@@ -1,6 +1,7 @@
 package print
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -315,11 +316,16 @@ func TestStandardTemplateRendersLongFieldsAsBlocks(t *testing.T) {
 	for _, b := range blocks {
 		types[b.Type]++
 	}
-	if types["richText"] != 2 || types["markdown"] != 1 || types["pre"] != 1 {
+	if types["richText"] != 1 || types["markdown"] != 1 || types["pre"] != 1 || types["image"] != 1 {
 		t.Fatalf("unexpected blocks: %v", types)
 	}
+	for _, b := range blocks {
+		if b.Type == "image" && (b.Text != "/files/a.png" || b.Title != "Photo") {
+			t.Fatalf("the Attach Image did not become an image block of its file: %+v", b)
+		}
+	}
 	out := RenderBlocks(blocks)
-	for _, want := range []string{"rich <em>text</em>", "<h2>Readme</h2>", `src="/files/a.png"`} {
+	for _, want := range []string{"rich <em>text</em>", "<h2>Readme</h2>"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("standard layout is missing %q: %s", want, out)
 		}
@@ -431,5 +437,47 @@ func TestSignatureBlocks(t *testing.T) {
 	}
 	if found == nil || found.Text != testSignature || found.Title != "Received by" {
 		t.Fatalf("the standard layout did not print the Signature as a signature block: %+v", blocks)
+	}
+}
+
+// An image block prints only the data URL the engine read from the File: a
+// template's output never sets it, and nothing but an Attach Image type
+// reaches the <img>. Its bounds are CSS lengths or nothing.
+func TestImageBlocks(t *testing.T) {
+	png := testSignature
+	out := RenderBlocks([]Block{{Type: "image", Title: "Photo", Text: "/private/files/a.png", Src: png, MaxHeight: "40mm", MaxWidth: "50%"}})
+	if !strings.Contains(out, `<img class="print-image" src="`+png+`" style="max-height: 40mm; max-width: 50%" alt="">`) || !strings.Contains(out, ">Photo<") {
+		t.Fatalf("the image did not print: %s", out)
+	}
+	if out := RenderBlocks([]Block{{Type: "image", Src: png, MaxHeight: `1px;background:url(//x)`, MaxWidth: "wide"}}); strings.Contains(out, "style=") {
+		t.Fatalf("a bound that is not a length reached the style: %s", out)
+	}
+	for _, bad := range []string{
+		"", "/private/files/a.png", "javascript:alert(1)", "https://x.example/a.png",
+		"data:image/svg+xml;base64,PHN2ZyBvbmxvYWQ9YWxlcnQoMSk+",
+		`data:image/png;base64,"><script>alert(1)</script>`,
+	} {
+		if out := RenderBlocks([]Block{{Type: "image", Title: "Photo", Text: "/files/a.png", Src: bad}}); out != "" {
+			t.Fatalf("%q printed %s", bad, out)
+		}
+	}
+	// what a template returns is JSON: a src in it is not read
+	var parsed []Block
+	if err := json.Unmarshal([]byte(`[{"type":"image","text":"/files/a.png","src":"`+png+`","Src":"`+png+`"}]`), &parsed); err != nil {
+		t.Fatal(err)
+	}
+	if parsed[0].Src != "" || RenderBlocks(parsed) != "" {
+		t.Fatalf("a template set the image's src: %+v", parsed[0])
+	}
+	// Walk reaches the images inside sections and columns
+	nested := []Block{{Type: "section", Blocks: []Block{{Type: "image"}}}, {Type: "columns", Cells: [][]Block{{{Type: "image"}}, {{Type: "p"}}}}}
+	n := 0
+	Walk(nested, func(b *Block) {
+		if b.Type == "image" {
+			n++
+		}
+	})
+	if n != 2 {
+		t.Fatalf("Walk found %d images, want 2", n)
 	}
 }
