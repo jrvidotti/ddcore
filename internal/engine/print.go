@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -10,6 +11,7 @@ import (
 	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/db"
 	"github.com/jrvidotti/ddcore/internal/geo"
+	"github.com/jrvidotti/ddcore/internal/js"
 	"github.com/jrvidotti/ddcore/internal/meta"
 	"github.com/jrvidotti/ddcore/internal/print"
 	"github.com/jrvidotti/ddcore/internal/richtext"
@@ -60,6 +62,14 @@ func (c *Ctx) ListPrintFormats(doctype string) ([]PrintFormatInfo, error) {
 // PrintDoc renders a document to a complete HTML document with print styling.
 // page sets the size and orientation written into the HTML's @page rule.
 func (c *Ctx) PrintDoc(doctype, name, format, letterheadName, lang string, page print.PDFOptions) (string, error) {
+	return c.printDoc(nil, doctype, name, format, letterheadName, lang, page)
+}
+
+// printDoc is PrintDoc on the runtime given, or on one from the pool when rt is
+// nil. Server code printing from a host call passes its own runtime: taking a
+// second one from the pool while holding the first can wait forever once every
+// runtime is held by a caller doing the same.
+func (c *Ctx) printDoc(rt *js.Runtime, doctype, name, format, letterheadName, lang string, page print.PDFOptions) (string, error) {
 	d, err := c.St.DocType(doctype)
 	if err != nil {
 		return "", err
@@ -129,17 +139,23 @@ func (c *Ctx) PrintDoc(doctype, name, format, letterheadName, lang string, page 
 			return "", cerr.Validation("Print template {0} is for {1}, not {2}", format, pt.Doctype, doctype)
 		}
 
-		rt, err := c.St.Pool.Acquire()
-		if err != nil {
-			return "", err
+		if rt == nil {
+			if rt, err = c.St.Pool.Acquire(); err != nil {
+				return "", err
+			}
+			defer c.St.Pool.Release(rt)
+			rt.Ctx = c
+			rt.SetLang(lang)
+			defer func() {
+				rt.Ctx = nil
+				rt.SetLang("")
+			}()
+		} else {
+			// renderPrint sets and restores the language itself
+			prev := rt.Ctx
+			rt.Ctx = c
+			defer func() { rt.Ctx = prev }()
 		}
-		defer c.St.Pool.Release(rt)
-		rt.Ctx = c
-		rt.SetLang(lang)
-		defer func() {
-			rt.Ctx = nil
-			rt.SetLang("")
-		}()
 
 		docBytes, err := json.Marshal(sanitized)
 		if err != nil {
@@ -171,6 +187,77 @@ func (c *Ctx) PrintDoc(doctype, name, format, letterheadName, lang string, page 
 	title := fmt.Sprintf("%s - %s", c.St.I18n.T(lang, d.Label), docTitle)
 	page.SiteURL = c.E.Cfg.SiteURL
 	return print.AssembleHTML(bodyHTML, lh, title, lang, page), nil
+}
+
+// PrintPDFArgs is ddcore.print.pdf's argument.
+type PrintPDFArgs struct {
+	Doctype           string `json:"doctype"`
+	ID                string `json:"id"`
+	Format            string `json:"format"`
+	LetterHead        string `json:"letterHead"`
+	Language          string `json:"language"`
+	PageFormat        string `json:"pageFormat"`
+	Landscape         bool   `json:"landscape"`
+	Filename          string `json:"filename"`
+	IgnorePermissions bool   `json:"ignorePermissions"`
+}
+
+// PrintPDF renders a document's print to PDF and stores it as a private File
+// attached to that document: how server code gets a PDF to mail. Printing needs
+// read on the document and attaching needs write, as an upload does, unless
+// IgnorePermissions. The render runs on the caller's transaction, so a rollback
+// takes the File and its bytes back out.
+func (c *Ctx) PrintPDF(rt *js.Runtime, a PrintPDFArgs) (Doc, error) {
+	if c.User == "Guest" && !a.IgnorePermissions {
+		return nil, cerr.Auth("Sign in to upload files")
+	}
+	if a.Doctype == "" || a.ID == "" {
+		return nil, cerr.Validation("print.pdf needs a doctype and an id")
+	}
+	pageFormat, ok := print.NormalizePageFormat(a.PageFormat)
+	if !ok {
+		return nil, cerr.Validation("Page format {0} is not supported: use A4 or Letter", a.PageFormat)
+	}
+	page := print.PDFOptions{Format: pageFormat, Landscape: a.Landscape}
+	format := a.Format
+	if format == "" {
+		format = "standard"
+	}
+	name := a.Filename
+	if name == "" {
+		prefix := format
+		if format == "standard" {
+			prefix = a.Doctype
+		}
+		name = fmt.Sprintf("%s-%s.pdf", prefix, a.ID)
+	}
+	var doc Doc
+	run := func() error {
+		// the write check comes first: a caller who may not attach the file
+		// should not cost a render
+		id, err := c.UploadTarget(a.Doctype, a.ID, "")
+		if err != nil {
+			return err
+		}
+		html, err := c.printDoc(rt, a.Doctype, a.ID, format, a.LetterHead, a.Language, page)
+		if err != nil {
+			return err
+		}
+		pdf, err := print.GetDefaultRenderer().RenderPDF(c.callCtxOr(c.Ctx), html, page)
+		if err != nil {
+			return err
+		}
+		doc, err = c.StoreFile(NewFile{Doctype: a.Doctype, ID: id, Name: name, ContentType: "application/pdf",
+			Size: int64(len(pdf)), Private: true}, bytes.NewReader(pdf))
+		return err
+	}
+	var err error
+	if a.IgnorePermissions {
+		err = c.WithIgnorePermissions(run)
+	} else {
+		err = run()
+	}
+	return doc, err
 }
 
 func (c *Ctx) resolveLetterHead(name string) (*print.LetterHead, error) {

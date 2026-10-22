@@ -200,5 +200,7 @@ see [authentication](auth.md) and `.env.example`:
 
 There is no inbound mail, no IMAP, no bounce handling, no CC or BCC, no
 Reply-To, no per-message From, and no resend button. An app that generates a PDF
-writes a `File` first and attaches it by id; there is no way to attach raw
-bytes, because bytes with no owner have no retention policy and no permission.
+writes a `File` first and attaches it by id: `ddcore.print.pdf` turns a print
+template into one (see [print](print.md#from-server-code)). There is no way to
+attach raw bytes, because bytes with no owner have no retention policy and no
+permission.

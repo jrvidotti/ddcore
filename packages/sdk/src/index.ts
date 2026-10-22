@@ -281,6 +281,29 @@ export interface FileDoc extends BaseDoc {
   attached_to_field?: string;
 }
 
+/** `ddcore.print.pdf`'s argument. */
+export interface PrintPdfOpts {
+  /** The document to print; the PDF is attached to it, which needs write on it. */
+  doctype: string;
+  id: string;
+  /** A print template's name; defaults to `"standard"`. */
+  format?: string;
+  /** A Letter Head's id, or `"none"`; defaults to the default Letter Head. */
+  letterHead?: string;
+  /** Defaults to the current language, then the site's. */
+  language?: string;
+  /** `"A4"` (the default) or `"Letter"`. */
+  pageFormat?: string;
+  landscape?: boolean;
+  /** Defaults to `<format>-<id>.pdf`, or `<doctype>-<id>.pdf` for the standard format. */
+  filename?: string;
+  /**
+   * Print every field and skip the write check. The File is attached to the
+   * document, so everyone who reads the document reads the PDF too.
+   */
+  ignorePermissions?: boolean;
+}
+
 export interface ExternalDbOpts {
   /** Timeout in seconds; defaults to 30. */
   timeout?: number;
@@ -419,6 +442,16 @@ export interface DDCoreAPI {
      * no session. Needs read on the File, and the s3 storage backend.
      */
     presign(fileUrl: string, opts?: { ttl?: number; ignorePermissions?: boolean }): string;
+  };
+  /** Printing from server code; see `print`. */
+  print: {
+    /**
+     * Renders a document's print to PDF and stores it as a private File
+     * attached to the document, on the current transaction: what
+     * `ddcore.sendMail({ attach: [file.id] })` takes. Throws UnavailableError
+     * when the server has no PDF renderer.
+     */
+    pdf(opts: PrintPdfOpts): FileDoc;
   };
   /**
    * Queues a job. It is written on the current transaction, so the job only

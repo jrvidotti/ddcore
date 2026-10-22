@@ -216,6 +216,44 @@ When no renderer is available, or Gotenberg cannot be reached or does not start
 answering within the 60 seconds, the PDF endpoint answers 503 `UnavailableError`. Any other renderer failure — Gotenberg answering
 with an error, Chrome or the command failing — is a 500.
 
+## From server code
+
+`ddcore.print.pdf` renders a document's print to PDF and stores it as a private
+`File` attached to that document, which is what `ddcore.sendMail({ attach })`
+takes:
+
+```ts
+// in a job, after the agreement is firmed
+const pdf = ddcore.print.pdf({ doctype: "Portal Payment", id: doc.id, format: "portal.agreement_contract", language: "pt-BR" });
+ddcore.sendMail({ template: "portal.agreement_contract", to: doc.agreement_email, args: { … }, attach: [pdf.id],
+  reference: { doctype: "Portal Payment", id: doc.id }, key: `agreement-contract:${doc.id}` });
+```
+
+It takes `{ doctype, id, format?, letterHead?, language?, pageFormat?, landscape?, filename?, ignorePermissions? }`:
+
+- `format`, `letterHead`, `pageFormat` and `landscape` mean what the HTTP
+  parameters `format`, `letterhead`, `page_format` and `landscape` mean:
+  `standard`, the default Letter Head (`"none"` for none), A4, portrait.
+- `language` defaults to the current language, then the site's.
+- `filename` defaults to `<format>-<id>.pdf`, or `<doctype>-<id>.pdf` for the
+  standard format. The stored name is random, as for any upload.
+- Printing needs `read` on the document, and attaching the File needs `write`
+  on it, as an upload does. `ignorePermissions: true` skips both. A job usually
+  needs it.
+
+The File is attached to the document, so everyone who reads the document can
+read the PDF. A PDF printed with `ignorePermissions` holds every field,
+including those above permission level 0, which some of those readers cannot
+see on the form. Print with the reader's own permissions, or keep such fields
+off the template.
+
+The PDF is rendered on the caller's transaction, by the renderer the PDF
+endpoint uses, under the same limits. A rollback deletes the File and its bytes.
+A render can take as long as Gotenberg's 60 seconds, and the transaction stays
+open while it runs, so call it from a job rather than a request. When no
+renderer is available it throws `UnavailableError`, and a job's retry covers a
+renderer that is down for a while.
+
 ## Desk
 
 A saved document's form has a Print button, also in its actions menu, that
