@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.31.2 — 2026-10-22
+
 ### Added
 
 - **Server code can render a print template to a PDF `File`** (#136). `ddcore.print.pdf({ doctype, id, format?, letterHead?, language?, pageFormat?, landscape?, filename?, ignorePermissions? })` prints the document as `GET /api/print/{doctype}/{id}/pdf` does, and stores the PDF as a private `File` attached to the document, on the current transaction, so `ddcore.sendMail({ attach: [pdf.id] })` can mail it from a job. Printing needs `read` and attaching needs `write` on the document, unless `ignorePermissions`; the File is named `<format>-<id>.pdf` by default. Without a PDF renderer it throws `UnavailableError`. See `print`.
