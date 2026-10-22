@@ -33,10 +33,20 @@ func (e *Engine) Plan(ctx context.Context, prune bool) ([]db.Statement, error) {
 	if _, err := db.RenameLegacyPK(ctx, tx); err != nil {
 		return nil, err
 	}
+	// the framework's own tables are planned against the database as it is,
+	// then put in place so the DocType plan reads past them
+	internal, err := db.PlanInternal(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
 	if err := db.EnsureInternal(ctx, tx); err != nil {
 		return nil, err
 	}
-	return db.Plan(ctx, tx, e.Current().Meta, prune)
+	plan, err := db.Plan(ctx, tx, e.Current().Meta, prune)
+	if err != nil {
+		return nil, err
+	}
+	return append(internal, plan...), nil
 }
 
 type MigrateResult struct {
@@ -127,7 +137,14 @@ func (e *Engine) Migrate(ctx context.Context, prune bool) (*MigrateResult, error
 		if moved > 0 {
 			c.E.Log.Info("moved the document key to id", "tables", moved)
 		}
+		internal, err := db.PlanInternal(ctx, c.Tx)
+		if err != nil {
+			return err
+		}
 		if err := db.EnsureInternal(ctx, c.Tx); err != nil {
+			return err
+		}
+		if err := db.Record(ctx, c.Tx, internal); err != nil {
 			return err
 		}
 		rt, err := c.RT()
@@ -165,7 +182,7 @@ func (e *Engine) Migrate(ctx context.Context, prune bool) (*MigrateResult, error
 		if err := renameLegacyAdmin(ctx, c); err != nil {
 			return err
 		}
-		res.DDL = keep
+		res.DDL = append(internal, keep...)
 		for _, st := range keep {
 			if st.Kind == db.KindRenameTable || st.Kind == db.KindRenameColumn {
 				if err := c.recordRename(st); err != nil {

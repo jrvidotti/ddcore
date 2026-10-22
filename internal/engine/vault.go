@@ -183,7 +183,7 @@ ON CONFLICT (` + conflict + `) DO UPDATE
 SET ciphertext = EXCLUDED.ciphertext, nonce = EXCLUDED.nonce, key_id = EXCLUDED.key_id, updated = now();`
 
 	if _, err := q.Exec(ctx, query, name, ciphertext, nonce, kr.current.id); err != nil {
-		return err
+		return vaultSchemaErr(err)
 	}
 
 	e.recordVaultAudit(c, name, "write", nil)
@@ -327,6 +327,35 @@ func (c *Ctx) vaultFieldHas(d *meta.DocType, key string) (bool, error) {
 	return has, err
 }
 
+// errVaultNotMigrated is what the vault answers on a database the running
+// binary has not migrated yet: a column it reads and writes is not there (#135).
+func errVaultNotMigrated() error {
+	return cerr.Validation("The vault has not been migrated to this version: run ddcore migrate")
+}
+
+// vaultSchemaErr names the way out when a vault query met a column that is not
+// there, instead of passing Postgres's own words on.
+func vaultSchemaErr(err error) error {
+	if db.UndefinedColumn(err) {
+		return errVaultNotMigrated()
+	}
+	return err
+}
+
+// vaultMigrated is checked before a rotation reads anything: a re-key that
+// cannot start must not record that it ran.
+func vaultMigrated(ctx context.Context, q db.Querier) error {
+	var ok bool
+	if err := q.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM information_schema.columns
+		WHERE table_schema = current_schema() AND table_name = 'ddcore_vault' AND column_name = 'key_id')`).Scan(&ok); err != nil {
+		return err
+	}
+	if !ok {
+		return errVaultNotMigrated()
+	}
+	return nil
+}
+
 // vaultRead decrypts one secret and records nothing.
 //
 // Only for the framework reading a key it owns on its own schedule — a webhook
@@ -345,7 +374,7 @@ func vaultReadWhere(ctx context.Context, q db.Querier, kr vaultKeyring, name, wh
 		return "", false, nil
 	}
 	if err != nil {
-		return "", false, err
+		return "", false, vaultSchemaErr(err)
 	}
 	plaintext, _, err := kr.open(keyID, ciphertext, nonce)
 	if err != nil {

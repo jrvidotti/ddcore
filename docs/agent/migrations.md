@@ -30,8 +30,11 @@ end**. And the drops run after the patches, so a backfill can still read the col
 same migration removes. They are also *planned* after the patches: an orphan a patch already
 dropped is not dropped twice, and one a patch wrote into is refused rather than emptied.
 
-`ddcore migrate --dry-run` prints the plan in that order, with the destructive statements
-under their own heading. A dry run cannot run patches, so its drops are computed against the
+`ddcore migrate --dry-run` prints the plan in that order: the framework's own tables,
+columns and indexes that a new binary adds (step 1) under `framework (before the patches)`,
+then the app's DDL under `expand`, with the destructive statements under their own heading.
+The `ok:` line of a real run counts all of them, and `ddcore doctor` reports them as pending
+DDL. A dry run cannot run patches, so its drops are computed against the
 database as it stands: under `--prune`, an orphan a pending `afterSchema` patch drops or
 empties may show up as a drop, or as a refusal, that the real run will not make.
 `ddcore doctor` adds what the meta no longer declares, which patches are pending, and which
