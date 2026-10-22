@@ -54,6 +54,7 @@ which overrides the file:
 | `DDCORE_AUTO_MIGRATE` | `ddcore start` migrates before it serves; `0` turns that off for a deployment that migrates in a step of its own | `0` |
 | `DDCORE_DATA_DIR` | Uploads and local backups (the official image sets `/data`) | `/data` |
 | `DDCORE_SECRET_KEY` | Master key for encrypted Vault fields and webhook signing | `openssl rand -hex 32` |
+| `DDCORE_SECRET_KEY_PREVIOUS` | Only while rotating the master key: the old one, still read with until `ddcore vault rekey` moves every secret off it. See [vault](../agent/vault.md#rotating-the-master-key) | the previous `DDCORE_SECRET_KEY` |
 | `DDCORE_STORAGE` | Where uploaded file bytes live: `local` (`<dataDir>/files`, the default) or `s3`, with the `DDCORE_S3_*` variables. See [storage](../agent/storage.md) | `s3` |
 | `DDCORE_SECRET_<NAME>` | A secret an app reads with `ddcore.secret("<name>")` | |
 | `DDCORE_APP_<NAME>` | A setting an app reads with `ddcore.env("<name>")` that is not a secret — `ddcore doctor` prints its value | |

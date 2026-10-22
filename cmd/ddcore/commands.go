@@ -50,6 +50,7 @@ func commands() []command {
 		{"audit", "inspect and purge administrative audit events (run: ddcore audit)", auditUsage, cmdAudit},
 		{"user", "user add|invite|passwd|reset|unlock|sessions (run: ddcore user)", userUsage, cmdUser},
 		{"apikey", "apikey <user> [--label x] [--days N] [--prefix p]  → prints key:secret", "", cmdAPIKey},
+		{"vault", "vault rekey — re-encrypt the vault under DDCORE_SECRET_KEY (run: ddcore vault)", vaultUsage, cmdVault},
 		{"tenant", "tenant list|create|enable|disable|adopt — the tenants of a site with tenancy (run: ddcore tenant)", tenantUsage, cmdTenant},
 		{"mcp", "MCP server (stdio) for agents", "", cmdMCP},
 		{"docs", "print the framework documentation", "", cmdDocs},

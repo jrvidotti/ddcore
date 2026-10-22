@@ -43,6 +43,13 @@ func (s *server) jobTools(srv *mcp.Server) {
 			return e.SetMaintenance(ctx, in.Enabled, in.Reason, "mcp")
 		})
 
+	addTool(srv, "vault_rekey", "Re-encrypts every vault secret, in every tenant, under DDCORE_SECRET_KEY: the step of a master key rotation after deploying the new key with the old one in DDCORE_SECRET_KEY_PREVIOUS. Reports how many secrets are under each key and names those that open under neither; values are never returned. dry_run only counts. A run is recorded as an Audit Event.",
+		func(ctx context.Context, in struct {
+			DryRun bool `json:"dry_run,omitempty"`
+		}) (any, error) {
+			return e.VaultRekey(ctx, engine.VaultRekeyOpts{DryRun: in.DryRun, Actor: "mcp"})
+		})
+
 	addTool(srv, "get_job", "One background job, without its arguments or result.",
 		func(ctx context.Context, in struct {
 			ID int64 `json:"id"`

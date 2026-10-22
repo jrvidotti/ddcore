@@ -141,6 +141,43 @@ func TestDoctorVaultReporting(t *testing.T) {
 	}
 }
 
+// A rotation of the master key reports what it still has to move, says when
+// the previous key can go, and names the secrets no key opens.
+func TestDoctorVaultRotation(t *testing.T) {
+	r := &doctorReport{
+		Database: db.Health{OK: true},
+		Ops:      config.DefaultOps(),
+		Vault: &vaultSection{Configured: true, Count: 3, Secrets: []string{"a", "b", "c"},
+			Keys: &engine.VaultKeyCensus{PreviousConfigured: true, Current: 1, Previous: 2, Unreadable: []string{}}},
+	}
+	out := renderDoctor(t, r)
+	if !strings.Contains(out, "vault:      1 under the current key, 2 under the previous, 0 under neither (every tenant)") {
+		t.Fatalf("unexpected rotation report:\n%s", out)
+	}
+	if w := vaultKeyWarnings(r.Vault.Keys); len(w) != 1 || w[0] != "vault: 2 secret(s) still under DDCORE_SECRET_KEY_PREVIOUS; run ddcore vault rekey" {
+		t.Fatalf("mid-rotation warnings: %q", w)
+	}
+
+	done := &engine.VaultKeyCensus{PreviousConfigured: true, Current: 3, Unreadable: []string{}}
+	if w := vaultKeyWarnings(done); len(w) != 1 || w[0] != "vault: no secret is under DDCORE_SECRET_KEY_PREVIOUS; remove it" {
+		t.Fatalf("finished-rotation warnings: %q", w)
+	}
+
+	lost := &engine.VaultKeyCensus{Current: 2, Unreadable: []string{"alfa/card:token:9"}}
+	if w := vaultKeyWarnings(lost); len(w) != 1 || w[0] != "vault: 1 secret(s) open under neither DDCORE_SECRET_KEY nor DDCORE_SECRET_KEY_PREVIOUS: alfa/card:token:9" {
+		t.Fatalf("unreadable warnings: %q", w)
+	}
+
+	if w := vaultKeyWarnings(&engine.VaultKeyCensus{Current: 3, Unreadable: []string{}}); len(w) != 0 {
+		t.Fatalf("no rotation, no warning: %q", w)
+	}
+	plain := renderDoctor(t, &doctorReport{Database: db.Health{OK: true}, Ops: config.DefaultOps(),
+		Vault: &vaultSection{Configured: true, Count: 1, Secrets: []string{"a"}, Keys: &engine.VaultKeyCensus{Current: 1}}})
+	if strings.Contains(plain, "under the previous") {
+		t.Fatalf("the key line shows up with no rotation:\n%s", plain)
+	}
+}
+
 // App settings are not secrets: doctor shows them with their values, sorted,
 // on a line of their own, so a wrong switch is visible from the report.
 func TestDoctorAppEnvReporting(t *testing.T) {

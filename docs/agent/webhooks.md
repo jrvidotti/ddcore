@@ -150,7 +150,8 @@ to wherever a `302` points is sent to an address nobody configured. The record
 keeps the response status and the first 512 bytes of the answer.
 
 A missing or undecryptable signing secret — no `DDCORE_SECRET_KEY`, or a key
-changed since the secret was saved — fails the delivery at once, without
+changed since the secret was saved without the old one kept as
+`DDCORE_SECRET_KEY_PREVIOUS` — fails the delivery at once, without
 retries, because waiting does not make the key readable.
 
 **A timeout is retried even though the receiver may already have acted.** This

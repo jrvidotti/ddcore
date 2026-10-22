@@ -75,6 +75,22 @@ func TestSecretRefusesTheVaultMasterKey(t *testing.T) {
 	}
 }
 
+// The previous master key of a rotation is as much the vault's as the current
+// one, and is refused the same way.
+func TestSecretRefusesThePreviousMasterKey(t *testing.T) {
+	e := &Engine{}
+	t.Setenv(PreviousKeyEnvName, "the-old-master-key")
+
+	if v, ok := e.Secret("key_previous"); ok {
+		t.Errorf("expected the previous master key to be refused, got %q", v)
+	}
+	for _, n := range e.SecretNames() {
+		if n == "KEY_PREVIOUS" {
+			t.Error("SecretNames must not list the previous master key")
+		}
+	}
+}
+
 func TestSecretNamesOmitsValues(t *testing.T) {
 	e := &Engine{}
 	t.Setenv("DDCORE_SECRET_UM", "valor-um")

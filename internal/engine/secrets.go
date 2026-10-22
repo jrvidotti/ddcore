@@ -56,13 +56,20 @@ func (e *Engine) Secret(name string) (string, bool) {
 		return "", false
 	}
 	envName := SecretEnvName(name)
-	if envName == MasterKeyEnvName {
+	if isMasterKeyEnv(envName) {
 		// DDCORE_SECRET_KEY holds the vault master key, not an app secret.
 		// An app that names "key" must not get it back through this door.
 		return "", false
 	}
 	v, ok := os.LookupEnv(envName)
 	return v, ok && v != ""
+}
+
+// isMasterKeyEnv says whether a variable holds a vault master key: the
+// current one, or the previous one a rotation still reads with. Both share the
+// prefix of an app secret and neither is one.
+func isMasterKeyEnv(name string) bool {
+	return name == MasterKeyEnvName || name == PreviousKeyEnvName
 }
 
 // RequireSecret is Secret for the caller that cannot continue without it. The
@@ -82,7 +89,7 @@ func (e *Engine) SecretNames() []string {
 	var out []string
 	for _, kv := range os.Environ() {
 		k, v, _ := strings.Cut(kv, "=")
-		if k == MasterKeyEnvName {
+		if isMasterKeyEnv(k) {
 			// The vault master key is not an integration secret; it never
 			// belongs in the list `ddcore doctor` prints for app secrets.
 			continue

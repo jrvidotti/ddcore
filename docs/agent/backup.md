@@ -131,6 +131,11 @@ site backed up by its platform's own snapshots leaves no row to check.
 including password hashes and `ddcore_vault` ciphertexts. Store it in an encrypted
 bucket or wrap it (`age`, `gpg`) before it leaves the machine.
 
+**The vault key goes with the archive's age.** An archive's vault secrets open only
+under the `DDCORE_SECRET_KEY` they were written with. After a rotation, keep the old key
+alongside the archives taken before `ddcore vault rekey`; restoring one, provide it as
+`DDCORE_SECRET_KEY_PREVIOUS` and re-key the restored copy (see `vault`).
+
 ## `ddcore restore`
 
 ```
