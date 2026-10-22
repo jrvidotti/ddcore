@@ -81,6 +81,9 @@ func (e *Engine) VaultCensus(ctx context.Context) (*VaultKeyCensus, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := vaultMigrated(ctx, e.DB.Sys); err != nil {
+		return nil, err
+	}
 	on, err := e.tenancy(ctx)
 	if err != nil {
 		return nil, err
@@ -111,6 +114,9 @@ func (e *Engine) VaultCensus(ctx context.Context) (*VaultKeyCensus, error) {
 func (e *Engine) VaultRekey(ctx context.Context, o VaultRekeyOpts) (*VaultRekeyResult, error) {
 	kr, err := VaultKeys()
 	if err != nil {
+		return nil, err
+	}
+	if err := vaultMigrated(ctx, e.DB.Sys); err != nil {
 		return nil, err
 	}
 	on, err := e.tenancy(ctx)

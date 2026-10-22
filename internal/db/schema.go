@@ -398,6 +398,9 @@ type Statement struct {
 	// Destructive marks the statements that lose data: they only ever appear
 	// under prune, and Migrate runs them after the patches.
 	Destructive bool
+	// Internal marks a statement of the framework's own schema (PlanInternal):
+	// EnsureInternal runs it, before the patches, not Apply.
+	Internal bool
 }
 
 // SQL is the statements' text, for a caller that only wants to print or run them.
@@ -445,7 +448,15 @@ func Report(sts []Statement) string {
 	if len(sts) == 0 {
 		return "-- nothing to do\n"
 	}
-	keep, drop := Destructive(sts)
+	var internal, rest []Statement
+	for _, st := range sts {
+		if st.Internal {
+			internal = append(internal, st)
+		} else {
+			rest = append(rest, st)
+		}
+	}
+	keep, drop := Destructive(rest)
 	var b strings.Builder
 	line := func(st Statement) {
 		where := st.Table
@@ -457,6 +468,12 @@ func Report(sts []Statement) string {
 		}
 		fmt.Fprintf(&b, "  %-12s %s\n", st.Kind.Label(), where)
 		fmt.Fprintf(&b, "               %s\n", st.SQL)
+	}
+	if len(internal) > 0 {
+		b.WriteString("framework (before the patches)\n")
+		for _, st := range internal {
+			line(st)
+		}
 	}
 	if len(keep) > 0 {
 		b.WriteString("expand\n")
@@ -1023,6 +1040,17 @@ func Apply(ctx context.Context, q Querier, sts []Statement) error {
 		if _, err := q.Exec(ctx, st.SQL); err != nil {
 			return fmt.Errorf("%w\nDDL: %s", err, st.SQL)
 		}
+		if err := Record(ctx, q, []Statement{st}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Record writes statements that ran some other way in ddcore_migration: the
+// framework's own, which EnsureInternal runs as one script.
+func Record(ctx context.Context, q Querier, sts []Statement) error {
+	for _, st := range sts {
 		if _, err := q.Exec(ctx, "INSERT INTO ddcore_migration (ddl) VALUES ($1)", st.SQL); err != nil {
 			return err
 		}

@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/jrvidotti/ddcore/internal/db"
 )
 
 const (
@@ -265,4 +267,68 @@ func TestWebhookSecretSurvivesRotation(t *testing.T) {
 		}
 		return nil
 	})
+}
+
+// #135 — a binary newer than the database's last migration: the vault says to
+// migrate instead of passing Postgres's error on, the plan shows the column it
+// is missing, and the migration that adds it counts it.
+func TestVaultBeforeMigrateSaysToMigrate(t *testing.T) {
+	e := setup(t)
+	ctx := context.Background()
+	t.Setenv(MasterKeyEnvName, newMasterKey)
+	runAs(t, e, "Admin", func(c *Ctx) error { return e.VaultSet(c, "card:token:1", "tok-1") })
+	if _, err := e.DB.Sys.Exec(ctx, `ALTER TABLE ddcore_vault DROP COLUMN key_id`); err != nil {
+		t.Fatal(err)
+	}
+	e.DB.Pool.Reset()
+	e.DB.Sys.Reset()
+
+	notMigrated := func(what string, err error) {
+		t.Helper()
+		if err == nil || !strings.Contains(err.Error(), "run ddcore migrate") {
+			t.Fatalf("%s: %v", what, err)
+		}
+	}
+	_, err := e.VaultRekey(ctx, VaultRekeyOpts{DryRun: true})
+	notMigrated("rekey --dry-run", err)
+	_, err = e.VaultRekey(ctx, VaultRekeyOpts{Actor: "test"})
+	notMigrated("rekey", err)
+	_, err = e.VaultCensus(ctx)
+	notMigrated("census", err)
+	_, _, err = e.VaultGet(nil, "card:token:1")
+	notMigrated("get", err)
+	var events int
+	if err := e.DB.Sys.QueryRow(ctx, `SELECT count(*) FROM tab_audit_event WHERE action = 'vault.rekey'`).Scan(&events); err != nil || events != 0 {
+		t.Fatalf("a re-key that could not start recorded %d event(s) (%v)", events, err)
+	}
+
+	plan, err := e.Plan(ctx, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plan) != 1 || !plan[0].Internal || plan[0].Kind != db.KindAddColumn || plan[0].Table != "ddcore_vault" || plan[0].Column != "key_id" {
+		t.Fatalf("plan: %v", db.SQL(plan))
+	}
+	if out := db.Report(plan); !strings.Contains(out, "ddcore_vault.key_id") {
+		t.Fatalf("report:\n%s", out)
+	}
+
+	res, err := e.Migrate(ctx, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(res.String(), "1 DDL") {
+		t.Fatalf("migrate: %s", res)
+	}
+	var recorded int
+	if err := e.DB.Sys.QueryRow(ctx, `SELECT count(*) FROM ddcore_migration WHERE ddl LIKE '%ddcore_vault ADD COLUMN IF NOT EXISTS key_id%'`).Scan(&recorded); err != nil || recorded != 1 {
+		t.Fatalf("recorded %d time(s) (%v)", recorded, err)
+	}
+	if plan, err := e.Plan(ctx, false); err != nil || len(plan) != 0 {
+		t.Fatalf("after migrate: %v %v", db.SQL(plan), err)
+	}
+	dry, err := e.VaultRekey(ctx, VaultRekeyOpts{DryRun: true})
+	if err != nil || dry.Census.Current != 1 {
+		t.Fatalf("after migrate: %+v %v", dry, err)
+	}
 }

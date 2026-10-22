@@ -35,7 +35,10 @@ the server cannot read one:
    changes.
 2. Run `ddcore vault rekey` (or the MCP tool `vault_rekey`). It re-encrypts under the
    current key every secret not yet written with it, in every tenant, in batches of
-   100 (`--batch N`), each batch one transaction. `--dry-run` only counts.
+   100 (`--batch N`), each batch one transaction. `--dry-run` only counts. On a database
+   the binary has not migrated yet (`ddcore start` migrates on boot; `ddcore exec` or a
+   shell against a fresh deploy does not), it stops before reading anything with
+   `The vault has not been migrated to this version: run ddcore migrate`.
 3. Run `ddcore doctor`. Once no secret is under the previous key it says so; remove
    `DDCORE_SECRET_KEY_PREVIOUS` and deploy again.
 

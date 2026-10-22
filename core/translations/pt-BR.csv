@@ -803,6 +803,7 @@ The signature in {0} is too large (at most {1} by {2} pixels),A assinatura em {0
 The site is in maintenance mode; changes are paused. Try again shortly.,O site está em modo de manutenção; as alterações estão pausadas. Tente novamente em instantes.,# internal/engine/maintenance.go:178
 The tenant {0} is disabled,A conta {0} está desativada,# internal/engine/tenancy.go:351
 The text is too long to preview,O texto é longo demais para pré-visualizar,# internal/api/api.go:1343
+The vault has not been migrated to this version: run ddcore migrate,O cofre não foi migrado para esta versão: rode ddcore migrate,# internal/engine/vault.go:333
 The webhook of delivery {0} was deleted,O webhook da entrega {0} foi excluído,# internal/engine/webhooks.go:576
 Then sign in at {0} with the {1} button.,"Depois, entre em {0} pelo botão {1}.",# core/mail/invite_sso.mail.ts:22
 There is no account for this e-mail address. Ask an admin to invite you.,Não há conta para este endereço de e-mail. Peça a um administrador para convidar você.,# desk/src/routes/login/+page.svelte:47
@@ -885,7 +886,7 @@ Username,Usuário,# desk/src/routes/login/+page.svelte:89
 Users cannot be merged,Usuários não podem ser mesclados,# internal/engine/merge.go:363
 Vault secret key ({0}) is not configured on this site,Chave secreta do cofre ({0}) não está configurada neste site,# internal/engine/vault.go:67
 Vault secret name cannot be empty,Nome do segredo do cofre não pode ser vazio,# internal/engine/vault.go:151
-"Vault secret {0} opens under neither {1} nor {2}; delete or set it again, or provide the key it was written with","O segredo do cofre {0} não abre nem com {1} nem com {2}; apague-o ou grave-o de novo, ou forneça a chave com que foi gravado",# internal/engine/vault_rekey.go:185
+"Vault secret {0} opens under neither {1} nor {2}; delete or set it again, or provide the key it was written with","O segredo do cofre {0} não abre nem com {1} nem com {2}; apague-o ou grave-o de novo, ou forneça a chave com que foi gravado",# internal/engine/vault_rekey.go:191
 Version,Versão,# core.doctypes.feedback.feedback.doctype
 View row,Visualizar linha,# desk/src/lib/controls/Grid.svelte:183
 Webhook,Webhook,# core.doctypes.webhook.webhook.doctype

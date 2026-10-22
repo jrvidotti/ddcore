@@ -272,6 +272,8 @@ func gatherDoctor(ctx context.Context, cfg *config.File, windowMin int, updateCh
 			if keys, err := e.VaultCensus(ctx); err == nil {
 				rep.Vault.Keys = keys
 				rep.Warnings = append(rep.Warnings, vaultKeyWarnings(keys)...)
+			} else {
+				rep.Warnings = append(rep.Warnings, "vault: "+db.RedactError(err))
 			}
 		}
 	}

@@ -235,3 +235,38 @@ func TestStdColumnsAgreeWithMeta(t *testing.T) {
 		}
 	}
 }
+
+// #135 — every statement of the framework's schema has to be one the planner
+// understands, or what it changes goes unreported by a dry run again.
+func TestInternalStatementsParse(t *testing.T) {
+	sts, err := internalStatements()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := strings.Count(InternalSchema, "IF NOT EXISTS") + strings.Count(InternalSchema, "IF EXISTS"); n != len(sts) {
+		t.Fatalf("%d statements parsed, %d in the schema", len(sts), n)
+	}
+	found := false
+	for _, st := range sts {
+		if !st.Internal || st.Table == "" {
+			t.Fatalf("incomplete: %+v", st)
+		}
+		if st.Kind == KindAddColumn && st.Table == "ddcore_vault" && st.Column == "key_id" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("ddcore_vault.key_id is not planned")
+	}
+}
+
+func TestReportHeadsTheFramework(t *testing.T) {
+	out := Report([]Statement{
+		{SQL: `ALTER TABLE "tab_a" ADD COLUMN "x" text;`, Kind: KindAddColumn, Table: "tab_a", Column: "x"},
+		{SQL: `ALTER TABLE ddcore_vault ADD COLUMN IF NOT EXISTS key_id text;`, Kind: KindAddColumn, Table: "ddcore_vault", Column: "key_id", Internal: true},
+	})
+	fw, ex := strings.Index(out, "framework"), strings.Index(out, "expand")
+	if fw < 0 || ex < 0 || fw > ex || !strings.Contains(out, "ddcore_vault.key_id") {
+		t.Fatalf("the framework's statements come first, under their own heading:\n%s", out)
+	}
+}
