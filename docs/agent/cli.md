@@ -47,6 +47,7 @@ prints that command's options, or its subcommands for a command such as `import`
 | `ddcore import plan\|run\|status\|reconcile <dir> [--tenant <slug>]` | loads an export directory into this site, resumable and idempotent; `--tenant` loads into a tenant and scopes `status` and `reconcile` to it (see `import`) |
 | `ddcore jobs list\|show\|stats\|retry\|cancel\|purge\|scheduled\|run <fn>\|work` | the queue and the scheduler (see `ops`); `show` is the only command that prints a job's arguments; `work --queue q[,q] [--workers N]` starts only those queues' pools |
 | `ddcore webhooks list\|replay <delivery>...` | outgoing webhook deliveries (see `webhooks`); a replay is recorded as an Audit Event |
+| `ddcore vault rekey [--dry-run] [--batch N]` | re-encrypts every vault secret, in every tenant, under `DDCORE_SECRET_KEY` — the step of a key rotation after deploying the old key as `DDCORE_SECRET_KEY_PREVIOUS`; `--dry-run` counts the secrets under each key and names those that open under neither. One Audit Event per run (see `vault`) |
 | `ddcore push keys [--subject mailto:…]` | prints a new VAPID key pair for `ddcore.push` as `.env` lines (see `push`); stores nothing |
 | `ddcore audit list\|purge` | inspect and purge administrative audit events (see `audit`) |
 | `ddcore user add <email> <name> --password x --role R` / `user passwd <email> <password>` | users; `passwd` also ends that user's other sessions |
@@ -112,7 +113,7 @@ npm. `DDCORE_TEST_DSN` points at the disposable database the tests use.
 ## MCP (`ddcore mcp`, or `http://localhost:<port>/mcp` in dev)
 
 Tools: `list_doctypes`, `get_doctype`, `scaffold_doctype`, `extend_doctype`, `validate_meta`, `migrate`, `i18n_extract`, `set_translations`, `generate_types`, `get_doc`, `list_docs`, `insert_doc`,
-`update_doc`, `delete_doc`, `submit_doc`, `cancel_doc`, `call_method`, `sql_query`, `eval`, `run_tests`, `get_logs`, `list_jobs`, `get_job`, `retry_job`, `cancel_job`, `purge_jobs`, `maintenance_status`, `maintenance_set`, `reload`, `list_apps`.
+`update_doc`, `delete_doc`, `submit_doc`, `cancel_doc`, `call_method`, `sql_query`, `eval`, `run_tests`, `get_logs`, `list_jobs`, `get_job`, `retry_job`, `cancel_job`, `purge_jobs`, `maintenance_status`, `maintenance_set`, `vault_rekey`, `reload`, `list_apps`.
 The document tools (`get_doc`, `update_doc`, `delete_doc`, `submit_doc`, `cancel_doc`, `call_method`) name the document with `id`.
 `ddcore mcp` starts even when Postgres is down: `list_doctypes`, `get_doctype`, `scaffold_doctype`,
 `extend_doctype`, `validate_meta`, `i18n_extract`, `set_translations`, `generate_types`, `reload`,

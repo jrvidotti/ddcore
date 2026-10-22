@@ -125,6 +125,9 @@ type vaultSection struct {
 	Configured bool     `json:"configured"`
 	Count      int      `json:"count"`
 	Secrets    []string `json:"secrets,omitempty"`
+	// Keys counts the secrets by the master key that opens them, across every
+	// tenant: what a rotation (DDCORE_SECRET_KEY_PREVIOUS) still has to move.
+	Keys *engine.VaultKeyCensus `json:"keys,omitempty"`
 }
 
 type migrateSection struct {
@@ -265,6 +268,12 @@ func gatherDoctor(ctx context.Context, cfg *config.File, windowMin int, updateCh
 		if !configured && count > 0 {
 			rep.Warnings = append(rep.Warnings, fmt.Sprintf("vault: DDCORE_SECRET_KEY is not set but %d encrypted secret(s) exist", count))
 		}
+		if configured {
+			if keys, err := e.VaultCensus(ctx); err == nil {
+				rep.Vault.Keys = keys
+				rep.Warnings = append(rep.Warnings, vaultKeyWarnings(keys)...)
+			}
+		}
 	}
 
 	rep.Migrate = &migrateSection{}
@@ -404,6 +413,23 @@ func gatherDoctor(ctx context.Context, cfg *config.File, windowMin int, updateCh
 // exitCode is 1 for a critical finding. A warning is something to read, not
 // something to fail a shell over — turning today's "3 pending statements" into
 // a non-zero exit would be a regression for everyone running this by hand.
+// vaultKeyWarnings is what a rotation of the master key leaves to do: secrets
+// to re-key, a previous key nothing needs any more — a key that leaked, kept
+// in the environment — and secrets no configured key opens.
+func vaultKeyWarnings(k *engine.VaultKeyCensus) []string {
+	var out []string
+	if k.Previous > 0 {
+		out = append(out, fmt.Sprintf("vault: %d secret(s) still under %s; run ddcore vault rekey", k.Previous, engine.PreviousKeyEnvName))
+	} else if k.PreviousConfigured && len(k.Unreadable) == 0 {
+		out = append(out, fmt.Sprintf("vault: no secret is under %s; remove it", engine.PreviousKeyEnvName))
+	}
+	if len(k.Unreadable) > 0 {
+		out = append(out, fmt.Sprintf("vault: %d secret(s) open under neither %s nor %s: %s",
+			len(k.Unreadable), engine.MasterKeyEnvName, engine.PreviousKeyEnvName, strings.Join(k.Unreadable, ", ")))
+	}
+	return out
+}
+
 func (r *doctorReport) exitCode(strict bool) int {
 	if len(r.Critical) > 0 {
 		return 1
@@ -590,6 +616,10 @@ func (r *doctorReport) printTail(w io.Writer, p func(string, string, ...any)) {
 				p("vault", "%d secret(s) encrypted: %s", r.Vault.Count, strings.Join(r.Vault.Secrets, ", "))
 			} else {
 				p("vault", "key configured (empty)")
+			}
+			if k := r.Vault.Keys; k != nil && (k.PreviousConfigured || k.Previous > 0 || len(k.Unreadable) > 0) {
+				p("vault", "%d under the current key, %d under the previous, %d under neither (every tenant)",
+					k.Current, k.Previous, len(k.Unreadable))
 			}
 		} else {
 			p("vault", "key not configured (DDCORE_SECRET_KEY is missing)")

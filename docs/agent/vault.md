@@ -19,8 +19,47 @@ export DDCORE_SECRET_KEY="a long, random value provisioned once per deployment"
 If `DDCORE_SECRET_KEY` is not set, vault operations fail immediately with a configuration error, preventing plaintext storage.
 
 `ddcore.secret("key")` cannot read this variable: `Engine.Secret` refuses any
-name that maps to `DDCORE_SECRET_KEY`, so the master key is unreachable from
-app code even though it shares the same environment prefix as an app secret.
+name that maps to `DDCORE_SECRET_KEY` (or to `DDCORE_SECRET_KEY_PREVIOUS`, below),
+so the master key is unreachable from app code even though it shares the same
+environment prefix as an app secret.
+
+### Rotating the master key
+
+When the key leaks — an environment dump, a former operator, a compromised CI or
+hosting account — replace it without losing a secret and without a window in which
+the server cannot read one:
+
+1. Deploy with the new key in `DDCORE_SECRET_KEY` and the old one in
+   `DDCORE_SECRET_KEY_PREVIOUS`. A read that does not open under the current key is
+   retried under the previous one; every write uses the current one. Nothing visible
+   changes.
+2. Run `ddcore vault rekey` (or the MCP tool `vault_rekey`). It re-encrypts under the
+   current key every secret not yet written with it, in every tenant, in batches of
+   100 (`--batch N`), each batch one transaction. `--dry-run` only counts.
+3. Run `ddcore doctor`. Once no secret is under the previous key it says so; remove
+   `DDCORE_SECRET_KEY_PREVIOUS` and deploy again.
+
+Every row of `ddcore_vault` records which key encrypted it in `key_id`: a 16-hex-digit
+fingerprint of the derived key (`HMAC-SHA256(key, "ddcore-vault-key-id")`, first 8
+bytes), from which neither key can be recovered. A row written before fingerprints
+existed has none and is taken as encrypted under whichever key opens it; the first
+`rekey` after upgrading stamps it, previous key set or not.
+
+A secret that opens under neither key stops the re-key, named (with its tenant on a
+site with tenancy) and never shown; the batches already committed stay moved. Delete
+it or set it again — in its own space: `ddcore --tenant <slug> eval
+'ddcore.vault.del("<name>")' --commit` — or provide the key it was written with, then
+run `rekey` again. `--dry-run` lists every such secret first.
+
+The re-key is recorded as one `vault.rekey` Audit Event in the platform space, whose
+`detail` has counts only — moved, under the current key, under the previous key,
+unreadable — never a name or a value.
+
+With several replicas, finish step 1 on every one before step 2: a replica still
+running with the old key alone writes under it, and the doctor would show those rows
+under the previous key again (run `rekey` once more). Backups taken before step 2 hold
+secrets under the old key: keep it with them, and after restoring one, set it as
+`DDCORE_SECRET_KEY_PREVIOUS` and re-key the restored copy the same way.
 
 ---
 
@@ -133,6 +172,9 @@ The Desk provides a dedicated control for `Vault` fields:
   tenant's read of a shared secret is in that tenant's audit log
   (`ddcore audit list --tenant <id>`), not in the platform's.
 
+`ddcore vault rekey` records one `vault.rekey` event per run instead, with counts and no
+names (see [Rotating the master key](#rotating-the-master-key)).
+
 Two paths are not audited:
 - `ddcore.vault.list` never touches the audit log — it never returns a value,
   only key names.
@@ -158,12 +200,18 @@ ddcore doctor
 
 The report indicates whether `DDCORE_SECRET_KEY` is configured, the total count of stored secrets, and their key names — values are never displayed, but the names themselves are printed, and a key can leak a detail (a document id, a tenant) worth keeping out of a report pasted into an issue.
 
+It also opens every secret in memory, in every tenant, and counts them by the key that
+opens it. During a rotation it prints that count and warns while secrets remain under
+`DDCORE_SECRET_KEY_PREVIOUS` (run `ddcore vault rekey`), then that the previous key can
+be removed once none do. Secrets that open under neither key are a warning too, with
+their names, whether or not a rotation is under way.
+
 ---
 
 ## 7. Limitations
 
-- **No key rotation.** A different `DDCORE_SECRET_KEY` makes every existing secret fail to decrypt; there is no re-encryption path. Doctor only warns when the key is missing, not when it has changed.
-- **Backups are useless alone.** A database backup carries the ciphertext but not the key; restoring it without the same `DDCORE_SECRET_KEY`, provisioned separately, leaves every secret undecryptable.
+- **A rotation is two keys, not one.** Changing `DDCORE_SECRET_KEY` without setting the old one as `DDCORE_SECRET_KEY_PREVIOUS` makes every existing secret fail to decrypt; rotate as in [Rotating the master key](#rotating-the-master-key).
+- **Backups are useless alone.** A database backup carries the ciphertext but not the key; restoring it without the key it was taken under (current or previous), provisioned separately, leaves every secret undecryptable.
 - **No permission check inside `ddcore.vault.*`.** Server code — a controller, a service, a job — is trusted with any key it names; the boundary is that this API only exists on the server, never in desk-sdk.
 - **`ddcore doctor` prints vault key names**, not values (see above).
 - **Some renames still orphan a secret.** A default-shaped key (`<DocType>:<fieldname>:<id>`) is re-keyed on rename. A custom key template in `options`, and removing a child row during an update, are not: the secret stays in `ddcore_vault` under a key nothing reads anymore.

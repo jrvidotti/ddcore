@@ -109,6 +109,10 @@ CREATE INDEX IF NOT EXISTS ddcore_user_identity_user ON ddcore_user_identity("us
 CREATE TABLE IF NOT EXISTS ddcore_vault (
   name text PRIMARY KEY, ciphertext bytea NOT NULL, nonce bytea NOT NULL,
   created timestamptz NOT NULL DEFAULT now(), updated timestamptz NOT NULL DEFAULT now());
+-- The fingerprint of the master key a secret is encrypted under (#134), so a
+-- rotation knows which rows still need the previous key. NULL is a row written
+-- before fingerprints: under whichever key opens it.
+ALTER TABLE ddcore_vault ADD COLUMN IF NOT EXISTS key_id text;
 -- The import ledger (DAT-01). It is what makes a load resumable and idempotent:
 -- the cursor says where a run stopped, and the record rows say what is already
 -- in, so a second run over the same export writes nothing.

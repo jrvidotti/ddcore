@@ -462,7 +462,7 @@ func (e *Engine) DeliverWebhook(c *Ctx, delivery string) error {
 // webhookSecret reads a subscription's signing key directly from the vault,
 // without the permission check and audit of a person's read; see vaultRead.
 func (e *Engine) webhookSecret(c *Ctx, webhook string) (string, error) {
-	key, err := MasterKey()
+	kr, err := VaultKeys()
 	if err != nil {
 		return "", err
 	}
@@ -474,7 +474,7 @@ func (e *Engine) webhookSecret(c *Ctx, webhook string) (string, error) {
 	if f == nil {
 		return "", cerr.Internal("Webhook has no secret field")
 	}
-	secret, ok, err := vaultRead(c.Ctx, c.Q(), key, c.DeriveVaultKey(d, f, Doc{"id": webhook}))
+	secret, ok, err := vaultRead(c.Ctx, c.Q(), kr, c.DeriveVaultKey(d, f, Doc{"id": webhook}))
 	if err != nil {
 		return "", err
 	}

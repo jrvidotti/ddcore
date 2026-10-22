@@ -4,8 +4,10 @@ import (
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -21,14 +23,77 @@ import (
 // MasterKeyEnvName is the environment variable that holds the master encryption key.
 const MasterKeyEnvName = "DDCORE_SECRET_KEY"
 
+// PreviousKeyEnvName holds the master key a rotation is moving away from. The
+// server still reads with it, never writes with it, and `ddcore vault rekey`
+// moves every secret still under it to the current key (#134).
+const PreviousKeyEnvName = "DDCORE_SECRET_KEY_PREVIOUS"
+
 // MasterKey derives a 32-byte key from DDCORE_SECRET_KEY using SHA-256.
 func MasterKey() ([]byte, error) {
+	kr, err := VaultKeys()
+	if err != nil {
+		return nil, err
+	}
+	return kr.current.key, nil
+}
+
+// vaultKey is a derived master key and its fingerprint.
+type vaultKey struct {
+	key []byte
+	// id is what a ddcore_vault row records of the key that encrypted it:
+	// enough to tell two keys apart, nothing to recover either from.
+	id string
+}
+
+func deriveVaultKey(val string) vaultKey {
+	hash := sha256.Sum256([]byte(val))
+	mac := hmac.New(sha256.New, hash[:])
+	mac.Write([]byte("ddcore-vault-key-id"))
+	return vaultKey{key: hash[:], id: hex.EncodeToString(mac.Sum(nil)[:8])}
+}
+
+// vaultKeyring is the key every write uses and, during a rotation, the one
+// the secrets not yet re-keyed were written with.
+type vaultKeyring struct {
+	current  vaultKey
+	previous *vaultKey
+}
+
+// VaultKeys reads the master key and, when one is set, the previous one. A
+// previous key equal to the current one is no previous key at all.
+func VaultKeys() (vaultKeyring, error) {
 	val := strings.TrimSpace(os.Getenv(MasterKeyEnvName))
 	if val == "" {
-		return nil, cerr.Validation("Vault secret key ({0}) is not configured on this site", MasterKeyEnvName)
+		return vaultKeyring{}, cerr.Validation("Vault secret key ({0}) is not configured on this site", MasterKeyEnvName)
 	}
-	hash := sha256.Sum256([]byte(val))
-	return hash[:], nil
+	kr := vaultKeyring{current: deriveVaultKey(val)}
+	if prev := strings.TrimSpace(os.Getenv(PreviousKeyEnvName)); prev != "" && prev != val {
+		p := deriveVaultKey(prev)
+		kr.previous = &p
+	}
+	return kr, nil
+}
+
+// open decrypts a row. The key its fingerprint names goes first — the current
+// one for a row written before fingerprints, or under a key this process does
+// not know — and the other is tried when that one fails to authenticate, so a
+// fingerprint left stale (an older binary rewriting the row) still opens. used
+// is the key that opened it.
+func (kr vaultKeyring) open(keyID string, ciphertext, nonce []byte) (plaintext string, used *vaultKey, err error) {
+	order := []*vaultKey{&kr.current}
+	if kr.previous != nil {
+		if keyID == kr.previous.id {
+			order = []*vaultKey{kr.previous, &kr.current}
+		} else {
+			order = append(order, kr.previous)
+		}
+	}
+	for _, k := range order {
+		if plaintext, err = DecryptVault(k.key, ciphertext, nonce); err == nil {
+			return plaintext, k, nil
+		}
+	}
+	return "", nil, err
 }
 
 // EncryptVault encrypts a plaintext string using AES-256-GCM.
@@ -85,11 +150,11 @@ func (e *Engine) VaultSet(c *Ctx, name, value string) error {
 	if name == "" {
 		return cerr.Validation("Vault secret name cannot be empty")
 	}
-	key, err := MasterKey()
+	kr, err := VaultKeys()
 	if err != nil {
 		return err
 	}
-	ciphertext, nonce, err := EncryptVault(key, value)
+	ciphertext, nonce, err := EncryptVault(kr.current.key, value)
 	if err != nil {
 		return err
 	}
@@ -112,12 +177,12 @@ func (e *Engine) VaultSet(c *Ctx, name, value string) error {
 		conflict = "tenant, name"
 	}
 	query := `
-INSERT INTO ddcore_vault (name, ciphertext, nonce, updated)
-VALUES ($1, $2, $3, now())
+INSERT INTO ddcore_vault (name, ciphertext, nonce, key_id, updated)
+VALUES ($1, $2, $3, $4, now())
 ON CONFLICT (` + conflict + `) DO UPDATE
-SET ciphertext = EXCLUDED.ciphertext, nonce = EXCLUDED.nonce, updated = now();`
+SET ciphertext = EXCLUDED.ciphertext, nonce = EXCLUDED.nonce, key_id = EXCLUDED.key_id, updated = now();`
 
-	if _, err := q.Exec(ctx, query, name, ciphertext, nonce); err != nil {
+	if _, err := q.Exec(ctx, query, name, ciphertext, nonce, kr.current.id); err != nil {
 		return err
 	}
 
@@ -131,7 +196,7 @@ func (e *Engine) VaultGet(c *Ctx, name string) (string, bool, error) {
 	if name == "" {
 		return "", false, nil
 	}
-	key, err := MasterKey()
+	kr, err := VaultKeys()
 	if err != nil {
 		return "", false, err
 	}
@@ -146,7 +211,7 @@ func (e *Engine) VaultGet(c *Ctx, name string) (string, bool, error) {
 		ctx = context.Background()
 	}
 
-	plaintext, ok, err := vaultRead(ctx, q, key, name)
+	plaintext, ok, err := vaultRead(ctx, q, kr, name)
 	if err != nil || !ok {
 		return "", ok, err
 	}
@@ -187,7 +252,7 @@ func (e *Engine) VaultGetShared(c *Ctx, name string) (string, bool, error) {
 	if name == "" {
 		return "", false, nil
 	}
-	key, err := MasterKey()
+	kr, err := VaultKeys()
 	if err != nil {
 		return "", false, err
 	}
@@ -195,7 +260,7 @@ func (e *Engine) VaultGetShared(c *Ctx, name string) (string, bool, error) {
 	var ok bool
 	err = c.platformVault(func(q db.Querier, where string) error {
 		var err error
-		plaintext, ok, err = vaultReadWhere(c.Ctx, q, key, name, where)
+		plaintext, ok, err = vaultReadWhere(c.Ctx, q, kr, name, where)
 		return err
 	})
 	if err != nil || !ok {
@@ -268,20 +333,21 @@ func (c *Ctx) vaultFieldHas(d *meta.DocType, key string) (bool, error) {
 // signing each attempt. An audit row per retry would bury the reads a person
 // made under the ones a worker made, which is the opposite of what the log is
 // for. Anything an app or a person asks for goes through VaultGet.
-func vaultRead(ctx context.Context, q db.Querier, key []byte, name string) (string, bool, error) {
-	return vaultReadWhere(ctx, q, key, name, "")
+func vaultRead(ctx context.Context, q db.Querier, kr vaultKeyring, name string) (string, bool, error) {
+	return vaultReadWhere(ctx, q, kr, name, "")
 }
 
-func vaultReadWhere(ctx context.Context, q db.Querier, key []byte, name, where string) (string, bool, error) {
+func vaultReadWhere(ctx context.Context, q db.Querier, kr vaultKeyring, name, where string) (string, bool, error) {
 	var ciphertext, nonce []byte
-	err := q.QueryRow(ctx, `SELECT ciphertext, nonce FROM ddcore_vault WHERE name = $1`+where, name).Scan(&ciphertext, &nonce)
+	var keyID string
+	err := q.QueryRow(ctx, `SELECT ciphertext, nonce, coalesce(key_id, '') FROM ddcore_vault WHERE name = $1`+where, name).Scan(&ciphertext, &nonce, &keyID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", false, nil
 	}
 	if err != nil {
 		return "", false, err
 	}
-	plaintext, err := DecryptVault(key, ciphertext, nonce)
+	plaintext, _, err := kr.open(keyID, ciphertext, nonce)
 	if err != nil {
 		return "", false, err
 	}

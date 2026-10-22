@@ -266,7 +266,11 @@ variable the vault's master encryption key is derived from — is configured,
 how many secrets `ddcore_vault` holds, and their key names. As with an
 integration secret, a value is never printed, but a key name is (see
 [vault.md](vault.md)). Secrets existing without a configured key is a warning,
-since every one of them fails to decrypt until the key is set again.
+since every one of them fails to decrypt until the key is set again. With the key
+set, it opens every secret in every tenant and warns about those no key opens and,
+during a rotation of the key, about those still under `DDCORE_SECRET_KEY_PREVIOUS`
+(run `ddcore vault rekey`, or the MCP tool `vault_rekey`) — and, once none are,
+that the previous key can be removed.
 
 It works with the database down. The probe runs before, and independently of,
 the engine, so an unreachable database produces a report that says so plus every
