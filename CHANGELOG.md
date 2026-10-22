@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.31.3 — 2026-10-22
+
 ### Added
 
 - **Server code can read a stored File back, and a print can show a private image** (#137). `ddcore.files.read(file, { maxBytes?, ignorePermissions? })` returns `{ base64, contentType, size, fileName }` for a File named by its id or its `file_url`, on the local and the s3 backend alike; `maxBytes` defaults to 50 MiB. `ddcore.files.sha256(file, { output?, ignorePermissions? })` streams the stored bytes through SHA-256, giving what `sha256sum` prints for the file. Both need read on the File as a download does (a private file follows `/private/files`, a public one is anyone's). `ddcore.crypto.sha256(data, { inputEncoding })` hashes `"base64"` or `"hex"` input as the bytes it encodes (`"utf8"` stays the default). The print block `b.image(file, { title?, maxHeight?, maxWidth? })` prints the image a File holds, read by the server as the user printing and inlined as a data URL, so a private photo reaches a PDF Gotenberg renders without a session; a file the user may not read, over 10 MiB, or that is not a PNG, JPEG, GIF or WebP image prints as nothing. See `storage` and `print`.
