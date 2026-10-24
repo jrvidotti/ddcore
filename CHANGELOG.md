@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.31.4 — 2026-10-24
+
 ### Added
 
 - **A list can filter a date by period**: `defineListView({ rangeFilters: ["due_date"] })` shows each Date or Datetime field named as two day pickers in the filter card, "<label> from" and "<label> to", either of which may stay empty. The URL carries `field=from..to` (one side may be empty), and a bare day still means that day alone, so existing links keep working. A Datetime's days run from the first instant to the last in the site's timezone. See `form-api`.
