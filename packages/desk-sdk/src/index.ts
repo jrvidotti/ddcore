@@ -641,6 +641,12 @@ export interface ListViewOptions<T extends BaseDoc = BaseDoc> {
    * one applies its `filters` in place of `[field, "=", value]`.
    */
   filterOptions?: Partial<Record<keyof T & string, { value: string; label: string; filters: [string, string, any][] }[]>>;
+  /**
+   * Date and Datetime fields filtered by a from and a to day instead of a single one, each
+   * shown in the filter card (standard filter or not). Either side may be left empty; the URL
+   * carries `field=from..to`, and a bare day still means that day alone.
+   */
+  rangeFilters?: (keyof T & string)[];
   /** Buttons shown next to "Delete (n)" while rows are selected in the List or Cards view. */
   actions?: ListAction<T>[];
   /** Buttons on the list toolbar, in every view, that run with or without a selection. */
