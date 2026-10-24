@@ -511,6 +511,7 @@ defineListView("Entry", {
   idColumn: false,                      // hides (or `true` shows) the leading document-id column
   columnChooser: false,                 // hides the Columns menu, where each user hides and adds columns
   plainLinks: ["contract"],             // Link columns shown as the title in text, not as a link
+  rangeFilters: ["due_date"],           // a Date or Datetime filtered by a from and a to day
 });
 ```
 
@@ -578,6 +579,22 @@ defineListView<Entry>("Entry", {
 divider to that field's standard filter; choosing one sends its `filters` instead of an equality, and
 the URL carries its `value` (`?status=overdue`). Filters only reach columns, so a sub-state computed
 from other documents has to be stored on the document to be filterable.
+
+### Date ranges
+
+A Date or Datetime standard filter picks one day. `rangeFilters` names the fields filtered by a
+period instead: each shows in the filter card — a standard filter or not — as two day pickers,
+"<label> from" and "<label> to", and either may be left empty for an open-ended period:
+
+```ts
+defineListView<Entry>("Entry", { rangeFilters: ["due_date", "posted_at"] });
+```
+
+The URL carries `field=from..to` (`?due_date=2026-10-01..2026-10-31`, `?due_date=2026-10-01..`,
+`?due_date=..2026-10-31`), and a bare day, as an older link or a day picked on the calendar
+writes it, still means that day alone. The bounds are inclusive: a Date compares the days
+themselves, a Datetime runs from the first day's first instant to the last day's last one, in
+the site's timezone. A name that is not a Date or Datetime field of the DocType is ignored.
 
 ### Actions on the selected rows
 

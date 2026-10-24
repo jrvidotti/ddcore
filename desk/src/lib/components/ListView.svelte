@@ -19,7 +19,7 @@
   import { visibleActions, visibleToolbarActions } from "./list-actions";
   import { fromDatetimeLocal, today } from "$lib/datetime";
   import { getCalendarDays } from "$lib/controls/date-format";
-  import { buildListFilters } from "./list-filters";
+  import { buildListFilters, formatRange, parseRange, rangeFilters } from "./list-filters";
   import { combineSummary, summaryDatatype, summaryExpression, summaryFilters } from "./list-summary";
   import { clearListFilters, countListFilters, filtersOpen, listStateFromSearchParams, rememberFiltersOpen, listStateToSearchParams, resolveAllowedViews, resolveActiveView, type ListUrlState } from "./list-state";
   import { exportChoice, exportChoices, exportUrl } from "./export-options";
@@ -112,8 +112,12 @@
   const columnChoices = $derived(meta ? columnCandidates(meta.doctype, defaultListColumns(meta.doctype, settings)) : []);
   /** `defineListView({ docstatusFilter: false })` drops it where a `status` field already tells drafts apart. */
   const showDocstatusFilter = $derived(!!meta?.doctype.submittable && settings.docstatusFilter !== false);
+  /** `defineListView({ rangeFilters })`: the Date and Datetime fields filtered by a from and a to day. */
+  const rangeFields = $derived(new Set((meta?.doctype.fields || [])
+    .filter((f) => !!f.fieldname && (f.fieldtype === "Date" || f.fieldtype === "Datetime") && (settings.rangeFilters || []).includes(f.fieldname))
+    .map((f) => f.fieldname!)));
   // a field filtered from elsewhere (a day picked on the calendar, a link) shows too, so it can be seen and cleared
-  const stdFilters = $derived(meta ? meta.doctype.fields.filter((f) => !isLayout(f) && (f.inStandardFilter || (!!f.fieldname && hasValue(filters[f.fieldname])))) : []);
+  const stdFilters = $derived(meta ? meta.doctype.fields.filter((f) => !isLayout(f) && (f.inStandardFilter || (!!f.fieldname && (rangeFields.has(f.fieldname) || hasValue(filters[f.fieldname]))))) : []);
   const hasValue = (v: any) => v !== null && v !== undefined && v !== "";
   const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
   /** A Datetime filter holding a bare day (picked on the calendar) stands for that whole day. */
@@ -257,6 +261,11 @@
   function buildFilters() {
     const out: any[] = [];
     const plain = { ...filters };
+    for (const f of meta?.doctype.fields || []) {
+      if (!f.fieldname || !rangeFields.has(f.fieldname) || !hasValue(plain[f.fieldname])) continue;
+      out.push(...rangeFilters(f.fieldname, meta!.doctype.fields, plain[f.fieldname]));
+      delete plain[f.fieldname];
+    }
     for (const f of meta?.doctype.fields || []) {
       if (!f.fieldname || !isDayFilter(f, plain[f.fieldname])) continue;
       out.push(...calendarRangeFilters(f.fieldname, meta!.doctype.fields, plain[f.fieldname], plain[f.fieldname]));
@@ -579,6 +588,20 @@
     {/if}
     {#each stdFilters as f (f.fieldname)}
       {@const ff = filterField(f)}
+      {#if rangeFields.has(f.fieldname!)}
+      {@const range = parseRange(filters[f.fieldname!])}
+      <div class="select-filter labelled">
+        <Control field={{ fieldname: `${f.fieldname}_from`, fieldtype: "Date", label: __("{0} from", [ff.label]) }} value={range.from} compact
+          onchange={(v) => updateFilter(f.fieldname!, formatRange(v, range.to))} />
+      </div>
+      <div class="select-filter labelled">
+        <Control field={{ fieldname: `${f.fieldname}_to`, fieldtype: "Date", label: __("{0} to", [ff.label]) }} value={range.to} compact
+          onchange={(v) => updateFilter(f.fieldname!, formatRange(range.from, v))} />
+        {#if hasValue(filters[f.fieldname!])}
+          <button class="btn icon filter-clear" onclick={() => clearFilter(f.fieldname!)} title={__("Remove the {0} filter", [ff.label])} aria-label={__("Remove the {0} filter", [ff.label])}><Icon name="x" size={14} /></button>
+        {/if}
+      </div>
+      {:else}
       <div class="select-filter" class:labelled={!!ff.label}>
         {#if ff.fieldtype === "Check"}<span class="label-spacer" aria-hidden="true">&nbsp;</span>{/if}
         <Control field={ff} value={filters[f.fieldname!]} onchange={(v) => updateFilter(f.fieldname!, v, ff.fieldtype === "Data" || ff.fieldtype === "Autocomplete")} compact extraOptions={settings.filterOptions?.[f.fieldname!] || []} />
@@ -586,6 +609,7 @@
           <button class="btn icon filter-clear" onclick={() => clearFilter(f.fieldname!)} title={__("Remove the {0} filter", [ff.label])} aria-label={__("Remove the {0} filter", [ff.label])}><Icon name="x" size={14} /></button>
         {/if}
       </div>
+      {/if}
     {/each}
     <div class="filter-actions">
       <span class="label-spacer" aria-hidden="true">&nbsp;</span>
