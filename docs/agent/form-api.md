@@ -584,7 +584,7 @@ from other documents has to be stored on the document to be filterable.
 
 A Date or Datetime standard filter picks one day. `rangeFilters` names the fields filtered by a
 period instead: each shows in the filter card — a standard filter or not — as two day pickers,
-"<label> from" and "<label> to", and either may be left empty for an open-ended period:
+`<label> from` and `<label> to`, and either may be left empty for an open-ended period:
 
 ```ts
 defineListView<Entry>("Entry", { rangeFilters: ["due_date", "posted_at"] });
