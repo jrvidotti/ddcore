@@ -74,6 +74,8 @@ func New(e *engine.Engine, desk fs.FS) *Server {
 		r.Post("/login", s.login)
 		r.Post("/logout", s.logout)
 		r.Post("/tenant/enter", s.enterTenant)
+		r.Post("/impersonate", s.impersonate)
+		r.Post("/impersonate/stop", s.stopImpersonating)
 		// Recovery and invitation: public by necessity, throttled in auth.go.
 		r.Post("/auth/forgot-password", s.forgotPassword)
 		r.Post("/auth/token", s.authToken)
@@ -486,7 +488,8 @@ func (s *Server) auth(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		var u string
+		// real is the administrator whose session impersonates u, if any
+		var u, real string
 		if h := r.Header.Get("Authorization"); strings.HasPrefix(strings.ToLower(h), "token ") {
 			u, _ = s.E.UserFromAPIKey(r.Context(), strings.TrimSpace(h[6:]))
 			if u == "" {
@@ -502,6 +505,10 @@ func (s *Server) auth(next http.Handler) http.Handler {
 					return
 				}
 			}
+			// an impersonation lives on the session, so an API key never has one
+			if target := s.impersonated(r, ck.Value, u); target != "" {
+				real, u = u, target
+			}
 		}
 		if u == "" {
 			u = "Guest"
@@ -510,13 +517,15 @@ func (s *Server) auth(next http.Handler) http.Handler {
 		// this; recording the user here is what keeps it from saying "Guest"
 		// for every signed-in request.
 		if info := infoOf(r); info != nil {
-			info.user = u
+			info.user, info.by = u, real
 		}
 		// On a site with tenancy the request works in one space: its user's
 		// tenant, or the one a platform user entered — with the session, or
 		// per request with a header when the caller holds an API key.
+		// An impersonated user works in their own space, whatever tenant the
+		// administrator's session had entered.
 		named := r.Header.Get("X-Tenant")
-		if named == "" {
+		if named == "" && real == "" {
 			if ck, err := r.Cookie("sid"); err == nil && u != "Guest" {
 				named = s.E.SessionTenant(r.Context(), ck.Value)
 			}
@@ -526,8 +535,31 @@ func (s *Server) auth(next http.Handler) http.Handler {
 			s.writeErr(w, r, err)
 			return
 		}
+		if real != "" {
+			ctx = engine.WithImpersonator(ctx, real)
+		}
 		next.ServeHTTP(w, r.WithContext(context.WithValue(ctx, userKey, u)))
 	})
+}
+
+// impersonated is the user the session sid of real is impersonating; empty
+// when it impersonates nobody. An administrator who has lost the role since
+// gets the session back as their own.
+func (s *Server) impersonated(r *http.Request, sid, real string) string {
+	if real == "" {
+		return ""
+	}
+	target := s.E.SessionImpersonation(r.Context(), sid)
+	if target == "" {
+		return ""
+	}
+	if !s.E.MayImpersonate(r.Context(), real) {
+		if err := s.E.StopImpersonation(r.Context(), sid, real, target); err != nil {
+			s.E.Log.Warn("could not end an impersonation", "user", real, "err", err)
+		}
+		return ""
+	}
+	return target
 }
 
 // RequireAdminAPIKey guards administrative handlers (the MCP HTTP transport):
@@ -735,6 +767,9 @@ func (s *Server) boot(w http.ResponseWriter, r *http.Request) {
 			"user": c.User, "roles": roles, "userDoc": userDoc, "lang": c.Lang, "langs": langs,
 			"portals": portalsFor(c), "portalIncludes": portalIncludeApps(c.St), "site": site, "loaded": c.St.Loaded.UnixMilli(),
 		}
+		if c.ImpersonatedBy != "" {
+			out["impersonatedBy"] = s.impersonatorBoot(c)
+		}
 		if c.IsWebsiteUser() {
 			// a Website User sees the portals and nothing of the desk: not its
 			// apps, workspaces, DocTypes or reports (OPS-10)
@@ -758,6 +793,17 @@ func (s *Server) boot(w http.ResponseWriter, r *http.Request) {
 		}
 		return out, nil
 	})
+}
+
+// impersonatorBoot names the administrator behind an impersonation, for the
+// banner that lets them stop. Their account may be in another space than the
+// user they impersonate, so it is read across spaces.
+func (s *Server) impersonatorBoot(c *engine.Ctx) map[string]any {
+	name := c.ImpersonatedBy
+	_ = s.E.System(c.Ctx, func(q db.Querier) error {
+		return q.QueryRow(c.Ctx, `SELECT coalesce(nullif(full_name, ''), id) FROM tab_user WHERE id = $1`, c.ImpersonatedBy).Scan(&name)
+	})
+	return map[string]any{"id": c.ImpersonatedBy, "full_name": name}
 }
 
 func (s *Server) userBoot(c *engine.Ctx, r *http.Request) map[string]any {
@@ -1636,6 +1682,42 @@ func (s *Server) enterTenant(w http.ResponseWriter, r *http.Request) {
 		}
 		return map[string]any{"tenant": body.Tenant}, nil
 	})
+}
+
+// impersonate makes the session work as another user from the next request
+// on; the answer says where that user lands.
+func (s *Server) impersonate(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		User string `json:"user"`
+	}
+	if err := readJSON(r, &body); err != nil {
+		s.writeErr(w, r, err)
+		return
+	}
+	s.run(w, r, func(c *engine.Ctx) (any, error) {
+		if err := c.StartImpersonation(body.User); err != nil {
+			return nil, err
+		}
+		return map[string]any{"user": body.User, "home": s.homeFor(r, body.User, "")}, nil
+	})
+}
+
+// stopImpersonating returns the session to the administrator. The request
+// arrives as the impersonated user, which is why it reads the administrator
+// from the context instead of running a ctx.
+func (s *Server) stopImpersonating(w http.ResponseWriter, r *http.Request) {
+	real := engine.ImpersonatorFrom(r.Context())
+	ck, err := r.Cookie("sid")
+	if real == "" || err != nil {
+		s.writeErr(w, r, cerr.Validation("You are not impersonating anyone"))
+		return
+	}
+	target := user(r)
+	if err := s.E.StopImpersonation(r.Context(), ck.Value, real, target); err != nil {
+		s.writeErr(w, r, err)
+		return
+	}
+	writeJSON(w, 200, map[string]any{"data": map[string]any{"user": real, "impersonated": target}})
 }
 
 // ------------------------------------------------------------------ events (SSE)

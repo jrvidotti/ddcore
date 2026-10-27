@@ -967,6 +967,10 @@ type Ctx struct {
 	// show, and useless to anyone who cannot already read the logs. Empty when
 	// no request is behind the work — a migration, a test, a CLI command.
 	ReqID string
+	// ImpersonatedBy is the administrator whose session works as User, from
+	// WithImpersonator; empty when nobody is impersonating. Audit events and
+	// Versions carry it as impersonated_by.
+	ImpersonatedBy string
 
 	roles        []string
 	userPerms    []UserPerm
@@ -1040,7 +1044,7 @@ func (e *Engine) NewCtx(ctx context.Context, user string) *Ctx {
 	// few reads a ctx makes before it has one.
 	tenant, _ := TenantFrom(ctx)
 	return &Ctx{E: e, St: e.Current(), Ctx: ctx, User: user, Tenant: tenant, Lang: e.Cfg.Lang, ReqID: RequestIDFrom(ctx),
-		Flags: map[string]any{}}
+		ImpersonatedBy: ImpersonatorFrom(ctx), Flags: map[string]any{}}
 }
 
 // Run executes fn inside a transaction with a fresh Ctx; commits on success.

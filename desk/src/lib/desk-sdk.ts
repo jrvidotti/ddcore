@@ -18,6 +18,7 @@ import { addDays, addMonths, dateDiff, monthDiff, monthEnd, monthStart, today } 
 import { getRememberedWorkspace } from "./components/sidebar-workspace";
 import { refreshPendingCount } from "./assignments.svelte";
 import { openFeedback, type FeedbackPreset } from "./feedback.svelte";
+import { impersonate } from "./impersonation";
 
 
 function withPendingCount<T>(result: T): T {
@@ -54,8 +55,10 @@ export const deskSDK = {
     get session() {
       const b = boot.data;
       const user = b?.user || "Guest";
-      return { user, fullName: b?.userDoc?.full_name || user, roles: [...(b?.roles || [])], lang: b?.lang || "" };
+      return { user, fullName: b?.userDoc?.full_name || user, roles: [...(b?.roles || [])], lang: b?.lang || "",
+        impersonatedBy: b?.impersonatedBy?.id };
     },
+    impersonate,
     hasRole,
     // the bar at the top runs while it is out, as it does for frm.call
     call: async (path: string, args?: any) => {

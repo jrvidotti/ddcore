@@ -460,6 +460,9 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		}
 		return out, nil
 	case "auth.revokeSessions":
+		if err := c.refuseWhileImpersonating(); err != nil {
+			return nil, err
+		}
 		if handle := a.id(); handle != "" {
 			// Revoking one, addressed by handle. Scoped to the user, so a
 			// handle guessed from someone else's list reaches nothing.
@@ -495,12 +498,18 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		}
 		return CheckPassword(db.Str(rows[0]["password_hash"]), a.Password), nil
 	case "auth.setPassword":
+		if err := c.refuseWhileImpersonating(); err != nil {
+			return nil, err
+		}
 		return nil, e.SetPasswordExcept(c.Ctx, a.User, a.Password, a.ExceptSid)
 	case "users.invite":
 		return e.InviteUser(c, Invitation{Email: a.Email, FullName: a.FullName, Roles: a.Roles, UserType: a.UserType})
 	case "users.resendInvite":
 		return e.ResendInvite(c, a.User)
 	case "users.createApiKey":
+		if err := c.refuseWhileImpersonating(); err != nil {
+			return nil, err
+		}
 		return e.CreateUserAPIKey(c, a.User, a.Label, int(a.Days), a.Prefix)
 	case "idp.queueSync":
 		return nil, e.QueueIdPSync(c, a.User, a.Before, a.Roles)
@@ -538,6 +547,9 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 	case "auth.clearCredentialAttempts":
 		return e.ClearCredentialAttempts(c, a.User)
 	case "auth.createAPIKey":
+		if err := c.refuseWhileImpersonating(); err != nil {
+			return nil, err
+		}
 		return e.CreateAPIKeyFor(c, a.User, a.Label, int(a.Days), "")
 	case "auth.apiKeys":
 		// Not db.getList: that checks the doctype's permissions, and API Key
@@ -547,6 +559,9 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 			`SELECT id, label, enabled, creation, last_used, expires FROM tab_api_key
 			 WHERE "user" = $1 ORDER BY creation DESC LIMIT 100`, a.User)
 	case "auth.revokeAPIKey":
+		if err := c.refuseWhileImpersonating(); err != nil {
+			return nil, err
+		}
 		// The owner is part of the WHERE, so a name from someone else's list
 		// deletes nothing rather than deleting theirs.
 		tag, err := c.Q().Exec(c.Ctx, `DELETE FROM tab_api_key WHERE id = $1 AND "user" = $2`, a.id(), a.User)

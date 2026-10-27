@@ -33,6 +33,8 @@ import (
 var websiteUserRoutes = []string{
 	"/api/login", "/api/logout", "/api/boot", "/api/translations",
 	"/api/upload", "/api/file-info", "/api/health", "/api/ready", "/api/barcode",
+	// the administrator impersonating a Website User has to be able to stop
+	"/api/impersonate/stop",
 }
 
 var websiteUserPrefixes = []string{"/api/auth/", "/api/portal/", "/api/health/", "/api/ready/"}

@@ -5,6 +5,8 @@
   import { openFeedback } from "$lib/feedback.svelte";
   import { openShortcutsHelp } from "$lib/shortcuts.svelte";
   import { signOut } from "$lib/sign-out";
+  import { stopImpersonating } from "$lib/impersonation";
+  import { showError } from "$lib/ui.svelte";
   import Icon from "./Icon.svelte";
   import TenantMenu from "./TenantMenu.svelte";
 
@@ -28,6 +30,11 @@
 {#if boot.data?.site?.feedback}
   <button role="menuitem" onclick={pick(openFeedback)}>
     <Icon name="message-square" size={14} /> <span>{__("Feedback")}</span>
+  </button>
+{/if}
+{#if boot.data?.impersonatedBy}
+  <button role="menuitem" onclick={pick(() => stopImpersonating().catch(showError))}>
+    <Icon name="user-x" size={14} /> <span>{__("Stop impersonating")}</span>
   </button>
 {/if}
 <button role="menuitem" onclick={pick(signOut)}>

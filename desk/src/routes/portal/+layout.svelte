@@ -4,8 +4,10 @@
   // portals the user reaches, and their account. Nothing of the desk.
   import { __, boot, siteName } from "$lib/boot.svelte";
   import { signOut } from "$lib/sign-out";
+  import { stopImpersonating } from "$lib/impersonation";
   import { page } from "$app/state";
   import Icon from "$lib/components/Icon.svelte";
+  import ImpersonationBanner from "$lib/components/ImpersonationBanner.svelte";
   import { portalHref } from "$lib/portal";
   import { dismiss } from "$lib/controls/floating";
 
@@ -22,6 +24,7 @@
 </script>
 
 <div class="portal">
+  <ImpersonationBanner />
   <header>
     <a class="brand" href="/portal"><SiteMark /><span class="site-name">{siteName()}</span></a>
     <nav>
@@ -40,6 +43,9 @@
           <a role="menuitem" href="/portal/profile" onclick={() => (menuOpen = false)}>{__("My profile")}</a>
           {#if !boot.data?.website}
             <a role="menuitem" href="/app">{__("Back to the desk")}</a>
+          {/if}
+          {#if boot.data?.impersonatedBy}
+            <button role="menuitem" type="button" onclick={stopImpersonating}>{__("Stop impersonating")}</button>
           {/if}
           <button role="menuitem" type="button" onclick={signOut}>{__("Sign out")}</button>
         </div>

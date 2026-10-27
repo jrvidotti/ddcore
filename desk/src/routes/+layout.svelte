@@ -14,6 +14,7 @@
   import Dialogs from "$lib/components/Dialogs.svelte";
   import Icon from "$lib/components/Icon.svelte";
   import UserMenuItems from "$lib/components/UserMenuItems.svelte";
+  import ImpersonationBanner from "$lib/components/ImpersonationBanner.svelte";
   import { avatarInitial } from "$lib/components/views/card-avatar";
   import TenantMismatch from "$lib/components/TenantMismatch.svelte";
   import { tenantLinkState, tenantParam } from "$lib/tenant";
@@ -261,6 +262,7 @@
           </div>
         </div>
       </header>
+      <ImpersonationBanner />
       {#if maintenance.enabled}
         <div class="maintenance-banner" role="status">
           <Icon name="alert-triangle" size={14} />

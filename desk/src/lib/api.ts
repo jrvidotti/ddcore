@@ -156,6 +156,10 @@ export const api = {
   logout: () => request("POST", "/api/logout"),
   /** An operator enters a tenant; "" returns to the platform space. */
   enterTenant: (tenant: string) => request("POST", "/api/tenant/enter", { tenant }),
+  /** An administrator works as another user; `home` is where that user lands. */
+  impersonate: (user: string) => request<{ user: string; home: string }>("POST", "/api/impersonate", { user }),
+  /** Back to the administrator; `impersonated` is who they were working as. */
+  stopImpersonating: () => request<{ user: string; impersonated: string }>("POST", "/api/impersonate/stop"),
 
   // Recovery and invitation. These answer for Guest, so they are the only
   // calls here that work before signing in.
