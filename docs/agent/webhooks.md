@@ -170,7 +170,21 @@ delivery, `ddcore webhooks replay <delivery>`, or
 `POST /api/method/core.services.webhooks.replay` with `{ "delivery": "…" }`.
 A replay keeps the id and the body and starts a fresh set of attempts.
 
-Only a System Manager without access scopes may replay. A replay writes an
+Server code replays with `ddcore.webhooks.replay(delivery, { ignorePermissions? })`,
+which returns `{ delivery, status: "Queued" }`. Like `emit`, it is written on the
+caller's transaction and sent after the commit, so a request that rolls back
+replays nothing:
+
+```ts
+// a receiver that registers again gets what it refused while it was away
+for (const d of ddcore.db.getAll("Webhook Delivery", { filters: { webhook: hook, status: "Failed" }, fields: ["id"] })) {
+  ddcore.webhooks.replay(d.id, { ignorePermissions: true });
+}
+```
+
+Only a System Manager without access scopes may replay, unless the server call
+passes `ignorePermissions: true`: then the app's own rule decides, and the audit
+event below is still written, with the current user as the actor. A replay writes an
 `Audit Event` with action `webhook.replay`, target the delivery, and detail
 `{webhook, previous_status}`; the actor and request id are columns of the
 event. The detail never carries the payload or the secret.

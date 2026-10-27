@@ -14,6 +14,10 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **Server code can replay a webhook delivery**: `ddcore.webhooks.replay(delivery, { ignorePermissions? })` sends a `Sent` or `Failed` delivery again, with the same `webhook-id` and body, queued on the caller's transaction like `emit`, and returns `{ delivery, status: "Queued" }`. Without `ignorePermissions` it is the Replay button's check (a System Manager without access scopes); with it, the app's rule decides. Either way it writes the `webhook.replay` audit event. See `webhooks`.
+
 ## 0.31.4 — 2026-10-24
 
 ### Added

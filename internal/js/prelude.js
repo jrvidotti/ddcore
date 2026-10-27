@@ -981,6 +981,11 @@
         opts = opts || {};
         return call("webhook.emit", { event: String(event), data: data === undefined ? null : data, key: opts.key || "", reference: opts.reference || null });
       },
+      // Queued on this transaction, like emit; the same check as the Replay button
+      // unless the caller opts out of permissions.
+      replay(delivery, opts) {
+        return call("webhook.replay", { delivery: String(delivery), opts: { ignorePermissions: !!(opts && opts.ignorePermissions) } });
+      },
     },
     publish(event, payload, opts) { call("publish", { event, payload, opts: opts || {} }); },
     log: {

@@ -513,6 +513,67 @@ func TestOPS06_ReplayResendsTheSameEventAndAudits(t *testing.T) {
 	}
 }
 
+// App code replays through ddcore.webhooks.replay: refused without the role,
+// like the button, and queued again with ignorePermissions, still audited.
+func TestOPS06_ReplayFromServerCode(t *testing.T) {
+	e := setupWebhooks(t)
+	rcv := newReceiver(t, 401)
+	addWebhook(t, e, rcv.URL, nil)
+	insertHookPessoa(t, e, "Jade")
+	runJobs(t, e)
+	name := db.Str(hookDeliveries(t, e)[0]["id"])
+	ctx := context.Background()
+
+	if err := e.Run(ctx, "Admin", func(c *Ctx) error {
+		u, _ := c.NewDoc("User", Doc{"email": "rita@x.com", "full_name": "Rita"})
+		_, err := c.Insert(u, SaveOpts{})
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	replay := func(opts string) (string, error) {
+		var out string
+		err := e.Run(ctx, "rita@x.com", func(c *Ctx) error {
+			rt, err := c.RT()
+			if err != nil {
+				return err
+			}
+			v, err := rt.Eval(`(r => r.delivery + ":" + r.status)(ddcore.webhooks.replay("` + name + `"` + opts + `))`)
+			if err != nil {
+				return err
+			}
+			out = v.String()
+			return nil
+		})
+		return out, err
+	}
+	if _, err := replay(""); err == nil || !strings.Contains(err.Error(), "Only a System Manager") {
+		t.Fatalf("replay without the role = %v", err)
+	}
+	out, err := replay(`, { ignorePermissions: true }`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, name+":"+WebhookQueued) {
+		t.Fatalf("replay = %s", out)
+	}
+	if d := hookDeliveries(t, e)[0]; db.Str(d["status"]) != WebhookQueued || toFloat(d["attempts"]) != 0 {
+		t.Fatalf("after replay = %v", d)
+	}
+	rows, err := db.Select(ctx, e.DB.Pool, `SELECT outcome, actor FROM tab_audit_event
+		WHERE action = 'webhook.replay' AND target_id = $1 ORDER BY creation`, name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 2 || db.Str(rows[1]["outcome"]) != "Allowed" || db.Str(rows[1]["actor"]) != "rita@x.com" {
+		t.Fatalf("audit = %v", rows)
+	}
+	runJobs(t, e)
+	if got := rcv.got(); len(got) != 2 || got[0].ID != got[1].ID {
+		t.Fatalf("requests = %+v", got)
+	}
+}
+
 func TestOPS06_EmitCustomEvent(t *testing.T) {
 	e := setupWebhooks(t)
 	rcv := newReceiver(t)

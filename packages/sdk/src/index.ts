@@ -554,6 +554,17 @@ export interface DDCoreAPI {
      * webhook: a second emit with the same key fails instead of sending twice.
      */
     emit(event: string, data?: any, opts?: { key?: string; reference?: { doctype: string; id: string } }): { deliveries: string[] };
+    /**
+     * Sends a `Sent` or `Failed` delivery again, as the Replay button does: the
+     * same `webhook-id` and body, a fresh set of attempts, queued on *this*
+     * transaction and sent after it commits. Leaves an `Audit Event`
+     * (`webhook.replay`) with the current user as the actor.
+     *
+     * Only a System Manager without access scopes may, unless `ignorePermissions`
+     * is set. Throws for a delivery still `Queued` or `Retrying`, one that does
+     * not exist, and one whose webhook was deleted.
+     */
+    replay(delivery: string, opts?: { ignorePermissions?: boolean }): { delivery: string; status: "Queued" };
   };
   /** The site's title, as the desk and the framework's own mail display it. */
   siteName(): string;

@@ -603,7 +603,14 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 	case "webhook.deliver":
 		return nil, e.DeliverWebhook(c, a.Delivery)
 	case "webhook.replay":
-		if err := c.ReplayWebhook(a.Delivery); err != nil {
+		replay := func() error { return c.ReplayWebhook(a.Delivery) }
+		if a.ignorePermissions() {
+			// ddcore.webhooks.replay(id, { ignorePermissions: true }): app code
+			// that decided on its own rule, such as a receiver registering again.
+			if err := c.WithIgnorePermissions(replay); err != nil {
+				return nil, err
+			}
+		} else if err := replay(); err != nil {
 			return nil, err
 		}
 		return map[string]any{"delivery": a.Delivery, "status": WebhookQueued}, nil
