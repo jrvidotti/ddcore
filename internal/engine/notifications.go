@@ -84,6 +84,13 @@ func (c *Ctx) queueDocNotifications(doctype string, doc, before Doc, event strin
 	if c.E.DB == nil {
 		return nil
 	}
+	// Resolve before queuing: a rule whose resolveWhen and condition both hold
+	// on this event replaces its open occurrence with the new one.
+	if event != "on_insert" {
+		if err := c.resolveDocNotifications(doctype, doc, before); err != nil {
+			return err
+		}
+	}
 	identity := "event:" + RandomToken()
 	for _, rule := range c.St.Notifications {
 		if rule.Doctype == doctype && rule.Event == event {
@@ -93,6 +100,72 @@ func (c *Ctx) queueDocNotifications(doctype string, doc, before Doc, event strin
 		}
 	}
 	return nil
+}
+
+// resolveDocNotifications runs, on every write event of the document whatever
+// the rule's own trigger, the resolveWhen of each rule on its DocType.
+func (c *Ctx) resolveDocNotifications(doctype string, doc, before Doc) error {
+	var rt *js.Runtime
+	for _, rule := range c.St.Notifications {
+		if rule.Doctype != doctype || !rule.Resolve {
+			continue
+		}
+		if rt == nil {
+			var err error
+			if rt, err = c.RT(); err != nil {
+				return err
+			}
+		}
+		ok, err := rt.ResolveNotification(rule.Name, doc.JSON(), before.JSON())
+		if err != nil {
+			return err
+		}
+		if ok {
+			if _, err = c.resolveNotifications(rule.Name, doctype, doc.ID()); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// resolveNotifications marks every open occurrence of rule on the document read
+// and resolved, for every recipient, and returns how many it resolved. A
+// resolved occurrence's email still queued is withdrawn when its turn comes
+// (notificationMailRefusal). A later match writes a fresh occurrence.
+func (c *Ctx) resolveNotifications(rule, doctype, id string) (int, error) {
+	rows, err := db.Select(c.Ctx, c.Q(), `UPDATE ddcore_notification SET read=true, resolved=clock_timestamp()
+   WHERE rule=$1 AND reference_doctype=$2 AND reference_id=$3 AND resolved IS NULL RETURNING recipient, desk`, rule, doctype, id)
+	if err != nil {
+		return 0, err
+	}
+	told := map[string]bool{}
+	for _, r := range rows {
+		if user := db.Str(r["recipient"]); r["desk"] == true && !told[user] {
+			told[user] = true
+			c.notificationsChanged(user)
+		}
+	}
+	return len(rows), nil
+}
+
+// ResolveNotificationRule is ddcore.notifications.resolve: resolveNotifications
+// for app code that knows an occurrence went stale where no document condition
+// can say so. rule is an app's rule or one the core writes itself; the caller
+// must read the document, unless ignorePermissions skips the role grant (scopes
+// and tenancy still apply, as for getDoc).
+func (c *Ctx) ResolveNotificationRule(rule, doctype, id string, ignorePermissions bool) (int, error) {
+	known := rule == "assignment" || rule == "share"
+	for _, r := range c.St.Notifications {
+		known = known || r.Name == rule
+	}
+	if !known {
+		return 0, cerr.Validation("Notification rule {0} does not exist", rule)
+	}
+	if _, err := c.GetDocOpts(doctype, id, GetOpts{IgnorePermissions: ignorePermissions}); err != nil {
+		return 0, err
+	}
+	return c.resolveNotifications(rule, doctype, id)
 }
 
 // queueNotification evaluates a rule and writes one occurrence per authorized
@@ -391,18 +464,27 @@ func (c *Ctx) SetNotificationRead(name string, read bool) (Notification, error) 
 	return n, nil
 }
 
-// notificationMailAllowed is checked before rendering and again before the
-// transport call. A revoked or deleted reference must never leave on a retry.
-func (c *Ctx) notificationMailAllowed(delivery string) (bool, error) {
-	rows, err := db.Select(c.Ctx, c.Q(), `SELECT recipient,reference_doctype,reference_id FROM ddcore_notification WHERE email_delivery=$1`, delivery)
+// notificationMailRefusal is checked before rendering and again before the
+// transport call, and says why the delivery must not leave ("" when it may). A
+// resolved occurrence, or a revoked or deleted reference, must never leave on a
+// retry.
+func (c *Ctx) notificationMailRefusal(delivery string) (string, error) {
+	rows, err := db.Select(c.Ctx, c.Q(), `SELECT recipient,reference_doctype,reference_id,resolved FROM ddcore_notification WHERE email_delivery=$1`, delivery)
 	if err != nil {
-		return false, err
+		return "", err
 	}
 	if len(rows) == 0 {
-		return true, nil
+		return "", nil
 	}
 	r := rows[0]
-	return c.notificationAccess(db.Str(r["recipient"]), db.Str(r["reference_doctype"]), db.Str(r["reference_id"]))
+	if r["resolved"] != nil {
+		return "Notification resolved", nil
+	}
+	ok, err := c.notificationAccess(db.Str(r["recipient"]), db.Str(r["reference_doctype"]), db.Str(r["reference_id"]))
+	if err != nil || ok {
+		return "", err
+	}
+	return "Notification access revoked", nil
 }
 
 func notificationDue(value any, fieldtype string, days int, loc *time.Location) time.Time {

@@ -92,6 +92,7 @@ type hostArgs struct {
 	UserType      string            `json:"userType"`
 	Before        []string          `json:"before"`
 	Disabled      bool              `json:"disabled"`
+	Rule          string            `json:"rule"`
 }
 
 // id is the document id as a string; any other JSON shape reads as empty.
@@ -614,6 +615,12 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 			return nil, err
 		}
 		return map[string]any{"delivery": a.Delivery, "status": WebhookQueued}, nil
+	case "notification.resolve":
+		n, err := c.ResolveNotificationRule(a.Rule, a.Doctype, a.id(), a.ignorePermissions())
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"resolved": n}, nil
 	case "webhook.sweep":
 		n, err := e.SweepWebhookDeliveries(c.Ctx)
 		if err != nil {

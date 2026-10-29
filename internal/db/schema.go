@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS ddcore_notification_due (
   rule text NOT NULL, reference_doctype text NOT NULL, reference_id text NOT NULL, due timestamptz NOT NULL,
   PRIMARY KEY (rule, reference_doctype, reference_id, due));
 CREATE INDEX IF NOT EXISTS ddcore_notification_email ON ddcore_notification(email_delivery) WHERE email_delivery IS NOT NULL;
+ALTER TABLE ddcore_notification ADD COLUMN IF NOT EXISTS resolved timestamptz;
 CREATE TABLE IF NOT EXISTS ddcore_session (
   sid text PRIMARY KEY, "user" text NOT NULL, created timestamptz NOT NULL DEFAULT now(),
   last_seen timestamptz NOT NULL DEFAULT now(), expires timestamptz NOT NULL, data jsonb);

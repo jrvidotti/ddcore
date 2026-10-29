@@ -239,12 +239,12 @@ func (c *Ctx) findFile(ref string) (map[string]any, error) {
 // reason ddcore_job counts its own attempts there: the attempt happened whether
 // or not the work that followed it committed.
 func (e *Engine) LoadMail(c *Ctx, delivery string) (map[string]any, error) {
-	allowed, err := c.notificationMailAllowed(delivery)
+	refusal, err := c.notificationMailRefusal(delivery)
 	if err != nil {
 		return nil, err
 	}
-	if !allowed {
-		e.recordMail(c, delivery, MailFailed, "Notification access revoked")
+	if refusal != "" {
+		e.recordMail(c, delivery, MailFailed, refusal)
 		return map[string]any{"skip": true}, nil
 	}
 	rows, err := db.Select(c.Ctx, c.Q(),
@@ -278,12 +278,12 @@ func (e *Engine) LoadMail(c *Ctx, delivery string) (map[string]any, error) {
 // the caller to dispatch, and records nothing. Every other transport is sent
 // and recorded here.
 func (e *Engine) DeliverMail(c *Ctx, delivery, subject string, blocks []mail.Block) (map[string]any, error) {
-	allowed, err := c.notificationMailAllowed(delivery)
+	refusal, err := c.notificationMailRefusal(delivery)
 	if err != nil {
 		return nil, err
 	}
-	if !allowed {
-		e.recordMail(c, delivery, MailFailed, "Notification access revoked")
+	if refusal != "" {
+		e.recordMail(c, delivery, MailFailed, refusal)
 		return map[string]any{}, nil
 	}
 	rows, err := db.Select(c.Ctx, c.Q(), `SELECT "to", attachments FROM tab_email_delivery WHERE id = $1`, delivery)

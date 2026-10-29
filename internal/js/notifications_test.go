@@ -54,7 +54,7 @@ func TestNotificationDiscoveryEvaluation(t *testing.T) {
 }
 func TestNotificationInvalidDefinitions(t *testing.T) {
 	base := `name:"Test",doctype:"Task",event:"on_insert",recipients:()=>["alice"],desk:{title:()=>"Title",message:()=>"Message"}`
-	for _, fragment := range []string{`name:""`, `event:"on_trash"`, `date:{field:"due",days:1}`, `event:undefined`, `recipients:async()=>["alice"]`, `condition:async()=>true`, `desk:null`, `email:{template:""}`, `event:undefined,date:{field:"due",days:1.5}`} {
+	for _, fragment := range []string{`name:""`, `event:"on_trash"`, `date:{field:"due",days:1}`, `event:undefined`, `recipients:async()=>["alice"]`, `condition:async()=>true`, `desk:null`, `email:{template:""}`, `event:undefined,date:{field:"due",days:1.5}`, `resolveWhen:async()=>true`, `resolveWhen:true`} {
 		t.Run(fragment, func(t *testing.T) {
 			_, err := notificationRuntime(t, `defineNotification({`+base+`,`+fragment+`});`)
 			if err == nil {
@@ -65,6 +65,44 @@ func TestNotificationInvalidDefinitions(t *testing.T) {
 	_, err := notificationRuntime(t, `defineNotification({`+base+`});defineNotification({`+base+`});`)
 	if err == nil {
 		t.Fatal("accepted duplicate")
+	}
+}
+
+// resolveWhen is announced in the metadata and evaluated as a boolean; a rule
+// without one never resolves.
+func TestNotificationResolveWhen(t *testing.T) {
+	rt, err := notificationRuntime(t, `defineNotification({name:"Waiting",doctype:"Task",event:"on_update",recipients:()=>["alice"],desk:{title:()=>"Title",message:()=>"Message"},
+ resolveWhen:(doc,before)=>doc.status!=="Waiting" && before.status==="Waiting"});
+defineNotification({name:"Plain",doctype:"Task",event:"on_update",recipients:()=>["alice"],desk:{title:()=>"Title",message:()=>"Message"}});
+defineNotification({name:"Broken",doctype:"Task",event:"on_update",recipients:()=>["alice"],desk:{title:()=>"Title",message:()=>"Message"},resolveWhen:()=>"yes"});`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := rt.Meta()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m struct {
+		Notifications map[string]Notification `json:"notifications"`
+	}
+	if err = json.Unmarshal(raw, &m); err != nil {
+		t.Fatal(err)
+	}
+	if !m.Notifications["Waiting"].Resolve || m.Notifications["Plain"].Resolve {
+		t.Fatalf("%+v", m.Notifications)
+	}
+	taken, waiting := json.RawMessage(`{"status":"Taken"}`), json.RawMessage(`{"status":"Waiting"}`)
+	if ok, err := rt.ResolveNotification("Waiting", taken, waiting); err != nil || !ok {
+		t.Fatalf("resolve = %v %v", ok, err)
+	}
+	if ok, err := rt.ResolveNotification("Waiting", waiting, taken); err != nil || ok {
+		t.Fatalf("resolve while waiting = %v %v", ok, err)
+	}
+	if ok, err := rt.ResolveNotification("Plain", taken, waiting); err != nil || ok {
+		t.Fatalf("resolve without resolveWhen = %v %v", ok, err)
+	}
+	if _, err := rt.ResolveNotification("Broken", taken, waiting); err == nil || !strings.Contains(err.Error(), "must return a boolean") {
+		t.Fatalf("non-boolean resolveWhen = %v", err)
 	}
 }
 func TestNotificationRejectsPromiseAndInvalidResults(t *testing.T) {

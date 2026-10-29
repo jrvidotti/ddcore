@@ -14,6 +14,19 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **A notification rule can say when its occurrences stop being relevant** (#140). A
+  `resolveWhen: (doc, before) => boolean` next to `condition` is evaluated on every update, submit
+  and cancel of the document, whatever the rule's trigger (date rules included). When it holds,
+  every recipient's open occurrences of that rule on the document are marked read and resolved in
+  the document's transaction, each inbox refreshes after the commit, and an email of theirs still
+  queued is not sent (its delivery ends `Failed`, `Notification resolved`). A later match writes a
+  fresh occurrence. Server code does the same with
+  `ddcore.notifications.resolve({ rule, doctype, id }, { ignorePermissions? })`, for an app's rule
+  or the core's `assignment` and `share`. `ddcore migrate` adds the `resolved` column to the
+  internal notification table. See `notifications`.
+
 ### Fixed
 
 - **Notifications show when they were created** (#139). `creation` in `GET /api/notifications`
