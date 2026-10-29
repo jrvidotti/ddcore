@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jrvidotti/ddcore/internal/engine"
 )
@@ -39,6 +40,14 @@ export default defineNotification({
 	if total != 2 || len(rows) != 1 || rows[0].(map[string]any)["reference_id"] != "Second" {
 		t.Fatalf("newest first and paginated: %v, %v", rows, total)
 	}
+	recent := func(row map[string]any) {
+		t.Helper()
+		created, err := time.Parse(time.RFC3339Nano, row["creation"].(string))
+		if d := time.Since(created); err != nil || d < -time.Minute || d > time.Minute {
+			t.Fatalf("creation is not about now: %v", row["creation"])
+		}
+	}
+	recent(rows[0].(map[string]any))
 	name := rows[0].(map[string]any)["id"].(string)
 	if older, total := page(ana, "?limit=1&offset=1"); total != 2 || len(older) != 1 || older[0].(map[string]any)["reference_id"] != "First" {
 		t.Fatalf("second page: %v, %v", older, total)
@@ -65,7 +74,9 @@ export default defineNotification({
 	if foreign.Status != 404 && foreign.Status != 403 {
 		t.Fatalf("another recipient changed notification: %s", foreign.Raw)
 	}
-	x.expect(x.call("PATCH", "/api/notifications/"+name, map[string]any{"read": true}, ana), 200, "")
+	marked := x.call("PATCH", "/api/notifications/"+name, map[string]any{"read": true}, ana)
+	x.expect(marked, 200, "")
+	recent(marked.Body["data"].(map[string]any))
 	count(ana, 1)
 	count(bia, 2)
 	count("sid:"+x.sid("ana@x.com"), 1)

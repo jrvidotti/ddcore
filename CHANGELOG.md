@@ -14,6 +14,14 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- **Notifications show when they were created** (#139). `creation` in `GET /api/notifications`
+  and `PATCH /api/notifications/{id}` was always Go's zero time (`0001-01-01T00:00:00Z`), so the
+  desk's notification center showed `31/12/1` on every row, for every rule. The date-rule sweep
+  also stopped recognising the dates it had already notified and re-claimed them on every pass;
+  the claim kept it from sending twice, but each pass locked every past-due document again.
+
 ## 0.31.6 — 2026-10-29
 
 ### Fixed

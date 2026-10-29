@@ -139,6 +139,14 @@ func TestNotificationsListUnreadFirst(t *testing.T) {
 				t.Fatalf("row %d out of order: %s(%v) before %s(%v)", i, a.ID, a.Read, b.ID, b.Read)
 			}
 		}
+		for _, n := range got {
+			if n.Creation.IsZero() {
+				t.Fatalf("%s has no creation", n.ID)
+			}
+		}
+		if d := time.Since(got[0].Creation); d < 0 || d > time.Minute {
+			t.Fatalf("creation of %s is %v, not about now", got[0].ID, got[0].Creation)
+		}
 		if got[0].ID != "n001" || got[100].ID != "n000" {
 			t.Fatalf("first unread %s, first read %s", got[0].ID, got[100].ID)
 		}
