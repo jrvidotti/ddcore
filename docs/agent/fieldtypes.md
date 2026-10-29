@@ -19,7 +19,7 @@
 | Date | date | value "YYYY-MM-DD"; a **civil date**, never converted between timezones |
 | Month | date | value "YYYY-MM-01", shown and edited in the locale's month order |
 | Datetime | timestamptz | ISO value; an **instant**, shown in the site's timezone |
-| Time | time | "HH:MM:SS"; a civil time, never converted |
+| Time | time | "HH:MM:SS"; a civil time, never converted. The desk types it on a 24-hour clock as `HH:MM` (`0800` → `08:00`, ↑/↓ step the part under the caret), with a list of half-hour slots behind the clock icon |
 | Select | text | `options: ["A", "B"]`, canonical English, validated on the server; `optionColors` gives each value an indicator colour, `optionIcons` an icon |
 | Autocomplete | text | free text with suggestions: `options` lists them (a list, or one per line) and never limits what is stored; outer spaces are trimmed. See below |
 | Barcode | text | `options` is the symbology: `"Code128"` (the default), `"EAN-13"` or `"QR"`; the value is validated for it, and an EAN-13 typed with 12 digits gets its check digit. The form previews the code and can scan it with the camera. See below |

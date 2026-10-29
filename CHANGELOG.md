@@ -14,6 +14,16 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- **Desk: a `Time` field can be typed into** (#138). It was a native time input that opened the
+  browser's picker on every click, and in Chrome the picker took the keyboard, so `08:00` had to
+  be picked hour by hour. It is now a masked text input like `Date` and `Month`: digits only on a
+  24-hour clock (`0800` → `08:00`, seconds shown only when the value has them), ↑/↓ step the part
+  under the caret, and a list of half-hour slots, **Now** and **Clear** sit behind the clock
+  icon (or Alt+↓) instead of opening on the click. The same in a child table's row. `Datetime`
+  no longer forces its native picker open on a click either, so its segments can be typed.
+
 ## 0.31.5 — 2026-10-27
 
 ### Added
