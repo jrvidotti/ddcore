@@ -48,6 +48,7 @@ Administering jobs requires the System Manager role,Administrar jobs exige o pap
 Advanced,Avançado,# desk/src/lib/controls/ColorControl.svelte:161
 Align,Alinhamento,# core.doctypes.letter_head.letter_head.doctype
 All,Todos,# desk/src/lib/components/ListView.svelte:576
+All notifications,Todas,# desk/src/routes/app/notifications/+page.svelte:25
 All rows matching the filters ({0}) as CSV,Todas as linhas que casam com os filtros ({0}) em CSV,# desk/src/lib/components/ListView.svelte:470
 All rows matching the filters ({0}) as NDJSON,Todas as linhas que casam com os filtros ({0}) em NDJSON,# desk/src/lib/components/ListView.svelte:471
 All rows matching the filters ({0}) as NDJSON with the child tables,Todas as linhas que casam com os filtros ({0}) em NDJSON com as tabelas filhas,# desk/src/lib/components/ListView.svelte:472
@@ -424,7 +425,7 @@ Map,Mapa,# desk/src/lib/controls/GeolocationControl.svelte:253
 Map tools,Ferramentas do mapa,# desk/src/lib/controls/GeolocationControl.svelte:228
 Mark as completed,Marcar como concluída,# desk/src/routes/app/todo/+page.svelte:210
 Mark as read,Marcar como lida,# desk/src/routes/app/notifications/+page.svelte:46
-Mark as read?,Marcar como lida?,# desk/src/lib/notification-center.svelte.ts:53
+Mark as read?,Marcar como lida?,# desk/src/lib/notification-center.svelte.ts:54
 Mark as unread,Marcar como não lida,# desk/src/routes/app/notifications/+page.svelte:46
 Markdown,Markdown,# desk/src/lib/controls/MarkdownControl.svelte:60
 Max Attempts,Máximo de Tentativas,# core.doctypes.webhook.webhook.doctype
@@ -511,6 +512,7 @@ No results,Nenhum resultado,# desk/src/lib/components/SearchPalette.svelte:109
 No rows,Nenhuma linha,# desk/src/lib/controls/Grid.svelte:201
 No rows match the filters,Nenhuma linha corresponde aos filtros,# desk/src/lib/components/ReportGrid.svelte:116
 No tasks found,Nenhuma tarefa encontrada,# desk/src/routes/app/todo/+page.svelte:331
+No unread notifications,Nenhuma notificação não lida,# desk/src/routes/app/notifications/+page.svelte:34
 No workflow configured for {0},Nenhum workflow configurado para {0},# internal/engine/workflow.go:80
 No workspace declared. Create an app with ddcore new-app and declare a workspace.,Nenhum workspace declarado. Crie um app com ddcore new-app e declare um workspace.,# desk/src/routes/app/+page.svelte:40
 None,Nenhum,# desk/src/lib/components/PrintView.svelte:174
@@ -611,7 +613,8 @@ Queued,Na fila,# core.doctypes.email_delivery.email_delivery.doctype
 Quote,Citação,# desk/src/lib/controls/RichTextControl.svelte:120
 Rating,Avaliação,# desk/src/lib/controls/RatingControl.svelte:29
 Reach the user even when the document is outside their User Permission scope.,Alcança o usuário mesmo quando o documento está fora do escopo de User Permission dele.,# desk/src/lib/components/ShareModal.svelte:59
-Read,Lida,# desk/src/routes/app/notifications/+page.svelte:25
+Read,Lida,# desk/src/routes/app/notifications/+page.svelte:40
+Read notifications,Lidas,# desk/src/routes/app/notifications/+page.svelte:24
 Read-only field,Campo somente leitura,# internal/engine/doc.go:1987
 Record audio,Gravar áudio,# desk/src/lib/controls/AudioRecorder.svelte:105
 Reference,Referência,# desk/src/routes/app/todo/+page.svelte:341
@@ -874,7 +877,8 @@ Unknown field: {0},Campo desconhecido: {0},# internal/engine/export.go:190
 Unknown groupBy: {0},groupBy desconhecido: {0},# internal/engine/query.go:658
 Unknown import mode: {0},Modo de importação desconhecido: {0},# internal/engine/data_import.go:272
 Unknown sign-in provider,Provedor de acesso desconhecido,# internal/api/credentials.go:47
-Unread,Não lida,# desk/src/routes/app/notifications/+page.svelte:24
+Unread,Não lida,# desk/src/routes/app/notifications/+page.svelte:40
+Unread notifications,Não lidas,# desk/src/routes/app/notifications/+page.svelte:23
 Unsaved changes,Alterações não salvas,# desk/src/lib/components/FormView.svelte:140
 Unsaved changes recovered,Alterações não salvas recuperadas,# desk/src/lib/components/FormView.svelte:146
 Up to {0} files per feedback,Até {0} arquivos por feedback,# desk/src/lib/components/FeedbackModal.svelte:101

@@ -14,6 +14,13 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Changed
+
+- **Desk: the notification center opens on unread notifications.** The **Show** selector starts
+  at **Unread** instead of **All**, and its options are translated as a filter (pt-BR: "Não
+  lidas", "Lidas", "Todas") rather than with the per-row status words. With nothing unread, the
+  page says "No unread notifications".
+
 ## 0.31.7 — 2026-10-29
 
 ### Added

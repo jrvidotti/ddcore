@@ -20,9 +20,9 @@
   <div class="toolbar">
     <label for="notification-filter">{__("Show")}</label>
     <select id="notification-filter" bind:value={center.filter} onchange={() => { center.offset = 0; }}>
-      <option value="all">{__("All")}</option>
-      <option value="unread">{__("Unread")}</option>
-      <option value="read">{__("Read")}</option>
+      <option value="unread">{__("Unread notifications")}</option>
+      <option value="read">{__("Read notifications")}</option>
+      <option value="all">{__("All notifications")}</option>
     </select>
   </div>
   <section aria-label={__("Notifications")} aria-busy={center.loading}>
@@ -31,7 +31,7 @@
     {:else if center.loading}
       <p class="state muted" role="status">{__("Loading notifications…")}</p>
     {:else if center.rows.length === 0}
-      <div class="state muted"><Icon name="bell" size={28} /><p>{__("No notifications")}</p></div>
+      <div class="state muted"><Icon name="bell" size={28} /><p>{center.filter === "unread" ? __("No unread notifications") : __("No notifications")}</p></div>
     {:else}
       <ul>
         {#each center.rows as row (row.id)}

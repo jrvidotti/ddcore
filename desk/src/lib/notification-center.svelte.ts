@@ -9,7 +9,8 @@ import { confirm } from "./ui.svelte";
 export class NotificationCenter {
   readonly limit = 20;
   offset = $state(0);
-  filter = $state("all");
+  // Unread first: the center opens on what still needs attention.
+  filter = $state("unread");
   rows = $state<DeskNotification[]>([]);
   total = $state(0);
   loading = $state(true);
