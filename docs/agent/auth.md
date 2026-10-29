@@ -414,6 +414,40 @@ A session is addressed from app code by an opaque handle, never by its sid. The
 sid is a bearer token: one XSS able to read a session list would otherwise hand
 over every device.
 
+## Impersonation
+
+An administrator can work as another user to see the desk — or the portal, for
+a Website User — exactly as that user does: their workspaces, permissions,
+access scopes and data. The **Impersonate** button on the User form calls
+`POST /api/impersonate {user}` (`ddcore.impersonate(user)` from a desk
+script), and the page reloads as the user with a banner to stop, which calls
+`POST /api/impersonate/stop`.
+
+- **Who.** Admin, or a System Manager outside portal mode. Nobody can
+  impersonate Admin, Guest, themselves or a disabled user, and there is no
+  impersonation inside another. Under tenancy the spaces are the ones
+  `ddcore.runAs` keeps: a tenant's System Manager reaches only that tenant's
+  users (another tenant's answer as not existing), a platform System Manager
+  reaches any tenant's, and the impersonated user always works in their own
+  space, whatever tenant the session had entered.
+- **Where it lives.** On the administrator's own session
+  (`ddcore_session.data->>'impersonate'`), never on an API key. No session of
+  the user's is created, so their last login, their list of sessions and their
+  ability to revoke are untouched.
+- **What is written.** Reads and writes are the user's: `owner` and
+  `modified_by` name them. Every audit event and Version written meanwhile
+  carries `impersonated_by` with the administrator; `account.impersonate` and
+  `account.impersonate_stop` record the start and the end, and the access log
+  adds `impersonated_by` to each request line. `ctx.session.user` in server
+  code is the user.
+- **What ends it.** The banner, signing out, the user being disabled, deleted
+  or given a new password (whatever ends their sessions ends every
+  impersonation of them), and the administrator losing the role — checked on
+  every request.
+- **What it refuses.** Nothing that would outlive it: creating or revoking the
+  user's API keys, changing their password and revoking their sessions answer
+  `Not available while impersonating`.
+
 ## Recovery and invitation
 
 Four public routes, all throttled, all exempt from the CSRF header check

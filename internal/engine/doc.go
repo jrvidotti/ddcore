@@ -2643,6 +2643,12 @@ func (c *Ctx) insertVersion(d *meta.DocType, docID string, data map[string]any, 
 		}
 		data["source_tenant"] = c.sourceTenant
 	}
+	if c.ImpersonatedBy != "" {
+		if data == nil {
+			data = map[string]any{}
+		}
+		data["impersonated_by"] = c.ImpersonatedBy
+	}
 	_, err := c.Q().Exec(c.Ctx, `INSERT INTO tab_version (id, owner, creation, modified, modified_by, docstatus, ref_doctype, doc_id, data, deleted)
 		VALUES ($1, $2, clock_timestamp(), clock_timestamp(), $2, 0, $3, $4, $5, $6)`, id, c.User, d.Name, docID, string(mustJSON(data)), deleted)
 	return id, err

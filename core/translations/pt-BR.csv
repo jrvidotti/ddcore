@@ -11,10 +11,10 @@ A document cannot be shared with {0},Um documento não pode ser compartilhado co
 A document is assigned to me,Um documento é atribuído a mim,# desk/src/lib/components/Profile.svelte:202
 A document is shared with me,Um documento é compartilhado comigo,# desk/src/lib/components/Profile.svelte:203
 A message needs a recipient,Uma mensagem precisa de um destinatário,# internal/engine/mailqueue.go:119
-A method declared raw must return a string,Um método declarado como raw deve retornar uma string,# internal/api/api.go:300
+A method declared raw must return a string,Um método declarado como raw deve retornar uma string,# internal/api/api.go:302
 A shared vault secret can only be changed from the platform space,Um segredo compartilhado do cofre só pode ser alterado a partir do espaço da plataforma,# internal/engine/vault.go:279
 A task assigned to me is due,Uma tarefa atribuída a mim vence,# desk/src/lib/components/Profile.svelte:204
-A tenant cannot enter another tenant,Uma conta não pode entrar em outra conta,# internal/engine/host.go:775
+A tenant cannot enter another tenant,Uma conta não pode entrar em outra conta,# internal/engine/host.go:790
 "A tenant's slug is lowercase letters, digits, hyphens and underscores, and starts with a letter or digit","O slug de uma conta usa letras minúsculas, dígitos, hifens e sublinhados, e começa com letra ou dígito",# core/doctypes/site_tenant/site_tenant.controller.ts:7
 A user of one tenant cannot work in another,Um usuário de uma conta não pode trabalhar em outra,# internal/engine/asuser.go:215
 A user with access scopes cannot import,Um usuário com escopos de acesso não pode importar,# internal/engine/import.go:189
@@ -55,11 +55,11 @@ Allowed,Permitido,# core.doctypes.audit_event.audit_event.doctype
 Amend,Emendar,# desk/src/lib/components/FormView.svelte:523
 An account was created for you on {0}. Choose a password to get in.,Uma conta foi criada para você em {0}. Escolha uma senha para entrar.,# core/mail/invite.mail.ts:22
 "An account was created for you on {0}. You sign in through {1} with a passkey — your fingerprint, face or device PIN — and no password.","Uma conta foi criada para você em {0}. Você entra pelo {1} com uma passkey — sua digital, rosto ou PIN do dispositivo — e sem senha.",# core/mail/invite_sso.mail.ts:18
-An invited person chooses their own password: clear the New password field,Quem é convidado escolhe a própria senha: limpe o campo Nova senha,# core/doctypes/user/user.form.ts:91
+An invited person chooses their own password: clear the New password field,Quem é convidado escolhe a própria senha: limpe o campo Nova senha,# core/doctypes/user/user.form.ts:98
 Another column already fills this field,Outra coluna já preenche este campo,# internal/engine/data_import.go:442
 Applicable For,Aplicável Para,# core.doctypes.user_permission.user_permission.doctype
 Apply,Aplicar,# desk/src/lib/controls/Grid.svelte:74
-Apps reloaded,Apps recarregadas,# desk/src/routes/+layout.svelte:175
+Apps reloaded,Apps recarregadas,# desk/src/routes/+layout.svelte:176
 Arguments,Argumentos,# core.doctypes.email_delivery.email_delivery.doctype
 "Ask an administrator to give you a role, then sign in again.",Peça a um administrador que lhe atribua um papel e entre novamente.,# desk/src/routes/app/+page.svelte:35
 Ask for a new link,Pedir um novo link,# desk/src/routes/login/reset/+page.svelte:48
@@ -92,7 +92,7 @@ Audit Event records are immutable and cannot be imported,Registros de Evento de 
 Audit Event records are immutable and cannot be modified,Registros de Evento de Auditoria são imutáveis e não podem ser modificados,# internal/engine/doc.go:820
 Back,Voltar,# desk/src/lib/components/PrintView.svelte:150
 Back to sign in,Voltar para o acesso,# desk/src/routes/login/forgot/+page.svelte:33
-Back to the desk,Voltar ao desk,# desk/src/routes/portal/+layout.svelte:42
+Back to the desk,Voltar ao desk,# desk/src/routes/portal/+layout.svelte:45
 Back to {0},Voltar para {0},# desk/src/lib/components/NotCreatable.svelte:15
 Barcode,Código de barras,# internal/api/barcode.go:25
 Basic,Básico,# desk/src/lib/controls/ColorControl.svelte:160
@@ -113,8 +113,8 @@ Cancel {0}?,Cancelar {0}?,# desk/src/lib/components/FormView.svelte:520
 Cancelled,Cancelado,# desk/src/lib/components/ListView.svelte:576
 Cannot delete,Não é possível apagar,# internal/engine/doc.go:2351
 Cannot manually modify workflow state field '{0}'. Use workflow actions to transition.,Não é permitido alterar manualmente o campo de estado de workflow '{0}'. Use ações de workflow para a transição.,# internal/engine/doc.go:856
-Cannot sort by {0},Não é possível ordenar por {0},# internal/api/portal.go:308
-Card {0} does not exist,Card {0} não existe,# internal/api/api.go:1558
+Cannot sort by {0},Não é possível ordenar por {0},# internal/api/portal.go:310
+Card {0} does not exist,Card {0} não existe,# internal/api/api.go:1604
 Cards,Cartões,# desk/src/lib/components/ListView.svelte:538
 Center,Centro,# core.doctypes.letter_head.letter_head.doctype
 Change,Alterar,# desk/src/lib/controls/Control.svelte:195
@@ -150,7 +150,7 @@ Click a shape to delete it,Clique em uma forma para apagá-la,# desk/src/lib/con
 Click the map to add a point,Clique no mapa para adicionar um ponto,# desk/src/lib/controls/GeolocationControl.svelte:217
 Click to add each corner; double-click or Finish to close the polygon,Clique para adicionar cada vértice; clique duas vezes ou em Concluir para fechar o polígono,# desk/src/lib/controls/GeolocationControl.svelte:219
 Click to add each vertex; double-click or Finish to end the line,Clique para adicionar cada vértice; clique duas vezes ou em Concluir para terminar a linha,# desk/src/lib/controls/GeolocationControl.svelte:218
-Close,Fechar,# core/doctypes/user/user.form.ts:130
+Close,Fechar,# core/doctypes/user/user.form.ts:149
 Close menu,Fechar menu,# desk/src/lib/components/Sidebar.svelte:94
 "Close modals, menus or dialogs","Fechar modais, menus ou diálogos",# desk/src/lib/shortcuts.ts:104
 Close the options list,Fechar lista de opções,# desk/src/lib/shortcuts.ts:113
@@ -217,7 +217,7 @@ Details,Detalhes,# desk/src/lib/components/FormView.svelte:222
 Device,Dispositivo,# desk/src/lib/components/Profile.svelte:243
 Direct submit or cancel is disabled for documents governed by workflow '{0}',O envio ou cancelamento direto está desativado para documentos controlados pelo workflow '{0}',# internal/engine/doc.go:859
 Disabled,Desativado,# core.doctypes.letter_head.letter_head.doctype
-Disabled in {0},Desativado no {0},# core/doctypes/user/user.form.ts:77
+Disabled in {0},Desativado no {0},# core/doctypes/user/user.form.ts:84
 Discard,Descartar,# desk/src/lib/components/FormView.svelte:481
 Discard changes,Descartar alterações,# desk/src/lib/components/FormView.svelte:204
 Discard your unsaved changes?,Descartar suas alterações não salvas?,# desk/src/lib/components/FormView.svelte:211
@@ -249,7 +249,7 @@ Email Delivery {0} does not exist,A entrega de e-mail {0} não existe,# internal
 Email is required,O e-mail é obrigatório,# internal/engine/users.go:47
 Email notifications,Notificações por e-mail,# desk/src/lib/components/Profile.svelte:199
 Enabled,Ativo,# core.doctypes.api_key.api_key.doctype
-Enabled in {0},Ativado no {0},# core/doctypes/user/user.form.ts:77
+Enabled in {0},Ativado no {0},# core/doctypes/user/user.form.ts:84
 End,Encerrar,# desk/src/lib/components/Profile.svelte:256
 End this session?,Encerrar esta sessão?,# desk/src/lib/components/Profile.svelte:115
 Enter new secret,Digite o novo segredo,# desk/src/lib/controls/Control.svelte:211
@@ -295,7 +295,7 @@ File is too large (limit {0}),O arquivo é grande demais (limite {0}),# desk/src
 File {0} does not exist,O arquivo {0} não existe,# internal/engine/mailqueue.go:199
 File {0} not found,Arquivo {0} não encontrado,# internal/engine/files_api.go:289
 Files are attached on the form,Arquivos são anexados no formulário,# internal/engine/data_import.go:352
-Fill in the email and the full name first,Preencha primeiro o e-mail e o nome completo,# core/doctypes/user/user.form.ts:87
+Fill in the email and the full name first,Preencha primeiro o e-mail e o nome completo,# core/doctypes/user/user.form.ts:94
 Fill in the required fields: {0},Preencha os campos obrigatórios: {0},# desk/src/lib/form.svelte.ts:440
 Fill in with AI,Preencher com IA,# desk/src/lib/components/FeedbackModal.svelte:336
 Fill in with AI is turned off on this site,O preenchimento com IA está desativado neste site,# internal/engine/feedback_assist.go:254
@@ -303,7 +303,7 @@ Fill in {0},Preencha {0},# desk/src/lib/components/Dialogs.svelte:20
 Fill this in to set or change the password.,Preencha para definir ou trocar a senha.,# core.doctypes.user.user.doctype
 Filling in…,Preenchendo…,# desk/src/lib/components/FeedbackModal.svelte:336
 "Filter by field, value or user…","Filtrar por campo, valor ou usuário...",# desk/src/lib/components/DocHistory.svelte:79
-Filter {0} by {1} and {2},Filtre {0} por {1} e {2},# internal/api/api.go:1430
+Filter {0} by {1} and {2},Filtre {0} por {1} e {2},# internal/api/api.go:1476
 Filters,Filtros,# desk/src/lib/components/ListView.svelte:550
 Filters apply to the list view,Filtros valem para a visão em lista,# desk/src/lib/components/ListView.svelte:565
 Finish,Concluir,# desk/src/lib/controls/GeolocationControl.svelte:236
@@ -341,6 +341,9 @@ Idempotency Key,Chave de Idempotência,# core.doctypes.email_delivery.email_deli
 Ignore,Ignorar,# desk/src/lib/components/DataImportModal.svelte:191
 Ignored,Ignorada,# internal/engine/data_import.go:410
 Image,Imagem,# desk/src/lib/controls/RichTextControl.svelte:124
+Impersonate,Impersonar,# core/doctypes/user/user.form.ts:52
+Impersonating needs a session; an API key cannot impersonate,Impersonar exige uma sessão; uma chave de API não pode impersonar,# internal/engine/impersonate.go:87
+Impersonating needs a user,Impersonar exige um usuário,# internal/engine/impersonate.go:98
 Import,Importar,# desk/src/lib/components/ListView.svelte:557
 Import another file,Importar outro arquivo,# desk/src/lib/components/DataImportModal.svelte:229
 Import {0},Importar {0},# desk/src/lib/components/DataImportModal.svelte:136
@@ -349,10 +352,10 @@ Importing is limited to Admin and System Manager,A importação é restrita ao A
 Improvement,Melhoria,# core.doctypes.feedback.feedback.doctype
 In Review,Em análise,# core.doctypes.feedback.feedback.doctype
 Info,Informação,# core.doctypes.comment.comment.doctype
-Invalid API key,Chave de API inválida,# internal/api/api.go:493
+Invalid API key,Chave de API inválida,# internal/api/api.go:496
 "Invalid API key prefix {0}: lowercase letters, digits, - and _, starting with a letter or digit, at most 63 characters","Prefixo de chave de API inválido {0}: letras minúsculas, dígitos, - e _, começando por letra ou dígito, até 63 caracteres",# internal/engine/auth.go:339
 Invalid CSV separator: {0},Separador de CSV inválido: {0},# internal/api/data_import.go:132
-Invalid JSON: {0},JSON inválido: {0},# internal/api/api.go:416
+Invalid JSON: {0},JSON inválido: {0},# internal/api/api.go:418
 Invalid Single identity for {0},Identidade Single inválida para {0},# internal/engine/doc.go:447
 Invalid Single identity or status for {0},Identidade ou estado Single inválido para {0},# internal/engine/doc.go:1199
 Invalid URL,URL inválida,# internal/engine/webhooks.go:598
@@ -367,7 +370,7 @@ Invalid docstatus transition ({0} → {1}),Transição de docstatus inválida ({
 "Invalid duration in {0}: ""{1}""","Duração inválida em {0}: ""{1}""",# internal/engine/doc.go:269
 Invalid email,E-mail inválido,# desk/src/lib/controls/Control.svelte:87
 Invalid event,Evento inválido,# internal/engine/webhooks.go:289
-Invalid filters: {0},Filtros inválidos: {0},# internal/api/api.go:1415
+Invalid filters: {0},Filtros inválidos: {0},# internal/api/api.go:1461
 Invalid link,Link inválido,# internal/engine/doc.go:2034
 Invalid location,Localização inválida,# desk/src/lib/controls/GeolocationControl.svelte:255
 "Invalid month in {0}: ""{1}""","Mês/ano inválido em {0}: ""{1}""",# internal/engine/doc.go:313
@@ -376,10 +379,10 @@ Invalid signature,Assinatura inválida,# desk/src/lib/controls/SignatureControl.
 Invalid slug,Slug inválido,# core/doctypes/site_tenant/site_tenant.controller.ts:8
 Invalid tenant id: {0},Id de conta inválido: {0},# internal/engine/tenancy.go:320
 "Invalid time in {0}: ""{1}""","Hora inválida em {0}: ""{1}""",# internal/engine/doc.go:337
-Invalid upload: {0},upload inválido: {0},# internal/api/api.go:1730
+Invalid upload: {0},upload inválido: {0},# internal/api/api.go:1812
 Invalid username or password,Usuário ou senha inválidos,# internal/engine/auth.go:115
-Invalid {0}: {1},{0} inválido: {1},# internal/api/api.go:428
-Invitation sent,Convite enviado,# core/doctypes/user/user.form.ts:44
+Invalid {0}: {1},{0} inválido: {1},# internal/api/api.go:430
+Invitation sent,Convite enviado,# core/doctypes/user/user.form.ts:47
 Is Default,É Padrão,# core.doctypes.letter_head.letter_head.doctype
 Italic,Itálico,# desk/src/lib/controls/RichTextControl.svelte:112
 Job,Job,# core.doctypes.email_delivery.email_delivery.doctype
@@ -404,7 +407,7 @@ Letter Head {0} does not exist,Timbre {0} não existe,# internal/engine/print.go
 Letter Head {0} is disabled,Timbre {0} está desativado,# internal/engine/print.go:331
 Like,Curtida,# core.doctypes.comment.comment.doctype
 Line,Linha,# desk/src/lib/controls/GeolocationControl.svelte:212
-Link,Link,# core/doctypes/user/user.form.ts:128
+Link,Link,# core/doctypes/user/user.form.ts:147
 Link address,Endereço do link,# desk/src/lib/controls/RichTextControl.svelte:81
 List,Lista,# desk/src/lib/components/ListView.svelte:534
 Load more,Carregar mais,# desk/src/lib/components/portal/PortalList.svelte:53
@@ -414,9 +417,9 @@ Loading…,Carregando...,# desk/src/lib/components/Profile.svelte:160
 Logo Image,Imagem do Logo,# core.doctypes.letter_head.letter_head.doctype
 Low,Baixa,# core.doctypes.feedback.feedback.doctype
 "Lowercase letters, digits, hyphens and underscores. It cannot change.","Letras minúsculas, dígitos, hifens e sublinhados. Não pode ser alterado.",# core.doctypes.site_tenant.site_tenant.doctype
-Mail is not being delivered,O e-mail não está sendo entregue,# core/doctypes/user/user.form.ts:126
+Mail is not being delivered,O e-mail não está sendo entregue,# core/doctypes/user/user.form.ts:145
 Mail template {0} does not exist,O modelo de mensagem {0} não existe,# internal/engine/mailqueue.go:94
-Maintenance mode,Modo de manutenção,# desk/src/routes/+layout.svelte:267
+Maintenance mode,Modo de manutenção,# desk/src/routes/+layout.svelte:269
 Map,Mapa,# desk/src/lib/controls/GeolocationControl.svelte:253
 Map tools,Ferramentas do mapa,# desk/src/lib/controls/GeolocationControl.svelte:228
 Mark as completed,Marcar como concluída,# desk/src/routes/app/todo/+page.svelte:210
@@ -431,11 +434,11 @@ Merge,Mesclar,# desk/src/lib/components/FormView.svelte:355
 Merge into,Mesclar em,# desk/src/lib/components/FormView.svelte:336
 Merge into…,Mesclar em…,# desk/src/lib/components/FormView.svelte:471
 Merge {0} into…,Mesclar {0} em…,# desk/src/lib/components/FormView.svelte:333
-Method {0} accepts only {1},O método {0} aceita apenas {1},# internal/api/api.go:1223
-Method {0} does not exist on {1},Método {0} não existe em {1},# internal/api/api.go:1170
-Method {0} does not exist or is not whitelisted,Método {0} não existe ou não é whitelisted,# internal/api/api.go:1209
+Method {0} accepts only {1},O método {0} aceita apenas {1},# internal/api/api.go:1269
+Method {0} does not exist on {1},Método {0} não existe em {1},# internal/api/api.go:1216
+Method {0} does not exist or is not whitelisted,Método {0} não existe ou não é whitelisted,# internal/api/api.go:1255
 Microphone access was denied. Allow it in the browser to record a note.,O acesso ao microfone foi negado. Permita-o no navegador para gravar um áudio.,# desk/src/lib/controls/AudioRecorder.svelte:45
-Missing file field,campo file ausente,# internal/api/api.go:1734
+Missing file field,campo file ausente,# internal/api/api.go:1816
 Modified,Modificado,# desk/src/lib/components/ListView.svelte:499
 Modified by,Modificado por,# desk/src/lib/components/DocSidebar.svelte:202
 Month,Mês,# desk/src/lib/components/views/GanttView.svelte:26
@@ -443,7 +446,7 @@ Month/day/year,Mês/dia/ano,# desk/src/lib/components/DataImportModal.svelte:156
 Move through the list options,Navegar entre as opções da lista,# desk/src/lib/shortcuts.ts:111
 Moves to {0}:,Passa para {0}:,# desk/src/lib/merge.ts:28
 My feedback,Meus feedbacks,# desk/src/lib/components/FeedbackModal.svelte:262
-My portal,Meu portal,# desk/src/lib/components/UserMenuItems.svelte:22
+My portal,Meu portal,# desk/src/lib/components/UserMenuItems.svelte:24
 My profile,Meu perfil,# desk/src/lib/components/Profile.svelte:157
 Name,Nome,# core.doctypes.file.file.doctype
 Name and language,Nome e idioma,# desk/src/lib/components/Profile.svelte:183
@@ -478,16 +481,16 @@ No identity provider is set up for provisioning,Nenhum provedor de identidade es
 No keys yet.,Nenhuma chave ainda.,# desk/src/lib/components/Profile.svelte:305
 No location,Sem localização,# desk/src/lib/controls/GeolocationControl.svelte:255
 No notifications,Nenhuma notificação,# desk/src/routes/app/notifications/+page.svelte:34
-No permission ({0}) on {1} {2},Sem permissão ({0}) em {1} {2},# internal/api/portal.go:517
+No permission ({0}) on {1} {2},Sem permissão ({0}) em {1} {2},# internal/api/portal.go:519
 No permission ({0}) to import {1},Sem permissão ({0}) para importar {1},# internal/engine/data_import.go:280
-No permission for report {0},Sem permissão para o relatório {0},# internal/api/api.go:1464
+No permission for report {0},Sem permissão para o relatório {0},# internal/api/api.go:1510
 No permission for the file {0},Sem permissão para o arquivo {0},# internal/engine/mailqueue.go:202
-No permission for this file,Sem permissão para este arquivo,# internal/api/api.go:1784
-No permission for workspace {0},Sem permissão para o workspace {0},# internal/api/api.go:1617
-No permission for {0},Sem permissão para {0},# internal/api/api.go:927
+No permission for this file,Sem permissão para este arquivo,# internal/api/api.go:1866
+No permission for workspace {0},Sem permissão para o workspace {0},# internal/api/api.go:1663
+No permission for {0},Sem permissão para {0},# internal/api/api.go:973
 No permission to amend {0},Sem permissão para emendar {0},# internal/engine/doc.go:1115
 No permission to complete this task,Sem permissão para concluir esta tarefa,# internal/api/assignments.go:151
-No permission to create {0},Sem permissão para criar {0},# internal/api/portal.go:449
+No permission to create {0},Sem permissão para criar {0},# internal/api/portal.go:451
 No permission to delete {0} {1},Sem permissão para apagar {0} {1},# internal/engine/doc.go:1423
 No permission to delete {0} {1} in workflow state '{2}',Sem permissão para apagar {0} {1} no estado de workflow '{2}',# internal/engine/doc.go:1446
 No permission to execute action '{0}' on {1} {2},Sem permissão para executar a ação '{0}' em {1} {2},# internal/engine/workflow.go:123
@@ -495,7 +498,7 @@ No permission to export {0},Sem permissão para exportar {0},# internal/engine/e
 No permission to list {0},Sem permissão para listar {0},# internal/engine/query.go:415
 No permission to merge {0} {1} into {2},Sem permissão para mesclar {0} {1} em {2},# internal/engine/merge.go:388
 No permission to read field {0} of {1},Sem permissão para ler o campo {0} de {1},# internal/engine/export.go:193
-No permission to read {0} {1},Sem permissão para ler {0} {1},# internal/api/portal.go:370
+No permission to read {0} {1},Sem permissão para ler {0} {1},# internal/api/portal.go:372
 No permission to rename {0},Sem permissão para renomear {0},# internal/engine/doc.go:1592
 No permission to reopen this task,Sem permissão para reabrir esta tarefa,# internal/api/assignments.go:172
 No permission to revoke this task,Sem permissão para revogar esta tarefa,# internal/api/assignments.go:162
@@ -503,7 +506,7 @@ No permission to submit {0},Sem permissão para enviar {0},# internal/engine/doc
 No recipient,Sem destinatário,# internal/engine/mailqueue.go:119
 No records,Nenhum registro,# desk/src/lib/components/ReportGrid.svelte:116
 No records in this period,Nenhum registro neste período,# desk/src/lib/components/views/GanttView.svelte:81
-No report permission on {0},Sem permissão de relatório em {0},# internal/api/api.go:1477
+No report permission on {0},Sem permissão de relatório em {0},# internal/api/api.go:1523
 No results,Nenhum resultado,# desk/src/lib/components/SearchPalette.svelte:109
 No rows,Nenhuma linha,# desk/src/lib/controls/Grid.svelte:201
 No rows match the filters,Nenhuma linha corresponde aos filtros,# desk/src/lib/components/ReportGrid.svelte:116
@@ -511,6 +514,7 @@ No tasks found,Nenhuma tarefa encontrada,# desk/src/routes/app/todo/+page.svelte
 No workflow configured for {0},Nenhum workflow configurado para {0},# internal/engine/workflow.go:80
 No workspace declared. Create an app with ddcore new-app and declare a workspace.,Nenhum workspace declarado. Crie um app com ddcore new-app e declare um workspace.,# desk/src/routes/app/+page.svelte:40
 None,Nenhum,# desk/src/lib/components/PrintView.svelte:174
+Not available while impersonating,Indisponível enquanto impersona outro usuário,# internal/engine/impersonate.go:188
 Not permitted to change {0},Sem permissão para alterar {0},# internal/engine/fieldperm.go:294
 Not permitted to upload files to {0},Sem permissão para enviar arquivos para {0},# internal/engine/files_api.go:106
 Not permitted to upload here,Sem permissão para enviar arquivos aqui,# internal/engine/files_api.go:60
@@ -535,9 +539,11 @@ Only Admin can create an API key for Admin,Só o Admin pode criar uma chave de A
 Only a System Manager can change an account at the identity provider,Somente um System Manager pode alterar uma conta no provedor de identidade,# internal/engine/pocketid.go:508
 Only a System Manager can create an API key for another user,Só um System Manager pode criar uma chave de API para outro usuário,# internal/engine/users.go:194
 Only a System Manager can give the role {0},Só um System Manager pode conceder o papel {0},# internal/engine/users.go:67
+Only a System Manager can impersonate a user,Somente um System Manager pode impersonar um usuário,# internal/engine/impersonate.go:94
 Only a System Manager can invite a System User,Só um System Manager pode convidar um System User,# internal/engine/users.go:63
 Only a System Manager may replay a webhook delivery,Somente um System Manager pode reenviar uma entrega de webhook,# internal/engine/webhooks.go:551
 Only a System Manager of the platform space can enter a tenant,Somente um System Manager do espaço da plataforma pode entrar em uma conta,# internal/engine/tenancy.go:865
+Only a System Manager of the platform space can impersonate a tenant's user,Somente um System Manager do espaço da plataforma pode impersonar um usuário de uma conta,# internal/engine/impersonate.go:129
 Only a System Manager without access scopes can override a security scope,Só um System Manager sem escopos de acesso pode ignorar um escopo de segurança,# internal/engine/share.go:319
 Only an ndjson export can be imported; this one is {0},Só é possível importar uma exportação ndjson; esta é {0},# internal/engine/import_source.go:67
 Only cancelled documents can be amended,Só documentos cancelados podem ser emendados,# internal/engine/doc.go:1110
@@ -546,7 +552,7 @@ Open,Aberto,# core.doctypes.todo.todo.doctype
 Open document,Abrir documento,# core/mail/notification.mail.ts:22
 Open feedback,Abrir feedback,# core/mail/feedback.mail.ts:63
 Open file,Abrir arquivo,# desk/src/lib/controls/Grid.svelte:174
-Open menu,Abrir menu,# desk/src/routes/+layout.svelte:210
+Open menu,Abrir menu,# desk/src/routes/+layout.svelte:211
 Open the date picker,Abrir seletor de data,# desk/src/lib/controls/DateControl.svelte:82
 Open the full form,Abrir o formulário completo,# desk/src/lib/quick-create.ts:55
 Open the full history,Abrir histórico completo,# desk/src/lib/components/DocSidebar.svelte:386
@@ -563,17 +569,17 @@ PDF generator not configured on server. Please use browser print.,"Gerador de PD
 Page,Página,# core/mail/feedback.mail.ts:55
 Page format {0} is not supported: use A4 or Letter,Formato de página {0} não suportado: use A4 ou Letter,# internal/api/print.go:62
 Page size,Itens por página,# desk/src/routes/app/todo/+page.svelte:188
-Page {0} does not exist,A página {0} não existe,# internal/api/portal.go:177
+Page {0} does not exist,A página {0} não existe,# internal/api/portal.go:179
 Password,Senha,# desk/src/lib/components/Profile.svelte:213
 Password changed. Your other sessions were signed out.,Senha trocada. Suas outras sessões foram encerradas.,# desk/src/lib/components/Profile.svelte:110
-Password reset sent,Redefinição de senha enviada,# core/doctypes/user/user.form.ts:40
+Password reset sent,Redefinição de senha enviada,# core/doctypes/user/user.form.ts:43
 Password set,Senha definida,# desk/src/routes/login/reset/+page.svelte:53
 Password sign-in is disabled. Use single sign-on.,O acesso com senha está desativado. Use o login único (SSO).,# internal/engine/auth.go:129
 Payload,Conteúdo,# core.doctypes.webhook_delivery.webhook_delivery.doctype
 Pick a colour from the screen,Capturar uma cor da tela,# desk/src/lib/controls/ColorControl.svelte:195
 Pick the highlighted option,Selecionar opção destacada,# desk/src/lib/shortcuts.ts:112
 Planned,Planejado,# core.doctypes.feedback.feedback.doctype
-Platform,Plataforma,# desk/src/lib/boot.svelte.ts:151
+Platform,Plataforma,# desk/src/lib/boot.svelte.ts:153
 PocketID answered {0} with something that is not JSON,O PocketID respondeu a {0} com algo que não é JSON,# internal/engine/pocketid.go:140
 PocketID created group {0} but answered without its id,O PocketID criou o grupo {0} mas respondeu sem o id dele,# internal/engine/pocketid.go:255
 PocketID did not answer ({0}): {1},O PocketID não respondeu ({0}): {1},# internal/engine/pocketid.go:128
@@ -584,7 +590,7 @@ Point,Ponto,# desk/src/lib/controls/GeolocationControl.svelte:211
 "Point (1,234.56)","Ponto (1,234.56)",# desk/src/lib/components/DataImportModal.svelte:163
 Point the camera at the barcode,Aponte a câmera para o código de barras,# desk/src/lib/controls/BarcodeControl.svelte:156
 Polygon,Polígono,# desk/src/lib/controls/GeolocationControl.svelte:213
-Portal {0} does not exist,O portal {0} não existe,# internal/api/portal.go:173
+Portal {0} does not exist,O portal {0} não existe,# internal/api/portal.go:175
 Post a comment on the form,Enviar comentário no formulário,# desk/src/lib/shortcuts.ts:95
 Preview,Pré-visualizar,# desk/src/lib/controls/MarkdownControl.svelte:43
 Previous,Anterior,# desk/src/lib/components/views/GanttView.svelte:47
@@ -599,7 +605,7 @@ Private,Privado,# core.doctypes.file.file.doctype
 Problem to solve,Problema a resolver,# core/mail/feedback.mail.ts:48
 Profile saved,Perfil salvo,# desk/src/lib/components/Profile.svelte:84
 Provide the document ID,Informe o ID do documento,# internal/engine/idgen.go:53
-Provide the reference document,Informe o documento de referência,# internal/api/api.go:1388
+Provide the reference document,Informe o documento de referência,# internal/api/api.go:1434
 Queued,Na fila,# core.doctypes.email_delivery.email_delivery.doctype
 Quote,Citação,# desk/src/lib/controls/RichTextControl.svelte:120
 Rating,Avaliação,# desk/src/lib/controls/RatingControl.svelte:29
@@ -627,15 +633,15 @@ Rendering print preview...,Renderizando visualização de impressão...,# desk/s
 Reopen,Reabrir,# core/doctypes/todo/to_do.form.ts:31
 Replace,Substituir,# desk/src/lib/controls/AttachControl.svelte:81
 Replay,Reenviar,# core/doctypes/webhook_delivery/webhook_delivery.form.ts:8
-Report {0} does not exist,Relatório {0} não existe,# internal/api/api.go:1460
+Report {0} does not exist,Relatório {0} não existe,# internal/api/api.go:1506
 Reported by,Enviado por,# core.doctypes.feedback.feedback.doctype
 Reporter email,E-mail de quem enviou,# core.doctypes.feedback.feedback.doctype
 Reporter name,Nome de quem enviou,# core.doctypes.feedback.feedback.doctype
 Request ID,ID da Requisição,# core.doctypes.audit_event.audit_event.doctype
-Request without a CSRF header,Requisição sem cabeçalho CSRF,# internal/api/api.go:501
+Request without a CSRF header,Requisição sem cabeçalho CSRF,# internal/api/api.go:504
 Required,Obrigatório,# desk/src/lib/form.svelte.ts:433
 Required fields,Campos obrigatórios,# desk/src/lib/components/Dialogs.svelte:20
-Resend invitation,Reenviar convite,# core/doctypes/user/user.form.ts:43
+Resend invitation,Reenviar convite,# core/doctypes/user/user.form.ts:46
 Reset to default,Restaurar o padrão,# desk/src/lib/components/views/ColumnMenu.svelte:97
 Reset your password on {0},Redefina sua senha em {0},# core/mail/reset.mail.ts:14
 Response,Resposta,# desk/src/lib/components/FeedbackModal.svelte:422
@@ -652,14 +658,14 @@ Rights,Direitos,# desk/src/lib/components/ShareModal.svelte:48
 Role,Papel,# core.doctypes.has_role.has_role.doctype
 Role {0} is repeated,Papel {0} repetido,# core/doctypes/user/user.controller.ts:14
 Roles,Papéis,# desk/src/lib/components/Profile.svelte:169
-Route {0} does not exist,rota {0} não existe,# internal/api/api.go:1949
+Route {0} does not exist,rota {0} não existe,# internal/api/api.go:2031
 Row,Linha,# desk/src/lib/components/DataImportModal.svelte:212
 Row #{0} changed,Linha #{0} alterada,# desk/src/lib/components/DocHistory.svelte:151
 Row added,Linha adicionada,# desk/src/lib/components/DocHistory.svelte:48
 Row removed,Linha removida,# desk/src/lib/components/DocHistory.svelte:50
 Saturation and brightness,Saturação e brilho,# desk/src/lib/controls/ColorControl.svelte:185
 Save,Salvar,# desk/src/lib/components/DocSidebar.svelte:349
-Save and invite,Salvar e convidar,# core/doctypes/user/user.form.ts:22
+Save and invite,Salvar e convidar,# core/doctypes/user/user.form.ts:25
 Save or update the record,Salvar ou atualizar registro,# desk/src/lib/shortcuts.ts:94
 Save the document first,Salve o documento antes,# core/doctypes/todo/to_do.form.ts:13
 Saved,Salvo,# desk/src/lib/components/portal/PortalForm.svelte:45
@@ -685,12 +691,12 @@ Self-approval is not allowed for action '{0}' on {1} {2},Auto-aprovação não �
 Send,Enviar,# desk/src/lib/components/FeedbackModal.svelte:261
 Send context data,Enviar dados de contexto,# desk/src/lib/components/FeedbackModal.svelte:388
 Send me an email when:,Enviar um e-mail para mim quando:,# desk/src/lib/components/Profile.svelte:200
-Send password reset,Enviar redefinição de senha,# core/doctypes/user/user.form.ts:39
+Send password reset,Enviar redefinição de senha,# core/doctypes/user/user.form.ts:42
 Send the address of this page,Enviar o endereço desta página,# desk/src/lib/components/FeedbackModal.svelte:381
 Send the link,Enviar o link,# desk/src/routes/login/forgot/+page.svelte:42
 "Send this event to the receiver again, with the same webhook-id?","Enviar este evento ao receptor novamente, com o mesmo webhook-id?",# core/doctypes/webhook_delivery/webhook_delivery.form.ts:9
-Send {0} a link to choose a new password?,Enviar a {0} um link para escolher uma nova senha?,# core/doctypes/user/user.form.ts:40
-Send {0} a new invitation?,Enviar a {0} um novo convite?,# core/doctypes/user/user.form.ts:44
+Send {0} a link to choose a new password?,Enviar a {0} um link para escolher uma nova senha?,# core/doctypes/user/user.form.ts:43
+Send {0} a new invitation?,Enviar a {0} um novo convite?,# core/doctypes/user/user.form.ts:47
 Sending…,Enviando…,# desk/src/lib/components/FeedbackModal.svelte:400
 Sent,Enviado,# core.doctypes.email_delivery.email_delivery.doctype
 Sent at,Enviado em,# core.doctypes.email_delivery.email_delivery.doctype
@@ -719,10 +725,10 @@ Shown to the author with the status,"Mostrada a quem enviou, junto com o status"
 Sign again,Assinar novamente,# desk/src/lib/controls/SignatureControl.svelte:158
 Sign in,Entrar,# desk/src/routes/login/+page.svelte:83
 Sign in to continue,Faça login para continuar,# core/services/api_keys.ts:14
-Sign in to upload files,Faça login para enviar arquivos,# internal/api/api.go:1719
+Sign in to upload files,Faça login para enviar arquivos,# internal/api/api.go:1801
 Sign in with the password you just chose.,Entre com a senha que você acabou de escolher.,# desk/src/routes/login/reset/+page.svelte:56
 Sign in with {0},Entrar com {0},# desk/src/routes/login/[provider]/[tenant]/+page.svelte:55
-Sign out,Sair,# desk/src/lib/components/UserMenuItems.svelte:34
+Sign out,Sair,# desk/src/lib/components/UserMenuItems.svelte:41
 Sign out everywhere else,Sair dos outros dispositivos,# desk/src/lib/components/Profile.svelte:239
 Sign out of every other device?,Sair de todos os outros dispositivos?,# desk/src/lib/components/Profile.svelte:124
 Sign-in with {0} is not available here,O login com {0} não está disponível aqui,# internal/engine/credentials.go:399
@@ -745,6 +751,8 @@ Status,Status,# desk/src/lib/components/portal/PortalList.svelte:29
 Stay in {0},Ficar em {0},# desk/src/lib/components/TenantMismatch.svelte:46
 Steps to reproduce,Passos para reproduzir,# core/mail/feedback.mail.ts:43
 Stop,Parar,# desk/src/lib/controls/AudioRecorder.svelte:101
+Stop impersonating,Parar de impersonar,# desk/src/lib/components/ImpersonationBanner.svelte:28
+Stop impersonating {0} first,Pare de impersonar {0} primeiro,# internal/engine/impersonate.go:90
 Strikethrough,Tachado,# desk/src/lib/controls/RichTextControl.svelte:113
 Subheading,Subtítulo,# desk/src/lib/controls/RichTextControl.svelte:116
 Subject,Assunto,# core.doctypes.email_delivery.email_delivery.doctype
@@ -768,7 +776,7 @@ Tell us the address you sign in with and we will send a link to set a new passwo
 Template,Modelo,# core.doctypes.email_delivery.email_delivery.doctype
 Tenant,Conta,# core/mail/feedback.mail.ts:54
 Tenant {0} not found,Conta {0} não encontrada,# internal/engine/tenancy.go:353
-Tenants are managed from the platform space,As contas são administradas a partir do espaço da plataforma,# internal/engine/host.go:788
+Tenants are managed from the platform space,As contas são administradas a partir do espaço da plataforma,# internal/engine/host.go:803
 Thanks! Your feedback was sent.,Obrigado! Seu feedback foi enviado.,# desk/src/lib/components/FeedbackModal.svelte:227
 That key is not yours,Essa chave não é sua,# core/services/api_keys.ts:43
 The AI answer was cut short: {0},A resposta da IA foi interrompida: {0},# internal/ai/respond.go:232
@@ -804,7 +812,7 @@ The signature in {0} is too large (at most {1} KiB),A assinatura em {0} é grand
 The signature in {0} is too large (at most {1} by {2} pixels),A assinatura em {0} é grande demais (no máximo {1} por {2} pixels),# internal/signature/signature.go:110
 The site is in maintenance mode; changes are paused. Try again shortly.,O site está em modo de manutenção; as alterações estão pausadas. Tente novamente em instantes.,# internal/engine/maintenance.go:178
 The tenant {0} is disabled,A conta {0} está desativada,# internal/engine/tenancy.go:351
-The text is too long to preview,O texto é longo demais para pré-visualizar,# internal/api/api.go:1343
+The text is too long to preview,O texto é longo demais para pré-visualizar,# internal/api/api.go:1389
 The vault has not been migrated to this version: run ddcore migrate,O cofre não foi migrado para esta versão: rode ddcore migrate,# internal/engine/vault.go:333
 The webhook of delivery {0} was deleted,O webhook da entrega {0} foi excluído,# internal/engine/webhooks.go:576
 Then sign in at {0} with the {1} button.,"Depois, entre em {0} pelo botão {1}.",# core/mail/invite_sso.mail.ts:22
@@ -814,12 +822,12 @@ There is no import run {0},Não existe a execução de importação {0},# intern
 There is no organization {0} here,Não há organização {0} aqui,# desk/src/routes/login/[provider]/[tenant]/+page.svelte:64
 There is nothing here for you yet.,Ainda não há nada aqui para você.,# desk/src/lib/components/portal/PortalPage.svelte:63
 These choices only affect email. Notifications always appear in your inbox.,Estas escolhas só afetam o e-mail. As notificações sempre aparecem na sua caixa de entrada.,# desk/src/lib/components/Profile.svelte:206
-This area is for system users,Esta área é para usuários do sistema,# internal/api/portal.go:86
+This area is for system users,Esta área é para usuários do sistema,# internal/api/portal.go:88
 This device,Este dispositivo,# desk/src/lib/components/Profile.svelte:250
 This e-mail domain is not allowed to sign in here.,Este domínio de e-mail não tem permissão para entrar aqui.,# desk/src/routes/login/+page.svelte:50
-This endpoint is for the platform's own users,Este endpoint é para os usuários da própria plataforma,# internal/api/api.go:559
-This endpoint requires an API key (Authorization: token key:secret),Este endpoint exige uma chave de API (Authorization: token chave:segredo),# internal/api/api.go:541
-This endpoint requires the System Manager role,Este endpoint exige o papel System Manager,# internal/api/api.go:568
+This endpoint is for the platform's own users,Este endpoint é para os usuários da própria plataforma,# internal/api/api.go:591
+This endpoint requires an API key (Authorization: token key:secret),Este endpoint exige uma chave de API (Authorization: token chave:segredo),# internal/api/api.go:573
+This endpoint requires the System Manager role,Este endpoint exige o papel System Manager,# internal/api/api.go:600
 "This export has {0} rows and the limit here is {1}. Narrow the filters, or run `ddcore export` for the whole set.","Esta exportação tem {0} linhas e o limite aqui é {1}. Restrinja os filtros, ou rode `ddcore export` para o conjunto inteiro.",# internal/api/export.go:121
 This field holds no value,Este campo não guarda valor,# internal/engine/data_import.go:356
 This field is read-only,Este campo é somente leitura,# internal/engine/data_import.go:358
@@ -834,7 +842,7 @@ This record changed after your unsaved edits. Keep your edits?,Este registro mud
 This report is for the platform space,Este relatório é do espaço da plataforma,# internal/api/health.go:68
 This report requires the System Manager role,Este relatório exige o papel System Manager,# internal/api/health.go:64
 This site has no tenants: tenancy is off,Este site não tem contas: a multilocação está desligada,# internal/engine/import_run.go:280
-"This site sends no mail yet, so the message only went to the log. Pass this link on by hand.","Este site ainda não envia e-mails, então a mensagem foi só para o log. Repasse este link manualmente.",# core/doctypes/user/user.form.ts:127
+"This site sends no mail yet, so the message only went to the log. Pass this link on by hand.","Este site ainda não envia e-mails, então a mensagem foi só para o log. Repasse este link manualmente.",# core/doctypes/user/user.form.ts:146
 This user is linked to more than one account. Ask an administrator.,Este usuário está vinculado a mais de uma conta. Fale com um administrador.,# internal/engine/credentials.go:450
 Timeout (seconds),Tempo Limite (segundos),# core.doctypes.webhook.webhook.doctype
 Timeout must be between {0} and {1} seconds,O tempo limite deve estar entre {0} e {1} segundos,# internal/engine/webhooks.go:635
@@ -846,7 +854,7 @@ ToDo,Tarefa,# core.doctypes.todo.todo.doctype
 Today,Hoje,# desk/src/lib/components/views/CalendarView.svelte:83
 Too many attempts. Try again in {0} second(s),Tentativas demais. Tente de novo em {0} segundo(s),# internal/engine/throttle.go:69
 Too many attempts. Try again later.,Muitas tentativas. Tente novamente mais tarde.,# desk/src/routes/login/+page.svelte:51
-Too many changes in a short time. Try again later.,Muitas alterações em pouco tempo. Tente novamente mais tarde.,# internal/api/portal.go:145
+Too many changes in a short time. Try again later.,Muitas alterações em pouco tempo. Tente novamente mais tarde.,# internal/api/portal.go:147
 Too many feedbacks,Feedbacks demais,# internal/engine/feedback.go:215
 Too many files,Arquivos demais,# internal/api/feedback.go:78
 Total,Total,# desk/src/lib/components/ReportGrid.svelte:61
@@ -857,7 +865,7 @@ Type at least {0} characters,Digite pelo menos {0} caracteres,# desk/src/lib/com
 URL,URL,# core.doctypes.file.file.doctype
 Uncertain,Incerto,# core.doctypes.email_delivery.email_delivery.doctype
 Undo,Desfazer,# desk/src/lib/components/FeedbackModal.svelte:339
-Unexpected server error,Erro inesperado no servidor,# internal/api/observe.go:210
+Unexpected server error,Erro inesperado no servidor,# internal/api/observe.go:215
 "Unknown barcode symbology in {0}: ""{1}""","Simbologia de código de barras desconhecida em {0}: ""{1}""",# internal/barcode/barcode.go:154
 Unknown device,Dispositivo desconhecido,# desk/src/lib/components/Profile.svelte:249
 Unknown export format: {0},Formato de exportação desconhecido: {0},# internal/api/export.go:46
@@ -880,10 +888,11 @@ Use my location,Usar minha localização,# desk/src/lib/controls/GeolocationCont
 User,Usuário,# core.doctypes.api_key.api_key.doctype
 User Permission,Permissão de Usuário,# core.doctypes.user_permission.user_permission.doctype
 User is disabled,Usuário desativado,# desk/src/routes/login/+page.svelte:49
-User menu,Menu do usuário,# desk/src/routes/+layout.svelte:242
+User menu,Menu do usuário,# desk/src/routes/+layout.svelte:243
 User {0} already exists,O usuário {0} já existe,# internal/engine/users.go:88
 User {0} does not exist,Usuário {0} não existe,# core/services/users.ts:92
 User {0} does not exist or is disabled,Usuário {0} não existe ou está desativado,# internal/api/assignments.go:42
+User {0} is disabled,O usuário {0} está desativado,# internal/engine/impersonate.go:133
 Username,Usuário,# desk/src/routes/login/+page.svelte:89
 Users cannot be merged,Usuários não podem ser mesclados,# internal/engine/merge.go:363
 Vault secret key ({0}) is not configured on this site,Chave secreta do cofre ({0}) não está configurada neste site,# internal/engine/vault.go:67
@@ -891,6 +900,7 @@ Vault secret name cannot be empty,Nome do segredo do cofre não pode ser vazio,#
 "Vault secret {0} opens under neither {1} nor {2}; delete or set it again, or provide the key it was written with","O segredo do cofre {0} não abre nem com {1} nem com {2}; apague-o ou grave-o de novo, ou forneça a chave com que foi gravado",# internal/engine/vault_rekey.go:191
 Version,Versão,# core.doctypes.feedback.feedback.doctype
 View row,Visualizar linha,# desk/src/lib/controls/Grid.svelte:183
+Viewing as {0},Vendo como {0},# desk/src/lib/components/ImpersonationBanner.svelte:27
 Webhook,Webhook,# core.doctypes.webhook.webhook.doctype
 Webhook Delivery,Entrega de Webhook,# core.doctypes.webhook_delivery.webhook_delivery.doctype
 Webhook Delivery {0} is still on its way ({1}),A entrega de webhook {0} ainda está em andamento ({1}),# internal/engine/webhooks.go:572
@@ -907,19 +917,22 @@ What the file does,O que o arquivo faz,# desk/src/lib/components/DataImportModal
 Which session?,Qual sessão?,# core/services/sessions.ts:31
 Will be cleared on save,Será removido ao salvar,# desk/src/lib/controls/Control.svelte:179
 Won't Do,Não será feito,# core.doctypes.feedback.feedback.doctype
+"Work as {0}? You will see what they see, and everything you do will be recorded as them, tagged with your name.","Trabalhar como {0}? Você verá o que essa pessoa vê, e tudo o que fizer será registrado em nome dela, marcado com o seu nome.",# core/doctypes/user/user.form.ts:120
 Workflow,Fluxo,# core.doctypes.comment.comment.doctype
 "Workspace ""{0}"" not found.","Workspace ""{0}"" não encontrado.",# desk/src/routes/app/[workspace]/+page.svelte:46
 Workspace not found,Workspace não encontrado,# desk/src/lib/components/Workspace.svelte:79
-Workspace {0} does not exist,Workspace {0} não existe,# internal/api/api.go:1610
+Workspace {0} does not exist,Workspace {0} não existe,# internal/api/api.go:1656
 Write,Escrever,# desk/src/lib/controls/MarkdownControl.svelte:42
 Write a comment,Escreva um comentário,# desk/src/lib/components/DocSidebar.svelte:360
 "Wrong check digit in {0}: ""{1}""","Dígito verificador incorreto em {0}: ""{1}""",# internal/barcode/barcode.go:166
 Year/month/day,Ano/mês/dia,# desk/src/lib/components/DataImportModal.svelte:157
 Yes,Sim,# desk/src/lib/components/FormView.svelte:202
+You are not impersonating anyone,Você não está impersonando ninguém,# internal/api/api.go:1712
 "You are signed in as {0} in {1}, but none of your roles opens a module.","Você entrou como {0} em {1}, mas nenhum dos seus papéis dá acesso a um módulo.",# desk/src/routes/app/+page.svelte:32
 "You are signed in as {0}, but none of your roles opens a module.","Você entrou como {0}, mas nenhum dos seus papéis dá acesso a um módulo.",# desk/src/routes/app/+page.svelte:33
 You cannot change this field,Você não pode alterar este campo,# internal/engine/data_import.go:360
 You cannot grant {0} on {1} {2} without holding it,Você não pode conceder {0} em {1} {2} sem tê-lo,# internal/engine/share.go:311
+You cannot impersonate yourself,Você não pode impersonar a si mesmo,# internal/engine/impersonate.go:102
 You cannot share a document with yourself,Você não pode compartilhar um documento com você mesmo,# internal/engine/share.go:295
 You do not have access to any module yet,Você ainda não tem acesso a nenhum módulo,# desk/src/routes/app/+page.svelte:29
 You have been invited to {0},Você foi convidado para {0},# core/mail/invite.mail.ts:20
@@ -930,7 +943,7 @@ Your account has no portal yet. Ask the people who invited you.,Sua conta ainda 
 Your location is not available,Sua localização não está disponível,# desk/src/lib/controls/GeolocationControl.svelte:197
 Your organization,Sua organização,# desk/src/routes/login/+page.svelte:109
 "Your user, roles and language, the site's version and apps, your browser and the last errors on this page.","Seu usuário, papéis e idioma, a versão e os apps do site, seu navegador e os últimos erros nesta página.",# desk/src/lib/components/FeedbackModal.svelte:393
-changes are paused until the site reopens.,as alterações estão pausadas até o site reabrir.,# desk/src/routes/+layout.svelte:267
+changes are paused until the site reopens.,as alterações estão pausadas até o site reabrir.,# desk/src/routes/+layout.svelte:269
 crypto: bytes must be an integer from 1 to {0},crypto: bytes deve ser um inteiro de 1 a {0},# internal/engine/cryptoops.go:127
 crypto: cert is not a valid PEM certificate,crypto: cert não é um certificado PEM válido,# internal/engine/certinfo.go:72
 crypto: max must be greater than min,crypto: max deve ser maior que min,# internal/engine/cryptoops.go:141
@@ -953,7 +966,7 @@ ddcore.ai.transcribe: the audio is not valid base64,ddcore.ai.transcribe: o áud
 ddcore.ai.transcribe: {0},ddcore.ai.transcribe: {0},# internal/engine/ai.go:56
 ddcore.db.lock requires a transaction,ddcore.db.lock exige uma transação,# internal/engine/query.go:904
 ddcore.db.lock: provide a key,ddcore.db.lock: informe uma chave,# internal/engine/query.go:901
-ddcore.db.savepoint requires a transaction,ddcore.db.savepoint exige uma transação,# internal/engine/engine.go:1365
+ddcore.db.savepoint requires a transaction,ddcore.db.savepoint exige uma transação,# internal/engine/engine.go:1369
 ddcore.db.sql only accepts SELECT,ddcore.db.sql aceita apenas SELECT,# internal/engine/query.go:858
 ddcore.db.tryLock requires a transaction,ddcore.db.tryLock exige uma transação,# internal/engine/query.go:919
 ddcore.db.tryLock: provide a key,ddcore.db.tryLock: informe uma chave,# internal/engine/query.go:916
@@ -998,40 +1011,40 @@ files.save: {0} answered {1},files.save: {0} respondeu {1},# internal/engine/fil
 files: name a File by its id or its file url,files: indique um File pelo seu id ou pela sua url,# internal/engine/files_api.go:309
 getValue: invalid fields,getValue: fields inválido,# internal/engine/host.go:217
 h,h,# desk/src/lib/controls/DurationControl.svelte:23
-"http: a body with bodyEncoding ""base64"" must be a base64 string","http: um corpo com bodyEncoding ""base64"" deve ser uma string base64",# internal/engine/host.go:948
-"http: a body with bodyEncoding ""multipart"" must be an array of parts","http: um corpo com bodyEncoding ""multipart"" deve ser um array de partes",# internal/engine/host.go:961
-"http: bodyEncoding must be ""base64"" or ""multipart"", not {0}","http: bodyEncoding deve ser ""base64"" ou ""multipart"", não {0}",# internal/engine/host.go:1022
+"http: a body with bodyEncoding ""base64"" must be a base64 string","http: um corpo com bodyEncoding ""base64"" deve ser uma string base64",# internal/engine/host.go:963
+"http: a body with bodyEncoding ""multipart"" must be an array of parts","http: um corpo com bodyEncoding ""multipart"" deve ser um array de partes",# internal/engine/host.go:976
+"http: bodyEncoding must be ""base64"" or ""multipart"", not {0}","http: bodyEncoding deve ser ""base64"" ou ""multipart"", não {0}",# internal/engine/host.go:1037
 http: clientCert could not be read: wrong password or malformed file,http: não foi possível ler clientCert: senha incorreta ou arquivo malformado,# internal/engine/http_mtls.go:102
 http: clientCert takes either pfx or cert and key,http: clientCert recebe pfx ou cert e key,# internal/engine/http_mtls.go:49
 http: clientCert.cert and clientCert.key are not a valid PEM pair,http: clientCert.cert e clientCert.key não são um par PEM válido,# internal/engine/http_mtls.go:93
 http: clientCert.pfx is not valid base64,http: clientCert.pfx não é base64 válido,# internal/engine/http_mtls.go:99
-"http: maxRedirects must be a whole number from 0, not {0}","http: maxRedirects deve ser um número inteiro a partir de 0, não {0}",# internal/engine/host.go:904
-http: multipart part {0} has both value and base64,http: a parte multipart {0} tem value e base64 ao mesmo tempo,# internal/engine/host.go:974
-http: multipart part {0} has no name,http: a parte multipart {0} não tem name,# internal/engine/host.go:969
-http: multipart part {0} is not valid base64: {1},http: a parte multipart {0} não é base64 válido: {1},# internal/engine/host.go:995
-http: multipart part {0} needs a value or base64,http: a parte multipart {0} precisa de value ou base64,# internal/engine/host.go:977
-"http: responseType must be ""text"" or ""base64"", not {0}","http: responseType deve ser ""text"" ou ""base64"", não {0}",# internal/engine/host.go:899
-http: the base64 of multipart part {0} must be a string,http: o base64 da parte multipart {0} deve ser uma string,# internal/engine/host.go:991
-http: the body is not valid base64: {0},http: o corpo não é base64 válido: {0},# internal/engine/host.go:952
-http: the response from {0} is larger than {1} bytes (raise opts.maxBytes),http: a resposta de {0} é maior que {1} bytes (aumente opts.maxBytes),# internal/engine/host.go:1090
-http: the value of multipart part {0} must be a string,http: o value da parte multipart {0} deve ser uma string,# internal/engine/host.go:982
-http: {0},http: {0},# internal/engine/host.go:985
+"http: maxRedirects must be a whole number from 0, not {0}","http: maxRedirects deve ser um número inteiro a partir de 0, não {0}",# internal/engine/host.go:919
+http: multipart part {0} has both value and base64,http: a parte multipart {0} tem value e base64 ao mesmo tempo,# internal/engine/host.go:989
+http: multipart part {0} has no name,http: a parte multipart {0} não tem name,# internal/engine/host.go:984
+http: multipart part {0} is not valid base64: {1},http: a parte multipart {0} não é base64 válido: {1},# internal/engine/host.go:1010
+http: multipart part {0} needs a value or base64,http: a parte multipart {0} precisa de value ou base64,# internal/engine/host.go:992
+"http: responseType must be ""text"" or ""base64"", not {0}","http: responseType deve ser ""text"" ou ""base64"", não {0}",# internal/engine/host.go:914
+http: the base64 of multipart part {0} must be a string,http: o base64 da parte multipart {0} deve ser uma string,# internal/engine/host.go:1006
+http: the body is not valid base64: {0},http: o corpo não é base64 válido: {0},# internal/engine/host.go:967
+http: the response from {0} is larger than {1} bytes (raise opts.maxBytes),http: a resposta de {0} é maior que {1} bytes (aumente opts.maxBytes),# internal/engine/host.go:1105
+http: the value of multipart part {0} must be a string,http: o value da parte multipart {0} deve ser uma string,# internal/engine/host.go:997
+http: {0},http: {0},# internal/engine/host.go:1000
 id is required,id é obrigatório,# internal/api/assignments.go:114
 invalid arguments in {0}: {1},argumentos inválidos em {0}: {1},# internal/engine/cryptoops.go:145
 job {0} timed out,job {0} excedeu o tempo limite,# internal/engine/jobs.go:292
-"limit must be 0 (every row) or a positive number, not {0}","limit deve ser 0 (todas as linhas) ou um número positivo, não {0}",# internal/api/api.go:1028
+"limit must be 0 (every row) or a positive number, not {0}","limit deve ser 0 (todas as linhas) ou um número positivo, não {0}",# internal/api/api.go:1074
 m,min,# desk/src/lib/controls/DurationControl.svelte:23
 manifest.json is not readable: {0},manifest.json não pôde ser lido: {0},# internal/engine/import_source.go:64
 manifest.json lists no exports,manifest.json não lista nenhuma exportação,# internal/engine/import_source.go:70
 never,nunca,# desk/src/lib/components/Profile.svelte:282
-no savepoint is open,nenhum savepoint está aberto,# internal/engine/engine.go:1385
+no savepoint is open,nenhum savepoint está aberto,# internal/engine/engine.go:1389
 or,ou,# desk/src/routes/login/+page.svelte:100
 "or drag them here, or paste a screenshot","ou arraste-os para cá, ou cole uma captura de tela",# desk/src/lib/components/FeedbackModal.svelte:302
 patch sql: {0},sql do patch: {0},# internal/engine/query.go:841
 print.pdf needs a doctype and an id,print.pdf precisa de um doctype e um id,# internal/engine/print.go:257
 print.pdf: {0},print.pdf: {0},# internal/engine/host.go:352
 "publish: {0} is not a valid event name (letters, digits, _ . : -)","publish: {0} não é um nome de evento válido (letras, dígitos, _ . : -)",# internal/engine/host.go:375
-push.send: {0},push.send: {0},# internal/engine/host.go:676
+push.send: {0},push.send: {0},# internal/engine/host.go:691
 push: opts.topic must be at most 32 characters of the base64url alphabet,push: opts.topic deve ter no máximo 32 caracteres do alfabeto base64url,# internal/engine/push.go:235
 "push: opts.ttl must be a whole number of seconds, 0 or more","push: opts.ttl deve ser um número inteiro de segundos, 0 ou mais",# internal/engine/push.go:227
 "push: opts.urgency must be very-low, low, normal or high, not {0}","push: opts.urgency deve ser very-low, low, normal ou high, não {0}",# internal/engine/push.go:232
@@ -1059,6 +1072,7 @@ to submit,para enviar,# desk/src/lib/components/DocSidebar.svelte:363
 unknown bridge operation: {0},operação desconhecida no bridge: {0},# internal/engine/ai.go:82
 user is required,user é obrigatório,# internal/engine/share.go:293
 webhook payload for {0} is not JSON: {1},o conteúdo do webhook para {0} não é JSON: {1},# internal/engine/webhooks.go:326
+"what you do is recorded as them, tagged with your name.","o que você faz é registrado em nome dessa pessoa, marcado com o seu nome.",# desk/src/lib/components/ImpersonationBanner.svelte:27
 "{0} ""{1}"" already exists","{0} ""{1}"" já existe",# internal/engine/doc.go:2168
 "{0} ""{1}"" already exists on {2} {3}","{0} ""{1}"" já existe em {2} {3}",# internal/engine/doc.go:2073
 "{0} ""{1}""?","{0} ""{1}""?",# desk/src/lib/components/FormView.svelte:403
@@ -1070,8 +1084,9 @@ webhook payload for {0} is not JSON: {1},o conteúdo do webhook para {0} não é
 {0} assigned this document to {1}: {2},{0} atribuiu este documento a {1}: {2},# internal/api/assignments.go:71
 {0} assigned {1} {2} to you,{0} atribuiu {1} {2} a você,# internal/api/assignments.go:86
 {0} cannot be changed after submission,Não é permitido alterar {0} depois do envio,# internal/engine/doc.go:2234
-{0} cannot be changed here,{0} não pode ser alterado aqui,# internal/api/portal.go:412
+{0} cannot be changed here,{0} não pode ser alterado aqui,# internal/api/portal.go:414
 {0} cannot be changed once set,Não é permitido alterar {0} depois de definido,# internal/engine/doc.go:2290
+{0} cannot be impersonated,{0} não pode ser impersonado,# internal/engine/impersonate.go:100
 {0} cannot be imported from a spreadsheet,{0} não pode ser importado de uma planilha,# internal/engine/data_import.go:261
 {0} cannot be renamed,{0} não permite renomear,# internal/engine/doc.go:1583
 {0} cannot be watched by a webhook,{0} não pode ser observado por um webhook,# internal/engine/webhooks.go:613
@@ -1084,30 +1099,30 @@ webhook payload for {0} is not JSON: {1},o conteúdo do webhook para {0} não é
 {0} has a line with fewer than 2 points or an area with fewer than 3,{0} tem uma linha com menos de 2 pontos ou uma área com menos de 3,# internal/geo/geo.go:400
 "{0} has a position out of range (latitude from -90 to 90, longitude from -180 to 180)","{0} tem uma posição fora do intervalo (latitude de -90 a 90, longitude de -180 a 180)",# internal/geo/geo.go:398
 {0} has a position that is not a longitude and a latitude,{0} tem uma posição que não é uma longitude e uma latitude,# internal/geo/geo.go:396
-{0} has no account in {1},{0} não tem conta no {1},# core/doctypes/user/user.form.ts:75
+{0} has no account in {1},{0} não tem conta no {1},# core/doctypes/user/user.form.ts:82
 "{0} has no mailbox, so it cannot be invited: add the user without an invitation","{0} não tem caixa de e-mail, então não pode ser convidado: cadastre o usuário sem convite",# internal/engine/users.go:52
 {0} has no value to draw as a barcode,{0} não tem valor para desenhar como código de barras,# internal/barcode/barcode.go:168
 {0} has too many shapes (at most {1}),{0} tem formas demais (no máximo {1}),# internal/geo/geo.go:402
 {0} is a Single; an export never carries one,{0} é um Single; uma exportação nunca leva um,# internal/engine/import.go:70
 {0} is a child table,{0} é uma tabela filha,# internal/engine/doc.go:670
-{0} is a child table: edit it through the parent document,{0} é uma tabela filha: edite pelo documento pai,# internal/api/api.go:1066
+{0} is a child table: edit it through the parent document,{0} é uma tabela filha: edite pelo documento pai,# internal/api/api.go:1112
 {0} is a child table: export the DocType that embeds it.,{0} é uma tabela filha: exporte o DocType que a contém.,# internal/engine/export.go:164
 {0} is a child table: import its parent document instead,{0} é uma tabela filha: importe o documento pai,# internal/engine/data_import.go:252
 {0} is a child table; its rows travel inside their parent,{0} é uma tabela filha; suas linhas viajam dentro do pai,# internal/engine/import.go:68
 {0} is a single record and has no rows to import,{0} é um registro único e não tem linhas para importar,# internal/engine/data_import.go:255
 {0} is a tool: nothing is saved,{0} é uma ferramenta: nada é salvo,# internal/engine/doc.go:617
-{0} is a virtual DocType and cannot be written,{0} é um DocType virtual e não pode ser gravado,# internal/api/api.go:1069
+{0} is a virtual DocType and cannot be written,{0} é um DocType virtual e não pode ser gravado,# internal/api/api.go:1115
 {0} is a virtual DocType and has no child tables,{0} é um DocType virtual e não tem tabelas filhas,# internal/engine/query.go:641
 {0} is a virtual DocType: restrict its sources instead,{0} é um DocType virtual: restrinja as origens dele,# internal/engine/doc.go:1789
 {0} is created by the application and cannot be imported from a spreadsheet,{0} é criado pela aplicação e não pode ser importado de uma planilha,# internal/engine/data_import.go:267
-"{0} is created by the application, not directly","{0} é criado pela aplicação, não diretamente",# internal/api/api.go:1085
+"{0} is created by the application, not directly","{0} é criado pela aplicação, não diretamente",# internal/api/api.go:1131
 {0} is kept by the platform: inside a tenant only server code reaches it,{0} é mantido pela plataforma: dentro de uma conta só o código do servidor o alcança,# internal/engine/tenancy.go:520
 {0} is not a Single DocType,{0} não é um DocType Single,# internal/engine/query.go:787
 {0} is not a delivery status,{0} não é um status de entrega,# internal/engine/mailqueue.go:368
 {0} is not a file url this site can hold,{0} não é uma url de arquivo que este site possa guardar,# internal/engine/import_files.go:81
 {0} is not a job id,{0} não é um id de job,# internal/api/jobs.go:30
 {0} is not a language this site serves,{0} não é um idioma que este site oferece,# core/services/i18n.ts:25
-{0} is not a link,{0} não é um vínculo,# internal/api/portal.go:562
+{0} is not a link,{0} não é um vínculo,# internal/api/portal.go:564
 "{0} is not a number: ""{1}""","{0} não é um número: ""{1}""",# internal/engine/doc.go:123
 {0} is not a tree,{0} não é uma árvore,# internal/engine/tree.go:203
 {0} is not a user type,{0} não é um tipo de usuário,# internal/engine/users.go:75
@@ -1134,7 +1149,7 @@ webhook payload for {0} is not JSON: {1},o conteúdo do webhook para {0} não é
 "{0} lives inside a tenant: enter one (on the command line, pass --tenant)","{0} existe apenas dentro de uma conta: entre em uma (na linha de comando, use --tenant)",# internal/engine/tenancy.go:514
 "{0} must be a location: GeoJSON, or a latitude and a longitude","{0} deve ser uma localização: GeoJSON, ou uma latitude e uma longitude",# internal/geo/geo.go:392
 {0} must be a signature drawn on the form (a PNG image),{0} deve ser uma assinatura feita no formulário (uma imagem PNG),# internal/signature/signature.go:106
-{0} not found,{0} não encontrado,# internal/api/portal.go:346
+{0} not found,{0} não encontrado,# internal/api/portal.go:348
 {0} notifications,{0} notificações,# desk/src/routes/app/notifications/+page.svelte:54
 {0} of a ToDo cannot be changed,{0} de uma tarefa não pode ser alterado,# core/doctypes/todo/todo.controller.ts:29
 {0} of {1},{0} de {1},# desk/src/lib/controls/RatingControl.svelte:43
@@ -1160,9 +1175,9 @@ webhook payload for {0} is not JSON: {1},o conteúdo do webhook para {0} não é
 {0} to,{0} (até),# desk/src/lib/components/ListView.svelte:598
 {0} unread notifications,{0} notificações não lidas,# desk/src/lib/components/Sidebar.svelte:159
 {0} versions,{0} versões,# desk/src/lib/components/DocHistory.svelte:89
-{0} was deleted here. Disable their account in {1} too? They will not be able to sign in there to anything else either.,{0} foi excluído aqui. Desativar a conta no {1} também? A pessoa também não poderá entrar em mais nada por lá.,# core/doctypes/user/user.form.ts:64
-{0} was disabled here. Disable their account in {1} too? They will not be able to sign in there to anything else either.,{0} foi desativado aqui. Desativar a conta no {1} também? A pessoa também não poderá entrar em mais nada por lá.,# core/doctypes/user/user.form.ts:56
-{0} was enabled here. Enable their account in {1} too?,{0} foi ativado aqui. Ativar a conta no {1} também?,# core/doctypes/user/user.form.ts:55
+{0} was deleted here. Disable their account in {1} too? They will not be able to sign in there to anything else either.,{0} foi excluído aqui. Desativar a conta no {1} também? A pessoa também não poderá entrar em mais nada por lá.,# core/doctypes/user/user.form.ts:71
+{0} was disabled here. Disable their account in {1} too? They will not be able to sign in there to anything else either.,{0} foi desativado aqui. Desativar a conta no {1} também? A pessoa também não poderá entrar em mais nada por lá.,# core/doctypes/user/user.form.ts:63
+{0} was enabled here. Enable their account in {1} too?,{0} foi ativado aqui. Ativar a conta no {1} também?,# core/doctypes/user/user.form.ts:62
 {0} {1} already exists,{0} {1} já existe,# internal/engine/doc.go:1595
 {0} {1} cannot be its own parent,{0} {1} não pode ser pai de si mesmo,# internal/engine/tree.go:102
 {0} {1} cannot be merged into itself,{0} {1} não pode ser mesclado em si mesmo,# internal/engine/merge.go:370

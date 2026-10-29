@@ -306,6 +306,8 @@ export interface DeskSession {
   fullName: string;
   roles: string[];
   lang: string;
+  /** The administrator working as `user`, while one is impersonating them. */
+  impersonatedBy?: string;
 }
 
 export interface DeskAPI {
@@ -351,6 +353,13 @@ export interface DeskAPI {
   readonly session: DeskSession;
   /** Whether the signed-in user has the role (`ddcore.session.roles` includes it). */
   hasRole(role: string): boolean;
+  /**
+   * Works as another user from now on: the page reloads into that user's
+   * desk (or portal), with a banner to stop. Admin and System Manager only;
+   * everything done meanwhile is recorded as the user, tagged with the
+   * administrator in `impersonated_by`.
+   */
+  impersonate(user: string): Promise<void>;
   /** Calls a whitelisted method (POST /api/method/:path); the bar at the top of the desk runs while it is out. */
   call(path: string, args?: Record<string, any>): Promise<any>;
   /** Runs a `defineReport` (GET /api/report/:name): its columns and rows, and whether the user may export them. */

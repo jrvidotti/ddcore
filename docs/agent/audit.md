@@ -23,6 +23,8 @@ Sensitive administrative actions across the framework are recorded in a unified 
 | `account.unlock` | `User` | User account unlocked after lockout | `{"cleared": N}` |
 | `account.login_credentials` | `User` | Sign-in through an app's credential provider, `Allowed` or `Denied` (not written when throttled) | `{"provider": "...", "tenant": "...", "username": "...", "subject": "...", "reason": "..."}` |
 | `account.revoke_sessions`| `User` | All sessions of user revoked | — |
+| `account.impersonate` | `User` | An administrator started working as the user, `Allowed` or `Denied` (see "Impersonation" in `auth`). The actor is the administrator | — |
+| `account.impersonate_stop` | `User` | The impersonation ended: from the banner, or because the administrator lost the role. The actor is the administrator | — |
 | `workflow.transition` | the document | A workflow action was applied or refused. `Allowed` on success; `Denied` for the wrong role, a self-approval attempt, or a failed condition. | `{"action": "...", "from_state": "...", "to_state": "..."}` |
 | `job.cancel` | `Job` | Background job cancelled | `{"method": "...", "queue": "...", "status": "..."}` |
 | `job.retry` | `Job` | Failed/cancelled background job retried | `{"newId": N, "method": "...", "queue": "..."}` |
@@ -44,6 +46,10 @@ Sensitive administrative actions across the framework are recorded in a unified 
 `permission.scope_grant` and `permission.scope_revoke` also fire from `DBSet`
 on `User Permission`, since that is the path `dbSet`/`setValue` use to change
 a scope in place.
+
+While an administrator impersonates a user, every event the requests write
+names the user as `actor` and the administrator in `detail.impersonated_by`;
+the Versions written meanwhile carry the same key in their `data`.
 
 ## App-authored entries
 

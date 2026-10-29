@@ -428,6 +428,9 @@ func (e *Engine) DropSessions(ctx context.Context, q db.Querier, user, exceptSid
 	for i, r := range rows {
 		sids[i] = db.Str(r["sid"])
 	}
+	if err := e.endImpersonationsOf(ctx, q, user); err != nil {
+		return 0, err
+	}
 	return len(sids), e.forgetSessions(ctx, q, sids)
 }
 

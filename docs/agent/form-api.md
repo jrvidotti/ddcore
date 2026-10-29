@@ -365,6 +365,9 @@ defineForm<Charge>("Charge", {
 
 - `ddcore.call("app.services.file.fn", args)` — a whitelisted function; the bar at the top of the desk runs while it is out
 - `ddcore.report(name, filters)` — runs a `defineReport`: `{ meta, result: { columns, rows } }`
+- `ddcore.session` — `{ user, fullName, roles, lang, impersonatedBy? }`; `impersonatedBy` is the
+  administrator while one is working as `user`. `ddcore.impersonate(user)` starts that (Admin or
+  System Manager; the page reloads as the user) — see "Impersonation" in `auth`
 - `ddcore.db.getValue/getList/count/getDoc/setValue/insert` (asynchronous: `await` them).
   `getList(doctype, { filters, fields, orderBy, limit, start })` returns the rows the user may
   read. Without `limit` it returns a page of **20**, unlike the server's `getList`, which returns

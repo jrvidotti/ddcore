@@ -9,6 +9,9 @@ import { defineForm, ddcore } from "@ddcore/desk-sdk";
 // default), the method hands the link back and the dialog shows it, so the
 // operator can pass it on by hand.
 //
+// "Impersonate" makes the administrator's session work as this user — the
+// desk, or the portal for a Website User — until they stop from the banner.
+//
 // On a site that provisions an identity provider (PocketID), disabling,
 // enabling or deleting a User asks whether to do the same there: the account
 // at the provider may be used for other applications too, so it is the
@@ -43,6 +46,10 @@ defineForm("User", {
       frm.addButton(__("Resend invitation"), () =>
         send(frm, "core.services.users.resendInvite", __("Send {0} a new invitation?", [frm.doc.email]), __("Invitation sent")),
       );
+    }
+    // not from inside another impersonation, which the server refuses too
+    if (frm.doc.id !== ddcore.session.user && !ddcore.session.impersonatedBy) {
+      frm.addButton(__("Impersonate"), () => impersonate(frm));
     }
   },
   async afterSave(frm) {
@@ -102,6 +109,18 @@ async function invite(frm: any) {
     await frm.discardChanges();
     await ddcore.setRoute("User", res.user);
     done(res, __("Invitation sent"));
+  } catch (e) {
+    ddcore.ui.showError(e);
+  }
+}
+
+// The page reloads as the user, with a banner to come back; the server
+// records the start and the stop, and tags what is written in between.
+async function impersonate(frm: any) {
+  const question = __("Work as {0}? You will see what they see, and everything you do will be recorded as them, tagged with your name.", [frm.doc.email]);
+  if (!(await ddcore.ui.confirm(question, __("Impersonate")))) return;
+  try {
+    await ddcore.impersonate(frm.doc.id);
   } catch (e) {
     ddcore.ui.showError(e);
   }

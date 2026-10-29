@@ -18,6 +18,8 @@ export interface Boot {
   user: string;
   roles: string[];
   userDoc: { id: string; full_name: string; language?: string } | null;
+  /** The administrator whose session is working as `user`, when one is impersonating them. */
+  impersonatedBy?: { id: string; full_name: string };
   lang: string;
   /** The languages the site serves, each labelled with its own autonym. */
   langs: { code: string; label: string }[];

@@ -29,8 +29,10 @@ const infoKey ctxKey = 2
 // unwinding — a plain value in the context would still say "Guest" for every
 // signed-in request ever made.
 type reqInfo struct {
-	id    string
-	user  string
+	id   string
+	user string
+	// by is the administrator impersonating user, when one is
+	by    string
 	start time.Time
 }
 
@@ -123,9 +125,12 @@ func (s *Server) logRequest(info *reqInfo, r *http.Request, ww middleware.WrapRe
 	if !s.E.Log.Enabled(r.Context(), level) {
 		return
 	}
-	s.E.Log.Log(r.Context(), level, "request",
-		"id", info.id, "method", r.Method, "path", loggedPath(r.URL.Path),
-		"status", status, "ms", d.Milliseconds(), "user", info.user, "ip", clientIP(r))
+	attrs := []any{"id", info.id, "method", r.Method, "path", loggedPath(r.URL.Path),
+		"status", status, "ms", d.Milliseconds(), "user", info.user, "ip", clientIP(r)}
+	if info.by != "" {
+		attrs = append(attrs, "impersonated_by", info.by)
+	}
+	s.E.Log.Log(r.Context(), level, "request", attrs...)
 }
 
 // loggedPath is the path as the logs show it. Below /api/method/<name>, a

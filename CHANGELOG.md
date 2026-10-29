@@ -14,6 +14,10 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **An administrator can impersonate a user**: the User form's **Impersonate** button (`ddcore.impersonate(user)` in a desk script, `POST /api/impersonate`) makes the session work as that user — their desk, or the portal for a Website User — with a banner to stop (`POST /api/impersonate/stop`). Admin and System Manager only; never Admin, a disabled user, or inside another impersonation; under tenancy, the spaces `ddcore.runAs` keeps. Reads and writes are the user's, and every audit event and Version written meanwhile carries `impersonated_by`; `account.impersonate` and `account.impersonate_stop` record the start and the end. Minting or revoking the user's API keys, changing their password and revoking their sessions are refused meanwhile. The desk's `ddcore.session` gains `impersonatedBy`. See "Impersonation" in `auth`.
+
 ### Fixed
 
 - **Notifications show when they were created** (#139). `creation` in `GET /api/notifications`

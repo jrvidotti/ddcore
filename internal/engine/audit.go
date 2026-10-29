@@ -125,6 +125,12 @@ func (c *Ctx) writeAudit(q db.Querier, action, outcome, targetDoctype, targetID 
 		}
 		detail["source_tenant"] = c.sourceTenant
 	}
+	if c.ImpersonatedBy != "" {
+		if detail == nil {
+			detail = map[string]any{}
+		}
+		detail["impersonated_by"] = c.ImpersonatedBy
+	}
 	return c.E.RecordAuditOn(c.Ctx, q, actor, action, outcome, targetDoctype, targetID, ip, c.ReqID, detail)
 }
 
