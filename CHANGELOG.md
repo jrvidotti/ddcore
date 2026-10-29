@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.31.9 — 2026-10-29
+
 ### Added
 
 - **A child table can be a list's standard filter.** `inStandardFilter: true` on a `Table` or
