@@ -147,6 +147,7 @@
             if (typeof v !== "function" || v.constructor?.name === "AsyncFunction" || v.constructor?.name === "GeneratorFunction") fail(label + " must be a synchronous function");
           };
           if (value.condition !== undefined) fn(value.condition, "condition");
+          if (value.resolveWhen !== undefined) fn(value.resolveWhen, "resolveWhen");
           fn(value.recipients, "recipients");
           if (!value.desk && !value.email) fail("declare at least one channel");
           if (value.desk) { fn(value.desk.title, "desk.title"); fn(value.desk.message, "desk.message"); }
@@ -271,7 +272,7 @@
     const printTemplates = {};
     for (const n in reg.printTemplates) printTemplates[n] = stripFns(reg.printTemplates[n]);
     const notifications = Object.create(null);
-    for (const n in reg.notifications) notifications[n] = { ...stripFns(reg.notifications[n]), desk: !!reg.notifications[n].desk };
+    for (const n in reg.notifications) notifications[n] = { ...stripFns(reg.notifications[n]), desk: !!reg.notifications[n].desk, resolve: !!reg.notifications[n].resolveWhen };
     const workflows = {};
     for (const n in reg.workflows) {
       const wf = reg.workflows[n];
@@ -370,6 +371,14 @@
     const recipients = notificationCall(rule.recipients, doc, before);
     if (!Array.isArray(recipients) || recipients.some((v) => typeof v !== "string" || !v.trim())) throw new DDCoreError("ValidationError", "", "Notification recipients must return User names");
     return JSON.stringify({ matches: true, recipients: [...new Set(recipients)] });
+  };
+  // Whether the rule's open occurrences on this document stopped being relevant.
+  reg.resolveNotification = function (name, docJSON, beforeJSON) {
+    const [rule, doc, before] = notificationInput(name, docJSON, beforeJSON);
+    if (!rule.resolveWhen) return "false";
+    const resolved = notificationCall(rule.resolveWhen, doc, before);
+    if (typeof resolved !== "boolean") throw new DDCoreError("ValidationError", "", "Notification resolveWhen must return a boolean");
+    return String(resolved);
   };
   reg.renderNotification = function (name, docJSON, beforeJSON) {
     const [rule, doc, before] = notificationInput(name, docJSON, beforeJSON);
@@ -985,6 +994,15 @@
       // unless the caller opts out of permissions.
       replay(delivery, opts) {
         return call("webhook.replay", { delivery: String(delivery), opts: { ignorePermissions: !!(opts && opts.ignorePermissions) } });
+      },
+    },
+    notifications: {
+      // Marks a rule's open occurrences on a document read and resolved, for
+      // every recipient; the caller must read the document unless it opts out.
+      resolve(args, opts) {
+        const a = args || {};
+        return call("notification.resolve", { rule: String(a.rule || ""), doctype: String(a.doctype || ""), id: String(a.id || ""),
+          opts: { ignorePermissions: !!(opts && opts.ignorePermissions) } });
       },
     },
     publish(event, payload, opts) { call("publish", { event, payload, opts: opts || {} }); },

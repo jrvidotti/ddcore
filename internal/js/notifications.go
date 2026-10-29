@@ -14,6 +14,7 @@ type Notification struct {
 	Event      string             `json:"event,omitempty"`
 	Date       *NotificationDate  `json:"date,omitempty"`
 	Desk       bool               `json:"desk"`
+	Resolve    bool               `json:"resolve"`
 	Email      *NotificationEmail `json:"email,omitempty"`
 	App        string             `json:"app"`
 	SourceFile string             `json:"sourceFile"`
@@ -74,6 +75,16 @@ func (rt *Runtime) EvaluateNotification(name string, doc, before json.RawMessage
 	var result NotificationEvaluation
 	err = json.Unmarshal([]byte(s), &result)
 	return &result, err
+}
+
+// ResolveNotification reports whether the rule's resolveWhen holds; false for
+// a rule without one.
+func (rt *Runtime) ResolveNotification(name string, doc, before json.RawMessage) (bool, error) {
+	s, err := rt.callReg("resolveNotification", name, string(doc), string(before))
+	if err != nil {
+		return false, err
+	}
+	return s == "true", nil
 }
 func (rt *Runtime) RenderNotification(name string, doc, before json.RawMessage) (*NotificationContent, error) {
 	s, err := rt.callReg("renderNotification", name, string(doc), string(before))

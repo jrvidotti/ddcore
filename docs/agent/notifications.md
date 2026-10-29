@@ -92,16 +92,61 @@ notified for the same date. A date whose condition does not hold yet is re-evalu
 on every sweep. Changing the due date allows a new occurrence for the new planned date. Event occurrences use an individual
 event identity, so separate updates can notify again. Retries do not create new occurrences.
 
+## Resolving occurrences
+
+An occurrence that stopped being true would otherwise stay unread in every recipient's
+inbox. `resolveWhen` says when the rule's occurrences on a document are stale:
+
+```ts
+export default defineNotification<WebChatSession>({
+  name: "chat.waiting",
+  doctype: "Web Chat Session",
+  event: "on_update",
+  condition: (doc, before) => doc.status === "Waiting" && before?.status !== "Waiting",
+  resolveWhen: (doc) => doc.status !== "Waiting",
+  recipients: () => usersWith(["Chat Agent"]).map((u) => u.user),
+  desk: {
+    title: (doc) => _("{0} is waiting for an agent", [doc.contact_name]),
+    message: () => _("A conversation entered the queue."),
+  },
+});
+```
+
+- It is evaluated on every `on_update`, `on_submit` and `on_cancel` of the document,
+  whatever the rule's own trigger, so a date rule and an `on_submit` rule resolved by a
+  cancel both work. It sees the whole document and the previous one, is synchronous and
+  must return a boolean; anything else throws and rolls back the save.
+- When it holds, every recipient's open occurrences of that rule on that document are
+  marked read and resolved, in the document's transaction. Ones already read are only
+  marked resolved. Each affected recipient gets `notifications_changed` after the commit.
+- An email of a resolved occurrence still in the queue is not sent: its delivery ends
+  `Failed` with `Notification resolved`. A sent email cannot be withdrawn.
+- It runs before the rule's `condition` on the same event, so a document that matches
+  again (a chat back in the queue) gets one fresh occurrence, not a second on top of the
+  first. A resolved occurrence stays in the central as read; it can be marked unread again.
+
+Server code resolves where no condition on the document can say so:
+
+```ts
+const { resolved } = ddcore.notifications.resolve({ rule: "chat.waiting", doctype: "Web Chat Session", id: doc.id });
+```
+
+`rule` is an app's rule, or `assignment` or `share` for the core's own; an unknown rule
+throws. The caller must be able to read the document, unless the second argument passes
+`{ ignorePermissions: true }` (access scopes still apply). It writes on the caller's
+transaction, like `resolveWhen`, and returns how many occurrences it resolved.
+
 ## Reading and authorization
 
 All operations use the authenticated user. There is no recipient selector, even for
-an admin. Every listing, unread count and read-state change rechecks access
+an admin; resolving occurrences (above) is the one operation that reaches every
+recipient, and only server code can do it. Every listing, unread count and read-state change rechecks access
 to the referenced document, one document read per stored occurrence, so the cost
 of a count grows with the user's inbox. Access includes [user access scopes](scopes.md):
 a scope change is observed the same way a role or permission change is. Deleted
 documents and revoked access or scope hide the occurrence; renames update its document
 reference. Email attempts recheck access, including scopes, before sending.
-An email already sent cannot be withdrawn after access changes. There is no retention
+An email already sent cannot be withdrawn after access changes or resolution. There is no retention
 sweep for read notifications: they remain in `ddcore_notification` until the
 referenced document is deleted or access is revoked.
 

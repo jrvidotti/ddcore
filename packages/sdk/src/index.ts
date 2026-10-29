@@ -566,6 +566,19 @@ export interface DDCoreAPI {
      */
     replay(delivery: string, opts?: { ignorePermissions?: boolean }): { delivery: string; status: "Queued" };
   };
+  notifications: {
+    /**
+     * Marks every recipient's open occurrences of `rule` on the document read
+     * and resolved, as a rule's `resolveWhen` does, on *this* transaction; each
+     * recipient's inbox refreshes after the commit and a queued email of theirs
+     * is not sent. `rule` is an app's notification rule, or `assignment` or
+     * `share` for the core's own. Returns how many occurrences it resolved.
+     *
+     * The caller must be able to read the document, unless `ignorePermissions`
+     * is set (scopes still apply). Throws for an unknown rule.
+     */
+    resolve(args: { rule: string; doctype: string; id: string }, opts?: { ignorePermissions?: boolean }): { resolved: number };
+  };
   /** The site's title, as the desk and the framework's own mail display it. */
   siteName(): string;
   /** The site's public address (`DDCORE_URL`), without a trailing slash. */

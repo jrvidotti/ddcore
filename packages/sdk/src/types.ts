@@ -1124,6 +1124,15 @@ export interface NotificationDef<D = Record<string, any>> {
   /** Offset in calendar days in the site's timezone; overdue matches are recovered. */
   date?: { field: string; days: number };
   condition?: (doc: D, before: D | null) => boolean;
+  /**
+   * When the rule's occurrences on this document stop being relevant. Evaluated
+   * on every update, submit and cancel of the document, whatever the rule's own
+   * trigger; when it returns true, every recipient's open occurrences of this
+   * rule on the document are marked read and resolved, in the document's
+   * transaction, and an email of theirs still queued is not sent. A later match
+   * of `condition` writes a fresh occurrence.
+   */
+  resolveWhen?: (doc: D, before: D | null) => boolean;
   recipients: (doc: D, before: D | null) => string[];
   /** Plain text rendered in the recipient's language. */
   desk?: { title: (doc: D, before: D | null) => string; message: (doc: D, before: D | null) => string };
