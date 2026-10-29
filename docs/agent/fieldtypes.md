@@ -383,7 +383,9 @@ defineDoctype({ name: "Task Tag", module: "Projects", isChild: true, fields: [
   refused, and so is the same value chosen twice.**
 - **`reqd`** means at least one value.
 - **Filtering** works the way it does on any child table, by naming the child's
-  field: `filters: [["Task Tag.category", "=", "Support"]]`.
+  field: `filters: [["Task Tag.category", "=", "Support"]]`. `inStandardFilter: true`
+  puts that filter in the list's filter card, as on a `Table` whose child has
+  exactly one Link (see `defineListView` in `form-api`).
 - **Changing a field between `Table` and `Table MultiSelect`** needs no
   migration, because the rows are the same rows. The child only has to meet the
   shape above.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildListFilters, formatRange, parseRange, rangeFilters } from "./list-filters";
+import { buildListFilters, formatRange, parseRange, rangeFilters, tableFilterLink, tableFilters } from "./list-filters";
 
 describe("buildListFilters", () => {
   it("compares plain values by equality and skips empty ones", () => {
@@ -16,6 +16,27 @@ describe("buildListFilters", () => {
   it("keeps the equality for a value that is not an extra option", () => {
     const options = { status: [{ value: "late", label: "Late", filters: [["overdue", ">=", 1]] }] };
     expect(buildListFilters({ status: "Open" }, options)).toEqual([["status", "=", "Open"]]);
+  });
+});
+
+describe("table filters", () => {
+  const children = {
+    "Has Role": { name: "Has Role", fields: [{ fieldname: "role", fieldtype: "Link", options: "Role", label: "Role", reqd: true }] },
+    "Order Line": { name: "Order Line", fields: [{ fieldname: "item", fieldtype: "Link", options: "Item" }, { fieldname: "warehouse", fieldtype: "Link", options: "Warehouse" }] },
+  } as any;
+  const roles = { fieldname: "roles", fieldtype: "Table", options: "Has Role", label: "Roles" };
+
+  it("filters a table by the one Link its rows hold", () => {
+    expect(tableFilterLink(roles, children)).toEqual({ path: "Has Role.role", link: children["Has Role"].fields[0] });
+    expect(tableFilters(roles, children, "System Manager")).toEqual([["Has Role.role", "=", "System Manager"]]);
+    expect(tableFilters({ ...roles, fieldtype: "Table MultiSelect" }, children, "All")).toEqual([["Has Role.role", "=", "All"]]);
+  });
+
+  it("has nothing to filter by without exactly one Link, a value or a table", () => {
+    expect(tableFilterLink({ fieldname: "lines", fieldtype: "Table", options: "Order Line" }, children)).toBeNull();
+    expect(tableFilterLink({ fieldname: "lines", fieldtype: "Table", options: "Missing" }, children)).toBeNull();
+    expect(tableFilterLink({ fieldname: "role", fieldtype: "Link", options: "Role" }, children)).toBeNull();
+    expect(tableFilters(roles, children, "")).toEqual([]);
   });
 });
 

@@ -814,6 +814,11 @@ func (r *Registry) validateFieldOptions(d *DocType, e func(string, ...any)) {
 					}
 				}
 			}
+			// The list filters a table by the value its rows link to, so the
+			// row has to name exactly one.
+			if t, ok := r.DocTypes[target]; ok && t.IsChild && IsTableType(f.Fieldtype) && f.InStandardFilter && t.MultiSelectLinkField() == nil {
+				e("field %q (%s): inStandardFilter filters by the row's Link, and %q needs exactly one Link field", f.Fieldname, f.Fieldtype, target)
+			}
 		case "Vault":
 			// `{name}` stood for the document key before 0.17. Now it would
 			// only match a field called `name`, and without one the key

@@ -14,6 +14,14 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **A child table can be a list's standard filter.** `inStandardFilter: true` on a `Table` or
+  `Table MultiSelect` whose child has exactly one Link shows a Link filter in the list's filter
+  card, and the list keeps the parents with a row holding the value chosen
+  (`["<Child>.<link>", "=", value]`). `migrate` refuses it on a table whose child has no Link or
+  more than one. The User list uses it: it is filtered by role.
+
 ## 0.31.8 — 2026-10-29
 
 ### Changed

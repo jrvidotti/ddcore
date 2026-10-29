@@ -1,6 +1,6 @@
 // Turns the list's filter state into the API's filter tuples.
 
-import type { Field } from "$lib/meta";
+import { isTableType, type DocTypeMeta, type Field } from "$lib/meta";
 import { calendarRangeFilters } from "./views/calendar-state";
 
 /** An extra choice on a standard Select filter, registered with defineListView({ filterOptions }). */
@@ -23,6 +23,23 @@ export function buildListFilters(
     else out.push([k, "=", v]);
   }
   return out;
+}
+
+/**
+ * The Link a table's standard filter compares, and the filter path to it: a Table or Table
+ * MultiSelect filters by the value its rows link to, so its child has to have exactly one Link.
+ * Null for any other field.
+ */
+export function tableFilterLink(f: Field, children: Record<string, DocTypeMeta> = {}): { path: string; link: Field } | null {
+  if (!isTableType(f.fieldtype) || typeof f.options !== "string") return null;
+  const links = (children[f.options]?.fields || []).filter((cf) => cf.fieldtype === "Link" && cf.fieldname);
+  return links.length === 1 ? { path: `${f.options}.${links[0].fieldname}`, link: links[0] } : null;
+}
+
+/** The API's tuple for a table's standard filter: a parent whose rows include the value. */
+export function tableFilters(f: Field, children: Record<string, DocTypeMeta>, value: unknown): any[][] {
+  const t = tableFilterLink(f, children);
+  return t && value !== null && value !== undefined && value !== "" ? [[t.path, "=", value]] : [];
 }
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
