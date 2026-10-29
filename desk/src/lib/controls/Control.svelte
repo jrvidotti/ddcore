@@ -22,6 +22,7 @@
   import RatingControl from "./RatingControl.svelte";
   import ColorControl from "./ColorControl.svelte";
   import MonthControl from "./MonthControl.svelte";
+  import TimeControl from "./TimeControl.svelte";
   import DateControl from "./DateControl.svelte";
   import { __ } from "$lib/boot.svelte";
   import { isSystemUserEmail, normalizeEmail, validEmail } from "$lib/email";
@@ -134,13 +135,11 @@
         {:else if ft === "Date"}
           <DateControl {field} {value} {onchange} {id} readOnly={ro} error={shownError} />
         {:else if ft === "Datetime"}
+          <!-- no showPicker on click: the popup takes the keyboard, and the segments could not be typed into (#138) -->
           <input {id} type="datetime-local" class="input" class:error={!!shownError} readonly={ro} value={toDatetimeLocal(value)}
-            onclick={(e) => { if (!ro) { try { (e.target as HTMLInputElement).showPicker?.(); } catch {} } }}
             onchange={(e) => onchange(fromDatetimeLocal((e.target as HTMLInputElement).value))} />
         {:else if ft === "Time"}
-          <input {id} type="time" class="input" readonly={ro} value={value || ""}
-            onclick={(e) => { if (!ro) { try { (e.target as HTMLInputElement).showPicker?.(); } catch {} } }}
-            onchange={(e) => onchange((e.target as HTMLInputElement).value || null)} />
+          <TimeControl {field} {value} {onchange} {id} readOnly={ro} error={shownError} />
         {:else if ft === "Int" || ft === "Float" || ft === "Currency" || ft === "Percent"}
           <div style="position:relative">
             {#if ft === "Currency" && !inGrid && currencyBefore()}<span class="muted" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:12px">{currencySymbol()}</span>{/if}

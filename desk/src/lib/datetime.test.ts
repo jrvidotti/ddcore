@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { addDays, addMonths, dateDiff, daysInMonth, fromDatetimeLocal, monthDiff, monthEnd, monthStart, parseDatetime, toDatetimeLocal, today } from "./datetime";
+import { addDays, addMonths, dateDiff, daysInMonth, fromDatetimeLocal, monthDiff, monthEnd, monthStart, nowTime, parseDatetime, toDatetimeLocal, today } from "./datetime";
 
 describe("addMonths", () => {
   it("caps day to end of month, like the server", () => {
@@ -90,6 +90,14 @@ describe("today", () => {
     expect(today()).toBe(
       `${n.getUTCFullYear()}-${String(n.getUTCMonth() + 1).padStart(2, "0")}-${String(n.getUTCDate()).padStart(2, "0")}`,
     );
+  });
+});
+
+describe("nowTime", () => {
+  it("is the civil time in the site's timezone, to the minute", () => {
+    const instant = new Date("2027-01-01T02:30:45Z");
+    expect(nowTime(instant, "America/Sao_Paulo")).toBe("23:30:00");
+    expect(nowTime(instant, "UTC")).toBe("02:30:00");
   });
 });
 

@@ -6,12 +6,14 @@
     parse: (text: string) => { iso: string } | null;
     mask: (raw: string) => string;
     step: (text: string, caret: number, delta: number, todayIso: string) => DateStep | null;
-    /** Digits in a complete entry: 8 for a date, 6 for a month. */
+    /** Digits in a complete entry: 8 for a date, 6 for a month, 4 for a time. */
     digits: number;
+    /** The separator the mask types, which Backspace takes with the digit before it; the date's by default. */
+    sep?: string;
   }
 </script>
 
-<!-- The masked text input and calendar popover that the Date and Month controls share. -->
+<!-- The masked text input and picker popover that the Date, Month and Time controls share. -->
 <script lang="ts">
   import type { Snippet } from "svelte";
   import { __ } from "$lib/boot.svelte";
@@ -34,6 +36,8 @@
     todayValue,
     todayLabel,
     openLabel,
+    icon = "calendar",
+    openOnClick = true,
     compact = false,
     nav,
     onview,
@@ -53,8 +57,13 @@
     todayValue: string;
     todayLabel: string;
     openLabel: string;
+    /** The icon on the button that opens the popover. */
+    icon?: string;
+    /** A click in the input opens the popover; false leaves it to the icon and Alt+Down. */
+    openOnClick?: boolean;
     compact?: boolean;
-    nav: { title: string; prevLabel: string; nextLabel: string; onprev: () => void; onnext: () => void };
+    /** The popover's header; none when the grid needs no paging. */
+    nav?: { title: string; prevLabel: string; nextLabel: string; onprev: () => void; onnext: () => void };
     /** The popover should show the period of this ISO date. */
     onview: (iso: string) => void;
     grid: Snippet<[(iso: string) => void]>;
@@ -101,7 +110,7 @@
   function onKeyDown(e: KeyboardEvent) {
     if (e.key === "Backspace") {
       const target = e.target as HTMLInputElement;
-      const { sep } = dateShape();
+      const sep = fmt.sep ?? dateShape().sep;
       if (
         text.endsWith(sep) &&
         target.selectionStart === target.selectionEnd &&
@@ -186,7 +195,7 @@
     data-fieldname={field.fieldname}
     data-fieldtype={fieldtype}
     onfocus={() => (focused = true)}
-    onclick={() => { if (!readOnly && !open) togglePicker(); }}
+    onclick={() => { if (openOnClick && !readOnly && !open) togglePicker(); }}
     oninput={onInput}
     onblur={onBlur}
     onkeydown={onKeyDown}
@@ -200,21 +209,23 @@
       onmousedown={(e) => e.preventDefault()}
       onclick={togglePicker}
     >
-      <Icon name="calendar" size={15} />
+      <Icon name={icon} size={15} />
     </button>
   {/if}
 
   {#if open && !readOnly}
     <div class="popover" class:compact use:anchored={{ anchor: wrapEl, align: "end" }} role="dialog" aria-modal="true" tabindex="-1" onmousedown={(e) => e.preventDefault()}>
-      <div class="popover-head">
-        <button type="button" class="btn icon sm" onclick={nav.onprev} aria-label={nav.prevLabel}>
-          <Icon name="chevron-left" size={13} />
-        </button>
-        <span class={compact ? "view-year" : "view-title"}>{nav.title}</span>
-        <button type="button" class="btn icon sm" onclick={nav.onnext} aria-label={nav.nextLabel}>
-          <Icon name="chevron-right" size={13} />
-        </button>
-      </div>
+      {#if nav}
+        <div class="popover-head">
+          <button type="button" class="btn icon sm" onclick={nav.onprev} aria-label={nav.prevLabel}>
+            <Icon name="chevron-left" size={13} />
+          </button>
+          <span class={compact ? "view-year" : "view-title"}>{nav.title}</span>
+          <button type="button" class="btn icon sm" onclick={nav.onnext} aria-label={nav.nextLabel}>
+            <Icon name="chevron-right" size={13} />
+          </button>
+        </div>
+      {/if}
 
       {@render grid(choose)}
 

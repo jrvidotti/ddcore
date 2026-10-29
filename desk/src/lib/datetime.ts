@@ -66,6 +66,12 @@ export function today(now: Date = new Date(), tz: string = timezone()): string {
   return `${z.y}-${pad(z.m)}-${pad(z.d)}`;
 }
 
+/** The current civil time ("HH:MM:00") in the *site's* timezone. */
+export function nowTime(now: Date = new Date(), tz: string = timezone()): string {
+  const z = zoned(now, tz);
+  return `${pad(z.h)}:${pad(z.min)}:00`;
+}
+
 /** Adds n months, clamping the day to the end of the target month. */
 export function addMonths(d: string, n: number): string {
   const [y, m, day] = parts(d);

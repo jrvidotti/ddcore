@@ -163,6 +163,26 @@ function fieldTokens(): Record<"day" | "month" | "year", string> {
   }
 }
 
+/**
+ * The hint for a time input, spelled like fieldTokens: "hh:mm" in English and
+ * Portuguese, "SS:MM" in German. The clock is 24-hour in every locale.
+ */
+export function timePlaceholder(): string {
+  return cached(`tshape:${locale()}`, () => {
+    try {
+      const names = new Intl.DisplayNames(locale(), { type: "dateTimeField" });
+      const initial = (f: "hour" | "minute") => {
+        const c = names.of(f)?.charAt(0) ?? "";
+        return c.toLowerCase() !== c.toUpperCase() ? c : "";
+      };
+      const h = initial("hour"), m = initial("minute");
+      return h && m ? `${h.repeat(2)}:${m.repeat(2)}` : "hh:mm";
+    } catch {
+      return "hh:mm";
+    }
+  });
+}
+
 /** The month/year order, for the Month control. */
 export function monthShape(): { monthFirst: boolean; sep: string; placeholder: string } {
   return cached(`mshape:${locale()}`, () => {

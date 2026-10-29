@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { boot } from "./boot.svelte";
 import {
   currencyBefore, currencyPrecision, currencySymbol, dateShape, dayNamesShort, decimalSep,
-  groupSep, monthNames, monthShape, resetLocale, roundingMode,
+  groupSep, monthNames, monthShape, resetLocale, roundingMode, timePlaceholder,
 } from "./locale";
 
 /** Puts the desk in a locale, the way a boot would. */
@@ -78,6 +78,15 @@ describe("date shape", () => {
     useLocale("pt-BR");
     expect(monthShape().monthFirst).toBe(true);
     expect(monthShape().placeholder).toBe("mm/aaaa");
+  });
+
+  it("spells the time placeholder the same way", () => {
+    useLocale("pt-BR");
+    expect(timePlaceholder()).toBe("hh:mm");
+    useLocale("de", "EUR");
+    expect(timePlaceholder()).toBe("SS:MM");
+    useLocale("ja", "JPY");
+    expect(timePlaceholder()).toBe("hh:mm");
   });
 });
 
