@@ -2,7 +2,7 @@
   import { seg, appPrefix } from "$lib/routes";
   // List view generated from meta: standard filters, search, sort, paging, bulk delete.
   import { api } from "$lib/api";
-  import { getMeta, type Meta, type Field, isLayout } from "$lib/meta";
+  import { getMeta, type Meta, type Field, isLayout, isTableType } from "$lib/meta";
   import { formatSummary, formatValue } from "$lib/format";
   import { __, boot, doctypeLabel } from "$lib/boot.svelte";
   import { showError, toast, confirm, dialog } from "$lib/ui.svelte";
@@ -19,7 +19,7 @@
   import { visibleActions, visibleToolbarActions } from "./list-actions";
   import { fromDatetimeLocal, today } from "$lib/datetime";
   import { getCalendarDays } from "$lib/controls/date-format";
-  import { buildListFilters, formatRange, parseRange, rangeFilters } from "./list-filters";
+  import { buildListFilters, formatRange, parseRange, rangeFilters, tableFilterLink, tableFilters } from "./list-filters";
   import { combineSummary, summaryDatatype, summaryExpression, summaryFilters } from "./list-summary";
   import { clearListFilters, countListFilters, filtersOpen, listStateFromSearchParams, rememberFiltersOpen, listStateToSearchParams, resolveAllowedViews, resolveActiveView, type ListUrlState } from "./list-state";
   import { exportChoice, exportChoices, exportUrl } from "./export-options";
@@ -117,7 +117,9 @@
     .filter((f) => !!f.fieldname && (f.fieldtype === "Date" || f.fieldtype === "Datetime") && (settings.rangeFilters || []).includes(f.fieldname))
     .map((f) => f.fieldname!)));
   // a field filtered from elsewhere (a day picked on the calendar, a link) shows too, so it can be seen and cleared
-  const stdFilters = $derived(meta ? meta.doctype.fields.filter((f) => !isLayout(f) && (f.inStandardFilter || (!!f.fieldname && (rangeFields.has(f.fieldname) || hasValue(filters[f.fieldname]))))) : []);
+  // a table only when its rows link to one thing, which is what the filter picks
+  const stdFilters = $derived(meta ? meta.doctype.fields.filter((f) => !isLayout(f) && (!isTableType(f.fieldtype) || !!tableFilterLink(f, meta!.children))
+    && (f.inStandardFilter || (!!f.fieldname && (rangeFields.has(f.fieldname) || hasValue(filters[f.fieldname]))))) : []);
   const hasValue = (v: any) => v !== null && v !== undefined && v !== "";
   const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
   /** A Datetime filter holding a bare day (picked on the calendar) stands for that whole day. */
@@ -144,6 +146,9 @@
         default: undefined,
       };
     }
+    // a table is picked by the value its rows link to
+    const table = tableFilterLink(f, meta?.children);
+    if (table) return { ...table.link, fieldname: f.fieldname, label: f.label, reqd: false, readOnly: false, hidden: false, default: undefined };
     if (isDayFilter(f, filters[f.fieldname!])) return { ...f, fieldtype: "Date", reqd: false, readOnly: false, default: undefined };
     return { ...f, reqd: false, readOnly: false, default: undefined };
   }
@@ -269,6 +274,11 @@
     for (const f of meta?.doctype.fields || []) {
       if (!f.fieldname || !isDayFilter(f, plain[f.fieldname])) continue;
       out.push(...calendarRangeFilters(f.fieldname, meta!.doctype.fields, plain[f.fieldname], plain[f.fieldname]));
+      delete plain[f.fieldname];
+    }
+    for (const f of meta?.doctype.fields || []) {
+      if (!f.fieldname || !isTableType(f.fieldtype) || !hasValue(plain[f.fieldname])) continue;
+      out.push(...tableFilters(f, meta!.children, plain[f.fieldname]));
       delete plain[f.fieldname];
     }
     out.push(...buildListFilters(plain, settings.filterOptions));

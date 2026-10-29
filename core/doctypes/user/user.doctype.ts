@@ -26,7 +26,7 @@ export default defineDoctype({
     { fieldname: "new_password", fieldtype: "Password", label: "New password", description: "Fill this in to set or change the password." },
     { fieldname: "password_hash", fieldtype: "Data", label: "Hash", hidden: true, readOnly: true },
     { fieldtype: "Section Break", label: "Roles" },
-    { fieldname: "roles", fieldtype: "Table", label: "Roles", options: "Has Role" },
+    { fieldname: "roles", fieldtype: "Table", label: "Roles", options: "Has Role", inStandardFilter: true },
   ],
   // An account is administered, never self-served: `ifOwner` would match
   // whoever *created* the row — the inviter, not its subject — so a grant to

@@ -530,6 +530,15 @@ picked on the calendar included — so a hidden filter still shows. Each user's 
 DocType in the browser; `filtersCollapsed: false` only changes where a user who has not chosen
 yet starts.
 
+A `Table` or `Table MultiSelect` can be a standard filter too, when its child has exactly one
+Link (`migrate` refuses `inStandardFilter` on any other table): the card shows a Link to that
+Link's target, and the list keeps the documents with a row holding the value picked — the
+filter `["<Child>.<link>", "=", value]`. The User list filters by role this way:
+
+```ts
+{ fieldname: "roles", fieldtype: "Table", label: "Roles", options: "Has Role", inStandardFilter: true }
+```
+
 The search box matches, as a substring, the id, the `titleField`, the `searchFields`, the Links
 that are `inListView` or `inStandardFilter`, and every column on screen of a text type (`Data`,
 `Email`, the text and editor types, `Select`, `Autocomplete`, `Barcode`, `Link`, `Dynamic Link`) —

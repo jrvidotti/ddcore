@@ -800,6 +800,35 @@ func TestTableMultiSelectShape(t *testing.T) {
 	}
 }
 
+// A table in the list's standard filters is filtered by the value its rows
+// link to, so its child has to link to exactly one thing.
+func TestTableStandardFilterShape(t *testing.T) {
+	cases := []struct {
+		name   string
+		fields []*Field
+		want   string
+	}{
+		{"one link", []*Field{{Fieldname: "role", Fieldtype: "Link", Options: "Role"}, {Fieldname: "note", Fieldtype: "Data"}}, ""},
+		{"no link", []*Field{{Fieldname: "note", Fieldtype: "Data"}}, "inStandardFilter filters by the row's Link"},
+		{"two links", []*Field{{Fieldname: "role", Fieldtype: "Link", Options: "Role"}, {Fieldname: "other", Fieldtype: "Link", Options: "Role"}}, "inStandardFilter filters by the row's Link"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			r := NewRegistry()
+			r.Add(&DocType{Name: "Role", Fields: []*Field{{Fieldname: "role_name", Fieldtype: "Data"}}})
+			r.Add(&DocType{Name: "Has Role", IsChild: true, Fields: tc.fields})
+			r.Add(&DocType{Name: "Account", Fields: []*Field{{Fieldname: "roles", Fieldtype: "Table", Options: "Has Role", InStandardFilter: true}}})
+			err := r.Validate()
+			if tc.want == "" && err != nil {
+				t.Fatalf("expected the filter to be accepted: %v", err)
+			}
+			if tc.want != "" && (err == nil || !strings.Contains(err.Error(), tc.want)) {
+				t.Fatalf("wanted %q, got %v", tc.want, err)
+			}
+		})
+	}
+}
+
 func TestFieldtypesTableCoversValidFieldTypes(t *testing.T) {
 	if len(fieldtypes) != len(ValidFieldTypes) {
 		t.Errorf("table has %d fieldtypes, ValidFieldTypes %d", len(fieldtypes), len(ValidFieldTypes))
