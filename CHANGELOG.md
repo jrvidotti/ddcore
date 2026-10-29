@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.31.6 — 2026-10-29
+
 ### Fixed
 
 - **Desk: a `Time` field can be typed into** (#138). It was a native time input that opened the
