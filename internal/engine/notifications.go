@@ -300,8 +300,8 @@ func (c *Ctx) notifyRecipient(rule, user, refDoctype, refName, title, message st
 }
 
 func notificationFromRow(r map[string]any) Notification {
-	created, _ := r["creation"].(time.Time)
-	return Notification{ID: db.Str(r["id"]), Title: db.Str(r["title"]), Message: db.Str(r["message"]), Creation: created, Read: r["read"] == true,
+	// db.Select normalises a timestamptz to an RFC3339 string on its way out.
+	return Notification{ID: db.Str(r["id"]), Title: db.Str(r["title"]), Message: db.Str(r["message"]), Creation: parseTime(r["creation"], time.UTC), Read: r["read"] == true,
 		ReferenceDoctype: db.Str(r["reference_doctype"]), ReferenceID: db.Str(r["reference_id"])}
 }
 
@@ -503,7 +503,7 @@ func (e *Engine) sweepNotifications(ctx context.Context, now time.Time) error {
 				}
 				done := map[string]bool{}
 				for _, m := range marks {
-					if t, ok := m["due"].(time.Time); ok {
+					if t := parseTime(m["due"], time.UTC); !t.IsZero() {
 						done[db.Str(m["reference_id"])+"\x00"+t.UTC().Format(time.RFC3339Nano)] = true
 					}
 				}
