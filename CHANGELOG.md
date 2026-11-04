@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.31.10 — 2026-11-04
+
 ### Added
 
 - **`clientIPHeader` (`DDCORE_CLIENT_IP_HEADER`): the header the client's address is read from
