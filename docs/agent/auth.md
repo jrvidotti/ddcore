@@ -64,6 +64,17 @@ two spellings (its name and its e-mail), and the command clears both.
 `trustProxy` decides whether `X-Forwarded-For` is believed. Leave it off unless
 a proxy you control sets it: otherwise any client picks the address we hold
 responsible, and the address throttle becomes a way to lock out a stranger.
+With it on, the address comes from `True-Client-IP`, then `X-Real-IP`, then the
+first entry of `X-Forwarded-For`.
+
+`clientIPHeader` (`DDCORE_CLIENT_IP_HEADER`) puts one header in front of that
+order, for a chain where the usual ones name a proxy: behind Cloudflare and an
+inner proxy (Traefik, nginx), the inner one writes Cloudflare's address in
+`X-Real-IP`, while `CF-Connecting-IP`, which Cloudflare overwrites, is the
+visitor. A request without a valid address in that header (one that reached the
+inner proxy directly) falls back to the order above. It needs `trustProxy`, and
+the site refuses to start without it; name only a header your outermost proxy
+always overwrites.
 
 ### A notice on the sign-in screen
 

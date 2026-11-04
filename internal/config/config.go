@@ -24,12 +24,17 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/jrvidotti/ddcore/internal/num"
 )
+
+// headerName is an HTTP header name as clientIPHeader takes it: letters,
+// digits and hyphens.
+var headerName = regexp.MustCompile(`^[A-Za-z0-9-]+$`)
 
 type File struct {
 	DSN  string   `json:"dsn"`
@@ -109,6 +114,13 @@ type File struct {
 	// claim any address, and the throttle that keys on the address becomes a
 	// way to lock out a stranger.
 	TrustProxy bool `json:"trustProxy"`
+	// ClientIPHeader names the one request header the client's address is
+	// read from, before X-Real-IP and X-Forwarded-For, when TrustProxy is on:
+	// CF-Connecting-IP behind Cloudflare, whose proxies overwrite it, where an
+	// inner proxy (Traefik, nginx) puts Cloudflare's own address in X-Real-IP.
+	// A request without a valid address in it falls back to those. Empty
+	// keeps the default order.
+	ClientIPHeader string `json:"clientIPHeader,omitempty"`
 	// CORS lets the pages of other origins call the methods that opt in.
 	CORS CORS `json:"cors,omitzero"`
 	// TenantRole is DDCORE_TENANT_ROLE: the database role document work runs
@@ -237,6 +249,17 @@ func Load(dir string) (*File, string, error) {
 	f.Title = strings.TrimSpace(f.Title)
 	f.URL = strings.TrimSuffix(env("DDCORE_URL", f.URL), "/")
 	f.TrustProxy = envBool("DDCORE_TRUST_PROXY", f.TrustProxy)
+	f.ClientIPHeader = strings.TrimSpace(env("DDCORE_CLIENT_IP_HEADER", f.ClientIPHeader))
+	if f.ClientIPHeader != "" {
+		if !headerName.MatchString(f.ClientIPHeader) {
+			return nil, "", fmt.Errorf("%s: clientIPHeader (DDCORE_CLIENT_IP_HEADER) must be a header name, like CF-Connecting-IP: %q", path, f.ClientIPHeader)
+		}
+		// a header any client can send is only an address when a proxy we
+		// control is known to overwrite it
+		if !f.TrustProxy {
+			return nil, "", fmt.Errorf("%s: clientIPHeader (DDCORE_CLIENT_IP_HEADER) needs trustProxy (DDCORE_TRUST_PROXY): the header is only believed from a proxy you control", path)
+		}
+	}
 	f.CORS.fromEnv()
 	f.Feedback.fromEnv()
 	f.AI.fromEnv()

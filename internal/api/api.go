@@ -61,7 +61,7 @@ func New(e *engine.Engine, desk fs.FS) *Server {
 	// to lock out a stranger. Only trust the header when a proxy we control is
 	// declared to be setting it.
 	if e.Cfg.TrustProxy {
-		r.Use(middleware.RealIP)
+		r.Use(realIP(e.Cfg.ClientIPHeader))
 	}
 	// observe is outermost so a 401 from s.auth and a panic from anywhere below
 	// both leave carrying the same id the caller was handed. recoverPanic
@@ -678,6 +678,31 @@ func (s *Server) secureCookie(r *http.Request) bool {
 	return r.TLS != nil ||
 		strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") && s.E.Cfg.TrustProxy ||
 		strings.HasPrefix(s.E.Cfg.SiteURL, "https://")
+}
+
+// realIP is middleware.RealIP with one header in front of it: the one a
+// deployment names (clientIPHeader), read first. Behind Cloudflare and an inner
+// proxy, X-Real-IP holds Cloudflare's address and X-Forwarded-For starts with
+// whatever the client sent, while CF-Connecting-IP is the visitor, overwritten
+// by Cloudflare. A request without a valid address there (one that reached the
+// inner proxy directly) gets chi's order: True-Client-IP, X-Real-IP,
+// X-Forwarded-For.
+func realIP(header string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		fallback := middleware.RealIP(next)
+		if header == "" {
+			return fallback
+		}
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			v, _, _ := strings.Cut(r.Header.Get(header), ",")
+			if ip := net.ParseIP(strings.TrimSpace(v)); ip != nil {
+				r.RemoteAddr = ip.String()
+				next.ServeHTTP(w, r)
+				return
+			}
+			fallback.ServeHTTP(w, r)
+		})
+	}
 }
 
 // clientIP is who to hold responsible for a request. X-Forwarded-For is only

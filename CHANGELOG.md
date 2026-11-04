@@ -14,6 +14,16 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **`clientIPHeader` (`DDCORE_CLIENT_IP_HEADER`): the header the client's address is read from
+  first.** With `trustProxy` on, a site behind Cloudflare and another proxy (Traefik, nginx) sets
+  `CF-Connecting-IP`: the inner proxy puts Cloudflare's own address in `X-Real-IP`, so the sign-in
+  throttle, the portal and app limits keyed on the address, and the request log all saw
+  Cloudflare instead of the visitor. A request without a valid address in the header falls back
+  to `True-Client-IP`, `X-Real-IP`, `X-Forwarded-For`, as before. Without `trustProxy` the site
+  refuses to start. See [auth](docs/agent/auth.md).
+
 ## 0.31.9 — 2026-10-29
 
 ### Added

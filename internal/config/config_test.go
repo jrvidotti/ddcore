@@ -16,7 +16,7 @@ func clearMailEnv(t *testing.T) {
 	for _, k := range []string{
 		"DDCORE_MAIL_TRANSPORT", "DDCORE_MAIL_FROM", "DDCORE_MAIL_METHOD", "DDCORE_MAIL_DEBUG",
 		"DDCORE_SMTP_HOST", "DDCORE_SMTP_PORT", "DDCORE_SMTP_USERNAME",
-		"DDCORE_SMTP_PASSWORD", "DDCORE_SMTP_TLS", "DDCORE_URL", "DDCORE_TRUST_PROXY",
+		"DDCORE_SMTP_PASSWORD", "DDCORE_SMTP_TLS", "DDCORE_URL", "DDCORE_TRUST_PROXY", "DDCORE_CLIENT_IP_HEADER",
 		"DDCORE_DSN", "DDCORE_PORT", "DATABASE_URL", "PORT", "DDCORE_POOL_MAX_CONNS",
 		"DDCORE_SHUTDOWN_GRACE_SECONDS", "DDCORE_WORKERS",
 		"DDCORE_LOGIN_NOTICE", "DDCORE_LOGIN_DEMO_USER", "DDCORE_LOGIN_DEMO_PASSWORD",
@@ -524,5 +524,38 @@ func TestLoadRecordsThePathItRead(t *testing.T) {
 	}
 	if f.Path != path || f.Path == "" {
 		t.Fatalf("Path = %q, returned %q", f.Path, path)
+	}
+}
+
+// clientIPHeader is believed only behind a trusted proxy, and must be a header
+// name; the environment sets it like the other fields.
+func TestClientIPHeader(t *testing.T) {
+	clearMailEnv(t)
+	t.Setenv("DDCORE_CLIENT_IP_HEADER", "")
+	os.Unsetenv("DDCORE_CLIENT_IP_HEADER")
+
+	f, _, err := Load(site(t, `{"trustProxy":true,"clientIPHeader":" CF-Connecting-IP "}`))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if f.ClientIPHeader != "CF-Connecting-IP" {
+		t.Errorf("clientIPHeader = %q", f.ClientIPHeader)
+	}
+
+	if _, _, err := Load(site(t, `{"clientIPHeader":"CF-Connecting-IP"}`)); err == nil || !strings.Contains(err.Error(), "needs trustProxy") {
+		t.Errorf("without trustProxy: want the needs-trustProxy error, got %v", err)
+	}
+	if _, _, err := Load(site(t, `{"trustProxy":true,"clientIPHeader":"CF Connecting: IP"}`)); err == nil || !strings.Contains(err.Error(), "must be a header name") {
+		t.Errorf("a bad name: want the header-name error, got %v", err)
+	}
+
+	t.Setenv("DDCORE_TRUST_PROXY", "true")
+	t.Setenv("DDCORE_CLIENT_IP_HEADER", "True-Client-IP")
+	f, _, err = Load(site(t, `{"clientIPHeader":"CF-Connecting-IP"}`))
+	if err != nil {
+		t.Fatalf("Load from the environment: %v", err)
+	}
+	if f.ClientIPHeader != "True-Client-IP" {
+		t.Errorf("the environment should win, got %q", f.ClientIPHeader)
 	}
 }

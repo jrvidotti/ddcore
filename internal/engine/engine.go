@@ -102,6 +102,10 @@ type Config struct {
 	SiteURL string
 	// TrustProxy makes the API believe X-Forwarded-For.
 	TrustProxy bool
+	// ClientIPHeader is the header the client's address is read from first
+	// when TrustProxy is on (config.File.ClientIPHeader); empty keeps
+	// True-Client-IP, X-Real-IP, X-Forwarded-For.
+	ClientIPHeader string
 	// CORS is which other origins may call the methods that opt in.
 	CORS config.CORS
 	// Login is the sign-in screen's notice and demo account, served to

@@ -49,6 +49,7 @@ which overrides the file:
 | `PORT` / `DDCORE_PORT` | HTTP port (default `8080`); `DDCORE_PORT` wins over `PORT` | `8080` |
 | `DDCORE_URL` | The public address recovery and invitation links are built from | `https://erp.example.com` |
 | `DDCORE_TRUST_PROXY` | Believe `X-Forwarded-For` — only behind a proxy you control | `true` |
+| `DDCORE_CLIENT_IP_HEADER` | With `DDCORE_TRUST_PROXY`, the header the client's address is read from first (`clientIPHeader`); without a valid address in it, `True-Client-IP`, `X-Real-IP`, `X-Forwarded-For`. Behind Cloudflare and an inner proxy, which puts Cloudflare's address in `X-Real-IP` | `CF-Connecting-IP` |
 | `DDCORE_CORS_ORIGINS` | The other origins whose pages may call the methods whitelisted with `cors: true`, comma-separated; replaces `cors.origins` in `ddcore.json`. `scheme://host[:port]`, `scheme://*.domain` for its subdomains, or `*`. Never with credentials | `https://shop.example.com,https://*.partner.example` |
 | `DDCORE_ADMIN_PASSWORD` | Admin's first password, set by the first migration instead of a generated one; never replaces a password Admin has | a strong password |
 | `DDCORE_AUTO_MIGRATE` | `ddcore start` migrates before it serves; `0` turns that off for a deployment that migrates in a step of its own | `0` |
