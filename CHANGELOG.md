@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.31.11 — 2026-11-04
+
 ### Fixed
 
 - **The MCP `call_method` tool refuses a function not exported with `whitelisted()`, as
