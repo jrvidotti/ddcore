@@ -24,7 +24,7 @@ older series, and `whats_new` reads across every one of them.
   throttle, the portal and app limits keyed on the address, and the request log all saw
   Cloudflare instead of the visitor. A request without a valid address in the header falls back
   to `True-Client-IP`, `X-Real-IP`, `X-Forwarded-For`, as before. Without `trustProxy` the site
-  refuses to start. See [auth](docs/agent/auth.md).
+  refuses to start. See `ddcore docs auth`.
 
 ## 0.31.9 — 2026-10-29
 
