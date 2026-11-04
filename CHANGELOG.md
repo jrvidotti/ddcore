@@ -14,6 +14,14 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- **The MCP `call_method` tool refuses a function not exported with `whitelisted()`, as
+  `/api/method/<path>` does.** It used to run any exported function, so a job target, a mail-queue
+  internal or an app helper answered over MCP and then 404'd over REST; a function's `roles` option
+  now applies on both paths too. An agent that relied on reaching such a function calls it with
+  `eval` instead: `ddcore.callMethod("app.services.file.fn", args)`. (#141)
+
 ## 0.31.10 — 2026-11-04
 
 ### Added

@@ -1328,24 +1328,8 @@ func (s *Server) method(w http.ResponseWriter, r *http.Request) {
 		req["pathTail"] = tail
 	}
 	call := func(c *engine.Ctx) (any, error) {
-		if roles, ok := opts["roles"].([]any); ok && len(roles) > 0 {
-			has := false
-			for _, ro := range roles {
-				if c.HasRole(fmt.Sprint(ro)) {
-					has = true
-				}
-			}
-			if !has && c.User != "Admin" {
-				c.AuditDenied("method."+path, "", "", nil)
-				return nil, cerr.Permission("No permission for {0}", path)
-			}
-		}
-		rt, err := c.RT()
-		if err != nil {
-			return nil, err
-		}
 		b, _ := json.Marshal(args)
-		res, err := rt.CallWhitelisted(path, b)
+		res, err := c.CallWhitelisted(path, b)
 		if err != nil {
 			return nil, err
 		}

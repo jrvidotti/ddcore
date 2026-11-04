@@ -132,7 +132,7 @@ func (s *server) dataTools(srv *mcp.Server) {
 			})
 		})
 
-	addTool(srv, "call_method", "Calls a document controller method (doctype+id+method) or a whitelisted function (path app.dir.file.fn).",
+	addTool(srv, "call_method", "Calls a document controller method (doctype+id+method) or a whitelisted function (path app.dir.file.fn), as /api/method/<path> would. A function not exported with whitelisted() is refused; call it with eval (ddcore.callMethod(path, args)).",
 		func(ctx context.Context, in struct {
 			Doctype string         `json:"doctype,omitempty"`
 			ID      string         `json:"id,omitempty"`
@@ -169,7 +169,9 @@ func (s *server) dataTools(srv *mcp.Server) {
 					out = map[string]any{"result": res.Result, "doc": res.Doc}
 					return nil
 				}
-				res, err := rt.CallFunction(in.Method, b)
+				// The same contract as /api/method: a function not exported
+				// with whitelisted() is refused here too; eval reaches the rest.
+				res, err := c.CallWhitelisted(in.Method, b)
 				out = res
 				return err
 			})

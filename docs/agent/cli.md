@@ -115,6 +115,9 @@ npm. `DDCORE_TEST_DSN` points at the disposable database the tests use.
 Tools: `list_doctypes`, `get_doctype`, `scaffold_doctype`, `extend_doctype`, `validate_meta`, `migrate`, `i18n_extract`, `set_translations`, `generate_types`, `get_doc`, `list_docs`, `insert_doc`,
 `update_doc`, `delete_doc`, `submit_doc`, `cancel_doc`, `call_method`, `sql_query`, `eval`, `run_tests`, `get_logs`, `list_jobs`, `get_job`, `retry_job`, `cancel_job`, `purge_jobs`, `maintenance_status`, `maintenance_set`, `vault_rekey`, `reload`, `list_apps`.
 The document tools (`get_doc`, `update_doc`, `delete_doc`, `submit_doc`, `cancel_doc`, `call_method`) name the document with `id`.
+`call_method` with a `method` path keeps the contract of `/api/method/<path>`: a function exported
+without `whitelisted()` is refused, and its `roles` apply. Run any other exported function with
+`eval` (`ddcore.callMethod(path, args)`).
 `ddcore mcp` starts even when Postgres is down: `list_doctypes`, `get_doctype`, `scaffold_doctype`,
 `extend_doctype`, `validate_meta`, `i18n_extract`, `set_translations`, `generate_types`, `reload`,
 `list_apps`, `whats_new` and the resources work without it; every other tool reports the database
