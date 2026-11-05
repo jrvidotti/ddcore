@@ -1,12 +1,26 @@
-// XLSX export shared by the form grids and the report view.
+// XLSX export shared by the form grids, the report view and the list.
 //
 // An .xlsx is a ZIP of a few SpreadsheetML parts. Writing one needs neither a
 // library nor compression: the entries are *stored*, which every spreadsheet
 // reads, and a grid's worth of rows stays small. Numbers go out as numbers
-// and booleans as booleans, so the sheet can sum and filter them; everything
-// else is an inline string, which avoids a shared-strings table.
+// and booleans as booleans, so the sheet can sum and filter them; a date is
+// a day number with a date format (an XlsxDate), which Excel shows in the
+// reader's own date order; everything else is an inline string, which avoids
+// a shared-strings table.
 
-export type XlsxCell = string | number | boolean | null | undefined;
+/** A date, a date-time or a time of day, as Excel's serial day number (see `excelSerial`). */
+export interface XlsxDate { serial: number; kind: "date" | "datetime" | "time" }
+
+export type XlsxCell = string | number | boolean | null | undefined | XlsxDate;
+
+/** Excel's day number for a wall-clock time held as UTC milliseconds (days since 1899-12-30). */
+export const excelSerial = (utcMs: number): number => utcMs / 86400000 + 25569;
+
+const isXlsxDate = (v: unknown): v is XlsxDate => typeof v === "object" && v !== null && typeof (v as XlsxDate).serial === "number" && "kind" in v;
+
+// the cellXfs in styles.xml: 14, 22 and 21 are the locale's short date, date
+// and time, and time with seconds
+const DATE_STYLE: Record<XlsxDate["kind"], string> = { date: ' s="2"', datetime: ' s="3"', time: ' s="4"' };
 
 const enc = new TextEncoder();
 
@@ -98,6 +112,7 @@ function cellXml(v: XlsxCell, ref: string, style: string): string {
   if (v === null || v === undefined || v === "") return "";
   if (typeof v === "number" && Number.isFinite(v)) return `<c r="${ref}"${style}><v>${v}</v></c>`;
   if (typeof v === "boolean") return `<c r="${ref}"${style} t="b"><v>${v ? 1 : 0}</v></c>`;
+  if (isXlsxDate(v)) return Number.isFinite(v.serial) ? `<c r="${ref}"${style || DATE_STYLE[v.kind]}><v>${v.serial}</v></c>` : "";
   const s = typeof v === "object" ? JSON.stringify(v) : String(v);
   return `<c r="${ref}"${style} t="inlineStr"><is><t xml:space="preserve">${xmlText(s)}</t></is></c>`;
 }
@@ -142,7 +157,10 @@ export function toXlsx(header: XlsxCell[], rows: XlsxCell[][], sheetName = "Shee
       '<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>' +
       '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>' +
       '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
-      '<cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs>' +
+      '<cellXfs count="5"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>' +
+      '<xf numFmtId="14" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>' +
+      '<xf numFmtId="22" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>' +
+      '<xf numFmtId="21" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs>' +
       "</styleSheet>",
     "xl/worksheets/sheet1.xml": sheetXml(header, rows),
   };

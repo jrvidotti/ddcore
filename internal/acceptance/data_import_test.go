@@ -124,4 +124,19 @@ func TestDataImportOverHTTP(t *testing.T) {
 	if back.Counts.Errors != 0 || back.Counts.Updated != 2 {
 		t.Fatalf("round trip: %+v", back.Rows)
 	}
+
+	// and so does its XLSX: typed dates and numbers read back as the same
+	// values, and the modified check still matches
+	res = getRaw(t, srv, tok, "/api/export/Project?format=xlsx")
+	if res.StatusCode != 200 {
+		t.Fatalf("XLSX export: %d", res.StatusCode)
+	}
+	xlsx := readAll(t, res)
+	backX := postImport(t, srv, tok, "Project", xlsx, map[string]string{"mode": "update"})
+	if backX.Counts.Errors != 0 || backX.Counts.Updated != 2 {
+		t.Fatalf("XLSX round trip: %+v", backX.Rows)
+	}
+	if countIn(t, e, "SELECT count(*) FROM tab_project WHERE id = 'P-100' AND budget = 1500 AND start_date = '2026-01-10'") != 1 {
+		t.Fatal("the XLSX round trip changed P-100")
+	}
 }

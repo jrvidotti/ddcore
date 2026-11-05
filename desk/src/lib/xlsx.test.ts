@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { columnName, crc32, sheetXml, toXlsx, xmlText, zipStore } from "./xlsx";
+import { columnName, crc32, excelSerial, sheetXml, toXlsx, xmlText, zipStore } from "./xlsx";
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();
@@ -43,6 +43,16 @@ describe("xlsx", () => {
     expect(xml).toContain('<c r="A1" s="1" t="inlineStr"><is><t xml:space="preserve">Name</t></is></c>');
     expect(xml).toContain('<c r="B2"><v>3</v></c>');
     expect(xml).toContain('<row r="3"><c r="B3" t="b"><v>1</v></c></row>');
+  });
+  it("writes a date as a day number with a date format", () => {
+    const xml = sheetXml(["D", "DT", "T"], [[{ serial: 46082, kind: "date" }, { serial: 46082.375, kind: "datetime" }, { serial: 0.75, kind: "time" }]]);
+    expect(xml).toContain('<c r="A2" s="2"><v>46082</v></c>');
+    expect(xml).toContain('<c r="B2" s="3"><v>46082.375</v></c>');
+    expect(xml).toContain('<c r="C2" s="4"><v>0.75</v></c>');
+    expect(excelSerial(Date.UTC(2026, 2, 1, 9))).toBe(46082.375);
+    const styles = unzip(toXlsx(["A"], []))["xl/styles.xml"];
+    expect(styles).toContain('<cellXfs count="5">');
+    expect(styles).toContain('numFmtId="22"');
   });
   it("round-trips a zip of stored entries", () => {
     const files = unzip(zipStore([{ name: "a.txt", data: enc.encode("hello") }, { name: "ç/b.xml", data: enc.encode("<x/>") }]));

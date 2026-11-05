@@ -14,6 +14,19 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **A list exports XLSX, for the page on screen and for everything the filters match.** The
+  download dialog offers it next to CSV and NDJSON, with the CSV's columns (the id first, then the
+  columns on screen, in their order). The cells are typed: Currency, Float, Int and the other
+  numbers are numbers (Currency with the site's decimals), Check a boolean, Date and Time real
+  dates and times, and Datetime a real date-time on the site's clock; a Select keeps its stored
+  value and a Link the same text as the CSV. On the server it is `format=xlsx` on
+  `/api/export/<DocType>`, under the same `exportMaxRows` and with the same
+  `X-DDCore-Export-Count`, streamed row by row; `children=1` and `attachments=1` are refused there.
+  `ddcore export --format xlsx` writes one workbook per table, as CSV writes one file. See
+  `ddcore docs export`. (#142)
+
 ## 0.31.11 — 2026-11-04
 
 ### Fixed

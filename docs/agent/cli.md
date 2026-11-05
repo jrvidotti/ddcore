@@ -43,7 +43,7 @@ prints that command's options, or its subcommands for a command such as `import`
 | `ddcore exec app.mod.fn [--args '{}' \| --args - \| --args-file f.json]` | runs a function as Admin. `--args -` reads the JSON from stdin and `--args-file` from a file (`-` is stdin too), which keeps a payload carrying personal data out of argv — where `ps` shows it to every user of the host — and past `ARG_MAX`: `ddcore --tenant acme exec app.services.legacy.apply --args - < stores.json` |
 | `ddcore eval '<ts>' [--commit]` | runs loose TS with `ddcore.*` (rolls back by default) |
 | `ddcore demo [--app name]` | runs `<app>.services.demo.generate` for every app that has `services/demo.ts` |
-| `ddcore export <DocType>\|--all [--children] [--attachments] [--out DIR]` | exports the whole set to NDJSON/CSV with a manifest of checksums (see `export`) |
+| `ddcore export <DocType>\|--all [--children] [--attachments] [--out DIR]` | exports the whole set to NDJSON, CSV or XLSX with a manifest of checksums (see `export`) |
 | `ddcore import plan\|run\|status\|reconcile <dir> [--tenant <slug>]` | loads an export directory into this site, resumable and idempotent; `--tenant` loads into a tenant and scopes `status` and `reconcile` to it (see `import`) |
 | `ddcore jobs list\|show\|stats\|retry\|cancel\|purge\|scheduled\|run <fn>\|work` | the queue and the scheduler (see `ops`); `show` is the only command that prints a job's arguments; `work --queue q[,q] [--workers N]` starts only those queues' pools |
 | `ddcore webhooks list\|replay <delivery>...` | outgoing webhook deliveries (see `webhooks`); a replay is recorded as an Audit Event |
@@ -102,7 +102,7 @@ npm. `DDCORE_TEST_DSN` points at the disposable database the tests use.
 - `POST /api/method/<app.folder.file.fn>` (whitelisted); `OPTIONS` answers a CORS preflight for a method with `cors: true` (see `controller-api`)
 - `GET /<prefix>/…` — an app's static site, when `www` in `defineApp` declares the prefix (see `www`)
 - `GET /api/meta/<DocType>`, `/api/boot`, `/api/search/link?doctype=&txt=`, `/api/search/global?txt=&limit=` (see `search`), `/api/report/<name>`, `/api/events` (SSE), `POST /api/upload`
-- `GET /api/export/<DocType>?format=csv|ndjson&filters=[...]&children=1&attachments=1` — the whole filtered set as a download, gated by the `export` permission (see `export`)
+- `GET /api/export/<DocType>?format=csv|ndjson|xlsx&filters=[...]&children=1&attachments=1` — the whole filtered set as a download, gated by the `export` permission (see `export`)
 - `POST /api/data-import/<DocType>` (multipart: `file`, `mode=insert|update`, `dry_run=1`, `decimal`, `date_order`, `sep`, `columns`) and `GET /api/data-import/<DocType>/template?sep=` — CSV/XLSX rows as ordinary saves, gated by the `import` permission (see `data-import`)
 - Errors: `{ "error": { "type", "title", "message", "key", "args" } }` with 417 (validation), 403, 404, 409, 401.
   `message` and `title` arrive already translated; `key` is the English template and `args` its values.

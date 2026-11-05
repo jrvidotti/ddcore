@@ -14,7 +14,6 @@
   import { onMount, untrack } from "svelte";
   import { subscribe } from "$lib/events";
   import { coalesce } from "$lib/coalesce";
-  import { toCsv, downloadCsv } from "$lib/csv";
   import { deskSDK, type DeskViewMode, type ListAction, type ListToolbarAction, type ListViewOptions } from "$lib/desk-sdk";
   import { visibleActions, visibleToolbarActions } from "./list-actions";
   import { fromDatetimeLocal, today } from "$lib/datetime";
@@ -22,7 +21,8 @@
   import { buildListFilters, formatRange, parseRange, rangeFilters, tableFilterLink, tableFilters } from "./list-filters";
   import { combineSummary, summaryDatatype, summaryExpression, summaryFilters } from "./list-summary";
   import { clearListFilters, countListFilters, filtersOpen, listStateFromSearchParams, rememberFiltersOpen, listStateToSearchParams, resolveAllowedViews, resolveActiveView, type ListUrlState } from "./list-state";
-  import { exportChoice, exportChoices, exportUrl } from "./export-options";
+  import { exportChoice, exportChoices, exportUrl, pageTable } from "./export-options";
+  import { downloadTable, exportBaseName } from "$lib/grid-rows";
   import DataImportModal from "./DataImportModal.svelte";
   import { canImport } from "./data-import";
   import SharedNotice from "./SharedNotice.svelte";
@@ -469,15 +469,17 @@
         {
           // Scope and format are one field, not two. A dialog has no
           // conditional fields, and the pairs are not free: the page on
-          // screen is a table of the columns already loaded, so it can only
-          // be a CSV, and only NDJSON can nest the child tables. Listing the
-          // combinations that exist is what stops the dialog from taking a
-          // format it would then have to ignore.
+          // screen is a table of the columns already loaded, so it can be a
+          // CSV or a workbook but not NDJSON, and only NDJSON can nest the
+          // child tables. Listing the combinations that exist is what stops
+          // the dialog from taking a format it would then have to ignore.
           fieldname: "what", fieldtype: "Select", label: __("Export"),
           options: exportChoices,
           optionLabels: [
             __("The page on screen ({0}) as CSV", [rows.length]),
+            __("The page on screen ({0}) as XLSX", [rows.length]),
             __("All rows matching the filters ({0}) as CSV", [total]),
+            __("All rows matching the filters ({0}) as XLSX", [total]),
             __("All rows matching the filters ({0}) as NDJSON", [total]),
             __("All rows matching the filters ({0}) as NDJSON with the child tables", [total]),
           ],
@@ -488,34 +490,29 @@
       primaryAction(v, d) {
         d.hide();
         const choice = exportChoice(String(v.what));
-        if (!choice) { exportLoadedPage(); return; }
+        if (choice.scope === "page") { exportLoadedPage(choice.format === "xlsx" ? "xlsx" : "csv"); return; }
         window.location.href = exportUrl({
           doctype,
           format: choice.format,
           children: choice.children,
           filters: buildFilters(),
           orFilters: buildOr(),
-          // a CSV is a table: the id and the columns on screen; NDJSON is a whole copy of each row, for an import
-          fields: choice.format === "csv" && resolvedColumns ? exportFields(resolvedColumns) : undefined,
+          // a CSV or a workbook is a table: the id and the columns on screen; NDJSON is a whole copy of each row, for an import
+          fields: choice.format !== "ndjson" && resolvedColumns ? exportFields(resolvedColumns) : undefined,
         });
       },
     }).show();
   }
 
-  /** Exports the *loaded page* (not the whole result set) as CSV: the id, always, then the columns on screen, in their order. */
-  function exportLoadedPage() {
-    const withModified = !!resolvedColumns?.showModified;
-    const keys = ["id", ...columns.map((c) => c.fieldname!), ...(withModified ? ["modified"] : [])];
-    const header = [meta!.doctype.idLabel || __("ID"), ...columns.map((c) => c.label), ...(withModified ? [__("Modified")] : [])];
-    const exportRows = rows.map((r) => keys.map((k, idx) => {
-      const col = idx === 0 ? undefined : columns[idx - 1];
-      if (col && (col.fieldtype === "Link" || col.fieldtype === "Dynamic Link") && r[k]) {
-        const target = col.fieldtype === "Dynamic Link" ? r[col.options] : col.options;
-        return getLinkTitle(target, r[k]) || r[k];
-      }
-      return r[k];
-    }));
-    downloadCsv(`${doctype}.csv`, toCsv(header, exportRows));
+  /** Exports the *loaded page* (not the whole result set): the id, always, then the columns on screen, in their order. */
+  function exportLoadedPage(format: "csv" | "xlsx") {
+    const { header, cells } = pageTable(rows, columns, {
+      idLabel: meta!.doctype.idLabel || __("ID"),
+      modifiedLabel: resolvedColumns?.showModified ? __("Modified") : undefined,
+      format,
+      titleOf: getLinkTitle,
+    });
+    downloadTable(format, exportBaseName(doctype), header, cells, doctypeLabel(doctype));
     if (total > rows.length) toast(__("Exported {0} of {1} rows (the current page)", [rows.length, total]), { indicator: "blue" });
   }
   function cellText(r: any, c: Field) {

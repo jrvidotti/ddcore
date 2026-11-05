@@ -42,7 +42,7 @@ func (s *Server) export(w http.ResponseWriter, r *http.Request) {
 	if format == "" {
 		format = "csv"
 	}
-	if format != "csv" && format != "ndjson" {
+	if format != "csv" && format != "ndjson" && format != "xlsx" {
 		s.writeErr(w, r, cerr.Validation("Unknown export format: {0}", format))
 		return
 	}
@@ -52,6 +52,14 @@ func (s *Server) export(w http.ResponseWriter, r *http.Request) {
 		// flattening them away or repeating the parent per row. Refusing is
 		// honest; silently dropping the children would not be.
 		s.writeErr(w, r, cerr.Validation("CSV cannot carry child tables: use format=ndjson, or `ddcore export`, which writes one file per table."))
+		return
+	}
+	attachments := switchedOn(q.Get("attachments"))
+	if format == "xlsx" && (children || attachments) {
+		// A response is one workbook, and the child tables and the
+		// attachment list are tables of their own; the CLI writes each to
+		// its own workbook.
+		s.writeErr(w, r, cerr.Validation("XLSX cannot carry child tables or attachments: use format=ndjson, or `ddcore export --format xlsx`, which writes one workbook per table."))
 		return
 	}
 	sep := ','
@@ -81,7 +89,7 @@ func (s *Server) export(w http.ResponseWriter, r *http.Request) {
 		OrFilters:   orFilters,
 		Fields:      fields,
 		Children:    children,
-		Attachments: switchedOn(q.Get("attachments")),
+		Attachments: attachments,
 		Limit:       limit,
 	}
 
@@ -160,8 +168,16 @@ func (s *Server) exportCount(c *engine.Ctx, a engine.ExportArgs) (int64, error) 
 func exportSink(c *engine.Ctx, doctype, format string, sep rune, w io.Writer) (engine.ExportSink, string) {
 	stamp := time.Now().Format("20060102-150405")
 	base := strings.ReplaceAll(doctype, " ", "-")
-	if format == "ndjson" {
+	switch format {
+	case "ndjson":
 		return engine.NewNDJSONSink(w), base + "-" + stamp + ".ndjson"
+	case "xlsx":
+		return &engine.XLSXSink{
+			Open:          func(string) (io.Writer, error) { return w, nil },
+			Lookup:        func(n string) (*meta.DocType, error) { return c.St.DocType(n) },
+			Loc:           c.E.Location(),
+			MoneyDecimals: c.E.CurrencyPrecision(),
+		}, base + "-" + stamp + ".xlsx"
 	}
 	return &engine.CSVSink{
 		Open:   func(string) (io.Writer, error) { return w, nil },
@@ -172,8 +188,11 @@ func exportSink(c *engine.Ctx, doctype, format string, sep rune, w io.Writer) (e
 
 func (s *Server) exportHeaders(w http.ResponseWriter, filename, format string, count int64) {
 	ct := "text/csv; charset=utf-8"
-	if format == "ndjson" {
+	switch format {
+	case "ndjson":
 		ct = "application/x-ndjson; charset=utf-8"
+	case "xlsx":
+		ct = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 	}
 	w.Header().Set("Content-Type", ct)
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
