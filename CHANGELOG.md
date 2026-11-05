@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.31.12 — 2026-11-05
+
 ### Added
 
 - **A list exports XLSX, for the page on screen and for everything the filters match.** The
