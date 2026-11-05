@@ -14,6 +14,18 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **MCP works inside a tenant.** On a site with tenancy every data tool (`get_doc`, `list_docs`,
+  `insert_doc`, `update_doc`, `delete_doc`, `submit_doc`, `cancel_doc`, `call_method`,
+  `sql_query`, `eval`, `get_logs`, the job tools, `import`) takes `tenant`, a tenant's slug, and
+  `ddcore --tenant <slug> mcp` (in `.mcp.json`: `"args": ["--tenant", "<slug>", "mcp"]`) makes one
+  the server's default; `tenant: ""` is the platform space. An answer from the platform space
+  about a tenant-owned DocType — `list_docs` on it, a `sql_query` on its table, a `get_doc` that
+  finds nothing — now carries a note saying its rows belong to tenants and naming them, instead of
+  an empty result that reads as "no data". `--tenant` before `mcp` used to be refused. See
+  `ddcore docs tenancy`. (#143)
+
 ## 0.31.12 — 2026-11-05
 
 ### Added

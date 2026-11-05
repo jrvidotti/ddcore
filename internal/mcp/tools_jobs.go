@@ -20,12 +20,17 @@ func (s *server) jobTools(srv *mcp.Server) {
 	// arguments, and `ddcore jobs show` is the one path to that.
 	addTool(srv, "list_jobs", "Background jobs, newest first, filtered by status, queue, method or user. Arguments and results are not included.",
 		func(ctx context.Context, in struct {
+			Space
 			Status string `json:"status,omitempty" jsonschema:"queued, running, done, failed or cancelled (comma-separated)"`
 			Queue  string `json:"queue,omitempty"`
 			Method string `json:"method,omitempty" jsonschema:"exact dotted method path"`
 			User   string `json:"user,omitempty"`
 			Limit  int    `json:"limit,omitempty"`
 		}) (any, error) {
+			ctx, err := s.space(ctx, in.Space)
+			if err != nil {
+				return nil, err
+			}
 			f := engine.JobFilter{Status: engine.JobStatuses(in.Status), Queue: in.Queue, Method: in.Method, User: in.User, Limit: in.Limit}
 			return e.ListJobs(ctx, f)
 		})
@@ -52,32 +57,52 @@ func (s *server) jobTools(srv *mcp.Server) {
 
 	addTool(srv, "get_job", "One background job, without its arguments or result.",
 		func(ctx context.Context, in struct {
+			Space
 			ID int64 `json:"id"`
 		}) (any, error) {
+			ctx, err := s.space(ctx, in.Space)
+			if err != nil {
+				return nil, err
+			}
 			return e.GetJob(ctx, in.ID, false)
 		})
 
 	addTool(srv, "retry_job", "Queues a failed or cancelled job again, as a new job. The original row is kept as the record of the failure.",
 		func(ctx context.Context, in struct {
+			Space
 			ID    int64 `json:"id"`
 			Force bool  `json:"force,omitempty" jsonschema:"retry again a job that was already retried"`
 		}) (any, error) {
+			ctx, err := s.space(ctx, in.Space)
+			if err != nil {
+				return nil, err
+			}
 			return e.RetryJob(ctx, in.ID, in.Force)
 		})
 
 	addTool(srv, "cancel_job", "Stops a job. A queued job is cancelled outright; a running one is interrupted by its worker within a few seconds, and effects it has already had outside the database are not undone.",
 		func(ctx context.Context, in struct {
+			Space
 			ID int64 `json:"id"`
 		}) (any, error) {
+			ctx, err := s.space(ctx, in.Space)
+			if err != nil {
+				return nil, err
+			}
 			return e.CancelJob(ctx, in.ID, "Admin")
 		})
 
 	addTool(srv, "purge_jobs", "Deletes finished jobs past their retention window. Without arguments it uses the site's own windows; dry_run reports what would go.",
 		func(ctx context.Context, in struct {
+			Space
 			DoneDays   *int `json:"done_days,omitempty" jsonschema:"days to keep done jobs; 0 keeps them forever"`
 			FailedDays *int `json:"failed_days,omitempty" jsonschema:"days to keep failed and cancelled jobs; 0 keeps them forever"`
 			DryRun     bool `json:"dry_run,omitempty"`
 		}) (any, error) {
+			ctx, err := s.space(ctx, in.Space)
+			if err != nil {
+				return nil, err
+			}
 			o := e.SitePurgeOpts(in.DryRun)
 			if in.DoneDays != nil {
 				o.DoneDays = *in.DoneDays

@@ -135,12 +135,14 @@ func engineConfig(cfg *config.File, o loadOpts) (engine.Config, error) {
 	// --tenant is for a command that does one thing and exits. A process that
 	// serves requests or runs jobs works in every tenant, each from its own
 	// user or its own job; pinning it to one would be a quiet way to break it.
+	// `mcp` (DeferDB) is the exception: one operator's agent, and the tenant
+	// is only its tools' default — a call names another with `tenant` (#143).
 	enter := os.Getenv("DDCORE_TENANT")
 	if o.NoDB {
 		enter = ""
 	}
-	if enter != "" && (o.EnforceMaintenance || o.DeferDB) {
-		return engine.Config{}, fmt.Errorf("--tenant is for one-shot commands, not for a server, a worker or mcp")
+	if enter != "" && o.EnforceMaintenance {
+		return engine.Config{}, fmt.Errorf("--tenant is for one-shot commands and mcp, not for a server or a worker")
 	}
 	if enter != "" && !cfg.Tenancy {
 		return engine.Config{}, fmt.Errorf(`--tenant needs "tenancy": true in ddcore.json`)

@@ -284,7 +284,8 @@ ddcore import run /srv/export --tenant acme   # another site's export, loaded in
 ```
 
 `--tenant` goes **before** the command and is for commands that do one thing and exit; a
-server, a worker and `mcp` refuse it. `ddcore apikey` and `ddcore user passwd|reset` find the
+server and a worker refuse it. `ddcore --tenant acme mcp` starts the MCP server with `acme` as
+its tools' default space (see **MCP** below). `ddcore apikey` and `ddcore user passwd|reset` find the
 account's tenant themselves, and so does `ddcore.users.createApiKey` called from the platform space. `ddcore import`
 takes `--tenant` on either side of the command (see below).
 
@@ -476,6 +477,28 @@ GRANT ddcore_tenant TO <the site's login role>;
 DDCORE_TENANT_ROLE=ddcore_tenant   # only needed for another name
 ```
 
+
+## MCP
+
+The MCP server (`ddcore mcp`, and `/mcp` for an operator) runs its tools as `Admin`, in one
+space per call:
+
+- every data tool — `get_doc`, `list_docs`, `insert_doc`, `update_doc`, `delete_doc`,
+  `submit_doc`, `cancel_doc`, `call_method`, `sql_query`, `eval`, `get_logs`, the job tools and
+  `import` — takes `tenant`, a tenant's slug, and works inside it;
+- left out, `tenant` is the server's default: the tenant `ddcore --tenant <slug> mcp` was
+  started in (in `.mcp.json`: `"args": ["--tenant", "acme", "mcp"]`), or the platform space;
+- `tenant: ""` is the platform space, even on a server started in a tenant.
+
+Metadata is the same in every space, so `get_doctype`, `list_doctypes` and the other
+metadata tools take no `tenant`.
+
+An answer from the platform space about a tenant-owned DocType — `list_docs` on it, a
+`sql_query` naming its table (`tab_<snake_case>`), a `get_doc` that finds nothing — carries a
+note after the result: the rows belong to tenants, pass `tenant`, and the tenants there are.
+The platform space holds none of a tenant's rows, so without the note `count(*) = 0` would read
+as "no data". A tenant-only DocType (`space: "tenant"`) is refused there with the same hint.
+
 ## Limits
 
 - **Tenants are users, not app authors.** The wall holds against everything a signed-in user
@@ -495,7 +518,6 @@ DDCORE_TENANT_ROLE=ddcore_tenant   # only needed for another name
 - **Files** are checked through their `File` document, which is the tenant's. A *public* file's
   URL is unguessable but answers anyone who has it, as on any site. Storage keys carry no tenant.
 - **Backup and restore** are of the whole database. There is no per-tenant backup or quota.
-- **MCP and `ddcore eval`** work in the platform space unless `--tenant` is given (`eval`) —
-  the MCP server always does, so it reaches a tenant-only DocType only through `eval` and
-  `ddcore.tenant.run`.
+- **MCP and `ddcore eval`** work in the platform space unless told otherwise: `--tenant` for
+  `eval`, and for MCP see **MCP** below.
 - A statement run by a migration patch outside `ddcore.tenant.run` sees every tenant.

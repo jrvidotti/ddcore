@@ -57,7 +57,7 @@ prints that command's options, or its subcommands for a command such as `import`
 | `ddcore user sessions <email> [--revoke]` | lists, or ends, that user's sessions |
 | `ddcore apikey <user> [--label x] [--days N] [--prefix p]` | produces `key:secret` for `Authorization: token key:secret`; `--days` expires it, `--prefix` makes the key's id `<p>.<random>` (a tenant's slug, say). Recorded as an `apikey.create` audit event, as `ddcore.users.createApiKey` is |
 | `ddcore tenant list\|create\|enable\|disable\|adopt` | the tenants of a site with `"tenancy": true`: `create <slug> [--title T] [--admin email]` invites its first System Manager, `disable` refuses its sign-ins and holds its jobs, `adopt <slug>` moves every row of the platform space into it, and `adopt <slug> --dry-run` lists what would move and every collision with the tenant, exiting non-zero on one (see `tenancy`) |
-| `ddcore --tenant <slug> <command>` | runs a one-shot command inside a tenant (`eval`, `exec`, `user add`, `export`, `audit list`, …); the flag goes before the command. A server, a worker, `mcp` and `tenant` refuse it; `import` also takes it after the command |
+| `ddcore --tenant <slug> <command>` | runs a one-shot command inside a tenant (`eval`, `exec`, `user add`, `export`, `audit list`, …); the flag goes before the command. A server, a worker and `tenant` refuse it; before `mcp` it is the default tenant of the MCP tools; `import` also takes it after the command |
 | `ddcore mcp` | MCP server (stdio) |
 | `ddcore docs [name]` | this documentation |
 | `ddcore version` | prints `ddcore <version> (<os>/<arch>)`, the version the compatibility contract enforces; a binary built without `-ldflags` reports the default `0.1.0` and ranges are enforced against that (see `conventions`) |
@@ -115,6 +115,9 @@ npm. `DDCORE_TEST_DSN` points at the disposable database the tests use.
 Tools: `list_doctypes`, `get_doctype`, `scaffold_doctype`, `extend_doctype`, `validate_meta`, `migrate`, `i18n_extract`, `set_translations`, `generate_types`, `get_doc`, `list_docs`, `insert_doc`,
 `update_doc`, `delete_doc`, `submit_doc`, `cancel_doc`, `call_method`, `sql_query`, `eval`, `run_tests`, `get_logs`, `list_jobs`, `get_job`, `retry_job`, `cancel_job`, `purge_jobs`, `maintenance_status`, `maintenance_set`, `vault_rekey`, `reload`, `list_apps`.
 The document tools (`get_doc`, `update_doc`, `delete_doc`, `submit_doc`, `cancel_doc`, `call_method`) name the document with `id`.
+On a site with tenancy the data tools take `tenant` (a slug; `""` is the platform space) and default to the
+tenant of `ddcore --tenant <slug> mcp`; an answer from the platform space about a tenant-owned DocType says so
+in a note (see `tenancy`, "MCP").
 `call_method` with a `method` path keeps the contract of `/api/method/<path>`: a function exported
 without `whitelisted()` is refused, and its `roles` apply. Run any other exported function with
 `eval` (`ddcore.callMethod(path, args)`).

@@ -339,6 +339,24 @@ func TestOnlyServingCommandsEnforceMaintenance(t *testing.T) {
 	}
 }
 
+// --tenant pins a one-shot command, and is mcp's default tenant (#143); a
+// server or a worker, which work in every tenant, refuse it.
+func TestTenantFlagIsForOneShotCommandsAndMCP(t *testing.T) {
+	t.Setenv("DDCORE_TENANT", "acme")
+	cfg := &config.File{DSN: "postgres://unused/unused", Path: "ddcore.json", Tenancy: true}
+	for name, opts := range map[string]loadOpts{"a one-shot command": {}, "mcp": mcpOpts()} {
+		ec, err := engineConfig(cfg, opts)
+		if err != nil || ec.EnterTenant != "acme" {
+			t.Errorf("%s: EnterTenant = %q, err = %v", name, ec.EnterTenant, err)
+		}
+	}
+	for name, opts := range map[string]loadOpts{"start": serveOpts(false), "dev": serveOpts(true), "worker": {EnforceMaintenance: true}} {
+		if _, err := engineConfig(cfg, opts); err == nil || !strings.Contains(err.Error(), "--tenant") {
+			t.Errorf("%s: expected --tenant to be refused, got %v", name, err)
+		}
+	}
+}
+
 // A command that never reads a row builds its engine from the same mapping as
 // every other, minus the database.
 func TestNoDBDropsTheDSNAndNothingElse(t *testing.T) {
