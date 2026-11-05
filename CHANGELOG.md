@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.31.13 — 2026-11-05
+
 ### Added
 
 - **MCP works inside a tenant.** On a site with tenancy every data tool (`get_doc`, `list_docs`,
