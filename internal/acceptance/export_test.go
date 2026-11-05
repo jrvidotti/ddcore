@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"github.com/jrvidotti/ddcore/internal/engine"
+	"github.com/jrvidotti/ddcore/internal/tabular"
 )
 
 // getRaw does an authenticated GET and hands back the response with its body
@@ -261,10 +262,66 @@ func TestExportRejectsAnUnknownFormat(t *testing.T) {
 	e := setup(t, "expu")
 	srv, tok := server(t, e)
 
-	res := getRaw(t, srv, tok, "/api/export/Project?format=xlsx")
+	res := getRaw(t, srv, tok, "/api/export/Project?format=xls")
 	defer res.Body.Close()
 	if res.StatusCode != 417 {
 		t.Fatalf("expected 417, got %d", res.StatusCode)
+	}
+}
+
+// The list's "everything matching" as a workbook: the count header, the
+// columns asked for in their order, and typed cells.
+func TestExportXLSXOverHTTP(t *testing.T) {
+	e := setup(t, "expx")
+	srv, tok := server(t, e)
+	seedProjects(t, e, 12)
+
+	fields := url.QueryEscape(`["id","code","start_date","modified"]`)
+	filters := url.QueryEscape(`[["code","<","P-0005"]]`)
+	res := getRaw(t, srv, tok, "/api/export/Project?format=xlsx&fields="+fields+"&filters="+filters)
+	defer res.Body.Close()
+	if res.StatusCode != 200 {
+		t.Fatalf("status %d: %s", res.StatusCode, readAll(t, res))
+	}
+	if ct := res.Header.Get("Content-Type"); ct != "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" {
+		t.Errorf("Content-Type: %s", ct)
+	}
+	if cd := res.Header.Get("Content-Disposition"); !strings.Contains(cd, ".xlsx") {
+		t.Errorf("Content-Disposition: %s", cd)
+	}
+	if n := res.Header.Get("X-DDCore-Export-Count"); n != "5" {
+		t.Fatalf("X-DDCore-Export-Count = %q", n)
+	}
+	s, err := tabular.Read([]byte(readAll(t, res)), tabular.Options{})
+	if err != nil {
+		t.Fatalf("not a workbook: %v", err)
+	}
+	if strings.Join(s.Headers, ",") != "id,code,start_date,modified" {
+		t.Fatalf("header: %v", s.Headers)
+	}
+	if len(s.Rows) != 5 {
+		t.Fatalf("rows: %d", len(s.Rows))
+	}
+	start := s.Rows[0].Cells[2]
+	if start.Num == nil || tabular.ExcelSerialToTime(*start.Num, false).Format("2006-01-02") != "2026-01-01" {
+		t.Errorf("a Date is a day number: %+v", start)
+	}
+	if m := s.Rows[0].Cells[3]; m.Num != nil || !strings.Contains(m.Text, "T") {
+		t.Errorf("modified stays the exact instant, for Data Import's check: %+v", m)
+	}
+}
+
+// A response is one workbook; the child tables and attachments are not.
+func TestExportRefusesChildrenInXLSX(t *testing.T) {
+	e := setup(t, "expxc")
+	srv, tok := server(t, e)
+
+	for _, q := range []string{"children=1", "attachments=1"} {
+		res := getRaw(t, srv, tok, "/api/export/Project?format=xlsx&"+q)
+		res.Body.Close()
+		if res.StatusCode != 417 {
+			t.Fatalf("%s: expected 417, got %d", q, res.StatusCode)
+		}
 	}
 }
 

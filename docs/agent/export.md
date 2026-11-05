@@ -51,7 +51,7 @@ Row-level authorisation is the same as a list's: `ifOwner` and the controller's
 ## HTTP
 
 ```
-GET /api/export/<DocType>?format=csv|ndjson&filters=[...]&or_filters=[...]
+GET /api/export/<DocType>?format=csv|ndjson|xlsx&filters=[...]&or_filters=[...]
                          &fields=[...]&children=1&attachments=1&sep=;&limit=N
 ```
 
@@ -66,7 +66,8 @@ page of the walk sees the same instant.
   was cut short.
 - `format=csv` with `children=1` is refused: one CSV cannot hold a parent and
   its child tables. Use `format=ndjson`, or the CLI, which writes one file per
-  table.
+  table. `format=xlsx` refuses `children=1` and `attachments=1` for the same
+  reason: the response is one workbook.
 - Above `exportMaxRows` in `ddcore.json` (default 100000) the request is
   refused and points at the CLI. An explicit `limit` is the caller accepting a
   sample, and is allowed; the manifest then carries `"truncated": true`.
@@ -80,7 +81,7 @@ page of the walk sees the same instant.
 ## CLI
 
 ```bash
-ddcore export <DocType> [--filters '<json>'] [--format ndjson|csv] [--out DIR]
+ddcore export <DocType> [--filters '<json>'] [--format ndjson|csv|xlsx] [--out DIR]
               [--children] [--attachments] [--fields a,b] [--sep ,]
               [--batch 500] [--user <email>] [--all]
 ```
@@ -92,7 +93,8 @@ user may not export is recorded in the manifest's `skipped` instead of ending
 the run. There is no row cap here.
 
 ```
-<out>/<DocType>.ndjson                   (or <DocType>.csv + <DocType>.<field>.csv per child table)
+<out>/<DocType>.ndjson                   (or <DocType>.csv + <DocType>.<field>.csv per child table;
+                                          .xlsx the same way, one workbook per table)
 <out>/<DocType>.files.csv                (the attachment manifest, CSV only)
 <out>/files/public/<file>                (the attachment bytes, with --attachments)
 <out>/files/private/<file>               (a private file keeps its own prefix)
@@ -129,6 +131,33 @@ side by side.
 Child tables in CSV are separate files keyed back by `parent`, `parenttype`,
 `parentfield` and `idx`.
 
+**XLSX** is the CSV for a person who works in Excel: the same columns, with
+the fieldnames as the header, in a workbook whose cells keep their types — so
+nobody picks a separator, an encoding or a column type on the way in, and a
+pt-BR Excel does not misread `10.5` or `03/01`:
+
+| Column | Cell |
+|---|---|
+| `Currency` | a number, shown with the site's currency decimals |
+| `Int`, `Float`, `Percent`, `Duration`, `Rating`, `docstatus`, `idx` | a number |
+| `Check` | a boolean |
+| `Date`, `Month` | a date |
+| `Datetime`, `creation` | a date and time on the **site's** clock (`ddcore.json:timezone`) — a cell has no timezone |
+| `Time` | a time of day |
+| `modified` | the CSV's text, the exact instant: Data Import compares it to refuse a row changed since the export, and a day number would not match |
+| anything else | the CSV's text: a `Select` its stored value, a `Link` the id |
+
+The dates use Excel's built-in formats, so each reader sees their own date
+order. A value that does not parse as its type is kept as text rather than
+dropped, a cell holds at most 32767 characters (Excel's limit), and a sheet at
+most 1048575 rows — the CLI fails past that rather than write a workbook Excel
+cannot open. An XLSX loads back through [Data Import](data-import.md) like the
+CSV does: a numeric cell in a Date, Datetime or Time column is read as a date
+on the site's clock.
+
+The workbook is streamed: the server holds one row at a time, whatever the
+size. It is also written when no row matches — the header and nothing else.
+
 ## Attachments
 
 `--attachments` (or `attachments=1`) lists the `File` rows attached to each
@@ -151,11 +180,17 @@ puts it into another site with the ids, owners and timestamps intact, and
 
 A list's download button asks what to export: the page on screen (built in the
 browser, with Link titles resolved) or everything the filters match (streamed
-by the server). The filters sent are the ones the list is showing. A CSV holds
-the id, always and first — hidden or not, so the file loads back through Data
-Import in update mode — then the columns on screen, in their order: **Modified**
-when it is shown, and whatever the user changed with the Columns menu. An NDJSON
-export is a whole copy of each row, every column, for an import.
+by the server), as CSV or XLSX — and everything matching as NDJSON too. The
+filters sent are the ones the list is showing. A CSV or XLSX holds the id,
+always and first — hidden or not, so the file loads back through Data Import in
+update mode — then the columns on screen, in their order: **Modified** when it
+is shown, and whatever the user changed with the Columns menu. An NDJSON export
+is a whole copy of each row, every column, for an import.
+
+The page on screen is built in the browser with the columns' labels as the
+header and a Link's title in its cell; its XLSX types the cells as the server's
+does (a Datetime on the site's clock). Everything matching comes from the
+server, with fieldnames as the header and a Link's id.
 
 A report and a form grid (a `Table` or `Report` field with `gridExport: true`)
 export in the browser, as CSV or XLSX: the rows already on screen, in their

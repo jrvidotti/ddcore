@@ -34,7 +34,7 @@ import (
 func cmdExport(args []string) error {
 	fs := newFlagSet("export")
 	out := fs.String("out", "", "output directory (default export/<timestamp>)")
-	format := fs.String("format", "ndjson", "ndjson or csv")
+	format := fs.String("format", "ndjson", "ndjson, csv or xlsx")
 	filters := fs.String("filters", "", "filters as JSON, e.g. '[[\"status\",\"=\",\"Open\"]]'")
 	fieldList := fs.String("fields", "", "comma-separated columns (default: all exportable ones)")
 	children := fs.Bool("children", false, "include the child tables")
@@ -50,8 +50,8 @@ func cmdExport(args []string) error {
 	if (len(rest) == 0) == !*all {
 		return fmt.Errorf("usage: ddcore export <DocType> [--children] [--attachments] [--out DIR], or ddcore export --all")
 	}
-	if *format != "ndjson" && *format != "csv" {
-		return fmt.Errorf("unknown format: %s (use ndjson or csv)", *format)
+	if *format != "ndjson" && *format != "csv" && *format != "xlsx" {
+		return fmt.Errorf("unknown format: %s (use ndjson, csv or xlsx)", *format)
 	}
 	sepRunes := []rune(*sep)
 	if len(sepRunes) != 1 {
@@ -169,10 +169,7 @@ func exportOne(ctx context.Context, e *engine.Engine, user, dir, dt, format stri
 	}()
 
 	open := func(table string) (io.Writer, error) {
-		ext := ".ndjson"
-		if format == "csv" {
-			ext = ".csv"
-		}
+		ext := "." + format
 		name := strings.ReplaceAll(table, " ", "-") + ext
 		f, err := os.Create(filepath.Join(dir, name))
 		if err != nil {
@@ -192,19 +189,19 @@ func exportOne(ctx context.Context, e *engine.Engine, user, dir, dt, format stri
 		if err := c.CanExport(args); err != nil {
 			return err
 		}
+		lookup := func(n string) (*meta.DocType, error) { return c.St.DocType(n) }
 		var sink engine.ExportSink
-		if format == "ndjson" {
+		switch format {
+		case "ndjson":
 			w, err := open(dt)
 			if err != nil {
 				return err
 			}
 			sink = engine.NewNDJSONSink(w)
-		} else {
-			sink = &engine.CSVSink{
-				Open:   open,
-				Sep:    sep,
-				Lookup: func(n string) (*meta.DocType, error) { return c.St.DocType(n) },
-			}
+		case "xlsx":
+			sink = &engine.XLSXSink{Open: open, Lookup: lookup, Loc: e.Location(), MoneyDecimals: e.CurrencyPrecision()}
+		default:
+			sink = &engine.CSVSink{Open: open, Sep: sep, Lookup: lookup}
 		}
 		cs := &copyingSink{ExportSink: sink, c: c, dir: filepath.Join(dir, "files"), res: res}
 		sum, err := c.Export(args, cs)

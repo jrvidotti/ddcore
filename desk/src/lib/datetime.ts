@@ -40,6 +40,15 @@ function offsetAt(d: Date, tz: string): number {
   return (asUTC - floored) / 60000;
 }
 
+/**
+ * An instant's wall clock in tz, as UTC milliseconds: the UTC fields of the
+ * result are the date and time tz shows. What a spreadsheet cell holds, since
+ * a spreadsheet has no timezone.
+ */
+export function wallClockMs(d: Date, tz: string = timezone()): number {
+  return d.getTime() + offsetAt(d, tz) * 60000;
+}
+
 /** Splits a civil date string ("YYYY-MM-DD", extra text ignored). */
 function parts(d: string): [number, number, number] {
   const s = String(d).slice(0, 10);
