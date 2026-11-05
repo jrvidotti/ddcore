@@ -17,16 +17,18 @@ func (s *server) dataTools(srv *mcp.Server) {
 
 	addTool(srv, "get_doc", "Reads a document with its child tables.",
 		func(ctx context.Context, in struct {
+			Space
 			Doctype string `json:"doctype"`
 			ID      string `json:"id"`
 		}) (any, error) {
-			return s.docOp(ctx, in.Doctype, func(c *engine.Ctx) (engine.Doc, error) {
+			return s.docOp(ctx, in.Space, in.Doctype, func(c *engine.Ctx) (engine.Doc, error) {
 				return c.GetDoc(in.Doctype, in.ID)
 			})
 		})
 
 	addTool(srv, "list_docs", "Lists documents. filters: [[field, op, value], ...] or {field: value}; ops: = != > >= < <= like in not in between is set. fields accepts aggregates like \"count(id) as n\".",
 		func(ctx context.Context, in struct {
+			Space
 			Doctype string   `json:"doctype"`
 			Filters any      `json:"filters,omitempty"`
 			Fields  []string `json:"fields,omitempty"`
@@ -35,10 +37,11 @@ func (s *server) dataTools(srv *mcp.Server) {
 			Start   int      `json:"start,omitempty"`
 		}) (any, error) {
 			var rows []map[string]any
+			var note string
 			if in.Limit == 0 {
 				in.Limit = 20
 			}
-			err := s.run(ctx, func(c *engine.Ctx) error {
+			err := s.runIn(ctx, in.Space, func(c *engine.Ctx) error {
 				var e error
 				rows, e = c.GetList(in.Doctype, engine.ListArgs{Filters: in.Filters, Fields: in.Fields, OrderBy: in.OrderBy, Limit: in.Limit, Start: in.Start})
 				if e != nil {
@@ -51,18 +54,20 @@ func (s *server) dataTools(srv *mcp.Server) {
 				for _, r := range rows {
 					engine.RedactPassword(d, engine.Doc(r))
 				}
+				note = platformNote(c, in.Doctype)
 				return nil
 			})
-			return rows, err
+			return noted{rows, note}, err
 		})
 
 	addTool(srv, "insert_doc", "Creates a document (running validate and the other hooks). Child tables go in their field as arrays.",
 		func(ctx context.Context, in struct {
+			Space
 			Doctype string         `json:"doctype"`
 			Values  map[string]any `json:"values"`
 			Submit  bool           `json:"submit,omitempty" jsonschema:"insert already submitted (docstatus 1)"`
 		}) (any, error) {
-			return s.docOp(ctx, in.Doctype, func(c *engine.Ctx) (engine.Doc, error) {
+			return s.docOp(ctx, in.Space, in.Doctype, func(c *engine.Ctx) (engine.Doc, error) {
 				d, err := c.NewDoc(in.Doctype, in.Values)
 				if err != nil {
 					return nil, err
@@ -76,11 +81,12 @@ func (s *server) dataTools(srv *mcp.Server) {
 
 	addTool(srv, "update_doc", "Updates fields of a document and saves (runs validate).",
 		func(ctx context.Context, in struct {
+			Space
 			Doctype string         `json:"doctype"`
 			ID      string         `json:"id"`
 			Values  map[string]any `json:"values"`
 		}) (any, error) {
-			return s.docOp(ctx, in.Doctype, func(c *engine.Ctx) (engine.Doc, error) {
+			return s.docOp(ctx, in.Space, in.Doctype, func(c *engine.Ctx) (engine.Doc, error) {
 				d, err := c.GetDoc(in.Doctype, in.ID)
 				if err != nil {
 					return nil, err
@@ -96,20 +102,24 @@ func (s *server) dataTools(srv *mcp.Server) {
 
 	addTool(srv, "delete_doc", "Deletes a document (fails if linked, unless force=true).",
 		func(ctx context.Context, in struct {
+			Space
 			Doctype string `json:"doctype"`
 			ID      string `json:"id"`
 			Force   bool   `json:"force,omitempty"`
 		}) (any, error) {
-			err := s.run(ctx, func(c *engine.Ctx) error { return c.Delete(in.Doctype, in.ID, true, in.Force) })
+			err := s.runIn(ctx, in.Space, func(c *engine.Ctx) error {
+				return notFoundNote(c, in.Doctype, c.Delete(in.Doctype, in.ID, true, in.Force))
+			})
 			return "deleted", err
 		})
 
 	addTool(srv, "submit_doc", "Submits (docstatus 1) a submittable document.",
 		func(ctx context.Context, in struct {
+			Space
 			Doctype string `json:"doctype"`
 			ID      string `json:"id"`
 		}) (any, error) {
-			return s.docOp(ctx, in.Doctype, func(c *engine.Ctx) (engine.Doc, error) {
+			return s.docOp(ctx, in.Space, in.Doctype, func(c *engine.Ctx) (engine.Doc, error) {
 				d, err := c.GetDoc(in.Doctype, in.ID)
 				if err != nil {
 					return nil, err
@@ -120,10 +130,11 @@ func (s *server) dataTools(srv *mcp.Server) {
 
 	addTool(srv, "cancel_doc", "Cancels (docstatus 2) a submitted document.",
 		func(ctx context.Context, in struct {
+			Space
 			Doctype string `json:"doctype"`
 			ID      string `json:"id"`
 		}) (any, error) {
-			return s.docOp(ctx, in.Doctype, func(c *engine.Ctx) (engine.Doc, error) {
+			return s.docOp(ctx, in.Space, in.Doctype, func(c *engine.Ctx) (engine.Doc, error) {
 				d, err := c.GetDoc(in.Doctype, in.ID)
 				if err != nil {
 					return nil, err
@@ -134,6 +145,7 @@ func (s *server) dataTools(srv *mcp.Server) {
 
 	addTool(srv, "call_method", "Calls a document controller method (doctype+id+method) or a whitelisted function (path app.dir.file.fn), as /api/method/<path> would. A function not exported with whitelisted() is refused; call it with eval (ddcore.callMethod(path, args)).",
 		func(ctx context.Context, in struct {
+			Space
 			Doctype string         `json:"doctype,omitempty"`
 			ID      string         `json:"id,omitempty"`
 			Method  string         `json:"method" jsonschema:"controller method name, or the function's full path"`
@@ -144,7 +156,7 @@ func (s *server) dataTools(srv *mcp.Server) {
 			if in.Args == nil {
 				b = []byte("{}")
 			}
-			err := s.run(ctx, func(c *engine.Ctx) error {
+			err := s.runIn(ctx, in.Space, func(c *engine.Ctx) error {
 				rt, err := c.RT()
 				if err != nil {
 					return err
@@ -152,7 +164,7 @@ func (s *server) dataTools(srv *mcp.Server) {
 				if in.Doctype != "" {
 					doc, err := c.GetDoc(in.Doctype, in.ID)
 					if err != nil {
-						return err
+						return notFoundNote(c, in.Doctype, err)
 					}
 					res, err := rt.RunMethod(in.Doctype, in.Method, doc.JSON(), b)
 					if err != nil {
@@ -180,24 +192,32 @@ func (s *server) dataTools(srv *mcp.Server) {
 
 	addTool(srv, "sql_query", "Read-only SELECT on Postgres (tables tab_<snake_case>; child tables have parent/parenttype/parentfield/idx). Params via $1, $2.",
 		func(ctx context.Context, in struct {
+			Space
 			Query  string `json:"query"`
 			Params []any  `json:"params,omitempty"`
 		}) (any, error) {
 			var rows []map[string]any
-			err := s.run(ctx, func(c *engine.Ctx) error {
+			var note string
+			err := s.runIn(ctx, in.Space, func(c *engine.Ctx) error {
 				var e error
 				rows, e = c.SQL(in.Query, in.Params)
+				note = platformNote(c, queryDoctypes(c, in.Query)...)
 				return e
 			})
-			return rows, err
+			return noted{rows, note}, err
 		})
 
 	// eval alone builds its CallToolResult: a failure also carries the logs.
 	mcp.AddTool(srv, &mcp.Tool{Name: "eval", Description: "Runs TypeScript/JS in the server runtime with the `ddcore` API available (e.g. ddcore.db.count(\"User\")). The transaction is rolled back unless commit=true. Returns the value of the last expression and the logs."},
 		func(ctx context.Context, req *mcp.CallToolRequest, in struct {
+			Space
 			Code   string `json:"code"`
 			Commit bool   `json:"commit,omitempty"`
 		}) (*mcp.CallToolResult, any, error) {
+			ctx, err := s.space(ctx, in.Space)
+			if err != nil {
+				return fail(err)
+			}
 			res, logs, err := e.Eval(ctx, in.Code, in.Commit)
 			if err != nil {
 				r, _, _ := fail(err)
@@ -236,13 +256,14 @@ func (s *server) dataTools(srv *mcp.Server) {
 
 	addTool(srv, "get_logs", "The latest Error Log rows (job, scheduler and server errors).",
 		func(ctx context.Context, in struct {
+			Space
 			Limit int `json:"limit,omitempty"`
 		}) (any, error) {
 			if in.Limit == 0 {
 				in.Limit = 20
 			}
 			var rows []map[string]any
-			err := s.run(ctx, func(c *engine.Ctx) error {
+			err := s.runIn(ctx, in.Space, func(c *engine.Ctx) error {
 				var e error
 				rows, e = c.GetList("Error Log", engine.ListArgs{Fields: []string{"id", "creation", "method", "error", "request_id"}, OrderBy: "creation desc", Limit: in.Limit})
 				return e
