@@ -430,7 +430,7 @@ export interface IDGenerationDef {
 export interface UniqueKeyDef {
   /**
    * Names the key. ascii snake_case, unique within the DocType, and the
-   * durable half of the index name (`tab_<snake>_uk_<name>`) — which is why
+   * durable half of the index name (`tab_<snake>__uk_<name>`) — which is why
    * reordering or renaming a field does not rebuild the index, and why a
    * duplicate error can say which business key was violated.
    */

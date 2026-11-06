@@ -53,7 +53,7 @@ func TestFieldIndexAgreesWithWantedIndexes(t *testing.T) {
 	wanted := wantedIndexes(d)
 	for _, f := range d.Fields {
 		got, ok := fieldIndex(f, f.Fieldname)
-		w, inWanted := wanted["tab_thing_"+f.Fieldname]
+		w, inWanted := wanted["tab_thing__"+f.Fieldname]
 		if ok != inWanted {
 			t.Fatalf("%s: fieldIndex says %v, wantedIndexes says %v", f.Fieldname, ok, inWanted)
 		}
@@ -118,7 +118,7 @@ func TestUniqueKeyIndex(t *testing.T) {
 		{Fieldname: "total", Fieldtype: "Currency"},
 	}}
 	idx := wantedIndexes(d)
-	got, ok := idx["tab_invoice_uk_customer_period"]
+	got, ok := idx["tab_invoice__uk_customer_period"]
 	if !ok {
 		t.Fatalf("the key produced no index: %v", idx)
 	}
@@ -149,11 +149,11 @@ func TestUniqueKeyIndexIsNamedAfterTheKey(t *testing.T) {
 		{Fieldname: "b", Fieldtype: "Data"},
 	}}
 	idx := wantedIndexes(d)
-	if _, ok := idx["tab_invoice_uk_business_key"]; !ok {
-		t.Fatalf("wanted tab_invoice_uk_business_key, got %v", keysOf(idx))
+	if _, ok := idx["tab_invoice__uk_business_key"]; !ok {
+		t.Fatalf("wanted tab_invoice__uk_business_key, got %v", keysOf(idx))
 	}
 	// Declaration order is the index's column order, and nothing sorts it.
-	if got := idx["tab_invoice_uk_business_key"].cols; got != `"b", "a"` {
+	if got := idx["tab_invoice__uk_business_key"].cols; got != `"b", "a"` {
 		t.Fatalf("cols = %q, want the declared order", got)
 	}
 }
@@ -207,9 +207,9 @@ func TestSameIndexAcceptsPostgresRenderingOfACompositePredicate(t *testing.T) {
 		{Fieldname: "documento", Fieldtype: "Data"},
 		{Fieldname: "limite", Fieldtype: "Currency"},
 	}}
-	want := wantedIndexes(d)["tab_pessoa_uk_doc"]
+	want := wantedIndexes(d)["tab_pessoa__uk_doc"]
 	// Copied from the shape pg_indexes reports, parens and cast included.
-	indexdef := "CREATE UNIQUE INDEX tab_pessoa_uk_doc ON public.tab_pessoa USING btree " +
+	indexdef := "CREATE UNIQUE INDEX tab_pessoa__uk_doc ON public.tab_pessoa USING btree " +
 		"(tipo, documento, limite) WHERE ((tipo IS NOT NULL) AND (tipo <> ''::text) AND " +
 		"(documento IS NOT NULL) AND (documento <> ''::text) AND (limite IS NOT NULL))"
 	if !sameIndex(indexdef, want) {

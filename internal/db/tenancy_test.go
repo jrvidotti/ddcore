@@ -50,10 +50,10 @@ func TestTenantOwnedTableIsKeyedAndIndexedByTenant(t *testing.T) {
 	}
 	idx := wantedIndexes(d)
 	want := map[string]string{
-		"tab_thing_modified":    "tenant, modified DESC",
-		"tab_thing_code":        `tenant, "code"`,
-		"tab_thing_customer":    `tenant, "customer"`,
-		"tab_thing_uk_per_year": `tenant, "customer", "year"`,
+		"tab_thing__modified":    "tenant, modified DESC",
+		"tab_thing__code":        `tenant, "code"`,
+		"tab_thing__customer":    `tenant, "customer"`,
+		"tab_thing__uk_per_year": `tenant, "customer", "year"`,
 	}
 	for name, cols := range want {
 		if idx[name].cols != cols {
@@ -73,10 +73,10 @@ func TestUserKeepsASiteWideKey(t *testing.T) {
 		t.Fatalf("User lost its site-wide key:\n%s", ddl)
 	}
 	idx := wantedIndexes(d)
-	if got := idx["tab_user_email"].cols; got != `"email"` {
+	if got := idx["tab_user__email"].cols; got != `"email"` {
 		t.Errorf("unique e-mail index is %q", got)
 	}
-	if got := idx["tab_user_manager"].cols; got != `tenant, "manager"` {
+	if got := idx["tab_user__manager"].cols; got != `tenant, "manager"` {
 		t.Errorf("plain index is %q", got)
 	}
 	cat := &catalog{pk: map[string]pkRow{"tab_user": {name: "tab_user_pkey", def: "PRIMARY KEY (id)"}},

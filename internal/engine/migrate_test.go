@@ -124,7 +124,7 @@ func TestRenameFieldKeepsTheData(t *testing.T) {
 // unique index a window with no constraint.
 func TestRenameFieldRenamesItsIndex(t *testing.T) {
 	e := setup(t)
-	before := indexDef(t, e, "tab_pessoa_cpf")
+	before := indexDef(t, e, "tab_pessoa__cpf")
 	if !strings.Contains(before, "UNIQUE") {
 		t.Fatalf("expected a unique index to start from, got %q", before)
 	}
@@ -137,10 +137,10 @@ func TestRenameFieldRenamesItsIndex(t *testing.T) {
 
 	res := migrar(t, e, false, "rename with index")
 
-	if indexDef(t, e, "tab_pessoa_cpf") != "" {
+	if indexDef(t, e, "tab_pessoa__cpf") != "" {
 		t.Fatal("the old index name survived")
 	}
-	after := indexDef(t, e, "tab_pessoa_documento")
+	after := indexDef(t, e, "tab_pessoa__documento")
 	if !strings.Contains(after, "UNIQUE") || !strings.Contains(after, "documento") {
 		t.Fatalf("the renamed index is not the unique index on documento: %q", after)
 	}
@@ -776,7 +776,7 @@ func TestAUniqueKeyBecomesAPartialUniqueIndex(t *testing.T) {
 	uniqueKeyOn(t, e, "Pessoa", meta.UniqueKey{Name: "tipo_codigo", Fields: []string{"tipo", "codigo"}})
 	migrar(t, e, false, "create key")
 
-	def := indexDef(t, e, "tab_pessoa_uk_tipo_codigo")
+	def := indexDef(t, e, "tab_pessoa__uk_tipo_codigo")
 	for _, want := range []string{"UNIQUE", "tipo", "codigo", "WHERE"} {
 		if !strings.Contains(def, want) {
 			t.Fatalf("index is missing %q: %q", want, def)
@@ -797,7 +797,7 @@ func TestDeletingAUniqueKeyDropsItsIndex(t *testing.T) {
 	e := setup(t)
 	uniqueKeyOn(t, e, "Pessoa", meta.UniqueKey{Name: "tipo_codigo", Fields: []string{"tipo", "codigo"}})
 	migrar(t, e, false, "create key")
-	if indexDef(t, e, "tab_pessoa_uk_tipo_codigo") == "" {
+	if indexDef(t, e, "tab_pessoa__uk_tipo_codigo") == "" {
 		t.Fatal("the index was never created")
 	}
 
@@ -806,7 +806,7 @@ func TestDeletingAUniqueKeyDropsItsIndex(t *testing.T) {
 	// not need the flag that guards losing data.
 	res := migrar(t, e, false, "drop key")
 
-	if def := indexDef(t, e, "tab_pessoa_uk_tipo_codigo"); def != "" {
+	if def := indexDef(t, e, "tab_pessoa__uk_tipo_codigo"); def != "" {
 		t.Fatalf("the index outlived its declaration: %q", def)
 	}
 	var dropped bool
@@ -847,14 +847,15 @@ func TestRenamingAFieldInsideAUniqueKeyDoesNotRebuildTheIndex(t *testing.T) {
 			t.Fatalf("the key's index was rebuilt instead of followed: %q", st.SQL)
 		}
 	}
-	if def := indexDef(t, e, "tab_pessoa_uk_tipo_codigo"); !strings.Contains(def, "codigo_interno") {
+	if def := indexDef(t, e, "tab_pessoa__uk_tipo_codigo"); !strings.Contains(def, "codigo_interno") {
 		t.Fatalf("the index did not follow the column: %q", def)
 	}
 }
 
 // The sweep is scoped by the owning table, not by a name prefix. A DocType
-// called "Pedido Uk Foo" gives its table indexes named "tab_pedido_uk_foo_*",
-// which carry the prefix "tab_pedido_uk_" that Pedido's own sweep looks for —
+// called "Pedido Uk Foo" gives its table indexes named "tab_pedido_uk_foo__*",
+// which carry the prefix "tab_pedido_uk_" that Pedido's own sweep looks for
+// among the names a migrate before #149 gave keys —
 // and which belong to another DocType entirely.
 func TestTheSweepDoesNotReachAnotherDocTypesTable(t *testing.T) {
 	e := setupWith(t, map[string]string{
@@ -862,13 +863,13 @@ func TestTheSweepDoesNotReachAnotherDocTypesTable(t *testing.T) {
 export default defineDoctype({ name: "Pedido Uk Foo", fields: [
   { fieldname: "rotulo", fieldtype: "Data", label: "Rotulo" } ] });`,
 	})
-	neighbour := indexDef(t, e, "tab_pedido_uk_foo_modified")
+	neighbour := indexDef(t, e, "tab_pedido_uk_foo__modified")
 	if neighbour == "" {
 		t.Fatal("the neighbouring table has no index to protect")
 	}
 	// Pedido declares no key at all, so its sweep sees every candidate name.
 	migrar(t, e, false, "sweep with a neighbour in the namespace")
-	if got := indexDef(t, e, "tab_pedido_uk_foo_modified"); got != neighbour {
+	if got := indexDef(t, e, "tab_pedido_uk_foo__modified"); got != neighbour {
 		t.Fatalf("the sweep reached another DocType's index: %q", got)
 	}
 }

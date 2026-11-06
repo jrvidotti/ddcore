@@ -291,24 +291,24 @@ func TestB14_UniqueIndexes(t *testing.T) {
 	pessoa, _ := e.Current().Meta.Get("Pessoa")
 	pessoa.Field("limite").Unique = true
 	migrateStep("currency unique")
-	if def := indexdef("tab_pessoa_limite"); !strings.Contains(def, "UNIQUE") || strings.Contains(def, "''") {
+	if def := indexdef("tab_pessoa__limite"); !strings.Contains(def, "UNIQUE") || strings.Contains(def, "''") {
 		t.Fatalf("unexpected Currency index: %q", def)
 	}
 
 	// Link with search index becomes unique and then reverts
 	pedido, _ := e.Current().Meta.Get("Pedido")
-	before := indexdef("tab_pedido_cliente")
+	before := indexdef("tab_pedido__cliente")
 	if before == "" || strings.Contains(before, "UNIQUE") {
 		t.Fatalf("expected non-unique index on cliente: %q", before)
 	}
 	pedido.Field("cliente").Unique = true
 	migrateStep("link → unique")
-	if def := indexdef("tab_pedido_cliente"); !strings.Contains(def, "UNIQUE") {
+	if def := indexdef("tab_pedido__cliente"); !strings.Contains(def, "UNIQUE") {
 		t.Fatalf("Link index did not become unique: %q", def)
 	}
 	pedido.Field("cliente").Unique = false
 	migrateStep("unique → link")
-	if def := indexdef("tab_pedido_cliente"); def == "" || strings.Contains(def, "UNIQUE") {
+	if def := indexdef("tab_pedido__cliente"); def == "" || strings.Contains(def, "UNIQUE") {
 		t.Fatalf("unique index did not revert to search index: %q", def)
 	}
 }

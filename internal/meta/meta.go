@@ -438,32 +438,59 @@ type IDGeneration struct {
 const MaxIdentifier = 63
 
 // IndexName is the name of the index a DocType's table gets for suffix (a
-// fieldname, "modified", "parent", a key's IndexSuffix): "<table>_<suffix>"
-// when that fits in MaxIdentifier bytes, and otherwise its first 54 bytes,
-// "_" and 8 hex digits of the full name's SHA-256 — 63 bytes, the same for
-// the same name every time, and distinct for two names Postgres would have
-// truncated to one and the same prefix (#144).
+// fieldname, "modified", "parent", a key's IndexSuffix): "<table>__<suffix>".
 //
-// The scheme is frozen: changing it renames every long index on every site.
+// The double underscore is what keeps the name out of every other one in the
+// schema, which Postgres keeps in a single namespace for tables and indexes.
+// Snake never produces "__", so no table name holds one, and the first "__"
+// of an index name is where its table ends. A single "_" let Product.model
+// (tab_product_model) take the name of the Product Model table and
+// Sales.order_date that of a Sales Order.date index (#149).
+//
+// A name past MaxIdentifier bytes keeps its first 54 bytes, "_" and 8 hex
+// digits of the full name's SHA-256 — 63 bytes, the same for the same name
+// every time, and distinct for two names Postgres would have truncated to one
+// and the same prefix (#144).
+//
+// The scheme is frozen: changing it renames every index on every site.
+// LegacyIndexNames lists what earlier schemes named the same index, which is
+// how migrate finds and renames it.
 func IndexName(table, suffix string) string {
-	full := table + "_" + suffix
-	if len(full) <= MaxIdentifier {
-		return full
-	}
-	sum := sha256.Sum256([]byte(full))
-	return full[:MaxIdentifier-9] + "_" + hex.EncodeToString(sum[:4])
+	return fitIdentifier(table + "__" + suffix)
 }
 
-// TruncatedIndexName is what Postgres named "<table>_<suffix>" when it was
-// handed the full name: its first MaxIdentifier bytes (identifiers here are
-// ASCII, so bytes and characters agree). It is the name a migrate before #144
-// left behind, and "" when the full name fits — there is nothing to adopt then.
-func TruncatedIndexName(table, suffix string) string {
+// LegacyIndexNames is what migrates before #149 named the index IndexName
+// names: "<table>_<suffix>" made to fit as IndexName does, and the first
+// MaxIdentifier bytes of that, which is what Postgres kept of it before #144.
+// The second is left out when the name fits — it is the same name then.
+func LegacyIndexNames(table, suffix string) []string {
 	full := table + "_" + suffix
 	if len(full) <= MaxIdentifier {
-		return ""
+		return []string{full}
 	}
-	return full[:MaxIdentifier]
+	return []string{fitIdentifier(full), full[:MaxIdentifier]}
+}
+
+// PrimaryKeyName is what Postgres calls a table's primary key: "<table>_pkey",
+// the table's part cut short when the whole would pass MaxIdentifier. Migrate
+// gives it the same name after renaming the table, so a renamed table and one
+// created under that name agree. Not IndexName: Postgres picks this name.
+func PrimaryKeyName(table string) string {
+	const suffix = "_pkey"
+	if len(table)+len(suffix) > MaxIdentifier {
+		table = table[:MaxIdentifier-len(suffix)]
+	}
+	return table + suffix
+}
+
+// fitIdentifier makes name fit in MaxIdentifier bytes: unchanged when it does,
+// and otherwise its first 54 bytes, "_" and 8 hex digits of its SHA-256.
+func fitIdentifier(name string) string {
+	if len(name) <= MaxIdentifier {
+		return name
+	}
+	sum := sha256.Sum256([]byte(name))
+	return name[:MaxIdentifier-9] + "_" + hex.EncodeToString(sum[:4])
 }
 
 // UniqueKey is a business key spanning more than one column, enforced by a

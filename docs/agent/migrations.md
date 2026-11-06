@@ -113,13 +113,27 @@ a duplicate and will not block the index.
 
 ## Index names
 
-A field's index (`unique`, `searchIndex`, a Link) is `<table>_<fieldname>`, and the table's own
-are `<table>_modified` (`<table>_parent` on a child table). Postgres keeps 63 bytes of a name,
-so a longer one becomes its first 54 bytes, `_` and 8 hex digits of a hash of the whole name —
-the same every run, and distinct for two fields that share a long prefix. A database migrated by
-an older release (#144) may hold such an index under the name Postgres cut it to; the next
-migrate renames it (`rename index` in the plan) instead of building it again. A key's index
-name is not shortened: a `uniqueKeys` name that would not fit is refused instead.
+A field's index (`unique`, `searchIndex`, a Link) is `<table>__<fieldname>`, a key's is
+`<table>__uk_<name>`, and the table's own are `<table>__modified` (`<table>__parent` on a child
+table). The primary key keeps the name Postgres gives it, `<table>_pkey`.
+
+The double underscore is the separator because no table name holds one (the snake case of a
+DocType name never does), and Postgres keeps tables and indexes in a single namespace: with one
+`_`, the index of `Product.model` was `tab_product_model`, the table of a `Product Model`
+DocType, and migrate failed with `42P07` (#149). The first `__` of an index name is where its
+table ends, so no two tables' indexes share a name either.
+
+Postgres keeps 63 bytes of a name, so a longer one becomes its first 54 bytes, `_` and 8 hex
+digits of a hash of the whole name — the same every run, and distinct for two fields that share
+a long prefix.
+
+A database migrated by an older release holds its indexes under the names that release gave
+them: `<table>_<fieldname>` before #149, or the 63 bytes Postgres cut a long name to before
+#144. The next migrate renames each (`rename index` in the plan) instead of building it again —
+a change to the catalog that leaves the rows and the index alone — and runs those renames before
+it creates any table, so a release that adds `Product Model` beside an old `tab_product_model`
+index migrates in one run. SQL of your own that names an index (a patch, a `DROP INDEX`) has to
+use the new name.
 
 ## Changing a fieldtype
 

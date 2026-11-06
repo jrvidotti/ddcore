@@ -14,6 +14,18 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- **A Link's index no longer takes another DocType's table name** (#149). An index was named
+  `<table>_<fieldname>`, so `Product.model` got `tab_product_model` — the table of a
+  `Product Model` DocType — and migrate failed with `42P07` (relation already exists). Indexes
+  are now `<table>__<fieldname>` (`<table>__uk_<name>` for a key, `<table>__modified`,
+  `<table>__parent`): no table name holds a double underscore, so no index name can equal one,
+  nor another table's index. The primary key keeps Postgres's `<table>_pkey`. The first migrate
+  after the upgrade renames every existing index to its new name (`rename index` in the plan,
+  catalog only — nothing is rebuilt), before creating any table. SQL of your own that names an
+  index, in a patch say, has to use the new name.
+
 ## 0.31.17 — 2026-11-06
 
 ### Added
