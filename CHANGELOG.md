@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.31.14 — 2026-11-06
+
 ### Fixed
 
 - **An index name past 63 bytes no longer breaks the second migrate.** A field's index is named
