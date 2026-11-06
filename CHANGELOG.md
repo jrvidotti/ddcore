@@ -14,6 +14,26 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **Report drill-down by a click on a row or a chart** (#148). A row that carries `drill`
+  (filter fieldname → value, e.g. `{ risk_band: "6", group_by: "Age Range" }`) is clickable on
+  the report page, and a click reopens the report with those filters over the ones the user set;
+  `null` empties a filter. A chart takes `drill` too, one entry per label, for its bars, points
+  and slices. The click goes through the URL, so Back returns to the previous cut. `drill` is not
+  a column; a workspace chart and a form's Report field ignore it. `report-api` now also documents
+  that the report page keeps its filters in the URL, so a link opens the same cut.
+
+### Fixed
+
+- **A report's footer draws the report's own `totals`** (#148). `ReportResult.totals` was
+  ignored, and the footer added up every numeric column but `Percent`, printing sums that mean
+  nothing (percentage-point changes, people counted in more than one group). When the report
+  returns `totals`, the footer and the export take that row; a column it omits is empty, a text in
+  the first column replaces the "Total" label, and `totals: {}` draws no footer. In a form's
+  Report field it is left out while the grid's search or filters hide rows. A report without
+  `totals` is summed as before.
+
 ## 0.31.16 — 2026-11-06
 
 ### Added

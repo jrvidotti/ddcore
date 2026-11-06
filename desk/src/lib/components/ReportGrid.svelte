@@ -1,6 +1,7 @@
 <script lang="ts">
   import { seg } from "$lib/routes";
-  // The table of a report's result: Link and status cells, a totals footer,
+  // The table of a report's result: Link and status cells, a totals footer (the report's own
+  // `totals` row, or a sum),
   // and optional sorting, row selection and CSV/XLSX export. Used by the
   // report page and by a form's Report field.
   import { __ } from "$lib/boot.svelte";
@@ -21,7 +22,7 @@
   let {
     columns, rows, wsPrefix, filename, sheetName,
     baseSort = null, sortable = false, selectable = false, exportable = false, filters = [], search = [], buttons = [], actions = [],
-    clickable = new Set(), oncellclick, onrowclick,
+    clickable = new Set(), oncellclick, onrowclick, rowclickable, reportTotals = null,
   }: {
     columns: any[]; rows: any[]; wsPrefix: string; filename: string; sheetName?: string;
     baseSort?: GridSortState | null; sortable?: boolean; selectable?: boolean; exportable?: boolean;
@@ -37,17 +38,30 @@
     oncellclick?: (column: string, row: any) => void;
     /** a click on a row outside its links and cell buttons (a Report field's grids.<field>.onRowClick) */
     onrowclick?: (row: any) => void;
+    /** which rows onrowclick takes (all of them when absent); the others neither look nor act clickable */
+    rowclickable?: (row: any) => boolean;
+    /** the report's own totals row (ReportResult.totals): the footer, in place of a sum of every numeric column */
+    reportTotals?: Record<string, any> | null;
   } = $props();
 
   const num = (c: any) => isNumericFieldtype(c.fieldtype);
   const grid = new GridRowsState({ rows: () => rows, columns: () => columns, presets: () => filters, search: () => search, baseSort: () => baseSort });
 
-  // footer with the sum of every numeric column (Percent is an average, not a sum)
-  const totals = $derived.by((): Record<string, number> | null => {
+  // the footer: the report's own totals row when it sends one, else the sum of every numeric
+  // column (Percent is an average, not a sum). The report's row adds up all of its rows, so it
+  // is left out while a grid filter or the search hides some of them.
+  const totals = $derived.by((): Record<string, any> | null => {
     if (!grid.visibleRows.length) return null;
+    if (reportTotals && typeof reportTotals === "object") {
+      if (grid.visibleRows.length !== rows.length) return null;
+      const out: Record<string, any> = {};
+      for (const c of columns) if (reportTotals[c.fieldname] != null && reportTotals[c.fieldname] !== "") out[c.fieldname] = reportTotals[c.fieldname];
+      // `totals: {}` is a report saying it has no totals row
+      return Object.keys(out).length ? out : null;
+    }
     const cols = columns.filter((c: any) => num(c) && c.fieldtype !== "Percent");
     if (!cols.length) return null;
-    const out: Record<string, number> = {};
+    const out: Record<string, any> = {};
     for (const c of cols) out[c.fieldname] = grid.visibleRows.reduce((a: number, r: any) => a + (Number(r[c.fieldname]) || 0), 0);
     return out;
   });
@@ -99,7 +113,8 @@
     <tbody>
       {#each grid.viewRows as r, i}
         <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
-        <tr class="row" class:row-click={!!onrowclick} onclick={onrowclick ? (e) => { if (isRowClick(e)) onrowclick(r); } : undefined}>
+        {@const rowClick = onrowclick && (!rowclickable || rowclickable(r)) ? onrowclick : undefined}
+        <tr class="row" class:row-click={!!rowClick} onclick={rowClick ? (e) => { if (isRowClick(e)) rowClick(r); } : undefined}>
           {#if selectable}<td><input type="checkbox" aria-label={__("Select row {0}", [i + 1])} checked={grid.selected.has(r)} onchange={() => grid.toggle(r)} /></td>{/if}
           {#each columns as c}
             <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->

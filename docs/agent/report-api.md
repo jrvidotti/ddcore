@@ -36,7 +36,39 @@ A chart (`chart`, plus any in `charts`, drawn after it — two side by side when
   series without one takes the next colour no other series named, and gray is never handed out,
   so it is the colour for a reference series.
 Route: `/app/report/<name>`; API: `GET /api/report/<name>?filters={...}`.
+The report page keeps its filters in the URL, one query parameter per filter fieldname
+(`/app/report/Rates?risk_band=6&group_by=Age%20Range`): a filter changed on the page rewrites
+it, and a link opens the report on that cut. A parameter the report has no filter for is
+ignored, a filter left out takes its `default`, and an empty one (`risk_band=`) stays empty.
 The report page sorts by a click on a column header and exports CSV or XLSX.
+
+The footer adds up every numeric column but `Percent`, over the rows on screen. When a sum means
+nothing (percentage-point changes, people counted in more than one group), return `totals`: the
+footer draws that row instead, one value per column fieldname, and leaves a column it omits
+empty; a text value in the first column replaces the "Total" label, and `totals: {}` draws no
+footer. The export takes the same row. In a form's Report field, the report's `totals` is left
+out while the grid's search or filters hide rows, since it counts all of them.
+
+Drill-down: a row carrying `drill` (filter fieldname → value) is clickable on the report page,
+and a click reopens the report with those filters over the ones the user set. A chart takes
+`drill` too, one entry per label (`null` for a label with no drill-down), for its bars, points
+or slices. The click goes through the URL, so Back returns to the previous cut. Only the
+report's own filters are taken, and `null` empties one. `drill` is not a column, and a
+workspace chart or a form's Report field ignores it.
+
+```ts
+execute(f) {
+  const next = f.group_by === "Risk Band" ? "Age Range" : null;
+  const rows = groups.map((g) => ({ group: g.label, rate: g.rate, customers: g.customers,
+    drill: next && { risk_band: g.band, group_by: next } }));
+  return {
+    columns: [/* … */], rows,
+    totals: { group: _("All customers"), rate: overall.rate, customers: overall.customers },
+    chart: { type: "bar", labels: rows.map((r) => r.group), datasets: [{ name: _("Rate"), values: rows.map((r) => r.rate) }],
+      drill: rows.map((r) => r.drill) },
+  };
+},
+```
 A column draws its values as indicators when it carries a Select's `optionColors` or
 `optionIcons` (and `optionIconOnly`), as a field does (see `fieldtypes`); a column named
 `status` is an indicator either way.

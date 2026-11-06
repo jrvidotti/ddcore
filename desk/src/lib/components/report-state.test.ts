@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Field } from "$lib/meta";
-import { reportFiltersFromSearchParams, reportFiltersToSearchParams } from "./report-state";
+import { drillFilters, isDrill, reportFiltersFromSearchParams, reportFiltersToSearchParams } from "./report-state";
 
 const fields: Field[] = [
   { fieldname: "ate", fieldtype: "Date" },
@@ -25,5 +25,26 @@ describe("report URL filters", () => {
   it("serializes active filters, including false and empty", () => {
     expect(reportFiltersToSearchParams({ ate: "", imovel: "IMV-001", somente_com_movimento: false, limite: 25.5 }, fields).toString())
       .toBe("ate=&imovel=IMV-001&somente_com_movimento=false&limite=25.5");
+  });
+});
+
+describe("report drill-down", () => {
+  const current = { ate: "2026-09-30", imovel: "IMV-001", limite: 10 };
+
+  it("puts a drill's filters over the current ones", () => {
+    expect(drillFilters(current, { imovel: "IMV-002", somente_com_movimento: true }, fields))
+      .toEqual({ ate: "2026-09-30", imovel: "IMV-002", limite: 10, somente_com_movimento: true });
+  });
+
+  it("empties a filter the drill sets to null, and takes no filter the report lacks", () => {
+    expect(drillFilters(current, { imovel: null, estranho: "x" }, fields)).toEqual({ ate: "2026-09-30", imovel: "", limite: 10 });
+  });
+
+  it("is no drill without one of the report's filters", () => {
+    for (const d of [undefined, null, "imovel", ["imovel"], {}, { estranho: "x" }]) {
+      expect(isDrill(d, fields)).toBe(false);
+      expect(drillFilters(current, d, fields)).toBeNull();
+    }
+    expect(isDrill({ limite: 5 }, fields)).toBe(true);
   });
 });

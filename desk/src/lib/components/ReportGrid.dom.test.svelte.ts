@@ -133,3 +133,61 @@ describe("ReportGrid selection and actions", () => {
     g.done();
   });
 });
+
+describe("ReportGrid footer", () => {
+  const columns = [
+    { fieldname: "group", fieldtype: "Data", label: "Group" },
+    { fieldname: "customers", fieldtype: "Int", label: "Customers" },
+    { fieldname: "delta", fieldtype: "Float", label: "Δ year (pp)" },
+  ];
+  const rows = [{ group: "Band 1", customers: 10, delta: 1.5 }, { group: "Band 2", customers: 20, delta: -0.5 }];
+  const footer = (target: Element) => [...target.querySelectorAll("tfoot td")].map((td) => td.textContent?.trim());
+
+  it("sums every numeric column when the report sends no totals", () => {
+    const g = setup({ columns, rows });
+    expect(footer(g.target)).toEqual(["Total", "30", "1"]);
+    g.done();
+  });
+
+  it("draws the report's own totals row, and leaves the columns it omits empty", () => {
+    const g = setup({ columns, rows, reportTotals: { customers: 25 } });
+    expect(footer(g.target)).toEqual(["Total", "25", ""]);
+    g.done();
+  });
+
+  it("draws the report's label in the first column, and no footer for `totals: {}`", () => {
+    const g = setup({ columns, rows, reportTotals: { group: "All customers", customers: 25 } });
+    expect(footer(g.target)[0]).toBe("All customers");
+    g.done();
+    const none = setup({ columns, rows, reportTotals: {} });
+    expect(none.target.querySelector("tfoot")).toBeNull();
+    none.done();
+  });
+
+  it("leaves out the report's totals while the search hides rows", async () => {
+    const g = setup({ columns, rows, reportTotals: { customers: 25 }, search: ["group"] });
+    const input = g.target.querySelector<HTMLInputElement>(".grid-toolbar input")!;
+    input.value = "Band 1";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await tick();
+    flushSync();
+    expect(g.target.querySelectorAll("tbody tr")).toHaveLength(1);
+    expect(g.target.querySelector("tfoot")).toBeNull();
+    g.done();
+  });
+});
+
+describe("ReportGrid row drill-down", () => {
+  it("makes clickable only the rows rowclickable accepts", () => {
+    const rows = [{ title: "Band 6", drill: { band: "6" } }, { title: "No band" }];
+    const onrowclick = vi.fn();
+    const g = setup({ rows, onrowclick, rowclickable: (r: any) => !!r.drill });
+    const trs = [...g.target.querySelectorAll<HTMLElement>("tbody tr")];
+    expect(trs.map((tr) => tr.classList.contains("row-click"))).toEqual([true, false]);
+    g.click(trs[1].querySelector("td"));
+    expect(onrowclick).not.toHaveBeenCalled();
+    g.click(trs[0].querySelector("td"));
+    expect(onrowclick).toHaveBeenCalledWith(rows[0]);
+    g.done();
+  });
+});

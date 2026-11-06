@@ -1,5 +1,5 @@
 import { flushSync, mount, unmount } from "svelte";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import Chart from "./Chart.svelte";
 
 // jsdom has no ResizeObserver; `bind:clientWidth` only needs it to exist (the chart then draws 800 wide)
@@ -83,6 +83,47 @@ describe("Chart shapes", () => {
   it("draws its title", () => {
     const { target, done } = draw({ type: "bar", title: "By store", labels: ["a"], datasets: [{ name: "A", values: [1] }] });
     expect(target.querySelector("h3.chart-title")?.textContent).toBe("By store");
+    done();
+  });
+});
+
+describe("Chart drill-down", () => {
+  function drawPicking(data: any, pickable?: (i: number) => boolean) {
+    const target = document.createElement("div");
+    const onpick = vi.fn();
+    const view = mount(Chart, { target, props: { data, onpick, pickable } });
+    flushSync();
+    return { target, onpick, done: () => unmount(view) };
+  }
+
+  it("hands over the label of a bar clicked, and only of the labels it may pick", () => {
+    const { target, onpick, done } = drawPicking({ type: "bar", labels: ["a", "b", "c"], datasets: [{ name: "A", values: [1, 2, 3] }] }, (i) => i !== 1);
+    const rects = [...target.querySelectorAll<SVGElement>("rect")];
+    expect(rects.map((r) => r.getAttribute("role"))).toEqual(["button", "img", "button"]);
+    rects[2].dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    rects[1].dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(onpick.mock.calls).toEqual([[2]]);
+    rects[0].dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(onpick).toHaveBeenLastCalledWith(0);
+    done();
+  });
+
+  it("picks a slice and a line point by their label", () => {
+    const pie = drawPicking({ type: "pie", labels: ["a", "b"], datasets: [{ name: "A", values: [1, 2] }] });
+    pie.target.querySelectorAll("path")[1].dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(pie.onpick).toHaveBeenCalledWith(1);
+    pie.done();
+    const line = drawPicking({ type: "line", labels: ["a", "b"], datasets: [{ name: "A", values: [1, 2] }] });
+    line.target.querySelectorAll("circle[r='10']")[1].dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(line.onpick).toHaveBeenCalledWith(1);
+    line.done();
+  });
+
+  it("takes no click without onpick", () => {
+    const { target, done } = draw({ type: "bar", labels: ["a"], datasets: [{ name: "A", values: [1] }] });
+    const rect = target.querySelector("rect")!;
+    expect(rect.getAttribute("role")).toBe("img");
+    expect(rect.getAttribute("tabindex")).toBeNull();
     done();
   });
 });

@@ -11,7 +11,7 @@
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
   import { deskSDK } from "$lib/desk-sdk";
-  import { reportFiltersFromSearchParams, reportFiltersToSearchParams } from "./report-state";
+  import { drillFilters, isDrill, reportFiltersFromSearchParams, reportFiltersToSearchParams } from "./report-state";
   import { getRememberedWorkspace } from "./sidebar-workspace";
 
   let { name }: { name: string } = $props();
@@ -50,6 +50,17 @@
   }
   function applyFiltersFromUrl() {
     filters = reportFiltersFromSearchParams(page.url.searchParams, meta?.filters || [], defaultFilters());
+  }
+  // A row's or a chart label's `drill` reopens the report with those filters over the current
+  // ones. It goes through the URL, so Back returns to the cut the user drilled from; the URL
+  // effect below applies the filters and runs the report.
+  const filterFields = $derived(meta?.filters || []);
+  const canDrill = (drill: unknown) => isDrill(drill, filterFields);
+  function drill(d: unknown) {
+    const next = drillFilters(filters, d, filterFields);
+    if (!next) return;
+    const params = reportFiltersToSearchParams(next, filterFields);
+    goto(`${wsPrefix}/report/${seg(name)}${params.size ? `?${params}` : ""}`, { noScroll: true });
   }
   function updateFilter(fieldname: string, value: any) {
     filters = { ...filters, [fieldname]: value };
@@ -99,11 +110,16 @@
   {/if}
   {#if charts.length}
     <div class="charts" class:pair={charts.length > 1}>
-      {#each charts as c}<div class="card chart-card"><Chart data={c} /></div>{/each}
+      {#each charts as c}
+        <div class="card chart-card">
+          <Chart data={c} pickable={(i) => canDrill(c.drill?.[i])} onpick={c.drill?.some(canDrill) ? (i) => drill(c.drill[i]) : undefined} />
+        </div>
+      {/each}
     </div>
   {/if}
   {#if result}
-    <ReportGrid columns={result.columns} rows={result.rows} {wsPrefix} filename={name} sheetName={label} sortable exportable={meta?.canExport !== false} />
+    <ReportGrid columns={result.columns} rows={result.rows} {wsPrefix} filename={name} sheetName={label} sortable exportable={meta?.canExport !== false}
+      reportTotals={result.totals} rowclickable={(r) => canDrill(r.drill)} onrowclick={result.rows?.some((r: any) => canDrill(r.drill)) ? (r) => drill(r.drill) : undefined} />
   {/if}
 </div>
 

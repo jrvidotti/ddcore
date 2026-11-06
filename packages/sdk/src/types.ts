@@ -675,8 +675,16 @@ export interface ReportColumn {
 
 export interface ReportResult {
   columns: ReportColumn[];
-  rows: Record<string, any>[];
-  /** optional totals row */
+  /**
+   * A row's `drill` (it is not a column) makes it a drill-down: a click reopens the report with
+   * those filters over the current ones, e.g. `drill: { risk_band: "6", group_by: "Age Range" }`.
+   * Only the report's own filters are taken; `null` empties one. The report page only.
+   */
+  rows: (Record<string, any> & { drill?: ReportDrill })[];
+  /**
+   * The table's footer, by column fieldname, in place of the sum of every numeric column the
+   * desk adds up otherwise. A column it leaves out has an empty cell; `{}` draws no footer.
+   */
   totals?: Record<string, any>;
   chart?: ChartData;
   /** more charts, drawn after `chart` (two side by side when there is room) */
@@ -712,7 +720,16 @@ export interface ChartData {
   stacked?: boolean;
   /** The axis and the tooltip print values in this format; the axis shows a currency in short form. */
   format?: ChartFormat;
+  /**
+   * A report chart's drill-down, one entry per label: a click on that label's bar, point or
+   * slice reopens the report with those filters over the current ones (as a row's `drill`).
+   * `null` leaves a label unclickable. Ignored on a workspace chart.
+   */
+  drill?: (ReportDrill | null)[];
 }
+
+/** The filters a drill-down sets, by the report filter's fieldname; `null` empties one. */
+export type ReportDrill = Record<string, string | number | boolean | null>;
 
 export interface ReportDef {
   name: string;
