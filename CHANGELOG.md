@@ -14,6 +14,19 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- **An index name past 63 bytes no longer breaks the second migrate.** A field's index is named
+  `<table>_<fieldname>`, and when that ran past the 63 bytes Postgres keeps, Postgres created it
+  under a truncated name, the next `migrate` did not find it and tried to create it again
+  (`relation "…" already exists`) — every migrate after the first failed, `ddcore dev`'s
+  auto-migrate with it. Such a name is now `<first 54 bytes>_<8 hex of a hash of the full name>`,
+  and an index an older release left under the truncated name is renamed on the next migrate,
+  not rebuilt. A duplicate on a long `unique` field still names the field. A table name
+  (`tab_<snake>`) or a `fieldname` past 63 bytes, which failed the same way and cannot be
+  shortened behind the app's back, is now refused by the meta validation (`validate_meta`,
+  `migrate`) instead. See `ddcore docs migrations`. (#144)
+
 ## 0.31.13 — 2026-11-05
 
 ### Added

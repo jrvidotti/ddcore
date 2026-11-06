@@ -69,6 +69,26 @@ func TestFieldIndexAgreesWithWantedIndexes(t *testing.T) {
 	}
 }
 
+// #144 — a name past 63 bytes is made to fit, and the suffix it was built
+// from is kept, since the name can no longer be read back.
+func TestWantedIndexesFitPostgresIdentifiers(t *testing.T) {
+	d := &meta.DocType{Name: "TagOne ProdutoEstoqueReferencia", Fields: []*meta.Field{
+		{Fieldname: "codigo_produto_estoque_referencia", Fieldtype: "Data", SearchIndex: true},
+	}}
+	t0 := d.TableName()
+	name := meta.IndexName(t0, "codigo_produto_estoque_referencia")
+	i, ok := wantedIndexes(d)[name]
+	if !ok {
+		t.Fatalf("no index under %q: %v", name, wantedIndexes(d))
+	}
+	if len(i.name) > meta.MaxIdentifier || i.suffix != "codigo_produto_estoque_referencia" {
+		t.Fatalf("index %+v", i)
+	}
+	if !strings.Contains(i.ddl(), name) {
+		t.Fatalf("the DDL does not use the name that fits: %s", i.ddl())
+	}
+}
+
 func TestReportSeparatesTheDestructive(t *testing.T) {
 	out := Report([]Statement{
 		{SQL: `ALTER TABLE "tab_a" RENAME COLUMN "x" TO "y";`, Kind: KindRenameColumn, Table: "tab_a", Column: "y", OldName: "x"},

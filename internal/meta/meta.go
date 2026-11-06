@@ -3,6 +3,8 @@
 package meta
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -435,6 +437,35 @@ type IDGeneration struct {
 // planner wants — so migrate would drop and recreate it on every run.
 const MaxIdentifier = 63
 
+// IndexName is the name of the index a DocType's table gets for suffix (a
+// fieldname, "modified", "parent", a key's IndexSuffix): "<table>_<suffix>"
+// when that fits in MaxIdentifier bytes, and otherwise its first 54 bytes,
+// "_" and 8 hex digits of the full name's SHA-256 — 63 bytes, the same for
+// the same name every time, and distinct for two names Postgres would have
+// truncated to one and the same prefix (#144).
+//
+// The scheme is frozen: changing it renames every long index on every site.
+func IndexName(table, suffix string) string {
+	full := table + "_" + suffix
+	if len(full) <= MaxIdentifier {
+		return full
+	}
+	sum := sha256.Sum256([]byte(full))
+	return full[:MaxIdentifier-9] + "_" + hex.EncodeToString(sum[:4])
+}
+
+// TruncatedIndexName is what Postgres named "<table>_<suffix>" when it was
+// handed the full name: its first MaxIdentifier bytes (identifiers here are
+// ASCII, so bytes and characters agree). It is the name a migrate before #144
+// left behind, and "" when the full name fits — there is nothing to adopt then.
+func TruncatedIndexName(table, suffix string) string {
+	full := table + "_" + suffix
+	if len(full) <= MaxIdentifier {
+		return ""
+	}
+	return full[:MaxIdentifier]
+}
+
 // UniqueKey is a business key spanning more than one column, enforced by a
 // partial unique index. Naming it — rather than deriving a name from the field
 // list — is what keeps the index still when the fields are reordered or
@@ -726,6 +757,12 @@ func (r *Registry) Validate() error {
 		if d.Tool && !d.IsSingle {
 			e("tool is for a Single DocType")
 		}
+		// The same failure as a long fieldname, one level up: a truncated
+		// table is created again by every migrate after the first. A virtual
+		// DocType has no table, so its name is free to be long.
+		if n := len(d.TableName()); n > MaxIdentifier && !d.IsVirtual() {
+			e("its table name %s is %d bytes, past the %d Postgres keeps — shorten the DocType name", d.TableName(), n, MaxIdentifier)
+		}
 		r.validateFieldOptions(d, e)
 		validateReferences(d, e)
 		validateUniqueKeys(d, e)
@@ -769,6 +806,11 @@ func (r *Registry) validateFieldOptions(d *DocType, e func(string, ...any)) {
 		}
 		if !fieldnameRe.MatchString(f.Fieldname) {
 			e("invalid fieldname %q (use ascii snake_case)", f.Fieldname)
+		}
+		// The fieldname is the column's name: past the limit Postgres
+		// truncates it, and every migrate after the first adds it again.
+		if n := len(f.Fieldname); n > MaxIdentifier {
+			e("fieldname %q is %d bytes, past the %d Postgres keeps — shorten it", f.Fieldname, n, MaxIdentifier)
 		}
 		if seen[f.Fieldname] {
 			e("duplicate fieldname %q", f.Fieldname)

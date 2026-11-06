@@ -2152,20 +2152,22 @@ func (c *Ctx) duplicateErr(d *meta.DocType, doc Doc, err error) error {
 	if !ok {
 		return err
 	}
-	suffix := strings.TrimPrefix(idx, d.TableName()+"_")
-	switch {
-	case suffix == idx:
-		// An index on another table, or one whose name this DocType does not
-		// own: the collision is real, its name is simply not ours to read.
-	case suffix == "pkey":
+	// The index is matched by the name the planner gives it (meta.IndexName)
+	// rather than read back: a long name carries a hash where its suffix was.
+	// An index on another table, or one whose name this DocType does not own,
+	// matches nothing — the collision is real, its name is simply not ours.
+	t := d.TableName()
+	if idx == t+"_pkey" {
 		return cerr.Duplicate("{0} {1} already exists", c.T(d.Label), doc.ID()).WithTitleKey("Duplicate ID")
-	case strings.HasPrefix(suffix, "uk_"):
-		if k := d.UniqueKey(strings.TrimPrefix(suffix, "uk_")); k != nil {
-			return cerr.Duplicate("{0} already exists", c.keyValues(d, *k, doc)).WithTitleKey("Duplicate value")
+	}
+	for _, k := range d.UniqueKeys {
+		if idx == meta.IndexName(t, k.IndexSuffix()) {
+			return cerr.Duplicate("{0} already exists", c.keyValues(d, k, doc)).WithTitleKey("Duplicate value")
 		}
-	default:
-		if f := d.Field(suffix); f != nil {
-			return cerr.Duplicate("{0} \"{1}\" already exists", c.T(f.Label), doc.Str(suffix)).WithTitleKey("Duplicate value")
+	}
+	for _, f := range d.DataFields() {
+		if idx == meta.IndexName(t, f.Fieldname) {
+			return cerr.Duplicate("{0} \"{1}\" already exists", c.T(f.Label), doc.Str(f.Fieldname)).WithTitleKey("Duplicate value")
 		}
 	}
 	return cerr.Duplicate("Duplicate value in {0}", c.T(d.Label)).WithTitleKey("Duplicate value")
