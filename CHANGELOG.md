@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.31.16 — 2026-11-06
+
 ### Added
 
 - **Report and workspace charts: gaps, units, stacking, colours and more than one chart** (#146).
