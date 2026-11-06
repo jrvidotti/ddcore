@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.31.15 — 2026-11-06
+
 ### Added
 
 - **Bulk writes from server code: `ddcore.db.insertMany`, `updateMany` and `upsertMany`.** One
