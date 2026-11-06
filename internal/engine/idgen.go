@@ -18,6 +18,23 @@ var hashRun = regexp.MustCompile(`#+`)
 
 // setID decides the id of a new document following its idGeneration rule.
 func (c *Ctx) setID(d *meta.DocType, doc Doc) error {
+	if err := c.assignID(d, doc, c.nextCounter); err != nil {
+		return err
+	}
+	if ok, _ := c.idExists(d.Name, doc.Str("id")); ok {
+		return cerr.Duplicate("{0} {1} already exists", c.T(d.Label), doc.Str("id")).WithTitleKey("Duplicate ID")
+	}
+	return nil
+}
+
+// counterFunc hands out the next number of a counter prefix. setID takes it
+// from the database one at a time; a bulk insert hands it out of a block it
+// reserved for the whole call.
+type counterFunc func(prefix string) (int64, error)
+
+// assignID is setID without the duplicate check: it writes the id the
+// idGeneration rule gives, numbering a series or a format with next.
+func (c *Ctx) assignID(d *meta.DocType, doc Doc, next counterFunc) error {
 	if d.IsSingle {
 		doc["id"] = "singleton"
 		return nil
@@ -31,7 +48,7 @@ func (c *Ctx) setID(d *meta.DocType, doc Doc) error {
 		if doc.Str("id_series") != "" {
 			series = doc.Str("id_series")
 		}
-		id, err := c.nextInSeries(series, doc)
+		id, err := c.nextInSeries(series, doc, next)
 		if err != nil {
 			return err
 		}
@@ -43,7 +60,7 @@ func (c *Ctx) setID(d *meta.DocType, doc Doc) error {
 		}
 		doc["id"] = v
 	case g.Format != "":
-		id, err := c.formatID(g.Format, doc)
+		id, err := c.formatID(g.Format, doc, next)
 		if err != nil {
 			return err
 		}
@@ -61,14 +78,19 @@ func (c *Ctx) setID(d *meta.DocType, doc Doc) error {
 	if doc.Str("id") == "" {
 		doc["id"] = randomID()
 	}
-	if ok, _ := c.idExists(d.Name, doc.Str("id")); ok {
-		return cerr.Duplicate("{0} {1} already exists", c.T(d.Label), doc.Str("id")).WithTitleKey("Duplicate ID")
-	}
 	return nil
 }
 
+// countsIDs reports whether d's ids come from a counter: a series, or a
+// format with a {###} run.
+func countsIDs(d *meta.DocType) bool {
+	return d.IDGeneration.Series != "" || (d.IDGeneration.Format != "" && fmtCounter.MatchString(d.IDGeneration.Format))
+}
+
+var fmtCounter = regexp.MustCompile(`\{#+\}`)
+
 // nextInSeries renders a Frappe-style series like "CTR-.YYYY.-.####".
-func (c *Ctx) nextInSeries(series string, doc Doc) (string, error) {
+func (c *Ctx) nextInSeries(series string, doc Doc, next counterFunc) (string, error) {
 	parts := strings.Split(series, ".")
 	now := time.Now()
 	var prefix strings.Builder
@@ -96,18 +118,22 @@ func (c *Ctx) nextInSeries(series string, doc Doc) (string, error) {
 	if digits == 0 {
 		digits = 5
 	}
-	n, err := c.nextCounter(prefix.String())
+	n, err := next(prefix.String())
 	if err != nil {
 		return "", err
 	}
 	return fmt.Sprintf("%s%0*d", prefix.String(), digits, n), nil
 }
 
-func (c *Ctx) nextCounter(key string) (int64, error) {
-	var n int64
-	err := c.Q().QueryRow(c.Ctx, `INSERT INTO ddcore_series (prefix, current) VALUES ($1, 1)
-		ON CONFLICT (`+c.seriesKey()+`) DO UPDATE SET current = ddcore_series.current + 1 RETURNING current`, key).Scan(&n)
-	return n, err
+func (c *Ctx) nextCounter(key string) (int64, error) { return c.nextCounterN(key, 1) }
+
+// nextCounterN advances a counter by n and returns its new value: the numbers
+// current-n+1 … current are the caller's.
+func (c *Ctx) nextCounterN(key string, n int64) (int64, error) {
+	var cur int64
+	err := c.Q().QueryRow(c.Ctx, `INSERT INTO ddcore_series (prefix, current) VALUES ($1, $2)
+		ON CONFLICT (`+c.seriesKey()+`) DO UPDATE SET current = ddcore_series.current + EXCLUDED.current RETURNING current`, key, n).Scan(&cur)
+	return cur, err
 }
 
 // seriesKey is what a counter is addressed by: its prefix, and on a site with
@@ -122,7 +148,7 @@ func (c *Ctx) seriesKey() string {
 var fmtField = regexp.MustCompile(`\{([a-zA-Z_#]+)\}`)
 
 // formatID renders "{imovel}-{YYYY}-{###}".
-func (c *Ctx) formatID(format string, doc Doc) (string, error) {
+func (c *Ctx) formatID(format string, doc Doc, next counterFunc) (string, error) {
 	now := time.Now()
 	counter := 0
 	out := fmtField.ReplaceAllStringFunc(format, func(m string) string {
@@ -144,7 +170,7 @@ func (c *Ctx) formatID(format string, doc Doc) (string, error) {
 	})
 	if counter > 0 {
 		prefix := strings.ReplaceAll(out, "\x00", "")
-		n, err := c.nextCounter(prefix)
+		n, err := next(prefix)
 		if err != nil {
 			return "", err
 		}

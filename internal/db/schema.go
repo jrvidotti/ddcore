@@ -265,9 +265,10 @@ func (i index) ddl() string {
 	return s + ";"
 }
 
-// uniquePredicate keeps empty strings out of a unique index — but only for
-// text columns: `col <> ”` em numeric/date quebra a migração (B14).
-func uniquePredicate(col, colType string) string {
+// UniquePredicate keeps empty strings out of a unique index — but only for
+// text columns: `col <> ''` on a numeric or date column breaks the migration
+// (B14). A bulk upsert repeats it in ON CONFLICT so Postgres infers the index.
+func UniquePredicate(col, colType string) string {
 	q := Ident(col)
 	if colType == "text" {
 		return fmt.Sprintf("%s IS NOT NULL AND %s <> ''", q, q)
@@ -282,7 +283,7 @@ func uniquePredicate(col, colType string) string {
 func fieldIndex(f *meta.Field, col string) (index, bool) {
 	switch {
 	case f.Unique:
-		return index{unique: true, cols: Ident(col), predicate: uniquePredicate(col, meta.ColumnType(f.Fieldtype))}, true
+		return index{unique: true, cols: Ident(col), predicate: UniquePredicate(col, meta.ColumnType(f.Fieldtype))}, true
 	case f.SearchIndex || f.Fieldtype == "Link" || f.Fieldtype == "Dynamic Link":
 		return index{cols: Ident(col)}, true
 	}
@@ -310,7 +311,7 @@ func uniqueKeyIndex(d *meta.DocType, k meta.UniqueKey, col func(string) string) 
 		}
 		c := col(fn)
 		cols = append(cols, Ident(c))
-		preds = append(preds, uniquePredicate(c, meta.ColumnType(f.Fieldtype)))
+		preds = append(preds, UniquePredicate(c, meta.ColumnType(f.Fieldtype)))
 	}
 	return index{unique: true, cols: strings.Join(cols, ", "), predicate: strings.Join(preds, " AND ")}, true
 }

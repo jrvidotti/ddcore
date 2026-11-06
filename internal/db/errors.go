@@ -53,3 +53,34 @@ func StaleCachedPlan(err error) bool {
 	return errors.As(err, &pg) && pg.Code == "0A000" &&
 		strings.Contains(pg.Message, "cached plan must not change result type")
 }
+
+// UniqueViolationKey reads the columns and values a unique violation names in
+// its detail — `Key (tenant, code)=(alfa, X1) already exists.` — so a write
+// of many rows can say which value collided. Best effort: nil when err is not
+// a unique violation or the detail does not split into as many values as
+// columns (a value with ", " in it).
+func UniqueViolationKey(err error) map[string]string {
+	var pg *pgconn.PgError
+	if !errors.As(err, &pg) || pg.Code != uniqueViolation {
+		return nil
+	}
+	d := pg.Detail
+	if !strings.HasPrefix(d, "Key (") {
+		return nil
+	}
+	i := strings.Index(d, ")=(")
+	j := strings.LastIndex(d, ") already exists")
+	if i < 0 || j < i+3 {
+		return nil
+	}
+	cols := strings.Split(d[len("Key ("):i], ", ")
+	vals := strings.Split(d[i+3:j], ", ")
+	if len(cols) != len(vals) {
+		return nil
+	}
+	out := make(map[string]string, len(cols))
+	for k, col := range cols {
+		out[strings.Trim(col, `"`)] = vals[k]
+	}
+	return out
+}

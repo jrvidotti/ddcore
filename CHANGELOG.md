@@ -14,6 +14,21 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **Bulk writes from server code: `ddcore.db.insertMany`, `updateMany` and `upsertMany`.** One
+  statement per chunk of rows instead of one `insert()` or `setValue` per row — a 5,000-row page
+  goes from about 11 s to about 0.2 s. `upsertMany(doctype, rows, { key })` matches rows by `id`
+  or a `unique` field, inserts the new ones, updates the changed ones and returns
+  `{ inserted, updated, unchanged }`; `updateMany` and `upsertMany` never rewrite a row whose
+  values did not change (its `modified` stays). Rows are checked as `insert()` checks them —
+  casts, `reqd`, Select, Links (batched; `ignoreLinks`), `fetchFrom`, the id rule (a series
+  reserves one block per call), unique indexes (`DuplicateEntryError`), the tenant — and a
+  refused row is named in `e.extra.row`. No hooks, reload, Version, webhooks, notifications or
+  per-row realtime events: a Single, child, tree, workflow or core DocType is refused, and so are
+  `updateMany`/`upsertMany` on a `trackChanges` DocType. At most 10,000 rows per call. See
+  `ddcore docs controller-api`, "Bulk writes". (#145)
+
 ## 0.31.14 — 2026-11-06
 
 ### Fixed

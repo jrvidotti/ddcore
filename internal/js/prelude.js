@@ -847,6 +847,10 @@
         const values = typeof field === "object" ? field : { [field]: value };
         call("db.setValue", { doctype, id, values });
       },
+      // Bulk writes: one statement per chunk, no hooks, no reload (#145).
+      insertMany(doctype, rows, opts) { return call("db.insertMany", { doctype, rows: rows || [], opts: opts || {} }); },
+      updateMany(doctype, changes, opts) { return call("db.updateMany", { doctype, changes: changes || [], opts: opts || {} }); },
+      upsertMany(doctype, rows, opts) { return call("db.upsertMany", { doctype, rows: rows || [], opts: opts || {} }); },
       count(doctype, filters, orFilters) { return call("db.count", { doctype, filters, orFilters }); },
       exists(doctype, id) { return call("db.exists", { doctype, id }); },
       sql(query, params) { return call("db.sql", { query, params: params || [] }); },
