@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.31.17 — 2026-11-06
+
 ### Added
 
 - **Report drill-down by a click on a row or a chart** (#148). A row that carries `drill`
