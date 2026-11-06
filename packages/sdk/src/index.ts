@@ -15,6 +15,24 @@ export interface DDCoreDB {
   getList<T = Record<string, any>>(doctype: string, args?: ListArgs): T[];
   getAll<T = Record<string, any>>(doctype: string, args?: ListArgs): T[];
   setValue(doctype: string, id: string, field: string | Record<string, any>, value?: any): void;
+  /**
+   * Inserts many documents with one statement per chunk and returns how many were written.
+   * Each row is what `newDoc` takes (defaults fill the rest). Casts, `reqd`, Select options,
+   * Links (unless `ignoreLinks`), unique indexes, the id rule and the tenant apply as on
+   * `insert()`; no hooks run, nothing is reloaded, no Version, webhook, notification or
+   * per-row realtime event. At most 10,000 rows per call. A row's error carries `extra.row`.
+   */
+  insertMany(doctype: string, rows: Record<string, any>[], opts?: BulkWriteOpts): number;
+  /**
+   * Sets values on many documents and returns how many changed. A row whose stored values
+   * already equal the change is not written (its `modified` stays). An unknown id throws.
+   */
+  updateMany(doctype: string, changes: Array<{ id: string; values: Record<string, any> }>, opts?: BulkWriteOpts): number;
+  /**
+   * Inserts the rows no stored document matches by `key` (`"id"` or a unique field) and
+   * updates the others with the fields each row brings, leaving unchanged rows untouched.
+   */
+  upsertMany(doctype: string, rows: Record<string, any>[], opts: BulkWriteOpts & { key: string }): UpsertManyResult;
   count(doctype: string, filters?: Filters, orFilters?: Filters): number;
   exists(doctype: string, idOrFilters: string | Filters): string | null;
   /** read-only SQL with $1.. placeholders */
@@ -44,6 +62,21 @@ export interface DDCoreDB {
    */
   savepoint<T>(fn: () => T): T;
   getSingleValue(doctype: string, field: string): any;
+}
+
+/** Options of `ddcore.db.insertMany`, `updateMany` and `upsertMany`. */
+export interface BulkWriteOpts {
+  /** Skip the role check (`create` / `write`); access scopes and the tenant still apply. */
+  ignorePermissions?: boolean;
+  /** Skip the check that each Link points at an existing document. */
+  ignoreLinks?: boolean;
+}
+
+/** What `ddcore.db.upsertMany` did with the rows it was given. */
+export interface UpsertManyResult {
+  inserted: number;
+  updated: number;
+  unchanged: number;
 }
 
 /** One part of a `bodyEncoding: "multipart"` body: a text field, or a file given as base64. */

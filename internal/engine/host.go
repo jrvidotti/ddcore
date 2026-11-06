@@ -37,6 +37,8 @@ type hostArgs struct {
 	Filters       any               `json:"filters"`
 	OrFilters     any               `json:"orFilters"`
 	Values        Doc               `json:"values"`
+	Rows          []Doc             `json:"rows"`
+	Changes       []BulkChange      `json:"changes"`
 	Doc           Doc               `json:"doc"`
 	Opts          map[string]any    `json:"opts"`
 	Flags         map[string]any    `json:"flags"`
@@ -244,6 +246,12 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		return c.GetList(a.Doctype, la)
 	case "db.setValue":
 		return nil, c.SetValue(a.Doctype, a.id(), a.Values)
+	case "db.insertMany":
+		return c.InsertMany(a.Doctype, a.Rows, bulkOpts(a.Opts))
+	case "db.updateMany":
+		return c.UpdateMany(a.Doctype, a.Changes, bulkOpts(a.Opts))
+	case "db.upsertMany":
+		return c.UpsertMany(a.Doctype, a.Rows, bulkOpts(a.Opts))
 	case "db.count":
 		return c.Count(a.Doctype, a.Filters, a.OrFilters)
 	case "db.exists":
@@ -848,6 +856,14 @@ func saveOpts(o map[string]any) SaveOpts {
 	s.IgnoreVersion, _ = o["ignoreVersion"].(bool)
 	s.IgnoreLinks, _ = o["ignoreLinks"].(bool)
 	return s
+}
+
+func bulkOpts(o map[string]any) BulkOpts {
+	var b BulkOpts
+	b.IgnorePermissions, _ = o["ignorePermissions"].(bool)
+	b.IgnoreLinks, _ = o["ignoreLinks"].(bool)
+	b.Key, _ = o["key"].(string)
+	return b
 }
 
 // FormatCurrency renders a number as money.

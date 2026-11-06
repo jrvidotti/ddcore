@@ -267,6 +267,7 @@ non-empty `blockers` is the list of reasons the merge would be refused.
 - `ddcore.db.getSingleValue(doctype, field)` — one field of a Single (see "Single DocTypes"); before the first save, the field's default
 - `ddcore.db.getList(doctype, { filters, fields, orderBy, limit, start, groupBy })` — every matching row unless `limit` is set (`0` is no limit too); respects permissions; `getAll` skips role permissions but still applies user access scopes (see `scopes`)
 - `ddcore.db.setValue(doctype, id, field, value)` / `setValue(doctype, id, { ... })` — no validate; updates `modified`; skips role permissions but applies user access scopes, the closed-DocType, workflow and Audit Event refusals (see `scopes`)
+- `ddcore.db.insertMany(doctype, rows, { ignorePermissions, ignoreLinks })` → rows written; `ddcore.db.updateMany(doctype, [{ id, values }], opts)` → rows changed; `ddcore.db.upsertMany(doctype, rows, { key, ...opts })` → `{ inserted, updated, unchanged }` — many rows of a plain DocType in one statement per chunk, without hooks. See "Bulk writes" below
 - `ddcore.db.count(doctype, filters)`, `ddcore.db.exists(doctype, id | filters)` → the id or `null`; applies user access scopes (see `scopes`)
 - `ddcore.db.sql("SELECT ... WHERE x = $1", [v])` — read-only; tables are `tab_<snake>`
 - `ddcore.db.lock(key)` — an advisory lock held until the transaction ends: another request locking the same key waits. Use it to make an operation idempotent under concurrency (`ddcore.db.lock("billing:" + contract)`). Inside a tenant the key is the tenant's own (see `tenancy`)
@@ -434,6 +435,63 @@ export function createCharge(args: { reference: string; amount: number }) {
 
 `fn` is synchronous, as all server code is. A savepoint needs the request's transaction, which
 every controller, method and job has.
+
+### Bulk writes
+
+`insert()` and `db.setValue` write one row per call, each with its own statements — about 4 ms a
+row. Loading a mirror of another system (thousands of rows a page, millions in all) wants one
+statement for many rows:
+
+```ts
+// a page of the source, keyed by a unique field
+const res = ddcore.db.upsertMany("TagOne Item", rows.map((r) => ({ mirror_key: key(r), ...values(r), removed_at: null })),
+  { key: "mirror_key" });
+// res: { inserted: 12, updated: 3, unchanged: 4985 }
+```
+
+- `insertMany(doctype, rows, opts?)` inserts every row as a new document and returns how many
+  were written. A row is what `newDoc` takes: the defaults fill what it leaves out.
+- `updateMany(doctype, [{ id, values }], opts?)` sets `values` on each document and returns how
+  many changed. An id that does not exist throws `DoesNotExistError`; an id named twice takes
+  its changes in order.
+- `upsertMany(doctype, rows, { key, ...opts })` matches each row to a stored document by `key` —
+  `"id"` or a `unique` field, which every row must carry — inserts the rows nothing matches and
+  updates the others with the fields each row brings (a field it leaves out keeps its stored
+  value). Two rows with the same key in one call throw `DuplicateEntryError`.
+
+A row whose stored values already equal what it brings is **not written**, by `updateMany` or
+`upsertMany`: its `modified` stays, and no dead row is left behind. `updated` and `unchanged`
+count which was which.
+
+Each row is checked as `insert()` checks it: the casts, `reqd`, Select options, e-mail fields,
+Links (one query per target DocType; `ignoreLinks: true` skips it), `fetchFrom`, the id rule
+(a series reserves one block of numbers per call), and every unique index — two rows of the call
+colliding, or a row colliding with a stored one, throw `DuplicateEntryError`. An error about a
+row says which in `e.extra.row`, its index in the array. Nothing is written when a row is refused,
+and an error from the database aborts the call; wrap it in `ddcore.db.savepoint` to go on. Inside
+a tenant the rows are the tenant's, as for any write (see `tenancy`).
+
+What a bulk write does **not** do, by design: run controller hooks or app `docEvents`, reload
+the rows, write a `Version`, queue webhooks or notifications, or send a realtime event per row
+(the open lists get one `list_update` after the commit). So it refuses what would need them:
+
+- a Single, a child table, a tree, a DocType under a workflow, and the core's own DocTypes
+  (User, File, …);
+- `updateMany` and `upsertMany` on a `trackChanges` DocType (they would leave no Version);
+  `insertMany` is allowed, since `insert()` writes no Version either;
+- `upsertMany` on a DocType whose ids come from a counter (a series, a `{###}` format);
+- a Table, Attach, Attach Image, Password or Vault field, a computed field, a standard column
+  (`owner`, `creation`, `modified`, `modified_by`, `docstatus`) or an unknown field in a row;
+  `id` inside `updateMany`'s values; a `setOnlyOnce` field in `updateMany`, or in `upsertMany`
+  unless it is the key.
+
+Permissions: one role check for the DocType (`create` for an insert, `write` for an update, both
+for an upsert), which `ignorePermissions: true` skips; field permissions refuse a field above
+the writer's level. A user with access scopes is refused outright — their scopes are checked
+per stored document, which a bulk write never reads — while a job, which ignores permissions,
+is not. At most 10,000 rows per call: page the source.
+
+A dynamic link in `updateMany` is written together with its type field.
 
 ### Money
 

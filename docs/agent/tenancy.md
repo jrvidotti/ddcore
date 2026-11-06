@@ -195,6 +195,8 @@ hooks run there, and so does everything it derives:
 Its `Version` and audit events carry the tenant as `source_tenant`. The document's `owner` and
 `modified_by` are the tenant's user, whose id is the site's. A tenant's code can only add to the
 data and refresh it: `delete`, `db.setValue` and rename stay refused inside a tenant.
+`ddcore.db.insertMany` and `upsertMany` go to the platform space as `insert` does;
+`updateMany` is refused there, as `setValue` is.
 
 A `fetchFrom` on a tenant DocType that reads from it is server code too. The app chose to copy
 that field, so its value lands in the tenant's document.
