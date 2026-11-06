@@ -14,6 +14,12 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- **`ddcore.version` is the running binary's version.** It was a literal `"0.1.0"` in server code
+  whatever the binary, so it could not tell instances apart; it now returns what `ddcore version`
+  prints (`v0.31.16` from a release build), and `controller-api` documents it (#147).
+
 ## 0.31.15 — 2026-11-06
 
 ### Added

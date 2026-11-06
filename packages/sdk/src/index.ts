@@ -910,7 +910,12 @@ export interface DDCoreAPI {
     del(name: string, opts?: { shared?: boolean }): void;
     list(prefix?: string): string[];
   };
-  version: string;
+  /**
+   * The version of the running ddcore binary, as `ddcore version`, `/api/boot`
+   * and the MCP server report it (`"v0.31.16"` from a release build). Not an
+   * app's `version` — that one is in its `defineApp`.
+   */
+  readonly version: string;
 }
 
 declare global {

@@ -837,7 +837,9 @@
   };
 
   const api = {
-    version: "0.1.0",
+    // the running core's version, as `ddcore version` prints it (#147): a
+    // getter, because the bridge needs a request context to answer
+    get version() { return site().version || ""; },
     utils,
     db: {
       getValue(doctype, id, fields) { return call("db.getValue", { doctype, id, fields }); },
