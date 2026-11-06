@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.31.18 — 2026-11-06
+
 ### Fixed
 
 - **A Link's index no longer takes another DocType's table name** (#149). An index was named
