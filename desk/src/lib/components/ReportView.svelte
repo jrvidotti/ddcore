@@ -4,7 +4,7 @@
   import { boot, __ } from "$lib/boot.svelte";
   import { formatSummary } from "$lib/format";
   import Control from "$lib/controls/Control.svelte";
-  import BarChart from "./BarChart.svelte";
+  import Chart from "./Chart.svelte";
   import ReportGrid from "./ReportGrid.svelte";
   import { showError } from "$lib/ui.svelte";
   import { onMount } from "svelte";
@@ -21,6 +21,8 @@
   let loading = $state(false);
   let ready = false;
   let lastUrlSearch = "";
+  // `chart` first, then the ones in `charts`
+  const charts = $derived([result?.chart, ...(result?.charts ?? [])].filter((c) => c?.labels));
   const label = $derived(meta?.label || boot.data?.reports[name]?.label || name);
   const wsPrefix = $derived(appPrefix(page.params.workspace || getRememberedWorkspace()));
 
@@ -95,8 +97,10 @@
   {#if result?.summary?.length}
     <div class="summary">{#each result.summary as s}<div class="item {s.indicator || ''}"><div class="l">{s.label}</div><div class="v">{formatSummary(s)}</div></div>{/each}</div>
   {/if}
-  {#if result?.chart}
-    <div class="card" style="padding:16px 20px;margin-bottom:12px"><BarChart data={result.chart} /></div>
+  {#if charts.length}
+    <div class="charts" class:pair={charts.length > 1}>
+      {#each charts as c}<div class="card chart-card"><Chart data={c} /></div>{/each}
+    </div>
   {/if}
   {#if result}
     <ReportGrid columns={result.columns} rows={result.rows} {wsPrefix} filename={name} sheetName={label} sortable exportable={meta?.canExport !== false} />
@@ -106,4 +110,7 @@
 <style>
   .page-title { flex: 1; min-width: 200px; }
   .subtitle { margin: 2px 0 0; font-size: 13px; }
+  .charts { display: grid; gap: 12px; margin-bottom: 12px; }
+  .charts.pair { grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); }
+  .chart-card { padding: 16px 20px; min-width: 0; }
 </style>

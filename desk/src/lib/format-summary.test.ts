@@ -17,6 +17,7 @@ describe("formatSummary", () => {
     expect(formatSummary({ value: 7, datatype: "Int" })).toBe("7");
     expect(formatSummary({ value: 10, datatype: "Currency" })).toBe(formatCurrency(10));
     expect(formatSummary({ value: 1.5, datatype: "Float" })).toBe(formatNumber(1.5));
+    expect(formatSummary({ value: 11.99, datatype: "Percent" })).toBe(formatNumber(11.99, 2) + "%");
   });
   it("formats a Date card as a civil date", () => {
     expect(formatSummary({ value: "2026-03-01", datatype: "Date" })).toBe(formatDate("2026-03-01"));

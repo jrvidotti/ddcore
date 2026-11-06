@@ -14,7 +14,7 @@ vi.mock("$lib/api", () => ({
   api: { numberCard: vi.fn(async (_ws: string, card: string) => values[card]), chart: vi.fn() },
 }));
 vi.mock("$lib/routes", () => ({ seg: (s: string) => s, resolveWorkspace: (s: string) => s }));
-vi.mock("./BarChart.svelte", () => ({ default: () => {} }));
+vi.mock("./Chart.svelte", () => ({ default: () => {} }));
 vi.mock("./Icon.svelte", () => ({ default: () => {} }));
 
 import Workspace from "./Workspace.svelte";

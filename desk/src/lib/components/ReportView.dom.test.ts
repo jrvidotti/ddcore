@@ -1,14 +1,14 @@
 import { flushSync, mount, unmount } from "svelte";
 import { describe, expect, it, vi } from "vitest";
 
-const reply = vi.hoisted(() => ({ meta: {} as any }));
+const reply = vi.hoisted(() => ({ meta: {} as any, result: { columns: [], rows: [] } as any }));
 
 vi.mock("$lib/boot.svelte", () => ({
   boot: { data: { reports: {} } },
   __: (s: string) => s,
 }));
 vi.mock("$lib/api", () => ({
-  api: { report: vi.fn(async () => ({ meta: reply.meta, result: { columns: [], rows: [] } })) },
+  api: { report: vi.fn(async () => ({ meta: reply.meta, result: reply.result })) },
 }));
 vi.mock("$lib/routes", () => ({ seg: (s: string) => s }));
 vi.mock("$lib/ui.svelte", () => ({ showError: vi.fn() }));
@@ -17,14 +17,15 @@ vi.mock("$app/navigation", () => ({ goto: vi.fn() }));
 vi.mock("$lib/desk-sdk", () => ({ deskSDK: {} }));
 vi.mock("./sidebar-workspace", () => ({ getRememberedWorkspace: () => "" }));
 vi.mock("./ReportGrid.svelte", () => ({ default: () => {} }));
-vi.mock("./BarChart.svelte", () => ({ default: () => {} }));
+vi.mock("./Chart.svelte", () => ({ default: () => {} }));
 vi.mock("$lib/controls/Control.svelte", () => ({ default: () => {} }));
 
 import { api } from "$lib/api";
 import ReportView from "./ReportView.svelte";
 
-async function render(meta: any) {
+async function render(meta: any, result: any = { columns: [], rows: [] }) {
   reply.meta = meta;
+  reply.result = result;
   const target = document.createElement("div");
   const view = mount(ReportView, { target, props: { name: "Balances" } });
   await vi.waitFor(() => expect(api.report).toHaveBeenCalled());
@@ -44,6 +45,18 @@ describe("ReportView", () => {
   it("draws no subtitle when the report has no description", async () => {
     const { target, view } = await render({ label: "Balances", filters: [] });
     expect(target.querySelector("p.subtitle")).toBeNull();
+    unmount(view);
+  });
+  it("draws `chart` and every one of `charts`, side by side", async () => {
+    const bar = { type: "bar", labels: ["a"], datasets: [{ name: "A", values: [1] }] };
+    const { target, view } = await render({ label: "Balances", filters: [] }, { columns: [], rows: [], chart: bar, charts: [{ ...bar, type: "line" }] });
+    expect(target.querySelectorAll(".chart-card")).toHaveLength(2);
+    expect(target.querySelector(".charts")?.classList.contains("pair")).toBe(true);
+    unmount(view);
+  });
+  it("draws no chart when the report has none", async () => {
+    const { target, view } = await render({ label: "Balances", filters: [] });
+    expect(target.querySelector(".charts")).toBeNull();
     unmount(view);
   });
 });
