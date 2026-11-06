@@ -20,6 +20,8 @@ export interface ChartData {
   datasets: ChartDataset[];
   stacked?: boolean;
   format?: string;
+  /** A report's drill-down: the filters a click on label i's bar, point or slice opens (the report page only). */
+  drill?: (Record<string, any> | null)[];
 }
 
 /** The indicator colours a series may name; each is a token in app.css. */

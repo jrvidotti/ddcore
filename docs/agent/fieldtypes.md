@@ -71,7 +71,8 @@ A `Table` and a `Report` field are grids, and four properties shape both:
   and an empty value read as `0` agree. They run in the browser on the loaded rows, so a
   `computed` column filters like any other. Toggles that are on combine with AND, and
   `default: true` turns one on when the form opens. Selection, "select all", export (and a
-  Report's totals) follow the rows on screen. `label` is a catalogue key. On a Table the fields
+  Report's summed totals) follow the rows on screen; a report's own `totals` row is left out
+  while a toggle hides rows. `label` is a catalogue key. On a Table the fields
   named are checked at load; on a Report they are report columns.
 
   ```ts
@@ -86,8 +87,8 @@ A `Table` and a `Report` field are grids, and four properties shape both:
   columns. A Link matches by its id and by its title, a Select by its value and by its label; a
   Check or a Signature has no text to find. On a Table the fields may be `hidden` or off the grid
   (they are checked at load); on a Report they are report columns. It combines with the active
-  `gridFilters` (AND), and selection, "select all", export (and a Report's totals) follow the rows
-  on screen.
+  `gridFilters` (AND), and selection, "select all", export (and a Report's summed totals) follow
+  the rows on screen; a report's own `totals` row is left out while the search hides rows.
 
   ```ts
   { fieldname: "attendance", fieldtype: "Table", options: "Training Class Attendance",
@@ -153,7 +154,9 @@ the document does not hold: attendance and grades per student, say, from other D
 - It runs when the form loads, after a save or a reload, and on `frm.refreshField(fieldname)`.
   A new document shows "Save the document first".
 - Its rows are read-only; `gridSelect` chooses what to export and what a script's
-  `frm.addGridAction` acts on. The totals row goes along with a full export, not with a selection.
+  `frm.addGridAction` acts on. The totals row (the report's own `totals`, or the sum of its
+  numeric columns; see `report-api`) goes along with a full export, not with a selection. A
+  row's `drill` does nothing here: drill-down is the report page's.
 - A form script acts on a row with `grids.<field>.onCellClick.<column>`: the column's non-empty
   cells become buttons and the handler receives the row as the report returned it. A click
   anywhere else on the row runs `grids.<field>.onRowClick`; see

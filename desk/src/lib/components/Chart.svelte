@@ -3,8 +3,10 @@
   // shape: "line" draws a line per series, "pie" and "donut" draw the first series as
   // slices, anything else draws bars (grouped, or stacked with `stacked`). A null value
   // is a point not known yet: the line breaks there and no bar or slice is drawn.
+  // With `onpick`, a bar, point or slice whose label `pickable` accepts takes a click (and
+  // Enter or Space) and hands over its label's index: a report's drill-down.
   import { arcPath, domain, formatPoint, formatTick, lineSegments, num, pieSlices, scale, seriesColors, stackBars, type ChartData, type ChartDataset } from "./chart-layout";
-  let { data, height = 220 }: { data: ChartData; height?: number } = $props();
+  let { data, height = 220, onpick, pickable }: { data: ChartData; height?: number; onpick?: (index: number) => void; pickable?: (index: number) => boolean } = $props();
   const padB = 28, padT = 10;
   // drawn at the width it is shown at, so the text stays 11px in a half-width card;
   // 800 until it is measured (and where nothing is, as in a test)
@@ -39,6 +41,12 @@
   const R = $derived((height - padT * 2) / 2);
   const slices = $derived(isPie && data.datasets[0] ? pieSlices(data.datasets[0].values) : []);
   let hover = $state<{ x: number; text: string } | null>(null);
+  // what makes the mark of label `i` take a click; nothing when it does not
+  const pick = (i: number) =>
+    onpick && (!pickable || pickable(i))
+      ? { role: "button", tabindex: 0, class: "chart-pick", onclick: () => onpick(i),
+          onkeydown: (e: KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onpick(i); } } }
+      : {};
   const fmt = (ds: ChartDataset, v: number) => formatPoint(v, ds.format || data.format);
   const show = (i: number, ds: ChartDataset, x = cx(i)) =>
     (hover = { x, text: `${data.labels[i]} · ${ds.name}: ${fmt(ds, num(ds.values[i]) ?? 0)}` });
@@ -56,7 +64,7 @@
       {#each slices as s (s.index)}
         <path d={arcPath(W / 2, height / 2, R, data.type === "donut" ? R * 0.6 : 0, s.start, s.end)} style:fill={sliceColors[s.index]}
           style:stroke="var(--surface)" stroke-width="1.5" role="img" aria-label="{data.labels[s.index]}"
-          onmouseenter={() => showSlice(s)} onmouseleave={() => (hover = null)} />
+          onmouseenter={() => showSlice(s)} onmouseleave={() => (hover = null)} {...pick(s.index)} />
       {/each}
     {:else}
       {#each sc.ticks as t, k}
@@ -77,7 +85,7 @@
               <circle cx={cx(i)} cy={y(num(ds.values[i]) ?? 0)} r="3.5" style:fill="var(--surface)" style:stroke={colors[j]} stroke-width="2" />
               <!-- an invisible, larger target makes the points easy to hover -->
               <circle cx={cx(i)} cy={y(num(ds.values[i]) ?? 0)} r="10" fill="transparent" role="img" aria-label="{ds.name} {data.labels[i]}"
-                onmouseenter={() => show(i, ds)} onmouseleave={() => (hover = null)} />
+                onmouseenter={() => show(i, ds)} onmouseleave={() => (hover = null)} {...pick(i)} />
             {/each}
           {/each}
         {/each}
@@ -87,7 +95,7 @@
             {#if seg}
               <rect x={padL + groupW * i + groupW * 0.15} y={y(seg[1])} width={barW} height={Math.max(1, y(seg[0]) - y(seg[1]))}
                 style:fill={colors[j]} role="img" aria-label="{ds.name} {data.labels[i]}"
-                onmouseenter={() => show(i, ds)} onmouseleave={() => (hover = null)} />
+                onmouseenter={() => show(i, ds)} onmouseleave={() => (hover = null)} {...pick(i)} />
             {/if}
           {/each}
         {/each}
@@ -98,7 +106,7 @@
             {#if v !== null}
               <rect x={padL + groupW * i + groupW * 0.15 + barW * j} y={Math.min(y(v), y(0))} width={barW} height={Math.max(1, Math.abs(y(v) - y(0)))}
                 style:fill={colors[j]} rx="2" role="img" aria-label="{ds.name} {label}"
-                onmouseenter={() => show(i, ds)} onmouseleave={() => (hover = null)} />
+                onmouseenter={() => show(i, ds)} onmouseleave={() => (hover = null)} {...pick(i)} />
             {/if}
           {/each}
         {/each}
@@ -122,6 +130,8 @@
 </div>
 
 <style>
+  :global(.chart-pick) { cursor: pointer; }
+  :global(.chart-pick:focus-visible) { outline: 2px solid var(--primary); }
   .chart-title { font-size: 14px; margin: 0 0 10px; }
   .legend { display: flex; gap: 14px; font-size: 12px; margin-top: 6px; flex-wrap: wrap; }
   .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
