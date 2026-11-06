@@ -2,6 +2,8 @@ package engine
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -61,7 +63,7 @@ func TestTruncatedIndexIsAdopted(t *testing.T) {
 	ctx := context.Background()
 	hashed := meta.IndexName(longTable, longSearch)
 	full := longTable + "_" + longSearch
-	legacy := meta.TruncatedIndexName(longTable, longSearch)
+	legacy := meta.LegacyIndexNames(longTable, longSearch)[1]
 	// What a migrate before #144 left: the full name, which Postgres truncates.
 	if _, err := e.DB.Pool.Exec(ctx, "DROP INDEX "+db.Ident(hashed)+"; CREATE INDEX "+full+" ON "+longTable+" ("+longSearch+")"); err != nil {
 		t.Fatal(err)
@@ -150,5 +152,111 @@ func TestADuplicateOnALongUniqueFieldNamesTheField(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+// #149 — the index of Product.model was named tab_product_model, the table of
+// Product Model: Postgres keeps both in one namespace, and migrate failed with
+// 42P07 whichever of the two came second.
+func TestALinkIndexDoesNotTakeAnotherDocTypesTable(t *testing.T) {
+	e := setupWith(t, map[string]string{
+		"doctypes/product_model/product_model.doctype.ts": `import { defineDoctype } from "@ddcore/sdk";
+export default defineDoctype({ name: "Product Model", idGeneration: { hash: true }, fields: [
+  { fieldname: "model_name", fieldtype: "Data", label: "Model name", reqd: true } ] });`,
+		"doctypes/product/product.doctype.ts": `import { defineDoctype } from "@ddcore/sdk";
+export default defineDoctype({ name: "Product", idGeneration: { hash: true }, fields: [
+  { fieldname: "model", fieldtype: "Link", label: "Model", options: "Product Model" } ] });`,
+	})
+	migrar(t, e, false, "second migrate")
+	if def := indexDef(t, e, "tab_product__model"); !strings.Contains(def, "tab_product ") {
+		t.Fatalf("Product.model has no index of its own: %q", def)
+	}
+	if rows := sqlRows(t, e, `SELECT 1 FROM pg_tables WHERE tablename = 'tab_product_model'`); len(rows) != 1 {
+		t.Fatal("the Product Model table is missing")
+	}
+}
+
+// A site migrated before #149 holds every index under "<table>_<suffix>". The
+// next migrate renames each one to the current name — which leaves the rows
+// and the index alone — rather than building it a second time.
+func TestIndexesNamedByTheOldSchemeAreRenamed(t *testing.T) {
+	e := setupWithKey(t)
+	ctx := context.Background()
+	rows := sqlRows(t, e, `SELECT indexname FROM pg_indexes WHERE schemaname = current_schema()
+		AND tablename LIKE 'tab\_%' AND indexname LIKE '%\_\_%'`)
+	if len(rows) == 0 {
+		t.Fatal("no index to rename back")
+	}
+	renamed := map[string]bool{}
+	for _, r := range rows {
+		name := db.Str(r["indexname"])
+		if len(name) == meta.MaxIdentifier {
+			continue // a hashed name: TestTruncatedIndexIsAdopted's case
+		}
+		old := strings.Replace(name, "__", "_", 1)
+		if _, err := e.DB.Pool.Exec(ctx, "ALTER INDEX "+db.Ident(name)+" RENAME TO "+db.Ident(old)); err != nil {
+			t.Fatal(err)
+		}
+		renamed[old] = true
+	}
+	if !renamed["tab_pessoa_uk_tipo_codigo"] || !renamed["tab_pessoa_modified"] {
+		t.Fatalf("the fixture lost the indexes it is about: %v", renamed)
+	}
+
+	res := migrar(t, e, false, "rename the old names")
+
+	for _, st := range res.DDL {
+		switch {
+		case st.Kind == db.KindRenameIndex:
+			delete(renamed, st.OldName)
+		case st.Kind == db.KindCreateIndex || st.Kind == db.KindDropIndex:
+			t.Fatalf("an index was rebuilt instead of renamed: %q", st.SQL)
+		}
+	}
+	if len(renamed) > 0 {
+		t.Fatalf("left under the old name: %v", renamed)
+	}
+	if indexDef(t, e, "tab_pessoa__uk_tipo_codigo") == "" {
+		t.Fatal("the key is not under its current name")
+	}
+	// The primary key is Postgres's to name, and keeps its name.
+	if indexDef(t, e, "tab_pessoa_pkey") == "" {
+		t.Fatal("the primary key was renamed")
+	}
+}
+
+// The upgrade itself can meet #149: an index the old scheme named
+// tab_product_model, and a Product Model DocType arriving in the same release.
+// The rename has to run before the CREATE TABLE that needs the name.
+func TestAnOldIndexNameMakesWayForANewTable(t *testing.T) {
+	e := setupWith(t, map[string]string{
+		"doctypes/product/product.doctype.ts": `import { defineDoctype } from "@ddcore/sdk";
+export default defineDoctype({ name: "Product", idGeneration: { hash: true }, fields: [
+  { fieldname: "model", fieldtype: "Data", label: "Model", searchIndex: true } ] });`,
+	})
+	ctx := context.Background()
+	if _, err := e.DB.Pool.Exec(ctx, `ALTER INDEX tab_product__model RENAME TO tab_product_model`); err != nil {
+		t.Fatal(err)
+	}
+	dir := filepath.Join(e.Current().App("demo").Dir, "doctypes/product_model")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "product_model.doctype.ts"), []byte(`import { defineDoctype } from "@ddcore/sdk";
+export default defineDoctype({ name: "Product Model", idGeneration: { hash: true }, fields: [
+  { fieldname: "model_name", fieldtype: "Data", label: "Model name" } ] });`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.Load(); err != nil {
+		t.Fatal(err)
+	}
+
+	migrar(t, e, false, "rename the index, then create the table")
+
+	if indexDef(t, e, "tab_product__model") == "" {
+		t.Fatal("Product.model's index is not under its current name")
+	}
+	if rows := sqlRows(t, e, `SELECT 1 FROM pg_tables WHERE tablename = 'tab_product_model'`); len(rows) != 1 {
+		t.Fatal("the Product Model table is missing")
 	}
 }

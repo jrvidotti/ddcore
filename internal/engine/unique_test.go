@@ -216,12 +216,15 @@ func TestADuplicateIsReportedByWhichConstraintItHit(t *testing.T) {
 	cases := []struct {
 		name, constraint, wantKey, wantTitle string
 	}{
-		{"compound key", "tab_pessoa_uk_tipo_codigo", "{0} already exists", "Duplicate value"},
-		{"unique field", "tab_pessoa_nome", `{0} "{1}" already exists`, "Duplicate value"},
+		{"compound key", "tab_pessoa__uk_tipo_codigo", "{0} already exists", "Duplicate value"},
+		{"unique field", "tab_pessoa__nome", `{0} "{1}" already exists`, "Duplicate value"},
 		{"primary key", "tab_pessoa_pkey", "{0} {1} already exists", "Duplicate ID"},
+		// What a migrate before #149 named them, until the next one renames them.
+		{"compound key, old name", "tab_pessoa_uk_tipo_codigo", "{0} already exists", "Duplicate value"},
+		{"unique field, old name", "tab_pessoa_nome", `{0} "{1}" already exists`, "Duplicate value"},
 		// Not ours to read: another table's constraint, or a hand-made index.
-		{"someone else's", "tab_pedido_cliente", "Duplicate value in {0}", "Duplicate value"},
-		{"a key since removed", "tab_pessoa_uk_gone", "Duplicate value in {0}", "Duplicate value"},
+		{"someone else's", "tab_pedido__cliente", "Duplicate value in {0}", "Duplicate value"},
+		{"a key since removed", "tab_pessoa__uk_gone", "Duplicate value in {0}", "Duplicate value"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

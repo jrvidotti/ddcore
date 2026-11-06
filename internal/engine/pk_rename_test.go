@@ -59,8 +59,9 @@ func degradeToLegacyPK(t *testing.T, e *Engine) {
 	}
 	for _, ref := range legacyRefs {
 		exec(fmt.Sprintf(`ALTER TABLE %s RENAME COLUMN %s TO %s`, ref[0], ref[1], ref[2]))
-		if indexDef(t, e, ref[0]+"_"+ref[1]) != "" {
-			exec(fmt.Sprintf(`ALTER INDEX %s RENAME TO %s`, ref[0]+"_"+ref[1], ref[0]+"_"+ref[2]))
+		// 0.16 named an index "<table>_<column>" (#149 added the second "_").
+		if indexDef(t, e, ref[0]+"__"+ref[1]) != "" {
+			exec(fmt.Sprintf(`ALTER INDEX %s RENAME TO %s`, ref[0]+"__"+ref[1], ref[0]+"_"+ref[2]))
 		}
 	}
 	exec(`ALTER TABLE ddcore_notification RENAME COLUMN id TO name`)
@@ -127,17 +128,17 @@ func TestMigrateMovesTheDocumentKeyFromNameToID(t *testing.T) {
 		if columnType(t, e, ref[0], ref[2]) != "" || columnType(t, e, ref[0], ref[1]) != "text" {
 			t.Errorf("%s: %s was not renamed to %s", ref[0], ref[2], ref[1])
 		}
-		if indexDef(t, e, ref[0]+"_"+ref[2]) != "" {
+		if indexDef(t, e, ref[0]+"_"+ref[2]) != "" || indexDef(t, e, ref[0]+"__"+ref[2]) != "" {
 			t.Errorf("%s: the index on %s was left behind", ref[0], ref[2])
 		}
 	}
-	if indexDef(t, e, "tab_comment_reference_id") == "" {
-		t.Error("tab_comment_reference_id index missing")
+	if indexDef(t, e, "tab_comment__reference_id") == "" {
+		t.Error("tab_comment__reference_id index missing")
 	}
 	if rows := sqlRows(t, e, `SELECT 1 FROM tab_comment WHERE reference_id = $1`, pessoa); len(rows) != 1 {
 		t.Error("the comment lost its reference")
 	}
-	if def := indexDef(t, e, "tab_document_share_uk_user_document"); !strings.Contains(def, "share_id") {
+	if def := indexDef(t, e, "tab_document_share__uk_user_document"); !strings.Contains(def, "share_id") {
 		t.Errorf("document share key = %q", def)
 	}
 	// The framework's own tables.

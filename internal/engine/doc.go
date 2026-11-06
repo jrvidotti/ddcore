@@ -2154,23 +2154,31 @@ func (c *Ctx) duplicateErr(d *meta.DocType, doc Doc, err error) error {
 	}
 	// The index is matched by the name the planner gives it (meta.IndexName)
 	// rather than read back: a long name carries a hash where its suffix was.
-	// An index on another table, or one whose name this DocType does not own,
-	// matches nothing — the collision is real, its name is simply not ours.
+	// The names earlier schemes gave it count too, for a site whose migrate
+	// has not renamed them yet. An index on another table, or one whose name
+	// this DocType does not own, matches nothing — the collision is real, its
+	// name is simply not ours.
 	t := d.TableName()
-	if idx == t+"_pkey" {
+	if idx == meta.PrimaryKeyName(t) {
 		return cerr.Duplicate("{0} {1} already exists", c.T(d.Label), doc.ID()).WithTitleKey("Duplicate ID")
 	}
 	for _, k := range d.UniqueKeys {
-		if idx == meta.IndexName(t, k.IndexSuffix()) {
+		if namesIndex(idx, t, k.IndexSuffix()) {
 			return cerr.Duplicate("{0} already exists", c.keyValues(d, k, doc)).WithTitleKey("Duplicate value")
 		}
 	}
 	for _, f := range d.DataFields() {
-		if idx == meta.IndexName(t, f.Fieldname) {
+		if namesIndex(idx, t, f.Fieldname) {
 			return cerr.Duplicate("{0} \"{1}\" already exists", c.T(f.Label), doc.Str(f.Fieldname)).WithTitleKey("Duplicate value")
 		}
 	}
 	return cerr.Duplicate("Duplicate value in {0}", c.T(d.Label)).WithTitleKey("Duplicate value")
+}
+
+// namesIndex reports whether idx is the index table carries for suffix, under
+// the current name or one an earlier scheme gave it.
+func namesIndex(idx, table, suffix string) bool {
+	return idx == meta.IndexName(table, suffix) || slices.Contains(meta.LegacyIndexNames(table, suffix), idx)
 }
 
 func (c *Ctx) validateChildren(d *meta.DocType, doc Doc, opts SaveOpts, checks fieldChecks) error {

@@ -526,9 +526,9 @@ type catalog struct {
 type pkRow struct{ name, def string }
 
 // idxRow keeps the owning table beside the definition. The table matters:
-// index names are "<table>_<suffix>", so "tab_pedido_" is a prefix of
-// "tab_pedido_item_modified" — an index belonging to a different DocType
-// entirely. Renaming by name alone would take it along.
+// index names were "<table>_<suffix>" before #149, so "tab_pedido_" is a
+// prefix of "tab_pedido_item_modified" — an index belonging to a different
+// DocType entirely. Renaming by name alone would take it along.
 type idxRow struct{ table, def string }
 
 func loadCatalog(ctx context.Context, q Querier) (*catalog, error) {
@@ -611,16 +611,22 @@ func (c *catalog) renameIndex(old, name string) []Statement {
 //
 // suffixes are the ones the DocType's indexes may have been named from. A long
 // name carries a hash where its suffix was (meta.IndexName), so it is matched
-// against them rather than read back; any other name derived from the table
-// keeps whatever follows "<oldTable>_". Either way the new name goes through
-// meta.IndexName, so a rename to a longer table name cannot produce a name
-// Postgres would truncate.
+// against them, under the name and the names earlier schemes gave it, rather
+// than read back; each moves to meta.IndexName, which also brings a name an
+// earlier scheme gave over to the current one (#149). The primary key takes
+// the name Postgres would give it on the new table. Any other name derived
+// from the table keeps whatever follows "<oldTable>__" or "<oldTable>_", and
+// its separator. Every new name is made to fit, so a rename to a longer table
+// name cannot produce a name Postgres would truncate.
 func (c *catalog) renameTableIndexes(oldTable, newTable string, suffixes []string) []Statement {
+	pk := c.pk[oldTable].name
 	known := map[string]string{}
 	for _, s := range suffixes {
 		known[meta.IndexName(oldTable, s)] = s
-		if legacy := meta.TruncatedIndexName(oldTable, s); legacy != "" {
-			known[legacy] = s
+		for _, legacy := range meta.LegacyIndexNames(oldTable, s) {
+			if legacy != pk { // a field named "pkey" is not the primary key
+				known[legacy] = s
+			}
 		}
 	}
 	var names []string
@@ -635,14 +641,19 @@ func (c *catalog) renameTableIndexes(oldTable, newTable string, suffixes []strin
 		row := c.idx[name]
 		row.table = newTable
 		c.idx[name] = row
-		suffix, ok := known[name]
-		if !ok {
-			if !strings.HasPrefix(name, oldTable+"_") {
-				continue // not derived from the table name: nothing to rename
-			}
-			suffix = strings.TrimPrefix(name, oldTable+"_")
+		var to string
+		if suffix, ok := known[name]; ok {
+			to = meta.IndexName(newTable, suffix)
+		} else if name == pk {
+			to = meta.PrimaryKeyName(newTable)
+		} else if rest, ok := strings.CutPrefix(name, oldTable+"__"); ok {
+			to = meta.IndexName(newTable, rest)
+		} else if rest, ok := strings.CutPrefix(name, oldTable+"_"); ok {
+			to = meta.LegacyIndexNames(newTable, rest)[0]
+		} else {
+			continue // not derived from the table name: nothing to rename
 		}
-		out = append(out, c.renameIndex(name, meta.IndexName(newTable, suffix))...)
+		out = append(out, c.renameIndex(name, to)...)
 	}
 	return out
 }
@@ -651,7 +662,7 @@ func (c *catalog) renameTableIndexes(oldTable, newTable string, suffixes []strin
 // including the fieldnames a field was renamed from: a table rename runs before
 // the column renames, so those indexes still answer to the old fieldname.
 func indexSuffixes(d *meta.DocType) []string {
-	out := []string{"parent", "modified", "pkey"}
+	out := []string{"parent", "modified"}
 	for _, f := range d.DataFields() {
 		out = append(out, f.Fieldname)
 		out = append(out, f.RenamedFrom...)
@@ -663,16 +674,63 @@ func indexSuffixes(d *meta.DocType) []string {
 }
 
 // fieldIndexName finds, in the catalog, the index a field's column carries
-// under col: the name meta.IndexName gives it, or the truncated one Postgres
-// gave it before #144. "" when it has neither.
+// under col: the name meta.IndexName gives it, or one an earlier scheme gave
+// it (meta.LegacyIndexNames). "" when it has none.
 func (c *catalog) fieldIndexName(table, col string) string {
 	if name := meta.IndexName(table, col); c.hasIndexOn(name, table) {
 		return name
 	}
-	if legacy := meta.TruncatedIndexName(table, col); legacy != "" && c.hasIndexOn(legacy, table) {
-		return legacy
+	return c.legacyIndexName(table, col)
+}
+
+// legacyIndexName finds the index a migrate before #149 (or before #144) left
+// on table for suffix, and "" when there is none. The primary key is never
+// one: under the old scheme a field named "pkey" would have shared its name.
+func (c *catalog) legacyIndexName(table, suffix string) string {
+	for _, legacy := range meta.LegacyIndexNames(table, suffix) {
+		if legacy != c.pk[table].name && c.hasIndexOn(legacy, table) {
+			return legacy
+		}
 	}
 	return ""
+}
+
+// adoptLegacyIndexes renames the indexes an earlier naming scheme left behind
+// to the names wantedIndexes gives them, so the index diff finds them in place
+// instead of building each a second time. Renaming touches only the catalog,
+// not the rows.
+//
+// It runs before any table is created: under the old scheme Product.model's
+// index was named tab_product_model, which is the table a Product Model
+// DocType added in the same release would create (#149).
+func (c *catalog) adoptLegacyIndexes(reg *meta.Registry, names []string) []Statement {
+	var out []Statement
+	for _, n := range names {
+		d := reg.DocTypes[n]
+		t := d.TableName()
+		if _, has := c.cols[t]; !has {
+			continue
+		}
+		idx := wantedIndexes(d)
+		keys := make([]string, 0, len(idx))
+		for k := range idx {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			if c.hasIndexOn(k, t) {
+				continue
+			}
+			if legacy := c.legacyIndexName(t, idx[k].suffix); legacy != "" {
+				st := c.renameIndex(legacy, k)
+				for i := range st {
+					st[i].Doctype, st[i].Table = d.Name, t
+				}
+				out = append(out, st...)
+			}
+		}
+	}
+	return out
 }
 
 func (c *catalog) hasIndexOn(name, table string) bool {
@@ -728,8 +786,8 @@ func planRenames(c *catalog, reg *meta.Registry, names []string) (tables, column
 			delete(c.secured, ot)
 			delete(c.policy, ot)
 			if pk, ok := c.pk[ot]; ok {
-				if _, left := c.idx[pk.name]; !left && strings.HasPrefix(pk.name, ot+"_") {
-					pk.name = meta.IndexName(t, strings.TrimPrefix(pk.name, ot+"_"))
+				if _, left := c.idx[pk.name]; !left {
+					pk.name = meta.PrimaryKeyName(t)
 				}
 				c.pk[t] = pk
 				delete(c.pk, ot)
@@ -896,6 +954,7 @@ func Plan(ctx context.Context, q Querier, reg *meta.Registry, prune bool) ([]Sta
 		}
 	}
 	renameTables, renameCols, renamedIdx, renamedCols, refusals := planRenames(cat, reg, names)
+	adopt := cat.adoptLegacyIndexes(reg, names)
 
 	var add, alter, indexes, unshare, drops []Statement
 	wantedTables := map[string]bool{}
@@ -992,14 +1051,6 @@ func Plan(ctx context.Context, q Querier, reg *meta.Registry, prune bool) ([]Sta
 		sort.Strings(keys)
 		for _, k := range keys {
 			want := idx[k]
-			// Before #144 a name past 63 bytes went to Postgres whole, and
-			// Postgres kept its first 63. That index is this one: take it
-			// over under the name that fits rather than build it a second time.
-			if !cat.hasIndexOn(k, t) {
-				if legacy := meta.TruncatedIndexName(t, want.suffix); legacy != "" && cat.hasIndexOn(legacy, t) {
-					indexes = append(indexes, cat.renameIndex(legacy, k)...)
-				}
-			}
 			row, exists := cat.idx[k]
 			if !exists {
 				indexes = append(indexes, Statement{SQL: want.ddl(), Kind: KindCreateIndex, Doctype: d.Name, Table: t})
@@ -1055,7 +1106,9 @@ func Plan(ctx context.Context, q Querier, reg *meta.Registry, prune bool) ([]Sta
 			// identRe as well as the prefix: Ident panics on anything else,
 			// and migrate refusing to run is a worse answer than leaving a
 			// hand-made index alone.
-			if strings.HasPrefix(name, t+"_uk_") && identRe.MatchString(name) {
+			// "_uk_" is the infix a migrate before #149 named keys with; a
+			// key still declared was renamed by adoptLegacyIndexes already.
+			if (strings.HasPrefix(name, t+"__uk_") || strings.HasPrefix(name, t+"_uk_")) && identRe.MatchString(name) {
 				stale = append(stale, name)
 			}
 		}
@@ -1095,8 +1148,8 @@ func Plan(ctx context.Context, q Querier, reg *meta.Registry, prune bool) ([]Sta
 	if len(refusals) > 0 {
 		return nil, &RefusedError{Refusals: refusals}
 	}
-	plan := make([]Statement, 0, len(renameTables)+len(renameCols)+len(add)+len(alter)+len(indexes)+len(unshare)+len(drops))
-	for _, group := range [][]Statement{renameTables, renameCols, add, alter, indexes, unshare, drops} {
+	plan := make([]Statement, 0, len(renameTables)+len(renameCols)+len(adopt)+len(add)+len(alter)+len(indexes)+len(unshare)+len(drops))
+	for _, group := range [][]Statement{renameTables, renameCols, adopt, add, alter, indexes, unshare, drops} {
 		plan = append(plan, group...)
 	}
 	return plan, nil
