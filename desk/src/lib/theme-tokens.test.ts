@@ -21,7 +21,7 @@ const kept: Record<string, string[]> = {
   // the toast is dark on every theme
   "app.css": ["#1f2937", "#fff"],
   // the chart's tooltip, dark like the toast
-  "lib/components/BarChart.svelte": ["#1f2937", "#fff"],
+  "lib/components/Chart.svelte": ["#1f2937", "#fff"],
   // the printed page is paper
   "lib/components/PrintView.svelte": ["#ffffff"],
   // a barcode needs a white margin to scan, and the camera's video is black

@@ -3,7 +3,7 @@
   import { boot, __ } from "$lib/boot.svelte";
   import { api } from "$lib/api";
   import { formatCurrency, formatNumber } from "$lib/format";
-  import BarChart from "./BarChart.svelte";
+  import Chart from "./Chart.svelte";
   import Icon from "./Icon.svelte";
   import { onMount } from "svelte";
 
@@ -55,7 +55,7 @@
     {#each ws.charts || [] as c}
       <div class="card" style="padding:16px 20px;margin-bottom:16px">
         <h3 style="font-size:14px;margin-bottom:10px">{c.label}</h3>
-        {#if charts[c.name]?.labels}<BarChart data={charts[c.name]} />{:else if charts[c.name]?.error}<div class="muted">{charts[c.name].error}</div>{:else}<div class="muted">…</div>{/if}
+        {#if charts[c.name]?.labels}<Chart data={{ type: c.type, ...charts[c.name] }} />{:else if charts[c.name]?.error}<div class="muted">{charts[c.name].error}</div>{:else}<div class="muted">…</div>{/if}
       </div>
     {/each}
     {#if ws.shortcuts?.length}

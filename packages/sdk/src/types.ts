@@ -679,14 +679,39 @@ export interface ReportResult {
   /** optional totals row */
   totals?: Record<string, any>;
   chart?: ChartData;
+  /** more charts, drawn after `chart` (two side by side when there is room) */
+  charts?: ChartData[];
   /** summary cards shown above the table */
-  summary?: { label: string; value: any; datatype?: "Currency" | "Int" | "Float" | "Data" | "Date" | "Datetime"; indicator?: string }[];
+  summary?: { label: string; value: any; datatype?: "Currency" | "Int" | "Float" | "Percent" | "Data" | "Date" | "Datetime"; indicator?: string }[];
+}
+
+/** A chart series' colour: one of the indicator colours. */
+export type ChartColor = "blue" | "green" | "orange" | "red" | "purple" | "gray" | "yellow";
+/** How a chart prints its values, as a cell of that fieldtype: `Percent` adds "%", `Currency` the site's currency. */
+export type ChartFormat = "Percent" | "Currency" | "Float" | "Int";
+
+export interface ChartDataset {
+  /** a catalogue key built with `_()` */
+  name: string;
+  /** `null` is a point not known yet: the line breaks there and no bar or slice is drawn (not 0). */
+  values: (number | null)[];
+  /** Without one, the series takes the next colour no other series named (gray is never handed out). */
+  color?: ChartColor;
+  /** This series' tooltip format, over the chart's `format`. */
+  format?: ChartFormat;
 }
 
 export interface ChartData {
+  /** `pie` and `donut` draw the first dataset, one slice per label. */
   type: "bar" | "line" | "pie" | "donut";
+  /** drawn above the chart; a catalogue key built with `_()` */
+  title?: string;
   labels: string[];
-  datasets: { name: string; values: number[] }[];
+  datasets: ChartDataset[];
+  /** Bars only: the datasets stack in one column per label instead of standing side by side. */
+  stacked?: boolean;
+  /** The axis and the tooltip print values in this format; the axis shows a currency in short form. */
+  format?: ChartFormat;
 }
 
 export interface ReportDef {
@@ -723,6 +748,7 @@ export interface NumberCardDef {
 export interface ChartDef {
   name: string;
   label: string;
+  /** The chart's shape when `method()` returns no `type`. */
   type: "bar" | "line" | "pie" | "donut";
   /** Runs as the calling user with no DocType check: the workspace `roles` are its only gate. */
   method: () => ChartData;

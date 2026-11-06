@@ -12,14 +12,29 @@ export default defineReport({
       rows,
       summary: [{ label: _("Total"), value: 10, datatype: "Currency", indicator: "red" }],
       chart: { type: "bar", labels: [/* … */], datasets: [{ name: _("Revenue"), values: [/* … */] }] },
+      charts: [{ type: "line", title: _("Default rate"), format: "Percent", labels: [/* … */],
+        datasets: [{ name: _("INAD90"), values: [11.99, null] }, { name: _("A year earlier"), values: [10.28, 10.64], color: "gray" }] }],
     };
   },
 });
 ```
 Date filter defaults: `"Today"`, `"month_start"`, `"month_end"`, `"-11m"` (the first of the month, N months ago).
-A summary card's `datatype` is `Currency`, `Int`, `Float`, `Data`, `Date` or `Datetime`, and the
-card is formatted like a cell of that type; without one, a number is shown as a number and
-anything else as text.
+A summary card's `datatype` is `Currency`, `Int`, `Float`, `Percent`, `Data`, `Date` or `Datetime`,
+and the card is formatted like a cell of that type (`Percent` takes `11.99`, not `0.1199`); without
+one, a number is shown as a number and anything else as text.
+
+A chart (`chart`, plus any in `charts`, drawn after it — two side by side when there is room) is
+`{ type, title?, labels, datasets, stacked?, format? }`:
+- `type`: `bar`, `line`, `pie` or `donut`. A pie or donut draws its first dataset, one slice per
+  label; a slice with no value, 0 or a negative takes no room.
+- A value may be `null`: a point not known yet, not 0. The line breaks there and no bar is drawn.
+- `stacked: true` stacks a bar chart's datasets in one column per label.
+- `format`: `Percent`, `Currency`, `Float` or `Int` — the axis and the tooltip print values as a cell
+  of that type (the axis shows a currency in short form, `R$ 7,6 mi`). A dataset's own `format`
+  overrides it in that series' tooltip.
+- A dataset's `color` is one of `blue`, `green`, `orange`, `red`, `purple`, `gray`, `yellow`; a
+  series without one takes the next colour no other series named, and gray is never handed out,
+  so it is the colour for a reference series.
 Route: `/app/report/<name>`; API: `GET /api/report/<name>?filters={...}`.
 The report page sorts by a click on a column header and exports CSV or XLSX.
 A column draws its values as indicators when it carries a Select's `optionColors` or
@@ -52,6 +67,9 @@ export default defineWorkspace({
   links: [{ label: "Records", items: [{ label: "People", doctype: "Person" }] }],
 });
 ```
+
+A workspace chart's `method()` returns the same chart a report does; its `type` is the
+definition's when the result has none.
 
 What guards a card and a chart:
 

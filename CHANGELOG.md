@@ -14,6 +14,30 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **Report and workspace charts: gaps, units, stacking, colours and more than one chart** (#146).
+  A dataset's `values` may hold `null` — a point not known yet — and the line breaks there instead
+  of diving to zero, and no bar is drawn. `stacked: true` stacks a bar chart's datasets per label.
+  `format: "Percent" | "Currency" | "Float" | "Int"` (per chart, or per dataset for its tooltip)
+  prints the unit on the axis and the tooltip — a currency axis in short form (`R$ 7,6 mi`). A
+  dataset's `color` picks one of the indicator colours, and automatic colours skip the declared
+  ones; gray is never handed out. `title` draws a heading over a chart, and `ReportResult.charts`
+  adds charts after `chart`. A summary card takes
+  `datatype: "Percent"`.
+
+### Changed
+
+- **A chart's axis ticks at round values, and a line chart's scale fits its data** (#146): a line
+  no longer forces 0 into its scale, so rates between 10% and 12% are not drawn as a flat line
+  (bars still stand on 0). The chart is drawn at the width it is shown at, so its text keeps its
+  size in a narrow card.
+
+### Fixed
+
+- **`pie` and `donut` charts were drawn as bars** (#146). They now draw the first dataset as
+  slices, with a legend of the labels and the share in the tooltip.
+
 ## 0.31.15 — 2026-11-06
 
 ### Added
