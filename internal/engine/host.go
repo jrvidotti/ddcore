@@ -362,6 +362,12 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 			return nil, cerr.Validation("print.pdf: {0}", err)
 		}
 		return c.PrintPDF(rt, p)
+	case "spreadsheet.file":
+		var p SpreadsheetArgs
+		if err := json.Unmarshal(raw, &p); err != nil {
+			return nil, cerr.Validation("spreadsheet.file: {0}", err)
+		}
+		return c.SpreadsheetFile(p)
 	case "files.presign":
 		return c.PresignFile(a.URL, time.Duration(a.TTL*float64(time.Second)), a.ignorePermissions())
 	case "files.read":

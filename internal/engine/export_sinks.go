@@ -208,25 +208,35 @@ func (s *CSVSink) Doc(doc Doc, files []ExportFile) error { return s.t.doc(doc, f
 
 func (s *CSVSink) End(*ExportSummary) error { return s.t.end() }
 
-// openCSV opens `table` and writes its header. The UTF-8 BOM goes in first:
-// without it Excel reads "Endereço" as "EndereÃ§o".
+// openCSV opens `table` and writes its header. The UTF-8 BOM goes in first
+// (newCSVWriter): without it Excel reads "Endereço" as "EndereÃ§o".
 func (s *CSVSink) openCSV(table string, _ *meta.DocType, header []string) (tableWriter, error) {
 	w, err := s.Open(table)
 	if err != nil {
 		return nil, err
 	}
-	if _, err := io.WriteString(w, "\ufeff"); err != nil {
+	cw, err := newCSVWriter(w, s.Sep)
+	if err != nil {
 		return nil, err
-	}
-	cw := csv.NewWriter(w)
-	cw.UseCRLF = true // what spreadsheets expect
-	if s.Sep != 0 {
-		cw.Comma = s.Sep
 	}
 	if err := cw.Write(header); err != nil {
 		return nil, err
 	}
 	return csvTable{cw}, nil
+}
+
+// newCSVWriter starts a CSV the way every CSV ddcore writes starts: the UTF-8
+// BOM, CRLF line ends and the separator (0 = comma).
+func newCSVWriter(w io.Writer, sep rune) (*csv.Writer, error) {
+	if _, err := io.WriteString(w, "\ufeff"); err != nil {
+		return nil, err
+	}
+	cw := csv.NewWriter(w)
+	cw.UseCRLF = true // what spreadsheets expect
+	if sep != 0 {
+		cw.Comma = sep
+	}
+	return cw, nil
 }
 
 type csvTable struct{ w *csv.Writer }

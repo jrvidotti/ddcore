@@ -943,6 +943,9 @@
     print: {
       pdf(opts) { return call("print.pdf", opts || {}); },
     },
+    spreadsheet: {
+      file(opts) { return call("spreadsheet.file", opts || {}); },
+    },
     siteName() { return site().name || ""; },
     siteUrl() { return site().url || ""; },
     // the DocType goes in as its route name, without whitespace: /app/SalesOrder/SO-1
