@@ -32,6 +32,7 @@ Account,Conta,# desk/src/lib/components/Profile.svelte:163
 Action,Ação,# core.doctypes.audit_event.audit_event.doctype
 Action '{0}' applied,Ação '{0}' aplicada,# desk/src/lib/form.svelte.ts:514
 Action '{0}' is not valid for {1} {2} in state '{3}',Ação '{0}' não é válida para {1} {2} no estado '{3}',# internal/engine/workflow.go:103
+Action '{0}' requires a comment,A ação '{0}' exige um comentário,# internal/engine/workflow.go:187
 Actions,Ações,# desk/src/lib/components/FormView.svelte:485
 Active sessions,Sessões ativas,# desk/src/lib/components/Profile.svelte:238
 Actor,Autor,# core.doctypes.audit_event.audit_event.doctype
@@ -796,6 +797,7 @@ The audio is larger than {0} MB,O áudio tem mais de {0} MB,# internal/ai/transc
 The bytes of {0} are not in the store,Os bytes de {0} não estão no armazenamento,# internal/engine/files_api.go:299
 The camera is not available,A câmera não está disponível,# desk/src/lib/controls/BarcodeControl.svelte:87
 The column has no header,A coluna não tem cabeçalho,# internal/engine/data_import.go:418
+"The comment is too long: {0} characters, at most {1}","O comentário é longo demais: {0} caracteres, no máximo {1}",# internal/engine/workflow.go:195
 The current password is not right,A senha atual não confere,# core/services/profile.ts:143
 The document was changed by someone else after you opened it. Reload and try again.,O documento foi alterado por outro usuário depois que você o abriu. Recarregue e tente de novo.,# internal/engine/doc.go:885
 The email address names the account and cannot be changed here. Roles are granted by an admin.,O e-mail é o nome da conta e não pode ser alterado aqui. Os papéis são concedidos por um administrador.,# desk/src/lib/components/Profile.svelte:178
@@ -1087,11 +1089,13 @@ webhook payload for {0} is not JSON: {1},o conteúdo do webhook para {0} não é
 "what you do is recorded as them, tagged with your name.","o que você faz é registrado em nome dessa pessoa, marcado com o seu nome.",# desk/src/lib/components/ImpersonationBanner.svelte:27
 "{0} ""{1}"" already exists","{0} ""{1}"" já existe",# internal/engine/bulk.go:368
 "{0} ""{1}"" already exists on {2} {3}","{0} ""{1}"" já existe em {2} {3}",# internal/engine/doc.go:2073
+"{0} ""{1}""","{0} ""{1}""",# desk/src/lib/components/FormView.svelte:404
 "{0} ""{1}""?","{0} ""{1}""?",# desk/src/lib/components/FormView.svelte:403
 "{0} already belongs to a file of another tenant: storage keys are site-wide, so loading it here would overwrite that file","{0} já pertence a um arquivo de outra conta: as chaves de armazenamento valem para o site todo, então carregá-lo aqui sobrescreveria esse arquivo",# internal/engine/import_files.go:141
 {0} already exists,{0} já existe,# internal/engine/bulk.go:383
 {0} already exists on {1} {2},{0} já existe em {1} {2},# internal/engine/doc.go:2110
 {0} applied action '{1}' ({2} → {3}),{0} aplicou a ação '{1}' ({2} → {3}),# internal/engine/workflow.go:179
+{0} applied action '{1}' ({2} → {3}): {4},{0} aplicou a ação '{1}' ({2} → {3}): {4},# internal/engine/workflow.go:238
 {0} assigned this document to {1},{0} atribuiu este documento a {1},# internal/api/assignments.go:69
 {0} assigned this document to {1}: {2},{0} atribuiu este documento a {1}: {2},# internal/api/assignments.go:71
 {0} assigned {1} {2} to you,{0} atribuiu {1} {2} a você,# internal/api/assignments.go:86

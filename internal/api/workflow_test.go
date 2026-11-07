@@ -105,7 +105,12 @@ type workflowEnv struct {
 
 func setupWorkflowEnv(t *testing.T) *workflowEnv {
 	t.Helper()
-	appDir := workflowTestApp(t)
+	return setupWorkflowEnvIn(t, workflowTestApp(t))
+}
+
+// setupWorkflowEnvIn is setupWorkflowEnv over the app in appDir.
+func setupWorkflowEnvIn(t *testing.T, appDir string) *workflowEnv {
+	t.Helper()
 	x := setupApp(t, appDir)
 
 	x.asAdmin(func(c *engine.Ctx) error {

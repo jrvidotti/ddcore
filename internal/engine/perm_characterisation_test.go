@@ -323,8 +323,8 @@ func TestPermChar_DynamicLinkSelectorCase(t *testing.T) {
 // when the parent is read, and a listing of the child DocType follows it: a row
 // is listed only when its parent passes the parent's list filter (b1, of OB,
 // does not) and the row itself passes the rules for the parent (a2 names
-// Beta). KNOWN GAP (pinned, not desired): a parent whose own rows break the
-// rule is listed but not readable (OA). Tracked separately; fix deliberately.
+// Beta). A parent whose own rows break the rule is neither listed nor read
+// (OA, #150), and its rows are not listed with it.
 func TestPermChar_ParentScopedRuleOnChildListing(t *testing.T) {
 	e := setupChar(t)
 	runAs(t, e, "Admin", func(c *Ctx) error {
@@ -341,13 +341,13 @@ func TestPermChar_ParentScopedRuleOnChildListing(t *testing.T) {
 		return nil
 	})
 	runAs(t, e, charOrderScoped, func(c *Ctx) error {
-		if got := listNames(t, c, "Char Order", ListArgs{}); !reflect.DeepEqual(got, []string{"OA", "OC"}) {
-			t.Fatalf("list = %v; pinned current behaviour: [OA OC]", got)
+		if got := listNames(t, c, "Char Order", ListArgs{}); !reflect.DeepEqual(got, []string{"OC"}) {
+			t.Fatalf("list = %v, want [OC]", got)
 		}
 		if _, err := c.GetDoc("Char Order", "OC"); err != nil {
 			t.Fatalf("GetDoc OC: %v", err)
 		}
-		// KNOWN GAP: listed, yet refused: its row a2 names Beta, and the rule applies to it
+		// its row a2 names Beta, and the rule applies to it
 		_, err := c.GetDoc("Char Order", "OA")
 		wantPermissionError(t, "GetDoc OA (a child row out of scope)", err)
 		_, err = c.GetDoc("Char Order", "OB")
@@ -361,12 +361,13 @@ func TestPermChar_ParentScopedRuleOnChildListing(t *testing.T) {
 		for _, r := range rows {
 			texts = append(texts, db.Str(r["text"]))
 		}
-		if !reflect.DeepEqual(texts, []string{"a1", "c1"}) {
-			t.Fatalf("child listing = %v, want [a1 c1]", texts)
+		if !reflect.DeepEqual(texts, []string{"c1"}) {
+			t.Fatalf("child listing = %v, want [c1]", texts)
 		}
 		return nil
 	})
-	// a rule with no applicable_for filters the child's own Link instead
+	// a rule with no applicable_for filters the child's own Link, and the
+	// parent through its rows: OA is out by a2 as well
 	runAs(t, e, charParty, func(c *Ctx) error {
 		rows, err := c.GetList("Char Order Line", ListArgs{Fields: []string{"text"}, OrderBy: "text asc"})
 		if err != nil {
@@ -376,8 +377,8 @@ func TestPermChar_ParentScopedRuleOnChildListing(t *testing.T) {
 		for _, r := range rows {
 			texts = append(texts, db.Str(r["text"]))
 		}
-		if !reflect.DeepEqual(texts, []string{"a1", "c1"}) {
-			t.Fatalf("child listing = %v, want [a1 c1]", texts)
+		if !reflect.DeepEqual(texts, []string{"c1"}) {
+			t.Fatalf("child listing = %v, want [c1]", texts)
 		}
 		return nil
 	})

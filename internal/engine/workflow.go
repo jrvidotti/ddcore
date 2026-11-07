@@ -1,14 +1,49 @@
 package engine
 
 import (
+	"strings"
+	"unicode/utf8"
+
 	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/js"
 )
 
 // WorkflowAvailableAction describes an action available for a document in its current state.
 type WorkflowAvailableAction struct {
-	Action    string `json:"action"`
-	NextState string `json:"nextState"`
+	Action         string `json:"action"`
+	NextState      string `json:"nextState"`
+	RequireComment bool   `json:"requireComment"`
+}
+
+// MaxWorkflowComment is the longest comment, in characters, a workflow action
+// takes: a reason, not a document.
+const MaxWorkflowComment = 2000
+
+// WorkflowApplyOpts are the options of ApplyWorkflow.
+type WorkflowApplyOpts struct {
+	// Comment is the actor's reason for the action. A transition with
+	// requireComment refuses a blank one; any other takes it when given.
+	Comment string
+}
+
+// WorkflowAction is the transition a write is part of, as the controller sees
+// it in doc.flags.workflow and a notification in its context argument (#151).
+type WorkflowAction struct {
+	Action  string  `json:"action"`
+	From    string  `json:"from"`
+	To      string  `json:"to"`
+	Comment *string `json:"comment"`
+	doctype string
+	id      string
+}
+
+// workflowActionOn is the transition the document doctype/id is being written
+// by, or nil: a hook writing another document does not see it.
+func (c *Ctx) workflowActionOn(doctype, id string) *WorkflowAction {
+	if a := c.workflowAction; a != nil && a.doctype == doctype && a.id == id {
+		return a
+	}
+	return nil
 }
 
 // AvailableWorkflowActions returns all workflow actions the current user can execute
@@ -55,25 +90,31 @@ func (c *Ctx) AvailableWorkflowActions(doctype string, doc Doc) ([]WorkflowAvail
 				continue
 			}
 		}
-		out = append(out, WorkflowAvailableAction{Action: tr.Action, NextState: tr.NextState})
+		out = append(out, WorkflowAvailableAction{Action: tr.Action, NextState: tr.NextState, RequireComment: tr.RequireComment})
 	}
 	return out, nil
 }
 
-// ApplyWorkflowTransition executes an atomic workflow transition on a document.
-// It acquires a row lock (FOR UPDATE), validates the transition against current state,
-// checks role authorization, self-approval restrictions, and conditions, mutates state/docstatus,
-// writes an audit event, and logs a timeline comment.
+// ApplyWorkflowTransition is ApplyWorkflow without a comment.
 func (c *Ctx) ApplyWorkflowTransition(doctype, name, action string) (Doc, error) {
+	return c.ApplyWorkflow(doctype, name, action, WorkflowApplyOpts{})
+}
+
+// ApplyWorkflow executes an atomic workflow transition on a document.
+// It acquires a row lock (FOR UPDATE), validates the transition against current state,
+// checks role authorization, self-approval restrictions, conditions and a required comment,
+// mutates state/docstatus, writes an audit event, and logs a timeline comment.
+func (c *Ctx) ApplyWorkflow(doctype, name, action string, opts WorkflowApplyOpts) (Doc, error) {
 	if c.Tx == nil {
 		var res Doc
 		err := c.Run(func(txCtx *Ctx) error {
 			var err error
-			res, err = txCtx.ApplyWorkflowTransition(doctype, name, action)
+			res, err = txCtx.ApplyWorkflow(doctype, name, action, opts)
 			return err
 		})
 		return res, err
 	}
+	comment := strings.TrimSpace(opts.Comment)
 
 	wf := c.WorkflowFor(doctype)
 	if wf == nil {
@@ -145,7 +186,19 @@ func (c *Ctx) ApplyWorkflowTransition(doctype, name, action string) (Doc, error)
 		}
 	}
 
-	// 6. Apply state change & docstatus
+	// 6. A transition that asks for a reason gets one; after the checks above,
+	// so a user without the role learns nothing about it
+	if matched.RequireComment && comment == "" {
+		return nil, cerr.Validation("Action '{0}' requires a comment", c.T(action))
+	}
+	if n := utf8.RuneCountInString(comment); n > MaxWorkflowComment {
+		return nil, cerr.Validation("The comment is too long: {0} characters, at most {1}", n, MaxWorkflowComment)
+	}
+	if comment != "" {
+		detail["comment"] = comment
+	}
+
+	// 7. Apply state change & docstatus
 	targetState := wf.FindState(matched.NextState)
 	doc[wf.StateField] = matched.NextState
 	if targetState != nil && targetState.UpdateFields != nil {
@@ -161,23 +214,59 @@ func (c *Ctx) ApplyWorkflowTransition(doctype, name, action string) (Doc, error)
 	}
 	doc["docstatus"] = newStatus
 
+	wa := &WorkflowAction{Action: action, From: currentState, To: matched.NextState, doctype: doctype, id: name}
+	if comment != "" {
+		wa.Comment = &comment
+	}
 	var saved Doc
-	err = c.WithWorkflowTransition(func() error {
-		var saveErr error
-		saved, saveErr = c.Save(doc, SaveOpts{})
-		return saveErr
-	})
+	write := func() error {
+		err := c.WithWorkflowTransition(func() error {
+			old := c.workflowAction
+			c.workflowAction = wa
+			defer func() { c.workflowAction = old }()
+			var saveErr error
+			saved, saveErr = c.Save(doc, SaveOpts{Flags: map[string]any{"workflow": wa.flag()}})
+			return saveErr
+		})
+		if err != nil {
+			return err
+		}
+		// 8. Write Audit Event & Comment
+		if err := c.Audit("workflow.transition", doctype, name, detail); err != nil {
+			return err
+		}
+		text := c.T("{0} applied action '{1}' ({2} → {3})", c.User, c.T(action), c.T(currentState), c.T(matched.NextState))
+		if comment == "" {
+			c.BestEffort("workflow timeline comment", []any{"doctype", doctype, "id", name, "action", action}, func() error {
+				return c.AddTimelineComment(doctype, name, text, SaveOpts{IgnorePermissions: true})
+			})
+			return nil
+		}
+		// the actor's reason is data of theirs, not a log line: it is written
+		// with the transition or the transition fails
+		text = c.T("{0} applied action '{1}' ({2} → {3}): {4}", c.User, c.T(action), c.T(currentState), c.T(matched.NextState), comment)
+		return c.AddTimelineComment(doctype, name, text, SaveOpts{IgnorePermissions: true})
+	}
+	if comment == "" {
+		err = write()
+	} else {
+		// one unit inside the caller's transaction too: a caller catching the
+		// error keeps neither the transition nor half of it
+		err = c.WithSavepoint(write)
+	}
 	if err != nil {
 		return nil, err
 	}
 
-	// 7. Write Audit Event & Comment
-	if err := c.Audit("workflow.transition", doctype, name, detail); err != nil {
-		return nil, err
-	}
-	c.BestEffort("workflow timeline comment", []any{"doctype", doctype, "id", name, "action", action}, func() error {
-		return c.AddTimelineComment(doctype, name, c.T("{0} applied action '{1}' ({2} → {3})", c.User, c.T(action), c.T(currentState), c.T(matched.NextState)), SaveOpts{IgnorePermissions: true})
-	})
-
 	return saved, nil
+}
+
+// flag is the transition as doc.flags.workflow carries it: JSON values only,
+// since the flags cross to the runtime and back.
+func (a *WorkflowAction) flag() map[string]any {
+	var comment any
+	if a.Comment != nil {
+		comment = *a.Comment
+	}
+	return map[string]any{"action": a.Action, "from": a.From, "to": a.To, "comment": comment}
 }

@@ -1001,6 +1001,9 @@ type Ctx struct {
 	// ctx that owns it, so a ctx borrowing the transaction nests under them.
 	savepoints           []savepointMark
 	inWorkflowTransition bool
+	// workflowAction is the transition being saved, for the notifications of
+	// that document's write (#151)
+	workflowAction *WorkflowAction
 	// portal puts the request in portal mode (OPS-10); a Website User is in it
 	// regardless. userType and portalIdent memoise what that mode reads.
 	portal      bool
@@ -1084,6 +1087,7 @@ func (c *Ctx) Run(fn func(c *Ctx) error) error {
 	c.afterRollback = nil
 	c.savepoints = nil
 	c.inWorkflowTransition = false
+	c.workflowAction = nil
 	return c.runOnce(fn)
 }
 

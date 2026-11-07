@@ -496,17 +496,20 @@ export class FormController {
     return this.save("cancel");
   }
 
-  async applyWorkflowAction(action: string): Promise<boolean> {
+  /** whether the action's transition asks for a comment, which the action button then prompts for (#151) */
+  workflowActionNeedsComment(action: string): boolean {
+    return !!this.workflow?.actions?.find((a: any) => a.action === action)?.requireComment;
+  }
+
+  async applyWorkflowAction(action: string, comment?: string): Promise<boolean> {
     // applying reloads the document: unsaved edits would be dropped silently
     if (this.saving || this.isDirty) return false;
     this.saving = true;
     ui.busy++;
     try {
-      const res = await api.post("/api/workflow/apply", {
-        doctype: this.doctype,
-        id: this.doc.id,
-        action,
-      });
+      const body: Record<string, string> = { doctype: this.doctype, id: this.doc.id, action };
+      if (comment !== undefined) body.comment = comment;
+      const res = await api.post("/api/workflow/apply", body);
       this.load(res);
       for (const h of this.handlers) {
         try { await h.afterSave?.(this); } catch (e) { showError(e); }

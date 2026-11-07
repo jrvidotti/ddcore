@@ -490,8 +490,31 @@ func (c *Ctx) strictScopeFilters(d *meta.DocType, applicableFor string) ([]db.Fi
 		return []db.Filter{{Field: "id", Op: "in", Value: []any{}}}, nil
 	}
 
+	scopes := applicableScopes(perms, applicableFor)
+	out := c.bindingFilters(d, scopes)
+	if d.IsChild {
+		return out, nil
+	}
+	// a direct read checks the Link fields of every child row too
+	// (checkUserPermissionsFor), so the list holds a document only when each
+	// row of its Table fields passes the rules for it (#150)
+	for _, tf := range d.TableFields() {
+		child, err := c.St.DocType(tf.OptionsString())
+		if err != nil {
+			return nil, err
+		}
+		if rows := c.bindingFilters(child, scopes); len(rows) > 0 {
+			out = append(out, db.Filter{Rows: &db.RowsFilter{Field: tf.Fieldname, DocType: child.Name, Filters: rows}})
+		}
+	}
+	return out, nil
+}
+
+// bindingFilters are the filters bounding d's own fields by scopes, the
+// allowed values of each restricted DocType.
+func (c *Ctx) bindingFilters(d *meta.DocType, scopes map[string][]any) []db.Filter {
 	var out []db.Filter
-	for allow, allowed := range applicableScopes(perms, applicableFor) {
+	for allow, allowed := range scopes {
 		// A rule over a hierarchy covers what hangs below the value it names:
 		// "Territory: Brazil" is about Brazil and everything in it, which is
 		// the only reading that makes a tree usable as a scope (DAT-07).
@@ -509,7 +532,7 @@ func (c *Ctx) strictScopeFilters(d *meta.DocType, applicableFor string) ([]db.Fi
 			out = append(out, f)
 		}
 	}
-	return out, nil
+	return out
 }
 
 // applicableScopes groups the User Permission rules that apply within
@@ -597,6 +620,15 @@ func (c *Ctx) childPermission(d *meta.DocType, ptype string, doc Doc) (bool, err
 	}
 	pdoc := Doc(rows[0])
 	pdoc["doctype"] = parent.Name
+	// the parent's scope check covers its child rows, as when the parent is
+	// read: a row of a parent out of reach is out of reach (#150)
+	if perms, err := c.UserPermissions(); err != nil {
+		return false, err
+	} else if len(perms) > 0 {
+		if err := c.loadChildRows(parent, pdoc); err != nil {
+			return false, err
+		}
+	}
 	if parentPtype == "write" {
 		switch pdoc.Docstatus() {
 		case 1:

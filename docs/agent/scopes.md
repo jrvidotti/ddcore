@@ -60,8 +60,14 @@ different DocType.
   itself and on every Link into it. "Territory: Brazil" is about Brazil and everything in it.
   See `trees`.
 - **A DocType with no link to the `allow` DocType** is not restricted by that rule.
-- **Child tables**: writes and direct reads also check the `Link` fields of every child
-  row, under the parent's `applicable_for`.
+- **Child tables**: writes, direct reads and lists of the parent also check the `Link`
+  fields of every child row, under the parent's `applicable_for`. A list of the parent
+  (`getList`, `count`, `GET /api/resource/<parent>`, the desk list, Link search) holds a
+  document only when every row of its Table fields passes, so it holds the documents a direct
+  read opens: a plan whose line names a category out of the user's scope is
+  neither listed nor opened, though the plan itself has no Link to the category. An empty
+  `Link` on a row is out of scope there too. A row read on its own (`getDoc` of the child)
+  is refused when its parent is out of reach, siblings included.
 - **Listing a child DocType** (`getList` or `GET /api/resource/<child>`) holds a row only
   when its parent document is one a list of the parent would hold for the user — roles,
   `ifOwner`, shares, scopes and the parent controller's `permissionQuery` — and the row's
@@ -93,7 +99,7 @@ Scopes are applied below the SDK, so app code cannot opt out:
 
 | Call | Role permissions | Scope |
 | --- | --- | --- |
-| `ddcore.db.getList`, `count` | enforced | enforced |
+| `ddcore.db.getList`, `count` | enforced | enforced (Link fields, Dynamic Link fields, child rows) |
 | `ddcore.db.getAll`, `getList({ ignorePermissions: true })`, `getValue`, `exists` (by id and by filters) | skipped | **enforced** |
 | `ddcore.getDoc` | enforced | enforced (Link fields, Dynamic Link fields, child rows) |
 | `ddcore.getDoc(doctype, id, { ignorePermissions: true })` | skipped | **enforced** |

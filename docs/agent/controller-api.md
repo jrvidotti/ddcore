@@ -143,7 +143,7 @@ Every message a person reads goes through `_()`, and the key is its English text
 
 Fields are properties; child tables are arrays. Methods: `insert()`, `save()`, `submit()`, `cancel()`, `delete()`, `reload()`,
 `dbSet(field, value)` / `dbSet({ ... })` (writes straight through, no validate — allowed after submission), `append(table, row)`, `isNew()`,
-`getDocBeforeSave()`, `hasValueChanged(field)`, `runMethod(name, args)`, `applyWorkflow(action)` (applies a workflow transition and
+`getDocBeforeSave()`, `hasValueChanged(field)`, `runMethod(name, args)`, `applyWorkflow(action, { comment }?)` (applies a workflow transition, with the actor's reason when given or required, and
 reloads the document with the new state and docstatus; see `workflows`), `doc.flags` (see below).
 
 ### `doc.flags`: context for one write
@@ -171,6 +171,10 @@ API or MCP starts with `{}`. A `flags` key in a client's body, or in the values 
 `ddcore.getDoc({ … })`, is dropped, and so is a `__before` one: `doc.getDocBeforeSave()` is the stored version, or nothing on an insert.
 They belong to that document only — another document saved inside a hook has its own, and `getDoc` of the same
 document again starts empty. Values must be JSON: the flags cross to the engine and back with the document.
+
+The framework sets one flag itself: during a workflow transition's save, `doc.flags.workflow` is
+`{ action, from, to, comment }` (`comment` is the actor's reason, or `null`), so a hook can tell the
+transition from an ordinary save and read why it was applied (see `workflows`, *Comments on an action*).
 
 ### What a delete leaves behind
 

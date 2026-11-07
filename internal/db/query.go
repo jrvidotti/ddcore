@@ -27,11 +27,24 @@ type Filter struct {
 	// framework builds: the row matches when its parent is a document of
 	// Parent.DocType passing every filter of Parent.Filters (B02).
 	Parent *ParentFilter
+	// Rows is a condition on a document's child rows, which only the framework
+	// builds: the document matches when every row of Rows.Field passes every
+	// filter of Rows.Filters, a NULL counting as a failure (#150).
+	Rows *RowsFilter
 }
 
 // ParentFilter names a child row's parent DocType and the filters its parent
 // document must pass, written against the parent's own fields.
 type ParentFilter struct {
+	DocType string
+	Filters []Filter
+}
+
+// RowsFilter names a Table field of a document, the child DocType it holds,
+// and the filters each of its rows must pass, written against the child's own
+// fields.
+type RowsFilter struct {
+	Field   string
 	DocType string
 	Filters []Filter
 }

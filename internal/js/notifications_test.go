@@ -39,15 +39,15 @@ func TestNotificationDiscoveryEvaluation(t *testing.T) {
 	}
 	doc := json.RawMessage(`{"id":"one","owner":"alice","status":"Done"}`)
 	before := json.RawMessage(`{"status":"Open"}`)
-	eval, err := rt.EvaluateNotification("Changed", doc, before)
+	eval, err := rt.EvaluateNotification("Changed", doc, before, nil)
 	if err != nil || !eval.Matches || len(eval.Recipients) != 1 || eval.Recipients[0] != "alice" {
 		t.Fatalf("%+v %v", eval, err)
 	}
-	content, err := rt.RenderNotification("Changed", doc, before)
+	content, err := rt.RenderNotification("Changed", doc, before, nil)
 	if err != nil || content.Title != "Done" || content.Message != "Open -> Done" || string(content.EmailArgs) != `{"id":"one"}` {
 		t.Fatalf("%+v %v", content, err)
 	}
-	eval, err = rt.EvaluateNotification("Changed", doc, doc)
+	eval, err = rt.EvaluateNotification("Changed", doc, doc, nil)
 	if err != nil || eval.Matches || len(eval.Recipients) != 0 {
 		t.Fatalf("%+v %v", eval, err)
 	}
@@ -92,16 +92,16 @@ defineNotification({name:"Broken",doctype:"Task",event:"on_update",recipients:()
 		t.Fatalf("%+v", m.Notifications)
 	}
 	taken, waiting := json.RawMessage(`{"status":"Taken"}`), json.RawMessage(`{"status":"Waiting"}`)
-	if ok, err := rt.ResolveNotification("Waiting", taken, waiting); err != nil || !ok {
+	if ok, err := rt.ResolveNotification("Waiting", taken, waiting, nil); err != nil || !ok {
 		t.Fatalf("resolve = %v %v", ok, err)
 	}
-	if ok, err := rt.ResolveNotification("Waiting", waiting, taken); err != nil || ok {
+	if ok, err := rt.ResolveNotification("Waiting", waiting, taken, nil); err != nil || ok {
 		t.Fatalf("resolve while waiting = %v %v", ok, err)
 	}
-	if ok, err := rt.ResolveNotification("Plain", taken, waiting); err != nil || ok {
+	if ok, err := rt.ResolveNotification("Plain", taken, waiting, nil); err != nil || ok {
 		t.Fatalf("resolve without resolveWhen = %v %v", ok, err)
 	}
-	if _, err := rt.ResolveNotification("Broken", taken, waiting); err == nil || !strings.Contains(err.Error(), "must return a boolean") {
+	if _, err := rt.ResolveNotification("Broken", taken, waiting, nil); err == nil || !strings.Contains(err.Error(), "must return a boolean") {
 		t.Fatalf("non-boolean resolveWhen = %v", err)
 	}
 }
@@ -111,7 +111,7 @@ func TestNotificationRejectsPromiseAndInvalidResults(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err = rt.EvaluateNotification("Test", json.RawMessage(`{}`), nil); err == nil {
+		if _, err = rt.EvaluateNotification("Test", json.RawMessage(`{}`), nil, nil); err == nil {
 			t.Fatal("accepted " + fragment)
 		}
 	}
@@ -119,7 +119,7 @@ func TestNotificationRejectsPromiseAndInvalidResults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = rt.RenderNotification("Test", json.RawMessage(`{}`), nil); err == nil {
+	if _, err = rt.RenderNotification("Test", json.RawMessage(`{}`), nil, nil); err == nil {
 		t.Fatal("accepted asynchronous title")
 	}
 }
@@ -137,5 +137,43 @@ func TestNotificationTargetValidation(t *testing.T) {
 	}
 	if err := (Notification{Name: "date", Doctype: "Task", Date: &NotificationDate{Field: "due"}}).ValidateTarget(reg, func(string) bool { return false }); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// Every notification function gets a context; workflow is null unless the
+// write is a workflow transition, and the context cannot be changed (#151).
+func TestNotificationContext(t *testing.T) {
+	rt, err := notificationRuntime(t, `export default defineNotification({name:"Ctx",doctype:"Task",event:"on_update",
+condition:(doc,before,context)=>{ try { context.workflow = "x"; } catch (e) {} return context.workflow === null || context.workflow.action === "Return"; },
+resolveWhen:(doc,before,context)=>context.workflow?.action === "Return",
+recipients:(doc,before,context)=>[context.workflow ? "approver" : doc.owner],
+desk:{title:(doc,before,context)=>String(context.workflow?.comment),message:(doc,before,context)=>context.workflow ? context.workflow.from + ">" + context.workflow.to : "none"},
+email:{template:"Update",args:(doc,before,context)=>({action:context.workflow?.action ?? null})}});`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc := json.RawMessage(`{"id":"one","owner":"alice"}`)
+	wf := json.RawMessage(`{"workflow":{"action":"Return","from":"Pending","to":"Draft","comment":"why"}}`)
+	eval, err := rt.EvaluateNotification("Ctx", doc, doc, nil)
+	if err != nil || !eval.Matches || len(eval.Recipients) != 1 || eval.Recipients[0] != "alice" {
+		t.Fatalf("without a workflow: %+v %v", eval, err)
+	}
+	content, err := rt.RenderNotification("Ctx", doc, doc, nil)
+	if err != nil || content.Title != "undefined" || content.Message != "none" || string(content.EmailArgs) != `{"action":null}` {
+		t.Fatalf("without a workflow: %+v %v", content, err)
+	}
+	eval, err = rt.EvaluateNotification("Ctx", doc, doc, wf)
+	if err != nil || !eval.Matches || len(eval.Recipients) != 1 || eval.Recipients[0] != "approver" {
+		t.Fatalf("with a workflow: %+v %v", eval, err)
+	}
+	content, err = rt.RenderNotification("Ctx", doc, doc, wf)
+	if err != nil || content.Title != "why" || content.Message != "Pending>Draft" || string(content.EmailArgs) != `{"action":"Return"}` {
+		t.Fatalf("with a workflow: %+v %v", content, err)
+	}
+	if ok, err := rt.ResolveNotification("Ctx", doc, doc, wf); err != nil || !ok {
+		t.Fatalf("resolveWhen with a workflow = %v %v", ok, err)
+	}
+	if ok, err := rt.ResolveNotification("Ctx", doc, doc, nil); err != nil || ok {
+		t.Fatalf("resolveWhen without a workflow = %v %v", ok, err)
 	}
 }

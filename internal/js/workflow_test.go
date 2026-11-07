@@ -32,7 +32,7 @@ export default defineWorkflow({
   transitions: [
     { state: "Draft", action: "Submit for Approval", nextState: "Pending Approval", allowed: ["Sales User", "Sales Manager"] },
     { state: "Pending Approval", action: "Approve", nextState: "Approved", allowed: "Sales Manager", allowSelfApproval: false, condition: (doc) => doc.total > 100 },
-    { state: "Pending Approval", action: "Reject", nextState: "Rejected", allowed: "Sales Manager" },
+    { state: "Pending Approval", action: "Reject", nextState: "Rejected", allowed: "Sales Manager", requireComment: true },
   ],
 });`
 	os.WriteFile(filepath.Join(appDir, "workflows/order.workflow.ts"), []byte(wfDef), 0644)
@@ -67,6 +67,9 @@ export default defineWorkflow({
 	}
 	if len(wf.States) != 4 || len(wf.Transitions) != 3 {
 		t.Errorf("expected 4 states and 3 transitions, got %d and %d", len(wf.States), len(wf.Transitions))
+	}
+	if !wf.Transitions[2].RequireComment || wf.Transitions[0].RequireComment {
+		t.Errorf("requireComment = %v, %v; want only Reject to require one", wf.Transitions[0].RequireComment, wf.Transitions[2].RequireComment)
 	}
 
 	// Test condition evaluation: total <= 100 should be false
@@ -192,6 +195,12 @@ export default defineWorkflow({ name: "W", doctype: "Order", initialState: "Draf
 			code: `import { defineWorkflow } from "@ddcore/sdk";
 export default defineWorkflow({ name: "W", doctype: "Order", initialState: "Draft", states: [{state: "Draft"}], transitions: [{state: "Draft", action: "A", nextState: "Draft", allowed: "Role", condition: "not-a-fn" as any}] });`,
 			errContains: "condition must be a function",
+		},
+		{
+			name: "non-boolean requireComment rejected",
+			code: `import { defineWorkflow } from "@ddcore/sdk";
+export default defineWorkflow({ name: "W", doctype: "Order", initialState: "Draft", states: [{state: "Draft"}], transitions: [{state: "Draft", action: "A", nextState: "Draft", allowed: "Role", requireComment: "yes" as any}] });`,
+			errContains: "requireComment must be a boolean",
 		},
 	}
 
