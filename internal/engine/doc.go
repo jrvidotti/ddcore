@@ -485,11 +485,22 @@ func (c *Ctx) getDoc(doctype, name string, forUpdate, ignoreRoles bool) (Doc, er
 	doc := Doc(rows[0])
 	doc["doctype"] = doctype
 	c.clampRatings(d, doc)
+	if err := c.loadChildRows(d, doc); err != nil {
+		return nil, err
+	}
+	if err := c.checkRead(d, doc, name, ignoreRoles); err != nil {
+		return nil, err
+	}
+	return doc, nil
+}
+
+// loadChildRows fills doc's Table fields with its child rows, in order.
+func (c *Ctx) loadChildRows(d *meta.DocType, doc Doc) error {
 	for _, tf := range d.TableFields() {
 		child, _ := c.St.DocType(tf.OptionsString())
-		crows, err := db.Select(c.Ctx, c.Q(), fmt.Sprintf("SELECT * FROM %s WHERE parent = $1 AND parenttype = $2 AND parentfield = $3 ORDER BY idx", db.Ident(child.TableName())), name, doctype, tf.Fieldname)
+		crows, err := db.Select(c.Ctx, c.Q(), fmt.Sprintf("SELECT * FROM %s WHERE parent = $1 AND parenttype = $2 AND parentfield = $3 ORDER BY idx", db.Ident(child.TableName())), doc.ID(), d.Name, tf.Fieldname)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		list := make([]any, 0, len(crows))
 		for _, r := range crows {
@@ -499,10 +510,7 @@ func (c *Ctx) getDoc(doctype, name string, forUpdate, ignoreRoles bool) (Doc, er
 		}
 		doc[tf.Fieldname] = list
 	}
-	if err := c.checkRead(d, doc, name, ignoreRoles); err != nil {
-		return nil, err
-	}
-	return doc, nil
+	return nil
 }
 
 // checkRead is getDoc's permission check. With ignoreRoles only the scope part

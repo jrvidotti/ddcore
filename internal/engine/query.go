@@ -272,6 +272,14 @@ func (c *Ctx) filterSQL(d *meta.DocType, b *db.Builder, filters []db.Filter, col
 			parts = append(parts, w)
 			continue
 		}
+		if f.Rows != nil {
+			w, err := c.rowsSQL(d, b, f.Rows, col)
+			if err != nil {
+				return "", err
+			}
+			parts = append(parts, w)
+			continue
+		}
 		if f.IfField != "" {
 			ifCol := col(f.IfField)
 			if ifCol == "" {
@@ -397,6 +405,33 @@ func (c *Ctx) parentSQL(b *db.Builder, p *db.ParentFilter, col func(string) stri
 	}
 	return fmt.Sprintf("(%s = %s AND EXISTS (SELECT 1 FROM %s AS %s WHERE %s.%s = %s AND %s))",
 		parentType, b.Arg(pd.Name), db.Ident(pd.TableName()), alias, alias, db.Ident("id"), parentKey, where), nil
+}
+
+// rowsSQL renders a condition on a document's child rows: no row of r's Table
+// field fails r's filters, rendered as the child's own list renders them. A
+// filter yielding NULL (an IN over an empty Link) counts as a failure, as an
+// empty Link does when the document is read.
+//
+// Only strictScopeFilters builds r, from a Table field of d, so r's DocType
+// exists and col resolves d's columns.
+func (c *Ctx) rowsSQL(d *meta.DocType, b *db.Builder, r *db.RowsFilter, col func(string) string) (string, error) {
+	cd, _ := c.St.Meta.Get(r.DocType)
+	alias := db.Ident("rw_" + meta.Snake(d.Name) + "_" + r.Field)
+	where, err := c.filterSQL(cd, b, r.Filters, func(field string) string {
+		if field = strings.Trim(field, "`\""); !cd.HasColumn(field) {
+			return ""
+		}
+		return alias + "." + db.Ident(field)
+	})
+	if err != nil || where == "" {
+		return "", err
+	}
+	parentKey := col("id")
+	if parentKey == "" {
+		return "", fmt.Errorf("unknown field in filter: %q", "id")
+	}
+	return fmt.Sprintf("NOT EXISTS (SELECT 1 FROM %s AS %s WHERE %s.parent = %s AND %s.parenttype = %s AND %s.parentfield = %s AND NOT COALESCE(%s, FALSE))",
+		db.Ident(cd.TableName()), alias, alias, parentKey, alias, b.Arg(d.Name), alias, b.Arg(r.Field), where), nil
 }
 
 // GetList runs a filtered query over a doctype.

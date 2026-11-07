@@ -14,6 +14,17 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- **A parent list checks its child rows against the user's scopes, as a direct read does**
+  (#150). `getList`, `count`, `GET /api/resource/<parent>`, the desk list and Link search held
+  documents whose child rows named a value out of the user's scope, which the user then got a
+  permission error on when opening them. The list now holds a document only when every row of
+  its Table fields passes the scope (an empty `Link` on a row is out, as on a read), and a
+  child row read on its own is refused when its parent is out of reach. A scoped user may see
+  fewer documents in a list than before — exactly the ones they could open. A controller
+  `permissionQuery` written to hide those documents can go. See `scopes`.
+
 ## 0.31.18 — 2026-11-06
 
 ### Fixed

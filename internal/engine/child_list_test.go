@@ -75,17 +75,18 @@ func setupChildList(t *testing.T) (*Engine, map[string]string) {
 
 // A child listing holds the rows whose parent the user may list, by the
 // parent's whole list filter, and nothing else (B02): a scope over a DocType
-// the child has no Link to still hides the rows of parents out of scope.
+// the child has no Link to still hides the rows of parents out of scope, and
+// OA is out of scope by its row a2, which names Beta (#150).
 func TestB02_ChildListingFollowsParentScopes(t *testing.T) {
 	e, ids := setupChildList(t)
 	runAs(t, e, charParty, func(c *Ctx) error {
-		wantTexts(t, "notes", childTexts(t, c, "Char Order Note", ListArgs{}), "na", "nc")
+		wantTexts(t, "notes", childTexts(t, c, "Char Order Note", ListArgs{}), "nc")
 		n, err := c.Count("Char Order Note", nil)
 		if err != nil {
 			return err
 		}
-		if n != 2 {
-			t.Fatalf("count = %d, want 2", n)
+		if n != 1 {
+			t.Fatalf("count = %d, want 1", n)
 		}
 		// naming the parent does not reach past it
 		wantTexts(t, "notes of OB", childTexts(t, c, "Char Order Note", ListArgs{Filters: map[string]any{"parent": "OB"}}))
@@ -93,25 +94,29 @@ func TestB02_ChildListingFollowsParentScopes(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if len(rows) != 2 || db.Str(rows[0]["parent"]) != "OA" || db.Str(rows[1]["parent"]) != "OC" {
-			t.Fatalf("grouped by parent = %v, want OA and OC", rows)
+		if len(rows) != 1 || db.Str(rows[0]["parent"]) != "OC" {
+			t.Fatalf("grouped by parent = %v, want OC", rows)
 		}
 		_, err = c.GetDoc("Char Order Note", ids["nb"])
 		wantPermissionError(t, "GetDoc nb (its parent is out of scope)", err)
-		if _, err := c.GetDoc("Char Order Note", ids["na"]); err != nil {
-			t.Fatalf("GetDoc na: %v", err)
+		_, err = c.GetDoc("Char Order Note", ids["na"])
+		wantPermissionError(t, "GetDoc na (its parent holds a row out of scope)", err)
+		if _, err := c.GetDoc("Char Order Note", ids["nc"]); err != nil {
+			t.Fatalf("GetDoc nc: %v", err)
 		}
 		return nil
 	})
 	// a rule applicable for the parent: rows of out-of-scope parents and rows
 	// out of scope themselves are left out, listed and read alike
 	runAs(t, e, charOrderScoped, func(c *Ctx) error {
-		wantTexts(t, "notes", childTexts(t, c, "Char Order Note", ListArgs{}), "na", "nc")
-		wantTexts(t, "lines", childTexts(t, c, "Char Order Line", ListArgs{}), "a1", "c1")
-		if _, err := c.GetDoc("Char Order Line", ids["a1"]); err != nil {
-			t.Fatalf("GetDoc a1: %v", err)
+		wantTexts(t, "notes", childTexts(t, c, "Char Order Note", ListArgs{}), "nc")
+		wantTexts(t, "lines", childTexts(t, c, "Char Order Line", ListArgs{}), "c1")
+		if _, err := c.GetDoc("Char Order Line", ids["c1"]); err != nil {
+			t.Fatalf("GetDoc c1: %v", err)
 		}
-		_, err := c.GetDoc("Char Order Line", ids["a2"])
+		_, err := c.GetDoc("Char Order Line", ids["a1"])
+		wantPermissionError(t, "GetDoc a1 (its sibling a2 names Beta)", err)
+		_, err = c.GetDoc("Char Order Line", ids["a2"])
 		wantPermissionError(t, "GetDoc a2 (the row names Beta)", err)
 		_, err = c.GetDoc("Char Order Line", ids["b1"])
 		wantPermissionError(t, "GetDoc b1 (its parent is out of scope)", err)
@@ -123,7 +128,7 @@ func TestB02_ChildListingFollowsParentScopes(t *testing.T) {
 		return err
 	})
 	runAs(t, e, charOrderScoped, func(c *Ctx) error {
-		wantTexts(t, "lines (OB shared within the scopes)", childTexts(t, c, "Char Order Line", ListArgs{}), "a1", "c1")
+		wantTexts(t, "lines (OB shared within the scopes)", childTexts(t, c, "Char Order Line", ListArgs{}), "c1")
 		_, err := c.GetDoc("Char Order Line", ids["b1"])
 		wantPermissionError(t, "GetDoc b1 (OB shared within the scopes)", err)
 		return nil
@@ -134,7 +139,7 @@ func TestB02_ChildListingFollowsParentScopes(t *testing.T) {
 		return err
 	})
 	runAs(t, e, charOrderScoped, func(c *Ctx) error {
-		wantTexts(t, "lines", childTexts(t, c, "Char Order Line", ListArgs{}), "a1", "b1", "c1")
+		wantTexts(t, "lines", childTexts(t, c, "Char Order Line", ListArgs{}), "b1", "c1")
 		if _, err := c.GetDoc("Char Order Line", ids["b1"]); err != nil {
 			t.Fatalf("GetDoc b1 (shared overriding the scope): %v", err)
 		}
