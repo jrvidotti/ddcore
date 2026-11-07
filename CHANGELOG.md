@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.31.19 — 2026-11-07
+
 ### Added
 
 - **A comment on a workflow action, required per transition with `requireComment`** (#151). A
