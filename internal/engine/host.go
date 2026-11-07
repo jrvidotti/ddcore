@@ -200,7 +200,8 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 	case "doc.applyWorkflow":
 		// the same transition POST /api/workflow/apply runs: role, self-approval,
 		// condition, row lock, audit and timeline comment
-		return c.ApplyWorkflowTransition(a.Doctype, a.id(), a.Action)
+		comment, _ := a.Opts["comment"].(string)
+		return c.ApplyWorkflow(a.Doctype, a.id(), a.Action, WorkflowApplyOpts{Comment: comment})
 	case "doc.delete":
 		return nil, c.deleteWithFlags(a.Doctype, a.id(), a.ignorePermissions(), a.Opts["force"] == true, a.Flags)
 	case "doc.dbSet":

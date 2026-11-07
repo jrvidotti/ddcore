@@ -14,6 +14,21 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **A comment on a workflow action, required per transition with `requireComment`** (#151). A
+  transition declared `requireComment: true` refuses to apply without the actor's reason (a
+  `ValidationError`, after the role, self-approval and condition checks); any other takes one when
+  given. App code passes it as `doc.applyWorkflow("Return", { comment })`, the API as
+  `POST /api/workflow/apply { …, comment }`, and the Desk's action button asks for it in a dialog.
+  The comment lands in the timeline next to the transition (`"{0} applied action '{1}' ({2} → {3}):
+  {4}"`, written with the transition or failing it) and in the audit event's `detail`. The
+  controller sees the transition in `doc.flags.workflow` (`{ action, from, to, comment }`) during
+  its save, and every notification function gets a third argument, `context`, whose `workflow` is
+  that same object (`null` on other writes). `GET /api/workflow/actions` and `_workflow.actions`
+  say `requireComment` for each action. A `return_reason`-style field written before the action
+  can go. See `workflows`, *Comments on an action*.
+
 ### Fixed
 
 - **A parent list checks its child rows against the user's scopes, as a direct read does**

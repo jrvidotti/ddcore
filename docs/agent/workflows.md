@@ -75,6 +75,8 @@ Each transition defines:
 - `allowSelfApproval`: Optional boolean (default: `true`). If `false`, the user who created the document (`owner`) cannot trigger this transition, even if they possess the authorized role. Running with `ignorePermissions` (a background job, a patch) skips the role check but not this one — a non-`Admin` owner still cannot self-approve while `ignorePermissions` is raised. `Admin` is exempt from self-approval through its own check (any `Admin` action is allowed, whether or not `ignorePermissions` is set), not because `ignorePermissions` happens to be set.
 - `condition`: Optional synchronous JavaScript function `(doc) => boolean` running on goja. `doc` is a plain JSON object (the document's field values), not a `Document` instance — it has no methods. Evaluated before applying the transition; if it returns `false`, the transition is rejected. Never use `async`/`await` or Promises. A condition that throws hides the action from `GET /api/workflow/actions`'s list without failing the request; applying that action returns the thrown error to the caller without writing a `Denied` audit entry (unlike a wrong role, a self-approval violation, or a condition that returns `false`, which do write one).
 
+- `requireComment`: Optional boolean (default: `false`). If `true`, the action needs a comment — the actor's reason, e.g. why a plan is returned or rejected. Applying it without one (or with only whitespace) is refused with a `ValidationError`, checked after the role, self-approval and condition checks; the Desk's action button asks for it. A transition without `requireComment` takes a comment too when one is given. See [Comments on an action](#comments-on-an-action).
+
 Workflows are linear state machines: `ApplyWorkflowTransition` matches the first transition whose `state` and `action` fit the current state and stops there, without checking its `condition`. Declaring two transitions from the same state with the same `action` name is a modeling error — the second is unreachable — so keep `action` unique per `state`.
 
 ## Server-side enforcement and bypass prevention
@@ -137,6 +139,37 @@ notifications), and the audit event and timeline comment are written. The docume
 be saved. `Admin` passes every role and self-approval check, which is what a test running
 as `Admin` relies on.
 
+### Comments on an action
+
+An action can carry a comment, the actor's reason:
+
+```ts
+plan.applyWorkflow("Return", { comment: "Markup of Group X is too low" });
+```
+
+```json
+POST /api/workflow/apply
+{ "doctype": "Plan", "id": "PLN-0001", "action": "Return", "comment": "Markup of Group X is too low" }
+```
+
+The comment is trimmed, and a transition declared with `requireComment: true` refuses a blank one.
+Given, it goes:
+
+- into the **timeline comment**, after the transition: `"{0} applied action '{1}' ({2} → {3}): {4}"`.
+  Unlike the comment of an action without one, it is written with the transition or the transition
+  fails: the reason is the actor's data, not a log line;
+- into the **audit event**'s `detail`, as `comment`;
+- to the **controller**, in `doc.flags.workflow` during the transition's save — every hook of it
+  (`validate`, `beforeSave`, `onUpdate`, `beforeSubmit`, `onSubmit`, …) sees
+  `{ action, from, to, comment }`, `comment` being `null` when none was given. Outside a
+  transition `doc.flags.workflow` is not set, so `if (doc.flags.workflow?.action === "Return")`
+  tells a transition from an ordinary save;
+- to **notifications**, as `context.workflow` (the same object), the third argument of every
+  function of a rule fired by the transition's write (see `notifications`).
+
+The comment is not a field: nothing is stored on the document, and the next transition starts
+without one.
+
 A transition requires read access to the document and a role listed in the matched transition's
 `allowed` — it does not require the DocType's `submit`, `cancel` or `write` permission (the save
 lifecycle skips that check while `inWorkflowTransition` is set).
@@ -151,7 +184,7 @@ Amending a cancelled document clears the state field on the copy, so the amendme
 Every workflow transition writes an audit event and a timeline comment:
 
 - **Administrative Audit Ledger (`tab_audit_event`):**
-  - Successful transitions record `action: "workflow.transition"` and `outcome: "Allowed"` on the caller's transaction with `detail: { "from_state": ..., "to_state": ..., "action": ... }`.
+  - Successful transitions record `action: "workflow.transition"` and `outcome: "Allowed"` on the caller's transaction with `detail: { "from_state": ..., "to_state": ..., "action": ... }`, plus `"comment"` when the action carried one.
   - Refused transition attempts (unauthorized role, self-approval violation, or failing condition) write `action: "workflow.transition"` and `outcome: "Denied"` directly to the connection pool via `c.AuditDenied`.
 - **Document Timeline (`tab_comment`):**
   - A timeline comment with `comment_type: "Workflow"` is posted to the document, built from the
@@ -160,9 +193,12 @@ Every workflow transition writes an audit event and a timeline comment:
     language (`c.Lang`) at the moment the transition runs, so the comment is stored already
     translated into the approver's language, not the reader's — a reader in a different language
     sees the approver's wording, not their own.
-  - The comment insert runs inside a savepoint; a failure there is rolled back and logged
-    (`workflow timeline comment failed`), and the transition still commits — a broken comment
-    never undoes an approval.
+  - With the actor's comment, the key is `"{0} applied action '{1}' ({2} → {3}): {4}"`, the
+    comment last, as typed.
+  - Without one, the comment insert runs inside a savepoint; a failure there is rolled back and
+    logged (`workflow timeline comment failed`), and the transition still commits — a broken
+    comment never undoes an approval. With one, a failure fails the transition, so a required
+    reason is never lost.
   - Visible in the Desk form view timeline.
 
 ## HTTP API
@@ -178,9 +214,12 @@ Request:
 {
   "doctype": "Order",
   "id": "ORD-0001",
-  "action": "Approve"
+  "action": "Approve",
+  "comment": "Within budget"
 }
 ```
+
+`comment` is optional, except on a transition with `requireComment` (see [Comments on an action](#comments-on-an-action)).
 
 Response:
 ```json
@@ -212,12 +251,14 @@ Response:
     "state": "Pending Approval",
     "allowEdit": false,
     "actions": [
-      { "action": "Approve", "nextState": "Approved" },
-      { "action": "Reject", "nextState": "Rejected" }
+      { "action": "Approve", "nextState": "Approved", "requireComment": false },
+      { "action": "Reject", "nextState": "Rejected", "requireComment": true }
     ]
   }
 }
 ```
+
+`requireComment` says which actions need a comment, so a client asks for it before applying.
 
 On a DocType with no active workflow, the endpoint still requires read access to the document and
 returns `{"state": "", "allowEdit": true, "actions": []}`.
@@ -260,7 +301,8 @@ The ddcore Desk automatically provides workflow UI on governed DocTypes:
    - If up to 2 actions are available, they render as standalone action buttons (the first styled as primary).
    - If more than 2 actions are available, they render inside an **Actions** dropdown menu.
    - Clicking an action prompts for user confirmation (the action name is translated) before
-     calling `/api/workflow/apply`.
+     calling `/api/workflow/apply`. An action with `requireComment` asks for the comment instead,
+     in a dialog that is also the confirmation: cancelling it applies nothing.
    - Buttons are disabled while the form is saving or has unsaved edits — applying an action
      reloads the document, which would otherwise drop those edits silently.
    - Manual "Submit" and "Cancel" buttons are hidden when a workflow controls the DocType.

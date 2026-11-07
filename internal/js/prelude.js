@@ -179,6 +179,7 @@
             if (!stateNames.has(tr.nextState)) fail("transition " + i + " nextState '" + tr.nextState + "' does not exist in states");
             if (!tr.action) fail("transition " + i + " action is required");
             if (!tr.allowed) fail("transition " + i + " allowed role is required");
+            if (tr.requireComment !== undefined && typeof tr.requireComment !== "boolean") fail("transition " + i + " requireComment must be a boolean");
             if (tr.condition !== undefined) {
               if (typeof tr.condition !== "function" || tr.condition.constructor?.name === "AsyncFunction" || tr.condition.constructor?.name === "GeneratorFunction") {
                 fail("transition " + i + " condition must be a function");
@@ -297,6 +298,7 @@
           allowed: Array.isArray(t.allowed) ? t.allowed : [t.allowed],
           allowSelfApproval: t.allowSelfApproval !== false,
           hasCondition: typeof t.condition === "function",
+          requireComment: t.requireComment === true,
         })),
       };
     }
@@ -351,45 +353,48 @@
     return JSON.stringify({ doctypes, reports, workspaces, mailTemplates, printTemplates, notifications, workflows, portals, apps, whitelisted, patches, extensions });
   };
 
-  const notificationCall = (fn, doc, before) => {
-    const result = fn(doc, before);
+  const notificationCall = (fn, doc, before, context) => {
+    const result = fn(doc, before, context);
     if (result && typeof result.then === "function") throw new DDCoreError("ValidationError", "", "Notification functions must be synchronous");
     return result;
   };
-  const notificationInput = (name, docJSON, beforeJSON) => {
+  // the context is frozen: every function of the rule sees the same one
+  const notificationInput = (name, docJSON, beforeJSON, contextJSON) => {
     const rule = reg.notifications[name];
     if (!rule) throw new DDCoreError("DoesNotExistError", "", "Notification rule does not exist: " + name);
-    return [rule, JSON.parse(docJSON), beforeJSON ? JSON.parse(beforeJSON) : null];
+    const context = Object.assign({ workflow: null }, contextJSON ? JSON.parse(contextJSON) : {});
+    if (context.workflow) Object.freeze(context.workflow);
+    return [rule, JSON.parse(docJSON), beforeJSON ? JSON.parse(beforeJSON) : null, Object.freeze(context)];
   };
-  reg.evaluateNotification = function (name, docJSON, beforeJSON) {
-    const [rule, doc, before] = notificationInput(name, docJSON, beforeJSON);
+  reg.evaluateNotification = function (name, docJSON, beforeJSON, contextJSON) {
+    const [rule, doc, before, context] = notificationInput(name, docJSON, beforeJSON, contextJSON);
     if (rule.condition) {
-      const matches = notificationCall(rule.condition, doc, before);
+      const matches = notificationCall(rule.condition, doc, before, context);
       if (typeof matches !== "boolean") throw new DDCoreError("ValidationError", "", "Notification condition must return a boolean");
       if (!matches) return JSON.stringify({ matches: false, recipients: [] });
     }
-    const recipients = notificationCall(rule.recipients, doc, before);
+    const recipients = notificationCall(rule.recipients, doc, before, context);
     if (!Array.isArray(recipients) || recipients.some((v) => typeof v !== "string" || !v.trim())) throw new DDCoreError("ValidationError", "", "Notification recipients must return User names");
     return JSON.stringify({ matches: true, recipients: [...new Set(recipients)] });
   };
   // Whether the rule's open occurrences on this document stopped being relevant.
-  reg.resolveNotification = function (name, docJSON, beforeJSON) {
-    const [rule, doc, before] = notificationInput(name, docJSON, beforeJSON);
+  reg.resolveNotification = function (name, docJSON, beforeJSON, contextJSON) {
+    const [rule, doc, before, context] = notificationInput(name, docJSON, beforeJSON, contextJSON);
     if (!rule.resolveWhen) return "false";
-    const resolved = notificationCall(rule.resolveWhen, doc, before);
+    const resolved = notificationCall(rule.resolveWhen, doc, before, context);
     if (typeof resolved !== "boolean") throw new DDCoreError("ValidationError", "", "Notification resolveWhen must return a boolean");
     return String(resolved);
   };
-  reg.renderNotification = function (name, docJSON, beforeJSON) {
-    const [rule, doc, before] = notificationInput(name, docJSON, beforeJSON);
+  reg.renderNotification = function (name, docJSON, beforeJSON, contextJSON) {
+    const [rule, doc, before, context] = notificationInput(name, docJSON, beforeJSON, contextJSON);
     const result = {};
     if (rule.desk) {
-      result.title = notificationCall(rule.desk.title, doc, before);
-      result.message = notificationCall(rule.desk.message, doc, before);
+      result.title = notificationCall(rule.desk.title, doc, before, context);
+      result.message = notificationCall(rule.desk.message, doc, before, context);
       if (typeof result.title !== "string" || typeof result.message !== "string") throw new DDCoreError("ValidationError", "", "Notification title and message must be plain text strings");
     }
     if (rule.email) {
-      result.emailArgs = notificationCall(rule.email.args, doc, before);
+      result.emailArgs = notificationCall(rule.email.args, doc, before, context);
       if (!result.emailArgs || typeof result.emailArgs !== "object" || Array.isArray(result.emailArgs)) throw new DDCoreError("ValidationError", "", "Notification email args must be an object");
     }
     return JSON.stringify(result);
@@ -612,7 +617,7 @@
     save(opts) { return this._written(call("doc.save", { doc: this, flags: this.flags, opts })); }
     submit() { this.docstatus = 1; return this.save(); }
     cancel() { return this._written(call("doc.cancel", { doc: this, flags: this.flags })); }
-    applyWorkflow(action) { return this._apply(call("doc.applyWorkflow", { doctype: this.doctype, id: this.id, action })); }
+    applyWorkflow(action, opts) { return this._apply(call("doc.applyWorkflow", { doctype: this.doctype, id: this.id, action, opts })); }
     delete(opts) { call("doc.delete", { doctype: this.doctype, id: this.id, flags: this.flags, opts }); }
     reload(opts) { return this._apply(call("getDoc", { doctype: this.doctype, id: this.id, opts })); }
     dbSet(field, value) {

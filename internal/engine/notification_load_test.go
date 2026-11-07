@@ -62,7 +62,7 @@ func TestNotificationReloadKeepsLastValidState(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer pool.Release(rt)
-	content, err := rt.RenderNotification("Second", json.RawMessage(`{}`), nil)
+	content, err := rt.RenderNotification("Second", json.RawMessage(`{}`), nil, nil)
 	if err != nil || content.Title != "Second" {
 		t.Fatalf("%+v %v", content, err)
 	}

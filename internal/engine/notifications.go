@@ -116,7 +116,7 @@ func (c *Ctx) resolveDocNotifications(doctype string, doc, before Doc) error {
 				return err
 			}
 		}
-		ok, err := rt.ResolveNotification(rule.Name, doc.JSON(), before.JSON())
+		ok, err := rt.ResolveNotification(rule.Name, doc.JSON(), before.JSON(), c.notificationContext(doctype, doc.ID()))
 		if err != nil {
 			return err
 		}
@@ -177,7 +177,8 @@ func (c *Ctx) queueNotification(rule js.Notification, doc, before Doc, identity 
 	if err != nil {
 		return err
 	}
-	evaluation, err := rt.EvaluateNotification(rule.Name, doc.JSON(), before.JSON())
+	nctx := c.notificationContext(rule.Doctype, doc.ID())
+	evaluation, err := rt.EvaluateNotification(rule.Name, doc.JSON(), before.JSON(), nctx)
 	if err != nil {
 		return err
 	}
@@ -227,7 +228,7 @@ func (c *Ctx) queueNotification(rule js.Notification, doc, before Doc, identity 
 			if err != nil {
 				return err
 			}
-			content, err = rt.RenderNotification(rule.Name, now.JSON(), was.JSON())
+			content, err = rt.RenderNotification(rule.Name, now.JSON(), was.JSON(), nctx)
 			return err
 		})
 		if err != nil {
@@ -255,6 +256,18 @@ func (c *Ctx) queueNotification(rule js.Notification, doc, before Doc, identity 
 		}
 	}
 	return nil
+}
+
+// notificationContext is the context argument of the rule functions run on
+// the write of doctype/id: the workflow transition the write is, when it is
+// one (#151), or nil, which the runtime reads as no workflow.
+func (c *Ctx) notificationContext(doctype, id string) json.RawMessage {
+	wa := c.workflowActionOn(doctype, id)
+	if wa == nil {
+		return nil
+	}
+	b, _ := json.Marshal(map[string]any{"workflow": wa.flag()})
+	return b
 }
 
 // coreMailPrefs maps each notification the framework writes itself to the User

@@ -36,8 +36,26 @@ rules. Single and Child DocTypes and internal delivery/audit records cannot be r
 targets. Invalid definitions fail loading, including missing email templates and a
 declared `email` without `email.args`.
 
-`condition`, `recipients`, Desk content and email arguments receive the current
-document and the previous document (`null` on insert). `condition` and `recipients` see
+`condition`, `recipients`, `resolveWhen`, Desk content and email arguments receive the current
+document, the previous document (`null` on insert) and a context. `context.workflow` is the
+workflow transition the write is — `{ action, from, to, comment }`, `comment` being the actor's
+reason or `null` — and `null` on any other write and on date rules (see `workflows`, *Comments on
+an action*):
+
+```ts
+export default defineNotification({
+  name: "purchasing.plan_returned",
+  doctype: "Plan",
+  event: "on_update",
+  condition: (doc, before, context) => context.workflow?.action === "Return",
+  recipients: (doc) => [doc.owner],
+  desk: {
+    title: (doc) => _("Plan {0} returned", [doc.id]),
+    message: (doc, before, context) => context.workflow!.comment ?? "",
+  },
+});
+```
+ `condition` and `recipients` see
 every field; Desk content and email arguments are rendered once per recipient, from a
 copy without the fields above that recipient's permission level (see `field-permissions`).
 All functions are synchronous: never use `async`, `await` or return a Promise. `condition`

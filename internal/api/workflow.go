@@ -11,6 +11,7 @@ type workflowApplyRequest struct {
 	Doctype string `json:"doctype"`
 	ID      string `json:"id"`
 	Action  string `json:"action"`
+	Comment string `json:"comment"`
 }
 
 // enrichWorkflow attaches "_workflow" (current state, whether the acting user
@@ -58,7 +59,7 @@ func (s *Server) applyWorkflowTransition(w http.ResponseWriter, r *http.Request)
 		if err := s.requireDocRead(c, body.Doctype, body.ID); err != nil {
 			return nil, err
 		}
-		saved, err := c.ApplyWorkflowTransition(body.Doctype, body.ID, body.Action)
+		saved, err := c.ApplyWorkflow(body.Doctype, body.ID, body.Action, engine.WorkflowApplyOpts{Comment: body.Comment})
 		if err != nil {
 			return nil, err
 		}

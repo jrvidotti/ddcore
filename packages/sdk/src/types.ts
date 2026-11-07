@@ -1134,8 +1134,11 @@ export interface Document<T = any> {
   save(opts?: { ignorePermissions?: boolean; ignoreVersion?: boolean }): this;
   submit(): this;
   cancel(): this;
-  /** runs a workflow action on the saved document, as the Desk's action buttons do */
-  applyWorkflow(action: string): this;
+  /**
+   * runs a workflow action on the saved document, as the Desk's action buttons do; `comment` is the
+   * actor's reason, required by a transition with `requireComment`, and lands in the timeline
+   */
+  applyWorkflow(action: string, opts?: { comment?: string }): this;
   delete(): void;
   /** reads the stored document again; `ignorePermissions` as in `ddcore.getDoc` */
   reload(opts?: { ignorePermissions?: boolean }): this;
@@ -1166,7 +1169,7 @@ export interface NotificationDef<D = Record<string, any>> {
   event?: "on_insert" | "on_update" | "on_submit" | "on_cancel";
   /** Offset in calendar days in the site's timezone; overdue matches are recovered. */
   date?: { field: string; days: number };
-  condition?: (doc: D, before: D | null) => boolean;
+  condition?: (doc: D, before: D | null, context: NotificationContext) => boolean;
   /**
    * When the rule's occurrences on this document stop being relevant. Evaluated
    * on every update, submit and cancel of the document, whatever the rule's own
@@ -1175,11 +1178,31 @@ export interface NotificationDef<D = Record<string, any>> {
    * transaction, and an email of theirs still queued is not sent. A later match
    * of `condition` writes a fresh occurrence.
    */
-  resolveWhen?: (doc: D, before: D | null) => boolean;
-  recipients: (doc: D, before: D | null) => string[];
+  resolveWhen?: (doc: D, before: D | null, context: NotificationContext) => boolean;
+  recipients: (doc: D, before: D | null, context: NotificationContext) => string[];
   /** Plain text rendered in the recipient's language. */
-  desk?: { title: (doc: D, before: D | null) => string; message: (doc: D, before: D | null) => string };
-  email?: { template: string; args: (doc: D, before: D | null) => Record<string, any> };
+  desk?: {
+    title: (doc: D, before: D | null, context: NotificationContext) => string;
+    message: (doc: D, before: D | null, context: NotificationContext) => string;
+  };
+  email?: { template: string; args: (doc: D, before: D | null, context: NotificationContext) => Record<string, any> };
+}
+
+/** The workflow transition a write is: `doc.flags.workflow` in its hooks, `context.workflow` in its notifications. */
+export interface WorkflowActionContext {
+  action: string;
+  /** the state the document left */
+  from: string;
+  /** the state it entered */
+  to: string;
+  /** the actor's comment, trimmed; `null` when none was given */
+  comment: string | null;
+}
+
+/** The third argument of every notification function. */
+export interface NotificationContext {
+  /** the transition, when the write that fired the rule is a workflow action; `null` otherwise and on date rules */
+  workflow: WorkflowActionContext | null;
 }
 
 export interface WorkflowStateDef {
@@ -1196,6 +1219,8 @@ export interface WorkflowTransitionDef<D = Record<string, any>> {
   allowed: string | string[];
   allowSelfApproval?: boolean;
   condition?: (doc: D) => boolean;
+  /** the action needs a comment (a reason): applying it without one is refused, and the Desk asks for it */
+  requireComment?: boolean;
 }
 
 export interface WorkflowDef<D = Record<string, any>> {

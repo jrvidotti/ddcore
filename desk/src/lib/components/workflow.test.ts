@@ -193,6 +193,21 @@ describe("Workflow form integration", () => {
     );
   });
 
+  it("sends the comment a transition asks for (#151)", async () => {
+    const doc = { id: "ART-001", doctype: "Artigo", _workflow: { state: "Pending Approval", actions: [{ action: "Return", nextState: "Draft", requireComment: true }] } };
+    const frm = new FormController(makeMeta(), doc);
+    expect(frm.workflowActionNeedsComment("Return")).toBe(true);
+    expect(frm.workflowActionNeedsComment("Approve")).toBe(false);
+    vi.mocked(api.post).mockResolvedValue({ ...doc, _workflow: { state: "Draft", actions: [] } });
+    expect(await frm.applyWorkflowAction("Return", "Markup too low")).toBe(true);
+    expect(api.post).toHaveBeenCalledWith("/api/workflow/apply", {
+      doctype: "Artigo",
+      id: "ART-001",
+      action: "Return",
+      comment: "Markup too low",
+    });
+  });
+
   it("names the applied action in the user's language", async () => {
     const doc = { id: "ART-001", doctype: "Artigo", _workflow: { state: "Pending Approval", actions: [{ action: "Approve", nextState: "Approved" }] } };
     const frm = new FormController(makeMeta(), doc);

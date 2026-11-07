@@ -67,8 +67,11 @@ func (n Notification) ValidateTarget(reg *meta.Registry, hasTemplate func(string
 	return nil
 }
 
-func (rt *Runtime) EvaluateNotification(name string, doc, before json.RawMessage) (*NotificationEvaluation, error) {
-	s, err := rt.callReg("evaluateNotification", name, string(doc), string(before))
+// The notification functions take the document, the previous document and a
+// context: {"workflow": …} when the write is a workflow transition (#151). A
+// nil context reads as one with no workflow.
+func (rt *Runtime) EvaluateNotification(name string, doc, before, context json.RawMessage) (*NotificationEvaluation, error) {
+	s, err := rt.callReg("evaluateNotification", name, string(doc), string(before), string(context))
 	if err != nil {
 		return nil, err
 	}
@@ -79,15 +82,15 @@ func (rt *Runtime) EvaluateNotification(name string, doc, before json.RawMessage
 
 // ResolveNotification reports whether the rule's resolveWhen holds; false for
 // a rule without one.
-func (rt *Runtime) ResolveNotification(name string, doc, before json.RawMessage) (bool, error) {
-	s, err := rt.callReg("resolveNotification", name, string(doc), string(before))
+func (rt *Runtime) ResolveNotification(name string, doc, before, context json.RawMessage) (bool, error) {
+	s, err := rt.callReg("resolveNotification", name, string(doc), string(before), string(context))
 	if err != nil {
 		return false, err
 	}
 	return s == "true", nil
 }
-func (rt *Runtime) RenderNotification(name string, doc, before json.RawMessage) (*NotificationContent, error) {
-	s, err := rt.callReg("renderNotification", name, string(doc), string(before))
+func (rt *Runtime) RenderNotification(name string, doc, before, context json.RawMessage) (*NotificationContent, error) {
+	s, err := rt.callReg("renderNotification", name, string(doc), string(before), string(context))
 	if err != nil {
 		return nil, err
 	}

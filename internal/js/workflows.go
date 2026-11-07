@@ -36,6 +36,7 @@ type WorkflowTransition struct {
 	Allowed           []string `json:"allowed"`
 	AllowSelfApproval bool     `json:"allowSelfApproval"`
 	HasCondition      bool     `json:"hasCondition"`
+	RequireComment    bool     `json:"requireComment"`
 }
 
 // Snapshot is a view of the JS registry as seen by Go.
