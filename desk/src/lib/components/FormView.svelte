@@ -400,12 +400,19 @@
   async function handleWorkflowAction(action: string) {
     if (!frm) return;
     if (frm.workflowActionNeedsComment(action)) {
-      // the comment dialog is the confirmation: cancelling it applies nothing
-      const v = await prompt(__('{0} "{1}"', [__(action), title]), [
-        { fieldname: "comment", fieldtype: "Small Text", label: __("Comment"), reqd: true },
-      ], __(action));
-      if (v) await frm.applyWorkflowAction(action, String(v.comment ?? ""));
-      return;
+      // the comment dialog is the confirmation: cancelling it applies nothing;
+      // a blank comment asks again, as the server would refuse it
+      for (;;) {
+        const v = await prompt(__('{0} "{1}"', [__(action), title]), [
+          { fieldname: "comment", fieldtype: "Small Text", label: __("Comment"), reqd: true },
+        ], __(action));
+        if (!v) return;
+        const comment = String(v.comment ?? "").trim();
+        if (comment) {
+          await frm.applyWorkflowAction(action, comment);
+          return;
+        }
+      }
     }
     // the document's title, not its id: a hash id tells the reader nothing
     if (await confirm(__('{0} "{1}"?', [escapeHtml(__(action)), escapeHtml(title)]), __(action))) {

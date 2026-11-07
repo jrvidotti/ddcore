@@ -407,8 +407,8 @@ func (c *Ctx) parentSQL(b *db.Builder, p *db.ParentFilter, col func(string) stri
 		parentType, b.Arg(pd.Name), db.Ident(pd.TableName()), alias, alias, db.Ident("id"), parentKey, where), nil
 }
 
-// rowsSQL renders a condition on a document's child rows: no row of r's Table
-// field fails r's filters, rendered as the child's own list renders them. A
+// rowsSQL renders a condition on a document's child rows: the document is not
+// the parent of a row of r's Table field failing r's filters, rendered as the child's own list renders them. A
 // filter yielding NULL (an IN over an empty Link) counts as a failure, as an
 // empty Link does when the document is read.
 //
@@ -430,8 +430,11 @@ func (c *Ctx) rowsSQL(d *meta.DocType, b *db.Builder, r *db.RowsFilter, col func
 	if parentKey == "" {
 		return "", fmt.Errorf("unknown field in filter: %q", "id")
 	}
-	return fmt.Sprintf("NOT EXISTS (SELECT 1 FROM %s AS %s WHERE %s.parent = %s AND %s.parenttype = %s AND %s.parentfield = %s AND NOT COALESCE(%s, FALSE))",
-		db.Ident(cd.TableName()), alias, alias, parentKey, alias, b.Arg(d.Name), alias, b.Arg(r.Field), where), nil
+	// uncorrelated on purpose: under an OR (a share, liftedByShares) a
+	// correlated NOT EXISTS runs once per row, and once per sibling in a child
+	// listing; NOT IN over a subquery is hashed once
+	return fmt.Sprintf("%s NOT IN (SELECT %s.parent FROM %s AS %s WHERE %s.parenttype = %s AND %s.parentfield = %s AND %s.parent IS NOT NULL AND NOT COALESCE(%s, FALSE))",
+		parentKey, alias, db.Ident(cd.TableName()), alias, alias, b.Arg(d.Name), alias, b.Arg(r.Field), alias, where), nil
 }
 
 // GetList runs a filtered query over a doctype.

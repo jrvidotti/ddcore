@@ -55,7 +55,8 @@ export default defineNotification({
   },
 });
 ```
- `condition` and `recipients` see
+
+`condition` and `recipients` see
 every field; Desk content and email arguments are rendered once per recipient, from a
 copy without the fields above that recipient's permission level (see `field-permissions`).
 All functions are synchronous: never use `async`, `await` or return a Promise. `condition`

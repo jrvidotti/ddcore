@@ -667,6 +667,8 @@ func (c *Ctx) Insert(doc Doc, opts SaveOpts) (Doc, error) {
 	if opts.Flags == nil {
 		opts.Flags = map[string]any{}
 	}
+	// no insert is a workflow transition
+	delete(opts.Flags, "workflow")
 	d, err := c.St.DocType(doc.DocType())
 	if err != nil {
 		return nil, err
@@ -809,6 +811,11 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 	}
 	if opts.Flags == nil {
 		opts.Flags = map[string]any{}
+	}
+	// doc.flags.workflow is the framework's: only the transition's own save
+	// carries it, so a hook never mistakes an ordinary save for one (#151)
+	if c.workflowActionOn(doc.DocType(), doc.ID()) == nil {
+		delete(opts.Flags, "workflow")
 	}
 	d, err := c.St.DocType(doc.DocType())
 	if err != nil {

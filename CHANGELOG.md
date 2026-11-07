@@ -26,7 +26,9 @@ older series, and `whats_new` reads across every one of them.
   controller sees the transition in `doc.flags.workflow` (`{ action, from, to, comment }`) during
   its save, and every notification function gets a third argument, `context`, whose `workflow` is
   that same object (`null` on other writes). `GET /api/workflow/actions` and `_workflow.actions`
-  say `requireComment` for each action. A `return_reason`-style field written before the action
+  say `requireComment` for each action. A comment is at most 2000 characters, and the
+  transition with its comment is one unit inside a caller's transaction (a savepoint).
+  `doc.flags.workflow` is the framework's: set by app code on an ordinary write, it is dropped. A `return_reason`-style field written before the action
   can go. See `workflows`, *Comments on an action*.
 
 ### Fixed
@@ -37,7 +39,7 @@ older series, and `whats_new` reads across every one of them.
   permission error on when opening them. The list now holds a document only when every row of
   its Table fields passes the scope (an empty `Link` on a row is out, as on a read), and a
   child row read on its own is refused when its parent is out of reach. A scoped user may see
-  fewer documents in a list than before — exactly the ones they could open. A controller
+  fewer documents in a list than before: the ones they can open. A controller
   `permissionQuery` written to hide those documents can go. See `scopes`.
 
 ## 0.31.18 — 2026-11-06

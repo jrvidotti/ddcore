@@ -152,7 +152,10 @@ POST /api/workflow/apply
 { "doctype": "Plan", "id": "PLN-0001", "action": "Return", "comment": "Markup of Group X is too low" }
 ```
 
-The comment is trimmed, and a transition declared with `requireComment: true` refuses a blank one.
+The comment is trimmed, at most 2000 characters, and a transition declared with
+`requireComment: true` refuses a blank one. With a comment, the transition, its audit event and
+its timeline comment are one unit: inside a caller's transaction they run in a savepoint, so a
+caller that catches the error keeps none of them.
 Given, it goes:
 
 - into the **timeline comment**, after the transition: `"{0} applied action '{1}' ({2} → {3}): {4}"`.
@@ -162,7 +165,8 @@ Given, it goes:
 - to the **controller**, in `doc.flags.workflow` during the transition's save — every hook of it
   (`validate`, `beforeSave`, `onUpdate`, `beforeSubmit`, `onSubmit`, …) sees
   `{ action, from, to, comment }`, `comment` being `null` when none was given. Outside a
-  transition `doc.flags.workflow` is not set, so `if (doc.flags.workflow?.action === "Return")`
+  transition `doc.flags.workflow` is not set — app code setting it on an ordinary write sees it
+  dropped — so `if (doc.flags.workflow?.action === "Return")`
   tells a transition from an ordinary save;
 - to **notifications**, as `context.workflow` (the same object), the third argument of every
   function of a rule fired by the transition's write (see `notifications`).

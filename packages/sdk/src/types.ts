@@ -1158,7 +1158,10 @@ export interface Document<T = any> {
    * is what the hooks of that write see, and what they set comes back. JSON
    * values only; never stored, never sent to a client.
    */
-  flags: Record<string, any>;
+  flags: {
+    /** set by the framework during a workflow transition's save, and only then; see `workflows` */
+    workflow?: WorkflowActionContext;
+  } & Record<string, any>;
 }
 
 /** Persistent notifications. Recipients are active User ids, never external addresses. */

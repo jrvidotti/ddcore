@@ -242,3 +242,55 @@ func TestWorkflowComment_FromTS(t *testing.T) {
 		t.Fatalf("status = %s (%v)", raw, err)
 	}
 }
+
+// A comment longer than the cap is refused before anything is written (#151).
+func TestWorkflowComment_TooLongRefused(t *testing.T) {
+	e := setupWith(t, workflowCommentFiles())
+	setupWorkflowTestUsers(t, e)
+	id := pendingArtigo(t, e)
+	err := e.Run(context.Background(), "editor@x.com", func(c *Ctx) error {
+		c.Lang = "en"
+		_, err := c.ApplyWorkflow("Artigo", id, "Return", WorkflowApplyOpts{Comment: strings.Repeat("é", MaxWorkflowComment+1)})
+		return err
+	})
+	if err == nil || cerr.From(err).Type != "ValidationError" || !strings.Contains(err.Error(), "too long") {
+		t.Fatalf("an over-long comment: want a validation error, got %v", err)
+	}
+	err = e.Run(context.Background(), "editor@x.com", func(c *Ctx) error {
+		_, err := c.ApplyWorkflow("Artigo", id, "Return", WorkflowApplyOpts{Comment: strings.Repeat("é", MaxWorkflowComment)})
+		return err
+	})
+	if err != nil {
+		t.Fatalf("a comment at the cap: %v", err)
+	}
+}
+
+// doc.flags.workflow belongs to the framework: an ordinary save that sets it
+// reaches its hooks without it, so a hook never mistakes it for a transition.
+func TestWorkflowComment_FlagReservedOutsideTransition(t *testing.T) {
+	e := setupWith(t, workflowCommentFiles())
+	setupWorkflowTestUsers(t, e)
+	var raw json.RawMessage
+	err := e.Run(context.Background(), "autor@x.com", func(c *Ctx) error {
+		rt, err := c.RT()
+		if err != nil {
+			return err
+		}
+		raw, err = rt.Eval(`(() => {
+			const d = ddcore.newDoc("Artigo", { titulo: "Forged", conteudo: "Detailed content" });
+			d.flags.workflow = { action: "Approve", from: "Draft", to: "Approved", comment: "forged" };
+			d.insert();
+			d.conteudo = "Edited content";
+			d.flags.workflow = { action: "Approve", from: "Draft", to: "Approved", comment: "forged" };
+			d.save();
+			return d.status ?? "";
+		})()`)
+		return err
+	})
+	if err != nil {
+		t.Fatalf("save with a forged flag: %v", err)
+	}
+	if string(raw) != `""` {
+		t.Fatalf("the hooks saw doc.flags.workflow outside a transition: status = %s", raw)
+	}
+}

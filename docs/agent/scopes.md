@@ -63,8 +63,8 @@ different DocType.
 - **Child tables**: writes, direct reads and lists of the parent also check the `Link`
   fields of every child row, under the parent's `applicable_for`. A list of the parent
   (`getList`, `count`, `GET /api/resource/<parent>`, the desk list, Link search) holds a
-  document only when every row of its Table fields passes, so it holds exactly the documents
-  a direct read opens: a plan whose line names a category out of the user's scope is
+  document only when every row of its Table fields passes, so it holds the documents a direct
+  read opens: a plan whose line names a category out of the user's scope is
   neither listed nor opened, though the plan itself has no Link to the category. An empty
   `Link` on a row is out of scope there too. A row read on its own (`getDoc` of the child)
   is refused when its parent is out of reach, siblings included.

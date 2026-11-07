@@ -797,6 +797,7 @@ The audio is larger than {0} MB,O áudio tem mais de {0} MB,# internal/ai/transc
 The bytes of {0} are not in the store,Os bytes de {0} não estão no armazenamento,# internal/engine/files_api.go:299
 The camera is not available,A câmera não está disponível,# desk/src/lib/controls/BarcodeControl.svelte:87
 The column has no header,A coluna não tem cabeçalho,# internal/engine/data_import.go:418
+"The comment is too long: {0} characters, at most {1}","O comentário é longo demais: {0} caracteres, no máximo {1}",# internal/engine/workflow.go:195
 The current password is not right,A senha atual não confere,# core/services/profile.ts:143
 The document was changed by someone else after you opened it. Reload and try again.,O documento foi alterado por outro usuário depois que você o abriu. Recarregue e tente de novo.,# internal/engine/doc.go:885
 The email address names the account and cannot be changed here. Roles are granted by an admin.,O e-mail é o nome da conta e não pode ser alterado aqui. Os papéis são concedidos por um administrador.,# desk/src/lib/components/Profile.svelte:178

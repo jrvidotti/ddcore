@@ -2,6 +2,7 @@ package engine
 
 import (
 	"strings"
+	"unicode/utf8"
 
 	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/js"
@@ -13,6 +14,10 @@ type WorkflowAvailableAction struct {
 	NextState      string `json:"nextState"`
 	RequireComment bool   `json:"requireComment"`
 }
+
+// MaxWorkflowComment is the longest comment, in characters, a workflow action
+// takes: a reason, not a document.
+const MaxWorkflowComment = 2000
 
 // WorkflowApplyOpts are the options of ApplyWorkflow.
 type WorkflowApplyOpts struct {
@@ -186,6 +191,9 @@ func (c *Ctx) ApplyWorkflow(doctype, name, action string, opts WorkflowApplyOpts
 	if matched.RequireComment && comment == "" {
 		return nil, cerr.Validation("Action '{0}' requires a comment", c.T(action))
 	}
+	if n := utf8.RuneCountInString(comment); n > MaxWorkflowComment {
+		return nil, cerr.Validation("The comment is too long: {0} characters, at most {1}", n, MaxWorkflowComment)
+	}
 	if comment != "" {
 		detail["comment"] = comment
 	}
@@ -211,34 +219,43 @@ func (c *Ctx) ApplyWorkflow(doctype, name, action string, opts WorkflowApplyOpts
 		wa.Comment = &comment
 	}
 	var saved Doc
-	err = c.WithWorkflowTransition(func() error {
-		old := c.workflowAction
-		c.workflowAction = wa
-		defer func() { c.workflowAction = old }()
-		var saveErr error
-		saved, saveErr = c.Save(doc, SaveOpts{Flags: map[string]any{"workflow": wa.flag()}})
-		return saveErr
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	// 8. Write Audit Event & Comment
-	if err := c.Audit("workflow.transition", doctype, name, detail); err != nil {
-		return nil, err
-	}
-	text := c.T("{0} applied action '{1}' ({2} → {3})", c.User, c.T(action), c.T(currentState), c.T(matched.NextState))
-	if comment == "" {
-		c.BestEffort("workflow timeline comment", []any{"doctype", doctype, "id", name, "action", action}, func() error {
-			return c.AddTimelineComment(doctype, name, text, SaveOpts{IgnorePermissions: true})
+	write := func() error {
+		err := c.WithWorkflowTransition(func() error {
+			old := c.workflowAction
+			c.workflowAction = wa
+			defer func() { c.workflowAction = old }()
+			var saveErr error
+			saved, saveErr = c.Save(doc, SaveOpts{Flags: map[string]any{"workflow": wa.flag()}})
+			return saveErr
 		})
-	} else {
+		if err != nil {
+			return err
+		}
+		// 8. Write Audit Event & Comment
+		if err := c.Audit("workflow.transition", doctype, name, detail); err != nil {
+			return err
+		}
+		text := c.T("{0} applied action '{1}' ({2} → {3})", c.User, c.T(action), c.T(currentState), c.T(matched.NextState))
+		if comment == "" {
+			c.BestEffort("workflow timeline comment", []any{"doctype", doctype, "id", name, "action", action}, func() error {
+				return c.AddTimelineComment(doctype, name, text, SaveOpts{IgnorePermissions: true})
+			})
+			return nil
+		}
 		// the actor's reason is data of theirs, not a log line: it is written
 		// with the transition or the transition fails
 		text = c.T("{0} applied action '{1}' ({2} → {3}): {4}", c.User, c.T(action), c.T(currentState), c.T(matched.NextState), comment)
-		if err := c.AddTimelineComment(doctype, name, text, SaveOpts{IgnorePermissions: true}); err != nil {
-			return nil, err
-		}
+		return c.AddTimelineComment(doctype, name, text, SaveOpts{IgnorePermissions: true})
+	}
+	if comment == "" {
+		err = write()
+	} else {
+		// one unit inside the caller's transaction too: a caller catching the
+		// error keeps neither the transition nor half of it
+		err = c.WithSavepoint(write)
+	}
+	if err != nil {
+		return nil, err
 	}
 
 	return saved, nil
