@@ -14,6 +14,20 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **`ddcore.spreadsheet.file`: an XLSX or a CSV from server code, to attach to `sendMail`**
+  (#152). It takes `sheets: [{ name?, columns: [{ label, fieldtype? }], rows }]` with an owner
+  (`doctype`, `id`) and returns a private `File` attached to it on the current transaction, the
+  contract of `ddcore.print.pdf`: attaching needs write on the document unless
+  `ignorePermissions`, and a rollback takes the File and its bytes back out. The cells follow the
+  export's rules (a column's `fieldtype` types them: `Currency` with the site's decimals, `Date`,
+  `Datetime` on the site's clock, `Check`; a column with none keeps each value's type), and the
+  CSV is the export's CSV (BOM, CRLF, `sep`). A workbook holds several sheets, a CSV exactly one.
+  Excel's limits throw instead of trimming: a cell past 32767 characters, a sheet past 1048575
+  rows, a sheet name Excel would not take, two sheets of one name. See `export`, *From server
+  code*.
+
 ## 0.31.19 — 2026-11-07
 
 ### Added

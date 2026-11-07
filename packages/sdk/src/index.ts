@@ -2,7 +2,7 @@
 import type {
   AppDef, BaseDoc, ControllerDef, Context, DoctypeDef, Document, ExtensionDef, Filters, ListArgs,
   MailTemplateDef, NotificationDef, PatchDef, PortalDef, PrintTemplateDef, ReportDef, SendMailArgs, WorkflowDef, WorkspaceDef,
-  CreatedApiKey, DocShare, DocShares, InviteResult, ShareRights,
+  CreatedApiKey, DocShare, DocShares, FieldType, InviteResult, ShareRights,
 } from "./types";
 export * from "./types";
 
@@ -337,6 +337,52 @@ export interface PrintPdfOpts {
   ignorePermissions?: boolean;
 }
 
+/** A column of a `ddcore.spreadsheet.file` sheet. */
+export interface SpreadsheetColumn {
+  /** The header cell, written as given: translate it with `_()`. */
+  label: string;
+  /**
+   * Types the column's cells as the export does: Currency, Int, Float and the
+   * other numbers are numbers, Check a boolean (`true` or `1`), Date
+   * (`"YYYY-MM-DD"`), Datetime (ISO, shown on the site's clock) and Time
+   * (`"HH:MM:SS"`) real dates; anything else is text. Left out, a value keeps
+   * its own type: a number stays a number, a boolean a boolean.
+   */
+  fieldtype?: FieldType;
+}
+
+/** A sheet of a `ddcore.spreadsheet.file` workbook. */
+export interface SpreadsheetSheet {
+  /**
+   * The sheet's tab; defaults to `Sheet1`, `Sheet2`… At most 31 characters,
+   * none of `[ ] : * ? / \`, unique ignoring case; refused otherwise.
+   */
+  name?: string;
+  columns: SpreadsheetColumn[];
+  /** One array per row, its values in the columns' order; a short row is padded. */
+  rows: unknown[][];
+}
+
+/** `ddcore.spreadsheet.file`'s argument. */
+export interface SpreadsheetFileOpts {
+  /** `"xlsx"` (the default, or `"csv"` when `filename` ends in `.csv`) or `"csv"`. */
+  format?: "xlsx" | "csv";
+  /** The document the file is attached to, which must exist; attaching needs write on it. */
+  doctype: string;
+  id: string;
+  /** Defaults to `<doctype>-<id>.<format>`; the extension is added when missing. */
+  filename?: string;
+  /** A workbook takes several sheets, a CSV exactly one. */
+  sheets: SpreadsheetSheet[];
+  /** The CSV's separator, one character; defaults to `","`. CSV only. */
+  sep?: string;
+  /**
+   * Skip the write check. The File is attached to the document, so everyone
+   * who reads the document reads the spreadsheet too.
+   */
+  ignorePermissions?: boolean;
+}
+
 export interface ExternalDbOpts {
   /** Timeout in seconds; defaults to 30. */
   timeout?: number;
@@ -503,6 +549,17 @@ export interface DDCoreAPI {
      * when the server has no PDF renderer.
      */
     pdf(opts: PrintPdfOpts): FileDoc;
+  };
+  /** Spreadsheets from server code; see `export`. */
+  spreadsheet: {
+    /**
+     * Writes columns and rows to an XLSX workbook or a CSV, with the export's
+     * cell rules, and stores it as a private File attached to the document,
+     * on the current transaction: what `ddcore.sendMail({ attach: [file.id] })`
+     * takes. Throws ValidationError past Excel's limits (32767 characters in a
+     * cell, 1048575 rows in a sheet) rather than trimming.
+     */
+    file(opts: SpreadsheetFileOpts): FileDoc;
   };
   /**
    * Queues a job. It is written on the current transaction, so the job only

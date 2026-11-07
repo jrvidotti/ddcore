@@ -3,6 +3,9 @@
 Taking a whole DocType out — every row a filter matches, its child tables and
 its attachments — rather than the page a screen happens to be showing. It is
 the extraction side of a migration, and the export a user asks for from a list.
+Server code that builds a spreadsheet of its own rows — to mail it, say — uses
+[`ddcore.spreadsheet.file`](#from-server-code-ddcorespreadsheetfile), with the
+same cell rules.
 
 ## The permission
 
@@ -157,6 +160,68 @@ on the site's clock.
 
 The workbook is streamed: the server holds one row at a time, whatever the
 size. It is also written when no row matches — the header and nothing else.
+
+## From server code: `ddcore.spreadsheet.file`
+
+An app that needs a spreadsheet of its own making — a purchase order's grid of
+product × colour × size × store to mail the supplier — writes it with
+`ddcore.spreadsheet.file`. It takes columns and rows rather than a DocType, and
+returns a `File`, the way [`ddcore.print.pdf`](print.md#from-server-code) does:
+private, attached to the document, on the current transaction, and what
+`sendMail`'s `attach` takes.
+
+```ts
+// apps/purchasing/services/po_mail.ts (server, synchronous)
+const xlsx = ddcore.spreadsheet.file({
+  doctype: "Purchase Order", id: po.id,          // the owner: must exist, needs write
+  filename: `${po.id}.xlsx`,                     // default <doctype>-<id>.xlsx
+  sheets: [
+    { name: "Order", columns: [{ label: _("Order") }, { label: _("Supplier") }], rows: [[po.id, po.supplier]] },
+    {
+      name: "Grid",
+      columns: [
+        { label: _("Reference"), fieldtype: "Data" },
+        { label: _("Pieces"), fieldtype: "Int" },
+        { label: _("Unit Cost"), fieldtype: "Currency" },
+        { label: _("Delivery Date"), fieldtype: "Date" },
+      ],
+      rows: po.items.map((i) => [i.reference, i.pieces, i.unit_cost, i.delivery_date]),
+    },
+  ],
+});
+ddcore.sendMail({ to, template: "purchasing.purchase_order_supplier", attach: [pdf.id, xlsx.id], key });
+```
+
+- **`format`** is `"xlsx"` (the default) or `"csv"`, which a `filename` ending in
+  `.csv` also picks. The extension is added to a `filename` without one, and a
+  `filename` ending in the other format's is refused.
+- **The cells** follow the [XLSX table above](#formats): a column's `fieldtype`
+  types its cells — a `Currency` is a number with the site's decimals, a `Date`
+  (`"YYYY-MM-DD"`) a date, a `Datetime` (ISO) a date and time on the site's
+  clock, a `Check` a boolean (`true` or `1`). A column with no `fieldtype` keeps
+  each value's own type: a number stays a number. A `fieldtype` that holds no
+  value (`Table`, `Section Break`…) or does not exist is refused.
+- **The rows** are arrays in the columns' order. A short row is padded with
+  empty cells; a row longer than the columns is refused.
+- **The header** is the labels as given: translate them with `_()`, in the
+  language the reader wants — the supplier's, not necessarily the user's.
+- **Excel's limits throw** instead of trimming: a cell past 32767 characters
+  (naming the cell, `B12`), a sheet past 1048575 rows, a sheet name past 31
+  characters or with one of `[ ] : * ? / \`, an apostrophe or a space at either
+  end, `History`, or two sheets of one name (Excel ignores case). An unnamed
+  sheet is `Sheet1`, `Sheet2`…
+- **A CSV** is the export's CSV: the UTF-8 BOM, CRLF, a `Check` as
+  `true`/`false`, a number with a `.` decimal mark. It holds exactly one sheet
+  and has no cell limit. `sep` (CSV only, one character) sets the separator —
+  `";"` for readers whose decimal mark is a comma.
+
+Attaching is writing, as for any upload: the user needs write on the document,
+and the spreadsheet is then readable by everyone who reads it. A job or a hook
+that runs for a user who may not write passes `ignorePermissions: true`. The
+File is written on the caller's transaction, so a rollback takes the row and the
+bytes back out. The workbook is built in memory, which suits a mail attachment
+(`DDCORE_MAIL_MAX_ATTACHMENT`, 10 MiB by default); a whole DocType is the
+export's job.
 
 ## Attachments
 

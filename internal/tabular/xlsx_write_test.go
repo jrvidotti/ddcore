@@ -136,3 +136,77 @@ func TestTimeToExcelSerialIsTheWallClock(t *testing.T) {
 		t.Fatalf("ColumnName(26) = %s", got)
 	}
 }
+
+// A workbook of several sheets: each is listed in the workbook, has its own
+// part and its own bold header, and the reader still takes the first.
+func TestXLSXWriterWritesSeveralSheets(t *testing.T) {
+	var buf bytes.Buffer
+	x, err := NewXLSXWriter(&buf, XLSXOptions{Sheets: []string{"Header", "Grid"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range [][]any{{"order"}, {"PO-1"}} {
+		if err := x.Row(r); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := x.NextSheet(); err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range [][]any{{"ref", "pieces"}, {"REF-1", int64(12)}} {
+		if err := x.Row(r); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := x.NextSheet(); err != ErrNoMoreSheets {
+		t.Fatalf("past the last sheet: %v", err)
+	}
+	if err := x.Close(); err != nil {
+		t.Fatal(err)
+	}
+	b := buf.Bytes()
+	wb := zipPart(t, b, "xl/workbook.xml")
+	if !strings.Contains(wb, `<sheet name="Header" sheetId="1" r:id="rId1"/><sheet name="Grid" sheetId="2" r:id="rId2"/>`) {
+		t.Errorf("workbook: %s", wb)
+	}
+	rels := zipPart(t, b, "xl/_rels/workbook.xml.rels")
+	if !strings.Contains(rels, `Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"`) ||
+		!strings.Contains(rels, `Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles"`) {
+		t.Errorf("rels: %s", rels)
+	}
+	if ct := zipPart(t, b, "[Content_Types].xml"); !strings.Contains(ct, `/xl/worksheets/sheet2.xml`) {
+		t.Errorf("content types: %s", ct)
+	}
+	grid := zipPart(t, b, "xl/worksheets/sheet2.xml")
+	if !strings.Contains(grid, `<c r="A1" s="1" t="inlineStr"><is><t xml:space="preserve">ref</t>`) ||
+		!strings.Contains(grid, `<c r="B2"><v>12</v></c>`) || strings.Contains(grid, "PO-1") {
+		t.Errorf("second sheet: %s", grid)
+	}
+	s, err := Read(b, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(s.Headers, ",") != "order" || len(s.Rows) != 1 || s.Rows[0].Cells[0].Text != "PO-1" {
+		t.Errorf("the reader takes the first sheet: %v %+v", s.Headers, s.Rows)
+	}
+}
+
+// Excel will not open two sheets of one name, whatever their case.
+func TestXLSXWriterRefusesDuplicateSheets(t *testing.T) {
+	if _, err := NewXLSXWriter(io.Discard, XLSXOptions{Sheets: []string{"Grid", "grid"}}); err == nil {
+		t.Fatal("two sheets named grid were accepted")
+	}
+	if _, err := NewXLSXWriter(io.Discard, XLSXOptions{Sheets: []string{"a/b", "a b"}}); err == nil {
+		t.Fatal("two names equal once trimmed were accepted")
+	}
+}
+
+// A sheet the caller never reached is still in the workbook, empty.
+func TestXLSXWriterFillsSheetsNeverReached(t *testing.T) {
+	b := writeWorkbook(t, XLSXOptions{Sheets: []string{"One", "Two", "Three"}}, []any{"h"})
+	for _, n := range []string{"sheet2", "sheet3"} {
+		if p := zipPart(t, b, "xl/worksheets/"+n+".xml"); !strings.Contains(p, "<sheetData></sheetData></worksheet>") {
+			t.Errorf("%s: %s", n, p)
+		}
+	}
+}

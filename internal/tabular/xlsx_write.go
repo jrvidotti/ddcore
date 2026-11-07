@@ -1,11 +1,12 @@
 package tabular
 
-// A deliberately small XLSX writer: one worksheet, streamed row by row, so an
+// A deliberately small XLSX writer: worksheets streamed row by row, so an
 // export of a hundred thousand rows holds one row in memory and not the sheet.
 //
-// The parts that do not depend on the rows go into the archive first; the
-// worksheet is the last entry, left open while the rows arrive and closed by
-// Close, which also writes the zip's central directory. Strings are inline
+// The parts that do not depend on the rows go into the archive first, which is
+// why every sheet is named up front; the worksheets follow one after the other,
+// each left open while its rows arrive and closed by NextSheet or by Close,
+// which also writes the zip's central directory. Strings are inline
 // (`t="inlineStr"`), which avoids a shared-strings table that could only be
 // written after every row had been seen.
 //
@@ -66,29 +67,52 @@ const (
 // ErrTooManyXLSXRows is a sheet past Excel's last row.
 var ErrTooManyXLSXRows = errors.New("an XLSX sheet holds at most 1048575 data rows; export as CSV or NDJSON instead")
 
-// XLSXWriter writes one workbook. Row writes the header first and then the
-// data; Close finishes the file, and without it the archive is unreadable.
+// XLSXWriter writes one workbook. Row writes a sheet's header first and then
+// its data, NextSheet moves to the next sheet; Close finishes the file, and
+// without it the archive is unreadable.
 type XLSXWriter struct {
-	zw   *zip.Writer
-	w    *bufio.Writer
-	rows int
+	zw     *zip.Writer
+	w      *bufio.Writer
+	rows   int
+	sheet  int // the 0-based sheet being written
+	sheets int
 }
 
 // XLSXOptions shape the workbook.
 type XLSXOptions struct {
 	SheetName string // trimmed to Excel's rules; "Sheet1" when empty
+	// Sheets names every sheet of the workbook, in order, each trimmed as
+	// SheetName is; when set, SheetName is ignored. Two names that match
+	// once trimmed, ignoring case, are refused: Excel will not open the file.
+	Sheets []string
 	// MoneyDecimals is how many decimals an XLSXMoney cell shows.
 	MoneyDecimals int
 }
 
-// NewXLSXWriter starts a workbook on w.
+// ErrNoMoreSheets is NextSheet past the last sheet named in XLSXOptions.
+var ErrNoMoreSheets = errors.New("the workbook has no more sheets")
+
+// NewXLSXWriter starts a workbook on w, on its first sheet.
 func NewXLSXWriter(w io.Writer, o XLSXOptions) (*XLSXWriter, error) {
+	names := o.Sheets
+	if len(names) == 0 {
+		names = []string{o.SheetName}
+	}
+	seen := map[string]bool{}
+	clean := make([]string, len(names))
+	for i, n := range names {
+		clean[i] = SheetName(n)
+		if seen[strings.ToLower(clean[i])] {
+			return nil, fmt.Errorf("the workbook has two sheets named %q", clean[i])
+		}
+		seen[strings.ToLower(clean[i])] = true
+	}
 	zw := zip.NewWriter(w)
 	parts := []struct{ name, body string }{
-		{"[Content_Types].xml", xlsxContentTypes},
+		{"[Content_Types].xml", xlsxContentTypes(len(clean))},
 		{"_rels/.rels", xlsxRootRels},
-		{"xl/workbook.xml", fmt.Sprintf(xlsxWorkbook, xmlEscape(SheetName(o.SheetName)))},
-		{"xl/_rels/workbook.xml.rels", xlsxWorkbookRels},
+		{"xl/workbook.xml", xlsxWorkbook(clean)},
+		{"xl/_rels/workbook.xml.rels", xlsxWorkbookRels(len(clean))},
 		{"xl/styles.xml", fmt.Sprintf(xlsxStyles, xmlEscape(moneyFormat(o.MoneyDecimals)))},
 	}
 	for _, p := range parts {
@@ -100,17 +124,45 @@ func NewXLSXWriter(w io.Writer, o XLSXOptions) (*XLSXWriter, error) {
 			return nil, err
 		}
 	}
-	f, err := zw.Create("xl/worksheets/sheet1.xml")
+	x := &XLSXWriter{zw: zw, sheets: len(clean)}
+	return x, x.openSheet()
+}
+
+// openSheet starts the worksheet x.sheet.
+func (x *XLSXWriter) openSheet() error {
+	f, err := x.zw.Create(fmt.Sprintf("xl/worksheets/sheet%d.xml", x.sheet+1))
 	if err != nil {
-		return nil, err
+		return err
 	}
-	x := &XLSXWriter{zw: zw, w: bufio.NewWriterSize(f, 32<<10)}
+	x.w = bufio.NewWriterSize(f, 32<<10)
+	x.rows = 0
 	// the header row stays in view while the rows scroll
 	_, err = x.w.WriteString(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
 		`<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
 		`<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>` +
 		`<sheetData>`)
-	return x, err
+	return err
+}
+
+// closeSheet ends the worksheet being written.
+func (x *XLSXWriter) closeSheet() error {
+	if _, err := x.w.WriteString(`</sheetData></worksheet>`); err != nil {
+		return err
+	}
+	return x.w.Flush()
+}
+
+// NextSheet ends the current sheet and starts the next one named in
+// XLSXOptions.Sheets, whose first Row is its own header.
+func (x *XLSXWriter) NextSheet() error {
+	if x.sheet+1 >= x.sheets {
+		return ErrNoMoreSheets
+	}
+	if err := x.closeSheet(); err != nil {
+		return err
+	}
+	x.sheet++
+	return x.openSheet()
 }
 
 // Row writes the next row. The first one is the header and is set in bold.
@@ -134,12 +186,20 @@ func (x *XLSXWriter) Row(cells []any) error {
 	return err
 }
 
-// Close ends the sheet and the archive. It does not close the underlying writer.
+// Close ends the sheet and the archive; a sheet named but never reached is
+// written empty, since the workbook already lists it. It does not close the
+// underlying writer.
 func (x *XLSXWriter) Close() error {
-	if _, err := x.w.WriteString(`</sheetData></worksheet>`); err != nil {
-		return err
+	for {
+		err := x.NextSheet()
+		if err == ErrNoMoreSheets {
+			break
+		}
+		if err != nil {
+			return err
+		}
 	}
-	if err := x.w.Flush(); err != nil {
+	if err := x.closeSheet(); err != nil {
 		return err
 	}
 	return x.zw.Close()
@@ -259,29 +319,51 @@ func moneyFormat(decimals int) string {
 	return "#,##0." + strings.Repeat("0", min(decimals, 15))
 }
 
-const xlsxContentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
-	`<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">` +
-	`<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>` +
-	`<Default Extension="xml" ContentType="application/xml"/>` +
-	`<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>` +
-	`<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>` +
-	`<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>` +
-	`</Types>`
+func xlsxContentTypes(sheets int) string {
+	var b strings.Builder
+	b.WriteString(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+		`<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">` +
+		`<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>` +
+		`<Default Extension="xml" ContentType="application/xml"/>` +
+		`<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>`)
+	for i := 1; i <= sheets; i++ {
+		fmt.Fprintf(&b, `<Override PartName="/xl/worksheets/sheet%d.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`, i)
+	}
+	b.WriteString(`<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>` +
+		`</Types>`)
+	return b.String()
+}
 
 const xlsxRootRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
 	`<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
 	`<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>` +
 	`</Relationships>`
 
-const xlsxWorkbook = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
-	`<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">` +
-	`<sheets><sheet name="%s" sheetId="1" r:id="rId1"/></sheets></workbook>`
+// xlsxWorkbook lists the sheets; sheet i is relationship rId<i>.
+func xlsxWorkbook(names []string) string {
+	var b strings.Builder
+	b.WriteString(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+		`<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">` +
+		`<sheets>`)
+	for i, n := range names {
+		fmt.Fprintf(&b, `<sheet name="%s" sheetId="%d" r:id="rId%d"/>`, xmlEscape(n), i+1, i+1)
+	}
+	b.WriteString(`</sheets></workbook>`)
+	return b.String()
+}
 
-const xlsxWorkbookRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
-	`<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
-	`<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>` +
-	`<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>` +
-	`</Relationships>`
+// xlsxWorkbookRels points rId1…rIdN at the sheets and rIdN+1 at the styles.
+func xlsxWorkbookRels(sheets int) string {
+	var b strings.Builder
+	b.WriteString(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+		`<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">`)
+	for i := 1; i <= sheets; i++ {
+		fmt.Fprintf(&b, `<Relationship Id="rId%d" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet%d.xml"/>`, i, i)
+	}
+	fmt.Fprintf(&b, `<Relationship Id="rId%d" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>`, sheets+1)
+	b.WriteString(`</Relationships>`)
+	return b.String()
+}
 
 // The built-in formats 14, 22 and 21 are the locale's short date, date and
 // time, and time with seconds: Excel renders them in the reader's own order,

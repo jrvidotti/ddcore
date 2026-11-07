@@ -34,7 +34,7 @@ Available documents (also as MCP resources `ddcore://docs/<name>`):
 - `upgrade-0.17` — moving an app across the 0.17 key rename (`name` → `id`): what to rename, what fails silently, how to find it
 - `storage` — where uploaded file bytes live (local or S3-compatible), download access and deletion
 - `backup` — `ddcore backup`/`restore`, maintenance mode, the site version ledger and rollback
-- `export` — exporting a whole DocType, children and attachments, by HTTP or CLI
+- `export` — exporting a whole DocType, children and attachments, by HTTP or CLI; `ddcore.spreadsheet.file`, an XLSX or CSV from server code
 - `import` — loading an export into a site: identities and metadata kept, effects not replayed, resumable, reconciled
 - `data-import` — loading a CSV/XLSX file from the Desk or HTTP: each row a normal insert or update as the user, with a dry run and per-row errors
 - `print` — print templates, print block builders, Letter Head branding, and server-side PDF generation
