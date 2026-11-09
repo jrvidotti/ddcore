@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.31.22 — 2026-11-09
+
 ### Added
 
 - **`DDCORE_S3_FALLBACK_PREFIX`: a read-only fallback prefix on S3 storage** (#155). A
