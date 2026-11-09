@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.31.23 — 2026-11-09
+
 ### Fixed
 
 - **An inline grid honours its columns' `columns` widths.** It was laid out by its content
