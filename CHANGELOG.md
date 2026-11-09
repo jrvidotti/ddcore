@@ -14,6 +14,16 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- **A short route builds one form, not two** (#156). `/app/<DocType>`, `/app/<DocType>/<id>` and
+  `/app/<DocType>/new` rendered the form (or the list) and only then redirected to
+  `/app/<Workspace>/<DocType>…`, so a Single's `setup`/`onload` also ran on a form the redirect
+  threw away — twice the API calls, and a script keeping state at module level saw two live forms.
+  The page now decides the redirect first and renders nothing until it lands. A record of a
+  DocType no workspace owns (`/app/<DocType>/<id>`, which stays on the short route) opens its
+  form again instead of an error that took the id for a DocType.
+
 ## 0.31.23 — 2026-11-09
 
 ### Fixed

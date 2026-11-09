@@ -2,12 +2,12 @@
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
   import { boot, __ } from "$lib/boot.svelte";
-  import { resolveWorkspaceForDoctype, workspaceRedirect } from "$lib/components/sidebar-workspace";
+  import { shortRouteRedirect } from "$lib/components/sidebar-workspace";
   import Workspace from "$lib/components/Workspace.svelte";
   import ListView from "$lib/components/ListView.svelte";
   import FormView from "$lib/components/FormView.svelte";
   import { getMeta } from "$lib/meta";
-  import { resolveDoctype, resolveWorkspace, routeName } from "$lib/routes";
+  import { resolveDoctype, resolveWorkspace } from "$lib/routes";
 
   const param = $derived(page.params.workspace ?? "");
   const wsName = $derived(resolveWorkspace(param, boot.data));
@@ -16,13 +16,12 @@
   const segment = $derived(resolveDoctype(param, boot.data));
   const isDoctype = $derived(boot.data?.doctypes && segment in boot.data.doctypes);
 
+  // decided before anything mounts: a form rendered here and then redirected
+  // away would run its setup/onload for nothing (#156)
+  const redirect = $derived(boot.ready ? shortRouteRedirect(param, [], boot.data, page.url) : null);
+
   $effect(() => {
-    if (boot.ready && !ws && isDoctype) {
-      const realWs = resolveWorkspaceForDoctype(segment, boot.data?.workspaces || [], boot.data?.doctypes);
-      if (realWs || param !== routeName(segment)) {
-        goto(workspaceRedirect(realWs, segment, [], page.url), { replaceState: true });
-      }
-    }
+    if (redirect) goto(redirect, { replaceState: true });
   });
 </script>
 
@@ -30,6 +29,8 @@
   {#key ws.name}
     <Workspace name={ws.name} />
   {/key}
+{:else if redirect || (isDoctype && !boot.ready)}
+  <!-- the short route is on its way to its workspace's route -->
 {:else if isDoctype}
   {#key segment}
     {#await getMeta(segment) then m}

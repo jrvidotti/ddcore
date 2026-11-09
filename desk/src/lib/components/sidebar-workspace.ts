@@ -1,4 +1,4 @@
-import { seg, appPrefix, resolveWorkspace, resolveReport, resolveDoctype } from "../routes";
+import { seg, appPrefix, resolveWorkspace, resolveReport, resolveDoctype, routeName } from "../routes";
 import { boot } from "$lib/boot.svelte";
 import { defaultStore } from "../storage";
 export interface WorkspaceItem {
@@ -108,6 +108,26 @@ export function workspaceRedirect(workspace: string | null, doctype: string, res
   // a DocType no workspace owns stays on the short route, under its route name
   const names = workspace ? [seg(workspace), seg(doctype)] : [seg(doctype)];
   return `/app/${[...names, ...rest.map(encodeURIComponent)].join("/")}${url.search}${url.hash}`;
+}
+
+/**
+ * Where a short route `/app/<DocType>[/<rest>]` is about to be redirected, or
+ * null when `param` is a workspace, not a DocType, or already the final route.
+ * A page decides this before it mounts a form or a list, so a form's hooks run
+ * only on the one that stays on screen.
+ */
+export function shortRouteRedirect(
+  param: string,
+  rest: string[],
+  data: { workspaces?: WorkspaceItem[]; doctypes?: Record<string, { app?: string }> } | null | undefined,
+  url: { search: string; hash: string },
+): string | null {
+  if (!data?.doctypes || resolveWorkspace(param, data) !== null) return null;
+  const doctype = resolveDoctype(param, data);
+  if (!(doctype in data.doctypes)) return null;
+  const workspace = resolveWorkspaceForDoctype(doctype, data.workspaces || [], data.doctypes);
+  if (!workspace && param === routeName(doctype)) return null;
+  return workspaceRedirect(workspace, doctype, rest, url);
 }
 
 /**

@@ -4,6 +4,7 @@ import {
   resolveWorkspaceForDoctype,
   workspaceItemHref,
   workspaceRedirect,
+  shortRouteRedirect,
   rememberWorkspace,
   getRememberedWorkspace,
   landingWorkspace,
@@ -151,6 +152,26 @@ describe("sidebar-workspace", () => {
     // no workspace owns the DocType: it stays on the short route, without its spaces
     expect(workspaceRedirect(null, "Audit Event", ["AE 1"], { search: "?tab=Log", hash: "" }))
       .toBe("/app/AuditEvent/AE%201?tab=Log");
+  });
+
+  it("decides a short route's redirect before anything mounts", () => {
+    const data = {
+      workspaces: [{ name: "Human Resources", label: "HR", sidebar: [{ label: "Classes", doctype: "Training Class" }] }] as WorkspaceItem[],
+      doctypes: { "Training Class": {}, "Audit Event": {}, "Settings": {} } as Record<string, { app?: string }>,
+    };
+    const url = { search: "?plan=P1", hash: "#x" };
+    // a DocType a workspace owns goes under it, the query and hash with it
+    expect(shortRouteRedirect("TrainingClass", [], data, url)).toBe("/app/HumanResources/TrainingClass?plan=P1#x");
+    expect(shortRouteRedirect("Training Class", ["new"], data, url)).toBe("/app/HumanResources/TrainingClass/new?plan=P1#x");
+    expect(shortRouteRedirect("TrainingClass", ["TC 1"], data, url)).toBe("/app/HumanResources/TrainingClass/TC%201?plan=P1#x");
+    // a DocType no workspace owns: only its real name is redirected, to its route name
+    expect(shortRouteRedirect("Audit Event", ["AE 1"], data, url)).toBe("/app/AuditEvent/AE%201?plan=P1#x");
+    expect(shortRouteRedirect("AuditEvent", ["AE 1"], data, url)).toBeNull();
+    expect(shortRouteRedirect("Settings", [], data, url)).toBeNull();
+    // a workspace, an unknown segment, or no boot payload yet: no redirect
+    expect(shortRouteRedirect("HumanResources", ["TrainingClass"], data, url)).toBeNull();
+    expect(shortRouteRedirect("Nope", [], data, url)).toBeNull();
+    expect(shortRouteRedirect("TrainingClass", [], null, url)).toBeNull();
   });
 
   it("finds the active workspace from a path under route names or under the names themselves", () => {
