@@ -6,6 +6,7 @@ import {
   getShortcutsList,
   isEditableElement,
   isMac,
+  saveShortcutTarget,
   shouldSave,
   shouldToggleShortcuts,
 } from "./shortcuts";
@@ -43,6 +44,20 @@ describe("commitFocusedEdit", () => {
     expect(commitFocusedEdit(el({ tagName: "BUTTON", blur }))).toBe(false);
     expect(commitFocusedEdit(null)).toBe(false);
     expect(blurred).toBe(false);
+  });
+});
+
+describe("saveShortcutTarget", () => {
+  const action = { label: "Save", action: () => {} };
+  it("saves an ordinary form, unless it is read-only", () => {
+    expect(saveShortcutTarget({ isTool: false, readOnly: false, primaryAction: null })).toBe("save");
+    expect(saveShortcutTarget({ isTool: false, readOnly: true, primaryAction: null })).toBeNull();
+    // a script's primary action on an ordinary form does not take the shortcut
+    expect(saveShortcutTarget({ isTool: false, readOnly: false, primaryAction: action })).toBe("save");
+  });
+  it("runs a tool's primary action, and does nothing on a tool without one", () => {
+    expect(saveShortcutTarget({ isTool: true, readOnly: false, primaryAction: action })).toBe("primary");
+    expect(saveShortcutTarget({ isTool: true, readOnly: false, primaryAction: null })).toBeNull();
   });
 });
 

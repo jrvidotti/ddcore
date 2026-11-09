@@ -547,8 +547,9 @@ Single cannot declare it. An app may set it on another app's DocType through `ex
 such as "type a CPF, tick the installments, get a payment link". Nothing about it is stored:
 - anyone who may read it edits its level-0 fields and its grid rows, and `readOnly` fields stay
   read-only;
-- the desk shows no Save, Ctrl+S does nothing, and the form is never "Not saved", so it keeps no
-  draft and does not ask before the user leaves;
+- the desk shows no Save, Ctrl+S runs the script's primary action (`frm.setPrimaryAction`) or,
+  without one, does nothing, and the form is never "Not saved", so it keeps no draft and does
+  not ask before the user leaves;
 - the comments and assignments sidebar is gone;
 - the server refuses every write to it (`save`, `insert`, `dbSet`, REST, MCP), to **Admin** too.
 

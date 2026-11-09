@@ -68,6 +68,15 @@ export function shouldSave(e: { key: string; ctrlKey?: boolean; metaKey?: boolea
 }
 
 /**
+ * What the save shortcut does on a form: save it, or, on a tool Single (which
+ * is never saved), run the script's primary action; null when there is neither.
+ */
+export function saveShortcutTarget(f: { isTool: boolean; readOnly: boolean; primaryAction: unknown }): "save" | "primary" | null {
+  if (f.isTool) return f.primaryAction ? "primary" : null;
+  return f.readOnly ? null : "save";
+}
+
+/**
  * Determines whether a keydown event should trigger opening the shortcuts help.
  */
 export function shouldToggleShortcuts(e: { key: string; ctrlKey?: boolean; metaKey?: boolean; altKey?: boolean; target?: EventTarget | null }): boolean {
