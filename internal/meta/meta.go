@@ -83,11 +83,15 @@ type Field struct {
 	InStandardFilter   bool   `json:"inStandardFilter,omitempty"`
 	SearchIndex        bool   `json:"searchIndex,omitempty"`
 	Length             int    `json:"length,omitempty"`
-	Precision          int    `json:"precision,omitempty"`
-	Description        string `json:"description,omitempty"`
-	Columns            int    `json:"columns,omitempty"`
-	Width              string `json:"width,omitempty"`
-	GridEditMode       string `json:"gridEditMode,omitempty"`
+	// Precision is how many decimal places the field keeps (a Currency) or
+	// shows (a Float, a Percent). Nil is unset and falls back to the site;
+	// 0 is a real value — whole units — so it must survive the JSON the desk
+	// receives. Read it through PrecisionOr.
+	Precision    *int   `json:"precision,omitempty"`
+	Description  string `json:"description,omitempty"`
+	Columns      int    `json:"columns,omitempty"`
+	Width        string `json:"width,omitempty"`
+	GridEditMode string `json:"gridEditMode,omitempty"`
 	// Rows is how many lines tall the desk draws a Small Text, Text,
 	// Markdown Editor or Code field; unset keeps the fieldtype's default.
 	// A grid cell keeps its compact height.
@@ -271,6 +275,15 @@ func (n *Names) UnmarshalJSON(b []byte) error {
 	}
 	*n = many
 	return nil
+}
+
+// PrecisionOr is the field's own precision, or def when the field sets none.
+// A precision of 0 is the field's own — whole units — not "unset".
+func (f *Field) PrecisionOr(def int) int {
+	if f.Precision != nil {
+		return *f.Precision
+	}
+	return def
 }
 
 func (f *Field) OptionsString() string {
@@ -856,8 +869,8 @@ func (r *Registry) validateFieldOptions(d *DocType, e func(string, ...any)) {
 		// a Currency or Percent column is numeric(21,9), so nine is the
 		// most it can hold. Caught here, at migrate, rather than as a
 		// silent truncation on the first save that reaches it.
-		if f.Precision < 0 || f.Precision > 9 {
-			e("field %q: precision %d is out of range (0 to 9)", f.Fieldname, f.Precision)
+		if f.Precision != nil && (*f.Precision < 0 || *f.Precision > 9) {
+			e("field %q: precision %d is out of range (0 to 9)", f.Fieldname, *f.Precision)
 		}
 		if f.Width != "" && f.Width != "sm" && f.Width != "md" && f.Width != "lg" && f.Width != "full" {
 			e("field %q: invalid width %q (must be sm, md, lg, or full)", f.Fieldname, f.Width)

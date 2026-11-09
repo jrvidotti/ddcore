@@ -32,10 +32,11 @@ func TestCurrencyRoundsToTheResolvedPrecision(t *testing.T) {
 		{"a JPY site has no minor unit at all", &meta.Field{Fieldtype: "Currency", Label: "Total"}, money(0, num.HalfAwayFromZero), 1234.5, 1235},
 		{"and rounds the other way when asked to", &meta.Field{Fieldtype: "Currency", Label: "Total"}, money(0, num.HalfToEven), 1234.5, 1234},
 		{"three places, as a KWD site", &meta.Field{Fieldtype: "Currency", Label: "Total"}, money(3, num.HalfAwayFromZero), 1.23456, 1.235},
-		{"the field overrides the site", &meta.Field{Fieldtype: "Currency", Label: "Rate", Precision: 4}, money(2, num.HalfAwayFromZero), 1.234567, 1.2346},
+		{"the field overrides the site", &meta.Field{Fieldtype: "Currency", Label: "Rate", Precision: new(4)}, money(2, num.HalfAwayFromZero), 1.234567, 1.2346},
+		{"a field's precision 0 is whole units, not unset (#159)", &meta.Field{Fieldtype: "Currency", Label: "Budget", Precision: new(0)}, money(2, num.HalfAwayFromZero), 6000.376, 6000},
 		{"a string from an import is coerced first", &meta.Field{Fieldtype: "Currency", Label: "Total"}, money(2, num.HalfAwayFromZero), "10.005", 10.01},
 		{"a Percent is a rate, not an amount, and keeps its decimals", &meta.Field{Fieldtype: "Percent", Label: "Share"}, money(2, num.HalfAwayFromZero), 33.333333, 33.333333},
-		{"a Float is a measurement and is never rounded", &meta.Field{Fieldtype: "Float", Label: "Weight", Precision: 2}, money(2, num.HalfAwayFromZero), 1.23456789, 1.23456789},
+		{"a Float is a measurement and is never rounded", &meta.Field{Fieldtype: "Float", Label: "Weight", Precision: new(2)}, money(2, num.HalfAwayFromZero), 1.23456789, 1.23456789},
 		{"an Int keeps its own rule, not the site's money rule", &meta.Field{Fieldtype: "Int", Label: "Qty"}, money(2, num.HalfToEven), 2.5, 3},
 	} {
 		got, err := castValueWith(c.field, c.in, c.opts)

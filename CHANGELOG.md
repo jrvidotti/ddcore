@@ -14,6 +14,15 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- **A Currency's `precision: 0` keeps whole units** (#159). The field's own `precision: 0` was
+  read as "not set" everywhere, so the value was rounded to the site's places on save and on an
+  import's reconcile, and the form and the grid showed the cents (`R$ 6.000,38` for a declared
+  whole-reais budget). It now rounds to 0 places and shows `R$ 6.000`; an unset `precision`
+  still falls back to `ddcore.json:currencyPrecision` and then the currency's minor unit. A
+  Float's `precision: 0` display hint now reaches the desk too, and shows a whole number.
+
 ## 0.31.25 — 2026-11-09
 
 ### Changed

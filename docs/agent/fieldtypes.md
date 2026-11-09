@@ -435,7 +435,8 @@ A `Currency` is the one numeric type the server rounds **on the way into the
 database**, so that what a form shows and what a `sum()` adds are the same
 number. How many places it keeps resolves in three steps, most specific first:
 
-1. the field's own `precision`;
+1. the field's own `precision` — `0` is a value, whole units (a budget in whole reais on a
+   BRL site), not "unset";
 2. `ddcore.json:currencyPrecision`;
 3. the ISO minor unit of `ddcore.json:currency` — 2 for USD and BRL, 0 for JPY,
    3 for KWD. This is the default, and it is right more often than a number
