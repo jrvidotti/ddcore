@@ -40,13 +40,13 @@
   function oninput(e: Event) { ls.typed((e.target as HTMLInputElement).value); }
 
   // the list stays open after a pick, so several values can be chosen in a row;
-  // the option's mousedown keeps the focus in the input for that
+  // the option's mousedown keeps the focus in the input for that, and the typed
+  // text stays, so the next match is picked without typing it again
   function pick(o: any) {
     if (!link || !target || !child) return;
     setLinkTitle(target, o.id, ls.title(o));
     onchange(withValue(value, link.fieldname!, o.id, child.name));
-    ls.text = "";
-    void ls.search("");
+    void ls.search(ls.text);
     inputEl?.focus();
   }
 

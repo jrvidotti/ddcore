@@ -14,6 +14,13 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Changed
+
+- **A Table MultiSelect keeps the typed search after a pick.** Picking an option used to clear
+  the input and list every choice again; the text now stays and the list stays filtered by it
+  (without the value just picked), so several matches are chosen without retyping the search.
+  Leaving the field still clears it.
+
 ## 0.31.27 — 2026-11-09
 
 ### Fixed

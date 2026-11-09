@@ -60,6 +60,23 @@ describe("TableMultiSelectControl", () => {
     t.done();
   });
 
+  it("keeps the typed search after a pick", async () => {
+    const t = setup([]);
+    const input = t.target.querySelector("input")!;
+    input.dispatchEvent(new FocusEvent("focus"));
+    input.value = "re";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await vi.waitFor(() => expect(linkSearch).toHaveBeenLastCalledWith("Tag", "re", undefined, 20));
+    await vi.waitFor(() => expect(t.target.querySelectorAll("[role=option]").length).toBe(3));
+    t.target.querySelector("[role=option]")!.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
+    flushSync();
+    expect(t.props.value.map((r: any) => r.tag)).toEqual(["red"]);
+    expect(input.value).toBe("re");
+    await vi.waitFor(() => expect(linkSearch).toHaveBeenLastCalledWith("Tag", "re", undefined, 21));
+    await vi.waitFor(() => expect([...t.target.querySelectorAll("[role=option]")].map((o) => o.textContent)).toEqual(["Blue", "Green"]));
+    t.done();
+  });
+
   it("removes the last value with Backspace on an empty input", async () => {
     const t = setup([{ tag: "red" }, { tag: "blue" }]);
     const input = t.target.querySelector("input")!;
