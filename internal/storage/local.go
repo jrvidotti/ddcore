@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"net/http"
@@ -75,9 +76,7 @@ func (l *Local) Serve(w http.ResponseWriter, r *http.Request, key string, s Serv
 		return err
 	}
 	defer rc.Close()
-	w.Header().Set("Content-Disposition", disposition(s))
-	w.Header().Set("Content-Type", servedType(s))
-	http.ServeContent(w, r, s.Name, info.ModTime, rc.(*os.File))
+	serveContent(w, r, rc.(*os.File), info, s)
 	return nil
 }
 
@@ -85,6 +84,14 @@ func (l *Local) Serve(w http.ResponseWriter, r *http.Request, key string, s Serv
 // a signing key every process shares, and the site has none.
 func (l *Local) Presign(context.Context, string, time.Duration, Serving) (string, error) {
 	return "", ErrPresignUnsupported
+}
+
+// DeletePrefix removes the directory the prefix names.
+func (l *Local) DeletePrefix(_ context.Context, prefix string) error {
+	if !strings.HasSuffix(prefix, "/") || strings.Trim(prefix, "/") == "" {
+		return fmt.Errorf("storage: DeletePrefix needs a directory prefix, got %q", prefix)
+	}
+	return os.RemoveAll(l.path(prefix))
 }
 
 // List walks the directory. A prefix that names no directory yet — a site that

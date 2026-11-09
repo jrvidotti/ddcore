@@ -412,6 +412,16 @@ export interface DeskAPI {
     statusColor(v: string, field?: Partial<FieldDef>): string;
   };
   datetime: { today(): string; addMonths(d: string, n: number): string; addDays(d: string, n: number): string; dateDiff(a: string, b: string): number; monthDiff(a: string, b: string): number; monthStart(d?: string): string; monthEnd(d?: string): string };
+  files: {
+    /**
+     * The URL of a small variant of a public image, for a list or a card:
+     * `/files/<name>.png?w=128`. `width` is rounded up to the sizes the server
+     * makes (64, 128, 256, 512; past 512 it is 512) — pass twice the CSS size
+     * for a sharp picture on a retina screen. Any other URL (a private file,
+     * not an image, empty) comes back unchanged.
+     */
+    thumbUrl(fileUrl: string | null | undefined, width: number): string;
+  };
   meta(doctype: string): Promise<any>;
   route(path: string): Promise<void>;
   setRoute(...parts: string[]): Promise<void>;

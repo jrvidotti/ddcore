@@ -16,8 +16,9 @@ import (
 )
 
 // S3 keeps files in an S3-compatible bucket. The bucket is expected to be
-// private: a download is answered with a redirect to a presigned URL, issued
-// only after the server has checked the permission.
+// private: a private download is answered with a redirect to a presigned URL,
+// issued only after the server has checked the permission. A public one is
+// streamed by the server, so a browser or a CDN can keep it (#153).
 type S3 struct {
 	client *minio.Client
 	cfg    config.S3
@@ -63,18 +64,30 @@ func (s *S3) Put(ctx context.Context, key string, r io.Reader, size int64, conte
 }
 
 func (s *S3) Open(ctx context.Context, key string) (io.ReadCloser, Info, error) {
-	st, err := s.client.StatObject(ctx, s.cfg.Bucket, s.object(key), minio.StatObjectOptions{})
+	obj, info, err := s.open(ctx, key)
 	if err != nil {
+		return nil, Info{}, err
+	}
+	return obj, info, nil
+}
+
+// open fetches the object's info with the object's own first request, which
+// minio keeps: a Seek afterwards (http.ServeContent's size probe) asks the
+// bucket nothing more.
+func (s *S3) open(ctx context.Context, key string) (*minio.Object, Info, error) {
+	obj, err := s.client.GetObject(ctx, s.cfg.Bucket, s.object(key), minio.GetObjectOptions{})
+	if err != nil {
+		return nil, Info{}, err
+	}
+	st, err := obj.Stat()
+	if err != nil {
+		obj.Close()
 		if notFound(err) {
 			return nil, Info{}, ErrNotFound
 		}
 		return nil, Info{}, err
 	}
-	obj, err := s.client.GetObject(ctx, s.cfg.Bucket, s.object(key), minio.GetObjectOptions{})
-	if err != nil {
-		return nil, Info{}, err
-	}
-	return obj, Info{Size: st.Size, ModTime: st.LastModified}, nil
+	return obj, Info{Size: st.Size, ModTime: st.LastModified, ETag: st.ETag}, nil
 }
 
 func (s *S3) Delete(ctx context.Context, key string) error {
@@ -85,10 +98,23 @@ func (s *S3) Delete(ctx context.Context, key string) error {
 	return err
 }
 
-// Serve redirects to a presigned URL. The response overrides make the bucket
-// announce the same type and disposition the local backend would, whatever
-// content type the uploader claimed when the object was stored.
+// Serve streams a public file and redirects to a presigned URL for any other.
+// A presigned URL changes on every request, so a redirect to one can never be
+// cached; a public file's bytes never change, so streaming it with an
+// immutable Cache-Control lets the browser and a CDN keep it. The response
+// overrides make the bucket announce the same type and disposition the local
+// backend would, whatever content type the uploader claimed when the object
+// was stored.
 func (s *S3) Serve(w http.ResponseWriter, r *http.Request, key string, sv Serving) error {
+	if sv.Public {
+		obj, info, err := s.open(r.Context(), key)
+		if err != nil {
+			return err
+		}
+		defer obj.Close()
+		serveContent(w, r, obj, info, sv)
+		return nil
+	}
 	u, err := s.Presign(r.Context(), key, s.cfg.PresignTTL, sv)
 	if err != nil {
 		return err
@@ -116,6 +142,37 @@ func (s *S3) Presign(ctx context.Context, key string, ttl time.Duration, sv Serv
 		return "", err
 	}
 	return u.String(), nil
+}
+
+// DeletePrefix lists what is under the prefix and removes it in batches.
+func (s *S3) DeletePrefix(ctx context.Context, prefix string) error {
+	if !strings.HasSuffix(prefix, "/") || strings.Trim(prefix, "/") == "" {
+		return fmt.Errorf("storage: DeletePrefix needs a directory prefix, got %q", prefix)
+	}
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	objs := make(chan minio.ObjectInfo)
+	var listErr error
+	go func() {
+		defer close(objs)
+		for obj := range s.client.ListObjects(ctx, s.cfg.Bucket, minio.ListObjectsOptions{Prefix: s.object(prefix), Recursive: true}) {
+			if obj.Err != nil {
+				listErr = obj.Err
+				return
+			}
+			select {
+			case objs <- obj:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+	for e := range s.client.RemoveObjects(ctx, s.cfg.Bucket, objs, minio.RemoveObjectsOptions{}) {
+		if e.Err != nil && !notFound(e.Err) {
+			return e.Err
+		}
+	}
+	return listErr
 }
 
 // List pages through the bucket under the configured prefix, handing back keys

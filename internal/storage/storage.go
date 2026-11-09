@@ -29,12 +29,37 @@ var ErrPresignUnsupported = errors.New("storage: this backend cannot presign a U
 type Info struct {
 	Size    int64
 	ModTime time.Time
+	ETag    string // unquoted; empty when the backend keeps none
 }
 
 // Serving is how a download is presented to the browser.
 type Serving struct {
 	Name   string // file name the browser is told
 	Inline bool   // display in place rather than download
+	// Public is a file served to anyone without a check. Its name is random
+	// and the bytes under it never change, so it may be cached for good.
+	Public bool
+}
+
+// immutable is how long a public file may be kept: a year, the most a cache
+// honours, without asking again.
+const immutable = "public, max-age=31536000, immutable"
+
+// serveContent streams an object the caller has already opened, so the headers
+// below are only ever sent for bytes that exist: a 404 must not be cached for
+// a year. http.ServeContent answers If-None-Match / If-Modified-Since with 304
+// before reading anything, and serves Range requests.
+func serveContent(w http.ResponseWriter, r *http.Request, rs io.ReadSeeker, info Info, s Serving) {
+	h := w.Header()
+	h.Set("Content-Disposition", disposition(s))
+	h.Set("Content-Type", servedType(s))
+	if info.ETag != "" {
+		h.Set("ETag", `"`+info.ETag+`"`)
+	}
+	if s.Public {
+		h.Set("Cache-Control", immutable)
+	}
+	http.ServeContent(w, r, s.Name, info.ModTime, rs)
 }
 
 // Store is a place to keep file bytes.
@@ -53,6 +78,10 @@ type Store interface {
 	// List calls fn for every object whose key starts with prefix, in no
 	// particular order. It is how a backup reaches bytes no File row names.
 	List(ctx context.Context, prefix string, fn func(key string, info Info) error) error
+	// DeletePrefix removes every object under prefix, which ends in "/": how
+	// a file's thumbnails go with it. A prefix that holds nothing is not an
+	// error.
+	DeletePrefix(ctx context.Context, prefix string) error
 	// Backend names the store for logs and `ddcore doctor`.
 	Backend() string
 }
@@ -90,6 +119,28 @@ func KeyFromURL(fileURL string) (string, bool) {
 		return "", false
 	}
 	return sub + "/" + name, true
+}
+
+// ThumbWidths are the only sizes a public image's thumbnail comes in, so the
+// variants of one file cannot be multiplied at will (#154). The helpers in
+// internal/js/prelude.js and desk/src/lib/thumbs.ts repeat this list.
+var ThumbWidths = []int{64, 128, 256, 512}
+
+// ThumbKey is where the w-pixel thumbnail of a public key is kept:
+// thumbs/<name>/<w>.<ext>. It is outside public/ and private/, so no URL
+// reaches it by KeyFromURL and a backup, which copies only those two, leaves
+// it out: a thumbnail is made again on the first request after a restore.
+func ThumbKey(key string, w int, ext string) string {
+	return fmt.Sprintf("%s%d%s", ThumbPrefix(key), w, ext)
+}
+
+// ThumbPrefix holds every thumbnail of a public key.
+func ThumbPrefix(key string) string { return "thumbs/" + path.Base(key) + "/" }
+
+// ServeReader streams bytes the caller already holds — a thumbnail just made —
+// with the headers Serve would send for them.
+func ServeReader(w http.ResponseWriter, r *http.Request, rs io.ReadSeeker, info Info, s Serving) {
+	serveContent(w, r, rs, info, s)
 }
 
 // ReadAll reads a whole object.

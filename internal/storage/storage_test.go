@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -75,9 +76,94 @@ func exercise(t *testing.T, s Store) {
 	if err := s.Delete(ctx, key); err != nil {
 		t.Fatalf("Delete of a missing key: %v", err)
 	}
-	rec := httptest.NewRecorder()
-	if err := s.Serve(rec, httptest.NewRequest("GET", "/x", nil), key, Serving{Name: "x.pdf"}); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("Serve of a missing key: %v", err)
+	for _, public := range []bool{false, true} {
+		rec := httptest.NewRecorder()
+		if err := s.Serve(rec, httptest.NewRequest("GET", "/x", nil), key, Serving{Name: "x.pdf", Public: public}); !errors.Is(err, ErrNotFound) {
+			t.Fatalf("Serve of a missing key (public %v): %v", public, err)
+		}
+		// a 404 must not leave a year-long Cache-Control behind
+		if cc := rec.Header().Get("Cache-Control"); strings.Contains(cc, "immutable") {
+			t.Errorf("Serve of a missing key set Cache-Control %q", cc)
+		}
+	}
+
+	// DeletePrefix takes everything under one directory and nothing beside it
+	stamp := time.Now().Format("150405.000000")
+	for _, k := range []string{"thumbs/a" + stamp + "/64.jpg", "thumbs/a" + stamp + "/128.png", "thumbs/b" + stamp + "/64.jpg"} {
+		if err := s.Put(ctx, k, strings.NewReader("x"), 1, "image/jpeg"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := s.DeletePrefix(ctx, "thumbs/a"+stamp+"/"); err != nil {
+		t.Fatalf("DeletePrefix: %v", err)
+	}
+	for k, want := range map[string]bool{"thumbs/a" + stamp + "/64.jpg": false, "thumbs/a" + stamp + "/128.png": false, "thumbs/b" + stamp + "/64.jpg": true} {
+		rc, _, err := s.Open(ctx, k)
+		if err == nil {
+			rc.Close()
+		}
+		if got := err == nil; got != want {
+			t.Errorf("after DeletePrefix, %s exists = %v (%v)", k, got, err)
+		}
+	}
+	if err := s.DeletePrefix(ctx, "thumbs/b"+stamp+"/"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.DeletePrefix(ctx, "thumbs/none"+stamp+"/"); err != nil {
+		t.Errorf("DeletePrefix of an empty prefix: %v", err)
+	}
+	if err := s.DeletePrefix(ctx, "thumbs"); err == nil {
+		t.Error("DeletePrefix took a prefix that is no directory")
+	}
+}
+
+// servePublic checks what a public file is served with on every backend: the
+// bytes, the served type, a year-long immutable Cache-Control, and answers to
+// a conditional or a range request.
+func servePublic(t *testing.T, s Store) {
+	ctx := context.Background()
+	key := "public/pub-" + time.Now().Format("150405.000000") + ".png"
+	if err := s.Put(ctx, key, strings.NewReader("png-bytes"), 9, "text/html"); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { s.Delete(context.Background(), key) })
+	sv := Serving{Name: path.Base(key), Inline: true, Public: true}
+	get := func(h map[string]string) *httptest.ResponseRecorder {
+		t.Helper()
+		req := httptest.NewRequest("GET", "/files/"+path.Base(key), nil)
+		for k, v := range h {
+			req.Header.Set(k, v)
+		}
+		rec := httptest.NewRecorder()
+		if err := s.Serve(rec, req, key, sv); err != nil {
+			t.Fatal(err)
+		}
+		return rec
+	}
+	rec := get(nil)
+	if rec.Code != 200 || rec.Body.String() != "png-bytes" {
+		t.Fatalf("public Serve: %d %q (Location %q)", rec.Code, rec.Body.String(), rec.Header().Get("Location"))
+	}
+	h := rec.Header()
+	if h.Get("Cache-Control") != "public, max-age=31536000, immutable" || h.Get("Content-Type") != "image/png" ||
+		!strings.HasPrefix(h.Get("Content-Disposition"), "inline") || h.Get("Last-Modified") == "" {
+		t.Errorf("public Serve headers: %v", h)
+	}
+	if etag := h.Get("ETag"); etag != "" {
+		if !strings.HasPrefix(etag, `"`) {
+			t.Errorf("ETag not quoted: %q", etag)
+		}
+		if r := get(map[string]string{"If-None-Match": etag}); r.Code != http.StatusNotModified {
+			t.Errorf("If-None-Match: %d", r.Code)
+		}
+	}
+	if r := get(map[string]string{"If-Modified-Since": h.Get("Last-Modified")}); r.Code != http.StatusNotModified {
+		t.Errorf("If-Modified-Since: %d", r.Code)
+	} else if r.Header().Get("Cache-Control") == "" {
+		t.Error("a 304 dropped the Cache-Control")
+	}
+	if r := get(map[string]string{"Range": "bytes=1-2"}); r.Code != http.StatusPartialContent || r.Body.String() != "ng" {
+		t.Errorf("Range: %d %q", r.Code, r.Body.String())
 	}
 }
 
@@ -104,6 +190,10 @@ func TestLocal(t *testing.T) {
 	if ct, cd := rec.Header().Get("Content-Type"), rec.Header().Get("Content-Disposition"); ct != "application/octet-stream" || cd != "attachment; filename=a.txt" {
 		t.Errorf("headers: %q %q", ct, cd)
 	}
+	if cc := rec.Header().Get("Cache-Control"); cc != "" {
+		t.Errorf("a file not served as public got Cache-Control %q", cc)
+	}
+	servePublic(t, s)
 	if _, _, err := s.Open(ctx, "public"); !errors.Is(err, ErrNotFound) {
 		t.Errorf("a directory must not open: %v", err)
 	}
@@ -134,6 +224,7 @@ func TestS3(t *testing.T) {
 		t.Fatal(err)
 	}
 	exercise(t, s)
+	servePublic(t, s)
 
 	ctx := context.Background()
 	if err := s.Put(ctx, "private/p.pdf", strings.NewReader("pdf"), 3, "text/html"); err != nil {
@@ -147,6 +238,9 @@ func TestS3(t *testing.T) {
 	loc := rec.Header().Get("Location")
 	if rec.Code != http.StatusFound || !strings.Contains(loc, "X-Amz-Signature=") || !strings.Contains(loc, "/test/private/p.pdf") {
 		t.Fatalf("Serve: %d %s", rec.Code, loc)
+	}
+	if cc := rec.Header().Get("Cache-Control"); cc != "no-store" {
+		t.Errorf("private redirect Cache-Control: %q", cc)
 	}
 	res, err := http.Get(loc)
 	if err != nil {

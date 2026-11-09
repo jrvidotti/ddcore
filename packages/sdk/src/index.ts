@@ -522,6 +522,14 @@ export interface DDCoreAPI {
      */
     presign(fileUrl: string, opts?: { ttl?: number; ignorePermissions?: boolean }): string;
     /**
+     * The URL of a small variant of a public image, for a list or a card:
+     * `/files/<name>.png?w=128`. `width` is rounded up to the sizes the server
+     * makes (64, 128, 256, 512; past 512 it is 512) — pass twice the CSS size
+     * for a sharp picture on a retina screen. Any other URL (a private file,
+     * not an image, empty) comes back unchanged. See `storage`, *Thumbnails*.
+     */
+    thumbUrl(fileUrl: string, width: number): string;
+    /**
      * The bytes of a File, named by its id or its `file_url`, as base64, on
      * either storage backend. Needs read on the File (a public file is
      * anyone's), unless `ignorePermissions`. A file over `maxBytes` (default

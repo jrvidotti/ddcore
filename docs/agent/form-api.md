@@ -424,6 +424,9 @@ defineForm<Charge>("Charge", {
   ```
 - `ddcore.format.currency/date/number/value/statusColor`, `ddcore.datetime.today/addMonths/addDays/dateDiff/monthDiff/monthStart/monthEnd`
 - `ddcore.search.global(txt, limit?)` — the documents the global search palette lists. See `search`
+- `ddcore.files.thumbUrl(fileUrl, width)` — the URL of a small variant of a public image, for a
+  list or a card: `width` rounded up to 64, 128, 256 or 512 (ask for twice the CSS size); any other
+  URL unchanged. See `storage`, *Thumbnails*
 - `ddcore.realtime.on(event, handler)` → an `off()` function; `ddcore.realtime.off(event, handler)`. Events sent with
   `ddcore.publish` (see `controller-api`), outside a form — in a form, `frm.onRealtime` drops the handler when the form closes
 - `ddcore.route(path)` — navigates the Desk to a path; `ddcore.setRoute(...parts)` — the same from
