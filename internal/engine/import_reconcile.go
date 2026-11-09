@@ -287,10 +287,7 @@ func moneyFields(d *meta.DocType) []*meta.Field {
 }
 
 func (e *Engine) currencyPrecisionFor(f *meta.Field) int {
-	if f.Precision > 0 {
-		return f.Precision
-	}
-	return e.CurrencyPrecision()
+	return f.PrecisionOr(e.CurrencyPrecision())
 }
 
 // decimalRat reads a rounded value as the decimal it is meant to be. Going

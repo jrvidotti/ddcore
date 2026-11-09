@@ -322,13 +322,38 @@ func TestValidateRejectsABlankIDLabel(t *testing.T) {
 	}
 }
 
+// precision 0 is a real value — a Currency in whole units — and must reach
+// the desk as such: an omitempty int dropped it, and the desk then showed
+// the site's cents (#159).
+func TestPrecisionZeroIsDistinctFromUnset(t *testing.T) {
+	var zero, unset Field
+	if err := json.Unmarshal([]byte(`{"fieldname":"budget","fieldtype":"Currency","precision":0}`), &zero); err != nil {
+		t.Fatal(err)
+	}
+	if zero.Precision == nil || *zero.Precision != 0 || zero.PrecisionOr(2) != 0 {
+		t.Fatalf("precision 0 was read as unset: %v", zero.Precision)
+	}
+	if b, _ := json.Marshal(&zero); !strings.Contains(string(b), `"precision":0`) {
+		t.Fatalf("precision 0 was dropped from the JSON: %s", b)
+	}
+	if err := json.Unmarshal([]byte(`{"fieldname":"total","fieldtype":"Currency"}`), &unset); err != nil {
+		t.Fatal(err)
+	}
+	if unset.Precision != nil || unset.PrecisionOr(2) != 2 {
+		t.Fatalf("an absent precision is not unset: %v", unset.Precision)
+	}
+	if b, _ := json.Marshal(&unset); strings.Contains(string(b), "precision") {
+		t.Fatalf("an unset precision was serialized: %s", b)
+	}
+}
+
 // numeric(21,9) cannot hold more than nine decimal places, so a field asking
 // for more is a developer error and belongs at migrate rather than in a silent
 // truncation on the first save.
 func TestPrecisionBeyondTheColumnIsRefused(t *testing.T) {
 	r := NewRegistry()
 	r.Add(&DocType{Name: "Fatura", Fields: []*Field{
-		{Fieldname: "total", Fieldtype: "Currency", Label: "Total", Precision: 12},
+		{Fieldname: "total", Fieldtype: "Currency", Label: "Total", Precision: new(12)},
 	}})
 	err := r.Validate()
 	if err == nil {
@@ -340,7 +365,7 @@ func TestPrecisionBeyondTheColumnIsRefused(t *testing.T) {
 
 	ok := NewRegistry()
 	ok.Add(&DocType{Name: "Fatura", Fields: []*Field{
-		{Fieldname: "total", Fieldtype: "Currency", Label: "Total", Precision: 9},
+		{Fieldname: "total", Fieldtype: "Currency", Label: "Total", Precision: new(9)},
 		{Fieldname: "peso", Fieldtype: "Float", Label: "Peso"},
 	}})
 	if err := ok.Validate(); err != nil {

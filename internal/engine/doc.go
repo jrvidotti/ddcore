@@ -234,11 +234,7 @@ func castValueWith(f *meta.Field, v any, o castOpts) (any, error) {
 			// a rate, not an amount: 33.333333 is a legitimate third
 			return n, nil
 		}
-		p := o.currencyPrec
-		if f.Precision > 0 {
-			p = f.Precision
-		}
-		return num.Round(n, p, o.rounding), nil
+		return num.Round(n, f.PrecisionOr(o.currencyPrec), o.rounding), nil
 	case "Check":
 		switch x := v.(type) {
 		case bool:

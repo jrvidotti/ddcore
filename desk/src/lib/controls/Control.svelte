@@ -4,9 +4,8 @@
   // dialogs, grids and filters alike.
   import type { Field } from "$lib/meta";
   import { selectLabels, selectOptions } from "$lib/meta";
-  import { formatNumber, isIndicatorSelect, parseNumber, roundCurrency } from "$lib/format";
+  import { fieldCurrencyPrecision, formatNumber, isIndicatorSelect, parseNumber, roundCurrency } from "$lib/format";
   import SelectIndicator from "$lib/components/SelectIndicator.svelte";
-  import { currencyPrecision } from "$lib/locale";
   import LinkControl from "./LinkControl.svelte";
   import AutocompleteControl from "./AutocompleteControl.svelte";
   import BarcodeControl from "./BarcodeControl.svelte";
@@ -68,7 +67,7 @@
   // a Currency shows, and commits, the number of places the site actually
   // stores — not a hardcoded 2, which was right about USD by accident and
   // wrong about JPY
-  const moneyPrecision = $derived(ft === "Currency" ? (field.precision || currencyPrecision()) : undefined);
+  const moneyPrecision = $derived(ft === "Currency" ? fieldCurrencyPrecision(field) : undefined);
   $effect(() => {
     if (!focused) text = value === null || value === undefined ? "" : ft === "Int" ? String(Math.round(Number(value))) : formatNumber(value, moneyPrecision ?? field.precision);
   });

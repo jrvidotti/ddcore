@@ -15,6 +15,13 @@ export const formatCurrency = (v: any, precision?: number) =>
     : {},
   ).format(Number(v) || 0);
 
+/**
+ * The places a Currency field keeps: its own precision — where 0 means whole
+ * units, not "unset" (#159) — or else the site's.
+ */
+export const fieldCurrencyPrecision = (f?: Partial<Field>): number =>
+  f?.precision ?? currencyPrecision();
+
 /** Rounds exactly the way the server is about to store the value. */
 export const roundCurrency = (v: any, precision?: number) =>
   round(Number(v) || 0, precision ?? currencyPrecision(), roundingMode());
@@ -59,7 +66,7 @@ export const durationHides = (f: Partial<Field> | undefined, flag: string): bool
 export function formatValue(v: any, f?: Partial<Field>): string {
   if (v === null || v === undefined) return "";
   switch (f?.fieldtype) {
-    case "Currency": return formatCurrency(v, f.precision || undefined);
+    case "Currency": return formatCurrency(v, f.precision);
     case "Percent": return formatNumber(v, f.precision ?? 2) + "%";
     case "Float": return formatNumber(v, f.precision);
     case "Int": return String(Math.round(Number(v)));
