@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.31.26 — 2026-11-09
+
 ### Fixed
 
 - **A Currency's `precision: 0` keeps whole units** (#159). The field's own `precision: 0` was
