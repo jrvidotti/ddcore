@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.31.25 — 2026-11-09
+
 ### Changed
 
 - **Cmd/Ctrl+S on a tool Single runs the script's primary action** (#158). The shortcut was
