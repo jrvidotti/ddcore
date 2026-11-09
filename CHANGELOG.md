@@ -14,6 +14,28 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **Thumbnails of public images: `/files/<name>?w=128`** (#154). A public `.png`, `.jpg`,
+  `.jpeg`, `.gif` or `.webp` has variants of 64, 128, 256 and 512 px (any other `w` is a `400`),
+  fitted inside the square, never enlarged, turned by the JPEG's EXIF orientation, encoded as JPEG
+  (PNG when the image has transparency). One is made on its first request, stored under
+  `thumbs/<name>/` (left out of backups, deleted with the `File`) and served with the immutable
+  `Cache-Control` of a public file. `w` on a private file or a non-image is ignored.
+  `ddcore.files.thumbUrl(fileUrl, width)`, on the server and in the desk, builds the URL (rounding
+  up to the next size, any other URL unchanged), and the desk's `Attach Image` list column, card
+  image and `Attach` preview use it. See `storage`, *Thumbnails*.
+
+### Fixed
+
+- **Public files (`/files/…`) are cached by the browser and a CDN** (#153). With `s3` they were
+  a `302` to a new presigned URL on every request, sent `no-store`, so every page load downloaded
+  every image again. A public file is now streamed by the server on both backends with
+  `Cache-Control: public, max-age=31536000, immutable`, `Last-Modified` and the bucket's `ETag`
+  (`304` on a conditional request, `206` on a range); the local backend gains the same header.
+  Private files keep the presigned `no-store` redirect. With `s3` the server now carries the bytes
+  of public files: put a CDN in front for heavy use.
+
 ## 0.31.20 — 2026-11-07
 
 ### Added

@@ -7,7 +7,7 @@ in a **store**, chosen per deployment:
 | Backend | Where the bytes are | Download |
 | --- | --- | --- |
 | `local` (default) | `<dataDir>/files/public` and `<dataDir>/files/private` | streamed by the server |
-| `s3` | an S3-compatible bucket: AWS S3, Cloudflare R2, MinIO, Backblaze B2 | the server checks permission, then redirects to a short-lived presigned URL |
+| `s3` | an S3-compatible bucket: AWS S3, Cloudflare R2, MinIO, Backblaze B2 | a public file is streamed by the server; for a private one the server checks permission, then redirects to a short-lived presigned URL |
 
 App code never touches the store directly: files enter through `POST /api/upload`
 or `ddcore.files.save`, and leave through `/files/…`, `/private/files/…`,
@@ -52,18 +52,29 @@ same layout as the local `files/` directory.
   URL; they go through `/files/…`, which is the server reading the store for
   anyone who asks, Guest included. Nothing there is permission-checked; only the
   file's random name keeps it obscure.
+- **A public file is cached for good.** Its name is random and the bytes under
+  it never change, so `/files/…` is answered `200` by the server itself, on both
+  backends, with `Cache-Control: public, max-age=31536000, immutable`,
+  `Last-Modified` and (on `s3`) the bucket's `ETag`; a conditional request gets
+  `304` and a `Range` request `206`. A browser does not ask again, and a CDN in
+  front of the site keeps the file at its edge. Two consequences: with `s3` the
+  server carries the bytes of public files (put a CDN in front for heavy use),
+  and a deleted public file can outlive its deletion in those caches. A
+  `404` carries no such header.
 - `/private/files/…` answers only a signed-in user who may read the File (the
   document it is attached to, and the field if it is restricted — see
   `field-permissions` and `sharing`). With `s3`, only then does the server
   issue a presigned URL.
 - A presigned URL works for anyone holding it until it expires. Keep
-  `DDCORE_S3_PRESIGN_TTL` short; the redirect is sent with `Cache-Control: no-store`.
+  `DDCORE_S3_PRESIGN_TTL` short; the redirect is sent with `Cache-Control: no-store`, and
+  a new URL is signed on every request, so a private file is never cached.
 - Only `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp` and `.pdf` are served inline —
   another image type such as `.bmp` or `.avif` downloads. Everything else is a
   download with `application/octet-stream`, whatever content type the uploader
-  claimed. With `s3` this is enforced through the presigned URL's response
-  overrides; `X-Content-Type-Options: nosniff` and the CSP sandbox are on the
-  redirect only, so the bucket's own response carries neither.
+  claimed. With `s3` a private file gets this through the presigned URL's
+  response overrides; `X-Content-Type-Options: nosniff` and the CSP sandbox are
+  on its redirect only, so the bucket's own response carries neither. A public
+  file, streamed by the server, carries both.
 - A bare `/files/` lists nothing.
 
 ### Uploading onto a document
@@ -147,6 +158,41 @@ const { base64, contentType } = ddcore.files.read(doc.agreement_photo, { maxByte
 - To show a private image in a print, use `b.image` (see `print`): the server
   inlines it itself.
 
+## Thumbnails
+
+Lists and cards draw a photo in a few dozen pixels. A **public image**
+(`.png`, `.jpg`, `.jpeg`, `.gif`, `.webp` under `/files/…`) has small variants
+at `/files/<name>?w=<n>`, `n` one of **64, 128, 256, 512**:
+
+```html
+<img src="/files/a1b2c3.png?w=128">
+```
+
+- The variant fits inside `n`×`n`, keeps the aspect ratio and is **never
+  enlarged** (a smaller image is re-encoded at its own size). A JPEG's EXIF
+  orientation is applied, the way the browser shows the original. A GIF gives
+  its first frame.
+- It is a JPEG, or a PNG when the image has transparency (there is no WebP
+  output). It is served like the public file: inline, `nosniff`, the CSP
+  sandbox, and the same immutable `Cache-Control`.
+- Any other `w` answers `400`. On a file that is not a public image — a PDF, a
+  `/private/files/…` URL — `w` is ignored and the original is served; private
+  thumbnails are not offered.
+- It is made on the **first request** and stored under
+  `thumbs/<name>/<n>.jpg|.png`, beside `public/` and `private/` (with `s3`, under
+  the same prefix). Later requests read it back. Concurrent first requests
+  share one decode, and at most two decodes run at a time. An original over
+  50 MiB or 40 megapixels, or one that does not decode, is served as is.
+- Thumbnails are a cache: a backup leaves them out, and they are made again
+  after a restore. Deleting the `File` deletes them.
+
+Build the URL with `ddcore.files.thumbUrl(fileUrl, width)` — on the server
+(`controller-api`) and in the desk or portal (`form-api`). It rounds `width` up
+to the next size (past 512 it is 512) and returns any other URL unchanged, so
+an `Attach` value of any kind can be passed; ask for twice the CSS size so a
+retina screen gets a sharp picture. The desk's list column of an
+`Attach Image`, the card image and the `Attach` field's preview use it.
+
 ## Deletion
 
 Deleting a `File` deletes its bytes, and deleting a document deletes the rows and
@@ -154,7 +200,8 @@ bytes of the files naming it in `attached_to_doctype`/`attached_to_id`. The
 bytes are removed **after the transaction commits**, so a rolled-back delete
 keeps them. Removal is best effort: if the store refuses, the delete still
 succeeds and the server logs `file bytes left behind after delete` with the
-`file_url`.
+`file_url`. A public image's thumbnails go with it (`thumbnails left behind
+after delete` when they cannot).
 
 An upload whose `File` row cannot be inserted removes the bytes it just wrote.
 

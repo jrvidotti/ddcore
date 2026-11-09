@@ -46,6 +46,8 @@ type Server struct {
 	MaxUpload int64
 	// limiter bounds Website Users' portal writes (OPS-10).
 	limiter *portalLimiter
+	// thumbs makes the ?w= variants of public images (#154).
+	thumbs *thumbMaker
 }
 
 type ctxKey int
@@ -53,7 +55,7 @@ type ctxKey int
 const userKey ctxKey = 1
 
 func New(e *engine.Engine, desk fs.FS) *Server {
-	s := &Server{E: e, Desk: desk, MaxUpload: 50 << 20, limiter: newPortalLimiter()}
+	s := &Server{E: e, Desk: desk, MaxUpload: 50 << 20, limiter: newPortalLimiter(), thumbs: newThumbMaker()}
 	r := chi.NewRouter()
 	// RealIP rewrites RemoteAddr from X-Forwarded-For, which any client can
 	// send. Believing it unconditionally means an attacker picks the address
@@ -1849,7 +1851,28 @@ func (s *Server) serveUpload(w http.ResponseWriter, r *http.Request) {
 	ext := strings.ToLower(path.Ext(name))
 	_, audio := storage.AudioTypes[ext]
 	inline := ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".gif" || ext == ".webp" || ext == ".pdf" || audio
-	err := s.E.Storage().Serve(w, r, key, storage.Serving{Name: name, Inline: inline})
+	public := strings.HasPrefix(key, "public/")
+	// ?w= asks for a thumbnail of a public image; on any other file it is
+	// ignored, so a helper may pass whatever an Attach field holds (#154)
+	if q := r.URL.Query(); public && thumbExts[ext] && q.Has("w") {
+		width, ok := thumbWidth(q.Get("w"))
+		if !ok {
+			http.Error(w, "w must be one of "+thumbWidthList(), http.StatusBadRequest)
+			return
+		}
+		served, err := s.serveThumb(w, r, key, width)
+		if errors.Is(err, storage.ErrNotFound) {
+			http.NotFound(w, r)
+			return
+		} else if err != nil {
+			s.writeErr(w, r, err)
+			return
+		}
+		if served {
+			return
+		}
+	}
+	err := s.E.Storage().Serve(w, r, key, storage.Serving{Name: name, Inline: inline, Public: public})
 	if errors.Is(err, storage.ErrNotFound) {
 		http.NotFound(w, r)
 	} else if err != nil {

@@ -6,6 +6,7 @@
 </script>
 
 <script lang="ts">
+  import { thumbUrl } from "$lib/thumbs";
   import { api } from "$lib/api";
   import { showError } from "$lib/ui.svelte";
   import { __ } from "$lib/boot.svelte";
@@ -59,7 +60,7 @@
        onmouseenter={() => (hovering = true)} onmouseleave={() => (hovering = false)}
        onfocus={() => (hovering = true)} onblur={() => (hovering = false)}>
       {#if image}
-        <img class="thumb" src={value} alt={label} />
+        <img class="thumb" src={thumbUrl(value, 128)} alt={label} />
       {:else}
         <span class="icon"><Icon name="file" size={18} /></span>
       {/if}

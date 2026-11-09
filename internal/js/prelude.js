@@ -939,6 +939,7 @@
       presign(fileUrl, opts) { opts = opts || {}; return call("files.presign", { url: fileUrl, ttl: opts.ttl || 0, opts }); },
       read(ref, opts) { return call("files.read", { url: String(ref ?? ""), opts: opts || {} }); },
       sha256(ref, opts) { return call("files.sha256", { url: String(ref ?? ""), opts: opts || {} }); },
+      thumbUrl(fileUrl, width) { return thumbUrl(fileUrl, width); },
     },
     print: {
       pdf(opts) { return call("print.pdf", opts || {}); },
@@ -1261,7 +1262,21 @@
     const a = aiAnswer(ans);
     return call("ai.parseTranscription", { httpStatus: a.status, body: a.body, model: p.model });
   }
-  function wrapHttp(r) {
+  // thumbUrl is the ?w= thumbnail of a public image (#154): the smallest size
+// of storage.ThumbWidths (internal/storage/storage.go) that is at least
+// width, at most the largest. Any other url comes back as it is, so an Attach
+// value of any kind may be passed. desk/src/lib/thumbs.ts is the desk's copy.
+const THUMB_WIDTHS = [64, 128, 256, 512];
+function thumbUrl(fileUrl, width) {
+  const n = Number(width);
+  if (!(n > 0)) throw new Error("files.thumbUrl: width must be a positive number of pixels");
+  const url = String(fileUrl ?? "");
+  if (!/^\/files\/[^/?#]+\.(png|jpe?g|gif|webp)$/i.test(url)) return url;
+  const w = THUMB_WIDTHS.find((t) => t >= n) || THUMB_WIDTHS[THUMB_WIDTHS.length - 1];
+  return url + "?w=" + w;
+}
+
+function wrapHttp(r) {
     r.json = function () { return JSON.parse(r.body); };
     return r;
   }

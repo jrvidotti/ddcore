@@ -177,6 +177,12 @@ func (c *Ctx) deleteFileBytesAfterCommit(fileURLs ...string) {
 			if err := store.Delete(ctx, key); err != nil {
 				c.E.Log.Warn("file bytes left behind after delete", "file_url", u, "backend", store.Backend(), "err", err)
 			}
+			// a public image's thumbnails go with it (#154)
+			if strings.HasPrefix(key, "public/") {
+				if err := store.DeletePrefix(ctx, storage.ThumbPrefix(key)); err != nil {
+					c.E.Log.Warn("thumbnails left behind after delete", "file_url", u, "backend", store.Backend(), "err", err)
+				}
+			}
 		}
 	})
 }

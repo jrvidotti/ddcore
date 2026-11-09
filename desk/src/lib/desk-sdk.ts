@@ -19,6 +19,7 @@ import { getRememberedWorkspace } from "./components/sidebar-workspace";
 import { refreshPendingCount } from "./assignments.svelte";
 import { openFeedback, type FeedbackPreset } from "./feedback.svelte";
 import { impersonate } from "./impersonation";
+import { thumbUrl } from "./thumbs";
 
 
 function withPendingCount<T>(result: T): T {
@@ -104,6 +105,7 @@ export const deskSDK = {
     format: { currency: formatCurrency, date: formatDate, number: formatNumber, value: formatValue, roundCurrency, statusColor },
     // civil dates with the same semantics as `ddcore.utils` no servidor (ver $lib/datetime)
     datetime: { today: () => today(), addMonths, addDays, dateDiff, monthDiff, monthStart, monthEnd },
+    files: { thumbUrl },
     meta: getMeta,
     route: (path: string) => import("$app/navigation").then((n) => n.goto(path)),
     setRoute: (...parts: string[]) => {

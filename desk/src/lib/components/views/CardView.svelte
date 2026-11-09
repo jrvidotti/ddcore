@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { thumbUrl } from "$lib/thumbs";
   import { seg } from "$lib/routes";
   import { __, doctypeLabel } from "$lib/boot.svelte";
   import type { ListViewOptions } from "$lib/desk-sdk";
@@ -52,7 +53,7 @@
         <input type="checkbox" aria-label={__("Select {0}", [row.id])} checked={selected.has(row.id)} onclick={(e) => e.stopPropagation()} onchange={() => onToggle(row.id)} />
         {#if cardInfo.hasImage}
           {#if src}
-            <img class="media" {src} alt="" loading="lazy" decoding="async" onerror={() => failed.add(`${row.id}\n${src}`)} />
+            <img class="media" src={thumbUrl(src, 128)} alt="" loading="lazy" decoding="async" onerror={() => failed.add(`${row.id}\n${src}`)} />
           {:else}
             <span class="media card-avatar {avatarColor(title)}" aria-hidden="true">{initials(title)}</span>
           {/if}

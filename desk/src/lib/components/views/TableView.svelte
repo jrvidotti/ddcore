@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { thumbUrl } from "$lib/thumbs";
   import { seg } from "$lib/routes";
   import { goto } from "$app/navigation";
   import { __ } from "$lib/boot.svelte";
@@ -68,7 +69,7 @@
             {:else if c.fieldtype === "Color" && r[c.fieldname!]}
               <span class="swatch" style:background={r[c.fieldname!]}></span>{cellText(r, c)}
             {:else if c.fieldtype === "Attach Image" && r[c.fieldname!]}
-              <img class="thumb" src={r[c.fieldname!]} alt="" loading="lazy" />
+              <img class="thumb" src={thumbUrl(r[c.fieldname!], 64)} alt="" loading="lazy" />
             {:else if c.fieldname === statusField?.fieldname}
               <span class="badges"><SelectIndicator value={r[c.fieldname!]} field={c} iconOnly={c.optionIconOnly} />{#if !showIndicatorColumn}{@render badges(r)}{/if}</span>
             {:else if isIndicatorSelect(c) && r[c.fieldname!] && !settings.formatters?.[c.fieldname!]}<SelectIndicator value={r[c.fieldname!]} field={c} iconOnly={c.optionIconOnly} />
