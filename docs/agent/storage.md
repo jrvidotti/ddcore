@@ -31,15 +31,19 @@ DDCORE_S3_PREFIX=                     # default empty: several sites in one buck
 DDCORE_S3_USE_SSL=true                # default
 DDCORE_S3_PATH_STYLE=false            # default: the client auto-detects addressing. true forces endpoint/bucket, which MinIO and most self-hosted servers need
 DDCORE_S3_PRESIGN_TTL=5m              # default 5m, 1s..168h
+DDCORE_S3_FALLBACK_PREFIX=            # default unset: another site's prefix that reads fall back to; "/" is the bucket root. See below
 ```
 
 An unset bucket or credential, an endpoint with a scheme, a `DDCORE_S3_PRESIGN_TTL`
-that is not a duration in range, or an unknown backend stops the process at boot.
+that is not a duration in range, a `DDCORE_S3_FALLBACK_PREFIX` without
+`DDCORE_STORAGE=s3` or equal to `DDCORE_S3_PREFIX`, or an unknown backend stops the
+process at boot.
 Nothing else is checked there: no connection is opened until the first request,
 so a bucket that does not exist, a wrong key or an unreachable endpoint surfaces
 only on the first upload or download. `ddcore doctor` does not probe the bucket
 either; it prints `storage: s3 <endpoint>/<bucket>/<prefix> (presigned links
-valid <ttl>)`, without the `/<prefix>` when there is none, or
+valid <ttl>)`, without the `/<prefix>` when there is none — with a fallback,
+`(read-only fallback <endpoint>/<bucket>/<fallback>; presigned links valid <ttl>)` — or
 `storage: local <dataDir>/files` — never the keys. The same string is
 the `storage` field of `doctor --json`.
 
@@ -220,6 +224,35 @@ again — never bytes a `File` row still names, because `file_url` is `unique`.
 Not covered: bytes already orphaned, with no row left to delete — including files
 orphaned by direct SQL on `tab_file` — quotas, and retention windows (PRD-05,
 deferred).
+
+## A development site on a copy of production
+
+A development site restored from production's database names production's
+files, but looks them up under its own prefix, where they are not. Pointing it
+at production's prefix would let it write and delete production's objects (an
+R2 token cannot be limited to a prefix), and copying them duplicates the
+storage. Instead, keep the site on its own prefix and **read through to
+production's**:
+
+```sh
+# the development site's .env, on production's bucket
+DDCORE_STORAGE=s3
+DDCORE_S3_BUCKET=ddcore
+DDCORE_S3_PREFIX=gestao-dev
+DDCORE_S3_FALLBACK_PREFIX=gestao      # production's DDCORE_S3_PREFIX; "/" when it has none
+```
+
+- **Reads fall back.** A key the site's own prefix does not hold is read under
+  the fallback one: `/files/…` (and the source of a `?w=` thumbnail),
+  `/private/files/…` (presigned on the fallback object, after the site's own
+  permission check), `ddcore.files.read`, `ddcore.files.sha256`, `ddcore.files.presign`
+  and an export's attachments. An object under the site's own prefix wins.
+- **Nothing else does.** Uploads, `ddcore.files.save`, generated thumbnails and
+  backups are written under the site's own prefix; deleting a `File` deletes only
+  the site's own object (production's stays, so `/files/…` keeps answering from
+  it), and a backup lists only the site's own objects. A thumbnail production has
+  already made is read from its prefix too.
+- The backup bucket (`DDCORE_BACKUP_S3_*`) never inherits the fallback.
 
 ## Moving an existing site to S3
 

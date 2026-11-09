@@ -688,11 +688,18 @@ func storageSummary(cfg *config.File) string {
 		return "local " + filepath.Join(cfg.DataDir, "files")
 	}
 	s3 := cfg.Storage.S3
-	where := s3.Endpoint + "/" + s3.Bucket
-	if s3.Prefix != "" {
-		where += "/" + s3.Prefix
+	at := func(prefix string) string {
+		if prefix == "" {
+			return s3.Endpoint + "/" + s3.Bucket
+		}
+		return s3.Endpoint + "/" + s3.Bucket + "/" + prefix
 	}
-	return fmt.Sprintf("s3 %s (presigned links valid %s)", where, s3.PresignTTL)
+	// a fallback is named, so a site reading another site's files says so (#155)
+	fallback := ""
+	if s3.Fallback {
+		fallback = "read-only fallback " + at(s3.FallbackPrefix) + "; "
+	}
+	return fmt.Sprintf("s3 %s (%spresigned links valid %s)", at(s3.Prefix), fallback, s3.PresignTTL)
 }
 
 // engineCritical names the refusal in one line, for the critical list. A

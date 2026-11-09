@@ -217,6 +217,14 @@ func TestDoctorStorageSummaryWithoutPrefix(t *testing.T) {
 	if got := storageSummary(cfg); got != "s3 minio:9000/ddcore/site-a (presigned links valid 5m0s)" {
 		t.Errorf("with prefix: %q", got)
 	}
+	cfg.Storage.S3.Fallback, cfg.Storage.S3.FallbackPrefix = true, "prod"
+	if got := storageSummary(cfg); got != "s3 minio:9000/ddcore/site-a (read-only fallback minio:9000/ddcore/prod; presigned links valid 5m0s)" {
+		t.Errorf("with a fallback: %q", got)
+	}
+	cfg.Storage.S3.FallbackPrefix = ""
+	if got := storageSummary(cfg); got != "s3 minio:9000/ddcore/site-a (read-only fallback minio:9000/ddcore; presigned links valid 5m0s)" {
+		t.Errorf("with a fallback at the root: %q", got)
+	}
 }
 
 // A rollback refusal is not a broken app: sending the reader to look at app

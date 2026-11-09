@@ -32,12 +32,37 @@ func TestStorageFromEnv(t *testing.T) {
 		t.Errorf("s3: %+v", s.S3)
 	}
 
-	for k, v := range map[string]string{"DDCORE_S3_ENDPOINT": "https://minio:9000", "DDCORE_S3_PRESIGN_TTL": "30d", "DDCORE_STORAGE": "gcs"} {
+	if s.S3.Fallback {
+		t.Errorf("a fallback nobody set: %+v", s.S3)
+	}
+	for v, want := range map[string]string{"/prod/": "prod", "/": ""} {
+		t.Setenv("DDCORE_S3_FALLBACK_PREFIX", v)
+		s, err = storageFromEnv()
+		if err != nil || !s.S3.Fallback || s.S3.FallbackPrefix != want {
+			t.Errorf("fallback %q: %+v %v", v, s.S3, err)
+		}
+		b, err := backupFromEnv(s)
+		if err != nil || b.S3.Fallback {
+			t.Errorf("the backup bucket inherited the fallback: %+v %v", b.S3, err)
+		}
+	}
+	t.Setenv("DDCORE_S3_FALLBACK_PREFIX", "")
+
+	for k, v := range map[string]string{"DDCORE_S3_ENDPOINT": "https://minio:9000", "DDCORE_S3_PRESIGN_TTL": "30d", "DDCORE_STORAGE": "gcs",
+		"DDCORE_S3_FALLBACK_PREFIX": "site-a/"} {
 		t.Run(k, func(t *testing.T) {
 			t.Setenv(k, v)
 			if _, err := storageFromEnv(); err == nil {
 				t.Errorf("%s=%s accepted", k, v)
 			}
 		})
+	}
+}
+
+// A fallback prefix only means something on a bucket.
+func TestStorageFallbackNeedsS3(t *testing.T) {
+	t.Setenv("DDCORE_S3_FALLBACK_PREFIX", "prod")
+	if _, err := storageFromEnv(); err == nil || !strings.Contains(err.Error(), "DDCORE_STORAGE=s3") {
+		t.Errorf("fallback on local: %v", err)
 	}
 }

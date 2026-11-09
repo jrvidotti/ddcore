@@ -30,7 +30,14 @@ type S3 struct {
 	// Prefix is prepended to every object key, so one bucket can hold
 	// several sites.
 	Prefix string
-	UseSSL bool
+	// Fallback says reads look under FallbackPrefix for a key the site's
+	// own prefix does not hold: a development site restored from
+	// production's database, on production's bucket, shows production's
+	// files without copying them (#155). Writes, deletes and listings never
+	// touch it. An empty FallbackPrefix with Fallback set is the bucket root.
+	Fallback       bool
+	FallbackPrefix string
+	UseSSL         bool
 	// PathStyle addresses the bucket as endpoint/bucket rather than
 	// bucket.endpoint, which MinIO and most self-hosted servers need.
 	PathStyle bool
@@ -57,6 +64,10 @@ func storageFromEnv() (Storage, error) {
 			PresignTTL: DefaultPresignTTL,
 		},
 	}
+	if v := env("DDCORE_S3_FALLBACK_PREFIX", ""); v != "" {
+		// "/" names the root of the bucket: a production site with no prefix
+		s.S3.Fallback, s.S3.FallbackPrefix = true, strings.Trim(v, "/")
+	}
 	if v := env("DDCORE_S3_PRESIGN_TTL", ""); v != "" {
 		d, err := time.ParseDuration(v)
 		// S3 refuses a presigned URL valid for more than seven days
@@ -67,6 +78,9 @@ func storageFromEnv() (Storage, error) {
 	}
 	switch s.Backend {
 	case StorageLocal:
+		if s.S3.Fallback {
+			return s, fmt.Errorf("DDCORE_S3_FALLBACK_PREFIX needs DDCORE_STORAGE=s3")
+		}
 	case StorageS3:
 		if s.S3.Bucket == "" {
 			return s, fmt.Errorf("DDCORE_STORAGE=s3 needs DDCORE_S3_BUCKET")
@@ -76,6 +90,9 @@ func storageFromEnv() (Storage, error) {
 		}
 		if strings.Contains(s.S3.Endpoint, "://") {
 			return s, fmt.Errorf("DDCORE_S3_ENDPOINT: %q must be a host, without a scheme (use DDCORE_S3_USE_SSL)", s.S3.Endpoint)
+		}
+		if s.S3.Fallback && s.S3.FallbackPrefix == s.S3.Prefix {
+			return s, fmt.Errorf("DDCORE_S3_FALLBACK_PREFIX: %q is the site's own prefix (DDCORE_S3_PREFIX); a fallback reads another site's", s.S3.FallbackPrefix)
 		}
 	default:
 		return s, fmt.Errorf("DDCORE_STORAGE: %q is not local or s3", s.Backend)
