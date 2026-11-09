@@ -533,7 +533,11 @@
   const makePrintContext = (lang) => {
     const l = lang || globalThis.__ddcoreLang || "en";
     return {
-      formatCurrency: (val) => formatNumberHelper(val, 2, l),
+      // the site's places, or the caller's — a field in whole units passes 0
+      formatCurrency: (val, decimals) => {
+        const p = decimals ?? utils.currencyPrecision();
+        return formatNumberHelper(utils.roundTo(Number(val) || 0, p), p, l);
+      },
       formatDate: (val) => {
         if (!val) return "";
         const s = String(val).trim();
@@ -830,7 +834,7 @@
     getLastDay(d) { const x = utils.getdate(d); const l = new Date(Date.UTC(x.getUTCFullYear(), x.getUTCMonth() + 1, 0)); return utils.formatDate(l); },
     dateDiff(a, b) { return Math.round((utils.getdate(a) - utils.getdate(b)) / 86400000); },
     monthDiff(a, b) { const x = utils.getdate(a), y = utils.getdate(b); return (x.getUTCFullYear() - y.getUTCFullYear()) * 12 + x.getUTCMonth() - y.getUTCMonth(); },
-    formatCurrency(v, currency) { return call("formatCurrency", { value: utils.flt(v), currency }); },
+    formatCurrency(v, currency, precision) { return call("formatCurrency", { value: utils.flt(v), currency, precision }); },
     // crypto/rand on the Go side: safe for a token, unlike Math.random. As
     // lenient as it always was: a fraction rounds up, anything not positive
     // is "", and only more than 65536 throws.

@@ -348,7 +348,8 @@ export interface SpreadsheetColumn {
    * (`"HH:MM:SS"`) real dates; anything else is text. Left out, a value keeps
    * its own type: a number stays a number, a boolean a boolean.
    */
-  fieldtype?: FieldType;
+  fieldtype?: FieldType;  /** A Currency column's places in an XLSX, 0 to 9; left out, the site's. */
+  precision?: number;
 }
 
 /** A sheet of a `ddcore.spreadsheet.file` workbook. */
@@ -777,7 +778,12 @@ export interface DDCoreAPI {
     getLastDay(d?: any): string;
     dateDiff(a: any, b: any): number;
     monthDiff(a: any, b: any): number;
-    formatCurrency(v: any, currency?: string): string;
+    /**
+     * Money with the currency's symbol: `precision` places, else the site's for
+     * the site's own currency, else the other currency's ISO minor unit —
+     * rounded under the site's rule.
+     */
+    formatCurrency(v: any, currency?: string, precision?: number): string;
     /**
      * Rounds to `precision` decimal places under the site's rounding rule,
      * over the number's shortest decimal representation — so 1.005 rounds to

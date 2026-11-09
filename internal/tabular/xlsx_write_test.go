@@ -105,11 +105,40 @@ func TestXLSXWriterStylesCells(t *testing.T) {
 			t.Errorf("sheet lacks %s:\n%s", want, sheet)
 		}
 	}
-	if styles := zipPart(t, b, "xl/styles.xml"); !strings.Contains(styles, `formatCode="#,##0"`) {
+	if styles := zipPart(t, b, "xl/styles.xml"); !strings.Contains(styles, `numFmtId="164" formatCode="#,##0"/>`) {
 		t.Errorf("a currency without minor units has no decimals: %s", styles)
 	}
-	if styles := zipPart(t, writeWorkbook(t, XLSXOptions{MoneyDecimals: 2}, []any{"a"}), "xl/styles.xml"); !strings.Contains(styles, `formatCode="#,##0.00"`) {
+	if styles := zipPart(t, writeWorkbook(t, XLSXOptions{MoneyDecimals: 2}, []any{"a"}), "xl/styles.xml"); !strings.Contains(styles, `numFmtId="164" formatCode="#,##0.00"/>`) {
 		t.Errorf("two decimals: %s", styles)
+	}
+}
+
+// A Currency field with a precision of its own — whole units on a site of
+// cents — keeps its places in the workbook rather than the site's (#159).
+func TestXLSXMoneyAtShowsItsOwnPlaces(t *testing.T) {
+	b := writeWorkbook(t, XLSXOptions{MoneyDecimals: 2},
+		[]any{"budget", "rate", "total"},
+		[]any{XLSXMoneyAt{6000, 0}, XLSXMoneyAt{1.2346, 4}, XLSXMoney(10.5)},
+	)
+	sheet := zipPart(t, b, "xl/worksheets/sheet1.xml")
+	for _, want := range []string{
+		`<c r="A2" s="6"><v>6000</v></c>`,
+		`<c r="B2" s="10"><v>1.2346</v></c>`,
+		`<c r="C2" s="5"><v>10.5</v></c>`,
+	} {
+		if !strings.Contains(sheet, want) {
+			t.Errorf("sheet lacks %s:\n%s", want, sheet)
+		}
+	}
+	styles := zipPart(t, b, "xl/styles.xml")
+	for _, want := range []string{
+		`<numFmts count="11">`, `<cellXfs count="16">`,
+		`numFmtId="165" formatCode="#,##0"/>`, `numFmtId="169" formatCode="#,##0.0000"/>`,
+		`<xf numFmtId="169" fontId="0"`,
+	} {
+		if !strings.Contains(styles, want) {
+			t.Errorf("styles lack %s:\n%s", want, styles)
+		}
 	}
 }
 

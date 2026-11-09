@@ -141,7 +141,7 @@ pt-BR Excel does not misread `10.5` or `03/01`:
 
 | Column | Cell |
 |---|---|
-| `Currency` | a number, shown with the site's currency decimals |
+| `Currency` | a number, shown with the field's `precision`, else the site's currency decimals |
 | `Int`, `Float`, `Percent`, `Duration`, `Rating`, `docstatus`, `idx` | a number |
 | `Check` | a boolean |
 | `Date`, `Month` | a date |
@@ -196,7 +196,8 @@ ddcore.sendMail({ to, template: "purchasing.purchase_order_supplier", attach: [p
   `.csv` also picks. The extension is added to a `filename` without one, and a
   `filename` ending in the other format's is refused.
 - **The cells** follow the [XLSX table above](#formats): a column's `fieldtype`
-  types its cells — a `Currency` is a number with the site's decimals, a `Date`
+  types its cells — a `Currency` is a number with the site's decimals (or the
+  column's own `precision`, 0 to 9: `{ label: _("Budget"), fieldtype: "Currency", precision: 0 }`), a `Date`
   (`"YYYY-MM-DD"`) a date, a `Datetime` (ISO) a date and time on the site's
   clock, a `Check` a boolean (`true` or `1`). A column with no `fieldtype` keeps
   each value's own type: a number stays a number. A `fieldtype` that holds no

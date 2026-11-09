@@ -403,7 +403,7 @@ func (c *Ctx) formatPrintValue(f *meta.Field, val any, lang string) string {
 		}
 		return t.Format("2006-01-02 15:04:05")
 	case "Currency":
-		return FormatCurrency(toFloat(val), c.E.Cfg.Currency, lang, c.E.CurrencyPrecision())
+		return FormatCurrency(toFloat(val), c.E.Cfg.Currency, lang, f.PrecisionOr(c.E.CurrencyPrecision()), c.E.Cfg.Rounding)
 	case "Percent":
 		numVal := toFloat(val)
 		isPT := strings.HasPrefix(strings.ToLower(lang), "pt")

@@ -55,6 +55,14 @@ type XLSXDate struct {
 // thousands separator.
 type XLSXMoney float64
 
+// XLSXMoneyAt is a money cell with places of its own — a Currency field
+// whose `precision` differs from the site's, such as one kept in whole
+// units. Places outside 0 to 9 are clamped, as a field's precision is.
+type XLSXMoneyAt struct {
+	Value  float64
+	Places int
+}
+
 // The cell styles in styles.xml, by index.
 const (
 	styleHeader   = 1
@@ -62,6 +70,9 @@ const (
 	styleDateTime = 3
 	styleTime     = 4
 	styleMoney    = 5
+	// styleMoneyAt+p is a money cell shown with p places, 0 to 9
+	styleMoneyAt = 6
+	maxMoneyAt   = 9
 )
 
 // ErrTooManyXLSXRows is a sheet past Excel's last row.
@@ -113,7 +124,7 @@ func NewXLSXWriter(w io.Writer, o XLSXOptions) (*XLSXWriter, error) {
 		{"_rels/.rels", xlsxRootRels},
 		{"xl/workbook.xml", xlsxWorkbook(clean)},
 		{"xl/_rels/workbook.xml.rels", xlsxWorkbookRels(len(clean))},
-		{"xl/styles.xml", fmt.Sprintf(xlsxStyles, xmlEscape(moneyFormat(o.MoneyDecimals)))},
+		{"xl/styles.xml", xlsxStylesFor(o.MoneyDecimals)},
 	}
 	for _, p := range parts {
 		f, err := zw.Create(p.name)
@@ -249,6 +260,11 @@ func writeCell(w *bufio.Writer, ref string, v any, style int) {
 			style = styleMoney
 		}
 		num(float64(x), style)
+	case XLSXMoneyAt:
+		if style == 0 {
+			style = styleMoneyAt + min(max(x.Places, 0), maxMoneyAt)
+		}
+		num(x.Value, style)
 	case XLSXDate:
 		if style == 0 {
 			style = map[DateKind]int{DateOnly: styleDate, DateTime: styleDateTime, TimeOnly: styleTime}[x.Kind]
@@ -365,21 +381,35 @@ func xlsxWorkbookRels(sheets int) string {
 	return b.String()
 }
 
+// xlsxStylesFor is the stylesheet: the site's money format as numFmt 164, and
+// one format per places 0 to 9 (numFmt 165+p) for an XLSXMoneyAt. The styles
+// are written before the first row, so every places a cell may ask for is
+// declared up front.
+func xlsxStylesFor(moneyDecimals int) string {
+	var fmts, xfs strings.Builder
+	fmt.Fprintf(&fmts, `<numFmt numFmtId="164" formatCode="%s"/>`, xmlEscape(moneyFormat(moneyDecimals)))
+	for p := 0; p <= maxMoneyAt; p++ {
+		fmt.Fprintf(&fmts, `<numFmt numFmtId="%d" formatCode="%s"/>`, 165+p, xmlEscape(moneyFormat(p)))
+		fmt.Fprintf(&xfs, `<xf numFmtId="%d" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>`, 165+p)
+	}
+	return fmt.Sprintf(xlsxStyles, maxMoneyAt+2, fmts.String(), styleMoneyAt+maxMoneyAt+1, xfs.String())
+}
+
 // The built-in formats 14, 22 and 21 are the locale's short date, date and
 // time, and time with seconds: Excel renders them in the reader's own order,
 // so a pt-BR reader sees 31/01/2026 and an en-US one 1/31/2026.
 const xlsxStyles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
 	`<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
-	`<numFmts count="1"><numFmt numFmtId="164" formatCode="%s"/></numFmts>` +
+	`<numFmts count="%d">%s</numFmts>` +
 	`<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>` +
 	`<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>` +
 	`<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>` +
 	`<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>` +
-	`<cellXfs count="6">` +
+	`<cellXfs count="%d">` +
 	`<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>` +
 	`<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>` +
 	`<xf numFmtId="14" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>` +
 	`<xf numFmtId="22" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>` +
 	`<xf numFmtId="21" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>` +
 	`<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>` +
-	`</cellXfs></styleSheet>`
+	`%s</cellXfs></styleSheet>`
