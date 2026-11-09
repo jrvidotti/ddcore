@@ -48,6 +48,9 @@
   const sortable = $derived(!!field.gridSortable);
   const selectable = $derived(!!field.gridSelect);
   const showIndex = $derived(field.gridIndex !== false);
+  // an inline grid lays its columns out by `columns` (table-layout: fixed), so a Link input is not squeezed by the
+  // other columns' content; below 88px a column it scrolls sideways instead of crushing the cells
+  const inlineMinWidth = $derived(columns.length * 88 + (selectable ? 28 : 0) + (showIndex ? 44 : 0) + 72);
   const exportable = $derived(!!field.gridExport && !!frm.meta.permissions?.export);
   const canDelete = $derived(!dialogOnly && editable && !cannotDelete);
 
@@ -141,7 +144,7 @@
         {#if exportable}<GridExport onexport={exportRows} />{/if}
       </div>
     {/if}
-    <table class="grid" class:dialog-grid={dialogOnly} class:loading={loading && grid.viewRows.length} aria-busy={loading || undefined}>
+    <table class="grid" class:dialog-grid={dialogOnly} class:inline-grid={!dialogOnly} style={dialogOnly ? undefined : `min-width:${inlineMinWidth}px`} class:loading={loading && grid.viewRows.length} aria-busy={loading || undefined}>
       <thead>
         <tr>
           {#if selectable}<th style="width:28px"><input type="checkbox" aria-label={__("Select all")} checked={grid.allSelected} onchange={(e) => grid.toggleAll(e.currentTarget.checked)} /></th>{/if}
@@ -217,6 +220,11 @@
   table.loading tbody { opacity: 0.45; pointer-events: none; transition: opacity 0.15s; }
   table.dialog-grid { table-layout: fixed; min-width: 720px; }
   table.dialog-grid td { overflow: hidden; }
+  /* the widths come from `columns`: a long label wraps instead of taking the width from the other columns,
+     and a read-only value with no break (a long code) wraps rather than spilling into the next cell */
+  table.inline-grid { table-layout: fixed; }
+  table.inline-grid th { white-space: normal; }
+  table.inline-grid td:not(.num) { overflow-wrap: anywhere; }
   /* before .cell-value, which a dialog-mode cell button also carries */
   .cell-click { all: unset; box-sizing: border-box; max-width: 100%; cursor: pointer; }
   .cell-click:hover { text-decoration: underline; }

@@ -14,6 +14,15 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- **An inline grid honours its columns' `columns` widths.** It was laid out by its content
+  (`table-layout: auto`) with labels that never wrap, so a few numeric columns with long labels
+  took the width and squeezed the rest: a Link column with `columns: 3` shrank to its first
+  letter, and a long read-only title wrapped a word a line. It now lays out like the dialog grid
+  (`table-layout: fixed`, each column its share of `columns`), labels wrap, and below 88px a
+  column the grid scrolls sideways instead of crushing its cells.
+
 ## 0.31.22 — 2026-11-09
 
 ### Added

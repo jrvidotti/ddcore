@@ -93,6 +93,20 @@ describe("Grid", () => {
     t.done();
   });
 
+  it("an inline grid lays out by `columns` with a floor per column; a dialog grid keeps its own", () => {
+    const inline = setup({});
+    const table = inline.target.querySelector("table")!;
+    expect(table.classList.contains("inline-grid")).toBe(true);
+    // 3 columns × 88 + the # column (44) + the row buttons (72)
+    expect(table.style.minWidth).toBe("380px");
+    inline.done();
+    const dialog = setup({ gridEditMode: "dialog" });
+    const dt = dialog.target.querySelector("table")!;
+    expect(dt.classList.contains("inline-grid")).toBe(false);
+    expect(dt.style.minWidth).toBe("");
+    dialog.done();
+  });
+
   it("hideLabel keeps the label for screen readers only, and still names the row dialog", () => {
     const shown = setup({});
     expect(shown.target.querySelector(".grid-field > .label")?.classList.contains("sr-only")).toBe(false);
