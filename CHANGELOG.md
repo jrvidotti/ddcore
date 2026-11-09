@@ -14,6 +14,14 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Changed
+
+- **Cmd/Ctrl+S on a tool Single runs the script's primary action** (#158). The shortcut was
+  swallowed on a tool, which is never saved; it now commits the field being typed and runs what
+  `frm.setPrimaryAction` set, as the button would, and the button shows the shortcut. A tool
+  without a primary action still ignores it, and every other form keeps saving. See `form-api`,
+  *Tool Singles*.
+
 ## 0.31.24 — 2026-11-09
 
 ### Added

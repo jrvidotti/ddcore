@@ -55,7 +55,7 @@ defaults, which are the settings in effect.
 A Single declared `tool: true` (see "DocType properties" in `fieldtypes`) is a screen, not a
 record. Its readers edit it, it is never dirty and it is never saved. The script fills its fields
 and rows and calls a service with what is on the form, and the primary button is the script's
-own. A Table declared `gridSelect: true` lets the reader tick the rows to act on, and the script
+own: Cmd/Ctrl+S runs it, after committing the field being typed, as it saves any other form. A Table declared `gridSelect: true` lets the reader tick the rows to act on, and the script
 reads them with `frm.getSelectedRows` (see "Actions on a grid's selected rows"):
 
 ```ts

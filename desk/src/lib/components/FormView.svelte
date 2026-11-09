@@ -27,7 +27,7 @@
   import { isSectionCollapsed, toggleSection } from "./section-state";
   import { resolveActiveTab, tabToSearchParams } from "./form-tabs";
   import { doctypeWsPrefix, getRememberedWorkspace, type WorkspaceItem } from "./sidebar-workspace";
-  import { commitFocusedEdit, getModifierKey, openShortcutsHelp, shouldSave } from "$lib/shortcuts.svelte";
+  import { commitFocusedEdit, getModifierKey, openShortcutsHelp, saveShortcutTarget, shouldSave } from "$lib/shortcuts.svelte";
   import { virtualRedirect } from "$lib/virtual";
   import { duplicateDoc } from "$lib/duplicate";
   import { canMerge, mergePreviewHtml, type MergePreview } from "$lib/merge";
@@ -400,12 +400,26 @@
     if (e.key === "Escape") { menuOpen = false; openGroup = ""; workflowMenuOpen = false; }
     if (shouldSave(e)) {
       e.preventDefault();
-      if (!frm || frm.readOnly) return;
+      const target = frm ? saveShortcutTarget(frm) : null;
+      if (!frm || !target) return;
+      // a held key repeats: a tool's action is not idempotent the way a save is
+      if (target === "primary" && e.repeat) return;
       // the field being typed only commits when it loses focus, and the
       // shortcut does not move focus: flush it before reading the document
       commitFocusedEdit(document.activeElement);
-      frm.save();
+      if (target === "save") frm.save();
+      else runPrimaryAction();
     }
+  }
+
+  /** a tool's primary action from the save shortcut; it fails like any script action, in a message */
+  function runPrimaryAction() {
+    const action = frm?.primaryAction?.action;
+    if (!action) return;
+    try {
+      const r: any = action();
+      if (r && typeof r.then === "function") r.then(undefined, showError);
+    } catch (err) { showError(err); }
   }
 
   async function handleWorkflowAction(action: string) {
@@ -532,7 +546,11 @@
         {/if}
       {/if}
       {#if frm.primaryAction}
-        <button class="btn primary" onclick={frm.primaryAction.action}>{frm.primaryAction.label}</button>
+        {#if frm.isTool}
+          <button class="btn primary" onclick={frm.primaryAction.action} title="{frm.primaryAction.label} ({modKey}+S)">{frm.primaryAction.label}<kbd class="btn-kbd">{modKey}S</kbd></button>
+        {:else}
+          <button class="btn primary" onclick={frm.primaryAction.action}>{frm.primaryAction.label}</button>
+        {/if}
       {:else if frm.isSubmittable}
         {#if frm.docstatus === 0}
           {#if frm.isDirty || frm.isNew}
