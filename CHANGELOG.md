@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.31.24 — 2026-11-09
+
 ### Added
 
 - **A back button in the form header, and `frm.setBackRoute(path, label?)`** (#157). A chevron
