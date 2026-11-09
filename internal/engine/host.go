@@ -19,11 +19,13 @@ import (
 	"golang.org/x/text/currency"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
+	"golang.org/x/text/number"
 
 	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/db"
 	"github.com/jrvidotti/ddcore/internal/js"
 	"github.com/jrvidotti/ddcore/internal/mail"
+	"github.com/jrvidotti/ddcore/internal/num"
 )
 
 // hostArgs is the argument object of every ddcore.* call, decoded once for all
@@ -69,6 +71,7 @@ type hostArgs struct {
 	OldID         string            `json:"oldID"`
 	NewID         string            `json:"newID"`
 	Currency      string            `json:"currency"`
+	Precision     *float64          `json:"precision"`
 	To            []string          `json:"to"`
 	Subject       string            `json:"subject"`
 	HTML          string            `json:"html"`
@@ -162,7 +165,8 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		}
 		return c.St.I18n.Catalogue(lang), nil
 	case "formatCurrency":
-		return FormatCurrency(toFloat(a.Value), orDefault(a.Currency, e.Cfg.Currency), c.Lang, e.CurrencyPrecision()), nil
+		code := orDefault(a.Currency, e.Cfg.Currency)
+		return FormatCurrency(toFloat(a.Value), code, c.Lang, e.moneyPlaces(code, a.Precision), e.Cfg.Rounding), nil
 	case "site":
 		// everything about the site the app runtime needs but must not cross
 		// the bridge for repeatedly: it is immutable inside a State, so the
@@ -873,14 +877,6 @@ func bulkOpts(o map[string]any) BulkOpts {
 	return b
 }
 
-// FormatCurrency renders a number as money.
-//
-// The grouping and the decimal mark come from `lang` and the symbol from
-// `currency`, because they are two independent facts: a Brazilian reading a
-// site in English still wants "R$" if the site's currency is BRL, and an
-// American reading it in Portuguese still wants "$" if it is USD. Choosing the
-// language tag *from the currency*, as this did, conflated them and got both
-// wrong for every mixed case.
 // FormatDuration writes whole seconds the way a person reads them: "1d 2h 30m".
 // A hidden unit is not dropped, it is folded into the next one — with days
 // hidden, a day and a half is "36h" and not "12h".
@@ -917,18 +913,51 @@ func FormatDuration(secs int64, hideDays, hideSeconds bool) string {
 	return strings.Join(parts, " ")
 }
 
-func FormatCurrency(v float64, code, lang string, precision int) string {
+// FormatCurrency renders a number as money, with `places` decimals rounded
+// under `r`.
+//
+// The grouping and the decimal mark come from `lang` and the symbol from
+// `currency`, because they are two independent facts: a Brazilian reading a
+// site in English still wants "R$" if the site's currency is BRL, and an
+// American reading it in Portuguese still wants "$" if it is USD. Choosing the
+// language tag *from the currency*, as this did, conflated them and got both
+// wrong for every mixed case.
+//
+// The places are the caller's, not the currency's ISO minor unit: a field
+// kept in whole units, or a site whose currencyPrecision overrides the
+// currency's, prints as it is stored (#159).
+func FormatCurrency(v float64, code, lang string, places int, r num.Rounding) string {
 	tag, err := language.Parse(lang)
 	if err != nil {
 		tag = language.English
 	}
+	places = min(max(places, 0), 9)
+	v = num.Round(v, places, r)
+	if v == 0 {
+		v = 0 // no "-0,00" for a value that rounded away
+	}
+	p := message.NewPrinter(tag)
+	digits := p.Sprint(number.Decimal(v, number.Scale(places)))
 	u, err := currency.ParseISO(code)
 	if err != nil {
 		// an unknown code prints as itself: "XYZ 1,234.50" is honest, and
 		// borrowing another currency's symbol would not be
-		return code + " " + message.NewPrinter(tag).Sprintf("%.*f", precision, v)
+		return code + " " + digits
 	}
-	return message.NewPrinter(tag).Sprint(currency.Symbol(u.Amount(v)))
+	return p.Sprint(currency.Symbol(u)) + " " + digits
+}
+
+// moneyPlaces is how many places ddcore.utils.formatCurrency shows: the
+// caller's precision, else the site's for the site's own currency, else the
+// other currency's ISO minor unit.
+func (e *Engine) moneyPlaces(code string, precision *float64) int {
+	if precision != nil {
+		return int(*precision)
+	}
+	if code == e.Cfg.Currency {
+		return e.CurrencyPrecision()
+	}
+	return num.MinorUnits(code)
 }
 
 // httpMaxBytes is the response size ddcore.http reads when the call names

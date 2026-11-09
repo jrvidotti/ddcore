@@ -380,7 +380,8 @@ export interface PrintBlockBuilder {
  * Context helpers passed to print templates.
  */
 export interface PrintContext {
-  formatCurrency(val: any): string;
+  /** The site's currency places, or `decimals`; no symbol. */
+  formatCurrency(val: any, decimals?: number): string;
   formatDate(val: any): string;
   formatDateTime(val: any): string;
   formatNumber(val: any, decimals?: number): string;

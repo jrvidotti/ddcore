@@ -133,9 +133,13 @@ A block type the renderer does not know renders as nothing.
 
 `ctx` formats values in the print language:
 
-- `ctx.formatCurrency(value)` — two decimals with the language's separators
-  (`1.500,00` in `pt-BR`), with no currency symbol. `ddcore.utils.formatCurrency`
-  adds the site currency's symbol.
+- `ctx.formatCurrency(value, decimals?)` — the site's currency places (or
+  `decimals`, e.g. `0` for a field in whole units) with the language's separators
+  (`1.500,00` in `pt-BR`), rounded under the site's rule, with no currency symbol.
+  `ddcore.utils.formatCurrency` adds the site currency's symbol.
+
+The standard layout prints a `Currency` with the site's symbol and the field's own
+`precision` when it has one (`R$ 6.000` for `precision: 0`), else the site's.
 - `ctx.formatDate(value)` — `dd/mm/yyyy` for a `pt*` language, ISO otherwise.
 - `ctx.formatDateTime(value)` — the value as stored.
 - `ctx.formatNumber(value, decimals = 2)`.

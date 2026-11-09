@@ -33,10 +33,12 @@ type SpreadsheetSheet struct {
 }
 
 // SpreadsheetColumn is a header cell and the fieldtype its cells are typed by
-// ("" keeps each value's own JSON type).
+// ("" keeps each value's own JSON type). Precision is a Currency column's own
+// places in an XLSX; nil shows the site's.
 type SpreadsheetColumn struct {
 	Label     string `json:"label"`
 	Fieldtype string `json:"fieldtype"`
+	Precision *int   `json:"precision,omitempty"`
 }
 
 const (
@@ -255,7 +257,7 @@ func writeSpreadsheetXLSX(w io.Writer, sheets []SpreadsheetSheet, loc *time.Loca
 		for _, row := range sh.Rows {
 			cells := make([]any, len(row))
 			for ci, v := range row {
-				cells[ci] = xlsxCell(v, sh.Columns[ci].Fieldtype, loc)
+				cells[ci] = withMoneyPlaces(xlsxCell(v, sh.Columns[ci].Fieldtype, loc), sh.Columns[ci].Precision)
 			}
 			if err := x.Row(cells); err != nil {
 				return err

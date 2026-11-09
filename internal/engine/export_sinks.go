@@ -326,9 +326,15 @@ func (s *XLSXSink) openXLSX(table string, d *meta.DocType, header []string) (tab
 	}
 	head := make([]any, len(header))
 	types := make([]string, len(header))
+	places := make([]*int, len(header))
 	for i, h := range header {
 		head[i] = h
 		types[i] = exportColumnType(d, h)
+		if d != nil && types[i] == "Currency" {
+			if f := d.Field(h); f != nil {
+				places[i] = f.Precision
+			}
+		}
 	}
 	if err := x.Row(head); err != nil {
 		return nil, err
@@ -337,7 +343,7 @@ func (s *XLSXSink) openXLSX(table string, d *meta.DocType, header []string) (tab
 	if loc == nil {
 		loc = time.UTC
 	}
-	return &xlsxTable{x: x, types: types, loc: loc}, nil
+	return &xlsxTable{x: x, types: types, places: places, loc: loc}, nil
 }
 
 // exportColumnType is the fieldtype a column's cells are typed by: the field's
@@ -366,13 +372,15 @@ func exportColumnType(d *meta.DocType, col string) string {
 type xlsxTable struct {
 	x     *tabular.XLSXWriter
 	types []string
-	loc   *time.Location
+	// places is a Currency column's own precision; nil keeps the site's
+	places []*int
+	loc    *time.Location
 }
 
 func (t *xlsxTable) Write(row []any) error {
 	cells := make([]any, len(row))
 	for i, v := range row {
-		cells[i] = xlsxCell(v, t.types[i], t.loc)
+		cells[i] = withMoneyPlaces(xlsxCell(v, t.types[i], t.loc), t.places[i])
 	}
 	return t.x.Row(cells)
 }
@@ -427,6 +435,16 @@ func xlsxCell(v any, ft string, loc *time.Location) any {
 		}
 	}
 	return csvCell(v)
+}
+
+// withMoneyPlaces shows a money cell with the places of its own column — a
+// Currency field whose precision differs from the site's, such as one in
+// whole units (#159). Any other cell, or no places, is kept as it is.
+func withMoneyPlaces(cell any, places *int) any {
+	if m, ok := cell.(tabular.XLSXMoney); ok && places != nil {
+		return tabular.XLSXMoneyAt{Value: float64(m), Places: *places}
+	}
+	return cell
 }
 
 func exportNumber(v any) (float64, bool) {

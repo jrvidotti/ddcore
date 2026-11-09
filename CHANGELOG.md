@@ -14,6 +14,23 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- **Server-side money follows a field's `precision` and the site's places** (follow-up to
+  #159). The standard print layout printed every Currency with the currency's ISO minor unit,
+  ignoring the field's own `precision` (and a site's `ddcore.json:currencyPrecision`): a
+  whole-reais budget printed `R$ 6.000,38`; it now prints `R$ 6.000`. `ddcore.utils.formatCurrency`
+  likewise honors the site's places for the site's currency, and rounds under the site's
+  rule. A print template's `ctx.formatCurrency` used a fixed two decimals, wrong on a JPY or
+  KWD site; it now uses the site's places. An XLSX export shows a Currency column with its
+  field's `precision` instead of the site's decimals.
+
+### Added
+
+- `ddcore.utils.formatCurrency(v, currency?, precision?)` and a print template's
+  `ctx.formatCurrency(value, decimals?)` take the places to show, and a
+  `ddcore.spreadsheet.file` column takes `precision` for a Currency column's places.
+
 ## 0.31.26 — 2026-11-09
 
 ### Fixed
