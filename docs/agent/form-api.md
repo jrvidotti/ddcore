@@ -28,6 +28,7 @@ defineForm<Entry>("Entry", {
 `setDfProperty(field, prop, value)` (`hidden`, `readOnly`, `reqd`, `label`, `description`, `options`, `width`, `rows`, `cannotAddRows`, `cannotDeleteRows`,
 `gridSort`, `gridSortable`, `gridExport`, `gridSelect`, `gridFilters`, `gridSearch`, `gridIndex`, `hideLabel`, `reportFilters`, and a Table's `loading`, see "A grid a script fills"), `refreshField(field)` (re-runs a Report field's report),
 `setQuery(field, () => ({ filters }))`, `toggleDisplay/toggleReqd/toggleEnable`, `addButton(label, fn, group)`, `removeButton`,
+`setBackRoute(path | null, label?)` (see "The back button"),
 `setPrimaryAction(label, fn)`, `setInnerGroupAsPrimary(group)`, `addIndicator(label, colour)`, `addChild(table, values)`, `removeChild(table, idx)`,
 `setRowValue(table, row | rowId, field | {..}, value)`,
 `addFieldButton(field, { label, icon, onClick, key })`, `removeFieldButton(field, key?)`,
@@ -467,6 +468,26 @@ never changed: it goes in whole, percent-encoded. `/api` paths take the real nam
   card's `route:` takes (see `report-api`).
 
 Encode every value and every record id with `encodeURIComponent`.
+
+### The back button
+
+The form's header has a back button, a chevron left of the title. With no script involved it goes
+to the DocType's **list**, with the filters, page and view the list was left on in this tab; a
+**Single** has no list and goes to its workspace. `frm.setBackRoute(path, label?)` points it
+elsewhere, `label` its tooltip (default "Back"), and `frm.setBackRoute(null)` hides it. It is not
+reset by `refresh`: set it once and it stays until set again. A tool Single opened from another
+document leads back to it, as navigation rather than an action in the toolbar:
+
+```ts
+defineForm("OTB Plan Group", {
+  onload(frm) {
+    const plan = new URLSearchParams(location.search).get("plan");
+    if (plan) frm.setBackRoute(`/app/OTBPlan/${encodeURIComponent(plan)}`, __("Back to Plan"));
+  },
+});
+```
+
+The button navigates like a link, so unsaved changes still ask before leaving.
 
 ### Dates and times
 
