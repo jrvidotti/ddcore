@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.31.28 — 2026-11-09
+
 ### Changed
 
 - **A Table MultiSelect keeps the typed search after a pick.** Picking an option used to clear
