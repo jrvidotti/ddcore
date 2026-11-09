@@ -14,6 +14,19 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **`DDCORE_S3_FALLBACK_PREFIX`: a read-only fallback prefix on S3 storage** (#155). A
+  development site restored from production's database, on production's bucket with a prefix of
+  its own, shows production's files without copying them: a key missing under the site's prefix
+  is read under the fallback one — `/files/…` and its `?w=` thumbnails, `/private/files/…` (a
+  presigned URL of the fallback object, after the site's permission check),
+  `ddcore.files.read`/`sha256`/`presign`. Writes, deletes, listings, generated thumbnails and
+  backups stay under the site's own prefix, so production's objects are never changed. `"/"` is
+  the bucket root; the variable needs `DDCORE_STORAGE=s3` and must differ from
+  `DDCORE_S3_PREFIX`, or the process stops at boot. `ddcore doctor` names the fallback. See
+  `storage`, *A development site on a copy of production*.
+
 ## 0.31.21 — 2026-11-09
 
 ### Added

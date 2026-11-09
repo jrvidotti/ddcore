@@ -38,6 +38,9 @@ func backupFromEnv(st Storage) (Backup, error) {
 		def = st.S3.Prefix + "/backups"
 	}
 	s.Prefix = strings.Trim(env("DDCORE_BACKUP_S3_PREFIX", def), "/")
+	// a backup bucket is the site's own: restoring must never pick up another
+	// site's archive under the storage fallback
+	s.Fallback, s.FallbackPrefix = false, ""
 	b.S3 = s
 	b.S3Configured = s.Bucket != "" && s.AccessKey != "" && s.SecretKey != ""
 	if strings.Contains(s.Endpoint, "://") {

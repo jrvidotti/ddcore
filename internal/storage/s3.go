@@ -50,6 +50,22 @@ func (s *S3) object(key string) string {
 	return s.cfg.Prefix + "/" + key
 }
 
+// readNames are the object names a read tries, the site's own first: with a
+// fallback prefix (#155), a key the site does not hold is read from the other
+// site's. Only reads go through here; Put, Delete, DeletePrefix and List use
+// object alone, so the fallback is never written, deleted or listed.
+func (s *S3) readNames(key string) []string {
+	own := s.object(key)
+	if !s.cfg.Fallback {
+		return []string{own}
+	}
+	other := key
+	if s.cfg.FallbackPrefix != "" {
+		other = s.cfg.FallbackPrefix + "/" + key
+	}
+	return []string{own, other}
+}
+
 func notFound(err error) bool {
 	code := minio.ToErrorResponse(err).Code
 	return code == "NoSuchKey" || code == "NotFound"
@@ -75,19 +91,22 @@ func (s *S3) Open(ctx context.Context, key string) (io.ReadCloser, Info, error) 
 // minio keeps: a Seek afterwards (http.ServeContent's size probe) asks the
 // bucket nothing more.
 func (s *S3) open(ctx context.Context, key string) (*minio.Object, Info, error) {
-	obj, err := s.client.GetObject(ctx, s.cfg.Bucket, s.object(key), minio.GetObjectOptions{})
-	if err != nil {
-		return nil, Info{}, err
-	}
-	st, err := obj.Stat()
-	if err != nil {
-		obj.Close()
-		if notFound(err) {
-			return nil, Info{}, ErrNotFound
+	for _, name := range s.readNames(key) {
+		obj, err := s.client.GetObject(ctx, s.cfg.Bucket, name, minio.GetObjectOptions{})
+		if err != nil {
+			return nil, Info{}, err
 		}
-		return nil, Info{}, err
+		st, err := obj.Stat()
+		if err != nil {
+			obj.Close()
+			if notFound(err) {
+				continue
+			}
+			return nil, Info{}, err
+		}
+		return obj, Info{Size: st.Size, ModTime: st.LastModified, ETag: st.ETag}, nil
 	}
-	return obj, Info{Size: st.Size, ModTime: st.LastModified, ETag: st.ETag}, nil
+	return nil, Info{}, ErrNotFound
 }
 
 func (s *S3) Delete(ctx context.Context, key string) error {
@@ -127,17 +146,28 @@ func (s *S3) Serve(w http.ResponseWriter, r *http.Request, key string, sv Servin
 
 // Presign signs a GET for an object that exists, with the same response
 // overrides Serve uses.
+//
+// A key found only under the fallback prefix is signed there: the caller has
+// already checked the permission on this site's File row.
 func (s *S3) Presign(ctx context.Context, key string, ttl time.Duration, sv Serving) (string, error) {
-	if _, err := s.client.StatObject(ctx, s.cfg.Bucket, s.object(key), minio.StatObjectOptions{}); err != nil {
-		if notFound(err) {
-			return "", ErrNotFound
+	name := ""
+	for _, n := range s.readNames(key) {
+		if _, err := s.client.StatObject(ctx, s.cfg.Bucket, n, minio.StatObjectOptions{}); err != nil {
+			if notFound(err) {
+				continue
+			}
+			return "", err
 		}
-		return "", err
+		name = n
+		break
+	}
+	if name == "" {
+		return "", ErrNotFound
 	}
 	params := url.Values{}
 	params.Set("response-content-disposition", disposition(sv))
 	params.Set("response-content-type", servedType(sv))
-	u, err := s.client.PresignedGetObject(ctx, s.cfg.Bucket, s.object(key), ttl, params)
+	u, err := s.client.PresignedGetObject(ctx, s.cfg.Bucket, name, ttl, params)
 	if err != nil {
 		return "", err
 	}
