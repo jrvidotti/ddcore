@@ -68,6 +68,12 @@ export interface Frm<T extends BaseDoc = BaseDoc> {
   toggleEnable(fieldname: string, enable: boolean): void;
   addButton(label: string, action: () => any, group?: string): this;
   removeButton(label: string): void;
+  /**
+   * points the header's back button (the chevron left of the title) at `path`, with `label`
+   * as its tooltip (default "Back"); null hides it. By default it goes to the DocType's list,
+   * or to the workspace for a Single. It stays as set across refreshes.
+   */
+  setBackRoute(path: string | null, label?: string): this;
   /** attaches a button to a field's control; adding twice with the same `key` replaces it */
   addFieldButton(fieldname: string, button: FieldButton): this;
   /** removes one button by `key`, or every button on the field when no key is given */

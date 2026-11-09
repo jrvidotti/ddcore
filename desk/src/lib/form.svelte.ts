@@ -108,6 +108,11 @@ export class FormController {
   private gridSelections = new Map<string, GridSelection>();
   primaryAction = $state<{ label: string; action: () => any } | null>(null);
   indicators = $state<{ label: string; color: string }[]>([]);
+  /**
+   * Where the header's back button goes, set by a script with `setBackRoute`:
+   * a path, or null to hide the button; undefined keeps the desk's default.
+   */
+  backRoute = $state<{ path: string | null; label?: string } | undefined>(undefined);
   dfProps = $state<Record<string, Partial<Field>>>({});
   queries = new Map<string, () => { filters?: any }>();
   saving = $state(false);
@@ -341,6 +346,11 @@ export class FormController {
     return this;
   }
   removeButton(label: string) { this.buttons = this.buttons.filter((b) => b.label !== label); }
+  /**
+   * Points the header's back button at `path`, `label` its tooltip; null hides
+   * the button. It is not reset on refresh: set once, it stays until set again.
+   */
+  setBackRoute(path: string | null, label?: string) { this.backRoute = { path, label }; return this; }
   clearButtons() { this.buttons = []; this.indicators = []; this.clearFieldButtons(); this.gridActions = {}; }
 
   /**

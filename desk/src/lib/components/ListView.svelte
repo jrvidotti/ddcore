@@ -20,6 +20,7 @@
   import { getCalendarDays } from "$lib/controls/date-format";
   import { buildListFilters, formatRange, parseRange, rangeFilters, tableFilterLink, tableFilters } from "./list-filters";
   import { combineSummary, summaryDatatype, summaryExpression, summaryFilters } from "./list-summary";
+  import { rememberListHref } from "$lib/list-memory";
   import { clearListFilters, countListFilters, filtersOpen, listStateFromSearchParams, rememberFiltersOpen, listStateToSearchParams, resolveAllowedViews, resolveActiveView, type ListUrlState } from "./list-state";
   import { exportChoice, exportChoices, exportUrl, pageTable } from "./export-options";
   import { downloadTable, exportBaseName } from "$lib/grid-rows";
@@ -61,6 +62,12 @@
   let timer: any;
   let ready = false;
   let lastUrlSearch = "";
+  /** keeps the list's URL so a form's back button returns to it as it is now */
+  const rememberList = () => {
+    // a navigation away (to a record) also changes the URL: that one is not the list's
+    const path = `${wsPrefix}/${seg(doctype)}`;
+    if (page.url.pathname === path) rememberListHref(doctype, `${path}${lastUrlSearch}`);
+  };
   let isMobile = $state(false);
   let currentView = $state("list");
   let importOpen = $state(false);
@@ -201,6 +208,7 @@
     // An explicit List choice must also survive another browser's preference.
     if (state.view) params.set("view", state.view);
     lastUrlSearch = params.size ? `?${params}` : "";
+    rememberList();
     goto(`${wsPrefix}/${seg(doctype)}${lastUrlSearch}`, { noScroll: true, keepFocus: true });
     load();
   }
@@ -385,6 +393,7 @@
     untrack(() => {
       if (!ready || search === lastUrlSearch) return;
       lastUrlSearch = search;
+      rememberList();
       applyListState(listStateFromSearchParams(page.url.searchParams, urlFields, defaultListState()));
       load();
     });
@@ -412,6 +421,7 @@
         columnChoice = settings.columnChooser === false ? null : loadColumnChoice(columnKey);
         applyListState(listStateFromSearchParams(page.url.searchParams, urlFields, defaultListState()));
         lastUrlSearch = page.url.search;
+        rememberList();
         ready = true;
         await load();
       } catch (e: any) { if (alive) { error = e.message; loading = false; showError(e); } }

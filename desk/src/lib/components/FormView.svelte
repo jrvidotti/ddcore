@@ -10,6 +10,8 @@
   import Grid from "$lib/controls/Grid.svelte";
   import ReportField from "$lib/controls/ReportField.svelte";
   import Icon from "./Icon.svelte";
+  import { formBackTarget } from "./form-back";
+  import { lastListHref } from "$lib/list-memory";
   import Spinner from "./Spinner.svelte";
   import { __, boot } from "$lib/boot.svelte";
   import { showError, confirm, dialog, prompt, toast, escapeHtml } from "$lib/ui.svelte";
@@ -61,6 +63,15 @@
   const wsPrefix = $derived(doctypeWsPrefix(doctype, page.params.workspace));
   /** the list, and the records under it */
   const basePath = $derived(ownBase || `${wsPrefix}/${seg(doctype)}`);
+  /** the header's back button: the list as it was left, a Single's workspace, or the script's route */
+  const back = $derived.by(() => {
+    if (!frm) return null;
+    const t = formBackTarget({
+      isSingle: !!frm.meta.doctype.isSingle, basePath, wsPrefix,
+      remembered: lastListHref(doctype), override: frm.backRoute,
+    });
+    return t && { href: t.href, label: t.label || __("Back") };
+  });
   /** set once the record is deleted: it must never get a draft again */
   let gone = false;
   /** the draft is only kept in step after the one it may have recovered is in */
@@ -437,6 +448,11 @@
 {:else if frm}
   <div class="page form-page">
     <div class="page-head">
+      {#if back}
+        <button type="button" class="btn icon form-back" onclick={() => goto(back.href)} title={back.label} aria-label={back.label}>
+          <Icon name="chevron-left" />
+        </button>
+      {/if}
       <div>
         <div class="small muted"><a href={basePath}>{frm.meta.doctype.label}</a></div>
         <h1 style="display:flex;align-items:center;gap:8px">
