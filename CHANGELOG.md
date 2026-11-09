@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.31.27 — 2026-11-09
+
 ### Fixed
 
 - **Server-side money follows a field's `precision` and the site's places** (follow-up to
