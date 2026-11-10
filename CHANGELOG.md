@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.31.30 — 2026-11-10
+
 ### Added
 
 - **`linkTitleField` on a Link shows another field of the target as its title**, there only: a
