@@ -75,6 +75,10 @@ type Field struct {
 	ReadOnly           bool   `json:"readOnly,omitempty"`
 	Hidden             bool   `json:"hidden,omitempty"`
 	FetchFrom          string `json:"fetchFrom,omitempty"`
+	// LinkTitleField, on a Link, names the field of the target this Link
+	// shows as the document's title in place of the target's titleField:
+	// only here, every other Link to the target keeps its titleField.
+	LinkTitleField string `json:"linkTitleField,omitempty"`
 	DependsOn          string `json:"dependsOn,omitempty"`
 	ReadOnlyDependsOn  string `json:"readOnlyDependsOn,omitempty"`
 	MandatoryDependsOn string `json:"mandatoryDependsOn,omitempty"`
@@ -882,6 +886,7 @@ func (r *Registry) validateFieldOptions(d *DocType, e func(string, ...any)) {
 		if f.Width != "" && f.Width != "sm" && f.Width != "md" && f.Width != "lg" && f.Width != "full" {
 			e("field %q: invalid width %q (must be sm, md, lg, or full)", f.Fieldname, f.Width)
 		}
+		r.validateLinkTitleField(f, e)
 		switch f.Fieldtype {
 		case "Link", "Table", "Table MultiSelect":
 			target := f.OptionsString()
@@ -1332,6 +1337,71 @@ var asciiIdent = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 
 // ValidIdentAscii checks app names and similar identifiers.
 func ValidIdentAscii(s string) bool { return asciiIdent.MatchString(s) }
+
+// validateLinkTitleField checks a Link's linkTitleField. Its value is read
+// like a titleField (raw SQL for every Link shown, whatever the user may
+// read), so it follows the titleField rules: an existing, non-bulky,
+// permlevel 0 field of the target.
+func (r *Registry) validateLinkTitleField(f *Field, e func(string, ...any)) {
+	if f.LinkTitleField == "" {
+		return
+	}
+	if f.Fieldtype != "Link" {
+		e("field %q: linkTitleField is for a Link field, not a %s", f.Fieldname, f.Fieldtype)
+		return
+	}
+	t, ok := r.DocTypes[f.OptionsString()]
+	if !ok {
+		return // the missing target is reported on its own
+	}
+	switch {
+	case t.IsVirtual():
+		e("field %q: linkTitleField is not supported on a Link to a virtual DocType (%q)", f.Fieldname, t.Name)
+	case t.TranslateID:
+		e("field %q: linkTitleField is not supported on a Link to %q, whose title is its translated id", f.Fieldname, t.Name)
+	case f.LinkTitleField == "id":
+	default:
+		tf := t.Field(f.LinkTitleField)
+		switch {
+		case tf == nil && !t.IsStdColumn(f.LinkTitleField):
+			e("field %q: linkTitleField %q is not a field of %q", f.Fieldname, f.LinkTitleField, t.Name)
+		case tf == nil:
+		case LayoutTypes[tf.Fieldtype] || IsTableType(tf.Fieldtype) || tf.Computed:
+			e("field %q: linkTitleField %q of %q has no column to read", f.Fieldname, f.LinkTitleField, t.Name)
+		case tf.Fieldtype == "Password" || tf.Fieldtype == "Vault":
+			e("field %q: linkTitleField %q of %q is a %s, which holds a secret", f.Fieldname, f.LinkTitleField, t.Name, tf.Fieldtype)
+		case BulkyFieldtype(tf.Fieldtype):
+			e("field %q: linkTitleField %q of %q is a %s, whose value is too large to list or sort by", f.Fieldname, f.LinkTitleField, t.Name, tf.Fieldtype)
+		case tf.Permlevel > 0:
+			e("field %q: linkTitleField %q of %q has permlevel %d; a title must be permlevel 0", f.Fieldname, f.LinkTitleField, t.Name, tf.Permlevel)
+		}
+	}
+}
+
+// LinkTitleKey is the key titles go under for a Link: its target, or
+// "<target>|<linkTitleField>" when the Link shows another field of the
+// target, so the two never share one entry (the `_linkTitles` of a form, a
+// list's `titles`, the desk's cache).
+func LinkTitleKey(target, titleField string) string {
+	if titleField == "" {
+		return target
+	}
+	return target + "|" + titleField
+}
+
+// DeclaredLinkTitle reports whether some Link field shows `field` of
+// `target` as its title (linkTitleField). The endpoints that take a title
+// field from the client read only such a column.
+func (r *Registry) DeclaredLinkTitle(target, field string) bool {
+	for _, d := range r.DocTypes {
+		for _, f := range d.Fields {
+			if f.LinkTitleField == field && f.Fieldtype == "Link" && f.OptionsString() == target {
+				return true
+			}
+		}
+	}
+	return false
+}
 
 // validateGrid checks the grid properties (gridSort, gridSortable,
 // gridExport, gridSelect, gridFilters, gridSearch), which only a Table or a Report field has,

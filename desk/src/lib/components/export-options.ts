@@ -77,9 +77,9 @@ export function exportChoice(choice: string): { scope: "page" | "all"; format: E
 }
 
 /** Resolves a Link's display title, when the list has it. */
-export type TitleOf = (doctype: string, id: string) => string | undefined;
+export type TitleOf = (doctype: string, id: string, titleField?: string) => string | undefined;
 
-type PageCol = Pick<Field, "fieldname" | "fieldtype" | "options" | "label">;
+type PageCol = Pick<Field, "fieldname" | "fieldtype" | "options" | "label"> & Partial<Pick<Field, "linkTitleField">>;
 
 const DAY_MS = 86400000;
 
@@ -94,7 +94,7 @@ export function pageCell(row: any, c: PageCol | undefined, key: string, format: 
   const v = row?.[key];
   if (c && (c.fieldtype === "Link" || c.fieldtype === "Dynamic Link") && v) {
     const target = c.fieldtype === "Dynamic Link" ? row?.[c.options] : c.options;
-    return titleOf?.(target, String(v)) || v;
+    return titleOf?.(target, String(v), c.fieldtype === "Link" ? c.linkTitleField : undefined) || v;
   }
   // modified stays its exact text, as in the CSV: Data Import compares it to
   // refuse a row changed since the export, and a day number would not match

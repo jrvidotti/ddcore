@@ -7,6 +7,8 @@ interface Source {
   fetch: (text: string) => Promise<any[]>;
   /** An option's own title (a portal search's rows); undefined falls back to the default. */
   ownTitle?: (o: any) => string | undefined;
+  /** The Link's linkTitleField: the field of the option shown as its title, in place of the target's titleField. */
+  titleField?: () => string | undefined;
 }
 
 export class LinkSearch {
@@ -20,11 +22,11 @@ export class LinkSearch {
 
   constructor(src: Source) { this.#src = src; }
 
-  /** The translated id the server sends, else the target's title field, else the id. */
+  /** The translated id the server sends, else the Link's or the target's title field, else the id. */
   title(o: any): string {
     const own = this.#src.ownTitle?.(o);
     const target = this.#src.target();
-    const titleField = target ? boot.data?.doctypes[target]?.titleField : undefined;
+    const titleField = this.#src.titleField?.() || (target ? boot.data?.doctypes[target]?.titleField : undefined);
     return own ?? String(o._title || (titleField && o[titleField]) || o.id);
   }
 
@@ -36,7 +38,7 @@ export class LinkSearch {
       const results = await this.#src.fetch(text);
       if (version !== this.#version) return;
       this.options = results;
-      for (const o of results) setLinkTitle(target, o.id, this.title(o));
+      for (const o of results) setLinkTitle(target, o.id, this.title(o), this.#src.titleField?.());
       this.active = 0;
       this.open = true;
     } catch { this.options = []; }

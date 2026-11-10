@@ -20,11 +20,14 @@
       search?: (txt: string) => Promise<{ id: string; title?: string }[]> } = $props();
 
   const target = $derived(field.fieldtype === "Dynamic Link" ? doc?.[field.options] : field.options);
-  const currentTitle = $derived(target && value ? getLinkTitle(target, value) : "");
+  // a Link may show another field of its target as the title (linkTitleField)
+  const linkTitleField = $derived(field.fieldtype === "Link" ? field.linkTitleField : undefined);
+  const currentTitle = $derived(target && value ? getLinkTitle(target, value, linkTitleField) : "");
   const ls = new LinkSearch({
     target: () => target,
-    fetch: (txt) => (searchFn ? searchFn(txt) : api.linkSearch(target, txt, query?.()?.filters, 20)),
+    fetch: (txt) => (searchFn ? searchFn(txt) : api.linkSearch(target, txt, query?.()?.filters, 20, linkTitleField)),
     ownTitle: (o) => (searchFn ? String(o.title || o.id) : undefined),
+    titleField: () => linkTitleField,
   });
   let focused = $state(false);
   let inputEl: HTMLInputElement | null = $state(null);
@@ -42,7 +45,9 @@
     }
   });
 
-  const titleField = $derived(target ? boot.data?.doctypes[target]?.titleField : undefined);
+  // the target's own title; a Link with a linkTitleField shows it under each option instead
+  const docTitleField = $derived(target ? boot.data?.doctypes[target]?.titleField : undefined);
+  const titleField = $derived(linkTitleField || docTitleField);
   const linkSubtitle = $derived(target ? boot.data?.doctypes[target]?.linkSubtitle : undefined);
 
   /** a union of DocTypes (DAT-07): each option says which one it comes from */
@@ -57,6 +62,8 @@
     if (searchFn) return o.title && o.title !== o.id ? String(o.id) : "";
     if (linkSubtitle?.length) return linkSubtitle.map((f) => o[f]).filter((v) => v !== null && v !== undefined && v !== "").join(" · ");
     if (o._title) return o._title !== o.id ? String(o.id) : "";
+    // the title the target has everywhere else tells apart two options with the same linkTitleField
+    if (linkTitleField && docTitleField && docTitleField !== linkTitleField && o[docTitleField]) return String(o[docTitleField]);
     if (titleField && o[titleField]) {
       const others = Object.entries(o).filter(([k, v]) => k !== "id" && k !== titleField && v).map(([, v]) => v);
       return [o.id, ...others].join(" · ");
@@ -72,7 +79,7 @@
 
   function pick(o: any) {
     const optTitle = ls.title(o);
-    setLinkTitle(target, o.id, optTitle);
+    setLinkTitle(target, o.id, optTitle, linkTitleField);
     onchange(o.id);
     ls.text = optTitle;
     ls.open = false;
@@ -123,9 +130,10 @@
     const typed = ls.text;
     const created = await quickCreate(target, typed);
     if (!created) return;
-    setLinkTitle(target, created.id, created.title);
+    const title = linkTitleField ? String(created.doc?.[linkTitleField] || created.id) : created.title;
+    setLinkTitle(target, created.id, title, linkTitleField);
     onchange(created.id);
-    ls.text = created.title;
+    ls.text = title;
   }
 
   const label = $derived(target && boot.data?.doctypes[target]?.label);

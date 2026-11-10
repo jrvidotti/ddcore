@@ -17,6 +17,13 @@ describe("LinkSearch", () => {
     expect(ls.title({ id: "P1" })).toBe("P1");
   });
 
+  it("titles an option by the Link's linkTitleField first", () => {
+    const ls = new LinkSearch({ target: () => "Pessoa", fetch: async () => [], titleField: () => "apelido" });
+    expect(ls.title({ id: "P1", nome: "Bia", apelido: "Bibi" })).toBe("Bibi");
+    // empty, it falls back to the id, as getLinkTitle and the server do
+    expect(ls.title({ id: "P1", nome: "Bia" })).toBe("P1");
+  });
+
   it("searches after a pause and drops the answer of a superseded search", async () => {
     const fetch = vi.fn(async (t: string) => [{ id: t }]);
     const ls = new LinkSearch({ target: () => "Pessoa", fetch });

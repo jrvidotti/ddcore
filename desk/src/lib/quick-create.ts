@@ -41,7 +41,7 @@ function newFormUrl(doctype: string, prefill?: Record<string, string>): string {
  * Asks for the new document in a dialog and inserts it. Resolves to the new
  * document's id and title, or null when cancelled or sent to the full form.
  */
-export async function quickCreate(doctype: string, text = ""): Promise<{ id: string; title: string } | null> {
+export async function quickCreate(doctype: string, text = ""): Promise<{ id: string; title: string; doc?: Record<string, any> } | null> {
   const meta = await getMeta(doctype);
   const d = meta.doctype;
   const label = boot.data?.doctypes[doctype]?.label || d.label || doctype;
@@ -62,7 +62,7 @@ export async function quickCreate(doctype: string, text = ""): Promise<{ id: str
       message: `<a href="${escapeHtml(newFormUrl(doctype, prefill))}" target="_blank" rel="noopener">${escapeHtml(fullForm)}</a>`,
       primaryAction: async (values) => {
         const saved: any = await api.insert(doctype, { ...values, doctype });
-        resolve({ id: saved.id, title: String((d.titleField && saved[d.titleField]) || saved.id) });
+        resolve({ id: saved.id, title: String((d.titleField && saved[d.titleField]) || saved.id), doc: saved });
         h.hide();
       },
     });

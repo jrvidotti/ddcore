@@ -59,10 +59,11 @@
             {#if (c.fieldtype === "Link" || c.fieldtype === "Dynamic Link") && r[c.fieldname!]}
               {@const linkTarget = c.fieldtype === "Dynamic Link" ? r[c.options] : c.options}
               {@const linkVal = r[c.fieldname!]}
+              {@const linkTitleField = c.fieldtype === "Link" ? c.linkTitleField : undefined}
               {#if settings.plainLinks?.includes(c.fieldname!)}
-                <span title={linkVal}>{getLinkTitle(linkTarget, linkVal) || linkVal}</span>
+                <span title={linkVal}>{getLinkTitle(linkTarget, linkVal, linkTitleField) || linkVal}</span>
               {:else}
-              <a href={`${wsPrefix}/${seg(linkTarget)}/${encodeURIComponent(linkVal)}`} title={linkVal} onclick={(e) => e.stopPropagation()}>{getLinkTitle(linkTarget, linkVal) || linkVal}</a>
+              <a href={`${wsPrefix}/${seg(linkTarget)}/${encodeURIComponent(linkVal)}`} title={linkVal} onclick={(e) => e.stopPropagation()}>{getLinkTitle(linkTarget, linkVal, linkTitleField) || linkVal}</a>
               {/if}
             {:else if !showID && c.fieldname === meta.doctype.titleField}
               <a href={documentUrl(r.id)} onclick={(e) => e.stopPropagation()}>{cellText(r, c) || r.id}</a>

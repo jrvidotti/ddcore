@@ -93,7 +93,7 @@ export function formatValue(v: any, f?: Partial<Field>): string {
     case "Date": return (f as any)?.options === "month" || (f as any)?.format === "mm/yyyy" ? formatMonth(v) : formatDate(v);
     case "Month": return formatMonth(v);
     case "Datetime": return formatDatetime(v);
-    case "Link": return (f?.options ? getLinkTitle(f.options, v) : "") || String(v);
+    case "Link": return (f?.options ? getLinkTitle(f.options, v, f.linkTitleField) : "") || String(v);
     case "Select": {
       // the value is canonical English and stays that way; what is shown is
       // its label, which the server filled in or which is the value's own key

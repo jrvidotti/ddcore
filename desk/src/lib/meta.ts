@@ -9,7 +9,9 @@ export type { FieldWidth, GridFilter };
 
 export interface Field {
   fieldname?: string; fieldtype: string; label?: string; options?: any; reqd?: boolean; unique?: boolean; default?: any;
-  readOnly?: boolean; hidden?: boolean; fetchFrom?: string; dependsOn?: string; readOnlyDependsOn?: string; mandatoryDependsOn?: string;
+  readOnly?: boolean; hidden?: boolean; fetchFrom?: string;
+  /** A Link: the field of its target shown as the title, in place of the target's titleField. */
+  linkTitleField?: string; dependsOn?: string; readOnlyDependsOn?: string; mandatoryDependsOn?: string;
   allowOnSubmit?: boolean; setOnlyOnce?: boolean;
   /** Duplicate leaves the value behind (as it does a unique field and a readOnly one without fetchFrom). */
   noCopy?: boolean;

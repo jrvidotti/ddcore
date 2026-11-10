@@ -2,11 +2,18 @@
 import { api } from "./api";
 import { __, boot } from "./boot.svelte";
 
+// keyed by titleKey: a DocType, or "<DocType>|<field>" for a Link that shows another field of its target
+// (linkTitleField), so its titles never mix with the DocType's own
 const cache = $state<Record<string, Record<string, string>>>({});
 const pending = new Map<string, Set<string>>();
 let batchTimer: any = null;
 
-/** Registers a batch of titles into the reactive cache, e.g. from api.get or api.list. */
+/** The cache key of a Link's titles: the DocType, or "<DocType>|<linkTitleField>" (meta.LinkTitleKey on the server). */
+export function titleKey(doctype: string, titleField?: string): string {
+  return titleField ? `${doctype}|${titleField}` : doctype;
+}
+
+/** Registers a batch of titles into the reactive cache, e.g. from api.get or api.list (keyed by titleKey). */
 export function registerTitles(titles: Record<string, Record<string, string>>) {
   if (!titles) return;
   for (const [dt, map] of Object.entries(titles)) {
@@ -17,21 +24,29 @@ export function registerTitles(titles: Record<string, Record<string, string>>) {
   }
 }
 
-/** Sets a single link title in the reactive cache. */
-export function setLinkTitle(doctype: string, id: string, title: string) {
+/** Sets a single link title in the reactive cache; `titleField` is the Link's linkTitleField, if it has one. */
+export function setLinkTitle(doctype: string, id: string, title: string, titleField?: string) {
   if (!doctype || !id) return;
-  if (!cache[doctype]) cache[doctype] = {};
-  cache[doctype][id] = title;
+  const key = titleKey(doctype, titleField);
+  if (!cache[key]) cache[key] = {};
+  cache[key][id] = title;
 }
 
 /**
  * Returns the title for a document if cached. If uncached and the doctype
  * has a titleField, schedules a background batch fetch and returns the id as fallback.
+ * `titleField` is the Link's linkTitleField: that field of the target is the title.
  */
-export function getLinkTitle(doctype: string, id: string): string {
+export function getLinkTitle(doctype: string, id: string, titleField?: string): string {
   if (!doctype || !id) return "";
-  const existing = cache[doctype]?.[id];
+  const key = titleKey(doctype, titleField);
+  const existing = cache[key]?.[id];
   if (existing !== undefined) return existing;
+  if (titleField) {
+    if (titleField === "id") return id;
+    queueFetch(key, id);
+    return id;
+  }
 
   // If doctype metadata is known and has no titleField (or titleField === "id"),
   // then the id is the title — translated when the DocType says its ids are
@@ -51,11 +66,11 @@ export function clearTitleCache() {
   }
 }
 
-function queueFetch(doctype: string, id: string) {
+function queueFetch(key: string, id: string) {
   // a portal user has no title endpoint: the portal's responses carry theirs
   if (boot.data?.website) return;
-  if (!pending.has(doctype)) pending.set(doctype, new Set());
-  pending.get(doctype)!.add(id);
+  if (!pending.has(key)) pending.set(key, new Set());
+  pending.get(key)!.add(id);
 
   clearTimeout(batchTimer);
   batchTimer = setTimeout(flushPending, 30);
@@ -65,11 +80,12 @@ async function flushPending() {
   const current = new Map(pending);
   pending.clear();
 
-  for (const [doctype, namesSet] of current.entries()) {
-    const names = Array.from(namesSet).filter((n) => cache[doctype]?.[n] === undefined);
+  for (const [key, namesSet] of current.entries()) {
+    const names = Array.from(namesSet).filter((n) => cache[key]?.[n] === undefined);
     if (!names.length) continue;
+    const [doctype, titleField] = key.split("|");
     try {
-      const res = await api.linkTitles(doctype, names);
+      const res = await api.linkTitles(doctype, names, titleField);
       if (res) registerTitles(res);
     } catch {
       // Ignore errors, fallback to the id

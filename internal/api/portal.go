@@ -570,17 +570,21 @@ func (s *Server) portalSearch(w http.ResponseWriter, r *http.Request) {
 		var rows []map[string]any
 		err = c.WithIgnorePermissions(func() error {
 			var e error
-			rows, e = c.LinkSearch(target.Name, r.URL.Query().Get("q"), nil, 20)
+			rows, e = c.LinkSearchTitled(target.Name, f.LinkTitleField, r.URL.Query().Get("q"), nil, 20)
 			return e
 		})
 		if err != nil {
 			return nil, err
 		}
+		title := target.TitleField
+		if f.LinkTitleField != "" {
+			title = f.LinkTitleField
+		}
 		out := make([]map[string]any, 0, len(rows))
 		for _, row := range rows {
 			item := map[string]any{"id": row["id"]}
-			if target.TitleField != "" {
-				item["title"] = row[target.TitleField]
+			if title != "" {
+				item["title"] = row[title]
 			}
 			out = append(out, item)
 		}

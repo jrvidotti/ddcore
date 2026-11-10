@@ -16,6 +16,14 @@ older series, and `whats_new` reads across every one of them.
 
 ### Added
 
+- **`linkTitleField` on a Link shows another field of the target as its title**, there only: a
+  Link to Product Category may show `short_name` while every other Link keeps the full path of its
+  `titleField`. The form, grids (sort, search, export), lists, report columns, the Kanban subtitle
+  and the Link's dropdown (returned, matched and ranked on, with the target's own title under each
+  option) all follow it. The field obeys the `titleField` rules, and the title and search endpoints
+  read only a field some Link declares (`titleField` parameter; titles keyed `"<DocType>|<field>"`).
+  See `linkTitleField` in `fieldtypes`.
+
 - **`gridLayout: "fit"` sizes a Table's columns to their values**, instead of sharing the width by
   `columns`: numbers keep one line, a header longer than its values wraps, and the room left over
   goes before the row buttons. A child field's `gridMaxWidth` (px) caps its column in such a grid,

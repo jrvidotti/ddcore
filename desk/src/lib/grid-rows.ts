@@ -14,10 +14,12 @@ export interface GridSortState { field: string; order: "asc" | "desc" }
 /** The order a field declares for its rows (`gridSort`). */
 export const declaredSort = (gs?: GridSort): GridSortState | null => (gs?.field ? { field: gs.field, order: gs.order === "desc" ? "desc" : "asc" } : null);
 
-/** Resolves a Link's display title, when the grid knows it. */
-export type TitleOf = (doctype: string, id: string) => string | undefined;
+/** A Link's title: `titleField` is its linkTitleField, when it shows another field of the target. */
+export type TitleOf = (doctype: string, id: string, titleField?: string) => string | undefined;
+// a Link column's linkTitleField; a Dynamic Link always shows its target's own title
+const linkTitleFieldOf = (c: Col) => (c.fieldtype === "Link" ? c.linkTitleField : undefined);
 
-type Col = Pick<Field, "fieldname" | "fieldtype" | "options" | "label"> & Partial<Pick<Field, "optionLabels">>;
+type Col = Pick<Field, "fieldname" | "fieldtype" | "options" | "label"> & Partial<Pick<Field, "optionLabels" | "linkTitleField">>;
 
 const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 
@@ -43,7 +45,7 @@ export function sortKey(row: any, c: Col | undefined, field: string, titleOf?: T
     return Number.isFinite(n) ? n : null;
   }
   if (c?.fieldtype === "Check") return v ? 1 : 0;
-  if (c && (c.fieldtype === "Link" || c.fieldtype === "Dynamic Link")) return titleOf?.(linkTarget(c, row), String(v)) || String(v);
+  if (c && (c.fieldtype === "Link" || c.fieldtype === "Dynamic Link")) return titleOf?.(linkTarget(c, row), String(v), linkTitleFieldOf(c)) || String(v);
   if (c?.fieldtype === "Select") return selectLabel(c, v);
   if (c?.fieldtype === "Geolocation") return formatGeo(v) || null;
   return typeof v === "object" ? JSON.stringify(v) : String(v);
@@ -79,7 +81,7 @@ export function nextSort(current: GridSortState | null, field: string, base: Gri
 export function exportCell(row: any, c: Col, titleOf?: TitleOf): XlsxCell {
   const v = row?.[c.fieldname!];
   if (v === null || v === undefined) return "";
-  if ((c.fieldtype === "Link" || c.fieldtype === "Dynamic Link") && v) return titleOf?.(linkTarget(c, row), String(v)) || String(v);
+  if ((c.fieldtype === "Link" || c.fieldtype === "Dynamic Link") && v) return titleOf?.(linkTarget(c, row), String(v), linkTitleFieldOf(c)) || String(v);
   if (c.fieldtype === "Select") return selectLabel(c, v);
   if (c.fieldtype === "Check") return !!v;
   // a spreadsheet cell cannot hold the image, and its data URL is no use there
@@ -184,7 +186,7 @@ export function searchText(row: any, c: Col | undefined, field: string, titleOf?
   const v = row?.[field];
   if (v === null || v === undefined || v === "") return "";
   if (c?.fieldtype === "Check" || c?.fieldtype === "Signature") return "";
-  if (c && (c.fieldtype === "Link" || c.fieldtype === "Dynamic Link")) return `${v} ${titleOf?.(linkTarget(c, row), String(v)) || ""}`;
+  if (c && (c.fieldtype === "Link" || c.fieldtype === "Dynamic Link")) return `${v} ${titleOf?.(linkTarget(c, row), String(v), linkTitleFieldOf(c)) || ""}`;
   if (c?.fieldtype === "Select") return `${v} ${selectLabel(c, v)}`;
   if (c?.fieldtype === "Geolocation") return formatGeo(v);
   return typeof v === "object" ? JSON.stringify(v) : String(v);

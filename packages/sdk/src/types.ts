@@ -119,6 +119,14 @@ export interface FieldDef {
   length?: number;
   precision?: number;
   description?: string;
+  /**
+   * Link only: the field of the target shown as this Link's title, in place
+   * of the target's `titleField` — in the form, grids, lists, exports and the
+   * Link's dropdown, which also searches and ranks on it. Every other Link to
+   * the target keeps its `titleField`. Same rules as a `titleField`: a column,
+   * permlevel 0, not bulky; not on a virtual or `translateId` target.
+   */
+  linkTitleField?: string;
   /** grid column width (1-12), a share of the grid's width; a `gridLayout: "fit"` grid ignores it */
   columns?: number;
   /**
@@ -684,6 +692,12 @@ export interface ReportColumn {
   optionIcons?: Record<string, string>;
   /** Draw the indicator as its icon alone, with the label as the tooltip. */
   optionIconOnly?: boolean;
+  /**
+   * A Link column: the field of its target shown as the title, as on a field
+   * (`FieldDef.linkTitleField`). Some Link field of the site must declare the
+   * same target and field, or the column shows the ids.
+   */
+  linkTitleField?: string;
 }
 
 export interface ReportResult {

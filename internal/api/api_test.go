@@ -1019,3 +1019,19 @@ func TestBootMapTiles(t *testing.T) {
 		t.Fatalf("configured tiles: %v", m)
 	}
 }
+
+// A title field no Link declares is never read, by GET or POST.
+func TestLinkTitlesAPIRefusesUndeclaredTitleField(t *testing.T) {
+	x := setup(t)
+	admin := "sid:" + x.sid("Admin")
+	if r := x.call("GET", "/api/search/link-titles?doctype=User&titleField=email&ids=Admin", nil, admin); r.Status == 200 {
+		t.Fatalf("GET with an undeclared titleField: %d %s", r.Status, r.Raw)
+	}
+	r := x.call("POST", "/api/search/link-titles", map[string]any{"User|email": []string{"Admin"}}, admin)
+	if r.Status != 200 || strings.Contains(r.Raw, "@") {
+		t.Fatalf("POST must leave the undeclared key out: %d %s", r.Status, r.Raw)
+	}
+	if r := x.call("GET", "/api/search/link?doctype=User&titleField=email&txt=a", nil, admin); r.Status == 200 {
+		t.Fatalf("search with an undeclared titleField: %d %s", r.Status, r.Raw)
+	}
+}

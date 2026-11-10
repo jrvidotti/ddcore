@@ -54,6 +54,21 @@ describe("titles store", () => {
     expect(formatValue("IMO-00002", { fieldtype: "Link", options: "Imovel" })).toBe("Loja Centro 12");
   });
 
+  it("keeps a linkTitleField's titles apart from the DocType's own", () => {
+    registerTitles({ Pessoa: { "P-1": "João Silva" }, "Pessoa|apelido": { "P-1": "Joãozinho" } });
+    expect(getLinkTitle("Pessoa", "P-1")).toBe("João Silva");
+    expect(getLinkTitle("Pessoa", "P-1", "apelido")).toBe("Joãozinho");
+    setLinkTitle("Pessoa", "P-2", "Zé", "apelido");
+    expect(getLinkTitle("Pessoa", "P-2", "apelido")).toBe("Zé");
+    expect(getLinkTitle("Pessoa", "P-2")).toBe("P-2");
+    expect(formatValue("P-1", { fieldtype: "Link", options: "Pessoa", linkTitleField: "apelido" })).toBe("Joãozinho");
+  });
+
+  it("an uncached linkTitleField falls back to the id, even on a DocType with no titleField", () => {
+    expect(getLinkTitle("SemTitulo", "SEM-001", "apelido")).toBe("SEM-001");
+    expect(getLinkTitle("Imovel", "IMO-1", "id")).toBe("IMO-1");
+  });
+
   it("formatValue falls back to ID if no title in cache", () => {
     expect(formatValue("IMO-99999", { fieldtype: "Link", options: "Imovel" })).toBe("IMO-99999");
   });

@@ -78,7 +78,7 @@
 </script>
 
 {#snippet cell(c: any, r: any)}
-  {#if c.fieldtype === "Link" && r[c.fieldname]}{getLinkTitle(c.options, r[c.fieldname]) || r[c.fieldname]}
+  {#if c.fieldtype === "Link" && r[c.fieldname]}{getLinkTitle(c.options, r[c.fieldname], c.linkTitleField) || r[c.fieldname]}
   {:else if (c.fieldname === "status" || isIndicatorSelect(c)) && r[c.fieldname]}<SelectIndicator value={r[c.fieldname]} field={c} iconOnly={c.optionIconOnly} />
   {:else}<span style:color={c.fieldtype === "Currency" && r[c.fieldname] < 0 ? "var(--red)" : undefined}>{formatValue(r[c.fieldname], c)}</span>{/if}
 {/snippet}

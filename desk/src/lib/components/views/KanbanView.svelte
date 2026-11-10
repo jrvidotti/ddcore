@@ -46,7 +46,7 @@
     if (!subtitleField) return "";
     const v = row[subtitleField.fieldname!];
     if (v === null || v === undefined || v === "") return "";
-    if (subtitleField.fieldtype === "Link") return getLinkTitle(subtitleField.options, v) || String(v);
+    if (subtitleField.fieldtype === "Link") return getLinkTitle(subtitleField.options, v, subtitleField.linkTitleField) || String(v);
     return String(v);
   }
   function onDragStart(e: DragEvent, row: any) {

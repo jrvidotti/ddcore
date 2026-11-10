@@ -195,11 +195,14 @@ export const api = {
   treeSearch: (doctype: string, search: string, opts: { fields?: string[]; orderBy?: string; limit?: number } = {}) =>
     request<{ nodes: { id: string; title: string; parent: string; is_group: boolean; children: number; values?: Record<string, any>; match?: boolean }[]; hasMore: boolean }>(
       "GET", `/api/tree/${encodeURIComponent(doctype)}` + q({ search, limit: opts.limit ?? 200, fields: opts.fields?.length ? opts.fields : undefined, order_by: opts.orderBy })),
-  linkSearch: (doctype: string, txt: string, filters?: any, limit = 20) => request<any[]>("GET", "/api/search/link" + q({ doctype, txt, filters, limit })),
+  /** `titleField`: the Link's linkTitleField, returned, matched and ranked on in place of the DocType's title. */
+  linkSearch: (doctype: string, txt: string, filters?: any, limit = 20, titleField?: string) =>
+    request<any[]>("GET", "/api/search/link" + q({ doctype, txt, filters, limit, titleField })),
   globalSearch: (txt: string, limit = 20) =>
     request<{ doctype: string; label: string; id: string; title: string }[]>("GET", "/api/search/global" + q({ txt, limit })),
-  linkTitles: (doctype: string, ids: string[]) =>
-    request<Record<string, Record<string, string>>>("GET", "/api/search/link-titles" + q({ doctype, ids: ids.join(",") })),
+  /** Keyed by titleKey: the DocType, or "<DocType>|<titleField>" with a titleField. */
+  linkTitles: (doctype: string, ids: string[], titleField?: string) =>
+    request<Record<string, Record<string, string>>>("GET", "/api/search/link-titles" + q({ doctype, ids: ids.join(","), titleField })),
   report: (name: string, filters: any) => request("GET", `/api/report/${encodeURIComponent(name)}` + q({ filters })),
   numberCard: (ws: string, card: string) => request("GET", `/api/workspace/${encodeURIComponent(ws)}/card/${encodeURIComponent(card)}`),
   chart: (ws: string, chart: string) => request("GET", `/api/workspace/${encodeURIComponent(ws)}/chart/${encodeURIComponent(chart)}`),

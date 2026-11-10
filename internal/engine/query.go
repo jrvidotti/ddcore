@@ -979,8 +979,19 @@ const linkSearchScan = 1000
 // options come best match first — the id or title equal to txt, then starting
 // with it — and otherwise in linkOrder, not in the list's sortField.
 func (c *Ctx) LinkSearch(doctype, txt string, filters any, limit int) ([]map[string]any, error) {
+	return c.LinkSearchTitled(doctype, "", txt, filters, limit)
+}
+
+// LinkSearchTitled is LinkSearch for a Link that shows titleField of the
+// target as its title (linkTitleField): the column is returned, matched,
+// ranked on in place of the target's titleField and, without a linkOrderBy,
+// ordered by. Only a column some Link declares is read.
+func (c *Ctx) LinkSearchTitled(doctype, titleField, txt string, filters any, limit int) ([]map[string]any, error) {
 	d, err := c.St.DocType(doctype)
 	if err != nil {
+		return nil, err
+	}
+	if err := c.checkLinkTitleField(d, titleField); err != nil {
 		return nil, err
 	}
 	if limit <= 0 {
@@ -989,7 +1000,11 @@ func (c *Ctx) LinkSearch(doctype, txt string, filters any, limit int) ([]map[str
 	if d.TitleIsTranslatedID() {
 		return c.linkSearchTranslated(d, txt, filters, limit)
 	}
-	args := searchArgs(d, txt)
+	var extra []string
+	if titleField != "" && titleField != "id" && d.HasColumn(titleField) {
+		extra = append(extra, titleField)
+	}
+	args := searchArgs(d, txt, extra...)
 	// The subtitle columns are read for display only; the match stays on
 	// searchFieldsOf.
 	for _, f := range d.LinkSubtitle {
@@ -999,24 +1014,42 @@ func (c *Ctx) LinkSearch(doctype, txt string, filters any, limit int) ([]map[str
 	}
 	args.Filters = filters
 	args.Limit = limit
-	args.linkOrder = linkOrder(d)
+	args.linkOrder = linkOrder(d, titleField)
+	title := d.TitleField
+	if titleField != "" {
+		title = titleField
+	}
 	if txt = strings.TrimSpace(txt); txt != "" {
 		args.rankText = txt
 		args.rankFields = []string{"id"}
-		if d.TitleField != "" && d.TitleField != "id" && d.HasColumn(d.TitleField) {
-			args.rankFields = append(args.rankFields, d.TitleField)
+		if title != "" && title != "id" && d.HasColumn(title) {
+			args.rankFields = append(args.rankFields, title)
 		}
 	}
 	return c.GetList(doctype, args)
 }
 
+// checkLinkTitleField refuses a title field no Link of the site declares for
+// d: the endpoints take it from the client, and read it with no field check.
+func (c *Ctx) checkLinkTitleField(d *meta.DocType, titleField string) error {
+	if titleField == "" || c.St.Meta.DeclaredLinkTitle(d.Name, titleField) {
+		return nil
+	}
+	return cerr.Validation("No Link shows {0} of {1} as its title", titleField, d.Name)
+}
+
 // linkOrder is the order a Link dropdown lists its options in: the DocType's
-// linkOrderBy, or else its title A to Z. Empty — no title field — leaves it
-// to sortField. The id comes last so equal titles keep a stable order.
-func linkOrder(d *meta.DocType) []meta.OrderTerm {
+// linkOrderBy, or else its title A to Z — the Link's titleField when it has
+// one (linkTitleField). Empty — no title field — leaves it to sortField. The
+// id comes last so equal titles keep a stable order.
+func linkOrder(d *meta.DocType, titleField string) []meta.OrderTerm {
 	terms, _ := d.LinkOrder()
-	if len(terms) == 0 && d.TitleField != "" && d.HasColumn(d.TitleField) {
-		terms = []meta.OrderTerm{{Field: d.TitleField}}
+	title := d.TitleField
+	if titleField != "" {
+		title = titleField
+	}
+	if len(terms) == 0 && title != "" && d.HasColumn(title) {
+		terms = []meta.OrderTerm{{Field: title}}
 	}
 	if len(terms) == 0 {
 		return nil
@@ -1105,10 +1138,16 @@ func searchFieldsOf(d *meta.DocType) []string {
 	return fields
 }
 
-// searchArgs selects the search fields and, for a non-empty txt, ORs a
-// substring match over each of them.
-func searchArgs(d *meta.DocType, txt string) ListArgs {
+// searchArgs selects the search fields (and the extra columns given, a Link's
+// linkTitleField) and, for a non-empty txt, ORs a substring match over each
+// of them.
+func searchArgs(d *meta.DocType, txt string, extra ...string) ListArgs {
 	fields := searchFieldsOf(d)
+	for _, f := range extra {
+		if !slices.Contains(fields, f) {
+			fields = append(fields, f)
+		}
+	}
 	args := ListArgs{Fields: fields}
 	if txt != "" {
 		needle := escapeLike(txt)
@@ -1131,8 +1170,10 @@ func escapeLike(s string) string {
 }
 
 // ResolveLinkTitles loads the titles for all Link and Dynamic Link values in docs
-// according to the target doctype's TitleField.
-// Returns map[targetDoctype]map[name]title and, if len(docs) == 1, attaches "_linkTitles" to docs[0].
+// according to the target doctype's TitleField, or the Link's linkTitleField.
+// Returns map[key]map[name]title, the key being meta.LinkTitleKey (the target,
+// or "<target>|<field>" for a linkTitleField), and, if len(docs) == 1, attaches
+// "_linkTitles" to docs[0].
 func (c *Ctx) ResolveLinkTitles(doctype string, docs ...Doc) map[string]map[string]string {
 	if len(docs) == 0 {
 		return map[string]map[string]string{}
@@ -1143,7 +1184,7 @@ func (c *Ctx) ResolveLinkTitles(doctype string, docs ...Doc) map[string]map[stri
 	}
 	byTarget := map[string]map[string]bool{}
 	refused := map[string]bool{}
-	collect := func(target string, val any) {
+	collect := func(target, titleField string, val any) {
 		// no title from a DocType this space may not read: a shared one the
 		// platform keeps, inside a tenant (#108)
 		if r, seen := refused[target]; !seen {
@@ -1156,10 +1197,11 @@ func (c *Ctx) ResolveLinkTitles(doctype string, docs ...Doc) map[string]map[stri
 			return
 		}
 		if s, ok := val.(string); ok && s != "" {
-			if byTarget[target] == nil {
-				byTarget[target] = map[string]bool{}
+			key := meta.LinkTitleKey(target, titleField)
+			if byTarget[key] == nil {
+				byTarget[key] = map[string]bool{}
 			}
-			byTarget[target][s] = true
+			byTarget[key][s] = true
 		}
 	}
 
@@ -1168,12 +1210,12 @@ func (c *Ctx) ResolveLinkTitles(doctype string, docs ...Doc) map[string]map[stri
 			switch {
 			case f.Fieldtype == "Link":
 				if opt := f.OptionsString(); opt != "" {
-					collect(opt, doc[f.Fieldname])
+					collect(opt, f.LinkTitleField, doc[f.Fieldname])
 				}
 			case f.Fieldtype == "Dynamic Link":
 				if opt := f.OptionsString(); opt != "" {
 					if target, ok := doc[opt].(string); ok && target != "" {
-						collect(target, doc[f.Fieldname])
+						collect(target, "", doc[f.Fieldname])
 					}
 				}
 			case meta.IsTableType(f.Fieldtype):
@@ -1185,10 +1227,10 @@ func (c *Ctx) ResolveLinkTitles(doctype string, docs ...Doc) map[string]map[stri
 								if rMap, ok := r.(map[string]any); ok {
 									for _, cf := range childDt.Fields {
 										if cf.Fieldtype == "Link" && cf.OptionsString() != "" {
-											collect(cf.OptionsString(), rMap[cf.Fieldname])
+											collect(cf.OptionsString(), cf.LinkTitleField, rMap[cf.Fieldname])
 										} else if cf.Fieldtype == "Dynamic Link" && cf.OptionsString() != "" {
 											if target, ok := rMap[cf.OptionsString()].(string); ok && target != "" {
-												collect(target, rMap[cf.Fieldname])
+												collect(target, "", rMap[cf.Fieldname])
 											}
 										}
 									}
@@ -1202,9 +1244,18 @@ func (c *Ctx) ResolveLinkTitles(doctype string, docs ...Doc) map[string]map[stri
 	}
 
 	out := map[string]map[string]string{}
-	for target, nameSet := range byTarget {
+	for key, nameSet := range byTarget {
+		target, override, _ := strings.Cut(key, "|")
 		td, err := c.St.DocType(target)
 		if err != nil {
+			continue
+		}
+		if override != "" {
+			// a linkTitleField: validated at load as a plain column of a
+			// table (no virtual or translated-id target)
+			if m := c.columnTitles(td, override, setKeys(nameSet)); len(m) > 0 {
+				out[key] = m
+			}
 			continue
 		}
 		if td.TitleIsTranslatedID() {
@@ -1271,14 +1322,61 @@ func (c *Ctx) ResolveLinkTitles(doctype string, docs ...Doc) map[string]map[stri
 	return out
 }
 
+func setKeys(set map[string]bool) []string {
+	out := make([]string, 0, len(set))
+	for k := range set {
+		out = append(out, k)
+	}
+	return out
+}
+
+// columnTitles reads column of d for the ids given, as a Link's
+// linkTitleField: an empty value is left out (the desk shows the id).
+func (c *Ctx) columnTitles(d *meta.DocType, column string, names []string) map[string]string {
+	out := map[string]string{}
+	if len(names) == 0 || column == "id" || !d.HasColumn(column) {
+		return out
+	}
+	q := fmt.Sprintf("SELECT id, %s FROM %s WHERE id = ANY($1)", db.Ident(column), db.Ident(d.TableName()))
+	rows, err := db.Select(c.Ctx, c.Q(), q, names)
+	if err != nil {
+		return out
+	}
+	for _, row := range rows {
+		if t := fmt.Sprint(row[column]); t != "" && t != "<nil>" {
+			out[fmt.Sprint(row["id"])] = t
+		}
+	}
+	return out
+}
+
 // LinkTitles returns map[name]title for the given names of a doctype.
 func (c *Ctx) LinkTitles(doctype string, names []string) (map[string]string, error) {
+	return c.LinkTitlesBy(doctype, "", names)
+}
+
+// LinkTitlesBy is LinkTitles for a Link that shows titleField of the target
+// as its title (linkTitleField); "" is the target's own title. A name without
+// a value in that column comes back as itself.
+func (c *Ctx) LinkTitlesBy(doctype, titleField string, names []string) (map[string]string, error) {
 	d, err := c.St.DocType(doctype)
 	if err != nil {
 		return nil, err
 	}
 	if err := c.spaceRefusal(d, false, false); err != nil {
 		return nil, err
+	}
+	if err := c.checkLinkTitleField(d, titleField); err != nil {
+		return nil, err
+	}
+	if titleField != "" {
+		out := c.columnTitles(d, titleField, names)
+		for _, n := range names {
+			if _, ok := out[n]; !ok {
+				out[n] = n
+			}
+		}
+		return out, nil
 	}
 	if d.TitleIsTranslatedID() {
 		out := map[string]string{}

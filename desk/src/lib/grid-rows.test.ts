@@ -38,6 +38,15 @@ describe("sortRows", () => {
     expect(ids(sortRows(rows, { field: "who", order: "asc" }, cols, titleOf))).toEqual([2, 4, 1, 3]);
     expect(ids(sortRows(rows, { field: "status", order: "asc" }, cols))).toEqual([1, 4, 2, 3]);
   });
+  it("passes a Link's linkTitleField to the title lookup for sort, search and export", () => {
+    const seen: any[] = [];
+    const byField = (dt: string, id: string, tf?: string) => { seen.push([dt, id, tf]); return tf ? `short ${id}` : id; };
+    const link = { fieldname: "who", fieldtype: "Link", options: "Employee", linkTitleField: "nick" } as any;
+    expect(exportCell({ who: "E-1" }, link, byField)).toBe("short E-1");
+    expect(searchRows([{ who: "E-1" }], "short", ["who"], [link], byField)).toHaveLength(1);
+    sortRows([{ who: "E-2" }, { who: "E-1" }], { field: "who", order: "asc" }, [link], byField);
+    expect(seen.every(([dt, , tf]) => dt === "Employee" && tf === "nick")).toBe(true);
+  });
   it("sorts dates by their ISO text and idx as a number", () => {
     expect(ids(sortRows(rows, { field: "on", order: "asc" }, cols))).toEqual([2, 4, 1, 3]);
     expect(ids(sortRows(rows, { field: "idx", order: "desc" }, cols))).toEqual([4, 3, 2, 1]);

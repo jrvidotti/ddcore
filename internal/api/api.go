@@ -1374,7 +1374,8 @@ func (s *Server) linkSearch(w http.ResponseWriter, r *http.Request) {
 			return nil, err
 		}
 		limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-		return c.LinkSearch(r.URL.Query().Get("doctype"), r.URL.Query().Get("txt"), filters, limit)
+		// titleField: the Link's linkTitleField, a column some Link declares
+		return c.LinkSearchTitled(r.URL.Query().Get("doctype"), r.URL.Query().Get("titleField"), r.URL.Query().Get("txt"), filters, limit)
 	})
 }
 
@@ -1403,32 +1404,38 @@ func (s *Server) renderMarkdown(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// linkTitles answers {key: {id: title}}. A key is a DocType, or
+// "<DocType>|<field>" for the titles a Link with a linkTitleField shows
+// (meta.LinkTitleKey): the POST body's keys, or the GET's doctype and
+// titleField.
 func (s *Server) linkTitles(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
 		if r.Method == "POST" {
 			var body map[string][]string
 			if err := readJSON(r, &body); err == nil && len(body) > 0 {
 				out := map[string]map[string]string{}
-				for dt, names := range body {
-					m, err := c.LinkTitles(dt, names)
+				for key, names := range body {
+					dt, field, _ := strings.Cut(key, "|")
+					m, err := c.LinkTitlesBy(dt, field, names)
 					if err == nil && len(m) > 0 {
-						out[dt] = m
+						out[key] = m
 					}
 				}
 				return out, nil
 			}
 		}
 		dt := r.URL.Query().Get("doctype")
+		field := r.URL.Query().Get("titleField")
 		idsStr := r.URL.Query().Get("ids")
 		var names []string
 		if idsStr != "" {
 			names = strings.Split(idsStr, ",")
 		}
-		m, err := c.LinkTitles(dt, names)
+		m, err := c.LinkTitlesBy(dt, field, names)
 		if err != nil {
 			return nil, err
 		}
-		return map[string]map[string]string{dt: m}, nil
+		return map[string]map[string]string{meta.LinkTitleKey(dt, field): m}, nil
 	})
 }
 
