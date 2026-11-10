@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.31.29 — 2026-11-10
+
 ### Fixed
 
 - **desk**: a sortable grid header whose label wraps (a narrow `columns` in a Table) keeps the
