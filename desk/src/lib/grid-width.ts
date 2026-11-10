@@ -28,3 +28,20 @@ export function inlineGridMinWidth(columns: Field[], fixed: number): number {
   }
   return width;
 }
+
+// A `gridLayout: "fit"` grid (table-layout: auto) sizes each column to its widest value: a cell does not wrap, a
+// `gridMaxWidth` column wraps past its cap, and the row buttons' column takes what is left over. An input has no
+// width of its own to fit, so an editable column keeps the room a typical value needs.
+const FIT_INPUT = 160;
+
+/** The width, in px, a "fit" grid gives an editable column; a read-only one fits its values (undefined). */
+export function fitColumnWidth(f: Field, editable: boolean): number | undefined {
+  if (!editable) return undefined;
+  return numericColumnMin(f) ?? Math.min(f.gridMaxWidth ?? FIT_INPUT, FIT_INPUT);
+}
+
+/** A header's label split before its last word, which a "fit" grid keeps on one line with the marks after it. */
+export function splitLastWord(label: string): [string, string] {
+  const i = label.trimEnd().lastIndexOf(" ");
+  return i < 0 ? ["", label] : [label.slice(0, i + 1), label.slice(i + 1)];
+}

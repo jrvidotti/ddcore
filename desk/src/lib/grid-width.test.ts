@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { inlineGridMinWidth, numericColumnMin } from "./grid-width";
+import { fitColumnWidth, inlineGridMinWidth, numericColumnMin, splitLastWord } from "./grid-width";
 
 describe("inlineGridMinWidth", () => {
   it("keeps the average of 88px a column when no number needs more", () => {
@@ -20,5 +20,20 @@ describe("inlineGridMinWidth", () => {
     expect(numericColumnMin({ fieldname: "x", fieldtype: "Currency", precision: 0 } as any)).toBe(104);
     expect(numericColumnMin({ fieldname: "x", fieldtype: "Currency" } as any)).toBe(124);
     expect(numericColumnMin({ fieldname: "x", fieldtype: "Data" } as any)).toBeUndefined();
+  });
+});
+
+describe("fit layout", () => {
+  it("leaves a read-only column to its values and keeps room for an input", () => {
+    expect(fitColumnWidth({ fieldname: "x", fieldtype: "Currency", precision: 0 } as any, false)).toBeUndefined();
+    expect(fitColumnWidth({ fieldname: "x", fieldtype: "Currency", precision: 0 } as any, true)).toBe(104);
+    expect(fitColumnWidth({ fieldname: "x", fieldtype: "Link" } as any, true)).toBe(160);
+    expect(fitColumnWidth({ fieldname: "x", fieldtype: "Data", gridMaxWidth: 120 } as any, true)).toBe(120);
+  });
+
+  it("splits a label before its last word", () => {
+    expect(splitLastWord("Plan. Sales")).toEqual(["Plan. ", "Sales"]);
+    expect(splitLastWord("OTB")).toEqual(["", "OTB"]);
+    expect(splitLastWord("")).toEqual(["", ""]);
   });
 });

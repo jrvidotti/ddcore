@@ -28,6 +28,10 @@ export interface Field {
   gridSearch?: string[];
   /** Table grid: `false` hides the `#` (idx) column. */
   gridIndex?: boolean;
+  /** Table grid: `"fit"` sizes the columns to their values instead of by `columns`. */
+  gridLayout?: "fit";
+  /** A child field's column in a "fit" grid: its maximum width, in px. */
+  gridMaxWidth?: number;
   /** Report field: report filter -> parent fieldname (or `id`). */
   reportFilters?: Record<string, string>;
   /** No column; set by the controller's onLoad, always read-only. */
