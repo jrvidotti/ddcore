@@ -21,6 +21,9 @@ older series, and `whats_new` reads across every one of them.
   last word instead of dropping to a line of their own. Report grids get the alignment fix too.
 - **desk**: in a Table, a header word longer than its column is hyphenated in the desk's language
   (or broken) instead of spilling over the next column's header.
+- **desk**: an inline Table is at least wide enough for each numeric column to hold a typical value
+  (a Currency about "R$ 1.234.567", more with cents); below that it scrolls sideways instead of a
+  narrow `columns` spilling a right-aligned number over the next column.
 
 ## 0.31.28 — 2026-11-09
 

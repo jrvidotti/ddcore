@@ -2,6 +2,7 @@
   // Child table: inline editing by default, with an opt-in dialog-only mode.
   import type { Field, DocTypeMeta } from "$lib/meta";
   import { isLayout, isNumericFieldtype } from "$lib/meta";
+  import { inlineGridMinWidth } from "$lib/grid-width";
   import Control from "./Control.svelte";
   import Icon from "$lib/components/Icon.svelte";
   import { evalExpr } from "$lib/expr";
@@ -48,9 +49,9 @@
   const sortable = $derived(!!field.gridSortable);
   const selectable = $derived(!!field.gridSelect);
   const showIndex = $derived(field.gridIndex !== false);
-  // an inline grid lays its columns out by `columns` (table-layout: fixed), so a Link input is not squeezed by the
-  // other columns' content; below 88px a column it scrolls sideways instead of crushing the cells
-  const inlineMinWidth = $derived(columns.length * 88 + (selectable ? 28 : 0) + (showIndex ? 44 : 0) + 72);
+  // an inline grid lays its columns out by `columns` (table-layout: fixed); below this width it scrolls sideways
+  // instead of crushing the cells or spilling a number over the next column (grid-width.ts)
+  const inlineMinWidth = $derived(inlineGridMinWidth(columns, (selectable ? 28 : 0) + (showIndex ? 44 : 0) + 72));
   const exportable = $derived(!!field.gridExport && !!frm.meta.permissions?.export);
   const canDelete = $derived(!dialogOnly && editable && !cannotDelete);
 
