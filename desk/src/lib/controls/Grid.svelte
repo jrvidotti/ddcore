@@ -122,6 +122,13 @@
 </script>
 
 <!-- a read-only cell's value: a Select that declares optionColors/optionIcons as its indicator, anything else as text -->
+<!-- the required * and the help ⓘ follow the label's last word: inside the sort button, so a label that wraps
+     keeps them on its line (a button is an inline-block, and a mark after it would drop to a line of its own) -->
+{#snippet marks(c: Field, inButton: boolean)}
+  {#if c.reqd}<span class="req" style="color:var(--red)" aria-hidden={inButton || undefined}>*</span>{/if}
+  {#if c.description}<span class="help-tip" title={c.description} style="margin-left:4px;cursor:help;font-weight:normal;opacity:0.7" aria-hidden={inButton || undefined}>ⓘ</span>{/if}
+{/snippet}
+
 {#snippet shown(c: Field, row: any, empty: string)}
   {#if isIndicatorSelect(c) && row[c.fieldname!]}<SelectIndicator value={row[c.fieldname!]} field={c} iconOnly={c.optionIconOnly} />{:else}{formatValue(row[c.fieldname!], c) || empty}{/if}
 {/snippet}
@@ -152,11 +159,7 @@
           {#each columns as c}
             {@const sorted = grid.sort?.field === c.fieldname ? grid.sort!.order : null}
             <th class:num={num(c)} style="width:{(100 * (c.columns || 2)) / totalCols}%" title={c.description || ""} aria-sort={sorted === "asc" ? "ascending" : sorted === "desc" ? "descending" : sortable ? "none" : undefined}>
-              <span class="th-label">{#if sortable}<button class="grid-sort" title={__("Sort by {0}", [c.label])} onclick={() => grid.toggleSort(c.fieldname!)}>{c.label}{#if sorted} {sorted === "asc" ? "↑" : "↓"}{/if}</button>{:else}{c.label}{/if}
-              {#if c.reqd}<span class="req th-mark" style="color:var(--red)">*</span>{/if}
-              {#if c.description}
-                <span class="help-tip th-mark" title={c.description} style="margin-left:4px;cursor:help;font-weight:normal;opacity:0.7">ⓘ</span>
-              {/if}</span>
+              {#if sortable}<button class="grid-sort" title={__("Sort by {0}", [c.label])} onclick={() => grid.toggleSort(c.fieldname!)}>{c.label}{#if sorted} {sorted === "asc" ? "↑" : "↓"}{/if}{@render marks(c, true)}</button>{:else}{c.label}{@render marks(c, false)}{/if}
             </th>
           {/each}
           <th style="width:{dialogOnly ? 48 : 72}px"></th>
@@ -224,11 +227,6 @@
      and a read-only value with no break (a long code) wraps rather than spilling into the next cell */
   table.inline-grid { table-layout: fixed; }
   table.inline-grid th { white-space: normal; }
-  /* a label that wraps stays aligned with its column, and keeps its marks (required, help) on its first line
-     instead of dropping them to a line of their own under the sort button */
-  table.inline-grid .th-label { display: inline-flex; align-items: baseline; gap: 4px; max-width: 100%; }
-  table.inline-grid .th-label :global(button.grid-sort) { min-width: 0; }
-  table.inline-grid .th-mark { flex: none; margin-left: 0 !important; }
   table.inline-grid td:not(.num) { overflow-wrap: anywhere; }
   /* before .cell-value, which a dialog-mode cell button also carries */
   .cell-click { all: unset; box-sizing: border-box; max-width: 100%; cursor: pointer; }

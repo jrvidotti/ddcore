@@ -16,9 +16,9 @@ older series, and `whats_new` reads across every one of them.
 
 ### Fixed
 
-- **desk**: a sortable grid header whose label wraps (a narrow `columns` in an inline Table) keeps
-  the alignment of its column instead of centering, and its help `ⓘ` and required `*` stay on the
-  label's line instead of dropping to a line of their own. Report grids get the alignment fix too.
+- **desk**: a sortable grid header whose label wraps (a narrow `columns` in a Table) keeps the
+  alignment of its column instead of centering, and its help `ⓘ` and required `*` follow the label's
+  last word instead of dropping to a line of their own. Report grids get the alignment fix too.
 
 ## 0.31.28 — 2026-11-09
 
