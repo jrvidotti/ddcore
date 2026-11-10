@@ -14,6 +14,14 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **`gridLayout: "fit"` sizes a Table's columns to their values**, instead of sharing the width by
+  `columns`: numbers keep one line, a header longer than its values wraps, and the room left over
+  goes before the row buttons. A child field's `gridMaxWidth` (px) caps its column in such a grid,
+  a longer value wrapping. Opt-in: a Table without it keeps the proportional layout. See "Form
+  grids" in `fieldtypes`.
+
 ## 0.31.29 — 2026-11-10
 
 ### Fixed

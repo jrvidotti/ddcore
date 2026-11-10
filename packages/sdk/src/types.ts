@@ -119,8 +119,13 @@ export interface FieldDef {
   length?: number;
   precision?: number;
   description?: string;
-  /** grid column width (1-12) */
+  /** grid column width (1-12), a share of the grid's width; a `gridLayout: "fit"` grid ignores it */
   columns?: number;
+  /**
+   * A child field's column in a `gridLayout: "fit"` grid: the most it widens to, in px.
+   * A longer value wraps (or, in a dialog-mode grid, is cut with an ellipsis).
+   */
+  gridMaxWidth?: number;
   /**
    * How much of a form line the control takes: a form line is four slots, `sm`
    * and `md` take one, `lg` two and `full` all four. Fields fill each line in
@@ -165,6 +170,13 @@ export interface FieldDef {
   gridSearch?: string[];
   /** Table only: `false` hides the `#` column (each row's stored `idx`) */
   gridIndex?: boolean;
+  /**
+   * Table only: `"fit"` sizes each column to its widest value (a number never
+   * wraps; a header longer than its values wraps) instead of sharing the width
+   * by `columns`. What is left over goes before the row buttons, which stay at
+   * the right edge. A long text column wants a `gridMaxWidth`.
+   */
+  gridLayout?: "fit";
   /**
    * Report only: the report's filters, each taking the value of a field of
    * this document (or `id`). `{ course: "id" }` runs the report for this course.

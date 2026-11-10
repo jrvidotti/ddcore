@@ -30,7 +30,7 @@ const childMeta: any = {
   ],
 };
 
-function setup(field: any, perms: Record<string, boolean> = { export: true }, onCellClick: Record<string, (row: any) => void> = {}, editable = true, fieldButtons: Record<string, any[]> = {}, gridActions: Record<string, any[]> = {}, onRowClick?: (row: any) => void) {
+function setup(field: any, perms: Record<string, boolean> = { export: true }, onCellClick: Record<string, (row: any) => void> = {}, editable = true, fieldButtons: Record<string, any[]> = {}, gridActions: Record<string, any[]> = {}, onRowClick?: (row: any) => void, meta: any = childMeta) {
   const doc = $state<any>({
     id: "C-1",
     students: [
@@ -60,7 +60,7 @@ function setup(field: any, perms: Record<string, boolean> = { export: true }, on
   };
   const target = document.createElement("div");
   document.body.append(target);
-  const view = mount(Grid, { target, props: { frm, field: { fieldname: "students", fieldtype: "Table", label: "Students", ...field }, childMeta } });
+  const view = mount(Grid, { target, props: { frm, field: { fieldname: "students", fieldtype: "Table", label: "Students", ...field }, childMeta: meta } });
   flushSync();
   const names = () => [...target.querySelectorAll("tbody tr")].map((tr) => tr.querySelectorAll("td")[field.gridSelect ? 2 : 1]?.textContent?.trim());
   const click = (el: Element | null) => { (el as HTMLElement).click(); flushSync(); };
@@ -105,6 +105,28 @@ describe("Grid", () => {
     expect(dt.classList.contains("inline-grid")).toBe(false);
     expect(dt.style.minWidth).toBe("");
     dialog.done();
+  });
+
+  it("a fit grid sizes columns by their values: no `columns` share, capped columns, buttons take the rest", () => {
+    const capped = { ...childMeta, fields: childMeta.fields.map((f: any) => (f.fieldname === "employee_name" ? { ...f, gridMaxWidth: 240, label: "Full Name", description: "The name" } : f)) };
+    const t = setup({ gridLayout: "fit" }, undefined, undefined, undefined, undefined, undefined, undefined, capped);
+    const table = t.target.querySelector("table")!;
+    expect(table.classList.contains("fit-grid")).toBe(true);
+    expect(table.classList.contains("inline-grid")).toBe(false);
+    expect(table.style.minWidth).toBe("");
+    const ths = [...table.querySelectorAll("thead th")] as HTMLElement[];
+    // #, Full Name, Grade, In class, row buttons: read-only columns fit their values
+    expect(ths.slice(1, 4).map((th) => th.style.width)).toEqual(["", "", ""]);
+    expect(ths.at(-1)!.style.width).toBe("100%");
+    // the label's last word stays on a line with the ⓘ
+    const glued = ths[1].querySelector("span[style*=nowrap]")!;
+    expect(glued.textContent).toContain("Name");
+    expect(glued.querySelector(".help-tip")).not.toBeNull();
+    const cell = table.querySelector("tbody tr td.capped .fit-cap") as HTMLElement;
+    expect(cell.style.maxWidth).toBe("240px");
+    expect(cell.textContent?.trim()).toBe("Zoe");
+    expect(table.querySelectorAll("tbody tr:first-child td.capped").length).toBe(1);
+    t.done();
   });
 
   it("hideLabel keeps the label for screen readers only, and still names the row dialog", () => {

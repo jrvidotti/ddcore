@@ -27,7 +27,7 @@
 | Geolocation | jsonb | points, lines and polygons drawn on a map, stored as a GeoJSON FeatureCollection, `[longitude, latitude]`; coordinates rounded to 7 decimals, no altitude or properties; at most 500 shapes and 64 KiB. Never unique, indexed, a standard filter, or a title, search, sort or key field. See below |
 | Link | text | `options: "DocType"`; existence validated; index created automatically. A Link to a virtual DocType stores `"<Source>:<id>"` (see `virtual-doctypes`) |
 | Dynamic Link | text | `options: "<the field holding the DocType>"`; the DocType and the document are validated on save. When that field is a `Data`, the desk shows it as a list of the DocTypes the user can see, and changing it clears the link |
-| Table | (child table) | `options: "Child DocType"` with `isChild: true`; `gridEditMode: "dialog"` turns off inline editing; `gridSort`, `gridSortable`, `gridExport`, `gridSelect`, `gridFilters`, `gridSearch` add a default order, header sorting, CSV/XLSX export, row selection, preset filters and a search box; `gridIndex: false` hides the `#` column. See "Form grids" below |
+| Table | (child table) | `options: "Child DocType"` with `isChild: true`; `gridEditMode: "dialog"` turns off inline editing; `gridSort`, `gridSortable`, `gridExport`, `gridSelect`, `gridFilters`, `gridSearch` add a default order, header sorting, CSV/XLSX export, row selection, preset filters and a search box; `gridIndex: false` hides the `#` column; `gridLayout: "fit"` sizes the columns to their values. See "Form grids" below |
 | Table MultiSelect | (child table) | several links to one DocType, edited as pills: `options` is a child DocType with exactly one Link field. See below |
 | Attach | text | the file's URL (`/files/..` or `/private/files/..`); the desk shows an icon that opens the file and shows its original name, size and type on hover — `showFileName: true` also shows the name beside it |
 | Attach Image | text | an Attach restricted to png, jpg, gif or webp, refused at upload as well as on save; SVG is not one of them, because it carries script; the thumbnail stands in for the icon, and `showFileName` works the same |
@@ -64,6 +64,20 @@ A `Table` and a `Report` field are grids, and four properties shape both:
   see [form-api.md](form-api.md#actions-on-a-grids-selected-rows).
 - `gridIndex: false` (Table only): hides the `#` column. Worth it on a grid sorted by something
   other than `idx`, where the stored position reads as noise.
+- `gridLayout: "fit"` (Table only): each column is as wide as its widest value instead of taking
+  its `columns` share of the width, which it ignores. A value does not wrap; a header longer than
+  its values wraps between its words, its last word kept on a line with the `ⓘ`. The room left
+  over goes before the row buttons, which stay at the right edge; when the values need more than
+  the screen, the grid scrolls sideways. A column of inputs has no value to fit: an editable cell
+  keeps the room a typical value needs (a Currency's, 160px for text). On a child field,
+  `gridMaxWidth: <px>` caps its column in a fit grid: a longer value wraps (a dialog-mode grid cuts
+  it with an ellipsis). Put one on any text column that may run long.
+
+  ```ts
+  { fieldname: "students", fieldtype: "Table", options: "Course Student", gridLayout: "fit" }
+  // course_student.doctype.ts: the name wraps past 280px, the grades take their own width
+  { fieldname: "employee_name", fieldtype: "Data", label: "Name", inListView: true, gridMaxWidth: 280 }
+  ```
 - `gridFilters: [{ label, filters, default? }]`: preset toggles above the grid. A toggle that is
   on shows only the rows matching its `filters`, written like a list's: tuples
   (`[["in_class", "=", 1]]`, `[["grade", ">=", 7]]`) or an object (`{ in_class: 1 }`). The
@@ -462,8 +476,8 @@ use of `Percent` would reach.
 
 `fieldname, fieldtype, label, options, optionColors, optionIcons, optionIconOnly, reqd, unique, default, readOnly, hidden, fetchFrom, dependsOn,
 readOnlyDependsOn, mandatoryDependsOn, allowOnSubmit, setOnlyOnce, noCopy, inListView, inStandardFilter, searchIndex,
-length, precision, rows (Small Text / Text / Markdown Editor / Code), description, columns (grid width 1–12), width (`"sm"` | `"md"` | `"lg"` | `"full"`), gridEditMode (`"inline"` default or `"dialog"`),
-gridSort, gridSortable, gridExport, gridSelect, gridFilters, gridSearch (Table / Report), gridIndex (Table), reportFilters (Report), computed, showFileName (Attach / Attach Image), collapsible, bold, hideLabel,
+length, precision, rows (Small Text / Text / Markdown Editor / Code), description, columns (grid width 1–12), gridMaxWidth (a child field's column in a `gridLayout: "fit"` grid, px), width (`"sm"` | `"md"` | `"lg"` | `"full"`), gridEditMode (`"inline"` default or `"dialog"`),
+gridSort, gridSortable, gridExport, gridSelect, gridFilters, gridSearch (Table / Report), gridIndex, gridLayout (Table), reportFilters (Report), computed, showFileName (Attach / Attach Image), collapsible, bold, hideLabel,
 permlevel, renamedFrom, convert`
 
 - `permlevel`: 0–9, default 0. A field above 0 is read and written only by roles granted that level by a permission row with the same `permlevel`; the server omits it from every response and refuses a change from anyone else. `hidden` and `readOnly` are screen hints and protect nothing. See `field-permissions`.

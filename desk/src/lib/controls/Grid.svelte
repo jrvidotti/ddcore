@@ -2,7 +2,7 @@
   // Child table: inline editing by default, with an opt-in dialog-only mode.
   import type { Field, DocTypeMeta } from "$lib/meta";
   import { isLayout, isNumericFieldtype } from "$lib/meta";
-  import { inlineGridMinWidth } from "$lib/grid-width";
+  import { fitColumnWidth, inlineGridMinWidth, splitLastWord } from "$lib/grid-width";
   import Control from "./Control.svelte";
   import Icon from "$lib/components/Icon.svelte";
   import { evalExpr } from "$lib/expr";
@@ -49,6 +49,8 @@
   const sortable = $derived(!!field.gridSortable);
   const selectable = $derived(!!field.gridSelect);
   const showIndex = $derived(field.gridIndex !== false);
+  // gridLayout "fit": table-layout auto, each column as wide as its values, the leftover before the row buttons
+  const fit = $derived(field.gridLayout === "fit");
   // an inline grid lays its columns out by `columns` (table-layout: fixed); below this width it scrolls sideways
   // instead of crushing the cells or spilling a number over the next column (grid-width.ts)
   const inlineMinWidth = $derived(inlineGridMinWidth(columns, (selectable ? 28 : 0) + (showIndex ? 44 : 0) + 72));
@@ -117,6 +119,8 @@
   // a script acting on a click anywhere else on a row
   const rowClickable = $derived(frm.rowClickHandlers(field.fieldname!).length > 0);
   function clickRow(e: MouseEvent, row: any) { if (isRowClick(e)) frm.clickRow(field.fieldname!, row); }
+  // an input has no width to fit: in a "fit" grid a column with inputs keeps room for one (grid-width.ts)
+  const fitWidth = (c: Field) => fitColumnWidth(c, !dialogOnly && editable && !c.readOnly && inlineEditable(c.fieldtype));
   function rowEditable(f: Field, row: any) {
     return editable && !f.readOnly && !frm.isSetOnce(f, row, field.fieldname!) && !(f.readOnlyDependsOn && evalExpr(f.readOnlyDependsOn, row, frm.doc));
   }
@@ -130,8 +134,40 @@
   {#if c.description}<span class="help-tip" title={c.description} style="margin-left:4px;cursor:help;font-weight:normal;opacity:0.7" aria-hidden={inButton || undefined}>ⓘ</span>{/if}
 {/snippet}
 
+<!-- in a "fit" grid a label wraps between its words, the last one kept on a line with the sort arrow and the marks -->
+{#snippet heading(c: Field, sorted: string | null, inButton: boolean)}
+  {#if fit}
+    {@const [head, last] = splitLastWord(c.label || "")}
+    {head}<span style="white-space:nowrap">{last}{#if sorted} {sorted === "asc" ? "↑" : "↓"}{/if}{@render marks(c, inButton)}</span>
+  {:else}{c.label}{#if sorted} {sorted === "asc" ? "↑" : "↓"}{/if}{@render marks(c, inButton)}{/if}
+{/snippet}
+
 {#snippet shown(c: Field, row: any, empty: string)}
   {#if isIndicatorSelect(c) && row[c.fieldname!]}<SelectIndicator value={row[c.fieldname!]} field={c} iconOnly={c.optionIconOnly} />{:else}{formatValue(row[c.fieldname!], c) || empty}{/if}
+{/snippet}
+
+<!-- a cell: in dialog mode a value (a file, a clickable value); inline, the control or the read-only value -->
+{#snippet cell(c: Field, row: any)}
+  {#if dialogOnly}
+    {#if c.fieldtype === "Attach" && row[c.fieldname!]}
+      {@const file = fileNameParts(row[c.fieldname!])}
+      <a class="file-link" href={row[c.fieldname!]} target="_blank" rel="noopener" title={file.full} aria-label={__("Open file") + ": " + file.full}>
+        <Icon name="paperclip" size={14} /><span class="file-stem">{file.stem}</span><span class="file-extension">{file.extension}</span>
+      </a>
+    {:else if clickable.has(c.fieldname!)}
+      <button type="button" class="cell-click cell-value" title={formatValue(row[c.fieldname!], c)} onclick={() => frm.clickCell(field.fieldname!, c.fieldname!, row)}>{@render shown(c, row, "—")}</button>
+    {:else}
+      <span class="cell-value" title={formatValue(row[c.fieldname!], c)}>{@render shown(c, row, "—")}</span>
+    {/if}
+  {:else if !inlineEditable(c.fieldtype)}
+    <button type="button" class="cell-click cell-value" title={editable ? __("Edit row") : __("View row")} onclick={() => editRow(row)}>{formatValue(row[c.fieldname!], c) || "—"}</button>
+  {:else if rowEditable(c, row) && (!c.dependsOn || evalExpr(c.dependsOn, row, frm.doc))}
+    <div data-own-click style="display:contents"><Control field={c} value={row[c.fieldname!]} onchange={(v) => { row[c.fieldname!] = v; frm.trigger(field.fieldname!, childMeta.name, row.id, row, [c.fieldname!]); }} doc={row} compact inGrid /></div>
+  {:else if clickable.has(c.fieldname!)}
+    <button type="button" class="cell-click" onclick={() => frm.clickCell(field.fieldname!, c.fieldname!, row)}>{@render shown(c, row, "")}</button>
+  {:else}
+    <span>{@render shown(c, row, "")}</span>
+  {/if}
 {/snippet}
 
 <div class="field grid-field">
@@ -152,18 +188,19 @@
         {#if exportable}<GridExport onexport={exportRows} />{/if}
       </div>
     {/if}
-    <table class="grid" class:dialog-grid={dialogOnly} class:inline-grid={!dialogOnly} style={dialogOnly ? undefined : `min-width:${inlineMinWidth}px`} class:loading={loading && grid.viewRows.length} aria-busy={loading || undefined}>
+    <table class="grid" class:fit-grid={fit} class:dialog-grid={dialogOnly && !fit} class:inline-grid={!dialogOnly && !fit} style={dialogOnly || fit ? undefined : `min-width:${inlineMinWidth}px`} class:loading={loading && grid.viewRows.length} aria-busy={loading || undefined}>
       <thead>
         <tr>
           {#if selectable}<th style="width:28px"><input type="checkbox" aria-label={__("Select all")} checked={grid.allSelected} onchange={(e) => grid.toggleAll(e.currentTarget.checked)} /></th>{/if}
           {#if showIndex}<th style="width:44px">#</th>{/if}
           {#each columns as c}
             {@const sorted = grid.sort?.field === c.fieldname ? grid.sort!.order : null}
-            <th class:num={num(c)} style="width:{(100 * (c.columns || 2)) / totalCols}%" title={c.description || ""} aria-sort={sorted === "asc" ? "ascending" : sorted === "desc" ? "descending" : sortable ? "none" : undefined}>
-              {#if sortable}<button class="grid-sort" title={__("Sort by {0}", [c.label])} onclick={() => grid.toggleSort(c.fieldname!)}>{c.label}{#if sorted} {sorted === "asc" ? "↑" : "↓"}{/if}{@render marks(c, true)}</button>{:else}{c.label}{@render marks(c, false)}{/if}
+            {@const width = fit ? (fitWidth(c) ? `${fitWidth(c)}px` : undefined) : `${(100 * (c.columns || 2)) / totalCols}%`}
+            <th class:num={num(c)} style:width={width} title={c.description || ""} aria-sort={sorted === "asc" ? "ascending" : sorted === "desc" ? "descending" : sortable ? "none" : undefined}>
+              {#if sortable}<button class="grid-sort" title={__("Sort by {0}", [c.label])} onclick={() => grid.toggleSort(c.fieldname!)}>{@render heading(c, sorted, true)}</button>{:else}{@render heading(c, null, false)}{/if}
             </th>
           {/each}
-          <th style="width:{dialogOnly ? 48 : 72}px"></th>
+          <th class="row-buttons" style:width={fit ? "100%" : `${dialogOnly ? 48 : 72}px`}></th>
         </tr>
       </thead>
       <tbody>
@@ -174,27 +211,9 @@
             {#if showIndex}<td class="muted">{row.idx ?? i + 1}</td>{/if}
             {#each columns as c}
               <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
-              <td class:num={num(c)} onclick={forwardCellClick}>
-                {#if dialogOnly}
-                  {#if c.fieldtype === "Attach" && row[c.fieldname!]}
-                    {@const file = fileNameParts(row[c.fieldname!])}
-                    <a class="file-link" href={row[c.fieldname!]} target="_blank" rel="noopener" title={file.full} aria-label={__("Open file") + ": " + file.full}>
-                      <Icon name="paperclip" size={14} /><span class="file-stem">{file.stem}</span><span class="file-extension">{file.extension}</span>
-                    </a>
-                  {:else if clickable.has(c.fieldname!)}
-                    <button type="button" class="cell-click cell-value" title={formatValue(row[c.fieldname!], c)} onclick={() => frm.clickCell(field.fieldname!, c.fieldname!, row)}>{@render shown(c, row, "—")}</button>
-                  {:else}
-                    <span class="cell-value" title={formatValue(row[c.fieldname!], c)}>{@render shown(c, row, "—")}</span>
-                  {/if}
-                {:else if !inlineEditable(c.fieldtype)}
-                  <button type="button" class="cell-click cell-value" title={editable ? __("Edit row") : __("View row")} onclick={() => editRow(row)}>{formatValue(row[c.fieldname!], c) || "—"}</button>
-                {:else if rowEditable(c, row) && (!c.dependsOn || evalExpr(c.dependsOn, row, frm.doc))}
-                  <div data-own-click style="display:contents"><Control field={c} value={row[c.fieldname!]} onchange={(v) => { row[c.fieldname!] = v; frm.trigger(field.fieldname!, childMeta.name, row.id, row, [c.fieldname!]); }} doc={row} compact inGrid /></div>
-                {:else if clickable.has(c.fieldname!)}
-                  <button type="button" class="cell-click" onclick={() => frm.clickCell(field.fieldname!, c.fieldname!, row)}>{@render shown(c, row, "")}</button>
-                {:else}
-                  <span>{@render shown(c, row, "")}</span>
-                {/if}
+              {@const cap = fit && c.gridMaxWidth}
+              <td class:num={num(c)} class:capped={cap} onclick={forwardCellClick}>
+                {#if cap}<div class="fit-cap" style:max-width="{c.gridMaxWidth}px">{@render cell(c, row)}</div>{:else}{@render cell(c, row)}{/if}
               </td>
             {/each}
             <td style="white-space:nowrap;text-align:right" data-own-click>
@@ -223,6 +242,15 @@
   /* a reload: the old rows stay, dimmed and out of reach, until the new ones arrive */
   table.loading tbody { opacity: 0.45; pointer-events: none; transition: opacity 0.15s; }
   table.dialog-grid { table-layout: fixed; min-width: 720px; }
+  /* gridLayout "fit": a column takes its widest value — a value does not wrap, a header wraps between its words — and
+     the row buttons' column (width 100%) takes the rest, so the buttons stay at the right edge. A gridMaxWidth column
+     is as wide as its value up to the cap (width: max-content, clamped by the max-width set inline), and wraps past it;
+     a dialog-mode value (.cell-value) is cut with an ellipsis instead. */
+  table.fit-grid { table-layout: auto; }
+  table.fit-grid th:not(.row-buttons) { white-space: normal; }
+  table.fit-grid td { white-space: nowrap; }
+  table.fit-grid td.capped { white-space: normal; overflow-wrap: break-word; }
+  .fit-cap { width: max-content; }
   table.dialog-grid td { overflow: hidden; }
   /* the widths come from `columns`: a long label wraps instead of taking the width from the other columns,
      and a read-only value with no break (a long code) wraps rather than spilling into the next cell */

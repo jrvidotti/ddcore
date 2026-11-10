@@ -125,6 +125,13 @@ type Field struct {
 	// GridIndex set to false hides a Table grid's `#` column (the row's idx);
 	// unset, the column shows.
 	GridIndex *bool `json:"gridIndex,omitempty"`
+	// GridLayout "fit" sizes a Table grid's columns to their values instead of
+	// sharing the width by `columns`; the room left over goes before the row
+	// buttons. Unset keeps the proportional layout.
+	GridLayout string `json:"gridLayout,omitempty"`
+	// GridMaxWidth caps, in px, a child field's column in a "fit" grid: a
+	// longer value wraps. Ignored by the proportional layout.
+	GridMaxWidth int `json:"gridMaxWidth,omitempty"`
 	// ReportFilters maps a Report field's report filter to the parent field
 	// (or `id`) whose value it takes.
 	ReportFilters map[string]string `json:"reportFilters,omitempty"`
@@ -1328,8 +1335,8 @@ func ValidIdentAscii(s string) bool { return asciiIdent.MatchString(s) }
 
 // validateGrid checks the grid properties (gridSort, gridSortable,
 // gridExport, gridSelect, gridFilters, gridSearch), which only a Table or a Report field has,
-// gridIndex, which only a Table has, and a
-// Report field's own report and filters.
+// gridIndex and gridLayout, which only a Table has, a child field's
+// gridMaxWidth, and a Report field's own report and filters.
 func (r *Registry) validateGrid(d *DocType, f *Field, e func(string, ...any)) {
 	isGrid := f.Fieldtype == "Table" || f.Fieldtype == "Report"
 	if !isGrid && (f.GridSort != nil || f.GridSortable || f.GridExport || f.GridSelect) {
@@ -1337,6 +1344,20 @@ func (r *Registry) validateGrid(d *DocType, f *Field, e func(string, ...any)) {
 	}
 	if f.Fieldtype != "Table" && f.GridIndex != nil {
 		e("field %q: gridIndex is for a Table field, not a %s", f.Fieldname, f.Fieldtype)
+	}
+	if f.GridLayout != "" {
+		if f.Fieldtype != "Table" {
+			e("field %q: gridLayout is for a Table field, not a %s", f.Fieldname, f.Fieldtype)
+		} else if f.GridLayout != "fit" {
+			e("field %q: gridLayout %q must be \"fit\" (or unset, for the proportional layout)", f.Fieldname, f.GridLayout)
+		}
+	}
+	if f.GridMaxWidth != 0 {
+		if !d.IsChild || LayoutTypes[f.Fieldtype] || IsTableType(f.Fieldtype) {
+			e("field %q: gridMaxWidth is for a field of a child DocType, shown in a grid", f.Fieldname)
+		} else if f.GridMaxWidth < 0 {
+			e("field %q: gridMaxWidth %d must be a positive width in px", f.Fieldname, f.GridMaxWidth)
+		}
 	}
 	if !isGrid && f.GridFilters != nil {
 		e("field %q: gridFilters is for a Table or a Report field, not a %s", f.Fieldname, f.Fieldtype)
