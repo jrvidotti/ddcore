@@ -226,7 +226,9 @@
   /* the widths come from `columns`: a long label wraps instead of taking the width from the other columns,
      and a read-only value with no break (a long code) wraps rather than spilling into the next cell */
   table.inline-grid { table-layout: fixed; }
-  table.inline-grid th { white-space: normal; }
+  /* a word longer than its column ("Participação" in a `columns: 1`) is hyphenated in the desk's language
+     (<html lang>), or broken where it must, instead of spilling into the next header */
+  table.inline-grid th { white-space: normal; hyphens: auto; overflow-wrap: break-word; }
   table.inline-grid td:not(.num) { overflow-wrap: anywhere; }
   /* before .cell-value, which a dialog-mode cell button also carries */
   .cell-click { all: unset; box-sizing: border-box; max-width: 100%; cursor: pointer; }

@@ -19,6 +19,8 @@ older series, and `whats_new` reads across every one of them.
 - **desk**: a sortable grid header whose label wraps (a narrow `columns` in a Table) keeps the
   alignment of its column instead of centering, and its help `ⓘ` and required `*` follow the label's
   last word instead of dropping to a line of their own. Report grids get the alignment fix too.
+- **desk**: in a Table, a header word longer than its column is hyphenated in the desk's language
+  (or broken) instead of spilling over the next column's header.
 
 ## 0.31.28 — 2026-11-09
 
