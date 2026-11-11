@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.31.31 — 2026-11-11
+
 ### Added
 
 - **`frm.setGridDfProperty(table, childField, prop, value)` hides or relabels a Table's column on
