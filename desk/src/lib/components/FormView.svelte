@@ -13,6 +13,7 @@
   import { formBackTarget } from "./form-back";
   import { lastListHref } from "$lib/list-memory";
   import Spinner from "./Spinner.svelte";
+  import FormBanner from "./FormBanner.svelte";
   import { __, boot } from "$lib/boot.svelte";
   import { showError, confirm, dialog, prompt, toast, escapeHtml } from "$lib/ui.svelte";
   import { docStatus, statusColor, timeAgo } from "$lib/format";
@@ -580,6 +581,7 @@
 
     <SharedNotice shared={frm.meta.doctype.shared} />
 
+    {#if frm.banner}<FormBanner banner={frm.banner} />{/if}
     <div class="form-body">
       <div class="form-main">
         {#if tabs.length > 1}

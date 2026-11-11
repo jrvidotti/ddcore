@@ -83,6 +83,13 @@ export interface Button { label: string; group?: string; action: () => any; prim
 
 export type { FieldButton, GridAction };
 
+/** A notice at the top of a form (frm.setBanner): text, a colour and the actions it offers. */
+export interface FormBanner {
+  message: string;
+  color?: string;
+  actions?: { label: string; onClick: () => any; primary?: boolean }[];
+}
+
 /** What a grid on screen lends the form: its selected rows and a way to clear them. */
 export interface GridSelection {
   rows: () => any[];
@@ -114,6 +121,10 @@ export class FormController {
    */
   backRoute = $state<{ path: string | null; label?: string } | undefined>(undefined);
   dfProps = $state<Record<string, Partial<Field>>>({});
+  /** what a script overrode on the child fields of a Table, by table and child fieldname (setGridDfProperty) */
+  gridDfProps = $state<Record<string, Record<string, Partial<Field>>>>({});
+  /** the notice a script put at the top of the form (setBanner) */
+  banner = $state<FormBanner | null>(null);
   queries = new Map<string, () => { filters?: any }>();
   saving = $state(false);
   loading = $state(true);
@@ -351,7 +362,7 @@ export class FormController {
    * the button. It is not reset on refresh: set once, it stays until set again.
    */
   setBackRoute(path: string | null, label?: string) { this.backRoute = { path, label }; return this; }
-  clearButtons() { this.buttons = []; this.indicators = []; this.clearFieldButtons(); this.gridActions = {}; }
+  clearButtons() { this.buttons = []; this.indicators = []; this.banner = null; this.clearFieldButtons(); this.gridActions = {}; }
 
   /**
    * Attaches a button to a field's control. Adding twice for the same field and
@@ -409,6 +420,15 @@ export class FormController {
   setInnerGroupAsPrimary(group: string) { this.buttons = this.buttons.map((b) => (b.group === group ? { ...b, primary: true } : b)); }
   addIndicator(label: string, color = "blue") { this.indicators.push({ label, color }); }
   setDfProperty(fieldname: string, prop: string, value: any) { this.dfProps[fieldname] = { ...(this.dfProps[fieldname] || {}), [prop]: value }; }
+  /** Overrides a property of one child field of a Table, for its grid, its row dialog and its export. */
+  setGridDfProperty(table: string, fieldname: string, prop: string, value: any) {
+    const of = this.gridDfProps[table] || {};
+    this.gridDfProps[table] = { ...of, [fieldname]: { ...(of[fieldname] || {}), [prop]: value } };
+  }
+  /** Puts a notice at the top of the form, with the actions it offers; null takes it away. A refresh clears it. */
+  setBanner(message: string | null, opts: Omit<FormBanner, "message"> = {}) {
+    this.banner = message ? { ...opts, message } : null;
+  }
   setQuery(fieldname: string, fn: () => { filters?: any }) { this.queries.set(fieldname, fn); }
   /** Re-runs a Report field's report (it also re-runs by itself after a save or a reload). */
   refreshField(fieldname: string) { this.fieldRefresh[fieldname] = (this.fieldRefresh[fieldname] || 0) + 1; }

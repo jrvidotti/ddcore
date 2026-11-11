@@ -60,6 +60,17 @@ export interface Frm<T extends BaseDoc = BaseDoc> {
   field(fieldname: string): FieldDef | undefined;
   /** overrides a field's metadata for this form, e.g. `hidden`, `readOnly`, `reqd`, `label`, `description` */
   setDfProperty(fieldname: string, prop: DfProperty, value: any): void;
+  /**
+   * overrides a property of one child field of a Table for this form: `hidden` takes its column
+   * off the grid, its field off the row dialog and its column off the export; `label`,
+   * `description` and `readOnly` change them in all three
+   */
+  setGridDfProperty(table: string, fieldname: string, prop: GridDfProperty, value: any): void;
+  /**
+   * puts a notice at the top of the form, in view while the form scrolls, with the actions it
+   * offers; `null` takes it away, and so does each refresh
+   */
+  setBanner(message: string | null, opts?: FormBannerOptions): void;
   setQuery(fieldname: string, fn: () => { filters?: Filters }): void;
   /** re-runs a Report field's report; it also re-runs by itself after a save or a reload */
   refreshField(fieldname: string): void;
@@ -121,6 +132,16 @@ export interface Frm<T extends BaseDoc = BaseDoc> {
  * spinner in place of "No rows", or the rows on screen dimmed, with its actions disabled
  */
 export type DfProperty = keyof FieldDef | "cannotAddRows" | "cannotDeleteRows" | "loading";
+
+/** what `frm.setGridDfProperty` changes on a child field */
+export type GridDfProperty = "hidden" | "label" | "description" | "readOnly";
+
+export interface FormBannerOptions {
+  /** `blue` (the default), `orange`, `red`, `green`, `yellow`, `gray` or `purple` */
+  color?: string;
+  /** buttons at the end of the notice; they are disabled while one of them runs */
+  actions?: { label: string; onClick: () => any; primary?: boolean }[];
+}
 
 export interface FormHandlers<T extends BaseDoc = BaseDoc> {
   setup?: (frm: Frm<T>) => void;

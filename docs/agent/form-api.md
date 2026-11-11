@@ -27,6 +27,7 @@ defineForm<Entry>("Entry", {
 `doc`, `doctype`, `meta`, `isNew`, `isDirty`, `docstatus`, `perm`, `getValue`, `setValue(field | {..}, value)`, `field(field)`,
 `setDfProperty(field, prop, value)` (`hidden`, `readOnly`, `reqd`, `label`, `description`, `options`, `width`, `rows`, `cannotAddRows`, `cannotDeleteRows`,
 `gridSort`, `gridSortable`, `gridExport`, `gridSelect`, `gridFilters`, `gridSearch`, `gridIndex`, `hideLabel`, `reportFilters`, and a Table's `loading`, see "A grid a script fills"), `refreshField(field)` (re-runs a Report field's report),
+`setGridDfProperty(table, childField, prop, value)` (see "Grids: columns a script hides or relabels"), `setBanner(message | null, { color, actions })` (see "A notice at the top of the form"),
 `setQuery(field, () => ({ filters }))`, `toggleDisplay/toggleReqd/toggleEnable`, `addButton(label, fn, group)`, `removeButton`,
 `setBackRoute(path | null, label?)` (see "The back button"),
 `setPrimaryAction(label, fn)`, `setInnerGroupAsPrimary(group)`, `addIndicator(label, colour)`, `addChild(table, values)`, `removeChild(table, idx)`,
@@ -237,6 +238,56 @@ defineForm("TagOne Users", {
   loading). `frm.clearSelection(field)` unticks every row.
 - The actions show whether or not the grid is editable, and beside "Delete selected" on a Table
   that has it. The button is only a shortcut: the method it calls must check permissions itself.
+
+### Grids: columns a script hides or relabels
+
+A Table's columns come from its child DocType, the same on every form. When what a column means
+depends on the document — the months of a period, a price list's tiers —
+`frm.setGridDfProperty(table, childField, prop, value)` overrides one property of one child field
+on this form:
+
+```ts
+defineForm("Sales Plan", {
+  refresh(frm) {
+    // twelve month slots in the child; this plan covers four of them
+    months(frm.doc).forEach((label, i) => frm.setGridDfProperty("lines", `plan_m${i + 1}`, "label", label));
+    for (let i = months(frm.doc).length; i < 12; i++) frm.setGridDfProperty("lines", `plan_m${i + 1}`, "hidden", true);
+  },
+});
+```
+
+- `prop` is `hidden`, `label`, `description` or `readOnly`.
+- The grid, the row dialog and the export all follow: a hidden field leaves the three, and
+  `hidden: false` brings a field the meta hides into the row dialog (into the grid too, when it
+  is `inListView`).
+- `label` and `description` are shown as given: wrap them in `__()`.
+- It is display only. The server knows nothing of it: a hidden column still saves the value it
+  holds, and `readOnly` here does not refuse a write.
+- The overrides last while the form is open, across saves and reloads, like `setDfProperty`: set
+  every slot on each `refresh` when they depend on the document.
+
+### A notice at the top of the form
+
+`frm.setBanner(message, { color, actions })` puts a notice above the form's fields, which stays
+in view while the form scrolls. Use it for a state of the document the reader should act on and
+may otherwise miss — two totals that no longer agree — not for a result (`ddcore.ui.toast`) or a
+status (`frm.addIndicator`):
+
+```ts
+frm.setBanner(__("Categories changed: change the stores in proportion?"), {
+  color: "orange",
+  actions: [{ label: __("Change stores"), primary: true, onClick: () => align(frm) }],
+});
+frm.setBanner(null);   // takes it away
+```
+
+- One notice per form: a second `setBanner` replaces the first.
+- `color` is `blue` (the default), `orange`, `red`, `green`, `yellow`, `gray` or `purple`.
+- While an action's `onClick` runs, the notice's buttons are disabled; a rejection is shown to
+  the user. The notice stays until the script takes it away.
+- It is cleared at the start of each `refresh`, like the form's buttons, so a notice that depends
+  on the saved document is set there, and one that depends on what is being typed in an
+  `onChange`.
 
 ### Grids: row changes and cell clicks
 

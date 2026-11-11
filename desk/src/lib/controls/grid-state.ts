@@ -43,3 +43,12 @@ export function fileNameParts(value: unknown): { full: string; stem: string; ext
   if (dot <= 0 || dot === full.length - 1) return { full, stem: full, extension: "" };
   return { full, stem: full.slice(0, dot), extension: full.slice(dot) };
 }
+
+/**
+ * A child DocType's fields as one form shows them: each with what its script overrode
+ * (frm.setGridDfProperty) on top of the meta. No overrides answers the same array.
+ */
+export function overlayFields<F extends { fieldname?: string }>(fields: F[], props: Record<string, Partial<F>> | undefined): F[] {
+  if (!props || !Object.keys(props).length) return fields;
+  return fields.map((f) => (f.fieldname && props[f.fieldname] ? { ...f, ...props[f.fieldname] } : f));
+}
