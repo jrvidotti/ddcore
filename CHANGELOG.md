@@ -22,6 +22,14 @@ older series, and `whats_new` reads across every one of them.
   not change. See "Showing a number in another scale" in `form-api`. A Currency column shown in a
   larger scale also reserves less room in a grid (88px instead of 104px or 124px).
 
+### Fixed
+
+- **A number field the reader only passes through (Tab) no longer commits.** Leaving the field
+  committed the text it showed, so a value shown rounded (a Float with more places than its
+  `precision`, a field in a `displayScale`) was changed just by tabbing over it, and a value a
+  script had changed while the field held the focus was put back. The field now commits only what
+  was typed, and while untouched keeps showing its value as it changes.
+
 ### Changed
 
 - **A grid's editable cells sit closer together.** A cell holding an input keeps a 4px gutter at each

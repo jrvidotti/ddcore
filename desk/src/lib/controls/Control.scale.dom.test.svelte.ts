@@ -54,6 +54,31 @@ describe("a number control with a display scale", () => {
     t.done();
   });
 
+  it("a field only passed through commits nothing, and shows what a script changes meanwhile", () => {
+    const t = setup(field, 41828);
+    t.input.dispatchEvent(new FocusEvent("focus"));
+    flushSync();
+    // the value changes while the field has the focus and nothing was typed in it
+    t.props.value = 50000;
+    flushSync();
+    expect(t.input.value).toBe("50,0");
+    t.input.dispatchEvent(new FocusEvent("blur"));
+    flushSync();
+    // 41,8 was never put back, and 50,0 was not committed as a rounded 50000 either
+    expect(t.changes).toEqual([]);
+    // once something is typed, a change from outside does not take the text away
+    t.input.dispatchEvent(new FocusEvent("focus"));
+    t.input.value = "7";
+    t.input.dispatchEvent(new Event("input", { bubbles: true }));
+    t.props.value = 60000;
+    flushSync();
+    expect(t.input.value).toBe("7");
+    t.input.dispatchEvent(new FocusEvent("blur"));
+    flushSync();
+    expect(t.changes).toEqual([7000]);
+    t.done();
+  });
+
   it("a field without a scale is as before", () => {
     const t = setup({ fieldname: "planned", fieldtype: "Currency", precision: 0, label: "Planned" }, 41828);
     expect(t.input.value).toBe("41.828");

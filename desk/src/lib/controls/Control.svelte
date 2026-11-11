@@ -64,13 +64,16 @@
   // number inputs keep a local text buffer so "1.234,5" can be typed freely
   let text = $state("");
   let focused = $state(false);
+  // whether the reader typed in the field since it took the focus: a field only passed through (Tab) commits
+  // nothing, and keeps showing its value as a script changes it
+  let edited = $state(false);
   // a Currency shows, and commits, the number of places the site actually
   // stores — not a hardcoded 2, which was right about USD by accident and
   // wrong about JPY
   const moneyPrecision = $derived(ft === "Currency" ? fieldCurrencyPrecision(field) : undefined);
   const scale = $derived(ft === "Currency" || ft === "Float" || ft === "Int" ? displayScale(field) : null);
   $effect(() => {
-    if (focused) return;
+    if (focused && edited) return;
     if (value === null || value === undefined) text = "";
     // a script's display scale (thousands): the field shows value ÷ scale, to the scale's own places
     else if (scale) text = formatNumber(Number(value) / scale.scale, scale.precision);
@@ -78,6 +81,10 @@
   });
   function commitNumber() {
     focused = false;
+    // nothing was typed: the text is the value as shown (rounded, or in a display scale), and committing it would
+    // change a value the reader only passed by, or put back one a script has changed meanwhile
+    if (!edited) return;
+    edited = false;
     const typed = parseNumber(text);
     if (typed === null) return onchange(null);
     // what was typed is in the scale shown; what is stored is not
@@ -151,7 +158,7 @@
             {#if ft === "Currency" && !inGrid && currencyBefore()}<span class="muted" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:12px">{currencySymbol()}</span>{/if}
             {#if ft === "Currency" && !inGrid && !currencyBefore()}<span class="muted" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:12px">{currencySymbol()}</span>{/if}
             <input {id} class="input num" class:error={!!shownError} style:padding-left={ft === "Currency" && !inGrid && currencyBefore() ? "30px" : undefined} style:padding-right={ft === "Percent" ? "24px" : ft === "Currency" && !inGrid && !currencyBefore() ? "30px" : undefined} style="text-align:right" readonly={ro}
-              value={text} onfocus={() => (focused = true)} oninput={(e) => (text = (e.target as HTMLInputElement).value)} onblur={commitNumber}
+              value={text} onfocus={() => { focused = true; edited = false; }} oninput={(e) => { edited = true; text = (e.target as HTMLInputElement).value; }} onblur={commitNumber}
               onkeydown={(e) => e.key === "Enter" && commitNumber()} inputmode="decimal" />
             {#if ft === "Percent"}<span class="muted" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:12px">%</span>{/if}
           </div>
