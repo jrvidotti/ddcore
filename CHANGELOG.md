@@ -14,6 +14,17 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **`frm.setGridDfProperty(table, childField, prop, value)` hides or relabels a Table's column on
+  one form.** `hidden`, `label`, `description` and `readOnly` of a child field, followed by the
+  grid, the row dialog and the export. A child with generic slots (twelve months, of which a
+  document uses four) shows each form its own columns. Display only: the server is unaffected.
+  See "Grids: columns a script hides or relabels" in `form-api`.
+- **`frm.setBanner(message | null, { color, actions })` puts a notice at the top of a form**, in
+  view while the form scrolls, with buttons that run a script's action. Cleared on each `refresh`.
+  See "A notice at the top of the form" in `form-api`.
+
 ## 0.31.30 — 2026-11-10
 
 ### Added

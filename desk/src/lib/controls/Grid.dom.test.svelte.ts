@@ -30,7 +30,7 @@ const childMeta: any = {
   ],
 };
 
-function setup(field: any, perms: Record<string, boolean> = { export: true }, onCellClick: Record<string, (row: any) => void> = {}, editable = true, fieldButtons: Record<string, any[]> = {}, gridActions: Record<string, any[]> = {}, onRowClick?: (row: any) => void, meta: any = childMeta) {
+function setup(field: any, perms: Record<string, boolean> = { export: true }, onCellClick: Record<string, (row: any) => void> = {}, editable = true, fieldButtons: Record<string, any[]> = {}, gridActions: Record<string, any[]> = {}, onRowClick?: (row: any) => void, meta: any = childMeta, gridDfProps: Record<string, any> = {}) {
   const doc = $state<any>({
     id: "C-1",
     students: [
@@ -41,7 +41,7 @@ function setup(field: any, perms: Record<string, boolean> = { export: true }, on
   });
   const selections = new Map<string, { rows: () => any[]; clear: () => void }>();
   const frm: any = {
-    doc, doctype: "Course", meta: { permissions: perms }, fieldButtons, gridActions,
+    doc, doctype: "Course", meta: { permissions: perms }, fieldButtons, gridActions, gridDfProps,
     registerGridSelection(fieldname: string, sel: any) { selections.set(fieldname, sel); return () => selections.delete(fieldname); },
     getSelectedRows: (fieldname: string) => selections.get(fieldname)?.rows() ?? [],
     clearSelection: (fieldname: string) => selections.get(fieldname)?.clear(),
@@ -456,6 +456,38 @@ describe("Grid actions on the selected rows", () => {
     const t = setup({}, {}, {}, true, {}, { students: [{ label: "Enable", onClick: vi.fn() }] });
     expect(t.target.querySelector("input[type=checkbox]")).toBeNull();
     expect(actionButtons(t)).toEqual([]);
+    t.done();
+  });
+});
+
+describe("Grid columns a script overrides (frm.setGridDfProperty)", () => {
+  const overrides = { students: { grade: { hidden: true }, employee_name: { label: "Student" }, unit: { hidden: false, label: "Campus" } } };
+  const mountWith = (field: any = {}) => setup(field, { export: true }, {}, true, {}, {}, undefined, childMeta, overrides);
+
+  it("hides a column and relabels another, leaving the meta as it was", () => {
+    const t = mountWith();
+    const heads = [...t.target.querySelectorAll("thead th")].map((th) => th.textContent?.trim()).filter(Boolean);
+    expect(heads).toContain("Student");
+    expect(heads).not.toContain("Name");
+    expect(heads).not.toContain("Grade");
+    expect(childMeta.fields.find((f: any) => f.fieldname === "grade").hidden).toBeUndefined();
+    t.done();
+  });
+
+  it("the row dialog shows the same fields: the hidden one out, the unhidden one in, with its label", () => {
+    dialogs.length = 0;
+    const t = mountWith({ gridEditMode: "dialog" });
+    t.click(t.target.querySelector('tbody tr button[title="Edit row"]'));
+    const fields = dialogs.at(-1).fields.map((f: any) => [f.fieldname, f.label]);
+    expect(fields).toEqual([["employee_name", "Student"], ["in_class", "In class"], ["unit", "Campus"]]);
+    t.done();
+  });
+
+  it("the export follows the columns on screen", () => {
+    downloads.length = 0;
+    const t = mountWith({ gridExport: true });
+    t.click([...t.target.querySelectorAll("button")].find((b) => /csv/i.test(b.textContent || "")) ?? null);
+    expect(downloads.at(-1)[2]).toEqual(["Student", "In class"]);
     t.done();
   });
 });

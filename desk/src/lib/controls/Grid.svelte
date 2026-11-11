@@ -11,7 +11,7 @@
   import { __ } from "$lib/boot.svelte";
   import { confirm, dialog } from "$lib/ui.svelte";
   import type { FormController } from "$lib/form.svelte";
-  import { applyRowChanges, changedKeys, confirmRowRemoval, createChildDraft, fileNameParts, gridEditMode, inlineEditable } from "./grid-state";
+  import { applyRowChanges, changedKeys, confirmRowRemoval, createChildDraft, fileNameParts, gridEditMode, inlineEditable, overlayFields } from "./grid-state";
   import { getLinkTitle } from "$lib/titles.svelte";
   import { declaredSort, downloadTable, exportBaseName, exportTable } from "$lib/grid-rows";
   import { GridRowsState } from "$lib/grid-rows-state.svelte";
@@ -31,12 +31,14 @@
   const cannotDelete = $derived(!!(field as any).cannotDeleteRows);
   // frm.setDfProperty(table, "loading", true) while a script fetches the rows
   const loading = $derived(!!(field as any).loading);
-  const columns = $derived(childMeta.fields.filter((f) => f.inListView && !isLayout(f) && !f.hidden));
+  // the child's fields as this form shows them: a script may hide or relabel one (frm.setGridDfProperty)
+  const childFields = $derived(overlayFields(childMeta.fields, frm.gridDfProps?.[field.fieldname!]));
+  const columns = $derived(childFields.filter((f) => f.inListView && !isLayout(f) && !f.hidden));
   const totalCols = $derived(columns.reduce((s, c) => s + (c.columns || 2), 0));
   const editMode = $derived(gridEditMode(field));
   const dialogOnly = $derived(editMode === "dialog");
   // a column no cell can edit (a Signature) is edited in the row dialog
-  const hasDialog = $derived(dialogOnly || childMeta.fields.some((f) => !f.inListView && !isLayout(f) && !f.hidden)
+  const hasDialog = $derived(dialogOnly || childFields.some((f) => !f.inListView && !isLayout(f) && !f.hidden)
     || columns.some((c) => !inlineEditable(c.fieldtype)));
 
   // Sorting is display only: `rows` keeps its order (and each row its idx),
@@ -45,7 +47,7 @@
   const presets = $derived(field.gridFilters || []);
   const searchFields = $derived(field.gridSearch || []);
   // preset filters and the search box (over its columns, hidden ones included) narrow what is shown
-  const grid = new GridRowsState({ rows: () => rows, columns: () => childMeta.fields, presets: () => presets, search: () => searchFields, baseSort: () => declaredSort(field.gridSort) });
+  const grid = new GridRowsState({ rows: () => rows, columns: () => childFields, presets: () => presets, search: () => searchFields, baseSort: () => declaredSort(field.gridSort) });
   const sortable = $derived(!!field.gridSortable);
   const selectable = $derived(!!field.gridSelect);
   const showIndex = $derived(field.gridIndex !== false);
@@ -74,7 +76,7 @@
 
   function editRow(row: any, isNew = false) {
     const i = isNew ? rows.length : rows.indexOf(row);
-    const fields = childMeta.fields.filter((f) => !f.hidden).map((f) => ({ ...f, readOnly: f.readOnly || !editable || (!isNew && frm.isSetOnce(f, row, field.fieldname!)) }));
+    const fields = childFields.filter((f) => !f.hidden).map((f) => ({ ...f, readOnly: f.readOnly || !editable || (!isNew && frm.isSetOnce(f, row, field.fieldname!)) }));
     const d = dialog({
       title: `${field.label} · ${isNew ? __("New") : `${__("Row")} ${i + 1}`}`, fields, values: { ...row }, size: "lg",
       primaryLabel: editable ? __("Apply") : __("Close"),
