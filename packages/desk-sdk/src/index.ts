@@ -129,12 +129,14 @@ export interface Frm<T extends BaseDoc = BaseDoc> {
 /**
  * what `frm.setDfProperty` changes: any field property, plus the grid's runtime-only flags.
  * `loading` puts a Table's grid in its loading state while a script fetches its rows: a
- * spinner in place of "No rows", or the rows on screen dimmed, with its actions disabled
+ * spinner in place of "No rows", or the rows on screen dimmed, with its actions disabled.
+ * `displayScale` shows a Currency, Float or Int as value ÷ scale and stores what is typed × scale
+ * (1000: thousands), with `displayPrecision` places on screen; what is stored does not change
  */
-export type DfProperty = keyof FieldDef | "cannotAddRows" | "cannotDeleteRows" | "loading";
+export type DfProperty = keyof FieldDef | "cannotAddRows" | "cannotDeleteRows" | "loading" | "displayScale" | "displayPrecision";
 
 /** what `frm.setGridDfProperty` changes on a child field */
-export type GridDfProperty = "hidden" | "label" | "description" | "readOnly";
+export type GridDfProperty = "hidden" | "label" | "description" | "readOnly" | "displayScale" | "displayPrecision";
 
 export interface FormBannerOptions {
   /** `blue` (the default), `orange`, `red`, `green`, `yellow`, `gray` or `purple` */

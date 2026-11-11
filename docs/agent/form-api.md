@@ -256,7 +256,8 @@ defineForm("Sales Plan", {
 });
 ```
 
-- `prop` is `hidden`, `label`, `description` or `readOnly`.
+- `prop` is `hidden`, `label`, `description`, `readOnly`, or `displayScale` / `displayPrecision`
+  (see "Showing a number in another scale").
 - The grid, the row dialog and the export all follow: a hidden field leaves the three, and
   `hidden: false` brings a field the meta hides into the row dialog (into the grid too, when it
   is `inListView`).
@@ -265,6 +266,26 @@ defineForm("Sales Plan", {
   holds, and `readOnly` here does not refuse a write.
 - The overrides last while the form is open, across saves and reloads, like `setDfProperty`: set
   every slot on each `refresh` when they depend on the document.
+
+### Showing a number in another scale
+
+A budget of millions reads better in thousands. `displayScale` and `displayPrecision` change how
+a `Currency`, `Float` or `Int` field is shown and typed, never what it stores:
+
+```ts
+frm.setDfProperty("planned_sales", "displayScale", 1000);       // 41828 shows as 41.8
+frm.setDfProperty("planned_sales", "displayPrecision", 1);
+frm.setGridDfProperty("lines", "planned_sales", "displayScale", 1000);   // the same, on a grid's column
+frm.setGridDfProperty("lines", "planned_sales", "displayPrecision", 1);
+```
+
+- The field shows value ÷ scale with `displayPrecision` places (the field's own `precision` when
+  left out), in its input, as a read-only value, in a grid's cell and in the row dialog.
+- What is typed is rounded to those places, multiplied by the scale and then stored as the field
+  always stores: typing `41.8` stores `41800`. `frm.doc`, `onChange` handlers, the server and a
+  grid's export all see the stored number.
+- A scale of `1` (or none) is the field as it is. Runtime only: neither property is part of a
+  DocType's meta, so say on screen which scale is in use (an indicator, a label).
 
 ### A notice at the top of the form
 

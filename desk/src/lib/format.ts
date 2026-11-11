@@ -63,8 +63,34 @@ export const durationHides = (f: Partial<Field> | undefined, flag: string): bool
   return Array.isArray(o) ? o.includes(flag) : o === flag;
 };
 
+/**
+ * A number field's display scale, set by a form script (`displayScale`, `displayPrecision`): the
+ * field shows value ÷ scale and takes what is typed × scale, with `precision` places on screen.
+ * Null when the field has none: it shows what it stores.
+ */
+export function displayScale(f?: Partial<Field>): { scale: number; precision: number | undefined } | null {
+  const scale = Number((f as any)?.displayScale);
+  if (!isFinite(scale) || scale <= 0 || scale === 1) return null;
+  const p = (f as any)?.displayPrecision;
+  return { scale, precision: typeof p === "number" && p >= 0 ? p : f?.precision };
+}
+
+/** What a scaled field stores for a number typed in it. */
+export function unscale(typed: number, f?: Partial<Field>): number {
+  const d = displayScale(f);
+  if (!d) return typed;
+  const shown = d.precision === undefined ? typed : round(typed, d.precision, roundingMode());
+  // 41.8 × 1000 is 41799.99…: the product is cleaned to the places a float can carry
+  return Number((shown * d.scale).toPrecision(15));
+}
+
 export function formatValue(v: any, f?: Partial<Field>): string {
   if (v === null || v === undefined) return "";
+  const scaled = displayScale(f);
+  if (scaled && (f?.fieldtype === "Currency" || f?.fieldtype === "Float" || f?.fieldtype === "Int")) {
+    const shown = Number(v) / scaled.scale;
+    return f.fieldtype === "Currency" ? formatCurrency(shown, scaled.precision) : formatNumber(shown, scaled.precision);
+  }
   switch (f?.fieldtype) {
     case "Currency": return formatCurrency(v, f.precision);
     case "Percent": return formatNumber(v, f.precision ?? 2) + "%";
