@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.31.32 — 2026-11-11
+
 ### Added
 
 - **`displayScale` and `displayPrecision` show a number field in another scale** (thousands), set
