@@ -261,6 +261,9 @@
      (<html lang>), or broken where it must, instead of spilling into the next header */
   table.inline-grid th { white-space: normal; hyphens: auto; overflow-wrap: break-word; }
   table.inline-grid td:not(.num) { overflow-wrap: anywhere; }
+  /* a cell that holds an input: the input's own border and padding already set its value apart, so the cell keeps
+     a narrow gutter and a row of inputs reads as one line of figures rather than boxes far apart */
+  table.grid td:has(:global(.input)) { padding-left: 4px; padding-right: 4px; }
   /* before .cell-value, which a dialog-mode cell button also carries */
   .cell-click { all: unset; box-sizing: border-box; max-width: 100%; cursor: pointer; }
   .cell-click:hover { text-decoration: underline; }

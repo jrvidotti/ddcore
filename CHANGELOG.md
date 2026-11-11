@@ -14,6 +14,11 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Changed
+
+- **A grid's editable cells sit closer together.** A cell holding an input keeps a 4px gutter at each
+  side instead of the 10px of a text cell, so the gap between two inputs goes from 20px to 8px.
+
 ## 0.31.31 — 2026-11-11
 
 ### Added
