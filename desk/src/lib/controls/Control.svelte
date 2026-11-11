@@ -4,7 +4,7 @@
   // dialogs, grids and filters alike.
   import type { Field } from "$lib/meta";
   import { selectLabels, selectOptions } from "$lib/meta";
-  import { fieldCurrencyPrecision, formatNumber, isIndicatorSelect, parseNumber, roundCurrency } from "$lib/format";
+  import { displayScale, fieldCurrencyPrecision, formatNumber, isIndicatorSelect, parseNumber, roundCurrency, unscale } from "$lib/format";
   import SelectIndicator from "$lib/components/SelectIndicator.svelte";
   import LinkControl from "./LinkControl.svelte";
   import AutocompleteControl from "./AutocompleteControl.svelte";
@@ -68,13 +68,20 @@
   // stores — not a hardcoded 2, which was right about USD by accident and
   // wrong about JPY
   const moneyPrecision = $derived(ft === "Currency" ? fieldCurrencyPrecision(field) : undefined);
+  const scale = $derived(ft === "Currency" || ft === "Float" || ft === "Int" ? displayScale(field) : null);
   $effect(() => {
-    if (!focused) text = value === null || value === undefined ? "" : ft === "Int" ? String(Math.round(Number(value))) : formatNumber(value, moneyPrecision ?? field.precision);
+    if (focused) return;
+    if (value === null || value === undefined) text = "";
+    // a script's display scale (thousands): the field shows value ÷ scale, to the scale's own places
+    else if (scale) text = formatNumber(Number(value) / scale.scale, scale.precision);
+    else text = ft === "Int" ? String(Math.round(Number(value))) : formatNumber(value, moneyPrecision ?? field.precision);
   });
   function commitNumber() {
     focused = false;
-    const n = parseNumber(text);
-    if (n === null) return onchange(null);
+    const typed = parseNumber(text);
+    if (typed === null) return onchange(null);
+    // what was typed is in the scale shown; what is stored is not
+    const n = scale ? unscale(typed, field) : typed;
     if (ft === "Int") return onchange(Math.round(n));
     // the field showed a rounded number; committing the unrounded one is what
     // made the form and the database hold different values

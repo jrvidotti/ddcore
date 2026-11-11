@@ -14,6 +14,13 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **`displayScale` and `displayPrecision` show a number field in another scale** (thousands), set
+  with `frm.setDfProperty` or `frm.setGridDfProperty` on a Currency, Float or Int: the field shows
+  value ÷ scale and stores what is typed × scale. What is stored, `frm.doc` and a grid's export do
+  not change. See "Showing a number in another scale" in `form-api`.
+
 ### Changed
 
 - **A grid's editable cells sit closer together.** A cell holding an input keeps a 4px gutter at each
