@@ -19,7 +19,8 @@ older series, and `whats_new` reads across every one of them.
 - **`displayScale` and `displayPrecision` show a number field in another scale** (thousands), set
   with `frm.setDfProperty` or `frm.setGridDfProperty` on a Currency, Float or Int: the field shows
   value ÷ scale and stores what is typed × scale. What is stored, `frm.doc` and a grid's export do
-  not change. See "Showing a number in another scale" in `form-api`.
+  not change. See "Showing a number in another scale" in `form-api`. A Currency column shown in a
+  larger scale also reserves less room in a grid (88px instead of 104px or 124px).
 
 ### Changed
 

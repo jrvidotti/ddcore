@@ -37,3 +37,11 @@ describe("fit layout", () => {
     expect(splitLastWord("")).toEqual(["", ""]);
   });
 });
+
+describe("a Currency column shown in a larger scale", () => {
+  it("reserves the room of the shorter number", () => {
+    expect(numericColumnMin({ fieldtype: "Currency", precision: 0 } as any)).toBe(104);
+    expect(numericColumnMin({ fieldtype: "Currency", precision: 0, displayScale: 1000 } as any)).toBe(88);
+    expect(numericColumnMin({ fieldtype: "Currency", precision: 0, displayScale: 1 } as any)).toBe(104);
+  });
+});

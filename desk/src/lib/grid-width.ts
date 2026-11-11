@@ -11,7 +11,9 @@ const AVERAGE_COLUMN = 88;
 // So a numeric column gets the room of a typical value, padding included: "R$ 1.234.567" in a precision-0
 // Currency, "R$ 123.456,78" with cents.
 const NUMERIC_MIN: Record<string, number> = { Int: 64, Float: 72, Percent: 72, Duration: 88, Rating: 104 };
-const currencyMin = (f: Field) => ((f.precision ?? 2) > 0 ? 124 : 104);
+// A Currency a script shows in a larger scale (`displayScale`: thousands) holds a shorter number: "R$ 1.234,5".
+const SCALED_CURRENCY = 88;
+const currencyMin = (f: Field) => (Number((f as any).displayScale) > 1 ? SCALED_CURRENCY : (f.precision ?? 2) > 0 ? 124 : 104);
 
 export function numericColumnMin(f: Field): number | undefined {
   return f.fieldtype === "Currency" ? currencyMin(f) : NUMERIC_MIN[f.fieldtype ?? ""];
