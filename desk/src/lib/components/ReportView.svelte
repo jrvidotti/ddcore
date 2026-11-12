@@ -100,7 +100,7 @@
     <div class="card" style="padding:12px 14px;margin-bottom:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
       {#each meta.filters as f (f.fieldname)}
         <div style="width:{f.fieldtype === 'Check' ? 'auto' : '190px'}">
-          <Control field={f} value={filters[f.fieldname]} onchange={(v) => updateFilter(f.fieldname, v)} compact />
+          <Control field={f} value={filters[f.fieldname]} onchange={(v) => updateFilter(f.fieldname, v)} doc={filters} compact />
         </div>
       {/each}
     </div>

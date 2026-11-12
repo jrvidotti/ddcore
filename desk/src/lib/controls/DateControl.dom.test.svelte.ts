@@ -16,9 +16,12 @@ beforeEach(() => {
 });
 afterEach(() => vi.useRealTimers());
 
-function setup(initial: string | null, readOnly = false) {
+function setup(initial: string | null, readOnly = false, min: string | null = null) {
   const changes: any[] = [];
+  const refused: boolean[] = [];
   const props = $state({
+    min,
+    onrefused: (r: boolean) => refused.push(r),
     field: { fieldname: "due", fieldtype: "Date" } as any,
     value: initial as any,
     readOnly,
@@ -32,7 +35,7 @@ function setup(initial: string | null, readOnly = false) {
   const popover = () => target.querySelector<HTMLElement>('[role="dialog"]');
   const flush = <T>(f: () => T) => { const r = f(); flushSync(); return r; };
   return {
-    props, changes, target, input, popover,
+    props, changes, refused, target, input, popover,
     focus: () => flush(() => input.dispatchEvent(new FocusEvent("focus"))),
     blur: () => flush(() => input.dispatchEvent(new FocusEvent("blur"))),
     type: (s: string) => flush(() => { input.value = s; input.dispatchEvent(new Event("input", { bubbles: true })); }),
@@ -240,5 +243,72 @@ describe("DateControl", () => {
     expect(t.target.querySelector(".day-cell.selected")?.textContent?.trim()).toBe("20");
     expect(t.target.querySelector(".day-cell.is-today")?.textContent?.trim()).toBe("15");
     t.done();
+  });
+
+  describe("with a minimum (minDateField)", () => {
+    const day = (t: ReturnType<typeof setup>, n: string) =>
+      [...t.target.querySelectorAll<HTMLButtonElement>(".day-cell:not(.other-month)")].find((b) => b.textContent!.trim() === n)!;
+
+    it("opens on the minimum's month when empty, with the days before it disabled", () => {
+      const t = setup(null, false, "2026-05-10");
+      t.click(t.calBtn());
+      expect(t.title()).toBe("May 2026");
+      expect(day(t, "9").disabled).toBe(true);
+      expect(day(t, "10").disabled).toBe(false);
+      t.click(day(t, "9"));
+      expect(t.changes).toEqual([]);
+      t.click(day(t, "12"));
+      expect(t.changes).toEqual(["2026-05-12"]);
+      t.done();
+    });
+
+    it("disables Today when today is before the minimum", () => {
+      const t = setup(null, false, "2026-05-10");
+      t.click(t.calBtn());
+      expect(t.link("Today")!.disabled).toBe(true);
+      t.done();
+    });
+
+    it("opens on its own value's month when it has one", () => {
+      const t = setup("2026-07-01", false, "2026-05-10");
+      t.click(t.calBtn());
+      expect(t.title()).toBe("July 2026");
+      t.done();
+    });
+
+    it("refuses an earlier day typed, and puts the value back on blur", () => {
+      const t = setup("2026-05-20", false, "2026-05-10");
+      t.focus();
+      t.type("09052026");
+      expect(t.changes).toEqual([]);
+      expect(t.refused.at(-1)).toBe(true);
+      t.blur();
+      expect(t.changes).toEqual([]);
+      expect(t.input.value).toBe("20/05/2026");
+      t.focus();
+      t.type("11052026");
+      expect(t.changes).toEqual(["2026-05-11"]);
+      expect(t.refused.at(-1)).toBe(false);
+      t.done();
+    });
+
+    it("does not step below the minimum with the arrow keys", () => {
+      const t = setup("2026-05-10", false, "2026-05-10");
+      t.focus();
+      t.caret(0);
+      t.key("ArrowDown");
+      expect(t.changes).toEqual([]);
+      t.key("ArrowUp");
+      expect(t.changes).toEqual(["2026-05-11"]);
+      t.done();
+    });
+
+    it("changes nothing without a minimum", () => {
+      const t = setup(null);
+      t.click(t.calBtn());
+      expect(t.title()).toBe("March 2026");
+      expect(day(t, "1").disabled).toBe(false);
+      t.done();
+    });
   });
 });

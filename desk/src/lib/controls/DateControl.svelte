@@ -21,6 +21,8 @@
     readOnly = false,
     error = "",
     id = "",
+    min = null,
+    onrefused = undefined,
   }: {
     field: Field;
     value: any;
@@ -28,6 +30,9 @@
     readOnly?: boolean;
     error?: string;
     id?: string;
+    /** The earliest day taken (ISO); the days before it are disabled (see minDateField). */
+    min?: string | null;
+    onrefused?: (refused: boolean) => void;
   } = $props();
 
   const fmt = { format: formatDateLocal, parse: parseDateLocal, mask: maskDateInput, step: stepDate, digits: 8 };
@@ -88,6 +93,8 @@
     onnext: nextMonth,
   }}
   onview={showMonth}
+  {min}
+  {onrefused}
 >
   {#snippet grid(choose)}
     <div class="week-row">
@@ -100,9 +107,11 @@
       {#each calendarDays as d}
         {@const isSelected = currentParsed?.iso === d.iso}
         {@const isToday = todayIso === d.iso}
+        {@const beforeMin = !!min && d.iso < min}
         <button
           type="button"
           class="day-cell"
+          disabled={beforeMin}
           class:other-month={!d.isCurrentMonth}
           class:selected={isSelected}
           class:is-today={isToday && !isSelected}
@@ -153,8 +162,13 @@
     padding: 0;
   }
 
-  .day-cell:hover {
+  .day-cell:hover:not(:disabled) {
     background: var(--hover);
+  }
+
+  .day-cell:disabled {
+    color: color-mix(in srgb, var(--muted) 40%, var(--surface));
+    cursor: default;
   }
 
   .day-cell.other-month {

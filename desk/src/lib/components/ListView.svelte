@@ -612,7 +612,9 @@
           onchange={(v) => updateFilter(f.fieldname!, formatRange(v, range.to))} />
       </div>
       <div class="select-filter labelled">
-        <Control field={{ fieldname: `${f.fieldname}_to`, fieldtype: "Date", label: __("{0} to", [ff.label]) }} value={range.to} compact
+        <!-- the "to" day takes no day before the "from" one -->
+        <Control field={{ fieldname: `${f.fieldname}_to`, fieldtype: "Date", label: __("{0} to", [ff.label]), minDateField: "from" }} value={range.to} compact
+          doc={{ from: range.from }}
           onchange={(v) => updateFilter(f.fieldname!, formatRange(range.from, v))} />
         {#if hasValue(filters[f.fieldname!])}
           <button class="btn icon filter-clear" onclick={() => clearFilter(f.fieldname!)} title={__("Remove the {0} filter", [ff.label])} aria-label={__("Remove the {0} filter", [ff.label])}><Icon name="x" size={14} /></button>

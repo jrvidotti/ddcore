@@ -42,6 +42,8 @@
     nav,
     onview,
     grid,
+    min = null,
+    onrefused = undefined,
   }: {
     field: Field;
     fieldtype: string;
@@ -67,7 +69,16 @@
     /** The popover should show the period of this ISO date. */
     onview: (iso: string) => void;
     grid: Snippet<[(iso: string) => void]>;
+    /** The earliest ISO value taken; an earlier one typed or stepped to is refused. */
+    min?: string | null;
+    /** Told when a value earlier than `min` is refused (true) and when the reader edits again (false). */
+    onrefused?: (refused: boolean) => void;
   } = $props();
+
+  const tooEarly = (iso: string) => !!min && iso < min;
+  function refuse(r: boolean) {
+    onrefused?.(r);
+  }
 
   let text = $state("");
   let focused = $state(false);
@@ -84,7 +95,8 @@
   function togglePicker() {
     if (readOnly) return;
     if (!open) {
-      onview(fmt.parse(value)?.iso ?? todayIso);
+      // empty, it opens on the earliest day it takes rather than on today
+      onview(fmt.parse(value)?.iso ?? (min || todayIso));
       open = true;
     } else {
       open = false;
@@ -97,10 +109,13 @@
     // written back by hand: when the mask drops a keystroke, `text` does not
     // change, so the render would leave the extra character in the input
     target.value = text;
+    refuse(false);
     // complete once every digit is in, whatever the separator's width
     if (text.replace(/\D/g, "").length === fmt.digits) {
       const p = fmt.parse(text);
-      if (p) {
+      if (p && tooEarly(p.iso)) {
+        refuse(true);
+      } else if (p) {
         onview(p.iso);
         onchange(p.iso);
       }
@@ -133,7 +148,7 @@
       e.preventDefault();
       const target = e.target as HTMLInputElement;
       const s = fmt.step(text, target.selectionStart ?? 0, e.key === "ArrowUp" ? 1 : -1, todayIso);
-      if (s) {
+      if (s && !tooEarly(s.iso)) {
         text = s.text;
         onview(s.iso);
         onchange(s.iso);
@@ -146,11 +161,16 @@
 
   function commit() {
     if (!text) {
+      refuse(false);
       if (value) onchange(null);
       return;
     }
     const p = fmt.parse(text);
-    if (p) {
+    if (p && tooEarly(p.iso)) {
+      // refused: the field goes back to what it held, and says why
+      refuse(true);
+      text = fmt.format(value);
+    } else if (p) {
       onchange(p.iso);
       text = fmt.format(p.iso);
     } else {
@@ -164,6 +184,8 @@
   }
 
   function choose(iso: string) {
+    if (tooEarly(iso)) return;
+    refuse(false);
     text = fmt.format(iso);
     onview(iso);
     onchange(iso);
@@ -172,6 +194,7 @@
   }
 
   function clear() {
+    refuse(false);
     text = "";
     onchange(null);
     open = false;
@@ -230,7 +253,7 @@
       {@render grid(choose)}
 
       <div class="popover-foot">
-        <button type="button" class="btn-link" onclick={() => choose(todayValue)}>
+        <button type="button" class="btn-link" disabled={tooEarly(todayValue)} onclick={() => choose(todayValue)}>
           {todayLabel}
         </button>
         {#if value}
@@ -332,6 +355,12 @@
 
   .btn-link:hover {
     text-decoration: underline;
+  }
+
+  .btn-link:disabled {
+    color: var(--muted);
+    cursor: default;
+    text-decoration: none;
   }
 
   .btn-link.muted {

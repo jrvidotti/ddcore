@@ -145,6 +145,11 @@ type Field struct {
 	// ShowFileName shows an Attach's file name next to its icon or thumbnail;
 	// by default the desk shows only those, with the file's details on hover.
 	ShowFileName bool `json:"showFileName,omitempty"`
+	// MinDateField, on a Date, names another Date field of the same DocType
+	// whose value is the earliest day this one takes: the desk's picker opens
+	// on that month, disables the days before it and refuses an earlier typed
+	// day. Desk only — the server does not enforce it.
+	MinDateField string `json:"minDateField,omitempty"`
 	Collapsible  bool `json:"collapsible,omitempty"`
 	Bold         bool `json:"bold,omitempty"`
 	// Permlevel groups the field under the permission rows of the same level
@@ -887,6 +892,7 @@ func (r *Registry) validateFieldOptions(d *DocType, e func(string, ...any)) {
 			e("field %q: invalid width %q (must be sm, md, lg, or full)", f.Fieldname, f.Width)
 		}
 		r.validateLinkTitleField(f, e)
+		validateMinDateField(d, f, e)
 		switch f.Fieldtype {
 		case "Link", "Table", "Table MultiSelect":
 			target := f.OptionsString()
@@ -1337,6 +1343,36 @@ var asciiIdent = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 
 // ValidIdentAscii checks app names and similar identifiers.
 func ValidIdentAscii(s string) bool { return asciiIdent.MatchString(s) }
+
+// validateMinDateField checks a Date's minDateField: another Date field of
+// the same DocType, whose value the desk reads from the same document (or row).
+func validateMinDateField(d *DocType, f *Field, e func(string, ...any)) {
+	if f.MinDateField == "" {
+		return
+	}
+	if f.Fieldtype != "Date" {
+		e("field %q: minDateField is for a Date field, not a %s", f.Fieldname, f.Fieldtype)
+		return
+	}
+	if f.MinDateField == f.Fieldname {
+		e("field %q: minDateField names the field itself", f.Fieldname)
+		return
+	}
+	// d.Fields, not d.Field: the lookup map is cached, and validation runs
+	// while extensions are still adding fields
+	var t *Field
+	for _, g := range d.Fields {
+		if g.Fieldname == f.MinDateField {
+			t = g
+		}
+	}
+	switch {
+	case t == nil:
+		e("field %q: minDateField %q is not a field of %q", f.Fieldname, f.MinDateField, d.Name)
+	case t.Fieldtype != "Date":
+		e("field %q: minDateField %q is a %s, not a Date", f.Fieldname, f.MinDateField, t.Fieldtype)
+	}
+}
 
 // validateLinkTitleField checks a Link's linkTitleField. Its value is read
 // like a titleField (raw SQL for every Link shown, whatever the user may

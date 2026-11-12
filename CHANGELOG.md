@@ -14,6 +14,16 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **`minDateField` keeps a Date from taking a day before another.** On a `Date` field,
+  `minDateField: "start_date"` names the field whose value is the earliest day it takes: with that
+  field filled, the picker opens on its month, disables the days before it, and a day typed earlier
+  is refused with "Must be on or after <day>" on the field. It works in forms, child rows, dialogs
+  and report filters, and a list's date range filter now keeps its "to" day from going before its
+  "from" day on its own. Desk only — keep the check in `validate`. See `minDateField` in
+  `fieldtypes`.
+
 ## 0.31.32 — 2026-11-11
 
 ### Added

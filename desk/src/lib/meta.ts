@@ -20,6 +20,8 @@ export interface Field {
   maxBytes?: number;
   columns?: number; width?: FieldWidth; gridEditMode?: "inline" | "dialog"; collapsible?: boolean; bold?: boolean;
   showFileName?: boolean;
+  /** Date: the field of the same document whose value is the earliest day this one takes (desk only). */
+  minDateField?: string;
   /** Small Text, Text, Markdown Editor, Code: text area height outside a grid. */
   rows?: number;
   /** Label off the form (kept for screen readers, exports, dialogs, errors). */

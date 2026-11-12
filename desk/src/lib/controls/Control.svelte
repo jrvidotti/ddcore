@@ -23,6 +23,7 @@
   import MonthControl from "./MonthControl.svelte";
   import TimeControl from "./TimeControl.svelte";
   import DateControl from "./DateControl.svelte";
+  import { formatDateLocal } from "./date-format.ts";
   import { __ } from "$lib/boot.svelte";
   import { isSystemUserEmail, normalizeEmail, validEmail } from "$lib/email";
   import { toDatetimeLocal, fromDatetimeLocal } from "$lib/datetime";
@@ -50,7 +51,13 @@
   const req = $derived(mandatory || !!field.reqd);
   let emailError = $state("");
   let fileError = $state("");
-  const shownError = $derived(error || emailError || fileError);
+  // minDateField: the earliest day this Date takes is another field's value in the same document
+  const minDate = $derived(ft === "Date" && field.minDateField && doc?.[field.minDateField] ? String(doc[field.minDateField]).slice(0, 10) : null);
+  let dateRefused = $state(false);
+  const minDateError = $derived(
+    minDate && (dateRefused || (value && String(value).slice(0, 10) < minDate)) ? __("Must be on or after {0}", [formatDateLocal(minDate)]) : "",
+  );
+  const shownError = $derived(error || emailError || fileError || minDateError);
 
   let isEditingVault = $state(false);
   let wasConfigured = $state(false);
@@ -146,7 +153,7 @@
         {:else if ft === "Month" || (ft === "Date" && (field.options === "month" || (field as any).format === "mm/yyyy"))}
           <MonthControl {field} {value} {onchange} {id} readOnly={ro} error={shownError} />
         {:else if ft === "Date"}
-          <DateControl {field} {value} {onchange} {id} readOnly={ro} error={shownError} />
+          <DateControl {field} {value} {onchange} {id} readOnly={ro} error={shownError} min={minDate} onrefused={(r) => (dateRefused = r)} />
         {:else if ft === "Datetime"}
           <!-- no showPicker on click: the popup takes the keyboard, and the segments could not be typed into (#138) -->
           <input {id} type="datetime-local" class="input" class:error={!!shownError} readonly={ro} value={toDatetimeLocal(value)}

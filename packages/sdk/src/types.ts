@@ -204,6 +204,16 @@ export interface FieldDef {
    */
   showFileName?: boolean;
   /**
+   * Date: another Date field of the same document (the same row, in a child;
+   * the same values, in a dialog or a report's filters) whose value is the
+   * earliest day this one takes. With it filled, the picker opens on its
+   * month, the days before it are disabled and an earlier typed day is
+   * refused with an error on the field; empty, nothing changes. Desk only —
+   * the server does not enforce it, so a controller that must refuse an
+   * earlier day still checks it in `validate`.
+   */
+  minDateField?: string;
+  /**
    * Small Text / Text / Markdown Editor / Code: how many lines tall the text
    * area is on a form or in a dialog (defaults 2 / 5 / 8 / 8). A grid cell
    * keeps its compact height. Refused on any other fieldtype.
