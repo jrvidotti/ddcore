@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.31.34 — 2026-11-12
+
 ### Fixed
 
 - **A `gridLayout: "fit"` grid no longer crushes its inputs.** The row buttons' column takes the
