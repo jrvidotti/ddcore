@@ -129,6 +129,22 @@ describe("Grid", () => {
     t.done();
   });
 
+  it("a fit grid keeps an input's room inside its cell, so the row buttons do not crush it", () => {
+    const editableMeta = { ...childMeta, fields: childMeta.fields.map((f: any) => (f.fieldname === "grade" ? { ...f, fieldtype: "Currency", readOnly: false } : f)) };
+    const t = setup({ gridLayout: "fit" }, undefined, undefined, undefined, undefined, undefined, undefined, editableMeta);
+    const table = t.target.querySelector("table")!;
+    const ths = [...table.querySelectorAll("thead th")] as HTMLElement[];
+    // #, Name, Grade, In class, row buttons
+    expect(ths[2].style.width).toBe("124px");
+    const boxes = [...table.querySelectorAll("tbody tr td .fit-input")] as HTMLElement[];
+    expect(boxes.length).toBe(3);
+    expect(boxes[0].style.width).toBe("124px");
+    expect(boxes[0].querySelector("input")).not.toBeNull();
+    // a read-only column has no box: it fits its values
+    expect(table.querySelectorAll("tbody tr:first-child .fit-input").length).toBe(1);
+    t.done();
+  });
+
   it("hideLabel keeps the label for screen readers only, and still names the row dialog", () => {
     const shown = setup({});
     expect(shown.target.querySelector(".grid-field > .label")?.classList.contains("sr-only")).toBe(false);

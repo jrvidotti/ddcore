@@ -14,6 +14,15 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- **A `gridLayout: "fit"` grid no longer crushes its inputs.** The row buttons' column takes the
+  room left over (`width: 100%`), and an input has next to no width of its own, so an editable
+  Currency or Date column shrank below the room it was given: the value was cut (`10.000,0`) and an
+  empty input dwindled to a sliver. The room an editable column keeps (a Currency's 124px, 160px
+  for text and dates) now sits on a box inside each cell, which the table honours. See
+  `gridLayout` in `fieldtypes`.
+
 ## 0.31.33 — 2026-11-12
 
 ### Added

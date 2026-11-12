@@ -212,10 +212,14 @@
             {#if selectable}<td><input type="checkbox" aria-label={__("Select row {0}", [row.idx ?? i + 1])} checked={grid.selected.has(row)} onchange={() => grid.toggle(row)} /></td>{/if}
             {#if showIndex}<td class="muted">{row.idx ?? i + 1}</td>{/if}
             {#each columns as c}
+              <!-- in a fit grid an input's min-content is next to nothing, and the row buttons' 100% would crush its
+                   column below the header's width: its room (grid-width.ts) goes on a box inside the cell -->
               <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
               {@const cap = fit && c.gridMaxWidth}
+              {@const input = fit && fitWidth(c)}
               <td class:num={num(c)} class:capped={cap} onclick={forwardCellClick}>
-                {#if cap}<div class="fit-cap" style:max-width="{c.gridMaxWidth}px">{@render cell(c, row)}</div>{:else}{@render cell(c, row)}{/if}
+                {#if input}<div class="fit-input" style:width="{input}px">{@render cell(c, row)}</div>
+                {:else if cap}<div class="fit-cap" style:max-width="{c.gridMaxWidth}px">{@render cell(c, row)}</div>{:else}{@render cell(c, row)}{/if}
               </td>
             {/each}
             <td style="white-space:nowrap;text-align:right" data-own-click>
