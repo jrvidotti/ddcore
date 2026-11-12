@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.31.33 — 2026-11-12
+
 ### Added
 
 - **`minDateField` keeps a Date from taking a day before another.** On a `Date` field,
