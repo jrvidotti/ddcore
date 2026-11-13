@@ -14,6 +14,17 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Changed
+
+- **A grid's row dialog runs the field handlers while the reader edits.**
+  `grids.<table>.onChange.<child field>` now runs in the row dialog as each field changes, as it
+  does in an inline grid, instead of once on Apply. The handler's `row` is the dialog's working
+  copy, and a `setRowValue` on it (or on its row's `id`) updates the dialog at once — a growth
+  recomputes the target in the same dialog. Apply copies the row back and fires the table's
+  `onChange` with every changed field, as before; Cancel throws the copy away. Until Apply,
+  `frm.doc.<table>` holds the row as it was: a total over the rows belongs in the table's
+  `onChange`. See `form-api`, "Grids: row changes and cell clicks". (#162)
+
 ## 0.31.36 — 2026-11-13
 
 ### Fixed

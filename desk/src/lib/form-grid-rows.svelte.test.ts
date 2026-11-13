@@ -166,3 +166,76 @@ describe("grid field changes", () => {
     expect(events).toEqual(["table:undefined:undefined"]);
   });
 });
+
+describe("row dialog (#162)", () => {
+  const events: string[] = [];
+  let late: ((v: number) => void) | undefined;
+  registerForm("Campaign", {
+    onChange: { goals: (_f, _cdt, _cdn, row, changed) => { events.push(`table:${Math.round(row?.target)}:${changed?.join(",")}`); } },
+    grids: {
+      goals: {
+        onChange: {
+          growth: (f, row) => { events.push("growth"); f.setRowValue("goals", row, { target: row.baseline * (1 + row.growth / 100) }); },
+          target: (f, row) => {
+            events.push("target");
+            const growth = (row.target / row.baseline - 1) * 100;
+            if (Math.abs(growth - row.growth) > 1e-9) f.setRowValue("goals", row, "growth", growth);
+          },
+          note: (f, row) => new Promise<void>((resolve) => { late = (v) => { f.setRowValue("goals", row, "rate", v); resolve(); }; }),
+        },
+      },
+    },
+  });
+  const campaign = () => new FormController({ ...meta, doctype: { ...meta.doctype, name: "Campaign", fields: [{ fieldname: "goals", fieldtype: "Table", label: "Goals", options: "Campaign Goal" }] } } as Meta, {
+    doctype: "Campaign", id: "C-1",
+    goals: [{ id: "g1", idx: 1, baseline: 100, growth: 0, target: 100 }],
+  });
+
+  it("runs the field handlers on the dialog's copy as the reader types, and the table's onChange on Apply", () => {
+    events.length = 0;
+    const f = campaign();
+    const row = f.doc.goals[0];
+    const draft = { ...row, growth: 10 };
+    f.editRowDraft("goals", draft, ["growth"]);
+    expect(draft.target).toBeCloseTo(110);
+    expect(events).toEqual(["growth", "target"]);
+    expect(row.target).toBe(100); // the document waits for Apply
+    expect(f.isDirty).toBe(false);
+    Object.assign(row, draft);
+    f.closeRowDraft("goals", row, ["growth", "target"]);
+    expect(events).toEqual(["growth", "target", "table:110:growth,target"]);
+  });
+
+  it("a setRowValue by the row's id reaches the open copy", () => {
+    const f = campaign();
+    const draft = { ...f.doc.goals[0], target: 120 };
+    f.editRowDraft("goals", draft, ["target"]);
+    expect(draft.growth).toBeCloseTo(20);
+    f.setRowValue("goals", "g1", "baseline", 50);
+    expect(draft.baseline).toBe(50);
+    expect(f.doc.goals[0].baseline).toBe(100);
+  });
+
+  it("Cancel throws the copy away, and a late setRowValue on it changes nothing", () => {
+    events.length = 0;
+    const f = campaign();
+    const draft = { ...f.doc.goals[0], note: "x" };
+    f.editRowDraft("goals", draft, ["note"]);
+    f.closeRowDraft("goals");
+    late!(3);
+    expect(f.doc.goals[0].rate).toBeUndefined();
+    expect(events).toEqual([]);
+  });
+
+  it("a late setRowValue after Apply goes to the row the copy was written to", () => {
+    events.length = 0;
+    const f = campaign();
+    const draft = { note: "x", baseline: 1, growth: 0, target: 1 }; // a new row: no id yet
+    f.editRowDraft("goals", draft, ["note"]);
+    const added = f.addChild("goals", draft);
+    f.closeRowDraft("goals", added, ["note"]);
+    late!(3);
+    expect(added.rate).toBe(3);
+    expect(events).toEqual(["table:1:note", "table:1:rate"]);
+  });
+});

@@ -135,6 +135,10 @@ export class FormController {
   private setupDone = false;
   /** what onRealtime subscribed, dropped by dispose when the form closes */
   private realtimeOffs: (() => void)[] = [];
+  /** per Table, the working copy of a row its open row dialog edits (#162) */
+  private rowDrafts = new Map<string, any>();
+  /** what became of a closed dialog's copy: the row Apply wrote it to, or null after Cancel */
+  private closedDrafts = new WeakMap<object, any>();
 
   constructor(meta: Meta, doc: any) {
     this.meta = meta;
@@ -270,11 +274,16 @@ export class FormController {
    * save), row the row itself and changed the child fields that changed: each
    * one's grids.<table>.onChange handler runs first, then the table's onChange.
    */
-  async trigger(fieldname: string, cdt?: string, cdn?: string, row?: any, changed?: string[]) {
+  trigger(fieldname: string, cdt?: string, cdn?: string, row?: any, changed?: string[]) {
+    return this.fire(fieldname, cdt, cdn, row, changed, true, true);
+  }
+
+  /** trigger's body: `rowHandlers` runs the child fields' handlers, `tableHandlers` the field's own onChange. */
+  private async fire(fieldname: string, cdt: string | undefined, cdn: string | undefined, row: any, changed: string[] | undefined, rowHandlers: boolean, tableHandlers: boolean) {
     const f = this.field(fieldname);
     if (f && (f.fieldtype === "Link" || f.fieldtype === "Dynamic Link")) await this.applyFetchFrom(fieldname);
     // awaits only an asynchronous handler, so synchronous ones still run within setRowValue
-    for (const k of row ? changed ?? [] : []) {
+    for (const k of row && rowHandlers ? changed ?? [] : []) {
       for (const h of this.handlers) {
         const fn = h.grids?.[fieldname]?.onChange?.[k];
         if (!fn) continue;
@@ -284,9 +293,36 @@ export class FormController {
         } catch (e) { showError(e); }
       }
     }
+    if (!tableHandlers) return;
     for (const h of this.handlers) {
       try { await h.onChange?.[fieldname]?.(this, cdt, cdn, row, changed); } catch (e) { showError(e); }
     }
+  }
+
+  /**
+   * The reader changed fields of a row in its row dialog: `draft` is the
+   * dialog's working copy of the row (#162). The child fields' handlers run on
+   * it now, as in an inline grid, and until the dialog closes a setRowValue
+   * given the copy (or its row's id) changes the copy, which the dialog shows.
+   * The table's onChange waits for Apply (applyRowDraft).
+   */
+  editRowDraft(table: string, draft: any, changed: string[]) {
+    this.rowDrafts.set(table, draft);
+    return this.fire(table, this.field(table)?.options, draft.id, draft, changed, true, false);
+  }
+
+  /**
+   * Closes a row dialog's working copy. Apply passes the row it wrote the
+   * copy to and the fields that changed, and the table's onChange fires —
+   * the child fields' handlers already ran while the reader typed. Cancel
+   * passes no row. A late setRowValue on the copy (an asynchronous handler
+   * finishing after the dialog closed) goes to that row, or nowhere.
+   */
+  closeRowDraft(table: string, target?: any, changed: string[] = []) {
+    const draft = this.rowDrafts.get(table);
+    this.rowDrafts.delete(table);
+    if (draft && typeof draft === "object") this.closedDrafts.set(draft, target ?? null);
+    if (target) return this.fire(table, this.field(table)?.options, target.id, target, changed, false, true);
   }
 
   private async applyFetchFrom(linkField: string) {
@@ -324,12 +360,19 @@ export class FormController {
   /**
    * Sets fields of one row of a Table, found by the row object or its id, and
    * fires the table's onChange once with the fields that changed, as an edit
-   * in the grid does.
+   * in the grid does. While the row's dialog is open it changes the dialog's
+   * copy instead, and the table's onChange waits for Apply (editRowDraft).
    */
   setRowValue(fieldname: string, row: any, f: string | Record<string, any>, v?: any) {
+    if (row && typeof row === "object" && this.closedDrafts.has(row)) {
+      row = this.closedDrafts.get(row);
+      if (!row) return this; // the dialog was cancelled: its copy is gone
+    }
     const rows: any[] = this.doc[fieldname] || [];
     const id = typeof row === "object" && row ? row.id : row;
-    const target = rows.find((r) => r === row) ?? (id ? rows.find((r) => r.id === id) : undefined);
+    const draft = this.rowDrafts.get(fieldname);
+    const inDialog = !!draft && (row === draft || (!!id && draft.id === id));
+    const target = inDialog ? draft : rows.find((r) => r === row) ?? (id ? rows.find((r) => r.id === id) : undefined);
     if (!target) throw new Error(`setRowValue: no row ${JSON.stringify(id ?? null)} in ${fieldname}`);
     const values = typeof f === "string" ? { [f]: v } : f;
     const changed: string[] = [];
@@ -338,7 +381,8 @@ export class FormController {
       target[k] = val;
       changed.push(k);
     }
-    if (changed.length) this.trigger(fieldname, this.field(fieldname)?.options, target.id, target, changed);
+    // in an open row dialog, the table's onChange waits for Apply
+    if (changed.length) this.fire(fieldname, this.field(fieldname)?.options, target.id, target, changed, true, !inDialog);
     return this;
   }
 
