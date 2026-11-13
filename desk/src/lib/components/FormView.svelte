@@ -284,7 +284,7 @@
   );
 
   const canRename = $derived(!frm?.isNew && !!frm?.meta.doctype.allowRename && !!frm?.perm.write && frm?.docstatus === 0);
-  const hasTitleField = $derived(!frm?.isNew && !!frm?.meta.doctype.titleField && !!frm?.perm.write && frm?.docstatus === 0);
+  const hasTitleField = $derived(!!frm?.canEditTitleField);
   const canEditTitle = $derived(canRename || hasTitleField);
   const editTitleTooltip = $derived(
     hasTitleField

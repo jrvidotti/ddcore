@@ -227,6 +227,17 @@ export class FormController {
     if (f.readOnlyDependsOn && evalExpr(f.readOnlyDependsOn, this.doc)) return false;
     return true;
   }
+  /**
+   * Whether the form header may offer editing the titleField of a saved draft:
+   * only when the field itself could be edited now, so a readOnly or a
+   * setOnlyOnce title already set is not offered for a save the server refuses (#161).
+   */
+  get canEditTitleField(): boolean {
+    const tf = this.meta.doctype.titleField;
+    if (this.isNew || !tf || !this.perm?.write || this.docstatus !== 0) return false;
+    const f = this.field(tf);
+    return !!f && this.isFieldEditable(f);
+  }
   isFieldVisible(f: Field): boolean {
     if (f.hidden) return false;
     if (f.dependsOn && !evalExpr(f.dependsOn, this.doc)) return false;

@@ -38,6 +38,16 @@ describe("setOnlyOnce", () => {
     expect(f.isFieldEditable(tenant)).toBe(false);
   });
 
+  it("keeps the header from offering a set titleField (#161)", () => {
+    const titled = { ...meta, doctype: { ...meta.doctype, titleField: "tenant" } } as unknown as Meta;
+    expect(new FormController(titled, { doctype: "Member", id: "M-1", tenant: "A" }).canEditTitleField).toBe(false);
+    expect(new FormController(titled, { doctype: "Member", id: "M-1", tenant: null }).canEditTitleField).toBe(true);
+    const editable = { ...titled, doctype: { ...titled.doctype, fields: [{ ...tenant, setOnlyOnce: false }] } } as unknown as Meta;
+    expect(new FormController(editable, { doctype: "Member", id: "M-1", tenant: "A" }).canEditTitleField).toBe(true);
+    const ro = { ...titled, doctype: { ...titled.doctype, fields: [{ ...tenant, setOnlyOnce: false, readOnly: true }] } } as unknown as Meta;
+    expect(new FormController(ro, { doctype: "Member", id: "M-1", tenant: "A" }).canEditTitleField).toBe(false);
+  });
+
   it("holds a saved row's value, not a new row's", () => {
     const f = new FormController(meta, { doctype: "Member", id: "M-1", notes: [{ id: "r1", kind: "k1" }, { id: "r2", kind: "" }] });
     f.addChild("notes", { kind: "k9" });
