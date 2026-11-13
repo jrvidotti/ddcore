@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.31.35 — 2026-11-13
+
 ### Added
 
 - **Subtotal rows in a report.** A report row carrying `subtotal: true` (not a column, like
