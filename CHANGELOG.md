@@ -14,6 +14,16 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **Subtotal rows in a report.** A report row carrying `subtotal: true` (not a column, like
+  `drill`) closes the group of records before it. The grid draws it like the footer, shows its
+  cells as text (a label in a `Link` column is no longer a link to a document that does not
+  exist, nor a link-title lookup), keeps it after its group when a header sorts, and leaves it
+  out of the footer's sum and of selection. The export keeps it in place. In a form's Report
+  field the search and filters match records only, and a subtotal stays while its whole group
+  does. See `report-api`, "Subtotal rows". (#160)
+
 ## 0.31.34 — 2026-11-12
 
 ### Fixed

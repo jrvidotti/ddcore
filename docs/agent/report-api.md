@@ -49,6 +49,23 @@ empty; a text value in the first column replaces the "Total" label, and `totals:
 footer. The export takes the same row. In a form's Report field, the report's `totals` is left
 out while the grid's search or filters hide rows, since it counts all of them.
 
+Subtotal rows: a row carrying `subtotal: true` (not a column, like `drill`) closes the group of
+records before it, back to the previous subtotal. It is drawn like the footer (bold, a top
+border), and its cells are text: a `Link` cell holds the label, drawn and exported as written,
+not as a link to a document. A header sort orders the records within each group and keeps each
+subtotal after its group; the footer's sum, "select all" and the selection leave subtotals out;
+the export keeps them in place. In a form's Report field the search and the filters look at the
+records only, and a subtotal stays while every record of its group does. Only `true` counts, so a
+column named `subtotal` holding a number does not turn rows into subtotals.
+
+```ts
+rows: [
+  { unit: "U1", employee: "E1", participation: 100 },
+  { unit: "U1", employee: "E2", participation: 0 },
+  { unit: _("Total {0}: {1} of {2} took part", [unit.title, 1, 2]), participation: 50, subtotal: true },
+],
+```
+
 Drill-down: a row carrying `drill` (filter fieldname → value) is clickable on the report page,
 and a click reopens the report with those filters over the ones the user set. A chart takes
 `drill` too, one entry per label (`null` for a label with no drill-down), for its bars, points

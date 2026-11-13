@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { exportBaseName, exportCell, exportTable, filterRows, filterTuples, nextSort, searchRows, sortRows } from "./grid-rows";
+import { exportBaseName, exportCell, exportTable, filterRows, filterTuples, keepGroupTotals, nextSort, searchRows, sortRows } from "./grid-rows";
 
 const cols: any[] = [
   { fieldname: "name", fieldtype: "Data", label: "Name" },
@@ -177,5 +177,28 @@ describe("grid search", () => {
   it("keeps every row for a blank query or no columns", () => {
     expect(searchRows(rows, "  ", ["name"], cols)).toBe(rows);
     expect(searchRows(rows, "bia", [], cols)).toBe(rows);
+  });
+});
+
+describe("subtotal rows", () => {
+  const isTotal = (r: any) => r.total === true;
+  const rows = [
+    { name: "b" }, { name: "a" }, { name: "U1", total: true },
+    { name: "d" }, { name: "c" }, { name: "U2", total: true },
+    { name: "f" }, { name: "e" },
+  ];
+  const names = (rs: any[]) => rs.map((r) => r.name);
+
+  it("sorts each group by itself and keeps its total after it, the last group too", () => {
+    expect(names(sortRows(rows, { field: "name", order: "asc" }, cols, undefined, isTotal))).toEqual(["a", "b", "U1", "c", "d", "U2", "e", "f"]);
+    expect(names(sortRows(rows, { field: "name", order: "desc" }, cols, undefined, isTotal))).toEqual(["b", "a", "U1", "d", "c", "U2", "f", "e"]);
+    // no predicate: the totals sort like any row
+    expect(names(sortRows(rows, { field: "name", order: "asc" }, cols)).slice(0, 3)).toEqual(["a", "b", "c"]);
+  });
+
+  it("keeps a total while every record of its group is visible", () => {
+    const visible = rows.filter((r) => !isTotal(r) && r.name !== "c");
+    expect(names(keepGroupTotals(rows, visible, isTotal))).toEqual(["b", "a", "U1", "d", "f", "e"]);
+    expect(names(keepGroupTotals(rows, [], isTotal))).toEqual([]);
   });
 });

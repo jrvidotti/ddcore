@@ -9,7 +9,7 @@
   import SelectIndicator from "$lib/components/SelectIndicator.svelte";
   import { getLinkTitle } from "$lib/titles.svelte";
   import { isNumericFieldtype, type GridFilter } from "$lib/meta";
-  import { downloadTable, exportTable, type GridSortState } from "$lib/grid-rows";
+  import { downloadTable, exportCell, exportTable, type GridSortState } from "$lib/grid-rows";
   import { GridRowsState } from "$lib/grid-rows-state.svelte";
   import type { FieldButton, GridAction } from "$lib/form.svelte";
   import FieldButtons from "$lib/controls/FieldButtons.svelte";
@@ -45,15 +45,18 @@
   } = $props();
 
   const num = (c: any) => isNumericFieldtype(c.fieldtype);
-  const grid = new GridRowsState({ rows: () => rows, columns: () => columns, presets: () => filters, search: () => search, baseSort: () => baseSort });
+  // a row with `subtotal: true` closes the group of records before it: drawn like the footer,
+  // its cells as plain text, kept after its group by a sort, and left out of the footer's sum
+  const isSubtotal = (r: any) => r?.subtotal === true;
+  const grid = new GridRowsState({ rows: () => rows, columns: () => columns, presets: () => filters, search: () => search, baseSort: () => baseSort, subtotal: isSubtotal });
 
   // the footer: the report's own totals row when it sends one, else the sum of every numeric
   // column (Percent is an average, not a sum). The report's row adds up all of its rows, so it
   // is left out while a grid filter or the search hides some of them.
   const totals = $derived.by((): Record<string, any> | null => {
-    if (!grid.visibleRows.length) return null;
+    if (!grid.visibleRecords.length) return null;
     if (reportTotals && typeof reportTotals === "object") {
-      if (grid.visibleRows.length !== rows.length) return null;
+      if (grid.visibleRecords.length !== grid.records.length) return null;
       const out: Record<string, any> = {};
       for (const c of columns) if (reportTotals[c.fieldname] != null && reportTotals[c.fieldname] !== "") out[c.fieldname] = reportTotals[c.fieldname];
       // `totals: {}` is a report saying it has no totals row
@@ -62,7 +65,7 @@
     const cols = columns.filter((c: any) => num(c) && c.fieldtype !== "Percent");
     if (!cols.length) return null;
     const out: Record<string, any> = {};
-    for (const c of cols) out[c.fieldname] = grid.visibleRows.reduce((a: number, r: any) => a + (Number(r[c.fieldname]) || 0), 0);
+    for (const c of cols) out[c.fieldname] = grid.visibleRecords.reduce((a: number, r: any) => a + (Number(r[c.fieldname]) || 0), 0);
     return out;
   });
 
@@ -70,7 +73,9 @@
   export function selectedRows() { return grid.chosenOnScreen; }
   export function clearSelection() { grid.clearSelection(); }
   function exportRows(format: "csv" | "xlsx") {
-    const { header, cells } = exportTable(grid.forExport, columns, getLinkTitle);
+    const { header } = exportTable([], columns);
+    // a subtotal's Link cell holds its label, not a document
+    const cells = grid.forExport.map((r: any) => columns.map((c: any) => exportCell(r, c, isSubtotal(r) ? undefined : getLinkTitle)));
     // the totals are of every row on screen, so they only go along with all of them
     if (totals && !grid.chosen.length) cells.push(columns.map((c: any, i: number) => (totals[c.fieldname] !== undefined ? totals[c.fieldname] : i === 0 ? __("Total") : "")));
     downloadTable(format, filename, header, cells, sheetName);
@@ -78,7 +83,8 @@
 </script>
 
 {#snippet cell(c: any, r: any)}
-  {#if c.fieldtype === "Link" && r[c.fieldname]}{getLinkTitle(c.options, r[c.fieldname], c.linkTitleField) || r[c.fieldname]}
+  {#if c.fieldtype === "Link" && isSubtotal(r)}{r[c.fieldname] ?? ""}
+  {:else if c.fieldtype === "Link" && r[c.fieldname]}{getLinkTitle(c.options, r[c.fieldname], c.linkTitleField) || r[c.fieldname]}
   {:else if (c.fieldname === "status" || isIndicatorSelect(c)) && r[c.fieldname]}<SelectIndicator value={r[c.fieldname]} field={c} iconOnly={c.optionIconOnly} />
   {:else}<span style:color={c.fieldtype === "Currency" && r[c.fieldname] < 0 ? "var(--red)" : undefined}>{formatValue(r[c.fieldname], c)}</span>{/if}
 {/snippet}
@@ -114,12 +120,14 @@
       {#each grid.viewRows as r, i}
         <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
         {@const rowClick = onrowclick && (!rowclickable || rowclickable(r)) ? onrowclick : undefined}
-        <tr class="row" class:row-click={!!rowClick} onclick={rowClick ? (e) => { if (isRowClick(e)) rowClick(r); } : undefined}>
-          {#if selectable}<td><input type="checkbox" aria-label={__("Select row {0}", [i + 1])} checked={grid.selected.has(r)} onchange={() => grid.toggle(r)} /></td>{/if}
+        {@const sub = isSubtotal(r)}
+        <tr class="row" class:subtotal={sub} class:row-click={!!rowClick} onclick={rowClick ? (e) => { if (isRowClick(e)) rowClick(r); } : undefined}>
+          {#if selectable && sub}<td></td>{:else if selectable}<td><input type="checkbox" aria-label={__("Select row {0}", [i + 1])} checked={grid.selected.has(r)} onchange={() => grid.toggle(r)} /></td>{/if}
           {#each columns as c}
             <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
             <td class:num={num(c)} onclick={forwardCellClick}>
-              {#if clickable.has(c.fieldname) && r[c.fieldname] != null && r[c.fieldname] !== ""}
+              {#if sub}{@render cell(c, r)}
+              {:else if clickable.has(c.fieldname) && r[c.fieldname] != null && r[c.fieldname] !== ""}
                 <button type="button" class="cell-click" onclick={() => oncellclick?.(c.fieldname, r)}>{@render cell(c, r)}</button>
               {:else if c.fieldtype === "Link" && r[c.fieldname]}
                 <a href={`${wsPrefix}/${seg(c.options)}/${encodeURIComponent(r[c.fieldname])}`} title={r[c.fieldname]}>{@render cell(c, r)}</a>
@@ -149,5 +157,5 @@
   .cell-click:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 2px; }
   /* the click reaches the cell's button from anywhere in the cell (forwardCellClick) */
   td:has(> .cell-click) { cursor: pointer; }
-  .totals td { font-weight: 600; border-top: 2px solid var(--border); }
+  .totals td, .subtotal td { font-weight: 600; border-top: 2px solid var(--border); }
 </style>

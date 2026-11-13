@@ -716,8 +716,13 @@ export interface ReportResult {
    * A row's `drill` (it is not a column) makes it a drill-down: a click reopens the report with
    * those filters over the current ones, e.g. `drill: { risk_band: "6", group_by: "Age Range" }`.
    * Only the report's own filters are taken; `null` empties one. The report page only.
+   *
+   * `subtotal: true` (not a column either) makes a row the subtotal of the records before it,
+   * back to the previous subtotal: drawn like the footer, its cells as text (a Link cell's
+   * value is its label, not a document), kept after its group by a sort, and left out of
+   * the footer's sum and of selection. The export keeps it.
    */
-  rows: (Record<string, any> & { drill?: ReportDrill })[];
+  rows: (Record<string, any> & { drill?: ReportDrill; subtotal?: boolean })[];
   /**
    * The table's footer, by column fieldname, in place of the sum of every numeric column the
    * desk adds up otherwise. A column it leaves out has an empty cell; `{}` draws no footer.

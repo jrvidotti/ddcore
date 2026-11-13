@@ -170,7 +170,9 @@ the document does not hold: attendance and grades per student, say, from other D
 - Its rows are read-only; `gridSelect` chooses what to export and what a script's
   `frm.addGridAction` acts on. The totals row (the report's own `totals`, or the sum of its
   numeric columns; see `report-api`) goes along with a full export, not with a selection. A
-  row's `drill` does nothing here: drill-down is the report page's.
+  row's `drill` does nothing here: drill-down is the report page's. A row's `subtotal: true`
+  works as on the report page; the search and `gridFilters` look at the records only, and a
+  subtotal stays while every record of its group does.
 - A form script acts on a row with `grids.<field>.onCellClick.<column>`: the column's non-empty
   cells become buttons and the handler receives the row as the report returned it. A click
   anywhere else on the row runs `grids.<field>.onRowClick`; see
