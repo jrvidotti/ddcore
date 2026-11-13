@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.31.36 — 2026-11-13
+
 ### Fixed
 
 - **The form header no longer offers editing a title the server would refuse.** "Edit
