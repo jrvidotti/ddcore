@@ -329,7 +329,8 @@ onChange: {
 
 Adding or removing a row fires it too, with no `cdt`, `cdn`, `row` or `changed`. An edit in a
 cell changes one field; the row dialog and `setRowValue` pass every field whose value they
-changed (possibly none, for a dialog applied as it was).
+changed (possibly none, for a dialog applied as it was). The row dialog fires it once, on
+**Apply**.
 
 When what to do depends on *which* field of the row changed, give that field its own handler in
 `grids.<table>.onChange.<child field>(frm, row)`. It runs for each changed field, before the
@@ -354,6 +355,14 @@ defineForm<TrainingClass>("Training Class", {
   },
 });
 ```
+
+In the **row dialog** these field handlers run as the reader edits, not on Apply: `row` is the
+dialog's working copy of the row, and a `setRowValue` on it (or on its row's `id`) changes the
+copy, which the dialog shows at once — typing a growth there recomputes the target in the same
+dialog. `frm.doc.<table>` still holds the row as it was until **Apply** copies the dialog back
+and fires the table's `onChange` with every field that changed; **Cancel** throws the copy away,
+and a `setRowValue` on it after that changes nothing. So compute a total over the rows in the
+table's `onChange`, which sees the applied row, not in a field handler.
 
 A `setRowValue` inside a handler fires the handlers of the fields it sets, so set a field only
 when it must change — as above — or two handlers can undo each other forever. `setRowValue`

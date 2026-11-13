@@ -49,6 +49,8 @@ function setup(field: any, perms: Record<string, boolean> = { export: true }, on
     isSetOnce: () => false,
     isFieldMandatory: () => false,
     trigger: vi.fn(),
+    editRowDraft: vi.fn(),
+    closeRowDraft: vi.fn(),
     cellClickHandlers: (table: string, column: string) => (table === "students" && onCellClick[column] ? [onCellClick[column]] : []),
     clickCell: (_table: string, column: string, row: any) => onCellClick[column](row),
     rowClickHandlers: (table: string) => (table === "students" && onRowClick ? [onRowClick] : []),
@@ -302,9 +304,12 @@ describe("Grid", () => {
     const t = setup({ gridEditMode: "dialog" });
     t.click(t.target.querySelector("tbody tr:nth-child(2) button.icon"));
     const d = dialogs.at(-1);
-    d.primaryAction({ ...t.doc.students[1], grade: 10 }, { hide: vi.fn() });
+    const values = { ...t.doc.students[1], grade: 10 };
+    d.onChange("grade", values);
+    expect(t.frm.editRowDraft).toHaveBeenCalledWith("students", values, ["grade"]);
+    d.primaryAction(values, { hide: vi.fn() });
     expect(t.doc.students[1].grade).toBe(10);
-    expect(t.frm.trigger).toHaveBeenCalledWith("students", "Course Student", "r2", t.doc.students[1], ["grade"]);
+    expect(t.frm.closeRowDraft).toHaveBeenCalledWith("students", t.doc.students[1], ["grade"]);
     t.done();
   });
 

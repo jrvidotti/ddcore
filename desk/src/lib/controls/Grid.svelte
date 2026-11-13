@@ -77,15 +77,18 @@
   function editRow(row: any, isNew = false) {
     const i = isNew ? rows.length : rows.indexOf(row);
     const fields = childFields.filter((f) => !f.hidden).map((f) => ({ ...f, readOnly: f.readOnly || !editable || (!isNew && frm.isSetOnce(f, row, field.fieldname!)) }));
+    const table = field.fieldname!;
     const d = dialog({
       title: `${field.label} · ${isNew ? __("New") : `${__("Row")} ${i + 1}`}`, fields, values: { ...row }, size: "lg",
       primaryLabel: editable ? __("Apply") : __("Close"),
+      // #162: the child fields' handlers run on the dialog's copy as the reader types
+      onChange: editable ? (f, values) => { frm.editRowDraft(table, values, [f]); } : undefined,
       primaryAction: (values, dlg) => {
         if (editable) {
           const changed = changedKeys(row, values);
-          const target = isNew ? frm.addChild(field.fieldname!, values) : row;
+          const target = isNew ? frm.addChild(table, values) : row;
           if (!isNew) applyRowChanges(target, values);
-          frm.trigger(field.fieldname!, childMeta.name, target.id, target, changed);
+          frm.closeRowDraft(table, target, changed);
         }
         dlg.hide();
       },
@@ -94,11 +97,12 @@
         dangerAction: async (_values: Record<string, any>, dlg: any) => {
           await confirmRowRemoval(
             () => confirm(__("Delete this attachment?"), __("Delete attachment"), { destructive: true }),
-            () => { remove(row); dlg.hide(); },
+            () => { frm.closeRowDraft(table); remove(row); dlg.hide(); },
           );
         },
       } : {}),
     });
+    (d as any).onCancel = () => frm.closeRowDraft(table);
     d.show();
   }
   function add() {
