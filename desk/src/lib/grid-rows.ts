@@ -51,9 +51,24 @@ export function sortKey(row: any, c: Col | undefined, field: string, titleOf?: T
   return typeof v === "object" ? JSON.stringify(v) : String(v);
 }
 
-/** Returns the rows in `sort` order, as a new array of the same row objects; stable. */
-export function sortRows<T>(rows: T[], sort: GridSortState | null | undefined, columns: Col[], titleOf?: TitleOf): T[] {
+/**
+ * Returns the rows in `sort` order, as a new array of the same row objects; stable. A row
+ * `fixed` says yes to (a report's subtotal) keeps its place: the rows between two of them
+ * are sorted among themselves, so each group stays ahead of the row that closes it.
+ */
+export function sortRows<T>(rows: T[], sort: GridSortState | null | undefined, columns: Col[], titleOf?: TitleOf, fixed?: (row: T) => boolean): T[] {
   if (!sort?.field) return rows.slice();
+  if (fixed && rows.some(fixed)) {
+    const out: T[] = [];
+    let group: T[] = [];
+    for (const row of rows) {
+      if (!fixed(row)) { group.push(row); continue; }
+      out.push(...sortRows(group, sort, columns, titleOf), row);
+      group = [];
+    }
+    out.push(...sortRows(group, sort, columns, titleOf));
+    return out;
+  }
   const c = columns.find((x) => x.fieldname === sort.field);
   const dir = sort.order === "desc" ? -1 : 1;
   const keyed = rows.map((row, i) => ({ row, i, k: sortKey(row, c, sort.field, titleOf) }));
@@ -63,6 +78,25 @@ export function sortRows<T>(rows: T[], sort: GridSortState | null | undefined, c
     return d ? d * dir : a.i - b.i;
   });
   return keyed.map((x) => x.row);
+}
+
+/**
+ * `visible` (the records of `all` a filter or the search kept, in order) with the totals of
+ * `all` put back after their groups: a total closes the records since the one before it, and
+ * stays only while every one of them is visible, since it adds them all up.
+ */
+export function keepGroupTotals<T>(all: T[], visible: T[], isTotal: (row: T) => boolean): T[] {
+  const shown = new Set(visible);
+  const out: T[] = [];
+  let whole = true;
+  for (const row of all) {
+    if (isTotal(row)) {
+      if (whole) out.push(row);
+      whole = true;
+    } else if (shown.has(row)) out.push(row);
+    else whole = false;
+  }
+  return out;
 }
 
 /**

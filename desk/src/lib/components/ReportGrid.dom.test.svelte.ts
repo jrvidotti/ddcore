@@ -4,7 +4,10 @@ import ReportGrid from "./ReportGrid.svelte";
 
 vi.mock("$lib/api", () => ({ api: {} }));
 vi.mock("$lib/boot.svelte", () => ({ __: (s: string) => s, boot: { data: { doctypes: {} } } }));
-vi.mock("$lib/titles.svelte", () => ({ getLinkTitle: () => "", setLinkTitle: vi.fn() }));
+const getLinkTitle = vi.fn((_dt: string, id: string) => (id.startsWith("E") ? `Name ${id}` : ""));
+vi.mock("$lib/titles.svelte", () => ({ getLinkTitle: (...a: [string, string]) => getLinkTitle(...a), setLinkTitle: vi.fn() }));
+const downloads: any[] = [];
+vi.mock("$lib/grid-rows", async (orig) => ({ ...((await orig()) as any), downloadTable: (...a: any[]) => downloads.push(a) }));
 const shown: any[] = [];
 vi.mock("$lib/ui.svelte", () => ({ showError: (e: any) => shown.push(e) }));
 
@@ -188,6 +191,78 @@ describe("ReportGrid row drill-down", () => {
     expect(onrowclick).not.toHaveBeenCalled();
     g.click(trs[0].querySelector("td"));
     expect(onrowclick).toHaveBeenCalledWith(rows[0]);
+    g.done();
+  });
+});
+
+describe("ReportGrid subtotal rows", () => {
+  const columns = [
+    { fieldname: "unit", fieldtype: "Link", options: "Unit", label: "Unit" },
+    { fieldname: "employee", fieldtype: "Link", options: "Employee", label: "Employee" },
+    { fieldname: "took", fieldtype: "Int", label: "Took part" },
+  ];
+  const rows = [
+    { unit: "U1", employee: "E2", took: 0 },
+    { unit: "U1", employee: "E1", took: 1 },
+    { unit: "Total North Store: 1 of 2", took: 1, subtotal: true },
+    { unit: "U2", employee: "E3", took: 1 },
+    { unit: "Total South Store: 1 of 1", took: 1, subtotal: true },
+  ];
+  const trs = (g: { target: HTMLElement }) => [...g.target.querySelectorAll<HTMLElement>("tbody tr")];
+  const firstCells = (g: { target: HTMLElement }) => trs(g).map((tr) => tr.querySelectorAll("td")[0].textContent?.trim());
+
+  it("draws a subtotal apart, its Link label as text, without looking it up", () => {
+    getLinkTitle.mockClear();
+    const g = setup({ columns, rows });
+    expect(trs(g).map((tr) => tr.classList.contains("subtotal"))).toEqual([false, false, true, false, true]);
+    const label = trs(g)[2].querySelectorAll("td")[0];
+    expect(label.querySelector("a")).toBeNull();
+    expect(label.textContent?.trim()).toBe("Total North Store: 1 of 2");
+    expect(trs(g)[0].querySelector("a")?.getAttribute("href")).toBe("/app/Unit/U1");
+    expect(getLinkTitle.mock.calls.some((c) => String(c[1]).startsWith("Total"))).toBe(false);
+    g.done();
+  });
+
+  it("leaves subtotals out of the footer's sum", () => {
+    const g = setup({ columns, rows });
+    expect([...g.target.querySelectorAll("tfoot td")].map((td) => td.textContent?.trim())).toEqual(["Total", "", "2"]);
+    g.done();
+  });
+
+  it("keeps each subtotal after its group when a header sorts", () => {
+    const g = setup({ columns, rows, sortable: true });
+    g.click(g.target.querySelectorAll("thead button.grid-sort")[1]); // Employee, ascending
+    expect(trs(g).map((tr) => tr.querySelectorAll("td")[1].textContent?.trim())).toEqual(["Name E1", "Name E2", "", "Name E3", ""]);
+    expect(firstCells(g)[2]).toBe("Total North Store: 1 of 2");
+    g.done();
+  });
+
+  it("gives a subtotal no checkbox and leaves it out of select all", () => {
+    const g = setup({ columns, rows, selectable: true });
+    expect(trs(g)[2].querySelector("input")).toBeNull();
+    g.click(g.target.querySelector("thead input[type=checkbox]"));
+    expect(g.view.selectedRows()).toEqual([rows[0], rows[1], rows[3]]);
+    g.done();
+  });
+
+  it("drops a subtotal while the search hides a record of its group", async () => {
+    const g = setup({ columns, rows, search: ["employee"] });
+    const input = g.target.querySelector<HTMLInputElement>(".grid-toolbar input")!;
+    input.value = "E3";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await tick();
+    flushSync();
+    expect(firstCells(g)).toEqual(["U2", "Total South Store: 1 of 1"]);
+    g.done();
+  });
+
+  it("exports subtotals in place, their label as written", () => {
+    downloads.length = 0;
+    const g = setup({ columns, rows, exportable: true });
+    g.click(g.target.querySelector('.grid-toolbar button[aria-label="Export CSV"]'));
+    const [, , , cells] = downloads[0];
+    expect(cells.map((r: any[]) => r[0])).toEqual(["U1", "U1", "Total North Store: 1 of 2", "U2", "Total South Store: 1 of 1", "Total"]);
+    expect(cells.map((r: any[]) => r[2])).toEqual([0, 1, 1, 1, 1, 2]);
     g.done();
   });
 });
