@@ -41,6 +41,10 @@ The report page keeps its filters in the URL, one query parameter per filter fie
 it, and a link opens the report on that cut. A parameter the report has no filter for is
 ignored, a filter left out takes its `default`, and an empty one (`risk_band=`) stays empty.
 The report page sorts by a click on a column header and exports CSV or XLSX.
+A filter is a field (`fieldname`, `label`, `fieldtype`, `options`, `default`, `reqd`), and its
+`description` is drawn under its input, as in a form. The filter row is aligned by the top —
+labels on one line, inputs on one line — so a description or an error below one filter leaves its
+neighbours where they are; a `Check` lines its box up with the other inputs.
 
 The footer adds up every numeric column but `Percent`, over the rows on screen. When a sum means
 nothing (percentage-point changes, people counted in more than one group), return `totals`: the

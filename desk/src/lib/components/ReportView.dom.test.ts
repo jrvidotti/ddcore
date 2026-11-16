@@ -57,6 +57,22 @@ describe("ReportView", () => {
     expect(target.querySelector(".charts")?.classList.contains("pair")).toBe(true);
     unmount(view);
   });
+  it("gives a label's height to a filter with no label above its input, so the row's inputs share a line", async () => {
+    const { target, view } = await render({
+      label: "Balances",
+      filters: [
+        { fieldname: "kind", fieldtype: "Select", label: "Kind", options: "A\nB" },
+        { fieldname: "minimum", fieldtype: "Currency", label: "Minimum", description: "Empty: the default" },
+        { fieldname: "active", fieldtype: "Check", label: "Active" },
+        { fieldname: "store", fieldtype: "Data", label: "Store", hideLabel: true },
+        { fieldname: "code", fieldtype: "Data" },
+      ],
+    });
+    const cells = [...target.querySelectorAll(".filters > .filter")];
+    expect(cells.map((c) => c.classList.contains("unlabelled"))).toEqual([false, false, true, true, true]);
+    expect(cells.map((c) => c.classList.contains("check"))).toEqual([false, false, true, false, false]);
+    unmount(view);
+  });
   it("draws no chart when the report has none", async () => {
     const { target, view } = await render({ label: "Balances", filters: [] });
     expect(target.querySelector(".charts")).toBeNull();

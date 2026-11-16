@@ -14,6 +14,13 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- **A report filter with a `description` no longer lifts its input above the row's others.**
+  The report page's filter row is now aligned by the top, as a form is: labels on one line,
+  inputs on one line, and each description (or error) under its own input; a `Check` filter
+  lines its box up with the inputs. `report-api` now documents `description` on a filter. (#164)
+
 ## 0.31.37 — 2026-11-13
 
 ### Changed

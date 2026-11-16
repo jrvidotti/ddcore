@@ -97,9 +97,9 @@
     <button class="btn primary" onclick={run} disabled={loading}>{__("Update")}</button>
   </div>
   {#if meta?.filters?.length}
-    <div class="card" style="padding:12px 14px;margin-bottom:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+    <div class="card filters">
       {#each meta.filters as f (f.fieldname)}
-        <div style="width:{f.fieldtype === 'Check' ? 'auto' : '190px'}">
+        <div class="filter" class:check={f.fieldtype === "Check"} class:unlabelled={f.fieldtype === "Check" || !f.label || f.hideLabel}>
           <Control field={f} value={filters[f.fieldname]} onchange={(v) => updateFilter(f.fieldname, v)} doc={filters} compact />
         </div>
       {/each}
@@ -129,4 +129,12 @@
   .charts { display: grid; gap: 12px; margin-bottom: 12px; }
   .charts.pair { grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); }
   .chart-card { padding: 16px 20px; min-width: 0; }
+  /* Top-aligned, as in a form: labels on one line, inputs on one line, and a filter's
+     description or error below its own input without lifting it above its neighbours. */
+  .filters { padding: 12px 14px; margin-bottom: 12px; display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-start; }
+  .filter { width: 190px; }
+  .filter.check { width: auto; }
+  /* A filter with no label above its input (a Check carries its label beside the box) takes a
+     label's height first, so its control sits on the inputs' line. */
+  .filter.unlabelled::before { content: "\200b"; display: block; font-size: 12px; margin-bottom: 4px; }
 </style>
