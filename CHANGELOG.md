@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.31.38 — 2026-11-16
+
 ### Fixed
 
 - **A report filter with a `description` no longer lifts its input above the row's others.**
