@@ -135,6 +135,13 @@ export interface FieldDef {
    */
   gridMaxWidth?: number;
   /**
+   * A child field: another field of the same child DocType whose value a grid draws under this
+   * field's value, smaller and muted (what a month sold a year before, under its expected value).
+   * The other field is usually `hidden`, so it is not a column, a dialog field or an export column
+   * of its own; it is formatted as declared, with a form script's `displayScale` if it has one.
+   */
+  gridSubField?: string;
+  /**
    * How much of a form line the control takes: a form line is four slots, `sm`
    * and `md` take one, `lg` two and `full` all four. Fields fill each line in
    * order, so a form is laid out by sizing its fields, not by splitting it into

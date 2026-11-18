@@ -12,6 +12,8 @@ func gridRegistry(parent ...*Field) *Registry {
 		{Fieldname: "employee_name", Fieldtype: "Data"},
 		{Fieldname: "grade", Fieldtype: "Float", Computed: true},
 		{Fieldname: "notes", Fieldtype: "Small Text", GridMaxWidth: 320},
+		{Fieldname: "score", Fieldtype: "Float", GridSubField: "last_score"},
+		{Fieldname: "last_score", Fieldtype: "Float", Hidden: true},
 		{Fieldname: "sec", Fieldtype: "Section Break"},
 	}})
 	r.Add(&DocType{Name: "Course", Fields: append([]*Field{{Fieldname: "unit", Fieldtype: "Data"}}, parent...)})
@@ -185,5 +187,29 @@ func TestGridMaxWidthMustBePositive(t *testing.T) {
 	r.DocTypes["Course Student"].Field("notes").GridMaxWidth = -10
 	if err := r.Validate(); err == nil || !strings.Contains(err.Error(), "gridMaxWidth -10 must be a positive width") {
 		t.Fatalf("got %v", err)
+	}
+}
+
+func TestGridSubFieldValidation(t *testing.T) {
+	if err := gridRegistry().Validate(); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct {
+		sub  string
+		want string
+	}{
+		{"nope", `field "score": gridSubField "nope" is not a data field of Course Student`},
+		{"sec", `field "score": gridSubField "sec" is not a data field of Course Student`},
+		{"score", `field "score": gridSubField names the field itself`},
+	} {
+		r := gridRegistry()
+		r.DocTypes["Course Student"].Field("score").GridSubField = c.sub
+		if err := r.Validate(); err == nil || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("%q: want %q, got %v", c.sub, c.want, err)
+		}
+	}
+	err := gridRegistry(&Field{Fieldname: "d", Fieldtype: "Data", GridSubField: "unit"}).Validate()
+	if err == nil || !strings.Contains(err.Error(), `field "d": gridSubField is for a field of a child DocType`) {
+		t.Errorf("parent field: got %v", err)
 	}
 }
