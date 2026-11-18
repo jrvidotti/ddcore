@@ -512,3 +512,37 @@ describe("Grid columns a script overrides (frm.setGridDfProperty)", () => {
     t.done();
   });
 });
+
+describe("Grid sub-values (gridSubField)", () => {
+  const withSub = {
+    ...childMeta,
+    fields: [
+      ...childMeta.fields.map((f: any) => (f.fieldname === "grade" ? { ...f, gridSubField: "last_grade" } : f)),
+      { fieldname: "last_grade", fieldtype: "Float", label: "Last year", hidden: true },
+    ],
+  };
+
+  it("draws the other field's value under the cell's, and nothing when it is empty", () => {
+    const t = setup({}, undefined, undefined, false, undefined, undefined, undefined, withSub);
+    t.doc.students[0].last_grade = 6.5;
+    flushSync();
+    const cells = [...t.target.querySelectorAll("tbody tr")].map((tr) => tr.querySelectorAll("td")[2] as HTMLElement);
+    expect(cells[0].querySelector(".sub-value")?.textContent).toBe("6.5");
+    expect(cells[0].querySelector(".sub-value")?.getAttribute("title")).toBe("Last year");
+    expect(cells[1].querySelector(".sub-value")).toBeNull();
+    // the hidden field is no column of its own
+    const heads = [...t.target.querySelectorAll("thead th")].map((th) => th.textContent?.trim());
+    expect(heads).not.toContain("Last year");
+    t.done();
+  });
+
+  it("formats it with this form's overrides of the other field (displayScale)", () => {
+    const overrides = { students: { last_grade: { displayScale: 1000, displayPrecision: 1 } } };
+    const t = setup({}, undefined, undefined, false, undefined, undefined, undefined, withSub, overrides);
+    t.doc.students[0].last_grade = 12500;
+    flushSync();
+    const cell = t.target.querySelector("tbody tr td:nth-child(3)") as HTMLElement;
+    expect(cell.querySelector(".sub-value")?.textContent).toBe("12.5");
+    t.done();
+  });
+});

@@ -136,6 +136,10 @@ type Field struct {
 	// GridMaxWidth caps, in px, a child field's column in a "fit" grid: a
 	// longer value wraps. Ignored by the proportional layout.
 	GridMaxWidth int `json:"gridMaxWidth,omitempty"`
+	// GridSubField names another field of the same child DocType whose value a
+	// grid draws under this field's, smaller and muted (a year-before figure
+	// under a month's). The other field is usually hidden.
+	GridSubField string `json:"gridSubField,omitempty"`
 	// ReportFilters maps a Report field's report filter to the parent field
 	// (or `id`) whose value it takes.
 	ReportFilters map[string]string `json:"reportFilters,omitempty"`
@@ -1442,7 +1446,7 @@ func (r *Registry) DeclaredLinkTitle(target, field string) bool {
 // validateGrid checks the grid properties (gridSort, gridSortable,
 // gridExport, gridSelect, gridFilters, gridSearch), which only a Table or a Report field has,
 // gridIndex and gridLayout, which only a Table has, a child field's
-// gridMaxWidth, and a Report field's own report and filters.
+// gridMaxWidth and gridSubField, and a Report field's own report and filters.
 func (r *Registry) validateGrid(d *DocType, f *Field, e func(string, ...any)) {
 	isGrid := f.Fieldtype == "Table" || f.Fieldtype == "Report"
 	if !isGrid && (f.GridSort != nil || f.GridSortable || f.GridExport || f.GridSelect) {
@@ -1463,6 +1467,17 @@ func (r *Registry) validateGrid(d *DocType, f *Field, e func(string, ...any)) {
 			e("field %q: gridMaxWidth is for a field of a child DocType, shown in a grid", f.Fieldname)
 		} else if f.GridMaxWidth < 0 {
 			e("field %q: gridMaxWidth %d must be a positive width in px", f.Fieldname, f.GridMaxWidth)
+		}
+	}
+	if f.GridSubField != "" {
+		sub := d.Field(f.GridSubField)
+		switch {
+		case !d.IsChild || LayoutTypes[f.Fieldtype] || IsTableType(f.Fieldtype):
+			e("field %q: gridSubField is for a field of a child DocType, shown in a grid", f.Fieldname)
+		case f.GridSubField == f.Fieldname:
+			e("field %q: gridSubField names the field itself", f.Fieldname)
+		case sub == nil || LayoutTypes[sub.Fieldtype] || IsTableType(sub.Fieldtype):
+			e("field %q: gridSubField %q is not a data field of %s", f.Fieldname, f.GridSubField, d.Name)
 		}
 	}
 	if !isGrid && f.GridFilters != nil {

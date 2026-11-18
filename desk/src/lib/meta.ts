@@ -36,6 +36,8 @@ export interface Field {
   gridLayout?: "fit";
   /** A child field's column in a "fit" grid: its maximum width, in px. */
   gridMaxWidth?: number;
+  /** A child field: another field of the child whose value the grid draws under this one's, smaller and muted. */
+  gridSubField?: string;
   /** Report field: report filter -> parent fieldname (or `id`). */
   reportFilters?: Record<string, string>;
   /** No column; set by the controller's onLoad, always read-only. */

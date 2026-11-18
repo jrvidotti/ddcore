@@ -78,6 +78,17 @@ A `Table` and a `Report` field are grids, and four properties shape both:
   // course_student.doctype.ts: the name wraps past 280px, the grades take their own width
   { fieldname: "employee_name", fieldtype: "Data", label: "Name", inListView: true, gridMaxWidth: 280 }
   ```
+- `gridSubField: "<field>"` (on a child field): the grid draws the value of that other field of
+  the same child DocType under this column's value, in a smaller, muted line, in every layout and
+  edit mode; an empty value draws nothing. The other field is usually `hidden: true`, so it is no
+  column, no row-dialog field and no export column of its own. It is formatted as declared, with
+  the form's overrides of it (`frm.setGridDfProperty(table, "<field>", "displayScale", 1000)`).
+
+  ```ts
+  // a month's expected sales, with what it sold a year before under it
+  { fieldname: "m01", fieldtype: "Currency", label: "Month 1", readOnly: true, inListView: true, gridSubField: "p01" },
+  { fieldname: "p01", fieldtype: "Currency", label: "Last Year Sales", readOnly: true, hidden: true },
+  ```
 - `gridFilters: [{ label, filters, default? }]`: preset toggles above the grid. A toggle that is
   on shows only the rows matching its `filters`, written like a list's: tuples
   (`[["in_class", "=", 1]]`, `[["grade", ">=", 7]]`) or an object (`{ in_class: 1 }`). The
@@ -478,7 +489,7 @@ use of `Percent` would reach.
 
 `fieldname, fieldtype, label, options, optionColors, optionIcons, optionIconOnly, reqd, unique, default, readOnly, hidden, fetchFrom, linkTitleField (Link), dependsOn,
 readOnlyDependsOn, mandatoryDependsOn, allowOnSubmit, setOnlyOnce, noCopy, minDateField (Date), inListView, inStandardFilter, searchIndex,
-length, precision, rows (Small Text / Text / Markdown Editor / Code), description, columns (grid width 1–12), gridMaxWidth (a child field's column in a `gridLayout: "fit"` grid, px), width (`"sm"` | `"md"` | `"lg"` | `"full"`), gridEditMode (`"inline"` default or `"dialog"`),
+length, precision, rows (Small Text / Text / Markdown Editor / Code), description, columns (grid width 1–12), gridMaxWidth (a child field's column in a `gridLayout: "fit"` grid, px), gridSubField (a child field: another field drawn under its value in a grid), width (`"sm"` | `"md"` | `"lg"` | `"full"`), gridEditMode (`"inline"` default or `"dialog"`),
 gridSort, gridSortable, gridExport, gridSelect, gridFilters, gridSearch (Table / Report), gridIndex, gridLayout (Table), reportFilters (Report), computed, showFileName (Attach / Attach Image), collapsible, bold, hideLabel,
 permlevel, renamedFrom, convert`
 

@@ -14,6 +14,16 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **A grid cell can show a second value under its own: `gridSubField`.** On a child field,
+  `gridSubField: "<field>"` names another field of the same child DocType whose value the grid
+  draws under the cell's, in a smaller, muted line (what a month sold a year before, under its
+  expected sales). The other field is usually `hidden`, so it adds no column, row-dialog field or
+  export column; it is formatted as declared, with a form script's `setGridDfProperty` overrides
+  (`displayScale`) of it. Refused at load on a parent field, on a layout or Table field, and when
+  it names the field itself or anything but a data field of the child. See `fieldtypes`, "Form grids".
+
 ## 0.31.38 — 2026-11-16
 
 ### Fixed

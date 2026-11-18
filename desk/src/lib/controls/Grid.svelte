@@ -34,6 +34,9 @@
   // the child's fields as this form shows them: a script may hide or relabel one (frm.setGridDfProperty)
   const childFields = $derived(overlayFields(childMeta.fields, frm.gridDfProps?.[field.fieldname!]));
   const columns = $derived(childFields.filter((f) => f.inListView && !isLayout(f) && !f.hidden));
+  // a column's gridSubField: the field (hidden ones included, with this form's overrides) drawn under its value
+  const byName = $derived(new Map(childFields.map((f) => [f.fieldname, f])));
+  const subFieldOf = (c: Field): Field | undefined => (c.gridSubField ? byName.get(c.gridSubField) : undefined);
   const totalCols = $derived(columns.reduce((s, c) => s + (c.columns || 2), 0));
   const editMode = $derived(gridEditMode(field));
   const dialogOnly = $derived(editMode === "dialog");
@@ -221,9 +224,12 @@
               <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
               {@const cap = fit && c.gridMaxWidth}
               {@const input = fit && fitWidth(c)}
+              {@const sub = subFieldOf(c)}
+              {@const subText = sub ? formatValue(row[sub.fieldname!], sub) : ""}
               <td class:num={num(c)} class:capped={cap} onclick={forwardCellClick}>
                 {#if input}<div class="fit-input" style:width="{input}px">{@render cell(c, row)}</div>
                 {:else if cap}<div class="fit-cap" style:max-width="{c.gridMaxWidth}px">{@render cell(c, row)}</div>{:else}{@render cell(c, row)}{/if}
+                {#if subText}<div class="sub-value" title={sub!.label}>{subText}</div>{/if}
               </td>
             {/each}
             <td style="white-space:nowrap;text-align:right" data-own-click>
@@ -279,6 +285,8 @@
   /* the click reaches the cell's button from anywhere in the cell (forwardCellClick) */
   td:has(> .cell-click) { cursor: pointer; }
   .cell-value { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* a column's gridSubField: a second, smaller and muted value under the cell's */
+  .sub-value { font-size: 0.8em; line-height: 1.2; color: var(--muted); }
   .file-link { display: flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; white-space: nowrap; }
   .file-stem { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .file-extension { flex: none; }
