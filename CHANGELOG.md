@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.31.39 — 2026-11-18
+
 ### Added
 
 - **A grid cell can show a second value under its own: `gridSubField`.** On a child field,
