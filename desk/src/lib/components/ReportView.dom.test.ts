@@ -73,6 +73,28 @@ describe("ReportView", () => {
     expect(cells.map((c) => c.classList.contains("check"))).toEqual([false, false, true, false, false]);
     unmount(view);
   });
+  it("draws a `placement: \"table\"` filter in the table's toolbar, not in the filter card", async () => {
+    const { target, view } = await render({
+      label: "Balances",
+      filters: [
+        { fieldname: "year", fieldtype: "Int", label: "Year" },
+        { fieldname: "group_by", fieldtype: "Select", label: "Group By", options: "Store\nBrand", placement: "table" },
+      ],
+    });
+    expect(target.querySelectorAll(".filters > .filter")).toHaveLength(1);
+    expect(typeof handed.grid.controls).toBe("function");
+    unmount(view);
+  });
+  it("hands the table no controls when every filter is in the card", async () => {
+    const { view } = await render({ label: "Balances", filters: [{ fieldname: "year", fieldtype: "Int", label: "Year" }] });
+    expect(handed.grid.controls).toBeUndefined();
+    unmount(view);
+  });
+  it("keeps a table filter in the card while there is no table to hold it", async () => {
+    const { target, view } = await render({ label: "Balances", filters: [{ fieldname: "top", fieldtype: "Int", label: "Rows", placement: "table" }] }, null);
+    expect(target.querySelectorAll(".filters > .filter")).toHaveLength(1);
+    unmount(view);
+  });
   it("draws no chart when the report has none", async () => {
     const { target, view } = await render({ label: "Balances", filters: [] });
     expect(target.querySelector(".charts")).toBeNull();

@@ -18,11 +18,12 @@
   import GridFilters from "$lib/controls/GridFilters.svelte";
   import GridSearch from "$lib/controls/GridSearch.svelte";
   import { forwardCellClick, isRowClick } from "$lib/grid-click";
+  import type { Snippet } from "svelte";
 
   let {
     columns, rows, wsPrefix, filename, sheetName,
     baseSort = null, sortable = false, selectable = false, exportable = false, filters = [], search = [], buttons = [], actions = [],
-    clickable = new Set(), oncellclick, onrowclick, rowclickable, reportTotals = null,
+    clickable = new Set(), oncellclick, onrowclick, rowclickable, reportTotals = null, controls,
   }: {
     columns: any[]; rows: any[]; wsPrefix: string; filename: string; sheetName?: string;
     baseSort?: GridSortState | null; sortable?: boolean; selectable?: boolean; exportable?: boolean;
@@ -42,6 +43,8 @@
     rowclickable?: (row: any) => boolean;
     /** the report's own totals row (ReportResult.totals): the footer, in place of a sum of every numeric column */
     reportTotals?: Record<string, any> | null;
+    /** controls drawn first in the toolbar (the report page's `placement: "table"` filters) */
+    controls?: Snippet;
   } = $props();
 
   const num = (c: any) => isNumericFieldtype(c.fieldtype);
@@ -90,8 +93,9 @@
 {/snippet}
 
 <div class="card" style="overflow:auto">
-  {#if exportable || filters.length || search.length || buttons.length || (selectable && grid.chosen.length)}
+  {#if controls || exportable || filters.length || search.length || buttons.length || (selectable && grid.chosen.length)}
     <div class="grid-toolbar">
+      {@render controls?.()}
       {#if search.length}<GridSearch bind:value={grid.query} />{/if}
       {#if filters.length}<GridFilters {filters} active={grid.active} ontoggle={(i) => grid.toggleFilter(i)} />{/if}
       {#if selectable && grid.chosen.length}

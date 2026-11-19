@@ -45,6 +45,20 @@ A filter is a field (`fieldname`, `label`, `fieldtype`, `options`, `default`, `r
 `description` is drawn under its input, as in a form. The filter row is aligned by the top —
 labels on one line, inputs on one line — so a description or an error below one filter leaves its
 neighbours where they are; a `Check` lines its box up with the other inputs.
+A filter that shapes the table rather than the cut being read — how rows are grouped, how many
+are shown — takes `placement: "table"`: the page draws it in the toolbar above the table, its
+label beside the input and beside the export, instead of in the filter card. It is still a
+filter in every other way (the URL, `default`, a `drill` setting it), and a form's Report field,
+which shows no filters, ignores it. Until a result draws the table it stays in the card. Any
+other `placement` fails the load.
+
+```ts
+filters: [
+  { fieldname: "year", label: "Year", fieldtype: "Int" },
+  { fieldname: "group_by", label: "Group By", fieldtype: "Select", options: "Store\nBrand", default: "Store", placement: "table" },
+  { fieldname: "top", label: "Rows", fieldtype: "Select", options: "10\n20\nAll", default: "10", placement: "table" },
+],
+```
 
 The footer adds up every numeric column but `Percent`, over the rows on screen. When a sum means
 nothing (percentage-point changes, people counted in more than one group), return `totals`: the

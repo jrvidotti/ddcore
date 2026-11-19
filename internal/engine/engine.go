@@ -675,6 +675,9 @@ func (e *Engine) buildState() (_ *State, err error) {
 	if err := checkReportFields(reg, snap.Reports); err != nil {
 		return nil, err
 	}
+	if err := checkReportFilters(snap.Reports); err != nil {
+		return nil, err
+	}
 	notifications := make([]js.Notification, 0, len(snap.Notifications))
 	for _, name := range sortedNotificationNames(snap.Notifications) {
 		rule := snap.Notifications[name]
@@ -1547,6 +1550,28 @@ func checkReportFields(reg *meta.Registry, reports map[string]map[string]any) er
 			if _, ok := reports[f.OptionsString()]; !ok {
 				errs = append(errs, fmt.Sprintf("%s: field %q points at report %q, which does not exist", d.Name, f.Fieldname, f.OptionsString()))
 			}
+		}
+	}
+	if len(errs) == 0 {
+		return nil
+	}
+	sort.Strings(errs)
+	return fmt.Errorf("invalid meta:\n  %s", strings.Join(errs, "\n  "))
+}
+
+// checkReportFilters refuses a report filter whose `placement` the report page does not know:
+// a typo would otherwise leave the filter in the filter card without a word.
+func checkReportFilters(reports map[string]map[string]any) error {
+	var errs []string
+	for name, rep := range reports {
+		filters, _ := rep["filters"].([]any)
+		for _, raw := range filters {
+			f, _ := raw.(map[string]any)
+			p, ok := f["placement"]
+			if !ok || p == nil || p == "table" {
+				continue
+			}
+			errs = append(errs, fmt.Sprintf("report %q: filter %q has placement %v; the only placement is \"table\"", name, f["fieldname"], p))
 		}
 	}
 	if len(errs) == 0 {
