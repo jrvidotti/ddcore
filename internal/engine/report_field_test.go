@@ -21,3 +21,18 @@ func TestCheckReportFields(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestCheckReportFilters(t *testing.T) {
+	ok := map[string]map[string]any{"Sales": {"filters": []any{
+		map[string]any{"fieldname": "year"},
+		map[string]any{"fieldname": "group_by", "placement": "table"},
+	}}}
+	if err := checkReportFilters(ok); err != nil {
+		t.Fatal(err)
+	}
+	bad := map[string]map[string]any{"Sales": {"filters": []any{map[string]any{"fieldname": "top", "placement": "grid"}}}}
+	err := checkReportFilters(bad)
+	if err == nil || !strings.Contains(err.Error(), `report "Sales": filter "top" has placement grid`) {
+		t.Fatalf("err = %v", err)
+	}
+}

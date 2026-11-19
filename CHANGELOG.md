@@ -14,6 +14,15 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **A report filter can sit in the table's toolbar: `placement: "table"`.** For a filter that
+  shapes the table rather than the cut (how rows are grouped, how many are shown), the report page
+  draws it above the table, its label beside the input, next to the export, instead of in the
+  filter card. It stays a filter in every other way: kept in the URL, set by a `drill`, taking its
+  `default`. `ReportFilterDef` types it in the SDK, and any other `placement` fails the load. See
+  `report-api`.
+
 ## 0.31.40 — 2026-11-19
 
 ### Added

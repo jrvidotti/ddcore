@@ -1,4 +1,4 @@
-import { flushSync, mount, tick, unmount } from "svelte";
+import { createRawSnippet, flushSync, mount, tick, unmount } from "svelte";
 import { describe, expect, it, vi } from "vitest";
 import ReportGrid from "./ReportGrid.svelte";
 
@@ -26,6 +26,21 @@ function setup(props: Record<string, any> = {}) {
   const click = (el: Element | null) => { (el as HTMLElement).click(); flushSync(); };
   return { target, view, click, done: () => { unmount(view); target.remove(); } };
 }
+
+describe("ReportGrid toolbar controls", () => {
+  it("draws the controls first in the toolbar, which they bring even without export", () => {
+    const controls = createRawSnippet(() => ({ render: () => `<span class="my-control">Group By</span>` }));
+    const g = setup({ controls });
+    const bar = g.target.querySelector(".grid-toolbar");
+    expect(bar?.firstElementChild?.classList.contains("my-control")).toBe(true);
+    g.done();
+  });
+  it("draws no toolbar with nothing to put in it", () => {
+    const g = setup();
+    expect(g.target.querySelector(".grid-toolbar")).toBeNull();
+    g.done();
+  });
+});
 
 describe("ReportGrid field buttons", () => {
   it("shows a Report field's buttons in the toolbar, which they open by themselves", () => {

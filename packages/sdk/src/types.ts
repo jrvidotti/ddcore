@@ -780,6 +780,16 @@ export interface ChartData {
 /** The filters a drill-down sets, by the report filter's fieldname; `null` empties one. */
 export type ReportDrill = Record<string, string | number | boolean | null>;
 
+/** A report's filter: a field, plus where the report page draws it. */
+export type ReportFilterDef = FieldDef & {
+  /**
+   * `"table"` draws the filter in the toolbar above the report's table, beside its export,
+   * instead of in the filter card: for a filter that shapes the table (how rows are grouped,
+   * how many are shown) rather than the cut being read. It changes only where it is drawn.
+   */
+  placement?: "table";
+};
+
 export interface ReportDef {
   name: string;
   label?: string;
@@ -787,7 +797,7 @@ export interface ReportDef {
   description?: string;
   refDoctype?: string;
   roles?: string[];
-  filters?: FieldDef[];
+  filters?: ReportFilterDef[];
   execute: (filters: Record<string, any>, ctx: Context) => ReportResult;
 }
 

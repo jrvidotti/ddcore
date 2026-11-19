@@ -55,6 +55,11 @@
   // ones. It goes through the URL, so Back returns to the cut the user drilled from; the URL
   // effect below applies the filters and runs the report.
   const filterFields = $derived(meta?.filters || []);
+  // A `placement: "table"` filter is drawn in the table's toolbar. Until a result draws the
+  // table (a first run that failed), it stays in the card, so it can still be changed.
+  const inTable = (f: any) => f.placement === "table" && !!result;
+  const cardFilters = $derived(filterFields.filter((f: any) => !inTable(f)));
+  const tableFilters = $derived(filterFields.filter(inTable));
   const canDrill = (drill: unknown) => isDrill(drill, filterFields);
   function drill(d: unknown) {
     const next = drillFilters(filters, d, filterFields);
@@ -96,9 +101,9 @@
     </div>
     <button class="btn primary" onclick={run} disabled={loading}>{__("Update")}</button>
   </div>
-  {#if meta?.filters?.length}
+  {#if cardFilters.length}
     <div class="card filters">
-      {#each meta.filters as f (f.fieldname)}
+      {#each cardFilters as f (f.fieldname)}
         <div class="filter" class:check={f.fieldtype === "Check"} class:unlabelled={f.fieldtype === "Check" || !f.label || f.hideLabel}>
           <Control field={f} value={filters[f.fieldname]} onchange={(v) => updateFilter(f.fieldname, v)} doc={filters} compact />
         </div>
@@ -117,8 +122,21 @@
       {/each}
     </div>
   {/if}
+  {#snippet tableControls()}
+    {#each tableFilters as f (f.fieldname)}
+      {#if f.fieldtype === "Check"}
+        <div class="table-filter"><Control field={f} value={filters[f.fieldname]} onchange={(v) => updateFilter(f.fieldname, v)} doc={filters} compact /></div>
+      {:else}
+        <!-- the label beside the input, as a toolbar reads; the control keeps its own for screen readers -->
+        <div class="table-filter">
+          <span class="table-filter-label" aria-hidden="true">{f.label}</span>
+          <Control field={{ ...f, hideLabel: true, description: undefined }} value={filters[f.fieldname]} onchange={(v) => updateFilter(f.fieldname, v)} doc={filters} compact />
+        </div>
+      {/if}
+    {/each}
+  {/snippet}
   {#if result}
-    <ReportGrid columns={result.columns} rows={result.rows} {wsPrefix} filename={name} sheetName={label} sortable exportable={meta?.canExport !== false}
+    <ReportGrid controls={tableFilters.length ? tableControls : undefined} columns={result.columns} rows={result.rows} {wsPrefix} filename={name} sheetName={label} sortable exportable={meta?.canExport !== false}
       reportTotals={result.totals} rowclickable={(r) => canDrill(r.drill)} onrowclick={result.rows?.some((r: any) => canDrill(r.drill)) ? (r) => drill(r.drill) : undefined} />
   {/if}
 </div>
@@ -137,4 +155,9 @@
   /* A filter with no label above its input (a Check carries its label beside the box) takes a
      label's height first, so its control sits on the inputs' line. */
   .filter.unlabelled::before { content: "\200b"; display: block; font-size: 12px; margin-bottom: 4px; }
+  /* a filter in the table's toolbar: its label beside a toolbar-sized input */
+  .table-filter { display: flex; align-items: center; gap: 6px; }
+  .table-filter + .table-filter { margin-left: 6px; }
+  .table-filter-label { color: var(--muted); white-space: nowrap; }
+  .table-filter :global(input:not([type="checkbox"])), .table-filter :global(select) { width: 150px; min-height: 28px; padding: 3px 8px; font-size: 12px; }
 </style>
