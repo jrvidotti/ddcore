@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.31.40 — 2026-11-19
+
 ### Added
 
 - **A list cell can link somewhere else than the row: `cellLinks` in `defineListView`.** A function
