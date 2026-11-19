@@ -619,6 +619,7 @@ defineListView("Entry", {
   idColumn: false,                      // hides (or `true` shows) the leading document-id column
   columnChooser: false,                 // hides the Columns menu, where each user hides and adds columns
   plainLinks: ["contract"],             // Link columns shown as the title in text, not as a link
+  cellLinks: { open_count: (v, row) => "/app/Finance/Entry?contract=" + encodeURIComponent(row.id) }, // a cell that links elsewhere
   rangeFilters: ["due_date"],           // a Date or Datetime filtered by a from and a to day
 });
 ```
@@ -674,6 +675,26 @@ A Link column links to the document it names, so a click on it leaves the row. W
 easily mistaken for what they link to — the classes of a course, each showing its course —
 `plainLinks: ["course"]` shows that column as the course's title in plain text, and a click on it
 opens the class like the rest of the row. Only Link and Dynamic Link columns are affected.
+
+The other way round, `cellLinks` makes a cell a link to somewhere else than the row: a function
+per column returns, from the cell's value and the row, a desk path, and the cell becomes a link
+to it while the rest of the row still opens the document. A count stored on a job title, linking
+to that title's active employees:
+
+```ts
+defineListView<JobTitle>("Job Title", {
+  cellLinks: {
+    active_employees: (_v, row) => "/app/HR/Employee?job_title=" + encodeURIComponent(row.id) + "&status=Active",
+  },
+});
+```
+
+The target list reads its filters from the query string (each `field=value` an equality, as a
+shared link restores them), and the desk puts the current `?tenant=` back on its own, so the path
+needs neither. An empty return (`null`, `""`) leaves the cell as plain text — say, for a count of
+zero — and so does a function that throws. It wins over a Link column's own link, shows the
+cell's text (`formatters` included), and reads only what the row loaded: a field that is not a
+column goes in `fields`. It applies to the List view; the Cards view keeps its fields as text.
 
 Most lists need no `indicator` at all: declare `optionColors` on the status field and the desk
 colours and translates it on its own. Reach for `indicator` only when the label is not a field

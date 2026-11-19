@@ -681,7 +681,14 @@ export interface ListViewOptions<T extends BaseDoc = BaseDoc> {
    * document they link to — the classes of a course, say.
    */
   plainLinks?: (keyof T & string)[];
-  /** Fields fetched beyond the columns, for `indicator`, `badges` and `formatters`. */
+  /**
+   * Columns whose cell links to the URL the function returns for the row — a desk path such as
+   * `"/app/HR/Employee?job_title=" + encodeURIComponent(row.id)`, whose query string filters that
+   * list — in place of opening the row's document. An empty return (or a throw) leaves the cell
+   * plain text. It wins over a Link column's own link. List view only.
+   */
+  cellLinks?: Partial<Record<keyof T & string, (value: any, row: T) => string | null | undefined>>;
+  /** Fields fetched beyond the columns, for `indicator`, `badges`, `formatters` and `cellLinks`. */
   fields?: (keyof T & string)[];
   /** Extra indicators shown after the status, in the same cell. */
   badges?: (row: T) => { label: string; color: string }[] | null | undefined;
