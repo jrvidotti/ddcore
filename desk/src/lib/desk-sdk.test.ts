@@ -48,6 +48,12 @@ describe("deskSDK listRegistry", () => {
     expect(deskSDK.listSettings("Turma")).toEqual({ plainLinks: ["course"] });
   });
 
+  it("registers and retrieves the cellLinks option", () => {
+    const link = (_v: any, row: any) => "/app/HR/Employee?job_title=" + row.id;
+    deskSDK.defineListView("Job Title", { cellLinks: { active_employees: link } });
+    expect(deskSDK.listSettings("Job Title").cellLinks.active_employees).toBe(link);
+  });
+
   it("registers and retrieves the columnChooser option", () => {
     deskSDK.defineListView("Organization", { columnChooser: false });
     expect(deskSDK.listSettings("Organization")).toEqual({ columnChooser: false });

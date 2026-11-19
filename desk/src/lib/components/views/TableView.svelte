@@ -29,6 +29,12 @@
     (!columns.some((c) => c.fieldname === statusField?.fieldname) && (!!statusField || !!meta.doctype.submittable)));
   const num = (f: Field) => isNumericFieldtype(f.fieldtype);
   const documentUrl = (id: string) => `${wsPrefix}/${seg(doctype)}/${encodeURIComponent(id)}`;
+  /** The URL `cellLinks` gives this cell, or "" for a plain cell; a function that throws gives no link. */
+  const cellLink = (row: any, field: Field): string => {
+    const fn = settings.cellLinks?.[field.fieldname!];
+    if (!fn) return "";
+    try { return fn(row[field.fieldname!], row) || ""; } catch { return ""; }
+  };
 </script>
 
 <table class="grid">
@@ -55,8 +61,11 @@
         <td onclick={(e) => { e.stopPropagation(); onToggle(r.id); }}><input type="checkbox" aria-label={__("Select {0}", [r.id])} checked={selected.has(r.id)} onclick={(e) => e.stopPropagation()} onchange={() => onToggle(r.id)} /></td>
         {#if showID}<td><a href={documentUrl(r.id)} onclick={(e) => e.stopPropagation()}>{meta.doctype.translateId ? __(r.id) : r.id}</a></td>{/if}
         {#each columns as c}
+          {@const href = cellLink(r, c)}
           <td class:num={num(c)} class:bold={c.bold} style:font-weight={c.bold ? 600 : undefined}>
-            {#if (c.fieldtype === "Link" || c.fieldtype === "Dynamic Link") && r[c.fieldname!]}
+            {#if href}
+              <a {href} onclick={(e) => e.stopPropagation()}>{cellText(r, c)}</a>
+            {:else if (c.fieldtype === "Link" || c.fieldtype === "Dynamic Link") && r[c.fieldname!]}
               {@const linkTarget = c.fieldtype === "Dynamic Link" ? r[c.options] : c.options}
               {@const linkVal = r[c.fieldname!]}
               {@const linkTitleField = c.fieldtype === "Link" ? c.linkTitleField : undefined}

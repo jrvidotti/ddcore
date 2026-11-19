@@ -14,6 +14,14 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **A list cell can link somewhere else than the row: `cellLinks` in `defineListView`.** A function
+  per column returns, from the cell's value and the row, a desk path (`"/app/HR/Employee?job_title=…&status=Active"`,
+  whose query string filters that list), and the List view draws the cell as a link to it; the
+  rest of the row still opens the document. An empty return, or a throw, leaves the cell as text.
+  It wins over a Link column's own link. See `form-api`, "defineListView".
+
 ## 0.31.39 — 2026-11-18
 
 ### Added
