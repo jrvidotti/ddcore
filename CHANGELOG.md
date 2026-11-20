@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.31.41 — 2026-11-20
+
 ### Added
 
 - **A report filter can sit in the table's toolbar: `placement: "table"`.** For a filter that
