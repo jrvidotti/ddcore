@@ -14,6 +14,13 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Changed
+
+- **A report's table keeps its tallest height while only its `placement: "table"` filters change.**
+  Switching to a grouping with fewer rows no longer shortens the page and pulls the scroll up under
+  the reader: the empty room stays inside the table's box. A change to any other filter, or a
+  drill, lets it go. See `report-api`.
+
 ## 0.31.41 — 2026-11-20
 
 ### Added

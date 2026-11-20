@@ -23,7 +23,7 @@
   let {
     columns, rows, wsPrefix, filename, sheetName,
     baseSort = null, sortable = false, selectable = false, exportable = false, filters = [], search = [], buttons = [], actions = [],
-    clickable = new Set(), oncellclick, onrowclick, rowclickable, reportTotals = null, controls,
+    clickable = new Set(), oncellclick, onrowclick, rowclickable, reportTotals = null, controls, minHeight = 0,
   }: {
     columns: any[]; rows: any[]; wsPrefix: string; filename: string; sheetName?: string;
     baseSort?: GridSortState | null; sortable?: boolean; selectable?: boolean; exportable?: boolean;
@@ -45,6 +45,8 @@
     reportTotals?: Record<string, any> | null;
     /** controls drawn first in the toolbar (the report page's `placement: "table"` filters) */
     controls?: Snippet;
+    /** the least height of the table's box, in pixels: the report page holds it while only the table's own filters change */
+    minHeight?: number;
   } = $props();
 
   const num = (c: any) => isNumericFieldtype(c.fieldtype);
@@ -92,7 +94,7 @@
   {:else}<span style:color={c.fieldtype === "Currency" && r[c.fieldname] < 0 ? "var(--red)" : undefined}>{formatValue(r[c.fieldname], c)}</span>{/if}
 {/snippet}
 
-<div class="card" style="overflow:auto">
+<div class="card" style="overflow:auto" style:min-height={minHeight > 0 ? `${minHeight}px` : undefined}>
   {#if controls || exportable || filters.length || search.length || buttons.length || (selectable && grid.chosen.length)}
     <div class="grid-toolbar">
       {@render controls?.()}

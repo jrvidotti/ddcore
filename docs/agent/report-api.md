@@ -50,7 +50,9 @@ are shown — takes `placement: "table"`: the page draws it in the toolbar above
 label beside the input and beside the export, instead of in the filter card. It is still a
 filter in every other way (the URL, `default`, a `drill` setting it), and a form's Report field,
 which shows no filters, ignores it. Until a result draws the table it stays in the card. Any
-other `placement` fails the load.
+other `placement` fails the load. While only these filters change, the table keeps the tallest
+height it has had, so a grouping with fewer rows does not shorten the page and pull the scroll up;
+a change to any other filter, or a drill, lets it go.
 
 ```ts
 filters: [

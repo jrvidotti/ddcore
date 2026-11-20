@@ -35,6 +35,14 @@ describe("ReportGrid toolbar controls", () => {
     expect(bar?.firstElementChild?.classList.contains("my-control")).toBe(true);
     g.done();
   });
+  it("holds the box at minHeight, and sets none without it", () => {
+    let g = setup({ minHeight: 480 });
+    expect((g.target.querySelector(".card") as HTMLElement).style.minHeight).toBe("480px");
+    g.done();
+    g = setup();
+    expect((g.target.querySelector(".card") as HTMLElement).style.minHeight).toBe("");
+    g.done();
+  });
   it("draws no toolbar with nothing to put in it", () => {
     const g = setup();
     expect(g.target.querySelector(".grid-toolbar")).toBeNull();
