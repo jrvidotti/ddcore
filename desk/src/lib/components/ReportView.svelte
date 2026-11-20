@@ -7,7 +7,7 @@
   import Chart from "./Chart.svelte";
   import ReportGrid from "./ReportGrid.svelte";
   import { showError } from "$lib/ui.svelte";
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
   import { deskSDK } from "$lib/desk-sdk";
@@ -61,6 +61,17 @@
   const cardFilters = $derived(filterFields.filter((f: any) => !inTable(f)));
   const tableFilters = $derived(filterFields.filter(inTable));
   const canDrill = (drill: unknown) => isDrill(drill, filterFields);
+  // The table keeps its tallest height while only its own filters change: a grouping with fewer
+  // rows would shorten the page and pull the scroll up under the reader. A change to the cut (a
+  // card filter, a drill) lets it go; another report is a new view (the route's {#key name}).
+  let gridBox = $state<HTMLElement>();
+  let holdHeight = $state(0);
+  function holdTable() {
+    const h = (gridBox?.firstElementChild as HTMLElement | null)?.offsetHeight ?? 0;
+    holdHeight = Math.max(holdHeight, h);
+  }
+  const onlyTableChanged = (before: Record<string, any>, after: Record<string, any>) =>
+    filterFields.every((f: any) => inTable(f) || (before[f.fieldname] ?? null) === (after[f.fieldname] ?? null));
   function drill(d: unknown) {
     const next = drillFilters(filters, d, filterFields);
     if (!next) return;
@@ -68,7 +79,10 @@
     goto(`${wsPrefix}/report/${seg(name)}${params.size ? `?${params}` : ""}`, { noScroll: true });
   }
   function updateFilter(fieldname: string, value: any) {
-    filters = { ...filters, [fieldname]: value };
+    const next = { ...filters, [fieldname]: value };
+    if (onlyTableChanged(filters, next)) holdTable();
+    else holdHeight = 0;
+    filters = next;
     const params = reportFiltersToSearchParams(filters, meta?.filters || []);
     lastUrlSearch = params.size ? `?${params}` : "";
     goto(`${wsPrefix}/report/${seg(name)}${lastUrlSearch}`, { noScroll: true, keepFocus: true });
@@ -78,8 +92,14 @@
     const search = page.url.search;
     if (!ready || !meta || search === lastUrlSearch) return;
     lastUrlSearch = search;
-    applyFiltersFromUrl();
-    run();
+    untrack(() => {
+      const before = filters;
+      applyFiltersFromUrl();
+      // Back over a change of grouping is still the same cut
+      if (onlyTableChanged(before, filters)) holdTable();
+      else holdHeight = 0;
+      run();
+    });
   });
   onMount(async () => {
     try {
@@ -136,8 +156,10 @@
     {/each}
   {/snippet}
   {#if result}
-    <ReportGrid controls={tableFilters.length ? tableControls : undefined} columns={result.columns} rows={result.rows} {wsPrefix} filename={name} sheetName={label} sortable exportable={meta?.canExport !== false}
+    <div bind:this={gridBox}>
+    <ReportGrid minHeight={holdHeight} controls={tableFilters.length ? tableControls : undefined} columns={result.columns} rows={result.rows} {wsPrefix} filename={name} sheetName={label} sortable exportable={meta?.canExport !== false}
       reportTotals={result.totals} rowclickable={(r) => canDrill(r.drill)} onrowclick={result.rows?.some((r: any) => canDrill(r.drill)) ? (r) => drill(r.drill) : undefined} />
+    </div>
   {/if}
 </div>
 

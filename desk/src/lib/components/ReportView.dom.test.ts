@@ -17,10 +17,18 @@ vi.mock("$app/state", () => ({ page }));
 vi.mock("$app/navigation", () => ({ goto: vi.fn() }));
 vi.mock("$lib/desk-sdk", () => ({ deskSDK: { ddcore: { datetime: {} } } }));
 vi.mock("./sidebar-workspace", () => ({ getRememberedWorkspace: () => "" }));
-const handed = vi.hoisted(() => ({ grid: null as any, charts: [] as any[] }));
-vi.mock("./ReportGrid.svelte", () => ({ default: (_: any, props: any) => { handed.grid = props; } }));
+const handed = vi.hoisted(() => ({ grid: null as any, charts: [] as any[], controls: {} as Record<string, any>, height: 0 }));
+// the grid draws a box whose height the test sets (jsdom lays nothing out)
+vi.mock("./ReportGrid.svelte", () => ({
+  default: (anchor: any, props: any) => {
+    handed.grid = props;
+    const box = document.createElement("div");
+    Object.defineProperty(box, "offsetHeight", { get: () => handed.height });
+    anchor.before(box);
+  },
+}));
 vi.mock("./Chart.svelte", () => ({ default: (_: any, props: any) => { handed.charts.push(props); } }));
-vi.mock("$lib/controls/Control.svelte", () => ({ default: () => {} }));
+vi.mock("$lib/controls/Control.svelte", () => ({ default: (_: any, props: any) => { handed.controls[props.field.fieldname] = props; } }));
 
 import { api } from "$lib/api";
 import { goto } from "$app/navigation";
@@ -99,6 +107,30 @@ describe("ReportView", () => {
     const { target, view } = await render({ label: "Balances", filters: [] });
     expect(target.querySelector(".charts")).toBeNull();
     unmount(view);
+  });
+});
+
+describe("ReportView table height", () => {
+  const filters = [
+    { fieldname: "year", fieldtype: "Int", label: "Year" },
+    { fieldname: "group_by", fieldtype: "Select", label: "Group By", options: "Store\nGender", default: "Store", placement: "table" },
+  ];
+  it("keeps the table's tallest height while only a table filter changes, and lets it go with the cut", async () => {
+    const { view } = await render({ label: "Sales", filters }, { columns: [], rows: [] });
+    expect(handed.grid.minHeight).toBe(0);
+    handed.height = 480;
+    handed.controls.group_by.onchange("Gender");
+    flushSync();
+    expect(handed.grid.minHeight).toBe(480);
+    handed.height = 120; // the shorter grouping drawn: the hold stays at the tallest
+    handed.controls.group_by.onchange("Store");
+    flushSync();
+    expect(handed.grid.minHeight).toBe(480);
+    handed.controls.year.onchange(2025);
+    flushSync();
+    expect(handed.grid.minHeight).toBe(0);
+    unmount(view);
+    handed.height = 0;
   });
 });
 
