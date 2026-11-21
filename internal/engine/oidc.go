@@ -318,10 +318,11 @@ func (e *Engine) OIDCCallback(ctx context.Context, id, code, state, cookieState 
 			return err
 		}
 		if len(pol.GroupRoles) > 0 {
-			if !hasGroups {
+			if !hasGroups && !pol.MissingGroupsAreNone() {
 				// A missing claim is not "in no group": the provider may just
 				// not have been asked. Taking every mapped role away on that
-				// guess would lock people out of their work.
+				// guess would lock people out of their work — unless the site
+				// said this provider leaves an empty claim out (missingGroups).
 				e.Log.Warn("single sign-on: no groups claim, mapped roles left as they were", "provider", id, "claim", pol.Claim(), "user", user)
 			} else if err := e.applyGroupRoles(c, pol, user, groups); err != nil {
 				return err

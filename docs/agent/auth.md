@@ -219,6 +219,7 @@ A provider's groups can grant roles. The map is site policy, so it lives in
   "sso": {
     "pocketid": {
       "groupsClaim": "groups",   // the default
+      "missingGroups": "keep",   // the default; "empty" for a provider that omits an empty claim
       "groupRoles": { "erp-admins": ["System Manager"], "erp-sales": ["Sales User"] }
     }
   }
@@ -234,6 +235,13 @@ A provider's groups can grant roles. The map is site policy, so it lives in
 - **The claim decides what counts as "no groups".** A missing claim changes
   nothing and logs a warning, because the provider may simply not have been
   asked. An empty list does take every managed role away.
+  Some providers never send an empty list: Keycloak's Group Membership mapper
+  leaves the claim out of the token for someone in no group, so taking a person
+  out of their last group would leave their roles in place. For such a provider
+  set `"missingGroups": "empty"`, and a sign-in without the claim takes every
+  managed role away. Set it only once a sign-in is known to carry the claim — the
+  scope requested, the mapper in place — since from then on a provider that was
+  not asked for the claim reads as everybody being in no group.
 - **Other cases.** A group mapped to a role that does not exist is skipped with
   a warning, and `Admin` is never touched.
 - **Where the groups come from.** With [PocketID provisioning](#pocketid-provisioning)
@@ -243,7 +251,8 @@ A provider's groups can grant roles. The map is site policy, so it lives in
 - **Scope.** With a map configured, the `groups` scope is added to the
   provider's scopes.
 - **Refused at load:** a policy for a provider not in `DDCORE_OIDC_PROVIDERS`,
-  a group mapped to no role, and `Admin`, `Guest` or `All` as a mapped role.
+  a group mapped to no role, `Admin`, `Guest` or `All` as a mapped role, and a
+  `missingGroups` other than `keep` or `empty`.
 
 ### PocketID provisioning
 

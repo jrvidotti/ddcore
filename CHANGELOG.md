@@ -14,6 +14,14 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **`auth.sso.<id>.missingGroups: "empty"` reads a sign-in without the groups claim as "in no
+  group".** Keycloak's Group Membership mapper leaves the claim out of the token when the person
+  is in no group, so removing someone from their last group never took the mapped roles away. With
+  `"empty"`, a missing claim takes every managed role away as an empty list does; the default,
+  `"keep"`, is unchanged. See `auth`, "Groups as roles" (#166).
+
 ## 0.31.42 — 2026-11-20
 
 ### Changed
