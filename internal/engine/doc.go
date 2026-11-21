@@ -1915,7 +1915,17 @@ func (c *Ctx) fetchFrom(d *meta.DocType, doc Doc) error {
 }
 
 func (c *Ctx) checkMandatory(d *meta.DocType, doc Doc, checks fieldChecks) error {
-	var missing []string
+	missing, err := c.missingMandatory(d, doc, checks)
+	if err != nil {
+		return err
+	}
+	return c.mandatoryErr(missing)
+}
+
+// missingMandatory lists the fields of d that doc must fill and does not: a
+// reqd field, or one whose mandatoryDependsOn holds on doc.
+func (c *Ctx) missingMandatory(d *meta.DocType, doc Doc, checks fieldChecks) ([]*meta.Field, error) {
+	var missing []*meta.Field
 	for _, f := range d.Fields {
 		if f.Fieldname == "" || meta.LayoutTypes[f.Fieldtype] {
 			continue
@@ -1924,7 +1934,7 @@ func (c *Ctx) checkMandatory(d *meta.DocType, doc Doc, checks fieldChecks) error
 		if !req && f.MandatoryDependsOn != "" {
 			ok, err := c.evalExpr(f.MandatoryDependsOn, doc)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			req = ok
 		}
@@ -1943,18 +1953,28 @@ func (c *Ctx) checkMandatory(d *meta.DocType, doc Doc, checks fieldChecks) error
 						continue
 					}
 				}
-				missing = append(missing, c.T(f.Label))
+				missing = append(missing, f)
 			}
 			continue
 		}
 		if req && isEmpty(doc[f.Fieldname]) {
-			missing = append(missing, c.T(f.Label))
+			missing = append(missing, f)
 		}
 	}
-	if len(missing) > 0 {
-		return cerr.Mandatory("Fill in the required fields: {0}", strings.Join(missing, ", ")).WithTitleKey("Required fields")
+	return missing, nil
+}
+
+// mandatoryErr is the error for the fields missingMandatory found, nil when
+// it found none.
+func (c *Ctx) mandatoryErr(missing []*meta.Field) error {
+	if len(missing) == 0 {
+		return nil
 	}
-	return nil
+	labels := make([]string, len(missing))
+	for i, f := range missing {
+		labels[i] = c.T(f.Label)
+	}
+	return cerr.Mandatory("Fill in the required fields: {0}", strings.Join(labels, ", ")).WithTitleKey("Required fields")
 }
 
 // checkReadOnlyDependsOn enforces readOnlyDependsOn on the server: hiding the

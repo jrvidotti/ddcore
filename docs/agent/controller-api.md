@@ -465,12 +465,16 @@ const res = ddcore.db.upsertMany("TagOne Item", rows.map((r) => ({ mirror_key: k
   `"id"` or a `unique` field, which every row must carry — inserts the rows nothing matches and
   updates the others with the fields each row brings (a field it leaves out keeps its stored
   value). Two rows with the same key in one call throw `DuplicateEntryError`.
+  A row that matches a stored document may therefore be partial: it need not carry the `reqd`
+  fields it leaves alone. A required field it does bring cannot be empty, and a row that matches
+  nothing is an insert, refused with `MandatoryError` if a required field is missing.
 
 A row whose stored values already equal what it brings is **not written**, by `updateMany` or
 `upsertMany`: its `modified` stays, and no dead row is left behind. `updated` and `unchanged`
 count which was which.
 
-Each row is checked as `insert()` checks it: the casts, `reqd`, Select options, e-mail fields,
+Each row is checked as `insert()` checks it: the casts, `reqd` (but for the partial rows of an
+upsert, above), Select options, e-mail fields,
 Links (one query per target DocType; `ignoreLinks: true` skips it), `fetchFrom`, the id rule
 (a series reserves one block of numbers per call), and every unique index — two rows of the call
 colliding, or a row colliding with a stored one, throw `DuplicateEntryError`. An error about a

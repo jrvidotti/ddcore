@@ -249,7 +249,13 @@ func atRow(err error, i int) error {
 // bulkNewRows turns rows into documents ready to insert: defaults, casts,
 // fetched values, reqd, e-mail and Select checks, the standard columns and an
 // id. The second result is each row's own fields, which an upsert updates.
-func (c *Ctx) bulkNewRows(d *meta.DocType, op bulkOp, rows []Doc, opts BulkOpts, now time.Time) ([]Doc, []map[string]bool, error) {
+//
+// An upsert's row may be a partial update of a stored document, which keeps
+// the required fields the row leaves out. So a required field the row brings
+// empty is refused here, and one it leaves out is returned as the third
+// result — the error of each such row, by index — for upsertMany to raise
+// if nothing stored matches the row.
+func (c *Ctx) bulkNewRows(d *meta.DocType, op bulkOp, rows []Doc, opts BulkOpts, now time.Time) ([]Doc, []map[string]bool, map[int]error, error) {
 	names := map[string]bool{}
 	given := make([]map[string]bool, len(rows))
 	for i, r := range rows {
@@ -261,12 +267,13 @@ func (c *Ctx) bulkNewRows(d *meta.DocType, op bulkOp, rows []Doc, opts BulkOpts,
 		}
 	}
 	if _, err := c.bulkFields(d, op, opts.Key, names, opts); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	tmpl, err := c.NewDoc(d.Name, nil)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
+	pending := map[int]error{}
 	docs := make([]Doc, len(rows))
 	for i, r := range rows {
 		doc := maps.Clone(tmpl)
@@ -274,38 +281,52 @@ func (c *Ctx) bulkNewRows(d *meta.DocType, op bulkOp, rows []Doc, opts BulkOpts,
 			doc[k] = r[k]
 		}
 		if err := c.castAll(d, doc); err != nil {
-			return nil, nil, atRow(err, i)
+			return nil, nil, nil, atRow(err, i)
 		}
 		docs[i] = doc
 	}
 	if err := c.bulkFetch(d, docs, nil); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	for i, doc := range docs {
 		for _, check := range []func() error{
 			func() error { return c.castAll(d, doc) },
-			func() error { return c.checkMandatory(d, doc, fieldChecks{}) },
+			func() error {
+				missing, err := c.missingMandatory(d, doc, fieldChecks{})
+				if err != nil || len(missing) == 0 {
+					return err
+				}
+				left := op == bulkUpsert
+				for _, f := range missing {
+					left = left && !given[i][f.Fieldname]
+				}
+				if left {
+					pending[i] = atRow(c.mandatoryErr(missing), i)
+					return nil
+				}
+				return c.mandatoryErr(missing)
+			},
 			func() error { return c.checkEmails(d, doc) },
 			func() error { return c.checkSelect(d, doc) },
 		} {
 			if err := check(); err != nil {
-				return nil, nil, atRow(err, i)
+				return nil, nil, nil, atRow(err, i)
 			}
 		}
 		doc["owner"], doc["creation"], doc["modified"], doc["modified_by"], doc["docstatus"] = c.User, now, now, c.User, 0
 	}
 	if !opts.IgnoreLinks {
 		if err := c.bulkLinks(d, docs, nil); err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 	}
 	if err := c.bulkIDs(d, docs); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	if err := c.bulkDuplicates(d, docs); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	return docs, given, nil
+	return docs, given, pending, nil
 }
 
 // bulkIDs gives each document its id. A series or a counted format takes one
@@ -637,7 +658,7 @@ func (c *Ctx) listChanged(d *meta.DocType) {
 }
 
 func (c *Ctx) insertMany(d *meta.DocType, rows []Doc, opts BulkOpts) (int, error) {
-	docs, _, err := c.bulkNewRows(d, bulkInsert, rows, opts, time.Now())
+	docs, _, _, err := c.bulkNewRows(d, bulkInsert, rows, opts, time.Now())
 	if err != nil {
 		return 0, err
 	}
@@ -682,9 +703,45 @@ func conflictTarget(d *meta.DocType, key string) string {
 	return fmt.Sprintf("(%s) WHERE %s", cols, db.UniquePredicate(key, meta.ColumnType(f.Fieldtype)))
 }
 
+// upsertPending raises the required-fields error of the first row that left
+// a required field out and matches no stored document: that row would be an
+// insert. The rows that do match are locked until the transaction ends, so
+// none can be deleted before the upsert reaches it.
+func (c *Ctx) upsertPending(d *meta.DocType, key string, docs []Doc, pending map[int]error) error {
+	if len(pending) == 0 {
+		return nil
+	}
+	typ := "text"
+	if key != "id" {
+		typ = meta.ColumnType(d.Field(key).Fieldtype)
+	}
+	rows := slices.Sorted(maps.Keys(pending))
+	keys := make([]string, len(rows))
+	for j, i := range rows {
+		keys[j] = db.Str(docs[i][key])
+	}
+	// the keys come back as they were sent, so no value has to survive a
+	// round trip through the column's type to be recognised
+	found, err := db.Select(c.Ctx, c.Q(), fmt.Sprintf("SELECT v.k FROM unnest($1::text[]) AS v(k) JOIN %s AS t ON t.%s = v.k::%s FOR UPDATE OF t",
+		db.Ident(d.TableName()), db.Ident(key), typ), keys)
+	if err != nil {
+		return err
+	}
+	stored := make(map[string]bool, len(found))
+	for _, r := range found {
+		stored[db.Str(r["k"])] = true
+	}
+	for j, i := range rows {
+		if !stored[keys[j]] {
+			return pending[i]
+		}
+	}
+	return nil
+}
+
 func (c *Ctx) upsertMany(d *meta.DocType, rows []Doc, opts BulkOpts) (UpsertResult, error) {
 	var res UpsertResult
-	docs, given, err := c.bulkNewRows(d, bulkUpsert, rows, opts, time.Now())
+	docs, given, pending, err := c.bulkNewRows(d, bulkUpsert, rows, opts, time.Now())
 	if err != nil {
 		return res, err
 	}
@@ -695,6 +752,9 @@ func (c *Ctx) upsertMany(d *meta.DocType, rows []Doc, opts BulkOpts) (UpsertResu
 				return res, atRow(cerr.Mandatory("{0} is required to identify the document", c.T(f.Label)), i)
 			}
 		}
+	}
+	if err := c.upsertPending(d, opts.Key, docs, pending); err != nil {
+		return res, err
 	}
 	// What an update rewrites is what the row brought, and what a link it
 	// brought fetches — never a default the row left out, the id or the key.

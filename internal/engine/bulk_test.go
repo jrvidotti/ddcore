@@ -309,6 +309,27 @@ ddcore.db.upsertMany("Espelho", [{ chave: "a", nome: "A2" }], { key: "chave" })`
 	}
 	wantBulkErr(t, evalBulk(e, "Admin", `ddcore.db.upsertMany("Espelho", [{ chave: "x", nome: "1" }, { chave: "x", nome: "2" }], { key: "chave" })`, nil), "DuplicateEntryError", "x", 1)
 	wantBulkErr(t, evalBulk(e, "Admin", `ddcore.db.upsertMany("Espelho", [{ chave: "x", nome: "1", selo: "s" }], { key: "chave" })`, nil), "ValidationError", "only be set once", -1)
+	// a row that matches a stored document need not carry the reqd fields it
+	// leaves alone: nome keeps its stored value
+	mustEvalBulk(t, e, `ddcore.db.upsertMany("Espelho", [{ chave: "a", preco: 7 }], { key: "chave" })`, &res)
+	if res != (UpsertResult{Updated: 1}) {
+		t.Fatalf("res = %+v", res)
+	}
+	if a := espelhos(t, e)["a"]; a.Str("nome") != "A3" || toFloat(a["preco"]) != 7 {
+		t.Fatalf("a = %v", a)
+	}
+	mustEvalBulk(t, e, `ddcore.db.upsertMany("Espelho", [{ chave: "a", preco: 8 }], { key: "id" })`, &res)
+	if res != (UpsertResult{Updated: 1}) {
+		t.Fatalf("res = %+v", res)
+	}
+	// a row that matches nothing is an insert, and is refused as one — with
+	// nothing written for the rows before it
+	wantBulkErr(t, evalBulk(e, "Admin", `ddcore.db.upsertMany("Espelho", [{ chave: "a", preco: 9 }, { chave: "zz", preco: 1 }], { key: "chave" })`, nil), "MandatoryError", "Nome", 1)
+	if a := espelhos(t, e)["a"]; a.Str("nome") != "A3" || toFloat(a["preco"]) != 8 {
+		t.Fatalf("a = %v", a)
+	}
+	// a required field the row does bring cannot be empty, matched or not
+	wantBulkErr(t, evalBulk(e, "Admin", `ddcore.db.upsertMany("Espelho", [{ chave: "a", nome: "" }], { key: "chave" })`, nil), "MandatoryError", "Nome", 0)
 }
 
 // Each tenant upserts its own rows: the conflict target leads with the

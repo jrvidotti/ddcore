@@ -14,6 +14,15 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- **`ddcore.db.upsertMany` accepts a partial row for a document that already exists.** A row that
+  matched a stored document by `key` and left out a `reqd` field was refused with `Required
+  fields`, although the docs say a field a row leaves out keeps its stored value. `reqd` is now
+  checked on such a row only for the fields it brings; a row that matches nothing is still checked
+  as an insert, and a required field brought empty is still refused. See `controller-api`,
+  "Bulk writes". (#163)
+
 ## 0.31.42 — 2026-11-20
 
 ### Changed
