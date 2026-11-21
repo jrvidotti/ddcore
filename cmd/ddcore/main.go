@@ -757,7 +757,10 @@ const userUsage = "usage: ddcore user add <email> <name> [--password x] [--role 
 	"       ddcore user invite <email> <name> [--role R]\n" +
 	"       ddcore user reset <email>\n" +
 	"       ddcore user unlock <email>\n" +
-	"       ddcore user sessions <email> [--revoke]"
+	"       ddcore user sessions <email> [--revoke]\n" +
+	"       ddcore user link <email> <provider> <subject>\n" +
+	"       ddcore user unlink <email> <provider> [<subject>]\n" +
+	"       ddcore user identities <email>"
 
 func cmdUser(args []string) error {
 	if len(args) < 1 {
@@ -885,6 +888,62 @@ func cmdUser(args []string) error {
 					db.Str(r["ip"]), truncateStr(db.Str(r["user_agent"]), 28), db.Str(r["last_seen"]))
 			}
 			return nil
+		case "link":
+			// Says "this User is that subject at the provider" ahead of the
+			// first sign-in, for a provider that does not vouch for the address.
+			if len(rest) != 3 {
+				return fmt.Errorf("usage: ddcore user link <email> <provider> <subject>")
+			}
+			return e.RunAdminFor(ctx, rest[0], func(c *engine.Ctx) error {
+				res, err := e.LinkIdentity(c, rest[0], rest[1], rest[2])
+				if err != nil {
+					return err
+				}
+				if res["linked"] == false {
+					fmt.Printf("%s was already linked to %s at %s\n", res["user"], res["subject"], res["provider"])
+					return nil
+				}
+				fmt.Printf("linked %s to %s at %s\n", res["user"], res["subject"], res["provider"])
+				return nil
+			})
+		case "unlink":
+			if len(rest) < 2 || len(rest) > 3 {
+				return fmt.Errorf("usage: ddcore user unlink <email> <provider> [<subject>]")
+			}
+			subject := ""
+			if len(rest) == 3 {
+				subject = rest[2]
+			}
+			return e.RunAdminFor(ctx, rest[0], func(c *engine.Ctx) error {
+				res, err := e.UnlinkIdentity(c, rest[0], rest[1], subject)
+				if err != nil {
+					return err
+				}
+				fmt.Printf("removed %d identity link(s) of %s at %s\n", res["removed"], res["user"], res["provider"])
+				return nil
+			})
+		case "identities":
+			if len(rest) != 1 {
+				return fmt.Errorf("usage: ddcore user identities <email>")
+			}
+			return e.RunAdminFor(ctx, rest[0], func(c *engine.Ctx) error {
+				rows, err := e.UserIdentities(c, rest[0])
+				if err != nil {
+					return err
+				}
+				if len(rows) == 0 {
+					fmt.Println("no linked identities")
+					return nil
+				}
+				for _, r := range rows {
+					last := "never signed in"
+					if r["last_login"] != nil {
+						last = "last sign-in " + db.Str(r["last_login"])
+					}
+					fmt.Printf("  %-12s %-40s %s\n", db.Str(r["provider"]), db.Str(r["subject"]), last)
+				}
+				return nil
+			})
 		default:
 			return fmt.Errorf("unknown subcommand: %s", sub)
 		}

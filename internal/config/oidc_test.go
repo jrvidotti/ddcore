@@ -141,6 +141,7 @@ func TestLoadValidatesSSOPolicy(t *testing.T) {
 		`{"auth": {"sso": {"pocketid": {"groupRoles": {"a": ["Admin"]}}}}}`:              "cannot be granted",
 		`{"auth": {"sso": {"pocketid": {"groupRoles": {"a": []}}}}}`:                     "maps to no role",
 		`{"auth": {"sso": {"pocketid": {"groupRoles": {"a": ["System Manager", ""]}}}}}`: "role name is empty",
+		`{"auth": {"sso": {"pocketid": {"missingGroups": "none"}}}}`:                     "missingGroups",
 	} {
 		write(body)
 		if _, _, err := Load(dir); err == nil || !strings.Contains(err.Error(), want) {
@@ -148,10 +149,13 @@ func TestLoadValidatesSSOPolicy(t *testing.T) {
 		}
 	}
 
-	write(`{"auth": {"sso": {"pocketid": {"groupRoles": {"erp-sm": ["System Manager"], "erp-vendas": ["Gestor", "Vendas"]}}}}}`)
+	write(`{"auth": {"sso": {"pocketid": {"missingGroups": "empty", "groupRoles": {"erp-sm": ["System Manager"], "erp-vendas": ["Gestor", "Vendas"]}}}}}`)
 	f, _, err := Load(dir)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if !f.Auth.SSO["pocketid"].MissingGroupsAreNone() || (SSOPolicy{MissingGroups: "keep"}).MissingGroupsAreNone() || (SSOPolicy{}).MissingGroupsAreNone() {
+		t.Error("missingGroups: only \"empty\" reads a missing claim as no groups")
 	}
 	if strings.Join(f.OIDC[0].Scopes, " ") != "openid email profile groups" {
 		t.Errorf("the groups scope was not asked for: %v", f.OIDC[0].Scopes)

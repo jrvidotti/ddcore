@@ -478,3 +478,35 @@ func TestPocketID_SignInSetsTheMappedRolesFromGroups(t *testing.T) {
 		t.Errorf("roles after an empty groups claim: %v", r)
 	}
 }
+
+// A provider that leaves an empty groups claim out of the token (Keycloak)
+// says "no groups" by saying nothing; missingGroups: "empty" reads it so (#166).
+func TestPocketID_MissingGroupsClaimReadAsNoGroups(t *testing.T) {
+	x, idp, _ := pocketIDEnv(t)
+	pol := x.e.Cfg.Auth.SSO["fake"]
+	pol.MissingGroups = config.MissingGroupsEmpty
+	x.e.Cfg.Auth.SSO["fake"] = pol
+	x.asAdmin(func(c *engine.Ctx) error {
+		r, _ := c.NewDoc("Role", engine.Doc{"role_name": "Extra"})
+		if _, err := c.Insert(r, engine.SaveOpts{}); err != nil {
+			return err
+		}
+		d, err := c.GetDoc("User", "ana@x.com")
+		if err != nil {
+			return err
+		}
+		d["roles"] = []any{map[string]any{"role": "Gestor"}, map[string]any{"role": "Extra"}}
+		_, err = c.Save(d, engine.SaveOpts{})
+		return err
+	})
+	if _, sid := x.ssoLogin(idp, "/app", nil); sid == "" {
+		t.Fatal("sign-in failed")
+	}
+	// Gestor is mapped: gone with the claim; Extra is not mapped: kept
+	if r := x.rolesOf("ana@x.com"); strings.Join(r, ",") != "Extra" {
+		t.Errorf("roles after a sign-in without the claim: %v", r)
+	}
+	if n := x.countSQL(`SELECT count(*) FROM tab_audit_event WHERE action='role.revoke' AND target_id='ana@x.com' AND detail->>'role'='Gestor'`); n != 1 {
+		t.Errorf("revoke audit: %d", n)
+	}
+}

@@ -97,6 +97,7 @@ type hostArgs struct {
 	UserType      string            `json:"userType"`
 	Before        []string          `json:"before"`
 	Disabled      bool              `json:"disabled"`
+	Provider      string            `json:"provider"`
 	Rule          string            `json:"rule"`
 }
 
@@ -537,6 +538,12 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		return nil, e.IdPSync(c, a.User)
 	case "idp.setDisabled":
 		return e.SetIdPDisabled(c, a.User, a.Email, a.Disabled)
+	case "idp.link":
+		return e.LinkIdentity(c, a.User, a.Provider, a.Subject)
+	case "idp.unlink":
+		return e.UnlinkIdentity(c, a.User, a.Provider, a.Subject)
+	case "idp.identities":
+		return e.UserIdentities(c, a.User)
 	case "idp.status":
 		return e.IdPStatus(), nil
 	case "auth.startRecovery":

@@ -48,7 +48,22 @@ type SSOPolicy struct {
 	// are *managed*: a sign-in sets them from the groups, a save of the User
 	// pushes them back as groups. Every other role is left alone.
 	GroupRoles map[string][]string `json:"groupRoles,omitempty"`
+	// MissingGroups says what a sign-in without the groups claim means:
+	// "keep" (the default) leaves the mapped roles as they were, "empty" reads
+	// it as being in no group and takes every mapped role away. The second is
+	// for a provider that leaves an empty claim out of the token (#166).
+	MissingGroups string `json:"missingGroups,omitempty"`
 }
+
+// What a missing groups claim means.
+const (
+	MissingGroupsKeep  = "keep"
+	MissingGroupsEmpty = "empty"
+)
+
+// MissingGroupsAreNone reports whether a sign-in without the groups claim is
+// read as a sign-in with no groups.
+func (p SSOPolicy) MissingGroupsAreNone() bool { return p.MissingGroups == MissingGroupsEmpty }
 
 // Claim is the claim the groups are read from.
 func (p SSOPolicy) Claim() string {
@@ -148,6 +163,11 @@ func (a AuthPolicy) validate() error {
 		return fmt.Errorf("auth.minPasswordLength must be between 6 and 128")
 	}
 	for id, pol := range a.SSO {
+		switch pol.MissingGroups {
+		case "", MissingGroupsKeep, MissingGroupsEmpty:
+		default:
+			return fmt.Errorf("auth.sso.%s.missingGroups: %q is not %q or %q", id, pol.MissingGroups, MissingGroupsKeep, MissingGroupsEmpty)
+		}
 		for g, roles := range pol.GroupRoles {
 			if strings.TrimSpace(g) == "" {
 				return fmt.Errorf("auth.sso.%s.groupRoles: a group name is empty", id)

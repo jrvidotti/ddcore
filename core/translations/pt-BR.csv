@@ -332,6 +332,7 @@ Go to the desk,Ir para o desk,# desk/src/lib/components/TenantMismatch.svelte:50
 Go to the platform,Ir para a plataforma,# desk/src/lib/components/SharedNotice.svelte:36
 Gotenberg PDF generation failed (status {0}): {1},Falha na geração de PDF via Gotenberg (status {0}): {1},# internal/print/pdf.go:172
 Guest,Convidado,# core role
+Guest cannot sign in through a provider,Guest não pode entrar por um provedor,# internal/engine/identity.go:54
 HTTPS address that receives a signed POST for every matching event.,Endereço HTTPS que recebe um POST assinado a cada evento correspondente.,# core.doctypes.webhook.webhook.doctype
 Has Role,Has Role,# core.doctypes.has_role.has_role.doctype
 Hash,Hash,# core.doctypes.user.user.doctype
@@ -555,6 +556,9 @@ Only a System Manager can create an API key for another user,Só um System Manag
 Only a System Manager can give the role {0},Só um System Manager pode conceder o papel {0},# internal/engine/users.go:67
 Only a System Manager can impersonate a user,Somente um System Manager pode impersonar um usuário,# internal/engine/impersonate.go:94
 Only a System Manager can invite a System User,Só um System Manager pode convidar um System User,# internal/engine/users.go:63
+Only a System Manager can link an identity to an account,Somente um System Manager pode vincular uma identidade a uma conta,# internal/engine/identity.go:39
+Only a System Manager can list the identities of an account,Somente um System Manager pode listar as identidades de uma conta,# internal/engine/identity.go:136
+Only a System Manager can unlink an identity from an account,Somente um System Manager pode desvincular uma identidade de uma conta,# internal/engine/identity.go:105
 Only a System Manager may replay a webhook delivery,Somente um System Manager pode reenviar uma entrega de webhook,# internal/engine/webhooks.go:551
 Only a System Manager of the platform space can enter a tenant,Somente um System Manager do espaço da plataforma pode entrar em uma conta,# internal/engine/tenancy.go:865
 Only a System Manager of the platform space can impersonate a tenant's user,Somente um System Manager do espaço da plataforma pode impersonar um usuário de uma conta,# internal/engine/impersonate.go:129
@@ -749,6 +753,7 @@ Sign in with {0},Entrar com {0},# desk/src/routes/login/[provider]/[tenant]/+pag
 Sign out,Sair,# desk/src/lib/components/UserMenuItems.svelte:41
 Sign out everywhere else,Sair dos outros dispositivos,# desk/src/lib/components/Profile.svelte:239
 Sign out of every other device?,Sair de todos os outros dispositivos?,# desk/src/lib/components/Profile.svelte:124
+Sign-in provider {0} is not configured,O provedor de login {0} não está configurado,# internal/engine/identity.go:44
 Sign-in with {0} is not available here,O login com {0} não está disponível aqui,# internal/engine/credentials.go:399
 Sign-in with {0} is unavailable. Try again later.,O login com {0} está indisponível. Tente novamente mais tarde.,# internal/engine/credentials.go:424
 Signature,Assinatura,# desk/src/lib/controls/SignatureControl.svelte:154
@@ -829,9 +834,11 @@ The password must have at most {0} characters,A senha pode ter no máximo {0} ca
 The provider did not confirm this e-mail address.,O provedor não confirmou este endereço de e-mail.,# desk/src/routes/login/+page.svelte:48
 The record has no id,O registro não tem id,# internal/engine/import_batch.go:299
 The sign-in expired or was started in another browser. Try again.,O acesso expirou ou foi iniciado em outro navegador. Tente novamente.,# desk/src/routes/login/+page.svelte:52
+The sign-in provider is required,O provedor de login é obrigatório,# internal/engine/identity.go:110
 The signature in {0} is too large (at most {1} KiB),A assinatura em {0} é grande demais (no máximo {1} KiB),# internal/signature/signature.go:108
 The signature in {0} is too large (at most {1} by {2} pixels),A assinatura em {0} é grande demais (no máximo {1} por {2} pixels),# internal/signature/signature.go:110
 The site is in maintenance mode; changes are paused. Try again shortly.,O site está em modo de manutenção; as alterações estão pausadas. Tente novamente em instantes.,# internal/engine/maintenance.go:178
+The subject of the identity is required,O subject da identidade é obrigatório,# internal/engine/identity.go:47
 The tenant {0} is disabled,A conta {0} está desativada,# internal/engine/tenancy.go:351
 The text is too long to preview,O texto é longo demais para pré-visualizar,# internal/api/api.go:1401
 The upsert key must be id or a unique field of {0},A chave do upsert precisa ser id ou um campo único de {0},# internal/engine/bulk.go:188
@@ -853,6 +860,8 @@ This endpoint requires the System Manager role,Este endpoint exige o papel Syste
 "This export has {0} rows and the limit here is {1}. Narrow the filters, or run `ddcore export` for the whole set.","Esta exportação tem {0} linhas e o limite aqui é {1}. Restrinja os filtros, ou rode `ddcore export` para o conjunto inteiro.",# internal/api/export.go:129
 This field holds no value,Este campo não guarda valor,# internal/engine/data_import.go:356
 This field is read-only,Este campo é somente leitura,# internal/engine/data_import.go:358
+This identity is already linked to another account,Esta identidade já está vinculada a outra conta,# internal/engine/identity.go:82
+This identity is already linked to {0},Esta identidade já está vinculada a {0},# internal/engine/identity.go:84
 This link belongs to another tenant ({0}) and cannot be opened here.,Este link pertence a outra conta ({0}) e não pode ser aberto aqui.,# desk/src/lib/components/TenantMismatch.svelte:49
 This link belongs to tenant {0}. You are working in {1}.,Este link pertence à conta {0}. Você está trabalhando em {1}.,# desk/src/lib/components/TenantMismatch.svelte:43
 This link can only be used once and expires in {0} hours.,Este link só pode ser usado uma vez e expira em {0} horas.,# core/mail/invite_sso.mail.ts:21
