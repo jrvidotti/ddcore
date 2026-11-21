@@ -341,6 +341,9 @@ func TestSEC05_PreLinkedIdentityNeedsNoVerifiedEmail(t *testing.T) {
 		map[string]any{"user": "nobody@x.com", "provider": "fake", "subject": "kc-x"}); r.Status == 200 {
 		t.Fatalf("linked a User that does not exist: %s", r.Raw)
 	}
+	// a link signs in as the account: a System Manager must not become Admin by one
+	x.expect(x.callAs("root@x.com", "core.services.users.linkIdentity",
+		map[string]any{"user": "Admin", "provider": "fake", "subject": "kc-root"}), 403, "PermissionError")
 	if n := x.countSQL(`SELECT count(*) FROM ddcore_user_identity`); n != 0 {
 		t.Fatalf("a refused link was written: %d", n)
 	}
@@ -480,5 +483,38 @@ func TestSEC05_InternalFailureIsNotBlamedOnTheProvider(t *testing.T) {
 	x.s.oidcFail(w, r, errors.New("the database went away"))
 	if loc := w.Header().Get("Location"); loc != "/login?sso_error=server" {
 		t.Errorf("Location = %q, want /login?sso_error=server", loc)
+	}
+}
+
+// The provider is the site's, so a subject is one person across every tenant.
+// A tenant's administrator cannot claim one: the operator links it.
+func TestSEC05_InsideATenantOnlyAdminLinksAnIdentity(t *testing.T) {
+	x := setupTenants(t)
+	x.e.Cfg.OIDC = []config.OIDCProvider{{ID: "fake", Label: "Fake", Issuer: "https://id.example.com", ClientID: "c", ClientSecret: "s"}}
+	link := map[string]any{"user": alfaUser, "provider": "fake", "subject": "kc-1"}
+	x.expect(x.callAs(alfaAdmin, "core.services.users.linkIdentity", link), 403, "PermissionError")
+	if n := x.countSQL(`SELECT count(*) FROM ddcore_user_identity`); n != 0 {
+		t.Fatalf("a tenant's administrator linked an identity: %d", n)
+	}
+	if err := x.e.RunAdminFor(x.ctx, alfaUser, func(c *engine.Ctx) error {
+		_, err := x.e.LinkIdentity(c, alfaUser, "fake", "kc-1")
+		return err
+	}); err != nil {
+		t.Fatalf("the operator's link: %v", err)
+	}
+	// the other tenant is told nothing about whose it is
+	err := x.e.RunAdminFor(x.ctx, betaUser, func(c *engine.Ctx) error {
+		_, err := x.e.LinkIdentity(c, betaUser, "fake", "kc-1")
+		return err
+	})
+	if err == nil || strings.Contains(err.Error(), alfaUser) {
+		t.Fatalf("a subject linked twice, or the other tenant's account named: %v", err)
+	}
+	// its own administrator may still see and remove the links of its accounts
+	x.expect(x.callAs(alfaAdmin, "core.services.users.listIdentities", map[string]any{"user": alfaUser}), 200, "")
+	r := x.callAs(alfaAdmin, "core.services.users.unlinkIdentity", map[string]any{"user": alfaUser, "provider": "fake"})
+	x.expect(r, 200, "")
+	if d, _ := r.Body["data"].(map[string]any); d["removed"] != float64(1) {
+		t.Fatalf("unlink: %s", r.Raw)
 	}
 }

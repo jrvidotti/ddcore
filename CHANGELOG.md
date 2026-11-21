@@ -14,6 +14,16 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- **Linking a single sign-on identity by hand is kept from two places it should not reach.**
+  `users.linkIdentity` (0.31.43) let a System Manager link a `sub` to the `Admin` account, and so
+  sign in as it, and let a tenant's System Manager claim the `sub` of a person in another tenant
+  before their first sign-in. `Admin` is now linked only by `Admin`, and inside a tenant only
+  `Admin` — the CLI, or the operator who entered the tenant — makes a link. Listing and unlinking
+  a tenant's own accounts are unchanged. Sites on 0.31.43 should upgrade; `ddcore audit list`
+  shows any `account.identity_link` made meanwhile.
+
 ## 0.31.43 — 2026-11-21
 
 ### Added

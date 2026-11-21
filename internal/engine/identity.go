@@ -38,6 +38,14 @@ func (e *Engine) LinkIdentity(c *Ctx, user, provider, subject string) (map[strin
 	if !c.canAdministerUsers() {
 		return nil, cerr.Permission("Only a System Manager can link an identity to an account")
 	}
+	// The providers are the site's, and a subject is one person across every
+	// tenant of it. A tenant's own administrator could otherwise claim the
+	// subject of somebody in another tenant, and have that person's sign-in
+	// land on an account here. Inside a tenant, who is who at the provider is
+	// the operator's to say.
+	if c.Tenant != "" && c.User != "Admin" {
+		return nil, cerr.Permission("Only Admin can link an identity to an account inside a tenant")
+	}
 	provider = strings.ToLower(strings.TrimSpace(provider))
 	subject = strings.TrimSpace(subject)
 	if _, ok := e.OIDCProvider(provider); !ok {
@@ -52,6 +60,11 @@ func (e *Engine) LinkIdentity(c *Ctx, user, provider, subject string) (map[strin
 	}
 	if name == "Guest" {
 		return nil, cerr.Validation("Guest cannot sign in through a provider")
+	}
+	// A link is a way to sign in as the account, and a System Manager is not
+	// Admin: only Admin says which subject Admin is.
+	if name == "Admin" && c.User != "Admin" {
+		return nil, cerr.Permission("Only Admin can link an identity to the Admin account")
 	}
 	out := map[string]any{"user": name, "provider": provider, "subject": subject, "linked": true}
 	rows, err := db.Select(c.Ctx, c.Q(), `SELECT "user" FROM ddcore_user_identity WHERE provider = $1 AND subject = $2`, provider, subject)

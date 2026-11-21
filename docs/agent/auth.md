@@ -184,8 +184,13 @@ or, as a System Manager, `core.services.users.linkIdentity({user, provider,
 subject})`, `unlinkIdentity({user, provider, subject?})` and
 `listIdentities({user})`. From then on a sign-in carrying that `sub` lands on
 that User whatever the token says about the address — unverified, changed or
-missing. The rules: the provider must be configured (an unlink does not ask
-that), `Guest` cannot be linked, a `sub` belongs to one User (linking it to a
+missing. A link is a way to sign in as the account, so two of them are kept
+from a System Manager: the `Admin` account is linked only by `Admin`, and on a
+site with tenancy a link inside a tenant is made only by `Admin` — the CLI, or
+the operator who entered the tenant — because the provider is the site's and a
+`sub` is one person across every tenant; a tenant's System Manager still lists
+and removes the links of its own accounts. The rules: the provider must be
+configured (an unlink does not ask that), `Guest` cannot be linked, a `sub` belongs to one User (linking it to a
 second is refused with `DuplicateEntryError`; linking the same pair again
 changes nothing), and a User may hold several. The `sub` is the user's id at the
 provider (in Keycloak, the *ID* on the user's page); that of a refused attempt is
