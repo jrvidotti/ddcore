@@ -34,7 +34,7 @@ func evalStr(t *testing.T, rt *js.Runtime, expr string) string {
 	if err != nil {
 		t.Fatalf("%s: %v", expr, err)
 	}
-	return strings.Trim(v.String(), `"`)
+	return strings.Trim(string(v), `"`)
 }
 
 func TestCryptoSha256(t *testing.T) {

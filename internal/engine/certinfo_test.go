@@ -19,7 +19,7 @@ func certInfoOf(t *testing.T, rt *js.Runtime, expr string) map[string]any {
 		t.Fatal(err)
 	}
 	var info map[string]any
-	if err := json.Unmarshal([]byte(v.String()), &info); err != nil {
+	if err := json.Unmarshal([]byte(string(v)), &info); err != nil {
 		t.Fatal(err)
 	}
 	return info
@@ -101,7 +101,7 @@ func TestCryptoCertInfoErrors(t *testing.T) {
 				t.Fatalf("want %q, got %v", tc.want, err)
 			}
 			typ, terr := rt.Eval(`(() => { try { ddcore.crypto.` + tc.call + ` } catch (e) { return e.name } })()`)
-			if terr != nil || !strings.Contains(typ.String(), "ValidationError") {
+			if terr != nil || !strings.Contains(string(typ), "ValidationError") {
 				t.Fatalf("want a ValidationError, got %v (%v)", typ, terr)
 			}
 			for _, secret := range []string{mtlsPassword, "wr0ng-guess", f.pfx[:24], garbage, "not-base64", "BEGIN"} {

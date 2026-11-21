@@ -542,7 +542,7 @@ func TestOPS06_ReplayFromServerCode(t *testing.T) {
 			if err != nil {
 				return err
 			}
-			out = v.String()
+			out = string(v)
 			return nil
 		})
 		return out, err

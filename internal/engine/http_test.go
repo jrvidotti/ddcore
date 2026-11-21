@@ -92,8 +92,8 @@ func TestHTTPBinaryAndLimit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if v.String() != `"`+want+`"` {
-		t.Fatalf("base64 body %q, want %q", v.String(), want)
+	if string(v) != `"`+want+`"` {
+		t.Fatalf("base64 body %q, want %q", string(v), want)
 	}
 	if _, err := rt.Eval(fmt.Sprintf(`ddcore.http.get(%q, {maxBytes: %d})`, server.URL, len(png))); err != nil {
 		t.Fatalf("a body of exactly maxBytes is fine: %v", err)

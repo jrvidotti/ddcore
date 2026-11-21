@@ -251,7 +251,7 @@ func TestNotificationsResolveFromServerCode(t *testing.T) {
 			if err != nil {
 				return err
 			}
-			out = v.String()
+			out = strings.Trim(string(v), `"`)
 			return nil
 		})
 		return out, err

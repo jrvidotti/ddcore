@@ -144,7 +144,7 @@ func TestHTTPClientCertPfx(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := v.String(); !strings.Contains(got, `pix client`) || !strings.Contains(got, `\"chain\":2`) {
+	if got := string(v); !strings.Contains(got, `pix client`) || !strings.Contains(got, `\"chain\":2`) {
 		t.Fatalf("server saw %s", got)
 	}
 }
@@ -156,7 +156,7 @@ func TestHTTPClientCertPem(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := v.String(); !strings.Contains(got, `pix client`) || !strings.Contains(got, `\"chain\":1`) {
+	if got := string(v); !strings.Contains(got, `pix client`) || !strings.Contains(got, `\"chain\":1`) {
 		t.Fatalf("server saw %s", got)
 	}
 }
