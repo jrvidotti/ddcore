@@ -23,8 +23,9 @@ import (
 // The flow is the authorization code flow with PKCE, and every provider —
 // Google, a self-hosted PocketID — goes through the same code: they differ only
 // in their issuer. The provider proves who the person is; it never decides
-// that they may use this site. A User must already exist with the verified
-// address, so an account at the provider is not an account here.
+// that they may use this site. A User must already exist — with the verified
+// address, or linked to the provider's subject by an administrator
+// (identity.go) — so an account at the provider is not an account here.
 
 // OIDCStateTTL is how long a person has between leaving for the provider and
 // coming back.
@@ -181,7 +182,7 @@ func (e *Engine) OIDCCallback(ctx context.Context, id, code, state, cookieState 
 			return "", redirect, oidcErr(OIDCErrThrottled, err)
 		}
 	}
-	var user, email string
+	var user, email, subject string
 	var groups []string
 	var hasGroups bool
 	defer func() {
@@ -191,6 +192,11 @@ func (e *Engine) OIDCCallback(ctx context.Context, id, code, state, cookieState 
 		detail := map[string]any{"provider": id}
 		if email != "" {
 			detail["email"] = email
+		}
+		if subject != "" {
+			// what an administrator links by hand when the provider does not
+			// vouch for the address
+			detail["subject"] = subject
 		}
 		if hasGroups {
 			detail["groups"] = groups
@@ -256,6 +262,7 @@ func (e *Engine) OIDCCallback(ctx context.Context, id, code, state, cookieState 
 	if subtle.ConstantTimeCompare([]byte(idt.Nonce), []byte(db.Str(rows[0]["nonce"]))) != 1 {
 		return "", redirect, oidcErr(OIDCErrState, errors.New("nonce mismatch"))
 	}
+	subject = idt.Subject
 	var claims struct {
 		Email         string `json:"email"`
 		EmailVerified any    `json:"email_verified"`
@@ -274,16 +281,19 @@ func (e *Engine) OIDCCallback(ctx context.Context, id, code, state, cookieState 
 	email = strings.ToLower(strings.TrimSpace(claims.Email))
 	// Some providers send the flag as the string "true". Anything else —
 	// missing included — is unverified: an address the provider has not
-	// checked is one anybody could have typed.
+	// checked is one anybody could have typed. Such an address never finds an
+	// account; a subject an administrator linked beforehand still does.
 	verified := claims.EmailVerified == true || claims.EmailVerified == "true"
-	if email == "" || !verified {
-		return "", redirect, oidcErr(OIDCErrUnverified, nil)
-	}
-	if len(cl.cfg.AllowedDomains) > 0 {
-		_, domain, _ := strings.Cut(email, "@")
-		if !slices.Contains(cl.cfg.AllowedDomains, domain) {
-			return "", redirect, oidcErr(OIDCErrDomain, nil)
+	emailOK := email != "" && verified
+	domainOK := func() bool {
+		if len(cl.cfg.AllowedDomains) == 0 {
+			return true
 		}
+		_, domain, _ := strings.Cut(email, "@")
+		return slices.Contains(cl.cfg.AllowedDomains, domain)
+	}
+	if emailOK && !domainOK() {
+		return "", redirect, oidcErr(OIDCErrDomain, nil)
 	}
 
 	// Nobody is signed in yet, so the account is looked for across the site
@@ -293,16 +303,22 @@ func (e *Engine) OIDCCallback(ctx context.Context, id, code, state, cookieState 
 	if err := e.System(ctx, func(q db.Querier) error {
 		return q.QueryRow(ctx, `SELECT coalesce(
 			(SELECT u.id FROM ddcore_user_identity i JOIN tab_user u ON u.id = i."user" WHERE i.provider = $1 AND i.subject = $2),
-			(SELECT id FROM tab_user WHERE lower(email) = $3 OR lower(id) = $3 ORDER BY (lower(email) = $3) DESC LIMIT 1),
-			'')`, id, idt.Subject, email).Scan(&account)
+			(SELECT id FROM tab_user WHERE $4 AND (lower(email) = $3 OR lower(id) = $3) ORDER BY (lower(email) = $3) DESC LIMIT 1),
+			'')`, id, idt.Subject, email, emailOK).Scan(&account)
 	}); err != nil {
 		return "", redirect, err
 	}
 	err = e.RunAdminFor(ctx, account, func(c *Ctx) error {
 		var linked bool
-		user, linked, err = e.resolveIdentity(c, id, idt.Subject, email)
+		user, linked, err = e.resolveIdentity(c, id, idt.Subject, email, emailOK)
 		if err != nil {
 			return err
+		}
+		// The list holds on every sign-in. With a verified address it was
+		// checked above; a linked identity whose address is not vouched for
+		// is held to it here, on what the provider claims.
+		if !emailOK && !domainOK() {
+			return oidcErr(OIDCErrDomain, nil)
 		}
 		if !linked {
 			if _, err := c.Tx.Exec(ctx, `INSERT INTO ddcore_user_identity (provider, subject, "user", email, last_login)
@@ -310,10 +326,11 @@ func (e *Engine) OIDCCallback(ctx context.Context, id, code, state, cookieState 
 				return err
 			}
 			if err := e.RecordAuditOn(ctx, c.Tx, user, "account.identity_link", "Allowed", "User", user, from.IP, "",
-				map[string]any{"provider": id, "email": email}); err != nil {
+				map[string]any{"provider": id, "email": email, "subject": idt.Subject}); err != nil {
 				return err
 			}
-		} else if _, err := c.Tx.Exec(ctx, `UPDATE ddcore_user_identity SET last_login = now(), email = $3
+		} else if _, err := c.Tx.Exec(ctx, `UPDATE ddcore_user_identity
+			SET last_login = now(), email = CASE WHEN $3 = '' THEN email ELSE $3 END
 			WHERE provider = $1 AND subject = $2`, id, idt.Subject, email); err != nil {
 			return err
 		}
@@ -344,8 +361,10 @@ func (e *Engine) OIDCCallback(ctx context.Context, id, code, state, cookieState 
 }
 
 // resolveIdentity finds the User a provider's subject signs in as: the one it
-// was linked to before, or else the enabled User with the verified address.
-func (e *Engine) resolveIdentity(c *Ctx, provider, subject, email string) (user string, linked bool, err error) {
+// was linked to before — by a sign-in or by an administrator — or else the
+// enabled User with the verified address. emailOK says the address is present
+// and the provider vouches for it; without that only a link finds an account.
+func (e *Engine) resolveIdentity(c *Ctx, provider, subject, email string, emailOK bool) (user string, linked bool, err error) {
 	rows, err := db.Select(c.Ctx, c.Tx, `SELECT u.id, u.enabled FROM ddcore_user_identity i
 		JOIN tab_user u ON u.id = i."user" WHERE i.provider = $1 AND i.subject = $2`, provider, subject)
 	if err != nil {
@@ -353,6 +372,9 @@ func (e *Engine) resolveIdentity(c *Ctx, provider, subject, email string) (user 
 	}
 	linked = len(rows) > 0
 	if !linked {
+		if !emailOK {
+			return "", false, oidcErr(OIDCErrUnverified, nil)
+		}
 		rows, err = db.Select(c.Ctx, c.Tx, `SELECT id, enabled FROM tab_user
 			WHERE lower(email) = $1 OR lower(id) = $1 ORDER BY (lower(email) = $1) DESC LIMIT 1`, email)
 		if err != nil {

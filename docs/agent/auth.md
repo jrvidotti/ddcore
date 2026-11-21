@@ -148,13 +148,18 @@ sign-in rather than until a restart.
 **Nobody gets an account this way.** The provider proves who someone is, and the
 site still decides whether they may use it:
 
-1. The `email` claim must be present and `email_verified` must be true.
+1. To find an account by its address, the `email` claim must be present and
+   `email_verified` must be true. An address the provider does not vouch for
+   finds nobody (`unverified_email`); only a link made beforehand does (below).
 2. The address must be in `_ALLOWED_DOMAINS`, when that list is set — checked on
    every sign-in, not only the first, so narrowing the list takes effect at once.
+   It is checked on the address the provider claims even when that address is
+   not verified, so a linked identity with no address is refused too.
 3. The first sign-in links the provider's `sub` to the **enabled** User whose
    e-mail is that address, or failing that whose name is, compared without case.
    `Guest` is never matched; `Admin` is. Later sign-ins resolve by `sub`,
-   so an address changed at the provider still lands on the same account; a
+   so an address changed at the provider still lands on the same account, and
+   `email_verified` is no longer asked of them; a
    linked User since disabled is refused with `disabled`, and a link left
    pointing at a deleted User falls back to matching the address again. The link
    is kept in `ddcore_user_identity`; deleting or renaming the User carries it
@@ -162,6 +167,30 @@ site still decides whether they may use it:
 
 Invite people first (`ddcore user invite`, or **Save and invite** on the desk's User form). They can then sign in
 through the provider without ever accepting the invitation.
+
+**Linking an identity ahead of the first sign-in.** Some providers do not vouch
+for the address: Keycloak emits `email_verified: false` for users federated from
+a directory unless that directory is marked *Trust Email*, and tells
+applications to key people by `sub`. Rather than trust the address, say who is
+who:
+
+```bash
+ddcore user link ana@example.com keycloak 7c1f…   # <email> <provider id> <sub>
+ddcore user identities ana@example.com
+ddcore user unlink ana@example.com keycloak        # every link there, or name one <sub>
+```
+
+or, as a System Manager, `core.services.users.linkIdentity({user, provider,
+subject})`, `unlinkIdentity({user, provider, subject?})` and
+`listIdentities({user})`. From then on a sign-in carrying that `sub` lands on
+that User whatever the token says about the address — unverified, changed or
+missing. The rules: the provider must be configured (an unlink does not ask
+that), `Guest` cannot be linked, a `sub` belongs to one User (linking it to a
+second is refused with `DuplicateEntryError`; linking the same pair again
+changes nothing), and a User may hold several. The `sub` is the user's id at the
+provider (in Keycloak, the *ID* on the user's page); that of a refused attempt is
+also in the `subject` of its `account.login_sso` event. Unlinking does not end
+the sessions already open: use `ddcore user sessions <email> --revoke` for that.
 
 **The flow.**
 
@@ -195,7 +224,11 @@ and the address's, as a password sign-in does.
 **Audit.** A callback writes `account.login_sso`, `Allowed` or `Denied`, with
 the provider and the reason in the detail. Two paths never reach it: a throttled
 callback, and the provider's own `?error=` return, which is answered before the
-callback runs. A first link also writes `account.identity_link`.
+callback runs. Once the token has verified, the detail carries the `subject`
+too — with a denied sign-in filed in the platform space when no account was
+found for it, as there is no tenant to file it in. A first link also writes
+`account.identity_link`, as a link made by hand does, and an unlink writes
+`account.identity_unlink` with the `subjects` removed.
 
 **Password sign-in off.** Set `"passwordLogin": false` and `POST /api/login`
 refuses everyone but `Admin`, and forgot-password sends nothing to
@@ -541,7 +574,8 @@ provider adds its own card to the page with `defineProfileSection` (see `form-ap
 
 System Manager only: `users.invite`, `users.resendInvite`,
 `users.sendPasswordReset`, `users.accountStatus`, `users.revokeUserSessions`,
-`users.unlockUser`.
+`users.unlockUser`, and `users.linkIdentity`, `users.unlinkIdentity`,
+`users.listIdentities` (see "Linking an identity ahead of the first sign-in").
 
 Saving a User — the desk's form, `insert_doc`, `ddcore user add`, an import —
 only writes the row and mails nobody. The invitation goes out from **Save and
@@ -605,7 +639,8 @@ just-in-time provisioning of a User on first sign-in (SEC-05, in the
 demand-driven backlog; an app's credential provider covers signing in against
 another system, not creating the account), a User without an e-mail (a
 placeholder `.invalid` address stands in), choosing the tenant by hostname, provisioning at providers other than PocketID, provider-initiated (single) logout, a screen to see or remove one's
-linked identities (unlinking is a `DELETE` in `ddcore_user_identity`), e-mail
+linked identities (an administrator links and unlinks with `ddcore user link|unlink` or
+`core.services.users`), matching a first sign-in on a claim other than the e-mail, e-mail
 verification on a changed address, and an admin UI for unlocking or listing
 another user's sessions.
 

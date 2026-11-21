@@ -21,6 +21,23 @@ older series, and `whats_new` reads across every one of them.
   is in no group, so removing someone from their last group never took the mapped roles away. With
   `"empty"`, a missing claim takes every managed role away as an empty list does; the default,
   `"keep"`, is unchanged. See `auth`, "Groups as roles" (#166).
+- **A single sign-on identity can be linked to a User ahead of the first sign-in.**
+  `ddcore user link <email> <provider> <subject>` (with `user unlink` and `user identities`), or
+  `core.services.users.linkIdentity` / `unlinkIdentity` / `listIdentities` for a System Manager,
+  says "this User is that `sub` at the provider". It is for a provider that does not vouch for the
+  e-mail — Keycloak federating a directory emits `email_verified: false` — where every sign-in was
+  refused with `unverified_email` and the only way in was to make the whole realm trust the
+  address. The `account.login_sso` event now carries the `subject`, so the `sub` of a refused
+  attempt can be read from the audit trail. See `auth`, "Linking an identity ahead of the first
+  sign-in" (#165).
+
+### Changed
+
+- **A sign-in through an identity that is already linked no longer needs `email_verified`.** The
+  verified address is what finds an account on the first sign-in; after that the provider's `sub`
+  does, and an address the provider stopped vouching for no longer locks the person out. An
+  unverified address still finds no account on its own, and `_ALLOWED_DOMAINS` still holds on
+  every sign-in, on the address the provider claims (#165).
 
 ## 0.31.42 — 2026-11-20
 

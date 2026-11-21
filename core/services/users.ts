@@ -95,6 +95,26 @@ export const setProviderDisabled = whitelisted((args: { user?: string; email?: s
   return (ddcore as any).__idp.setDisabled(user, email, Boolean(args.disabled));
 }, ADMIN);
 
+/**
+ * Links a provider's subject (the `sub` claim) to a User ahead of the first
+ * sign-in. A sign-in links by the verified e-mail on its own; this is for a
+ * provider that does not vouch for the address, where the site says who is
+ * who. The subject of a refused sign-in is in its `account.login_sso` event.
+ */
+export const linkIdentity = whitelisted((args: { user: string; provider: string; subject: string }) => {
+  return (ddcore as any).__idp.link(requireUser(args.user), String(args.provider ?? ""), String(args.subject ?? ""));
+}, ADMIN);
+
+/** Removes a User's link to a provider: one subject, or all of them when none is named. */
+export const unlinkIdentity = whitelisted((args: { user: string; provider: string; subject?: string }) => {
+  return (ddcore as any).__idp.unlink(requireUser(args.user), String(args.provider ?? ""), String(args.subject ?? ""));
+}, ADMIN);
+
+/** The identities linked to a User: `{ provider, subject, email, created, last_login }`. */
+export const listIdentities = whitelisted((args: { user: string }) => {
+  return (ddcore as any).__idp.identities(requireUser(args.user));
+}, ADMIN);
+
 /** Ends every session of another account — the "they lost the laptop" button. */
 export const revokeUserSessions = whitelisted((args: { user: string }) => {
   const user = requireUser(args.user);

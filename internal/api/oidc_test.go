@@ -303,6 +303,116 @@ func TestSEC05_AllowedDomains(t *testing.T) {
 	}
 }
 
+// A provider that does not vouch for the address (Keycloak federating a
+// directory) is still good for who the person is: an administrator links the
+// subject to the User, and the sign-in needs nothing of the e-mail (#165).
+func TestSEC05_PreLinkedIdentityNeedsNoVerifiedEmail(t *testing.T) {
+	x, idp := ssoEnv(t)
+	unverified := map[string]any{"sub": "kc-bia", "email": "bia@x.com", "email_verified": false}
+	link := map[string]any{"user": "bia@x.com", "provider": "fake", "subject": "kc-bia"}
+	data := func(r resp) map[string]any {
+		t.Helper()
+		x.expect(r, 200, "")
+		d, _ := r.Body["data"].(map[string]any)
+		return d
+	}
+	signsInAs := func(what string, over map[string]any, want string) {
+		t.Helper()
+		_, sid := x.ssoLogin(idp, "/app", over)
+		if u, _ := x.e.UserFromSession(x.ctx, sid); u != want {
+			t.Fatalf("%s: signed in as %q, want %q", what, u, want)
+		}
+	}
+
+	// not linked: refused as before, and the event names the subject to link
+	if loc, sid := x.ssoLogin(idp, "/app", unverified); sid != "" || loc != "/login?sso_error=unverified_email" {
+		t.Fatalf("unlinked: %q", loc)
+	}
+	if n := x.countSQL(`SELECT count(*) FROM tab_audit_event WHERE action='account.login_sso' AND outcome='Denied' AND detail->>'subject'='kc-bia'`); n != 1 {
+		t.Fatalf("the refusal does not carry the subject: %d", n)
+	}
+
+	x.expect(x.callAs("ze@x.com", "core.services.users.linkIdentity", link), 403, "PermissionError")
+	x.expect(x.callAs("root@x.com", "core.services.users.linkIdentity",
+		map[string]any{"user": "bia@x.com", "provider": "nope", "subject": "kc-bia"}), 417, "ValidationError")
+	x.expect(x.callAs("root@x.com", "core.services.users.linkIdentity",
+		map[string]any{"user": "bia@x.com", "provider": "fake", "subject": " "}), 417, "ValidationError")
+	if r := x.callAs("root@x.com", "core.services.users.linkIdentity",
+		map[string]any{"user": "nobody@x.com", "provider": "fake", "subject": "kc-x"}); r.Status == 200 {
+		t.Fatalf("linked a User that does not exist: %s", r.Raw)
+	}
+	if n := x.countSQL(`SELECT count(*) FROM ddcore_user_identity`); n != 0 {
+		t.Fatalf("a refused link was written: %d", n)
+	}
+
+	if d := data(x.callAs("root@x.com", "core.services.users.linkIdentity", link)); d["linked"] != true || d["user"] != "bia@x.com" {
+		t.Fatalf("link: %v", d)
+	}
+	if d := data(x.callAs("root@x.com", "core.services.users.linkIdentity", link)); d["linked"] != false {
+		t.Fatalf("linking again: %v", d)
+	}
+	x.expect(x.callAs("root@x.com", "core.services.users.linkIdentity",
+		map[string]any{"user": "ana@x.com", "provider": "fake", "subject": "kc-bia"}), 409, "DuplicateEntryError")
+	if n := x.countSQL(`SELECT count(*) FROM tab_audit_event WHERE action='account.identity_link' AND target_id='bia@x.com' AND actor='root@x.com' AND detail->>'subject'='kc-bia'`); n != 1 {
+		t.Fatalf("link audit: %d", n)
+	}
+
+	signsInAs("unverified address", unverified, "bia@x.com")
+	signsInAs("no address at all", map[string]any{"sub": "kc-bia", "email": nil, "email_verified": nil}, "bia@x.com")
+	// the address of someone else, unverified: the subject decides, not the address
+	signsInAs("another account's address", map[string]any{"sub": "kc-bia", "email": "ana@x.com", "email_verified": false}, "bia@x.com")
+	// and an unverified address still finds nobody on its own
+	if loc, sid := x.ssoLogin(idp, "/app", map[string]any{"sub": "kc-other", "email": "ana@x.com", "email_verified": false}); sid != "" || loc != "/login?sso_error=unverified_email" {
+		t.Fatalf("unlinked subject with a known address: %q", loc)
+	}
+	if n := x.countSQL(`SELECT count(*) FROM ddcore_user_identity WHERE provider='fake' AND subject='kc-bia' AND "user"='bia@x.com' AND last_login IS NOT NULL`); n != 1 {
+		t.Fatalf("the link was not the one used: %d", n)
+	}
+
+	r := x.callAs("root@x.com", "core.services.users.listIdentities", map[string]any{"user": "bia@x.com"})
+	x.expect(r, 200, "")
+	if list, _ := r.Body["data"].([]any); len(list) != 1 || list[0].(map[string]any)["subject"] != "kc-bia" {
+		t.Fatalf("identities: %s", r.Raw)
+	}
+
+	// a linked account that was disabled stays out
+	x.asAdmin(func(c *engine.Ctx) error { return c.SetValue("User", "bia@x.com", engine.Doc{"enabled": false}) })
+	if loc, sid := x.ssoLogin(idp, "/app", unverified); sid != "" || loc != "/login?sso_error=disabled" {
+		t.Fatalf("disabled: %q", loc)
+	}
+	x.asAdmin(func(c *engine.Ctx) error { return c.SetValue("User", "bia@x.com", engine.Doc{"enabled": true}) })
+
+	x.expect(x.callAs("ze@x.com", "core.services.users.unlinkIdentity", link), 403, "PermissionError")
+	if d := data(x.callAs("root@x.com", "core.services.users.unlinkIdentity", map[string]any{"user": "bia@x.com", "provider": "fake"})); d["removed"] != float64(1) {
+		t.Fatalf("unlink: %v", d)
+	}
+	if n := x.countSQL(`SELECT count(*) FROM tab_audit_event WHERE action='account.identity_unlink' AND target_id='bia@x.com'`); n != 1 {
+		t.Fatalf("unlink audit: %d", n)
+	}
+	if loc, sid := x.ssoLogin(idp, "/app", unverified); sid != "" || loc != "/login?sso_error=unverified_email" {
+		t.Fatalf("after the unlink: %q", loc)
+	}
+}
+
+// The allowed domains hold for a linked identity too, on the address the
+// provider claims for it.
+func TestSEC05_AllowedDomainsHoldForALinkedIdentity(t *testing.T) {
+	x, idp := ssoEnv(t, "y.com")
+	x.expect(x.callAs("root@x.com", "core.services.users.linkIdentity",
+		map[string]any{"user": "bia@x.com", "provider": "fake", "subject": "kc-bia"}), 200, "")
+	for name, over := range map[string]map[string]any{
+		"outside": {"sub": "kc-bia", "email": "bia@x.com", "email_verified": false},
+		"none":    {"sub": "kc-bia", "email": nil, "email_verified": nil},
+	} {
+		if loc, sid := x.ssoLogin(idp, "", over); sid != "" || loc != "/login?sso_error=domain" {
+			t.Fatalf("%s: %q", name, loc)
+		}
+	}
+	if _, sid := x.ssoLogin(idp, "", map[string]any{"sub": "kc-bia", "email": "bia@y.com", "email_verified": false}); sid == "" {
+		t.Fatal("inside the domain: refused")
+	}
+}
+
 func TestSEC05_OpenRedirect(t *testing.T) {
 	x, idp := ssoEnv(t)
 	for _, to := range []string{"//evil.com", "https://evil.com/x", "/\\evil.com", "javascript:alert(1)"} {
