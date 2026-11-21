@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.31.43 — 2026-11-21
+
 ### Added
 
 - **`auth.sso.<id>.missingGroups: "empty"` reads a sign-in without the groups claim as "in no
