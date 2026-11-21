@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.31.44 — 2026-11-21
+
 ### Fixed
 
 - **Linking a single sign-on identity by hand is kept from two places it should not reach.**
