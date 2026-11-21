@@ -128,8 +128,8 @@ older series, and `whats_new` reads across every one of them.
 
 ### Fixed
 
-- **The form header no longer offers editing a title the server would refuse.** "Edit
-  <title field>" in the header now follows the title field's own editability: a `setOnlyOnce`
+- **The form header no longer offers editing a title the server would refuse.**
+  `Edit <title field>` in the header now follows the title field's own editability: a `setOnlyOnce`
   title field that already holds a saved value, a `readOnly` one, or one whose
   `readOnlyDependsOn` holds is not offered (the header falls back to Rename when the DocType
   allows it). (#161)
