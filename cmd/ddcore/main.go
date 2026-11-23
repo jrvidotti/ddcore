@@ -790,11 +790,17 @@ func cmdUser(args []string) error {
 					rs = append(rs, map[string]any{"role": r})
 				}
 				doc["roles"] = rs
-				_, err = c.Insert(doc, engine.SaveOpts{IgnorePermissions: true})
-				if err == nil {
-					fmt.Println("user created:", fs.Arg(0))
+				saved, err := c.Insert(doc, engine.SaveOpts{IgnorePermissions: true})
+				if err != nil {
+					return err
 				}
-				return err
+				fmt.Println("user created:", saved.ID())
+				// the address may sign in elsewhere on the site already: the
+				// row joined that person, whose sign-in it shares (#167)
+				if ms, err := e.Memberships(ctx, saved.ID()); err == nil && len(ms) > 0 && *pw != "" {
+					fmt.Println("note: the password is the person's, in every tenant they work in")
+				}
+				return nil
 			})
 		case "passwd":
 			if len(rest) < 2 {
@@ -826,6 +832,10 @@ func cmdUser(args []string) error {
 				if err != nil {
 					return err
 				}
+				if res["access"] == true {
+					fmt.Printf("%s already has a sign-in on this site; they were told they can now work here\n", res["user"])
+					return nil
+				}
 				rec := &engine.Recovery{}
 				rec.Link, _ = res["link"].(string)
 				rec.Expires, _ = res["expires"].(time.Time)
@@ -836,7 +846,8 @@ func cmdUser(args []string) error {
 			if len(rest) < 1 {
 				return fmt.Errorf("usage: ddcore user reset <email>")
 			}
-			// in the account's own tenant: the link is mailed from there
+			// in the account's own space: the link is mailed from there. A
+			// person in several tenants needs --tenant to say which.
 			return e.RunAdminFor(ctx, rest[0], func(c *engine.Ctx) error {
 				rec, err := e.StartRecovery(c, rest[0], engine.TokenReset, "")
 				if err != nil {
@@ -857,7 +868,7 @@ func cmdUser(args []string) error {
 			return nil
 		case "sessions":
 			fs := newFlagSet("user sessions")
-			revoke := fs.Bool("revoke", false, "end every session of this user")
+			revoke := fs.Bool("revoke", false, "end every session of this user (with --tenant, the ones working in that tenant)")
 			if err := parseFlags(fs, rest); err != nil {
 				return err
 			}
@@ -866,7 +877,11 @@ func cmdUser(args []string) error {
 			}
 			user := fs.Arg(0)
 			if *revoke {
-				n, err := e.DropSessions(ctx, e.DB.Pool, user, "")
+				drop := func() (int, error) { return e.DropSessions(ctx, e.DB.Pool, user, "") }
+				if t := e.Cfg.EnterTenant; t != "" {
+					drop = func() (int, error) { return e.DropSessionsIn(ctx, e.DB.Pool, user, t) }
+				}
+				n, err := drop()
 				if err != nil {
 					return err
 				}
@@ -874,7 +889,7 @@ func cmdUser(args []string) error {
 				return nil
 			}
 			rows, err := db.Select(ctx, e.DB.Pool,
-				`SELECT ip, user_agent, created, last_seen FROM ddcore_session
+				`SELECT ip, user_agent, created, last_seen, coalesce(data->>'tenant', '') AS tenant FROM ddcore_session
 				 WHERE "user" = $1 AND expires > now() ORDER BY last_seen DESC`, user)
 			if err != nil {
 				return err
@@ -884,8 +899,12 @@ func cmdUser(args []string) error {
 				return nil
 			}
 			for _, r := range rows {
-				fmt.Printf("  %-20s %-28s last seen %s\n",
-					db.Str(r["ip"]), truncateStr(db.Str(r["user_agent"]), 28), db.Str(r["last_seen"]))
+				where := ""
+				if t := db.Str(r["tenant"]); t != "" {
+					where = " in " + t
+				}
+				fmt.Printf("  %-20s %-28s last seen %s%s\n",
+					db.Str(r["ip"]), truncateStr(db.Str(r["user_agent"]), 28), db.Str(r["last_seen"]), where)
 			}
 			return nil
 		case "link":
@@ -894,7 +913,8 @@ func cmdUser(args []string) error {
 			if len(rest) != 3 {
 				return fmt.Errorf("usage: ddcore user link <email> <provider> <subject>")
 			}
-			return e.RunAdminFor(ctx, rest[0], func(c *engine.Ctx) error {
+			// identities are the site's: Admin finds the person in any space
+			return e.Run(ctx, "Admin", func(c *engine.Ctx) error {
 				res, err := e.LinkIdentity(c, rest[0], rest[1], rest[2])
 				if err != nil {
 					return err
@@ -914,7 +934,7 @@ func cmdUser(args []string) error {
 			if len(rest) == 3 {
 				subject = rest[2]
 			}
-			return e.RunAdminFor(ctx, rest[0], func(c *engine.Ctx) error {
+			return e.Run(ctx, "Admin", func(c *engine.Ctx) error {
 				res, err := e.UnlinkIdentity(c, rest[0], rest[1], subject)
 				if err != nil {
 					return err
@@ -926,7 +946,7 @@ func cmdUser(args []string) error {
 			if len(rest) != 1 {
 				return fmt.Errorf("usage: ddcore user identities <email>")
 			}
-			return e.RunAdminFor(ctx, rest[0], func(c *engine.Ctx) error {
+			return e.Run(ctx, "Admin", func(c *engine.Ctx) error {
 				rows, err := e.UserIdentities(c, rest[0])
 				if err != nil {
 					return err

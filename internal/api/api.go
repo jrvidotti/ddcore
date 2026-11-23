@@ -492,12 +492,18 @@ func (s *Server) auth(next http.Handler) http.Handler {
 		}
 		// real is the administrator whose session impersonates u, if any
 		var u, real string
+		var req engine.SpaceReq
+		var bound bool
 		if h := r.Header.Get("Authorization"); strings.HasPrefix(strings.ToLower(h), "token ") {
-			u, _ = s.E.UserFromAPIKey(r.Context(), strings.TrimSpace(h[6:]))
+			var keySpace string
+			u, keySpace, _ = s.E.APIKeyOwner(r.Context(), strings.TrimSpace(h[6:]))
 			if u == "" {
 				s.writeErr(w, r, cerr.Auth("Invalid API key"))
 				return
 			}
+			// a key works in the space of its own row (#167)
+			req.Fixed = &keySpace
+			bound = true
 		} else if ck, err := r.Cookie("sid"); err == nil {
 			u, _ = s.E.UserFromSession(r.Context(), ck.Value)
 			// CSRF: state-changing requests with cookie auth need the header
@@ -508,8 +514,18 @@ func (s *Server) auth(next http.Handler) http.Handler {
 				}
 			}
 			// an impersonation lives on the session, so an API key never has one
-			if target := s.impersonated(r, ck.Value, u); target != "" {
-				real, u = u, target
+			if imp := s.impersonated(r, ck.Value, u); imp.User != "" {
+				real, u = u, imp.User
+				// in the space the impersonation began in, whatever tenant
+				// the administrator's session had entered
+				req.Fixed = &imp.Tenant
+			} else if u != "" {
+				sp := s.E.SessionTenant(r.Context(), ck.Value)
+				req.Session, req.SessionSet = sp.Tenant, sp.Set
+				if sp.Bound {
+					req.Fixed = &sp.Tenant
+					bound = true
+				}
 			}
 		}
 		if u == "" {
@@ -521,18 +537,14 @@ func (s *Server) auth(next http.Handler) http.Handler {
 		if info := infoOf(r); info != nil {
 			info.user, info.by = u, real
 		}
-		// On a site with tenancy the request works in one space: its user's
-		// tenant, or the one a platform user entered — with the session, or
-		// per request with a header when the caller holds an API key.
-		// An impersonated user works in their own space, whatever tenant the
-		// administrator's session had entered.
-		named := r.Header.Get("X-Tenant")
-		if named == "" && real == "" {
-			if ck, err := r.Cookie("sid"); err == nil && u != "Guest" {
-				named = s.E.SessionTenant(r.Context(), ck.Value)
-			}
+		// On a site with tenancy the request works in one space: the one its
+		// session works in, among its user's own (#167); for an operator also
+		// any tenant, entered with the session or, with a platform API key,
+		// named per request by a header.
+		if real == "" {
+			req.Header = r.Header.Get("X-Tenant")
 		}
-		ctx, err := s.E.RequestSpace(r.Context(), u, named)
+		ctx, err := s.E.RequestSpace(r.Context(), u, req)
 		if err != nil {
 			s.writeErr(w, r, err)
 			return
@@ -540,28 +552,31 @@ func (s *Server) auth(next http.Handler) http.Handler {
 		if real != "" {
 			ctx = engine.WithImpersonator(ctx, real)
 		}
+		if bound {
+			ctx = engine.WithBoundCredential(ctx)
+		}
 		next.ServeHTTP(w, r.WithContext(context.WithValue(ctx, userKey, u)))
 	})
 }
 
-// impersonated is the user the session sid of real is impersonating; empty
-// when it impersonates nobody. An administrator who has lost the role since
-// gets the session back as their own.
-func (s *Server) impersonated(r *http.Request, sid, real string) string {
+// impersonated is what the session sid of real is impersonating; a zero
+// value when it impersonates nobody. An administrator who has lost the role
+// since gets the session back as their own.
+func (s *Server) impersonated(r *http.Request, sid, real string) engine.Impersonation {
 	if real == "" {
-		return ""
+		return engine.Impersonation{}
 	}
-	target := s.E.SessionImpersonation(r.Context(), sid)
-	if target == "" {
-		return ""
+	imp := s.E.SessionImpersonation(r.Context(), sid)
+	if imp.User == "" {
+		return imp
 	}
-	if !s.E.MayImpersonate(r.Context(), real) {
-		if err := s.E.StopImpersonation(r.Context(), sid, real, target); err != nil {
+	if !s.E.MayImpersonate(r.Context(), real, imp.Tenant) {
+		if err := s.E.StopImpersonation(r.Context(), sid, real, imp.User); err != nil {
 			s.E.Log.Warn("could not end an impersonation", "user", real, "err", err)
 		}
-		return ""
+		return engine.Impersonation{}
 	}
-	return target
+	return imp
 }
 
 // RequireAdminAPIKey guards administrative handlers (the MCP HTTP transport):
@@ -575,7 +590,7 @@ func (s *Server) RequireAdminAPIKey(next http.Handler) http.Handler {
 			s.writeErr(w, r, cerr.Auth("This endpoint requires an API key (Authorization: token key:secret)"))
 			return
 		}
-		u, err := s.E.UserFromAPIKey(r.Context(), strings.TrimSpace(h[6:]))
+		u, keySpace, err := s.E.APIKeyOwner(r.Context(), strings.TrimSpace(h[6:]))
 		if err != nil {
 			s.writeErr(w, r, err)
 			return
@@ -585,15 +600,20 @@ func (s *Server) RequireAdminAPIKey(next http.Handler) http.Handler {
 			return
 		}
 		// A tenant's System Manager administers that tenant, not the site:
-		// what sits behind this guard runs code and SQL as the operator.
-		if own, err := s.E.TenantOfUser(r.Context(), u); err != nil {
-			s.writeErr(w, r, err)
-			return
-		} else if own != "" {
+		// what sits behind this guard runs code and SQL as the operator. A
+		// key of the platform space's, held by someone with a row there.
+		if keySpace != "" {
 			s.writeErr(w, r, cerr.Permission("This endpoint is for the platform's own users"))
 			return
 		}
-		roles, err := s.E.NewCtx(r.Context(), u).RolesOf(u)
+		if op, err := s.E.CanEnterTenants(r.Context(), u); err != nil {
+			s.writeErr(w, r, err)
+			return
+		} else if !op {
+			s.writeErr(w, r, cerr.Permission("This endpoint is for the platform's own users"))
+			return
+		}
+		roles, err := s.E.NewCtx(engine.WithTenant(r.Context(), ""), u).RolesOf(u)
 		if err != nil {
 			s.writeErr(w, r, err)
 			return
@@ -647,11 +667,13 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		s.writeErr(w, r, err)
 		return
 	}
-	s.E.Cache.Del("lang:" + body.Usr)
 	http.SetCookie(w, s.sessionCookie(r, sid))
-	// where the desk should land: a Website User's home is a portal (OPS-10)
+	// where the desk should land: a Website User's home is a portal (OPS-10),
+	// read in the space the session landed in (#167)
 	home := "/app"
 	if u, _ := s.E.UserFromSession(r.Context(), sid); u != "" {
+		r = r.WithContext(s.E.LoginSpace(r.Context(), sid))
+		s.dropLang(r, u)
 		home = s.homeFor(r, u, "")
 	}
 	writeJSON(w, 200, map[string]any{"data": map[string]any{"ok": true, "home": home}})
@@ -844,7 +866,7 @@ func (s *Server) userBoot(c *engine.Ctx, r *http.Request) map[string]any {
 		if r.Header.Get("X-Lang") == "" {
 			c.Lang = l
 		}
-		s.E.Cache.Set("lang:"+c.User, l, langCacheTTL)
+		s.E.Cache.Set(engine.UserKey("lang:", c.Tenant, c.User), l, langCacheTTL)
 	}
 	return userDoc
 }
@@ -1706,17 +1728,20 @@ func (s *Server) enterTenant(w http.ResponseWriter, r *http.Request) {
 // on; the answer says where that user lands.
 func (s *Server) impersonate(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		User string `json:"user"`
+		User   string `json:"user"`
+		Tenant string `json:"tenant"`
 	}
 	if err := readJSON(r, &body); err != nil {
 		s.writeErr(w, r, err)
 		return
 	}
 	s.run(w, r, func(c *engine.Ctx) (any, error) {
-		if err := c.StartImpersonation(body.User); err != nil {
+		if err := c.StartImpersonation(body.User, body.Tenant); err != nil {
 			return nil, err
 		}
-		return map[string]any{"user": body.User, "home": s.homeFor(r, body.User, "")}, nil
+		ck, _ := r.Cookie("sid")
+		space := engine.WithTenant(r.Context(), s.E.SessionImpersonation(r.Context(), ck.Value).Tenant)
+		return map[string]any{"user": body.User, "home": s.homeFor(r.WithContext(space), body.User, "")}, nil
 	})
 }
 

@@ -2,10 +2,8 @@ package engine
 
 import (
 	"context"
-	"errors"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/db"
 )
@@ -36,37 +34,68 @@ func ImpersonatorFrom(ctx context.Context) string {
 
 func impersonationKey(sid string) string { return "sidas:" + sid }
 
-// SessionImpersonation is the user a session is impersonating; empty when it
-// impersonates nobody.
-func (e *Engine) SessionImpersonation(ctx context.Context, sid string) string {
+// Impersonation is what a session impersonates: a user, in one space of
+// theirs — a person may work in several tenants (#167).
+type Impersonation struct {
+	User   string
+	Tenant string
+}
+
+// SessionImpersonation is what a session is impersonating; a zero value when
+// it impersonates nobody.
+func (e *Engine) SessionImpersonation(ctx context.Context, sid string) Impersonation {
 	if sid == "" {
-		return ""
+		return Impersonation{}
 	}
 	key := impersonationKey(sid)
 	if v, ok := e.Cache.Get(key); ok {
-		return v.(string)
+		return v.(Impersonation)
 	}
 	var target string
-	if err := e.DB.Pool.QueryRow(ctx, `SELECT coalesce(data->>'impersonate', '') FROM ddcore_session WHERE sid = $1`, sid).Scan(&target); err != nil {
-		return ""
+	var tenant *string
+	if err := e.DB.Pool.QueryRow(ctx, `SELECT coalesce(data->>'impersonate', ''), data->>'impersonate_tenant'
+		FROM ddcore_session WHERE sid = $1`, sid).Scan(&target, &tenant); err != nil {
+		return Impersonation{}
 	}
-	e.Cache.Set(key, target, time.Minute)
-	return target
+	imp := Impersonation{User: target}
+	if tenant != nil {
+		imp.Tenant = *tenant
+	} else if target != "" {
+		// an impersonation begun before it recorded its space
+		if ms, err := e.Memberships(ctx, target); err == nil {
+			imp.Tenant, _ = soleSpace(ms, target)
+		}
+	}
+	e.Cache.Set(key, imp, time.Minute)
+	return imp
 }
 
-// MayImpersonate reports whether user is still someone who may impersonate:
-// Admin, or a System Manager. It is asked on every impersonated request, so
-// that revoking the role ends an impersonation already under way.
-func (e *Engine) MayImpersonate(ctx context.Context, user string) bool {
+// MayImpersonate reports whether user is still someone who may impersonate
+// in tenant: Admin, an operator, or a System Manager of that tenant. It is
+// asked on every impersonated request, so that revoking the role ends an
+// impersonation already under way.
+func (e *Engine) MayImpersonate(ctx context.Context, user, tenant string) bool {
 	switch user {
 	case "Admin":
 		return true
 	case "", "Guest":
 		return false
 	}
-	c := e.NewCtx(ctx, user)
+	if op, err := e.CanEnterTenants(ctx, user); err == nil && op {
+		return true
+	}
+	c := e.NewCtx(WithTenant(ctx, tenant), user)
 	if c.IsWebsiteUser() {
 		return false
+	}
+	if c.Tenancy() {
+		ms, err := e.Memberships(ctx, user)
+		if err != nil {
+			return false
+		}
+		if m, ok := membershipIn(ms, tenant); !ok || !m.Enabled {
+			return false
+		}
 	}
 	roles, err := c.RolesOf(user)
 	if err != nil {
@@ -81,8 +110,9 @@ func (e *Engine) MayImpersonate(ctx context.Context, user string) bool {
 }
 
 // StartImpersonation makes this ctx's session work as target from the next
-// request on.
-func (c *Ctx) StartImpersonation(target string) error {
+// request on. Inside a tenant it is target's row there; from the platform
+// space, the space tenant names, or target's only one.
+func (c *Ctx) StartImpersonation(target, tenant string) error {
 	if c.Sid == "" {
 		return cerr.Validation("Impersonating needs a session; an API key cannot impersonate")
 	}
@@ -102,63 +132,91 @@ func (c *Ctx) StartImpersonation(target string) error {
 		return cerr.Validation("You cannot impersonate yourself")
 	}
 	// across spaces: a tenant's user is not a row of the platform space
-	var enabled bool
-	if err := c.E.System(c.Ctx, func(q db.Querier) error {
-		return q.QueryRow(c.Ctx, `SELECT enabled FROM tab_user WHERE id = $1`, target).Scan(&enabled)
-	}); errors.Is(err, pgx.ErrNoRows) {
-		return cerr.NotFound("User {0} does not exist", target)
-	} else if err != nil {
+	ms, err := c.memberships(target)
+	if err != nil {
 		return err
+	}
+	space := c.Tenant
+	if c.Tenancy() && c.Tenant == "" {
+		if tenant != "" {
+			space = tenant
+		} else if space, err = soleSpace(ms, target); err != nil {
+			return cerr.Validation("{0} works in more than one tenant: name the tenant to impersonate them in", target)
+		}
+	} else if tenant != "" && tenant != c.Tenant {
+		return cerr.NotFound("User {0} does not exist", target)
+	}
+	m, found := membershipIn(ms, space)
+	if !found {
+		return cerr.NotFound("User {0} does not exist", target)
+	}
+	// An operator is the site's, whatever row a tenant gave their address
+	// (#167): only another operator works as one.
+	if c.Tenancy() {
+		if op, err := c.E.CanEnterTenants(c.Ctx, target); err != nil {
+			return err
+		} else if op {
+			if me, err := c.E.CanEnterTenants(c.Ctx, c.User); err != nil {
+				return err
+			} else if !me {
+				c.AuditDenied("account.impersonate", "User", target, nil)
+				return cerr.Permission("{0} cannot be impersonated", target)
+			}
+		}
 	}
 	// The spaces follow enterUserSpace: from inside a tenant only that
 	// tenant's users, and a tenant's user from the platform space only by
 	// someone who may enter tenants at all.
-	tenant, err := c.E.TenantOfUser(c.Ctx, target)
-	if err != nil {
-		return err
-	}
-	if c.Tenancy() && tenant != c.Tenant {
-		// from inside a tenant, another space's account is not there to find
-		if c.Tenant != "" {
-			return cerr.NotFound("User {0} does not exist", target)
-		}
+	if c.Tenancy() && space != c.Tenant {
 		if ok, err := c.E.CanEnterTenants(c.Ctx, c.User); err != nil {
 			return err
 		} else if !ok {
 			c.AuditDenied("account.impersonate", "User", target, nil)
 			return cerr.Permission("Only a System Manager of the platform space can impersonate a tenant's user")
 		}
+		if err := c.E.checkTenant(c.Ctx, nil, space); err != nil {
+			return err
+		}
 	}
-	if !enabled {
+	if !m.Enabled {
 		return cerr.Permission("User {0} is disabled", target)
 	}
 	if _, err := c.E.DB.Pool.Exec(c.Ctx, `UPDATE ddcore_session
-		SET data = coalesce(data, '{}'::jsonb) || jsonb_build_object('impersonate', $2::text) WHERE sid = $1`, c.Sid, target); err != nil {
+		SET data = coalesce(data, '{}'::jsonb) || jsonb_build_object('impersonate', $2::text, 'impersonate_tenant', $3::text)
+		WHERE sid = $1`, c.Sid, target, space); err != nil {
 		return err
 	}
 	if err := c.E.forgetImpersonations(c.Ctx, c.E.DB.Pool, []string{c.Sid}); err != nil {
 		return err
 	}
-	return c.E.RecordAudit(c.Ctx, c.User, "account.impersonate", "Allowed", "User", target, nil)
+	// in the space the impersonation works in, whose administrators answer
+	// for it
+	return c.E.RecordAudit(WithTenant(c.Ctx, space), c.User, "account.impersonate", "Allowed", "User", target, nil)
 }
 
 // StopImpersonation returns the session sid, impersonating target on behalf
 // of real, to real.
 func (e *Engine) StopImpersonation(ctx context.Context, sid, real, target string) error {
-	if _, err := e.DB.Pool.Exec(ctx, `UPDATE ddcore_session SET data = data - 'impersonate' WHERE sid = $1`, sid); err != nil {
+	imp := e.SessionImpersonation(ctx, sid)
+	if _, err := e.DB.Pool.Exec(ctx, `UPDATE ddcore_session SET data = data - 'impersonate' - 'impersonate_tenant' WHERE sid = $1`, sid); err != nil {
 		return err
 	}
 	if err := e.forgetImpersonations(ctx, e.DB.Pool, []string{sid}); err != nil {
 		return err
 	}
+	if imp.User == target {
+		ctx = WithTenant(ctx, imp.Tenant)
+	}
 	return e.RecordAudit(ctx, real, "account.impersonate_stop", "Allowed", "User", target, nil)
 }
 
 // endImpersonationsOf stops every impersonation of user: what DropSessions
-// does to the user's own sessions, it does to the ones working as them.
-func (e *Engine) endImpersonationsOf(ctx context.Context, q db.Querier, user string) error {
-	rows, err := db.Select(ctx, q, `UPDATE ddcore_session SET data = data - 'impersonate'
-		WHERE data->>'impersonate' = $1 RETURNING sid`, user)
+// does to the user's own sessions, it does to the ones working as them. A
+// non-nil tenant limits it to the impersonations working in that space.
+func (e *Engine) endImpersonationsOf(ctx context.Context, q db.Querier, user string, tenant *string) error {
+	rows, err := db.Select(ctx, q, `UPDATE ddcore_session SET data = data - 'impersonate' - 'impersonate_tenant'
+		WHERE data->>'impersonate' = $1 AND ($2::text IS NULL OR coalesce(data->>'impersonate_tenant', $2) = $2)
+		RETURNING sid`, user, tenant)
 	if err != nil || len(rows) == 0 {
 		return err
 	}

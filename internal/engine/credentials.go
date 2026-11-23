@@ -467,7 +467,9 @@ func (e *Engine) credentialLogin(ctx context.Context, id, tenant, username, pass
 				return refuseCredential("unavailable", cerr.Unavailable("Sign-in with {0} is unavailable. Try again later.", label))
 			}
 		}
-		sid, err = e.createSession(c, user, from)
+		// bound to this tenant: its administrators decide who this provider
+		// signs in, so its session must not reach the person's other tenants
+		sid, err = e.createSession(c, user, c.Tenant, from, true)
 		return err
 	})
 	if err != nil {

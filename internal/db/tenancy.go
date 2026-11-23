@@ -185,8 +185,19 @@ func EnsureTenancy(ctx context.Context, q Querier, role string) error {
 			return fmt.Errorf("tenancy: granting to %s: %w", role, err)
 		}
 	}
+	// A person's password and the tenants they work in are the site's: no
+	// confined statement — a tenant app's ddcore.db.sql included — reads them.
+	// The engine reaches the table elevated.
+	for _, t := range siteOnlyTables {
+		if _, err := q.Exec(ctx, "REVOKE ALL ON "+Ident(t)+" FROM "+r); err != nil {
+			return fmt.Errorf("tenancy: revoking %s from %s: %w", t, role, err)
+		}
+	}
 	return nil
 }
+
+// siteOnlyTables are the framework tables the confined role may not touch.
+var siteOnlyTables = []string{"ddcore_person"}
 
 func ensureTenantTable(ctx context.Context, q Querier, table, key string) error {
 	if _, err := q.Exec(ctx, fmt.Sprintf("ALTER TABLE %s ADD COLUMN IF NOT EXISTS tenant text NOT NULL DEFAULT %s",
@@ -229,9 +240,6 @@ func ensureTenantTable(ctx context.Context, q Querier, table, key string) error 
 // Every query a confined transaction runs carries the policy's test on the
 // column, so an index that does not lead with it serves nobody; and a unique
 // one is what makes a value unique within the tenant instead of the site.
-//
-// User is the exception for uniqueness: sign-in finds a user by e-mail
-// before any tenant is known, so its id and e-mail stay unique site-wide.
 func tenantIndex(d *meta.DocType, i index) index {
 	if !d.TenantOwned || (i.unique && !d.TenantKeyed()) {
 		return i

@@ -465,15 +465,31 @@ func TestTenantSignInAndKeys(t *testing.T) {
 		}
 		return nil
 	})
-	// an address is one account on the whole site
+	// an address is one person on the whole site, who may join another
+	// tenant (#167): the invitation grants access and hands out no link
 	inTenant(t, e, tenantB, func(c *Ctx) error {
-		_, err := e.InviteUser(c, Invitation{Email: userA, FullName: "Again"})
-		mustErr(t, "inviting an address another tenant holds", err)
+		res, err := e.InviteUser(c, Invitation{Email: userA, FullName: "Again"})
+		if err != nil || res["access"] != true || res["link"] != nil {
+			t.Fatalf("inviting an address another tenant holds: %v, %v", res, err)
+		}
 		return nil
 	})
 	// a disabled tenant signs nobody in
 	runAs(t, e, "Admin", func(c *Ctx) error {
 		_, err := c.DBSet("Site Tenant", tenantA, Doc{"enabled": false}, true)
+		return err
+	})
+	e.Cache.Clear()
+	// she works in beta too now: that is where she lands
+	sid, err = e.Login(ctx, userA, "segredo-alfa-123", LoginFrom{})
+	if err != nil {
+		t.Fatalf("a person with an enabled tenant left cannot sign in: %v", err)
+	}
+	if sp := e.SessionTenant(ctx, sid); sp.Tenant != tenantB {
+		t.Fatalf("landed in %q, not in the tenant still enabled", sp.Tenant)
+	}
+	runAs(t, e, "Admin", func(c *Ctx) error {
+		_, err := c.DBSet("Site Tenant", tenantB, Doc{"enabled": false}, true)
 		return err
 	})
 	e.Cache.Clear()

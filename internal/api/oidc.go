@@ -68,7 +68,8 @@ func (s *Server) oidcCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if user, _ := s.E.UserFromSession(r.Context(), sid); user != "" {
-		s.E.Cache.Del("lang:" + user)
+		r = r.WithContext(s.E.LoginSpace(r.Context(), sid))
+		s.dropLang(r, user)
 		redirect = s.homeFor(r, user, redirect)
 	}
 	http.SetCookie(w, s.sessionCookie(r, sid))

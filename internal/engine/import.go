@@ -131,6 +131,19 @@ func (c *Ctx) ImportDoc(doc Doc, opts ImportOpts) (*ImportResult, error) {
 			return nil, err
 		}
 	}
+	if d.Name == "User" {
+		// a loaded User joins the person of its address, as a saved one
+		// does (#167); an address another person signs in with is refused
+		id := doc.ID()
+		if err := c.joinPerson(doc, nil); err != nil {
+			return nil, err
+		}
+		// the rows loaded with it name the id the export had: one the
+		// person spells otherwise is refused rather than rewritten
+		if doc.ID() != id {
+			return nil, cerr.Validation("{0} is already used by another account", id)
+		}
+	}
 	if err := c.writeInsert(d, doc); err != nil {
 		return nil, err
 	}
@@ -164,7 +177,7 @@ func (c *Ctx) auditImportedPrivileges(d *meta.DocType, doc Doc) error {
 				}
 			}
 		}
-		return c.invalidate([]string{"roles:" + doc.ID(), "utype:" + doc.ID()}, nil)
+		return c.dropPersonCache(doc.ID())
 	case "User Permission", shareDoctype:
 		return c.auditAccessSaved(d, nil, doc)
 	}

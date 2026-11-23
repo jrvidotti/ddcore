@@ -22,6 +22,7 @@ var userColumns = [][2]string{
 	{"ddcore_job", "run_as"},
 	{"ddcore_maintenance", "actor"},
 	{"ddcore_notification", "recipient"},
+	{"ddcore_person", "id"},
 }
 
 // renameLegacyAdmin turns the superuser of a database installed before 0.16.0

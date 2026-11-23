@@ -27,7 +27,7 @@ Code always runs in exactly one space:
 
 | Who | Space |
 | --- | --- |
-| A user | The user's tenant. A user belongs to one tenant, fixed when the account is created |
+| A user | One of the person's own tenants: the one the session entered, or where they landed when they signed in. Most people work in one tenant; one person may work in several (see [People in several tenants](#people-in-several-tenants)) |
 | `Admin`, and a System Manager whose account is in the platform space (an **operator**) | The platform space, until they *enter* a tenant |
 | A background job | The space it was enqueued in |
 | A scheduled method, a migration's fixtures, `afterInstall`, `afterMigrate` | The platform space |
@@ -35,7 +35,8 @@ Code always runs in exactly one space:
 
 Nothing reads the documents of two spaces at once. The operator works in a tenant by entering
 it: the tenant menu in the Desk's user menu, `--tenant` on the command line, the
-`X-Tenant` header with an API key, or `ddcore.tenant.run` in server code.
+`X-Tenant` header with an API key, or `ddcore.tenant.run` in server code. A person who works
+in several tenants moves between their own tenants with the same menu.
 
 A site with tenancy on and no tenant created behaves like a site without it: everything is in
 the platform space.
@@ -238,9 +239,78 @@ Per tenant, as a consequence:
 - **Realtime events** reach the sessions of the tenant they happened in. A change to a shared
   DocType reaches everyone.
 
-One thing is site-wide: a **user's e-mail**. Sign-in finds the account by address before it
-knows any tenant, so an address registered in one tenant is refused in another ("User already
-exists").
+One thing is site-wide: a **person**. A user id, and the e-mail it signs in with, is one
+person across the site, who may work in several tenants. See below.
+
+## People in several tenants
+
+A `User` row is one tenant's **membership** of a person. To let someone who works in `modaverao`
+work in `teste` too, add them there under the same address:
+
+```bash
+ddcore --tenant modaverao user add ana@example.com "Ana" --role "Stock Manager"
+ddcore --tenant teste     user add ana@example.com "Ana" --role "System Manager"
+```
+
+The second command does not fail. The row it makes joins the person who already signs in as
+`ana@example.com`, under their id. A tenant's System Manager does the same from the desk, by saving a
+new User or with **Save and invite**. Nobody is told that the address exists elsewhere: the row
+is created as any other.
+
+Per tenant, each row has its own:
+
+- roles, `enabled`, `language` and `user_type`;
+- scopes, shares, API keys and audit trail.
+
+Per person, across the site:
+
+- the **id** and the address sign-in finds them by;
+- the **password**, kept in the site-wide `ddcore_person` table, which tenant code cannot read, even
+  through `ddcore.db.sql`;
+- the **single sign-on identities**. A `sub` is one person.
+
+**Signing in.** Password, single sign-on and a reset link all resolve to the person. The session
+then **lands** in the tenant they last worked in, or else the first of their tenants by title. A
+person whose every row is disabled, or whose every tenant is switched off, is disabled. The
+desk's user menu lists the person's own tenants (and only those) when there is more than one. Picking
+one moves the session, and every open tab with it, as it does for the operator. A session opened by an
+app's credential provider (`/login/<provider>/<tenant>`) stays in that tenant. The tenant decides whom
+its provider signs in, so that session cannot reach the person's other tenants.
+
+**What a tenant's System Manager may do** with a person who also works elsewhere: everything to
+the tenant's own row (roles, enable, disable, delete), and nothing to how the person signs in.
+
+- They cannot set or reset the password, send an invitation or reset link, unlink an identity,
+  disable the person at the identity provider, change their e-mail, or rename them.
+- The User form says so and offers none of it.
+- The refusal names no other tenant.
+- An invitation to such a person sends `core.access_granted` ("You now have access to …") with no
+  link in it. The call answers `{ user, access: true }`.
+- A reset link the administrator issued before the person joined another tenant stops working.
+- So does a password a tenant's administrator chose for them. When they join another space, it is
+  dropped with their sessions, since that tenant knows it, and they choose their own with "I forgot
+  my password". A password they chose themselves, or that the operator set, stays.
+- Unlocking a person locked out by failed sign-ins is the person's or the operator's to do too.
+
+The person themself, and the operator, can still do all of these, from a password or single
+sign-on session. A credential a tenant can hold is never the person speaking for their whole
+sign-in: an API key, or a session the tenant's credential provider opened. Through one, the boot
+lists none of their other tenants, the session list shows only the sessions working there, and
+the password cannot be changed. An operator's power comes from the platform space too: inside a
+tenant that gave their address a row of its own, the operator is that tenant's member.
+Only another operator may impersonate an operator.
+
+**Disabling or deleting** a person's row in a tenant ends the sessions working in that tenant. Their
+sessions in their other tenants go on. Their password and identities go with their last row only.
+
+**Groups as roles.** Single sign-on does not map groups to roles for a person in more than one
+space, and the PocketID role sync leaves them alone: each tenant gives such a person their roles
+itself.
+
+From the platform space, a person in several tenants has no one space. A call that acts on their
+row without naming a tenant is refused with "… works in more than one tenant: name one with
+--tenant". That covers `ddcore apikey`, `user reset`, `users.createApiKey`, impersonation,
+`ddcore.runAs` and `ddcore.test.asUser`. Enter the tenant first.
 
 ## The `Site Tenant` DocType
 
@@ -287,8 +357,12 @@ ddcore import run /srv/export --tenant acme   # another site's export, loaded in
 
 `--tenant` goes **before** the command and is for commands that do one thing and exit; a
 server and a worker refuse it. `ddcore --tenant acme mcp` starts the MCP server with `acme` as
-its tools' default space (see **MCP** below). `ddcore apikey` and `ddcore user passwd|reset` find the
-account's tenant themselves, and so does `ddcore.users.createApiKey` called from the platform space. `ddcore import`
+its tools' default space (see **MCP** below). `ddcore apikey` and `ddcore user reset` find the
+account's tenant themselves, and so does `ddcore.users.createApiKey` called from the platform space.
+A person who works in several tenants needs `--tenant` to say which. `ddcore user passwd` sets the
+person's one password and needs none. `ddcore user link|unlink|identities` work on the person
+from the platform space. `ddcore user sessions` shows the tenant each session works in, and with
+`--tenant`, `--revoke` ends only the sessions working there. `ddcore import`
 takes `--tenant` on either side of the command (see below).
 
 The operator's other commands follow the same rule: `ddcore jobs`, `ddcore audit list` and
@@ -360,7 +434,8 @@ exist — so a scheduled method enters the tenant first, and a `{ method, runAs 
 only takes a user of the platform space:
 
 ```ts
-// refused from the platform space: ana belongs to acme
+// refused from the platform space: ana belongs to acme (and a person in two tenants
+// works in neither until one is entered)
 ddcore.runAs("ana@acme.example", work);
 
 ddcore.tenant.run("acme", () => ddcore.runAs("ana@acme.example", work));                  // now
@@ -397,7 +472,8 @@ rolled-back transaction, so it never reaches the site:
 - Each test starts from the same state, because the test's writes roll back.
 - No real tenant's documents are in sight, and `ddcore.tenant.current()` names it.
 - `ddcore.test.asUser(user, fn)` works for `Admin` and for the users a test creates there,
-  and `ddcore.getRoles(user)` sees the roles of a user the test just inserted.
+  and `ddcore.getRoles(user)` sees the roles of a user the test just inserted: their roles in the
+  space the test works in.
 - A `Link` to `User` may record `ddcore.session.user`, which is `Admin` (see
   [Who administers what](#who-administers-what)).
 
@@ -407,7 +483,8 @@ afterwards, even when `fn` throws. It is how a tenant test writes a shared DocTy
 (`ddcore.tenant.list()` there includes the scratch tenant).
 
 The tests of every other app run in the platform space. There, `ddcore.test.asUser` moves to
-the user's tenant for the duration of `fn`, and `ddcore.tenant.run` enters a tenant directly.
+the user's tenant for the duration of `fn` (a person in several tenants needs
+`ddcore.tenant.run` first), and `ddcore.tenant.run` enters a tenant directly.
 Without tenancy, `tests.space` is ignored and `inPlatform` just runs `fn`.
 
 ## Who administers what
@@ -423,7 +500,8 @@ shares, webhooks, API keys, audit events, its jobs, its Error Log. It is not the
 | MCP over HTTP (`/mcp`) | refused — it runs code and SQL as the operator |
 | `/api/health/report` | refused — it counts the whole site |
 | Job administration (`/api/jobs`) | its own tenant's jobs |
-| Entering a tenant | refused |
+| Entering a tenant | refused, but they move between the tenants they work in themselves |
+| A person who also works in another tenant | their row here only: never their password, links, identities, address or id |
 
 Site configuration — mail transport, storage, branding, language, currency, timezone, sign-in
 policy — is the site's and applies to every tenant.
@@ -437,20 +515,27 @@ operator is still refused.
 
 ## HTTP
 
-A request works in the tenant of its user. For an operator it works in the platform space, or
-in the tenant the session entered (`POST /api/tenant/enter {"tenant": "acme"}`; an empty
-tenant leaves), or — with an API key — in the tenant named by `X-Tenant`. The header is
-ignored for anyone who is not an operator.
+A request works in one of its user's own tenants: the one the session entered
+(`POST /api/tenant/enter {"tenant": "acme"}`), or the one it landed in at sign-in. For an
+operator it works in the platform space, or in any tenant the session entered (an empty tenant
+leaves), or — with a platform API key — in the tenant named by `X-Tenant`. The header is
+ignored for anyone who is not an operator. An API key works in the tenant of the row it was made
+for. An impersonation works in the tenant it began in.
 
-`GET /api/boot` carries `site.tenant`: `{ id, title, platform }`, plus `tenants` for an
-operator. It is absent on a site without tenancy.
+`/api/tenant/enter` refuses a tenant the person does not work in exactly as one that does not
+exist ("You do not work in tenant …"), so it tells them nothing about it.
+
+`GET /api/boot` carries `site.tenant`: `{ id, title, platform }`, plus `tenants`. For an
+operator, `tenants` is every tenant. For a person who works in more than one, it is their own
+(`""` for a platform row of theirs). It is left out while impersonating. The block is absent on a
+site without tenancy.
 
 Desk URLs name their tenant: inside a tenant the desk keeps `?tenant=<id>` on every `/app`
 address, so a copied link says where its record lives (ids are only unique within a tenant).
 Opening a link whose `tenant` is not the space the session works in shows a notice instead of
-the page. An operator may **Enter** that tenant — the session moves, and every open tab with
-it — or **Stay** where they are; a tenant's own user is told the link belongs to another
-tenant. A link without `tenant`, or one from the platform space, opens as before.
+the page. An operator, or a person who works in that tenant too, may **Enter** it — the session
+moves, and every open tab with it — or **Stay** where they are; anyone else is told the link
+belongs to another tenant. A link without `tenant`, or one from the platform space, opens as before.
 
 ## How it is enforced
 
@@ -506,8 +591,11 @@ as "no data". A tenant-only DocType (`space: "tenant"`) is refused there with th
 - **Tenants are users, not app authors.** The wall holds against everything a signed-in user
   can do. App code is the operator's: a query that calls `set_config('ddcore.tenant', …)`
   can read another tenant, and nothing in the framework stops an app from doing so on purpose.
-- **An e-mail registered in another tenant is refused**, which tells a tenant's administrator
-  that the address has an account somewhere on the site.
+- **A tenant's administrator learns one thing about a person who also works elsewhere**: that
+  they do, since the person's sign-in is not theirs to change. They do not learn where.
+- **A person who works in several tenants cannot be renamed.** The id is what they are in every
+  tenant. Renaming a user to an id, or giving them an address, that another person signs in with
+  is refused, which tells a tenant's administrator that someone does.
 - **One configuration for all tenants**: mail, storage, branding, language, currency, timezone.
 - **Tenants are not chosen by hostname.** Everyone signs in at the same address. The one
   place a person names a tenant is an app's credential provider (`auth`, "Sign-in through an
@@ -516,7 +604,8 @@ as "no data". A tenant-only DocType (`space: "tenant"`) is refused there with th
 - **`Guest` is in the platform space.** Anonymous pages see no tenant's documents; signed-in
   portals work, since a Website User belongs to a tenant.
 - **Single sign-on** and **credential providers** sign in accounts that exist. They do not
-  create them (single sign-on has no tenant to put them in).
+  create them (single sign-on has no tenant to put them in). Single sign-on finds the person, then
+  lands them like a password sign-in does.
 - **Files** are checked through their `File` document, which is the tenant's. A *public* file's
   URL is unguessable but answers anyone who has it, as on any site. Storage keys carry no tenant.
 - **Backup and restore** are of the whole database. There is no per-tenant backup or quota.

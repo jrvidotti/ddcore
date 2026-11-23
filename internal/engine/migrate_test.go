@@ -42,6 +42,20 @@ func sqlRows(t *testing.T, e *Engine, query string, args ...any) []map[string]an
 	return rows
 }
 
+// personHashT is a person's stored password hash (#167), read past the
+// confined role, which may not see ddcore_person.
+func personHashT(t *testing.T, e *Engine, user string) string {
+	t.Helper()
+	rows, err := db.Select(context.Background(), e.DB.Sys, `SELECT password_hash FROM ddcore_person WHERE id = $1`, user)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) == 0 {
+		return ""
+	}
+	return db.Str(rows[0]["password_hash"])
+}
+
 func columnType(t *testing.T, e *Engine, table, col string) string {
 	t.Helper()
 	rows := sqlRows(t, e, `SELECT data_type FROM information_schema.columns

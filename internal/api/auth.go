@@ -71,12 +71,17 @@ func (s *Server) forgotPassword(w http.ResponseWriter, r *http.Request) {
 	// identity provider is down.
 	if user, ok := s.E.FindUserForRecovery(r.Context(), body.Usr); ok &&
 		(s.E.Cfg.Auth.AllowPasswordLogin() || user == "Admin") {
+		// mailed from the space the person would sign in to: they asked
+		// for it themselves, whatever tenants they work in (#167)
 		var rec *engine.Recovery
-		err := s.E.RunAdminFor(r.Context(), user, func(c *engine.Ctx) error {
-			var e error
-			rec, e = s.E.StartRecovery(c, user, engine.TokenReset, clientIP(r))
-			return e
-		})
+		space, err := s.E.LandingSpace(r.Context(), user)
+		if err == nil {
+			err = s.E.Run(engine.WithTenant(r.Context(), space), "Admin", func(c *engine.Ctx) error {
+				var e error
+				rec, e = s.E.StartRecovery(c, user, engine.TokenReset, clientIP(r))
+				return e
+			})
+		}
 		if err != nil {
 			// Still answered as success: a failure here would otherwise be one
 			// more way to tell a real address from an imaginary one.
@@ -110,7 +115,8 @@ func (s *Server) authToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	name := ""
-	s.E.RunAdminFor(r.Context(), at.User, func(c *engine.Ctx) error {
+	// the row of the space the link was issued in
+	s.E.Run(engine.WithTenant(r.Context(), at.Tenant), "Admin", func(c *engine.Ctx) error {
 		if m, err := c.GetValues("User", at.User, []string{"full_name"}); err == nil && m != nil {
 			name, _ = m["full_name"].(string)
 		}

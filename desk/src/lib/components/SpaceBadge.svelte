@@ -1,10 +1,11 @@
 <script lang="ts">
   // The space the person works in, under the site's name: a tenant, or the
   // platform space in its own color, since that is where a change reaches
-  // every tenant. For an operator it opens the tenant menu. It draws nothing
-  // without tenancy, nor for a platform user who is not an operator.
+  // every tenant. For anyone with somewhere else to go — the operator, or a
+  // person who works in several tenants — it opens the tenant menu. It draws
+  // nothing without tenancy, nor for a platform user who is not an operator.
   import { boot, spaceLabel, __ } from "$lib/boot.svelte";
-  import { spaceKind } from "$lib/tenant";
+  import { spaceKind, tenantChoices } from "$lib/tenant";
   import { dismiss } from "$lib/controls/floating";
   import Icon from "./Icon.svelte";
   import TenantMenu from "./TenantMenu.svelte";
@@ -13,12 +14,13 @@
   const label = $derived(spaceLabel());
   const kind = $derived(spaceKind(tenant));
   const icon = $derived(kind === "platform" ? "shield" : "building-2");
+  const movable = $derived(tenantChoices(tenant, __("Platform")).length > 1);
   let open = $state(false);
 </script>
 
 {#if label}
   <div class="space-badge dropdown" use:dismiss={open ? () => (open = false) : null}>
-    {#if tenant?.platform}
+    {#if movable}
       <button type="button" class="space {kind}" aria-haspopup="menu" aria-expanded={open} title={__("Tenant")} onclick={() => (open = !open)}>
         <Icon name={icon} size={12} /><span>{label}</span><Icon name="chevron-down" size={12} />
       </button>

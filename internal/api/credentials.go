@@ -33,7 +33,8 @@ func (s *Server) credentialLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	home := "/app"
 	if u, _ := s.E.UserFromSession(r.Context(), sid); u != "" {
-		s.E.Cache.Del("lang:" + u)
+		r = r.WithContext(s.E.LoginSpace(r.Context(), sid))
+		s.dropLang(r, u)
 		home = s.homeFor(r, u, "")
 	}
 	http.SetCookie(w, s.sessionCookie(r, sid))

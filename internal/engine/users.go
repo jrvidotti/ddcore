@@ -1,11 +1,12 @@
 package engine
 
 import (
-	"errors"
+	"net/url"
 	"strings"
 
 	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/db"
+	"github.com/jrvidotti/ddcore/internal/meta"
 )
 
 // Invitation is what ddcore.users.invite asks for.
@@ -74,13 +75,10 @@ func (e *Engine) InviteUser(c *Ctx, inv Invitation) (map[string]any, error) {
 	if userType != "System User" && userType != "Website User" {
 		return nil, cerr.Validation("{0} is not a user type", userType)
 	}
-	// across spaces: an address signs in to one account on the whole site,
-	// so one registered in another tenant is taken here as well
-	var rows []map[string]any
-	err := c.elevated(func() (err error) {
-		rows, err = db.Select(c.Ctx, c.Q(), `SELECT id FROM tab_user WHERE id = $1 OR lower(email) = lower($1)`, email)
-		return err
-	})
+	// In this space only (#167): an address with an account in another
+	// tenant is the same person, who joins this one — and the caller is not
+	// told the address is known anywhere else.
+	rows, err := db.Select(c.Ctx, c.Q(), `SELECT id FROM tab_user WHERE id = $1 OR lower(email) = lower($1)`, email)
 	if err != nil {
 		return nil, err
 	}
@@ -101,8 +99,16 @@ func (e *Engine) InviteUser(c *Ctx, inv Invitation) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	if _, err := c.Insert(doc, SaveOpts{IgnorePermissions: true}); err != nil {
+	saved, err := c.Insert(doc, SaveOpts{IgnorePermissions: true})
+	if err != nil {
 		return nil, err
+	}
+	// the row joined the person of that address, whose id it now carries
+	email = saved.ID()
+	if shared, err := c.sharedPerson(email); err != nil {
+		return nil, err
+	} else if shared {
+		return e.grantAccess(c, email, fullName, userType)
 	}
 	rec, provider, err := e.sendInvitation(c, email, userType)
 	if err != nil {
@@ -112,6 +118,36 @@ func (e *Engine) InviteUser(c *Ctx, inv Invitation) (map[string]any, error) {
 		return nil, err
 	}
 	return recoveryResult(email, rec), nil
+}
+
+// grantAccess is an invitation for a person who already signs in to the
+// site from another space (#167): they have a password, or an identity, and
+// a link to set another would let this tenant take over the others. They are
+// told they can now work here, and nothing else changes hands.
+func (e *Engine) grantAccess(c *Ctx, user, fullName, userType string) (map[string]any, error) {
+	title := ""
+	if c.Tenant != "" {
+		rows, err := db.Select(c.Ctx, c.Q(), `SELECT title FROM `+meta.TenantTable+` WHERE id = $1`, c.Tenant)
+		if err != nil {
+			return nil, err
+		}
+		if len(rows) > 0 {
+			title = db.Str(rows[0]["title"])
+		}
+	}
+	link := strings.TrimSuffix(e.Cfg.SiteURL, "/") + "/app"
+	if c.Tenant != "" {
+		link += "?tenant=" + url.QueryEscape(c.Tenant)
+	}
+	if !Undeliverable(user) {
+		if err := c.SendTemplate(MailTemplateAccess, user, map[string]any{"tenantTitle": title, "link": link}); err != nil {
+			return nil, err
+		}
+	}
+	if err := c.Audit("account.invite", "User", user, map[string]any{"fullName": fullName, "userType": userType, "access": true}); err != nil {
+		return nil, err
+	}
+	return map[string]any{"user": user, "access": true}, nil
 }
 
 // ResendInvite sends a new invitation to an account that exists. The same
@@ -134,6 +170,9 @@ func (e *Engine) ResendInvite(c *Ctx, user string) (map[string]any, error) {
 	}
 	if Undeliverable(user) {
 		return nil, cerr.Validation("{0} has no mailbox, so it cannot be invited: add the user without an invitation", user)
+	}
+	if err := c.mayManageCredential(user); err != nil {
+		return nil, err
 	}
 	rec, provider, err := e.sendInvitation(c, user, db.Str(rows[0]["user_type"]))
 	if err != nil {
@@ -206,17 +245,31 @@ func (e *Engine) CreateUserAPIKey(c *Ctx, user, label string, days int, prefix s
 		}
 	}
 	space := c.Tenant
-	if c.Tenancy() && user != "Admin" {
-		own, err := c.E.TenantOfUser(c.Ctx, user)
-		if errors.Is(err, errNoSuchUser) {
-			return nil, missing
-		} else if err != nil {
+	if c.Tenancy() && user != "Admin" && c.Tenant == "" {
+		// from the platform space: the user's row there, or their only one
+		ms, err := c.memberships(user)
+		if err != nil {
 			return nil, err
 		}
-		if c.Tenant != "" && own != c.Tenant {
+		if len(ms) == 0 {
 			return nil, missing
 		}
-		space = own
+		if space, err = soleSpace(ms, user); err != nil {
+			return nil, err
+		}
+	}
+	// A key is a way to sign in as the person, like a password: one who also
+	// works elsewhere gets one from the operator, or mints their own (#167).
+	// someone of another space is reported as missing, before anything else
+	if user != "Admin" {
+		if ok, err := c.personHere(user); err != nil {
+			return nil, err
+		} else if !ok && c.Tenant != "" {
+			return nil, missing
+		}
+	}
+	if err := c.mayManageCredential(user); err != nil {
+		return nil, err
 	}
 	var out map[string]any
 	issue := func(c *Ctx) error {

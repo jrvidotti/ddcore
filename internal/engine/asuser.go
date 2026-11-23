@@ -198,21 +198,21 @@ func (c *Ctx) enterUserSpace(child *Ctx) error {
 	case "Admin", "Guest":
 		return nil
 	}
-	own, found := "", false
-	if err := c.elevated(func() error {
-		rows, err := db.Select(c.Ctx, c.Q(), `SELECT tenant FROM tab_user WHERE id = $1`, child.User)
-		if err == nil && len(rows) > 0 {
-			own, found = db.Str(rows[0]["tenant"]), true
-		}
-		return err
-	}); err != nil {
+	// a person is acted as in this space when they have a row here (#167);
+	// from the platform space, in the one tenant they work in
+	ms, err := c.memberships(child.User)
+	if err != nil {
 		return err
 	}
-	if !found || own == c.Tenant {
+	if _, here := membershipIn(ms, c.Tenant); here || len(ms) == 0 {
 		return nil
 	}
 	if c.Tenant != "" {
 		return cerr.Permission("A user of one tenant cannot work in another")
+	}
+	own, err := soleSpace(ms, child.User)
+	if err != nil {
+		return cerr.Validation("{0} works in more than one tenant: enter one with ddcore.tenant.run first", child.User)
 	}
 	if err := c.E.checkTenant(c.Ctx, c.Tx, own); err != nil {
 		return err

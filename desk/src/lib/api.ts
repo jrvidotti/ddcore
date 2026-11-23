@@ -157,7 +157,9 @@ export const api = {
   /** An operator enters a tenant; "" returns to the platform space. */
   enterTenant: (tenant: string) => request("POST", "/api/tenant/enter", { tenant }),
   /** An administrator works as another user; `home` is where that user lands. */
-  impersonate: (user: string) => request<{ user: string; home: string }>("POST", "/api/impersonate", { user }),
+  /** `tenant` picks the space of a person who works in several, from the platform space. */
+  impersonate: (user: string, tenant?: string) =>
+    request<{ user: string; home: string }>("POST", "/api/impersonate", tenant ? { user, tenant } : { user }),
   /** Back to the administrator; `impersonated` is who they were working as. */
   stopImpersonating: () => request<{ user: string; impersonated: string }>("POST", "/api/impersonate/stop"),
 

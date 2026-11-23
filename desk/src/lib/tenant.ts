@@ -1,5 +1,6 @@
-// Tenancy in the desk: where the person is working, and — for the operator —
-// the tenants there are to enter. The server decides both; see /api/boot.
+// Tenancy in the desk: where the person is working, and where else they may
+// go — every tenant for the operator, their own tenants for a person who works
+// in several (#167). The server decides both; see /api/boot.
 
 export interface TenantBoot {
   /** The tenant the session works in; "" is the platform space. */
@@ -7,6 +8,11 @@ export interface TenantBoot {
   title: string;
   /** An operator: may enter a tenant, and leave it again. */
   platform: boolean;
+  /**
+   * For an operator, every tenant. For anyone else, the person's own spaces
+   * when they work in more than one ("" is the platform space), and absent
+   * otherwise.
+   */
   tenants?: { id: string; title: string; enabled: boolean }[];
 }
 
@@ -40,11 +46,17 @@ export function withSpace(title: string, space: string): string {
 }
 
 /**
- * The places an operator can go: the platform space, then every enabled
- * tenant. Nobody else has anywhere to go, and a disabled tenant admits no one.
+ * The places a person can go: for an operator the platform space, then every
+ * enabled tenant; for anyone else, the spaces of their own the server listed,
+ * when there are at least two. A disabled tenant admits no one.
  */
 export function tenantChoices(t: TenantBoot | null | undefined, platformLabel: string): TenantChoice[] {
-  if (!t?.platform) return [];
+  if (!t) return [];
+  if (!t.platform) {
+    const own = (t.tenants || []).filter((x) => x.enabled || x.id === t.id);
+    if (own.length < 2) return [];
+    return own.map((x) => ({ id: x.id, label: x.id === "" ? platformLabel : x.title || x.id, current: x.id === t.id }));
+  }
   const out: TenantChoice[] = [{ id: "", label: platformLabel, current: t.id === "" }];
   for (const x of t.tenants || []) {
     if (!x.enabled && x.id !== t.id) continue;
@@ -64,12 +76,13 @@ export function tenantParam(t: TenantBoot | null | undefined): string | null {
 
 /**
  * What a link's `?tenant=` asks of the person following it: nothing ("ok"),
- * to enter that tenant first ("enter", an operator only), or nothing they can
- * do ("foreign", the link is for a space they cannot work in).
+ * to enter that tenant first ("enter": an operator, or a person who works
+ * there too), or nothing they can do ("foreign", the link is for a space they
+ * cannot work in).
  */
 export function tenantLinkState(t: TenantBoot | null | undefined, param: string | null): "ok" | "enter" | "foreign" {
   if (!t || !param || param === t.id) return "ok";
-  if (t.platform && t.tenants?.some((x) => x.id === param && x.enabled)) return "enter";
+  if (t.tenants?.some((x) => x.id === param && x.enabled)) return "enter";
   return "foreign";
 }
 

@@ -91,7 +91,7 @@ func (c *Ctx) Shares() ([]DocShare, error) {
 	if c.sharesLoaded {
 		return c.shares, nil
 	}
-	key := "shares:" + c.User
+	key := UserKey("shares:", c.Tenant, c.User)
 	// as with scopes: an operator inside a tenant reads past the cache
 	if away, err := c.awayFromHome(); err != nil {
 		return nil, err
@@ -202,7 +202,7 @@ func (c *Ctx) sharesChanged(users ...string) error {
 			c.sharesLoaded, c.sharesDirty = false, true
 		}
 		if u != "" {
-			keys = append(keys, "shares:"+u)
+			keys = append(keys, UserKey("shares:", c.Tenant, u))
 			prefixes = append(prefixes, "evperm:"+u+":")
 		}
 	}

@@ -54,17 +54,19 @@ export const sendPasswordReset = whitelisted((args: { user: string }) => {
 /**
  * What the User form needs to offer the right button: an account that never
  * set a password is still waiting on its invitation, one that did gets a
- * recovery link instead. The hash itself never leaves the server — the desk
- * reads it redacted — so this says only whether there is one.
+ * recovery link instead. The hash itself never leaves the server, so this
+ * says only whether there is one. canManagePassword is false for a person
+ * who also works elsewhere on the site (#167): only they, or the operator,
+ * change how they sign in.
  */
 export const accountStatus = whitelisted((args: { user: string }) => {
   const user = requireUser(args.user);
-  const hash = ddcore.db.getValue("User", user, "password_hash") as string | null;
+  const status = (ddcore as any).__auth.passwordStatus(user) as { hasPassword: boolean; canManagePassword: boolean };
   // provider is set when the site provisions an identity provider: the
   // form then invites through it, and asks whether to follow a disable or
   // a delete there.
   const provider = (ddcore as any).__idp.status() as { id: string; label: string } | null;
-  return { user, hasPassword: Boolean(hash), provider: provider || undefined };
+  return { user, hasPassword: status.hasPassword, canManagePassword: status.canManagePassword, provider: provider || undefined };
 }, ADMIN);
 
 /** Whether the site provisions an identity provider, for a form with no User yet. */
@@ -133,6 +135,11 @@ export const revokeUserSessions = whitelisted((args: { user: string }) => {
 export const unlockUser = whitelisted((args: { user: string }) => {
   const user = requireUser(args.user);
   const auth = (ddcore as any).__auth;
+  // The lockout guards the person's one password: lifting it for someone who
+  // also works elsewhere on the site is theirs and the operator's to do (#167).
+  if (!auth.passwordStatus(user).canManagePassword) {
+    ddcore.throw(_("This person also works elsewhere on this site, so only they or the operator can change how they sign in"));
+  }
   const email = ddcore.db.getValue("User", user, "email") as string | null;
   let cleared = auth.clearAttempts("login:" + String(user).toLowerCase());
   if (email && email.toLowerCase() !== String(user).toLowerCase()) {

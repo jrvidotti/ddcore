@@ -29,16 +29,25 @@ defineForm("User", {
     seen.set(frm, state);
     if (frm.doc.id === "Admin") return;
     let hasPassword = true;
+    let canManagePassword = true;
     try {
       let provider;
-      ({ hasPassword, provider } = await ddcore.call("core.services.users.accountStatus", { user: frm.doc.id }));
+      ({ hasPassword, canManagePassword, provider } = await ddcore.call("core.services.users.accountStatus", { user: frm.doc.id }));
       state.provider = provider;
     } catch (e) {
       ddcore.ui.showError(e);
       return;
     }
+    // A person who also works elsewhere on the site (#167): their sign-in is
+    // theirs and the operator's to change, not this tenant's.
+    if (canManagePassword === false) {
+      frm.toggleEnable("new_password", false);
+      frm.setBanner(__("This person also works elsewhere on this site. Only they, or the operator, can change how they sign in."), { color: "gray" });
+    }
     if (!frm.doc.enabled) return;
-    if (hasPassword) {
+    if (canManagePassword === false) {
+      // nothing to send: they already sign in
+    } else if (hasPassword) {
       frm.addButton(__("Send password reset"), () =>
         send(frm, "core.services.users.sendPasswordReset", __("Send {0} a link to choose a new password?", [frm.doc.email]), __("Password reset sent")),
       );
@@ -108,6 +117,11 @@ async function invite(frm: any) {
     // The draft of the new form would otherwise ask to be kept on the way out.
     await frm.discardChanges();
     await ddcore.setRoute("User", res.user);
+    if (res.access) {
+      // they already sign in to the site from elsewhere: no link, only word
+      ddcore.ui.toast(__("They already have a sign-in on this site; they were told they can now work here."));
+      return;
+    }
     done(res, __("Invitation sent"));
   } catch (e) {
     ddcore.ui.showError(e);

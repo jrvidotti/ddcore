@@ -459,6 +459,11 @@ func (e *Engine) QueueIdPSync(c *Ctx, user string, before, after []string) error
 	if p == nil || len(p.policy.GroupRoles) == 0 || user == "Admin" || c.Flags[idpSyncingFlag] == true {
 		return nil
 	}
+	// a person in several spaces has roles per tenant: none of them is the
+	// one their groups at the provider stand for (#167)
+	if shared, err := c.sharedPerson(user); err != nil || shared {
+		return err
+	}
 	managed := p.policy.ManagedRoles()
 	was, is := map[string]bool{}, map[string]bool{}
 	for _, r := range before {
@@ -493,6 +498,9 @@ func (e *Engine) IdPSync(c *Ctx, user string) error {
 		}
 		return err
 	}
+	if shared, err := c.sharedPerson(user); err != nil || shared {
+		return err
+	}
 	u, err := p.locate(c, user, db.Str(doc["email"]))
 	if err != nil || u == nil {
 		return err
@@ -513,6 +521,29 @@ func (e *Engine) SetIdPDisabled(c *Ctx, user, email string, disabled bool) (map[
 	}
 	if strings.EqualFold(user, "Admin") {
 		return nil, cerr.Validation("Admin has no account at the identity provider to change")
+	}
+	// The account at the provider is how the person signs in everywhere: the
+	// person it names — by id, or by an address, which may outlive the row
+	// here — must be the caller's to change (#167).
+	people := []string{}
+	if user != "" {
+		people = append(people, user)
+	}
+	if email != "" && c.Tenancy() {
+		if err := c.siteQ(func(q db.Querier) error {
+			rows, err := db.Select(c.Ctx, q, `SELECT DISTINCT id FROM tab_user WHERE lower(id) = lower($1) OR lower(email) = lower($1)`, email)
+			for _, r := range rows {
+				people = append(people, db.Str(r["id"]))
+			}
+			return err
+		}); err != nil {
+			return nil, err
+		}
+	}
+	for _, person := range people {
+		if err := c.mayManageCredential(person); err != nil {
+			return nil, err
+		}
 	}
 	if email == "" && user != "" {
 		v, err := db.Select(c.Ctx, c.Q(), `SELECT email FROM tab_user WHERE id = $1`, user)

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"testing"
 
 	"github.com/jrvidotti/ddcore/internal/engine"
@@ -47,10 +48,9 @@ func TestSEC04_GetMyProfileWithoutPassword(t *testing.T) {
 	x := setup(t)
 	// the session is opened with the password, which is then taken away
 	sid := x.sid("ze@x.com")
-	x.asAdmin(func(c *engine.Ctx) error {
-		_, err := c.Q().Exec(c.Ctx, "UPDATE tab_user SET password_hash = NULL WHERE id = $1", "ze@x.com")
-		return err
-	})
+	if _, err := x.e.DB.Sys.Exec(context.Background(), "UPDATE ddcore_person SET password_hash = '' WHERE id = $1", "ze@x.com"); err != nil {
+		t.Fatal(err)
+	}
 	r := x.call("POST", "/api/method/core.services.profile.getMyProfile", nil, "sid:"+sid)
 	x.expect(r, 200, "")
 	d, _ := r.Body["data"].(map[string]any)

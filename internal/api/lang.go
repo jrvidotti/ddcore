@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/jrvidotti/ddcore/internal/engine"
 	"golang.org/x/text/language"
 )
 
@@ -30,7 +31,8 @@ func (s *Server) langFor(r *http.Request) string {
 	}
 	u := user(r)
 	if u != "Guest" {
-		if v, ok := s.E.Cache.Get("lang:" + u); ok {
+		t, _ := engine.TenantFrom(r.Context())
+		if v, ok := s.E.Cache.Get(engine.UserKey("lang:", t, u)); ok {
 			if l, _ := v.(string); l != "" && i18n.HasLang(l) {
 				return l
 			}
@@ -81,4 +83,11 @@ func matchAcceptLanguage(header string, have []string) string {
 		}
 	}
 	return ""
+}
+
+// dropLang forgets the language cached for u in the space r works in: a
+// sign-in reads it again from the row.
+func (s *Server) dropLang(r *http.Request, u string) {
+	t, _ := engine.TenantFrom(r.Context())
+	s.E.Cache.Del(engine.UserKey("lang:", t, u))
 }

@@ -49,6 +49,10 @@ Three properties are load-bearing:
   addresses exist — and the lockout becomes the oracle it was meant to close.
 - The correct password is **not** a way out of a lockout.
 
+On a site with tenancy, what is typed names a **person**, the same id in every tenant they work
+in. The password is the person's, and the session lands in the tenant they last worked in. See
+`tenancy`, "People in several tenants".
+
 Argon2 runs at most `max(2, GOMAXPROCS)` computations at once per process; further
 sign-ins queue for a slot instead of allocating another 64 MiB. An API key's
 secret goes through Argon2 once while its key row is cached (60 s): after that a
@@ -162,8 +166,9 @@ site still decides whether they may use it:
    `email_verified` is no longer asked of them; a
    linked User since disabled is refused with `disabled`, and a link left
    pointing at a deleted User falls back to matching the address again. The link
-   is kept in `ddcore_user_identity`; deleting or renaming the User carries it
-   along.
+   is kept in `ddcore_user_identity`. Deleting the User carries it along, or, for a person who
+   works in several tenants, deleting their last row does. Renaming carries it too. On a site
+   with tenancy the link is the person's, and the sign-in lands where they last worked.
 
 Invite people first (`ddcore user invite`, or **Save and invite** on the desk's User form). They can then sign in
 through the provider without ever accepting the invitation.
@@ -189,7 +194,9 @@ from a System Manager: the `Admin` account is linked only by `Admin`, and on a
 site with tenancy a link inside a tenant is made only by `Admin` — the CLI, or
 the operator who entered the tenant — because the provider is the site's and a
 `sub` is one person across every tenant; a tenant's System Manager still lists
-and removes the links of its own accounts. The rules: the provider must be
+and removes the links of its own accounts — unless the person also works in another
+tenant, whose sign-in the link is too (#167): then only the operator unlinks it, and the list
+leaves out `last_login`. The rules: the provider must be
 configured (an unlink does not ask that), `Guest` cannot be linked, a `sub` belongs to one User (linking it to a
 second is refused with `DuplicateEntryError`; linking the same pair again
 changes nothing), and a User may hold several. The `sub` is the user's id at the
@@ -286,6 +293,9 @@ A provider's groups can grant roles. The map is site policy, so it lives in
   on, ddcore creates a mapped group PocketID does not have yet the first time a
   User needs it. Without provisioning, create the groups at the provider
   yourself.
+- **People in several tenants.** A person with a User row in more than one space has
+  roles per tenant, so neither direction runs for them. A sign-in maps no groups, and a save
+  queues no sync. Each tenant gives such a person their roles itself.
 - **Scope.** With a map configured, the `groups` scope is added to the
   provider's scopes.
 - **Refused at load:** a policy for a provider not in `DDCORE_OIDC_PROVIDERS`,
@@ -392,9 +402,10 @@ sign-in:
   or Guest: refused.
 - **`userField`** must be a stored `Data` field of User after extensions,
   added with `extendDoctype("User", …)`. A `unique` field of User is unique
-  across the **site**, not per tenant (a User's id is), so leave it off when
-  the same username can exist in two tenants' systems and check within the
-  tenant in a `validate` hook if you need to.
+  within each tenant, like every other tenant DocType.
+- **The session stays in its tenant.** The tenant's administrators fill `userField` in, so a
+  session the provider opened cannot move to another tenant of the same person: entering one is
+  refused, and the tenant menu lists none.
 - **Where.** On a site with tenancy the provider's tab asks for the
   **organization** — the tenant id, typed, never listed: the tenants of a site
   are its customers (#117). It then goes to `/login/<provider>/<tenant>`, a page
@@ -486,8 +497,11 @@ script), and the page reloads as the user with a banner to stop, which calls
   impersonation inside another. Under tenancy the spaces are the ones
   `ddcore.runAs` keeps: a tenant's System Manager reaches only that tenant's
   users (another tenant's answer as not existing), a platform System Manager
-  reaches any tenant's, and the impersonated user always works in their own
-  space, whatever tenant the session had entered.
+  reaches any tenant's, and the impersonated user works in the space the
+  impersonation began in, whatever tenant the session had entered. From the platform space, a
+  person who works in several tenants needs `tenant` in the body (`{user, tenant}`).
+  While impersonating, the boot lists no other tenant of theirs and `/api/tenant/enter` is
+  refused.
 - **Where it lives.** On the administrator's own session
   (`ddcore_session.data->>'impersonate'`), never on an API key. No session of
   the user's is created, so their last login, their list of sessions and their
@@ -531,6 +545,11 @@ in: one way to get a session is enough to reason about.
 
 An invited account is created with **no password**, which needs no flag —
 an empty hash already refuses every sign-in until one is set.
+
+On a site with tenancy a link is issued in a tenant, and an invitation completes that tenant's row.
+A tenant's administrator may send neither kind to a person who also works in another tenant (#167).
+A link they sent earlier stops working once the person does. Inviting such a person sends
+`core.access_granted` instead, which carries no token.
 
 ## Mail
 
@@ -587,8 +606,9 @@ only writes the row and mails nobody. The invitation goes out from **Save and
 invite** on a new User form, which calls `users.invite` with what was typed.
 A saved, enabled User offers **Resend invitation** while it has no password and
 **Send password reset** once it has one; `users.accountStatus` answers
-`{ user, hasPassword }` so the form can tell which, without the hash leaving the
-server. When mail is not delivered (the `log` transport), the link comes back and
+`{ user, hasPassword, canManagePassword }` so the form can tell which, without the hash
+leaving the server. `canManagePassword` is false for a person who also works in another tenant:
+the form then offers neither button and says why. When mail is not delivered (the `log` transport), the link comes back and
 the form shows it to be passed on by hand.
 
 The first two are wrappers over `ddcore.users.invite` and `ddcore.users.resendInvite`, which
@@ -606,6 +626,11 @@ nobody has written yet meets it too. Minimum length (in runes), not blank, not
 the account name, and a cap so an unauthenticated caller cannot choose how much
 Argon2 the server does. No complexity ruleset: those produce `Password1!` and a
 sticky note.
+
+The hash is the person's, not a User row's: it lives in `ddcore_person`, which the confined role
+of a site with tenancy cannot read, so no tenant's `ddcore.db.sql` reaches it. A password is set
+by saving a User with `new_password`, where the engine applies the policy and checks who may set
+it, by `ddcore user passwd`, or by a recovery. `ddcore.db.setValue` on `new_password` is refused.
 
 ## Secrets
 

@@ -1191,6 +1191,7 @@
       revokeSessions(user, opts) { return call("auth.revokeSessions", { user, id: (opts || {}).id || "", exceptSid: (opts || {}).exceptSid || "" }); },
       currentSid() { return call("auth.currentSid", {}); },
       checkPassword(user, password) { return call("auth.checkPassword", { user, password }); },
+      passwordStatus(user) { return call("auth.passwordStatus", { user }); },
       setPassword(user, password, exceptSid) { call("auth.setPassword", { user, password, exceptSid: exceptSid || "" }); },
       startRecovery(user, kind) { return call("auth.startRecovery", { user, kind: kind || "reset" }); },
       throttle(key, limit, minutes) { call("auth.throttle", { key, limit: limit || 0, minutes: minutes || 0 }); },

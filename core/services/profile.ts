@@ -64,7 +64,7 @@ export const getMyProfile = whitelisted(() => {
     emailNotifications: emailNotifications(d),
     // whether the Password card can work: someone who signs in only through a
     // credential provider or SSO has no local password to give as the current one
-    hasPassword: Boolean(ddcore.db.getValue("User", user, "password_hash")),
+    hasPassword: Boolean((ddcore as any).__auth.passwordStatus(user).hasPassword),
   };
 }, SELF);
 

@@ -39,7 +39,7 @@ func (e *Engine) StartRecovery(c *Ctx, user, kind, ip string) (*Recovery, error)
 	if kind == TokenInvite {
 		ttl = e.Cfg.Auth.InviteTTL()
 	}
-	token, expires, err := e.IssueToken(c.Ctx, user, kind, ttl, c.User, ip)
+	token, expires, err := e.IssueToken(WithTenant(c.Ctx, c.Tenant), user, kind, ttl, c.User, ip)
 	if err != nil {
 		return nil, err
 	}
@@ -77,28 +77,61 @@ func (e *Engine) CompleteRecovery(ctx context.Context, token, kind, password, fu
 		}
 		user = at.User
 
-		rows, err := db.Select(ctx, c.Tx, `SELECT enabled FROM tab_user WHERE id = $1`, user)
+		ms, err := c.memberships(user)
 		if err != nil {
 			return err
 		}
 		// A user disabled between asking and answering must not get back in
-		// through a link that was valid when it was issued.
-		if len(rows) == 0 {
+		// through a link that was valid when it was issued. An invitation is
+		// to the row of the space that sent it; a reset, to the person.
+		if len(ms) == 0 {
 			return cerr.Validation("This link is no longer valid. Ask for a new one.")
 		}
-		if en, ok := rows[0]["enabled"].(bool); ok && !en {
+		if kind == TokenInvite {
+			if m, ok := membershipIn(ms, at.Tenant); !ok {
+				return cerr.Validation("This link is no longer valid. Ask for a new one.")
+			} else if !m.Enabled {
+				return cerr.Auth("User is disabled")
+			}
+		} else if !anyEnabled(ms) {
 			return cerr.Auth("User is disabled")
+		}
+		// A link a tenant's administrator asked for is only as good as their
+		// say over the person's sign-in when it is used (#167): a person who
+		// has since joined another tenant is no longer theirs to set a
+		// password for.
+		if elsewhere(ms, at.Tenant) && at.CreatedBy != user {
+			if op, err := e.CanEnterTenants(ctx, at.CreatedBy); err != nil {
+				return err
+			} else if !op {
+				return cerr.Validation("This link is no longer valid. Ask for a new one.")
+			}
 		}
 
 		hash, err := e.HashNewPassword(user, password)
 		if err != nil {
 			return err
 		}
-		if _, err := c.Tx.Exec(ctx, `UPDATE tab_user SET password_hash = $2 WHERE id = $1`, user, hash); err != nil {
+		// a link its issuer could have read (the log transport hands it
+		// back) is that issuer's choice as much as the person's
+		var setIn *string
+		if at.CreatedBy != "" && at.CreatedBy != user && c.Tenancy() {
+			if op, err := e.CanEnterTenants(ctx, at.CreatedBy); err != nil {
+				return err
+			} else if !op {
+				t := at.Tenant
+				setIn = &t
+			}
+		}
+		if err := c.setPersonHash(user, hash, setIn); err != nil {
 			return err
 		}
 		if fullName = strings.TrimSpace(fullName); fullName != "" && kind == TokenInvite {
-			if _, err := c.Tx.Exec(ctx, `UPDATE tab_user SET full_name = $2 WHERE id = $1`, user, fullName); err != nil {
+			st, args := `UPDATE tab_user SET full_name = $2 WHERE id = $1`, []any{user, fullName}
+			if c.Tenancy() {
+				st, args = st+` AND tenant = $3`, append(args, at.Tenant)
+			}
+			if _, err := c.Tx.Exec(ctx, st, args...); err != nil {
 				return err
 			}
 		}
@@ -125,14 +158,15 @@ func (e *Engine) CompleteRecovery(ctx context.Context, token, kind, password, fu
 // FindUserForRecovery resolves what someone typed into a user name, and
 // reports whether a link may be sent to it. It never reports *why* not.
 func (e *Engine) FindUserForRecovery(ctx context.Context, typed string) (string, bool) {
+	// the person: one id wherever they work, let in by any enabled row
 	var rows []map[string]any
 	err := e.System(ctx, func(q db.Querier) (err error) {
 		rows, err = db.Select(ctx, q,
-			`SELECT id, enabled FROM tab_user
-			 WHERE lower(id) = lower($1) OR lower(email) = lower($1) LIMIT 1`, strings.TrimSpace(typed))
+			`SELECT id, bool_or(coalesce(enabled, true)) AS enabled FROM tab_user
+			 WHERE lower(id) = lower($1) OR lower(email) = lower($1) GROUP BY id`, strings.TrimSpace(typed))
 		return err
 	})
-	if err != nil || len(rows) == 0 {
+	if err != nil || len(rows) != 1 {
 		return "", false
 	}
 	if en, ok := rows[0]["enabled"].(bool); ok && !en {

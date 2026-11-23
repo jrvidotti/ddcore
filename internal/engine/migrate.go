@@ -179,6 +179,9 @@ func (e *Engine) Migrate(ctx context.Context, prune bool) (*MigrateResult, error
 		if err := absorbVaultAuditLog(ctx, c.Tx); err != nil {
 			return err
 		}
+		if err := absorbUserPasswords(ctx, c.Tx); err != nil {
+			return err
+		}
 		if err := renameLegacyAdmin(ctx, c); err != nil {
 			return err
 		}
@@ -430,6 +433,29 @@ func absorbVaultAuditLog(ctx context.Context, q db.Querier) error {
 				FROM tab_vault_audit_log
 				ON CONFLICT (id) DO NOTHING;
 				DROP TABLE tab_vault_audit_log;
+			END IF;
+		END $$;
+	`)
+	return err
+}
+
+// absorbUserPasswords moves the passwords User rows used to hold into
+// ddcore_person (#167), where one person has one password whichever tenants
+// they work in. The column is blanked, not kept in step: a second copy of a
+// hash would outlive the next change of password. `migrate --prune` drops it
+// later as the orphan it is.
+func absorbUserPasswords(ctx context.Context, q db.Querier) error {
+	_, err := q.Exec(ctx, `
+		DO $$
+		BEGIN
+			IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema()
+			           AND table_name = 'tab_user' AND column_name = 'password_hash') THEN
+				INSERT INTO ddcore_person (id, password_hash)
+				SELECT DISTINCT ON (id) id, password_hash FROM tab_user
+				WHERE coalesce(password_hash, '') <> '' ORDER BY id, modified DESC
+				ON CONFLICT (id) DO UPDATE SET password_hash = EXCLUDED.password_hash
+				WHERE ddcore_person.password_hash = '';
+				UPDATE tab_user SET password_hash = NULL WHERE password_hash IS NOT NULL;
 			END IF;
 		END $$;
 	`)

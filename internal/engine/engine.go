@@ -1029,6 +1029,9 @@ type Ctx struct {
 	// system lifts the ctx out of row-level security for its whole
 	// transaction; only RunSystem and Migrate set it.
 	system bool
+	// confinedNow is whether a system ctx is inside confined(): its
+	// transaction holds the confined role until confined returns.
+	confinedNow bool
 	// migrating is whether this ctx's transaction is a migration's. Only the
 	// root ctx holds it; the ctxs that borrow the transaction reach it through
 	// owner(). A side lookup on another connection would wait for the locks

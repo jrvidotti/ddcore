@@ -57,7 +57,8 @@ and `uniqueKeys`, and the links. A load that fills the database with rows the
 site cannot read has only moved the problem.
 
 Not kept, because an export never carries them: `Password` and `Vault` fields,
-and `User.password_hash`. Imported users have no password and get in through
+and passwords, which are the person's and live outside every DocType (`ddcore_person`). Imported
+users have no password and get in through
 `ddcore user invite`, recovery or single sign-on; the run reports every secret
 field it could not bring.
 

@@ -352,6 +352,14 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		if k := c.appCacheKey(a.Key); k != a.Key {
 			keys = append(keys, k)
 		}
+		// a user's engine keys are per space (UserKey)
+		if c.Tenant != "" {
+			for _, p := range userKeyPrefixes {
+				if user, ok := strings.CutPrefix(a.Key, p); ok && user != "" {
+					keys = append(keys, UserKey(p, c.Tenant, user))
+				}
+			}
+		}
 		return nil, c.invalidateNow(keys, nil)
 	case "http":
 		return httpCall(c.callCtx(), a.Method, a.URL, a.Body, a.BodyEncoding, a.Headers, a.Timeout, a.ResponseType, int64(a.MaxBytes), a.MaxRedirects, a.ClientCert)
@@ -460,9 +468,16 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 	// ddcore_auth_token. They take the user explicitly and the callers in
 	// core/services check that it is the session's own.
 	case "auth.sessions":
+		// through a credential bound to this space, only the sessions
+		// working here: the others are the person's, not the space's (#167)
+		var scope *string
+		if c.Tenancy() && c.boundCredential() {
+			scope = &c.Tenant
+		}
 		rows, err := db.Select(c.Ctx, e.DB.Pool,
 			`SELECT sid, ip, user_agent, created, last_seen, expires FROM ddcore_session
-			 WHERE "user" = $1 AND expires > now() ORDER BY last_seen DESC`, a.User)
+			 WHERE "user" = $1 AND expires > now()
+			   AND ($2::text IS NULL OR coalesce(data->>'tenant', $2) = $2) ORDER BY last_seen DESC`, a.User, scope)
 		if err != nil {
 			return nil, err
 		}
@@ -505,6 +520,23 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 			}
 			return map[string]any{"revoked": 0}, nil
 		}
+		// A tenant's administrator ends the sessions working in that tenant:
+		// the person's others are not theirs to end (#167). The person
+		// themself, and the operator, end every one.
+		if c.Tenancy() && (a.User != c.User || c.boundCredential()) {
+			if op, err := c.isOperator(); err != nil {
+				return nil, err
+			} else if !op {
+				if ok, err := c.personHere(a.User); err != nil || !ok {
+					return map[string]any{"revoked": 0}, err
+				}
+				n, err := e.DropSessionsIn(c.Ctx, e.DB.Pool, a.User, c.Tenant)
+				if err != nil {
+					return nil, err
+				}
+				return map[string]any{"revoked": n}, nil
+			}
+		}
 		n, err := e.DropSessions(c.Ctx, e.DB.Pool, a.User, a.ExceptSid)
 		if err != nil {
 			return nil, err
@@ -513,16 +545,36 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 	case "auth.currentSid":
 		return c.Sid, nil
 	case "auth.checkPassword":
-		rows, err := db.Select(c.Ctx, c.Q(), `SELECT password_hash FROM tab_user WHERE id = $1`, a.User)
-		if err != nil || len(rows) == 0 {
+		// a person of another space is no business of this one's: no answer
+		// that could tell a password of theirs apart
+		if ok, err := c.personHere(a.User); err != nil || !ok {
 			return false, err
 		}
-		return CheckPassword(db.Str(rows[0]["password_hash"]), a.Password), nil
+		hash, err := c.personHash(a.User)
+		if err != nil || hash == "" {
+			return false, err
+		}
+		return CheckPassword(hash, a.Password), nil
+	case "auth.passwordStatus":
+		// what the User form and the profile show: whether the person has a
+		// password, and whether this caller may set or reset it (#167)
+		if ok, err := c.personHere(a.User); err != nil || !ok {
+			return map[string]any{"hasPassword": false, "canManagePassword": false}, err
+		}
+		hash, err := c.personHash(a.User)
+		if err != nil {
+			return nil, err
+		}
+		manage := c.mayManageCredential(a.User) == nil
+		return map[string]any{"hasPassword": hash != "", "canManagePassword": manage}, nil
 	case "auth.setPassword":
 		if err := c.refuseWhileImpersonating(); err != nil {
 			return nil, err
 		}
-		return nil, e.SetPasswordExcept(c.Ctx, a.User, a.Password, a.ExceptSid)
+		if err := c.mayManageCredential(a.User); err != nil {
+			return nil, err
+		}
+		return nil, e.setPasswordBy(c.Ctx, a.User, a.Password, a.ExceptSid, c.chosenBy(a.User))
 	case "users.invite":
 		return e.InviteUser(c, Invitation{Email: a.Email, FullName: a.FullName, Roles: a.Roles, UserType: a.UserType})
 	case "users.resendInvite":
@@ -547,6 +599,9 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 	case "idp.status":
 		return e.IdPStatus(), nil
 	case "auth.startRecovery":
+		if err := c.mayManageCredential(a.User); err != nil {
+			return nil, err
+		}
 		rec, err := e.StartRecovery(c, a.User, orDefault(a.Kind, TokenReset), db.Str(c.Request["ip"]))
 		if err != nil {
 			return nil, err
@@ -763,7 +818,13 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 	case "vault.list":
 		return e.VaultList(c, a.Prefix)
 	case "dropSessions":
-		_, err := e.DropSessions(c.Ctx, c.Q(), a.User, "")
+		// a row disabled or deleted here ends the sessions working here; the
+		// person's other tenants are not this one's to sign them out of
+		if !c.Tenancy() {
+			_, err := e.DropSessions(c.Ctx, c.Q(), a.User, "")
+			return nil, err
+		}
+		_, err := e.DropSessionsIn(c.Ctx, c.Q(), a.User, c.Tenant)
 		return nil, err
 	case "share.add", "share.remove", "share.list":
 		var sa struct {

@@ -4,8 +4,6 @@ import (
 	"context"
 	"strings"
 	"testing"
-
-	"github.com/jrvidotti/ddcore/internal/db"
 )
 
 func TestGeneratePasswordHasEveryClass(t *testing.T) {
@@ -39,8 +37,7 @@ func TestMigrateGeneratesAdminPassword(t *testing.T) {
 	if len(res.AdminPassword) != adminPasswordLength {
 		t.Fatalf("no password generated: %q", res.AdminPassword)
 	}
-	rows := sqlRows(t, e, `SELECT password_hash FROM tab_user WHERE id = 'Admin'`)
-	if !CheckPassword(db.Str(rows[0]["password_hash"]), res.AdminPassword) {
+	if !CheckPassword(personHashT(t, e, "Admin"), res.AdminPassword) {
 		t.Fatal("the stored hash does not match the password shown")
 	}
 
@@ -73,8 +70,7 @@ func TestMigrateUsesAdminPasswordFromEnvironment(t *testing.T) {
 	if res.AdminPassword != "" {
 		t.Fatalf("a password from the environment must not be shown: %q", res.AdminPassword)
 	}
-	rows := sqlRows(t, e, `SELECT password_hash FROM tab_user WHERE id = 'Admin'`)
-	if !CheckPassword(db.Str(rows[0]["password_hash"]), "Deploy-Secret-42") {
+	if !CheckPassword(personHashT(t, e, "Admin"), "Deploy-Secret-42") {
 		t.Fatal("Admin did not get DDCORE_ADMIN_PASSWORD")
 	}
 
@@ -83,8 +79,7 @@ func TestMigrateUsesAdminPasswordFromEnvironment(t *testing.T) {
 	if _, err := e.Migrate(ctx, false); err != nil {
 		t.Fatal(err)
 	}
-	rows = sqlRows(t, e, `SELECT password_hash FROM tab_user WHERE id = 'Admin'`)
-	if !CheckPassword(db.Str(rows[0]["password_hash"]), "Deploy-Secret-42") {
+	if !CheckPassword(personHashT(t, e, "Admin"), "Deploy-Secret-42") {
 		t.Fatal("a later DDCORE_ADMIN_PASSWORD replaced Admin's password")
 	}
 }

@@ -32,7 +32,9 @@ declared them, then `owner`, `creation`, `modified`, `modified_by` and
 Two things never leave, whatever is asked for:
 
 - every field of fieldtype `Password`;
-- the core's credential columns (`User.password_hash`, `API Key.secret_hash`).
+- the core's credential columns (`API Key.secret_hash`, and `User.password_hash` on a site that
+  still has the column before `migrate --prune`). Passwords live in `ddcore_person`, which no
+  export reads.
 
 Asking for one by name is a validation error, not a silent omission.
 

@@ -218,7 +218,10 @@ func (c *Ctx) confined(fn func() error) error {
 	if err := db.Confine(c.Ctx, c.Tx, c.E.tenantRole()); err != nil {
 		return err
 	}
+	was := c.confinedNow
+	c.confinedNow = true
 	ferr := fn()
+	c.confinedNow = was
 	if err := db.Elevate(c.Ctx, c.Tx); err != nil && ferr == nil {
 		return err
 	}
@@ -251,62 +254,69 @@ const (
 	tenantStateTTL = 10 * time.Second
 )
 
-// spaceOf decides the space a user's work runs in: the user's own tenant, or
-// for a user of the platform space the tenant WithTenant named. A tenant
-// that is disabled, or does not exist, admits nobody.
+// spaceOf decides the space a user's work runs in when nothing above it
+// did: the tenant WithTenant (or --tenant) named, which the user must work
+// in; or, with none named, the space of the user's one membership. A person
+// in several spaces has to be told which (#167). A tenant that is disabled,
+// or does not exist, admits nobody.
 func (e *Engine) spaceOf(ctx context.Context, user string) (string, error) {
-	own, err := e.TenantOfUser(ctx, user)
+	named, ok := e.namedTenant(ctx)
+	if platformAccount(user) || user == "" {
+		if ok {
+			return named, e.checkNamed(ctx, named)
+		}
+		return "", nil
+	}
+	ms, err := e.Memberships(ctx, user)
 	if err != nil {
 		return "", err
 	}
-	space := own
-	if named, ok := e.namedTenant(ctx); ok && named != own {
-		if own != "" {
+	if ok {
+		if _, member := membershipIn(ms, named); !member && named != "" && !noTenantRows(ms) {
 			return "", cerr.Permission("A user of one tenant cannot work in another")
 		}
-		space = named
+		return named, e.checkNamed(ctx, named)
 	}
-	if space == "" {
-		return "", nil
-	}
-	if err := e.checkTenant(ctx, nil, space); err != nil {
-		return "", err
-	}
-	return space, nil
-}
-
-// TenantOfUser is the tenant a user belongs to; empty for Admin, Guest, a
-// user of the platform space, and a user that does not exist.
-func (e *Engine) TenantOfUser(ctx context.Context, user string) (string, error) {
-	switch user {
-	case "", "Admin", "Guest":
-		return "", nil
-	}
-	if on, err := e.tenancy(ctx); err != nil || !on {
-		return "", err
-	}
-	key := "tenant:" + user
-	if v, ok := e.Cache.Get(key); ok {
-		return v.(string), nil
-	}
-	gen := e.Cache.Gen()
-	var tenant string
-	err := e.System(ctx, func(q db.Querier) error {
-		err := q.QueryRow(ctx, `SELECT tenant FROM tab_user WHERE id = $1`, user).Scan(&tenant)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return errNoSuchUser
-		}
-		return err
-	})
-	if errors.Is(err, errNoSuchUser) {
-		// not cached: the user may be created a moment from now
-		return "", nil
-	}
+	space, err := soleSpace(ms, user)
 	if err != nil {
 		return "", err
 	}
-	e.Cache.SetAt(key, tenant, userTenantTTL, gen)
-	return tenant, nil
+	return space, e.checkNamed(ctx, space)
+}
+
+func (e *Engine) checkNamed(ctx context.Context, tenant string) error {
+	if tenant == "" {
+		return nil
+	}
+	return e.checkTenant(ctx, nil, tenant)
+}
+
+// noTenantRows reports whether a person has no row inside any tenant: a
+// user of the platform space, or nobody yet. Such a user may be sent into a
+// tenant by name, as before memberships — the operator's case.
+func noTenantRows(ms []Membership) bool {
+	for _, m := range ms {
+		if m.Tenant != "" {
+			return false
+		}
+	}
+	return true
+}
+
+// soleSpace is the space work for a person goes to when nothing names one:
+// the platform row if there is one, else the one membership. A person in
+// several tenants has none — the caller names it.
+func soleSpace(ms []Membership, user string) (string, error) {
+	if len(ms) == 0 {
+		return "", nil
+	}
+	if _, ok := membershipIn(ms, ""); ok {
+		return "", nil
+	}
+	if len(ms) == 1 {
+		return ms[0].Tenant, nil
+	}
+	return "", cerr.Validation("{0} works in more than one tenant: name one with --tenant", user)
 }
 
 var errNoSuchUser = errors.New("no such user")
@@ -631,19 +641,36 @@ func (c *Ctx) acrossSpaces(d *meta.DocType, fn func() error) error {
 	return c.elevated(fn)
 }
 
-// RunAdminFor is Run as Admin in the space of user: the framework acting on
+// RunAdminFor is Run as Admin in a space of user: the framework acting on
 // somebody's account without that somebody being signed in — a recovery
 // link, an API key issued from the command line. The documents it writes
-// land in the user's tenant, where the user will look for them.
+// land in the user's space, where the user will look for them. That is the
+// tenant ctx (or --tenant) names, which the user must work in; else the one
+// space the user works in. A person in several tenants needs it named.
 func (e *Engine) RunAdminFor(ctx context.Context, user string, fn func(c *Ctx) error) error {
-	tenant, err := e.TenantOfUser(ctx, user)
+	tenant, err := e.adminSpaceFor(ctx, user)
 	if err != nil {
 		return err
 	}
-	if tenant != "" {
-		ctx = WithTenant(ctx, tenant)
+	return e.Run(WithTenant(ctx, tenant), "Admin", fn)
+}
+
+func (e *Engine) adminSpaceFor(ctx context.Context, user string) (string, error) {
+	on, err := e.tenancy(ctx)
+	if err != nil || !on {
+		return "", err
 	}
-	return e.Run(ctx, "Admin", fn)
+	ms, err := e.Memberships(ctx, user)
+	if err != nil {
+		return "", err
+	}
+	if named, ok := e.namedTenant(ctx); ok {
+		if _, member := membershipIn(ms, named); !member && len(ms) > 0 {
+			return "", cerr.NotFound("User {0} does not exist", user)
+		}
+		return named, nil
+	}
+	return soleSpace(ms, user)
 }
 
 // publish sends a document event to the subscribers of the space it happened
@@ -802,86 +829,165 @@ func (e *Engine) Spaces(ctx context.Context) ([]string, error) {
 	return spaces, nil
 }
 
-// RequestSpace is how a request finds where it works: the context it returns
-// names the space of user — the user's own tenant, or for a user of the
-// platform space the tenant named, which is the one the operator entered.
-// Everything the request does afterwards, in a transaction or outside one,
-// reads its space from that context. A disabled tenant is refused here.
-func (e *Engine) RequestSpace(ctx context.Context, user, named string) (context.Context, error) {
+// SpaceReq is what a request says about the space it wants.
+type SpaceReq struct {
+	// Header is the X-Tenant header, which only an operator may use.
+	Header string
+	// Session is the space the session row records, when SessionSet.
+	Session    string
+	SessionSet bool
+	// Fixed is the space the credential itself is bound to — an API key's
+	// row, a session a tenant's credential provider opened, an
+	// impersonation. Nil when the credential goes wherever its user may.
+	Fixed *string
+}
+
+// RequestSpace is how a request finds where it works. An operator works in
+// the platform space or the tenant named. Anyone else works in one of their
+// own enabled memberships: the one the session records, or else where they
+// land (LandingSpace). A credential bound to a space stays there; only an
+// operator's platform key moves, with X-Tenant. Everything the request does
+// afterwards, in a transaction or outside one, reads its space from the
+// context returned. A disabled tenant is refused here.
+func (e *Engine) RequestSpace(ctx context.Context, user string, req SpaceReq) (context.Context, error) {
 	on, err := e.tenancy(ctx)
 	if err != nil || !on {
 		return ctx, err
 	}
-	own, err := e.TenantOfUser(ctx, user)
+	if user == "" || user == "Guest" {
+		return WithTenant(ctx, ""), nil
+	}
+	operator, err := e.CanEnterTenants(ctx, user)
 	if err != nil {
 		return ctx, err
 	}
-	space := own
-	if own == "" && named != "" {
+	var space string
+	switch {
+	case req.Fixed != nil && (*req.Fixed != "" || !operator):
+		space = *req.Fixed
+		if user != "Admin" {
+			ms, err := e.Memberships(ctx, user)
+			if err != nil {
+				return ctx, err
+			}
+			// an operator may hold such a credential where they have no row
+			m, ok := membershipIn(ms, space)
+			if (ok && !m.Enabled) || (!ok && !operator) {
+				return ctx, cerr.Auth("User is disabled")
+			}
+		}
+	case operator && req.Header != "":
+		space = req.Header
+	case operator && req.Fixed != nil:
+		space = ""
+	case operator:
 		// a name that may not be honoured is ignored, not refused: a stale
 		// session value must not lock an account out of its own space
-		if ok, err := e.CanEnterTenants(ctx, user); err != nil {
+		space = req.Session
+	default:
+		ms, err := e.Memberships(ctx, user)
+		if err != nil {
 			return ctx, err
-		} else if ok {
-			space = named
+		}
+		if m, ok := membershipIn(ms, req.Session); req.SessionSet && ok && m.Enabled && e.checkNamed(ctx, req.Session) == nil {
+			space = req.Session
+		} else if space, err = e.LandingSpace(ctx, user); err != nil {
+			return ctx, err
 		}
 	}
-	if space != "" {
-		if err := e.checkTenant(ctx, nil, space); err != nil {
-			return ctx, err
-		}
+	if err := e.checkNamed(ctx, space); err != nil {
+		return ctx, err
 	}
 	return WithTenant(ctx, space), nil
 }
 
-// SessionTenant is the tenant a platform user's session has entered; empty
-// when it has entered none.
-func (e *Engine) SessionTenant(ctx context.Context, sid string) string {
+// SessionSpace is what a session row says about its space.
+type SessionSpace struct {
+	// Tenant is the space the session works in, when Set.
+	Tenant string
+	Set    bool
+	// Bound is whether the session may not leave it: one a tenant's
+	// credential provider opened.
+	Bound bool
+}
+
+// SessionTenant is the space a session works in, as its row records it.
+func (e *Engine) SessionTenant(ctx context.Context, sid string) SessionSpace {
 	if on, err := e.tenancy(ctx); sid == "" || err != nil || !on {
-		return ""
+		return SessionSpace{}
 	}
 	key := "sidtenant:" + sid
 	if v, ok := e.Cache.Get(key); ok {
-		return v.(string)
+		return v.(SessionSpace)
 	}
-	var tenant string
-	if err := e.DB.Pool.QueryRow(ctx, `SELECT coalesce(data->>'tenant', '') FROM ddcore_session WHERE sid = $1`, sid).Scan(&tenant); err != nil {
-		return ""
+	var tenant *string
+	var bound bool
+	if err := e.DB.Pool.QueryRow(ctx, `SELECT data->>'tenant', coalesce(data->>'bound', '') <> '' FROM ddcore_session WHERE sid = $1`, sid).Scan(&tenant, &bound); err != nil {
+		return SessionSpace{}
 	}
-	e.Cache.Set(key, tenant, time.Minute)
-	return tenant
+	out := SessionSpace{Bound: bound}
+	if tenant != nil {
+		out.Tenant, out.Set = *tenant, true
+	}
+	e.Cache.Set(key, out, time.Minute)
+	return out
 }
 
-// EnterTenant makes a platform user's session work in a tenant from the next
-// request on; an empty tenant returns it to the platform space.
+// EnterTenant makes the session work in another space from the next request
+// on. An operator enters any tenant, and "" returns them to the platform
+// space. Anyone else moves between their own enabled memberships (#167): a
+// tenant they do not work in is refused exactly as one that does not exist,
+// so the refusal tells them nothing about it.
 func (c *Ctx) EnterTenant(tenant string) error {
 	if err := c.requireTenancy(); err != nil {
 		return err
 	}
-	if ok, err := c.E.CanEnterTenants(c.Ctx, c.User); err != nil {
+	if err := c.refuseWhileImpersonating(); err != nil {
 		return err
-	} else if !ok {
-		c.AuditDenied("tenant.enter", meta.TenantDocType, tenant, nil)
-		return cerr.Permission("Only a System Manager of the platform space can enter a tenant")
 	}
 	if c.Sid == "" {
 		return cerr.Validation("Entering a tenant needs a session; with an API key, send the X-Tenant header")
 	}
-	if tenant != "" {
+	if c.E.SessionTenant(c.Ctx, c.Sid).Bound {
+		return cerr.Permission("This session signed in through its tenant and stays in it")
+	}
+	operator, err := c.E.CanEnterTenants(c.Ctx, c.User)
+	if err != nil {
+		return err
+	}
+	if !operator {
+		ms, err := c.E.Memberships(c.Ctx, c.User)
+		if err != nil {
+			return err
+		}
+		if m, ok := membershipIn(ms, tenant); !ok || !m.Enabled || c.E.checkNamed(c.Ctx, tenant) != nil {
+			c.AuditDenied("tenant.enter", meta.TenantDocType, tenant, nil)
+			return cerr.Permission("You do not work in tenant {0}", tenant)
+		}
+	} else if tenant != "" {
 		if err := c.E.checkTenant(c.Ctx, nil, tenant); err != nil {
 			return err
 		}
 	}
-	if _, err := c.E.DB.Pool.Exec(c.Ctx, `UPDATE ddcore_session
-		SET data = coalesce(data, '{}'::jsonb) || jsonb_build_object('tenant', $2::text) WHERE sid = $1`, c.Sid, tenant); err != nil {
-		return err
-	}
-	key := "sidtenant:" + c.Sid
-	c.E.Cache.Del(key)
-	if err := broadcastInvalidation(c.Ctx, c.E.DB.Pool, []string{key}, nil); err != nil {
+	if err := c.E.moveSession(c.Ctx, c.Sid, c.User, tenant); err != nil {
 		return err
 	}
 	return c.E.RecordAudit(WithTenant(c.Ctx, tenant), c.User, "tenant.enter", "Allowed", meta.TenantDocType, tenant, nil)
+}
+
+// moveSession records the space a session works in, and remembers it as the
+// person's: the next sign-in lands there.
+func (e *Engine) moveSession(ctx context.Context, sid, user, tenant string) error {
+	if _, err := e.DB.Pool.Exec(ctx, `UPDATE ddcore_session
+		SET data = coalesce(data, '{}'::jsonb) || jsonb_build_object('tenant', $2::text) WHERE sid = $1`, sid, tenant); err != nil {
+		return err
+	}
+	key := "sidtenant:" + sid
+	e.Cache.Del(key)
+	if err := broadcastInvalidation(ctx, e.DB.Pool, []string{key}, nil); err != nil {
+		return err
+	}
+	return e.System(ctx, func(q db.Querier) error { return rememberSpace(ctx, q, user, tenant) })
 }
 
 // TenantBoot is what the desk is told about tenancy: the space the request
@@ -907,6 +1013,13 @@ func (c *Ctx) TenantBoot() (map[string]any, error) {
 			out["title"] = db.Str(rows[0]["title"])
 		}
 	}
+	if c.boundCredential() || (c.Sid != "" && c.E.SessionTenant(c.Ctx, c.Sid).Bound) {
+		// an impersonation, or a session bound to its tenant, goes nowhere
+		// else: and an administrator watching as someone must not learn
+		// where else that someone works
+		out["platform"] = false
+		return out, nil
+	}
 	if platform {
 		rows, err := db.Select(c.Ctx, c.Q(), `SELECT id, title, enabled FROM `+meta.TenantTable+` ORDER BY title, id`)
 		if err != nil {
@@ -915,6 +1028,19 @@ func (c *Ctx) TenantBoot() (map[string]any, error) {
 		tenants := make([]map[string]any, 0, len(rows))
 		for _, r := range rows {
 			tenants = append(tenants, map[string]any{"id": r["id"], "title": r["title"], "enabled": r["enabled"] == true})
+		}
+		out["tenants"] = tenants
+		return out, nil
+	}
+	// a person's own tenants: what the switcher lists for them (#167)
+	spaces, err := c.E.openSpaces(c.Ctx, c.User)
+	if err != nil {
+		return nil, err
+	}
+	if len(spaces) > 1 {
+		tenants := make([]map[string]any, 0, len(spaces))
+		for _, sp := range spaces {
+			tenants = append(tenants, map[string]any{"id": sp.id, "title": sp.title, "enabled": true})
 		}
 		out["tenants"] = tenants
 	}
@@ -932,9 +1058,17 @@ func (e *Engine) CanEnterTenants(ctx context.Context, user string) (bool, error)
 	if user == "" || user == "Guest" {
 		return false, nil
 	}
-	own, err := e.TenantOfUser(ctx, user)
-	if err != nil || own != "" {
+	// a person with a platform row; without tenancy, the one row there is
+	if on, err := e.tenancy(ctx); err != nil {
 		return false, err
+	} else if on {
+		ms, err := e.Memberships(ctx, user)
+		if err != nil {
+			return false, err
+		}
+		if m, ok := membershipIn(ms, ""); !ok || !m.Enabled {
+			return false, nil
+		}
 	}
 	// the platform space's roles, whatever tenant ctx names
 	roles, err := e.NewCtx(WithTenant(ctx, ""), user).RolesOf(user)
@@ -1259,51 +1393,20 @@ func (e *Engine) AdoptPlatformRows(ctx context.Context, tenant string) (map[stri
 	return moved, nil
 }
 
-// awayFromHome reports whether the ctx works in a space that is not its
-// user's own: an operator inside a tenant. What the process caches per user
-// — scopes, shares — describes the user at home, and is neither read nor
+// awayFromHome reports whether the ctx's user has no row in the space it
+// works in: an operator inside a tenant. What the process caches per user —
+// scopes, shares — describes a user's own rows, and is neither read nor
 // written from anywhere else.
 func (c *Ctx) awayFromHome() (bool, error) {
-	if c.Tenant == "" || !c.Tenancy() {
-		return false, nil
+	if c.Tenant == "" || !c.Tenancy() || platformAccount(c.User) || c.User == "" {
+		return c.Tenant != "" && c.Tenancy() && c.User == "Admin", nil
 	}
-	own, err := c.tenantOfUser(c.User)
-	return own != c.Tenant, err
-}
-
-// tenantOfUser is TenantOfUser as this ctx sees it. A user this transaction
-// created is on no other connection and in no cache yet, and TenantOfUser
-// would place it in the platform space — where its roles are not (#110).
-// What the process cached is the answer, since a user never changes tenant;
-// then the transaction, whose answer may be uncommitted and so is not kept;
-// then TenantOfUser.
-func (c *Ctx) tenantOfUser(user string) (string, error) {
-	switch user {
-	case "", "Admin", "Guest":
-		return "", nil
+	ms, err := c.memberships(c.User)
+	if err != nil {
+		return false, err
 	}
-	if !c.Tenancy() {
-		return "", nil
-	}
-	if v, ok := c.E.Cache.Get("tenant:" + user); ok {
-		return v.(string), nil
-	}
-	if c.Tx != nil {
-		own, found := "", false
-		if err := c.elevated(func() error {
-			rows, err := db.Select(c.Ctx, c.Q(), `SELECT tenant FROM tab_user WHERE id = $1`, user)
-			if err == nil && len(rows) > 0 {
-				own, found = db.Str(rows[0]["tenant"]), true
-			}
-			return err
-		}); err != nil {
-			return "", err
-		}
-		if found {
-			return own, nil
-		}
-	}
-	return c.E.TenantOfUser(c.Ctx, user)
+	_, ok := membershipIn(ms, c.Tenant)
+	return !ok, nil
 }
 
 // operatorLink reports whether, inside a tenant, a Link to User may name id

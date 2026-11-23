@@ -63,17 +63,19 @@ func TestTenantOwnedTableIsKeyedAndIndexedByTenant(t *testing.T) {
 }
 
 // Sign-in finds a user by e-mail before it knows a tenant.
-func TestUserKeepsASiteWideKey(t *testing.T) {
+// A person may have a User row in several tenants (#167): User is keyed by
+// (tenant, id) like every tenant table, and its e-mail is unique per tenant.
+func TestUserIsKeyedByTenant(t *testing.T) {
 	d := &meta.DocType{Name: "User", TenantOwned: true, Fields: []*meta.Field{
 		{Fieldname: "email", Fieldtype: "Data", Unique: true},
 		{Fieldname: "manager", Fieldtype: "Link", Options: "User"},
 	}}
 	ddl := createTable(d)
-	if !strings.Contains(ddl, `"id" text NOT NULL PRIMARY KEY`) || strings.Contains(ddl, "PRIMARY KEY (tenant, id)") {
-		t.Fatalf("User lost its site-wide key:\n%s", ddl)
+	if !strings.Contains(ddl, "PRIMARY KEY (tenant, id)") {
+		t.Fatalf("User is not keyed by tenant:\n%s", ddl)
 	}
 	idx := wantedIndexes(d)
-	if got := idx["tab_user__email"].cols; got != `"email"` {
+	if got := idx["tab_user__email"].cols; got != `tenant, "email"` {
 		t.Errorf("unique e-mail index is %q", got)
 	}
 	if got := idx["tab_user__manager"].cols; got != `tenant, "manager"` {
@@ -81,10 +83,12 @@ func TestUserKeepsASiteWideKey(t *testing.T) {
 	}
 	cat := &catalog{pk: map[string]pkRow{"tab_user": {name: "tab_user_pkey", def: "PRIMARY KEY (id)"}},
 		secured: map[string]bool{}, policy: map[string]bool{}}
+	var keyed bool
 	for _, st := range planTenancy(cat, d, true) {
-		if st.Kind == KindPrimaryKey {
-			t.Fatalf("planned a key change for User: %s", st.SQL)
-		}
+		keyed = keyed || (st.Kind == KindPrimaryKey && strings.Contains(st.SQL, "ADD PRIMARY KEY (tenant, id)"))
+	}
+	if !keyed {
+		t.Fatal("an existing tab_user is not re-keyed by (tenant, id)")
 	}
 }
 

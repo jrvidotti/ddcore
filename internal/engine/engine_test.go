@@ -189,7 +189,7 @@ func TestLifecycle(t *testing.T) {
 		if err != nil {
 			return fmt.Errorf("line 109: %w", err)
 		}
-		if !CheckPassword(u.Str("password_hash"), "segredo123") || u.Str("new_password") != "" {
+		if h, _ := c.personHash("ana@x.com"); !CheckPassword(h, "segredo123") || u.Str("new_password") != "" {
 			t.Fatalf("password was not hashed: %v", u)
 		}
 		invalidUser, _ := c.NewDoc("User", Doc{"email": "invalid", "full_name": "Invalid"})

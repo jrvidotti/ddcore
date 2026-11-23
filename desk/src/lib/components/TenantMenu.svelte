@@ -1,6 +1,7 @@
 <script lang="ts">
-  // The operator's way in and out of a tenant, as items of the user menu. It
-  // draws nothing for anyone else, and nothing on a site without tenancy.
+  // The way in and out of a tenant, as items of the user menu: every tenant
+  // for the operator, and their own for a person who works in several (#167).
+  // It draws nothing for anyone else, and nothing on a site without tenancy.
   import { api } from "$lib/api";
   import { boot, __ } from "$lib/boot.svelte";
   import { tenantChoices } from "$lib/tenant";

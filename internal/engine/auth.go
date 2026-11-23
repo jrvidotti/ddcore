@@ -20,7 +20,6 @@ import (
 
 	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/db"
-	"github.com/jrvidotti/ddcore/internal/meta"
 )
 
 // argon2Slots bounds how many Argon2 computations run at once. Each one holds
@@ -100,55 +99,103 @@ func (e *Engine) Login(ctx context.Context, user, password string, from LoginFro
 func (e *Engine) login(ctx context.Context, user, password string, from LoginFrom) (string, error) {
 	var sid string
 	// A system ctx: nobody is signed in yet, so there is no tenant to look
-	// in. A user's id is unique across the site, which is what makes the
-	// statements below, and createSession's, name one row.
+	// in. What is typed names a person, whose id is the same in every space
+	// they work in (#167); the password is the person's.
 	err := e.RunSystem(ctx, "Admin", func(c *Ctx) error {
-		rows, err := db.Select(ctx, c.Tx, `SELECT * FROM tab_user WHERE lower(id) = lower($1) OR lower(email) = lower($1) LIMIT 1`, strings.TrimSpace(user))
+		rows, err := db.Select(ctx, c.Tx, `SELECT id FROM tab_user WHERE lower(id) = lower($1) OR lower(email) = lower($1)
+			GROUP BY id ORDER BY bool_or(lower(id) = lower($1)) DESC`, strings.TrimSpace(user))
 		if err != nil {
 			return err
 		}
-		if len(rows) == 0 {
+		// An id typed as it is names its person, whatever address some other
+		// row claims: one tenant must not lock a person out by giving
+		// somebody else their address.
+		if len(rows) > 1 && strings.EqualFold(db.Str(rows[0]["id"]), strings.TrimSpace(user)) {
+			rows = rows[:1]
+		}
+		if len(rows) != 1 {
 			// Hash anyway. Returning early for an unknown address would make
 			// it answer in a millisecond while a real one takes fifty, and
 			// that difference is a working account-enumeration oracle.
+			if len(rows) > 1 {
+				e.Log.Warn("sign-in: what was typed names more than one person", "typed", user)
+			}
 			CheckPassword(decoyHash, password)
 			return cerr.Auth("Invalid username or password")
 		}
-		if !CheckPassword(db.Str(rows[0]["password_hash"]), password) {
+		name := db.Str(rows[0]["id"])
+		hash, err := c.personHash(name)
+		if err != nil {
+			return err
+		}
+		if !CheckPassword(hash, password) {
 			return cerr.Auth("Invalid username or password")
 		}
-		if en, ok := rows[0]["enabled"].(bool); ok && !en {
-			// Checked after the password on purpose: saying "disabled" to
-			// someone who has not proved they own the account would hand them
-			// the fact that it exists.
+		// Checked after the password on purpose: saying "disabled" to
+		// someone who has not proved they own the account would hand them
+		// the fact that it exists. Disabled means no enabled row in an
+		// enabled space is left; a tenant switched off is not something to
+		// tell a stranger about either.
+		ms, err := c.memberships(name)
+		if err != nil {
+			return err
+		}
+		if !anyEnabled(ms) {
 			return cerr.Auth("User is disabled")
 		}
-		name := db.Str(rows[0]["id"])
+		space, err := e.LandingSpace(ctx, name)
+		if err != nil {
+			return err
+		}
 		if !e.Cfg.Auth.AllowPasswordLogin() && name != "Admin" {
 			// After the password, for the same reason as "disabled" above.
 			return cerr.Auth("Password sign-in is disabled. Use single sign-on.")
 		}
-		// After the password, like "disabled": a tenant that is switched off
-		// is not something to tell a stranger about.
-		if tenant := db.Str(rows[0][meta.TenantColumn]); tenant != "" {
-			if err := e.checkTenant(ctx, c.Tx, tenant); err != nil {
-				return cerr.Auth("User is disabled")
-			}
-		}
-		sid, err = e.createSession(c, name, from)
+		sid, err = e.createSession(c, name, space, from, false)
 		return err
 	})
 	return sid, err
 }
 
+// LoginSpace is the space a session works in, once Login has opened it: what
+// the sign-in answer reads the user's type and home page in.
+func (e *Engine) LoginSpace(ctx context.Context, sid string) context.Context {
+	if sp := e.SessionTenant(ctx, sid); sp.Set {
+		return WithTenant(ctx, sp.Tenant)
+	}
+	return ctx
+}
+
 // createSession opens a session for a user whose identity the caller has
-// already established — by password or by a provider's signed token.
-func (e *Engine) createSession(c *Ctx, user string, from LoginFrom) (string, error) {
+// already established — by password or by a provider's signed token — in
+// the space tenant. A bound session stays there: one a tenant's credential
+// provider opened, since the tenant decides who that provider signs in.
+func (e *Engine) createSession(c *Ctx, user, tenant string, from LoginFrom, bound bool) (string, error) {
 	sid := RandomToken()
-	if _, err := c.Tx.Exec(c.Ctx, `INSERT INTO ddcore_session (sid, "user", expires, ip, user_agent)
-		VALUES ($1, $2, now() + $3::interval, $4, $5)`,
-		sid, user, intervalOf(e.Cfg.Auth.SessionTTL()), from.IP, truncate(from.UserAgent, 400)); err != nil {
+	data := map[string]any{"tenant": tenant}
+	if bound {
+		data["bound"] = tenant
+	}
+	var payload any
+	if c.Tenancy() {
+		payload = mustJSON(data)
+	}
+	if _, err := c.Tx.Exec(c.Ctx, `INSERT INTO ddcore_session (sid, "user", expires, ip, user_agent, data)
+		VALUES ($1, $2, now() + $3::interval, $4, $5, $6)`,
+		sid, user, intervalOf(e.Cfg.Auth.SessionTTL()), from.IP, truncate(from.UserAgent, 400), payload); err != nil {
 		return "", err
+	}
+	if c.Tenancy() {
+		if err := c.siteQ(func(q db.Querier) error {
+			if _, err := q.Exec(c.Ctx, `UPDATE tab_user SET last_login = now() WHERE id = $1 AND tenant = $2`, user, tenant); err != nil {
+				return err
+			}
+			return rememberSpace(c.Ctx, q, user, tenant)
+		}); err != nil {
+			return "", err
+		}
+		c.AfterCommit(func() { e.Cache.Del("landing:" + user) })
+		return sid, nil
 	}
 	if _, err := c.Tx.Exec(c.Ctx, `UPDATE tab_user SET last_login = now() WHERE id = $1`, user); err != nil {
 		return "", err
@@ -218,9 +265,16 @@ func secretDigest(secret string) [32]byte {
 // matches the one that verified is accepted without hashing, which is what
 // keeps a key from costing 64 MiB and tens of milliseconds per request.
 func (e *Engine) UserFromAPIKey(ctx context.Context, token string) (string, error) {
+	u, _, err := e.APIKeyOwner(ctx, token)
+	return u, err
+}
+
+// APIKeyOwner is UserFromAPIKey with the space the key belongs to: a key is
+// a row of one membership (#167), and works in that space only.
+func (e *Engine) APIKeyOwner(ctx context.Context, token string) (string, string, error) {
 	key, secret, ok := strings.Cut(token, ":")
 	if !ok {
-		return "", nil
+		return "", "", nil
 	}
 	var entry *apiKeyEntry
 	if v, ok := e.Cache.Get("apikey:" + key); ok {
@@ -228,32 +282,46 @@ func (e *Engine) UserFromAPIKey(ctx context.Context, token string) (string, erro
 	} else {
 		// Across spaces: the key is all the caller has shown so far. Its id
 		// is random, so it names one row whichever tenant holds it.
+		// The user's row is the one in the key's own space.
 		var rows []map[string]any
-		err := e.System(ctx, func(q db.Querier) (err error) {
-			rows, err = db.Select(ctx, q, `SELECT k."user", k.secret_hash, k.enabled, k.expires, u.enabled AS user_enabled
-				FROM tab_api_key k JOIN tab_user u ON u.id = k."user" WHERE k.id = $1`, key)
+		on, err := e.tenancy(ctx)
+		if err != nil {
+			return "", "", err
+		}
+		query := `SELECT k."user", '' AS tenant, k.secret_hash, k.enabled, k.expires, u.enabled AS user_enabled
+			FROM tab_api_key k JOIN tab_user u ON u.id = k."user" WHERE k.id = $1`
+		if on {
+			// an operator's key made inside a tenant they have no row in
+			// answers to their platform row
+			query = `SELECT k."user", k.tenant, k.secret_hash, k.enabled, k.expires, u.enabled AS user_enabled
+				FROM tab_api_key k JOIN tab_user u ON u.id = k."user" AND (u.tenant = k.tenant OR (u.tenant = ''
+				  AND NOT EXISTS (SELECT 1 FROM tab_user x WHERE x.id = k."user" AND x.tenant = k.tenant)))
+				WHERE k.id = $1`
+		}
+		err = e.System(ctx, func(q db.Querier) (err error) {
+			rows, err = db.Select(ctx, q, query, key)
 			return err
 		})
 		if err != nil || len(rows) == 0 {
-			return "", err
+			return "", "", err
 		}
 		entry = &apiKeyEntry{row: rows[0]}
 		e.Cache.Set("apikey:"+key, entry, time.Minute)
 	}
 	row := entry.row
 	if en, ok := row["enabled"].(bool); ok && !en {
-		return "", nil
+		return "", "", nil
 	}
 	// a key belonging to a disabled user is invalid
 	if en, ok := row["user_enabled"].(bool); ok && !en {
-		return "", nil
+		return "", "", nil
 	}
 	// An expiry inside the 60s cache window is honoured up to a minute late —
 	// the same property `enabled` already has, and the reason the User
 	// controller drops apikey: cache entries by hand when it disables someone.
 	// A key that expires on a schedule does not need that urgency.
 	if exp, ok := asTime(row["expires"]); ok && !exp.IsZero() && time.Now().After(exp) {
-		return "", nil
+		return "", "", nil
 	}
 	// A secret that already verified against this cached row skips Argon2.
 	// It is checked before the failure brake on purpose: only the real secret
@@ -261,7 +329,7 @@ func (e *Engine) UserFromAPIKey(ctx context.Context, token string) (string, erro
 	// with junk.
 	digest := secretDigest(secret)
 	if v := entry.verified.Load(); v != nil && hmac.Equal(digest[:], v[:]) {
-		return db.Str(row["user"]), nil
+		return db.Str(row["user"]), db.Str(row["tenant"]), nil
 	}
 	// Anything else is Argon2-verified, which makes a loop with a real key id
 	// and a junk secret the same 64 MiB amplifier the login endpoint was.
@@ -273,7 +341,7 @@ func (e *Engine) UserFromAPIKey(ctx context.Context, token string) (string, erro
 	// request would be worse than the problem it answers.
 	fails := "apikeyfail:" + key
 	if n, ok := e.Cache.Get(fails); ok && n.(int) >= 20 {
-		return "", nil
+		return "", "", nil
 	}
 	valid, _, _ := apiKeyChecks.Do(key+"\x00"+string(digest[:]), func() (any, error) {
 		return CheckPassword(db.Str(row["secret_hash"]), secret), nil
@@ -282,7 +350,7 @@ func (e *Engine) UserFromAPIKey(ctx context.Context, token string) (string, erro
 		n, _ := e.Cache.Get(fails)
 		count, _ := n.(int)
 		e.Cache.Set(fails, count+1, time.Minute)
-		return "", nil
+		return "", "", nil
 	}
 	entry.verified.Store(&digest)
 	e.Cache.Del(fails)
@@ -292,7 +360,7 @@ func (e *Engine) UserFromAPIKey(ctx context.Context, token string) (string, erro
 		_, err := q.Exec(context.Background(), `UPDATE tab_api_key SET last_used = now() WHERE id = $1`, key)
 		return err
 	})
-	return db.Str(row["user"]), nil
+	return db.Str(row["user"]), db.Str(row["tenant"]), nil
 }
 
 // CreateAPIKey issues a key for a user and returns "key:secret".
@@ -377,17 +445,26 @@ func (e *Engine) SetPassword(ctx context.Context, user, password string) error {
 }
 
 func (e *Engine) SetPasswordExcept(ctx context.Context, user, password, exceptSid string) error {
+	return e.setPasswordBy(ctx, user, password, exceptSid, nil)
+}
+
+// setPasswordBy is SetPasswordExcept recording who chose the password (see
+// setPersonHash).
+func (e *Engine) setPasswordBy(ctx context.Context, user, password, exceptSid string, setIn *string) error {
 	hash, err := e.HashNewPassword(user, password)
 	if err != nil {
 		return err
 	}
 	return e.RunSystem(ctx, "Admin", func(c *Ctx) error {
-		tag, err := c.Tx.Exec(ctx, `UPDATE tab_user SET password_hash = $2 WHERE id = $1`, user, hash)
+		ms, err := c.memberships(user)
 		if err != nil {
 			return err
 		}
-		if tag.RowsAffected() == 0 {
+		if len(ms) == 0 {
 			return cerr.NotFound("User {0} does not exist", user)
+		}
+		if err := c.setPersonHash(user, hash, setIn); err != nil {
+			return err
 		}
 		if _, err := e.DropSessions(ctx, c.Tx, user, exceptSid); err != nil {
 			return err
@@ -420,7 +497,20 @@ func truncate(s string, n int) string {
 // UserFromSession answers from a one-minute cache, so deleting the row alone
 // would leave a revoked session working for up to a minute.
 func (e *Engine) DropSessions(ctx context.Context, q db.Querier, user, exceptSid string) (int, error) {
-	rows, err := db.Select(ctx, q, `DELETE FROM ddcore_session WHERE "user" = $1 AND sid <> $2 RETURNING sid`, user, exceptSid)
+	return e.dropSessionsIn(ctx, q, user, exceptSid, nil)
+}
+
+// DropSessionsIn is DropSessions for the sessions working in one space
+// (#167): what disabling or deleting a person's row in a tenant ends, while
+// their sessions elsewhere go on. A session that recorded no space yet is
+// taken to be in any.
+func (e *Engine) DropSessionsIn(ctx context.Context, q db.Querier, user, tenant string) (int, error) {
+	return e.dropSessionsIn(ctx, q, user, "", &tenant)
+}
+
+func (e *Engine) dropSessionsIn(ctx context.Context, q db.Querier, user, exceptSid string, tenant *string) (int, error) {
+	rows, err := db.Select(ctx, q, `DELETE FROM ddcore_session WHERE "user" = $1 AND sid <> $2
+		AND ($3::text IS NULL OR coalesce(data->>'tenant', $3) = $3) RETURNING sid`, user, exceptSid, tenant)
 	if err != nil {
 		return 0, err
 	}
@@ -428,7 +518,7 @@ func (e *Engine) DropSessions(ctx context.Context, q db.Querier, user, exceptSid
 	for i, r := range rows {
 		sids[i] = db.Str(r["sid"])
 	}
-	if err := e.endImpersonationsOf(ctx, q, user); err != nil {
+	if err := e.endImpersonationsOf(ctx, q, user, tenant); err != nil {
 		return 0, err
 	}
 	return len(sids), e.forgetSessions(ctx, q, sids)

@@ -14,6 +14,7 @@ import (
 	"github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
 
+	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/config"
 	"github.com/jrvidotti/ddcore/internal/db"
 )
@@ -183,6 +184,7 @@ func (e *Engine) OIDCCallback(ctx context.Context, id, code, state, cookieState 
 		}
 	}
 	var user, email, subject string
+	var landed *string
 	var groups []string
 	var hasGroups bool
 	defer func() {
@@ -217,9 +219,20 @@ func (e *Engine) OIDCCallback(ctx context.Context, id, code, state, cookieState 
 		if actor == "" {
 			actor = "Guest"
 		}
-		// in the tenant of the account, where its administrators read it
-		tenant, _ := e.TenantOfUser(ctx, user)
-		if aerr := e.InSpace(ctx, tenant, func(q db.Querier) error {
+		// in the space the account signed in to, where its administrators
+		// read it; a refusal, where the person is if they are in one space
+		tenant := landed
+		if tenant == nil && user != "" {
+			if ms, err := e.Memberships(ctx, user); err == nil {
+				if t, err := soleSpace(ms, user); err == nil {
+					tenant = &t
+				}
+			}
+		}
+		if tenant == nil {
+			tenant = new(string)
+		}
+		if aerr := e.InSpace(ctx, *tenant, func(q db.Querier) error {
 			return e.RecordAuditOn(ctx, q, actor, "account.login_sso", outcome, "User", user, from.IP, "", detail)
 		}); aerr != nil {
 			e.Log.Warn("could not record a sign-in", "err", aerr)
@@ -296,19 +309,32 @@ func (e *Engine) OIDCCallback(ctx context.Context, id, code, state, cookieState 
 		return "", redirect, oidcErr(OIDCErrDomain, nil)
 	}
 
-	// Nobody is signed in yet, so the account is looked for across the site
+	// Nobody is signed in yet, so the person is looked for across the site
 	// first; the rest — linking the identity, mapping groups to roles, opening
-	// the session — is then done in the account's own tenant.
+	// the session — is then done in the space they land in (#167). A person
+	// is one id in every space, so the identity names them once.
 	var account string
 	if err := e.System(ctx, func(q db.Querier) error {
 		return q.QueryRow(ctx, `SELECT coalesce(
-			(SELECT u.id FROM ddcore_user_identity i JOIN tab_user u ON u.id = i."user" WHERE i.provider = $1 AND i.subject = $2),
+			(SELECT i."user" FROM ddcore_user_identity i WHERE i.provider = $1 AND i.subject = $2
+			   AND EXISTS (SELECT 1 FROM tab_user u WHERE u.id = i."user")),
 			(SELECT id FROM tab_user WHERE $4 AND (lower(email) = $3 OR lower(id) = $3) ORDER BY (lower(email) = $3) DESC LIMIT 1),
 			'')`, id, idt.Subject, email, emailOK).Scan(&account)
 	}); err != nil {
 		return "", redirect, err
 	}
-	err = e.RunAdminFor(ctx, account, func(c *Ctx) error {
+	space := ""
+	if account != "" {
+		if space, err = e.LandingSpace(ctx, account); err != nil {
+			user = account
+			if cerr.From(err).Status == 401 {
+				return "", redirect, oidcErr(OIDCErrDisabled, nil)
+			}
+			return "", redirect, err
+		}
+	}
+	landed = &space
+	err = e.Run(WithTenant(ctx, space), "Admin", func(c *Ctx) error {
 		var linked bool
 		user, linked, err = e.resolveIdentity(c, id, idt.Subject, email, emailOK)
 		if err != nil {
@@ -334,7 +360,17 @@ func (e *Engine) OIDCCallback(ctx context.Context, id, code, state, cookieState 
 			WHERE provider = $1 AND subject = $2`, id, idt.Subject, email); err != nil {
 			return err
 		}
-		if len(pol.GroupRoles) > 0 {
+		shared, err := c.sharedPerson(user)
+		if err != nil {
+			return err
+		}
+		if len(pol.GroupRoles) > 0 && shared {
+			// A person in several tenants: whose roles would the groups be?
+			// Mapping them into every row would let one tenant's
+			// administrator, through the groups, make the person anything in
+			// another. Their roles are each tenant's to give (#167).
+			e.Log.Warn("single sign-on: groups not mapped to roles for a person in more than one space", "provider", id, "user", user)
+		} else if len(pol.GroupRoles) > 0 {
 			if !hasGroups && !pol.MissingGroupsAreNone() {
 				// A missing claim is not "in no group": the provider may just
 				// not have been asked. Taking every mapped role away on that
@@ -345,7 +381,7 @@ func (e *Engine) OIDCCallback(ctx context.Context, id, code, state, cookieState 
 				return err
 			}
 		}
-		sid, err = e.createSession(c, user, from)
+		sid, err = e.createSession(c, user, c.Tenant, from, false)
 		return err
 	})
 	if err != nil {

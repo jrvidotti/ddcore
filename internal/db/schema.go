@@ -107,6 +107,21 @@ CREATE TABLE IF NOT EXISTS ddcore_user_identity (
   created timestamptz NOT NULL DEFAULT now(), last_login timestamptz,
   PRIMARY KEY (provider, subject));
 CREATE INDEX IF NOT EXISTS ddcore_user_identity_user ON ddcore_user_identity("user");
+-- A person: what one user id is across every space of the site (#167). On a
+-- site with tenancy one id may have a User row in several tenants; the
+-- password is the person's, not a row's, and so is the tenant they last
+-- worked in. Never readable by tenant code (EnsureTenancy revokes it).
+CREATE TABLE IF NOT EXISTS ddcore_person (
+  id text PRIMARY KEY, password_hash text NOT NULL DEFAULT '', password_changed timestamptz,
+  last_tenant text, modified timestamptz NOT NULL DEFAULT now());
+-- The space an invitation or a reset link was issued in: an invitation
+-- completes the row of that space, and a link a tenant issued stops working
+-- once the person works elsewhere too.
+ALTER TABLE ddcore_auth_token ADD COLUMN IF NOT EXISTS tenant text;
+-- The tenant whose administrator chose the password, NULL when the person
+-- or the operator did: a password a tenant chose is dropped when the person
+-- comes to work elsewhere too, since that tenant still knows it.
+ALTER TABLE ddcore_person ADD COLUMN IF NOT EXISTS set_in text;
 CREATE TABLE IF NOT EXISTS ddcore_vault (
   name text PRIMARY KEY, ciphertext bytea NOT NULL, nonce bytea NOT NULL,
   created timestamptz NOT NULL DEFAULT now(), updated timestamptz NOT NULL DEFAULT now());

@@ -17,11 +17,23 @@ import (
 // the link, so nothing about the address has to be trusted.
 
 // identityUser resolves what an administrator typed — a User's id or its
-// address — to the User, in the space of c.
+// address — to the User, in the space of c. Admin in the platform space
+// finds a person in any space: identities are the site's, and a person is
+// one id wherever they work (#167).
 func identityUser(c *Ctx, typed string) (string, error) {
 	typed = strings.TrimSpace(typed)
-	rows, err := db.Select(c.Ctx, c.Q(), `SELECT id FROM tab_user
-		WHERE lower(id) = lower($1) OR lower(email) = lower($1) ORDER BY (lower(id) = lower($1)) DESC LIMIT 1`, typed)
+	var rows []map[string]any
+	find := func(q db.Querier) (err error) {
+		rows, err = db.Select(c.Ctx, q, `SELECT id FROM tab_user
+			WHERE lower(id) = lower($1) OR lower(email) = lower($1) ORDER BY (lower(id) = lower($1)) DESC LIMIT 1`, typed)
+		return err
+	}
+	var err error
+	if c.Tenancy() && c.Tenant == "" && c.User == "Admin" && c.ImpersonatedBy == "" {
+		err = c.siteQ(find)
+	} else {
+		err = find(c.Q())
+	}
 	if err != nil {
 		return "", err
 	}
@@ -126,6 +138,10 @@ func (e *Engine) UnlinkIdentity(c *Ctx, user, provider, subject string) (map[str
 	if err != nil {
 		return nil, err
 	}
+	// a link is a way the person signs in, in every space they work in
+	if err := c.mayManageCredential(name); err != nil {
+		return nil, err
+	}
 	rows, err := db.Select(c.Ctx, c.Q(), `DELETE FROM ddcore_user_identity
 		WHERE provider = $1 AND "user" = $2 AND ($3 = '' OR subject = $3) RETURNING subject`, provider, name, subject)
 	if err != nil {
@@ -159,6 +175,19 @@ func (e *Engine) UserIdentities(c *Ctx, user string) ([]map[string]any, error) {
 	}
 	if rows == nil {
 		rows = []map[string]any{}
+	}
+	// when the person last signed in through it may have been in another
+	// tenant: not this one's to know
+	if shared, err := c.sharedPerson(name); err != nil {
+		return nil, err
+	} else if shared {
+		if op, err := c.isOperator(); err != nil {
+			return nil, err
+		} else if !op {
+			for _, r := range rows {
+				delete(r, "last_login")
+			}
+		}
 	}
 	return rows, nil
 }

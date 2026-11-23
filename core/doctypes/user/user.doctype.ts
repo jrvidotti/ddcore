@@ -24,7 +24,6 @@ export default defineDoctype({
     { fieldname: "mute_due_email", fieldtype: "Check", label: "No email when a task is due" },
     { fieldtype: "Section Break", label: "Password" },
     { fieldname: "new_password", fieldtype: "Password", label: "New password", description: "Fill this in to set or change the password." },
-    { fieldname: "password_hash", fieldtype: "Data", label: "Hash", hidden: true, readOnly: true },
     { fieldtype: "Section Break", label: "Roles" },
     { fieldname: "roles", fieldtype: "Table", label: "Roles", options: "Has Role", inStandardFilter: true },
   ],

@@ -38,7 +38,7 @@ func (c *Ctx) UserPermissions() ([]UserPerm, error) {
 	if err != nil {
 		return nil, err
 	}
-	key := "user_perms:" + c.User
+	key := UserKey("user_perms:", c.Tenant, c.User)
 	if !away {
 		if v, ok := c.E.Cache.Get(key); ok {
 			c.userPerms = v.([]UserPerm)
@@ -89,7 +89,7 @@ func (c *Ctx) invalidateUserPermissionCache(docs ...Doc) error {
 	for _, doc := range docs {
 		if user := doc.Str("user"); user != "" && !seen[user] {
 			seen[user] = true
-			keys = append(keys, "user_perms:"+user)
+			keys = append(keys, UserKey("user_perms:", c.Tenant, user))
 			prefixes = append(prefixes, "evperm:"+user+":")
 		}
 	}
@@ -119,28 +119,42 @@ func (c *Ctx) RolesOf(user string) ([]string, error) {
 	if user == "" || user == "Guest" {
 		return []string{"Guest"}, nil
 	}
-	if v, ok := c.E.Cache.Get("roles:" + user); ok {
+	// A person's roles are the rows of one membership (#167): the one in
+	// the space the ctx works in.
+	space, q := c.Tenant, c.Q()
+	key := UserKey("roles:", space, user)
+	if v, ok := c.E.Cache.Get(key); ok {
 		return v.([]string), nil
 	}
 	gen := c.E.Cache.Gen()
-	q := c.Q()
 	if c.Tenancy() {
 		// from the transaction first: a user it created is nowhere else yet
-		own, err := c.tenantOfUser(user)
+		ms, err := c.memberships(user)
 		if err != nil {
 			return nil, err
 		}
-		// Inside a tenant, only the roles of that tenant's users and of
-		// whoever is acting are anyone's business: a user id is site-wide,
-		// and app code could otherwise ask about an account of another tenant.
-		if c.Tenant != "" && user != c.User && own != c.Tenant {
-			return []string{"All"}, nil
-		}
-		// A user's roles are rows of the user's own space. For an operator
-		// who entered a tenant that is not the space the ctx works in — and
-		// reading them there would find none, and cache that.
-		if own != c.Tenant {
-			q = spaceStatements{e: c.E, tenant: own}
+		if _, here := membershipIn(ms, c.Tenant); !here {
+			switch {
+			case c.Tenant != "" && user != c.User:
+				// Inside a tenant, only the roles of that tenant's users and
+				// of whoever is acting are anyone's business: app code could
+				// otherwise ask about an account of another tenant.
+				return []string{"All"}, nil
+			case c.Tenant != "":
+				// an operator who entered a tenant acts with the roles of
+				// the platform space, where their account is
+				space = ""
+			default:
+				// the platform space asking about a person it has no row
+				// for: the roles of their one membership, when there is one
+				// to speak of
+				if len(ms) != 1 {
+					return []string{"All"}, nil
+				}
+				space = ms[0].Tenant
+			}
+			q = spaceStatements{e: c.E, tenant: space}
+			key = UserKey("roles:", space, user)
 		}
 	}
 	rows, err := db.Select(c.Ctx, q, `SELECT role FROM tab_has_role WHERE parent = $1 AND parenttype = 'User'`, user)
@@ -151,7 +165,7 @@ func (c *Ctx) RolesOf(user string) ([]string, error) {
 	for _, r := range rows {
 		roles = append(roles, db.Str(r["role"]))
 	}
-	c.E.Cache.SetAt("roles:"+user, roles, 0, gen)
+	c.E.Cache.SetAt(key, roles, 0, gen)
 	return roles, nil
 }
 

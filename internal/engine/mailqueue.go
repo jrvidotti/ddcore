@@ -32,6 +32,9 @@ const (
 	// MailTemplateInviteSSO is the invitation of a site that provisions its
 	// identity provider: the link registers a passkey there, not a password here.
 	MailTemplateInviteSSO = "core.invite_sso"
+	// MailTemplateAccess tells a person who already signs in to the site that
+	// a tenant added them (#167). It carries no token.
+	MailTemplateAccess = "core.access_granted"
 	// MailTemplateFeedback is the copy of a user's feedback mailed to the
 	// site's feedback addresses.
 	MailTemplateFeedback = "core.feedback"

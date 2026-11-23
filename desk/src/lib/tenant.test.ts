@@ -26,6 +26,21 @@ describe("tenantChoices", () => {
     expect(tenantChoices({ id: "alfa", title: "Alfa", platform: false }, "Platform")).toEqual([]);
     expect(tenantChoices(null, "Platform")).toEqual([]);
   });
+  it("offers a person who works in several tenants their own, and only those (#167)", () => {
+    const ana: TenantBoot = {
+      id: "alfa", title: "Alfa", platform: false,
+      tenants: [{ id: "alfa", title: "Alfa", enabled: true }, { id: "beta", title: "Beta", enabled: true }],
+    };
+    expect(tenantChoices(ana, "Platform")).toEqual([
+      { id: "alfa", label: "Alfa", current: true },
+      { id: "beta", label: "Beta", current: false },
+    ]);
+    // a platform row of theirs is the platform space
+    const withPlatform: TenantBoot = { ...ana, tenants: [{ id: "", title: "", enabled: true }, ...ana.tenants!] };
+    expect(tenantChoices(withPlatform, "Platform")[0]).toEqual({ id: "", label: "Platform", current: false });
+    // one space is nowhere else to go
+    expect(tenantChoices({ ...ana, tenants: [ana.tenants![0]] }, "Platform")).toEqual([]);
+  });
   it("offers the platform space and every enabled tenant", () => {
     expect(tenantChoices(operator, "Platform")).toEqual([
       { id: "", label: "Platform", current: true },
@@ -63,6 +78,11 @@ describe("tenantLinkState", () => {
   it("offers an operator to enter the tenant a link names", () => {
     expect(tenantLinkState(operator, "alfa")).toBe("enter");
     expect(tenantLinkState({ ...operator, id: "beta" }, "alfa")).toBe("enter");
+  });
+  it("offers a person to enter another tenant of their own", () => {
+    const ana: TenantBoot = { ...alfaUser, tenants: [{ id: "alfa", title: "Alfa", enabled: true }, { id: "beta", title: "Beta", enabled: true }] };
+    expect(tenantLinkState(ana, "beta")).toBe("enter");
+    expect(tenantLinkState(ana, "gama")).toBe("foreign");
   });
   it("turns away a tenant user, and an operator for a tenant that is disabled or unknown", () => {
     expect(tenantLinkState(alfaUser, "beta")).toBe("foreign");

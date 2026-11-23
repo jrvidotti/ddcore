@@ -3,12 +3,8 @@ import { defineController, _ } from "@ddcore/sdk";
 export default defineController("User", {
   validate(doc) {
     doc.email = String(doc.email || "").trim().toLowerCase() === "admin" ? "Admin" : String(doc.email || "").trim();
-    if (doc.new_password) {
-      // __hashPassword applies the site's password policy and throws when the
-      // password is too short — every path that sets one goes through it.
-      doc.password_hash = (ddcore as any).__hashPassword(doc.new_password, doc.email || doc.id);
-      doc.new_password = null;
-    }
+    // new_password is the engine's: it checks the site's password policy,
+    // who may set it, and stores it as the person's (#167).
     const seen = new Set<string>();
     for (const r of doc.roles || []) {
       if (seen.has(r.role)) ddcore.throw(_("Role {0} is repeated", [r.role]));
@@ -56,9 +52,6 @@ export default defineController("User", {
       // groups the provider never heard of
       (ddcore as any).__idp.queueSync(doc.id, [], (doc.roles || []).map((r: any) => String(r.role || "")));
     }
-    if (before && before.password_hash !== doc.password_hash) {
-      (ddcore as any).__dropSessions(doc.id);
-    }
     // langFor serves the request language from this key without touching the
     // database, so changing User.language has to drop it.
     ddcore.cache.del("lang:" + doc.id);
@@ -81,8 +74,6 @@ export default defineController("User", {
     ddcore.cache.del("roles:" + doc.id);
     ddcore.cache.del("utype:" + doc.id);
     ddcore.cache.del("lang:" + doc.id);
-    // the tenant an id resolves to: the id may be created again, elsewhere
-    ddcore.cache.del("tenant:" + doc.id);
     ddcore.audit("account.delete", "User", doc.id);
   },
 });

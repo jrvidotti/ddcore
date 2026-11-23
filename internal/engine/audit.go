@@ -75,13 +75,16 @@ func (c *Ctx) AuditDenied(action, targetDoctype, targetID string, detail map[str
 
 // RecordAudit records an audit event directly on the engine's DB pool.
 func (e *Engine) RecordAudit(ctx context.Context, actor, action, outcome, targetDoctype, targetID string, detail map[string]any) error {
-	// An event about an account belongs to the account's tenant, whoever
-	// caused it — a sign-in has no tenant until it succeeds. Anything else is
-	// recorded in the space ctx names.
-	tenant, _ := TenantFrom(ctx)
-	if targetDoctype == "User" {
-		if own, err := e.TenantOfUser(ctx, targetID); err == nil && own != "" {
-			tenant = own
+	// Recorded in the space ctx names. An event about an account that ctx
+	// places nowhere belongs where the account is, whoever caused it — when
+	// it is in one space only: a person in several (#167) is recorded where
+	// the caller said, never in a tenant of theirs the caller cannot see.
+	tenant, named := TenantFrom(ctx)
+	if targetDoctype == "User" && !named {
+		if ms, err := e.Memberships(ctx, targetID); err == nil {
+			if own, err := soleSpace(ms, targetID); err == nil {
+				tenant = own
+			}
 		}
 	}
 	return e.InSpace(ctx, tenant, func(q db.Querier) error {

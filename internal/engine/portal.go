@@ -307,7 +307,7 @@ func (c *Ctx) IsWebsiteUser() bool {
 // UserType is User.user_type, cached like the roles: it is asked on every
 // permission check a Website User makes.
 func (e *Engine) UserType(c *Ctx, user string) string {
-	key := "utype:" + user
+	key := UserKey("utype:", c.Tenant, user)
 	if v, ok := e.Cache.Get(key); ok {
 		if s, ok := v.(string); ok {
 			return s

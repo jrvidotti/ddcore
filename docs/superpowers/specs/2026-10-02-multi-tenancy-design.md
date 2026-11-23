@@ -117,3 +117,28 @@ trusted not to.
 Out of scope for this version: per-tenant branding, mail and timezone; choosing the tenant by
 hostname; anonymous portals per tenant; per-tenant backup, export and quotas; storage keys
 prefixed by tenant; SSO auto-provisioning of users (there is no tenant to place them in).
+
+## Amendment, 2026-11-23: people in several tenants (#167)
+
+The Users row above ("a user belongs to exactly one tenant") and the exception in §5 are
+withdrawn. A site's operator needed one person to work in two tenants with one sign-in and roles
+in each. A second account under another address could not sign in through single sign-on, and
+making the person an operator gave them every tenant.
+
+- **A User row is a membership.** `tab_user` is keyed by `(tenant, id)` like every tenant table,
+  and its unique e-mail index leads with `tenant`. The person is the id: the engine keeps it the
+  same in every space. A row written for an address that signs in elsewhere joins that person,
+  under a lock on the address. A changed address may not be another person's.
+- **What is the person's moved out of the row.** The password and the tenant last worked in
+  live in the site-wide `ddcore_person`, which the confined role may not read. Identities
+  (`ddcore_user_identity`), sessions and tokens were already keyed by the id alone.
+- **Where a session works** is recorded on it (`data.tenant`), among the person's enabled
+  memberships, and the next sign-in lands where the last one worked. API keys, sessions of a
+  tenant's credential provider and impersonations are bound to their tenant.
+- **A tenant's administrator is the person's in part.** They administer their row (roles,
+  enabled, delete). They change nothing about how the person signs in: password, links,
+  identities, address, id. The refusal names no other tenant. The one fact it gives away is that
+  the person works elsewhere, which the old "User already exists" gave away too, for a stranger.
+- **Groups → roles** is off for such a person. Mapping one set of groups into every row would let
+  one tenant's administrator, through the provider's groups, make the person anything in another.
+

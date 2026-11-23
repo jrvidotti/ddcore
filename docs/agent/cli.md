@@ -50,13 +50,13 @@ prints that command's options, or its subcommands for a command such as `import`
 | `ddcore vault rekey [--dry-run] [--batch N]` | re-encrypts every vault secret, in every tenant, under `DDCORE_SECRET_KEY` — the step of a key rotation after deploying the old key as `DDCORE_SECRET_KEY_PREVIOUS`; `--dry-run` counts the secrets under each key and names those that open under neither. One Audit Event per run (see `vault`) |
 | `ddcore push keys [--subject mailto:…]` | prints a new VAPID key pair for `ddcore.push` as `.env` lines (see `push`); stores nothing |
 | `ddcore audit list\|purge` | inspect and purge administrative audit events (see `audit`) |
-| `ddcore user add <email> <name> --password x --role R` / `user passwd <email> <password>` | users; `passwd` also ends that user's other sessions |
+| `ddcore user add <email> <name> --password x --role R` / `user passwd <email> <password>` | users; `passwd` also ends that user's other sessions. With tenancy, `--tenant t user add` an address that already signs in elsewhere adds that person to `t` (see `tenancy`); `passwd` sets the person's one password |
 | `ddcore user invite <email> <name> --role R` | creates the account with no password and sends the invitation link |
-| `ddcore user reset <email>` | sends a password-recovery link |
+| `ddcore user reset <email>` | sends a password-recovery link; a person in several tenants needs `--tenant` |
 | `ddcore user unlock <email>` | lifts a lockout without waiting out the window |
-| `ddcore user sessions <email> [--revoke]` | lists, or ends, that user's sessions |
+| `ddcore user sessions <email> [--revoke]` | lists, or ends, that user's sessions, with the tenant each works in; with `--tenant`, `--revoke` ends only those working there |
 | `ddcore user link <email> <provider> <subject>` / `user unlink <email> <provider> [<subject>]` / `user identities <email>` | links a single sign-on identity (the provider's `sub`) to a User ahead of the first sign-in, for a provider that does not verify the e-mail; removes one or every link at a provider; lists them (see `auth`) |
-| `ddcore apikey <user> [--label x] [--days N] [--prefix p]` | produces `key:secret` for `Authorization: token key:secret`; `--days` expires it, `--prefix` makes the key's id `<p>.<random>` (a tenant's slug, say). Recorded as an `apikey.create` audit event, as `ddcore.users.createApiKey` is |
+| `ddcore apikey <user> [--label x] [--days N] [--prefix p]` | produces `key:secret` for `Authorization: token key:secret`; `--days` expires it, `--prefix` makes the key's id `<p>.<random>` (a tenant's slug, say). Recorded as an `apikey.create` audit event, as `ddcore.users.createApiKey` is. The key works in the tenant of the user's row; a person in several tenants needs `--tenant` |
 | `ddcore tenant list\|create\|enable\|disable\|adopt` | the tenants of a site with `"tenancy": true`: `create <slug> [--title T] [--admin email]` invites its first System Manager, `disable` refuses its sign-ins and holds its jobs, `adopt <slug>` moves every row of the platform space into it, and `adopt <slug> --dry-run` lists what would move and every collision with the tenant, exiting non-zero on one (see `tenancy`) |
 | `ddcore --tenant <slug> <command>` | runs a one-shot command inside a tenant (`eval`, `exec`, `user add`, `export`, `audit list`, …); the flag goes before the command. A server, a worker and `tenant` refuse it; before `mcp` it is the default tenant of the MCP tools; `import` also takes it after the command |
 | `ddcore mcp` | MCP server (stdio) |

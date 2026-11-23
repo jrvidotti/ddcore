@@ -116,12 +116,27 @@ func (e *Engine) UnlockAccount(ctx context.Context, typed, actor string) (int, e
 			n += m
 		}
 	}
-	if err := e.RunAdminFor(ctx, target, func(c *Ctx) error {
-		m, err := e.ClearCredentialAttempts(c, target)
-		n += m
-		return err
-	}); err != nil {
+	// in the space named, or in each the person works in (#167): a sign-in
+	// provider counts usernames per tenant
+	spaces := []string{""}
+	if named, ok := e.namedTenant(ctx); ok {
+		spaces = []string{named}
+	} else if ms, err := e.Memberships(ctx, target); err != nil {
 		return n, err
+	} else if len(ms) > 0 {
+		spaces = spaces[:0]
+		for _, m := range ms {
+			spaces = append(spaces, m.Tenant)
+		}
+	}
+	for _, sp := range spaces {
+		if err := e.Run(WithTenant(ctx, sp), "Admin", func(c *Ctx) error {
+			m, err := e.ClearCredentialAttempts(c, target)
+			n += m
+			return err
+		}); err != nil {
+			return n, err
+		}
 	}
 	if err := e.RecordAudit(ctx, actor, "account.unlock", "Allowed", "User", target, map[string]any{"cleared": n}); err != nil {
 		return n, err

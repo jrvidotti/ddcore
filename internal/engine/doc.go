@@ -984,6 +984,15 @@ func (c *Ctx) Save(doc Doc, opts SaveOpts) (Doc, error) {
 // child rows, attachments and vault fields.
 func (c *Ctx) writeRow(d *meta.DocType, doc, before Doc) error {
 	var err error
+	var hash string
+	if d.Name == "User" {
+		if err := c.joinPerson(doc, before); err != nil {
+			return err
+		}
+		if hash, err = c.takeNewPassword(doc); err != nil {
+			return err
+		}
+	}
 	if before == nil {
 		err = c.writeInsert(d, doc)
 	} else {
@@ -997,6 +1006,18 @@ func (c *Ctx) writeRow(d *meta.DocType, doc, before Doc) error {
 	}
 	if err := c.claimAttachments(d, doc); err != nil {
 		return err
+	}
+	if hash != "" {
+		if err := c.storeNewPassword(doc.ID(), hash, before != nil); err != nil {
+			return err
+		}
+	}
+	if d.Name == "User" {
+		// whatever the controller does: where the person works, and what
+		// they are here, changed with the row
+		if err := c.dropPersonCache(doc.ID()); err != nil {
+			return err
+		}
 	}
 	return c.processVaultFields(d, doc)
 }
@@ -1179,6 +1200,25 @@ func (c *Ctx) DBSet(doctype, name string, values Doc, updateModified bool) (time
 	}
 	if d.Name == "Audit Event" {
 		return modified, cerr.Permission("Audit Event records are immutable and cannot be modified")
+	}
+	if d.Name == "User" {
+		// how a person signs in is not a column to write past the engine
+		// (#167): the password is the person's, and an address another
+		// person signs in with is not this row's to take
+		if _, ok := values["new_password"]; ok {
+			return modified, cerr.Validation("Set a password by saving the User, not with setValue")
+		}
+		if v, ok := values["email"]; ok {
+			before := Doc{"email": nil}
+			if rows, err := db.Select(c.Ctx, c.Q(), `SELECT email FROM tab_user WHERE id = $1`, name); err != nil {
+				return modified, err
+			} else if len(rows) > 0 {
+				before["email"] = rows[0]["email"]
+			}
+			if err := c.joinPerson(Doc{"id": name, "email": v}, before); err != nil {
+				return modified, err
+			}
+		}
 	}
 	if !c.IgnorePermissions() {
 		if refused, err := c.refusedToScopedUser(d.Name); err != nil {
@@ -1556,13 +1596,7 @@ func (c *Ctx) deleteWithFlags(doctype, name string, ignorePerms, force bool, fla
 		}
 	}
 	if d.Name == "User" {
-		// Not a DocType, so the meta cannot find it: a sign-in identity left
-		// behind would sign a stranger into a User later created with the
-		// same name.
-		if _, err := c.Q().Exec(c.Ctx, `DELETE FROM ddcore_user_identity WHERE "user" = $1`, name); err != nil {
-			return err
-		}
-		if err := c.invalidateNow([]string{"utype:" + name}, nil); err != nil {
+		if err := c.personRowDeleted(name); err != nil {
 			return err
 		}
 	}
@@ -1673,12 +1707,15 @@ func (c *Ctx) moveID(d *meta.DocType, oldID, newID string) error {
 		return err
 	}
 	if d.Name == "User" {
-		if _, err := q.Exec(c.Ctx, `UPDATE ddcore_user_identity SET "user" = $1 WHERE "user" = $2`, newID, oldID); err != nil {
-			return fmt.Errorf("identity rename: %w", err)
+		if err := c.personRenamed(oldID, newID); err != nil {
+			return err
 		}
 		// the roles too: a user created later under the old name must not
 		// inherit what the renamed one was granted
-		if err := c.invalidateNow([]string{"utype:" + oldID, "utype:" + newID, "roles:" + oldID, "roles:" + newID}, nil); err != nil {
+		if err := c.dropPersonCache(oldID); err != nil {
+			return err
+		}
+		if err := c.dropPersonCache(newID); err != nil {
 			return err
 		}
 	}

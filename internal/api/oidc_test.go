@@ -518,3 +518,35 @@ func TestSEC05_InsideATenantOnlyAdminLinksAnIdentity(t *testing.T) {
 		t.Fatalf("unlink: %s", r.Raw)
 	}
 }
+
+// A sub is one person across every tenant (#167): the sign-in finds the
+// person, lands where they last worked, and the link stays one.
+func TestSEC05_OneIdentityManyTenants(t *testing.T) {
+	x := setupMembers(t)
+	idp := newFakeIdP(t)
+	x.e.Cfg.SiteURL = x.ts.URL
+	x.e.Cfg.OIDC = []config.OIDCProvider{{ID: "fake", Label: "Fake", Issuer: idp.srv.URL,
+		ClientID: "client-1", ClientSecret: "s3cret", Scopes: []string{"openid", "email"}}}
+	claims := map[string]any{"email": alfaUser, "sub": "kc-ana"}
+	_, sid := x.ssoLogin(idp, "/app", claims)
+	if sid == "" {
+		t.Fatal("single sign-on did not sign in a person of two tenants")
+	}
+	if tb := x.tenantBoot("sid:" + sid); tb["id"] != "alfa" || tenantIDs(tb) != "alfa,beta" {
+		t.Fatalf("after single sign-on the boot says %v", tb)
+	}
+	x.expect(x.call("POST", "/api/tenant/enter", map[string]any{"tenant": "beta"}, "sid:"+sid), 200, "")
+	_, again := x.ssoLogin(idp, "/app", claims)
+	if tb := x.tenantBoot("sid:" + again); tb["id"] != "beta" {
+		t.Fatalf("the next single sign-on lands in %v", tb["id"])
+	}
+	if n := x.countSQL(`SELECT count(*) FROM ddcore_user_identity WHERE "user" = $1`, alfaUser); n != 1 {
+		t.Fatalf("%d identities for one person", n)
+	}
+	// her link is how she signs in to beta too: not alfa's to remove
+	r := x.callAs(alfaAdmin, "core.services.users.unlinkIdentity", map[string]any{"user": alfaUser, "provider": "fake"})
+	x.expect(r, 403, "PermissionError")
+	if n := x.countSQL(`SELECT count(*) FROM ddcore_user_identity WHERE "user" = $1`, alfaUser); n != 1 {
+		t.Fatal("alfa's administrator unlinked a person of beta")
+	}
+}

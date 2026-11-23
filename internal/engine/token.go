@@ -67,17 +67,26 @@ type AuthToken struct {
 	Kind    string
 	User    string
 	Expires time.Time
+	// Tenant is the space the token was issued in, and CreatedBy who asked
+	// for it: an invitation completes that space's row, and a link a
+	// tenant's administrator issued stops working once the person works
+	// elsewhere too (#167).
+	Tenant    string
+	CreatedBy string
 }
 
 // IssueToken mints a single-use token and returns it. The caller is the only
 // one who will ever see this value: what is stored is its hash.
+//
+// It records the space ctx names as the one the token was issued in.
 func (e *Engine) IssueToken(ctx context.Context, user, kind string, ttl time.Duration, createdBy, ip string) (string, time.Time, error) {
 	token := RandomToken()
 	expires := time.Now().Add(ttl)
+	tenant, _ := TenantFrom(ctx)
 	_, err := e.DB.Pool.Exec(ctx,
-		`INSERT INTO ddcore_auth_token (token_hash, kind, "user", expires, created_by, ip)
-		 VALUES ($1, $2, $3, $4, $5, $6)`,
-		hashToken(token), kind, user, expires, createdBy, ip)
+		`INSERT INTO ddcore_auth_token (token_hash, kind, "user", expires, created_by, ip, tenant)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		hashToken(token), kind, user, expires, createdBy, ip, tenant)
 	if err != nil {
 		return "", time.Time{}, err
 	}
@@ -89,7 +98,7 @@ func (e *Engine) IssueToken(ctx context.Context, user, kind string, ttl time.Dur
 // It reveals nothing the holder of the token does not already have.
 func (e *Engine) PeekToken(ctx context.Context, token string) (*AuthToken, error) {
 	rows, err := db.Select(ctx, e.DB.Pool,
-		`SELECT kind, "user", expires FROM ddcore_auth_token
+		`SELECT kind, "user", expires, coalesce(tenant, '') AS tenant FROM ddcore_auth_token
 		 WHERE token_hash = $1 AND used IS NULL AND expires > now()`, hashToken(token))
 	if err != nil {
 		return nil, err
@@ -97,7 +106,7 @@ func (e *Engine) PeekToken(ctx context.Context, token string) (*AuthToken, error
 	if len(rows) == 0 {
 		return nil, cerr.NotFound("This link is no longer valid. Ask for a new one.")
 	}
-	t := &AuthToken{Kind: db.Str(rows[0]["kind"]), User: db.Str(rows[0]["user"])}
+	t := &AuthToken{Kind: db.Str(rows[0]["kind"]), User: db.Str(rows[0]["user"]), Tenant: db.Str(rows[0]["tenant"])}
 	if v, ok := asTime(rows[0]["expires"]); ok {
 		t.Expires = v
 	}
@@ -117,14 +126,15 @@ func (e *Engine) ConsumeToken(ctx context.Context, q db.Querier, token, kind str
 	rows, err := db.Select(ctx, q,
 		`UPDATE ddcore_auth_token SET used = now()
 		 WHERE token_hash = $1 AND kind = $2 AND used IS NULL AND expires > now()
-		 RETURNING kind, "user", expires`, hashToken(token), kind)
+		 RETURNING kind, "user", expires, coalesce(tenant, '') AS tenant, coalesce(created_by, '') AS created_by`, hashToken(token), kind)
 	if err != nil {
 		return nil, err
 	}
 	if len(rows) == 0 {
 		return nil, cerr.Validation("This link is no longer valid. Ask for a new one.")
 	}
-	t := &AuthToken{Kind: db.Str(rows[0]["kind"]), User: db.Str(rows[0]["user"])}
+	t := &AuthToken{Kind: db.Str(rows[0]["kind"]), User: db.Str(rows[0]["user"]),
+		Tenant: db.Str(rows[0]["tenant"]), CreatedBy: db.Str(rows[0]["created_by"])}
 	if v, ok := asTime(rows[0]["expires"]); ok {
 		t.Expires = v
 	}
