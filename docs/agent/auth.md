@@ -149,8 +149,9 @@ sign-in rather than until a restart.
 - PocketID: *OIDC Clients* → *Add*, with that URI as the callback URL. It is a
   confidential client, so leave *Public client* off; PKCE is always sent.
 
-**Nobody gets an account this way.** The provider proves who someone is, and the
-site still decides whether they may use it:
+**Nobody gets an account this way, unless the site says so.** The provider proves who someone
+is, and the site still decides whether they may use it (for the opt-in that creates the account,
+see *Creating the account on the first sign-in* below):
 
 1. To find an account by its address, the `email` claim must be present and
    `email_verified` must be true. An address the provider does not vouch for
@@ -172,6 +173,28 @@ site still decides whether they may use it:
 
 Invite people first (`ddcore user invite`, or **Save and invite** on the desk's User form). They can then sign in
 through the provider without ever accepting the invitation.
+
+**Creating the account on the first sign-in.** A public site whose only way in is the
+provider's button — anyone with a Google account may use it — declares it per provider (#168):
+
+```jsonc
+"auth": { "sso": { "google": { "provision": { "userType": "Website User", "roles": [] } } } }
+```
+
+- When a sign-in would end in `no_account`, the address is present, `email_verified` is true
+  and it passes `_ALLOWED_DOMAINS`, the callback creates the User in its own transaction: enabled,
+  with no password, `full_name` from the `name` claim (the address's local part without one), the
+  policy's `userType` (default `Website User`) and `roles`. The identity is then linked and the
+  session opened as for anyone, and an `account.provision` event records the provider and subject.
+- An address the provider does not vouch for never creates an account (`unverified_email`), and
+  an existing account is linked, never duplicated.
+- **Refused at load:** `Admin`, `Guest`, `All` or `System Manager` in `roles` (whoever has an
+  account at the provider would get it), a `userType` other than `Website User` or `System User`,
+  a policy for a provider not configured, and a site with tenancy (a sign-in carries no tenant to
+  create the person in). `ddcore doctor` warns about a role that does not exist.
+- A Website User created this way lands where the sign-in asked when that is `/portal/…` or an
+  app's static site (`www`, e.g. `/api/auth/oidc/google/start?redirect=/app-site/`); anywhere
+  else, in `/portal`.
 
 **Linking an identity ahead of the first sign-in.** Some providers do not vouch
 for the address: Keycloak emits `email_verified: false` for users federated from
@@ -664,10 +687,10 @@ nothing would become valid again — the tables would only grow.
 
 ## Not here yet
 
-A real CSRF token (the check is header-presence only), MFA, LDAP and
-just-in-time provisioning of a User on first sign-in (SEC-05, in the
-demand-driven backlog; an app's credential provider covers signing in against
-another system, not creating the account), a User without an e-mail (a
+A real CSRF token (the check is header-presence only), MFA, LDAP,
+creating the account on a first sign-in on a site with tenancy (without
+tenancy it is `auth.sso.<id>.provision`; an app's credential provider covers
+signing in against another system, not creating the account), a User without an e-mail (a
 placeholder `.invalid` address stands in), choosing the tenant by hostname, provisioning at providers other than PocketID, provider-initiated (single) logout, a screen to see or remove one's
 linked identities (an administrator links and unlinks with `ddcore user link|unlink` or
 `core.services.users`), matching a first sign-in on a claim other than the e-mail, e-mail

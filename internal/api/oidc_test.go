@@ -82,7 +82,11 @@ func newFakeIdP(t *testing.T) *fakeIdP {
 
 // ssoEnv wires a provider called "fake" into the test site.
 func ssoEnv(t *testing.T, domains ...string) (*env, *fakeIdP) {
-	x := setup(t)
+	return ssoOn(t, setup(t), domains...)
+}
+
+// ssoOn wires the "fake" provider into a site already set up.
+func ssoOn(t *testing.T, x *env, domains ...string) (*env, *fakeIdP) {
 	idp := newFakeIdP(t)
 	x.e.Cfg.SiteURL = x.ts.URL
 	x.e.Cfg.OIDC = []config.OIDCProvider{{ID: "fake", Label: "Fake", Issuer: idp.srv.URL,
@@ -294,6 +298,103 @@ func TestSEC05_Refusals(t *testing.T) {
 		r := x.call("GET", "/api/auth/oidc/nope/start", nil, "")
 		x.expect(r, 404, "")
 	})
+}
+
+// With auth.sso.<id>.provision a first sign-in creates the account instead
+// of refusing it, but only for an address the provider vouches for and the
+// domain list allows (#168).
+func TestSEC05_ProvisionOnFirstSignIn(t *testing.T) {
+	x, idp := ssoEnv(t)
+	x.e.Cfg.Auth.SSO = map[string]config.SSOPolicy{"fake": {Provision: &config.SSOProvision{}}}
+	newcomer := map[string]any{"sub": "sub-nova", "email": "Nova@Gmail.com", "name": "Nova Pessoa"}
+
+	loc, sid := x.ssoLogin(idp, "/portal", newcomer)
+	if loc != "/portal" || sid == "" {
+		t.Fatalf("first sign-in: %q %q", loc, sid)
+	}
+	if u, _ := x.e.UserFromSession(x.ctx, sid); u != "nova@gmail.com" {
+		t.Fatalf("session user: %q", u)
+	}
+	if n := x.countSQL(`SELECT count(*) FROM tab_user WHERE id='nova@gmail.com' AND user_type='Website User' AND enabled AND full_name='Nova Pessoa'`); n != 1 {
+		t.Fatalf("provisioned user rows: %d", n)
+	}
+	if n := x.countSQL(`SELECT count(*) FROM tab_has_role WHERE parent='nova@gmail.com'`); n != 0 {
+		t.Fatalf("a provisioned Website User got %d roles", n)
+	}
+	if n := x.countSQL(`SELECT count(*) FROM ddcore_user_identity WHERE provider='fake' AND subject='sub-nova' AND "user"='nova@gmail.com'`); n != 1 {
+		t.Fatalf("identity rows: %d", n)
+	}
+	if n := x.countSQL(`SELECT count(*) FROM tab_audit_event WHERE action='account.provision' AND target_id='nova@gmail.com'`); n != 1 {
+		t.Fatalf("provision audit: %d", n)
+	}
+
+	// The second sign-in finds the account by its subject and creates nothing.
+	if _, sid := x.ssoLogin(idp, "", newcomer); sid == "" {
+		t.Fatal("second sign-in refused")
+	}
+	if n := x.countSQL(`SELECT count(*) FROM tab_audit_event WHERE action='account.provision'`); n != 1 {
+		t.Fatalf("provisioned twice: %d", n)
+	}
+
+	// An existing account is linked, never duplicated.
+	if _, sid := x.ssoLogin(idp, "", nil); sid == "" {
+		t.Fatal("existing account refused")
+	}
+	if n := x.countSQL(`SELECT count(*) FROM tab_audit_event WHERE action='account.provision'`); n != 1 {
+		t.Fatalf("an existing account was provisioned: %d", n)
+	}
+
+	// An address the provider does not vouch for creates nothing.
+	if loc, sid := x.ssoLogin(idp, "", map[string]any{"sub": "sub-u", "email": "u@gmail.com", "email_verified": false}); sid != "" || loc != "/login?sso_error=unverified_email" {
+		t.Fatalf("unverified: %q", loc)
+	}
+	if n := x.countSQL(`SELECT count(*) FROM tab_user WHERE id='u@gmail.com'`); n != 0 {
+		t.Fatal("an unverified address was provisioned")
+	}
+
+	// Without a name claim the local part stands in; roles come from the policy.
+	x.e.Cfg.Auth.SSO = map[string]config.SSOPolicy{"fake": {Provision: &config.SSOProvision{UserType: "Website User", Roles: []string{"Gestor"}}}}
+	if _, sid := x.ssoLogin(idp, "", map[string]any{"sub": "sub-sem", "email": "sem.nome@gmail.com"}); sid == "" {
+		t.Fatal("no-name sign-in refused")
+	}
+	if n := x.countSQL(`SELECT count(*) FROM tab_user WHERE id='sem.nome@gmail.com' AND full_name='sem.nome'`); n != 1 {
+		t.Fatal("full name did not fall back to the local part")
+	}
+	if n := x.countSQL(`SELECT count(*) FROM tab_has_role WHERE parent='sem.nome@gmail.com' AND role='Gestor'`); n != 1 {
+		t.Fatal("the policy's role was not given")
+	}
+}
+
+// A Website User lands where they asked when that is an app's static site,
+// and in the portal for anything else: never in the desk (#168).
+func TestSEC05_WebsiteUserLandsOnAppSite(t *testing.T) {
+	w, _ := setupWWW(t)
+	x, idp := ssoOn(t, w)
+	x.e.Cfg.Auth.SSO = map[string]config.SSOPolicy{"fake": {Provision: &config.SSOProvision{}}}
+	who := map[string]any{"sub": "sub-site", "email": "site@gmail.com"}
+	for redirect, want := range map[string]string{
+		"/r/":        "/r/",
+		"/r/ABC?x=1": "/r/ABC?x=1",
+		"/app/User":  "/portal",
+		"/portal/x":  "/portal/x",
+		"/nope/":     "/portal",
+	} {
+		if loc, sid := x.ssoLogin(idp, redirect, who); sid == "" || loc != want {
+			t.Errorf("redirect %q: landed on %q (session %v)", redirect, loc, sid != "")
+		}
+	}
+}
+
+// The domain list holds for provisioning too: outside it, nothing is created.
+func TestSEC05_ProvisionRespectsAllowedDomains(t *testing.T) {
+	x, idp := ssoEnv(t, "y.com")
+	x.e.Cfg.Auth.SSO = map[string]config.SSOPolicy{"fake": {Provision: &config.SSOProvision{}}}
+	if loc, sid := x.ssoLogin(idp, "", map[string]any{"sub": "sub-z", "email": "z@x.com"}); sid != "" || loc != "/login?sso_error=domain" {
+		t.Fatalf("outside the domain: %q", loc)
+	}
+	if n := x.countSQL(`SELECT count(*) FROM tab_user WHERE id='z@x.com'`); n != 0 {
+		t.Fatal("provisioned outside the domain list")
+	}
 }
 
 func TestSEC05_AllowedDomains(t *testing.T) {

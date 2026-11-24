@@ -27,6 +27,23 @@ func (s *Server) notFound(w http.ResponseWriter, r *http.Request) {
 	s.deskHandler(w, r)
 }
 
+// isAppSite reports whether a same-site path lies under an app's static site
+// prefix. Those pages are public and call only the methods a Website User may
+// reach, so such a user can be sent there after signing in (#168).
+func (s *Server) isAppSite(p string) bool {
+	if !strings.HasPrefix(p, "/") || strings.HasPrefix(p, "//") {
+		return false
+	}
+	seg, _, _ := strings.Cut(strings.TrimPrefix(p, "/"), "/")
+	seg, _, _ = strings.Cut(seg, "?")
+	st := s.E.Current()
+	if st == nil || seg == "" {
+		return false
+	}
+	_, ok := st.WWW(seg)
+	return ok
+}
+
 // www serves one file of an app's static site (#68). The files are public:
 // what needs protecting is the data, and that is behind the methods the site
 // calls. The directory is read on every request, so a rebuild shows at once.

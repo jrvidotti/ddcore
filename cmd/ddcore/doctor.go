@@ -348,6 +348,14 @@ func gatherDoctor(ctx context.Context, cfg *config.File, windowMin int, updateCh
 				sp.Problems = append(sp.Problems, fmt.Sprintf("auth.sso.%s.groupRoles maps to role %q, which does not exist", p.ID, r))
 			}
 		}
+		if pol.Provision != nil {
+			for _, r := range pol.Provision.Roles {
+				rows, err := db.Select(ctx, e.DB.Pool, `SELECT 1 FROM tab_role WHERE id = $1`, r)
+				if err == nil && len(rows) == 0 {
+					sp.Problems = append(sp.Problems, fmt.Sprintf("auth.sso.%s.provision gives role %q, which does not exist", p.ID, r))
+				}
+			}
+		}
 		for _, pr := range sp.Problems {
 			rep.Warnings = append(rep.Warnings, fmt.Sprintf("sso: provider %s: %s", p.ID, pr))
 		}

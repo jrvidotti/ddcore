@@ -14,6 +14,19 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **Single sign-on can create the account on the first sign-in (#168).** `auth.sso.<id>.provision`
+  (`{ "userType": "Website User", "roles": [] }`) makes a sign-in that would end in `no_account`
+  create the User instead, for an address the provider vouches for and the domain list allows,
+  and records `account.provision`. Admin, Guest, All and System Manager cannot be given this way,
+  and a site with tenancy refuses the setting. Without it nothing changes. See `auth`,
+  "Creating the account on the first sign-in".
+- **A Website User lands on an app's static site after signing in, when that is where the
+  sign-in asked to go (#168).** Before, anything but `/portal/…` became `/portal`; a `www` prefix
+  is now honoured too, so a site served under `www` can be the product itself. See `www`,
+  "Signed-in visitors".
+
 ## 0.32.0 — 2026-11-24
 
 ### Added

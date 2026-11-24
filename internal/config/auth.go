@@ -53,6 +53,27 @@ type SSOPolicy struct {
 	// it as being in no group and takes every mapped role away. The second is
 	// for a provider that leaves an empty claim out of the token (#166).
 	MissingGroups string `json:"missingGroups,omitempty"`
+	// Provision, when set, creates the User on a first sign-in that finds no
+	// account, instead of refusing it with no_account (#168). Only for an
+	// address the provider vouches for.
+	Provision *SSOProvision `json:"provision,omitempty"`
+}
+
+// SSOProvision is what a User created on a first sign-in is made of.
+type SSOProvision struct {
+	// UserType is "Website User" (the default) or "System User".
+	UserType string `json:"userType,omitempty"`
+	// Roles are given to the new User. Never Admin, Guest, All or System
+	// Manager: anyone the provider knows could otherwise make themselves one.
+	Roles []string `json:"roles,omitempty"`
+}
+
+// Type is the user type a provisioned User gets.
+func (p SSOProvision) Type() string {
+	if p.UserType == "" {
+		return "Website User"
+	}
+	return p.UserType
 }
 
 // What a missing groups claim means.
@@ -167,6 +188,22 @@ func (a AuthPolicy) validate() error {
 		case "", MissingGroupsKeep, MissingGroupsEmpty:
 		default:
 			return fmt.Errorf("auth.sso.%s.missingGroups: %q is not %q or %q", id, pol.MissingGroups, MissingGroupsKeep, MissingGroupsEmpty)
+		}
+		if pv := pol.Provision; pv != nil {
+			switch pv.UserType {
+			case "", "Website User", "System User":
+			default:
+				return fmt.Errorf("auth.sso.%s.provision.userType: %q is not \"Website User\" or \"System User\"", id, pv.UserType)
+			}
+			for _, r := range pv.Roles {
+				switch strings.ToLower(strings.TrimSpace(r)) {
+				case "":
+					return fmt.Errorf("auth.sso.%s.provision.roles: a role name is empty", id)
+				case "admin", "guest", "all", "system manager":
+					// whoever has an account at the provider would get it
+					return fmt.Errorf("auth.sso.%s.provision.roles: %q cannot be given to everyone who signs in", id, r)
+				}
+			}
 		}
 		for g, roles := range pol.GroupRoles {
 			if strings.TrimSpace(g) == "" {

@@ -89,11 +89,12 @@ func (s *Server) confineWebsiteUsers(next http.Handler) http.Handler {
 	})
 }
 
-// homeFor is where a user lands after signing in: a Website User always in a
-// portal, whatever they asked for; anyone else where they asked, or the desk.
+// homeFor is where a user lands after signing in: a Website User in a portal,
+// or on an app's static site when that is where they asked to go (#168);
+// anyone else where they asked, or the desk.
 func (s *Server) homeFor(r *http.Request, u, redirect string) string {
 	if s.isWebsiteUser(r, u) {
-		if redirect == "/portal" || strings.HasPrefix(redirect, "/portal/") {
+		if redirect == "/portal" || strings.HasPrefix(redirect, "/portal/") || s.isAppSite(redirect) {
 			return redirect
 		}
 		return "/portal"

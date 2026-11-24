@@ -152,6 +152,11 @@ func (f *File) validateOIDC() error {
 		if i < 0 {
 			return fmt.Errorf("auth.sso.%s: no provider %q in DDCORE_OIDC_PROVIDERS", id, id)
 		}
+		if pol.Provision != nil && f.Tenancy {
+			// A sign-in carries no tenant, so there is nowhere to create the
+			// person yet (#168).
+			return fmt.Errorf("auth.sso.%s.provision: not available on a site with tenancy", id)
+		}
 		// Mapped roles arrive in a claim the provider only sends when asked.
 		if len(pol.GroupRoles) > 0 && pol.Claim() == "groups" {
 			has := false

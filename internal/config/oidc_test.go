@@ -142,6 +142,11 @@ func TestLoadValidatesSSOPolicy(t *testing.T) {
 		`{"auth": {"sso": {"pocketid": {"groupRoles": {"a": []}}}}}`:                     "maps to no role",
 		`{"auth": {"sso": {"pocketid": {"groupRoles": {"a": ["System Manager", ""]}}}}}`: "role name is empty",
 		`{"auth": {"sso": {"pocketid": {"missingGroups": "none"}}}}`:                     "missingGroups",
+		`{"auth": {"sso": {"pocketid": {"provision": {"roles": ["System Manager"]}}}}}`:  "cannot be given to everyone",
+		`{"auth": {"sso": {"pocketid": {"provision": {"roles": ["admin"]}}}}}`:           "cannot be given to everyone",
+		`{"auth": {"sso": {"pocketid": {"provision": {"userType": "Guest"}}}}}`:          "provision.userType",
+		`{"auth": {"sso": {"google": {"provision": {}}}}}`:                               "no provider",
+		`{"tenancy": true, "auth": {"sso": {"pocketid": {"provision": {}}}}}`:            "not available on a site with tenancy",
 	} {
 		write(body)
 		if _, _, err := Load(dir); err == nil || !strings.Contains(err.Error(), want) {
@@ -153,6 +158,12 @@ func TestLoadValidatesSSOPolicy(t *testing.T) {
 	f, _, err := Load(dir)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if f.Auth.SSO["pocketid"].Provision != nil {
+		t.Error("provision is off unless declared")
+	}
+	if (SSOProvision{}).Type() != "Website User" || (SSOProvision{UserType: "System User"}).Type() != "System User" {
+		t.Error("provision.userType defaults to Website User")
 	}
 	if !f.Auth.SSO["pocketid"].MissingGroupsAreNone() || (SSOPolicy{MissingGroups: "keep"}).MissingGroupsAreNone() || (SSOPolicy{}).MissingGroupsAreNone() {
 		t.Error("missingGroups: only \"empty\" reads a missing claim as no groups")

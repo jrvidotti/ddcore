@@ -14,7 +14,8 @@ methods (see `www`).
 ## The model
 
 - **A Website User** (`User.user_type = "Website User"`) reaches the portals and nothing
-  else. Signing in sends them to `/portal`, and every `/api` route that is not the portal's
+  else. Signing in sends them to `/portal` (or to an app's static site, when the sign-in
+  asked for one: see `www`), and every `/api` route that is not the portal's
   answers 403, including a whitelisted method not marked `portal: true`. The roles a
   Website User holds decide which portals they reach; those roles open no desk screen.
 - **A portal's pages are a Website User's only permission.** They hold no role grant on

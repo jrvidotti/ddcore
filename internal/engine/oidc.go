@@ -279,6 +279,7 @@ func (e *Engine) OIDCCallback(ctx context.Context, id, code, state, cookieState 
 	var claims struct {
 		Email         string `json:"email"`
 		EmailVerified any    `json:"email_verified"`
+		Name          string `json:"name"`
 	}
 	if err := idt.Claims(&claims); err != nil {
 		return "", redirect, oidcErr(OIDCErrProvider, err)
@@ -337,6 +338,14 @@ func (e *Engine) OIDCCallback(ctx context.Context, id, code, state, cookieState 
 	err = e.Run(WithTenant(ctx, space), "Admin", func(c *Ctx) error {
 		var linked bool
 		user, linked, err = e.resolveIdentity(c, id, idt.Subject, email, emailOK)
+		var oe *OIDCError
+		if err != nil && pol.Provision != nil && emailOK && account == "" && errors.As(err, &oe) && oe.Code == OIDCErrNoAccount {
+			// Nobody has this address and the site said a sign-in may create
+			// the account (#168). The address is verified and passed the
+			// domain list above; the identity is linked below as for anyone.
+			user, err = e.provisionSSOUser(c, id, idt.Subject, email, claims.Name, *pol.Provision)
+			linked = false
+		}
 		if err != nil {
 			return err
 		}
@@ -433,6 +442,40 @@ func (e *Engine) resolveIdentity(c *Ctx, provider, subject, email string, emailO
 		return name, linked, oidcErr(OIDCErrDisabled, nil)
 	}
 	return name, linked, nil
+}
+
+// provisionSSOUser creates the User a first sign-in found no account for
+// (#168): enabled, with no password, of the policy's type and roles. The
+// caller has checked that the provider vouches for the address.
+func (e *Engine) provisionSSOUser(c *Ctx, provider, subject, email, name string, pv config.SSOProvision) (string, error) {
+	fullName := strings.TrimSpace(name)
+	if fullName == "" {
+		fullName, _, _ = strings.Cut(email, "@")
+	}
+	if r := []rune(fullName); len(r) > 140 {
+		fullName = string(r[:140])
+	}
+	roles := []any{}
+	for _, r := range pv.Roles {
+		if r = strings.TrimSpace(r); r != "" {
+			roles = append(roles, map[string]any{"role": r})
+		}
+	}
+	doc, err := c.NewDoc("User", Doc{"email": email, "full_name": fullName, "enabled": true, "user_type": pv.Type(), "roles": roles})
+	if err != nil {
+		return "", err
+	}
+	saved, err := c.Insert(doc, SaveOpts{IgnorePermissions: true})
+	if err != nil {
+		return "", err
+	}
+	user := saved.ID()
+	if err := c.Audit("account.provision", "User", user, map[string]any{
+		"provider": provider, "subject": subject, "userType": pv.Type(), "roles": pv.Roles,
+	}); err != nil {
+		return "", err
+	}
+	return user, nil
 }
 
 // claimStrings reads a claim that should be a list of strings. ok is false

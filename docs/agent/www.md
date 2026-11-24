@@ -80,6 +80,14 @@ const res = await fetch(`/api/method/gateway.services.checkout.status?code=${enc
 const { data } = await res.json();
 ```
 
+## Signed-in visitors
+
+A site can also be the whole product for people who sign in: Website Users calling methods
+whitelisted with `portal: true`, on the same origin, with the session cookie. Single sign-on sends
+such a user back to the site when the sign-in asked for it
+(`/api/auth/oidc/<id>/start?redirect=/r/`), and `auth.sso.<id>.provision` creates the account on
+the first sign-in (see `auth`). A Website User asking for any other path still lands in `/portal`.
+
 ## The methods behind it
 
 A site's methods are `allowGuest`, and return only what the page shows — never a whole
