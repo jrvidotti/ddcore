@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.32.1 — 2026-11-24
+
 ### Added
 
 - **Single sign-on can create the account on the first sign-in (#168).** `auth.sso.<id>.provision`
