@@ -19,6 +19,20 @@ import (
 func (s *Server) notFound(w http.ResponseWriter, r *http.Request) {
 	seg, rest, slash := strings.Cut(strings.TrimPrefix(r.URL.Path, "/"), "/")
 	if st := s.E.Current(); st != nil {
+		// A site that claims the root takes / itself, and only that: /app,
+		// /login and /portal still answer, so staff reach the desk (#169).
+		// 302, not 308: the claim is a setting that may change, and a browser
+		// keeps a permanent redirect long after it does.
+		if r.URL.Path == "/" && (r.Method == http.MethodGet || r.Method == http.MethodHead) {
+			if site, ok := st.WWWRoot(); ok {
+				target := "/" + site.Prefix + "/"
+				if r.URL.RawQuery != "" {
+					target += "?" + r.URL.RawQuery
+				}
+				http.Redirect(w, r, target, http.StatusFound)
+				return
+			}
+		}
 		if site, ok := st.WWW(seg); ok {
 			s.www(w, r, site, rest, slash)
 			return

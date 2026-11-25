@@ -220,3 +220,38 @@ export default defineApp({ name: "demo", title: "Demo", roles: ["Gestor"], www: 
 		t.Fatalf("/r after it was dropped: %d %q", r.Status, r.Raw)
 	}
 }
+
+// A site that claims the root takes / and nothing else (#169): the desk's
+// own paths still answer, so staff reach it at /app.
+func TestWWWRootRedirectsTheSiteRoot(t *testing.T) {
+	x, dir := setupWWW(t)
+	x.s.Desk = fstest.MapFS{"index.html": {Data: []byte(`<html lang="en">desk</html>`)}}
+	manifest := `import { defineApp } from "@ddcore/sdk";
+export default defineApp({ name: "demo", title: "Demo", roles: ["Gestor"],
+  www: { "/r": { dir: "checkout/build", root: true }, "/plain": { dir: "plain", fallback: null, frame: true } } });`
+	if err := os.WriteFile(filepath.Join(dir, "ddcore.app.ts"), []byte(manifest), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := x.e.Load(); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct{ method, path, want string }{
+		{"GET", "/", "/r/"},
+		{"HEAD", "/", "/r/"},
+		{"GET", "/?utm_source=x&ref=1", "/r/?utm_source=x&ref=1"},
+	} {
+		r := x.get(c.method, c.path)
+		if r.Status != 302 || r.Header.Get("Location") != c.want {
+			t.Fatalf("%s %s: %d Location=%q, want 302 %q", c.method, c.path, r.Status, r.Header.Get("Location"), c.want)
+		}
+	}
+	for _, p := range []string{"/app", "/app/pessoa", "/login", "/portal"} {
+		if r := x.get("GET", p); r.Status != 200 || !strings.Contains(r.Raw, "desk") {
+			t.Fatalf("%s: %d %q", p, r.Status, r.Raw)
+		}
+	}
+	// the site itself is served as before
+	if r := x.get("GET", "/r/"); r.Status != 200 || r.Raw != "<html>checkout shell</html>" {
+		t.Fatalf("/r/: %d %q", r.Status, r.Raw)
+	}
+}

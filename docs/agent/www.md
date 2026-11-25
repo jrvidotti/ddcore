@@ -14,6 +14,7 @@ export default defineApp({
   www: {
     "/r": "client/checkout/build",                 // short form
     "/status": { dir: "client/status/dist", fallback: null, frame: true },
+    "/atleta": { dir: "client/athlete/build", root: true },  // / opens this site
   },
 });
 ```
@@ -24,6 +25,7 @@ export default defineApp({
 | `dir` | The folder served, relative to the app and inside it — not the app's root. It may not exist yet: until the build is there, the prefix answers 404. |
 | `fallback` | The file served for a path that names no file, so a client-side route like `/r/ABC123` loads the SPA's shell. Default `"index.html"`; `null` answers 404 instead. |
 | `frame` | `true` lets other pages embed the site in a frame. Default `false`. |
+| `root` | `true` sends the site root to this site: `GET /` answers `302` to `/<prefix>/`. Default `false`, and `/` opens the desk. At most one site, across every app, may claim it. |
 
 A declaration that breaks one of these rules stops the load with a message naming the app
 and the prefix, like any other metadata error.
@@ -32,6 +34,10 @@ and the prefix, like any other metadata error.
 
 - `GET` and `HEAD` only; anything else is `405`.
 - `/r` redirects (308) to `/r/`, keeping the query string.
+- With `root: true`, `/` redirects (302) to `/r/`, keeping the query string. Only `/` itself:
+  `/app`, `/login` and `/portal` still answer, so staff reach the desk at `/app`. The redirect is
+  temporary so that dropping the claim takes effect in browsers that already followed it.
+  `ddcore doctor` reports where `/` goes.
 - A path naming a file serves it, with the content type of its extension. A directory serves
   its `index.html`. Anything else serves `fallback`, or `404`.
 - A path that climbs out of the folder (`..`, `%2e%2e`, `..%2f`) is a `404`. Symlinks out of

@@ -89,3 +89,42 @@ func TestWWWRefusesBadDeclarations(t *testing.T) {
 		})
 	}
 }
+
+// One site may claim the site root (#169); without the claim, / stays the desk's.
+func TestWWWRootClaim(t *testing.T) {
+	e, _, err := wwwSite(t, `{ "/r": "build", "/atleta": { dir: "client/athlete/build", root: true } }`, `{ "/blog": "site" }`)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	site, ok := e.Current().WWWRoot()
+	if !ok || site.Prefix != "atleta" || site.App != "shop" || !site.Root {
+		t.Fatalf("WWWRoot = %+v, %v", site, ok)
+	}
+	if r, _ := e.Current().WWW("r"); r.Root {
+		t.Fatal("/r claims the root without saying so")
+	}
+	e, _, err = wwwSite(t, `{ "/r": { dir: "build", root: false } }`, `{ "/blog": "site" }`)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if site, ok := e.Current().WWWRoot(); ok {
+		t.Fatalf("no site claims the root, got %+v", site)
+	}
+}
+
+func TestWWWRootRefusesTwoClaims(t *testing.T) {
+	for _, c := range []struct{ name, a, b, want string }{
+		{"two apps", `{ "/r": { dir: "build", root: true } }`, `{ "/blog": { dir: "site", root: true } }`,
+			`app "blog": www "/blog" claims the site root, already claimed by app "shop"'s www "/r"`},
+		{"one app", `{ "/a": { dir: "a", root: true }, "/b": { dir: "b", root: true } }`, "",
+			`app "shop": www "/b" claims the site root, already claimed by app "shop"'s www "/a"`},
+		{"not a boolean", `{ "/r": { dir: "build", root: "yes" } }`, "", `"/r": root must be true or false`},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			_, _, err := wwwSite(t, c.a, c.b)
+			if err == nil || !strings.Contains(err.Error(), c.want) {
+				t.Fatalf("expected an error containing %q, got %v", c.want, err)
+			}
+		})
+	}
+}

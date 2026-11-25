@@ -1178,10 +1178,13 @@ export interface AppDef {
    *   route); default `"index.html"`, `null` for a plain 404.
    * - `frame`: allow other pages to embed the site; default `false`
    *   (`X-Frame-Options: DENY`).
+   * - `root`: `GET /` redirects (302) to this site instead of opening the desk;
+   *   `/app`, `/login` and `/portal` are untouched. One site of all the apps may
+   *   claim it. Default `false`.
    *
    * See `www`.
    */
-  www?: Record<string, string | { dir: string; fallback?: string | null; frame?: boolean }>;
+  www?: Record<string, string | { dir: string; fallback?: string | null; frame?: boolean; root?: boolean }>;
   /** extra roles created on install */
   roles?: string[];
   fixtures?: Record<string, Record<string, any>[]>;

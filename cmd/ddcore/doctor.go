@@ -65,6 +65,10 @@ type doctorReport struct {
 	Queue      *engine.QueueHealth `json:"queue,omitempty"`
 	Errors     *engine.ErrorHealth `json:"errors,omitempty"`
 	Scheduler  engine.SchedHealth  `json:"scheduler"`
+	// Root is where GET / goes: the www prefix that claims it ("/atleta/") and
+	// its app, or empty for the desk (#169).
+	Root    string `json:"root,omitempty"`
+	RootApp string `json:"rootApp,omitempty"`
 	// Workers is the total over every pool; WorkerPools sizes each one,
 	// when ddcore.json names pools.
 	Workers     int              `json:"workers"`
@@ -252,6 +256,9 @@ func gatherDoctor(ctx context.Context, cfg *config.File, windowMin int, updateCh
 		}
 	}
 	rep.DocTypes = len(st.Meta.DocTypes)
+	if site, ok := st.WWWRoot(); ok {
+		rep.Root, rep.RootApp = "/"+site.Prefix+"/", site.App
+	}
 	rep.Scheduler = e.SchedulerHealth()
 	if names := e.SecretNames(); len(names) > 0 {
 		sort.Strings(names)
@@ -484,6 +491,11 @@ func (r *doctorReport) print(w io.Writer) {
 		}
 	}
 	p("doctypes", "%d", r.DocTypes)
+	if r.Root != "" {
+		p("root", "/ redirects to %s (www of app %s)", r.Root, r.RootApp)
+	} else {
+		p("root", "/ serves the desk")
+	}
 	if r.Migrate != nil {
 		if r.Migrate.Refused != "" {
 			p("migrate", "refused")

@@ -14,6 +14,14 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **An app's static site can own the site root (#169).** `www: { "/atleta": { dir: "client/athlete/build", root: true } }`
+  makes `GET /` answer `302` to `/atleta/`, keeping the query string, instead of opening the desk.
+  `/app`, `/login` and `/portal` are untouched, so staff still reach the desk at `/app`. One site
+  across all apps may claim the root; a second claim stops the load with a message naming both.
+  `ddcore doctor` reports where `/` goes. Without `root`, nothing changes. See `www`.
+
 ## 0.32.1 — 2026-11-24
 
 ### Added

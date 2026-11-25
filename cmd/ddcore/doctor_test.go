@@ -200,6 +200,19 @@ func TestDoctorAppEnvReporting(t *testing.T) {
 	}
 }
 
+// Where / goes is reported, so a site whose root belongs to an app's static
+// site (#169) can be told apart from one that serves the desk there.
+func TestDoctorReportsTheSiteRoot(t *testing.T) {
+	r := &doctorReport{Database: db.Health{OK: true}, Ops: config.DefaultOps(), AppEnv: map[string]string{}}
+	if out := renderDoctor(t, r); !strings.Contains(out, "root:       / serves the desk") {
+		t.Fatalf("unexpected root line:\n%s", out)
+	}
+	r.Root, r.RootApp = "/atleta/", "treino"
+	if out := renderDoctor(t, r); !strings.Contains(out, "root:       / redirects to /atleta/ (www of app treino)") {
+		t.Fatalf("unexpected root line:\n%s", out)
+	}
+}
+
 // The storage line is read by someone checking where bytes go; a bucket with
 // no prefix must not look like a truncated path.
 func TestDoctorStorageSummaryWithoutPrefix(t *testing.T) {

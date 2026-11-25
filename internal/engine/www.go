@@ -26,6 +26,9 @@ type WWWSite struct {
 	// DENY, since a payment page in someone else's frame is a clickjacking
 	// target.
 	Frame bool
+	// Root claims the site root: GET / redirects to /<Prefix>/ instead of
+	// serving the desk (#169). At most one site of all the apps has it.
+	Root bool
 }
 
 // wwwPrefix is one segment, lower case, because the router compares the
@@ -45,6 +48,7 @@ var reservedWWW = map[string]bool{
 // reported the same way on every load.
 func buildWWW(apps []js.App, snap *Snapshot) (map[string]WWWSite, error) {
 	out := map[string]WWWSite{}
+	var root *WWWSite
 	for _, a := range apps {
 		am := snap.Apps[a.Name]
 		if am == nil || len(am.WWW) == 0 {
@@ -62,6 +66,12 @@ func buildWWW(apps []js.App, snap *Snapshot) (map[string]WWWSite, error) {
 			}
 			if other, ok := out[site.Prefix]; ok {
 				return nil, fmt.Errorf("app %q: www %q is taken by app %q", a.Name, p, other.App)
+			}
+			if site.Root {
+				if root != nil {
+					return nil, fmt.Errorf("app %q: www %q claims the site root, already claimed by app %q's www \"/%s\"", a.Name, p, root.App, root.Prefix)
+				}
+				root = &site
 			}
 			out[site.Prefix] = site
 		}
@@ -83,7 +93,7 @@ func parseWWW(a js.App, prefix string, raw json.RawMessage) (WWWSite, error) {
 		// the long form; `fallback` absent keeps the default, null drops it
 		var long map[string]json.RawMessage
 		if err := json.Unmarshal(raw, &long); err != nil {
-			return WWWSite{}, fmt.Errorf("%q: expected a directory or { dir, fallback?, frame? }", prefix)
+			return WWWSite{}, fmt.Errorf("%q: expected a directory or { dir, fallback?, frame?, root? }", prefix)
 		}
 		if v, ok := long["dir"]; ok {
 			json.Unmarshal(v, &dir)
@@ -101,6 +111,11 @@ func parseWWW(a js.App, prefix string, raw json.RawMessage) (WWWSite, error) {
 		if v, ok := long["frame"]; ok {
 			if err := json.Unmarshal(v, &site.Frame); err != nil {
 				return WWWSite{}, fmt.Errorf("%q: frame must be true or false", prefix)
+			}
+		}
+		if v, ok := long["root"]; ok {
+			if err := json.Unmarshal(v, &site.Root); err != nil {
+				return WWWSite{}, fmt.Errorf("%q: root must be true or false", prefix)
 			}
 		}
 	}
@@ -125,4 +140,15 @@ func parseWWW(a js.App, prefix string, raw json.RawMessage) (WWWSite, error) {
 func (s *State) WWW(seg string) (WWWSite, bool) {
 	site, ok := s.www[seg]
 	return site, ok
+}
+
+// WWWRoot returns the app site that claims the site root, if any: GET / is
+// sent to it instead of to the desk.
+func (s *State) WWWRoot() (WWWSite, bool) {
+	for _, site := range s.www {
+		if site.Root {
+			return site, true
+		}
+	}
+	return WWWSite{}, false
 }
