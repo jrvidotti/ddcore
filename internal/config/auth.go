@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -57,6 +58,11 @@ type SSOPolicy struct {
 	// account, instead of refusing it with no_account (#168). Only for an
 	// address the provider vouches for.
 	Provision *SSOProvision `json:"provision,omitempty"`
+	// ErrorRedirect is the page a failed sign-in lands on when the page that
+	// started it is not known (the state expired or never existed), with
+	// ?sso_error=<code> appended. A path on this site; empty means /login
+	// (#171).
+	ErrorRedirect string `json:"errorRedirect,omitempty"`
 }
 
 // SSOProvision is what a User created on a first sign-in is made of.
@@ -184,6 +190,9 @@ func (a AuthPolicy) validate() error {
 		return fmt.Errorf("auth.minPasswordLength must be between 6 and 128")
 	}
 	for id, pol := range a.SSO {
+		if pol.ErrorRedirect != "" && !sitePath(pol.ErrorRedirect) {
+			return fmt.Errorf("auth.sso.%s.errorRedirect: %q is not a path on this site (it must start with a single /)", id, pol.ErrorRedirect)
+		}
 		switch pol.MissingGroups {
 		case "", MissingGroupsKeep, MissingGroupsEmpty:
 		default:
@@ -225,4 +234,14 @@ func (a AuthPolicy) validate() error {
 		}
 	}
 	return nil
+}
+
+// sitePath reports whether p is a path on this site: "//host", "/\host" and
+// absolute URLs are another site to a browser.
+func sitePath(p string) bool {
+	if !strings.HasPrefix(p, "/") || strings.HasPrefix(p, "//") || strings.HasPrefix(p, "/\\") || strings.ContainsAny(p, "\r\n\t") {
+		return false
+	}
+	u, err := url.Parse(p)
+	return err == nil && u.Scheme == "" && u.Host == ""
 }

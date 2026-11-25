@@ -147,11 +147,20 @@ func TestLoadValidatesSSOPolicy(t *testing.T) {
 		`{"auth": {"sso": {"pocketid": {"provision": {"userType": "Guest"}}}}}`:          "provision.userType",
 		`{"auth": {"sso": {"google": {"provision": {}}}}}`:                               "no provider",
 		`{"tenancy": true, "auth": {"sso": {"pocketid": {"provision": {}}}}}`:            "not available on a site with tenancy",
+		`{"auth": {"sso": {"pocketid": {"errorRedirect": "//evil.example"}}}}`:           "errorRedirect",
+		`{"auth": {"sso": {"pocketid": {"errorRedirect": "https://evil.example/x"}}}}`:   "errorRedirect",
+		`{"auth": {"sso": {"pocketid": {"errorRedirect": "atleta/entrar"}}}}`:            "errorRedirect",
+		`{"auth": {"sso": {"pocketid": {"errorRedirect": "/\\evil.example"}}}}`:          "errorRedirect",
 	} {
 		write(body)
 		if _, _, err := Load(dir); err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("%s: %v", body, err)
 		}
+	}
+
+	write(`{"auth": {"sso": {"pocketid": {"errorRedirect": "/atleta/entrar?x=1"}}}}`)
+	if f, _, err := Load(dir); err != nil || f.Auth.SSO["pocketid"].ErrorRedirect != "/atleta/entrar?x=1" {
+		t.Errorf("errorRedirect: %v", err)
 	}
 
 	write(`{"auth": {"sso": {"pocketid": {"missingGroups": "empty", "groupRoles": {"erp-sm": ["System Manager"], "erp-vendas": ["Gestor", "Vendas"]}}}}}`)

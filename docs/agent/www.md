@@ -94,6 +94,12 @@ such a user back to the site when the sign-in asked for it
 (`/api/auth/oidc/<id>/start?redirect=/r/`), and `auth.sso.<id>.provision` creates the account on
 the first sign-in (see `auth`). A Website User asking for any other path still lands in `/portal`.
 
+A sign-in that fails comes back to the page that started it, with `?sso_error=<code>` added
+(`state`, `provider`, `unverified_email`, `no_account`, `disabled`, `domain`, `throttled`,
+`server`), so the site's own sign-in page shows the failure. When the sign-in can no longer be
+traced (its state expired), it goes to `auth.sso.<id>.errorRedirect`, which a site points at the same
+page. See `auth`, "Single sign-on".
+
 ## The methods behind it
 
 A site's methods are `allowGuest`, and return only what the page shows — never a whole

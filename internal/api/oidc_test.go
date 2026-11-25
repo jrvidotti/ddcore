@@ -385,6 +385,79 @@ func TestSEC05_WebsiteUserLandsOnAppSite(t *testing.T) {
 	}
 }
 
+// A failed sign-in goes back to where it started when that is an app's
+// static site, which shows the failure itself; the desk and the portal show
+// it on /login, which keeps the destination for the retry (#171).
+func TestSEC05_FailureGoesBackToWhereItStarted(t *testing.T) {
+	w, _ := setupWWW(t)
+	x, idp := ssoOn(t, w)
+	x.e.Cfg.Auth.SSO = map[string]config.SSOPolicy{"fake": {Provision: &config.SSOProvision{}}}
+	who := map[string]any{"sub": "sub-back", "email": "back@gmail.com"}
+	unverified := map[string]any{"sub": "sub-back", "email": "back@gmail.com", "email_verified": false}
+	for redirect, want := range map[string]string{
+		"/r/entrar":      "/r/entrar?sso_error=unverified_email",
+		"/r/entrar?x=1":  "/r/entrar?x=1&sso_error=unverified_email",
+		"/r/#top":        "/r/?sso_error=unverified_email#top",
+		"/app":           "/login?sso_error=unverified_email",
+		"/app/Note":      "/login?sso_error=unverified_email&redirect=%2Fapp%2FNote",
+		"/portal":        "/login?sso_error=unverified_email&redirect=%2Fportal",
+		"//evil.example": "/login?sso_error=unverified_email",
+	} {
+		if loc, sid := x.ssoLogin(idp, redirect, unverified); sid != "" || loc != want {
+			t.Errorf("redirect %q: failed to %q, want %q", redirect, loc, want)
+		}
+	}
+
+	t.Run("state without the cookie", func(t *testing.T) {
+		st := x.ssoStart("/r/entrar")
+		code := engine.RandomToken()
+		idp.grant(code, st, who)
+		q := "code=" + code + "&state=" + url.QueryEscape(st.state)
+		if loc, sid := x.ssoCallback(q, nil); sid != "" || loc != "/r/entrar?sso_error=state" {
+			t.Fatalf("without cookie: %q", loc)
+		}
+		// reading where it started did not spend the state
+		if loc, sid := x.ssoCallback(q, st.cookie); sid == "" || loc != "/r/entrar" {
+			t.Fatalf("the browser that started it: %q (session %v)", loc, sid != "")
+		}
+	})
+
+	t.Run("provider error", func(t *testing.T) {
+		st := x.ssoStart("/r/entrar")
+		if loc, _ := x.ssoCallback("error=access_denied&state="+url.QueryEscape(st.state), st.cookie); loc != "/r/entrar?sso_error=provider" {
+			t.Fatalf("cancelled: %q", loc)
+		}
+	})
+
+	t.Run("unknown state", func(t *testing.T) {
+		if loc, _ := x.ssoCallback("code=x&state=nope", nil); loc != "/login?sso_error=state" {
+			t.Fatalf("without errorRedirect: %q", loc)
+		}
+		x.e.Cfg.Auth.SSO = map[string]config.SSOPolicy{"fake": {Provision: &config.SSOProvision{}, ErrorRedirect: "/r/entrar"}}
+		if loc, _ := x.ssoCallback("code=x&state=nope", nil); loc != "/r/entrar?sso_error=state" {
+			t.Fatalf("with errorRedirect: %q", loc)
+		}
+		if loc, _ := x.ssoCallback("error=access_denied", nil); loc != "/r/entrar?sso_error=provider" {
+			t.Fatalf("provider error without a state: %q", loc)
+		}
+	})
+
+	t.Run("start fails", func(t *testing.T) {
+		dead := httptest.NewServer(http.NotFoundHandler())
+		dead.Close()
+		x.e.Cfg.OIDC = append(x.e.Cfg.OIDC, config.OIDCProvider{ID: "down", Label: "Down", Issuer: dead.URL,
+			ClientID: "client-1", ClientSecret: "s3cret", Scopes: []string{"openid", "email"}})
+		res, err := noFollow.Get(x.ts.URL + "/api/auth/oidc/down/start?redirect=" + url.QueryEscape("/r/entrar"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		res.Body.Close()
+		if loc := res.Header.Get("Location"); res.StatusCode != 302 || loc != "/r/entrar?sso_error=provider" {
+			t.Fatalf("start: %d %q", res.StatusCode, loc)
+		}
+	})
+}
+
 // The domain list holds for provisioning too: outside it, nothing is created.
 func TestSEC05_ProvisionRespectsAllowedDomains(t *testing.T) {
 	x, idp := ssoEnv(t, "y.com")
@@ -581,7 +654,7 @@ func TestSEC05_InternalFailureIsNotBlamedOnTheProvider(t *testing.T) {
 	x, _ := ssoEnv(t)
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest("GET", "/api/auth/oidc/idp/callback", nil)
-	x.s.oidcFail(w, r, errors.New("the database went away"))
+	x.s.oidcFail(w, r, "idp", "/app", errors.New("the database went away"))
 	if loc := w.Header().Get("Location"); loc != "/login?sso_error=server" {
 		t.Errorf("Location = %q, want /login?sso_error=server", loc)
 	}

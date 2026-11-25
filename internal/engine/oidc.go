@@ -153,6 +153,24 @@ func SafeRedirect(to string) string {
 	return to
 }
 
+// OIDCPendingRedirect is where the sign-in with this state started, or "" when
+// no such sign-in is on record. It reads the state without spending it: a
+// failure answered before the state is checked (no cookie, the provider's own
+// error, the address throttle) must not cancel a sign-in someone else can
+// still finish, and the redirect is a path on this site, checked when it was
+// stored, so it tells the caller nothing worth guarding (#171).
+func (e *Engine) OIDCPendingRedirect(ctx context.Context, id, state string) string {
+	if state == "" {
+		return ""
+	}
+	rows, err := db.Select(ctx, e.DB.Pool, `SELECT redirect FROM ddcore_oidc_state WHERE state_hash = $1 AND provider = $2`,
+		hashToken(state), id)
+	if err != nil || len(rows) == 0 {
+		return ""
+	}
+	return SafeRedirect(db.Str(rows[0]["redirect"]))
+}
+
 // OIDCStart begins a sign-in: it records a state, a nonce and a PKCE verifier
 // and returns the provider's address to send the browser to, with the state
 // the caller must also bind to the browser.
@@ -173,9 +191,10 @@ func (e *Engine) OIDCStart(ctx context.Context, id, redirect, ip string) (authUR
 // OIDCCallback finishes a sign-in and returns the new session and where to
 // send the browser. cookieState is the state the browser carried in its own
 // cookie: the one in the query string alone proves nothing, since anyone can
-// hand a victim a link carrying the attacker's state and code.
+// hand a victim a link carrying the attacker's state and code. On a failure
+// redirect is where the sign-in started, or "" while that is not known yet
+// (#171).
 func (e *Engine) OIDCCallback(ctx context.Context, id, code, state, cookieState string, from LoginFrom) (sid, redirect string, err error) {
-	redirect = "/app"
 	ipKey := throttleKey("ssoip", from.IP)
 	p := e.Cfg.Auth
 	if from.IP != "" {
@@ -251,10 +270,14 @@ func (e *Engine) OIDCCallback(ctx context.Context, id, code, state, cookieState 
 	if err != nil {
 		return "", redirect, err
 	}
+	if len(rows) > 0 {
+		// a path on this site, checked when it was stored: an expired
+		// sign-in may still be sent back to the page that started it
+		redirect = SafeRedirect(db.Str(rows[0]["redirect"]))
+	}
 	if len(rows) == 0 || rows[0]["live"] != true || db.Str(rows[0]["provider"]) != id {
 		return "", redirect, oidcErr(OIDCErrState, errors.New("unknown, expired or foreign state"))
 	}
-	redirect = SafeRedirect(db.Str(rows[0]["redirect"]))
 	cl, err := e.oidcClientFor(ctx, id)
 	if err != nil {
 		return "", redirect, err

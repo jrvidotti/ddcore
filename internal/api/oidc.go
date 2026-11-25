@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/jrvidotti/ddcore/internal/cerr"
 	"github.com/jrvidotti/ddcore/internal/engine"
@@ -32,10 +33,11 @@ func (s *Server) oidcStart(w http.ResponseWriter, r *http.Request) {
 		s.writeErr(w, r, cerr.NotFound("Unknown sign-in provider"))
 		return
 	}
-	to, state, err := s.E.OIDCStart(r.Context(), id, r.URL.Query().Get("redirect"), clientIP(r))
+	redirect := r.URL.Query().Get("redirect")
+	to, state, err := s.E.OIDCStart(r.Context(), id, redirect, clientIP(r))
 	if err != nil {
 		s.E.Log.Warn("single sign-on could not start", "provider", id, "err", err)
-		s.oidcFail(w, r, err)
+		s.oidcFail(w, r, id, engine.SafeRedirect(redirect), err)
 		return
 	}
 	http.SetCookie(w, s.oidcCookie(r, state, int(engine.OIDCStateTTL.Seconds())))
@@ -57,14 +59,19 @@ func (s *Server) oidcCallback(w http.ResponseWriter, r *http.Request) {
 		// is left to expire: spending it here would let anyone who can make
 		// the browser load this URL cancel someone else's sign-in.
 		s.E.Log.Info("single sign-on returned an error", "provider", id, "error", q.Get("error"))
-		s.oidcFail(w, r, &engine.OIDCError{Code: engine.OIDCErrProvider})
+		s.oidcFail(w, r, id, s.E.OIDCPendingRedirect(r.Context(), id, q.Get("state")), &engine.OIDCError{Code: engine.OIDCErrProvider})
 		return
 	}
 	sid, redirect, err := s.E.OIDCCallback(r.Context(), id, q.Get("code"), q.Get("state"), cookieState, engine.LoginFrom{
 		IP: clientIP(r), UserAgent: r.UserAgent(),
 	})
 	if err != nil {
-		s.oidcFail(w, r, err)
+		if redirect == "" {
+			// refused before the state was spent (no cookie, a foreign one,
+			// the throttle): the sign-in may still be on record
+			redirect = s.E.OIDCPendingRedirect(r.Context(), id, q.Get("state"))
+		}
+		s.oidcFail(w, r, id, redirect, err)
 		return
 	}
 	if user, _ := s.E.UserFromSession(r.Context(), sid); user != "" {
@@ -76,7 +83,9 @@ func (s *Server) oidcCallback(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, redirect, http.StatusFound)
 }
 
-func (s *Server) oidcFail(w http.ResponseWriter, r *http.Request, err error) {
+// oidcFail sends a failed sign-in back with ?sso_error=<code>. redirect is
+// where the sign-in started, "" when that is not known.
+func (s *Server) oidcFail(w http.ResponseWriter, r *http.Request, provider, redirect string, err error) {
 	code := engine.OIDCErrServer
 	var oe *engine.OIDCError
 	if errors.As(err, &oe) {
@@ -84,5 +93,47 @@ func (s *Server) oidcFail(w http.ResponseWriter, r *http.Request, err error) {
 	} else {
 		s.E.Log.Error("single sign-on failed", "err", err)
 	}
-	http.Redirect(w, r, "/login?sso_error="+url.QueryEscape(code), http.StatusFound)
+	http.Redirect(w, r, s.ssoFailTarget(provider, redirect, code), http.StatusFound)
+}
+
+// ssoFailTarget is where a failed sign-in lands (#171). An app's static site
+// shows the failure itself, so a sign-in it started goes back to it. The desk
+// and the portal show it on /login, which keeps the destination so that
+// trying again goes where the first attempt was going: /app and /portal
+// would only bounce a signed-out visitor there and lose the message. When
+// where it started is not known, auth.sso.<id>.errorRedirect decides.
+func (s *Server) ssoFailTarget(provider, redirect, code string) string {
+	login := "/login?sso_error=" + url.QueryEscape(code)
+	switch {
+	case redirect == "":
+		// a page of the site's choosing, meant to read the code
+		if to := s.E.Cfg.Auth.SSO[provider].ErrorRedirect; to != "" && to != "/login" {
+			return withQuery(to, "sso_error", code)
+		}
+		return login
+	case s.isAppSite(redirect):
+		return withQuery(redirect, "sso_error", code)
+	case redirect == "/app":
+		return login
+	default:
+		return login + "&redirect=" + url.QueryEscape(redirect)
+	}
+}
+
+// withQuery adds key=value to a same-site path, after its own query and
+// before its fragment.
+func withQuery(p, key, value string) string {
+	p, frag, hasFrag := strings.Cut(p, "#")
+	sep := "?"
+	if strings.Contains(p, "?") {
+		sep = "&"
+		if strings.HasSuffix(p, "?") || strings.HasSuffix(p, "&") {
+			sep = ""
+		}
+	}
+	p += sep + url.QueryEscape(key) + "=" + url.QueryEscape(value)
+	if hasFrag {
+		p += "#" + frag
+	}
+	return p
 }

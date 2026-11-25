@@ -241,10 +241,29 @@ the sessions already open: use `ddcore user sessions <email> --revoke` for that.
 - Only a path on this site is accepted as `redirect`: `//host`, `/\host` and
   absolute URLs fall back to `/app`.
 
-A failure of the flow redirects to `/login?sso_error=<code>`, where the desk
-shows a translated message. The codes are `state`, `provider`,
-`unverified_email`, `no_account`, `disabled`, `domain`, `throttled` and
-`server`. A cancelled sign-in arrives as `provider`; a failure on our own side —
+A failure of the flow redirects with `sso_error=<code>` added to the query. The
+codes are `state`, `provider`, `unverified_email`, `no_account`, `disabled`,
+`domain`, `throttled` and `server`. Where the failure lands depends on where the
+sign-in started, its `redirect`:
+
+- **Under an app's static site** (`www`, e.g. `/atleta/entrar`): back to that
+  page, keeping its own query (`/atleta/entrar?x=1&sso_error=state`). The site
+  shows the failure itself; see `www`.
+- **Anywhere else** (the desk, the portal): `/login?sso_error=<code>`, where the
+  desk shows a translated message. The page keeps the `redirect`
+  (`&redirect=%2Fapp%2FNote`, left out for `/app`), so trying again goes where
+  the first attempt was going.
+- **Not known**: the state expired or never existed, so nothing records where
+  the sign-in started. A missing cookie (another browser, a PWA's own cookie jar)
+  is *not* this case, since the state in the query still names its sign-in and
+  is read without being spent. The failure goes to `auth.sso.<id>.errorRedirect`
+  with `sso_error` appended, or to `/login` when that is not set:
+  ```jsonc
+  { "auth": { "sso": { "google": { "errorRedirect": "/atleta/entrar" } } } }
+  ```
+  It must be a path on this site, or the load stops.
+
+ A cancelled sign-in arrives as `provider`; a failure on our own side —
 a database that went away, a bug — is `server`, so the logs do not send anyone
 to the identity provider for it. The desk shows the same general sentence for
 both.

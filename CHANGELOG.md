@@ -29,6 +29,20 @@ older series, and `whats_new` reads across every one of them.
   - The server's `ddcore.bold(v)` is deprecated and returns `String(v)`.
   - See `form-api`.
 
+### Changed
+
+- **A failed single sign-on goes back to the page that started it (#171).**
+  - A sign-in started under an app's static site (`start?redirect=/atleta/entrar`) fails back to
+    that page with `sso_error=<code>` added to its own query, so the site shows the failure
+    instead of the desk's `/login`.
+  - This covers a missing state cookie too, as from an installed PWA's own cookie jar. The state
+    in the query still names its sign-in, and is read without being spent.
+  - A desk or portal sign-in still fails to `/login?sso_error=<code>`, which now keeps
+    `&redirect=…`, so a retry goes where the first attempt was going.
+  - When the start cannot be traced (an expired state), the new `auth.sso.<id>.errorRedirect`
+    names the page, default `/login`.
+  - The codes are unchanged. See `auth`, "Single sign-on".
+
 ## 0.32.2 — 2026-11-25
 
 ### Added
