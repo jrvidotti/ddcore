@@ -434,6 +434,7 @@ defineForm<Charge>("Charge", {
     transactions: {                       // a Report field; its report returns an `action` column
       onCellClick: {
         async action(frm, row) {
+          // the message is text, so the row's values need no escaping
           if (!(await ddcore.ui.confirm(__("{0} {1}?", [row.action, row.id])))) return;
           await frm.call("rowAction", { id: row.id }, { reload: true });
         },
@@ -492,7 +493,17 @@ defineForm<Charge>("Charge", {
   }).show();
   ```
   The server method checks it with `ddcore.crypto.pfxInfo` before storing it in the vault. See `controller-api`.
-- `ddcore.ui.msgprint(msg, { title, indicator })`, `ddcore.ui.toast`, `ddcore.ui.confirm(msg, title?, { destructive? })` (with `destructive: true` the confirm button is red and "No" is the primary, so Enter keeps the data and `Delete` — ⌫ on a Mac — confirms), `ddcore.ui.prompt(title, fields)`, `ddcore.ui.showError(e)`
+- `ddcore.ui.msgprint(msg, { title, indicator, html? })`, `ddcore.ui.toast(msg, { title, indicator, timeout, html? })`, `ddcore.ui.confirm(msg, title?, { destructive?, html? })` (with `destructive: true` the confirm button is red and "No" is the primary, so Enter keeps the data and `Delete` — ⌫ on a Mac — confirms), `ddcore.ui.prompt(title, fields)`, `ddcore.ui.showError(e)`
+- The message of `msgprint`, `alert`, `toast`, `confirm` and a dialog's `message` is **text**: a
+  document's data goes in as it is, and `<img onerror=…>` in a name shows as those characters.
+  Server messages (`ddcore.throw`, `ddcore.msgprint`) are text too. For markup, pass `html: true`
+  (on a dialog spec, next to `message`) and escape every value in it with `escapeHtml`:
+  ```ts
+  import { ddcore, escapeHtml } from "@ddcore/desk-sdk";
+
+  ddcore.ui.toast(__("CREF {0} copied", [frm.doc.cref]));                 // text: nothing to escape
+  await ddcore.ui.confirm(__("Verify {0}?", [`<b>${escapeHtml(frm.doc.full_name)}</b>`]), undefined, { html: true });
+  ```
 - `ddcore.session` → `{ user, fullName, roles, lang }`, the signed-in user as the desk loaded it,
   and `ddcore.hasRole(role)`. They mirror the server's `ddcore.session` and decide what the desk
   *shows*: a button for the roles the server will accept. They grant nothing, so the method the

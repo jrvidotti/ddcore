@@ -74,7 +74,7 @@
     <div class="modal {d.spec.size || 'md'}">
       <div class="head"><h3>{d.spec.title}</h3><button class="btn icon" onclick={() => cancel(d)} aria-label={__("Close")}><Icon name="x" /></button></div>
       <div class="body">
-        {#if d.spec.message}<p style="margin:0 0 12px">{@html d.spec.message}</p>{/if}
+        {#if d.spec.message}<p class="message">{#if d.spec.html}{@html d.spec.message}{:else}{d.spec.message}{/if}</p>{/if}
         {#each layout(d.spec.fields || []) as fields}
           {#each packLines(fields, undefined, DIALOG_SLOTS) as line}
             <div class="form-row">

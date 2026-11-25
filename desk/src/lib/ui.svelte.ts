@@ -4,7 +4,8 @@ import type { DialogAction, DialogHandle as PublicDialogHandle, DialogSpec as Pu
 import type { Field } from "./meta";
 import { __ } from "./boot.svelte";
 
-export interface Toast { id: number; message: string; title?: string; indicator?: string; timeout?: number }
+/** A toast's message is text; `html: true` renders it as markup (#170). */
+export interface Toast { id: number; message: string; title?: string; indicator?: string; timeout?: number; html?: boolean }
 export type { DialogAction };
 /** The desk's dialogs also take the DocType's own (looser) fields. */
 export type DialogSpec = Omit<PublicDialogSpec, "fields"> & { fields?: Field[] };
@@ -18,7 +19,7 @@ export const ui = $state<{ toasts: Toast[]; dialogs: DialogHandle[]; busy: numbe
 
 let seq = 0;
 
-export function toast(message: string, opts: { title?: string; indicator?: string; timeout?: number } = {}) {
+export function toast(message: string, opts: { title?: string; indicator?: string; timeout?: number; html?: boolean } = {}) {
   const t: Toast = { id: ++seq, message, ...opts };
   ui.toasts.push(t);
   setTimeout(() => { const i = ui.toasts.findIndex((x) => x.id === t.id); if (i >= 0) ui.toasts.splice(i, 1); }, opts.timeout ?? 5000);
@@ -75,11 +76,14 @@ export interface ConfirmOptions {
    * a danger button and "No" becomes the primary one, so Enter keeps the data.
    */
   destructive?: boolean;
+  /** The message is markup, not text. Escape every value in it with escapeHtml. */
+  html?: boolean;
 }
 
 /**
- * Escapes text for a dialog message, which is rendered as HTML: a document's
- * title or id is data someone typed, and must not become markup.
+ * Escapes text for markup: a message passed with `html: true`, or a dialog's
+ * HTML field. A document's title or id is data someone typed, and must not
+ * become markup. A message without `html: true` is text and needs none (#170).
  */
 export function escapeHtml(s: unknown): string {
   return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
@@ -88,7 +92,7 @@ export function escapeHtml(s: unknown): string {
 
 export function confirm(message: string, title?: string, opts: ConfirmOptions = {}): Promise<boolean> {
   return new Promise((resolve) => {
-    const base = { title: title ?? __("Confirm"), message, size: "sm" as const };
+    const base = { title: title ?? __("Confirm"), message, html: opts.html, size: "sm" as const };
     const h = opts.destructive
       ? dialog({
         ...base, hideSecondary: true,

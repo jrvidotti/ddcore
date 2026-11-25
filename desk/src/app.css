@@ -135,12 +135,15 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
 .toast { background: #1f2937; color: #fff; padding: 10px 14px; border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.2); font-size: 13px; border-left: 4px solid var(--blue); }
 .toast.red { border-left-color: var(--red); } .toast.green { border-left-color: var(--green); } .toast.orange { border-left-color: var(--orange); }
 .toast .t { font-weight: 600; margin-bottom: 2px; }
+/* a message is text (#170): its line breaks are the only layout it carries */
+.toast .m { white-space: pre-line; overflow-wrap: anywhere; }
 .modal-bg { position: fixed; inset: 0; background: var(--overlay); z-index: 60; display: flex; align-items: flex-start; justify-content: center; padding: 60px 16px; overflow: auto; }
 .modal { background: var(--surface); border-radius: 10px; width: 100%; max-width: 640px; box-shadow: 0 20px 60px rgba(0,0,0,.3); }
 .modal.sm { max-width: 420px; } .modal.lg { max-width: 900px; }
 .modal .head { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; }
 .modal .head h3 { flex: 1; font-size: 15px; display: flex; align-items: center; gap: 8px; }
 .modal .body { padding: 16px 20px; }
+.modal .body .message { margin: 0 0 12px; white-space: pre-line; overflow-wrap: anywhere; }
 .modal :is(.form-group > .label, legend.label) { display: block; font-size: 12px; font-weight: 500; margin-bottom: 4px; color: var(--muted); }
 .modal :is(.form-group > .label, legend.label).reqd::after { content: " *"; color: var(--red); }
 .modal .form-group { display: flex; flex-direction: column; }

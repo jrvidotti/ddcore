@@ -925,7 +925,8 @@
       if (args) s = s.replace(/\{(\d+)\}/g, (m, i) => (args[i] === undefined ? m : String(args[i])));
       return s;
     },
-    bold(v) { return "<b>" + String(v) + "</b>"; },
+    // Deprecated: messages are text (#170), so markup would show literally.
+    bold(v) { return String(v); },
     cache: {
       get(key) { return call("cache.get", { key }); },
       set(key, value, ttl) { call("cache.set", { key, value, ttl }); },

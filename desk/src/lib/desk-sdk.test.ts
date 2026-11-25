@@ -7,6 +7,7 @@ vi.mock("./ui.svelte", () => ({
   confirm: vi.fn(),
   prompt: vi.fn(),
   showError: vi.fn(),
+  escapeHtml: (s: unknown) => `esc(${s})`,
   ui: { busy: 0 },
 }));
 const bootState = vi.hoisted(() => ({ data: null as any }));
@@ -136,5 +137,16 @@ describe("ddcore.call", () => {
     await expect(deskSDK.ddcore.call("app.services.x.list")).rejects.toThrow("refused");
     expect(ui.busy).toBe(0);
     spy.mockRestore();
+  });
+});
+
+describe("ddcore.ui messages (#170)", () => {
+  it("passes msgprint's html opt-in on to the toast, and exports escapeHtml", async () => {
+    const { toast } = await import("./ui.svelte");
+    deskSDK.ddcore.ui.msgprint("plain");
+    deskSDK.ddcore.ui.msgprint("<b>x</b>", { html: true });
+    expect(toast).toHaveBeenNthCalledWith(1, "plain", { title: undefined, indicator: "blue", html: undefined });
+    expect(toast).toHaveBeenNthCalledWith(2, "<b>x</b>", { title: undefined, indicator: "blue", html: true });
+    expect(deskSDK.escapeHtml("<")).toBe("esc(<)");
   });
 });

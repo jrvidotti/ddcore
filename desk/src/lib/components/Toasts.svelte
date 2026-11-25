@@ -6,7 +6,7 @@
   {#each ui.toasts as t (t.id)}
     <div class="toast {t.indicator || 'blue'}" role="status">
       {#if t.title}<div class="t">{t.title}</div>{/if}
-      <div>{@html t.message}</div>
+      <div class="m">{#if t.html}{@html t.message}{:else}{t.message}{/if}</div>
     </div>
   {/each}
 </div>

@@ -10,7 +10,7 @@ import { seg } from "./routes";
 import { api } from "./api";
 import { subscribe, unsubscribe } from "./events";
 import { registerForm, type FormHandlers, FormController } from "./form.svelte";
-import { dialog, toast, confirm, prompt, showError, ui } from "./ui.svelte";
+import { dialog, toast, confirm, prompt, showError, ui, escapeHtml } from "./ui.svelte";
 import { __, boot, hasRole } from "./boot.svelte";
 import { formatCurrency, formatDate, formatNumber, formatValue, roundCurrency, statusColor } from "./format";
 import { getMeta } from "./meta";
@@ -49,6 +49,7 @@ export const deskSDK = {
   },
   profileSections(): ProfileSection[] { return [...profileRegistry]; },
   FormController,
+  escapeHtml,
   ddcore: {
     _: __,
     __,
@@ -97,7 +98,7 @@ export const deskSDK = {
       setValue: (doctype: string, id: string, values: any) => api.update(doctype, id, values),
       insert: (doc: any) => api.insert(doc.doctype, doc),
     },
-    ui: { Dialog: dialog, dialog, msgprint: (m: string, o: any = {}) => toast(m, { title: o.title, indicator: o.indicator || "blue" }), alert: (m: string) => toast(m, { indicator: "blue" }), confirm, prompt, showError, toast,
+    ui: { Dialog: dialog, dialog, msgprint: (m: string, o: any = {}) => toast(m, { title: o.title, indicator: o.indicator || "blue", html: o.html }), alert: (m: string) => toast(m, { indicator: "blue" }), confirm, prompt, showError, toast,
       // a site with feedback off has no modal to open
       openFeedback: (opts?: FeedbackPreset) => { if (boot.data?.site?.feedback) openFeedback(opts); } },
     // roundCurrency is here so a form script that totals a grid rounds the way

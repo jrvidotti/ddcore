@@ -14,6 +14,21 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Breaking
+
+- **Messages shown by the desk are text, not markup (#170).** This is a security fix: a message
+  built from a document's data (`__("Did the lookup show {0}?", [frm.doc.full_name])`) ran any
+  `<img onerror=…>` someone had typed into that field, for whoever clicked the button. The change
+  covers `ddcore.ui.toast`, `confirm`, `msgprint`, `alert`, a dialog's `message`, and the server's
+  `ddcore.throw` and `ddcore.msgprint`.
+  - Line breaks in a message still show.
+  - Upgrade path: a message that really carries markup passes `{ html: true }` (on a dialog spec,
+    next to `message`) and escapes every value in it with `escapeHtml`, now exported from
+    `@ddcore/desk-sdk`. A message that only escaped values to be safe can drop the escaping:
+    `&amp;` would now show literally.
+  - The server's `ddcore.bold(v)` is deprecated and returns `String(v)`.
+  - See `form-api`.
+
 ## 0.32.2 — 2026-11-25
 
 ### Added

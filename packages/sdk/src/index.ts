@@ -495,11 +495,17 @@ export interface DDCoreAPI {
   /**
    * Aborts the transaction with a typed error. Over HTTP it answers the type's
    * status with `{"error": {type, title, message, extra, requestId}}`; a 5xx
-   * also writes an Error Log row. See `ThrowOpts` and `controller-api`.
+   * also writes an Error Log row. The desk shows the message as text, never
+   * as markup (#170). See `ThrowOpts` and `controller-api`.
    */
   throw(message: string, opts?: ThrowOpts): never;
+  /** The message is shown as text, never as markup (#170). */
   msgprint(message: string, opts?: { title?: string; indicator?: string; alert?: boolean }): void;
   _(text: string, args?: any[]): string;
+  /**
+   * @deprecated Messages are text (#170), so this returns `String(v)`
+   * unchanged. Write the value itself.
+   */
   bold(v: any): string;
   cache: { get(key: string): any; set(key: string, value: any, ttlSeconds?: number): void; del(key: string): void };
   http: {

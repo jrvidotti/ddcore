@@ -243,7 +243,13 @@ export interface DialogSpec {
    */
   actions?: DialogAction[];
   onChange?: (fieldname: string, values: Record<string, any>, dialog: DialogHandle) => void;
+  /** text shown above the fields; markup only with `html: true` */
   message?: string;
+  /**
+   * `message` is markup, not text. Every value placed in it must go through
+   * `escapeHtml`: a document's data is what someone typed (#170).
+   */
+  html?: boolean;
   size?: "sm" | "md" | "lg";
 }
 
@@ -411,13 +417,19 @@ export interface DeskAPI {
   ui: {
     Dialog(spec: DialogSpec): DialogHandle;
     dialog(spec: DialogSpec): DialogHandle;
-    msgprint(message: string, opts?: { title?: string; indicator?: string }): void;
+    /**
+     * The messages of `msgprint`, `alert`, `confirm` and `toast` are **text**:
+     * `__("Delete {0}?", [frm.doc.title])` is safe whatever the title holds.
+     * `html: true` renders the message as markup instead; escape every value
+     * in it with `escapeHtml`.
+     */
+    msgprint(message: string, opts?: { title?: string; indicator?: string; html?: boolean }): void;
     alert(message: string): void;
     /** `destructive`: the confirm button is a danger one and "No" is the primary, so Enter keeps the data and Delete confirms. */
-    confirm(message: string, title?: string, opts?: { destructive?: boolean }): Promise<boolean>;
+    confirm(message: string, title?: string, opts?: { destructive?: boolean; html?: boolean }): Promise<boolean>;
     prompt(title: string, fields: DialogField[], primaryLabel?: string): Promise<Record<string, any> | null>;
     showError(e: any): void;
-    toast(message: string, opts?: { title?: string; indicator?: string; timeout?: number }): void;
+    toast(message: string, opts?: { title?: string; indicator?: string; timeout?: number; html?: boolean }): void;
     /**
      * Opens the Feedback modal of the user menu, with the type and title
      * filled in when given. Does nothing on a site where feedback is off.
@@ -754,6 +766,11 @@ export interface ProfileSection<D = any> {
 
 export declare function defineProfileSection<D = any>(section: ProfileSection<D>): void;
 export declare const ddcore: DeskAPI;
+/**
+ * Escapes `& < > " '` so a value can go into markup: a message passed with
+ * `html: true`, or a dialog's HTML field (`setHtml`).
+ */
+export declare function escapeHtml(s: unknown): string;
 export declare const _: DeskAPI["_"];
 
 declare global {

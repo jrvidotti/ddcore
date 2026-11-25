@@ -60,6 +60,7 @@ export async function quickCreate(doctype: string, text = ""): Promise<{ id: str
       values: prefill,
       primaryLabel: __("Create"),
       message: `<a href="${escapeHtml(newFormUrl(doctype, prefill))}" target="_blank" rel="noopener">${escapeHtml(fullForm)}</a>`,
+      html: true,
       primaryAction: async (values) => {
         const saved: any = await api.insert(doctype, { ...values, doctype });
         resolve({ id: saved.id, title: String((d.titleField && saved[d.titleField]) || saved.id), doc: saved });
