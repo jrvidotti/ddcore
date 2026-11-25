@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.32.2 — 2026-11-25
+
 ### Added
 
 - **An app's static site can own the site root (#169).** `www: { "/atleta": { dir: "client/athlete/build", root: true } }`
