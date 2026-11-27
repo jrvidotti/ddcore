@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.33.2 — 2026-11-27
+
 ### Fixed
 
 - **The report page no longer runs `execute` without the filters' defaults (#173).** It opened by
