@@ -100,6 +100,9 @@ type loadOpts struct {
 	NoDB bool
 	// Quiet logs warnings and errors only.
 	Quiet bool
+	// FilesDir keeps uploads on the local disk under this directory, whatever
+	// storage the site configures: `ddcore test` points it at a temporary one.
+	FilesDir string
 }
 
 // serveOpts is how `start` and `dev` load the engine.
@@ -159,6 +162,9 @@ func engineConfig(cfg *config.File, o loadOpts) (engine.Config, error) {
 	}
 	if o.NoDB {
 		ec.DSN = ""
+	}
+	if o.FilesDir != "" {
+		ec = ec.WithLocalFiles(o.FilesDir)
 	}
 	return ec, nil
 }
@@ -567,24 +573,38 @@ func writeTypes(e *engine.Engine, cfg *config.File) error {
 	return err
 }
 
-func testFlags() (*flag.FlagSet, *string, *bool, *string) {
+func testFlags() (*flag.FlagSet, *string, *bool, *string, *bool) {
 	fs := newFlagSet("test")
 	filter := fs.String("filter", "", "regex over the test's name and file")
 	verbose := fs.Bool("v", false, "list every test")
 	app := fs.String("app", "", "run the tests of one loaded app")
-	return fs, filter, verbose, app
+	siteStorage := fs.Bool("site-storage", false, "save the tests' files where the site does (its bucket) instead of a temporary directory")
+	return fs, filter, verbose, app, siteStorage
 }
 
 func cmdTest(args []string) error {
-	fs, filter, verbose, app := testFlags()
+	fs, filter, verbose, app, siteStorage := testFlags()
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
 	if fs.NArg() > 0 && *filter == "" {
 		*filter = fs.Arg(0)
 	}
-	return withSite(loadOpts{Test: true}, func(e *engine.Engine, _ *config.File) error {
+	// The tests' files go to a directory of their own, removed at the end: on
+	// the site's bucket each one cost a round trip and outlived the rolled-back
+	// transaction (#174). --site-storage keeps the site's storage.
+	o := loadOpts{Test: true}
+	if !*siteStorage {
+		dir, err := os.MkdirTemp("", "ddcore-test-files-")
+		if err != nil {
+			return err
+		}
+		defer os.RemoveAll(dir)
+		o.FilesDir = dir
+	}
+	return withSite(o, func(e *engine.Engine, cfg *config.File) error {
 		ctx := context.Background()
+		fmt.Println("storage: " + testStorageSummary(cfg, o.FilesDir))
 		if *app != "" {
 			found := false
 			for _, loaded := range e.Current().Apps {
@@ -624,6 +644,14 @@ func cmdTest(args []string) error {
 		}
 		return nil
 	})
+}
+
+// testStorageSummary names where `ddcore test` saves the tests' files.
+func testStorageSummary(cfg *config.File, filesDir string) string {
+	if filesDir != "" {
+		return "local, a temporary directory removed after the run (--site-storage uses the site's)"
+	}
+	return storageSummary(cfg) + ", the site's: files saved there outlive the rolled-back transactions"
 }
 
 func execFlags() (*flag.FlagSet, *string, *string) {

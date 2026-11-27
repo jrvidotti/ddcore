@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -233,7 +234,13 @@ func (s *server) dataTools(srv *mcp.Server) {
 		func(ctx context.Context, in struct {
 			Filter string `json:"filter,omitempty"`
 		}) (any, error) {
-			te, err := engine.New(ctx, testConfig(e))
+			// the tests' files go to a directory of their own, never the site's bucket (#174)
+			dir, err := os.MkdirTemp("", "ddcore-test-files-")
+			if err != nil {
+				return nil, err
+			}
+			defer os.RemoveAll(dir)
+			te, err := engine.New(ctx, testConfig(e).WithLocalFiles(dir))
 			if err != nil {
 				return nil, err
 			}

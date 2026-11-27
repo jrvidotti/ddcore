@@ -14,6 +14,19 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- **`ddcore test` no longer writes to the site's bucket (#174).** On a site with
+  `DDCORE_STORAGE=s3`, every test that saved or deleted a file went to the real bucket. That made
+  a large suite about three times slower, and left objects there that the rolled-back
+  transaction could not take back out.
+  - `ddcore test` and the MCP `run_tests` now keep the tests' files in a temporary local
+    directory, removed at the end, whatever `DDCORE_STORAGE` says.
+  - `ddcore test` prints the backend it uses on its first line (`storage: …`).
+  - A `.env` with `DDCORE_S3_FALLBACK_PREFIX` no longer has to be edited to run the suite locally.
+  - `ddcore test --site-storage` uses the site's storage, for a test that needs the bucket.
+  - See `storage` and `cli`.
+
 ## 0.33.2 — 2026-11-27
 
 ### Fixed

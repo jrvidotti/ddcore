@@ -242,7 +242,7 @@ func TestSingleDashFlagFormIsAccepted(t *testing.T) {
 }
 
 func TestTestFlagsAcceptsApp(t *testing.T) {
-	fs, _, _, app := testFlags()
+	fs, _, _, app, _ := testFlags()
 	if err := parseFlags(fs, []string{"--app", "exemplo"}); err != nil {
 		t.Fatal(err)
 	}
@@ -354,6 +354,35 @@ func TestTenantFlagIsForOneShotCommandsAndMCP(t *testing.T) {
 		if _, err := engineConfig(cfg, opts); err == nil || !strings.Contains(err.Error(), "--tenant") {
 			t.Errorf("%s: expected --tenant to be refused, got %v", name, err)
 		}
+	}
+}
+
+// `ddcore test` keeps the tests' files on the local disk, in a directory of
+// its own, whatever storage the site configures: a bucket with a read fallback
+// included, which DDCORE_STORAGE=local alone would refuse to boot (#174).
+func TestTestRunnerKeepsFilesOffTheSiteStorage(t *testing.T) {
+	cfg := &config.File{DSN: "postgres://unused/unused", Path: "ddcore.json", DataDir: "/srv/data",
+		Storage: config.Storage{Backend: config.StorageS3, S3: config.S3{Endpoint: "r2.example", Bucket: "site", Fallback: true, FallbackPrefix: "prod"}}}
+	ec, err := engineConfig(cfg, loadOpts{Test: true, FilesDir: "/tmp/ddcore-test-files-1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ec.Storage.Backend != config.StorageLocal || ec.Storage.S3.Fallback || ec.DataDir != "/tmp/ddcore-test-files-1" {
+		t.Fatalf("storage = %+v, DataDir = %q", ec.Storage, ec.DataDir)
+	}
+	// without FilesDir (--site-storage, or any other command) the site's storage stands
+	if ec, _ := engineConfig(cfg, loadOpts{Test: true}); ec.Storage.Backend != config.StorageS3 || ec.DataDir != "/srv/data" {
+		t.Fatalf("site storage replaced: %+v, DataDir = %q", ec.Storage, ec.DataDir)
+	}
+	if got := testStorageSummary(cfg, "/tmp/x"); !strings.HasPrefix(got, "local, a temporary directory") {
+		t.Fatalf("summary = %q", got)
+	}
+	if got := testStorageSummary(cfg, ""); !strings.HasPrefix(got, "s3 r2.example/site") || !strings.Contains(got, "outlive") {
+		t.Fatalf("summary = %q", got)
+	}
+	fs, _, _, _, site := testFlags()
+	if err := parseFlags(fs, []string{"--site-storage"}); err != nil || !*site {
+		t.Fatalf("--site-storage = %v, err = %v", *site, err)
 	}
 }
 
@@ -697,7 +726,7 @@ func TestSplitListTrimsAndDropsEmpties(t *testing.T) {
 func TestHelpFlagPrintsTheOptions(t *testing.T) {
 	// `ddcore test -h` failed with "unknown flag: -h (run `ddcore test -h` ...)"
 	for _, h := range []string{"-h", "--help", "-help"} {
-		fs, _, _, _ := testFlags()
+		fs, _, _, _, _ := testFlags()
 		var out strings.Builder
 		fs.Usage = func() { fs.SetOutput(&out); fs.PrintDefaults() }
 		if err := parseFlags(fs, []string{"cobranca", h}); err != errHelpShown {

@@ -1467,6 +1467,17 @@ func (e *Engine) AppDir(name string) string {
 }
 
 // RunTests executes the app tests inside one rolled-back transaction.
+// WithLocalFiles is the configuration with its uploads on the local disk under
+// dir, whatever storage the site configures. The test runners (`ddcore test`,
+// the MCP run_tests) hand it a temporary directory: a test's files go nowhere
+// near the site's bucket, where each one cost a round trip and outlived the
+// transaction the test rolled back (#174).
+func (c Config) WithLocalFiles(dir string) Config {
+	c.Storage = config.Storage{Backend: config.StorageLocal}
+	c.DataDir = dir
+	return c
+}
+
 func (e *Engine) RunTests(ctx context.Context, filter, app string) ([]js.TestResult, error) {
 	if !e.Cfg.Test {
 		return nil, fmt.Errorf("the engine was not loaded in test mode")

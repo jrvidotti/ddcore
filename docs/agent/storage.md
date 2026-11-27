@@ -50,6 +50,12 @@ the `storage` field of `doctor --json`.
 Object keys are `<prefix>/public/<name>` and `<prefix>/private/<name>`: the
 same layout as the local `files/` directory.
 
+**Tests never use the configured storage.** `ddcore test` and the MCP `run_tests` keep the
+tests' files on the local disk, in a temporary directory removed at the end, whatever
+`DDCORE_STORAGE` (and `DDCORE_S3_FALLBACK_PREFIX`) say. A rolled-back transaction cannot take
+an object back out of a bucket, and each file would cost a round trip. `ddcore test
+--site-storage` opts into the site's storage, for a test that is about the bucket itself.
+
 ## Access
 
 - **Keep the bucket private.** Public files are not served from a public bucket

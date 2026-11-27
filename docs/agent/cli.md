@@ -39,7 +39,7 @@ prints that command's options, or its subcommands for a command such as `import`
 | `ddcore migrate [--dry-run] [--prune]` | beforeSchema patches → DDL → afterInstall + fixtures → afterSchema patches → the drops → afterMigrate, in one transaction; then generates types. `--dry-run` reports the plan; a rename or conversion it cannot make safely is refused and nothing is applied (`migrations`) |
 | `ddcore types` | generates `.ddcore/types.d.ts` and materialises the embedded SDK typings per app; needs no database |
 | `ddcore i18n extract [--app n\|--all] [--lang pt-BR] [--check] [--prune]` | rewrites `translations/<lang>.csv` from the code; `--check` reports and exits non-zero |
-| `ddcore test [--app name] [--filter re] [-v]` | runs `*.test.ts` (each `it` in a rolled-back transaction) |
+| `ddcore test [--app name] [--filter re] [-v] [--site-storage]` | runs `*.test.ts` (each `it` in a rolled-back transaction). The tests' files go to a temporary local directory, removed at the end, whatever `DDCORE_STORAGE` says; the first line names it (`storage: …`). `--site-storage` uses the site's storage instead, and a file saved there outlives the rollback |
 | `ddcore exec app.mod.fn [--args '{}' \| --args - \| --args-file f.json]` | runs a function as Admin. `--args -` reads the JSON from stdin and `--args-file` from a file (`-` is stdin too), which keeps a payload carrying personal data out of argv — where `ps` shows it to every user of the host — and past `ARG_MAX`: `ddcore --tenant acme exec app.services.legacy.apply --args - < stores.json` |
 | `ddcore eval '<ts>' [--commit]` | runs loose TS with `ddcore.*` (rolls back by default) |
 | `ddcore demo [--app name]` | runs `<app>.services.demo.generate` for every app that has `services/demo.ts` |
