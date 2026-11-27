@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.33.5 — 2026-11-27
+
 ### Added
 
 - **`descriptionPlacement: "tooltip"` on a field or a report filter (#176).** The description
