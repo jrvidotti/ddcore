@@ -304,17 +304,23 @@ value *is* its key: `_(row.status)` and nothing else. See `docs/agent/i18n.md`.
 ### Setup (once)
 
 ```bash
-make docker-up                               # dev Postgres (container ddcore-pg, port 5455)
+make docker-up                               # dev Postgres (ddcore-pg, 5455) + the tests' (ddcore-pg-test, 5456)
 make build                                   # desk (npm) + the binary at bin/ddcore
 make migrate                                 # the core's DDL + the fixture app; prints the Admin password
 ./bin/ddcore demo                            # demonstration data (idempotent)
 make dev                                     # http://localhost:8090
 ```
 
-Requirements: Docker, Go and Node.js. The Go tests use databases named after `ddcore_test` plus
-the process id (`ddcore_test_p12345…`), so two runs at once never drop each other's; each run
-drops its own at the end, and the next run sweeps what a killed one left. A test gets a copy of a
-template migrated once per app (`internal/testdb`), not a migrate of its own.
+Requirements: Docker, Go and Node.js. The Go tests run on their own cluster, `ddcore-pg-test`
+(port 5456): in memory and without durability, because every test creates and drops a database,
+and on the dev cluster each drop waited for a checkpoint that fsyncs hundreds of new files. When
+it is not running they fall back to `ddcore-pg` (5455), slower, and say so. They use databases
+named after `ddcore_test` plus the process id (`ddcore_test_p12345…`), so two runs at once never
+drop each other's; each run drops its own at the end, and the next run sweeps what a killed one
+left. A test gets a copy of a template migrated once per app (`internal/testdb`), not a migrate
+of its own. `make test-go` (part of `make test`) runs `scripts/test-go.sh`: every package of
+`./internal/...`, with `internal/engine` and `internal/api` — each over a minute alone — split
+into shards that run side by side (`ENGINE_SHARDS`, `API_SHARDS`; flags through `GOTESTFLAGS`).
 `DDCORE_DSN` and `DDCORE_TEST_DSN` override the DSN of any command.
 
 ### The two loops

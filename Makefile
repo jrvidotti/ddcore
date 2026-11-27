@@ -57,8 +57,11 @@ test-race: ## race detector over the reload tests (engine TestB08, *Reload*; api
 test-desk: ## svelte-check + desk unit tests
 	cd desk && npm run check && npm run test
 
+test-go: ## Go tests, internal/engine and internal/api split across processes (scripts/test-go.sh)
+	scripts/test-go.sh $(GOTESTFLAGS)
+
 test: build vet ## run Go and desk tests
-	go test ./internal/...
+	$(MAKE) test-go
 	./bin/ddcore test --app testapp
 	$(MAKE) test-desk
 

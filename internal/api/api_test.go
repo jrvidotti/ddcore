@@ -159,8 +159,11 @@ func setupSite(t *testing.T, appDir string, tenancy bool) *env {
 	// lets the language-negotiation tests tell the two apart.
 	cfg := engine.Config{DSN: testDSN(), Apps: []js.App{{Name: "demo", Dir: appDir}}, Test: true, DataDir: t.TempDir(), Dev: true,
 		Lang: "pt-BR", Currency: "BRL", Storage: testStorage(t), Tenancy: tenancy}
-	// a copy of a database migrated once per app (see testdb), not a migrate per test
-	err := testdb.Fresh(ctx, cfg.DSN, testdb.Key([]string{appDir}, fmt.Sprint("pt-BR BRL dev test", tenancy)), func(dsn string) error {
+	// a copy of a database migrated once per app (see testdb), not a migrate per test. The
+	// template also holds the test users and Admin's password: five Argon2 hashes (64 MiB,
+	// ~30ms each) paid once per process instead of in every test. "users" in the key keeps a
+	// template made without them from being reused.
+	err := testdb.Fresh(ctx, cfg.DSN, testdb.Key([]string{appDir}, fmt.Sprint("pt-BR BRL dev test", tenancy), "users"), func(dsn string) error {
 		tc := cfg
 		tc.DSN = dsn
 		e, err := engine.New(ctx, tc)
@@ -174,7 +177,7 @@ func setupSite(t *testing.T, appDir string, tenancy bool) *env {
 		if plan, _ := e.Plan(ctx, false); len(plan) != 0 {
 			return fmt.Errorf("migrate is not idempotent: %v", plan)
 		}
-		return nil
+		return seedUsers(ctx, e)
 	})
 	if errors.Is(err, testdb.ErrUnavailable) && os.Getenv("DDCORE_TEST_DSN") == "" {
 		t.Skip(err)
@@ -192,9 +195,14 @@ func setupSite(t *testing.T, appDir string, tenancy bool) *env {
 	s.Router.Handle("/mcp/*", s.RequireAdminAPIKey(s.MCPHandler))
 	ts := httptest.NewServer(s.Router)
 	t.Cleanup(func() { ts.Close(); e.DB.Close() })
-	x := &env{t: t, e: e, s: s, ts: ts, ctx: ctx}
-	// users: ana (Gestor), ze (no role), root (System Manager)
-	x.asAdmin(func(c *engine.Ctx) error {
+	return &env{t: t, e: e, s: s, ts: ts, ctx: ctx}
+}
+
+// seedUsers writes the users every api test signs in as into the template: ana and bia
+// (Gestor), ze (no role), root (System Manager), all with "segredo123", and Admin with
+// "admin12345".
+func seedUsers(ctx context.Context, e *engine.Engine) error {
+	err := e.Run(ctx, "Admin", func(c *engine.Ctx) error {
 		for _, u := range []struct{ email, role string }{{"ana@x.com", "Gestor"}, {"bia@x.com", "Gestor"}, {"ze@x.com", ""}, {"root@x.com", "System Manager"}} {
 			d, _ := c.NewDoc("User", engine.Doc{"email": u.email, "full_name": u.email, "new_password": "segredo123"})
 			if u.role != "" {
@@ -206,10 +214,10 @@ func setupSite(t *testing.T, appDir string, tenancy bool) *env {
 		}
 		return nil
 	})
-	if err := e.SetPassword(ctx, "Admin", "admin12345"); err != nil {
-		t.Fatal(err)
+	if err != nil {
+		return err
 	}
-	return x
+	return e.SetPassword(ctx, "Admin", "admin12345")
 }
 
 func (x *env) asAdmin(fn func(c *engine.Ctx) error) {

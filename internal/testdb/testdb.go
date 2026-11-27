@@ -37,9 +37,46 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-// DefaultDSN is the test cluster when DDCORE_TEST_DSN is not set: the
-// `ddcore-pg` container from docker-compose.yml.
-const DefaultDSN = "postgres://ddcore:ddcore@localhost:5455/ddcore_test?sslmode=disable"
+// DefaultDSN is the test cluster when DDCORE_TEST_DSN is not set: the in-memory
+// `ddcore-pg-test` container from docker-compose.yml.
+const DefaultDSN = "postgres://ddcore:ddcore@localhost:5456/ddcore_test?sslmode=disable"
+
+// FallbackDSN is the dev cluster (`ddcore-pg`), used when DefaultDSN does not answer: the
+// tests still run, slower, instead of skipping for want of a database.
+const FallbackDSN = "postgres://ddcore:ddcore@localhost:5455/ddcore_test?sslmode=disable"
+
+var (
+	defaultOnce sync.Once
+	defaultBase string
+)
+
+// defaultDSN is DefaultDSN when its cluster answers, else FallbackDSN when that one does,
+// saying so once; with neither, DefaultDSN, and the suites skip as before.
+func defaultDSN() string {
+	defaultOnce.Do(func() {
+		defaultBase = DefaultDSN
+		if reachable(DefaultDSN) {
+			return
+		}
+		if reachable(FallbackDSN) {
+			defaultBase = FallbackDSN
+			fmt.Fprintln(os.Stderr, "testdb: the test Postgres (ddcore-pg-test, port 5456) is not running; "+
+				"using the dev one on 5455, which is slower. `make docker-up` starts it.")
+		}
+	})
+	return defaultBase
+}
+
+func reachable(dsn string) bool {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	c, err := pgx.Connect(ctx, AdminDSN(dsn))
+	if err != nil {
+		return false
+	}
+	c.Close(ctx)
+	return true
+}
 
 // ErrUnavailable wraps a failure to reach the cluster at all, which a suite
 // skips on unless DDCORE_TEST_DSN was set explicitly.
@@ -48,12 +85,12 @@ var ErrUnavailable = errors.New("postgres unavailable")
 // pidTag is what makes this process's database names its own.
 var pidTag = "_p" + strconv.Itoa(os.Getpid())
 
-// BaseDSN is DDCORE_TEST_DSN (or DefaultDSN) with this process's tag on the
+// BaseDSN is DDCORE_TEST_DSN (or DefaultDSN, see defaultDSN) with this process's tag on the
 // database name: ddcore_test becomes ddcore_test_p12345.
 func BaseDSN() string {
 	base := os.Getenv("DDCORE_TEST_DSN")
 	if base == "" {
-		base = DefaultDSN
+		base = defaultDSN()
 	}
 	return WithDatabase(base, Database(base)+pidTag)
 }

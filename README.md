@@ -123,7 +123,7 @@ and `make`.
 
 ```bash
 git clone https://github.com/jrvidotti/ddcore && cd ddcore
-make docker-up                                   # dev Postgres (container ddcore-pg, port 5455)
+make docker-up                                   # dev Postgres (ddcore-pg, 5455) + the tests' (ddcore-pg-test, 5456)
 make build                                       # the Desk (npm) + the binary at bin/ddcore
 make migrate                                     # the core's DDL; prints the Admin password
 make dev                                         # http://localhost:8090

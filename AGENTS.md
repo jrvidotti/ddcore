@@ -9,7 +9,7 @@ app is [ddcore-demo](https://github.com/jrvidotti/ddcore-demo); product apps, th
 live in their own repositories and build against the published binary.
 
 - `make build` compiles the desk and the binary; `./bin/ddcore dev` serves `:8090` with hot reload; `make test` runs the whole suite (Go + TS) — see "Tests" below before running it.
-- Dev Postgres: the `ddcore-pg` container on port 5455 via `make docker-up` (Docker Compose). The Go tests use databases named `ddcore_test_p<pid>…`, one set per run, cloned from a migrated template (`internal/testdb`).
+- Dev Postgres: the `ddcore-pg` container on port 5455 via `make docker-up` (Docker Compose). The Go tests use their own in-memory cluster, `ddcore-pg-test` on port 5456 (started by the same `make docker-up`; without it they fall back to 5455, slower, and say so), with databases named `ddcore_test_p<pid>…`, one set per run, cloned from a migrated template (`internal/testdb`).
 
 ---
 
@@ -49,11 +49,12 @@ Always consult the documentation in [`docs/agent/index.md`](docs/agent/index.md)
    [`docs/agent/i18n.md`](docs/agent/i18n.md).
    **All code comments, documentation, scripts, Dockerfiles, and CI workflows in this repository must be written in English.**
 4. **Tests: run the tests of what you changed, in isolation — not `make test`.** The full suite
-   takes minutes and loads the shared Postgres, so **never run `make test` on your own
+   takes a few minutes and loads the machine, so **never run `make test` on your own
    initiative**; run it only when the user asks, or before a release or a merge that touches
    many packages. Pick the narrowest command that covers the change:
    ```bash
    GOWORK=off go test ./internal/meta/                   # one Go package
+   make test-go GOTESTFLAGS=-count=1                     # every Go package (engine and api split across processes)
    GOWORK=off go test ./internal/engine/ -run 'TestComputed|TestGrid' # the tests you touched, by name
    cd desk && npx vitest run src/lib/grid-rows.test.ts   # one desk test file
    cd desk && npm run check                              # desk types, after a .svelte/.ts change
