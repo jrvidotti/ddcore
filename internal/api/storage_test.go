@@ -11,6 +11,7 @@ import (
 	_ "image/jpeg"
 	"image/png"
 	"io"
+	"math/rand/v2"
 	"mime/multipart"
 	"net/http"
 	"net/url"
@@ -226,12 +227,17 @@ func TestPublicFilesAreCacheable(t *testing.T) {
 	}
 }
 
+// testPNG is a w×h picture that compresses like a photo: a gradient under a fixed noise. A
+// bare gradient compresses so well (1.2 kB at 600×300) that a JPEG thumbnail of it is bigger
+// than the original, which no product picture is.
 func testPNG(t *testing.T, w, h int) []byte {
 	t.Helper()
 	img := image.NewNRGBA(image.Rect(0, 0, w, h))
+	noise := rand.New(rand.NewPCG(1, 2))
+	jitter := func(v int) uint8 { return uint8(max(0, min(255, v+noise.IntN(33)-16))) }
 	for y := 0; y < h; y++ {
 		for x := 0; x < w; x++ {
-			img.Set(x, y, color.NRGBA{uint8(x), uint8(y), 128, 255})
+			img.Set(x, y, color.NRGBA{jitter(x * 255 / w), jitter(y * 255 / h), jitter(128), 255})
 		}
 	}
 	var b bytes.Buffer
