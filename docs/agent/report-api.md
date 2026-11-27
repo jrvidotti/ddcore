@@ -59,7 +59,12 @@ chart: {
   drill: [[{ weekday: 0, hour: 8 }, /* … */], /* one array per row */],
 },
 ```
-Route: `/app/report/<name>`; API: `GET /api/report/<name>?filters={...}`.
+Route: `/app/report/<name>`; API: `GET /api/report/<name>?filters={...}`, and
+`GET /api/report/<name>?meta=1` for the meta alone (label, filters, defaults) without running
+`execute`, behind the same permission checks. The report page reads the meta first, so `execute`
+always gets the filters the page sends: each filter's `default` (resolved: `Today`,
+`month_start`…) or what the URL sets. It may refuse an empty required filter with
+`ddcore.throw`: the page shows the error and keeps the filter card.
 The report page keeps its filters in the URL, one query parameter per filter fieldname
 (`/app/report/Rates?risk_band=6&group_by=Age%20Range`): a filter changed on the page rewrites
 it, and a link opens the report on that cut. A parameter the report has no filter for is

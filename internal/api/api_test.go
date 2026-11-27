@@ -127,6 +127,11 @@ export const echo = whitelisted(() => ({ save: _("Save"), n: _("Loop") }));`)
 	w("reports/livre.report.ts", `import { defineReport } from "@ddcore/sdk";
 export default defineReport({ name: "Livre", refDoctype: "Pedido", filters: [],
   execute() { return { columns: [], rows: [] }; } });`)
+	// a report whose execute refuses an empty required filter (#173)
+	w("reports/periodo.report.ts", `import { defineReport } from "@ddcore/sdk";
+export default defineReport({ name: "Periodo", refDoctype: "Pessoa", roles: ["Gestor"],
+  filters: [{ fieldname: "from_date", fieldtype: "Date", label: "From", default: "month_start", reqd: true }],
+  execute(f) { if (!f.from_date) ddcore.throw("Set the period"); return { columns: [], rows: [] }; } });`)
 	return dir
 }
 
@@ -442,6 +447,33 @@ func TestB05_WorkspaceAndReportRequirePermission(t *testing.T) {
 			t.Fatalf("Gestor should access %s: %d %s", p, r.Status, r.Raw)
 		}
 	}
+}
+
+// The report page opens with `?meta=1`: the report's meta (its filters and their
+// defaults) without running execute, which may refuse the empty filters a first
+// call would hand it (#173). The permission checks are the same.
+func TestReportMetaWithoutExecute(t *testing.T) {
+	x := setup(t)
+	ze, ana := "sid:"+x.sid("ze@x.com"), "sid:"+x.sid("ana@x.com")
+	x.expect(x.call("GET", "/api/report/Periodo", nil, ana), 417, "ValidationError")
+	r := x.call("GET", "/api/report/Periodo?meta=1", nil, ana)
+	if r.Status != 200 {
+		t.Fatalf("meta=1 should not run execute: %d %s", r.Status, r.Raw)
+	}
+	data, _ := r.Body["data"].(map[string]any)
+	meta, _ := data["meta"].(map[string]any)
+	filters, _ := meta["filters"].([]any)
+	if len(filters) != 1 || filters[0].(map[string]any)["default"] != "month_start" {
+		t.Fatalf("meta=1 should carry the filters and their defaults: %s", r.Raw)
+	}
+	if res, ok := data["result"]; !ok || res != nil {
+		t.Fatalf("meta=1 should return no result: %s", r.Raw)
+	}
+	if r := x.call("GET", "/api/report/Periodo?meta=1&filters=%7B%22from_date%22%3A%222026-11-01%22%7D", nil, ana); r.Status != 200 {
+		t.Fatalf("filters beside meta=1 are ignored: %d %s", r.Status, r.Raw)
+	}
+	x.expect(x.call("GET", "/api/report/Periodo?meta=1", nil, ze), 403, "PermissionError")
+	x.expect(x.call("GET", "/api/report/Periodo?meta=1", nil, ""), 401, "AuthenticationError")
 }
 
 // ------------------------------------------------------------------ accounts

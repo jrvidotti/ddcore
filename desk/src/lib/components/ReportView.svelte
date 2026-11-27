@@ -106,9 +106,12 @@
       run();
     });
   });
+  // The meta comes first and alone: the filters' defaults and the URL make the first run's
+  // filters, and execute is never run without them. A run that fails keeps the meta, so the
+  // filter card stays to fix the cut with.
   onMount(async () => {
     try {
-      const r = await api.report(name, {});
+      const r = await api.reportMeta(name);
       meta = r.meta;
       applyFiltersFromUrl();
       lastUrlSearch = page.url.search;

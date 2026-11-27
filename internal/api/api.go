@@ -1563,6 +1563,27 @@ func (s *Server) report(w http.ResponseWriter, r *http.Request) {
 				return nil, cerr.Permission("No report permission on {0}", ref)
 			}
 		}
+		// the report's own label and its filters' labels come from the
+		// snapshot; the result's columns come from execute(), which already
+		// went through _() inside the runtime.
+		m := c.St.TranslateStringMap(rep, c.Lang)
+		// Taking the result out as a file follows the same `export`
+		// permission a list does; a report with no refDoctype has no doctype
+		// to ask, so running it is the only gate there is.
+		m["canExport"] = true
+		if ref, _ := rep["refDoctype"].(string); ref != "" {
+			ok, err := c.HasPermission(ref, "export", nil)
+			if err != nil {
+				return nil, err
+			}
+			m["canExport"] = ok
+		}
+		// `?meta=1` answers the meta alone: the report page reads the filters
+		// and their defaults before the first run, and execute({}) could
+		// refuse the empty filters and leave the page with none to set (#173).
+		if r.URL.Query().Get("meta") == "1" {
+			return map[string]any{"meta": m, "result": nil}, nil
+		}
 		filters, err := queryJSON(r, "filters")
 		if err != nil {
 			return nil, err
@@ -1578,21 +1599,6 @@ func (s *Server) report(w http.ResponseWriter, r *http.Request) {
 		res, err := rt.RunReport(name, b)
 		if err != nil {
 			return nil, err
-		}
-		// the report's own label and its filters' labels come from the
-		// snapshot; the result's columns come from execute(), which already
-		// went through _() inside the runtime.
-		m := c.St.TranslateStringMap(rep, c.Lang)
-		// Taking the result out as a file follows the same `export`
-		// permission a list does; a report with no refDoctype has no doctype
-		// to ask, so running it is the only gate there is.
-		m["canExport"] = true
-		if ref, _ := rep["refDoctype"].(string); ref != "" {
-			ok, err := c.HasPermission(ref, "export", nil)
-			if err != nil {
-				return nil, err
-			}
-			m["canExport"] = ok
 		}
 		return map[string]any{"meta": m, "result": res}, nil
 	})

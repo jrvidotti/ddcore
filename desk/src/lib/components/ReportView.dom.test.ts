@@ -8,7 +8,10 @@ vi.mock("$lib/boot.svelte", () => ({
   __: (s: string) => s,
 }));
 vi.mock("$lib/api", () => ({
-  api: { report: vi.fn(async () => ({ meta: reply.meta, result: reply.result })) },
+  api: {
+    report: vi.fn(async () => ({ meta: reply.meta, result: reply.result })),
+    reportMeta: vi.fn(async () => ({ meta: reply.meta, result: null })),
+  },
 }));
 vi.mock("$lib/routes", () => ({ seg: (s: string) => s, appPrefix: () => "/app" }));
 vi.mock("$lib/ui.svelte", () => ({ showError: vi.fn() }));
@@ -32,6 +35,7 @@ vi.mock("$lib/controls/Control.svelte", () => ({ default: (_: any, props: any) =
 
 import { api } from "$lib/api";
 import { goto } from "$app/navigation";
+import { showError } from "$lib/ui.svelte";
 import ReportView from "./ReportView.svelte";
 
 async function render(meta: any, result: any = { columns: [], rows: [] }) {
@@ -131,6 +135,29 @@ describe("ReportView table height", () => {
     expect(handed.grid.minHeight).toBe(0);
     unmount(view);
     handed.height = 0;
+  });
+});
+
+describe("ReportView first run (#173)", () => {
+  const meta = { label: "Traffic", filters: [{ fieldname: "from_date", fieldtype: "Date", label: "From", default: "2026-11-01", reqd: true }] };
+
+  it("reads the meta without running the report, then runs it with the filters' defaults", async () => {
+    vi.mocked(api.report).mockClear();
+    const { view } = await render(meta);
+    expect(api.reportMeta).toHaveBeenCalledWith("Balances");
+    expect(vi.mocked(api.report).mock.calls).toEqual([["Balances", { from_date: "2026-11-01" }]]);
+    unmount(view);
+  });
+
+  it("keeps the filter card when the run fails", async () => {
+    vi.mocked(api.report).mockClear();
+    vi.mocked(api.report).mockRejectedValueOnce(new Error("Set the period"));
+    handed.controls = {};
+    const { target, view } = await render(meta);
+    expect(showError).toHaveBeenCalled();
+    expect(target.querySelector(".card.filters")).not.toBeNull();
+    expect(handed.controls.from_date.value).toBe("2026-11-01");
+    unmount(view);
   });
 });
 

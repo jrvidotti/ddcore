@@ -14,6 +14,17 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Fixed
+
+- **The report page no longer runs `execute` without the filters' defaults (#173).** It opened by
+  calling `execute({})` only to read the report's meta. A report that refused the empty filters
+  (`ddcore.throw("Set the period")`) left the page with an error and no filter card to set them.
+  - The page now reads the meta from `GET /api/report/<name>?meta=1`, which does not run
+    `execute` and checks the same permissions.
+  - The first run gets the defaults and the URL's filters. A run that fails keeps the filter card.
+  - A report that copied its filters' defaults into `execute` as a workaround can drop the copy.
+  - See `report-api`.
+
 ## 0.33.1 — 2026-11-27
 
 ### Added

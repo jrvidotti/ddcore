@@ -206,6 +206,8 @@ export const api = {
   linkTitles: (doctype: string, ids: string[], titleField?: string) =>
     request<Record<string, Record<string, string>>>("GET", "/api/search/link-titles" + q({ doctype, ids: ids.join(","), titleField })),
   report: (name: string, filters: any) => request("GET", `/api/report/${encodeURIComponent(name)}` + q({ filters })),
+  /** A report's meta (label, filters and their defaults) without running its execute. */
+  reportMeta: (name: string) => request("GET", `/api/report/${encodeURIComponent(name)}?meta=1`),
   numberCard: (ws: string, card: string) => request("GET", `/api/workspace/${encodeURIComponent(ws)}/card/${encodeURIComponent(card)}`),
   chart: (ws: string, chart: string) => request("GET", `/api/workspace/${encodeURIComponent(ws)}/chart/${encodeURIComponent(chart)}`),
   comments: (doctype: string, id: string) => request<any[]>("GET", `/api/comments/${encodeURIComponent(doctype)}/${encodeURIComponent(id)}`),
