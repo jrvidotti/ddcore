@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.33.1 — 2026-11-27
+
 ### Added
 
 - **A report chart can be a heatmap (#172).** `type: "heatmap"` draws a matrix: a column per
