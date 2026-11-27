@@ -14,6 +14,8 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+## 0.33.3 — 2026-11-27
+
 ### Fixed
 
 - **`ddcore test` no longer writes to the site's bucket (#174).** On a site with
