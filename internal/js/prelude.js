@@ -1160,6 +1160,7 @@
         });
       },
       resendInvite(user) { return call("users.resendInvite", { user: String(user || "") }); },
+      passwordStatus(user) { return call("users.passwordStatus", { user: String(user || "") }); },
       createApiKey(user, opts) {
         opts = opts || {};
         return call("users.createApiKey", {

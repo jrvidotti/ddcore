@@ -1317,6 +1317,14 @@ export interface InviteResult {
   link?: string;
 }
 
+/** What `ddcore.users.passwordStatus` answers about a person. */
+export interface PasswordStatus {
+  /** The person has a password to sign in with. Always false for an address with no User here. */
+  hasPassword: boolean;
+  /** The person also has a User row in another space (the platform's or another tenant's). */
+  elsewhere: boolean;
+}
+
 /** A key issued by `ddcore.users.createApiKey`; it signs in as `Authorization: token key:secret`. */
 export interface CreatedApiKey {
   key: string;

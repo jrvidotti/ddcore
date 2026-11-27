@@ -14,6 +14,22 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **`ddcore.users.passwordStatus(user)` for app server code (#175).** It answers
+  `{ hasPassword, elsewhere }`: whether the person has a password, and whether they also have a
+  User row in another space of the site, never which. Since 0.32 neither fact was readable by
+  app code.
+  - `user` is an id or an e-mail, matched as inserting a User matches it, so an app can ask
+    before it inserts. One that creates Users from an external directory checks `elsewhere`
+    so it does not join two different people who share an address.
+  - Anyone may ask about themself. About another User here, the caller needs read on User.
+    About an address with no User here, the caller needs create on User, and `hasPassword` is
+    then always `false`.
+  - Code that read `password_hash` with `ddcore.db.getValue("User", …)`, which fails since
+    0.32 with `Unknown field: password_hash`, reads `hasPassword` instead.
+  - The SDK exports `PasswordStatus`. See `controller-api` and `auth`.
+
 ## 0.33.3 — 2026-11-27
 
 ### Fixed

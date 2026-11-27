@@ -636,7 +636,16 @@ See [notifications](notifications.md), "Email for the core's own notifications".
 `getMyProfile` answers `hasPassword`, and never the hash. The profile page shows its Password card only
 when it is `true`: `changeMyPassword` asks for the current password, and someone who signs in only
 through a credential provider or SSO has none to give. An app that signs people in through its own
-provider adds its own card to the page with `defineProfileSection` (see `form-api`).
+provider adds its own card to the page with `defineProfileSection` (see `form-api`), and
+shows it to people without a password with
+`ddcore.users.passwordStatus(ddcore.session.user).hasPassword`, the same fact from server code.
+
+`ddcore.users.passwordStatus(user)` also answers `elsewhere`: whether the person has a User row
+in another space of the site, never which. A User inserted with an address that is already a
+person's elsewhere joins that person, with their password and sign-ins. An app that creates
+Users from an external directory, where two different people may share an address, asks first
+and picks another address when `elsewhere` is true. Asking about an address with no User here
+takes create on User, and `hasPassword` is then always `false`. See `controller-api`.
 
 System Manager only: `users.invite`, `users.resendInvite`,
 `users.sendPasswordReset`, `users.accountStatus`, `users.revokeUserSessions`,

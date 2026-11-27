@@ -2,7 +2,7 @@
 import type {
   AppDef, BaseDoc, ControllerDef, Context, DoctypeDef, Document, ExtensionDef, Filters, ListArgs,
   MailTemplateDef, NotificationDef, PatchDef, PortalDef, PrintTemplateDef, ReportDef, SendMailArgs, WorkflowDef, WorkspaceDef,
-  CreatedApiKey, DocShare, DocShares, FieldType, InviteResult, ShareRights,
+  CreatedApiKey, DocShare, DocShares, FieldType, InviteResult, PasswordStatus, ShareRights,
 } from "./types";
 export * from "./types";
 
@@ -748,6 +748,16 @@ export interface DDCoreAPI {
   users: {
     invite(args: { email: string; fullName: string; roles?: string[]; userType?: "System User" | "Website User" }): InviteResult;
     resendInvite(user: string): InviteResult;
+    /**
+     * Whether a person has a password here, and whether they also have a User
+     * row in another space of the site, never which (#175). `user` is an id or
+     * an e-mail, matched as inserting a User matches it, so it can be asked
+     * before the insert. Anyone may ask about themself; about another User here
+     * the caller needs read on User; about an address with no User here, create
+     * on User, and then `hasPassword` is always false. Without tenancy
+     * `elsewhere` is always false.
+     */
+    passwordStatus(user: string): PasswordStatus;
     /**
      * Issues an API key for `user`, as `ddcore apikey` does, and records an
      * `apikey.create` audit event without the secret. System Manager (outside

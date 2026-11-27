@@ -300,3 +300,78 @@ func (e *Engine) CreateUserAPIKey(c *Ctx, user, label string, days int, prefix s
 	}
 	return out, err
 }
+
+// PasswordStatus is ddcore.users.passwordStatus (#175): whether a person has
+// a password, and whether they also have a User row in another space, for app
+// code that cannot read ddcore_person. It names no other space.
+//
+// user is an id or an address, matched as inserting a User matches it, so an
+// app can ask before it inserts. The caller may ask about themself; about
+// someone with a row here with read on User; about an address with no row
+// here with create on User, since inserting it would tell them as much. The
+// password of someone who is not here is not this space's to know: for them
+// hasPassword is false.
+func (e *Engine) PasswordStatus(c *Ctx, user string) (map[string]any, error) {
+	if c.User == "Guest" || c.User == "" {
+		return nil, cerr.Auth("Sign in to continue")
+	}
+	user = strings.TrimSpace(user)
+	if user == "" || strings.EqualFold(user, "Guest") {
+		return nil, cerr.Validation("User {0} does not exist", user)
+	}
+	status := func(person string) (map[string]any, error) {
+		hash, err := c.personHash(person)
+		if err != nil {
+			return nil, err
+		}
+		shared, err := c.sharedPerson(person)
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"hasPassword": hash != "", "elsewhere": shared}, nil
+	}
+	if user == c.User {
+		return status(user)
+	}
+	tenancy := c.Tenancy()
+	var rows []map[string]any
+	find := func(q db.Querier) (err error) {
+		tenant := "''"
+		if tenancy {
+			tenant = meta.TenantColumn
+		}
+		rows, err = db.Select(c.Ctx, q, `SELECT DISTINCT id, `+tenant+` AS tenant FROM tab_user
+			WHERE lower(id) = lower($1) OR lower(email) = lower($1) ORDER BY 1`, user)
+		return err
+	}
+	var err error
+	if tenancy {
+		err = c.siteQ(find)
+	} else {
+		err = find(c.Q())
+	}
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range rows {
+		if db.Str(r["tenant"]) != c.Tenant {
+			continue
+		}
+		person := db.Str(r["id"])
+		if person == c.User {
+			return status(person)
+		}
+		if ok, err := c.HasPermission("User", "read", Doc{"id": person}); err != nil {
+			return nil, err
+		} else if !ok {
+			return nil, cerr.Permission("No permission to read {0} {1}", c.T("User"), person)
+		}
+		return status(person)
+	}
+	if ok, err := c.HasPermission("User", "create", nil); err != nil {
+		return nil, err
+	} else if !ok {
+		return nil, cerr.Permission("No permission to create {0}", c.T("User"))
+	}
+	return map[string]any{"hasPassword": false, "elsewhere": tenancy && len(rows) > 0}, nil
+}

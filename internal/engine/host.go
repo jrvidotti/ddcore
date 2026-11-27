@@ -579,6 +579,8 @@ func (e *Engine) HostCall(rt *js.Runtime, op string, raw json.RawMessage) (any, 
 		return e.InviteUser(c, Invitation{Email: a.Email, FullName: a.FullName, Roles: a.Roles, UserType: a.UserType})
 	case "users.resendInvite":
 		return e.ResendInvite(c, a.User)
+	case "users.passwordStatus":
+		return e.PasswordStatus(c, a.User)
 	case "users.createApiKey":
 		if err := c.refuseWhileImpersonating(); err != nil {
 			return nil, err
