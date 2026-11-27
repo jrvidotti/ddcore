@@ -1,6 +1,7 @@
 // The arithmetic behind Chart.svelte, kept apart so it is tested without a DOM:
 // which colour each series takes, the value scale, where a line breaks, how bars
-// stack, the slices of a pie and how a value is printed on the axis and the tooltip.
+// stack, the slices of a pie, the shades of a heatmap and how a value is printed on the
+// axis, the tooltip and a heatmap's cells.
 import { formatNumber, formatValue } from "$lib/format";
 import { currencyFmt, numberFmt } from "$lib/locale";
 
@@ -20,8 +21,16 @@ export interface ChartData {
   datasets: ChartDataset[];
   stacked?: boolean;
   format?: string;
-  /** A report's drill-down: the filters a click on label i's bar, point or slice opens (the report page only). */
-  drill?: (Record<string, any> | null)[];
+  /** A heatmap's hue (one of PALETTE; blue otherwise). */
+  color?: string;
+  /** A heatmap's scale ends; without them, the lowest and highest known value. */
+  min?: number;
+  max?: number;
+  /**
+   * A report's drill-down: the filters a click on label i's bar, point or slice opens (the
+   * report page only). A heatmap's is one array per dataset, one entry per label.
+   */
+  drill?: (Record<string, any> | null)[] | (Record<string, any> | null)[][];
 }
 
 /** The indicator colours a series may name; each is a token in app.css. */
@@ -172,4 +181,36 @@ export function formatTick(v: number, format: string | undefined, step: number):
 /** A point in the tooltip, formatted like a cell of the chart's (or the series') format. */
 export function formatPoint(v: number, format: string | undefined): string {
   return format ? formatValue(v, { fieldtype: format } as any) : formatNumber(v, 2);
+}
+
+/** Where a value stands on a heatmap's scale, 0 to 1; outside the scale it is clamped, and a scale of one value is all 1. */
+export function heatShade(v: number, min: number, max: number): number {
+  if (!(max > min)) return 1;
+  return Math.min(1, Math.max(0, (v - min) / (max - min)));
+}
+
+/** A heatmap cell's CSS colour: its hue mixed into the surface, so a theme (light or dark) carries it. */
+export function heatFill(hue: string | undefined, t: number): string {
+  const h = hue && PALETTE.includes(hue) ? hue : "blue";
+  return `color-mix(in srgb, var(--${h}) ${Math.round(12 + 88 * t)}%, var(--surface))`;
+}
+
+/** A value short enough for a heatmap's cell: a currency and a large number in compact form, one decimal at most. */
+export function formatCompact(v: number, format: string | undefined): string {
+  if (format === "Currency") return currencyFmt({ notation: "compact", maximumFractionDigits: 1 }).format(v);
+  const opts: Intl.NumberFormatOptions = Math.abs(v) >= 10000 ? { notation: "compact", maximumFractionDigits: 1 } : { maximumFractionDigits: format === "Int" ? 0 : 1 };
+  const s = numberFmt(opts).format(v);
+  return format === "Percent" ? `${s}%` : s;
+}
+
+/**
+ * A heatmap's drill-down (one array per row, one entry per column) laid out by cell index,
+ * `row * n + col`: the index the chart hands over when a cell is picked. What is missing is null.
+ */
+export function flatDrill(drill: unknown, rows: number, n: number): (Record<string, any> | null)[] {
+  const grid = Array.isArray(drill) ? drill : [];
+  return Array.from({ length: rows * n }, (_, k) => {
+    const row = grid[Math.floor(k / n)];
+    return (Array.isArray(row) ? row[k % n] : null) ?? null;
+  });
 }

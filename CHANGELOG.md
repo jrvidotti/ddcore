@@ -14,6 +14,19 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **A report chart can be a heatmap (#172).** `type: "heatmap"` draws a matrix: a column per
+  label and a row per dataset, each cell shaded by its value. A weekday × hour traffic report
+  reads its peaks at a glance.
+  - The scale runs from the lowest to the highest value, or from `min` to `max`. Its hue is
+    `color` (`blue` by default), mixed into the theme's surface.
+  - `null` is an empty cell. A cell prints its value when it fits, the tooltip names the row
+    and the column, and a legend shows the scale.
+  - `drill` is one array per row, `drill[row][col]`, so a click on a cell opens that slot.
+  - The SDK's `ChartData` and `ChartDef` take the new `type`, plus `color`, `min` and `max`.
+  - See `report-api`.
+
 ## 0.33.0 — 2026-11-25
 
 ### Breaking

@@ -169,6 +169,20 @@ describe("ReportView drill-down", () => {
     unmount(view);
   });
 
+  it("drills from a heatmap's cell, by row and column", async () => {
+    vi.mocked(goto).mockClear();
+    handed.charts = [];
+    const chart = { type: "heatmap", labels: ["08", "09"], datasets: [{ name: "Sun", values: [1, 2] }, { name: "Mon", values: [3, 4] }],
+      drill: [[null, { store: "S9" }], [{ risk_band: "6" }]] };
+    const { view } = await render({ label: "Rates", filters }, { columns, rows: [], chart });
+    const c = handed.charts.at(-1);
+    // cell k is row k / 2, column k % 2; a missing entry takes no click
+    expect([0, 1, 2, 3].map(c.pickable)).toEqual([false, true, true, false]);
+    c.onpick(2);
+    expect(goto).toHaveBeenCalledWith("/app/report/Balances?group_by=Risk+Band&risk_band=6", { noScroll: true });
+    unmount(view);
+  });
+
   it("gives a chart without drills no click", async () => {
     handed.charts = [];
     const bar = { type: "bar", labels: ["a"], datasets: [{ name: "A", values: [1] }] };

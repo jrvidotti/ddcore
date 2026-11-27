@@ -5,6 +5,7 @@
   import { formatSummary } from "$lib/format";
   import Control from "$lib/controls/Control.svelte";
   import Chart from "./Chart.svelte";
+  import { flatDrill } from "./chart-layout";
   import ReportGrid from "./ReportGrid.svelte";
   import { showError } from "$lib/ui.svelte";
   import { onMount, untrack } from "svelte";
@@ -23,6 +24,10 @@
   let lastUrlSearch = "";
   // `chart` first, then the ones in `charts`
   const charts = $derived([result?.chart, ...(result?.charts ?? [])].filter((c) => c?.labels));
+  // a chart's drill-downs by the index its marks hand over: a heatmap's, one per row and column,
+  // laid out by cell (row * labels + col)
+  const drillsOf = (c: any): unknown[] =>
+    c.type === "heatmap" ? flatDrill(c.drill, c.datasets?.length ?? 0, c.labels.length) : (c.drill ?? []);
   const label = $derived(meta?.label || boot.data?.reports[name]?.label || name);
   const wsPrefix = $derived(appPrefix(page.params.workspace || getRememberedWorkspace()));
 
@@ -136,8 +141,9 @@
   {#if charts.length}
     <div class="charts" class:pair={charts.length > 1}>
       {#each charts as c}
+        {@const drills = drillsOf(c)}
         <div class="card chart-card">
-          <Chart data={c} pickable={(i) => canDrill(c.drill?.[i])} onpick={c.drill?.some(canDrill) ? (i) => drill(c.drill[i]) : undefined} />
+          <Chart data={c} pickable={(i) => canDrill(drills[i])} onpick={drills.some(canDrill) ? (i) => drill(drills[i]) : undefined} />
         </div>
       {/each}
     </div>

@@ -86,7 +86,7 @@ References: [CLI/HTTP API](agent/cli.md), [export](agent/export.md),
 | Form Scripts | `defineForm`, `defineListView`, `frm.*`, Link filters, toolbar buttons and buttons attached to a field (`addFieldButton`), actions, indicators, async calls, and dynamic properties. |
 | Interaction | Dialog, prompt, confirmation, messages, toasts, and standardized error display. |
 | History | Sidebar with comments, versions, creation, and modification metadata. |
-| Reports/Workspaces | Filters, table, totals, summary, bar/line/pie/donut charts, CSV, explicit sidebar, shortcuts, links, and cards. |
+| Reports/Workspaces | Filters, table, totals, summary, bar/line/pie/donut/heatmap charts, CSV, explicit sidebar, shortcuts, links, and cards. |
 | Visual Localization | Currency, number, date, and status formatting; civil Date/Month and Datetime in site timezone. |
 
 References: [form API](agent/form-api.md), [report API](agent/report-api.md),

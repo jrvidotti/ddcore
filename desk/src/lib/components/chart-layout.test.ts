@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { arcPath, decimalsOf, domain, formatPoint, formatTick, lineSegments, num, pieSlices, scale, seriesColors, stackBars } from "./chart-layout";
+import { arcPath, decimalsOf, domain, flatDrill, formatCompact, formatPoint, formatTick, heatFill, heatShade, lineSegments, num, pieSlices, scale, seriesColors, stackBars } from "./chart-layout";
 
 describe("chart-layout", () => {
   it("reads null, undefined, empty and non-numbers as unknown, not as 0", () => {
@@ -65,5 +65,29 @@ describe("chart-layout", () => {
     expect(formatPoint(11.99, "Percent")).toBe("11.99%");
     expect(formatPoint(7582543.84, "Currency")).toBe("$7,582,543.84");
     expect(formatPoint(1.5, undefined)).toBe("1.50");
+  });
+
+  it("places a heatmap's value on its scale, clamped, and a scale of one value at the top", () => {
+    expect([0, 5, 10, -3, 12].map((v) => heatShade(v, 0, 10))).toEqual([0, 0.5, 1, 0, 1]);
+    expect(heatShade(7, 7, 7)).toBe(1);
+  });
+
+  it("mixes a heatmap's hue into the surface, blue when it names none it knows", () => {
+    expect(heatFill("green", 1)).toBe("color-mix(in srgb, var(--green) 100%, var(--surface))");
+    expect(heatFill(undefined, 0)).toBe("color-mix(in srgb, var(--blue) 12%, var(--surface))");
+    expect(heatFill("pink", 0.5)).toBe("color-mix(in srgb, var(--blue) 56%, var(--surface))");
+  });
+
+  it("prints a heatmap's cell short", () => {
+    expect(formatCompact(218, "Int")).toBe("218");
+    expect(formatCompact(12.345, "Percent")).toBe("12.3%");
+    expect(formatCompact(7582543.84, "Currency")).toBe("$7.6M");
+    expect(formatCompact(25400, undefined)).toBe("25.4K");
+  });
+
+  it("lays a heatmap's drill-downs out by cell, a missing one as null", () => {
+    expect(flatDrill([[{ a: 1 }, null], [{ b: 2 }]], 2, 2)).toEqual([{ a: 1 }, null, { b: 2 }, null]);
+    expect(flatDrill(undefined, 1, 2)).toEqual([null, null]);
+    expect(flatDrill([{ a: 1 }], 1, 1)).toEqual([null]);
   });
 });

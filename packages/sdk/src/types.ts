@@ -758,9 +758,14 @@ export interface ChartDataset {
   format?: ChartFormat;
 }
 
+export type ChartType = "bar" | "line" | "pie" | "donut" | "heatmap";
+
 export interface ChartData {
-  /** `pie` and `donut` draw the first dataset, one slice per label. */
-  type: "bar" | "line" | "pie" | "donut";
+  /**
+   * `pie` and `donut` draw the first dataset, one slice per label. `heatmap` draws a matrix: a
+   * column per label, a row per dataset (top to bottom), each cell shaded by its value.
+   */
+  type: ChartType;
   /** drawn above the chart; a catalogue key built with `_()` */
   title?: string;
   labels: string[];
@@ -769,12 +774,19 @@ export interface ChartData {
   stacked?: boolean;
   /** The axis and the tooltip print values in this format; the axis shows a currency in short form. */
   format?: ChartFormat;
+  /** Heatmap only: the hue of the scale (default `blue`). */
+  color?: ChartColor;
+  /** Heatmap only: the scale's lowest end (default: the lowest value); a value below is drawn as it. */
+  min?: number;
+  /** Heatmap only: the scale's highest end (default: the highest value); a value above is drawn as it. */
+  max?: number;
   /**
    * A report chart's drill-down, one entry per label: a click on that label's bar, point or
    * slice reopens the report with those filters over the current ones (as a row's `drill`).
-   * `null` leaves a label unclickable. Ignored on a workspace chart.
+   * `null` leaves a label unclickable. A heatmap's is one array per dataset, one entry per
+   * label: `drill[row][col]` for each cell. Ignored on a workspace chart.
    */
-  drill?: (ReportDrill | null)[];
+  drill?: (ReportDrill | null)[] | (ReportDrill | null)[][];
 }
 
 /** The filters a drill-down sets, by the report filter's fieldname; `null` empties one. */
@@ -825,7 +837,7 @@ export interface ChartDef {
   name: string;
   label: string;
   /** The chart's shape when `method()` returns no `type`. */
-  type: "bar" | "line" | "pie" | "donut";
+  type: ChartType;
   /** Runs as the calling user with no DocType check: the workspace `roles` are its only gate. */
   method: () => ChartData;
   /** The DocType `method` reads: the chart answers 403 to a user without read on it. */

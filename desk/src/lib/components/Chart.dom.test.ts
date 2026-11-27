@@ -87,6 +87,42 @@ describe("Chart shapes", () => {
   });
 });
 
+describe("Chart heatmap", () => {
+  const heat = {
+    type: "heatmap", format: "Int", color: "green", labels: ["08", "09", "10"],
+    datasets: [{ name: "Sunday", values: [30, null, 104] }, { name: "Monday", values: [103, 178, 208] }],
+  };
+
+  it("draws a cell per known value, shaded by its hue, and no bars", () => {
+    const { target, done } = draw(heat);
+    const rects = [...target.querySelectorAll<SVGElement>("rect")];
+    expect(rects).toHaveLength(5);
+    expect(rects.map((r) => r.getAttribute("aria-label"))).not.toContain("Sunday 09");
+    expect(rects.every((r) => r.style.fill.includes("var(--green)"))).toBe(true);
+    const texts = [...target.querySelectorAll("text")].map((t) => t.textContent);
+    expect(texts).toEqual(expect.arrayContaining(["Sunday", "Monday", "08", "10", "208"]));
+    // the legend prints the scale's ends
+    expect(target.querySelector(".heat-legend")?.textContent).toContain("30");
+    expect(target.querySelector(".heat-legend")?.textContent).toContain("208");
+    done();
+  });
+
+  it("shows row, column and value on hover", () => {
+    const { target, done } = draw(heat);
+    const cell = [...target.querySelectorAll("rect")].find((r) => r.getAttribute("aria-label") === "Monday 09")!;
+    cell.dispatchEvent(new MouseEvent("mouseenter"));
+    flushSync();
+    expect(target.textContent).toContain("Monday · 09: 178");
+    done();
+  });
+
+  it("grows with its rows", () => {
+    const { target, done } = draw(heat);
+    expect(target.querySelector("svg")?.getAttribute("viewBox")).toBe("0 0 800 90");
+    done();
+  });
+});
+
 describe("Chart drill-down", () => {
   function drawPicking(data: any, pickable?: (i: number) => boolean) {
     const target = document.createElement("div");
@@ -117,6 +153,16 @@ describe("Chart drill-down", () => {
     line.target.querySelectorAll("circle[r='10']")[1].dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(line.onpick).toHaveBeenCalledWith(1);
     line.done();
+  });
+
+  it("picks a heatmap's cell by row and column", () => {
+    const heat = { type: "heatmap", labels: ["a", "b"], datasets: [{ name: "R1", values: [1, 2] }, { name: "R2", values: [3, 4] }] };
+    const { target, onpick, done } = drawPicking(heat, (k) => k !== 0);
+    const rects = [...target.querySelectorAll<SVGElement>("rect")];
+    expect(rects.map((r) => r.getAttribute("role"))).toEqual(["img", "button", "button", "button"]);
+    rects[2].dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(onpick).toHaveBeenCalledWith(2);
+    done();
   });
 
   it("takes no click without onpick", () => {

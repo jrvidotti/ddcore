@@ -25,8 +25,8 @@ one, a number is shown as a number and anything else as text.
 
 A chart (`chart`, plus any in `charts`, drawn after it — two side by side when there is room) is
 `{ type, title?, labels, datasets, stacked?, format? }`:
-- `type`: `bar`, `line`, `pie` or `donut`. A pie or donut draws its first dataset, one slice per
-  label; a slice with no value, 0 or a negative takes no room.
+- `type`: `bar`, `line`, `pie`, `donut` or `heatmap`. A pie or donut draws its first dataset, one
+  slice per label; a slice with no value, 0 or a negative takes no room. A heatmap is described below.
 - A value may be `null`: a point not known yet, not 0. The line breaks there and no bar is drawn.
 - `stacked: true` stacks a bar chart's datasets in one column per label.
 - `format`: `Percent`, `Currency`, `Float` or `Int` — the axis and the tooltip print values as a cell
@@ -35,6 +35,30 @@ A chart (`chart`, plus any in `charts`, drawn after it — two side by side when
 - A dataset's `color` is one of `blue`, `green`, `orange`, `red`, `purple`, `gray`, `yellow`; a
   series without one takes the next colour no other series named, and gray is never handed out,
   so it is the colour for a reference series.
+
+A `heatmap` is a matrix: a column per label, a row per dataset (top to bottom, the dataset's
+`name` on the left), and each cell shaded by its value.
+- The scale runs from the lowest known value to the highest. `min` and `max` set its ends, and a
+  value beyond one is drawn as that end.
+- `color` (one of the colours above, `blue` by default) is the scale's hue. It is mixed into the
+  page's surface, so it reads in any `desk.theme`.
+- A `null` is an empty cell, not 0.
+- A cell prints its value, in short form, when there is room. The tooltip names the row and the
+  column and prints the value in `format`, and a legend shows the scale's ends.
+- Its `drill` is one array per dataset with one entry per label (`drill[row][col]`).
+- `stacked` does not apply. The chart is as tall as its rows.
+
+```ts
+chart: {
+  type: "heatmap", title: _("Receipts by weekday and hour"), format: "Int", color: "blue",
+  labels: ["08", "09", "10", "11"],                         // columns
+  datasets: [                                               // rows, top to bottom
+    { name: _("Sunday"), values: [30, 73, 104, null] },
+    { name: _("Monday"), values: [103, 178, 208, 218] },
+  ],
+  drill: [[{ weekday: 0, hour: 8 }, /* … */], /* one array per row */],
+},
+```
 Route: `/app/report/<name>`; API: `GET /api/report/<name>?filters={...}`.
 The report page keeps its filters in the URL, one query parameter per filter fieldname
 (`/app/report/Rates?risk_band=6&group_by=Age%20Range`): a filter changed on the page rewrites
