@@ -52,7 +52,7 @@ var FieldProps = map[string]bool{
 	"columns": true, "width": true, "gridEditMode": true, "collapsible": true, "bold": true,
 	"gridSort": true, "gridSortable": true, "gridExport": true, "gridSelect": true, "gridFilters": true, "gridSearch": true, "gridIndex": true,
 	"gridLayout": true, "gridMaxWidth": true, "gridSubField": true, "linkTitleField": true, "minDateField": true,
-	"showFileName": true, "hideLabel": true,
+	"showFileName": true, "hideLabel": true, "descriptionPlacement": true,
 	"optionColors": true, "optionIcons": true, "optionIconOnly": true, "options": true, "permlevel": true,
 }
 

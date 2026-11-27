@@ -408,6 +408,37 @@ func TestRowsIsForATextArea(t *testing.T) {
 	}
 }
 
+// descriptionPlacement moves a field's description behind an info icon (#176). An unknown
+// value would leave it below without a word, so it is refused at load, as on a field that
+// draws no description.
+func TestDescriptionPlacement(t *testing.T) {
+	ok := NewRegistry()
+	ok.Add(&DocType{Name: "Bot", Fields: []*Field{
+		{Fieldname: "show", Fieldtype: "Select", Label: "Show As", Options: []any{"Total", "Average"}, Description: "How each cell adds up", DescriptionPlacement: "tooltip"},
+		{Fieldname: "notes", Fieldtype: "Small Text", Label: "Notes", Description: "Free text", DescriptionPlacement: "below"},
+	}})
+	if err := ok.Validate(); err != nil {
+		t.Fatalf("a valid descriptionPlacement was refused: %v", err)
+	}
+	for _, c := range []struct {
+		f    *Field
+		want string
+	}{
+		{&Field{Fieldname: "show", Fieldtype: "Data", Label: "Show", DescriptionPlacement: "popover"}, `field "show": descriptionPlacement "popover" must be "below" or "tooltip"`},
+		{&Field{Fieldname: "sec", Fieldtype: "Section Break", DescriptionPlacement: "tooltip"}, `field "sec": descriptionPlacement is for a data field, not a Section Break`},
+	} {
+		r := NewRegistry()
+		r.Add(&DocType{Name: "Bot", Fields: []*Field{c.f}})
+		err := r.Validate()
+		if err == nil || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("%s: want an error containing %q, got %v", c.f.Fieldname, c.want, err)
+		}
+	}
+	if !FieldProps["descriptionPlacement"] {
+		t.Error("an extension cannot set descriptionPlacement")
+	}
+}
+
 // DAT-05 — a compound business key becomes a partial unique index, so every
 // way it could fail to become one is refused at load. A declaration that
 // silently enforces nothing is worse than no declaration at all.

@@ -350,7 +350,7 @@
   .sv:focus-visible, .hue:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
   .channels { display: grid; grid-template-columns: repeat(3, 1fr) 1.9fr; gap: 4px; }
   .channels label { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; color: var(--muted); }
-  .channels .input { padding: 4px; text-align: center; min-height: 28px; font-variant-numeric: tabular-nums; }
+  .channels .input { padding: 4px; text-align: center; height: 28px; min-height: 28px; font-variant-numeric: tabular-nums; }
   .channels input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
   .channels input[type="number"]::-webkit-inner-spin-button,
   .channels input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }

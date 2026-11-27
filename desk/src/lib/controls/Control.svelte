@@ -29,6 +29,7 @@
   import { toDatetimeLocal, fromDatetimeLocal } from "$lib/datetime";
   import type { FieldButton } from "$lib/form.svelte";
   import FieldButtons from "./FieldButtons.svelte";
+  import InfoTip from "./InfoTip.svelte";
   import { resolveVaultState } from "./vault-state";
 
   let {
@@ -58,6 +59,10 @@
     minDate && (dateRefused || (value && String(value).slice(0, 10) < minDate)) ? __("Must be on or after {0}", [formatDateLocal(minDate)]) : "",
   );
   const shownError = $derived(error || emailError || fileError || minDateError);
+  // descriptionPlacement "tooltip": the description behind an info icon after the label (#176).
+  // It needs a label to sit beside, so a field whose label is hidden keeps it below.
+  const descTip = $derived(!!field.description && field.descriptionPlacement === "tooltip" && !inGrid && !!field.label && !field.hideLabel);
+  const descBelow = $derived(!!field.description && !inGrid && !descTip);
 
   let isEditingVault = $state(false);
   let wasConfigured = $state(false);
@@ -113,13 +118,20 @@
     <div class="check-control">
       <input {id} type="checkbox" checked={!!value} disabled={ro} onchange={(e) => onchange((e.target as HTMLInputElement).checked)} />
       {#if !inGrid}<label for={id} class:sr-only={field.hideLabel}>{field.label}{#if req && !ro}<span class="req">*</span>{/if}</label>{/if}
+      {#if descTip}<InfoTip text={field.description || ""} id="{id}-desc" label={field.label} />{/if}
       <FieldButtons {buttons} />
     </div>
-    {#if shownError}<div class="err">{shownError}</div>{:else if field.description && !inGrid}<div class="desc">{field.description}</div>{/if}
+    {#if shownError}<div class="err">{shownError}</div>{:else if descBelow}<div class="desc">{field.description}</div>{/if}
   </div>
 {:else}
   <div class="field" class:compact class:bold={field.bold}>
-    {#if !inGrid && field.label}
+    {#if descTip}
+      <!-- the icon beside the label, not inside it: inside, it would join the input's accessible name -->
+      <div class="label-row">
+        <label for={id}>{field.label}{#if req && !ro}<span class="req">*</span>{/if}</label>
+        <InfoTip text={field.description || ""} id="{id}-desc" label={field.label} />
+      </div>
+    {:else if !inGrid && field.label}
       <label for={id} class:sr-only={field.hideLabel}>{field.label}{#if req && !ro}<span class="req">*</span>{/if}</label>
     {/if}
     <div class="control" class:with-buttons={buttons.length}>
@@ -251,7 +263,7 @@
       </div>
       <FieldButtons {buttons} />
     </div>
-    {#if shownError}<div class="err">{shownError}</div>{:else if field.description && !inGrid}<div class="desc">{field.description}</div>{/if}
+    {#if shownError}<div class="err">{shownError}</div>{:else if descBelow}<div class="desc">{field.description}</div>{/if}
   </div>
 {/if}
 

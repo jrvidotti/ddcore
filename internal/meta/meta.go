@@ -65,20 +65,20 @@ func BulkyFieldtype(ft string) bool {
 var ValidFieldTypes = []string{"Data", "Email", "Small Text", "Text", "Text Editor", "Markdown Editor", "Code", "Int", "Float", "Currency", "Percent", "Check", "Rating", "Duration", "Color", "Date", "Month", "Datetime", "Time", "Select", "Autocomplete", "Barcode", "Signature", "Geolocation", "Link", "Dynamic Link", "Table", "Table MultiSelect", "Attach", "Attach Image", "JSON", "Password", "Vault", "Section Break", "Tab Break", "HTML", "Report"}
 
 type Field struct {
-	Fieldname          string `json:"fieldname,omitempty"`
-	Fieldtype          string `json:"fieldtype"`
-	Label              string `json:"label,omitempty"`
-	Options            any    `json:"options,omitempty"` // string (Link/Table/Dynamic Link) or []string (Select)
-	Reqd               bool   `json:"reqd,omitempty"`
-	Unique             bool   `json:"unique,omitempty"`
-	Default            any    `json:"default,omitempty"`
-	ReadOnly           bool   `json:"readOnly,omitempty"`
-	Hidden             bool   `json:"hidden,omitempty"`
-	FetchFrom          string `json:"fetchFrom,omitempty"`
+	Fieldname string `json:"fieldname,omitempty"`
+	Fieldtype string `json:"fieldtype"`
+	Label     string `json:"label,omitempty"`
+	Options   any    `json:"options,omitempty"` // string (Link/Table/Dynamic Link) or []string (Select)
+	Reqd      bool   `json:"reqd,omitempty"`
+	Unique    bool   `json:"unique,omitempty"`
+	Default   any    `json:"default,omitempty"`
+	ReadOnly  bool   `json:"readOnly,omitempty"`
+	Hidden    bool   `json:"hidden,omitempty"`
+	FetchFrom string `json:"fetchFrom,omitempty"`
 	// LinkTitleField, on a Link, names the field of the target this Link
 	// shows as the document's title in place of the target's titleField:
 	// only here, every other Link to the target keeps its titleField.
-	LinkTitleField string `json:"linkTitleField,omitempty"`
+	LinkTitleField     string `json:"linkTitleField,omitempty"`
 	DependsOn          string `json:"dependsOn,omitempty"`
 	ReadOnlyDependsOn  string `json:"readOnlyDependsOn,omitempty"`
 	MandatoryDependsOn string `json:"mandatoryDependsOn,omitempty"`
@@ -91,11 +91,15 @@ type Field struct {
 	// shows (a Float, a Percent). Nil is unset and falls back to the site;
 	// 0 is a real value — whole units — so it must survive the JSON the desk
 	// receives. Read it through PrecisionOr.
-	Precision    *int   `json:"precision,omitempty"`
-	Description  string `json:"description,omitempty"`
-	Columns      int    `json:"columns,omitempty"`
-	Width        string `json:"width,omitempty"`
-	GridEditMode string `json:"gridEditMode,omitempty"`
+	Precision   *int   `json:"precision,omitempty"`
+	Description string `json:"description,omitempty"`
+	// DescriptionPlacement is where the desk draws Description: "below" the
+	// input (the default, also when unset) or "tooltip", behind an info icon
+	// after the label. A field whose label is hidden keeps it below.
+	DescriptionPlacement string `json:"descriptionPlacement,omitempty"`
+	Columns              int    `json:"columns,omitempty"`
+	Width                string `json:"width,omitempty"`
+	GridEditMode         string `json:"gridEditMode,omitempty"`
 	// Rows is how many lines tall the desk draws a Small Text, Text,
 	// Markdown Editor or Code field; unset keeps the fieldtype's default.
 	// A grid cell keeps its compact height.
@@ -154,8 +158,8 @@ type Field struct {
 	// on that month, disables the days before it and refuses an earlier typed
 	// day. Desk only — the server does not enforce it.
 	MinDateField string `json:"minDateField,omitempty"`
-	Collapsible  bool `json:"collapsible,omitempty"`
-	Bold         bool `json:"bold,omitempty"`
+	Collapsible  bool   `json:"collapsible,omitempty"`
+	Bold         bool   `json:"bold,omitempty"`
 	// Permlevel groups the field under the permission rows of the same level
 	// (SEC-02). Level 0 follows the DocType's own permissions; a field at a
 	// higher level is read and written only by a role granted that level.
@@ -842,6 +846,10 @@ func (r *Registry) Validate() error {
 	return nil
 }
 
+// ValidDescriptionPlacement reports whether p is a placement the desk draws a
+// field's description in (see Field.DescriptionPlacement); "" is the default.
+func ValidDescriptionPlacement(p string) bool { return p == "" || p == "below" || p == "tooltip" }
+
 func (r *Registry) validateFieldOptions(d *DocType, e func(string, ...any)) {
 	seen := map[string]bool{}
 	for _, f := range d.Fields {
@@ -855,7 +863,13 @@ func (r *Registry) validateFieldOptions(d *DocType, e func(string, ...any)) {
 		} else if f.Rows > 0 && !TextAreaTypes[f.Fieldtype] {
 			e("field %q: rows is for a Small Text, Text, Markdown Editor or Code field, not a %s", f.Fieldname, f.Fieldtype)
 		}
+		if f.DescriptionPlacement != "" && !ValidDescriptionPlacement(f.DescriptionPlacement) {
+			e("field %q: descriptionPlacement %q must be \"below\" or \"tooltip\"", f.Fieldname, f.DescriptionPlacement)
+		}
 		if LayoutTypes[f.Fieldtype] {
+			if f.DescriptionPlacement != "" {
+				e("field %q: descriptionPlacement is for a data field, not a %s", f.Fieldname, f.Fieldtype)
+			}
 			if f.HideLabel && f.Fieldtype != "Report" { // a Report draws its label, like a Table
 				e("field %q: hideLabel is for a data field, not a %s", f.Fieldname, f.Fieldtype)
 			}

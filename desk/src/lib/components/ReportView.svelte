@@ -4,6 +4,7 @@
   import { boot, __ } from "$lib/boot.svelte";
   import { formatSummary } from "$lib/format";
   import Control from "$lib/controls/Control.svelte";
+  import InfoTip from "$lib/controls/InfoTip.svelte";
   import Chart from "./Chart.svelte";
   import { flatDrill } from "./chart-layout";
   import ReportGrid from "./ReportGrid.svelte";
@@ -159,6 +160,7 @@
         <!-- the label beside the input, as a toolbar reads; the control keeps its own for screen readers -->
         <div class="table-filter">
           <span class="table-filter-label" aria-hidden="true">{f.label}</span>
+          {#if f.description && f.descriptionPlacement === "tooltip"}<InfoTip text={f.description} id="tf-{f.fieldname}-desc" label={f.label} />{/if}
           <Control field={{ ...f, hideLabel: true, description: undefined }} value={filters[f.fieldname]} onchange={(v) => updateFilter(f.fieldname, v)} doc={filters} compact />
         </div>
       {/if}
@@ -190,5 +192,6 @@
   .table-filter { display: flex; align-items: center; gap: 6px; }
   .table-filter + .table-filter { margin-left: 6px; }
   .table-filter-label { color: var(--muted); white-space: nowrap; }
-  .table-filter :global(input:not([type="checkbox"])), .table-filter :global(select) { width: 150px; min-height: 28px; padding: 3px 8px; font-size: 12px; }
+  .table-filter :global(input:not([type="checkbox"])), .table-filter :global(select) { width: 150px; height: 28px; min-height: 28px; padding: 3px 8px; line-height: 20px; font-size: 12px; }
+  .table-filter :global(select) { padding-right: 26px; background-position: right 6px center; }
 </style>

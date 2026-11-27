@@ -1573,19 +1573,23 @@ func checkReportFields(reg *meta.Registry, reports map[string]map[string]any) er
 	return fmt.Errorf("invalid meta:\n  %s", strings.Join(errs, "\n  "))
 }
 
-// checkReportFilters refuses a report filter whose `placement` the report page does not know:
-// a typo would otherwise leave the filter in the filter card without a word.
+// checkReportFilters refuses a report filter whose `placement` or `descriptionPlacement` the
+// report page does not know: a typo would otherwise leave the filter, or its description, where
+// it was without a word.
 func checkReportFilters(reports map[string]map[string]any) error {
 	var errs []string
 	for name, rep := range reports {
 		filters, _ := rep["filters"].([]any)
 		for _, raw := range filters {
 			f, _ := raw.(map[string]any)
-			p, ok := f["placement"]
-			if !ok || p == nil || p == "table" {
-				continue
+			if p, ok := f["placement"]; ok && p != nil && p != "table" {
+				errs = append(errs, fmt.Sprintf("report %q: filter %q has placement %v; the only placement is \"table\"", name, f["fieldname"], p))
 			}
-			errs = append(errs, fmt.Sprintf("report %q: filter %q has placement %v; the only placement is \"table\"", name, f["fieldname"], p))
+			if p, ok := f["descriptionPlacement"]; ok && p != nil {
+				if s, isStr := p.(string); !isStr || !meta.ValidDescriptionPlacement(s) {
+					errs = append(errs, fmt.Sprintf("report %q: filter %q has descriptionPlacement %v; it must be \"below\" or \"tooltip\"", name, f["fieldname"], p))
+				}
+			}
 		}
 	}
 	if len(errs) == 0 {

@@ -16,6 +16,8 @@ export interface Field {
   /** Duplicate leaves the value behind (as it does a unique field and a readOnly one without fetchFrom). */
   noCopy?: boolean;
   inListView?: boolean; inStandardFilter?: boolean; length?: number; precision?: number; description?: string;
+  /** Where the description is drawn: under the input (default) or behind an info icon after the label (#176). */
+  descriptionPlacement?: "below" | "tooltip";
   /** A dialog's File field only: the size cap, in bytes. */
   maxBytes?: number;
   columns?: number; width?: FieldWidth; gridEditMode?: "inline" | "dialog"; collapsible?: boolean; bold?: boolean;

@@ -468,7 +468,7 @@
   .assist-actions { display: flex; align-items: center; gap: 12px; }
   .assist-actions .link-btn { margin-left: 0; }
   .assist-btn { color: var(--primary); border-color: var(--primary); }
-  .input.ai-filled { border-color: var(--primary); background: var(--primary-tint); }
+  .input.ai-filled { border-color: var(--primary); background-color: var(--primary-tint); }
   .field.check { margin-top: 0; }
   .check-control { flex-wrap: wrap; }
   .url { overflow-wrap: anywhere; }

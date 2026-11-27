@@ -29,6 +29,7 @@ AI request failed: {0},A chamada à IA falhou: {0},# internal/ai/respond.go:184
 AI request timed out after {0}s,A chamada à IA excedeu o tempo limite de {0}s,# internal/ai/retry.go:93
 API Key,Chave de API,# core.doctypes.api_key.api_key.doctype
 API keys,Chaves de API,# desk/src/lib/components/Profile.svelte:267
+About {0},Sobre {0},# desk/src/lib/controls/InfoTip.svelte:24
 Account,Conta,# desk/src/lib/components/Profile.svelte:163
 Action,Ação,# core.doctypes.audit_event.audit_event.doctype
 Action '{0}' applied,Ação '{0}' aplicada,# desk/src/lib/form.svelte.ts:602
@@ -453,6 +454,7 @@ Modified,Modificado,# desk/src/lib/components/ListView.svelte:521
 Modified by,Modificado por,# desk/src/lib/components/DocSidebar.svelte:202
 Month,Mês,# desk/src/lib/components/views/GanttView.svelte:26
 Month/day/year,Mês/dia/ano,# desk/src/lib/components/DataImportModal.svelte:156
+More information,Mais informações,# desk/src/lib/controls/InfoTip.svelte:24
 Move through the list options,Navegar entre as opções da lista,# desk/src/lib/shortcuts.ts:120
 Moves to {0}:,Passa para {0}:,# desk/src/lib/merge.ts:28
 Must be on or after {0},Deve ser igual ou posterior a {0},# desk/src/lib/controls/Control.svelte:58

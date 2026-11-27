@@ -14,6 +14,24 @@ older series, and `whats_new` reads across every one of them.
 <!-- #region releases -->
 ## Unreleased
 
+### Added
+
+- **`descriptionPlacement: "tooltip"` on a field or a report filter (#176).** The description
+  moves behind an info icon after the label, instead of under the input, where a long one made
+  a report's filter card twice as tall as its inputs and pushed a form down. The tip opens on
+  hover and on a keyboard focus, stays open on a click or a tap, and closes on Escape or a press
+  outside; a screen reader reads it through the icon's `aria-describedby`. `"below"` (the
+  default) keeps today's look. A field whose label is hidden keeps it below. Any other value
+  fails the load. See `fieldtypes` and `report-api`.
+
+### Fixed
+
+- **In Safari, a Select is as tall as the inputs beside it (#177).** WebKit drew a `<select>`
+  in its native look, which ignores padding: in a report's filter card or a form line it came
+  out shorter than a Date or a Link, and a Datetime taller. Every single-line control is now
+  32px in every engine, and the select draws its own chevron. A read-only (disabled) select
+  shows none, which is how it reads as read-only.
+
 ## 0.33.4 — 2026-11-27
 
 ### Added

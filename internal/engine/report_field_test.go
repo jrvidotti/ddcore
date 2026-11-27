@@ -26,6 +26,8 @@ func TestCheckReportFilters(t *testing.T) {
 	ok := map[string]map[string]any{"Sales": {"filters": []any{
 		map[string]any{"fieldname": "year"},
 		map[string]any{"fieldname": "group_by", "placement": "table"},
+		map[string]any{"fieldname": "show", "description": "How each cell adds up", "descriptionPlacement": "tooltip"},
+		map[string]any{"fieldname": "notes", "descriptionPlacement": "below"},
 	}}}
 	if err := checkReportFilters(ok); err != nil {
 		t.Fatal(err)
@@ -33,6 +35,11 @@ func TestCheckReportFilters(t *testing.T) {
 	bad := map[string]map[string]any{"Sales": {"filters": []any{map[string]any{"fieldname": "top", "placement": "grid"}}}}
 	err := checkReportFilters(bad)
 	if err == nil || !strings.Contains(err.Error(), `report "Sales": filter "top" has placement grid`) {
+		t.Fatalf("err = %v", err)
+	}
+	tip := map[string]map[string]any{"Sales": {"filters": []any{map[string]any{"fieldname": "show", "descriptionPlacement": "hover"}}}}
+	err = checkReportFilters(tip)
+	if err == nil || !strings.Contains(err.Error(), `report "Sales": filter "show" has descriptionPlacement hover; it must be "below" or "tooltip"`) {
 		t.Fatalf("err = %v", err)
 	}
 }

@@ -73,7 +73,10 @@ The report page sorts by a click on a column header and exports CSV or XLSX.
 A filter is a field (`fieldname`, `label`, `fieldtype`, `options`, `default`, `reqd`), and its
 `description` is drawn under its input, as in a form. The filter row is aligned by the top —
 labels on one line, inputs on one line — so a description or an error below one filter leaves its
-neighbours where they are; a `Check` lines its box up with the other inputs.
+neighbours where they are; a `Check` lines its box up with the other inputs. A long description
+that would make the card uneven takes `descriptionPlacement: "tooltip"`, as a form field does:
+it moves behind an info icon after the label (in the card and in the table's toolbar alike).
+Any other value than `"below"` or `"tooltip"` fails the load.
 A filter that shapes the table rather than the cut being read — how rows are grouped, how many
 are shown — takes `placement: "table"`: the page draws it in the toolbar above the table, its
 label beside the input and beside the export, instead of in the filter card. It is still a

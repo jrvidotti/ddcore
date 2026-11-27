@@ -120,6 +120,13 @@ export interface FieldDef {
   precision?: number;
   description?: string;
   /**
+   * Where the desk draws `description`: `"below"` the input (the default) or
+   * `"tooltip"`, behind an info icon after the label that opens on hover, focus
+   * or a tap — for a long explanation that would push the form, or a report's
+   * filter card, out of line. A field whose label is hidden keeps it below.
+   */
+  descriptionPlacement?: "below" | "tooltip";
+  /**
    * Link only: the field of the target shown as this Link's title, in place
    * of the target's `titleField` — in the form, grids, lists, exports and the
    * Link's dropdown, which also searches and ranks on it. Every other Link to

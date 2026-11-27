@@ -45,7 +45,18 @@ h1, .site-name { font-family: var(--font-heading); }
 .btn.danger { color: var(--red); }
 .btn.sm { padding: 3px 8px; font-size: 12px; }
 .btn.icon { padding: 6px; }
-.input, input.input, select.input, textarea.input { width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); outline: none; min-height: 32px; }
+.input, input.input, select.input, textarea.input { width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); outline: none; min-height: 32px; line-height: 18px; }
+/* One height for every single-line control, in every engine (#177). WebKit drew a <select> in
+   its native menulist look, which ignores padding and picks its own height and font size, and
+   grew a datetime-local by its inner editor's padding: a Select came out shorter than the Date
+   and Link beside it. The select draws its own chevron instead. A disabled (read-only) select
+   loses it with its background, which is how it reads as read-only. */
+input.input:not([type="checkbox"]):not([type="radio"]), select.input { height: 32px; }
+select.input { -webkit-appearance: none; appearance: none; padding-right: 28px; text-overflow: ellipsis;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 8px center; background-size: 14px 14px; }
+input.input::-webkit-datetime-edit, input.input::-webkit-datetime-edit-fields-wrapper { padding: 0; }
+input.input::-webkit-date-and-time-value { text-align: left; }
 .input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px var(--focus-ring); }
 .input[readonly], .input:disabled { background: var(--surface-alt); color: var(--text); }
 .input.error { border-color: var(--red); }
@@ -108,6 +119,10 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
 .section-toggle { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font: inherit; color: inherit; }
 .section-toggle:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 3px; }
 .field label .req { color: var(--red); margin-left: 2px; }
+/* a label with its description behind an info icon (descriptionPlacement "tooltip"): one line,
+   the label's own height, so the inputs beside it stay on their line */
+.field .label-row { display: flex; align-items: center; gap: 4px; margin-bottom: 4px; min-width: 0; }
+.field .label-row label { margin-bottom: 0; min-width: 0; }
 .field .desc { font-size: 11px; color: var(--muted); margin-top: 3px; }
 .field .err { font-size: 11px; color: var(--red); margin-top: 3px; }
 .field.check { margin-top: auto; min-height: 32px; }
